@@ -28,14 +28,14 @@ const MARKET_ITEM_METADATA = Object.freeze({
   "stim-pack": Object.freeze({
     tier: 3,
     rarity: "uncommon",
-    marketCategory: "boost_component",
+    marketCategory: "tactical_supply",
     riskLevel: "medium",
     supplyLevel: "tight",
     demandLevel: "high",
     priceBand: "mid",
     recommendedMinPrice: 1250,
     recommendedMaxPrice: 2400,
-    serverReadyNotes: "Bridge component for stronger drugs; price must protect pharmacy production value."
+    serverReadyNotes: "Standalone tactical supply; price must protect pharmacy production value."
   }),
   "metal-parts": Object.freeze({
     tier: 2,
@@ -64,7 +64,7 @@ const MARKET_ITEM_METADATA = Object.freeze({
   "neon-dust": Object.freeze({
     tier: 3,
     rarity: "uncommon",
-    marketCategory: "contraband_drug",
+    marketCategory: "lab_trade_material",
     riskLevel: "medium",
     supplyLevel: "moving",
     demandLevel: "high",
@@ -72,12 +72,12 @@ const MARKET_ITEM_METADATA = Object.freeze({
     recommendedMinPrice: 700,
     recommendedMaxPrice: 1350,
     isBlackMarketOnly: true,
-    serverReadyNotes: "Fast black-market drug; should feel profitable but risky compared with lab production."
+    serverReadyNotes: "Tradeable laboratory material and input for advanced lab recipes."
   }),
   "pulse-shot": Object.freeze({
     tier: 3,
     rarity: "uncommon",
-    marketCategory: "combat_boost",
+    marketCategory: "lab_trade_material",
     riskLevel: "medium",
     supplyLevel: "tight",
     demandLevel: "high",
@@ -85,12 +85,12 @@ const MARKET_ITEM_METADATA = Object.freeze({
     recommendedMinPrice: 900,
     recommendedMaxPrice: 1750,
     isBlackMarketOnly: true,
-    serverReadyNotes: "Boost item using Stim Pack input; protect production chain and heat premium."
+    serverReadyNotes: "Tradeable laboratory material and input for strategic components."
   }),
   "velvet-smoke": Object.freeze({
     tier: 3,
     rarity: "uncommon",
-    marketCategory: "stealth_drug",
+    marketCategory: "lab_trade_material",
     riskLevel: "medium",
     supplyLevel: "moving",
     demandLevel: "normal",
@@ -98,12 +98,12 @@ const MARKET_ITEM_METADATA = Object.freeze({
     recommendedMinPrice: 1000,
     recommendedMaxPrice: 2000,
     isBlackMarketOnly: true,
-    serverReadyNotes: "Mid-risk contraband with strategic utility; should not undercut lab time too heavily."
+    serverReadyNotes: "Tradeable laboratory material and input for advanced lab recipes."
   }),
   "ghost-serum": Object.freeze({
     tier: 4,
     rarity: "rare",
-    marketCategory: "stealth_boost",
+    marketCategory: "boost_component",
     riskLevel: "high",
     supplyLevel: "scarce",
     demandLevel: "high",
@@ -111,12 +111,12 @@ const MARKET_ITEM_METADATA = Object.freeze({
     recommendedMinPrice: 1900,
     recommendedMaxPrice: 3400,
     isBlackMarketOnly: true,
-    serverReadyNotes: "High-value boost with Stim Pack input and long lab time."
+    serverReadyNotes: "Strategic component for future boost recipes; it has no direct use effect."
   }),
   "overdrive-x": Object.freeze({
     tier: 5,
     rarity: "rare",
-    marketCategory: "combat_boost",
+    marketCategory: "boost_component",
     riskLevel: "critical",
     supplyLevel: "scarce",
     demandLevel: "spiking",
@@ -124,7 +124,7 @@ const MARKET_ITEM_METADATA = Object.freeze({
     recommendedMinPrice: 3600,
     recommendedMaxPrice: 6200,
     isBlackMarketOnly: true,
-    serverReadyNotes: "Late-game power item; should stay expensive enough to prevent early PvP snowball."
+    serverReadyNotes: "Rare strategic component for future boost recipes; it has no direct use effect."
   }),
   pistol: Object.freeze({
     tier: 3,

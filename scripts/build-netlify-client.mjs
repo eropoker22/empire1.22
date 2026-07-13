@@ -26,6 +26,7 @@ const requiredPublishFiles = [
   "packages/game-config/src/legacy-page/combat-config.js",
   "packages/game-config/src/legacy-page/economy-config.js",
   "packages/game-config/src/legacy-page/faction-config.js",
+  "packages/game-config/src/legacy-page/gameplay-config.generated.js",
   "packages/game-core/src/legacy-page/combat-preview-rules.js",
   "packages/game-core/src/legacy-page/production-preview-rules.js",
   "packages/game-core/src/legacy-page/spy-preview-rules.js"

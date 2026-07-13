@@ -72,6 +72,54 @@ describe("fetch client transport", () => {
     expect(calls[1]?.body).not.toHaveProperty("sessionToken");
     expect(storage.getItem("empire:gameplay-slice:snapshot:instance:1:player:1")).toBe("sealed:snapshot:1");
   });
+
+  it("consumes a join ticket once and uses the validated session on later loads", async () => {
+    const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
+    const storage = createMemoryStorage();
+    storage.setItem("empireStreets.session.v1", JSON.stringify({
+      registration: {
+        identity: "Ticket Player",
+        joinTicket: "join:ticket:1"
+      }
+    }));
+    const fetchImpl: typeof fetch = async (input, init) => {
+      calls.push({
+        url: String(input),
+        body: JSON.parse(String(init?.body)) as Record<string, unknown>
+      });
+      return new Response(JSON.stringify({
+        accepted: true,
+        readModel: null,
+        errors: [],
+        snapshotToken: "sealed:snapshot:joined"
+      }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    };
+    const transport = createFetchClientTransport({
+      endpointBase: "/api/gameplay-slice",
+      fetchImpl,
+      storage
+    });
+    const request = {
+      serverInstanceId: "instance:1",
+      playerId: "player:1",
+      joinTicket: "join:ticket:1"
+    };
+
+    await transport.load(request);
+    await transport.load(request);
+
+    expect(calls.map((call) => call.url)).toEqual([
+      "/api/gameplay-slice/join",
+      "/api/gameplay-slice/load"
+    ]);
+    expect(calls[0]?.body).toHaveProperty("joinTicket", "join:ticket:1");
+    expect(calls[1]?.body).not.toHaveProperty("joinTicket");
+    expect(JSON.parse(storage.getItem("empireStreets.session.v1") ?? "{}")?.registration)
+      .not.toHaveProperty("joinTicket");
+  });
 });
 
 const createMemoryStorage = (): Storage => {

@@ -76,8 +76,16 @@ function createRuntime(overrides = {}, runtimeFactory = createBuildingNetworkRun
     shoppingMallNetworkConfig: { maxCleanIncomeMultiplier: 2, cleanIncomeBonusPctPerExtraMall: 10, maxDirtyIncomeMultiplier: 2, dirtyIncomeBonusPctPerExtraMall: 10, maxInfluenceMultiplier: 2, influenceBonusPctPerExtraMall: 10, maxHeatMultiplier: 2, heatBonusPctPerExtraMall: 10 },
     smugglingTunnelConfig: { maxDirtyProductionMultiplier: 2, dirtyProductionBonusPctPerExtraTunnel: 10, maxHeatMultiplier: 2, heatBonusPctPerExtraTunnel: 10 },
     startPhaseOwnerByDistrictId: new Map([[1, 1], [2, 1], [3, 2]]),
-    warehouseBaseStorageCapacities: { genericResources: 10, chemicals: 10, biomass: 10, metalParts: 10, techCore: 10, combatModule: 10, drugsAndBoosts: 10, weaponsAndDefense: 10 },
-    warehouseNetworkConfig: { maxIncomeMultiplier: 2, incomeBonusPctPerExtraWarehouse: 10, maxStorageCapacityMultiplier: 2, storageCapacityBonusPctPerExtraWarehouse: 10, maxHeatMultiplier: 2, heatBonusPctPerExtraWarehouse: 10 },
+    warehouseNetworkConfig: { maxIncomeMultiplier: 2, incomeBonusPctPerExtraWarehouse: 10, maxHeatMultiplier: 2, heatBonusPctPerExtraWarehouse: 10 },
+    warehouseStorageConfig: {
+      groups: {
+        bulk: { label: "Bulk", baseCapacity: 10, resourceKeys: ["chemicals", "biomass", "metal-parts"] },
+        tactical: { label: "Tactical", baseCapacity: 8, resourceKeys: ["tech-core", "pistol"] },
+        strategic: { label: "Strategic", baseCapacity: 4, resourceKeys: ["combat-module", "ghost-serum"] }
+      },
+      warehouseCountMultipliers: { 0: 1, 1: 1.5, 2: 1.6, 3: 1.7, 4: 1.8, 5: 1.9 },
+      warehouseLevelMultipliers: { 1: 1, 2: 1.12, 3: 1.25, 4: 1.4 }
+    },
     ...overrides
   });
 }
@@ -287,19 +295,34 @@ describe("building network runtime", () => {
     const capacity = runtime.getWarehouseCapacityBreakdown(1);
     const usage = runtime.getWarehouseStorageUsage(capacity);
 
-    expect(capacity.chemicals).toBe(10);
-    expect(usage.metalParts).toBe(7);
-    expect(usage.techCore).toBe(7);
+    expect(capacity.groups).toEqual({ bulk: 15, tactical: 12, strategic: 6 });
+    expect(capacity.byResource.chemicals).toBe(15);
+    expect(usage.byResource["metal-parts"]).toBe(7);
+    expect(usage.byResource["tech-core"]).toBe(7);
     expect(runtime.getWarehouseCapacityWarnings({
-      chemicals: 9,
-      biomass: 0,
-      metalParts: 0,
-      techCore: 0,
-      combatModule: 0,
-      drugsAndBoosts: 0,
-      weaponsAndDefense: 0,
-      genericResources: 0,
+      byResource: { chemicals: 14 },
       capacity
-    })).toContain("Zásoby ve skladištích se blíží maximu.");
+    })).toContain("Některá položka v globálním SKLADU se blíží maximu.");
+  });
+
+  it("counts only active owned warehouses and uses their highest level", () => {
+    const runtime = createRuntime({
+      getBuildingLevel: (_district, building) => building.level,
+      resolveDistrictBuildingProfile: (district) => ({
+        buildings: {
+          1: [{ baseName: "skladiste", level: 2, status: "active" }],
+          2: [{ baseName: "skladiste", level: 4, status: "disabled" }],
+          3: [{ baseName: "skladiste", level: 4, status: "active" }]
+        }[district.id] || []
+      })
+    });
+
+    expect(runtime.getOwnedWarehouseCount()).toBe(1);
+    expect(runtime.getWarehouseNetworkMultipliers()).toMatchObject({
+      warehouseCountMultiplier: 1.5,
+      warehouseLevelMultiplier: 1.12,
+      highestLevel: 2
+    });
+    expect(runtime.getWarehouseCapacityBreakdown().groups.bulk).toBe(17);
   });
 });

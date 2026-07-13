@@ -143,7 +143,9 @@ describe("page onboarding smoke", () => {
     expect(gameHtml).toContain("<tr><th>CÍL</th><th>TYP</th><th>DISTRICT</th><th>ODMĚNA</th><th>STATUS / VYPSAL</th></tr>");
     const allianceRuntimeSource = readFileSync(resolve(root, "page-assets/js/app/alliance-runtime.js"), "utf8");
     expect(allianceRuntimeSource).toContain("submitServerAllianceCommand");
-    expect(allianceRuntimeSource).toContain("localStorage.removeItem(LOCAL_ALLIANCE_KEY)");
+    expect(allianceRuntimeSource).toContain('GLOBAL_CHAT_KEY = "empire:demo:global-chat:v1"');
+    expect(allianceRuntimeSource).toContain("getGameplayExecutionMode");
+    expect(allianceRuntimeSource).not.toContain("empire_local_alliance_state");
     expect(allianceRuntimeSource).toContain("allianceBoard");
     expect(allianceRuntimeSource).not.toContain("createLocalAlliance");
     expect(allianceRuntimeSource).not.toContain("joinLocalAlliance");
@@ -367,7 +369,7 @@ describe("page onboarding smoke", () => {
     expect(session.world.ownedDistrictIds).toEqual([]);
   });
 
-  it("keeps owned building passive output automatic in the legacy runtime", () => {
+  it("keeps non-production passive output and canonical production-line scheduling separated", () => {
     const runtimeSource = readFileSync(resolve(root, "page-assets/js/app/runtime.js"), "utf8");
     const buildingDetailPanelSource = readFileSync(resolve(root, "page-assets/js/app/ui/buildingDetailPanel.js"), "utf8");
     const buildingDetailViewModelSource = readFileSync(resolve(root, "page-assets/js/app/runtime/buildingDetailViewModel.js"), "utf8");
@@ -384,7 +386,8 @@ describe("page onboarding smoke", () => {
     expect(runtimeSource).toContain("Clean, dirty, vliv a heat se připisují automaticky.");
     expect(runtimeSource).toContain("function syncRuntimePassiveProductionState");
     expect(runtimeSource).toContain("function syncOwnedDistrictBuildingDetailProduction");
-    expect(runtimeSource).toContain("function syncFactoryProductionBuffer");
+    expect(runtimeSource).not.toContain("function syncFactoryProductionBuffer");
+    expect(runtimeSource).toContain("createProductionBuildingPopupRuntime");
     expect(runtimeSource).toContain("function scheduleStoredProductionJobs");
     expect(runtimeSource).toContain("function initializeDistrictBuildingDetailProductionBaseline");
     expect(runtimeSource).toContain("storedDirtyCash: Math.max(0, Number(entry.storedDirtyCash || 0))");

@@ -164,7 +164,7 @@ export const resolveClinicAction = (input: {
   const lostByCapacity: Record<string, number> = {};
   const rawRecoverableByType: Record<string, number> = {};
   const capacity = input.warehouseConfig
-    ? resolveWarehouseStorageCapacity(input.state, input.playerId, input.warehouseConfig, input.powerStationConfig)
+    ? resolveWarehouseStorageCapacity(input.state, input.playerId, input.warehouseConfig)
     : null;
 
   for (const entry of recoverableFresh) {

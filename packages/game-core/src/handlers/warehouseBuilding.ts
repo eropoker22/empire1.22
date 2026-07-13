@@ -1,4 +1,4 @@
-import type { PowerStationBalanceConfig, WarehouseBalanceConfig } from "../contracts";
+import type { WarehouseBalanceConfig } from "../contracts";
 import type { FixedBuildingBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import {
@@ -39,12 +39,10 @@ export const resolveWarehouseNetworkMultipliers = (
   };
 };
 
-/** Power Station deliberately has no influence on global storage capacity. */
 export const resolveWarehouseStorageCapacity = (
   state: CoreGameState,
   playerId: string,
-  config: WarehouseBalanceConfig,
-  _powerStationConfig?: PowerStationBalanceConfig
+  config: WarehouseBalanceConfig
 ): WarehouseStorageCapacity => resolvePlayerStorageCapacitySummary(state, playerId, config);
 
 export const getWarehouseCapacityForResource = (

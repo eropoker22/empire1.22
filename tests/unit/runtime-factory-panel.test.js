@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { FACTORY_CONFIG } from "../../packages/game-config/src/legacy-page/economy-config.js";
 import { buildFactoryDashboardViewModel } from "../../page-assets/js/app/runtime/factoryViewModel.js";
 import { renderFactoryDashboardPanel } from "../../page-assets/js/app/ui/factoryPanel.js";
 
@@ -24,7 +25,8 @@ describe("factory dashboard view model and panel", () => {
         resources: { metalParts: 3, techCore: 4, combatModule: 5 },
         slots: [
           { id: "a", resourceKey: "metalParts", producedAmount: 2 },
-          { id: "b", resourceKey: "combatModule", producedAmount: 5 }
+          { id: "b", resourceKey: "combatModule", producedAmount: 5 },
+          { id: "tech", resourceKey: "techCore", producedAmount: 0 }
         ]
       },
       syncResult: {
@@ -35,11 +37,11 @@ describe("factory dashboard view model and panel", () => {
       },
       supplyState: { metalParts: 6, techCore: 7, combatModule: 8 },
       collectableAmount: 9,
-      config: { maxLevel: 3, combatModule: { metalPartsCost: 2, techCoreCost: 1, durationMs: 5000 } },
+      config: { ...FACTORY_CONFIG, maxLevel: 3 },
       slotConfig: [{ id: "a", label: "Metal line" }],
       slotStorageCap: 20,
       formatCurrency: (value) => `${value}$`,
-      formatDurationLabel: () => "5s",
+      formatDurationLabel: (value) => `${value / 60_000} min`,
       getFactoryUpgradeCost: () => 100,
       normalizeResourceColorKey: (key) => `color:${key}`
     });
@@ -48,21 +50,21 @@ describe("factory dashboard view model and panel", () => {
     expect(viewModel.headerLevelLabel).toBe("Lv 2");
     expect(viewModel.multiplierLabel).toBe("+25%");
     expect(viewModel.upgradeCostLabel).toBe("100$");
-    expect(viewModel.resources).toEqual({ metalParts: "2/20", techCore: "0/10", combatModule: "5/5" });
+    expect(viewModel.resources).toEqual({ metalParts: "2/10", techCore: "0/5", combatModule: "5/2" });
     expect(viewModel.collectButton.disabled).toBe(false);
     expect(viewModel.slots[0]).toMatchObject({
       title: "Metal line",
       perHour: 1,
       resourceColor: "color:metalParts",
-      priceLabel: "120",
-      secondaryLine: "4 min",
-      displayCost: { cleanCash: 120, techCore: 0 }
+      priceLabel: "$300 clean",
+      secondaryLine: "",
+      displayCost: { cleanCash: 300, metalParts: 0, techCore: 0 }
     });
     expect(viewModel.slots[0].typeLabel).toBe("");
-    expect(viewModel.slots[1].primaryLine).toBe("650 + 1 Tech Core");
-    expect(viewModel.slots[1].priceLabel).toBe("650 + 1 Tech Core");
-    expect(viewModel.slots[1].secondaryLine).toBe("15 min");
-    expect(viewModel.slots[1].slotStorageCap).toBe(5);
+    expect(viewModel.slots[1].primaryLine).toBe("$2500 clean · 4× Metal Parts · 2× Tech Core");
+    expect(viewModel.slots[1].priceLabel).toBe("$2500 clean · 4× Metal Parts · 2× Tech Core");
+    expect(viewModel.slots[1].secondaryLine).toBe("15 min / kus");
+    expect(viewModel.slots[1].slotStorageCap).toBe(2);
   });
 
   it("keeps factory output caps separate from queue caps", () => {
@@ -79,19 +81,19 @@ describe("factory dashboard view model and panel", () => {
         ownedFactoryCount: 3,
         rates: { metalPartsPerHour: 2, techCorePerHour: 0, combatModulePerHour: 0 }
       },
-      config: { maxLevel: 3, combatModule: { metalPartsCost: 2, techCoreCost: 1, durationMs: 5000 } },
+      config: { ...FACTORY_CONFIG, maxLevel: 3 },
       slotConfig: [{ id: "metal", label: "Metal line" }],
       slotStorageCap: 20,
       formatCurrency: (value) => `${value}$`,
       getFactoryUpgradeCost: () => 100
     });
 
-    expect(viewModel.resources.metalParts).toBe("12/30");
+    expect(viewModel.resources.metalParts).toBe("12/10");
     expect(viewModel.ownedCountLabel).toBe("3");
     expect(viewModel.slots[0]).toMatchObject({
-      slotStorageCap: 28,
-      slotOutputCap: 30,
-      queueCap: 28,
+      slotStorageCap: 8,
+      slotOutputCap: 10,
+      queueCap: 8,
       queuedAmount: 5
     });
   });

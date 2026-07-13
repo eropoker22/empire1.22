@@ -90,15 +90,10 @@ async function chooseFactionsAndEnterGame(page) {
   await expect(page.getByTestId("continue-to-game")).not.toHaveClass(/faction-link--disabled/);
 
   const continueToGame = page.getByTestId("continue-to-game");
-  await continueToGame.click({ force: true });
-
-  const enteredRoute = await Promise.race([
-    page.waitForURL(/\/pages\/(faction|game)\.html(?:\?|$)/u, { timeout: 30_000 }).then(() => page.url()),
-    page.waitForTimeout(15_000).then(() => page.url())
+  await Promise.all([
+    page.waitForURL(/\/pages\/game\.html(?:\?|$)/u, { timeout: 30_000 }),
+    continueToGame.click({ force: true })
   ]);
-  if (enteredRoute.includes("/pages/faction.html")) {
-    await page.goto("/pages/game.html", { waitUntil: "load" });
-  }
 }
 
 async function finishSpawnSelectionIfNeeded(page) {
@@ -144,7 +139,7 @@ async function openFreeGameAndLoadBootstrap(page, options = {}) {
   const bootstrapLoadPromise = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return response.request().method() === "POST"
-      && /\/api\/gameplay-slice\/(?:load|join)$/u.test(url.pathname);
+      && /\/api\/gameplay-slice\/join$/u.test(url.pathname);
   });
 
   await openGameFromFlow(page, options);
@@ -394,6 +389,9 @@ async function openGameFromFlow(page, options = {}) {
     options.name ?? "Smoke Guest",
     options.gang ?? "Smoke Crew"
   );
+  await page.evaluate(() => {
+    localStorage.setItem("empire:demo:execution-mode:v1", "server-authoritative");
+  });
 
   const serverId = await resolveJoinableFreeServerId(page);
   const freeCard = page.getByTestId(`server-card-${serverId}`);
@@ -479,6 +477,30 @@ test.describe("main game browser protection", () => {
     await expect(atmosphereTrigger).toBeVisible();
     await atmosphereTrigger.click();
     await expect(atmosphereWindow).toBeVisible();
+
+    await assertNoRuntimeErrors(errors);
+  });
+
+  test("completes spawn selection through the UI on a fresh Free flow", async ({ page }) => {
+    const errors = createRuntimeErrorMonitor(page);
+    const runId = Date.now().toString(36);
+    const { bootstrapReadModel } = await openFreeGameAndLoadBootstrap(page, {
+      name: `Spawn Smoke ${runId}`,
+      gang: `Spawn Crew ${runId}`
+    });
+
+    expect(bootstrapReadModel?.spawnSelection?.status).toBe("awaiting_spawn_selection");
+    expect(bootstrapReadModel?.player?.homeDistrictId ?? null).toBeNull();
+    await expect(page.locator("[data-feature='spawn-selection']")).toBeVisible();
+
+    const spawnPayload = await finishSpawnSelectionIfNeeded(page);
+    expect(spawnPayload).toMatchObject({
+      accepted: true,
+      readModel: {
+        player: { homeDistrictId: expect.any(String) },
+        spawnSelection: { status: expect.not.stringMatching(/^awaiting_spawn_selection$/u) }
+      }
+    });
 
     await assertNoRuntimeErrors(errors);
   });

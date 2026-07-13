@@ -1,10 +1,16 @@
 import { getPerformanceMetrics } from "./mobilePerformanceMode.js";
+import {
+  GAMEPLAY_EXECUTION_MODES,
+  getGameplayExecutionMode,
+  isDevelopmentGameplayHost,
+  normalizeGameplayExecutionMode,
+  readConfiguredGameplayExecutionMode,
+  readRequestedGameplayExecutionMode
+} from "../runtime/gameplayExecutionMode.js";
 
 const RUNTIME_MODE_EVENT = "empire:runtime-mode-changed";
 const METRIC_WINDOW_MS = 60_000;
-const DEV_RUNTIME_MODES = new Set(["demo", "legacy-fallback", "local"]);
-const VALID_RUNTIME_MODES = new Set(["server-authoritative", ...DEV_RUNTIME_MODES]);
-const RUNTIME_MODE_STORAGE_KEY = "empire:runtime-mode";
+const DEV_RUNTIME_MODES = new Set([GAMEPLAY_EXECUTION_MODES.localDemo]);
 
 function pruneTimestamps(timestamps, nowMs) {
   const cutoff = nowMs - METRIC_WINDOW_MS;
@@ -15,14 +21,7 @@ function pruneTimestamps(timestamps, nowMs) {
 }
 
 export function isDevelopmentRuntime(windowRef = typeof window === "undefined" ? null : window) {
-  const protocol = String(windowRef?.location?.protocol || "");
-  const host = String(windowRef?.location?.hostname || "").toLowerCase();
-  return protocol === "file:"
-    || !host
-    || host === "localhost"
-    || host === "127.0.0.1"
-    || host === "::1"
-    || host.endsWith(".local");
+  return isDevelopmentGameplayHost(windowRef);
 }
 
 export function createServerSliceFingerprint(gameplaySlice = null) {
@@ -43,25 +42,6 @@ export function createServerSliceFingerprint(gameplaySlice = null) {
   });
 }
 
-function readRequestedRuntimeMode(windowRef, development) {
-  if (!development) {
-    return null;
-  }
-
-  try {
-    const params = new URLSearchParams(windowRef.location?.search || "");
-    const queryMode = params.get("runtimeMode");
-    if (VALID_RUNTIME_MODES.has(queryMode)) {
-      return queryMode;
-    }
-
-    const storedMode = windowRef.localStorage?.getItem?.(RUNTIME_MODE_STORAGE_KEY);
-    return VALID_RUNTIME_MODES.has(storedMode) ? storedMode : null;
-  } catch (_error) {
-    return null;
-  }
-}
-
 function initializeRuntimeMetrics(metrics, initialMode) {
   metrics.runtimeMode = initialMode;
   metrics.localTickActive = false;
@@ -71,7 +51,7 @@ function initializeRuntimeMetrics(metrics, initialMode) {
   metrics.clientStateRecomputePerMinute = 0;
   metrics.mapInvalidationReasonCounts = metrics.mapInvalidationReasonCounts || {};
   metrics.lastMapInvalidationReason = metrics.lastMapInvalidationReason || null;
-  metrics.demoFallbackActive = initialMode === "demo" || initialMode === "legacy-fallback";
+  metrics.demoFallbackActive = initialMode === GAMEPLAY_EXECUTION_MODES.localDemo;
   metrics.serverSliceUnchangedRefreshCount = Number(metrics.serverSliceUnchangedRefreshCount || 0);
   metrics.localTickCount = Number(metrics.localTickCount || 0);
   return metrics;
@@ -81,8 +61,10 @@ export function createRuntimePerformanceDiagnostics(options = {}) {
   const windowRef = options.windowRef || (typeof window === "undefined" ? null : window);
   const documentRef = options.documentRef || windowRef?.document || (typeof document === "undefined" ? null : document);
   const development = options.development ?? isDevelopmentRuntime(windowRef);
-  const requestedMode = readRequestedRuntimeMode(windowRef, development);
-  let runtimeMode = requestedMode || (development ? "demo" : "server-authoritative");
+  const requestedMode = readRequestedGameplayExecutionMode(windowRef);
+  const configuredMode = readConfiguredGameplayExecutionMode(windowRef);
+  const allowLocalDemo = development || configuredMode === GAMEPLAY_EXECUTION_MODES.localDemo;
+  let runtimeMode = requestedMode || getGameplayExecutionMode({ windowRef });
   const metrics = initializeRuntimeMetrics(getPerformanceMetrics(windowRef), runtimeMode);
   const activeLocalTickLabels = new Set();
   const serverSliceRefreshTimestamps = [];
@@ -123,7 +105,9 @@ export function createRuntimePerformanceDiagnostics(options = {}) {
       lastRenderDurationMs: Number(metrics.lastRenderDurationMs || 0),
       clientWorkSummary: metrics.serverSliceActive && !metrics.localTickActive
         ? "server slice render only; local gameplay tick is stopped"
-        : "local/demo runtime fallback is computing on this device"
+        : runtimeMode === GAMEPLAY_EXECUTION_MODES.localDemo
+          ? "local demo runtime is computing on this device"
+          : "gameplay runtime is unavailable; no local authority is running"
     };
   };
 
@@ -147,17 +131,17 @@ export function createRuntimePerformanceDiagnostics(options = {}) {
   };
 
   const setMode = (nextMode, details = {}) => {
-    const normalizedMode = VALID_RUNTIME_MODES.has(nextMode) ? nextMode : "server-authoritative";
-    runtimeMode = !development && DEV_RUNTIME_MODES.has(normalizedMode)
-      ? "server-authoritative"
+    const normalizedMode = normalizeGameplayExecutionMode(nextMode) || GAMEPLAY_EXECUTION_MODES.unavailable;
+    runtimeMode = !allowLocalDemo && DEV_RUNTIME_MODES.has(normalizedMode)
+      ? GAMEPLAY_EXECUTION_MODES.unavailable
       : normalizedMode;
     metrics.runtimeMode = runtimeMode;
-    metrics.serverSliceActive = runtimeMode === "server-authoritative"
+    metrics.serverSliceActive = runtimeMode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative
       ? Boolean(details.serverSliceActive ?? metrics.serverSliceActive)
       : false;
     metrics.localProjectionActive = DEV_RUNTIME_MODES.has(runtimeMode);
-    metrics.demoFallbackActive = runtimeMode === "demo" || runtimeMode === "legacy-fallback";
-    if (runtimeMode === "server-authoritative") {
+    metrics.demoFallbackActive = runtimeMode === GAMEPLAY_EXECUTION_MODES.localDemo;
+    if (runtimeMode !== GAMEPLAY_EXECUTION_MODES.localDemo) {
       activeLocalTickLabels.clear();
       metrics.localTickActive = false;
     }
@@ -167,7 +151,7 @@ export function createRuntimePerformanceDiagnostics(options = {}) {
 
   const setLocalTickActive = (label, active) => {
     const key = String(label || "local-runtime");
-    if (active && development && DEV_RUNTIME_MODES.has(runtimeMode)) {
+    if (active && allowLocalDemo && DEV_RUNTIME_MODES.has(runtimeMode)) {
       activeLocalTickLabels.add(key);
     } else {
       activeLocalTickLabels.delete(key);
@@ -189,10 +173,18 @@ export function createRuntimePerformanceDiagnostics(options = {}) {
     if (!changed) {
       metrics.serverSliceUnchangedRefreshCount += 1;
     }
-    setMode("server-authoritative", {
-      serverSliceActive: Boolean(gameplaySlice),
-      reason: changed ? "server-slice-changed" : "server-slice-unchanged"
-    });
+    // Local demo is an explicit authority boundary. A development server may
+    // still expose read models for diagnostics, but observing one must not
+    // silently start the server runtime beside the local simulation.
+    if (!(allowLocalDemo && runtimeMode === GAMEPLAY_EXECUTION_MODES.localDemo)) {
+      setMode(GAMEPLAY_EXECUTION_MODES.serverAuthoritative, {
+        serverSliceActive: Boolean(gameplaySlice),
+        reason: changed ? "server-slice-changed" : "server-slice-unchanged"
+      });
+    } else {
+      metrics.serverSliceActive = false;
+      syncDocumentMarkers();
+    }
     return { changed, fingerprint, summary: getSummary() };
   };
 
@@ -205,12 +197,12 @@ export function createRuntimePerformanceDiagnostics(options = {}) {
     logSummary: () => logSummary(true),
     setMode,
     setLocalTickActive,
-    shouldAllowDemoFallback: () => development && requestedMode !== "server-authoritative",
-    shouldRunLocalTick: () => development && DEV_RUNTIME_MODES.has(runtimeMode),
-    shouldRunLocalProjection: () => development && DEV_RUNTIME_MODES.has(runtimeMode),
+    shouldAllowDemoFallback: () => allowLocalDemo && runtimeMode === GAMEPLAY_EXECUTION_MODES.localDemo,
+    shouldRunLocalTick: () => allowLocalDemo && DEV_RUNTIME_MODES.has(runtimeMode),
+    shouldRunLocalProjection: () => allowLocalDemo && DEV_RUNTIME_MODES.has(runtimeMode),
     getLocalTickIntervalMs: (baseIntervalMs) => {
       const safeBase = Math.max(1, Number(baseIntervalMs || 1));
-      const isDemoFallback = runtimeMode === "demo" || runtimeMode === "legacy-fallback";
+      const isDemoFallback = runtimeMode === GAMEPLAY_EXECUTION_MODES.localDemo;
       return isDemoFallback && windowRef?.empireStreetsPerformanceMode?.active ? safeBase * 3 : safeBase;
     },
     recordLocalTick: () => {

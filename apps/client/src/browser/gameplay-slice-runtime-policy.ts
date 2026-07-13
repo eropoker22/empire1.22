@@ -6,7 +6,7 @@ import {
 
 export const applyDevelopmentRuntimeOverride = (root: HTMLElement): boolean => {
   const forcedMode = getForcedDevelopmentRuntimeMode();
-  if (!forcedMode || !isLegacyGameplayFallbackAllowed()) return false;
+  if (!forcedMode || forcedMode === "server-authoritative") return false;
 
   setGameplayRuntimeMarker(root, forcedMode === "legacy-fallback" ? "legacy-fallback" : "demo-ready", {
     ...(forcedMode === "legacy-fallback" ? { fallback: "legacy" as const } : {}),
@@ -14,7 +14,7 @@ export const applyDevelopmentRuntimeOverride = (root: HTMLElement): boolean => {
   });
   window.empireStreetsRuntimeDiagnostics?.setMode?.(forcedMode, {
     serverSliceActive: false,
-    reason: "development-runtime-override"
+    reason: "configured-runtime-override"
   });
   root.hidden = true;
   return true;
@@ -49,4 +49,3 @@ export const markGameplaySliceUnavailableRuntime = (
   });
   return allowLegacyFallback;
 };
-

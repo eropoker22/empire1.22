@@ -99,7 +99,7 @@ export const handleCollectProduction = (
     ? { ...storedPlayerResourceState, balances: normalizeStorageBalances(storedPlayerResourceState.balances) }
     : createPlayerResourceState(player, state.root.tick);
   const warehouseCapacity = context.config.balance.warehouse
-    ? resolveWarehouseStorageCapacity(state, player.id, context.config.balance.warehouse, context.config.balance.powerStation)
+    ? resolveWarehouseStorageCapacity(state, player.id, context.config.balance.warehouse)
     : null;
   const resourceCapacity = warehouseCapacity
     ? getWarehouseCapacityForResource(warehouseCapacity, productionProfile.resourceKey)

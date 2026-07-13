@@ -191,41 +191,45 @@ describe("building detail view-model builder", () => {
       mechanics: {
         ...baseMechanics,
         mechanicsType: "warehouse",
-        ownedWarehouses: 0,
-        warehouseCapacity: {
-          genericResources: 0,
-          chemicals: 0,
-          biomass: 0,
-          metalParts: 0,
-          techCore: 0,
-          combatModule: 0,
-          drugsAndBoosts: 0,
-          weaponsAndDefense: 0
-        },
-        warehouseUsage: {
-          chemicals: 0,
-          biomass: 0,
-          metalParts: 0,
-          techCore: 0,
-          combatModule: 0,
-          drugsAndBoosts: 0,
-          weaponsAndDefense: 0
-        },
-        warehouseWarnings: []
+        serverStorageSummary: {
+          warehouseSummary: {
+            ownedWarehouseCount: 0,
+            highestWarehouseLevel: 0,
+            warehouseCountMultiplier: 1,
+            warehouseLevelMultiplier: 1,
+            totalCapacityMultiplier: 1
+          },
+          groups: [
+            {
+              id: "bulk",
+              label: "Hromadné zásoby",
+              currentCapacity: 60,
+              items: [{ resourceKey: "chemicals", label: "Chemicals", currentAmount: 0, maxAmount: 60 }]
+            },
+            {
+              id: "tactical",
+              label: "Taktické zásoby",
+              currentCapacity: 24,
+              items: [{ resourceKey: "tech-core", label: "Tech Core", currentAmount: 0, maxAmount: 24 }]
+            },
+            {
+              id: "strategic",
+              label: "Strategické zásoby",
+              currentCapacity: 8,
+              items: [{ resourceKey: "combat-module", label: "Combat Module", currentAmount: 0, maxAmount: 8 }]
+            }
+          ]
+        }
       }
     });
 
     expect(mechanics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ label: "Materiál", value: "Chemicals 0/350" }),
-      expect.objectContaining({ label: "Materiál", value: "Biomass 0/350" }),
-      expect.objectContaining({ label: "Materiál", value: "Metal parts 0/400" }),
-      expect.objectContaining({ label: "Materiál", value: "Tech core 0/120" }),
-      expect.objectContaining({ label: "Materiál", value: "Bojové moduly 0/80" }),
-      expect.objectContaining({ label: "Materiál", value: "Drogy a boosty 0/220" }),
-      expect.objectContaining({ label: "Materiál", value: "Zbraně a obrana 0/160" }),
-      expect.objectContaining({ label: "Stav kapacity", value: "Kapacity jsou v pořádku." })
+      expect.objectContaining({ label: "Materiál", value: "Chemicals 0/60" }),
+      expect.objectContaining({ label: "Materiál", value: "Tech Core 0/24" }),
+      expect.objectContaining({ label: "Materiál", value: "Combat Module 0/8" })
     ]));
-    expect(mechanics.some((row) => row.value === "vlastníš 0/18 skladů")).toBe(false);
+    expect(JSON.stringify(mechanics)).not.toContain("Drogy a boosty");
+    expect(JSON.stringify(mechanics)).not.toContain("Zbraně a obrana");
     expect(mechanics.filter((row) => row.label === "Materiál").every((row) => row.tone === "warehouse-low")).toBe(true);
   });
 
@@ -235,36 +239,34 @@ describe("building detail view-model builder", () => {
       mechanics: {
         ...baseMechanics,
         mechanicsType: "warehouse",
-        warehouseCapacity: {
-          chemicals: 100,
-          biomass: 100,
-          metalParts: 100,
-          techCore: 100,
-          combatModule: 100,
-          drugsAndBoosts: 100,
-          weaponsAndDefense: 100
-        },
-        warehouseUsage: {
-          chemicals: 30,
-          biomass: 31,
-          metalParts: 85,
-          techCore: 86,
-          combatModule: 0,
-          drugsAndBoosts: 70,
-          weaponsAndDefense: 99
-        },
-        warehouseWarnings: []
+        serverStorageSummary: {
+          warehouseSummary: {
+            ownedWarehouseCount: 1,
+            highestWarehouseLevel: 1,
+            warehouseCountMultiplier: 1.5,
+            warehouseLevelMultiplier: 1,
+            totalCapacityMultiplier: 1.5
+          },
+          groups: [{
+            id: "bulk",
+            label: "Hromadné zásoby",
+            currentCapacity: 100,
+            items: [
+              { resourceKey: "chemicals", label: "Chemicals", currentAmount: 30, maxAmount: 100 },
+              { resourceKey: "biomass", label: "Biomass", currentAmount: 85, maxAmount: 100, isNearCapacity: true },
+              { resourceKey: "metal-parts", label: "Metal Parts", currentAmount: 100, maxAmount: 100, isFull: true },
+              { resourceKey: "baseball-bat", label: "Baseballová pálka", currentAmount: 101, maxAmount: 100, isOverCapacity: true }
+            ]
+          }]
+        }
       }
     });
 
     expect(mechanics).toEqual(expect.arrayContaining([
       expect.objectContaining({ value: "Chemicals 30/100", tone: "warehouse-low" }),
-      expect.objectContaining({ value: "Biomass 31/100", tone: "warehouse-medium" }),
-      expect.objectContaining({ value: "Metal parts 85/100", tone: "warehouse-medium" }),
-      expect.objectContaining({ value: "Tech core 86/100", tone: "warehouse-high" }),
-      expect.objectContaining({ value: "Bojové moduly 0/100", tone: "warehouse-low" }),
-      expect.objectContaining({ value: "Drogy a boosty 70/100", tone: "warehouse-medium" }),
-      expect.objectContaining({ value: "Zbraně a obrana 99/100", tone: "warehouse-high" })
+      expect.objectContaining({ value: "Biomass 85/100", tone: "warehouse-medium" }),
+      expect.objectContaining({ value: "Metal Parts 100/100", tone: "warehouse-high" }),
+      expect.objectContaining({ value: "Baseballová pálka 101/100", tone: "warehouse-high" })
     ]));
   });
 

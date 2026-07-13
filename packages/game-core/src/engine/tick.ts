@@ -71,7 +71,6 @@ export const runTick = (
         stockInspectionState,
         context.config.balance.airport,
         context.config.balance.warehouse,
-        context.config.balance.powerStation,
         context.config.balance.smugglingTunnel,
         context.config.tickRateMs,
         context.config.balance.lobbyClub

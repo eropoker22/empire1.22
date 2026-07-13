@@ -2,6 +2,8 @@
 
 Date: 2026-05-05
 
+> Historical extraction log, updated 2026-07-13. It records where code was moved during that refactor, not current production authority or balance. Current behavior is documented in `docs/production-buildings-functional-audit.md`.
+
 ## Canonical source
 
 - Canonical runtime: `page-assets/js/app/runtime.js`
@@ -54,7 +56,7 @@ Follow-up info-tab view-model extraction:
 
 ## What stayed in runtime
 
-Gameplay-coupled code stayed in `runtime.js`:
+At the time of this extraction, gameplay-coupled code stayed in `runtime.js`. The current local-demo implementation has since replaced passive and generic craft production with independent one-unit production lines, and server-authoritative mode is fail-closed rather than falling back to these local mutations:
 
 - production job creation, scheduling, ready-state sync and timer management;
 - material/cash validation and consumption;

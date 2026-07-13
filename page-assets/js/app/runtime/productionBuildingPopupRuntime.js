@@ -24,21 +24,14 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
   const shouldUseServerProduction = () => !isLegacyLocalProductionEnabled();
   const allowLegacyProductionUpgrade = deps.allowLegacyProductionUpgrade !== false;
   const isLegacyLocalProductionUpgradeEnabled = () => allowLegacyProductionUpgrade && !isServerAuthoritativeProductionReady();
-  const productionBridgeMessage = "Výrobní panel používá serverový production/craft flow. Legacy lokální výroba je vypnutá.";
+  const productionBridgeMessage = "Výroba je v tomto režimu nedostupná.";
   const productionUpgradeMessage = "Serverový upgrade se provádí přes konkrétní kartu budovy v districtu.";
   const baseOwnedCount = Math.max(1, Math.floor(Number(deps.baseOwnedProductionBuildingCount || 1)));
-  const defaultQueueCapPerExtraBuilding = Math.max(0, Math.floor(Number(deps.queueCapPerExtraProductionBuilding ?? 4)));
-  const defaultOutputCapPerWarehouse = Math.max(0, Math.floor(Number(deps.outputCapPerWarehouse ?? 5)));
   const getServerLines = (production) => Array.isArray(production?.productionLines)
     ? production.productionLines
     : Array.isArray(production?.lines)
       ? production.lines
       : [];
-
-  const getConfigNumber = (buildingName, key, fallback = 0) => {
-    const value = Number(deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.[key]);
-    return Number.isFinite(value) ? value : fallback;
-  };
 
   const normalizeCount = (value, fallback = 0, minValue = 0) => {
     const normalized = Math.floor(Number(value));
@@ -59,8 +52,6 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     return `${pct >= 0 ? "+" : ""}${pct}%`;
   };
 
-  const getOwnedWarehouseCount = () => normalizeCount(deps.getOwnedWarehouseCount?.(), 0, 0);
-
   const getOwnedProductionBuildingCount = (buildingName, fallbackLevel = 1) => {
     const fallback = normalizeCount(fallbackLevel, baseOwnedCount, baseOwnedCount);
     const rawCount = buildingName === "pharmacy"
@@ -78,13 +69,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     if (recipeCap > 0) {
       return recipeCap;
     }
-    const baseCap = Math.max(0, Math.floor(getConfigNumber(buildingName, "outputCap", 0)));
-    const warehouseBonus = getOwnedWarehouseCount() * Math.max(0, Math.floor(getConfigNumber(
-      buildingName,
-      "outputCapPerWarehouse",
-      defaultOutputCapPerWarehouse
-    )));
-    return baseCap > 0 ? baseCap + warehouseBonus : 0;
+    return 0;
   };
 
   const getProductionQueueCap = (buildingName, ownedBuildingCount = baseOwnedCount, recipe = {}) => {
@@ -92,18 +77,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     if (recipeCap > 0) {
       return recipeCap;
     }
-    const baseCap = Math.max(0, Math.floor(getConfigNumber(
-      buildingName,
-      "queueCap",
-      getConfigNumber(buildingName, "outputCap", 0)
-    )));
-    const extraBuildings = Math.max(0, Math.floor(Number(ownedBuildingCount || baseOwnedCount)) - baseOwnedCount);
-    const perExtraBuilding = Math.max(0, Math.floor(getConfigNumber(
-      buildingName,
-      "queueCapPerExtraBuilding",
-      defaultQueueCapPerExtraBuilding
-    )));
-    return baseCap > 0 ? baseCap + extraBuildings * perExtraBuilding : 0;
+    return 0;
   };
 
   const getProductionSlotState = (job) => {
@@ -194,6 +168,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         ...Object.entries(recipe?.inputs || {}).map(([itemId, amount]) => Math.floor((deps.getInventoryAmount?.("materials", itemId) || 0) / Math.max(1, Number(amount || 0))))
       );
     };
+    const maxBatches = legacyProductionEnabled ? getMaxBatches() : 0;
     const viewModel = {
       root,
       buildingName,
@@ -211,9 +186,11 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         ? deps.getArmoryRecipeStrengthPreview?.(recipeId, recipe) || null
         : null,
       inputAmounts,
-      canStart: legacyProductionEnabled && (deps.hasEnoughMaterials?.(recipe?.inputs || {}) || false),
-      maxBatches: legacyProductionEnabled ? getMaxBatches() : 0,
-      maxSelectableBatches: legacyProductionEnabled ? getMaxBatches() : 0,
+      canStart: legacyProductionEnabled
+        && maxBatches > 0
+        && (deps.hasEnoughMaterials?.(recipe?.inputs || {}) || false),
+      maxBatches,
+      maxSelectableBatches: maxBatches,
       allowStartWithMissingInputs: false
     };
     const card = deps.renderRecipeCard?.(viewModel, {
@@ -240,20 +217,22 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         }
 
         const maxBatches = Math.max(0, Math.floor(Number(getMaxBatches() || 0)));
-        const safeBatchCount = Math.min(
-          Math.max(1, Math.floor(Number(batchCount || 1))),
-          maxBatches
-        );
-        if (safeBatchCount <= 0) {
+        const requestedBatchCount = Math.max(1, Math.floor(Number(batchCount || 1)));
+        if (requestedBatchCount > maxBatches) {
+          const queueSpace = Math.max(0, Math.floor(Number(getRemainingQueueSpace(currentJob) || 0)));
+          const message = queueCap > 0 && requestedBatchCount * outputUnitAmount > queueSpace
+            ? "Výrobní fronta je plná nebo v ní není místo pro celé zvolené množství."
+            : "Chybí materiál nebo clean cash pro celé zvolené množství.";
           deps.setBuildingActionFeedback?.(
             root,
             "warning",
             deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.label || "Budova",
-            "Chybí materiál pro spuštění výroby."
+            message
           );
           rerender?.();
           return;
         }
+        const safeBatchCount = requestedBatchCount;
 
         const requiredInputs = deps.getScaledProductionInputs?.(recipe?.inputs || {}, safeBatchCount) || {};
         const durationMs = effectiveDurationMs * safeBatchCount;
@@ -272,8 +251,14 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
 
         const remainingOutputSpace = getRemainingOutputSpace(currentJob);
         const remainingQueueSpace = getRemainingQueueSpace(currentJob);
-        const outputAmount = Math.min(remainingOutputSpace, remainingQueueSpace, outputUnitAmount * safeBatchCount);
-        if (outputAmount <= 0) {
+        const outputAmount = outputUnitAmount * safeBatchCount;
+        if (outputAmount <= 0 || outputAmount > remainingOutputSpace || outputAmount > remainingQueueSpace) {
+          deps.setBuildingActionFeedback?.(
+            root,
+            "warning",
+            deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.label || "Budova",
+            "Výrobní fronta je plná nebo v ní není místo pro celé zvolené množství."
+          );
           rerender?.();
           return;
         }
@@ -322,9 +307,16 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         const currentJob = deps.getProductionJob?.(recipeKey);
         if (!currentJob || currentJob.status !== "running") return rerender?.();
         const quantity = Math.max(1, Math.floor(Number(currentJob.quantity || 1)));
-        const inputRefunds = currentJob.inputs && typeof currentJob.inputs === "object"
+        const waitingAmount = Math.max(0, quantity - 1);
+        if (waitingAmount <= 0) return rerender?.();
+        const reservedInputs = currentJob.inputs && typeof currentJob.inputs === "object"
           ? currentJob.inputs
           : deps.getScaledProductionInputs?.(recipe?.inputs || {}, quantity) || {};
+        const waitingInputCosts = deps.getScaledProductionInputs?.(recipe?.inputs || {}, waitingAmount) || {};
+        const inputRefunds = Object.fromEntries(Object.entries(waitingInputCosts).map(([itemId, amount]) => [
+          itemId,
+          Math.min(Math.max(0, Number(reservedInputs[itemId] || 0)), Math.max(0, Number(amount || 0)))
+        ]));
         for (const [itemId, amount] of Object.entries(inputRefunds)) {
           const refundAmount = Math.max(0, Number(amount || 0));
           if (refundAmount > 0) {
@@ -332,8 +324,11 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           }
         }
 
-        const fallbackCleanCost = Math.max(0, Number(recipe?.cleanMoneyCost || 0) * quantity);
-        const cleanRefund = Math.max(0, Number(currentJob.cleanMoneyCost ?? fallbackCleanCost));
+        const reservedCleanCost = Math.max(0, Number(currentJob.cleanMoneyCost ?? Number(recipe?.cleanMoneyCost || 0) * quantity));
+        const cleanRefund = Math.min(
+          reservedCleanCost,
+          Math.max(0, Number(recipe?.cleanMoneyCost || 0) * waitingAmount)
+        );
         if (cleanRefund > 0) {
           const economyState = deps.getResolvedEconomyState?.() || {};
           deps.setStoredEconomyState?.({
@@ -342,7 +337,23 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           });
           deps.applyTopbarEconomy?.(root);
         }
-        deps.clearProductionJob?.(recipeKey);
+        const now = Date.now();
+        const currentReadyAt = new Date(currentJob.readyAt || 0).getTime();
+        deps.persistProductionJob?.(recipeKey, {
+          ...currentJob,
+          quantity: 1,
+          output: { ...currentJob.output, amount: outputUnitAmount },
+          inputs: Object.fromEntries(Object.entries(reservedInputs).map(([itemId, amount]) => [
+            itemId,
+            Math.max(0, Number(amount || 0) - Number(inputRefunds[itemId] || 0))
+          ])),
+          cleanMoneyCost: Math.max(0, reservedCleanCost - cleanRefund),
+          durationMs: effectiveDurationMs,
+          readyAt: new Date(Math.min(
+            Number.isFinite(currentReadyAt) && currentReadyAt > now ? currentReadyAt : now + effectiveDurationMs,
+            now + effectiveDurationMs
+          )).toISOString()
+        });
         rerender?.();
       },
       onCollect: () => {

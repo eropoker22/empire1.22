@@ -6137,7 +6137,7 @@ html body.game-modal-scroll-locked #raid-result-modal:not(.hidden):not([hidden])
   }
 }
 
-/* Mobile global chat: show about three messages in a compact feed without a dead row above input. */
+/* Mobile demo chat: show about three messages in a compact feed without a dead row above input. */
 @media (max-width: 767px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
   html body.game-body #game-left-nav > #global-chat-card .alliance-chat.server-chat-panel {
     gap: 6px !important;

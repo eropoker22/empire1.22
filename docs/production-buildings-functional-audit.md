@@ -1,45 +1,94 @@
-# Production Buildings Functional Audit
+# Production Buildings: Current Pre-Alpha Contract
 
-Scope: Lékárna, Drug Lab/Lab, Továrna and Zbrojovka. These buildings must use the dedicated server production/craft flow, not building-detail special-action rows.
+Last reviewed: 2026-07-13.
 
-## Summary
+This document describes the current one-unit production-line model. It replaces the historical passive production, generic craft, and building special-action descriptions.
 
-| Budova | Building type id | Flow typ | Má special action rows? | Má je mít? | Vstupy | Výstupy | Storage/capacity | Processing time / cooldown | Upgrade efekt | Server/core handler | UI karta | Riziko exploitu | Stav |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Lékárna | `pharmacy` | production + pharmacy craft | Ne v detail kartě | Ne | Passive none for `chemicals`; craft `stim-pack` costs `chemicals x6` | Passive `chemicals`; craft `stim-pack x1` | Building production store `Chemicals` cap 25; player storage capped by warehouse on collect | Passive per tick; `stim-pack` 4 min server processing | Server production level bonus is not defined; UI must use fallback, not fake speed | `collect-production`, `craft-item`, tick production | Detail card routes to production popup; special actions hidden | Legacy local production popup was able to mutate local state; now disabled in `game.html` runtime | OK with TODO for server upgrade benefit |
-| Drug Lab / Lab | `drug_lab` | production + drug craft | Ne v detail kartě | Ne | `chemicals`, `biomass`, `stim-pack` by recipe | Passive `neon-dust`; craft `neon-dust`, `pulse-shot`, `velvet-smoke`, `ghost-serum`, `overdrive-x` | Building production store `Neon Dust` cap 18; player storage capped by warehouse on collect | 5/8/15/20/20 min server processing by recipe | Server production level bonus is not defined; UI must use fallback, not fake speed | `collect-production`, `craft-item`, tick production | Detail card routes to production popup; special actions hidden | Legacy local production popup was able to mutate local state; now disabled in `game.html` runtime | OK with TODO for server upgrade benefit |
-| Továrna | `factory` | production + factory craft | Ne v detail kartě | Ne | Passive none for `metal-parts`; craft `tech-core` costs `metal-parts x4`; `combat-module` costs `metal-parts x4 + tech-core x2` | Passive `metal-parts`; craft `tech-core x1`, `combat-module x1` | Building production store `Metal Parts` cap 24; player storage capped by warehouse on collect | `tech-core` 6 min; `combat-module` 12 min; factory production can be boosted by Power Station infrastructure and Garage reduction for craft | Server production level bonus is not defined; UI must use fallback, not fake multiplier/speed | `collect-production`, `craft-item`, tick production | Detail card routes to factory/production panel; special actions hidden | Legacy local factory popup was able to mutate local state; now disabled in `game.html` runtime | OK with TODO for server upgrade benefit |
-| Zbrojovka | `armory` | armory craft | Ne v detail kartě | Ne | `metal-parts`, `tech-core` by recipe | Attack/defense items: `baseball-bat`, `pistol`, `grenade`, `smg`, `bazooka`, `vest`, `barricades`, `cameras`, `defense-tower`, `alarm` | No passive building production store; outputs go to player resource state after processing | 3-16 min server processing by recipe; Power Station can speed armory production, Garage can reduce craft duration | Server production level bonus is not defined; UI must use fallback, not fake speed | `craft-item` and tick completion | Detail card routes to production popup; special actions hidden | Legacy local production popup was able to mutate local state; now disabled in `game.html` runtime | OK with TODO for server upgrade benefit |
+## Authority and Compatibility
 
-## What Is Server-Authoritative
+Canonical balance lives in typed config:
 
-- `craft-item` only receives `districtId`, `buildingId` and `recipeId`; it does not accept client-provided output, price or duration.
-- `validateCraft` rejects missing building, wrong district, non-owner, inactive building, unsupported craft profile, unknown recipe, active processing and missing inputs.
-- `handleCraftItem` subtracts inputs on the server and writes `building.processing`.
-- `completeCraftProcessing` credits output only when the authoritative tick reaches `completesAtTick`, then clears `building.processing`; repeated ticks do not double-credit.
-- `collect-production` validates owner/building/district/ready amount and moves only server-stored building output into player resources, capped by warehouse storage.
+- `free-mode-pharmacy-config.ts`
+- `free-mode-drug-lab-config.ts`
+- `free-mode-factory-config.ts`
+- `free-mode-armory-config.ts`
 
-## Detail Card Special Actions
+The static browser imports `gameplay-config.generated.js`, generated from those files by `scripts/generate-browser-gameplay-config.ts`. `legacy-page/economy-config.js` only re-exports generated production values and adds non-production demo catalog data. It is not a second balance source.
 
-The four production/craft buildings have no building-detail special action rows:
+The current Netlify/static experience runs these lines as local-demo gameplay. Game-core already contains server-authoritative production handlers and projections, but the four static production modals are not being newly connected to a production multiplayer deployment in this cleanup.
 
-- `DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.lekarna = []`
-- `DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["drug lab"] = []`
-- `DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.lab = []`
-- `DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.tovarna = []`
-- `DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.zbrojovka = []`
+## Shared Rules
 
-The public legacy catalog still contains old `produce_*` action metadata for compatibility and docs/simulation surfaces. It must not be rendered as building-detail special-action UI for these buildings.
+- Every completion creates exactly one item.
+- Each physical building keeps a separate line per recipe.
+- `queuedAmount` includes the active item and all waiting items.
+- Costs are reserved when items enter the queue.
+- Cancel removes waiting items only and refunds their actual reservation.
+- A full local output pauses the line without deleting queued items.
+- Collect moves only the amount that fits in global storage and leaves the remainder in the building.
+- Production building networks and levels affect speed only. They never increase output amount, local cap, queue cap, or global storage.
+- Pharmacy, Drug Lab, Factory, and Armory have no production special actions in the building catalog.
 
-## Fixes Applied
+## Pharmacy
 
-- Removed fake production upgrade copy from production info text. The UI now says that the concrete server production level bonus is not defined.
-- Disabled legacy local production/craft mutations in `game.html` runtime by passing `allowLegacyLocalProduction: false` and `allowLegacyProductionUpgrade: false` into the old production/factory popup runtimes.
-- Added guard paths in `productionBuildingPopupRuntime.js` and `factoryPopupRuntime.js` so disabled legacy callbacks show a warning and do not mutate local inventory, jobs, factory supplies, cash or levels.
-- Added integration coverage for missing craft inputs and double-credit prevention after craft processing completion.
+| Recipe | Clean cash | Materials | Unit time | Local cap | Queue cap |
+| --- | ---: | --- | ---: | ---: | ---: |
+| Chemicals | 360 | none | 2 min | 12 | 8 |
+| Biomass | 420 | none | 4 min | 8 | 6 |
+| Stim Pack | 800 | none | 10 min | 4 | 3 |
 
-## TODO
+There is no passive Chemicals/Biomass production and Stim Pack does not consume Chemicals.
 
-- Add a server command/read-model bridge for the legacy production popup shell, or replace the shell with the existing server-fed district slot production/craft controls.
-- Define real server/config upgrade effects for production buildings if production levels should matter. Until then, upgrade UI must show the safe fallback instead of fake speed/multiplier claims.
-- Remove or quarantine old public `produce_*` legacy action metadata once no simulation/client compatibility surface still needs it.
+## Drug Lab
+
+| Recipe | Clean cash | Materials per item | Unit time | Local cap | Queue cap |
+| --- | ---: | --- | ---: | ---: | ---: |
+| Neon Dust | 500 | 2 Chemicals | 5 min | 10 | 8 |
+| Pulse Shot | 800 | 2 Chemicals, 1 Biomass | 8 min | 6 | 5 |
+| Velvet Smoke | 900 | 1 Chemicals, 2 Biomass | 15 min | 5 | 4 |
+| Ghost Serum | 2500 | 2 Neon Dust, 1 Pulse Shot | 20 min | 2 | 2 |
+| Overdrive X | 4500 | 1 Pulse Shot, 2 Velvet Smoke | 30 min | 1 | 1 |
+
+Ghost Serum and Overdrive X are strategic manufacturing components for future recipes. They have no direct use command, cooldown, combat effect, or spy effect.
+
+## Factory
+
+| Recipe | Clean cash | Materials per item | Unit time | Local cap | Queue cap |
+| --- | ---: | --- | ---: | ---: | ---: |
+| Metal Parts | 300 | none | 4 min | 10 | 8 |
+| Tech Core | 900 | 4 Metal Parts | 8 min | 5 | 4 |
+| Combat Module | 2500 | 4 Metal Parts, 2 Tech Core | 15 min | 2 | 2 |
+
+Combat Module is a strategic industrial component used by high-tier Armory recipes. Factory network and level modifiers affect only the duration of newly started units. There is no passive Metal Parts production or `produce_tech_core` building action.
+
+## Armory
+
+Armory recipes have zero clean-cash cost and reserve global stored materials.
+
+| Category | Recipe | Materials per item | Unit time | Local cap | Queue cap |
+| --- | --- | --- | ---: | ---: | ---: |
+| Attack | Baseball Bat | 2 Metal Parts | 3 min | 8 | 6 |
+| Attack | Pistol | 3 Metal Parts, 1 Tech Core | 5 min | 5 | 4 |
+| Attack | Grenade | 2 Metal Parts, 1 Tech Core | 6 min | 4 | 4 |
+| Attack | SMG | 2 Metal Parts, 1 Combat Module | 8 min | 3 | 3 |
+| Attack | Bazooka | 3 Metal Parts, 2 Combat Modules | 14 min | 2 | 2 |
+| Defense | Vest | 3 Metal Parts, 1 Tech Core | 5 min | 5 | 4 |
+| Defense | Barricades | 4 Metal Parts | 5 min | 6 | 5 |
+| Defense | Cameras | 2 Metal Parts, 2 Tech Cores | 6 min | 4 | 4 |
+| Defense | Defense Tower | 3 Tech Cores, 2 Combat Modules | 15 min | 2 | 2 |
+| Defense | Alarm | 2 Metal Parts, 1 Tech Core | 5 min | 4 | 4 |
+
+Armory recipes do not define attack power, defense power, or population requirements. Combat balance comes from its own typed weapon/defense config.
+
+## Removed Paths
+
+- passive Pharmacy, Drug Lab, and Factory resource ticks
+- production `produce_*` building actions
+- `armory_fortify`
+- generic production-building craft profiles
+- multi-output Armory recipes
+- Warehouse and Power Station output-cap expansion
+- direct Ghost Serum and Overdrive X activation
+- manually copied browser recipe balance
+
+Legacy snapshot migration remains in game-core for already persisted processing jobs. It is one-way compatibility and does not define new recipe balance.

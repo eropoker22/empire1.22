@@ -1,4 +1,4 @@
-import type { AirportBalanceConfig, LobbyClubBalanceConfig, PowerStationBalanceConfig, SmugglingTunnelBalanceConfig, WarehouseBalanceConfig } from "../contracts";
+import type { AirportBalanceConfig, LobbyClubBalanceConfig, SmugglingTunnelBalanceConfig, WarehouseBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import { deterministicUnitInterval } from "../utils/math";
 import {
@@ -16,7 +16,6 @@ export const completeAirportImportsAndCustoms = (
   state: CoreGameState,
   config: AirportBalanceConfig,
   warehouseConfig: WarehouseBalanceConfig | undefined,
-  powerStationConfig: PowerStationBalanceConfig | undefined,
   smugglingTunnelConfig: SmugglingTunnelBalanceConfig | undefined,
   tickRateMs: number,
   lobbyClubConfig?: LobbyClubBalanceConfig
@@ -30,7 +29,7 @@ export const completeAirportImportsAndCustoms = (
     const pendingRemainders: PendingAirportImport[] = [];
     if (completed.length > 0) {
       for (const pending of completed) {
-        const completion = completePendingImport(nextState, currentBuilding, pending, config, warehouseConfig, powerStationConfig, lobbyClubConfig);
+        const completion = completePendingImport(nextState, currentBuilding, pending, config, warehouseConfig, lobbyClubConfig);
         nextState = completion.state;
         currentBuilding = nextState.buildingsById[building.id] ?? currentBuilding;
         metadata = {
@@ -97,7 +96,6 @@ const completePendingImport = (
   pending: PendingAirportImport,
   config: AirportBalanceConfig,
   warehouseConfig?: WarehouseBalanceConfig,
-  powerStationConfig?: PowerStationBalanceConfig,
   lobbyClubConfig?: LobbyClubBalanceConfig
 ): { state: CoreGameState; lastImportShipment: NonNullable<AirportMetadata["lastImportShipment"]>; customsEvent?: AirportCustomsEvent; remainingShipment?: Record<string, number> } => {
   const player = state.playersById[building.ownerPlayerId ?? ""];
@@ -122,7 +120,7 @@ const completePendingImport = (
     version: 1
   };
   const capacity = warehouseConfig
-    ? resolveWarehouseStorageCapacity(state, player.id, warehouseConfig, powerStationConfig)
+    ? resolveWarehouseStorageCapacity(state, player.id, warehouseConfig)
     : null;
   const acceptedItems: Record<string, number> = {};
   const lostItems: Record<string, number> = {};

@@ -2,34 +2,57 @@ import { updateStoredPreviewSession } from "./model/authority-state.js";
 import { appendBuildingActionResultEntry, applyTopbarEconomy, renderSpyResourceState } from "./runtime.js";
 import { leonSwitchVargaEvents, nyraValeEvents, victorGraveEvents } from "../data/events.js";
 import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
+import { GAMEPLAY_EXECUTION_MODES, getGameplayExecutionMode } from "./runtime/gameplayExecutionMode.js";
 
-const CITY_EVENTS_STORAGE_KEY = "empireStreets.cityEvents.v1";
+const CITY_EVENTS_STORAGE_KEY = "empire:demo:city-events:v1";
 const CHARACTER_EVENTS_REFRESH_SECONDS = 30;
 const CHARACTER_EVENTS_COUNTDOWN_SYNC_MS = 250;
 const MAX_VISIBLE_EVENTS_PER_CHARACTER = 3;
 
+const CITY_EVENT_REWARD_ALIASES = Object.freeze({
+  dirtyCash: "dirty-cash",
+  metalParts: "metal-parts",
+  chemical: "chemicals",
+  techCore: "tech-core",
+  streetPistol: "pistol",
+  neonViper: "neon-dust",
+  overdriveX: "overdrive-x",
+  velvetSmoke: "velvet-smoke",
+  ghostSerum: "ghost-serum",
+  bulletproofVest: "vest",
+  securityCameras: "cameras"
+});
+
 const rewardLabels = Object.freeze({
   cash: "clean cash",
-  dirtyCash: "dirty cash",
+  "dirty-cash": "dirty cash",
   influence: "influence",
-  metalParts: "metal parts",
-  chemical: "chemicals",
-  techCore: "tech core",
-  streetPistol: "street pistol",
-  neonViper: "Neon Viper",
-  overdriveX: "Overdrive X",
-  velvetSmoke: "Velvet Smoke",
-  ghostSerum: "Ghost Serum",
+  "metal-parts": "Metal Parts",
+  chemicals: "Chemicals",
+  "tech-core": "Tech Core",
+  pistol: "Pistole",
+  "neon-dust": "Neon Dust",
+  "overdrive-x": "Overdrive X (komponenta)",
+  "velvet-smoke": "Velvet Smoke",
+  "ghost-serum": "Ghost Serum (komponenta)",
   smg: "SMG",
   ammo: "ammo",
   grenade: "grenade",
   spyGear: "spy gear",
   intel: "intel",
-  bulletproofVest: "bulletproof vest",
+  vest: "Vesta",
   bazooka: "bazooka",
-  securityCameras: "security camera",
+  cameras: "Kamery",
   alarm: "alarm module"
 });
+
+function normalizeCityEventRewards(reward = {}) {
+  return Object.entries(reward || {}).reduce((normalized, [rawKey, rawValue]) => {
+    const key = CITY_EVENT_REWARD_ALIASES[rawKey] || rawKey;
+    normalized[key] = Math.max(0, Math.floor(Number(normalized[key] || 0) + Number(rawValue || 0)));
+    return normalized;
+  }, {});
+}
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -44,7 +67,7 @@ function formatRewardEntry(resourceKey, amount) {
   const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
   if (!safeAmount) return "";
   const label = rewardLabels[resourceKey] || resourceKey;
-  if (resourceKey === "cash" || resourceKey === "dirtyCash") {
+  if (resourceKey === "cash" || resourceKey === "dirty-cash") {
     return `+${safeAmount.toLocaleString("cs-CZ")} ${label}`;
   }
   return `+${safeAmount} ${label}`;
@@ -52,7 +75,8 @@ function formatRewardEntry(resourceKey, amount) {
 
 function mapCityEventsToTasks(eventPool, agentKey) {
   return (Array.isArray(eventPool) ? eventPool : []).map((event) => {
-    const rewardEntries = Object.entries(event.reward || {})
+    const reward = normalizeCityEventRewards(event.reward);
+    const rewardEntries = Object.entries(reward)
       .map(([key, value]) => formatRewardEntry(key, value))
       .filter(Boolean);
     const heatRisk = Math.max(0, Math.floor(Number(event?.risk?.heat || 0)));
@@ -62,7 +86,7 @@ function mapCityEventsToTasks(eventPool, agentKey) {
       giver: String(event.giver || "").trim(),
       title: event.title,
       desc: event.text,
-      reward: { ...(event.reward || {}) },
+      reward,
       gains: rewardEntries,
       risk: heatRisk > 0 ? `Heat +${heatRisk}` : "",
       successRate: Math.max(0, Math.min(100, Math.floor(Number(event.successRate || 0)))),
@@ -291,8 +315,8 @@ function createCityEventStreetNewsPayload(task, run) {
   const remainingSec = Math.max(0, Math.ceil((Number(run?.endsAt || 0) - Date.now()) / 1000));
   return {
     tone: "is-specialty-financial",
-    title: `City Event spuštěn: ${String(task?.title || "City Event").trim()}`,
-    taskTitle: String(task?.title || "City Event").trim(),
+    title: `Demo event spuštěn: ${String(task?.title || "Demo event").trim()}`,
+    taskTitle: String(task?.title || "Demo event").trim(),
     badge: "Probíhající úkol",
     liveRowsKind: "city_event",
     refreshMs: 1000,
@@ -318,7 +342,7 @@ function createCityEventStreetNewsPayload(task, run) {
 }
 
 function createCityEventResultStreetNewsPayload(task, run, wasSuccess, outcomeLine, appliedRewards = []) {
-  const title = String(task?.title || "City Event").trim();
+  const title = String(task?.title || "Demo event").trim();
   const giver = String(task?.giver || AGENTS[task?.agentKey || ""]?.name || "-").trim();
   const gains = Array.isArray(appliedRewards) ? appliedRewards.filter(Boolean) : [];
   const possibleGains = Array.isArray(task?.gains) ? task.gains.filter(Boolean) : [];
@@ -330,7 +354,7 @@ function createCityEventResultStreetNewsPayload(task, run, wasSuccess, outcomeLi
 
   return {
     tone: wasSuccess ? "success is-specialty-financial" : "is-specialty-arrests",
-    title: `City Event dokončen: ${title}`,
+    title: `Demo event dokončen: ${title}`,
     taskTitle: title,
     badge: statusLabel,
     syncToBuildingAction: false,
@@ -425,23 +449,22 @@ function applyEventRewardsToPlayerState(root, task) {
         case "cash":
           nextSession.economy.cleanMoney = Math.max(0, Math.floor(Number(nextSession.economy.cleanMoney || 0) + amount));
           break;
-        case "dirtyCash":
+        case "dirty-cash":
           nextSession.economy.dirtyMoney = Math.max(0, Math.floor(Number(nextSession.economy.dirtyMoney || 0) + amount));
           break;
         case "influence":
           nextInfluence += amount;
           break;
-        case "metalParts":
+        case "metal-parts":
           nextSession.inventory.factorySupplies.metalParts = Math.max(0, Math.floor(Number(nextSession.inventory.factorySupplies.metalParts || 0) + amount));
           break;
-        case "techCore":
+        case "tech-core":
           nextSession.inventory.factorySupplies.techCore = Math.max(0, Math.floor(Number(nextSession.inventory.factorySupplies.techCore || 0) + amount));
           break;
-        case "chemical":
         case "chemicals":
           nextSession.inventory.materials.chemicals = Math.max(0, Math.floor(Number(nextSession.inventory.materials.chemicals || 0) + amount));
           break;
-        case "streetPistol":
+        case "pistol":
           nextSession.inventory.weapons.pistol = Math.max(0, Math.floor(Number(nextSession.inventory.weapons.pistol || 0) + amount));
           break;
         case "grenade":
@@ -453,25 +476,25 @@ function applyEventRewardsToPlayerState(root, task) {
         case "bazooka":
           nextSession.inventory.weapons.bazooka = Math.max(0, Math.floor(Number(nextSession.inventory.weapons.bazooka || 0) + amount));
           break;
-        case "bulletproofVest":
+        case "vest":
           nextSession.inventory.weapons.vest = Math.max(0, Math.floor(Number(nextSession.inventory.weapons.vest || 0) + amount));
           break;
-        case "securityCameras":
+        case "cameras":
           nextSession.inventory.weapons.cameras = Math.max(0, Math.floor(Number(nextSession.inventory.weapons.cameras || 0) + amount));
           break;
         case "alarm":
           nextSession.inventory.weapons.alarm = Math.max(0, Math.floor(Number(nextSession.inventory.weapons.alarm || 0) + amount));
           break;
-        case "neonViper":
+        case "neon-dust":
           nextSession.inventory.drugs["neon-dust"] = Math.max(0, Math.floor(Number(nextSession.inventory.drugs["neon-dust"] || 0) + amount));
           break;
-        case "velvetSmoke":
+        case "velvet-smoke":
           nextSession.inventory.drugs["velvet-smoke"] = Math.max(0, Math.floor(Number(nextSession.inventory.drugs["velvet-smoke"] || 0) + amount));
           break;
-        case "ghostSerum":
+        case "ghost-serum":
           nextSession.inventory.drugs["ghost-serum"] = Math.max(0, Math.floor(Number(nextSession.inventory.drugs["ghost-serum"] || 0) + amount));
           break;
-        case "overdriveX":
+        case "overdrive-x":
           nextSession.inventory.drugs["overdrive-x"] = Math.max(0, Math.floor(Number(nextSession.inventory.drugs["overdrive-x"] || 0) + amount));
           break;
         case "ammo":
@@ -500,7 +523,10 @@ function initCityEventsRuntime() {
   if (!root) return;
 
   const diagnostics = window.empireStreetsRuntimeDiagnostics || null;
-  const shouldRunLocalCityEvents = () => diagnostics?.shouldRunLocalTick?.() ?? false;
+  const shouldRunLocalCityEvents = () => getGameplayExecutionMode({
+    windowRef: window,
+    diagnosticsMode: diagnostics?.getSummary?.().runtimeMode
+  }) === GAMEPLAY_EXECUTION_MODES.localDemo;
 
   const openBtn = document.getElementById("city-events-open");
   const modal = document.getElementById("events-modal");
@@ -671,6 +697,7 @@ function initCityEventsRuntime() {
   };
 
   const openModal = () => {
+    if (!shouldRunLocalCityEvents()) return;
     syncAgentUnlockBadges();
     agentButtons.forEach((btn) => btn.classList.remove("is-active"));
     if (agentName) agentName.textContent = "Vyber postavu";
@@ -729,7 +756,7 @@ function initCityEventsRuntime() {
       tone: "event",
       title: resultPayload.title,
       summary: resultPayload.summary,
-      meta: wasSuccess ? "Výsledek city eventu a zisk" : "Výsledek city eventu"
+      meta: wasSuccess ? "Výsledek demo eventu a zisk" : "Výsledek demo eventu"
     }, { syncPreview: true, forceLog: true });
 
     if (selectedAgentKey) {
@@ -779,7 +806,7 @@ function initCityEventsRuntime() {
     appendBuildingActionResultEntry(root, "police", newsPayload, {
       id: `city-event-start-${taskId}-${runEntry.startedAt}`,
       tone: "event",
-      title: `City Event spuštěn: ${task.title}`,
+      title: `Demo event spuštěn: ${task.title}`,
       summary: newsPayload.summary,
       meta: `${newsPayload.giver} · zbývá ${durationSec}s`
     }, { syncPreview: true, forceLog: true });
@@ -929,6 +956,10 @@ function initCityEventsRuntime() {
   };
   const restartLocalTimers = () => {
     stopLocalTimers();
+    const available = shouldRunLocalCityEvents();
+    openBtn.hidden = !available;
+    openBtn.setAttribute("aria-hidden", available ? "false" : "true");
+    if (!available && !modal.classList.contains("hidden")) closeModal();
     startLocalTimers();
   };
   const handleVisibilityChange = () => {
@@ -945,7 +976,7 @@ function initCityEventsRuntime() {
     document.removeEventListener("visibilitychange", handleVisibilityChange);
     window.removeEventListener("empire:mobile-performance-mode-changed", restartLocalTimers);
   }, { once: true });
-  startLocalTimers();
+  restartLocalTimers();
 }
 
 if (typeof document !== "undefined") {

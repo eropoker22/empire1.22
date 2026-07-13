@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createProductionBuildingPopupRuntime } from "../../page-assets/js/app/runtime/productionBuildingPopupRuntime.js";
 import {
+  ARMORY_RECIPES,
   DRUGLAB_RECIPES,
   PHARMACY_RECIPES
 } from "../../packages/game-config/src/legacy-page/economy-config.js";
@@ -40,6 +41,23 @@ function createRoot(elements = {}) {
 }
 
 describe("production building popup runtime", () => {
+  it("keeps all browser Armory queue caps synchronized with the canonical typed config", () => {
+    expect(Object.fromEntries(
+      Object.entries(ARMORY_RECIPES).map(([recipeId, recipe]) => [recipeId, recipe.queueCap])
+    )).toEqual({
+      "baseball-bat": 6,
+      pistol: 4,
+      grenade: 4,
+      smg: 3,
+      bazooka: 2,
+      vest: 4,
+      barricades: 5,
+      cameras: 4,
+      "defense-tower": 2,
+      alarm: 4
+    });
+  });
+
   it("keeps production slot labels stable", () => {
     const runtime = createProductionBuildingPopupRuntime();
 
@@ -65,7 +83,7 @@ describe("production building popup runtime", () => {
       getProductionBuildingMultiplier: () => 1,
       getProductionJob: () => null,
       getArmoryRecipeStrengthPreview: vi.fn(() => ({ label: "Síla útoku", basePower: 10, bonusLabel: "+0.8" })),
-      getResolvedEconomyState: () => ({ cleanMoney: 100 }),
+      getResolvedEconomyState: () => ({ cleanMoney: 1000 }),
       getScaledProductionInputs,
       getStoredProductionBuildingState: () => ({ level: 1 }),
       hasEnoughMaterials: () => true,
@@ -80,23 +98,23 @@ describe("production building popup runtime", () => {
       '[data-production-panel="pharmacy"]': {}
     });
     expect(runtime.renderProductionPanel(root, "pharmacy", {
-      tonic: {
-        cleanMoneyCost: 5,
+      chemicals: {
+        cleanMoneyCost: 360,
         durationMs: 1000,
-        inputs: { chemicals: 1 },
-        output: { inventory: "drugs", itemId: "meds", amount: 20 }
+        inputs: {},
+        output: { inventory: "materials", itemId: "chemicals", amount: 1 }
       }
     })).toBe(true);
 
     recipeCallbacks.onStart({ batchCount: 2 });
 
     expect(renderProductionPanelUi).toHaveBeenCalledTimes(2);
-    expect(setStoredEconomyState).toHaveBeenCalledWith({ cleanMoney: 90 });
-    expect(persistProductionJob).toHaveBeenCalledWith("pharmacy:tonic", expect.objectContaining({
+    expect(setStoredEconomyState).toHaveBeenCalledWith({ cleanMoney: 280 });
+    expect(persistProductionJob).toHaveBeenCalledWith("pharmacy:chemicals", expect.objectContaining({
       status: "running",
       quantity: 2,
-      inputs: { chemicals: 2 },
-      cleanMoneyCost: 10,
+      inputs: {},
+      cleanMoneyCost: 720,
       output: expect.objectContaining({ amount: 2 })
     }));
   });
@@ -114,7 +132,7 @@ describe("production building popup runtime", () => {
       getInventoryAmount: () => 10,
       getProductionBuildingMultiplier: () => 1,
       getProductionJob: () => null,
-      getResolvedEconomyState: () => ({ cleanMoney: 100 }),
+      getResolvedEconomyState: () => ({ cleanMoney: 1000 }),
       getScaledProductionInputs: vi.fn(),
       getStoredProductionBuildingState: () => ({ level: 1 }),
       hasEnoughMaterials: () => true,
@@ -142,7 +160,7 @@ describe("production building popup runtime", () => {
       root,
       "warning",
       "Budova",
-      expect.stringContaining("serverový production/craft flow")
+      expect.stringContaining("nedostupná")
     );
   });
 
@@ -732,9 +750,10 @@ describe("production building popup runtime", () => {
     expect(upgradeButton.disabled).toBe(true);
   });
 
-  it("cancels pharmacy production and refunds queued costs", () => {
+  it("cancels only the waiting Pharmacy unit and preserves the active reservation", () => {
     const recipeCallbacks = {};
     const clearProductionJob = vi.fn();
+    const persistProductionJob = vi.fn();
     const setInventoryAmount = vi.fn();
     const setStoredEconomyState = vi.fn();
     const renderRecipeCard = vi.fn((viewModel, callbacks) => {
@@ -744,22 +763,23 @@ describe("production building popup runtime", () => {
     const runtime = createProductionBuildingPopupRuntime({
       applyTopbarEconomy: vi.fn(),
       clearProductionJob,
-      getInventoryAmount: vi.fn((inventory, itemId) => itemId === "chemicals" ? 6 : 0),
+      getInventoryAmount: vi.fn(() => 0),
       getProductionBuildingMultiplier: () => 1,
       getProductionJob: () => ({
         status: "running",
         quantity: 2,
-        inputs: { chemicals: 4 },
-        cleanMoneyCost: 10,
-        output: { inventory: "drugs", itemId: "meds", amount: 2 },
+        inputs: {},
+        cleanMoneyCost: 720,
+        output: { inventory: "materials", itemId: "chemicals", amount: 2 },
         durationMs: 2000
       }),
-      getResolvedEconomyState: () => ({ cleanMoney: 90 }),
+      getResolvedEconomyState: () => ({ cleanMoney: 280 }),
       getScaledProductionInputs: vi.fn((inputs, count) => Object.fromEntries(
         Object.entries(inputs || {}).map(([itemId, amount]) => [itemId, Number(amount || 0) * count])
       )),
       getStoredProductionBuildingState: () => ({ level: 1 }),
       hasEnoughMaterials: () => true,
+      persistProductionJob,
       renderProductionPanelUi: vi.fn(() => true),
       renderRecipeCard,
       setInventoryAmount,
@@ -771,19 +791,25 @@ describe("production building popup runtime", () => {
       '[data-production-panel="pharmacy"]': {}
     });
     runtime.renderProductionPanel(root, "pharmacy", {
-      tonic: {
-        cleanMoneyCost: 5,
+      chemicals: {
+        cleanMoneyCost: 360,
         durationMs: 1000,
-        inputs: { chemicals: 2 },
-        output: { inventory: "drugs", itemId: "meds", amount: 1 }
+        inputs: {},
+        output: { inventory: "materials", itemId: "chemicals", amount: 1 }
       }
     });
 
     recipeCallbacks.onStop();
 
-    expect(setInventoryAmount).toHaveBeenCalledWith("materials", "chemicals", 10);
-    expect(setStoredEconomyState).toHaveBeenCalledWith({ cleanMoney: 100 });
-    expect(clearProductionJob).toHaveBeenCalledWith("pharmacy:tonic");
+    expect(setInventoryAmount).not.toHaveBeenCalled();
+    expect(setStoredEconomyState).toHaveBeenCalledWith({ cleanMoney: 640 });
+    expect(persistProductionJob).toHaveBeenCalledWith("pharmacy:chemicals", expect.objectContaining({
+      quantity: 1,
+      inputs: {},
+      cleanMoneyCost: 360,
+      output: expect.objectContaining({ amount: 1 })
+    }));
+    expect(clearProductionJob).not.toHaveBeenCalled();
   });
 
   it("collects a ready slot before starting a new production batch", () => {
@@ -807,7 +833,7 @@ describe("production building popup runtime", () => {
         output: { inventory: "materials", itemId: "chemicals", amount: 2 },
         durationMs: 2000
       }),
-      getResolvedEconomyState: () => ({ cleanMoney: 100 }),
+      getResolvedEconomyState: () => ({ cleanMoney: 1000 }),
       getScaledProductionInputs: (inputs, count) => Object.fromEntries(
         Object.entries(inputs || {}).map(([itemId, amount]) => [itemId, Number(amount || 0) * count])
       ),
@@ -825,9 +851,10 @@ describe("production building popup runtime", () => {
     });
     runtime.renderProductionPanel(root, "pharmacy", {
       chemicals: {
+        cleanMoneyCost: 360,
         durationMs: 1000,
-        inputs: { biomass: 1 },
-        output: { inventory: "materials", itemId: "chemicals", amount: 20 }
+        inputs: {},
+        output: { inventory: "materials", itemId: "chemicals", amount: 1 }
       }
     });
 
@@ -856,7 +883,7 @@ describe("production building popup runtime", () => {
         buildingId: "building:drug-lab:1",
         cleanCashAmount: 1000,
         lines: [{
-          recipeId: "dust",
+          recipeId: "neon-dust",
           resourceKey: "neon-dust",
           label: "Neon Dust",
           unitCleanCashCost: 500,
@@ -875,10 +902,10 @@ describe("production building popup runtime", () => {
       '[data-production-panel="druglab"]': {}
     });
     runtime.renderProductionPanel(root, "druglab", {
-      dust: {
+      "neon-dust": {
         durationMs: 1000,
-        inputs: { chemicals: 3, biomass: 2 },
-        output: { inventory: "drugs", itemId: "neon-dust", amount: 6 }
+        inputs: { chemicals: 2 },
+        output: { inventory: "drugs", itemId: "neon-dust", amount: 1 }
       }
     });
 
@@ -886,7 +913,7 @@ describe("production building popup runtime", () => {
 
     expect(submitServerDrugLabCommand).toHaveBeenCalledWith({
       type: "craft-item",
-      payload: { districtId: "district:1", buildingId: "building:drug-lab:1", recipeId: "dust", quantity: 2 }
+      payload: { districtId: "district:1", buildingId: "building:drug-lab:1", recipeId: "neon-dust", quantity: 2 }
     });
   });
 
@@ -964,8 +991,8 @@ describe("production building popup runtime", () => {
     runtime.renderProductionPanel(root, "druglab", {
       "pulse-shot": {
         durationMs: 1000,
-        inputs: { chemicals: 2, "stim-pack": 1 },
-        output: { inventory: "drugs", itemId: "pulse-shot", amount: 5 }
+        inputs: { chemicals: 2, biomass: 1 },
+        output: { inventory: "drugs", itemId: "pulse-shot", amount: 1 }
       }
     });
 
@@ -976,20 +1003,21 @@ describe("production building popup runtime", () => {
       root,
       "warning",
       "Budova",
-      expect.stringContaining("serverový production/craft flow")
+      expect.stringContaining("nedostupná")
     );
   });
 
-  it("queues armory output by selected pieces and caps at 15", () => {
+  it("uses the canonical Armory queue cap and rejects an oversized start atomically", () => {
     const recipeCallbacks = {};
+    const consumeMaterials = vi.fn();
     const persistProductionJob = vi.fn();
+    const setBuildingActionFeedback = vi.fn();
     const renderRecipeCard = vi.fn((viewModel, callbacks) => {
       Object.assign(recipeCallbacks, callbacks);
       return { viewModel };
     });
     const runtime = createProductionBuildingPopupRuntime({
-      PRODUCTION_BUILDING_CONFIG: { armory: { outputCap: 15 } },
-      consumeMaterials: vi.fn(),
+      consumeMaterials,
       getInventoryAmount: () => 100,
       getProductionBuildingMultiplier: () => 1,
       getProductionJob: () => null,
@@ -1003,6 +1031,7 @@ describe("production building popup runtime", () => {
       renderProductionPanelUi: vi.fn(() => true),
       renderRecipeCard,
       scheduleProductionJob: vi.fn(),
+      setBuildingActionFeedback,
       syncCompletedProductionJobs: vi.fn()
     });
 
@@ -1013,7 +1042,9 @@ describe("production building popup runtime", () => {
       bat: {
         durationMs: 1000,
         inputs: { "metal-parts": 2 },
-        output: { inventory: "weapons", itemId: "baseball-bat", amount: 5 }
+        output: { inventory: "weapons", itemId: "baseball-bat", amount: 1 },
+        localOutputCap: 8,
+        queueCap: 6
       }
     });
 
@@ -1028,15 +1059,17 @@ describe("production building popup runtime", () => {
     }));
 
     persistProductionJob.mockClear();
+    consumeMaterials.mockClear();
     recipeCallbacks.onStart({ batchCount: 20 });
 
-    expect(persistProductionJob).toHaveBeenCalledWith("armory:bat", expect.objectContaining({
-      status: "running",
-      quantity: 15,
-      inputs: { "metal-parts": 30 },
-      output: expect.objectContaining({ amount: 15 }),
-      durationMs: 15000
-    }));
+    expect(persistProductionJob).not.toHaveBeenCalled();
+    expect(consumeMaterials).not.toHaveBeenCalled();
+    expect(setBuildingActionFeedback).toHaveBeenCalledWith(
+      root,
+      "warning",
+      "Budova",
+      expect.stringContaining("celé zvolené množství")
+    );
   });
 
   it("passes recruitment strength preview into armory recipe cards", () => {
@@ -1078,7 +1111,7 @@ describe("production building popup runtime", () => {
     );
   });
 
-  it("applies special building count to queue cap and warehouse count to output cap", () => {
+  it("does not scale Armory queue or output caps with Armory or Warehouse count", () => {
     const recipeCallbacks = {};
     const persistProductionJob = vi.fn();
     const renderedCards = [];
@@ -1088,7 +1121,6 @@ describe("production building popup runtime", () => {
       return { viewModel };
     });
     const runtime = createProductionBuildingPopupRuntime({
-      PRODUCTION_BUILDING_CONFIG: { armory: { outputCap: 15 } },
       consumeMaterials: vi.fn(),
       getInventoryAmount: () => 100,
       getOwnedArmoryCount: () => 3,
@@ -1105,6 +1137,7 @@ describe("production building popup runtime", () => {
       renderProductionPanelUi: vi.fn(() => true),
       renderRecipeCard,
       scheduleProductionJob: vi.fn(),
+      setBuildingActionFeedback: vi.fn(),
       syncCompletedProductionJobs: vi.fn()
     });
 
@@ -1115,26 +1148,22 @@ describe("production building popup runtime", () => {
       bat: {
         durationMs: 1000,
         inputs: { "metal-parts": 2 },
-        output: { inventory: "weapons", itemId: "baseball-bat", amount: 1 }
+        output: { inventory: "weapons", itemId: "baseball-bat", amount: 1 },
+        localOutputCap: 8,
+        queueCap: 6
       }
     });
 
     expect(renderedCards[0]).toMatchObject({
-      outputCap: 25,
-      queueCap: 23,
-      maxBatches: 23,
-      maxSelectableBatches: 23
+      outputCap: 8,
+      queueCap: 6,
+      maxBatches: 6,
+      maxSelectableBatches: 6
     });
 
     recipeCallbacks.onStart({ batchCount: 99 });
 
-    expect(persistProductionJob).toHaveBeenCalledWith("armory:bat", expect.objectContaining({
-      status: "running",
-      quantity: 23,
-      inputs: { "metal-parts": 46 },
-      output: expect.objectContaining({ amount: 23 }),
-      durationMs: 23000
-    }));
+    expect(persistProductionJob).not.toHaveBeenCalled();
   });
 
   it("handles missing popup DOM without crashing", () => {

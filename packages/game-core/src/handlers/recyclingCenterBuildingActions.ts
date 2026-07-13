@@ -1,5 +1,5 @@
 import type { PlayerSalvagePoolEntry } from "@empire/shared-types";
-import type { FixedBuildingBalanceConfig, PowerStationBalanceConfig, RecyclingCenterBalanceConfig, WarehouseBalanceConfig } from "../contracts";
+import type { FixedBuildingBalanceConfig, RecyclingCenterBalanceConfig, WarehouseBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import { getWarehouseCapacityForResource, resolveWarehouseStorageCapacity } from "./warehouseBuilding";
 import type {
@@ -126,7 +126,6 @@ export const resolveRecyclingCenterAction = (input: {
   balances: Record<string, number>;
   recyclingCenterConfig: RecyclingCenterBalanceConfig;
   warehouseConfig?: WarehouseBalanceConfig;
-  powerStationConfig?: PowerStationBalanceConfig;
   tickRateMs: number;
   random?: () => number;
 }): RecyclingCenterActionResolution | null => {
@@ -156,7 +155,7 @@ export const resolveRecyclingCenterAction = (input: {
   const recoveredByCategory: Record<string, number> = {};
   const lostByCapacity: Record<string, number> = {};
   const capacity = input.warehouseConfig
-    ? resolveWarehouseStorageCapacity(input.state, input.playerId, input.warehouseConfig, input.powerStationConfig)
+    ? resolveWarehouseStorageCapacity(input.state, input.playerId, input.warehouseConfig)
     : null;
   const rate = stats.salvageRatePct / 100;
 

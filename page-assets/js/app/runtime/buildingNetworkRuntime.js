@@ -26,14 +26,31 @@ export function createBuildingNetworkRuntime(deps = {}) {
     return Number.isFinite(normalized) ? Math.max(0, normalized) : 0;
   };
 
+  const isActiveBuilding = (building) => String(building?.status || "active").trim().toLowerCase() === "active";
+
   const countActualOwnedBuildingByBaseName = (baseName) => {
     const ownedDistrictIds = getOwnedDistrictIdsForBuildingCounts();
     return deps.getDistrictResourceCatalog().reduce((count, district) => {
       if (!ownedDistrictIds.has(Number(district.id))) return count;
       const profile = deps.resolveDistrictBuildingProfile(district);
       return count + (profile?.buildings || []).reduce((total, building) => (
-        deps.normalizeBuildingLookupKey(building.baseName) === baseName ? total + 1 : total
+        isActiveBuilding(building) && deps.normalizeBuildingLookupKey(building.baseName) === baseName ? total + 1 : total
       ), 0);
+    }, 0);
+  };
+
+  const getHighestActualOwnedBuildingLevelByBaseName = (baseName) => {
+    const ownedDistrictIds = getOwnedDistrictIdsForBuildingCounts();
+    return deps.getDistrictResourceCatalog().reduce((highest, district) => {
+      if (!ownedDistrictIds.has(Number(district.id))) return highest;
+      const profile = deps.resolveDistrictBuildingProfile(district);
+      return (profile?.buildings || []).reduce((buildingHighest, building) => {
+        if (!isActiveBuilding(building) || deps.normalizeBuildingLookupKey(building.baseName) !== baseName) {
+          return buildingHighest;
+        }
+        const level = Math.max(1, Math.floor(Number(deps.getBuildingLevel?.(district, building) ?? building.level ?? 1)));
+        return Math.max(buildingHighest, level);
+      }, highest);
     }, 0);
   };
 
@@ -254,34 +271,52 @@ export function createBuildingNetworkRuntime(deps = {}) {
       incomeMultiplier: Math.min(config.maxIncomeMultiplier, 1 + extra * config.incomeBonusPctPerExtraSchool / 100)
     };
   };
-  const getOwnedWarehouseCount = () => {
-    const actualCount = countActualOwnedBuildingByBaseName("sklad") + countActualOwnedBuildingByBaseName("skladiste");
-    const availableCount = countAvailableBuildingByBaseName("sklad") + countAvailableBuildingByBaseName("skladiste");
-    const visibleCount = Math.max(actualCount, getMinimumOwnedBuildingCountByBaseName("skladiste", deps.getResolvedWorldState()));
-    return availableCount > 0 ? Math.min(visibleCount, availableCount) : 0;
-  };
+  const getOwnedWarehouseCount = () => (
+    countActualOwnedBuildingByBaseName("sklad") + countActualOwnedBuildingByBaseName("skladiste")
+  );
   const getWarehouseNetworkMultipliers = (count = getOwnedWarehouseCount()) => {
     const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
     const config = deps.warehouseNetworkConfig;
+    const storageConfig = deps.warehouseStorageConfig;
+    const safeCount = Math.max(0, Math.floor(Number(count || 0)));
+    const countKey = Math.min(5, safeCount);
+    const highestLevel = safeCount > 0
+      ? Math.max(1, Math.min(4, Math.max(
+          getHighestActualOwnedBuildingLevelByBaseName("sklad"),
+          getHighestActualOwnedBuildingLevelByBaseName("skladiste")
+        )))
+      : 0;
+    const countMultiplier = Number(storageConfig?.warehouseCountMultipliers?.[countKey] || 1);
+    const levelMultiplier = highestLevel > 0
+      ? Number(storageConfig?.warehouseLevelMultipliers?.[highestLevel] || 1)
+      : 1;
     return {
       incomeMultiplier: Math.min(config.maxIncomeMultiplier, 1 + extra * config.incomeBonusPctPerExtraWarehouse / 100),
-      storageCapacityMultiplier: Math.min(config.maxStorageCapacityMultiplier, 1 + extra * config.storageCapacityBonusPctPerExtraWarehouse / 100),
+      storageCapacityMultiplier: countMultiplier * levelMultiplier,
+      warehouseCountMultiplier: countMultiplier,
+      warehouseLevelMultiplier: levelMultiplier,
+      highestLevel,
       heatMultiplier: Math.min(config.maxHeatMultiplier, 1 + extra * config.heatBonusPctPerExtraWarehouse / 100)
     };
   };
   const getWarehouseCapacityBreakdown = (count = getOwnedWarehouseCount()) => {
     const network = getWarehouseNetworkMultipliers(count);
-    const scale = (value) => Math.floor(Math.max(0, count) * Number(value || 0) * network.storageCapacityMultiplier);
-    const capacities = deps.warehouseBaseStorageCapacities;
+    const groups = Object.fromEntries(Object.entries(deps.warehouseStorageConfig?.groups || {}).map(([groupId, group]) => [
+      groupId,
+      Math.ceil(Number(group.baseCapacity || 0) * network.warehouseCountMultiplier * network.warehouseLevelMultiplier)
+    ]));
+    const byResource = {};
+    for (const [groupId, group] of Object.entries(deps.warehouseStorageConfig?.groups || {})) {
+      for (const resourceKey of group.resourceKeys || []) {
+        byResource[resourceKey] = groups[groupId];
+      }
+    }
     return {
-      genericResources: scale(capacities.genericResources),
-      chemicals: scale(capacities.chemicals),
-      biomass: scale(capacities.biomass),
-      metalParts: scale(capacities.metalParts),
-      techCore: scale(capacities.techCore),
-      combatModule: scale(capacities.combatModule),
-      drugsAndBoosts: scale(capacities.drugsAndBoosts),
-      weaponsAndDefense: scale(capacities.weaponsAndDefense)
+      groups,
+      byResource,
+      bulk: groups.bulk || 0,
+      tactical: groups.tactical || 0,
+      strategic: groups.strategic || 0
     };
   };
   const getWarehouseStorageUsage = (capacity = getWarehouseCapacityBreakdown()) => {
@@ -290,36 +325,34 @@ export function createBuildingNetworkRuntime(deps = {}) {
     const drugs = deps.getStoredDrugInventory();
     const weapons = deps.getStoredWeaponInventory();
     const value = (source, key) => Math.max(0, Math.floor(Number(source?.[key] || 0)));
-    return {
-      chemicals: value(materials, "chemicals"),
-      biomass: value(materials, "biomass"),
-      metalParts: value(supplies, "metalParts") + value(materials, "metal-parts"),
-      techCore: value(supplies, "techCore") + value(materials, "tech-core"),
-      combatModule: value(supplies, "combatModule") + value(materials, "combat-module"),
-      drugsAndBoosts: Object.values(drugs || {}).reduce((total, amount) => total + Math.max(0, Math.floor(Number(amount || 0))), value(materials, "stim-pack")),
-      weaponsAndDefense: Object.values(weapons || {}).reduce((total, amount) => total + Math.max(0, Math.floor(Number(amount || 0))), 0),
-      genericResources: Object.values(materials || {}).reduce((total, amount) => total + Math.max(0, Math.floor(Number(amount || 0))), 0),
-      capacity
-    };
+    const byResource = {};
+    for (const resourceKey of Object.keys(capacity.byResource || {})) {
+      byResource[resourceKey] = resourceKey === "metal-parts"
+        ? value(supplies, "metalParts") + value(materials, resourceKey)
+        : resourceKey === "tech-core"
+          ? value(supplies, "techCore") + value(materials, resourceKey)
+          : resourceKey === "combat-module"
+            ? value(supplies, "combatModule") + value(materials, resourceKey)
+            : Object.prototype.hasOwnProperty.call(weapons, resourceKey)
+              ? value(weapons, resourceKey)
+              : Object.prototype.hasOwnProperty.call(drugs, resourceKey)
+                ? value(drugs, resourceKey)
+                : value(materials, resourceKey);
+    }
+    return { byResource, capacity };
   };
   const getWarehouseCapacityWarnings = (usage) => {
-    const capacities = usage?.capacity || {};
-    const pairs = [
-      ["chemicals", usage.chemicals, capacities.chemicals],
-      ["biomass", usage.biomass, capacities.biomass],
-      ["metalParts", usage.metalParts, capacities.metalParts],
-      ["techCore", usage.techCore, capacities.techCore],
-      ["combatModule", usage.combatModule, capacities.combatModule],
-      ["drugsAndBoosts", usage.drugsAndBoosts, capacities.drugsAndBoosts],
-      ["weaponsAndDefense", usage.weaponsAndDefense, capacities.weaponsAndDefense],
-      ["genericResources", usage.genericResources, capacities.genericResources]
-    ];
+    const pairs = Object.entries(usage?.capacity?.byResource || {}).map(([resourceKey, cap]) => [
+      resourceKey,
+      usage?.byResource?.[resourceKey] || 0,
+      cap
+    ]);
     const full = pairs.some(([, current, cap]) => Number(cap || 0) > 0 && Number(current || 0) >= Number(cap || 0));
     const near = pairs.some(([, current, cap]) => Number(cap || 0) > 0 && Number(current || 0) >= Number(cap || 0) * 0.85);
     return [
-      near && !full ? "Zásoby ve skladištích se blíží maximu." : "",
-      full ? "Skladiště je plné. Produkce některých surovin je pozastavena." : "",
-      near || full ? "Získej další skladiště nebo spotřebuj zásoby." : ""
+      near && !full ? "Některá položka v globálním SKLADU se blíží maximu." : "",
+      full ? "Některá položka v globálním SKLADU je plná." : "",
+      near || full ? "Získej další Skladiště nebo spotřebuj konkrétní položku." : ""
     ].filter(Boolean);
   };
 

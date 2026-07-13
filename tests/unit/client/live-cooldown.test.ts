@@ -55,13 +55,13 @@ const createCooldownSlice = (): GameplaySliceView => ({
     availableOccupyTargetCount: 0,
     cooldowns: [{
       commandType: "run-building-action",
-      targetId: "building:armory:1:armory_fortify",
+      targetId: "building:restaurant:1:restaurant_collect_revenue",
       remainingTicks: 3,
       reason: "Cooldown 3 ticks."
     }],
     disabledReasons: [{
       commandType: "run-building-action",
-      targetId: "building:armory:1:armory_fortify",
+      targetId: "building:restaurant:1:restaurant_collect_revenue",
       reason: "Cooldown 3 ticks."
     }]
   },
@@ -80,21 +80,21 @@ const createCooldownSlice = (): GameplaySliceView => ({
     filledSlotCount: 1,
     buildings: [
       {
-        buildingId: "building:armory:1",
-        buildingTypeId: "armory",
-        label: "Zbrojovka",
-        displayName: "Iron Ward",
-        variantName: "Iron Ward",
-        zone: "industrial",
-        role: "Defense",
-        info: "Defense building.",
+        buildingId: "building:restaurant:1",
+        buildingTypeId: "restaurant",
+        label: "Restaurace",
+        displayName: "Restaurace",
+        variantName: "Restaurace",
+        zone: "downtown",
+        role: "Cashflow",
+        info: "Vybírá lokální tržby.",
         stats: [],
         specialActions: [
           {
-            actionId: "armory_fortify",
-            label: "Fortify",
-            description: "Adds defenses.",
-            effectSummary: "+defense",
+            actionId: "restaurant_collect_revenue",
+            label: "Vybrat tržby",
+            description: "Vybere lokální tržby.",
+            effectSummary: "+cash",
             durationMs: 5000,
             cooldownMs: 10000,
             cooldownRemainingTicks: 3,
@@ -106,15 +106,15 @@ const createCooldownSlice = (): GameplaySliceView => ({
         level: 1,
         status: "active",
         actionCooldowns: {
-          armory_fortify: 4
+          restaurant_collect_revenue: 4
         },
         actions: [
           {
-            buildingId: "building:armory:1",
-            buildingTypeId: "armory",
-            actionId: "armory_fortify",
-            label: "Fortify",
-            description: "Adds defenses.",
+            buildingId: "building:restaurant:1",
+            buildingTypeId: "restaurant",
+            actionId: "restaurant_collect_revenue",
+            label: "Vybrat tržby",
+            description: "Vybere lokální tržby.",
             status: "cooldown",
             cost: {},
             expectedEffectSummary: [],
@@ -127,7 +127,7 @@ const createCooldownSlice = (): GameplaySliceView => ({
             outputGain: {},
             heatGain: 1,
             influenceChange: 0,
-            reportText: "Fortified.",
+            reportText: "Tržby byly vybrány.",
             enabled: false,
             disabledReason: "Cooldown 3 ticks."
           }
@@ -148,7 +148,7 @@ describe("live cooldown labels", () => {
       createCooldownSlice(),
       {
         selectedDistrictId: "district:1",
-        selectedBuildingId: "building:armory:1",
+        selectedBuildingId: "building:restaurant:1",
         activeSidePanel: "building-panel",
         activeModal: null,
         isMapFocused: false,
@@ -190,7 +190,7 @@ describe("live cooldown labels", () => {
       slice,
       {
         selectedDistrictId: "district:1",
-        selectedBuildingId: "building:armory:1",
+        selectedBuildingId: "building:restaurant:1",
         activeSidePanel: "building-panel",
         activeModal: null,
         isMapFocused: false,

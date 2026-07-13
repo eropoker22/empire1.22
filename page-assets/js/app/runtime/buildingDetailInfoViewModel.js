@@ -170,29 +170,19 @@ export function createBuildingDetailInfoRows({
     ];
   } else if (mechanics.mechanicsType === "warehouse") {
     const storage = mechanics.serverStorageSummary;
-    if (storage?.warehouseSummary) {
-      const summary = storage.warehouseSummary;
-      const groups = Array.isArray(storage.groups) ? storage.groups : [];
-      const materialRows = groups.flatMap((group) => (Array.isArray(group?.items) ? group.items : []).map((item) => (
-        createInfoLine("Materiál", `${item.label || item.resourceKey || "Položka"} ${Math.max(0, Number(item.currentAmount || 0))}/${Math.max(0, Number(item.maxAmount || 0))}`)
-      )));
-      rows.push(
-        createInfoLine("Síť skladišť", String(summary.ownedWarehouseCount)),
-        createInfoLine("Nejvyšší level", `L${summary.highestWarehouseLevel}`),
-        createInfoLine("Kapacity", groups.map((group) => `${group.label} ${group.currentCapacity} ks na položku`).join(" · ")),
-        ...materialRows,
-        createInfoLine("Pravidla", "Žádné dirty cash · žádný vliv · žádné akce · žádné praní · žádný audit")
-      );
-    } else {
-      rows.push(
-        createInfoLine("Vlastněná skladiště", `${mechanics.ownedWarehouses}/18`),
-        createInfoLine("Síťový bonus", `income ${formatMultiplierIncreasePercent(mechanics.warehouseNetwork.incomeMultiplier)} · sklad ${formatMultiplierIncreasePercent(mechanics.warehouseNetwork.storageCapacityMultiplier)} · heat ${formatMultiplierIncreasePercent(mechanics.warehouseNetwork.heatMultiplier)}`),
-        createInfoLine("Kapacity", `Chem ${mechanics.warehouseCapacity.chemicals} · bio ${mechanics.warehouseCapacity.biomass} · metal ${mechanics.warehouseCapacity.metalParts} · tech ${mechanics.warehouseCapacity.techCore}`),
-        createInfoLine("Výzbroj a balíky", `Boosty/drogy ${mechanics.warehouseCapacity.drugsAndBoosts} · zbraně/obrana ${mechanics.warehouseCapacity.weaponsAndDefense}`),
-        createInfoLine("Upozornění", mechanics.warehouseWarnings.join(" · ") || "Kapacity jsou v pořádku."),
-        createInfoLine("Pravidla", "Žádné dirty cash · žádný vliv · žádné akce · žádné praní · žádný audit")
-      );
-    }
+    const summary = storage?.warehouseSummary;
+    if (!summary) return rows;
+    const groups = Array.isArray(storage.groups) ? storage.groups : [];
+    const materialRows = groups.flatMap((group) => (Array.isArray(group?.items) ? group.items : []).map((item) => (
+      createInfoLine("Materiál", `${item.label || item.resourceKey || "Položka"} ${Math.max(0, Number(item.currentAmount || 0))}/${Math.max(0, Number(item.maxAmount || 0))}`)
+    )));
+    rows.push(
+      createInfoLine("Síť skladišť", String(summary.ownedWarehouseCount)),
+      createInfoLine("Nejvyšší level", `L${summary.highestWarehouseLevel}`),
+      createInfoLine("Kapacity", groups.map((group) => `${group.label} ${group.currentCapacity} ks na položku`).join(" · ")),
+      ...materialRows,
+      createInfoLine("Pravidla", "SKLAD je globální inventář; Skladiště pouze zvyšuje maximum každé položky.")
+    );
   } else if (mechanics.mechanicsType === "clinic") {
     return [];
   } else if (mechanics.mechanicsType === "garage") {

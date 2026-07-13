@@ -107,13 +107,38 @@ export const isLegacyGameplayFallbackAllowed = (): boolean => {
     || host.endsWith(".local");
 };
 
-export const getForcedDevelopmentRuntimeMode = (): "demo" | "legacy-fallback" | "local" | null => {
+export type SelectedGameplayRuntimeMode = "server-authoritative" | "demo" | "legacy-fallback" | "local" | null;
+
+const normalizeSelectedRuntimeMode = (value: unknown): SelectedGameplayRuntimeMode => {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (normalized === "local-demo") return "demo";
+  if (normalized === "server-authoritative" || normalized === "demo" || normalized === "legacy-fallback" || normalized === "local") {
+    return normalized;
+  }
+  return null;
+};
+
+export const getForcedDevelopmentRuntimeMode = (): SelectedGameplayRuntimeMode => {
   if (typeof window === "undefined") return null;
-  const requestedMode = window.empireStreetsRuntimeDiagnostics?.requestedMode
-    || new URLSearchParams(window.location.search).get("runtimeMode");
-  return requestedMode === "demo" || requestedMode === "legacy-fallback" || requestedMode === "local"
-    ? requestedMode
-    : null;
+  const canUseDevelopmentOverride = isLegacyGameplayFallbackAllowed();
+  let requestedMode: SelectedGameplayRuntimeMode = null;
+  if (canUseDevelopmentOverride) {
+    try {
+      requestedMode = normalizeSelectedRuntimeMode(
+        window.empireStreetsRuntimeDiagnostics?.requestedMode
+        || new URLSearchParams(window.location.search).get("runtimeMode")
+        || window.localStorage?.getItem?.("empire:demo:execution-mode:v1")
+      );
+    } catch (_error) {
+      requestedMode = null;
+    }
+  }
+  if (requestedMode) return requestedMode;
+
+  return normalizeSelectedRuntimeMode(
+    document.querySelector?.('meta[name="empire-gameplay-execution-mode"]')?.getAttribute?.("content")
+    || document.documentElement?.dataset?.gameplayExecutionMode
+  );
 };
 
 export const isGameplayDiagnosticsEnabled = (): boolean => {

@@ -292,7 +292,7 @@ Prefer extracting data and pure UI helpers first, while keeping `runtime.js` as 
 
 7. Resources/topbar rendering
    - Move topbar clean/dirty cash rendering, influence/spy pill rendering, gang member count rendering, and small resource animation helpers.
-   - Keep displayed snapshot creation, passive production simulation, heat/influence math, and spy state reads in runtime.
+   - Historical note: this step originally kept passive production simulation in runtime. Passive production for Pharmacy, Drug Lab and Factory has since been removed; current production uses the canonical production-line model.
    - Status: completed as `page-assets/js/app/ui/resourcesPanel.js`.
    - Risk: low-medium.
 

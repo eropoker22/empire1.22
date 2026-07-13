@@ -71,6 +71,12 @@ const sourceFileBudgets = [
   ["tools/debug/src/free-mode-pacing/report.ts", 252]
 ];
 const sourceFileBudgetByPath = new Map(sourceFileBudgets);
+const generatedSourceHeadersByPath = new Map([
+  [
+    "packages/game-config/src/legacy-page/gameplay-config.generated.js",
+    "// GENERATED FILE. Run `npm run generate:browser-config`; do not edit balance values here."
+  ]
+]);
 const legacyFileBudgets = [
   {
     path: "page-assets/js/app/runtime.js",
@@ -99,6 +105,13 @@ const walk = (dir) => {
     const content = fs.readFileSync(fullPath, "utf8");
     const lineCount = content.split(/\r?\n/).length;
     const relativePath = path.relative(root, fullPath).replace(/\\/g, "/");
+    const generatedHeader = generatedSourceHeadersByPath.get(relativePath);
+    if (generatedHeader !== undefined) {
+      if (!content.startsWith(generatedHeader)) {
+        violations.push(`${relativePath} is listed as generated but its generated-file header is missing`);
+      }
+      continue;
+    }
     const sourceFileBudget = sourceFileBudgetByPath.get(relativePath);
 
     if (sourceFileBudget !== undefined) {

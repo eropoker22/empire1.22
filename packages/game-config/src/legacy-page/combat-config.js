@@ -1,10 +1,4 @@
-export const ATTACK_SETUP_WEAPONS = {
-  "baseball-bat": { power: 5, residents: 1 },
-  pistol: { power: 10, residents: 1 },
-  grenade: { power: 14, residents: 1 },
-  smg: { power: 18, residents: 2 },
-  bazooka: { power: 30, residents: 3 }
-};
+export { ATTACK_SETUP_WEAPONS } from "./gameplay-config.generated.js";
 
 const MINUTE_MS = 60_000;
 

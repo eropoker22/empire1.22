@@ -52,7 +52,6 @@ export interface PowerStationBalanceConfig {
     weights: {
       factoryProductionSpeed: number;
       armoryProductionSpeed: number;
-      warehouseStorageCapacity: number;
       clinicRecoveryRate: number;
       casinoIncome: number;
       arcadeIncome: number;

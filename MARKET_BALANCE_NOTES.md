@@ -51,9 +51,9 @@ Doporučení pro budoucí server-authoritative pricing:
 | --- | --- | --- |
 | T1 | Chemicals, Biomass | Early-game vstupy, nízké PvP riziko, vysoký obrat. |
 | T2 | Metal Parts | Běžný combat/factory materiál, důležitý pro armory. |
-| T3 | Stim Pack, Neon Dust, Pulse Shot, Velvet Smoke, Pistole | Mid-game komponenty, boosty a entry zbraně. |
-| T4 | Tech Core, Ghost Serum, SMG | Vzácnější komponenty a silnější PvP hodnota. |
-| T5 | Overdrive X, Bazuka | Late-game kontraband, vysoké riziko, vysoký PvP dopad. |
+| T3 | Stim Pack, Neon Dust, Pulse Shot, Velvet Smoke, Pistole | Mid-game látky, komponenty a entry zbraně. |
+| T4 | Tech Core, Ghost Serum, SMG | Vzácnější výrobní komponenty a silnější PvP výzbroj. |
+| T5 | Overdrive X, Bazuka | Late-game komponenta a těžká výzbroj s vysokou hodnotou. |
 
 ## Změněné ceny
 
@@ -69,8 +69,8 @@ Legacy/local fallback jednotkové ceny v `packages/game-config/src/legacy-page/e
 | Neon Dust | 2600 | 220 | Black-market drug má být rychlý kontraband, ne nedosažitelný luxus. |
 | Pulse Shot | 3050 | 340 | Cena reflektuje Stim Pack input a risk premium. |
 | Velvet Smoke | 3800 | 410 | Mid-risk droga, důraz na černý trh, ne na extrémní price wall. |
-| Ghost Serum | 5100 | 780 | High-value boost s dlouhou výrobou, ale použitelný v alpha. |
-| Overdrive X | 7200 | 1250 | Late-game boost zůstává drahý bez early-game rozbití. |
+| Ghost Serum | 5100 | 780 | Strategická výrobní komponenta pro budoucí specializované boost recepty. |
+| Overdrive X | 7200 | 1250 | Nejdražší strategická komponenta pro budoucí boost recepty. |
 | Pistole | 2500 | 760 | Entry firearm nad craft cestou, ale ne absurdně drahý. |
 | SMG | 5600 | 2200 | Silnější PvP zbraň s citelnou prémií. |
 | Bazuka | 13200 | 6800 | T5 destruktivní item zůstává výrazně late-game. |

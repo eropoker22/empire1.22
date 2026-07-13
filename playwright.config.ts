@@ -1,11 +1,13 @@
 import { defineConfig, devices } from "@playwright/test";
+import path from "node:path";
 
 const PORT = Number(process.env.PLAYWRIGHT_PORT || 4174);
 const HOST = "127.0.0.1";
 const baseURL = `http://${HOST}:${PORT}`;
 const healthURL = `${baseURL}/api/servers`;
 const nodeExecutable = JSON.stringify(process.execPath);
-const webServerCommand = `${nodeExecutable} scripts/run-local-bin.mjs vite/bin/vite.js --config vite.game.config.ts --host ${HOST} --port ${PORT}`;
+const viteExecutable = JSON.stringify(path.resolve("node_modules/vite/bin/vite.js"));
+const webServerCommand = `${nodeExecutable} ${viteExecutable} --config vite.game.config.ts --host ${HOST} --port ${PORT}`;
 const shouldUseManagedWebServer = process.env.PLAYWRIGHT_SKIP_WEB_SERVER !== "1";
 
 process.env.PLAYWRIGHT_E2E_WEB_SERVER_COMMAND = webServerCommand;

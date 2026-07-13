@@ -250,10 +250,7 @@ export function renderProductionBuildingInfo(viewModel = {}, callbacks = {}, opt
       : isDrugLab
         ? (effectsLabel || "Lab · základní produkční rychlost")
       : isArmory
-        ? [
-            effectsLabel || "Zbrojovka · základní produkční rychlost",
-            "max výstup 15 ks"
-          ].join(" · ")
+        ? (effectsLabel || "Zbrojovka · základní produkční rychlost")
       : [
           effectsLabel || `${config.label || "Budova"} · základní produkční rychlost`,
           state.level < maxLevel ? `Další level: +10 % rychlost craftu.` : "Další upgrade už není dostupný.",
@@ -443,8 +440,8 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     const techCore = Math.max(0, Math.floor(Number(displayCost.techCore || 0) * count));
     const metalParts = Math.max(0, Math.floor(Number(displayCost.metalParts || 0) * count));
     const parts = [
-      cleanCash > 0 ? String(cleanCash) : "",
-      metalParts > 0 ? `${metalParts} MP` : "",
+      cleanCash > 0 ? `$${cleanCash} clean` : "",
+      metalParts > 0 ? `${metalParts}× Metal Parts` : "",
       techCore > 0 ? `${techCore} Tech Core` : ""
     ].filter(Boolean);
     return parts.join(" + ") || slotView.priceLabel || "bez ceny";
@@ -481,15 +478,17 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     plusButton.setAttribute("aria-label", `Přidat výrobu ${slotView.title || slot.resourceKey || "slotu"}`);
     const refreshQuantity = () => {
       const queueSpace = queueCap > 0 ? Math.max(0, queueCap - queuedAmount) : Number.POSITIVE_INFINITY;
-      const serverLimit = serverLine ? Math.max(0, Number(serverLine.maxStartQuantity || 0)) : Number.POSITIVE_INFINITY;
+      const serverLimit = serverLine
+        ? Math.max(0, Number(serverLine.maxStartQuantity || 0))
+        : Math.max(0, Number(slotView.maxStartQuantity ?? Number.POSITIVE_INFINITY));
       const selectionLimit = Math.min(
         Number.isFinite(queueSpace) ? Math.max(1, queueSpace) : Number.POSITIVE_INFINITY,
         serverLimit > 0 ? serverLimit : 1
       );
       selectedBatches = Math.max(1, Math.min(selectedBatches, selectionLimit));
       quantityValue.textContent = String(selectedBatches);
-      minusButton.disabled = selectedBatches <= 1 || Boolean(serverLine && !serverLine.canStart);
-      plusButton.disabled = Boolean(serverLine && !serverLine.canStart)
+      minusButton.disabled = selectedBatches <= 1 || Boolean(serverLine ? !serverLine.canStart : !slotView.canStart);
+      plusButton.disabled = Boolean(serverLine ? !serverLine.canStart : !slotView.canStart)
         || Number.isFinite(selectionLimit) && selectedBatches >= selectionLimit;
       updatePrice();
     };
@@ -511,7 +510,7 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     startButton.type = "button";
     startButton.dataset.factorySlotToggleState = "start";
     startButton.textContent = "Spustit";
-    startButton.disabled = serverLine ? !serverLine.canStart : queueCap > 0 && queuedAmount >= queueCap;
+    startButton.disabled = serverLine ? !serverLine.canStart : !slotView.canStart;
     startButton.title = serverLine?.disabledReason || "";
     startButton.addEventListener("click", () => {
       if (typeof callbacks.onStartSlot === "function") callbacks.onStartSlot(serverLine || slotView, { batchCount: selectedBatches });
@@ -521,7 +520,8 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     pauseButton.textContent = "Zrušit";
     pauseButton.disabled = serverLine
       ? !serverLine.canCancelWaiting
-      : !slot.isProducing && Math.max(0, Math.floor(Number(slot.queuedAmount ?? slotView.queuedAmount ?? 0))) <= 0;
+      : Math.max(0, Math.floor(Number(slot.queuedAmount ?? slotView.queuedAmount ?? 0)))
+        - (slot.isProducing ? 1 : 0) <= 0;
     pauseButton.addEventListener("click", () => {
       if (typeof callbacks.onPauseSlot === "function") callbacks.onPauseSlot(serverLine || slotView);
     });

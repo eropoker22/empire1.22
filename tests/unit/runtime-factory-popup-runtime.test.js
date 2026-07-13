@@ -397,11 +397,11 @@ describe("factory popup runtime", () => {
       root,
       "warning",
       "Továrna",
-      expect.stringContaining("serverový production/craft flow")
+      "Výroba Továrny je v tomto režimu nedostupná."
     );
   });
 
-  it("cancels factory slot queue instead of only pausing it", () => {
+  it("cancels only waiting Factory items and keeps the active unit running", () => {
     const open = createElement();
     const popup = createElement();
     const close = createElement();
@@ -454,15 +454,15 @@ describe("factory popup runtime", () => {
 
     const nextState = setStoredFactoryState.mock.calls.at(-1)[0];
     expect(nextState.slots[0]).toEqual(expect.objectContaining({
-      isProducing: false,
-      queueMode: false,
-      queuedAmount: 0,
-      productionRemainder: 0,
+      isProducing: true,
+      queueMode: true,
+      queuedAmount: 1,
+      productionRemainder: 0.5,
       producedAmount: 2
     }));
   });
 
-  it("caps added factory queue amount at the slot queue cap", () => {
+  it("rejects the whole Factory start when the queue is already full", () => {
     const open = createElement();
     const popup = createElement();
     const close = createElement();
@@ -476,17 +476,19 @@ describe("factory popup runtime", () => {
         isProducing: true,
         queueMode: true,
         queuedAmount: 8,
-        queueCap: 9,
-        slotCap: 20,
+        queueCap: 8,
+        slotCap: 10,
         producedAmount: 0,
         lastTick: 100
       }]
     };
     const setStoredFactoryState = vi.fn();
+    const setBuildingActionFeedback = vi.fn();
     const renderFactoryDashboardPanel = vi.fn();
     const runtime = createRuntime({
       getStoredFactoryState: () => factoryState,
       renderFactoryDashboardPanel,
+      setBuildingActionFeedback,
       setStoredFactoryState,
       syncBuildingDetailTopbarVisibility: vi.fn()
     });
@@ -513,14 +515,17 @@ describe("factory popup runtime", () => {
 
     expect(runtime.bindFactoryPopup(root)).toBe(true);
     open.dispatch("click");
-    renderFactoryDashboardPanel.mock.calls.at(-1)[2].onStartSlot({ slot: { id: "metal" }, queueCap: 9 }, { batchCount: 4 });
+    setStoredFactoryState.mockClear();
+    renderFactoryDashboardPanel.mock.calls.at(-1)[2].onStartSlot({
+      slot: { id: "metal" },
+      queueCap: 8,
+      canStart: false,
+      maxStartQuantity: 0
+    }, { batchCount: 4 });
 
-    const nextState = setStoredFactoryState.mock.calls.at(-1)[0];
-    expect(nextState.slots[0]).toEqual(expect.objectContaining({
-      isProducing: true,
-      queueMode: true,
-      queuedAmount: 9
-    }));
+    expect(setStoredFactoryState.mock.calls.at(-1)[0].slots[0].queuedAmount).toBe(8);
+    expect(setBuildingActionFeedback).toHaveBeenCalledWith(root, "warning", "Továrna", "Fronta je plná.");
+    expect(factoryState.slots[0].queuedAmount).toBe(8);
   });
 
   it("waits for upgrade confirmation before spending factory cash", async () => {

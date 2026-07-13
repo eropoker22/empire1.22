@@ -19,7 +19,6 @@ export const freeModePowerStationConfig: PowerStationBalanceConfig = {
     weights: {
       factoryProductionSpeed: 1,
       armoryProductionSpeed: 1,
-      warehouseStorageCapacity: 0.7,
       clinicRecoveryRate: 0.5,
       casinoIncome: 0.4,
       arcadeIncome: 0.4,

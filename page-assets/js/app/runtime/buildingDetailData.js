@@ -165,12 +165,12 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   }),
   sklad: Object.freeze({
     role: "Skladiště zásob",
-    info: "Skladiště zvyšuje maximum každé zásoby. První aktivní sklad přidá 50 %, další menší síťový bonus a z levelů platí jen nejvyšší aktivní level.",
+    info: "Skladiště je gameplay budova, která zvyšuje maximum každé položky v globálním SKLADU. Počítají se aktivní vlastněná Skladiště a nejvyšší aktivní level.",
     actions: Object.freeze([])
   }),
   skladiste: Object.freeze({
     role: "Skladiště zásob",
-    info: "Skladiště zvyšuje maximum každé zásoby. První aktivní sklad přidá 50 %, další menší síťový bonus a z levelů platí jen nejvyšší aktivní level.",
+    info: "Skladiště je gameplay budova, která zvyšuje maximum každé položky v globálním SKLADU. Počítají se aktivní vlastněná Skladiště a nejvyšší aktivní level.",
     actions: Object.freeze([])
   }),
   "energeticka stanice": Object.freeze({
@@ -185,27 +185,27 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   }),
   lekarna: Object.freeze({
     role: "Chemická podpora",
-    info: "Lékárna vyrábí základní chemii, biomass a stim packy pro další crafting a podporu posádky.",
+    info: "Lékárna má tři nezávislé linky pro Chemicals, Biomass a Stim Pack. Každý cyklus vyrábí jeden kus za clean cash a hotové položky čekají na vyzvednutí do SKLADU.",
     actions: Object.freeze([])
   }),
   "drug lab": Object.freeze({
     role: "Drug výroba",
-    info: "Drug lab převádí materiály na hotové substance a drží nejvyšší dirty cash potenciál v districtu.",
+    info: "Drug Lab vyrábí pět látek po jednom kusu. Ghost Serum a Overdrive X jsou strategické výrobní komponenty bez přímé aktivace.",
     actions: Object.freeze([])
   }),
   lab: Object.freeze({
     role: "Drug výroba",
-    info: "Lab převádí materiály na hotové substance a drží nejvyšší dirty cash potenciál v districtu.",
+    info: "Lab vyrábí pět látek po jednom kusu. Ghost Serum a Overdrive X jsou strategické výrobní komponenty bez přímé aktivace.",
     actions: Object.freeze([])
   }),
   tovarna: Object.freeze({
     role: "Průmyslová výroba",
-    info: "Továrna vyrábí Metal Parts, Tech Core a bojový modul jako součástku pro zbrojovku, útoky a průmyslové linky.",
+    info: "Tři nezávislé linky vyrábějí Metal Parts, Tech Core a Combat Module po jednom kusu. Combat Module je strategický vstup pro high-tier vybavení Zbrojovky.",
     actions: Object.freeze([])
   }),
   zbrojovka: Object.freeze({
     role: "Výzbroj",
-    info: "Zbrojovka mění průmyslové zásoby na útočnou i obrannou výzbroj použitelnou v attack a defense flow.",
+    info: "Zbrojovka vyrábí útočné a obranné vybavení po jednom kusu z Metal Parts, Tech Core a u high-tier receptů také z Combat Module.",
     actions: Object.freeze([])
   })
 });
@@ -277,7 +277,7 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
   ]),
   "vip salonek": Object.freeze([]),
   letiste: Object.freeze([
-    Object.freeze({ airportExpressImport: true, cleanCost: 2000, heat: 6, durationMs: 90 * 1000, cooldownMs: 18 * 60 * 1000, customsRiskPct: 10, summary: "Objedná zásilku materials, rare components, weapons nebo defense items. Přesah přes sklad propadne." }),
+    Object.freeze({ airportExpressImport: true, cleanCost: 2000, heat: 6, durationMs: 90 * 1000, cooldownMs: 18 * 60 * 1000, customsRiskPct: 10, summary: "Objedná zásilku materiálů, komponent, zbraní nebo obran. Nevyzvednutý přesah zůstane čekat na volnou kapacitu SKLADU." }),
     Object.freeze({ airportBlackCharter: true, dirtyCost: 2500, heat: 9, durationMs: 8 * 60 * 1000, cooldownMs: 24 * 60 * 1000, offerDiscountPct: 6, purchaseCustomsRiskPct: 15, summary: "Otevře dočasnou Black Market nabídku s rizikem celního zátahu při nákupu." }),
     Object.freeze({ airportEvacuationCorridor: true, cleanCost: 1800, heat: 5, durationMs: 7 * 60 * 1000, cooldownMs: 26 * 60 * 1000, escapeChanceBonusPct: 18, lossReductionPct: 10, summary: "Zvedne šanci úniku, sníží ztráty při neúspěchu a zrychlí návratovou logistiku." })
   ]),
@@ -374,23 +374,11 @@ export const SCHOOL_CONFIG = Object.freeze({
   eveningCoursePopulationMultiplier: 1.6,
   eveningCourseCleanIncomeMultiplier: 1
 });
-export const WAREHOUSE_BASE_STORAGE_CAPACITIES = Object.freeze({
-  genericResources: 500,
-  chemicals: 350,
-  biomass: 350,
-  metalParts: 400,
-  techCore: 120,
-  combatModule: 80,
-  drugsAndBoosts: 220,
-  weaponsAndDefense: 160
-});
 export const WAREHOUSE_NETWORK_CONFIG = Object.freeze({
   countOnMap: 18,
   incomeBonusPctPerExtraWarehouse: 4,
-  storageCapacityBonusPctPerExtraWarehouse: 10,
   heatBonusPctPerExtraWarehouse: 3,
   maxIncomeMultiplier: 1.36,
-  maxStorageCapacityMultiplier: 1.9,
   maxHeatMultiplier: 1.27
 });
 export const SHOPPING_MALL_NETWORK_CONFIG = Object.freeze({

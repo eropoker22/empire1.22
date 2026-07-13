@@ -1,4 +1,5 @@
 import { ATTACK_WEAPON_LABELS } from "./combatData.js";
+import { WAREHOUSE_STORAGE_CONFIG } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
 // Preview-only legacy building detail model. Server projections own command availability and final action results.
 import {
   DISTRICT_BUILDING_TYPE_META
@@ -18,7 +19,6 @@ import {
   RESTAURANT_NETWORK_CONFIG,
   SCHOOL_CONFIG,
   SMUGGLING_TUNNEL_CONFIG,
-  WAREHOUSE_BASE_STORAGE_CAPACITIES,
   WAREHOUSE_NETWORK_CONFIG
 } from "./buildingDetailData.js";
 import { formatDistrictBuildingTierLabel } from "./districtBuildingData.js";
@@ -90,20 +90,10 @@ function formatMultiplierIncreasePercent(value = 1) {
 }
 
 function resolveWarehouseDisplayCapacity(capacity = {}) {
-  const fallback = WAREHOUSE_BASE_STORAGE_CAPACITIES;
-  const valueOrBase = (key) => {
-    const value = Math.max(0, Math.floor(Number(capacity?.[key] || 0)));
-    return value > 0 ? value : Math.max(0, Math.floor(Number(fallback[key] || 0)));
-  };
   return {
-    genericResources: valueOrBase("genericResources"),
-    chemicals: valueOrBase("chemicals"),
-    biomass: valueOrBase("biomass"),
-    metalParts: valueOrBase("metalParts"),
-    techCore: valueOrBase("techCore"),
-    combatModule: valueOrBase("combatModule"),
-    drugsAndBoosts: valueOrBase("drugsAndBoosts"),
-    weaponsAndDefense: valueOrBase("weaponsAndDefense")
+    bulk: Math.max(0, Math.floor(Number(capacity?.groups?.bulk || WAREHOUSE_STORAGE_CONFIG.groups.bulk.baseCapacity))),
+    tactical: Math.max(0, Math.floor(Number(capacity?.groups?.tactical || WAREHOUSE_STORAGE_CONFIG.groups.tactical.baseCapacity))),
+    strategic: Math.max(0, Math.floor(Number(capacity?.groups?.strategic || WAREHOUSE_STORAGE_CONFIG.groups.strategic.baseCapacity)))
   };
 }
 
@@ -1151,7 +1141,9 @@ export function createBuildingDetailStatRows({
         createStat("Čisté / min", `+${formatDistrictBuildingMoney(45 * mechanics.warehouseNetwork.incomeMultiplier)}`),
         createStat("Heat / min", `+${(0.06 * mechanics.warehouseNetwork.heatMultiplier).toFixed(3)}`),
         createStat("Skladiště", `${mechanics.ownedWarehouses}/${WAREHOUSE_NETWORK_CONFIG.countOnMap}`),
-        createStat("Kapacita zásob", `+${warehouseCapacity.genericResources}`),
+        createStat("Hromadné zásoby", `${warehouseCapacity.bulk} ks na položku`),
+        createStat("Taktické zásoby", `${warehouseCapacity.tactical} ks na položku`),
+        createStat("Strategické zásoby", `${warehouseCapacity.strategic} ks na položku`),
         createStat("Dirty / vliv", "0 / 0"),
         createStat("Akce", "Žádné")
       );
@@ -1338,30 +1330,16 @@ export function createBuildingDetailMechanicRows({
     );
   } else if (mechanics.mechanicsType === "warehouse") {
     const storage = mechanics.serverStorageSummary;
-    if (storage?.warehouseSummary) {
-      const summary = storage.warehouseSummary;
-      mechanicRows.push(
-        createMechanic("Síť skladišť", String(summary.ownedWarehouseCount)),
-        createMechanic("Nejvyšší level", `L${summary.highestWarehouseLevel}`),
-        createMechanic("Bonus sítě", `x${Number(summary.warehouseCountMultiplier || 1).toFixed(2)}`),
-        createMechanic("Bonus levelu", `x${Number(summary.warehouseLevelMultiplier || 1).toFixed(2)}`),
-        createMechanic("Celkový násobitel", `x${Number(summary.totalCapacityMultiplier || 1).toFixed(2)}`),
-        ...createServerWarehouseMaterialRows(storage)
-      );
-    } else {
-      const warehouseCapacity = resolveWarehouseDisplayCapacity(mechanics.warehouseCapacity);
-      const warehouseUsage = mechanics.warehouseUsage || {};
-      mechanicRows.push(
-        createMechanicWithTone("Materiál", `Chemicals ${warehouseUsage.chemicals || 0}/${warehouseCapacity.chemicals}`, resolveWarehouseCapacityTone(warehouseUsage.chemicals, warehouseCapacity.chemicals)),
-        createMechanicWithTone("Materiál", `Biomass ${warehouseUsage.biomass || 0}/${warehouseCapacity.biomass}`, resolveWarehouseCapacityTone(warehouseUsage.biomass, warehouseCapacity.biomass)),
-        createMechanicWithTone("Materiál", `Metal parts ${warehouseUsage.metalParts || 0}/${warehouseCapacity.metalParts}`, resolveWarehouseCapacityTone(warehouseUsage.metalParts, warehouseCapacity.metalParts)),
-        createMechanicWithTone("Materiál", `Tech core ${warehouseUsage.techCore || 0}/${warehouseCapacity.techCore}`, resolveWarehouseCapacityTone(warehouseUsage.techCore, warehouseCapacity.techCore)),
-        createMechanicWithTone("Materiál", `Bojové moduly ${warehouseUsage.combatModule || 0}/${warehouseCapacity.combatModule}`, resolveWarehouseCapacityTone(warehouseUsage.combatModule, warehouseCapacity.combatModule)),
-        createMechanicWithTone("Materiál", `Drogy a boosty ${warehouseUsage.drugsAndBoosts || 0}/${warehouseCapacity.drugsAndBoosts}`, resolveWarehouseCapacityTone(warehouseUsage.drugsAndBoosts, warehouseCapacity.drugsAndBoosts)),
-        createMechanicWithTone("Materiál", `Zbraně a obrana ${warehouseUsage.weaponsAndDefense || 0}/${warehouseCapacity.weaponsAndDefense}`, resolveWarehouseCapacityTone(warehouseUsage.weaponsAndDefense, warehouseCapacity.weaponsAndDefense)),
-        createMechanic("Stav kapacity", (mechanics.warehouseWarnings || []).join(" · ") || "Kapacity jsou v pořádku.")
-      );
-    }
+    const summary = storage?.warehouseSummary;
+    if (!summary) return mechanicRows;
+    mechanicRows.push(
+      createMechanic("Síť skladišť", String(summary.ownedWarehouseCount)),
+      createMechanic("Nejvyšší level", `L${summary.highestWarehouseLevel}`),
+      createMechanic("Bonus sítě", `x${Number(summary.warehouseCountMultiplier || 1).toFixed(2)}`),
+      createMechanic("Bonus levelu", `x${Number(summary.warehouseLevelMultiplier || 1).toFixed(2)}`),
+      createMechanic("Celkový násobitel", `x${Number(summary.totalCapacityMultiplier || 1).toFixed(2)}`),
+      ...createServerWarehouseMaterialRows(storage)
+    );
   } else if (mechanics.mechanicsType === "clinic") {
     mechanicRows.push(
       createMechanic("Stabilizace", mechanics.clinicRecoveryPool.totalFreshAmount > 0 ? "připravená" : "Čeká na ztráty tvojich členů za posledních 90min"),
@@ -1426,7 +1404,7 @@ export function createBuildingDetailMechanicRows({
   } else if (mechanics.mechanicsType === "power-plant" || buildingKey === "energeticka stanice") {
     const network = mechanics.powerStationNetwork || {};
     mechanicRows.push(
-      createMechanic("Infrastruktura", `Pasivně posiluje výrobu, sklady, kliniky a vybrané cash budovy o +${formatCompactNumber(network.infrastructureBonusPct || 0)} %.`),
+      createMechanic("Infrastruktura", `Pasivně posiluje rychlost výroby, kliniky a vybrané cash budovy o +${formatCompactNumber(network.infrastructureBonusPct || 0)} %.`),
       createMechanic("Záložní síť", `Za ${formatDistrictBuildingMoney(POWER_STATION_CONFIG.backupGridSwitch.cleanCost)} clean dočasně posílí infrastrukturu a obranu.`),
       createMechanic("Napájet výrobu", "Okamžitě přidá $2000 clean a $500 dirty. Heat +10."),
       createMechanic("Snížit heat", "Okamžitě stáhne heat districtu o 20.")

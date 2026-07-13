@@ -1,8 +1,8 @@
 import { JSDOM } from "jsdom";
 import { describe, expect, it, vi } from "vitest";
+import { resolveModeConfig } from "../../packages/game-config/src/config-resolver";
 import { renderServerDrugLabRecipeCard } from "../../page-assets/js/app/ui/serverDrugLabRecipeCard.js";
 import { createProductionBuildingPopupRuntime } from "../../page-assets/js/app/runtime/productionBuildingPopupRuntime.js";
-import { usePharmacyBoost } from "../../page-assets/js/app/runtime.js";
 
 const line = (overrides = {}) => ({
   recipeId: "ghost-serum",
@@ -33,10 +33,9 @@ const line = (overrides = {}) => ({
 
 describe("server drug lab recipe card", () => {
   it("treats Ghost Serum and Overdrive X as non-activatable components", () => {
-    expect(usePharmacyBoost("recon")).toMatchObject({
-      ok: false,
-      code: "item_not_directly_usable"
-    });
+    const recipes = resolveModeConfig("free").balance.drugLab?.recipes;
+    expect(recipes?.["ghost-serum"].directlyUsable).toBe(false);
+    expect(recipes?.["overdrive-x"].directlyUsable).toBe(false);
   });
 
   it("renders the existing Lab layout from server data with three input chips and no use action", () => {

@@ -28,8 +28,8 @@ export const MARKET_PLAYER_TRADE_ITEMS = Object.freeze([
   Object.freeze({ inventory: "drugs", itemId: "neon-dust", category: "Drogy" }),
   Object.freeze({ inventory: "drugs", itemId: "pulse-shot", category: "Drogy" }),
   Object.freeze({ inventory: "drugs", itemId: "velvet-smoke", category: "Drogy" }),
-  Object.freeze({ inventory: "drugs", itemId: "ghost-serum", category: "Drogy" }),
-  Object.freeze({ inventory: "drugs", itemId: "overdrive-x", category: "Drogy" }),
+  Object.freeze({ inventory: "drugs", itemId: "ghost-serum", category: "Komponenta" }),
+  Object.freeze({ inventory: "drugs", itemId: "overdrive-x", category: "Komponenta" }),
   Object.freeze({ inventory: "weapons", itemId: "pistol", category: "Výzbroj" }),
   Object.freeze({ inventory: "weapons", itemId: "smg", category: "Výzbroj" }),
   Object.freeze({ inventory: "weapons", itemId: "bazooka", category: "Výzbroj" })

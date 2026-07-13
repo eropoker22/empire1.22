@@ -116,9 +116,12 @@ describe("alliance alpha UI", () => {
   });
 
   it("marks local preview surfaces instead of pretending they are server state", () => {
-    expect(html).toContain("Globální chat");
-    expect(html).not.toContain("Globální chat (preview)");
-    expect(html).toContain("Globální chat je v alphě jen lokální kanál.");
+    expect(html).toContain("Demo chat");
+    expect(html).not.toContain("Globální chat");
+    expect(html).toContain("Demo chat je lokální kanál tohoto prohlížeče.");
+    expect(html).toContain("Zprávy zůstávají jen v tomhle prohlížeči.");
+    expect(runtime).toContain('const GLOBAL_CHAT_KEY = "empire:demo:global-chat:v1";');
+    expect(runtime).toContain("getGameplayExecutionMode");
     expect(runtime).toContain("const ALLIANCE_CREATE_REQUIRED_INFLUENCE = 40;");
     expect(runtime).toContain("ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE");
     expect(runtime).toContain("Vytvořit alianci půjde až pokud má hráč");
@@ -260,7 +263,7 @@ describe("alliance alpha UI", () => {
     expect(css).toContain("rgba(1, 4, 10, 0.92);");
     expect(css).toContain("-webkit-backdrop-filter: blur(12px) saturate(112%);");
     expect(css).toContain("margin-top: -8px;");
-    expect(mobileCss).toContain("Mobile global chat: show about three messages");
+    expect(mobileCss).toContain("Mobile demo chat: show about three messages");
     expect(mobileCss).toContain("#alliance-chat-card #alliance-btn");
     expect(mobileCss).toContain("min-width: min(340px, calc(100vw - 12px)) !important;");
     expect(mobileCss).toContain("#global-chat-card .server-chat-panel__feed");

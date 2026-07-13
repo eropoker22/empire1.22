@@ -43,6 +43,20 @@ const ticks = (state: ReturnType<typeof createCoreStateWithFixedBuildingFixture>
 describe("armory production", () => {
   it("uses ten canonical one-piece recipes with Combat Module reserved for high-tier equipment", () => {
     expect(Object.keys(armory.recipes)).toHaveLength(10);
+    expect(Object.fromEntries(
+      Object.entries(armory.recipes).map(([recipeId, recipe]) => [recipeId, recipe.queueCap])
+    )).toEqual({
+      "baseball-bat": 6,
+      pistol: 4,
+      grenade: 4,
+      smg: 3,
+      bazooka: 2,
+      vest: 4,
+      barricades: 5,
+      cameras: 4,
+      "defense-tower": 2,
+      alarm: 4
+    });
     expect(armory.recipes["baseball-bat"]).toMatchObject({ category: "attack", cleanCashCostPerUnit: 0, inputCosts: { "metal-parts": 2 }, outputAmount: 1, localOutputCap: 8, queueCap: 6 });
     expect(armory.recipes.pistol).toMatchObject({ inputCosts: { "metal-parts": 3, "tech-core": 1 }, durationTicksPerUnit: 75, localOutputCap: 5, queueCap: 4 });
     expect(armory.recipes.grenade).toMatchObject({ inputCosts: { "metal-parts": 2, "tech-core": 1 }, localOutputCap: 4, queueCap: 4 });

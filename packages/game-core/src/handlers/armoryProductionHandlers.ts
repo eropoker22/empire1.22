@@ -180,8 +180,6 @@ export const collectArmoryProduction = (
   };
 };
 
-const ARMORY_RECIPE_IDS = ["baseball-bat", "pistol", "grenade", "smg", "bazooka", "vest", "barricades", "cameras", "defense-tower", "alarm"];
-
 export const collectAllArmoryProduction = (
   state: CoreGameState,
   command: { playerId: string; payload: { districtId: string; buildingId: string } },
@@ -191,7 +189,8 @@ export const collectAllArmoryProduction = (
   let events: CoreEvent[] = [];
   let collected = false;
   let firstError: ArmoryHandlerResult["errors"][number] | null = null;
-  for (const recipeId of ARMORY_RECIPE_IDS) {
+  const recipeIds = Object.keys(context.config.balance.armory?.recipes ?? {});
+  for (const recipeId of recipeIds) {
     const result = collectArmoryProduction(nextState, {
       playerId: command.playerId,
       payload: { ...command.payload, recipeId }

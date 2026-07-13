@@ -1445,12 +1445,19 @@ var EmpireGameplaySliceClient = function(exports) {
     const fetchJson = options.fetchImpl ?? globalThis.fetch;
     const endpointBase = options.endpointBase.replace(/\/+$/u, "");
     const storage = options.storage ?? resolveBrowserStorage();
+    const legacySessionStorage = options.storage ?? resolveBrowserLegacySessionStorage();
+    let consumedJoinTicket = null;
     const post = async (route, request) => {
       if (!fetchJson) {
         throw new Error("Fetch transport is unavailable in this runtime.");
       }
       const requestWithTokens = attachStoredGameplaySliceTokens(route, request, storage);
-      const endpointRoute = resolveEndpointRoute(route, requestWithTokens);
+      const requestJoinTicket = readJoinTicket(requestWithTokens);
+      const shouldStripConsumedJoinTicket = Boolean(
+        consumedJoinTicket && requestJoinTicket === consumedJoinTicket
+      );
+      const requestForEndpoint = shouldStripConsumedJoinTicket ? omitJoinTicket(requestWithTokens) : requestWithTokens;
+      const endpointRoute = resolveEndpointRoute(route, requestForEndpoint);
       const endpoint = `${endpointBase}/${endpointRoute}`;
       const response = await fetchJson(endpoint, {
         method: "POST",
@@ -1458,13 +1465,17 @@ var EmpireGameplaySliceClient = function(exports) {
           "content-type": "application/json"
         },
         credentials: "same-origin",
-        body: JSON.stringify(requestWithTokens)
+        body: JSON.stringify(requestForEndpoint)
       });
       if (!response.ok) {
         throw new Error(`Gameplay slice request failed: POST ${endpoint} returned HTTP ${response.status}.`);
       }
       const payload = await response.json();
-      persistGameplaySliceTokens(requestWithTokens, payload, storage);
+      persistGameplaySliceTokens(requestForEndpoint, payload, storage);
+      if (endpointRoute === "join" && payload.accepted && requestJoinTicket) {
+        consumedJoinTicket = requestJoinTicket;
+        clearConsumedLegacyJoinTicket(legacySessionStorage, requestJoinTicket);
+      }
       return payload;
     };
     return {
@@ -1480,12 +1491,33 @@ var EmpireGameplaySliceClient = function(exports) {
       snapshotToken
     } : request;
   };
-  const resolveEndpointRoute = (route, request, storage) => {
+  const resolveEndpointRoute = (route, request) => {
     if (route !== "load") {
       return route;
     }
     const record = request;
     return String(record.joinTicket ?? "").trim() ? "join" : "load";
+  };
+  const readJoinTicket = (request) => {
+    const ticket = String((request == null ? void 0 : request.joinTicket) ?? "").trim();
+    return ticket || null;
+  };
+  const omitJoinTicket = (request) => {
+    const { joinTicket: _joinTicket, ...rest } = request;
+    return rest;
+  };
+  const clearConsumedLegacyJoinTicket = (storage, consumedTicket) => {
+    const sessionKey = "empireStreets.session.v1";
+    try {
+      const rawSession = storage == null ? void 0 : storage.getItem(sessionKey);
+      if (!rawSession) return;
+      const session = JSON.parse(rawSession);
+      if (readJoinTicket(session.registration) !== consumedTicket) return;
+      const registration = { ...session.registration ?? {} };
+      delete registration.joinTicket;
+      storage == null ? void 0 : storage.setItem(sessionKey, JSON.stringify({ ...session, registration }));
+    } catch (_error) {
+    }
   };
   const persistGameplaySliceTokens = (request, response, storage) => {
     const snapshotKey = createGameplaySliceTokenStorageKey("snapshot", request);
@@ -1517,6 +1549,13 @@ var EmpireGameplaySliceClient = function(exports) {
   const resolveBrowserStorage = () => {
     try {
       return globalThis.sessionStorage ?? null;
+    } catch (_error) {
+      return null;
+    }
+  };
+  const resolveBrowserLegacySessionStorage = () => {
+    try {
+      return globalThis.localStorage ?? null;
     } catch (_error) {
       return null;
     }
@@ -2986,11 +3025,32 @@ var EmpireGameplaySliceClient = function(exports) {
     const host = window.location.hostname;
     return window.location.protocol === "file:" || !host || host === "localhost" || host === "127.0.0.1" || host === "::1" || host.endsWith(".local");
   };
+  const normalizeSelectedRuntimeMode = (value) => {
+    const normalized = String(value ?? "").trim().toLowerCase();
+    if (normalized === "local-demo") return "demo";
+    if (normalized === "server-authoritative" || normalized === "demo" || normalized === "legacy-fallback" || normalized === "local") {
+      return normalized;
+    }
+    return null;
+  };
   const getForcedDevelopmentRuntimeMode = () => {
-    var _a;
+    var _a, _b, _c, _d, _e, _f, _g, _h;
     if (typeof window === "undefined") return null;
-    const requestedMode = ((_a = window.empireStreetsRuntimeDiagnostics) == null ? void 0 : _a.requestedMode) || new URLSearchParams(window.location.search).get("runtimeMode");
-    return requestedMode === "demo" || requestedMode === "legacy-fallback" || requestedMode === "local" ? requestedMode : null;
+    const canUseDevelopmentOverride = isLegacyGameplayFallbackAllowed();
+    let requestedMode = null;
+    if (canUseDevelopmentOverride) {
+      try {
+        requestedMode = normalizeSelectedRuntimeMode(
+          ((_a = window.empireStreetsRuntimeDiagnostics) == null ? void 0 : _a.requestedMode) || new URLSearchParams(window.location.search).get("runtimeMode") || ((_c = (_b = window.localStorage) == null ? void 0 : _b.getItem) == null ? void 0 : _c.call(_b, "empire:demo:execution-mode:v1"))
+        );
+      } catch (_error) {
+        requestedMode = null;
+      }
+    }
+    if (requestedMode) return requestedMode;
+    return normalizeSelectedRuntimeMode(
+      ((_f = (_e = (_d = document.querySelector) == null ? void 0 : _d.call(document, 'meta[name="empire-gameplay-execution-mode"]')) == null ? void 0 : _e.getAttribute) == null ? void 0 : _f.call(_e, "content")) || ((_h = (_g = document.documentElement) == null ? void 0 : _g.dataset) == null ? void 0 : _h.gameplayExecutionMode)
+    );
   };
   const isGameplayDiagnosticsEnabled = () => {
     if (typeof window === "undefined") {
@@ -3019,14 +3079,14 @@ var EmpireGameplaySliceClient = function(exports) {
   const applyDevelopmentRuntimeOverride = (root) => {
     var _a, _b;
     const forcedMode = getForcedDevelopmentRuntimeMode();
-    if (!forcedMode || !isLegacyGameplayFallbackAllowed()) return false;
+    if (!forcedMode || forcedMode === "server-authoritative") return false;
     setGameplayRuntimeMarker(root, forcedMode === "legacy-fallback" ? "legacy-fallback" : "demo-ready", {
       ...forcedMode === "legacy-fallback" ? { fallback: "legacy" } : {},
       serverRuntime: "not-requested"
     });
     (_b = (_a = window.empireStreetsRuntimeDiagnostics) == null ? void 0 : _a.setMode) == null ? void 0 : _b.call(_a, forcedMode, {
       serverSliceActive: false,
-      reason: "development-runtime-override"
+      reason: "configured-runtime-override"
     });
     root.hidden = true;
     return true;

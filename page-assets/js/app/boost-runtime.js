@@ -6,8 +6,15 @@ import {
   setBuildingActionFeedback
 } from "./runtime.js";
 import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
+import { GAMEPLAY_EXECUTION_MODES, getGameplayExecutionMode } from "./runtime/gameplayExecutionMode.js";
 
 const PAGE_SELECTOR = 'main[data-page="game"]';
+const isLocalDemoBoostMode = () => getGameplayExecutionMode({
+  windowRef: typeof window === "undefined" ? null : window,
+  diagnosticsMode: typeof window === "undefined"
+    ? null
+    : window.empireStreetsRuntimeDiagnostics?.getSummary?.().runtimeMode
+}) === GAMEPLAY_EXECUTION_MODES.localDemo;
 
 function createFactoryBoostMessage(result) {
   if (!result?.ok) {
@@ -26,7 +33,7 @@ function renderBoostActions(content) {
   content.innerHTML = `
     <section class="boost-modal__building">
       <div class="boost-modal__head">
-        <div class="boost-modal__name">Továrna</div>
+        <div class="boost-modal__name">Továrna · DEMO</div>
         <div class="boost-modal__value">Bojový modul: <strong>${combatModule} ks</strong></div>
       </div>
       <div class="boost-modal__actions">
@@ -96,6 +103,7 @@ function initBoostRuntime() {
   };
 
   const open = () => {
+    if (!isLocalDemoBoostMode()) return;
     render();
     setTab("actions");
     modal.hidden = false;
@@ -112,6 +120,14 @@ function initBoostRuntime() {
   openButtons.forEach((button) => {
     button.addEventListener("click", open);
   });
+  const syncAvailability = () => {
+    const available = isLocalDemoBoostMode();
+    openButtons.forEach((button) => {
+      button.hidden = !available;
+      button.setAttribute("aria-hidden", available ? "false" : "true");
+    });
+    if (!available && !modal.classList.contains("hidden")) close();
+  };
   backdrop?.addEventListener("click", close);
   closeBtn?.addEventListener("click", close);
   tabButtons.forEach((button) => {
@@ -144,6 +160,7 @@ function initBoostRuntime() {
     }
 
     if (building === "factory") {
+      if (!isLocalDemoBoostMode()) return;
       const result = activateFactoryBoost(boostKey);
       if (!result?.ok) {
         setBuildingActionFeedback(root, "warning", "Factory boost", result.reason || "Boost akce se nepodařila.");
@@ -170,6 +187,8 @@ function initBoostRuntime() {
     getFactoryBoostSnapshot,
     useFactoryBoost: activateFactoryBoost
   };
+  document.addEventListener("empire:runtime-mode-changed", syncAvailability);
+  syncAvailability();
 }
 
 if (typeof document !== "undefined") {

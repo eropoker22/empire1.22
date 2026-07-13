@@ -4,25 +4,21 @@ export const PRODUCTION_BUILDING_CONFIG = Object.freeze({
     title: "Výroba látek",
     upgradeBaseCost: 3200,
     infoText: "Lékárna vyrábí základní materiály pro Lab: Chemicals, Biomass a Stim Pack.",
-    infoActions: Object.freeze(["+ Vybrat hotové patří do serverového production/collect flow.", "⇪ Rychlost výroby určuje serverový level budovy.", "Chemicals, Biomass a Stim Pack napájí recepty v Labu."])
+    infoActions: Object.freeze(["Každá linka vyrábí položky po jednom kuse.", "⇪ Level mění pouze rychlost výroby.", "Hotové položky se vyzvedávají do globálního SKLADU."])
   }),
   druglab: Object.freeze({
     label: "Lab",
     title: "Výroba drug balíků",
     upgradeBaseCost: 4200,
     infoText: "Lab vyrábí laboratorní látky a strategické komponenty pro budoucí boostovací recepty.",
-    infoActions: Object.freeze(["+ Vybrat hotové patří do serverového production/collect flow.", "⇪ Každý level zrychluje výrobu na serveru.", "Ghost Serum a Overdrive X jsou výrobní komponenty bez přímé aktivace."])
+    infoActions: Object.freeze(["Každá látka má vlastní výrobní linku.", "⇪ Level mění pouze rychlost výroby.", "Ghost Serum a Overdrive X jsou výrobní komponenty bez přímé aktivace."])
   }),
   armory: Object.freeze({
     label: "Zbrojovka",
     title: "Výroba výzbroje",
     upgradeBaseCost: 5200,
-    outputCap: 15,
-    queueCap: 15,
-    queueCapPerExtraBuilding: 4,
-    outputCapPerWarehouse: 5,
-    infoText: "Zbrojovka vyrábí útočnou i obrannou výzbroj z Metal Parts a Tech Core.",
-    infoActions: Object.freeze(["+ Vybrat hotové patří do serverového craft flow.", "⇪ Každý level zvedá serverovou craft rychlost o 10%.", "Zbrojovka bere Metal Parts a Tech Core z materiálového skladu."])
+    infoText: "Zbrojovka vyrábí útočné i obranné vybavení z Metal Parts, Tech Core a Combat Module.",
+    infoActions: Object.freeze(["Každý cyklus vyrobí právě jeden kus.", "⇪ Level a síť mění pouze rychlost výroby.", "High-tier recepty spotřebovávají Combat Module z globálního SKLADU."])
   })
 });
 
@@ -32,7 +28,22 @@ export const PRODUCTION_RESOURCE_LABELS = Object.freeze({
   "stim-pack": "Stim Pack",
   "metal-parts": "Metal Parts",
   "tech-core": "Tech Core",
-  "combat-module": "Bojový modul"
+  "combat-module": "Bojový modul",
+  "neon-dust": "Neon Dust",
+  "pulse-shot": "Pulse Shot",
+  "velvet-smoke": "Velvet Smoke",
+  "ghost-serum": "Ghost Serum",
+  "overdrive-x": "Overdrive X",
+  "baseball-bat": "Baseballová pálka",
+  pistol: "Pistole",
+  grenade: "Granát",
+  smg: "SMG",
+  bazooka: "Bazuka",
+  vest: "Vesta",
+  barricades: "Barikády",
+  cameras: "Kamery",
+  "defense-tower": "Obranná věž",
+  alarm: "Alarm"
 });
 
 export const PRODUCTION_SLOT_VISUALS = Object.freeze({

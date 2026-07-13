@@ -22,6 +22,8 @@ export const createFetchClientTransport = (
   const fetchJson = options.fetchImpl ?? globalThis.fetch;
   const endpointBase = options.endpointBase.replace(/\/+$/u, "");
   const storage = options.storage ?? resolveBrowserStorage();
+  const legacySessionStorage = options.storage ?? resolveBrowserLegacySessionStorage();
+  let consumedJoinTicket: string | null = null;
 
   const post = async <TRequest>(
     route: "load" | "submit",
@@ -32,7 +34,14 @@ export const createFetchClientTransport = (
     }
 
     const requestWithTokens = attachStoredGameplaySliceTokens(route, request, storage);
-    const endpointRoute = resolveEndpointRoute(route, requestWithTokens, storage);
+    const requestJoinTicket = readJoinTicket(requestWithTokens);
+    const shouldStripConsumedJoinTicket = Boolean(
+      consumedJoinTicket && requestJoinTicket === consumedJoinTicket
+    );
+    const requestForEndpoint = shouldStripConsumedJoinTicket
+      ? omitJoinTicket(requestWithTokens)
+      : requestWithTokens;
+    const endpointRoute = resolveEndpointRoute(route, requestForEndpoint);
     const endpoint = `${endpointBase}/${endpointRoute}`;
     const response = await fetchJson(endpoint, {
       method: "POST",
@@ -40,7 +49,7 @@ export const createFetchClientTransport = (
         "content-type": "application/json"
       },
       credentials: "same-origin",
-      body: JSON.stringify(requestWithTokens)
+      body: JSON.stringify(requestForEndpoint)
     });
 
     if (!response.ok) {
@@ -48,7 +57,11 @@ export const createFetchClientTransport = (
     }
 
     const payload = await response.json() as GameplaySliceResponse;
-    persistGameplaySliceTokens(requestWithTokens, payload, storage);
+    persistGameplaySliceTokens(requestForEndpoint, payload, storage);
+    if (endpointRoute === "join" && payload.accepted && requestJoinTicket) {
+      consumedJoinTicket = requestJoinTicket;
+      clearConsumedLegacyJoinTicket(legacySessionStorage, requestJoinTicket);
+    }
     return payload;
   };
 
@@ -76,8 +89,7 @@ const attachStoredGameplaySliceTokens = <TRequest>(
 
 const resolveEndpointRoute = <TRequest>(
   route: "load" | "submit",
-  request: TRequest,
-  storage: Storage | null
+  request: TRequest
 ): "load" | "submit" | "join" => {
   if (route !== "load") {
     return route;
@@ -86,6 +98,31 @@ const resolveEndpointRoute = <TRequest>(
   return String(record.joinTicket ?? "").trim()
     ? "join"
     : "load";
+};
+
+const readJoinTicket = (request: unknown): string | null => {
+  const ticket = String((request as { joinTicket?: unknown })?.joinTicket ?? "").trim();
+  return ticket || null;
+};
+
+const omitJoinTicket = <TRequest>(request: TRequest): TRequest => {
+  const { joinTicket: _joinTicket, ...rest } = request as TRequest & { joinTicket?: unknown };
+  return rest as TRequest;
+};
+
+const clearConsumedLegacyJoinTicket = (storage: Storage | null, consumedTicket: string): void => {
+  const sessionKey = "empireStreets.session.v1";
+  try {
+    const rawSession = storage?.getItem(sessionKey);
+    if (!rawSession) return;
+    const session = JSON.parse(rawSession) as { registration?: Record<string, unknown> };
+    if (readJoinTicket(session.registration) !== consumedTicket) return;
+    const registration = { ...(session.registration ?? {}) };
+    delete registration.joinTicket;
+    storage?.setItem(sessionKey, JSON.stringify({ ...session, registration }));
+  } catch (_error) {
+    // A malformed compatibility session must not invalidate the server response.
+  }
 };
 
 const persistGameplaySliceTokens = (
@@ -144,6 +181,14 @@ const createGameplaySliceTokenStorageKey = (
 const resolveBrowserStorage = (): Storage | null => {
   try {
     return globalThis.sessionStorage ?? null;
+  } catch (_error) {
+    return null;
+  }
+};
+
+const resolveBrowserLegacySessionStorage = (): Storage | null => {
+  try {
+    return globalThis.localStorage ?? null;
   } catch (_error) {
     return null;
   }

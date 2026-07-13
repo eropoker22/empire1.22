@@ -136,7 +136,7 @@ function formatQueuedOutput(job = null, recipe = {}, options = {}) {
     return queueCap > 0 ? `0/${queueCap} ks` : "0 ks";
   }
   const queuedAmount = getQueuedOutputAmount(job, recipe, options);
-  return queueCap > 0 ? `${Math.min(queueCap, queuedAmount)}/${queueCap} ks` : `${queuedAmount} ks`;
+  return queueCap > 0 ? `${queuedAmount}/${queueCap} ks` : `${queuedAmount} ks`;
 }
 
 function formatReadyOutput(job = null, recipe = {}, options = {}) {
@@ -576,9 +576,12 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
   collectButton.type = "button";
   if (buildingName === "druglab" || buildingName === "pharmacy" || buildingName === "armory") {
     collectButton.textContent = "Zrušit";
-    collectButton.disabled = !job || job.status !== "running";
-    collectButton.title = "Zrušit výrobu a vrátit náklady";
-    collectButton.setAttribute("aria-label", `Zrušit výrobu ${recipe.name || ""}`);
+    const waitingAmount = job?.status === "running"
+      ? Math.max(0, Math.floor(Number(job.quantity || 1)) - 1)
+      : 0;
+    collectButton.disabled = waitingAmount <= 0;
+    collectButton.title = "Zrušit čekající kusy a vrátit jejich náklady";
+    collectButton.setAttribute("aria-label", `Zrušit čekající výrobu ${recipe.name || ""}`);
     collectButton.addEventListener("click", () => {
       if (typeof callbacks.onStop === "function") callbacks.onStop(viewModel);
     });

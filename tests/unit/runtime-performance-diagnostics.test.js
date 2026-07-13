@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 import { describe, expect, it, vi } from "vitest";
 import { createRuntimePerformanceDiagnostics } from "../../page-assets/js/app/performance/runtimePerformanceDiagnostics.js";
+import { getGameplayExecutionMode } from "../../page-assets/js/app/runtime/gameplayExecutionMode.js";
 
 function createWindowFixture(search = "") {
   const store = new Map();
@@ -18,7 +19,19 @@ function createWindowFixture(search = "") {
 }
 
 describe("runtime performance diagnostics", () => {
-  it("tracks local work and disables it as soon as a server slice is active", () => {
+  it("keeps an explicit local-demo boundary even when a server slice is available", () => {
+    const meta = document.createElement("meta");
+    meta.name = "empire-gameplay-execution-mode";
+    meta.content = "local-demo";
+    document.head.append(meta);
+    const windowRef = createWindowFixture();
+
+    expect(getGameplayExecutionMode({ windowRef, serverReady: true, diagnosticsMode: "server-authoritative" })).toBe("local-demo");
+
+    meta.remove();
+  });
+
+  it("keeps local demo isolated until server-authoritative mode is selected", () => {
     const windowRef = createWindowFixture();
     const diagnostics = createRuntimePerformanceDiagnostics({
       windowRef,
@@ -27,7 +40,7 @@ describe("runtime performance diagnostics", () => {
     });
 
     expect(diagnostics.getSummary()).toMatchObject({
-      runtimeMode: "demo",
+      runtimeMode: "local-demo",
       localProjectionActive: true,
       serverSliceActive: false,
       demoFallbackActive: true
@@ -52,11 +65,30 @@ describe("runtime performance diagnostics", () => {
     expect(firstObservation.changed).toBe(true);
     expect(repeatedObservation.changed).toBe(false);
     expect(diagnostics.getSummary()).toMatchObject({
+      runtimeMode: "local-demo",
+      localTickActive: true,
+      localProjectionActive: true,
+      serverSliceActive: false,
+      serverSliceRefreshPerMinute: 2,
+      clientStateRecomputePerMinute: 1,
+      mapInvalidationReasonCounts: { "ui:settings-change": 1 },
+      lastMapInvalidationReason: "ui:settings-change",
+      demoFallbackActive: true
+    });
+
+    diagnostics.setMode("server-authoritative", { reason: "test-server-selection" });
+    diagnostics.observeServerSlice({
+      server: { serverInstanceId: "instance:test", stateVersion: 3, currentTick: 5 },
+      player: { playerId: "player:test" },
+      district: { districtId: "district:1" }
+    });
+
+    expect(diagnostics.getSummary()).toMatchObject({
       runtimeMode: "server-authoritative",
       localTickActive: false,
       localProjectionActive: false,
       serverSliceActive: true,
-      serverSliceRefreshPerMinute: 2,
+      serverSliceRefreshPerMinute: 3,
       clientStateRecomputePerMinute: 1,
       mapInvalidationReasonCounts: { "ui:settings-change": 1 },
       lastMapInvalidationReason: "ui:settings-change",
@@ -77,7 +109,7 @@ describe("runtime performance diagnostics", () => {
     diagnostics.setMode("demo", { reason: "test" });
 
     expect(diagnostics.getSummary()).toMatchObject({
-      runtimeMode: "server-authoritative",
+      runtimeMode: "unavailable",
       localTickActive: false,
       localProjectionActive: false,
       serverSliceActive: false,

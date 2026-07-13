@@ -4,7 +4,6 @@ import type { CoreGameState } from "../entities";
 export type PowerStationInfrastructureTarget =
   | "factoryProductionSpeed"
   | "armoryProductionSpeed"
-  | "warehouseStorageCapacity"
   | "clinicRecoveryRate"
   | "casinoIncome"
   | "arcadeIncome"

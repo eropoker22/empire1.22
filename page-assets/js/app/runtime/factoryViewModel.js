@@ -13,39 +13,42 @@ function formatFactorySpeedBonus(multiplier = 1) {
   return `${pct >= 0 ? "+" : ""}${pct}%`;
 }
 
-const FACTORY_SLOT_DISPLAY_INFO = Object.freeze({
-  metalParts: Object.freeze({
-    durationLabel: "4 min",
-    priceLabel: "120",
-    storageCap: 20,
-    displayCost: Object.freeze({ cleanCash: 120, techCore: 0 }),
-    primaryLine: "120",
-    secondaryLine: "4 min"
-  }),
-  techCore: Object.freeze({
-    durationLabel: "8 min",
-    priceLabel: "300",
-    storageCap: 10,
-    displayCost: Object.freeze({ cleanCash: 300, techCore: 0 }),
-    primaryLine: "300",
-    secondaryLine: "8 min"
-  }),
-  combatModule: Object.freeze({
-    durationLabel: "15 min",
-    priceLabel: "650 + 1 Tech Core",
-    storageCap: 5,
-    displayCost: Object.freeze({ cleanCash: 650, techCore: 1 }),
-    primaryLine: "650 + 1 Tech Core",
-    secondaryLine: "15 min"
-  })
+const FACTORY_CANONICAL_KEY_BY_LEGACY_KEY = Object.freeze({
+  metalParts: "metal-parts",
+  techCore: "tech-core",
+  combatModule: "combat-module"
 });
 
-function getFactorySlotDisplayInfo(slot = {}) {
-  return FACTORY_SLOT_DISPLAY_INFO[slot.resourceKey] || FACTORY_SLOT_DISPLAY_INFO.metalParts;
+function getFactoryRecipe(slot = {}, config = {}) {
+  const recipeId = slot.recipeId || FACTORY_CANONICAL_KEY_BY_LEGACY_KEY[slot.resourceKey] || slot.resourceKey;
+  return config.recipes?.[recipeId] || null;
+}
+
+function getFactorySlotDisplayInfo(slot = {}, config = {}) {
+  const recipe = getFactoryRecipe(slot, config) || {};
+  const inputs = recipe.inputs || {};
+  const displayCost = {
+    cleanCash: Math.max(0, Math.floor(Number(recipe.cleanMoneyCost || 0))),
+    metalParts: Math.max(0, Math.floor(Number(inputs["metal-parts"] || 0))),
+    techCore: Math.max(0, Math.floor(Number(inputs["tech-core"] || 0)))
+  };
+  const priceParts = [
+    displayCost.cleanCash > 0 ? `$${displayCost.cleanCash} clean` : "",
+    displayCost.metalParts > 0 ? `${displayCost.metalParts}× Metal Parts` : "",
+    displayCost.techCore > 0 ? `${displayCost.techCore}× Tech Core` : ""
+  ].filter(Boolean);
+  return {
+    displayCost,
+    priceLabel: priceParts.join(" · ") || "bez ceny",
+    primaryLine: priceParts.join(" · ") || "bez ceny",
+    secondaryLine: "",
+    storageCap: Math.max(1, Math.floor(Number(recipe.localOutputCap || slot.slotCap || 1))),
+    recipe
+  };
 }
 
 function formatFactoryReadyLabel(amount, resourceKey, capOverride = null) {
-  const cap = Math.max(0, Math.floor(Number(capOverride ?? (FACTORY_SLOT_DISPLAY_INFO[resourceKey]?.storageCap || 0))));
+  const cap = Math.max(0, Math.floor(Number(capOverride || 0)));
   const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
   return cap > 0 ? `${safeAmount}/${cap}` : String(safeAmount);
 }
@@ -60,7 +63,7 @@ function getFactoryReadyResourceTotals(slots = []) {
 }
 
 function getFactorySlotVisual(slot = {}, config = {}, formatDurationLabel = (value) => `${value}ms`) {
-  const displayInfo = getFactorySlotDisplayInfo(slot);
+  const displayInfo = getFactorySlotDisplayInfo(slot, config);
   if (slot.resourceKey === "metalParts") {
     return {
       iconToneClass: "drug-production-slot__icon--amber",
@@ -89,12 +92,12 @@ function getFactorySlotVisual(slot = {}, config = {}, formatDurationLabel = (val
     typeLabel: "",
     profileLabel: "Recept",
     primaryLine: displayInfo.primaryLine,
-    secondaryLine: displayInfo.secondaryLine || `${formatDurationLabel(config.combatModule?.durationMs || 0)} / kus`
+    secondaryLine: displayInfo.secondaryLine || `${formatDurationLabel(getFactorySlotDurationMs(slot, config))} / kus`
   };
 }
 
-function getFactorySlotPriceLabel(slot = {}) {
-  return getFactorySlotDisplayInfo(slot).priceLabel || "bez ceny";
+function getFactorySlotPriceLabel(slot = {}, config = {}) {
+  return getFactorySlotDisplayInfo(slot, config).priceLabel || "bez ceny";
 }
 
 function getFactorySlotDurationMs(slot = {}, config = {}) {
@@ -102,7 +105,7 @@ function getFactorySlotDurationMs(slot = {}, config = {}) {
   if (Number.isFinite(configuredDuration) && configuredDuration > 0) {
     return configuredDuration;
   }
-  return FACTORY_SLOT_DISPLAY_INFO[slot.resourceKey]?.durationMs || (
+  return (
     slot.resourceKey === "metalParts"
       ? 4 * 60 * 1000
       : slot.resourceKey === "techCore"
@@ -119,6 +122,7 @@ export function buildFactoryDashboardViewModel({
   factoryState = {},
   syncResult = {},
   supplyState = {},
+  cleanMoney = 0,
   collectableAmount = 0,
   config = {},
   slotConfig = [],
@@ -138,7 +142,7 @@ export function buildFactoryDashboardViewModel({
     if (!key) return caps;
     caps[key] = Math.max(
       Number(caps[key] || 0),
-      Math.max(0, Math.floor(Number(slot?.slotCap || getFactorySlotDisplayInfo(slot).storageCap || slotStorageCap || 0)))
+      Math.max(0, Math.floor(Number(getFactorySlotDisplayInfo(slot, config).storageCap || slot?.slotCap || slotStorageCap || 0)))
     );
     return caps;
   }, {});
@@ -178,20 +182,42 @@ export function buildFactoryDashboardViewModel({
     },
     slots: slots.map((slot) => {
       const slotMeta = slotConfig.find((item) => item.id === slot.id) || null;
+      const displayInfo = getFactorySlotDisplayInfo(slot, config);
+      const outputCap = Math.max(1, Math.floor(Number(displayInfo.storageCap || slot.slotCap || 1)));
+      const queueCap = Math.max(1, Math.floor(Number(displayInfo.recipe?.queueCap || slot.queueCap || 1)));
+      const queuedAmount = Math.max(0, Math.floor(Number(slot.queuedAmount || 0)));
+      const outputIsFull = Math.max(0, Math.floor(Number(slot.producedAmount || 0))) >= outputCap;
+      const affordableByCash = displayInfo.displayCost.cleanCash > 0
+        ? Math.floor(Math.max(0, Number(cleanMoney || 0)) / displayInfo.displayCost.cleanCash)
+        : Number.POSITIVE_INFINITY;
+      const affordableByMetal = displayInfo.displayCost.metalParts > 0
+        ? Math.floor(Math.max(0, Number(supplyState.metalParts || 0)) / displayInfo.displayCost.metalParts)
+        : Number.POSITIVE_INFINITY;
+      const affordableByTech = displayInfo.displayCost.techCore > 0
+        ? Math.floor(Math.max(0, Number(supplyState.techCore || 0)) / displayInfo.displayCost.techCore)
+        : Number.POSITIVE_INFINITY;
+      const maxStartQuantity = outputIsFull ? 0 : Math.max(0, Math.min(
+        queueCap - queuedAmount,
+        affordableByCash,
+        affordableByMetal,
+        affordableByTech
+      ));
       return {
         slot,
         title: slotMeta?.label || slot.resourceKey,
         perHour: getFactorySlotPerHour(slot, syncResult.rates || {}),
-        slotStorageCap: Math.max(1, Math.floor(Number(slot.queueCap || slot.slotCap || getFactorySlotDisplayInfo(slot).storageCap || slotStorageCap || 1))),
-        slotOutputCap: Math.max(1, Math.floor(Number(slot.slotCap || getFactorySlotDisplayInfo(slot).storageCap || slotStorageCap || 1))),
-        queueCap: Math.max(1, Math.floor(Number(slot.queueCap || slot.slotCap || getFactorySlotDisplayInfo(slot).storageCap || slotStorageCap || 1))),
+        slotStorageCap: queueCap,
+        slotOutputCap: outputCap,
+        queueCap,
         resourceColor: normalizeResourceColorKey(slot.resourceKey),
-        queuedAmount: Math.max(0, Math.floor(Number(slot.queuedAmount || 0))),
+        queuedAmount,
+        canStart: maxStartQuantity > 0,
+        maxStartQuantity,
         unitCost: {
-          metalParts: slot.mode === "craft" || slot.resourceKey === "combatModule" ? Math.max(0, Number(config.combatModule?.metalPartsCost || 0)) : 0,
-          techCore: slot.mode === "craft" || slot.resourceKey === "combatModule" ? Math.max(0, Number(config.combatModule?.techCoreCost || 0)) : 0
+          metalParts: displayInfo.displayCost.metalParts,
+          techCore: displayInfo.displayCost.techCore
         },
-        displayCost: getFactorySlotDisplayInfo(slot).displayCost,
+        displayCost: displayInfo.displayCost,
         priceLabel: getFactorySlotPriceLabel(slot, config),
         durationMs: getEffectiveFactorySlotDurationMs(slot, config, syncResult.productionMultiplier),
         ...getFactorySlotVisual(slot, config, formatDurationLabel)

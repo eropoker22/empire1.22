@@ -11,7 +11,7 @@ import {
 import {
   ARMORY_RECIPES,
   DEFAULT_DRUG_INVENTORY,
-  FACTORY_COMBAT_BOOSTS,
+  DEMO_FACTORY_COMBAT_BOOSTS,
   DEFAULT_MATERIAL_INVENTORY,
   DEFAULT_WEAPON_INVENTORY,
   FACTORY_CONFIG,
@@ -23,7 +23,8 @@ import {
   getMarketPriceKey,
   MARKET_PRICE_REFRESH_MS,
   MARKET_TAB_CONFIG,
-  PHARMACY_RECIPES
+  PHARMACY_RECIPES,
+  WAREHOUSE_STORAGE_CONFIG
 } from "../../../packages/game-config/src/legacy-page/economy-config.js";
 import {
   FACTION_CATALOG,
@@ -634,7 +635,6 @@ import {
   SCHOOL_CONFIG,
   SHOPPING_MALL_NETWORK_CONFIG,
   SMUGGLING_TUNNEL_CONFIG,
-  WAREHOUSE_BASE_STORAGE_CAPACITIES,
   WAREHOUSE_NETWORK_CONFIG
 } from "./runtime/buildingDetailData.js";
 import {
@@ -890,6 +890,10 @@ import {
   normalizeBuildingActionSnapshot
 } from "./ui/eventFeedPanel.js";
 import { renderPlayerProfilePanel } from "./ui/playerProfilePanel.js";
+import {
+  GAMEPLAY_EXECUTION_MODES,
+  getGameplayExecutionMode
+} from "./runtime/gameplayExecutionMode.js";
 // Legacy static-page preview runtime; browser-local only when no server authority is present.
 const BUILDING_ACTION_LOG_LIMIT = 30;
 const MONEY_STAT_COUNT_TICK_MS = 26;
@@ -903,20 +907,24 @@ const attackMissionTimers = new Map();
 const occupyMissionTimers = new Map();
 const robberyMissionTimers = new Map();
 
+function hasValidatedServerGameplaySlice() {
+  return Boolean(
+    latestGameplaySliceReadModel?.player?.playerId
+    && latestGameplaySliceReadModel?.player?.instanceId
+  );
+}
+
 function isServerAuthoritativeGameplayRuntimeReady() {
-  if (typeof document === "undefined") {
+  if (typeof document === "undefined" || !hasValidatedServerGameplaySlice()) {
     return false;
   }
 
-  if (latestGameplaySliceReadModel?.player?.playerId && latestGameplaySliceReadModel?.player?.instanceId) {
-    return true;
-  }
-
-  if (document.body?.dataset?.gameplayRuntime === "server-authoritative-ready") {
-    return true;
-  }
-
-  return Boolean(document.querySelector?.('[data-gameplay-slice-client][data-gameplay-runtime="server-authoritative-ready"]'));
+  const selectedMode = getGameplayExecutionMode({
+    diagnosticsMode: getRuntimePerformanceDiagnostics()?.getSummary?.().runtimeMode,
+    serverReady: false,
+    windowRef: typeof window === "undefined" ? null : window
+  });
+  return selectedMode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative;
 }
 const spyMissionTimers = new Map();
 const ONBOARDING_ATTACK_TARGET_DISTRICT_ID = 1;
@@ -943,12 +951,21 @@ const eliminationResultPopupsByRoot = new WeakMap();
 const eliminationCountdownWarningsByRoot = new WeakMap();
 const ELIMINATION_RESULT_POPUP_SELECTOR = "[data-elimination-result-popup]";
 let latestGameplaySliceReadModel = null;
-// Temporary authoring mode for all four production panels. Re-enable the
-// authoritative bridges only when their final UI revisions are complete together.
-const LOCAL_PRODUCTION_EDIT_MODE = true;
 
 function getRuntimePerformanceDiagnostics() {
   return typeof window === "undefined" ? null : window.empireStreetsRuntimeDiagnostics || null;
+}
+
+function getCurrentGameplayExecutionMode() {
+  return getGameplayExecutionMode({
+    diagnosticsMode: getRuntimePerformanceDiagnostics()?.getSummary?.().runtimeMode,
+    serverReady: isServerAuthoritativeGameplayRuntimeReady(),
+    windowRef: typeof window === "undefined" ? null : window
+  });
+}
+
+function isLocalDemoGameplayExecutionMode() {
+  return getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.localDemo;
 }
 
 function shouldRunLocalGameplayRuntime() {
@@ -956,14 +973,7 @@ function shouldRunLocalGameplayRuntime() {
   if (diagnostics?.shouldRunLocalTick) {
     return diagnostics.shouldRunLocalTick();
   }
-  if (typeof window === "undefined") return false;
-  const host = String(window.location?.hostname || "").toLowerCase();
-  return window.location?.protocol === "file:"
-    || !host
-    || host === "localhost"
-    || host === "127.0.0.1"
-    || host === "::1"
-    || host.endsWith(".local");
+  return isLocalDemoGameplayExecutionMode();
 }
 
 function stopLegacyGameplayTimers() {
@@ -976,14 +986,21 @@ function stopLegacyGameplayTimers() {
 }
 
 function getServerMarketReadModel() {
-  return latestGameplaySliceReadModel?.market || null;
+  return isServerAuthoritativeGameplayRuntimeReady()
+    ? latestGameplaySliceReadModel?.market || null
+    : null;
 }
 
 function getServerPlayerView() {
-  return latestGameplaySliceReadModel?.player || null;
+  return isServerAuthoritativeGameplayRuntimeReady()
+    ? latestGameplaySliceReadModel?.player || null
+    : null;
 }
 
 function getServerAttackWeaponSetup() {
+  if (!isServerAuthoritativeGameplayRuntimeReady()) {
+    return null;
+  }
   const weapons = latestGameplaySliceReadModel?.player?.attackWeapons?.weapons;
   if (!Array.isArray(weapons) || weapons.length === 0) {
     return null;
@@ -1015,6 +1032,9 @@ function getAttackWeaponLabels() {
 }
 
 function getServerPharmacyReadModel() {
+  if (!isServerAuthoritativeGameplayRuntimeReady()) {
+    return null;
+  }
   const district = latestGameplaySliceReadModel?.district;
   const building = district?.buildings?.find?.((candidate) => candidate?.buildingTypeId === "pharmacy" && candidate?.pharmacy);
   if (!building?.pharmacy || !district?.districtId) {
@@ -1028,6 +1048,9 @@ function getServerPharmacyReadModel() {
 }
 
 function getServerDrugLabReadModel() {
+  if (!isServerAuthoritativeGameplayRuntimeReady()) {
+    return null;
+  }
   const district = latestGameplaySliceReadModel?.district;
   const building = district?.buildings?.find?.((candidate) => candidate?.buildingTypeId === "drug_lab" && candidate?.drugLab);
   if (!building?.drugLab || !district?.districtId) {
@@ -1042,6 +1065,9 @@ function getServerDrugLabReadModel() {
 }
 
 function getServerFactoryReadModel() {
+  if (!isServerAuthoritativeGameplayRuntimeReady()) {
+    return null;
+  }
   const playerFactory = latestGameplaySliceReadModel?.player?.factoryProduction;
   if (playerFactory?.buildingId && playerFactory?.districtId && Array.isArray(playerFactory.productionLines)) {
     return playerFactory;
@@ -1080,6 +1106,9 @@ function submitServerDrugLabCommand({ type, payload } = {}) {
 }
 
 function getServerArmoryReadModel() {
+  if (!isServerAuthoritativeGameplayRuntimeReady()) {
+    return null;
+  }
   const district = latestGameplaySliceReadModel?.district;
   const building = district?.buildings?.find?.((candidate) => candidate?.buildingTypeId === "armory" && candidate?.armory);
   if (!building?.armory || !district?.districtId) {
@@ -4475,8 +4504,8 @@ const {
   renderProductionBuildingInfo,
   renderProductionPanel
 } = createProductionBuildingPopupRuntime({
-  allowLegacyLocalProduction: LOCAL_PRODUCTION_EDIT_MODE,
-  allowLegacyProductionUpgrade: LOCAL_PRODUCTION_EDIT_MODE,
+  allowLegacyLocalProduction: isLocalDemoGameplayExecutionMode(),
+  allowLegacyProductionUpgrade: isLocalDemoGameplayExecutionMode(),
   isServerAuthoritativeGameplayRuntimeReady,
   ARMORY_POPUP_CLOSE_SELECTOR,
   ARMORY_POPUP_OPEN_SELECTOR,
@@ -4518,7 +4547,6 @@ const {
   getOwnedArmoryCount: () => getOwnedSpecialProductionBuildingCount("zbrojovka"),
   getOwnedDrugLabCount: () => getOwnedSpecialProductionBuildingCount("drug lab"),
   getOwnedPharmacyCount: () => getOwnedSpecialProductionBuildingCount("lekarna"),
-  getOwnedWarehouseCount: getOwnedWarehouseCountForProductionOutput,
   getArmoryRecipeStrengthPreview,
   getResolvedEconomyState,
   getScaledProductionInputs,
@@ -4714,14 +4742,6 @@ function getProductionNetworkBaseOwnedCount() {
   return 1;
 }
 
-function getProductionQueueCapPerExtraBuilding() {
-  return 4;
-}
-
-function getProductionOutputCapPerWarehouse() {
-  return 5;
-}
-
 function normalizeProductionCapacityCount(value, fallback = 0, minValue = 0) {
   const normalized = Math.floor(Number(value));
   if (Number.isFinite(normalized)) {
@@ -4740,57 +4760,90 @@ function getOwnedSpecialProductionBuildingCount(baseName) {
   return Math.max(getProductionNetworkBaseOwnedCount(), getOwnedDistrictBuildingCountByBaseName(baseName));
 }
 
-function getOwnedWarehouseCountForProductionOutput() {
-  if (typeof window === "undefined") {
-    return 0;
-  }
-
-  return Math.max(
-    0,
-    getOwnedDistrictBuildingCountByBaseName("sklad") + getOwnedDistrictBuildingCountByBaseName("skladiste")
-  );
-}
-
 function createFactoryCapacityOptions(options = {}) {
   return {
     ownedFactoryCount: normalizeProductionCapacityCount(
       options.ownedFactoryCount ?? getOwnedSpecialProductionBuildingCount("tovarna"),
       getProductionNetworkBaseOwnedCount(),
       getProductionNetworkBaseOwnedCount()
-    ),
-    ownedWarehouseCount: normalizeProductionCapacityCount(
-      options.ownedWarehouseCount ?? getOwnedWarehouseCountForProductionOutput(),
-      0,
-      0
     )
   };
 }
 
-function getFactorySlotOutputCap(resourceKey, options = {}) {
-  const capacityOptions = createFactoryCapacityOptions(options);
-  return getFactorySlotBaseStorageCap(resourceKey)
-    + capacityOptions.ownedWarehouseCount * getProductionOutputCapPerWarehouse();
+function getGameplayStorageSummary() {
+  const serverSummary = getServerStorageSummary();
+  if (serverSummary) return serverSummary;
+  const ownedWarehouseCount = getOwnedWarehouseCount();
+  const network = getWarehouseNetworkMultipliers(ownedWarehouseCount);
+  const capacity = getWarehouseCapacityBreakdown(ownedWarehouseCount);
+  const usage = getWarehouseStorageUsage(capacity);
+  const groups = Object.entries(WAREHOUSE_STORAGE_CONFIG.groups || {}).map(([id, group]) => {
+    const currentCapacity = Math.max(0, Number(capacity.groups?.[id] || 0));
+    return {
+      id,
+      label: group.label,
+      baseCapacity: group.baseCapacity,
+      currentCapacity,
+      items: (group.resourceKeys || []).map((resourceKey) => {
+        const currentAmount = Math.max(0, Math.floor(Number(usage.byResource?.[resourceKey] || 0)));
+        const fillPercent = currentCapacity > 0 ? currentAmount / currentCapacity * 100 : 0;
+        return {
+          resourceKey,
+          label: getProductionResourceLabel(resourceKey),
+          currentAmount,
+          maxAmount: currentCapacity,
+          fillPercent,
+          isNearCapacity: currentAmount >= currentCapacity * 0.8 && currentAmount < currentCapacity,
+          isFull: currentAmount === currentCapacity,
+          isOverCapacity: currentAmount > currentCapacity
+        };
+      })
+    };
+  });
+  return {
+    warehouseSummary: {
+      ownedWarehouseCount,
+      highestWarehouseLevel: network.highestLevel,
+      warehouseCountMultiplier: network.warehouseCountMultiplier,
+      warehouseLevelMultiplier: network.warehouseLevelMultiplier,
+      totalCapacityMultiplier: network.storageCapacityMultiplier
+    },
+    groups
+  };
 }
 
-function getFactorySlotQueueCap(resourceKey, options = {}) {
-  const capacityOptions = createFactoryCapacityOptions(options);
-  const extraFactories = Math.max(0, capacityOptions.ownedFactoryCount - getProductionNetworkBaseOwnedCount());
-  return getFactorySlotBaseStorageCap(resourceKey)
-    + extraFactories * getProductionQueueCapPerExtraBuilding();
+function getFactoryRecipeForResource(resourceKey) {
+  const slotConfig = FACTORY_SLOT_CONFIG.find((slot) => slot.resourceKey === resourceKey);
+  return FACTORY_CONFIG.recipes?.[slotConfig?.recipeId] || null;
+}
+
+function getFactorySlotOutputCap(resourceKey) {
+  return Math.max(1, Math.floor(Number(
+    getFactoryRecipeForResource(resourceKey)?.localOutputCap || getFactorySlotBaseStorageCap(resourceKey)
+  )));
+}
+
+function getFactorySlotQueueCap(resourceKey) {
+  return Math.max(1, Math.floor(Number(
+    getFactoryRecipeForResource(resourceKey)?.queueCap || getFactorySlotBaseStorageCap(resourceKey)
+  )));
 }
 
 function createFactoryDefaultSlot(slot, now = Date.now(), options = {}) {
   return {
     id: slot.id,
+    recipeId: slot.recipeId,
     resourceKey: slot.resourceKey,
     mode: slot.mode,
-    isProducing: true,
-    queueMode: false,
+    isProducing: false,
+    queueMode: true,
     queuedAmount: 0,
     producedAmount: 0,
     productionRemainder: 0,
-    slotCap: getFactorySlotOutputCap(slot.resourceKey, options),
-    queueCap: getFactorySlotQueueCap(slot.resourceKey, options),
+    reservedCleanCash: 0,
+    reservedInputs: {},
+    slotCap: getFactorySlotOutputCap(slot.resourceKey),
+    queueCap: getFactorySlotQueueCap(slot.resourceKey),
     lastTick: now
   };
 }
@@ -4804,23 +4857,6 @@ function createFactoryDefaultState(now = Date.now(), options = {}) {
   };
 }
 
-function consumeFactorySlotOutput(stateRef, resourceKey, amount) {
-  let remaining = Math.max(0, Math.floor(Number(amount || 0)));
-  if (remaining <= 0) return 0;
-
-  for (const slot of stateRef.slots || []) {
-    if (slot.resourceKey !== resourceKey || remaining <= 0) continue;
-    const available = Math.max(0, Math.floor(Number(slot.producedAmount || 0)));
-    const consumed = Math.min(available, remaining);
-    slot.producedAmount = Math.max(0, available - consumed);
-    remaining -= consumed;
-  }
-
-  const consumedTotal = Math.max(0, Math.floor(Number(amount || 0)) - remaining);
-  stateRef.resources[resourceKey] = Math.max(0, Math.floor(Number(stateRef.resources[resourceKey] || 0) - consumedTotal));
-  return consumedTotal;
-}
-
 function sanitizeFactoryState(rawState, now = Date.now(), options = {}) {
   const capacityOptions = createFactoryCapacityOptions(options);
   const fallback = createFactoryDefaultState(now, capacityOptions);
@@ -4831,19 +4867,23 @@ function sanitizeFactoryState(rawState, now = Date.now(), options = {}) {
     resources: createFactoryResourceMap(rawState?.resources),
     slots: FACTORY_SLOT_CONFIG.map((slot, index) => {
       const source = Array.isArray(rawState?.slots) ? rawState.slots[index] : null;
-      const outputCap = getFactorySlotOutputCap(slot.resourceKey, capacityOptions);
-      const queueCap = getFactorySlotQueueCap(slot.resourceKey, capacityOptions);
+      const outputCap = getFactorySlotOutputCap(slot.resourceKey);
+      const queueCap = getFactorySlotQueueCap(slot.resourceKey);
+      const queuedAmount = Math.max(0, Math.floor(Number(source?.queuedAmount || 0)));
       return {
         ...createFactoryDefaultSlot(slot, now, capacityOptions),
         ...(source || {}),
         id: slot.id,
+        recipeId: slot.recipeId,
         resourceKey: slot.resourceKey,
         mode: slot.mode,
-        isProducing: source?.isProducing !== false,
-        queueMode: Boolean(source?.queueMode),
-        queuedAmount: Math.min(queueCap, Math.max(0, Math.floor(Number(source?.queuedAmount || 0)))),
-        producedAmount: Math.min(outputCap, Math.max(0, Math.floor(Number(source?.producedAmount || 0)))),
+        isProducing: queuedAmount > 0 && source?.isProducing !== false,
+        queueMode: true,
+        queuedAmount,
+        producedAmount: Math.max(0, Math.floor(Number(source?.producedAmount || 0))),
         productionRemainder: Math.max(0, Number(source?.productionRemainder || 0)),
+        reservedCleanCash: Math.max(0, Math.floor(Number(source?.reservedCleanCash || 0))),
+        reservedInputs: createFactoryResourceMap(source?.reservedInputs),
         slotCap: outputCap,
         queueCap,
         lastTick: Math.max(0, Math.floor(Number(source?.lastTick || now)))
@@ -4891,8 +4931,9 @@ function setStoredFactorySupplies(payload) {
 
 function getFactoryUpgradeCost(level) {
   const safeLevel = Math.max(2, Math.min(FACTORY_CONFIG.maxLevel, Math.floor(Number(level) || 1)));
-  const rawCost = 5000 * Math.pow(1.47, safeLevel - 2);
-  return Math.max(1000, Math.round(rawCost / 100) * 100);
+  const rawCost = FACTORY_CONFIG.upgradeBaseCost * Math.pow(FACTORY_CONFIG.upgradeCostGrowth, safeLevel - 2);
+  const roundTo = Math.max(1, Number(FACTORY_CONFIG.upgradeRoundCostTo || 1));
+  return Math.max(roundTo, Math.round(rawCost / roundTo) * roundTo);
 }
 
 function getFactoryLevelMultiplier(level) {
@@ -4906,7 +4947,7 @@ function calculateFactoryProductionRates(levelMultiplier = 1) {
   return {
     metalPartsPerHour: ((60 * 60 * 1000) / Math.max(1, Number(slotDurationMs.metalParts || 4 * 60 * 1000))) * multiplier,
     techCorePerHour: ((60 * 60 * 1000) / Math.max(1, Number(slotDurationMs.techCore || 8 * 60 * 1000))) * multiplier,
-    combatModulePerHour: ((60 * 60 * 1000) / Math.max(1, Number(slotDurationMs.combatModule || FACTORY_CONFIG.combatModule.durationMs))) * multiplier
+    combatModulePerHour: ((60 * 60 * 1000) / Math.max(1, Number(slotDurationMs.combatModule || 15 * 60 * 1000))) * multiplier
   };
 }
 
@@ -4916,7 +4957,7 @@ function getFactorySlotProductionDurationMs(resourceKey, productionMultiplier = 
     ? 4 * 60 * 1000
     : resourceKey === "techCore"
       ? 8 * 60 * 1000
-      : FACTORY_CONFIG.combatModule.durationMs;
+      : 15 * 60 * 1000;
   const baseDurationMs = Math.max(1, Number(slotDurationMs[resourceKey] || fallbackDurationMs));
   return Math.max(1, Math.round(baseDurationMs / Math.max(0.1, Number(productionMultiplier) || 1)));
 }
@@ -4926,9 +4967,14 @@ function syncFactoryProduction(instanceState, now = Date.now(), options = {}) {
   const stateRef = sanitizeFactoryState(instanceState, now, capacityOptions);
   const nowMs = Math.max(0, Math.floor(Number(now) || Date.now()));
   const ownedFactoryCount = capacityOptions.ownedFactoryCount;
-  const networkProductionBonusPct = Math.max(0, Number(options?.networkProductionBonusPct ?? 0) || 0);
+  const networkCountKey = Math.min(4, Math.max(1, ownedFactoryCount));
+  const networkMultiplier = Math.min(
+    Number(FACTORY_CONFIG.network?.maxSpeedMultiplier || 1),
+    Number(FACTORY_CONFIG.network?.speedMultipliers?.[networkCountKey] || 1)
+  );
+  const networkProductionBonusPct = Math.max(0, (networkMultiplier - 1) * 100);
   const levelMultiplier = getFactoryLevelMultiplier(stateRef.level);
-  const effectiveProductionMultiplier = Math.max(0.1, levelMultiplier * (1 + networkProductionBonusPct / 100));
+  const effectiveProductionMultiplier = Math.max(0.1, levelMultiplier * networkMultiplier);
   const rates = calculateFactoryProductionRates(effectiveProductionMultiplier);
   const produced = createFactoryResourceMap({}, false);
 
@@ -4937,73 +4983,41 @@ function syncFactoryProduction(instanceState, now = Date.now(), options = {}) {
     if (!Number.isFinite(from) || from > nowMs) {
       from = nowMs;
     }
-    if (!slot.isProducing) {
+    const queueRemaining = Math.max(0, Math.floor(Number(slot.queuedAmount || 0)));
+    const currentAmount = Math.max(0, Math.floor(Number(slot.producedAmount || 0)));
+    const slotSpace = Math.max(0, Math.floor(Number(slot.slotCap || getFactorySlotOutputCap(slot.resourceKey))) - currentAmount);
+    if (queueRemaining <= 0 || slotSpace <= 0) {
+      slot.isProducing = false;
       slot.lastTick = nowMs;
       return;
     }
+    slot.isProducing = true;
     const elapsedMs = Math.max(0, nowMs - from);
     if (elapsedMs <= 0) {
       slot.lastTick = nowMs;
       return;
     }
-    if (slot.queueMode && Math.max(0, Math.floor(Number(slot.queuedAmount || 0))) <= 0) {
-      slot.isProducing = false;
-      slot.productionRemainder = 0;
-      slot.lastTick = nowMs;
-      return;
-    }
-    if (slot.mode === "craft" || slot.resourceKey === "combatModule") {
-      const scaledDurationMs = getFactorySlotProductionDurationMs(slot.resourceKey, effectiveProductionMultiplier);
-      const cycleRaw = elapsedMs / scaledDurationMs + Number(slot.productionRemainder || 0);
-      const cycles = Math.max(0, Math.floor(cycleRaw));
-      if (cycles > 0) {
-        const maxFromMetal = Math.floor(Number(stateRef.resources.metalParts || 0) / FACTORY_CONFIG.combatModule.metalPartsCost);
-        const maxFromTech = Math.floor(Number(stateRef.resources.techCore || 0) / FACTORY_CONFIG.combatModule.techCoreCost);
-        const currentAmount = Math.max(0, Math.floor(Number(slot.producedAmount || 0)));
-        const slotSpace = Math.max(0, Math.floor(Number(slot.slotCap || getFactorySlotOutputCap(slot.resourceKey, capacityOptions))) - currentAmount);
-        const queueRemaining = Math.max(0, Math.floor(Number(slot.queuedAmount || 0)));
-        const queueLimit = slot.queueMode ? queueRemaining : Number.POSITIVE_INFINITY;
-        const crafted = Math.max(0, Math.min(cycles, maxFromMetal, maxFromTech, slotSpace, queueLimit));
-        slot.productionRemainder = crafted === cycles ? Math.max(0, cycleRaw - cycles) : 0;
-        if (crafted > 0) {
-          consumeFactorySlotOutput(stateRef, "metalParts", crafted * FACTORY_CONFIG.combatModule.metalPartsCost);
-          consumeFactorySlotOutput(stateRef, "techCore", crafted * FACTORY_CONFIG.combatModule.techCoreCost);
-          stateRef.resources.combatModule = Math.max(0, Math.floor(Number(stateRef.resources.combatModule || 0) + crafted));
-          slot.producedAmount = Math.max(0, currentAmount + crafted);
-          if (slot.queueMode) {
-            slot.queuedAmount = Math.max(0, queueRemaining - crafted);
-            if (slot.queuedAmount <= 0) {
-              slot.isProducing = false;
-            }
-          }
-          produced.combatModule = Math.max(0, Math.floor(Number(produced.combatModule || 0) + crafted));
-        }
-      } else {
-        slot.productionRemainder = Math.max(0, cycleRaw - cycles);
-      }
+    const scaledDurationMs = getFactorySlotProductionDurationMs(slot.resourceKey, effectiveProductionMultiplier);
+    const rawCycles = elapsedMs / scaledDurationMs + Number(slot.productionRemainder || 0);
+    const completed = Math.min(Math.max(0, Math.floor(rawCycles)), queueRemaining, slotSpace);
+    if (completed > 0) {
+      const recipe = getFactoryRecipeForResource(slot.resourceKey) || {};
+      const inputs = recipe.inputs || {};
+      slot.producedAmount = currentAmount + completed;
+      slot.queuedAmount = queueRemaining - completed;
+      slot.reservedCleanCash = Math.max(0, Number(slot.reservedCleanCash || 0) - completed * Number(recipe.cleanMoneyCost || 0));
+      slot.reservedInputs = {
+        ...slot.reservedInputs,
+        metalParts: Math.max(0, Number(slot.reservedInputs?.metalParts || 0) - completed * Number(inputs["metal-parts"] || 0)),
+        techCore: Math.max(0, Number(slot.reservedInputs?.techCore || 0) - completed * Number(inputs["tech-core"] || 0)),
+        combatModule: Math.max(0, Number(slot.reservedInputs?.combatModule || 0) - completed * Number(inputs["combat-module"] || 0))
+      };
+      stateRef.resources[slot.resourceKey] = Math.max(0, Math.floor(Number(stateRef.resources[slot.resourceKey] || 0) + completed));
+      produced[slot.resourceKey] = Math.max(0, Math.floor(Number(produced[slot.resourceKey] || 0) + completed));
+      slot.productionRemainder = completed === Math.floor(rawCycles) ? Math.max(0, rawCycles - completed) : 0;
+      slot.isProducing = slot.queuedAmount > 0 && slot.producedAmount < slot.slotCap;
     } else {
-      const scaledDurationMs = getFactorySlotProductionDurationMs(slot.resourceKey, effectiveProductionMultiplier);
-      const raw = elapsedMs / scaledDurationMs + Number(slot.productionRemainder || 0);
-      const gained = Math.max(0, Math.floor(raw));
-      if (gained > 0) {
-        const currentAmount = Math.max(0, Math.floor(Number(slot.producedAmount || 0)));
-        const slotSpace = Math.max(0, Math.floor(Number(slot.slotCap || getFactorySlotOutputCap(slot.resourceKey, capacityOptions))) - currentAmount);
-        const queueRemaining = Math.max(0, Math.floor(Number(slot.queuedAmount || 0)));
-        const queueLimit = slot.queueMode ? queueRemaining : Number.POSITIVE_INFINITY;
-        const storable = Math.min(gained, slotSpace, queueLimit);
-        slot.productionRemainder = storable === gained ? Math.max(0, raw - gained) : 0;
-        slot.producedAmount = Math.max(0, currentAmount + storable);
-        stateRef.resources[slot.resourceKey] = Math.max(0, Math.floor(Number(stateRef.resources[slot.resourceKey] || 0) + storable));
-        if (slot.queueMode) {
-          slot.queuedAmount = Math.max(0, queueRemaining - storable);
-          if (slot.queuedAmount <= 0) {
-            slot.isProducing = false;
-          }
-        }
-        produced[slot.resourceKey] = Math.max(0, Math.floor(Number(produced[slot.resourceKey] || 0) + storable));
-      } else {
-        slot.productionRemainder = Math.max(0, raw - gained);
-      }
+      slot.productionRemainder = Math.max(0, rawCycles);
     }
     slot.lastTick = nowMs;
   });
@@ -5014,13 +5028,14 @@ function syncFactoryProduction(instanceState, now = Date.now(), options = {}) {
     rates,
     produced,
     ownedFactoryCount,
-    ownedWarehouseCount: capacityOptions.ownedWarehouseCount,
+    ownedWarehouseCount: 0,
     networkProductionBonusPct,
     productionMultiplier: effectiveProductionMultiplier
   };
 }
 
 function getFactoryActiveBoost(now = Date.now()) {
+  if (!isLocalDemoGameplayExecutionMode()) return null;
   const factoryState = getStoredFactoryState();
   const activeBoost = factoryState.boosts?.active || null;
   if (!activeBoost?.type || !activeBoost?.expiresAt) {
@@ -5048,7 +5063,10 @@ function clearFactoryActiveBoost() {
 }
 
 function activateFactoryBoost(boostType) {
-  const boostConfig = FACTORY_COMBAT_BOOSTS[boostType];
+  if (!isLocalDemoGameplayExecutionMode()) {
+    return { ok: false, reason: "Demo boost je v serverovém režimu vypnutý." };
+  }
+  const boostConfig = DEMO_FACTORY_COMBAT_BOOSTS[boostType];
   if (!boostConfig) {
     return { ok: false, reason: "Neznámý boost." };
   }
@@ -5080,132 +5098,6 @@ function activateFactoryBoost(boostType) {
   return { ok: true, boost: boostConfig };
 }
 
-function getStoredPharmacyBoostState() {
-  const state = getAuthoritySession().production?.pharmacyBoosts;
-  return {
-    effects: {
-      reconUntil: Number(state?.effects?.reconUntil || 0),
-      actionUntil: Number(state?.effects?.actionUntil || 0),
-      neuroUntil: Number(state?.effects?.neuroUntil || 0),
-      neuroCrashUntil: Number(state?.effects?.neuroCrashUntil || 0)
-    },
-    cooldowns: {
-      recon: Number(state?.cooldowns?.recon || 0),
-      action: Number(state?.cooldowns?.action || 0),
-      neuro: Number(state?.cooldowns?.neuro || 0)
-    }
-  };
-}
-
-function setStoredPharmacyBoostState(payload) {
-  updateStoredPreviewSession((session) => ({
-    ...session,
-    production: {
-      ...session.production,
-      pharmacyBoosts: payload
-    }
-  }));
-}
-
-function getPharmacyBoostSnapshot() {
-  const totals = {
-    spySpeedPct: 0,
-    infoQualityPct: 0,
-    attackSpeedPct: 0,
-    stealSpeedPct: 0,
-    activeActionsPct: 0
-  };
-  const counts = {
-    recon: 0,
-    action: 0,
-    neuro: 0
-  };
-  const drugInventory = getStoredDrugInventory();
-
-  return {
-    activeCount: 0,
-    activeEffects: [],
-    counts,
-    drugInventory: {
-      ghostSerum: Math.max(0, Math.floor(Number(drugInventory["ghost-serum"] || 0))),
-      overdriveX: Math.max(0, Math.floor(Number(drugInventory["overdrive-x"] || 0)))
-    },
-    bonuses: { ...totals },
-    effective: {
-      spySpeedPct: totals.spySpeedPct + totals.activeActionsPct,
-      infoQualityPct: totals.infoQualityPct,
-      attackSpeedPct: totals.attackSpeedPct + totals.activeActionsPct,
-      stealSpeedPct: totals.stealSpeedPct + totals.activeActionsPct,
-      activeActionsPct: totals.activeActionsPct
-    }
-  };
-}
-
-function usePharmacyBoost(boostType, now = Date.now()) {
-  return {
-    ok: false,
-    code: "item_not_directly_usable",
-    message: "Ghost Serum a Overdrive X jsou výrobní komponenty bez přímého použití."
-  };
-
-  const type = String(boostType || "").trim().toLowerCase();
-  const nowMs = Math.max(0, Math.floor(Number(now) || Date.now()));
-  const state = getStoredPharmacyBoostState();
-  const inventory = getStoredDrugInventory();
-  const config = type === "recon"
-    ? { resourceKey: "ghost-serum", resourceLabel: "Ghost Serum", drugCost: 1, cooldownKey: "recon", effectKey: "reconUntil" }
-    : type === "action"
-      ? { resourceKey: "ghost-serum", resourceLabel: "Ghost Serum", drugCost: 1, cooldownKey: "action", effectKey: "actionUntil" }
-      : type === "neuro"
-        ? { resourceKey: "overdrive-x", resourceLabel: "Overdrive X", drugCost: 1, cooldownKey: "neuro", effectKey: "neuroUntil", heatAdded: 3 }
-        : null;
-
-  if (!config) {
-    return { ok: false, message: "Neznámý boost." };
-  }
-
-  const cooldownLeft = Math.max(0, Number(state.cooldowns[config.cooldownKey] || 0) - nowMs);
-  if (cooldownLeft > 0) {
-    return { ok: false, message: `${config.resourceLabel} boost je na cooldownu (${formatDurationLabel(cooldownLeft)}).` };
-  }
-
-  const available = Math.max(0, Math.floor(Number(inventory[config.resourceKey] || 0)));
-  if (available < config.drugCost) {
-    return { ok: false, message: `Nedostatek ${config.resourceLabel} (${available}/${config.drugCost}).` };
-  }
-
-  setStoredDrugInventory({
-    ...inventory,
-    [config.resourceKey]: available - config.drugCost
-  });
-
-  setStoredPharmacyBoostState({
-    effects: {
-      ...state.effects,
-      [config.effectKey]: nowMs + (2 * 60 * 60 * 1000),
-      actionUntil: type === "recon"
-        ? nowMs + (2 * 60 * 60 * 1000)
-        : state.effects.actionUntil,
-      neuroCrashUntil: type === "neuro"
-        ? nowMs + (2 * 60 * 60 * 1000) + (60 * 60 * 1000)
-        : state.effects.neuroCrashUntil
-    },
-    cooldowns: {
-      ...state.cooldowns,
-      [config.cooldownKey]: nowMs + (2 * 60 * 60 * 1000),
-      action: type === "recon"
-        ? nowMs + (2 * 60 * 60 * 1000)
-        : state.cooldowns.action
-    }
-  });
-
-  return {
-    ok: true,
-    message: `${config.resourceLabel} boost aktivní na ${formatDurationLabel(2 * 60 * 60 * 1000)}. Spotřeba ${config.drugCost} ks.${config.heatAdded ? ` Heat +${config.heatAdded}.` : ""}`,
-    heatAdded: Number(config.heatAdded || 0)
-  };
-}
-
 function getFactoryBoostSnapshot(now = Date.now()) {
   const activeBoost = getFactoryActiveBoost(now);
   const supplies = getStoredFactorySupplies();
@@ -5221,7 +5113,7 @@ function getFactoryBoostSnapshot(now = Date.now()) {
   const activeEffects = [];
 
   if (activeBoost?.type) {
-    const config = activeBoost.config || FACTORY_COMBAT_BOOSTS[activeBoost.type] || {};
+    const config = activeBoost.config || DEMO_FACTORY_COMBAT_BOOSTS[activeBoost.type] || {};
     effective.attackPowerPct = Number(config.attackPowerPct || 0);
     effective.attackSpeedPct = Number(config.attackSpeedPct || 0);
     effective.raidSpeedPct = Number(config.raidSpeedPct || 0);
@@ -5275,28 +5167,22 @@ function resolveDistrictActionCooldownView(baseMs = 0, category = "", extraSpeed
 }
 
 function getAttackActionDurationMs(baseMs = ATTACK_COOLDOWN_MS) {
-  const snapshot = getPharmacyBoostSnapshot();
-  const speedPct = Number(snapshot.effective.attackSpeedPct || 0);
-  return resolveDistrictActionCooldownView(baseMs, "attackPreparation", speedPct).effectiveCooldownMs;
+  return resolveDistrictActionCooldownView(baseMs, "attackPreparation", 0).effectiveCooldownMs;
 }
 
 function getSpyActionDurationMs(baseMs = SPY_COOLDOWN_MS) {
-  const snapshot = getPharmacyBoostSnapshot();
-  const speedPct = Number(snapshot.effective.spySpeedPct || 0);
-  return Math.max(1000, Math.round(baseMs * (1 - speedPct / 100)));
+  return Math.max(1000, Math.round(baseMs));
 }
 
 function getRobberyActionDurationMs(baseMs = ROBBERY_COOLDOWN_MS) {
   const factorySnapshot = getFactoryBoostSnapshot();
-  const pharmacySnapshot = getPharmacyBoostSnapshot();
-  const speedPct = Number(factorySnapshot.effective.raidSpeedPct || 0) + Number(pharmacySnapshot.effective.stealSpeedPct || 0);
+  const speedPct = Number(factorySnapshot.effective.raidSpeedPct || 0);
   return resolveDistrictActionCooldownView(baseMs, "districtRobbery", speedPct).effectiveCooldownMs;
 }
 
 function getRobberyActionCooldownView(baseMs = ROBBERY_COOLDOWN_MS) {
   const factorySnapshot = getFactoryBoostSnapshot();
-  const pharmacySnapshot = getPharmacyBoostSnapshot();
-  const speedPct = Number(factorySnapshot.effective.raidSpeedPct || 0) + Number(pharmacySnapshot.effective.stealSpeedPct || 0);
+  const speedPct = Number(factorySnapshot.effective.raidSpeedPct || 0);
   return resolveDistrictActionCooldownView(baseMs, "districtRobbery", speedPct);
 }
 
@@ -5328,14 +5214,9 @@ function resolveSpyScenarioWithBoost(mission) {
 
 function getFactoryAttackBoostContext({ attackPower, defensePower } = {}) {
   const activeBoost = getFactoryActiveBoost();
-  const pharmacySnapshot = getPharmacyBoostSnapshot();
   const normalizedAttackPower = Math.max(0, Math.round(Number(attackPower || 0)));
   const normalizedDefensePower = Math.max(0, Math.round(Number(defensePower || 0)));
-  const attackCooldownView = resolveDistrictActionCooldownView(
-    ATTACK_COOLDOWN_MS,
-    "attackPreparation",
-    Number(pharmacySnapshot.effective.attackSpeedPct || 0)
-  );
+  const attackCooldownView = resolveDistrictActionCooldownView(ATTACK_COOLDOWN_MS, "attackPreparation", 0);
   const context = {
     activeBoost: activeBoost || null,
     effectiveAttackPower: normalizedAttackPower,
@@ -5349,10 +5230,10 @@ function getFactoryAttackBoostContext({ attackPower, defensePower } = {}) {
     return context;
   }
 
-  const config = activeBoost.config || FACTORY_COMBAT_BOOSTS[activeBoost.type] || null;
+  const config = activeBoost.config || DEMO_FACTORY_COMBAT_BOOSTS[activeBoost.type] || null;
 
   if (!config) {
-    if (Number(pharmacySnapshot.effective.attackSpeedPct || 0) > 0 || attackCooldownView.combinedReductionPct > 0) {
+    if (attackCooldownView.combinedReductionPct > 0) {
       context.summaryLabel = `Útok dorazí za ${context.cooldownLabel}`;
     }
     return context;
@@ -5372,7 +5253,7 @@ function getFactoryAttackBoostContext({ attackPower, defensePower } = {}) {
     );
   }
 
-  const totalAttackSpeedPct = Number(config.attackSpeedPct || 0) + Number(pharmacySnapshot.effective.attackSpeedPct || 0);
+  const totalAttackSpeedPct = Number(config.attackSpeedPct || 0);
   const boostedCooldownView = resolveDistrictActionCooldownView(
     ATTACK_COOLDOWN_MS,
     "attackPreparation",
@@ -5741,6 +5622,7 @@ const {
   garageSupportConfig: GARAGE_SUPPORT_CONFIG,
   getCurrentPlayerOwnedDistrictIds,
   getDistrictResourceCatalog,
+  getBuildingLevel: (district, building) => getDistrictBuildingDetailEntry(district, building?.baseName || "Skladiště").level,
   getResolvedWorldState,
   getStoredDrugInventory,
   getStoredFactorySupplies,
@@ -5757,8 +5639,8 @@ const {
   shoppingMallNetworkConfig: SHOPPING_MALL_NETWORK_CONFIG,
   smugglingTunnelConfig: SMUGGLING_TUNNEL_CONFIG,
   startPhaseOwnerByDistrictId: START_PHASE_OWNER_BY_DISTRICT_ID,
-  warehouseBaseStorageCapacities: WAREHOUSE_BASE_STORAGE_CAPACITIES,
-  warehouseNetworkConfig: WAREHOUSE_NETWORK_CONFIG
+  warehouseNetworkConfig: WAREHOUSE_NETWORK_CONFIG,
+  warehouseStorageConfig: WAREHOUSE_STORAGE_CONFIG
 });
 
 function getOwnedDistrictBuildingCountByBaseName(baseName) {
@@ -6509,33 +6391,8 @@ function normalizeClinicRecoverableItem(itemType) {
 }
 
 function getClinicWarehouseCapacityForItem(itemId, capacity) {
-  if (!capacity) return Number.POSITIVE_INFINITY;
-  switch (itemId) {
-    case "chemicals": return capacity.chemicals;
-    case "biomass": return capacity.biomass;
-    case "metal-parts": return capacity.metalParts;
-    case "tech-core": return capacity.techCore;
-    case "combat-module": return capacity.combatModule;
-    case "neon-dust":
-    case "pulse-shot":
-    case "velvet-smoke":
-    case "ghost-serum":
-    case "overdrive-x":
-      return capacity.drugsAndBoosts;
-    case "baseball-bat":
-    case "pistol":
-    case "grenade":
-    case "smg":
-    case "bazooka":
-    case "vest":
-    case "barricades":
-    case "cameras":
-    case "defense-tower":
-    case "alarm":
-      return capacity.weaponsAndDefense;
-    default:
-      return capacity.genericResources;
-  }
+  if (!capacity) return 0;
+  return Math.max(0, Number(capacity.byResource?.[itemId] || 0));
 }
 
 function getActiveDistrictBuildingEffects(district, buildingName, now = Date.now()) {
@@ -7060,7 +6917,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
   const schoolApartmentBoostMultiplier = schoolApartmentBoost
     ? 1 + Math.max(0, Number(schoolApartmentBoost.apartmentPopulationBoostPct || 0)) / 100
     : 1;
-  const serverStorageSummary = mechanicsType === "warehouse" ? getServerStorageSummary() : null;
+  const serverStorageSummary = mechanicsType === "warehouse" ? getGameplayStorageSummary() : null;
   const ownedWarehouses = mechanicsType === "warehouse"
     ? serverStorageSummary?.warehouseSummary?.ownedWarehouseCount ?? getOwnedWarehouseCount()
     : 0;
@@ -7439,12 +7296,6 @@ let lastRuntimePassiveProductionSyncAt = 0;
 
 function getDistrictBuildingNameForProductionSync(building) {
   return String(building?.baseName || building?.displayName || building?.name || "").trim();
-}
-
-function syncFactoryProductionBuffer(now = Date.now()) {
-  const syncResult = syncFactoryProduction(getStoredFactoryState(), now);
-  setStoredFactoryState(syncResult.state);
-  return syncResult;
 }
 
 function persistDistrictBuildingDetailProductionSnapshot(district, buildingName, mechanics, now = Date.now()) {
@@ -8213,24 +8064,11 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
       }
 
       const cap = getClinicWarehouseCapacityForItem(itemId, warehouseCapacity);
-      const usageKey = itemId === "chemicals" || itemId === "biomass"
-        ? itemId
-        : itemId === "metal-parts"
-          ? "metalParts"
-          : itemId === "tech-core"
-            ? "techCore"
-            : itemId === "combat-module"
-              ? "combatModule"
-              : ["neon-dust", "pulse-shot", "velvet-smoke", "ghost-serum", "overdrive-x"].includes(itemId)
-                ? "drugsAndBoosts"
-                : ["baseball-bat", "pistol", "grenade", "smg", "bazooka", "vest", "barricades", "cameras", "defense-tower", "alarm"].includes(itemId)
-                  ? "weaponsAndDefense"
-                  : "genericResources";
-      const currentUsage = Math.max(0, Math.floor(Number(groupUsage[usageKey] || 0)));
+      const currentUsage = Math.max(0, Math.floor(Number(groupUsage.byResource?.[itemId] || 0)));
       const accepted = Number.isFinite(cap) ? Math.max(0, Math.min(recoverAmount, cap - currentUsage)) : recoverAmount;
       const overflow = Math.max(0, recoverAmount - accepted);
       if (accepted > 0) {
-        groupUsage[usageKey] = currentUsage + accepted;
+        groupUsage.byResource[itemId] = currentUsage + accepted;
         acceptedByType[itemId] = Math.max(0, Math.floor(Number(acceptedByType[itemId] || 0)) + accepted);
       }
       if (overflow > 0) {
@@ -8316,24 +8154,11 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
       if (recoverAmount <= 0) continue;
 
       const cap = getClinicWarehouseCapacityForItem(itemId, warehouseCapacity);
-      const usageKey = itemId === "chemicals" || itemId === "biomass"
-        ? itemId
-        : itemId === "metal-parts"
-          ? "metalParts"
-          : itemId === "tech-core"
-            ? "techCore"
-            : itemId === "combat-module"
-              ? "combatModule"
-              : ["neon-dust", "pulse-shot", "velvet-smoke", "ghost-serum", "overdrive-x"].includes(itemId)
-                ? "drugsAndBoosts"
-                : ["baseball-bat", "pistol", "grenade", "smg", "bazooka", "vest", "barricades", "cameras", "defense-tower", "alarm"].includes(itemId)
-                  ? "weaponsAndDefense"
-                  : "genericResources";
-      const currentUsage = Math.max(0, Math.floor(Number(groupUsage[usageKey] || 0)));
+      const currentUsage = Math.max(0, Math.floor(Number(groupUsage.byResource?.[itemId] || 0)));
       const accepted = Number.isFinite(cap) ? Math.max(0, Math.min(recoverAmount, cap - currentUsage)) : recoverAmount;
       const overflow = Math.max(0, recoverAmount - accepted);
       if (accepted > 0) {
-        groupUsage[usageKey] = currentUsage + accepted;
+        groupUsage.byResource[itemId] = currentUsage + accepted;
         acceptedByType[itemId] = Math.max(0, Math.floor(Number(acceptedByType[itemId] || 0)) + accepted);
       }
       if (overflow > 0) {
@@ -10775,7 +10600,6 @@ function bindDistrictCanvas(root) {
       return false;
     }
 
-    const pharmacySnapshot = getPharmacyBoostSnapshot();
     const spyDurationMs = getSpyActionDurationMs();
     const mission = {
       id: `spy-mission:${Date.now()}`,
@@ -10784,7 +10608,7 @@ function bindDistrictCanvas(root) {
       spyCount: LEGACY_SPY_MISSION_SPY_COUNT,
       ownerLabel: getDistrictOwnerLabel(selectedDistrict, interactionState),
       districtType: selectedDistrict.districtType,
-      intelQualityPct: Number(pharmacySnapshot.effective.infoQualityPct || 0),
+      intelQualityPct: 0,
       createdAt: new Date().toISOString(),
       returnAt: new Date(Date.now() + spyDurationMs).toISOString()
     };
@@ -12726,7 +12550,7 @@ const runtimePopupBinders = createRuntimePopupBinders({
   getCurrentPlayerLaunchStartDistrictId, syncCurrentPlayerDistrictCountDisplays, getResolvedGangState,
   getLaunchPlayerColor, createPlayerProfileViewModel, resolveRuntimeAssetUrl, formatGangHeatProtectionLabel,
   renderPlayerProfilePanel, renderStorageList, getResolvedWeaponInventory, getResolvedMaterialInventory,
-  getResolvedDrugInventory, getStoredFactorySupplies, getServerStorageSummary, clearLegacyState, renderSpyResourceState,
+  getResolvedDrugInventory, getStoredFactorySupplies, getServerStorageSummary: getGameplayStorageSummary, clearLegacyState, renderSpyResourceState,
   windowRef: typeof window === "undefined" ? null : window
 });
 
@@ -12934,8 +12758,8 @@ const {
 const {
   bindFactoryPopup
 } = createFactoryPopupRuntime({
-  allowLegacyLocalProduction: LOCAL_PRODUCTION_EDIT_MODE,
-  allowLegacyProductionUpgrade: LOCAL_PRODUCTION_EDIT_MODE,
+  allowLegacyLocalProduction: isLocalDemoGameplayExecutionMode(),
+  allowLegacyProductionUpgrade: isLocalDemoGameplayExecutionMode(),
   isServerAuthoritativeGameplayRuntimeReady,
   FACTORY_CONFIG,
   FACTORY_SLOT_CONFIG,
@@ -12984,6 +12808,7 @@ const {
   setBuildingActionFeedback,
   setStoredEconomyState,
   setStoredFactoryState,
+  setStoredFactorySupplies,
   getServerFactoryReadModel,
   refreshServerFactoryReadModel: () => {
     const districtId = latestGameplaySliceReadModel?.district?.districtId
@@ -13281,7 +13106,7 @@ function applyDevOnlyOnboardingStartState(root = getDefaultRuntimeRoot()) {
   const resolvedRoot = resolveRuntimeRoot(root || getDefaultRuntimeRoot());
   if (resolvedRoot) {
     syncPhaseHostFromAuthority(resolvedRoot.querySelector(MAP_PHASE_SELECTOR));
-    renderStorageList({ weapons, materials, drugs, factorySupplies }, { root: resolvedRoot });
+    renderStorageList({ summary: getGameplayStorageSummary(), weapons, materials, drugs, factorySupplies }, { root: resolvedRoot });
     refreshAllUi({ root: resolvedRoot });
   }
 
@@ -14295,7 +14120,6 @@ export {
   getResolvedGangState,
   getResolvedMarketPriceState,
   getResolvedMaterialInventory,
-  getPharmacyBoostSnapshot,
   getResolvedProductionState,
   getResolvedSpyIntel,
   getResolvedSpyState,
@@ -14379,7 +14203,6 @@ export {
   setStoredWeaponInventory,
   submitServerAllianceCommand,
   submitServerBountyCommand,
-  usePharmacyBoost,
   updateTopbarResources,
   showAttackToast,
   showError,

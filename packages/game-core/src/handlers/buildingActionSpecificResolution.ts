@@ -94,7 +94,6 @@ export const resolveBuildingActionSpecificResolution = (
         balances: nextBalances,
         recyclingCenterConfig: context.config.balance.recyclingCenter,
         warehouseConfig: context.config.balance.warehouse,
-        powerStationConfig: context.config.balance.powerStation,
         tickRateMs: context.config.tickRateMs
       })
     : null;

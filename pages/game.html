@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="empire-gameplay-execution-mode" content="local-demo">
     <title>Empire Streets | Game Shell</title>
     <link rel="stylesheet" href="../page-assets/css/styles.css?v=buildings-popup-glass-20260711">
     <link rel="stylesheet" href="../page-assets/css/styles-game-admin-slice.css">
@@ -56,8 +57,8 @@
         <aside id="game-rail-left" class="sidebar-shell game-rail">
           <div id="game-left-nav" class="panel-action-stack" aria-label="Left panel actions">
             <div id="city-events-card-anchor" hidden aria-hidden="true"></div>
-            <section id="city-events-card" class="city-events-card" aria-label="City Events">
-              <button class="button panel-action-button events-hero" id="city-events-open" type="button" aria-label="City Events">
+            <section id="city-events-card" class="city-events-card" aria-label="Demo events">
+              <button class="button panel-action-button events-hero" id="city-events-open" type="button" aria-label="Demo events">
                 <span class="city-events-btn__icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" role="presentation" focusable="false">
                     <rect x="3.5" y="4.5" width="17" height="16" rx="3"></rect>
@@ -67,7 +68,7 @@
                     <path d="M8 13h3"></path>
                   </svg>
                 </span>
-                <span class="city-events-btn__label">City Events</span>
+                <span class="city-events-btn__label">Demo Events</span>
               </button>
             </section>
             <div id="buildings-card-anchor" hidden aria-hidden="true"></div>
@@ -173,8 +174,8 @@
                   >
                     <span aria-hidden="true">F</span>
                   </button>
-                  <button class="button map-boost-btn map-boost-btn--desktop" type="button" data-boost-open-trigger aria-label="Boost">
-                    Boost
+                  <button class="button map-boost-btn map-boost-btn--desktop" type="button" data-boost-open-trigger aria-label="Demo boost">
+                    Demo boost
                   </button>
                 </div>
               </div>
@@ -269,8 +270,8 @@
               >
                 <span aria-hidden="true">F</span>
               </button>
-              <button class="button map-boost-btn" type="button" data-boost-open-trigger aria-label="Boost">
-                Boost
+              <button class="button map-boost-btn" type="button" data-boost-open-trigger aria-label="Demo boost">
+                Demo boost
               </button>
             </div>
           </section>
@@ -313,9 +314,9 @@
           </div>
           <div id="global-chat-card-anchor" hidden aria-hidden="true"></div>
           <div id="global-chat-card" class="right-panel-card">
-            <section class="alliance-chat server-chat-panel" aria-label="Globální chat">
+            <section class="alliance-chat server-chat-panel" aria-label="Demo chat">
               <div class="server-chat-panel__composer-head">
-                <div class="alliance-chat__title">Globální chat</div>
+                <div class="alliance-chat__title">Demo chat</div>
                 <button id="alliance-chat-send" type="button" class="button server-chat-panel__send server-chat-panel__send--arrow" aria-label="Odeslat zprávu" title="Odeslat" data-global-chat-send>
                   <span aria-hidden="true">→</span>
                 </button>
@@ -323,7 +324,7 @@
               <div id="alliance-chat-log" class="alliance-chat__log server-chat-panel__feed" data-global-chat-log>
                 <div class="alliance-chat__item server-chat-panel__message">
                   <span class="server-chat-panel__author">System:</span>
-                  <span class="server-chat-panel__text">Globální chat je v alphě jen lokální kanál.</span>
+                  <span class="server-chat-panel__text">Demo chat je lokální kanál tohoto prohlížeče.</span>
                 </div>
                 <div class="alliance-chat__item server-chat-panel__message">
                   <span class="server-chat-panel__author">Info:</span>
@@ -331,7 +332,7 @@
                 </div>
               </div>
               <div class="alliance-chat__input server-chat-panel__composer">
-                <input id="alliance-chat-input" type="text" class="server-chat-panel__input" placeholder="Napiš zprávu do lokálního chatu..." aria-label="Zpráva do globálního chatu" data-global-chat-input>
+                <input id="alliance-chat-input" type="text" class="server-chat-panel__input" placeholder="Napiš zprávu do demo chatu..." aria-label="Zpráva do demo chatu" data-global-chat-input>
                 <div class="server-chat-panel__status" id="global-chat-status">Zprávy zůstávají jen v tomhle prohlížeči.</div>
               </div>
             </section>
@@ -1571,7 +1572,7 @@
             <button type="button" class="button market-popup-tab" data-market-tab="player-market">Hráčský bazar</button>
           </div>
           <div class="market-popup-dashboard" data-market-dashboard aria-label="Stav marketu"></div>
-          <p class="market-popup-copy" data-market-copy>Legální bazar serveru pro rychlý nákup a výkup materiálu bez heat risku.</p>
+          <p class="market-popup-copy" data-market-copy>Lokální demo bazar pro rychlý nákup a výkup materiálu bez heat risku.</p>
           <p class="market-popup-feedback" data-market-feedback role="status" aria-live="polite"></p>
           <div class="market-popup-list" data-market-list></div>
         </div>
@@ -1650,7 +1651,7 @@
         <div id="events-modal-backdrop" class="modal__backdrop"></div>
         <div class="modal__content modal__content--profile events-modal__content">
           <div class="modal__header">
-            <h3 id="events-modal-title">City Events <span id="events-refresh-countdown" class="events-modal__refresh-pill">refresh 30s</span></h3>
+            <h3 id="events-modal-title">Demo Events <span id="events-refresh-countdown" class="events-modal__refresh-pill">refresh 30s</span></h3>
             <button class="modal__close" id="events-modal-close" aria-label="Zavřít">✕</button>
           </div>
           <div class="modal__body events-modal__body">
@@ -1965,7 +1966,7 @@
         <div id="boost-modal-backdrop" class="modal__backdrop"></div>
         <div class="modal__content modal__content--profile boost-modal__content">
           <div class="modal__header">
-            <h3>Boost</h3>
+            <h3>Demo boost</h3>
             <button class="modal__close" id="boost-modal-close" aria-label="Zavřít">✕</button>
           </div>
           <div class="modal__body boost-modal__body">
@@ -1976,7 +1977,7 @@
             <div class="boost-modal__swipe-hint">Swipe pro přepnutí tabů</div>
 
             <section id="boost-modal-panel-actions" class="boost-modal__panel">
-              <div class="boost-modal__hint">Aktivuj bojové moduly z Továrny. Ghost Serum a Overdrive X jsou výrobní komponenty bez přímé aktivace.</div>
+              <div class="boost-modal__hint">Lokální demo efekt bojových modulů z Továrny. Nejde o canonical serverovou mechaniku. Ghost Serum a Overdrive X jsou výrobní komponenty bez přímé aktivace.</div>
               <div id="boost-modal-content" class="boost-modal__list"></div>
             </section>
 
@@ -1985,7 +1986,7 @@
                 Ghost Serum a Overdrive X jsou strategické komponenty pro budoucí výrobní recepty. Samy neposkytují aktivní efekt.
               </div>
               <div class="boost-modal__hint boost-modal__hint--info">
-                Assault: +30 % attack power. Rapid: rychlejší attack a raid. Breach: ignoruje část obrany.
+                Demo-only: Assault zvyšuje attack power, Rapid zrychluje attack a raid, Breach ignoruje část obrany.
               </div>
             </section>
 

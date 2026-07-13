@@ -4,8 +4,14 @@ const HOST = "127.0.0.1";
 const PORT = Number(process.env.PLAYWRIGHT_PORT || 4174);
 const baseURL = `http://${HOST}:${PORT}`;
 const healthURL = `${baseURL}/api/servers`;
+const cliArgs = process.argv.slice(2);
+const runAllSpecs = cliArgs.includes("--all");
+const requestedSpecs = cliArgs.filter((arg) => arg !== "--all");
 const HEALTH_TIMEOUT_MS = readPositiveIntegerEnv("PLAYWRIGHT_E2E_HEALTH_TIMEOUT_MS", 240_000);
-const PLAYWRIGHT_TIMEOUT_MS = readPositiveIntegerEnv("PLAYWRIGHT_E2E_TIMEOUT_MS", 420_000);
+const PLAYWRIGHT_TIMEOUT_MS = readPositiveIntegerEnv(
+  "PLAYWRIGHT_E2E_TIMEOUT_MS",
+  runAllSpecs ? 900_000 : 420_000
+);
 const HEALTH_LOG_INTERVAL_MS = 15_000;
 const PROCESS_KILL_GRACE_MS = 10_000;
 const RECENT_LOG_LIMIT = 80;
@@ -15,15 +21,15 @@ const defaultSpecs = [
   "tests/e2e/entry-flow.spec.js",
   "tests/e2e/game-flow.spec.js"
 ];
-const requestedSpecs = process.argv.slice(2);
-const specs = requestedSpecs.length ? requestedSpecs : defaultSpecs;
+const specs = runAllSpecs ? [] : requestedSpecs.length ? requestedSpecs : defaultSpecs;
 
 const env = {
   ...process.env,
   PLAYWRIGHT_E2E_BASE_URL: baseURL,
   PLAYWRIGHT_E2E_HEALTH_URL: healthURL,
   PLAYWRIGHT_E2E_HOST: HOST,
-  PLAYWRIGHT_E2E_PORT: String(PORT)
+  PLAYWRIGHT_E2E_PORT: String(PORT),
+  PLAYWRIGHT_SKIP_WEB_SERVER: "1"
 };
 
 const serverLogLines = [];
@@ -181,9 +187,13 @@ function runCommand(command, args, options = {}) {
 console.log(`[e2e-smoke] Base URL: ${baseURL}`);
 console.log(`[e2e-smoke] Health URL: ${healthURL}`);
 console.log(`[e2e-smoke] Playwright timeout: ${formatDuration(PLAYWRIGHT_TIMEOUT_MS)}`);
-console.log(`[e2e-smoke] ${requestedSpecs.length ? "Requested" : "Default"} specs (${specs.length}):`);
-for (const spec of specs) {
-  console.log(`[e2e-smoke] queued spec: ${spec}`);
+console.log(`[e2e-smoke] ${runAllSpecs ? "All" : requestedSpecs.length ? "Requested" : "Default"} specs${runAllSpecs ? "" : ` (${specs.length})`}:`);
+if (runAllSpecs) {
+  console.log("[e2e-smoke] queued spec set: tests/e2e");
+} else {
+  for (const spec of specs) {
+    console.log(`[e2e-smoke] queued spec: ${spec}`);
+  }
 }
 
 const server = spawn(process.execPath, [

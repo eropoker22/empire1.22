@@ -1,75 +1,85 @@
 # Empire Streets
 
-Project skeleton for a multiplayer browser strategy game with strict separation between UI, server runtime, shared contracts, game core, mode config, admin, and tooling.
+Empire Streets is a pre-alpha browser strategy game. The repository contains both the current static/local demo and server-authoritative core, transport, persistence, and read-model work. A production multiplayer deployment is not finished.
 
-## Structure
+## Runtime Status
 
-- `apps/client` - player-facing browser client
-- `apps/admin` - admin dashboard shell
-- `apps/server` - authoritative runtime and transport layer
-- `packages/shared-types` - client/server contracts and shared primitive types
-- `packages/game-core` - pure game rules and simulation logic
-- `packages/game-config` - mode presets and content registries
-- `tools/debug` - isolated debug tooling
-- `tools/seed` - isolated seed/bootstrap tooling
-- `docs/architecture` - architectural decisions and boundaries
+- The checked-in `pages/game.html` and Netlify static build explicitly run in `local-demo` mode.
+- Local demo state is browser-local and is not production authority.
+- `server-authoritative` mode exists for the gameplay slice and closed-alpha development, but it must be selected explicitly or backed by a ready server session.
+- A requested server mode never falls back to local demo after a server/session failure.
+- Production must fail closed without a production account identity provider and gameplay session repository.
+- War mode is not ready for public play.
 
-## Rules
+The execution boundary is centralized in `page-assets/js/app/runtime/gameplayExecutionMode.js`. It exposes only:
 
-- No game logic in UI
-- Server is the source of truth
-- Free and war modes share one core and diverge through config
-- Legacy `START` is an internal dev/setup sandbox only, not a production game phase
-- Debug/demo tooling stays outside production runtime
-- Keep modules small and feature boundaries explicit
+- `local-demo`
+- `server-authoritative`
+- `unavailable`
 
-## Architecture guardrails
+Demo-only city events, global demo chat, local alliance previews, and Factory combat boosts run only in `local-demo`. They are disabled in server-authoritative mode.
 
-See [docs/architecture-boundaries.md](docs/architecture-boundaries.md) for the main boundary rules between the legacy static frontend and the server-authoritative architecture.
-See [docs/persistence.md](docs/persistence.md) for runtime persistence drivers and local durable file storage.
-See [docs/admin-dashboard.md](docs/admin-dashboard.md) for the closed-alpha read-only admin dashboard.
-See [docs/prod-like-smoke.md](docs/prod-like-smoke.md) for the opt-in live Postgres closed-alpha smoke.
+## Gameplay Configuration
+
+Typed balance in `packages/game-config` is canonical. The unbundled static client consumes the generated adapter `packages/game-config/src/legacy-page/gameplay-config.generated.js`; regenerate it with `npm run generate:browser-config`. The adapter contains no independently maintained balance.
+
+The four production buildings use independent one-unit production lines:
+
+- Pharmacy: Chemicals, Biomass, Stim Pack
+- Drug Lab: Neon Dust, Pulse Shot, Velvet Smoke, Ghost Serum, Overdrive X
+- Factory: Metal Parts, Tech Core, Combat Module
+- Armory: five attack weapons and five defense items
+
+Ghost Serum and Overdrive X are stored production components, not directly usable boosts. Combat Module is a strategic Factory output consumed by high-tier Armory recipes.
+
+Global stock limits are per resource, not shared pools:
+
+- Bulk: base 60 per item
+- Tactical: base 24 per item
+- Strategic: base 8 per item
+
+Only the number of active owned Warehouses and the highest active owned Warehouse level increase those limits. Power Stations do not change global storage capacity.
+
+## Architecture
+
+- `apps/client` - player client package
+- `apps/admin` - admin dashboard
+- `apps/server` - authoritative runtime and transport
+- `packages/shared-types` - shared contracts
+- `packages/game-core` - pure rules and authoritative handlers
+- `packages/game-config` - typed balance and content registries
+- `page-assets` / `pages` - current static pre-alpha client
+- `tools/debug` / `tools/seed` - simulations and seed tooling
 
 Runtime renders. Core decides. Config balances. Server owns authority.
 
-New gameplay changes should not be implemented directly in legacy `page-assets/js/app/runtime.js`.
+New server gameplay must not trust request `playerId` or `accountId`. Gameplay load and submit derive identity from a validated gameplay session; snapshot tokens restore state only and never authorize a request. Logout revokes the gameplay session.
 
-## Local Tooling
+## Local Development
 
-- The repo declares `node >=20` in `package.json`.
-- Use Node 20 locally. `.node-version` and `.nvmrc` pin the expected major version for common version managers and CI.
-- `npm run dev:game` is the normal local server-authoritative game command. It starts Vite on `127.0.0.1:5174` with the local gameplay API middleware wired to the same Netlify gameplay-slice handler used in production.
-- `npm run dev:admin` starts only the static/admin Vite flow. It does not by itself provide `/api/gameplay-slice/*` or `/api/admin/monitoring`.
-- `http://127.0.0.1:5174/admin` is the local closed-alpha read-only admin dashboard when `npm run dev:game` is running.
-- Production admin monitoring is guarded by `EMPIRE_ADMIN_SECRET` over the `x-empire-admin-secret` header and fails closed when the secret is missing or wrong.
-- The active browser runtime is exposed as `document.body.dataset.gameplayRuntime`: `demo-ready`, `server-authoritative-ready`, `server-authoritative-error`, `legacy-fallback`, or `initializing`. `document.body.dataset.gameplayServerRuntime` records the server-authoritative attempt separately.
-- `npm run smoke:ui:legacy` checks static legacy page wiring only; it does not verify server-authoritative gameplay.
-- `npm run smoke:free-session` is the Netlify demo/development smoke. It expects `demo-ready`, allows localStorage/demo fallback, and still fails on runtime crashes or broken demo UI.
-- `npm run smoke:free-session:server` is the closed-alpha server smoke variant and expects `server-authoritative-ready`.
-- `npm run smoke:gameplay-slice` starts the local game dev server and skips with `server not connected yet` when a real gameplay session is not available.
-- `npm run smoke:gameplay-slice:server` is strict: it requires `/api/gameplay-slice/load` and `/submit` to return server-authoritative read models and fails on demo/legacy fallback.
-- Relevant dev, browser smoke, E2E, build, lint, and typecheck scripts run a Node 20 preflight and fail immediately on older Node versions.
-- `npm run test:e2e` runs the fast browser smoke suite for login, lobby, and faction onboarding.
-- `npm run test:e2e:full` runs every browser scenario, including slower map interaction coverage.
-- `npm run verify:closed-alpha` is the canonical closed-alpha gate: typecheck, architecture/file-size lint, targeted session security + atomic persistence + authoritative actions + map manifest tests, and the Free-flow browser smoke suite.
-- `npm run test:persistence:postgres:smoke` runs the opt-in live Postgres production-like smoke against `EMPIRE_TEST_DATABASE_URL` only.
-- `npm run verify:prod-like` runs `verify:closed-alpha` and then the opt-in live Postgres smoke.
-- `npm run verify:closed-alpha` keeps the file-size guard enabled. Existing oversized modules are tolerated only through explicit debt budgets in `scripts/check-file-sizes.mjs`, and those budgets are hard caps, not targets.
-- Run targeted E2E with `node scripts/run-local-bin.mjs playwright/cli.js test tests/e2e/entry-flow.spec.js`.
-- `npm test` is the regular development gate and excludes long-running balance/simulation suites.
-- `npm run test:simulation` runs the slow deterministic balance and shared-city simulation tests.
-- `npm run test:full` runs both the regular test gate and the simulation gate.
-- `npm run verify:closed-alpha` intentionally does not run full Playwright, balance simulations, or live Postgres persistence checks. Those remain separate gates.
-- Closed-alpha gate tolerates existing large modules only through explicit debt budgets. These budgets are caps, not targets. New or growing large modules must be split after closed alpha refactors are scheduled.
+The repository requires Node 20 or newer (`.node-version`, `.nvmrc`).
 
-## Quality Gates
+- `npm run dev:game` starts the game Vite server and local gameplay API middleware.
+- `npm run dev:admin` starts the static/admin Vite flow only.
+- `npm run generate:browser-config` refreshes the browser-safe generated balance adapter.
+- `npm run check:browser-config` verifies that generated browser balance matches typed config.
+- `npm run typecheck` runs the TypeScript project check.
+- `npm run lint` runs architecture, command safety, file-size, and generated-config guards.
+- `npm test` runs unit, integration, server, persistence, and read-model suites.
+- `npm run test:simulation` runs the slower deterministic simulations.
+- `npm run test:e2e:smoke` runs the focused browser smoke suite.
+- `npm run test:e2e:full` runs all Playwright scenarios.
+- `npm run build:admin:page` prepares the Netlify publish output in ignored `client/`.
+- `npm run verify:closed-alpha` runs the closed-alpha security and browser smoke gate.
+- `npm run test:persistence:postgres:smoke` is opt-in and requires `EMPIRE_TEST_DATABASE_URL`.
 
-- GitHub Actions `Quality` runs on pushes and pull requests: lint, typecheck, `npm test`, `npm run build:admin:page`, and E2E smoke.
-- GitHub Actions `Deep Checks` runs nightly and manually: simulation tests and full E2E.
-- Generated browser/static artifacts under `page-assets` should be committed only when they are refreshed by the matching build or runtime change. Source changes and generated asset updates should stay in the same commit when the asset output depends on that source change.
+Generated `client/` output is ignored. Source changes belong in root `pages/`, `page-assets/`, and typed packages.
 
-## Compatibility
+## Further Reading
 
-- `packages/shared` and `packages/debug-tools` remain only as deprecated compatibility placeholders.
-- Canonical shared contracts live in `packages/shared-types`.
-- Canonical tooling packages live in `tools/debug` and `tools/seed`.
+- [Architecture boundaries](docs/architecture-boundaries.md)
+- [Gameplay session security](docs/gameplay-session-security.md)
+- [Persistence](docs/persistence.md)
+- [Production buildings](docs/production-buildings-functional-audit.md)
+- [Pre-alpha readiness](docs/pre-alpha-gameplay-readiness.md)
+- [Legacy runtime guard](docs/legacy-runtime-guard.md)

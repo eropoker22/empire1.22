@@ -2,6 +2,8 @@
 
 Date: 2026-05-06
 
+> Historical audit, updated 2026-07-13: production details below have been reconciled with the current one-unit production-line model. The canonical current production reference is `docs/production-buildings-functional-audit.md`; this document is not a balance source.
+
 ## Scope
 
 This sprint stayed core/config first. Browser/runtime was treated as a renderer and command caller; no attack math, spy math, capture logic, map geometry, win condition, police raid calculation, or market price rule was changed.
@@ -18,11 +20,11 @@ ID mapping used by the repo:
 | buildingId | catalog | config | core | UI | storage | heat | test | status | next fix |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | apartment_block | yes | fixed + `apartmentBlock` action config | `resolveApartmentBlockAction`, passive population production | district/building projections and building detail | stores local population in building metadata, collects to population + `gang-members` | no heat by design | existing building action tests + MVP matrix | ready | Balance population pacing after real player sessions. |
-| pharmacy | yes | fixed + production + craft + building actions | passive `chemicals`, `stim-pack` craft, special actions | production/craft slot projection | player resource storage with warehouse cap on collect | action heat from config | production collect + MVP matrix | ready | Consider second passive output only if design needs biomass outside action/craft. |
-| drug_lab | yes | fixed + production + craft + building actions | passive `neon-dust`, drug/boost craft, high-risk actions | production/craft slot projection | player resource storage | action heat from config, feed hook for significant production | MVP city feed/action test | ready | Balance heat versus output values later. |
-| factory | yes | fixed + production + craft + building actions | passive `metal-parts`, `tech-core`/`combat-module` craft, power-station speed support | production/craft slot projection | player resource storage with warehouse cap | action/passive fixed heat from config | production collect + MVP matrix | ready | None for MVP. |
-| armory | yes | fixed + craft + building actions | equipment craft, fortify action, power-station speed support | craft slot projection, attack/defense inventory remains existing flow | player resource storage | action heat from config, craft feed hook for significant equipment | MVP craft/feed test | ready | Optional clearer item-use affordance in UI later. |
-| warehouse | yes | fixed + `warehouse` config | storage capacity resolver and collect caps | building stats/resources panel paths | caps chemicals, biomass, metal parts, tech core, modules, drugs/boosts, weapons/defense | passive fixed heat from config | existing warehouse cap test + MVP matrix | ready | Overflow remains capped/left in source building; fuller UX copy is TODO. |
+| pharmacy | yes | canonical production-line config | three independent one-unit lines for Chemicals, Biomass and Stim Pack | dedicated production cards | local output collected into global storage | no production special action | production flow tests | ready | Server wiring remains separate from local-demo execution. |
+| drug_lab | yes | canonical production-line config | five independent one-unit lines; Ghost Serum and Overdrive X are non-usable components | dedicated production cards | local output collected into global storage | no production special action | production flow tests | ready | Server wiring remains separate from local-demo execution. |
+| factory | yes | canonical production-line config | three independent one-unit lines for Metal Parts, Tech Core and Combat Module | dedicated production cards | local output collected into global storage | no production special action | production flow tests | ready | Network and level affect speed only. |
+| armory | yes | canonical production-line config | ten independent one-unit equipment lines using Metal Parts, Tech Core and Combat Module | attack/defense production cards | local output collected into global storage | no production special action | production flow tests | ready | Network and level affect speed only. |
+| warehouse | yes | canonical Bulk/Tactical/Strategic config | per-resource storage resolver and partial collect | storage inventory and Warehouse detail paths | each resource has its own group capacity | passive fixed heat from config | storage resolver and collect tests | ready | Existing inventory may remain over capacity without deletion. |
 | exchange | yes | fixed + `exchangeOffice` action config | dynamic laundering with network/audit metadata | building action projection | dirty cash consumed, clean cash added | action heat to district and PoliceReadModel | new unified payload/police test | ready | None for MVP. |
 | casino | yes | fixed + `casino` action config | high-risk laundering, VIP boost, inspector action, audit checks | building action projection | dirty cash consumed, clean cash added | action/audit heat to district and police state | existing casino tests + MVP matrix | ready | Tune audit thresholds later. |
 | arcade | yes | fixed + `arcade` action config | smaller laundering, night-machine boost, audit checks | building action projection | dirty cash consumed, clean cash added | action/audit heat to district and police state | existing arcade tests + MVP matrix | ready | None for MVP. |
@@ -43,7 +45,7 @@ ID mapping used by the repo:
 
 ## Core Loop Status
 
-- Production path: `pharmacy` -> chemicals, `factory` -> metal parts, `drug_lab` -> neon dust; collection respects warehouse capacity.
+- Production path: Pharmacy, Drug Lab, Factory and Armory use independent one-unit lines with local output, reserved costs, cancellation of waiting units and partial collection into the global storage limits.
 - Dirty cash path: `casino`, `arcade`, `exchange`, and `smuggling_tunnel` mutate dirty/clean cash in core handlers and pass heat into district/police state.
 - Craft/equipment path: `factory` components feed `armory` recipes; completed armory outputs reach player inventory and can be seen by existing attack/defense surfaces.
 - Heat/police path: building action heat is config-backed and applied to district heat and player police heat; PoliceReadModel aggregates both.

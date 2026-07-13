@@ -56,7 +56,7 @@ export const freeModeInstitutionalBuildingActions: NonNullable<ResolvedGameModeC
     actionId: "express_import",
     buildingType: "airport",
     label: "Expresní dovoz",
-    description: "Po 90 sekundách doručí importní zásilku vybrané kategorie do skladu hráče. Přesah přes storage kapacitu propadne.",
+    description: "Po 90 sekundách doručí importní zásilku vybrané kategorie do SKLADU. Nevyzvednutý přesah zůstane čekat na volnou kapacitu.",
     durationMs: freeModeAirportConfig.expressImport.durationSeconds * 1000,
     cooldownMs: freeModeAirportConfig.expressImport.cooldownMinutes * 60 * 1000,
     inputCost: { cash: freeModeAirportConfig.expressImport.costCleanCash },

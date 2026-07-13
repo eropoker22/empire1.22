@@ -1487,8 +1487,9 @@ describe("run-building-action command flow", () => {
     expect(second.errors.map((error) => error.code)).toContain("arcade_night_machines_active");
   });
 
-  it("applies armory fortify as real district defense", () => {
+  it("rejects the removed armory fortify compatibility action without changing defense", () => {
     const { state, building } = createStateWithFixedBuilding("armory");
+    const defenseBefore = structuredClone(state.districtsById["district:1"].defenseLoadout);
     const result = applyCommand(
       state,
       createRunBuildingActionCommandFixture({
@@ -1501,28 +1502,10 @@ describe("run-building-action command flow", () => {
       context
     );
 
-    expect(result.errors).toEqual([]);
-    expect(result.nextState.districtsById["district:1"].defenseLoadout).toMatchObject({
-      barricades: 2,
-      cameras: 1,
-      alarm: 1
-    });
-    expect(result.events[0]?.payload).toMatchObject({
-      defenseAdded: {
-        barricades: 2,
-        cameras: 1,
-        alarm: 1
-      }
-    });
-    expect(createConflictReportViews(result.nextState, { playerId: "player:1", limit: 1 })[0]).toMatchObject({
-      reportType: "building-action",
-      buildingActionId: "armory_fortify",
-      defenseAdded: {
-        barricades: 2,
-        cameras: 1,
-        alarm: 1
-      }
-    });
+    expect(result.errors.map((error) => error.code)).toContain("building_action_not_found");
+    expect(result.nextState.districtsById["district:1"].defenseLoadout).toEqual(defenseBefore);
+    expect(result.events).toEqual([]);
+    expect(createConflictReportViews(result.nextState, { playerId: "player:1", limit: 1 })).toEqual([]);
   });
 
   it("runs Shopping Mall as passive economy and market multiplier without actions", () => {
