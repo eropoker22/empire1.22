@@ -12,7 +12,7 @@ export const freeModeDrugLabConfig: DrugLabBalanceConfig = {
   recipes: {
     "neon-dust": {
       label: "Neon Dust",
-      description: "Prodejná laboratorní látka a výrobní materiál.",
+      description: "Pouliční stimulant a laboratorní vstup používaný také pro Ghost Network.",
       outputResourceKey: "neon-dust",
       outputAmount: 1,
       itemRole: "trade-material",
@@ -51,7 +51,7 @@ export const freeModeDrugLabConfig: DrugLabBalanceConfig = {
     },
     "ghost-serum": {
       label: "Ghost Serum",
-      description: "Vzácná laboratorní komponenta určená pro budoucí výrobu specializovaných boostů.",
+      description: "Vzácná laboratorní komponenta používaná pro Ghost Network a Tactical Grid.",
       outputResourceKey: "ghost-serum",
       outputAmount: 1,
       itemRole: "boost-component",
@@ -64,7 +64,7 @@ export const freeModeDrugLabConfig: DrugLabBalanceConfig = {
     },
     "overdrive-x": {
       label: "Overdrive X",
-      description: "Vysoce nestabilní strategická komponenta určená pro nejsilnější budoucí boostovací recepty.",
+      description: "Nestabilní strategická komponenta používaná pro Industrial Overdrive a Tactical Grid.",
       outputResourceKey: "overdrive-x",
       outputAmount: 1,
       itemRole: "boost-component",

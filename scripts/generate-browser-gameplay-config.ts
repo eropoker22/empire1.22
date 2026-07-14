@@ -5,6 +5,7 @@ import { freeModeArmoryConfig } from "../packages/game-config/src/modes/free/fre
 import { freeModeDrugLabConfig } from "../packages/game-config/src/modes/free/free-mode-drug-lab-config";
 import { freeModeFactoryConfig } from "../packages/game-config/src/modes/free/free-mode-factory-config";
 import { freeModePharmacyConfig } from "../packages/game-config/src/modes/free/free-mode-pharmacy-config";
+import { freeModePlayerBoostConfig } from "../packages/game-config/src/modes/free/free-mode-player-boost-config";
 import {
   FREE_MODE_COOLDOWN_MULTIPLIER,
   FREE_MODE_TICK_RATE_MS
@@ -26,6 +27,9 @@ const toLegacyRecipes = (
     label: string;
     outputResourceKey: string;
     outputAmount: number;
+const boostTicksToMs = (ticks: number): number =>
+  Math.max(0, Math.ceil(ticks) * FREE_MODE_TICK_RATE_MS);
+
     cleanCashCostPerUnit: number;
     inputCosts: Record<string, number>;
     durationTicksPerUnit: number;
@@ -106,6 +110,7 @@ const generated = {
   },
   attackWeapons: Object.fromEntries(
     Object.entries(freeModeAttackWeaponsConfig).map(([resourceKey, weapon]) => [resourceKey, {
+    "free-mode-player-boost-config.ts",
       label: weapon.label,
       description: weapon.description,
       power: weapon.baseAttackPower,
@@ -117,6 +122,11 @@ const generated = {
 const serialized = [
   "// GENERATED FILE. Run `npm run generate:browser-config`; do not edit balance values here.",
   `// Sources: ${generated.generatedFrom.join(", ")}.`,
+  playerBoosts: Object.fromEntries(Object.entries(freeModePlayerBoostConfig).map(([boostId, boost]) => [boostId, {
+    ...boost,
+    durationMs: boostTicksToMs(boost.activeDurationTicks),
+    cooldownMs: boostTicksToMs(boost.cooldownTicks)
+  }])),
   `export const BROWSER_GAMEPLAY_CONFIG = Object.freeze(${JSON.stringify(generated, null, 2)});`,
   "",
   "export const PHARMACY_RECIPES = BROWSER_GAMEPLAY_CONFIG.pharmacyRecipes;",
@@ -141,3 +151,4 @@ if (process.argv.includes("--check")) {
   await writeFile(outputPath, serialized, "utf8");
   console.log(`Generated ${outputPath.slice(rootDir.length + 1)}`);
 }
+  "export const PLAYER_BOOST_CONFIG = BROWSER_GAMEPLAY_CONFIG.playerBoosts;",

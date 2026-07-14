@@ -85,7 +85,7 @@ const MARKET_ITEM_METADATA = Object.freeze({
     recommendedMinPrice: 900,
     recommendedMaxPrice: 1750,
     isBlackMarketOnly: true,
-    serverReadyNotes: "Tradeable laboratory material and input for strategic components."
+    serverReadyNotes: "Tradeable laboratory material used by advanced lab recipes and Ghost Network."
   }),
   "velvet-smoke": Object.freeze({
     tier: 3,
@@ -111,7 +111,7 @@ const MARKET_ITEM_METADATA = Object.freeze({
     recommendedMinPrice: 1900,
     recommendedMaxPrice: 3400,
     isBlackMarketOnly: true,
-    serverReadyNotes: "Strategic component for future boost recipes; it has no direct use effect."
+    serverReadyNotes: "Strategic component consumed by Ghost Network and Tactical Grid; it has no direct use effect."
   }),
   "overdrive-x": Object.freeze({
     tier: 5,
@@ -124,7 +124,7 @@ const MARKET_ITEM_METADATA = Object.freeze({
     recommendedMinPrice: 3600,
     recommendedMaxPrice: 6200,
     isBlackMarketOnly: true,
-    serverReadyNotes: "Rare strategic component for future boost recipes; it has no direct use effect."
+    serverReadyNotes: "Rare strategic component consumed by Industrial Overdrive and Tactical Grid; it has no direct use effect."
   }),
   pistol: Object.freeze({
     tier: 3,

@@ -68,7 +68,7 @@ async function seedLocalDemo(page) {
       production: {
         jobs: {},
         streetDealers: { slots: [] },
-        factory: { level: 1, resources: {}, slots: [], boosts: { active: null }, updatedAt: Date.now() },
+        factory: { level: 1, resources: {}, slots: [], updatedAt: Date.now() },
         buildings: { pharmacy: { level: 1 }, druglab: { level: 1 }, armory: { level: 1 } }
       }
     };

@@ -37,21 +37,23 @@ export const getPharmacyProducedAmount = (
 ): number => getProducedAmount(state, building, resourceKey);
 
 export const resolvePharmacyDurationTicks = (
+  state: CoreGameState,
   building: Building,
   recipe: PharmacyRecipeBalanceConfig,
   context: GameCoreContext
 ): number => Math.max(1, Math.ceil(
-  resolveProductionLineDurationTicks(building, recipe, context)
+  resolveProductionLineDurationTicks(state, building, recipe, context)
 ));
 
 export const startPharmacyLine = (
+  state: CoreGameState,
   line: BuildingProductionLine,
   building: Building,
   recipe: PharmacyRecipeBalanceConfig,
   tick: number,
   context: GameCoreContext
 ): BuildingProductionLine => {
-  return startProductionLine(line, building, recipe, tick, context);
+  return startProductionLine(state, line, building, recipe, tick, context);
 };
 
 export const normalizePharmacyLine = (

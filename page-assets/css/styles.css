@@ -5145,7 +5145,6 @@ html body.game-body :is(
     #event-detail-modal:not(.hidden):not([hidden]) .modal__content,
     #bounty-modal:not(.hidden):not([hidden]) .modal__content,
     #bounty-confirm-modal:not(.hidden):not([hidden]) .modal__content,
-    #boost-modal:not(.hidden):not([hidden]) .modal__content,
     #faction-actions-modal:not(.hidden):not([hidden]) .modal__content,
     #battle-royale-info-modal:not(.hidden):not([hidden]) .modal__content,
     #alliance-modal:not(.hidden):not([hidden]) .modal__content,
@@ -5159,6 +5158,13 @@ html body.game-body :is(
     will-change: transform, opacity !important;
     backface-visibility: hidden !important;
     animation: mobile-modal-center-pop-in 220ms var(--motion-modal-ease, cubic-bezier(0.22, 1, 0.36, 1)) both !important;
+  }
+
+  html body.game-body #boost-modal:not(.hidden):not([hidden]) .modal__content {
+    transform-origin: center center !important;
+    will-change: transform, opacity !important;
+    backface-visibility: hidden !important;
+    animation: mobile-modal-positioned-center-pop-in 220ms var(--motion-modal-ease, cubic-bezier(0.22, 1, 0.36, 1)) both !important;
   }
 
   html body.game-body :is(

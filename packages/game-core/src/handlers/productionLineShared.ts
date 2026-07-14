@@ -4,6 +4,7 @@ import type { GameCoreContext } from "../engine/context";
 import { resolveProductionBuildingLevelMultiplier } from "../rules/buildings/buildingUpgradeRules";
 import { resolveCraftProcessingDurationTicks } from "../rules/production/productionRules";
 import { composeEntityId } from "../utils";
+import { getPlayerProductionBoostMultiplier } from "../rules/player-boosts";
 
 export interface MultiLineProductionRecipe {
   durationTicksPerUnit: number;
@@ -48,17 +49,25 @@ export const getProducedAmount = (
 ): number => Math.max(0, Number(getBuildingProductionResourceState(state, building).balances[resourceKey] || 0));
 
 export const resolveProductionLineDurationTicks = (
+  state: CoreGameState,
   building: Building,
   recipe: MultiLineProductionRecipe,
   context: GameCoreContext
-): number => Math.max(1, Math.ceil(
-  resolveCraftProcessingDurationTicks(
-    recipe.durationTicksPerUnit,
-    context.config.balance.cooldownMultiplier
-  ) / resolveProductionBuildingLevelMultiplier(building, context)
-));
+): number => {
+  const playerId = building.ownerPlayerId === "player:neutral"
+    ? state.districtsById[building.districtId]?.ownerPlayerId
+    : building.ownerPlayerId;
+  return Math.max(1, Math.ceil(
+    resolveCraftProcessingDurationTicks(
+      recipe.durationTicksPerUnit,
+      context.config.balance.cooldownMultiplier
+    ) / resolveProductionBuildingLevelMultiplier(building, context)
+      / getPlayerProductionBoostMultiplier(state, playerId ?? "", state.root.tick)
+  ));
+};
 
 export const startProductionLine = <T extends BuildingProductionLine>(
+  state: CoreGameState,
   line: T,
   building: Building,
   recipe: MultiLineProductionRecipe,
@@ -66,7 +75,7 @@ export const startProductionLine = <T extends BuildingProductionLine>(
   context: GameCoreContext
 ): T => {
   if (line.queuedAmount <= 0 || line.activeCompletesAtTick !== null) return line;
-  const durationTicks = resolveProductionLineDurationTicks(building, recipe, context);
+  const durationTicks = resolveProductionLineDurationTicks(state, building, recipe, context);
   return {
     ...line,
     activeStartedAtTick: tick,

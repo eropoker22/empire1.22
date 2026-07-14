@@ -4,6 +4,7 @@ import type { CoreGameState } from "../entities";
 import type { CoreEvent } from "../events";
 import {
   handleAcknowledgePendingRaid,
+  handleActivatePlayerBoost,
   handleAllianceLifecycleCommand,
   handleAttackDistrict,
   handleBountyCommand,
@@ -79,6 +80,8 @@ export const routeCommand = (
   switch (command.type) {
     case "acknowledge-pending-raid":
       return handleAcknowledgePendingRaid(state, command, context);
+    case "activate-player-boost":
+      return handleActivatePlayerBoost(state, command, context);
     case "create-alliance":
     case "join-alliance":
     case "invite-alliance-member":

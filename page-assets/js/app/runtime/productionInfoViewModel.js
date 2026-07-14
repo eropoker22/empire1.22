@@ -91,6 +91,11 @@ export function createFactoryBuildingInfoViewModel({
   config = {},
   formatCurrency = (value) => String(value),
   formatDurationLabel = (value) => `${value}ms`,
+  getResourceLabel = (resourceKey) => ({
+    "metal-parts": "Metal Parts",
+    "tech-core": "Tech Core",
+    "combat-module": "Combat Module"
+  })[resourceKey] || resourceKey,
   getFactoryUpgradeCost = () => 0,
   getFactoryLevelMultiplier = () => syncResult.productionMultiplier
 } = {}) {
@@ -99,8 +104,26 @@ export function createFactoryBuildingInfoViewModel({
   const nextMultiplier = nextLevel ? getFactoryLevelMultiplier(nextLevel) : syncResult.productionMultiplier;
   const currentMultiplier = Number(syncResult.productionMultiplier || 0);
   const safeNextMultiplier = Number(nextMultiplier || 0);
+  const recipeDescriptions = {
+    "metal-parts": "Základní průmyslový materiál pro výrobu pokročilejších komponent a vybavení.",
+    "tech-core": "Pokročilé technologické jádro používané ve výrobě zbraní, obran a dalších průmyslových komponent.",
+    "combat-module": "Strategická průmyslová komponenta pro high-tier výzbroj a pokročilé boost protokoly."
+  };
+  const recipeOrder = ["metal-parts", "tech-core", "combat-module"];
+  const recipes = safeObject(config.recipes);
+  const products = recipeOrder.map((recipeId) => {
+    const recipe = safeObject(recipes[recipeId]);
+    return {
+      id: recipeId,
+      title: recipe.name || getResourceLabel(recipeId),
+      description: recipeDescriptions[recipeId],
+      durationLabel: recipe.durationMs ? formatDurationLabel(recipe.durationMs) : "Načítám",
+      costLabel: recipe.name ? formatProductionRecipeInputList(recipe, { formatCurrency, getResourceLabel }) : "Načítám"
+    };
+  });
+  const combatModuleRecipe = safeObject(recipes["combat-module"]);
   return {
-    description: "Továrna vyrábí technické komponenty pro zbraně, obranu a boost. Výroba v továrně je za čisté peníze.",
+    description: "Továrna vyrábí Metal Parts, Tech Core a Combat Module po jednom kusu. Combat Module je vstup pro high-tier vybavení a pokročilé boost protokoly.",
     effectsLabel: nextLevel
       ? `Další level +${Math.round((safeNextMultiplier - currentMultiplier) * 100)}% rychlost`
       : "Maximální level",
@@ -108,41 +131,24 @@ export function createFactoryBuildingInfoViewModel({
       costLabel: nextLevel ? formatCurrency(upgradeCost) : "MAX",
       benefitLabel: nextLevel ? `L${nextLevel} · produkce ${formatMultiplierBonus(safeNextMultiplier)}` : "Maximální level"
     },
-    products: [
-      {
-        id: "metal-parts",
-        title: "Metal Parts",
-        description: "Základní kovové díly pro výrobu zbraní, obrany a technického vybavení. Levný základ každé pouliční války.",
-        durationLabel: "4 min",
-        costLabel: "120 Clean Cash"
-      },
-      {
-        id: "tech-core",
-        title: "Tech Core",
-        description: "Pokročilé technologické jádro používané pro kamery, alarmy, turrety a silnější zbraně. Dražší, ale otevírá vyšší tier výbavy.",
-        durationLabel: "8 min",
-        costLabel: "300 Clean Cash"
-      },
-      {
-        id: "combat-module",
-        title: "Bojový modul",
-        description: "Vzácná bojová součástka pro high-tech zbraně, automatickou obranu a těžkou výbavu. Není to hotová zbraň, ale modul pro další vybavení.",
-        durationLabel: "15 min",
-        costLabel: "650 Clean Cash + 1 Tech Core"
-      }
-    ],
+    products,
     rows: [
       { label: "Level", value: `L${factoryState.level}` },
       { label: "Upgrade", value: nextLevel ? `${formatCurrency(upgradeCost)} -> L${nextLevel}` : "Maximální level" },
       { label: "Další level", value: nextLevel ? `Produkce a craft rychlost ${formatMultiplierBonus(safeNextMultiplier)}.` : "Budova už je na maximu." },
       { label: "Výstup", value: `Metal Parts ${Number(syncResult.rates?.metalPartsPerHour || 0).toFixed(2)}/h · Tech Core ${Number(syncResult.rates?.techCorePerHour || 0).toFixed(2)}/h · Bojový modul ${Number(syncResult.rates?.combatModulePerHour || 0).toFixed(2)}/h` },
       { label: "Vyzvednutí", value: collectableAmount > 0 ? `${collectableAmount} ks hotovo do skladu` : "Zatím nic hotového" },
-      { label: "Bojový modul", value: `${config.combatModule?.metalPartsCost || 0} Metal Parts + ${config.combatModule?.techCoreCost || 0} Tech Core · ${formatDurationLabel(config.combatModule?.durationMs || 0)} · heat +${config.combatModule?.heatPerUnit || 0}/ks` }
+      {
+        label: "Bojový modul",
+        value: combatModuleRecipe.name
+          ? `${formatProductionRecipeInputList(combatModuleRecipe, { formatCurrency, getResourceLabel })} · ${formatDurationLabel(combatModuleRecipe.durationMs || 0)}`
+          : "Recept se načítá"
+      }
     ],
     actions: [
       { title: "+ Vybrat hotové", description: collectableAmount > 0 ? `Přesune ${collectableAmount} ks hotových továrních výstupů do skladu.` : "Přesune hotové tovární výstupy do skladu, až budou připravené." },
       { title: "⇪ Upgrade", description: nextLevel ? `Stojí ${formatCurrency(upgradeCost)} clean cash a zvedne produkci na ${formatMultiplierBonus(safeNextMultiplier)}.` : "Maximální level, další upgrade není dostupný." },
-      { title: "Spustit / Zrušit slot", description: "Řídí jednotlivé linky: Metal Parts, Tech Core a bojový modul. Zrušení smaže aktivní frontu slotu." }
+      { title: "Spustit / Zrušit slot", description: "Řídí jednotlivé linky: Metal Parts, Tech Core a Combat Module. Zrušení vrátí náklady pouze za čekající kusy; aktivní kus pokračuje." }
     ]
   };
 }

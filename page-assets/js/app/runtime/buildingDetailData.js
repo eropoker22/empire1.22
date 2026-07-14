@@ -190,17 +190,17 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   }),
   "drug lab": Object.freeze({
     role: "Drug výroba",
-    info: "Drug Lab vyrábí pět látek po jednom kusu. Ghost Serum a Overdrive X jsou strategické výrobní komponenty bez přímé aktivace.",
+    info: "Drug Lab vyrábí pět látek po jednom kusu. Ghost Serum napájí Ghost Network a Tactical Grid, Overdrive X napájí Industrial Overdrive a Tactical Grid; samostatně je aktivovat nelze.",
     actions: Object.freeze([])
   }),
   lab: Object.freeze({
     role: "Drug výroba",
-    info: "Lab vyrábí pět látek po jednom kusu. Ghost Serum a Overdrive X jsou strategické výrobní komponenty bez přímé aktivace.",
+    info: "Lab vyrábí pět látek po jednom kusu. Ghost Serum napájí Ghost Network a Tactical Grid, Overdrive X napájí Industrial Overdrive a Tactical Grid; samostatně je aktivovat nelze.",
     actions: Object.freeze([])
   }),
   tovarna: Object.freeze({
     role: "Průmyslová výroba",
-    info: "Tři nezávislé linky vyrábějí Metal Parts, Tech Core a Combat Module po jednom kusu. Combat Module je strategický vstup pro high-tier vybavení Zbrojovky.",
+    info: "Tři nezávislé linky vyrábějí Metal Parts, Tech Core a Combat Module po jednom kusu. Combat Module je strategický vstup pro high-tier vybavení Zbrojovky a pokročilé boost protokoly.",
     actions: Object.freeze([])
   }),
   zbrojovka: Object.freeze({

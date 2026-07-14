@@ -8,6 +8,7 @@ import { completePharmacyProduction } from "../rules/production/completePharmacy
 import { completeDrugLabProduction } from "../rules/production/completeDrugLabProduction";
 import { completeFactoryProduction } from "../rules/production/completeFactoryProduction";
 import { completeArmoryProduction } from "../rules/production/completeArmoryProduction";
+import { expirePlayerBoosts } from "../rules/player-boosts";
 import { releaseExpiredPoliceConsequences } from "../rules/police/policeConsequenceExpiry";
 import { applyPoliceHeatDecay } from "../rules/police/heatDecay";
 import { expirePendingRaids } from "../rules/police/raidLifecycle";
@@ -44,7 +45,10 @@ export const runTick = (
       tick: state.root.tick + 1
     }
   };
-  const releasedPoliceState = releaseExpiredPoliceConsequences(advancedState);
+  // End time-bound production boosts at the exact tick boundary before a
+  // completed unit can schedule its successor with the post-expiry speed.
+  const boostLifecycleResult = expirePlayerBoosts(advancedState, context);
+  const releasedPoliceState = releaseExpiredPoliceConsequences(boostLifecycleResult.nextState);
   const incomeState = collectIncome(releasedPoliceState, context);
   const producedState = completeProduction(incomeState, context);
   const pharmacyProductionState = completePharmacyProduction(producedState, context);
@@ -90,6 +94,7 @@ export const runTick = (
   const finalLockdownResult = runFinalLockdownLifecycle(eliminationResult.nextState, context);
   const victoryResult = checkVictory(finalLockdownResult.nextState, context);
   const events = [
+    ...boostLifecycleResult.events,
     ...processingResult.events,
     ...streetDealerResult.events,
     ...lifecycleResult.events,

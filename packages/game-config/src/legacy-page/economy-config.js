@@ -31,38 +31,6 @@ export const FACTORY_SLOT_STORAGE_CAP = Math.max(...Object.values(FACTORY_SLOT_S
 
 export const FACTORY_RESOURCE_KEYS = Object.freeze(["metalParts", "techCore", "combatModule"]);
 
-// Reachable only in local-demo mode. This is not canonical combat balance.
-export const DEMO_FACTORY_COMBAT_BOOSTS = Object.freeze({
-  assault: Object.freeze({
-    id: "assault",
-    label: "Assault",
-    combatModuleCost: 2,
-    durationMs: 2 * 60 * 60 * 1000,
-    attackPowerPct: 30,
-    heatAdded: 3
-  }),
-  rapid: Object.freeze({
-    id: "rapid",
-    label: "Rapid",
-    combatModuleCost: 3,
-    durationMs: 90 * 60 * 1000,
-    attackSpeedPct: 40,
-    raidSpeedPct: 25,
-    defensePenaltyPct: 10,
-    heatAdded: 4
-  }),
-  breach: Object.freeze({
-    id: "breach",
-    label: "Breach",
-    combatModuleCost: 4,
-    durationMs: 2 * 60 * 60 * 1000,
-    destroyBuildingChancePct: 20,
-    defenseIgnorePct: 15,
-    policeInterventionRiskPct: 35,
-    heatAdded: 5
-  })
-});
-
 export const MARKET_TAB_CONFIG = {
   market: {
     label: "Normal Market",
@@ -120,6 +88,7 @@ import {
   FACTORY_SLOT_CONFIG,
   FACTORY_SLOT_STORAGE_CAPS,
   PHARMACY_RECIPES,
+  PLAYER_BOOST_CONFIG,
   WAREHOUSE_STORAGE_CONFIG
 } from "./gameplay-config.generated.js";
 
@@ -131,5 +100,6 @@ export {
   FACTORY_SLOT_CONFIG,
   FACTORY_SLOT_STORAGE_CAPS,
   PHARMACY_RECIPES,
+  PLAYER_BOOST_CONFIG,
   WAREHOUSE_STORAGE_CONFIG
 };

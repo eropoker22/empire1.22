@@ -17,7 +17,7 @@ The execution boundary is centralized in `page-assets/js/app/runtime/gameplayExe
 - `server-authoritative`
 - `unavailable`
 
-Demo-only city events, global demo chat, local alliance previews, and Factory combat boosts run only in `local-demo`. They are disabled in server-authoritative mode.
+Demo-only city events, global demo chat, and local alliance previews run only in `local-demo`. They are disabled in server-authoritative mode.
 
 ## Gameplay Configuration
 
@@ -30,7 +30,9 @@ The four production buildings use independent one-unit production lines:
 - Factory: Metal Parts, Tech Core, Combat Module
 - Armory: five attack weapons and five defense items
 
-Ghost Serum and Overdrive X are stored production components, not directly usable boosts. Combat Module is a strategic Factory output consumed by high-tier Armory recipes.
+Ghost Serum, Pulse Shot, Overdrive X, and Combat Module feed the three canonical strategic boost protocols. They are consumed only through the boost activation flow, never by direct item use. Combat Module also remains a strategic Factory output consumed by high-tier Armory recipes.
+
+Strategic boost protocols are Ghost Network (intel), Industrial Overdrive (production), and Tactical Grid (the next valid PvP combat). Local demo persists their state through the local authority session; server-authoritative mode uses the typed command and player read model and never falls back to browser authority.
 
 Global stock limits are per resource, not shared pools:
 

@@ -324,18 +324,19 @@ export function createResultPayloadBuilders(deps = {}) {
     const safeCreatedAtMs = Number.isFinite(createdAtMs) ? createdAtMs : now();
     const safeResolveAtMs = Number.isFinite(resolveAtMs) ? resolveAtMs : safeCreatedAtMs;
     const durationValue = formatDurationLabel(Math.max(0, safeResolveAtMs - safeCreatedAtMs));
-    const hasExplicitHeatData = order.heatAdded !== undefined || order.factoryBoost?.heatAdded !== undefined;
-    const heatGained = Math.max(0, Number(order.heatAdded ?? order.factoryBoost?.heatAdded ?? 0) || 0);
+    const hasExplicitHeatData = order.heatAdded !== undefined;
+    const heatGained = Math.max(0, Number(order.heatAdded ?? 0) || 0);
     const heatGainedLabel = hasExplicitHeatData ? `+${heatGained}` : "Police feed";
-    const policeRiskPct = Math.max(0, Number(order.factoryBoost?.policeInterventionRiskPct || 0) || 0);
+    const tacticalMultiplier = Math.max(1, Number(order.tacticalGrid?.appliedMultiplier || 1));
+    const tacticalGridLabel = tacticalMultiplier > 1
+      ? `Tactical Grid: +${Math.round((tacticalMultiplier - 1) * 100)} % bojové síly`
+      : "";
     const lootLabel = outcome.capturesDistrict
       ? "Kontrola districtu"
       : outcome.destroysDistrict
         ? "District zničen"
         : "Žádný";
-    const policeWarningLabel = policeRiskPct > 0
-      ? `Riziko zásahu ${policeRiskPct}%`
-      : heatGained > 0
+    const policeWarningLabel = heatGained > 0
         ? "Heat zvýšen, sleduj police feed"
         : hasExplicitHeatData
           ? "Bez přímého police eventu"
@@ -346,7 +347,9 @@ export function createResultPayloadBuilders(deps = {}) {
       outcomeKey: attackOutcomeMeta.key,
       title: attackOutcomeMeta.title,
       badge: attackOutcomeMeta.badge,
-      summary: attackOutcomeMeta.summary,
+      summary: tacticalGridLabel
+        ? `${attackOutcomeMeta.summary} ${tacticalGridLabel}.`
+        : attackOutcomeMeta.summary,
       districtName: `District ${targetDistrictId}`,
       attackPower: Math.max(0, Math.floor(Number(order.estimatedAttackPower ?? 0) || 0)),
       defensePower: Math.max(0, Math.floor(Number(currentDefense ?? 0) || 0)),
@@ -366,6 +369,7 @@ export function createResultPayloadBuilders(deps = {}) {
       cooldownLabel: durationValue,
       nextActionLabel: "Zpět na mapu / vyber další cíl",
       extraRows: [
+        ...(tacticalGridLabel ? [{ label: "Boost", value: tacticalGridLabel }] : []),
         { label: "Loot", value: lootLabel },
         { label: "Heat gained", value: heatGainedLabel },
         { label: "Police warning", value: policeWarningLabel },
@@ -445,7 +449,8 @@ export function createResultPayloadBuilders(deps = {}) {
     scenarioLabel = "",
     knownDefensePower = 0,
     isUnownedDistrict = false,
-    heatGain = 0
+    heatGain = 0,
+    extraIntelBlocks = []
   } = {}) => {
     const captureCooldownUntil = Number(mission.cooldownUntil || 0) || (now() + deps.spyCaptureCooldownMs);
     return {
@@ -479,7 +484,10 @@ export function createResultPayloadBuilders(deps = {}) {
       rows: scenarioLabel === "Úspěch"
       ? buildSpyResultRows(mission.targetDistrictId, mission, {
           defensePower: knownDefensePower
-        })
+        }).concat((Array.isArray(extraIntelBlocks) ? extraIntelBlocks : []).map((block) => ({
+          label: block.label || "Rozšířený intel",
+          value: block.value || "Odhalen"
+        })))
       : scenarioLabel === "Částečný úspěch"
         ? buildSpyResultRows(mission.targetDistrictId, mission, {
             defensePower: knownDefensePower,

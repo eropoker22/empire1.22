@@ -49,7 +49,7 @@ There is no passive Chemicals/Biomass production and Stim Pack does not consume 
 | Ghost Serum | 2500 | 2 Neon Dust, 1 Pulse Shot | 20 min | 2 | 2 |
 | Overdrive X | 4500 | 1 Pulse Shot, 2 Velvet Smoke | 30 min | 1 | 1 |
 
-Ghost Serum and Overdrive X are strategic manufacturing components for future recipes. They have no direct use command, cooldown, combat effect, or spy effect.
+Ghost Serum and Overdrive X are strategic manufacturing components consumed by the canonical player boost activation flow. Ghost Serum feeds Ghost Network and Tactical Grid; Overdrive X feeds Industrial Overdrive and Tactical Grid. Neither item has a direct-use command or an effect by itself.
 
 ## Factory
 
@@ -59,7 +59,7 @@ Ghost Serum and Overdrive X are strategic manufacturing components for future re
 | Tech Core | 900 | 4 Metal Parts | 8 min | 5 | 4 |
 | Combat Module | 2500 | 4 Metal Parts, 2 Tech Core | 15 min | 2 | 2 |
 
-Combat Module is a strategic industrial component used by high-tier Armory recipes. Factory network and level modifiers affect only the duration of newly started units. There is no passive Metal Parts production or `produce_tech_core` building action.
+Combat Module is a strategic industrial component used by high-tier Armory recipes, Industrial Overdrive, and Tactical Grid. Factory network and level modifiers affect only production speed. There is no passive Metal Parts production or `produce_tech_core` building action.
 
 ## Armory
 
@@ -92,3 +92,7 @@ Armory recipes do not define attack power, defense power, or population requirem
 - manually copied browser recipe balance
 
 Legacy snapshot migration remains in game-core for already persisted processing jobs. It is one-way compatibility and does not define new recipe balance.
+
+## Strategic boost protocols
+
+The player boost catalog has exactly three canonical protocols: Ghost Network, Industrial Overdrive, and Tactical Grid. Activation consumes collected global SKLAD resources and clean cash atomically. Only one protocol may be active; each protocol keeps its own cooldown. Component inventory never applies an effect until the canonical boost activation flow succeeds.

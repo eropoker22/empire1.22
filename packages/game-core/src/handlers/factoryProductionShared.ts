@@ -10,6 +10,7 @@ import {
   getProductionLine,
   normalizeProductionLine
 } from "./productionLineShared";
+import { getPlayerProductionBoostMultiplier } from "../rules/player-boosts";
 
 export const FACTORY_BUILDING_TYPE_ID = "factory";
 const LEGACY_NEUTRAL_FACTORY_OWNER_ID = "player:neutral";
@@ -91,6 +92,7 @@ export const resolveFactoryDurationTicks = (
   );
   return Math.max(1, Math.ceil(
     baseDuration / networkMultiplier / resolveProductionBuildingLevelMultiplier(building, context)
+      / getPlayerProductionBoostMultiplier(state, resolveFactoryOwnerPlayerId(state, building), state.root.tick)
   ));
 };
 

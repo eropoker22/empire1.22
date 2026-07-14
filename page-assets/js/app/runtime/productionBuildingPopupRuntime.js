@@ -147,14 +147,16 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     const buildingState = deps.getStoredProductionBuildingState?.(buildingName) || {};
     const ownedBuildingCount = getOwnedProductionBuildingCount(buildingName, buildingState.level);
     const durationMultiplier = deps.getProductionBuildingMultiplier?.(buildingName, buildingState.level) || 1;
-    const effectiveDurationMs = Math.max(1000, Math.round(Number(recipe?.durationMs || 0) / durationMultiplier));
+    const productionBoost = deps.getPlayerProductionBoostSnapshot?.() || { multiplier: 1, expiresAtMs: null };
+    const baseEffectiveDurationMs = Math.max(1000, Math.round(Number(recipe?.durationMs || 0) / durationMultiplier));
+    const effectiveDurationMs = Math.max(1000, Math.round(baseEffectiveDurationMs / Math.max(1, Number(productionBoost.multiplier || 1))));
     const outputUnitAmount = buildingName === "pharmacy" || buildingName === "armory"
       ? 1
       : Math.max(1, Math.floor(Number(recipe?.output?.amount || 1)));
     const outputCap = getProductionOutputCap(buildingName, recipe);
     const queueCap = getProductionQueueCap(buildingName, ownedBuildingCount, recipe);
     const jobDefaults = {
-      unitDurationMs: effectiveDurationMs,
+      unitDurationMs: baseEffectiveDurationMs,
       localOutputCap: outputCap || 99,
       queueCapacity: queueCap || 99,
       unitCleanMoneyCost: Math.max(0, Number(recipe?.cleanMoneyCost || 0)),
@@ -280,6 +282,8 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           ...jobDefaults,
           quantity: safeBatchCount,
           now: Date.now(),
+          productionSpeedMultiplier: productionBoost.multiplier,
+          productionSpeedExpiresAtMs: productionBoost.expiresAtMs,
           unitCleanMoneyCost: Math.max(0, Number(recipe?.cleanMoneyCost || 0)),
           unitInputs: recipe?.inputs || {}
         });

@@ -36,18 +36,20 @@ export const getDrugLabProducedAmount = (
 ): number => getProducedAmount(state, building, resourceKey);
 
 export const resolveDrugLabDurationTicks = (
+  state: CoreGameState,
   building: Building,
   recipe: DrugLabRecipeBalanceConfig,
   context: GameCoreContext
-): number => resolveProductionLineDurationTicks(building, recipe, context);
+): number => resolveProductionLineDurationTicks(state, building, recipe, context);
 
 export const startDrugLabLine = (
+  state: CoreGameState,
   line: BuildingProductionLine,
   building: Building,
   recipe: DrugLabRecipeBalanceConfig,
   tick: number,
   context: GameCoreContext
-): BuildingProductionLine => startProductionLine(line, building, recipe, tick, context);
+): BuildingProductionLine => startProductionLine(state, line, building, recipe, tick, context);
 
 export const normalizeDrugLabLine = (
   line: BuildingProductionLine,

@@ -53,6 +53,32 @@ function resolveStatus(job) {
   return "idle";
 }
 
+function toPositiveMultiplier(value, fallback = 1) {
+  const normalized = Number(value);
+  return Number.isFinite(normalized) && normalized > 0 ? normalized : fallback;
+}
+
+function toOptionalTimestamp(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const normalized = Number(value);
+  return Number.isFinite(normalized) ? Math.max(0, normalized) : null;
+}
+
+function projectReadyAtMs(now, workRemainingMs, speedMultiplier, speedExpiresAtMs) {
+  const work = Math.max(0, Number(workRemainingMs || 0));
+  const speed = toPositiveMultiplier(speedMultiplier, 1);
+  const expiresAt = toOptionalTimestamp(speedExpiresAtMs);
+  if (work <= 0) return now;
+  if (speed <= 1 || expiresAt === null || expiresAt <= now) {
+    return now + work;
+  }
+  const boostedWindowMs = expiresAt - now;
+  const boostedWork = boostedWindowMs * speed;
+  return work <= boostedWork
+    ? now + work / speed
+    : expiresAt + (work - boostedWork);
+}
+
 export function normalizeLocalProductionJob(rawJob = null, defaults = {}) {
   if (!rawJob) return null;
   const durationMs = toPositiveInteger(rawJob.unitDurationMs ?? defaults.unitDurationMs ?? rawJob.durationMs, 1000);
@@ -83,6 +109,26 @@ export function normalizeLocalProductionJob(rawJob = null, defaults = {}) {
     && capHasSpace
     && rawJob.status !== "waiting"
     && rawJob.isProducing !== false;
+  const productionSpeedMultiplier = toPositiveMultiplier(rawJob.productionSpeedMultiplier, 1);
+  const productionSpeedExpiresAtMs = toOptionalTimestamp(rawJob.productionSpeedExpiresAtMs);
+  const activeWorkRemainingMs = isProducing
+    ? Math.max(1, Number(rawJob.activeWorkRemainingMs || durationMs))
+    : null;
+  const lastProgressAtMs = isProducing
+    ? Number.isFinite(Number(rawJob.lastProgressAtMs))
+      ? Number(rawJob.lastProgressAtMs)
+      : Number.isFinite(readyAtMs)
+        ? readyAtMs - durationMs / productionSpeedMultiplier
+        : Date.now()
+    : null;
+  const projectedReadyAtMs = isProducing
+    ? projectReadyAtMs(
+        lastProgressAtMs,
+        activeWorkRemainingMs,
+        productionSpeedMultiplier,
+        productionSpeedExpiresAtMs
+      )
+    : null;
   const normalized = {
     ...rawJob,
     version: 2,
@@ -97,7 +143,11 @@ export function normalizeLocalProductionJob(rawJob = null, defaults = {}) {
     inputs: reservationTotals.inputs,
     cleanMoneyCost: reservationTotals.cleanMoney,
     isProducing,
-    readyAtMs: isProducing && Number.isFinite(readyAtMs) && readyAtMs > 0 ? readyAtMs : null,
+    productionSpeedMultiplier,
+    productionSpeedExpiresAtMs,
+    activeWorkRemainingMs,
+    lastProgressAtMs,
+    readyAtMs: projectedReadyAtMs,
     output: {
       ...(defaults.output || {}),
       ...(rawJob.output || {}),
@@ -131,6 +181,13 @@ export function queueLocalProduction(job, order = {}) {
   ];
   const totals = sumReservationUnits(reservationUnits);
   const startsNow = !current.isProducing && current.queuedAmount === 0;
+  const productionSpeedMultiplier = startsNow
+    ? toPositiveMultiplier(order.productionSpeedMultiplier, 1)
+    : current.productionSpeedMultiplier;
+  const productionSpeedExpiresAtMs = startsNow
+    ? toOptionalTimestamp(order.productionSpeedExpiresAtMs)
+    : current.productionSpeedExpiresAtMs;
+  const activeWorkRemainingMs = startsNow ? current.unitDurationMs : current.activeWorkRemainingMs;
   const next = {
     ...current,
     queuedAmount: current.queuedAmount + quantity,
@@ -139,7 +196,13 @@ export function queueLocalProduction(job, order = {}) {
     inputs: totals.inputs,
     cleanMoneyCost: totals.cleanMoney,
     isProducing: current.isProducing || startsNow,
-    readyAtMs: current.isProducing ? current.readyAtMs : now + current.unitDurationMs
+    productionSpeedMultiplier,
+    productionSpeedExpiresAtMs,
+    activeWorkRemainingMs,
+    lastProgressAtMs: startsNow ? now : current.lastProgressAtMs,
+    readyAtMs: current.isProducing
+      ? current.readyAtMs
+      : projectReadyAtMs(now, activeWorkRemainingMs, productionSpeedMultiplier, productionSpeedExpiresAtMs)
   };
   next.status = resolveStatus(next);
   next.readyAt = next.readyAtMs ? new Date(next.readyAtMs).toISOString() : null;
@@ -148,23 +211,54 @@ export function queueLocalProduction(job, order = {}) {
 
 export function advanceLocalProductionJob(job, now = Date.now()) {
   const current = normalizeLocalProductionJob(job);
-  if (!current || !current.isProducing || !current.readyAtMs || current.readyAtMs > now) {
+  if (!current || !current.isProducing || !current.readyAtMs) {
     return { changed: false, completedAmount: 0, job: current };
   }
-  const availableOutputSpace = Math.max(0, current.localOutputCap - current.producedAmount);
-  const elapsedCycles = 1 + Math.floor(Math.max(0, now - current.readyAtMs) / current.unitDurationMs);
-  const completedAmount = Math.min(elapsedCycles, current.queuedAmount, availableOutputSpace);
-  if (completedAmount <= 0) {
-    const waiting = { ...current, isProducing: false, readyAtMs: null, readyAt: null };
-    waiting.status = resolveStatus(waiting);
-    return { changed: waiting.status !== current.status || current.isProducing, completedAmount: 0, job: waiting };
+  const nowMs = Number.isFinite(Number(now)) ? Number(now) : Date.now();
+  const storedProgressAtMs = Number(current.lastProgressAtMs);
+  let cursor = Math.min(nowMs, Number.isFinite(storedProgressAtMs) ? storedProgressAtMs : nowMs);
+  let workRemainingMs = Math.max(1, Number(current.activeWorkRemainingMs || current.unitDurationMs));
+  let speedMultiplier = toPositiveMultiplier(current.productionSpeedMultiplier, 1);
+  let speedExpiresAtMs = toOptionalTimestamp(current.productionSpeedExpiresAtMs);
+  let queuedAmount = current.queuedAmount;
+  let producedAmount = current.producedAmount;
+  let completedAmount = 0;
+
+  while (cursor < nowMs && queuedAmount > 0 && producedAmount < current.localOutputCap) {
+    if (speedExpiresAtMs !== null && cursor >= speedExpiresAtMs) {
+      speedMultiplier = 1;
+      speedExpiresAtMs = null;
+    }
+    const segmentEnd = speedExpiresAtMs !== null && speedExpiresAtMs > cursor
+      ? Math.min(nowMs, speedExpiresAtMs)
+      : nowMs;
+    const availableWorkMs = Math.max(0, segmentEnd - cursor) * speedMultiplier;
+    if (availableWorkMs + Number.EPSILON < workRemainingMs) {
+      workRemainingMs -= availableWorkMs;
+      cursor = segmentEnd;
+      continue;
+    }
+    cursor += workRemainingMs / speedMultiplier;
+    queuedAmount -= 1;
+    producedAmount += 1;
+    completedAmount += 1;
+    if (queuedAmount <= 0 || producedAmount >= current.localOutputCap) {
+      workRemainingMs = 0;
+      break;
+    }
+    workRemainingMs = current.unitDurationMs;
   }
+
   const reservationUnits = current.reservationUnits.slice(completedAmount);
   const totals = sumReservationUnits(reservationUnits);
-  const queuedAmount = current.queuedAmount - completedAmount;
-  const producedAmount = current.producedAmount + completedAmount;
   const canContinue = queuedAmount > 0 && producedAmount < current.localOutputCap;
-  const nextReadyAtMs = canContinue ? current.readyAtMs + completedAmount * current.unitDurationMs : null;
+  if (speedExpiresAtMs !== null && nowMs >= speedExpiresAtMs) {
+    speedMultiplier = 1;
+    speedExpiresAtMs = null;
+  }
+  const nextReadyAtMs = canContinue
+    ? projectReadyAtMs(nowMs, workRemainingMs, speedMultiplier, speedExpiresAtMs)
+    : null;
   const next = {
     ...current,
     queuedAmount,
@@ -174,12 +268,47 @@ export function advanceLocalProductionJob(job, now = Date.now()) {
     inputs: totals.inputs,
     cleanMoneyCost: totals.cleanMoney,
     isProducing: canContinue,
+    productionSpeedMultiplier: speedMultiplier,
+    productionSpeedExpiresAtMs: speedExpiresAtMs,
+    activeWorkRemainingMs: canContinue ? workRemainingMs : null,
+    lastProgressAtMs: canContinue ? nowMs : null,
     readyAtMs: nextReadyAtMs,
     readyAt: nextReadyAtMs ? new Date(nextReadyAtMs).toISOString() : null,
     output: { ...current.output, amount: producedAmount }
   };
   next.status = resolveStatus(next);
-  return { changed: true, completedAmount, job: next };
+  const changed = completedAmount > 0
+    || next.readyAtMs !== current.readyAtMs
+    || next.productionSpeedMultiplier !== current.productionSpeedMultiplier
+    || next.productionSpeedExpiresAtMs !== current.productionSpeedExpiresAtMs;
+  return { changed, completedAmount, job: next };
+}
+
+export function setLocalProductionSpeedMultiplier(
+  job,
+  productionSpeedMultiplier,
+  now = Date.now(),
+  productionSpeedExpiresAtMs = null
+) {
+  const advanced = advanceLocalProductionJob(job, now);
+  const current = advanced.job;
+  if (!current?.isProducing) return { ...advanced, job: current };
+  const speedMultiplier = toPositiveMultiplier(productionSpeedMultiplier, 1);
+  const expiresAtMs = toOptionalTimestamp(productionSpeedExpiresAtMs);
+  const next = {
+    ...current,
+    productionSpeedMultiplier: speedMultiplier,
+    productionSpeedExpiresAtMs: expiresAtMs,
+    lastProgressAtMs: Number(now),
+    readyAtMs: projectReadyAtMs(
+      Number(now),
+      current.activeWorkRemainingMs,
+      speedMultiplier,
+      expiresAtMs
+    )
+  };
+  next.readyAt = new Date(next.readyAtMs).toISOString();
+  return { changed: true, completedAmount: advanced.completedAmount, job: next };
 }
 
 export function cancelWaitingLocalProduction(job) {
@@ -209,17 +338,29 @@ export function cancelWaitingLocalProduction(job) {
   return { ok: true, waitingAmount, refund, job: next };
 }
 
-export function collectLocalProduction(job, receivableAmount, now = Date.now()) {
+export function collectLocalProduction(job, receivableAmount, now = Date.now(), options = {}) {
   const current = normalizeLocalProductionJob(job);
   if (!current) return { collectedAmount: 0, remainingAmount: 0, job: current };
   const collectedAmount = Math.min(current.producedAmount, toNonNegativeInteger(receivableAmount));
   const producedAmount = current.producedAmount - collectedAmount;
   const shouldResume = current.queuedAmount > 0 && producedAmount < current.localOutputCap && !current.isProducing;
+  const speedMultiplier = shouldResume
+    ? toPositiveMultiplier(options.productionSpeedMultiplier, 1)
+    : current.productionSpeedMultiplier;
+  const speedExpiresAtMs = shouldResume && Number.isFinite(Number(options.productionSpeedExpiresAtMs))
+    ? Number(options.productionSpeedExpiresAtMs)
+    : current.productionSpeedExpiresAtMs;
   const next = {
     ...current,
     producedAmount,
     isProducing: current.isProducing || shouldResume,
-    readyAtMs: shouldResume ? now + current.unitDurationMs : current.readyAtMs,
+    productionSpeedMultiplier: speedMultiplier,
+    productionSpeedExpiresAtMs: speedExpiresAtMs,
+    activeWorkRemainingMs: shouldResume ? current.unitDurationMs : current.activeWorkRemainingMs,
+    lastProgressAtMs: shouldResume ? now : current.lastProgressAtMs,
+    readyAtMs: shouldResume
+      ? projectReadyAtMs(now, current.unitDurationMs, speedMultiplier, speedExpiresAtMs)
+      : current.readyAtMs,
     output: { ...current.output, amount: producedAmount }
   };
   next.readyAt = next.readyAtMs ? new Date(next.readyAtMs).toISOString() : null;

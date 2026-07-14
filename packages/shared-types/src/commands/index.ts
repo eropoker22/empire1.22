@@ -1,4 +1,5 @@
 export * from "./acknowledge-pending-raid-command";
+export * from "./activate-player-boost-command";
 export * from "./alliance-lifecycle-command";
 export * from "./attack-district-command";
 export * from "./action-command";

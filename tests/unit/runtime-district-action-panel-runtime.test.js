@@ -28,7 +28,7 @@ describe("district action panel runtime", () => {
       calculateAttackDeployment: () => ({ totalResidents: 3, totalPower: 12 }),
       estimateDistrictDefense: () => 8,
       getDistrictOwnerLabel: () => "Enemy",
-      getFactoryAttackBoostContext: ({ attackPower, defensePower }) => ({
+      getPlayerAttackBoostContext: ({ attackPower, defensePower }) => ({
         effectiveAttackPower: attackPower,
         effectiveDefensePower: defensePower,
         cooldownMs: 10000

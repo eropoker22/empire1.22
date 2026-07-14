@@ -4,6 +4,7 @@ import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import { resolveProductionBuildingLevelMultiplier } from "../rules/buildings/buildingUpgradeRules";
 import { resolveCraftProcessingDurationTicks } from "../rules/production/productionRules";
+import { getPlayerProductionBoostMultiplier } from "../rules/player-boosts";
 import {
   getBuildingProductionResourceState,
   getProducedAmount,
@@ -61,6 +62,7 @@ export const resolveArmoryDurationTicks = (
     baseDuration
       / resolveArmoryNetworkSpeedMultiplier(resolveActiveArmoryCount(state, building.ownerPlayerId ?? ""), armory)
       / resolveProductionBuildingLevelMultiplier(building, context)
+      / getPlayerProductionBoostMultiplier(state, building.ownerPlayerId, state.root.tick)
   ));
 };
 

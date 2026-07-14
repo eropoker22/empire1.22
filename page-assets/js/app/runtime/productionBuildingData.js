@@ -10,8 +10,8 @@ export const PRODUCTION_BUILDING_CONFIG = Object.freeze({
     label: "Lab",
     title: "Výroba drug balíků",
     upgradeBaseCost: 4200,
-    infoText: "Lab vyrábí laboratorní látky a strategické komponenty pro budoucí boostovací recepty.",
-    infoActions: Object.freeze(["Každá látka má vlastní výrobní linku.", "⇪ Level mění pouze rychlost výroby.", "Ghost Serum a Overdrive X jsou výrobní komponenty bez přímé aktivace."])
+    infoText: "Lab vyrábí laboratorní látky a komponenty pro Ghost Network, Industrial Overdrive a Tactical Grid.",
+    infoActions: Object.freeze(["Každá látka má vlastní výrobní linku.", "⇪ Level mění pouze rychlost výroby.", "Ghost Serum a Overdrive X se spotřebovávají pouze při aktivaci strategického boostu."])
   }),
   armory: Object.freeze({
     label: "Zbrojovka",

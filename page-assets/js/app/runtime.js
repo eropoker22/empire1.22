@@ -11,7 +11,6 @@ import {
 import {
   ARMORY_RECIPES,
   DEFAULT_DRUG_INVENTORY,
-  DEMO_FACTORY_COMBAT_BOOSTS,
   DEFAULT_MATERIAL_INVENTORY,
   DEFAULT_WEAPON_INVENTORY,
   FACTORY_CONFIG,
@@ -805,8 +804,18 @@ import { createFactoryPopupRuntime } from "./runtime/factoryPopupRuntime.js";
 import {
   advanceLocalProductionJob,
   collectLocalProduction,
-  normalizeLocalProductionJob
+  normalizeLocalProductionJob,
+  setLocalProductionSpeedMultiplier
 } from "./runtime/localProductionLineState.js";
+import {
+  activateLocalPlayerBoost,
+  consumeLocalTacticalGrid,
+  createLocalPlayerBoostView,
+  getLocalProductionBoostSnapshot,
+  getLocalSpyBoostSnapshot,
+  getLocalTacticalGridSnapshot,
+  synchronizeLocalPlayerBoostSession
+} from "./runtime/localPlayerBoostState.js";
 import { createBuildingUpgradeConfirmationController } from "./runtime/buildingUpgradeConfirmation.js";
 import { createResultModalRuntime } from "./runtime/resultModalRuntime.js";
 import { createMarketPopupRuntime } from "./runtime/marketPopupRuntime.js";
@@ -3860,24 +3869,43 @@ function completeAttackOrder(root, orderId) {
     destroysDistrict: false,
     defenseLossRatio: 0
   };
-  const scenarioLabel = trapTriggered ? trapOutcome.label : resolveAttackScenario(order);
+  const launchOwnerId = START_PHASE_OWNER_BY_DISTRICT_ID.get(targetDistrictId);
+  const isValidPvpCombat = Number.isFinite(Number(launchOwnerId))
+    && Number(launchOwnerId) > 0
+    && Number(launchOwnerId) !== Number(CURRENT_PLAYER_ID);
+  const tacticalGrid = isValidPvpCombat && Number(order.tacticalGrid?.appliedMultiplier) > 1
+    ? {
+        consumed: true,
+        multiplier: Number(order.tacticalGrid.appliedMultiplier)
+      }
+    : { consumed: false, multiplier: 1 };
+  const currentDefense = order.targetDefensePower ?? worldState.districtDefenseById[targetDistrictId] ?? 0;
+  const resolvedAttackPower = Math.max(0, Math.round(
+    Number(order.baseAttackPower ?? order.estimatedAttackPower ?? 0) * Number(tacticalGrid.multiplier || 1)
+  ));
+  const resolvedCombatOutcome = isValidPvpCombat
+    ? resolveAttackOutcome({ attackPower: resolvedAttackPower, defensePower: currentDefense })
+    : (order.resolvedScenario || null);
+  const scenarioLabel = trapTriggered
+    ? trapOutcome.label
+    : (resolvedCombatOutcome?.label || resolveAttackScenario(order));
   const outcome = trapTriggered
     ? trapOutcome
-    : (order.resolvedScenario || { key: "failure", label: scenarioLabel, capturesDistrict: false, destroysDistrict: false, defenseLossRatio: 0 });
+    : (resolvedCombatOutcome || { key: "failure", label: scenarioLabel, capturesDistrict: false, destroysDistrict: false, defenseLossRatio: 0 });
   const deployedMembers = Number.parseInt(String(order.requiredPopulation ?? 0), 10) || 0;
   const memberLoss = getAttackScenarioMemberLoss(scenarioLabel, deployedMembers);
   const returningMembers = Math.max(0, deployedMembers - memberLoss);
-  const currentDefense = order.targetDefensePower ?? worldState.districtDefenseById[targetDistrictId] ?? 0;
-  const breachInfrastructureHit = Boolean(
-    order.factoryBoost?.type === "breach"
-    && !trapTriggered
-    && !outcome.destroysDistrict
-    && Math.random() < (Number(order.factoryBoost?.destroyBuildingChancePct || 0) / 100)
-  );
   const nextDefenseBase = Math.max(0, Math.round(currentDefense * (1 - (outcome.defenseLossRatio ?? 0))));
-  const nextDefense = breachInfrastructureHit ? 0 : nextDefenseBase;
-  const launchOwnerId = START_PHASE_OWNER_BY_DISTRICT_ID.get(targetDistrictId);
+  const nextDefense = nextDefenseBase;
   const targetOwnerName = launchOwnerId ? getLaunchPlayerName(launchOwnerId) : "Neobsazeno";
+  const resolvedOrder = {
+    ...order,
+    estimatedAttackPower: resolvedAttackPower,
+    resolvedScenario: outcome,
+    tacticalGrid: tacticalGrid.consumed
+      ? { appliedMultiplier: tacticalGrid.multiplier, role: "attacker" }
+      : null
+  };
 
   setStoredGangState({
     members: gangState.members + returningMembers
@@ -3898,7 +3926,7 @@ function completeAttackOrder(root, orderId) {
     },
     districtDefenseLoadoutById: {
       ...worldState.districtDefenseLoadoutById,
-      [targetDistrictId]: outcome.capturesDistrict || outcome.destroysDistrict || breachInfrastructureHit
+      [targetDistrictId]: outcome.capturesDistrict || outcome.destroysDistrict
         ? {}
         : (worldState.districtDefenseLoadoutById?.[targetDistrictId] || {})
     },
@@ -3945,7 +3973,7 @@ function completeAttackOrder(root, orderId) {
   renderGangMembersState(root);
 
   const attackResultPayload = getResultPayloadBuilders().createAttackResultPayload({
-    order,
+    order: resolvedOrder,
     targetDistrictId,
     trapTriggered,
     outcome,
@@ -4416,7 +4444,15 @@ function advanceLocalProductionJobForE2e(jobId, unitCount = 1) {
   for (let index = 0; index < count; index += 1) {
     const job = normalizeLocalProductionJob(getProductionJob(jobId));
     if (!job?.isProducing || Number(job.queuedAmount || 0) <= 0) break;
-    persistProductionJob(jobId, { ...job, readyAtMs: Date.now() - 1 });
+    const nowMs = Date.now();
+    const speedMultiplier = Math.max(1, Number(job.productionSpeedMultiplier || 1));
+    persistProductionJob(jobId, {
+      ...job,
+      activeWorkRemainingMs: 1,
+      lastProgressAtMs: nowMs - (1 / speedMultiplier),
+      readyAtMs: nowMs,
+      readyAt: new Date(nowMs).toISOString()
+    });
     syncCompletedProductionJobs();
   }
   return true;
@@ -4428,7 +4464,9 @@ function advanceFactoryProductionForE2e(resourceKey, elapsedMs = 20 * 60 * 1000)
   const targetSlot = factoryState.slots.find((slot) => slot.resourceKey === resourceKey);
   if (!targetSlot) return false;
   targetSlot.lastTick = Date.now() - Math.max(1_000, Math.floor(Number(elapsedMs || 0)));
-  const result = syncFactoryProduction(factoryState, Date.now());
+  const result = syncFactoryProduction(factoryState, Date.now(), {
+    boostState: getAuthoritySession()?.playerBoosts
+  });
   setStoredFactoryState(result.state);
   document.dispatchEvent(new CustomEvent("empire:production-state-change", {
     detail: { source: "local-factory-e2e-clock" }
@@ -4551,7 +4589,11 @@ function collectReadyProductionForBuilding(buildingName, recipes) {
     }
 
     const receivableAmount = getReceivableInventoryOutputAmount(job.output, job.producedAmount);
-    const result = collectLocalProduction(job, receivableAmount, Date.now());
+    const productionBoost = getLocalProductionBoostSnapshot(getAuthoritySession());
+    const result = collectLocalProduction(job, receivableAmount, Date.now(), {
+      productionSpeedMultiplier: productionBoost.multiplier,
+      productionSpeedExpiresAtMs: productionBoost.expiresAtMs
+    });
     if (result.collectedAmount <= 0) {
       remaining += result.remainingAmount;
       continue;
@@ -4616,6 +4658,7 @@ const {
   getInventoryCapacity,
   getProductionBuildingEffectsLabel,
   getProductionBuildingMultiplier,
+  getPlayerProductionBoostSnapshot: () => getLocalProductionBoostSnapshot(getAuthoritySession()),
   getProductionBuildingReadyCount,
   getProductionBuildingUpgradeCost,
   getProductionJob,
@@ -4666,7 +4709,9 @@ const {
 });
 
 function collectFactoryOutputsToSupplies() {
-  const syncResult = syncFactoryProduction(getStoredFactoryState());
+  const syncResult = syncFactoryProduction(getStoredFactoryState(), Date.now(), {
+    boostState: getAuthoritySession()?.playerBoosts
+  });
   const nextState = syncResult.state;
   const nextSupplies = getStoredFactorySupplies();
   let collected = 0;
@@ -5069,7 +5114,18 @@ function syncFactoryProduction(instanceState, now = Date.now(), options = {}) {
   const networkProductionBonusPct = Math.max(0, (networkMultiplier - 1) * 100);
   const levelMultiplier = getFactoryLevelMultiplier(stateRef.level);
   const effectiveProductionMultiplier = Math.max(0.1, levelMultiplier * networkMultiplier);
-  const rates = calculateFactoryProductionRates(effectiveProductionMultiplier);
+  const boostState = options.boostState
+    ?? (typeof window !== "undefined" ? getAuthoritySession()?.playerBoosts : null);
+  const boostActive = boostState?.active?.boostId === "industrial-overdrive"
+    ? boostState.active
+    : null;
+  const boostMultiplier = Math.max(1, Number(boostActive?.effectSnapshot?.productionSpeedMultiplier || 1));
+  const activeBoostMultiplier = boostActive
+    && Number(boostActive.activatedAtMs) <= nowMs
+    && Number(boostActive.expiresAtMs) > nowMs
+    ? boostMultiplier
+    : 1;
+  const rates = calculateFactoryProductionRates(effectiveProductionMultiplier * activeBoostMultiplier);
   const produced = createFactoryResourceMap({}, false);
 
   stateRef.slots.forEach((slot) => {
@@ -5092,7 +5148,11 @@ function syncFactoryProduction(instanceState, now = Date.now(), options = {}) {
       return;
     }
     const scaledDurationMs = getFactorySlotProductionDurationMs(slot.resourceKey, effectiveProductionMultiplier);
-    const rawCycles = elapsedMs / scaledDurationMs + Number(slot.productionRemainder || 0);
+    const boostWindowStart = Math.max(from, Number(boostActive?.activatedAtMs || Number.POSITIVE_INFINITY));
+    const boostWindowEnd = Math.min(nowMs, Number(boostActive?.expiresAtMs || Number.NEGATIVE_INFINITY));
+    const boostedElapsedMs = Math.max(0, boostWindowEnd - boostWindowStart);
+    const effectiveElapsedMs = elapsedMs + boostedElapsedMs * (boostMultiplier - 1);
+    const rawCycles = effectiveElapsedMs / scaledDurationMs + Number(slot.productionRemainder || 0);
     const completed = Math.min(Math.max(0, Math.floor(rawCycles)), queueRemaining, slotSpace);
     if (completed > 0) {
       const recipe = getFactoryRecipeForResource(slot.resourceKey) || {};
@@ -5124,114 +5184,181 @@ function syncFactoryProduction(instanceState, now = Date.now(), options = {}) {
     ownedFactoryCount,
     ownedWarehouseCount: 0,
     networkProductionBonusPct,
-    productionMultiplier: effectiveProductionMultiplier
+    productionMultiplier: effectiveProductionMultiplier * activeBoostMultiplier
   };
 }
 
-function getFactoryActiveBoost(now = Date.now()) {
-  if (!isLocalDemoGameplayExecutionMode()) return null;
-  const factoryState = getStoredFactoryState();
-  const activeBoost = factoryState.boosts?.active || null;
-  if (!activeBoost?.type || !activeBoost?.expiresAt) {
-    return null;
-  }
-  const expiresAt = new Date(activeBoost.expiresAt).getTime();
-  if (!Number.isFinite(expiresAt) || expiresAt <= now) {
-    setStoredFactoryState({
-      ...factoryState,
-      boosts: { active: null },
-      updatedAt: now
-    });
-    return null;
-  }
-  return activeBoost;
-}
-
-function clearFactoryActiveBoost() {
-  const factoryState = getStoredFactoryState();
-  setStoredFactoryState({
-    ...factoryState,
-    boosts: { active: null },
-    updatedAt: Date.now()
+function applyLocalProductionBoostBoundary(session, boundary = {}) {
+  const boundaryMs = Number(boundary.boundaryMs || Date.now());
+  const speedMultiplier = Math.max(0.1, Number(boundary.speedMultiplier || 1));
+  const speedExpiresAtMs = Number.isFinite(Number(boundary.speedExpiresAtMs))
+    ? Number(boundary.speedExpiresAtMs)
+    : null;
+  const jobs = Object.fromEntries(Object.entries(session?.production?.jobs || {}).map(([jobId, job]) => {
+    const result = setLocalProductionSpeedMultiplier(
+      job,
+      speedMultiplier,
+      boundaryMs,
+      speedExpiresAtMs
+    );
+    return [jobId, result.job || job];
+  }));
+  const factoryResult = syncFactoryProduction(session?.production?.factory, boundaryMs, {
+    boostState: session?.playerBoosts,
+    skipBoostLifecycle: true
   });
-}
-
-function activateFactoryBoost(boostType) {
-  if (!isLocalDemoGameplayExecutionMode()) {
-    return { ok: false, reason: "Demo boost je v serverovém režimu vypnutý." };
-  }
-  const boostConfig = DEMO_FACTORY_COMBAT_BOOSTS[boostType];
-  if (!boostConfig) {
-    return { ok: false, reason: "Neznámý boost." };
-  }
-  const supplies = getStoredFactorySupplies();
-  const currentModules = Math.max(0, Math.floor(Number(supplies.combatModule || 0)));
-  if (currentModules < boostConfig.combatModuleCost) {
-    return { ok: false, reason: `Chybí ${boostConfig.combatModuleCost - currentModules} bojový modul.` };
-  }
-
-  setStoredFactorySupplies({
-    ...supplies,
-    combatModule: currentModules - boostConfig.combatModuleCost
-  });
-
-  const factoryState = getStoredFactoryState();
-  setStoredFactoryState({
-    ...factoryState,
-    boosts: {
-      active: {
-        type: boostType,
-        label: boostConfig.label,
-        expiresAt: new Date(Date.now() + boostConfig.durationMs).toISOString(),
-        config: boostConfig
-      }
-    },
-    updatedAt: Date.now()
-  });
-
-  return { ok: true, boost: boostConfig };
-}
-
-function getFactoryBoostSnapshot(now = Date.now()) {
-  const activeBoost = getFactoryActiveBoost(now);
-  const supplies = getStoredFactorySupplies();
-  const effective = {
-    attackPowerPct: 0,
-    attackSpeedPct: 0,
-    raidSpeedPct: 0,
-    destroyBuildingChancePct: 0,
-    defenseIgnorePct: 0,
-    defensePenaltyPct: 0,
-    policeInterventionRiskPct: 0
-  };
-  const activeEffects = [];
-
-  if (activeBoost?.type) {
-    const config = activeBoost.config || DEMO_FACTORY_COMBAT_BOOSTS[activeBoost.type] || {};
-    effective.attackPowerPct = Number(config.attackPowerPct || 0);
-    effective.attackSpeedPct = Number(config.attackSpeedPct || 0);
-    effective.raidSpeedPct = Number(config.raidSpeedPct || 0);
-    effective.destroyBuildingChancePct = Number(config.destroyBuildingChancePct || 0);
-    effective.defenseIgnorePct = Number(config.defenseIgnorePct || 0);
-    effective.defensePenaltyPct = Number(config.defensePenaltyPct || 0);
-    effective.policeInterventionRiskPct = Number(config.policeInterventionRiskPct || 0);
-    activeEffects.push({
-      type: activeBoost.type,
-      remainingMs: Math.max(0, new Date(activeBoost.expiresAt).getTime() - Date.now())
-    });
-  }
-
   return {
-    activeCount: activeEffects.length,
-    activeEffects,
-    supplies: {
-      metalParts: Math.max(0, Math.floor(Number(supplies.metalParts || 0))),
-      techCore: Math.max(0, Math.floor(Number(supplies.techCore || 0))),
-      combatModule: Math.max(0, Math.floor(Number(supplies.combatModule || 0)))
-    },
-    bonuses: { ...effective },
-    effective
+    ...session,
+    production: {
+      ...(session.production || {}),
+      jobs,
+      factory: factoryResult.state
+    }
   };
+}
+
+function publishPlayerBoostLifecycle(result) {
+  const lifecycle = result?.expired || result?.activated || result?.consumed || null;
+  if (!lifecycle?.message) return;
+  const root = getDefaultRuntimeRoot();
+  setBuildingActionFeedback(
+    root,
+    lifecycle.type === "expired" ? "warning" : "success",
+    "Strategické boosty",
+    lifecycle.message,
+    "Soukromá zpráva",
+    { forceLog: true }
+  );
+  document?.dispatchEvent?.(new CustomEvent("empire:player-boost-lifecycle", { detail: lifecycle }));
+}
+
+function synchronizeLocalPlayerBoostRuntime(now = Date.now()) {
+  if (!isLocalDemoGameplayExecutionMode()) return null;
+  const currentSession = getAuthoritySession();
+  const boostState = currentSession?.playerBoosts;
+  const legacyActive = currentSession?.production?.factory?.boosts?.active;
+  const activeExpiresAtMs = Number(boostState?.active?.expiresAtMs || 0);
+  if (
+    !legacyActive
+    && Number(boostState?.version || 0) >= 1
+    && (!boostState?.active || activeExpiresAtMs > now)
+  ) {
+    return { session: currentSession, expired: null, migrated: false };
+  }
+  let result = null;
+  updateStoredPreviewSession((session) => {
+    result = synchronizeLocalPlayerBoostSession(session, now, {
+      applyProductionBoundary: applyLocalProductionBoostBoundary
+    });
+    return result.session;
+  });
+  if (result?.expired) {
+    publishPlayerBoostLifecycle({ expired: { ...result.expired, type: "expired" } });
+    document?.dispatchEvent?.(new CustomEvent("empire:production-state-change", {
+      detail: { source: "industrial-overdrive-expired" }
+    }));
+  }
+  return result;
+}
+
+function createUnavailablePlayerBoostView() {
+  const emptySession = {
+    economy: { cleanMoney: 0 },
+    inventory: { drugs: {}, factorySupplies: {} },
+    playerBoosts: null
+  };
+  const view = createLocalPlayerBoostView(emptySession, Date.now());
+  return {
+    active: null,
+    cards: view.cards.map((card) => ({
+      ...card,
+      canActivate: false,
+      disabledReason: "boost_unavailable"
+    }))
+  };
+}
+
+function getPlayerBoostViewModel(now = Date.now()) {
+  const mode = getCurrentGameplayExecutionMode();
+  if (mode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    return latestGameplaySliceReadModel?.player?.boosts || createUnavailablePlayerBoostView();
+  }
+  if (mode !== GAMEPLAY_EXECUTION_MODES.localDemo) {
+    return createUnavailablePlayerBoostView();
+  }
+  synchronizeLocalPlayerBoostRuntime(now);
+  return createLocalPlayerBoostView(getAuthoritySession(), now);
+}
+
+async function activatePlayerBoost(boostId, options = {}) {
+  const mode = getCurrentGameplayExecutionMode();
+  if (mode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    const response = await submitServerDistrictActionCommand({
+      type: "activate-player-boost",
+      payload: { boostId },
+      focusDistrictId: latestGameplaySliceReadModel?.district?.districtId
+    });
+    if (!response?.accepted) {
+      return { ok: false, code: response?.errors?.[0]?.code || "boost_state_conflict" };
+    }
+    return { ok: true, server: true };
+  }
+  if (mode !== GAMEPLAY_EXECUTION_MODES.localDemo) {
+    return { ok: false, code: "boost_unavailable" };
+  }
+  let activation = null;
+  updateStoredPreviewSession((session) => {
+    activation = activateLocalPlayerBoost(session, boostId, {
+      now: options.now,
+      commandId: options.commandId,
+      applyProductionBoundary: applyLocalProductionBoostBoundary
+    });
+    return activation.session;
+  });
+  if (activation?.ok && !activation.replayed) {
+    publishPlayerBoostLifecycle({
+      activated: {
+        type: "activated",
+        boostId,
+        message: activation.message
+      }
+    });
+    document?.dispatchEvent?.(new CustomEvent("empire:player-boost-state-change", {
+      detail: { boostId, source: "activation" }
+    }));
+    document?.dispatchEvent?.(new CustomEvent("empire:production-state-change", {
+      detail: { source: "industrial-overdrive-activation" }
+    }));
+    refreshAllUi(hydrateInitialState(getDefaultRuntimeRoot()));
+  }
+  return activation;
+}
+
+function consumePlayerTacticalGrid(combatId, role = "attacker", now = Date.now()) {
+  if (!isLocalDemoGameplayExecutionMode()) return { consumed: false, multiplier: 1 };
+  let consumption = null;
+  updateStoredPreviewSession((session) => {
+    consumption = consumeLocalTacticalGrid(session, {
+      combatId,
+      role,
+      now,
+      applyProductionBoundary: applyLocalProductionBoostBoundary
+    });
+    return consumption.session;
+  });
+  if (consumption?.consumed) {
+    publishPlayerBoostLifecycle({
+      consumed: {
+        type: "consumed",
+        boostId: "tactical-grid",
+        message: consumption.message
+      }
+    });
+    document?.dispatchEvent?.(new CustomEvent("empire:player-boost-state-change", {
+      detail: { boostId: "tactical-grid", source: "combat-consumption" }
+    }));
+  }
+  return consumption || { consumed: false, multiplier: 1 };
 }
 
 function resolveDistrictActionCooldownView(baseMs = 0, category = "", extraSpeedPct = 0) {
@@ -5264,20 +5391,20 @@ function getAttackActionDurationMs(baseMs = ATTACK_COOLDOWN_MS) {
   return resolveDistrictActionCooldownView(baseMs, "attackPreparation", 0).effectiveCooldownMs;
 }
 
-function getSpyActionDurationMs(baseMs = SPY_COOLDOWN_MS) {
-  return Math.max(1000, Math.round(baseMs));
+function getSpyActionDurationMs(baseMs = SPY_COOLDOWN_MS, boostSnapshot = undefined) {
+  const snapshot = boostSnapshot === undefined && isLocalDemoGameplayExecutionMode()
+    ? getLocalSpyBoostSnapshot(getAuthoritySession())
+    : boostSnapshot;
+  const supportView = resolveDistrictActionCooldownView(baseMs, "districtSpy", 0);
+  return Math.max(1000, Math.round(supportView.effectiveCooldownMs * Number(snapshot?.spyDurationMultiplier || 1)));
 }
 
 function getRobberyActionDurationMs(baseMs = ROBBERY_COOLDOWN_MS) {
-  const factorySnapshot = getFactoryBoostSnapshot();
-  const speedPct = Number(factorySnapshot.effective.raidSpeedPct || 0);
-  return resolveDistrictActionCooldownView(baseMs, "districtRobbery", speedPct).effectiveCooldownMs;
+  return resolveDistrictActionCooldownView(baseMs, "districtRobbery", 0).effectiveCooldownMs;
 }
 
 function getRobberyActionCooldownView(baseMs = ROBBERY_COOLDOWN_MS) {
-  const factorySnapshot = getFactoryBoostSnapshot();
-  const speedPct = Number(factorySnapshot.effective.raidSpeedPct || 0);
-  return resolveDistrictActionCooldownView(baseMs, "districtRobbery", speedPct);
+  return resolveDistrictActionCooldownView(baseMs, "districtRobbery", 0);
 }
 
 function getOccupyActionCooldownView(baseMs = OCCUPY_COOLDOWN_MS) {
@@ -5298,71 +5425,42 @@ function getSpyMissionDefenseContext(mission) {
 }
 
 function resolveSpyScenarioWithBoost(mission) {
+  const boostSnapshot = mission?.boostSnapshot || null;
   return resolveSpyScenario(mission, {
     ...getSpyMissionDefenseContext(mission),
+    criticalFailureChanceMultiplier: Number(boostSnapshot?.criticalFailureChanceMultiplier || 1),
     ...(isDemoScenarioMode(getResolvedPhaseState())
       ? { devOnlyFullSuccessChance: DEV_ONLY_SPY_FULL_SUCCESS_CHANCE }
       : {})
   });
 }
 
-function getFactoryAttackBoostContext({ attackPower, defensePower } = {}) {
-  const activeBoost = getFactoryActiveBoost();
+function getPlayerAttackBoostContext({ attackPower, defensePower } = {}) {
+  const tacticalGrid = isLocalDemoGameplayExecutionMode()
+    ? getLocalTacticalGridSnapshot(getAuthoritySession())
+    : null;
   const normalizedAttackPower = Math.max(0, Math.round(Number(attackPower || 0)));
   const normalizedDefensePower = Math.max(0, Math.round(Number(defensePower || 0)));
   const attackCooldownView = resolveDistrictActionCooldownView(ATTACK_COOLDOWN_MS, "attackPreparation", 0);
+  const tacticalGridPct = tacticalGrid
+    ? Math.round((Number(tacticalGrid.multiplier || 1) - 1) * 100)
+    : 0;
   const context = {
-    activeBoost: activeBoost || null,
-    effectiveAttackPower: normalizedAttackPower,
+    activeBoost: tacticalGrid ? {
+      type: "tactical-grid",
+      label: "Tactical Grid",
+      combatPowerMultiplier: tacticalGrid.multiplier
+    } : null,
+    effectiveAttackPower: tacticalGrid
+      ? Math.max(0, Math.round(normalizedAttackPower * tacticalGrid.multiplier))
+      : normalizedAttackPower,
     effectiveDefensePower: normalizedDefensePower,
     cooldownMs: attackCooldownView.effectiveCooldownMs,
     cooldownLabel: attackCooldownView.label,
     summaryLabel: ""
   };
 
-  if (!activeBoost?.type) {
-    return context;
-  }
-
-  const config = activeBoost.config || DEMO_FACTORY_COMBAT_BOOSTS[activeBoost.type] || null;
-
-  if (!config) {
-    if (attackCooldownView.combinedReductionPct > 0) {
-      context.summaryLabel = `Útok dorazí za ${context.cooldownLabel}`;
-    }
-    return context;
-  }
-
-  if (config.attackPowerPct) {
-    context.effectiveAttackPower = Math.max(
-      0,
-      Math.round(normalizedAttackPower * (1 + Number(config.attackPowerPct || 0) / 100))
-    );
-  }
-
-  if (config.defenseIgnorePct) {
-    context.effectiveDefensePower = Math.max(
-      0,
-      Math.round(normalizedDefensePower * (1 - Number(config.defenseIgnorePct || 0) / 100))
-    );
-  }
-
-  const totalAttackSpeedPct = Number(config.attackSpeedPct || 0);
-  const boostedCooldownView = resolveDistrictActionCooldownView(
-    ATTACK_COOLDOWN_MS,
-    "attackPreparation",
-    totalAttackSpeedPct
-  );
-  context.cooldownMs = boostedCooldownView.effectiveCooldownMs;
-  context.cooldownLabel = boostedCooldownView.label;
-
-  context.summaryLabel = activeBoost.type === "assault"
-    ? `Boost ${config.label}: síla útoku +${config.attackPowerPct}%`
-    : activeBoost.type === "rapid"
-      ? `Boost ${config.label}: útok dorazí za ${context.cooldownLabel}`
-      : activeBoost.type === "breach"
-        ? `Boost ${config.label}: obrana cíle -${config.defenseIgnorePct}%`
-        : `Boost ${config.label}`;
+  context.summaryLabel = tacticalGrid ? `Tactical Grid preview: +${tacticalGridPct} % bojové síly` : "";
 
   return context;
 }
@@ -5378,6 +5476,7 @@ const {
   MARKET_PLAYER_TAB_ID,
   MARKET_TAB_CONFIG,
   addGangHeat,
+  activatePlayerBoost,
   applyShoppingMallMarketDiscountToPrice,
   applyTopbarEconomy,
   clamp,
@@ -9222,6 +9321,18 @@ function completeSpyMission(root, missionId) {
   const spyOutcome = normalizeSpyOutcome(scenarioLabel);
   const isCapturedOnMajorFail = isSpyCapturedOutcome(spyOutcome);
   const heatGain = getSpyHeatGainForOutcome(spyOutcome);
+  const extraIntelBlocks = scenarioLabel === "Úspěch"
+    && Number(mission.boostSnapshot?.extraIntelBlocksOnSuccess || 0) > 0
+    ? [{
+        category: "security-profile",
+        label: "Bezpečnostní profil",
+        value: Number(getSpyMissionDefenseContext(mission).targetSecurity || 0) >= 80
+          ? "Vysoký"
+          : Number(getSpyMissionDefenseContext(mission).targetSecurity || 0) >= 30
+            ? "Střední"
+            : "Nízký"
+      }]
+    : [];
 
   if (isCapturedOnMajorFail) {
     setStoredSpyState({
@@ -9275,7 +9386,8 @@ function completeSpyMission(root, missionId) {
     scenarioLabel,
     knownDefensePower,
     isUnownedDistrict,
-    heatGain
+    heatGain,
+    extraIntelBlocks
   });
   syncBuildingActionSource(root, {
     tone: scenarioLabel === "Úspěch" ? "success" : scenarioLabel === "Částečný úspěch" ? "warning" : "error",
@@ -10164,7 +10276,7 @@ function bindDistrictCanvas(root) {
     getDistrictAtmosphereMeta,
     getDistrictDefenseState,
     getDistrictOwnerLabel,
-    getFactoryAttackBoostContext,
+    getPlayerAttackBoostContext,
     getGeometry: () => geometry,
     getInteractionState: () => interactionState,
     getResolvedSpyIntel,
@@ -10331,30 +10443,44 @@ function bindDistrictCanvas(root) {
       nextInventory[weaponId] = Math.max(0, (nextInventory[weaponId] ?? 0) - amount);
     }
 
+    const orderId = `attack-order:${Date.now()}`;
+    const launchOwnerId = START_PHASE_OWNER_BY_DISTRICT_ID.get(Number(selectedDistrict.id));
+    const isValidPvpCombat = Number.isFinite(Number(launchOwnerId))
+      && Number(launchOwnerId) > 0
+      && Number(launchOwnerId) !== Number(CURRENT_PLAYER_ID);
+    const tacticalGrid = isValidPvpCombat
+      ? consumePlayerTacticalGrid(orderId, "attacker")
+      : { consumed: false, multiplier: 1 };
+    const resolvedAttackPower = Math.max(0, Math.round(
+      Number(context.totalPower || 0) * Number(tacticalGrid.multiplier || 1)
+    ));
+    const resolvedScenario = isValidPvpCombat
+      ? resolveAttackOutcome({
+          attackPower: resolvedAttackPower,
+          defensePower: context.boostContext.effectiveDefensePower
+        })
+      : context.resolvedScenario;
     const createdOrder = {
-      id: `attack-order:${Date.now()}`,
+      id: orderId,
       playerId: `player:${CURRENT_PLAYER_ID}`,
       targetDistrictId: `district:${selectedDistrict.id}`,
       sourceDistrictId: `district:${context.sourceDistrictId}`,
       attackLoadout: context.attackLoadout,
       requiredPopulation: context.totalResidents,
-      estimatedAttackPower: context.boostContext.effectiveAttackPower,
+      estimatedAttackPower: resolvedAttackPower,
       targetDefensePower: context.boostContext.effectiveDefensePower,
       baseAttackPower: context.totalPower,
       baseDefensePower: context.baseDefensePower,
-      factoryBoost: context.boostContext.activeBoost?.type
+      boostPreview: tacticalGrid.consumed
         ? {
-            type: context.boostContext.activeBoost.type,
-            label: context.boostContext.activeBoost.label,
-            attackPowerPct: Number(context.boostContext.activeBoost.config?.attackPowerPct || 0),
-            attackSpeedPct: Number(context.boostContext.activeBoost.config?.attackSpeedPct || 0),
-            defenseIgnorePct: Number(context.boostContext.activeBoost.config?.defenseIgnorePct || 0),
-            destroyBuildingChancePct: Number(context.boostContext.activeBoost.config?.destroyBuildingChancePct || 0),
-            policeInterventionRiskPct: Number(context.boostContext.activeBoost.config?.policeInterventionRiskPct || 0),
-            heatAdded: Number(context.boostContext.activeBoost.config?.heatAdded || 0)
+            boostId: "tactical-grid",
+            combatPowerMultiplier: tacticalGrid.multiplier
           }
         : null,
-      resolvedScenario: context.resolvedScenario,
+      tacticalGrid: tacticalGrid.consumed
+        ? { appliedMultiplier: tacticalGrid.multiplier, role: "attacker" }
+        : null,
+      resolvedScenario,
       hasTrapDefense: context.hasTrapDefense,
       createdAt: new Date().toISOString(),
       resolveAt: new Date(Date.now() + context.boostContext.cooldownMs).toISOString(),
@@ -10365,9 +10491,6 @@ function bindDistrictCanvas(root) {
       members: Math.max(0, getResolvedGangState().members - context.totalResidents)
     });
     setStoredWeaponInventory(nextInventory);
-    if (context.boostContext.activeBoost?.type) {
-      clearFactoryActiveBoost();
-    }
     setStoredAttackOrders([
       ...getStoredAttackOrders(),
       createdOrder
@@ -10694,7 +10817,8 @@ function bindDistrictCanvas(root) {
       return false;
     }
 
-    const spyDurationMs = getSpyActionDurationMs();
+    const boostSnapshot = getLocalSpyBoostSnapshot(getAuthoritySession());
+    const spyDurationMs = getSpyActionDurationMs(SPY_COOLDOWN_MS, boostSnapshot);
     const mission = {
       id: `spy-mission:${Date.now()}`,
       sourceDistrictId: adjacentOwnedDistrictIds[0],
@@ -10703,6 +10827,7 @@ function bindDistrictCanvas(root) {
       ownerLabel: getDistrictOwnerLabel(selectedDistrict, interactionState),
       districtType: selectedDistrict.districtType,
       intelQualityPct: 0,
+      boostSnapshot,
       createdAt: new Date().toISOString(),
       returnAt: new Date(Date.now() + spyDurationMs).toISOString()
     };
@@ -13916,6 +14041,10 @@ function bootstrapPage() {
 }
 
 function initCompatibilityGlobals(options = {}) {
+  if (typeof window !== "undefined") {
+    window.Empire = window.Empire || {};
+    window.Empire.Map = window.Empire.Map || {};
+  }
   return initRuntimeCompatibilityGlobals({
     bootstrapPage,
     initRuntime,
@@ -14097,6 +14226,7 @@ function initCompatibilityGlobals(options = {}) {
 initCompatibilityGlobals();
 
 export {
+  activatePlayerBoost,
   ARMORY_RECIPES,
   ATTACK_COOLDOWN_MS,
   ATTACK_SETUP_WEAPONS,
@@ -14182,7 +14312,6 @@ export {
   createStops,
   createWeaponInventoryFromFaction,
   drawAttackDistrictAnimation,
-  activateFactoryBoost,
   drawDistrictPolygon,
   drawMapImage,
   drawRobberyDistrictAnimation,
@@ -14202,7 +14331,7 @@ export {
   getDistrictFillStyle,
   getDistrictOwnerLabel,
   getEffectiveOwnedDistrictIds,
-  getFactoryBoostSnapshot,
+  getPlayerBoostViewModel,
   getInventoryAmount,
   getLaunchPlayerColor,
   getLaunchPlayerAvatar,

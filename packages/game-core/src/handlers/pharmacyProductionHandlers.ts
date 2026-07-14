@@ -63,7 +63,7 @@ export const handlePharmacyProductionStart = (
     unitCleanCashCost: recipe.cleanCashCostPerUnit,
     version: line.version + 1
   };
-  const nextLine = startPharmacyLine(queuedLine, building, recipe, state.root.tick, context);
+  const nextLine = startPharmacyLine(state, queuedLine, building, recipe, state.root.tick, context);
   const nextBuilding = {
     ...building,
     productionLines: {
@@ -222,7 +222,7 @@ export const resumePharmacyLines = (state: CoreGameState, building: CoreGameStat
   for (const [recipeId, recipe] of Object.entries(pharmacy.recipes)) {
     const line = getPharmacyLine({ ...building, productionLines: lines }, recipeId);
     if (line.queuedAmount <= 0 || line.activeCompletesAtTick !== null || getPharmacyProducedAmount(state, building, recipe.outputResourceKey) >= recipe.localOutputCap) continue;
-    lines = { ...lines, [recipeId]: startPharmacyLine(line, building, recipe, state.root.tick, context) };
+    lines = { ...lines, [recipeId]: startPharmacyLine(state, line, building, recipe, state.root.tick, context) };
     changed = true;
   }
   return changed ? { ...building, productionLines: lines, version: building.version + 1 } : building;

@@ -53,7 +53,7 @@ export const completePharmacyProduction = (
       }
       const nextProducedAmount = Math.max(0, Number(resourceState.balances[recipe.outputResourceKey] || 0));
       const startedLine = nextProducedAmount < recipe.localOutputCap
-        ? startPharmacyLine(line, building, recipe, state.root.tick, context)
+        ? startPharmacyLine(state, line, building, recipe, state.root.tick, context)
         : line;
       if (startedLine !== line) {
         lineChanged = true;

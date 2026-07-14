@@ -71,7 +71,29 @@ describe("production info view models", () => {
       collectableAmount: 4,
       config: {
         maxLevel: 3,
-        combatModule: { metalPartsCost: 2, techCoreCost: 1, durationMs: 5000, heatPerUnit: 3 }
+        recipes: {
+          "metal-parts": {
+            name: "Metal Parts",
+            inputs: {},
+            cleanMoneyCost: 300,
+            output: { itemId: "metal-parts", amount: 1 },
+            durationMs: 240_000
+          },
+          "tech-core": {
+            name: "Tech Core",
+            inputs: { "metal-parts": 4 },
+            cleanMoneyCost: 900,
+            output: { itemId: "tech-core", amount: 1 },
+            durationMs: 480_000
+          },
+          "combat-module": {
+            name: "Bojový modul",
+            inputs: { "metal-parts": 4, "tech-core": 2 },
+            cleanMoneyCost: 2500,
+            output: { itemId: "combat-module", amount: 1 },
+            durationMs: 900_000
+          }
+        }
       },
       formatCurrency,
       formatDurationLabel,
@@ -84,8 +106,8 @@ describe("production info view models", () => {
     expect(viewModel.rows[2].value).toBe("Produkce a craft rychlost +50%.");
     expect(viewModel.rows[4].value).toBe("4 ks hotovo do skladu");
     expect(viewModel.actions[1].description).toBe("Stojí 100$ clean cash a zvedne produkci na +50%.");
-    expect(viewModel.description).toContain("technické komponenty");
-    expect(viewModel.description).toContain("Výroba v továrně je za čisté peníze.");
+    expect(viewModel.description).toContain("Metal Parts, Tech Core a Combat Module");
+    expect(viewModel.description).toContain("pokročilé boost protokoly");
     expect(viewModel.effectsLabel).toBe("Další level +25% rychlost");
     expect(viewModel.effectsLabel).not.toContain("Výroba běží přes sloty");
     expect(viewModel.effectsLabel).not.toContain("fronta po kusech");
@@ -94,15 +116,16 @@ describe("production info view models", () => {
     expect(viewModel.products[0]).toMatchObject({
       id: "metal-parts",
       title: "Metal Parts",
-      durationLabel: "4 min",
-      costLabel: "120 Clean Cash"
+      durationLabel: "240s",
+      costLabel: "300$ clean"
     });
     expect(viewModel.products[2]).toMatchObject({
       id: "combat-module",
       title: "Bojový modul",
-      durationLabel: "15 min",
-      costLabel: "650 Clean Cash + 1 Tech Core"
+      durationLabel: "900s",
+      costLabel: "2500$ clean + Metal Parts x4 + Tech Core x2"
     });
+    expect(viewModel.rows[5].value).toBe("2500$ clean + Metal Parts x4 + Tech Core x2 · 900s");
   });
 
   it("handles missing config without crashing", () => {

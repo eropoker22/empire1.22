@@ -63,7 +63,7 @@ export const handleDrugLabProductionStart = (
     unitResourceCosts: normalizeResourceCosts(recipe.inputCosts),
     version: line.version + 1
   };
-  const nextLine = startDrugLabLine(queuedLine, building, recipe, state.root.tick, context);
+  const nextLine = startDrugLabLine(state, queuedLine, building, recipe, state.root.tick, context);
   const nextBuilding = {
     ...building,
     productionLines: { ...building.productionLines, [recipe.outputResourceKey]: nextLine },
@@ -236,7 +236,7 @@ export const resumeDrugLabLines = (
       || line.activeCompletesAtTick !== null
       || getDrugLabProducedAmount(state, building, recipe.outputResourceKey) >= recipe.localOutputCap
     ) continue;
-    lines = { ...lines, [recipeId]: startDrugLabLine(line, building, recipe, state.root.tick, context) };
+    lines = { ...lines, [recipeId]: startDrugLabLine(state, line, building, recipe, state.root.tick, context) };
     changed = true;
   }
   return changed ? { ...building, productionLines: lines, version: building.version + 1 } : building;

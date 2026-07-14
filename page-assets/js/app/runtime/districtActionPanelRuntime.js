@@ -252,7 +252,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
         isOccupied: deps.getDistrictOwnerLabel(district, interactionState) !== "Neobsazeno",
         districtId: district.id
       });
-    const boostContext = deps.getFactoryAttackBoostContext({
+    const boostContext = deps.getPlayerAttackBoostContext({
       attackPower: totalPower,
       defensePower: baseDefensePower
     });

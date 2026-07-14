@@ -32,4 +32,4 @@ Disallowed legacy behavior:
 - local defense loadout as source of truth,
 - client-forced loot/outcome/report payloads,
 - local ownership/resource mutation when server-authoritative runtime is ready.
-- running Demo Events, Demo chat, Factory demo boosts, or local production beside server authority.
+- running Demo Events, Demo chat, legacy local boost authority, or local production beside server authority.

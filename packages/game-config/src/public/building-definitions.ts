@@ -183,7 +183,7 @@ export const publicBuildingDefinitions: PublicBuildingDefinition[] = [
     action({ actionId: "evening_course", label: "Večerní kurz", description: "Na 20 minut zrychlí nábor členů v bytových blocích. Nestackuje se.", effectSummary: "Cena 1000 clean cash, +60 % nábor členů na 20 minut", cooldownMs: 35 * minute, durationMs: 20 * minute, inputCost: out("cash", 1000), effectModifiers: {} })
   ]),
 
-  building("factory", "Továrna", "industrial", "Výroba", "Tři nezávislé linky vyrábějí Metal Parts, Tech Core a Combat Module po jednom kusu. Combat Module je strategický vstup pro high-tier vybavení Zbrojovky.", stat(0, 0, 3, 10, 14), []),
+  building("factory", "Továrna", "industrial", "Výroba", "Tři nezávislé linky vyrábějí Metal Parts, Tech Core a Combat Module po jednom kusu. Combat Module je strategická průmyslová komponenta pro high-tier výzbroj a pokročilé boost protokoly.", stat(0, 0, 3, 10, 14), []),
   building("armory", "Zbrojovka", "industrial", "Výzbroj", "Nezávislé linky vyrábějí útočné i obranné vybavení z Metal Parts, Tech Core a Combat Module. Každý cyklus vytvoří jeden kus.", stat(0, 0, 4, 18, 14), []),
   building("warehouse", "Skladiště", "industrial", "Economy / storage / logistics", "Skladiště zvyšuje maximum každé položky v globálním SKLADU. První aktivní Skladiště přidá 50 %, další menší síťový bonus a z levelů platí jen nejvyšší aktivní level.", stat(2700, 0, 86.4, 0, 4), []),
   building("power_station", "Energetická stanice", "industrial", "Infrastruktura / podpora / obrana", "Energetická stanice nezavádí nový zdroj. Zvedá výkon města, drží infrastrukturu při životě a posiluje bezpečnostní systémy. Když svítí stanice, město dýchá rychleji. Kamery vidí ostřeji. Alarmy řvou dřív.", perMinuteStat(2780 / 60, 780 / 60, 115.2, 0, 1), [
@@ -196,7 +196,7 @@ export const publicBuildingDefinitions: PublicBuildingDefinition[] = [
   ]),
 
   building("pharmacy", "Lékárna", "commercial", "Výroba", "Tři nezávislé linky vyrábějí Chemicals, Biomass a Stim Pack po jednom kusu za clean cash. Hotové položky čekají v Lékárně na vyzvednutí do SKLADU.", stat(0, 0, 3, 8, 14), []),
-  building("drug_lab", "Drug Lab", "park", "Výroba drog", "Pět nezávislých linek vyrábí Neon Dust, Pulse Shot, Velvet Smoke a strategické výrobní komponenty Ghost Serum a Overdrive X. Komponenty nelze přímo aktivovat.", stat(0, 0, 6, 20, 14), []),
+  building("drug_lab", "Drug Lab", "park", "Výroba drog", "Pět nezávislých linek vyrábí Neon Dust, Pulse Shot, Velvet Smoke, Ghost Serum a Overdrive X. Vzácné komponenty napájejí strategické boost protokoly a nelze je aktivovat samostatně.", stat(0, 0, 6, 20, 14), []),
   building("smuggling_tunnel", "Pašovací tunel", "park", "Dirty cash / smuggling / dealer support / risk reward", "Pašovací tunel je přísun špinavých peněz a tepna pouliční distribuce. Lab vyrobí látky. Dealeři je prodají. Tunely drží proud peněz a zboží dostatečně temný na to, aby město nevidělo, odkud opravdu přichází.", perMinuteStat(0, 54, 0.07 * 60 * 24, 0, 1), [
     action({ actionId: "open_channel", label: "Otevřít kanál", description: "Na 15 minut posílí dirty cash tunelů a prodej Pouličních dealerů. Nestackuje se.", effectSummary: "Cena 1800 clean cash, heat +5, +45 % dirty tok tunelů, Pouliční dealeři prodávají rychleji a s vyšším rizikem incidentu", cooldownMs: 30 * minute, durationMs: 15 * minute, inputCost: out("cash", 1800), heatGain: 5 })
   ]),

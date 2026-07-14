@@ -69,8 +69,8 @@ Legacy/local fallback jednotkové ceny v `packages/game-config/src/legacy-page/e
 | Neon Dust | 2600 | 220 | Black-market drug má být rychlý kontraband, ne nedosažitelný luxus. |
 | Pulse Shot | 3050 | 340 | Cena reflektuje Stim Pack input a risk premium. |
 | Velvet Smoke | 3800 | 410 | Mid-risk droga, důraz na černý trh, ne na extrémní price wall. |
-| Ghost Serum | 5100 | 780 | Strategická výrobní komponenta pro budoucí specializované boost recepty. |
-| Overdrive X | 7200 | 1250 | Nejdražší strategická komponenta pro budoucí boost recepty. |
+| Ghost Serum | 5100 | 780 | Strategická komponenta spotřebovávaná protokoly Ghost Network a Tactical Grid. |
+| Overdrive X | 7200 | 1250 | Strategická komponenta spotřebovávaná protokoly Industrial Overdrive a Tactical Grid. |
 | Pistole | 2500 | 760 | Entry firearm nad craft cestou, ale ne absurdně drahý. |
 | SMG | 5600 | 2200 | Silnější PvP zbraň s citelnou prémií. |
 | Bazuka | 13200 | 6800 | T5 destruktivní item zůstává výrazně late-game. |

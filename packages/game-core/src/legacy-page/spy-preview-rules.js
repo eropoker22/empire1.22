@@ -112,10 +112,15 @@ export function resolveSpyOutcome(mission, options = {}) {
     if (roll < Math.min(0.97, successChance + partialWindow)) {
       outcome = SPY_OUTCOMES.partial;
     } else {
-      const criticalChance = clamp(
+      const baseCriticalChance = clamp(
         0.08 + targetSecurity / 360 + cameraCount * 0.025 + alarmCount * 0.045 - infoQualityPct * 0.001,
         0.04,
         0.42
+      );
+      const criticalChance = clamp(
+        baseCriticalChance * Math.max(0, toSafeNumber(options.criticalFailureChanceMultiplier, 1)),
+        0,
+        1
       );
       outcome = getRoll(options.failureRoll) < criticalChance
         ? SPY_OUTCOMES.criticalFailed

@@ -77,9 +77,42 @@ describe("current gameplay cleanup guard", () => {
 
     expect(page).toContain('name="empire-gameplay-execution-mode" content="local-demo"');
     expect(page).toContain("Demo chat je lokální kanál tohoto prohlížeče.");
-    expect(page).toContain("Lokální demo efekt bojových modulů z Továrny.");
+    expect(page).toContain("Strategické boosty");
     expect(chatRuntime).toContain('empire:demo:global-chat:v1');
     expect(browserAdapter).toContain('from "./gameplay-config.generated.js"');
     expect(browserAdapter).not.toContain('"baseball-bat": {');
+  });
+
+  it("keeps exactly three canonical strategic boosts and no active Factory boost API", () => {
+    const config = resolveModeConfig("free");
+    const runtime = read("page-assets/js/app/runtime.js");
+    const boostRuntime = read("page-assets/js/app/boost-runtime.js");
+    const boostStyles = read("page-assets/css/styles-boost.css");
+    const authorityState = read("page-assets/js/app/model/authority-state.js");
+    const localBoostState = read("page-assets/js/app/runtime/localPlayerBoostState.js");
+    const page = read("pages/game.html");
+
+    expect(Object.keys(config.balance.playerBoosts || {})).toEqual([
+      "ghost-network",
+      "industrial-overdrive",
+      "tactical-grid"
+    ]);
+    expect(BROWSER_GAMEPLAY_CONFIG.playerBoosts).toBeDefined();
+    expect(boostRuntime).toContain("PLAYER_BOOST_CONFIG");
+    expect(boostRuntime).not.toMatch(/5_?000|7_?500|10_?000/u);
+    expect(runtime).not.toContain("activateFactoryBoost");
+    expect(runtime).not.toContain("getFactoryBoostSnapshot");
+    expect(boostRuntime).not.toContain("useFactoryBoost");
+    expect(boostRuntime).not.toContain("window.Empire.Map.useFactoryBoost");
+    expect(`${runtime}\n${boostRuntime}\n${page}`).not.toMatch(/\b(Assault|Rapid|Breach)\b/u);
+    expect(authorityState).not.toMatch(/boosts:\s*\{\s*active:/u);
+    expect(localBoostState).toContain("migrateLegacyFactoryBoostState");
+    expect(localBoostState).toContain('boostId === "industrial-overdrive"');
+    expect(boostStyles).not.toMatch(/\.boost-modal__(panel|hint|list|building|status|empty)\b/u);
+    expect(`${boostRuntime}\n${page}`).not.toContain("Demo boost");
+    expect(page).toContain('id="boost-modal"');
+    expect(page).toContain("POTVRDIT AKTIVACI");
+    expect(page).toContain("data-player-boost-pinned");
+    expect(page).toContain("Otevřít strategické boosty");
   });
 });

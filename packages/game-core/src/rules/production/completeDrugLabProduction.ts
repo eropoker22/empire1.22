@@ -54,7 +54,7 @@ export const completeDrugLabProduction = (
       }
       const nextProducedAmount = Math.max(0, Number(resourceState.balances[recipe.outputResourceKey] || 0));
       const startedLine = nextProducedAmount < recipe.localOutputCap
-        ? startDrugLabLine(line, building, recipe, state.root.tick, context)
+        ? startDrugLabLine(state, line, building, recipe, state.root.tick, context)
         : line;
       if (startedLine !== line) {
         lineChanged = true;

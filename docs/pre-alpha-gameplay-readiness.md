@@ -31,7 +31,7 @@ All four manufacturing buildings use independent one-unit lines. Historical pass
 - Factory produces Metal Parts, Tech Core, and Combat Module.
 - Armory produces five attack weapons and five defense items.
 
-Ghost Serum and Overdrive X are stored components, not directly usable boosts. Combat Module is a strategic input for SMG, Bazooka, and Defense Tower production.
+Ghost Serum and Overdrive X are stored components, not directly usable boosts. Together with Pulse Shot and Combat Module they are consumed by Ghost Network, Industrial Overdrive, and Tactical Grid. Combat Module also remains a strategic input for SMG, Bazooka, and Defense Tower production.
 
 Global storage is per resource:
 
@@ -47,7 +47,7 @@ These browser systems are allowed only while execution mode is `local-demo`:
 
 - Demo Events
 - Demo chat and local alliance preview storage
-- Factory demo combat boosts
+- Strategic boost protocols with local-demo persistence and fail-closed server-authoritative hooks
 - local production modal mutations
 - selected legacy canvas previews
 
@@ -62,7 +62,7 @@ Before production multiplayer, the project still needs:
 3. End-to-end replacement or server wiring for every remaining local-demo mutation surface.
 4. Live Postgres verification using `EMPIRE_TEST_DATABASE_URL` in a controlled environment.
 5. Load, reconnect, idempotency, state-version conflict, and multi-instance operational testing.
-6. Product decisions and complete server contracts for demo-only City Events, global chat, and Factory boosts.
+6. Product decisions and complete server contracts for demo-only City Events and global chat; strategic boosts already use the typed command/read-model boundary.
 7. Continued review of robbery/heist depth, bounty claim semantics, raid timing, and long-running order UX.
 
 Production must fail closed when identity, session, or gameplay authority is unavailable. Snapshot tokens never authorize load, submit, join, or logout.

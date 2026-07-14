@@ -1,11 +1,12 @@
 // GENERATED FILE. Run `npm run generate:browser-config`; do not edit balance values here.
-// Sources: free-mode-pharmacy-config.ts, free-mode-drug-lab-config.ts, free-mode-factory-config.ts, free-mode-armory-config.ts, free-mode-warehouse-config.ts, free-mode-attack-weapons-config.ts.
+// Sources: free-mode-pharmacy-config.ts, free-mode-drug-lab-config.ts, free-mode-factory-config.ts, free-mode-armory-config.ts, free-mode-player-boost-config.ts, free-mode-warehouse-config.ts, free-mode-attack-weapons-config.ts.
 export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
   "generatedFrom": [
     "free-mode-pharmacy-config.ts",
     "free-mode-drug-lab-config.ts",
     "free-mode-factory-config.ts",
     "free-mode-armory-config.ts",
+    "free-mode-player-boost-config.ts",
     "free-mode-warehouse-config.ts",
     "free-mode-attack-weapons-config.ts"
   ],
@@ -296,6 +297,77 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "name": "Metal Parts",
       "inputs": {},
       "cleanMoneyCost": 300,
+  "playerBoosts": {
+    "ghost-network": {
+      "boostId": "ghost-network",
+      "label": "Ghost Network",
+      "category": "intel",
+      "description": "Prožeň špiony neviditelnou sítí a vytáhni z districtu víc informací.",
+      "shortEffect": "Špionáž −35 % času · rozšířený intel",
+      "cleanCashCost": 5000,
+      "inputCosts": {
+        "ghost-serum": 2,
+        "pulse-shot": 2
+      },
+      "activeDurationTicks": 144,
+      "cooldownTicks": 420,
+      "consumptionMode": "timed",
+      "effect": {
+        "spyDurationMultiplier": 0.65,
+        "criticalFailureChanceMultiplier": 0.75,
+        "extraIntelBlocksOnSuccess": 1
+      },
+      "uiAccent": "cyan",
+      "iconKey": "signal-eye",
+      "durationMs": 720000,
+      "cooldownMs": 2100000
+    },
+    "industrial-overdrive": {
+      "boostId": "industrial-overdrive",
+      "label": "Industrial Overdrive",
+      "category": "production",
+      "description": "Přetěž výrobní síť a vytlač z každé linky vyšší tempo.",
+      "shortEffect": "Všechny výrobní linky +25 % rychlosti",
+      "cleanCashCost": 7500,
+      "inputCosts": {
+        "overdrive-x": 2,
+        "combat-module": 2
+      },
+      "activeDurationTicks": 144,
+      "cooldownTicks": 540,
+      "consumptionMode": "timed",
+      "effect": {
+        "productionSpeedMultiplier": 1.25
+      },
+      "uiAccent": "amber",
+      "iconKey": "industrial-gear",
+      "durationMs": 720000,
+      "cooldownMs": 2700000
+    },
+    "tactical-grid": {
+      "boostId": "tactical-grid",
+      "label": "Tactical Grid",
+      "category": "combat",
+      "description": "Propoj výzbroj, obranu a intel do jediné taktické sítě.",
+      "shortEffect": "+12 % k příštímu útoku nebo obraně",
+      "cleanCashCost": 10000,
+      "inputCosts": {
+        "ghost-serum": 2,
+        "overdrive-x": 1,
+        "combat-module": 3
+      },
+      "activeDurationTicks": 240,
+      "cooldownTicks": 720,
+      "consumptionMode": "next-valid-pvp-combat",
+      "effect": {
+        "combatPowerMultiplier": 1.12
+      },
+      "uiAccent": "red",
+      "iconKey": "tactical-grid",
+      "durationMs": 1200000,
+      "cooldownMs": 3600000
+    }
+  },
       "output": {
         "inventory": "materials",
         "itemId": "metal-parts",
@@ -535,3 +607,4 @@ export const FACTORY_SLOT_STORAGE_CAPS = BROWSER_GAMEPLAY_CONFIG.factorySlotStor
 export const FACTORY_SLOT_CONFIG = BROWSER_GAMEPLAY_CONFIG.factorySlots;
 export const WAREHOUSE_STORAGE_CONFIG = BROWSER_GAMEPLAY_CONFIG.storage;
 export const ATTACK_SETUP_WEAPONS = BROWSER_GAMEPLAY_CONFIG.attackWeapons;
+export const PLAYER_BOOST_CONFIG = BROWSER_GAMEPLAY_CONFIG.playerBoosts;

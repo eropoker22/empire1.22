@@ -14,6 +14,10 @@ import {
   loadState,
   saveState
 } from "../persistence/legacyStorage.js";
+import {
+  createEmptyLocalPlayerBoostState,
+  normalizeLocalPlayerBoostState
+} from "../runtime/localPlayerBoostState.js";
 
 // Browser preview-state bridge for the legacy static frontend.
 // Server-fed sessions take precedence; localStorage writes are ignored when server
@@ -118,10 +122,23 @@ function createDefaultFactoryState(now = Date.now()) {
     level: 1,
     resources: createDefaultFactoryResources(),
     slots: createDefaultFactorySlots(now),
-    boosts: {
-      active: null
-    },
     updatedAt: now
+  };
+}
+
+function normalizeFactoryState(value) {
+  const source = value && typeof value === "object" ? value : {};
+  const { boosts: _legacyBoosts, ...factory } = source;
+  return {
+    ...createDefaultFactoryState(),
+    ...factory,
+    resources: {
+      ...createDefaultFactoryResources(),
+      ...(factory.resources || {})
+    },
+    slots: Array.isArray(factory.slots)
+      ? factory.slots
+      : createDefaultFactorySlots()
   };
 }
 
@@ -186,6 +203,7 @@ export function createDefaultPreviewSession(_factionId = "mafian") {
     world: {
       ownedDistrictIds: [],
       phaseState: {
+    playerBoosts: createEmptyLocalPlayerBoostState(),
         mapPhase: "night",
         gamePhase: "live",
         cityMinutes: DEFAULT_CITY_MINUTES
@@ -271,6 +289,7 @@ function normalizePreviewSession(session) {
     missions: {
       ...base.missions,
       ...(session?.missions || {}),
+    playerBoosts: normalizeLocalPlayerBoostState(session?.playerBoosts),
       attackOrders: Array.isArray(session?.missions?.attackOrders) ? session.missions.attackOrders : [],
       occupyOrders: Array.isArray(session?.missions?.occupyOrders) ? session.missions.occupyOrders : [],
       robberyOrders: Array.isArray(session?.missions?.robberyOrders) ? session.missions.robberyOrders : [],
@@ -303,26 +322,7 @@ function normalizePreviewSession(session) {
             ...session.production.buildings
           }
         : createDefaultProductionBuildingsState(),
-      factory: session?.production?.factory && typeof session.production.factory === "object"
-        ? {
-            ...createDefaultFactoryState(),
-            ...session.production.factory,
-            resources: {
-              ...createDefaultFactoryResources(),
-              ...(session.production.factory.resources || {})
-            },
-            boosts: session.production.factory.boosts && typeof session.production.factory.boosts === "object"
-              ? {
-                  active: session.production.factory.boosts.active || null
-                }
-              : {
-                  active: null
-                },
-            slots: Array.isArray(session.production.factory.slots)
-              ? session.production.factory.slots
-              : createDefaultFactorySlots()
-          }
-        : createDefaultFactoryState()
+      factory: normalizeFactoryState(session?.production?.factory)
     },
     world: {
       ...(base.world || {}),

@@ -1,4 +1,5 @@
 import type { AttackDistrictCommand } from "./attack-district-command";
+import type { ActivatePlayerBoostCommand } from "./activate-player-boost-command";
 import type { AcknowledgePendingRaidCommand } from "./acknowledge-pending-raid-command";
 import type { AllianceLifecycleCommand } from "./alliance-lifecycle-command";
 import type { BountyCommand } from "./bounty-command";
@@ -27,6 +28,7 @@ import type { UpgradeBuildingCommand } from "./upgrade-building-command";
  */
 export type GameCommand =
   | AcknowledgePendingRaidCommand
+  | ActivatePlayerBoostCommand
   | AllianceLifecycleCommand
   | BountyCommand
   | AttackDistrictCommand

@@ -27,7 +27,7 @@ async function openLocalGame(page) {
       gang: { members: 30, population: 30, heat: 0, influence: 0, lastHeatDecayAt: now },
       missions: { attackOrders: [], occupyOrders: [], robberyOrders: [], spy: { available: 3, missions: [] } },
       production: {
-        jobs: {}, factory: { level: 1, resources: {}, slots: [], boosts: { active: null }, updatedAt: Date.now() },
+        jobs: {}, factory: { level: 1, resources: {}, slots: [], updatedAt: Date.now() },
         buildings: { pharmacy: { level: 1 }, druglab: { level: 1 }, armory: { level: 1 } }
       }
     };

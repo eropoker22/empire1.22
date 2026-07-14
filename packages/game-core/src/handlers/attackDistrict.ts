@@ -7,9 +7,7 @@ import {
   calculateBaseDefensePower,
   calculateAttackWeaponPower,
   calculateBazookaTotalDestructionBonusPercent,
-  calculateEffectiveDefenseAfterGrenades,
   calculateGrenadeDefenseIgnorePercent,
-  calculateReducedAttackPowerFromTowers,
   calculateSmgComboBonus,
   calculateTotalAttackPower,
   calculateTowerAttackReductionPercent,
@@ -49,6 +47,7 @@ import { resolveCityHallNightPatrolPressure } from "./cityHallBuildingActions";
 import { resolveCombinedCameraAlarmBonuses, resolveRecruitmentCenterSupportBonuses } from "./recruitmentCenterBuildingActions";
 import { resolveFitnessAttackWeaponModifiers, resolveFitnessDefenseItemModifiers } from "./fitnessClubBuildingActions";
 import { applyAttackWeaponLosses, writeAttackWeaponInventory } from "./attackWeaponInventory";
+import { consumeTacticalGridCombat, resolveTacticalGridCombat } from "./tacticalGridCombat";
 
 /**
  * Responsibility: Orchestrates one authoritative district attack command.
@@ -160,8 +159,8 @@ export const handleAttackDistrict = (
     defensePower * targetDistrictModifiers.defenseMultiplier * defenderPenaltyModifiers.defenseMultiplier,
     defenderFactionModifiers.defensePowerMultiplier
   );
-  const effectiveAttackPower = calculateReducedAttackPowerFromTowers(effectAdjustedAttackPower, towerCount);
-  const effectiveDefensePower = calculateEffectiveDefenseAfterGrenades(effectAdjustedDefensePower, grenadeCount);
+  const tacticalGrid = resolveTacticalGridCombat(state, attacker.id, targetDistrict.ownerPlayerId, effectAdjustedAttackPower, effectAdjustedDefensePower, towerCount, grenadeCount);
+  const { effectiveAttackPower, effectiveDefensePower } = tacticalGrid;
   const catastropheRoll = deterministicUnitInterval(
     `${state.serverInstance.worldSeed}:attack:catastrophe:${command.playerId}:${targetDistrict.id}:${state.root.tick}`
   );
@@ -246,6 +245,7 @@ export const handleAttackDistrict = (
     reportForAttacker: combatResolution.reportForAttacker,
     reportForDefender: combatResolution.reportForDefender,
     attackDurationTicks,
+    tacticalGrid: tacticalGrid.report,
     tick: state.root.tick
   });
   const attackerReport = notificationEntries[0];
@@ -385,6 +385,7 @@ export const handleAttackDistrict = (
       attackPowerAfterTrap: trapAdjustedAttackPower,
       attackMultiplier: attackerDistrictModifiers.attackMultiplier * attackerPenaltyModifiers.attackMultiplier,
       attackPowerAfterEffects: effectAdjustedAttackPower,
+      ...tacticalGrid.attackPayload,
       attackPowerAfterTowers: effectiveAttackPower,
       defensePower,
       defenseMultiplier: targetDistrictModifiers.defenseMultiplier * defenderPenaltyModifiers.defenseMultiplier,
@@ -416,11 +417,12 @@ export const handleAttackDistrict = (
       attackDurationTicks,
       attackDurationMs: attackDurationTicks * context.config.tickRateMs,
       reportForAttacker: combatResolution.reportForAttacker,
-      reportForDefender: combatResolution.reportForDefender
+      reportForDefender: combatResolution.reportForDefender,
+      ...tacticalGrid.eventPayload
     }
   });
 
   const bountyResult = resolveBountyClaims(recoveryState, { actorPlayerId: attacker.id, targetPlayerId: targetDistrict.ownerPlayerId, targetDistrictId: targetDistrict.id, actionType: districtDestroyed ? "destroy-district" : "attack-district", successfulAttack: attackSucceeded || districtDestroyed, capturesDistrict: attackSucceeded, destroysDistrict: districtDestroyed, commandId: command.id });
-
-  return { nextState: bountyResult.nextState, events: [...events, ...bountyResult.events], errors: [] };
+  const boostResult = consumeTacticalGridCombat(bountyResult.nextState, tacticalGrid, command.id, context);
+  return { nextState: boostResult.nextState, events: [...events, ...bountyResult.events, ...boostResult.events], errors: [] };
 };

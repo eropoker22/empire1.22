@@ -26,7 +26,7 @@ export const createPharmacyProductionBuildingView = (input: {
     const activeAmount = line.activeCompletesAtTick === null ? 0 : 1;
     const waitingAmount = Math.max(0, line.queuedAmount - activeAmount);
     const remainingTicks = activeAmount ? Math.max(0, line.activeCompletesAtTick! - input.state.root.tick) : 0;
-    const effectiveUnitDurationTicks = resolvePharmacyDurationTicks(input.building, recipe, { config: input.config! });
+    const effectiveUnitDurationTicks = resolvePharmacyDurationTicks(input.state, input.building, recipe, { config: input.config! });
     const cleanCash = Math.max(0, Number(balances.cash || 0));
     const queueSpace = Math.max(0, recipe.queueCap - line.queuedAmount);
     const localFull = producedAmount >= recipe.localOutputCap;

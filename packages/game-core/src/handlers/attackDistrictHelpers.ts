@@ -97,6 +97,11 @@ export const createBattleReportNotification = (input: {
   reportForAttacker: string;
   reportForDefender: string;
   attackDurationTicks: number;
+  tacticalGrid: {
+    attackerApplied: boolean;
+    defenderApplied: boolean;
+    multiplier: number;
+  };
   detectedDefense: ReturnType<typeof filterDefenseLoadout>;
   tick: number;
   eventId: string;
@@ -131,6 +136,10 @@ export const createBattleReportNotification = (input: {
       reportForAttacker: input.reportForAttacker,
       reportForDefender: input.reportForDefender,
       attackDurationTicks: input.attackDurationTicks,
+      tacticalGrid: input.tacticalGrid,
+      tacticalGridSummary: input.tacticalGrid.attackerApplied || input.tacticalGrid.defenderApplied
+        ? `Tactical Grid: +${Math.round((input.tacticalGrid.multiplier - 1) * 100)} % bojové síly`
+        : null,
       detectedDefense: input.detectedDefense,
       tick: input.tick,
       createdAt: new Date(0).toISOString(),
@@ -159,6 +168,11 @@ export const createBattleReportNotifications = (input: {
   reportForAttacker: string;
   reportForDefender: string;
   attackDurationTicks: number;
+  tacticalGrid: {
+    attackerApplied: boolean;
+    defenderApplied: boolean;
+    multiplier: number;
+  };
   tick: number;
 }): Notification[] => {
   const eventId = composeEntityId("event", `${input.command.id}:district-attacked`);
@@ -180,6 +194,7 @@ export const createBattleReportNotifications = (input: {
     reportForAttacker: input.reportForAttacker,
     reportForDefender: input.reportForDefender,
     attackDurationTicks: input.attackDurationTicks,
+    tacticalGrid: input.tacticalGrid,
     detectedDefense: filterDefenseLoadout(input.targetDistrict.defenseLoadout),
     tick: input.tick,
     eventId

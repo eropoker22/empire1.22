@@ -39,6 +39,7 @@ export * from "./production/completeCraftProcessing";
 export * from "./production/productionRules";
 export * from "./production/queueProduction";
 export * from "./spying/resolveSpy";
+export * from "./player-boosts";
 export * from "./traps/resolveTrap";
 export * from "./victory/checkVictory";
 export * from "./victory/finalEmpireScore";

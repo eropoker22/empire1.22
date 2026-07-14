@@ -89,7 +89,7 @@ export const createDrugLabProductionBuildingView = (input: {
       materialInputCosts: { ...recipe.inputCosts },
       inputAvailability,
       baseUnitDurationTicks: recipe.durationTicksPerUnit,
-      effectiveUnitDurationTicks: resolveDrugLabDurationTicks(input.building, recipe, { config: input.config! }),
+      effectiveUnitDurationTicks: resolveDrugLabDurationTicks(input.state, input.building, recipe, { config: input.config! }),
       remainingTicks,
       remainingMs: remainingTicks * Math.max(1, Number(input.tickRateMs || input.config?.tickRateMs || 5000)),
       status,

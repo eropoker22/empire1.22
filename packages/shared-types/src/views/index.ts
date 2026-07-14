@@ -19,6 +19,7 @@ export * from "./pharmacy-production-view";
 export * from "./factory-production-view";
 export * from "./player-economy-view";
 export * from "./player-view";
+export * from "./player-boost-view";
 export * from "./police-read-model-view";
 export * from "./report-view";
 export * from "./warehouse-storage-view";

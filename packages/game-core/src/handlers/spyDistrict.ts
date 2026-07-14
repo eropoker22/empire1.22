@@ -11,6 +11,7 @@ import { CORE_EVENT_TYPES, createEvent, createNotification } from "../events";
 import {
   calculateBaseDefensePower,
   resolveSpy,
+  resolvePlayerSpyBoostEffects,
   type SpyOutcome
 } from "../rules";
 import {
@@ -68,6 +69,7 @@ export const handleSpyDistrict = (
   });
   const defenderFactionModifiers = getFactionPassiveModifiers(state, targetDistrict.ownerPlayerId, context);
   const spyFactionModifiers = getFactionPassiveModifiers(state, player.id, context);
+  const boostSnapshot = resolvePlayerSpyBoostEffects(state, player.id);
   const cameraStrengthBonusPct = ((1 + combinedCameraAlarmBonuses.cameraStrengthBonusPct / 100) * resolveFactionCameraEffectivenessMultiplier(defenderFactionModifiers) - 1) * 100;
   const alarmStrengthBonusPct = ((1 + combinedCameraAlarmBonuses.alarmStrengthBonusPct / 100) * resolveFactionAlarmEffectivenessMultiplier(defenderFactionModifiers) - 1) * 100;
   const reportResult = resolveSpy({
@@ -87,7 +89,9 @@ export const handleSpyDistrict = (
       spyFactionModifiers
     ),
     cameraStrengthBonusPct,
-    alarmStrengthBonusPct
+    alarmStrengthBonusPct,
+    criticalFailureChanceMultiplier: boostSnapshot.criticalFailureChanceMultiplier,
+    extraIntelBlocksOnSuccess: boostSnapshot.extraIntelBlocksOnSuccess
   });
   const blockedUntilTick = isBlockedSpyOutcome(reportResult.result)
     ? state.root.tick + resolveSpyCaptureCooldownTicks(context)
@@ -102,7 +106,8 @@ export const handleSpyDistrict = (
     reportResult,
     blockedUntilTick,
     tick: state.root.tick,
-    eventId: reportEventId
+    eventId: reportEventId,
+    boostSnapshot
   });
   const spyCooldownKey = `spy:${targetDistrict.id}`;
   const spyCooldownTicks = applyGarageCooldownReductionTicks({
@@ -112,6 +117,7 @@ export const handleSpyDistrict = (
     config: context.config.balance.garage,
     category: "districtSpy"
   });
+  const boostedSpyCooldownTicks = Math.max(1, Math.ceil(spyCooldownTicks * boostSnapshot.spyDurationMultiplier));
   const blockedSlotCooldown = blockedUntilTick === null
     ? {}
     : {
@@ -135,7 +141,7 @@ export const handleSpyDistrict = (
           ...cooldownState,
           cooldowns: {
             ...cooldownState.cooldowns,
-            [spyCooldownKey]: state.root.tick + spyCooldownTicks,
+            [spyCooldownKey]: state.root.tick + boostedSpyCooldownTicks,
             ...blockedSlotCooldown
           },
           version: cooldownState.version + (state.cooldownStatesById[cooldownState.id] ? 1 : 0)
@@ -159,7 +165,8 @@ export const handleSpyDistrict = (
         result: reportResult.result,
         trapDetected: reportResult.trapDetected,
         occupyUnlocked: reportResult.occupyUnlocked,
-        blockedUntilTick
+        blockedUntilTick,
+        boostId: boostSnapshot.boostId
       }),
       createEvent(CORE_EVENT_TYPES.notificationCreated, {
         notificationId: report.id,
@@ -193,6 +200,7 @@ const createSpyReportNotification = (input: {
   blockedUntilTick: number | null;
   tick: number;
   eventId: string;
+  boostSnapshot: ReturnType<typeof resolvePlayerSpyBoostEffects>;
 }): Notification =>
   createNotification({
     id: composeEntityId("notification", `${input.command.id}:spy-report`),
@@ -220,6 +228,8 @@ const createSpyReportNotification = (input: {
       revealedType: input.reportResult.revealedType,
       revealedDefense: input.reportResult.revealedDefense,
       heatGained: input.reportResult.heatGained,
+      extraIntelBlocks: input.reportResult.extraIntelBlocks,
+      boostSnapshot: input.boostSnapshot.boostId ? input.boostSnapshot : null,
       blockedUntilTick: input.blockedUntilTick,
       attackAuthorizationExpiresAtTick: input.reportResult.result === "success"
         ? input.tick + SPY_ATTACK_AUTH_TTL_TICKS

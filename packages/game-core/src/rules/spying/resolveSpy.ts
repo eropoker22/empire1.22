@@ -14,6 +14,8 @@ export interface ResolveSpyInput {
   cameraStrengthBonusPct?: number;
   alarmStrengthBonusPct?: number;
   infoQualityPct?: number;
+  criticalFailureChanceMultiplier?: number;
+  extraIntelBlocksOnSuccess?: number;
 }
 
 export interface ResolveSpyResult {
@@ -24,6 +26,10 @@ export interface ResolveSpyResult {
   revealedType: boolean;
   revealedDefense: boolean;
   heatGained: number;
+  extraIntelBlocks: Array<{
+    category: "security-profile";
+    value: "low" | "medium" | "high";
+  }>;
 }
 
 export type SpyOutcome = "success" | "partial" | "failed" | "critical_failed";
@@ -63,7 +69,8 @@ export const resolveSpy = (input: ResolveSpyInput): ResolveSpyResult => {
     targetSecurity,
     cameraCount,
     alarmCount,
-    infoQualityPct
+    infoQualityPct,
+    criticalFailureChanceMultiplier: input.criticalFailureChanceMultiplier
   });
   const result = improveSpyOutcomeByQuality(initialResult, infoQualityPct, deterministicUnitInterval(
     `${input.worldSeed}:spy:quality:${input.playerId}:${input.targetDistrictId}:${input.tick}`
@@ -74,6 +81,13 @@ export const resolveSpy = (input: ResolveSpyInput): ResolveSpyResult => {
   const trapDetected =
     result === "success" && input.hasActiveTrap && trapRevealRoll <= input.spyTrapRevealChance;
 
+  const extraIntelBlocks = result === "success" && Number(input.extraIntelBlocksOnSuccess || 0) > 0
+    ? [{
+        category: "security-profile" as const,
+        value: targetSecurity >= 80 ? "high" as const : targetSecurity >= 30 ? "medium" as const : "low" as const
+      }]
+    : [];
+
   return {
     result,
     detectedDefense: result === "success" ? filterDefenseLoadout(input.defenseLoadout) : {},
@@ -81,7 +95,8 @@ export const resolveSpy = (input: ResolveSpyInput): ResolveSpyResult => {
     occupyUnlocked: result === "success",
     revealedType: result === "success" || result === "partial",
     revealedDefense: result === "success",
-    heatGained: result === "critical_failed" ? LEGACY_SPY_CRITICAL_HEAT_GAIN : 0
+    heatGained: result === "critical_failed" ? LEGACY_SPY_CRITICAL_HEAT_GAIN : 0,
+    extraIntelBlocks
   };
 };
 
@@ -93,6 +108,7 @@ const resolveSpyOutcomeFromRolls = (input: {
   cameraCount: number;
   alarmCount: number;
   infoQualityPct: number;
+  criticalFailureChanceMultiplier?: number;
 }): SpyOutcome => {
   if (input.roll < input.successChance) {
     return "success";
@@ -111,13 +127,18 @@ const resolveSpyOutcomeFromRolls = (input: {
     return "partial";
   }
 
-  const criticalChance = clamp(
+  const baseCriticalChance = clamp(
     0.08
       + input.targetSecurity / 360
       + input.cameraCount * 0.025
       + input.alarmCount * 0.045
       - input.infoQualityPct * 0.001,
     0.04,
+    0.42
+  );
+  const criticalChance = clamp(
+    baseCriticalChance * Math.max(0, Number(input.criticalFailureChanceMultiplier ?? 1)),
+    0,
     0.42
   );
 

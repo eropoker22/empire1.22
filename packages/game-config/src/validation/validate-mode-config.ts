@@ -5,6 +5,7 @@ import { validateArmoryProductionConfig } from "../../../game-core/src/handlers/
 import { validatePharmacyProductionConfig } from "../../../game-core/src/handlers/pharmacyProductionConfig";
 import { validateWarehouseStorageConfig } from "../../../game-core/src/handlers/storageCapacityTypes";
 import { validateAttackWeaponsConfig } from "../../../game-core/src/rules/combat/attackWeaponBalance";
+import { validatePlayerBoostConfig } from "../../../game-core/src/handlers/playerBoostConfig";
 
 /**
  * Responsibility: Guards resolved mode configs against obviously invalid structural values.
@@ -96,6 +97,7 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
   if (config.balance.attackWeapons) {
     validateAttackWeaponsConfig(config.balance.attackWeapons);
   }
+  if (config.balance.playerBoosts) validatePlayerBoostConfig(config.balance.playerBoosts);
 
   const elimination = config.balance.elimination;
   if (elimination?.enabled) {

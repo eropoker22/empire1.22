@@ -34,6 +34,7 @@ import { freeModeDrugLabConfig } from "./free-mode-drug-lab-config";
 import { freeModeFactoryConfig } from "./free-mode-factory-config";
 import { freeModeArmoryConfig } from "./free-mode-armory-config";
 import { freeModeAttackWeaponsConfig } from "../../public/free-mode-attack-weapons-config";
+import { freeModePlayerBoostConfig } from "./free-mode-player-boost-config";
 import { freeModePoliceConfig } from "./free-police-config";
 import {
   FREE_MODE_COOLDOWN_MULTIPLIER,
@@ -143,6 +144,7 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
       "tech-core": 2
     },
     attackWeapons: freeModeAttackWeaponsConfig,
+    playerBoosts: freeModePlayerBoostConfig,
     factions: FACTION_DEFINITION_BY_ID,
     pharmacy: freeModePharmacyConfig,
     drugLab: freeModeDrugLabConfig,
