@@ -92,7 +92,7 @@ function createCardMarkup(card, view, pendingBoostId) {
   const buttonState = resolveButtonState(card, view, pendingBoostId, Date.now());
   const materialChips = card.costs.map((cost) => `
     <span class="boost-cost-chip ${cost.enough ? "" : "is-missing"}" title="${cost.enough ? "Dostatek" : `Chybí ${cost.missingAmount} ks`}">
-      <span>${escapeHtml(cost.label)}</span><strong>${cost.stored} / ${cost.required}</strong>
+      <span>${escapeHtml(cost.label)}</span><strong>${cost.required} / ${cost.stored}</strong>
     </span>
   `).join("");
   const cashEnough = card.hasEnoughCleanCash;
@@ -110,7 +110,7 @@ function createCardMarkup(card, view, pendingBoostId) {
       </div>
       <div class="boost-card__costs">${materialChips}
         <span class="boost-cost-chip boost-cost-chip--cash ${cashEnough ? "" : "is-missing"}" title="${cashEnough ? "Dostatek clean cash" : `Chybí ${formatMoney(card.cleanCashCost - card.playerCleanCash)}`}">
-          <span>Clean Cash</span><strong>${formatMoney(card.playerCleanCash)} / ${formatMoney(card.cleanCashCost)}</strong>
+          <span>Clean Cash</span><strong>${formatMoney(card.cleanCashCost)} / ${formatMoney(card.playerCleanCash)}</strong>
         </span>
       </div>
       <button class="button boost-card__activate" type="button" data-boost-activate="${card.boostId}" ${card.canActivate && !pendingBoostId ? "" : "disabled"}>
@@ -129,15 +129,18 @@ function initBoostRuntime() {
   const openButtons = [...new Set(document.querySelectorAll("[data-boost-open-trigger]"))];
   const backdrop = document.getElementById("boost-modal-backdrop");
   const closeButton = document.getElementById("boost-modal-close");
-  const confirmation = document.getElementById("boost-modal-confirmation");
+  const confirmationModal = document.getElementById("boost-confirmation-modal");
+  const confirmationBackdrop = document.getElementById("boost-confirmation-backdrop");
   const confirmationContent = document.getElementById("boost-modal-confirmation-content");
-  const confirmationBack = modal.querySelector("[data-boost-confirm-back]");
-  const confirmationSubmit = modal.querySelector("[data-boost-confirm-submit]");
+  const confirmationBack = confirmationModal?.querySelector("[data-boost-confirm-back]");
+  const confirmationSubmit = confirmationModal?.querySelector("[data-boost-confirm-submit]");
+  const confirmationClose = confirmationModal?.querySelector("[data-boost-confirm-close]");
   const feedback = modal.querySelector("[data-boost-feedback]");
   const pinned = document.querySelector("[data-player-boost-pinned]");
   let confirmationBoostId = null;
   let pendingBoostId = null;
   let restoreFocusElement = null;
+  let confirmationTrigger = null;
   let lastStateFingerprint = "";
 
   const isOpen = () => !modal.hidden && !modal.classList.contains("hidden");
@@ -220,9 +223,11 @@ function initBoostRuntime() {
 
   const closeConfirmation = () => {
     confirmationBoostId = null;
-    confirmation.hidden = true;
-    content.hidden = false;
-    modal.querySelector(".boost-modal__rule").hidden = false;
+    if (!confirmationModal || confirmationModal.hidden) return;
+    confirmationModal.classList.add("hidden");
+    confirmationModal.hidden = true;
+    closeOverlay(confirmationModal, { restoreFocus: true });
+    confirmationTrigger = null;
   };
 
   const showConfirmation = (boostId) => {
@@ -242,10 +247,17 @@ function initBoostRuntime() {
         ${card.costs.map((cost) => `<span>${escapeHtml(cost.label)} <strong>${cost.required} ks</strong></span>`).join("")}
       </div>
       <p class="boost-modal__confirm-warning">Aktivaci nelze zrušit ani refundovat.</p>`;
-    confirmation.hidden = false;
-    content.hidden = true;
-    modal.querySelector(".boost-modal__rule").hidden = true;
-    confirmationBack?.focus();
+    if (!confirmationModal) return;
+    confirmationTrigger = document.activeElement;
+    confirmationModal.hidden = false;
+    confirmationModal.classList.remove("hidden");
+    openOverlay(confirmationModal, {
+      type: "modal",
+      ariaModal: true,
+      restoreFocusTo: confirmationTrigger,
+      restoreFocusOnClose: true,
+      focusTarget: confirmationBack
+    });
   };
 
   const open = (event) => {
@@ -296,14 +308,21 @@ function initBoostRuntime() {
   openButtons.forEach((button) => button.addEventListener("click", open));
   closeButton?.addEventListener("click", close);
   backdrop?.addEventListener("click", close);
+  confirmationBackdrop?.addEventListener("click", closeConfirmation);
   confirmationBack?.addEventListener("click", closeConfirmation);
+  confirmationClose?.addEventListener("click", closeConfirmation);
   confirmationSubmit?.addEventListener("click", confirmActivation);
   modal.addEventListener("click", (event) => {
     const button = event.target instanceof Element ? event.target.closest("[data-boost-activate]") : null;
     if (button instanceof HTMLButtonElement && !button.disabled) showConfirmation(button.dataset.boostActivate);
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && isOpen()) close();
+    if (event.key !== "Escape") return;
+    if (confirmationModal && !confirmationModal.hidden) {
+      closeConfirmation();
+      return;
+    }
+    if (isOpen()) close();
   });
   document.addEventListener("empire:player-boost-state-change", () => renderCards());
   document.addEventListener("empire:runtime-mode-changed", () => renderCards());

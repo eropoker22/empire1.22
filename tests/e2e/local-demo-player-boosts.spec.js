@@ -143,9 +143,9 @@ async function readSession(page) {
 async function activateBoost(page, boostId) {
   const card = page.locator(`[data-boost-card="${boostId}"]`);
   await card.locator(`[data-boost-activate="${boostId}"]`).click();
-  await expect(page.locator("#boost-modal-confirmation")).toBeVisible();
+  await expect(page.locator("#boost-confirmation-modal")).toBeVisible();
   await page.locator("[data-boost-confirm-submit]").click();
-  await expect(page.locator("#boost-modal-confirmation")).toBeHidden();
+  await expect(page.locator("#boost-confirmation-modal")).toBeHidden();
   return card;
 }
 

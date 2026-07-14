@@ -1973,7 +1973,6 @@
         <div class="modal__content modal__content--profile boost-modal__content">
           <div class="modal__header boost-modal__header">
             <div>
-              <div class="boost-modal__eyebrow">MĚSTSKÉ PROTOKOLY</div>
               <h3 id="boost-modal-title">Strategické boosty</h3>
               <p>Spal vzácné komponenty a na chvíli získej výhodu. Aktivní může být pouze jeden protokol.</p>
             </div>
@@ -1990,17 +1989,22 @@
               <span class="boost-modal__progress" aria-hidden="true"><i data-boost-active-progress></i></span>
             </section>
             <section id="boost-modal-content" class="boost-modal__grid" aria-label="Dostupné boost protokoly"></section>
-            <section id="boost-modal-confirmation" class="boost-modal__confirmation" hidden aria-labelledby="boost-confirm-title">
-              <div id="boost-modal-confirmation-content"></div>
-              <div class="boost-modal__confirmation-actions">
-                <button type="button" class="button" data-boost-confirm-back>ZPĚT</button>
-                <button type="button" class="button boost-modal__confirm-submit" data-boost-confirm-submit>POTVRDIT AKTIVACI</button>
-              </div>
-            </section>
             <p class="boost-modal__rule">Boost nelze po aktivaci zrušit. Cooldown začíná okamžitě.</p>
             <p class="boost-modal__feedback" data-boost-feedback aria-live="polite"></p>
           </div>
         </div>
+      </div>
+
+      <div id="boost-confirmation-modal" class="modal hidden boost-confirmation-modal" role="dialog" aria-modal="true" aria-labelledby="boost-confirm-title" hidden>
+        <div id="boost-confirmation-backdrop" class="modal__backdrop"></div>
+        <section class="modal__content boost-confirmation-modal__content">
+          <button class="modal__close boost-confirmation-modal__close" type="button" data-boost-confirm-close aria-label="Zavřít potvrzení">✕</button>
+          <div id="boost-modal-confirmation-content"></div>
+          <div class="boost-modal__confirmation-actions">
+            <button type="button" class="button" data-boost-confirm-back>ZPĚT</button>
+            <button type="button" class="button boost-modal__confirm-submit" data-boost-confirm-submit>POTVRDIT AKTIVACI</button>
+          </div>
+        </section>
       </div>
 
       <div id="faction-actions-modal" class="modal hidden faction-actions-modal">
