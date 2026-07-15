@@ -17,3 +17,8 @@ vite-dev.err.log
 vite-dev.out.log
 admin-vite.err.log
 admin-vite.out.log
+/artifacts/
+/debug.log
+/tmp-*.log
+/tmp-*.png
+/*.zip
