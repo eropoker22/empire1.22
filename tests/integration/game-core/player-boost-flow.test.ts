@@ -17,7 +17,8 @@ import {
   createCombatStateFixture,
   createCoreStateFixture,
   createCoreStateWithFixedBuildingFixture,
-  createFixedBuildingFixture
+  createFixedBuildingFixture,
+  seedSuccessfulSpyIntel
 } from "../../fixtures/game-state-fixtures";
 
 const config = resolveModeConfig("free");
@@ -289,6 +290,7 @@ describe("authoritative player boost flow", () => {
       "player:2": armedGrid()
     };
     const withTrap = applyCommand(state, createPlaceTrapCommandFixture(), trappedContext).nextState;
+    seedSuccessfulSpyIntel(withTrap, "player:1", "district:1", "district:2", "player:2");
     const blocked = applyCommand(withTrap, createAttackDistrictCommandFixture(), trappedContext);
 
     expect(blocked.errors).toEqual([]);

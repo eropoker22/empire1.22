@@ -13,7 +13,8 @@ import {
 } from "../../fixtures/command-fixtures";
 import {
   createCombatStateFixture,
-  createDistrictFixture
+  createDistrictFixture,
+  seedSuccessfulSpyIntel
 } from "../../fixtures/game-state-fixtures";
 
 const freeConfig = resolveModeConfig("free");
@@ -269,6 +270,7 @@ describe("conflict command flow", () => {
   it("attack triggers an active trap and applies attacker losses", () => {
     const state = createCombatStateFixture();
     const trappedState = applyCommand(state, createPlaceTrapCommandFixture(), context).nextState;
+    seedSuccessfulSpyIntel(trappedState, "player:1", "district:1", "district:2", "player:2");
 
     const result = applyCommand(trappedState, createAttackDistrictCommandFixture(), context);
     const notification = result.nextState.notificationsById["notification:command:attack:1:battle:player:1"];
