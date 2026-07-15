@@ -121,15 +121,160 @@ describe("market popup runtime", () => {
 
     expect(runtime.bindMarketPopup(root)).toBe(true);
     open.dispatch("click");
-    expect(title.textContent).toBe("Neon Market");
+    expect(title.textContent).toBe("Městský market");
     tab.dispatch("click");
-    expect(title.textContent).toBe("Blackline Market");
+    expect(title.textContent).toBe("Černý trh");
     playerTab.dispatch("click");
 
     expect(openMarketPanel).toHaveBeenCalledWith(popup);
     expect(renderMarketPanel).toHaveBeenCalledTimes(1);
     expect(renderBlackMarketPanel).toHaveBeenCalledTimes(1);
-    expect(title.textContent).toBe("Podzemní burza");
+    expect(title.textContent).toBe("Hráčský bazar");
+  });
+
+  it("renders only resources available in the selected server market", () => {
+    const open = createElement();
+    const popup = createElement();
+    const close = createElement();
+    const renderMarketPanel = vi.fn();
+    const runtime = createRuntime({
+      getServerMarketReadModel: vi.fn(() => ({
+        resources: [
+          {
+            id: "chemicals",
+            name: "Chemicals",
+            normalMarket: { available: true, price: 450, sellPrice: 200, stock: 8, maxStock: 10, stockPercent: 80, canBuy: true, canSell: false },
+            blackMarket: { available: false }
+          },
+          {
+            id: "tech-core",
+            name: "Tech Core",
+            normalMarket: { available: false, price: 3260, sellPrice: 1000, stock: 0, maxStock: 0, stockPercent: 0 },
+            blackMarket: { available: true, price: 5000, dirtyCashPrice: 6250, canBuyWithDirtyCash: true, canBuyWithCleanCash: true }
+          }
+        ],
+        playerMarket: { listings: [] }
+      })),
+      getServerPlayerView: vi.fn(() => ({ economy: { cleanCash: 10000 }, resourceBalances: {} })),
+      renderMarketPanel
+    });
+    const root = createRoot({
+      ".copy": createElement(),
+      ".dashboard": createElement(),
+      ".feedback": createElement(),
+      ".list": createElement(),
+      ".open": open,
+      ".popup": popup,
+      ".server": createElement(),
+      "[data-market-title]": createElement()
+    }, {
+      ".close": [close],
+      ".tab": [createElement({ marketTab: "market" })]
+    });
+
+    runtime.bindMarketPopup(root);
+    open.dispatch("click");
+
+    expect(renderMarketPanel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ items: [expect.objectContaining({ resourceId: "chemicals" })] }),
+      expect.anything()
+    );
+  });
+
+  it("uses the authoritative player bazaar projection when the server provides it", () => {
+    const open = createElement();
+    const popup = createElement();
+    const close = createElement();
+    const playerTab = createElement({ marketTab: "player-market" });
+    const renderPlayerMarketPanel = vi.fn();
+    const runtime = createRuntime({
+      getServerMarketReadModel: vi.fn(() => ({
+        resources: [{ id: "chemicals", name: "Chemicals", normalMarket: { price: 450 } }],
+        playerMarket: { listings: [], ownListingCount: 0, listingLimitPerSeller: 5 }
+      })),
+      getServerPlayerView: vi.fn(() => ({ resourceBalances: { chemicals: 3 } })),
+      renderPlayerMarketPanel,
+      submitServerMarketCommand: vi.fn()
+    });
+    const root = createRoot({
+      ".copy": createElement(),
+      ".dashboard": createElement(),
+      ".feedback": createElement(),
+      ".list": createElement(),
+      ".open": open,
+      ".popup": popup,
+      ".server": createElement(),
+      "[data-market-title]": createElement()
+    }, {
+      ".close": [close],
+      ".tab": [createElement({ marketTab: "market" }), playerTab]
+    });
+
+    runtime.bindMarketPopup(root);
+    playerTab.dispatch("click");
+
+    expect(renderPlayerMarketPanel).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ isAuthoritative: true, isPreview: false }),
+      expect.objectContaining({ onCreateListing: expect.any(Function) })
+    );
+  });
+
+  it("recalculates black-market Heat from the selected quantity", () => {
+    const open = createElement();
+    const popup = createElement();
+    const blackTab = createElement({ marketTab: "black-market" });
+    const renderBlackMarketPanel = vi.fn();
+    const runtime = createRuntime({
+      getServerMarketReadModel: vi.fn(() => ({
+        resources: [{
+          id: "neon-dust",
+          name: "Neon Dust",
+          normalMarket: { available: false, sellPrice: 1 },
+          blackMarket: {
+            available: true,
+            price: 400,
+            dirtyCashPrice: 500,
+            heatRisk: 1,
+            canBuyWithDirtyCash: true,
+            canBuyWithCleanCash: true
+          }
+        }],
+        blackMarket: {
+          heatByValue: [
+            { min: 3500, heat: 10 },
+            { min: 1800, heat: 6 },
+            { min: 750, heat: 3 },
+            { min: 1, heat: 1 }
+          ]
+        },
+        playerMarket: { listings: [] }
+      })),
+      getServerPlayerView: vi.fn(() => ({ economy: { cleanCash: 10000 }, resourceBalances: {} })),
+      renderBlackMarketPanel
+    });
+    const root = createRoot({
+      ".copy": createElement(),
+      ".dashboard": createElement(),
+      ".feedback": createElement(),
+      ".list": createElement(),
+      ".open": open,
+      ".popup": popup,
+      ".server": createElement(),
+      "[data-market-title]": createElement()
+    }, {
+      ".close": [createElement()],
+      ".tab": [createElement({ marketTab: "market" }), blackTab]
+    });
+
+    runtime.bindMarketPopup(root);
+    blackTab.dispatch("click");
+
+    const [, viewModel, callbacks] = renderBlackMarketPanel.mock.calls.at(-1);
+    expect(viewModel.items[0].dirtyBuyPrice).toBe(500);
+    expect(callbacks.getTradeState(viewModel.items[0], 1).totalLabel).toContain("Heat +1");
+    expect(callbacks.getTradeState(viewModel.items[0], 2).totalLabel).toContain("Heat +3");
   });
 
   it("clears recent market transactions through dashboard callback", () => {

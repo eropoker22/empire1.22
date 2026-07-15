@@ -252,6 +252,19 @@ export function createPoliceHeatBridge(deps = {}) {
   let lastViewModel = null;
 
   const getState = () => safeObject(typeof deps.getState === "function" ? deps.getState() : {});
+  const acknowledgeRaid = (raidId) => {
+    const resolvedRaidId = String(raidId || lastViewModel?.pendingRaid?.raidId || "").trim();
+    if (!resolvedRaidId) return false;
+    if (typeof deps.acknowledgePendingRaid === "function") {
+      return deps.acknowledgePendingRaid(resolvedRaidId);
+    }
+    const executionMode = String(getState().executionMode || getState().gameplayExecutionMode || "local-demo");
+    if (executionMode === "server-authoritative") return false;
+    documentRef?.dispatchEvent?.(new CustomEvent("empire:police-raid-acknowledged", {
+      detail: { raidId: resolvedRaidId, fallback: true }
+    }));
+    return true;
+  };
 
   const render = (eventOrState = {}) => {
     const state = getState();
@@ -271,7 +284,7 @@ export function createPoliceHeatBridge(deps = {}) {
       lastViewModel = viewModel;
       return viewModel;
     }
-    renderPoliceFeedPanel(mount, viewModel);
+    renderPoliceFeedPanel(mount, viewModel, { onAcknowledge: acknowledgeRaid });
     lastViewModel = viewModel;
     if (eventType !== "init" && eventType !== "runtime:refresh" && eventType !== "empire:runtime-refresh") {
       documentRef?.dispatchEvent?.(new CustomEvent("empire:police-feedback", {
@@ -309,22 +322,7 @@ export function createPoliceHeatBridge(deps = {}) {
 
   return {
     bindEvents,
-    acknowledgePendingRaid: (raidId) => {
-      const resolvedRaidId = String(raidId || lastViewModel?.pendingRaid?.raidId || "").trim();
-      if (!resolvedRaidId) {
-        return false;
-      }
-      if (typeof deps.acknowledgePendingRaid === "function") {
-        return deps.acknowledgePendingRaid(resolvedRaidId);
-      }
-      documentRef?.dispatchEvent?.(new CustomEvent("empire:police-raid-acknowledged", {
-        detail: {
-          raidId: resolvedRaidId,
-          fallback: true
-        }
-      }));
-      return true;
-    },
+    acknowledgePendingRaid: acknowledgeRaid,
     init: () => {
       bindEvents();
       return render({ type: "init" });

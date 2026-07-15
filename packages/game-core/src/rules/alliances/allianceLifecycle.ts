@@ -115,8 +115,7 @@ export const deriveAllianceMembershipStatus = (
 };
 
 export const calculateRequiredYesVotes = (eligibleVoterCount: number): number => {
-  if (eligibleVoterCount <= 1) return 1;
-  return 2;
+  return Math.max(1, Math.floor(Math.max(0, eligibleVoterCount) / 2) + 1);
 };
 
 export const canJoinOrCreateAlliance = (
@@ -549,22 +548,12 @@ export const runAllianceLifecycleScheduled = (
         notifications.push(createPlayerNotification({
           id: `alliance-ready-timeout:${alliance.id}:${membership.playerId}:${cycleId}`,
           playerId: membership.playerId,
-          title: "AKTIVITA V ALIANCI VYPRŠELA",
-          bodyKey: "alliance.ready_timeout_removed",
+          title: "HLASOVÁNÍ O NEAKTIVITĚ JE DOSTUPNÉ",
+          bodyKey: "alliance.ready_vote_eligible",
           createdAt: nowIso,
           payload: { allianceId: alliance.id, readyDueAt: membership.readyDueAt }
         }));
         audits.push(createAudit(`readiness-expired:${alliance.id}:${membership.playerId}:${cycleId}`, alliance.id, "readiness_expired", nowIso, undefined, membership.playerId));
-        nextState = removeMemberFromAlliance(
-          nextState,
-          alliance.id,
-          membership.playerId,
-          "inactive_kick",
-          `readiness-timeout:${alliance.id}:${membership.playerId}:${cycleId}`,
-          nowIso,
-          context,
-          undefined
-        ).nextState;
       }
     }
 

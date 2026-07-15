@@ -19,13 +19,13 @@ const createSubmitRequest = (type: string, payload: Record<string, unknown>) => 
 describe("market command transport payload validation", () => {
   it("accepts valid normal and black market buys plus normal sells", () => {
     expect(validateSubmitGameplayCommandRequest(createSubmitRequest("buy-market-resource", {
-      resourceId: "metalParts",
+      resourceId: "metal-parts",
       amount: 5,
       marketType: "normal",
       paymentType: "cleanCash"
     })).accepted).toBe(true);
     expect(validateSubmitGameplayCommandRequest(createSubmitRequest("buy-market-resource", {
-      resourceId: "techCore",
+      resourceId: "tech-core",
       amount: 1,
       marketType: "black",
       paymentType: "cleanCash"
@@ -44,19 +44,19 @@ describe("market command transport payload validation", () => {
 
   it("rejects dirty cash on normal market and invalid amounts/resources", () => {
     const dirtyNormal = validateSubmitGameplayCommandRequest(createSubmitRequest("buy-market-resource", {
-      resourceId: "metalParts",
+      resourceId: "metal-parts",
       amount: 1,
       marketType: "normal",
       paymentType: "dirtyCash"
     }));
     const floatAmount = validateSubmitGameplayCommandRequest(createSubmitRequest("buy-market-resource", {
-      resourceId: "metalParts",
+      resourceId: "metal-parts",
       amount: 1.5,
       marketType: "normal",
       paymentType: "cleanCash"
     }));
     const unknownResource = validateSubmitGameplayCommandRequest(createSubmitRequest("sell-market-resource", {
-      resourceId: "stim-pack",
+      resourceId: "ammo",
       amount: 1
     }));
 
@@ -67,7 +67,7 @@ describe("market command transport payload validation", () => {
 
   it("rejects client supplied market prices, rewards and stock mutation fields", () => {
     const result = validateSubmitGameplayCommandRequest(createSubmitRequest("buy-market-resource", {
-      resourceId: "metalParts",
+      resourceId: "metal-parts",
       amount: 1,
       marketType: "normal",
       paymentType: "cleanCash",

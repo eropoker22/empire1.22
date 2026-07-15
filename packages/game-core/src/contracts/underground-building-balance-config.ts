@@ -97,9 +97,7 @@ export interface SmugglingTunnelBalanceConfig {
     costCleanCash: number;
     heatGain: number;
     tunnelDirtyProductionBonusPct: number;
-    dealerSalePriceBonusPct: number;
     dealerSaleSpeedBonusPct: number;
-    dealerCompletionRewardBonusPct: number;
     dealerSaleHeatBonusPct: number;
     streetIncidentFlatRiskPct: number;
     stackable: false;
@@ -107,7 +105,6 @@ export interface SmugglingTunnelBalanceConfig {
   dealerSupply: {
     bonusPctPerTunnel: number;
     maxBonusPct: number;
-    salePriceSharePct: number;
     saleSpeedSharePct: number;
     streetRiskReductionSharePct: number;
     passiveDirtyIncomeSharePct: number;
@@ -125,11 +122,17 @@ export interface StreetDealerDrugSaleConfig {
   itemId: string;
   label: string;
   aliases?: string[];
-  basePriceDirtyCash: number;
-  baseDurationMinutes: number;
+  /** Derived from the matching Drug Lab clean-cash cost at the configured sale multiplier. */
+  unitSalePriceDirtyCash: number;
+  cooldownMinutes: number;
   baseHeatPerUnit: number;
-  maxAmountPerSlot: number;
+  minimumAmountPerSale: number;
   baseStreetRiskPct: number;
+}
+
+export interface StreetDealerSlotConfig {
+  slotId: string;
+  itemId: string;
 }
 
 export interface StreetDealersBalanceConfig {
@@ -152,11 +155,8 @@ export interface StreetDealersBalanceConfig {
   startDrugSale: {
     actionId: "start_drug_sale";
   };
-  dealerSlots: Array<{
-    minOwned: number;
-    maxOwned: number | null;
-    slots: number;
-  }>;
+  /** Three fixed product slots. A player may operate only one of them at a time. */
+  dealerSlots: StreetDealerSlotConfig[];
   sellableDrugs: StreetDealerDrugSaleConfig[];
   streetIncidents: {
     extraCooldownMinutes: number;
@@ -167,11 +167,9 @@ export interface StreetDealersBalanceConfig {
   };
   network: {
     passiveDirtyIncomeBonusPctPerExtraDealer: number;
-    salePriceBonusPctPerExtraDealer: number;
     saleSpeedBonusPctPerExtraDealer: number;
     heatBonusPctPerExtraDealer: number;
     maxPassiveDirtyIncomeMultiplier: number;
-    maxSalePriceMultiplier: number;
     maxSaleSpeedMultiplier: number;
     maxHeatMultiplier: number;
   };

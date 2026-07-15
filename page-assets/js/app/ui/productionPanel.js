@@ -507,7 +507,9 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     startButton.dataset.factorySlotToggleState = "start";
     startButton.textContent = "Spustit";
     startButton.disabled = serverLine ? !serverLine.canStart : !slotView.canStart;
-    startButton.title = serverLine?.disabledReason || "";
+    startButton.title = startButton.disabled
+      ? (serverLine?.disabledReason || slotView.disabledReason || "Chybí vstupy, místo ve frontě nebo volná lokální kapacita.")
+      : "Spustit výrobu.";
     startButton.addEventListener("click", () => {
       if (typeof callbacks.onStartSlot === "function") callbacks.onStartSlot(serverLine || slotView, { batchCount: selectedBatches });
     });
@@ -518,6 +520,9 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
       ? !serverLine.canCancelWaiting
       : Math.max(0, Math.floor(Number(slot.queuedAmount ?? slotView.queuedAmount ?? 0)))
         - (slot.isProducing ? 1 : 0) <= 0;
+    pauseButton.title = pauseButton.disabled
+      ? "Není co zrušit: aktivní kus nelze zrušit."
+      : "Zrušit čekající kusy a vrátit jejich náklady.";
     pauseButton.addEventListener("click", () => {
       if (typeof callbacks.onPauseSlot === "function") callbacks.onPauseSlot(serverLine || slotView);
     });

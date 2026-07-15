@@ -34,7 +34,6 @@ export interface StreetDealersPlayerMetadata {
 
 export interface StreetDealerNetworkMultipliers {
   passiveDirtyIncomeMultiplier: number;
-  salePriceMultiplier: number;
   saleSpeedMultiplier: number;
   heatMultiplier: number;
 }
@@ -51,4 +50,3 @@ export interface StreetDealersActionResolution {
   reportText: string;
   streetDealerResult: Record<string, unknown>;
 }
-

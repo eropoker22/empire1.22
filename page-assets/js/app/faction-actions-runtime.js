@@ -6,14 +6,14 @@ const PAGE_SELECTOR = "[data-client-surface='game-shell']";
 const DEFAULT_FACTION_ID = "mafian";
 
 const PREVIEW_BY_FACTION_ID = Object.freeze({
-  mafian: "Frakce už má aktivní pasivy. Speciální schopnost je zatím jen preview a přijde později.",
+  mafian: "Frakce už má aktivní pasivy. Speciální schopnost se připravuje pro další fázi hry.",
   kartel: "Frakce už má aktivní pasivy pro dirty cash, podporovanou ilegální produkci a pašování. Speciální schopnost přijde později.",
-  kult: "Frakce už má aktivní pasivy pro influence, populaci a obranu. Masová posedlost je preview pro další fázi války.",
-  "tajna-organizace": "Frakce už má aktivní pasivy pro špehování a pasti. Spící buňka je preview pro další fázi války.",
+  kult: "Frakce už má aktivní pasivy pro influence, populaci a obranu. Masová posedlost se připravuje pro další fázi války.",
+  "tajna-organizace": "Frakce už má aktivní pasivy pro špehování a pasti. Spící buňka se připravuje pro další fázi války.",
   hackeri: "Frakce už má aktivní pasivy pro data, kamery, alarmy, tech produkci a špehování. Výpadek systému přijde později.",
-  "motorkarsky-gang": "Frakce už má aktivní pasivy pro tempo, vykrádání a agresivní tlak. Bleskový nájezd je preview.",
+  "motorkarsky-gang": "Frakce už má aktivní pasivy pro tempo, vykrádání a agresivní tlak. Bleskový nájezd se připravuje.",
   "soukroma-armada": "Frakce už má aktivní pasivy pro útok, obranu a ztráty vybavení. Taktické nasazení přijde později.",
-  korporace: "Frakce už má aktivní pasivy pro clean economy, heat mimo obsazování a obranné systémy. Právní štít je preview."
+  korporace: "Frakce už má aktivní pasivy pro clean economy, heat mimo obsazování a obranné systémy. Právní štít se připravuje."
 });
 
 function escapeHtml(value) {
@@ -45,14 +45,14 @@ export function getFactionActionForPlayer(storage) {
   const faction = FACTION_CATALOG[factionId] || FACTION_CATALOG[DEFAULT_FACTION_ID];
   const specialAction = faction.specialAction || null;
   const effect = specialAction
-    ? `${specialAction.description} ${specialAction.status === "implemented" ? "Schopnost je aktivní." : "Tahle schopnost je zatím jen preview. Efekt je součást identity frakce, ale v alphě ještě neběží."}`
+    ? `${specialAction.description} ${specialAction.status === "implemented" ? "Schopnost je aktivní." : "Efekt je součást identity frakce, ale v této verzi ho zatím nelze spustit."}`
     : PREVIEW_BY_FACTION_ID[factionId] || PREVIEW_BY_FACTION_ID[DEFAULT_FACTION_ID];
   return {
     factionId,
     name: faction.name,
     code: specialAction?.name || "Passive foundation",
     effect,
-    cost: specialAction?.status === "implemented" ? "Dostupné" : "Bude dostupné později",
+    cost: specialAction?.status === "implemented" ? "Dostupné" : "Připravujeme",
     canRun: specialAction?.status === "implemented"
   };
 }
@@ -67,7 +67,7 @@ function renderFactionActions(grid, action = getFactionActionForPlayer()) {
         ${action.canRun ? "" : "disabled"}
         aria-disabled="${action.canRun ? "false" : "true"}"
       >
-        ${action.canRun ? "Aktivovat schopnost" : "Preview schopnosti"}
+        ${action.canRun ? "Aktivovat schopnost" : "PŘIPRAVUJEME"}
       </button>
       <p class="faction-action-launch-description">
         ${escapeHtml(action.effect)}
@@ -93,28 +93,29 @@ function initFactionActionsRuntime() {
 
   if (!modal || !grid || openButtons.length <= 0) return;
 
-  const open = () => {
+  const open = (event) => {
     const playerAction = getFactionActionForPlayer();
     renderFactionActions(grid, playerAction);
     grid.querySelector("[data-faction-action-run]")?.addEventListener("click", () => {
       if (status) {
         status.textContent = playerAction.canRun
           ? `${playerAction.code}: akce je připravená.`
-          : `${playerAction.code}: tahle schopnost je zatím jen preview. Frakce už má aktivní pasivy, speciální schopnost přijde později.`;
+          : `${playerAction.code}: speciální schopnost se připravuje. Aktivní pasivní efekty frakce fungují už nyní.`;
       }
     });
     if (status) {
-      status.textContent = `${playerAction.name}: pasivní frakční efekty jsou aktivní. Speciální schopnost je preview.`;
+      status.textContent = `${playerAction.name}: pasivní frakční efekty jsou aktivní. Speciální schopnost se připravuje.`;
     }
     modal.hidden = false;
     modal.classList.remove("hidden");
-    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
+    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: true, trigger: event?.currentTarget || null });
+    closeBtn?.focus({ preventScroll: true });
   };
 
   const close = () => {
     modal.classList.add("hidden");
     modal.hidden = true;
-    closeOverlay(modal, { restoreFocus: false });
+    closeOverlay(modal, { restoreFocus: true });
   };
 
   openButtons.forEach((button) => button.addEventListener("click", open));

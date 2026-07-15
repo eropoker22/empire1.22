@@ -20,8 +20,22 @@ export const applyCommand = (
   if (result.errors.length > 0) {
     return result;
   }
+  const nowIso = context.clock?.nowIso?.();
+  const player = result.nextState.playersById[command.playerId];
+  const stateWithPresence = player && nowIso
+    ? {
+        ...result.nextState,
+        playersById: {
+          ...result.nextState.playersById,
+          [player.id]: {
+            ...player,
+            metadata: { ...(player.metadata ?? {}), lastSeenAt: nowIso }
+          }
+        }
+      }
+    : result.nextState;
   return {
     ...result,
-    nextState: appendCityFeedEventsFromCoreEvents(result.nextState, result.events, undefined, context)
+    nextState: appendCityFeedEventsFromCoreEvents(stateWithPresence, result.events, undefined, context)
   };
 };

@@ -17,8 +17,7 @@ export const createRaidPreviewConsequences = (
   const balances = resourceState?.balances ?? {};
   const dirtyCash = sanitizeAmount(balances["dirty-cash"]);
   const dirtyPct = sanitizePercent(config.dirtyCashSeizurePercentBySeverity[severity]);
-  let remainingCap = sanitizeOptionalCap(config.maxSeizedPerRaid);
-  const baseSeizedDirtyCash = applySeizureCap(Math.floor(dirtyCash * dirtyPct), remainingCap);
+  const baseSeizedDirtyCash = Math.max(0, Math.floor(dirtyCash * dirtyPct));
   const mitigation = resolveCourthouseRaidMitigation({
     state,
     playerId,
@@ -26,22 +25,24 @@ export const createRaidPreviewConsequences = (
   });
   const consequenceMultiplier = 1 - mitigation.reductionPct / 100;
   const seizedDirtyCash = mitigateLoss(baseSeizedDirtyCash, consequenceMultiplier);
-  remainingCap = reduceCap(remainingCap, baseSeizedDirtyCash);
-  const protectedResources = new Set([...(config.protectedResources ?? []), "dirty-cash"]);
-  const resourcePct = sanitizePercent(config.resourceSeizurePercentBySeverity[severity]);
+  const protectedResources = new Set([
+    ...(config.protectedResources ?? []),
+    "dirty-cash", "cash", "clean-cash", "cleanCash", "population", "gang-members"
+  ]);
+  let remainingResourceCap = resolveResourceSeizureCap(severity, config.maxSeizedPerRaid);
   const baseSeizedResources: Record<string, number> = {};
   const seizedResources: Record<string, number> = {};
 
   for (const [resourceKey, value] of Object.entries(balances).sort(([left], [right]) => left.localeCompare(right))) {
     if (protectedResources.has(resourceKey)) continue;
-    const baseSeized = applySeizureCap(resolveResourceSeizureAmount(value, resourcePct), remainingCap);
+    const baseSeized = resolveCategoryAwareSeizure(resourceKey, value, severity, remainingResourceCap);
     if (baseSeized <= 0) continue;
     baseSeizedResources[resourceKey] = baseSeized;
     const seized = mitigateLoss(baseSeized, consequenceMultiplier);
     if (seized > 0) {
       seizedResources[resourceKey] = seized;
     }
-    remainingCap = reduceCap(remainingCap, baseSeized);
+    remainingResourceCap = reduceCap(remainingResourceCap, baseSeized);
   }
 
   const targetDistrict = targetDistrictId ? state.districtsById[targetDistrictId] ?? null : null;
@@ -115,12 +116,40 @@ const reduceCap = (cap: number | null, amount: number): number | null =>
 const mitigateLoss = (amount: number, multiplier: number): number =>
   Math.max(0, Math.floor(amount * multiplier));
 
-const resolveResourceSeizureAmount = (value: unknown, percent: number): number => {
+const BULK_RESOURCES = new Set([
+  "chemicals", "biomass", "metal-parts", "neon-dust", "baseball-bat", "barricades"
+]);
+const TACTICAL_RESOURCES = new Set([
+  "stim-pack", "pulse-shot", "velvet-smoke", "tech-core", "pistol", "grenade", "vest", "cameras", "alarm"
+]);
+const STRATEGIC_RESOURCES = new Set([
+  "combat-module", "ghost-serum", "overdrive-x", "smg", "bazooka", "defense-tower"
+]);
+
+const resolveResourceSeizureCap = (severity: PoliceRaidSeverity, configuredCap: unknown): number | null => {
+  const categoryCap = severity === "high" ? 12 : severity === "extreme" ? 20 : 0;
+  const explicitCap = sanitizeOptionalCap(configuredCap);
+  return explicitCap === null ? categoryCap : Math.min(categoryCap, explicitCap);
+};
+
+const resolveCategoryAwareSeizure = (
+  resourceKey: string,
+  value: unknown,
+  severity: PoliceRaidSeverity,
+  remainingCap: number | null
+): number => {
   const amount = sanitizeAmount(value);
-  if (amount <= 0 || percent <= 0) {
-    return 0;
+  if (amount <= 0 || remainingCap === 0 || severity === "low" || severity === "medium") return 0;
+  let seized = 0;
+  if (BULK_RESOURCES.has(resourceKey)) {
+    seized = Math.floor(amount * (severity === "high" ? 0.05 : 0.1));
+  } else if (TACTICAL_RESOURCES.has(resourceKey)) {
+    const maxPerResource = severity === "high" ? 1 : 2;
+    seized = Math.min(maxPerResource, Math.floor(amount * (severity === "high" ? 0.05 : 0.1)));
+  } else if (STRATEGIC_RESOURCES.has(resourceKey) && severity === "extreme" && amount >= 3) {
+    seized = 1;
   }
-  return Math.max(1, Math.floor(amount * percent));
+  return applySeizureCap(seized, remainingCap);
 };
 
 const mitigateDurationTicks = (ticks: number, multiplier: number): number => {

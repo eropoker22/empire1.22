@@ -4,7 +4,62 @@ import type {
   MarketResourceId
 } from "./market-types";
 
-export const marketResourceIds = ["metalParts", "techCore", "chemicals", "biomass"] as const satisfies readonly MarketResourceId[];
+export const normalMarketResourceIds = ["chemicals", "biomass", "metal-parts", "stim-pack"] as const satisfies readonly MarketResourceId[];
+export const blackMarketResourceIds = [
+  "tech-core", "combat-module", "neon-dust", "pulse-shot", "velvet-smoke",
+  "ghost-serum", "overdrive-x", "pistol", "grenade", "smg", "bazooka"
+] as const satisfies readonly MarketResourceId[];
+export const playerMarketResourceIds = [
+  "chemicals", "biomass", "metal-parts", "neon-dust", "baseball-bat", "barricades",
+  "stim-pack", "pulse-shot", "velvet-smoke", "tech-core", "pistol", "grenade", "vest",
+  "cameras", "alarm", "combat-module", "ghost-serum", "overdrive-x", "smg", "bazooka",
+  "defense-tower"
+] as const satisfies readonly MarketResourceId[];
+export const marketResourceIds = [...playerMarketResourceIds] as const satisfies readonly MarketResourceId[];
+
+export const marketReplacementCost = Object.freeze({
+  chemicals: 360,
+  biomass: 420,
+  "metal-parts": 300,
+  "neon-dust": 1220,
+  "baseball-bat": 600,
+  barricades: 1200,
+  "stim-pack": 800,
+  "pulse-shot": 1940,
+  "velvet-smoke": 2100,
+  "tech-core": 2100,
+  pistol: 3000,
+  grenade: 2700,
+  vest: 3000,
+  cameras: 4800,
+  alarm: 2700,
+  "combat-module": 7900,
+  "ghost-serum": 6880,
+  "overdrive-x": 10640,
+  smg: 8500,
+  bazooka: 16700,
+  "defense-tower": 22100
+} satisfies Record<MarketResourceId, number>);
+
+const createResourceConfig = (
+  name: string,
+  basePrice: number,
+  category: string,
+  startStock: number,
+  maxStock: number,
+  volatility = 0.8,
+  blackMarketMarkup = 1.55
+) => Object.freeze({
+  name,
+  basePrice,
+  normalMarketStartStock: startStock,
+  normalMarketMaxStock: maxStock,
+  minPriceMultiplier: 1,
+  maxPriceMultiplier: 4,
+  blackMarketMarkup,
+  volatility,
+  category
+});
 
 export const marketConfig = Object.freeze({
   id: "server_market",
@@ -27,50 +82,27 @@ export const marketConfig = Object.freeze({
     inflationHardCap: 3000000
   }),
   resources: Object.freeze({
-    metalParts: Object.freeze({
-      name: "Metal Parts",
-      basePrice: 260,
-      normalMarketStartStock: 900,
-      normalMarketMaxStock: 1400,
-      minPriceMultiplier: 0.88,
-      maxPriceMultiplier: 3.2,
-      blackMarketMarkup: 1.55,
-      volatility: 0.7,
-      category: "combat_material"
-    }),
-    techCore: Object.freeze({
-      name: "Tech Core",
-      basePrice: 700,
-      normalMarketStartStock: 260,
-      normalMarketMaxStock: 420,
-      minPriceMultiplier: 0.9,
-      maxPriceMultiplier: 4,
-      blackMarketMarkup: 1.75,
-      volatility: 1.1,
-      category: "advanced_component"
-    }),
-    chemicals: Object.freeze({
-      name: "Chemicals",
-      basePrice: 500,
-      normalMarketStartStock: 700,
-      normalMarketMaxStock: 1100,
-      minPriceMultiplier: 0.9,
-      maxPriceMultiplier: 3.2,
-      blackMarketMarkup: 1.6,
-      volatility: 0.9,
-      category: "drug_material"
-    }),
-    biomass: Object.freeze({
-      name: "Biomass",
-      basePrice: 560,
-      normalMarketStartStock: 1000,
-      normalMarketMaxStock: 1600,
-      minPriceMultiplier: 0.88,
-      maxPriceMultiplier: 2.8,
-      blackMarketMarkup: 1.5,
-      volatility: 0.6,
-      category: "drug_material"
-    })
+    chemicals: createResourceConfig("Chemicals", 450, "bulk", 700, 1100, 0.9),
+    biomass: createResourceConfig("Biomass", 530, "bulk", 1000, 1600, 0.6),
+    "metal-parts": createResourceConfig("Metal Parts", 380, "bulk", 900, 1400, 0.7),
+    "stim-pack": createResourceConfig("Stim Pack", 1000, "tactical", 220, 360),
+    "neon-dust": createResourceConfig("Neon Dust", 1900, "bulk", 0, 140),
+    "baseball-bat": createResourceConfig("Baseballová pálka", 750, "bulk", 0, 120),
+    barricades: createResourceConfig("Barikády", 1500, "bulk", 0, 100),
+    "pulse-shot": createResourceConfig("Pulse Shot", 3010, "tactical", 0, 90),
+    "velvet-smoke": createResourceConfig("Velvet Smoke", 3260, "tactical", 0, 90),
+    "tech-core": createResourceConfig("Tech Core", 3260, "tactical", 0, 80, 1.1),
+    pistol: createResourceConfig("Pistole", 4650, "tactical", 0, 70),
+    grenade: createResourceConfig("Granát", 4190, "tactical", 0, 70),
+    vest: createResourceConfig("Vesta", 4650, "tactical", 0, 70),
+    cameras: createResourceConfig("Kamery", 7440, "tactical", 0, 50),
+    alarm: createResourceConfig("Alarm", 4190, "tactical", 0, 70),
+    "combat-module": createResourceConfig("Combat Module", 12250, "strategic", 0, 24, 1.2),
+    "ghost-serum": createResourceConfig("Ghost Serum", 10670, "strategic", 0, 18, 1.2),
+    "overdrive-x": createResourceConfig("Overdrive X", 16490, "strategic", 0, 18, 1.2),
+    smg: createResourceConfig("SMG", 13180, "strategic", 0, 16, 1.15),
+    bazooka: createResourceConfig("Bazuka", 25890, "strategic", 0, 8, 1.3),
+    "defense-tower": createResourceConfig("Obranná věž", 34260, "strategic", 0, 8, 1.3)
   } satisfies Record<MarketResourceId, AnyRecord>),
   warModePriceMultipliers: Object.freeze({
     basePriceMultiplier: 3.5,
@@ -79,12 +111,10 @@ export const marketConfig = Object.freeze({
     blackMarketMarkupMultiplier: 1.15,
     stockRegenMultiplier: 4
   }),
-  baselineVolume: Object.freeze({
-    metalParts: 300,
-    techCore: 80,
-    chemicals: 220,
-    biomass: 350
-  } satisfies Record<MarketResourceId, number>),
+  baselineVolume: Object.freeze(Object.fromEntries(marketResourceIds.map((resourceId) => [
+    resourceId,
+    normalMarketResourceIds.includes(resourceId as typeof normalMarketResourceIds[number]) ? 220 : 30
+  ])) as Record<MarketResourceId, number>),
   demand: Object.freeze({
     rollingWindowFreeSeconds: 600,
     minFactor: 0.75,
@@ -108,7 +138,9 @@ export const marketConfig = Object.freeze({
   blackMarket: Object.freeze({
     dirtyCashPaymentMultiplier: 1.25,
     minRiskFactor: 1,
-    maxRiskFactor: 2.2
+    maxRiskFactor: 2.2,
+    rotationSeconds: 30 * 60,
+    offerCount: 5
   }),
   shoppingMallBonus: Object.freeze({
     buildingTypeId: "shopping_mall",
@@ -131,27 +163,25 @@ export const marketConfig = Object.freeze({
     dirtyTradeHeat: 2,
     dirtyTradePoliceSuspicion: 1
   }),
-  stockRegenPerMinute: Object.freeze({
-    metalParts: 35,
-    techCore: 8,
-    chemicals: 28,
-    biomass: 45
-  } satisfies Record<MarketResourceId, number>),
+  stockRegenPerMinute: Object.freeze(Object.fromEntries(marketResourceIds.map((resourceId) => [
+    resourceId,
+    resourceId === "chemicals" ? 28 : resourceId === "biomass" ? 45 : resourceId === "metal-parts" ? 35 : resourceId === "stim-pack" ? 6 : 0
+  ])) as Record<MarketResourceId, number>),
   marketEvents: Object.freeze({
     police_crackdown: Object.freeze({
-      affectedCategories: ["drug_material", "advanced_component"],
+      affectedCategories: ["bulk", "tactical", "strategic"],
       priceMultiplier: 1.25,
       stockRegenMultiplier: 0.7,
       durationSecondsFree: 600
     }),
     supply_drop: Object.freeze({
-      affectedCategories: ["combat_material", "drug_material"],
+      affectedCategories: ["bulk", "tactical"],
       priceMultiplier: 0.8,
       stockRegenMultiplier: 1.4,
       durationSecondsFree: 420
     }),
     gang_war: Object.freeze({
-      affectedCategories: ["combat_material", "advanced_component"],
+      affectedCategories: ["tactical", "strategic"],
       priceMultiplier: 1.35,
       stockRegenMultiplier: 0.85,
       durationSecondsFree: 480

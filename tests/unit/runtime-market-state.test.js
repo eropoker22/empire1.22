@@ -24,10 +24,10 @@ describe("market state helpers", () => {
     const state = createDefaultMarketPriceState("free-01", 1_700_000_000_000);
 
     expect(state.serverId).toBe("free-01");
-    expect(state.items[getMarketStockKey("market", "chemicals")].price).toBe(500);
-    expect(state.items[getMarketStockKey("market", "stim-pack")].price).toBe(1500);
-    expect(state.items[getMarketStockKey("black-market", "neon-dust")].price).toBe(760);
-    expect(state.items[getMarketStockKey("black-market", "bazooka")].price).toBe(11000);
+    expect(state.items[getMarketStockKey("market", "chemicals")].price).toBe(450);
+    expect(state.items[getMarketStockKey("market", "stim-pack")].price).toBe(1000);
+    expect(state.items[getMarketStockKey("black-market", "neon-dust")].price).toBe(1900);
+    expect(state.items[getMarketStockKey("black-market", "bazooka")].price).toBe(25890);
     expect(state.stock[getMarketStockKey("market", "chemicals")]).toBe(700);
     expect(state.playerListings.length).toBeGreaterThan(0);
     expect(state.playerListings[0].id).toContain("demo-player-market:free-01:");

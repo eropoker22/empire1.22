@@ -2,7 +2,7 @@ const PAGE_SELECTOR = 'main[data-page="game"]';
 const STORAGE_KEY = "empire:game:last-open-window:v1";
 const RESTORE_MAX_AGE_MS = 10 * 60 * 1000;
 const RESTORE_DELAY_MS = 140;
-const RESTORE_WINDOWS_ON_REFRESH = false;
+const RESTORE_WINDOWS_ON_REFRESH = true;
 
 export const GAME_WINDOW_RESTORE_DEFINITIONS = Object.freeze([
   {
@@ -39,8 +39,7 @@ export const GAME_WINDOW_RESTORE_DEFINITIONS = Object.freeze([
     id: "buildings",
     openSelector: "[data-buildings-popup-open]",
     closeSelector: "[data-buildings-popup-close], [data-nav-logout]",
-    windowSelector: "[data-buildings-popup]",
-    restoreOnRefresh: false
+    windowSelector: "[data-buildings-popup]"
   },
   {
     id: "market",
@@ -194,7 +193,7 @@ function readOpenBuildingDetail(scope) {
     return null;
   }
 
-  const buildingName = shell.querySelector?.("[data-district-building-detail-title]")?.textContent?.trim()
+  const buildingName = String(shell.dataset?.districtBuildingDetailDisplayName || shell.dataset?.districtBuildingDetailName || "").trim()
     || shell.querySelector?.("[data-district-building-detail-name]")?.textContent?.trim()
     || "";
   return buildingName ? { buildingName, displayName: buildingName } : null;

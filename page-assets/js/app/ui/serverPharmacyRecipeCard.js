@@ -101,7 +101,9 @@ export function renderServerPharmacyRecipeCard(viewModel = {}, callbacks = {}, o
   cancel.type = "button";
   cancel.textContent = "Zrušit";
   cancel.disabled = line.canCancelWaiting !== true;
-  cancel.title = "Zrušit čekající kusy a vrátit clean cash";
+  cancel.title = cancel.disabled
+    ? "Není co zrušit: aktivní kus nelze zrušit."
+    : "Zrušit čekající kusy a vrátit clean cash.";
   cancel.addEventListener("click", () => callbacks.onStop?.(viewModel));
   actions.append(quantity, start, cancel);
   card.append(head, metrics, actions);

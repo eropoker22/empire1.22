@@ -22,9 +22,9 @@ export const createWorldDistricts = (rng: SeededRng): FreeBrDistrict[] => {
   const downtownBuildings = ["stock_exchange", "central_bank", "airport", "city_hall", "courthouse", "vip_lounge", "port", "parliament"];
   const commonByZone: Record<Exclude<FreeBrDistrictZone, "downtown">, string[]> = {
     residential: ["apartment_block", "school", "clinic", "recruitment_center"],
-    commercial: ["restaurant", "exchange", "arcade", "shopping_mall", "convenience_store"],
-    industrial: ["factory", "warehouse", "garage", "car_dealer", "power_station", "recycling_center"],
-    park: ["street_dealers", "smuggling_tunnel", "strip_club", "casino"]
+    commercial: ["restaurant", "exchange", "arcade", "shopping_mall", "convenience_store", "pharmacy"],
+    industrial: ["factory", "armory", "warehouse", "garage", "car_dealer", "power_station", "recycling_center"],
+    park: ["street_dealers", "drug_lab", "smuggling_tunnel", "strip_club", "casino"]
   };
   let downtownIndex = 0;
   return kept.map((coord, index) => {

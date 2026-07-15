@@ -74,7 +74,7 @@ export const createGameplaySliceProjection = (
     onboarding: createOnboardingReadModel(runtime.state, playerId, { config: runtime.config, clock: runtime.clock }),
     police,
     allianceBoard: createAllianceBoardReadModel(runtime.state, playerId, { config: runtime.config, clock: runtime.clock }),
-    market: getMarketViewModel(runtime.state, runtime.state.playersById[playerId] ?? {}),
+    market: getMarketViewModel(runtime.state, runtime.state.playersById[playerId] ?? {}, runtime.clock.now().getTime()),
     bounty: createBountyReadModel(runtime.state, playerId, {
       nowTick: runtime.state.root.tick,
       tickRateMs: runtime.config.tickRateMs

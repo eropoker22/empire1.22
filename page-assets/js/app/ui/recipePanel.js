@@ -364,6 +364,9 @@ function renderQuantityControl(viewModel = {}, callbacks = {}, options = {}) {
     plusButton.disabled = !canQueueMore || selectedBatches >= selectionLimit;
     if (startButton) {
       startButton.disabled = (!canTryStartWithoutInputs && viewModel.canStart === false) || !canQueueMore;
+      startButton.title = startButton.disabled
+        ? (viewModel.disabledReason || "Chybí vstupy, místo ve frontě nebo volná lokální kapacita.")
+        : "Spustit výrobu.";
     }
     setMetricValue(timeMetric, formatRecipeSlotTime(job, effectiveDurationMs, selectedBatches, options));
     setMetricValue(queueMetric, formatQueuedOutput(job, recipe, { useQuantityAsOutput, outputCap: viewModel.outputCap, queueCap: viewModel.queueCap }));
@@ -573,6 +576,9 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
   startButton.textContent = "Spustit";
   startButton.disabled = (Boolean(job) && job.status !== "running" && job.status !== "ready")
     || (viewModel.canStart === false && !viewModel.allowStartWithMissingInputs);
+  startButton.title = startButton.disabled
+    ? (viewModel.disabledReason || "Chybí vstupy, místo ve frontě nebo volná lokální kapacita.")
+    : "Spustit výrobu.";
   startButton.addEventListener("click", () => {
     if (typeof callbacks.onStart === "function") {
       callbacks.onStart({ ...viewModel, batchCount: Math.max(1, getStartBatchCount()) });
@@ -589,7 +595,9 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
       ? 0
       : Math.max(0, Math.floor(Number(job?.queuedAmount ?? job?.quantity ?? 0)) - activeAmount);
     collectButton.disabled = waitingAmount <= 0;
-    collectButton.title = "Zrušit čekající kusy a vrátit jejich náklady";
+    collectButton.title = collectButton.disabled
+      ? "Není co zrušit: aktivní kus nelze zrušit."
+      : "Zrušit čekající kusy a vrátit jejich náklady.";
     collectButton.setAttribute("aria-label", `Zrušit čekající výrobu ${recipe.name || ""}`);
     collectButton.addEventListener("click", () => {
       if (typeof callbacks.onStop === "function") callbacks.onStop(viewModel);

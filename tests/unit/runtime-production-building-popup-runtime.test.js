@@ -875,6 +875,62 @@ describe("production building popup runtime", () => {
     }));
   });
 
+  it("keeps the production remainder in a building when the local storage is full", () => {
+    const recipeCallbacks = {};
+    const applyInventoryOutput = vi.fn();
+    const clearProductionJob = vi.fn();
+    const persistProductionJob = vi.fn();
+    const runtime = createProductionBuildingPopupRuntime({
+      applyInventoryOutput,
+      clearProductionJob,
+      getInventoryAmount: () => 0,
+      getInventoryCapacity: () => 60,
+      getProductionBuildingMultiplier: () => 1,
+      getProductionJob: () => ({
+        status: "ready",
+        quantity: 2,
+        queuedAmount: 0,
+        producedAmount: 2,
+        localOutputCap: 12,
+        output: { inventory: "materials", itemId: "chemicals", amount: 2 },
+        durationMs: 2000
+      }),
+      getReceivableInventoryOutputAmount: () => 1,
+      getResolvedEconomyState: () => ({ cleanMoney: 1000 }),
+      getStoredProductionBuildingState: () => ({ level: 1 }),
+      hasEnoughMaterials: () => true,
+      persistProductionJob,
+      renderProductionPanelUi: vi.fn(() => true),
+      renderRecipeCard: vi.fn((viewModel, callbacks) => {
+        Object.assign(recipeCallbacks, callbacks);
+        return { viewModel };
+      }),
+      scheduleProductionJob: vi.fn(),
+      syncCompletedProductionJobs: vi.fn()
+    });
+
+    const root = createRoot({ '[data-production-panel="pharmacy"]': {} });
+    runtime.renderProductionPanel(root, "pharmacy", {
+      chemicals: {
+        cleanMoneyCost: 360,
+        durationMs: 2000,
+        inputs: {},
+        localOutputCap: 12,
+        queueCap: 8,
+        output: { inventory: "materials", itemId: "chemicals", amount: 1 }
+      }
+    });
+
+    recipeCallbacks.onCollect();
+
+    expect(applyInventoryOutput).toHaveBeenCalledWith({ inventory: "materials", itemId: "chemicals", amount: 1 });
+    expect(persistProductionJob).toHaveBeenCalledWith("pharmacy:chemicals", expect.objectContaining({
+      producedAmount: 1,
+      output: expect.objectContaining({ amount: 1 })
+    }));
+    expect(clearProductionJob).not.toHaveBeenCalled();
+  });
+
   it("submits a selected Drug Lab batch through the server command", async () => {
     const recipeCallbacks = {};
     const submitServerDrugLabCommand = vi.fn(async () => ({ errors: [] }));

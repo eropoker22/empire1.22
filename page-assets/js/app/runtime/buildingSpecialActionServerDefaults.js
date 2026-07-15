@@ -1,12 +1,12 @@
 import { formatDistrictBuildingMoney } from "./formatters.js";
+import { STREET_DEALERS_CONFIG } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
 
 const DEFAULT_CATEGORY = "materials";
 const DEFAULT_PRESSURE_MODE = "pump";
 const DEFAULT_DECREE_MODE = "suspended_checks";
 const DEFAULT_SPECULATIVE_INVESTMENT_CLEAN_CASH = 1000;
-const DEFAULT_DEALER_SLOT_ID = "slot-1";
-const DEFAULT_DEALER_ITEM_ID = "neon-dust";
-const DEFAULT_DEALER_AMOUNT = 1;
+const DEFAULT_DEALER_SLOT = STREET_DEALERS_CONFIG.dealerSlots[0] || null;
+const DEFAULT_DEALER_DRUG = STREET_DEALERS_CONFIG.sellableDrugs.find((drug) => drug.itemId === DEFAULT_DEALER_SLOT?.itemId) || null;
 
 export function createServerBuildingActionDefaultPayload(actionId = "", actionProfile = {}) {
   const payload = {};
@@ -34,10 +34,10 @@ export function createServerBuildingActionDefaultPayload(actionId = "", actionPr
       payload.mode = DEFAULT_DECREE_MODE;
       break;
     case "start_drug_sale":
-      payload.dealerSlotId = DEFAULT_DEALER_SLOT_ID;
-      payload.slotId = DEFAULT_DEALER_SLOT_ID;
-      payload.itemId = DEFAULT_DEALER_ITEM_ID;
-      payload.amount = DEFAULT_DEALER_AMOUNT;
+      payload.dealerSlotId = DEFAULT_DEALER_SLOT?.slotId || "";
+      payload.slotId = DEFAULT_DEALER_SLOT?.slotId || "";
+      payload.itemId = DEFAULT_DEALER_DRUG?.itemId || "";
+      payload.amount = Number(DEFAULT_DEALER_DRUG?.minimumAmountPerSale || 1);
       break;
     default:
       break;
@@ -58,9 +58,6 @@ export function formatServerBuildingActionDefaultInputSummary(actionId = "", act
   }
   if (Number(payload.investmentCleanCash || 0) > 0) {
     parts.push(`Investice: ${formatDistrictBuildingMoney(payload.investmentCleanCash)} clean cash`);
-  }
-  if (payload.dealerSlotId) {
-    parts.push(`Slot: ${payload.dealerSlotId}`);
   }
   if (payload.itemId) {
     parts.push(`Produkt: ${payload.itemId}`);

@@ -380,11 +380,11 @@ export function createMarketDashboardViewModel({
   return {
     chips: [
       { label: mood.label, value: mood.value, tone: mood.tone },
-      { label: "Clean", value: formatPrice(economy.cleanMoney), tone: "clean" },
-      { label: "Dirty", value: formatPrice(economy.dirtyMoney), tone: "dirty" },
+      { label: "Čisté", value: formatPrice(economy.cleanMoney), tone: "clean" },
+      { label: "Špinavé", value: formatPrice(economy.dirtyMoney), tone: "dirty" },
       { label: "Heat", value: String(gangState.heat || 0), tone: isDangerMode ? "danger" : "neutral" },
-      { label: "Refresh", value: `${Math.max(0, Math.floor(Number(refreshCountdownSeconds) || 0))} s`, tone: "timer" },
-      { label: "Stock", value: stockSummary, tone: isDangerMode ? "danger" : "stock" }
+      { label: "Obnova", value: `${Math.max(0, Math.floor(Number(refreshCountdownSeconds) || 0))} s`, tone: "timer" },
+      { label: "Zásoba", value: stockSummary, tone: isDangerMode ? "danger" : "stock" }
     ],
     recentTransactions: safeRecentTransactions.slice(0, 1),
     allRecentTransactions: safeRecentTransactions
@@ -394,14 +394,14 @@ export function createMarketDashboardViewModel({
 export function createMarketCopy(activeTab = "market", tabConfig = {}) {
   const copy = String(tabConfig.copy || "");
   if (activeTab === "player-market") {
-    return `${copy} Burza je zatím alpha preview: nabídku můžeš stáhnout a dirty platby zvyšují heat.`;
+    return `${copy} Nabídku můžeš bezpečně stáhnout; dirty platby zvyšují Heat.`;
   }
 
   if (activeTab === "black-market") {
-    return `${copy} Kontakt drží zboží pod pultem, každý nákup zvedá heat a výkup je tvrdě pod cenou.`;
+    return `${copy} Nabídka je omezená a nákup zvyšuje Heat; zaplatit lze dirty nebo dražší clean cash.`;
   }
 
-  return `${copy} Bezpečný kanál má omezený stock: nákup ho snižuje, prodej ho vrací do trhu a ceny platí jen pro tento server.`;
+  return `${copy} Nákup snižuje zásobu trhu, prodej ji vrací a ceny se průběžně obnovují.`;
 }
 
 export function createMarketItemViewModels({

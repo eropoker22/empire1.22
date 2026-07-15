@@ -390,10 +390,12 @@ describe("page onboarding smoke", () => {
     expect(runtimeSource).toContain("createProductionBuildingPopupRuntime");
     expect(runtimeSource).toContain("function scheduleStoredProductionJobs");
     expect(runtimeSource).toContain("function initializeDistrictBuildingDetailProductionBaseline");
-    expect(runtimeSource).toContain("storedDirtyCash: Math.max(0, Number(entry.storedDirtyCash || 0))");
+    expect(runtimeSource).not.toContain("storedDirtyCash: Math.max(0, Number(entry.storedDirtyCash || 0))");
     expect(runtimeSource).toContain("populationLastUpdatedAt: Number.isFinite(Number(entry.populationLastUpdatedAt))");
     expect(runtimeSource).toContain("schoolLastUpdatedAt: Number.isFinite(Number(entry.schoolLastUpdatedAt))");
-    expect(runtimeSource).toContain("smugglingLastUpdatedAt: Number.isFinite(Number(entry.smugglingLastUpdatedAt))");
+    expect(runtimeSource).not.toContain("smugglingLastUpdatedAt");
+    expect(runtimeSource).not.toContain("silentChannelExpiresAt");
+    expect(runtimeSource).not.toContain("smugglingBatchCapacity");
     expect(buildingDetailUiSource).toContain("collectButton.hidden = !showManualCollect");
     expect(buildingDetailUiSource).toContain('collectButton.style.display = showManualCollect ? "" : "none";');
     expect(readFileSync(resolve(root, "page-assets/css/styles-building-modals.css"), "utf8")).toContain(".building-detail-title__action-btn[hidden]");

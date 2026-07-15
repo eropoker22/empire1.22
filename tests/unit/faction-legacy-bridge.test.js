@@ -34,7 +34,7 @@ describe("legacy faction compatibility bridge", () => {
     expect(previewSource).not.toContain("není core-backed");
     expect(previewSource).toContain("Funguje teď");
     expect(previewSource).toContain("Připravuje se");
-    expect(previewSource).toContain("Preview schopnosti");
+    expect(previewSource).toContain("PŘIPRAVUJEME");
   });
 
   it("keeps legacy preview catalog synchronized with authoritative public definitions", () => {
@@ -122,8 +122,7 @@ describe("legacy faction compatibility bridge", () => {
       code: "Noční zásilka",
       canRun: false
     });
-    expect(action.effect).toContain("zatím jen preview");
-    expect(action.effect).toContain("alphě ještě neběží");
+    expect(action.effect).toContain("v této verzi ho zatím nelze spustit");
     expect(action.effect).not.toContain("startovní");
   });
 
@@ -258,16 +257,16 @@ describe("legacy faction compatibility bridge", () => {
     });
   });
 
-  it("renders faction action launch button as preview-only", () => {
+  it("renders the planned faction action as unavailable without misleading preview copy", () => {
     const source = readFileSync("page-assets/js/app/faction-actions-runtime.js", "utf8");
     const action = getFactionActionForPlayer({
       getItem: () => JSON.stringify({ registration: { factionId: "kartel" } })
     });
 
-    expect(action.effect).toContain("zatím jen preview");
+    expect(action.effect).toContain("v této verzi ho zatím nelze spustit");
     expect(action.canRun).toBe(false);
-    expect(source).toContain("Preview schopnosti");
-    expect(source).toContain("preview");
+    expect(source).toContain("PŘIPRAVUJEME");
+    expect(source).not.toContain("Preview schopnosti");
     expect(source).not.toContain("spuštěno");
     expect(source).not.toContain("25 % více");
   });

@@ -42,6 +42,9 @@ export interface PolicePendingRaidView extends Omit<PendingRaid, "targetDistrict
   triggerTick: number;
   expiresAtTick: number | null;
   targetDistrictId: DistrictId | null;
+  remainingTicks: number;
+  remainingMs: number;
+  expiresAtMs: number | null;
 }
 
 export interface PoliceRaidInfoView {

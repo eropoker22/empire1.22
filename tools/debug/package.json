@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./closed-alpha-20p-simulation": "./src/closed-alpha-20p-simulation/index.ts",
-    "./free-br-simulation": "./src/free-br-simulation/index.ts"
+    "./free-br-simulation": "./src/free-br-simulation/index.ts",
+    "./production-chain-simulation": "./src/production-chain-simulation/index.ts"
   },
   "scripts": {
     "check": "node ../../scripts/run-local-bin.mjs typescript/bin/tsc -p ../../tsconfig.test.json --noEmit"

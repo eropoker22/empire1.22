@@ -212,7 +212,8 @@ export const resolveBuildingActionSpecificResolution = (
         balances: nextBalances,
         config: context.config.balance.streetDealers,
         smugglingTunnelConfig: context.config.balance.smugglingTunnel,
-        tickRateMs: context.config.tickRateMs
+        tickRateMs: context.config.tickRateMs,
+        context
       })
     : null;
   const specialResolution = casinoResolution ?? exchangeOfficeResolution ?? arcadeResolution ?? apartmentBlockResolution ?? clinicResolution ?? recyclingCenterResolution ?? stripClubResolution ?? powerStationResolution ?? smugglingTunnelResolution ?? stockExchangeResolution ?? airportResolution ?? cityHallResolution ?? centralBankResolution ?? schoolResolution ?? lobbyClubResolution ?? streetDealersResolution;

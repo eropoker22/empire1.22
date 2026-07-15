@@ -94,7 +94,7 @@ export const buildReport = (state: FreeBrSimulationState): FreeBrSimulationRepor
       "Mapa je server-side simulační grid 13x13 minus 8 okrajových polí, ne reálná browser canvas geometrie.",
       "Bot akce používají canonical cooldowny/config hodnoty, ale neprocházejí celý command handler pipeline.",
       "Police/heat raid model používá Free police thresholds a seizure procenta, ale pending raid UX stavy jsou agregované.",
-      "Craft a building actions používají canonical config cooldown/output, ale výroba se pro audit zapíše okamžitě jako completion approximation.",
+      "Výrobní akce čtou typed Pharmacy/Lab/Factory/Armory recepty, ale Free BR pacing audit zapisuje jednotkový výstup okamžitě; samostatná production-chain simulace prochází skutečný command/tick/collect pipeline.",
       "Aliance jsou simulační sociální vrstva nad core configem; core alliance command handler zatím není použit jako autoritativní API."
     ],
     players,

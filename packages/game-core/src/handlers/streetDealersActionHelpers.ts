@@ -32,6 +32,14 @@ export const resolveDrugConfigOrNull = (
   return drug ?? null;
 };
 
+export const resolveStreetDealerSlotDrug = (
+  slotId: string,
+  config: StreetDealersBalanceConfig
+): StreetDealerDrugSaleConfig | null => {
+  const slot = config.dealerSlots.find((candidate) => candidate.slotId === slotId);
+  return slot ? resolveDrugConfigOrNull(slot.itemId, config) : null;
+};
+
 export const isValidSlotId = (slotId: string, slotCount: number): boolean => {
   const match = /^slot-(\d+)$/.exec(slotId);
   if (!match) return false;
@@ -66,4 +74,3 @@ export const upsertSlot = (
 
 export const minutesToTicks = (minutes: number, tickRateMs: number): number =>
   Math.max(1, Math.ceil(Math.max(0, minutes) * 60000 / Math.max(1, tickRateMs)));
-

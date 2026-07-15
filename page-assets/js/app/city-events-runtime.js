@@ -1,12 +1,16 @@
-import { updateStoredPreviewSession } from "./model/authority-state.js";
-import { appendBuildingActionResultEntry, applyTopbarEconomy, renderSpyResourceState } from "./runtime.js";
-import { leonSwitchVargaEvents, nyraValeEvents, victorGraveEvents } from "../data/events.js";
+import { getStoredPreviewSession, updateStoredPreviewSession } from "./model/authority-state.js";
+import { CITY_EVENT_CONFIG } from "../../../packages/game-config/src/legacy-page/gameplay-config.generated.js";
+import {
+  addGangHeat,
+  appendBuildingActionResultEntry,
+  applyInventoryOutput,
+  applyTopbarEconomy,
+  renderSpyResourceState
+} from "./runtime.js";
 import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
+import { bindSharedCountdown } from "./ui/sharedCountdownTicker.js";
 import { GAMEPLAY_EXECUTION_MODES, getGameplayExecutionMode } from "./runtime/gameplayExecutionMode.js";
 
-const CITY_EVENTS_STORAGE_KEY = "empire:demo:city-events:v1";
-const CHARACTER_EVENTS_REFRESH_SECONDS = 30;
-const CHARACTER_EVENTS_COUNTDOWN_SYNC_MS = 250;
 const MAX_VISIBLE_EVENTS_PER_CHARACTER = 3;
 
 const CITY_EVENT_REWARD_ALIASES = Object.freeze({
@@ -29,21 +33,52 @@ const rewardLabels = Object.freeze({
   influence: "influence",
   "metal-parts": "Metal Parts",
   chemicals: "Chemicals",
+  biomass: "Biomass",
+  "stim-pack": "Stim Pack",
   "tech-core": "Tech Core",
+  "combat-module": "Combat Module",
+  "baseball-bat": "Baseballová pálka",
+  barricades: "Barikády",
   pistol: "Pistole",
   "neon-dust": "Neon Dust",
+  "pulse-shot": "Pulse Shot",
   "overdrive-x": "Overdrive X (komponenta)",
   "velvet-smoke": "Velvet Smoke",
   "ghost-serum": "Ghost Serum (komponenta)",
   smg: "SMG",
-  ammo: "ammo",
-  grenade: "grenade",
-  spyGear: "spy gear",
-  intel: "intel",
+  ammo: "munice",
+  grenade: "Granát",
+  spyGear: "špionážní vybavení",
+  intel: "informace",
   vest: "Vesta",
-  bazooka: "bazooka",
+  bazooka: "Bazuka",
   cameras: "Kamery",
-  alarm: "alarm module"
+  alarm: "Alarm",
+  "defense-tower": "Obranná věž"
+});
+
+const CITY_EVENT_STORAGE_REWARD_TARGETS = Object.freeze({
+  "metal-parts": Object.freeze({ inventory: "materials", itemId: "metal-parts" }),
+  biomass: Object.freeze({ inventory: "materials", itemId: "biomass" }),
+  "stim-pack": Object.freeze({ inventory: "materials", itemId: "stim-pack" }),
+  "tech-core": Object.freeze({ inventory: "materials", itemId: "tech-core" }),
+  "combat-module": Object.freeze({ inventory: "materials", itemId: "combat-module" }),
+  chemicals: Object.freeze({ inventory: "materials", itemId: "chemicals" }),
+  "baseball-bat": Object.freeze({ inventory: "weapons", itemId: "baseball-bat" }),
+  barricades: Object.freeze({ inventory: "weapons", itemId: "barricades" }),
+  pistol: Object.freeze({ inventory: "weapons", itemId: "pistol" }),
+  grenade: Object.freeze({ inventory: "weapons", itemId: "grenade" }),
+  smg: Object.freeze({ inventory: "weapons", itemId: "smg" }),
+  bazooka: Object.freeze({ inventory: "weapons", itemId: "bazooka" }),
+  vest: Object.freeze({ inventory: "weapons", itemId: "vest" }),
+  cameras: Object.freeze({ inventory: "weapons", itemId: "cameras" }),
+  alarm: Object.freeze({ inventory: "weapons", itemId: "alarm" }),
+  "defense-tower": Object.freeze({ inventory: "weapons", itemId: "defense-tower" }),
+  "neon-dust": Object.freeze({ inventory: "drugs", itemId: "neon-dust" }),
+  "pulse-shot": Object.freeze({ inventory: "drugs", itemId: "pulse-shot" }),
+  "velvet-smoke": Object.freeze({ inventory: "drugs", itemId: "velvet-smoke" }),
+  "ghost-serum": Object.freeze({ inventory: "drugs", itemId: "ghost-serum" }),
+  "overdrive-x": Object.freeze({ inventory: "drugs", itemId: "overdrive-x" })
 });
 
 function normalizeCityEventRewards(reward = {}) {
@@ -79,32 +114,40 @@ function mapCityEventsToTasks(eventPool, agentKey) {
     const rewardEntries = Object.entries(reward)
       .map(([key, value]) => formatRewardEntry(key, value))
       .filter(Boolean);
-    const heatRisk = Math.max(0, Math.floor(Number(event?.risk?.heat || 0)));
+    const successHeat = Math.max(0, Math.floor(Number(event?.risk?.successHeat || 0)));
+    const failureHeat = Math.max(successHeat, Math.floor(Number(event?.risk?.failureHeat || 0)));
+    const failureDirtyCashLoss = Math.max(0, Math.floor(Number(event?.risk?.failureDirtyCashLoss || 0)));
     return {
       id: event.id,
       agentKey,
-      giver: String(event.giver || "").trim(),
+      giver: String(CITY_EVENT_CONFIG.agents?.[agentKey === "nira" ? "nyra" : agentKey]?.name || "").trim(),
       title: event.title,
-      desc: event.text,
+      desc: event.description,
       reward,
       gains: rewardEntries,
-      risk: heatRisk > 0 ? `Heat +${heatRisk}` : "",
+      risk: `Úspěch Heat +${successHeat} · Selhání Heat +${failureHeat}${failureDirtyCashLoss > 0 ? ` · ztráta až ${failureDirtyCashLoss.toLocaleString("cs-CZ")} dirty cash` : ""}`,
+      successHeat,
+      failureHeat,
+      failureDirtyCashLoss,
       successRate: Math.max(0, Math.min(100, Math.floor(Number(event.successRate || 0)))),
-      durationSec: Math.max(1, Math.floor(Number(event.durationMin || 1)))
+      durationMinutes: Math.max(1, Math.floor(Number(event.durationMinutes || 1))),
+      durationSec: Math.max(60, Math.floor(Number(event.durationMinutes || 1) * 60)),
+      difficulty: String(event.difficulty || "medium")
     };
   });
 }
 
-function resolveEventDifficultyMeta(successRate) {
-  const value = Math.max(0, Math.min(100, Math.floor(Number(successRate || 0))));
-  if (value >= 86) return { key: "easy", label: "Easy" };
-  if (value >= 73) return { key: "medium", label: "Medium" };
-  return { key: "hard", label: "Hard" };
+function resolveEventDifficultyMeta(difficulty) {
+  const key = ["easy", "medium", "hard", "rare"].includes(String(difficulty))
+    ? String(difficulty)
+    : "medium";
+  return { key, label: key === "rare" ? "Rare" : `${key.charAt(0).toUpperCase()}${key.slice(1)}` };
 }
 
-const victorTasks = mapCityEventsToTasks(victorGraveEvents, "victor");
-const leonTasks = mapCityEventsToTasks(leonSwitchVargaEvents, "leon");
-const nyraTasks = mapCityEventsToTasks(nyraValeEvents, "nira");
+const canonicalDefinitions = Array.isArray(CITY_EVENT_CONFIG.definitions) ? CITY_EVENT_CONFIG.definitions : [];
+const victorTasks = mapCityEventsToTasks(canonicalDefinitions.filter((event) => event.agentId === "victor"), "victor");
+const leonTasks = mapCityEventsToTasks(canonicalDefinitions.filter((event) => event.agentId === "leon"), "leon");
+const nyraTasks = mapCityEventsToTasks(canonicalDefinitions.filter((event) => event.agentId === "nyra"), "nira");
 
 const AGENTS = Object.freeze({
   victor: Object.freeze({
@@ -140,13 +183,10 @@ const taskLookup = new Map();
 
 function createDefaultCityEventsState() {
   return {
-    poolIndexes: {
-      victor: 0,
-      leon: 0,
-      nira: 0
-    },
-    nextRefreshAt: Date.now() + (CHARACTER_EVENTS_REFRESH_SECONDS * 1000),
+    version: 2,
     activeRuns: [],
+    attemptedOfferIds: [],
+    pendingRewards: {},
     eventResources: {
       ammo: 0,
       spyGear: 0,
@@ -160,12 +200,9 @@ function normalizeCityEventsState(state) {
   return {
     ...base,
     ...(state || {}),
-    poolIndexes: {
-      ...base.poolIndexes,
-      ...(state?.poolIndexes || {})
-    },
-    nextRefreshAt: Number(state?.nextRefreshAt || base.nextRefreshAt),
     activeRuns: Array.isArray(state?.activeRuns) ? state.activeRuns : [],
+    attemptedOfferIds: Array.isArray(state?.attemptedOfferIds) ? [...new Set(state.attemptedOfferIds.map(String))] : [],
+    pendingRewards: normalizeCityEventRewards(state?.pendingRewards || {}),
     eventResources: {
       ...base.eventResources,
       ...(state?.eventResources || {})
@@ -174,38 +211,14 @@ function normalizeCityEventsState(state) {
 }
 
 function getStoredCityEventsState() {
-  try {
-    const rawValue = window.localStorage.getItem(CITY_EVENTS_STORAGE_KEY);
-    if (!rawValue) {
-      const defaultState = createDefaultCityEventsState();
-      window.localStorage.setItem(CITY_EVENTS_STORAGE_KEY, JSON.stringify(defaultState));
-      return defaultState;
-    }
-
-    const parsedState = JSON.parse(rawValue);
-    const normalizedState = normalizeCityEventsState(parsedState);
-    const storedRefreshAt = Number(parsedState?.nextRefreshAt || 0);
-    if (!Number.isFinite(storedRefreshAt) || storedRefreshAt <= 0) {
-      window.localStorage.setItem(CITY_EVENTS_STORAGE_KEY, JSON.stringify(normalizedState));
-    }
-    return normalizedState;
-  } catch {
-    const defaultState = createDefaultCityEventsState();
-    try {
-      window.localStorage.setItem(CITY_EVENTS_STORAGE_KEY, JSON.stringify(defaultState));
-    } catch {
-      // Local UX only.
-    }
-    return defaultState;
-  }
+  return normalizeCityEventsState(getStoredPreviewSession()?.cityEvents);
 }
 
 function setStoredCityEventsState(state) {
-  try {
-    window.localStorage.setItem(CITY_EVENTS_STORAGE_KEY, JSON.stringify(normalizeCityEventsState(state)));
-  } catch {
-    // Local UX only.
-  }
+  updateStoredPreviewSession((session) => ({
+    ...session,
+    cityEvents: normalizeCityEventsState(state)
+  }));
 }
 
 function updateStoredCityEventsState(updater) {
@@ -242,6 +255,56 @@ function getActiveCityEventRun(nowMs = Date.now()) {
   };
 }
 
+function hashCityEventSeed(value) {
+  let result = 2166136261;
+  const text = String(value || "");
+  for (let index = 0; index < text.length; index += 1) {
+    result ^= text.charCodeAt(index);
+    result = Math.imul(result, 16777619);
+  }
+  return result >>> 0;
+}
+
+function resolveLocalScheduleWindow(agentKey) {
+  const canonicalAgentKey = agentKey === "nira" ? "nyra" : agentKey;
+  const schedule = CITY_EVENT_CONFIG.agents?.[canonicalAgentKey];
+  const phase = getStoredPreviewSession()?.world?.phaseState || {};
+  const cityMinutes = ((Math.floor(Number(phase.cityMinutes || 0)) % (24 * 60)) + (24 * 60)) % (24 * 60);
+  const cityDayIndex = Math.max(0, Math.floor(Number(phase.cityDayIndex || 0)));
+  if (!schedule) return { available: false, windowId: `${canonicalAgentKey}:unavailable`, boundaryHour: 0, nextBoundaryLabel: "-", cityDayIndex };
+  const refreshTimes = Array.isArray(schedule.refreshTimes) ? schedule.refreshTimes : [];
+  const boundaries = refreshTimes.map((time) => {
+    const targetMinute = Number(time.hour || 0) * 60 + Number(time.minute || 0);
+    const distance = (cityMinutes - targetMinute + (24 * 60)) % (24 * 60);
+    return { ...time, targetMinute, distance };
+  }).sort((left, right) => left.distance - right.distance);
+  const current = boundaries[0] || { hour: 0, minute: 0, targetMinute: 0, distance: 0 };
+  const cityDayStartMinute = 6 * 60;
+  const shiftedCityMinute = (cityMinutes - cityDayStartMinute + (24 * 60)) % (24 * 60);
+  const shiftedBoundaryMinute = (current.targetMinute - cityDayStartMinute + (24 * 60)) % (24 * 60);
+  const boundaryDayIndex = Math.max(0, cityDayIndex - (shiftedBoundaryMinute > shiftedCityMinute ? 1 : 0));
+  const availability = schedule.availability;
+  let available = true;
+  if (availability) {
+    const opens = availability.opensAt.hour * 60 + availability.opensAt.minute;
+    const closes = availability.closesAt.hour * 60 + availability.closesAt.minute;
+    available = opens < closes
+      ? cityMinutes >= opens && cityMinutes < closes
+      : cityMinutes >= opens || cityMinutes < closes;
+  }
+  const next = refreshTimes.map((time) => {
+    const target = time.hour * 60 + time.minute;
+    return { ...time, distance: (target - cityMinutes + (24 * 60)) % (24 * 60) || (24 * 60) };
+  }).sort((left, right) => left.distance - right.distance)[0];
+  return {
+    available,
+    boundaryHour: current.hour,
+    cityDayIndex: boundaryDayIndex,
+    windowId: `${canonicalAgentKey}:day-${boundaryDayIndex}:${String(current.hour).padStart(2, "0")}${String(current.minute).padStart(2, "0")}`,
+    nextBoundaryLabel: next ? `${String(next.hour).padStart(2, "0")}:${String(next.minute).padStart(2, "0")}` : "-"
+  };
+}
+
 function resolveVisibleCharacterTasks(poolKey, tasks) {
   const safeTasks = Array.isArray(tasks) ? tasks : [];
   if (!safeTasks.length) return [];
@@ -249,50 +312,43 @@ function resolveVisibleCharacterTasks(poolKey, tasks) {
   const activePinned = safeTasks
     .filter((task) => getCityEventRunState(task?.id).active)
     .slice(0, MAX_VISIBLE_EVENTS_PER_CHARACTER);
+  const schedule = resolveLocalScheduleWindow(poolKey);
+  if (!schedule.available) return activePinned;
   const remainingSlots = Math.max(0, MAX_VISIBLE_EVENTS_PER_CHARACTER - activePinned.length);
   if (remainingSlots <= 0) return activePinned;
 
-  const rotatingPool = safeTasks.filter((task) => {
+  const state = getStoredCityEventsState();
+  const canonicalAgentKey = poolKey === "nira" ? "nyra" : poolKey;
+  const strategicOwner = ["victor", "leon", "nyra"][hashCityEventSeed(`local-demo:${schedule.cityDayIndex}:strategic`) % 3];
+  const standardPool = safeTasks.filter((task) => task.difficulty !== "rare");
+  const rarePool = safeTasks.filter((task) => task.difficulty === "rare");
+  const sortedStandard = [...standardPool].sort((left, right) =>
+    hashCityEventSeed(`${schedule.windowId}:${left.id}`) - hashCityEventSeed(`${schedule.windowId}:${right.id}`) || String(left.id).localeCompare(String(right.id)));
+  const sortedRare = [...rarePool].sort((left, right) =>
+    hashCityEventSeed(`${schedule.windowId}:rare:${left.id}`) - hashCityEventSeed(`${schedule.windowId}:rare:${right.id}`) || String(left.id).localeCompare(String(right.id)));
+  const selected = sortedStandard.slice(0, MAX_VISIBLE_EVENTS_PER_CHARACTER);
+  if (schedule.boundaryHour === 22 && strategicOwner === canonicalAgentKey && sortedRare[0]) selected[2] = sortedRare[0];
+  const rotatingPool = selected.map((task) => ({
+    ...task,
+    offerId: `${task.id}:${schedule.windowId}`,
+    scheduleWindowId: schedule.windowId,
+    attempted: state.attemptedOfferIds.includes(`${task.id}:${schedule.windowId}`)
+  })).filter((task) => {
     const taskId = String(task?.id || "").trim();
     return !activePinned.some((activeTask) => String(activeTask?.id || "").trim() === taskId);
   });
   if (!rotatingPool.length) return activePinned;
-  if (rotatingPool.length <= remainingSlots) return [...activePinned, ...rotatingPool];
-
-  const poolIndexes = getStoredCityEventsState().poolIndexes;
-  const offset = Math.max(0, Math.floor(Number(poolIndexes[poolKey] || 0))) % rotatingPool.length;
-  const rotated = [];
-
-  for (let index = 0; index < remainingSlots; index += 1) {
-    rotated.push(rotatingPool[(offset + index) % rotatingPool.length]);
-  }
-
-  return [...activePinned, ...rotated];
-}
-
-function countActiveCharacterRuns(tasks, activeRuns, nowMs = Date.now()) {
-  const taskIds = new Set((Array.isArray(tasks) ? tasks : []).map((task) => String(task?.id || "").trim()).filter(Boolean));
-  if (!taskIds.size) return 0;
-
-  const activeIds = new Set();
-  (Array.isArray(activeRuns) ? activeRuns : []).forEach((entry) => {
-    const taskId = String(entry?.taskId || entry?.id || "").trim();
-    if (taskId && taskIds.has(taskId) && Number(entry?.endsAt || 0) > nowMs) {
-      activeIds.add(taskId);
-    }
-  });
-
-  return Math.min(MAX_VISIBLE_EVENTS_PER_CHARACTER, activeIds.size);
+  return [...activePinned, ...rotatingPool.slice(0, remainingSlots)];
 }
 
 function resolveEventOutcomePool(task, wasSuccess) {
   const title = String(task?.title || "Event").trim();
   const risk = String(task?.risk || "Heat +0").trim();
-  const durationSec = Math.max(1, Math.floor(Number(task?.durationSec || 1)));
+  const durationMinutes = Math.max(1, Math.floor(Number(task?.durationMinutes || 1)));
   if (wasSuccess) {
     return [
       `${title}: operace proběhla čistě. Výsledek dorazil do skladu.`,
-      `${title}: cíl splněn za ${durationSec}s. Trasa byla tichá a bez úniku.`,
+      `${title}: cíl splněn za ${durationMinutes} min. Trasa byla tichá a bez úniku.`,
       `${title}: úspěch. ${risk} zůstalo pod kontrolou.`
     ];
   }
@@ -303,9 +359,9 @@ function resolveEventOutcomePool(task, wasSuccess) {
   ];
 }
 
-function resolveRandomOutcomeLine(task, wasSuccess) {
+function resolveRandomOutcomeLine(task, wasSuccess, seed) {
   const pool = resolveEventOutcomePool(task, wasSuccess);
-  const index = Math.max(0, Math.floor(Math.random() * pool.length)) % pool.length;
+  const index = hashCityEventSeed(seed) % pool.length;
   return String(pool[index] || pool[0] || "").trim();
 }
 
@@ -315,13 +371,13 @@ function createCityEventStreetNewsPayload(task, run) {
   const remainingSec = Math.max(0, Math.ceil((Number(run?.endsAt || 0) - Date.now()) / 1000));
   return {
     tone: "is-specialty-financial",
-    title: `Demo event spuštěn: ${String(task?.title || "Demo event").trim()}`,
-    taskTitle: String(task?.title || "Demo event").trim(),
-    badge: "Probíhající úkol",
+    title: `Lokální zakázka spuštěna: ${String(task?.title || "Pouliční zakázka").trim()}`,
+    taskTitle: String(task?.title || "Pouliční zakázka").trim(),
+    badge: "Probíhající zakázka",
     liveRowsKind: "city_event",
     refreshMs: 1000,
     syncToBuildingAction: false,
-    summary: `Úkol běží: ${String(task?.title || "City Event").trim()}. Klikni pro zbývající čas a možný zisk.`,
+    summary: `Zakázka běží: ${String(task?.title || "Pouliční zakázka").trim()}. Klikni pro zbývající čas a možný zisk.`,
     giver: String(task?.giver || AGENTS[task?.agentKey || ""]?.name || "-").trim(),
     risk: String(task?.risk || "Nízké").trim(),
     gains,
@@ -342,7 +398,7 @@ function createCityEventStreetNewsPayload(task, run) {
 }
 
 function createCityEventResultStreetNewsPayload(task, run, wasSuccess, outcomeLine, appliedRewards = []) {
-  const title = String(task?.title || "Demo event").trim();
+  const title = String(task?.title || "Pouliční zakázka").trim();
   const giver = String(task?.giver || AGENTS[task?.agentKey || ""]?.name || "-").trim();
   const gains = Array.isArray(appliedRewards) ? appliedRewards.filter(Boolean) : [];
   const possibleGains = Array.isArray(task?.gains) ? task.gains.filter(Boolean) : [];
@@ -354,7 +410,7 @@ function createCityEventResultStreetNewsPayload(task, run, wasSuccess, outcomeLi
 
   return {
     tone: wasSuccess ? "success is-specialty-financial" : "is-specialty-arrests",
-    title: `Demo event dokončen: ${title}`,
+    title: `Lokální zakázka dokončena: ${title}`,
     taskTitle: title,
     badge: statusLabel,
     syncToBuildingAction: false,
@@ -419,9 +475,11 @@ function setTopbarInfluenceValue(root, nextValue) {
 
 function applyEventRewardsToPlayerState(root, task) {
   const rewardEntries = Object.entries(task?.reward || {});
-  if (!rewardEntries.length) return [];
+  if (!rewardEntries.length) return { appliedRewards: [], pendingRewards: [] };
 
   let nextInfluence = getTopbarInfluenceValue(root);
+  const directRewardEntries = [];
+  const storageRewardEntries = [];
 
   updateStoredPreviewSession((session) => {
     const nextSession = {
@@ -445,66 +503,36 @@ function applyEventRewardsToPlayerState(root, task) {
       const amount = Math.max(0, Math.floor(Number(rawAmount || 0)));
       if (!amount) continue;
 
+      const storageTarget = CITY_EVENT_STORAGE_REWARD_TARGETS[key];
+      if (storageTarget) {
+        storageRewardEntries.push({ key, amount, target: storageTarget });
+        continue;
+      }
+
       switch (key) {
         case "cash":
           nextSession.economy.cleanMoney = Math.max(0, Math.floor(Number(nextSession.economy.cleanMoney || 0) + amount));
+          directRewardEntries.push([key, amount]);
           break;
         case "dirty-cash":
           nextSession.economy.dirtyMoney = Math.max(0, Math.floor(Number(nextSession.economy.dirtyMoney || 0) + amount));
+          directRewardEntries.push([key, amount]);
           break;
         case "influence":
           nextInfluence += amount;
-          break;
-        case "metal-parts":
-          nextSession.inventory.factorySupplies.metalParts = Math.max(0, Math.floor(Number(nextSession.inventory.factorySupplies.metalParts || 0) + amount));
-          break;
-        case "tech-core":
-          nextSession.inventory.factorySupplies.techCore = Math.max(0, Math.floor(Number(nextSession.inventory.factorySupplies.techCore || 0) + amount));
-          break;
-        case "chemicals":
-          nextSession.inventory.materials.chemicals = Math.max(0, Math.floor(Number(nextSession.inventory.materials.chemicals || 0) + amount));
-          break;
-        case "pistol":
-          nextSession.inventory.weapons.pistol = Math.max(0, Math.floor(Number(nextSession.inventory.weapons.pistol || 0) + amount));
-          break;
-        case "grenade":
-          nextSession.inventory.weapons.grenade = Math.max(0, Math.floor(Number(nextSession.inventory.weapons.grenade || 0) + amount));
-          break;
-        case "smg":
-          nextSession.inventory.weapons.smg = Math.max(0, Math.floor(Number(nextSession.inventory.weapons.smg || 0) + amount));
-          break;
-        case "bazooka":
-          nextSession.inventory.weapons.bazooka = Math.max(0, Math.floor(Number(nextSession.inventory.weapons.bazooka || 0) + amount));
-          break;
-        case "vest":
-          nextSession.inventory.weapons.vest = Math.max(0, Math.floor(Number(nextSession.inventory.weapons.vest || 0) + amount));
-          break;
-        case "cameras":
-          nextSession.inventory.weapons.cameras = Math.max(0, Math.floor(Number(nextSession.inventory.weapons.cameras || 0) + amount));
-          break;
-        case "alarm":
-          nextSession.inventory.weapons.alarm = Math.max(0, Math.floor(Number(nextSession.inventory.weapons.alarm || 0) + amount));
-          break;
-        case "neon-dust":
-          nextSession.inventory.drugs["neon-dust"] = Math.max(0, Math.floor(Number(nextSession.inventory.drugs["neon-dust"] || 0) + amount));
-          break;
-        case "velvet-smoke":
-          nextSession.inventory.drugs["velvet-smoke"] = Math.max(0, Math.floor(Number(nextSession.inventory.drugs["velvet-smoke"] || 0) + amount));
-          break;
-        case "ghost-serum":
-          nextSession.inventory.drugs["ghost-serum"] = Math.max(0, Math.floor(Number(nextSession.inventory.drugs["ghost-serum"] || 0) + amount));
-          break;
-        case "overdrive-x":
-          nextSession.inventory.drugs["overdrive-x"] = Math.max(0, Math.floor(Number(nextSession.inventory.drugs["overdrive-x"] || 0) + amount));
+          directRewardEntries.push([key, amount]);
           break;
         case "ammo":
           nextSession.inventory.eventResources.ammo = Math.max(0, Math.floor(Number(nextSession.inventory.eventResources.ammo || 0) + amount));
+          directRewardEntries.push([key, amount]);
           break;
         case "spyGear":
           nextSession.inventory.eventResources.spyGear = Math.max(0, Math.floor(Number(nextSession.inventory.eventResources.spyGear || 0) + amount));
+          directRewardEntries.push([key, amount]);
           break;
         case "intel":
           nextSession.inventory.eventResources.intel = Math.max(0, Math.floor(Number(nextSession.inventory.eventResources.intel || 0) + amount));
+          directRewardEntries.push([key, amount]);
           break;
         default:
           break;
@@ -515,7 +543,68 @@ function applyEventRewardsToPlayerState(root, task) {
   });
 
   setTopbarInfluenceValue(root, nextInfluence);
-  return rewardEntries.map(([key, value]) => formatRewardEntry(key, value)).filter(Boolean);
+  const appliedRewards = directRewardEntries
+    .map(([key, value]) => formatRewardEntry(key, value))
+    .filter(Boolean);
+  const pendingRewards = {};
+
+  for (const entry of storageRewardEntries) {
+    const acceptedAmount = Math.max(0, Math.floor(Number(applyInventoryOutput({
+      ...entry.target,
+      amount: entry.amount
+    }) || 0)));
+    if (acceptedAmount > 0) {
+      appliedRewards.push(formatRewardEntry(entry.key, acceptedAmount));
+    }
+    const remainingAmount = Math.max(0, entry.amount - acceptedAmount);
+    if (remainingAmount > 0) {
+      pendingRewards[entry.key] = Math.max(0, Math.floor(Number(pendingRewards[entry.key] || 0) + remainingAmount));
+    }
+  }
+
+  if (Object.keys(pendingRewards).length > 0) {
+    updateStoredCityEventsState((state) => ({
+      ...state,
+      pendingRewards: normalizeCityEventRewards({
+        ...(state.pendingRewards || {}),
+        ...Object.fromEntries(Object.entries(pendingRewards).map(([key, amount]) => [
+          key,
+          Math.max(0, Math.floor(Number(state.pendingRewards?.[key] || 0) + Number(amount || 0)))
+        ]))
+      })
+    }));
+  }
+
+  return {
+    appliedRewards,
+    pendingRewards: Object.entries(pendingRewards).map(([key, value]) => formatRewardEntry(key, value)).filter(Boolean)
+  };
+}
+
+function claimPendingCityEventRewards() {
+  const state = getStoredCityEventsState();
+  const pendingEntries = Object.entries(state.pendingRewards || {});
+  if (!pendingEntries.length) return { claimedRewards: [], pendingRewards: [] };
+
+  const nextPendingRewards = {};
+  const claimedRewards = [];
+  for (const [key, rawAmount] of pendingEntries) {
+    const amount = Math.max(0, Math.floor(Number(rawAmount || 0)));
+    const target = CITY_EVENT_STORAGE_REWARD_TARGETS[key];
+    if (!amount || !target) continue;
+    const acceptedAmount = Math.max(0, Math.floor(Number(applyInventoryOutput({ ...target, amount }) || 0)));
+    if (acceptedAmount > 0) claimedRewards.push(formatRewardEntry(key, acceptedAmount));
+    const remainingAmount = Math.max(0, amount - acceptedAmount);
+    if (remainingAmount > 0) nextPendingRewards[key] = remainingAmount;
+  }
+
+  if (claimedRewards.length > 0 || JSON.stringify(nextPendingRewards) !== JSON.stringify(state.pendingRewards || {})) {
+    updateStoredCityEventsState((current) => ({ ...current, pendingRewards: nextPendingRewards }));
+  }
+  return {
+    claimedRewards,
+    pendingRewards: Object.entries(nextPendingRewards).map(([key, value]) => formatRewardEntry(key, value)).filter(Boolean)
+  };
 }
 
 function initCityEventsRuntime() {
@@ -598,8 +687,8 @@ function initCityEventsRuntime() {
       }
       if (unlockState.requiredInfluence > 0) {
         button.title = unlockState.unlocked
-          ? `Questy odemčené. Vliv ${unlockState.currentInfluence}/${unlockState.requiredInfluence}.`
-          : `Questy zamčené. Potřebuješ ${unlockState.requiredInfluence} vliv. Teď máš ${unlockState.currentInfluence}.`;
+          ? `Zakázky odemčené. Vliv ${unlockState.currentInfluence}/${unlockState.requiredInfluence}.`
+          : `Zakázky zamčené. Potřebuješ ${unlockState.requiredInfluence} vliv. Teď máš ${unlockState.currentInfluence}.`;
       } else {
         button.removeAttribute("title");
       }
@@ -609,25 +698,31 @@ function initCityEventsRuntime() {
   const closeEventDetailModal = () => {
     detailModal.classList.add("hidden");
     detailModal.hidden = true;
-    closeOverlay(detailModal, { restoreFocus: false });
+    closeOverlay(detailModal, { restoreFocus: true });
     selectedEventTask = null;
   };
 
   const openEventDetailModal = (task) => {
     if (!task) return;
+    const wasHidden = detailModal.hidden || detailModal.classList.contains("hidden");
     selectedEventTask = task;
-    const difficulty = resolveEventDifficultyMeta(task.successRate);
+    const difficulty = resolveEventDifficultyMeta(task.difficulty);
     const runState = getCityEventRunState(task.id);
     const activeRun = getActiveCityEventRun();
     const isBlockedByOtherRun = activeRun.active && !runState.active;
-    const disabledReason = isBlockedByOtherRun
-      ? `Jiný event probíhá (${activeRun.remainingSec}s)`
-      : "";
-    if (detailTitle) detailTitle.textContent = String(task.title || "Detail eventu");
+    const schedule = resolveLocalScheduleWindow(task.agentKey);
+    const disabledReason = !schedule.available
+      ? "Kontakt je teď zavřený"
+      : task.attempted
+        ? "Nabídka už byla využita"
+        : isBlockedByOtherRun
+          ? `Jiná zakázka probíhá (${activeRun.remainingSec}s)`
+          : "";
+    if (detailTitle) detailTitle.textContent = String(task.title || "Detail zakázky");
     if (detailGiver) detailGiver.textContent = String(task.giver || AGENTS[task.agentKey || ""]?.name || "-");
     if (detailStats) {
       detailStats.innerHTML = `
-        <span>Úspěšnost ${Math.max(0, Math.floor(Number(task.successRate || 0)))}% • ${Math.max(1, Math.floor(Number(task.durationSec || 1)))} s${runState.active ? ` • Probíhá ${runState.remainingSec}s` : ""}${disabledReason ? ` • ${disabledReason}` : ""}</span>
+        <span>Úspěšnost ${Math.max(0, Math.floor(Number(task.successRate || 0)))}% • ${Math.max(1, Math.floor(Number(task.durationMinutes || 1)))} min${runState.active ? ` • Probíhá ${runState.remainingSec}s` : ""}${disabledReason ? ` • ${disabledReason}` : ""}</span>
         <span class="event-difficulty event-difficulty--${difficulty.key}">${difficulty.label}</span>
       `;
     }
@@ -635,16 +730,23 @@ function initCityEventsRuntime() {
     renderDetailChips(detailGains, task.gains, "gain");
     renderDetailChips(detailRisk, task.risk ? [task.risk] : [], "risk");
     if (detailAcceptBtn) {
-      detailAcceptBtn.disabled = runState.active || isBlockedByOtherRun;
+      detailAcceptBtn.disabled = runState.active || isBlockedByOtherRun || task.attempted || !schedule.available;
       detailAcceptBtn.textContent = runState.active
         ? `Probíhá (${runState.remainingSec}s)`
+        : task.attempted
+        ? "Nabídka využita"
+        : !schedule.available
+        ? "Kontakt je zavřený"
         : isBlockedByOtherRun
         ? `Počkej ${activeRun.remainingSec}s`
         : "Začít";
     }
-    openOverlay(detailModal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
-    detailModal.hidden = false;
-    detailModal.classList.remove("hidden");
+    if (wasHidden) {
+      detailModal.hidden = false;
+      detailModal.classList.remove("hidden");
+      openOverlay(detailModal, { type: "modal", ariaModal: true, restoreFocusOnClose: true });
+      detailCloseBtn?.focus({ preventScroll: true });
+    }
   };
 
   const renderTasks = (agentKey) => {
@@ -661,12 +763,24 @@ function initCityEventsRuntime() {
     const unlockState = resolveAgentUnlockState(root, agent);
     if (!unlockState.unlocked) {
       if (agentDesc) {
-        agentDesc.textContent = `${agent.desc} Questy se odemknou až při ${unlockState.requiredInfluence} vlivu. Teď máš ${unlockState.currentInfluence}.`;
+        agentDesc.textContent = `${agent.desc} Zakázky se odemknou až při ${unlockState.requiredInfluence} vlivu. Teď máš ${unlockState.currentInfluence}.`;
       }
       tasklist.innerHTML = `
         <div class="events-task events-task--agent-locked">
-          <div class="events-task__title">Questy zamčené</div>
+          <div class="events-task__title">Zakázky zamčené</div>
           <div class="events-task__desc">Potřebuješ alespoň ${unlockState.requiredInfluence} vliv. Aktuálně máš ${unlockState.currentInfluence}.</div>
+        </div>
+      `;
+      modal.classList.remove("events-modal--compact");
+      return;
+    }
+
+    const schedule = resolveLocalScheduleWindow(agentKey);
+    if (!schedule.available) {
+      tasklist.innerHTML = `
+        <div class="events-task events-task--agent-locked">
+          <div class="events-task__title">Kontakt je teď zavřený</div>
+          <div class="events-task__desc">${agentKey === "victor" ? "Victor se vrátí v 18:00." : `Další nabídky přijdou v ${schedule.nextBoundaryLabel}.`}</div>
         </div>
       `;
       modal.classList.remove("events-modal--compact");
@@ -677,13 +791,13 @@ function initCityEventsRuntime() {
     const activeRun = getActiveCityEventRun();
     tasklist.innerHTML = visibleTasks.map((task) => {
       const successRate = Math.max(0, Math.min(100, Math.floor(Number(task?.successRate || 0))));
-      const durationSec = Math.max(1, Math.floor(Number(task?.durationSec || 1)));
-      const difficulty = resolveEventDifficultyMeta(successRate);
+      const durationMinutes = Math.max(1, Math.floor(Number(task?.durationMinutes || 1)));
+      const difficulty = resolveEventDifficultyMeta(task.difficulty);
       const runState = getCityEventRunState(task?.id);
       const isBlockedByOtherRun = activeRun.active && !runState.active;
-      const metaLabel = `Úspěšnost ${successRate}% • ${durationSec}s${runState.active ? ` • Probíhá ${runState.remainingSec}s` : ""}${isBlockedByOtherRun ? ` • Čekej ${activeRun.remainingSec}s` : ""}`;
+      const metaLabel = `Úspěšnost ${successRate}% • ${durationMinutes} min${runState.active ? ` • Probíhá ${runState.remainingSec}s` : ""}${task.attempted ? " • Využito" : ""}${isBlockedByOtherRun ? ` • Čekej ${activeRun.remainingSec}s` : ""}`;
       return `
-        <div class="events-task${runState.active ? " events-task--locked" : ""}${isBlockedByOtherRun ? " events-task--queue-locked" : ""}" data-event-open="${escapeHtml(task.id || "")}">
+        <div class="events-task${runState.active || task.attempted ? " events-task--locked" : ""}${isBlockedByOtherRun ? " events-task--queue-locked" : ""}" data-event-open="${escapeHtml(task.id || "")}">
           <div class="events-task__title">${escapeHtml(task.title)}</div>
           <div class="events-task__desc">${escapeHtml(task.desc)}</div>
           <div class="events-task__meta">
@@ -698,17 +812,25 @@ function initCityEventsRuntime() {
 
   const openModal = () => {
     if (!shouldRunLocalCityEvents()) return;
+    const claimed = claimPendingCityEventRewards();
     syncAgentUnlockBadges();
     agentButtons.forEach((btn) => btn.classList.remove("is-active"));
     if (agentName) agentName.textContent = "Vyber postavu";
-    if (agentType) agentType.textContent = "Každá má jiné questy";
-    if (agentDesc) agentDesc.textContent = "Klikni na postavu a zobrazí se její popis a dočasné úkoly.";
+    if (agentType) agentType.textContent = "Každý nabízí jiné zakázky";
+    if (agentDesc) {
+      agentDesc.textContent = claimed.claimedRewards.length
+        ? `Do SKLADU se přesunula čekající odměna: ${claimed.claimedRewards.join(", ")}.`
+        : claimed.pendingRewards.length
+          ? `Část odměn čeká u kontaktů na místo ve SKLADU: ${claimed.pendingRewards.join(", ")}.`
+          : "Vyber kontakt a zobrazí se jeho dočasné pouliční zakázky.";
+    }
     if (agentQuote) agentQuote.textContent = "";
     tasklist.innerHTML = "";
     modal.classList.add("events-modal--compact");
-    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     modal.hidden = false;
     modal.classList.remove("hidden");
+    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: true });
+    closeBtn?.focus({ preventScroll: true });
     document.dispatchEvent(new CustomEvent("empire:city-events-opened", { detail: { open: true } }));
   };
 
@@ -719,7 +841,7 @@ function initCityEventsRuntime() {
     modal.classList.add("hidden");
     modal.hidden = true;
     modal.classList.add("events-modal--compact");
-    closeOverlay(modal, { restoreFocus: false });
+    closeOverlay(modal, { restoreFocus: true });
   };
 
   const finalizeCityEventRun = (taskId) => {
@@ -735,28 +857,53 @@ function initCityEventsRuntime() {
 
     if (!task) return;
 
-    const successRoll = Math.random() * 100;
-    const wasSuccess = successRoll <= Math.max(0, Math.min(100, Number(task?.successRate || 0)));
-    const outcomeLine = resolveRandomOutcomeLine(task, wasSuccess);
+    const successRoll = hashCityEventSeed(run.outcomeSeed || `${run.offerId || run.taskId}:outcome`) % 100;
+    const wasSuccess = successRoll < Math.max(0, Math.min(100, Number(task?.successRate || 0)));
+    const outcomeLine = resolveRandomOutcomeLine(task, wasSuccess, `${run.outcomeSeed || run.taskId}:copy`);
     let appliedRewards = [];
+    let pendingRewards = [];
 
     if (wasSuccess) {
-      appliedRewards = applyEventRewardsToPlayerState(root, task);
+      const rewardResult = applyEventRewardsToPlayerState(root, task);
+      appliedRewards = rewardResult.appliedRewards;
+      pendingRewards = rewardResult.pendingRewards;
       const gainInfo = appliedRewards.length ? ` • Zisk: ${appliedRewards.join(", ")}` : "";
-      writeCityEventsInfo(`${outcomeLine}${gainInfo}`);
+      const pendingInfo = pendingRewards.length
+        ? ` • Čeká u kontaktu kvůli plnému SKLADU: ${pendingRewards.join(", ")}`
+        : "";
+      writeCityEventsInfo(`${outcomeLine}${gainInfo}${pendingInfo}`);
       applyTopbarEconomy(root);
       renderSpyResourceState(root);
     } else {
+      const loss = Math.max(0, Math.floor(Number(task.failureDirtyCashLoss || 0)));
+      if (loss > 0) {
+        updateStoredPreviewSession((session) => ({
+          ...session,
+          economy: {
+            ...(session.economy || {}),
+            dirtyMoney: Math.max(0, Math.floor(Number(session.economy?.dirtyMoney || 0)) - loss)
+          }
+        }));
+        applyTopbarEconomy(root);
+      }
       writeCityEventsInfo(outcomeLine);
     }
+    const resolvedHeat = wasSuccess
+      ? Math.max(0, Math.floor(Number(task.successHeat || 0)))
+      : Math.max(0, Math.floor(Number(task.failureHeat || 0)));
+    if (resolvedHeat > 0) addGangHeat(root, resolvedHeat, `Pouliční zakázka: ${task.title}`);
 
     const resultPayload = createCityEventResultStreetNewsPayload(task, run, wasSuccess, outcomeLine, appliedRewards);
+    if (pendingRewards.length) {
+      resultPayload.rows.splice(5, 0, { label: "Čeká u kontaktu", value: pendingRewards.join(", ") });
+      resultPayload.summary = `${resultPayload.summary} Část odměny čeká na volné místo ve SKLADU.`;
+    }
     appendBuildingActionResultEntry(root, "police", resultPayload, {
       id: `city-event-result-${String(task.id || run.taskId || "event")}-${Date.now()}`,
       tone: "event",
       title: resultPayload.title,
       summary: resultPayload.summary,
-      meta: wasSuccess ? "Výsledek demo eventu a zisk" : "Výsledek demo eventu"
+      meta: wasSuccess ? "Výsledek lokální zakázky a zisk" : "Výsledek lokální zakázky"
     }, { syncPreview: true, forceLog: true });
 
     if (selectedAgentKey) {
@@ -773,18 +920,23 @@ function initCityEventsRuntime() {
     const agent = AGENTS[task?.agentKey || ""];
     const unlockState = resolveAgentUnlockState(root, agent);
     if (!unlockState.unlocked) {
-      writeCityEventsInfo(`Quest je zamčený. Potřebuješ ${unlockState.requiredInfluence} vliv, teď máš ${unlockState.currentInfluence}.`);
+      writeCityEventsInfo(`Zakázka je zamčená. Potřebuješ ${unlockState.requiredInfluence} vliv, teď máš ${unlockState.currentInfluence}.`);
       return false;
     }
     const currentState = getStoredCityEventsState();
+    const offerId = String(task?.offerId || taskId).trim();
+    if (task.attempted || currentState.attemptedOfferIds.includes(offerId)) {
+      writeCityEventsInfo("Tuto nabídku už jsi v aktuálním okně využil.");
+      return false;
+    }
     if (currentState.activeRuns.some((entry) => String(entry?.id || "") === taskId)) {
-      writeCityEventsInfo(`Event ${task.title} už běží.`);
+      writeCityEventsInfo(`Zakázka ${task.title} už běží.`);
       return false;
     }
     const activeRun = getActiveCityEventRun();
     if (activeRun.active) {
-      const activeTitle = activeRun.task?.title || "jiný event";
-      writeCityEventsInfo(`Nejdřív musí doběhnout ${activeTitle}. Další event můžeš vybrat za ${activeRun.remainingSec}s.`);
+      const activeTitle = activeRun.task?.title || "jiná zakázka";
+      writeCityEventsInfo(`Nejdřív musí doběhnout ${activeTitle}. Další zakázku můžeš vybrat za ${activeRun.remainingSec}s.`);
       return false;
     }
     const durationSec = Math.max(1, Math.floor(Number(task?.durationSec || 1)));
@@ -792,58 +944,39 @@ function initCityEventsRuntime() {
     const runEntry = {
       id: taskId,
       taskId,
+      offerId,
+      scheduleWindowId: task.scheduleWindowId || "local-demo",
       startedAt: nowMs,
-      endsAt: nowMs + (durationSec * 1000)
+      endsAt: nowMs + (durationSec * 1000),
+      outcomeSeed: `local-demo:${offerId}:${nowMs}`
     };
     updateStoredCityEventsState((state) => ({
       ...state,
       activeRuns: [
         ...state.activeRuns,
         runEntry
-      ]
+      ],
+      attemptedOfferIds: [...state.attemptedOfferIds, offerId]
     }));
     const newsPayload = createCityEventStreetNewsPayload(task, runEntry);
     appendBuildingActionResultEntry(root, "police", newsPayload, {
       id: `city-event-start-${taskId}-${runEntry.startedAt}`,
       tone: "event",
-      title: `Demo event spuštěn: ${task.title}`,
+      title: `Lokální zakázka spuštěna: ${task.title}`,
       summary: newsPayload.summary,
       meta: `${newsPayload.giver} · zbývá ${durationSec}s`
     }, { syncPreview: true, forceLog: true });
-    writeCityEventsInfo(`Event běží: ${task.title} • dokončení za ${durationSec}s`);
+    writeCityEventsInfo(`Zakázka běží: ${task.title} • dokončení za ${task.durationMinutes} min • při úspěchu Heat +${task.successHeat}, při selhání Heat +${task.failureHeat}`);
     if (selectedAgentKey) {
       renderTasks(selectedAgentKey);
     }
     return true;
   };
 
-  const rotateCharacterEvents = () => {
-    const nowMs = Date.now();
-    const resolveNextPoolIndex = (poolKey, tasks, state) => {
-      const safeTasks = Array.isArray(tasks) ? tasks : [];
-      if (!safeTasks.length) return 0;
-      const currentIndex = Math.max(0, Number(state.poolIndexes?.[poolKey] || 0));
-      const activeCount = countActiveCharacterRuns(safeTasks, state.activeRuns, nowMs);
-      const refreshSlots = Math.max(0, MAX_VISIBLE_EVENTS_PER_CHARACTER - activeCount);
-      return (currentIndex + refreshSlots) % safeTasks.length;
-    };
-
-    updateStoredCityEventsState((state) => ({
-      ...state,
-      poolIndexes: {
-        victor: resolveNextPoolIndex("victor", victorTasks, state),
-        leon: resolveNextPoolIndex("leon", leonTasks, state),
-        nira: resolveNextPoolIndex("nira", nyraTasks, state)
-      },
-      nextRefreshAt: nowMs + (CHARACTER_EVENTS_REFRESH_SECONDS * 1000)
-    }));
-  };
-
-  const syncRefreshLabel = (nowMs = Date.now()) => {
+  const syncRefreshLabel = () => {
     if (!eventsRefreshCountdown) return;
-    const state = getStoredCityEventsState();
-    const remainingSec = Math.max(0, Math.ceil((Number(state.nextRefreshAt || 0) - nowMs) / 1000));
-    const nextText = `refresh ${remainingSec}s`;
+    const schedule = resolveLocalScheduleWindow(selectedAgentKey || "victor");
+    const nextText = `MĚSTSKÝ ČAS · další okno ${schedule.nextBoundaryLabel}`;
     if (eventsRefreshCountdown.textContent !== nextText) {
       eventsRefreshCountdown.textContent = nextText;
     }
@@ -882,7 +1015,9 @@ function initCityEventsRuntime() {
     const row = target.closest("[data-event-open]");
     if (!(row instanceof HTMLElement)) return;
     const taskId = String(row.dataset.eventOpen || "").trim();
-    const selectedTask = taskLookup.get(taskId);
+    const selectedTask = selectedAgentKey
+      ? resolveVisibleCharacterTasks(selectedAgentKey, AGENTS[selectedAgentKey]?.tasks).find((task) => String(task.id) === taskId)
+      : taskLookup.get(taskId);
     if (selectedTask) {
       openEventDetailModal(selectedTask);
     }
@@ -900,58 +1035,42 @@ function initCityEventsRuntime() {
 
   const tick = (nowMs = Date.now()) => {
     syncAgentUnlockBadges();
+    const claimed = claimPendingCityEventRewards();
+    if (claimed.claimedRewards.length && !modal.classList.contains("hidden")) {
+      writeCityEventsInfo(`Do SKLADU se přesunula čekající odměna: ${claimed.claimedRewards.join(", ")}.`);
+    }
     const state = getStoredCityEventsState();
     const expiredRuns = state.activeRuns.filter((entry) => Number(entry?.endsAt || 0) <= nowMs);
     expiredRuns.forEach((entry) => finalizeCityEventRun(entry.id));
-
-    const refreshedState = getStoredCityEventsState();
-    if (Number(refreshedState.nextRefreshAt || 0) <= nowMs) {
-      rotateCharacterEvents();
-      if (selectedAgentKey && !modal.classList.contains("hidden")) {
-        renderTasks(selectedAgentKey);
-      }
-    }
 
     if (selectedAgentKey && !modal.classList.contains("hidden")) {
       renderTasks(selectedAgentKey);
     }
     if (selectedEventTask && !detailModal.classList.contains("hidden")) {
-      const refreshedTask = taskLookup.get(String(selectedEventTask.id || "")) || selectedEventTask;
+      const refreshedTask = selectedAgentKey
+        ? resolveVisibleCharacterTasks(selectedAgentKey, AGENTS[selectedAgentKey]?.tasks)
+            .find((task) => String(task.id) === String(selectedEventTask.id)) || selectedEventTask
+        : selectedEventTask;
       openEventDetailModal(refreshedTask);
     }
-    syncRefreshLabel(nowMs);
+    syncRefreshLabel();
   };
 
-  const syncCountdownTick = () => {
-    const nowMs = Date.now();
-    const state = getStoredCityEventsState();
-    if (Number(state.nextRefreshAt || 0) <= nowMs) {
-      tick(nowMs);
-      return;
-    }
-    syncRefreshLabel(nowMs);
-  };
-
-  let tickTimerId = null;
-  let countdownTimerId = null;
+  let unbindLifecycleTicker = null;
   const stopLocalTimers = () => {
-    if (tickTimerId !== null) window.clearInterval(tickTimerId);
-    if (countdownTimerId !== null) window.clearInterval(countdownTimerId);
-    tickTimerId = null;
-    countdownTimerId = null;
+    unbindLifecycleTicker?.();
+    unbindLifecycleTicker = null;
     diagnostics?.setLocalTickActive?.("legacy-city-events", false);
   };
   const startLocalTimers = () => {
-    if (!shouldRunLocalCityEvents() || tickTimerId !== null || document.hidden) return;
-    const tickIntervalMs = diagnostics?.getLocalTickIntervalMs?.(1000) || 1000;
-    const countdownIntervalMs = diagnostics?.getLocalTickIntervalMs?.(CHARACTER_EVENTS_COUNTDOWN_SYNC_MS)
-      || CHARACTER_EVENTS_COUNTDOWN_SYNC_MS;
+    if (!shouldRunLocalCityEvents() || unbindLifecycleTicker || document.hidden) return;
     tick();
-    tickTimerId = window.setInterval(() => {
-      diagnostics?.recordLocalTick?.();
-      tick();
-    }, tickIntervalMs);
-    countdownTimerId = window.setInterval(syncCountdownTick, countdownIntervalMs);
+    unbindLifecycleTicker = bindSharedCountdown(openBtn, () => Date.now(), {
+      render: (nowMs) => {
+        diagnostics?.recordLocalTick?.();
+        tick(Number(nowMs));
+      }
+    });
     diagnostics?.setLocalTickActive?.("legacy-city-events", true);
   };
   const restartLocalTimers = () => {

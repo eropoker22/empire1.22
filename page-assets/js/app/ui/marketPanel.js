@@ -221,7 +221,10 @@ export function renderMarketDashboard(dashboardElement, viewModel = {}, options 
 
 export function syncMarketTabs(tabs = [], activeTab = "market") {
   for (const tab of tabs) {
-    tab?.classList?.toggle?.("is-active", tab.dataset?.marketTab === activeTab);
+    const isActive = tab.dataset?.marketTab === activeTab;
+    tab?.classList?.toggle?.("is-active", isActive);
+    tab?.setAttribute?.("aria-selected", String(isActive));
+    tab.tabIndex = isActive ? 0 : -1;
   }
 }
 
@@ -458,6 +461,17 @@ export function renderMarketItem(itemViewModel = {}, callbacks = {}, options = {
   return createMarketItemRow(ownerDocument, itemViewModel, callbacks);
 }
 
+function createMarketFact(ownerDocument, label, value, tone = "neutral") {
+  const fact = createElement(ownerDocument, "span", "market-popup-row__fact");
+  setDatasetValue(fact, "marketFactTone", tone);
+  const factLabel = ownerDocument.createElement("small");
+  factLabel.textContent = label;
+  const factValue = ownerDocument.createElement("strong");
+  factValue.textContent = value;
+  appendChildren(fact, factLabel, factValue);
+  return fact;
+}
+
 function createMarketItemRow(ownerDocument, item, callbacks = {}) {
   const row = createElement(ownerDocument, "div", "market-popup-row");
   const marketMetadata = item.marketMetadata && typeof item.marketMetadata === "object" ? item.marketMetadata : {};
@@ -473,7 +487,7 @@ function createMarketItemRow(ownerDocument, item, callbacks = {}) {
   const name = createElement(ownerDocument, "strong", "market-popup-row__name");
   name.textContent = item.name;
   const meta = createElement(ownerDocument, "span", "market-popup-row__meta");
-  meta.textContent = item.metaLabel;
+  meta.textContent = item.dealerLine || item.metaLabel;
   const price = createElement(ownerDocument, "span", "market-popup-row__price");
   price.textContent = item.priceLabel;
   const trend = createElement(ownerDocument, "span", "market-popup-row__trend");
@@ -490,10 +504,19 @@ function createMarketItemRow(ownerDocument, item, callbacks = {}) {
     badgeElement.textContent = badge.label || "";
     badgeWrap.appendChild(badgeElement);
   }
-  appendChildren(info, name, meta, price, trend, ...(badges.length > 0 ? [badgeWrap] : []), stockBar);
+  const facts = createElement(ownerDocument, "div", "market-popup-row__facts");
+  const isBlackMarket = item.rowMode === "black";
+  appendChildren(
+    facts,
+    createMarketFact(ownerDocument, "Ve SKLADU", `${Math.max(0, Number(item.amount || 0))} ks`, "stock"),
+    createMarketFact(ownerDocument, isBlackMarket ? "Dostupnost" : "Trh", isBlackMarket ? "Kontakt" : (item.stockLabel || "Bez limitu"), "stock"),
+    createMarketFact(ownerDocument, isBlackMarket ? "Dirty" : "Nákup", formatMarketPrice(item.buyPrice), isBlackMarket ? "danger" : "buy"),
+    createMarketFact(ownerDocument, isBlackMarket ? "Clean" : "Výkup", formatMarketPrice(isBlackMarket ? item.cleanBuyPrice : item.sellPrice), isBlackMarket ? "clean" : "sell")
+  );
+  appendChildren(info, name, meta, price, trend, ...(badges.length > 0 ? [badgeWrap] : []), facts, stockBar);
 
   const trade = createElement(ownerDocument, "div", "market-popup-row__trade");
-  const quantityWrap = createElement(ownerDocument, "label", "market-popup-row__quantity-wrap");
+  const quantityWrap = createElement(ownerDocument, "div", "market-popup-row__quantity-wrap");
   const quantityLabel = ownerDocument.createElement("span");
   quantityLabel.textContent = "Množství";
   const quantityInput = createElement(ownerDocument, "input", "market-popup-row__quantity");
@@ -504,7 +527,17 @@ function createMarketItemRow(ownerDocument, item, callbacks = {}) {
   quantityInput.value = "1";
   quantityInput.inputMode = "numeric";
   quantityInput.setAttribute("aria-label", `Množství pro ${item.name}`);
-  appendChildren(quantityWrap, quantityLabel, quantityInput);
+  const quantityControls = createElement(ownerDocument, "div", "market-popup-row__quantity-controls");
+  const decrement = createElement(ownerDocument, "button", "market-popup-row__quantity-step");
+  decrement.type = "button";
+  decrement.textContent = "−";
+  decrement.setAttribute("aria-label", `Snížit množství pro ${item.name}`);
+  const increment = createElement(ownerDocument, "button", "market-popup-row__quantity-step");
+  increment.type = "button";
+  increment.textContent = "+";
+  increment.setAttribute("aria-label", `Zvýšit množství pro ${item.name}`);
+  appendChildren(quantityControls, decrement, quantityInput, increment);
+  appendChildren(quantityWrap, quantityLabel, quantityControls);
 
   const totals = createElement(ownerDocument, "span", "market-popup-row__total");
   const actions = createElement(ownerDocument, "div", "market-popup-row__actions");
@@ -526,10 +559,13 @@ function createMarketItemRow(ownerDocument, item, callbacks = {}) {
   const updateRowTradeState = () => {
     const requestedQuantity = getRequestedQuantity();
     quantityInput.value = String(requestedQuantity);
+    decrement.disabled = requestedQuantity <= 1;
+    increment.disabled = requestedQuantity >= 999;
     const state = callbacks.getTradeState?.(item, requestedQuantity) || {};
     buyAction.disabled = Boolean(state.buyDisabled);
     if (cleanBuyAction) {
-      cleanBuyAction.disabled = item.canBuyClean === false;
+      const cleanTotal = requestedQuantity * Math.max(1, Number(item.cleanBuyPrice || item.buyPrice || 1));
+      cleanBuyAction.disabled = item.canBuyClean === false || Number(item.playerCleanCash ?? Number.POSITIVE_INFINITY) < cleanTotal;
       cleanBuyAction.title = cleanBuyAction.disabled ? "Nemáš dost clean cash." : "Koupit přes černý trh za clean cash.";
     }
     sellAction.disabled = Boolean(state.sellDisabled);
@@ -540,10 +576,19 @@ function createMarketItemRow(ownerDocument, item, callbacks = {}) {
 
   quantityInput.addEventListener("input", updateRowTradeState);
   quantityInput.addEventListener("change", updateRowTradeState);
+  decrement.addEventListener("click", () => {
+    quantityInput.value = String(Math.max(1, getRequestedQuantity() - 1));
+    updateRowTradeState();
+  });
+  increment.addEventListener("click", () => {
+    quantityInput.value = String(Math.min(999, getRequestedQuantity() + 1));
+    updateRowTradeState();
+  });
   buyAction.addEventListener("click", () => callbacks.onBuyItem?.(item, getRequestedQuantity(), updateRowTradeState));
   cleanBuyAction?.addEventListener("click", () => callbacks.onBuyItem?.({
     ...item,
-    paymentType: "cleanCash"
+    paymentType: "cleanCash",
+    buyPrice: item.cleanBuyPrice || item.buyPrice
   }, getRequestedQuantity(), updateRowTradeState));
   sellAction.addEventListener("click", () => callbacks.onSellItem?.(item, getRequestedQuantity(), updateRowTradeState));
   updateRowTradeState();
@@ -587,7 +632,7 @@ export function openMarketPanel(popup) {
     return false;
   }
 
-  openOverlay(popup, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
+  openOverlay(popup, { type: "modal", ariaModal: true, restoreFocusOnClose: true });
   popup.hidden = false;
   return true;
 }
@@ -598,7 +643,7 @@ export function closeMarketPanel(popup) {
   }
 
   popup.hidden = true;
-  closeOverlay(popup, { restoreFocus: false });
+  closeOverlay(popup, { restoreFocus: true });
   return true;
 }
 

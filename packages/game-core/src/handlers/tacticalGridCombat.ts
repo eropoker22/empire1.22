@@ -12,6 +12,7 @@ export interface TacticalGridCombatResolution {
   attackerPlayerId: string;
   defenderPlayerId: string | null;
   isValidPvpCombat: boolean;
+  didResolveActualPvpCombat: boolean;
   effectiveAttackPower: number;
   effectiveDefensePower: number;
   report: {
@@ -36,10 +37,12 @@ export const resolveTacticalGridCombat = (
   attackPower: number,
   defensePower: number,
   towerCount: number,
-  grenadeCount: number
+  grenadeCount: number,
+  didResolveActualPvpCombat: boolean
 ): TacticalGridCombatResolution => {
   const isValidPvpCombat = Boolean(
-    defenderPlayerId
+    didResolveActualPvpCombat
+    && defenderPlayerId
     && defenderPlayerId !== attackerPlayerId
     && state.playersById[defenderPlayerId]
   );
@@ -56,6 +59,7 @@ export const resolveTacticalGridCombat = (
     attackerPlayerId,
     defenderPlayerId,
     isValidPvpCombat,
+    didResolveActualPvpCombat,
     effectiveAttackPower: calculateReducedAttackPowerFromTowers(tacticalAttackPower, towerCount),
     effectiveDefensePower: calculateEffectiveDefenseAfterGrenades(tacticalDefensePower, grenadeCount),
     report: {
@@ -80,7 +84,9 @@ export const consumeTacticalGridCombat = (
   combatId: string,
   context: GameCoreContext
 ): { nextState: CoreGameState; events: CoreEvent[] } => {
-  if (!resolution.isValidPvpCombat) return { nextState: state, events: [] };
+  if (!resolution.didResolveActualPvpCombat || !resolution.isValidPvpCombat) {
+    return { nextState: state, events: [] };
+  }
   const attacker = consumeTacticalGrid(
     state,
     resolution.attackerPlayerId,

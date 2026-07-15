@@ -48,7 +48,8 @@ export interface AllianceBoardMemberView {
   activeDistrictCount: number;
   canStartKickVote: boolean;
   avatarSrc: string | null;
-  presence: "online" | "offline";
+  presence: "online" | "away" | "offline";
+  lastSeenAt: string | null;
 }
 
 export interface AllianceBoardInviteView {

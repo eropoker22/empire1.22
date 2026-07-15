@@ -1,4 +1,12 @@
 import type { StreetDealersBalanceConfig } from "../contracts/balance-config";
+import { freeModeDrugLabConfig } from "../modes/free/free-mode-drug-lab-config";
+
+const STREET_SALE_PRICE_MULTIPLIER = 1.25;
+
+const getStreetSalePrice = (recipeId: "neon-dust" | "pulse-shot" | "velvet-smoke"): number => {
+  const cleanCashCost = freeModeDrugLabConfig.recipes[recipeId].cleanCashCostPerUnit;
+  return Math.round(cleanCashCost * STREET_SALE_PRICE_MULTIPLIER);
+};
 
 export const freeModeStreetDealersConfig: StreetDealersBalanceConfig = {
   id: "street_dealers",
@@ -21,62 +29,40 @@ export const freeModeStreetDealersConfig: StreetDealersBalanceConfig = {
     actionId: "start_drug_sale"
   },
   dealerSlots: [
-    { minOwned: 1, maxOwned: 2, slots: 1 },
-    { minOwned: 3, maxOwned: 5, slots: 2 },
-    { minOwned: 6, maxOwned: 9, slots: 3 },
-    { minOwned: 10, maxOwned: 14, slots: 4 },
-    { minOwned: 15, maxOwned: null, slots: 5 }
+    { slotId: "slot-1", itemId: "neon-dust" },
+    { slotId: "slot-2", itemId: "pulse-shot" },
+    { slotId: "slot-3", itemId: "velvet-smoke" }
   ],
   sellableDrugs: [
     {
       itemId: "neon-dust",
       label: "Neon Dust",
       aliases: ["neonDust"],
-      basePriceDirtyCash: 95,
-      baseDurationMinutes: 4,
+      unitSalePriceDirtyCash: getStreetSalePrice("neon-dust"),
+      cooldownMinutes: 4,
       baseHeatPerUnit: 2,
-      maxAmountPerSlot: 12,
+      minimumAmountPerSale: 10,
       baseStreetRiskPct: 4
     },
     {
       itemId: "pulse-shot",
       label: "Pulse Shot",
       aliases: ["pulseShot"],
-      basePriceDirtyCash: 135,
-      baseDurationMinutes: 5,
+      unitSalePriceDirtyCash: getStreetSalePrice("pulse-shot"),
+      cooldownMinutes: 5,
       baseHeatPerUnit: 3,
-      maxAmountPerSlot: 10,
+      minimumAmountPerSale: 10,
       baseStreetRiskPct: 6
     },
     {
       itemId: "velvet-smoke",
       label: "Velvet Smoke",
       aliases: ["velvetSmoke"],
-      basePriceDirtyCash: 170,
-      baseDurationMinutes: 6,
+      unitSalePriceDirtyCash: getStreetSalePrice("velvet-smoke"),
+      cooldownMinutes: 6,
       baseHeatPerUnit: 4,
-      maxAmountPerSlot: 8,
+      minimumAmountPerSale: 10,
       baseStreetRiskPct: 8
-    },
-    {
-      itemId: "ghost-serum",
-      label: "Ghost Serum",
-      aliases: ["ghostSerum"],
-      basePriceDirtyCash: 260,
-      baseDurationMinutes: 8,
-      baseHeatPerUnit: 6,
-      maxAmountPerSlot: 5,
-      baseStreetRiskPct: 12
-    },
-    {
-      itemId: "overdrive-x",
-      label: "Overdrive X",
-      aliases: ["overdriveX"],
-      basePriceDirtyCash: 360,
-      baseDurationMinutes: 10,
-      baseHeatPerUnit: 9,
-      maxAmountPerSlot: 3,
-      baseStreetRiskPct: 16
     }
   ],
   streetIncidents: {
@@ -88,11 +74,9 @@ export const freeModeStreetDealersConfig: StreetDealersBalanceConfig = {
   },
   network: {
     passiveDirtyIncomeBonusPctPerExtraDealer: 4,
-    salePriceBonusPctPerExtraDealer: 3,
     saleSpeedBonusPctPerExtraDealer: 3,
     heatBonusPctPerExtraDealer: 3,
     maxPassiveDirtyIncomeMultiplier: 1.28,
-    maxSalePriceMultiplier: 1.22,
     maxSaleSpeedMultiplier: 1.22,
     maxHeatMultiplier: 1.22
   }

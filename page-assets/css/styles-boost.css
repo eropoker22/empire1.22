@@ -797,7 +797,10 @@
 .boost-card__timing small { color: #71859a; font-size: 0.53rem; font-weight: 900; }
 .boost-card__timing strong { color: #f8fafc; font-size: 0.75rem; }
 
-.boost-card__costs { display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; }
+.boost-card__cost-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.boost-card__cost-heading span { color: #91a4b8; font-size: 0.55rem; font-weight: 900; }
+.boost-card__cost-heading small { color: #71859a; font-size: 0.52rem; text-align: right; }
+.boost-card__costs { display: flex; flex-wrap: wrap; gap: 5px; margin: 5px 0 10px; }
 .boost-cost-chip { display: grid; gap: 1px; min-width: 86px; padding: 5px 7px; border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 4px; background: rgba(3, 9, 17, 0.56); }
 .boost-cost-chip span { color: #91a4b8; font-size: 0.55rem; }
 .boost-cost-chip strong { color: #dbeafe; font-size: 0.65rem; font-variant-numeric: tabular-nums; }

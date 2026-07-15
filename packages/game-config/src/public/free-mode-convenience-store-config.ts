@@ -13,6 +13,7 @@ export const freeModeConvenienceStoreConfig: ConvenienceStoreBalanceConfig = {
   noLaundering: true,
   noAuditRisk: true,
   passiveRumorIntervalMinutes: 10,
+  maxRumorChecksPerPlayerPerInterval: 1,
   baseRumorChancePct: 11,
   truthChanceByOwnedCount: [
     { minOwned: 1, maxOwned: 2, truthChancePct: 42 },

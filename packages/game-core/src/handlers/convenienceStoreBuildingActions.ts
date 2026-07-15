@@ -131,11 +131,18 @@ export const applyConvenienceStorePassiveRumors = (
   let buildingsById = state.buildingsById;
   let changed = false;
   const feedInputs: ResolveRumorEventInput[] = [];
+  const activeStoresByPlayer = new Map<string, Array<CoreGameState["buildingsById"][string]>>();
+  for (const building of Object.values(state.buildingsById)
+    .filter((candidate) => candidate.buildingTypeId === config.buildingTypeId && candidate.status === "active" && candidate.ownerPlayerId)
+    .sort((left, right) => left.id.localeCompare(right.id))) {
+    const stores = activeStoresByPlayer.get(building.ownerPlayerId!) ?? [];
+    stores.push(building);
+    activeStoresByPlayer.set(building.ownerPlayerId!, stores);
+  }
+  const rumorCheckBuildings = [...activeStoresByPlayer.values()]
+    .flatMap((stores) => stores.slice(0, config.maxRumorChecksPerPlayerPerInterval));
 
-  for (const building of Object.values(state.buildingsById)) {
-    if (building.buildingTypeId !== config.buildingTypeId || building.status !== "active" || !building.ownerPlayerId) {
-      continue;
-    }
+  for (const building of rumorCheckBuildings) {
     const metadata = cleanupMetadata(getConvenienceStoreMetadata(building));
     if (metadata.lastPassiveRumorCheckTick === undefined) {
       metadata.lastPassiveRumorCheckTick = state.root.tick;

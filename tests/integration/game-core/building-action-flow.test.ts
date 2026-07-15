@@ -196,14 +196,14 @@ describe("run-building-action command flow", () => {
           actionId: "start_drug_sale",
           dealerSlotId: "slot-1",
           itemId: "neonDust",
-          amount: 4
+          amount: 10
         }
       }),
       saleContext
     );
 
     expect(started.errors).toEqual([]);
-    expect(started.nextState.resourceStatesById["resource:1"].balances["neon-dust"]).toBe(8);
+    expect(started.nextState.resourceStatesById["resource:1"].balances["neon-dust"]).toBe(2);
     expect(started.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(0);
     expect(started.nextState.districtsById["district:1"].heat).toBe(0);
     expect(started.nextState.playersById["player:1"].metadata?.streetDealers).toMatchObject({
@@ -211,9 +211,9 @@ describe("run-building-action command flow", () => {
         {
           slotId: "slot-1",
           itemId: "neon-dust",
-          amount: 4,
-          rewardDirtyCash: 380,
-          heatGain: 8,
+          amount: 10,
+          rewardDirtyCash: 6250,
+          heatGain: 26,
           streetRiskPct: 0
         }
       ]
@@ -226,9 +226,9 @@ describe("run-building-action command flow", () => {
     const completedBalances = completedState.resourceStatesById["resource:1"].balances;
     const completedReport = createConflictReportViews(completedState, { playerId: "player:1", limit: 1 })[0];
 
-    expect(completedBalances["dirty-cash"]).toBe(380);
+    expect(completedBalances["dirty-cash"]).toBe(6250);
     expect(completedBalances.cash ?? 0).toBe(0);
-    expect(completedState.districtsById["district:1"].heat).toBe(8);
+    expect(completedState.districtsById["district:1"].heat).toBe(26);
     expect(completedState.districtsById["district:1"].influence).toBe(0);
     expect(completedState.playersById["player:1"].population ?? 0).toBe(0);
     expect(completedState.playersById["player:1"].metadata?.streetDealers).toMatchObject({
@@ -238,8 +238,8 @@ describe("run-building-action command flow", () => {
           type: "sale_completed",
           slotId: "slot-1",
           itemId: "neon-dust",
-          rewardDirtyCash: 380,
-          heatGain: 8
+          rewardDirtyCash: 6250,
+          heatGain: 26
         }
       ]
     });
@@ -247,89 +247,60 @@ describe("run-building-action command flow", () => {
       buildingActionId: "start_drug_sale",
       streetDealerResult: {
         type: "sale_completed",
-        rewardDirtyCash: 380,
-        heatGain: 8
+        rewardDirtyCash: 6250,
+        heatGain: 26
       }
     });
   });
 
-  it("runs Street Dealer hot cash and stash actions through server state", () => {
+  it("rejects removed Street Dealer shortcuts, fractional amounts, and strategic components", () => {
     const { state, building } = createStateWithFixedBuilding("street_dealers", {
       playerBalances: {
         cash: 0,
         "dirty-cash": 0,
-        biomass: 3
+        biomass: 3,
+        "neon-dust": 4,
+        "ghost-serum": 2
       }
     });
-    const hotCash = applyCommand(
+    const run = (id: string, actionId: string, payload: Record<string, unknown> = {}) => applyCommand(
       state,
       createRunBuildingActionCommandFixture({
-        id: "command:street-dealers:hot-cash",
+        id,
         payload: {
           districtId: "district:1",
           buildingId: building.id,
-          actionId: "street_dealers_collect_hot_cash"
+          actionId,
+          ...payload
         }
       }),
       context
     );
-    const stashState = createStateWithFixedBuilding("street_dealers", {
-      playerBalances: {
-        cash: 0,
-        "dirty-cash": 0,
-        biomass: 3
-      }
+    const hotCash = run("command:street-dealers:hot-cash", "street_dealers_collect_hot_cash");
+    const stash = run("command:street-dealers:stash", "street_dealers_move_stash");
+    const fractional = run("command:street-dealers:fractional", "start_drug_sale", {
+      dealerSlotId: "slot-1",
+      itemId: "neon-dust",
+      amount: 1.5
     });
-    const stash = applyCommand(
-      stashState.state,
-      createRunBuildingActionCommandFixture({
-        id: "command:street-dealers:stash",
-        payload: {
-          districtId: "district:1",
-          buildingId: stashState.building.id,
-          actionId: "street_dealers_move_stash"
-        }
-      }),
-      context
-    );
-    const rejected = applyCommand(
-      createStateWithFixedBuilding("street_dealers", {
-        playerBalances: {
-          cash: 0,
-          "dirty-cash": 0,
-          biomass: 2
-        }
-      }).state,
-      createRunBuildingActionCommandFixture({
-        id: "command:street-dealers:stash:reject",
-        payload: {
-          districtId: "district:1",
-          buildingId: stashState.building.id,
-          actionId: "street_dealers_move_stash"
-        }
-      }),
-      context
-    );
+    const strategic = run("command:street-dealers:strategic", "start_drug_sale", {
+      dealerSlotId: "slot-1",
+      itemId: "ghost-serum",
+      amount: 1
+    });
 
-    expect(hotCash.errors).toEqual([]);
-    expect(hotCash.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(280);
-    expect(hotCash.nextState.districtsById["district:1"].heat).toBe(2);
-    expect(hotCash.nextState.buildingsById[building.id].actionCooldowns.street_dealers_collect_hot_cash).toBe(
-      cooldownTicksForMs(10 * 60 * 1000)
-    );
-
-    expect(stash.errors).toEqual([]);
-    expect(stash.nextState.resourceStatesById["resource:1"].balances.biomass).toBe(0);
-    expect(stash.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(1000);
-    expect(stash.nextState.districtsById["district:1"].heat).toBe(0);
-    expect(stash.nextState.buildingsById[stashState.building.id].actionCooldowns.street_dealers_move_stash).toBe(
-      cooldownTicksForMs(10 * 60 * 1000)
-    );
-
-    expect(rejected.errors.map((error) => error.code)).toContain("building_action_insufficient_resources");
-    expect(rejected.nextState.resourceStatesById["resource:1"].balances.biomass).toBe(2);
-    expect(rejected.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(0);
-    expect(rejected.nextState.buildingsById[stashState.building.id].actionCooldowns.street_dealers_move_stash).toBeUndefined();
+    expect(hotCash.errors.map((error) => error.code)).toContain("building_action_not_found");
+    expect(stash.errors.map((error) => error.code)).toContain("building_action_not_found");
+    expect(fractional.errors.map((error) => error.code)).toContain("street_dealers_invalid_amount");
+    expect(strategic.errors.map((error) => error.code)).toContain("street_dealers_slot_product_mismatch");
+    for (const result of [hotCash, stash, fractional, strategic]) {
+      expect(result.nextState.resourceStatesById["resource:1"].balances).toMatchObject({
+        "dirty-cash": 0,
+        biomass: 3,
+        "neon-dust": 4,
+        "ghost-serum": 2
+      });
+    }
   });
 
   it("applies smuggling tunnel Pouliční dealeři bonuses to street dealer sale previews", () => {
@@ -362,7 +333,7 @@ describe("run-building-action command flow", () => {
           actionId: "start_drug_sale",
           dealerSlotId: "slot-1",
           itemId: "neonDust",
-          amount: 4
+          amount: 10
         }
       }),
       context
@@ -374,10 +345,8 @@ describe("run-building-action command flow", () => {
         {
           slotId: "slot-1",
           itemId: "neon-dust",
-          amount: 4,
-          rewardDirtyCash: 418,
-          heatGain: 9,
-          streetRiskPct: 7.36,
+          amount: 10,
+          rewardDirtyCash: 6250,
           completesAtTick: 45
         }
       ]
@@ -444,8 +413,8 @@ describe("run-building-action command flow", () => {
         }
       }
     };
-    const beforeNormalMetal = calculateMarketPrice({ ...pressureState, config: context.config }, "metalParts", "normal").finalPrice;
-    const beforeBlackMetal = calculateMarketPrice({ ...pressureState, config: context.config }, "metalParts", "black").finalPrice;
+    const beforeNormalMetal = calculateMarketPrice({ ...pressureState, config: context.config }, "metal-parts", "normal").finalPrice;
+    const beforeBlackMetal = calculateMarketPrice({ ...pressureState, config: context.config }, "metal-parts", "black").finalPrice;
     const pressure = applyCommand(
       pressureState,
       createRunBuildingActionCommandFixture({
@@ -460,8 +429,8 @@ describe("run-building-action command flow", () => {
       }),
       context
     );
-    const afterNormalMetal = calculateMarketPrice({ ...pressure.nextState, config: context.config }, "metalParts", "normal").finalPrice;
-    const afterBlackMetal = calculateMarketPrice({ ...pressure.nextState, config: context.config }, "metalParts", "black").finalPrice;
+    const afterNormalMetal = calculateMarketPrice({ ...pressure.nextState, config: context.config }, "metal-parts", "normal").finalPrice;
+    const afterBlackMetal = calculateMarketPrice({ ...pressure.nextState, config: context.config }, "metal-parts", "black").finalPrice;
 
     expect(pressure.errors).toEqual([]);
     expect(pressure.nextState.resourceStatesById["resource:1"].balances.cash).toBe(17000);
@@ -879,8 +848,8 @@ describe("run-building-action command flow", () => {
       eventLog: [],
       rumors: []
     };
-    const basePrice = calculateMarketPrice(marketState, "metalParts", "normal").finalPrice;
-    const bought = buyResource(marketState, marketState.playersById["player:1"], "metalParts", 1, "normal", "cleanCash");
+    const basePrice = calculateMarketPrice(marketState, "metal-parts", "normal").finalPrice;
+    const bought = buyResource(marketState, marketState.playersById["player:1"], "metal-parts", 1, "normal", "cleanCash");
     expect(bought.success).toBe(true);
     expect(bought.shoppingMallDiscountPct).toBe(8);
     expect(bought.unitPrice).toBe(Math.ceil(basePrice * 0.92));
@@ -2464,7 +2433,7 @@ describe("run-building-action command flow", () => {
         durationTicks: ticksForMs((openChannelConfig?.durationMinutes ?? 0) * 60 * 1000),
         heatGain: 5,
         tunnelDirtyProductionBonusPct: 45,
-        dealerSalePriceBonusPct: 12,
+        dealerSaleSpeedBonusPct: 10,
         streetIncidentFlatRiskPct: 5
       }
     });
@@ -2937,6 +2906,49 @@ describe("run-building-action command flow", () => {
     expect(metadata?.rumorEvents?.[0]?.text).not.toContain("Spolehlivost:");
   });
 
+  it("checks Convenience Store rumors once per player and interval instead of once per building", () => {
+    const rumorContext = {
+      config: {
+        ...context.config,
+        balance: {
+          ...context.config.balance,
+          convenienceStore: {
+            ...context.config.balance.convenienceStore!,
+            baseRumorChancePct: 100,
+            maxRumorChecksPerPlayerPerInterval: 1
+          }
+        }
+      }
+    };
+    const { state, building } = createStateWithFixedBuilding("convenience_store", {
+      id: "building:district-1:convenience_store:1",
+      metadata: { convenienceStore: { lastPassiveRumorCheckTick: 0, rumorEvents: [] } }
+    });
+    const secondStore = {
+      ...building,
+      id: "building:district-2:convenience_store:2",
+      districtId: "district:2",
+      metadata: { convenienceStore: { lastPassiveRumorCheckTick: 0, rumorEvents: [] } }
+    };
+    state.buildingsById[secondStore.id] = secondStore;
+    state.districtsById["district:2"] = createDistrictFixture({
+      id: "district:2",
+      buildingIds: [secondStore.id],
+      ownerPlayerId: "player:1"
+    });
+    state.root.districtIds.push("district:2");
+    state.root.tick = ticksForMs(10 * 60 * 1000);
+
+    const result = collectIncome(state, rumorContext);
+    const firstMetadata = result.buildingsById[building.id].metadata?.convenienceStore as { lastPassiveRumorCheckTick?: number; rumorEvents?: unknown[] };
+    const secondMetadata = result.buildingsById[secondStore.id].metadata?.convenienceStore as { lastPassiveRumorCheckTick?: number; rumorEvents?: unknown[] };
+
+    expect(firstMetadata.lastPassiveRumorCheckTick).toBe(state.root.tick);
+    expect(firstMetadata.rumorEvents).toHaveLength(1);
+    expect(secondMetadata.lastPassiveRumorCheckTick).toBe(0);
+    expect(secondMetadata.rumorEvents).toEqual([]);
+  });
+
   it("activates Strip Club VIP lounge and blocks stacking while active", () => {
     const { state, building } = createStateWithFixedBuilding("strip_club", {
       playerBalances: {
@@ -3040,7 +3052,7 @@ describe("run-building-action command flow", () => {
     expect(report).toMatchObject({
       buildingActionId: "private_party",
       stripClubResult: {
-        type: "influence_contact_event",
+        type: "influence_rumor_event",
         scandal: true
       }
     });

@@ -110,6 +110,7 @@ export const createAllianceBoardReadModel = (
         const status = membership
           ? deriveAllianceMembershipStatus(membership, currentNowIso, config, membership.activeVoteId ? alliance.kickVotesById?.[membership.activeVoteId] : null)
           : "active";
+        const presence = resolvePlayerPresence(member, memberId, currentPlayerId, currentNowIso);
         return {
           playerId: memberId,
           name: member?.name ?? memberId,
@@ -120,7 +121,8 @@ export const createAllianceBoardReadModel = (
           activeDistrictCount: countActiveDistricts(inputState, memberId),
           canStartKickVote: Boolean(isLeader && memberId !== currentPlayerId && status === "vote_eligible"),
           avatarSrc: stringMetadata(member?.metadata, ["avatarSrc", "avatar"]),
-          presence: resolvePlayerPresence(member, memberId, currentPlayerId)
+          presence: presence.status,
+          lastSeenAt: presence.lastSeenAt
         };
       }),
       pendingInvites: Object.values(inputState.allianceInvitesById ?? {})
@@ -221,11 +223,19 @@ const stringMetadata = (metadata: Record<string, unknown> | undefined, keys: str
 const resolvePlayerPresence = (
   player: CoreGameState["playersById"][string] | undefined,
   playerId: string,
-  currentPlayerId: string
-): "online" | "offline" => {
-  const rawPresence = stringMetadata(player?.metadata, ["presence", "onlineStatus", "connectionStatus"]);
-  if (rawPresence && rawPresence.toLowerCase() === "online") return "online";
-  return playerId === currentPlayerId ? "online" : "offline";
+  currentPlayerId: string,
+  nowIso: string
+): { status: "online" | "away" | "offline"; lastSeenAt: string | null } => {
+  const lastSeenAt = stringMetadata(player?.metadata, ["lastSeenAt"]);
+  if (playerId === currentPlayerId) return { status: "online", lastSeenAt: lastSeenAt ?? nowIso };
+  const elapsedMs = Date.parse(nowIso) - Date.parse(lastSeenAt || "");
+  if (Number.isFinite(elapsedMs) && elapsedMs >= 0 && elapsedMs <= 2 * 60 * 1000) {
+    return { status: "online", lastSeenAt };
+  }
+  if (Number.isFinite(elapsedMs) && elapsedMs >= 0 && elapsedMs <= 15 * 60 * 1000) {
+    return { status: "away", lastSeenAt };
+  }
+  return { status: "offline", lastSeenAt };
 };
 
 const countActiveDistricts = (state: CoreGameState, playerId: string): number =>

@@ -13,14 +13,24 @@ export type PoliceRaidRisk = "none" | "watch" | "elevated" | "ready" | "pending"
 export const selectVisiblePendingRaid = (raids: PendingRaid[] | undefined): PendingRaid | null =>
   (raids ?? []).find((raid) => raid.status === "pending" || raid.status === "acknowledged") ?? null;
 
-export const toPendingRaidView = (raid: PendingRaid | null): PolicePendingRaidView | null =>
+export const toPendingRaidView = (
+  raid: PendingRaid | null,
+  currentTick = 0,
+  tickRateMs = 0,
+  nowMs = 0
+): PolicePendingRaidView | null =>
   raid
     ? {
         ...raid,
         id: raid.raidId,
         triggerTick: raid.createdAtTick,
         expiresAtTick: raid.expiresAtTick ?? null,
-        targetDistrictId: raid.targetDistrictId ?? null
+        targetDistrictId: raid.targetDistrictId ?? null,
+        remainingTicks: Math.max(0, Number(raid.expiresAtTick ?? currentTick) - currentTick),
+        remainingMs: Math.max(0, Number(raid.expiresAtTick ?? currentTick) - currentTick) * Math.max(0, tickRateMs),
+        expiresAtMs: raid.expiresAtTick === null || raid.expiresAtTick === undefined
+          ? null
+          : nowMs + Math.max(0, Number(raid.expiresAtTick) - currentTick) * Math.max(0, tickRateMs)
       }
     : null;
 

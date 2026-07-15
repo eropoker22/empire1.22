@@ -24,13 +24,26 @@ export function formatServerBuildingActionDisabledReason(actionView, deps = {}) 
   return String(actionView?.disabledReason || "").trim();
 }
 
-export function createServerBuildingActionPayload(target, definition, actionProfile = {}) {
-  return {
+export function createServerBuildingActionPayload(target, definition, actionProfile = {}, actionInput = {}) {
+  const actionPayload = {
     districtId: target.districtId,
     buildingId: target.buildingId,
     actionId: definition.actionId,
     ...createServerBuildingActionDefaultPayload(definition.actionId, actionProfile)
   };
+  if (definition.actionId === "start_drug_sale") {
+    const fallbackSlotId = String(actionPayload.dealerSlotId || actionPayload.slotId || "");
+    const fallbackItemId = String(actionPayload.itemId || "");
+    const fallbackAmount = Number(actionPayload.amount);
+    const requestedAmount = Number(actionInput.amount);
+    return {
+      ...actionPayload,
+      dealerSlotId: String(actionInput.dealerSlotId || actionInput.slotId || fallbackSlotId),
+      itemId: String(actionInput.itemId || fallbackItemId),
+      amount: Number.isInteger(requestedAmount) && requestedAmount > 0 ? requestedAmount : fallbackAmount
+    };
+  }
+  return actionPayload;
 }
 
 export function findServerBuildingActionTarget(readModel, context, definition) {
@@ -93,6 +106,7 @@ export function createServerBuildingActionSubmitRequest({
   target,
   definition,
   actionProfile = {},
+  actionInput = {},
   commandId,
   issuedAt = new Date().toISOString()
 } = {}) {
@@ -109,7 +123,7 @@ export function createServerBuildingActionSubmitRequest({
       playerId: player.playerId,
       serverInstanceId: player.instanceId,
       issuedAt,
-      payload: createServerBuildingActionPayload(target, definition, actionProfile),
+      payload: createServerBuildingActionPayload(target, definition, actionProfile, actionInput),
       clientRequestId: null
     },
     focusDistrictId: target.districtId,
@@ -117,7 +131,7 @@ export function createServerBuildingActionSubmitRequest({
   };
 }
 
-export async function submitServerBuildingActionCommandBridge({ context, actionProfile, definition } = {}, deps = {}) {
+export async function submitServerBuildingActionCommandBridge({ context, actionProfile, definition, actionInput } = {}, deps = {}) {
   if (!deps.isReady?.()) {
     return {
       accepted: false,
@@ -149,6 +163,7 @@ export async function submitServerBuildingActionCommandBridge({ context, actionP
     target,
     definition,
     actionProfile,
+    actionInput,
     commandId: deps.createCommandId?.("command:building-action") || `command:building-action:${Date.now()}`,
     issuedAt: deps.nowIso?.() || new Date().toISOString()
   });

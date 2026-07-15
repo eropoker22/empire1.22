@@ -85,18 +85,20 @@ export function createMarketDataSourceSnapshot({
   localMarketState = null
 } = {}) {
   const isPlayerBazaar = activeTab === playerTabId;
-  const hasServerMarket = isObject(serverMarket) && !isPlayerBazaar;
+  const hasServerMarket = isObject(serverMarket);
   const hasLocalFallback = hasRenderableLocalMarketState(localMarketState);
 
   if (hasServerMarket) {
     return createSnapshot({
       activeTab,
-      isPlayerBazaar: false,
+      isPlayerBazaar,
       marketState: serverMarket,
       serverMarket,
       localMarketState,
       source: MARKET_DATA_SOURCE.SERVER,
-      status: hasServerResources(serverMarket) ? "ready" : "empty",
+      status: isPlayerBazaar
+        ? (Array.isArray(serverMarket?.playerMarket?.listings) ? "ready" : "empty")
+        : (hasServerResources(serverMarket) ? "ready" : "empty"),
       useServerMarket: true
     });
   }

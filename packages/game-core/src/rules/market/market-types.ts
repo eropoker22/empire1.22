@@ -1,6 +1,27 @@
 export type AnyRecord = Record<string, any>;
 
-export type MarketResourceId = "metalParts" | "techCore" | "chemicals" | "biomass";
+export type MarketResourceId =
+  | "chemicals"
+  | "biomass"
+  | "metal-parts"
+  | "neon-dust"
+  | "baseball-bat"
+  | "barricades"
+  | "stim-pack"
+  | "pulse-shot"
+  | "velvet-smoke"
+  | "tech-core"
+  | "pistol"
+  | "grenade"
+  | "vest"
+  | "cameras"
+  | "alarm"
+  | "combat-module"
+  | "ghost-serum"
+  | "overdrive-x"
+  | "smg"
+  | "bazooka"
+  | "defense-tower";
 export type MarketType = "normal" | "black";
 export type MarketPaymentType = "cleanCash" | "dirtyCash";
 export type MarketModeId = "free" | "war";

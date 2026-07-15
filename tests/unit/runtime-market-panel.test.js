@@ -7,7 +7,8 @@ import {
   renderMarketEmptyState,
   renderMarketPanel,
   renderPlayerMarketPanel,
-  setMarketFeedback
+  setMarketFeedback,
+  syncMarketTabs
 } from "../../page-assets/js/app/ui/marketPanel.js";
 
 class FakeClassList {
@@ -184,6 +185,7 @@ describe("market panel renderer", () => {
     })).toBe(true);
 
     expect(findByClass(container, "market-popup-row__name").textContent).toBe("Chemicals");
+    expect(findAllByClass(container, "market-popup-row__fact")).toHaveLength(4);
     expect(findByClass(container, "market-popup-row__total").textContent).toBe("Celkem 120$ · prodej 90$");
 
     findByClass(container, "market-popup-row__buy").dispatch("click");
@@ -191,6 +193,49 @@ describe("market panel renderer", () => {
 
     expect(onBuyItem).toHaveBeenCalledWith(expect.objectContaining({ itemId: "chemicals" }), 1, expect.any(Function));
     expect(onSellItem).toHaveBeenCalledWith(expect.objectContaining({ itemId: "chemicals" }), 1, expect.any(Function));
+  });
+
+  it("changes quantity through stable minus and plus controls", () => {
+    const container = createContainer();
+    const onBuyItem = vi.fn();
+
+    renderMarketPanel(container, { items: [{ ...marketItem, buyPrice: 120, sellPrice: 90 }] }, {
+      getTradeState: (_item, quantity) => ({
+        buyDisabled: false,
+        sellDisabled: false,
+        totalLabel: `Celkem ${quantity * 120}$`
+      }),
+      onBuyItem
+    });
+
+    const controls = findAllByClass(container, "market-popup-row__quantity-step");
+    const quantity = findByClass(container, "market-popup-row__quantity");
+    expect(quantity.value).toBe("1");
+    expect(controls[0].disabled).toBe(true);
+
+    controls[1].dispatch("click");
+    controls[1].dispatch("click");
+    expect(quantity.value).toBe("3");
+    controls[0].dispatch("click");
+    expect(quantity.value).toBe("2");
+
+    findByClass(container, "market-popup-row__buy").dispatch("click");
+    expect(onBuyItem).toHaveBeenCalledWith(expect.anything(), 2, expect.any(Function));
+  });
+
+  it("synchronizes tab selection for keyboard and assistive technology", () => {
+    const document = new FakeDocument();
+    const normal = new FakeElement("button", document);
+    const black = new FakeElement("button", document);
+    normal.dataset.marketTab = "market";
+    black.dataset.marketTab = "black-market";
+
+    syncMarketTabs([normal, black], "black-market");
+
+    expect(normal.getAttribute("aria-selected")).toBe("false");
+    expect(normal.tabIndex).toBe(-1);
+    expect(black.getAttribute("aria-selected")).toBe("true");
+    expect(black.tabIndex).toBe(0);
   });
 
   it("renders black market rows with risk text", () => {

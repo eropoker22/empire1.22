@@ -34,6 +34,43 @@ type AllianceMembershipCommand =
   | SendPublicAllianceMessageCommand
   | SendPublicAllianceInviteCommand;
 
+const ALLIANCE_CHAT_RATE_LIMIT_MS = 2_000;
+const ALLIANCE_CHAT_RETENTION = 100;
+
+const normalizeAllianceChatBody = (value: unknown): string =>
+  String(value || "")
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const appendRetainedAllianceMessage = (
+  state: CoreGameState,
+  message: AllianceChatMessage
+): CoreGameState["allianceChatMessagesById"] => {
+  const allMessages = [...Object.values(state.allianceChatMessagesById ?? {}), message];
+  const retainedIds = new Set(allMessages
+    .filter((entry) => entry.allianceId === message.allianceId)
+    .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
+    .slice(0, ALLIANCE_CHAT_RETENTION)
+    .map((entry) => entry.id));
+  return Object.fromEntries(allMessages.filter((entry) =>
+    entry.allianceId !== message.allianceId || retainedIds.has(entry.id)
+  ).map((entry) => [entry.id, entry]));
+};
+
+const validateAllianceChatRate = (
+  state: CoreGameState,
+  allianceId: string,
+  playerId: string,
+  nowIso: string
+): boolean => {
+  const now = Date.parse(nowIso);
+  const lastMessageAt = Object.values(state.allianceChatMessagesById ?? {})
+    .filter((message) => message.allianceId === allianceId && message.authorPlayerId === playerId)
+    .reduce((latest, message) => Math.max(latest, Date.parse(message.createdAt) || 0), 0);
+  return !Number.isFinite(now) || now - lastMessageAt >= ALLIANCE_CHAT_RATE_LIMIT_MS;
+};
+
 export const handleAllianceMembershipCommand = (
   state: CoreGameState,
   command: AllianceMembershipCommand,
@@ -237,21 +274,26 @@ const sendAllianceChatMessage = (
     return rejected(state, "ALLIANCE_CHAT_NOT_ALLOWED", "Hráč není aktivní člen aliance.");
   }
 
-  const body = String(command.payload.body || "").trim().slice(0, 240);
+  const body = normalizeAllianceChatBody(command.payload.body);
   if (!body) return rejected(state, "ALLIANCE_CHAT_EMPTY", "Zpráva do aliance je prázdná.");
+  if (body.length > 240) return rejected(state, "ALLIANCE_CHAT_TOO_LONG", "Zpráva může mít nejvýše 240 znaků.");
+  const nowIso = nowIsoFromContext(context);
+  if (!validateAllianceChatRate(state, alliance.id, command.playerId, nowIso)) {
+    return rejected(state, "ALLIANCE_CHAT_RATE_LIMITED", "Další zprávu můžeš poslat za dvě sekundy.");
+  }
   const message: AllianceChatMessage = {
     id: `alliance-chat:${command.id}`,
     allianceId: alliance.id,
     authorPlayerId: command.playerId,
     body,
-    createdAt: nowIsoFromContext(context),
+    createdAt: nowIso,
     version: 1
   };
 
   return {
     nextState: {
       ...state,
-      allianceChatMessagesById: { ...(state.allianceChatMessagesById ?? {}), [message.id]: message },
+      allianceChatMessagesById: appendRetainedAllianceMessage(state, message),
       root: { ...state.root, version: state.root.version + 1 }
     },
     events: [createEvent(CORE_EVENT_TYPES.allianceChatMessageSent, { allianceId: alliance.id, messageId: message.id, authorPlayerId: command.playerId })],
@@ -276,21 +318,26 @@ const sendPublicAllianceMessage = (
     return rejected(state, "PUBLIC_ALLIANCE_CONTACT_SELF", "Cílová aliance musí být jiná.");
   }
 
-  const body = String(command.payload.body || "").trim().slice(0, 240);
+  const body = normalizeAllianceChatBody(command.payload.body);
   if (!body) return rejected(state, "ALLIANCE_CHAT_EMPTY", "Zpráva do aliance je prázdná.");
+  if (body.length > 240) return rejected(state, "ALLIANCE_CHAT_TOO_LONG", "Zpráva může mít nejvýše 240 znaků.");
+  const nowIso = nowIsoFromContext(context);
+  if (!validateAllianceChatRate(state, targetAlliance.id, command.playerId, nowIso)) {
+    return rejected(state, "ALLIANCE_CHAT_RATE_LIMITED", "Další zprávu můžeš poslat za dvě sekundy.");
+  }
   const message: AllianceChatMessage = {
     id: `alliance-public-chat:${command.id}`,
     allianceId: targetAlliance.id,
     authorPlayerId: command.playerId,
     body,
-    createdAt: nowIsoFromContext(context),
+    createdAt: nowIso,
     version: 1
   };
 
   return {
     nextState: {
       ...state,
-      allianceChatMessagesById: { ...(state.allianceChatMessagesById ?? {}), [message.id]: message },
+      allianceChatMessagesById: appendRetainedAllianceMessage(state, message),
       root: { ...state.root, version: state.root.version + 1 }
     },
     events: [createEvent(CORE_EVENT_TYPES.allianceChatMessageSent, { allianceId: targetAlliance.id, messageId: message.id, authorPlayerId: command.playerId })],

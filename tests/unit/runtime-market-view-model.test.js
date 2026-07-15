@@ -30,16 +30,16 @@ describe("market view model builders", () => {
 
     expect(dashboard.chips).toEqual([
       { label: "Black market", value: "policie blízko", tone: "danger" },
-      { label: "Clean", value: "1200$", tone: "clean" },
-      { label: "Dirty", value: "450$", tone: "dirty" },
+      { label: "Čisté", value: "1200$", tone: "clean" },
+      { label: "Špinavé", value: "450$", tone: "dirty" },
       { label: "Heat", value: "7", tone: "danger" },
-      { label: "Refresh", value: "42 s", tone: "timer" },
-      { label: "Stock", value: "neomezeně", tone: "danger" }
+      { label: "Obnova", value: "42 s", tone: "timer" },
+      { label: "Zásoba", value: "neomezeně", tone: "danger" }
     ]);
     expect(dashboard.recentTransactions).toHaveLength(1);
     expect(dashboard.allRecentTransactions).toHaveLength(4);
-    expect(createMarketCopy("market", { copy: "Normal." })).toBe("Normal. Bezpečný kanál má omezený stock: nákup ho snižuje, prodej ho vrací do trhu a ceny platí jen pro tento server.");
-    expect(createMarketCopy("player-market", { copy: "Bazar." })).toContain("nabídku můžeš stáhnout");
+    expect(createMarketCopy("market", { copy: "Normal." })).toBe("Normal. Nákup snižuje zásobu trhu, prodej ji vrací a ceny se průběžně obnovují.");
+    expect(createMarketCopy("player-market", { copy: "Bazar." })).toContain("Nabídku můžeš bezpečně stáhnout");
   });
 
   it("builds normal market item labels without changing price math", () => {

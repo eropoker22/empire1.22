@@ -5,20 +5,26 @@ import type { FreeBrPlayer, FreeBrSimulationState } from "./types";
 
 export const tryCraft = (state: FreeBrSimulationState, rng: SeededRng, player: FreeBrPlayer): boolean => {
   const ownedBuildingTypes = new Set(getOwnedBuildingTypes(state, player.id));
-  const craftBuildings = getCraftBuildings(state)
+  const craftBuildings = getProductionBuildings(state)
     .filter((building) => ownedBuildingTypes.has(building.buildingType));
   if (craftBuildings.length === 0) return false;
 
   const buildingConfig = rng.pick(craftBuildings);
   const recipes = buildingConfig.recipes
-    .filter(([recipeId]) => isCooldownReady(state, player, `craft:${buildingConfig.buildingType}:${recipeId}`));
+    .filter(([recipeId, recipe]) =>
+      isCooldownReady(state, player, `craft:${buildingConfig.buildingType}:${recipeId}`)
+      && canAffordProductionRecipe(player, recipe)
+    );
   if (recipes.length === 0) return false;
   const [recipeId, recipe] = rng.pick(recipes);
-  const cooldownTicks = Math.max(1, Math.ceil(recipe.durationTicks * state.config.balance.cooldownMultiplier));
-  const cashCost = Object.values(recipe.inputCosts).reduce((sum, value) => sum + value * 8, 0);
+  const cooldownTicks = Math.max(1, Math.ceil(recipe.durationTicksPerUnit * state.config.balance.cooldownMultiplier));
+  const cashCost = recipe.cleanCashCostPerUnit;
   player.cooldowns[`craft:${buildingConfig.buildingType}:${recipeId}`] = state.tick + cooldownTicks;
+  player.resources.cash = (player.resources.cash ?? 0) - cashCost;
+  for (const [resourceKey, amount] of Object.entries(recipe.inputCosts)) {
+    player.resources[resourceKey] = (player.resources[resourceKey] ?? 0) - amount;
+  }
   player.resources[recipe.outputResourceKey] = (player.resources[recipe.outputResourceKey] ?? 0) + recipe.outputAmount;
-  player.resources.cash = Math.max(0, (player.resources.cash ?? 0) - cashCost);
   player.lastActionTick = state.tick;
   state.stats[player.id].craftActions += 1;
   addAuditEvent(state, {
@@ -26,7 +32,7 @@ export const tryCraft = (state: FreeBrSimulationState, rng: SeededRng, player: F
     actionType: "craft-item",
     result: recipeId,
     cashDelta: -cashCost,
-    notes: `${buildingConfig.buildingType}: ${recipe.label} (${cooldownTicks} ticks cooldown approximation)`
+    notes: `${buildingConfig.buildingType}: ${recipe.label} (${cooldownTicks} ticks one-piece completion approximation)`
   });
   return true;
 };
@@ -144,24 +150,44 @@ const resolveSimulationDayNightPhase = (state: FreeBrSimulationState): "day" | "
   return cycleTick < dayTicks ? "day" : "night";
 };
 
-type CraftBuildingConfig = NonNullable<FreeBrSimulationState["config"]["balance"]["craftBuildings"]>[string];
-type CraftRecipeConfig = CraftBuildingConfig["recipes"][string];
+type ProductionRecipeConfig = {
+  label: string;
+  outputResourceKey: string;
+  outputAmount: number;
+  cleanCashCostPerUnit: number;
+  inputCosts: Record<string, number>;
+  durationTicksPerUnit: number;
+};
 type BuildingActionConfig = NonNullable<FreeBrSimulationState["config"]["balance"]["buildingActions"]>[string];
 
-const craftBuildingsCache = new WeakMap<object, Array<{ buildingType: string; recipes: Array<[string, CraftRecipeConfig]> }>>();
+const productionBuildingsCache = new WeakMap<object, Array<{ buildingType: string; recipes: Array<[string, ProductionRecipeConfig]> }>>();
 const buildingActionsByTypeCache = new WeakMap<object, Record<string, BuildingActionConfig[]>>();
 
-const getCraftBuildings = (state: FreeBrSimulationState): Array<{ buildingType: string; recipes: Array<[string, CraftRecipeConfig]> }> => {
+const getProductionBuildings = (state: FreeBrSimulationState): Array<{ buildingType: string; recipes: Array<[string, ProductionRecipeConfig]> }> => {
   const balance = state.config.balance as object;
-  const cached = craftBuildingsCache.get(balance);
+  const cached = productionBuildingsCache.get(balance);
   if (cached) return cached;
-  const entries = Object.entries(state.config.balance.craftBuildings ?? {}).map(([buildingType, buildingConfig]) => ({
-    buildingType,
-    recipes: Object.entries(buildingConfig.recipes ?? {})
-  }));
-  craftBuildingsCache.set(balance, entries);
+  const configs = [
+    ["pharmacy", state.config.balance.pharmacy],
+    ["drug_lab", state.config.balance.drugLab],
+    ["factory", state.config.balance.factory],
+    ["armory", state.config.balance.armory]
+  ] as const;
+  const entries = configs.flatMap(([buildingType, config]) => config
+    ? [{
+        buildingType,
+        recipes: Object.entries(config.recipes) as Array<[string, ProductionRecipeConfig]>
+      }]
+    : []);
+  productionBuildingsCache.set(balance, entries);
   return entries;
 };
+
+const canAffordProductionRecipe = (player: FreeBrPlayer, recipe: ProductionRecipeConfig): boolean =>
+  (player.resources.cash ?? 0) >= recipe.cleanCashCostPerUnit
+  && Object.entries(recipe.inputCosts).every(([resourceKey, amount]) =>
+    (player.resources[resourceKey] ?? 0) >= amount
+  );
 
 const getBuildingActionsByType = (state: FreeBrSimulationState): Record<string, BuildingActionConfig[]> => {
   const balance = state.config.balance as object;

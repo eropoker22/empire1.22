@@ -31,45 +31,42 @@ export const FACTORY_SLOT_STORAGE_CAP = Math.max(...Object.values(FACTORY_SLOT_S
 
 export const FACTORY_RESOURCE_KEYS = Object.freeze(["metalParts", "techCore", "combatModule"]);
 
+const MARKET_MATERIAL_IDS = new Set(["chemicals", "biomass", "metal-parts", "stim-pack", "tech-core", "combat-module"]);
+const MARKET_DRUG_IDS = new Set(["neon-dust", "pulse-shot", "velvet-smoke", "ghost-serum", "overdrive-x"]);
+const createBrowserMarketItems = (resourceIds) => resourceIds.map((itemId) => {
+  const resource = MARKET_CONFIG.resources[itemId];
+  return {
+    inventory: MARKET_MATERIAL_IDS.has(itemId) ? "materials" : MARKET_DRUG_IDS.has(itemId) ? "drugs" : "weapons",
+    itemId,
+    name: resource.name,
+    price: resource.basePrice
+  };
+});
+
 export const MARKET_TAB_CONFIG = {
   market: {
     label: "Normal Market",
-    copy: "Lokální demo bazar pro rychlý nákup a výkup materiálu bez heat risku.",
+    copy: "Bezpečný městský kanál pro základní výrobní vstupy bez Heat risku.",
     payment: "cleanMoney",
     payout: "cleanMoney",
     buyMultiplier: 1.12,
     sellMultiplier: 0.92,
     variance: 0.08,
-    items: [
-      { inventory: "materials", itemId: "chemicals", name: "Chemicals", price: 500 },
-      { inventory: "materials", itemId: "biomass", name: "Biomass", price: 560 },
-      { inventory: "materials", itemId: "stim-pack", name: "Stim Pack", price: 1500 },
-      { inventory: "materials", itemId: "metal-parts", name: "Metal Parts", price: 260 },
-      { inventory: "materials", itemId: "tech-core", name: "Tech Core", price: 700 }
-    ]
+    items: createBrowserMarketItems(MARKET_CONFIG.normalMarketResourceIds)
   },
   "black-market": {
     label: "Black Market",
-    copy: "Neonová síť překupníků pro dirty trade, drogy a citlivou výzbroj.",
+    copy: "Rotující síť překupníků pro vzácné komponenty, látky a výzbroj.",
     payment: "dirtyMoney",
     payout: "dirtyMoney",
     buyMultiplier: 1.32,
     sellMultiplier: 0.01,
     variance: 0.22,
-    items: [
-      { inventory: "drugs", itemId: "neon-dust", name: "Neon Dust", price: 760 },
-      { inventory: "drugs", itemId: "pulse-shot", name: "Pulse Shot", price: 980 },
-      { inventory: "drugs", itemId: "velvet-smoke", name: "Velvet Smoke", price: 1100 },
-      { inventory: "drugs", itemId: "ghost-serum", name: "Ghost Serum", price: 2200 },
-      { inventory: "drugs", itemId: "overdrive-x", name: "Overdrive X", price: 4200 },
-      { inventory: "weapons", itemId: "pistol", name: "Pistole", price: 1250 },
-      { inventory: "weapons", itemId: "smg", name: "SMG", price: 3800 },
-      { inventory: "weapons", itemId: "bazooka", name: "Bazuka", price: 11000 }
-    ]
+    items: createBrowserMarketItems(MARKET_CONFIG.blackMarketResourceIds)
   },
   "player-market": {
     label: "Hráčský bazar",
-    copy: "Demo nabídky tohoto prohlížeče. Skutečný serverový P2P market zatím není součástí veřejného buildu.",
+    copy: "Nabídky hráčů používají escrow; položka zůstává blokovaná do prodeje, stažení nebo expirace.",
     payment: "cleanMoney",
     payout: "cleanMoney",
     buyMultiplier: 1,
@@ -89,6 +86,12 @@ import {
   FACTORY_SLOT_STORAGE_CAPS,
   PHARMACY_RECIPES,
   PLAYER_BOOST_CONFIG,
+  MARKET_CONFIG,
+  STREET_DEALERS_CONFIG,
+  SMUGGLING_TUNNEL_CONFIG,
+  CONVENIENCE_STORE_CONFIG,
+  STRIP_CLUB_CONFIG,
+  PARK_DAY_NIGHT_ACTION_RULES,
   WAREHOUSE_STORAGE_CONFIG
 } from "./gameplay-config.generated.js";
 
@@ -101,5 +104,11 @@ export {
   FACTORY_SLOT_STORAGE_CAPS,
   PHARMACY_RECIPES,
   PLAYER_BOOST_CONFIG,
+  MARKET_CONFIG,
+  STREET_DEALERS_CONFIG,
+  SMUGGLING_TUNNEL_CONFIG,
+  CONVENIENCE_STORE_CONFIG,
+  STRIP_CLUB_CONFIG,
+  PARK_DAY_NIGHT_ACTION_RULES,
   WAREHOUSE_STORAGE_CONFIG
 };

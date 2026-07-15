@@ -214,19 +214,8 @@ export function createBuildingNetworkRuntime(deps = {}) {
     const config = deps.smugglingTunnelConfig;
     return {
       dirtyProductionMultiplier: Math.min(config.maxDirtyProductionMultiplier, 1 + extra * config.dirtyProductionBonusPctPerExtraTunnel / 100),
-      batchCapacityMultiplier: 1,
-      heatMultiplier: Math.min(config.maxHeatMultiplier ?? config.maxPassiveHeatMultiplier, 1 + extra * (config.heatBonusPctPerExtraTunnel ?? config.passiveHeatBonusPctPerExtraTunnel) / 100),
-      passiveHeatMultiplier: Math.min(config.maxHeatMultiplier ?? config.maxPassiveHeatMultiplier, 1 + extra * (config.heatBonusPctPerExtraTunnel ?? config.passiveHeatBonusPctPerExtraTunnel) / 100)
+      heatMultiplier: Math.min(config.maxHeatMultiplier, 1 + extra * config.heatBonusPctPerExtraTunnel / 100)
     };
-  };
-  const getSmugglingTunnelCollectHeat = (amount) => {
-    const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
-    if (safeAmount >= 5000) return 16;
-    if (safeAmount >= 3000) return 11;
-    if (safeAmount >= 2000) return 7;
-    if (safeAmount >= 1000) return 4;
-    if (safeAmount >= 1) return 2;
-    return 0;
   };
 
   const getOwnedExchangeOfficeCount = () => countOwnedBuildingByBaseName("smenarna");
@@ -430,7 +419,6 @@ export function createBuildingNetworkRuntime(deps = {}) {
     getSchoolNetworkMultipliers,
     getShoppingMallMarketDiscountForTab,
     getShoppingMallNetworkMultipliers,
-    getSmugglingTunnelCollectHeat,
     getSmugglingTunnelNetworkMultipliers,
     getWarehouseCapacityBreakdown,
     getWarehouseCapacityWarnings,

@@ -330,7 +330,7 @@ describe("core police system completion", () => {
       },
       lockedDistrictId: "district:1",
       disruptedBuildingIds: [building.id],
-      buildingDisruptionUntilTick: 18,
+      buildingDisruptionUntilTick: 120,
       heatReducedBy: 55
     });
     expect(balances).toMatchObject({
@@ -341,11 +341,11 @@ describe("core police system completion", () => {
     });
     expect(resolved.nextState.districtsById["district:1"]).toMatchObject({
       status: "locked",
-      lockdownUntilTick: 24
+      lockdownUntilTick: 180
     });
     expect(resolved.nextState.buildingsById[building.id]).toMatchObject({
       status: "disabled",
-      disruptedUntilTick: 18
+      disruptedUntilTick: 120
     });
 
     const secondResolve = resolvePendingRaid(resolved.nextState, "player:1", raid!.raidId, createContext());
@@ -369,7 +369,7 @@ describe("core police system completion", () => {
     });
   });
 
-  it("seizes one stored resource from a live raid even when the percentage rounds below one", () => {
+  it("does not over-seize a single bulk item when the configured percentage rounds below one", () => {
     const state = createRaidPreviewState(0);
     state.resourceStatesById["resource:1"] = {
       ...state.resourceStatesById["resource:1"],
@@ -382,7 +382,32 @@ describe("core police system completion", () => {
 
     const preview = createRaidPreviewConsequences(state, "player:1", "high", "district:1", createContext());
 
-    expect(preview.seizedResources).toMatchObject({ chemicals: 1 });
+    expect(preview.seizedResources).toEqual({});
+  });
+
+  it("applies category-aware seizure caps and protects low strategic inventory", () => {
+    const state = createRaidPreviewState(0);
+    state.resourceStatesById["resource:1"] = {
+      ...state.resourceStatesById["resource:1"],
+      balances: {
+        cash: 1000,
+        "dirty-cash": 1000,
+        chemicals: 100,
+        "tech-core": 20,
+        "ghost-serum": 2,
+        "combat-module": 3,
+        bazooka: 3
+      }
+    };
+
+    const high = createRaidPreviewConsequences(state, "player:1", "high", "district:1", createContext());
+    const extreme = createRaidPreviewConsequences(state, "player:1", "extreme", "district:1", createContext());
+
+    expect(high.seizedResources).toMatchObject({ chemicals: 5, "tech-core": 1 });
+    expect(high.seizedResources["combat-module"]).toBeUndefined();
+    expect(extreme.seizedResources).toMatchObject({ chemicals: 10, "tech-core": 2, "combat-module": 1, bazooka: 1 });
+    expect(extreme.seizedResources["ghost-serum"]).toBeUndefined();
+    expect(Object.values(extreme.seizedResources).reduce((total, amount) => total + amount, 0)).toBeLessThanOrEqual(20);
   });
 
   it("mitigates raid consequences by 50 percent with one Court", () => {
@@ -415,8 +440,8 @@ describe("core police system completion", () => {
       seizedResources: {
         chemicals: 1
       },
-      lockdownUntilTick: 6,
-      buildingDisruptionUntilTick: 5,
+      lockdownUntilTick: 45,
+      buildingDisruptionUntilTick: 30,
       courtMitigationPct: 75,
       courtBuildingsOwned: 2,
       courthouseMitigation: {
@@ -494,8 +519,8 @@ describe("core police system completion", () => {
         seizedResources: {
           chemicals: 5
         },
-        lockdownTicks: 24,
-        buildingDisruptionTicks: 18
+        lockdownTicks: 180,
+        buildingDisruptionTicks: 120
       }
     });
     expect(raid?.previewConsequences).toMatchObject({
@@ -509,7 +534,7 @@ describe("core police system completion", () => {
       },
       lockedDistrictId: "district:1",
       disruptedBuildingIds: [targetBuilding.id],
-      buildingDisruptionUntilTick: 5,
+      buildingDisruptionUntilTick: 30,
       heatReducedBy: 55,
       courtMitigationPct: 75,
       courtBuildingsOwned: 2,
@@ -523,7 +548,7 @@ describe("core police system completion", () => {
       "dirty-cash": 945,
       chemicals: 49
     });
-    expect(resolved.nextState.districtsById["district:1"].lockdownUntilTick).toBe(6);
+    expect(resolved.nextState.districtsById["district:1"].lockdownUntilTick).toBe(45);
     expect(resolved.events[0]?.payload).toMatchObject({
       courtMitigationPct: 75,
       courtBuildingsOwned: 2,

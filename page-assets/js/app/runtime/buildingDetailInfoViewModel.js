@@ -211,11 +211,11 @@ export function createBuildingDetailInfoRows({
     );
   } else if (mechanics.mechanicsType === "smuggling-tunnel") {
     rows.push(
-      createInfoLine("Dirty / min", `+${formatDistrictBuildingMoney(mechanics.smugglingDirtyPerMinute)}`),
+      createInfoLine("Dirty / min", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly / 60)}`),
       createInfoLine("Síťový bonus", `dirty ${formatMultiplierIncreasePercent(mechanics.smugglingTunnelNetwork.dirtyProductionMultiplier)} · heat ${formatMultiplierIncreasePercent(mechanics.smugglingTunnelNetwork.heatMultiplier || mechanics.smugglingTunnelNetwork.passiveHeatMultiplier)}`),
       createInfoLine("Vlastněné tunely", `${mechanics.ownedSmugglingTunnels}/${SMUGGLING_TUNNEL_CONFIG.countOnMap}`),
-      createInfoLine("Pouliční dealeři", `podpora +${mechanics.smugglingDealerSupplyBonusPct}% · cena +${mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySalePriceSharePct / 100}% · rychlost +${mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySaleSpeedSharePct / 100}%`),
-      createInfoLine("Otevřít kanál", mechanics.smugglingOpenChannelActive ? `Aktivní ještě ${formatDistrictBuildingCooldown(mechanics.smugglingOpenChannelRemainingMs)}` : `Cena ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.openChannelCleanCost)} clean · cooldown 30 min · riziko incidentu +${SMUGGLING_TUNNEL_CONFIG.openChannelStreetIncidentFlatRiskPct}%`),
+      createInfoLine("Pouliční dealeři", `podpora +${mechanics.smugglingDealerSupplyBonusPct}% · rychlost +${mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySaleSpeedSharePct / 100}% · cena zůstává pevná`),
+      createInfoLine("Otevřít kanál", mechanics.smugglingOpenChannelActive ? `Aktivní ještě ${formatDistrictBuildingCooldown(mechanics.smugglingOpenChannelRemainingMs)}` : `Cena ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.openChannelCleanCost)} clean · cooldown ${formatDistrictBuildingCooldown(SMUGGLING_TUNNEL_CONFIG.openChannelCooldownMs)} · riziko incidentu +${SMUGGLING_TUNNEL_CONFIG.openChannelStreetIncidentFlatRiskPct}%`),
       createInfoLine("Pravidla", "Pouze dirty cash a heat; žádné clean cash, vliv, populace, Intel Power, praní ani audit")
     );
   }

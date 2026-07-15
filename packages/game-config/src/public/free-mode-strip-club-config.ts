@@ -48,17 +48,9 @@ export const freeModeStripClubConfig: StripClubBalanceConfig = {
     instantInfluenceGain: 8,
     influenceProductionBonusPct: 70,
     extraRumorChancePct: 45,
-    contactChancePct: 20,
     heatGain: 6,
     scandalChancePct: 12,
     scandalHeatGain: 10,
     scandalInfluenceLoss: 4
-  },
-  contacts: [
-    { id: "city_official", label: "Městský úředník", effectSummary: "next heat gain -10 % na 10 minut", durationMinutes: 10 },
-    { id: "dirty_lawyer", label: "Špinavý právník", effectSummary: "next audit or raid chance -8 % na 10 minut", durationMinutes: 10 },
-    { id: "street_informant", label: "Pouliční informátor", effectSummary: "next rumor truth chance +20 %" },
-    { id: "contact_dealer", label: "Dealer kontaktů", effectSummary: "next influence action cost -10 %" },
-    { id: "bodyguard_broker", label: "Bodyguard broker", effectSummary: "next defense action effectiveness +10 %" }
-  ]
+  }
 };

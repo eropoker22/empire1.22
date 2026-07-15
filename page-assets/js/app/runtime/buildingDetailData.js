@@ -4,6 +4,13 @@ import {
   FACTORY_POPUP_OPEN_SELECTOR,
   PHARMACY_POPUP_OPEN_SELECTOR
 } from "./constants.js";
+import {
+  SMUGGLING_TUNNEL_CONFIG,
+  STREET_DEALERS_CONFIG,
+  STRIP_CLUB_CONFIG
+} from "../../../../packages/game-config/src/legacy-page/economy-config.js";
+
+export { SMUGGLING_TUNNEL_CONFIG };
 
 export const BUILDING_POPUP_TARGETS = Object.freeze([
   Object.freeze({
@@ -96,7 +103,7 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   "poulicni dealeri": Object.freeze({
     role: "Distribuce",
     info: "Pouliční dealeři generují slabší dirty cash a prodávají látky z Drug Labu za špinavé peníze. Lab vyrobí produkt. Pouliční dealeři ho promění v peníze.",
-    actions: Object.freeze(["Spustit prodej", "Vybrat hot cash", "Přesunout stash"])
+    actions: Object.freeze(["Spustit prodej"])
   }),
   vecerka: Object.freeze({
     role: "Pouliční provoz",
@@ -160,8 +167,8 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   }),
   "strip club": Object.freeze({
     role: "Noční provoz",
-    info: "Strip club generuje cashflow, kontakty a vliv ve večerní ekonomice districtu.",
-    actions: Object.freeze(["Vybrat cash", "Hostit VIP klienty", "Získat kompro"])
+    info: "Strip club generuje cashflow, vliv a pouliční drby. VIP klienti zvedají provoz; soukromá party může přinést extra drb nebo skandál.",
+    actions: Object.freeze(["Vybrat cash", "Hostit VIP klienty", "Soukromá party"])
   }),
   sklad: Object.freeze({
     role: "Skladiště zásob",
@@ -242,28 +249,37 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
     Object.freeze({ casinoBribedInspector: true, cleanCost: 15000, failureChancePct: 14, durationMs: 12 * 60 * 1000, cooldownMs: 105 * 60 * 1000, heatSuccess: -15, heatFailure: 12, influenceSuccess: 4, auditRiskReductionPct: 35, auditRiskFailurePct: 10, summary: "Podplacený inspektor je drahá ochrana s rizikem selhání." })
   ]),
   "poulicni dealeri": Object.freeze([
-    Object.freeze({ cooldownMs: 0, serverEffectSummary: "Slot Pouličních dealerů prodá vybranou látku za serverově spočítaný dirty cash.", summary: "Spustí serverový prodej látky přes Pouliční dealery." }),
-    Object.freeze({ dirty: 280, heat: 3, cooldownMs: 10 * 60 * 1000, summary: "Hotový cash byl vybrán." }),
-    Object.freeze({ materialCost: { biomass: 3 }, dirty: 1000, heat: 1, cooldownMs: 10 * 60 * 1000, summary: "Stash proměněn na dirty cash." })
+    Object.freeze({ dealerLocalSale: true, cooldownMs: 0, summary: `Prodává jednu z ${STREET_DEALERS_CONFIG.sellableDrugs.length} povolených laboratorních látek; současně může běžet pouze jeden prodej.` })
   ]),
   vecerka: Object.freeze([]),
   "pasovaci tunel": Object.freeze([
-    Object.freeze({ smugglingOpenChannel: true, cleanCost: 1800, heat: 5, durationMs: 15 * 60 * 1000, cooldownMs: 30 * 60 * 1000, dirtyIncomeBoostPct: 45, dealerSalePriceBonusPct: 12, dealerSaleSpeedBonusPct: 10, dealerRewardBonusPct: 10, heatRiskBonusPct: 15, streetIncidentFlatRiskPct: 5, summary: "Otevřený kanál zvedne dirty cash tunelů a prodej Pouličních dealerů, ale přidá heat a riziko pouličního incidentu." })
+    Object.freeze({
+      smugglingOpenChannel: true,
+      cleanCost: SMUGGLING_TUNNEL_CONFIG.openChannelCleanCost,
+      heat: SMUGGLING_TUNNEL_CONFIG.openChannelHeatGain,
+      durationMs: SMUGGLING_TUNNEL_CONFIG.openChannelDurationMs,
+      cooldownMs: SMUGGLING_TUNNEL_CONFIG.openChannelCooldownMs,
+      dirtyIncomeBoostPct: SMUGGLING_TUNNEL_CONFIG.openChannelTunnelDirtyProductionBonusPct,
+      dealerSaleSpeedBonusPct: SMUGGLING_TUNNEL_CONFIG.openChannelDealerSaleSpeedBonusPct,
+      heatRiskBonusPct: SMUGGLING_TUNNEL_CONFIG.openChannelDealerSaleHeatBonusPct,
+      streetIncidentFlatRiskPct: SMUGGLING_TUNNEL_CONFIG.openChannelStreetIncidentFlatRiskPct,
+      summary: "Otevřený kanál zvedne dirty cash tunelů a prodej Pouličních dealerů, ale přidá heat a riziko pouličního incidentu."
+    })
   ]),
   burza: Object.freeze([
-    Object.freeze({ stockSpeculativeBuy: true, cleanCost: 2500, maxInvestmentCleanCash: 10000, heat: 5, cooldownMs: 16 * 60 * 1000, successChancePct: 65, neutralChancePct: 25, badChancePct: 10, summary: "Investuje clean cash do vybrané market kategorie. Výsledek může být zisk, neutrální pohyb nebo ztráta." }),
-    Object.freeze({ stockMarketPressure: true, cleanCost: 3000, influenceCost: 15, heat: 8, durationMs: 10 * 60 * 1000, cooldownMs: 22 * 60 * 1000, pumpPct: 12, dumpPct: -10, blackMarketEffectSharePct: 40, summary: "Na krátkou dobu server-wide pumpne nebo dumpne ceny vybrané kategorie." }),
+    Object.freeze({ stockSpeculativeBuy: true, cleanCost: 2500, maxInvestmentCleanCash: 10000, heat: 5, cooldownMs: 16 * 60 * 1000, successChancePct: 65, neutralChancePct: 25, badChancePct: 10, summary: "Investuje výchozí částku do materiálového marketu. Výsledek může být zisk, neutrální pohyb nebo ztráta." }),
+    Object.freeze({ stockMarketPressure: true, cleanCost: 3000, influenceCost: 15, heat: 8, durationMs: 10 * 60 * 1000, cooldownMs: 22 * 60 * 1000, pumpPct: 12, dumpPct: -10, blackMarketEffectSharePct: 40, summary: "Na krátkou dobu zvýší ceny materiálového marketu." }),
     Object.freeze({ stockInsiderWindow: true, cleanCost: 1500, heat: 4, durationMs: 6 * 60 * 1000, cooldownMs: 18 * 60 * 1000, trendHints: 3, extraFeeReductionPct: 8, speculativeSuccessBonusPct: 12, summary: "Zlepší trend hints, fee reduction a šanci Spekulativního nákupu." })
   ]),
   "centralni banka": Object.freeze([
     Object.freeze({ centralBankLiquidityInjection: true, influenceCost: 20, heat: 4, cooldownMs: 20 * 60 * 1000, baseRewardCleanCash: 2500, rewardPerCleanEconomyBuilding: 90, maxRewardCleanCash: 8000, summary: "Přidá clean cash podle čisté ekonomiky hráče a zvedne Financial Oversight risk." }),
     Object.freeze({ centralBankFrozenAccounts: true, cleanCost: 2000, heat: 5, durationMs: 8 * 60 * 1000, cooldownMs: 24 * 60 * 1000, cleanCashProtectionBonusPct: 25, dirtyCashProtectionPct: 8, fineReductionPct: 20, marketFeePenaltyPct: 5, summary: "Dočasně chrání rezervy, snižuje pokuty a finanční ztráty, ale zhorší market fee." }),
-    Object.freeze({ centralBankCurrencyIntervention: true, cleanCost: 3000, influenceCost: 25, heat: 7, durationMs: 8 * 60 * 1000, cooldownMs: 28 * 60 * 1000, volatilityReductionPct: 30, priceMoveCapPct: 6, marketFeeReductionPct: 6, stockExchangeEffectReductionPct: 25, summary: "Stabilizuje vybranou market kategorii a tlumí Tržní tlak Burzy." })
+    Object.freeze({ centralBankCurrencyIntervention: true, cleanCost: 3000, influenceCost: 25, heat: 7, durationMs: 8 * 60 * 1000, cooldownMs: 28 * 60 * 1000, volatilityReductionPct: 30, priceMoveCapPct: 6, marketFeeReductionPct: 6, stockExchangeEffectReductionPct: 25, summary: "Stabilizuje materiálový market a tlumí Tržní tlak Burzy." })
   ]),
   magistrat: Object.freeze([
-    Object.freeze({ cityHallOfficialCover: true, cleanCost: 1500, influenceCost: 25, heat: 2, durationMs: 8 * 60 * 1000, cooldownMs: 20 * 60 * 1000, heatGainReductionPct: 35, policeControlChanceReductionPct: 20, rumorChanceReductionPct: 15, summary: "Cílový vlastněný district dostane politické krytí proti heatu, kontrole a rumorům." }),
+    Object.freeze({ cityHallOfficialCover: true, cleanCost: 1500, influenceCost: 25, heat: 2, durationMs: 8 * 60 * 1000, cooldownMs: 20 * 60 * 1000, heatGainReductionPct: 35, policeControlChanceReductionPct: 20, rumorChanceReductionPct: 15, summary: "Všechny vlastněné distrikty dostanou politické krytí proti heatu, kontrole a rumorům." }),
     Object.freeze({ cityHallContract: true, influenceCost: 20, heat: 3, cooldownMs: 18 * 60 * 1000, baseRewardCleanCash: 1500, rewardPerLegalBuilding: 120, maxRewardCleanCash: 6500, summary: "Přidá clean cash podle počtu legálních budov hráče." }),
-    Object.freeze({ cityHallEmergencyDecree: true, cleanCost: 2500, influenceCost: 40, heat: 8, durationMs: 6 * 60 * 1000, cooldownMs: 28 * 60 * 1000, modes: "night_patrols / suspended_checks / construction_closure", summary: "Spustí krátkou městskou vyhlášku s obranným, policejním nebo zónovým efektem." })
+    Object.freeze({ cityHallEmergencyDecree: true, cleanCost: 2500, influenceCost: 40, heat: 8, durationMs: 6 * 60 * 1000, cooldownMs: 28 * 60 * 1000, modes: "suspended_checks", summary: "Na 6 minut aktivuje Zastavené kontroly pro vlastněné distrikty." })
   ]),
   "lobby klub": Object.freeze([
     Object.freeze({ lobbyBackroomPressure: true, cleanCost: 1200, influenceCost: 25, heat: 3, durationMs: 8 * 60 * 1000, cooldownMs: 20 * 60 * 1000, influenceProductionBonusPct: 18, influenceActionCostReductionPct: 10, negativeRumorReductionPct: 15, districtControlPressurePct: 8, summary: "Zákulisní tlak zvedne influence produkci, zlevní influence akce a sníží negativní drby." }),
@@ -277,7 +293,7 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
   ]),
   "vip salonek": Object.freeze([]),
   letiste: Object.freeze([
-    Object.freeze({ airportExpressImport: true, cleanCost: 2000, heat: 6, durationMs: 90 * 1000, cooldownMs: 18 * 60 * 1000, customsRiskPct: 10, summary: "Objedná zásilku materiálů, komponent, zbraní nebo obran. Nevyzvednutý přesah zůstane čekat na volnou kapacitu SKLADU." }),
+    Object.freeze({ airportExpressImport: true, cleanCost: 2000, heat: 6, durationMs: 90 * 1000, cooldownMs: 18 * 60 * 1000, customsRiskPct: 10, summary: "Objedná materiálovou zásilku. Přesah nad kapacitu SKLADU zůstane čekat na volné místo." }),
     Object.freeze({ airportBlackCharter: true, dirtyCost: 2500, heat: 9, durationMs: 8 * 60 * 1000, cooldownMs: 24 * 60 * 1000, offerDiscountPct: 6, purchaseCustomsRiskPct: 15, summary: "Otevře dočasnou Black Market nabídku s rizikem celního zátahu při nákupu." }),
     Object.freeze({ airportEvacuationCorridor: true, cleanCost: 1800, heat: 5, durationMs: 7 * 60 * 1000, cooldownMs: 26 * 60 * 1000, escapeChanceBonusPct: 18, lossReductionPct: 10, summary: "Zvedne šanci úniku, sníží ztráty při neúspěchu a zrychlí návratovou logistiku." })
   ]),
@@ -290,7 +306,17 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
   "strip club": Object.freeze([
     Object.freeze({ dirty: 360, heat: 3, cooldownMs: 10 * 60 * 1000, summary: "Noční cash vybrán." }),
     Object.freeze({ cleanCost: 800, durationMs: 30 * 60 * 1000, cooldownMs: 60 * 60 * 1000, cleanIncomeBoostPct: 45, dirtyIncomeBoostPct: 35, influenceBoostPct: 55, heatMultiplier: 1.5, serverEffectSummary: "Šance na drb +10 %", summary: "VIP klienti dočasně zvednou cashflow, vliv, heat a drby." }),
-    Object.freeze({ cleanCost: 1500, influence: 8, heat: 6, durationMs: 10 * 60 * 1000, cooldownMs: 30 * 60 * 1000, influenceBoostPct: 70, failureChancePct: 12, serverEffectSummary: "Kontakt / extra drb / riziko skandálu", summary: "Kompro přidá vliv, dočasný influence boost a může přinést kontakt, extra drb nebo skandál." })
+    Object.freeze({
+      cleanCost: STRIP_CLUB_CONFIG.privateParty.cleanCashCost,
+      influence: STRIP_CLUB_CONFIG.privateParty.instantInfluenceGain,
+      heat: STRIP_CLUB_CONFIG.privateParty.heatGain,
+      durationMs: STRIP_CLUB_CONFIG.privateParty.durationMinutes * 60 * 1000,
+      cooldownMs: STRIP_CLUB_CONFIG.privateParty.cooldownMinutes * 60 * 1000,
+      influenceBoostPct: STRIP_CLUB_CONFIG.privateParty.influenceProductionBonusPct,
+      failureChancePct: STRIP_CLUB_CONFIG.privateParty.scandalChancePct,
+      serverEffectSummary: "Extra drb / riziko skandálu",
+      summary: "Kompro přidá vliv, dočasný influence boost a může přinést extra drb nebo skandál."
+    })
   ]),
   sklad: Object.freeze([]),
   skladiste: Object.freeze([]),
@@ -504,41 +530,6 @@ export const RECRUITMENT_CENTER_SUPPORT_CONFIG = Object.freeze({
   heatBonusPctPerExtraCenter: 3,
   maxIncomeMultiplier: 1.21,
   maxHeatMultiplier: 1.21
-});
-export const SMUGGLING_TUNNEL_CONFIG = Object.freeze({
-  countOnMap: 18,
-  dirtyCashPerMinute: 54,
-  heatPerMinute: 0.07,
-  dirtyProductionBonusPctPerExtraTunnel: 5,
-  heatBonusPctPerExtraTunnel: 4,
-  maxDirtyProductionMultiplier: 1.35,
-  maxHeatMultiplier: 1.28,
-  dealerSupplyBonusPctPerTunnel: 4,
-  dealerSupplyMaxBonusPct: 32,
-  dealerSupplySalePriceSharePct: 50,
-  dealerSupplySaleSpeedSharePct: 35,
-  dealerSupplyStreetRiskReductionSharePct: 40,
-  dealerSupplyPassiveDirtyIncomeSharePct: 25,
-  dealerSupplySaleHeatRiskSharePct: 20,
-  openChannelCleanCost: 1800,
-  openChannelHeatGain: 5,
-  openChannelDurationMs: 15 * 60 * 1000,
-  openChannelCooldownMs: 30 * 60 * 1000,
-  openChannelTunnelDirtyProductionBonusPct: 45,
-  openChannelDealerSalePriceBonusPct: 12,
-  openChannelDealerSaleSpeedBonusPct: 10,
-  openChannelDealerCompletionRewardBonusPct: 10,
-  openChannelDealerSaleHeatBonusPct: 15,
-  openChannelStreetIncidentFlatRiskPct: 5,
-  baseBatchCapacity: 0,
-  minCollectDirty: Number.POSITIVE_INFINITY,
-  maxBatchCapacityMultiplier: 1,
-  maxPassiveHeatMultiplier: 1.28,
-  passiveHeatBonusPctPerExtraTunnel: 4,
-  silentChannelDirtyProductionMultiplier: 1,
-  silentChannelHeatMultiplier: 1,
-  silentChannelBatchCapacityMultiplier: 1,
-  silentChannelRaidChancePct: 0
 });
 export const POWER_STATION_CONFIG = Object.freeze({
   countOnMap: 9,

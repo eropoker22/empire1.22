@@ -35,6 +35,8 @@ import { freeModeFactoryConfig } from "./free-mode-factory-config";
 import { freeModeArmoryConfig } from "./free-mode-armory-config";
 import { freeModeAttackWeaponsConfig } from "../../public/free-mode-attack-weapons-config";
 import { freeModePlayerBoostConfig } from "./free-mode-player-boost-config";
+import { freeModeCityEventConfig } from "./free-mode-city-event-config";
+import { freeModeAllianceLifecycleConfig } from "./free-mode-alliance-lifecycle-config";
 import { freeModePoliceConfig } from "./free-police-config";
 import {
   FREE_MODE_COOLDOWN_MULTIPLIER,
@@ -61,6 +63,7 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
     cooldownMultiplier: FREE_MODE_COOLDOWN_MULTIPLIER,
     maxPlayersPerServer: 20,
     maxAllianceSize: 4,
+    allianceLifecycle: freeModeAllianceLifecycleConfig,
     buildSlotLimit: 8,
     eventFrequencyMultiplier: 1.2,
     elimination: {
@@ -145,6 +148,7 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
     },
     attackWeapons: freeModeAttackWeaponsConfig,
     playerBoosts: freeModePlayerBoostConfig,
+    cityEvents: freeModeCityEventConfig,
     factions: FACTION_DEFINITION_BY_ID,
     pharmacy: freeModePharmacyConfig,
     drugLab: freeModeDrugLabConfig,

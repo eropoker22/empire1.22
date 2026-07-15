@@ -3,6 +3,7 @@ import type { FactionDefinition, PlayerFactionId } from "@empire/shared-types";
 import type { PoliceSystemBalanceConfig } from "./police-balance-config";
 import type { AttackWeaponsBalanceConfig } from "./attack-weapon-balance-config";
 import type { PlayerBoostBalanceConfig } from "./player-boost-balance-config";
+import type { CityEventBalanceConfig } from "./city-event-balance-config";
 import type {
   BuildingActionBalanceConfig,
   CraftBuildingBalanceConfig,
@@ -61,6 +62,7 @@ import type {
 export * from "./building-balance-config";
 export * from "./attack-weapon-balance-config";
 export * from "./player-boost-balance-config";
+export * from "./city-event-balance-config";
 export * from "./laundering-building-balance-config";
 export * from "./civilian-building-balance-config";
 export * from "./intel-building-balance-config";
@@ -285,6 +287,7 @@ export interface GameModeConfig {
     startingResources: Record<string, number>;
     attackWeapons?: AttackWeaponsBalanceConfig;
     playerBoosts?: PlayerBoostBalanceConfig;
+    cityEvents?: CityEventBalanceConfig;
     factions?: Record<PlayerFactionId, FactionDefinition>;
     conflict?: import("./building-balance-config").ConflictBalanceConfig;
     police?: PoliceSystemBalanceConfig;

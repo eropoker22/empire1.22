@@ -163,7 +163,9 @@ export function renderServerDrugLabRecipeCard(viewModel = {}, callbacks = {}, op
   cancel.textContent = "Zrušit";
   if (isArmory) cancel.dataset.armorySlotStop = "";
   cancel.disabled = line.canCancelWaiting !== true;
-  cancel.title = "Zrušit čekající kusy a vrátit rezervované vstupy";
+  cancel.title = cancel.disabled
+    ? "Není co zrušit: aktivní kus nelze zrušit."
+    : "Zrušit čekající kusy a vrátit rezervované vstupy.";
   cancel.addEventListener("click", () => callbacks.onStop?.(viewModel));
   actions.append(quantity, start, cancel);
   card.append(head, metrics, actions);

@@ -1,4 +1,5 @@
 export * from "./city-feed-view";
+export * from "./city-event-view";
 export * from "./alliance-board-view";
 export * from "./armory-production-view";
 export * from "./bounty-read-model-view";

@@ -564,10 +564,7 @@ const attachStarterBuildings = (
     const building = createFixedBuildingFixture(buildingTypeId, {
       id: `building:${districtId}:${buildingTypeId}:${state.districtsById[districtId].buildingIds.length + 1}`,
       districtId,
-      ownerPlayerId: playerId,
-      metadata: buildingTypeId === "smuggling_tunnel"
-        ? { smugglingTunnel: { storedDirtyCash: 1200, lastUpdatedTick: state.root.tick } }
-        : undefined
+      ownerPlayerId: playerId
     }) as Building;
     state.buildingsById[building.id] = building;
     state.districtsById[districtId] = {

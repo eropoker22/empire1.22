@@ -19,8 +19,18 @@ export const freeModePoliceConfig: PoliceSystemBalanceConfig = {
   raidSeverityThresholds: { low: 0, medium: 30, high: 115, extreme: 180 },
   dirtyCashSeizurePercentBySeverity: { low: 0, medium: 0.05, high: 0.12, extreme: 0.22 },
   resourceSeizurePercentBySeverity: { low: 0, medium: 0, high: 0.05, extreme: 0.1 },
-  lockdownTicksBySeverity: { low: 0, medium: 0, high: 12, extreme: 24 },
-  buildingDisruptionTicksBySeverity: { low: 0, medium: 0, high: 6, extreme: 18 },
+  lockdownTicksBySeverity: {
+    low: 0,
+    medium: 0,
+    high: ticksFromMinutes(8),
+    extreme: ticksFromMinutes(15)
+  },
+  buildingDisruptionTicksBySeverity: {
+    low: 0,
+    medium: 0,
+    high: ticksFromMinutes(5),
+    extreme: ticksFromMinutes(10)
+  },
   heatReductionBySeverity: { low: 0, medium: 8, high: 30, extreme: 55 },
   heatDecay: {
     playerIntervalTicks: 30,

@@ -96,6 +96,11 @@ describe("canonical Free BR simulation", () => {
     expect(report.police.raidsByPlayer).toBeDefined();
     expect(report.downtown.ownerTimeline.length).toBeGreaterThan(0);
     expect(report.events.length).toBeGreaterThan(0);
+    expect(report.summary.totalCraftActions).toBeGreaterThan(0);
+    expect(report.events.some((event) =>
+      event.actionType === "craft-item"
+      && event.notes?.includes("one-piece completion approximation")
+    )).toBe(true);
   });
 
   it("resolves the top-8 endgame through Final Lockdown and pauses the timer in quiet hours", () => {

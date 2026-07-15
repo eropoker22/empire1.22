@@ -1,6 +1,7 @@
 import { createBuildingUpgradeConfirmationController } from "./buildingUpgradeConfirmation.js";
 import {
   cancelWaitingLocalProduction,
+  collectLocalProduction,
   normalizeLocalProductionJob,
   queueLocalProduction
 } from "./localProductionLineState.js";
@@ -345,14 +346,40 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           return;
         }
         const currentJob = deps.getProductionJob?.(recipeKey);
-        if (!currentJob || currentJob.status !== "ready") return rerender?.();
-        deps.applyInventoryOutput?.(currentJob.output);
-        deps.clearProductionJob?.(recipeKey);
+        const normalizedJob = normalizeLocalProductionJob(currentJob, jobDefaults);
+        if (!normalizedJob || normalizedJob.producedAmount <= 0) return rerender?.();
+        const receivableAmount = deps.getReceivableInventoryOutputAmount?.(
+          normalizedJob.output,
+          normalizedJob.producedAmount
+        ) ?? normalizedJob.producedAmount;
+        const collected = collectLocalProduction(normalizedJob, receivableAmount, Date.now(), {
+          productionSpeedMultiplier: productionBoost.multiplier,
+          productionSpeedExpiresAtMs: productionBoost.expiresAtMs
+        });
+        if (collected.collectedAmount <= 0) {
+          deps.setBuildingActionFeedback?.(
+            root,
+            "warning",
+            deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.label || "Budova",
+            "Ve SKLADU není pro tento produkt dost místa."
+          );
+          rerender?.();
+          return;
+        }
+        deps.applyInventoryOutput?.({ ...normalizedJob.output, amount: collected.collectedAmount });
+        if (collected.job?.queuedAmount > 0 || collected.job?.producedAmount > 0) {
+          deps.persistProductionJob?.(recipeKey, collected.job);
+          if (collected.job.isProducing) {
+            deps.scheduleProductionJob?.(recipeKey, rerender);
+          }
+        } else {
+          deps.clearProductionJob?.(recipeKey);
+        }
         deps.appendBuildingActionResultEntry?.(root, "police", deps.createStorageCollectResultPayload?.({
           buildingLabel: deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.label || "Budova",
           items: [{
             label: deps.getProductionResourceLabel?.(currentJob.output?.itemId),
-            amount: Math.max(0, Number(currentJob.output?.amount || 0))
+            amount: collected.collectedAmount
           }],
           meta: "Hotová výroba"
         }), {}, { syncPreview: true, forceLog: true });

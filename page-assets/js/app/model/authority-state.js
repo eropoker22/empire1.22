@@ -33,7 +33,6 @@ const DEFAULT_PREVIEW_GANG = Object.freeze({
   heat: 0
 });
 const DEFAULT_CITY_MINUTES = 5 * 60 + 55;
-let hasAppliedRefreshPreviewOverride = false;
 
 function normalizeMarketServerId(serverId) {
   const normalizedServerId = String(serverId || "").trim();
@@ -197,16 +196,20 @@ export function createDefaultPreviewSession(_factionId = "mafian") {
     },
     production: {
       jobs: {},
+      streetDealers: {
+        slots: []
+      },
       factory: createDefaultFactoryState(),
       buildings: createDefaultProductionBuildingsState()
     },
+    playerBoosts: createEmptyLocalPlayerBoostState(),
     world: {
       ownedDistrictIds: [],
       phaseState: {
-    playerBoosts: createEmptyLocalPlayerBoostState(),
         mapPhase: "night",
         gamePhase: "live",
-        cityMinutes: DEFAULT_CITY_MINUTES
+        cityMinutes: DEFAULT_CITY_MINUTES,
+        cityDayIndex: 0
       },
       destroyedDistrictIds: [],
       districtDefenseById: {},
@@ -286,10 +289,10 @@ function normalizePreviewSession(session) {
         ? session.gang.lastHeatDecayAt
         : base.gang.lastHeatDecayAt
     },
+    playerBoosts: normalizeLocalPlayerBoostState(session?.playerBoosts),
     missions: {
       ...base.missions,
       ...(session?.missions || {}),
-    playerBoosts: normalizeLocalPlayerBoostState(session?.playerBoosts),
       attackOrders: Array.isArray(session?.missions?.attackOrders) ? session.missions.attackOrders : [],
       occupyOrders: Array.isArray(session?.missions?.occupyOrders) ? session.missions.occupyOrders : [],
       robberyOrders: Array.isArray(session?.missions?.robberyOrders) ? session.missions.robberyOrders : [],
@@ -316,6 +319,11 @@ function normalizePreviewSession(session) {
       ...base.production,
       ...(session?.production || {}),
       jobs: session?.production?.jobs && typeof session.production.jobs === "object" ? session.production.jobs : {},
+      streetDealers: {
+        slots: Array.isArray(session?.production?.streetDealers?.slots)
+          ? session.production.streetDealers.slots
+          : []
+      },
       buildings: session?.production?.buildings && typeof session.production.buildings === "object"
         ? {
             ...createDefaultProductionBuildingsState(),
@@ -376,27 +384,6 @@ export function getStoredPreviewSession() {
   const storedSession = loadState(null, null);
   if (!storedSession) {
     return createDefaultPreviewSession();
-  }
-
-  if (!hasAppliedRefreshPreviewOverride) {
-    hasAppliedRefreshPreviewOverride = true;
-    const nextSession = normalizePreviewSession({
-      ...storedSession,
-      economy: {
-        ...(storedSession.economy || {}),
-        cleanMoney: DEFAULT_PREVIEW_ECONOMY.cleanMoney
-      },
-      world: {
-        ...(storedSession.world || {}),
-        phaseState: {
-          ...(storedSession.world?.phaseState || {}),
-          mapPhase: "night",
-          cityMinutes: DEFAULT_CITY_MINUTES
-        }
-      }
-    });
-    saveState(null, null, nextSession);
-    return nextSession;
   }
 
   return normalizePreviewSession(storedSession);

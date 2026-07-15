@@ -6,6 +6,7 @@ export * from "./action-command";
 export * from "./build-structure-command";
 export * from "./bounty-command";
 export * from "./collect-production-command";
+export * from "./city-event-command";
 export * from "./cancel-drug-lab-production-command";
 export * from "./cancel-pharmacy-production-command";
 export * from "./cancel-production-line-command";

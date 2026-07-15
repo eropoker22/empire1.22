@@ -2,6 +2,7 @@ export * from "./alliance-board-projection";
 export * from "./alliance-lifecycle-projection";
 export * from "./bounty-read-model-projection";
 export * from "./city-feed-projection";
+export * from "./city-event-projection";
 export * from "./conflict-report-projection";
 export * from "./day-night-read-model-projection";
 export * from "./elimination-read-model-projection";

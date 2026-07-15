@@ -22,10 +22,6 @@ export const resolveStreetDealerNetworkMultipliers = (
       config.network.maxPassiveDirtyIncomeMultiplier,
       1 + extra * config.network.passiveDirtyIncomeBonusPctPerExtraDealer / 100
     ),
-    salePriceMultiplier: Math.min(
-      config.network.maxSalePriceMultiplier,
-      1 + extra * config.network.salePriceBonusPctPerExtraDealer / 100
-    ),
     saleSpeedMultiplier: Math.min(
       config.network.maxSaleSpeedMultiplier,
       1 + extra * config.network.saleSpeedBonusPctPerExtraDealer / 100
@@ -38,10 +34,6 @@ export const resolveStreetDealerNetworkMultipliers = (
 };
 
 export const resolveStreetDealerSlotCount = (
-  ownedCount: number,
+  _ownedCount: number,
   config: StreetDealersBalanceConfig
-): number =>
-  config.dealerSlots.find((tier) =>
-    ownedCount >= tier.minOwned && (tier.maxOwned === null || ownedCount <= tier.maxOwned)
-  )?.slots ?? 0;
-
+): number => config.dealerSlots.length;

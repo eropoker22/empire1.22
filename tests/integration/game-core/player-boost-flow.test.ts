@@ -10,6 +10,7 @@ import {
 import type { ActivatePlayerBoostCommand, Building, PlayerBoostState } from "@empire/shared-types";
 import {
   createAttackDistrictCommandFixture,
+  createPlaceTrapCommandFixture,
   createSpyDistrictCommandFixture
 } from "../../fixtures/command-fixtures";
 import {
@@ -271,6 +272,30 @@ describe("authoritative player boost flow", () => {
       .toBe("tactical-grid");
     expect(neutralResult.events.filter((event) => event.type === "player-boost-consumed"))
       .toHaveLength(0);
+  });
+
+  it("keeps Tactical Grid armed when a toxic trap blocks actual PvP combat", () => {
+    const trappedConfig = {
+      ...config,
+      balance: {
+        ...config.balance,
+        conflict: { ...config.balance.conflict!, trapAttackLosses: 999 }
+      }
+    };
+    const trappedContext = { ...context, config: trappedConfig };
+    const state = createCombatStateFixture();
+    state.playerBoostStatesByPlayerId = {
+      "player:1": armedGrid(),
+      "player:2": armedGrid()
+    };
+    const withTrap = applyCommand(state, createPlaceTrapCommandFixture(), trappedContext).nextState;
+    const blocked = applyCommand(withTrap, createAttackDistrictCommandFixture(), trappedContext);
+
+    expect(blocked.errors).toEqual([]);
+    expect(blocked.nextState.playerBoostStatesByPlayerId?.["player:1"]?.active?.boostId).toBe("tactical-grid");
+    expect(blocked.nextState.playerBoostStatesByPlayerId?.["player:2"]?.active?.boostId).toBe("tactical-grid");
+    expect(blocked.events.filter((event) => event.type === "player-boost-consumed")).toHaveLength(0);
+    expect(blocked.nextState.notificationsById["notification:command:attack:1:battle:player:1"].payload.tacticalGridSummary).toBeNull();
   });
 
   it("expires an unused Tactical Grid once while keeping its original cooldown", () => {

@@ -17,7 +17,6 @@ export interface SmugglingTunnelNetworkMultipliers {
 export interface DealerSupplyStats {
   ownedTunnelCount: number;
   dealerSupplyBonusPct: number;
-  salePriceBonusPct: number;
   saleSpeedBonusPct: number;
   streetRiskReductionPct: number;
   passiveDirtyIncomeBonusPct: number;
@@ -32,9 +31,7 @@ export interface OpenChannelStats {
   remainingTicks: number;
   expiresAtTick?: number;
   tunnelDirtyProductionBonusPct: number;
-  dealerSalePriceBonusPct: number;
   dealerSaleSpeedBonusPct: number;
-  dealerCompletionRewardBonusPct: number;
   dealerSaleHeatBonusPct: number;
   streetIncidentFlatRiskPct: number;
 }
@@ -96,7 +93,6 @@ export const resolveDealerSupplyStats = (input: {
   return {
     ownedTunnelCount,
     dealerSupplyBonusPct,
-    salePriceBonusPct: config ? dealerSupplyBonusPct * config.dealerSupply.salePriceSharePct / 100 : 0,
     saleSpeedBonusPct: config ? dealerSupplyBonusPct * config.dealerSupply.saleSpeedSharePct / 100 : 0,
     streetRiskReductionPct: config ? dealerSupplyBonusPct * config.dealerSupply.streetRiskReductionSharePct / 100 : 0,
     passiveDirtyIncomeBonusPct: config ? dealerSupplyBonusPct * config.dealerSupply.passiveDirtyIncomeSharePct / 100 : 0,
@@ -123,9 +119,7 @@ export const resolveOpenChannelStats = (input: {
     remainingTicks: active ? Math.max(0, Number(expiresAtTick || 0) - input.tick) : 0,
     expiresAtTick: active ? expiresAtTick : undefined,
     tunnelDirtyProductionBonusPct: active && config ? config.openChannel.tunnelDirtyProductionBonusPct : 0,
-    dealerSalePriceBonusPct: active && config ? config.openChannel.dealerSalePriceBonusPct : 0,
     dealerSaleSpeedBonusPct: active && config ? config.openChannel.dealerSaleSpeedBonusPct : 0,
-    dealerCompletionRewardBonusPct: active && config ? config.openChannel.dealerCompletionRewardBonusPct : 0,
     dealerSaleHeatBonusPct: active && config ? config.openChannel.dealerSaleHeatBonusPct : 0,
     streetIncidentFlatRiskPct: active && config ? config.openChannel.streetIncidentFlatRiskPct : 0
   };
@@ -194,13 +188,6 @@ export const applySmugglingTunnelIncomeModifiers = (input: {
   };
 };
 
-export const applySmugglingTunnelBatchProduction = (input: {
-  state: CoreGameState;
-  config: SmugglingTunnelBalanceConfig;
-  tickRateMs: number;
-  incomeMultiplier: number;
-}): CoreGameState => input.state;
-
 export const resolveSmugglingTunnelAction = (input: {
   state: CoreGameState;
   player: CoreGameState["playersById"][string];
@@ -240,7 +227,7 @@ export const resolveSmugglingTunnelAction = (input: {
     influenceChange: 0,
     inputCost: { cash: input.config.openChannel.costCleanCash },
     outputGain: {},
-    reportText: "Otevřený kanál běží. Tunely zvedají dirty cash a Pouliční dealeři prodávají rychleji za víc, ale roste heat a riziko pouličního incidentu.",
+    reportText: "Otevřený kanál běží. Tunely zvedají dirty cash a Pouliční dealeři prodávají rychleji, ale roste heat a riziko pouličního incidentu.",
     smugglingTunnelResult: {
       type: "open_channel",
       activeUntilTick: expiresAtTick,
@@ -248,9 +235,7 @@ export const resolveSmugglingTunnelAction = (input: {
       cleanCashCost: input.config.openChannel.costCleanCash,
       heatGain: input.config.openChannel.heatGain,
       tunnelDirtyProductionBonusPct: input.config.openChannel.tunnelDirtyProductionBonusPct,
-      dealerSalePriceBonusPct: input.config.openChannel.dealerSalePriceBonusPct,
       dealerSaleSpeedBonusPct: input.config.openChannel.dealerSaleSpeedBonusPct,
-      dealerCompletionRewardBonusPct: input.config.openChannel.dealerCompletionRewardBonusPct,
       dealerSaleHeatBonusPct: input.config.openChannel.dealerSaleHeatBonusPct,
       streetIncidentFlatRiskPct: input.config.openChannel.streetIncidentFlatRiskPct
     }
@@ -277,10 +262,6 @@ export const validateSmugglingTunnelAction = (input: {
   }
   return null;
 };
-
-export const resolveSmugglingTunnelCollectHeat = (): number => 0;
-
-export const isSilentChannelActive = (): boolean => false;
 
 const resolveContrabandFlow = (
   ownedTunnelCount: number

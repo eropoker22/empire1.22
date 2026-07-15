@@ -734,7 +734,7 @@ describe("building detail, production and recipe UI modules", () => {
     expect(action.querySelector(".building-info-action-row__desc").textContent).toBe("Nemáš žádné ztráty k vytěžení.");
   });
 
-  it("renders dynamic Street Dealer slots and submits the selected local sale intent", () => {
+  it("renders fixed Street Dealer slots and submits the slot-bound local sale intent", () => {
     const document = setupDocument();
     const root = document.createElement("div");
     const onRunAction = vi.fn();
@@ -760,15 +760,14 @@ describe("building detail, production and recipe UI modules", () => {
         disabled: false,
         dealerSale: {
           phase: "day",
-          phaseStatusLabel: "DEN: výnos -10 %, heat +30 %, riziko +10 p. b.",
+          phaseStatusLabel: "DEN: heat +30 %, riziko +10 p. b.",
           slots: [
-            { slotId: "slot-1", label: "Slot 1", locked: false, statusLabel: "Volný" },
-            { slotId: "slot-2", label: "Slot 2", locked: true, statusLabel: "Obsazený" }
+            { slotId: "slot-1", label: "Neon Dust", itemId: "neon-dust", itemLabel: "Neon Dust", ownedAmount: 10, unitSalePriceDirtyCash: 625, minimumAmountPerSale: 10, locked: false, statusLabel: "Připraveno" },
+            { slotId: "slot-2", label: "Pulse Shot", itemId: "pulse-shot", itemLabel: "Pulse Shot", ownedAmount: 10, unitSalePriceDirtyCash: 1000, minimumAmountPerSale: 10, locked: false, statusLabel: "Připraveno" },
+            { slotId: "slot-3", label: "Velvet Smoke", itemId: "velvet-smoke", itemLabel: "Velvet Smoke", ownedAmount: 10, unitSalePriceDirtyCash: 1125, minimumAmountPerSale: 10, locked: false, statusLabel: "Připraveno" }
           ],
           items: [
-            { itemId: "neon-dust", label: "Neon Dust", ownedAmount: 5, maxAmount: 12 },
-            { itemId: "pulse-shot", label: "Pulse Shot", ownedAmount: 2, maxAmount: 10 },
-            { itemId: "velvet-smoke", label: "Velvet Smoke", ownedAmount: 0, maxAmount: 8 }
+            { itemId: "neon-dust", label: "Neon Dust", ownedAmount: 10, minimumAmountPerSale: 10, unitSalePriceDirtyCash: 625 }
           ]
         }
       }]
@@ -778,14 +777,21 @@ describe("building detail, production and recipe UI modules", () => {
     const slot = shell.querySelector("[data-dealer-sale-slot]");
     const item = shell.querySelector("[data-dealer-sale-item]");
     const amount = shell.querySelector("[data-dealer-sale-amount]");
-    expect(slot.children).toHaveLength(2);
-    expect(item.children).toHaveLength(3);
+    expect(slot.children).toHaveLength(3);
+    expect(item.children).toHaveLength(0);
+    const slotLabels = Array.from(slot.children).map((option) => option.textContent);
+    expect(slotLabels).toEqual([
+      "Neon Dust · Připraveno",
+      "Pulse Shot · Připraveno",
+      "Velvet Smoke · Připraveno"
+    ]);
+    expect(slotLabels.join(" ")).not.toContain("Slot 1");
+    expect(slotLabels.join(" ")).not.toContain("Volný");
 
     slot.value = "slot-1";
-    item.value = "neon-dust";
-    amount.value = "2";
+    amount.value = "10";
     for (const handler of amount.eventListeners.get("input") || []) handler({ target: amount });
-    expect(shell.querySelector(".dealer-sale-action__status").textContent).toContain("DEN: výnos -10 %, heat +30 %");
+    expect(shell.querySelector(".dealer-sale-action__status").textContent).toContain("DEN: heat +30 %");
     expect(action.disabled).toBe(false);
     const modalBody = shell.querySelector(".district-building-detail-body");
     for (const handler of modalBody.eventListeners.get("click") || []) handler({ target: action });
@@ -797,11 +803,11 @@ describe("building detail, production and recipe UI modules", () => {
       actionId: "start_drug_sale",
       dealerSlotId: "slot-1",
       itemId: "neon-dust",
-      amount: 2
+      amount: 10
     });
   });
 
-  it("keeps action cooldown only in the corner label", () => {
+  it("keeps the action command at the bottom while the cooldown remains specific", () => {
     const document = setupDocument();
     const root = document.createElement("div");
     const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "2:casino" });
@@ -834,7 +840,45 @@ describe("building detail, production and recipe UI modules", () => {
 
     const action = shell.querySelector("[data-district-building-detail-action-id='vip_night']");
     expect(action.querySelector(".building-info-action-row__desc").textContent).toBe("Clean cash +500");
+    expect(action.querySelector(".building-info-action-row__button").textContent).toBe("COOLDOWN");
     expect(action.querySelector(".building-info-action-row__cooldown").textContent).toBe("Zbývá 12m 00s");
+  });
+
+  it("renders a clear bottom command for ready downtown actions", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:stock" });
+
+    renderBuildingDetailPanel({
+      shell,
+      districtType: "downtown",
+      mechanicsType: "stock-exchange",
+      title: "Burza",
+      badge: "",
+      levelLabel: "",
+      name: "Burza",
+      meta: "",
+      stats: [],
+      mechanics: [],
+      collect: { visible: false, enabled: false, title: "" },
+      upgrade: { visible: false, disabled: true, title: "" },
+      showActionsInSinglePanel: true,
+      actions: [{
+        index: 0,
+        actionId: "speculative_buy",
+        buildingTypeId: "stock_exchange",
+        title: "Spekulativní nákup",
+        rewardSummary: "Materiálový market: zisk, neutrální výsledek nebo ztráta.",
+        cooldownLabel: "Čekání 16m 00s",
+        cooldownRemainingMs: 0,
+        disabled: false
+      }]
+    });
+
+    const action = shell.querySelector("[data-district-building-detail-action-id='speculative_buy']");
+    expect(shell.dataset.buildingDistrictType).toBe("downtown");
+    expect(action.querySelector(".building-info-action-row__desc").textContent).toContain("Materiálový market");
+    expect(action.querySelector(".building-info-action-row__button").textContent).toBe("SPUSTIT");
   });
 
   it("renders infrastructure buildings as one merged panel with support actions", () => {
@@ -1198,6 +1242,9 @@ describe("building detail, production and recipe UI modules", () => {
 
     expect(enabled.querySelector(".pharmacy-slot__btn--start").disabled).toBe(false);
     expect(disabled.querySelector(".pharmacy-slot__btn--start").disabled).toBe(true);
+    expect(disabled.querySelector(".pharmacy-slot__btn--start").title).toContain("Chybí vstupy");
+    expect(disabled.querySelector(".pharmacy-slot__btn--stop").disabled).toBe(true);
+    expect(disabled.querySelector(".pharmacy-slot__btn--stop").title).toContain("Není co zrušit");
     expect(renderRecipeList([{ buildingName: "pharmacy", recipeId: "stim", recipe }], {}, { mount }).children).toHaveLength(1);
   });
 

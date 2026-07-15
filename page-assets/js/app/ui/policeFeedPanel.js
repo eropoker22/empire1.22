@@ -28,6 +28,12 @@ function setStat(element, label, value, description = "") {
   }
 }
 
+function formatRemainingMs(value) {
+  const seconds = Math.max(0, Math.ceil(Number(value || 0) / 1000));
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
 function renderFeedRows(list, entries = []) {
   const ownerDocument = getOwnerDocument(list);
   list?.replaceChildren?.();
@@ -82,9 +88,11 @@ export function renderPoliceFeedPanel(mount, viewModel = {}, callbacks = {}, opt
   const explanation = createElement(ownerDocument, "p", "police-feed-panel__explanation");
   const latest = createElement(ownerDocument, "p", "police-feed-panel__latest");
   const pending = createElement(ownerDocument, "p", "police-feed-panel__pending");
+  const pendingCountdown = createElement(ownerDocument, "strong", "police-feed-panel__raid-countdown");
+  const acknowledge = createElement(ownerDocument, "button", "button police-feed-panel__acknowledge");
   const list = createElement(ownerDocument, "ul", "police-feed-panel__list");
 
-  if (!header || !titleWrap || !eyebrow || !title || !status || !grid || !heat || !wanted || !pressure || !playerPressure || !districtPressure || !hottestDistrict || !risk || !explanation || !latest || !pending || !list) {
+  if (!header || !titleWrap || !eyebrow || !title || !status || !grid || !heat || !wanted || !pressure || !playerPressure || !districtPressure || !hottestDistrict || !risk || !explanation || !latest || !pending || !pendingCountdown || !acknowledge || !list) {
     return false;
   }
 
@@ -107,14 +115,23 @@ export function renderPoliceFeedPanel(mount, viewModel = {}, callbacks = {}, opt
     ? preview.courthouseMitigation
     : null;
   pending.textContent = viewModel.pendingRaid
-    ? `Připravená razie: ${safeText(viewModel.pendingRaid.severity, "vysoká")} · zabavený dirty cash ${Number(preview?.seizedDirtyCash || 0)} · heat -${Number(preview?.heatReducedBy || 0)}${mitigation ? ` · Soud -${Number(mitigation.reductionPct || 0)} %` : ""}`
+    ? `AKTUÁLNÍ ODHAD ZÁSAHU · ${safeText(viewModel.pendingRaid.severity, "vysoká")} · dirty cash ${Number(preview?.seizedDirtyCash || 0)} · heat -${Number(preview?.heatReducedBy || 0)}${mitigation ? ` · Soud -${Number(mitigation.reductionPct || 0)} %` : ""}`
     : safeText(viewModel.recommendedAction, "");
+  if (viewModel.pendingRaid?.expiresAtMs) {
+    bindSharedCountdown(pendingCountdown, () => `ZÁSAH ZA ${formatRemainingMs(Number(viewModel.pendingRaid.expiresAtMs) - Date.now())}`);
+  }
+  acknowledge.type = "button";
+  acknowledge.textContent = "BERU NA VĚDOMÍ";
+  acknowledge.title = "Toto pouze zavře varování. Razie bude pokračovat do uvedeného času.";
+  acknowledge.hidden = !viewModel.pendingRaid;
+  acknowledge.disabled = !viewModel.pendingRaid || typeof callbacks.onAcknowledge !== "function";
+  acknowledge.addEventListener?.("click", () => callbacks.onAcknowledge?.(viewModel.pendingRaid?.raidId));
 
   titleWrap.append(eyebrow, title);
   header.append(titleWrap, status);
   grid.append(wanted, heat, districtPressure, pressure, playerPressure, hottestDistrict);
   renderFeedRows(list, viewModel.entries);
-  mount.append(header, grid, risk, explanation, latest, pending, list);
+  mount.append(header, grid, risk, explanation, latest, pending, pendingCountdown, acknowledge, list);
 
   if (options.focusAfterRender && typeof mount.focus === "function") {
     mount.focus();
@@ -129,3 +146,4 @@ if (typeof window !== "undefined") {
     renderPoliceFeedPanel
   };
 }
+import { bindSharedCountdown } from "./sharedCountdownTicker.js";

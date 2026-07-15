@@ -57,8 +57,8 @@
         <aside id="game-rail-left" class="sidebar-shell game-rail">
           <div id="game-left-nav" class="panel-action-stack" aria-label="Left panel actions">
             <div id="city-events-card-anchor" hidden aria-hidden="true"></div>
-            <section id="city-events-card" class="city-events-card" aria-label="Demo events">
-              <button class="button panel-action-button events-hero" id="city-events-open" type="button" aria-label="Demo events">
+            <section id="city-events-card" class="city-events-card" aria-label="Pouliční zakázky">
+              <button class="button panel-action-button events-hero" id="city-events-open" type="button" aria-label="Pouliční zakázky, lokální demo">
                 <span class="city-events-btn__icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" role="presentation" focusable="false">
                     <rect x="3.5" y="4.5" width="17" height="16" rx="3"></rect>
@@ -68,7 +68,7 @@
                     <path d="M8 13h3"></path>
                   </svg>
                 </span>
-                <span class="city-events-btn__label">Demo Events</span>
+                <span class="city-events-btn__label">Pouliční zakázky</span>
               </button>
             </section>
             <div id="buildings-card-anchor" hidden aria-hidden="true"></div>
@@ -1567,18 +1567,21 @@
 
       <div class="market-popup-shell" data-market-popup hidden>
         <div class="market-popup-backdrop" data-market-popup-close></div>
-        <div class="market-popup-card" role="dialog" aria-modal="true" aria-label="Market">
+        <div class="market-popup-card" role="dialog" aria-modal="true" aria-labelledby="market-popup-title" tabindex="-1">
           <div class="market-popup-heading">
-            <h3 class="market-popup-title" data-market-title>Neon Market</h3>
+            <div class="market-popup-heading__copy">
+              <span class="market-popup-eyebrow">TRŽNÍ TERMINÁL</span>
+              <h3 class="market-popup-title" id="market-popup-title" data-market-title>Městský market</h3>
+            </div>
             <button type="button" class="button market-popup-close" data-market-popup-close aria-label="Zavřít market">✕</button>
           </div>
-          <div class="market-popup-tabs" aria-label="Market tabs">
-            <button type="button" class="button market-popup-tab is-active" data-market-tab="market">Normal Market</button>
-            <button type="button" class="button market-popup-tab" data-market-tab="black-market">Black Market</button>
-            <button type="button" class="button market-popup-tab" data-market-tab="player-market">Hráčský bazar</button>
+          <div class="market-popup-tabs" aria-label="Typ marketu" role="tablist">
+            <button type="button" class="button market-popup-tab is-active" data-market-tab="market" role="tab" aria-selected="true">Městský market</button>
+            <button type="button" class="button market-popup-tab" data-market-tab="black-market" role="tab" aria-selected="false">Černý trh</button>
+            <button type="button" class="button market-popup-tab" data-market-tab="player-market" role="tab" aria-selected="false">Hráčský bazar</button>
           </div>
           <div class="market-popup-dashboard" data-market-dashboard aria-label="Stav marketu"></div>
-          <p class="market-popup-copy" data-market-copy>Lokální demo bazar pro rychlý nákup a výkup materiálu bez heat risku.</p>
+          <p class="market-popup-copy" data-market-copy>Bezpečný městský kanál pro základní výrobní vstupy bez Heat risku.</p>
           <p class="market-popup-feedback" data-market-feedback role="status" aria-live="polite"></p>
           <div class="market-popup-list" data-market-list></div>
         </div>
@@ -1657,7 +1660,7 @@
         <div id="events-modal-backdrop" class="modal__backdrop"></div>
         <div class="modal__content modal__content--profile events-modal__content">
           <div class="modal__header">
-            <h3 id="events-modal-title">Demo Events <span id="events-refresh-countdown" class="events-modal__refresh-pill">refresh 30s</span></h3>
+            <h3 id="events-modal-title">Pouliční zakázky <span id="events-refresh-countdown" class="events-modal__refresh-pill">MĚSTSKÝ ČAS · plánované nabídky</span></h3>
             <button class="modal__close" id="events-modal-close" aria-label="Zavřít">✕</button>
           </div>
           <div class="modal__body events-modal__body">
@@ -1666,7 +1669,7 @@
                 <img src="../img/events/victor.png" alt="Victor Grave" loading="lazy">
                 <div class="events-agent__info">
                   <div class="events-agent__name">Victor Grave Kadeř</div>
-                  <div class="events-agent__type">Pouliční boss</div>
+                  <div class="events-agent__type">NOČNÍ KONTAKT · 18:00–04:00</div>
                 </div>
               </button>
               <button class="events-agent" data-agent="leon" type="button">
@@ -1674,7 +1677,7 @@
                 <span class="events-agent__unlock-badge">Vliv: 100+</span>
                 <div class="events-agent__info">
                   <div class="events-agent__name">Leon Switch Varga</div>
-                  <div class="events-agent__type">Fixer / obchodník</div>
+                  <div class="events-agent__type">DALŠÍ NABÍDKY · 10:00 / 22:00</div>
                 </div>
               </button>
               <button class="events-agent" data-agent="nira" type="button">
@@ -1682,7 +1685,7 @@
                 <span class="events-agent__unlock-badge">Vliv: 300+</span>
                 <div class="events-agent__info">
                   <div class="events-agent__name">Nyra Vale</div>
-                  <div class="events-agent__type">Informační síť / vliv</div>
+                  <div class="events-agent__type">INTEL PULSE · 06:00 / 14:00 / 22:00</div>
                 </div>
               </button>
             </div>
@@ -1690,11 +1693,11 @@
               <div class="events-modal__header">
                 <div>
                   <div class="events-modal__title" id="events-agent-name">Vyber postavu</div>
-                  <div class="events-modal__subtitle" id="events-agent-type">Každá má jiné questy</div>
+                  <div class="events-modal__subtitle" id="events-agent-type">Každý nabízí jiné zakázky</div>
                 </div>
                 <div class="events-modal__tagline" id="events-agent-quote"></div>
               </div>
-              <p class="muted" id="events-agent-desc">Klikni na postavu a zobrazí se její popis a dočasné úkoly.</p>
+              <p class="muted" id="events-agent-desc">Vyber kontakt a zobrazí se jeho dočasné pouliční zakázky.</p>
               <div class="events-tasklist" id="events-tasklist"></div>
             </div>
           </div>
@@ -1705,13 +1708,13 @@
         <div id="event-detail-modal-backdrop" class="modal__backdrop"></div>
         <div class="modal__content modal__content--profile event-detail-modal__content">
           <div class="modal__header">
-            <h3 id="event-detail-title">Detail eventu</h3>
+            <h3 id="event-detail-title">Detail zakázky</h3>
             <button class="modal__close" id="event-detail-modal-close" aria-label="Zavřít">✕</button>
           </div>
           <div class="modal__body event-detail-modal__body">
             <div class="event-detail-modal__meta">
               <span id="event-detail-giver">-</span>
-              <span id="event-detail-stats">Úspěšnost 0% • 0 s</span>
+              <span id="event-detail-stats">Úspěšnost 0% • 0 min</span>
             </div>
             <p class="event-detail-modal__desc" id="event-detail-desc"></p>
             <div class="event-detail-modal__section">
@@ -2012,14 +2015,14 @@
         <div class="modal__content modal__content--profile faction-actions-modal__content">
           <div class="modal__header faction-actions-modal__header">
             <div>
-              <div class="faction-actions-modal__eyebrow">Faction uplink</div>
-              <h3>Frakční akce</h3>
+              <div class="faction-actions-modal__eyebrow">FRAKČNÍ PROFIL</div>
+              <h3>Frakční efekty</h3>
             </div>
             <button class="modal__close" id="faction-actions-modal-close" aria-label="Zavřít">✕</button>
           </div>
           <div class="modal__body faction-actions-modal__body">
             <div class="faction-actions-modal__intro">
-              Pasivní frakční efekty běží automaticky. Unikátní protokoly zůstávají viditelné jako preview pro další fázi války.
+              Pasivní frakční efekty běží automaticky. Unikátní schopnost je viditelná pro orientaci, ale v této verzi ji zatím nelze spustit.
             </div>
             <div id="faction-actions-modal-grid" class="faction-actions-modal__grid"></div>
             <div id="faction-actions-modal-status" class="faction-actions-modal__status">Pasivní frakční efekty běží automaticky. Speciální protokoly přijdou později.</div>

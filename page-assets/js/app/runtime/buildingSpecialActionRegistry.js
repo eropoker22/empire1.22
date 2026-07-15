@@ -52,6 +52,7 @@ const SERVER_ACTIONS = new Map([
   ["herna::zadni pokladna", ["back_cashdesk", "arcade"]],
   ["smenarna::vyhodny kurz", ["good_rate", "exchange"]],
   ["strip club::hostit vip klienty", ["vip_lounge", "strip_club"]],
+  ["strip club::soukroma party", ["private_party", "strip_club"]],
   ["strip club::ziskat kompro", ["private_party", "strip_club"]],
   ["strip club::ziskat kompromat", ["private_party", "strip_club"]],
   ["strip club::vybrat cash", ["strip_club_collect_cash", "strip_club"]],
@@ -65,8 +66,6 @@ const SERVER_ACTIONS = new Map([
   ["energeticka stanice::snizit vypadky", ["power_station_reduce_heat", "power_station"]],
   ["pasovaci tunel::otevrit kanal", ["open_channel", "smuggling_tunnel"]],
   ["poulicni dealeri::spustit prodej", ["start_drug_sale", "street_dealers"]],
-  ["poulicni dealeri::vybrat hot cash", ["street_dealers_collect_hot_cash", "street_dealers"]],
-  ["poulicni dealeri::presunout stash", ["street_dealers_move_stash", "street_dealers"]],
   ["restaurace::vybrat trzby", ["restaurant_collect_revenue", "restaurant"]],
   ["restaurace::kryt schuzky", ["restaurant_cover_meetings", "restaurant"]],
   ["restaurace::posilit lokalni sit", ["restaurant_local_network", "restaurant"]]
@@ -224,9 +223,7 @@ function formatRewardSummary(actionProfile = {}) {
   if (Number(actionProfile.marketFeeReductionPct || 0) > 0) rewards.push(`Market fee -${formatNumberValue(actionProfile.marketFeeReductionPct)}%`);
   if (Number(actionProfile.stockExchangeEffectReductionPct || 0) > 0) rewards.push(`Burza efekt -${formatNumberValue(actionProfile.stockExchangeEffectReductionPct)}%`);
   if (Number(actionProfile.offerDiscountPct || 0) > 0) rewards.push(`Sleva +${formatNumberValue(actionProfile.offerDiscountPct)}%`);
-  if (Number(actionProfile.dealerSalePriceBonusPct || 0) > 0) rewards.push(`Pouliční dealeři cena +${formatNumberValue(actionProfile.dealerSalePriceBonusPct)}%`);
   if (Number(actionProfile.dealerSaleSpeedBonusPct || 0) > 0) rewards.push(`Pouliční dealeři rychlost +${formatNumberValue(actionProfile.dealerSaleSpeedBonusPct)}%`);
-  if (Number(actionProfile.dealerRewardBonusPct || 0) > 0) rewards.push(`Pouliční dealeři reward +${formatNumberValue(actionProfile.dealerRewardBonusPct)}%`);
   for (const [itemId, amount] of Object.entries(actionProfile.materials || {})) rewards.push(`${itemId} x${amount}`);
   for (const [itemId, amount] of Object.entries(actionProfile.drugs || {})) rewards.push(`${itemId} x${amount}`);
   for (const [itemId, amount] of Object.entries(actionProfile.weapons || {})) rewards.push(`${itemId} x${amount}`);

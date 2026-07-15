@@ -14,6 +14,7 @@
 @import "./styles-action-results.css";
 @import "./styles-mobile-fixes.css";
 @import "./styles-static-hover.css";
+@import "./styles-market.css";
 
 html body .buildings-popup__type-btn.is-locked,
 html body .buildings-popup__type-btn.is-locked:hover,

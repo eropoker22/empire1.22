@@ -117,9 +117,7 @@ describe("Downtown building special action server bridge", () => {
 
   it("dispatches hardened Park and Industrial actions through run-building-action", () => {
     const actions = [
-      ["Pouliční dealeři", "Spustit prodej", 0, "street_dealers", { dealerSlotId: "slot-1", itemId: "neon-dust", amount: 1 }],
-      ["Pouliční dealeři", "Vybrat hot cash", 1, "street_dealers", {}],
-      ["Pouliční dealeři", "Přesunout stash", 2, "street_dealers", {}],
+      ["Pouliční dealeři", "Spustit prodej", 0, "street_dealers", { dealerSlotId: "slot-1", itemId: "neon-dust", amount: 10 }],
       ["Strip club", "Vybrat cash", 0, "strip_club", {}],
       ["Energetická stanice", "Napájet výrobu", 1, "power_station", {}],
       ["Energetická stanice", "Snížit heat", 2, "power_station", {}]

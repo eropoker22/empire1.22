@@ -138,10 +138,6 @@ export const createCivilBuildingStats = (
     config: input.stripClubConfig,
     vipActive: (metadata.vipLoungeExpiresAtTick ?? 0) > input.tick
   });
-  const activeContacts = metadata.contacts
-    .filter((contact) => contact.expiresAtTick === null || contact.expiresAtTick > input.tick)
-    .map((contact) => contact.label)
-    .join(", ");
   return [
     { label: "Clean / min", value: `$${formatNumber(input.stripClubConfig.cleanCashPerMinute * network.incomeMultiplier)}` },
     { label: "Dirty / min", value: `$${formatNumber(input.stripClubConfig.dirtyCashPerMinute * network.incomeMultiplier)}` },
@@ -153,6 +149,5 @@ export const createCivilBuildingStats = (
     { label: "Drby", value: formatMultiplierBonus(network.rumorMultiplier) },
     { label: "Šance pasivního drbu", value: `${formatNumber(rumorStats.passiveRumorChancePct)} %` },
     { label: "Šance pravdivého drbu", value: `${formatNumber(rumorStats.truthChancePct)} %` },
-    { label: "Aktivní kontakty", value: activeContacts || "žádné" },
     { label: "Riziko skandálu", value: `${input.stripClubConfig.privateParty.scandalChancePct} %` }
   ];};

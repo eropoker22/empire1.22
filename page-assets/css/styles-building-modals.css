@@ -3349,8 +3349,18 @@
 
 .pharmacy-slot__btn:disabled,
 .drug-lab-mini-btn:disabled {
-  opacity: 0.55;
+  opacity: 0.52;
   cursor: not-allowed;
+  border-color: rgba(100, 116, 139, 0.48);
+  background: rgba(51, 65, 85, 0.56);
+  color: rgba(203, 213, 225, 0.72);
+  text-shadow: none;
+  box-shadow: none;
+  filter: grayscale(0.78) saturate(0.42);
+}
+
+.pharmacy-slot__btn:disabled::before {
+  display: none;
 }
 
 .drug-production-slot__controls .drug-lab-mini-btn[data-drug-lab-slot-start] {
@@ -4140,6 +4150,18 @@
   color: #dbeafe;
 }
 
+/* Disabled production actions intentionally lose their resource accent. */
+.factory-slot__actions .factory-slot-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+  border-color: rgba(100, 116, 139, 0.48);
+  background: rgba(51, 65, 85, 0.56);
+  color: rgba(203, 213, 225, 0.72);
+  text-shadow: none;
+  box-shadow: none;
+  filter: grayscale(0.78) saturate(0.42);
+}
+
 .armory-popup-card.building-detail-modal__content .armory-slot__material-pill--combat {
   border-color: rgba(196, 181, 253, 0.3);
   color: #e9d5ff;
@@ -4184,6 +4206,20 @@
   box-shadow:
     0 0 14px rgba(244, 114, 182, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Keep unavailable cancellation neutral even inside the more specific popup skins. */
+.pharmacy-popup-card.building-detail-modal__content .pharmacy-slot__btn--stop:disabled,
+.druglab-popup-card.building-detail-modal__content .drug-production-slot__controls .drug-lab-mini-btn[data-drug-lab-slot-stop]:disabled,
+.armory-popup-card.building-detail-modal__content .armory-slot .drug-lab-mini-btn[data-armory-slot-stop]:disabled,
+.factory-popup-card.building-detail-modal__content .factory-slot__actions .factory-slot-button[data-factory-slot-toggle-state="stop"]:disabled {
+  opacity: 0.52;
+  border-color: rgba(100, 116, 139, 0.48);
+  background: rgba(51, 65, 85, 0.56);
+  color: rgba(203, 213, 225, 0.72);
+  text-shadow: none;
+  box-shadow: none;
+  filter: grayscale(0.78) saturate(0.42);
 }
 
 .factory-popup-card.building-detail-modal__content .factory-resource-pill {
@@ -7839,6 +7875,55 @@
     0 0 8px rgba(250, 204, 21, 0.12);
 }
 
+.district-building-detail-actions .building-info-action-row__button {
+  position: absolute;
+  left: 10px;
+  bottom: 7px;
+  z-index: 2;
+  padding: 3px 6px;
+  border: 1px solid rgba(var(--detail-action-rgb), 0.46);
+  border-radius: 4px;
+  background: rgba(2, 6, 14, 0.7);
+  color: rgb(var(--detail-action-rgb));
+  font-size: 0.52rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.05em;
+}
+
+.district-building-detail-actions .building-info-action-row:disabled .building-info-action-row__button,
+.district-building-detail-actions .building-info-action-row[data-district-building-detail-action-state="disabled"] .building-info-action-row__button {
+  border-color: rgba(148, 163, 184, 0.3);
+  color: rgba(203, 213, 225, 0.7);
+}
+
+@media (min-width: 721px) {
+  .district-building-detail-shell[data-building-district-type="downtown"] .district-building-detail-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .district-building-detail-shell[data-building-district-type="downtown"] .district-building-detail-actions .building-info-action-row {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    min-height: 142px;
+    align-items: start;
+    align-content: stretch;
+    padding: 12px 12px 34px;
+  }
+
+  .district-building-detail-shell[data-building-district-type="downtown"] .district-building-detail-actions .building-info-action-row__title,
+  .district-building-detail-shell[data-building-district-type="downtown"] .district-building-detail-actions .building-info-action-row__desc,
+  .district-building-detail-shell[data-building-district-type="downtown"] .district-building-detail-actions .building-info-action-row__phase {
+    text-align: left;
+  }
+
+  .district-building-detail-shell[data-building-district-type="downtown"] .district-building-detail-actions .building-info-action-row__desc {
+    align-self: start;
+    padding-top: 4px;
+  }
+}
+
 .district-building-detail-actions .building-info-action-row:hover:not(:disabled),
 .district-building-detail-actions .building-info-action-row:focus-visible:not(:disabled) {
   border-color: rgba(var(--detail-action-rgb), 0.72);
@@ -8055,6 +8140,87 @@
 .drug-production-slot[data-resource-color="alarm"] {
   --resource-accent-rgb: 96, 165, 250;
   --resource-soft-rgb: 34, 211, 238;
+}
+
+.dealer-sale-action {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid rgba(var(--building-window-accent-rgb), 0.28);
+  border-radius: 9px;
+  background: rgba(3, 8, 16, 0.68);
+}
+
+.dealer-sale-action__controls {
+  display: grid;
+  grid-template-columns: minmax(132px, 1.2fr) minmax(98px, 0.85fr) minmax(58px, 0.42fr);
+  gap: 7px;
+}
+
+.dealer-sale-action__field {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.dealer-sale-action__caption {
+  color: rgba(226, 232, 240, 0.68);
+  font-size: 0.58rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.dealer-sale-action__field--price {
+  align-content: end;
+  min-height: 51px;
+  padding: 0 9px 8px;
+  border: 1px solid rgba(var(--building-window-accent-rgb), 0.24);
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(var(--building-window-accent-rgb), 0.13), rgba(5, 10, 19, 0.94));
+}
+
+.dealer-sale-action__field--price .dealer-sale-action__caption {
+  color: rgba(254, 240, 138, 0.92);
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.dealer-sale-action__select,
+.dealer-sale-action__amount {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid rgba(var(--building-window-secondary-rgb), 0.34);
+  border-radius: 6px;
+  color: #f8fafc;
+  background: rgba(5, 10, 19, 0.94);
+  font: inherit;
+  font-size: 0.72rem;
+}
+
+.dealer-sale-action__status {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.72);
+  font-size: 0.62rem;
+  text-align: center;
+}
+
+.dealer-sale-action .building-info-action-row {
+  width: 100%;
+}
+
+@media (max-width: 520px) {
+  .dealer-sale-action__controls {
+    grid-template-columns: minmax(0, 1fr) 62px;
+  }
+
+  .dealer-sale-action__field:first-child,
+  .dealer-sale-action__field--price {
+    grid-column: 1 / -1;
+  }
 }
 
 .armory-slot__material-pill[data-resource-color="combat-module"] {

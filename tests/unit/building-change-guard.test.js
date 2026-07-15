@@ -24,7 +24,7 @@ import { freeModeCarDealerConfig as clientFreeModeCarDealerConfig } from "../../
 import { freeModeConvenienceStoreConfig as clientFreeModeConvenienceStoreConfig } from "../../client/packages/game-config/src/public/free-mode-convenience-store-config";
 import { freeModeExchangeOfficeConfig as clientFreeModeExchangeOfficeConfig } from "../../client/packages/game-config/src/public/free-mode-exchange-office-config";
 import { freeModeSmugglingTunnelConfig as clientFreeModeSmugglingTunnelConfig } from "../../client/packages/game-config/src/public/free-mode-smuggling-tunnel-config";
-import { freeModeStreetDealersConfig as clientFreeModeStreetDealersConfig } from "../../client/packages/game-config/src/public/free-mode-street-dealers-config";
+import { STREET_DEALERS_CONFIG } from "../../packages/game-config/src/legacy-page/gameplay-config.generated.js";
 import { freeModeStripClubConfig as clientFreeModeStripClubConfig } from "../../client/packages/game-config/src/public/free-mode-strip-club-config";
 
 const root = process.cwd();
@@ -154,7 +154,8 @@ describe("building change guard", () => {
       );
     }
 
-    expect(clientFreeModeStreetDealersConfig).toEqual(freeModeStreetDealersConfig);
+    // The deployed browser reads the generated adapter, not a copied typed-mode module.
+    expect(STREET_DEALERS_CONFIG).toEqual(freeModeStreetDealersConfig);
     expect(clientFreeModeConvenienceStoreConfig).toEqual(freeModeConvenienceStoreConfig);
     expect(clientFreeModeSmugglingTunnelConfig).toEqual(freeModeSmugglingTunnelConfig);
     expect(clientFreeModeStripClubConfig).toEqual(freeModeStripClubConfig);

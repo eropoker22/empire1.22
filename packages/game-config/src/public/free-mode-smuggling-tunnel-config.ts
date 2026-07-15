@@ -23,9 +23,7 @@ export const freeModeSmugglingTunnelConfig: SmugglingTunnelBalanceConfig = {
     costCleanCash: 1800,
     heatGain: 5,
     tunnelDirtyProductionBonusPct: 45,
-    dealerSalePriceBonusPct: 12,
     dealerSaleSpeedBonusPct: 10,
-    dealerCompletionRewardBonusPct: 10,
     dealerSaleHeatBonusPct: 15,
     streetIncidentFlatRiskPct: 5,
     stackable: false
@@ -33,7 +31,6 @@ export const freeModeSmugglingTunnelConfig: SmugglingTunnelBalanceConfig = {
   dealerSupply: {
     bonusPctPerTunnel: 4,
     maxBonusPct: 32,
-    salePriceSharePct: 50,
     saleSpeedSharePct: 35,
     streetRiskReductionSharePct: 40,
     passiveDirtyIncomeSharePct: 25,

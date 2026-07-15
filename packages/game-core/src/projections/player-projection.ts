@@ -23,6 +23,7 @@ import { resolveAttackWeaponInventory } from "../rules";
 import { createFactoryProductionBuildingView } from "./factory-production-projection";
 import { isFactoryOwnedBy } from "../handlers/factoryProductionShared";
 import { createPlayerBoostView } from "./player-boost-projection";
+import { createPlayerCityEventsView } from "./city-event-projection";
 
 /**
  * Responsibility: Builds a minimal player-facing projection from authoritative core state.
@@ -95,6 +96,7 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
         })
       : null,
     boosts: context ? createPlayerBoostView(state, playerId, context) : null,
+    cityEvents: context ? createPlayerCityEventsView(state, playerId, context) : null,
     economy,
     faction: createFactionReadModel(state, playerId, context),
     dayNight: context ? createDayNightReadModel(state, context) : null,

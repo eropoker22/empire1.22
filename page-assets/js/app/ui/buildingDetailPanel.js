@@ -317,6 +317,10 @@ export function ensureBuildingDetailPanel(root, callbacks = {}, options = {}) {
     if (actionButton instanceof HTMLButtonElement && typeof callbacks.onRunAction === "function") {
       const actionIndex = Number.parseInt(actionButton.dataset.districtBuildingDetailActionIndex || "", 10);
       if (Number.isFinite(actionIndex)) {
+        const dealerControls = actionButton.closest("[data-dealer-sale-action]");
+        const dealerSlot = dealerControls?.querySelector?.("[data-dealer-sale-slot]");
+        const dealerItem = dealerControls?.querySelector?.("[data-dealer-sale-item]");
+        const dealerAmount = dealerControls?.querySelector?.("[data-dealer-sale-amount]");
         callbacks.onRunAction(shell, {
           shell,
           actionIndex,
@@ -324,7 +328,12 @@ export function ensureBuildingDetailPanel(root, callbacks = {}, options = {}) {
           buildingTypeId: actionButton.dataset.districtBuildingDetailBuildingTypeId || "",
           districtId: shell.dataset.districtBuildingDetailDistrictId || "",
           buildingId: shell.dataset.districtBuildingDetailName || "",
-          buildingName: shell.dataset.districtBuildingDetailDisplayName || ""
+          buildingName: shell.dataset.districtBuildingDetailDisplayName || "",
+          ...(dealerControls ? {
+            dealerSlotId: dealerSlot?.value || "",
+            itemId: dealerItem?.value || "",
+            amount: Number(dealerAmount?.value)
+          } : {})
         });
       }
     }
@@ -692,7 +701,8 @@ export function renderBuildingActions(buildingViewModel = {}, callbacks = {}, op
     const description = createElement(mount, "span", "building-info-action-row__desc");
     const phase = createElement(mount, "span", "building-info-action-row__phase");
     const cooldown = createElement(mount, "span", "building-info-action-row__cooldown");
-    if (!row || !title || !description || !phase || !cooldown) continue;
+    const command = createElement(mount, "span", "building-info-action-row__button");
+    if (!row || !title || !description || !phase || !cooldown || !command) continue;
     row.type = "button";
     row.dataset.districtBuildingDetailActionIndex = String(rowView.index ?? "");
     row.dataset.districtBuildingDetailActionId = String(rowView.actionId || "");
@@ -703,6 +713,7 @@ export function renderBuildingActions(buildingViewModel = {}, callbacks = {}, op
         ? "disabled"
         : "ready";
     row.dataset.districtBuildingDetailSingleAction = rows.length === 1 ? "true" : "false";
+    row.dataset.districtBuildingDetailBaseDisabled = rowView.disabled ? "true" : "false";
     row.dataset.districtBuildingDetailDisabledTone = String(rowView.disabledTone || "");
     row.disabled = Boolean(rowView.disabled);
     if (rowView.disabledReason) {
@@ -719,12 +730,94 @@ export function renderBuildingActions(buildingViewModel = {}, callbacks = {}, op
     const cooldownLabel = String(rowView.cooldownLabel || "").trim();
     cooldown.textContent = cooldownLabel;
     cooldown.hidden = !cooldownLabel;
+    command.textContent = Number(rowView.cooldownRemainingMs || 0) > 0
+      ? "COOLDOWN"
+      : rowView.disabled
+        ? "NEDOSTUPNÉ"
+        : "SPUSTIT";
     row.dataset.districtBuildingDetailHasPhaseLock = phaseLabel ? "true" : "false";
     row.dataset.districtBuildingDetailHasCooldown = cooldownLabel ? "true" : "false";
-    row.append(title, description, phase, cooldown);
+    row.append(title, description, phase, command, cooldown);
+    if (rowView.dealerSale) {
+      const wrapper = createDealerSaleControls(mount, row, rowView.dealerSale);
+      if (wrapper) {
+        mount.append(wrapper);
+        continue;
+      }
+    }
     mount.append(row);
   }
   return true;
+}
+
+function createDealerSaleControls(scopeElement, actionButton, view) {
+  const ownerDocument = scopeElement?.ownerDocument || globalThis.document;
+  const wrapper = createElement(scopeElement, "div", "dealer-sale-action");
+  const controls = createElement(scopeElement, "div", "dealer-sale-action__controls");
+  const slotLabel = createElement(scopeElement, "label", "dealer-sale-action__field");
+  const itemLabel = createElement(scopeElement, "label", "dealer-sale-action__field");
+  const amountLabel = createElement(scopeElement, "label", "dealer-sale-action__field dealer-sale-action__field--amount");
+  const slotCaption = createElement(scopeElement, "span", "dealer-sale-action__caption");
+  const itemCaption = createElement(scopeElement, "span", "dealer-sale-action__caption");
+  const amountCaption = createElement(scopeElement, "span", "dealer-sale-action__caption");
+  const slotSelect = createElement(scopeElement, "select", "dealer-sale-action__select");
+  const itemSelect = createElement(scopeElement, "input", "dealer-sale-action__select");
+  const amountInput = createElement(scopeElement, "input", "dealer-sale-action__amount");
+  const status = createElement(scopeElement, "p", "dealer-sale-action__status");
+  if (!wrapper || !controls || !slotLabel || !itemLabel || !amountLabel || !slotCaption || !itemCaption || !amountCaption || !slotSelect || !itemSelect || !amountInput || !status) {
+    return null;
+  }
+  wrapper.dataset.dealerSaleAction = "true";
+  itemLabel.classList.add("dealer-sale-action__field--price");
+  slotSelect.dataset.dealerSaleSlot = "true";
+  itemSelect.dataset.dealerSaleItem = "true";
+  amountInput.dataset.dealerSaleAmount = "true";
+  slotCaption.textContent = "Prodávat";
+  itemCaption.textContent = "Cena";
+  amountCaption.textContent = "Ks";
+  amountInput.type = "number";
+  amountInput.min = "10";
+  amountInput.step = "1";
+  amountInput.value = "10";
+  itemSelect.type = "hidden";
+
+  for (const slot of Array.isArray(view.slots) ? view.slots : []) {
+    const option = ownerDocument.createElement("option");
+    option.value = slot.slotId;
+    option.textContent = slot.statusLabel ? `${slot.label} · ${slot.statusLabel}` : slot.label;
+    option.disabled = Boolean(slot.locked);
+    slotSelect.append(option);
+  }
+  slotLabel.append(slotCaption, slotSelect);
+  itemLabel.append(itemCaption, itemSelect);
+  amountLabel.append(amountCaption, amountInput);
+  controls.append(slotLabel, itemLabel, amountLabel);
+
+  const sync = () => {
+    const selectedSlot = view.slots?.find?.((slot) => slot.slotId === slotSelect.value) || null;
+    const selectedItem = selectedSlot;
+    const minimumAmount = Math.max(1, Number(selectedItem?.minimumAmountPerSale || 10));
+    const maxAmount = Math.max(0, Number(selectedItem?.ownedAmount || 0));
+    itemSelect.value = selectedItem?.itemId || "";
+    itemSelect.setAttribute("data-dealer-sale-item-label", selectedItem?.itemLabel || "");
+    itemSelect.title = selectedItem ? `${selectedItem.itemLabel} · $${selectedItem.unitSalePriceDirtyCash} dirty / ks` : "";
+    itemSelect.value = selectedItem?.itemId || "";
+    itemCaption.textContent = selectedItem ? `$${selectedItem.unitSalePriceDirtyCash} dirty / ks` : "Cena";
+    amountInput.min = String(minimumAmount);
+    if (Number(amountInput.value) < minimumAmount) amountInput.value = String(minimumAmount);
+    amountInput.max = String(maxAmount);
+    const amount = Number(amountInput.value);
+    const selectionBlocked = !selectedSlot || selectedSlot.locked || !selectedItem || maxAmount < minimumAmount || !Number.isInteger(amount) || amount < minimumAmount || amount > maxAmount;
+    actionButton.disabled = actionButton.dataset.districtBuildingDetailBaseDisabled === "true" || selectionBlocked;
+    status.textContent = selectedItem
+      ? `${view.phaseStatusLabel || ""} · minimum ${minimumAmount} ks · vlastním ${maxAmount} ks · prodej $${amount * Number(selectedItem.unitSalePriceDirtyCash || 0)} dirty`
+      : "Vyber látku.";
+  };
+  slotSelect.addEventListener("change", sync);
+  amountInput.addEventListener("input", sync);
+  wrapper.append(controls, status, actionButton);
+  sync();
+  return wrapper;
 }
 
 export function renderBuildingEmptyState(options = {}) {

@@ -4,7 +4,10 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./contracts/city-event-balance-config": "./src/contracts/city-event-balance-config.ts",
+    "./contracts/game-mode-config": "./src/contracts/game-mode-config.ts",
+    "./rules/economy/replacementValue": "./src/rules/economy/replacementValue.ts"
   },
   "scripts": {
     "check": "node ../../scripts/run-local-bin.mjs typescript/bin/tsc -p ../../tsconfig.test.json --noEmit"

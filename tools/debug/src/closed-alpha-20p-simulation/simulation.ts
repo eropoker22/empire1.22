@@ -55,7 +55,7 @@ const DRUG_RESOURCE_IDS = [
   "overdrive-x"
 ] as const;
 
-const MARKET_RESOURCE_IDS: MarketResourceId[] = ["metalParts", "techCore", "chemicals", "biomass"];
+const MARKET_RESOURCE_IDS: MarketResourceId[] = ["metal-parts", "stim-pack", "chemicals", "biomass"];
 
 const STARTING_BALANCES: Record<string, number> = {
   cash: 5000,

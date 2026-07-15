@@ -8,6 +8,8 @@ import type {
   StreetDealersBalanceConfig
 } from "../contracts/game-mode-config";
 import { formatNumber, formatResourceLabel } from "./district-building-action-formatters";
+import type { CoreGameState } from "../entities";
+import { getOwnedStreetDealerCount, resolveStreetDealerSlotCount } from "../handlers/streetDealersBuildingActions";
 
 export const resolveBuildingActionStatus = (input: {
   disabledReason: string | null;
@@ -42,38 +44,33 @@ export const createRequiredInputViews = (input: {
   airportConfig?: AirportBalanceConfig;
   cityHallConfig?: CityHallBalanceConfig;
   streetDealersConfig?: StreetDealersBalanceConfig;
+  state?: CoreGameState;
+  playerId?: string;
 }): BuildingActionInputView[] => {
   const actionId = input.action.actionId;
 
   if (input.streetDealersConfig && actionId === input.streetDealersConfig.startDrugSale.actionId) {
+    const ownedCount = input.state && input.playerId
+      ? getOwnedStreetDealerCount(input.state, input.playerId, input.streetDealersConfig)
+      : 0;
+    const slotCount = resolveStreetDealerSlotCount(ownedCount, input.streetDealersConfig);
     return [
       {
         id: "dealerSlotId",
         type: "select",
-        label: "Slot dealerů",
+        label: "Prodávaná látka",
         required: true,
-        options: Array.from({ length: 5 }, (_value, index) => ({
-          value: `slot-${index + 1}`,
-          label: `Slot ${index + 1}`
-        }))
-      },
-      {
-        id: "itemId",
-        type: "select",
-        label: "Droga",
-        required: true,
-        options: input.streetDealersConfig.sellableDrugs.map((drug) => ({
-          value: drug.itemId,
-          label: drug.label
-        }))
+        options: input.streetDealersConfig.dealerSlots.slice(0, slotCount).map((slot) => {
+          const drug = input.streetDealersConfig?.sellableDrugs.find((candidate) => candidate.itemId === slot.itemId);
+          return { value: slot.slotId, label: drug?.label || slot.itemId };
+        })
       },
       {
         id: "amount",
         type: "number",
         label: "Množství",
         required: true,
-        min: 1,
-        max: 12
+        min: Math.min(...input.streetDealersConfig.sellableDrugs.map((drug) => drug.minimumAmountPerSale))
       }
     ];
   }

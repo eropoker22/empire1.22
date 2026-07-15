@@ -131,8 +131,9 @@ describe("alliance alpha UI", () => {
     expect(runtime).toContain("appendLocalAllianceChatMessage");
     expect(runtime).toContain("readAlliancePreviewMessages");
     expect(runtime).not.toContain("Preview aliance ukazuje chat bez serverového uložení.");
-    expect(runtime).toContain("Hlasování o vyloučení je v preview vypnuté.");
+    expect(runtime).toContain("Hlasování o vyloučení je v lokálním demu vypnuté.");
     expect(runtime).toContain("Zpráva uložená jen v tomhle prohlížeči.");
+    expect(runtime).not.toContain("const serverEchoExists");
   });
 
   it("keeps alpha management focused on stable controls", () => {

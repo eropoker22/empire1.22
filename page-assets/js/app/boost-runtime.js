@@ -91,7 +91,7 @@ function createCardMarkup(card, view, pendingBoostId) {
   const definition = PLAYER_BOOST_CONFIG[card.boostId] || {};
   const buttonState = resolveButtonState(card, view, pendingBoostId, Date.now());
   const materialChips = card.costs.map((cost) => `
-    <span class="boost-cost-chip ${cost.enough ? "" : "is-missing"}" title="${cost.enough ? "Dostatek" : `Chybí ${cost.missingAmount} ks`}">
+    <span class="boost-cost-chip ${cost.enough ? "" : "is-missing"}" title="${cost.enough ? "Dostatek" : `Chybí ${cost.missingAmount} ks`}" aria-label="${escapeHtml(cost.label)}: potřeba ${cost.required}, ve SKLADU ${cost.stored}">
       <span>${escapeHtml(cost.label)}</span><strong>${cost.required} / ${cost.stored}</strong>
     </span>
   `).join("");
@@ -108,8 +108,9 @@ function createCardMarkup(card, view, pendingBoostId) {
         <span><small>${definition.consumptionMode === "next-valid-pvp-combat" ? "NABITÍ EXPIRUJE" : "TRVÁNÍ"}</small><strong>${formatMinutes(card.durationMs)}</strong></span>
         <span><small>COOLDOWN</small><strong>${formatMinutes(card.cooldownMs)}</strong></span>
       </div>
+      <div class="boost-card__cost-heading"><span>CENA AKTIVACE</span><small>potřeba / ve SKLADU</small></div>
       <div class="boost-card__costs">${materialChips}
-        <span class="boost-cost-chip boost-cost-chip--cash ${cashEnough ? "" : "is-missing"}" title="${cashEnough ? "Dostatek clean cash" : `Chybí ${formatMoney(card.cleanCashCost - card.playerCleanCash)}`}">
+        <span class="boost-cost-chip boost-cost-chip--cash ${cashEnough ? "" : "is-missing"}" title="${cashEnough ? "Dostatek clean cash" : `Chybí ${formatMoney(card.cleanCashCost - card.playerCleanCash)}`}" aria-label="Clean Cash: potřeba ${card.cleanCashCost}, dostupné ${card.playerCleanCash}">
           <span>Clean Cash</span><strong>${formatMoney(card.cleanCashCost)} / ${formatMoney(card.playerCleanCash)}</strong>
         </span>
       </div>

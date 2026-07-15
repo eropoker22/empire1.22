@@ -1262,8 +1262,8 @@ export function createBuildingDetailStatRows({
     statRows.splice(0, statRows.length,
       createStat("Špinavé / hod", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly)}`),
       createStat("Heat / den", `+${formatCompactNumber(mechanics.dailyHeat)}`),
-      createStat("Zdroj", "produkty z Labu"),
-      createStat("Akce", "prodej / cash / stash")
+      createStat("Distribuce", "Neon Dust · Pulse Shot · Velvet Smoke"),
+      createStat("Prodej", "minimálně 10 ks · vždy jedna látka")
     );
   } else if (mechanics.mechanicsType === "convenience-store" || buildingKey === "vecerka") {
     statRows.splice(0, statRows.length,
@@ -1271,8 +1271,7 @@ export function createBuildingDetailStatRows({
       createStat("Špinavé / hod", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly)}`),
       createStat("Heat / den", `+${formatCompactNumber(mechanics.dailyHeat)}`),
       createStat("Vliv / den", `+${formatCompactNumber(mechanics.dailyInfluence)}`),
-      createStat("Drby", "pasivní ulice"),
-      createStat("Akce", "Žádné")
+      createStat("Drby", "pasivní pouliční tipy")
     );
   } else if (mechanics.mechanicsType === "strip-club" || buildingKey === "strip club") {
     statRows.splice(0, statRows.length,
@@ -1280,8 +1279,7 @@ export function createBuildingDetailStatRows({
       createStat("Špinavé / hod", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly)}`),
       createStat("Heat / den", `+${formatCompactNumber(mechanics.dailyHeat)}`),
       createStat("Vliv / den", `+${formatCompactNumber(mechanics.dailyInfluence)}`),
-      createStat("Drby", "pasivní VIP tipy"),
-      createStat("Akce", "cash / VIP / kompromat")
+      createStat("Drby", "pasivní VIP tipy")
     );
   } else if (mechanics.mechanicsType === "smuggling-tunnel") {
     const tunnelNetwork = mechanics.smugglingTunnelNetwork || {};
@@ -1291,10 +1289,10 @@ export function createBuildingDetailStatRows({
       isActiveNetworkMultiplier(tunnelHeatMultiplier) ? `heat ${formatMultiplierIncreasePercent(tunnelHeatMultiplier)}` : ""
     ].filter(Boolean);
     statRows.splice(0, statRows.length,
-      createStat("Špinavé / hod", `+${formatDistrictBuildingMoney(mechanics.smugglingDirtyPerMinute * 60)}`),
+      createStat("Špinavé / hod", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly)}`),
       createStat("Heat / den", `+${formatCompactNumber(mechanics.dailyHeat)}`),
       createStat("Tunely", `${mechanics.ownedSmugglingTunnels}/${SMUGGLING_TUNNEL_CONFIG.countOnMap}`),
-      createStat("Pouliční dealeři", `+${mechanics.smugglingDealerSupplyBonusPct}% podpora`),
+      createStat("Distribuce", `+${mechanics.smugglingDealerSupplyBonusPct}% podpora prodeje`),
       createStat("Kanál", mechanics.smugglingOpenChannelActive ? formatDistrictBuildingCooldown(mechanics.smugglingOpenChannelRemainingMs) : "Neaktivní")
     );
     if (tunnelNetworkParts.length) {
@@ -1420,34 +1418,33 @@ export function createBuildingDetailMechanicRows({
     );
   } else if (mechanics.mechanicsType === "street-dealers" || buildingKey === "poulicni dealeri") {
     mechanicRows.push(
-      createMechanic("Distribuce", "Prodává látky z Drug Labu přes sloty Pouličních dealerů."),
-      createMechanic("Hot cash", "Rychlý výběr dá dirty cash a přidá heat."),
-      createMechanic("Stash", "Spotřebuje biomass a převede ho na dirty cash."),
-      createMechanic("Riziko", "Dealerské akce pracují s heatem a pouličním rizikem.")
+      createMechanic("Distribuce", "Prodává Neon Dust, Pulse Shot a Velvet Smoke z Drug Labu."),
+      createMechanic("Množství a cena", "Jeden prodej vyžaduje alespoň 10 ks. Cena za kus je pevně odvozena z výroby v Labu."),
+      createMechanic("Průběh", "Současně může běžet jen jeden prodej; látky se při startu odečtou ze SKLADU."),
+      createMechanic("Riziko", "Prodej přidá heat a může spustit pouliční incident.")
     );
   } else if (mechanics.mechanicsType === "convenience-store" || buildingKey === "vecerka") {
     mechanicRows.push(
       createMechanic("Cashflow", "Malý clean i dirty příjem bez speciálních akcí."),
-      createMechanic("Drby", "Každých 10 minut může vytvořit pouliční drb."),
-      createMechanic("Síť večerek", "Více večerek zvedá income, vliv a šanci na drb."),
-      createMechanic("Synergie", "Restaurace zlepšují civilní drby z večerek.")
+      createMechanic("Drby", "Každých 10 minut proběhne pro hráče nejvýše jeden serverový check na pouliční drb."),
+      createMechanic("Síť večerek", "Více aktivních večerek zvedá cashflow, vliv a šanci na drb."),
+      createMechanic("Synergie", "Restaurace mohou zlepšit šanci a pravdivost civilních drbů.")
     );
   } else if (mechanics.mechanicsType === "strip-club" || buildingKey === "strip club") {
     mechanicRows.push(
-      createMechanic("Noční cash", "Přímý dirty výběr s krátkým cooldownem."),
-      createMechanic("VIP klienti", "Dočasně zvednou income, vliv, heat a šanci na drb."),
-      createMechanic("Drby", "každý Strip club vytvoří 1 drb každých 30 min"),
-      createMechanic("Kompromat", "Přidá vliv a krátký influence boost za heat."),
-      createMechanic("Síť clubů", "Více clubů zvedá income, vliv, drby i heat.")
+      createMechanic("Vybrat cash", "+360 dirty cash a heat +3; cooldown 10 minut."),
+      createMechanic("VIP klienti", "Za clean cash dočasně zvednou cashflow, vliv, heat a šanci na drb."),
+      createMechanic("Pouliční drby", "Každý aktivní Strip Club vytváří jeden drb každých 30 minut."),
+      createMechanic("Soukromá party", "Za clean cash přidá vliv, na 10 minut zrychlí jeho tvorbu a může přinést drb nebo skandál."),
+      createMechanic("Síť clubů", "Více aktivních clubů zvedá cashflow, vliv, drby i heat.")
     );
   } else if (mechanics.mechanicsType === "smuggling-tunnel") {
-    const dealerSalePriceBoostPct = mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySalePriceSharePct / 100;
     const dealerSaleSpeedBoostPct = mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySaleSpeedSharePct / 100;
     const streetRiskReductionPct = mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplyStreetRiskReductionSharePct / 100;
     const dealerHeatBoostPct = mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySaleHeatRiskSharePct / 100;
     mechanicRows.push(
       createMechanic("Tok dirty cash", "Tunel pasivně vyrábí dirty cash."),
-      createMechanic("Pouliční dealeři", `Prodej z Labu: cena +${dealerSalePriceBoostPct}% · rychlost +${dealerSaleSpeedBoostPct}%.`),
+      createMechanic("Pouliční dealeři", `Prodej z Labu: rychlost +${dealerSaleSpeedBoostPct}% · cena zůstává pevná.`),
       createMechanic("Pouliční riziko", `Riziko při prodeji -${streetRiskReductionPct}% · heat z prodeje +${dealerHeatBoostPct}%.`)
     );
   } else if (mechanics.mechanicsType === "arcade") {
@@ -1647,7 +1644,8 @@ export function createBuildingDetailActionRows({
                   effectiveCooldownMs,
                   formatCooldown: formatDistrictBuildingCooldown
                 })}`
-              : "Připraveno"
+              : "Připraveno",
+      dealerSale: actionProfile?.dealerLocalSale ? mechanics.streetDealerSaleView || null : null
     }];
   });
 }
@@ -1684,9 +1682,7 @@ export function createBuildingDetailViewModel({
           ? "Škola zatím nemá připravené členy k výběru."
           : mechanics.mechanicsType === "apartment-block"
             ? `Bytový blok potřebuje alespoň ${APARTMENT_BLOCK_MIN_COLLECT_POPULATION} lidí k výběru.`
-          : mechanics.mechanicsType === "smuggling-tunnel"
-            ? `V tunelu musí být alespoň ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.minCollectDirty)} dirty cash.`
-            : "Populace zatím není připravená k vybrání.")
+          : "Populace zatím není připravená k vybrání.")
     : "";
   const metaText = isFocusedBuilding
     ? ""

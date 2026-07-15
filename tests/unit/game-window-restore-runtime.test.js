@@ -93,7 +93,7 @@ describe("game window restore runtime", () => {
     expect(window.sessionStorage.getItem("empire:game:last-open-window:v1")).toContain('"id":"storage"');
   });
 
-  it("keeps the stored window closed after reload bootstrap", async () => {
+  it("reopens the last stored window after reload bootstrap", async () => {
     const { initGameWindowRestoreRuntime } = await import(modulePath);
     const { root, openButton, popup } = createShell();
     const clickSpy = vi.spyOn(openButton, "click");
@@ -105,12 +105,12 @@ describe("game window restore runtime", () => {
     initGameWindowRestoreRuntime({ root, windowRef: window, definitions });
     vi.advanceTimersByTime(160);
 
-    expect(clickSpy).not.toHaveBeenCalled();
-    expect(popup.hidden).toBe(true);
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(popup.hidden).toBe(false);
     expect(window.sessionStorage.getItem("empire:game:last-open-window:v1")).toContain('"id":"storage"');
   });
 
-  it("does not reopen the buildings card after game.html refresh", async () => {
+  it("reopens the buildings card after game.html refresh", async () => {
     const { GAME_WINDOW_RESTORE_DEFINITIONS, initGameWindowRestoreRuntime } = await import(modulePath);
     const { root, openButton, popup } = createBuildingsShell();
     const clickSpy = vi.spyOn(openButton, "click");
@@ -122,12 +122,12 @@ describe("game window restore runtime", () => {
     initGameWindowRestoreRuntime({ root, windowRef: window, definitions: GAME_WINDOW_RESTORE_DEFINITIONS });
     vi.advanceTimersByTime(160);
 
-    expect(clickSpy).not.toHaveBeenCalled();
-    expect(popup.hidden).toBe(true);
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(popup.hidden).toBe(false);
     expect(window.sessionStorage.getItem("empire:game:last-open-window:v1")).toContain('"id":"buildings"');
   });
 
-  it("keeps a concrete district building detail stored without reopening it", async () => {
+  it("reopens the last concrete district building detail after refresh", async () => {
     const { initGameWindowRestoreRuntime } = await import(modulePath);
     const { root } = createShell();
     const openBuildingDetail = vi.fn(() => true);
@@ -149,7 +149,10 @@ describe("game window restore runtime", () => {
     initGameWindowRestoreRuntime({ root: nextShell.root, windowRef: window, definitions });
     vi.advanceTimersByTime(160);
 
-    expect(openBuildingDetail).not.toHaveBeenCalled();
+    expect(openBuildingDetail).toHaveBeenCalledWith(9, "Klinika", {
+      displayName: "Klinika",
+      preferGenericDetail: true
+    });
     expect(window.sessionStorage.getItem("empire:game:last-open-window:v1")).toContain('"id":"building-detail"');
     expect(window.sessionStorage.getItem("empire:game:last-open-window:v1")).toContain('"buildingName":"Klinika"');
   });

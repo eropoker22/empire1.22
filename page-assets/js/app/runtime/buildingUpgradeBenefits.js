@@ -49,7 +49,6 @@ const BENEFIT_PRIORITY = Object.freeze({
   "laundering-fee": 19,
   "clinic-recovery": 19,
   "dirty-flow": 20,
-  "batch-capacity": 21,
   "dealer-supply": 22,
   "clean-income": 30,
   "dirty-income": 31,
@@ -325,19 +324,10 @@ function addRoleBenefitDeltas(benefits, currentMechanics, nextMechanics) {
     id: "dirty-flow",
     icon: "$",
     label: "Dirty flow",
-    before: currentMechanics.smugglingDirtyPerMinute,
-    after: nextMechanics.smugglingDirtyPerMinute,
+    before: currentMechanics.dirtyHourly / 60,
+    after: nextMechanics.dirtyHourly / 60,
     formatter: (value) => `${formatDistrictBuildingMoney(Math.round(value))}/min`,
     valueFormatter: (value) => formatDistrictBuildingMoney(Math.round(value))
-  });
-  addNumericDelta(benefits, {
-    id: "batch-capacity",
-    icon: "#",
-    label: "Kapacita dávky",
-    before: currentMechanics.smugglingBatchCapacity,
-    after: nextMechanics.smugglingBatchCapacity,
-    formatter: formatInteger,
-    valueFormatter: formatInteger
   });
   addNumericDelta(benefits, {
     id: "dealer-supply",

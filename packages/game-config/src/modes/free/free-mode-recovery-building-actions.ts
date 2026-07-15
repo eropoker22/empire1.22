@@ -151,7 +151,7 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
     actionId: "start_drug_sale",
     buildingType: "street_dealers",
     label: "Spustit prodej",
-    description: "Použije globální slot Pouličních dealerů k prodeji látky vyrobené v Drug Labu za dirty cash.",
+    description: "Prodá látku z Drug Labu přes jeden ze tří pevných slotů Pouličních dealerů. Minimum je 10 ks a současně může běžet jen jeden prodej.",
     durationMs: 0,
     cooldownMs: 0,
     inputCost: {},
@@ -161,35 +161,5 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
     requiredOwner: true,
     allowedIfContested: false,
     reportText: "Pouliční dealeři spustili prodej přes vybraný slot."
-  },
-  street_dealers_collect_hot_cash: {
-    actionId: "street_dealers_collect_hot_cash",
-    buildingType: "street_dealers",
-    label: "Vybrat hot cash",
-    description: "Okamžitě vybere menší balík špinavých peněz z ulice.",
-    durationMs: 0,
-    cooldownMs: 10 * 60 * 1000,
-    inputCost: {},
-    outputGain: { "dirty-cash": 280 },
-    heatGain: 3,
-    influenceChange: 0,
-    requiredOwner: true,
-    allowedIfContested: false,
-    reportText: "Pouliční dealeři vybrali 280 dirty cash. Heat +3."
-  },
-  street_dealers_move_stash: {
-    actionId: "street_dealers_move_stash",
-    buildingType: "street_dealers",
-    label: "Přesunout stash",
-    description: "Spotřebuje 3 biomass a promění přesunutý stash na dirty cash.",
-    durationMs: 0,
-    cooldownMs: 10 * 60 * 1000,
-    inputCost: { biomass: 3 },
-    outputGain: { "dirty-cash": 1000 },
-    heatGain: 1,
-    influenceChange: 0,
-    requiredOwner: true,
-    allowedIfContested: false,
-    reportText: "Stash přesunut: -3 biomass, +1000 dirty cash, heat +1."
   }
 };

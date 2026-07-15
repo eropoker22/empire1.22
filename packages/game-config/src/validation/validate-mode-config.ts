@@ -5,13 +5,12 @@ import { validateArmoryProductionConfig } from "../../../game-core/src/handlers/
 import { validatePharmacyProductionConfig } from "../../../game-core/src/handlers/pharmacyProductionConfig";
 import { validateWarehouseStorageConfig } from "../../../game-core/src/handlers/storageCapacityTypes";
 import { validateAttackWeaponsConfig } from "../../../game-core/src/rules/combat/attackWeaponBalance";
+import { validateConvenienceStoreConfig } from "../../../game-core/src/handlers/convenienceStoreConfig";
 import { validatePlayerBoostConfig } from "../../../game-core/src/handlers/playerBoostConfig";
+import { validateCityEventConfig } from "./validate-city-event-config";
+import { validateStreetDealersConfig } from "./validate-street-dealers-config";
 
-/**
- * Responsibility: Guards resolved mode configs against obviously invalid structural values.
- * Belongs here: basic invariant checks for config assembly.
- * Does not belong here: environment loading or gameplay execution.
- */
+// Guards resolved mode configs; environment loading and gameplay execution belong elsewhere.
 export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGameModeConfig => {
   if (config.tickRateMs <= 0) {
     throw new Error("Mode config requires a positive tickRateMs.");
@@ -78,26 +77,16 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
     }
   }
 
-  if (config.balance.warehouse) {
-    validateWarehouseStorageConfig(config.balance.warehouse);
-  }
-
-  if (config.balance.pharmacy) {
-    validatePharmacyProductionConfig(config.balance.pharmacy);
-  }
-  if (config.balance.drugLab) {
-    validateDrugLabProductionConfig(config.balance.drugLab);
-  }
-  if (config.balance.factory) {
-    validateFactoryProductionConfig(config.balance.factory);
-  }
-  if (config.balance.armory) {
-    validateArmoryProductionConfig(config.balance.armory);
-  }
-  if (config.balance.attackWeapons) {
-    validateAttackWeaponsConfig(config.balance.attackWeapons);
-  }
+  if (config.balance.warehouse) validateWarehouseStorageConfig(config.balance.warehouse);
+  if (config.balance.pharmacy) validatePharmacyProductionConfig(config.balance.pharmacy);
+  if (config.balance.drugLab) validateDrugLabProductionConfig(config.balance.drugLab);
+  if (config.balance.factory) validateFactoryProductionConfig(config.balance.factory);
+  if (config.balance.armory) validateArmoryProductionConfig(config.balance.armory);
+  if (config.balance.attackWeapons) validateAttackWeaponsConfig(config.balance.attackWeapons);
   if (config.balance.playerBoosts) validatePlayerBoostConfig(config.balance.playerBoosts);
+  if (config.balance.cityEvents) validateCityEventConfig(config.balance.cityEvents, config);
+  if (config.balance.convenienceStore) validateConvenienceStoreConfig(config.balance.convenienceStore);
+  validateStreetDealersConfig(config);
 
   const elimination = config.balance.elimination;
   if (elimination?.enabled) {

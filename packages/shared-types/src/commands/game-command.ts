@@ -5,6 +5,7 @@ import type { AllianceLifecycleCommand } from "./alliance-lifecycle-command";
 import type { BountyCommand } from "./bounty-command";
 import type { BuildStructureCommand } from "./build-structure-command";
 import type { CollectProductionCommand } from "./collect-production-command";
+import type { CityEventCommand } from "./city-event-command";
 import type { CancelPharmacyProductionCommand } from "./cancel-pharmacy-production-command";
 import type { CancelDrugLabProductionCommand } from "./cancel-drug-lab-production-command";
 import type { CancelProductionLineCommand } from "./cancel-production-line-command";
@@ -37,6 +38,7 @@ export type GameCommand =
   | CancelProductionLineCommand
   | CancelPharmacyProductionCommand
   | CollectProductionCommand
+  | CityEventCommand
   | CraftItemCommand
   | HeistDistrictCommand
   | MarketCommand

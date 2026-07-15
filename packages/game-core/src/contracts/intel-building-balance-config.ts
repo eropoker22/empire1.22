@@ -46,18 +46,11 @@ export interface StripClubBalanceConfig {
     instantInfluenceGain: number;
     influenceProductionBonusPct: number;
     extraRumorChancePct: number;
-    contactChancePct: number;
     heatGain: number;
     scandalChancePct: number;
     scandalHeatGain: number;
     scandalInfluenceLoss: number;
   };
-  contacts: Array<{
-    id: string;
-    label: string;
-    effectSummary: string;
-    durationMinutes?: number;
-  }>;
 }
 
 export interface RestaurantBalanceConfig {
@@ -143,6 +136,7 @@ export interface ConvenienceStoreBalanceConfig {
   noLaundering: true;
   noAuditRisk: true;
   passiveRumorIntervalMinutes: number;
+  maxRumorChecksPerPlayerPerInterval: number;
   baseRumorChancePct: number;
   truthChanceByOwnedCount: Array<{
     minOwned: number;

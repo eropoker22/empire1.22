@@ -37,7 +37,6 @@ interface StripClubMetadata {
   privatePartyExpiresAtTick?: number;
   lastPassiveRumorCheckTick?: number;
   rumorEvents: StripClubRumor[];
-  contacts: Array<{ id: string; label: string; effectSummary: string; expiresAtTick: number | null; gainedAtTick: number }>;
   scandalEvents: Array<Record<string, unknown>>;
 }
 
@@ -161,16 +160,10 @@ export const resolveStripClubAction = (input: {
           seed: `${input.commandId}:party-rumor:${input.state.root.tick}`
         })
       : null;
-    const contact = deterministicRollPct(`${input.commandId}:contact:${input.state.root.tick}`) < config.privateParty.contactChancePct
-      ? resolveContact(config, input.commandId, input.state.root.tick, input.tickRateMs)
-      : null;
     const scandal = deterministicRollPct(`${input.commandId}:scandal:${input.state.root.tick}`) < config.privateParty.scandalChancePct;
 
     if (extraRumor) {
       metadata.rumorEvents.push(extraRumor);
-    }
-    if (contact) {
-      metadata.contacts.push(contact);
     }
     if (scandal) {
       const scandalRumor = generateStripClubRumor({
@@ -196,12 +189,13 @@ export const resolveStripClubAction = (input: {
       effectModifiers: input.action.effectModifiers,
       reportText: scandal
         ? "Soukromá party skončila skandálem. Heat výrazně vzrostl a vliv klesl."
-        : "Soukromá party přinesla vliv a zákulisní příležitosti.",
+        : extraRumor
+          ? "Soukromá party přinesla vliv a nový pouliční drb."
+          : "Soukromá party přinesla vliv.",
       stripClubResult: {
-        type: "influence_contact_event",
+        type: "influence_rumor_event",
         activeUntilTick: metadata.privatePartyExpiresAtTick,
         extraRumor,
-        contact,
         scandal,
         scandalRiskPct: config.privateParty.scandalChancePct
       }
@@ -314,7 +308,6 @@ export const getStripClubMetadata = (building: CoreGameState["buildingsById"][st
     privatePartyExpiresAtTick: asOptionalTick(raw.privatePartyExpiresAtTick),
     lastPassiveRumorCheckTick: asOptionalTick(raw.lastPassiveRumorCheckTick),
     rumorEvents: Array.isArray(raw.rumorEvents) ? raw.rumorEvents.filter(isRecord).map(normalizeRumor).slice(-12) : [],
-    contacts: Array.isArray(raw.contacts) ? raw.contacts.filter(isRecord).map(normalizeContact).slice(-8) : [],
     scandalEvents: Array.isArray(raw.scandalEvents) ? raw.scandalEvents.filter(isRecord).slice(-8) : []
   };
 };
@@ -358,28 +351,11 @@ const pickBuildingHint = (state: CoreGameState, seed: string): string | null => 
   return buildings.length > 0 ? buildings[Math.floor(deterministicRollPct(`${seed}:building-index`) / 100 * buildings.length)]?.buildingTypeId ?? null : null;
 };
 
-const resolveContact = (
-  config: StripClubBalanceConfig,
-  commandId: string,
-  tick: number,
-  tickRateMs: number
-) => {
-  const contact = config.contacts[Math.floor(deterministicRollPct(`${commandId}:contact-kind:${tick}`) / 100 * config.contacts.length)] ?? config.contacts[0];
-  return {
-    id: contact.id,
-    label: contact.label,
-    effectSummary: contact.effectSummary,
-    expiresAtTick: contact.durationMinutes ? tick + minutesToTicks(contact.durationMinutes, tickRateMs) : null,
-    gainedAtTick: tick
-  };
-};
-
 const cleanupStripClubMetadata = (metadata: StripClubMetadata, tick: number): StripClubMetadata => ({
   ...metadata,
   vipLoungeExpiresAtTick: (metadata.vipLoungeExpiresAtTick ?? 0) > tick ? metadata.vipLoungeExpiresAtTick : undefined,
   privatePartyExpiresAtTick: (metadata.privatePartyExpiresAtTick ?? 0) > tick ? metadata.privatePartyExpiresAtTick : undefined,
   rumorEvents: metadata.rumorEvents.slice(-12),
-  contacts: metadata.contacts.filter((contact) => contact.expiresAtTick === null || contact.expiresAtTick > tick).slice(-8),
   scandalEvents: metadata.scandalEvents.slice(-8)
 });
 
@@ -400,14 +376,6 @@ const normalizeRumor = (value: Record<string, unknown>): StripClubRumor => ({
   probabilityVisible: Boolean(value.probabilityVisible),
   verifiedIntel: Boolean(value.verifiedIntel),
   text: String(value.text || "")
-});
-
-const normalizeContact = (value: Record<string, unknown>) => ({
-  id: String(value.id || ""),
-  label: String(value.label || ""),
-  effectSummary: String(value.effectSummary || ""),
-  expiresAtTick: value.expiresAtTick === null ? null : asOptionalTick(value.expiresAtTick) ?? null,
-  gainedAtTick: Math.max(0, Math.floor(Number(value.gainedAtTick || 0)))
 });
 
 const minutesToTicks = (minutes: number, tickRateMs: number): number =>

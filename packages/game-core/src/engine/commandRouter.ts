@@ -9,6 +9,7 @@ import {
   handleAttackDistrict,
   handleBountyCommand,
   handleBuildStructure,
+  handleCityEventCommand,
   handleCancelDrugLabProduction,
   handleCollectProduction,
   handleCraftItem,
@@ -100,6 +101,9 @@ export const routeCommand = (
     case "build-structure":
       // Deprecated dev-only compatibility path. Main gameplay uses fixed district.buildingIds.
       return handleBuildStructure(state, command, context);
+    case "start-city-event":
+    case "claim-city-event-reward":
+      return handleCityEventCommand(state, command, context);
     case "create-bounty":
     case "cancel-bounty":
       return handleBountyCommand(state, command, context);
@@ -138,6 +142,9 @@ export const routeCommand = (
       return handleHeistDistrict(state, command, context);
     case "buy-market-resource":
     case "sell-market-resource":
+    case "create-player-market-listing":
+    case "buy-player-market-listing":
+    case "cancel-player-market-listing":
       return handleMarketCommand(state, command, context);
     case "occupy-district":
       return handleOccupyDistrict(state, command, context);

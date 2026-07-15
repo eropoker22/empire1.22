@@ -124,8 +124,8 @@ export const freeModeVenueBuildingActions: NonNullable<ResolvedGameModeConfig["b
   private_party: {
     actionId: "private_party",
     buildingType: "strip_club",
-    label: "Získat kompro",
-    description: "Přidá vliv, dočasný influence boost a může přinést kontakt, extra drb nebo skandál.",
+    label: "Soukromá party",
+    description: "Přidá vliv, dočasně zvýší jeho tvorbu a může přinést extra drb nebo skandál.",
     durationMs: freeModeStripClubConfig.privateParty.durationMinutes * 60 * 1000,
     cooldownMs: freeModeStripClubConfig.privateParty.cooldownMinutes * 60 * 1000,
     inputCost: { cash: freeModeStripClubConfig.privateParty.cleanCashCost },

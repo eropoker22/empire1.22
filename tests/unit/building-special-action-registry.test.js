@@ -183,7 +183,7 @@ describe("building special action registry", () => {
     expect(definition.riskSummary).toContain("Audit fail +10%");
   });
 
-  it("keeps all street dealer card actions server-backed with concrete effects", () => {
+  it("keeps only the real street dealer sale action", () => {
     const streetDealerProfiles = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["poulicni dealeri"];
     const sale = resolveBuildingSpecialActionDefinition({
       buildingName: "Pouliční dealeři",
@@ -191,44 +191,19 @@ describe("building special action registry", () => {
       actionIndex: 0,
       actionProfile: streetDealerProfiles[0]
     });
-    const collect = resolveBuildingSpecialActionDefinition({
-      buildingName: "Pouliční dealeři",
-      actionLabel: "Vybrat hot cash",
-      actionIndex: 1,
-      actionProfile: streetDealerProfiles[1]
-    });
-    const stash = resolveBuildingSpecialActionDefinition({
-      buildingName: "Pouliční dealeři",
-      actionLabel: "Přesunout stash",
-      actionIndex: 2,
-      actionProfile: streetDealerProfiles[2]
-    });
 
+    expect(streetDealerProfiles).toHaveLength(1);
     expect(streetDealerProfiles[0].dirty).toBeUndefined();
-    expect([sale.status, collect.status, stash.status]).toEqual(["implemented", "implemented", "implemented"]);
-    expect([sale.actionId, collect.actionId, stash.actionId]).toEqual([
-      "start_drug_sale",
-      "street_dealers_collect_hot_cash",
-      "street_dealers_move_stash"
-    ]);
-    expect([sale.handlerId, collect.handlerId, stash.handlerId]).toEqual([
-      "server-run-building-action",
-      "server-run-building-action",
-      "server-run-building-action"
-    ]);
-    expect(sale.rewardSummary).toContain("Slot Pouličních dealerů prodá vybranou látku");
-    expect(sale.inputSummary).toContain("Slot: slot-1");
+    expect(sale.status).toBe("implemented");
+    expect(sale.actionId).toBe("start_drug_sale");
+    expect(sale.handlerId).toBe("server-run-building-action");
+    expect(streetDealerProfiles[0].summary).toBe("Prodává jednu z 3 povolených laboratorních látek; současně může běžet pouze jeden prodej.");
+    expect(sale.rewardSummary).toBe("Efekt podle akce");
+    expect(sale.inputSummary).not.toContain("Slot:");
     expect(sale.inputSummary).toContain("Produkt: neon-dust");
-    expect(sale.inputSummary).toContain("Množství: 1");
+    expect(sale.inputSummary).toContain("Množství: 10");
     expect(sale.riskSummary).toBe("Bez přímého heat rizika");
     expect(sale.cooldownMs).toBe(0);
-    expect(collect.rewardSummary).toContain("Dirty");
-    expect(collect.riskSummary).toBe("Heat +3");
-    expect(collect.cooldownMs).toBe(10 * 60 * 1000);
-    expect(stash.costSummary).toBe("biomass x3");
-    expect(stash.rewardSummary).toContain("Dirty cash +$1000");
-    expect(stash.riskSummary).toBe("Heat +1");
-    expect(stash.cooldownMs).toBe(10 * 60 * 1000);
   });
 
   it("keeps smuggling tunnel open channel implemented with concrete cost, effect, heat, and cooldown", () => {
@@ -244,9 +219,7 @@ describe("building special action registry", () => {
     expect(openChannel.actionId).toBe("open_channel");
     expect(openChannel.costSummary).toBe("$1800 clean cash");
     expect(openChannel.rewardSummary).toContain("Dirty income +45%");
-    expect(openChannel.rewardSummary).toContain("Pouliční dealeři cena +12%");
     expect(openChannel.rewardSummary).toContain("Pouliční dealeři rychlost +10%");
-    expect(openChannel.rewardSummary).toContain("Pouliční dealeři reward +10%");
     expect(openChannel.rewardSummary).toContain("Efekt 15m 00s");
     expect(openChannel.riskSummary).toContain("Heat +5");
     expect(openChannel.riskSummary).toContain("Pouliční incident +5%");
@@ -267,20 +240,20 @@ describe("building special action registry", () => {
       actionIndex: 1,
       actionProfile: stripProfiles[1]
     });
-    const kompro = resolveBuildingSpecialActionDefinition({
+    const privateParty = resolveBuildingSpecialActionDefinition({
       buildingName: "Strip club",
-      actionLabel: "Získat kompro",
+      actionLabel: "Soukromá party",
       actionIndex: 2,
       actionProfile: stripProfiles[2]
     });
 
-    expect([collect.status, vip.status, kompro.status]).toEqual(["implemented", "implemented", "implemented"]);
-    expect([collect.actionId, vip.actionId, kompro.actionId]).toEqual([
+    expect([collect.status, vip.status, privateParty.status]).toEqual(["implemented", "implemented", "implemented"]);
+    expect([collect.actionId, vip.actionId, privateParty.actionId]).toEqual([
       "strip_club_collect_cash",
       "vip_lounge",
       "private_party"
     ]);
-    expect([collect.handlerId, vip.handlerId, kompro.handlerId]).toEqual([
+    expect([collect.handlerId, vip.handlerId, privateParty.handlerId]).toEqual([
       "server-run-building-action",
       "server-run-building-action",
       "server-run-building-action"
@@ -294,11 +267,11 @@ describe("building special action registry", () => {
     expect(collect.cooldownMs).toBe(10 * 60 * 1000);
     expect(vip.cooldownMs).toBe(60 * 60 * 1000);
     expect(vip.rewardSummary).toContain("Efekt 30m 00s");
-    expect(kompro.costSummary).toBe("$1500 clean cash");
-    expect(kompro.rewardSummary).toContain("Vliv +8");
-    expect(kompro.rewardSummary).toContain("Vliv +70%");
-    expect(kompro.riskSummary).toContain("Heat +6");
-    expect(kompro.cooldownMs).toBe(30 * 60 * 1000);
+    expect(privateParty.costSummary).toBe("$1500 clean cash");
+    expect(privateParty.rewardSummary).toContain("Vliv +8");
+    expect(privateParty.rewardSummary).toContain("Vliv +70%");
+    expect(privateParty.riskSummary).toContain("Heat +6");
+    expect(privateParty.cooldownMs).toBe(30 * 60 * 1000);
   });
 
   it("uses future-tense confirmation copy instead of completed-action summaries", () => {
@@ -374,8 +347,7 @@ describe("building special action registry", () => {
 
   it("keeps Park and Industrial design actions on server handlers", () => {
     const serverActions = [
-      ["Pouliční dealeři", "Vybrat hot cash", 1],
-      ["Pouliční dealeři", "Přesunout stash", 2],
+      ["Pouliční dealeři", "Spustit prodej", 0],
       ["Strip club", "Vybrat cash", 0],
       ["Energetická stanice", "Napájet výrobu", 1],
       ["Energetická stanice", "Snížit heat", 2]

@@ -22,7 +22,9 @@ import {
   getMarketPriceKey,
   MARKET_PRICE_REFRESH_MS,
   MARKET_TAB_CONFIG,
+  PARK_DAY_NIGHT_ACTION_RULES,
   PHARMACY_RECIPES,
+  STREET_DEALERS_CONFIG,
   WAREHOUSE_STORAGE_CONFIG
 } from "../../../packages/game-config/src/legacy-page/economy-config.js";
 import {
@@ -656,6 +658,11 @@ import {
 } from "./runtime/dayNightActionPhaseRuntime.js";
 import { createBuildingUpgradeConfirmationViewModel } from "./runtime/buildingUpgradeBenefits.js";
 import {
+  createLocalStreetDealerSaleView,
+  settleLocalStreetDealerSales,
+  startLocalStreetDealerSale
+} from "./runtime/streetDealersLocalRuntime.js";
+import {
   DISTRICT_GOSSIP_SEED_LIBRARY,
   POLICE_ACTION_SPECIALTY_QUOTES,
   POLICE_ACTION_TIER_MESSAGES,
@@ -1256,66 +1263,50 @@ function syncGameplaySliceResponse(response) {
   }
 }
 
-async function submitServerMarketCommand({ action, resourceId, amount, marketType = "normal", paymentType = "cleanCash" } = {}) {
-  if (!isServerAuthoritativeGameplayRuntimeReady()) {
-    return {
-      accepted: false,
-      errors: [{ message: "Server-authoritative gameplay runtime není připravený." }]
-    };
-  }
-
-  const slice = latestGameplaySliceReadModel || null;
-  const player = slice?.player || null;
-  const focusDistrictId = slice?.district?.districtId || player?.homeDistrictId || null;
-  if (!slice || !player || !focusDistrictId) {
-    return {
-      accepted: false,
-      errors: [{ message: "Market akci nejde odeslat bez server slice kontextu." }]
-    };
-  }
-
-  const normalizedAction = action === "sell" ? "sell" : "buy";
-  const command = {
-    id: createGameplaySliceCommandId(normalizedAction === "sell" ? "command:market-sell" : "command:market-buy"),
-    type: normalizedAction === "sell" ? "sell-market-resource" : "buy-market-resource",
-    mode: player.mode || slice.mode?.mode || "free",
-    playerId: player.playerId,
-    serverInstanceId: player.instanceId,
-    issuedAt: new Date().toISOString(),
-    payload: normalizedAction === "sell"
-      ? {
-          resourceId,
-          amount
-        }
-      : {
-          resourceId,
-          amount,
-          marketType,
-          paymentType
-        },
-    clientRequestId: null
-  };
-  const request = {
-    command,
-    focusDistrictId,
-    expectedStateVersion: slice.server?.stateVersion ?? null
-  };
-  const snapshotToken = getGameplaySliceSnapshotToken(player.instanceId, player.playerId);
-  if (snapshotToken) {
-    request.snapshotToken = snapshotToken;
-  }
-
-  const response = await fetch(`${getGameplaySliceEndpointBase()}/submit`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json"
+async function submitServerMarketCommand({
+  action,
+  resourceId,
+  amount,
+  marketType = "normal",
+  paymentType = "cleanCash",
+  unitPrice,
+  listingId
+} = {}) {
+  const commandByAction = {
+    buy: {
+      type: "buy-market-resource",
+      payload: { resourceId, amount, marketType, paymentType }
     },
-    credentials: "same-origin",
-    body: JSON.stringify(request)
-  }).then((payload) => payload.json());
+    sell: {
+      type: "sell-market-resource",
+      payload: { resourceId, amount }
+    },
+    "create-listing": {
+      type: "create-player-market-listing",
+      payload: { resourceId, amount, unitPrice, paymentType }
+    },
+    "buy-listing": {
+      type: "buy-player-market-listing",
+      payload: { listingId }
+    },
+    "cancel-listing": {
+      type: "cancel-player-market-listing",
+      payload: { listingId }
+    }
+  };
+  const command = commandByAction[action];
+  if (!command) {
+    return {
+      accepted: false,
+      errors: [{ message: "Neznámá market akce." }]
+    };
+  }
 
-  syncGameplaySliceResponse(response);
-  return response;
+  return submitServerDistrictActionCommand({
+    ...command,
+    focusDistrictId: latestGameplaySliceReadModel?.district?.districtId
+      || latestGameplaySliceReadModel?.player?.homeDistrictId
+  });
 }
 
 async function submitServerBountyCommand({ action = "create", payload = {} } = {}) {
@@ -1668,8 +1659,8 @@ async function submitServerBuildingUpgradeCommand({ context, mechanics } = {}) {
   return response;
 }
 
-async function submitServerBuildingActionCommand({ context, actionProfile, definition } = {}) {
-  return submitServerBuildingActionCommandBridge({ context, actionProfile, definition }, {
+async function submitServerBuildingActionCommand({ context, actionProfile, definition, actionInput } = {}) {
+  return submitServerBuildingActionCommandBridge({ context, actionProfile, definition, actionInput }, {
     isReady: isServerAuthoritativeGameplayRuntimeReady,
     getSlice: () => latestGameplaySliceReadModel,
     loadSliceForDistrict: loadServerGameplaySliceForDistrict,
@@ -1875,11 +1866,17 @@ function getServerInventoryGroup(groupName, defaults = {}) {
 }
 
 function getResolvedMaterialInventory() {
+  if (isLocalDemoGameplayExecutionMode()) {
+    normalizeLocalDemoStorageInventory();
+  }
   return getServerInventoryGroup("materials", DEFAULT_MATERIAL_INVENTORY)
     || getLegacyResolvedMaterialInventory();
 }
 
 function getResolvedDrugInventory() {
+  if (isLocalDemoGameplayExecutionMode()) {
+    normalizeLocalDemoStorageInventory();
+  }
   return getServerInventoryGroup("drugs", DEFAULT_DRUG_INVENTORY)
     || getLegacyResolvedDrugInventory();
 }
@@ -4292,6 +4289,9 @@ function bindRobberyOrders(root) {
 }
 
 function getResolvedWeaponInventory() {
+  if (isLocalDemoGameplayExecutionMode()) {
+    normalizeLocalDemoStorageInventory();
+  }
   const serverInventory = getServerInventoryGroup("weapons", DEFAULT_WEAPON_INVENTORY);
   if (serverInventory) {
     return serverInventory;
@@ -4339,7 +4339,12 @@ function clearProductionJob(jobId) {
 
 function applyInventoryOutput(output) {
   if (!output) {
-    return;
+    return 0;
+  }
+
+  const acceptedAmount = getReceivableInventoryOutputAmount(output, output.amount);
+  if (acceptedAmount <= 0) {
+    return 0;
   }
 
   if (output.inventory === "materials") {
@@ -4349,29 +4354,32 @@ function applyInventoryOutput(output) {
       const supplies = getStoredFactorySupplies();
       setStoredFactorySupplies({
         ...supplies,
-        [factorySupplyKey]: Math.max(0, Number(supplies[factorySupplyKey] || 0) + Number(output.amount || 0))
+        [factorySupplyKey]: Math.max(0, Number(supplies[factorySupplyKey] || 0) + acceptedAmount)
       });
-      return;
+      return acceptedAmount;
     }
 
     const inventory = getResolvedMaterialInventory();
-    inventory[output.itemId] = (inventory[output.itemId] ?? 0) + output.amount;
+    inventory[output.itemId] = (inventory[output.itemId] ?? 0) + acceptedAmount;
     setStoredMaterialInventory(inventory);
-    return;
+    return acceptedAmount;
   }
 
   if (output.inventory === "drugs") {
     const inventory = getResolvedDrugInventory();
-    inventory[output.itemId] = (inventory[output.itemId] ?? 0) + output.amount;
+    inventory[output.itemId] = (inventory[output.itemId] ?? 0) + acceptedAmount;
     setStoredDrugInventory(inventory);
-    return;
+    return acceptedAmount;
   }
 
   if (output.inventory === "weapons") {
     const inventory = getResolvedWeaponInventory();
-    inventory[output.itemId] = (inventory[output.itemId] ?? 0) + output.amount;
+    inventory[output.itemId] = (inventory[output.itemId] ?? 0) + acceptedAmount;
     setStoredWeaponInventory(inventory);
+    return acceptedAmount;
   }
+
+  return 0;
 }
 
 function normalizeStorageResourceKey(itemId) {
@@ -4656,6 +4664,7 @@ const {
   formatDurationLabel,
   getInventoryAmount,
   getInventoryCapacity,
+  getReceivableInventoryOutputAmount,
   getProductionBuildingEffectsLabel,
   getProductionBuildingMultiplier,
   getPlayerProductionBoostSnapshot: () => getLocalProductionBoostSnapshot(getAuthoritySession()),
@@ -4912,6 +4921,7 @@ function createFactoryCapacityOptions(options = {}) {
 function getGameplayStorageSummary() {
   const serverSummary = isLocalDemoGameplayExecutionMode() ? null : getServerStorageSummary();
   if (serverSummary) return serverSummary;
+  normalizeLocalDemoStorageInventory();
   const ownedWarehouseCount = getOwnedWarehouseCount();
   const network = getWarehouseNetworkMultipliers(ownedWarehouseCount);
   const capacity = getWarehouseCapacityBreakdown(ownedWarehouseCount);
@@ -4949,6 +4959,70 @@ function getGameplayStorageSummary() {
     },
     groups
   };
+}
+
+function normalizeLocalDemoStorageInventory() {
+  if (!isLocalDemoGameplayExecutionMode()) {
+    return false;
+  }
+
+  const capacityByResource = getWarehouseCapacityBreakdown().byResource || {};
+  const session = getAuthoritySession();
+  const inventory = session?.inventory || {};
+  const materials = { ...(inventory.materials || {}) };
+  const drugs = { ...(inventory.drugs || {}) };
+  const weapons = { ...(inventory.weapons || {}) };
+  const factorySupplies = createFactoryPlayerSupplyMap(inventory.factorySupplies);
+  let changed = false;
+
+  const clampStoredAmount = (value, capacity) => Math.max(0, Math.min(
+    Math.floor(Number(value || 0)),
+    Math.max(0, Math.floor(Number(capacity || 0)))
+  ));
+  const setIfChanged = (target, key, nextValue) => {
+    const currentValue = Math.max(0, Math.floor(Number(target[key] || 0)));
+    if (currentValue !== nextValue) {
+      target[key] = nextValue;
+      changed = true;
+    }
+  };
+
+  for (const [resourceKey, capacity] of Object.entries(capacityByResource)) {
+    const factorySupplyKey = getFactorySupplyKeyForMaterial(resourceKey);
+    if (factorySupplyKey) {
+      const storedAmount = Math.max(0, Math.floor(Number(factorySupplies[factorySupplyKey] || 0)));
+      const legacyMaterialAmount = Math.max(0, Math.floor(Number(materials[resourceKey] || 0)));
+      const acceptedAmount = clampStoredAmount(storedAmount + legacyMaterialAmount, capacity);
+      setIfChanged(factorySupplies, factorySupplyKey, acceptedAmount);
+      setIfChanged(materials, resourceKey, 0);
+      continue;
+    }
+    if (Object.prototype.hasOwnProperty.call(DEFAULT_DRUG_INVENTORY, resourceKey)) {
+      setIfChanged(drugs, resourceKey, clampStoredAmount(drugs[resourceKey], capacity));
+      continue;
+    }
+    if (Object.prototype.hasOwnProperty.call(DEFAULT_WEAPON_INVENTORY, resourceKey)) {
+      setIfChanged(weapons, resourceKey, clampStoredAmount(weapons[resourceKey], capacity));
+      continue;
+    }
+    setIfChanged(materials, resourceKey, clampStoredAmount(materials[resourceKey], capacity));
+  }
+
+  if (!changed) {
+    return false;
+  }
+
+  updateStoredPreviewSession((currentSession) => ({
+    ...currentSession,
+    inventory: {
+      ...(currentSession.inventory || {}),
+      materials,
+      drugs,
+      weapons,
+      factorySupplies
+    }
+  }));
+  return true;
 }
 
 function getFactoryRecipeForResource(resourceKey) {
@@ -5796,7 +5870,6 @@ const {
   getSchoolNetworkMultipliers,
   getShoppingMallMarketDiscountForTab,
   getShoppingMallNetworkMultipliers,
-  getSmugglingTunnelCollectHeat,
   getSmugglingTunnelNetworkMultipliers,
   getWarehouseCapacityBreakdown,
   getWarehouseCapacityWarnings,
@@ -5986,14 +6059,8 @@ function formatActiveDistrictBuildingEffectLabel(effect = {}, now = Date.now()) 
   if (Number(effect.dirtyIncomeBoostPct || 0) > 0) {
     parts.push(`dirty income +${Math.max(0, Number(effect.dirtyIncomeBoostPct || 0))}%`);
   }
-  if (Number(effect.dealerSalePriceBonusPct || 0) > 0) {
-    parts.push(`cena prodeje +${Math.max(0, Number(effect.dealerSalePriceBonusPct || 0))}%`);
-  }
   if (Number(effect.dealerSaleSpeedBonusPct || 0) > 0) {
     parts.push(`čas prodeje -${Math.max(0, Number(effect.dealerSaleSpeedBonusPct || 0))}%`);
-  }
-  if (Number(effect.dealerRewardBonusPct || effect.dealerCompletionRewardBonusPct || 0) > 0) {
-    parts.push(`výplata +${Math.max(0, Number(effect.dealerRewardBonusPct || effect.dealerCompletionRewardBonusPct || 0))}%`);
   }
   if (Number(effect.streetIncidentFlatRiskPct || 0) > 0) {
     parts.push(`incident +${Math.max(0, Number(effect.streetIncidentFlatRiskPct || 0))}%`);
@@ -6666,11 +6733,140 @@ function createOpenChannelDealerActiveEffect(expiresAt = 0, actionProfile = {}) 
   return {
     label: "Otevřený kanál",
     expiresAt,
-    dealerSalePriceBonusPct: Math.max(0, Number(actionProfile.dealerSalePriceBonusPct || SMUGGLING_TUNNEL_CONFIG.openChannelDealerSalePriceBonusPct || 0)),
     dealerSaleSpeedBonusPct: Math.max(0, Number(actionProfile.dealerSaleSpeedBonusPct || SMUGGLING_TUNNEL_CONFIG.openChannelDealerSaleSpeedBonusPct || 0)),
-    dealerRewardBonusPct: Math.max(0, Number(actionProfile.dealerRewardBonusPct || SMUGGLING_TUNNEL_CONFIG.openChannelDealerCompletionRewardBonusPct || 0)),
     streetIncidentFlatRiskPct: Math.max(0, Number(actionProfile.streetIncidentFlatRiskPct || SMUGGLING_TUNNEL_CONFIG.openChannelStreetIncidentFlatRiskPct || 0))
   };
+}
+
+function getLocalStreetDealerSaleState() {
+  const state = getAuthoritySession()?.production?.streetDealers;
+  return state && typeof state === "object" ? state : { slots: [] };
+}
+
+function setLocalStreetDealerSaleState(nextSaleState) {
+  updateStoredPreviewSession((session) => ({
+    ...session,
+    production: {
+      ...session.production,
+      streetDealers: nextSaleState
+    }
+  }));
+}
+
+function settleCompletedLocalStreetDealerSales(root, now = Date.now()) {
+  if (isServerAuthoritativeGameplayRuntimeReady()) {
+    return [];
+  }
+  const settlement = settleLocalStreetDealerSales(getLocalStreetDealerSaleState(), now);
+  if (settlement.completed.length === 0) {
+    return [];
+  }
+  setLocalStreetDealerSaleState(settlement.nextSaleState);
+  const rewardDirtyCash = settlement.completed.reduce((sum, sale) => sum + sale.rewardDirtyCash, 0);
+  const heatGain = settlement.completed.reduce((sum, sale) => sum + sale.heatGain, 0);
+  const economy = getResolvedEconomyState();
+  setStoredEconomyState({
+    ...economy,
+    dirtyMoney: Math.max(0, Math.floor(Number(economy.dirtyMoney || 0))) + rewardDirtyCash
+  });
+  if (heatGain > 0) {
+    addGangHeat(root, heatGain, "Lokální prodej Pouličních dealerů");
+  }
+  for (const sale of settlement.completed) {
+    appendBuildingActionResultEntry(root, "police", {
+      title: `Pouliční dealeři: ${sale.itemLabel}`,
+      summary: `Prodej ${sale.amount}x dokončen. Zisk ${formatDistrictBuildingMoney(sale.rewardDirtyCash)} dirty cash, heat +${sale.heatGain}.`,
+      badge: sale.slotId,
+      tone: "success",
+      items: [
+        { label: "Prodáno", value: `${sale.amount}x ${sale.itemLabel}` },
+        { label: "Dirty cash", value: `+${formatDistrictBuildingMoney(sale.rewardDirtyCash)}` },
+        { label: "Heat", value: `+${sale.heatGain}` }
+      ]
+    }, {
+      tone: "success",
+      forceLog: true,
+      refresh: false
+    });
+  }
+  return settlement.completed;
+}
+
+function getLocalStreetDealerTunnelSupport() {
+  const ownedTunnels = getOwnedSmugglingTunnelCount();
+  const supportPct = Math.min(
+    SMUGGLING_TUNNEL_CONFIG.dealerSupplyMaxBonusPct,
+    ownedTunnels * SMUGGLING_TUNNEL_CONFIG.dealerSupplyBonusPctPerTunnel
+  );
+  return {
+    saleSpeedBonusPct: supportPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySaleSpeedSharePct / 100,
+    streetRiskReductionPct: supportPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplyStreetRiskReductionSharePct / 100,
+    saleHeatRiskBonusPct: supportPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySaleHeatRiskSharePct / 100
+  };
+}
+
+function getLocalStreetDealerOpenChannel(now = Date.now()) {
+  const entry = getDistrictBuildingDetailEntry(null, "Pašovací tunel");
+  if (Number(entry.openChannelExpiresAt || 0) <= now) {
+    return {};
+  }
+  return createOpenChannelDealerActiveEffect(entry.openChannelExpiresAt);
+}
+
+function createLocalStreetDealerMechanicsView(root, now = Date.now()) {
+  settleCompletedLocalStreetDealerSales(root, now);
+  return createLocalStreetDealerSaleView({
+    config: STREET_DEALERS_CONFIG,
+    ownedCount: getOwnedDistrictBuildingCountByBaseName("poulicni dealeri"),
+    inventory: getResolvedDrugInventory(),
+    saleState: getLocalStreetDealerSaleState(),
+    phase: getResolvedPhaseState().mapPhase,
+    dayNightRule: PARK_DAY_NIGHT_ACTION_RULES.startDrugSale,
+    now
+  });
+}
+
+function startLocalStreetDealerSaleFromRequest(root, context, request = {}) {
+  settleCompletedLocalStreetDealerSales(root);
+  const result = startLocalStreetDealerSale({
+    config: STREET_DEALERS_CONFIG,
+    ownedCount: getOwnedDistrictBuildingCountByBaseName("poulicni dealeri"),
+    inventory: getResolvedDrugInventory(),
+    saleState: getLocalStreetDealerSaleState(),
+    slotId: request.dealerSlotId,
+    itemId: request.itemId,
+    amount: request.amount,
+    phase: getResolvedPhaseState().mapPhase,
+    dayNightRule: PARK_DAY_NIGHT_ACTION_RULES.startDrugSale,
+    tunnelSupport: getLocalStreetDealerTunnelSupport(),
+    openChannel: getLocalStreetDealerOpenChannel()
+  });
+  if (!result.ok) {
+    setBuildingActionFeedback(root, "warning", "Spustit prodej", result.message, context.buildingName);
+    return false;
+  }
+  updateStoredPreviewSession((session) => ({
+    ...session,
+    inventory: {
+      ...session.inventory,
+      drugs: {
+        ...session.inventory.drugs,
+        ...result.nextInventory
+      }
+    },
+    production: {
+      ...session.production,
+      streetDealers: result.nextSaleState
+    }
+  }));
+  setBuildingActionFeedback(
+    root,
+    "success",
+    "Spustit prodej",
+    `${result.sale.slotId} prodává ${result.sale.amount}x ${result.sale.itemLabel}. Hotovo za ${formatDistrictBuildingCooldown(result.sale.completesAt - result.sale.startedAt)}.`,
+    getResolvedPhaseState().mapPhase === "day" ? "Denní prodej: nižší výnos a vyšší heat" : "Noční prodej"
+  );
+  return true;
 }
 
 function applyServerBuildingActionLocalPreviewEffects(context = {}, definition = {}, actionProfile = {}, actionCooldownUntil = 0) {
@@ -6684,9 +6880,7 @@ function applyServerBuildingActionLocalPreviewEffects(context = {}, definition =
     label: "Otevřený kanál",
     expiresAt,
     dirtyIncomeBoostPct: Math.max(0, Number(actionProfile.dirtyIncomeBoostPct || SMUGGLING_TUNNEL_CONFIG.openChannelTunnelDirtyProductionBonusPct || 0)),
-    dealerSalePriceBonusPct: Math.max(0, Number(actionProfile.dealerSalePriceBonusPct || SMUGGLING_TUNNEL_CONFIG.openChannelDealerSalePriceBonusPct || 0)),
     dealerSaleSpeedBonusPct: Math.max(0, Number(actionProfile.dealerSaleSpeedBonusPct || SMUGGLING_TUNNEL_CONFIG.openChannelDealerSaleSpeedBonusPct || 0)),
-    dealerRewardBonusPct: Math.max(0, Number(actionProfile.dealerRewardBonusPct || SMUGGLING_TUNNEL_CONFIG.openChannelDealerCompletionRewardBonusPct || 0)),
     streetIncidentFlatRiskPct: Math.max(0, Number(actionProfile.streetIncidentFlatRiskPct || SMUGGLING_TUNNEL_CONFIG.openChannelStreetIncidentFlatRiskPct || 0))
   };
   const dealerActiveEffect = createOpenChannelDealerActiveEffect(expiresAt, actionProfile);
@@ -6715,7 +6909,6 @@ function mergeLegacyDistrictBuildingDetailEntries(entries = []) {
   const merged = {};
   let populationSource = null;
   let studentSource = null;
-  let dirtyCashSource = null;
 
   for (const entry of entries) {
     if (!entry || typeof entry !== "object") {
@@ -6728,10 +6921,6 @@ function mergeLegacyDistrictBuildingDetailEntries(entries = []) {
     if (!studentSource || Number(entry.storedStudents || 0) > Number(studentSource.storedStudents || 0)) {
       studentSource = entry;
     }
-    if (!dirtyCashSource || Number(entry.storedDirtyCash || 0) > Number(dirtyCashSource.storedDirtyCash || 0)) {
-      dirtyCashSource = entry;
-    }
-
     if (entry.actionCooldowns && typeof entry.actionCooldowns === "object") {
       merged.actionCooldowns = merged.actionCooldowns || {};
       for (const [actionId, expiresAt] of Object.entries(entry.actionCooldowns)) {
@@ -6757,10 +6946,8 @@ function mergeLegacyDistrictBuildingDetailEntries(entries = []) {
       "lastCollectedAt",
       "schoolEveningCourseExpiresAt",
       "openChannelExpiresAt",
-      "silentChannelExpiresAt",
       "populationFullNotifiedAt",
-      "studentFullNotifiedAt",
-      "smugglingFullNotifiedAt"
+      "studentFullNotifiedAt"
     ]) {
       if (Number(entry[field] || 0) > Number(merged[field] || 0)) {
         merged[field] = entry[field];
@@ -6778,12 +6965,6 @@ function mergeLegacyDistrictBuildingDetailEntries(entries = []) {
     merged.schoolLastUpdatedAt = studentSource.schoolLastUpdatedAt;
     merged.studentCapacity = studentSource.studentCapacity;
   }
-  if (dirtyCashSource) {
-    merged.storedDirtyCash = dirtyCashSource.storedDirtyCash;
-    merged.smugglingLastUpdatedAt = dirtyCashSource.smugglingLastUpdatedAt;
-    merged.smugglingBatchCapacity = dirtyCashSource.smugglingBatchCapacity;
-  }
-
   return merged;
 }
 
@@ -6856,21 +7037,8 @@ function getDistrictBuildingDetailEntry(district, buildingName) {
     schoolEveningCourseExpiresAt: Number.isFinite(Number(entry.schoolEveningCourseExpiresAt))
       ? Number(entry.schoolEveningCourseExpiresAt)
       : 0,
-    storedDirtyCash: Math.max(0, Number(entry.storedDirtyCash || 0)),
-    smugglingLastUpdatedAt: Number.isFinite(Number(entry.smugglingLastUpdatedAt))
-      ? Number(entry.smugglingLastUpdatedAt)
-      : lastCollectedAt,
-    smugglingBatchCapacity: Number.isFinite(Number(entry.smugglingBatchCapacity))
-      ? Math.max(0, Math.floor(Number(entry.smugglingBatchCapacity)))
-      : SMUGGLING_TUNNEL_CONFIG.baseBatchCapacity,
-    smugglingFullNotifiedAt: Number.isFinite(Number(entry.smugglingFullNotifiedAt))
-      ? Number(entry.smugglingFullNotifiedAt)
-      : 0,
     openChannelExpiresAt: Number.isFinite(Number(entry.openChannelExpiresAt))
       ? Number(entry.openChannelExpiresAt)
-      : 0,
-    silentChannelExpiresAt: Number.isFinite(Number(entry.silentChannelExpiresAt))
-      ? Number(entry.silentChannelExpiresAt)
       : 0
   };
 }
@@ -7158,15 +7326,12 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
   const recyclingCenterNetwork = isRecyclingCenter ? getRecyclingCenterNetworkMultipliers(ownedRecyclingCenters) : null;
   const powerStationBackupActive = isPowerStation && Number(entry.backupGridSwitchExpiresAt || 0) > now;
   const powerStationBackupRemainingMs = Math.max(0, Number(entry.backupGridSwitchExpiresAt || 0) - now);
-  const smugglingOpenChannelActive = mechanicsType === "smuggling-tunnel" && Number(entry.openChannelExpiresAt || entry.silentChannelExpiresAt || 0) > now;
+  const smugglingOpenChannelActive = mechanicsType === "smuggling-tunnel" && Number(entry.openChannelExpiresAt || 0) > now;
   const smugglingTunnelEntryForStreetDealers = mechanicsType === "street-dealers"
     ? getDistrictBuildingDetailEntry(district, "Pašovací tunel")
     : null;
   const streetDealerOpenChannelExpiresAt = smugglingTunnelEntryForStreetDealers
-    ? Math.max(
-        Number(smugglingTunnelEntryForStreetDealers.openChannelExpiresAt || 0),
-        Number(smugglingTunnelEntryForStreetDealers.silentChannelExpiresAt || 0)
-      )
+    ? Number(smugglingTunnelEntryForStreetDealers.openChannelExpiresAt || 0)
     : 0;
   const streetDealerOpenChannelEffect = streetDealerOpenChannelExpiresAt > now
     ? createOpenChannelDealerActiveEffect(streetDealerOpenChannelExpiresAt)
@@ -7288,27 +7453,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
   const schoolTimeToFullMs = mechanicsType === "school" && !schoolIsFull && schoolPopulationPerMinute > 0
     ? Math.ceil((schoolCapacity - schoolStoredStudents) / schoolPopulationPerMinute * 60000)
     : 0;
-  const smugglingBatchCapacity = smugglingTunnelNetwork
-    ? Math.max(0, Math.floor(SMUGGLING_TUNNEL_CONFIG.baseBatchCapacity * smugglingTunnelNetwork.batchCapacityMultiplier))
-    : 0;
-  const smugglingStoredBase = mechanicsType === "smuggling-tunnel"
-    ? Math.min(smugglingBatchCapacity, Math.max(0, Number(entry.storedDirtyCash || 0)))
-    : 0;
-  const smugglingElapsedMs = mechanicsType === "smuggling-tunnel"
-    ? Math.max(0, now - Number(entry.smugglingLastUpdatedAt || entry.lastCollectedAt || now))
-    : 0;
-  const smugglingDirtyPerMinute = mechanicsType === "smuggling-tunnel"
-    ? SMUGGLING_TUNNEL_CONFIG.dirtyCashPerMinute * (smugglingTunnelNetwork?.dirtyProductionMultiplier || 1) * (smugglingOpenChannelActive ? 1 + SMUGGLING_TUNNEL_CONFIG.openChannelTunnelDirtyProductionBonusPct / 100 : 1)
-    : 0;
-  const smugglingStoredDirtyCash = mechanicsType === "smuggling-tunnel"
-    ? Math.min(smugglingBatchCapacity, smugglingStoredBase + (smugglingStoredBase >= smugglingBatchCapacity ? 0 : smugglingDirtyPerMinute * smugglingElapsedMs / 60000))
-    : 0;
-  const smugglingWholeDirtyCash = Math.max(0, Math.floor(smugglingStoredDirtyCash));
-  const smugglingIsFull = mechanicsType === "smuggling-tunnel" && smugglingBatchCapacity > 0 && smugglingStoredDirtyCash >= smugglingBatchCapacity;
-  const smugglingTimeToFullMs = mechanicsType === "smuggling-tunnel" && !smugglingIsFull && smugglingDirtyPerMinute > 0
-    ? Math.ceil((smugglingBatchCapacity - smugglingStoredDirtyCash) / smugglingDirtyPerMinute * 60000)
-    : 0;
-  const dailyHeat = Math.round(Number(heatRule.heat || 0) * (smugglingTunnelNetwork?.heatMultiplier || smugglingTunnelNetwork?.passiveHeatMultiplier || powerStationNetwork?.heatMultiplier || recyclingCenterNetwork?.heatMultiplier || garageNetwork?.heatMultiplier || fitnessClubNetwork?.heatMultiplier || recruitmentCenterNetwork?.heatMultiplier || restaurantNetwork?.heatMultiplier || autoSalonNetwork?.heatMultiplier || clinicNetwork?.heatMultiplier || warehouseNetwork?.heatMultiplier || arcadeNetwork?.heatMultiplier || exchangeNetwork?.heatMultiplier || 1) * 1440 * 10) / 10;
+  const dailyHeat = Math.round(Number(heatRule.heat || 0) * (smugglingTunnelNetwork?.heatMultiplier || powerStationNetwork?.heatMultiplier || recyclingCenterNetwork?.heatMultiplier || garageNetwork?.heatMultiplier || fitnessClubNetwork?.heatMultiplier || recruitmentCenterNetwork?.heatMultiplier || restaurantNetwork?.heatMultiplier || autoSalonNetwork?.heatMultiplier || clinicNetwork?.heatMultiplier || warehouseNetwork?.heatMultiplier || arcadeNetwork?.heatMultiplier || exchangeNetwork?.heatMultiplier || 1) * 1440 * 10) / 10;
   const dailyInfluence = Math.round(Number(influenceRule.influence || 0) * (restaurantNetwork?.influenceMultiplier || 1) * 1440 * 10) / 10;
   const activeEffectsForLabel = [
     ...(entry.activeEffects || []),
@@ -7338,7 +7483,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
     isGarage ? `Cooldowny -${garageSupport?.cooldownReductionPct || 0}%` : "",
     apartmentIsFull ? "Plná kapacita · Bytový blok je plný. Obyvatelé čekají na vybrání." : "",
     schoolIsFull ? "Plná kapacita · Škola má naplněnou lokální populační kapacitu." : "",
-    mechanicsType === "smuggling-tunnel" && smugglingOpenChannelActive ? `Otevřený kanál aktivní ${formatDistrictBuildingCooldown(Number(entry.openChannelExpiresAt || entry.silentChannelExpiresAt || 0) - now)}` : "",
+    mechanicsType === "smuggling-tunnel" && smugglingOpenChannelActive ? `Otevřený kanál aktivní ${formatDistrictBuildingCooldown(Number(entry.openChannelExpiresAt || 0) - now)}` : "",
     isPowerStation && powerStationBackupActive ? `Záložní síť aktivní ${formatDistrictBuildingCooldown(powerStationBackupRemainingMs)}` : "",
     ...warehouseWarnings,
     dailyHeat > 0 ? `Heat +${dailyHeat}/den` : "",
@@ -7446,19 +7591,10 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
     ownedRecyclingCenters,
     recyclingCenterNetwork,
     recyclingSalvageRatePct: recyclingCenterNetwork?.salvageRatePct || 0,
-    smugglingBatchCapacity,
-    smugglingStoredDirtyCash,
-    smugglingWholeDirtyCash,
-    smugglingDirtyPerMinute,
-    smugglingIsFull,
-    smugglingTimeToFullMs,
-    smugglingCollectHeat: getSmugglingTunnelCollectHeat(smugglingWholeDirtyCash),
     smugglingDealerSupplyBonusPct,
     smugglingContrabandFlowLabel,
     smugglingOpenChannelActive,
-    smugglingOpenChannelRemainingMs: Math.max(0, Number(entry.openChannelExpiresAt || entry.silentChannelExpiresAt || 0) - now),
-    smugglingSilentActive: smugglingOpenChannelActive,
-    smugglingSilentRemainingMs: Math.max(0, Number(entry.openChannelExpiresAt || entry.silentChannelExpiresAt || 0) - now),
+    smugglingOpenChannelRemainingMs: Math.max(0, Number(entry.openChannelExpiresAt || 0) - now),
     cleanHourly,
     dirtyHourly,
     storedClean,
@@ -7482,8 +7618,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
 const RUNTIME_PASSIVE_PRODUCTION_SYNC_INTERVAL_MS = 30_000;
 const PASSIVE_DISTRICT_BUILDING_DETAIL_MECHANICS_TYPES = new Set([
   "apartment-block",
-  "school",
-  "smuggling-tunnel"
+  "school"
 ]);
 let lastRuntimePassiveProductionSyncAt = 0;
 
@@ -7518,17 +7653,6 @@ function persistDistrictBuildingDetailProductionSnapshot(district, buildingName,
     return true;
   }
 
-  if (mechanics.mechanicsType === "smuggling-tunnel") {
-    updateDistrictBuildingDetailEntry(district, buildingName, (entry) => ({
-      ...entry,
-      storedDirtyCash: mechanics.smugglingStoredDirtyCash,
-      smugglingLastUpdatedAt: now,
-      smugglingBatchCapacity: mechanics.smugglingBatchCapacity,
-      smugglingFullNotifiedAt: entry.smugglingFullNotifiedAt
-    }));
-    return true;
-  }
-
   return false;
 }
 
@@ -7557,18 +7681,6 @@ function initializeDistrictBuildingDetailProductionBaseline(district, buildingNa
       schoolLastUpdatedAt: now,
       studentCapacity: mechanics.schoolCapacity,
       studentFullNotifiedAt: 0
-    }));
-    return true;
-  }
-
-  if (mechanics.mechanicsType === "smuggling-tunnel") {
-    updateDistrictBuildingDetailEntry(district, buildingName, (entry) => ({
-      ...entry,
-      lastCollectedAt: now,
-      storedDirtyCash: 0,
-      smugglingLastUpdatedAt: now,
-      smugglingBatchCapacity: mechanics.smugglingBatchCapacity,
-      smugglingFullNotifiedAt: 0
     }));
     return true;
   }
@@ -7632,6 +7744,7 @@ function syncRuntimePassiveProductionState(options = {}) {
 
   lastRuntimePassiveProductionSyncAt = now;
   syncCompletedProductionJobs();
+  settleCompletedLocalStreetDealerSales(options.root || getDefaultRuntimeRoot(), now);
   const factory = null;
   const districtBuildings = options.includeDistrictBuildings === false
     ? { syncedBuildings: 0 }
@@ -7687,7 +7800,8 @@ function syncDistrictBuildingDetailLiveRefresh(root, shell, mechanics = {}) {
   const now = Date.now();
   const hasActiveActionCooldown = Object.values(mechanics.actionCooldowns || {})
     .some((value) => Number(value || 0) > now);
-  const shouldRefresh = Boolean(mechanics.hasManualCollect || hasActiveActionCooldown);
+  const hasActiveDealerSale = mechanics.streetDealerSaleView?.slots?.some?.((slot) => slot.locked) || false;
+  const shouldRefresh = Boolean(mechanics.hasManualCollect || hasActiveActionCooldown || hasActiveDealerSale);
   if (!shell || !shouldRefresh) {
     stopDistrictBuildingDetailLiveRefresh(shell);
     return;
@@ -7792,46 +7906,6 @@ function collectDistrictBuildingDetailOutput(root, shell) {
       mechanicsType: mechanics.mechanicsType,
       amount: collectedPopulation,
       itemLabel: "členové"
-    });
-    refreshDistrictBuildingDetailPopup(root, shell);
-    return;
-  }
-
-  if (mechanics.mechanicsType === "smuggling-tunnel") {
-    const collectedDirty = Math.max(0, Math.floor(Number(mechanics.smugglingWholeDirtyCash || 0)));
-    if (collectedDirty < SMUGGLING_TUNNEL_CONFIG.minCollectDirty) {
-      setBuildingActionFeedback(root, "warning", context.buildingName, `V tunelu musí být alespoň ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.minCollectDirty)} dirty cash.`, mechanics.storedOutputLabel);
-      return;
-    }
-    const heatGain = getSmugglingTunnelCollectHeat(collectedDirty);
-    const economy = getResolvedEconomyState();
-    setStoredEconomyState({
-      cleanMoney: Math.max(0, Math.floor(Number(economy.cleanMoney || 0))),
-      dirtyMoney: Math.max(0, Math.floor(Number(economy.dirtyMoney || 0)) + collectedDirty)
-    });
-    applyTopbarEconomy(root);
-    addGangHeat(root, heatGain, "Vybraná pašovací dávka");
-    updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
-      ...entry,
-      storedDirtyCash: 0,
-      smugglingLastUpdatedAt: Date.now(),
-      smugglingBatchCapacity: mechanics.smugglingBatchCapacity,
-      smugglingFullNotifiedAt: 0,
-      lastCollectedAt: Date.now()
-    }));
-    setBuildingActionFeedback(
-      root,
-      "success",
-      context.buildingName,
-      `Vybral jsi ${formatDistrictBuildingMoney(collectedDirty)} dirty cash z Pašovacího tunelu. Heat +${heatGain}.`,
-      "Dávka se začíná znovu plnit."
-    );
-    appendBuildingActionResultEntry(root, "police", createStorageCollectResultPayload({ buildingLabel: context.buildingName, items: [{ label: "Dirty cash", value: formatDistrictBuildingMoney(collectedDirty) }, { label: "Heat", value: `+${heatGain}` }], meta: "Vybrat dávku", districtLabel: context.district?.id ? `District ${context.district.id}` : "Fixed building" }), {}, { syncPreview: true, forceLog: true });
-    dispatchDistrictBuildingProductionCollected(root, context, {
-      mechanicsType: mechanics.mechanicsType,
-      amount: collectedDirty,
-      itemLabel: "dirty cash",
-      heatGain
     });
     refreshDistrictBuildingDetailPopup(root, shell);
     return;
@@ -8084,56 +8158,6 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
     summaryParts.push(`${Math.floor(remainingPopulation)}/${mechanics.apartmentCapacity} lokálně`);
   }
 
-  if (actionProfile.smugglingCollectBatch) {
-    const collectedDirty = Math.max(0, Math.floor(Number(mechanics.smugglingWholeDirtyCash || 0)));
-    if (collectedDirty < SMUGGLING_TUNNEL_CONFIG.minCollectDirty) {
-      setBuildingActionFeedback(root, "warning", action, `V tunelu musí být alespoň ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.minCollectDirty)} dirty cash.`, context.buildingName);
-      return null;
-    }
-    const heatGain = getSmugglingTunnelCollectHeat(collectedDirty);
-    dirtyMoney += collectedDirty;
-    setStoredEconomyState({ cleanMoney, dirtyMoney });
-    applyTopbarEconomy(root);
-    addGangHeat(root, heatGain, "Vybraná pašovací dávka");
-    updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
-      ...entry,
-      storedDirtyCash: 0,
-      smugglingLastUpdatedAt: Date.now(),
-      smugglingBatchCapacity: mechanics.smugglingBatchCapacity,
-      smugglingFullNotifiedAt: 0,
-      lastCollectedAt: Date.now()
-    }));
-    economyChanged = true;
-    summaryParts.push(`Vybral jsi ${formatDistrictBuildingMoney(collectedDirty)} dirty cash z Pašovacího tunelu. Heat +${heatGain}.`);
-  }
-
-  if (actionProfile.smugglingSilentChannel) {
-    const cost = Math.max(0, Math.floor(Number(actionProfile.dirtyCost || 0)));
-    const activeUntil = Number(mechanics.actionCooldowns?.silentChannelActiveUntil || 0);
-    if (activeUntil > Date.now()) {
-      setBuildingActionFeedback(root, "warning", action, `Tichý kanál už běží. Zbývá ${formatDistrictBuildingCooldown(activeUntil - Date.now())}.`, context.buildingName);
-      return null;
-    }
-    if (dirtyMoney < cost) {
-      setBuildingActionFeedback(root, "warning", action, `Chybí ${formatDistrictBuildingMoney(cost - dirtyMoney)} dirty cash.`, context.buildingName);
-      return null;
-    }
-    dirtyMoney -= cost;
-    const expiresAt = Date.now() + SMUGGLING_TUNNEL_CONFIG.silentChannelDurationMs;
-    updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
-      ...entry,
-      silentChannelExpiresAt: expiresAt,
-      actionCooldowns: {
-        ...(entry.actionCooldowns || {}),
-        silentChannel: Date.now() + SMUGGLING_TUNNEL_CONFIG.silentChannelCooldownMs,
-        silentChannelActiveUntil: expiresAt
-      }
-    }));
-    economyChanged = true;
-    summaryParts.push(`Tichý kanál aktivní na ${formatDistrictBuildingCooldown(SMUGGLING_TUNNEL_CONFIG.silentChannelDurationMs)}.`);
-    summaryParts.push(`Riziko zátahu po skončení ${SMUGGLING_TUNNEL_CONFIG.silentChannelRaidChancePct} %.`);
-  }
-
   if (actionProfile.smugglingOpenChannel) {
     const cost = Math.max(0, Math.floor(Number(actionProfile.cleanCost || SMUGGLING_TUNNEL_CONFIG.openChannelCleanCost || 0)));
     const activeRemainingMs = Math.max(0, Number(mechanics.smugglingOpenChannelRemainingMs || 0));
@@ -8160,7 +8184,7 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
     }));
     economyChanged = true;
     summaryParts.push(`Otevřený kanál aktivní na ${formatDistrictBuildingCooldown(SMUGGLING_TUNNEL_CONFIG.openChannelDurationMs)}.`);
-    summaryParts.push(`Pouliční dealeři: cena +${SMUGGLING_TUNNEL_CONFIG.openChannelDealerSalePriceBonusPct}%, rychlost +${SMUGGLING_TUNNEL_CONFIG.openChannelDealerSaleSpeedBonusPct}%, riziko incidentu +${SMUGGLING_TUNNEL_CONFIG.openChannelStreetIncidentFlatRiskPct}%.`);
+    summaryParts.push(`Pouliční dealeři: rychlost +${SMUGGLING_TUNNEL_CONFIG.openChannelDealerSaleSpeedBonusPct}%, riziko incidentu +${SMUGGLING_TUNNEL_CONFIG.openChannelStreetIncidentFlatRiskPct}%.`);
   }
 
   if (actionProfile.schoolEveningCourse) {
@@ -8819,12 +8843,21 @@ async function runDistrictBuildingActionFromContext(root, context, request, opti
   const cooldownView = resolveDistrictBuildingActionEffectiveCooldownView(context, resolved, mechanics);
   const actionCooldownMs = cooldownView.effectiveCooldownMs;
 
+  if (actionProfile?.dealerLocalSale && !isServerAuthoritativeGameplayRuntimeReady()) {
+    const started = startLocalStreetDealerSaleFromRequest(root, context, request);
+    if (started && options.shell) {
+      openGenericDistrictBuildingDetail(root, context.district, context.buildingName, context.displayName);
+    }
+    return started;
+  }
+
   if (definition.handlerId === "server-run-building-action") {
     if (isServerAuthoritativeGameplayRuntimeReady()) {
       const response = await submitServerBuildingActionCommand({
         context,
         actionProfile: actionProfile || {},
-        definition
+        definition,
+        actionInput: request
       });
       if (!response?.accepted) {
         const message = response?.errors?.map((error) => error?.message || error?.code).filter(Boolean).join(" · ")
@@ -9063,6 +9096,9 @@ function openGenericDistrictBuildingDetail(root, district, buildingName, display
   const shell = ensureDistrictBuildingDetailPopup(root, popupKey);
   const profile = getDistrictBuildingDetailProfile(buildingName);
   const mechanics = resolveDistrictBuildingDetailMechanics(district, buildingName);
+  if (mechanics.mechanicsType === "street-dealers") {
+    mechanics.streetDealerSaleView = createLocalStreetDealerMechanicsView(root);
+  }
   const detailEntry = getDistrictBuildingDetailEntry(district, buildingName);
   const buildingProfile = resolveDistrictBuildingProfile(district);
   const displayLabel = String(displayName || buildingName || "Budova").trim() || "Budova";
@@ -9113,16 +9149,6 @@ function openGenericDistrictBuildingDetail(root, district, buildingName, display
     }));
   }
 
-  if (mechanics.mechanicsType === "smuggling-tunnel") {
-    updateDistrictBuildingDetailEntry(district, buildingName, (entry) => ({
-      ...entry,
-      storedDirtyCash: mechanics.smugglingStoredDirtyCash,
-      smugglingLastUpdatedAt: Date.now(),
-      smugglingBatchCapacity: mechanics.smugglingBatchCapacity,
-      smugglingFullNotifiedAt: entry.smugglingFullNotifiedAt
-    }));
-  }
-
   if (
     mechanics.mechanicsType === "apartment-block"
     && mechanics.apartmentIsFull
@@ -9151,21 +9177,6 @@ function openGenericDistrictBuildingDetail(root, district, buildingName, display
       studentFullNotifiedAt: Date.now()
     }));
     setBuildingActionFeedback(root, "warning", displayLabel, "Škola má naplněnou lokální populační kapacitu.", "Plná kapacita");
-  }
-
-  if (
-    mechanics.mechanicsType === "smuggling-tunnel"
-    && mechanics.smugglingIsFull
-    && Number(detailEntry.smugglingFullNotifiedAt || 0) <= 0
-  ) {
-    updateDistrictBuildingDetailEntry(district, buildingName, (entry) => ({
-      ...entry,
-      storedDirtyCash: mechanics.smugglingStoredDirtyCash,
-      smugglingLastUpdatedAt: Date.now(),
-      smugglingBatchCapacity: mechanics.smugglingBatchCapacity,
-      smugglingFullNotifiedAt: Date.now()
-    }));
-    setBuildingActionFeedback(root, "warning", displayLabel, "Pašovací tunel je plný. Dirty cash čeká na vybrání.", "Dávka připravena");
   }
 
   if (info) {
@@ -13075,13 +13086,16 @@ const {
 
     const worldState = getResolvedWorldState();
     const currentPhaseState = worldState.phaseState || getResolvedPhaseState();
-    const nextCityMinutes = ((currentPhaseState.cityMinutes ?? DEFAULT_CITY_MINUTES) + minuteStep) % (24 * 60);
+    const currentCityMinutes = currentPhaseState.cityMinutes ?? DEFAULT_CITY_MINUTES;
+    const nextCityMinutes = (currentCityMinutes + minuteStep) % (24 * 60);
+    const crossedCityDayBoundary = currentCityMinutes < (6 * 60) && nextCityMinutes >= (6 * 60);
 
     setStoredWorldState({
       ...worldState,
       phaseState: {
         ...currentPhaseState,
         cityMinutes: nextCityMinutes,
+        cityDayIndex: Math.max(0, Math.floor(Number(currentPhaseState.cityDayIndex || 0))) + (crossedCityDayBoundary ? 1 : 0),
         mapPhase: getMapPhaseFromClock(nextCityMinutes),
         gamePhase: currentPhaseState.gamePhase === "launch" ? "launch" : "live"
       }
@@ -13674,12 +13688,32 @@ function bindPoliceHeatFeedback(root) {
     root,
     documentRef: document,
     getState: () => {
+      const executionMode = getCurrentGameplayExecutionMode();
+      if (executionMode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+        return {
+          executionMode,
+          policeReadModel: latestGameplaySliceReadModel?.player?.police
+            || latestGameplaySliceReadModel?.police
+            || null
+        };
+      }
       const gangState = getResolvedGangState();
       return {
+        executionMode,
         gangState,
         heatLevel: resolveGangHeatTier(gangState.heat),
         policeActions: getResolvedDistrictPoliceActions()
       };
+    },
+    acknowledgePendingRaid: (raidId) => {
+      if (getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+        return false;
+      }
+      return submitServerDistrictActionCommand({
+        type: "acknowledge-pending-raid",
+        payload: { raidId: String(raidId || "").trim() },
+        focusDistrictId: latestGameplaySliceReadModel?.district?.districtId
+      });
     }
   });
   policeHeatBridgesByRoot.set(root, bridge);
@@ -14255,6 +14289,7 @@ export {
   START_PHASE_PLAYER_NAMES,
   addGangHeat,
   applyFactionPreview,
+  applyInventoryOutput,
   applyTopbarEconomy,
   appendBuildingActionResultEntry,
   bindAlliancePopup,

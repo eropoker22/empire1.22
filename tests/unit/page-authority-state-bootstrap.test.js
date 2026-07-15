@@ -24,7 +24,7 @@ describe("authority state bootstrap", () => {
     delete globalThis.window;
   });
 
-  it("resets preview clean cash to 25 000 on refresh, but not on every read during the same session", async () => {
+  it("preserves the local-demo session across reloads without resetting economy or city time", async () => {
     window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
       registration: null,
       economy: { cleanMoney: 1234, dirtyMoney: 300 },
@@ -40,10 +40,10 @@ describe("authority state bootstrap", () => {
     const authorityState = await import("../../page-assets/js/app/model/authority-state.js");
     const bootSession = authorityState.getStoredPreviewSession();
 
-    expect(bootSession.economy.cleanMoney).toBe(25000);
+    expect(bootSession.economy.cleanMoney).toBe(1234);
     expect(bootSession.world.phaseState).toMatchObject({
-      mapPhase: "night",
-      cityMinutes: 5 * 60 + 55
+      mapPhase: "day",
+      cityMinutes: 18 * 60 + 45
     });
 
     authorityState.updateStoredPreviewSession((session) => ({
@@ -67,10 +67,10 @@ describe("authority state bootstrap", () => {
 
     vi.resetModules();
     const reloadedAuthorityState = await import("../../page-assets/js/app/model/authority-state.js");
-    expect(reloadedAuthorityState.getStoredPreviewSession().economy.cleanMoney).toBe(25000);
+    expect(reloadedAuthorityState.getStoredPreviewSession().economy.cleanMoney).toBe(18000);
     expect(reloadedAuthorityState.getStoredPreviewSession().world.phaseState).toMatchObject({
-      mapPhase: "night",
-      cityMinutes: 5 * 60 + 55
+      mapPhase: "day",
+      cityMinutes: 6 * 60 + 12
     });
   });
 });

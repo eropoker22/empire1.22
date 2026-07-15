@@ -265,4 +265,29 @@ describe("runtime police heat bridge", () => {
     expect(text).toContain("Tlak raidu: 128");
     expect(text).toContain("District heat může přitáhnout raid");
   });
+
+  it("fails closed for acknowledgement when a server read model has no command bridge", () => {
+    const documentRef = new FakeDocument();
+    const root = new FakeElement("main");
+    const wantedFeed = new FakeElement("section");
+    wantedFeed.ownerDocument = documentRef;
+    root.querySelector = (selector) => selector === "[data-wanted-popup-police-feed]" ? wantedFeed : null;
+
+    const bridge = createPoliceHeatBridge({
+      root,
+      documentRef,
+      getState: () => ({
+        executionMode: "server-authoritative",
+        policeReadModel: {
+          heat: 100,
+          wantedLevel: 4,
+          riskTier: "high",
+          pendingRaid: { raidId: "police:raid:1" }
+        }
+      })
+    });
+
+    bridge.init();
+    expect(bridge.acknowledgePendingRaid("police:raid:1")).toBe(false);
+  });
 });

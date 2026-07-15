@@ -73,13 +73,9 @@ describe("building detail view-model builder", () => {
     const stripClubActions = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["strip club"];
     const smugglingTunnelActions = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["pasovaci tunel"];
 
-    expect(streetDealerActions.map((action) => action.cooldownMs)).toEqual([
-      0,
-      10 * 60 * 1000,
-      10 * 60 * 1000
-    ]);
-    expect(streetDealerActions.map((action) => action.heat || 0)).toEqual([0, 3, 1]);
-    expect(streetDealerActions.map((action) => action.dirty || 0)).toEqual([0, 280, 1000]);
+    expect(streetDealerActions.map((action) => action.cooldownMs)).toEqual([0]);
+    expect(streetDealerActions.map((action) => action.heat || 0)).toEqual([0]);
+    expect(streetDealerActions.map((action) => action.dirty || 0)).toEqual([0]);
     expect(stripClubActions.map((action) => action.cooldownMs)).toEqual([
       10 * 60 * 1000,
       60 * 60 * 1000,
@@ -103,7 +99,7 @@ describe("building detail view-model builder", () => {
     });
 
     expect(mechanics.some((row) =>
-      row.label === "Drby" && row.value === "každý Strip club vytvoří 1 drb každých 30 min"
+      row.label === "Pouliční drby" && row.value === "Každý aktivní Strip Club vytváří jeden drb každých 30 minut."
     )).toBe(true);
   });
 
@@ -119,8 +115,8 @@ describe("building detail view-model builder", () => {
           dailyHeat: 0.06 * 1440,
           dailyInfluence: 0
         },
-        statLabels: ["Špinavé / hod", "Heat / den", "Zdroj", "Akce"],
-        mechanicLabels: ["Distribuce", "Hot cash", "Stash", "Riziko"]
+        statLabels: ["Špinavé / hod", "Heat / den", "Distribuce", "Prodej"],
+        mechanicLabels: ["Distribuce", "Množství a cena", "Průběh", "Riziko"]
       },
       {
         buildingName: "Večerka",
@@ -132,7 +128,7 @@ describe("building detail view-model builder", () => {
           dailyHeat: 0.05 * 1440,
           dailyInfluence: 0.1 * 1440
         },
-        statLabels: ["Čisté / hod", "Špinavé / hod", "Heat / den", "Vliv / den", "Drby", "Akce"],
+        statLabels: ["Čisté / hod", "Špinavé / hod", "Heat / den", "Vliv / den", "Drby"],
         mechanicLabels: ["Cashflow", "Drby", "Síť večerek", "Synergie"]
       },
       {
@@ -145,8 +141,8 @@ describe("building detail view-model builder", () => {
           dailyHeat: 0.18 * 1440,
           dailyInfluence: 0.38 * 1440
         },
-        statLabels: ["Čisté / hod", "Špinavé / hod", "Heat / den", "Vliv / den", "Drby", "Akce"],
-        mechanicLabels: ["Noční cash", "VIP klienti", "Drby", "Kompromat", "Síť clubů"]
+        statLabels: ["Čisté / hod", "Špinavé / hod", "Heat / den", "Vliv / den", "Drby"],
+        mechanicLabels: ["Vybrat cash", "VIP klienti", "Pouliční drby", "Soukromá party", "Síť clubů"]
       },
       {
         buildingName: "Pašovací tunel",
@@ -163,7 +159,7 @@ describe("building detail view-model builder", () => {
             heatMultiplier: 1.04
           }
         },
-        statLabels: ["Špinavé / hod", "Heat / den", "Tunely", "Pouliční dealeři", "Kanál", "Síť"],
+        statLabels: ["Špinavé / hod", "Heat / den", "Tunely", "Distribuce", "Kanál", "Síť"],
         mechanicLabels: ["Tok dirty cash", "Pouliční dealeři", "Pouliční riziko"]
       }
     ];
@@ -1766,7 +1762,7 @@ describe("building detail view-model builder", () => {
       {
         buildingName: "Strip club",
         mechanics: { ...baseMechanics, mechanicsType: "strip-club" },
-        profile: { role: "Noční provoz", info: "Strip club generuje cashflow, kontakty a vliv.", actions: ["Vybrat cash", "Hostit VIP klienty", "Získat kompro"] },
+        profile: { role: "Noční provoz", info: "Strip club generuje cashflow, vliv a pouliční drby.", actions: ["Vybrat cash", "Hostit VIP klienty", "Soukromá party"] },
         expectedTitle: "Strip club",
         expectedBadge: "Noční provoz",
         expectedActionCount: 3
@@ -1883,7 +1879,6 @@ describe("building detail view-model builder", () => {
       buttonCostLabel: "$1800 clean cash",
       disabled: false
     });
-    expect(rows[0].rewardSummary).toContain("Pouliční dealeři cena +12%");
     expect(rows[0].rewardSummary).toContain("Pouliční dealeři čas prodeje -10%");
     expect(rows[0].riskSummary).toContain("Pouliční incident +5%");
   });
@@ -1985,35 +1980,22 @@ describe("building detail view-model builder", () => {
     });
   });
 
-  it("keeps street dealer UI actions aligned with all special action profiles", () => {
-    const createRows = (materials = { biomass: 3 }) => createBuildingDetailActionRows({
+  it("keeps the street dealer UI aligned with its single real sale action", () => {
+    const rows = createBuildingDetailActionRows({
       buildingName: "Pouliční dealeři",
-      profile: { actions: ["Spustit prodej", "Vybrat hot cash", "Přesunout stash"] },
+      profile: { actions: ["Spustit prodej"] },
       mechanics: { ...baseMechanics, mechanicsType: "street-dealers" },
-      economyState: { cleanMoney: 0, dirtyMoney: 0, materials },
+      economyState: { cleanMoney: 0, dirtyMoney: 0, materials: {} },
       actionProfiles: DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["poulicni dealeri"],
       now: 1000
     });
-    const rows = createRows();
-    const missingBiomassRows = createRows({ biomass: 2 });
 
-    expect(rows).toHaveLength(3);
-    expect(rows.map((row) => row.actionId)).toEqual([
-      "start_drug_sale",
-      "street_dealers_collect_hot_cash",
-      "street_dealers_move_stash"
-    ]);
-    expect(rows.every((row) => !row.disabled)).toBe(true);
-    expect(rows.every((row) => row.handlerId === "server-run-building-action")).toBe(true);
-    expect(rows.map((row) => row.cooldownMs)).toEqual([0, 10 * 60 * 1000, 10 * 60 * 1000]);
-    expect(rows[0].rewardSummary).toContain("Slot Pouličních dealerů prodá vybranou látku");
-    expect(rows[2].costSummary).toBe("biomass x3");
-    expect(rows[2].rewardSummary).toContain("Dirty cash +$1000");
-    expect(missingBiomassRows[2]).toMatchObject({
-      disabled: true,
-      disabledReason: "Potřebuješ biomass x3.",
-      disabledTone: "insufficient-funds"
-    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].actionId).toBe("start_drug_sale");
+    expect(rows[0].disabled).toBe(false);
+    expect(rows[0].handlerId).toBe("server-run-building-action");
+    expect(rows[0].cooldownMs).toBe(0);
+    expect(rows[0].rewardSummary).toBe("Prodává jednu z 3 povolených laboratorních látek; současně může běžet pouze jeden prodej.");
   });
 
   it("removes production and craft special action rows from building detail cards", () => {

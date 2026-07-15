@@ -705,7 +705,7 @@ const getCreateDisabledReason = (reason) => {
 
 const getInviteDisabledReason = (activeAlliance, targets = []) => {
   if (!activeAlliance) return "Nejsi v žádné alianci.";
-  if (activeAlliance.isDevOnlyDemo) return "Pozvánky jsou v preview vypnuté.";
+  if (activeAlliance.isDevOnlyDemo) return "Pozvánky jsou v lokálním demu vypnuté.";
   if (activeAlliance.currentPlayerRole !== "leader") return "Pozvat může jen leader aliance.";
   if (Number(activeAlliance.memberCount || 0) >= getAllianceMaxMembers(activeAlliance)) return "Aliance je plná. Max 4 hráči.";
   if (!targets.length) return "Nejsou žádní dostupní hráči k pozvání.";
@@ -724,7 +724,7 @@ const getAllianceChatDisabledReason = (activeAlliance) => {
 const getKickVoteUnavailableReason = (activeAlliance) => {
   if (!activeAlliance) return "Nejsi v žádné alianci.";
   if (activeAlliance.isDevOnlyDemo && !(activeAlliance.members || []).some((member) => member.canStartKickVote)) {
-    return "Hlasování o vyloučení je v preview vypnuté.";
+    return "Hlasování o vyloučení je v lokálním demu vypnuté.";
   }
   if (!activeAlliance.isDevOnlyDemo && activeAlliance.currentPlayerRole !== "leader") {
     return "Hlasování spouští leader, když je člen dlouho neaktivní.";
@@ -806,14 +806,16 @@ const getMemberAvatarSrc = (member) => String(
   ""
 ).trim();
 
-const getMemberPresence = (member) =>
-  String(member?.presence || member?.onlineStatus || member?.connectionStatus || "offline").trim().toLowerCase() === "online"
-    ? "online"
-    : "offline";
+const getMemberPresence = (member) => {
+  const presence = String(member?.presence || member?.onlineStatus || member?.connectionStatus || "offline").trim().toLowerCase();
+  return ["online", "away"].includes(presence) ? presence : "offline";
+};
+
+const getPresenceLabel = (presence) => presence === "online" ? "Online" : presence === "away" ? "Pryč" : "Offline";
 
 const renderMemberPresence = (member) => {
   const presence = getMemberPresence(member);
-  const presenceLabel = presence === "online" ? "Online" : "Offline";
+  const presenceLabel = getPresenceLabel(presence);
   return `<span class="alliance-member-presence" data-presence="${escapeHtml(presence)}" title="${escapeHtml(presenceLabel)}" aria-label="${escapeHtml(presenceLabel)}"></span>`;
 };
 
@@ -824,7 +826,7 @@ const renderMemberAvatar = (member, className) => {
   const roleLabel = member?.role === "leader" ? "Leader" : "Člen";
   const statusCopy = getMemberStatusCopy(member?.status);
   const name = String(member?.name || "Člen aliance").trim();
-  const presenceLabel = presence === "online" ? "Online" : "Offline";
+  const presenceLabel = getPresenceLabel(presence);
   const meta = `${roleLabel} · ${statusCopy.label} · ${presenceLabel} · ${Number(member?.activeDistrictCount || 0)} districtů`;
   if (avatarSrc) {
     return `
@@ -976,15 +978,15 @@ const syncAllianceModalBodyState = () => {
 const setModalVisible = (modal, visible) => {
   if (!modal) return;
   if (visible) {
-    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     modal.hidden = false;
     modal.classList.remove("hidden");
     modal.setAttribute("aria-hidden", "false");
+    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: true });
   } else {
     modal.classList.add("hidden");
     modal.hidden = true;
     modal.setAttribute("aria-hidden", "true");
-    closeOverlay(modal, { restoreFocus: false });
+    closeOverlay(modal, { restoreFocus: true });
   }
   if (ALLIANCE_MODAL_IDS.includes(modal.id)) {
     syncAllianceModalBodyState();
@@ -2400,7 +2402,7 @@ const bindAllianceRuntime = () => {
             ? { ...target, canInvite: false, disabledReason: "Pozvánka odeslaná" }
             : target
         );
-        notify(`Preview: pozvánka pro ${targetPlayer.name} je odeslaná.`);
+        notify(`Lokální demo: pozvánka pro ${targetPlayer.name} je odeslaná.`);
         renderAllianceState();
         return;
       }
@@ -2438,17 +2440,6 @@ const bindAllianceRuntime = () => {
       const ok = await runAllianceCommand("send-alliance-chat-message", { allianceId: activeAlliance.allianceId, body }, "Zpráva odeslána.");
       if (ok) {
         if (input instanceof HTMLInputElement) input.value = "";
-        const currentPlayerId = latestAllianceBoard?.currentPlayerId || "";
-        const refreshedAlliance = latestAllianceBoard?.activeAlliance || activeAlliance;
-        const serverEchoExists = (refreshedAlliance?.chatMessages || []).some((message) =>
-          message.authorPlayerId === currentPlayerId
-          && String(message.body || "").trim() === body
-          && Math.abs(Date.now() - Date.parse(message.createdAt || "")) < 15000
-        );
-        if (!serverEchoExists) {
-          const nextMessages = appendLocalAllianceChatMessage(refreshedAlliance, body);
-          renderChat(nextMessages, refreshedAlliance);
-        }
       }
       return;
     }

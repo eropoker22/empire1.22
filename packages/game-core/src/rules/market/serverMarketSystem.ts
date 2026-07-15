@@ -16,7 +16,13 @@ import {
   resolvePlayerForMutation,
   resolvePlayerForRead
 } from "./market-state-access";
-import { marketConfig, marketResourceIds } from "./market-config";
+import {
+  blackMarketResourceIds,
+  marketConfig,
+  marketResourceIds,
+  normalMarketResourceIds,
+  playerMarketResourceIds
+} from "./market-config";
 import type {
   AnyRecord,
   MarketActionResult,
@@ -32,7 +38,14 @@ import type {
   ServerMarketState
 } from "./market-types";
 import { applyDayNightMarketVolatilityFactor } from "../day-night/dayNight";
-export { marketConfig, marketResourceIds } from "./market-config";
+export {
+  blackMarketResourceIds,
+  marketConfig,
+  marketReplacementCost,
+  marketResourceIds,
+  normalMarketResourceIds,
+  playerMarketResourceIds
+} from "./market-config";
 export type {
   AnyRecord,
   MarketActionResult,
@@ -49,18 +62,9 @@ export type {
   ServerMarketState
 } from "./market-types";
 
-const CLEAN_CASH_KEYS = ["cleanCash", "cleanMoney", "cash"];
-const DIRTY_CASH_KEYS = ["dirtyCash", "dirtyMoney", "dirty-cash"];
-const RESOURCE_ALIASES: Record<MarketResourceId, string[]> = {
-  metalParts: ["metalParts", "metal-parts"],
-  techCore: ["techCore", "tech-core"],
-  chemicals: ["chemicals"],
-  biomass: ["biomass"]
-};
-
 export const initializeServerMarket = <T extends object>(
   serverState: T,
-  now = Date.now()
+  now = resolveMarketNow(serverState)
 ): T & { market: ServerMarketState } => {
   const state = serverState as T & { market?: Partial<ServerMarketState>; mode?: string; serverInstance?: { mode?: string } };
   const mode = resolveMarketMode(state);
@@ -139,9 +143,9 @@ export const buyResource = (
   resourceId: MarketResourceId,
   amount: number,
   marketType: MarketType,
-  paymentType: MarketPaymentType
+  paymentType: MarketPaymentType,
+  now = resolveMarketNow(serverState)
 ): MarketActionResult => {
-  const now = Date.now();
   const nextState = cloneServerState(serverState);
   const state = initializeServerMarket(nextState, now);
   const player = resolvePlayerForMutation(state, playerState);
@@ -155,6 +159,12 @@ export const buyResource = (
   }
   if (marketType !== "normal" && marketType !== "black") {
     return failMarketAction("INVALID_MARKET_TYPE", "Neznámý typ marketu.");
+  }
+  if (marketType === "normal" && !(normalMarketResourceIds as readonly string[]).includes(resourceId)) {
+    return failMarketAction("RESOURCE_NOT_IN_NORMAL_MARKET", "Tahle položka není v nabídce normal marketu.", { nextState: state });
+  }
+  if (marketType === "black" && !getBlackMarketRotation(state, now).includes(resourceId)) {
+    return failMarketAction("BLACK_MARKET_OFFER_UNAVAILABLE", "Tahle nabídka už na black marketu není.", { nextState: state });
   }
   if (paymentType === "dirtyCash" && marketType !== "black") {
     return failMarketAction("DIRTY_CASH_NOT_ALLOWED", "Dirty cash lze použít jen na black marketu.");
@@ -182,7 +192,7 @@ export const buyResource = (
   const risk = applyTransactionRisk(state, player, marketType, totalPrice, now);
   const blackMarketHeat = marketType === "black" ? applyBlackMarketHeat(state, player, totalPrice, now) : { heatAdded: 0, policeSuspicionAdded: 0 };
   const transaction = appendMarketTransaction(state, {
-    id: createMarketTransactionId(now, player),
+    id: createMarketTransactionId(state, now, player),
     timestamp: now,
     playerId: getPlayerId(player),
     resourceId,
@@ -230,9 +240,9 @@ export const sellResource = (
   serverState: AnyRecord,
   playerState: AnyRecord,
   resourceId: MarketResourceId,
-  amount: number
+  amount: number,
+  now = resolveMarketNow(serverState)
 ): MarketActionResult => {
-  const now = Date.now();
   const nextState = cloneServerState(serverState);
   const state = initializeServerMarket(nextState, now);
   const player = resolvePlayerForMutation(state, playerState);
@@ -259,7 +269,7 @@ export const sellResource = (
   addRollingVolume(state.market, resourceId, "sell", safeAmount, now);
   const risk = applyTransactionRisk(state, player, "normal", totalPrice, now);
   const transaction = appendMarketTransaction(state, {
-    id: createMarketTransactionId(now, player),
+    id: createMarketTransactionId(state, now, player),
     timestamp: now,
     playerId: getPlayerId(player),
     resourceId,
@@ -302,9 +312,9 @@ export const createPlayerMarketListing = (
   resourceId: MarketResourceId,
   amount: number,
   unitPrice: number,
-  paymentType: MarketPaymentType = "cleanCash"
+  paymentType: MarketPaymentType = "cleanCash",
+  now = resolveMarketNow(serverState)
 ): MarketActionResult => {
-  const now = Date.now();
   const nextState = cloneServerState(serverState);
   const state = initializeServerMarket(nextState, now);
   const seller = resolvePlayerForMutation(state, sellerState);
@@ -315,7 +325,7 @@ export const createPlayerMarketListing = (
   if (!sellerPlayerId) {
     return failMarketAction("UNKNOWN_SELLER", "Prodejce na serveru neexistuje.", { nextState: state });
   }
-  if (!marketConfig.resources[resourceId]) {
+  if (!(playerMarketResourceIds as readonly string[]).includes(resourceId)) {
     return failMarketAction("UNKNOWN_RESOURCE", "Resource na hráčském bazaru neexistuje.", { nextState: state });
   }
   if (safeAmount <= 0) {
@@ -339,7 +349,7 @@ export const createPlayerMarketListing = (
     ? marketConfig.playerMarket.listingTtlSecondsWar
     : marketConfig.playerMarket.listingTtlSecondsFree;
   const listing: PlayerMarketListing = {
-    id: createPlayerMarketListingId(now, seller),
+    id: createPlayerMarketListingId(state, now, seller),
     createdAt: now,
     expiresAt: now + ttlSeconds * 1000,
     sellerPlayerId,
@@ -380,9 +390,9 @@ export const createPlayerMarketListing = (
 export const buyPlayerMarketListing = (
   serverState: AnyRecord,
   buyerState: AnyRecord,
-  listingId: string
+  listingId: string,
+  now = resolveMarketNow(serverState)
 ): MarketActionResult => {
-  const now = Date.now();
   const nextState = cloneServerState(serverState);
   const state = initializeServerMarket(nextState, now);
   const buyer = resolvePlayerForMutation(state, buyerState);
@@ -420,7 +430,7 @@ export const buyPlayerMarketListing = (
     : { heatAdded: 0, policeSuspicionAdded: 0 };
   const risk = applyTransactionRisk(state, buyer, "normal", totalPrice, now);
   const transaction = appendMarketTransaction(state, {
-    id: createMarketTransactionId(now, buyer),
+    id: createMarketTransactionId(state, now, buyer),
     timestamp: now,
     playerId: buyerPlayerId,
     resourceId: listing.resourceId,
@@ -467,9 +477,9 @@ export const buyPlayerMarketListing = (
 export const cancelPlayerMarketListing = (
   serverState: AnyRecord,
   sellerState: AnyRecord,
-  listingId: string
+  listingId: string,
+  now = resolveMarketNow(serverState)
 ): MarketActionResult => {
-  const now = Date.now();
   const nextState = cloneServerState(serverState);
   const state = initializeServerMarket(nextState, now);
   const seller = resolvePlayerForMutation(state, sellerState);
@@ -507,7 +517,7 @@ export const cancelPlayerMarketListing = (
 
 export const tickMarket = (
   serverState: AnyRecord,
-  now = Date.now()
+  now = resolveMarketNow(serverState)
 ): { nextState: AnyRecord; snapshots: number; expiredEvents: string[]; expiredPlayerListings: string[]; warnings: string[] } => {
   const nextState = cloneServerState(serverState);
   const state = initializeServerMarket(nextState, now);
@@ -527,13 +537,15 @@ export const tickMarket = (
   };
 };
 
-export const getMarketViewModel = (serverState: AnyRecord, playerState: AnyRecord): AnyRecord => {
-  const state = initializeServerMarket(serverState);
+export const getMarketViewModel = (serverState: AnyRecord, playerState: AnyRecord, now = resolveMarketNow(serverState)): AnyRecord => {
+  const state = initializeServerMarket(serverState, now);
   const player = resolvePlayerForRead(state, playerState);
   const totalMoneyInServer = getServerTotalMoney(state);
   const inflationFactor = getInflationFactor(state);
   const inflationLevel = getInflationLevel(state, totalMoneyInServer);
 
+  const blackMarketRotation = getBlackMarketRotation(state, now);
+  const blackMarketWindowMs = marketConfig.blackMarket.rotationSeconds * 1000;
   return {
     mode: state.market.mode,
     inflation: {
@@ -550,6 +562,7 @@ export const getMarketViewModel = (serverState: AnyRecord, playerState: AnyRecor
       const blackBonus = resolveShoppingMallMarketBonusForMarket(state, player, "black", resourceId);
       const normalPrice = applyShoppingMallDiscount(baseNormalPrice, normalBonus);
       const blackPrice = applyShoppingMallDiscount(baseBlackPrice, blackBonus);
+      const blackDirtyCashPrice = Math.ceil(blackPrice * marketConfig.blackMarket.dirtyCashPaymentMultiplier);
       const maxStock = getMaxStock(resourceId, state.market.mode);
       const stock = clampStock(state.market.stock[resourceId], resourceId, state.market.mode);
       const stockPercent = maxStock > 0 ? Math.round((stock / maxStock) * 100) : 0;
@@ -570,7 +583,8 @@ export const getMarketViewModel = (serverState: AnyRecord, playerState: AnyRecor
           stock,
           maxStock,
           stockPercent,
-          canBuy: stock > 0 && hasPlayerCash(state, player, "cleanCash", normalPrice),
+          available: (normalMarketResourceIds as readonly string[]).includes(resourceId),
+          canBuy: (normalMarketResourceIds as readonly string[]).includes(resourceId) && stock > 0 && hasPlayerCash(state, player, "cleanCash", normalPrice),
           canSell: getPlayerResourceAmount(state, player, resourceId) > 0
         },
         blackMarket: {
@@ -579,20 +593,32 @@ export const getMarketViewModel = (serverState: AnyRecord, playerState: AnyRecor
           shoppingMallDiscountPct: blackBonus.discountPct,
           shoppingMallDiscountAmount: Math.max(0, baseBlackPrice - blackPrice),
           marketFeeReductionPct: blackBonus.marketFeeReductionPct,
-          available: true,
+          available: blackMarketRotation.includes(resourceId),
           markup: roundRatio(calculateMarketPrice(state, resourceId, "black").factors.marketTypeFactor),
-          heatRisk: getBlackMarketHeatForValue(blackPrice),
-          policeRisk: Math.ceil(getBlackMarketHeatForValue(blackPrice) * 0.5),
-          canBuyWithDirtyCash: hasPlayerCash(state, player, "dirtyCash", Math.ceil(blackPrice * marketConfig.blackMarket.dirtyCashPaymentMultiplier))
+          dirtyCashPrice: blackDirtyCashPrice,
+          heatRisk: getBlackMarketHeatForValue(blackDirtyCashPrice),
+          policeRisk: Math.ceil(getBlackMarketHeatForValue(blackDirtyCashPrice) * 0.5),
+          canBuyWithCleanCash: hasPlayerCash(state, player, "cleanCash", blackPrice),
+          canBuyWithDirtyCash: hasPlayerCash(state, player, "dirtyCash", blackDirtyCashPrice)
         },
         trend,
         warnings: getResourceWarnings(state, resourceId, normalPrice, blackPrice)
       };
     }),
     activeMarketEvents: state.market.activeMarketEvents.map((event) => ({ ...event })),
+    blackMarket: {
+      offerResourceIds: blackMarketRotation,
+      refreshesAt: (Math.floor(now / blackMarketWindowMs) + 1) * blackMarketWindowMs,
+      heatByValue: [
+        { min: marketConfig.largeTransactionValueFree.extreme, heat: 10 },
+        { min: marketConfig.largeTransactionValueFree.high, heat: 6 },
+        { min: marketConfig.largeTransactionValueFree.medium, heat: 3 },
+        { min: 1, heat: 1 }
+      ]
+    },
     playerMarket: {
       listings: state.market.playerListings
-        .filter((listing) => listing.status === "active" && listing.expiresAt > Date.now())
+        .filter((listing) => listing.status === "active" && listing.expiresAt > now)
         .map((listing) => ({
           ...listing,
           totalPrice: listing.unitPrice * listing.amount,
@@ -600,7 +626,7 @@ export const getMarketViewModel = (serverState: AnyRecord, playerState: AnyRecor
           canBuy: listing.sellerPlayerId !== getPlayerId(player)
             && hasPlayerCash(state, player, listing.paymentType, listing.unitPrice * listing.amount)
         })),
-      ownListingCount: getActivePlayerListingCount(state.market, getPlayerId(player), Date.now()),
+      ownListingCount: getActivePlayerListingCount(state.market, getPlayerId(player), now),
       listingLimitPerSeller: marketConfig.playerMarket.listingLimitPerSeller
     },
     recentTransactions: [...state.market.transactions].slice(-10).reverse(),
@@ -634,7 +660,7 @@ export const getInflationFactor = (serverState: AnyRecord): number => {
 export const applyMarketEvent = (
   serverState: AnyRecord,
   eventType: MarketEventId,
-  now = Date.now()
+  now = resolveMarketNow(serverState)
 ): { success: boolean; reason?: string; message: string; nextState?: AnyRecord; event?: AnyRecord } => {
   const eventConfig = marketConfig.marketEvents[eventType];
   if (!eventConfig) {
@@ -649,7 +675,7 @@ export const applyMarketEvent = (
   const state = initializeServerMarket(nextState, now);
   const durationMultiplier = state.market.mode === "war" ? marketConfig.warModePriceMultipliers.stockRegenMultiplier : 1;
   const event = {
-    id: `market-event:${eventType}:${now}:${Math.random().toString(36).slice(2, 8)}`,
+    id: `market-event:${eventType}:${now}:${state.market.activeMarketEvents.length}`,
     eventType,
     startedAt: now,
     expiresAt: now + Math.ceil(eventConfig.durationSecondsFree * durationMultiplier) * 1000
@@ -842,7 +868,7 @@ const getServerTotalHeat = (serverState: AnyRecord): number => {
   return Math.max(0, playerHeat + districtHeat);
 };
 
-const getRecentViolenceBonus = (serverState: AnyRecord, now = Date.now()): number => {
+const getRecentViolenceBonus = (serverState: AnyRecord, now = resolveMarketNow(serverState)): number => {
   const windowStart = now - marketConfig.demand.rollingWindowFreeSeconds * 1000;
   const records = collectRecentEventRecords(serverState, windowStart);
   return records.reduce((total, record) => {
@@ -924,7 +950,7 @@ const getSellMultiplier = (serverState: AnyRecord, resourceId: MarketResourceId)
   const maxStock = getMaxStock(resourceId, state.market.mode);
   const stockRatio = maxStock > 0 ? state.market.stock[resourceId] / maxStock : 1;
   const overstockPenalty = clamp((stockRatio - 0.85) / 0.15, 0, 1);
-  return roundRatio(0.72 - overstockPenalty * 0.17);
+  return roundRatio(0.65 - overstockPenalty * 0.2);
 };
 
 const resolveShoppingMallMarketBonusForMarket = (
@@ -1131,7 +1157,7 @@ const getAirportImportDiscountPct = (
 };
 
 const getAirportImportCategoryForResource = (resourceId: MarketResourceId): string => {
-  if (resourceId === "techCore") return "rareComponents";
+  if (["tech-core", "combat-module", "ghost-serum", "overdrive-x"].includes(resourceId)) return "rareComponents";
   return "materials";
 };
 
@@ -1158,10 +1184,10 @@ const getStockExchangeMarketPressureFactor = (
 };
 
 const isStockExchangeEffectCategoryForResource = (category: string, resourceId: MarketResourceId): boolean => {
-  if (category === "materials") return resourceId === "metalParts" || resourceId === "chemicals" || resourceId === "biomass";
-  if (category === "rareComponents") return resourceId === "techCore";
-  if (category === "drugsAndBoosts") return resourceId === "chemicals" || resourceId === "biomass";
-  if (category === "weapons" || category === "defenseItems") return resourceId === "metalParts" || resourceId === "techCore";
+  if (category === "materials") return resourceId === "metal-parts" || resourceId === "chemicals" || resourceId === "biomass";
+  if (category === "rareComponents") return ["tech-core", "combat-module", "ghost-serum", "overdrive-x"].includes(resourceId);
+  if (category === "drugsAndBoosts") return ["chemicals", "biomass", "neon-dust", "pulse-shot", "velvet-smoke", "ghost-serum", "overdrive-x"].includes(resourceId);
+  if (category === "weapons" || category === "defenseItems") return ["baseball-bat", "pistol", "grenade", "smg", "bazooka", "vest", "barricades", "cameras", "alarm", "defense-tower"].includes(resourceId);
   return false;
 };
 
@@ -1178,8 +1204,8 @@ const getActivePlayerListingCount = (market: ServerMarketState, sellerPlayerId: 
     && listing.expiresAt > now
   ).length;
 
-const createPlayerMarketListingId = (now: number, seller: AnyRecord): string =>
-  `player-market:${now}:${getPlayerId(seller) || "seller"}:${Math.random().toString(36).slice(2, 8)}`;
+const createPlayerMarketListingId = (state: AnyRecord, now: number, seller: AnyRecord): string =>
+  `player-market:${now}:${getPlayerId(seller) || "seller"}:${state.market.playerListings.length}`;
 
 const getPlayerLabel = (player: AnyRecord): string => {
   const label = String(player?.name ?? player?.displayName ?? player?.identity ?? player?.username ?? player?.id ?? "Hráč").trim();
@@ -1344,7 +1370,7 @@ const getResourceWarnings = (
   if (normalPrice * 100 >= marketConfig.largeTransactionValueFree.medium) {
     warnings.push("Velký nákup může přitáhnout policii");
   }
-  if (resourceId === "techCore" && stockPercent < 0.35) {
+  if (resourceId === "tech-core" && stockPercent < 0.35) {
     warnings.push("Tech Core je na serveru nedostatkové zboží");
   }
   return warnings;
@@ -1514,7 +1540,7 @@ const maybeAddTransactionRumors = (
 };
 
 const getLowStockRumor = (resourceId: MarketResourceId): string => {
-  if (resourceId === "techCore") {
+  if (resourceId === "tech-core") {
     return "Tech Core mizí z trhu. Někdo staví něco velkého.";
   }
   if (resourceId === "chemicals") {
@@ -1625,7 +1651,8 @@ const notifyPoliceOfMarketActivity = (serverState: AnyRecord, player: AnyRecord,
 };
 
 const appendGameLog = (serverState: AnyRecord, type: string, message: string, payload: AnyRecord = {}): void => {
-  const entry = { type, message, payload, createdAt: Date.now() };
+  const now = resolveMarketNow(serverState);
+  const entry = { type, message, payload, createdAt: now };
   if (Array.isArray(serverState.eventLog)) {
     serverState.eventLog.push(entry);
   } else {
@@ -1634,7 +1661,7 @@ const appendGameLog = (serverState: AnyRecord, type: string, message: string, pa
   if (serverState.eventsById && serverState.root) {
     const eventIds = Array.isArray(serverState.root.eventIds) ? serverState.root.eventIds : [];
     const tick = safeInteger(serverState.root.tick);
-    const id = `event:market:${tick}:${eventIds.length}:${Math.random().toString(36).slice(2, 8)}`;
+    const id = `event:market:${tick}:${eventIds.length}`;
     eventIds.push(id);
     serverState.root.eventIds = eventIds;
     serverState.eventsById[id] = {
@@ -1653,11 +1680,12 @@ const appendGameLog = (serverState: AnyRecord, type: string, message: string, pa
 };
 
 const addRumor = (serverState: AnyRecord, message: string, payload: AnyRecord): void => {
+  const now = resolveMarketNow(serverState);
   const rumor = {
-    id: `rumor:market:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+    id: `rumor:market:${now}:${Array.isArray(serverState.rumors) ? serverState.rumors.length : 0}`,
     message,
     payload,
-    createdAt: Date.now()
+    createdAt: now
   };
   if (Array.isArray(serverState.rumors)) {
     serverState.rumors.push(rumor);
@@ -1675,7 +1703,7 @@ const consumeMarketRandomRoll = (serverState: AnyRecord): number => {
     ? Number(market.nextAuditRoll)
     : Number.isFinite(market.testRandomRoll)
       ? Number(market.testRandomRoll)
-      : Math.random();
+      : deterministicMarketRoll(serverState);
   delete serverState.marketAuditRoll;
   delete serverState.testRandomRoll;
   delete market.nextAuditRoll;
@@ -1691,8 +1719,39 @@ const resolveMarketMode = (serverState: AnyRecord): MarketModeId => {
 const clampStock = (stock: number, resourceId: MarketResourceId, mode: MarketModeId): number =>
   clamp(safeInteger(stock), 0, getMaxStock(resourceId, mode));
 
-const createMarketTransactionId = (now: number, player: AnyRecord): string =>
-  `market:${now}:${getPlayerId(player) || "player"}:${Math.random().toString(36).slice(2, 8)}`;
+const createMarketTransactionId = (state: AnyRecord, now: number, player: AnyRecord): string =>
+  `market:${now}:${getPlayerId(player) || "player"}:${state.market.transactions.length}`;
+
+export const getBlackMarketRotation = (serverState: AnyRecord, now = resolveMarketNow(serverState)): MarketResourceId[] => {
+  const windowId = Math.floor(now / (marketConfig.blackMarket.rotationSeconds * 1000));
+  const seed = `${serverState.serverInstance?.worldSeed ?? serverState.root?.id ?? "market"}:${windowId}`;
+  return [...blackMarketResourceIds]
+    .sort((left, right) => stableHash(`${seed}:${left}`) - stableHash(`${seed}:${right}`))
+    .slice(0, marketConfig.blackMarket.offerCount);
+};
+
+const deterministicMarketRoll = (serverState: AnyRecord): number => {
+  const seed = `${serverState.serverInstance?.worldSeed ?? "market"}:${serverState.root?.tick ?? 0}:${serverState.market?.transactions?.length ?? 0}`;
+  return stableHash(seed) / 0xffffffff;
+};
+
+const stableHash = (value: string): number => {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+};
+
+const resolveMarketNow = (serverState: unknown): number => {
+  const state = serverState as AnyRecord;
+  const explicit = Number(state?.marketNowMs ?? state?.clockNowMs);
+  if (Number.isFinite(explicit) && explicit >= 0) return explicit;
+  const tick = Number(state?.root?.tick ?? state?.serverInstance?.currentTick ?? 0);
+  const tickRateMs = Number(state?.config?.tickRateMs ?? state?.tickRateMs ?? 1000);
+  return Math.max(0, Math.floor(tick * tickRateMs));
+};
 
 const safeInteger = (value: unknown): number =>
   Math.max(0, Math.floor(Number(value) || 0));

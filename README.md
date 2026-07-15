@@ -69,6 +69,7 @@ The repository requires Node 20 or newer (`.node-version`, `.nvmrc`).
 - `npm run lint` runs architecture, command safety, file-size, and generated-config guards.
 - `npm test` runs unit, integration, server, persistence, and read-model suites.
 - `npm run test:simulation` runs the slower deterministic simulations.
+- `npm run simulate:production-chain` runs the authoritative Pharmacy -> Drug Lab -> Factory -> Armory chain and writes its invariant report.
 - `npm run test:e2e:smoke` runs the focused browser smoke suite.
 - `npm run test:e2e:full` runs all Playwright scenarios.
 - `npm run build:admin:page` prepares the Netlify publish output in ignored `client/`.
@@ -83,5 +84,6 @@ Generated `client/` output is ignored. Source changes belong in root `pages/`, `
 - [Gameplay session security](docs/gameplay-session-security.md)
 - [Persistence](docs/persistence.md)
 - [Production buildings](docs/production-buildings-functional-audit.md)
+- [Production-chain simulation report](docs/balance/production-chain-simulation-report.md)
 - [Pre-alpha readiness](docs/pre-alpha-gameplay-readiness.md)
 - [Legacy runtime guard](docs/legacy-runtime-guard.md)

@@ -179,12 +179,11 @@ describe("district building gameplay slice", () => {
       statusLabel: "Blocked",
       inputs: [
         expect.objectContaining({ id: "dealerSlotId", type: "select" }),
-        expect.objectContaining({ id: "itemId", type: "select" }),
-        expect.objectContaining({ id: "amount", type: "number", min: 1 })
+        expect.objectContaining({ id: "amount", type: "number", min: 10 })
       ]
     });
     expect(render.sidePanelHtml).toContain('data-building-action-input="dealerSlotId"');
-    expect(render.sidePanelHtml).toContain('data-building-action-input="itemId"');
     expect(render.sidePanelHtml).toContain('data-building-action-input="amount"');
+    expect(render.sidePanelHtml).not.toContain('data-building-action-input="itemId"');
   });
 });

@@ -3,6 +3,10 @@ import {
   createMarketItemAtmosphere,
   createMarketTabStateViewModel
 } from "./marketViewModel.js";
+import {
+  createServerPlayerMarketCallbacks,
+  createServerPlayerMarketPanelPayload
+} from "./marketServerPlayerViewModel.js";
 
 function queryAll(root, selector) {
   return selector ? Array.from(root?.querySelectorAll?.(selector) || []) : [];
@@ -27,7 +31,10 @@ function createServerMarketCatalogPanelPayload({
 } = {}) {
   const isBlackMarket = activeTab === "black-market";
   const balances = playerView?.resourceBalances || playerView?.economy?.resources || {};
-  const resources = normalizeServerResources(serverMarket);
+  const resources = normalizeServerResources(serverMarket).filter((resource = {}) => {
+    const marketView = isBlackMarket ? resource.blackMarket : resource.normalMarket;
+    return marketView?.available === true;
+  });
   return {
     items: resources.map((resource = {}) => {
       const resourceId = String(resource.id || "");
@@ -35,7 +42,11 @@ function createServerMarketCatalogPanelPayload({
       const normalMarket = resource.normalMarket || {};
       const blackMarket = resource.blackMarket || {};
       const marketView = isBlackMarket ? blackMarket : normalMarket;
-      const buyPrice = Math.max(1, Math.floor(Number(marketView.price || 1)));
+      const cleanBuyPrice = Math.max(1, Math.floor(Number(marketView.price || 1)));
+      const dirtyBuyPrice = isBlackMarket
+        ? Math.max(cleanBuyPrice, Math.floor(Number(marketView.dirtyCashPrice || cleanBuyPrice)))
+        : cleanBuyPrice;
+      const buyPrice = isBlackMarket ? dirtyBuyPrice : cleanBuyPrice;
       const sellPrice = Math.max(1, Math.floor(Number(normalMarket.sellPrice || 1)));
       const stock = Number(normalMarket.stock);
       const maxStock = Number(normalMarket.maxStock);
@@ -45,7 +56,7 @@ function createServerMarketCatalogPanelPayload({
       ) || 0));
       const heatRisk = Math.max(0, Math.floor(Number(blackMarket.heatRisk || 0) || 0));
       const cleanCash = Math.max(0, Number(playerView?.economy?.cleanCash || balances.cash || 0) || 0);
-      const canBuyBlackClean = cleanCash >= buyPrice;
+      const canBuyBlackClean = Boolean(blackMarket.canBuyWithCleanCash ?? cleanCash >= cleanBuyPrice);
       const trendDirection = resource.trend === "up" || resource.trend === "spike"
         ? "up"
         : resource.trend === "down"
@@ -76,6 +87,8 @@ function createServerMarketCatalogPanelPayload({
         paymentKey: isBlackMarket ? "dirtyMoney" : "cleanMoney",
         payoutKey: "cleanMoney",
         buyPrice,
+        cleanBuyPrice,
+        dirtyBuyPrice,
         sellPrice,
         maxStock: Number.isFinite(maxStock) ? maxStock : Number.POSITIVE_INFINITY,
         hasLimitedStock: !isBlackMarket,
@@ -84,13 +97,17 @@ function createServerMarketCatalogPanelPayload({
         serverAuthoritative: true,
         canBuy: isBlackMarket ? Boolean(blackMarket.canBuyWithDirtyCash) : Boolean(normalMarket.canBuy),
         canBuyClean: isBlackMarket ? canBuyBlackClean : Boolean(normalMarket.canBuy),
+        playerCleanCash: cleanCash,
         canBuyDirty: Boolean(blackMarket.canBuyWithDirtyCash),
         showCleanBuyAction: isBlackMarket,
         canSell: !isBlackMarket && Boolean(normalMarket.canSell),
         heatRisk,
+        heatByValue: Array.isArray(serverMarket?.blackMarket?.heatByValue)
+          ? serverMarket.blackMarket.heatByValue
+          : [],
         metaLabel: `Máš ${amount} ks · ${isBlackMarket ? "kontakt dostupný" : `sklad ${Number.isFinite(stock) ? stock : 0}/${Number.isFinite(maxStock) ? maxStock : 0}`} · živá cena`,
         priceLabel: isBlackMarket
-          ? `Nákup ${formatPrice(buyPrice)} dirty cash${heatRisk ? ` · heat +${heatRisk}` : ""}`
+          ? `Dirty ${formatPrice(dirtyBuyPrice)} · clean ${formatPrice(cleanBuyPrice)}${heatRisk ? ` · heat +${heatRisk}` : ""}`
           : `Nákup ${formatPrice(buyPrice)} · výkup ${formatPrice(sellPrice)}`,
         trendDirection,
         trendLabel: resource.trend === "spike"
@@ -149,14 +166,14 @@ export function createMarketPopupRuntime(deps = {}) {
     };
     const getMarketTitle = () => {
       if (activeTab === deps.MARKET_PLAYER_TAB_ID) {
-        return "Podzemní burza";
+        return "Hráčský bazar";
       }
 
       if (activeTab === "black-market") {
-        return "Blackline Market";
+        return "Černý trh";
       }
 
-      return "Neon Market";
+      return "Městský market";
     };
     const commitMarketState = (updater) => {
       const currentState = deps.refreshMarketPricesIfNeeded?.(false);
@@ -193,7 +210,20 @@ export function createMarketPopupRuntime(deps = {}) {
         onClearRecentTransactions: clearRecentTransactions
       });
     };
-    const renderPlayerMarketTab = (priceState, serverScope, tabState = {}) => {
+    const renderPlayerMarketTab = (priceState, serverScope, tabState = {}, serverMarket = null, serverPlayerView = null) => {
+      if (tabState.isAuthoritative && serverMarket?.playerMarket) {
+        const playerMarketViewModel = createServerPlayerMarketPanelPayload({
+          serverMarket,
+          playerView: serverPlayerView,
+          formatPrice: deps.formatMarketPrice
+        });
+        deps.renderPlayerMarketPanel?.(listElement, playerMarketViewModel, createServerPlayerMarketCallbacks({
+          submitServerMarketCommand: deps.submitServerMarketCommand,
+          setMarketFeedback,
+          refreshMarketTab: renderMarketTab
+        }));
+        return;
+      }
       const { viewModel: playerMarketViewModel } = deps.createPlayerMarketPanelPayload?.({
         priceState,
         serverScope,
@@ -276,7 +306,13 @@ export function createMarketPopupRuntime(deps = {}) {
       listElement.replaceChildren();
 
       if (activeTab === deps.MARKET_PLAYER_TAB_ID) {
-        renderPlayerMarketTab(dataSource.localMarketState || dataSource.marketState, serverScope, tabState);
+        renderPlayerMarketTab(
+          dataSource.localMarketState || dataSource.marketState,
+          serverScope,
+          tabState,
+          dataSource.serverMarket,
+          serverPlayerView
+        );
         deps.syncMarketTabs?.(tabs, activeTab);
         return;
       }
@@ -427,6 +463,13 @@ function createServerMarketCallbacks(deps = {}) {
   const formatPrice = deps.formatMarketPrice || ((value) => String(value));
   const setMarketFeedback = deps.setMarketFeedback || (() => {});
   const refreshMarketTab = deps.refreshMarketTab || (() => {});
+  const resolveHeatRisk = (totalValue, tiers = []) => {
+    const value = Math.max(0, Number(totalValue || 0));
+    const match = [...tiers]
+      .sort((left, right) => Number(right?.min || 0) - Number(left?.min || 0))
+      .find((tier) => value >= Number(tier?.min || 0));
+    return Math.max(0, Number(match?.heat || 0));
+  };
 
   const submit = async (payload, successLabel) => {
     if (typeof deps.submitServerMarketCommand !== "function") {
@@ -456,6 +499,9 @@ function createServerMarketCallbacks(deps = {}) {
       const buyTotal = quantity * Math.max(1, Math.floor(Number(item.buyPrice || 1)));
       const sellTotal = quantity * Math.max(1, Math.floor(Number(item.sellPrice || 1)));
       const isBlackMarket = activeTab === "black-market";
+      const heatRisk = isBlackMarket
+        ? (resolveHeatRisk(buyTotal, item.heatByValue) || Math.max(0, Number(item.heatRisk || 0)))
+        : 0;
       const buyDisabled = !item.canBuy;
       const sellDisabled = isBlackMarket || !item.canSell || Number(item.amount || 0) < quantity;
       return {
@@ -463,8 +509,8 @@ function createServerMarketCallbacks(deps = {}) {
         sellDisabled,
         buyTitle: buyDisabled ? "Tenhle obchod teď nejde uzavřít." : "Koupit z trhu.",
         sellTitle: sellDisabled ? (isBlackMarket ? "Černý trh dnes výkup nedělá." : "Nemáš dost zboží na prodej.") : "Prodat do trhu.",
-        totalLabel: isBlackMarket && item.heatRisk
-          ? `Celkem ${formatPrice(buyTotal)} · heat +${item.heatRisk}`
+        totalLabel: isBlackMarket && heatRisk
+          ? `Celkem ${formatPrice(buyTotal)} · Heat +${heatRisk}`
           : `Celkem ${formatPrice(buyTotal)} · prodej ${formatPrice(sellTotal)}`
       };
     },

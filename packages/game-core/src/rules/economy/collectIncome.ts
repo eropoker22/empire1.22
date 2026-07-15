@@ -20,9 +20,6 @@ import { applyExchangeOfficeAuditChecks } from "../../handlers/exchangeOfficeBui
 import { applyRestaurantPassiveRumors } from "../../handlers/restaurantBuildingActions";
 import { applySchoolStudentProduction } from "../../handlers/schoolBuildingActions";
 import { applyLobbyClubScandalChecks } from "../../handlers/lobbyClubBuildingActions";
-import {
-  applySmugglingTunnelBatchProduction
-} from "../../handlers/smugglingTunnelBuildingActions";
 import { applyStripClubPassiveRumors } from "../../handlers/stripClubBuildingActions";
 import { applyVipLoungePassiveRumors } from "../../handlers/vipLoungeBuildingActions";
 import { resolveActiveAlliancePenaltyStatModifiers } from "../alliances/alliancePenaltyModifiers";
@@ -103,17 +100,9 @@ export const collectIncome = (state: CoreGameState, context?: GameCoreContext): 
   const schoolState = context?.config.balance.school
     ? applySchoolStudentProduction(apartmentState, context.config.balance.school, context.config.tickRateMs, context)
     : apartmentState;
-  const smugglingTunnelState = context?.config.balance.smugglingTunnel
-    ? applySmugglingTunnelBatchProduction({
-        state: schoolState,
-        config: context.config.balance.smugglingTunnel,
-        tickRateMs: context.config.tickRateMs,
-        incomeMultiplier: context.config.balance.incomeMultiplier
-      })
-    : schoolState;
   const stripClubRumorState = context?.config.balance.stripClub
-    ? applyStripClubPassiveRumors(smugglingTunnelState, context.config.balance.stripClub, context.config.tickRateMs, context.config.balance.lobbyClub, context.config)
-    : smugglingTunnelState;
+    ? applyStripClubPassiveRumors(schoolState, context.config.balance.stripClub, context.config.tickRateMs, context.config.balance.lobbyClub, context.config)
+    : schoolState;
   const restaurantRumorState = context?.config.balance.restaurant
     ? applyRestaurantPassiveRumors(stripClubRumorState, context.config.balance.restaurant, context.config.tickRateMs, context.config.balance.lobbyClub, context.config)
     : stripClubRumorState;

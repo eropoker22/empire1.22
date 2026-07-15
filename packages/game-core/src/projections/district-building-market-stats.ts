@@ -12,8 +12,7 @@ import {
 import {
   getOwnedStreetDealerCount,
   getStreetDealersPlayerMetadata,
-  resolveStreetDealerNetworkMultipliers,
-  resolveStreetDealerSlotCount
+  resolveStreetDealerNetworkMultipliers
 } from "../handlers/streetDealersBuildingActions";
 import {
   getVipLoungeMetadata,
@@ -98,7 +97,6 @@ export const createMarketBuildingStats = (input: BuildingStatsProjectionInput): 
       { label: "Dirty bonus sítě", value: formatMultiplierBonus(network.dirtyProductionMultiplier) },
       { label: "Heat bonus sítě", value: formatMultiplierBonus(network.heatMultiplier) },
       { label: "Podpora Pouličních dealerů", value: `+${formatNumber(dealerSupply.dealerSupplyBonusPct)} %` },
-      { label: "Cena prodeje Pouličních dealerů", value: `+${formatNumber(dealerSupply.salePriceBonusPct + openChannel.dealerSalePriceBonusPct)} %` },
       { label: "Rychlost prodeje Pouličních dealerů", value: `+${formatNumber(dealerSupply.saleSpeedBonusPct + openChannel.dealerSaleSpeedBonusPct)} %` },
       { label: "Pasivní dirty bonus Pouličních dealerů", value: `+${formatNumber(dealerSupply.passiveDirtyIncomeBonusPct)} %` },
       { label: "Snížení pouličního rizika", value: `-${formatNumber(dealerSupply.streetRiskReductionPct)} %` },
@@ -122,30 +120,25 @@ export const createMarketBuildingStats = (input: BuildingStatsProjectionInput): 
       config: input.smugglingTunnelConfig,
       tick: input.tick
     });
-    const slotCount = resolveStreetDealerSlotCount(ownedCount, input.streetDealersConfig);
     const metadata = player ? getStreetDealersPlayerMetadata(player) : { slots: [], saleHistory: [] };
-    const lockedSlots = metadata.slots.filter((slot) => slot.saleId || Number(slot.cooldownUntilTick || 0) > input.tick);
     const activeSales = metadata.slots.filter((slot) => slot.saleId);
     const inventory = input.streetDealersConfig.sellableDrugs
-      .map((drug) => `${drug.label}: ${formatNumber(input.playerBalances[drug.itemId] || 0)}`)
+      .map((drug) => `${drug.label}: ${formatNumber(input.playerBalances[drug.itemId] || 0)} · $${formatNumber(drug.unitSalePriceDirtyCash)}/ks`)
       .join(", ");
     const activeSaleSummary = activeSales.length > 0
       ? activeSales
-          .map((slot) => `${slot.slotId} ${slot.itemLabel ?? slot.itemId} ${formatTickLabel(Math.max(0, Number(slot.completesAtTick || 0) - input.tick))}`)
+          .map((slot) => `${slot.itemLabel ?? slot.itemId} ${formatTickLabel(Math.max(0, Number(slot.completesAtTick || 0) - input.tick))}`)
           .join(", ")
       : "žádné";
     return [
       { label: "Dirty / min", value: `$${formatNumber(input.streetDealersConfig.dirtyCashPerMinute * network.passiveDirtyIncomeMultiplier * (1 + dealerSupply.passiveDirtyIncomeBonusPct / 100))}` },
       { label: "Heat / min", value: formatNumber(input.streetDealersConfig.heatPerMinute * network.heatMultiplier) },
       { label: "Vlastnění dealeři", value: `${ownedCount}/${input.streetDealersConfig.countOnMap}` },
-      { label: "Sloty dealerů", value: `${Math.max(0, slotCount - lockedSlots.length)}/${slotCount} volné` },
-      { label: "Aktivní prodeje", value: activeSaleSummary },
+      { label: "Prodej", value: activeSales.length > 0 ? `běží: ${activeSaleSummary}` : "připraven" },
       { label: "Sklad drog", value: inventory || "prázdný" },
       { label: "Pasivní dirty bonus", value: formatMultiplierBonus(network.passiveDirtyIncomeMultiplier) },
-      { label: "Bonus ceny prodeje", value: formatMultiplierBonus(network.salePriceMultiplier) },
       { label: "Bonus rychlosti prodeje", value: formatMultiplierBonus(network.saleSpeedMultiplier) },
       { label: "Heat bonus sítě", value: formatMultiplierBonus(network.heatMultiplier) },
-      { label: "Bonus ceny z Pašovacích tunelů", value: `+${formatNumber(dealerSupply.salePriceBonusPct + openChannel.dealerSalePriceBonusPct)} %` },
       { label: "Bonus rychlosti z Pašovacích tunelů", value: `+${formatNumber(dealerSupply.saleSpeedBonusPct + openChannel.dealerSaleSpeedBonusPct)} %` },
       { label: "Pasivní dirty bonus z Pašovacích tunelů", value: `+${formatNumber(dealerSupply.passiveDirtyIncomeBonusPct)} %` },
       { label: "Snížení rizika z Pašovacích tunelů", value: `-${formatNumber(dealerSupply.streetRiskReductionPct)} %` },

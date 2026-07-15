@@ -19,6 +19,7 @@ import type { PoliceReadModel } from "./police-read-model-view";
 import type { AttackWeaponId } from "../entities/weapon";
 import type { FactoryProductionBuildingView } from "./factory-production-view";
 import type { PlayerBoostView } from "./player-boost-view";
+import type { PlayerCityEventsView } from "./city-event-view";
 
 /**
  * Responsibility: Minimal player-facing projection rendered by the client.
@@ -41,6 +42,7 @@ export interface PlayerView {
   /** The first active Factory owned by this player, selected server-side for the Factory shortcut. */
   factoryProduction?: FactoryProductionBuildingView | null;
   boosts?: PlayerBoostView | null;
+  cityEvents?: PlayerCityEventsView | null;
   economy: PlayerEconomyView;
   faction?: FactionReadModel | null;
   dayNight?: DayNightReadModel | null;

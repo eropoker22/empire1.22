@@ -4,6 +4,12 @@ export {
   DOWNTOWN_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID,
   formatDistrictBuildingTierLabel
 } from "../../data/districtPools.js";
+import {
+  CONVENIENCE_STORE_CONFIG,
+  SMUGGLING_TUNNEL_CONFIG,
+  STREET_DEALERS_CONFIG,
+  STRIP_CLUB_CONFIG
+} from "../../../../packages/game-config/src/legacy-page/economy-config.js";
 
 export const DISTRICT_MINUTE_INCOME_RULES_EMPIRE2 = Object.freeze({
   resident: Object.freeze({ clean: 2, dirty: 0.5 }),
@@ -33,10 +39,10 @@ export const DISTRICT_BUILDING_MINUTE_INCOME_RULES_EMPIRE2 = Object.freeze({
   "Rekrutační centrum": Object.freeze({ clean: 35, dirty: 0 }),
   "Škola": Object.freeze({ clean: 18, dirty: 0 }),
   "Drug lab": Object.freeze({ clean: 1.5, dirty: 2 }),
-  "Pašovací tunel": Object.freeze({ clean: 0, dirty: 54 }),
-  "Pouliční dealeři": Object.freeze({ clean: 0, dirty: 36 }),
-  "Strip club": Object.freeze({ clean: 75, dirty: 65 }),
-  "Večerka": Object.freeze({ clean: 32, dirty: 18 }),
+  "Pašovací tunel": Object.freeze({ clean: SMUGGLING_TUNNEL_CONFIG.cleanCashPerMinute || 0, dirty: SMUGGLING_TUNNEL_CONFIG.dirtyCashPerMinute }),
+  "Pouliční dealeři": Object.freeze({ clean: STREET_DEALERS_CONFIG.cleanCashPerMinute, dirty: STREET_DEALERS_CONFIG.dirtyCashPerMinute }),
+  "Strip club": Object.freeze({ clean: STRIP_CLUB_CONFIG.cleanCashPerMinute, dirty: STRIP_CLUB_CONFIG.dirtyCashPerMinute }),
+  "Večerka": Object.freeze({ clean: CONVENIENCE_STORE_CONFIG.cleanCashPerMinute, dirty: CONVENIENCE_STORE_CONFIG.dirtyCashPerMinute }),
   "Recyklační centrum": Object.freeze({ clean: 40, dirty: 0 }),
   Burza: Object.freeze({ clean: 220, dirty: 0 }),
   "Centrální banka": Object.freeze({ clean: 160, dirty: 0, heat: 0.1, influence: 0.35 }),
@@ -60,8 +66,8 @@ export const DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2 = Object.freeze({
   Kasino: Object.freeze({ heat: 150 / (60 * 24) }),
   Restaurace: Object.freeze({ heat: 0.04 }),
   "Směnárna": Object.freeze({ heat: 70 / 1440 }),
-  "Pašovací tunel": Object.freeze({ heat: 0.07 }),
-  "Pouliční dealeři": Object.freeze({ heat: 0.06 }),
+  "Pašovací tunel": Object.freeze({ heat: SMUGGLING_TUNNEL_CONFIG.heatPerMinute }),
+  "Pouliční dealeři": Object.freeze({ heat: STREET_DEALERS_CONFIG.heatPerMinute }),
   Burza: Object.freeze({ heat: 0.18 }),
   "Letiště": Object.freeze({ heat: 0.2 }),
   "Magistrát": Object.freeze({ heat: 0.12 }),
@@ -70,14 +76,14 @@ export const DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2 = Object.freeze({
   Soud: Object.freeze({ heat: 0.08 }),
   "VIP Salonek": Object.freeze({ heat: 0.13 }),
   "VIP salonek": Object.freeze({ heat: 0.13 }),
-  "Strip club": Object.freeze({ heat: 0.18 }),
+  "Strip club": Object.freeze({ heat: STRIP_CLUB_CONFIG.heatPerMinute }),
   Sklad: Object.freeze({ heat: 0.06 }),
   Skladiště: Object.freeze({ heat: 0.06 }),
   Garage: Object.freeze({ heat: 0.06 }),
   Klinika: Object.freeze({ heat: 85 / (60 * 24) }),
   "Rekrutační centrum": Object.freeze({ heat: 0.07 }),
   "Škola": Object.freeze({ heat: 0 }),
-  "Večerka": Object.freeze({ heat: 0.05 }),
+  "Večerka": Object.freeze({ heat: CONVENIENCE_STORE_CONFIG.heatPerMinute }),
   "Recyklační centrum": Object.freeze({ heat: 0.08 })
 });
 
@@ -99,13 +105,13 @@ export const DISTRICT_BUILDING_MINUTE_INFLUENCE_RULES_EMPIRE2 = Object.freeze({
   Soud: Object.freeze({ influence: 0.72 }),
   "VIP Salonek": Object.freeze({ influence: 0.48 }),
   "VIP salonek": Object.freeze({ influence: 0.48 }),
-  "Strip club": Object.freeze({ influence: 0.38 }),
+  "Strip club": Object.freeze({ influence: STRIP_CLUB_CONFIG.influencePerMinute }),
   Sklad: Object.freeze({ influence: 0 }),
   Skladiště: Object.freeze({ influence: 0 }),
   Garage: Object.freeze({ influence: 0 }),
   Klinika: Object.freeze({ influence: 0 }),
   "Rekrutační centrum": Object.freeze({ influence: 0 }),
   "Škola": Object.freeze({ influence: 0.05 }),
-  "Večerka": Object.freeze({ influence: 0.1 }),
+  "Večerka": Object.freeze({ influence: CONVENIENCE_STORE_CONFIG.influencePerMinute }),
   "Recyklační centrum": Object.freeze({ influence: 0 })
 });

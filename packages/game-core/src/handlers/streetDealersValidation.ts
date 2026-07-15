@@ -5,7 +5,8 @@ import {
   isStreetDealerSlotLocked,
   isValidSlotId,
   resolveDrugConfigOrNull,
-  resolveRequestedSlotId
+  resolveRequestedSlotId,
+  resolveStreetDealerSlotDrug
 } from "./streetDealersActionHelpers";
 import { getStreetDealersPlayerMetadata } from "./streetDealersMetadata";
 import { getOwnedStreetDealerCount, resolveStreetDealerSlotCount } from "./streetDealersNetwork";
@@ -29,16 +30,22 @@ export const validateStreetDealersAction = (input: {
   if (!isValidSlotId(slotId, slotCount)) return "street_dealers_invalid_slot";
 
   const metadata = getStreetDealersPlayerMetadata(input.player);
+  if (metadata.slots.some((candidate) => isStreetDealerSlotLocked(candidate, input.state.root.tick))) {
+    return "street_dealers_sale_active";
+  }
   const slot = metadata.slots.find((candidate) => candidate.slotId === slotId);
   if (isStreetDealerSlotLocked(slot, input.state.root.tick)) return "street_dealers_slot_locked";
 
-  const drug = resolveDrugConfigOrNull(input.command.payload.itemId, config);
+  const drug = resolveStreetDealerSlotDrug(slotId, config);
   if (!drug) return "street_dealers_invalid_drug_item";
+  const requestedDrug = input.command.payload.itemId === undefined
+    ? drug
+    : resolveDrugConfigOrNull(input.command.payload.itemId, config);
+  if (!requestedDrug || requestedDrug.itemId !== drug.itemId) return "street_dealers_slot_product_mismatch";
 
-  const amount = Math.floor(Number(input.command.payload.amount || 0));
-  if (amount <= 0) return "street_dealers_invalid_amount";
-  if (amount > drug.maxAmountPerSlot) return "street_dealers_amount_above_slot_cap";
+  const amount = Number(input.command.payload.amount);
+  if (!Number.isInteger(amount) || amount <= 0) return "street_dealers_invalid_amount";
+  if (amount < drug.minimumAmountPerSale) return "street_dealers_minimum_amount";
   if (Math.max(0, Number(input.balances[drug.itemId] || 0)) < amount) return "street_dealers_insufficient_drug_stock";
   return null;
 };
-

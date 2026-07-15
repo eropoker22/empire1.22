@@ -85,7 +85,15 @@ export const createPoliceReadModel = (
   const projectedWantedLevel = resolveWantedLevel(playerHeat);
   const storedWantedLevel = sanitizeWantedLevel(policeState?.wantedLevel);
   const wantedLevel = Math.max(storedWantedLevel, projectedWantedLevel);
-  const pendingRaid = toPendingRaidView(selectVisiblePendingRaid(policeState?.pendingRaids));
+  const projectedNowMs = typeof context?.clock?.now === "function"
+    ? context.clock.now().getTime()
+    : 0;
+  const pendingRaid = toPendingRaidView(
+    selectVisiblePendingRaid(policeState?.pendingRaids),
+    state.root.tick,
+    context?.config.tickRateMs ?? 0,
+    projectedNowMs
+  );
   const policeFeed = sanitizePoliceFeed(policeState?.policeEvents);
   const lastPoliceEvent = policeFeed[0] ?? null;
   const recentRaid = createRecentRaidInfo(policeFeed);

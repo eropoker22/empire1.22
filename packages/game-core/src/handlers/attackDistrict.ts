@@ -159,7 +159,17 @@ export const handleAttackDistrict = (
     defensePower * targetDistrictModifiers.defenseMultiplier * defenderPenaltyModifiers.defenseMultiplier,
     defenderFactionModifiers.defensePowerMultiplier
   );
-  const tacticalGrid = resolveTacticalGridCombat(state, attacker.id, targetDistrict.ownerPlayerId, effectAdjustedAttackPower, effectAdjustedDefensePower, towerCount, grenadeCount);
+  const didResolveActualPvpCombat = !trapResolution.blocked;
+  const tacticalGrid = resolveTacticalGridCombat(
+    state,
+    attacker.id,
+    targetDistrict.ownerPlayerId,
+    effectAdjustedAttackPower,
+    effectAdjustedDefensePower,
+    towerCount,
+    grenadeCount,
+    didResolveActualPvpCombat
+  );
   const { effectiveAttackPower, effectiveDefensePower } = tacticalGrid;
   const catastropheRoll = deterministicUnitInterval(
     `${state.serverInstance.worldSeed}:attack:catastrophe:${command.playerId}:${targetDistrict.id}:${state.root.tick}`

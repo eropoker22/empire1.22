@@ -76,10 +76,9 @@ export const dayNightActionRules: Record<string, DayNightActionRuleConfig> = Obj
   },
   start_drug_sale: {
     preferredPhase: "night",
-    rewardMultiplier: 0.9,
     heatMultiplier: 1.3,
     detectionChanceModifierPct: 10,
-    phaseEffectSummary: "NOC BONUS: prodej v ulicích je výhodnější v noci. Přes den roste heat."
+    phaseEffectSummary: "Prodej je dostupný ve dne i v noci. Přes den roste heat a pouliční riziko; cena za kus zůstává pevná."
   },
   strip_club_collect_cash: {
     preferredPhase: "night",

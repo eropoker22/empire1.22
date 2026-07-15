@@ -9,10 +9,27 @@ type AnyRecord = Record<string, any>;
 const CLEAN_CASH_KEYS = ["cleanCash", "cleanMoney", "cash"];
 const DIRTY_CASH_KEYS = ["dirtyCash", "dirtyMoney", "dirty-cash"];
 const RESOURCE_ALIASES: Record<MarketResourceId, string[]> = {
-  metalParts: ["metalParts", "metal-parts", "metal_parts"],
-  techCore: ["techCore", "tech-core", "tech_core"],
   chemicals: ["chemicals"],
-  biomass: ["biomass"]
+  biomass: ["biomass"],
+  "metal-parts": ["metal-parts", "metalParts", "metal_parts"],
+  "neon-dust": ["neon-dust"],
+  "baseball-bat": ["baseball-bat"],
+  barricades: ["barricades"],
+  "stim-pack": ["stim-pack"],
+  "pulse-shot": ["pulse-shot"],
+  "velvet-smoke": ["velvet-smoke"],
+  "tech-core": ["tech-core", "techCore", "tech_core"],
+  pistol: ["pistol"],
+  grenade: ["grenade"],
+  vest: ["vest"],
+  cameras: ["cameras"],
+  alarm: ["alarm"],
+  "combat-module": ["combat-module", "combatModule"],
+  "ghost-serum": ["ghost-serum", "ghostSerum"],
+  "overdrive-x": ["overdrive-x", "overdriveX"],
+  smg: ["smg"],
+  bazooka: ["bazooka"],
+  "defense-tower": ["defense-tower"]
 };
 export const resolvePlayerForMutation = (serverState: AnyRecord, playerState: AnyRecord): AnyRecord => {
   const playerId = getPlayerId(playerState);

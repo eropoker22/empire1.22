@@ -20,7 +20,6 @@ export const resolveSaleCompletion = (input: {
     tick: input.state.root.tick
   });
   if (openChannel.active) {
-    rewardDirtyCash = Math.floor(rewardDirtyCash * (1 + openChannel.dealerCompletionRewardBonusPct / 100));
     heatGain = Math.ceil(heatGain * (1 + openChannel.dealerSaleHeatBonusPct / 100));
   }
   const riskPct = Math.min(
@@ -88,4 +87,3 @@ const resolveIncidentLabel = (type: StreetDealerIncidentType): string => {
       return "Zboží šlo bokem";
   }
 };
-

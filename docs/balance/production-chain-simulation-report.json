@@ -1,0 +1,81 @@
+{
+  "deterministicScenario": "pharmacy-lab-factory-armory",
+  "passed": true,
+  "steps": [
+    {
+      "buildingTypeId": "pharmacy",
+      "recipeId": "chemicals",
+      "quantity": 2,
+      "startedAtTick": 0,
+      "completedAtTick": 48,
+      "ticksElapsed": 48,
+      "maxCompletedInSingleTick": 1,
+      "collectedAmount": 2
+    },
+    {
+      "buildingTypeId": "drug_lab",
+      "recipeId": "neon-dust",
+      "quantity": 1,
+      "startedAtTick": 48,
+      "completedAtTick": 108,
+      "ticksElapsed": 60,
+      "maxCompletedInSingleTick": 1,
+      "collectedAmount": 1
+    },
+    {
+      "buildingTypeId": "factory",
+      "recipeId": "metal-parts",
+      "quantity": 7,
+      "startedAtTick": 108,
+      "completedAtTick": 444,
+      "ticksElapsed": 336,
+      "maxCompletedInSingleTick": 1,
+      "collectedAmount": 7
+    },
+    {
+      "buildingTypeId": "factory",
+      "recipeId": "tech-core",
+      "quantity": 1,
+      "startedAtTick": 444,
+      "completedAtTick": 540,
+      "ticksElapsed": 96,
+      "maxCompletedInSingleTick": 1,
+      "collectedAmount": 1
+    },
+    {
+      "buildingTypeId": "armory",
+      "recipeId": "pistol",
+      "quantity": 1,
+      "startedAtTick": 540,
+      "completedAtTick": 600,
+      "ticksElapsed": 60,
+      "maxCompletedInSingleTick": 1,
+      "collectedAmount": 1
+    }
+  ],
+  "finalBalances": {
+    "cash": 5780,
+    "chemicals": 0,
+    "neon-dust": 1,
+    "metal-parts": 0,
+    "tech-core": 0,
+    "pistol": 1
+  },
+  "reservationAudit": {
+    "factoryStartAccepted": true,
+    "conflictingArmoryError": "armory_missing_inputs",
+    "metalPartsAfterFactoryReservation": 1,
+    "metalPartsAfterWaitingRefund": 5,
+    "cleanCashAfterWaitingRefund": 900,
+    "duplicateCancelError": "factory_no_waiting_items"
+  },
+  "invariants": {
+    "allCommandsAccepted": true,
+    "onePieceCompletion": true,
+    "finalPistolCollected": true,
+    "noNegativeBalances": true,
+    "reservationConflictRejected": true,
+    "waitingRefundExact": true,
+    "duplicateRefundBlocked": true
+  }
+}

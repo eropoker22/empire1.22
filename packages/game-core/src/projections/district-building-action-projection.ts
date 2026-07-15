@@ -463,7 +463,9 @@ const createBuildingActionViews = (input: {
           centralBankConfig: input.centralBankConfig,
           airportConfig: input.airportConfig,
           cityHallConfig: input.cityHallConfig,
-          streetDealersConfig: input.streetDealersConfig
+          streetDealersConfig: input.streetDealersConfig,
+          state: input.state,
+          playerId: input.playerId
         }),
         durationMs: effectivePreview.effectiveDurationMs,
         cooldownMs: effectivePreview.effectiveCooldownMs,
@@ -792,9 +794,7 @@ const resolveSchoolDisabledReason = (input: {
   tick: number;
 }): string | null => {
   const config = input.schoolConfig;
-  if (!config || input.building.buildingTypeId !== config.buildingTypeId) {
-    return null;
-  }
+  if (!config || input.building.buildingTypeId !== config.buildingTypeId) return null;
   const metadata = getSchoolMetadata(input.building, input.tick);
   if (input.action.actionId !== config.eveningCourse.actionId) {
     return null;
@@ -823,7 +823,7 @@ const resolveStreetDealerDisabledReason = (input: {
   const slotCount = resolveStreetDealerSlotCount(ownedCount, config);
   const metadata = player ? getStreetDealersPlayerMetadata(player) : { slots: [], saleHistory: [] };
   const lockedSlots = metadata.slots.filter((slot) => slot.saleId || Number(slot.cooldownUntilTick || 0) > input.tick).length;
-  if (slotCount <= 0 || lockedSlots >= slotCount) return "Nemáš volný slot Pouličních dealerů.";
-  const hasDrugStock = config.sellableDrugs.some((drug) => Number(input.playerBalances[drug.itemId] || 0) > 0);
+  if (slotCount <= 0 || lockedSlots > 0) return slotCount <= 0 ? "Pouliční dealeři nemají nastavenou prodejnou látku." : "Jiný prodej Pouličních dealerů už probíhá.";
+  const hasDrugStock = config.sellableDrugs.some((drug) => Number(input.playerBalances[drug.itemId] || 0) >= drug.minimumAmountPerSale);
   return hasDrugStock ? null : "Chybí produkt z drug labu ve skladu.";
 };

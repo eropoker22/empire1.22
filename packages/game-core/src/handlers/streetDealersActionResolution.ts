@@ -1,12 +1,17 @@
 import type { RunBuildingActionCommand } from "@empire/shared-types";
 import type { BuildingActionBalanceConfig, SmugglingTunnelBalanceConfig, StreetDealersBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
+import type { GameCoreContext } from "../engine/context";
+import {
+  applyDayNightActionHeat,
+  resolveDayNightActionRule
+} from "../rules/day-night/dayNightActionRules";
 import { composeEntityId } from "../utils";
 import { resolveDealerSupplyStats, resolveOpenChannelStats } from "./smugglingTunnelBuildingActions";
 import {
-  resolveDrugConfig,
   resolveRequestedSlotId,
   resolveStreetRiskPct,
+  resolveStreetDealerSlotDrug,
   upsertSlot
 } from "./streetDealersActionHelpers";
 import { getStreetDealersPlayerMetadata, withStreetDealersPlayerMetadata } from "./streetDealersMetadata";
@@ -22,6 +27,7 @@ export const resolveStreetDealersAction = (input: {
   config: StreetDealersBalanceConfig;
   smugglingTunnelConfig?: SmugglingTunnelBalanceConfig;
   tickRateMs: number;
+  context: Pick<GameCoreContext, "config">;
 }): StreetDealersActionResolution | null => {
   if (input.action.actionId !== input.config.startDrugSale.actionId || input.building.buildingTypeId !== input.config.buildingTypeId) {
     return null;
@@ -30,8 +36,9 @@ export const resolveStreetDealersAction = (input: {
   const ownedCount = getOwnedStreetDealerCount(input.state, input.player.id, input.config);
   const slotCount = resolveStreetDealerSlotCount(ownedCount, input.config);
   const slotId = resolveRequestedSlotId(input.command.payload, slotCount);
-  const drug = resolveDrugConfig(input.command.payload.itemId, input.config);
-  const amount = Math.floor(Number(input.command.payload.amount || 0));
+  const drug = resolveStreetDealerSlotDrug(slotId, input.config);
+  if (!drug) return null;
+  const amount = Number(input.command.payload.amount);
   const network = resolveStreetDealerNetworkMultipliers(ownedCount, input.config);
   const dealerSupply = resolveDealerSupplyStats({ state: input.state, playerId: input.player.id, config: input.smugglingTunnelConfig });
   const openChannel = resolveOpenChannelStats({
@@ -40,21 +47,39 @@ export const resolveStreetDealersAction = (input: {
     config: input.smugglingTunnelConfig,
     tick: input.state.root.tick
   });
-  const salePriceMultiplier = network.salePriceMultiplier
-    * (1 + dealerSupply.salePriceBonusPct / 100 + openChannel.dealerSalePriceBonusPct / 100);
   const saleSpeedMultiplier = network.saleSpeedMultiplier
     * (1 + dealerSupply.saleSpeedBonusPct / 100 + openChannel.dealerSaleSpeedBonusPct / 100);
   const saleHeatMultiplier = network.heatMultiplier
     * (1 + dealerSupply.saleHeatRiskBonusPct / 100);
-  const rewardDirtyCash = Math.floor(amount * drug.basePriceDirtyCash * salePriceMultiplier);
+  const baseRewardDirtyCash = Math.floor(amount * drug.unitSalePriceDirtyCash);
   const durationTicks = Math.max(
     1,
-    Math.ceil((drug.baseDurationMinutes * 60000 / saleSpeedMultiplier) / Math.max(1, input.tickRateMs))
+    Math.ceil((drug.cooldownMinutes * 60000 / saleSpeedMultiplier) / Math.max(1, input.tickRateMs))
   );
-  const heatGain = Math.ceil(amount * drug.baseHeatPerUnit * saleHeatMultiplier);
+  const baseHeatGain = Math.ceil(amount * drug.baseHeatPerUnit * saleHeatMultiplier);
+  const rewardDirtyCash = baseRewardDirtyCash;
+  const heatGain = applyDayNightActionHeat(
+    baseHeatGain,
+    input.state,
+    input.context,
+    input.action.actionId,
+    input.building.buildingTypeId
+  );
   const heatPreview = Math.ceil(heatGain * (1 + openChannel.dealerSaleHeatBonusPct / 100));
   const streetRiskPct = resolveStreetRiskPct(amount, drug, input.config, dealerSupply.streetRiskReductionPct);
-  const streetRiskPreviewPct = Math.min(input.config.streetIncidents.maxStreetRiskPct, streetRiskPct + openChannel.streetIncidentFlatRiskPct);
+  const phaseRule = resolveDayNightActionRule(
+    input.state,
+    input.context,
+    input.action.actionId,
+    input.building.buildingTypeId
+  );
+  const phaseRiskPct = phaseRule.appliesModifiers
+    ? Math.max(0, Number(phaseRule.rule?.detectionChanceModifierPct ?? 0))
+    : 0;
+  const effectiveStreetRiskPct = Math.min(
+    input.config.streetIncidents.maxStreetRiskPct,
+    streetRiskPct + openChannel.streetIncidentFlatRiskPct + phaseRiskPct
+  );
   const metadata = getStreetDealersPlayerMetadata(input.player);
   const nextSlot: StreetDealerSaleSlot = {
     slotId,
@@ -69,7 +94,7 @@ export const resolveStreetDealersAction = (input: {
     completesAtTick: input.state.root.tick + durationTicks,
     rewardDirtyCash,
     heatGain,
-    streetRiskPct,
+    streetRiskPct: effectiveStreetRiskPct,
     originDistrictId: input.command.payload.districtId,
     originBuildingId: input.command.payload.buildingId
   };
@@ -88,7 +113,7 @@ export const resolveStreetDealersAction = (input: {
     influenceChange: 0,
     inputCost: { [drug.itemId]: amount },
     outputGain: {},
-    reportText: `Slot Pouličních dealerů ${slotId} prodává ${amount}x ${drug.label}. Hotovo za ${durationTicks} ticků, pouliční riziko ${streetRiskPct} %.`,
+    reportText: `Pouliční dealeři prodávají ${amount}x ${drug.label}. Hotovo za ${durationTicks} ticků, pouliční riziko ${effectiveStreetRiskPct} %.`,
     streetDealerResult: {
       type: "sale_started",
       slotId,
@@ -101,7 +126,6 @@ export const resolveStreetDealersAction = (input: {
       dealerSupply,
       openChannel,
       effectiveMultipliers: {
-        salePriceMultiplier,
         saleSpeedMultiplier,
         saleHeatMultiplier
       },
@@ -109,7 +133,8 @@ export const resolveStreetDealersAction = (input: {
       heatPreview,
       durationTicks,
       completesAtTick: nextSlot.completesAtTick,
-      streetRiskPct: streetRiskPreviewPct
+      streetRiskPct: effectiveStreetRiskPct,
+      dayNightPhase: phaseRule.phaseId
     }
   };
 };
