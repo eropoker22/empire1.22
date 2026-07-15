@@ -189,6 +189,9 @@ describe("20-player closed-alpha authoritative simulation", () => {
     expect(report.diagnostics.conflict.attackPrimaryIntentions).toBeGreaterThanOrEqual(0);
     expect(report.diagnostics.conflict.plannedAttackFailureReasons).toBeDefined();
     expect(report.diagnostics.conflict.spyAuthorizationsCreated).toBeGreaterThanOrEqual(0);
+    expect(report.metrics.combat.occupations).toBeGreaterThan(0);
+    expect(report.metrics.combat.offlinePlayerActions).toBe(0);
+    expect(report.diagnostics.policeRaids.triggered).toBeGreaterThan(0);
     expect(markdown).toContain("## Conflict fixture result");
     expect(report.invariantViolations).toEqual([]);
   });

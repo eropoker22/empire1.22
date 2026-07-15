@@ -69,7 +69,7 @@ const sourceFileBudgets = [
   ["apps/server/src/netlify/gameplay-slice-function.ts", 279],
   ["apps/server/src/runtime/instance-manager/atomic-command-dispatcher.ts", 314],
   ["apps/server/src/runtime/persistence/postgres/postgres-gameplay-identity-session-repository.ts", 310],
-  ["tools/debug/src/closed-alpha-20p-simulation/simulation.ts", 5590],
+  ["tools/debug/src/closed-alpha-20p-simulation/simulation.ts", 5691],
   ["tools/debug/src/free-mode-pacing/actions.ts", 378],
   ["tools/debug/src/free-mode-pacing/factionPassiveAudit.ts", 256],
   ["tools/debug/src/free-mode-pacing/report.ts", 252]

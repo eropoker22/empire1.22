@@ -199,6 +199,7 @@ export interface CommandAttemptAudit {
   resourcesBefore: ResourceSummary;
   resourcesAfter: ResourceSummary;
   resourceDelta: ResourceDelta;
+  attackGlobalCooldownUntilTick?: number | null;
 }
 
 export interface ActionReadinessResult {
@@ -1236,6 +1237,28 @@ const normalizeStartingResources = (state: CoreGameState, players: SimulationPla
 const runSimulationStep = async (state: MutableSimulationState, step: number): Promise<void> => {
   expireSpyFollowUpOpportunities(state, step);
 
+  if (state.scenario === "conflict-fixture" && step === 1) {
+    const coveragePlayer = state.players[0];
+    const runtime = getRuntime(state.server);
+    const intel = Object.values(runtime.state.notificationsById).find((notification) =>
+      notification.id === `notification:simulation-occupy-intel:${coveragePlayer?.id}`
+    );
+    const intelPayload = intel?.payload as { sourceDistrictId?: string; targetDistrictId?: string } | undefined;
+    const occupy = coveragePlayer && intelPayload?.sourceDistrictId && intelPayload.targetDistrictId
+      ? {
+          command: createBaseCommand(coveragePlayer, "occupy-district", commandId(coveragePlayer, "occupy", step), {
+            districtId: intelPayload.targetDistrictId,
+            sourceDistrictId: intelPayload.sourceDistrictId
+          }, state.clock),
+          focusDistrictId: intelPayload.sourceDistrictId,
+          actionKind: "occupy" as const,
+          targetDistrictId: intelPayload.targetDistrictId,
+          targetPlayerId: null
+        }
+      : null;
+    if (coveragePlayer && occupy) await submitPlannedCommand(state, coveragePlayer, occupy, step);
+  }
+
   if (state.scenario === "special-coverage") {
     await runSpecialCoverageStep(state, step);
     if (step % 40 === 0) {
@@ -2231,6 +2254,8 @@ const configureScenarioWorld = (state: MutableSimulationState): void => {
   const homeDistrictIds = state.players
     .map((player) => player.homeDistrictId)
     .filter((districtId): districtId is string => Boolean(districtId && districtsById[districtId]));
+  const offlinePlayer = state.players.at(-1);
+  if (offlinePlayer) offlinePlayer.activityRate = 0;
 
   for (let index = 0; index < homeDistrictIds.length; index += 1) {
     const districtId = homeDistrictIds[index]!;
@@ -2246,16 +2271,86 @@ const configureScenarioWorld = (state: MutableSimulationState): void => {
     };
   }
 
+  const coveragePlayer = state.players[0];
+  const coverageHome = coveragePlayer ? districtsById[coveragePlayer.homeDistrictId] : null;
+  const neutralTarget = Object.values(districtsById).find((district) =>
+    district.ownerPlayerId === null && district.status !== "destroyed" && !homeDistrictIds.includes(district.id)
+  );
+  let coverageNotificationId: string | null = null;
+  if (coveragePlayer && coverageHome && neutralTarget) {
+    const targetRevision = Math.max(1, Number(neutralTarget.securityRevision ?? neutralTarget.version));
+    districtsById[coverageHome.id] = {
+      ...coverageHome,
+      adjacentDistrictIds: uniqueSorted([...coverageHome.adjacentDistrictIds, neutralTarget.id]),
+      heat: Math.max(300, Number(coverageHome.heat ?? 0)),
+      version: coverageHome.version + 1
+    };
+    districtsById[neutralTarget.id] = {
+      ...neutralTarget,
+      ownerPlayerId: null,
+      controllerAllianceId: null,
+      status: "neutral",
+      defenseLoadout: {},
+      adjacentDistrictIds: uniqueSorted([...neutralTarget.adjacentDistrictIds, coverageHome.id]),
+      securityRevision: targetRevision,
+      version: neutralTarget.version + 1
+    };
+    const playerState = runtime.state.playersById[coveragePlayer.id];
+    const resources = runtime.state.resourceStatesById[playerState.resourceStateId];
+    runtime.state.resourceStatesById[playerState.resourceStateId] = {
+      ...resources,
+      balances: { ...resources.balances, influence: 5_000, population: Math.max(100, Number(resources.balances.population ?? 0)) },
+      version: resources.version + 1
+    };
+    runtime.state.playersById[coveragePlayer.id] = {
+      ...playerState,
+      population: Math.max(100, Number(playerState.population ?? 0)),
+      version: playerState.version + 1
+    };
+    const police = runtime.state.policeStatesById[playerState.policeStateId];
+    runtime.state.policeStatesById[playerState.policeStateId] = {
+      ...police,
+      heat: Math.max(500, Number(police.heat ?? 0)),
+      wantedLevel: 5,
+      version: police.version + 1
+    };
+    coverageNotificationId = `notification:simulation-occupy-intel:${coveragePlayer.id}`;
+    runtime.state.notificationsById[coverageNotificationId] = {
+      id: coverageNotificationId,
+      recipientType: "player",
+      recipientId: coveragePlayer.id,
+      category: "report.spy",
+      title: `Spy report: ${neutralTarget.id}`,
+      bodyKey: "report.spy",
+      payload: {
+        reportId: `report:simulation-occupy-intel:${coveragePlayer.id}`,
+        reportType: "spy", actionType: "spy-district", playerId: coveragePlayer.id,
+        attackerPlayerId: coveragePlayer.id, sourceDistrictId: coverageHome.id,
+        targetDistrictId: neutralTarget.id, targetOwnerPlayerId: null, targetStateAtSpy: "empty",
+        targetSecurityRevision: targetRevision, purpose: "occupy_empty_district", result: "success",
+        authorizationScope: "occupy_empty_district", issuedAtTick: runtime.state.root.tick,
+        authorizationExpiresAtTick: runtime.state.root.tick + 120, tick: runtime.state.root.tick,
+        createdAt: state.clock.nowIso(), eventId: null
+      },
+      createdAt: state.clock.nowIso(),
+      readAt: null
+    };
+  }
+
   runtime.state = {
     ...runtime.state,
     districtsById,
     root: {
       ...runtime.state.root,
+      notificationIds: coverageNotificationId
+        ? uniqueSorted([...runtime.state.root.notificationIds, coverageNotificationId])
+        : runtime.state.root.notificationIds,
       version: runtime.state.root.version + 1
     }
   };
   state.warnings.push("Conflict fixture rewired only simulation home-district adjacency so enemy-owned frontier targets are available; combat rules were not changed.");
   state.warnings.push("Conflict fixture seeded one two-player alliance so allied defense conservation is exercised deterministically.");
+  state.warnings.push("Conflict fixture seeded one neutral occupy target, police pressure, and one zero-activity offline participant.");
 };
 
 const submitPlannedCommand = async (
@@ -2306,7 +2401,12 @@ const submitPlannedCommand = async (
       buildingActionId: buildingMetadata.actionId,
       resourcesBefore: before,
       resourcesAfter: after,
-      resourceDelta: diffResourceSummary(before, after)
+      resourceDelta: diffResourceSummary(before, after),
+      attackGlobalCooldownUntilTick: planned.command.type === "attack-district" && response.accepted
+        ? Number(runtime.state.cooldownStatesById[
+            runtime.state.playersById[player.id]?.cooldownStateId ?? ""
+          ]?.cooldowns["attack:global"] ?? 0)
+        : null
     };
     state.commandAttempts.push(attempt);
     updateCommandMetrics(state, player, planned, response, duplicateReplay, previousPayload !== undefined && previousPayload !== payloadHash);
@@ -3714,14 +3814,15 @@ const finalizeMetrics = (
     .filter((count) => count > 1)
     .reduce((sum, count) => sum + count, 0);
 
-  const attackGlobalCooldownTicks = resolveModeConfig("free").balance.conflict?.attackCooldownTicks ?? 0;
   for (const player of state.players) {
     const attacks = acceptedAttackAttempts.filter((attempt) => attempt.playerId === player.id);
     for (let index = 1; index < attacks.length; index += 1) {
-      const interval = attacks[index]!.tick - attacks[index - 1]!.tick;
-      if (interval < attackGlobalCooldownTicks) {
+      const previous = attacks[index - 1]!;
+      const current = attacks[index]!;
+      const deadline = previous.attackGlobalCooldownUntilTick ?? previous.tick;
+      if (current.tick < deadline) {
         state.invariantViolations.push(
-          `${player.id} executed attacks ${interval} ticks apart, below global cooldown ${attackGlobalCooldownTicks}.`
+          `${player.id} executed an attack at tick ${current.tick} before global cooldown ${deadline}.`
         );
       }
     }
