@@ -57,6 +57,14 @@ export const createDistrictOccupyTargetViews = (
       const cooldownUntilTick = cooldowns[createOccupyGlobalCooldownKey()]
         ?? cooldowns[createOccupySourceCooldownKey(sourceDistrict.id)]
         ?? 0;
+      const globalCooldownRemainingTicks = Math.max(
+        0,
+        Number(cooldowns[createOccupyGlobalCooldownKey()] ?? 0) - state.root.tick
+      );
+      const sourceCooldownRemainingTicks = Math.max(
+        0,
+        Number(cooldowns[createOccupySourceCooldownKey(sourceDistrict.id)] ?? 0) - state.root.tick
+      );
 
       return {
         districtId: targetDistrict.id,
@@ -71,7 +79,13 @@ export const createDistrictOccupyTargetViews = (
           population: populationCost
         },
         heatGain: balance.heatGain,
-        cooldownRemainingTicks: Math.max(0, cooldownUntilTick - state.root.tick)
+        cooldownRemainingTicks: Math.max(0, cooldownUntilTick - state.root.tick),
+        globalCooldownRemainingTicks,
+        sourceCooldownRemainingTicks,
+        stabilizingDurationTicks: Math.max(
+          0,
+          Number(conflictConfig?.captureStabilization?.durationTicks ?? 0)
+        )
       };
     });
 };

@@ -10376,6 +10376,46 @@ function bindDistrictCanvas(root) {
     render();
   };
 
+  const submitServerDefenseSetup = async (selectedDistrict) => {
+    if (!selectedDistrict) {
+      return { accepted: false, errors: [{ message: "Serverová obrana není dostupná." }] };
+    }
+
+    const targetDistrictId = `district:${selectedDistrict.id}`;
+    for (const input of defenseWeaponInputs) {
+      const defenseItemId = String(input.dataset.defenseWeaponInput || "");
+      if (!defenseItemId) continue;
+
+      const placeView = latestGameplaySliceReadModel?.district?.placeDefense;
+      const removeView = latestGameplaySliceReadModel?.district?.removeDefense;
+      if (!placeView || !removeView) {
+        return { accepted: false, errors: [{ message: "Serverová obrana není dostupná." }] };
+      }
+
+      const alliedAmount = Math.max(0, Number(placeView.alliedContributionAmounts?.[defenseItemId] || 0));
+      const currentOwnAmount = Math.max(0, Number(removeView.playerRemovableAmounts?.[defenseItemId] || 0));
+      const desiredTotalAmount = Math.max(0, Number.parseInt(input.value || "0", 10) || 0);
+      const desiredOwnAmount = Math.max(0, desiredTotalAmount - alliedAmount);
+      const delta = desiredOwnAmount - currentOwnAmount;
+      if (delta === 0) continue;
+
+      const response = await submitServerDistrictActionCommand({
+        type: delta > 0 ? "place-defense" : "remove-defense",
+        payload: {
+          targetDistrictId,
+          defenseItemId,
+          amount: Math.abs(delta),
+          expectedTargetVersion: delta > 0
+            ? placeView.expectedTargetVersion
+            : removeView.expectedTargetVersion
+        },
+        focusDistrictId: targetDistrictId
+      });
+      if (!response?.accepted) return response;
+    }
+    return { accepted: true, errors: [] };
+  };
+
   const isDistrictOccupationInProgress = (districtId) => {
     const targetDistrictId = Number(districtId);
     return getStoredOccupyOrders()
@@ -12212,24 +12252,66 @@ function bindDistrictCanvas(root) {
         return;
       }
 
-      if (isServerAuthoritativeGameplayRuntimeReady() && ["heist", "occupy", "rob", "spy", "trap"].includes(actionId)) {
+      const executionMode = getCurrentGameplayExecutionMode();
+      if (executionMode !== GAMEPLAY_EXECUTION_MODES.localDemo
+        && ["heist", "occupy", "rob", "spy", "trap"].includes(actionId)) {
+        if (!isServerAuthoritativeGameplayRuntimeReady()) {
+          showWarning("Serverový gameplay slice není dostupný. Akce nebyla provedena.");
+          return;
+        }
         const player = latestGameplaySliceReadModel?.player || {};
         const adjacentOwnedDistrictIds = getAdjacentOwnedDistrictIds(selectedDistrict);
         const sourceDistrictId = adjacentOwnedDistrictIds.length
           ? `district:${adjacentOwnedDistrictIds[0]}`
           : latestGameplaySliceReadModel?.district?.districtId || player.homeDistrictId || "";
         const targetDistrictId = `district:${selectedDistrict.id}`;
-        const actionRequest = actionId === "attack"
-          ? { type: "attack-district", payload: { districtId: targetDistrictId, sourceDistrictId } }
-          : actionId === "heist"
-            ? { type: "heist-district", payload: { targetDistrictId, sourceDistrictId, style: "balanced", gangMembersSent: 1 } }
+        const districtView = latestGameplaySliceReadModel?.district || {};
+        const findTargetView = (views) => Array.isArray(views)
+          ? views.find((view) => String(view?.districtId) === targetDistrictId) || null
+          : null;
+        const heistView = findTargetView(districtView.heistTargets);
+        const robView = findTargetView(districtView.robTargets);
+        const balancedHeist = heistView?.styles?.find((entry) => entry.style === "balanced") || heistView?.styles?.[0];
+        const trapRelocation = districtView.trap?.relocationSource;
+        const actionRequest = actionId === "heist"
+            ? {
+                type: "heist-district",
+                payload: {
+                  targetDistrictId,
+                  sourceDistrictId,
+                  style: balancedHeist?.style || "balanced",
+                  gangMembersSent: balancedHeist?.defaultGangMembersSent || balancedHeist?.minMembers || 10,
+                  expectedTargetVersion: heistView?.expectedTargetVersion,
+                  expectedSourceVersion: heistView?.expectedSourceVersion
+                }
+              }
             : actionId === "occupy"
               ? { type: "occupy-district", payload: { districtId: targetDistrictId, sourceDistrictId } }
               : actionId === "rob"
-                ? { type: "rob-district", payload: { targetDistrictId, sourceDistrictId } }
+                ? {
+                    type: "rob-district",
+                    payload: {
+                      targetDistrictId,
+                      sourceDistrictId,
+                      expectedTargetVersion: robView?.expectedTargetVersion,
+                      expectedSourceVersion: robView?.expectedSourceVersion
+                    }
+                  }
                 : actionId === "spy"
                   ? { type: "spy-district", payload: { districtId: targetDistrictId, sourceDistrictId } }
-                  : { type: "place-trap", payload: { districtId: targetDistrictId } };
+                  : trapRelocation?.canRelocate
+                    ? {
+                        type: "relocate-trap",
+                        payload: {
+                          trapId: trapRelocation.trapId,
+                          sourceDistrictId: trapRelocation.districtId,
+                          targetDistrictId,
+                          expectedSourceVersion: trapRelocation.expectedSourceVersion,
+                          expectedTargetVersion: trapRelocation.expectedTargetVersion,
+                          expectedTrapVersion: trapRelocation.expectedTrapVersion
+                        }
+                      }
+                    : { type: "place-trap", payload: { districtId: targetDistrictId } };
         void submitServerDistrictActionCommand({
           ...actionRequest,
           focusDistrictId: targetDistrictId
@@ -12456,13 +12538,21 @@ function bindDistrictCanvas(root) {
   if (defenseResidentsInput instanceof HTMLInputElement) {
     defenseResidentsInput.addEventListener("input", () => {
       defenseResidentsInput.value = String(Math.max(0, Number.parseInt(defenseResidentsInput.value || "0", 10) || 0));
-      persistDefenseSetup(getSelectedDistrict());
+      if (getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.localDemo) {
+        persistDefenseSetup(getSelectedDistrict());
+      } else {
+        renderDefenseSummary();
+      }
     });
   }
 
   for (const input of defenseWeaponInputs) {
     input.addEventListener("input", () => {
-      persistDefenseSetup(getSelectedDistrict());
+      if (getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.localDemo) {
+        persistDefenseSetup(getSelectedDistrict());
+      } else {
+        renderDefenseSummary();
+      }
     });
   }
 
@@ -12511,14 +12601,20 @@ function bindDistrictCanvas(root) {
 
       if (isServerAuthoritativeGameplayRuntimeReady()) {
         const context = getPendingAttackContext() || getPreparedAttackContext(selectedDistrict);
+        const targetDistrictId = `district:${selectedDistrict.id}`;
+        const attackView = latestGameplaySliceReadModel?.district?.attackTargets?.find(
+          (view) => String(view?.districtId) === targetDistrictId
+        );
         void submitServerDistrictActionCommand({
           type: "attack-district",
           payload: {
-            districtId: `district:${selectedDistrict.id}`,
+            districtId: targetDistrictId,
             sourceDistrictId: `district:${context?.sourceDistrictId || ""}`,
-            weapons: context?.attackLoadout || {}
+            weapons: context?.attackLoadout || {},
+            expectedSourceVersion: attackView?.expectedSourceVersion,
+            expectedTargetVersion: attackView?.expectedTargetVersion
           },
-          focusDistrictId: `district:${selectedDistrict.id}`
+          focusDistrictId: targetDistrictId
         }).then((response) => {
           if (response?.accepted) {
             closeAttackConfirmPopup();
@@ -12531,6 +12627,10 @@ function bindDistrictCanvas(root) {
         return;
       }
 
+      if (getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.localDemo) {
+        showWarning("Serverový gameplay slice není dostupný. Útok nebyl proveden.");
+        return;
+      }
       applyAttackAction(selectedDistrict);
     });
   }
@@ -12567,10 +12667,19 @@ function bindDistrictCanvas(root) {
 
       if (isServerAuthoritativeGameplayRuntimeReady()) {
         const sourceDistrictId = robberySourceSelect instanceof HTMLSelectElement ? robberySourceSelect.value : "";
+        const targetDistrictId = `district:${selectedDistrict.id}`;
+        const robView = latestGameplaySliceReadModel?.district?.robTargets?.find(
+          (view) => String(view?.districtId) === targetDistrictId
+        );
         void submitServerDistrictActionCommand({
           type: "rob-district",
-          payload: { targetDistrictId: `district:${selectedDistrict.id}`, sourceDistrictId: `district:${sourceDistrictId}` },
-          focusDistrictId: `district:${selectedDistrict.id}`
+          payload: {
+            targetDistrictId,
+            sourceDistrictId: `district:${sourceDistrictId}`,
+            expectedTargetVersion: robView?.expectedTargetVersion,
+            expectedSourceVersion: robView?.expectedSourceVersion
+          },
+          focusDistrictId: targetDistrictId
         }).then((response) => {
           if (response?.accepted) {
             closeRobberyConfirmPopup();
@@ -12583,6 +12692,10 @@ function bindDistrictCanvas(root) {
         return;
       }
 
+      if (getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.localDemo) {
+        showWarning("Serverový gameplay slice není dostupný. Krádež nebyla provedena.");
+        return;
+      }
       applyRobberyAction(selectedDistrict);
     });
   }
@@ -12590,6 +12703,21 @@ function bindDistrictCanvas(root) {
   if (defenseConfirmButton instanceof HTMLButtonElement) {
     defenseConfirmButton.addEventListener("click", () => {
       const selectedDistrict = getSelectedDistrict();
+      if (isServerAuthoritativeGameplayRuntimeReady()) {
+        void submitServerDefenseSetup(selectedDistrict).then((response) => {
+          if (response?.accepted) {
+            closeDefenseSetupPopup();
+            openPopup(selectedDistrict);
+          } else {
+            showWarning(response?.errors?.[0]?.message || "Obranu server odmítl.");
+          }
+        });
+        return;
+      }
+      if (getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.localDemo) {
+        showWarning("Serverový gameplay slice není dostupný. Obrana nebyla změněna.");
+        return;
+      }
       persistDefenseSetup(selectedDistrict);
       closeDefenseSetupPopup();
       openPopup(selectedDistrict);
@@ -12605,10 +12733,22 @@ function bindDistrictCanvas(root) {
       }
 
       if (isServerAuthoritativeGameplayRuntimeReady()) {
+        const trapView = latestGameplaySliceReadModel?.district?.trap;
+        const relocation = trapView?.relocationSource;
+        const targetDistrictId = `district:${selectedDistrict.id}`;
         void submitServerDistrictActionCommand({
-          type: "place-trap",
-          payload: { districtId: `district:${selectedDistrict.id}` },
-          focusDistrictId: `district:${selectedDistrict.id}`
+          type: relocation?.canRelocate ? "relocate-trap" : "place-trap",
+          payload: relocation?.canRelocate
+            ? {
+                trapId: relocation.trapId,
+                sourceDistrictId: relocation.districtId,
+                targetDistrictId,
+                expectedSourceVersion: relocation.expectedSourceVersion,
+                expectedTargetVersion: relocation.expectedTargetVersion,
+                expectedTrapVersion: relocation.expectedTrapVersion
+              }
+            : { districtId: targetDistrictId },
+          focusDistrictId: targetDistrictId
         }).then((response) => {
           if (response?.accepted) {
             closeTrapConfirmPopup();
@@ -12620,6 +12760,10 @@ function bindDistrictCanvas(root) {
         return;
       }
 
+      if (getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.localDemo) {
+        showWarning("Serverový gameplay slice není dostupný. Past nebyla změněna.");
+        return;
+      }
       applyTrapAction(selectedDistrict);
     });
   }
@@ -12649,6 +12793,10 @@ function bindDistrictCanvas(root) {
         return;
       }
 
+      if (getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.localDemo) {
+        showWarning("Serverový gameplay slice není dostupný. Špehování nebylo provedeno.");
+        return;
+      }
       applySpyAction(selectedDistrict);
     });
   }
@@ -12678,6 +12826,10 @@ function bindDistrictCanvas(root) {
         return;
       }
 
+      if (getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.localDemo) {
+        showWarning("Serverový gameplay slice není dostupný. Obsazení nebylo provedeno.");
+        return;
+      }
       applyOccupyAction(selectedDistrict);
     });
   }

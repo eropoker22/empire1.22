@@ -239,7 +239,15 @@ describe("authoritative basic action commands", () => {
         districtId: "district:2",
         enabled: true,
         disabledCode: null,
-        cooldownRemainingTicks: 0
+        cooldownRemainingTicks: 0,
+        expectedSourceVersion: state.districtsById["district:1"].version,
+        expectedTargetVersion: state.districtsById["district:2"].version,
+        victimProtectionRemainingTicks: 0,
+        styles: [
+          expect.objectContaining({ style: "stealth", minMembers: 5, maxMembers: 35, lossRisk: "low" }),
+          expect.objectContaining({ style: "balanced", minMembers: 10, maxMembers: 70, lossRisk: "high" }),
+          expect.objectContaining({ style: "all_in", minMembers: 25, maxMembers: 120, lossRisk: "extreme" })
+        ]
       })
     ]);
     expect(panel?.robTargets).toEqual([
@@ -250,7 +258,30 @@ describe("authoritative basic action commands", () => {
         cooldownRemainingTicks: 0
       })
     ]);
-    expect(panel?.placeDefense).toEqual(expect.objectContaining({ enabled: true }));
+    expect(panel?.placeDefense).toEqual(expect.objectContaining({
+      enabled: true,
+      usedCapacityPoints: 0,
+      maxCapacityPoints: 20
+    }));
+    expect(panel?.securityRevision).toBe(state.districtsById["district:1"].securityRevision);
+    expect(panel?.attackTargets).toEqual([
+      expect.objectContaining({
+        districtId: "district:2",
+        expectedSourceVersion: state.districtsById["district:1"].version,
+        expectedTargetVersion: state.districtsById["district:2"].version,
+        targetSecurityRevision: state.districtsById["district:2"].securityRevision,
+        selectedLoadout: state.playersById["player:1"].attackLoadout,
+        catastrophePreview: expect.objectContaining({ bazookaBonus: 0.015 })
+      })
+    ]);
+    expect(panel?.spyTargets[0]).toEqual(expect.objectContaining({
+      targetSecurityRevision: state.districtsById["district:2"].securityRevision,
+      authorizationTtlTicks: context.config.balance.conflict!.spyAuthorizationTtlTicks,
+      slots: [
+        expect.objectContaining({ slotId: "spy-1", available: true }),
+        expect.objectContaining({ slotId: "spy-2", available: true })
+      ]
+    }));
   });
 
   it("disables rob targets when player has no population", () => {
@@ -268,7 +299,10 @@ describe("authoritative basic action commands", () => {
         districtId: "district:2",
         enabled: false,
         disabledCode: "INSUFFICIENT_POPULATION",
-        cooldownRemainingTicks: 0
+        cooldownRemainingTicks: 0,
+        lootPoolLevel: "exhausted",
+        exhausted: true,
+        heatRisk: { minimum: 1, maximum: 6 }
       })
     ]);
   });

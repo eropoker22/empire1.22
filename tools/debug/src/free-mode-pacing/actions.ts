@@ -12,7 +12,6 @@ import type {
 import { PLAYER_FACTION_IDS, type PlayerFactionId } from "@empire/shared-types";
 import type { FactionBotBehaviorProfile } from "./factionBotBehavior";
 import { resolveFactionBotBehavior } from "./factionBotBehavior";
-import { attachStarterBuildings } from "./state";
 import type { PacingMetrics } from "./types";
 
 export const executeBotActions = (
@@ -148,7 +147,6 @@ const attackBestRoute = (
     metrics.successfulAttacks += 1;
     metrics.districtCaptures += 1;
     factionStats.successfulAttacks += 1;
-    attachStarterBuildings(state, route.targetDistrictId, playerId);
     if (wasInDangerZone && !isPlayerInDangerZone(state, context, playerId)) {
       factionStats.dangerZoneEscapes += 1;
     }

@@ -8,7 +8,8 @@ import { resolveModeConfig } from "@empire/game-config";
 import {
   createAllianceFixture,
   createCombatStateFixture,
-  createCoreStateFixture
+  createCoreStateFixture,
+  seedSuccessfulSpyIntel
 } from "../../fixtures/game-state-fixtures";
 import {
   createAttackDistrictCommandFixture,
@@ -151,8 +152,10 @@ describe("authoritative gameplay rules", () => {
       }
     );
 
-    const cooldown = result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["attack:district:2"];
-    const report = result.nextState.notificationsById["notification:command:attack:1:battle:player:1"];
+    const cooldown = result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["attack:global"];
+    const report = Object.values(result.nextState.notificationsById).find(
+      (notification) => notification.category === "report.battle" && notification.recipientId === "player:1"
+    );
 
     expect(result.errors).toEqual([]);
     expect(cooldown).toBe(264);
@@ -262,10 +265,12 @@ describe("authoritative gameplay rules", () => {
       }
     };
     const trappedState = applyCommand(state, createPlaceTrapCommandFixture(), { config }).nextState;
+    seedSuccessfulSpyIntel(trappedState, "player:1", "district:1", "district:2", "player:2");
 
     const result = applyCommand(trappedState, createAttackDistrictCommandFixture(), { config });
-    const report = result.nextState.notificationsById["notification:command:attack:1:battle:player:1"];
-    const losses = report?.payload.attackerLosses as Record<string, number>;
+    const report = result.events.find((event) => event.type === "district-attacked");
+    const trapEvent = result.events.find((event) => event.type === "trap-triggered");
+    const losses = trapEvent?.payload.attackerLosses as Record<string, number>;
     const totalLosses = Object.values(losses).reduce((total, amount) => total + Number(amount), 0);
 
     expect(result.errors).toEqual([]);

@@ -56,9 +56,20 @@ export const validateGameCommandPayload = (
       requireStringField(errors, "submit", payload, "raidId", "command.payload.raidId");
       break;
     case "attack-district":
-      rejectUnknownPayloadFields(errors, payload, ["districtId", "sourceDistrictId", "weapons"]);
+      rejectUnknownPayloadFields(errors, payload, [
+        "districtId",
+        "sourceDistrictId",
+        "weapons",
+        "expectedSourceVersion",
+        "expectedTargetVersion"
+      ]);
       validateDistrictPayload(errors, payload, true);
       validateAttackWeaponsPayload(errors, payload);
+      for (const field of ["expectedSourceVersion", "expectedTargetVersion"]) {
+        if (payload[field] !== undefined) {
+          requireNonNegativeIntegerField(errors, payload, field, `command.payload.${field}`);
+        }
+      }
       break;
     case "build-structure":
       errors.push(createInvalidFieldError(

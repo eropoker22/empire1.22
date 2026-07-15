@@ -196,6 +196,21 @@ export interface DistrictAttackTargetView {
   enabled: boolean;
   disabledReason: string | null;
   cooldownRemainingTicks?: number;
+  globalCooldownRemainingTicks?: number;
+  sourceCooldownRemainingTicks?: number;
+  targetProtectionRemainingTicks?: number;
+  expectedSourceVersion?: number;
+  expectedTargetVersion?: number;
+  targetSecurityRevision?: number;
+  spyAuthorizationValid?: boolean;
+  selectedLoadout?: Record<string, number>;
+  projectedPopulationCost?: number;
+  catastrophePreview?: {
+    baseChance: number;
+    bazookaBonus: number;
+    finalChance: number;
+  };
+  sourceStabilizingUntilTick?: number | null;
 }
 export interface DistrictSpyTargetView {
   districtId: DistrictId;
@@ -204,6 +219,14 @@ export interface DistrictSpyTargetView {
   status: DistrictStatus;
   enabled: boolean;
   disabledReason: string | null;
+  targetSecurityRevision?: number;
+  authorizationTtlTicks?: number;
+  slots?: Array<{
+    slotId: "spy-1" | "spy-2";
+    availableAtTick: number;
+    available: boolean;
+    lastMissionId: string | null;
+  }>;
 }
 
 export interface DistrictOccupyTargetView {
@@ -220,6 +243,9 @@ export interface DistrictOccupyTargetView {
   };
   heatGain: number;
   cooldownRemainingTicks: number;
+  globalCooldownRemainingTicks?: number;
+  sourceCooldownRemainingTicks?: number;
+  stabilizingDurationTicks?: number;
 }
 
 export interface DistrictRobTargetView {
@@ -233,6 +259,9 @@ export interface DistrictRobTargetView {
   cooldownRemainingTicks?: number;
   expectedTargetVersion: number;
   expectedSourceVersion: number;
+  lootPoolLevel?: "rich" | "partial" | "low" | "exhausted";
+  exhausted?: boolean;
+  heatRisk?: { minimum: number; maximum: number };
 }
 
 export interface DistrictHeistTargetView {
@@ -250,7 +279,15 @@ export interface DistrictHeistTargetView {
     style: "stealth" | "balanced" | "all_in";
     label: string;
     defaultGangMembersSent: number;
+    minMembers?: number;
+    maxMembers?: number;
+    successChance?: number;
+    detectionChance?: number;
+    lossRisk?: "low" | "medium" | "high" | "extreme";
+    heatOnSuccess?: number;
+    heatOnDetected?: number;
   }>;
+  victimProtectionRemainingTicks?: number;
 }
 
 export interface DistrictDefenseActionView {
@@ -273,6 +310,23 @@ export interface DistrictTrapView {
     label: string;
     placedAtTick: number;
   } | null;
+  relocationCooldownRemainingTicks?: number;
+  relocationSource?: {
+    trapId: string;
+    districtId: DistrictId;
+    expectedSourceVersion: number;
+    expectedTargetVersion: number;
+    expectedTrapVersion: number;
+    canRelocate: boolean;
+    disabledReason: string | null;
+  } | null;
+  relocationTargets?: Array<{
+    districtId: DistrictId;
+    name: string;
+    expectedVersion: number;
+    canRelocate: boolean;
+    disabledReason: string | null;
+  }>;
 }
 
 export interface DistrictPanelView {
@@ -284,6 +338,8 @@ export interface DistrictPanelView {
   isOwnedByPlayer: boolean;
   heat: number;
   influence: number;
+  securityRevision?: number;
+  stabilizingUntilTick?: number | null;
   slotCount: number;
   filledSlotCount: number;
   buildings: DistrictPanelBuildingView[];

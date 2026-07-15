@@ -16,6 +16,7 @@ import type {
   HeistDistrictCommand,
   LoadGameplaySliceRequest,
   MarketResourceId,
+  PlaceDefenseCommand,
   PlayerFactionId,
   RunBuildingActionCommand,
   SelectSpawnDistrictCommand,
@@ -75,7 +76,17 @@ const STARTING_BALANCES: Record<string, number> = {
   "pulse-shot": 0,
   "velvet-smoke": 0,
   "ghost-serum": 0,
-  "overdrive-x": 0
+  "overdrive-x": 0,
+  "baseball-bat": 8,
+  pistol: 4,
+  grenade: 2,
+  smg: 2,
+  bazooka: 1,
+  vest: 4,
+  barricades: 4,
+  cameras: 2,
+  alarm: 2,
+  "defense-tower": 1
 };
 
 export type BehaviorArchetype =
@@ -107,7 +118,8 @@ type ActionKind =
   | "rob"
   | "heist"
   | "occupy"
-  | "trap";
+  | "trap"
+  | "defense";
 
 export interface ClosedAlphaSimulationOptions {
   seed?: string;
@@ -627,6 +639,17 @@ export interface ClosedAlphaMetrics {
     robs: number;
     occupations: number;
     damageOrLossEvents: number;
+    defensePlacements: number;
+    alliedDefensePlacements: number;
+    trapPlacements: number;
+    top1DistrictShare: number;
+    top3DistrictShare: number;
+    maxConsecutiveCaptureStreak: number;
+    averageAttackIntervalTicks: number;
+    attackerOccupationLosses: number;
+    capturedDefenseTransferViolations: number;
+    simultaneousConflictCommands: number;
+    offlinePlayerActions: number;
   };
   spying: {
     actions: number;
@@ -839,6 +862,8 @@ interface MutableSimulationState {
   specialCoverageAttempts: SpecialCoverageAttemptAudit[];
   ownedBuildingTypeCountsEver: Record<string, number>;
   wealthTimeline: WealthTimelinePoint[];
+  lastCapturePlayerId: string | null;
+  currentCaptureStreak: number;
   metrics: ClosedAlphaMetrics;
 }
 
@@ -979,6 +1004,8 @@ export const runClosedAlpha20PlayerSimulation = async (
         specialCoverageAttempts: [],
         ownedBuildingTypeCountsEver: {},
         wealthTimeline: [],
+        lastCapturePlayerId: null,
+        currentCaptureStreak: 0,
         metrics: createEmptyMetrics(resolveAvailableBuildingActions(runtime.state))
       };
       configureScenarioWorld(state);
@@ -1266,6 +1293,7 @@ const planPlayerCommand = (
     "attack",
     "occupy",
     "trap",
+    "defense",
     "market_sell"
   ]));
 
@@ -1295,13 +1323,13 @@ const planReadyActionKind = (
 
 const chooseActionKind = (rng: SeededRng, behavior: BehaviorArchetype): ActionKind => {
   const weights: Record<BehaviorArchetype, Partial<Record<ActionKind, number>>> = {
-    aggressive_attacker: { attack: 36, spy: 20, heist: 12, rob: 10, building_action: 8, bounty: 6, market_buy: 4, trap: 4 },
-    defensive_builder: { building_action: 25, upgrade: 22, collect: 18, trap: 12, market_buy: 10, alliance: 8, spy: 5 },
+    aggressive_attacker: { attack: 34, spy: 19, heist: 12, rob: 9, building_action: 8, bounty: 6, market_buy: 4, trap: 4, defense: 4 },
+    defensive_builder: { defense: 24, building_action: 19, upgrade: 17, collect: 14, trap: 10, market_buy: 7, alliance: 6, spy: 3 },
     spy_intelligence: { spy: 48, attack: 12, heist: 10, bounty: 8, building_action: 8, alliance: 7, rob: 7 },
-    diplomat_alliance: { alliance: 42, spy: 16, building_action: 13, collect: 10, bounty: 7, market_buy: 6, attack: 3, heist: 3 },
+    diplomat_alliance: { alliance: 35, defense: 12, spy: 14, building_action: 11, collect: 9, bounty: 7, market_buy: 6, attack: 3, heist: 3 },
     bounty_hunter: { bounty: 32, spy: 18, attack: 18, heist: 10, rob: 8, building_action: 7, market_buy: 7 },
     economy_optimizer: { collect: 22, building_action: 25, upgrade: 18, market_buy: 16, market_sell: 8, occupy: 6, spy: 5 },
-    balanced_casual: { spy: 18, attack: 14, building_action: 16, collect: 15, market_buy: 10, alliance: 10, bounty: 6, upgrade: 6, rob: 5 },
+    balanced_casual: { spy: 16, attack: 13, building_action: 14, collect: 14, market_buy: 9, alliance: 9, defense: 8, bounty: 6, upgrade: 6, rob: 5 },
     chaotic: { spy: 14, attack: 14, building_action: 14, collect: 9, market_buy: 10, market_sell: 5, alliance: 8, bounty: 8, rob: 7, heist: 7, trap: 4 },
     heat_risk: { heist: 24, rob: 20, attack: 18, market_buy: 12, building_action: 12, spy: 8, bounty: 6 },
     special_building_user: { building_action: 46, collect: 12, market_buy: 10, upgrade: 10, spy: 8, alliance: 6, bounty: 4, attack: 4 }
@@ -1328,6 +1356,8 @@ const planActionKind = (
       return planOccupy(state, player, step);
     case "trap":
       return planTrap(state, player, step);
+    case "defense":
+      return planDefense(state, player, step);
     case "building_action":
       return planBuildingAction(state, player, step);
     case "collect":
@@ -1376,9 +1406,12 @@ const planAttack = (state: MutableSimulationState, player: SimulationPlayer, ste
   if (!candidate) return null;
 
   return {
-    command: createBaseCommand(player, "attack-district", commandId(player, "attack", step), {
+    command: createBaseCommand<AttackDistrictCommand>(player, "attack-district", commandId(player, "attack", step), {
       districtId: candidate.target.districtId,
-      sourceDistrictId: candidate.panel.districtId
+      sourceDistrictId: candidate.panel.districtId,
+      weapons: { ...(candidate.target.selectedLoadout ?? {}) },
+      expectedSourceVersion: candidate.target.expectedSourceVersion,
+      expectedTargetVersion: candidate.target.expectedTargetVersion
     }, state.clock),
     focusDistrictId: candidate.panel.districtId,
     actionKind: "attack",
@@ -1468,6 +1501,49 @@ const planTrap = (state: MutableSimulationState, player: SimulationPlayer, step:
     actionKind: "trap",
     targetDistrictId: panel.districtId,
     targetPlayerId: player.id
+  };
+};
+
+const planDefense = (state: MutableSimulationState, player: SimulationPlayer, step: number): PlannedCommand | null => {
+  const runtime = getRuntime(state.server).state;
+  const actor = runtime.playersById[player.id];
+  const resourceState = runtime.resourceStatesById[actor?.resourceStateId ?? ""];
+  const defenseItemId = (["barricades", "vest", "cameras", "alarm", "defense-tower"] as const)
+    .find((itemId) => Number(resourceState?.balances[itemId] ?? 0) >= 1);
+  if (!defenseItemId) return null;
+
+  const panels = Object.values(runtime.districtsById)
+    .filter((district) => {
+      const owner = district.ownerPlayerId ? runtime.playersById[district.ownerPlayerId] : null;
+      return district.status !== "destroyed"
+        && (district.ownerPlayerId === player.id
+          || Boolean(actor?.allianceId && owner?.allianceId === actor.allianceId));
+    })
+    .map((district) => state.server.instanceManager.getGameplaySliceProjection(
+      INSTANCE_ID,
+      player.id,
+      district.id
+    ) as GameplaySliceView | undefined)
+    .map((slice) => slice?.district ?? null)
+    .filter((panel): panel is DistrictPanelView => Boolean(
+      panel?.placeDefense?.enabled
+      && panel.placeDefense.usedCapacityPoints < panel.placeDefense.maxCapacityPoints
+    ));
+  const alliedPanel = panels.find((candidate) => candidate.ownerPlayerId !== player.id);
+  const panel = alliedPanel ?? state.rng.shuffle(panels)[0];
+  if (!panel?.placeDefense) return null;
+
+  return {
+    command: createBaseCommand<PlaceDefenseCommand>(player, "place-defense", commandId(player, "defense", step), {
+      targetDistrictId: panel.districtId,
+      defenseItemId,
+      amount: 1,
+      expectedTargetVersion: panel.placeDefense.expectedTargetVersion
+    }, state.clock),
+    focusDistrictId: panel.districtId,
+    actionKind: "defense",
+    targetDistrictId: panel.districtId,
+    targetPlayerId: panel.ownerPlayerId
   };
 };
 
@@ -1882,10 +1958,18 @@ const planSpyFollowUpAttack = (
     .sort((left, right) => right.score - left.score);
 
   for (const candidate of candidates) {
+    const targetView = findAttackTargetView(
+      state,
+      player.id,
+      candidate.opportunity.sourceDistrictId,
+      candidate.opportunity.targetDistrictId
+    );
     const command = createBaseCommand<AttackDistrictCommand>(player, "attack-district", commandId(player, "follow-up-attack", step), {
       districtId: candidate.opportunity.targetDistrictId,
       sourceDistrictId: candidate.opportunity.sourceDistrictId,
-      weapons: { "baseball-bat": 1 }
+      weapons: { ...(targetView?.selectedLoadout ?? {}) },
+      expectedSourceVersion: targetView?.expectedSourceVersion,
+      expectedTargetVersion: targetView?.expectedTargetVersion
     }, state.clock);
     const planned: PlannedCommand = {
       command,
@@ -2113,6 +2197,37 @@ const configureScenarioWorld = (state: MutableSimulationState): void => {
   if (state.scenario !== "conflict-fixture") return;
   const runtime = getRuntime(state.server);
   const districtsById = { ...runtime.state.districtsById };
+  const allianceOwner = state.players.find((player) => player.behavior === "diplomat_alliance");
+  const allianceContributor = state.players.find((player) => player.behavior === "defensive_builder");
+  const allianceId = "alliance:simulation-defense";
+  if (allianceOwner && allianceContributor) {
+    const memberIds = [allianceOwner.id, allianceContributor.id];
+    runtime.state.alliancesById[allianceId] = {
+      id: allianceId,
+      serverInstanceId: runtime.state.serverInstance.id,
+      name: "Simulation Defense Pact",
+      tag: "SIM",
+      ownerPlayerId: allianceOwner.id,
+      memberIds,
+      status: "active",
+      createdAt: state.clock.nowIso(),
+      version: 1
+    };
+    for (const playerId of memberIds) {
+      const member = runtime.state.playersById[playerId];
+      if (!member) continue;
+      runtime.state.playersById[playerId] = { ...member, allianceId, version: member.version + 1 };
+      const homeDistrict = runtime.state.districtsById[member.homeDistrictId ?? ""];
+      if (homeDistrict) {
+        districtsById[homeDistrict.id] = {
+          ...homeDistrict,
+          controllerAllianceId: allianceId,
+          version: homeDistrict.version + 1
+        };
+      }
+    }
+    runtime.state.root.allianceIds = uniqueSorted([...runtime.state.root.allianceIds, allianceId]);
+  }
   const homeDistrictIds = state.players
     .map((player) => player.homeDistrictId)
     .filter((districtId): districtId is string => Boolean(districtId && districtsById[districtId]));
@@ -2140,6 +2255,7 @@ const configureScenarioWorld = (state: MutableSimulationState): void => {
     }
   };
   state.warnings.push("Conflict fixture rewired only simulation home-district adjacency so enemy-owned frontier targets are available; combat rules were not changed.");
+  state.warnings.push("Conflict fixture seeded one two-player alliance so allied defense conservation is exercised deterministically.");
 };
 
 const submitPlannedCommand = async (
@@ -2194,7 +2310,9 @@ const submitPlannedCommand = async (
     };
     state.commandAttempts.push(attempt);
     updateCommandMetrics(state, player, planned, response, duplicateReplay, previousPayload !== undefined && previousPayload !== payloadHash);
-    updateDomainMetrics(state, player, planned, response.readModel, response.accepted, before, targetBefore);
+    if (!duplicateReplay) {
+      updateDomainMetrics(state, player, planned, response.readModel, response.accepted, before, targetBefore);
+    }
     updateFollowUpOpportunityAfterAttempt(state, planned, attempt, response.readModel);
     updateSpecialCoverageAfterAttempt(state, planned, attempt);
 
@@ -2284,11 +2402,19 @@ const maybeSubmitFollowUpAttackAfterSpy = async (
   }
 
   const attackCommandId = commandId(player, "attack-after-spy", step);
+  const targetView = findAttackTargetView(
+    state,
+    player.id,
+    spyPayload.sourceDistrictId,
+    spyPayload.districtId
+  );
   const followUpPlan: PlannedCommand = {
     command: createBaseCommand<AttackDistrictCommand>(player, "attack-district", attackCommandId, {
       districtId: spyPayload.districtId,
       sourceDistrictId: spyPayload.sourceDistrictId,
-      weapons: { "baseball-bat": 1 }
+      weapons: { ...(targetView?.selectedLoadout ?? {}) },
+      expectedSourceVersion: targetView?.expectedSourceVersion,
+      expectedTargetVersion: targetView?.expectedTargetVersion
     }, state.clock),
     focusDistrictId: spyPayload.sourceDistrictId,
     actionKind: "attack",
@@ -2503,6 +2629,19 @@ const updateDomainMetrics = (
       const report = readModel?.reports.find((entry) => entry.reportType === "battle");
       if (report?.reportType === "battle" && (report.result === "success" || report.districtCaptured)) {
         state.metrics.combat.successfulAttacks += 1;
+        state.metrics.combat.attackerOccupationLosses += report.occupationPopulationLoss;
+        state.currentCaptureStreak = state.lastCapturePlayerId === player.id
+          ? state.currentCaptureStreak + 1
+          : 1;
+        state.lastCapturePlayerId = player.id;
+        state.metrics.combat.maxConsecutiveCaptureStreak = Math.max(
+          state.metrics.combat.maxConsecutiveCaptureStreak,
+          state.currentCaptureStreak
+        );
+        if (!report.survivingDefenseAbandoned) {
+          state.metrics.combat.capturedDefenseTransferViolations += 1;
+          state.invariantViolations.push(`Captured defense was not abandoned for ${planned.command.id}.`);
+        }
       } else if (report?.reportType === "battle") {
         state.metrics.combat.failedAttacks += 1;
       }
@@ -2546,6 +2685,18 @@ const updateDomainMetrics = (
       break;
     case "occupy-district":
       state.metrics.combat.occupations += 1;
+      break;
+    case "place-defense":
+      if (responseAccepted) {
+        state.metrics.combat.defensePlacements += 1;
+        if (planned.targetPlayerId && planned.targetPlayerId !== player.id) {
+          state.metrics.combat.alliedDefensePlacements += 1;
+        }
+      }
+      break;
+    case "place-trap":
+    case "relocate-trap":
+      if (responseAccepted) state.metrics.combat.trapPlacements += 1;
       break;
     case "create-alliance":
       state.metrics.alliances.createRequests += 1;
@@ -2781,6 +2932,13 @@ export const formatClosedAlphaMarkdownReport = (report: ClosedAlphaSimulationRep
     `- Heists: ${report.metrics.combat.heists}`,
     `- Robs: ${report.metrics.combat.robs}`,
     `- Occupations: ${report.metrics.combat.occupations}`,
+    `- Defense placements: ${report.metrics.combat.defensePlacements} (${report.metrics.combat.alliedDefensePlacements} allied)`,
+    `- Trap placements/relocations: ${report.metrics.combat.trapPlacements}`,
+    `- District share top 1/top 3: ${(report.metrics.combat.top1DistrictShare * 100).toFixed(1)} % / ${(report.metrics.combat.top3DistrictShare * 100).toFixed(1)} %`,
+    `- Max capture streak: ${report.metrics.combat.maxConsecutiveCaptureStreak}`,
+    `- Average attack interval: ${report.metrics.combat.averageAttackIntervalTicks} ticks`,
+    `- Attacker occupation losses: ${report.metrics.combat.attackerOccupationLosses}`,
+    `- Simultaneous conflict commands: ${report.metrics.combat.simultaneousConflictCommands}`,
     `- Attacks on allies: ${report.metrics.combat.attacksOnAllies}`,
     "",
     "## Špionáž",
@@ -3518,6 +3676,56 @@ const finalizeMetrics = (
   metrics.combat.mostFrequentAttacker = maxEntry(metrics.combat.attacksByPlayer)?.[0] ?? null;
   metrics.combat.mostFrequentVictim = maxEntry(metrics.combat.victimsByPlayer)?.[0] ?? null;
   metrics.spying.mostFrequentTarget = maxEntry(metrics.spying.targetCounts)?.[0] ?? null;
+  const districtCounts = Object.values(runtimeState.districtsById)
+    .filter((district) => district.ownerPlayerId && district.status !== "destroyed")
+    .reduce<Record<string, number>>((counts, district) => {
+      increment(counts, district.ownerPlayerId!);
+      return counts;
+    }, {});
+  const districtCountValues = Object.values(districtCounts).sort((left, right) => right - left);
+  const ownedDistrictCount = districtCountValues.reduce((sum, count) => sum + count, 0);
+  metrics.combat.top1DistrictShare = round((districtCountValues[0] ?? 0) / Math.max(1, ownedDistrictCount), 4);
+  metrics.combat.top3DistrictShare = round(
+    districtCountValues.slice(0, 3).reduce((sum, count) => sum + count, 0) / Math.max(1, ownedDistrictCount),
+    4
+  );
+
+  const acceptedAttackAttempts = state.commandAttempts
+    .filter((attempt) => attempt.accepted && !attempt.duplicateReplay && attempt.commandType === "attack-district")
+    .sort((left, right) => left.tick - right.tick || left.commandId.localeCompare(right.commandId));
+  const attackIntervals = acceptedAttackAttempts.slice(1)
+    .map((attempt, index) => attempt.tick - acceptedAttackAttempts[index]!.tick)
+    .filter((interval) => interval >= 0);
+  metrics.combat.averageAttackIntervalTicks = round(average(attackIntervals), 2);
+
+  const conflictCommandTypes = new Set([
+    "attack-district", "spy-district", "heist-district", "rob-district",
+    "occupy-district", "place-defense", "remove-defense", "place-trap", "relocate-trap"
+  ]);
+  const conflictCommandsByTick = acceptedAttackAttempts.length === 0 && state.commandAttempts.length === 0
+    ? {}
+    : state.commandAttempts
+        .filter((attempt) => attempt.accepted && !attempt.duplicateReplay && conflictCommandTypes.has(attempt.commandType))
+        .reduce<Record<string, number>>((counts, attempt) => {
+          increment(counts, String(attempt.tick));
+          return counts;
+        }, {});
+  metrics.combat.simultaneousConflictCommands = Object.values(conflictCommandsByTick)
+    .filter((count) => count > 1)
+    .reduce((sum, count) => sum + count, 0);
+
+  const attackGlobalCooldownTicks = resolveModeConfig("free").balance.conflict?.attackCooldownTicks ?? 0;
+  for (const player of state.players) {
+    const attacks = acceptedAttackAttempts.filter((attempt) => attempt.playerId === player.id);
+    for (let index = 1; index < attacks.length; index += 1) {
+      const interval = attacks[index]!.tick - attacks[index - 1]!.tick;
+      if (interval < attackGlobalCooldownTicks) {
+        state.invariantViolations.push(
+          `${player.id} executed attacks ${interval} ticks apart, below global cooldown ${attackGlobalCooldownTicks}.`
+        );
+      }
+    }
+  }
 
   metrics.alliances.activeAlliances = Object.values(runtimeState.alliancesById)
     .filter((alliance) => alliance.status === "active")
@@ -4155,6 +4363,9 @@ const validateInitialResources = (
 
 const validateRuntimeState = (state: MutableSimulationState): void => {
   const runtimeState = getRuntime(state.server).state;
+  const addViolation = (message: string) => {
+    if (!state.invariantViolations.includes(message)) state.invariantViolations.push(message);
+  };
   for (const player of state.players) {
     const summary = summarizePlayerResources(runtimeState, player.id);
     for (const [key, value] of Object.entries({
@@ -4165,9 +4376,60 @@ const validateRuntimeState = (state: MutableSimulationState): void => {
       materials: summary.materials
     })) {
       if (!Number.isFinite(value)) {
-        state.invariantViolations.push(`${player.id} ${key} is not finite.`);
+        addViolation(`${player.id} ${key} is not finite.`);
       }
     }
+  }
+
+  const contributedByDistrictItem = new Map<string, number>();
+  for (const contribution of Object.values(runtimeState.allianceDefenseContributionsById ?? {})) {
+    const amounts = [
+      contribution.originalAmount,
+      contribution.remainingAmount,
+      contribution.lostAmount,
+      contribution.returnedAmount
+    ];
+    if (amounts.some((amount) => !Number.isInteger(amount) || amount < 0)) {
+      addViolation(`Defense contribution ${contribution.id} contains an invalid amount.`);
+    }
+    if (contribution.originalAmount !== contribution.remainingAmount + contribution.lostAmount + contribution.returnedAmount) {
+      addViolation(`Defense contribution ${contribution.id} violates amount conservation.`);
+    }
+    const key = `${contribution.districtId}:${contribution.itemId}`;
+    contributedByDistrictItem.set(key, (contributedByDistrictItem.get(key) ?? 0) + contribution.remainingAmount);
+  }
+  for (const [key, contributedAmount] of contributedByDistrictItem) {
+    const separator = key.lastIndexOf(":");
+    const districtId = key.slice(0, separator);
+    const itemId = key.slice(separator + 1);
+    const deployedLoadout = runtimeState.districtsById[districtId]?.defenseLoadout as Record<string, number> | undefined;
+    const deployedAmount = Number(deployedLoadout?.[itemId] ?? 0);
+    if (contributedAmount > deployedAmount) {
+      addViolation(`Defense ledger ${key} has ${contributedAmount} remaining but only ${deployedAmount} deployed.`);
+    }
+  }
+
+  for (const district of Object.values(runtimeState.districtsById)) {
+    const pool = district.neutralLootPool;
+    if (!pool) continue;
+    if (pool.cash < 0 || pool.cash > pool.initialCash || pool.dirtyCash < 0 || pool.dirtyCash > pool.initialDirtyCash) {
+      addViolation(`Neutral loot pool ${district.id} exceeded its cash bounds.`);
+    }
+    for (const [resourceId, amount] of Object.entries(pool.resources)) {
+      if (amount < 0 || amount > Number(pool.initialResources[resourceId] ?? 0)) {
+        addViolation(`Neutral loot pool ${district.id}:${resourceId} exceeded its seeded cap.`);
+      }
+    }
+  }
+
+  const activeTrapOwners = Object.values(runtimeState.trapsById)
+    .filter((trap) => trap.status === "active")
+    .reduce<Record<string, number>>((counts, trap) => {
+      increment(counts, trap.ownerPlayerId);
+      return counts;
+    }, {});
+  for (const [playerId, count] of Object.entries(activeTrapOwners)) {
+    if (count > 1) addViolation(`${playerId} owns ${count} simultaneous active traps.`);
   }
 };
 
@@ -4203,7 +4465,18 @@ const createEmptyMetrics = (
     heists: 0,
     robs: 0,
     occupations: 0,
-    damageOrLossEvents: 0
+    damageOrLossEvents: 0,
+    defensePlacements: 0,
+    alliedDefensePlacements: 0,
+    trapPlacements: 0,
+    top1DistrictShare: 0,
+    top3DistrictShare: 0,
+    maxConsecutiveCaptureStreak: 0,
+    averageAttackIntervalTicks: 0,
+    attackerOccupationLosses: 0,
+    capturedDefenseTransferViolations: 0,
+    simultaneousConflictCommands: 0,
+    offlinePlayerActions: 0
   },
   spying: {
     actions: 0,

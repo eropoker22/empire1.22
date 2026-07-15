@@ -25,6 +25,41 @@ const LOSS_RANGES: Record<ImmediateHeistOutcome, Record<HeistDistrictStyle, [num
   trap_triggered: { stealth: [0.35, 0.60], balanced: [0.35, 0.60], all_in: [0.35, 0.60] }
 };
 
+export const calculateImmediateHeistChances = (input: {
+  defenseLoadout: CoreGameState["districtsById"][string]["defenseLoadout"];
+  style: NonNullable<ConflictBalanceConfig["heist"]>["styles"][HeistDistrictStyle];
+  members: number;
+  config: NonNullable<ConflictBalanceConfig["heist"]>;
+}): { successChance: number; detectionChance: number; cameraBonus: number } => {
+  const memberProgress = (input.members - input.style.minMembers)
+    / Math.max(1, input.style.maxMembers - input.style.minMembers);
+  const resistance = Number(input.defenseLoadout["defense-tower"] ?? 0)
+      * input.config.security.defenseTowerResistancePerUnit
+    + Number(input.defenseLoadout.barricades ?? 0)
+      * input.config.security.barricadesResistancePerUnit;
+  const successChance = clamp(
+    input.style.baseSuccessChance
+      + Math.min(0.15, Math.max(0, memberProgress) * 0.15)
+      - Math.min(0.30, resistance / 300),
+    0.10,
+    0.95
+  );
+  const cameraBonus = Math.min(
+    input.config.security.camerasMaxDetectionBonus,
+    Number(input.defenseLoadout.cameras ?? 0) * input.config.security.camerasDetectionChancePerUnit
+  );
+  const alarmBonus = Math.min(
+    input.config.security.alarmMaxDetectionBonus,
+    Number(input.defenseLoadout.alarm ?? 0) * input.config.security.alarmDetectionChancePerUnit
+  );
+  const detectionChance = clamp(
+    input.style.baseDetectionChance + Math.max(0, memberProgress) * 0.18 + cameraBonus + alarmBonus,
+    0.02,
+    0.95
+  );
+  return { successChance, detectionChance, cameraBonus };
+};
+
 export const resolveImmediateHeist = (
   state: CoreGameState,
   command: HeistDistrictCommand,
@@ -35,29 +70,12 @@ export const resolveImmediateHeist = (
   const target = state.districtsById[command.payload.targetDistrictId];
   const style = config.styles[command.payload.style];
   const members = command.payload.gangMembersSent;
-  const memberProgress = (members - style.minMembers) / Math.max(1, style.maxMembers - style.minMembers);
-  const resistance = Number(target.defenseLoadout["defense-tower"] ?? 0) * config.security.defenseTowerResistancePerUnit
-    + Number(target.defenseLoadout.barricades ?? 0) * config.security.barricadesResistancePerUnit;
-  const successChance = clamp(
-    style.baseSuccessChance + Math.min(0.15, Math.max(0, memberProgress) * 0.15) - Math.min(0.30, resistance / 300),
-    0.10,
-    0.95
-  );
-  const cameras = Number(target.defenseLoadout.cameras ?? 0);
-  const alarms = Number(target.defenseLoadout.alarm ?? 0);
-  const cameraBonus = Math.min(
-    config.security.camerasMaxDetectionBonus,
-    cameras * config.security.camerasDetectionChancePerUnit
-  );
-  const alarmBonus = Math.min(
-    config.security.alarmMaxDetectionBonus,
-    alarms * config.security.alarmDetectionChancePerUnit
-  );
-  const detectionChance = clamp(
-    style.baseDetectionChance + Math.max(0, memberProgress) * 0.18 + cameraBonus + alarmBonus,
-    0.02,
-    0.95
-  );
+  const { successChance, detectionChance, cameraBonus } = calculateImmediateHeistChances({
+    defenseLoadout: target.defenseLoadout,
+    style,
+    members,
+    config
+  });
   const seed = [
     state.serverInstance.worldSeed,
     command.id,

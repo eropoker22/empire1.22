@@ -101,6 +101,9 @@ export const createBattleReportNotification = (input: {
   defenderPopulationLoss: number;
   vestPopulationSaved: number;
   survivingDefenseAbandoned: boolean;
+  catastropheBaseChance: number;
+  bazookaCatastropheBonus: number;
+  catastropheFinalChance: number;
   attackDurationTicks: number;
   tacticalGrid: {
     attackerApplied: boolean;
@@ -145,6 +148,9 @@ export const createBattleReportNotification = (input: {
       defenderPopulationLoss: input.defenderPopulationLoss,
       vestPopulationSaved: input.vestPopulationSaved,
       survivingDefenseAbandoned: input.survivingDefenseAbandoned,
+      catastropheBaseChance: input.catastropheBaseChance,
+      bazookaCatastropheBonus: input.bazookaCatastropheBonus,
+      catastropheFinalChance: input.catastropheFinalChance,
       attackDurationTicks: input.attackDurationTicks,
       tacticalGrid: input.tacticalGrid,
       tacticalGridSummary: input.tacticalGrid.attackerApplied || input.tacticalGrid.defenderApplied
@@ -182,6 +188,9 @@ export const createBattleReportNotifications = (input: {
   defenderPopulationLoss: number;
   vestPopulationSaved: number;
   survivingDefenseAbandoned: boolean;
+  catastropheBaseChance: number;
+  bazookaCatastropheBonus: number;
+  catastropheFinalChance: number;
   attackDurationTicks: number;
   tacticalGrid: {
     attackerApplied: boolean;
@@ -213,6 +222,9 @@ export const createBattleReportNotifications = (input: {
     defenderPopulationLoss: input.defenderPopulationLoss,
     vestPopulationSaved: input.vestPopulationSaved,
     survivingDefenseAbandoned: input.survivingDefenseAbandoned,
+    catastropheBaseChance: input.catastropheBaseChance,
+    bazookaCatastropheBonus: input.bazookaCatastropheBonus,
+    catastropheFinalChance: input.catastropheFinalChance,
     attackDurationTicks: input.attackDurationTicks,
     tacticalGrid: input.tacticalGrid,
     detectedDefense: filterDefenseLoadout(input.targetDistrict.defenseLoadout),

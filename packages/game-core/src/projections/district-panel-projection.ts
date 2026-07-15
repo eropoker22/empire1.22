@@ -42,7 +42,7 @@ export const createDistrictPanelView = (
   const issuedAt = input.issuedAt ?? new Date().toISOString();
   const attackTargets = createDistrictAttackTargetViews(state, input.playerId, district.id, issuedAt, input.config);
   const occupyTargets = createDistrictOccupyTargetViews(state, input.playerId, district.id, input.conflictConfig, issuedAt);
-  const spyTargets = createDistrictSpyTargetViews(state, input.playerId, district.id, issuedAt);
+  const spyTargets = createDistrictSpyTargetViews(state, input.playerId, district.id, issuedAt, input.conflictConfig);
   const robTargets = createDistrictRobTargetViews(state, input.playerId, district.id, input.conflictConfig, issuedAt);
   const heistTargets = createDistrictHeistTargetViews(state, input.playerId, district.id, input.conflictConfig, issuedAt);
   const placeDefense = createDistrictDefenseActionView(state, input.playerId, district.id, "place_defense", input.conflictConfig);
@@ -59,6 +59,8 @@ export const createDistrictPanelView = (
     isOwnedByPlayer: isDestroyed ? false : isOwnedByPlayer,
     heat: isDestroyed ? 0 : district.heat,
     influence: isDestroyed ? 0 : district.influence,
+    securityRevision: district.securityRevision,
+    stabilizingUntilTick: district.stabilizingUntilTick ?? null,
     slotCount: district.slotCount,
     filledSlotCount,
     buildings: isDestroyed
@@ -127,13 +129,74 @@ const createTrapView = (
   const otherActiveTrap = Object.values(state.trapsById).find(
     (trap) => trap.ownerPlayerId === playerId && trap.status === "active" && trap.districtId !== district.id
   );
+  const player = state.playersById[playerId];
+  const relocationCooldownUntilTick = player
+    ? state.cooldownStatesById[player.cooldownStateId]?.cooldowns?.["trap:relocate"] ?? 0
+    : 0;
+  const relocationCooldownRemainingTicks = Math.max(
+    0,
+    Number(relocationCooldownUntilTick) - state.root.tick
+  );
+  const relocationTargets = activeTrap
+    ? district.adjacentDistrictIds
+        .map((targetId) => state.districtsById[targetId])
+        .filter((target) => target?.ownerPlayerId === playerId)
+        .map((target) => {
+          const targetHasTrap = Object.values(state.trapsById).some(
+            (candidate) => candidate.id !== activeTrap.id
+              && candidate.districtId === target.id
+              && candidate.status === "active"
+          );
+          const disabledReason = relocationCooldownRemainingTicks > 0
+            ? "TRAP_RELOCATION_COOLDOWN"
+            : targetHasTrap
+              ? "TRAP_TARGET_OCCUPIED"
+              : (target.status === "destroyed" || target.status === "locked")
+                ? "DISTRICT_LOCKED"
+                : (target.stabilizingUntilTick ?? 0) > state.root.tick
+                  ? "DISTRICT_STABILIZING"
+                  : null;
+          return {
+            districtId: target.id,
+            name: target.name,
+            expectedVersion: target.version,
+            canRelocate: disabledReason === null,
+            disabledReason
+          };
+        })
+    : [];
+  const relocationSourceDistrict = otherActiveTrap
+    ? state.districtsById[otherActiveTrap.districtId]
+    : null;
+  const relocationSourceDisabledReason = otherActiveTrap
+    ? relocationCooldownRemainingTicks > 0
+      ? "TRAP_RELOCATION_COOLDOWN"
+      : !relocationSourceDistrict?.adjacentDistrictIds.includes(district.id)
+        ? "DISTRICTS_NOT_ADJACENT"
+        : (district.status === "destroyed" || district.status === "locked")
+          ? "DISTRICT_LOCKED"
+          : (district.stabilizingUntilTick ?? 0) > state.root.tick
+            ? "DISTRICT_STABILIZING"
+            : null
+    : null;
+  const relocationSource = otherActiveTrap && relocationSourceDistrict
+    ? {
+        trapId: otherActiveTrap.id,
+        districtId: relocationSourceDistrict.id,
+        expectedSourceVersion: relocationSourceDistrict.version,
+        expectedTargetVersion: district.version,
+        expectedTrapVersion: otherActiveTrap.version,
+        canRelocate: relocationSourceDisabledReason === null,
+        disabledReason: relocationSourceDisabledReason
+      }
+    : null;
 
   return {
-    enabled: !activeTrap && !otherActiveTrap,
+    enabled: !activeTrap && (!otherActiveTrap || relocationSource?.canRelocate === true),
     disabledReason: activeTrap
       ? `Past už je v districtu ${district.name} nastražená.`
       : otherActiveTrap
-        ? "Najednou můžeš mít nastraženou jen jednu aktivní past."
+        ? relocationSource?.disabledReason ?? "Past lze přesunout do tohoto districtu."
         : null,
     activeTrap: activeTrap
       ? {
@@ -141,6 +204,9 @@ const createTrapView = (
           label: "Skrytá past nastražená",
           placedAtTick: activeTrap.placedAtTick
         }
-      : null
+      : null,
+    relocationCooldownRemainingTicks,
+    relocationSource,
+    relocationTargets
   };
 };

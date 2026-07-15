@@ -55,6 +55,14 @@ export interface BattleReport {
   attackerLosses: Partial<Record<AttackWeaponId, number>>;
   defenderLosses: Partial<Record<DefenseWeaponId, number>>;
   detectedDefense: Partial<Record<DefenseWeaponId, number>>;
+  combatPopulationLoss: number;
+  occupationPopulationLoss: number;
+  defenderPopulationLoss: number;
+  vestPopulationSaved: number;
+  survivingDefenseAbandoned: boolean;
+  catastropheBaseChance: number;
+  bazookaCatastropheBonus: number;
+  catastropheFinalChance: number;
   heatGained: number;
   reportForAttacker: string;
   reportForDefender: string;

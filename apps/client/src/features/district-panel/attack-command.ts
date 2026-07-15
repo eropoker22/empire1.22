@@ -6,6 +6,8 @@ export interface CreateAttackDistrictCommandInput {
   targetDistrictId: string;
   issuedAt: string;
   weapons: Partial<Record<AttackWeaponId, number>>;
+  expectedSourceVersion?: number;
+  expectedTargetVersion?: number;
   clientRequestId?: string | null;
 }
 
@@ -33,7 +35,9 @@ export const createAttackDistrictCommand = (
     payload: {
       districtId: input.targetDistrictId,
       sourceDistrictId: district.districtId,
-      weapons: { ...input.weapons }
+      weapons: { ...input.weapons },
+      expectedSourceVersion: input.expectedSourceVersion,
+      expectedTargetVersion: input.expectedTargetVersion
     },
     clientRequestId: input.clientRequestId ?? null
   };

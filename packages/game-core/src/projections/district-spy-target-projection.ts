@@ -3,7 +3,8 @@ import type {
   SpyDistrictCommand
 } from "@empire/shared-types";
 import type { CoreGameState } from "../entities/game-state";
-import { validateSpy } from "../validation";
+import type { ConflictBalanceConfig } from "../contracts";
+import { getPlayerSpyOperationState, validateSpy } from "../validation";
 
 /**
  * Responsibility: Builds spy target options for one selected source district.
@@ -14,7 +15,8 @@ export const createDistrictSpyTargetViews = (
   state: CoreGameState,
   playerId: string,
   sourceDistrictId: string,
-  issuedAt = new Date().toISOString()
+  issuedAt = new Date().toISOString(),
+  conflictConfig?: ConflictBalanceConfig
 ): DistrictSpyTargetView[] => {
   const sourceDistrict = state.districtsById[sourceDistrictId];
 
@@ -40,6 +42,7 @@ export const createDistrictSpyTargetViews = (
         clientRequestId: null
       };
       const errors = validateSpy(state, previewCommand);
+      const operationState = getPlayerSpyOperationState(state, playerId);
 
       return {
         districtId: targetDistrict.id,
@@ -47,7 +50,15 @@ export const createDistrictSpyTargetViews = (
         ownerPlayerId: targetDistrict.ownerPlayerId,
         status: targetDistrict.status,
         enabled: errors.length === 0,
-        disabledReason: errors[0]?.message ?? null
+        disabledReason: errors[0]?.message ?? null,
+        targetSecurityRevision: targetDistrict.securityRevision,
+        authorizationTtlTicks: Math.max(0, Number(conflictConfig?.spyAuthorizationTtlTicks ?? 0)),
+        slots: operationState.slots.map((slot) => ({
+          slotId: slot.slotId,
+          availableAtTick: slot.availableAtTick,
+          available: slot.availableAtTick <= state.root.tick,
+          lastMissionId: slot.lastMissionId
+        }))
       };
     });
 };

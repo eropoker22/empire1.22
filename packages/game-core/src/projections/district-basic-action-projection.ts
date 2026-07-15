@@ -9,6 +9,7 @@ import {
   calculateContributorDefenseAmount,
   calculateDefenseCapacityUsage,
   calculateOwnerOwnedDefenseAmount,
+  calculateImmediateHeistChances,
   createHeistAttackerTargetCooldownKey,
   createHeistGlobalCooldownKey,
   createRobCooldownKey,
@@ -66,6 +67,23 @@ export const createDistrictRobTargetViews = (
       const populationBlocked = hasPopulationForRob ? null : "INSUFFICIENT_POPULATION";
       const disabledCode = errors[0]?.code ?? populationBlocked ?? null;
       const actionAllowed = errors.length === 0 && !populationBlocked;
+      const lootPool = target.neutralLootPool;
+      const initialPoolAmount = lootPool
+        ? lootPool.initialCash + lootPool.initialDirtyCash
+          + Object.values(lootPool.initialResources).reduce((sum, amount) => sum + Number(amount), 0)
+        : 0;
+      const currentPoolAmount = lootPool
+        ? lootPool.cash + lootPool.dirtyCash
+          + Object.values(lootPool.resources).reduce((sum, amount) => sum + Number(amount), 0)
+        : 0;
+      const poolFraction = initialPoolAmount > 0 ? currentPoolAmount / initialPoolAmount : 0;
+      const lootPoolLevel = poolFraction <= 0
+        ? "exhausted" as const
+        : poolFraction < 0.2
+          ? "low" as const
+          : poolFraction < 0.65
+            ? "partial" as const
+            : "rich" as const;
 
       return {
         districtId: target.id,
@@ -77,7 +95,10 @@ export const createDistrictRobTargetViews = (
         disabledReason: errors[0]?.message ?? (disabledCode ? formatActionReason(disabledCode) : null),
         cooldownRemainingTicks,
         expectedTargetVersion: target.version,
-        expectedSourceVersion: source.version
+        expectedSourceVersion: source.version,
+        lootPoolLevel,
+        exhausted: lootPoolLevel === "exhausted",
+        heatRisk: { minimum: 1, maximum: 6 }
       };
     });
 };
@@ -120,6 +141,39 @@ export const createDistrictHeistTargetViews = (
         [createHeistGlobalCooldownKey(), createHeistAttackerTargetCooldownKey(target.id)]
       ), Math.max(0, Number(target.heistProtectedUntilTick ?? 0) - state.root.tick));
       const styleConfig = conflictConfig?.heist?.styles;
+      const heistConfig = conflictConfig?.heist;
+      const victimProtectionRemainingTicks = Math.max(
+        0,
+        Number(target.heistProtectedUntilTick ?? 0) - state.root.tick
+      );
+      const createStyleView = (style: "stealth" | "balanced" | "all_in", label: string) => {
+        const config = styleConfig?.[style];
+        const minMembers = config?.minMembers ?? (style === "stealth" ? 5 : style === "balanced" ? 10 : 25);
+        const maxMembers = config?.maxMembers ?? (style === "stealth" ? 35 : style === "balanced" ? 70 : 120);
+        const chances = config && heistConfig
+          ? calculateImmediateHeistChances({
+              defenseLoadout: target.defenseLoadout,
+              style: config,
+              members: minMembers,
+              config: heistConfig
+            })
+          : {
+              successChance: config?.baseSuccessChance ?? 0,
+              detectionChance: config?.baseDetectionChance ?? 0
+            };
+        return {
+          style,
+          label,
+          defaultGangMembersSent: minMembers,
+          minMembers,
+          maxMembers,
+          successChance: chances.successChance,
+          detectionChance: chances.detectionChance,
+          lossRisk: style === "stealth" ? "low" as const : style === "balanced" ? "high" as const : "extreme" as const,
+          heatOnSuccess: config?.heatOnSuccess ?? 0,
+          heatOnDetected: config?.heatOnDetected ?? 0
+        };
+      };
       return {
         districtId: target.id,
         name: target.name,
@@ -132,10 +186,11 @@ export const createDistrictHeistTargetViews = (
         expectedTargetVersion: target.version,
         expectedSourceVersion: source.version,
         styles: [
-          { style: "stealth" as const, label: "Tichý", defaultGangMembersSent: styleConfig?.stealth.minMembers ?? 5 },
-          { style: "balanced" as const, label: "Vyvážený", defaultGangMembersSent: styleConfig?.balanced.minMembers ?? 10 },
-          { style: "all_in" as const, label: "Tvrdý", defaultGangMembersSent: styleConfig?.all_in.minMembers ?? 25 }
-        ]
+          createStyleView("stealth", "Tichý"),
+          createStyleView("balanced", "Vyvážený"),
+          createStyleView("all_in", "Tvrdý")
+        ],
+        victimProtectionRemainingTicks
       };
     });
 };

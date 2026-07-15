@@ -183,7 +183,10 @@ function createAttackDistrictCommand(input) {
     issuedAt: input.issuedAt,
     payload: {
       districtId: input.targetDistrictId,
-      sourceDistrictId: input.sourceDistrictId
+      sourceDistrictId: input.sourceDistrictId,
+      weapons: input.weapons,
+      expectedSourceVersion: input.expectedSourceVersion,
+      expectedTargetVersion: input.expectedTargetVersion
     },
     clientRequestId: null
   };
@@ -302,7 +305,10 @@ async function submitFallbackAction(page, baseReadModel) {
       const command = createSpyDistrictCommand({
         ...commandBase,
         commandId: `smoke-action:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`,
-        targetDistrictId: target.districtId
+        targetDistrictId: target.districtId,
+        weapons: target.selectedLoadout,
+        expectedSourceVersion: target.expectedSourceVersion,
+        expectedTargetVersion: target.expectedTargetVersion
       });
       return postGameplaySliceRequest(page, "submit", {
         command,
@@ -366,21 +372,7 @@ async function submitFallbackAction(page, baseReadModel) {
     throw new Error("Could not derive any server action candidate from gameplay read-model.");
   }
 
-  const command = createAttackDistrictCommand({
-    commandId: `smoke-action:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`,
-    mode,
-    playerId,
-    serverInstanceId,
-    issuedAt: new Date().toISOString(),
-    sourceDistrictId: playerSourceIds[0],
-    targetDistrictId: fallbackTargetCandidate
-  });
-
-  return postGameplaySliceRequest(page, "submit", {
-    command,
-    focusDistrictId: playerSourceIds[0],
-    expectedStateVersion: baseReadModel?.server?.stateVersion ?? null
-  });
+  throw new Error(`No enabled canonical action was projected for ${fallbackTargetCandidate}.`);
 }
 
 async function openGameFromFlow(page, options = {}) {

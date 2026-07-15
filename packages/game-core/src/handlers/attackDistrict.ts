@@ -302,6 +302,9 @@ export const handleAttackDistrict = (
     defenderPopulationLoss,
     vestPopulationSaved,
     survivingDefenseAbandoned: attackSucceeded || districtDestroyed,
+    catastropheBaseChance: baseCatastropheChance,
+    bazookaCatastropheBonus,
+    catastropheFinalChance: catastropheChance,
     attackDurationTicks,
     tacticalGrid: tacticalGrid.report,
     tick: state.root.tick

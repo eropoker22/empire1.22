@@ -4,6 +4,7 @@ import {
   applyCommand,
   createCityFeedProjection,
   createPoliceReadModel,
+  increasePlayerPoliceHeat,
   runTick,
   type CoreGameState
 } from "@empire/game-core";
@@ -122,7 +123,7 @@ const plans: ScenarioPlan[] = [
     kind: "aggressive",
     minutes: 60,
     playerIds: ["player:1"],
-    initialOwnedByPlayer: { "player:1": [1, 2] },
+    initialOwnedByPlayer: { "player:1": [1, 2, 3] },
     collectEveryMinutes: 3,
     craftMinutes: [6, 18, 30, 42],
     spyMinutes: [6, 14, 22, 30, 38, 46, 54],
@@ -256,8 +257,6 @@ describe("free session balance and anti-snowball simulation", () => {
         police: {
           highPressureRaidThreshold: 115,
           extremePressureRaidThreshold: 180,
-          raidDurationTicks: 360,
-          pendingRaidTtlTicks: 360,
           maxPendingRaidsPerPlayer: 1
         }
       }
@@ -266,6 +265,8 @@ describe("free session balance and anti-snowball simulation", () => {
     expect(FREE_CONFIG.balance.districtControlVictoryThreshold).not.toBe(0.75);
     expect(FREE_CONFIG.balance.minimumVictoryTicks).toBeUndefined();
     expect(FREE_CONFIG.balance.districtControlHoldTicks).toBeUndefined();
+    expect(FREE_CONFIG.balance.police!.raidDurationTicks * FREE_CONFIG.tickRateMs).toBe(60 * 60 * 1000);
+    expect(FREE_CONFIG.balance.police!.pendingRaidTtlTicks).toBe(FREE_CONFIG.balance.police!.raidDurationTicks);
     expect(resolveModeConfig("war").balance.districtControlVictoryThreshold).toBeDefined();
   });
 });
@@ -344,6 +345,21 @@ const createSimulationState = (plan: ScenarioPlan): CoreGameState => {
         "tech-core": plan.kind === "snowball" ? 8 : 2
       }
     });
+    if (plan.kind === "aggressive" || plan.kind === "snowball") {
+      const intendedThreshold = plan.kind === "snowball"
+        ? FREE_CONFIG.balance.police!.extremePressureRaidThreshold
+        : FREE_CONFIG.balance.police!.highPressureRaidThreshold;
+      const intendedStartingPressure = Math.max(
+        0,
+        intendedThreshold - FREE_CONFIG.balance.conflict!.attackHeatGain
+      );
+      state.policeStatesById[player.policeStateId] = increasePlayerPoliceHeat(
+        state,
+        player,
+        intendedStartingPressure,
+        state.root.tick
+      );
+    }
   }
 
   for (let id = 1; id <= TOTAL_DISTRICTS; id += 1) {
@@ -523,7 +539,6 @@ const expandOrAttackNextTarget = (state: CoreGameState, metrics: ScenarioMetrics
   const targetAfter = state.districtsById[route.targetDistrictId]?.ownerPlayerId;
   if (targetBefore !== playerId && targetAfter === playerId) {
     metrics.successfulAttacks += 1;
-    attachStarterBuildings(state, route.targetDistrictId, playerId, metrics.name);
   } else {
     metrics.failedAttacks += 1;
   }
@@ -549,9 +564,6 @@ const occupyNeutralTarget = (
 
   copyState(state, result.nextState);
   metrics.firstExpansionMinute ??= minute;
-  if (state.districtsById[route.targetDistrictId]?.ownerPlayerId === playerId) {
-    attachStarterBuildings(state, route.targetDistrictId, playerId, metrics.name);
-  }
   increment(metrics.mostUsedActions, "occupy-district");
 };
 
