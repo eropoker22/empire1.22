@@ -1,10 +1,11 @@
-import type { AttackDistrictCommand, GameplaySliceView } from "@empire/shared-types";
+import type { AttackDistrictCommand, AttackWeaponId, GameplaySliceView } from "@empire/shared-types";
 
 export interface CreateAttackDistrictCommandInput {
   commandId: string;
   slice: GameplaySliceView;
   targetDistrictId: string;
   issuedAt: string;
+  weapons: Partial<Record<AttackWeaponId, number>>;
   clientRequestId?: string | null;
 }
 
@@ -31,7 +32,8 @@ export const createAttackDistrictCommand = (
     issuedAt: input.issuedAt,
     payload: {
       districtId: input.targetDistrictId,
-      sourceDistrictId: district.districtId
+      sourceDistrictId: district.districtId,
+      weapons: { ...input.weapons }
     },
     clientRequestId: input.clientRequestId ?? null
   };

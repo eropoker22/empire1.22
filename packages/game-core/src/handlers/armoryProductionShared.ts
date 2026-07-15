@@ -3,7 +3,7 @@ import type { ArmoryBalanceConfig, ArmoryRecipeBalanceConfig } from "../contract
 import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import { resolveProductionBuildingLevelMultiplier } from "../rules/buildings/buildingUpgradeRules";
-import { resolveCraftProcessingDurationTicks } from "../rules/production/productionRules";
+import { applyDistrictStabilizationToProductionDuration, resolveCraftProcessingDurationTicks } from "../rules/production/productionRules";
 import { getPlayerProductionBoostMultiplier } from "../rules/player-boosts";
 import {
   getBuildingProductionResourceState,
@@ -58,12 +58,12 @@ export const resolveArmoryDurationTicks = (
   const armory = context.config.balance.armory;
   if (!armory) return Math.max(1, recipe.durationTicksPerUnit);
   const baseDuration = resolveCraftProcessingDurationTicks(recipe.durationTicksPerUnit, context.config.balance.cooldownMultiplier);
-  return Math.max(1, Math.ceil(
+  return applyDistrictStabilizationToProductionDuration(Math.max(1, Math.ceil(
     baseDuration
       / resolveArmoryNetworkSpeedMultiplier(resolveActiveArmoryCount(state, building.ownerPlayerId ?? ""), armory)
       / resolveProductionBuildingLevelMultiplier(building, context)
       / getPlayerProductionBoostMultiplier(state, building.ownerPlayerId, state.root.tick)
-  ));
+  )), state, building, context);
 };
 
 export const startArmoryLine = (

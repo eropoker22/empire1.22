@@ -5,6 +5,7 @@ import type { CoreEvent } from "../events";
 import type { CoreError } from "../errors";
 import {
   calculateBaseDefensePower,
+  calculateAttackPopulationRequired,
   calculateAttackWeaponPower,
   calculateBazookaTotalDestructionBonusPercent,
   calculateGrenadeDefenseIgnorePercent,
@@ -16,6 +17,7 @@ import {
   resolveAttackDurationGuardrailTicks,
   resolveAttackDurationTicks,
   applyDefenseCombatLosses,
+  consumeCapturedDistrictDefense,
   resolveCombat,
   resolveTrap
 } from "../rules";
@@ -150,6 +152,7 @@ export const handleAttackDistrict = (
     }
   });
   const attackWeapons = context.config.balance.attackWeapons!;
+  const committedPopulation = calculateAttackPopulationRequired(selectedLoadout, attackWeapons);
   const baseAttackPower = calculateAttackWeaponPower(selectedLoadout, attackWeapons);
   const trapAdjustedAttackPower = calculateTotalAttackPower(effectiveLoadout, attackWeapons, 1, attackWeaponModifiers);
   const effectAdjustedAttackPower = applyFactionMultiplier(
@@ -174,9 +177,18 @@ export const handleAttackDistrict = (
   );
   const { effectiveAttackPower, effectiveDefensePower } = tacticalGrid;
   const catastropheRoll = deterministicUnitInterval(
-    `${state.serverInstance.worldSeed}:attack:catastrophe:${command.playerId}:${targetDistrict.id}:${state.root.tick}`
+    `${state.serverInstance.worldSeed}:attack:catastrophe:${command.id}:${command.playerId}:${targetDistrict.id}:${state.root.tick}`
   );
-  const catastropheChance = Math.max(0, Math.min(1, Number(context.config.balance.conflict?.catastropheChance ?? 0)));
+  const baseCatastropheChance = Math.max(0, Number(context.config.balance.conflict?.catastropheChance ?? 0));
+  const catastropheConfig = context.config.balance.conflict?.catastrophe;
+  const bazookaCatastropheBonus = Math.min(
+    Math.max(0, Number(catastropheConfig?.bazookaBonusCap ?? 0.12)),
+    bazookaCount * Math.max(0, Number(catastropheConfig?.bazookaBonusPerUnit ?? 0.015))
+  );
+  const catastropheChance = Math.min(
+    Math.max(0, Number(catastropheConfig?.finalChanceCap ?? 0.18)),
+    baseCatastropheChance + bazookaCatastropheBonus
+  );
   const districtDestroyed = !trapResolution.blocked && catastropheRoll < catastropheChance;
   const combatResolution = resolveCombat({
     attackLoadoutAfterTrap: effectiveLoadout,
@@ -195,6 +207,34 @@ export const handleAttackDistrict = (
     )
   });
   const attackSucceeded = combatResolution.districtCaptured;
+  const stabilizationConfig = context.config.balance.conflict?.captureStabilization;
+  const occupationAttritionPct = combatResolution.outcomeTier === "clean_capture"
+    ? stabilizationConfig?.cleanCaptureAttritionPct ?? 5
+    : stabilizationConfig?.successfulCaptureMinimumAttritionPct ?? 8;
+  const occupationPopulationLoss = attackSucceeded
+    ? Math.min(committedPopulation, Math.max(1, Math.ceil(committedPopulation * occupationAttritionPct / 100)))
+    : 0;
+  const defenderPlayer = targetDistrict.ownerPlayerId
+    ? state.playersById[targetDistrict.ownerPlayerId]
+    : null;
+  const defenderAvailablePopulation = defenderPlayer
+    ? Math.max(0, Math.floor(Number(
+        defenderPlayer.population ?? state.resourceStatesById[defenderPlayer.resourceStateId]?.balances.population ?? 0
+      )))
+    : 0;
+  const baseDefenderPopulationLoss = defenderAvailablePopulation > 0
+    ? Math.min(
+        defenderAvailablePopulation,
+        Math.max(1, Math.ceil(committedPopulation * (attackSucceeded ? 0.1 : 0.03)))
+      )
+    : 0;
+  const vestCount = Math.max(0, Number(targetDistrict.defenseLoadout.vest ?? 0));
+  const vestReduction = Math.min(
+    Number(context.config.balance.conflict?.defenseCasualty?.vestRelativeReductionCap ?? 0.35),
+    vestCount * Number(context.config.balance.conflict?.defenseCasualty?.vestRelativeReductionPerUnit ?? 0.05)
+  );
+  const defenderPopulationLoss = Math.max(0, Math.ceil(baseDefenderPopulationLoss * (1 - vestReduction)));
+  const vestPopulationSaved = Math.max(0, baseDefenderPopulationLoss - defenderPopulationLoss);
   const battleResult = combatResolution.legacyResult;
   const escapeChanceBonusPct = resolveCarDealerEscapeChanceBonusPct({
     state,
@@ -208,7 +248,7 @@ export const handleAttackDistrict = (
     tick: state.root.tick
   });
   const escapeRoll = deterministicUnitInterval(
-    `${state.serverInstance.worldSeed}:attack:escape:${command.playerId}:${targetDistrict.id}:${state.root.tick}`
+    `${state.serverInstance.worldSeed}:attack:escape:${command.id}:${command.playerId}:${targetDistrict.id}:${state.root.tick}`
   );
   const factionAdjustedAttackerLosses = applyFactionEquipmentLosses(combatResolution.attackerLosses, attackerFactionModifiers);
   const escapeMitigation = resolveAttackEscapeMitigation({
@@ -221,7 +261,8 @@ export const handleAttackDistrict = (
     roll: escapeRoll
   });
   const currentCooldownState = state.cooldownStatesById[attacker.cooldownStateId] ?? createPlayerCooldownState(attacker.id, attacker.cooldownStateId);
-  const attackCooldownKey = `attack:${targetDistrict.id}`;
+  const globalAttackCooldownKey = "attack:global";
+  const sourceAttackCooldownKey = `attack:source:${sourceDistrict!.id}`;
   const attackDurationTicks = Math.max(
     resolveAttackDurationGuardrailTicks(context),
     Math.ceil(applyFactionCooldownTicks(
@@ -256,6 +297,11 @@ export const handleAttackDistrict = (
     heatGained: escapeMitigation.heatGained,
     reportForAttacker: combatResolution.reportForAttacker,
     reportForDefender: combatResolution.reportForDefender,
+    combatPopulationLoss: 0,
+    occupationPopulationLoss,
+    defenderPopulationLoss,
+    vestPopulationSaved,
+    survivingDefenseAbandoned: attackSucceeded || districtDestroyed,
     attackDurationTicks,
     tacticalGrid: tacticalGrid.report,
     tick: state.root.tick
@@ -264,7 +310,11 @@ export const handleAttackDistrict = (
   const defenderReport = notificationEntries[1] ?? null;
   const notificationIds = notificationEntries.map((notification) => notification.id);
   const nextWeaponInventory = applyAttackWeaponLosses(weaponInventory, escapeMitigation.losses);
-  const nextResourceStatesById = writeAttackWeaponInventory(state, attacker, nextWeaponInventory);
+  let nextResourceStatesById = writeAttackWeaponInventory(state, attacker, nextWeaponInventory);
+  nextResourceStatesById = applyPlayerPopulationLoss(nextResourceStatesById, attacker, occupationPopulationLoss, state.root.tick);
+  if (defenderPlayer) {
+    nextResourceStatesById = applyPlayerPopulationLoss(nextResourceStatesById, defenderPlayer, defenderPopulationLoss, state.root.tick);
+  }
   const nextBuildingsById = districtDestroyed
     ? markDestroyedDistrictBuildings(state, targetDistrict.buildingIds)
     : attackSucceeded
@@ -277,14 +327,34 @@ export const handleAttackDistrict = (
     snapshotId: defenseCombatSnapshotId,
     createdAtTick: state.root.tick
   });
-  const targetAfterDefenseLosses = defenseLossState.districtsById[targetDistrict.id];
+  const postCombatDefenseState = attackSucceeded || districtDestroyed
+    ? consumeCapturedDistrictDefense(defenseLossState, {
+        districtId: targetDistrict.id,
+        snapshotId: `${defenseCombatSnapshotId}:capture`
+      })
+    : defenseLossState;
+  const targetAfterDefenseLosses = postCombatDefenseState.districtsById[targetDistrict.id];
 
   const nextState: CoreGameState = {
-    ...defenseLossState,
+    ...postCombatDefenseState,
     playersById: {
       ...state.playersById,
+      ...(defenderPlayer
+        ? {
+            [defenderPlayer.id]: {
+              ...defenderPlayer,
+              ...(defenderPlayer.population !== undefined
+                ? { population: Math.max(0, Number(defenderPlayer.population) - defenderPopulationLoss) }
+                : {}),
+              version: defenderPlayer.version + 1
+            }
+          }
+        : {}),
       [attacker.id]: {
         ...attacker,
+        ...(attacker.population !== undefined
+          ? { population: Math.max(0, Number(attacker.population) - occupationPopulationLoss) }
+          : {}),
         attackLoadout: nextWeaponInventory,
         lastActionAt: command.issuedAt,
         version: attacker.version + 1
@@ -292,7 +362,7 @@ export const handleAttackDistrict = (
     },
     resourceStatesById: nextResourceStatesById,
     districtsById: {
-      ...defenseLossState.districtsById,
+      ...postCombatDefenseState.districtsById,
       [targetDistrict.id]: bumpDistrictSecurityRevision({
         ...targetAfterDefenseLosses,
         ownerPlayerId: districtDestroyed
@@ -309,7 +379,14 @@ export const handleAttackDistrict = (
         lastHeatDecayTick: districtDestroyed || attackSucceeded ? state.root.tick : targetDistrict.lastHeatDecayTick,
         influence: districtDestroyed ? 0 : targetDistrict.influence,
         buildingIds: districtDestroyed ? [] : targetDistrict.buildingIds,
-        defenseLoadout: districtDestroyed ? {} : targetAfterDefenseLosses.defenseLoadout,
+        defenseLoadout: attackSucceeded || districtDestroyed ? {} : targetAfterDefenseLosses.defenseLoadout,
+        attackProtectedUntilTick: state.root.tick + Math.max(
+          0,
+          Number(context.config.balance.conflict?.attackTargetProtectionTicks ?? attackDurationTicks)
+        ),
+        stabilizingUntilTick: attackSucceeded
+          ? state.root.tick + Math.max(0, Number(stabilizationConfig?.durationTicks ?? 0))
+          : null,
         status: districtDestroyed
           ? "destroyed"
           : attackSucceeded
@@ -327,7 +404,8 @@ export const handleAttackDistrict = (
         ...currentCooldownState,
         cooldowns: {
           ...currentCooldownState.cooldowns,
-          [attackCooldownKey]: state.root.tick + attackDurationTicks
+          [globalAttackCooldownKey]: state.root.tick + attackDurationTicks,
+          [sourceAttackCooldownKey]: state.root.tick + attackDurationTicks
         },
         version: currentCooldownState.version + (state.cooldownStatesById[currentCooldownState.id] ? 1 : 0)
       }
@@ -368,13 +446,16 @@ export const handleAttackDistrict = (
           nextState,
           attacker.id,
           createRecoveryEntriesFromLosses(
-            escapeMitigation.losses,
+            { ...escapeMitigation.losses, population: occupationPopulationLoss },
             activeTrap && trapResolution.trapType === "toxic" ? "toxic_trap" : "attack"
           ),
           `${command.id}:attacker`
         ),
         targetDistrict.ownerPlayerId,
-        createRecoveryEntriesFromLosses(combatResolution.defenderLosses, "defense"),
+        createRecoveryEntriesFromLosses({
+          ...combatResolution.defenderLosses,
+          population: defenderPopulationLoss
+        }, "defense"),
         `${command.id}:defender`
       ),
       attacker.id,
@@ -419,6 +500,9 @@ export const handleAttackDistrict = (
       grenadeDefenseIgnorePercent: calculateGrenadeDefenseIgnorePercent(grenadeCount),
       towerAttackReductionPercent: calculateTowerAttackReductionPercent(towerCount),
       bazookaTotalDestructionBonusPercent: calculateBazookaTotalDestructionBonusPercent(bazookaCount),
+      catastropheBaseChance: baseCatastropheChance,
+      bazookaCatastropheBonus,
+      catastropheFinalChance: catastropheChance,
       attackSucceeded,
       outcomeTier: combatResolution.outcomeTier,
       districtDestroyed,
@@ -429,6 +513,11 @@ export const handleAttackDistrict = (
       trapType: activeTrap ? trapResolution.trapType : null,
       attackerLosses: escapeMitigation.losses,
       defenderLosses: combatResolution.defenderLosses,
+      combatPopulationLoss: 0,
+      occupationPopulationLoss,
+      defenderPopulationLoss,
+      vestPopulationSaved,
+      survivingDefenseAbandoned: attackSucceeded || districtDestroyed,
       heatGained: escapeMitigation.heatGained,
       carDealerEscapeChanceBonusPct: escapeChanceBonusPct,
       airportEvacuationEscapeChanceBonusPct: airportEvacuation.escapeChanceBonusPct,
@@ -445,4 +534,30 @@ export const handleAttackDistrict = (
   const bountyResult = resolveBountyClaims(recoveryState, { actorPlayerId: attacker.id, targetPlayerId: targetDistrict.ownerPlayerId, targetDistrictId: targetDistrict.id, actionType: districtDestroyed ? "destroy-district" : "attack-district", successfulAttack: attackSucceeded || districtDestroyed, capturesDistrict: attackSucceeded, destroysDistrict: districtDestroyed, commandId: command.id });
   const boostResult = consumeTacticalGridCombat(bountyResult.nextState, tacticalGrid, command.id, context);
   return { nextState: boostResult.nextState, events: [...events, ...bountyResult.events, ...boostResult.events], errors: [] };
+};
+
+const applyPlayerPopulationLoss = (
+  resourceStatesById: CoreGameState["resourceStatesById"],
+  player: CoreGameState["playersById"][string],
+  loss: number,
+  tick: number
+): CoreGameState["resourceStatesById"] => {
+  if (!player || loss <= 0) return resourceStatesById;
+  const resourceState = resourceStatesById[player.resourceStateId];
+  if (!resourceState) return resourceStatesById;
+  return {
+    ...resourceStatesById,
+    [resourceState.id]: {
+      ...resourceState,
+      balances: {
+        ...resourceState.balances,
+        population: Math.max(
+          0,
+          Number(resourceState.balances.population ?? player.population ?? 0) - loss
+        )
+      },
+      lastUpdatedTick: tick,
+      version: resourceState.version + 1
+    }
+  };
 };

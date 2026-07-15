@@ -40,7 +40,7 @@ export const createDistrictPanelView = (
     ? state.resourceStatesById[player.resourceStateId]?.balances ?? {}
     : {};
   const issuedAt = input.issuedAt ?? new Date().toISOString();
-  const attackTargets = createDistrictAttackTargetViews(state, input.playerId, district.id, issuedAt);
+  const attackTargets = createDistrictAttackTargetViews(state, input.playerId, district.id, issuedAt, input.config);
   const occupyTargets = createDistrictOccupyTargetViews(state, input.playerId, district.id, input.conflictConfig, issuedAt);
   const spyTargets = createDistrictSpyTargetViews(state, input.playerId, district.id, issuedAt);
   const robTargets = createDistrictRobTargetViews(state, input.playerId, district.id, input.conflictConfig, issuedAt);

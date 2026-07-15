@@ -84,6 +84,13 @@ export const validateAttack = (
       message: "Pro útok musíš vybrat alespoň jednu útočnou zbraň."
     }];
   }
+
+  const sourceDistrict = command.payload.sourceDistrictId
+    ? state.districtsById[command.payload.sourceDistrictId]
+    : null;
+  if (sourceDistrict && (sourceDistrict.stabilizingUntilTick ?? 0) > state.root.tick) {
+    return [{ code: "SOURCE_DISTRICT_STABILIZING", message: "Stabilizující district nelze použít jako zdroj útoku." }];
+  }
   if (calculateTotalAttackPower(selection.loadout, attackWeapons) <= 0) {
     return [
       {
@@ -106,8 +113,15 @@ export const validateAttack = (
   }
 
   const attackCooldownKey = `attack:${targetDistrict.id}`;
+  const globalAttackCooldownKey = "attack:global";
+  const sourceAttackCooldownKey = command.payload.sourceDistrictId
+    ? `attack:source:${command.payload.sourceDistrictId}`
+    : null;
+  const cooldowns = state.cooldownStatesById[attacker.cooldownStateId]?.cooldowns ?? {};
   const activeAttackCooldownTick =
-    state.cooldownStatesById[attacker.cooldownStateId]?.cooldowns?.[attackCooldownKey];
+    cooldowns[globalAttackCooldownKey] ??
+    (sourceAttackCooldownKey ? cooldowns[sourceAttackCooldownKey] : undefined) ??
+    cooldowns[attackCooldownKey];
 
   if (typeof activeAttackCooldownTick === "number" && activeAttackCooldownTick > state.root.tick) {
     return [
@@ -116,6 +130,13 @@ export const validateAttack = (
         message: `Útočná trasa do ${targetDistrict.name} čeká ještě ${activeAttackCooldownTick - state.root.tick} ticků.`
       }
     ];
+  }
+
+  if (typeof targetDistrict.attackProtectedUntilTick === "number" && targetDistrict.attackProtectedUntilTick > state.root.tick) {
+    return [{
+      code: "attack_target_protected",
+      message: `District ${targetDistrict.name} je chráněný ještě ${targetDistrict.attackProtectedUntilTick - state.root.tick} ticků.`
+    }];
   }
 
   return [];
@@ -152,7 +173,17 @@ export const resolveAttackWeaponLoadout = (
   error: CoreError | null;
 } => {
   const inventory = getAttackWeaponInventory(state, player);
-  const normalized = normalizeAttackWeaponLoadout(command.payload.weapons ?? inventory);
+  if (!command.payload.weapons) {
+    return {
+      loadout: {},
+      inventory,
+      error: {
+        code: "attack_loadout_required",
+        message: "Útok vyžaduje přesně vybranou výzbroj."
+      }
+    };
+  }
+  const normalized = normalizeAttackWeaponLoadout(command.payload.weapons);
   if (normalized.errorCode) {
     return {
       loadout: {},

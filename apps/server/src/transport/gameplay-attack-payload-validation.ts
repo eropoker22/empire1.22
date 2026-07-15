@@ -5,6 +5,7 @@ export const validateAttackWeaponsPayload = (
   payload: Record<string, unknown>
 ): void => {
   if (payload.weapons === undefined) {
+    errors.push(createInvalidFieldError("command.payload.weapons", "Výzbroj je pro útok povinná."));
     return;
   }
   if (!isRecord(payload.weapons)) {

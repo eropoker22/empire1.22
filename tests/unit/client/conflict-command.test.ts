@@ -135,14 +135,16 @@ describe("conflict command factories", () => {
       commandId: "command:attack:district:2",
       slice,
       targetDistrictId: "district:2",
-      issuedAt: new Date(0).toISOString()
+      issuedAt: new Date(0).toISOString(),
+      weapons: { pistol: 2 }
     });
 
     expect(command.type).toBe("attack-district");
     expect(command.serverInstanceId).toBe("instance:1");
     expect(command.payload).toEqual({
       districtId: "district:2",
-      sourceDistrictId: "district:1"
+      sourceDistrictId: "district:1",
+      weapons: { pistol: 2 }
     });
   });
 
@@ -151,14 +153,16 @@ describe("conflict command factories", () => {
       commandId: "command:attack:district:2",
       slice: createGameplaySliceFixture({ attackEnabled: false }),
       targetDistrictId: "district:2",
-      issuedAt: new Date(0).toISOString()
+      issuedAt: new Date(0).toISOString(),
+      weapons: { pistol: 2 }
     });
 
     expect(command.type).toBe("attack-district");
     expect(command.serverInstanceId).toBe("instance:1");
     expect(command.payload).toEqual({
       districtId: "district:2",
-      sourceDistrictId: "district:1"
+      sourceDistrictId: "district:1",
+      weapons: { pistol: 2 }
     });
   });
 

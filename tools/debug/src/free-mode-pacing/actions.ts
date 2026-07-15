@@ -128,7 +128,10 @@ const attackBestRoute = (
     playerId,
     serverInstanceId: state.serverInstance.id,
     issuedAt: new Date(tick * context.config.tickRateMs).toISOString(),
-    payload: route,
+    payload: {
+      ...route,
+      weapons: { ...(state.playersById[playerId]?.attackLoadout ?? {}) }
+    },
     clientRequestId: null
   } satisfies AttackDistrictCommand, context);
 

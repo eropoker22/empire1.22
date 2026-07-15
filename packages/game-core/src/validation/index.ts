@@ -7,6 +7,7 @@ export * from "./validateCraft";
 export * from "./validateDefense";
 export * from "./validateHeist";
 export * from "./validatePlaceTrap";
+export * from "./validateRelocateTrap";
 export * from "./validateRob";
 export * from "./validateRunBuildingAction";
 export * from "./validateSpy";

@@ -4,7 +4,13 @@ import type { GameCoreContext } from "../engine/context";
 import type { CoreEvent } from "../events";
 import type { CoreError } from "../errors";
 import { CORE_EVENT_TYPES, createEvent, createNotification } from "../events";
-import { createOccupyCooldownKey, resolveOccupyBalance, resolveOccupyPopulationCost } from "../rules";
+import {
+  createOccupyGlobalCooldownKey,
+  createOccupySourceCooldownKey,
+  resolveOccupyBalance,
+  resolveOccupyInfluenceCost,
+  resolveOccupyPopulationCost
+} from "../rules";
 import {
   applyFactionCooldownTicks,
   applyFactionMultiplier,
@@ -16,8 +22,10 @@ import { resolveBountyClaims } from "./bountyCommands";
 import { applyCarDealerCooldownReductionTicks } from "./carDealerBuildingActions";
 import { resolveCityHallNightPatrolPressure } from "./cityHallBuildingActions";
 import { increasePlayerPoliceHeat } from "./playerPoliceState";
+import { appendRecoveryPoolEntries, createRecoveryEntriesFromLosses } from "./clinicBuildingActions";
 import { composeEntityId } from "../utils";
 import { deterministicUnitInterval } from "../utils/math";
+import { bumpDistrictSecurityRevision } from "../state";
 
 /**
  * Responsibility: Claims one neutral district after successful spy intel.
@@ -43,7 +51,8 @@ export const handleOccupyDistrict = (
   const sourceDistrict = state.districtsById[command.payload.sourceDistrictId ?? ""]!;
   const targetDistrict = state.districtsById[command.payload.districtId];
   const balance = resolveOccupyBalance(context.config.balance.conflict);
-  const populationCost = resolveOccupyPopulationCost(state, player.id);
+  const populationCost = resolveOccupyPopulationCost(state, player.id, context.config.balance.conflict);
+  const influenceCost = resolveOccupyInfluenceCost(state, player.id, context.config.balance.conflict);
   const factionModifiers = getFactionPassiveModifiers(state, player.id, context);
   const cityHallNightPatrol = resolveCityHallNightPatrolPressure({
     state,
@@ -68,7 +77,8 @@ export const handleOccupyDistrict = (
   );
   const heatGain = Math.ceil(resolveOccupyHeatGain(balance.heatGain, factionModifiers.aggressiveActionHeatGainMultiplier) * cityHallNightPatrol.heatMultiplier);
   const cooldownState = state.cooldownStatesById[player.cooldownStateId] ?? createPlayerCooldownState(player.id, player.cooldownStateId);
-  const occupyCooldownKey = createOccupyCooldownKey(targetDistrict.id);
+  const globalOccupyCooldownKey = createOccupyGlobalCooldownKey();
+  const sourceOccupyCooldownKey = createOccupySourceCooldownKey(sourceDistrict.id);
   const nextPoliceState = increasePlayerPoliceHeat(state, player, heatGain, state.root.tick);
   const occupyRoll = deterministicUnitInterval(
     `${state.serverInstance.worldSeed}:occupy:${command.id}:${player.id}:${targetDistrict.id}:${state.root.tick}`
@@ -109,7 +119,7 @@ export const handleOccupyDistrict = (
     targetDistrictId: targetDistrict.id,
     result,
     heatGained: heatGain,
-    influenceCost: balance.influenceCost,
+    influenceCost,
     populationCost,
     populationLost,
     populationRefunded,
@@ -138,22 +148,26 @@ export const handleOccupyDistrict = (
       ...state.districtsById,
       [sourceDistrict.id]: {
         ...sourceDistrict,
-        influence: Math.max(0, Number(sourceDistrict.influence || 0) - balance.influenceCost),
+        influence: Math.max(0, Number(sourceDistrict.influence || 0) - influenceCost),
         version: sourceDistrict.version + 1
       },
-      [targetDistrict.id]: {
+      [targetDistrict.id]: bumpDistrictSecurityRevision({
         ...targetDistrict,
         ...(occupySucceeded
           ? {
               ownerPlayerId: player.id,
               controllerAllianceId: player.allianceId,
-              status: "claimed"
+              status: "claimed",
+              stabilizingUntilTick: state.root.tick + Math.max(
+                0,
+                Number(context.config.balance.conflict?.captureStabilization?.durationTicks ?? 0)
+              )
             }
           : {}),
         heat: Math.max(0, Number(targetDistrict.heat || 0) + heatGain),
         lastHeatDecayTick: state.root.tick,
         version: targetDistrict.version + 1
-      }
+      })
     },
     buildingsById: nextBuildingsById,
     resourceStatesById: {
@@ -166,7 +180,8 @@ export const handleOccupyDistrict = (
         ...cooldownState,
         cooldowns: {
           ...cooldownState.cooldowns,
-          [occupyCooldownKey]: state.root.tick + cooldownTicks
+          [globalOccupyCooldownKey]: state.root.tick + cooldownTicks,
+          [sourceOccupyCooldownKey]: state.root.tick + cooldownTicks
         },
         version: cooldownState.version + (state.cooldownStatesById[cooldownState.id] ? 1 : 0)
       }
@@ -185,6 +200,12 @@ export const handleOccupyDistrict = (
       version: state.root.version + 1
     }
   };
+  const nextStateWithRecovery = appendRecoveryPoolEntries(
+    nextStateAfterAttempt,
+    player.id,
+    createRecoveryEntriesFromLosses({ population: populationLost }, "occupy"),
+    `${command.id}:occupy`
+  );
   const occupyEventPayload = {
     attackerPlayerId: player.id,
     districtId: targetDistrict.id,
@@ -194,7 +215,7 @@ export const handleOccupyDistrict = (
     result,
     districtCaptured: occupySucceeded,
     heatGained: heatGain,
-    influenceCost: balance.influenceCost,
+    influenceCost,
     populationCost,
     populationLost,
     populationRefunded,
@@ -215,13 +236,13 @@ export const handleOccupyDistrict = (
 
   if (!occupySucceeded) {
     return {
-      nextState: nextStateAfterAttempt,
+      nextState: nextStateWithRecovery,
       events: captureEvents,
       errors: []
     };
   }
 
-  const bountyResult = resolveBountyClaims(nextStateAfterAttempt, {
+  const bountyResult = resolveBountyClaims(nextStateWithRecovery, {
     actorPlayerId: player.id,
     targetPlayerId: targetDistrict.ownerPlayerId,
     targetDistrictId: targetDistrict.id,
@@ -283,11 +304,11 @@ const createOccupyReportNotification = (input: {
       successChancePct: input.successChancePct,
       cooldownTicks: input.cooldownTicks,
       tick: input.tick,
-      createdAt: new Date(0).toISOString(),
+      createdAt: input.command.issuedAt,
       eventId: input.eventId,
       streetNewsTemplateId: input.streetNewsTemplateId
     },
-    createdAt: new Date(0).toISOString(),
+    createdAt: input.command.issuedAt,
     readAt: null
   });
 

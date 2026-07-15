@@ -1884,7 +1884,8 @@ const planSpyFollowUpAttack = (
   for (const candidate of candidates) {
     const command = createBaseCommand<AttackDistrictCommand>(player, "attack-district", commandId(player, "follow-up-attack", step), {
       districtId: candidate.opportunity.targetDistrictId,
-      sourceDistrictId: candidate.opportunity.sourceDistrictId
+      sourceDistrictId: candidate.opportunity.sourceDistrictId,
+      weapons: { "baseball-bat": 1 }
     }, state.clock);
     const planned: PlannedCommand = {
       command,
@@ -2286,7 +2287,8 @@ const maybeSubmitFollowUpAttackAfterSpy = async (
   const followUpPlan: PlannedCommand = {
     command: createBaseCommand<AttackDistrictCommand>(player, "attack-district", attackCommandId, {
       districtId: spyPayload.districtId,
-      sourceDistrictId: spyPayload.sourceDistrictId
+      sourceDistrictId: spyPayload.sourceDistrictId,
+      weapons: { "baseball-bat": 1 }
     }, state.clock),
     focusDistrictId: spyPayload.sourceDistrictId,
     actionKind: "attack",

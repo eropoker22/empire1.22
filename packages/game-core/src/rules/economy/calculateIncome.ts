@@ -1,5 +1,5 @@
 import type { CoreGameState } from "../../entities";
-import type { BuildingActionEffectModifiers, FixedBuildingBalanceConfig } from "../../contracts";
+import type { BuildingActionEffectModifiers, ConflictBalanceConfig, FixedBuildingBalanceConfig } from "../../contracts";
 import type { GameCoreContext } from "../../engine/context";
 import {
   getFactionPassiveModifiers,
@@ -52,13 +52,18 @@ export const calculateIncomeByPlayerId = (
     }
 
     for (const [resourceKey, rawAmount] of Object.entries(district.resourceModifiers)) {
+      const stabilizationMultiplier = resolveDistrictStabilizationMultiplier(
+        district,
+        state.root.tick,
+        context?.config.balance.conflict
+      );
       const factionMultiplier = context
         ? resolveFactionIncomeMultiplier(resourceKey, getFactionPassiveModifiers(state, district.ownerPlayerId, context))
         : 1;
       const penaltyMultiplier = context
         ? resolveActiveAlliancePenaltyStatModifiers(state, district.ownerPlayerId, nowIsoFromContext(context)).incomeMultiplier
         : 1;
-      addIncome(incomeByPlayerId, district.ownerPlayerId, resourceKey, Number(rawAmount || 0) * factionMultiplier * penaltyMultiplier);
+      addIncome(incomeByPlayerId, district.ownerPlayerId, resourceKey, Number(rawAmount || 0) * factionMultiplier * penaltyMultiplier * stabilizationMultiplier);
     }
 
     if (!context) {
@@ -153,6 +158,11 @@ const calculateFixedBuildingIncomeForDistrict = (
   const factionModifiers = getFactionPassiveModifiers(state, district.ownerPlayerId, context);
   const penaltyMultiplier = resolveActiveAlliancePenaltyStatModifiers(state, district.ownerPlayerId, nowIsoFromContext(context)).incomeMultiplier;
   const incomeMultiplier = Math.max(0, Number(context.config.balance.incomeMultiplier || 0)) * modifiers.incomeMultiplier * penaltyMultiplier;
+  const stabilizationMultiplier = resolveDistrictStabilizationMultiplier(
+    district,
+    state.root.tick,
+    context.config.balance.conflict
+  );
   const cleanFactionMultiplier = resolveFactionIncomeMultiplier("cash", factionModifiers);
   const dirtyFactionMultiplier = resolveFactionIncomeMultiplier("dirty-cash", factionModifiers);
 
@@ -166,8 +176,8 @@ const calculateFixedBuildingIncomeForDistrict = (
         config
       });
       return {
-        cash: totals.cash + resolvePerTick(resolvedConfig.cleanPerHour, ticksPerHour) * incomeMultiplier * modifiers.cleanIncomeMultiplier * cleanFactionMultiplier,
-        dirtyCash: totals.dirtyCash + resolvePerTick(resolvedConfig.dirtyPerHour, ticksPerHour) * incomeMultiplier * modifiers.dirtyIncomeMultiplier * dirtyFactionMultiplier
+        cash: totals.cash + resolvePerTick(resolvedConfig.cleanPerHour, ticksPerHour) * incomeMultiplier * modifiers.cleanIncomeMultiplier * cleanFactionMultiplier * stabilizationMultiplier,
+        dirtyCash: totals.dirtyCash + resolvePerTick(resolvedConfig.dirtyPerHour, ticksPerHour) * incomeMultiplier * modifiers.dirtyIncomeMultiplier * dirtyFactionMultiplier * stabilizationMultiplier
       };
     },
     { cash: 0, dirtyCash: 0 }
@@ -260,3 +270,12 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const nowIsoFromContext = (context: GameCoreContext): string =>
   context.clock?.nowIso?.() ?? context.clock?.now?.().toISOString() ?? new Date().toISOString();
+
+export const resolveDistrictStabilizationMultiplier = (
+  district: CoreGameState["districtsById"][string],
+  tick: number,
+  config?: ConflictBalanceConfig
+): number =>
+  typeof district.stabilizingUntilTick === "number" && district.stabilizingUntilTick > tick
+    ? Math.max(0, Number(config?.captureStabilization?.incomeMultiplier ?? 0.5))
+    : 1;

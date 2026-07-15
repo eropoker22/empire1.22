@@ -16,6 +16,7 @@ import type { OccupyDistrictCommand } from "./occupy-district-command";
 import type { PlaceDefenseCommand } from "./place-defense-command";
 import type { PlaceTrapCommand } from "./place-trap-command";
 import type { RemoveDefenseCommand } from "./remove-defense-command";
+import type { RelocateTrapCommand } from "./relocate-trap-command";
 import type { RobDistrictCommand } from "./rob-district-command";
 import type { RunBuildingActionCommand } from "./run-building-action-command";
 import type { SelectSpawnDistrictCommand } from "./select-spawn-district-command";
@@ -46,6 +47,7 @@ export type GameCommand =
   | PlaceDefenseCommand
   | PlaceTrapCommand
   | RemoveDefenseCommand
+  | RelocateTrapCommand
   | RobDistrictCommand
   | RunBuildingActionCommand
   | SelectSpawnDistrictCommand

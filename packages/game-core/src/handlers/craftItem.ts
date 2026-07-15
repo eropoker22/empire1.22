@@ -4,7 +4,7 @@ import type { CoreEvent } from "../events";
 import type { CoreError } from "../errors";
 import { createEvent, CORE_EVENT_TYPES } from "../events";
 import type { GameCoreContext } from "../engine/context";
-import { resolveCraftProcessingDurationTicks } from "../rules/production/productionRules";
+import { applyDistrictStabilizationToProductionDuration, resolveCraftProcessingDurationTicks } from "../rules/production/productionRules";
 import { validateCraft } from "../validation";
 import { applyGarageCooldownReductionTicks } from "./garageBuildingActions";
 import { resolvePowerStationInfrastructureMultiplier } from "./powerStationBuildingActions";
@@ -117,7 +117,7 @@ const resolveCraftDurationTicks = (input: {
     : input.building.buildingTypeId === "factory"
       ? "factoryProductionActions"
       : null;
-  return garageCategory
+  const adjustedDurationTicks = garageCategory
     ? applyGarageCooldownReductionTicks({
         baseTicks: baseDurationTicks,
         state: input.state,
@@ -126,6 +126,12 @@ const resolveCraftDurationTicks = (input: {
         category: garageCategory
       })
     : baseDurationTicks;
+  return applyDistrictStabilizationToProductionDuration(
+    adjustedDurationTicks,
+    input.state,
+    input.building,
+    input.context
+  );
 };
 
 const createPlayerResourceState = (

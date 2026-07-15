@@ -85,6 +85,14 @@ export const validateHeist = (
     }];
   }
 
+  const sourceDistrict = state.districtsById[originDistrictId];
+  if (sourceDistrict && (sourceDistrict.stabilizingUntilTick ?? 0) > state.root.tick) {
+    return [{
+      code: "SOURCE_DISTRICT_STABILIZING",
+      message: "Stabilizující district nelze použít jako zdroj heistu."
+    }];
+  }
+
   const targetDistrict = state.districtsById[command.payload.targetDistrictId];
   if ((targetDistrict.heistProtectedUntilTick ?? 0) > state.root.tick) {
     return [{

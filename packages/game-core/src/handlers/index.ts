@@ -39,6 +39,7 @@ export * from "./productionLineShared";
 export * from "./productionLineCosts";
 export * from "./occupyDistrict";
 export * from "./placeTrap";
+export * from "./relocateTrap";
 export * from "./playerPoliceState";
 export * from "./playerBoostConfig";
 export * from "./restaurantBuildingActions";

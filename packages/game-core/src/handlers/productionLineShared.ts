@@ -2,7 +2,7 @@ import type { Building, BuildingProductionLine, ResourceState } from "@empire/sh
 import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import { resolveProductionBuildingLevelMultiplier } from "../rules/buildings/buildingUpgradeRules";
-import { resolveCraftProcessingDurationTicks } from "../rules/production/productionRules";
+import { applyDistrictStabilizationToProductionDuration, resolveCraftProcessingDurationTicks } from "../rules/production/productionRules";
 import { composeEntityId } from "../utils";
 import { getPlayerProductionBoostMultiplier } from "../rules/player-boosts";
 
@@ -57,13 +57,13 @@ export const resolveProductionLineDurationTicks = (
   const playerId = building.ownerPlayerId === "player:neutral"
     ? state.districtsById[building.districtId]?.ownerPlayerId
     : building.ownerPlayerId;
-  return Math.max(1, Math.ceil(
+  return applyDistrictStabilizationToProductionDuration(Math.max(1, Math.ceil(
     resolveCraftProcessingDurationTicks(
       recipe.durationTicksPerUnit,
       context.config.balance.cooldownMultiplier
     ) / resolveProductionBuildingLevelMultiplier(building, context)
       / getPlayerProductionBoostMultiplier(state, playerId ?? "", state.root.tick)
-  ));
+  )), state, building, context);
 };
 
 export const startProductionLine = <T extends BuildingProductionLine>(

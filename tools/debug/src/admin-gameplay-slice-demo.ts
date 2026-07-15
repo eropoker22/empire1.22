@@ -144,7 +144,8 @@ export const createAdminGameplaySliceDemo = (): AdminGameplaySliceDemo => {
           commandId: nextCommandId("command:attack"),
           slice,
           targetDistrictId,
-          issuedAt: new Date().toISOString()
+          issuedAt: new Date().toISOString(),
+          weapons: {}
         })
       );
     },

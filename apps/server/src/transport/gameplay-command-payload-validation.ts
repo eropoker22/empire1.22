@@ -79,6 +79,22 @@ export const validateGameCommandPayload = (
       rejectUnknownPayloadFields(errors, payload, ["districtId"]);
       requireStringField(errors, "submit", payload, "districtId", "command.payload.districtId");
       break;
+    case "relocate-trap":
+      rejectUnknownPayloadFields(errors, payload, [
+        "trapId",
+        "sourceDistrictId",
+        "targetDistrictId",
+        "expectedSourceVersion",
+        "expectedTargetVersion",
+        "expectedTrapVersion"
+      ]);
+      requireStringField(errors, "submit", payload, "trapId", "command.payload.trapId");
+      requireStringField(errors, "submit", payload, "sourceDistrictId", "command.payload.sourceDistrictId");
+      requireStringField(errors, "submit", payload, "targetDistrictId", "command.payload.targetDistrictId");
+      for (const field of ["expectedSourceVersion", "expectedTargetVersion", "expectedTrapVersion"]) {
+        requireNonNegativeIntegerField(errors, payload, field, `command.payload.${field}`);
+      }
+      break;
     case "select-spawn-district":
       rejectUnknownPayloadFields(errors, payload, ["districtId"]);
       requireStringField(errors, "submit", payload, "districtId", "command.payload.districtId");
@@ -140,7 +156,7 @@ const validateBuildingPayload = (errors: DomainError[], payload: Record<string, 
 };
 
 const hasPayloadSchema = (type: string): boolean =>
-  ["activate-player-boost", "start-city-event", "claim-city-event-reward", "attack-district", "acknowledge-pending-raid", "build-structure", "occupy-district", "spy-district", "place-trap", "select-spawn-district", "collect-production", "craft-item", "cancel-pharmacy-production", "cancel-drug-lab-production", "cancel-production-line", "run-building-action", "upgrade-building"].includes(type)
+  ["activate-player-boost", "start-city-event", "claim-city-event-reward", "attack-district", "acknowledge-pending-raid", "build-structure", "occupy-district", "spy-district", "place-trap", "relocate-trap", "select-spawn-district", "collect-production", "craft-item", "cancel-pharmacy-production", "cancel-drug-lab-production", "cancel-production-line", "run-building-action", "upgrade-building"].includes(type)
   || isBasicActionCommandType(type) || isAllianceCommandType(type) || isMarketCommandType(type) || isBountyCommandType(type);
 
 const validateRunBuildingActionOptionalPayload = (
@@ -232,6 +248,17 @@ const requireOptionalPositiveIntegerField = (
     return;
   }
   errors.push(createInvalidFieldError(errorFieldPath, "Pole payloadu musí být kladné celé číslo."));
+};
+
+const requireNonNegativeIntegerField = (
+  errors: DomainError[],
+  value: Record<string, unknown>,
+  fieldPath: string,
+  errorFieldPath = fieldPath
+): void => {
+  const fieldValue = getFieldPath(value, fieldPath);
+  if (typeof fieldValue === "number" && Number.isInteger(fieldValue) && fieldValue >= 0) return;
+  errors.push(createInvalidFieldError(errorFieldPath, "Pole payloadu musí být nezáporné celé číslo."));
 };
 
 const createMissingFieldError = (

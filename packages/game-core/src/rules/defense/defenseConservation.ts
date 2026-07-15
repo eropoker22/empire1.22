@@ -202,6 +202,39 @@ export const applyDefenseCombatLosses = (
   };
 };
 
+export const consumeCapturedDistrictDefense = (
+  state: CoreGameState,
+  input: { districtId: string; snapshotId: string }
+): CoreGameState => {
+  const district = state.districtsById[input.districtId];
+  if (!district) return state;
+
+  const contributions = { ...(state.allianceDefenseContributionsById ?? {}) };
+  for (const contribution of listDeployedDefenseContributions(state, district.id)) {
+    contributions[contribution.id] = {
+      ...contribution,
+      lostAmount: contribution.lostAmount + contribution.remainingAmount,
+      remainingAmount: 0,
+      status: "consumed",
+      combatSnapshotId: input.snapshotId,
+      version: contribution.version + 1
+    };
+  }
+
+  return {
+    ...state,
+    districtsById: {
+      ...state.districtsById,
+      [district.id]: bumpDistrictSecurityRevision({
+        ...district,
+        defenseLoadout: {},
+        version: district.version + 1
+      })
+    },
+    allianceDefenseContributionsById: contributions
+  };
+};
+
 const allocateProportionalLoss = (
   loss: number,
   buckets: Array<{ id: string; amount: number }>

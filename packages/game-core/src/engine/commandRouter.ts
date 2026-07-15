@@ -25,6 +25,7 @@ import {
   handleOccupyDistrict,
   handlePlaceDefense,
   handlePlaceTrap,
+  handleRelocateTrap,
   handleRemoveDefense,
   handleRobDistrict,
   handleSelectSpawnDistrict,
@@ -152,6 +153,8 @@ export const routeCommand = (
       return handlePlaceDefense(state, command, context);
     case "place-trap":
       return handlePlaceTrap(state, command, context);
+    case "relocate-trap":
+      return handleRelocateTrap(state, command, context);
     case "remove-defense":
       return handleRemoveDefense(state, command, context);
     case "rob-district":

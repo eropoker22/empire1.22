@@ -262,7 +262,8 @@ describe("gameplay slice read model contract", () => {
         playerId: "player:1",
         payload: {
           districtId: "district:2",
-          sourceDistrictId: "district:1"
+          sourceDistrictId: "district:1",
+          weapons: { "baseball-bat": 1 }
         }
       })
     });

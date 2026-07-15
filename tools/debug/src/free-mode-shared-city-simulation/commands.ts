@@ -90,7 +90,7 @@ export const createAttackCommand = (
   playerId,
   serverInstanceId,
   issuedAt: new Date(0).toISOString(),
-  payload: { districtId: targetDistrictId, sourceDistrictId },
+  payload: { districtId: targetDistrictId, sourceDistrictId, weapons: { "baseball-bat": 1 } },
   clientRequestId: null
 });
 

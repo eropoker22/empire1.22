@@ -79,7 +79,7 @@ describe("production conflict gameplay slice", () => {
     expect(attackerSlice.district?.attackTargets).toContainEqual(expect.objectContaining({
       districtId: targetDistrictId,
       ownerPlayerId: defenderId,
-      enabled: true
+      enabled: false
     }));
     expect(attackerSlice.district?.occupyTargets.some((target) => target.districtId === targetDistrictId)).toBe(false);
 
@@ -125,7 +125,8 @@ describe("production conflict gameplay slice", () => {
         commandId: "command:attack:district:2",
         slice: attackerClient.getGameplaySlice() as GameplaySliceView,
         targetDistrictId,
-        issuedAt: new Date(0).toISOString()
+        issuedAt: new Date(0).toISOString(),
+        weapons: { "baseball-bat": 1, pistol: 1, grenade: 1, smg: 1, bazooka: 1 }
       })
     );
 
@@ -198,7 +199,8 @@ describe("production conflict gameplay slice", () => {
         commandId: "command:attack:capture:district:2",
         slice: attackerClient.getGameplaySlice() as GameplaySliceView,
         targetDistrictId,
-        issuedAt: new Date(0).toISOString()
+        issuedAt: new Date(0).toISOString(),
+        weapons: { "baseball-bat": 1, pistol: 1, grenade: 1, smg: 1, bazooka: 1 }
       })
     );
 
@@ -361,7 +363,8 @@ describe("production conflict gameplay slice", () => {
         commandId: "command:attack:catastrophe:district:2",
         slice: attackerClient.getGameplaySlice() as GameplaySliceView,
         targetDistrictId,
-        issuedAt: new Date(0).toISOString()
+        issuedAt: new Date(0).toISOString(),
+        weapons: { "baseball-bat": 1, pistol: 1, grenade: 1, smg: 1, bazooka: 1 }
       })
     );
 

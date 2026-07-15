@@ -36,6 +36,12 @@ export const validatePlaceDefense = (
     }];
   }
   const isAlliedPlacement = district.ownerPlayerId !== command.playerId;
+  if (isAlliedPlacement && (district.stabilizingUntilTick ?? 0) > state.root.tick) {
+    return [{
+      code: "DISTRICT_STABILIZING",
+      message: "Do stabilizujícího districtu nelze vložit alianční obranu."
+    }];
+  }
   const supportBlocked = isAlliedPlacement && Object.values(state.allianceExitPenaltiesById ?? {}).some(
     (penalty) =>
       penalty.playerId === command.playerId

@@ -46,6 +46,8 @@ export interface District {
   resourceModifiers: Record<string, number>;
   neutralLootPool?: NeutralDistrictLootPool | null;
   heistProtectedUntilTick?: number | null;
+  attackProtectedUntilTick?: number | null;
+  stabilizingUntilTick?: number | null;
   securityRevision: number;
   version: number;
 }

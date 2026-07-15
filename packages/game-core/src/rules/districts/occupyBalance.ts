@@ -28,16 +28,38 @@ export const resolveOccupyBalance = (
 });
 
 export const createOccupyCooldownKey = (districtId: string): string => `occupy:${districtId}`;
+export const createOccupyGlobalCooldownKey = (): string => "occupy:global";
+export const createOccupySourceCooldownKey = (districtId: string): string => `occupy:source:${districtId}`;
 
-export const resolveOccupyPopulationCost = (
-  state: CoreGameState,
-  playerId: string
-): number => {
-  const ownedDistrictCount = Object.values(state.districtsById).filter(
+const countActiveOwnedDistricts = (state: CoreGameState, playerId: string): number =>
+  Object.values(state.districtsById).filter(
     (district) => district.ownerPlayerId === playerId && district.status !== "destroyed"
   ).length;
 
-  if (ownedDistrictCount <= 1) return 50;
-  if (ownedDistrictCount === 2) return 250;
-  return 550;
+export const resolveOccupyInfluenceCost = (
+  state: CoreGameState,
+  playerId: string,
+  config?: ConflictBalanceConfig
+): number => {
+  const nextOwnedDistrictCount = countActiveOwnedDistricts(state, playerId) + 1;
+  const overextension = config?.occupyOverextension;
+  if (nextOwnedDistrictCount <= 2) {
+    return Math.max(0, Number(config?.occupyInfluenceCost ?? DEFAULT_OCCUPY_BALANCE.influenceCost));
+  }
+  if (nextOwnedDistrictCount === 3) return Math.max(0, Number(overextension?.thirdDistrictInfluenceCost ?? 550));
+  const fourthCost = Math.max(0, Number(overextension?.fourthDistrictInfluenceCost ?? 1050));
+  return fourthCost + Math.max(0, nextOwnedDistrictCount - 4)
+    * Math.max(0, Number(overextension?.additionalDistrictInfluenceCost ?? 250));
+};
+
+export const resolveOccupyPopulationCost = (
+  state: CoreGameState,
+  playerId: string,
+  config?: ConflictBalanceConfig
+): number => {
+  const nextOwnedDistrictCount = countActiveOwnedDistricts(state, playerId) + 1;
+  const base = Math.max(0, Math.floor(Number(config?.occupyOverextension?.basePopulationCost ?? 50)));
+  if (nextOwnedDistrictCount <= 3) return base;
+  return base + Math.ceil((nextOwnedDistrictCount - 3) / 2)
+    * Math.max(0, Math.floor(Number(config?.occupyOverextension?.additionalPopulationPerTwoDistricts ?? 1)));
 };

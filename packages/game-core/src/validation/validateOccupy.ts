@@ -4,8 +4,11 @@ import type { CoreGameState } from "../entities";
 import type { CoreError } from "../errors";
 import {
   createOccupyCooldownKey,
+  createOccupyGlobalCooldownKey,
+  createOccupySourceCooldownKey,
   detectAlliedEncirclementAfterOccupy,
   resolveOccupyBalance,
+  resolveOccupyInfluenceCost,
   resolveOccupyPopulationCost,
   validateMapAction
 } from "../rules";
@@ -65,13 +68,19 @@ export const validateOccupy = (
   }
 
   const balance = resolveOccupyBalance(conflictConfig);
-  const populationCost = resolveOccupyPopulationCost(state, player.id);
+  const populationCost = resolveOccupyPopulationCost(state, player.id, conflictConfig);
+  const influenceCost = resolveOccupyInfluenceCost(state, player.id, conflictConfig);
   const sourceDistrict = mapValidation.originDistrictId
     ? state.districtsById[mapValidation.originDistrictId]
     : null;
   const occupyCooldownKey = createOccupyCooldownKey(targetDistrict.id);
+  const globalCooldownKey = createOccupyGlobalCooldownKey();
+  const sourceCooldownKey = sourceDistrict ? createOccupySourceCooldownKey(sourceDistrict.id) : null;
+  const cooldowns = state.cooldownStatesById[player.cooldownStateId]?.cooldowns ?? {};
   const activeOccupyCooldownTick =
-    state.cooldownStatesById[player.cooldownStateId]?.cooldowns?.[occupyCooldownKey];
+    cooldowns[globalCooldownKey] ??
+    (sourceCooldownKey ? cooldowns[sourceCooldownKey] : undefined) ??
+    cooldowns[occupyCooldownKey];
 
   if (typeof activeOccupyCooldownTick === "number" && activeOccupyCooldownTick > state.root.tick) {
     return [
@@ -91,11 +100,18 @@ export const validateOccupy = (
     ];
   }
 
-  if (Math.max(0, Number(sourceDistrict.influence || 0)) < balance.influenceCost) {
+  if ((sourceDistrict.stabilizingUntilTick ?? 0) > state.root.tick) {
+    return [{
+      code: "SOURCE_DISTRICT_STABILIZING",
+      message: "Stabilizující district nelze použít jako zdroj obsazení."
+    }];
+  }
+
+  if (Math.max(0, Number(sourceDistrict.influence || 0)) < influenceCost) {
     return [
       {
         code: "occupy_not_enough_influence",
-        message: `Obsazení vyžaduje ${balance.influenceCost} vlivu ve zdrojovém districtu.`
+        message: `Obsazení vyžaduje ${influenceCost} vlivu ve zdrojovém districtu.`
       }
     ];
   }

@@ -44,7 +44,8 @@ export const createAttackDistrictCommandFixture = (
   issuedAt: new Date(0).toISOString(),
   payload: {
     districtId: "district:2",
-    sourceDistrictId: "district:1"
+    sourceDistrictId: "district:1",
+    weapons: { "baseball-bat": 1, pistol: 1, grenade: 1, smg: 1, bazooka: 1 }
   },
   clientRequestId: null,
   ...overrides

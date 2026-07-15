@@ -10,6 +10,7 @@ import type { CoreError } from "../errors";
 import { CORE_EVENT_TYPES, createEvent } from "../events";
 import { composeEntityId } from "../utils";
 import { validatePlaceTrap } from "../validation";
+import { bumpDistrictSecurityRevision } from "../state";
 
 /**
  * Responsibility: Orchestrates one authoritative hidden trap placement.
@@ -59,6 +60,13 @@ export const handlePlaceTrap = (
     trapsById: {
       ...state.trapsById,
       [trap.id]: trap
+    },
+    districtsById: {
+      ...state.districtsById,
+      [district.id]: bumpDistrictSecurityRevision({
+        ...district,
+        version: district.version + 1
+      })
     },
     root: {
       ...state.root,

@@ -222,6 +222,9 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     expect(Array.isArray(spyReadModel!.cityFeed?.currentPlayerFeed)).toBe(true);
 
     setPlayerPopulation(runtime.state, firstRequest.playerId, 100);
+    const attackPlayer = runtime.state.playersById[firstRequest.playerId]!;
+    attackPlayer.attackLoadout = { "baseball-bat": 1 };
+    runtime.state.resourceStatesById[attackPlayer.resourceStateId]!.balances["baseball-bat"] = 1;
 
     const attack = await server.gameplaySliceTransport.submit({
       sessionToken: initial.sessionToken,
@@ -320,7 +323,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     expect(runtime.state.districtsById[sourceDistrictId]?.influence).toBe(5);
     expect(runtime.state.districtsById[targetDistrictId]?.ownerPlayerId).toBe(request.playerId);
     expect(runtime.state.districtsById[targetDistrictId]?.heat).toBe(2);
-    expect(runtime.state.cooldownStatesById[runtime.state.playersById[request.playerId]!.cooldownStateId]?.cooldowns[`occupy:${targetDistrictId}`]).toBe(144);
+    expect(runtime.state.cooldownStatesById[runtime.state.playersById[request.playerId]!.cooldownStateId]?.cooldowns["occupy:global"]).toBe(144);
     expect(runtime.state.districtsById[targetDistrictId]?.buildingIds.every((buildingId) =>
       runtime.state.buildingsById[buildingId]?.ownerPlayerId === request.playerId
     )).toBe(true);
@@ -481,7 +484,8 @@ const createAttackCommand = (input: {
   issuedAt: new Date(0).toISOString(),
   payload: {
     districtId: input.targetDistrictId,
-    sourceDistrictId: input.sourceDistrictId
+    sourceDistrictId: input.sourceDistrictId,
+    weapons: { "baseball-bat": 1 }
   },
   clientRequestId: null
 });

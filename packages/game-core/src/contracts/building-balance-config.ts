@@ -178,6 +178,31 @@ export interface ConflictBalanceConfig {
     }>;
   };
   attackCooldownTicks: number;
+  attackTargetProtectionTicks?: number;
+  captureStabilization?: {
+    durationTicks: number;
+    incomeMultiplier: number;
+    productionSpeedMultiplier: number;
+    cleanCaptureAttritionPct: number;
+    successfulCaptureMinimumAttritionPct: number;
+  };
+  defenseCasualty?: {
+    vestRelativeReductionPerUnit: number;
+    vestRelativeReductionCap: number;
+  };
+  catastrophe?: {
+    bazookaBonusPerUnit: number;
+    bazookaBonusCap: number;
+    finalChanceCap: number;
+  };
+  occupyOverextension?: {
+    basePopulationCost: number;
+    thirdDistrictInfluenceCost: number;
+    fourthDistrictInfluenceCost: number;
+    additionalDistrictInfluenceCost: number;
+    additionalPopulationPerTwoDistricts: number;
+  };
+  trapRelocationCooldownTicks?: number;
   robCooldownTicks?: number;
   heistCooldownTicks?: number;
   occupyCooldownTicks?: number;

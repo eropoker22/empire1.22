@@ -3,7 +3,7 @@ import type { FactoryBalanceConfig, FactoryRecipeBalanceConfig } from "../contra
 import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import { resolveProductionBuildingLevelMultiplier } from "../rules/buildings/buildingUpgradeRules";
-import { resolveCraftProcessingDurationTicks } from "../rules/production/productionRules";
+import { applyDistrictStabilizationToProductionDuration, resolveCraftProcessingDurationTicks } from "../rules/production/productionRules";
 import {
   getBuildingProductionResourceState,
   getProducedAmount,
@@ -90,10 +90,10 @@ export const resolveFactoryDurationTicks = (
     resolveActiveFactoryCount(state, resolveFactoryOwnerPlayerId(state, building)),
     factory
   );
-  return Math.max(1, Math.ceil(
+  return applyDistrictStabilizationToProductionDuration(Math.max(1, Math.ceil(
     baseDuration / networkMultiplier / resolveProductionBuildingLevelMultiplier(building, context)
       / getPlayerProductionBoostMultiplier(state, resolveFactoryOwnerPlayerId(state, building), state.root.tick)
-  ));
+  )), state, building, context);
 };
 
 export const startFactoryLine = (

@@ -10,8 +10,7 @@ import type { ActionCommand } from "./action-command";
 export interface AttackDistrictPayload {
   districtId: DistrictId;
   sourceDistrictId: DistrictId | null;
-  /** Legacy clients may omit this; current clients send only integer weapon quantities. */
-  weapons?: Partial<Record<AttackWeaponId, number>>;
+  weapons: Partial<Record<AttackWeaponId, number>>;
 }
 
 export type AttackDistrictCommand = ActionCommand<"attack-district", AttackDistrictPayload>;

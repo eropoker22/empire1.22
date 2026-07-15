@@ -13,6 +13,7 @@ export const CORE_EVENT_TYPES = {
   defensePlaced: "defense-placed",
   defenseRemoved: "defense-removed",
   trapPlaced: "trap-placed",
+  trapRelocated: "trap-relocated",
   trapTriggered: "trap-triggered",
   buildingActionResolved: "building-action-resolved",
   buildingUpgraded: "building-upgraded",

@@ -103,7 +103,7 @@ describe("occupy district command", () => {
       ownerPlayerId: "player:1",
       status: "active"
     });
-    expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:district:2"]).toBe(144);
+    expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:global"]).toBe(144);
     expect(result.nextState.policeStatesById["police:1"]?.heat).toBe(2);
     expect(result.nextState.notificationsById["notification:command:occupy:1:occupy-report"]).toMatchObject({
       category: "report.occupy",
@@ -195,6 +195,9 @@ describe("occupy district command", () => {
     expect(result.errors).toEqual([]);
     expect(result.nextState.districtsById["district:1"].influence).toBe(5);
     expect(result.nextState.resourceStatesById["resource:1"].balances.population).toBe(950);
+    expect(result.nextState.playersById["player:1"].recoveryPool).toEqual([
+      expect.objectContaining({ itemType: "population", amount: 50, source: "occupy" })
+    ]);
     expect(result.nextState.districtsById["district:2"]).toMatchObject({
       ownerPlayerId: null,
       status: "neutral",
@@ -249,7 +252,7 @@ describe("occupy district command", () => {
     expect(result.nextState.resourceStatesById["resource:1"].balances.population).toBe(955);
     expect(result.nextState.districtsById["district:2"].heat).toBe(3);
     expect(result.nextState.policeStatesById["police:1"]?.heat).toBe(3);
-    expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:district:2"]).toBe(4);
+    expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:global"]).toBe(4);
   });
 
   it("reduces occupy cooldown for Motorkářský gang faction", () => {
@@ -268,7 +271,7 @@ describe("occupy district command", () => {
     const result = applyCommand(state, createOccupyDistrictCommandFixture(), { config });
 
     expect(result.errors).toEqual([]);
-    expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:district:2"]).toBe(9);
+    expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:global"]).toBe(9);
     expect(result.events[0]?.payload).toMatchObject({
       cooldownTicks: 9
     });
@@ -357,8 +360,12 @@ describe("occupy district command", () => {
     expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBeNull();
   });
 
-  it("charges 250 population for the third district and 550 after that", () => {
+  it("keeps population cost gradual while influence overextension continues growing", () => {
     const state = createNeutralOccupyState();
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      influence: 5_000
+    };
     state.districtsById["district:3"] = {
       ...state.districtsById["district:1"],
       id: "district:3",
@@ -387,12 +394,18 @@ describe("occupy district command", () => {
     state.root.districtIds.push("district:3", "district:4");
     seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
 
-    expect(createDistrictOccupyTargetViews(state, "player:1", "district:1")[0].cost.population).toBe(250);
+    expect(createDistrictOccupyTargetViews(state, "player:1", "district:1")[0].cost).toEqual({
+      influence: 550,
+      population: 50
+    });
     const result = applyCommand(state, createOccupyDistrictCommandFixture(), context);
 
     expect(result.errors).toEqual([]);
-    expect(result.nextState.resourceStatesById["resource:1"].balances.population).toBe(775);
-    expect(createDistrictOccupyTargetViews(result.nextState, "player:1", "district:2")[0]?.cost.population).toBe(550);
+    expect(result.nextState.resourceStatesById["resource:1"].balances.population).toBe(955);
+    expect(createDistrictOccupyTargetViews(result.nextState, "player:1", "district:2")[0]?.cost).toEqual({
+      influence: 1050,
+      population: 51
+    });
   });
 
   it("rejects repeated occupation of an already owned district", () => {

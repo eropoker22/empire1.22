@@ -221,6 +221,31 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
         }
       },
       attackCooldownTicks: ticksFromMinutes(22),
+      attackTargetProtectionTicks: ticksFromMinutes(10),
+      captureStabilization: {
+        durationTicks: ticksFromMinutes(15),
+        incomeMultiplier: 0.5,
+        productionSpeedMultiplier: 0.5,
+        cleanCaptureAttritionPct: 5,
+        successfulCaptureMinimumAttritionPct: 8
+      },
+      defenseCasualty: {
+        vestRelativeReductionPerUnit: 0.05,
+        vestRelativeReductionCap: 0.35
+      },
+      catastrophe: {
+        bazookaBonusPerUnit: 0.015,
+        bazookaBonusCap: 0.12,
+        finalChanceCap: 0.18
+      },
+      occupyOverextension: {
+        basePopulationCost: 50,
+        thirdDistrictInfluenceCost: 550,
+        fourthDistrictInfluenceCost: 1050,
+        additionalDistrictInfluenceCost: 250,
+        additionalPopulationPerTwoDistricts: 1
+      },
+      trapRelocationCooldownTicks: ticksFromMinutes(10),
       robCooldownTicks: ticksFromMinutes(10),
       heistCooldownTicks: ticksFromMinutes(8),
       occupyCooldownTicks: ticksFromMinutes(12),

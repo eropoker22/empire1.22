@@ -19,6 +19,7 @@ export * from "./place-defense-command";
 export * from "./place-trap-command";
 export * from "./player-command";
 export * from "./remove-defense-command";
+export * from "./relocate-trap-command";
 export * from "./rob-district-command";
 export * from "./run-building-action-command";
 export * from "./select-spawn-district-command";

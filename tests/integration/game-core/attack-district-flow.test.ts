@@ -179,7 +179,7 @@ describe("attack-district command flow", () => {
     expect(attackEvent?.payload).toMatchObject({
       attackDurationTicks: 89
     });
-    expect(result.nextState.cooldownStatesById["cooldown:1"].cooldowns["attack:district:2"]).toBe(89);
+    expect(result.nextState.cooldownStatesById["cooldown:1"].cooldowns["attack:global"]).toBe(89);
   });
 
   it("reduces attack preparation cooldown for Motorkářský gang faction", () => {
@@ -210,7 +210,7 @@ describe("attack-district command flow", () => {
     expect(attackEvent?.payload).toMatchObject({
       attackDurationTicks: 95
     });
-    expect(result.nextState.cooldownStatesById["cooldown:1"].cooldowns["attack:district:2"]).toBe(95);
+    expect(result.nextState.cooldownStatesById["cooldown:1"].cooldowns["attack:global"]).toBe(95);
   });
 
   it("applies Soukromá armáda attack power, heat and equipment-loss modifiers", () => {
@@ -343,7 +343,7 @@ describe("attack-district command flow", () => {
     expect(attackEvent?.payload).toMatchObject({
       attackDurationTicks: 82
     });
-    expect(result.nextState.cooldownStatesById["cooldown:1"].cooldowns["attack:district:2"]).toBe(82);
+    expect(result.nextState.cooldownStatesById["cooldown:1"].cooldowns["attack:global"]).toBe(82);
   });
 
   it("does not store non-material combat losses in recovery or salvage pools", () => {

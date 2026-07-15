@@ -3,6 +3,7 @@ import type {
   DistrictAttackTargetView
 } from "@empire/shared-types";
 import type { CoreGameState } from "../entities/game-state";
+import type { ResolvedGameModeConfig } from "../contracts";
 import { validateAttack } from "../validation";
 
 /**
@@ -14,7 +15,8 @@ export const createDistrictAttackTargetViews = (
   state: CoreGameState,
   playerId: string,
   sourceDistrictId: string,
-  issuedAt = new Date().toISOString()
+  issuedAt = new Date().toISOString(),
+  config?: ResolvedGameModeConfig
 ): DistrictAttackTargetView[] => {
   const sourceDistrict = state.districtsById[sourceDistrictId];
 
@@ -35,14 +37,17 @@ export const createDistrictAttackTargetViews = (
         issuedAt,
         payload: {
           districtId: targetDistrict.id,
-          sourceDistrictId: sourceDistrict.id
+          sourceDistrictId: sourceDistrict.id,
+          weapons: { ...(state.playersById[playerId]?.attackLoadout ?? {}) }
         },
         clientRequestId: null
       };
-      const errors = validateAttack(state, previewCommand);
+      const errors = validateAttack(state, previewCommand, config ? { config } : undefined);
       const player = state.playersById[playerId];
       const cooldownUntilTick = player
-        ? state.cooldownStatesById[player.cooldownStateId]?.cooldowns?.[`attack:${targetDistrict.id}`]
+        ? state.cooldownStatesById[player.cooldownStateId]?.cooldowns?.["attack:global"]
+          ?? state.cooldownStatesById[player.cooldownStateId]?.cooldowns?.[`attack:source:${sourceDistrict.id}`]
+          ?? targetDistrict.attackProtectedUntilTick
         : 0;
       const cooldownRemainingTicks = Math.max(0, Number(cooldownUntilTick || 0) - state.root.tick);
 

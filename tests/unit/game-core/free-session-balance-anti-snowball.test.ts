@@ -481,7 +481,10 @@ const spyNextTarget = (state: CoreGameState, metrics: ScenarioMetrics, playerId:
   const result = applyCommand(state, createSpyDistrictCommandFixture({
     id: `command:${metrics.name}:${playerId}:spy:${minute}`,
     playerId,
-    payload: { sourceDistrictId: route.sourceDistrictId, districtId: route.targetDistrictId }
+    payload: {
+      sourceDistrictId: route.sourceDistrictId,
+      districtId: route.targetDistrictId
+    }
   }), CONTEXT);
   if (result.errors.length === 0) {
     copyState(state, result.nextState);
@@ -505,7 +508,11 @@ const expandOrAttackNextTarget = (state: CoreGameState, metrics: ScenarioMetrics
   const result = applyCommand(state, createAttackDistrictCommandFixture({
     id: `command:${metrics.name}:${playerId}:attack:${minute}`,
     playerId,
-    payload: { sourceDistrictId: route.sourceDistrictId, districtId: route.targetDistrictId }
+    payload: {
+      sourceDistrictId: route.sourceDistrictId,
+      districtId: route.targetDistrictId,
+      weapons: { ...(state.playersById[playerId]?.attackLoadout ?? {}) }
+    }
   }), CONTEXT);
   if (result.errors.length > 0) {
     metrics.failedAttacks += 1;
@@ -533,7 +540,10 @@ const occupyNeutralTarget = (
   const result = applyCommand(state, createOccupyDistrictCommandFixture({
     id: `command:${metrics.name}:${playerId}:occupy:${minute}`,
     playerId,
-    payload: { sourceDistrictId: route.sourceDistrictId, districtId: route.targetDistrictId }
+    payload: {
+      sourceDistrictId: route.sourceDistrictId,
+      districtId: route.targetDistrictId
+    }
   }), CONTEXT);
   if (result.errors.length > 0) return;
 

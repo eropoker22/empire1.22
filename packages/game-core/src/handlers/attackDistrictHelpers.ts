@@ -96,6 +96,11 @@ export const createBattleReportNotification = (input: {
   heatGained: number;
   reportForAttacker: string;
   reportForDefender: string;
+  combatPopulationLoss: number;
+  occupationPopulationLoss: number;
+  defenderPopulationLoss: number;
+  vestPopulationSaved: number;
+  survivingDefenseAbandoned: boolean;
   attackDurationTicks: number;
   tacticalGrid: {
     attackerApplied: boolean;
@@ -135,6 +140,11 @@ export const createBattleReportNotification = (input: {
       heatGained: input.heatGained,
       reportForAttacker: input.reportForAttacker,
       reportForDefender: input.reportForDefender,
+      combatPopulationLoss: input.combatPopulationLoss,
+      occupationPopulationLoss: input.occupationPopulationLoss,
+      defenderPopulationLoss: input.defenderPopulationLoss,
+      vestPopulationSaved: input.vestPopulationSaved,
+      survivingDefenseAbandoned: input.survivingDefenseAbandoned,
       attackDurationTicks: input.attackDurationTicks,
       tacticalGrid: input.tacticalGrid,
       tacticalGridSummary: input.tacticalGrid.attackerApplied || input.tacticalGrid.defenderApplied
@@ -167,6 +177,11 @@ export const createBattleReportNotifications = (input: {
   heatGained: number;
   reportForAttacker: string;
   reportForDefender: string;
+  combatPopulationLoss: number;
+  occupationPopulationLoss: number;
+  defenderPopulationLoss: number;
+  vestPopulationSaved: number;
+  survivingDefenseAbandoned: boolean;
   attackDurationTicks: number;
   tacticalGrid: {
     attackerApplied: boolean;
@@ -193,6 +208,11 @@ export const createBattleReportNotifications = (input: {
     heatGained: input.heatGained,
     reportForAttacker: input.reportForAttacker,
     reportForDefender: input.reportForDefender,
+    combatPopulationLoss: input.combatPopulationLoss,
+    occupationPopulationLoss: input.occupationPopulationLoss,
+    defenderPopulationLoss: input.defenderPopulationLoss,
+    vestPopulationSaved: input.vestPopulationSaved,
+    survivingDefenseAbandoned: input.survivingDefenseAbandoned,
     attackDurationTicks: input.attackDurationTicks,
     tacticalGrid: input.tacticalGrid,
     detectedDefense: filterDefenseLoadout(input.targetDistrict.defenseLoadout),

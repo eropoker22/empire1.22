@@ -90,7 +90,8 @@ export const createClientSurfaceActionRouter = (
             commandId: options.createCommandId("command:attack"),
             slice,
             targetDistrictId: action.targetDistrictId,
-            issuedAt
+            issuedAt,
+            weapons: {}
           })
         );
       case "rob":
