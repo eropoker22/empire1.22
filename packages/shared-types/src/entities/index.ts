@@ -16,6 +16,7 @@ export * from "./notification";
 export * from "./player";
 export * from "./player-boost-state";
 export * from "./player-city-event-state";
+export * from "./player-spy-operation-state";
 export * from "./player-color";
 export * from "./police-state";
 export * from "./resource-state";

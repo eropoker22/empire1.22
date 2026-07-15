@@ -183,8 +183,9 @@ const createSeedDistrict = (
       defenseLoadout: districtSeed.defenseLoadout ?? {},
       slotCount: Math.max(slotCount, buildingTypes.length),
       status: districtSeed.status ?? (districtSeed.ownerPlayerId ? "claimed" : "neutral"),
-      resourceModifiers: {},
-      version: 1
+    resourceModifiers: {},
+    securityRevision: 1,
+    version: 1
     };
   })()
 });

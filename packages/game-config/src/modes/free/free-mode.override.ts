@@ -122,6 +122,8 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
     police: freeModePoliceConfig,
     conflict: {
       spyCooldownTicks: ticksFromMinutes(6),
+      spyAuthorizationTtlTicks: ticksFromMinutes(10),
+      spySlotCooldownTicks: ticksFromMinutes(6),
       attackCooldownTicks: ticksFromMinutes(22),
       robCooldownTicks: ticksFromMinutes(10),
       heistCooldownTicks: ticksFromMinutes(8),

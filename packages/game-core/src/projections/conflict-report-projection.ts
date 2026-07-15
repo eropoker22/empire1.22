@@ -40,6 +40,13 @@ const mapNotificationToReport = (notification: Notification): ConflictReportView
       attackerPlayerId: String(payload.attackerPlayerId ?? notification.recipientId),
       sourceDistrictId: String(payload.sourceDistrictId ?? ""),
       targetDistrictId: String(payload.targetDistrictId ?? ""),
+      targetOwnerPlayerId: payload.targetOwnerPlayerId ? String(payload.targetOwnerPlayerId) : null,
+      targetSecurityRevision: Number(payload.targetSecurityRevision ?? -1),
+      authorizationScope: asSpyAuthorizationScope(payload.authorizationScope),
+      issuedAtTick: Number(payload.issuedAtTick ?? payload.tick ?? 0),
+      authorizationExpiresAtTick: typeof payload.authorizationExpiresAtTick === "number"
+        ? payload.authorizationExpiresAtTick
+        : null,
       result: asSpyOutcome(payload.result),
       detectedDefense: asNumberRecord(payload.detectedDefense),
       trapDetected: Boolean(payload.trapDetected),
@@ -188,6 +195,9 @@ const asSpyOutcome = (value: unknown): SpyReport["result"] => {
 
   return "failed";
 };
+
+const asSpyAuthorizationScope = (value: unknown): SpyReport["authorizationScope"] =>
+  value === "attack_owned_district" || value === "occupy_empty_district" ? value : null;
 
 const asUnknownRecord = (value: unknown): Record<string, unknown> | undefined => {
   if (!value || typeof value !== "object" || Array.isArray(value)) {

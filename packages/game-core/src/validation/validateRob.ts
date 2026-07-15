@@ -24,6 +24,7 @@ export const validateRob = (
     actorPlayerId: command.playerId,
     targetDistrictId: command.payload.targetDistrictId,
     originDistrictId,
+    serverTime: command.issuedAt,
     action: "rob",
     expectedTargetVersion: command.payload.expectedTargetVersion,
     expectedOriginVersion: command.payload.expectedSourceVersion

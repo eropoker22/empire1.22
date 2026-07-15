@@ -1,7 +1,6 @@
 import type { CoreGameState } from "../entities";
 import type { MapActionBlockReason } from "../rules";
 
-export const SPY_ATTACK_AUTH_TTL_TICKS = 120;
 export type SpyAuthorizationPurpose = "attack_owned_district" | "occupy_empty_district";
 
 /**
@@ -49,22 +48,21 @@ export const hasValidAttackAuthorization = (
     }
 
     if (
-      typeof payload.attackAuthorizationExpiresAtTick === "number"
-      && payload.attackAuthorizationExpiresAtTick <= state.root.tick
+      typeof payload.authorizationExpiresAtTick !== "number"
+      || payload.authorizationExpiresAtTick <= state.root.tick
     ) {
       return false;
     }
 
     if (
-      typeof payload.targetOwnerPlayerId === "string"
-      && payload.targetOwnerPlayerId !== targetDistrict.ownerPlayerId
+      payload.targetOwnerPlayerId !== targetDistrict.ownerPlayerId
     ) {
       return false;
     }
 
     if (
-      typeof payload.targetVersionAtSpy === "number"
-      && payload.targetVersionAtSpy !== targetDistrict.version
+      typeof payload.targetSecurityRevision !== "number"
+      || payload.targetSecurityRevision !== targetDistrict.securityRevision
     ) {
       return false;
     }
@@ -101,19 +99,20 @@ export const validateOccupyEmptyDistrictAuthorization = (
 
   const hasNonExpired = matchingReports.some((notification) => {
     const payload = notification.payload;
-    return typeof payload.attackAuthorizationExpiresAtTick !== "number"
-      || payload.attackAuthorizationExpiresAtTick > state.root.tick;
+    return typeof payload.authorizationExpiresAtTick === "number"
+      && payload.authorizationExpiresAtTick > state.root.tick;
   });
 
   if (!hasNonExpired) {
     return "OCCUPY_SPY_AUTH_EXPIRED";
   }
 
-  const hasCurrentTargetVersion = matchingReports.some((notification) => {
+  const hasCurrentTargetSecurity = matchingReports.some((notification) => {
     const payload = notification.payload;
     return payload.targetStateAtSpy === "empty"
-      && payload.targetVersionAtSpy === targetDistrict.version;
+      && payload.targetOwnerPlayerId === null
+      && payload.targetSecurityRevision === targetDistrict.securityRevision;
   });
 
-  return hasCurrentTargetVersion ? true : "OCCUPY_SPY_AUTH_INVALIDATED";
+  return hasCurrentTargetSecurity ? true : "OCCUPY_SPY_AUTH_INVALIDATED";
 };

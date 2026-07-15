@@ -19,6 +19,11 @@ export interface SpyReport {
   attackerPlayerId: PlayerId;
   sourceDistrictId: DistrictId;
   targetDistrictId: DistrictId;
+  targetOwnerPlayerId: PlayerId | null;
+  targetSecurityRevision: number;
+  authorizationScope: "attack_owned_district" | "occupy_empty_district" | null;
+  issuedAtTick: number;
+  authorizationExpiresAtTick: number | null;
   result: "success" | "partial" | "failed" | "critical_failed";
   detectedDefense: Partial<Record<DefenseWeaponId, number>>;
   trapDetected: boolean;

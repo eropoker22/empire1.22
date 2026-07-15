@@ -40,6 +40,7 @@ const validateDefenseCommand = (
   const result = validateMapAction(state, {
     actorPlayerId: command.playerId,
     targetDistrictId: command.payload.targetDistrictId,
+    serverTime: command.issuedAt,
     action,
     expectedTargetVersion: command.payload.expectedTargetVersion
   });

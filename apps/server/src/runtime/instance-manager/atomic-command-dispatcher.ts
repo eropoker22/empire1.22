@@ -114,13 +114,17 @@ const dispatchAtomicInstanceCommandInBoundary = async (
   repositories: AtomicCommandTransactionRepositories
 ): Promise<BoundaryDispatchResult> => {
   const reservedAt = runtime.clock.nowIso();
-  const payload = createCommandReservationPayload(command);
+  const authoritativeCommand: GameCommand = {
+    ...command,
+    issuedAt: reservedAt
+  };
+  const payload = createCommandReservationPayload(authoritativeCommand);
   const payloadHash = createCommandReservationPayloadHash(command);
   const reservation = await repositories.commandReservationRepository.reserve({
     serverInstanceId: runtime.record.id,
     commandId: command.id,
-    commandType: command.type,
-    playerId: command.playerId,
+    commandType: authoritativeCommand.type,
+    playerId: authoritativeCommand.playerId,
     payloadHash,
     payload,
     reservedAt
@@ -138,17 +142,17 @@ const dispatchAtomicInstanceCommandInBoundary = async (
     };
   }
 
-  const gateErrors = validateCommandDispatchGate(runtime, command, {
+  const gateErrors = validateCommandDispatchGate(runtime, authoritativeCommand, {
     ...options,
     skipProcessedCommandIdGate: true
   });
   if (gateErrors.length > 0) {
-    const result = createRejectedCommandResult(runtime, command, payloadHash, runtime.state.root.version, gateErrors, reservedAt);
+    const result = createRejectedCommandResult(runtime, authoritativeCommand, payloadHash, runtime.state.root.version, gateErrors, reservedAt);
     await repositories.commandResultRepository.save(result);
     await repositories.commandReservationRepository.markRejected(runtime.record.id, command.id, gateErrors);
     await writeCommandRejectionDiagnostic({
       runtime,
-      command,
+      command: authoritativeCommand,
       errors: gateErrors,
       category: "command_rejected",
       message: "Command rejected before core dispatch.",
@@ -166,17 +170,18 @@ const dispatchAtomicInstanceCommandInBoundary = async (
   await repositories.commandLogRepository.append({
     id: `cmd:${command.id}`,
     instanceId: runtime.record.id,
-    command,
+    command: authoritativeCommand,
     receivedAt: reservedAt,
-    actorId: command.playerId,
-    correlationId: command.clientRequestId,
+    actorId: authoritativeCommand.playerId,
+    correlationId: authoritativeCommand.clientRequestId,
     tickAtReceive: runtime.state.root.tick
   });
   await crash?.("afterCommandLog");
 
   const previousRootVersion = runtime.state.root.version;
-  const result = applyCommand(runtime.state, command, {
+  const result = applyCommand(runtime.state, authoritativeCommand, {
     config: runtime.config,
+    clock: runtime.clock,
     mapRules: {
       isEnabledSpawnCandidate: (districtId) =>
         Boolean(findSharedCitySpawnCandidate(districtId)?.enabled)
@@ -184,12 +189,12 @@ const dispatchAtomicInstanceCommandInBoundary = async (
   });
 
   if (result.errors.length > 0) {
-    const commandResult = createRejectedCommandResult(runtime, command, payloadHash, previousRootVersion, result.errors, reservedAt);
+    const commandResult = createRejectedCommandResult(runtime, authoritativeCommand, payloadHash, previousRootVersion, result.errors, reservedAt);
     await repositories.commandResultRepository.save(commandResult);
     await repositories.commandReservationRepository.markRejected(runtime.record.id, command.id, result.errors);
     await writeCommandRejectionDiagnostic({
       runtime,
-      command,
+      command: authoritativeCommand,
       errors: result.errors,
       category: "command_rejected",
       message: "Command rejected."
@@ -209,14 +214,14 @@ const dispatchAtomicInstanceCommandInBoundary = async (
   const appliedAt = runtime.clock.nowIso();
   const appliedEvent: InstanceRuntimeEvent = {
     type: "command-applied",
-    payload: { commandId: command.id, eventCount: result.events.length },
+    payload: { commandId: authoritativeCommand.id, eventCount: result.events.length },
     occurredAt: appliedAt
   };
-  const eventRecord = createEventRecord(runtime, command, appliedEvent, nextState, appliedAt);
+  const eventRecord = createEventRecord(runtime, authoritativeCommand, appliedEvent, nextState, appliedAt);
   const stagedRuntime = {
     ...runtime,
     state: nextState,
-    processedCommandIds: new Set([...runtime.processedCommandIds, command.id])
+    processedCommandIds: new Set([...runtime.processedCommandIds, authoritativeCommand.id])
   };
   const snapshot = createInstanceSnapshot(stagedRuntime);
 
@@ -224,13 +229,13 @@ const dispatchAtomicInstanceCommandInBoundary = async (
   await crash?.("afterSnapshotBeforeMarkApplied");
   await repositories.eventLogRepository.append(eventRecord);
   await writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "command", "Command dispatched.", {
-    commandId: command.id,
-    commandType: command.type
+    commandId: authoritativeCommand.id,
+    commandType: authoritativeCommand.type
   }, runtime.clock);
 
   const commandResult = createAppliedCommandResult({
     runtime,
-    command,
+    command: authoritativeCommand,
     payloadHash,
     previousRootVersion,
     nextState,
@@ -240,14 +245,14 @@ const dispatchAtomicInstanceCommandInBoundary = async (
     appliedAt
   });
   await repositories.commandResultRepository.save(commandResult);
-  await repositories.commandReservationRepository.markApplied(runtime.record.id, command.id, {
+  await repositories.commandReservationRepository.markApplied(runtime.record.id, authoritativeCommand.id, {
     updatedAt: appliedAt,
     rootVersion: nextState.root.version,
     eventCount: result.events.length,
     eventIds: commandResult.eventIds,
     snapshotId: snapshot.snapshotId
   });
-  await repositories.outboxRepository.append(createOutboxRecord(runtime, command, appliedEvent, appliedAt));
+  await repositories.outboxRepository.append(createOutboxRecord(runtime, authoritativeCommand, appliedEvent, appliedAt));
   await crash?.("afterMarkAppliedBeforeCommit");
 
   return {
@@ -255,7 +260,7 @@ const dispatchAtomicInstanceCommandInBoundary = async (
     commandResult,
     nextState,
     appliedEvent,
-    rateLimitCommand: command
+    rateLimitCommand: authoritativeCommand
   };
 };
 

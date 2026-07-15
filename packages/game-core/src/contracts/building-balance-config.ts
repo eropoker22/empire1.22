@@ -137,6 +137,8 @@ export interface BuildingUpgradeBalanceConfig {
 
 export interface ConflictBalanceConfig {
   spyCooldownTicks: number;
+  spyAuthorizationTtlTicks?: number;
+  spySlotCooldownTicks?: number;
   attackCooldownTicks: number;
   robCooldownTicks?: number;
   heistCooldownTicks?: number;

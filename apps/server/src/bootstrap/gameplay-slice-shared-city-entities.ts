@@ -41,6 +41,7 @@ export const createSharedCityDistrict = (input: {
     slotCount: Math.max(input.slotCount, buildingTypes.length),
     status: input.ownerPlayerId ? "claimed" : "neutral",
     resourceModifiers: {},
+    securityRevision: 1,
     version: 1
   };
 };

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { applyCommand } from "../../../packages/game-core/src/engine";
+import {
+  hasValidAttackAuthorization,
+  migrateConflictState
+} from "../../../packages/game-core/src";
 import { resolveModeConfig } from "@empire/game-config";
 import {
   createAttackDistrictCommandFixture,
@@ -46,8 +50,45 @@ describe("conflict command flow", () => {
     expect(notification?.payload).toMatchObject({
       actionType: "spy-district",
       attackerPlayerId: "player:1",
-      targetDistrictId: "district:2"
+      targetDistrictId: "district:2",
+      targetSecurityRevision: 1,
+      issuedAtTick: 0
     });
+  });
+
+  it("keeps spy authorization across passive version changes but invalidates security changes", () => {
+    const state = createCombatStateFixture();
+    expect(hasValidAttackAuthorization(state, "player:1", "district:2")).toBe(true);
+
+    state.districtsById["district:2"] = {
+      ...state.districtsById["district:2"],
+      version: state.districtsById["district:2"].version + 1
+    };
+    expect(hasValidAttackAuthorization(state, "player:1", "district:2")).toBe(true);
+
+    state.districtsById["district:2"] = {
+      ...state.districtsById["district:2"],
+      securityRevision: state.districtsById["district:2"].securityRevision + 1,
+      version: state.districtsById["district:2"].version + 1
+    };
+    expect(hasValidAttackAuthorization(state, "player:1", "district:2")).toBe(false);
+  });
+
+  it("migrates missing district security revision once", () => {
+    const state = createCombatStateFixture();
+    const legacyDistrict = { ...state.districtsById["district:2"] } as Record<string, unknown>;
+    delete legacyDistrict.securityRevision;
+    state.districtsById["district:2"] = legacyDistrict as unknown as typeof state.districtsById[string];
+
+    const once = migrateConflictState(state);
+    const twice = migrateConflictState(once);
+
+    expect(once.districtsById["district:2"].securityRevision).toBe(
+      once.districtsById["district:2"].version
+    );
+    expect(twice.districtsById["district:2"].securityRevision).toBe(
+      once.districtsById["district:2"].securityRevision
+    );
   });
 
   it("place trap stores hidden trap state on the target district", () => {
@@ -162,6 +203,11 @@ describe("conflict command flow", () => {
         occupyUnlocked: false
       });
       expect(report?.payload.blockedUntilTick).toBeGreaterThan(blockedSpy.nextState.root.tick);
+      expect(blockedSpy.nextState.playerSpyOperationStatesByPlayerId?.["player:1"]?.slots[0]?.availableAtTick)
+        .toBeGreaterThan(blockedSpy.nextState.root.tick);
+      if (outcome === "critical_failed") {
+        expect(blockedSpy.nextState.policeStatesById["police:1"]?.heat).toBeGreaterThan(0);
+      }
 
       const occupied = applyCommand(blockedSpy.nextState, createOccupyDistrictCommandFixture(), context);
 
@@ -172,9 +218,9 @@ describe("conflict command flow", () => {
     }
   );
 
-  it("enforces at most two blocked spy slots", () => {
-    const worldSeed = findBlockedCapacitySeed();
-    expect(worldSeed, "Expected at least one deterministic capacity seed with two blocked spy outcomes.").toBeTruthy();
+  it("uses exactly two slots for successful spy commands and releases them by tick", () => {
+    const worldSeed = findSuccessCapacitySeed();
+    expect(worldSeed, "Expected a deterministic seed with two successful spy outcomes.").toBeTruthy();
     const state = createThreeTargetSpyState(worldSeed!);
     const first = applyCommand(state, createSpyDistrictCommandFixture({
       id: "command:spy:slot:1",
@@ -203,13 +249,21 @@ describe("conflict command flow", () => {
     expect([
       first.nextState.notificationsById["notification:command:spy:slot:1:spy-report"]?.payload.result,
       second.nextState.notificationsById["notification:command:spy:slot:2:spy-report"]?.payload.result
-    ]).toEqual(expect.arrayContaining([
-      expect.stringMatching(/^(failed|critical_failed)$/),
-      expect.stringMatching(/^(failed|critical_failed)$/)
-    ]));
+    ]).toEqual(["success", "success"]);
     expect(third.errors).toContainEqual(expect.objectContaining({
       code: "spy_capacity_exceeded"
     }));
+
+    second.nextState.root.tick = second.nextState.playerSpyOperationStatesByPlayerId?.["player:1"]?.slots[0]
+      ?.availableAtTick ?? second.nextState.root.tick;
+    const afterExpiry = applyCommand(second.nextState, createSpyDistrictCommandFixture({
+      id: "command:spy:slot:4",
+      payload: {
+        districtId: "district:4",
+        sourceDistrictId: "district:1"
+      }
+    }), context);
+    expect(afterExpiry.errors).toEqual([]);
   });
 
   it("attack triggers an active trap and applies attacker losses", () => {
@@ -326,7 +380,7 @@ const findTrapRevealSeed = () =>
     return payload?.result === "success" && payload.trapDetected === true;
   });
 
-const findBlockedCapacitySeed = () =>
+const findSuccessCapacitySeed = () =>
   Array.from({ length: 500 }, (_, index) => `spy-capacity-seed-${index}`).find((worldSeed) => {
     const state = createThreeTargetSpyState(worldSeed);
     const first = applyCommand(state, createSpyDistrictCommandFixture({
@@ -346,8 +400,7 @@ const findBlockedCapacitySeed = () =>
     const firstResult = first.nextState.notificationsById["notification:command:spy:slot:1:spy-report"]?.payload.result;
     const secondResult = second.nextState.notificationsById["notification:command:spy:slot:2:spy-report"]?.payload.result;
     return (
-      (firstResult === "failed" || firstResult === "critical_failed")
-      && (secondResult === "failed" || secondResult === "critical_failed")
+      firstResult === "success" && secondResult === "success"
     );
   });
 

@@ -27,6 +27,7 @@ import type {
   PlayerBoostState,
   PlayerCityEventState,
   PlayerId,
+  PlayerSpyOperationState,
   PoliceState,
   ResourceState,
   ServerInstance,
@@ -46,6 +47,7 @@ export interface NormalizedGameState {
   playersById: Record<PlayerId, Player>;
   playerBoostStatesByPlayerId?: Record<PlayerId, PlayerBoostState>;
   playerCityEventStatesByPlayerId?: Record<PlayerId, PlayerCityEventState>;
+  playerSpyOperationStatesByPlayerId?: Record<PlayerId, PlayerSpyOperationState>;
   alliancesById: Record<AllianceId, Alliance>;
   allianceInvitesById?: Record<string, AllianceInvite>;
   allianceChatMessagesById?: Record<string, AllianceChatMessage>;

@@ -71,7 +71,7 @@ export const validateMapAction = (
   if (
     target.ownerPlayerId
     && ["attack", "heist", "spy"].includes(context.action)
-    && hasFormerAllyTruce(state, actor.id, target.ownerPlayerId, context.serverTime ?? new Date().toISOString())
+    && hasFormerAllyTruce(state, actor.id, target.ownerPlayerId, context.serverTime ?? state.serverInstance.startedAt)
   ) {
     return blocked("FORMER_ALLY_TRUCE_ACTIVE", relation, isAdjacentToOwnedDistrict);
   }

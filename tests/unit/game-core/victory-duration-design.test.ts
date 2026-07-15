@@ -258,6 +258,7 @@ const createStateWithDistrictControl = (input: {
       slotCount: 3,
       status: "claimed",
       resourceModifiers: {},
+      securityRevision: 1,
       version: 1
     };
     state.root.districtIds.push(districtId);

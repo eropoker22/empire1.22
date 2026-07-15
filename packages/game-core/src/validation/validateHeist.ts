@@ -55,6 +55,7 @@ export const validateHeist = (
     actorPlayerId: command.playerId,
     targetDistrictId: command.payload.targetDistrictId,
     originDistrictId,
+    serverTime: command.issuedAt,
     action: "heist",
     expectedTargetVersion: command.payload.expectedTargetVersion,
     expectedOriginVersion: command.payload.expectedSourceVersion

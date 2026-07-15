@@ -32,6 +32,7 @@ export interface District {
   slotCount: number;
   status: DistrictStatus;
   resourceModifiers: Record<string, number>;
+  securityRevision: number;
   version: number;
 }
 

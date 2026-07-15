@@ -38,6 +38,7 @@ export const createDistrictFixture = (overrides: Partial<District> = {}): Distri
   slotCount: 3,
   status: "claimed",
   resourceModifiers: {},
+  securityRevision: 1,
   version: 1,
   ...overrides
 });
@@ -256,12 +257,14 @@ export const seedSuccessfulSpyIntel = (
       targetDistrictId,
       targetOwnerPlayerId,
       targetStateAtSpy: targetOwnerPlayerId ? "owned" : "empty",
-      targetVersionAtSpy: state.districtsById[targetDistrictId]?.version ?? 1,
+      targetSecurityRevision: state.districtsById[targetDistrictId]?.securityRevision ?? 1,
       purpose: targetOwnerPlayerId ? "attack_owned_district" : "occupy_empty_district",
       result: "success",
       detectedDefense: {},
       trapDetected: false,
-      attackAuthorizationExpiresAtTick: state.root.tick + 120,
+      authorizationScope: targetOwnerPlayerId ? "attack_owned_district" : "occupy_empty_district",
+      issuedAtTick: state.root.tick,
+      authorizationExpiresAtTick: state.root.tick + 120,
       tick: state.root.tick,
       createdAt: new Date(0).toISOString(),
       eventId: null

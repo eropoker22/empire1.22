@@ -180,8 +180,9 @@ const createDistrict = (
   defenseLoadout: ownerPlayerId ? { barricades: 3, cameras: 1 } : resolveNeutralDefense(index),
   slotCount: 8,
   status: ownerPlayerId ? "claimed" : "neutral",
-  resourceModifiers: {},
-  version: 1
+    resourceModifiers: {},
+    securityRevision: 1,
+    version: 1
 });
 
 const selectHomeDistrictIds = (districtCount: number, botCount: number): string[] => {

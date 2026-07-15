@@ -1,6 +1,7 @@
 import type {
   CooldownState,
   Notification,
+  PlayerSpyOperationState,
   SpyDistrictCommand
 } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
@@ -23,14 +24,13 @@ import {
 } from "../rules/factions/factionRules";
 import { composeEntityId } from "../utils";
 import {
-  SPY_BLOCKED_SLOT_COOLDOWN_PREFIX,
-  SPY_ATTACK_AUTH_TTL_TICKS,
+  getPlayerSpyOperationState,
+  resolveAvailableSpySlot,
   validateSpy
 } from "../validation";
+import { increasePlayerPoliceHeat } from "./playerPoliceState";
 import { applyGarageCooldownReductionTicks } from "./garageBuildingActions";
 import { resolveCombinedCameraAlarmBonuses } from "./recruitmentCenterBuildingActions";
-
-const LEGACY_SPY_CAPTURE_COOLDOWN_MS = 40_000;
 
 /**
  * Responsibility: Orchestrates one authoritative spy command and report creation.
@@ -53,6 +53,8 @@ export const handleSpyDistrict = (
   }
 
   const player = state.playersById[command.playerId];
+  const spyOperationState = getPlayerSpyOperationState(state, player.id);
+  const selectedSlot = resolveAvailableSpySlot(state, player.id)!;
   const targetDistrict = state.districtsById[command.payload.districtId];
   const cooldownState = state.cooldownStatesById[player.cooldownStateId] ?? createPlayerCooldownState(player.id, player.cooldownStateId);
   const activeTrap = Object.values(state.trapsById).find(
@@ -93,36 +95,39 @@ export const handleSpyDistrict = (
     criticalFailureChanceMultiplier: boostSnapshot.criticalFailureChanceMultiplier,
     extraIntelBlocksOnSuccess: boostSnapshot.extraIntelBlocksOnSuccess
   });
-  const blockedUntilTick = isBlockedSpyOutcome(reportResult.result)
-    ? state.root.tick + resolveSpyCaptureCooldownTicks(context)
-    : null;
-  const report = createSpyReportNotification({
-    command,
-    playerId: player.id,
-    targetDistrictId: targetDistrict.id,
-    targetOwnerPlayerId: targetDistrict.ownerPlayerId,
-    targetVersionAtSpy: targetDistrict.version,
-    purpose: targetDistrict.ownerPlayerId ? "attack_owned_district" : "occupy_empty_district",
-    reportResult,
-    blockedUntilTick,
-    tick: state.root.tick,
-    eventId: reportEventId,
-    boostSnapshot
-  });
-  const spyCooldownKey = `spy:${targetDistrict.id}`;
   const spyCooldownTicks = applyGarageCooldownReductionTicks({
-    baseTicks: context.config.balance.conflict?.spyCooldownTicks ?? 2,
+    baseTicks: context.config.balance.conflict?.spySlotCooldownTicks
+      ?? context.config.balance.conflict?.spyCooldownTicks
+      ?? 2,
     state,
     playerId: player.id,
     config: context.config.balance.garage,
     category: "districtSpy"
   });
   const boostedSpyCooldownTicks = Math.max(1, Math.ceil(spyCooldownTicks * boostSnapshot.spyDurationMultiplier));
-  const blockedSlotCooldown = blockedUntilTick === null
-    ? {}
-    : {
-        [`${SPY_BLOCKED_SLOT_COOLDOWN_PREFIX}${command.id}`]: blockedUntilTick
-      };
+  const slotAvailableAtTick = state.root.tick + boostedSpyCooldownTicks;
+  const blockedUntilTick = isBlockedSpyOutcome(reportResult.result) ? slotAvailableAtTick : null;
+  const report = createSpyReportNotification({
+    command,
+    playerId: player.id,
+    targetDistrictId: targetDistrict.id,
+    targetOwnerPlayerId: targetDistrict.ownerPlayerId,
+    targetSecurityRevision: targetDistrict.securityRevision,
+    purpose: targetDistrict.ownerPlayerId ? "attack_owned_district" : "occupy_empty_district",
+    reportResult,
+    blockedUntilTick,
+    tick: state.root.tick,
+    eventId: reportEventId,
+    boostSnapshot,
+    authorizationTtlTicks: context.config.balance.conflict?.spyAuthorizationTtlTicks ?? 120
+  });
+  const spyCooldownKey = `spy:${targetDistrict.id}`;
+  const nextSpySlots = spyOperationState.slots.map((slot) => slot.slotId === selectedSlot.slotId
+    ? { ...slot, availableAtTick: slotAvailableAtTick, lastMissionId: command.id }
+    : slot) as PlayerSpyOperationState["slots"];
+  const nextPoliceState = reportResult.result === "critical_failed"
+    ? increasePlayerPoliceHeat(state, player, reportResult.heatGained, state.root.tick)
+    : state.policeStatesById[player.policeStateId];
 
   return {
     nextState: {
@@ -141,12 +146,22 @@ export const handleSpyDistrict = (
           ...cooldownState,
           cooldowns: {
             ...cooldownState.cooldowns,
-            [spyCooldownKey]: state.root.tick + boostedSpyCooldownTicks,
-            ...blockedSlotCooldown
+            [spyCooldownKey]: slotAvailableAtTick
           },
           version: cooldownState.version + (state.cooldownStatesById[cooldownState.id] ? 1 : 0)
         }
       },
+      playerSpyOperationStatesByPlayerId: {
+        ...state.playerSpyOperationStatesByPlayerId,
+        [player.id]: {
+          ...spyOperationState,
+          slots: nextSpySlots,
+          version: spyOperationState.version + 1
+        }
+      },
+      policeStatesById: nextPoliceState
+        ? { ...state.policeStatesById, [nextPoliceState.id]: nextPoliceState }
+        : state.policeStatesById,
       notificationsById: {
         ...state.notificationsById,
         [report.id]: report
@@ -194,13 +209,14 @@ const createSpyReportNotification = (input: {
   playerId: string;
   targetDistrictId: string;
   targetOwnerPlayerId: string | null;
-  targetVersionAtSpy: number;
+  targetSecurityRevision: number;
   purpose: "attack_owned_district" | "occupy_empty_district";
   reportResult: ReturnType<typeof resolveSpy>;
   blockedUntilTick: number | null;
   tick: number;
   eventId: string;
   boostSnapshot: ReturnType<typeof resolvePlayerSpyBoostEffects>;
+  authorizationTtlTicks: number;
 }): Notification =>
   createNotification({
     id: composeEntityId("notification", `${input.command.id}:spy-report`),
@@ -219,7 +235,7 @@ const createSpyReportNotification = (input: {
       targetDistrictId: input.targetDistrictId,
       targetOwnerPlayerId: input.targetOwnerPlayerId,
       targetStateAtSpy: input.targetOwnerPlayerId ? "owned" : "empty",
-      targetVersionAtSpy: input.targetVersionAtSpy,
+      targetSecurityRevision: input.targetSecurityRevision,
       purpose: input.reportResult.result === "success" ? input.purpose : null,
       result: input.reportResult.result,
       detectedDefense: input.reportResult.detectedDefense,
@@ -231,19 +247,18 @@ const createSpyReportNotification = (input: {
       extraIntelBlocks: input.reportResult.extraIntelBlocks,
       boostSnapshot: input.boostSnapshot.boostId ? input.boostSnapshot : null,
       blockedUntilTick: input.blockedUntilTick,
-      attackAuthorizationExpiresAtTick: input.reportResult.result === "success"
-        ? input.tick + SPY_ATTACK_AUTH_TTL_TICKS
+      authorizationScope: input.reportResult.result === "success" ? input.purpose : null,
+      issuedAtTick: input.tick,
+      authorizationExpiresAtTick: input.reportResult.result === "success"
+        ? input.tick + input.authorizationTtlTicks
         : null,
       tick: input.tick,
-      createdAt: new Date(0).toISOString(),
+      createdAt: input.command.issuedAt,
       eventId: input.eventId
     },
-    createdAt: new Date(0).toISOString(),
+    createdAt: input.command.issuedAt,
     readAt: null
   });
 
 const isBlockedSpyOutcome = (result: SpyOutcome): boolean =>
   result === "failed" || result === "critical_failed";
-
-const resolveSpyCaptureCooldownTicks = (context: GameCoreContext): number =>
-  Math.max(1, Math.ceil(LEGACY_SPY_CAPTURE_COOLDOWN_MS / Math.max(1, context.config.tickRateMs)));

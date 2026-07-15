@@ -1,10 +1,11 @@
 import type { SpyDistrictCommand } from "@empire/shared-types";
+import type { PlayerSpyOperationSlot, PlayerSpyOperationState } from "@empire/shared-types";
 import type { CoreError } from "../errors";
 import type { CoreGameState } from "../entities";
 import { validateMapAction } from "../rules";
+import { createPlayerSpyOperationState } from "../state";
 
 export const MAX_ACTIVE_SPY_SLOTS = 2;
-export const SPY_BLOCKED_SLOT_COOLDOWN_PREFIX = "spy-blocked-slot:";
 
 /**
  * Responsibility: Pure validator for district spy commands.
@@ -40,6 +41,7 @@ export const validateSpy = (
     actorPlayerId: command.playerId,
     targetDistrictId: command.payload.districtId,
     originDistrictId: command.payload.sourceDistrictId,
+    serverTime: command.issuedAt,
     action: "spy"
   });
 
@@ -52,8 +54,7 @@ export const validateSpy = (
     ];
   }
 
-  const activeSpySlotCount = countActiveSpySlots(state, player.cooldownStateId);
-  if (activeSpySlotCount >= MAX_ACTIVE_SPY_SLOTS) {
+  if (!resolveAvailableSpySlot(state, player.id)) {
     return [
       {
         code: "spy_capacity_exceeded",
@@ -98,12 +99,21 @@ const spyMapActionErrorMessage = (reasonCode: string | undefined): string => {
 
 export const countActiveSpySlots = (
   state: CoreGameState,
-  cooldownStateId: string
-): number => {
-  const cooldowns = state.cooldownStatesById[cooldownStateId]?.cooldowns ?? {};
-  return Object.entries(cooldowns).filter(([key, expiresAtTick]) =>
-    key.startsWith(SPY_BLOCKED_SLOT_COOLDOWN_PREFIX)
-    && typeof expiresAtTick === "number"
-    && expiresAtTick > state.root.tick
-  ).length;
-};
+  playerId: string
+): number => getPlayerSpyOperationState(state, playerId).slots.filter(
+  (slot) => slot.availableAtTick > state.root.tick
+).length;
+
+export const getPlayerSpyOperationState = (
+  state: CoreGameState,
+  playerId: string
+): PlayerSpyOperationState =>
+  state.playerSpyOperationStatesByPlayerId?.[playerId] ?? createPlayerSpyOperationState(playerId);
+
+export const resolveAvailableSpySlot = (
+  state: CoreGameState,
+  playerId: string
+): PlayerSpyOperationSlot | null =>
+  [...getPlayerSpyOperationState(state, playerId).slots]
+    .sort((left, right) => left.slotId.localeCompare(right.slotId))
+    .find((slot) => slot.availableAtTick <= state.root.tick) ?? null;

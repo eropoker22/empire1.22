@@ -48,6 +48,7 @@ export const validateAttack = (
       actorPlayerId: command.playerId,
       targetDistrictId: command.payload.districtId,
       originDistrictId: command.payload.sourceDistrictId ?? undefined,
+      serverTime: command.issuedAt,
       action: "attack"
     },
     {

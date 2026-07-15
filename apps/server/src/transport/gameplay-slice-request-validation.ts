@@ -100,7 +100,6 @@ const validateGameCommandShape = (
   requireStringField(errors, "submit", command, "serverInstanceId", "command.serverInstanceId");
   requireStringField(errors, "submit", command, "playerId", "command.playerId");
   requireStringField(errors, "submit", command, "mode", "command.mode");
-  requireStringField(errors, "submit", command, "issuedAt", "command.issuedAt");
   validateGameCommandPayload(errors, command);
 };
 

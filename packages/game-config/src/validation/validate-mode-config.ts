@@ -158,6 +158,12 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
     if (config.balance.conflict.spyCooldownTicks < 0) {
       throw new Error("Conflict config requires a non-negative spyCooldownTicks.");
     }
+    if ((config.balance.conflict.spyAuthorizationTtlTicks ?? 0) < 0) {
+      throw new Error("Conflict config requires a non-negative spyAuthorizationTtlTicks.");
+    }
+    if ((config.balance.conflict.spySlotCooldownTicks ?? 0) < 0) {
+      throw new Error("Conflict config requires a non-negative spySlotCooldownTicks.");
+    }
 
     if (config.balance.conflict.attackCooldownTicks < 0) {
       throw new Error("Conflict config requires a non-negative attackCooldownTicks.");

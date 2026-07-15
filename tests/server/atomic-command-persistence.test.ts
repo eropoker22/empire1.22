@@ -8,7 +8,8 @@ import {
 } from "../../apps/server/src/runtime";
 import {
   createCommandReservationPayload,
-  createCommandReservationPayloadHash
+  createCommandReservationPayloadHash,
+  createFixedClock
 } from "../../apps/server/src/runtime";
 import { sharedCitySpawnDistrictIds } from "../../apps/server/src/bootstrap/gameplay-slice-shared-city-seed";
 import {
@@ -61,6 +62,33 @@ describe("atomic command persistence", () => {
       .filter((record) => record.command.id === fixture.command.id)).toHaveLength(1);
     expect((await fixture.server.instanceManager.listEventRecords(fixture.instanceId))
       .filter((record) => record.causedByCommandId === fixture.command.id)).toHaveLength(1);
+  });
+
+  it("assigns authoritative command time and ignores client issuedAt in replay identity", async () => {
+    const serverTime = "2026-07-15T10:30:00.000Z";
+    const fixture = await createFixture("authoritative-time", serverTime);
+    const futureCommand = {
+      ...fixture.command,
+      issuedAt: "2036-07-15T10:30:00.000Z"
+    };
+
+    const first = await fixture.server.instanceManager.dispatchCommand(fixture.instanceId, futureCommand);
+    const rootAfterFirst = fixture.runtime.state.root.version;
+    const replay = await fixture.server.instanceManager.dispatchCommand(fixture.instanceId, {
+      ...futureCommand,
+      issuedAt: "not-a-date"
+    });
+    const commandRecords = await fixture.server.instanceManager.listCommandRecords(fixture.instanceId);
+
+    expect(first?.errors).toEqual([]);
+    expect(replay?.errors).toEqual([]);
+    expect(fixture.runtime.state.root.version).toBe(rootAfterFirst);
+    expect(fixture.runtime.state.playersById[fixture.playerId]?.lastActionAt).toBe(serverTime);
+    expect(commandRecords.filter((record) => record.command.id === futureCommand.id)).toHaveLength(1);
+    expect(commandRecords.find((record) => record.command.id === futureCommand.id)?.command.issuedAt).toBe(serverTime);
+    expect(createCommandReservationPayloadHash(futureCommand)).toBe(
+      createCommandReservationPayloadHash({ ...futureCommand, issuedAt: "invalid" })
+    );
   });
 
   it("rejects duplicate command ids with different payloads before mutation", async () => {
@@ -172,8 +200,8 @@ describe("atomic command persistence", () => {
   });
 });
 
-const createFixture = async (name: string) => {
-  const server = createServerApp();
+const createFixture = async (name: string, fixedNow?: string) => {
+  const server = createServerApp(fixedNow ? { clock: createFixedClock(fixedNow) } : undefined);
   const instanceId = `instance:free:atomic:${name}`;
   const playerId = `player:atomic:${name}`;
   const focusDistrictId = sharedCitySpawnDistrictIds[0] ?? "district:1";

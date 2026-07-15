@@ -36,6 +36,7 @@ export const validatePlaceTrap = (
   const mapValidation = validateMapAction(state, {
     actorPlayerId: command.playerId,
     targetDistrictId: command.payload.districtId,
+    serverTime: command.issuedAt,
     action: "place_trap"
   });
 

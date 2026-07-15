@@ -9,8 +9,13 @@ import type { GameCommand } from "@empire/shared-types";
 export const createCommandReservationPayload = (command: GameCommand): unknown =>
   normalizeForStableJson(command);
 
+export const createCommandIntentPayload = (command: GameCommand): unknown => {
+  const { issuedAt: _clientIssuedAt, ...intent } = command;
+  return normalizeForStableJson(intent);
+};
+
 export const createCommandReservationPayloadHash = (command: GameCommand): string => {
-  const serialized = JSON.stringify(createCommandReservationPayload(command));
+  const serialized = JSON.stringify(createCommandIntentPayload(command));
   return `sha256:${createHash("sha256").update(serialized).digest("hex")}`;
 };
 

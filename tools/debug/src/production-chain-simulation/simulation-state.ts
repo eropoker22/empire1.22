@@ -60,6 +60,7 @@ export const createProductionChainState = (balances: Record<string, number>): Co
     slotCount: buildings.length,
     status: "claimed",
     resourceModifiers: {},
+    securityRevision: 1,
     version: 1
   };
   const resources: ResourceState = {
