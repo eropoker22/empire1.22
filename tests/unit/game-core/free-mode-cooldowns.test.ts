@@ -79,8 +79,8 @@ describe("Free BR strategic cooldowns", () => {
     const occupyResult = applyCommand(occupyState, createOccupyDistrictCommandFixture(), context);
 
     expect(occupyResult.errors).toEqual([]);
-    expect(occupyResult.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:district:2"]).toBe(113);
-    expect(occupyResult.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:district:2"]).toBeGreaterThanOrEqual(8 * TICKS_PER_MINUTE);
+    expect(occupyResult.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:global"]).toBe(113);
+    expect(occupyResult.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:source:district:1"]).toBeGreaterThanOrEqual(8 * TICKS_PER_MINUTE);
 
     const robState = createNeutralRobState();
     addOwnedBuildings(robState, "garage", 8);
@@ -263,12 +263,14 @@ const seedSuccessfulSpyIntel = (
       attackerPlayerId: playerId,
       sourceDistrictId,
       targetDistrictId,
-      result: "success",
-      purpose,
-      attackAuthorizationExpiresAtTick: state.root.tick + 120,
       targetOwnerPlayerId: targetDistrict?.ownerPlayerId ?? null,
       targetStateAtSpy: targetDistrict?.ownerPlayerId ? "owned" : "empty",
-      targetVersionAtSpy: targetDistrict?.version,
+      targetSecurityRevision: targetDistrict?.securityRevision ?? targetDistrict?.version ?? 1,
+      result: "success",
+      purpose,
+      authorizationScope: purpose,
+      issuedAtTick: state.root.tick,
+      authorizationExpiresAtTick: state.root.tick + 120,
       detectedDefense: {},
       trapDetected: false,
       tick: state.root.tick,

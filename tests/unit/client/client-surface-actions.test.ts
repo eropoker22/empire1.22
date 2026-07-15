@@ -139,7 +139,10 @@ const createGameplaySliceFixture = (): GameplaySliceView => ({
         ownerPlayerId: "player:2",
         status: "claimed",
         enabled: true,
-        disabledReason: null
+        disabledReason: null,
+        selectedLoadout: { pistol: 2 },
+        expectedSourceVersion: 3,
+        expectedTargetVersion: 4
       }
     ],
     spyTargets: [
@@ -719,13 +722,16 @@ describe("client surface actions", () => {
         serverInstanceId: "instance:1",
         payload: {
           districtId: "district:2",
-          sourceDistrictId: "district:1"
+          sourceDistrictId: "district:1",
+          weapons: { pistol: 2 },
+          expectedSourceVersion: 3,
+          expectedTargetVersion: 4
         }
       }
     ]);
   });
 
-  it("dispatches attack commands for disabled server-fed targets", async () => {
+  it("does not dispatch attack commands for disabled server-fed targets", async () => {
     const slice = createGameplaySliceFixture();
     slice.district!.attackTargets[0] = {
       ...slice.district!.attackTargets[0],
@@ -755,10 +761,10 @@ describe("client surface actions", () => {
     attackButton.setClosest("button[data-attack-target-id]", attackButton.element);
 
     await router.handleTarget(attackButton.element);
-    expect(dispatched).toEqual(["attack-district"]);
+    expect(dispatched).toEqual([]);
   });
 
-  it("dispatches attack commands when the target is absent from the local slice", async () => {
+  it("does not dispatch attack commands when the target is absent from the local slice", async () => {
     const slice = createGameplaySliceFixture();
     slice.district!.attackTargets = [];
     const renderState = createInitialClientRenderState();
@@ -790,17 +796,7 @@ describe("client surface actions", () => {
 
     await router.handleTarget(attackButton.element);
 
-    expect(dispatched).toEqual([
-      {
-        type: "attack-district",
-        playerId: "player:1",
-        serverInstanceId: "instance:1",
-        payload: {
-          districtId: "district:2",
-          sourceDistrictId: "district:1"
-        }
-      }
-    ]);
+    expect(dispatched).toEqual([]);
   });
 
   it("dispatches spy commands when target is absent from the local slice", async () => {

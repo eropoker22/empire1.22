@@ -84,16 +84,23 @@ export const createClientSurfaceActionRouter = (
     const mode: GameModeId = slice.mode.mode;
 
     switch (action.kind) {
-      case "attack":
+      case "attack": {
+        const target = district.attackTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
+        const weapons = target?.selectedLoadout ?? {};
+        const hasSelectedWeapon = Object.values(weapons).some((amount) => Number(amount) > 0);
+        if (!target?.enabled || !hasSelectedWeapon) return null;
         return options.client.dispatch(
           createAttackDistrictCommand({
             commandId: options.createCommandId("command:attack"),
             slice,
             targetDistrictId: action.targetDistrictId,
             issuedAt,
-            weapons: {}
+            weapons,
+            expectedSourceVersion: target.expectedSourceVersion,
+            expectedTargetVersion: target.expectedTargetVersion
           })
         );
+      }
       case "rob":
         return options.client.dispatch(
           createRobDistrictCommand({

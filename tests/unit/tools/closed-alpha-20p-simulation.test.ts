@@ -9,6 +9,7 @@ import {
   type ClosedAlphaSimulationReport,
   type ResourceSummary
 } from "@empire/tools-debug/closed-alpha-20p-simulation";
+import { resolveModeConfig } from "@empire/game-config";
 
 const isExpectedStart = (resources: ResourceSummary): boolean =>
   resources.cleanCash === 5000
@@ -101,8 +102,8 @@ describe("20-player closed-alpha authoritative simulation", () => {
     expect(report.runtime.completed).toBe(true);
     expect(report.metrics.commands.totalSubmitted).toBeGreaterThan(0);
     expect(report.diagnostics.actionReadiness.submittedCommands).toBe(report.metrics.commands.totalSubmitted);
-    expect(report.diagnostics.policeRaids.dayLimit).toBe(2);
-    expect(report.diagnostics.policeRaids.nightLimit).toBe(1);
+    expect(report.diagnostics.policeRaids.dayLimit).toBe(resolveModeConfig("free").balance.police?.maxConcurrentRaidsByPhase.day);
+    expect(report.diagnostics.policeRaids.nightLimit).toBe(resolveModeConfig("free").balance.police?.maxConcurrentRaidsByPhase.night);
     expect(report.invariantViolations).toEqual([]);
   });
 
@@ -233,8 +234,8 @@ describe("20-player closed-alpha authoritative simulation", () => {
     expect(aggregate.diagnostics.alliance.totalRejectedAllianceCommands).toBeGreaterThanOrEqual(0);
     expect(aggregate.diagnostics.conflict.spyToAttackConversionRate.average).toBeGreaterThanOrEqual(0);
     expect(aggregate.diagnostics.buildingSpecialCoverage.actions.length).toBeGreaterThan(0);
-    expect(aggregate.diagnostics.policeRaids.dayLimit).toBe(2);
-    expect(aggregate.diagnostics.policeRaids.nightLimit).toBe(1);
+    expect(aggregate.diagnostics.policeRaids.dayLimit).toBe(resolveModeConfig("free").balance.police?.maxConcurrentRaidsByPhase.day);
+    expect(aggregate.diagnostics.policeRaids.nightLimit).toBe(resolveModeConfig("free").balance.police?.maxConcurrentRaidsByPhase.night);
     expect(aggregate.diagnostics.boost.standaloneCommandFound).toBe(false);
     expect(aggregate.reports.every((report) => report.diagnostics.alliance)).toBe(true);
     expect(aggregate.reports.every((report) => report.diagnostics.conflict)).toBe(true);
