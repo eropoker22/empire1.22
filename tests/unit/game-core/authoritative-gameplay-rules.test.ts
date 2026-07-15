@@ -270,7 +270,8 @@ describe("authoritative gameplay rules", () => {
     const result = applyCommand(trappedState, createAttackDistrictCommandFixture(), { config });
     const report = result.events.find((event) => event.type === "district-attacked");
     const trapEvent = result.events.find((event) => event.type === "trap-triggered");
-    const losses = trapEvent?.payload.attackerLosses as Record<string, number>;
+    const losses = (trapEvent?.payload as { attackerLosses?: Record<string, number> } | undefined)
+      ?.attackerLosses ?? {};
     const totalLosses = Object.values(losses).reduce((total, amount) => total + Number(amount), 0);
 
     expect(result.errors).toEqual([]);

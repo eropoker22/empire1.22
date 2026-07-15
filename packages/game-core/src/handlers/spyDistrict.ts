@@ -1,6 +1,5 @@
 import type {
   CooldownState,
-  Notification,
   PlayerSpyOperationState,
   SpyDistrictCommand
 } from "@empire/shared-types";
@@ -8,7 +7,7 @@ import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreEvent } from "../events";
 import type { CoreError } from "../errors";
-import { CORE_EVENT_TYPES, createEvent, createNotification } from "../events";
+import { CORE_EVENT_TYPES, createEvent } from "../events";
 import {
   calculateBaseDefensePower,
   resolveSpy,
@@ -31,6 +30,7 @@ import {
 import { increasePlayerPoliceHeat } from "./playerPoliceState";
 import { applyGarageCooldownReductionTicks } from "./garageBuildingActions";
 import { resolveCombinedCameraAlarmBonuses } from "./recruitmentCenterBuildingActions";
+import { createSpyReportNotification } from "./conflictReportNotifications";
 
 /**
  * Responsibility: Orchestrates one authoritative spy command and report creation.
@@ -203,62 +203,6 @@ const createPlayerCooldownState = (
   cooldowns: {},
   version: 1
 });
-
-const createSpyReportNotification = (input: {
-  command: SpyDistrictCommand;
-  playerId: string;
-  targetDistrictId: string;
-  targetOwnerPlayerId: string | null;
-  targetSecurityRevision: number;
-  purpose: "attack_owned_district" | "occupy_empty_district";
-  reportResult: ReturnType<typeof resolveSpy>;
-  blockedUntilTick: number | null;
-  tick: number;
-  eventId: string;
-  boostSnapshot: ReturnType<typeof resolvePlayerSpyBoostEffects>;
-  authorizationTtlTicks: number;
-}): Notification =>
-  createNotification({
-    id: composeEntityId("notification", `${input.command.id}:spy-report`),
-    recipientType: "player",
-    recipientId: input.playerId,
-    category: "report.spy",
-    title: `Spy report: ${input.targetDistrictId}`,
-    bodyKey: "report.spy",
-    payload: {
-      reportId: composeEntityId("report", `${input.command.id}:spy`),
-      reportType: "spy",
-      actionType: "spy-district",
-      playerId: input.playerId,
-      attackerPlayerId: input.command.playerId,
-      sourceDistrictId: input.command.payload.sourceDistrictId,
-      targetDistrictId: input.targetDistrictId,
-      targetOwnerPlayerId: input.targetOwnerPlayerId,
-      targetStateAtSpy: input.targetOwnerPlayerId ? "owned" : "empty",
-      targetSecurityRevision: input.targetSecurityRevision,
-      purpose: input.reportResult.result === "success" ? input.purpose : null,
-      result: input.reportResult.result,
-      detectedDefense: input.reportResult.detectedDefense,
-      trapDetected: input.reportResult.trapDetected,
-      occupyUnlocked: input.reportResult.occupyUnlocked,
-      revealedType: input.reportResult.revealedType,
-      revealedDefense: input.reportResult.revealedDefense,
-      heatGained: input.reportResult.heatGained,
-      extraIntelBlocks: input.reportResult.extraIntelBlocks,
-      boostSnapshot: input.boostSnapshot.boostId ? input.boostSnapshot : null,
-      blockedUntilTick: input.blockedUntilTick,
-      authorizationScope: input.reportResult.result === "success" ? input.purpose : null,
-      issuedAtTick: input.tick,
-      authorizationExpiresAtTick: input.reportResult.result === "success"
-        ? input.tick + input.authorizationTtlTicks
-        : null,
-      tick: input.tick,
-      createdAt: input.command.issuedAt,
-      eventId: input.eventId
-    },
-    createdAt: input.command.issuedAt,
-    readAt: null
-  });
 
 const isBlockedSpyOutcome = (result: SpyOutcome): boolean =>
   result === "failed" || result === "critical_failed";

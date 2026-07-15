@@ -2,8 +2,7 @@ import type { CoreGameState } from "../entities/game-state";
 import type { ConflictBalanceConfig } from "../contracts";
 import {
   DEFENSE_WEAPON_IDS,
-  type HeistDistrictCommand,
-  type RobDistrictCommand
+  type HeistDistrictCommand
 } from "@empire/shared-types";
 import {
   calculateContributorDefenseAmount,
@@ -12,96 +11,12 @@ import {
   calculateImmediateHeistChances,
   createHeistAttackerTargetCooldownKey,
   createHeistGlobalCooldownKey,
-  createRobCooldownKey,
-  createRobSourceCooldownKey,
   listDeployedDefenseContributions,
   resolveDefenseCapacityPoints,
   validateMapAction
 } from "../rules";
-import { validateHeist, validateRob } from "../validation";
-
-export const createDistrictRobTargetViews = (
-  state: CoreGameState,
-  playerId: string,
-  sourceDistrictId: string,
-  conflictConfig?: ConflictBalanceConfig,
-  issuedAt = new Date().toISOString()
-) => {
-  const source = state.districtsById[sourceDistrictId];
-  if (!source) return [];
-  const player = state.playersById[playerId];
-  const availablePopulation = Math.floor(
-    Number(
-      player?.population ??
-      state.resourceStatesById[player?.resourceStateId]?.balances?.population ??
-      0
-    )
-  );
-  const hasPopulationForRob = Number.isFinite(availablePopulation) && availablePopulation >= 1;
-
-  return source.adjacentDistrictIds
-    .map((districtId) => state.districtsById[districtId])
-    .filter((target) => target !== undefined)
-    .map((target) => {
-      const previewCommand: RobDistrictCommand = {
-        id: `preview:rob:${source.id}:${target.id}`,
-        type: "rob-district",
-        mode: state.serverInstance.mode,
-        playerId,
-        serverInstanceId: state.serverInstance.id,
-        issuedAt,
-        payload: {
-          targetDistrictId: target.id,
-          sourceDistrictId: source.id,
-          expectedTargetVersion: target.version,
-          expectedSourceVersion: source.version
-        },
-        clientRequestId: null
-      };
-      const errors = validateRob(state, previewCommand, conflictConfig);
-      const cooldownRemainingTicks = getMaxCooldownRemainingTicks(
-        state,
-        playerId,
-        [createRobCooldownKey(target.id), createRobSourceCooldownKey(source.id)]
-      );
-      const populationBlocked = hasPopulationForRob ? null : "INSUFFICIENT_POPULATION";
-      const disabledCode = errors[0]?.code ?? populationBlocked ?? null;
-      const actionAllowed = errors.length === 0 && !populationBlocked;
-      const lootPool = target.neutralLootPool;
-      const initialPoolAmount = lootPool
-        ? lootPool.initialCash + lootPool.initialDirtyCash
-          + Object.values(lootPool.initialResources).reduce((sum, amount) => sum + Number(amount), 0)
-        : 0;
-      const currentPoolAmount = lootPool
-        ? lootPool.cash + lootPool.dirtyCash
-          + Object.values(lootPool.resources).reduce((sum, amount) => sum + Number(amount), 0)
-        : 0;
-      const poolFraction = initialPoolAmount > 0 ? currentPoolAmount / initialPoolAmount : 0;
-      const lootPoolLevel = poolFraction <= 0
-        ? "exhausted" as const
-        : poolFraction < 0.2
-          ? "low" as const
-          : poolFraction < 0.65
-            ? "partial" as const
-            : "rich" as const;
-
-      return {
-        districtId: target.id,
-        name: target.name,
-        ownerPlayerId: target.ownerPlayerId,
-        status: target.status,
-        enabled: actionAllowed,
-        disabledCode,
-        disabledReason: errors[0]?.message ?? (disabledCode ? formatActionReason(disabledCode) : null),
-        cooldownRemainingTicks,
-        expectedTargetVersion: target.version,
-        expectedSourceVersion: source.version,
-        lootPoolLevel,
-        exhausted: lootPoolLevel === "exhausted",
-        heatRisk: { minimum: 1, maximum: 6 }
-      };
-    });
-};
+import { validateHeist } from "../validation";
+export { createDistrictRobTargetViews } from "./district-rob-target-projection";
 
 export const createDistrictHeistTargetViews = (
   state: CoreGameState,

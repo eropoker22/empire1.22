@@ -346,12 +346,14 @@ const createSimulationState = (plan: ScenarioPlan): CoreGameState => {
       }
     });
     if (plan.kind === "aggressive" || plan.kind === "snowball") {
+      const policeConfig = FREE_CONFIG.balance.police;
+      if (!policeConfig) throw new Error("Free mode police config is required by the anti-snowball fixture.");
       const intendedThreshold = plan.kind === "snowball"
-        ? FREE_CONFIG.balance.police!.extremePressureRaidThreshold
-        : FREE_CONFIG.balance.police!.highPressureRaidThreshold;
+        ? policeConfig.extremePressureRaidThreshold
+        : policeConfig.highPressureRaidThreshold;
       const intendedStartingPressure = Math.max(
         0,
-        intendedThreshold - FREE_CONFIG.balance.conflict!.attackHeatGain
+        intendedThreshold - Number(FREE_CONFIG.balance.conflict?.attackHeatGain ?? 0)
       );
       state.policeStatesById[player.policeStateId] = increasePlayerPoliceHeat(
         state,

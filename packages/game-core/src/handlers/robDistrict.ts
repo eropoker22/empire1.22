@@ -1,9 +1,9 @@
-import type { Notification, ResourceState, RobDistrictCommand } from "@empire/shared-types";
+import type { RobDistrictCommand } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreError } from "../errors";
 import type { CoreEvent } from "../events";
-import { CORE_EVENT_TYPES, createEvent, createNotification } from "../events";
+import { CORE_EVENT_TYPES, createEvent } from "../events";
 import {
   applyDayNightHeatGain,
   applyFactionAggressiveHeatGain,
@@ -15,13 +15,13 @@ import {
   resolveRobCooldownTicks,
   seedNeutralDistrictLootPool
 } from "../rules";
-import { composeEntityId } from "../utils";
 import { validateRob } from "../validation";
 import { createPlayerCooldownState } from "./attackDistrictHelpers";
 import { applyCarDealerCooldownReductionTicks } from "./carDealerBuildingActions";
 import { resolveCityHallNightPatrolPressure } from "./cityHallBuildingActions";
 import { increasePlayerPoliceHeat } from "./playerPoliceState";
 import { calculateReceivableResourceAmount } from "./storageCapacityCredit";
+import { createPlayerResourceState, createRobReportNotification, resolveSingleOwnedOrigin } from "./conflictReportNotifications";
 
 const ROB_LOOT_KEYS = ["cash", "dirty-cash", "chemicals", "biomass", "metal-parts"] as const;
 
@@ -210,63 +210,4 @@ const restoreUnacceptedLoot = (
       "metal-parts": Number(pool.resources["metal-parts"] ?? 0) + rejected("metal-parts")
     }
   };
-};
-
-const createRobReportNotification = (input: {
-  command: RobDistrictCommand;
-  sourceDistrictId: string;
-  result: string;
-  loot: Record<string, number>;
-  playerHeat: number;
-  districtHeat: number;
-  cooldownTicks: number;
-  tick: number;
-}): Notification => createNotification({
-  id: composeEntityId("notification", `${input.command.id}:rob-report`),
-  recipientType: "player",
-  recipientId: input.command.playerId,
-  category: "report.rob",
-  title: `Rob report: ${input.command.payload.targetDistrictId}`,
-  bodyKey: "report.rob",
-  payload: {
-    reportId: composeEntityId("report", `${input.command.id}:rob`),
-    reportType: "rob",
-    actionType: "rob-district",
-    playerId: input.command.playerId,
-    sourceDistrictId: input.sourceDistrictId,
-    targetDistrictId: input.command.payload.targetDistrictId,
-    result: input.result,
-    loot: input.loot,
-    playerHeat: input.playerHeat,
-    districtHeat: input.districtHeat,
-    cooldownTicks: input.cooldownTicks,
-    tick: input.tick,
-    createdAt: input.command.issuedAt
-  },
-  createdAt: input.command.issuedAt,
-  readAt: null
-});
-
-const createPlayerResourceState = (id: string, playerId: string, tick: number): ResourceState => ({
-  id,
-  ownerType: "player",
-  ownerId: playerId,
-  balances: {},
-  incomeModifiers: {},
-  lastUpdatedTick: tick,
-  version: 1
-});
-
-const resolveSingleOwnedOrigin = (
-  state: CoreGameState,
-  playerId: string,
-  targetDistrictId: string
-): string | undefined => {
-  const target = state.districtsById[targetDistrictId];
-  const origins = Object.values(state.districtsById).filter((district) =>
-    district.ownerPlayerId === playerId
-    && district.adjacentDistrictIds.includes(target.id)
-    && target.adjacentDistrictIds.includes(district.id)
-  );
-  return origins.length === 1 ? origins[0].id : undefined;
 };

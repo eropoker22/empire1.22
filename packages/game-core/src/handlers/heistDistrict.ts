@@ -1,20 +1,20 @@
-import type { HeistDistrictCommand, Notification, ResourceState } from "@empire/shared-types";
+import type { HeistDistrictCommand } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreError } from "../errors";
 import type { CoreEvent } from "../events";
-import { CORE_EVENT_TYPES, createEvent, createNotification } from "../events";
+import { CORE_EVENT_TYPES, createEvent } from "../events";
 import {
   createHeistAttackerTargetCooldownKey,
   createHeistGlobalCooldownKey,
   resolveImmediateHeist
 } from "../rules";
-import { composeEntityId } from "../utils";
 import { validateHeist } from "../validation";
 import { createPlayerCooldownState } from "./attackDistrictHelpers";
 import { appendRecoveryPoolEntries, createRecoveryEntriesFromLosses } from "./clinicBuildingActions";
 import { increasePlayerPoliceHeat } from "./playerPoliceState";
 import { calculateReceivableResourceAmount } from "./storageCapacityCredit";
+import { createHeistReportNotification, createPlayerResourceState, resolveSingleOwnedOrigin } from "./conflictReportNotifications";
 
 const HEISTABLE_RESOURCES = [
   "cash",
@@ -211,70 +211,4 @@ export const handleHeistDistrict = (
     ],
     errors: []
   };
-};
-
-const createHeistReportNotification = (input: {
-  command: HeistDistrictCommand;
-  sourceDistrictId: string;
-  targetOwnerPlayerId: string;
-  outcome: string;
-  loot: Record<string, number>;
-  gangLosses: number;
-  heatGained: number;
-  successChance: number;
-  detectionChance: number;
-  attackerIdentified: boolean;
-  tick: number;
-}): Notification => createNotification({
-  id: composeEntityId("notification", `${input.command.id}:heist-report`),
-  recipientType: "player",
-  recipientId: input.command.playerId,
-  category: "report.heist",
-  title: `Heist report: ${input.command.payload.targetDistrictId}`,
-  bodyKey: "report.heist",
-  payload: {
-    reportId: composeEntityId("report", `${input.command.id}:heist`),
-    reportType: "heist",
-    actionType: "heist-district",
-    playerId: input.command.playerId,
-    sourceDistrictId: input.sourceDistrictId,
-    targetDistrictId: input.command.payload.targetDistrictId,
-    targetOwnerPlayerId: input.targetOwnerPlayerId,
-    style: input.command.payload.style,
-    result: input.outcome,
-    loot: input.loot,
-    gangLosses: input.gangLosses,
-    heatGained: input.heatGained,
-    successChance: input.successChance,
-    detectionChance: input.detectionChance,
-    attackerIdentified: input.attackerIdentified,
-    tick: input.tick,
-    createdAt: input.command.issuedAt
-  },
-  createdAt: input.command.issuedAt,
-  readAt: null
-});
-
-const createPlayerResourceState = (id: string, playerId: string, tick: number): ResourceState => ({
-  id,
-  ownerType: "player",
-  ownerId: playerId,
-  balances: {},
-  incomeModifiers: {},
-  lastUpdatedTick: tick,
-  version: 1
-});
-
-const resolveSingleOwnedOrigin = (
-  state: CoreGameState,
-  playerId: string,
-  targetDistrictId: string
-): string | undefined => {
-  const target = state.districtsById[targetDistrictId];
-  const origins = Object.values(state.districtsById).filter((district) =>
-    district.ownerPlayerId === playerId
-    && district.adjacentDistrictIds.includes(target.id)
-    && target.adjacentDistrictIds.includes(district.id)
-  );
-  return origins.length === 1 ? origins[0].id : undefined;
 };
