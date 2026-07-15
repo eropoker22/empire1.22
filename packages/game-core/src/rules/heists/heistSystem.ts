@@ -11,6 +11,19 @@ import {
   resolveFactionCooldownMultiplier,
   resolveFactionPassiveModifiersFromDefinitions
 } from "../factions/factionRules";
+import {
+  createHeistId,
+  createHeistSeed,
+  deterministicHeistRoll,
+  requireHeistNow,
+  resolveHeistRoll,
+  type HeistExecutionContext
+} from "./heistDeterminism";
+import {
+  addHeistRumor as addRumor,
+  appendHeistGameLog as appendGameLog
+} from "./heistEventLog";
+export type { HeistExecutionContext } from "./heistDeterminism";
 
 export type HeistStyleId = "stealth" | "balanced" | "all_in";
 export type HeistOutcome = "clean_success" | "success" | "detected" | "failed" | "trap_triggered";
@@ -43,6 +56,7 @@ export interface ActiveDistrictHeist {
   status: "active";
   detectionChanceSnapshot: number;
   expectedLootPreview: HeistLoot;
+  rngSeed?: string;
   detectionRoll?: number;
   lossRoll?: number;
   lootRoll?: number;
@@ -297,9 +311,10 @@ export const startDistrictHeist = (
   attackerPlayerId: string,
   targetDistrictId: string,
   style: HeistStyleId,
-  gangMembersSent: number
+  gangMembersSent: number,
+  context: HeistExecutionContext
 ): HeistStartResult => {
-  const now = Date.now();
+  const now = requireHeistNow(context);
   const nextState = cloneGameState(gameState);
   const attacker = findPlayer(nextState, attackerPlayerId);
   if (!attacker) {
@@ -364,7 +379,8 @@ export const startDistrictHeist = (
 
   const mode = resolveGameMode(nextState);
   const durationSeconds = Math.ceil(styleConfig.durationSeconds * getModeMultipliers(mode).durationMultiplier);
-  const heistId = createHeistId(now, attackerPlayerId, targetDistrictId);
+  const rngSeed = createHeistSeed(context.seed, attackerPlayerId, targetDistrictId, style, sent);
+  const heistId = createHeistId(now, attackerPlayerId, targetDistrictId, rngSeed);
   const previewHeist: ActiveDistrictHeist = {
     id: heistId,
     attackerPlayerId,
@@ -376,7 +392,12 @@ export const startDistrictHeist = (
     resolvesAt: now + durationSeconds * 1000,
     status: "active",
     detectionChanceSnapshot: 0,
-    expectedLootPreview: createEmptyLoot()
+    expectedLootPreview: createEmptyLoot(),
+    rngSeed,
+    detectionRoll: deterministicHeistRoll(rngSeed, "detection"),
+    lossRoll: deterministicHeistRoll(rngSeed, "loss"),
+    lootRoll: deterministicHeistRoll(rngSeed, "loot"),
+    rareLootRoll: deterministicHeistRoll(rngSeed, "rare-loot")
   };
   const detectionChancePreview = calculateHeistDetectionChance(nextState, previewHeist);
   const activeHeist: ActiveDistrictHeist = {
@@ -397,7 +418,7 @@ export const startDistrictHeist = (
     targetDistrictId,
     style,
     gangMembersSent: sent
-  });
+  }, { nowMs: now, seed: `${rngSeed}:start-log` });
   addRumor(nextState, `Někde v ${normalizeDistrictType(getDistrictType(district))} zóně cizí gang připravuje heist proti vlastněnému districtu.`, {
     type: "heist",
     targetPlayerId,
@@ -405,7 +426,7 @@ export const startDistrictHeist = (
     truth: 0.4,
     spread: 0.35,
     source: "system"
-  });
+  }, { nowMs: now, seed: `${rngSeed}:start-rumor` });
 
   return {
     success: true,
@@ -461,7 +482,7 @@ export const calculateHeistLoot = (
   const districtType = normalizeDistrictType(getDistrictType(district));
   const districtModifier = getDistrictTypeModifier(districtType);
   const modeMultiplier = getModeMultipliers(mode).lootMultiplier;
-  const outcomeMultiplier = getOutcomeLootMultiplier(outcome, heist.lootRoll);
+  const outcomeMultiplier = getOutcomeLootMultiplier(outcome, resolveHeistRoll(heist, "lootRoll", "loot"));
   const factionRobberyLootMultiplier = resolveFactionRobberyLootMultiplier(gameState, heist.attackerPlayerId);
   const loot = createEmptyLoot();
   const containers = collectLootContainers(gameState, target, district);
@@ -497,8 +518,9 @@ export const calculateHeistLoot = (
 export const resolveDistrictHeist = (
   gameState: AnyRecord,
   heistId: string,
-  now = Date.now()
+  context: HeistExecutionContext
 ): HeistResolveResult => {
+  const now = requireHeistNow(context);
   const nextState = cloneGameState(gameState);
   const located = findActiveHeist(nextState, heistId);
   if (!located) {
@@ -539,8 +561,12 @@ export const resolveDistrictHeist = (
   updateHeistStats(heistState, outcome, loot, gangLost);
   applyOutcomeHeatAndPolice(nextState, heist.attackerPlayerId, styleConfig, outcome, mode, getHeistFactionModifiers(nextState, heist.attackerPlayerId));
 
-  appendResolveLogs(nextState, heist, outcome, loot, gangLost, gangReturned);
-  appendOutcomeRumor(nextState, heist, outcome);
+  const resolutionContext = {
+    nowMs: now,
+    seed: `${heist.rngSeed ?? heist.id}:${context.seed}:resolve`
+  };
+  appendResolveLogs(nextState, heist, outcome, loot, gangLost, gangReturned, resolutionContext);
+  appendOutcomeRumor(nextState, heist, outcome, resolutionContext);
 
   if (outcome === "detected" || outcome === "failed" || outcome === "trap_triggered") {
     notifyPoliceOfHeist(nextState, {
@@ -551,7 +577,7 @@ export const resolveDistrictHeist = (
       outcome,
       gangLost,
       heat: styleConfig.heatOnDetected
-    });
+    }, resolutionContext);
   }
 
   return {
@@ -571,8 +597,9 @@ export const resolveDistrictHeist = (
 
 export const tickHeists = (
   gameState: AnyRecord,
-  now = Date.now()
+  context: HeistExecutionContext
 ): { nextState: AnyRecord; results: HeistResolveResult[] } => {
+  const now = requireHeistNow(context);
   let nextState = cloneGameState(gameState);
   const dueIds = collectActiveHeists(nextState)
     .filter((heist) => now >= heist.resolvesAt)
@@ -580,7 +607,10 @@ export const tickHeists = (
   const results: HeistResolveResult[] = [];
 
   for (const heistId of dueIds) {
-    const result = resolveDistrictHeist(nextState, heistId, now);
+    const result = resolveDistrictHeist(nextState, heistId, {
+      nowMs: now,
+      seed: `${context.seed}:tick:${heistId}`
+    });
     results.push(result);
     if (result.nextState) {
       nextState = result.nextState;
@@ -593,9 +623,10 @@ export const tickHeists = (
 export const getHeistViewModel = (
   gameState: AnyRecord,
   attackerPlayerId: string,
-  targetDistrictId: string
+  targetDistrictId: string,
+  context: HeistExecutionContext
 ): AnyRecord => {
-  const now = Date.now();
+  const now = requireHeistNow(context);
   const attacker = findPlayer(gameState, attackerPlayerId);
   const district = findDistrict(gameState, targetDistrictId);
   const targetOwnerId = district ? getDistrictOwnerId(district) : null;
@@ -1345,7 +1376,7 @@ const isDistrictHeistImmune = (district: AnyRecord, now: number): boolean =>
 
 const rollHeistOutcome = (gameState: AnyRecord, heist: ActiveDistrictHeist): HeistOutcome => {
   const detectionChance = heist.detectionChanceSnapshot || calculateHeistDetectionChance(gameState, heist);
-  const roll = clamp(Number.isFinite(heist.detectionRoll) ? Number(heist.detectionRoll) : Math.random(), 0, 1);
+  const roll = resolveHeistRoll(heist, "detectionRoll", "detection");
   const cleanSuccessChance = applyDayNightHeistSuccessChance({
     gameState,
     baseChance: Math.max(0, 1 - Math.min(0.98, detectionChance + 0.35))
@@ -1365,7 +1396,7 @@ const rollHeistOutcome = (gameState: AnyRecord, heist: ActiveDistrictHeist): Hei
 };
 
 const getOutcomeLootMultiplier = (outcome: HeistOutcome, lootRoll?: number): number => {
-  const roll = clamp(Number.isFinite(lootRoll) ? Number(lootRoll) : Math.random(), 0, 1);
+  const roll = clamp(Number.isFinite(lootRoll) ? Number(lootRoll) : 0.5, 0, 1);
   switch (outcome) {
     case "clean_success":
       return 1;
@@ -1381,7 +1412,7 @@ const getOutcomeLootMultiplier = (outcome: HeistOutcome, lootRoll?: number): num
 
 const calculateGangLoss = (heist: ActiveDistrictHeist, outcome: HeistOutcome): number => {
   const sent = sanitizeGangMembers(heist.gangMembersSent);
-  const roll = clamp(Number.isFinite(heist.lossRoll) ? Number(heist.lossRoll) : Math.random(), 0, 1);
+  const roll = resolveHeistRoll(heist, "lossRoll", "loss");
   const styleConfig = heistConfig.styles[heist.style] ?? heistConfig.styles.balanced;
   let lossPercent = 0;
 
@@ -1546,7 +1577,7 @@ const rollRareLoot = (heist: ActiveDistrictHeist, outcome: HeistOutcome): RareHe
     : outcome === "success"
       ? heistConfig.lootRules.rareLootChance / 2
       : 0;
-  const roll = clamp(Number.isFinite(heist.rareLootRoll) ? Number(heist.rareLootRoll) : Math.random(), 0, 1);
+  const roll = resolveHeistRoll(heist, "rareLootRoll", "rare-loot");
 
   if (roll > chance) {
     return null;
@@ -1692,7 +1723,11 @@ const addPoliceSuspicionToPlayer = (gameState: AnyRecord, playerId: string, amou
   }
 };
 
-const notifyPoliceOfHeist = (gameState: AnyRecord, payload: AnyRecord): void => {
+const notifyPoliceOfHeist = (
+  gameState: AnyRecord,
+  payload: AnyRecord,
+  context: HeistExecutionContext
+): void => {
   const handler = typeof gameState.notifyPoliceOfHeist === "function"
     ? gameState.notifyPoliceOfHeist
     : typeof gameState.policeAI?.notifyPoliceOfHeist === "function"
@@ -1706,10 +1741,10 @@ const notifyPoliceOfHeist = (gameState: AnyRecord, payload: AnyRecord): void => 
       appendGameLog(gameState, "police", "Police AI hook pro akci Vykrást hráče selhal bezpečně.", {
         ...payload,
         error: error instanceof Error ? error.message : String(error)
-      });
+      }, context);
     }
   } else {
-    appendGameLog(gameState, "police", "Policie dostala hlášení o akci Vykrást hráče.", payload);
+    appendGameLog(gameState, "police", "Policie dostala hlášení o akci Vykrást hráče.", payload, context);
   }
 };
 
@@ -1719,7 +1754,8 @@ const appendResolveLogs = (
   outcome: HeistOutcome,
   loot: HeistLoot,
   gangLost: number,
-  gangReturned: number
+  gangReturned: number,
+  context: HeistExecutionContext
 ): void => {
   appendGameLog(gameState, "heist", getOutcomeMessage(outcome), {
     heistId: heist.id,
@@ -1727,22 +1763,27 @@ const appendResolveLogs = (
     targetPlayerId: heist.targetPlayerId,
     targetDistrictId: heist.targetDistrictId,
     outcome
-  });
+  }, { ...context, seed: `${context.seed}:outcome` });
 
   const lootCash = safeInteger(loot.cleanCash) + safeInteger(loot.dirtyCash);
   const lootResources = Object.values(loot.resources).reduce((total, amount) => total + safeInteger(amount), 0);
   appendGameLog(gameState, "heist", `Vykrást hráče loot: cash ${lootCash}, resources ${lootResources}.`, {
     heistId: heist.id,
     loot
-  });
+  }, { ...context, seed: `${context.seed}:loot` });
   appendGameLog(gameState, "heist", `Ztráty gangu při akci Vykrást hráče: ${gangLost}. Návrat: ${gangReturned}.`, {
     heistId: heist.id,
     gangLost,
     gangReturned
-  });
+  }, { ...context, seed: `${context.seed}:losses` });
 };
 
-const appendOutcomeRumor = (gameState: AnyRecord, heist: ActiveDistrictHeist, outcome: HeistOutcome): void => {
+const appendOutcomeRumor = (
+  gameState: AnyRecord,
+  heist: ActiveDistrictHeist,
+  outcome: HeistOutcome,
+  context: HeistExecutionContext
+): void => {
   const rumor = getOutcomeRumor(outcome);
   addRumor(gameState, rumor.message, {
     type: "heist",
@@ -1751,61 +1792,7 @@ const appendOutcomeRumor = (gameState: AnyRecord, heist: ActiveDistrictHeist, ou
     truth: rumor.truth,
     spread: rumor.spread,
     source: "system"
-  });
-};
-
-const addRumor = (gameState: AnyRecord, message: string, payload: AnyRecord): void => {
-  const rumor = {
-    id: `rumor:heist:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
-    message,
-    payload,
-    createdAt: Date.now()
-  };
-
-  if (Array.isArray(gameState.rumors)) {
-    gameState.rumors.push(rumor);
-    return;
-  }
-
-  appendGameLog(gameState, "rumor", message, payload);
-};
-
-const appendGameLog = (gameState: AnyRecord, type: string, message: string, payload: AnyRecord = {}): void => {
-  const entry = {
-    type,
-    message,
-    payload,
-    createdAt: Date.now()
-  };
-
-  if (Array.isArray(gameState.eventLog)) {
-    gameState.eventLog.push(entry);
-  } else {
-    gameState.eventLog = [entry];
-  }
-
-  if (gameState.eventsById && gameState.root) {
-    const tick = safeInteger(gameState.root.tick);
-    const eventIds = Array.isArray(gameState.root.eventIds) ? gameState.root.eventIds : [];
-    const id = `event:heist:${tick}:${eventIds.length}:${Math.random().toString(36).slice(2, 8)}`;
-    eventIds.push(id);
-    gameState.root.eventIds = eventIds;
-    gameState.eventsById[id] = {
-      id,
-      serverInstanceId: gameState.serverInstance?.id ?? "local",
-      eventTypeId: type,
-      status: "resolved",
-      scope: "player",
-      targetIds: [payload.attackerPlayerId, payload.targetPlayerId, payload.districtId, payload.targetDistrictId].filter(Boolean),
-      startTick: tick,
-      endTick: tick,
-      payload: {
-        message,
-        ...payload
-      },
-      version: 1
-    };
-  }
+  }, { ...context, seed: `${context.seed}:rumor` });
 };
 
 const getOutcomeRumor = (outcome: HeistOutcome): { message: string; truth: number; spread: number } => {
@@ -1864,9 +1851,12 @@ const findActiveHeist = (
 ): { heist: ActiveDistrictHeist; attacker: AnyRecord; heistState: PlayerHeistState } | null => {
   const players = getAllPlayers(gameState);
   for (const player of players) {
-    const heistState = initializeHeistState(player).heists;
-    const heist = heistState.activeHeists.find((active) => active.id === heistId);
+    const activeHeists = Array.isArray(player?.heists?.activeHeists)
+      ? player.heists.activeHeists.filter(isActiveHeist)
+      : [];
+    const heist = activeHeists.find((active: ActiveDistrictHeist) => active.id === heistId);
     if (heist) {
+      const heistState = initializeHeistState(player).heists;
       return { heist, attacker: player, heistState };
     }
   }
@@ -1874,7 +1864,11 @@ const findActiveHeist = (
 };
 
 const collectActiveHeists = (gameState: AnyRecord): ActiveDistrictHeist[] =>
-  getAllPlayers(gameState).flatMap((player) => initializeHeistState(player).heists.activeHeists);
+  getAllPlayers(gameState).flatMap((player) =>
+    Array.isArray(player?.heists?.activeHeists)
+      ? player.heists.activeHeists.filter(isActiveHeist)
+      : []
+  );
 
 const getAllPlayers = (gameState: AnyRecord): AnyRecord[] => {
   if (gameState.playersById && typeof gameState.playersById === "object") {
@@ -1977,9 +1971,6 @@ const clamp = (value: number, min: number, max: number): number =>
 
 const roundRatio = (value: number): number =>
   Math.round(value * 10000) / 10000;
-
-const createHeistId = (now: number, attackerPlayerId: string, targetDistrictId: string): string =>
-  `${heistConfig.id}:${now}:${attackerPlayerId}:${targetDistrictId}:${Math.random().toString(36).slice(2, 8)}`;
 
 const isActiveHeist = (value: unknown): value is ActiveDistrictHeist => {
   const heist = value as Partial<ActiveDistrictHeist>;

@@ -1,13 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   calculateHeistDetectionChance,
   calculateHeistLoot,
-  getHeistViewModel,
+  getHeistViewModel as getHeistViewModelCore,
   getPlayerHeistState,
   heistConfig,
-  resolveDistrictHeist,
-  startDistrictHeist,
-  tickHeists
+  resolveDistrictHeist as resolveDistrictHeistCore,
+  startDistrictHeist as startDistrictHeistCore,
+  tickHeists as tickHeistsCore
 } from "../../../packages/game-core/src/rules/heists";
 import { FACTION_DEFINITION_BY_ID } from "../../../packages/game-config/src";
 
@@ -78,6 +78,32 @@ const firstActiveHeist = (state: ReturnType<typeof createHeistStateFixture>) =>
 
 const getStyleView = (viewModel: Record<string, any>, styleId: string) =>
   viewModel.styles.find((style: Record<string, any>) => style.id === styleId);
+
+const startDistrictHeist = (
+  state: Record<string, any>,
+  attackerPlayerId: string,
+  targetDistrictId: string,
+  style: "stealth" | "balanced" | "all_in",
+  gangMembersSent: number,
+  nowMs = 1_000,
+  seed = `test:start:${attackerPlayerId}:${targetDistrictId}:${style}:${gangMembersSent}`
+) => startDistrictHeistCore(
+  state,
+  attackerPlayerId,
+  targetDistrictId,
+  style,
+  gangMembersSent,
+  { nowMs, seed }
+);
+
+const resolveDistrictHeist = (state: Record<string, any>, heistId: string, nowMs: number) =>
+  resolveDistrictHeistCore(state, heistId, { nowMs, seed: `test:resolve:${heistId}` });
+
+const tickHeists = (state: Record<string, any>, nowMs: number) =>
+  tickHeistsCore(state, { nowMs, seed: "test:tick" });
+
+const getHeistViewModel = (state: Record<string, any>, attackerPlayerId: string, targetDistrictId: string) =>
+  getHeistViewModelCore(state, attackerPlayerId, targetDistrictId, { nowMs: 1_000, seed: "test:view" });
 
 describe("district heist system", () => {
   it("exposes district heist config with free and war multipliers", () => {
@@ -300,7 +326,7 @@ describe("district heist system", () => {
     const state = createHeistStateFixture();
     const started = startDistrictHeist(state, "player:1", "district:2", "stealth", 5);
     const active = firstActiveHeist(started.nextState as ReturnType<typeof createHeistStateFixture>);
-    const now = Date.now();
+    const now = 1_000_000;
     active.resolvesAt = now - 1;
     active.detectionRoll = 0.99;
     active.lossRoll = 0;
@@ -389,5 +415,108 @@ describe("district heist system", () => {
     expect(ticked.nextState.eventLog.length).toBeGreaterThan(0);
     expect(viewModel.styles).toHaveLength(3);
     expect(ticked.nextState.districtsById["district:2"].ownerPlayerId).toBe("player:2");
+  });
+
+  it("snapshots deterministic rolls without reading wall clock or global RNG", () => {
+    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => {
+      throw new Error("Date.now must not be used by canonical heist rules");
+    });
+    const random = vi.spyOn(Math, "random").mockImplementation(() => {
+      throw new Error("Math.random must not be used by canonical heist rules");
+    });
+
+    try {
+      const started = startDistrictHeistCore(
+        createHeistStateFixture(),
+        "player:1",
+        "district:2",
+        "balanced",
+        20,
+        { nowMs: 42_000, seed: "command:heist:deterministic" }
+      );
+      const active = firstActiveHeist(started.nextState as ReturnType<typeof createHeistStateFixture>);
+
+      expect(active).toEqual(expect.objectContaining({
+        startedAt: 42_000,
+        rngSeed: "command:heist:deterministic:player:1:district:2:balanced:20",
+        detectionRoll: expect.any(Number),
+        lossRoll: expect.any(Number),
+        lootRoll: expect.any(Number),
+        rareLootRoll: expect.any(Number)
+      }));
+      expect(started.nextState?.eventLog[0]?.createdAt).toBe(42_000);
+      expect(started.nextState?.rumors[0]?.createdAt).toBe(42_000);
+    } finally {
+      dateNow.mockRestore();
+      random.mockRestore();
+    }
+  });
+
+  it("replays the same seeded heist into the same snapshot and outcome", () => {
+    const startContext = { nowMs: 10_000, seed: "command:heist:replay" };
+    const leftStart = startDistrictHeistCore(
+      createHeistStateFixture(),
+      "player:1",
+      "district:2",
+      "all_in",
+      25,
+      startContext
+    );
+    const rightStart = startDistrictHeistCore(
+      createHeistStateFixture(),
+      "player:1",
+      "district:2",
+      "all_in",
+      25,
+      startContext
+    );
+
+    expect(leftStart).toEqual(rightStart);
+    const leftActive = firstActiveHeist(leftStart.nextState as ReturnType<typeof createHeistStateFixture>);
+    const resolutionContext = {
+      nowMs: leftActive.resolvesAt,
+      seed: "tick:heist:replay"
+    };
+    const leftResolved = resolveDistrictHeistCore(leftStart.nextState!, leftActive.id, resolutionContext);
+    const rightResolved = resolveDistrictHeistCore(rightStart.nextState!, leftActive.id, resolutionContext);
+
+    expect(leftResolved).toEqual(rightResolved);
+    const repeatedTick = tickHeistsCore(leftResolved.nextState!, resolutionContext);
+    expect(repeatedTick.results).toEqual([]);
+    expect(repeatedTick.nextState).toEqual(leftResolved.nextState);
+  });
+
+  it("derives stable fallback rolls for legacy snapshots that have no stored RNG fields", () => {
+    const started = startDistrictHeistCore(
+      createHeistStateFixture(),
+      "player:1",
+      "district:2",
+      "stealth",
+      5,
+      { nowMs: 2_000, seed: "command:heist:legacy" }
+    );
+    const active = firstActiveHeist(started.nextState as ReturnType<typeof createHeistStateFixture>);
+    const legacyState = structuredClone(started.nextState!);
+    const legacyActive = firstActiveHeist(legacyState as ReturnType<typeof createHeistStateFixture>);
+    delete legacyActive.rngSeed;
+    delete legacyActive.detectionRoll;
+    delete legacyActive.lossRoll;
+    delete legacyActive.lootRoll;
+    delete legacyActive.rareLootRoll;
+
+    const first = resolveDistrictHeistCore(
+      structuredClone(legacyState),
+      active.id,
+      { nowMs: active.resolvesAt, seed: "tick:legacy:first-instance" }
+    );
+    const second = resolveDistrictHeistCore(
+      structuredClone(legacyState),
+      active.id,
+      { nowMs: active.resolvesAt, seed: "tick:legacy:second-instance" }
+    );
+
+    expect(first.outcome).toBe(second.outcome);
+    expect(first.loot).toEqual(second.loot);
+    expect(first.gangLost).toBe(second.gangLost);
   });
 });
