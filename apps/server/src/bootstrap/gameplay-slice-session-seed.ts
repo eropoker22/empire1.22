@@ -38,7 +38,8 @@ export const addPlayerToGameplaySliceState = (
   const factionId = normalizeFactionId(request.factionId, config);
   ensureSharedCityMap(state, request.serverInstanceId, {
     buildSlotLimit: config.balance.buildSlotLimit,
-    productionBuildings: config.balance.productionBuildings ?? {}
+    productionBuildings: config.balance.productionBuildings ?? {},
+    robbery: config.balance.conflict?.robbery
   });
 
   const player = createPlayer(request, factionId);

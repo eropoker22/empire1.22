@@ -135,6 +135,91 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
           "defense-tower": 4
         }
       },
+      heist: {
+        globalCooldownTicks: ticksFromMinutes(8),
+        sameTargetCooldownTicks: ticksFromMinutes(12),
+        victimProtectionTicks: ticksFromMinutes(6),
+        styles: {
+          stealth: {
+            minMembers: 5,
+            maxMembers: 35,
+            baseSuccessChance: 0.80,
+            baseDetectionChance: 0.18,
+            lootMultiplier: 0.65,
+            detectedLossMultiplier: 0.35,
+            heatOnSuccess: 1,
+            heatOnDetected: 4
+          },
+          balanced: {
+            minMembers: 10,
+            maxMembers: 70,
+            baseSuccessChance: 0.74,
+            baseDetectionChance: 0.30,
+            lootMultiplier: 1,
+            detectedLossMultiplier: 0.50,
+            heatOnSuccess: 3,
+            heatOnDetected: 7
+          },
+          all_in: {
+            minMembers: 25,
+            maxMembers: 120,
+            baseSuccessChance: 0.68,
+            baseDetectionChance: 0.46,
+            lootMultiplier: 1.45,
+            detectedLossMultiplier: 0.70,
+            heatOnSuccess: 5,
+            heatOnDetected: 12
+          }
+        },
+        security: {
+          camerasDetectionChancePerUnit: 0.04,
+          camerasMaxDetectionBonus: 0.20,
+          alarmDetectionChancePerUnit: 0.06,
+          alarmMaxDetectionBonus: 0.24,
+          defenseTowerResistancePerUnit: 8,
+          barricadesResistancePerUnit: 2
+        }
+      },
+      robbery: {
+        cityDayRegenerationFraction: 0.25,
+        poolsByZone: {
+          park: {
+            cash: { min: 20, max: 50 },
+            dirtyCash: { min: 5, max: 20 },
+            chemicals: { min: 10, max: 24 },
+            biomass: { min: 8, max: 20 },
+            metalParts: { min: 0, max: 4 }
+          },
+          residential: {
+            cash: { min: 25, max: 60 },
+            dirtyCash: { min: 8, max: 24 },
+            chemicals: { min: 2, max: 8 },
+            biomass: { min: 2, max: 8 },
+            metalParts: { min: 1, max: 6 }
+          },
+          commercial: {
+            cash: { min: 70, max: 150 },
+            dirtyCash: { min: 20, max: 55 },
+            chemicals: { min: 1, max: 6 },
+            biomass: { min: 1, max: 5 },
+            metalParts: { min: 2, max: 8 }
+          },
+          industrial: {
+            cash: { min: 35, max: 80 },
+            dirtyCash: { min: 10, max: 30 },
+            chemicals: { min: 4, max: 12 },
+            biomass: { min: 0, max: 4 },
+            metalParts: { min: 14, max: 32 }
+          },
+          downtown: {
+            cash: { min: 100, max: 200 },
+            dirtyCash: { min: 35, max: 75 },
+            chemicals: { min: 2, max: 8 },
+            biomass: { min: 2, max: 8 },
+            metalParts: { min: 4, max: 12 }
+          }
+        }
+      },
       attackCooldownTicks: ticksFromMinutes(22),
       robCooldownTicks: ticksFromMinutes(10),
       heistCooldownTicks: ticksFromMinutes(8),

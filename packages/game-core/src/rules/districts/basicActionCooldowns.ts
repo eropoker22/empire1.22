@@ -5,8 +5,9 @@ const DEFAULT_HEIST_COOLDOWN_TICKS = 2;
 
 export const createRobCooldownKey = (targetDistrictId: string): string => `rob:${targetDistrictId}`;
 export const createRobSourceCooldownKey = (sourceDistrictId: string): string => `rob-source:${sourceDistrictId}`;
-export const createHeistCooldownKey = (targetDistrictId: string): string => `heist:${targetDistrictId}`;
-export const createHeistSourceCooldownKey = (sourceDistrictId: string): string => `heist-source:${sourceDistrictId}`;
+export const createHeistGlobalCooldownKey = (): string => "heist:global";
+export const createHeistAttackerTargetCooldownKey = (targetDistrictId: string): string =>
+  `heist:attacker-target:${targetDistrictId}`;
 
 export const resolveRobCooldownTicks = (
   config?: Pick<ConflictBalanceConfig, "robCooldownTicks">

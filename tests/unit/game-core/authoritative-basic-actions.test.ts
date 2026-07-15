@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   applyCommand,
   createDistrictPanelView,
-  createHeistCooldownKey,
-  createHeistSourceCooldownKey,
+  createHeistAttackerTargetCooldownKey,
+  createHeistGlobalCooldownKey,
   createRobCooldownKey,
   createRobSourceCooldownKey,
   type CoreGameState
@@ -28,12 +28,12 @@ describe("authoritative basic action commands", () => {
     expect(result.errors).toEqual([]);
     expect(result.nextState.districtsById["district:2"]).toMatchObject({
       ownerPlayerId: null,
-      heat: 2
+      heat: expect.any(Number),
+      neutralLootPool: expect.any(Object)
     });
-    expect(result.nextState.resourceStatesById["resource:1"].balances).toMatchObject({
-      cash: 1025,
-      "dirty-cash": 10
-    });
+    const robLoot = (result.events[0]?.payload as Record<string, unknown>).loot as Record<string, number>;
+    expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(1000 + robLoot.cash);
+    expect(result.nextState.policeStatesById["police:1"]?.heat).toBeGreaterThan(0);
     expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns).toMatchObject({
       [createRobCooldownKey("district:2")]: context.config.balance.conflict!.robCooldownTicks,
       [createRobSourceCooldownKey("district:1")]: context.config.balance.conflict!.robCooldownTicks
@@ -126,11 +126,13 @@ describe("authoritative basic action commands", () => {
 
     expect(result.errors).toEqual([]);
     expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBe("player:2");
-    expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(1010);
-    expect(result.nextState.resourceStatesById["resource:2"].balances.cash).toBe(990);
+    const heistLoot = (result.events[0]?.payload as Record<string, unknown>).loot as Record<string, number>;
+    expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(1000 + heistLoot.cash);
+    expect(result.nextState.resourceStatesById["resource:2"].balances.cash).toBe(1000 - heistLoot.cash);
     expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns).toMatchObject({
-      [createHeistCooldownKey("district:2")]: context.config.balance.conflict!.heistCooldownTicks,
-      [createHeistSourceCooldownKey("district:1")]: context.config.balance.conflict!.heistCooldownTicks
+      [createHeistGlobalCooldownKey()]: context.config.balance.conflict!.heist!.globalCooldownTicks,
+      [createHeistAttackerTargetCooldownKey("district:2")]:
+        context.config.balance.conflict!.heist!.sameTargetCooldownTicks
     });
     expect(result.events[0]).toMatchObject({
       type: "district-heisted",
@@ -148,10 +150,9 @@ describe("authoritative basic action commands", () => {
     const repeated = applyCommand(first.nextState, createHeistDistrictCommandFixture({ id: "command:heist:cooldown:2" }), context);
 
     expect(repeated.errors).toContainEqual(expect.objectContaining({
-      code: "heist_cooldown_active",
+      code: "HEIST_VICTIM_PROTECTED",
       details: expect.objectContaining({
-        cooldownKey: createHeistCooldownKey("district:2"),
-        remainingTicks: context.config.balance.conflict!.heistCooldownTicks
+        remainingTicks: context.config.balance.conflict!.heist!.victimProtectionTicks
       })
     }));
     expect(repeated.nextState).toBe(first.nextState);
@@ -305,9 +306,9 @@ describe("authoritative basic action commands", () => {
       expect.objectContaining({
         districtId: "district:2",
         enabled: false,
-        disabledCode: "heist_cooldown_active",
-        cooldownRemainingTicks: context.config.balance.conflict!.heistCooldownTicks,
-        disabledReason: expect.stringContaining("obnoví")
+        disabledCode: "HEIST_VICTIM_PROTECTED",
+        cooldownRemainingTicks: context.config.balance.conflict!.heist!.sameTargetCooldownTicks,
+        disabledReason: expect.stringContaining("chráněný")
       })
     ]);
   });

@@ -100,9 +100,9 @@ export const createServerInstanceCreationService = (
     });
 
     runtime.lobby.joinPolicy = request.joinPolicy ?? runtime.lobby.joinPolicy;
+    runtime.state.serverInstance.worldSeed = `shared-city:${serverInstanceId}`;
     seedRuntimeMap(runtime, request.mapComposition);
     runtime.record.status = "lobby";
-    runtime.state.serverInstance.worldSeed = `shared-city:${serverInstanceId}`;
     runtime.state.serverInstance.currentTick = runtime.state.root.tick;
 
     return {
@@ -120,6 +120,7 @@ const seedRuntimeMap = (
   ensureSharedCityMap(runtime.state, runtime.record.id, {
     buildSlotLimit: runtime.config.balance.buildSlotLimit,
     productionBuildings: runtime.config.balance.productionBuildings ?? {},
+    robbery: runtime.config.balance.conflict?.robbery,
     mapComposition
   });
 };

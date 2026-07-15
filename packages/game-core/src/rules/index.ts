@@ -12,6 +12,7 @@ export * from "./combat/resolveCombat";
 export * from "./districts/districtRules";
 export * from "./districts/basicActionCooldowns";
 export * from "./districts/occupyBalance";
+export * from "./districts/neutralRobbery";
 export * from "./defense/defenseConservation";
 export * from "./day-night/dayNight";
 export * from "./city-events/cityEventLifecycle";

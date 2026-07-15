@@ -4,15 +4,26 @@ import type { GameCoreContext } from "../engine/context";
 import type { CoreError } from "../errors";
 import type { CoreEvent } from "../events";
 import { CORE_EVENT_TYPES, createEvent, createNotification } from "../events";
-import { createRobCooldownKey, createRobSourceCooldownKey, resolveRobCooldownTicks } from "../rules";
+import {
+  applyDayNightHeatGain,
+  applyFactionAggressiveHeatGain,
+  createRobCooldownKey,
+  createRobSourceCooldownKey,
+  getFactionPassiveModifiers,
+  regenerateNeutralDistrictLootPool,
+  resolveNeutralRobbery,
+  resolveRobCooldownTicks,
+  seedNeutralDistrictLootPool
+} from "../rules";
 import { composeEntityId } from "../utils";
 import { validateRob } from "../validation";
 import { createPlayerCooldownState } from "./attackDistrictHelpers";
 import { applyCarDealerCooldownReductionTicks } from "./carDealerBuildingActions";
 import { resolveCityHallNightPatrolPressure } from "./cityHallBuildingActions";
+import { increasePlayerPoliceHeat } from "./playerPoliceState";
+import { calculateReceivableResourceAmount } from "./storageCapacityCredit";
 
-const ROB_LOOT = Object.freeze({ cash: 25, "dirty-cash": 10 });
-const ROB_HEAT_GAIN = 2;
+const ROB_LOOT_KEYS = ["cash", "dirty-cash", "chemicals", "biomass", "metal-parts"] as const;
 
 export const handleRobDistrict = (
   state: CoreGameState,
@@ -21,17 +32,81 @@ export const handleRobDistrict = (
 ): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
   const errors = validateRob(state, command, context.config.balance.conflict);
   if (errors.length > 0) return { nextState: state, events: [], errors };
+  const config = context.config.balance.conflict?.robbery;
+  if (!config) {
+    return {
+      nextState: state,
+      events: [],
+      errors: [{ code: "ROBBERY_CONFIG_MISSING", message: "Canonical robbery config is unavailable." }]
+    };
+  }
 
   const player = state.playersById[command.playerId]!;
   const targetDistrict = state.districtsById[command.payload.targetDistrictId]!;
-  const sourceDistrictId = command.payload.sourceDistrictId ?? resolveSingleOwnedOrigin(state, player.id, targetDistrict.id)!;
-  const cooldownState = state.cooldownStatesById[player.cooldownStateId] ?? createPlayerCooldownState(player.id, player.cooldownStateId);
+  const sourceDistrictId = command.payload.sourceDistrictId
+    ?? resolveSingleOwnedOrigin(state, player.id, targetDistrict.id)!;
+  const cityDayLength = Math.max(
+    1,
+    Number(context.config.balance.dayLengthTicks ?? 0)
+    + Number(context.config.balance.nightLengthTicks ?? 0)
+  );
+  const cityDay = Math.floor(state.root.tick / cityDayLength);
+  const seededPool = targetDistrict.neutralLootPool
+    ?? seedNeutralDistrictLootPool(state.serverInstance.worldSeed, targetDistrict, cityDay, config);
+  const currentPool = regenerateNeutralDistrictLootPool(
+    seededPool,
+    cityDay,
+    config.cityDayRegenerationFraction
+  );
+  const resolution = resolveNeutralRobbery(
+    state.serverInstance.worldSeed,
+    command.id,
+    targetDistrict.id,
+    currentPool
+  );
+  const resourceState = state.resourceStatesById[player.resourceStateId]
+    ?? createPlayerResourceState(player.resourceStateId, player.id, state.root.tick);
+  const acceptedLoot: Record<string, number> = {};
+  for (const resourceKey of ROB_LOOT_KEYS) {
+    acceptedLoot[resourceKey] = calculateReceivableResourceAmount(
+      state,
+      player.id,
+      resourceKey,
+      resolution.loot[resourceKey] ?? 0,
+      context.config.balance.warehouse!
+    );
+  }
+  const nextPool = restoreUnacceptedLoot(
+    resolution.nextPool,
+    resolution.loot,
+    acceptedLoot
+  );
+  const nextBalances = { ...resourceState.balances };
+  for (const resourceKey of ROB_LOOT_KEYS) {
+    nextBalances[resourceKey] = Math.max(0, Number(nextBalances[resourceKey] ?? 0))
+      + Number(acceptedLoot[resourceKey] ?? 0);
+  }
   const cityHallNightPatrol = resolveCityHallNightPatrolPressure({
     state,
     context,
     targetDistrict,
     tick: state.root.tick
   });
+  const factionModifiers = getFactionPassiveModifiers(state, player.id, context);
+  const playerHeat = Math.max(1, applyFactionAggressiveHeatGain(
+    Math.ceil(
+      applyDayNightHeatGain(resolution.playerHeat, state, context)
+      * cityHallNightPatrol.heatMultiplier
+    ),
+    factionModifiers
+  ));
+  const districtHeat = Math.ceil(
+    applyDayNightHeatGain(resolution.districtHeat, state, context)
+    * cityHallNightPatrol.heatMultiplier
+  );
+  const nextPoliceState = increasePlayerPoliceHeat(state, player, playerHeat, state.root.tick);
+  const cooldownState = state.cooldownStatesById[player.cooldownStateId]
+    ?? createPlayerCooldownState(player.id, player.cooldownStateId);
   const cooldownTicks = Math.ceil(applyCarDealerCooldownReductionTicks({
     baseTicks: resolveRobCooldownTicks(context.config.balance.conflict),
     state,
@@ -40,24 +115,13 @@ export const handleRobDistrict = (
     garageConfig: context.config.balance.garage,
     category: "districtRobbery"
   }) * cityHallNightPatrol.cooldownMultiplier);
-  const heatGain = Math.ceil(ROB_HEAT_GAIN * cityHallNightPatrol.heatMultiplier);
-  const resourceState = state.resourceStatesById[player.resourceStateId] ?? createPlayerResourceState(player.resourceStateId, player.id, state.root.tick);
-  const nextResourceState: ResourceState = {
-    ...resourceState,
-    balances: {
-      ...resourceState.balances,
-      cash: Math.max(0, Number(resourceState.balances.cash || 0)) + ROB_LOOT.cash,
-      "dirty-cash": Math.max(0, Number(resourceState.balances["dirty-cash"] || 0)) + ROB_LOOT["dirty-cash"]
-    },
-    lastUpdatedTick: state.root.tick,
-    version: resourceState.version + (state.resourceStatesById[resourceState.id] ? 1 : 0)
-  };
   const report = createRobReportNotification({
     command,
-    playerId: player.id,
     sourceDistrictId,
-    targetDistrictId: targetDistrict.id,
-    heatGained: heatGain,
+    result: resolution.outcome,
+    loot: acceptedLoot,
+    playerHeat,
+    districtHeat,
     cooldownTicks,
     tick: state.root.tick
   });
@@ -67,19 +131,25 @@ export const handleRobDistrict = (
       ...state,
       playersById: {
         ...state.playersById,
-        [player.id]: {
-          ...player,
-          lastActionAt: command.issuedAt,
-          version: player.version + 1
-        }
+        [player.id]: { ...player, lastActionAt: command.issuedAt, version: player.version + 1 }
       },
       districtsById: {
         ...state.districtsById,
         [targetDistrict.id]: {
           ...targetDistrict,
-          heat: Math.max(0, Number(targetDistrict.heat || 0) + heatGain),
+          neutralLootPool: nextPool,
+          heat: Math.max(0, targetDistrict.heat + districtHeat),
           lastHeatDecayTick: state.root.tick,
           version: targetDistrict.version + 1
+        }
+      },
+      resourceStatesById: {
+        ...state.resourceStatesById,
+        [resourceState.id]: {
+          ...resourceState,
+          balances: nextBalances,
+          lastUpdatedTick: state.root.tick,
+          version: resourceState.version + (state.resourceStatesById[resourceState.id] ? 1 : 0)
         }
       },
       cooldownStatesById: {
@@ -94,14 +164,8 @@ export const handleRobDistrict = (
           version: cooldownState.version + (state.cooldownStatesById[cooldownState.id] ? 1 : 0)
         }
       },
-      resourceStatesById: {
-        ...state.resourceStatesById,
-        [nextResourceState.id]: nextResourceState
-      },
-      notificationsById: {
-        ...state.notificationsById,
-        [report.id]: report
-      },
+      policeStatesById: { ...state.policeStatesById, [nextPoliceState.id]: nextPoliceState },
+      notificationsById: { ...state.notificationsById, [report.id]: report },
       root: {
         ...state.root,
         notificationIds: [...state.root.notificationIds, report.id],
@@ -113,8 +177,10 @@ export const handleRobDistrict = (
         attackerPlayerId: player.id,
         sourceDistrictId,
         targetDistrictId: targetDistrict.id,
-        loot: ROB_LOOT,
-        heatGained: heatGain,
+        result: resolution.outcome,
+        loot: acceptedLoot,
+        playerHeat,
+        districtHeat,
         cooldownTicks
       }),
       createEvent(CORE_EVENT_TYPES.notificationCreated, {
@@ -127,39 +193,59 @@ export const handleRobDistrict = (
   };
 };
 
+const restoreUnacceptedLoot = (
+  pool: NonNullable<CoreGameState["districtsById"][string]["neutralLootPool"]>,
+  planned: Record<string, number>,
+  accepted: Record<string, number>
+) => {
+  const rejected = (key: string) => Math.max(0, Number(planned[key] ?? 0) - Number(accepted[key] ?? 0));
+  return {
+    ...pool,
+    cash: pool.cash + rejected("cash"),
+    dirtyCash: pool.dirtyCash + rejected("dirty-cash"),
+    resources: {
+      ...pool.resources,
+      chemicals: Number(pool.resources.chemicals ?? 0) + rejected("chemicals"),
+      biomass: Number(pool.resources.biomass ?? 0) + rejected("biomass"),
+      "metal-parts": Number(pool.resources["metal-parts"] ?? 0) + rejected("metal-parts")
+    }
+  };
+};
+
 const createRobReportNotification = (input: {
   command: RobDistrictCommand;
-  playerId: string;
   sourceDistrictId: string;
-  targetDistrictId: string;
-  heatGained: number;
+  result: string;
+  loot: Record<string, number>;
+  playerHeat: number;
+  districtHeat: number;
   cooldownTicks: number;
   tick: number;
-}): Notification =>
-  createNotification({
-    id: composeEntityId("notification", `${input.command.id}:rob-report`),
-    recipientType: "player",
-    recipientId: input.playerId,
-    category: "report.rob",
-    title: `Rob report: ${input.targetDistrictId}`,
-    bodyKey: "report.rob",
-    payload: {
-      reportId: composeEntityId("report", `${input.command.id}:rob`),
-      reportType: "rob",
-      actionType: "rob-district",
-      playerId: input.playerId,
-      sourceDistrictId: input.sourceDistrictId,
-      targetDistrictId: input.targetDistrictId,
-      result: "success",
-      loot: ROB_LOOT,
-      heatGained: input.heatGained,
-      cooldownTicks: input.cooldownTicks,
-      tick: input.tick,
-      createdAt: new Date(0).toISOString()
-    },
-    createdAt: new Date(0).toISOString(),
-    readAt: null
-  });
+}): Notification => createNotification({
+  id: composeEntityId("notification", `${input.command.id}:rob-report`),
+  recipientType: "player",
+  recipientId: input.command.playerId,
+  category: "report.rob",
+  title: `Rob report: ${input.command.payload.targetDistrictId}`,
+  bodyKey: "report.rob",
+  payload: {
+    reportId: composeEntityId("report", `${input.command.id}:rob`),
+    reportType: "rob",
+    actionType: "rob-district",
+    playerId: input.command.playerId,
+    sourceDistrictId: input.sourceDistrictId,
+    targetDistrictId: input.command.payload.targetDistrictId,
+    result: input.result,
+    loot: input.loot,
+    playerHeat: input.playerHeat,
+    districtHeat: input.districtHeat,
+    cooldownTicks: input.cooldownTicks,
+    tick: input.tick,
+    createdAt: input.command.issuedAt
+  },
+  createdAt: input.command.issuedAt,
+  readAt: null
+});
 
 const createPlayerResourceState = (id: string, playerId: string, tick: number): ResourceState => ({
   id,
@@ -177,7 +263,6 @@ const resolveSingleOwnedOrigin = (
   targetDistrictId: string
 ): string | undefined => {
   const target = state.districtsById[targetDistrictId];
-  if (!target) return undefined;
   const origins = Object.values(state.districtsById).filter((district) =>
     district.ownerPlayerId === playerId
     && district.adjacentDistrictIds.includes(target.id)

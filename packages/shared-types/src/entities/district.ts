@@ -7,6 +7,18 @@ import type {
 } from "../ids/entity-id";
 import type { DefenseWeaponId } from "./weapon";
 
+export interface NeutralDistrictLootPool {
+  initialSeed: string;
+  initialCash: number;
+  initialDirtyCash: number;
+  initialResources: Record<string, number>;
+  cash: number;
+  dirtyCash: number;
+  resources: Record<string, number>;
+  lastRegenerationCityDay: number;
+  version: number;
+}
+
 /**
  * Responsibility: Stable district contract representing one map territory.
  * Belongs here: ownership, zone pressure, fixed building references, and legacy slot capacity.
@@ -32,6 +44,8 @@ export interface District {
   slotCount: number;
   status: DistrictStatus;
   resourceModifiers: Record<string, number>;
+  neutralLootPool?: NeutralDistrictLootPool | null;
+  heistProtectedUntilTick?: number | null;
   securityRevision: number;
   version: number;
 }

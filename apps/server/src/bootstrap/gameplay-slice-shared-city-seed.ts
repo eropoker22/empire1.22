@@ -1,4 +1,8 @@
-import type { CoreGameState } from "@empire/game-core";
+import {
+  seedNeutralDistrictLootPool,
+  type ConflictBalanceConfig,
+  type CoreGameState
+} from "@empire/game-core";
 import type { ServerInstanceId } from "@empire/shared-types";
 import {
   createSharedCityDistrict,
@@ -14,6 +18,7 @@ import { createSharedCityPlans } from "./gameplay-slice-shared-city-plan";
 export interface SharedCitySeedConfig {
   buildSlotLimit: number;
   productionBuildings: Record<string, { resourceKey: string }>;
+  robbery?: ConflictBalanceConfig["robbery"];
   mapComposition?: ServerMapComposition;
 }
 
@@ -66,6 +71,14 @@ export const ensureSharedCityMap = (
       buildingSetKey: districtPlan.buildingSetKey,
       adjacentDistrictIds: districtPlan.adjacentDistrictIds
     });
+    if (!district.ownerPlayerId && config.robbery) {
+      district.neutralLootPool = seedNeutralDistrictLootPool(
+        state.serverInstance.worldSeed,
+        district,
+        0,
+        config.robbery
+      );
+    }
 
     state.districtsById[district.id] = district;
     appendUnique(state.root.districtIds, district.id);

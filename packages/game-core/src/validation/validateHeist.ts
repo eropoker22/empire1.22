@@ -2,14 +2,14 @@ import type { HeistDistrictCommand } from "@empire/shared-types";
 import type { ConflictBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import type { CoreError } from "../errors";
-import { createHeistCooldownKey, createHeistSourceCooldownKey, validateMapAction } from "../rules";
+import { createHeistAttackerTargetCooldownKey, createHeistGlobalCooldownKey, validateMapAction } from "../rules";
 
 const HEIST_STYLES = new Set(["stealth", "balanced", "all_in"]);
 
 export const validateHeist = (
   state: CoreGameState,
   command: HeistDistrictCommand,
-  _conflictConfig?: ConflictBalanceConfig
+  conflictConfig?: ConflictBalanceConfig
 ): CoreError[] => {
   if (!HEIST_STYLES.has(command.payload.style)) {
     return [{
@@ -24,6 +24,18 @@ export const validateHeist = (
       code: "HEIST_GANG_MEMBERS_INVALID",
       message: "Heist vyžaduje kladný počet členů gangu.",
       details: { gangMembersSent: command.payload.gangMembersSent }
+    }];
+  }
+
+  const styleConfig = conflictConfig?.heist?.styles[command.payload.style];
+  if (styleConfig && (
+    command.payload.gangMembersSent < styleConfig.minMembers
+    || command.payload.gangMembersSent > styleConfig.maxMembers
+  )) {
+    return [{
+      code: "HEIST_GANG_MEMBERS_OUT_OF_RANGE",
+      message: "Počet členů neodpovídá zvolenému stylu heistu.",
+      details: { minMembers: styleConfig.minMembers, maxMembers: styleConfig.maxMembers }
     }];
   }
 
@@ -73,10 +85,21 @@ export const validateHeist = (
     }];
   }
 
+  const targetDistrict = state.districtsById[command.payload.targetDistrictId];
+  if ((targetDistrict.heistProtectedUntilTick ?? 0) > state.root.tick) {
+    return [{
+      code: "HEIST_VICTIM_PROTECTED",
+      message: "Tento district je po heistu dočasně chráněný.",
+      details: {
+        cooldownUntilTick: targetDistrict.heistProtectedUntilTick,
+        remainingTicks: targetDistrict.heistProtectedUntilTick! - state.root.tick
+      }
+    }];
+  }
+
   const cooldownState = state.cooldownStatesById[player.cooldownStateId];
   const activeCooldown = getActiveHeistCooldown(
     cooldownState?.cooldowns ?? {},
-    originDistrictId,
     command.payload.targetDistrictId,
     state.root.tick
   );
@@ -100,11 +123,10 @@ export const validateHeist = (
 
 const getActiveHeistCooldown = (
   cooldowns: Record<string, number>,
-  sourceDistrictId: string,
   targetDistrictId: string,
   currentTick: number
 ): { key: string; untilTick: number; remainingTicks: number } | null => {
-  for (const key of [createHeistCooldownKey(targetDistrictId), createHeistSourceCooldownKey(sourceDistrictId)]) {
+  for (const key of [createHeistGlobalCooldownKey(), createHeistAttackerTargetCooldownKey(targetDistrictId)]) {
     const untilTick = cooldowns[key];
     if (typeof untilTick === "number" && untilTick > currentTick) {
       return {

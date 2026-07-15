@@ -4,18 +4,34 @@ import type { GameCoreContext } from "../engine/context";
 import type { CoreError } from "../errors";
 import type { CoreEvent } from "../events";
 import { CORE_EVENT_TYPES, createEvent, createNotification } from "../events";
-import { createHeistCooldownKey, createHeistSourceCooldownKey, resolveHeistCooldownTicks } from "../rules";
+import {
+  createHeistAttackerTargetCooldownKey,
+  createHeistGlobalCooldownKey,
+  resolveImmediateHeist
+} from "../rules";
 import { composeEntityId } from "../utils";
 import { validateHeist } from "../validation";
 import { createPlayerCooldownState } from "./attackDistrictHelpers";
-import { resolveCityHallNightPatrolPressure } from "./cityHallBuildingActions";
+import { appendRecoveryPoolEntries, createRecoveryEntriesFromLosses } from "./clinicBuildingActions";
+import { increasePlayerPoliceHeat } from "./playerPoliceState";
+import { calculateReceivableResourceAmount } from "./storageCapacityCredit";
 
-const STYLE_MULTIPLIERS = Object.freeze({
-  stealth: 0.5,
-  balanced: 1,
-  all_in: 1.5
-});
-const HEIST_HEAT_GAIN = 4;
+const HEISTABLE_RESOURCES = [
+  "cash",
+  "dirty-cash",
+  "chemicals",
+  "biomass",
+  "metal-parts",
+  "tech-core"
+] as const;
+const MAX_LOOT_FRACTIONS: Record<typeof HEISTABLE_RESOURCES[number], number> = {
+  cash: 0.12,
+  "dirty-cash": 0.12,
+  chemicals: 0.10,
+  biomass: 0.10,
+  "metal-parts": 0.10,
+  "tech-core": 0.10
+};
 
 export const handleHeistDistrict = (
   state: CoreGameState,
@@ -25,125 +41,167 @@ export const handleHeistDistrict = (
   const errors = validateHeist(state, command, context.config.balance.conflict);
   if (errors.length > 0) return { nextState: state, events: [], errors };
 
+  const config = context.config.balance.conflict?.heist;
+  if (!config) {
+    return {
+      nextState: state,
+      events: [],
+      errors: [{ code: "HEIST_CONFIG_MISSING", message: "Canonical heist config is unavailable." }]
+    };
+  }
   const player = state.playersById[command.playerId]!;
   const targetDistrict = state.districtsById[command.payload.targetDistrictId]!;
-  const targetOwner = targetDistrict.ownerPlayerId ? state.playersById[targetDistrict.ownerPlayerId] : undefined;
-  const sourceDistrictId = command.payload.sourceDistrictId ?? resolveSingleOwnedOrigin(state, player.id, targetDistrict.id)!;
-  const cooldownState = state.cooldownStatesById[player.cooldownStateId] ?? createPlayerCooldownState(player.id, player.cooldownStateId);
-  const cityHallNightPatrol = resolveCityHallNightPatrolPressure({
+  const targetOwner = state.playersById[targetDistrict.ownerPlayerId!]!;
+  const sourceDistrictId = command.payload.sourceDistrictId
+    ?? resolveSingleOwnedOrigin(state, player.id, targetDistrict.id)!;
+  const resolution = resolveImmediateHeist(state, command, sourceDistrictId, config);
+  const attackerResource = state.resourceStatesById[player.resourceStateId]
+    ?? createPlayerResourceState(player.resourceStateId, player.id, state.root.tick);
+  const defenderResource = state.resourceStatesById[targetOwner.resourceStateId]
+    ?? createPlayerResourceState(targetOwner.resourceStateId, targetOwner.id, state.root.tick);
+  const loot: Record<string, number> = {};
+  for (const resourceKey of HEISTABLE_RESOURCES) {
+    const available = Math.max(0, Math.floor(Number(defenderResource.balances[resourceKey] ?? 0)));
+    const requested = Math.min(
+      available,
+      Math.floor(
+        available
+        * MAX_LOOT_FRACTIONS[resourceKey]
+        * resolution.lootMultiplier
+        * (0.75 + resolution.lootRoll * 0.25)
+      )
+    );
+    loot[resourceKey] = calculateReceivableResourceAmount(
+      state,
+      player.id,
+      resourceKey,
+      requested,
+      context.config.balance.warehouse!
+    );
+  }
+  const attackerBalances = { ...attackerResource.balances };
+  const defenderBalances = { ...defenderResource.balances };
+  for (const resourceKey of HEISTABLE_RESOURCES) {
+    const amount = loot[resourceKey] ?? 0;
+    attackerBalances[resourceKey] = Math.max(0, Number(attackerBalances[resourceKey] ?? 0)) + amount;
+    defenderBalances[resourceKey] = Math.max(0, Number(defenderBalances[resourceKey] ?? 0) - amount);
+  }
+  const currentPopulation = Math.max(0, Math.floor(Number(
+    player.population ?? attackerBalances.population ?? 0
+  )));
+  const nextPopulation = Math.max(0, currentPopulation - resolution.gangLosses);
+  if ("population" in attackerBalances) attackerBalances.population = nextPopulation;
+  const nextPoliceState = increasePlayerPoliceHeat(
     state,
-    context,
-    targetDistrict,
+    player,
+    resolution.heatGain,
+    state.root.tick
+  );
+  const cooldownState = state.cooldownStatesById[player.cooldownStateId]
+    ?? createPlayerCooldownState(player.id, player.cooldownStateId);
+  const report = createHeistReportNotification({
+    command,
+    sourceDistrictId,
+    targetOwnerPlayerId: targetOwner.id,
+    outcome: resolution.outcome,
+    loot,
+    gangLosses: resolution.gangLosses,
+    heatGained: resolution.heatGain,
+    successChance: resolution.successChance,
+    detectionChance: resolution.detectionChance,
+    attackerIdentified: resolution.attackerIdentified,
     tick: state.root.tick
   });
-  const cooldownTicks = Math.ceil(resolveHeistCooldownTicks(context.config.balance.conflict) * cityHallNightPatrol.cooldownMultiplier);
-  const heatGain = Math.ceil(HEIST_HEAT_GAIN * cityHallNightPatrol.heatMultiplier);
-  const attackerResource = state.resourceStatesById[player.resourceStateId] ?? createPlayerResourceState(player.resourceStateId, player.id, state.root.tick);
-  const defenderResource = targetOwner
-    ? state.resourceStatesById[targetOwner.resourceStateId] ?? createPlayerResourceState(targetOwner.resourceStateId, targetOwner.id, state.root.tick)
-    : null;
-  const multiplier = STYLE_MULTIPLIERS[command.payload.style];
-  const cashLoot = Math.min(
-    Math.max(0, Number(defenderResource?.balances.cash || 0)),
-    Math.max(1, Math.floor(command.payload.gangMembersSent * multiplier))
-  );
-  const dirtyCashLoot = Math.min(
-    Math.max(0, Number(defenderResource?.balances["dirty-cash"] || 0)),
-    Math.max(0, Math.floor(command.payload.gangMembersSent * multiplier * 0.5))
-  );
-  const nextAttackerResource: ResourceState = {
-    ...attackerResource,
-    balances: {
-      ...attackerResource.balances,
-      cash: Math.max(0, Number(attackerResource.balances.cash || 0)) + cashLoot,
-      "dirty-cash": Math.max(0, Number(attackerResource.balances["dirty-cash"] || 0)) + dirtyCashLoot
+  const nextState: CoreGameState = {
+    ...state,
+    playersById: {
+      ...state.playersById,
+      [player.id]: {
+        ...player,
+        population: nextPopulation,
+        lastActionAt: command.issuedAt,
+        version: player.version + 1
+      }
     },
-    lastUpdatedTick: state.root.tick,
-    version: attackerResource.version + (state.resourceStatesById[attackerResource.id] ? 1 : 0)
-  };
-  const nextDefenderResource = defenderResource
-    ? {
+    districtsById: {
+      ...state.districtsById,
+      [targetDistrict.id]: {
+        ...targetDistrict,
+        heat: Math.max(0, targetDistrict.heat + resolution.heatGain),
+        heistProtectedUntilTick: state.root.tick + config.victimProtectionTicks,
+        lastHeatDecayTick: state.root.tick,
+        version: targetDistrict.version + 1
+      }
+    },
+    resourceStatesById: {
+      ...state.resourceStatesById,
+      [attackerResource.id]: {
+        ...attackerResource,
+        balances: attackerBalances,
+        lastUpdatedTick: state.root.tick,
+        version: attackerResource.version + (state.resourceStatesById[attackerResource.id] ? 1 : 0)
+      },
+      [defenderResource.id]: {
         ...defenderResource,
-        balances: {
-          ...defenderResource.balances,
-          cash: Math.max(0, Number(defenderResource.balances.cash || 0) - cashLoot),
-          "dirty-cash": Math.max(0, Number(defenderResource.balances["dirty-cash"] || 0) - dirtyCashLoot)
-        },
+        balances: defenderBalances,
         lastUpdatedTick: state.root.tick,
         version: defenderResource.version + (state.resourceStatesById[defenderResource.id] ? 1 : 0)
       }
-    : null;
-  const report = createHeistReportNotification({
-    command,
-    playerId: player.id,
-    sourceDistrictId,
-    targetDistrictId: targetDistrict.id,
-    targetOwnerPlayerId: targetDistrict.ownerPlayerId,
-    cashLoot,
-    dirtyCashLoot,
-    heatGained: heatGain,
-    cooldownTicks,
-    tick: state.root.tick
-  });
-
-  return {
-    nextState: {
-      ...state,
-      playersById: {
-        ...state.playersById,
-        [player.id]: {
-          ...player,
-          lastActionAt: command.issuedAt,
-          version: player.version + 1
-        }
-      },
-      districtsById: {
-        ...state.districtsById,
-        [targetDistrict.id]: {
-          ...targetDistrict,
-          heat: Math.max(0, Number(targetDistrict.heat || 0) + heatGain),
-          lastHeatDecayTick: state.root.tick,
-          version: targetDistrict.version + 1
-        }
-      },
-      cooldownStatesById: {
-        ...state.cooldownStatesById,
-        [cooldownState.id]: {
-          ...cooldownState,
-          cooldowns: {
-            ...cooldownState.cooldowns,
-            [createHeistCooldownKey(targetDistrict.id)]: state.root.tick + cooldownTicks,
-            [createHeistSourceCooldownKey(sourceDistrictId)]: state.root.tick + cooldownTicks
-          },
-          version: cooldownState.version + (state.cooldownStatesById[cooldownState.id] ? 1 : 0)
-        }
-      },
-      resourceStatesById: {
-        ...state.resourceStatesById,
-        [nextAttackerResource.id]: nextAttackerResource,
-        ...(nextDefenderResource ? { [nextDefenderResource.id]: nextDefenderResource } : {})
-      },
-      notificationsById: {
-        ...state.notificationsById,
-        [report.id]: report
-      },
-      root: {
-        ...state.root,
-        notificationIds: [...state.root.notificationIds, report.id],
-        version: state.root.version + 1
+    },
+    cooldownStatesById: {
+      ...state.cooldownStatesById,
+      [cooldownState.id]: {
+        ...cooldownState,
+        cooldowns: {
+          ...cooldownState.cooldowns,
+          [createHeistGlobalCooldownKey()]: state.root.tick + config.globalCooldownTicks,
+          [createHeistAttackerTargetCooldownKey(targetDistrict.id)]:
+            state.root.tick + config.sameTargetCooldownTicks,
+        },
+        version: cooldownState.version + (state.cooldownStatesById[cooldownState.id] ? 1 : 0)
       }
     },
+    policeStatesById: { ...state.policeStatesById, [nextPoliceState.id]: nextPoliceState },
+    trapsById: resolution.trapId
+      ? {
+          ...state.trapsById,
+          [resolution.trapId]: {
+            ...state.trapsById[resolution.trapId],
+            status: "triggered",
+            triggeredAtTick: state.root.tick,
+            version: state.trapsById[resolution.trapId].version + 1
+          }
+        }
+      : state.trapsById,
+    notificationsById: { ...state.notificationsById, [report.id]: report },
+    root: {
+      ...state.root,
+      notificationIds: [...state.root.notificationIds, report.id],
+      version: state.root.version + 1
+    }
+  };
+  const recoveredState = appendRecoveryPoolEntries(
+    nextState,
+    player.id,
+    createRecoveryEntriesFromLosses({ population: resolution.gangLosses }, "heist"),
+    command.id
+  );
+
+  return {
+    nextState: recoveredState,
     events: [
       createEvent(CORE_EVENT_TYPES.districtHeisted, {
         attackerPlayerId: player.id,
-        targetOwnerPlayerId: targetDistrict.ownerPlayerId,
+        targetOwnerPlayerId: targetOwner.id,
         sourceDistrictId,
         targetDistrictId: targetDistrict.id,
         style: command.payload.style,
         gangMembersSent: command.payload.gangMembersSent,
-        loot: { cash: cashLoot, "dirty-cash": dirtyCashLoot },
-        heatGained: heatGain,
-        cooldownTicks
+        outcome: resolution.outcome,
+        loot,
+        gangLosses: resolution.gangLosses,
+        heatGained: resolution.heatGain,
+        cooldownTicks: config.globalCooldownTicks
       }),
       createEvent(CORE_EVENT_TYPES.notificationCreated, {
         notificationId: report.id,
@@ -157,42 +215,45 @@ export const handleHeistDistrict = (
 
 const createHeistReportNotification = (input: {
   command: HeistDistrictCommand;
-  playerId: string;
   sourceDistrictId: string;
-  targetDistrictId: string;
-  targetOwnerPlayerId: string | null;
-  cashLoot: number;
-  dirtyCashLoot: number;
+  targetOwnerPlayerId: string;
+  outcome: string;
+  loot: Record<string, number>;
+  gangLosses: number;
   heatGained: number;
-  cooldownTicks: number;
+  successChance: number;
+  detectionChance: number;
+  attackerIdentified: boolean;
   tick: number;
-}): Notification =>
-  createNotification({
-    id: composeEntityId("notification", `${input.command.id}:heist-report`),
-    recipientType: "player",
-    recipientId: input.playerId,
-    category: "report.heist",
-    title: `Heist report: ${input.targetDistrictId}`,
-    bodyKey: "report.heist",
-    payload: {
-      reportId: composeEntityId("report", `${input.command.id}:heist`),
-      reportType: "heist",
-      actionType: "heist-district",
-      playerId: input.playerId,
-      sourceDistrictId: input.sourceDistrictId,
-      targetDistrictId: input.targetDistrictId,
-      targetOwnerPlayerId: input.targetOwnerPlayerId,
-      style: input.command.payload.style,
-      result: "success",
-      loot: { cash: input.cashLoot, "dirty-cash": input.dirtyCashLoot },
-      heatGained: input.heatGained,
-      cooldownTicks: input.cooldownTicks,
-      tick: input.tick,
-      createdAt: new Date(0).toISOString()
-    },
-    createdAt: new Date(0).toISOString(),
-    readAt: null
-  });
+}): Notification => createNotification({
+  id: composeEntityId("notification", `${input.command.id}:heist-report`),
+  recipientType: "player",
+  recipientId: input.command.playerId,
+  category: "report.heist",
+  title: `Heist report: ${input.command.payload.targetDistrictId}`,
+  bodyKey: "report.heist",
+  payload: {
+    reportId: composeEntityId("report", `${input.command.id}:heist`),
+    reportType: "heist",
+    actionType: "heist-district",
+    playerId: input.command.playerId,
+    sourceDistrictId: input.sourceDistrictId,
+    targetDistrictId: input.command.payload.targetDistrictId,
+    targetOwnerPlayerId: input.targetOwnerPlayerId,
+    style: input.command.payload.style,
+    result: input.outcome,
+    loot: input.loot,
+    gangLosses: input.gangLosses,
+    heatGained: input.heatGained,
+    successChance: input.successChance,
+    detectionChance: input.detectionChance,
+    attackerIdentified: input.attackerIdentified,
+    tick: input.tick,
+    createdAt: input.command.issuedAt
+  },
+  createdAt: input.command.issuedAt,
+  readAt: null
+});
 
 const createPlayerResourceState = (id: string, playerId: string, tick: number): ResourceState => ({
   id,
@@ -210,7 +271,6 @@ const resolveSingleOwnedOrigin = (
   targetDistrictId: string
 ): string | undefined => {
   const target = state.districtsById[targetDistrictId];
-  if (!target) return undefined;
   const origins = Object.values(state.districtsById).filter((district) =>
     district.ownerPlayerId === playerId
     && district.adjacentDistrictIds.includes(target.id)

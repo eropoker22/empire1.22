@@ -9,8 +9,8 @@ import {
   calculateContributorDefenseAmount,
   calculateDefenseCapacityUsage,
   calculateOwnerOwnedDefenseAmount,
-  createHeistCooldownKey,
-  createHeistSourceCooldownKey,
+  createHeistAttackerTargetCooldownKey,
+  createHeistGlobalCooldownKey,
   createRobCooldownKey,
   createRobSourceCooldownKey,
   listDeployedDefenseContributions,
@@ -114,11 +114,12 @@ export const createDistrictHeistTargetViews = (
         clientRequestId: null
       };
       const errors = validateHeist(state, previewCommand, conflictConfig);
-      const cooldownRemainingTicks = getMaxCooldownRemainingTicks(
+      const cooldownRemainingTicks = Math.max(getMaxCooldownRemainingTicks(
         state,
         playerId,
-        [createHeistCooldownKey(target.id), createHeistSourceCooldownKey(source.id)]
-      );
+        [createHeistGlobalCooldownKey(), createHeistAttackerTargetCooldownKey(target.id)]
+      ), Math.max(0, Number(target.heistProtectedUntilTick ?? 0) - state.root.tick));
+      const styleConfig = conflictConfig?.heist?.styles;
       return {
         districtId: target.id,
         name: target.name,
@@ -131,9 +132,9 @@ export const createDistrictHeistTargetViews = (
         expectedTargetVersion: target.version,
         expectedSourceVersion: source.version,
         styles: [
-          { style: "stealth" as const, label: "Tichý", defaultGangMembersSent: 5 },
-          { style: "balanced" as const, label: "Vyvážený", defaultGangMembersSent: 10 },
-          { style: "all_in" as const, label: "Tvrdý", defaultGangMembersSent: 25 }
+          { style: "stealth" as const, label: "Tichý", defaultGangMembersSent: styleConfig?.stealth.minMembers ?? 5 },
+          { style: "balanced" as const, label: "Vyvážený", defaultGangMembersSent: styleConfig?.balanced.minMembers ?? 10 },
+          { style: "all_in" as const, label: "Tvrdý", defaultGangMembersSent: styleConfig?.all_in.minMembers ?? 25 }
         ]
       };
     });

@@ -144,6 +144,39 @@ export interface ConflictBalanceConfig {
     zoneBonusPoints: Record<string, number>;
     itemWeights: Record<"vest" | "barricades" | "cameras" | "defense-tower" | "alarm", number>;
   };
+  heist?: {
+    globalCooldownTicks: number;
+    sameTargetCooldownTicks: number;
+    victimProtectionTicks: number;
+    styles: Record<"stealth" | "balanced" | "all_in", {
+      minMembers: number;
+      maxMembers: number;
+      baseSuccessChance: number;
+      baseDetectionChance: number;
+      lootMultiplier: number;
+      detectedLossMultiplier: number;
+      heatOnSuccess: number;
+      heatOnDetected: number;
+    }>;
+    security: {
+      camerasDetectionChancePerUnit: number;
+      camerasMaxDetectionBonus: number;
+      alarmDetectionChancePerUnit: number;
+      alarmMaxDetectionBonus: number;
+      defenseTowerResistancePerUnit: number;
+      barricadesResistancePerUnit: number;
+    };
+  };
+  robbery?: {
+    cityDayRegenerationFraction: number;
+    poolsByZone: Record<string, {
+      cash: { min: number; max: number };
+      dirtyCash: { min: number; max: number };
+      chemicals: { min: number; max: number };
+      biomass: { min: number; max: number };
+      metalParts: { min: number; max: number };
+    }>;
+  };
   attackCooldownTicks: number;
   robCooldownTicks?: number;
   heistCooldownTicks?: number;
