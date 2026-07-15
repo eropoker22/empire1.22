@@ -121,8 +121,11 @@ export interface AllianceDefenseContribution {
   hostPlayerId: PlayerId;
   districtId: string;
   itemId: string;
-  amount: number;
-  status: "active" | "return_pending" | "returned" | "destroyed";
+  originalAmount: number;
+  remainingAmount: number;
+  lostAmount: number;
+  returnedAmount: number;
+  status: "active" | "partially_lost" | "depleted" | "returned" | "consumed";
   combatSnapshotId?: string;
   createdAt: string;
   returnedAt?: string;
@@ -165,6 +168,22 @@ export interface AllianceInvite {
   status: "pending" | "accepted" | "rejected" | "cancelled" | "expired";
   createdAt: string;
   respondedAt?: string | null;
+  version: number;
+}
+
+export interface AllianceDefenseCombatImpact {
+  contributionId: string;
+  lostAmount: number;
+  remainingAmount: number;
+}
+
+export interface AllianceDefenseCombatSnapshot {
+  id: string;
+  districtId: string;
+  losses: Record<string, number>;
+  ownerLosses: Record<string, number>;
+  contributionImpacts: AllianceDefenseCombatImpact[];
+  createdAtTick: number;
   version: number;
 }
 

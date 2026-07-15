@@ -3,6 +3,7 @@ import type {
   AllianceAuditEvent,
   AllianceChatMessage,
   AllianceDefenseContribution,
+  AllianceDefenseCombatSnapshot,
   AllianceExitPenalty,
   AllianceInvite,
   AllianceId,
@@ -54,6 +55,7 @@ export interface NormalizedGameState {
   allianceExitPenaltiesById?: Record<string, AllianceExitPenalty>;
   formerAllianceTrucesById?: Record<string, FormerAllianceTruce>;
   allianceDefenseContributionsById?: Record<string, AllianceDefenseContribution>;
+  allianceDefenseCombatSnapshotsById?: Record<string, AllianceDefenseCombatSnapshot>;
   allianceAuditEventsById?: Record<string, AllianceAuditEvent>;
   districtsById: Record<DistrictId, District>;
   buildingsById: Record<BuildingId, Building>;

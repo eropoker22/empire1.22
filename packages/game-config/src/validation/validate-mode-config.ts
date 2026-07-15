@@ -164,6 +164,17 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
     if ((config.balance.conflict.spySlotCooldownTicks ?? 0) < 0) {
       throw new Error("Conflict config requires a non-negative spySlotCooldownTicks.");
     }
+    const defenseCapacity = config.balance.conflict.defenseCapacity;
+    if (defenseCapacity) {
+      if (defenseCapacity.baseCapacityPoints <= 0) {
+        throw new Error("Conflict defense capacity requires positive baseCapacityPoints.");
+      }
+      for (const itemId of ["vest", "barricades", "cameras", "defense-tower", "alarm"] as const) {
+        if (!Number.isFinite(defenseCapacity.itemWeights[itemId]) || defenseCapacity.itemWeights[itemId] <= 0) {
+          throw new Error(`Conflict defense capacity requires a positive weight for ${itemId}.`);
+        }
+      }
+    }
 
     if (config.balance.conflict.attackCooldownTicks < 0) {
       throw new Error("Conflict config requires a non-negative attackCooldownTicks.");

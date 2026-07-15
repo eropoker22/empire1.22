@@ -124,6 +124,17 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
       spyCooldownTicks: ticksFromMinutes(6),
       spyAuthorizationTtlTicks: ticksFromMinutes(10),
       spySlotCooldownTicks: ticksFromMinutes(6),
+      defenseCapacity: {
+        baseCapacityPoints: 20,
+        zoneBonusPoints: { downtown: 4 },
+        itemWeights: {
+          vest: 1,
+          barricades: 1,
+          cameras: 2,
+          alarm: 2,
+          "defense-tower": 4
+        }
+      },
       attackCooldownTicks: ticksFromMinutes(22),
       robCooldownTicks: ticksFromMinutes(10),
       heistCooldownTicks: ticksFromMinutes(8),

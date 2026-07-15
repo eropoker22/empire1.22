@@ -139,6 +139,11 @@ export interface ConflictBalanceConfig {
   spyCooldownTicks: number;
   spyAuthorizationTtlTicks?: number;
   spySlotCooldownTicks?: number;
+  defenseCapacity?: {
+    baseCapacityPoints: number;
+    zoneBonusPoints: Record<string, number>;
+    itemWeights: Record<"vest" | "barricades" | "cameras" | "defense-tower" | "alarm", number>;
+  };
   attackCooldownTicks: number;
   robCooldownTicks?: number;
   heistCooldownTicks?: number;

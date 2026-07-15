@@ -1,11 +1,20 @@
 import type { CoreGameState } from "../entities/game-state";
 import type { ConflictBalanceConfig } from "../contracts";
-import type { HeistDistrictCommand, RobDistrictCommand } from "@empire/shared-types";
 import {
+  DEFENSE_WEAPON_IDS,
+  type HeistDistrictCommand,
+  type RobDistrictCommand
+} from "@empire/shared-types";
+import {
+  calculateContributorDefenseAmount,
+  calculateDefenseCapacityUsage,
+  calculateOwnerOwnedDefenseAmount,
   createHeistCooldownKey,
   createHeistSourceCooldownKey,
   createRobCooldownKey,
   createRobSourceCooldownKey,
+  listDeployedDefenseContributions,
+  resolveDefenseCapacityPoints,
   validateMapAction
 } from "../rules";
 import { validateHeist, validateRob } from "../validation";
@@ -150,7 +159,8 @@ export const createDistrictDefenseActionView = (
   state: CoreGameState,
   playerId: string,
   districtId: string,
-  action: "place_defense" | "remove_defense"
+  action: "place_defense" | "remove_defense",
+  conflictConfig?: ConflictBalanceConfig
 ) => {
   const district = state.districtsById[districtId];
   if (!district) return null;
@@ -160,13 +170,36 @@ export const createDistrictDefenseActionView = (
     targetDistrictId: district.id,
     action
   });
-  const disabledCode = validation.reasonCode ?? null;
+  const usedCapacityPoints = calculateDefenseCapacityUsage(district.defenseLoadout, conflictConfig?.defenseCapacity);
+  const maxCapacityPoints = resolveDefenseCapacityPoints(district.zone, conflictConfig?.defenseCapacity);
+  const ownerOwnedAmounts = Object.fromEntries(DEFENSE_WEAPON_IDS.map((itemId) => [
+    itemId,
+    calculateOwnerOwnedDefenseAmount(state, district.id, itemId)
+  ]));
+  const alliedContributionAmounts = Object.fromEntries(DEFENSE_WEAPON_IDS.map((itemId) => [
+    itemId,
+    listDeployedDefenseContributions(state, district.id, itemId)
+      .reduce((sum, contribution) => sum + contribution.remainingAmount, 0)
+  ]));
+  const playerRemovableAmounts = Object.fromEntries(DEFENSE_WEAPON_IDS.map((itemId) => [
+    itemId,
+    district.ownerPlayerId === playerId
+      ? ownerOwnedAmounts[itemId]
+      : calculateContributorDefenseAmount(state, playerId, district.id, itemId)
+  ]));
+  const capacityBlocked = action === "place_defense" && usedCapacityPoints >= maxCapacityPoints;
+  const disabledCode = capacityBlocked ? "DEFENSE_CAPACITY_EXCEEDED" : validation.reasonCode ?? null;
 
   return {
-    enabled: validation.allowed,
+    enabled: validation.allowed && !capacityBlocked,
     disabledCode,
     disabledReason: disabledCode ? formatActionReason(disabledCode) : null,
-    expectedTargetVersion: district.version
+    expectedTargetVersion: district.version,
+    usedCapacityPoints,
+    maxCapacityPoints,
+    ownerOwnedAmounts,
+    alliedContributionAmounts,
+    playerRemovableAmounts
   };
 };
 

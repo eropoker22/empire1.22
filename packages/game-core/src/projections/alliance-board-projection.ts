@@ -157,7 +157,7 @@ export const createAllianceBoardReadModel = (
           hostPlayerId: contribution.hostPlayerId,
           hostName: inputState.playersById[contribution.hostPlayerId]?.name ?? contribution.hostPlayerId,
           itemId: contribution.itemId,
-          amount: contribution.amount,
+      amount: contribution.remainingAmount,
           status: contribution.status
         }))
     };

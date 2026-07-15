@@ -5,13 +5,19 @@ import type { CoreError } from "../errors";
 import type { CoreEvent } from "../events";
 import { CORE_EVENT_TYPES, createEvent } from "../events";
 import { validatePlaceDefense, validateRemoveDefense } from "../validation";
+import {
+  calculateContributorDefenseAmount,
+  calculateOwnerOwnedDefenseAmount,
+  removeContributorDefenseAmount
+} from "../rules";
+import { bumpDistrictSecurityRevision } from "../state";
 
 export const handlePlaceDefense = (
   state: CoreGameState,
   command: PlaceDefenseCommand,
-  _context: GameCoreContext
+  context: GameCoreContext
 ): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
-  const errors = validatePlaceDefense(state, command);
+  const errors = validatePlaceDefense(state, command, context);
   if (errors.length > 0) return { nextState: state, events: [], errors };
 
   const player = state.playersById[command.playerId]!;
@@ -39,9 +45,13 @@ export const handlePlaceDefense = (
         hostPlayerId: district.ownerPlayerId,
         districtId: district.id,
         itemId: command.payload.defenseItemId,
-        amount: command.payload.amount,
+        originalAmount: command.payload.amount,
+        remainingAmount: command.payload.amount,
+        lostAmount: 0,
+        returnedAmount: 0,
         status: "active",
         createdAt: command.issuedAt,
+        sourceEventId: command.id,
         version: 1
       }
     : null;
@@ -55,14 +65,14 @@ export const handlePlaceDefense = (
       },
       districtsById: {
         ...state.districtsById,
-        [district.id]: {
+        [district.id]: bumpDistrictSecurityRevision({
           ...district,
           defenseLoadout: {
             ...district.defenseLoadout,
             [command.payload.defenseItemId]: Math.max(0, Number(district.defenseLoadout[command.payload.defenseItemId] || 0)) + command.payload.amount
           },
           version: district.version + 1
-        }
+        })
       },
       resourceStatesById: {
         ...state.resourceStatesById,
@@ -95,7 +105,6 @@ export const handlePlaceDefense = (
     errors: []
   };
 };
-
 export const handleRemoveDefense = (
   state: CoreGameState,
   command: RemoveDefenseCommand,
@@ -109,8 +118,8 @@ export const handleRemoveDefense = (
   const isAlliedDistrict = district.ownerPlayerId !== player.id;
   const currentPlaced = Math.max(0, Number(district.defenseLoadout[command.payload.defenseItemId] || 0));
   const ownContributionAmount = isAlliedDistrict
-    ? sumActiveContributionAmount(state, player.id, district.id, command.payload.defenseItemId)
-    : currentPlaced;
+    ? calculateContributorDefenseAmount(state, player.id, district.id, command.payload.defenseItemId)
+    : calculateOwnerOwnedDefenseAmount(state, district.id, command.payload.defenseItemId);
   if (ownContributionAmount < command.payload.amount) {
     return {
       nextState: state,
@@ -144,7 +153,13 @@ export const handleRemoveDefense = (
     version: 1
   };
   const nextContributions = isAlliedDistrict
-    ? removeContributionAmount(state, player.id, district.id, command.payload.defenseItemId, command.payload.amount, command.issuedAt)
+    ? removeContributorDefenseAmount(state, {
+        playerId: player.id,
+        districtId: district.id,
+        itemId: command.payload.defenseItemId,
+        amount: command.payload.amount,
+        returnedAt: command.issuedAt
+      })
     : state.allianceDefenseContributionsById;
 
   return {
@@ -156,14 +171,14 @@ export const handleRemoveDefense = (
       },
       districtsById: {
         ...state.districtsById,
-        [district.id]: {
+        [district.id]: bumpDistrictSecurityRevision({
           ...district,
           defenseLoadout: {
             ...district.defenseLoadout,
             [command.payload.defenseItemId]: currentPlaced - command.payload.amount
           },
           version: district.version + 1
-        }
+        })
       },
       resourceStatesById: {
         ...state.resourceStatesById,
@@ -190,49 +205,4 @@ export const handleRemoveDefense = (
     ],
     errors: []
   };
-};
-
-const sumActiveContributionAmount = (
-  state: CoreGameState,
-  ownerPlayerId: string,
-  districtId: string,
-  itemId: string
-): number =>
-  Object.values(state.allianceDefenseContributionsById ?? {})
-    .filter((contribution) =>
-      contribution.status === "active"
-      && contribution.ownerPlayerId === ownerPlayerId
-      && contribution.districtId === districtId
-      && contribution.itemId === itemId
-    )
-    .reduce((total, contribution) => total + Math.max(0, Number(contribution.amount || 0)), 0);
-
-const removeContributionAmount = (
-  state: CoreGameState,
-  ownerPlayerId: string,
-  districtId: string,
-  itemId: string,
-  amount: number,
-  returnedAt: string
-): CoreGameState["allianceDefenseContributionsById"] => {
-  let remaining = amount;
-  const nextContributions = { ...(state.allianceDefenseContributionsById ?? {}) };
-  for (const contribution of Object.values(nextContributions)) {
-    if (
-      remaining <= 0
-      || contribution.status !== "active"
-      || contribution.ownerPlayerId !== ownerPlayerId
-      || contribution.districtId !== districtId
-      || contribution.itemId !== itemId
-    ) {
-      continue;
-    }
-    const contributionAmount = Math.max(0, Number(contribution.amount || 0));
-    const removedAmount = Math.min(remaining, contributionAmount);
-    remaining -= removedAmount;
-    nextContributions[contribution.id] = removedAmount >= contributionAmount
-      ? { ...contribution, status: "returned", returnedAt, version: contribution.version + 1 }
-      : { ...contribution, amount: contributionAmount - removedAmount, version: contribution.version + 1 };
-  }
-  return nextContributions;
 };

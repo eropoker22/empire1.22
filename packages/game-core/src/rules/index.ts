@@ -1,6 +1,7 @@
 export * from "./alliances/allianceRules";
 export * from "./alliances/allianceLifecycle";
 export * from "./alliances/alliancePenaltyModifiers";
+export * from "./alliances/allianceDefenseCleanup";
 export * from "./buildings/buildingActionCosts";
 export * from "./buildings/buildingUpgradeRules";
 export * from "./combat/combatMath";
@@ -11,6 +12,7 @@ export * from "./combat/resolveCombat";
 export * from "./districts/districtRules";
 export * from "./districts/basicActionCooldowns";
 export * from "./districts/occupyBalance";
+export * from "./defense/defenseConservation";
 export * from "./day-night/dayNight";
 export * from "./city-events/cityEventLifecycle";
 export * from "./economy/calculateIncome";

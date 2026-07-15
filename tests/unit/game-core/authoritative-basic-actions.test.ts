@@ -183,6 +183,7 @@ describe("authoritative basic action commands", () => {
 
   it("allows allied defense with owner-aware contribution records", () => {
     const state = createAlliedDefenseState();
+    state.districtsById["district:2"].defenseLoadout = {};
     state.resourceStatesById["resource:1"].balances.barricades = 2;
 
     const placed = applyCommand(state, createPlaceDefenseCommandFixture({
@@ -202,7 +203,10 @@ describe("authoritative basic action commands", () => {
       hostPlayerId: "player:2",
       districtId: "district:2",
       itemId: "barricades",
-      amount: 1,
+      originalAmount: 1,
+      remainingAmount: 1,
+      lostAmount: 0,
+      returnedAmount: 0,
       status: "active"
     });
 

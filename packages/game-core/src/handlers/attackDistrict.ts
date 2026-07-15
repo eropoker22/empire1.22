@@ -15,6 +15,7 @@ import {
   applyDayNightHeatGain,
   resolveAttackDurationGuardrailTicks,
   resolveAttackDurationTicks,
+  applyDefenseCombatLosses,
   resolveCombat,
   resolveTrap
 } from "../rules";
@@ -48,6 +49,7 @@ import { resolveCombinedCameraAlarmBonuses, resolveRecruitmentCenterSupportBonus
 import { resolveFitnessAttackWeaponModifiers, resolveFitnessDefenseItemModifiers } from "./fitnessClubBuildingActions";
 import { applyAttackWeaponLosses, writeAttackWeaponInventory } from "./attackWeaponInventory";
 import { consumeTacticalGridCombat, resolveTacticalGridCombat } from "./tacticalGridCombat";
+import { bumpDistrictSecurityRevision } from "../state";
 
 /**
  * Responsibility: Orchestrates one authoritative district attack command.
@@ -268,9 +270,17 @@ export const handleAttackDistrict = (
     : attackSucceeded
     ? reassignCapturedDistrictBuildings(state, targetDistrict.buildingIds, command.playerId)
     : state.buildingsById;
+  const defenseCombatSnapshotId = `defense-combat:${command.id}`;
+  const defenseLossState = applyDefenseCombatLosses(state, {
+    districtId: targetDistrict.id,
+    losses: combatResolution.defenderLosses,
+    snapshotId: defenseCombatSnapshotId,
+    createdAtTick: state.root.tick
+  });
+  const targetAfterDefenseLosses = defenseLossState.districtsById[targetDistrict.id];
 
   const nextState: CoreGameState = {
-    ...state,
+    ...defenseLossState,
     playersById: {
       ...state.playersById,
       [attacker.id]: {
@@ -282,9 +292,9 @@ export const handleAttackDistrict = (
     },
     resourceStatesById: nextResourceStatesById,
     districtsById: {
-      ...state.districtsById,
-      [targetDistrict.id]: {
-        ...targetDistrict,
+      ...defenseLossState.districtsById,
+      [targetDistrict.id]: bumpDistrictSecurityRevision({
+        ...targetAfterDefenseLosses,
         ownerPlayerId: districtDestroyed
           ? null
           : attackSucceeded
@@ -299,7 +309,7 @@ export const handleAttackDistrict = (
         lastHeatDecayTick: districtDestroyed || attackSucceeded ? state.root.tick : targetDistrict.lastHeatDecayTick,
         influence: districtDestroyed ? 0 : targetDistrict.influence,
         buildingIds: districtDestroyed ? [] : targetDistrict.buildingIds,
-        defenseLoadout: districtDestroyed ? {} : combatResolution.nextDefenseLoadout,
+        defenseLoadout: districtDestroyed ? {} : targetAfterDefenseLosses.defenseLoadout,
         status: districtDestroyed
           ? "destroyed"
           : attackSucceeded
@@ -307,8 +317,8 @@ export const handleAttackDistrict = (
           : trapResolution.blocked
             ? targetDistrict.status
             : "contested",
-        version: targetDistrict.version + 1
-      }
+        version: targetAfterDefenseLosses.version + 1
+      })
     },
     buildingsById: nextBuildingsById,
     cooldownStatesById: {

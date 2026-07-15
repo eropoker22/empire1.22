@@ -1,4 +1,5 @@
 import type { CoreGameState } from "../../entities";
+import { bumpDistrictSecurityRevision } from "../../state";
 
 export const cleanupAllianceDefense = (
   state: CoreGameState,
@@ -9,11 +10,15 @@ export const cleanupAllianceDefense = (
   const resourceStatesById = { ...state.resourceStatesById };
   for (const contribution of Object.values(contributions)) {
     const shouldReturn = contribution.allianceId === input.allianceId
-      && contribution.status === "active"
+      && (contribution.status === "active" || contribution.status === "partially_lost")
+      && contribution.remainingAmount > 0
       && (contribution.ownerPlayerId === input.playerId || contribution.hostPlayerId === input.playerId);
-    if (!shouldReturn || contribution.combatSnapshotId) continue;
+    if (!shouldReturn) continue;
+    const returnedAmount = contribution.remainingAmount;
     contributions[contribution.id] = {
       ...contribution,
+      remainingAmount: 0,
+      returnedAmount: contribution.returnedAmount + returnedAmount,
       status: "returned",
       returnedAt: input.nowIso,
       sourceEventId: input.sourceEventId,
@@ -22,11 +27,11 @@ export const cleanupAllianceDefense = (
     const district = districtsById[contribution.districtId];
     if (district) {
       const currentAmount = Number(district.defenseLoadout[contribution.itemId as keyof typeof district.defenseLoadout] ?? 0);
-      districtsById[district.id] = {
+      districtsById[district.id] = bumpDistrictSecurityRevision({
         ...district,
-        defenseLoadout: { ...district.defenseLoadout, [contribution.itemId]: Math.max(0, currentAmount - contribution.amount) },
+        defenseLoadout: { ...district.defenseLoadout, [contribution.itemId]: Math.max(0, currentAmount - returnedAmount) },
         version: district.version + 1
-      };
+      });
     }
     const owner = state.playersById[contribution.ownerPlayerId];
     const resource = owner ? resourceStatesById[owner.resourceStateId] : null;
@@ -34,7 +39,8 @@ export const cleanupAllianceDefense = (
       const currentBalance = Math.max(0, Number(resource.balances[contribution.itemId] || 0));
       resourceStatesById[resource.id] = {
         ...resource,
-        balances: { ...resource.balances, [contribution.itemId]: currentBalance + contribution.amount },
+        balances: { ...resource.balances, [contribution.itemId]: currentBalance + returnedAmount },
+        lastUpdatedTick: state.root.tick,
         version: resource.version + 1
       };
     }

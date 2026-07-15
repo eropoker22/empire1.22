@@ -2,14 +2,50 @@ import type { PlaceDefenseCommand, RemoveDefenseCommand } from "@empire/shared-t
 import { DEFENSE_WEAPON_IDS } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import type { CoreError } from "../errors";
-import { validateMapAction } from "../rules";
+import type { GameCoreContext } from "../engine/context";
+import {
+  calculateDefenseCapacityUsage,
+  calculateDefensePlacementPoints,
+  resolveDefenseCapacityPoints,
+  validateMapAction
+} from "../rules";
 
 const DEFENSE_WEAPON_SET = new Set<string>(DEFENSE_WEAPON_IDS);
 
 export const validatePlaceDefense = (
   state: CoreGameState,
-  command: PlaceDefenseCommand
-): CoreError[] => validateDefenseCommand(state, command, "place_defense");
+  command: PlaceDefenseCommand,
+  context?: GameCoreContext
+): CoreError[] => {
+  const errors = validateDefenseCommand(state, command, "place_defense");
+  if (errors.length > 0) return errors;
+  const district = state.districtsById[command.payload.targetDistrictId]!;
+  const capacityConfig = context?.config.balance.conflict?.defenseCapacity;
+  const usedPoints = calculateDefenseCapacityUsage(district.defenseLoadout, capacityConfig);
+  const requestedPoints = calculateDefensePlacementPoints(
+    command.payload.defenseItemId,
+    command.payload.amount,
+    capacityConfig
+  );
+  const capacityPoints = resolveDefenseCapacityPoints(district.zone, capacityConfig);
+  if (usedPoints + requestedPoints > capacityPoints) {
+    return [{
+      code: "DEFENSE_CAPACITY_EXCEEDED",
+      message: "District defense capacity would be exceeded.",
+      details: { usedPoints, requestedPoints, capacityPoints }
+    }];
+  }
+  const isAlliedPlacement = district.ownerPlayerId !== command.playerId;
+  const supportBlocked = isAlliedPlacement && Object.values(state.allianceExitPenaltiesById ?? {}).some(
+    (penalty) =>
+      penalty.playerId === command.playerId
+      && penalty.blocksAllianceDefenseSupport
+      && Date.parse(penalty.penaltyEndsAt) > Date.parse(command.issuedAt)
+  );
+  return supportBlocked
+    ? [{ code: "ALLIANCE_DEFENSE_SUPPORT_BLOCKED", message: "Alliance defense support is temporarily blocked." }]
+    : [];
+};
 
 export const validateRemoveDefense = (
   state: CoreGameState,

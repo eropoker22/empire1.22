@@ -258,6 +258,11 @@ export interface DistrictDefenseActionView {
   disabledCode: string | null;
   disabledReason: string | null;
   expectedTargetVersion: number;
+  usedCapacityPoints: number;
+  maxCapacityPoints: number;
+  ownerOwnedAmounts: Record<string, number>;
+  alliedContributionAmounts: Record<string, number>;
+  playerRemovableAmounts: Record<string, number>;
 }
 
 export interface DistrictTrapView {

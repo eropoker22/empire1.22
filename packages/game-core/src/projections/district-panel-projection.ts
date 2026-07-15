@@ -45,8 +45,8 @@ export const createDistrictPanelView = (
   const spyTargets = createDistrictSpyTargetViews(state, input.playerId, district.id, issuedAt);
   const robTargets = createDistrictRobTargetViews(state, input.playerId, district.id, input.conflictConfig, issuedAt);
   const heistTargets = createDistrictHeistTargetViews(state, input.playerId, district.id, input.conflictConfig, issuedAt);
-  const placeDefense = createDistrictDefenseActionView(state, input.playerId, district.id, "place_defense");
-  const removeDefense = createDistrictDefenseActionView(state, input.playerId, district.id, "remove_defense");
+  const placeDefense = createDistrictDefenseActionView(state, input.playerId, district.id, "place_defense", input.conflictConfig);
+  const removeDefense = createDistrictDefenseActionView(state, input.playerId, district.id, "remove_defense", input.conflictConfig);
   const trap = createTrapView(state, input.playerId, district.id);
   const isDestroyed = district.status === "destroyed";
 
