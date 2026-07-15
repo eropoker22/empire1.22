@@ -489,6 +489,7 @@ describe("gameplay slice json handler", () => {
           payload: {
             districtId: "district:2",
             sourceDistrictId: "district:1",
+            weapons: { pistol: 1 },
             result: "success",
             attackerLosses: {}
           },
