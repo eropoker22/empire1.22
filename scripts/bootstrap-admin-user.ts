@@ -3,7 +3,8 @@ import * as crypto from "node:crypto";
 import type { AdminRole } from "@empire/shared-types";
 import { hashAdminPassword, normalizeAdminUsername } from "../apps/server/src/admin/read-only/admin-password";
 import { createPostgresAdminAuditRepository, createPostgresAdminSessionRepository, createPostgresAdminUserRepository } from "../apps/server/src/admin/read-only/postgres-admin-security-repositories";
-import { createPostgresDatabase, getDatabaseMigrationStatus } from "../apps/server/src/runtime/persistence/postgres";
+import { createPostgresDatabase } from "../apps/server/src/runtime/persistence/postgres";
+import { getDatabaseMigrationStatus } from "../apps/server/src/runtime/persistence/postgres/migration-runner";
 
 const rotatePassword = process.argv.includes("--rotate-password");
 const usernameArgument = process.argv.find((argument) => argument.startsWith("--username="))?.slice("--username=".length);

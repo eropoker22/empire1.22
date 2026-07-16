@@ -1,5 +1,6 @@
 import "./load-local-environment";
-import { createPostgresDatabase, getDatabaseMigrationStatus, migrateDatabase } from "../apps/server/src/runtime/persistence/postgres";
+import { createPostgresDatabase } from "../apps/server/src/runtime/persistence/postgres";
+import { getDatabaseMigrationStatus, migrateDatabase } from "../apps/server/src/runtime/persistence/postgres/migration-runner";
 
 const databaseUrl = String(process.env.EMPIRE_DATABASE_URL ?? process.env.EMPIRE_TEST_DATABASE_URL ?? "").trim();
 if (!databaseUrl) throw new Error("Set EMPIRE_DATABASE_URL or EMPIRE_TEST_DATABASE_URL before running database migrations.");
