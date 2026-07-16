@@ -36,8 +36,6 @@ export const validateRob = (
     originDistrictId,
     serverTime: command.issuedAt,
     action: "rob",
-    expectedTargetVersion: command.payload.expectedTargetVersion,
-    expectedOriginVersion: command.payload.expectedSourceVersion,
     routeDistrictId: command.payload.routeDistrictId,
     expectedRouteVersion: command.payload.expectedRouteVersion
   });

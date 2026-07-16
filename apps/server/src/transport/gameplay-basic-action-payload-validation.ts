@@ -10,6 +10,7 @@ export const validateBasicActionCommandPayload = (
       rejectUnknownPayloadFields(errors, payload, [
         "targetDistrictId",
         "sourceDistrictId",
+        "expectedLootPoolRevision",
         "expectedTargetVersion",
         "expectedSourceVersion",
         "expectedConflictRevision",
@@ -18,6 +19,7 @@ export const validateBasicActionCommandPayload = (
       ]);
       requireStringField(errors, payload, "targetDistrictId", "command.payload.targetDistrictId");
       requireOptionalStringField(errors, payload, "sourceDistrictId", "command.payload.sourceDistrictId");
+      requireOptionalNonNegativeIntegerField(errors, payload, "expectedLootPoolRevision", "command.payload.expectedLootPoolRevision");
       requireOptionalFiniteNumberField(errors, payload, "expectedTargetVersion", "command.payload.expectedTargetVersion");
       requireOptionalFiniteNumberField(errors, payload, "expectedSourceVersion", "command.payload.expectedSourceVersion");
       requireNonNegativeIntegerField(errors, payload, "expectedConflictRevision", "command.payload.expectedConflictRevision");
@@ -129,6 +131,18 @@ const requireOptionalFiniteNumberField = (
   const fieldValue = getFieldPath(value, fieldPath);
   if (fieldValue !== undefined && (typeof fieldValue !== "number" || !Number.isFinite(fieldValue))) {
     errors.push(createInvalidFieldError(errorFieldPath, "Pole payloadu musí být konečné číslo."));
+  }
+};
+
+const requireOptionalNonNegativeIntegerField = (
+  errors: DomainError[],
+  value: Record<string, unknown>,
+  fieldPath: string,
+  errorFieldPath = fieldPath
+): void => {
+  const fieldValue = getFieldPath(value, fieldPath);
+  if (fieldValue !== undefined && (!Number.isInteger(fieldValue) || Number(fieldValue) < 0)) {
+    errors.push(createInvalidFieldError(errorFieldPath, "Pole payloadu musí být nezáporné celé číslo."));
   }
 };
 

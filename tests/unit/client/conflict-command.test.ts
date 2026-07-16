@@ -5,6 +5,7 @@ import {
   createAttackDistrictCommand,
   createOccupyDistrictCommand,
   createPlaceTrapCommand,
+  createRobDistrictCommand,
   createSpyDistrictCommand
 } from "../../../apps/client/src/features";
 
@@ -288,6 +289,41 @@ describe("conflict command factories", () => {
       districtId: "district:3",
       sourceDistrictId: "district:1",
       expectedConflictRevision: 1
+    });
+  });
+
+  it("sends the server-projected pool revision without strict entity versions for a competitive rob", () => {
+    const slice = createGameplaySliceFixture();
+    slice.district!.robTargets = [{
+      districtId: "district:3",
+      name: "Neutral District",
+      ownerPlayerId: null,
+      status: "neutral",
+      enabled: true,
+      disabledCode: null,
+      disabledReason: null,
+      cooldownRemainingTicks: 0,
+      expectedTargetVersion: 7,
+      expectedSourceVersion: 3,
+      expectedConflictRevision: 9,
+      expectedLootPoolRevision: 5,
+      lootPoolLevel: "rich",
+      exhausted: false,
+      heatRisk: { minimum: 1, maximum: 6 }
+    }];
+
+    const command = createRobDistrictCommand({
+      commandId: "command:rob:district:3",
+      slice,
+      targetDistrictId: "district:3",
+      issuedAt: new Date(0).toISOString()
+    });
+
+    expect(command.payload).toEqual({
+      targetDistrictId: "district:3",
+      sourceDistrictId: "district:1",
+      expectedConflictRevision: 9,
+      expectedLootPoolRevision: 5
     });
   });
 

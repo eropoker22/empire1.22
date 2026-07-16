@@ -21,6 +21,7 @@ describe("basic action transport payload validation", () => {
     expect(validateSubmitGameplayCommandRequest(createSubmitRequest("rob-district", {
       targetDistrictId: "district:2",
       sourceDistrictId: "district:1",
+      expectedLootPoolRevision: 1,
       expectedTargetVersion: 1,
       expectedSourceVersion: 1,
       expectedConflictRevision: 1

@@ -59,6 +59,16 @@ export const handleRobDistrict = (
     cityDay,
     config.cityDayRegenerationFraction
   );
+  if (isLootPoolExhausted(currentPool)) {
+    return {
+      nextState: state,
+      events: [],
+      errors: [{
+        code: "TARGET_LOOT_EXHAUSTED",
+        message: "Někdo byl rychlejší. V districtu už nezbyl použitelný loot."
+      }]
+    };
+  }
   const resolution = resolveNeutralRobbery(
     state.serverInstance.worldSeed,
     command.id,
@@ -124,6 +134,9 @@ export const handleRobDistrict = (
     playerHeat,
     districtHeat,
     cooldownTicks,
+    poolChangedBeforeResolution: command.payload.expectedLootPoolRevision !== undefined
+      && command.payload.expectedLootPoolRevision !== currentPool.version,
+    resolvedLootPoolRevision: currentPool.version,
     tick: state.root.tick
   });
 
@@ -193,6 +206,11 @@ export const handleRobDistrict = (
     errors: []
   };
 };
+
+const isLootPoolExhausted = (
+  pool: NonNullable<CoreGameState["districtsById"][string]["neutralLootPool"]>
+): boolean => pool.cash + pool.dirtyCash
+  + Object.values(pool.resources).reduce((total, amount) => total + Math.max(0, Number(amount ?? 0)), 0) <= 0;
 
 const restoreUnacceptedLoot = (
   pool: NonNullable<CoreGameState["districtsById"][string]["neutralLootPool"]>,

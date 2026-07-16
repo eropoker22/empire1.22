@@ -92,6 +92,8 @@ export const createRobReportNotification = (input: {
   playerHeat: number;
   districtHeat: number;
   cooldownTicks: number;
+  poolChangedBeforeResolution: boolean;
+  resolvedLootPoolRevision: number;
   tick: number;
 }): Notification => createNotification({
   id: composeEntityId("notification", `${input.command.id}:rob-report`),
@@ -106,6 +108,9 @@ export const createRobReportNotification = (input: {
     sourceDistrictId: input.sourceDistrictId, targetDistrictId: input.command.payload.targetDistrictId,
     result: input.result, loot: input.loot, playerHeat: input.playerHeat,
     districtHeat: input.districtHeat, cooldownTicks: input.cooldownTicks,
+    poolChangedBeforeResolution: input.poolChangedBeforeResolution,
+    expectedLootPoolRevision: input.command.payload.expectedLootPoolRevision ?? null,
+    resolvedLootPoolRevision: input.resolvedLootPoolRevision,
     tick: input.tick, createdAt: input.command.issuedAt
   },
   createdAt: input.command.issuedAt,

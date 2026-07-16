@@ -189,7 +189,7 @@ describe("finite neutral robbery", () => {
     expect(result.nextState.policeStatesById["police:1"]?.heat).toBe(eventPayload.playerHeat);
   });
 
-  it("does not create loot from exhausted pool", () => {
+  it("rejects an exhausted pool without creating any gameplay mutation", () => {
     const state = createNeutralRobState();
     state.districtsById["district:2"].neutralLootPool = {
       initialSeed: "empty",
@@ -202,13 +202,13 @@ describe("finite neutral robbery", () => {
       lastRegenerationCityDay: 0,
       version: 1
     };
-    const before = { ...state.resourceStatesById["resource:1"].balances };
+    const before = JSON.stringify(state);
     const result = applyCommand(state, createRobDistrictCommandFixture({ id: "command:rob:empty" }), context);
 
-    expect(result.errors).toEqual([]);
-    expect((result.events[0]?.payload as Record<string, unknown>).result).toBe("exhausted");
-    expect(result.nextState.resourceStatesById["resource:1"].balances).toMatchObject(before);
-    expect(result.nextState.policeStatesById["police:1"]?.heat).toBe(1);
+    expect(result.errors[0]?.code).toBe("TARGET_LOOT_EXHAUSTED");
+    expect(result.events).toEqual([]);
+    expect(result.nextState).toBe(state);
+    expect(JSON.stringify(result.nextState)).toBe(before);
   });
 
   it("regenerates at most once per city day and never above initial cap", () => {

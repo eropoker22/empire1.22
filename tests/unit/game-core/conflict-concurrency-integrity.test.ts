@@ -164,10 +164,18 @@ describe("conflict concurrency integrity", () => {
     const beforeA = Number(state.resourceStatesById["resource:1"].balances.cash ?? 0);
     const beforeB = Number(state.resourceStatesById["resource:player:3"].balances.cash ?? 0);
     const expectedConflictRevision = state.districtsById["district:2"].conflictRevision;
+    const expectedLootPoolRevision = pool.version;
+    const expectedTargetVersion = state.districtsById["district:2"].version;
+    const expectedSourceVersion = state.districtsById["district:3"].version;
 
     const first = applyCommand(state, createRobDistrictCommandFixture({
       id: "command:race:rob:1",
-      payload: { expectedConflictRevision }
+      payload: {
+        expectedConflictRevision,
+        expectedLootPoolRevision,
+        expectedTargetVersion: state.districtsById["district:2"].version,
+        expectedSourceVersion: state.districtsById["district:1"].version
+      }
     }), context);
     const second = applyCommand(first.nextState, createRobDistrictCommandFixture({
       id: "command:race:rob:2",
@@ -175,12 +183,17 @@ describe("conflict concurrency integrity", () => {
       payload: {
         targetDistrictId: "district:2",
         sourceDistrictId: "district:3",
-        expectedConflictRevision
+        expectedConflictRevision,
+        expectedLootPoolRevision,
+        expectedTargetVersion,
+        expectedSourceVersion
       }
     }), context);
 
     expect(first.errors).toEqual([]);
     expect(second.errors).toEqual([]);
+    expect(second.nextState.notificationsById["notification:command:race:rob:2:rob-report"]?.payload)
+      .toMatchObject({ poolChangedBeforeResolution: true, resolvedLootPoolRevision: expectedLootPoolRevision + 1 });
     const finalPool = second.nextState.districtsById["district:2"].neutralLootPool!;
     const cashCredits = Number(second.nextState.resourceStatesById["resource:1"].balances.cash ?? 0) - beforeA
       + Number(second.nextState.resourceStatesById["resource:player:3"].balances.cash ?? 0) - beforeB;

@@ -9,6 +9,8 @@ import type { ActionCommand } from "./action-command";
 export interface RobDistrictPayload {
   targetDistrictId: DistrictId;
   sourceDistrictId?: DistrictId;
+  /** Competitive robberies resolve against the current pool, even after this preview is stale. */
+  expectedLootPoolRevision?: number;
   expectedTargetVersion?: number;
   expectedSourceVersion?: number;
   expectedConflictRevision: number;
