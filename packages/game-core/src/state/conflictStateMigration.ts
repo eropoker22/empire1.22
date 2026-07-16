@@ -13,9 +13,13 @@ export const createPlayerSpyOperationState = (playerId: string): PlayerSpyOperat
 export const migrateConflictState = (state: CoreGameState): CoreGameState => {
   const districtsById = Object.fromEntries(Object.entries(state.districtsById).map(([districtId, district]) => [
     districtId,
-    typeof district.securityRevision === "number"
+    typeof district.securityRevision === "number" && typeof district.conflictRevision === "number"
       ? district
-      : { ...district, securityRevision: district.version }
+      : {
+          ...district,
+          securityRevision: typeof district.securityRevision === "number" ? district.securityRevision : district.version,
+          conflictRevision: typeof district.conflictRevision === "number" ? district.conflictRevision : district.version
+        }
   ]));
   const existingSpyStates = state.playerSpyOperationStatesByPlayerId ?? {};
   const playerSpyOperationStatesByPlayerId = Object.fromEntries(
@@ -67,5 +71,14 @@ export const getDistrictSecurityRevision = (district: District): number =>
 
 export const bumpDistrictSecurityRevision = <TDistrict extends District>(district: TDistrict): TDistrict => ({
   ...district,
-  securityRevision: getDistrictSecurityRevision(district) + 1
+  securityRevision: getDistrictSecurityRevision(district) + 1,
+  conflictRevision: getDistrictConflictRevision(district) + 1
+});
+
+export const getDistrictConflictRevision = (district: District): number =>
+  district.conflictRevision ?? district.version;
+
+export const bumpDistrictConflictRevision = <TDistrict extends District>(district: TDistrict): TDistrict => ({
+  ...district,
+  conflictRevision: getDistrictConflictRevision(district) + 1
 });

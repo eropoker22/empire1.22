@@ -42,6 +42,13 @@ export interface ConflictBalanceConfig {
   };
   attackCooldownTicks: number;
   attackTargetProtectionTicks?: number;
+  concurrency?: {
+    offenseGlobalCooldownTicks: number;
+    sourceConflictLockTicks: number;
+    attackFailedCombatProtectionTicks: number;
+    attackCaptureProtectionTicks: number;
+    attackDestructionProtectionTicks: number;
+  };
   captureStabilization?: {
     durationTicks: number;
     incomeMultiplier: number;

@@ -61,6 +61,7 @@ export const createProductionChainState = (balances: Record<string, number>): Co
     status: "claimed",
     resourceModifiers: {},
     securityRevision: 1,
+    conflictRevision: 1,
     version: 1
   };
   const resources: ResourceState = {

@@ -44,7 +44,8 @@ export const createDistrictOccupyTargetViews = (
         issuedAt,
         payload: {
           districtId: targetDistrict.id,
-          sourceDistrictId: sourceDistrict.id
+          sourceDistrictId: sourceDistrict.id,
+          expectedConflictRevision: targetDistrict.conflictRevision
         },
         clientRequestId: null
       };
@@ -82,6 +83,9 @@ export const createDistrictOccupyTargetViews = (
         cooldownRemainingTicks: Math.max(0, cooldownUntilTick - state.root.tick),
         globalCooldownRemainingTicks,
         sourceCooldownRemainingTicks,
+        expectedConflictRevision: targetDistrict.conflictRevision,
+        majorOffenseCooldownEndsAtTick: cooldowns["offense:global"] ?? null,
+        sourceConflictLockEndsAtTick: cooldowns[`conflict:source:${sourceDistrict.id}`] ?? null,
         stabilizingDurationTicks: Math.max(
           0,
           Number(conflictConfig?.captureStabilization?.durationTicks ?? 0)

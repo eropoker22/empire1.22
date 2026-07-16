@@ -65,12 +65,14 @@ export const validateGameCommandPayload = (
         "weapons",
         "expectedSourceVersion",
         "expectedTargetVersion",
+        "expectedConflictRevision",
         "routeDistrictId",
         "expectedRouteVersion"
       ]);
       validateDistrictPayload(errors, payload, true);
       validateAttackWeaponsPayload(errors, payload);
       requireOptionalStringField(errors, payload, "routeDistrictId", "command.payload.routeDistrictId");
+      requireNonNegativeIntegerField(errors, payload, "expectedConflictRevision", "command.payload.expectedConflictRevision");
       for (const field of ["expectedSourceVersion", "expectedTargetVersion", "expectedRouteVersion"]) {
         if (payload[field] !== undefined) {
           requireNonNegativeIntegerField(errors, payload, field, `command.payload.${field}`);
@@ -87,11 +89,13 @@ export const validateGameCommandPayload = (
       rejectUnknownPayloadFields(errors, payload, [
         "districtId",
         "sourceDistrictId",
+        "expectedConflictRevision",
         "routeDistrictId",
         "expectedRouteVersion",
         "encirclementConfirmationToken"
       ]);
       validateDistrictPayload(errors, payload, true);
+      requireNonNegativeIntegerField(errors, payload, "expectedConflictRevision", "command.payload.expectedConflictRevision");
       requireOptionalStringField(errors, payload, "routeDistrictId", "command.payload.routeDistrictId");
       requireOptionalStringField(errors, payload, "encirclementConfirmationToken", "command.payload.encirclementConfirmationToken");
       if (payload.expectedRouteVersion !== undefined) requireNonNegativeIntegerField(errors, payload, "expectedRouteVersion", "command.payload.expectedRouteVersion");

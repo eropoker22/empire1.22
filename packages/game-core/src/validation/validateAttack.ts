@@ -6,6 +6,9 @@ import {
   calculateAttackPopulationRequired,
   calculateTotalAttackPower,
   normalizeAttackWeaponLoadout,
+  resolveDistrictActionAvailability,
+  resolveMajorOperationBlock,
+  validateDistrictConflictRevision,
   resolveAttackWeaponInventory,
   validateMapAction
 } from "../rules";
@@ -41,6 +44,16 @@ export const validateAttack = (
       }
     ];
   }
+
+  const revisionError = validateDistrictConflictRevision(targetDistrict, command.payload.expectedConflictRevision);
+  if (revisionError) return [revisionError];
+  const availabilityError = resolveDistrictActionAvailability(
+    state,
+    command.playerId,
+    targetDistrict.id,
+    "attack"
+  );
+  if (availabilityError) return [availabilityError];
 
   const mapValidation = validateMapAction(
     state,
@@ -122,6 +135,18 @@ export const validateAttack = (
     ? `attack:source:${command.payload.sourceDistrictId}`
     : null;
   const cooldowns = state.cooldownStatesById[attacker.cooldownStateId]?.cooldowns ?? {};
+  const majorOperationBlock = sourceDistrict
+    ? resolveMajorOperationBlock(cooldowns, sourceDistrict.id, state.root.tick)
+    : null;
+  if (majorOperationBlock) {
+    return [{
+      code: majorOperationBlock.code,
+      message: majorOperationBlock.code === "SOURCE_CONFLICT_LOCKED"
+        ? "Tento source district právě podporuje jinou operaci."
+        : "Tvůj gang právě dokončuje jinou velkou operaci.",
+      details: { cooldownUntilTick: majorOperationBlock.untilTick }
+    }];
+  }
   const activeAttackCooldownTick =
     cooldowns[globalAttackCooldownKey] ??
     (sourceAttackCooldownKey ? cooldowns[sourceAttackCooldownKey] : undefined) ??
@@ -134,13 +159,6 @@ export const validateAttack = (
         message: `Útočná trasa do ${targetDistrict.name} čeká ještě ${activeAttackCooldownTick - state.root.tick} ticků.`
       }
     ];
-  }
-
-  if (typeof targetDistrict.attackProtectedUntilTick === "number" && targetDistrict.attackProtectedUntilTick > state.root.tick) {
-    return [{
-      code: "attack_target_protected",
-      message: `District ${targetDistrict.name} je chráněný ještě ${targetDistrict.attackProtectedUntilTick - state.root.tick} ticků.`
-    }];
   }
 
   return [];

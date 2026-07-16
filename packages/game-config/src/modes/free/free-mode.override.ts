@@ -239,6 +239,13 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
       },
       attackCooldownTicks: ticksFromMinutes(22),
       attackTargetProtectionTicks: ticksFromMinutes(10),
+      concurrency: {
+        offenseGlobalCooldownTicks: ticksFromMinutes(1.5),
+        sourceConflictLockTicks: ticksFromMinutes(1.5),
+        attackFailedCombatProtectionTicks: ticksFromMinutes(3),
+        attackCaptureProtectionTicks: ticksFromMinutes(10),
+        attackDestructionProtectionTicks: ticksFromMinutes(10)
+      },
       captureStabilization: {
         durationTicks: ticksFromMinutes(15),
         incomeMultiplier: 0.5,

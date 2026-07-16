@@ -101,7 +101,9 @@ export const createClientSurfaceActionRouter = (
           })
         );
       }
-      case "rob":
+      case "rob": {
+        const target = district.robTargets?.find((candidate) => candidate.districtId === action.targetDistrictId);
+        if (!target?.enabled) return null;
         return options.client.dispatch(
           createRobDistrictCommand({
             commandId: options.createCommandId("command:rob"),
@@ -110,7 +112,10 @@ export const createClientSurfaceActionRouter = (
             issuedAt
           })
         );
-      case "heist":
+      }
+      case "heist": {
+        const target = district.heistTargets?.find((candidate) => candidate.districtId === action.targetDistrictId);
+        if (!target?.enabled) return null;
         return options.client.dispatch(
           createHeistDistrictCommand({
             commandId: options.createCommandId("command:heist"),
@@ -119,7 +124,10 @@ export const createClientSurfaceActionRouter = (
             issuedAt
           })
         );
-      case "spy":
+      }
+      case "spy": {
+        const target = district.spyTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
+        if (!target?.enabled) return null;
         return options.client.dispatch(
           createSpyDistrictCommand({
             commandId: options.createCommandId("command:spy"),
@@ -128,7 +136,10 @@ export const createClientSurfaceActionRouter = (
             issuedAt
           })
         );
-      case "occupy":
+      }
+      case "occupy": {
+        const target = district.occupyTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
+        if (!target?.enabled) return null;
         return options.client.dispatch(
           createOccupyDistrictCommand({
             commandId: options.createCommandId("command:occupy"),
@@ -137,6 +148,7 @@ export const createClientSurfaceActionRouter = (
             issuedAt
           })
         );
+      }
       case "place-trap":
         return options.client.dispatch(
           createPlaceTrapCommand({

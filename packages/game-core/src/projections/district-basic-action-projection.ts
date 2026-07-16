@@ -45,7 +45,8 @@ export const createDistrictHeistTargetViews = (
           style: "balanced",
           gangMembersSent: 10,
           expectedTargetVersion: target.version,
-          expectedSourceVersion: source.version
+          expectedSourceVersion: source.version,
+          expectedConflictRevision: target.conflictRevision
         },
         clientRequestId: null
       };
@@ -100,12 +101,17 @@ export const createDistrictHeistTargetViews = (
         cooldownRemainingTicks,
         expectedTargetVersion: target.version,
         expectedSourceVersion: source.version,
+        expectedConflictRevision: target.conflictRevision,
         styles: [
           createStyleView("stealth", "Tichý"),
           createStyleView("balanced", "Vyvážený"),
           createStyleView("all_in", "Tvrdý")
         ],
-        victimProtectionRemainingTicks
+        victimProtectionRemainingTicks,
+        majorOffenseCooldownEndsAtTick: state.cooldownStatesById[state.playersById[playerId]?.cooldownStateId ?? ""]
+          ?.cooldowns["offense:global"] ?? null,
+        sourceConflictLockEndsAtTick: state.cooldownStatesById[state.playersById[playerId]?.cooldownStateId ?? ""]
+          ?.cooldowns[`conflict:source:${source.id}`] ?? null
       };
     });
 };

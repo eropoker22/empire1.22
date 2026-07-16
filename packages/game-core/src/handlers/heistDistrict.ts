@@ -7,6 +7,7 @@ import { CORE_EVENT_TYPES, createEvent } from "../events";
 import {
   createHeistAttackerTargetCooldownKey,
   createHeistGlobalCooldownKey,
+  applyMajorOperationCooldowns,
   resolveImmediateHeist
 } from "../rules";
 import { validateHeist } from "../validation";
@@ -15,6 +16,7 @@ import { appendRecoveryPoolEntries, createRecoveryEntriesFromLosses } from "./cl
 import { increasePlayerPoliceHeat } from "./playerPoliceState";
 import { calculateReceivableResourceAmount } from "./storageCapacityCredit";
 import { createHeistReportNotification, createPlayerResourceState, resolveSingleOwnedOrigin } from "./conflictReportNotifications";
+import { bumpDistrictConflictRevision, bumpDistrictSecurityRevision } from "../state";
 
 const HEISTABLE_RESOURCES = [
   "cash",
@@ -112,6 +114,9 @@ export const handleHeistDistrict = (
     attackerIdentified: resolution.attackerIdentified,
     tick: state.root.tick
   });
+  const bumpTargetRevision = resolution.trapId
+    ? bumpDistrictSecurityRevision
+    : bumpDistrictConflictRevision;
   const nextState: CoreGameState = {
     ...state,
     playersById: {
@@ -125,13 +130,13 @@ export const handleHeistDistrict = (
     },
     districtsById: {
       ...state.districtsById,
-      [targetDistrict.id]: {
+      [targetDistrict.id]: bumpTargetRevision({
         ...targetDistrict,
         heat: Math.max(0, targetDistrict.heat + resolution.heatGain),
         heistProtectedUntilTick: state.root.tick + config.victimProtectionTicks,
         lastHeatDecayTick: state.root.tick,
         version: targetDistrict.version + 1
-      }
+      })
     },
     resourceStatesById: {
       ...state.resourceStatesById,
@@ -152,12 +157,12 @@ export const handleHeistDistrict = (
       ...state.cooldownStatesById,
       [cooldownState.id]: {
         ...cooldownState,
-        cooldowns: {
+        cooldowns: applyMajorOperationCooldowns({
           ...cooldownState.cooldowns,
           [createHeistGlobalCooldownKey()]: state.root.tick + config.globalCooldownTicks,
           [createHeistAttackerTargetCooldownKey(targetDistrict.id)]:
             state.root.tick + config.sameTargetCooldownTicks,
-        },
+        }, sourceDistrictId, state.root.tick, context.config.balance.conflict),
         version: cooldownState.version + (state.cooldownStatesById[cooldownState.id] ? 1 : 0)
       }
     },

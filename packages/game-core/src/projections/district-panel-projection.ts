@@ -60,6 +60,7 @@ export const createDistrictPanelView = (
     heat: isDestroyed ? 0 : district.heat,
     influence: isDestroyed ? 0 : district.influence,
     securityRevision: district.securityRevision,
+    conflictRevision: district.conflictRevision,
     stabilizingUntilTick: district.stabilizingUntilTick ?? null,
     slotCount: district.slotCount,
     filledSlotCount,

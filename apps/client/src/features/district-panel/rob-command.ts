@@ -29,6 +29,8 @@ export const createRobDistrictCommand = (
     payload: {
       targetDistrictId: input.targetDistrictId,
       sourceDistrictId: corridor?.sourceDistrictId ?? district.districtId,
+      expectedConflictRevision: target?.expectedConflictRevision
+        ?? (() => { throw new Error("Rob target is missing a conflict revision."); })(),
       ...(target?.expectedTargetVersion !== undefined ? { expectedTargetVersion: target.expectedTargetVersion } : {}),
       ...(target?.expectedSourceVersion !== undefined ? { expectedSourceVersion: target.expectedSourceVersion } : {}),
       ...(corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {})

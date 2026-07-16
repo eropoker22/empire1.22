@@ -103,7 +103,15 @@ const findOccupyAction = (
     if (sourceDistrictId && target) {
       return {
         focusDistrictId: sourceDistrictId,
-        command: createOccupyCommand(runtime.record.id, playerId, sourceDistrictId, target.districtId, round, playerIndex)
+        command: createOccupyCommand(
+          runtime.record.id,
+          playerId,
+          sourceDistrictId,
+          target.districtId,
+          round,
+          playerIndex,
+          target.expectedConflictRevision
+        )
       };
     }
   }
@@ -123,7 +131,15 @@ const findAttackAction = (
     if (sourceDistrictId && target) {
       return {
         focusDistrictId: sourceDistrictId,
-        command: createAttackCommand(runtime.record.id, playerId, sourceDistrictId, target.districtId, round, playerIndex)
+        command: createAttackCommand(
+          runtime.record.id,
+          playerId,
+          sourceDistrictId,
+          target.districtId,
+          round,
+          playerIndex,
+          target.expectedConflictRevision
+        )
       };
     }
   }

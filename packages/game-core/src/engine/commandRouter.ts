@@ -53,8 +53,10 @@ export const routeCommand = (
       events: [],
       errors: [
         {
-          code: "player_not_active",
-          message: "Player is not active on this server.",
+          code: player.status === "defeated" ? "PLAYER_DEFEATED" : "PLAYER_NOT_ACTIVE",
+          message: player.status === "defeated"
+            ? "Poražený hráč už nemůže provádět herní akce."
+            : "Player is not active on this server.",
           details: {
             playerId: player.id,
             status: player.status

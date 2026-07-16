@@ -2,13 +2,23 @@ import type { RobDistrictCommand } from "@empire/shared-types";
 import type { ConflictBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import type { CoreError } from "../errors";
-import { createRobCooldownKey, createRobSourceCooldownKey, validateMapAction } from "../rules";
+import {
+  createRobCooldownKey,
+  createRobSourceCooldownKey,
+  resolveDistrictActionAvailability,
+  validateMapAction
+} from "../rules";
 
 export const validateRob = (
   state: CoreGameState,
   command: RobDistrictCommand,
   _conflictConfig?: ConflictBalanceConfig
 ): CoreError[] => {
+  const targetDistrict = state.districtsById[command.payload.targetDistrictId];
+  if (!targetDistrict) return [{ code: "TARGET_NOT_FOUND", message: "Cílový district neexistuje." }];
+  const availabilityError = resolveDistrictActionAvailability(state, command.playerId, targetDistrict.id, "rob");
+  if (availabilityError) return [availabilityError];
+
   const originDistrictId = command.payload.sourceDistrictId
     ?? resolveSingleOwnedOrigin(state, command.playerId, command.payload.targetDistrictId);
 

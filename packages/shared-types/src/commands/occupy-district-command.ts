@@ -9,6 +9,7 @@ import type { ActionCommand } from "./action-command";
 export interface OccupyDistrictPayload {
   districtId: DistrictId;
   sourceDistrictId: DistrictId | null;
+  expectedConflictRevision: number;
   routeDistrictId?: DistrictId;
   expectedRouteVersion?: number;
   encirclementConfirmationToken?: string;

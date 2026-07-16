@@ -1446,6 +1446,7 @@ const planAttack = (state: MutableSimulationState, player: SimulationPlayer, ste
       districtId: candidate.target.districtId,
       sourceDistrictId: candidate.panel.districtId,
       weapons: { ...(candidate.target.selectedLoadout ?? {}) },
+      expectedConflictRevision: candidate.target.expectedConflictRevision,
       expectedSourceVersion: candidate.target.expectedSourceVersion,
       expectedTargetVersion: candidate.target.expectedTargetVersion
     }, state.clock),
@@ -1469,7 +1470,8 @@ const planRob = (state: MutableSimulationState, player: SimulationPlayer, step: 
       targetDistrictId: candidate.target.districtId,
       sourceDistrictId: candidate.panel.districtId,
       expectedTargetVersion: candidate.target.expectedTargetVersion,
-      expectedSourceVersion: candidate.target.expectedSourceVersion
+      expectedSourceVersion: candidate.target.expectedSourceVersion,
+      expectedConflictRevision: candidate.target.expectedConflictRevision
     }, state.clock),
     focusDistrictId: candidate.panel.districtId,
     actionKind: "rob",
@@ -1496,6 +1498,7 @@ const planHeist = (state: MutableSimulationState, player: SimulationPlayer, step
       sourceDistrictId: candidate.panel.districtId,
       style,
       gangMembersSent,
+      expectedConflictRevision: candidate.target.expectedConflictRevision,
       expectedTargetVersion: candidate.target.expectedTargetVersion,
       expectedSourceVersion: candidate.target.expectedSourceVersion
     }, state.clock),
@@ -1517,7 +1520,8 @@ const planOccupy = (state: MutableSimulationState, player: SimulationPlayer, ste
   return {
     command: createBaseCommand(player, "occupy-district", commandId(player, "occupy", step), {
       districtId: candidate.target.districtId,
-      sourceDistrictId: candidate.panel.districtId
+      sourceDistrictId: candidate.panel.districtId,
+      expectedConflictRevision: candidate.target.expectedConflictRevision
     }, state.clock),
     focusDistrictId: candidate.panel.districtId,
     actionKind: "occupy",
@@ -2004,6 +2008,7 @@ const planSpyFollowUpAttack = (
       districtId: candidate.opportunity.targetDistrictId,
       sourceDistrictId: candidate.opportunity.sourceDistrictId,
       weapons: { ...(targetView?.selectedLoadout ?? {}) },
+      expectedConflictRevision: targetView?.expectedConflictRevision ?? -1,
       expectedSourceVersion: targetView?.expectedSourceVersion,
       expectedTargetVersion: targetView?.expectedTargetVersion
     }, state.clock);
@@ -2526,6 +2531,7 @@ const maybeSubmitFollowUpAttackAfterSpy = async (
       districtId: spyPayload.districtId,
       sourceDistrictId: spyPayload.sourceDistrictId,
       weapons: { ...(targetView?.selectedLoadout ?? {}) },
+      expectedConflictRevision: targetView?.expectedConflictRevision ?? -1,
       expectedSourceVersion: targetView?.expectedSourceVersion,
       expectedTargetVersion: targetView?.expectedTargetVersion
     }, state.clock),

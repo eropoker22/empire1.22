@@ -23,7 +23,8 @@ export const createDistrictRobTargetViews = (
       id: `preview:rob:${source.id}:${target.id}`, type: "rob-district", mode: state.serverInstance.mode,
       playerId, serverInstanceId: state.serverInstance.id, issuedAt,
       payload: { targetDistrictId: target.id, sourceDistrictId: source.id,
-        expectedTargetVersion: target.version, expectedSourceVersion: source.version },
+        expectedTargetVersion: target.version, expectedSourceVersion: source.version,
+        expectedConflictRevision: target.conflictRevision },
       clientRequestId: null
     };
     const errors = validateRob(state, previewCommand, conflictConfig);
@@ -45,6 +46,8 @@ export const createDistrictRobTargetViews = (
       enabled: errors.length === 0 && !populationBlocked, disabledCode,
       disabledReason: errors[0]?.message ?? (disabledCode ? actionReason(disabledCode) : null),
       cooldownRemainingTicks, expectedTargetVersion: target.version, expectedSourceVersion: source.version,
+      expectedConflictRevision: target.conflictRevision,
+      expectedLootPoolRevision: target.neutralLootPool?.version ?? 0,
       lootPoolLevel, exhausted: lootPoolLevel === "exhausted", heatRisk: { minimum: 1, maximum: 6 }
     };
   });

@@ -13,6 +13,7 @@ export interface AttackDistrictPayload {
   weapons: Partial<Record<AttackWeaponId, number>>;
   expectedSourceVersion?: number;
   expectedTargetVersion?: number;
+  expectedConflictRevision: number;
   routeDistrictId?: DistrictId;
   expectedRouteVersion?: number;
 }

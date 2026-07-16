@@ -1,6 +1,7 @@
 import type { District, PoliceRaidPreviewConsequences, ResourceState } from "@empire/shared-types";
 import type { CoreGameState } from "../../entities";
 import { sanitizeAmount } from "./raidPreview";
+import { bumpDistrictSecurityRevision } from "../../state";
 
 export const applyResourceSeizures = (
   resourceState: ResourceState,
@@ -18,7 +19,7 @@ export const applyDistrictLockdown = (
   district: District,
   lockdownUntilTick: number | null,
   reason: string
-): District => ({
+): District => bumpDistrictSecurityRevision({
   ...district,
   status: "locked",
   lockdownUntilTick,

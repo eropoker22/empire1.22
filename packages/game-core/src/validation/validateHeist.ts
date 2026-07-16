@@ -2,7 +2,14 @@ import type { HeistDistrictCommand } from "@empire/shared-types";
 import type { ConflictBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import type { CoreError } from "../errors";
-import { createHeistAttackerTargetCooldownKey, createHeistGlobalCooldownKey, validateMapAction } from "../rules";
+import {
+  createHeistAttackerTargetCooldownKey,
+  createHeistGlobalCooldownKey,
+  resolveDistrictActionAvailability,
+  resolveMajorOperationBlock,
+  validateDistrictConflictRevision,
+  validateMapAction
+} from "../rules";
 
 const HEIST_STYLES = new Set(["stealth", "balanced", "all_in"]);
 
@@ -11,6 +18,13 @@ export const validateHeist = (
   command: HeistDistrictCommand,
   conflictConfig?: ConflictBalanceConfig
 ): CoreError[] => {
+  const targetDistrict = state.districtsById[command.payload.targetDistrictId];
+  if (!targetDistrict) return [{ code: "TARGET_NOT_FOUND", message: "Cílový district neexistuje." }];
+  const revisionError = validateDistrictConflictRevision(targetDistrict, command.payload.expectedConflictRevision);
+  if (revisionError) return [revisionError];
+  const availabilityError = resolveDistrictActionAvailability(state, command.playerId, targetDistrict.id, "heist");
+  if (availabilityError) return [availabilityError];
+
   if (!HEIST_STYLES.has(command.payload.style)) {
     return [{
       code: "HEIST_STYLE_INVALID",
@@ -95,19 +109,21 @@ export const validateHeist = (
     }];
   }
 
-  const targetDistrict = state.districtsById[command.payload.targetDistrictId];
-  if ((targetDistrict.heistProtectedUntilTick ?? 0) > state.root.tick) {
+  const cooldownState = state.cooldownStatesById[player.cooldownStateId];
+  const majorOperationBlock = resolveMajorOperationBlock(
+    cooldownState?.cooldowns ?? {},
+    originDistrictId,
+    state.root.tick
+  );
+  if (majorOperationBlock) {
     return [{
-      code: "HEIST_VICTIM_PROTECTED",
-      message: "Tento district je po heistu dočasně chráněný.",
-      details: {
-        cooldownUntilTick: targetDistrict.heistProtectedUntilTick,
-        remainingTicks: targetDistrict.heistProtectedUntilTick! - state.root.tick
-      }
+      code: majorOperationBlock.code,
+      message: majorOperationBlock.code === "SOURCE_CONFLICT_LOCKED"
+        ? "Tento source district právě podporuje jinou operaci."
+        : "Tvůj gang právě dokončuje jinou velkou operaci.",
+      details: { cooldownUntilTick: majorOperationBlock.untilTick }
     }];
   }
-
-  const cooldownState = state.cooldownStatesById[player.cooldownStateId];
   const activeCooldown = getActiveHeistCooldown(
     cooldownState?.cooldowns ?? {},
     command.payload.targetDistrictId,

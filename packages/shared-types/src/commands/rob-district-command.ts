@@ -11,6 +11,7 @@ export interface RobDistrictPayload {
   sourceDistrictId?: DistrictId;
   expectedTargetVersion?: number;
   expectedSourceVersion?: number;
+  expectedConflictRevision: number;
   routeDistrictId?: DistrictId;
   expectedRouteVersion?: number;
 }

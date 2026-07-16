@@ -2,8 +2,9 @@ import type { SpyDistrictCommand } from "@empire/shared-types";
 import type { PlayerSpyOperationSlot, PlayerSpyOperationState } from "@empire/shared-types";
 import type { CoreError } from "../errors";
 import type { CoreGameState } from "../entities";
-import { validateMapAction } from "../rules";
+import { resolveDistrictActionAvailability, validateMapAction } from "../rules";
 import { createPlayerSpyOperationState } from "../state";
+import { hasValidAttackAuthorization, validateOccupyEmptyDistrictAuthorization } from "./spyIntel";
 
 export const MAX_ACTIVE_SPY_SLOTS = 2;
 
@@ -37,6 +38,18 @@ export const validateSpy = (
     ];
   }
 
+  const availabilityError = resolveDistrictActionAvailability(state, command.playerId, targetDistrict.id, "spy");
+  if (availabilityError) return [availabilityError];
+  const activeIntel = targetDistrict.ownerPlayerId
+    ? hasValidAttackAuthorization(state, command.playerId, targetDistrict.id)
+    : validateOccupyEmptyDistrictAuthorization(state, command.playerId, targetDistrict.id) === true;
+  if (activeIntel) {
+    return [{
+      code: "SPY_INTEL_ALREADY_ACTIVE",
+      message: "Na tento district už máš stále platné informace."
+    }];
+  }
+
   const mapValidation = validateMapAction(state, {
     actorPlayerId: command.playerId,
     targetDistrictId: command.payload.districtId,
@@ -59,7 +72,7 @@ export const validateSpy = (
   if (!resolveAvailableSpySlot(state, player.id)) {
     return [
       {
-        code: "spy_capacity_exceeded",
+        code: "SPY_SLOT_LIMIT_REACHED",
         message: `Hráč už má ${MAX_ACTIVE_SPY_SLOTS} aktivní nebo blokované špehy.`
       }
     ];

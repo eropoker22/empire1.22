@@ -82,7 +82,8 @@ export const createAttackCommand = (
   sourceDistrictId: DistrictId,
   targetDistrictId: DistrictId,
   round: number,
-  playerIndex: number
+  playerIndex: number,
+  expectedConflictRevision = 1
 ): AttackDistrictCommand => ({
   id: createCommandId("attack-district", round, playerIndex, sourceDistrictId, targetDistrictId),
   type: "attack-district",
@@ -90,7 +91,7 @@ export const createAttackCommand = (
   playerId,
   serverInstanceId,
   issuedAt: new Date(0).toISOString(),
-  payload: { districtId: targetDistrictId, sourceDistrictId, weapons: { "baseball-bat": 1 } },
+  payload: { districtId: targetDistrictId, sourceDistrictId, weapons: { "baseball-bat": 1 }, expectedConflictRevision },
   clientRequestId: null
 });
 
@@ -100,7 +101,8 @@ export const createOccupyCommand = (
   sourceDistrictId: DistrictId,
   targetDistrictId: DistrictId,
   round: number,
-  playerIndex: number
+  playerIndex: number,
+  expectedConflictRevision = 1
 ): OccupyDistrictCommand => ({
   id: createCommandId("occupy-district", round, playerIndex, sourceDistrictId, targetDistrictId),
   type: "occupy-district",
@@ -108,7 +110,7 @@ export const createOccupyCommand = (
   playerId,
   serverInstanceId,
   issuedAt: new Date(0).toISOString(),
-  payload: { districtId: targetDistrictId, sourceDistrictId },
+  payload: { districtId: targetDistrictId, sourceDistrictId, expectedConflictRevision },
   clientRequestId: null
 });
 

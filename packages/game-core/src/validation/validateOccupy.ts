@@ -8,9 +8,12 @@ import {
   createOccupySourceCooldownKey,
   detectAlliedEncirclementAfterOccupy,
   isEncirclementConfirmationValid,
+  resolveDistrictActionAvailability,
+  resolveMajorOperationBlock,
   resolveOccupyBalance,
   resolveOccupyInfluenceCost,
   resolveOccupyPopulationCost,
+  validateDistrictConflictRevision,
   validateMapAction
 } from "../rules";
 import { validateOccupyEmptyDistrictAuthorization } from "./spyIntel";
@@ -45,6 +48,11 @@ export const validateOccupy = (
       }
     ];
   }
+
+  const revisionError = validateDistrictConflictRevision(targetDistrict, command.payload.expectedConflictRevision);
+  if (revisionError) return [revisionError];
+  const availabilityError = resolveDistrictActionAvailability(state, command.playerId, targetDistrict.id, "occupy");
+  if (availabilityError) return [availabilityError];
 
   const mapValidation = validateMapAction(state, {
     actorPlayerId: command.playerId,
@@ -87,6 +95,18 @@ export const validateOccupy = (
   const globalCooldownKey = createOccupyGlobalCooldownKey();
   const sourceCooldownKey = sourceDistrict ? createOccupySourceCooldownKey(sourceDistrict.id) : null;
   const cooldowns = state.cooldownStatesById[player.cooldownStateId]?.cooldowns ?? {};
+  const majorOperationBlock = sourceDistrict
+    ? resolveMajorOperationBlock(cooldowns, sourceDistrict.id, state.root.tick)
+    : null;
+  if (majorOperationBlock) {
+    return [{
+      code: majorOperationBlock.code,
+      message: majorOperationBlock.code === "SOURCE_CONFLICT_LOCKED"
+        ? "Tento source district právě podporuje jinou operaci."
+        : "Tvůj gang právě dokončuje jinou velkou operaci.",
+      details: { cooldownUntilTick: majorOperationBlock.untilTick }
+    }];
+  }
   const activeOccupyCooldownTick =
     cooldowns[globalCooldownKey] ??
     (sourceCooldownKey ? cooldowns[sourceCooldownKey] : undefined) ??

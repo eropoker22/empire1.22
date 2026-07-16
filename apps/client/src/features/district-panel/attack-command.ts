@@ -20,11 +20,14 @@ export const createAttackDistrictCommand = (
   input: CreateAttackDistrictCommandInput
 ): AttackDistrictCommand => {
   const district = input.slice.district;
+  const target = district?.attackTargets.find((entry) => entry.districtId === input.targetDistrictId);
   const corridor = input.slice.frontier?.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
 
   if (!district) {
     throw new Error("Attack command cannot be created from missing district/target context.");
   }
+  const expectedSourceVersion = input.expectedSourceVersion ?? target?.expectedSourceVersion;
+  const expectedTargetVersion = input.expectedTargetVersion ?? target?.expectedTargetVersion;
 
   return {
     id: input.commandId,
@@ -37,8 +40,10 @@ export const createAttackDistrictCommand = (
       districtId: input.targetDistrictId,
       sourceDistrictId: corridor?.sourceDistrictId ?? district.districtId,
       weapons: { ...input.weapons },
-      expectedSourceVersion: input.expectedSourceVersion,
-      expectedTargetVersion: input.expectedTargetVersion,
+      ...(typeof expectedSourceVersion === "number" ? { expectedSourceVersion } : {}),
+      ...(typeof expectedTargetVersion === "number" ? { expectedTargetVersion } : {}),
+      expectedConflictRevision: target?.expectedConflictRevision
+        ?? (() => { throw new Error("Attack target is missing a conflict revision."); })(),
       ...(corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {})
     },
     clientRequestId: input.clientRequestId ?? null

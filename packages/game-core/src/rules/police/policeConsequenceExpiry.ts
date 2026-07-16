@@ -1,4 +1,5 @@
 import type { CoreGameState } from "../../entities";
+import { bumpDistrictSecurityRevision } from "../../state";
 
 export const releaseExpiredPoliceConsequences = (state: CoreGameState): CoreGameState => {
   const currentTick = state.root.tick;
@@ -10,7 +11,7 @@ export const releaseExpiredPoliceConsequences = (state: CoreGameState): CoreGame
     if (district.status !== "locked" || !district.lockdownUntilTick || district.lockdownUntilTick > currentTick) continue;
     districtsById = {
       ...districtsById,
-      [district.id]: {
+      [district.id]: bumpDistrictSecurityRevision({
         ...district,
         status: district.previousStatusBeforeLockdown && district.previousStatusBeforeLockdown !== "locked"
           ? district.previousStatusBeforeLockdown
@@ -19,7 +20,7 @@ export const releaseExpiredPoliceConsequences = (state: CoreGameState): CoreGame
         policeLockdownReason: null,
         previousStatusBeforeLockdown: null,
         version: district.version + 1
-      }
+      })
     };
     changed = true;
   }

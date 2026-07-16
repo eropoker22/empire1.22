@@ -182,6 +182,7 @@ const createDistrict = (
   status: ownerPlayerId ? "claimed" : "neutral",
     resourceModifiers: {},
     securityRevision: 1,
+    conflictRevision: 1,
     version: 1
 });
 

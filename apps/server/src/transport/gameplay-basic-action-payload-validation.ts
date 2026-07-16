@@ -12,6 +12,7 @@ export const validateBasicActionCommandPayload = (
         "sourceDistrictId",
         "expectedTargetVersion",
         "expectedSourceVersion",
+        "expectedConflictRevision",
         "routeDistrictId",
         "expectedRouteVersion"
       ]);
@@ -19,6 +20,7 @@ export const validateBasicActionCommandPayload = (
       requireOptionalStringField(errors, payload, "sourceDistrictId", "command.payload.sourceDistrictId");
       requireOptionalFiniteNumberField(errors, payload, "expectedTargetVersion", "command.payload.expectedTargetVersion");
       requireOptionalFiniteNumberField(errors, payload, "expectedSourceVersion", "command.payload.expectedSourceVersion");
+      requireNonNegativeIntegerField(errors, payload, "expectedConflictRevision", "command.payload.expectedConflictRevision");
       requireOptionalStringField(errors, payload, "routeDistrictId", "command.payload.routeDistrictId");
       requireOptionalFiniteNumberField(errors, payload, "expectedRouteVersion", "command.payload.expectedRouteVersion");
       return true;
@@ -30,6 +32,7 @@ export const validateBasicActionCommandPayload = (
         "gangMembersSent",
         "expectedTargetVersion",
         "expectedSourceVersion",
+        "expectedConflictRevision",
         "routeDistrictId",
         "expectedRouteVersion"
       ]);
@@ -39,6 +42,7 @@ export const validateBasicActionCommandPayload = (
       requirePositiveIntegerField(errors, payload, "gangMembersSent", "command.payload.gangMembersSent");
       requireOptionalFiniteNumberField(errors, payload, "expectedTargetVersion", "command.payload.expectedTargetVersion");
       requireOptionalFiniteNumberField(errors, payload, "expectedSourceVersion", "command.payload.expectedSourceVersion");
+      requireNonNegativeIntegerField(errors, payload, "expectedConflictRevision", "command.payload.expectedConflictRevision");
       requireOptionalStringField(errors, payload, "routeDistrictId", "command.payload.routeDistrictId");
       requireOptionalFiniteNumberField(errors, payload, "expectedRouteVersion", "command.payload.expectedRouteVersion");
       return true;
@@ -125,6 +129,18 @@ const requireOptionalFiniteNumberField = (
   const fieldValue = getFieldPath(value, fieldPath);
   if (fieldValue !== undefined && (typeof fieldValue !== "number" || !Number.isFinite(fieldValue))) {
     errors.push(createInvalidFieldError(errorFieldPath, "Pole payloadu musí být konečné číslo."));
+  }
+};
+
+const requireNonNegativeIntegerField = (
+  errors: DomainError[],
+  value: Record<string, unknown>,
+  fieldPath: string,
+  errorFieldPath = fieldPath
+): void => {
+  const fieldValue = getFieldPath(value, fieldPath);
+  if (typeof fieldValue !== "number" || !Number.isInteger(fieldValue) || fieldValue < 0) {
+    errors.push(createInvalidFieldError(errorFieldPath, "Pole payloadu musí být nezáporné celé číslo."));
   }
 };
 

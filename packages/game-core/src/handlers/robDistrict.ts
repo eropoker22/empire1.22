@@ -22,6 +22,7 @@ import { resolveCityHallNightPatrolPressure } from "./cityHallBuildingActions";
 import { increasePlayerPoliceHeat } from "./playerPoliceState";
 import { calculateReceivableResourceAmount } from "./storageCapacityCredit";
 import { createPlayerResourceState, createRobReportNotification, resolveSingleOwnedOrigin } from "./conflictReportNotifications";
+import { bumpDistrictConflictRevision } from "../state";
 
 const ROB_LOOT_KEYS = ["cash", "dirty-cash", "chemicals", "biomass", "metal-parts"] as const;
 
@@ -135,13 +136,13 @@ export const handleRobDistrict = (
       },
       districtsById: {
         ...state.districtsById,
-        [targetDistrict.id]: {
+        [targetDistrict.id]: bumpDistrictConflictRevision({
           ...targetDistrict,
           neutralLootPool: nextPool,
           heat: Math.max(0, targetDistrict.heat + districtHeat),
           lastHeatDecayTick: state.root.tick,
           version: targetDistrict.version + 1
-        }
+        })
       },
       resourceStatesById: {
         ...state.resourceStatesById,

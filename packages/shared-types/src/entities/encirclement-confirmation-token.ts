@@ -7,6 +7,7 @@ export interface EncirclementConfirmationToken {
   sourceDistrictId: DistrictId;
   affectedPlayerIds: PlayerId[];
   targetVersion: number;
+  targetConflictRevision: number;
   allianceId: AllianceId;
   allianceVersion: number;
   issuedAtTick: number;

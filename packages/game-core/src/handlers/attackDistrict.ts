@@ -17,6 +17,7 @@ import {
   resolveAttackDurationGuardrailTicks,
   resolveAttackDurationTicks,
   applyDefenseCombatLosses,
+  applyMajorOperationCooldowns,
   consumeCapturedDistrictDefense,
   resolveCombat,
   resolveTrap
@@ -279,6 +280,14 @@ export const handleAttackDistrict = (
       attackerFactionModifiers
     ) * cityHallNightPatrol.durationMultiplier)
   );
+  const concurrencyConfig = context.config.balance.conflict?.concurrency;
+  const targetProtectionTicks = trapResolution.blocked
+    ? 0
+    : districtDestroyed
+      ? Number(concurrencyConfig?.attackDestructionProtectionTicks ?? context.config.balance.conflict?.attackTargetProtectionTicks ?? 0)
+      : attackSucceeded
+        ? Number(concurrencyConfig?.attackCaptureProtectionTicks ?? context.config.balance.conflict?.attackTargetProtectionTicks ?? 0)
+        : Number(concurrencyConfig?.attackFailedCombatProtectionTicks ?? context.config.balance.conflict?.attackTargetProtectionTicks ?? 0);
   const nextPoliceState = increasePlayerPoliceHeat(state, attacker, escapeMitigation.heatGained, state.root.tick);
   const notificationEntries = createBattleReportNotifications({
     command,
@@ -384,10 +393,9 @@ export const handleAttackDistrict = (
         influence: districtDestroyed ? 0 : targetDistrict.influence,
         buildingIds: districtDestroyed ? [] : targetDistrict.buildingIds,
         defenseLoadout: attackSucceeded || districtDestroyed ? {} : targetAfterDefenseLosses.defenseLoadout,
-        attackProtectedUntilTick: state.root.tick + Math.max(
-          0,
-          Number(context.config.balance.conflict?.attackTargetProtectionTicks ?? attackDurationTicks)
-        ),
+        attackProtectedUntilTick: targetProtectionTicks > 0
+          ? Math.max(Number(targetDistrict.attackProtectedUntilTick ?? 0), state.root.tick + targetProtectionTicks)
+          : targetDistrict.attackProtectedUntilTick ?? null,
         stabilizingUntilTick: attackSucceeded
           ? state.root.tick + Math.max(0, Number(stabilizationConfig?.durationTicks ?? 0))
           : null,
@@ -407,11 +415,11 @@ export const handleAttackDistrict = (
       ...state.cooldownStatesById,
       [currentCooldownState.id]: {
         ...currentCooldownState,
-        cooldowns: {
+        cooldowns: applyMajorOperationCooldowns({
           ...currentCooldownState.cooldowns,
           [globalAttackCooldownKey]: state.root.tick + attackDurationTicks,
           [sourceAttackCooldownKey]: state.root.tick + attackDurationTicks
-        },
+        }, sourceDistrict!.id, state.root.tick, context.config.balance.conflict),
         version: currentCooldownState.version + (state.cooldownStatesById[currentCooldownState.id] ? 1 : 0)
       }
     },

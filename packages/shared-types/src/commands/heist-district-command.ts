@@ -15,6 +15,7 @@ export interface HeistDistrictPayload {
   gangMembersSent: number;
   expectedTargetVersion?: number;
   expectedSourceVersion?: number;
+  expectedConflictRevision: number;
   routeDistrictId?: DistrictId;
   expectedRouteVersion?: number;
 }

@@ -6,6 +6,20 @@ import {
 import type { ServerInstanceRuntime } from "../instance/server-instance-runtime";
 
 const MAX_COMMANDS_PER_PLAYER_PER_TICK = 5;
+const ENTITY_REVALIDATED_CONFLICT_COMMAND_TYPES = new Set<GameCommand["type"]>([
+  "attack-district",
+  "heist-district",
+  "occupy-district",
+  "rob-district",
+  "spy-district",
+  "place-defense",
+  "remove-defense",
+  "place-trap",
+  "relocate-trap"
+]);
+
+export const usesEntityConflictRevalidation = (command: GameCommand): boolean =>
+  ENTITY_REVALIDATED_CONFLICT_COMMAND_TYPES.has(command.type);
 
 /**
  * Responsibility: Server-side pre-dispatch guards for player commands.
@@ -48,6 +62,7 @@ export const validateCommandDispatchGate = (
   }
 
   if (
+    !usesEntityConflictRevalidation(command) &&
     typeof options.expectedStateVersion === "number" &&
     Number.isFinite(options.expectedStateVersion) &&
     options.expectedStateVersion !== runtime.state.root.version

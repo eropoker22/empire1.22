@@ -1,7 +1,7 @@
 import { applyCommand, type CoreGameState } from "@empire/game-core";
 import type { GameCommand, InstanceRuntimeEvent } from "@empire/shared-types";
 import { findSharedCitySpawnCandidate } from "../../bootstrap/gameplay-slice-shared-city-seed";
-import { createInstanceSnapshot } from "../persistence";
+import { createInstanceSnapshot, restoreInstanceState } from "../persistence";
 import type { ServerInstanceRuntime } from "../instance/server-instance-runtime";
 import type { CommandDispatchOptions, InstanceCommandDispatchResult } from "../orchestration";
 import { writeCommandRejectionDiagnostic, writeDiagnosticLog } from "../logging";
@@ -113,6 +113,10 @@ const dispatchAtomicInstanceCommandInBoundary = async (
   crash: ((point: AtomicCommandCrashPoint) => void | Promise<void>) | undefined,
   repositories: AtomicCommandTransactionRepositories
 ): Promise<BoundaryDispatchResult> => {
+  const latestSnapshot = await repositories.snapshotRepository.loadLatest(runtime.record.id);
+  if (latestSnapshot && latestSnapshot.integrity.rootVersion > runtime.state.root.version) {
+    runtime.state = restoreInstanceState(latestSnapshot);
+  }
   const reservedAt = runtime.clock.nowIso();
   const authoritativeCommand: GameCommand = {
     ...command,

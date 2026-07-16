@@ -7,6 +7,7 @@ import { CORE_EVENT_TYPES, createEvent, createNotification } from "../events";
 import {
   createOccupyGlobalCooldownKey,
   createOccupySourceCooldownKey,
+  applyMajorOperationCooldowns,
   resolveOccupyBalance,
   resolveOccupyInfluenceCost,
   resolveOccupyPopulationCost
@@ -25,7 +26,7 @@ import { increasePlayerPoliceHeat } from "./playerPoliceState";
 import { appendRecoveryPoolEntries, createRecoveryEntriesFromLosses } from "./clinicBuildingActions";
 import { composeEntityId } from "../utils";
 import { deterministicUnitInterval } from "../utils/math";
-import { bumpDistrictSecurityRevision } from "../state";
+import { bumpDistrictConflictRevision, bumpDistrictSecurityRevision } from "../state";
 import {
   consumeEncirclementConfirmation,
   countActiveOwnedDistricts,
@@ -166,7 +167,7 @@ export const handleOccupyDistrict = (
         influence: Math.max(0, Number(sourceDistrict.influence || 0) - influenceCost),
         version: sourceDistrict.version + 1
       },
-      [targetDistrict.id]: bumpDistrictSecurityRevision({
+      [targetDistrict.id]: (occupySucceeded ? bumpDistrictSecurityRevision : bumpDistrictConflictRevision)({
         ...targetDistrict,
         ...(occupySucceeded
           ? {
@@ -194,11 +195,11 @@ export const handleOccupyDistrict = (
       ...state.cooldownStatesById,
       [cooldownState.id]: {
         ...cooldownState,
-        cooldowns: {
+        cooldowns: applyMajorOperationCooldowns({
           ...cooldownState.cooldowns,
           [globalOccupyCooldownKey]: state.root.tick + cooldownTicks,
           [sourceOccupyCooldownKey]: state.root.tick + cooldownTicks
-        },
+        }, sourceDistrict.id, state.root.tick, context.config.balance.conflict),
         version: cooldownState.version + (state.cooldownStatesById[cooldownState.id] ? 1 : 0)
       }
     },

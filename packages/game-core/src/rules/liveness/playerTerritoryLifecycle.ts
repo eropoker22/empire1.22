@@ -4,6 +4,7 @@ import type { CoreGameState } from "../../entities";
 import type { CoreEvent } from "../../events";
 import { CORE_EVENT_TYPES, createEvent, createNotification } from "../../events";
 import { cleanupAllianceDefense } from "../alliances/allianceDefenseCleanup";
+import { bumpDistrictConflictRevision } from "../../state";
 
 export interface TerritoryLifecycleResult {
   nextState: CoreGameState;
@@ -74,11 +75,11 @@ export const reconcilePlayerTerritoryLifecycle = (
     };
     nextDistrictsById = {
       ...state.districtsById,
-      [headquarters.id]: {
+      [headquarters.id]: bumpDistrictConflictRevision({
         ...headquarters,
         attackProtectedUntilTick: Math.max(Number(headquarters.attackProtectedUntilTick ?? 0), protectedUntilTick),
         version: headquarters.version + 1
-      }
+      })
     };
   }
   const changed = nextPlayer.currentHeadquartersDistrictId !== player.currentHeadquartersDistrictId

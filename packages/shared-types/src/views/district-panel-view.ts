@@ -15,6 +15,7 @@ export interface DistrictBuildOptionView {
   buildingTypeId: string;
   label: string;
   enabled: boolean;
+  disabledCode?: string | null;
   disabledReason: string | null;
 }
 
@@ -151,6 +152,7 @@ export interface DistrictPanelBuildingSpecialActionView {
   baseDurationMs?: number;
   effectiveDurationMs?: number;
   enabled: boolean;
+  disabledCode?: string | null;
   disabledReason: string | null;
   phaseAvailability?: BuildingActionPhaseAvailability;
   phaseBadgeLabel?: string | null;
@@ -201,6 +203,7 @@ export interface DistrictAttackTargetView {
   targetProtectionRemainingTicks?: number;
   expectedSourceVersion?: number;
   expectedTargetVersion?: number;
+  expectedConflictRevision: number;
   targetSecurityRevision?: number;
   spyAuthorizationValid?: boolean;
   selectedLoadout?: Record<string, number>;
@@ -211,6 +214,8 @@ export interface DistrictAttackTargetView {
     finalChance: number;
   };
   sourceStabilizingUntilTick?: number | null;
+  majorOffenseCooldownEndsAtTick?: number | null;
+  sourceConflictLockEndsAtTick?: number | null;
 }
 export interface DistrictSpyTargetView {
   districtId: DistrictId;
@@ -245,6 +250,9 @@ export interface DistrictOccupyTargetView {
   cooldownRemainingTicks: number;
   globalCooldownRemainingTicks?: number;
   sourceCooldownRemainingTicks?: number;
+  expectedConflictRevision: number;
+  majorOffenseCooldownEndsAtTick?: number | null;
+  sourceConflictLockEndsAtTick?: number | null;
   stabilizingDurationTicks?: number;
 }
 
@@ -259,6 +267,8 @@ export interface DistrictRobTargetView {
   cooldownRemainingTicks?: number;
   expectedTargetVersion: number;
   expectedSourceVersion: number;
+  expectedConflictRevision: number;
+  expectedLootPoolRevision: number;
   lootPoolLevel?: "rich" | "partial" | "low" | "exhausted";
   exhausted?: boolean;
   heatRisk?: { minimum: number; maximum: number };
@@ -275,6 +285,7 @@ export interface DistrictHeistTargetView {
   cooldownRemainingTicks?: number;
   expectedTargetVersion: number;
   expectedSourceVersion: number;
+  expectedConflictRevision: number;
   styles: Array<{
     style: "stealth" | "balanced" | "all_in";
     label: string;
@@ -288,6 +299,8 @@ export interface DistrictHeistTargetView {
     heatOnDetected?: number;
   }>;
   victimProtectionRemainingTicks?: number;
+  majorOffenseCooldownEndsAtTick?: number | null;
+  sourceConflictLockEndsAtTick?: number | null;
 }
 
 export interface DistrictDefenseActionView {
@@ -339,6 +352,7 @@ export interface DistrictPanelView {
   heat: number;
   influence: number;
   securityRevision?: number;
+  conflictRevision: number;
   stabilizingUntilTick?: number | null;
   slotCount: number;
   filledSlotCount: number;

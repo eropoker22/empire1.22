@@ -50,6 +50,7 @@ export interface District {
   stabilizingUntilTick?: number | null;
   ownershipStartedAtTick?: number | null;
   securityRevision: number;
+  conflictRevision: number;
   version: number;
 }
 

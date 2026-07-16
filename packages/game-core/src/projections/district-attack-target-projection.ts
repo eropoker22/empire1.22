@@ -42,7 +42,8 @@ export const createDistrictAttackTargetViews = (
           sourceDistrictId: sourceDistrict.id,
           weapons: { ...(state.playersById[playerId]?.attackLoadout ?? {}) },
           expectedSourceVersion: sourceDistrict.version,
-          expectedTargetVersion: targetDistrict.version
+          expectedTargetVersion: targetDistrict.version,
+          expectedConflictRevision: targetDistrict.conflictRevision
         },
         clientRequestId: null
       };
@@ -79,6 +80,7 @@ export const createDistrictAttackTargetViews = (
         ownerPlayerId: targetDistrict.ownerPlayerId,
         status: targetDistrict.status,
         enabled: errors.length === 0,
+        disabledCode: errors[0]?.code ?? null,
         disabledReason: errors[0]?.message ?? null,
         cooldownRemainingTicks,
         globalCooldownRemainingTicks,
@@ -86,12 +88,15 @@ export const createDistrictAttackTargetViews = (
         targetProtectionRemainingTicks,
         expectedSourceVersion: sourceDistrict.version,
         expectedTargetVersion: targetDistrict.version,
+        expectedConflictRevision: targetDistrict.conflictRevision,
         targetSecurityRevision: targetDistrict.securityRevision,
         spyAuthorizationValid: hasValidAttackAuthorization(state, playerId, targetDistrict.id),
         selectedLoadout,
         projectedPopulationCost,
         catastrophePreview: { baseChance, bazookaBonus, finalChance },
-        sourceStabilizingUntilTick: sourceDistrict.stabilizingUntilTick ?? null
+        sourceStabilizingUntilTick: sourceDistrict.stabilizingUntilTick ?? null,
+        majorOffenseCooldownEndsAtTick: cooldowns["offense:global"] ?? null,
+        sourceConflictLockEndsAtTick: cooldowns[`conflict:source:${sourceDistrict.id}`] ?? null
       };
     });
 };

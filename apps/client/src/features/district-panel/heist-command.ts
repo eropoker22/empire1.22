@@ -37,6 +37,8 @@ export const createHeistDistrictCommand = (
       sourceDistrictId: corridor?.sourceDistrictId ?? district.districtId,
       style: style.style,
       gangMembersSent: style.defaultGangMembersSent,
+      expectedConflictRevision: target?.expectedConflictRevision
+        ?? (() => { throw new Error("Heist target is missing a conflict revision."); })(),
       ...(target?.expectedTargetVersion !== undefined ? { expectedTargetVersion: target.expectedTargetVersion } : {}),
       ...(target?.expectedSourceVersion !== undefined ? { expectedSourceVersion: target.expectedSourceVersion } : {}),
       ...(corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {})

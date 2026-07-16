@@ -20,7 +20,12 @@ export const isEncirclementConfirmationValid = (
   if (!token || !player || !target || !alliance) return false;
   if (token.consumedAtTick !== null || token.expiresAtTick <= state.root.tick) return false;
   if (token.actorPlayerId !== playerId || token.targetDistrictId !== targetDistrictId) return false;
-  if (token.targetVersion !== target.version || token.allianceId !== alliance.id || token.allianceVersion !== alliance.version) return false;
+  if (
+    token.targetVersion !== target.version
+    || token.targetConflictRevision !== target.conflictRevision
+    || token.allianceId !== alliance.id
+    || token.allianceVersion !== alliance.version
+  ) return false;
   const current = detectAlliedEncirclementAfterOccupy(state, playerId, targetDistrictId);
   return current.requiresConsent
     && sameIds(token.affectedPlayerIds, current.affectedPlayerIds);
@@ -46,6 +51,7 @@ export const prepareEncirclementConfirmation = (
     sourceDistrictId: input.sourceDistrictId,
     affectedPlayerIds: [...consent.affectedPlayerIds].sort(),
     targetVersion: target.version,
+    targetConflictRevision: target.conflictRevision,
     allianceId: alliance.id,
     allianceVersion: alliance.version,
     issuedAtTick: state.root.tick,

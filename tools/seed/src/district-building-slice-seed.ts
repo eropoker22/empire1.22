@@ -185,6 +185,7 @@ const createSeedDistrict = (
       status: districtSeed.status ?? (districtSeed.ownerPlayerId ? "claimed" : "neutral"),
     resourceModifiers: {},
     securityRevision: 1,
+    conflictRevision: 1,
     version: 1
     };
   })()

@@ -42,6 +42,7 @@ export const createSharedCityDistrict = (input: {
     status: input.ownerPlayerId ? "claimed" : "neutral",
     resourceModifiers: {},
     securityRevision: 1,
+    conflictRevision: 1,
     version: 1
   };
 };
