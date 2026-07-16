@@ -1,8 +1,13 @@
 import type {
   AdminApiResponse,
+  AdminControlPlaneAvailabilityView,
+  AdminCreateServerRequestView,
+  AdminCreateServerResultView,
   AdminInstanceDetailView,
   AdminOverviewView,
-  AdminSessionView
+  AdminSessionView,
+  AdminLifecycleActionRequestView,
+  AdminLifecycleActionResultView
 } from "@empire/shared-types";
 
 export class AdminApiError extends Error {
@@ -13,18 +18,21 @@ export class AdminApiError extends Error {
 
 export interface AdminApiClient {
   getSession(signal?: AbortSignal): Promise<AdminSessionView>;
-  login(secret: string, signal?: AbortSignal): Promise<AdminSessionView>;
+  login(username: string, password: string, signal?: AbortSignal): Promise<AdminSessionView>;
   logout(signal?: AbortSignal): Promise<void>;
   getOverview(signal?: AbortSignal): Promise<AdminOverviewView>;
   getInstance(instanceId: string, signal?: AbortSignal): Promise<AdminInstanceDetailView>;
+  getControlPlane(signal?: AbortSignal): Promise<AdminControlPlaneAvailabilityView>;
+  createServer(input: AdminCreateServerRequestView, idempotencyKey: string, signal?: AbortSignal): Promise<AdminCreateServerResultView>;
+  requestLifecycleAction(instanceId: string, input: AdminLifecycleActionRequestView, idempotencyKey: string, signal?: AbortSignal): Promise<AdminLifecycleActionResultView>;
 }
 
 export const createAdminApiClient = (basePath = "/api/admin"): AdminApiClient => ({
   getSession: (signal) => request<AdminSessionView>(`${basePath}/session`, { signal }),
-  login: (secret, signal) => request<AdminSessionView>(`${basePath}/session`, {
+  login: (username, password, signal) => request<AdminSessionView>(`${basePath}/session`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ secret }),
+    body: JSON.stringify({ username, password }),
     signal
   }),
   logout: async (signal) => {
@@ -39,7 +47,17 @@ export const createAdminApiClient = (basePath = "/api/admin"): AdminApiClient =>
   getInstance: (instanceId, signal) => request<AdminInstanceDetailView>(
     `${basePath}/instances/${encodeURIComponent(instanceId)}`,
     { signal }
-  )
+  ),
+  getControlPlane: (signal) => request<AdminControlPlaneAvailabilityView>(`${basePath}/control-plane`, { signal }),
+  createServer: (input, idempotencyKey, signal) => request<AdminCreateServerResultView>(`${basePath}/servers`, {
+    method: "POST", headers: { "content-type": "application/json", "idempotency-key": idempotencyKey },
+    body: JSON.stringify(input), signal
+  }),
+  requestLifecycleAction: (instanceId, input, idempotencyKey, signal) => request<AdminLifecycleActionResultView>(
+    `${basePath}/servers/${encodeURIComponent(instanceId)}/actions`, {
+      method: "POST", headers: { "content-type": "application/json", "idempotency-key": idempotencyKey },
+      body: JSON.stringify(input), signal
+    })
 });
 
 const request = async <T>(url: string, init: RequestInit): Promise<T> => {

@@ -1,17 +1,20 @@
 import type {
+  AdminControlPlaneAvailabilityView,
+  AdminHostedServerView,
   AdminInstanceDetailView,
   AdminInstanceSummaryView,
   AdminOverviewView,
   AdminSessionView
 } from "@empire/shared-types";
 
-export const renderLogin = (message = "Přihlaste se pro read-only přístup."): string => `
+export const renderLogin = (message = "Přihlaste se do admin konzole."): string => `
   <section class="admin-login" aria-labelledby="admin-login-title">
     <p class="admin-boot__eyebrow">Empire Streets</p>
     <h1 id="admin-login-title">Admin konzole</h1>
     <p>${escape(message)}</p>
     <form data-admin-login>
-      <label><span>Bootstrap secret</span><input data-admin-secret type="password" autocomplete="current-password" required></label>
+      <label><span>Uživatelské jméno</span><input data-admin-username type="text" autocomplete="username" required></label>
+      <label><span>Heslo</span><input data-admin-password type="password" autocomplete="current-password" required></label>
       <button class="admin-button admin-button--primary" type="submit">Přihlásit</button>
       <p data-admin-login-error role="alert"></p>
     </form>
@@ -31,6 +34,9 @@ export const renderDashboard = (input: {
   overview: AdminOverviewView;
   selectedInstanceId: string | null;
   detail: AdminInstanceDetailView | null;
+  controlPlane: AdminControlPlaneAvailabilityView | null;
+  wizardOpen: boolean;
+  wizardStep: number;
 }): string => `
   <aside class="admin-sidebar">
     <div class="admin-brand"><span class="admin-brand__mark">ES</span><div><p>Empire Streets</p><strong>Admin</strong></div></div>
@@ -51,6 +57,7 @@ export const renderDashboard = (input: {
     </header>
     <div class="admin-content">
       ${renderOverview(input.overview)}
+      ${renderControlPlane(input.controlPlane, input.session, input.wizardOpen, input.wizardStep, input.selectedInstanceId)}
       ${renderServers(input.overview.instances, input.selectedInstanceId)}
       ${input.selectedInstanceId ? renderDetail(input.detail) : renderNoSelection()}
     </div>
@@ -67,6 +74,79 @@ const renderOverview = (overview: AdminOverviewView): string => `
     </div>
     <p class="admin-copy">Data vygenerována ${time(overview.generatedAt)}. Stav LIVE určuje durable heartbeat, ne úspěch HTTP requestu.</p>
   </section>`;
+
+const renderControlPlane = (control: AdminControlPlaneAvailabilityView | null, session: AdminSessionView,
+  wizardOpen: boolean, wizardStep: number, selectedInstanceId: string | null): string => {
+  if (!control) return `<section class="admin-panel" role="status"><h3>Načítám control plane...</h3></section>`;
+  const ready = !control.unavailableCode && session.role !== "viewer";
+  const selected = control.servers.find((entry) => entry.serverInstanceId === selectedInstanceId) ?? null;
+  return `<section id="admin-control-plane" class="admin-panel admin-section-anchor">
+    <div class="admin-panel__head"><div><span>Hosted control plane</span><h3>Provisioning a lifecycle</h3></div>
+      ${badge(control.unavailableCode ?? "WRITES ENABLED", ready ? "success" : "warning")}</div>
+    <div class="admin-kv-grid">${kv("Database", control.databaseAvailable ? "AVAILABLE" : "UNAVAILABLE")}
+      ${kv("Migrace", control.migrationsCurrent ? "CURRENT" : "PENDING")}${kv("Worker", control.workerStatus.toUpperCase())}
+      ${kv("Provisioning", control.provisioningEnabled ? "ENABLED" : "DISABLED")}</div>
+    ${ready && !wizardOpen ? `<button class="admin-button admin-button--primary" type="button" data-admin-create-open>Vytvořit server</button>` : ""}
+    ${wizardOpen && ready ? renderCreateWizard(wizardStep) : ""}
+    ${selected && ready ? renderLifecycle(selected, session) : ""}
+  </section>`;
+};
+
+const renderCreateWizard = (step: number): string => `
+  <form class="admin-wizard" data-admin-create-form>
+    <div class="admin-wizard__steps" aria-label="Kroky vytvoření serveru">
+      ${["Základ", "Mapa", "Přístup", "Kontrola"].map((label, index) => `<span class="${step === index + 1 ? "is-active" : ""}">${index + 1}. ${label}</span>`).join("")}
+    </div>
+    <fieldset data-admin-wizard-panel="1" ${step === 1 ? "" : "hidden"}>
+      <legend>Základ</legend>
+      <label><span>Název</span><input name="displayName" minlength="3" maxlength="80" required></label>
+      <label><span>Mode</span><select name="mode"><option value="free">Free</option><option value="war">War</option></select></label>
+      <label><span>Region</span><select name="region"><option value="eu-central">EU Central</option></select></label>
+      <label><span>Kapacita</span><input name="capacity" type="number" min="1" max="20" value="20" required></label>
+      <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Další</button>
+    </fieldset>
+    <fieldset data-admin-wizard-panel="2" ${step === 2 ? "" : "hidden"}>
+      <legend>Mapa</legend><div class="admin-map-counts">
+        <label><span>Downtown</span><input value="8" disabled></label>
+        <label><span>Commercial</span><input name="commercial" data-admin-map-count type="number" min="0" value="40" required></label>
+        <label><span>Residential</span><input name="residential" data-admin-map-count type="number" min="0" value="38" required></label>
+        <label><span>Industrial</span><input name="industrial" data-admin-map-count type="number" min="0" value="38" required></label>
+        <label><span>Park</span><input name="park" data-admin-map-count type="number" min="0" value="37" required></label>
+      </div><p>Celkem: <output data-admin-map-total>161</output> / 161</p>
+      <button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
+      <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Další</button>
+    </fieldset>
+    <fieldset data-admin-wizard-panel="3" ${step === 3 ? "" : "hidden"}>
+      <legend>Přístup</legend>
+      <label><input type="radio" name="joinPolicy" value="closed" checked> Closed</label>
+      <label><input type="radio" name="joinPolicy" value="invite_only"> Invite-only</label>
+      <label><input type="radio" name="joinPolicy" value="open" disabled> Open (až po provisioningu)</label>
+      <button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
+      <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Další</button>
+    </fieldset>
+    <fieldset data-admin-wizard-panel="4" ${step === 4 ? "" : "hidden"}>
+      <legend>Kontrola</legend><div class="admin-kv-grid" data-admin-create-review></div>
+      <p class="admin-notice">Server vznikne jako REQUESTED a joins zůstanou zavřené do dokončení provisioningu.</p>
+      <button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
+      <button class="admin-button admin-button--primary" type="submit">Create Server</button>
+    </fieldset>
+    <button class="admin-button" type="button" data-admin-create-cancel>Zrušit</button>
+    <p data-admin-create-error role="alert"></p>
+  </form>`;
+
+const renderLifecycle = (server: AdminHostedServerView, session: AdminSessionView): string => `
+  <div class="admin-lifecycle"><h4>Lifecycle: ${escape(server.displayName)}</h4>
+    <p>${pill(server.status)} ${pill(server.provisioningState)} · version ${server.version}</p>
+    <label><span>Důvod akce</span><input data-admin-action-reason minlength="3" maxlength="240" required></label>
+    <div class="admin-lifecycle__actions">
+      ${lifecycleButton(server, "open-joins", "Open joins")}${lifecycleButton(server, "close-joins", "Close joins")}
+      ${lifecycleButton(server, "start", "Start")}${lifecycleButton(server, "pause", "Pause")}
+      ${lifecycleButton(server, "resume", "Resume")}${lifecycleButton(server, "restart", "Safe restart")}
+      ${session.role === "owner" ? lifecycleButton(server, "stop", "Stop") : ""}
+    </div><p data-admin-action-error role="alert"></p>
+  </div>`;
+const lifecycleButton = (server: AdminHostedServerView, action: string, label: string) =>
+  `<button class="admin-button" type="button" data-admin-lifecycle="${attr(action)}" data-admin-server-id="${attr(server.serverInstanceId)}">${escape(label)}</button>`;
 
 const renderServers = (instances: AdminInstanceSummaryView[], selected: string | null): string => `
   <section id="admin-servers" class="admin-panel admin-section-anchor">
