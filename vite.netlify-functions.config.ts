@@ -4,6 +4,9 @@ import { defineConfig } from "vite";
 const fromRoot = (...segments: string[]): string => resolve(__dirname, ...segments);
 
 export default defineConfig({
+  ssr: {
+    external: ["pg"]
+  },
   resolve: {
     alias: [
       {
@@ -33,17 +36,17 @@ export default defineConfig({
     ]
   },
   build: {
+    target: "node20",
+    ssr: true,
     outDir: fromRoot("netlify/functions"),
     emptyOutDir: true,
     minify: false,
-    lib: {
-      entry: fromRoot("apps/server/src/netlify/gameplay-slice-function.ts"),
-      formats: ["es"],
-      fileName: () => "gameplay-slice.mjs"
-    },
     rollupOptions: {
-      external: ["node:crypto", "node:fs", "node:path"],
+      input: fromRoot("apps/server/src/netlify/gameplay-slice-function.ts"),
+      external: (id) => id === "pg" || id.startsWith("pg/") || id.startsWith("node:"),
       output: {
+        entryFileNames: "gameplay-slice.mjs",
+        format: "es",
         inlineDynamicImports: true
       }
     }
