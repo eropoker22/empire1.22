@@ -14,6 +14,15 @@ export interface PlayerFrontierSummary {
   allyDistrictIds: string[];
   enemyDistrictIds: string[];
   lockedDistrictIds: string[];
+  destroyedDistrictIds: string[];
+}
+
+export interface AllianceCorridorRoute {
+  sourceDistrictId: string;
+  routeDistrictId: string;
+  routeOwnerPlayerId: string;
+  targetDistrictId: string;
+  targetRelation: "empty" | "enemy";
 }
 
 export const calculatePlayerFrontier = (
@@ -28,6 +37,9 @@ export const calculatePlayerFrontier = (
 
   const ownedDistricts = Object.values(state.districtsById).filter(
     (district) => district.ownerPlayerId === playerId
+      && district.status !== "destroyed"
+      && district.status !== "locked"
+      && !((district.lockdownUntilTick ?? 0) > state.root.tick)
   );
   const frontierIds = new Set<string>();
 
@@ -44,8 +56,10 @@ export const calculatePlayerFrontier = (
 
   for (const districtId of frontierIds) {
     const district = state.districtsById[districtId];
-    if (!district || district.status === "destroyed" || district.status === "locked") {
+    if (!district || district.status === "locked") {
       summary.lockedDistrictIds.push(districtId);
+    } else if (district.status === "destroyed") {
+      summary.destroyedDistrictIds.push(districtId);
     } else if (!district.ownerPlayerId) {
       summary.emptyDistrictIds.push(district.id);
     } else {
@@ -69,6 +83,49 @@ export const calculatePlayerFrontier = (
   }
 
   return summary;
+};
+
+export const resolveAllianceCorridorRoutes = (
+  state: CoreGameState,
+  playerId: string
+): AllianceCorridorRoute[] => {
+  const player = state.playersById[playerId];
+  const frontier = calculatePlayerFrontier(state, playerId);
+  if (!player || (frontier.state !== "allied_encircled" && frontier.state !== "mixed_encircled")) return [];
+  const routes: AllianceCorridorRoute[] = [];
+  const seen = new Set<string>();
+  const sources = Object.values(state.districtsById)
+    .filter((district) => district.ownerPlayerId === playerId && district.status !== "destroyed" && district.status !== "locked")
+    .sort((left, right) => left.id.localeCompare(right.id));
+  for (const source of sources) {
+    for (const routeId of source.adjacentDistrictIds) {
+      const route = state.districtsById[routeId];
+      const routeOwner = route?.ownerPlayerId ? state.playersById[route.ownerPlayerId] : null;
+      if (!route || !routeOwner || route.status === "destroyed" || route.status === "locked"
+        || (route.stabilizingUntilTick ?? 0) > state.root.tick
+        || !arePlayersActiveAllies(state, player, routeOwner)) continue;
+      for (const targetId of route.adjacentDistrictIds) {
+        const target = state.districtsById[targetId];
+        if (!target || target.ownerPlayerId === playerId || target.status === "destroyed" || target.status === "locked") continue;
+        if (source.adjacentDistrictIds.includes(target.id) && target.adjacentDistrictIds.includes(source.id)) continue;
+        const targetOwner = target.ownerPlayerId ? state.playersById[target.ownerPlayerId] : null;
+        if (targetOwner && arePlayersActiveAllies(state, player, targetOwner)) continue;
+        const key = `${source.id}:${route.id}:${target.id}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const targetRelation = target.ownerPlayerId ? "enemy" : "empty";
+        if (frontier.state === "mixed_encircled" && targetRelation === "enemy" && frontier.enemyDistrictIds.length > 0) continue;
+        routes.push({
+          sourceDistrictId: source.id,
+          routeDistrictId: route.id,
+          routeOwnerPlayerId: routeOwner.id,
+          targetDistrictId: target.id,
+          targetRelation
+        });
+      }
+    }
+  }
+  return routes;
 };
 
 export const detectAlliedEncirclementAfterOccupy = (
@@ -119,5 +176,6 @@ const emptyFrontier = (state: PlayerFrontierState): PlayerFrontierSummary => ({
   emptyDistrictIds: [],
   allyDistrictIds: [],
   enemyDistrictIds: [],
-  lockedDistrictIds: []
+  lockedDistrictIds: [],
+  destroyedDistrictIds: []
 });

@@ -31,6 +31,9 @@ export const validateMapAction = (
   const origin = context.originDistrictId
     ? state.districtsById[context.originDistrictId]
     : undefined;
+  const route = context.routeDistrictId
+    ? state.districtsById[context.routeDistrictId]
+    : undefined;
   const isAdjacentToOwnedDistrict = isTargetAdjacentToOwnedDistrict(
     state,
     context.actorPlayerId,
@@ -67,6 +70,12 @@ export const validateMapAction = (
   ) {
     return blocked("VERSION_CONFLICT", relation, isAdjacentToOwnedDistrict);
   }
+  if (context.routeDistrictId && !route) {
+    return blocked("ROUTE_NOT_FOUND", relation, isAdjacentToOwnedDistrict);
+  }
+  if (route && typeof context.expectedRouteVersion === "number" && route.version !== context.expectedRouteVersion) {
+    return blocked("ROUTE_VERSION_CONFLICT", relation, isAdjacentToOwnedDistrict);
+  }
 
   if (
     target.ownerPlayerId
@@ -83,6 +92,7 @@ export const validateMapAction = (
         actorPlayerId: actor.id,
         target,
         origin,
+        route,
         relation,
         isAdjacentToOwnedDistrict,
         expectedRelation: "enemy",
@@ -96,6 +106,7 @@ export const validateMapAction = (
         actorPlayerId: actor.id,
         target,
         origin,
+        route,
         relation,
         isAdjacentToOwnedDistrict,
         expectedRelation: "enemy",
@@ -107,6 +118,7 @@ export const validateMapAction = (
         actorPlayerId: actor.id,
         target,
         origin,
+        route,
         relation,
         isAdjacentToOwnedDistrict,
       });
@@ -117,6 +129,7 @@ export const validateMapAction = (
         actorPlayerId: actor.id,
         target,
         origin,
+        route,
         relation,
         isAdjacentToOwnedDistrict,
         requireOccupyAuthorization: context.action === "occupy",

@@ -1,6 +1,7 @@
 import { MAX_SPIES, DEFAULT_GANG_MEMBERS } from "../../../../packages/game-config/src/legacy-page/combat-config.js";
 import {
   DEFAULT_DRUG_INVENTORY,
+  FACTORY_RECIPES,
   FACTORY_RESOURCE_KEYS,
   FACTORY_SLOT_CONFIG,
   FACTORY_SLOT_STORAGE_CAP,
@@ -155,6 +156,82 @@ function createDefaultProductionBuildingsState() {
   };
 }
 
+const FACTORY_CANONICAL_RESOURCE_BY_LEGACY_KEY = Object.freeze({
+  metalParts: "metal-parts",
+  techCore: "tech-core",
+  combatModule: "combat-module"
+});
+
+function distributeFactoryReservation(total, queuedAmount) {
+  const safeTotal = Math.max(0, Math.floor(Number(total || 0)));
+  const count = Math.max(0, Math.floor(Number(queuedAmount || 0)));
+  if (count === 0) return [];
+  return Array.from({ length: count }, (_, index) => Math.floor(safeTotal / count) + (index < safeTotal % count ? 1 : 0));
+}
+
+function migrateLegacyFactoryJobs(session, now = Date.now()) {
+  const jobs = session?.production?.jobs && typeof session.production.jobs === "object"
+    ? { ...session.production.jobs }
+    : {};
+  const factory = normalizeFactoryState(session?.production?.factory);
+  for (const slotConfig of FACTORY_SLOT_CONFIG) {
+    const jobId = `factory:${slotConfig.recipeId}`;
+    if (jobs[jobId]) continue;
+    const slot = factory.slots.find((candidate) =>
+      String(candidate?.recipeId || "") === String(slotConfig.recipeId)
+      || String(candidate?.id || "") === String(slotConfig.id));
+    if (!slot) continue;
+    const queuedAmount = Math.max(0, Math.floor(Number(slot.queuedAmount || 0)));
+    const producedAmount = Math.max(0, Math.floor(Number(slot.producedAmount || factory.resources?.[slotConfig.resourceKey] || 0)));
+    if (queuedAmount === 0 && producedAmount === 0) continue;
+    const recipe = FACTORY_RECIPES[slotConfig.recipeId] || {};
+    const durationMs = Math.max(1, Math.floor(Number(recipe.durationMs || 1_000)));
+    const cleanReservations = distributeFactoryReservation(slot.reservedCleanCash, queuedAmount);
+    const inputReservations = Object.fromEntries(Object.entries(slot.reservedInputs || {}).map(([legacyKey, total]) => [
+      FACTORY_CANONICAL_RESOURCE_BY_LEGACY_KEY[legacyKey] || legacyKey,
+      distributeFactoryReservation(total, queuedAmount)
+    ]));
+    const reservationUnits = Array.from({ length: queuedAmount }, (_, index) => ({
+      cleanMoney: cleanReservations[index] || 0,
+      inputs: Object.fromEntries(Object.entries(inputReservations).map(([resourceKey, values]) => [resourceKey, values[index] || 0]))
+    }));
+    const progress = Math.min(0.999999, Math.max(0, Number(slot.productionRemainder || 0)));
+    const activeWorkRemainingMs = queuedAmount > 0 ? Math.max(1, Math.ceil(durationMs * (1 - progress))) : null;
+    const lastProgressAtMs = queuedAmount > 0 ? Math.max(0, Number(slot.lastTick || now)) : null;
+    jobs[jobId] = {
+      version: 2,
+      recipeId: slotConfig.recipeId,
+      queuedAmount,
+      producedAmount,
+      quantity: queuedAmount,
+      unitDurationMs: durationMs,
+      durationMs,
+      localOutputCap: Math.max(1, Number(recipe.localOutputCap || slot.slotCap || 1)),
+      queueCapacity: Math.max(1, Number(recipe.queueCap || slot.queueCap || 1)),
+      reservationUnits,
+      inputs: Object.fromEntries(Object.entries(inputReservations).map(([resourceKey, values]) => [
+        resourceKey,
+        values.reduce((sum, amount) => sum + amount, 0)
+      ])),
+      cleanMoneyCost: cleanReservations.reduce((sum, amount) => sum + amount, 0),
+      isProducing: queuedAmount > 0 && slot.isProducing !== false,
+      productionSpeedMultiplier: 1,
+      productionSpeedExpiresAtMs: null,
+      activeWorkRemainingMs,
+      lastProgressAtMs,
+      readyAtMs: activeWorkRemainingMs && lastProgressAtMs !== null ? lastProgressAtMs + activeWorkRemainingMs : null,
+      readyAt: activeWorkRemainingMs && lastProgressAtMs !== null ? new Date(lastProgressAtMs + activeWorkRemainingMs).toISOString() : null,
+      status: queuedAmount > 0 ? slot.isProducing === false ? "waiting" : "running" : producedAmount > 0 ? "ready" : "idle",
+      output: {
+        ...(recipe.output || {}),
+        itemId: slotConfig.canonicalResourceKey || FACTORY_CANONICAL_RESOURCE_BY_LEGACY_KEY[slotConfig.resourceKey],
+        amount: producedAmount
+      }
+    };
+  }
+  return jobs;
+}
+
 export function createDefaultPreviewSession(_factionId = "mafian") {
   const market = createDefaultMarketState();
 
@@ -162,9 +239,13 @@ export function createDefaultPreviewSession(_factionId = "mafian") {
     registration: null,
     inventory: {
       weapons: { ...DEFAULT_WEAPON_INVENTORY },
-      materials: { ...DEFAULT_MATERIAL_INVENTORY },
-      drugs: { ...DEFAULT_DRUG_INVENTORY },
-      factorySupplies: createDefaultFactoryResources()
+      materials: {
+        ...DEFAULT_MATERIAL_INVENTORY,
+        "metal-parts": 0,
+        "tech-core": 0,
+        "combat-module": 0
+      },
+      drugs: { ...DEFAULT_DRUG_INVENTORY }
     },
     economy: {
       cleanMoney: DEFAULT_PREVIEW_ECONOMY.cleanMoney,
@@ -199,7 +280,6 @@ export function createDefaultPreviewSession(_factionId = "mafian") {
       streetDealers: {
         slots: []
       },
-      factory: createDefaultFactoryState(),
       buildings: createDefaultProductionBuildingsState()
     },
     playerBoosts: createEmptyLocalPlayerBoostState(),
@@ -243,8 +323,9 @@ function normalizePreviewSession(session) {
     Number(mergedFactorySupplies.techCore || 0),
     Number(legacyFactorySupplies.techCore || 0)
   );
-  mergedMaterials["metal-parts"] = 0;
-  mergedMaterials["tech-core"] = 0;
+  mergedMaterials["metal-parts"] = Math.max(Number(mergedMaterials["metal-parts"] || 0), Number(mergedFactorySupplies.metalParts || 0));
+  mergedMaterials["tech-core"] = Math.max(Number(mergedMaterials["tech-core"] || 0), Number(mergedFactorySupplies.techCore || 0));
+  mergedMaterials["combat-module"] = Math.max(Number(mergedMaterials["combat-module"] || 0), Number(mergedFactorySupplies.combatModule || 0));
   const marketServerId = normalizeMarketServerId(session?.registration?.serverId);
   const legacyMarketState = normalizeMarketStatePayload(session?.market, marketServerId) || createDefaultMarketState(marketServerId);
   const marketByServerId = {
@@ -268,7 +349,7 @@ function normalizePreviewSession(session) {
       weapons: { ...base.inventory.weapons, ...(session?.inventory?.weapons || {}) },
       materials: mergedMaterials,
       drugs: { ...base.inventory.drugs, ...(session?.inventory?.drugs || {}) },
-      factorySupplies: mergedFactorySupplies
+      factorySupplies: undefined
     },
     economy: { ...base.economy, ...(session?.economy || {}) },
     gang: {
@@ -318,7 +399,7 @@ function normalizePreviewSession(session) {
     production: {
       ...base.production,
       ...(session?.production || {}),
-      jobs: session?.production?.jobs && typeof session.production.jobs === "object" ? session.production.jobs : {},
+      jobs: migrateLegacyFactoryJobs(session),
       streetDealers: {
         slots: Array.isArray(session?.production?.streetDealers?.slots)
           ? session.production.streetDealers.slots
@@ -330,7 +411,7 @@ function normalizePreviewSession(session) {
             ...session.production.buildings
           }
         : createDefaultProductionBuildingsState(),
-      factory: normalizeFactoryState(session?.production?.factory)
+      factory: undefined
     },
     world: {
       ...(base.world || {}),

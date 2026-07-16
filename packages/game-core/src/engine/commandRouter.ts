@@ -14,6 +14,7 @@ import {
   handleCollectProduction,
   handleCraftItem,
   handleDrugLabProductionStart,
+  handleClaimEmergencyRecovery,
   handleArmoryProductionStart,
   handleFactoryProductionStart,
   handleCancelArmoryProduction,
@@ -105,6 +106,8 @@ export const routeCommand = (
     case "start-city-event":
     case "claim-city-event-reward":
       return handleCityEventCommand(state, command, context);
+    case "claim-emergency-recovery":
+      return handleClaimEmergencyRecovery(state, command, context);
     case "create-bounty":
     case "cancel-bounty":
       return handleBountyCommand(state, command, context);

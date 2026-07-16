@@ -168,7 +168,8 @@ describe("local-demo player boost state", () => {
       "ghost-serum": 8,
       "overdrive-x": 9
     });
-    expect(synchronized.session.inventory.factorySupplies.combatModule).toBe(7);
+    expect(synchronized.session.inventory.materials["combat-module"]).toBe(7);
+    expect(synchronized.session.inventory.factorySupplies).toBeUndefined();
   });
 
   it("captures Ghost Network effects without mutating state", () => {
@@ -205,7 +206,7 @@ describe("local-demo player boost state", () => {
     const first = migrateLegacyFactoryBoostState(legacy);
     expect(first.migrated).toBe(true);
     expect(first.session.playerBoosts).toMatchObject({ version: 1, active: null });
-    expect(first.session.production.factory).not.toHaveProperty("boosts");
+    expect(first.session.production.factory).toBeUndefined();
     expect(first.session.economy.cleanMoney).toBe(50_000);
     expect(first.session.inventory.factorySupplies.combatModule).toBe(10);
 

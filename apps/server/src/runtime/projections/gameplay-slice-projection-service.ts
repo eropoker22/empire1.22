@@ -1,4 +1,4 @@
-import { createAllianceBoardReadModel, createBountyReadModel, createCityFeedProjection, createConflictReportViews, createOnboardingReadModel, createPlayerFrontierSummaryView, createPoliceReadModel, getMarketViewModel } from "@empire/game-core";
+import { createAllianceBoardReadModel, createBountyReadModel, createCityFeedProjection, createConflictReportViews, createLeaderboardReadModel, createOnboardingReadModel, createPlayerFrontierSummaryView, createPoliceReadModel, getMarketViewModel } from "@empire/game-core";
 import {
   empireStreetsCityMapManifestHash,
   empireStreetsCityMapManifestId,
@@ -75,6 +75,7 @@ export const createGameplaySliceProjection = (
     police,
     allianceBoard: createAllianceBoardReadModel(runtime.state, playerId, { config: runtime.config, clock: runtime.clock }),
     market: getMarketViewModel(runtime.state, runtime.state.playersById[playerId] ?? {}, runtime.clock.now().getTime()),
+    leaderboard: createLeaderboardReadModel(runtime.state, playerId, { config: runtime.config, clock: runtime.clock }),
     bounty: createBountyReadModel(runtime.state, playerId, {
       nowTick: runtime.state.root.tick,
       tickRateMs: runtime.config.tickRateMs

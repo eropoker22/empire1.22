@@ -11,6 +11,7 @@ export * from "./cancel-drug-lab-production-command";
 export * from "./cancel-pharmacy-production-command";
 export * from "./cancel-production-line-command";
 export * from "./craft-item-command";
+export * from "./emergency-recovery-command";
 export * from "./game-command";
 export * from "./heist-district-command";
 export * from "./market-command";

@@ -19,6 +19,7 @@ export const createHeistDistrictCommand = (
   const target = district?.heistTargets?.find((entry) => entry.districtId === input.targetDistrictId);
   const styleFallback = { style: "balanced" as HeistDistrictStyle, defaultGangMembersSent: 1 };
   const style = target?.styles.find((entry) => entry.style === "balanced") ?? target?.styles[0] ?? styleFallback;
+  const corridor = input.slice.frontier?.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
 
   if (!district) {
     throw new Error("Heist command cannot be created from missing district/target context.");
@@ -33,11 +34,12 @@ export const createHeistDistrictCommand = (
     issuedAt: input.issuedAt,
     payload: {
       targetDistrictId: input.targetDistrictId,
-      sourceDistrictId: district.districtId,
+      sourceDistrictId: corridor?.sourceDistrictId ?? district.districtId,
       style: style.style,
       gangMembersSent: style.defaultGangMembersSent,
       ...(target?.expectedTargetVersion !== undefined ? { expectedTargetVersion: target.expectedTargetVersion } : {}),
-      ...(target?.expectedSourceVersion !== undefined ? { expectedSourceVersion: target.expectedSourceVersion } : {})
+      ...(target?.expectedSourceVersion !== undefined ? { expectedSourceVersion: target.expectedSourceVersion } : {}),
+      ...(corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {})
     },
     clientRequestId: input.clientRequestId ?? null
   };

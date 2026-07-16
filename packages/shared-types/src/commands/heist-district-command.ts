@@ -15,6 +15,8 @@ export interface HeistDistrictPayload {
   gangMembersSent: number;
   expectedTargetVersion?: number;
   expectedSourceVersion?: number;
+  routeDistrictId?: DistrictId;
+  expectedRouteVersion?: number;
 }
 
 export type HeistDistrictCommand = ActionCommand<"heist-district", HeistDistrictPayload>;

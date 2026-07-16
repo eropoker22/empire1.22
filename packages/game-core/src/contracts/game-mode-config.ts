@@ -234,6 +234,24 @@ export interface AllianceLifecycleBalanceConfig {
   exitPendingTimeoutSeconds: number;
 }
 
+export interface PlayerLivenessBalanceConfig {
+  lastStand: {
+    enabled: boolean;
+    protectionTicks: number;
+    maxUsesPerPlayer: number;
+    disabledDuringFinalLockdown: boolean;
+  };
+  emergencyRecovery: {
+    enabled: boolean;
+    maxUsesPerPlayer: number;
+    cleanCash: number;
+    population: number;
+    futureUnlockGraceTicks: number;
+    disabledDuringFinalLockdown: boolean;
+  };
+  encirclementConfirmationTicks: number;
+}
+
 /**
  * Responsibility: Core-facing mode configuration contract used by runtime bootstrap.
  * Belongs here: serializable mode knobs grouped for balance and runtime decisions.
@@ -249,6 +267,7 @@ export interface GameModeConfig {
     maxPlayersPerServer: number;
     maxAllianceSize: number;
     allianceLifecycle?: AllianceLifecycleBalanceConfig;
+    playerLiveness?: PlayerLivenessBalanceConfig;
     buildSlotLimit: number;
     eventFrequencyMultiplier: number;
     elimination?: EliminationBalanceConfig;

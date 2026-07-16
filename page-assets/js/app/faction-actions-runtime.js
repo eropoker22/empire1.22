@@ -1,6 +1,7 @@
 import { STORAGE_KEYS } from "../config.js";
 import { FACTION_CATALOG } from "../../../packages/game-config/src/legacy-page/faction-config.js";
 import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
+import { GAMEPLAY_EXECUTION_MODES, getGameplayExecutionMode } from "./runtime/gameplayExecutionMode.js";
 
 const PAGE_SELECTOR = "[data-client-surface='game-shell']";
 const DEFAULT_FACTION_ID = "mafian";
@@ -52,32 +53,51 @@ export function getFactionActionForPlayer(storage) {
     name: faction.name,
     code: specialAction?.name || "Passive foundation",
     effect,
-    cost: specialAction?.status === "implemented" ? "Dostupné" : "Připravujeme",
+    cost: specialAction?.status === "implemented" ? "Dostupné" : "Nedostupné",
     canRun: specialAction?.status === "implemented"
   };
 }
 
-function renderFactionActions(grid, action = getFactionActionForPlayer()) {
-  grid.innerHTML = `
+export function getFactionPassiveView(storage = globalThis.window?.localStorage) {
+  const executionMode = getGameplayExecutionMode({ windowRef: globalThis.window });
+  if (executionMode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    const faction = globalThis.window?.empireStreetsGameplaySliceReadModel?.player?.faction || null;
+    return faction ? {
+      factionId: faction.factionId,
+      name: faction.name,
+      tagline: faction.tagline,
+      playstyleSummary: faction.playstyleSummary,
+      activePassiveEffects: [...(faction.activePassiveEffects || [])],
+      source: "server"
+    } : null;
+  }
+  if (executionMode !== GAMEPLAY_EXECUTION_MODES.localDemo) return null;
+  const factionId = getCurrentPlayerFactionId(storage);
+  const faction = FACTION_CATALOG[factionId] || FACTION_CATALOG[DEFAULT_FACTION_ID];
+  return {
+    factionId,
+    name: faction.name,
+    tagline: faction.tagline,
+    playstyleSummary: faction.playstyleSummary,
+    activePassiveEffects: [...(faction.coreBackedEffects || [])],
+    source: "local-demo"
+  };
+}
+
+function renderFactionPassives(grid, view) {
+  if (!view) {
+    grid.innerHTML = '<div class="faction-action-launch faction-action-launch--preview"><p class="faction-action-launch-description">Frakční data nejsou v tomto režimu dostupná.</p></div>';
+    return;
+  }
+  grid.innerHTML = (view.activePassiveEffects || []).map((effect) => `
     <div class="faction-action-launch faction-action-launch--preview">
-      <button
-        class="faction-action-launch-button"
-        type="button"
-        data-faction-action-run
-        ${action.canRun ? "" : "disabled"}
-        aria-disabled="${action.canRun ? "false" : "true"}"
-      >
-        ${action.canRun ? "Aktivovat schopnost" : "PŘIPRAVUJEME"}
-      </button>
-      <p class="faction-action-launch-description">
-        ${escapeHtml(action.effect)}
-      </p>
+      <p class="faction-action-launch-description">${escapeHtml(effect)}</p>
       <div class="faction-action-launch-meta">
-        <span>${escapeHtml(action.code)}</span>
-        <strong>${escapeHtml(action.cost)}</strong>
+        <span>Pasivní efekt</span>
+        <strong>AKTIVNÍ</strong>
       </div>
     </div>
-  `;
+  `).join("") || '<div class="faction-action-launch faction-action-launch--preview"><p class="faction-action-launch-description">Tato frakce nemá aktivní canonical pasiv.</p></div>';
 }
 
 function initFactionActionsRuntime() {
@@ -94,17 +114,12 @@ function initFactionActionsRuntime() {
   if (!modal || !grid || openButtons.length <= 0) return;
 
   const open = (event) => {
-    const playerAction = getFactionActionForPlayer();
-    renderFactionActions(grid, playerAction);
-    grid.querySelector("[data-faction-action-run]")?.addEventListener("click", () => {
-      if (status) {
-        status.textContent = playerAction.canRun
-          ? `${playerAction.code}: akce je připravená.`
-          : `${playerAction.code}: speciální schopnost se připravuje. Aktivní pasivní efekty frakce fungují už nyní.`;
-      }
-    });
+    const factionView = getFactionPassiveView();
+    renderFactionPassives(grid, factionView);
     if (status) {
-      status.textContent = `${playerAction.name}: pasivní frakční efekty jsou aktivní. Speciální schopnost se připravuje.`;
+      status.textContent = factionView
+        ? `${factionView.name}: ${factionView.playstyleSummary}. Zobrazené efekty jsou aktivní v game-core.`
+        : "Frakční data nejsou dostupná.";
     }
     modal.hidden = false;
     modal.classList.remove("hidden");

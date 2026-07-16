@@ -10,6 +10,7 @@ import type { CancelPharmacyProductionCommand } from "./cancel-pharmacy-producti
 import type { CancelDrugLabProductionCommand } from "./cancel-drug-lab-production-command";
 import type { CancelProductionLineCommand } from "./cancel-production-line-command";
 import type { CraftItemCommand } from "./craft-item-command";
+import type { ClaimEmergencyRecoveryCommand } from "./emergency-recovery-command";
 import type { HeistDistrictCommand } from "./heist-district-command";
 import type { MarketCommand } from "./market-command";
 import type { OccupyDistrictCommand } from "./occupy-district-command";
@@ -40,6 +41,7 @@ export type GameCommand =
   | CancelPharmacyProductionCommand
   | CollectProductionCommand
   | CityEventCommand
+  | ClaimEmergencyRecoveryCommand
   | CraftItemCommand
   | HeistDistrictCommand
   | MarketCommand

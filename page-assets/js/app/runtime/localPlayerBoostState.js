@@ -61,7 +61,7 @@ export function migrateLegacyFactoryBoostState(session) {
       playerBoosts: normalizedBoosts,
       production: factory ? {
         ...current.production,
-        factory: nextFactory
+        factory: Object.keys(nextFactory).length > 0 ? nextFactory : undefined
       } : current.production
     }
   };
@@ -331,7 +331,11 @@ function writeCleanCash(session, amount) {
 
 function readResource(session, resourceKey) {
   if (resourceKey === "combat-module") {
-    return Math.max(0, Math.floor(Number(session?.inventory?.factorySupplies?.combatModule || 0)));
+    return Math.max(0, Math.floor(Number(
+      session?.inventory?.materials?.["combat-module"]
+      ?? session?.inventory?.factorySupplies?.combatModule
+      ?? 0
+    )));
   }
   return Math.max(0, Math.floor(Number(session?.inventory?.drugs?.[resourceKey] || 0)));
 }
@@ -343,10 +347,8 @@ function writeResource(session, resourceKey, amount) {
       ...session,
       inventory: {
         ...(session.inventory || {}),
-        factorySupplies: {
-          ...(session.inventory?.factorySupplies || {}),
-          combatModule: safeAmount
-        }
+        materials: { ...(session.inventory?.materials || {}), "combat-module": safeAmount },
+        factorySupplies: undefined
       }
     };
   }

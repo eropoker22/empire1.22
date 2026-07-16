@@ -11,12 +11,16 @@ export const validateBasicActionCommandPayload = (
         "targetDistrictId",
         "sourceDistrictId",
         "expectedTargetVersion",
-        "expectedSourceVersion"
+        "expectedSourceVersion",
+        "routeDistrictId",
+        "expectedRouteVersion"
       ]);
       requireStringField(errors, payload, "targetDistrictId", "command.payload.targetDistrictId");
       requireOptionalStringField(errors, payload, "sourceDistrictId", "command.payload.sourceDistrictId");
       requireOptionalFiniteNumberField(errors, payload, "expectedTargetVersion", "command.payload.expectedTargetVersion");
       requireOptionalFiniteNumberField(errors, payload, "expectedSourceVersion", "command.payload.expectedSourceVersion");
+      requireOptionalStringField(errors, payload, "routeDistrictId", "command.payload.routeDistrictId");
+      requireOptionalFiniteNumberField(errors, payload, "expectedRouteVersion", "command.payload.expectedRouteVersion");
       return true;
     case "heist-district":
       rejectUnknownPayloadFields(errors, payload, [
@@ -25,7 +29,9 @@ export const validateBasicActionCommandPayload = (
         "style",
         "gangMembersSent",
         "expectedTargetVersion",
-        "expectedSourceVersion"
+        "expectedSourceVersion",
+        "routeDistrictId",
+        "expectedRouteVersion"
       ]);
       requireStringField(errors, payload, "targetDistrictId", "command.payload.targetDistrictId");
       requireOptionalStringField(errors, payload, "sourceDistrictId", "command.payload.sourceDistrictId");
@@ -33,6 +39,8 @@ export const validateBasicActionCommandPayload = (
       requirePositiveIntegerField(errors, payload, "gangMembersSent", "command.payload.gangMembersSent");
       requireOptionalFiniteNumberField(errors, payload, "expectedTargetVersion", "command.payload.expectedTargetVersion");
       requireOptionalFiniteNumberField(errors, payload, "expectedSourceVersion", "command.payload.expectedSourceVersion");
+      requireOptionalStringField(errors, payload, "routeDistrictId", "command.payload.routeDistrictId");
+      requireOptionalFiniteNumberField(errors, payload, "expectedRouteVersion", "command.payload.expectedRouteVersion");
       return true;
     case "place-defense":
       rejectUnknownPayloadFields(errors, payload, [

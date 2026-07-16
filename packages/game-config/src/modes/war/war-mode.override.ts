@@ -4,7 +4,7 @@ import { createDayNightConfig, resolveDayNightPhaseDurationTicks } from "../../p
 
 const WAR_MODE_TICK_RATE_MS = 15000;
 const WAR_MODE_DAY_NIGHT_PHASE_TICKS = resolveDayNightPhaseDurationTicks(WAR_MODE_TICK_RATE_MS);
-const WAR_MODE_RAID_DURATION_TICKS = Math.ceil((30 * 60 * 1000) / WAR_MODE_TICK_RATE_MS);
+const WAR_MODE_RAID_DURATION_TICKS = Math.ceil((60 * 60 * 1000) / WAR_MODE_TICK_RATE_MS);
 
 /**
  * Responsibility: War mode override focused on longer pacing and larger coordination windows.
@@ -36,6 +36,9 @@ export const warModeOverride: Partial<ResolvedGameModeConfig> = {
         formerAllyTruceSeconds: 120 * 60,
         influenceGenerationMultiplier: 0.8,
         actionCooldownMultiplier: 1.15,
+        statDebuffSeconds: 12 * 60 * 60,
+        attackMultiplier: 0.8,
+        defenseMultiplier: 0.8,
         blocksAllianceDefenseSupport: true
       },
       inactiveKickPenalty: {
@@ -43,7 +46,7 @@ export const warModeOverride: Partial<ResolvedGameModeConfig> = {
         allianceCreateLockoutSeconds: 12 * 60 * 60,
         influenceDebuffSeconds: 0,
         actionCooldownDebuffSeconds: 0,
-        statDebuffSeconds: 8 * 60 * 60,
+        statDebuffSeconds: 12 * 60 * 60,
         formerAllyTruceSeconds: 120 * 60,
         influenceGenerationMultiplier: 1,
         actionCooldownMultiplier: 1,
@@ -89,10 +92,11 @@ export const warModeOverride: Partial<ResolvedGameModeConfig> = {
     }),
     police: {
       ...basePoliceConfig,
+      raidCooldownTicks: Math.ceil((4 * 60 * 60 * 1000) / WAR_MODE_TICK_RATE_MS),
       raidDurationTicks: WAR_MODE_RAID_DURATION_TICKS,
       pendingRaidTtlTicks: WAR_MODE_RAID_DURATION_TICKS,
       maxConcurrentRaidsByPhase: {
-        day: 2,
+        day: 1,
         night: 1
       }
     },

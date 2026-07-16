@@ -3,6 +3,7 @@ import { applyCommand, createDistrictOccupyTargetViews, type CoreGameState } fro
 import { resolveModeConfig } from "@empire/game-config";
 import { PRODUCTION_GAME_LIFECYCLE_PHASES } from "@empire/shared-types";
 import {
+  createAllianceFixture,
   createCombatStateFixture,
   createFixedBuildingFixture,
   seedSuccessfulSpyIntel
@@ -12,6 +13,78 @@ import { createOccupyDistrictCommandFixture } from "../../fixtures/command-fixtu
 const context = { config: resolveModeConfig("free") };
 
 describe("occupy district command", () => {
+  it("requires and consumes a server-issued token before closing an ally frontier", () => {
+    const state = createAlliedEncirclementOccupyState();
+    const prepared = applyCommand(
+      state,
+      createOccupyDistrictCommandFixture({ id: "command:occupy:prepare" }),
+      context
+    );
+
+    expect(prepared.errors).toEqual([]);
+    expect(prepared.nextState.districtsById["district:2"].ownerPlayerId).toBeNull();
+    const token = Object.values(prepared.nextState.encirclementConfirmationTokensById ?? {})[0]!;
+    expect(token).toMatchObject({
+      actorPlayerId: "player:1",
+      targetDistrictId: "district:2",
+      sourceDistrictId: "district:1",
+      affectedPlayerIds: ["player:2"],
+      targetVersion: state.districtsById["district:2"].version,
+      allianceVersion: state.alliancesById["alliance:1"].version,
+      consumedAtTick: null
+    });
+
+    const confirmed = applyCommand(
+      prepared.nextState,
+      createOccupyDistrictCommandFixture({
+        id: "command:occupy:confirmed",
+        payload: {
+          districtId: "district:2",
+          sourceDistrictId: "district:1",
+          encirclementConfirmationToken: token.id
+        }
+      }),
+      context
+    );
+
+    expect(confirmed.errors).toEqual([]);
+    expect(confirmed.nextState.encirclementConfirmationTokensById?.[token.id]?.consumedAtTick).toBe(state.root.tick);
+    expect(confirmed.nextState.districtsById["district:2"].version).toBeGreaterThan(state.districtsById["district:2"].version);
+  });
+
+  it("invalidates an encirclement token when alliance or target state changes", () => {
+    const state = createAlliedEncirclementOccupyState();
+    const prepared = applyCommand(
+      state,
+      createOccupyDistrictCommandFixture({ id: "command:occupy:prepare-invalid" }),
+      context
+    ).nextState;
+    const token = Object.values(prepared.encirclementConfirmationTokensById ?? {})[0]!;
+    prepared.alliancesById["alliance:1"] = {
+      ...prepared.alliancesById["alliance:1"],
+      version: prepared.alliancesById["alliance:1"].version + 1
+    };
+
+    const invalid = applyCommand(
+      prepared,
+      createOccupyDistrictCommandFixture({
+        id: "command:occupy:invalid-confirm",
+        payload: {
+          districtId: "district:2",
+          sourceDistrictId: "district:1",
+          encirclementConfirmationToken: token.id
+        }
+      }),
+      context
+    );
+
+    expect(invalid.errors).toEqual([]);
+    expect(invalid.nextState.districtsById["district:2"].ownerPlayerId).toBeNull();
+    const replacement = Object.values(invalid.nextState.encirclementConfirmationTokensById ?? {})
+      .find((entry) => entry.id !== token.id);
+    expect(replacement?.allianceVersion).toBe(prepared.alliancesById["alliance:1"].version);
+  });
+
   it("rejects neutral adjacent occupation without successful empty-district spy intel", () => {
     const state = createNeutralOccupyState();
     const result = applyCommand(state, createOccupyDistrictCommandFixture(), context);
@@ -490,6 +563,33 @@ const createNeutralOccupyState = (): CoreGameState => {
     }
   };
 
+  return state;
+};
+
+const createAlliedEncirclementOccupyState = (): CoreGameState => {
+  const state = createNeutralOccupyState();
+  state.playersById["player:1"] = { ...state.playersById["player:1"], allianceId: "alliance:1" };
+  state.playersById["player:2"] = { ...state.playersById["player:2"], allianceId: "alliance:1" };
+  state.alliancesById["alliance:1"] = createAllianceFixture({ memberIds: ["player:1", "player:2"] });
+  state.districtsById["district:1"] = {
+    ...state.districtsById["district:1"],
+    adjacentDistrictIds: ["district:2"]
+  };
+  state.districtsById["district:2"] = {
+    ...state.districtsById["district:2"],
+    adjacentDistrictIds: ["district:1", "district:3"]
+  };
+  state.districtsById["district:3"] = {
+    ...state.districtsById["district:1"],
+    id: "district:3",
+    name: "Allied District",
+    ownerPlayerId: "player:2",
+    controllerAllianceId: "alliance:1",
+    adjacentDistrictIds: ["district:2"],
+    buildingIds: []
+  };
+  state.root.districtIds.push("district:3");
+  seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
   return state;
 };
 

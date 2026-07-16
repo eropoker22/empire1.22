@@ -9,6 +9,7 @@ export interface EmpireCityMapDebugReport {
   downtownCount: number;
   spawnCandidateCount: number;
   articulationPoints: string[];
+  articulationImpact: Record<string, string[][]>;
   bridgeEdges: Array<[string, string]>;
   chokepointDistricts: string[];
   distanceToNearestDowntown: Record<string, number | null>;
@@ -35,12 +36,33 @@ export const createEmpireCityMapDebugReport = (
     downtownCount: downtownIds.size,
     spawnCandidateCount: spawnCandidates.length,
     articulationPoints,
+    articulationImpact: Object.fromEntries(articulationPoints.map((districtId) => [
+      districtId,
+      findComponentsWithoutDistrict(manifest, districtId)
+    ])),
     bridgeEdges,
     chokepointDistricts: articulationPoints,
     distanceToNearestDowntown,
     spawnCandidateNeighborCount: Object.fromEntries(spawnCandidates.map((district) => [district.id, district.neighborIds.length])),
     spawnCandidateRouteToCenter: Object.fromEntries(spawnCandidates.map((district) => [district.id, findRouteToAny(manifest, district.id, downtownIds)]))
   };
+};
+
+const findComponentsWithoutDistrict = (manifest: EmpireCityMapManifest, removedId: string): string[][] => {
+  const remainingIds = new Set(manifest.districts.filter((district) => district.id !== removedId).map((district) => district.id));
+  const components: string[][] = [];
+  while (remainingIds.size > 0) {
+    const startId = [...remainingIds].sort()[0]!;
+    const component = [...traverse({
+      ...manifest,
+      districts: manifest.districts
+        .filter((district) => district.id !== removedId)
+        .map((district) => ({ ...district, neighborIds: district.neighborIds.filter((id) => id !== removedId) }))
+    }, startId)].sort();
+    component.forEach((id) => remainingIds.delete(id));
+    components.push(component);
+  }
+  return components.sort((left, right) => right.length - left.length || left[0]!.localeCompare(right[0]!));
 };
 
 const findDistanceToAny = (

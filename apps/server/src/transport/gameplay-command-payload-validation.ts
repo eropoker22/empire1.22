@@ -51,6 +51,9 @@ export const validateGameCommandPayload = (
       rejectUnknownPayloadFields(errors, payload, ["pendingRewardId"]);
       requireStringField(errors, "submit", payload, "pendingRewardId", "command.payload.pendingRewardId");
       break;
+    case "claim-emergency-recovery":
+      rejectUnknownPayloadFields(errors, payload, []);
+      break;
     case "acknowledge-pending-raid":
       rejectUnknownPayloadFields(errors, payload, ["raidId"]);
       requireStringField(errors, "submit", payload, "raidId", "command.payload.raidId");
@@ -61,11 +64,14 @@ export const validateGameCommandPayload = (
         "sourceDistrictId",
         "weapons",
         "expectedSourceVersion",
-        "expectedTargetVersion"
+        "expectedTargetVersion",
+        "routeDistrictId",
+        "expectedRouteVersion"
       ]);
       validateDistrictPayload(errors, payload, true);
       validateAttackWeaponsPayload(errors, payload);
-      for (const field of ["expectedSourceVersion", "expectedTargetVersion"]) {
+      requireOptionalStringField(errors, payload, "routeDistrictId", "command.payload.routeDistrictId");
+      for (const field of ["expectedSourceVersion", "expectedTargetVersion", "expectedRouteVersion"]) {
         if (payload[field] !== undefined) {
           requireNonNegativeIntegerField(errors, payload, field, `command.payload.${field}`);
         }
@@ -78,11 +84,20 @@ export const validateGameCommandPayload = (
       ));
       break;
     case "occupy-district":
-      rejectUnknownPayloadFields(errors, payload, ["districtId", "sourceDistrictId"]);
+      rejectUnknownPayloadFields(errors, payload, [
+        "districtId",
+        "sourceDistrictId",
+        "routeDistrictId",
+        "expectedRouteVersion",
+        "encirclementConfirmationToken"
+      ]);
       validateDistrictPayload(errors, payload, true);
+      requireOptionalStringField(errors, payload, "routeDistrictId", "command.payload.routeDistrictId");
+      requireOptionalStringField(errors, payload, "encirclementConfirmationToken", "command.payload.encirclementConfirmationToken");
+      if (payload.expectedRouteVersion !== undefined) requireNonNegativeIntegerField(errors, payload, "expectedRouteVersion", "command.payload.expectedRouteVersion");
       break;
     case "spy-district":
-      rejectUnknownPayloadFields(errors, payload, ["districtId", "sourceDistrictId"]);
+      rejectUnknownPayloadFields(errors, payload, ["districtId", "sourceDistrictId", "routeDistrictId", "expectedRouteVersion"]);
       requireStringField(errors, "submit", payload, "districtId", "command.payload.districtId");
       requireStringField(errors, "submit", payload, "sourceDistrictId", "command.payload.sourceDistrictId");
       break;
@@ -101,6 +116,8 @@ export const validateGameCommandPayload = (
       ]);
       requireStringField(errors, "submit", payload, "trapId", "command.payload.trapId");
       requireStringField(errors, "submit", payload, "sourceDistrictId", "command.payload.sourceDistrictId");
+      requireOptionalStringField(errors, payload, "routeDistrictId", "command.payload.routeDistrictId");
+      if (payload.expectedRouteVersion !== undefined) requireNonNegativeIntegerField(errors, payload, "expectedRouteVersion", "command.payload.expectedRouteVersion");
       requireStringField(errors, "submit", payload, "targetDistrictId", "command.payload.targetDistrictId");
       for (const field of ["expectedSourceVersion", "expectedTargetVersion", "expectedTrapVersion"]) {
         requireNonNegativeIntegerField(errors, payload, field, `command.payload.${field}`);
@@ -167,7 +184,7 @@ const validateBuildingPayload = (errors: DomainError[], payload: Record<string, 
 };
 
 const hasPayloadSchema = (type: string): boolean =>
-  ["activate-player-boost", "start-city-event", "claim-city-event-reward", "attack-district", "acknowledge-pending-raid", "build-structure", "occupy-district", "spy-district", "place-trap", "relocate-trap", "select-spawn-district", "collect-production", "craft-item", "cancel-pharmacy-production", "cancel-drug-lab-production", "cancel-production-line", "run-building-action", "upgrade-building"].includes(type)
+  ["activate-player-boost", "start-city-event", "claim-city-event-reward", "claim-emergency-recovery", "attack-district", "acknowledge-pending-raid", "build-structure", "occupy-district", "spy-district", "place-trap", "relocate-trap", "select-spawn-district", "collect-production", "craft-item", "cancel-pharmacy-production", "cancel-drug-lab-production", "cancel-production-line", "run-building-action", "upgrade-building"].includes(type)
   || isBasicActionCommandType(type) || isAllianceCommandType(type) || isMarketCommandType(type) || isBountyCommandType(type);
 
 const validateRunBuildingActionOptionalPayload = (

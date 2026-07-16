@@ -6,15 +6,18 @@ import type {
   MapActionBlockReason
 } from "./mapActionTypes";
 import {
+  arePlayersActiveAllies,
   areDistrictsAdjacent,
   isDistrictLocked
 } from "./mapRelations";
+import { calculatePlayerFrontier } from "./frontier";
 
 export const validateSpyAction = (input: {
   state: CoreGameState;
   actorPlayerId: string;
   target: District;
   origin?: District;
+  route?: District;
   relation: DistrictRelation;
   isAdjacentToOwnedDistrict: boolean;
 }): ActionValidationResult => {
@@ -35,6 +38,7 @@ export const validateEmptyBorderAction = (input: {
   actorPlayerId: string;
   target: District;
   origin?: District;
+  route?: District;
   relation: DistrictRelation;
   isAdjacentToOwnedDistrict: boolean;
   requireOccupyAuthorization?: boolean;
@@ -82,6 +86,7 @@ export const validateBorderAction = (input: {
   actorPlayerId: string;
   target: District;
   origin?: District;
+  route?: District;
   relation: DistrictRelation;
   isAdjacentToOwnedDistrict: boolean;
   expectedRelation: DistrictRelation;
@@ -114,6 +119,7 @@ const validateOwnedOriginAdjacency = (input: {
   actorPlayerId: string;
   target: District;
   origin?: District;
+  route?: District;
   relation: DistrictRelation;
   isAdjacentToOwnedDistrict: boolean;
 }, adjacencyReason: MapActionBlockReason): ActionValidationResult => {
@@ -123,10 +129,49 @@ const validateOwnedOriginAdjacency = (input: {
   if (isDistrictLocked(input.origin)) {
     return blocked("DISTRICT_LOCKED", input.relation, input.isAdjacentToOwnedDistrict);
   }
+  if (input.route) {
+    const actor = input.state.playersById[input.actorPlayerId];
+    const routeOwner = input.route.ownerPlayerId ? input.state.playersById[input.route.ownerPlayerId] : null;
+    if (!actor || !routeOwner || !arePlayersActiveAllies(input.state, actor, routeOwner)) {
+      return blocked("ROUTE_NOT_ALLY", input.relation, input.isAdjacentToOwnedDistrict);
+    }
+    if (isDistrictLocked(input.route) || (input.route.stabilizingUntilTick ?? 0) > input.state.root.tick) {
+      return blocked("ROUTE_LOCKED", input.relation, input.isAdjacentToOwnedDistrict);
+    }
+    if (input.isAdjacentToOwnedDistrict) {
+      return blocked("CORRIDOR_NOT_REQUIRED", input.relation, input.isAdjacentToOwnedDistrict);
+    }
+    if (!areDistrictsAdjacent(input.state, input.origin.id, input.route.id)
+      || !areDistrictsAdjacent(input.state, input.route.id, input.target.id)) {
+      return blocked("ROUTE_NOT_ADJACENT", input.relation, input.isAdjacentToOwnedDistrict);
+    }
+    if (!isAllianceCorridorRecoveryState(input.state, input.actorPlayerId, input.relation)) {
+      return blocked("CORRIDOR_NOT_AVAILABLE", input.relation, input.isAdjacentToOwnedDistrict);
+    }
+    return {
+      ...allowed(input.relation, input.isAdjacentToOwnedDistrict, input.origin.id),
+      routeDistrictId: input.route.id,
+      routeOwnerPlayerId: routeOwner.id,
+      usedAllianceCorridor: true
+    };
+  }
   if (!areDistrictsAdjacent(input.state, input.origin.id, input.target.id)) {
     return blocked(adjacencyReason, input.relation, input.isAdjacentToOwnedDistrict);
   }
   return allowed(input.relation, input.isAdjacentToOwnedDistrict, input.origin.id);
+};
+
+const isAllianceCorridorRecoveryState = (
+  state: CoreGameState,
+  playerId: string,
+  targetRelation: DistrictRelation
+): boolean => {
+  const frontier = calculatePlayerFrontier(state, playerId);
+  if (frontier.state === "allied_encircled") return true;
+  if (frontier.state !== "mixed_encircled") return false;
+  if (targetRelation === "empty") return frontier.emptyDistrictIds.length === 0;
+  if (targetRelation === "enemy") return frontier.enemyDistrictIds.length === 0;
+  return false;
 };
 
 const allowed = (

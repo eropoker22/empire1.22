@@ -13,6 +13,7 @@ export const createRobDistrictCommand = (
 ): RobDistrictCommand => {
   const district = input.slice.district;
   const target = district?.robTargets?.find((entry) => entry.districtId === input.targetDistrictId);
+  const corridor = input.slice.frontier?.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
 
   if (!district) {
     throw new Error("Rob command cannot be created from missing district/target context.");
@@ -27,9 +28,10 @@ export const createRobDistrictCommand = (
     issuedAt: input.issuedAt,
     payload: {
       targetDistrictId: input.targetDistrictId,
-      sourceDistrictId: district.districtId,
+      sourceDistrictId: corridor?.sourceDistrictId ?? district.districtId,
       ...(target?.expectedTargetVersion !== undefined ? { expectedTargetVersion: target.expectedTargetVersion } : {}),
-      ...(target?.expectedSourceVersion !== undefined ? { expectedSourceVersion: target.expectedSourceVersion } : {})
+      ...(target?.expectedSourceVersion !== undefined ? { expectedSourceVersion: target.expectedSourceVersion } : {}),
+      ...(corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {})
     },
     clientRequestId: input.clientRequestId ?? null
   };

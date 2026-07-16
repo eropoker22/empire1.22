@@ -76,6 +76,9 @@ export const validateEmpireCityMapManifest = (
       if (!district.spawnZones?.length) {
         issues.push({ severity: "error", code: "map.spawn_missing_zone", message: "Spawn candidate must declare at least one spawn zone.", districtId: district.id });
       }
+      if (district.neighborIds.length < 2) {
+        issues.push({ severity: "error", code: "map.spawn_insufficient_edges", message: "Spawn candidate must have at least two neighbor edges.", districtId: district.id });
+      }
     }
     for (const spawnZone of district.spawnZones ?? []) {
       if (!validSpawnZones.has(spawnZone)) {
@@ -112,7 +115,36 @@ export const validateEmpireCityMapManifest = (
     issues.push({ severity: "error", code: "map.disconnected", message: "Map graph must be connected." });
   }
 
+  for (const spawn of manifest.districts.filter((district) => district.isSpawnCandidate)) {
+    const isolatingDistrict = manifest.districts.find((candidate) =>
+      candidate.id !== spawn.id && traverseWithoutDistrict(manifest, spawn.id, candidate.id).size <= 1);
+    if (isolatingDistrict) {
+      issues.push({
+        severity: "error",
+        code: "map.spawn_single_lock_island",
+        message: `Locking ${isolatingDistrict.id} would isolate spawn candidate ${spawn.id}.`,
+        districtId: spawn.id
+      });
+    }
+  }
+
   return issues;
+};
+
+const traverseWithoutDistrict = (manifest: EmpireCityMapManifest, startId: string, removedId: string): Set<string> => {
+  if (startId === removedId) return new Set();
+  const districtsById = new Map(manifest.districts.filter((district) => district.id !== removedId).map((district) => [district.id, district]));
+  const visited = new Set<string>();
+  const queue = [startId];
+  while (queue.length > 0) {
+    const districtId = queue.shift()!;
+    if (visited.has(districtId) || districtId === removedId) continue;
+    visited.add(districtId);
+    for (const neighborId of districtsById.get(districtId)?.neighborIds ?? []) {
+      if (!visited.has(neighborId) && neighborId !== removedId) queue.push(neighborId);
+    }
+  }
+  return visited;
 };
 
 const findDuplicates = (values: string[]): string[] => {

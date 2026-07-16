@@ -210,8 +210,8 @@ test("local-demo production chain keeps queues, partial collect and inventory sy
   const beforeSmg = await readSession(page);
   await smg.getByRole("button", { name: "Spustit" }).click();
   const afterSmg = await readSession(page);
-  expect(afterSmg.inventory.factorySupplies.metalParts).toBe(beforeSmg.inventory.factorySupplies.metalParts - 2);
-  expect(afterSmg.inventory.factorySupplies.combatModule).toBe(beforeSmg.inventory.factorySupplies.combatModule - 1);
+  expect(afterSmg.inventory.materials["metal-parts"]).toBe(beforeSmg.inventory.materials["metal-parts"] - 2);
+  expect(afterSmg.inventory.materials["combat-module"]).toBe(beforeSmg.inventory.materials["combat-module"] - 1);
   await finishProductionJob(page, "armory:smg");
   await expect(metric(smg, "Vyrobeno")).toHaveText("1/3 ks");
   await armory.locator("[data-production-building-collect]").click();

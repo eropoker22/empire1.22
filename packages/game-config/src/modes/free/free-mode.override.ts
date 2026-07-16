@@ -64,6 +64,23 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
     maxPlayersPerServer: 20,
     maxAllianceSize: 4,
     allianceLifecycle: freeModeAllianceLifecycleConfig,
+    playerLiveness: {
+      lastStand: {
+        enabled: true,
+        protectionTicks: ticksFromMinutes(12),
+        maxUsesPerPlayer: 1,
+        disabledDuringFinalLockdown: true
+      },
+      emergencyRecovery: {
+        enabled: true,
+        maxUsesPerPlayer: 1,
+        cleanCash: 500,
+        population: 5,
+        futureUnlockGraceTicks: ticksFromMinutes(10),
+        disabledDuringFinalLockdown: true
+      },
+      encirclementConfirmationTicks: ticksFromMinutes(2)
+    },
     buildSlotLimit: 8,
     eventFrequencyMultiplier: 1.2,
     elimination: {

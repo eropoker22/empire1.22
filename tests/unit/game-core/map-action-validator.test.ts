@@ -327,6 +327,87 @@ describe("map action validator", () => {
     });
   });
 
+  it("allows exactly one allied corridor hop only as encirclement recovery", () => {
+    const state = createCombatStateFixture();
+    state.playersById["player:1"] = { ...state.playersById["player:1"], allianceId: "alliance:1" };
+    state.playersById["player:2"] = { ...state.playersById["player:2"], allianceId: "alliance:1" };
+    state.alliancesById["alliance:1"] = createAllianceFixture({ memberIds: ["player:1", "player:2"] });
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      adjacentDistrictIds: ["district:2"]
+    };
+    state.districtsById["district:2"] = {
+      ...state.districtsById["district:2"],
+      ownerPlayerId: "player:2",
+      adjacentDistrictIds: ["district:1", "district:3"],
+      version: 7
+    };
+    state.districtsById["district:3"] = createDistrictFixture({
+      id: "district:3",
+      ownerPlayerId: null,
+      status: "neutral",
+      adjacentDistrictIds: ["district:2"]
+    });
+
+    expect(validateMapAction(state, {
+      actorPlayerId: "player:1",
+      targetDistrictId: "district:3",
+      originDistrictId: "district:1",
+      routeDistrictId: "district:2",
+      expectedRouteVersion: 7,
+      action: "spy"
+    })).toMatchObject({
+      allowed: true,
+      usedAllianceCorridor: true,
+      routeDistrictId: "district:2",
+      routeOwnerPlayerId: "player:2"
+    });
+
+    expect(validateMapAction(state, {
+      actorPlayerId: "player:1",
+      targetDistrictId: "district:3",
+      originDistrictId: "district:1",
+      routeDistrictId: "district:2",
+      expectedRouteVersion: 6,
+      action: "spy"
+    })).toMatchObject({ allowed: false, reasonCode: "ROUTE_VERSION_CONFLICT" });
+
+    state.alliancesById["alliance:1"] = { ...state.alliancesById["alliance:1"], status: "disbanded" };
+    expect(validateMapAction(state, {
+      actorPlayerId: "player:1",
+      targetDistrictId: "district:3",
+      originDistrictId: "district:1",
+      routeDistrictId: "district:2",
+      action: "spy"
+    })).toMatchObject({ allowed: false, reasonCode: "ROUTE_NOT_ALLY" });
+  });
+
+  it("rejects a corridor when the target is already directly adjacent", () => {
+    const state = createCombatStateFixture();
+    state.playersById["player:1"] = { ...state.playersById["player:1"], allianceId: "alliance:1" };
+    state.playersById["player:3"] = createPlayerFixture({
+      id: "player:3", accountId: "account:3", allianceId: "alliance:1", homeDistrictId: "district:3"
+    });
+    state.alliancesById["alliance:1"] = createAllianceFixture({ memberIds: ["player:1", "player:3"] });
+    state.districtsById["district:3"] = createDistrictFixture({
+      id: "district:3", ownerPlayerId: "player:3", adjacentDistrictIds: ["district:1", "district:2"]
+    });
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"], adjacentDistrictIds: ["district:2", "district:3"]
+    };
+    state.districtsById["district:2"] = {
+      ...state.districtsById["district:2"], adjacentDistrictIds: ["district:1", "district:3"]
+    };
+
+    expect(validateMapAction(state, {
+      actorPlayerId: "player:1",
+      targetDistrictId: "district:2",
+      originDistrictId: "district:1",
+      routeDistrictId: "district:3",
+      action: "heist"
+    })).toMatchObject({ allowed: false, reasonCode: "CORRIDOR_NOT_REQUIRED" });
+  });
+
   it("calculates frontier states on the canonical manifest graph", () => {
     const { state, ownedDistrictId, allyNeighborId, enemyNeighborId, emptyNeighborId } = createManifestFrontierScenario();
 

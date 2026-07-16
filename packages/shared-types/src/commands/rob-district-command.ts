@@ -11,6 +11,8 @@ export interface RobDistrictPayload {
   sourceDistrictId?: DistrictId;
   expectedTargetVersion?: number;
   expectedSourceVersion?: number;
+  routeDistrictId?: DistrictId;
+  expectedRouteVersion?: number;
 }
 
 export type RobDistrictCommand = ActionCommand<"rob-district", RobDistrictPayload>;

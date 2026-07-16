@@ -20,6 +20,7 @@ import type { AttackWeaponId } from "../entities/weapon";
 import type { FactoryProductionBuildingView } from "./factory-production-view";
 import type { PlayerBoostView } from "./player-boost-view";
 import type { PlayerCityEventsView } from "./city-event-view";
+import type { PlayerOperationalLivenessView } from "./player-operational-liveness-view";
 
 /**
  * Responsibility: Minimal player-facing projection rendered by the client.
@@ -43,6 +44,14 @@ export interface PlayerView {
   factoryProduction?: FactoryProductionBuildingView | null;
   boosts?: PlayerBoostView | null;
   cityEvents?: PlayerCityEventsView | null;
+  operationalLiveness?: PlayerOperationalLivenessView | null;
+  pendingEncirclementConfirmations?: Array<{
+    token: string;
+    targetDistrictId: DistrictId;
+    sourceDistrictId: DistrictId;
+    affectedPlayerIds: PlayerId[];
+    expiresAtTick: number;
+  }>;
   economy: PlayerEconomyView;
   faction?: FactionReadModel | null;
   dayNight?: DayNightReadModel | null;
@@ -77,6 +86,20 @@ export interface PlayerStorageView {
     totalCapacityMultiplier: number;
   };
   groups: PlayerStorageGroupView[];
+  pendingDeliveries: PlayerPendingDeliveryView[];
+}
+
+export interface PlayerPendingDeliveryView {
+  id: string;
+  source: "city-event" | "market-return" | "alliance-return" | "production-refund" | "other";
+  resourceKey: string;
+  label: string;
+  amount: number;
+  reason: string;
+  storageAvailable: boolean;
+  claimState: "claimable" | "blocked" | "restorative";
+  createdAtTick: number;
+  expiresAtTick: number | null;
 }
 
 export interface PlayerStorageGroupView {

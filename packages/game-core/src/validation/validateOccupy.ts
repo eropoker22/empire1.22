@@ -7,6 +7,7 @@ import {
   createOccupyGlobalCooldownKey,
   createOccupySourceCooldownKey,
   detectAlliedEncirclementAfterOccupy,
+  isEncirclementConfirmationValid,
   resolveOccupyBalance,
   resolveOccupyInfluenceCost,
   resolveOccupyPopulationCost,
@@ -49,13 +50,22 @@ export const validateOccupy = (
     actorPlayerId: command.playerId,
     targetDistrictId: command.payload.districtId,
     originDistrictId: command.payload.sourceDistrictId ?? undefined,
+    routeDistrictId: command.payload.routeDistrictId,
+    expectedRouteVersion: command.payload.expectedRouteVersion,
     serverTime: command.issuedAt,
     action: "occupy"
   }, {
     hasOccupyAuthorization: () =>
       validateOccupyEmptyDistrictAuthorization(state, command.playerId, command.payload.districtId),
-    detectConsentRequired: () =>
-      detectAlliedEncirclementAfterOccupy(state, command.playerId, command.payload.districtId)
+    detectConsentRequired: () => {
+      const consent = detectAlliedEncirclementAfterOccupy(state, command.playerId, command.payload.districtId);
+      return consent.requiresConsent && isEncirclementConfirmationValid(
+        state,
+        command.playerId,
+        command.payload.districtId,
+        command.payload.encirclementConfirmationToken
+      ) ? { requiresConsent: false, affectedPlayerIds: [] } : consent;
+    }
   });
 
   if (!mapValidation.allowed) {

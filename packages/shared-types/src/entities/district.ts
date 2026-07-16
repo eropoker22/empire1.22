@@ -48,6 +48,7 @@ export interface District {
   heistProtectedUntilTick?: number | null;
   attackProtectedUntilTick?: number | null;
   stabilizingUntilTick?: number | null;
+  ownershipStartedAtTick?: number | null;
   securityRevision: number;
   version: number;
 }

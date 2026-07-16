@@ -169,7 +169,10 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     if (phase) {
       document.body.dataset.cityPhase = phase;
     }
-    document.dispatchEvent(new CustomEvent("empire:gameplay-slice-rendered", { detail: { gameplaySlice, playerView: gameplaySlice?.player ?? null } }));
+    document.dispatchEvent(new CustomEvent("empire:gameplay-slice-rendered", {
+      detail: { gameplaySlice, playerView: gameplaySlice?.player ?? null, connection: state.connection }
+    }));
+    document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", { detail: state.connection }));
     mounts.status.innerHTML = renderGameplaySliceStatus(state);
     mounts.topBar.innerHTML = state.topBarHtml;
     mounts.map.innerHTML = state.mapHtml;
@@ -331,6 +334,9 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
         "<strong>Synchronizace se serverem zastarala</strong>",
         "<span>Obnova ze serveru selhala. Zůstává poslední známý stav.</span>"
       ].join("");
+      document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", {
+        detail: { status: "stale", lastErrorMessage: "Obnova ze serveru selhala.", staleData: true }
+      }));
     }
   });
 
@@ -353,6 +359,9 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       poller.start();
     })
     .catch((error) => {
+      document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", {
+        detail: { status: "error", lastErrorMessage: createSafeErrorMessage(error), staleData: true }
+      }));
       hideUnavailableGameplaySlice({
         ...client.getRenderState(),
         connection: {

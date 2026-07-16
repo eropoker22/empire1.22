@@ -1,6 +1,7 @@
 import { getAuthoritySession } from "../model/authority-state.js";
 import { STORAGE_KEYS } from "../../config.js";
 import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
+import { GAMEPLAY_EXECUTION_MODES, getGameplayExecutionMode } from "../runtime/gameplayExecutionMode.js";
 
 const LEADERBOARD_POPUP_OPEN_SELECTOR = "[data-leaderboard-popup-open]";
 const LEADERBOARD_POPUP_SELECTOR = "[data-leaderboard-popup]";
@@ -52,7 +53,7 @@ const SERVER_LABELS = Object.freeze({
 const TAB_CONFIG = Object.freeze({
   overall: {
     label: "CELKOVĚ",
-    title: "Skóre impéria",
+    title: "Empire score",
     copy: "Tady se ukazuje, kdo skutečně vlastní město.",
     empty: "Žádný boss neodpovídá aktuálním filtrům."
   },
@@ -643,6 +644,45 @@ function normalizeText(value, fallback = "") {
   return text || fallback;
 }
 
+function getLeaderboardExecutionMode() {
+  return getGameplayExecutionMode({ windowRef: globalThis.window });
+}
+
+function getServerLeaderboardView() {
+  return globalThis.window?.empireStreetsGameplaySliceReadModel?.leaderboard || null;
+}
+
+function mapServerLeaderboardEntry(entry) {
+  const slice = globalThis.window?.empireStreetsGameplaySliceReadModel || null;
+  return {
+    id: String(entry?.playerId || ""),
+    name: String(entry?.name || entry?.playerId || "-"),
+    gangName: String(entry?.name || entry?.playerId || "-"),
+    faction: String(entry?.factionId || "-"),
+    alliance: String(entry?.allianceTag || ""),
+    districts: normalizeNumber(entry?.controlledDistricts),
+    cleanMoney: 0,
+    dirtyMoney: 0,
+    influence: normalizeNumber(entry?.influence),
+    wanted: 0,
+    successfulAttacks: 0,
+    successfulDefenses: 0,
+    robberies: 0,
+    unitsKilled: 0,
+    unitsLost: 0,
+    buildingsOwned: 0,
+    lastRank: entry?.movement === null ? normalizeNumber(entry?.rank) : Math.max(1, normalizeNumber(entry?.rank) + Number(entry?.movement || 0)),
+    currentRank: normalizeNumber(entry?.rank),
+    lastActiveMinutes: entry?.status === "active" ? 0 : 999,
+    status: String(entry?.status || "active"),
+    isCurrentPlayer: Boolean(entry?.isCurrentPlayer),
+    serverId: String(slice?.server?.serverInstanceId || "server"),
+    serverLabel: String(slice?.server?.serverInstanceId || "SERVER").toUpperCase(),
+    mode: String(slice?.mode?.mode || "free"),
+    empireScore: Math.max(0, Number(entry?.score || 0))
+  };
+}
+
 function getServerMeta(serverId = "") {
   const normalizedServerId = normalizeText(serverId, DEFAULT_SERVER_ID).toLowerCase();
   const meta = SERVER_LABELS[normalizedServerId] || null;
@@ -665,6 +705,15 @@ function getPlayerStateStorage() {
 }
 
 function getCurrentServerScope(session = getAuthoritySession()) {
+  if (getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    const slice = globalThis.window?.empireStreetsGameplaySliceReadModel || null;
+    const serverId = String(slice?.server?.serverInstanceId || "server");
+    return {
+      serverId,
+      serverLabel: serverId.toUpperCase(),
+      mode: String(slice?.mode?.mode || "free")
+    };
+  }
   const selectedServer = getSelectedServerStorage();
   const registration = session.registration || {};
   const serverId = normalizeText(
@@ -757,10 +806,16 @@ function createCurrentPlayerFromSources() {
 }
 
 export function getCurrentPlayerId() {
+  if (getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    return String(getServerLeaderboardView()?.currentPlayer?.playerId || "");
+  }
   return createCurrentPlayerFromSources().id;
 }
 
 export function calculateEmpireScore(player) {
+  if (getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    return Math.max(0, Number(player?.empireScore || 0));
+  }
   const districts = normalizeNumber(player?.districts);
   const influence = normalizeNumber(player?.influence);
   const cleanMoney = normalizeNumber(player?.cleanMoney);
@@ -789,6 +844,17 @@ export function calculateEmpireScore(player) {
 }
 
 export function getLeaderboardPlayers() {
+  const executionMode = getLeaderboardExecutionMode();
+  if (executionMode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    const view = getServerLeaderboardView();
+    if (!view) return [];
+    const rows = [...(view.entries || [])];
+    if (view.currentPlayer && !rows.some((entry) => entry.playerId === view.currentPlayer.playerId)) {
+      rows.push(view.currentPlayer);
+    }
+    return rows.map(mapServerLeaderboardEntry);
+  }
+  if (executionMode !== GAMEPLAY_EXECUTION_MODES.localDemo) return [];
   const currentPlayer = createCurrentPlayerFromSources();
   const players = MOCK_PLAYERS
     .filter((player) => !player.isCurrentPlayer && player.id !== currentPlayer.id)
@@ -885,6 +951,9 @@ function rankPlayers(players) {
 
 export function getSortedLeaderboard(tab = leaderboardState.activeTab) {
   const players = filterPlayers(getLeaderboardPlayers());
+  if (getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative && tab === "overall") {
+    return [...players].sort((left, right) => left.currentRank - right.currentRank);
+  }
   return rankPlayers(sortPlayers(players, tab === "alliance" ? "overall" : tab));
 }
 
@@ -999,6 +1068,7 @@ function getRankClass(rank) {
 }
 
 function getPlayerStatusText(player) {
+  if (player.status === "defeated") return "Hráč byl poražen.";
   if (normalizeNumber(player.wanted) >= 600) {
     return "Policie ho má na radaru.";
   }
@@ -1057,11 +1127,14 @@ function renderStats(players, alliances = []) {
   }
 
   const summary = getRankSummary(players);
+  const serverMode = getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative;
   leaderboardContext.statsElement.innerHTML = [
     createStat("Hráči ve výpisu", formatNumber(summary.totalPlayers)),
     createStat("Online / aktivní", formatNumber(summary.activePlayers)),
-    createStat("Empire tlak", formatNumber(summary.totalEmpireScore)),
-    createStat("Police heat", formatNumber(summary.totalWanted))
+    createStat("Empire score", formatNumber(summary.totalEmpireScore)),
+    createStat(serverMode ? "Poražení" : "Police heat", serverMode
+      ? formatNumber(players.filter((player) => player.status === "defeated").length)
+      : formatNumber(summary.totalWanted))
   ].join("");
 }
 
@@ -1086,7 +1159,9 @@ function renderPlayerRow(player) {
       <span class="leaderboard-cell-muted">${escapeHtml(player.alliance)}</span>
       <span class="leaderboard-number-cell">${formatNumber(player.districts)}</span>
       <span class="leaderboard-number-cell">${formatNumber(player.influence)}</span>
-      <span><span class="leaderboard-wanted ${wantedClass}">${formatNumber(player.wanted)}</span></span>
+      <span>${getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative
+        ? `<span class="leaderboard-cell-muted">${player.status === "defeated" ? "Poražen" : "Aktivní"}</span>`
+        : `<span class="leaderboard-wanted ${wantedClass}">${formatNumber(player.wanted)}</span>`}</span>
       <span class="leaderboard-score-cell">${formatNumber(player.empireScore)}</span>
       <span class="leaderboard-actions">
         <button type="button" class="button leaderboard-row-action" data-leaderboard-action="view" data-player-id="${escapeHtml(player.id)}" aria-label="Detail hráče ${escapeHtml(player.name)}">Detail</button>
@@ -1109,8 +1184,8 @@ function renderPlayerTable(players) {
       <span>Aliance</span>
       <span>Distrikty</span>
       <span>Vliv</span>
-      <span>Wanted</span>
-      <span>Skóre impéria</span>
+      <span>${getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative ? "Stav" : "Wanted"}</span>
+      <span>Empire score</span>
       <span>Akce</span>
     </div>
     ${players.map(renderPlayerRow).join("")}
@@ -1153,7 +1228,7 @@ function renderAllianceTable(alliances) {
       <span>Členové</span>
       <span>Distrikty</span>
       <span>Celkový vliv</span>
-      <span>Skóre impéria celkem</span>
+      <span>Empire score</span>
       <span>Top hráč</span>
       <span>Tlak hledanosti</span>
       <span>Akce</span>
@@ -1165,6 +1240,10 @@ function renderAllianceTable(alliances) {
 function getCurrentServerRankedPlayers() {
   const players = getLeaderboardPlayers();
   const selectedServerId = leaderboardState.selectedServerId || getCurrentServerScope().serverId;
+  if (getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    return players.filter((player) => player.serverId === selectedServerId)
+      .sort((left, right) => left.currentRank - right.currentRank);
+  }
   return rankPlayers(sortPlayers(players.filter((player) => player.serverId === selectedServerId), "overall"));
 }
 
@@ -1214,9 +1293,15 @@ export function renderPlayerDetail(playerId) {
   const rankedPlayer = ranked.find((entry) => entry.id === player.id) || player;
   const score = calculateEmpireScore(player);
 
-  const stats = [
+  const stats = getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative ? [
     ["Rank", `#${rankedPlayer.currentRank}`],
-    ["Skóre impéria", formatNumber(score)],
+    ["Empire score", formatNumber(score)],
+    ["Distrikty", formatNumber(player.districts)],
+    ["Vliv", formatNumber(player.influence)],
+    ["Stav", player.status === "defeated" ? "Poražen" : "Aktivní"]
+  ] : [
+    ["Rank", `#${rankedPlayer.currentRank}`],
+    ["Empire score", formatNumber(score)],
     ["Distrikty", formatNumber(player.districts)],
     ["Vliv", formatNumber(player.influence)],
     ["Clean", formatMoney(player.cleanMoney)],
@@ -1264,7 +1349,10 @@ function renderHeader() {
   }
 
   if (leaderboardContext.phaseElement) {
-    leaderboardContext.phaseElement.textContent = getServerPhaseLabel(session);
+    const serverView = getServerLeaderboardView();
+    leaderboardContext.phaseElement.textContent = getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative
+      ? (serverView ? `SERVER SNAPSHOT · ${new Date(serverView.generatedAt).toLocaleTimeString("cs-CZ")}` : "SERVER DATA NEDOSTUPNÁ")
+      : getServerPhaseLabel(session);
   }
 }
 
@@ -1297,7 +1385,9 @@ export function renderLeaderboard() {
   renderStats(players, alliances);
 
   if (leaderboardContext.tableTitleElement) {
-    leaderboardContext.tableTitleElement.textContent = config.title;
+    leaderboardContext.tableTitleElement.textContent = getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.localDemo
+      ? `${config.title} · DEMO POŘADÍ`
+      : config.title;
   }
 
   if (leaderboardContext.modeLabelElement) {
@@ -1543,6 +1633,14 @@ function bindEvents(openButton, closeElements) {
 
       closeLeaderboard();
     }
+  });
+  document.addEventListener("empire:gameplay-slice-rendered", () => {
+    if (leaderboardContext.popup && !leaderboardContext.popup.hidden) renderLeaderboard();
+  });
+  document.addEventListener("empire:runtime-mode-changed", () => {
+    leaderboardState.selectedServerId = null;
+    leaderboardState.selectedPlayerId = null;
+    renderLeaderboard();
   });
 }
 

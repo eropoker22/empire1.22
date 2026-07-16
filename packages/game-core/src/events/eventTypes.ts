@@ -37,6 +37,7 @@ export const CORE_EVENT_TYPES = {
   policeRaidTriggered: "police-raid-triggered",
   policeWarningIssued: "police-warning-issued",
   playerEliminated: "player-eliminated",
+  emergencyRecoveryClaimed: "emergency-recovery-claimed",
   playerBoostActivated: "player-boost-activated",
   playerBoostExpired: "player-boost-expired",
   playerBoostConsumed: "player-boost-consumed",

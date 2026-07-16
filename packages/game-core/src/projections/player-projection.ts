@@ -24,6 +24,7 @@ import { createFactoryProductionBuildingView } from "./factory-production-projec
 import { isFactoryOwnedBy } from "../handlers/factoryProductionShared";
 import { createPlayerBoostView } from "./player-boost-projection";
 import { createPlayerCityEventsView } from "./city-event-projection";
+import { resolvePlayerOperationalLiveness } from "../rules/liveness/playerOperationalLiveness";
 
 /**
  * Responsibility: Builds a minimal player-facing projection from authoritative core state.
@@ -68,7 +69,7 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
     serverTime: context?.clock?.nowIso() ?? new Date().toISOString(),
     resourceBalances,
     storage: player && context?.config.balance.warehouse
-      ? resolvePlayerStorageCapacitySummary(state, playerId, context.config.balance.warehouse)
+      ? createPlayerStorageView(state, playerId, context)
       : null,
     attackWeapons: player && context?.config.balance.attackWeapons
       ? {
@@ -97,6 +98,16 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
       : null,
     boosts: context ? createPlayerBoostView(state, playerId, context) : null,
     cityEvents: context ? createPlayerCityEventsView(state, playerId, context) : null,
+    operationalLiveness: context ? resolvePlayerOperationalLiveness(state, playerId, context) : null,
+    pendingEncirclementConfirmations: Object.values(state.encirclementConfirmationTokensById ?? {})
+      .filter((token) => token.actorPlayerId === playerId && token.consumedAtTick === null && token.expiresAtTick > state.root.tick)
+      .map((token) => ({
+        token: token.id,
+        targetDistrictId: token.targetDistrictId,
+        sourceDistrictId: token.sourceDistrictId,
+        affectedPlayerIds: token.affectedPlayerIds,
+        expiresAtTick: token.expiresAtTick
+      })),
     economy,
     faction: createFactionReadModel(state, playerId, context),
     dayNight: context ? createDayNightReadModel(state, context) : null,
@@ -106,6 +117,34 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
     alliance: createPlayerAllianceLifecycleView(state, playerId, context),
     notifications,
     victoryState
+  };
+};
+
+const createPlayerStorageView = (
+  state: CoreGameState,
+  playerId: string,
+  context: GameCoreContext
+): NonNullable<PlayerView["storage"]> => {
+  const summary = resolvePlayerStorageCapacitySummary(state, playerId, context.config.balance.warehouse!);
+  const cityEvents = createPlayerCityEventsView(state, playerId, context);
+  const sourceRewards = state.playerCityEventStatesByPlayerId?.[playerId]?.pendingRewards ?? [];
+  return {
+    ...summary,
+    pendingDeliveries: (cityEvents?.pendingRewards ?? []).map((reward) => {
+      const source = sourceRewards.find((entry) => entry.pendingRewardId === reward.pendingRewardId);
+      return {
+        id: reward.pendingRewardId,
+        source: "city-event" as const,
+        resourceKey: reward.resourceKey,
+        label: reward.resourceKey,
+        amount: reward.amount,
+        reason: reward.reason,
+        storageAvailable: reward.canClaim,
+        claimState: reward.canClaim ? "claimable" as const : "blocked" as const,
+        createdAtTick: source?.createdAtTick ?? state.root.tick,
+        expiresAtTick: null
+      };
+    })
   };
 };
 

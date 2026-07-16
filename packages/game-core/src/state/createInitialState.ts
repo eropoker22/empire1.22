@@ -60,6 +60,7 @@ export const createInitialState = (instanceId: string, mode: GameModeId): CoreGa
     cityFeedEventsById: {},
     eventsById: {},
     trapsById: {},
+    encirclementConfirmationTokensById: {},
     notificationsById: {},
     eliminationState: null,
     finalLockdownState: null,

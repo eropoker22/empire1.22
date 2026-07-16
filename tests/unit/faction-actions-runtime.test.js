@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { STORAGE_KEYS } from "../../page-assets/js/config.js";
 import {
   getCurrentPlayerFactionId,
-  getFactionActionForPlayer
+  getFactionActionForPlayer,
+  getFactionPassiveView
 } from "../../page-assets/js/app/faction-actions-runtime.js";
 
 function createStorage(session) {
@@ -14,6 +15,20 @@ function createStorage(session) {
 }
 
 describe("faction actions runtime", () => {
+  it("shows canonical local passive effects without an activation command", () => {
+    const storage = createStorage({ registration: { factionId: "hackeri" } });
+    const previousWindow = globalThis.window;
+    globalThis.window = { localStorage: storage, location: { hostname: "localhost", protocol: "http:" } };
+    try {
+      expect(getFactionPassiveView(storage)).toMatchObject({
+        factionId: "hackeri",
+        source: "local-demo"
+      });
+      expect(getFactionPassiveView(storage).activePassiveEffects).toContain("+15 % účinnost kamer");
+    } finally {
+      globalThis.window = previousWindow;
+    }
+  });
   it("shows only the current player's faction action", () => {
     const action = getFactionActionForPlayer(createStorage({
       registration: {

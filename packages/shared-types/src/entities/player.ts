@@ -44,6 +44,12 @@ export interface Player {
   status: PlayerStatus;
   allianceId: AllianceId | null;
   homeDistrictId: DistrictId | null;
+  originalHomeDistrictId?: DistrictId | null;
+  currentHeadquartersDistrictId?: DistrictId | null;
+  lastStandUsedAtTick?: number | null;
+  lastStandDistrictId?: DistrictId | null;
+  lastStandProtectedUntilTick?: number | null;
+  emergencyRecoveryUsedAtTick?: number | null;
   attackLoadout: Partial<Record<AttackWeaponId, number>>;
   population?: number;
   recoveryPool?: PlayerRecoveryPoolEntry[];

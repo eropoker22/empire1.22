@@ -20,6 +20,13 @@ export type MapActionBlockReason =
   | "TARGET_IS_ALLY"
   | "TARGET_NOT_ENEMY"
   | "TARGET_NOT_ADJACENT"
+  | "CORRIDOR_NOT_AVAILABLE"
+  | "CORRIDOR_NOT_REQUIRED"
+  | "ROUTE_NOT_FOUND"
+  | "ROUTE_NOT_ALLY"
+  | "ROUTE_NOT_ADJACENT"
+  | "ROUTE_LOCKED"
+  | "ROUTE_VERSION_CONFLICT"
   | "NO_VALID_ORIGIN"
   | "AWAITING_SPAWN_SELECTION"
   | "PLAYER_HAS_NO_SPAWN"
@@ -82,6 +89,8 @@ export interface MapActionContext {
   action: MapAction;
   expectedTargetVersion?: number;
   expectedOriginVersion?: number;
+  routeDistrictId?: string;
+  expectedRouteVersion?: number;
   serverTime?: string;
 }
 
@@ -91,6 +100,9 @@ export interface ActionValidationResult {
   relation: DistrictRelation;
   isAdjacentToOwnedDistrict: boolean;
   originDistrictId?: string;
+  routeDistrictId?: string;
+  routeOwnerPlayerId?: string;
+  usedAllianceCorridor?: boolean;
   requiresConsent?: boolean;
   affectedPlayerIds?: string[];
 }

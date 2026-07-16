@@ -4,6 +4,27 @@ export const GAMEPLAY_EXECUTION_MODES = Object.freeze({
   unavailable: "unavailable"
 });
 
+export const GAMEPLAY_SYSTEM_IDS = Object.freeze([
+  "production",
+  "storage",
+  "market",
+  "player-market",
+  "boosts",
+  "alliance",
+  "bounty",
+  "city-events",
+  "police",
+  "faction",
+  "buildings",
+  "attack",
+  "defense",
+  "spy",
+  "heist",
+  "rob",
+  "occupy",
+  "trap"
+]);
+
 export const CONFLICT_SYSTEM_IDS = Object.freeze([
   "attack",
   "defense",
@@ -14,26 +35,43 @@ export const CONFLICT_SYSTEM_IDS = Object.freeze([
   "trap"
 ]);
 
-export function getConflictAuthorityMatrix(mode) {
+export function getGameplayAuthorityMatrix(mode) {
   const normalizedMode = normalizeGameplayExecutionMode(mode) || GAMEPLAY_EXECUTION_MODES.unavailable;
-  const matrix = Object.fromEntries(CONFLICT_SYSTEM_IDS.map((systemId) => [systemId, Object.freeze({
+  const matrix = Object.fromEntries(GAMEPLAY_SYSTEM_IDS.map((systemId) => [systemId, Object.freeze({
     localMutation: normalizedMode === GAMEPLAY_EXECUTION_MODES.localDemo,
-    serverCommand: normalizedMode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative
+    serverCommand: normalizedMode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative,
+    readOnly: normalizedMode === GAMEPLAY_EXECUTION_MODES.unavailable,
+    unavailable: normalizedMode === GAMEPLAY_EXECUTION_MODES.unavailable
   })]));
-  assertConflictAuthorityMatrix(matrix, normalizedMode);
+  assertGameplayAuthorityMatrix(matrix, normalizedMode);
   return Object.freeze(matrix);
 }
 
-export function assertConflictAuthorityMatrix(matrix, mode) {
+export function getConflictAuthorityMatrix(mode) {
+  const gameplayMatrix = getGameplayAuthorityMatrix(mode);
+  return Object.freeze(Object.fromEntries(CONFLICT_SYSTEM_IDS.map((systemId) => [systemId, gameplayMatrix[systemId]])));
+}
+
+export function assertGameplayAuthorityMatrix(matrix, mode, systemIds = GAMEPLAY_SYSTEM_IDS) {
   const expectedAuthorities = mode === GAMEPLAY_EXECUTION_MODES.unavailable ? 0 : 1;
-  for (const systemId of CONFLICT_SYSTEM_IDS) {
+  for (const systemId of systemIds) {
     const authority = matrix?.[systemId] || {};
     const activeAuthorities = Number(authority.localMutation === true) + Number(authority.serverCommand === true);
     if (activeAuthorities !== expectedAuthorities) {
-      throw new Error(`Conflict authority invariant failed for ${systemId} in ${mode}.`);
+      throw new Error(`Gameplay authority invariant failed for ${systemId} in ${mode}.`);
+    }
+    if (mode === GAMEPLAY_EXECUTION_MODES.unavailable && (authority.readOnly !== true || authority.unavailable !== true)) {
+      throw new Error(`Unavailable authority invariant failed for ${systemId} in ${mode}.`);
+    }
+    if (mode !== GAMEPLAY_EXECUTION_MODES.unavailable && (authority.readOnly === true || authority.unavailable === true)) {
+      throw new Error(`Active authority invariant failed for ${systemId} in ${mode}.`);
     }
   }
   return true;
+}
+
+export function assertConflictAuthorityMatrix(matrix, mode) {
+  return assertGameplayAuthorityMatrix(matrix, mode, CONFLICT_SYSTEM_IDS);
 }
 
 const LOCAL_DEMO_ALIASES = new Set(["local-demo", "demo", "legacy-fallback", "local"]);
@@ -72,6 +110,8 @@ export function readRequestedGameplayExecutionMode(windowRef = typeof window ===
 
 export function readConfiguredGameplayExecutionMode(windowRef = typeof window === "undefined" ? null : window) {
   const documentRef = windowRef?.document || (typeof document === "undefined" ? null : document);
+  const runtimeMode = normalizeGameplayExecutionMode(windowRef?.__EMPIRE_GAMEPLAY_EXECUTION_MODE__);
+  if (runtimeMode) return runtimeMode;
   const metaMode = normalizeGameplayExecutionMode(documentRef?.querySelector?.(MODE_META_SELECTOR)?.getAttribute?.("content"));
   if (metaMode) return metaMode;
   return normalizeGameplayExecutionMode(documentRef?.documentElement?.dataset?.gameplayExecutionMode);
@@ -100,9 +140,11 @@ export function isLocalDemoGameplayMode(options = {}) {
 }
 
 const publishConflictAuthorityMatrix = (windowRef, mode) => {
-  const matrix = getConflictAuthorityMatrix(mode);
+  const gameplayMatrix = getGameplayAuthorityMatrix(mode);
+  const conflictMatrix = Object.freeze(Object.fromEntries(CONFLICT_SYSTEM_IDS.map((systemId) => [systemId, gameplayMatrix[systemId]])));
   if (windowRef && typeof windowRef === "object") {
-    windowRef.__EMPIRE_CONFLICT_AUTHORITY_MATRIX__ = matrix;
+    windowRef.__EMPIRE_GAMEPLAY_AUTHORITY_MATRIX__ = gameplayMatrix;
+    windowRef.__EMPIRE_CONFLICT_AUTHORITY_MATRIX__ = conflictMatrix;
   }
   return mode;
 };

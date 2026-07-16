@@ -17,6 +17,7 @@ export const createSpyDistrictCommand = (
   input: CreateSpyDistrictCommandInput
 ): SpyDistrictCommand => {
   const district = input.slice.district;
+  const corridor = input.slice.frontier?.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
 
   if (!district) {
     throw new Error("Spy command cannot be created from missing district/target context.");
@@ -31,7 +32,8 @@ export const createSpyDistrictCommand = (
     issuedAt: input.issuedAt,
     payload: {
       districtId: input.targetDistrictId,
-      sourceDistrictId: district.districtId
+      sourceDistrictId: corridor?.sourceDistrictId ?? district.districtId,
+      ...(corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {})
     },
     clientRequestId: input.clientRequestId ?? null
   };

@@ -20,6 +20,7 @@ export const createAttackDistrictCommand = (
   input: CreateAttackDistrictCommandInput
 ): AttackDistrictCommand => {
   const district = input.slice.district;
+  const corridor = input.slice.frontier?.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
 
   if (!district) {
     throw new Error("Attack command cannot be created from missing district/target context.");
@@ -34,10 +35,11 @@ export const createAttackDistrictCommand = (
     issuedAt: input.issuedAt,
     payload: {
       districtId: input.targetDistrictId,
-      sourceDistrictId: district.districtId,
+      sourceDistrictId: corridor?.sourceDistrictId ?? district.districtId,
       weapons: { ...input.weapons },
       expectedSourceVersion: input.expectedSourceVersion,
-      expectedTargetVersion: input.expectedTargetVersion
+      expectedTargetVersion: input.expectedTargetVersion,
+      ...(corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {})
     },
     clientRequestId: input.clientRequestId ?? null
   };

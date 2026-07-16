@@ -15,6 +15,7 @@ import type {
   District,
   DistrictId,
   DistrictTrap,
+  EncirclementConfirmationToken,
   EffectState,
   EliminationState,
   EventId,
@@ -67,6 +68,7 @@ export interface NormalizedGameState {
   cityFeedEventsById: Record<string, CityFeedEvent>;
   eventsById: Record<EventId, EventState>;
   trapsById: Record<TrapId, DistrictTrap>;
+  encirclementConfirmationTokensById?: Record<string, EncirclementConfirmationToken>;
   notificationsById: Record<NotificationId, Notification>;
   eliminationState: EliminationState | null;
   finalLockdownState: FinalLockdownState | null;

@@ -27,7 +27,9 @@ export const validateRob = (
     serverTime: command.issuedAt,
     action: "rob",
     expectedTargetVersion: command.payload.expectedTargetVersion,
-    expectedOriginVersion: command.payload.expectedSourceVersion
+    expectedOriginVersion: command.payload.expectedSourceVersion,
+    routeDistrictId: command.payload.routeDistrictId,
+    expectedRouteVersion: command.payload.expectedRouteVersion
   });
 
   const player = state.playersById[command.playerId];

@@ -26,6 +26,12 @@ import { appendRecoveryPoolEntries, createRecoveryEntriesFromLosses } from "./cl
 import { composeEntityId } from "../utils";
 import { deterministicUnitInterval } from "../utils/math";
 import { bumpDistrictSecurityRevision } from "../state";
+import {
+  consumeEncirclementConfirmation,
+  countActiveOwnedDistricts,
+  prepareEncirclementConfirmation,
+  reconcilePlayerTerritoryLifecycle
+} from "../rules/liveness";
 
 /**
  * Responsibility: Claims one neutral district after successful spy intel.
@@ -40,6 +46,15 @@ export const handleOccupyDistrict = (
   const errors = validateOccupy(state, command, context.config.balance.conflict);
 
   if (errors.length > 0) {
+    if (errors.length === 1 && errors[0]?.code === "CONSENT_REQUIRED") {
+      return prepareEncirclementConfirmation(state, {
+        commandId: command.id,
+        playerId: command.playerId,
+        targetDistrictId: command.payload.districtId,
+        sourceDistrictId: command.payload.sourceDistrictId ?? "",
+        issuedAt: command.issuedAt
+      }, context);
+    }
     return {
       nextState: state,
       events: [],
@@ -131,7 +146,7 @@ export const handleOccupyDistrict = (
     streetNewsTemplateId
   });
 
-  const nextStateAfterAttempt: CoreGameState = {
+  const nextStateAfterAttempt: CoreGameState = consumeEncirclementConfirmation({
     ...state,
     playersById: {
       ...state.playersById,
@@ -161,7 +176,8 @@ export const handleOccupyDistrict = (
               stabilizingUntilTick: state.root.tick + Math.max(
                 0,
                 Number(context.config.balance.conflict?.captureStabilization?.durationTicks ?? 0)
-              )
+              ),
+              ownershipStartedAtTick: state.root.tick
             }
           : {}),
         heat: Math.max(0, Number(targetDistrict.heat || 0) + heatGain),
@@ -199,7 +215,7 @@ export const handleOccupyDistrict = (
       notificationIds: [...state.root.notificationIds, report.id],
       version: state.root.version + 1
     }
-  };
+  }, command.payload.encirclementConfirmationToken);
   const nextStateWithRecovery = appendRecoveryPoolEntries(
     nextStateAfterAttempt,
     player.id,
@@ -253,9 +269,15 @@ export const handleOccupyDistrict = (
     commandId: command.id
   });
 
+  const lifecycle = reconcilePlayerTerritoryLifecycle(bountyResult.nextState, {
+    playerId: player.id,
+    previousActiveDistrictCount: countActiveOwnedDistricts(state, player.id),
+    sourceEventId: command.id,
+    issuedAt: command.issuedAt
+  }, context);
   return {
-    nextState: bountyResult.nextState,
-    events: [...captureEvents, ...bountyResult.events],
+    nextState: lifecycle.nextState,
+    events: [...captureEvents, ...bountyResult.events, ...lifecycle.events],
     errors: []
   };
 };

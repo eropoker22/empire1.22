@@ -83,6 +83,8 @@ describe("Empire Streets city map manifest", () => {
     expect(Object.keys(report.spawnCandidateRouteToCenter)).toHaveLength(83);
     expect(Array.isArray(report.articulationPoints)).toBe(true);
     expect(Array.isArray(report.bridgeEdges)).toBe(true);
+    expect(Object.keys(report.articulationImpact)).toEqual(report.articulationPoints);
+    expect(Object.values(report.spawnCandidateNeighborCount).every((count) => count >= 2)).toBe(true);
   });
 
   it("keeps non-neighbor districts without shared edge adjacency", () => {

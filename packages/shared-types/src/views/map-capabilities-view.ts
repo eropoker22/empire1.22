@@ -45,6 +45,32 @@ export interface PlayerFrontierSummaryView {
   canOccupyWithValidSpy: boolean;
   canAttackNeighborEnemy: boolean;
   explanationKey: string;
+  ownedDistrictIds: string[];
+  activeOwnedDistrictIds: string[];
+  usableOriginDistrictIds: string[];
+  temporarilyBlockedOriginDistrictIds: string[];
+  permanentlyInvalidOriginDistrictIds: string[];
+  destroyedNeighborDistrictIds: string[];
+  corridorTargets: AllianceCorridorTargetView[];
+  corridorAvailable: boolean;
+  canProgressNow: boolean;
+  canProgressLater: boolean;
+  nextProgressAtTick: number | null;
+  recommendedAction: string | null;
+  blockingReasons: string[];
+  lastStandActive: boolean;
+}
+
+export interface AllianceCorridorTargetView {
+  sourceDistrictId: string;
+  routeDistrictId: string;
+  routeDistrictName: string;
+  routeOwnerPlayerId: string;
+  routeOwnerName: string;
+  routeVersion: number;
+  targetDistrictId: string;
+  targetDistrictName: string;
+  targetRelation: "empty" | "enemy";
 }
 
 export type SpawnDistrictStatusView =

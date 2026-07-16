@@ -4,6 +4,7 @@ export * from "./bounty";
 export * from "./city-feed-event";
 export * from "./cooldown-state";
 export * from "./district";
+export * from "./encirclement-confirmation-token";
 export * from "./district-trap";
 export * from "./effect-state";
 export * from "./elimination-state";

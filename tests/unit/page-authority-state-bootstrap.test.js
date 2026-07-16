@@ -73,4 +73,56 @@ describe("authority state bootstrap", () => {
       cityMinutes: 6 * 60 + 12
     });
   });
+
+  it("migrates legacy Factory slots and supplies to canonical jobs exactly once", async () => {
+    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+      inventory: {
+        materials: { "metal-parts": 3 },
+        factorySupplies: { metalParts: 7, techCore: 4, combatModule: 2 }
+      },
+      production: {
+        jobs: {},
+        factory: {
+          level: 3,
+          resources: { metalParts: 2, techCore: 0, combatModule: 0 },
+          slots: [{
+            id: 1,
+            resourceKey: "metalParts",
+            queuedAmount: 3,
+            producedAmount: 2,
+            productionRemainder: 0.5,
+            reservedCleanCash: 900,
+            reservedInputs: {},
+            isProducing: true,
+            lastTick: 1_000,
+            slotCap: 10,
+            queueCap: 8
+          }]
+        }
+      }
+    }));
+
+    const authorityState = await import("../../page-assets/js/app/model/authority-state.js");
+    const migrated = authorityState.getStoredPreviewSession();
+    expect(migrated.inventory.materials).toMatchObject({
+      "metal-parts": 7,
+      "tech-core": 4,
+      "combat-module": 2
+    });
+    expect(migrated.inventory.factorySupplies).toBeUndefined();
+    expect(migrated.production.factory).toBeUndefined();
+    expect(migrated.production.jobs["factory:metal-parts"]).toMatchObject({
+      queuedAmount: 3,
+      producedAmount: 2,
+      cleanMoneyCost: 900,
+      lastProgressAtMs: 1_000,
+      activeWorkRemainingMs: 120_000
+    });
+    expect(migrated.production.jobs["factory:metal-parts"].reservationUnits).toHaveLength(3);
+
+    authorityState.setStoredPreviewSession(migrated);
+    const restored = authorityState.getStoredPreviewSession();
+    expect(restored.production.jobs["factory:metal-parts"]).toEqual(migrated.production.jobs["factory:metal-parts"]);
+    expect(restored.inventory.materials["metal-parts"]).toBe(7);
+  });
 });

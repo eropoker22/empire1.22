@@ -21,6 +21,7 @@ export * from "./drugLabProductionConfig";
 export * from "./drugLabProductionHandlers";
 export * from "./drugLabProductionMigration";
 export * from "./drugLabProductionShared";
+export * from "./emergencyRecovery";
 export * from "./factoryProductionHandlers";
 export * from "./factoryProductionConfig";
 export * from "./factoryProductionShared";

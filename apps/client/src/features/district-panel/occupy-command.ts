@@ -6,6 +6,7 @@ export interface CreateOccupyDistrictCommandInput {
   targetDistrictId: string;
   issuedAt: string;
   clientRequestId?: string | null;
+  encirclementConfirmationToken?: string;
 }
 
 /**
@@ -17,6 +18,7 @@ export const createOccupyDistrictCommand = (
   input: CreateOccupyDistrictCommandInput
 ): OccupyDistrictCommand => {
   const district = input.slice.district;
+  const corridor = input.slice.frontier?.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
 
   if (!district) {
     throw new Error("Occupy command cannot be created from missing district/target context.");
@@ -31,7 +33,9 @@ export const createOccupyDistrictCommand = (
     issuedAt: input.issuedAt,
     payload: {
       districtId: input.targetDistrictId,
-      sourceDistrictId: district.districtId
+      sourceDistrictId: corridor?.sourceDistrictId ?? district.districtId,
+      ...(input.encirclementConfirmationToken ? { encirclementConfirmationToken: input.encirclementConfirmationToken } : {}),
+      ...(corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {})
     },
     clientRequestId: input.clientRequestId ?? null
   };

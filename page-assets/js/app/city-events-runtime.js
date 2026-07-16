@@ -5,6 +5,8 @@ import {
   appendBuildingActionResultEntry,
   applyInventoryOutput,
   applyTopbarEconomy,
+  getServerGameplaySliceReadModel,
+  submitServerCityEventCommand,
   renderSpyResourceState
 } from "./runtime.js";
 import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
@@ -180,6 +182,36 @@ const taskLookup = new Map();
 [victorTasks, leonTasks, nyraTasks].forEach((pool) => {
   pool.forEach((task) => taskLookup.set(String(task.id), task));
 });
+
+function mapServerCityEventOffer(agent, offer) {
+  const rewards = normalizeCityEventRewards(offer?.rewards || {});
+  const gains = Object.entries(rewards).map(([key, value]) => formatRewardEntry(key, value)).filter(Boolean);
+  const successHeat = Math.max(0, Math.floor(Number(offer?.successHeat || 0)));
+  const failureHeat = Math.max(successHeat, Math.floor(Number(offer?.failureHeat || 0)));
+  const failureDirtyCashLoss = Math.max(0, Math.floor(Number(offer?.failureDirtyCashLoss || 0)));
+  return {
+    id: String(offer?.offerId || ""),
+    offerId: String(offer?.offerId || ""),
+    definitionId: String(offer?.definitionId || ""),
+    agentKey: agent?.agentId === "nyra" ? "nira" : String(agent?.agentId || ""),
+    giver: String(agent?.name || ""),
+    title: String(offer?.title || "City Event"),
+    desc: String(offer?.description || ""),
+    reward: rewards,
+    gains,
+    risk: `Úspěch Heat +${successHeat} · Selhání Heat +${failureHeat}${failureDirtyCashLoss > 0 ? ` · ztráta až ${failureDirtyCashLoss.toLocaleString("cs-CZ")} dirty cash` : ""}`,
+    successHeat,
+    failureHeat,
+    failureDirtyCashLoss,
+    successRate: Math.max(0, Math.min(100, Math.floor(Number(offer?.successRate || 0)))),
+    durationMinutes: Math.max(1, Math.floor(Number(offer?.durationMinutes || 1))),
+    durationTicks: Math.max(1, Math.floor(Number(offer?.durationTicks || 1))),
+    difficulty: String(offer?.difficulty || "medium"),
+    attempted: Boolean(offer?.attempted),
+    canStart: Boolean(offer?.canStart),
+    disabledReason: offer?.disabledReason ? String(offer.disabledReason) : null
+  };
+}
 
 function createDefaultCityEventsState() {
   return {
@@ -490,7 +522,6 @@ function applyEventRewardsToPlayerState(root, task) {
         weapons: { ...(session.inventory?.weapons || {}) },
         materials: { ...(session.inventory?.materials || {}) },
         drugs: { ...(session.inventory?.drugs || {}) },
-        factorySupplies: { ...(session.inventory?.factorySupplies || {}) },
         eventResources: {
           ammo: Math.max(0, Math.floor(Number(session.inventory?.eventResources?.ammo || 0))),
           spyGear: Math.max(0, Math.floor(Number(session.inventory?.eventResources?.spyGear || 0))),
@@ -616,6 +647,20 @@ function initCityEventsRuntime() {
     windowRef: window,
     diagnosticsMode: diagnostics?.getSummary?.().runtimeMode
   }) === GAMEPLAY_EXECUTION_MODES.localDemo;
+  const shouldRunServerCityEvents = () => getGameplayExecutionMode({
+    windowRef: window,
+    diagnosticsMode: diagnostics?.getSummary?.().runtimeMode
+  }) === GAMEPLAY_EXECUTION_MODES.serverAuthoritative;
+  const getServerCityEventsView = () => getServerGameplaySliceReadModel()?.player?.cityEvents || null;
+  const getServerAgent = (agentKey) => getServerCityEventsView()?.agents?.find((agent) =>
+    String(agent?.agentId || "") === (agentKey === "nira" ? "nyra" : agentKey)) || null;
+  const getServerTasks = (agentKey) => {
+    const agent = getServerAgent(agentKey);
+    return agent ? (agent.offers || []).map((offer) => mapServerCityEventOffer(agent, offer)) : [];
+  };
+  const getRenderedTasks = (agentKey) => shouldRunServerCityEvents()
+    ? getServerTasks(agentKey)
+    : resolveVisibleCharacterTasks(agentKey, AGENTS[agentKey]?.tasks);
 
   const openBtn = document.getElementById("city-events-open");
   const modal = document.getElementById("events-modal");
@@ -645,6 +690,31 @@ function initCityEventsRuntime() {
 
   let selectedAgentKey = null;
   let selectedEventTask = null;
+  let serverSubmitPending = false;
+
+  const getRenderedRunState = (task) => {
+    if (!shouldRunServerCityEvents()) return getCityEventRunState(task?.id);
+    const activeRun = getServerCityEventsView()?.activeRun || null;
+    const active = Boolean(activeRun && String(activeRun.offerId || "") === String(task?.offerId || task?.id || ""));
+    return {
+      active,
+      remainingSec: active
+        ? Math.max(0, Math.ceil(Number(activeRun.remainingTicks || 0) * Number(getServerGameplaySliceReadModel()?.mode?.tickRateMs || 5000) / 1000))
+        : 0
+    };
+  };
+  const getRenderedActiveRun = () => {
+    if (!shouldRunServerCityEvents()) return getActiveCityEventRun();
+    const activeRun = getServerCityEventsView()?.activeRun || null;
+    return {
+      active: Boolean(activeRun),
+      run: activeRun,
+      task: activeRun ? getServerTasks(selectedAgentKey || "victor").find((task) => task.offerId === activeRun.offerId) || null : null,
+      remainingSec: activeRun
+        ? Math.max(0, Math.ceil(Number(activeRun.remainingTicks || 0) * Number(getServerGameplaySliceReadModel()?.mode?.tickRateMs || 5000) / 1000))
+        : 0
+    };
+  };
 
   const renderDetailChips = (container, values, variant = "gain") => {
     if (!container) return;
@@ -674,7 +744,12 @@ function initCityEventsRuntime() {
       const agentKey = String(button.dataset.agent || "");
       const agent = AGENTS[agentKey];
       if (!agent) return;
-      const unlockState = resolveAgentUnlockState(root, agent);
+      const serverAgent = shouldRunServerCityEvents() ? getServerAgent(agentKey) : null;
+      const unlockState = serverAgent ? {
+        requiredInfluence: Math.max(0, Number(serverAgent.requiredInfluence || 0)),
+        currentInfluence: Math.max(0, Number(serverAgent.currentInfluence || 0)),
+        unlocked: Boolean(serverAgent.unlocked)
+      } : resolveAgentUnlockState(root, agent);
       button.dataset.agentLocked = unlockState.unlocked ? "false" : "true";
       button.setAttribute("aria-disabled", unlockState.unlocked ? "false" : "true");
       const badge = button.querySelector(".events-agent__unlock-badge");
@@ -707,17 +782,19 @@ function initCityEventsRuntime() {
     const wasHidden = detailModal.hidden || detailModal.classList.contains("hidden");
     selectedEventTask = task;
     const difficulty = resolveEventDifficultyMeta(task.difficulty);
-    const runState = getCityEventRunState(task.id);
-    const activeRun = getActiveCityEventRun();
+    const runState = getRenderedRunState(task);
+    const activeRun = getRenderedActiveRun();
     const isBlockedByOtherRun = activeRun.active && !runState.active;
-    const schedule = resolveLocalScheduleWindow(task.agentKey);
-    const disabledReason = !schedule.available
+    const schedule = shouldRunServerCityEvents()
+      ? { available: Boolean(getServerAgent(task.agentKey)?.availableNow) }
+      : resolveLocalScheduleWindow(task.agentKey);
+    const disabledReason = task.disabledReason || (!schedule.available
       ? "Kontakt je teď zavřený"
       : task.attempted
         ? "Nabídka už byla využita"
         : isBlockedByOtherRun
           ? `Jiná zakázka probíhá (${activeRun.remainingSec}s)`
-          : "";
+          : "");
     if (detailTitle) detailTitle.textContent = String(task.title || "Detail zakázky");
     if (detailGiver) detailGiver.textContent = String(task.giver || AGENTS[task.agentKey || ""]?.name || "-");
     if (detailStats) {
@@ -730,8 +807,10 @@ function initCityEventsRuntime() {
     renderDetailChips(detailGains, task.gains, "gain");
     renderDetailChips(detailRisk, task.risk ? [task.risk] : [], "risk");
     if (detailAcceptBtn) {
-      detailAcceptBtn.disabled = runState.active || isBlockedByOtherRun || task.attempted || !schedule.available;
-      detailAcceptBtn.textContent = runState.active
+      detailAcceptBtn.disabled = serverSubmitPending || runState.active || isBlockedByOtherRun || task.attempted || !schedule.available || task.canStart === false;
+      detailAcceptBtn.textContent = serverSubmitPending
+        ? "Odesílám…"
+        : runState.active
         ? `Probíhá (${runState.remainingSec}s)`
         : task.attempted
         ? "Nabídka využita"
@@ -752,15 +831,20 @@ function initCityEventsRuntime() {
   const renderTasks = (agentKey) => {
     const agent = AGENTS[agentKey];
     if (!agent) return;
+    const serverAgent = shouldRunServerCityEvents() ? getServerAgent(agentKey) : null;
     syncAgentUnlockBadges();
     selectedAgentKey = agentKey;
     agentButtons.forEach((btn) => btn.classList.toggle("is-active", btn.dataset.agent === agentKey));
-    if (agentName) agentName.textContent = agent.name;
-    if (agentType) agentType.textContent = agent.type;
+    if (agentName) agentName.textContent = serverAgent?.name || agent.name;
+    if (agentType) agentType.textContent = serverAgent?.type || agent.type;
     if (agentDesc) agentDesc.textContent = agent.desc;
     if (agentQuote) agentQuote.textContent = agent.quote;
 
-    const unlockState = resolveAgentUnlockState(root, agent);
+    const unlockState = serverAgent ? {
+      requiredInfluence: Math.max(0, Number(serverAgent.requiredInfluence || 0)),
+      currentInfluence: Math.max(0, Number(serverAgent.currentInfluence || 0)),
+      unlocked: Boolean(serverAgent.unlocked)
+    } : resolveAgentUnlockState(root, agent);
     if (!unlockState.unlocked) {
       if (agentDesc) {
         agentDesc.textContent = `${agent.desc} Zakázky se odemknou až při ${unlockState.requiredInfluence} vlivu. Teď máš ${unlockState.currentInfluence}.`;
@@ -775,7 +859,10 @@ function initCityEventsRuntime() {
       return;
     }
 
-    const schedule = resolveLocalScheduleWindow(agentKey);
+    const schedule = serverAgent ? {
+      available: Boolean(serverAgent.availableNow),
+      nextBoundaryLabel: serverAgent.scheduleLabel || "po obnovení serveru"
+    } : resolveLocalScheduleWindow(agentKey);
     if (!schedule.available) {
       tasklist.innerHTML = `
         <div class="events-task events-task--agent-locked">
@@ -787,17 +874,24 @@ function initCityEventsRuntime() {
       return;
     }
 
-    const visibleTasks = resolveVisibleCharacterTasks(agentKey, agent.tasks);
-    const activeRun = getActiveCityEventRun();
-    tasklist.innerHTML = visibleTasks.map((task) => {
+    const visibleTasks = getRenderedTasks(agentKey);
+    const activeRun = getRenderedActiveRun();
+    const pendingRewards = shouldRunServerCityEvents() ? (getServerCityEventsView()?.pendingRewards || []) : [];
+    const pendingMarkup = pendingRewards.length ? `
+      <div class="events-task events-task--pending-rewards">
+        <div class="events-task__title">Čekající odměny</div>
+        <div class="events-task__desc">${pendingRewards.map((reward) => `${escapeHtml(formatRewardEntry(reward.resourceKey, reward.amount))} <button type="button" class="btn btn-small" data-city-event-claim="${escapeHtml(reward.pendingRewardId)}"${reward.canClaim && !serverSubmitPending ? "" : " disabled"}>Vyzvednout</button>`).join(" ")}</div>
+      </div>
+    ` : "";
+    tasklist.innerHTML = pendingMarkup + visibleTasks.map((task) => {
       const successRate = Math.max(0, Math.min(100, Math.floor(Number(task?.successRate || 0))));
       const durationMinutes = Math.max(1, Math.floor(Number(task?.durationMinutes || 1)));
       const difficulty = resolveEventDifficultyMeta(task.difficulty);
-      const runState = getCityEventRunState(task?.id);
+      const runState = getRenderedRunState(task);
       const isBlockedByOtherRun = activeRun.active && !runState.active;
       const metaLabel = `Úspěšnost ${successRate}% • ${durationMinutes} min${runState.active ? ` • Probíhá ${runState.remainingSec}s` : ""}${task.attempted ? " • Využito" : ""}${isBlockedByOtherRun ? ` • Čekej ${activeRun.remainingSec}s` : ""}`;
       return `
-        <div class="events-task${runState.active || task.attempted ? " events-task--locked" : ""}${isBlockedByOtherRun ? " events-task--queue-locked" : ""}" data-event-open="${escapeHtml(task.id || "")}">
+        <div class="events-task${runState.active || task.attempted || task.canStart === false ? " events-task--locked" : ""}${isBlockedByOtherRun ? " events-task--queue-locked" : ""}" data-event-open="${escapeHtml(task.id || "")}">
           <div class="events-task__title">${escapeHtml(task.title)}</div>
           <div class="events-task__desc">${escapeHtml(task.desc)}</div>
           <div class="events-task__meta">
@@ -811,22 +905,28 @@ function initCityEventsRuntime() {
   };
 
   const openModal = () => {
-    if (!shouldRunLocalCityEvents()) return;
-    const claimed = claimPendingCityEventRewards();
+    if (!shouldRunLocalCityEvents() && !shouldRunServerCityEvents()) return;
+    const claimed = shouldRunLocalCityEvents()
+      ? claimPendingCityEventRewards()
+      : { claimedRewards: [], pendingRewards: [] };
     syncAgentUnlockBadges();
     agentButtons.forEach((btn) => btn.classList.remove("is-active"));
     if (agentName) agentName.textContent = "Vyber postavu";
     if (agentType) agentType.textContent = "Každý nabízí jiné zakázky";
     if (agentDesc) {
+      const serverPendingCount = getServerCityEventsView()?.pendingRewards?.length || 0;
       agentDesc.textContent = claimed.claimedRewards.length
         ? `Do SKLADU se přesunula čekající odměna: ${claimed.claimedRewards.join(", ")}.`
         : claimed.pendingRewards.length
           ? `Část odměn čeká u kontaktů na místo ve SKLADU: ${claimed.pendingRewards.join(", ")}.`
-          : "Vyber kontakt a zobrazí se jeho dočasné pouliční zakázky.";
+          : serverPendingCount > 0
+            ? `Na vyzvednutí čeká ${serverPendingCount} serverových odměn. Vyber kontakt a zkontroluj nabídky.`
+            : "Vyber kontakt a zobrazí se jeho dočasné pouliční zakázky.";
     }
     if (agentQuote) agentQuote.textContent = "";
     tasklist.innerHTML = "";
     modal.classList.add("events-modal--compact");
+    syncRefreshLabel();
     modal.hidden = false;
     modal.classList.remove("hidden");
     openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: true });
@@ -975,6 +1075,14 @@ function initCityEventsRuntime() {
 
   const syncRefreshLabel = () => {
     if (!eventsRefreshCountdown) return;
+    if (shouldRunServerCityEvents()) {
+      const cityEvents = getServerCityEventsView();
+      const agent = getServerAgent(selectedAgentKey || "victor");
+      eventsRefreshCountdown.textContent = cityEvents
+        ? `MĚSTSKÝ ČAS ${cityEvents.cityClock?.label || "--:--"} · ${agent?.scheduleLabel || "serverové nabídky"}`
+        : "SERVEROVÉ NABÍDKY NEDOSTUPNÉ";
+      return;
+    }
     const schedule = resolveLocalScheduleWindow(selectedAgentKey || "victor");
     const nextText = `MĚSTSKÝ ČAS · další okno ${schedule.nextBoundaryLabel}`;
     if (eventsRefreshCountdown.textContent !== nextText) {
@@ -988,10 +1096,23 @@ function initCityEventsRuntime() {
   detailBackdrop?.addEventListener("click", closeEventDetailModal);
   detailCloseBtn?.addEventListener("click", closeEventDetailModal);
   detailDeclineBtn?.addEventListener("click", closeEventDetailModal);
-  detailAcceptBtn?.addEventListener("click", () => {
-    if (!shouldRunLocalCityEvents()) return;
+  detailAcceptBtn?.addEventListener("click", async () => {
     if (!selectedEventTask) return;
-    if (startCityEventRun(selectedEventTask)) {
+    if (shouldRunServerCityEvents()) {
+      if (serverSubmitPending || selectedEventTask.canStart === false) return;
+      serverSubmitPending = true;
+      openEventDetailModal(selectedEventTask);
+      const response = await submitServerCityEventCommand({ action: "start", id: selectedEventTask.offerId });
+      serverSubmitPending = false;
+      if (response?.accepted) {
+        closeEventDetailModal();
+      } else {
+        writeCityEventsInfo(response?.errors?.[0]?.message || "Zakázku se nepodařilo spustit.");
+        openEventDetailModal(selectedEventTask);
+      }
+      return;
+    }
+    if (shouldRunLocalCityEvents() && startCityEventRun(selectedEventTask)) {
       closeEventDetailModal();
     }
   });
@@ -1009,14 +1130,25 @@ function initCityEventsRuntime() {
     });
   });
 
-  tasklist.addEventListener("click", (event) => {
+  tasklist.addEventListener("click", async (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
+    const claimButton = target.closest("[data-city-event-claim]");
+    if (claimButton instanceof HTMLButtonElement && shouldRunServerCityEvents()) {
+      if (serverSubmitPending || claimButton.disabled) return;
+      serverSubmitPending = true;
+      claimButton.disabled = true;
+      const response = await submitServerCityEventCommand({ action: "claim", id: claimButton.dataset.cityEventClaim });
+      serverSubmitPending = false;
+      if (!response?.accepted) writeCityEventsInfo(response?.errors?.[0]?.message || "Odměnu se nepodařilo vyzvednout.");
+      if (selectedAgentKey) renderTasks(selectedAgentKey);
+      return;
+    }
     const row = target.closest("[data-event-open]");
     if (!(row instanceof HTMLElement)) return;
     const taskId = String(row.dataset.eventOpen || "").trim();
     const selectedTask = selectedAgentKey
-      ? resolveVisibleCharacterTasks(selectedAgentKey, AGENTS[selectedAgentKey]?.tasks).find((task) => String(task.id) === taskId)
+      ? getRenderedTasks(selectedAgentKey).find((task) => String(task.id) === taskId)
       : taskLookup.get(taskId);
     if (selectedTask) {
       openEventDetailModal(selectedTask);
@@ -1075,11 +1207,22 @@ function initCityEventsRuntime() {
   };
   const restartLocalTimers = () => {
     stopLocalTimers();
-    const available = shouldRunLocalCityEvents();
+    const available = shouldRunLocalCityEvents() || shouldRunServerCityEvents();
     openBtn.hidden = !available;
     openBtn.setAttribute("aria-hidden", available ? "false" : "true");
     if (!available && !modal.classList.contains("hidden")) closeModal();
     startLocalTimers();
+  };
+  const handleServerSliceRendered = () => {
+    if (!shouldRunServerCityEvents()) return;
+    syncAgentUnlockBadges();
+    if (selectedAgentKey && !modal.classList.contains("hidden")) renderTasks(selectedAgentKey);
+    if (selectedEventTask && !detailModal.classList.contains("hidden")) {
+      const refreshedTask = getRenderedTasks(selectedEventTask.agentKey)
+        .find((task) => task.offerId === selectedEventTask.offerId);
+      if (refreshedTask) openEventDetailModal(refreshedTask);
+      else closeEventDetailModal();
+    }
   };
   const handleVisibilityChange = () => {
     if (document.hidden) stopLocalTimers();
@@ -1087,11 +1230,13 @@ function initCityEventsRuntime() {
   };
 
   document.addEventListener("empire:runtime-mode-changed", restartLocalTimers);
+  document.addEventListener("empire:gameplay-slice-rendered", handleServerSliceRendered);
   document.addEventListener("visibilitychange", handleVisibilityChange);
   window.addEventListener("empire:mobile-performance-mode-changed", restartLocalTimers);
   window.addEventListener("beforeunload", () => {
     stopLocalTimers();
     document.removeEventListener("empire:runtime-mode-changed", restartLocalTimers);
+    document.removeEventListener("empire:gameplay-slice-rendered", handleServerSliceRendered);
     document.removeEventListener("visibilitychange", handleVisibilityChange);
     window.removeEventListener("empire:mobile-performance-mode-changed", restartLocalTimers);
   }, { once: true });

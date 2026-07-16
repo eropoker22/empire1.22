@@ -51,6 +51,8 @@ export const validateAttack = (
       serverTime: command.issuedAt,
       expectedTargetVersion: command.payload.expectedTargetVersion,
       expectedOriginVersion: command.payload.expectedSourceVersion,
+      routeDistrictId: command.payload.routeDistrictId,
+      expectedRouteVersion: command.payload.expectedRouteVersion,
       action: "attack"
     },
     {

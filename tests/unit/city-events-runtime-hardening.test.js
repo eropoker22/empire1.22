@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const source = readFileSync("page-assets/js/app/city-events-runtime.js", "utf8");
 
-describe("local City Events runtime hardening", () => {
+describe("City Events runtime authority", () => {
   it("keeps rewards storage-safe and preserves overflow for a later claim", () => {
     expect(source).toContain("applyInventoryOutput");
     expect(source).toContain("pendingRewards");
@@ -31,5 +31,19 @@ describe("local City Events runtime hardening", () => {
     expect(source).toContain("hashCityEventSeed");
     expect(source).not.toContain("Math.random");
     expect(source).not.toContain("durationMin:");
+  });
+
+  it("renders the authoritative server projection and submits intent-only commands", () => {
+    expect(source).toContain("getServerGameplaySliceReadModel()?.player?.cityEvents");
+    expect(source).toContain('submitServerCityEventCommand({ action: "start", id: selectedEventTask.offerId })');
+    expect(source).toContain('submitServerCityEventCommand({ action: "claim", id: claimButton.dataset.cityEventClaim })');
+    expect(source).toContain("const available = shouldRunLocalCityEvents() || shouldRunServerCityEvents()");
+    expect(source).not.toContain("submitServerCityEventCommand({ action: \"start\", id: selectedEventTask.definitionId");
+  });
+
+  it("keeps local outcome mutation behind the explicit local execution-mode timer", () => {
+    expect(source).toContain("if (!shouldRunLocalCityEvents() || unbindLifecycleTicker || document.hidden) return;");
+    expect(source).toContain("if (shouldRunServerCityEvents()) {");
+    expect(source).not.toContain("if (!shouldRunServerCityEvents()) startCityEventRun");
   });
 });

@@ -52,6 +52,7 @@ import { resolveFitnessAttackWeaponModifiers, resolveFitnessDefenseItemModifiers
 import { applyAttackWeaponLosses, writeAttackWeaponInventory } from "./attackWeaponInventory";
 import { consumeTacticalGridCombat, resolveTacticalGridCombat } from "./tacticalGridCombat";
 import { bumpDistrictSecurityRevision } from "../state";
+import { countActiveOwnedDistricts, reconcilePlayerTerritoryLifecycle } from "../rules/liveness";
 
 /**
  * Responsibility: Orchestrates one authoritative district attack command.
@@ -390,6 +391,7 @@ export const handleAttackDistrict = (
         stabilizingUntilTick: attackSucceeded
           ? state.root.tick + Math.max(0, Number(stabilizationConfig?.durationTicks ?? 0))
           : null,
+        ownershipStartedAtTick: attackSucceeded ? state.root.tick : targetDistrict.ownershipStartedAtTick,
         status: districtDestroyed
           ? "destroyed"
           : attackSucceeded
@@ -536,7 +538,33 @@ export const handleAttackDistrict = (
 
   const bountyResult = resolveBountyClaims(recoveryState, { actorPlayerId: attacker.id, targetPlayerId: targetDistrict.ownerPlayerId, targetDistrictId: targetDistrict.id, actionType: districtDestroyed ? "destroy-district" : "attack-district", successfulAttack: attackSucceeded || districtDestroyed, capturesDistrict: attackSucceeded, destroysDistrict: districtDestroyed, commandId: command.id });
   const boostResult = consumeTacticalGridCombat(bountyResult.nextState, tacticalGrid, command.id, context);
-  return { nextState: boostResult.nextState, events: [...events, ...bountyResult.events, ...boostResult.events], errors: [] };
+  let lifecycleState = boostResult.nextState;
+  const lifecycleEvents: CoreEvent[] = [];
+  if (targetDistrict.ownerPlayerId && (attackSucceeded || districtDestroyed)) {
+    const defenderLifecycle = reconcilePlayerTerritoryLifecycle(lifecycleState, {
+      playerId: targetDistrict.ownerPlayerId,
+      previousActiveDistrictCount: countActiveOwnedDistricts(state, targetDistrict.ownerPlayerId),
+      sourceEventId: command.id,
+      issuedAt: command.issuedAt
+    }, context);
+    lifecycleState = defenderLifecycle.nextState;
+    lifecycleEvents.push(...defenderLifecycle.events);
+  }
+  if (attackSucceeded) {
+    const attackerLifecycle = reconcilePlayerTerritoryLifecycle(lifecycleState, {
+      playerId: attacker.id,
+      previousActiveDistrictCount: countActiveOwnedDistricts(state, attacker.id),
+      sourceEventId: command.id,
+      issuedAt: command.issuedAt
+    }, context);
+    lifecycleState = attackerLifecycle.nextState;
+    lifecycleEvents.push(...attackerLifecycle.events);
+  }
+  return {
+    nextState: lifecycleState,
+    events: [...events, ...bountyResult.events, ...boostResult.events, ...lifecycleEvents],
+    errors: []
+  };
 };
 
 const applyPlayerPopulationLoss = (

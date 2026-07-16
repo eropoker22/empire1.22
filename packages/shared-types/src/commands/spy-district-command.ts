@@ -9,6 +9,8 @@ import type { ActionCommand } from "./action-command";
 export interface SpyDistrictPayload {
   districtId: DistrictId;
   sourceDistrictId: DistrictId;
+  routeDistrictId?: DistrictId;
+  expectedRouteVersion?: number;
 }
 
 export type SpyDistrictCommand = ActionCommand<"spy-district", SpyDistrictPayload>;

@@ -41,6 +41,8 @@ export const validateSpy = (
     actorPlayerId: command.playerId,
     targetDistrictId: command.payload.districtId,
     originDistrictId: command.payload.sourceDistrictId,
+    routeDistrictId: command.payload.routeDistrictId,
+    expectedRouteVersion: command.payload.expectedRouteVersion,
     serverTime: command.issuedAt,
     action: "spy"
   });
