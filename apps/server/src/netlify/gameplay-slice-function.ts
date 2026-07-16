@@ -15,7 +15,7 @@ import { handlePublicServerMatchmakingReserve } from "./public-server-matchmakin
 import { createGameplaySessionNetlifyHandlers } from "./gameplay-session-netlify";
 import { readGameplaySessionCookie } from "./gameplay-session-cookie";
 import { validateStateChangingOrigin } from "./csrf-origin-guard";
-import type { AdminDurableRepositories } from "../admin/read-only";
+import { resolveAdminDurableRepositories, type AdminDurableRepositories } from "../admin/read-only";
 import { createAdminGameplaySliceBoundary } from "./admin-gameplay-slice-boundary";
 import { createPublicServerListResponse } from "./public-server-list-netlify";
 
@@ -44,7 +44,9 @@ export const createGameplaySliceFunctionHandler = (
     gameplaySessionTokenSecret: gameplaySessionSecret.secret ?? undefined,
     environment
   });
-  const handleAdminRequest = createAdminGameplaySliceBoundary({ environment, repositories: options.adminRepositories });
+  const adminResolution = resolveAdminDurableRepositories(environment, options.adminRepositories);
+  const adminRepositories = adminResolution.accepted ? adminResolution.repositories : null;
+  const handleAdminRequest = createAdminGameplaySliceBoundary({ environment, repositories: adminRepositories ?? undefined });
   const allowImplicitInstanceCreation =
     options.allowImplicitInstanceCreation ?? environment.NODE_ENV !== "production";
   const snapshotTokenCodec = snapshotSecret.secret
@@ -98,7 +100,7 @@ export const createGameplaySliceFunctionHandler = (
     }
 
     if (route === "servers") {
-      return createPublicServerListResponse(server);
+      return await createPublicServerListResponse(server, environment, adminRepositories);
     }
 
     const productionGuardError = sessionHandlers?.validateProductionSessionRuntime() ?? null;

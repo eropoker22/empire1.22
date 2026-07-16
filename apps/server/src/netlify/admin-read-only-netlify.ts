@@ -1,6 +1,7 @@
 import * as crypto from "node:crypto";
 import type { AdminApiErrorView, AdminOverviewView, AdminSessionView } from "@empire/shared-types";
 import { createAdminSessionService, type AdminDurableRepositories } from "../admin/read-only";
+import { createHostedControlPlaneService } from "../admin/hosted";
 import { createJsonResponse, type NetlifyFunctionResponse } from "./netlify-json-response";
 import { validateStateChangingOrigin } from "./csrf-origin-guard";
 import { createAdminSessionClearCookie, createAdminSessionSetCookie, readAdminSessionCookie } from "./admin-session-cookie";
@@ -23,6 +24,7 @@ export const createAdminReadOnlyNetlifyHandler = (options: {
   now?: () => Date;
 }) => {
   const sessions = createAdminSessionService(options);
+  const controlPlane = createHostedControlPlaneService(options);
   return async (request: AdminNetlifyRequest): Promise<NetlifyFunctionResponse> => {
     const method = request.httpMethod.toUpperCase();
     const route = resolveRoute(request.path);
@@ -33,8 +35,9 @@ export const createAdminReadOnlyNetlifyHandler = (options: {
     if (route.kind === "session" && method === "POST") {
       const stateChangeError = validateAdminStateChange(request, options.environment);
       if (stateChangeError) return stateChangeError;
-      const secret = isRecord(request.body) ? String(request.body.secret ?? "") : "";
-      const result = await sessions.login({ secret, fingerprint: resolveFingerprint(request.headers), correlationId });
+      const username = isRecord(request.body) ? String(request.body.username ?? "") : "";
+      const password = isRecord(request.body) ? String(request.body.password ?? "") : "";
+      const result = await sessions.login({ username, password, fingerprint: resolveFingerprint(request.headers), correlationId });
       if (!result.accepted) return error(result.errors[0]!.code === "ADMIN_LOGIN_RATE_LIMITED" ? 429 : 401,
         result.errors[0]!.code, result.errors[0]!.message);
       return createJsonResponse(200, success(result.session), {
@@ -61,6 +64,26 @@ export const createAdminReadOnlyNetlifyHandler = (options: {
     }
     if (route.kind === "session" && method === "GET") {
       return createJsonResponse(200, success(authentication.session), { "cache-control": "no-store" });
+    }
+    if (route.kind === "control-plane" && method === "GET") {
+      return createJsonResponse(200, success(await controlPlane.availability()), { "cache-control": "no-store" });
+    }
+    if (route.kind === "servers" && method === "POST") {
+      const stateChangeError = validateAdminStateChange(request, options.environment);
+      if (stateChangeError) return stateChangeError;
+      const result = await controlPlane.createServer({ session: authentication.session, payload: request.body,
+        idempotencyKey: header(request.headers, "idempotency-key"), correlationId });
+      if (!result.accepted) return controlPlaneError(result.errors[0]!);
+      return createJsonResponse(202, success(result.data), { "cache-control": "no-store" });
+    }
+    if (route.kind === "server-action" && method === "POST") {
+      const stateChangeError = validateAdminStateChange(request, options.environment);
+      if (stateChangeError) return stateChangeError;
+      const result = await controlPlane.requestAction({ session: authentication.session,
+        serverInstanceId: route.serverInstanceId, payload: request.body,
+        idempotencyKey: header(request.headers, "idempotency-key"), correlationId });
+      if (!result.accepted) return controlPlaneError(result.errors[0]!);
+      return createJsonResponse(202, success(result.data), { "cache-control": "no-store" });
     }
     if (method !== "GET") return error(405, "ADMIN_METHOD_NOT_ALLOWED", "Admin endpoint is read-only.");
 
@@ -118,8 +141,8 @@ const createOverview = (instances: Awaited<ReturnType<AdminDurableRepositories["
   }
 });
 
-type Route = { kind: "session" | "overview" | "compat-monitoring" | "audit" }
-  | { kind: "instance" | "logs"; serverInstanceId: string };
+type Route = { kind: "session" | "overview" | "compat-monitoring" | "audit" | "control-plane" | "servers" }
+  | { kind: "instance" | "logs" | "server-action"; serverInstanceId: string };
 const resolveRoute = (path: string): Route | null => {
   const parts = split(path);
   if (parts[0] !== "api" || parts[1] !== "admin") return null;
@@ -127,6 +150,9 @@ const resolveRoute = (path: string): Route | null => {
   if (parts.length === 3 && parts[2] === "overview") return { kind: "overview" };
   if (parts.length === 3 && parts[2] === "monitoring") return { kind: "compat-monitoring" };
   if (parts.length === 3 && parts[2] === "audit") return { kind: "audit" };
+  if (parts.length === 3 && parts[2] === "control-plane") return { kind: "control-plane" };
+  if (parts.length === 3 && parts[2] === "servers") return { kind: "servers" };
+  if (parts.length === 5 && parts[2] === "servers" && parts[4] === "actions") return { kind: "server-action", serverInstanceId: decodeURIComponent(parts[3]!) };
   if (parts.length === 4 && parts[2] === "instances") return { kind: "instance", serverInstanceId: decodeURIComponent(parts[3]!) };
   if (parts.length === 5 && parts[2] === "instances" && parts[4] === "logs") return { kind: "logs", serverInstanceId: decodeURIComponent(parts[3]!) };
   return null;
@@ -139,6 +165,15 @@ const validateAdminStateChange = (request: AdminNetlifyRequest, env: Record<stri
   return origin ? error(403, origin.code, origin.message) : null;
 };
 const success = <T>(data: T) => ({ accepted: true as const, data, errors: [] as [] });
+const controlPlaneError = (entry: AdminApiErrorView) => error(
+  entry.code === "ADMIN_FORBIDDEN" ? 403
+    : entry.code === "ADMIN_INSTANCE_NOT_FOUND" ? 404
+    : entry.code === "ADMIN_STALE_VERSION" || entry.code === "ADMIN_IDEMPOTENCY_CONFLICT" ? 409
+    : entry.code.includes("UNAVAILABLE") || entry.code.includes("DISABLED") || entry.code.includes("OFFLINE") || entry.code.includes("PENDING") ? 503
+    : 400,
+  entry.code,
+  entry.message
+);
 const error = (status: number, code: string, message: string, headers: Record<string, string> = {}) =>
   createJsonResponse(status, { accepted: false, data: null, errors: [{ code, message } satisfies AdminApiErrorView] }, { "cache-control": "no-store", ...headers });
 const split = (path: string): string[] => String(path).split("?")[0]!.split("/").filter(Boolean);
