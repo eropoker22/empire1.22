@@ -11,6 +11,7 @@ import {
 } from "../../apps/server/src/auth";
 import { createServerApp } from "../../apps/server/src/app";
 import { createGameplaySliceFunctionHandler } from "../../apps/server/src/netlify/gameplay-slice-function";
+import { ensureDefaultLobbyServers } from "../../apps/server/src/netlify/gameplay-slice-function-default-servers";
 import { createPlaceTrapCommandFixture } from "../fixtures/command-fixtures";
 
 const env = {
@@ -219,6 +220,7 @@ describe("gameplay session security", () => {
       accountIdentityProvider: createFixedProductionAccountProvider("account:alice"),
       gameplaySessionService: sessionService
     });
+    ensureDefaultLobbyServers(server);
     const handler = createGameplaySliceFunctionHandler({
       environment: productionEnv,
       server

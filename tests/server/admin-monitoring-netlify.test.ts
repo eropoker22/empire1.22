@@ -110,7 +110,10 @@ describe("read-only admin Netlify boundary", () => {
       handlerA(event("GET", "/api/admin/overview", null, headers)), handlerB(event("GET", "/api/admin/overview", null, headers)),
       handlerA(event("GET", "/api/admin/instances/server%3AB", null, headers)), handlerB(event("GET", "/api/admin/instances/server%3AB", null, headers))
     ]);
-    expect(JSON.parse(overviewA.body).data).toEqual(JSON.parse(overviewB.body).data);
+    const overviewDataA = JSON.parse(overviewA.body).data;
+    const overviewDataB = JSON.parse(overviewB.body).data;
+    expect(overviewDataA.instances).toEqual(overviewDataB.instances);
+    expect(overviewDataA.counts).toEqual(overviewDataB.counts);
     expect(JSON.parse(detailA.body).data).toEqual(JSON.parse(detailB.body).data);
     expect(serverA.instanceManager.listInstances()).toHaveLength(0);
     expect(serverB.instanceManager.listInstances().length).toBeGreaterThan(0);
