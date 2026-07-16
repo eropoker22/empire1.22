@@ -15,6 +15,7 @@ test("read-only admin session and per-instance isolation", async ({ page }) => {
     }
     if (!authenticated || sessionExpired) return failure(route, 401, "ADMIN_SESSION_EXPIRED");
     if (path === "/api/admin/overview") return json(route, 200, success(overview));
+    if (path === "/api/admin/control-plane") return json(route, 200, success(controlPlane));
     if (path.endsWith("/server%3AA") || path.endsWith("/server:A")) return json(route, 200, success(detail("server:A", 2, 10, 20, 5)));
     if (path.endsWith("/server%3AB") || path.endsWith("/server:B")) return json(route, 200, success(detail("server:B", 5, 30, 80, 14)));
     return failure(route, 404, "ADMIN_NOT_FOUND");
@@ -22,12 +23,13 @@ test("read-only admin session and per-instance isolation", async ({ page }) => {
 
   await page.goto("/admin.html");
   await expect(page.getByRole("heading", { name: "Admin konzole" })).toBeVisible();
-  await page.locator("[data-admin-secret]").fill("one-use-secret");
+  await page.locator("[data-admin-username]").fill("test-viewer");
+  await page.locator("[data-admin-password]").fill("TestPassword-Only-For-Fixtures");
   await page.getByRole("button", { name: "Přihlásit" }).click();
   await expect(page.getByRole("heading", { name: "Read-only admin" })).toBeVisible();
   await expect(page.getByText("Server A", { exact: true })).toBeVisible();
   await expect(page.locator('[data-admin-instance="server:B"]')).toBeVisible();
-  await expect(page.locator("[data-admin-secret]")).toHaveCount(0);
+  await expect(page.locator("[data-admin-password]")).toHaveCount(0);
   await expect(page.locator("button")).toHaveCount(2);
   await expect(page.locator("body")).not.toContainText(/mock|draft only|static fallback/iu);
 
@@ -53,9 +55,11 @@ test("read-only admin session and per-instance isolation", async ({ page }) => {
   await expect(page.getByText("Admin session vypršela.")).toBeVisible();
 });
 
-const session = { adminSessionId: "session:e2e", actorId: "actor:e2e", displayName: "E2E Viewer", role: "viewer",
+const session = { adminSessionId: "session:e2e", adminUserId: "user:e2e", actorId: "user:e2e", username: "test-viewer", displayName: "E2E Viewer", role: "viewer",
   createdAt: "2026-07-16T10:00:00.000Z", expiresAt: "2026-07-16T10:30:00.000Z", revokedAt: null,
-  authenticationMethod: "closed-alpha-bootstrap" };
+  lastSeenAt: "2026-07-16T10:00:00.000Z", authenticationMethod: "password" };
+const controlPlane = { writesEnabled: false, provisioningEnabled: false, databaseAvailable: true,
+  migrationsCurrent: true, workerStatus: "offline", unavailableCode: "ADMIN_WRITES_DISABLED", servers: [] };
 const NOW = "2026-07-16T10:00:00.000Z";
 const summary = (id, count, workerStatus) => ({ serverInstanceId: id, displayName: id === "server:A" ? "Server A" : "Server B",
   mode: "free", region: "eu-central", capacity: 20, joinPolicy: "open", status: id === "server:A" ? "running" : "paused",

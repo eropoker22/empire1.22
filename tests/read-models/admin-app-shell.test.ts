@@ -5,9 +5,9 @@ import { createAdminApp } from "../../apps/admin/src/app/create-admin-app";
 import type { AdminInstanceDetailView, AdminInstanceSummaryView, AdminOverviewView, AdminSessionView } from "@empire/shared-types";
 
 const session: AdminSessionView = {
-  adminSessionId: "session:viewer", actorId: "actor:viewer", displayName: "Viewer", role: "viewer",
+  adminSessionId: "session:viewer", adminUserId: "user:viewer", actorId: "user:viewer", username: "viewer", displayName: "Viewer", role: "viewer",
   createdAt: "2026-07-16T10:00:00.000Z", expiresAt: "2026-07-16T10:30:00.000Z", revokedAt: null,
-  authenticationMethod: "closed-alpha-bootstrap"
+  lastSeenAt: "2026-07-16T10:00:00.000Z", authenticationMethod: "password"
 };
 
 describe("read-only admin app", () => {
@@ -50,14 +50,16 @@ describe("read-only admin app", () => {
     expect(document.body.textContent).not.toContain("Detail server:A");
   });
 
-  it("clears the bootstrap secret input after login", async () => {
+  it("clears the password input after login", async () => {
     const client = createClient();
     client.getSession = vi.fn().mockRejectedValue(new AdminApiError(401, "ADMIN_SESSION_REQUIRED", "Session required."));
     await createAdminApp({ client, pollIntervalMs: 60_000 }).mount();
-    const input = document.querySelector<HTMLInputElement>("[data-admin-secret]")!;
-    input.value = "one-use-secret";
+    const username = document.querySelector<HTMLInputElement>("[data-admin-username]")!;
+    const input = document.querySelector<HTMLInputElement>("[data-admin-password]")!;
+    username.value = "test-owner";
+    input.value = "TestPassword-Only-For-Fixtures";
     document.querySelector<HTMLFormElement>("[data-admin-login]")!.requestSubmit();
-    await vi.waitFor(() => expect(client.login).toHaveBeenCalledWith("one-use-secret"));
+    await vi.waitFor(() => expect(client.login).toHaveBeenCalledWith("test-owner", "TestPassword-Only-For-Fixtures"));
     expect(input.value).toBe("");
   });
 });
@@ -67,7 +69,11 @@ const createClient = (): AdminApiClient => ({
   login: vi.fn().mockResolvedValue(session),
   logout: vi.fn().mockResolvedValue(undefined),
   getOverview: vi.fn().mockResolvedValue(overview()),
-  getInstance: vi.fn((id: string) => Promise.resolve(detail(id)))
+  getInstance: vi.fn((id: string) => Promise.resolve(detail(id))),
+  getControlPlane: vi.fn().mockResolvedValue({ writesEnabled: false, provisioningEnabled: false,
+    databaseAvailable: false, migrationsCurrent: false, workerStatus: "offline", unavailableCode: "ADMIN_WRITES_DISABLED", servers: [] }),
+  createServer: vi.fn(),
+  requestLifecycleAction: vi.fn()
 });
 
 const summary = (id: string): AdminInstanceSummaryView => ({

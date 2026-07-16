@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { createServerApp } from "../../apps/server/src/app";
 import {
   createInMemoryAdminDurableRepositories,
+  hashAdminPassword,
+  normalizeAdminUsername,
   type AdminDurableRepositories
 } from "../../apps/server/src/admin/read-only";
 import { createAdminReadOnlyNetlifyHandler } from "../../apps/server/src/netlify/admin-read-only-netlify";
@@ -9,47 +11,48 @@ import { createGameplaySliceFunctionHandler } from "../../apps/server/src/netlif
 import { ensureDefaultLobbyServers } from "../../apps/server/src/netlify/gameplay-slice-function-default-servers";
 import { createAdminReadOnlySeed } from "../fixtures/admin-read-only-fixture";
 
-const TEST_ENV = { NODE_ENV: "test", EMPIRE_ADMIN_BOOTSTRAP_SECRET: "correct-secret", EMPIRE_ADMIN_ROLE: "viewer" };
+const TEST_ENV = { NODE_ENV: "test", EMPIRE_ADMIN_FINGERPRINT_SECRET: "test-fingerprint-secret-at-least-32-characters" };
+const TEST_USERNAME = "test-viewer";
+const TEST_PASSWORD = "TestPassword-Only-For-Fixtures";
 
 describe("read-only admin Netlify boundary", () => {
   it("creates a short-lived HttpOnly session and authenticates reads by cookie", async () => {
-    const repositories = createInMemoryAdminDurableRepositories(createAdminReadOnlySeed());
+    const repositories = await createRepositories("viewer");
     const handler = createAdminReadOnlyNetlifyHandler({ repositories, environment: TEST_ENV });
-    const wrong = await json(handler(request("POST", "/api/admin/session", { secret: "wrong" })));
+    const wrong = await json(handler(request("POST", "/api/admin/session", { username: TEST_USERNAME, password: "WrongPassword-Only-For-Test" })));
     expect(wrong.statusCode).toBe(401);
-    expect(JSON.stringify(wrong.json)).not.toContain("correct-secret");
+    expect(JSON.stringify(wrong.json)).not.toContain(TEST_PASSWORD);
 
-    const login = await json(handler(request("POST", "/api/admin/session", { secret: "correct-secret" })));
+    const login = await json(handler(request("POST", "/api/admin/session", { username: TEST_USERNAME, password: TEST_PASSWORD })));
     expect(login.statusCode).toBe(200);
     expect(login.headers["set-cookie"]).toMatch(/HttpOnly; Path=\/api\/admin; SameSite=Strict/);
-    expect(login.json.data).toMatchObject({ actorId: "admin:local", role: "viewer", authenticationMethod: "closed-alpha-bootstrap" });
+    expect(login.json.data).toMatchObject({ adminUserId: "admin-user:test", username: TEST_USERNAME, role: "viewer", authenticationMethod: "password" });
     const overview = await json(handler(request("GET", "/api/admin/overview", null, cookie(login))));
     expect(overview.statusCode).toBe(200);
     expect(overview.json.data.counts).toMatchObject({ known: 2, live: 1, offline: 1, players: 7 });
   });
 
   it("uses Secure cookies and validates Origin in production", async () => {
-    const repositories = createInMemoryAdminDurableRepositories();
-    const environment = { NODE_ENV: "production", EMPIRE_ADMIN_BOOTSTRAP_ENABLED: "true", EMPIRE_ADMIN_BOOTSTRAP_SECRET: "prod-secret",
-      EMPIRE_ADMIN_ACTOR_ID: "admin:owner", EMPIRE_ADMIN_DISPLAY_NAME: "Owner", EMPIRE_ADMIN_ROLE: "owner", EMPIRE_ALLOWED_ORIGINS: "https://empire.test" };
+    const repositories = await createRepositories("owner");
+    const environment = { NODE_ENV: "production", EMPIRE_ADMIN_FINGERPRINT_SECRET: "production-fingerprint-secret-at-least-32", EMPIRE_ALLOWED_ORIGINS: "https://empire.test" };
     const handler = createAdminReadOnlyNetlifyHandler({ repositories, environment });
-    expect((await handler(request("POST", "/api/admin/session", { secret: "prod-secret" }))).statusCode).toBe(403);
-    const login = await handler(request("POST", "/api/admin/session", { secret: "prod-secret" }, { origin: "https://empire.test" }));
+    expect((await handler(request("POST", "/api/admin/session", { username: TEST_USERNAME, password: TEST_PASSWORD }))).statusCode).toBe(403);
+    const login = await handler(request("POST", "/api/admin/session", { username: TEST_USERNAME, password: TEST_PASSWORD }, { origin: "https://empire.test" }));
     expect(login.statusCode).toBe(200);
     expect(login.headers["set-cookie"]).toContain("Secure");
   });
 
   it("rate limits repeated failures durably and audits authentication/access/logout", async () => {
-    const repositories = createInMemoryAdminDurableRepositories(createAdminReadOnlySeed());
+    const repositories = await createRepositories("viewer");
     const handler = createAdminReadOnlyNetlifyHandler({ repositories, environment: TEST_ENV });
     for (let index = 0; index < 5; index += 1) {
-      expect((await handler(request("POST", "/api/admin/session", { secret: "wrong" }))).statusCode).toBe(401);
+      expect((await handler(request("POST", "/api/admin/session", { username: TEST_USERNAME, password: "WrongPassword-Only-For-Test" }))).statusCode).toBe(401);
     }
-    expect((await handler(request("POST", "/api/admin/session", { secret: "wrong" }))).statusCode).toBe(429);
+    expect((await handler(request("POST", "/api/admin/session", { username: TEST_USERNAME, password: "WrongPassword-Only-For-Test" }))).statusCode).toBe(429);
 
-    const cleanRepositories = createInMemoryAdminDurableRepositories(createAdminReadOnlySeed());
+    const cleanRepositories = await createRepositories("viewer");
     const cleanHandler = createAdminReadOnlyNetlifyHandler({ repositories: cleanRepositories, environment: TEST_ENV });
-    const login = await cleanHandler(request("POST", "/api/admin/session", { secret: "correct-secret" }));
+    const login = await cleanHandler(request("POST", "/api/admin/session", { username: TEST_USERNAME, password: TEST_PASSWORD }));
     const headers = cookie(login);
     await cleanHandler(request("GET", "/api/admin/overview", null, headers));
     await cleanHandler(request("GET", "/api/admin/instances/server%3AA", null, headers));
@@ -62,10 +65,10 @@ describe("read-only admin Netlify boundary", () => {
   });
 
   it("expires sessions and enforces owner-only audit reads", async () => {
-    const repositories = createInMemoryAdminDurableRepositories(createAdminReadOnlySeed());
+    const repositories = await createRepositories("viewer");
     let now = new Date("2026-07-16T10:00:00.000Z");
     const handler = createAdminReadOnlyNetlifyHandler({ repositories, environment: TEST_ENV, now: () => now });
-    const login = await handler(request("POST", "/api/admin/session", { secret: "correct-secret" }));
+    const login = await handler(request("POST", "/api/admin/session", { username: TEST_USERNAME, password: TEST_PASSWORD }));
     const headers = cookie(login);
     const forbidden = await handler(request("GET", "/api/admin/audit", null, headers));
     expect(forbidden.statusCode).toBe(403);
@@ -79,9 +82,9 @@ describe("read-only admin Netlify boundary", () => {
   });
 
   it("keeps every detail row scoped and excludes raw or secret payload keys", async () => {
-    const repositories = createInMemoryAdminDurableRepositories(createAdminReadOnlySeed());
+    const repositories = await createRepositories("viewer");
     const handler = createAdminReadOnlyNetlifyHandler({ repositories, environment: TEST_ENV });
-    const login = await handler(request("POST", "/api/admin/session", { secret: "correct-secret" }));
+    const login = await handler(request("POST", "/api/admin/session", { username: TEST_USERNAME, password: TEST_PASSWORD }));
     const detailA = await json(handler(request("GET", "/api/admin/instances/server%3AA", null, cookie(login))));
     const detailB = await json(handler(request("GET", "/api/admin/instances/server%3AB", null, cookie(login))));
     expect(detailA.json.data.players).toHaveLength(2);
@@ -98,13 +101,13 @@ describe("read-only admin Netlify boundary", () => {
   });
 
   it("returns the same durable authority from handlers with different local registries", async () => {
-    const shared = createInMemoryAdminDurableRepositories(createAdminReadOnlySeed());
+    const shared = await createRepositories("viewer");
     const serverA = createServerApp();
     const serverB = createServerApp();
     ensureDefaultLobbyServers(serverB);
     const handlerA = createGameplaySliceFunctionHandler({ server: serverA, adminRepositories: shared, environment: TEST_ENV });
     const handlerB = createGameplaySliceFunctionHandler({ server: serverB, adminRepositories: shared, environment: TEST_ENV });
-    const login = await handlerA(event("POST", "/api/admin/session", { secret: "correct-secret" }));
+    const login = await handlerA(event("POST", "/api/admin/session", { username: TEST_USERNAME, password: TEST_PASSWORD }));
     const headers = cookie(login);
     const [overviewA, overviewB, detailA, detailB] = await Promise.all([
       handlerA(event("GET", "/api/admin/overview", null, headers)), handlerB(event("GET", "/api/admin/overview", null, headers)),
@@ -149,3 +152,13 @@ const rows = (detail: Record<string, unknown>): Array<{ serverInstanceId: string
 ;
 const forbiddenKeys = (serialized: string): string[] => ["payloadPreview", "rawPayload", "commandPayload", "eventPayload", "apiKey",
   "accessToken", "refreshToken", "secret", "authorization", "cookie", "password"].filter((key) => serialized.includes(`\"${key}\"`));
+
+const createRepositories = async (role: "viewer" | "owner"): Promise<AdminDurableRepositories> => {
+  const password = await hashAdminPassword(TEST_PASSWORD);
+  const at = "2026-07-16T10:00:00.000Z";
+  return createInMemoryAdminDurableRepositories({ ...createAdminReadOnlySeed(), users: [{
+    adminUserId: "admin-user:test", username: TEST_USERNAME, normalizedUsername: normalizeAdminUsername(TEST_USERNAME),
+    ...password, passwordVersion: 1, role, status: "active", displayName: "Test Admin",
+    createdAt: at, updatedAt: at, lastLoginAt: null, passwordChangedAt: at, version: 1
+  }] });
+};
