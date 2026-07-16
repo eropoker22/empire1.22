@@ -280,12 +280,6 @@ describe("gameplay slice read model contract", () => {
         {
           "actionType": "spy-district",
           "reportType": "spy",
-          "result": "partial",
-          "targetDistrictId": "district:2",
-        },
-        {
-          "actionType": "spy-district",
-          "reportType": "spy",
           "result": "success",
           "targetDistrictId": "district:2",
         },

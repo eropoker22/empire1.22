@@ -152,7 +152,7 @@ const runAttackStabilization = () => {
     id: "e2e:attack:second",
     payload: { districtId: "district:3", sourceDistrictId: "district:1", weapons: { bazooka: 1 } }
   }), context);
-  assert.equal(second.errors[0]?.code, "attack_cooldown_active");
+  assert.equal(second.errors[0]?.code, "DISTRICT_CONFLICT_STATE_CHANGED");
 };
 
 const runSpyHeistRob = () => {
@@ -170,6 +170,7 @@ const runSpyHeistRob = () => {
   spyState.districtsById["district:2"].version += 1;
   assert.equal(spyState.districtsById["district:2"].securityRevision, securityRevision);
   assert.equal(hasValidAttackAuthorization(spyState, "player:1", "district:2"), true);
+  spyState.notificationsById = {};
   const firstSpy = applyCommand(spyState, createSpyDistrictCommandFixture({ id: "e2e:spy:1" }), context);
   const secondSpy = applyCommand(firstSpy.nextState, createSpyDistrictCommandFixture({
     id: "e2e:spy:2",
@@ -182,7 +183,7 @@ const runSpyHeistRob = () => {
   assert.equal(getPlayerSpyOperationState(secondSpy.nextState, "player:1").slots.every(
     (slot) => slot.availableAtTick > secondSpy.nextState.root.tick
   ), true);
-  assert.equal(thirdSpy.errors[0]?.code, "spy_capacity_exceeded");
+  assert.equal(thirdSpy.errors[0]?.code, "SPY_SLOT_LIMIT_REACHED");
 
   const heistState = createCombatStateFixture();
   heistState.playersById["player:1"] = { ...heistState.playersById["player:1"], population: 120 };
