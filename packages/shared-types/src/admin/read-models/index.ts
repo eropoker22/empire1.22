@@ -1,5 +1,6 @@
 export * from "./alliance-population-summary";
 export * from "./admin-read-only-views";
+export * from "./admin-hosted-control-plane-views";
 export * from "./command-volume-summary";
 export * from "./error-summary";
 export * from "./instance-diagnostics-summary";

@@ -4,8 +4,10 @@ import { createPostgresAdminMonitoringRepository } from "./postgres-admin-monito
 import {
   createPostgresAdminAuditRepository,
   createPostgresAdminLoginRateLimitRepository,
-  createPostgresAdminSessionRepository
+  createPostgresAdminSessionRepository,
+  createPostgresAdminUserRepository
 } from "./postgres-admin-security-repositories";
+import { createPostgresHostedControlPlaneRepository } from "../hosted/postgres-hosted-control-plane-repository";
 
 export const createPostgresAdminDurableRepositories = (
   database: PostgresDatabase,
@@ -13,7 +15,9 @@ export const createPostgresAdminDurableRepositories = (
 ): AdminDurableRepositories => ({
   kind: "postgres",
   monitoring: createPostgresAdminMonitoringRepository(database, now),
+  users: createPostgresAdminUserRepository(database),
   sessions: createPostgresAdminSessionRepository(database),
   audit: createPostgresAdminAuditRepository(database),
-  loginRateLimit: createPostgresAdminLoginRateLimitRepository(database)
+  loginRateLimit: createPostgresAdminLoginRateLimitRepository(database),
+  hosted: createPostgresHostedControlPlaneRepository(database)
 });

@@ -25,6 +25,11 @@ interface InstanceRow extends Record<string, unknown> {
   lock_owner: string | null;
   locked_until: Date | string | null;
   last_error_at: Date | string | null;
+  hosted_display_name: string | null;
+  hosted_region: string | null;
+  hosted_capacity: number | null;
+  hosted_join_policy: string | null;
+  hosted_status: string | null;
 }
 
 export const createPostgresAdminMonitoringRepository = (
@@ -65,16 +70,18 @@ export const createPostgresAdminMonitoringRepository = (
     listInstanceDiagnosticSummaries: listDiagnostics,
     getWorkerHeartbeat: async (id) => {
       const result = await database.query<{
-        lock_owner: string;
-        locked_until: Date | string;
+        lock_owner: string | null;
+        locked_until: Date | string | null;
         updated_at: Date | string;
-      }>(`SELECT lock_owner, locked_until, updated_at FROM empire_tick_locks WHERE server_instance_id = $1`, [id]);
+      }>(`SELECT runtime_lease_owner_id AS lock_owner, runtime_lease_expires_at AS locked_until,
+        last_worker_heartbeat_at AS updated_at FROM empire_hosted_server_instances
+        WHERE server_instance_id = $1 AND last_worker_heartbeat_at IS NOT NULL`, [id]);
       const row = result.rows[0];
       return row ? {
         serverInstanceId: id,
         ownerId: row.lock_owner,
         lastHeartbeatAt: iso(row.updated_at),
-        leaseExpiresAt: iso(row.locked_until)
+        leaseExpiresAt: row.locked_until ? iso(row.locked_until) : null
       } : null;
     },
     getSnapshotMetadata: async (id) => {
@@ -95,13 +102,17 @@ export const createPostgresAdminMonitoringRepository = (
 
 const instanceQuery = (where: string): string => `
   SELECT si.server_instance_id, si.mode, si.status, si.payload,
+    hsi.display_name AS hosted_display_name, hsi.region AS hosted_region,
+    hsi.capacity AS hosted_capacity, hsi.join_policy AS hosted_join_policy, hsi.status AS hosted_status,
     sl.payload AS snapshot_payload, sl.created_at AS snapshot_created_at,
-    tl.updated_at AS heartbeat_at, tl.lock_owner, tl.locked_until,
+    COALESCE(ih.last_heartbeat_at, hsi.last_worker_heartbeat_at) AS heartbeat_at,
+    hsi.runtime_lease_owner_id AS lock_owner, hsi.runtime_lease_expires_at AS locked_until,
     (SELECT max(dl.created_at) FROM empire_diagnostic_log dl
       WHERE dl.server_instance_id = si.server_instance_id AND dl.level = 'error') AS last_error_at
   FROM empire_server_instances si
   LEFT JOIN empire_snapshot_latest sl ON sl.server_instance_id = si.server_instance_id
-  LEFT JOIN empire_tick_locks tl ON tl.server_instance_id = si.server_instance_id
+  LEFT JOIN empire_hosted_server_instances hsi ON hsi.server_instance_id = si.server_instance_id
+  LEFT JOIN empire_hosted_instance_heartbeats ih ON ih.server_instance_id = si.server_instance_id
   ${where}
   ORDER BY si.created_at ASC, si.server_instance_id ASC`;
 
@@ -116,12 +127,12 @@ const mapInstanceRow = (row: InstanceRow, generatedAt: string): AdminInstanceSum
   const source = snapshot ? "durable-snapshot" as const : "durable-control-plane" as const;
   return {
     serverInstanceId: row.server_instance_id,
-    displayName: text(payload.displayName) || lobby?.displayName || row.server_instance_id,
+    displayName: row.hosted_display_name || text(payload.displayName) || lobby?.displayName || row.server_instance_id,
     mode: row.mode,
-    region: text(payload.region) || lobby?.region || "unknown",
-    capacity: integer(payload.capacity ?? lobby?.capacity),
-    joinPolicy: text(payload.joinPolicy) || lobby?.joinPolicy || "unknown",
-    status: row.status,
+    region: row.hosted_region || text(payload.region) || lobby?.region || "unknown",
+    capacity: row.hosted_capacity ?? integer(payload.capacity ?? lobby?.capacity),
+    joinPolicy: row.hosted_join_policy || text(payload.joinPolicy) || lobby?.joinPolicy || "unknown",
+    status: row.hosted_status || row.status,
     currentTick: snapshot?.tick ?? null,
     stateVersion: snapshot?.integrity.rootVersion ?? null,
     playerCount: snapshot?.state.root.playerIds.length ?? 0,

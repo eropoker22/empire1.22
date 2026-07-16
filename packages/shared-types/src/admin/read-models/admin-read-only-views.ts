@@ -15,13 +15,16 @@ export interface AdminFreshnessView {
 
 export interface AdminSessionView {
   adminSessionId: string;
+  adminUserId: string;
   actorId: string;
+  username: string;
   displayName: string;
   role: AdminRole;
   createdAt: string;
   expiresAt: string;
   revokedAt: string | null;
-  authenticationMethod: "closed-alpha-bootstrap" | "production-identity";
+  lastSeenAt: string;
+  authenticationMethod: "password" | "closed-alpha-bootstrap" | "production-identity";
 }
 
 export interface AdminInstanceSummaryView {
@@ -198,7 +201,17 @@ export type AdminAuditAction =
   | "overview-access"
   | "instance-detail-access"
   | "audit-access"
-  | "forbidden-access";
+  | "forbidden-access"
+  | "admin-user-bootstrap"
+  | "admin-password-rotated"
+  | "create-server-request"
+  | "create-server-replay"
+  | "provisioning-success"
+  | "provisioning-failure"
+  | "lifecycle-request"
+  | "lifecycle-replay"
+  | "lifecycle-success"
+  | "lifecycle-failure";
 
 export interface AdminAuditEntryView {
   id: string;

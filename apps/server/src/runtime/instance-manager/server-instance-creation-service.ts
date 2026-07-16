@@ -16,6 +16,8 @@ export interface CreateGameServerInstanceRequest {
   capacity?: number;
   mapComposition?: ServerMapComposition;
   joinPolicy?: ServerInstanceRuntime["lobby"]["joinPolicy"];
+  /** Internal provisioning input. Never accept this field from an HTTP client. */
+  worldSeed?: string;
 }
 
 export type ServerInstanceCreationResult =
@@ -100,7 +102,7 @@ export const createServerInstanceCreationService = (
     });
 
     runtime.lobby.joinPolicy = request.joinPolicy ?? runtime.lobby.joinPolicy;
-    runtime.state.serverInstance.worldSeed = `shared-city:${serverInstanceId}`;
+    runtime.state.serverInstance.worldSeed = request.worldSeed ?? `shared-city:${serverInstanceId}`;
     seedRuntimeMap(runtime, request.mapComposition);
     runtime.record.status = "lobby";
     runtime.state.serverInstance.currentTick = runtime.state.root.tick;

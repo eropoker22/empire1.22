@@ -32,8 +32,8 @@ export const resolveAdminDurableRepositories = (
 };
 
 const allDurable = (repositories: AdminDurableRepositories): boolean =>
-  repositories.monitoring.durable && repositories.sessions.durable
-  && repositories.audit.durable && repositories.loginRateLimit.durable;
+  repositories.monitoring.durable && repositories.users.durable && repositories.sessions.durable
+  && repositories.audit.durable && repositories.loginRateLimit.durable && repositories.hosted.durable;
 
 const unavailable = (): AdminRepositoryResolution => ({
   accepted: false,

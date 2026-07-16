@@ -1,6 +1,9 @@
 declare const process: {
   env: Record<string, string | undefined>;
   pid: number;
+  exit(code?: number): never;
+  once(event: "SIGTERM" | "SIGINT", listener: () => void): void;
+  loadEnvFile?(path?: string): void;
 };
 
 declare module "node:fs" {
@@ -16,6 +19,21 @@ declare module "node:fs" {
 declare module "node:fs/promises" {
   export function mkdtemp(prefix: string): Promise<string>;
   export function rm(path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void>;
+  export function readdir(path: URL): Promise<string[]>;
+  export function readFile(path: URL, encoding: "utf8"): Promise<string>;
+}
+
+declare module "node:http" {
+  export interface IncomingMessage { url?: string }
+  export interface ServerResponse {
+    writeHead(status: number, headers?: Record<string, string>): ServerResponse;
+    end(data?: string): void;
+  }
+  export interface Server {
+    listen(port: number, host: string): void;
+    close(callback: () => void): void;
+  }
+  export function createServer(handler: (request: IncomingMessage, response: ServerResponse) => void): Server;
 }
 
 declare module "node:child_process" {
