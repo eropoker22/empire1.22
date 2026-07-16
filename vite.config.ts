@@ -51,7 +51,7 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        admin: fromRoot("pages/admin.html")
+        admin: fromRoot("admin.html")
       }
     }
   }

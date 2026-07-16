@@ -185,7 +185,10 @@ describe("page onboarding smoke", () => {
     expect(actionResultsCssSource).toContain(".spy-toast,");
     expect(actionResultsCssSource).toContain("radial-gradient(circle at 50% 0%, rgba(var(--toast-accent-rgb");
     expect(readFileSync(resolve(root, "page-assets/css/styles.css"), "utf8")).toContain('@import "./styles-static-hover.css";');
-    expect(page("admin.html")).toContain('href="../page-assets/css/styles-static-hover.css"');
+    const adminHtml = readFileSync(resolve(root, "admin.html"), "utf8");
+    expect(adminHtml).toContain('href="./page-assets/css/styles-admin-dashboard.css"');
+    expect(adminHtml).toContain('src="./page-assets/js/admin-assets/admin-app.js" defer');
+    expect(adminHtml).not.toContain("data-static-fallback");
     expect(page("login.html")).toMatch(/href="\.\.\/page-assets\/css\/login\.css">\r?\n\s*<link rel="stylesheet" href="\.\.\/page-assets\/css\/styles-static-hover\.css">/u);
     expect(page("lobby.html")).toMatch(/href="\.\.\/page-assets\/css\/lobby\.css">\r?\n\s*<link rel="stylesheet" href="\.\.\/page-assets\/css\/styles-static-hover\.css">/u);
     expect(readFileSync(resolve(root, "server-select.html"), "utf8")).toMatch(/href="\.\/server-select\.css">\r?\n\s*<link rel="stylesheet" href="\.\/page-assets\/css\/styles-static-hover\.css">/u);

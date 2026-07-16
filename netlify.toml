@@ -59,16 +59,6 @@
   status = 200
 
 [[redirects]]
-  from = "/admin"
-  to = "/pages/admin.html"
-  status = 200
-
-[[redirects]]
-  from = "/admin.html"
-  to = "/pages/admin.html"
-  status = 200
-
-[[redirects]]
   from = "/faction.html"
   to = "/pages/faction.html"
   status = 200

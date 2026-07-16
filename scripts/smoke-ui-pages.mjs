@@ -8,7 +8,7 @@ const pages = [
   "pages/lobby.html",
   "pages/faction.html",
   "pages/game.html",
-  "pages/admin.html"
+  "admin.html"
 ];
 const violations = [];
 
@@ -84,9 +84,17 @@ for (const anchor of gameMapAnchors) {
   }
 }
 
-const adminHtml = read("pages/admin.html");
-if (!adminHtml.includes("src=\"../page-assets/js/admin-assets/admin-app.js\"")) {
-  violations.push("pages/admin.html must load the admin monitoring app bundle");
+const adminHtml = read("admin.html");
+if (!adminHtml.includes("src=\"./page-assets/js/admin-assets/admin-app.js\"")) {
+  violations.push("admin.html must load the admin monitoring app bundle");
+}
+if (exists("pages/admin.html")) {
+  violations.push("pages/admin.html must not exist; admin.html is the only source entrypoint");
+}
+for (const forbiddenText of ["admin-dashboard--mock", "data-static-fallback", "Neon Boss", "Chrome Saint"]) {
+  if (adminHtml.includes(forbiddenText)) {
+    violations.push(`admin.html contains forbidden dashboard fallback text: ${forbiddenText}`);
+  }
 }
 
 const netlifyConfig = read("netlify.toml");
@@ -104,6 +112,12 @@ if (
   || !netlifyPublishScript.includes("packages/game-core/src/legacy-page")
 ) {
   violations.push("scripts/build-netlify-client.mjs must publish browser ESM package modules used by static pages");
+}
+if (/from\s*=\s*["']\/admin\/?["']/u.test(netlifyConfig)) {
+  violations.push("netlify.toml must not publish /admin or /admin/");
+}
+if (netlifyPublishScript.includes("pages/admin.html") || netlifyPublishScript.includes("/admin /")) {
+  violations.push("scripts/build-netlify-client.mjs must publish only root admin.html");
 }
 
 if (violations.length > 0) {

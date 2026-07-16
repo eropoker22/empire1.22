@@ -30,6 +30,17 @@ const productionPageRules = [
       "debugSlice=1"
     ],
     message: "game page must not eagerly load the debug/admin gameplay slice bundle"
+  },
+  {
+    path: "admin.html",
+    forbidden: [
+      "admin-dashboard--mock",
+      "data-static-fallback",
+      "Neon Boss",
+      "Chrome Saint",
+      "pages/admin.html"
+    ],
+    message: "production admin entrypoint must remain a bundle-only shell without fallback data"
   }
 ];
 const devLauncherRules = [
@@ -253,6 +264,22 @@ for (const file of requiredAuthorityFiles) {
   if (!fs.existsSync(fullPath)) {
     violations.push(`${file} is required so gameplay authority is not only in page-assets/js/app/runtime.js`);
   }
+}
+
+const adminHtmlSources = ["admin.html", "pages/admin.html", "admin/index.html"]
+  .filter((relativePath) => fs.existsSync(path.join(root, relativePath)));
+if (adminHtmlSources.length !== 1 || adminHtmlSources[0] !== "admin.html") {
+  violations.push(`admin.html must be the only admin HTML source (found: ${adminHtmlSources.join(", ") || "none"})`);
+}
+
+const netlifyConfig = readRequiredFile("netlify.toml");
+if (/from\s*=\s*["']\/admin\/?["']/u.test(netlifyConfig)) {
+  violations.push("netlify.toml must not expose /admin or /admin/");
+}
+
+const publishScript = readRequiredFile("scripts/build-netlify-client.mjs");
+if (publishScript.includes("pages/admin.html") || publishScript.includes("/admin /")) {
+  violations.push("Netlify publish script must publish only root admin.html");
 }
 
 if (violations.length > 0) {

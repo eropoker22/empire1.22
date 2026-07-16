@@ -16,6 +16,7 @@ const staticDirs = [
 ];
 const requiredPublishFiles = [
   ".htaccess",
+  "admin.html",
   "pages/login.html",
   "social/empire-streets-og.png",
   "page-assets/js/login.js",
@@ -34,6 +35,7 @@ const requiredPublishFiles = [
 
 await rm(publishDir, { recursive: true, force: true });
 await mkdir(publishDir, { recursive: true });
+await cp(resolve(rootDir, "admin.html"), resolve(publishDir, "admin.html"));
 
 for (const dir of staticDirs) {
   const targetDir = resolve(publishDir, dir);
@@ -58,8 +60,6 @@ await writeFile(
     "/login.html /pages/login.html 200",
     "/lobby.html /pages/lobby.html 200",
     "/game.html /pages/game.html 200",
-    "/admin /pages/admin.html 200",
-    "/admin.html /pages/admin.html 200",
     "/faction.html /pages/faction.html 200",
     ""
   ].join("\n"),
@@ -78,8 +78,6 @@ await writeFile(
     "RewriteRule ^login\\.html$ pages/login.html [L]",
     "RewriteRule ^lobby\\.html$ pages/lobby.html [L]",
     "RewriteRule ^game\\.html$ pages/game.html [L]",
-    "RewriteRule ^admin/?$ pages/admin.html [L]",
-    "RewriteRule ^admin\\.html$ pages/admin.html [L]",
     "RewriteRule ^faction\\.html$ pages/faction.html [L]",
     ""
   ].join("\n"),
