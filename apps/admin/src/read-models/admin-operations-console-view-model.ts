@@ -477,6 +477,18 @@ const createDemoSampleRuntimeProjection = (
       sampleHealth("orders", "warning", generatedAt, "Order rows are sample data."),
       sampleHealth("events", "warning", generatedAt, "Events are sample data.")
     ],
+    liveness: {
+      activePlayers: players.filter((player) => player.status === "active").length,
+      playablePlayers: 0,
+      temporarilySealedPlayers: 0,
+      encircledPlayers: 0,
+      lastStandPlayers: 0,
+      emergencyRecoveryEligiblePlayers: 0,
+      invalidSoftlocks: 0,
+      stateCounts: {},
+      blockingReasonCounts: {},
+      invalidPlayerIds: []
+    },
     players,
     districts,
     economy: {

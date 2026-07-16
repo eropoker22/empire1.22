@@ -57,6 +57,7 @@
     "smoke:gameplay-slice:server": "node scripts/gameplay-slice-smoke.mjs",
     "simulate:20p": "node scripts/run-local-bin.mjs vite-node/vite-node.mjs tools/debug/src/closed-alpha-20p-simulation/cli.ts",
     "simulate:20p:matrix": "npm run simulate:20p -- --seeds=10 --steps=1000",
+    "simulate:liveness-soak": "npm run simulate:20p -- --seeds=20 --steps=100",
     "simulate:free-br": "node scripts/run-local-bin.mjs vite-node/vite-node.mjs tools/debug/src/free-br-simulation/cli.ts",
     "simulate:free-br:json": "npm run simulate:free-br -- --json",
     "simulate:free-br:matrix": "npm run simulate:free-br -- --matrix --scenarios=canonical-20p,aggressive-heavy,casual-heavy,downtown-rush,alliance-heavy,no-alliance-control,high-risk-crime",
@@ -87,7 +88,7 @@
     "test:e2e:full": "node scripts/run-playwright-e2e-smoke.mjs --all",
     "coverage:check": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/unit tests/integration tests/server tests/persistence tests/read-models --coverage --exclude tests/unit/game-core/free-session-balance-anti-snowball.test.ts --exclude tests/unit/game-core/faction-foundation-simulation.test.ts --exclude tests/unit/game-core/police-free-session-simulation.test.ts --exclude tests/unit/tools/free-mode-pacing-sim.test.ts --exclude tests/integration/free-mode-shared-city-simulation.test.ts",
     "quality": "npm run lint && npm run smoke:ui && npm run typecheck && npm run test:full && npm run coverage:check",
-    "verify:closed-alpha": "npm run typecheck && npm run lint && node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/server/gameplay-session-security.test.ts tests/server/atomic-command-persistence.test.ts tests/unit/game-core/authoritative-basic-actions.test.ts tests/unit/game-config/empire-city-map-manifest.test.ts && npm run test:e2e:smoke",
+    "verify:closed-alpha": "node scripts/verify-closed-alpha-preflight.mjs && npm run typecheck && npm run lint && node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/server/gameplay-session-security.test.ts tests/server/atomic-command-persistence.test.ts tests/unit/game-core/authoritative-basic-actions.test.ts tests/unit/game-config/empire-city-map-manifest.test.ts tests/unit/game-core/player-operational-liveness.test.ts tests/unit/game-core/player-territory-lifecycle.test.ts tests/unit/runtime-conflict-authority-matrix.test.js && npm run test:e2e:smoke",
     "verify:prod-like": "npm run verify:closed-alpha && npm run test:persistence:postgres:smoke"
   },
   "devDependencies": {

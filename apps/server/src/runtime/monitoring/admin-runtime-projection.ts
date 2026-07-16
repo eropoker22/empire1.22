@@ -17,6 +17,7 @@ import {
   sanitizeAdminMonitoringPayloadPreview,
   sanitizeAdminMonitoringText
 } from "./admin-monitoring-sanitizer";
+import { createAdminLivenessProjection } from "./admin-liveness-projection";
 
 const STALE_AFTER_SECONDS = 30;
 const MAX_EVENT_ROWS = 50;
@@ -48,6 +49,7 @@ export const createAdminRuntimeDetailProjection = (
   const events = createRuntimeEvents(runtimes);
   const economy = createEconomyProjection(runtimes);
   const stale = createStaleState(runtimes, nowIso);
+  const liveness = createAdminLivenessProjection(runtimes);
 
   return {
     generatedAt: nowIso,
@@ -64,6 +66,7 @@ export const createAdminRuntimeDetailProjection = (
       events,
       runtimes
     }),
+    liveness,
     players,
     districts,
     economy,

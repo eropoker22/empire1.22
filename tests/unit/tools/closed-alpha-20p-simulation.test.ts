@@ -105,6 +105,7 @@ describe("20-player closed-alpha authoritative simulation", () => {
     expect(report.diagnostics.policeRaids.dayLimit).toBe(resolveModeConfig("free").balance.police?.maxConcurrentRaidsByPhase.day);
     expect(report.diagnostics.policeRaids.nightLimit).toBe(resolveModeConfig("free").balance.police?.maxConcurrentRaidsByPhase.night);
     expect(report.invariantViolations).toEqual([]);
+    expect(report.liveness.invalidSoftlocks).toBe(0);
   });
 
   it("is deterministic for a fixed seed on the audited surfaces", async () => {

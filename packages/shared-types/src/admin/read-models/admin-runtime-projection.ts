@@ -26,6 +26,7 @@ export interface AdminRuntimeDetailProjection {
   source: AdminProjectionSource;
   stale: AdminProjectionStaleState;
   projectionHealth: AdminProjectionHealth[];
+  liveness: AdminRuntimeLivenessProjection;
   players: AdminRuntimePlayerProjection[];
   districts: AdminRuntimeDistrictProjection[];
   economy: AdminRuntimeEconomyProjection;
@@ -33,6 +34,19 @@ export interface AdminRuntimeDetailProjection {
   police: AdminRuntimePoliceProjection;
   orders: AdminRuntimeOrderProjection[];
   events: AdminRuntimeEventProjection[];
+}
+
+export interface AdminRuntimeLivenessProjection {
+  activePlayers: number;
+  playablePlayers: number;
+  temporarilySealedPlayers: number;
+  encircledPlayers: number;
+  lastStandPlayers: number;
+  emergencyRecoveryEligiblePlayers: number;
+  invalidSoftlocks: number;
+  stateCounts: Record<string, number>;
+  blockingReasonCounts: Record<string, number>;
+  invalidPlayerIds: string[];
 }
 
 export interface AdminRuntimePlayerProjection {

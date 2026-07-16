@@ -23,7 +23,11 @@ import type {
   SpyDistrictCommand,
   UpgradeBuildingCommand
 } from "@empire/shared-types";
-import { ALLIANCE_CREATE_REQUIRED_INFLUENCE, type CoreGameState } from "@empire/game-core";
+import {
+  ALLIANCE_CREATE_REQUIRED_INFLUENCE,
+  resolvePlayerOperationalLiveness,
+  type CoreGameState
+} from "@empire/game-core";
 
 declare const process: {
   env: Record<string, string | undefined>;
@@ -768,6 +772,15 @@ export interface ClosedAlphaSimulationReport {
   };
   initialResources: Record<string, ResourceSummary>;
   finalResources: Record<string, ResourceSummary>;
+  liveness: {
+    stateCounts: Record<string, number>;
+    invalidSoftlocks: number;
+    playersWithNoValidOrigin: number;
+    playersWithNoFutureDeadline: number;
+    defeatedPlayers: number;
+    lastStandActivations: number;
+    emergencyRecoveryClaims: number;
+  };
   metrics: ClosedAlphaMetrics;
   diagnostics: ClosedAlphaDiagnostics;
   warnings: string[];
@@ -2924,6 +2937,28 @@ const buildReport = async (
   });
 
   const rawEventCounters = countBy(eventRecords, (record) => record.event.type);
+  const livenessViews = state.players.map((player) => ({
+    playerId: player.id,
+    status: runtime.state.playersById[player.id]?.status,
+    view: resolvePlayerOperationalLiveness(runtime.state, player.id, { config: runtime.config })
+  }));
+  const activeLivenessViews = livenessViews.filter((entry) => entry.status === "active");
+  const invalidLiveness = activeLivenessViews.filter((entry) =>
+    entry.view.invalidInvariant
+    || (!entry.view.canProgressNow && !entry.view.canProgressLater && !entry.view.emergencyRecovery.canClaim));
+  for (const entry of invalidLiveness) {
+    const message = `ACTIVE_PLAYER_SOFTLOCKED:${entry.playerId}:${entry.view.state}`;
+    if (!state.invariantViolations.includes(message)) state.invariantViolations.push(message);
+  }
+  const liveness = {
+    stateCounts: countBy(livenessViews, (entry) => entry.view.state),
+    invalidSoftlocks: invalidLiveness.length,
+    playersWithNoValidOrigin: activeLivenessViews.filter((entry) => entry.view.usableOriginDistrictIds.length === 0).length,
+    playersWithNoFutureDeadline: activeLivenessViews.filter((entry) => !entry.view.canProgressNow && entry.view.nextProgressAtTick === null).length,
+    defeatedPlayers: livenessViews.filter((entry) => entry.status === "defeated").length,
+    lastStandActivations: Object.values(runtime.state.playersById).filter((player) => player.lastStandUsedAtTick != null).length,
+    emergencyRecoveryClaims: Object.values(runtime.state.playersById).filter((player) => player.emergencyRecoveryUsedAtTick != null).length
+  };
   const report: ClosedAlphaSimulationReport = {
     name: "20-player mixed-behavior closed-alpha simulation",
     passed: state.invariantViolations.length === 0 && state.errors.length === 0,
@@ -2956,6 +2991,7 @@ const buildReport = async (
     },
     initialResources: state.initialResources,
     finalResources,
+    liveness,
     metrics: state.metrics,
     diagnostics: buildDiagnostics(state, finalResources, rawEventCounters),
     warnings: dedupe([
@@ -5166,6 +5202,15 @@ const buildEarlyFailureReport = (input: {
   },
   initialResources: {},
   finalResources: {},
+  liveness: {
+    stateCounts: {},
+    invalidSoftlocks: 0,
+    playersWithNoValidOrigin: 0,
+    playersWithNoFutureDeadline: 0,
+    defeatedPlayers: 0,
+    lastStandActivations: 0,
+    emergencyRecoveryClaims: 0
+  },
   metrics: createEmptyMetrics([]),
   diagnostics: createEmptyDiagnostics(),
   warnings: [],
