@@ -88,4 +88,13 @@ for (const file of requiredPublishFiles) {
   await access(resolve(publishDir, file));
 }
 
+for (const file of [["pages", "admin.html"].join("/"), ["admin", "index.html"].join("/")]) {
+  try {
+    await access(resolve(publishDir, file));
+    throw new Error(`Forbidden duplicate admin build output: client/${file}`);
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+}
+
 console.log(`Prepared Netlify publish directory: ${relative(rootDir, publishDir)}`);

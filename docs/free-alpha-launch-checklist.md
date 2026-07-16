@@ -37,7 +37,7 @@ This checklist is for a public Free alpha/fun test. War mode must stay closed/fo
   - `EMPIRE_DATABASE_URL` or `GAMEPLAY_DATABASE_URL`
   - `GAMEPLAY_SLICE_SNAPSHOT_SECRET`
   - `GAMEPLAY_SLICE_SESSION_SECRET`
-  - `EMPIRE_ADMIN_SECRET` for `/api/admin/monitoring` (`EMPIRE_ADMIN_MONITORING_SECRET` must not be used alone unless the server code gains that alias)
+  - read-only admin session configuration described in `docs/admin/read-only-authority-foundation.md`
 - Apply DB migrations:
   - `apps/server/src/runtime/persistence/postgres/migrations/001_initial_runtime_persistence.sql`
   - `apps/server/src/runtime/persistence/postgres/migrations/002_command_reservations.sql`

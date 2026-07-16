@@ -14,7 +14,8 @@ const MIGRATION_FILES = [
   "002_command_reservations.sql",
   "003_gameplay_identity_sessions.sql",
   "004_atomic_command_execution.sql",
-  "005_gameplay_identity_session_invariants.sql"
+  "005_gameplay_identity_session_invariants.sql",
+  "006_admin_read_only_control_plane.sql"
 ];
 
 export const resolveLivePostgresSmokeConfig = (

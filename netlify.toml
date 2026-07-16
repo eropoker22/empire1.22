@@ -27,8 +27,8 @@
   force = true
 
 [[redirects]]
-  from = "/api/admin/monitoring"
-  to = "/.netlify/functions/gameplay-slice/admin-monitoring"
+  from = "/api/admin/*"
+  to = "/.netlify/functions/gameplay-slice/admin/:splat"
   status = 200
   force = true
 

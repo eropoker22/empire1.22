@@ -83,7 +83,7 @@ const rules = [
   },
   {
     scope: "apps/admin/src",
-    forbidden: ["@empire/game-core", "apps/client"]
+    forbidden: ["@empire/game-core", "apps/client", "apps/server", "ServerApp", "ServerInstanceManager", "CoreGameState"]
   },
   {
     scope: "apps/server/src/transport",
@@ -228,6 +228,27 @@ const readRequiredFile = (relativePath) => {
   return fs.readFileSync(fullPath, "utf8");
 };
 
+const collectTextFiles = (relativeDirectory) => {
+  const directory = path.join(root, relativeDirectory);
+  const result = [];
+  if (!fs.existsSync(directory)) return result;
+  const visit = (current) => {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const fullPath = path.join(current, entry.name);
+      if (entry.isDirectory()) visit(fullPath);
+      else if (/\.(ts|tsx|js|mjs|html)$/u.test(entry.name)) {
+        result.push([path.relative(root, fullPath).replace(/\\/gu, "/"), fs.readFileSync(fullPath, "utf8")]);
+      }
+    }
+  };
+  visit(directory);
+  return result;
+};
+
+const findNestedAdminHtml = (relativeDirectory) => collectTextFiles(relativeDirectory)
+  .map(([relativePath]) => relativePath)
+  .filter((relativePath) => relativePath.endsWith("/admin.html") || relativePath === "admin.html");
+
 for (const rule of requiredSourceBoundaryRules) {
   const content = readRequiredFile(rule.path);
 
@@ -266,8 +287,12 @@ for (const file of requiredAuthorityFiles) {
   }
 }
 
-const adminHtmlSources = ["admin.html", "pages/admin.html", "admin/index.html"]
-  .filter((relativePath) => fs.existsSync(path.join(root, relativePath)));
+const adminHtmlSources = [
+  ...(fs.existsSync(path.join(root, "admin.html")) ? ["admin.html"] : []),
+  ...findNestedAdminHtml("pages"),
+  ...findNestedAdminHtml("apps"),
+  ...findNestedAdminHtml("packages")
+];
 if (adminHtmlSources.length !== 1 || adminHtmlSources[0] !== "admin.html") {
   violations.push(`admin.html must be the only admin HTML source (found: ${adminHtmlSources.join(", ") || "none"})`);
 }
@@ -280,6 +305,44 @@ if (/from\s*=\s*["']\/admin\/?["']/u.test(netlifyConfig)) {
 const publishScript = readRequiredFile("scripts/build-netlify-client.mjs");
 if (publishScript.includes("pages/admin.html") || publishScript.includes("/admin /")) {
   violations.push("Netlify publish script must publish only root admin.html");
+}
+
+const adminBrowserSources = collectTextFiles("apps/admin/src");
+const adminServerSources = collectTextFiles("apps/server/src/admin/read-only");
+for (const [relativePath, content] of [...adminBrowserSources, ...adminServerSources]) {
+  for (const forbidden of ["payloadPreview", "rawPayload", "commandPayload", "eventPayload"]) {
+    if (content.includes(forbidden)) violations.push(`${relativePath} contains forbidden raw admin response field ${forbidden}`);
+  }
+}
+
+for (const forbiddenPath of [
+  "apps/server/src/admin/admin-command-service.ts",
+  "apps/admin/src/commands/admin-command-dispatcher.ts",
+  "packages/shared-types/src/admin/commands/instance-admin-command.ts"
+]) {
+  if (fs.existsSync(path.join(root, forbiddenPath))) violations.push(`${forbiddenPath} must not expose admin write commands`);
+}
+
+const adminHttpSource = readRequiredFile("apps/server/src/netlify/admin-read-only-netlify.ts");
+for (const forbidden of ["instanceManager", "listInstances()", "adminMonitoring", "x-empire-admin-secret"]) {
+  if (adminHttpSource.includes(forbidden)) violations.push(`admin HTTP boundary must not use ${forbidden}`);
+}
+
+const repositoryFactory = readRequiredFile("apps/server/src/admin/read-only/admin-repository-environment.ts");
+for (const required of ['driver !== "postgres"', "allDurable(provided)", "createPostgresAdminDurableRepositories"]) {
+  if (!repositoryFactory.includes(required)) violations.push(`production admin repository guard is missing ${required}`);
+}
+
+const adminDtoSource = readRequiredFile("packages/shared-types/src/admin/read-models/admin-read-only-views.ts");
+for (const typeName of ["AdminPlayerSummaryView", "AdminDistrictSummaryView", "AdminEconomySummaryView", "AdminProductionSummaryView",
+  "AdminPoliceSummaryView", "AdminLivenessSummaryView", "AdminAllianceSummaryView", "AdminSnapshotSummaryView",
+  "AdminCommandSummaryView", "AdminEventSummaryView", "AdminDiagnosticSummaryView"]) {
+  const block = adminDtoSource.match(new RegExp(`interface\\s+${typeName}\\s*\\{([\\s\\S]*?)\\n\\}`, "u"))?.[1] ?? "";
+  if (!block.includes("serverInstanceId: string")) violations.push(`${typeName} must carry serverInstanceId`);
+}
+
+for (const [relativePath, content] of collectTextFiles("apps")) {
+  if (/href\s*=\s*["']\/admin\/?["']/u.test(content)) violations.push(`${relativePath} links to forbidden /admin HTML route`);
 }
 
 if (violations.length > 0) {

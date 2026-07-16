@@ -10,6 +10,7 @@ import {
   type EventRecord
 } from "../../apps/server/src/runtime";
 import { createAttackDistrictCommandFixture } from "../fixtures/command-fixtures";
+import { createPostgresAdminDurableRepositories } from "../../apps/server/src/admin/read-only";
 
 const databaseUrl = process.env.EMPIRE_TEST_DATABASE_URL?.trim();
 const describeWhenDatabaseConfigured = databaseUrl ? describe : describe.skip;
@@ -76,6 +77,16 @@ describeWhenDatabaseConfigured("postgres persistence live smoke", () => {
         ownerId: "live-smoke",
         ttlMs: 1_000
       })).acquired).toBe(true);
+      const admin = createPostgresAdminDurableRepositories(database);
+      expect(await admin.monitoring.listKnownInstances()).toContainEqual(expect.objectContaining({
+        serverInstanceId: instanceId,
+        displayName: runtime.lobby.displayName,
+        region: runtime.lobby.region,
+        capacity: runtime.lobby.maxPlayers
+      }));
+      const adminDetail = await admin.monitoring.getInstanceRuntimeProjection(instanceId);
+      expect(adminDetail).toMatchObject({ serverInstanceId: instanceId });
+      expect(adminDetail?.commands.every((row) => row.serverInstanceId === instanceId)).toBe(true);
     } finally {
       await persistence.close();
     }

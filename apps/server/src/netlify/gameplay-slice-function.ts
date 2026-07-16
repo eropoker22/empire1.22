@@ -4,7 +4,6 @@ import { ensureGameplaySliceSessionResult } from "../bootstrap";
 import { createInstanceSnapshot } from "../runtime/persistence/mappers";
 import { createSnapshotTokenCodec, type SnapshotTokenCryptoProvider } from "../runtime/persistence/services";
 import { createGameplaySliceValidationResponse, validateLoadGameplaySliceRequest, validateSubmitGameplayCommandRequest } from "../transport/gameplay-slice-request-validation";
-import { publicServerRegistry } from "@empire/game-config";
 import { validateCommandPlayerIdentity } from "../transport/player-identity-guard";
 import { createGameplaySessionTokenCodec } from "../transport/gameplay-session-token-codec";
 import { readRequiredGameplaySessionSecret, readRequiredSnapshotSecret } from "./snapshot-secret";
@@ -13,10 +12,12 @@ import { createJsonResponse, type NetlifyFunctionResponse } from "./netlify-json
 import { resolveGameplaySliceFunctionRoute } from "./gameplay-slice-function-routes";
 import { parseNetlifyJsonBody } from "./netlify-request-body";
 import { handlePublicServerMatchmakingReserve } from "./public-server-matchmaking-netlify";
-import { handleAdminMonitoringNetlifyRequest } from "./admin-monitoring-netlify";
 import { createGameplaySessionNetlifyHandlers } from "./gameplay-session-netlify";
 import { readGameplaySessionCookie } from "./gameplay-session-cookie";
 import { validateStateChangingOrigin } from "./csrf-origin-guard";
+import type { AdminDurableRepositories } from "../admin/read-only";
+import { createAdminGameplaySliceBoundary } from "./admin-gameplay-slice-boundary";
+import { createPublicServerListResponse } from "./public-server-list-netlify";
 
 interface NetlifyFunctionEvent {
   httpMethod: string;
@@ -30,6 +31,7 @@ interface GameplaySliceFunctionHandlerOptions {
   environment?: Record<string, string | undefined>;
   allowImplicitInstanceCreation?: boolean;
   server?: ServerApp;
+  adminRepositories?: AdminDurableRepositories;
 }
 
 export const createGameplaySliceFunctionHandler = (
@@ -42,7 +44,7 @@ export const createGameplaySliceFunctionHandler = (
     gameplaySessionTokenSecret: gameplaySessionSecret.secret ?? undefined,
     environment
   });
-  ensureDefaultLobbyServers(server);
+  const handleAdminRequest = createAdminGameplaySliceBoundary({ environment, repositories: options.adminRepositories });
   const allowImplicitInstanceCreation =
     options.allowImplicitInstanceCreation ?? environment.NODE_ENV !== "production";
   const snapshotTokenCodec = snapshotSecret.secret
@@ -68,6 +70,8 @@ export const createGameplaySliceFunctionHandler = (
     : null;
 
   return async (event: NetlifyFunctionEvent): Promise<NetlifyFunctionResponse> => {
+    const adminResponse = await handleAdminRequest(event);
+    if (adminResponse) return adminResponse;
     if (event.httpMethod.toUpperCase() === "OPTIONS") {
       return createJsonResponse(204, null);
     }
@@ -81,8 +85,8 @@ export const createGameplaySliceFunctionHandler = (
       );
     }
 
-    if (route === "admin-monitoring") {
-      return handleAdminMonitoringNetlifyRequest(server, { headers: event.headers }, environment);
+    if (environment.NODE_ENV !== "production" && server.instanceManager.listInstances().length === 0) {
+      ensureDefaultLobbyServers(server);
     }
 
     if (!snapshotSecret.accepted || !snapshotTokenCodec) {
@@ -94,18 +98,7 @@ export const createGameplaySliceFunctionHandler = (
     }
 
     if (route === "servers") {
-      const publicServerIds = new Set(
-        publicServerRegistry
-          .filter((serverEntry) => serverEntry.isPublic)
-          .map((serverEntry) => serverEntry.serverInstanceId)
-      );
-      return createJsonResponse(200, {
-        accepted: true,
-        servers: server.adminMonitoring
-          .listServerSummaries()
-          .filter((summary) => publicServerIds.has(summary.serverInstanceId)),
-        errors: []
-      });
+      return createPublicServerListResponse(server);
     }
 
     const productionGuardError = sessionHandlers?.validateProductionSessionRuntime() ?? null;

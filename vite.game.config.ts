@@ -9,7 +9,7 @@ const gameplayApiPaths = [
   "/api/gameplay-slice/",
   "/api/servers",
   "/api/matchmaking/reserve",
-  "/api/admin/monitoring"
+  "/api/admin/"
 ];
 
 const createGameplayApiMiddleware = (): Plugin => {
