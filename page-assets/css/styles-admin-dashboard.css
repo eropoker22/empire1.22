@@ -59,16 +59,6 @@ button {
   background-size: 40px 40px;
 }
 
-.admin-dashboard--mock {
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.026) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(135deg, rgba(54, 244, 255, 0.06), transparent 34%),
-    linear-gradient(225deg, rgba(255, 79, 216, 0.06), transparent 40%),
-    #05070d;
-  background-size: 34px 34px, 34px 34px, auto, auto, auto;
-}
-
 .admin-boot {
   grid-column: 1 / -1;
   min-height: 100vh;
@@ -122,6 +112,53 @@ button {
     linear-gradient(180deg, rgba(12, 20, 36, 0.86), rgba(4, 7, 14, 0.82)),
     rgba(4, 7, 14, 0.78);
   backdrop-filter: blur(18px);
+}
+
+.admin-login {
+  grid-column: 1 / -1;
+  width: min(440px, calc(100vw - 32px));
+  margin: auto;
+  padding: 28px;
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius);
+  background: var(--admin-panel-strong);
+  box-shadow: var(--admin-shadow-tight);
+}
+
+.admin-login h1 {
+  margin: 8px 0 12px;
+  font-size: 28px;
+}
+
+.admin-login form,
+.admin-login label {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-login form {
+  margin-top: 22px;
+}
+
+.admin-login input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-line);
+  border-radius: 6px;
+  background: var(--admin-bg-2);
+  color: var(--admin-text);
+}
+
+.admin-notice {
+  padding: 12px 14px;
+  border-left: 3px solid var(--admin-orange);
+  background: rgba(255, 155, 66, 0.08);
+  color: var(--admin-text);
+}
+
+.admin-table tr.is-selected td {
+  background: rgba(54, 244, 255, 0.08);
 }
 
 .admin-main {

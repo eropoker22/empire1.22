@@ -11,8 +11,8 @@ export const createJsonResponse = <TBody>(
 ): NetlifyFunctionResponse => ({
   statusCode,
   headers: {
-    "access-control-allow-headers": "content-type, x-empire-admin-secret",
-    "access-control-allow-methods": "GET, POST, OPTIONS",
+    "access-control-allow-headers": "content-type",
+    "access-control-allow-methods": "GET, POST, DELETE, OPTIONS",
     "content-type": "application/json; charset=utf-8",
     ...headers
   },

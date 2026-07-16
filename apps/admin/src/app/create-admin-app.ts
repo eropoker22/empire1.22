@@ -1,206 +1,133 @@
-import { createAdminAppShell } from "./admin-app-shell";
-import {
-  bindAdminSecretForm,
-  fetchAdminOverviewFromEndpoint,
-  renderAdminError
-} from "./admin-monitoring-client";
-import type {
-  InstanceMonitoringSummary
-} from "@empire/shared-types";
-import {
-  createAdminOverviewViewModel,
-  createAdminInstanceViewModel,
-  createAdminInstanceViewModelFromMonitoringSummary,
-  type AdminOverviewViewModel
-} from "../read-models";
-import { renderInstanceListPage } from "../pages";
-import {
-  createAdminInstanceReadService,
-  createAdminLogReadService,
-  createAdminDiagnosticsReadService,
-  type AdminDiagnosticsReadFacade,
-  type AdminInstanceReadFacade,
-  type AdminLogReadFacade
-} from "../services";
+import type { AdminInstanceDetailView, AdminOverviewView, AdminSessionView } from "@empire/shared-types";
+import { AdminApiError, createAdminApiClient, type AdminApiClient } from "./admin-monitoring-client";
+import { renderDashboard, renderLoading, renderLogin, renderUnavailable } from "./read-only-admin-page";
 
-export interface AdminAppReadFacades {
-  instance?: AdminInstanceReadFacade;
-  log?: AdminLogReadFacade;
-  diagnostics?: AdminDiagnosticsReadFacade;
-}
+const POLL_INTERVAL_MS = 10_000;
+const MAX_BACKOFF_MS = 80_000;
 
-export interface AdminAppOptions {
-  facades?: AdminAppReadFacades;
-  monitoringEndpoint?: string;
-  adminMonitoringSecret?: string;
-  /** @deprecated use adminMonitoringSecret */
-  adminMonitoringToken?: string;
-  fetchAdminOverview?: () => Promise<AdminOverviewViewModel>;
-  fetchMonitoringSummaries?: () => Promise<InstanceMonitoringSummary[]>;
-}
+export interface AdminAppOptions { client?: AdminApiClient; pollIntervalMs?: number; }
 
-/**
- * Responsibility: Composition root for the admin application.
- * Belongs here: wiring read services and command boundaries for admin UI modules.
- * Does not belong here: direct gameplay state access or server authority logic.
- */
 export const createAdminApp = (options: AdminAppOptions = {}) => {
-  const instanceReadService = createAdminInstanceReadService({
-    facade: options.facades?.instance
-  });
-  const logReadService = createAdminLogReadService({
-    facade: options.facades?.log
-  });
-  const diagnosticsReadService = createAdminDiagnosticsReadService({
-    facade: options.facades?.diagnostics
-  });
+  const client = options.client ?? createAdminApiClient();
+  const pollInterval = Math.max(1_000, options.pollIntervalMs ?? POLL_INTERVAL_MS);
+  let target: HTMLElement | null = null;
+  let session: AdminSessionView | null = null;
+  let overview: AdminOverviewView | null = null;
+  let detail: AdminInstanceDetailView | null = null;
+  let selectedInstanceId: string | null = selectedFromUrl();
+  let requestSequence = 0;
+  let activeRequest: AbortController | null = null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let backoff = pollInterval;
 
-  return createAdminAppShell({
-    mount: async (target) => {
-      const mountTarget = target ?? resolveDefaultMountTarget();
-      if (!mountTarget) {
-        return;
-      }
+  const mount = async (mountTarget?: HTMLElement | null): Promise<void> => {
+    target = mountTarget ?? document.getElementById("admin-dashboard-root");
+    if (!target) return;
+    target.innerHTML = renderLoading();
+    document.addEventListener("visibilitychange", handleVisibility);
+    try { session = await client.getSession(); await refresh(); } catch (error) { handleError(error); }
+  };
 
-      mountTarget.innerHTML = renderInstanceListPage(createAdminOverviewViewModel([]));
-      bindAdminRefresh(mountTarget, () => createAdminApp(options).mount(mountTarget));
-
-      try {
-        mountTarget.innerHTML = renderInstanceListPage(await loadAdminOverview());
-        bindAdminRefresh(mountTarget, () => createAdminApp(options).mount(mountTarget));
-      } catch (error) {
-        mountTarget.innerHTML = renderAdminError(error);
-        bindAdminSecretForm(mountTarget, () => createAdminApp(options).mount(mountTarget));
-      }
-    }
-  });
-
-  async function loadAdminOverview(): Promise<AdminOverviewViewModel> {
-    if (options.fetchAdminOverview) {
-      return options.fetchAdminOverview();
-    }
-
-    if (!options.fetchMonitoringSummaries && !options.facades?.instance) {
-      const endpointOverview = await fetchAdminOverviewFromEndpoint(
-        options.monitoringEndpoint ?? "/api/admin/monitoring",
-        options.adminMonitoringSecret ?? options.adminMonitoringToken
-      );
-      if (endpointOverview) {
-        return endpointOverview;
-      }
-    }
-
-    const monitoringSummaries = await loadMonitoringSummaries(options);
-    const viewModels = monitoringSummaries.length > 0
-      ? monitoringSummaries.map(createAdminInstanceViewModelFromMonitoringSummary)
-      : await loadLegacyInstanceViewModels();
-    const selectedInstanceId = viewModels[0]?.instanceId ?? null;
-
-    return createAdminOverviewViewModel(
-      viewModels,
-      {
-        selectedLogs: selectedInstanceId ? await loadSelectedLogs(selectedInstanceId) : undefined
-      }
-    );
-  }
-
-  async function loadSelectedLogs(instanceId: string) {
-    const [commands, events, diagnostics] = await Promise.all([
-      logReadService.listRecentCommandLogs(instanceId, 20),
-      logReadService.listRecentEventLogs(instanceId, 20),
-      diagnosticsReadService.listRecentDiagnosticLogs(instanceId, 20)
-    ]);
-
-    return {
-      instanceId,
-      commands,
-      events,
-      diagnostics
-    };
-  }
-
-  async function loadLegacyInstanceViewModels() {
-    const summaries = await instanceReadService.listInstances();
-    return Promise.all(summaries.map(async (summary) => {
-      const [health, diagnostics, commandVolume, events, diagnosticLogs] = await Promise.all([
-        instanceReadService.getHealthSummary(summary.instanceId),
-        diagnosticsReadService.getDiagnosticsSummary(summary.instanceId),
-        logReadService.getCommandVolumeSummary(summary.instanceId),
-        logReadService.listRecentEventLogs(summary.instanceId, 100),
-        diagnosticsReadService.listRecentDiagnosticLogs(summary.instanceId, 100)
+  const refresh = async (): Promise<void> => {
+    if (!target || !session || document.hidden) return;
+    const sequence = ++requestSequence;
+    activeRequest?.abort();
+    activeRequest = new AbortController();
+    try {
+      const requestedInstanceId = selectedInstanceId;
+      const [nextOverview, nextDetail] = await Promise.all([
+        client.getOverview(activeRequest.signal),
+        requestedInstanceId ? client.getInstance(requestedInstanceId, activeRequest.signal) : Promise.resolve(null)
       ]);
+      if (sequence !== requestSequence || requestedInstanceId !== selectedInstanceId) return;
+      overview = nextOverview;
+      detail = nextDetail;
+      backoff = pollInterval;
+      render();
+      schedule(pollInterval);
+    } catch (error) {
+      if (isAbort(error)) return;
+      backoff = Math.min(MAX_BACKOFF_MS, backoff * 2);
+      handleError(error);
+      if (session) schedule(backoff);
+    }
+  };
 
-      return createAdminInstanceViewModel(summary, health, diagnostics, {
-        commandCount: commandVolume.totalCommands,
-        eventCount: events.length,
-        diagnosticWarningCount: diagnosticLogs.filter((record) => record.level === "warn").length
-      });
+  const render = (): void => {
+    if (!target || !session || !overview) return;
+    target.innerHTML = renderDashboard({ session, overview, detail, selectedInstanceId });
+    bindActions();
+  };
+
+  const bindActions = (): void => {
+    target?.querySelectorAll<HTMLElement>("[data-admin-instance]").forEach((link) => link.addEventListener("click", (event) => {
+      event.preventDefault();
+      const next = link.dataset.adminInstance?.trim() || null;
+      if (next === selectedInstanceId) return;
+      selectedInstanceId = next;
+      detail = null;
+      updateUrl(next);
+      render();
+      void refresh();
     }));
-  }
+    target?.querySelector<HTMLElement>("[data-admin-refresh]")?.addEventListener("click", () => void refresh());
+    target?.querySelector<HTMLElement>("[data-admin-logout]")?.addEventListener("click", () => void logout());
+  };
+
+  const bindLogin = (): void => {
+    const form = target?.querySelector<HTMLFormElement>("[data-admin-login]");
+    const input = target?.querySelector<HTMLInputElement>("[data-admin-secret]");
+    if (!form || !input) return;
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const secret = input.value;
+      input.value = "";
+      try {
+        session = await client.login(secret);
+        overview = null;
+        detail = null;
+        target!.innerHTML = renderLoading();
+        await refresh();
+      } catch (error) {
+        const message = target?.querySelector<HTMLElement>("[data-admin-login-error]");
+        if (message) message.textContent = error instanceof Error ? error.message : "Přihlášení selhalo.";
+      }
+    });
+  };
+
+  const logout = async (): Promise<void> => {
+    activeRequest?.abort(); clearSchedule();
+    try { await client.logout(); } catch (_error) { /* The server clears the cookie whenever reachable. */ }
+    session = null; overview = null; detail = null;
+    if (target) target.innerHTML = renderLogin("Admin session byla ukončena.");
+    bindLogin();
+  };
+
+  const handleError = (error: unknown): void => {
+    if (!target) return;
+    if (error instanceof AdminApiError && (error.status === 401 || error.code.includes("SESSION"))) {
+      session = null; overview = null; detail = null;
+      target.innerHTML = renderLogin(error.code === "ADMIN_SESSION_EXPIRED" ? "Admin session vypršela." : undefined);
+      bindLogin();
+      return;
+    }
+    target.innerHTML = renderUnavailable(error instanceof Error ? error.message : "Monitoring není dostupný.");
+    target.querySelector<HTMLElement>("[data-admin-refresh]")?.addEventListener("click", () => void refresh());
+  };
+
+  const handleVisibility = (): void => {
+    if (document.hidden) { activeRequest?.abort(); clearSchedule(); }
+    else if (session) void refresh();
+  };
+  const schedule = (delay: number): void => { clearSchedule(); timer = setTimeout(() => void refresh(), delay); };
+  const clearSchedule = (): void => { if (timer) clearTimeout(timer); timer = null; };
+  return { mount, refresh };
 };
 
-const loadMonitoringSummaries = async (
-  options: AdminAppOptions
-): Promise<InstanceMonitoringSummary[]> => {
-  if (options.fetchMonitoringSummaries) {
-    return options.fetchMonitoringSummaries();
-  }
-
-  const facadeSummaries = await createAdminInstanceReadService({
-    facade: options.facades?.instance
-  }).listInstanceMonitoringSummaries();
-
-  if (facadeSummaries.length > 0 || options.facades?.instance?.listInstanceMonitoringSummaries) {
-    return facadeSummaries;
-  }
-
-  return (await fetchAdminOverviewFromEndpoint(
-    options.monitoringEndpoint ?? "/api/admin/monitoring",
-    options.adminMonitoringSecret ?? options.adminMonitoringToken
-  ))?.instances
-    .map((instance) => ({
-      instanceId: instance.instanceId,
-      mode: instance.mode,
-      status: instance.status,
-      displayName: instance.displayName,
-      region: instance.region,
-      currentTick: instance.currentTick,
-      playerCount: instance.playerCount,
-      allianceCount: instance.allianceCount,
-      crashCount: instance.crashCount,
-      healthStatus: instance.healthStatus,
-      warningCount: instance.warningCount,
-      lastTickStartedAt: instance.lastTickStartedAt,
-      lastTickCompletedAt: instance.lastTickCompletedAt,
-      lastErrorAt: instance.lastErrorAt,
-      queuedEventCount: instance.queuedEventCount,
-      commandCount: instance.commandCount,
-      eventCount: instance.eventCount,
-      diagnosticErrorCount: instance.diagnosticErrorCount,
-      lastSnapshotAt: instance.lastSnapshotAt
-    })) ?? [];
+const selectedFromUrl = (): string | null => typeof location === "undefined" ? null : new URL(location.href).searchParams.get("instance");
+const updateUrl = (instanceId: string | null): void => {
+  const url = new URL(location.href);
+  instanceId ? url.searchParams.set("instance", instanceId) : url.searchParams.delete("instance");
+  history.replaceState(null, "", url);
 };
-
-const resolveDefaultMountTarget = (): HTMLElement | null =>
-  typeof document === "undefined"
-    ? null
-    : document.getElementById("admin-dashboard-root");
-
-const bindAdminRefresh = (
-  target: HTMLElement,
-  refresh: () => void | Promise<void>
-): void => {
-  if (typeof target.querySelector !== "function") {
-    return;
-  }
-
-  const button = target.querySelector<HTMLButtonElement>("[data-admin-refresh]");
-  if (!button) {
-    return;
-  }
-
-  button.addEventListener("click", (event) => {
-    event.preventDefault();
-    void refresh();
-  });
-};
+const isAbort = (error: unknown): boolean => error instanceof DOMException && error.name === "AbortError";

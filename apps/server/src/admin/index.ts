@@ -1,2 +1,2 @@
-export * from "./admin-command-service";
 export * from "./admin-read-service";
+export * from "./read-only";

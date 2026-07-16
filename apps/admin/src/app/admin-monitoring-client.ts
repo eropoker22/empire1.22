@@ -1,133 +1,59 @@
-import {
-  resolveAdminMonitoringSecret,
-  setRuntimeAdminMonitoringSecret
-} from "./admin-monitoring-token";
 import type {
-  AdminRuntimeDetailProjection,
-  InstanceMonitoringSummary,
-  ServerInstanceSummary
+  AdminApiResponse,
+  AdminInstanceDetailView,
+  AdminOverviewView,
+  AdminSessionView
 } from "@empire/shared-types";
-import {
-  createAdminInstanceViewModelFromMonitoringSummary,
-  createAdminOverviewViewModel,
-  type AdminOverviewViewModel
-} from "../read-models";
 
-export const fetchAdminOverviewFromEndpoint = async (
-  endpoint: string,
-  configuredSecret?: string
-): Promise<AdminOverviewViewModel | null> => {
-  if (typeof fetch === "undefined") {
-    return null;
+export class AdminApiError extends Error {
+  constructor(readonly status: number, readonly code: string, message: string) {
+    super(message);
   }
+}
 
-  const secret = resolveAdminMonitoringSecret(configuredSecret);
-  const headers: Record<string, string> = {
-    accept: "application/json"
-  };
-  if (secret) {
-    headers["x-empire-admin-secret"] = secret;
-  }
+export interface AdminApiClient {
+  getSession(signal?: AbortSignal): Promise<AdminSessionView>;
+  login(secret: string, signal?: AbortSignal): Promise<AdminSessionView>;
+  logout(signal?: AbortSignal): Promise<void>;
+  getOverview(signal?: AbortSignal): Promise<AdminOverviewView>;
+  getInstance(instanceId: string, signal?: AbortSignal): Promise<AdminInstanceDetailView>;
+}
 
-  const response = await fetch(endpoint, { headers });
-  if (!response.ok) {
-    throw await createAdminMonitoringError(response);
-  }
+export const createAdminApiClient = (basePath = "/api/admin"): AdminApiClient => ({
+  getSession: (signal) => request<AdminSessionView>(`${basePath}/session`, { signal }),
+  login: (secret, signal) => request<AdminSessionView>(`${basePath}/session`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ secret }),
+    signal
+  }),
+  logout: async (signal) => {
+    await request<null>(`${basePath}/session`, {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+      signal
+    });
+  },
+  getOverview: (signal) => request<AdminOverviewView>(`${basePath}/overview`, { signal }),
+  getInstance: (instanceId, signal) => request<AdminInstanceDetailView>(
+    `${basePath}/instances/${encodeURIComponent(instanceId)}`,
+    { signal }
+  )
+});
 
-  const payload = await response.json() as {
-    overview?: AdminOverviewViewModel;
-    instances?: InstanceMonitoringSummary[];
-    serverSummaries?: ServerInstanceSummary[];
-    healthSummary?: {
-      totalInstances: number;
-      runningInstances: number;
-      crashedInstances: number;
-    };
-    runtimeProjection?: AdminRuntimeDetailProjection | null;
-  };
-  if (payload.overview?.instances) {
-    return {
-      ...payload.overview,
-      runtimeProjection: payload.overview.runtimeProjection ?? payload.runtimeProjection ?? null
-    };
-  }
-
-  return Array.isArray(payload.instances)
-    ? createAdminOverviewViewModel(payload.instances.map(createAdminInstanceViewModelFromMonitoringSummary), {
-        serverSummaries: payload.serverSummaries ?? [],
-        healthSummary: payload.healthSummary,
-        runtimeProjection: payload.runtimeProjection ?? null
-      })
-    : null;
-};
-
-export const renderAdminError = (error: unknown): string => `
-  <section class="admin-monitoring" role="alert">
-    <p class="admin-boot__eyebrow">Runtime monitoring</p>
-    <h1>Empire Streets Admin</h1>
-    <p>Admin monitoring se nepodařilo načíst.</p>
-    ${isAdminUnauthorizedError(error) ? `
-      <form class="admin-monitoring__secret-form" data-admin-secret-form>
-        <label class="admin-monitoring__secret-field">
-          <span>Admin secret</span>
-          <input data-admin-secret-input type="password" autocomplete="off" placeholder="Zadej EMPIRE_ADMIN_SECRET">
-        </label>
-        <button type="submit">Retry with secret</button>
-        <p>Secret se drží jen v paměti stránky a posílá se pouze v headeru <code>x-empire-admin-secret</code>.</p>
-      </form>
-    ` : ""}
-    <pre>${escapeHtml(error instanceof Error ? error.message : String(error))}</pre>
-  </section>
-`;
-
-export const bindAdminSecretForm = (
-  target: HTMLElement,
-  retry: () => void | Promise<void>
-): void => {
-  if (typeof target.querySelector !== "function") {
-    return;
-  }
-
-  const form = target.querySelector<HTMLFormElement>("[data-admin-secret-form]");
-  const input = target.querySelector<HTMLInputElement>("[data-admin-secret-input]");
-  if (!form || !input) {
-    return;
-  }
-
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    setRuntimeAdminMonitoringSecret(input.value);
-    void retry();
+const request = async <T>(url: string, init: RequestInit): Promise<T> => {
+  const response = await fetch(url, {
+    credentials: "same-origin",
+    headers: { accept: "application/json", ...init.headers },
+    cache: "no-store",
+    ...init
   });
+  const payload = await response.json().catch(() => null) as AdminApiResponse<T> | null;
+  if (!response.ok || !payload?.accepted) {
+    const apiError = payload && !payload.accepted ? payload.errors[0] : null;
+    throw new AdminApiError(response.status, apiError?.code ?? "ADMIN_INVALID_RESPONSE",
+      apiError?.message ?? "Admin server returned an invalid response.");
+  }
+  return payload.data;
 };
-
-const createAdminMonitoringError = async (
-  response: Response
-): Promise<Error> => {
-  const payload = await response.json().catch(() => null) as {
-    errors?: Array<{
-      message?: string;
-    }>;
-  } | null;
-  const message = payload?.errors?.[0]?.message
-    ?? `Admin monitoring request failed with HTTP ${response.status}.`;
-  const error = new Error(message) as Error & {
-    statusCode?: number;
-  };
-  error.statusCode = response.status;
-  return error;
-};
-
-const isAdminUnauthorizedError = (error: unknown): boolean =>
-  error instanceof Error
-    && typeof (error as Error & { statusCode?: number }).statusCode === "number"
-    && (error as Error & { statusCode?: number }).statusCode === 403;
-
-const escapeHtml = (value: string): string =>
-  value.replace(/[&<>"']/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "\"": "&quot;",
-    "'": "&#39;"
-  })[character] ?? character);

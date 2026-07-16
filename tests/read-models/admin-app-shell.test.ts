@@ -1,256 +1,103 @@
-import { describe, expect, it, vi } from "vitest";
-import { createAdminApp } from "../../apps/admin/src/app";
+// @vitest-environment jsdom
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AdminApiError, type AdminApiClient } from "../../apps/admin/src/app/admin-monitoring-client";
+import { createAdminApp } from "../../apps/admin/src/app/create-admin-app";
+import type { AdminInstanceDetailView, AdminInstanceSummaryView, AdminOverviewView, AdminSessionView } from "@empire/shared-types";
 
-const createBaseOverview = () => ({
-  serverSummaries: [],
-  healthSummary: {
-    totalInstances: 1,
-    runningInstances: 1,
-    crashedInstances: 0
-  },
-  selectedHealth: null,
-  selectedDiagnostics: null
-});
+const session: AdminSessionView = {
+  adminSessionId: "session:viewer", actorId: "actor:viewer", displayName: "Viewer", role: "viewer",
+  createdAt: "2026-07-16T10:00:00.000Z", expiresAt: "2026-07-16T10:30:00.000Z", revokedAt: null,
+  authenticationMethod: "closed-alpha-bootstrap"
+};
 
-describe("createAdminApp", () => {
-  it("renders empty monitoring state without a server facade", async () => {
-    const target = { innerHTML: "" } as HTMLElement;
-
-    await createAdminApp({
-      fetchMonitoringSummaries: async () => []
-    }).mount(target);
-
-    expect(target.innerHTML).toContain("Žádné instance");
-    expect(target.innerHTML).not.toContain("instance:placeholder");
+describe("read-only admin app", () => {
+  beforeEach(() => {
+    document.body.innerHTML = `<main id="admin-dashboard-root"></main>`;
+    history.replaceState(null, "", "/admin.html");
+    Object.defineProperty(document, "hidden", { configurable: true, value: false });
   });
 
-  it("renders server facade monitoring rows", async () => {
-    const target = { innerHTML: "" } as HTMLElement;
+  it("does not use the first server as an implicit detail selection", async () => {
+    const client = createClient();
+    await createAdminApp({ client, pollIntervalMs: 60_000 }).mount();
 
-    await createAdminApp({
-      fetchMonitoringSummaries: async () => [{
-        instanceId: "instance:admin-app:1",
-        mode: "free",
-        status: "running",
-        displayName: "Admin App Server",
-        region: "eu-central",
-        currentTick: 4,
-        playerCount: 2,
-        allianceCount: 1,
-        crashCount: 0,
-        healthStatus: "healthy",
-        warningCount: 0,
-        lastTickStartedAt: null,
-        lastTickCompletedAt: null,
-        lastErrorAt: null,
-        queuedEventCount: 1,
-        commandCount: 3,
-        eventCount: 4,
-        diagnosticErrorCount: 0,
-        lastSnapshotAt: null
-      }]
-    }).mount(target);
-
-    expect(target.innerHTML).toContain("Admin App Server");
-    expect(target.innerHTML).toContain("instance:admin-app:1");
-    expect(target.innerHTML).toContain("Recent commands");
-    expect(target.innerHTML).toContain("WAR CLOSED");
+    expect(client.getInstance).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("Vyberte instanci");
+    expect(location.search).toBe("");
   });
 
-  it("renders degraded diagnostics and queue backlog", async () => {
-    const target = { innerHTML: "" } as HTMLElement;
-
-    await createAdminApp({
-      fetchAdminOverview: async () => ({
-        ...createBaseOverview(),
-        selectedInstanceId: "instance:admin-app:error",
-        instances: [{
-          instanceId: "instance:admin-app:error",
-          mode: "free",
-          status: "running",
-          displayName: "Error Instance",
-          region: "eu-central",
-          tick: 12,
-          currentTick: 12,
-          playerCount: 3,
-          allianceCount: 1,
-          crashCount: 0,
-          healthStatus: "degraded",
-          warningCount: 2,
-          lastSnapshotAt: "2026-05-21T10:00:00.000Z",
-          lastTickStartedAt: "2026-05-21T10:00:01.000Z",
-          lastTickCompletedAt: "2026-05-21T10:00:02.000Z",
-          totalCommands: 9,
-          commandCount: 9,
-          eventCount: 4,
-          diagnosticErrorCount: 1,
-          diagnosticWarningCount: 2,
-          lastErrorAt: "2026-05-21T10:00:03.000Z",
-          queuedEvents: 7,
-          queuedEventCount: 7
-        }],
-        selectedHealth: {
-          instanceId: "instance:admin-app:error",
-          status: "degraded",
-          warnings: ["Queue backlog detected.", "Last tick exceeded threshold."],
-          lastErrorAt: "2026-05-21T10:00:03.000Z"
-        },
-        selectedDiagnostics: {
-          instanceId: "instance:admin-app:error",
-          lastSnapshotAt: "2026-05-21T10:00:00.000Z",
-          snapshotSchemaVersion: 4,
-          lastCrashAt: null,
-          diagnosticErrorCount: 1
-        },
-        selectedLogs: {
-          instanceId: "instance:admin-app:error",
-          commands: [],
-          events: [],
-          diagnostics: [{
-            id: "diagnostic:1",
-            instanceId: "instance:admin-app:error",
-            level: "error",
-            category: "tick",
-            message: "Tick failed.",
-            occurredAt: "2026-05-21T10:00:03.000Z"
-          }]
-        }
-      })
-    }).mount(target);
-
-    expect(target.innerHTML).toContain("Error Instance");
-    expect(target.innerHTML).toContain("degraded");
-    expect(target.innerHTML).toContain("Queue backlog detected.");
-    expect(target.innerHTML).toContain("7");
-    expect(target.innerHTML).toContain("Tick failed.");
+  it("requests only the explicitly selected instance", async () => {
+    const client = createClient();
+    await createAdminApp({ client, pollIntervalMs: 60_000 }).mount();
+    document.querySelector<HTMLElement>(`[data-admin-instance="server:B"]`)!.click();
+    await vi.waitFor(() => expect(client.getInstance).toHaveBeenCalledWith("server:B", expect.any(AbortSignal)));
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Detail server:B"));
+    expect(location.search).toBe("?instance=server%3AB");
+    expect(document.body.textContent).not.toContain("Detail server:A");
   });
 
-  it("renders recent command and event logs for the selected instance", async () => {
-    const target = { innerHTML: "" } as HTMLElement;
-
-    await createAdminApp({
-      fetchAdminOverview: async () => ({
-        ...createBaseOverview(),
-        selectedInstanceId: "instance:admin-app:logs",
-        instances: [{
-          instanceId: "instance:admin-app:logs",
-          mode: "free",
-          status: "running",
-          displayName: "Log Instance",
-          region: "eu-central",
-          tick: 3,
-          currentTick: 3,
-          playerCount: 1,
-          allianceCount: 0,
-          crashCount: 0,
-          healthStatus: "healthy",
-          warningCount: 0,
-          lastSnapshotAt: null,
-          lastTickStartedAt: null,
-          lastTickCompletedAt: null,
-          totalCommands: 1,
-          commandCount: 1,
-          eventCount: 1,
-          diagnosticErrorCount: 0,
-          diagnosticWarningCount: 0,
-          lastErrorAt: null,
-          queuedEvents: 0,
-          queuedEventCount: 0
-        }],
-        selectedLogs: {
-          instanceId: "instance:admin-app:logs",
-          commands: [{
-            id: "command-log:1",
-            instanceId: "instance:admin-app:logs",
-            commandId: "command:admin:1",
-            commandType: "collect-production",
-            actorId: "player:admin",
-            correlationId: "corr:admin:1",
-            receivedAt: "2026-05-21T10:00:00.000Z",
-            tickAtReceive: 3,
-            status: "recorded"
-          }],
-          events: [{
-            id: "event-log:1",
-            instanceId: "instance:admin-app:logs",
-            eventType: "production-collected",
-            causedByCommandId: "command:admin:1",
-            recordedAt: "2026-05-21T10:00:01.000Z",
-            tickAtEmit: 3
-          }],
-          diagnostics: []
-        }
-      })
-    }).mount(target);
-
-    expect(target.innerHTML).toContain("collect-production");
-    expect(target.innerHTML).toContain("command:admin:1");
-    expect(target.innerHTML).toContain("corr:admin:1");
-    expect(target.innerHTML).toContain("recorded");
-    expect(target.innerHTML).toContain("production-collected");
+  it("does not let a late response from the previous selection overwrite the current detail", async () => {
+    const pendingA = deferred<AdminInstanceDetailView>();
+    const client = createClient();
+    client.getInstance = vi.fn((id: string) => id === "server:A" ? pendingA.promise : Promise.resolve(detail(id)));
+    await createAdminApp({ client, pollIntervalMs: 60_000 }).mount();
+    document.querySelector<HTMLElement>(`[data-admin-instance="server:A"]`)!.click();
+    document.querySelector<HTMLElement>(`[data-admin-instance="server:B"]`)!.click();
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Detail server:B"));
+    pendingA.resolve(detail("server:A"));
+    await Promise.resolve();
+    expect(document.body.textContent).toContain("Detail server:B");
+    expect(document.body.textContent).not.toContain("Detail server:A");
   });
 
-  it("sends an admin monitoring secret header when configured", async () => {
-    const target = { innerHTML: "" } as HTMLElement;
-    const previousFetch = globalThis.fetch;
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        accepted: true,
-        overview: {
-          ...createBaseOverview(),
-          selectedInstanceId: null,
-          instances: [],
-          selectedLogs: {
-            instanceId: null,
-            commands: [],
-            events: [],
-            diagnostics: []
-          }
-        },
-        errors: []
-      })
-    })) as unknown as typeof fetch;
-    globalThis.fetch = fetchMock;
-
-    try {
-      await createAdminApp({
-        adminMonitoringSecret: "configured-admin-secret"
-      }).mount(target);
-    } finally {
-      globalThis.fetch = previousFetch;
-    }
-
-    expect(fetchMock).toHaveBeenCalledWith("/api/admin/monitoring", {
-      headers: {
-        accept: "application/json",
-        "x-empire-admin-secret": "configured-admin-secret"
-      }
-    });
-  });
-
-  it("renders an in-memory secret retry form after admin authorization failure", async () => {
-    const target = { innerHTML: "" } as HTMLElement;
-    const previousFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn(async () => ({
-      ok: false,
-      status: 403,
-      json: async () => ({
-        accepted: false,
-        readModel: null,
-        errors: [{ message: "Admin monitoring is unavailable." }]
-      })
-    })) as unknown as typeof fetch;
-
-    try {
-      await createAdminApp().mount(target);
-    } finally {
-      globalThis.fetch = previousFetch;
-    }
-
-    expect(target.innerHTML).toContain("x-empire-admin-secret");
-    expect(target.innerHTML).toContain("Retry with secret");
-    expect(target.innerHTML).not.toContain("sessionStorage");
-    expect(target.innerHTML).not.toContain("adminToken");
+  it("clears the bootstrap secret input after login", async () => {
+    const client = createClient();
+    client.getSession = vi.fn().mockRejectedValue(new AdminApiError(401, "ADMIN_SESSION_REQUIRED", "Session required."));
+    await createAdminApp({ client, pollIntervalMs: 60_000 }).mount();
+    const input = document.querySelector<HTMLInputElement>("[data-admin-secret]")!;
+    input.value = "one-use-secret";
+    document.querySelector<HTMLFormElement>("[data-admin-login]")!.requestSubmit();
+    await vi.waitFor(() => expect(client.login).toHaveBeenCalledWith("one-use-secret"));
+    expect(input.value).toBe("");
   });
 });
+
+const createClient = (): AdminApiClient => ({
+  getSession: vi.fn().mockResolvedValue(session),
+  login: vi.fn().mockResolvedValue(session),
+  logout: vi.fn().mockResolvedValue(undefined),
+  getOverview: vi.fn().mockResolvedValue(overview()),
+  getInstance: vi.fn((id: string) => Promise.resolve(detail(id)))
+});
+
+const summary = (id: string): AdminInstanceSummaryView => ({
+  serverInstanceId: id, displayName: `Server ${id}`, mode: "free", region: "eu", capacity: 20,
+  joinPolicy: "open", status: "running", currentTick: 10, stateVersion: 2, playerCount: id.endsWith("A") ? 2 : 5,
+  workerStatus: "live", lastHeartbeatAt: "2026-07-16T10:00:00.000Z", leaseOwner: "worker:1",
+  leaseExpiresAt: "2026-07-16T10:01:00.000Z", lastSnapshotAt: "2026-07-16T10:00:00.000Z",
+  snapshotStale: false, lastErrorAt: null,
+  freshness: { serverInstanceId: id, generatedAt: "2026-07-16T10:00:00.000Z", source: "durable-snapshot",
+    dataAsOf: "2026-07-16T10:00:00.000Z", lastSnapshotAt: "2026-07-16T10:00:00.000Z",
+    lastHeartbeatAt: "2026-07-16T10:00:00.000Z", stale: false, staleReason: null }
+});
+const overview = (): AdminOverviewView => ({
+  generatedAt: "2026-07-16T10:00:00.000Z", databaseStatus: "available", instances: [summary("server:A"), summary("server:B")],
+  counts: { known: 2, live: 2, stale: 0, offline: 0, noWorker: 0, failed: 0, running: 2, lobby: 0, paused: 0, players: 7 }
+});
+const detail = (id: string): AdminInstanceDetailView => ({
+  serverInstanceId: id, generatedAt: "2026-07-16T10:00:00.000Z", summary: { ...summary(id), displayName: `Detail ${id}` },
+  freshness: summary(id).freshness, runtimeAvailable: true, players: [], districts: [],
+  economy: { serverInstanceId: id, totalCleanCash: 0, totalDirtyCash: 0, totalResources: {} },
+  production: { serverInstanceId: id, productionBuildingCount: 0, readyToCollectCount: 0, activeCraftCount: 0, storageFullCount: 0 },
+  police: { serverInstanceId: id, heatPressure: "none", maxPlayerHeat: 0, wantedPlayerCount: 0, pendingRaidCount: 0 },
+  liveness: { serverInstanceId: id, activePlayers: 0, playablePlayers: 0, temporarilySealedPlayers: 0, encircledPlayers: 0,
+    lastStandPlayers: 0, emergencyRecoveryEligiblePlayers: 0, invalidSoftlocks: 0 },
+  alliances: [], snapshot: { serverInstanceId: id, snapshotId: null, createdAt: null, tick: null, stateVersion: null, schemaVersion: null, stale: false },
+  commands: [], events: [], diagnostics: []
+});
+
+const deferred = <T>() => {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => { resolve = done; });
+  return { promise, resolve };
+};
