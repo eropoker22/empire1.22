@@ -2,6 +2,7 @@ node_modules/
 /client/
 /netlify/functions/
 dist/
+/dist-worker/
 .turbo/
 .cache/
 coverage/

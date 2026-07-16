@@ -1,6 +1,9 @@
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  ssr: {
+    external: ["pg"]
+  },
   build: {
     target: "node20",
     outDir: "dist-worker",
@@ -9,7 +12,7 @@ export default defineConfig({
     rollupOptions: {
       input: "apps/server/src/bootstrap/hosted-runtime-worker-cli.ts",
       output: { entryFileNames: "hosted-runtime-worker.mjs", format: "es" },
-      external: ["pg"]
+      external: (id) => id === "pg" || id.startsWith("pg/")
     }
   }
 });
