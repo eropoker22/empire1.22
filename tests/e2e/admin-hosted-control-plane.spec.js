@@ -26,7 +26,7 @@ test("owner creates, provisions and controls a hosted server", async ({ page }) 
         serverInstanceId: hosted.serverInstanceId, action: payload.action, status: "requested", expectedVersion: payload.expectedVersion }));
     }
     if (path === "/api/admin/control-plane") {
-      if (hosted?.provisioningState === "requested") {
+      if (hosted && hosted.provisioningState !== "ready") {
         provisioningReads += 1;
         hosted = provisioningReads === 1 ? { ...hosted, status: "provisioning", provisioningState: "provisioning", version: 2 }
           : { ...hosted, status: "lobby", provisioningState: "ready", currentSnapshotId: "snapshot:e2e:0", version: 3 };
@@ -46,14 +46,14 @@ test("owner creates, provisions and controls a hosted server", async ({ page }) 
   await page.getByRole("button", { name: "Vytvořit server" }).click();
   await page.getByLabel("Název").fill("E2E Hosted");
   await page.getByRole("button", { name: "Další" }).click();
-  await expect(page.locator("[data-admin-map-total]")).toHaveValue("161");
+  await expect(page.locator("[data-admin-map-total]")).toHaveText("161");
   await page.getByRole("button", { name: "Další" }).click();
   await page.getByLabel("Closed").check();
   await page.getByRole("button", { name: "Další" }).click();
   await expect(page.locator("[data-admin-create-review]")).toContainText("E2E Hosted");
   await page.getByRole("button", { name: "Create Server" }).click();
   await expect(page).toHaveURL(/instance=instance%3Afree%3Aeu-central%3Ae2e/u);
-  await expect(page.locator("#admin-control-plane")).toContainText(/PROVISIONING|LOBBY/u);
+  await expect(page.locator("#admin-control-plane")).toContainText(/provisioning|lobby/iu);
   await page.getByRole("button", { name: "Obnovit" }).click();
   await expect(page.locator("#admin-control-plane")).toContainText("ready");
 

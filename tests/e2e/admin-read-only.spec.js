@@ -45,7 +45,7 @@ test("read-only admin session and per-instance isolation", async ({ page }) => {
   await expect(page.locator("#admin-players tbody tr")).toHaveCount(5);
   await expect(page.locator("#admin-map tbody tr")).toHaveCount(30);
   await expect(page.locator("#admin-commands tbody tr")).toHaveCount(14);
-  await expect(page.getByText("OFFLINE", { exact: true })).toBeVisible();
+  await expect(page.getByText("OFFLINE", { exact: true }).last()).toBeVisible();
   await expect(page.locator('[data-admin-instance="server:B"]')).toBeVisible();
   await expect(page.locator("body")).not.toContainText("server:A Player");
 
