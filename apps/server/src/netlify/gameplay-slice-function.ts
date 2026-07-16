@@ -126,12 +126,7 @@ export const createGameplaySliceFunctionHandler = (
 
     if (route === "matchmaking-reserve") {
       return await handlePublicServerMatchmakingReserve(
-        server,
-        event.httpMethod,
-        parsedBody.body,
-        event.headers,
-        environment,
-        adminRepositories
+        server, event.httpMethod, parsedBody.body, event.headers, environment, adminRepositories
       );
     }
 
