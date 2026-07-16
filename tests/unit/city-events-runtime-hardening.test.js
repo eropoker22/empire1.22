@@ -21,9 +21,15 @@ describe("City Events runtime authority", () => {
 
   it("labels the feature as local and does not reopen an already open detail overlay", () => {
     expect(source).toContain("Lokální zakázka");
-    expect(source).toContain("MĚSTSKÝ ČAS · další okno");
+    expect(source).toContain("MĚSTSKÝ ČAS · další úkoly");
     expect(source).toContain("if (wasHidden)");
     expect(source).not.toContain("Demo event");
+  });
+
+  it("keeps local offers visible only for a three-hour city window", () => {
+    expect(source).toContain("const LOCAL_CITY_EVENT_VISIBLE_MINUTES = 3 * 60;");
+    expect(source).toContain("const available = current.distance < LOCAL_CITY_EVENT_VISIBLE_MINUTES;");
+    expect(source).toContain("Další úkoly přijdou v");
   });
 
   it("uses canonical generated definitions and deterministic outcomes", () => {

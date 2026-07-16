@@ -15,6 +15,7 @@ import { bindSharedCountdown } from "./ui/sharedCountdownTicker.js";
 import { GAMEPLAY_EXECUTION_MODES, getGameplayExecutionMode } from "./runtime/gameplayExecutionMode.js";
 
 const MAX_VISIBLE_EVENTS_PER_CHARACTER = 3;
+const LOCAL_CITY_EVENT_VISIBLE_MINUTES = 3 * 60;
 
 const CITY_EVENT_REWARD_ALIASES = Object.freeze({
   dirtyCash: "dirty-cash",
@@ -316,15 +317,7 @@ function resolveLocalScheduleWindow(agentKey) {
   const shiftedCityMinute = (cityMinutes - cityDayStartMinute + (24 * 60)) % (24 * 60);
   const shiftedBoundaryMinute = (current.targetMinute - cityDayStartMinute + (24 * 60)) % (24 * 60);
   const boundaryDayIndex = Math.max(0, cityDayIndex - (shiftedBoundaryMinute > shiftedCityMinute ? 1 : 0));
-  const availability = schedule.availability;
-  let available = true;
-  if (availability) {
-    const opens = availability.opensAt.hour * 60 + availability.opensAt.minute;
-    const closes = availability.closesAt.hour * 60 + availability.closesAt.minute;
-    available = opens < closes
-      ? cityMinutes >= opens && cityMinutes < closes
-      : cityMinutes >= opens || cityMinutes < closes;
-  }
+  const available = current.distance < LOCAL_CITY_EVENT_VISIBLE_MINUTES;
   const next = refreshTimes.map((time) => {
     const target = time.hour * 60 + time.minute;
     return { ...time, distance: (target - cityMinutes + (24 * 60)) % (24 * 60) || (24 * 60) };
@@ -896,7 +889,7 @@ function initCityEventsRuntime() {
       tasklist.innerHTML = `
         <div class="events-task events-task--agent-locked">
           <div class="events-task__title">Kontakt je teď zavřený</div>
-          <div class="events-task__desc">${agentKey === "victor" ? "Victor se vrátí v 18:00." : `Další nabídky přijdou v ${schedule.nextBoundaryLabel}.`}</div>
+          <div class="events-task__desc">Další úkoly přijdou v ${schedule.nextBoundaryLabel}.</div>
         </div>
       `;
       modal.classList.remove("events-modal--compact");
@@ -1113,7 +1106,7 @@ function initCityEventsRuntime() {
       return;
     }
     const schedule = resolveLocalScheduleWindow(selectedAgentKey || "victor");
-    const nextText = `MĚSTSKÝ ČAS · další okno ${schedule.nextBoundaryLabel}`;
+    const nextText = `MĚSTSKÝ ČAS · další úkoly ${schedule.nextBoundaryLabel}`;
     if (eventsRefreshCountdown.textContent !== nextText) {
       eventsRefreshCountdown.textContent = nextText;
     }

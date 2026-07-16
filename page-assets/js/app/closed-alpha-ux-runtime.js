@@ -267,42 +267,12 @@ const renderPendingDeliveries = () => {
   }));
 };
 
-const inferNewsCategory = (item) => {
-  const explicit = item.dataset.streetNewsCategory || "";
-  const kind = `${explicit} ${item.dataset.buildingActionKind || ""} ${item.dataset.buildingActionResultKind || ""}`.toLowerCase();
-  if (/police|raid|heat|wanted/.test(kind)) return "police";
-  if (/alliance/.test(kind)) return "alliance";
-  if (/attack|combat|spy|heist|rob|occup|trap|defen/.test(kind)) return "conflict";
-  if (/market|production|factory|city-event|econom/.test(kind)) return "economy";
-  return "private";
-};
-
 const setupStreetNewsFilters = () => {
   const feed = document.querySelector("[data-building-action-feed]");
-  if (!feed || feed.parentElement.querySelector("[data-street-news-filters]")) return;
-  const filters = document.createElement("div");
-  filters.className = "street-news-filters";
-  filters.dataset.streetNewsFilters = "true";
-  const definitions = [["all", "VŠE"], ["private", "SOUKROMÉ"], ["alliance", "ALIANCE"], ["public", "VEŘEJNÉ"], ["police", "POLICIE"], ["economy", "EKONOMIKA"], ["conflict", "KONFLIKT"]];
-  filters.innerHTML = definitions.map(([id, label], index) => `<button type="button" class="button${index === 0 ? " is-active" : ""}" data-news-filter="${id}" aria-pressed="${index === 0}">${label}</button>`).join("");
-  feed.before(filters);
-  const apply = (filter) => feed.querySelectorAll(".building-action-status__item").forEach((item) => {
-    const visibility = item.dataset.streetNewsVisibility || "private";
-    const category = inferNewsCategory(item);
-    item.hidden = filter !== "all" && filter !== visibility && filter !== category;
+  document.querySelectorAll("[data-street-news-filters]").forEach((filters) => filters.remove());
+  feed?.querySelectorAll(".building-action-status__item[hidden]").forEach((item) => {
+    item.hidden = false;
   });
-  filters.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-news-filter]");
-    if (!button) return;
-    filters.querySelectorAll("button").forEach((candidate) => {
-      const active = candidate === button;
-      candidate.classList.toggle("is-active", active);
-      candidate.setAttribute("aria-pressed", String(active));
-    });
-    apply(button.dataset.newsFilter);
-  });
-  new MutationObserver(() => apply(filters.querySelector(".is-active")?.dataset.newsFilter || "all"))
-    .observe(feed, { childList: true });
 };
 
 const normalizeConnection = (detail = {}) => {
