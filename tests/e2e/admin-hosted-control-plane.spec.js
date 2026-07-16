@@ -58,12 +58,15 @@ test("owner creates, provisions and controls a hosted server", async ({ page }) 
   await expect(page.locator("#admin-control-plane")).toContainText("ready");
 
   const reason = page.locator("[data-admin-action-reason]");
+  let expectedVersion = 3;
   for (const [button, expectedStatus] of [
     ["Open joins", "lobby"], ["Start", "running"], ["Pause", "paused"], ["Resume", "running"],
     ["Close joins", "running"], ["Safe restart", "running"], ["Stop", "stopped"]
   ]) {
     await reason.fill(`E2E ${button}`);
     await page.getByRole("button", { name: button, exact: true }).click();
+    expectedVersion += 1;
+    await expect(page.locator(".admin-lifecycle")).toContainText(`version ${expectedVersion}`);
     await expect(page.locator(".admin-lifecycle")).toContainText(expectedStatus);
   }
   await page.reload();
