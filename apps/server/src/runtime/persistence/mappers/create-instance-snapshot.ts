@@ -47,5 +47,11 @@ export const createInstanceSnapshot = (runtime: ServerInstanceRuntime): Instance
       }
     }
   },
+  lobby: {
+    displayName: runtime.lobby.displayName,
+    region: runtime.lobby.region,
+    capacity: runtime.lobby.maxPlayers,
+    joinPolicy: runtime.lobby.joinPolicy
+  },
   state: runtime.state
 });

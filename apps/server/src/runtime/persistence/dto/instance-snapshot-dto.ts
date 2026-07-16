@@ -18,6 +18,12 @@ export interface InstanceSnapshotDto {
   version: VersionMetadata;
   integrity: SnapshotIntegrityDto;
   runtime: SnapshotRuntimeDto;
+  lobby?: {
+    displayName: string;
+    region: string;
+    capacity: number;
+    joinPolicy: "open" | "closed";
+  };
   state: CoreGameState;
 }
 

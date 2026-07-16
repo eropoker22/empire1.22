@@ -25,7 +25,13 @@ const createPostgresSnapshotRepositoryForQueryable = (
       await ensurePostgresServerInstanceRow(client, snapshot.instanceId, {
         mode: snapshot.mode,
         status: snapshot.metadata.status,
-        payload: { snapshotId: snapshot.snapshotId },
+        payload: {
+          snapshotId: snapshot.snapshotId,
+          displayName: snapshot.lobby?.displayName,
+          region: snapshot.lobby?.region,
+          capacity: snapshot.lobby?.capacity,
+          joinPolicy: snapshot.lobby?.joinPolicy
+        },
         createdAt: snapshot.metadata.createdAt
       });
 
