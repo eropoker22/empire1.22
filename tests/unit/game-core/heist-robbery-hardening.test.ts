@@ -85,8 +85,7 @@ describe("immediate deterministic heist", () => {
 
     expect(first.errors).toEqual([]);
     expect(second.errors).toContainEqual(expect.objectContaining({
-      code: "heist_cooldown_active",
-      details: expect.objectContaining({ cooldownKey: "heist:global" })
+      code: "PLAYER_MAJOR_OPERATION_ACTIVE"
     }));
   });
 

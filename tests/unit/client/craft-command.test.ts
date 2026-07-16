@@ -64,6 +64,7 @@ const createGameplaySliceFixture = (canCraft = true): GameplaySliceView => ({
   reports: [],
   district: {
     districtId: "district:1",
+    conflictRevision: 1,
     name: "Starter District",
     zone: "downtown",
     status: "claimed",

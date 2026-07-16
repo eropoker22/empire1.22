@@ -40,7 +40,8 @@ export const createDistrictFixture = (overrides: Partial<District> = {}): Distri
   resourceModifiers: {},
   securityRevision: 1,
   version: 1,
-  ...overrides
+  ...overrides,
+  conflictRevision: overrides.conflictRevision ?? 1
 });
 
 export const createAllianceFixture = (overrides: Partial<Alliance> = {}): Alliance => ({

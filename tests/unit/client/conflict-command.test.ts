@@ -82,6 +82,7 @@ const createGameplaySliceFixture = ({
   reports: [],
   district: {
     districtId: "district:1",
+    conflictRevision: 1,
     name: "Owned District",
     zone: "downtown",
     status: "claimed",
@@ -99,6 +100,7 @@ const createGameplaySliceFixture = ({
         ownerPlayerId: "player:2",
         status: "claimed",
         enabled: attackEnabled,
+        expectedConflictRevision: 1,
         disabledReason: attackEnabled ? null : "Attack route is cooling down."
       }
     ],
@@ -144,7 +146,8 @@ describe("conflict command factories", () => {
     expect(command.payload).toEqual({
       districtId: "district:2",
       sourceDistrictId: "district:1",
-      weapons: { pistol: 2 }
+      weapons: { pistol: 2 },
+      expectedConflictRevision: 1
     });
   });
 
@@ -162,7 +165,8 @@ describe("conflict command factories", () => {
     expect(command.payload).toEqual({
       districtId: "district:2",
       sourceDistrictId: "district:1",
-      weapons: { pistol: 2 }
+      weapons: { pistol: 2 },
+      expectedConflictRevision: 1
     });
   });
 
@@ -223,6 +227,7 @@ describe("conflict command factories", () => {
         ownerPlayerId: null,
         status: "neutral",
         enabled: true,
+        expectedConflictRevision: 1,
         disabledCode: null,
         disabledReason: null,
         cost: {
@@ -244,7 +249,8 @@ describe("conflict command factories", () => {
     expect(command.serverInstanceId).toBe("instance:1");
     expect(command.payload).toEqual({
       districtId: "district:3",
-      sourceDistrictId: "district:1"
+      sourceDistrictId: "district:1",
+      expectedConflictRevision: 1
     });
   });
 
@@ -257,6 +263,7 @@ describe("conflict command factories", () => {
         ownerPlayerId: null,
         status: "neutral",
         enabled: false,
+        expectedConflictRevision: 1,
         disabledCode: "occupy_requires_successful_spy",
         disabledReason: "Successful spy intel is required before occupying this district.",
         cost: {
@@ -279,7 +286,8 @@ describe("conflict command factories", () => {
     expect(command.serverInstanceId).toBe("instance:1");
     expect(command.payload).toEqual({
       districtId: "district:3",
-      sourceDistrictId: "district:1"
+      sourceDistrictId: "district:1",
+      expectedConflictRevision: 1
     });
   });
 

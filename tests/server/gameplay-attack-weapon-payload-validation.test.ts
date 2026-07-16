@@ -16,6 +16,7 @@ describe("attack weapon transport validation", () => {
     expect(validatePayload({
       districtId: "district:2",
       sourceDistrictId: "district:1",
+      expectedConflictRevision: 1,
       weapons: { pistol: 2, smg: 1 }
     })).toEqual([]);
   });
@@ -23,7 +24,8 @@ describe("attack weapon transport validation", () => {
   it("requires an explicit loadout even when the player has server inventory", () => {
     expect(validatePayload({
       districtId: "district:2",
-      sourceDistrictId: "district:1"
+      sourceDistrictId: "district:1",
+      expectedConflictRevision: 1
     })).toMatchObject([{
       code: "transport.invalid_request",
       details: { field: "command.payload.weapons" }
@@ -34,11 +36,23 @@ describe("attack weapon transport validation", () => {
     expect(validatePayload({
       districtId: "district:2",
       sourceDistrictId: "district:1",
+      expectedConflictRevision: 1,
       weapons: { pistol: 1.5, railgun: 1 },
       totalAttackPower: 999,
       populationRequired: 0,
       outcome: "clean_capture",
       losses: {}
     })).toHaveLength(6);
+  });
+
+  it("requires a server-projected conflict revision", () => {
+    expect(validatePayload({
+      districtId: "district:2",
+      sourceDistrictId: "district:1",
+      weapons: { pistol: 1 }
+    })).toContainEqual(expect.objectContaining({
+      code: "transport.invalid_request",
+      details: { field: "command.payload.expectedConflictRevision" }
+    }));
   });
 });

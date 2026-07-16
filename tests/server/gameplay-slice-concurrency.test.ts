@@ -37,7 +37,7 @@ describe("gameplay slice optimistic concurrency", () => {
     expect(response.metadata?.stateVersion).toBeGreaterThan(expectedStateVersion ?? 0);
   });
 
-  it("rejects stale expectedStateVersion while returning the current read model and metadata", async () => {
+  it("revalidates conflict commands against current state instead of rejecting on global version", async () => {
     const server = createServerApp();
     const instanceId = "instance:free:concurrency:stale";
     const playerId = "player:concurrency:stale";
@@ -83,13 +83,7 @@ describe("gameplay slice optimistic concurrency", () => {
     });
 
     expect(stale.accepted).toBe(false);
-    expect(stale.errors[0]).toMatchObject({
-      code: "server.state_version_conflict",
-      details: {
-        expectedStateVersion: staleStateVersion,
-        currentStateVersion: accepted.metadata?.stateVersion
-      }
-    });
+    expect(stale.errors[0]?.code).toBe("trap_already_active");
     expect(stale.readModel?.player.playerId).toBe(playerId);
     expect(stale.metadata?.stateVersion).toBe(accepted.metadata?.stateVersion);
   });

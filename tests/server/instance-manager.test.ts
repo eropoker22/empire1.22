@@ -13,7 +13,8 @@ import {
 } from "../../apps/server/src/runtime";
 import {
   createAttackDistrictCommandFixture,
-  createPlaceTrapCommandFixture
+  createPlaceTrapCommandFixture,
+  createSelectSpawnDistrictCommandFixture
 } from "../fixtures/command-fixtures";
 import { createInstanceManagerFixture } from "../fixtures/runtime-fixtures";
 import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
@@ -308,9 +309,10 @@ describe("ServerInstanceManager", () => {
     const server = createServerApp();
     const runtime = server.instanceManager.createInstance("instance:free", "free");
     const rootBefore = { ...runtime.state.root };
-    const command = createAttackDistrictCommandFixture({
-      id: "command:attack:state-version-conflict",
-      serverInstanceId: runtime.record.id
+    const command = createSelectSpawnDistrictCommandFixture({
+      id: "command:spawn:state-version-conflict",
+      serverInstanceId: runtime.record.id,
+      payload: { districtId: "district:1" }
     });
 
     const result = await server.instanceManager.dispatchCommand(runtime.record.id, command, {
@@ -346,7 +348,7 @@ describe("ServerInstanceManager", () => {
       category: "command_rejected",
       context: {
         commandId: command.id,
-        commandType: "attack-district",
+        commandType: "select-spawn-district",
         playerId: command.playerId,
         serverInstanceId: runtime.record.id,
         errorCodes: ["server.state_version_conflict"],

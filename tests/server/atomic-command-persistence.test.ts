@@ -140,8 +140,8 @@ describe("atomic command persistence", () => {
     const rootBefore = fixture.runtime.state.root.version;
 
     const [first, second] = await Promise.all([
-      fixture.server.instanceManager.dispatchCommand(fixture.instanceId, fixture.command),
-      fixture.server.instanceManager.dispatchCommand(fixture.instanceId, secondCommand)
+      fixture.server.instanceManager.dispatchCommand(fixture.instanceId, fixture.command, { expectedStateVersion: rootBefore }),
+      fixture.server.instanceManager.dispatchCommand(fixture.instanceId, secondCommand, { expectedStateVersion: rootBefore })
     ]);
 
     expect(first?.errors).toEqual([]);
@@ -154,7 +154,13 @@ describe("atomic command persistence", () => {
 
   it("rejects stale expectedStateVersion for new commands but not applied retries", async () => {
     const fixture = await createFixture("stale-version");
-    const stale = await fixture.server.instanceManager.dispatchCommand(fixture.instanceId, fixture.command, {
+    const staleCommand = createSelectSpawnDistrictCommandFixture({
+      id: `${fixture.command.id}:stale-non-conflict`,
+      playerId: fixture.playerId,
+      serverInstanceId: fixture.instanceId,
+      payload: { districtId: fixture.focusDistrictId }
+    });
+    const stale = await fixture.server.instanceManager.dispatchCommand(fixture.instanceId, staleCommand, {
       expectedStateVersion: fixture.runtime.state.root.version + 1
     });
     expect(stale?.errors[0]?.code).toBe("server.state_version_conflict");

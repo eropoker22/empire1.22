@@ -15,6 +15,10 @@ import type {
   UpgradeBuildingCommand
 } from "@empire/shared-types";
 
+type CommandFixtureOverrides<T extends { payload: object }> = Omit<Partial<T>, "payload"> & {
+  payload?: Partial<T["payload"]>;
+};
+
 export const createBuildStructureCommandFixture = (
   overrides: Partial<BuildStructureCommand> = {}
 ): BuildStructureCommand => ({
@@ -34,8 +38,10 @@ export const createBuildStructureCommandFixture = (
 });
 
 export const createAttackDistrictCommandFixture = (
-  overrides: Partial<AttackDistrictCommand> = {}
-): AttackDistrictCommand => ({
+  overrides: CommandFixtureOverrides<AttackDistrictCommand> = {}
+): AttackDistrictCommand => {
+  const { payload, ...commandOverrides } = overrides;
+  return {
   id: "command:attack:1",
   type: "attack-district",
   mode: "free",
@@ -45,11 +51,14 @@ export const createAttackDistrictCommandFixture = (
   payload: {
     districtId: "district:2",
     sourceDistrictId: "district:1",
-    weapons: { "baseball-bat": 1, pistol: 1, grenade: 1, smg: 1, bazooka: 1 }
+    weapons: { "baseball-bat": 1, pistol: 1, grenade: 1, smg: 1, bazooka: 1 },
+    expectedConflictRevision: 1,
+    ...payload
   },
   clientRequestId: null,
-  ...overrides
-});
+  ...commandOverrides
+  };
+};
 
 export const createCollectProductionCommandFixture = (
   overrides: Partial<CollectProductionCommand> = {}
@@ -144,8 +153,10 @@ export const createSpyDistrictCommandFixture = (
 });
 
 export const createOccupyDistrictCommandFixture = (
-  overrides: Partial<OccupyDistrictCommand> = {}
-): OccupyDistrictCommand => ({
+  overrides: CommandFixtureOverrides<OccupyDistrictCommand> = {}
+): OccupyDistrictCommand => {
+  const { payload, ...commandOverrides } = overrides;
+  return {
   id: "command:occupy:1",
   type: "occupy-district",
   mode: "free",
@@ -154,15 +165,20 @@ export const createOccupyDistrictCommandFixture = (
   issuedAt: new Date(0).toISOString(),
   payload: {
     districtId: "district:2",
-    sourceDistrictId: "district:1"
+    sourceDistrictId: "district:1",
+    expectedConflictRevision: 1,
+    ...payload
   },
   clientRequestId: null,
-  ...overrides
-});
+  ...commandOverrides
+  };
+};
 
 export const createRobDistrictCommandFixture = (
-  overrides: Partial<RobDistrictCommand> = {}
-): RobDistrictCommand => ({
+  overrides: CommandFixtureOverrides<RobDistrictCommand> = {}
+): RobDistrictCommand => {
+  const { payload, ...commandOverrides } = overrides;
+  return {
   id: "command:rob:1",
   type: "rob-district",
   mode: "free",
@@ -171,15 +187,20 @@ export const createRobDistrictCommandFixture = (
   issuedAt: new Date(0).toISOString(),
   payload: {
     targetDistrictId: "district:2",
-    sourceDistrictId: "district:1"
+    sourceDistrictId: "district:1",
+    expectedConflictRevision: 1,
+    ...payload
   },
   clientRequestId: null,
-  ...overrides
-});
+  ...commandOverrides
+  };
+};
 
 export const createHeistDistrictCommandFixture = (
-  overrides: Partial<HeistDistrictCommand> = {}
-): HeistDistrictCommand => ({
+  overrides: CommandFixtureOverrides<HeistDistrictCommand> = {}
+): HeistDistrictCommand => {
+  const { payload, ...commandOverrides } = overrides;
+  return {
   id: "command:heist:1",
   type: "heist-district",
   mode: "free",
@@ -190,11 +211,14 @@ export const createHeistDistrictCommandFixture = (
     targetDistrictId: "district:2",
     sourceDistrictId: "district:1",
     style: "balanced",
-    gangMembersSent: 10
+    gangMembersSent: 10,
+    expectedConflictRevision: 1,
+    ...payload
   },
   clientRequestId: null,
-  ...overrides
-});
+  ...commandOverrides
+  };
+};
 
 export const createPlaceDefenseCommandFixture = (
   overrides: Partial<PlaceDefenseCommand> = {}

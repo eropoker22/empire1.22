@@ -475,6 +475,7 @@ const createAttackCommand = (input: {
   playerId: string;
   sourceDistrictId: DistrictId;
   targetDistrictId: DistrictId;
+  expectedConflictRevision?: number;
 }): AttackDistrictCommand => ({
   id: input.id,
   type: "attack-district",
@@ -485,7 +486,8 @@ const createAttackCommand = (input: {
   payload: {
     districtId: input.targetDistrictId,
     sourceDistrictId: input.sourceDistrictId,
-    weapons: { "baseball-bat": 1 }
+    weapons: { "baseball-bat": 1 },
+    expectedConflictRevision: input.expectedConflictRevision ?? 1
   },
   clientRequestId: null
 });
@@ -495,6 +497,7 @@ const createOccupyCommand = (input: {
   playerId: string;
   sourceDistrictId: DistrictId;
   targetDistrictId: DistrictId;
+  expectedConflictRevision?: number;
 }): OccupyDistrictCommand => ({
   id: input.id,
   type: "occupy-district",
@@ -504,7 +507,8 @@ const createOccupyCommand = (input: {
   issuedAt: new Date(0).toISOString(),
   payload: {
     districtId: input.targetDistrictId,
-    sourceDistrictId: input.sourceDistrictId
+    sourceDistrictId: input.sourceDistrictId,
+    expectedConflictRevision: input.expectedConflictRevision ?? 1
   },
   clientRequestId: null
 });

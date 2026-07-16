@@ -488,13 +488,16 @@ describe("occupy district command", () => {
 
     const repeated = applyCommand(
       claimed,
-      createOccupyDistrictCommandFixture({ id: "command:occupy:repeat" }),
+      createOccupyDistrictCommandFixture({
+        id: "command:occupy:repeat",
+        payload: { expectedConflictRevision: claimed.districtsById["district:2"].conflictRevision }
+      }),
       context
     );
 
     expect(repeated.errors).toMatchObject([
       {
-        code: "TARGET_IS_SELF"
+        code: "TARGET_NO_LONGER_NEUTRAL"
       }
     ]);
   });
@@ -506,7 +509,7 @@ describe("occupy district command", () => {
 
     expect(result.errors).toMatchObject([
       {
-        code: "TARGET_NOT_EMPTY"
+        code: "TARGET_NO_LONGER_NEUTRAL"
       }
     ]);
     expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBe("player:2");

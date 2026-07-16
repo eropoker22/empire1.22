@@ -82,6 +82,7 @@ describe("instance snapshot mapping", () => {
         sourceDistrictId: "district:1",
         affectedPlayerIds: ["player:2"],
         targetVersion: 1,
+        targetConflictRevision: 1,
         allianceId: "alliance:1",
         allianceVersion: 1,
         issuedAtTick: 0,

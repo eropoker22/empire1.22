@@ -355,6 +355,7 @@ const createStateWithDistrictControl = (input: {
       status: "claimed",
       resourceModifiers: {},
       securityRevision: 1,
+      conflictRevision: 1,
       version: 1
     };
     state.root.districtIds.push(districtId);

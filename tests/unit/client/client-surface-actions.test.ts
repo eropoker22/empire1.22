@@ -64,6 +64,7 @@ const createGameplaySliceFixture = (): GameplaySliceView => ({
   reports: [],
   district: {
     districtId: "district:1",
+    conflictRevision: 1,
     name: "Owned District",
     zone: "downtown",
     status: "claimed",
@@ -141,6 +142,7 @@ const createGameplaySliceFixture = (): GameplaySliceView => ({
         enabled: true,
         disabledReason: null,
         selectedLoadout: { pistol: 2 },
+        expectedConflictRevision: 5,
         expectedSourceVersion: 3,
         expectedTargetVersion: 4
       }
@@ -458,7 +460,7 @@ describe("client surface actions", () => {
     ]);
   });
 
-  it("dispatches rob commands when the rob target is stale or absent from the local slice", async () => {
+  it("does not dispatch rob commands when the rob target is stale or absent from the local slice", async () => {
     const slice = createGameplaySliceFixture();
     slice.district!.robTargets = [];
     const renderState = createInitialClientRenderState();
@@ -490,17 +492,7 @@ describe("client surface actions", () => {
 
     await router.handleTarget(robButton.element);
 
-    expect(dispatched).toEqual([
-      {
-        type: "rob-district",
-        playerId: "player:1",
-        serverInstanceId: "instance:1",
-        payload: {
-          targetDistrictId: "district:2",
-          sourceDistrictId: "district:1"
-        }
-      }
-    ]);
+    expect(dispatched).toEqual([]);
   });
 
   it("opens district building cards through the migrated client router", async () => {
@@ -591,9 +583,10 @@ describe("client surface actions", () => {
         name: "Heist Target",
         ownerPlayerId: "player:4",
         status: "claimed",
-        enabled: false,
+        enabled: true,
         disabledCode: null,
         disabledReason: null,
+        expectedConflictRevision: 11,
         expectedTargetVersion: 9,
         expectedSourceVersion: 7,
         styles: []
@@ -632,6 +625,7 @@ describe("client surface actions", () => {
         payload: {
           targetDistrictId: "district:4",
           sourceDistrictId: "district:1",
+          expectedConflictRevision: 11,
           expectedTargetVersion: 9,
           expectedSourceVersion: 7,
           style: "balanced",
@@ -641,7 +635,7 @@ describe("client surface actions", () => {
     ]);
   });
 
-  it("dispatches heist commands when the heist target is absent from the local slice", async () => {
+  it("does not dispatch heist commands when the heist target is absent from the local slice", async () => {
     const slice = createGameplaySliceFixture();
     slice.district!.heistTargets = [];
     const renderState = createInitialClientRenderState();
@@ -671,17 +665,7 @@ describe("client surface actions", () => {
 
     await router.handleTarget(heistButton.element);
 
-    expect(dispatched).toEqual([
-      {
-        type: "heist-district",
-        payload: {
-          targetDistrictId: "district:4",
-          sourceDistrictId: "district:1",
-          style: "balanced",
-          gangMembersSent: 1
-        }
-      }
-    ]);
+    expect(dispatched).toEqual([]);
   });
 
   it("dispatches attack commands through the migrated client router", async () => {
@@ -724,6 +708,7 @@ describe("client surface actions", () => {
           districtId: "district:2",
           sourceDistrictId: "district:1",
           weapons: { pistol: 2 },
+          expectedConflictRevision: 5,
           expectedSourceVersion: 3,
           expectedTargetVersion: 4
         }
@@ -799,7 +784,7 @@ describe("client surface actions", () => {
     expect(dispatched).toEqual([]);
   });
 
-  it("dispatches spy commands when target is absent from the local slice", async () => {
+  it("does not dispatch spy commands when target is absent from the local slice", async () => {
     const slice = createGameplaySliceFixture();
     slice.district!.spyTargets = [];
     const renderState = createInitialClientRenderState();
@@ -831,17 +816,7 @@ describe("client surface actions", () => {
 
     await router.handleTarget(spyButton.element);
 
-    expect(dispatched).toEqual([
-      {
-        type: "spy-district",
-        playerId: "player:1",
-        serverInstanceId: "instance:1",
-        payload: {
-          districtId: "district:2",
-          sourceDistrictId: "district:1"
-        }
-      }
-    ]);
+    expect(dispatched).toEqual([]);
   });
 
   it("dispatches occupy commands through the migrated client router", async () => {
@@ -853,6 +828,7 @@ describe("client surface actions", () => {
         ownerPlayerId: null,
         status: "neutral",
         enabled: true,
+        expectedConflictRevision: 1,
         disabledCode: null,
         disabledReason: null,
         cost: {
@@ -895,13 +871,14 @@ describe("client surface actions", () => {
         type: "occupy-district",
         payload: {
           districtId: "district:3",
-          sourceDistrictId: "district:1"
+          sourceDistrictId: "district:1",
+          expectedConflictRevision: 1
         }
       }
     ]);
   });
 
-  it("dispatches occupy commands when the occupy target is stale in the local slice", async () => {
+  it("does not dispatch occupy commands when the occupy target is stale in the local slice", async () => {
     const slice = createGameplaySliceFixture();
     slice.district!.occupyTargets = [];
     const renderState = createInitialClientRenderState();
@@ -931,15 +908,7 @@ describe("client surface actions", () => {
 
     await router.handleTarget(occupyButton.element);
 
-    expect(dispatched).toEqual([
-      {
-        type: "occupy-district",
-        payload: {
-          districtId: "district:3",
-          sourceDistrictId: "district:1"
-        }
-      }
-    ]);
+    expect(dispatched).toEqual([]);
   });
 
   it("routes district selection and trap placement without needing legacy runtime handlers", async () => {

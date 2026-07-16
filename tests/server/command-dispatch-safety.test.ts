@@ -16,7 +16,8 @@ import {
   type CommandReservationReserveResult
 } from "../../apps/server/src/runtime";
 import {
-  createPlaceTrapCommandFixture
+  createPlaceTrapCommandFixture,
+  createSelectSpawnDistrictCommandFixture
 } from "../fixtures/command-fixtures";
 import {
   createDevGameplaySession,
@@ -189,6 +190,13 @@ describe("command dispatch reservation safety", () => {
     const staleRootBefore = fixture.runtime.state.root.version;
     const stale = await submitJsonCommand(server, {
       ...fixture,
+      command: createSelectSpawnDistrictCommandFixture({
+        id: `${fixture.command.id}:stale-version`,
+        mode: fixture.command.mode,
+        playerId: fixture.command.playerId,
+        serverInstanceId: fixture.command.serverInstanceId,
+        payload: { districtId: fixture.focusDistrictId }
+      }),
       expectedStateVersion: fixture.runtime.state.root.version + 1
     });
     expect(stale.body.errors[0]?.code).toBe("server.state_version_conflict");

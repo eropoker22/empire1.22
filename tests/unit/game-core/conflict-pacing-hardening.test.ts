@@ -35,6 +35,10 @@ describe("conflict pacing hardening", () => {
 
   it("sets a player-global attack cooldown that blocks a second target", () => {
     const state = createCombatStateFixture();
+    state.playersById["player:2"] = {
+      ...state.playersById["player:2"],
+      lastStandUsedAtTick: 0
+    };
     const third = createDistrictFixture({
       id: "district:3",
       serverInstanceId: state.serverInstance.id,
@@ -57,14 +61,15 @@ describe("conflict pacing hardening", () => {
       payload: {
         districtId: third.id,
         sourceDistrictId: "district:1",
-        weapons: { "baseball-bat": 1 }
+        weapons: { "baseball-bat": 1 },
+        expectedConflictRevision: first.nextState.districtsById[third.id].conflictRevision
       }
     }), context);
 
     expect(first.errors).toEqual([]);
     expect(first.nextState.cooldownStatesById["cooldown:1"].cooldowns["attack:global"])
       .toBeGreaterThan(state.root.tick);
-    expect(second.errors).toMatchObject([{ code: "attack_cooldown_active" }]);
+    expect(second.errors).toMatchObject([{ code: "PLAYER_MAJOR_OPERATION_ACTIVE" }]);
   });
 
   it("applies clean-capture attrition, stabilization and abandons surviving defense", () => {
