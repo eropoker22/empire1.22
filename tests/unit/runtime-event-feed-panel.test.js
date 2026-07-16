@@ -64,7 +64,9 @@ describe("event feed panel helpers", () => {
       compact: false,
       resultKind: "",
       resultPayload: null,
-      sourceKind: ""
+      sourceKind: "",
+      category: "other",
+      visibility: "private"
     });
   });
 

@@ -254,8 +254,9 @@ test("strategic boosts debit once, expire, and Tactical Grid is consumed by vali
   await page.locator("[data-attack-confirm-button]").click();
 
   const afterAttackAccepted = await readSession(page);
+  const browserNow = await page.evaluate(() => Date.now());
   expect(afterAttackAccepted.playerBoosts.active).toBeNull();
-  expect(afterAttackAccepted.playerBoosts.cooldownUntilMsByBoostId["tactical-grid"]).toBeGreaterThan(Date.now());
+  expect(afterAttackAccepted.playerBoosts.cooldownUntilMsByBoostId["tactical-grid"]).toBeGreaterThan(browserNow);
   expect(afterAttackAccepted.missions.attackOrders).toHaveLength(1);
   expect(afterAttackAccepted.missions.attackOrders[0].tacticalGrid.appliedMultiplier).toBe(1.12);
   await expect(page.locator("[data-player-boost-pinned]")).toBeHidden();

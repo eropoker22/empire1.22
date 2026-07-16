@@ -3,11 +3,12 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <meta name="empire-gameplay-execution-mode" content="local-demo">
+    <meta name="empire-gameplay-execution-mode" content="auto">
     <title>Empire Streets | Game Shell</title>
-    <link rel="stylesheet" href="../page-assets/css/styles.css?v=buildings-popup-glass-20260711">
+    <link rel="stylesheet" href="../page-assets/css/styles.css?v=market-controls-20260715">
     <link rel="stylesheet" href="../page-assets/css/styles-game-admin-slice.css">
     <link rel="stylesheet" href="../page-assets/css/styles-gameplay-slice-client.css?v=result-popup-center-20260528">
+    <link rel="stylesheet" href="../page-assets/css/styles-closed-alpha-ux.css">
   </head>
   <body class="game-body game-body--booting">
     <header id="game-header" class="game-topbar">
@@ -57,8 +58,8 @@
         <aside id="game-rail-left" class="sidebar-shell game-rail">
           <div id="game-left-nav" class="panel-action-stack" aria-label="Left panel actions">
             <div id="city-events-card-anchor" hidden aria-hidden="true"></div>
-            <section id="city-events-card" class="city-events-card" aria-label="Pouliční zakázky">
-              <button class="button panel-action-button events-hero" id="city-events-open" type="button" aria-label="Pouliční zakázky, lokální demo">
+            <section id="city-events-card" class="city-events-card" aria-label="City Events">
+              <button class="button panel-action-button events-hero" id="city-events-open" type="button" aria-label="City Events, lokální demo">
                 <span class="city-events-btn__icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" role="presentation" focusable="false">
                     <rect x="3.5" y="4.5" width="17" height="16" rx="3"></rect>
@@ -68,7 +69,7 @@
                     <path d="M8 13h3"></path>
                   </svg>
                 </span>
-                <span class="city-events-btn__label">Pouliční zakázky</span>
+                <span class="city-events-btn__label">City Events</span>
               </button>
             </section>
             <div id="buildings-card-anchor" hidden aria-hidden="true"></div>
@@ -899,6 +900,11 @@
                 <div class="wanted-popup-value" data-wanted-popup-heat>10</div>
                 <h3 class="wanted-popup-title" data-wanted-popup-tier>Nízký heat</h3>
                 <p class="wanted-popup-copy" data-wanted-popup-description>Lehký dohled. Gang je skoro pod radarem.</p>
+                <div class="wanted-popup-cost-row">
+                  <span class="wanted-popup-cost" data-wanted-popup-dirty-cost>$500 dirty • -10 heat</span>
+                  <span class="wanted-popup-cost" data-wanted-popup-clean-cost>$300 clean • -15 heat</span>
+                  <span class="wanted-popup-cost" data-wanted-popup-influence-cost>20 vliv • -10 heat</span>
+                </div>
               </div>
               <div class="wanted-popup-meta wanted-popup-meta--mobile">
                 <p class="wanted-popup-row wanted-popup-row--compact">Heat <span data-wanted-popup-level>1 / 6</span></p>
@@ -910,11 +916,6 @@
                 <button type="button" class="button wanted-popup-action wanted-popup-action--dirty" data-wanted-popup-dirty>Snížit dirty cash</button>
                 <button type="button" class="button wanted-popup-action wanted-popup-action--clean" data-wanted-popup-clean>Snížit clean cash</button>
                 <button type="button" class="button wanted-popup-action wanted-popup-action--influence" data-wanted-popup-influence>Snížit vlivem</button>
-              </div>
-              <div class="wanted-popup-cost-row">
-                <span class="wanted-popup-cost" data-wanted-popup-dirty-cost>$500 dirty • -10 heat</span>
-                <span class="wanted-popup-cost" data-wanted-popup-clean-cost>$300 clean • -15 heat</span>
-                <span class="wanted-popup-cost" data-wanted-popup-influence-cost>20 vliv • -10 heat</span>
               </div>
             </div>
           </div>
@@ -1589,12 +1590,12 @@
 
       <div class="leaderboard-popup-shell" data-leaderboard-popup hidden>
         <div class="leaderboard-popup-backdrop" data-leaderboard-popup-close></div>
-        <div class="leaderboard-popup-card leaderboard-terminal-card" role="dialog" aria-modal="true" aria-label="City Ranking Terminal" tabindex="-1">
+        <div class="leaderboard-popup-card leaderboard-terminal-card" role="dialog" aria-modal="true" aria-label="Leaderboard" tabindex="-1">
           <button type="button" class="button leaderboard-popup-close" data-leaderboard-popup-close aria-label="Zavřít leaderboard">✕</button>
           <div class="leaderboard-terminal">
             <header class="leaderboard-terminal__header">
               <div class="leaderboard-terminal__title-block">
-                <h3 class="leaderboard-popup-title">CITY RANKING TERMINAL</h3>
+                <h3 class="leaderboard-popup-title">LEADERBOARD</h3>
               </div>
               <div class="leaderboard-terminal__server">
                 <span class="leaderboard-popup-server" data-leaderboard-server-badge>Server shard</span>
@@ -1631,7 +1632,7 @@
                 <div class="leaderboard-board__head">
                   <div>
                     <span class="leaderboard-board__eyebrow" data-leaderboard-mode-label>CELKOVĚ</span>
-                    <h4 data-leaderboard-table-title>Empire Score</h4>
+                    <h4 data-leaderboard-table-title>Empire score</h4>
                   </div>
                   <span class="leaderboard-board__count" data-leaderboard-count>0 hráčů</span>
                 </div>
@@ -2022,10 +2023,10 @@
           </div>
           <div class="modal__body faction-actions-modal__body">
             <div class="faction-actions-modal__intro">
-              Pasivní frakční efekty běží automaticky. Unikátní schopnost je viditelná pro orientaci, ale v této verzi ji zatím nelze spustit.
+              Aktivní pasivní efekty tvé frakce se aplikují automaticky v herním jádru.
             </div>
             <div id="faction-actions-modal-grid" class="faction-actions-modal__grid"></div>
-            <div id="faction-actions-modal-status" class="faction-actions-modal__status">Pasivní frakční efekty běží automaticky. Speciální protokoly přijdou později.</div>
+            <div id="faction-actions-modal-status" class="faction-actions-modal__status">Načítám aktivní frakční efekty.</div>
           </div>
         </div>
       </div>
@@ -2213,6 +2214,50 @@
         <div class="elimination-result-popup__body" data-elimination-result-popup-body></div>
       </section>
     </div>
+    <div class="final-lockdown-modal" data-final-lockdown-modal="start" hidden>
+      <div class="final-lockdown-modal__backdrop" data-final-lockdown-close></div>
+      <section class="final-lockdown-modal__card" role="dialog" aria-modal="true" aria-labelledby="final-lockdown-start-title" tabindex="-1">
+        <button type="button" class="button final-lockdown-modal__close" data-final-lockdown-close aria-label="Zavřít Final Lockdown">×</button>
+        <span class="final-lockdown-modal__eyebrow">FINAL LOCKDOWN</span>
+        <h2 id="final-lockdown-start-title">Město se uzavírá</h2>
+        <p class="final-lockdown-modal__lead">Začíná poslední boj o Empire score. Každý district, budova a rozhodnutí teď rozhodují o pořadí.</p>
+        <div class="final-lockdown-modal__stats">
+          <div class="final-lockdown-modal__stat">
+            <span>Tvoje pozice</span>
+            <strong data-final-lockdown-rank>--</strong>
+          </div>
+          <div class="final-lockdown-modal__stat">
+            <span>Empire score</span>
+            <strong data-final-lockdown-score>--</strong>
+          </div>
+          <div class="final-lockdown-modal__stat">
+            <span>Zbývá</span>
+            <strong data-final-lockdown-remaining>--</strong>
+          </div>
+        </div>
+        <div class="final-lockdown-modal__ranking">
+          <span class="final-lockdown-modal__section-label">Aktuální čelo</span>
+          <ol data-final-lockdown-start-ranking></ol>
+        </div>
+        <button type="button" class="button final-lockdown-modal__confirm" data-final-lockdown-close>Jdu do finále</button>
+      </section>
+    </div>
+    <div class="final-lockdown-modal final-lockdown-modal--results" data-final-lockdown-modal="results" hidden>
+      <div class="final-lockdown-modal__backdrop" data-final-lockdown-close></div>
+      <section class="final-lockdown-modal__card" role="dialog" aria-modal="true" aria-labelledby="final-lockdown-results-title" tabindex="-1">
+        <button type="button" class="button final-lockdown-modal__close" data-final-lockdown-close aria-label="Zavřít konečné výsledky">×</button>
+        <span class="final-lockdown-modal__eyebrow">VÝSLEDKY FINAL LOCKDOWNU</span>
+        <h2 id="final-lockdown-results-title">Město zná své pořadí</h2>
+        <p class="final-lockdown-modal__lead" data-final-lockdown-results-summary>Konečný Empire score rozhodl o vítězích této hry.</p>
+        <div class="final-lockdown-modal__results-table-wrap">
+          <table class="final-lockdown-modal__results-table">
+            <thead><tr><th>#</th><th>Hráč</th><th>Empire score</th><th>Districty</th></tr></thead>
+            <tbody data-final-lockdown-results-ranking></tbody>
+          </table>
+        </div>
+        <button type="button" class="button final-lockdown-modal__confirm" data-final-lockdown-close>Zavřít výsledky</button>
+      </section>
+    </div>
     <div class="elimination-countdown-warning" data-elimination-countdown-warning hidden aria-live="polite" aria-atomic="true">
       <div class="elimination-countdown-warning__card">
         <button type="button" class="button elimination-countdown-warning__close" data-elimination-countdown-warning-close aria-label="Zavřít odpočet očisty">×</button>
@@ -2230,6 +2275,7 @@
     <script type="module" src="../page-assets/js/data/events.js"></script>
     <script type="module" src="../page-assets/js/app/mobile-performance-runtime.js"></script>
     <script type="module" src="../page-assets/js/app.js?v=live-raid-storage-20260711"></script>
+    <script type="module" src="../page-assets/js/app/final-lockdown-popup-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/city-events-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/alliance-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/bounty-runtime.js"></script>
@@ -2239,6 +2285,7 @@
     <script type="module" src="../page-assets/js/app/game-window-restore-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/mobile-layout-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/game-admin-slice-launcher.js"></script>
+    <script type="module" src="../page-assets/js/app/closed-alpha-ux-runtime.js"></script>
     <script src="../page-assets/js/client-assets/gameplay-slice-client.js"></script>
   </body>
 </html>

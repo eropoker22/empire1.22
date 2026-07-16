@@ -1,0 +1,96 @@
+.closed-alpha-connection {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  z-index: 1200;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  border: 1px solid #2f9e73;
+  border-radius: 4px;
+  background: #0b1512;
+  color: #8ff0c8;
+  font: 700 11px/1.2 system-ui, sans-serif;
+}
+
+.closed-alpha-connection[data-connection-status="reconnecting"],
+.closed-alpha-connection[data-connection-status="stale"] { border-color: #d49a3a; color: #ffd27a; }
+.closed-alpha-connection[data-connection-status="session_expired"],
+.closed-alpha-connection[data-connection-status="server_unavailable"],
+.closed-alpha-connection[data-connection-status="offline"] { border-color: #d65151; color: #ff9b9b; }
+
+.operational-liveness-panel {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(1180px, calc(100% - 24px));
+  margin: 8px auto;
+  padding: 10px 12px;
+  border-left: 3px solid #3bb98c;
+  background: #101916;
+  color: #e7f7f1;
+}
+.operational-liveness-panel[hidden] { display: none; }
+.operational-liveness-panel strong { font-size: 12px; }
+.operational-liveness-panel p { margin: 2px 0 0; color: #a9bbb5; font-size: 12px; }
+.operational-liveness-panel > span { margin-left: auto; color: #7adfc0; font-size: 11px; font-weight: 700; }
+.operational-liveness-panel__recovery { min-height: 44px; margin-left: auto; }
+
+.operations-center-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+.operations-center-modal[hidden] { display: none; }
+.operations-center-modal__backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, .78); }
+.operations-center-modal__card {
+  position: relative;
+  width: min(620px, 100%);
+  max-height: min(720px, calc(100vh - 32px));
+  overflow: auto;
+  border: 1px solid #33433e;
+  border-radius: 6px;
+  background: #111714;
+  color: #edf5f2;
+}
+.operations-center-modal__card header { display: flex; justify-content: space-between; align-items: center; padding: 16px; border-bottom: 1px solid #29342f; }
+.operations-center-modal__card header span { color: #78d8b9; font-size: 10px; font-weight: 700; }
+.operations-center-modal__card h2 { margin: 3px 0 0; font-size: 20px; }
+.operations-center-modal__card header button { width: 44px; height: 44px; font-size: 24px; }
+.operations-center-modal__body { display: grid; gap: 1px; background: #29342f; }
+.shared-confirmation-modal__card { max-width: 520px; }
+.shared-confirmation-modal__body { gap: 16px; padding: 18px; background: #131c18; }
+.shared-confirmation-modal__body p { margin: 0; color: #c6d4cf; line-height: 1.55; }
+.shared-confirmation-modal__actions { display: flex; justify-content: flex-end; gap: 10px; }
+.shared-confirmation-modal__actions .button { min-height: 44px; }
+.operations-center-row { display: flex; justify-content: space-between; gap: 12px; min-height: 56px; padding: 12px 16px; border: 0; background: #131c18; color: inherit; text-align: left; cursor: pointer; }
+.operations-center-row strong { color: #8be4c6; font-size: 12px; }
+
+.pending-deliveries__list { display: grid; gap: 8px; }
+.pending-delivery { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; align-items: center; padding: 10px; border: 1px solid #35433e; border-radius: 4px; background: #111916; }
+.pending-delivery small { color: #9aaba5; }
+.pending-delivery .button { grid-column: 2; grid-row: 1 / span 2; min-height: 44px; }
+
+.street-news-filters { display: flex; gap: 5px; overflow-x: auto; padding: 6px 0 9px; scrollbar-width: thin; }
+.street-news-filters .button { flex: 0 0 auto; min-height: 36px; padding: 6px 9px; border-radius: 4px; font-size: 10px; }
+.street-news-filters .is-active { border-color: #52cba2; color: #8ff0c8; }
+
+.shared-modal-open { overflow: hidden; }
+
+@media (max-width: 640px) {
+  .closed-alpha-connection { top: 4px; max-width: calc(100vw - 16px); white-space: nowrap; }
+  .operational-liveness-panel { align-items: stretch; flex-direction: column; gap: 8px; width: calc(100% - 16px); }
+  .operational-liveness-panel > span,
+  .operational-liveness-panel__recovery { margin-left: 0; }
+  .operations-center-modal { align-items: end; padding: 0; }
+  .operations-center-modal__card { width: 100%; max-height: 84vh; border-radius: 6px 6px 0 0; }
+  .operations-center-trigger { min-height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .operations-center-modal *, .closed-alpha-connection { transition: none !important; animation: none !important; }
+}

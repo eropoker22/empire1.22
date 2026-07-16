@@ -922,6 +922,8 @@ const CITY_CLOCK_MINUTES_PER_TICK = 1;
 // 720 game minutes (06:00-18:00) must take 2 real hours, so one game minute advances every 10 seconds.
 const CITY_CLOCK_TICK_MS = 10 * 1000;
 const DEFAULT_CITY_MINUTES = 5 * 60 + 55;
+const CITY_MARKET_OFFER_COUNT = 2;
+const CITY_MARKET_REFRESH_MINUTES = Object.freeze([11 * 60, 19 * 60]);
 const DISTRICT_GOSSIP_MAX_PER_DISTRICT = 2;
 const buildingActionPanels = new WeakMap();
 const attackMissionTimers = new Map();
@@ -1159,11 +1161,50 @@ function submitServerArmoryCommand({ type, payload } = {}) {
   });
 }
 
+export function getServerGameplaySliceReadModel() {
+  return latestGameplaySliceReadModel;
+}
+
+function submitServerCityEventCommand({ action, id } = {}) {
+  const normalizedId = String(id || "").trim();
+  const command = action === "start"
+    ? { type: "start-city-event", payload: { offerId: normalizedId } }
+    : action === "claim"
+      ? { type: "claim-city-event-reward", payload: { pendingRewardId: normalizedId } }
+      : null;
+  if (!command || !normalizedId) {
+    return Promise.resolve({
+      accepted: false,
+      errors: [{ message: "Neplatná City Events akce." }]
+    });
+  }
+  return submitServerDistrictActionCommand({
+    ...command,
+    focusDistrictId: latestGameplaySliceReadModel?.district?.districtId
+      || latestGameplaySliceReadModel?.player?.homeDistrictId
+  });
+}
+
+function submitServerEmergencyRecoveryCommand() {
+  return submitServerDistrictActionCommand({
+    type: "claim-emergency-recovery",
+    payload: {},
+    focusDistrictId: latestGameplaySliceReadModel?.player?.homeDistrictId
+  });
+}
+
 function createGameplaySliceCommandId(prefix = "command:market") {
   return `${prefix}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
 }
 
-async function submitServerDistrictActionCommand({ type, payload, focusDistrictId } = {}) {
+export async function submitServerDistrictActionCommand({ type, payload, focusDistrictId } = {}) {
+  const connectionState = typeof window !== "undefined" ? window.empireStreetsGameplayConnectionState : "connected";
+  if (connectionState && connectionState !== "connected") {
+    return {
+      accepted: false,
+      errors: [{ message: connectionState === "session_expired" ? "Relace vypršela. Obnov přihlášení." : "Serverový stav se obnovuje. Akce zatím není dostupná." }]
+    };
+  }
   if (!isServerAuthoritativeGameplayRuntimeReady()) {
     return { accepted: false, errors: [{ message: "Serverový herní stav ještě není načtený." }] };
   }
@@ -3009,6 +3050,70 @@ function createOwnedDistrictPoliceRaidAlertPayload(district, policeAction) {
   return getResultPayloadBuilders().createOwnedDistrictPoliceRaidAlertPayload(district, policeAction);
 }
 
+function getCityMarketOfferSchedule(phaseState = getResolvedPhaseState()) {
+  const cityMinutes = ((Math.floor(Number(phaseState?.cityMinutes ?? DEFAULT_CITY_MINUTES)) % (24 * 60)) + (24 * 60)) % (24 * 60);
+  const cityDayIndex = Math.max(0, Math.floor(Number(phaseState?.cityDayIndex || 0)));
+  const isEveningOffer = cityMinutes >= CITY_MARKET_REFRESH_MINUTES[1] || cityMinutes < CITY_MARKET_REFRESH_MINUTES[0];
+  const offerDayIndex = cityMinutes < CITY_MARKET_REFRESH_MINUTES[0] ? Math.max(0, cityDayIndex - 1) : cityDayIndex;
+  const nextRefreshMinute = cityMinutes < CITY_MARKET_REFRESH_MINUTES[0]
+    ? CITY_MARKET_REFRESH_MINUTES[0]
+    : cityMinutes < CITY_MARKET_REFRESH_MINUTES[1]
+      ? CITY_MARKET_REFRESH_MINUTES[1]
+      : (24 * 60) + CITY_MARKET_REFRESH_MINUTES[0];
+
+  return {
+    offerWindowId: `${offerDayIndex}:${isEveningOffer ? "evening" : "day"}`,
+    refreshDelayMs: Math.max(250, (nextRefreshMinute - cityMinutes) * CITY_CLOCK_TICK_MS)
+  };
+}
+
+function hashCityMarketOfferSeed(value) {
+  let hash = 2166136261;
+  for (const character of String(value || "")) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function getCityMarketTabConfig() {
+  const tabConfig = MARKET_TAB_CONFIG.market || {};
+  const items = Array.isArray(tabConfig.items) ? [...tabConfig.items] : [];
+  const schedule = getCityMarketOfferSchedule();
+  const random = createSeededRandom(hashCityMarketOfferSeed(`city-market:${schedule.offerWindowId}`));
+
+  for (let index = items.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [items[index], items[swapIndex]] = [items[swapIndex], items[index]];
+  }
+
+  return {
+    ...tabConfig,
+    items: items.slice(0, CITY_MARKET_OFFER_COUNT)
+  };
+}
+
+function getCityMarketOfferRefreshDelayMs() {
+  return getCityMarketOfferSchedule().refreshDelayMs;
+}
+
+function formatStoredPoliceRaidStreetNewsLosses(policeRaidPayload = {}) {
+  const rows = typeof policeRaidPayload.getRows === "function"
+    ? policeRaidPayload.getRows()
+    : policeRaidPayload.rows;
+  const lossRows = (Array.isArray(rows) ? rows : [])
+    .filter((row) => {
+      const label = String(row?.label || "").toLowerCase();
+      return label.includes("zabaven") || label.includes("zatčen") || label.includes("ztracen");
+    })
+    .slice(0, 3)
+    .map((row) => `${row.label}: ${row.value}`);
+
+  return lossRows.length
+    ? lossRows.join(" · ")
+    : "Ztráty zatím nejsou vyčíslené.";
+}
+
 function createDistrictAttackInProgressPayload(district, attackMarker) {
   return getResultPayloadBuilders().createDistrictAttackInProgressPayload(district, attackMarker);
 }
@@ -3721,11 +3826,52 @@ function collectBuildingCooldownStreetNewsEntries(now) {
   return entries;
 }
 
+function collectAlliancePenaltyStreetNewsEntries(now) {
+  const penalty = latestGameplaySliceReadModel?.player?.alliance?.exitPenalty;
+  const expiresAt = parseStreetNewsCooldownTimestamp(penalty?.penaltyEndsAt);
+  if (!penalty || !expiresAt || expiresAt <= now) {
+    return [];
+  }
+
+  const attackMultiplier = Math.max(0, Number(penalty.attackMultiplier ?? 1));
+  const defenseMultiplier = Math.max(0, Number(penalty.defenseMultiplier ?? 1));
+  const attackPenaltyPercent = Math.max(0, Math.round((1 - attackMultiplier) * 100));
+  const defensePenaltyPercent = Math.max(0, Math.round((1 - defenseMultiplier) * 100));
+  const reason = penalty.reason === "inactive_kick" ? "Vyhození z aliance" : "Odchod z aliance";
+  const remainingLabel = formatStreetNewsCooldownRemaining(expiresAt - now);
+  const resultPayload = {
+    openable: true,
+    tone: "warning",
+    title: "Oslabení po alianci",
+    badge: "Debuff",
+    summary: `${reason} dočasně snižuje bojovou sílu.`,
+    rows: [
+      { label: "Důvod", value: reason },
+      { label: "Útok", value: attackPenaltyPercent > 0 ? `-${attackPenaltyPercent} %` : "Bez změny" },
+      { label: "Obrana", value: defensePenaltyPercent > 0 ? `-${defensePenaltyPercent} %` : "Bez změny" },
+      { label: "Zbývá", value: remainingLabel, nowrap: true, countdownUntil: expiresAt }
+    ]
+  };
+
+  const entries = [];
+  appendStreetNewsCooldownEntry(entries, {
+    id: `cooldown:alliance-penalty:${String(penalty.id || expiresAt)}`,
+    title: "Oslabení po alianci",
+    summary: `${reason} · útok -${attackPenaltyPercent} % · obrana -${defensePenaltyPercent} %`,
+    meta: `Čekání ${remainingLabel}`,
+    expiresAt,
+    resultKind: "alliance-penalty",
+    resultPayload
+  }, now);
+  return entries;
+}
+
 function createActiveCooldownStreetNewsEntries(now = Date.now()) {
   return [
     ...collectMissionCooldownStreetNewsEntries(now),
     ...collectTrapCooldownStreetNewsEntries(now),
-    ...collectBuildingCooldownStreetNewsEntries(now)
+    ...collectBuildingCooldownStreetNewsEntries(now),
+    ...collectAlliancePenaltyStreetNewsEntries(now)
   ]
     .sort((left, right) => Number(left.timestampMs || 0) - Number(right.timestampMs || 0))
     .slice(0, 16);
@@ -4972,7 +5118,6 @@ function normalizeLocalDemoStorageInventory() {
   const materials = { ...(inventory.materials || {}) };
   const drugs = { ...(inventory.drugs || {}) };
   const weapons = { ...(inventory.weapons || {}) };
-  const factorySupplies = createFactoryPlayerSupplyMap(inventory.factorySupplies);
   let changed = false;
 
   const clampStoredAmount = (value, capacity) => Math.max(0, Math.min(
@@ -4990,11 +5135,7 @@ function normalizeLocalDemoStorageInventory() {
   for (const [resourceKey, capacity] of Object.entries(capacityByResource)) {
     const factorySupplyKey = getFactorySupplyKeyForMaterial(resourceKey);
     if (factorySupplyKey) {
-      const storedAmount = Math.max(0, Math.floor(Number(factorySupplies[factorySupplyKey] || 0)));
-      const legacyMaterialAmount = Math.max(0, Math.floor(Number(materials[resourceKey] || 0)));
-      const acceptedAmount = clampStoredAmount(storedAmount + legacyMaterialAmount, capacity);
-      setIfChanged(factorySupplies, factorySupplyKey, acceptedAmount);
-      setIfChanged(materials, resourceKey, 0);
+      setIfChanged(materials, resourceKey, clampStoredAmount(materials[resourceKey], capacity));
       continue;
     }
     if (Object.prototype.hasOwnProperty.call(DEFAULT_DRUG_INVENTORY, resourceKey)) {
@@ -5019,7 +5160,7 @@ function normalizeLocalDemoStorageInventory() {
       materials,
       drugs,
       weapons,
-      factorySupplies
+      factorySupplies: undefined
     }
   }));
   return true;
@@ -5107,17 +5248,113 @@ function sanitizeFactoryState(rawState, now = Date.now(), options = {}) {
 }
 
 function getStoredFactoryState() {
-  return sanitizeFactoryState(getAuthoritySession().production.factory, Date.now(), createFactoryCapacityOptions());
+  const now = Date.now();
+  const jobs = getResolvedProductionState();
+  const buildingLevel = Math.max(1, Number(getAuthoritySession()?.production?.buildings?.factory?.level || 1));
+  const slots = FACTORY_SLOT_CONFIG.map((slotConfig) => {
+    const recipe = FACTORY_CONFIG.recipes?.[slotConfig.recipeId] || {};
+    const job = normalizeLocalProductionJob(jobs[`factory:${slotConfig.recipeId}`], {
+      unitDurationMs: Number(recipe.durationMs || 1_000),
+      localOutputCap: Number(recipe.localOutputCap || 1),
+      queueCapacity: Number(recipe.queueCap || 1),
+      unitCleanMoneyCost: Number(recipe.cleanMoneyCost || 0),
+      unitInputs: recipe.inputs || {},
+      output: recipe.output
+    });
+    const unitDurationMs = Math.max(1, Number(job?.unitDurationMs || recipe.durationMs || 1_000));
+    const remainingMs = Math.max(0, Number(job?.activeWorkRemainingMs || 0));
+    return {
+      ...createFactoryDefaultSlot(slotConfig, now, createFactoryCapacityOptions()),
+      queuedAmount: Math.max(0, Number(job?.queuedAmount || 0)),
+      producedAmount: Math.max(0, Number(job?.producedAmount || 0)),
+      isProducing: Boolean(job?.isProducing),
+      productionRemainder: job?.isProducing ? Math.max(0, Math.min(0.999999, 1 - remainingMs / unitDurationMs)) : 0,
+      reservedCleanCash: Math.max(0, Number(job?.cleanMoneyCost || 0)),
+      reservedInputs: {
+        metalParts: Math.max(0, Number(job?.inputs?.["metal-parts"] || 0)),
+        techCore: Math.max(0, Number(job?.inputs?.["tech-core"] || 0)),
+        combatModule: Math.max(0, Number(job?.inputs?.["combat-module"] || 0))
+      },
+      lastTick: Math.max(0, Number(job?.lastProgressAtMs || now))
+    };
+  });
+  return sanitizeFactoryState({
+    level: buildingLevel,
+    resources: Object.fromEntries(slots.map((slot) => [slot.resourceKey, slot.producedAmount])),
+    slots,
+    updatedAt: now
+  }, now, createFactoryCapacityOptions());
 }
 
 function setStoredFactoryState(payload) {
-  updateStoredPreviewSession((session) => ({
-    ...session,
-    production: {
-      ...session.production,
-      factory: sanitizeFactoryState(payload, Date.now(), createFactoryCapacityOptions())
+  const now = Date.now();
+  const factory = sanitizeFactoryState(payload, now, createFactoryCapacityOptions());
+  updateStoredPreviewSession((session) => {
+    const jobs = { ...(session.production?.jobs || {}) };
+    for (const slot of factory.slots) {
+      const recipe = FACTORY_CONFIG.recipes?.[slot.recipeId] || {};
+      const queuedAmount = Math.max(0, Math.floor(Number(slot.queuedAmount || 0)));
+      const distribute = (total) => Array.from({ length: queuedAmount }, (_, index) => {
+        const safeTotal = Math.max(0, Math.floor(Number(total || 0)));
+        return Math.floor(safeTotal / Math.max(1, queuedAmount)) + (index < safeTotal % Math.max(1, queuedAmount) ? 1 : 0);
+      });
+      const cleanUnits = distribute(slot.reservedCleanCash);
+      const metalUnits = distribute(slot.reservedInputs?.metalParts);
+      const techUnits = distribute(slot.reservedInputs?.techCore);
+      const combatUnits = distribute(slot.reservedInputs?.combatModule);
+      const unitDurationMs = Math.max(1, Number(recipe.durationMs || 1_000));
+      const activeWorkRemainingMs = slot.isProducing && queuedAmount > 0
+        ? Math.max(1, Math.ceil(unitDurationMs * (1 - Math.min(0.999999, Math.max(0, Number(slot.productionRemainder || 0))))))
+        : null;
+      const lastProgressAtMs = activeWorkRemainingMs ? Math.max(0, Number(slot.lastTick || now)) : null;
+      jobs[`factory:${slot.recipeId}`] = {
+        version: 2,
+        recipeId: slot.recipeId,
+        queuedAmount,
+        producedAmount: Math.max(0, Math.floor(Number(slot.producedAmount || 0))),
+        quantity: queuedAmount,
+        unitDurationMs,
+        durationMs: unitDurationMs,
+        localOutputCap: Math.max(1, Number(slot.slotCap || recipe.localOutputCap || 1)),
+        queueCapacity: Math.max(1, Number(slot.queueCap || recipe.queueCap || 1)),
+        reservationUnits: Array.from({ length: queuedAmount }, (_, index) => ({
+          cleanMoney: cleanUnits[index] || 0,
+          inputs: {
+            "metal-parts": metalUnits[index] || 0,
+            "tech-core": techUnits[index] || 0,
+            "combat-module": combatUnits[index] || 0
+          }
+        })),
+        inputs: {
+          "metal-parts": metalUnits.reduce((sum, amount) => sum + amount, 0),
+          "tech-core": techUnits.reduce((sum, amount) => sum + amount, 0),
+          "combat-module": combatUnits.reduce((sum, amount) => sum + amount, 0)
+        },
+        cleanMoneyCost: cleanUnits.reduce((sum, amount) => sum + amount, 0),
+        isProducing: Boolean(slot.isProducing && queuedAmount > 0),
+        productionSpeedMultiplier: 1,
+        productionSpeedExpiresAtMs: null,
+        activeWorkRemainingMs,
+        lastProgressAtMs,
+        readyAtMs: activeWorkRemainingMs && lastProgressAtMs !== null ? lastProgressAtMs + activeWorkRemainingMs : null,
+        readyAt: activeWorkRemainingMs && lastProgressAtMs !== null ? new Date(lastProgressAtMs + activeWorkRemainingMs).toISOString() : null,
+        status: queuedAmount > 0 ? slot.isProducing ? "running" : "waiting" : Number(slot.producedAmount || 0) > 0 ? "ready" : "idle",
+        output: { ...(recipe.output || {}), amount: Math.max(0, Math.floor(Number(slot.producedAmount || 0))) }
+      };
     }
-  }));
+    return {
+      ...session,
+      production: {
+        ...session.production,
+        jobs,
+        factory: undefined,
+        buildings: {
+          ...(session.production?.buildings || {}),
+          factory: { ...(session.production?.buildings?.factory || {}), level: factory.level }
+        }
+      }
+    };
+  });
 }
 
 function getStoredFactorySupplies() {
@@ -5129,7 +5366,12 @@ function getStoredFactorySupplies() {
       combatModule: balances["combat-module"] ?? balances.combatModule
     });
   }
-  return createFactoryPlayerSupplyMap(getAuthoritySession().inventory.factorySupplies);
+  const materials = getAuthoritySession().inventory.materials || {};
+  return createFactoryPlayerSupplyMap({
+    metalParts: materials["metal-parts"],
+    techCore: materials["tech-core"],
+    combatModule: materials["combat-module"]
+  });
 }
 
 function setStoredFactorySupplies(payload) {
@@ -5137,7 +5379,13 @@ function setStoredFactorySupplies(payload) {
     ...session,
     inventory: {
       ...session.inventory,
-      factorySupplies: createFactoryPlayerSupplyMap(payload)
+      materials: {
+        ...(session.inventory?.materials || {}),
+        "metal-parts": Math.max(0, Math.floor(Number(payload?.metalParts || 0))),
+        "tech-core": Math.max(0, Math.floor(Number(payload?.techCore || 0))),
+        "combat-module": Math.max(0, Math.floor(Number(payload?.combatModule || 0)))
+      },
+      factorySupplies: undefined
     }
   }));
 }
@@ -5277,16 +5525,12 @@ function applyLocalProductionBoostBoundary(session, boundary = {}) {
     );
     return [jobId, result.job || job];
   }));
-  const factoryResult = syncFactoryProduction(session?.production?.factory, boundaryMs, {
-    boostState: session?.playerBoosts,
-    skipBoostLifecycle: true
-  });
   return {
     ...session,
     production: {
       ...(session.production || {}),
       jobs,
-      factory: factoryResult.state
+      factory: undefined
     }
   };
 }
@@ -5338,7 +5582,7 @@ function synchronizeLocalPlayerBoostRuntime(now = Date.now()) {
 function createUnavailablePlayerBoostView() {
   const emptySession = {
     economy: { cleanMoney: 0 },
-    inventory: { drugs: {}, factorySupplies: {} },
+    inventory: { drugs: {}, materials: {} },
     playerBoosts: null
   };
   const view = createLocalPlayerBoostView(emptySession, Date.now());
@@ -5567,6 +5811,8 @@ const {
   documentRef: typeof document === "undefined" ? null : document,
   formatMarketPrice,
   getCurrentPlayerIdentityLabel,
+  getCityMarketOfferRefreshDelayMs,
+  getCityMarketTabConfig,
   getInventoryAmount,
   getMarketListingTotal,
   getMarketMaxStock,
@@ -11213,7 +11459,7 @@ function bindDistrictCanvas(root) {
     return true;
   };
 
-  const openStoredOwnedPoliceRaidAlert = () => {
+  const appendStoredOwnedPoliceRaidAlert = () => {
     if (!root || root.dataset.ownedPoliceRaidAlertOpened === "true") {
       return false;
     }
@@ -11230,15 +11476,25 @@ function bindDistrictCanvas(root) {
       || { id: Number(activeOwnedPoliceAction.districtId) };
     const policeRaidPayload = createOwnedDistrictPoliceRaidAlertPayload(district, activeOwnedPoliceAction);
     root.dataset.ownedPoliceRaidAlertOpened = "true";
-    openPoliceActionResultModal(root, {
+    const payload = {
       ...policeRaidPayload,
       syncToBuildingAction: false
-    });
+    };
+    appendBuildingActionResultEntry(root, "police", payload, {
+      id: `stored-owned-police-raid:${activeOwnedPoliceAction.id || activeOwnedPoliceAction.raidId || activeOwnedPoliceAction.districtId || "active"}`,
+      tone: "warning",
+      title: "Probíhá policejní razie",
+      summary: `District ${Number(activeOwnedPoliceAction.districtId)} · ${formatStoredPoliceRaidStreetNewsLosses(payload)}`,
+      meta: "Kliknutím zobrazíš detail dopadů.",
+      compact: true,
+      persistent: true,
+      districtId: activeOwnedPoliceAction.districtId
+    }, { syncPreview: true, forceLog: true, refresh: false });
     return true;
   };
 
   const scheduleStoredOwnedPoliceRaidAlert = () => {
-    const openAlert = () => openStoredOwnedPoliceRaidAlert();
+    const openAlert = () => appendStoredOwnedPoliceRaidAlert();
     if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
       window.requestAnimationFrame(() => {
         if (typeof window.setTimeout === "function") {
@@ -12265,6 +12521,13 @@ function bindDistrictCanvas(root) {
           ? `district:${adjacentOwnedDistrictIds[0]}`
           : latestGameplaySliceReadModel?.district?.districtId || player.homeDistrictId || "";
         const targetDistrictId = `district:${selectedDistrict.id}`;
+        const corridor = latestGameplaySliceReadModel?.frontier?.corridorTargets
+          ?.find((entry) => String(entry?.targetDistrictId) === targetDistrictId) || null;
+        const routedSourceDistrictId = corridor?.sourceDistrictId || sourceDistrictId;
+        const routePayload = corridor ? {
+          routeDistrictId: corridor.routeDistrictId,
+          expectedRouteVersion: corridor.routeVersion
+        } : {};
         const districtView = latestGameplaySliceReadModel?.district || {};
         const findTargetView = (views) => Array.isArray(views)
           ? views.find((view) => String(view?.districtId) === targetDistrictId) || null
@@ -12278,7 +12541,8 @@ function bindDistrictCanvas(root) {
                 type: "heist-district",
                 payload: {
                   targetDistrictId,
-                  sourceDistrictId,
+                  sourceDistrictId: routedSourceDistrictId,
+                  ...routePayload,
                   style: balancedHeist?.style || "balanced",
                   gangMembersSent: balancedHeist?.defaultGangMembersSent || balancedHeist?.minMembers || 10,
                   expectedTargetVersion: heistView?.expectedTargetVersion,
@@ -12286,19 +12550,20 @@ function bindDistrictCanvas(root) {
                 }
               }
             : actionId === "occupy"
-              ? { type: "occupy-district", payload: { districtId: targetDistrictId, sourceDistrictId } }
+              ? { type: "occupy-district", payload: { districtId: targetDistrictId, sourceDistrictId: routedSourceDistrictId, ...routePayload } }
               : actionId === "rob"
                 ? {
                     type: "rob-district",
                     payload: {
                       targetDistrictId,
-                      sourceDistrictId,
+                      sourceDistrictId: routedSourceDistrictId,
+                      ...routePayload,
                       expectedTargetVersion: robView?.expectedTargetVersion,
                       expectedSourceVersion: robView?.expectedSourceVersion
                     }
                   }
                 : actionId === "spy"
-                  ? { type: "spy-district", payload: { districtId: targetDistrictId, sourceDistrictId } }
+                  ? { type: "spy-district", payload: { districtId: targetDistrictId, sourceDistrictId: routedSourceDistrictId, ...routePayload } }
                   : trapRelocation?.canRelocate
                     ? {
                         type: "relocate-trap",
@@ -12605,14 +12870,17 @@ function bindDistrictCanvas(root) {
         const attackView = latestGameplaySliceReadModel?.district?.attackTargets?.find(
           (view) => String(view?.districtId) === targetDistrictId
         );
+        const corridor = latestGameplaySliceReadModel?.frontier?.corridorTargets
+          ?.find((entry) => String(entry?.targetDistrictId) === targetDistrictId) || null;
         void submitServerDistrictActionCommand({
           type: "attack-district",
           payload: {
             districtId: targetDistrictId,
-            sourceDistrictId: `district:${context?.sourceDistrictId || ""}`,
+            sourceDistrictId: corridor?.sourceDistrictId || `district:${context?.sourceDistrictId || ""}`,
             weapons: context?.attackLoadout || {},
             expectedSourceVersion: attackView?.expectedSourceVersion,
-            expectedTargetVersion: attackView?.expectedTargetVersion
+            expectedTargetVersion: attackView?.expectedTargetVersion,
+            ...(corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {})
           },
           focusDistrictId: targetDistrictId
         }).then((response) => {
@@ -12777,11 +13045,18 @@ function bindDistrictCanvas(root) {
       }
 
       if (isServerAuthoritativeGameplayRuntimeReady()) {
-        const sourceDistrictId = getAdjacentOwnedDistrictIds(selectedDistrict)[0];
+        const targetDistrictId = `district:${selectedDistrict.id}`;
+        const corridor = latestGameplaySliceReadModel?.frontier?.corridorTargets
+          ?.find((entry) => String(entry?.targetDistrictId) === targetDistrictId) || null;
+        const sourceDistrictId = corridor?.sourceDistrictId || `district:${getAdjacentOwnedDistrictIds(selectedDistrict)[0] || ""}`;
         void submitServerDistrictActionCommand({
           type: "spy-district",
-          payload: { districtId: `district:${selectedDistrict.id}`, sourceDistrictId: `district:${sourceDistrictId || ""}` },
-          focusDistrictId: `district:${selectedDistrict.id}`
+          payload: {
+            districtId: targetDistrictId,
+            sourceDistrictId,
+            ...(corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {})
+          },
+          focusDistrictId: targetDistrictId
         }).then((response) => {
           if (response?.accepted) {
             closeSpyConfirmPopup();
@@ -12810,11 +13085,18 @@ function bindDistrictCanvas(root) {
       }
 
       if (isServerAuthoritativeGameplayRuntimeReady()) {
-        const sourceDistrictId = getAdjacentOwnedDistrictIds(selectedDistrict)[0];
+        const targetDistrictId = `district:${selectedDistrict.id}`;
+        const corridor = latestGameplaySliceReadModel?.frontier?.corridorTargets
+          ?.find((entry) => String(entry?.targetDistrictId) === targetDistrictId) || null;
+        const sourceDistrictId = corridor?.sourceDistrictId || `district:${getAdjacentOwnedDistrictIds(selectedDistrict)[0] || ""}`;
         void submitServerDistrictActionCommand({
           type: "occupy-district",
-          payload: { districtId: `district:${selectedDistrict.id}`, sourceDistrictId: `district:${sourceDistrictId || ""}` },
-          focusDistrictId: `district:${selectedDistrict.id}`
+          payload: {
+            districtId: targetDistrictId,
+            sourceDistrictId,
+            ...(corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {})
+          },
+          focusDistrictId: targetDistrictId
         }).then((response) => {
           if (response?.accepted) {
             closeOccupyConfirmPopup();
@@ -14619,6 +14901,8 @@ export {
   setStoredWeaponInventory,
   submitServerAllianceCommand,
   submitServerBountyCommand,
+  submitServerCityEventCommand,
+  submitServerEmergencyRecoveryCommand,
   updateTopbarResources,
   showAttackToast,
   showError,

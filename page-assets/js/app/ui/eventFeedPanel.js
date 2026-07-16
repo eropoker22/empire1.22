@@ -60,6 +60,8 @@ export function normalizeBuildingActionSnapshot(snapshot) {
     ? snapshot.resultPayload
     : null;
   const compact = snapshot?.compact === true;
+  const category = normalizeBuildingActionClassToken(snapshot?.category || snapshot?.resultPayload?.category || "", "other");
+  const visibility = normalizeBuildingActionClassToken(snapshot?.visibility || snapshot?.resultPayload?.visibility || "", "private");
 
   return {
     tone,
@@ -69,6 +71,8 @@ export function normalizeBuildingActionSnapshot(snapshot) {
     resultKind,
     districtType,
     sourceKind,
+    category,
+    visibility,
     compact,
     dismissible,
     persistent: !dismissible,
@@ -315,6 +319,8 @@ export function createBuildingActionFeedItemElement(documentRef, entry, options 
   const item = ownerDocument.createElement("article");
   item.className = `building-action-status__item building-action-status__item--${entry.tone} building-action-status__item--${resolveBuildingActionTheme(entry.resultPayload?.tone || entry.tone)}`;
   item.dataset.buildingActionId = entry.id;
+  item.dataset.streetNewsCategory = entry.category || "other";
+  item.dataset.streetNewsVisibility = entry.visibility || "private";
   const isOpenable = isBuildingActionEntryOpenable(entry);
   const isDismissible = entry.dismissible !== false && entry.persistent !== true;
   const isCompactCooldown = entry.compact === true || entry.sourceKind === "cooldown";
