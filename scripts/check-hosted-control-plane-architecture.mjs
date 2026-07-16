@@ -31,10 +31,13 @@ for (const path of netlifyFiles) {
 }
 
 const handler = text("apps/server/src/netlify/admin-read-only-netlify.ts");
+const matchmakingHandler = text("apps/server/src/netlify/public-server-matchmaking-netlify.ts");
 check(handler.includes('header(request.headers, "idempotency-key")'), "create and lifecycle endpoints require Idempotency-Key");
 check(handler.includes("expectedVersion") || text("apps/server/src/admin/hosted/hosted-control-plane-service.ts").includes("expectedVersion"), "lifecycle actions require expectedVersion");
 check(!/hard-delete|reset-server|grant-money|grant-resources|edit-player/u.test(handler), "forbidden destructive/gameplay admin endpoint detected");
 check(!tracked.some((path) => path.endsWith(".ts") && /EMPIRE_ADMIN_SECRET|x-empire-admin-secret/u.test(text(path))), "legacy shared admin secret is forbidden");
+check(matchmakingHandler.includes('environment.NODE_ENV === "production"') && matchmakingHandler.includes("listHostedPublicServerCandidates"), "production matchmaking must use the durable hosted registry");
+check(!matchmakingHandler.includes("publicServerRegistry"), "production matchmaking handler must not import the hardcoded public registry");
 check(text("apps/server/src/admin/hosted/hosted-control-plane-service.ts").includes('repositories.kind === "postgres"'), "production admin writes must require PostgreSQL");
 check(text("apps/server/src/runtime/persistence/postgres/migrations/007_hosted_server_control_plane.sql").includes("status <> 'running'"), "running status must require a lease invariant");
 const migration = text("apps/server/src/runtime/persistence/postgres/migrations/007_hosted_server_control_plane.sql");
