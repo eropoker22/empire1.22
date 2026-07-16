@@ -10,8 +10,11 @@ import {
   type PlayerRegistrationRecord
 } from "../../apps/server/src/auth";
 import { createServerApp } from "../../apps/server/src/app";
+import { createInMemoryHostedControlPlaneRepository, type HostedServerRecord } from "../../apps/server/src/admin/hosted";
+import { createInMemoryAdminDurableRepositories, type AdminDurableRepositories } from "../../apps/server/src/admin/read-only";
 import { createGameplaySliceFunctionHandler } from "../../apps/server/src/netlify/gameplay-slice-function";
 import { ensureDefaultLobbyServers } from "../../apps/server/src/netlify/gameplay-slice-function-default-servers";
+import { createAdminReadOnlySeed } from "../fixtures/admin-read-only-fixture";
 import { createPlaceTrapCommandFixture } from "../fixtures/command-fixtures";
 
 const env = {
@@ -221,9 +224,11 @@ describe("gameplay session security", () => {
       gameplaySessionService: sessionService
     });
     ensureDefaultLobbyServers(server);
+    const adminRepositories = createHostedProductionFixture(serverInstanceId);
     const handler = createGameplaySliceFunctionHandler({
       environment: productionEnv,
-      server
+      server,
+      adminRepositories
     });
     const headers = {
       origin: "https://play.empire.test",
@@ -598,6 +603,50 @@ const createFixedProductionAccountProvider = (accountId: string): AccountIdentit
   productionReady: true,
   resolve: () => ({ accountId, provider: "production" })
 });
+
+const createHostedProductionFixture = (id: string): AdminDurableRepositories => {
+  const now = new Date();
+  const template = createAdminReadOnlySeed().instances![0]!;
+  const summary = {
+    ...template,
+    serverInstanceId: id,
+    displayName: "Production fixture",
+    workerStatus: "live" as const,
+    lastHeartbeatAt: now.toISOString(),
+    freshness: {
+      ...template.freshness,
+      serverInstanceId: id,
+      generatedAt: now.toISOString(),
+      dataAsOf: now.toISOString(),
+      lastHeartbeatAt: now.toISOString(),
+      stale: false,
+      staleReason: null
+    }
+  };
+  const memory = createInMemoryAdminDurableRepositories({ instances: [summary] });
+  const hosted: HostedServerRecord = {
+    serverInstanceId: id, mode: "free", displayName: "Production fixture", region: "EU Central",
+    capacity: 20, status: "lobby", joinPolicy: "open", provisioningState: "ready",
+    worldSeed: "production-test-seed", configVersion: 1,
+    mapComposition: { downtown: 8, commercial: 40, residential: 38, industrial: 38, park: 37 },
+    initialSnapshotId: "snapshot:test", currentSnapshotId: "snapshot:test",
+    runtimeLeaseOwnerId: "worker:test", runtimeLeaseExpiresAt: new Date(now.getTime() + 30_000).toISOString(),
+    lastWorkerHeartbeatAt: now.toISOString(), lastStartedAt: null, lastPausedAt: null, lastStoppedAt: null,
+    lastErrorCode: null, createdByAdminUserId: "admin-user:test", createdAt: now.toISOString(),
+    updatedAt: now.toISOString(), version: 1
+  };
+  const hostedRepository = createInMemoryHostedControlPlaneRepository({ servers: [hosted] });
+  return {
+    ...memory,
+    kind: "postgres",
+    monitoring: { ...memory.monitoring, durable: true },
+    users: { ...memory.users, durable: true },
+    sessions: { ...memory.sessions, durable: true },
+    audit: { ...memory.audit, durable: true },
+    loginRateLimit: { ...memory.loginRateLimit, durable: true },
+    hosted: { ...hostedRepository, durable: true }
+  };
+};
 
 const toCookieHeader = (setCookie: string): string =>
   setCookie.split(";")[0] ?? "";
