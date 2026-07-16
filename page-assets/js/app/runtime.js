@@ -1197,7 +1197,40 @@ function createGameplaySliceCommandId(prefix = "command:market") {
   return `${prefix}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export async function submitServerDistrictActionCommand({ type, payload, focusDistrictId } = {}) {
+const PENDING_GAMEPLAY_COMMANDS_STORAGE_KEY = "empire:pending-gameplay-commands";
+const pendingServerGameplayCommands = new Map();
+const CONFLICT_ERROR_MESSAGES = Object.freeze({
+  DISTRICT_CONFLICT_STATE_CHANGED: "Situace v districtu se mezitím změnila. Načítám aktuální stav.",
+  TARGET_OWNER_CHANGED: "District mezitím změnil vlastníka. Původní akci nelze provést.",
+  TARGET_NO_LONGER_NEUTRAL: "District už mezitím obsadil jiný hráč.",
+  TARGET_ATTACK_PROTECTED: "District se právě vzpamatovává z boje. Další útok bude možný za chvíli.",
+  TARGET_HEIST_PROTECTED: "District je po heistu dočasně chráněný.",
+  TARGET_STABILIZING: "District se po převzetí ještě stabilizuje.",
+  TARGET_LOCKED: "District je dočasně uzamčený.",
+  TARGET_DESTROYED: "Zničený district nelze použít pro tuto akci.",
+  SOURCE_CONFLICT_LOCKED: "Tento source district právě podporuje jinou operaci.",
+  PLAYER_MAJOR_OPERATION_ACTIVE: "Tvůj gang právě dokončuje jinou velkou operaci.",
+  SPY_INTEL_ALREADY_ACTIVE: "Na tento district už máš stále platné informace.",
+  SPY_SLOT_LIMIT_REACHED: "Oba špionážní sloty jsou právě obsazené.",
+  TARGET_LOOT_EXHAUSTED: "Někdo byl rychlejší. V districtu už nezbyl použitelný loot.",
+  ALLIANCE_RELATION_CHANGED: "Vztah k vlastníkovi districtu se mezitím změnil.",
+  FORMER_ALLY_TRUCE_ACTIVE: "Po rozpadu spojenectví ještě běží příměří.",
+  PLAYER_DEFEATED: "Poražený hráč už nemůže spouštět herní akce.",
+  PLAYER_HAS_NO_VALID_ORIGIN: "Pro tuto akci nemáš použitelný zdrojový district.",
+  LAST_STAND_PROTECTION_ACTIVE: "Poslední bašta hráče je dočasně chráněná."
+});
+const STALE_CONFLICT_ERROR_CODES = new Set([
+  "DISTRICT_CONFLICT_STATE_CHANGED",
+  "TARGET_OWNER_CHANGED",
+  "TARGET_NO_LONGER_NEUTRAL",
+  "ALLIANCE_RELATION_CHANGED"
+]);
+const hasStaleConflictError = (response) => Array.isArray(response?.errors)
+  && response.errors.some((error) => STALE_CONFLICT_ERROR_CODES.has(String(error?.code || "")));
+
+hydratePendingServerGameplayCommands();
+
+export async function submitServerDistrictActionCommand({ type, payload, focusDistrictId, commandId } = {}) {
   const connectionState = typeof window !== "undefined" ? window.empireStreetsGameplayConnectionState : "connected";
   if (connectionState && connectionState !== "connected") {
     return {
@@ -1215,7 +1248,7 @@ export async function submitServerDistrictActionCommand({ type, payload, focusDi
   }
   const request = {
     command: {
-      id: createGameplaySliceCommandId(`command:${String(type || "district-action")}`),
+      id: commandId || createGameplaySliceCommandId(`command:${String(type || "district-action")}`),
       type,
       mode: player.mode || slice.mode?.mode || "free",
       playerId: player.playerId,
@@ -1229,6 +1262,16 @@ export async function submitServerDistrictActionCommand({ type, payload, focusDi
   };
   const snapshotToken = getGameplaySliceSnapshotToken(player.instanceId, player.playerId);
   if (snapshotToken) request.snapshotToken = snapshotToken;
+  return sendPendingServerGameplayCommand(request);
+}
+
+async function sendPendingServerGameplayCommand(request) {
+  const commandId = String(request?.command?.id || "");
+  if (!commandId) {
+    return { accepted: false, errors: [{ message: "Chybí command ID serverové akce." }] };
+  }
+  pendingServerGameplayCommands.set(commandId, request);
+  persistPendingServerGameplayCommands();
   try {
     const response = await fetch(`${getGameplaySliceEndpointBase()}/submit`, {
       method: "POST",
@@ -1242,19 +1285,81 @@ export async function submitServerDistrictActionCommand({ type, payload, focusDi
     } catch (_error) {
       body = null;
     }
-    if (!response.ok || !body || typeof body !== "object") {
+    if (!body || typeof body !== "object") {
       return {
         accepted: false,
-        errors: [{ message: "Server akci se nepodařilo odeslat." }]
+        pending: true,
+        commandId,
+        errors: [{ code: "COMMAND_RESULT_UNKNOWN", message: "Výsledek operace zatím není potvrzený. Po obnovení spojení ho server dohledá." }]
       };
     }
-    syncGameplaySliceResponse(body);
-    return body;
+    pendingServerGameplayCommands.delete(commandId);
+    persistPendingServerGameplayCommands();
+    const normalizedBody = normalizeConflictCommandResponse(body);
+    syncGameplaySliceResponse(normalizedBody);
+    return normalizedBody;
   } catch (_error) {
     return {
       accepted: false,
-      errors: [{ message: "Server akci se nepodařilo odeslat." }]
+      pending: true,
+      commandId,
+      errors: [{ code: "COMMAND_RESULT_UNKNOWN", message: "Výsledek operace zatím není potvrzený. Po obnovení spojení ho server dohledá." }]
     };
+  }
+}
+
+export async function retryPendingServerGameplayCommands() {
+  if (typeof window !== "undefined" && window.empireStreetsGameplayConnectionState !== "connected") {
+    return [];
+  }
+  const requests = [...pendingServerGameplayCommands.values()];
+  const results = [];
+  for (const request of requests) {
+    results.push(await sendPendingServerGameplayCommand(request));
+  }
+  return results;
+}
+
+function normalizeConflictCommandResponse(response) {
+  const errors = Array.isArray(response?.errors)
+    ? response.errors.map((error) => {
+        const code = String(error?.code || "");
+        return CONFLICT_ERROR_MESSAGES[code]
+          ? { ...error, message: CONFLICT_ERROR_MESSAGES[code] }
+          : error;
+      })
+    : [];
+  if (typeof document !== "undefined" && errors.some((error) => STALE_CONFLICT_ERROR_CODES.has(String(error?.code || "")))) {
+    document.dispatchEvent(new CustomEvent("empire:conflict-state-stale", {
+      detail: { commandId: response?.commandResult?.commandId || null, errors }
+    }));
+  }
+  return { ...response, errors };
+}
+
+function hydratePendingServerGameplayCommands() {
+  if (typeof window === "undefined") return;
+  try {
+    const stored = JSON.parse(window.sessionStorage?.getItem?.(PENDING_GAMEPLAY_COMMANDS_STORAGE_KEY) || "[]");
+    if (!Array.isArray(stored)) return;
+    stored.forEach((request) => {
+      const commandId = String(request?.command?.id || "");
+      if (commandId) pendingServerGameplayCommands.set(commandId, request);
+    });
+  } catch (_error) {
+    pendingServerGameplayCommands.clear();
+  }
+}
+
+function persistPendingServerGameplayCommands() {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage?.setItem?.(
+      PENDING_GAMEPLAY_COMMANDS_STORAGE_KEY,
+      JSON.stringify([...pendingServerGameplayCommands.values()])
+    );
+  } catch (_error) {
+    // Pending commands remain recoverable for the current page lifetime.
   }
 }
 
@@ -12546,11 +12651,20 @@ function bindDistrictCanvas(root) {
                   style: balancedHeist?.style || "balanced",
                   gangMembersSent: balancedHeist?.defaultGangMembersSent || balancedHeist?.minMembers || 10,
                   expectedTargetVersion: heistView?.expectedTargetVersion,
-                  expectedSourceVersion: heistView?.expectedSourceVersion
+                  expectedSourceVersion: heistView?.expectedSourceVersion,
+                  expectedConflictRevision: heistView?.expectedConflictRevision
                 }
               }
             : actionId === "occupy"
-              ? { type: "occupy-district", payload: { districtId: targetDistrictId, sourceDistrictId: routedSourceDistrictId, ...routePayload } }
+              ? {
+                  type: "occupy-district",
+                  payload: {
+                    districtId: targetDistrictId,
+                    sourceDistrictId: routedSourceDistrictId,
+                    expectedConflictRevision: findTargetView(districtView.occupyTargets)?.expectedConflictRevision,
+                    ...routePayload
+                  }
+                }
               : actionId === "rob"
                 ? {
                     type: "rob-district",
@@ -12559,7 +12673,8 @@ function bindDistrictCanvas(root) {
                       sourceDistrictId: routedSourceDistrictId,
                       ...routePayload,
                       expectedTargetVersion: robView?.expectedTargetVersion,
-                      expectedSourceVersion: robView?.expectedSourceVersion
+                      expectedSourceVersion: robView?.expectedSourceVersion,
+                      expectedConflictRevision: robView?.expectedConflictRevision
                     }
                   }
                 : actionId === "spy"
@@ -12577,6 +12692,8 @@ function bindDistrictCanvas(root) {
                         }
                       }
                     : { type: "place-trap", payload: { districtId: targetDistrictId } };
+        actionButton.disabled = true;
+        actionButton.dataset.serverCommandPending = "true";
         void submitServerDistrictActionCommand({
           ...actionRequest,
           focusDistrictId: targetDistrictId
@@ -12584,7 +12701,12 @@ function bindDistrictCanvas(root) {
           if (response?.accepted) {
             closePopup();
           } else {
+            if (hasStaleConflictError(response)) closePopup();
             showWarning(response?.errors?.[0]?.message || "Server akci odmítl.");
+          }
+          if (!response?.pending) {
+            actionButton.disabled = false;
+            delete actionButton.dataset.serverCommandPending;
           }
         });
         return;
@@ -12872,6 +12994,7 @@ function bindDistrictCanvas(root) {
         );
         const corridor = latestGameplaySliceReadModel?.frontier?.corridorTargets
           ?.find((entry) => String(entry?.targetDistrictId) === targetDistrictId) || null;
+        attackConfirmFinalButton.disabled = true;
         void submitServerDistrictActionCommand({
           type: "attack-district",
           payload: {
@@ -12880,6 +13003,7 @@ function bindDistrictCanvas(root) {
             weapons: context?.attackLoadout || {},
             expectedSourceVersion: attackView?.expectedSourceVersion,
             expectedTargetVersion: attackView?.expectedTargetVersion,
+            expectedConflictRevision: attackView?.expectedConflictRevision,
             ...(corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {})
           },
           focusDistrictId: targetDistrictId
@@ -12889,8 +13013,10 @@ function bindDistrictCanvas(root) {
             closeAttackSetupPopup();
             closePopup();
           } else {
+            if (hasStaleConflictError(response)) closeAttackConfirmPopup();
             showWarning(response?.errors?.[0]?.message || "Útok server odmítl.");
           }
+          if (!response?.pending && !response?.accepted) attackConfirmFinalButton.disabled = false;
         });
         return;
       }
@@ -12939,13 +13065,15 @@ function bindDistrictCanvas(root) {
         const robView = latestGameplaySliceReadModel?.district?.robTargets?.find(
           (view) => String(view?.districtId) === targetDistrictId
         );
+        robberyConfirmFinalButton.disabled = true;
         void submitServerDistrictActionCommand({
           type: "rob-district",
           payload: {
             targetDistrictId,
             sourceDistrictId: `district:${sourceDistrictId}`,
             expectedTargetVersion: robView?.expectedTargetVersion,
-            expectedSourceVersion: robView?.expectedSourceVersion
+            expectedSourceVersion: robView?.expectedSourceVersion,
+            expectedConflictRevision: robView?.expectedConflictRevision
           },
           focusDistrictId: targetDistrictId
         }).then((response) => {
@@ -12954,8 +13082,10 @@ function bindDistrictCanvas(root) {
             closeRobberySetupPopup();
             closePopup();
           } else {
+            if (hasStaleConflictError(response)) closeRobberyConfirmPopup();
             showWarning(response?.errors?.[0]?.message || "Krádež server odmítl.");
           }
+          if (!response?.pending && !response?.accepted) robberyConfirmFinalButton.disabled = false;
         });
         return;
       }
@@ -13004,6 +13134,7 @@ function bindDistrictCanvas(root) {
         const trapView = latestGameplaySliceReadModel?.district?.trap;
         const relocation = trapView?.relocationSource;
         const targetDistrictId = `district:${selectedDistrict.id}`;
+        trapConfirmButton.disabled = true;
         void submitServerDistrictActionCommand({
           type: relocation?.canRelocate ? "relocate-trap" : "place-trap",
           payload: relocation?.canRelocate
@@ -13024,6 +13155,7 @@ function bindDistrictCanvas(root) {
           } else {
             showWarning(response?.errors?.[0]?.message || "Past server odmítl.");
           }
+          if (!response?.pending && !response?.accepted) trapConfirmButton.disabled = false;
         });
         return;
       }
@@ -13049,6 +13181,7 @@ function bindDistrictCanvas(root) {
         const corridor = latestGameplaySliceReadModel?.frontier?.corridorTargets
           ?.find((entry) => String(entry?.targetDistrictId) === targetDistrictId) || null;
         const sourceDistrictId = corridor?.sourceDistrictId || `district:${getAdjacentOwnedDistrictIds(selectedDistrict)[0] || ""}`;
+        spyConfirmButton.disabled = true;
         void submitServerDistrictActionCommand({
           type: "spy-district",
           payload: {
@@ -13064,6 +13197,7 @@ function bindDistrictCanvas(root) {
           } else {
             showWarning(response?.errors?.[0]?.message || "Špehování server odmítl.");
           }
+          if (!response?.pending && !response?.accepted) spyConfirmButton.disabled = false;
         });
         return;
       }
@@ -13089,11 +13223,16 @@ function bindDistrictCanvas(root) {
         const corridor = latestGameplaySliceReadModel?.frontier?.corridorTargets
           ?.find((entry) => String(entry?.targetDistrictId) === targetDistrictId) || null;
         const sourceDistrictId = corridor?.sourceDistrictId || `district:${getAdjacentOwnedDistrictIds(selectedDistrict)[0] || ""}`;
+        const occupyView = latestGameplaySliceReadModel?.district?.occupyTargets?.find(
+          (view) => String(view?.districtId) === targetDistrictId
+        );
+        occupyConfirmButton.disabled = true;
         void submitServerDistrictActionCommand({
           type: "occupy-district",
           payload: {
             districtId: targetDistrictId,
             sourceDistrictId,
+            expectedConflictRevision: occupyView?.expectedConflictRevision,
             ...(corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {})
           },
           focusDistrictId: targetDistrictId
@@ -13102,8 +13241,10 @@ function bindDistrictCanvas(root) {
             closeOccupyConfirmPopup();
             closePopup();
           } else {
+            if (hasStaleConflictError(response)) closeOccupyConfirmPopup();
             showWarning(response?.errors?.[0]?.message || "Obsazení server odmítl.");
           }
+          if (!response?.pending && !response?.accepted) occupyConfirmButton.disabled = false;
         });
         return;
       }

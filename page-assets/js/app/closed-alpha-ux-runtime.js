@@ -1,5 +1,6 @@
 import {
   getServerGameplaySliceReadModel,
+  retryPendingServerGameplayCommands,
   submitServerCityEventCommand,
   submitServerDistrictActionCommand,
   submitServerEmergencyRecoveryCommand
@@ -332,6 +333,7 @@ document.addEventListener("empire:gameplay-slice-rendered", (event) => {
   renderLiveness();
   renderPendingDeliveries();
   renderEncirclementConfirmation();
+  void retryPendingServerGameplayCommands();
 });
 
 document.addEventListener("empire:gameplay-connection-state", (event) => {
