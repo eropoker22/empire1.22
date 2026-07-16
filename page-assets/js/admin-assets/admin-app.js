@@ -9,10 +9,10 @@
   }
   const createAdminApiClient = (basePath = "/api/admin") => ({
     getSession: (signal) => request(`${basePath}/session`, { signal }),
-    login: (secret, signal) => request(`${basePath}/session`, {
+    login: (username, password, signal) => request(`${basePath}/session`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ secret }),
+      body: JSON.stringify({ username, password }),
       signal
     }),
     logout: async (signal) => {
@@ -27,6 +27,22 @@
     getInstance: (instanceId, signal) => request(
       `${basePath}/instances/${encodeURIComponent(instanceId)}`,
       { signal }
+    ),
+    getControlPlane: (signal) => request(`${basePath}/control-plane`, { signal }),
+    createServer: (input, idempotencyKey, signal) => request(`${basePath}/servers`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "idempotency-key": idempotencyKey },
+      body: JSON.stringify(input),
+      signal
+    }),
+    requestLifecycleAction: (instanceId, input, idempotencyKey, signal) => request(
+      `${basePath}/servers/${encodeURIComponent(instanceId)}/actions`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", "idempotency-key": idempotencyKey },
+        body: JSON.stringify(input),
+        signal
+      }
     )
   });
   const request = async (url, init) => {
@@ -47,13 +63,49 @@
     }
     return payload.data;
   };
-  const renderLogin = (message = "Přihlaste se pro read-only přístup.") => `
+  const mapTotal = (form) => {
+    const data = new FormData(form);
+    return 8 + ["commercial", "residential", "industrial", "park"].reduce((sum, key) => sum + Number(data.get(key) ?? 0), 0);
+  };
+  const validateWizardPanel = (form, step) => {
+    const panel = form.querySelector(`[data-admin-wizard-panel="${step}"]`);
+    if (!panel) return false;
+    for (const field of panel.querySelectorAll("input,select")) {
+      if (!field.reportValidity()) return false;
+    }
+    if (step === 2 && mapTotal(form) !== 161) {
+      const message = form.querySelector("[data-admin-create-error]");
+      if (message) message.textContent = "Mapa musí obsahovat přesně 161 districtů.";
+      return false;
+    }
+    return true;
+  };
+  const updateWizardReview = (form) => {
+    const review = form.querySelector("[data-admin-create-review]");
+    if (!review) return;
+    const data = new FormData(form);
+    const values = [
+      ["Název", data.get("displayName")],
+      ["Mode", data.get("mode")],
+      ["Region", data.get("region")],
+      ["Kapacita", data.get("capacity")],
+      ["Join policy", data.get("joinPolicy")],
+      ["Mapa", `8 / ${data.get("commercial")} / ${data.get("residential")} / ${data.get("industrial")} / ${data.get("park")}`]
+    ];
+    review.innerHTML = values.map(([label, value]) => `<span><small>${escapeHtml(label)}</small><strong>${escapeHtml(value ?? "-")}</strong></span>`).join("");
+  };
+  const escapeHtml = (value) => String(value).replace(
+    /[&<>"']/gu,
+    (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]
+  );
+  const renderLogin = (message = "Přihlaste se do admin konzole.") => `
   <section class="admin-login" aria-labelledby="admin-login-title">
     <p class="admin-boot__eyebrow">Empire Streets</p>
     <h1 id="admin-login-title">Admin konzole</h1>
     <p>${escape(message)}</p>
     <form data-admin-login>
-      <label><span>Bootstrap secret</span><input data-admin-secret type="password" autocomplete="current-password" required></label>
+      <label><span>Uživatelské jméno</span><input data-admin-username type="text" autocomplete="username" required></label>
+      <label><span>Heslo</span><input data-admin-password type="password" autocomplete="current-password" required></label>
       <button class="admin-button admin-button--primary" type="submit">Přihlásit</button>
       <p data-admin-login-error role="alert"></p>
     </form>
@@ -85,6 +137,7 @@
     </header>
     <div class="admin-content">
       ${renderOverview(input.overview)}
+      ${renderControlPlane(input.controlPlane, input.session, input.wizardOpen, input.wizardStep, input.selectedInstanceId)}
       ${renderServers(input.overview.instances, input.selectedInstanceId)}
       ${input.selectedInstanceId ? renderDetail(input.detail) : renderNoSelection()}
     </div>
@@ -100,6 +153,74 @@
     </div>
     <p class="admin-copy">Data vygenerována ${time(overview.generatedAt)}. Stav LIVE určuje durable heartbeat, ne úspěch HTTP requestu.</p>
   </section>`;
+  const renderControlPlane = (control, session, wizardOpen, wizardStep, selectedInstanceId) => {
+    if (!control) return `<section class="admin-panel" role="status"><h3>Načítám control plane...</h3></section>`;
+    const ready = !control.unavailableCode && session.role !== "viewer";
+    const selected = control.servers.find((entry) => entry.serverInstanceId === selectedInstanceId) ?? null;
+    return `<section id="admin-control-plane" class="admin-panel admin-section-anchor">
+    <div class="admin-panel__head"><div><span>Hosted control plane</span><h3>Provisioning a lifecycle</h3></div>
+      ${badge(control.unavailableCode ?? "WRITES ENABLED", ready ? "success" : "warning")}</div>
+    <div class="admin-kv-grid">${kv("Database", control.databaseAvailable ? "AVAILABLE" : "UNAVAILABLE")}
+      ${kv("Migrace", control.migrationsCurrent ? "CURRENT" : "PENDING")}${kv("Worker", control.workerStatus.toUpperCase())}
+      ${kv("Provisioning", control.provisioningEnabled ? "ENABLED" : "DISABLED")}</div>
+    ${ready && !wizardOpen ? `<button class="admin-button admin-button--primary" type="button" data-admin-create-open>Vytvořit server</button>` : ""}
+    ${wizardOpen && ready ? renderCreateWizard(wizardStep) : ""}
+    ${selected && ready ? renderLifecycle(selected, session) : ""}
+  </section>`;
+  };
+  const renderCreateWizard = (step) => `
+  <form class="admin-wizard" data-admin-create-form>
+    <div class="admin-wizard__steps" aria-label="Kroky vytvoření serveru">
+      ${["Základ", "Mapa", "Přístup", "Kontrola"].map((label, index) => `<span class="${step === index + 1 ? "is-active" : ""}">${index + 1}. ${label}</span>`).join("")}
+    </div>
+    <fieldset data-admin-wizard-panel="1" ${step === 1 ? "" : "hidden"}>
+      <legend>Základ</legend>
+      <label><span>Název</span><input name="displayName" minlength="3" maxlength="80" required></label>
+      <label><span>Mode</span><select name="mode"><option value="free">Free</option><option value="war">War</option></select></label>
+      <label><span>Region</span><select name="region"><option value="eu-central">EU Central</option></select></label>
+      <label><span>Kapacita</span><input name="capacity" type="number" min="1" max="20" value="20" required></label>
+      <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Další</button>
+    </fieldset>
+    <fieldset data-admin-wizard-panel="2" ${step === 2 ? "" : "hidden"}>
+      <legend>Mapa</legend><div class="admin-map-counts">
+        <label><span>Downtown</span><input value="8" disabled></label>
+        <label><span>Commercial</span><input name="commercial" data-admin-map-count type="number" min="0" value="40" required></label>
+        <label><span>Residential</span><input name="residential" data-admin-map-count type="number" min="0" value="38" required></label>
+        <label><span>Industrial</span><input name="industrial" data-admin-map-count type="number" min="0" value="38" required></label>
+        <label><span>Park</span><input name="park" data-admin-map-count type="number" min="0" value="37" required></label>
+      </div><p>Celkem: <output data-admin-map-total>161</output> / 161</p>
+      <button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
+      <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Další</button>
+    </fieldset>
+    <fieldset data-admin-wizard-panel="3" ${step === 3 ? "" : "hidden"}>
+      <legend>Přístup</legend>
+      <label><input type="radio" name="joinPolicy" value="closed" checked> Closed</label>
+      <label><input type="radio" name="joinPolicy" value="invite_only"> Invite-only</label>
+      <label><input type="radio" name="joinPolicy" value="open" disabled> Open (až po provisioningu)</label>
+      <button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
+      <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Další</button>
+    </fieldset>
+    <fieldset data-admin-wizard-panel="4" ${step === 4 ? "" : "hidden"}>
+      <legend>Kontrola</legend><div class="admin-kv-grid" data-admin-create-review></div>
+      <p class="admin-notice">Server vznikne jako REQUESTED a joins zůstanou zavřené do dokončení provisioningu.</p>
+      <button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
+      <button class="admin-button admin-button--primary" type="submit">Create Server</button>
+    </fieldset>
+    <button class="admin-button" type="button" data-admin-create-cancel>Zrušit</button>
+    <p data-admin-create-error role="alert"></p>
+  </form>`;
+  const renderLifecycle = (server, session) => `
+  <div class="admin-lifecycle"><h4>Lifecycle: ${escape(server.displayName)}</h4>
+    <p>${pill(server.status)} ${pill(server.provisioningState)} · version ${server.version}</p>
+    <label><span>Důvod akce</span><input data-admin-action-reason minlength="3" maxlength="240" required></label>
+    <div class="admin-lifecycle__actions">
+      ${lifecycleButton(server, "open-joins", "Open joins")}${lifecycleButton(server, "close-joins", "Close joins")}
+      ${lifecycleButton(server, "start", "Start")}${lifecycleButton(server, "pause", "Pause")}
+      ${lifecycleButton(server, "resume", "Resume")}${lifecycleButton(server, "restart", "Safe restart")}
+      ${session.role === "owner" ? lifecycleButton(server, "stop", "Stop") : ""}
+    </div><p data-admin-action-error role="alert"></p>
+  </div>`;
+  const lifecycleButton = (server, action, label) => `<button class="admin-button" type="button" data-admin-lifecycle="${attr(action)}" data-admin-server-id="${attr(server.serverInstanceId)}">${escape(label)}</button>`;
   const renderServers = (instances, selected) => `
   <section id="admin-servers" class="admin-panel admin-section-anchor">
     <div class="admin-panel__head"><div><span>Servery</span><h3>Durable instance registry</h3></div>${badge(`${instances.length} INSTANCÍ`, "info")}</div>
@@ -152,11 +273,15 @@
     let session = null;
     let overview = null;
     let detail = null;
+    let controlPlane = null;
     let selectedInstanceId = selectedFromUrl();
     let requestSequence = 0;
     let activeRequest = null;
     let timer = null;
     let backoff = pollInterval;
+    let wizardOpen = false;
+    let wizardStep = 1;
+    let createIdempotencyKey = null;
     const mount = async (mountTarget) => {
       target = mountTarget ?? document.getElementById("admin-dashboard-root");
       if (!target) return;
@@ -171,18 +296,24 @@
     };
     const refresh = async () => {
       if (!target || !session || document.hidden) return;
+      if (wizardOpen) {
+        schedule(pollInterval);
+        return;
+      }
       const sequence = ++requestSequence;
       activeRequest == null ? void 0 : activeRequest.abort();
       activeRequest = new AbortController();
       try {
         const requestedInstanceId = selectedInstanceId;
-        const [nextOverview, nextDetail] = await Promise.all([
+        const [nextOverview, nextDetail, nextControlPlane] = await Promise.all([
           client.getOverview(activeRequest.signal),
-          requestedInstanceId ? client.getInstance(requestedInstanceId, activeRequest.signal) : Promise.resolve(null)
+          requestedInstanceId ? client.getInstance(requestedInstanceId, activeRequest.signal) : Promise.resolve(null),
+          client.getControlPlane(activeRequest.signal)
         ]);
         if (sequence !== requestSequence || requestedInstanceId !== selectedInstanceId) return;
         overview = nextOverview;
         detail = nextDetail;
+        controlPlane = nextControlPlane;
         backoff = pollInterval;
         render();
         schedule(pollInterval);
@@ -195,11 +326,11 @@
     };
     const render = () => {
       if (!target || !session || !overview) return;
-      target.innerHTML = renderDashboard({ session, overview, detail, selectedInstanceId });
+      target.innerHTML = renderDashboard({ session, overview, detail, selectedInstanceId, controlPlane, wizardOpen, wizardStep });
       bindActions();
     };
     const bindActions = () => {
-      var _a, _b;
+      var _a, _b, _c, _d, _e;
       target == null ? void 0 : target.querySelectorAll("[data-admin-instance]").forEach((link) => link.addEventListener("click", (event) => {
         var _a2;
         event.preventDefault();
@@ -213,18 +344,128 @@
       }));
       (_a = target == null ? void 0 : target.querySelector("[data-admin-refresh]")) == null ? void 0 : _a.addEventListener("click", () => void refresh());
       (_b = target == null ? void 0 : target.querySelector("[data-admin-logout]")) == null ? void 0 : _b.addEventListener("click", () => void logout());
+      (_c = target == null ? void 0 : target.querySelector("[data-admin-create-open]")) == null ? void 0 : _c.addEventListener("click", () => {
+        wizardOpen = true;
+        wizardStep = 1;
+        createIdempotencyKey ?? (createIdempotencyKey = createKey());
+        render();
+      });
+      (_d = target == null ? void 0 : target.querySelector("[data-admin-create-cancel]")) == null ? void 0 : _d.addEventListener("click", () => {
+        wizardOpen = false;
+        wizardStep = 1;
+        createIdempotencyKey = null;
+        render();
+      });
+      target == null ? void 0 : target.querySelectorAll("[data-admin-wizard-next]").forEach((button) => button.addEventListener("click", () => {
+        const form = target == null ? void 0 : target.querySelector("[data-admin-create-form]");
+        if (!form || !validateWizardPanel(form, wizardStep)) return;
+        wizardStep = Math.min(4, wizardStep + 1);
+        applyWizardStep();
+      }));
+      target == null ? void 0 : target.querySelectorAll("[data-admin-wizard-back]").forEach((button) => button.addEventListener("click", () => {
+        wizardStep = Math.max(1, wizardStep - 1);
+        applyWizardStep();
+      }));
+      bindMapTotal();
+      (_e = target == null ? void 0 : target.querySelector("[data-admin-create-form]")) == null ? void 0 : _e.addEventListener("submit", (event) => void submitCreate(event));
+      target == null ? void 0 : target.querySelectorAll("[data-admin-lifecycle]").forEach((button) => button.addEventListener("click", () => void submitLifecycle(button)));
+    };
+    const submitCreate = async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      if (!form.reportValidity() || !createIdempotencyKey) return;
+      if (mapTotal(form) !== 161) {
+        const message = form.querySelector("[data-admin-create-error]");
+        if (message) message.textContent = "Mapa musí obsahovat přesně 161 districtů.";
+        return;
+      }
+      const data = new FormData(form);
+      const payload = {
+        displayName: String(data.get("displayName") ?? ""),
+        mode: String(data.get("mode")),
+        region: String(data.get("region")),
+        capacity: Number(data.get("capacity")),
+        joinPolicy: String(data.get("joinPolicy")),
+        mapComposition: {
+          downtown: 8,
+          commercial: Number(data.get("commercial")),
+          residential: Number(data.get("residential")),
+          industrial: Number(data.get("industrial")),
+          park: Number(data.get("park"))
+        }
+      };
+      const submit = form.querySelector("[type=submit]");
+      if (submit) submit.disabled = true;
+      try {
+        const result = await client.createServer(payload, createIdempotencyKey);
+        selectedInstanceId = result.server.serverInstanceId;
+        updateUrl(selectedInstanceId);
+        wizardOpen = false;
+        wizardStep = 1;
+        createIdempotencyKey = null;
+        await refresh();
+      } catch (error) {
+        const message = form.querySelector("[data-admin-create-error]");
+        if (message) message.textContent = error instanceof Error ? error.message : "Server nebylo možné vytvořit.";
+        if (submit) submit.disabled = false;
+      }
+    };
+    const submitLifecycle = async (button) => {
+      var _a;
+      const instanceId = button.dataset.adminServerId;
+      const action = button.dataset.adminLifecycle;
+      const hosted = controlPlane == null ? void 0 : controlPlane.servers.find((entry) => entry.serverInstanceId === instanceId);
+      const reason = ((_a = target == null ? void 0 : target.querySelector("[data-admin-action-reason]")) == null ? void 0 : _a.value.trim()) ?? "";
+      if (!instanceId || !action || !hosted) return;
+      if (reason.length < 3) {
+        const message = target == null ? void 0 : target.querySelector("[data-admin-action-error]");
+        if (message) message.textContent = "Uveďte důvod akce alespoň třemi znaky.";
+        return;
+      }
+      button.disabled = true;
+      try {
+        await client.requestLifecycleAction(instanceId, { action, expectedVersion: hosted.version, reason }, createKey());
+        await refresh();
+      } catch (error) {
+        const message = target == null ? void 0 : target.querySelector("[data-admin-action-error]");
+        if (message) message.textContent = error instanceof Error ? error.message : "Akci nebylo možné zařadit.";
+        button.disabled = false;
+      }
+    };
+    const bindMapTotal = () => {
+      const form = target == null ? void 0 : target.querySelector("[data-admin-create-form]");
+      const output = form == null ? void 0 : form.querySelector("[data-admin-map-total]");
+      if (!form || !output) return;
+      const update = () => {
+        const total = mapTotal(form);
+        output.value = String(total);
+        output.dataset.valid = String(total === 161);
+        updateWizardReview(form);
+      };
+      form.querySelectorAll("[data-admin-map-count]").forEach((input) => input.addEventListener("input", update));
+      update();
+    };
+    const applyWizardStep = () => {
+      target == null ? void 0 : target.querySelectorAll("[data-admin-wizard-panel]").forEach((panel) => {
+        panel.hidden = Number(panel.dataset.adminWizardPanel) !== wizardStep;
+      });
+      const form = target == null ? void 0 : target.querySelector("[data-admin-create-form]");
+      if (form) updateWizardReview(form);
     };
     const bindLogin = () => {
       const form = target == null ? void 0 : target.querySelector("[data-admin-login]");
-      const input = target == null ? void 0 : target.querySelector("[data-admin-secret]");
-      if (!form || !input) return;
+      const usernameInput = target == null ? void 0 : target.querySelector("[data-admin-username]");
+      const passwordInput = target == null ? void 0 : target.querySelector("[data-admin-password]");
+      if (!form || !usernameInput || !passwordInput) return;
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        const secret = input.value;
-        input.value = "";
+        const username = usernameInput.value;
+        const password = passwordInput.value;
+        passwordInput.value = "";
         try {
-          session = await client.login(secret);
+          session = await client.login(username, password);
           overview = null;
+          controlPlane = null;
           detail = null;
           target.innerHTML = renderLoading();
           await refresh();
@@ -244,6 +485,7 @@
       session = null;
       overview = null;
       detail = null;
+      controlPlane = null;
       if (target) target.innerHTML = renderLogin("Admin session byla ukončena.");
       bindLogin();
     };
@@ -254,6 +496,7 @@
         session = null;
         overview = null;
         detail = null;
+        controlPlane = null;
         target.innerHTML = renderLogin(error.code === "ADMIN_SESSION_EXPIRED" ? "Admin session vypršela." : void 0);
         bindLogin();
         return;
@@ -284,5 +527,6 @@
     history.replaceState(null, "", url);
   };
   const isAbort = (error) => error instanceof DOMException && error.name === "AbortError";
+  const createKey = () => `admin-ui:${crypto.randomUUID()}`;
   void createAdminApp().mount();
 })();
