@@ -1,0 +1,12 @@
+.git
+.env
+.env.*
+!.env.example
+client
+dist
+dist-worker
+node_modules
+test-results
+playwright-report
+*.log
+*.sql.dump
