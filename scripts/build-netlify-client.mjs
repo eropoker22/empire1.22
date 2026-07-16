@@ -4,15 +4,19 @@ import { fileURLToPath } from "node:url";
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const publishDir = resolve(rootDir, "client");
-// `client/` is generated publish output. Canonical source stays in root `pages/`,
-// `page-assets/`, `img/`, and the explicit legacy browser compatibility modules.
+// `client/` is generated publish output. Only explicitly routed HTML pages are published.
 const staticDirs = [
-  "pages",
   "page-assets",
   "img",
   "packages/game-config/src/public",
   "packages/game-config/src/legacy-page",
   "packages/game-core/src/legacy-page"
+];
+const staticPageFiles = [
+  "pages/login.html",
+  "pages/lobby.html",
+  "pages/faction.html",
+  "pages/game.html"
 ];
 const requiredPublishFiles = [
   ".htaccess",
@@ -36,6 +40,12 @@ const requiredPublishFiles = [
 await rm(publishDir, { recursive: true, force: true });
 await mkdir(publishDir, { recursive: true });
 await cp(resolve(rootDir, "admin.html"), resolve(publishDir, "admin.html"));
+
+for (const file of staticPageFiles) {
+  const targetFile = resolve(publishDir, file);
+  await mkdir(dirname(targetFile), { recursive: true });
+  await cp(resolve(rootDir, file), targetFile);
+}
 
 for (const dir of staticDirs) {
   const targetDir = resolve(publishDir, dir);

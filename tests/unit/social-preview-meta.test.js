@@ -37,9 +37,7 @@ describe("social preview metadata", () => {
   it("uses the production public OG image on public entry pages", () => {
     const pages = [
       { path: "pages/login.html", canonical: "https://empirestreets.cz/" },
-      { path: "pages/index.html", canonical: "https://empirestreets.cz/" },
-      { path: "client/pages/login.html", canonical: "https://empirestreets.cz/" },
-      { path: "client/pages/index.html", canonical: "https://empirestreets.cz/" }
+      { path: "client/pages/login.html", canonical: "https://empirestreets.cz/" }
     ];
 
     for (const page of pages) {

@@ -3,7 +3,6 @@ import path from "node:path";
 
 const root = process.cwd();
 const pages = [
-  "pages/index.html",
   "pages/login.html",
   "pages/lobby.html",
   "pages/faction.html",
@@ -11,9 +10,21 @@ const pages = [
   "admin.html"
 ];
 const violations = [];
+const forbiddenLegacyPages = [
+  "pages/index.html",
+  "pages/404.html",
+  "pages/ui-kit.html",
+  "server-select.html",
+  "server-select.js",
+  "server-select.css"
+];
 
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
 const exists = (relativePath) => fs.existsSync(path.join(root, relativePath));
+
+for (const legacyPage of forbiddenLegacyPages) {
+  if (exists(legacyPage)) violations.push(`${legacyPage} is an obsolete, unrouted production artifact`);
+}
 const normalizeAssetPath = (pagePath, assetPath) => {
   const rawAssetPath = String(assetPath || "");
   if (

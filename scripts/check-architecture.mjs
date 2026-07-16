@@ -13,7 +13,7 @@ const requiredSourceBoundaryRules = [
     path: "scripts/build-netlify-client.mjs",
     required: [
       'const publishDir = resolve(rootDir, "client");',
-      '"pages"',
+      "const staticPageFiles = [",
       '"page-assets"',
       '"img"'
     ],
@@ -295,6 +295,24 @@ const adminHtmlSources = [
 ];
 if (adminHtmlSources.length !== 1 || adminHtmlSources[0] !== "admin.html") {
   violations.push(`admin.html must be the only admin HTML source (found: ${adminHtmlSources.join(", ") || "none"})`);
+}
+
+const allowedProductionHtmlSources = [
+  "admin.html",
+  "pages/faction.html",
+  "pages/game.html",
+  "pages/lobby.html",
+  "pages/login.html"
+];
+const rootHtmlSources = fs.readdirSync(root, { withFileTypes: true })
+  .filter((entry) => entry.isFile() && entry.name.endsWith(".html"))
+  .map((entry) => entry.name);
+const productionHtmlSources = [
+  ...rootHtmlSources,
+  ...collectTextFiles("pages").map(([relativePath]) => relativePath).filter((relativePath) => relativePath.endsWith(".html"))
+].sort();
+if (JSON.stringify(productionHtmlSources) !== JSON.stringify(allowedProductionHtmlSources)) {
+  violations.push(`production HTML sources must match the routed allowlist (found: ${productionHtmlSources.join(", ") || "none"})`);
 }
 
 const netlifyConfig = readRequiredFile("netlify.toml");

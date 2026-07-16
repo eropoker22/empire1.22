@@ -370,12 +370,9 @@ a {
   text-decoration: none;
 }
 
-.site-shell,
 .auth-shell,
 .lobby-shell,
-.admin-shell,
-.ui-kit-shell,
-.error-shell {
+.admin-shell {
   width: min(calc(100% - 32px), var(--content-width));
   margin: 0 auto;
   padding: var(--space-4) 0 var(--space-5);
@@ -429,11 +426,8 @@ a {
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 84%);
 }
 
-.site-header,
-.page-header,
 .game-header,
-.admin-header,
-.kit-header {
+.admin-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -463,14 +457,12 @@ a {
   color: var(--text-muted);
 }
 
-.page-nav,
 .page-links {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
 }
 
-.page-nav a,
 .page-links a,
 .action-link {
   padding: 10px 14px;
@@ -479,16 +471,8 @@ a {
   background: var(--surface-alt);
 }
 
-.page-nav a[aria-current="page"] {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
 .page-intro,
-.page-section,
-.panel-block,
-.ui-sample,
-.error-card {
+.panel-block {
   display: grid;
   gap: var(--space-3);
   padding: var(--space-4);

@@ -314,7 +314,6 @@ document.addEventListener("DOMContentLoaded", () => {
   state.activeMode = resolveInitialMode(registration);
 
   hydrateInputs(registration);
-  bindServerSelectButton();
   bindModeCards();
   bindTerminalTabs();
   bindForms();
@@ -345,26 +344,6 @@ const normalizeMode = (mode) => {
 const getModeServersUrl = (mode) => `${LOBBY_ENTRY_HREF}?mode=${normalizeMode(mode) || DEFAULT_PUBLIC_SERVER_MODE}`;
 const sanitizeGuestValue = (value, maxLength) => String(value || "").trim().slice(0, maxLength);
 
-function bindServerSelectButton() {
-  const button = document.querySelector("[data-open-server-select]");
-  if (!(button instanceof HTMLButtonElement)) {
-    return;
-  }
-
-  button.addEventListener("click", () => {
-    const identity = resolveServerSelectIdentity();
-    const gangName = resolveServerSelectGangName();
-    saveLoginStep({
-      identity,
-      gangName,
-      isGuest: true,
-      mode: state.activeMode
-    });
-    window.localStorage.setItem(ACTIVE_GUEST_MODE_KEY, state.activeMode);
-    window.location.href = getModeServersUrl(state.activeMode);
-  });
-}
-
 function hydrateInputs(registration) {
   setInputValue("login-username", registration?.isGuest ? "" : registration?.identity);
   setInputValue("register-username", registration?.isGuest ? "" : registration?.identity);
@@ -383,23 +362,6 @@ function setInputValue(id, value) {
 function getInputValue(id) {
   const input = document.getElementById(id);
   return String(input instanceof HTMLInputElement ? input.value : "").trim();
-}
-
-function resolveServerSelectIdentity() {
-  return [
-    getInputValue("login-username"),
-    getInputValue("register-username"),
-    getInputValue("guest-username"),
-    String(getRegistrationDraft()?.identity || "").trim()
-  ].find(Boolean) || "Host";
-}
-
-function resolveServerSelectGangName() {
-  return [
-    getInputValue("register-gang"),
-    getInputValue("guest-gang"),
-    String(getRegistrationDraft()?.gangName || "").trim()
-  ].find(Boolean) || "";
 }
 
 function bindModeCards() {

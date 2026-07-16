@@ -2866,26 +2866,8 @@ body.game-body--booting .game-logo-slot {
 }
 
 @media (max-width: 900px) {
-  .landing-hero,
-  .landing-header,
-  .landing-final-cta,
-  .landing-footer,
-  .page-grid,
-  .content-grid,
-  .game-layout,
-  .admin-layout {
+  .game-layout {
     grid-template-columns: 1fr;
-  }
-
-  .landing-card-grid--two,
-  .landing-card-grid--systems,
-  .landing-card-grid--factions {
-    grid-template-columns: 1fr;
-  }
-
-  .landing-nav,
-  .landing-header__actions {
-    justify-content: flex-start;
   }
 
   .faction-auth-grid,
@@ -2897,19 +2879,7 @@ body.game-body--booting .game-logo-slot {
     display: none;
   }
 
-  .landing-header__actions {
-    grid-auto-flow: row;
-  }
-
-  .landing-title {
-    max-width: none;
-  }
-
-  .site-header,
-  .page-header,
-  .game-header,
-  .admin-header,
-  .kit-header {
+  .game-header {
     align-items: flex-start;
     flex-direction: column;
   }

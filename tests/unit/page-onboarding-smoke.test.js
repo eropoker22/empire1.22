@@ -191,7 +191,6 @@ describe("page onboarding smoke", () => {
     expect(adminHtml).not.toContain("data-static-fallback");
     expect(page("login.html")).toMatch(/href="\.\.\/page-assets\/css\/login\.css">\r?\n\s*<link rel="stylesheet" href="\.\.\/page-assets\/css\/styles-static-hover\.css">/u);
     expect(page("lobby.html")).toMatch(/href="\.\.\/page-assets\/css\/lobby\.css">\r?\n\s*<link rel="stylesheet" href="\.\.\/page-assets\/css\/styles-static-hover\.css">/u);
-    expect(readFileSync(resolve(root, "server-select.html"), "utf8")).toMatch(/href="\.\/server-select\.css">\r?\n\s*<link rel="stylesheet" href="\.\/page-assets\/css\/styles-static-hover\.css">/u);
     expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain("transform: none !important;");
     expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain("transition-property: color, background, background-color");
     expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain(".building-info-action-row");
