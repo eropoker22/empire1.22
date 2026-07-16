@@ -41,6 +41,13 @@ describe("City Events runtime authority", () => {
     expect(source).not.toContain("submitServerCityEventCommand({ action: \"start\", id: selectedEventTask.definitionId");
   });
 
+  it("uses the shared gang influence state for local unlocks", () => {
+    expect(source).toContain("getResolvedGangState");
+    expect(source).toContain("getStoredPreviewSession()?.gang?.influence");
+    expect(source).toContain("function getCurrentPlayerInfluenceValue(root)");
+    expect(source).toContain("let nextInfluence = getCurrentPlayerInfluenceValue(root);");
+  });
+
   it("keeps local outcome mutation behind the explicit local execution-mode timer", () => {
     expect(source).toContain("if (!shouldRunLocalCityEvents() || unbindLifecycleTicker || document.hidden) return;");
     expect(source).toContain("if (shouldRunServerCityEvents()) {");

@@ -5,6 +5,7 @@ import {
   appendBuildingActionResultEntry,
   applyInventoryOutput,
   applyTopbarEconomy,
+  getResolvedGangState,
   getServerGameplaySliceReadModel,
   submitServerCityEventCommand,
   renderSpyResourceState
@@ -467,15 +468,36 @@ function createCityEventResultStreetNewsPayload(task, run, wasSuccess, outcomeLi
   };
 }
 
-function getTopbarInfluenceValue(root) {
+function parseInfluenceAmount(value) {
+  const normalized = String(value ?? "")
+    .replace(/\s+/gu, "")
+    .replace(/[^\d.-]/gu, "");
+  return Math.max(0, Math.floor(Number(normalized || 0) || 0));
+}
+
+function getCurrentPlayerInfluenceValue(root) {
+  const storedInfluence = getStoredPreviewSession()?.gang?.influence;
+  if (storedInfluence !== undefined && storedInfluence !== null) {
+    return parseInfluenceAmount(storedInfluence);
+  }
+  const resolvedInfluence = getResolvedGangState?.().influence;
+  if (Number(resolvedInfluence || 0) > 0) {
+    return parseInfluenceAmount(resolvedInfluence);
+  }
   const influenceElement = root.querySelector("[data-topbar-influence]");
-  const raw = influenceElement?.dataset.influenceValue || influenceElement?.textContent || "0";
-  return Math.max(0, Math.floor(Number(raw || 0) || 0));
+  const popupInfluence = root.querySelector("[data-player-popup-influence]");
+  const spyValue = root.querySelector("[data-topbar-spy-value]");
+  return Math.max(
+    parseInfluenceAmount(influenceElement?.dataset.influenceValue),
+    parseInfluenceAmount(influenceElement?.textContent),
+    parseInfluenceAmount(spyValue?.dataset.influenceValue),
+    parseInfluenceAmount(popupInfluence?.textContent)
+  );
 }
 
 function resolveAgentUnlockState(root, agent) {
   const requiredInfluence = Math.max(0, Math.floor(Number(agent?.requiredInfluence || 0)));
-  const currentInfluence = getTopbarInfluenceValue(root);
+  const currentInfluence = getCurrentPlayerInfluenceValue(root);
   return {
     requiredInfluence,
     currentInfluence,
@@ -485,6 +507,13 @@ function resolveAgentUnlockState(root, agent) {
 
 function setTopbarInfluenceValue(root, nextValue) {
   const safeValue = Math.max(0, Math.floor(Number(nextValue || 0)));
+  updateStoredPreviewSession((session) => ({
+    ...session,
+    gang: {
+      ...(session.gang || {}),
+      influence: safeValue
+    }
+  }));
   const influenceElement = root.querySelector("[data-topbar-influence]");
   const spyValue = root.querySelector("[data-topbar-spy-value]");
   const popupInfluence = root.querySelector("[data-player-popup-influence]");
@@ -509,7 +538,7 @@ function applyEventRewardsToPlayerState(root, task) {
   const rewardEntries = Object.entries(task?.reward || {});
   if (!rewardEntries.length) return { appliedRewards: [], pendingRewards: [] };
 
-  let nextInfluence = getTopbarInfluenceValue(root);
+  let nextInfluence = getCurrentPlayerInfluenceValue(root);
   const directRewardEntries = [];
   const storageRewardEntries = [];
 
