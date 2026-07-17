@@ -28,7 +28,7 @@ describe("market state helpers", () => {
     expect(state.items[getMarketStockKey("market", "stim-pack")].price).toBe(1000);
     expect(state.items[getMarketStockKey("black-market", "neon-dust")].price).toBe(1900);
     expect(state.items[getMarketStockKey("black-market", "bazooka")].price).toBe(25890);
-    expect(state.stock[getMarketStockKey("market", "chemicals")]).toBe(700);
+    expect(state.stock[getMarketStockKey("market", "chemicals")]).toBe(24);
     expect(state.playerListings.length).toBeGreaterThan(0);
     expect(state.playerListings[0].id).toContain("demo-player-market:free-01:");
   });
@@ -45,7 +45,7 @@ describe("market state helpers", () => {
       playerListings: []
     });
 
-    expect(stock[getMarketStockKey("market", "chemicals")]).toBe(1100);
+    expect(stock[getMarketStockKey("market", "chemicals")]).toBe(36);
     expect(stock[getMarketStockKey("market", "biomass")]).toBe(0);
     expect(tradeState.serverId).toBe("war-02");
     expect(tradeState.transactions[0].itemName).toBe("chemicals");

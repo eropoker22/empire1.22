@@ -1,4 +1,4 @@
-import { access, readFile } from "node:fs/promises";
+import { access, readFile, readdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 
 const checks = [];
@@ -6,6 +6,11 @@ const failures = [];
 const check = (condition, label) => { checks.push({ condition: Boolean(condition), label }); if (!condition) failures.push(label); };
 const requiredFiles = [
   "apps/server/src/runtime/persistence/postgres/migrations/007_hosted_server_control_plane.sql",
+  "apps/server/src/runtime/persistence/postgres/migrations/008_hosted_join_reservations.sql",
+  "apps/server/src/runtime/persistence/postgres/migrations/009_player_entry_control_plane.sql",
+  "apps/server/src/runtime/persistence/postgres/migrations/010_runtime_instance_foreign_keys.sql",
+  "apps/server/src/player-entry/postgres-player-entry-repository.ts",
+  "apps/server/src/admin/hosted/postgres-hosted-join-repository.ts",
   "apps/server/src/bootstrap/hosted-runtime-worker-cli.ts",
   "Dockerfile.hosted-worker",
   "docs/hosting/hosted-server-control-plane.md"
@@ -28,34 +33,71 @@ if (strict) {
   check(process.env.EMPIRE_SERVER_PROVISIONING_ENABLED === "true", "server provisioning flag is enabled");
   check(Boolean(process.env.EMPIRE_PUBLIC_ORIGIN || process.env.EMPIRE_ALLOWED_ORIGINS), "public origin is configured");
   check(String(process.env.EMPIRE_ADMIN_FINGERPRINT_SECRET ?? "").length >= 32, "admin fingerprint secret is configured");
+  check(process.env.EMPIRE_PERSISTENCE_DRIVER === "postgres", "runtime persistence is PostgreSQL");
+  check(process.env.GAMEPLAY_PERSISTENCE_DRIVER === "postgres", "gameplay persistence is PostgreSQL");
+  check(Boolean(process.env.EMPIRE_HOSTED_WORKER_ID || process.env.EMPIRE_TICK_WORKER_OWNER_ID), "worker owner ID is configured");
 }
 
 if (databaseUrl) {
   const { Pool } = await import("pg");
   const pool = new Pool({ connectionString: databaseUrl });
+  pool.on("error", () => undefined);
   try {
-    const migrationSql = await readFile(new URL("../apps/server/src/runtime/persistence/postgres/migrations/007_hosted_server_control_plane.sql", import.meta.url), "utf8");
-    const migration = await pool.query("SELECT EXISTS (SELECT 1 FROM empire_schema_migrations WHERE filename=$1 AND checksum=$2) AS present",
-      ["007_hosted_server_control_plane.sql", createHash("sha256").update(migrationSql).digest("hex")]);
-    check(migration.rows[0]?.present === true, "hosted migration is current");
+    check((await pool.query("SELECT 1 AS connected")).rows[0]?.connected === 1, "PostgreSQL connectivity is live");
+    const migrationsUrl = new URL("../apps/server/src/runtime/persistence/postgres/migrations/", import.meta.url);
+    const migrationFiles = (await readdir(migrationsUrl)).filter((filename) => /^\d{3}_.+\.sql$/u.test(filename)).sort();
+    const applied = await pool.query("SELECT filename,checksum FROM empire_schema_migrations ORDER BY filename");
+    const appliedByName = new Map(applied.rows.map((row) => [String(row.filename), String(row.checksum)]));
+    const migrationChecks = await Promise.all(migrationFiles.map(async (filename) => {
+      const sql = await readFile(new URL(filename, migrationsUrl), "utf8");
+      return appliedByName.get(filename) === createHash("sha256").update(sql).digest("hex");
+    }));
+    check(migrationFiles.length >= 10 && migrationChecks.every(Boolean) && applied.rows.length === migrationFiles.length,
+      "all database migrations are current");
     const expectedUsername = String(process.env.EMPIRE_ADMIN_BOOTSTRAP_USERNAME ?? "Erik22").normalize("NFKC").trim().toLocaleLowerCase("en-US");
     const user = await pool.query("SELECT role,status FROM empire_admin_users WHERE normalized_username=$1", [expectedUsername]);
     check(user.rows[0]?.status === "active", "bootstrap admin user is active");
     check(user.rows[0]?.role === "owner", "bootstrap admin user has owner role");
-    const tables = await pool.query(`SELECT to_regclass('empire_admin_sessions') AS sessions,
+    const tables = await pool.query(`SELECT to_regclass('empire_admin_users') AS admin_users,
+      to_regclass('empire_admin_sessions') AS sessions,
       to_regclass('empire_admin_access_audit') AS audit,to_regclass('empire_hosted_server_instances') AS hosted,
       to_regclass('empire_hosted_server_provisioning_jobs') AS jobs,to_regclass('empire_snapshots') AS snapshots,
+      to_regclass('empire_hosted_join_reservations') AS join_reservations,
+      to_regclass('empire_hosted_join_jobs') AS join_jobs,
+      to_regclass('empire_accounts') AS player_accounts,
+      to_regclass('empire_account_sessions') AS account_sessions,
+      to_regclass('empire_server_memberships') AS memberships,
+      to_regclass('empire_server_membership_jobs') AS membership_jobs,
+      to_regclass('empire_server_membership_events') AS membership_events,
+      to_regclass('empire_player_registrations') AS player_registrations,
+      to_regclass('empire_hosted_worker_heartbeats') AS worker_heartbeats,
       to_regclass('empire_tick_locks') AS tick_locks`);
     check(Object.values(tables.rows[0] ?? {}).every(Boolean), "required durable repositories exist");
     const worker = await pool.query("SELECT last_heartbeat_at FROM empire_hosted_worker_heartbeats WHERE status='online' ORDER BY last_heartbeat_at DESC LIMIT 1");
     check(Boolean(worker.rows[0]) && Date.now() - Date.parse(worker.rows[0].last_heartbeat_at) <= 60_000, "hosted worker heartbeat is fresh");
+    const leaseTarget = await pool.query("SELECT server_instance_id FROM empire_hosted_server_instances ORDER BY created_at LIMIT 1");
+    const leaseServerId = leaseTarget.rows[0]?.server_instance_id;
+    let leaseAcquired = false;
+    if (leaseServerId) {
+      const lease = await pool.query(`INSERT INTO empire_tick_locks
+        (id,server_instance_id,schema_version,lock_owner,locked_until,payload,created_at,updated_at)
+        VALUES ($1,$2,1,'hosted-preflight',now()+interval '10 seconds','{}'::jsonb,now(),now())
+        ON CONFLICT (server_instance_id) DO UPDATE SET lock_owner='hosted-preflight',
+          locked_until=now()+interval '10 seconds',updated_at=now()
+        WHERE empire_tick_locks.locked_until <= now() OR empire_tick_locks.lock_owner='hosted-preflight'
+        RETURNING server_instance_id`, [`tick-lock:${leaseServerId}`, leaseServerId]);
+      leaseAcquired = lease.rowCount === 1;
+      if (leaseAcquired) await pool.query(`UPDATE empire_tick_locks SET locked_until=now(),updated_at=now()
+        WHERE server_instance_id=$1 AND lock_owner='hosted-preflight'`, [leaseServerId]);
+    }
+    check(leaseAcquired, "tick lease can be acquired and released durably");
   } catch (_error) {
     check(false, "live PostgreSQL hosted checks completed");
   } finally {
     await pool.end();
   }
 } else {
-  console.log("SKIP live PostgreSQL checks: no database URL configured.");
+  if (!strict) console.log("SKIP live PostgreSQL checks: no database URL configured.");
 }
 
 for (const result of checks) console.log(`${result.condition ? "PASS" : "FAIL"} ${result.label}`);

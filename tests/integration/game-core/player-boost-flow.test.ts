@@ -196,6 +196,7 @@ describe("authoritative player boost flow", () => {
     const findSuccessful = (withBoost: boolean) => Array.from({ length: 400 }, (_, index) => {
       const state = createCombatStateFixture();
       state.serverInstance.worldSeed = `boost-spy-success-${index}`;
+      state.notificationsById = {};
       if (withBoost) {
         state.playerBoostStatesByPlayerId = {
           "player:1": {
@@ -291,7 +292,11 @@ describe("authoritative player boost flow", () => {
     };
     const withTrap = applyCommand(state, createPlaceTrapCommandFixture(), trappedContext).nextState;
     seedSuccessfulSpyIntel(withTrap, "player:1", "district:1", "district:2", "player:2");
-    const blocked = applyCommand(withTrap, createAttackDistrictCommandFixture(), trappedContext);
+    const blocked = applyCommand(withTrap, createAttackDistrictCommandFixture({
+      payload: {
+        expectedConflictRevision: withTrap.districtsById["district:2"].conflictRevision
+      }
+    }), trappedContext);
 
     expect(blocked.errors).toEqual([]);
     expect(blocked.nextState.playerBoostStatesByPlayerId?.["player:1"]?.active?.boostId).toBe("tactical-grid");

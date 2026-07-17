@@ -163,6 +163,7 @@ describe("production conflict gameplay slice", () => {
     expect(worldSeed, "Expected at least one deterministic successful spy seed.").toBeTruthy();
     runtime.state = createCombatStateFixture(instanceId);
     runtime.state.serverInstance.worldSeed = worldSeed!;
+    runtime.state.notificationsById = {};
     runtime.state.districtsById[targetDistrictId] = {
       ...runtime.state.districtsById[targetDistrictId],
       defenseLoadout: {}
@@ -235,7 +236,7 @@ describe("production conflict gameplay slice", () => {
     expect(renderGameplaySliceStatus(attacked)).toContain("Akce přijata");
   });
 
-  it("shows a server rejection when a stale spy command hits an active cooldown", async () => {
+  it("shows a server rejection when an old spy command duplicates active intel", async () => {
     const server = createServerApp();
     const instanceId = "instance:production-conflict-cooldown";
     const attackerId = "player:1";
@@ -247,6 +248,7 @@ describe("production conflict gameplay slice", () => {
     expect(worldSeed, "Expected at least one deterministic successful spy seed.").toBeTruthy();
     runtime.state = createCombatStateFixture(instanceId);
     runtime.state.serverInstance.worldSeed = worldSeed!;
+    runtime.state.notificationsById = {};
     server.instanceManager.startInstance(instanceId);
 
     const attackerClient = createClientApp({
@@ -290,19 +292,19 @@ describe("production conflict gameplay slice", () => {
     );
 
     expect(rejectedSpy.errors[0]).toMatchObject({
-      code: "spy_cooldown_active"
+      code: "SPY_INTEL_ALREADY_ACTIVE"
     });
     expect(rejectedSpy.connection).toMatchObject({
       status: "ready",
       staleData: true,
-      lastErrorMessage: expect.stringContaining("čeká ještě")
+      lastErrorMessage: expect.stringContaining("stále platné informace")
     });
     expect(rejectedSpy.lastCommandStatus).toEqual({
       commandId: "command:spy:cooldown:2",
       accepted: false
     });
     expect(renderGameplaySliceStatus(rejectedSpy)).toContain("Akce odmítnuta");
-    expect(renderGameplaySliceStatus(rejectedSpy)).toContain("čeká ještě");
+    expect(renderGameplaySliceStatus(rejectedSpy)).toContain("stále platné informace");
     expect(rejectedSpy.sidePanelHtml).toContain("Poslední reporty");
     expect(rejectedSpy.sidePanelHtml).toContain("Akce odmítnuta");
     expect(rejectedSpy.sidePanelHtml).not.toContain("data-report-command-status=\"accepted-without-report\"");
@@ -331,6 +333,7 @@ describe("production conflict gameplay slice", () => {
     };
     runtime.state = createCombatStateFixture(instanceId);
     runtime.state.serverInstance.worldSeed = worldSeed!;
+    runtime.state.notificationsById = {};
     server.instanceManager.startInstance(instanceId);
 
     const attackerClient = createClientApp({
@@ -460,6 +463,7 @@ const findTrapRevealSeed = () =>
   Array.from({ length: 500 }, (_, index) => `production-spy-trap-reveal-${index}`).find((worldSeed) => {
     const state = createCombatStateFixture();
     state.serverInstance.worldSeed = worldSeed;
+    state.notificationsById = {};
     const trappedState = applyCommand(state, createCorePlaceTrapCommandFixture(), seedSearchContext).nextState;
     const result = applyCommand(trappedState, createCoreSpyDistrictCommandFixture(), seedSearchContext);
     const payload = result.nextState.notificationsById["notification:command:spy:1:spy-report"]?.payload;
@@ -470,6 +474,7 @@ const findSpyOutcomeSeed = (outcome: "success" | "partial" | "failed" | "critica
   Array.from({ length: 500 }, (_, index) => `production-spy-${outcome}-${index}`).find((worldSeed) => {
     const state = createCombatStateFixture();
     state.serverInstance.worldSeed = worldSeed;
+    state.notificationsById = {};
     const result = applyCommand(state, createCoreSpyDistrictCommandFixture(), seedSearchContext);
     return result.nextState.notificationsById["notification:command:spy:1:spy-report"]?.payload.result === outcome;
   });

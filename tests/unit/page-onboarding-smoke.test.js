@@ -72,12 +72,12 @@ describe("page onboarding smoke", () => {
     expect(page("login.html")).not.toContain('data-open-server-select');
     expect(page("login.html")).toContain('data-tab-link="register"');
     expect(page("login.html")).toContain('data-forgot-password');
-    expect(page("login.html")).toContain('src="../page-assets/js/login.js"');
+    expect(page("login.html")).toContain('src="../page-assets/js/login-entry.js"');
 
     expect(page("lobby.html")).toContain('data-server-list');
     expect(page("lobby.html")).toContain('data-server-detail-map');
     expect(page("lobby.html")).toContain('data-server-detail-continue');
-    expect(page("lobby.html")).toContain('src="../page-assets/js/lobby.js"');
+    expect(page("lobby.html")).toContain('src="../page-assets/js/lobby-entry.js"');
     const lobbyJsSource = readFileSync(resolve(root, "page-assets/js/lobby.js"), "utf8");
     expect(lobbyJsSource).not.toContain("war-demo");
     expect(lobbyJsSource).not.toContain("free-demo");
@@ -93,7 +93,7 @@ describe("page onboarding smoke", () => {
     expect(page("faction.html")).toContain('id="gang-color-grid"');
     expect(page("faction.html")).toContain('id="avatar-grid"');
     expect(page("faction.html")).toContain('id="go-game"');
-    expect(page("faction.html")).toContain('src="../page-assets/js/faction.js"');
+    expect(page("faction.html")).toContain('src="../page-assets/js/faction-entry.js"');
     const factionJsSource = readFileSync(resolve(root, "page-assets/js/faction.js"), "utf8");
     for (const avatarFolder of ["Mafia", "Kartel", "kult", "Tajnaorganizace", "Hacker", "Motogang", "SoukromaArmada", "Korporat"]) {
       expect((factionJsSource.match(new RegExp(`\\.\\./img/avatars/${avatarFolder}/`, "g")) || []).length).toBe(9);
@@ -149,7 +149,7 @@ describe("page onboarding smoke", () => {
     expect(allianceRuntimeSource).toContain("allianceBoard");
     expect(allianceRuntimeSource).not.toContain("createLocalAlliance");
     expect(allianceRuntimeSource).not.toContain("joinLocalAlliance");
-    expect(gameHtml).toMatch(/src="\.\.\/page-assets\/js\/app\.js(?:\?[^"]*)?"/u);
+    expect(gameHtml).toMatch(/src="\.\.\/page-assets\/js\/app-entry\.js(?:\?[^"]*)?"/u);
     expect(gameHtml).toContain('src="../page-assets/js/app/game-admin-slice-launcher.js"');
     expect(gameHtml).not.toContain('src="../page-assets/js/admin-assets/admin-slice-demo.js"');
 

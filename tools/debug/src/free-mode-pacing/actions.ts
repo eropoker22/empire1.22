@@ -372,7 +372,6 @@ const stableHash = (value: string): number => {
   }
   return hash >>> 0;
 };
-
 const copyState = (target: CoreGameState, source: CoreGameState): void => {
   Object.assign(target, source);
 };

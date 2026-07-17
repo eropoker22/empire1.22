@@ -69,9 +69,9 @@ describe("legacy player flow smoke guard", () => {
   });
 
   it("walks login, lobby, faction and keeps the game map click contract wired", () => {
-    expect(page("login.html")).toContain('src="../page-assets/js/login.js"');
-    expect(page("lobby.html")).toContain('src="../page-assets/js/lobby.js"');
-    expect(page("faction.html")).toContain('src="../page-assets/js/faction.js"');
+    expect(page("login.html")).toContain('src="../page-assets/js/login-entry.js"');
+    expect(page("lobby.html")).toContain('src="../page-assets/js/lobby-entry.js"');
+    expect(page("faction.html")).toContain('src="../page-assets/js/faction-entry.js"');
 
     saveLoginStep({
       identity: "Flow Boss",
@@ -128,7 +128,7 @@ describe("legacy player flow smoke guard", () => {
     expect(gameHtml).toContain("data-map-viewport");
     expect(gameHtml).toContain("data-district-canvas");
     expect(gameHtml).toContain("data-district-popup");
-    expect(gameHtml).toMatch(/src="\.\.\/page-assets\/js\/app\.js(?:\?[^"]*)?"/u);
+    expect(gameHtml).toMatch(/src="\.\.\/page-assets\/js\/app-entry\.js(?:\?[^"]*)?"/u);
     expect(clickedDistrict?.id).toBe(firstDistrict.id);
     expect(runtimeSource).toContain('viewport.addEventListener("click"');
     expect(runtimeSource).toContain("const district = getDistrictAtPoint(geometry, toCanvasPoint(event));");

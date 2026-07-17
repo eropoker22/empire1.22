@@ -8,7 +8,7 @@ export interface AccountIdentity {
 
 export interface AccountIdentityProvider {
   readonly productionReady: boolean;
-  resolve(input: { headers?: Record<string, string | string[] | undefined>; body?: unknown }): AccountIdentity | null;
+  resolve(input: { headers?: Record<string, string | string[] | undefined>; body?: unknown }): AccountIdentity | null | Promise<AccountIdentity | null>;
 }
 
 export interface PlayerRegistrationRecord {
@@ -49,12 +49,18 @@ export interface GameplaySessionRecord {
 export interface GameplaySessionService {
   readonly productionReady: boolean;
   createJoinTicket(input: {
+    ticketId?: string;
     accountId: string;
     serverInstanceId: ServerInstanceId;
     mode: GameModeId;
     factionId?: PlayerFactionId | string | null;
     nowIso: string;
   }): Promise<JoinTicketRecord>;
+  getOrCreateRegistration(input: {
+    accountId: string;
+    serverInstanceId: ServerInstanceId;
+    nowIso: string;
+  }): Promise<PlayerRegistrationRecord>;
   consumeJoinTicket(input: {
     ticketId: string;
     accountId: string;
@@ -118,6 +124,9 @@ export const createUnavailableGameplaySessionService = (): GameplaySessionServic
   createJoinTicket: async () => {
     throw new Error("Gameplay session repository is not configured.");
   },
+  getOrCreateRegistration: async () => {
+    throw new Error("Gameplay session repository is not configured.");
+  },
   consumeJoinTicket: async () => reject("SESSION_INVALID", "Gameplay session repository is not configured."),
   createSession: async () => {
     throw new Error("Gameplay session repository is not configured.");
@@ -138,7 +147,7 @@ export const createPersistentGameplaySessionService = (
     productionReady: options.productionReady ?? true,
     createJoinTicket: async (input) => {
       const ticket: JoinTicketRecord = {
-        ticketId: `join:${randomToken()}`,
+        ticketId: input.ticketId ?? `join:${randomToken()}`,
         accountId: input.accountId,
         serverInstanceId: input.serverInstanceId,
         mode: input.mode,
@@ -150,6 +159,7 @@ export const createPersistentGameplaySessionService = (
       };
       return repository.createJoinTicket(ticket);
     },
+    getOrCreateRegistration: (input) => repository.getOrCreateRegistration(input),
     consumeJoinTicket: async (input) => {
       const consumed = await repository.consumeJoinTicket({
         ticketId: input.ticketId,
@@ -220,7 +230,7 @@ export const createInMemoryGameplaySessionService = (
     productionReady: Boolean(options.productionReady),
     createJoinTicket: async (input) => {
       const ticket: JoinTicketRecord = {
-        ticketId: `join:${randomToken()}`,
+        ticketId: input.ticketId ?? `join:${randomToken()}`,
         accountId: input.accountId,
         serverInstanceId: input.serverInstanceId,
         mode: input.mode,
@@ -233,6 +243,7 @@ export const createInMemoryGameplaySessionService = (
       tickets.set(ticket.ticketId, ticket);
       return ticket;
     },
+    getOrCreateRegistration: async (input) => getOrCreateRegistration(input),
     consumeJoinTicket: async (input) => {
       const ticket = tickets.get(input.ticketId);
       if (!ticket || ticket.accountId !== input.accountId || ticket.serverInstanceId !== input.serverInstanceId) {

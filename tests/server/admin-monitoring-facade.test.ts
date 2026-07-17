@@ -129,7 +129,7 @@ describe("admin monitoring facade", () => {
       "Instance started.",
       "Instance paused.",
       "Stop triggered snapshot save.",
-      "Command rejected before core dispatch."
+      "Command rejected."
     ]);
     expect(diagnostics.at(-1)).toMatchObject({
       level: "warn",

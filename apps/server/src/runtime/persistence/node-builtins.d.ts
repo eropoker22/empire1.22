@@ -1,6 +1,7 @@
 declare const process: {
   env: Record<string, string | undefined>;
   pid: number;
+  stdout: { write(message: string): void };
   exit(code?: number): never;
   once(event: "SIGTERM" | "SIGINT", listener: () => void): void;
   loadEnvFile?(path?: string): void;
@@ -24,13 +25,21 @@ declare module "node:fs/promises" {
 }
 
 declare module "node:http" {
-  export interface IncomingMessage { url?: string }
+  export interface IncomingMessage {
+    url?: string;
+    method?: string;
+    headers: Record<string, string | string[] | undefined>;
+    setEncoding(encoding: "utf8"): void;
+    on(event: "data", listener: (chunk: string) => void): void;
+    on(event: "end", listener: () => void): void;
+    on(event: "error", listener: (error: Error) => void): void;
+  }
   export interface ServerResponse {
     writeHead(status: number, headers?: Record<string, string>): ServerResponse;
     end(data?: string): void;
   }
   export interface Server {
-    listen(port: number, host: string): void;
+    listen(port: number, host: string, callback?: () => void): void;
     close(callback: () => void): void;
   }
   export function createServer(handler: (request: IncomingMessage, response: ServerResponse) => void): Server;
@@ -77,6 +86,7 @@ declare module "pg" {
 
   export class Pool {
     constructor(options: { connectionString: string });
+    on(event: "error", listener: (error: Error) => void): this;
     query<TRow extends QueryResultRow = QueryResultRow>(
       sql: string,
       params?: readonly unknown[]

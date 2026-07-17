@@ -243,6 +243,10 @@ async function run() {
     });
 
     await page.addInitScript((session) => {
+      window.EmpireConfigOverrides = Object.freeze({
+        ...(window.EmpireConfigOverrides || {}),
+        localDemoEnabled: true
+      });
       window.localStorage.clear();
       window.sessionStorage.clear();
       window.localStorage.setItem("empireStreets.session.v1", JSON.stringify(session));

@@ -101,6 +101,18 @@ describe("result payload builders", () => {
     expect(payload.rows).toContainEqual({ label: "District", value: "District 3" });
   });
 
+  it("builds a compact active-attack status payload", () => {
+    const payload = createBuilders().createDistrictAttackInProgressPayload({ id: 3 }, {
+      attackerDistrictId: 2,
+      expiresAt: 2_000
+    });
+
+    expect(payload.title).toBe("Probíhá útok");
+    expect(payload.hideBadge).toBe(true);
+    expect(payload.hideSummary).toBe(true);
+    expect(payload.rows.map((row) => row.label)).toEqual(["Útočník", "Obránce", "Konec boje"]);
+  });
+
   it("creates attack result payloads without resolving gameplay outcome", () => {
     const payload = createBuilders().createAttackResultPayload({
       order: {

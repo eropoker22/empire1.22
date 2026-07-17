@@ -44,7 +44,7 @@ const handleJoin = async (
     return createJsonResponse(200, createErrorResponse("transport.invalid_request", "Join request must be an object."));
   }
   const request = body as unknown as JoinGameplaySliceRequest;
-  const identity = options.server.accountIdentityProvider.resolve({ body, headers });
+  const identity = await options.server.accountIdentityProvider.resolve({ body, headers });
   if (!identity) {
     return createJsonResponse(200, createErrorResponse("SESSION_REQUIRED", "Account identity is required for join."));
   }

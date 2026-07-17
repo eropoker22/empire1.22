@@ -108,8 +108,7 @@ export const applyRaidConsequences = (
   const event = createPoliceEvent(raid, result, state.root.tick);
   const nextPoliceState = applyResolvedRaidToPoliceState(policeState, raid, result, event, nextHeat, state.root.tick);
 
-  return {
-    nextState: {
+  const nextState = {
       ...state,
       resourceStatesById: {
         ...state.resourceStatesById,
@@ -121,7 +120,10 @@ export const applyRaidConsequences = (
         ...state.policeStatesById,
         [nextPoliceState.id]: nextPoliceState
       }
-    },
+    };
+
+  return {
+    nextState,
     result,
     event,
     applied: true

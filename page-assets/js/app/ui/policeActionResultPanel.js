@@ -67,7 +67,8 @@ export function renderPoliceActionResultPanel(root, payload = {}, options = {}) 
     elements.content.classList.add(token);
   }
 
-  const hidesBadge = String(payload.tone || "").includes("is-owned-district-raid-alert");
+  const hidesBadge = Boolean(payload.hideBadge) || String(payload.tone || "").includes("is-owned-district-raid-alert");
+  const hidesSummary = Boolean(payload.hideSummary);
   const actions = elements.content.querySelector?.(".attack-result-modal__actions") || null;
   elements.title.textContent = payload.title || "Policejní akce";
   elements.badge.textContent = hidesBadge ? "" : (payload.badge || "Policejní zásah");
@@ -81,6 +82,19 @@ export function renderPoliceActionResultPanel(root, payload = {}, options = {}) 
     elements.badge.removeAttribute("aria-hidden");
     if (elements.badge.style) {
       elements.badge.style.display = "";
+    }
+  }
+  elements.summary.textContent = hidesSummary ? "" : (payload.summary || "");
+  elements.summary.hidden = hidesSummary;
+  if (hidesSummary) {
+    elements.summary.setAttribute("aria-hidden", "true");
+    if (elements.summary.style) {
+      elements.summary.style.display = "none";
+    }
+  } else {
+    elements.summary.removeAttribute("aria-hidden");
+    if (elements.summary.style) {
+      elements.summary.style.display = "";
     }
   }
   if (actions) {
@@ -97,8 +111,6 @@ export function renderPoliceActionResultPanel(root, payload = {}, options = {}) 
       }
     }
   }
-  elements.summary.textContent = payload.summary || "";
-
   const renderRows = () => {
     const isCityEvent = String(payload.liveRowsKind || "") === "city_event";
     const remainingMs = isCityEvent ? Math.max(0, Number(payload.endsAt || 0) - Date.now()) : null;

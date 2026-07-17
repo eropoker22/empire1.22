@@ -2,6 +2,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { PostgresDatabase } from "../../../apps/server/src/runtime/persistence/postgres";
 
+process.loadEnvFile?.(".env.local");
+
 export interface LivePostgresSmokeConfig {
   databaseUrl: string | null;
   run: boolean;
@@ -16,7 +18,10 @@ const MIGRATION_FILES = [
   "004_atomic_command_execution.sql",
   "005_gameplay_identity_session_invariants.sql",
   "006_admin_read_only_control_plane.sql",
-  "007_hosted_server_control_plane.sql"
+  "007_hosted_server_control_plane.sql",
+  "008_hosted_join_reservations.sql",
+  "009_player_entry_control_plane.sql",
+  "010_runtime_instance_foreign_keys.sql"
 ];
 
 export const resolveLivePostgresSmokeConfig = (

@@ -171,6 +171,23 @@ describe("police action result panel", () => {
     expect(actions.style.display).toBe("none");
   });
 
+  it("hides empty chrome for compact active-attack status", () => {
+    const nodes = Object.fromEntries(Object.values(selectors).map((selector) => [selector, new FakeElement()]));
+
+    const result = renderPoliceActionResultPanel(new FakeRoot(nodes), {
+      tone: "is-district-attack-warning",
+      title: "Probíhá útok",
+      hideBadge: true,
+      hideSummary: true,
+      rows: [{ label: "Útočník", value: "Player 1" }]
+    }, { selectors });
+
+    expect(result.ok).toBe(true);
+    expect(nodes["#badge"].hidden).toBe(true);
+    expect(nodes["#summary"].hidden).toBe(true);
+    expect(nodes["#summary"].style.display).toBe("none");
+  });
+
   it("keeps the raid detail window open across live rerenders", () => {
     const existingDetail = new FakeElement();
     existingDetail.hidden = false;

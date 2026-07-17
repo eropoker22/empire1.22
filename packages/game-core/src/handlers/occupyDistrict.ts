@@ -390,7 +390,6 @@ const resolveOccupyCooldownGuardrailTicks = (context: GameCoreContext, configure
   if (context.config.mode !== "free") {
     return 0;
   }
-
   const guardrailTicks = Math.ceil((8 * 60 * 1000) / Math.max(1, context.config.tickRateMs));
   return configuredCooldownTicks >= guardrailTicks ? guardrailTicks : 0;
 };

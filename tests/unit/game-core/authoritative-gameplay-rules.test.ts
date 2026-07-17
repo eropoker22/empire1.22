@@ -267,7 +267,11 @@ describe("authoritative gameplay rules", () => {
     const trappedState = applyCommand(state, createPlaceTrapCommandFixture(), { config }).nextState;
     seedSuccessfulSpyIntel(trappedState, "player:1", "district:1", "district:2", "player:2");
 
-    const result = applyCommand(trappedState, createAttackDistrictCommandFixture(), { config });
+    const result = applyCommand(trappedState, createAttackDistrictCommandFixture({
+      payload: {
+        expectedConflictRevision: trappedState.districtsById["district:2"].conflictRevision
+      }
+    }), { config });
     const report = result.events.find((event) => event.type === "district-attacked");
     const trapEvent = result.events.find((event) => event.type === "trap-triggered");
     const losses = (trapEvent?.payload as { attackerLosses?: Record<string, number> } | undefined)

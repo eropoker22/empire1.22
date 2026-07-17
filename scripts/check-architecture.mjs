@@ -347,7 +347,7 @@ for (const forbidden of ["instanceManager", "listInstances()", "adminMonitoring"
 }
 
 const repositoryFactory = readRequiredFile("apps/server/src/admin/read-only/admin-repository-environment.ts");
-for (const required of ['driver !== "postgres"', "allDurable(provided)", "createPostgresAdminDurableRepositories"]) {
+for (const required of ['driver === "postgres" && databaseUrl', 'environment.NODE_ENV === "production"', "allDurable(provided)", "createPostgresAdminDurableRepositories"]) {
   if (!repositoryFactory.includes(required)) violations.push(`production admin repository guard is missing ${required}`);
 }
 

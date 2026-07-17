@@ -5,6 +5,10 @@ const SCOPED_SESSION_KEY = "empireStreets.session.free.instance-free-eu-central-
 
 async function seedLocalDemo(page) {
   await page.addInitScript(({ sessionKey, scopedSessionKey }) => {
+    window.EmpireConfigOverrides = Object.freeze({
+      ...(window.EmpireConfigOverrides || {}),
+      localDemoEnabled: true
+    });
     window.__EMPIRE_E2E__ = true;
     const now = new Date().toISOString();
     const serverId = "instance:free:eu-central:public-1";

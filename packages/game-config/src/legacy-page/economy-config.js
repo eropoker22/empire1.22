@@ -60,7 +60,7 @@ export const MARKET_TAB_CONFIG = {
     payment: "dirtyMoney",
     payout: "dirtyMoney",
     buyMultiplier: 1.32,
-    sellMultiplier: 0.01,
+    sellMultiplier: 0.35,
     variance: 0.22,
     items: createBrowserMarketItems(MARKET_CONFIG.blackMarketResourceIds)
   },

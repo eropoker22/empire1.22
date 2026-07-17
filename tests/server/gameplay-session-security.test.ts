@@ -235,11 +235,14 @@ describe("gameplay session security", () => {
       "x-empire-account-id": "alice"
     };
 
-    const reserve = await readBody(handler(postEvent("/api/matchmaking/reserve", {
+    const ticket = await sessionService.createJoinTicket({
+      accountId: "account:alice",
+      serverInstanceId,
       mode: "free",
-      preferredServerInstanceId: serverInstanceId
-    }, headers)));
-    const joinTicket = String(reserve.json.reservation.joinTicket);
+      factionId: "mafian",
+      nowIso: new Date().toISOString()
+    });
+    const joinTicket = ticket.ticketId;
 
     const join = await readBody(handler(postEvent("/api/gameplay-slice/join", {
       joinTicket,

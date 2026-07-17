@@ -31,7 +31,7 @@ export class InstanceLifecycleService {
     runtime.record.status = "running";
     runtime.record.startedAt = runtime.clock.nowIso();
     runtime.scheduler.isRunning = true;
-    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "lifecycle", "Instance started.", {}, runtime.clock);
+    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "lifecycle", "Instance started.", {}, runtime.clock).catch(() => undefined);
     runtime.eventPublisher.publish({
       type: "instance-status-changed",
       payload: { status: runtime.record.status },
@@ -49,7 +49,7 @@ export class InstanceLifecycleService {
       occurredAt: runtime.clock.nowIso()
     });
     runtime.record.status = "paused";
-    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "lifecycle", "Instance paused.", {}, runtime.clock);
+    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "lifecycle", "Instance paused.", {}, runtime.clock).catch(() => undefined);
     runtime.eventPublisher.publish({
       type: "instance-status-changed",
       payload: { status: runtime.record.status },
@@ -63,8 +63,8 @@ export class InstanceLifecycleService {
     runtime.record.status = "stopped";
     runtime.record.stoppedAt = runtime.clock.nowIso();
     runtime.scheduler.isRunning = false;
-    void runtime.snapshotController.save(runtime);
-    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "snapshot", "Stop triggered snapshot save.", {}, runtime.clock);
+    void runtime.snapshotController.save(runtime).catch(() => undefined);
+    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "snapshot", "Stop triggered snapshot save.", {}, runtime.clock).catch(() => undefined);
     runtime.eventPublisher.publish({
       type: "instance-status-changed",
       payload: { status: runtime.record.status },
@@ -78,7 +78,7 @@ export class InstanceLifecycleService {
     runtime.scheduler.isRunning = false;
     runtime.record.status = "running";
     runtime.scheduler.isRunning = true;
-    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "lifecycle", "Instance restarted.", {}, runtime.clock);
+    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "lifecycle", "Instance restarted.", {}, runtime.clock).catch(() => undefined);
     return runtime;
   }
 
@@ -86,7 +86,7 @@ export class InstanceLifecycleService {
     runtime.record.status = "destroying";
     runtime.record.status = "destroyed";
     runtime.scheduler.isRunning = false;
-    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "warn", "lifecycle", "Instance destroyed.", {}, runtime.clock);
+    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "warn", "lifecycle", "Instance destroyed.", {}, runtime.clock).catch(() => undefined);
     runtime.eventPublisher.publish({
       type: "instance-status-changed",
       payload: { status: runtime.record.status },
@@ -108,14 +108,17 @@ export class InstanceLifecycleService {
   }
 
   async restore(runtime: ServerInstanceRuntime): Promise<ServerInstanceRuntime> {
+    const status = runtime.record.status;
+    const schedulerRunning = runtime.scheduler.isRunning;
     runtime.record.status = "booting";
     runtime = await restoreOrCreateInitialState(
       runtime.snapshotController,
       runtime.record.id,
       runtime
     );
-    runtime.record.status = "stopped";
-    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "snapshot", "Instance restored from snapshot or initial state.", {}, runtime.clock);
+    runtime.record.status = status;
+    runtime.scheduler.isRunning = schedulerRunning;
+    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "snapshot", "Instance restored from snapshot or initial state.", {}, runtime.clock).catch(() => undefined);
     return runtime;
   }
 }

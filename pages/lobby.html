@@ -18,7 +18,7 @@
       <section class="lobby-hud-panel lobby-status-card" aria-label="Server status">
         <i aria-hidden="true"></i>
         <span class="lobby-status-card__label">ONLINE</span>
-        <strong data-lobby-status-count>4 200 hráčů</strong>
+        <strong data-lobby-status-count>Načítám…</strong>
       </section>
 
       <aside class="lobby-side lobby-side--left" aria-label="Stav města">
@@ -31,15 +31,15 @@
             <span>HEAT LEVEL</span>
             <b>🔥</b>
           </div>
-          <strong>78 %</strong>
-          <div class="lobby-meter"><i style="width: 78%"></i></div>
+          <strong>NEDOSTUPNÉ</strong>
+          <div class="lobby-meter"><i style="width: 0"></i></div>
         </section>
 
         <section class="lobby-hud-panel lobby-market-card">
           <div class="lobby-panel-heading">
             <span>MARKET VOLATILITY</span>
           </div>
-          <strong>VERY HIGH</strong>
+          <strong>SERVEROVÁ DATA NEJSOU SOUČÁSTÍ LOBBY</strong>
           <svg viewBox="0 0 180 48" aria-hidden="true">
             <polyline points="0,35 12,30 20,36 34,25 44,31 55,18 66,32 76,17 88,29 100,20 114,35 128,19 142,24 154,13 166,27 180,18"></polyline>
           </svg>
@@ -111,7 +111,7 @@
               <div class="lobby-detail-title">
                 <div>
                   <span class="lobby-detail-kicker">SERVER</span>
-                  <h2 data-lobby-detail-name>Neon Docks FREE-01</h2>
+                  <h2 data-lobby-detail-name>Načítám server…</h2>
                 </div>
                 <span>ONLINE</span>
               </div>
@@ -147,21 +147,25 @@
             <div class="lobby-mock-grid">
               <article class="lobby-mock-card">
                 <span>NÁZEV</span>
-                <strong>Neon Vultures</strong>
+                <strong data-live-gang-name>Načítám…</strong>
               </article>
               <article class="lobby-mock-card">
-                <span>RESPEKT</span>
-                <strong>1 240</strong>
+                <span>ÚČET</span>
+                <strong data-live-gang-user>Načítám…</strong>
               </article>
               <article class="lobby-mock-card">
-                <span>ČLENOVÉ</span>
-                <strong>4 / 12</strong>
+                <span>AKTUÁLNÍ SERVER</span>
+                <strong data-live-gang-server>Načítám…</strong>
               </article>
               <article class="lobby-mock-card">
-                <span>ÚZEMÍ</span>
-                <strong>2 districty</strong>
+                <span>MEMBERSHIP</span>
+                <strong data-live-gang-membership>Načítám…</strong>
               </article>
+              <article class="lobby-mock-card"><span>SERVEROVÁ IDENTITA</span><strong data-live-gang-identity>Načítám…</strong></article>
+              <article class="lobby-mock-card"><span>DISTRICT</span><strong data-live-gang-district>Načítám…</strong></article>
             </div>
+            <h3>HISTORIE SERVERŮ</h3>
+            <ul class="lobby-membership-history" data-live-gang-history><li>Načítám…</li></ul>
           </section>
 
           <section class="lobby-mock-view" data-lobby-view="market" hidden>
@@ -171,20 +175,8 @@
             </div>
             <div class="lobby-mock-grid">
               <article class="lobby-mock-card">
-                <span>KREDITY</span>
-                <strong>0</strong>
-              </article>
-              <article class="lobby-mock-card">
-                <span>BLACK DEAL</span>
-                <strong>Stimpack x20</strong>
-              </article>
-              <article class="lobby-mock-card">
-                <span>SLEVA</span>
-                <strong>12 %</strong>
-              </article>
-              <article class="lobby-mock-card">
-                <span>RESET</span>
-                <strong>02:14:08</strong>
+                <span>STAV</span>
+                <strong>OBCHOD SE PŘIPRAVUJE</strong>
               </article>
             </div>
           </section>
@@ -197,8 +189,9 @@
             <div class="lobby-mock-grid">
               <article class="lobby-mock-card">
                 <span>PROFIL</span>
-                <strong>Host</strong>
+                <strong data-lobby-user>Načítám…</strong>
               </article>
+              <article class="lobby-mock-card"><button type="button" class="lobby-primary-cta" data-live-account-logout>ODHLÁSIT ÚČET</button></article>
               <article class="lobby-mock-card">
                 <span>ZVUK</span>
                 <strong>ON</strong>
@@ -269,6 +262,7 @@
       </section>
     </div>
 
-    <script type="module" src="../page-assets/js/lobby.js"></script>
+    <p class="lobby-flow-note" data-lobby-flow-note aria-live="polite"></p>
+    <script type="module" src="../page-assets/js/lobby-entry.js"></script>
   </body>
 </html>

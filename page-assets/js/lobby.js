@@ -4,7 +4,7 @@ import {
   getDistrictAtPoint
 } from "./app/district-geometry.js";
 import {
-  clearAuthSession,
+  clearAccountIdentity,
   DEFAULT_PUBLIC_SERVER_MODE,
   ensureIdentity,
   getActiveServerRegistration,
@@ -87,10 +87,13 @@ function createServerFromSummary(summary) {
   }
 
   const playerCount = Math.max(0, Number(summary.playerCount || 0) || 0);
-  const maxPlayers = Math.max(1, Number(summary.maxPlayers || 1) || 1);
+  const maxPlayers = Math.max(1, Number(summary.maxPlayers || summary.capacity || 1) || 1);
   const status = String(summary.status || "lobby").toUpperCase();
   const full = playerCount >= maxPlayers;
-  const joinable = Boolean(summary.joinable);
+  const joinPolicy = String(summary.joinPolicy || "closed").toLowerCase();
+  const joinable = typeof summary.joinable === "boolean"
+    ? summary.joinable
+    : joinPolicy === "open" && ["LOBBY", "RUNNING"].includes(status) && !full;
   const map = summary.map && typeof summary.map === "object"
     ? {
         totalDistricts: Number(summary.map.totalDistricts || 0) || 0,
@@ -108,13 +111,14 @@ function createServerFromSummary(summary) {
     name: String(summary.displayName || id),
     mode,
     region: String(summary.region || "EU Central"),
+    startedAt: String(summary.startedAt || "").trim(),
     players: playerCount,
     capacity: maxPlayers,
     startLabel: joinable
       ? (mode === "war" ? "Premium režim / dev vstup" : "Začni zdarma")
       : mode === "war" ? "UZAVŘENO" : status,
     badge: mode === "war" && !joinable ? "PŘIPRAVUJEME" : mode === "war" ? "WAR Mode" : "FREE Battle Royale",
-    joinPolicy: String(summary.joinPolicy || (joinable ? "open" : "closed")).toLowerCase(),
+    joinPolicy: joinPolicy || (joinable ? "open" : "closed"),
     status,
     activity: playerCount / maxPlayers > 0.75 ? "HIGH" : playerCount / maxPlayers > 0.35 ? "MEDIUM" : "LOW",
     full,
@@ -203,7 +207,7 @@ function promptLobbyLogoutConfirmation() {
   return lobbyLogoutPrompt;
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+const initializeLobbyPage = () => {
   if (!ensureIdentity()) {
     markLeavingLobby();
     window.location.href = LOGIN_ENTRY_HREF;
@@ -316,6 +320,7 @@ document.addEventListener("DOMContentLoaded", () => {
     detailPinchStartZoom: 1,
     detailPinchStartMidX: 0,
     isReservingServer: false,
+    joinIdempotencyKeys: new Map(),
     detailPinchStartMidY: 0,
     detailPinchOriginX: 0,
     detailPinchOriginY: 0,
@@ -680,28 +685,41 @@ document.addEventListener("DOMContentLoaded", () => {
       return server;
     }
 
+    const serverId = server.serverInstanceId || server.id;
+    const idempotencyKey = state.joinIdempotencyKeys.get(serverId) || `lobby-join:${crypto.randomUUID()}`;
+    state.joinIdempotencyKeys.set(serverId, idempotencyKey);
     try {
-      const response = await fetch(MATCHMAKING_RESERVE_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "accept": "application/json",
-          "content-type": "application/json"
-        },
-        body: JSON.stringify({
-          playerId: identity,
-          accountId: identity,
-          mode: server.mode,
-          preferredRegion: server.region,
-          preferredServerInstanceId: server.serverInstanceId || server.id
-        })
-      });
-      if (!response.ok) return server;
-      const payload = await response.json();
-      return payload?.accepted && payload.reservation
-        ? createReservedServer(server, payload.reservation)
-        : server;
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        const response = await fetch(MATCHMAKING_RESERVE_ENDPOINT, {
+          method: "POST",
+          headers: {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "idempotency-key": idempotencyKey
+          },
+          body: JSON.stringify({
+            playerId: identity,
+            accountId: identity,
+            mode: server.mode,
+            preferredRegion: server.region,
+            preferredServerInstanceId: serverId
+          })
+        });
+        if (!response.ok) return null;
+        const payload = await response.json();
+        if (payload?.accepted && payload.reservation?.joinTicket) {
+          return createReservedServer(server, payload.reservation);
+        }
+        if (payload?.errors?.[0]?.code !== "matchmaking.preparing") return null;
+        if (detailModalHint) {
+          detailModalHint.textContent = "Server se připravuje";
+          detailModalHint.classList.add("is-required");
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 1_000));
+      }
+      return null;
     } catch (_error) {
-      return server;
+      return null;
     }
   };
 
@@ -714,6 +732,16 @@ document.addEventListener("DOMContentLoaded", () => {
     state.isReservingServer = true;
     updateLobbySummary();
     const reservedServer = await reserveSelectedServer(server);
+    if (!reservedServer) {
+      state.isReservingServer = false;
+      if (detailModalHint) {
+        detailModalHint.textContent = "Worker nedostupný nebo server se stále připravuje";
+        detailModalHint.classList.add("is-required");
+      }
+      updateLobbySummary();
+      updateDetailModal();
+      return;
+    }
     const session = saveLobbyStep({
       serverId: reservedServer.serverInstanceId || reservedServer.id || state.serverId,
       districtId: state.selectedDistrictId,
@@ -1684,7 +1712,7 @@ document.addEventListener("DOMContentLoaded", () => {
   startLobbyStatusTicker();
   startServerListAutoRefresh();
   void hydrateServerSummaries();
-});
+};
 
 function installLobbyBackLogoutGuard() {
   if (!window.history?.pushState) {
@@ -1724,7 +1752,7 @@ function installLobbyBackLogoutGuard() {
         return;
       }
       markLeavingLobby();
-      clearAuthSession();
+      clearAccountIdentity();
       window.location.replace(LOGIN_ENTRY_HREF);
     });
   });
@@ -1732,4 +1760,10 @@ function installLobbyBackLogoutGuard() {
   window.addEventListener("pageshow", () => {
     armBackLogoutGuard();
   });
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initializeLobbyPage, { once: true });
+} else {
+  initializeLobbyPage();
 }

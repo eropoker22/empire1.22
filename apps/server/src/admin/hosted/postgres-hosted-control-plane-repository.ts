@@ -6,11 +6,13 @@ import type {
 import { ACTION_COLUMNS, type ActionRow, failRestartIfInProgress, insertAction, insertAudit, insertJob, insertServer, JOB_COLUMNS,
   HOSTED_CONTROL_PLANE_MIGRATION, loadActionReplay, loadCreateReplay, mapAction, mapJob, mapServer, mapWorker, type ProvisioningRow,
   prepareRuntimeRestart, SERVER_SELECT, type HostedServerRow, type WorkerRow } from "./postgres-hosted-control-plane-helpers";
+import { createPostgresHostedJoinRepository } from "./postgres-hosted-join-repository";
 
 export const createPostgresHostedControlPlaneRepository = (
   database: PostgresDatabase
 ): HostedControlPlaneRepository => ({
   durable: true,
+  ...createPostgresHostedJoinRepository(database),
   isSchemaCurrent: async () => {
     try {
       const result = await database.query<{ present: boolean }>(
@@ -106,7 +108,7 @@ export const createPostgresHostedControlPlaneRepository = (
         ORDER BY available_at, created_at FOR UPDATE SKIP LOCKED LIMIT 1
        ) UPDATE empire_hosted_server_provisioning_jobs job SET status='claimed', claimed_by_worker_id=$1,
          claimed_until=$3::timestamptz, attempt=attempt+1, version=version+1, updated_at=$2::timestamptz
-       FROM candidate WHERE job.job_id=candidate.job_id RETURNING ${JOB_COLUMNS}`,
+       FROM candidate WHERE job.job_id=candidate.job_id RETURNING ${qualifyColumns("job", JOB_COLUMNS)}`,
       [workerId, now, claimedUntil]
     );
     return result.rows[0] ? mapJob(result.rows[0]) : null;
@@ -164,7 +166,7 @@ export const createPostgresHostedControlPlaneRepository = (
         ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1
        ) UPDATE empire_hosted_server_action_requests request SET status='processing', claimed_by_worker_id=$1,
          claimed_until=$3::timestamptz, updated_at=$2::timestamptz, version=version+1
-       FROM candidate WHERE request.action_request_id=candidate.action_request_id RETURNING ${ACTION_COLUMNS}`,
+       FROM candidate WHERE request.action_request_id=candidate.action_request_id RETURNING ${qualifyColumns("request", ACTION_COLUMNS)}`,
       [workerId, now, claimedUntil]
     );
     return result.rows[0] ? mapAction(result.rows[0]) : null;
@@ -173,11 +175,12 @@ export const createPostgresHostedControlPlaneRepository = (
   completeAction: (input) => database.transaction(async (client) => {
     const changed = await client.query(
       `UPDATE empire_hosted_server_instances SET status=$2, join_policy=$3,
-       last_started_at=CASE WHEN $2='running' THEN $4::timestamptz ELSE last_started_at END,
+       last_started_at=CASE WHEN $6='start' THEN $4::timestamptz ELSE last_started_at END,
        last_paused_at=CASE WHEN $2='paused' THEN $4::timestamptz ELSE last_paused_at END,
        last_stopped_at=CASE WHEN $2='stopped' THEN $4::timestamptz ELSE last_stopped_at END,
        updated_at=$4::timestamptz, version=version+1 WHERE server_instance_id=$1 AND version=$5 RETURNING server_instance_id`,
-      [input.request.serverInstanceId, input.nextStatus, input.nextJoinPolicy, input.at, input.request.expectedVersion]
+      [input.request.serverInstanceId, input.nextStatus, input.nextJoinPolicy, input.at, input.request.expectedVersion,
+        input.request.action]
     );
     if ((changed.rowCount ?? 0) === 0) throw new Error("Lifecycle request has a stale server version.");
     await client.query(
@@ -226,7 +229,7 @@ export const createPostgresHostedControlPlaneRepository = (
   },
   releaseRuntimeLease: async (id, workerId, at) => {
     await database.query(`UPDATE empire_hosted_server_instances SET runtime_lease_owner_id=NULL,runtime_lease_expires_at=NULL,
-      updated_at=$3::timestamptz WHERE server_instance_id=$1 AND runtime_lease_owner_id=$2`, [id, workerId, at]);
+      updated_at=$3::timestamptz WHERE server_instance_id=$1 AND runtime_lease_owner_id=$2 AND status <> 'running'`, [id, workerId, at]);
   },
   writeInstanceHeartbeat: async (input) => {
     await database.query(
@@ -245,3 +248,6 @@ export const createPostgresHostedControlPlaneRepository = (
     [input.serverInstanceId, input.workerId, input.at, input.leaseExpiresAt]);
   }
 });
+
+const qualifyColumns = (alias: string, columns: string): string =>
+  columns.split(",").map((column) => `${alias}.${column}`).join(",");

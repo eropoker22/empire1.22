@@ -593,6 +593,70 @@ const refreshDevOnlyCreateEligibility = () => {
   return changed;
 };
 
+const createDevOnlyAllianceFromDraft = ({ name, tag, emblemColor }) => {
+  if (!isDevOnlyAllianceDemoEnabled() || !latestAllianceBoard || latestAllianceBoard.activeAlliance) {
+    return false;
+  }
+
+  const currentPlayerId = latestAllianceBoard.currentPlayerId || "dev-player";
+  const allianceId = `dev-demo-player-alliance:${Date.now()}`;
+  const readyDueAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
+  const activeAlliance = {
+    allianceId,
+    name,
+    tag,
+    emblemColor,
+    ownerPlayerId: currentPlayerId,
+    ownerName: "Ty",
+    memberCount: 1,
+    maxMembers: latestAllianceBoard.maxAllianceSize || MAX_ALLIANCE_SIZE_FALLBACK,
+    currentPlayerRole: "leader",
+    canJoin: false,
+    joinDisabledReason: "Už jsi členem.",
+    canInvite: true,
+    canLeave: true,
+    canDisband: true,
+    canConfirmReady: true,
+    readyReasonCode: "active",
+    readyDueAt,
+    nextReadyDueAt: readyDueAt,
+    activeVote: null,
+    eligibleVotes: [],
+    members: [{
+      playerId: currentPlayerId,
+      name: "Ty",
+      role: "leader",
+      status: "active",
+      readyDueAt,
+      graceEndsAt: readyDueAt,
+      activeDistrictCount: 0,
+      canStartKickVote: false,
+      presence: "online",
+      avatarSrc: getStoredPlayerAvatarSrc() || LAUNCH_PLAYER_AVATAR_BY_FACTION_ID.mafian
+    }],
+    pendingInvites: [],
+    chatMessages: [],
+    defenseContributions: [],
+    isDevOnlyDemo: true
+  };
+
+  latestAllianceBoard = {
+    ...latestAllianceBoard,
+    activeAlliance,
+    incomingInvites: [],
+    eligibleInviteTargets: createDevOnlyAllianceInviteTargets(activeAlliance.members),
+    allianceBadgesByPlayerId: {
+      ...(latestAllianceBoard.allianceBadgesByPlayerId || {}),
+      [currentPlayerId]: { allianceId, name, tag, emblemColor }
+    },
+    canCreateAlliance: false,
+    createDisabledReason: "PLAYER_ALREADY_IN_ALLIANCE"
+  };
+  renderAllianceState();
+  window.dispatchEvent(new CustomEvent("empire:alliance-state-changed"));
+  return true;
+};
+
 const formatRelativeTime = (isoValue) => {
   const timestamp = Date.parse(isoValue || "");
   if (!Number.isFinite(timestamp)) return "-";
@@ -1500,7 +1564,7 @@ const renderCreateAllianceCard = (board) => {
         </div>
       </div>
       <p class="alliance-create-card__copy">Zadej název, vyber znak i barvu a založ malou crew. Max ${escapeHtml(maxMembers)} hráči.</p>
-      <p class="alliance-create-card__copy alliance-create-card__copy--requirement">Vytvořit alianci půjde až pokud má hráč ${ALLIANCE_CREATE_REQUIRED_INFLUENCE} vliv.</p>
+      ${hasInfluence ? "" : `<p class="alliance-create-card__copy alliance-create-card__copy--requirement">Vytvořit alianci půjde až pokud má hráč ${ALLIANCE_CREATE_REQUIRED_INFLUENCE} vliv.</p>`}
       ${disabledReason ? `<div class="alliance-inline-note" data-tone="warning">${escapeHtml(disabledReason)}</div>` : ""}
       <button class="btn btn--primary alliance-create-card__cta" id="alliance-create-toggle-btn" ${canCreate ? "" : "disabled"}>Vytvořit alianci</button>
     </section>
@@ -2300,8 +2364,11 @@ const bindAllianceRuntime = () => {
       syncCreateModalState();
       return;
     }
-    const ok = await runAllianceCommand("create-alliance", { name, tag, emblemColor }, `Aliance ${name} byla založena.`);
+    const ok = isDevOnlyAllianceDemoEnabled()
+      ? createDevOnlyAllianceFromDraft({ name, tag, emblemColor })
+      : await runAllianceCommand("create-alliance", { name, tag, emblemColor }, `Aliance ${name} byla založena.`);
     if (ok) {
+      if (isDevOnlyAllianceDemoEnabled()) notify(`Aliance ${name} byla založena v lokálním demu.`);
       rememberAllianceColor({ name, tag }, emblemColor);
       setModalVisible(qs("alliance-create-modal"), false);
       resetCreateForm();

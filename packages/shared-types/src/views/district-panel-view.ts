@@ -65,15 +65,12 @@ export interface DistrictPanelSlotCraftView {
   canCraft: boolean;
   craftDisabledReason: string | null;
 }
-
 export type BuildingActionStatus = "available" | "cooldown" | "missing_cost" | "blocked" | "planned";
 export type BuildingActionPhaseAvailability = "available" | "blocked" | "buffed" | "penalized" | "neutral";
-
 export interface BuildingActionInputOptionView {
   value: string;
   label: string;
 }
-
 export interface BuildingActionInputView {
   id: string;
   type: "number" | "select" | "text";
@@ -83,7 +80,6 @@ export interface BuildingActionInputView {
   max?: number;
   options?: BuildingActionInputOptionView[];
 }
-
 export interface BuildingActionView {
   buildingId: BuildingId;
   buildingTypeId: string;
@@ -124,14 +120,11 @@ export interface BuildingActionView {
   currentPhase?: "day" | "night" | null;
   phaseEffectSummary?: string[];
 }
-
 export type DistrictPanelBuildingActionView = BuildingActionView;
-
 export interface DistrictPanelBuildingStatView {
   label: string;
   value: string;
 }
-
 export interface DistrictPanelBuildingSpecialActionView {
   actionId: string;
   label: string;
@@ -163,7 +156,6 @@ export interface DistrictPanelBuildingSpecialActionView {
   currentPhase?: "day" | "night" | null;
   phaseEffectSummary?: string[];
 }
-
 export interface DistrictPanelBuildingView {
   buildingId: BuildingId;
   buildingTypeId: string;
@@ -233,7 +225,6 @@ export interface DistrictSpyTargetView {
     lastMissionId: string | null;
   }>;
 }
-
 export interface DistrictOccupyTargetView {
   districtId: DistrictId;
   name: string;
@@ -255,7 +246,6 @@ export interface DistrictOccupyTargetView {
   sourceConflictLockEndsAtTick?: number | null;
   stabilizingDurationTicks?: number;
 }
-
 export interface DistrictRobTargetView {
   districtId: DistrictId;
   name: string;
@@ -273,7 +263,6 @@ export interface DistrictRobTargetView {
   exhausted?: boolean;
   heatRisk?: { minimum: number; maximum: number };
 }
-
 export interface DistrictHeistTargetView {
   districtId: DistrictId;
   name: string;
@@ -302,7 +291,6 @@ export interface DistrictHeistTargetView {
   majorOffenseCooldownEndsAtTick?: number | null;
   sourceConflictLockEndsAtTick?: number | null;
 }
-
 export interface DistrictDefenseActionView {
   enabled: boolean;
   disabledCode: string | null;
@@ -314,7 +302,6 @@ export interface DistrictDefenseActionView {
   alliedContributionAmounts: Record<string, number>;
   playerRemovableAmounts: Record<string, number>;
 }
-
 export interface DistrictTrapView {
   enabled: boolean;
   disabledReason: string | null;
@@ -341,7 +328,6 @@ export interface DistrictTrapView {
     disabledReason: string | null;
   }>;
 }
-
 export interface DistrictPanelView {
   districtId: DistrictId;
   name: string;

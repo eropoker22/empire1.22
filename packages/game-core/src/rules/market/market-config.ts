@@ -82,10 +82,10 @@ export const marketConfig = Object.freeze({
     inflationHardCap: 3000000
   }),
   resources: Object.freeze({
-    chemicals: createResourceConfig("Chemicals", 450, "bulk", 700, 1100, 0.9),
-    biomass: createResourceConfig("Biomass", 530, "bulk", 1000, 1600, 0.6),
-    "metal-parts": createResourceConfig("Metal Parts", 380, "bulk", 900, 1400, 0.7),
-    "stim-pack": createResourceConfig("Stim Pack", 1000, "tactical", 220, 360),
+    chemicals: createResourceConfig("Chemicals", 450, "bulk", 24, 36, 0.9),
+    biomass: createResourceConfig("Biomass", 530, "bulk", 28, 40, 0.6),
+    "metal-parts": createResourceConfig("Metal Parts", 380, "bulk", 26, 38, 0.7),
+    "stim-pack": createResourceConfig("Stim Pack", 1000, "tactical", 6, 10),
     "neon-dust": createResourceConfig("Neon Dust", 1900, "bulk", 0, 140),
     "baseball-bat": createResourceConfig("Baseballová pálka", 750, "bulk", 0, 120),
     barricades: createResourceConfig("Barikády", 1500, "bulk", 0, 100),
@@ -165,7 +165,7 @@ export const marketConfig = Object.freeze({
   }),
   stockRegenPerMinute: Object.freeze(Object.fromEntries(marketResourceIds.map((resourceId) => [
     resourceId,
-    resourceId === "chemicals" ? 28 : resourceId === "biomass" ? 45 : resourceId === "metal-parts" ? 35 : resourceId === "stim-pack" ? 6 : 0
+    resourceId === "chemicals" || resourceId === "biomass" || resourceId === "metal-parts" ? 1 : 0
   ])) as Record<MarketResourceId, number>),
   marketEvents: Object.freeze({
     police_crackdown: Object.freeze({

@@ -1,19 +1,19 @@
 import type { PoliceSystemBalanceConfig } from "../../contracts/police-balance-config";
 import { ticksFromMinutes } from "./free-mode-timing";
 
-const FREE_MODE_RAID_DURATION_TICKS = ticksFromMinutes(30);
+const FREE_MODE_RAID_DURATION_TICKS = ticksFromMinutes(60);
 
 export const freeModePoliceConfig: PoliceSystemBalanceConfig = {
   districtHeatWeight: 0.9,
   highPressureRaidThreshold: 115,
   extremePressureRaidThreshold: 180,
   districtTargetHeatThreshold: 70,
-  raidCooldownTicks: 360,
+  raidCooldownTicks: ticksFromMinutes(240),
   raidDurationTicks: FREE_MODE_RAID_DURATION_TICKS,
   pendingRaidTtlTicks: FREE_MODE_RAID_DURATION_TICKS,
   maxPendingRaidsPerPlayer: 1,
   maxConcurrentRaidsByPhase: {
-    day: 2,
+    day: 1,
     night: 1
   },
   raidSeverityThresholds: { low: 0, medium: 30, high: 115, extreme: 180 },

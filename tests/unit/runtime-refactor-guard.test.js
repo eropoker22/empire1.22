@@ -12,7 +12,7 @@ const runtimeSource = () => read("page-assets/js/app/runtime.js");
 
 describe("runtime refactor guard", () => {
   it("keeps the canonical module load path intact", () => {
-    expect(gameHtml()).toMatch(/type="module" src="\.\.\/page-assets\/js\/app\.js(?:\?[^"]*)?"/u);
+    expect(gameHtml()).toMatch(/type="module" src="\.\.\/page-assets\/js\/app-entry\.js(?:\?[^"]*)?"/u);
     expect(gameHtml()).not.toContain('src="../page-assets/js/app/runtime.js"');
     expect(appSource()).toContain('from "./app/render-ui.js"');
     expect(renderUiSource()).toContain('from "./runtime.js"');

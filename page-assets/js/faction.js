@@ -251,7 +251,7 @@ function createWeaponInventoryFromFaction(_factionId) {
   return { ...DEFAULT_WEAPON_INVENTORY };
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+const initializeFactionPage = () => {
   if (!ensureIdentity()) {
     window.location.href = LOGIN_ENTRY_HREF;
     return;
@@ -1088,4 +1088,10 @@ function renderFactionPreview(factionId) {
   setStatus("", "");
   updateContinueState();
   updateNote();
-});
+};
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initializeFactionPage, { once: true });
+} else {
+  initializeFactionPage();
+}

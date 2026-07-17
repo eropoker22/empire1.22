@@ -150,6 +150,7 @@ export function getActiveServerRegistration(registration = getRegistrationDraft(
     serverMode: normalizeMode(registration?.activeServerMode || registration?.serverMode || server?.mode) || DEFAULT_PUBLIC_SERVER_MODE,
     serverRegion: normalizeText(registration?.activeServerRegion || registration?.serverRegion || server?.region),
     serverStatus: normalizeText(registration?.activeServerStatus || server?.status || "ONLINE"),
+    serverStartedAt: normalizeText(registration?.activeServerStartedAt || registration?.serverStartedAt),
     joinTicket: normalizeText(registration?.joinTicket),
     preferredStartDistrictId,
     startDistrictId: preferredStartDistrictId,
@@ -205,12 +206,14 @@ function createServerRegistrationFields(server) {
     activeServerMode: server.mode,
     activeServerRegion: server.region,
     activeServerStatus: server.status || "ONLINE",
+    ...(normalizeText(server.startedAt) ? { activeServerStartedAt: normalizeText(server.startedAt) } : {}),
     // Compatibility-only alias. New flows should read activeServerInstanceId.
     serverId: serverId || serverInstanceId,
     serverInstanceId: serverInstanceId || serverId,
     serverLabel: server.name,
     serverMode: server.mode,
     serverRegion: server.region,
+    ...(normalizeText(server.startedAt) ? { serverStartedAt: normalizeText(server.startedAt) } : {}),
     ...(joinTicket ? { joinTicket } : {})
   };
 }
@@ -258,6 +261,43 @@ export function clearAuthSession() {
   }));
 }
 
+export function clearAccountIdentity() {
+  window.localStorage.removeItem(STORAGE_KEYS.token);
+  window.localStorage.removeItem(STORAGE_KEYS.structure);
+
+  return updateStoredPreviewSession((session) => ({
+    ...session,
+    registration: session.registration ? {
+      ...session.registration,
+      identity: "",
+      isGuest: false,
+      loginKind: ""
+    } : null
+  }));
+}
+
+const SERVER_REGISTRATION_FIELDS = new Set([
+  "activeServerId", "activeServerInstanceId", "activeServerName", "activeServerMode", "activeServerRegion",
+  "activeServerStatus", "activeServerStartedAt", "serverId", "serverInstanceId", "serverLabel", "serverMode",
+  "serverRegion", "serverStartedAt", "joinTicket", "preferredStartDistrictId", "startDistrictId",
+  "assignedHomeDistrictId", "lastServerConfirmedDistrictId", "lobbyLockedAt", "serverRegistrationStatus",
+  "selectedFaction", "factionId", "selectedStructure", "structure", "structureId", "factionLabel", "factionLocked",
+  "hasCompletedServerEntry", "lockedAt"
+]);
+
+export function leaveActiveServerRegistration() {
+  return updateStoredPreviewSession((session) => ({
+    ...session,
+    registration: session.registration
+      ? Object.fromEntries(Object.entries(session.registration).filter(([key]) => !SERVER_REGISTRATION_FIELDS.has(key)))
+      : null,
+    world: {
+      ...(session.world || {}),
+      ownedDistrictIds: []
+    }
+  }));
+}
+
 export function saveLoginStep({ identity, isGuest = false, gangName = "", mode = "" }) {
   const normalizedIdentity = normalizeText(identity) || createGuestIdentity();
   const normalizedGangName = normalizeText(gangName);
@@ -278,7 +318,8 @@ export function saveLoginStep({ identity, isGuest = false, gangName = "", mode =
           name: activeServer.serverName,
           mode: activeServer.serverMode,
           region: activeServer.serverRegion,
-          status: activeServer.serverStatus
+          status: activeServer.serverStatus,
+          startedAt: activeServer.serverStartedAt
         }) : {}),
         ...(activeServer
           ? { serverMode: activeServer.serverMode }

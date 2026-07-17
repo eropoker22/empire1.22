@@ -91,11 +91,11 @@ const dispatchAtomicInstanceCommandUnlocked = async (
     const committed = await runtime.atomicCommandTransaction.run(runtime.record.id, (txRepositories) =>
       dispatchAtomicInstanceCommandInBoundary(runtime, command, options, crash, txRepositories)
     );
-    return finalizeCommittedCommand(runtime, command, committed, crash);
+    return finalizeCommittedCommand(runtime, command, options, committed, crash);
   }
 
   const committed = await dispatchAtomicInstanceCommandInBoundary(runtime, command, options, crash, repositories);
-  return finalizeCommittedCommand(runtime, command, committed, crash);
+  return finalizeCommittedCommand(runtime, command, options, committed, crash);
 };
 
 interface BoundaryDispatchResult {
@@ -154,14 +154,6 @@ const dispatchAtomicInstanceCommandInBoundary = async (
     const result = createRejectedCommandResult(runtime, authoritativeCommand, payloadHash, runtime.state.root.version, gateErrors, reservedAt);
     await repositories.commandResultRepository.save(result);
     await repositories.commandReservationRepository.markRejected(runtime.record.id, command.id, gateErrors);
-    await writeCommandRejectionDiagnostic({
-      runtime,
-      command: authoritativeCommand,
-      errors: gateErrors,
-      category: "command_rejected",
-      message: "Command rejected before core dispatch.",
-      expectedStateVersion: options.expectedStateVersion
-    });
     return {
       errors: gateErrors,
       commandResult: result,
@@ -196,13 +188,6 @@ const dispatchAtomicInstanceCommandInBoundary = async (
     const commandResult = createRejectedCommandResult(runtime, authoritativeCommand, payloadHash, previousRootVersion, result.errors, reservedAt);
     await repositories.commandResultRepository.save(commandResult);
     await repositories.commandReservationRepository.markRejected(runtime.record.id, command.id, result.errors);
-    await writeCommandRejectionDiagnostic({
-      runtime,
-      command: authoritativeCommand,
-      errors: result.errors,
-      category: "command_rejected",
-      message: "Command rejected."
-    });
     return {
       errors: result.errors,
       commandResult,
@@ -232,11 +217,6 @@ const dispatchAtomicInstanceCommandInBoundary = async (
   await repositories.snapshotRepository.save(snapshot);
   await crash?.("afterSnapshotBeforeMarkApplied");
   await repositories.eventLogRepository.append(eventRecord);
-  await writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "command", "Command dispatched.", {
-    commandId: authoritativeCommand.id,
-    commandType: authoritativeCommand.type
-  }, runtime.clock);
-
   const commandResult = createAppliedCommandResult({
     runtime,
     command: authoritativeCommand,
@@ -271,30 +251,41 @@ const dispatchAtomicInstanceCommandInBoundary = async (
 const finalizeCommittedCommand = async (
   runtime: ServerInstanceRuntime,
   command: GameCommand,
+  options: CommandDispatchOptions,
   committed: BoundaryDispatchResult,
   crash: ((point: AtomicCommandCrashPoint) => void | Promise<void>) | undefined
 ): Promise<InstanceCommandDispatchResult> => {
   if (!committed.nextState || !committed.appliedEvent) {
+    if (committed.errors.length > 0) {
+      await writeCommandRejectionDiagnostic({
+        runtime,
+        command,
+        errors: committed.errors,
+        category: "command_rejected",
+        message: "Command rejected.",
+        expectedStateVersion: options.expectedStateVersion
+      }).catch(() => undefined);
+    }
     return { runtime, errors: committed.errors, commandResult: committed.commandResult };
   }
-
+  await writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "command", "Command dispatched.", {
+    commandId: command.id,
+    commandType: command.type
+  }, runtime.clock).catch(() => undefined);
   runtime.processedCommandIds.add(command.id);
   if (committed.rateLimitCommand) {
     recordCommandRateLimitUsage(runtime, committed.rateLimitCommand);
   }
   runtime.state = committed.nextState;
   runtime.eventQueue.enqueue(committed.appliedEvent);
-
   await crash?.("afterCommitBeforePublish");
   await publishOutbox(runtime, crash);
   return { runtime, errors: committed.errors, commandResult: committed.commandResult };
 };
-
 const ensureAdvancedRootVersion = (state: CoreGameState, previousRootVersion: number): CoreGameState =>
   state.root.version > previousRootVersion
     ? state
     : { ...state, root: { ...state.root, version: previousRootVersion + 1 } };
-
 const withInstanceCommandLock = async <TResult>(
   instanceId: string,
   callback: () => Promise<TResult>

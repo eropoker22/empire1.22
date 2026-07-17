@@ -94,8 +94,8 @@ describe("district popup metrics runtime", () => {
     });
     expect(runtime.getCurrentPlayerTrapDistrictId()).toBe(1);
     expect(runtime.getDistrictTrapControlState({ id: 1 }).label).toBe("Past aktivní");
-    expect(runtime.getDistrictTrapControlState({ id: 1 }).subtitle).toMatch(/59:5\d/u);
-    expect(runtime.getDistrictTrapControlState({ id: 1 }).buildingMeta).toMatch(/59:5\d/u);
+    expect(runtime.getDistrictTrapControlState({ id: 1 }).subtitle).toBe("v tomto districtu");
+    expect(runtime.getDistrictTrapControlState({ id: 1 }).buildingMeta).toBe("aktivní");
     expect(runtime.hasKnownDistrictDefense({ id: 2 })).toBe(true);
   });
 

@@ -5712,24 +5712,18 @@ const detectDominantFaction = (metrics: ClosedAlphaMetrics): string | null => {
     ? `${top.factionId} final wealth is more than 2.25x ${bottom.factionId}.`
     : null;
 };
-
 const sumPlayersByFaction = (report: ClosedAlphaSimulationReport, factionId: string): number =>
   report.players
     .filter((player) => player.factionId === factionId)
     .reduce((total, player) => total + wealth(report.finalResources[player.id]!), 0);
-
 const dedupe = (items: string[]): string[] => [...new Set(items.filter(Boolean))];
-
 const readWallClockMs = (): number =>
   Number(globalThis.performance?.now?.() ?? Date.now());
-
 const stableJson = (value: unknown): string => JSON.stringify(sortForJson(value));
-
 const stableJsonValue = (value: unknown): string => {
   const sorted = sortForJson(value);
   return JSON.stringify(sorted, null, 2);
 };
-
 const sortForJson = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.map(sortForJson);
   if (!value || typeof value !== "object") return value;

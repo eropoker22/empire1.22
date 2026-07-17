@@ -11,7 +11,8 @@ export interface PublicServerMatchmakingRequest {
 
 export interface PublicServerReservation {
   reservationId: string;
-  joinTicket: string;
+  status?: "reserved" | "committed";
+  joinTicket: string | null;
   serverInstanceId: ServerInstanceId;
   mode: "free" | "war";
   region: string;

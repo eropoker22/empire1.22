@@ -16,6 +16,9 @@ export const freeModeAllianceLifecycleConfig: AllianceLifecycleBalanceConfig = {
     formerAllyTruceSeconds: 60 * 60,
     influenceGenerationMultiplier: 0.8,
     actionCooldownMultiplier: 1.15,
+    statDebuffSeconds: 12 * 60 * 60,
+    attackMultiplier: 0.8,
+    defenseMultiplier: 0.8,
     blocksAllianceDefenseSupport: true
   },
   inactiveKickPenalty: {
@@ -23,7 +26,7 @@ export const freeModeAllianceLifecycleConfig: AllianceLifecycleBalanceConfig = {
     allianceCreateLockoutSeconds: 6 * 60 * 60,
     influenceDebuffSeconds: 0,
     actionCooldownDebuffSeconds: 0,
-    statDebuffSeconds: 4 * 60 * 60,
+    statDebuffSeconds: 12 * 60 * 60,
     formerAllyTruceSeconds: 60 * 60,
     influenceGenerationMultiplier: 1,
     actionCooldownMultiplier: 1,

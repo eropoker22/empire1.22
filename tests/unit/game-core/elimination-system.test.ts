@@ -294,7 +294,7 @@ describe("scheduled elimination system", () => {
 
     const result = applyCommand(state, createAttackDistrictCommandFixture(), context);
 
-    expect(result.errors).toContainEqual(expect.objectContaining({ code: "player_not_active" }));
+    expect(result.errors).toContainEqual(expect.objectContaining({ code: "PLAYER_DEFEATED" }));
   });
 
   it("projects danger zone and next elimination tick", () => {

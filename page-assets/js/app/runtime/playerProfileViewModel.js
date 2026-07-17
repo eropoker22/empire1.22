@@ -1,4 +1,4 @@
-import { formatDistrictMoneyAmount } from "./formatters.js";
+import { formatDistrictMetricNumber, formatDistrictMoneyAmount } from "./formatters.js";
 import { hexToRgbParts } from "./utils.js";
 
 export function createPlayerProfileViewModel({
@@ -7,7 +7,7 @@ export function createPlayerProfileViewModel({
   displaySnapshot = {},
   gangState = {},
   districtCount = 0,
-  startDistrictId = 0,
+  empireScore = 0,
   allianceLabel = "Žádná",
   avatarSrc = "",
   accentColor = "#22d3ee",
@@ -18,7 +18,7 @@ export function createPlayerProfileViewModel({
   const resolvedAvatarSrc = String(avatarSrc || "").trim();
   const safeAccentColor = String(accentColor || "#22d3ee");
   const safeDistrictCount = Math.max(0, Number(districtCount) || 0);
-  const safeStartDistrictId = Number(startDistrictId || 0) || 0;
+  const safeEmpireScore = Math.max(0, Number(empireScore) || 0);
   const safeAllianceLabel = String(allianceLabel || "").trim() || "Žádná";
 
   return {
@@ -30,7 +30,7 @@ export function createPlayerProfileViewModel({
     identityLabel,
     factionLabel: faction?.name || "-",
     serverLabel: registration?.serverLabel || registration?.serverId || "-",
-    startDistrictLabel: safeStartDistrictId ? `District ${safeStartDistrictId}` : "-",
+    empireScoreLabel: formatDistrictMetricNumber(safeEmpireScore, 0),
     cleanMoneyLabel: formatDistrictMoneyAmount(displaySnapshot.cleanMoney),
     dirtyMoneyLabel: formatDistrictMoneyAmount(displaySnapshot.dirtyMoney),
     influenceLabel: String(displaySnapshot.influence ?? 0),

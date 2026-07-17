@@ -495,6 +495,10 @@ async function runWithPlaywright() {
 
 const seedExpression = String.raw`
 (() => {
+  window.EmpireConfigOverrides = Object.freeze({
+    ...(window.EmpireConfigOverrides || {}),
+    localDemoEnabled: true
+  });
   const now = new Date().toISOString();
   const serverInstanceId = "instance:free:eu-central:public-1";
   localStorage.clear();

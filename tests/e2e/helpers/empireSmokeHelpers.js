@@ -20,6 +20,10 @@ const RESERVE_TIMEOUT_MS = Number(process.env.PLAYWRIGHT_E2E_RESERVE_TIMEOUT_MS 
 
 async function installE2eStabilityScript(page) {
   await page.addInitScript(() => {
+    window.EmpireConfigOverrides = Object.freeze({
+      ...(window.EmpireConfigOverrides || {}),
+      localDemoEnabled: true
+    });
     const install = () => {
       if (document.getElementById("empire-e2e-stability-style")) {
         return;
@@ -405,7 +409,7 @@ export async function openLobbyPage(page, options = {}) {
 export async function resolveJoinableFreeServerId(page) {
   await expect(page.getByTestId("server-list")).toBeVisible();
 
-  const serverId = await page.evaluate(() => {
+  const serverIdHandle = await page.waitForFunction(() => {
     const cards = Array.from(document.querySelectorAll("[data-server-card][data-server-mode='free']"));
     const normalize = (value) => String(value || "");
     const isJoinable = (element) => !element.classList.contains("is-locked")
@@ -422,6 +426,7 @@ export async function resolveJoinableFreeServerId(page) {
     const fallback = cards.find((element) => isJoinable(element));
     return fallback ? normalize(fallback.getAttribute("data-server-card")) : "";
   });
+  const serverId = await serverIdHandle.jsonValue();
 
   expect(serverId, "A joinable Free server should exist in the lobby.").toBeTruthy();
   return serverId;

@@ -233,7 +233,6 @@ const createSeedPlayerResourceState = (
   lastUpdatedTick: 0,
   version: 1
 });
-
 const createSeedBuildingResourceState = (
   building: Building,
   resourceKey: string

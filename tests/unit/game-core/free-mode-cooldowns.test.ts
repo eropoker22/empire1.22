@@ -66,6 +66,7 @@ describe("Free BR strategic cooldowns", () => {
 
   it("keeps spy, rob and occupy cooldown reductions above Free guardrails", () => {
     const spyState = createCombatStateFixture();
+    spyState.notificationsById = {};
     addOwnedBuildings(spyState, "garage", 8);
     const spyResult = applyCommand(spyState, createSpyDistrictCommandFixture(), context);
     expect(spyResult.errors).toEqual([]);

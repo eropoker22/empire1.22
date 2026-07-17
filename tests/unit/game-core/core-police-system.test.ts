@@ -228,13 +228,13 @@ describe("core police system completion", () => {
       status: "pending",
       sourcePressure: 147,
       createdAtTick: 0,
-      expiresAtTick: 360
+      expiresAtTick: createContext().config.balance.police.raidDurationTicks
     });
     expect(second.events).toEqual([]);
     expect(second.nextState.policeStatesById["police:1"].pendingRaids).toHaveLength(1);
   });
 
-  it("keeps Free BR police raids open for 30 minutes", () => {
+  it("keeps Free BR police raids open for the canonical configured duration", () => {
     const state = createCoreStateFixture();
     addPoliceState(state, 150);
     state.districtsById["district:1"] = {
@@ -246,12 +246,13 @@ describe("core police system completion", () => {
     const result = triggerRaid(state, context);
     const raid = result.nextState.policeStatesById["police:1"].pendingRaids?.[0];
 
-    expect(context.config.balance.police.raidDurationTicks).toBe(360);
-    expect(context.config.balance.police.pendingRaidTtlTicks).toBe(360);
-    expect(raid?.expiresAtTick).toBe(raid!.createdAtTick + 360);
+    const duration = context.config.balance.police.raidDurationTicks;
+    expect(duration * context.config.tickRateMs).toBe(60 * 60 * 1000);
+    expect(context.config.balance.police.pendingRaidTtlTicks).toBe(duration);
+    expect(raid?.expiresAtTick).toBe(raid!.createdAtTick + duration);
   });
 
-  it("caps simultaneous police raids to two during day", () => {
+  it("caps simultaneous police raids to the canonical day limit", () => {
     const state = createCoreStateFixture();
     state.playersById = {};
     state.districtsById = {};
@@ -269,14 +270,16 @@ describe("core police system completion", () => {
       (policeState.pendingRaids ?? []).filter((raid) => raid.status === "pending" || raid.status === "acknowledged")
     );
 
-    expect(raidEvents).toHaveLength(2);
-    expect(openRaids).toHaveLength(2);
-    expect(result.decisions.filter((decision) => decision.type === "concurrent_raid_limit_active")).toHaveLength(1);
+    const limit = createContext().config.balance.police.maxConcurrentRaidsByPhase.day;
+    expect(raidEvents).toHaveLength(limit);
+    expect(openRaids).toHaveLength(limit);
+    expect(result.decisions.filter((decision) => decision.type === "concurrent_raid_limit_active")).toHaveLength(3 - limit);
   });
 
   it("caps simultaneous police raids to one during night", () => {
     const state = createCoreStateFixture();
-    state.root.tick = resolveModeConfig("free").balance.dayLengthTicks;
+    const mode = resolveModeConfig("free");
+    state.root.tick = mode.balance.dayLengthTicks + Math.round(mode.balance.nightLengthTicks / 3);
     state.playersById = {};
     state.districtsById = {};
     state.resourceStatesById = {};
@@ -339,6 +342,7 @@ describe("core police system completion", () => {
       chemicals: 45,
       "gang-members": 20
     });
+    expect(resolved.nextState.playersById["player:1"].salvagePool).toBeUndefined();
     expect(resolved.nextState.districtsById["district:1"]).toMatchObject({
       status: "locked",
       lockdownUntilTick: 180
@@ -1075,6 +1079,8 @@ describe("core police system completion", () => {
     state.root.tick = 30;
 
     const decayed = applyPoliceHeatDecay(state, createContext());
+    decayed.root.tick = resolveModeConfig("free").balance.dayLengthTicks
+      + resolveModeConfig("free").balance.nightLengthTicks;
     const triggered = triggerRaid(decayed, createContext());
 
     expect(decayed.policeStatesById["police:1"].heat).toBe(119);

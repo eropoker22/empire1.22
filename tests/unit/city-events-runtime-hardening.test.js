@@ -47,6 +47,15 @@ describe("City Events runtime authority", () => {
     expect(source).not.toContain("submitServerCityEventCommand({ action: \"start\", id: selectedEventTask.definitionId");
   });
 
+  it("uses the shared modal stack for parent/detail lifecycle without its own Escape authority", () => {
+    expect(source).toContain('from "./ui/sharedModalStack.js"');
+    expect(source).toContain("bindSharedModal(modal);");
+    expect(source).toContain("bindSharedModal(detailModal);");
+    expect(source).toContain("openSharedModal(detailModal");
+    expect(source).toContain("openSharedModal(modal");
+    expect(source).not.toContain('document.addEventListener("keydown", (event) => {');
+  });
+
   it("uses the shared gang influence state for local unlocks", () => {
     expect(source).toContain("getResolvedGangState");
     expect(source).toContain("getStoredPreviewSession()?.gang?.influence");

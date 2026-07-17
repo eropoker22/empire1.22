@@ -2,9 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ENTRY_FLOW_TARGETS,
   SERVER_CATALOG,
+  clearAccountIdentity,
   getActiveServerRegistration,
   getEntryFlowTarget,
   hasLockedFaction,
+  leaveActiveServerRegistration,
   saveLobbyStep,
   saveLoginStep
 } from "../../page-assets/js/app/auth-flow.js";
@@ -323,5 +325,55 @@ describe("page auth flow", () => {
     });
 
     expect(session).toBeNull();
+  });
+
+  it("keeps server membership when the account identity logs out", () => {
+    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+      ...createDefaultPreviewSession(),
+      registration: {
+        identity: "Neon Boss",
+        activeServerId: CANONICAL_FREE_SERVER_ID,
+        activeServerInstanceId: CANONICAL_FREE_SERVER_ID,
+        activeServerMode: "free",
+        activeServerStartedAt: "2026-04-26T09:30:00.000Z",
+        selectedFaction: "hackeri",
+        selectedStructure: "hackeri",
+        factionLocked: true,
+        hasCompletedServerEntry: true
+      }
+    }));
+
+    const session = clearAccountIdentity();
+
+    expect(session.registration.identity).toBe("");
+    expect(session.registration.activeServerInstanceId).toBe(CANONICAL_FREE_SERVER_ID);
+    expect(session.registration.selectedFaction).toBe("hackeri");
+    expect(getEntryFlowTarget(session.registration)).toBe(ENTRY_FLOW_TARGETS.login);
+  });
+
+  it("removes server fields only through the explicit leave-server action", () => {
+    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+      ...createDefaultPreviewSession(),
+      registration: {
+        identity: "Neon Boss",
+        gangName: "Night Crew",
+        activeServerId: CANONICAL_FREE_SERVER_ID,
+        activeServerInstanceId: CANONICAL_FREE_SERVER_ID,
+        serverInstanceId: CANONICAL_FREE_SERVER_ID,
+        serverStartedAt: "2026-04-26T09:30:00.000Z",
+        joinTicket: "ticket",
+        selectedFaction: "hackeri",
+        factionLocked: true
+      },
+      world: { ownedDistrictIds: [1, 2] }
+    }));
+
+    const session = leaveActiveServerRegistration();
+
+    expect(session.registration).toMatchObject({ identity: "Neon Boss", gangName: "Night Crew" });
+    expect(session.registration.activeServerId).toBeUndefined();
+    expect(session.registration.selectedFaction).toBeUndefined();
+    expect(session.world.ownedDistrictIds).toEqual([]);
+    expect(getEntryFlowTarget(session.registration)).toBe(ENTRY_FLOW_TARGETS.lobby);
   });
 });

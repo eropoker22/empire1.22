@@ -1,5 +1,6 @@
 import type {
   DomainError,
+  GameplayCommandResultLookupResponse,
   GameplaySliceResponse
 } from "@empire/shared-types";
 import type { GameplaySliceTransport } from "./gameplay-slice-transport";
@@ -8,6 +9,7 @@ import {
   validateLoadGameplaySliceRequest,
   validateSubmitGameplayCommandRequest
 } from "./gameplay-slice-request-validation";
+import { validateLookupGameplayCommandResultRequest } from "./gameplay-command-result-lookup-validation";
 
 export interface GameplaySliceJsonRequest {
   method: string;
@@ -17,7 +19,7 @@ export interface GameplaySliceJsonRequest {
 
 export interface GameplaySliceJsonResponse {
   status: number;
-  body: GameplaySliceResponse;
+  body: GameplaySliceResponse | GameplayCommandResultLookupResponse;
 }
 
 /**
@@ -69,6 +71,41 @@ export const createGameplaySliceJsonHandler = (
       };
     }
 
+    if (route === "command-result") {
+      const validation = validateLookupGameplayCommandResultRequest(request.body);
+      if (!validation.accepted) {
+        return {
+          status: 200,
+          body: {
+            accepted: false,
+            status: "not_found",
+            readModel: null,
+            errors: validation.errors
+          }
+        };
+      }
+
+      if (!transport.lookupCommandResult) {
+        return {
+          status: 200,
+          body: {
+            accepted: false,
+            status: "not_found",
+            readModel: null,
+            errors: [{
+              code: "transport.command_result_unavailable",
+              message: "Gameplay command result lookup is unavailable."
+            }]
+          }
+        };
+      }
+
+      return {
+        status: 200,
+        body: await transport.lookupCommandResult(validation.request)
+      };
+    }
+
     return createErrorResponse(404, {
       code: "transport.not_found",
       message: "Gameplay slice endpoint was not found."
@@ -79,7 +116,7 @@ export const createGameplaySliceJsonHandler = (
 const normalizeRoute = (
   path: string,
   endpointBase: string
-): "load" | "submit" | null => {
+): "load" | "submit" | "command-result" | null => {
   const normalizedBase = endpointBase.replace(/\/+$/u, "");
   const normalizedPath = path.replace(/\/+$/u, "");
 
@@ -89,6 +126,9 @@ const normalizeRoute = (
 
   if (normalizedPath === `${normalizedBase}/submit`) {
     return "submit";
+  }
+  if (normalizedPath === `${normalizedBase}/command-result`) {
+    return "command-result";
   }
 
   return null;

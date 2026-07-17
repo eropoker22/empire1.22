@@ -396,10 +396,15 @@ var EmpireGameplaySliceClient = function(exports) {
   };
   const renderPhaseEffectLine = (action) => action.phaseEffectLabel ? `<p class="district-panel__phase-effect-row"><span>Efekt fáze</span> ${escapeHtml(action.phaseEffectLabel)}</p>` : "";
   const createAttackDistrictCommand = (input) => {
+    var _a;
     const district = input.slice.district;
+    const target = district == null ? void 0 : district.attackTargets.find((entry) => entry.districtId === input.targetDistrictId);
+    const corridor = (_a = input.slice.frontier) == null ? void 0 : _a.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
     if (!district) {
       throw new Error("Attack command cannot be created from missing district/target context.");
     }
+    const expectedSourceVersion = input.expectedSourceVersion ?? (target == null ? void 0 : target.expectedSourceVersion);
+    const expectedTargetVersion = input.expectedTargetVersion ?? (target == null ? void 0 : target.expectedTargetVersion);
     return {
       id: input.commandId,
       type: "attack-district",
@@ -409,7 +414,14 @@ var EmpireGameplaySliceClient = function(exports) {
       issuedAt: input.issuedAt,
       payload: {
         districtId: input.targetDistrictId,
-        sourceDistrictId: district.districtId
+        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? district.districtId,
+        weapons: { ...input.weapons },
+        ...typeof expectedSourceVersion === "number" ? { expectedSourceVersion } : {},
+        ...typeof expectedTargetVersion === "number" ? { expectedTargetVersion } : {},
+        expectedConflictRevision: (target == null ? void 0 : target.expectedConflictRevision) ?? (() => {
+          throw new Error("Attack target is missing a conflict revision.");
+        })(),
+        ...corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {}
       },
       clientRequestId: input.clientRequestId ?? null
     };
@@ -459,11 +471,12 @@ var EmpireGameplaySliceClient = function(exports) {
     };
   };
   const createHeistDistrictCommand = (input) => {
-    var _a;
+    var _a, _b;
     const district = input.slice.district;
     const target = (_a = district == null ? void 0 : district.heistTargets) == null ? void 0 : _a.find((entry) => entry.districtId === input.targetDistrictId);
     const styleFallback = { style: "balanced", defaultGangMembersSent: 1 };
     const style = (target == null ? void 0 : target.styles.find((entry) => entry.style === "balanced")) ?? (target == null ? void 0 : target.styles[0]) ?? styleFallback;
+    const corridor = (_b = input.slice.frontier) == null ? void 0 : _b.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
     if (!district) {
       throw new Error("Heist command cannot be created from missing district/target context.");
     }
@@ -476,17 +489,24 @@ var EmpireGameplaySliceClient = function(exports) {
       issuedAt: input.issuedAt,
       payload: {
         targetDistrictId: input.targetDistrictId,
-        sourceDistrictId: district.districtId,
+        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? district.districtId,
         style: style.style,
         gangMembersSent: style.defaultGangMembersSent,
+        expectedConflictRevision: (target == null ? void 0 : target.expectedConflictRevision) ?? (() => {
+          throw new Error("Heist target is missing a conflict revision.");
+        })(),
         ...(target == null ? void 0 : target.expectedTargetVersion) !== void 0 ? { expectedTargetVersion: target.expectedTargetVersion } : {},
-        ...(target == null ? void 0 : target.expectedSourceVersion) !== void 0 ? { expectedSourceVersion: target.expectedSourceVersion } : {}
+        ...(target == null ? void 0 : target.expectedSourceVersion) !== void 0 ? { expectedSourceVersion: target.expectedSourceVersion } : {},
+        ...corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {}
       },
       clientRequestId: input.clientRequestId ?? null
     };
   };
   const createOccupyDistrictCommand = (input) => {
+    var _a;
     const district = input.slice.district;
+    const target = district == null ? void 0 : district.occupyTargets.find((entry) => entry.districtId === input.targetDistrictId);
+    const corridor = (_a = input.slice.frontier) == null ? void 0 : _a.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
     if (!district) {
       throw new Error("Occupy command cannot be created from missing district/target context.");
     }
@@ -499,15 +519,21 @@ var EmpireGameplaySliceClient = function(exports) {
       issuedAt: input.issuedAt,
       payload: {
         districtId: input.targetDistrictId,
-        sourceDistrictId: district.districtId
+        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? district.districtId,
+        expectedConflictRevision: (target == null ? void 0 : target.expectedConflictRevision) ?? (() => {
+          throw new Error("Occupy target is missing a conflict revision.");
+        })(),
+        ...input.encirclementConfirmationToken ? { encirclementConfirmationToken: input.encirclementConfirmationToken } : {},
+        ...corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {}
       },
       clientRequestId: input.clientRequestId ?? null
     };
   };
   const createRobDistrictCommand = (input) => {
-    var _a;
+    var _a, _b;
     const district = input.slice.district;
     const target = (_a = district == null ? void 0 : district.robTargets) == null ? void 0 : _a.find((entry) => entry.districtId === input.targetDistrictId);
+    const corridor = (_b = input.slice.frontier) == null ? void 0 : _b.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
     if (!district) {
       throw new Error("Rob command cannot be created from missing district/target context.");
     }
@@ -520,9 +546,12 @@ var EmpireGameplaySliceClient = function(exports) {
       issuedAt: input.issuedAt,
       payload: {
         targetDistrictId: input.targetDistrictId,
-        sourceDistrictId: district.districtId,
-        ...(target == null ? void 0 : target.expectedTargetVersion) !== void 0 ? { expectedTargetVersion: target.expectedTargetVersion } : {},
-        ...(target == null ? void 0 : target.expectedSourceVersion) !== void 0 ? { expectedSourceVersion: target.expectedSourceVersion } : {}
+        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? district.districtId,
+        expectedConflictRevision: (target == null ? void 0 : target.expectedConflictRevision) ?? (() => {
+          throw new Error("Rob target is missing a conflict revision.");
+        })(),
+        ...(target == null ? void 0 : target.expectedLootPoolRevision) !== void 0 ? { expectedLootPoolRevision: target.expectedLootPoolRevision } : {},
+        ...corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {}
       },
       clientRequestId: input.clientRequestId ?? null
     };
@@ -549,7 +578,9 @@ var EmpireGameplaySliceClient = function(exports) {
     };
   };
   const createSpyDistrictCommand = (input) => {
+    var _a;
     const district = input.slice.district;
+    const corridor = (_a = input.slice.frontier) == null ? void 0 : _a.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
     if (!district) {
       throw new Error("Spy command cannot be created from missing district/target context.");
     }
@@ -562,7 +593,8 @@ var EmpireGameplaySliceClient = function(exports) {
       issuedAt: input.issuedAt,
       payload: {
         districtId: input.targetDistrictId,
-        sourceDistrictId: district.districtId
+        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? district.districtId,
+        ...corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {}
       },
       clientRequestId: input.clientRequestId ?? null
     };
@@ -1209,6 +1241,7 @@ var EmpireGameplaySliceClient = function(exports) {
   };
   const createClientSurfaceActionRouter = (options) => ({
     handleTarget: async (target) => {
+      var _a, _b;
       const action = resolveClientSurfaceAction(target);
       if (!action) {
         return null;
@@ -1243,16 +1276,26 @@ var EmpireGameplaySliceClient = function(exports) {
       const issuedAt = (options.getIssuedAt ?? (() => (/* @__PURE__ */ new Date()).toISOString()))();
       const mode = slice.mode.mode;
       switch (action.kind) {
-        case "attack":
+        case "attack": {
+          const target2 = district.attackTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
+          const weapons = (target2 == null ? void 0 : target2.selectedLoadout) ?? {};
+          const hasSelectedWeapon = Object.values(weapons).some((amount) => Number(amount) > 0);
+          if (!(target2 == null ? void 0 : target2.enabled) || !hasSelectedWeapon) return null;
           return options.client.dispatch(
             createAttackDistrictCommand({
               commandId: options.createCommandId("command:attack"),
               slice,
               targetDistrictId: action.targetDistrictId,
-              issuedAt
+              issuedAt,
+              weapons,
+              expectedSourceVersion: target2.expectedSourceVersion,
+              expectedTargetVersion: target2.expectedTargetVersion
             })
           );
-        case "rob":
+        }
+        case "rob": {
+          const target2 = (_a = district.robTargets) == null ? void 0 : _a.find((candidate) => candidate.districtId === action.targetDistrictId);
+          if (!(target2 == null ? void 0 : target2.enabled)) return null;
           return options.client.dispatch(
             createRobDistrictCommand({
               commandId: options.createCommandId("command:rob"),
@@ -1261,7 +1304,10 @@ var EmpireGameplaySliceClient = function(exports) {
               issuedAt
             })
           );
-        case "heist":
+        }
+        case "heist": {
+          const target2 = (_b = district.heistTargets) == null ? void 0 : _b.find((candidate) => candidate.districtId === action.targetDistrictId);
+          if (!(target2 == null ? void 0 : target2.enabled)) return null;
           return options.client.dispatch(
             createHeistDistrictCommand({
               commandId: options.createCommandId("command:heist"),
@@ -1270,7 +1316,10 @@ var EmpireGameplaySliceClient = function(exports) {
               issuedAt
             })
           );
-        case "spy":
+        }
+        case "spy": {
+          const target2 = district.spyTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
+          if (!(target2 == null ? void 0 : target2.enabled)) return null;
           return options.client.dispatch(
             createSpyDistrictCommand({
               commandId: options.createCommandId("command:spy"),
@@ -1279,7 +1328,10 @@ var EmpireGameplaySliceClient = function(exports) {
               issuedAt
             })
           );
-        case "occupy":
+        }
+        case "occupy": {
+          const target2 = district.occupyTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
+          if (!(target2 == null ? void 0 : target2.enabled)) return null;
           return options.client.dispatch(
             createOccupyDistrictCommand({
               commandId: options.createCommandId("command:occupy"),
@@ -1288,6 +1340,7 @@ var EmpireGameplaySliceClient = function(exports) {
               issuedAt
             })
           );
+        }
         case "place-trap":
           return options.client.dispatch(
             createPlaceTrapCommand({
@@ -3239,7 +3292,10 @@ var EmpireGameplaySliceClient = function(exports) {
       if (phase) {
         document.body.dataset.cityPhase = phase;
       }
-      document.dispatchEvent(new CustomEvent("empire:gameplay-slice-rendered", { detail: { gameplaySlice, playerView: (gameplaySlice == null ? void 0 : gameplaySlice.player) ?? null } }));
+      document.dispatchEvent(new CustomEvent("empire:gameplay-slice-rendered", {
+        detail: { gameplaySlice, playerView: (gameplaySlice == null ? void 0 : gameplaySlice.player) ?? null, connection: state.connection }
+      }));
+      document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", { detail: state.connection }));
       mounts.status.innerHTML = renderGameplaySliceStatus(state);
       mounts.topBar.innerHTML = state.topBarHtml;
       mounts.map.innerHTML = state.mapHtml;
@@ -3374,6 +3430,9 @@ var EmpireGameplaySliceClient = function(exports) {
           "<strong>Synchronizace se serverem zastarala</strong>",
           "<span>Obnova ze serveru selhala. Zůstává poslední známý stav.</span>"
         ].join("");
+        document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", {
+          detail: { status: "stale", lastErrorMessage: "Obnova ze serveru selhala.", staleData: true }
+        }));
       }
     });
     const visibilityRuntime = createGameplaySliceVisibilityRuntime({ root: options.root, poller });
@@ -3392,6 +3451,9 @@ var EmpireGameplaySliceClient = function(exports) {
       render(state, "server-slice-initial-load");
       poller.start();
     }).catch((error) => {
+      document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", {
+        detail: { status: "error", lastErrorMessage: createSafeErrorMessage(error), staleData: true }
+      }));
       hideUnavailableGameplaySlice({
         ...client.getRenderState(),
         connection: {

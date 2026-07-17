@@ -70,6 +70,24 @@ export interface SubmitGameplayCommandRequest {
   sessionToken?: string | null;
 }
 
+export interface LookupGameplayCommandResultRequest {
+  serverInstanceId: ServerInstanceId;
+  commandId: string;
+  districtId?: DistrictId | ServerAssignedFocusDistrictId | null;
+  sessionToken?: string | null;
+}
+
+export type GameplayCommandResultLookupStatus = "applied" | "rejected" | "processing" | "not_found";
+
+export interface GameplayCommandResultLookupResponse {
+  accepted: boolean;
+  status: GameplayCommandResultLookupStatus;
+  readModel: GameplaySliceView | null;
+  errors: DomainError[];
+  metadata?: GameplaySliceResponseMetadata;
+  commandResult?: GameplayCommandResultMetadata | null;
+}
+
 export interface GameplaySliceResponse {
   accepted: boolean;
   readModel: GameplaySliceView | null;

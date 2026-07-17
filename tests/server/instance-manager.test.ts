@@ -166,7 +166,7 @@ describe("ServerInstanceManager", () => {
     expect(diagnostics.at(-1)).toMatchObject({
       level: "warn",
       category: "command_rejected",
-      message: "Command rejected before core dispatch.",
+      message: "Command rejected.",
       occurredAt: "2026-05-17T15:00:00.000Z",
       context: {
         commandId: expect.any(String),
@@ -425,7 +425,7 @@ describe("ServerInstanceManager", () => {
     const result = await server.instanceManager.dispatchCommand(runtime.record.id, command);
 
     expect(result?.errors).toContainEqual(expect.objectContaining({
-      code: "player_not_active",
+      code: "PLAYER_DEFEATED",
       details: expect.objectContaining({
         playerId: "player:1",
         status: "defeated"
@@ -441,7 +441,7 @@ describe("ServerInstanceManager", () => {
       context: {
         commandId: command.id,
         commandType: "attack-district",
-        errorCodes: ["player_not_active"]
+        errorCodes: ["PLAYER_DEFEATED"]
       }
     });
   });

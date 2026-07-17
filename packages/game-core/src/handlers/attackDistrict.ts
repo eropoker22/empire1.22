@@ -3,25 +3,11 @@ import type { GameCoreContext } from "../engine/context";
 import type { CoreGameState } from "../entities";
 import type { CoreEvent } from "../events";
 import type { CoreError } from "../errors";
-import {
-  calculateBaseDefensePower,
-  calculateAttackPopulationRequired,
-  calculateAttackWeaponPower,
-  calculateBazookaTotalDestructionBonusPercent,
-  calculateGrenadeDefenseIgnorePercent,
-  calculateSmgComboBonus,
-  calculateTotalAttackPower,
-  calculateTowerAttackReductionPercent,
-  applyDayNightAttackDurationTicks,
-  applyDayNightHeatGain,
-  resolveAttackDurationGuardrailTicks,
-  resolveAttackDurationTicks,
-  applyDefenseCombatLosses,
-  applyMajorOperationCooldowns,
-  consumeCapturedDistrictDefense,
-  resolveCombat,
-  resolveTrap
-} from "../rules";
+import { calculateBaseDefensePower, calculateAttackPopulationRequired, calculateAttackWeaponPower,
+  calculateBazookaTotalDestructionBonusPercent, calculateGrenadeDefenseIgnorePercent, calculateSmgComboBonus,
+  calculateTotalAttackPower, calculateTowerAttackReductionPercent, applyDayNightAttackDurationTicks,
+  applyDayNightHeatGain, resolveAttackDurationGuardrailTicks, resolveAttackDurationTicks, applyDefenseCombatLosses,
+  applyMajorOperationCooldowns, consumeCapturedDistrictDefense, resolveCombat, resolveTrap } from "../rules";
 import { createDefaultDistrictEffectModifiers, resolveActiveDistrictEffectModifiers } from "../rules/economy/calculateIncome";
 import { resolveActiveAlliancePenaltyStatModifiers } from "../rules/alliances/alliancePenaltyModifiers";
 import {

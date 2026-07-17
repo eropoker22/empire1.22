@@ -42,8 +42,13 @@ export const createHostedControlPlaneService = (options: {
       : !migrationsCurrent ? "DATABASE_MIGRATIONS_PENDING"
       : !worker ? "WORKER_OFFLINE"
       : null;
+    const serverViews = await Promise.all(servers.map(async (server) => {
+      const capacity = await options.repositories.hosted.getJoinCapacity(server.serverInstanceId, now().toISOString())
+        .catch(() => ({ committedPlayers: 0, reservedSlots: 0 }));
+      return { ...toView(server), ...capacity };
+    }));
     return { writesEnabled, provisioningEnabled, databaseAvailable, migrationsCurrent, workerStatus, unavailableCode,
-      servers: servers.map(toView) };
+      servers: serverViews };
   };
 
   return {

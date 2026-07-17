@@ -174,6 +174,7 @@ describe("alliance lifecycle", () => {
     expect(penalty.reason).toBe("inactive_kick");
     expect(penalty.attackMultiplier).toBe(0.8);
     expect(penalty.defenseMultiplier).toBe(0.8);
+    expect(penalty.penaltyEndsAt).toBe(addHours(BASE_TIME, 41.2));
     expect(penalty.productionMultiplier).toBe(0.8);
     expect(penalty.incomeMultiplier).toBe(0.8);
     expect(Object.values(secondYes.nextState.formerAllianceTrucesById ?? {})).toHaveLength(3);
@@ -198,6 +199,9 @@ describe("alliance lifecycle", () => {
     expect(penalty.reason).toBe("voluntary_leave");
     expect(penalty.influenceGenerationMultiplier).toBe(0.8);
     expect(penalty.actionCooldownMultiplier).toBe(1.15);
+    expect(penalty.attackMultiplier).toBe(0.8);
+    expect(penalty.defenseMultiplier).toBe(0.8);
+    expect(penalty.penaltyEndsAt).toBe(addHours(BASE_TIME, 13));
   });
 
   it("disband does not apply betrayal debuff", () => {

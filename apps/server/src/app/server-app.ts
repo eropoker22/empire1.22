@@ -29,6 +29,8 @@ import {
   createPostgresDatabase,
   createPostgresGameplayIdentitySessionRepository
 } from "../runtime/persistence/postgres";
+import { readPlayerAccountCookie } from "../player-entry/player-account-cookie";
+import { createPostgresPlayerEntryRepository } from "../player-entry/postgres-player-entry-repository";
 
 /**
  * Responsibility: Top-level server application composition root.
@@ -73,11 +75,10 @@ export const createServerApp = (options: ServerAppOptions = {}) => {
         clock: options.clock
       })
     : null;
-  const accountIdentityProvider = options.accountIdentityProvider ?? (
+  const accountIdentityProvider = options.accountIdentityProvider ?? createDefaultAccountIdentityProvider({
+    environment: options.environment,
     isProduction
-      ? createUnavailableAccountIdentityProvider()
-      : createDevAccountIdentityProvider({ allow: true })
-  );
+  });
   const gameplaySessionService = options.gameplaySessionService ?? createDefaultGameplaySessionService({
     environment: options.environment,
     isProduction
@@ -132,23 +133,42 @@ const createDefaultGameplaySessionService = (
     isProduction: boolean;
   }
 ): GameplaySessionService => {
-  if (!options.isProduction) {
-    return createInMemoryGameplaySessionService({ productionReady: true });
-  }
-
+  const driver = String(options.environment?.EMPIRE_PERSISTENCE_DRIVER ?? options.environment?.GAMEPLAY_PERSISTENCE_DRIVER ?? "")
+    .trim().toLowerCase();
   const databaseUrl = String(
     options.environment?.EMPIRE_DATABASE_URL ??
     options.environment?.GAMEPLAY_DATABASE_URL ??
     ""
   ).trim();
 
-  if (!databaseUrl) {
-    return createUnavailableGameplaySessionService();
+  if (driver === "postgres" && databaseUrl) {
+    const database = createPostgresDatabase(databaseUrl);
+    return createPersistentGameplaySessionService(
+      createPostgresGameplayIdentitySessionRepository(database),
+      { productionReady: true }
+    );
   }
+  return options.isProduction
+    ? createUnavailableGameplaySessionService()
+    : createInMemoryGameplaySessionService({ productionReady: true });
+};
 
-  const database = createPostgresDatabase(databaseUrl);
-  return createPersistentGameplaySessionService(
-    createPostgresGameplayIdentitySessionRepository(database),
-    { productionReady: true }
-  );
+const createDefaultAccountIdentityProvider = (options: {
+  environment?: Record<string, string | undefined>;
+  isProduction: boolean;
+}): AccountIdentityProvider => {
+  const driver = String(options.environment?.EMPIRE_PERSISTENCE_DRIVER ?? options.environment?.GAMEPLAY_PERSISTENCE_DRIVER ?? "")
+    .trim().toLowerCase();
+  const databaseUrl = String(options.environment?.EMPIRE_DATABASE_URL ?? options.environment?.GAMEPLAY_DATABASE_URL ?? "").trim();
+  if (driver === "postgres" && databaseUrl) {
+    const repository = createPostgresPlayerEntryRepository(createPostgresDatabase(databaseUrl));
+    return {
+      productionReady: true,
+      resolve: async ({ headers }) => {
+        const account = await repository.authenticate(readPlayerAccountCookie(headers) ?? "", false);
+        return account ? { accountId: account.accountId, provider: "production" } : null;
+      }
+    };
+  }
+  return options.isProduction ? createUnavailableAccountIdentityProvider() : createDevAccountIdentityProvider({ allow: true });
 };

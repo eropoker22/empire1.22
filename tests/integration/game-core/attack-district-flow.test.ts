@@ -126,8 +126,8 @@ describe("attack-district command flow", () => {
 
     expect(result.errors).toEqual([
       {
-        code: "TARGET_IS_ALLY",
-        message: "Nemůžeš útočit na spojenecký district."
+        code: "ALLIANCE_RELATION_CHANGED",
+        message: "Vztah k vlastníkovi districtu se změnil."
       }
     ]);
   });

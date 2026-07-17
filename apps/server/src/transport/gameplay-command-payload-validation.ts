@@ -315,23 +315,19 @@ const createInvalidFieldError = (
     field: fieldPath
   }
 });
-
 const getFieldPath = (
   value: Record<string, unknown>,
   fieldPath: string
 ): unknown => {
   const parts = fieldPath.split(".");
   let current: unknown = value;
-
   for (const part of parts) {
     if (!isRecord(current)) {
       return undefined;
     }
     current = current[part];
   }
-
   return current;
 };
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);

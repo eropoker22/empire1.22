@@ -5,6 +5,7 @@ const PORT = Number(process.env.PLAYWRIGHT_PORT || 4174);
 const baseURL = `http://${HOST}:${PORT}`;
 const healthURL = `${baseURL}/api/servers`;
 const cliArgs = process.argv.slice(2);
+const reuseExistingServer = process.env.PLAYWRIGHT_SKIP_WEB_SERVER === "1";
 const runAllSpecs = cliArgs.includes("--all");
 const requestedSpecs = cliArgs.filter((arg) => arg !== "--all");
 const HEALTH_TIMEOUT_MS = readPositiveIntegerEnv("PLAYWRIGHT_E2E_HEALTH_TIMEOUT_MS", 240_000);
@@ -198,7 +199,7 @@ if (runAllSpecs) {
   }
 }
 
-const server = spawn(process.execPath, [
+const server = reuseExistingServer ? null : spawn(process.execPath, [
   "scripts/run-local-bin.mjs",
   "vite/bin/vite.js",
   "--config",
@@ -213,20 +214,22 @@ const server = spawn(process.execPath, [
   stdio: ["ignore", "pipe", "pipe"],
   windowsHide: true
 });
-attachProcessLogs(server, "vite", serverLogLines);
-server.on("exit", (code, signal) => {
-  serverExit = { code, signal };
-  if (!stoppingServer) {
-    console.error(`[e2e-smoke] Vite server exited before cleanup: code=${code ?? "null"} signal=${signal ?? "null"}.`);
-  }
-});
-server.on("error", (error) => {
-  serverExit = { code: 1, signal: null };
-  rememberLogLine(serverLogLines, `[vite] spawn error: ${error?.message || String(error)}`);
-  if (!stoppingServer) {
-    console.error(`[e2e-smoke] Vite server failed to start: ${error?.message || String(error)}.`);
-  }
-});
+if (server) {
+  attachProcessLogs(server, "vite", serverLogLines);
+  server.on("exit", (code, signal) => {
+    serverExit = { code, signal };
+    if (!stoppingServer) {
+      console.error(`[e2e-smoke] Vite server exited before cleanup: code=${code ?? "null"} signal=${signal ?? "null"}.`);
+    }
+  });
+  server.on("error", (error) => {
+    serverExit = { code: 1, signal: null };
+    rememberLogLine(serverLogLines, `[vite] spawn error: ${error?.message || String(error)}`);
+    if (!stoppingServer) {
+      console.error(`[e2e-smoke] Vite server failed to start: ${error?.message || String(error)}.`);
+    }
+  });
+}
 
 let exitCode = 1;
 try {
@@ -255,7 +258,9 @@ try {
   exitCode = 1;
 } finally {
   stoppingServer = true;
-  killProcessTree(server);
+  if (server) {
+    killProcessTree(server);
+  }
 }
 
 process.exit(exitCode);

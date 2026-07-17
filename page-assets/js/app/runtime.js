@@ -65,6 +65,10 @@ import {
   updateStoredPreviewSession
 } from "./model/authority-state.js";
 import {
+  clearAccountIdentity,
+  leaveActiveServerRegistration
+} from "./auth-flow.js";
+import {
   LEGACY_STORAGE_KEYS,
   clearState as clearLegacyState,
   loadClinicRecoveryPool,
@@ -319,7 +323,7 @@ import {
   PLAYER_POPUP_IDENTITY_SELECTOR,
   PLAYER_POPUP_FACTION_SELECTOR,
   PLAYER_POPUP_SERVER_SELECTOR,
-  PLAYER_POPUP_START_DISTRICT_SELECTOR,
+  PLAYER_POPUP_EMPIRE_SCORE_SELECTOR,
   PLAYER_POPUP_HEAT_SELECTOR,
   PLAYER_POPUP_PROTECTION_SELECTOR,
   PLAYER_POPUP_GANG_SELECTOR,
@@ -788,6 +792,10 @@ import {
 } from "./runtime/playerIdentityVisuals.js";
 import { createLaunchPlayerRuntime } from "./runtime/launchPlayerRuntime.js";
 import { createAuthoritySessionAccessors } from "./runtime/authoritySessionAccessors.js";
+import {
+  createServerCommandJournal,
+  createServerGameplayCommandId
+} from "./runtime/serverCommandJournal.js";
 import { createDistrictBuildingProfileRuntime } from "./runtime/districtBuildingProfileRuntime.js";
 import { createBuildingNetworkRuntime } from "./runtime/buildingNetworkRuntime.js";
 import { createDistrictActionPanelRuntime } from "./runtime/districtActionPanelRuntime.js";
@@ -1194,11 +1202,11 @@ function submitServerEmergencyRecoveryCommand() {
 }
 
 function createGameplaySliceCommandId(prefix = "command:market") {
-  return `${prefix}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
+  return createServerGameplayCommandId(prefix);
 }
 
-const PENDING_GAMEPLAY_COMMANDS_STORAGE_KEY = "empire:pending-gameplay-commands";
-const pendingServerGameplayCommands = new Map();
+const serverCommandJournal = createServerCommandJournal();
+const resolvingServerGameplayCommandIds = new Set();
 const CONFLICT_ERROR_MESSAGES = Object.freeze({
   DISTRICT_CONFLICT_STATE_CHANGED: "Situace v districtu se mezitím změnila. Načítám aktuální stav.",
   TARGET_OWNER_CHANGED: "District mezitím změnil vlastníka. Původní akci nelze provést.",
@@ -1228,8 +1236,6 @@ const STALE_CONFLICT_ERROR_CODES = new Set([
 const hasStaleConflictError = (response) => Array.isArray(response?.errors)
   && response.errors.some((error) => STALE_CONFLICT_ERROR_CODES.has(String(error?.code || "")));
 
-hydratePendingServerGameplayCommands();
-
 export async function submitServerDistrictActionCommand({ type, payload, focusDistrictId, commandId } = {}) {
   const connectionState = typeof window !== "undefined" ? window.empireStreetsGameplayConnectionState : "connected";
   if (connectionState && connectionState !== "connected") {
@@ -1246,32 +1252,67 @@ export async function submitServerDistrictActionCommand({ type, payload, focusDi
   if (!slice || !player?.playerId || !player?.instanceId) {
     return { accepted: false, errors: [{ message: "Chybí serverový kontext pro herní akci." }] };
   }
+  const prepared = prepareServerGameplayCommand({
+    type,
+    payload,
+    focusDistrictId,
+    commandId,
+    slice,
+    player
+  });
+  return submitPreparedServerGameplayCommand(prepared);
+}
+
+export function prepareServerGameplayCommand({ type, payload, focusDistrictId, commandId, slice, player } = {}) {
+  const activeSlice = slice || latestGameplaySliceReadModel || null;
+  const activePlayer = player || activeSlice?.player || null;
+  if (!activeSlice || !activePlayer?.playerId || !activePlayer?.instanceId) {
+    throw new Error("Server gameplay command requires an authoritative player and instance scope.");
+  }
+  const scope = {
+    playerId: activePlayer.playerId,
+    serverInstanceId: activePlayer.instanceId
+  };
   const request = {
     command: {
       id: commandId || createGameplaySliceCommandId(`command:${String(type || "district-action")}`),
       type,
-      mode: player.mode || slice.mode?.mode || "free",
-      playerId: player.playerId,
-      serverInstanceId: player.instanceId,
+      mode: activePlayer.mode || activeSlice.mode?.mode || "free",
+      playerId: activePlayer.playerId,
+      serverInstanceId: activePlayer.instanceId,
       issuedAt: new Date().toISOString(),
       payload: payload || {},
       clientRequestId: null
     },
-    focusDistrictId: focusDistrictId || slice?.district?.districtId || player.homeDistrictId,
-    expectedStateVersion: slice.server?.stateVersion ?? null
+    focusDistrictId: focusDistrictId || activeSlice?.district?.districtId || activePlayer.homeDistrictId,
+    expectedStateVersion: activeSlice.server?.stateVersion ?? null
   };
-  const snapshotToken = getGameplaySliceSnapshotToken(player.instanceId, player.playerId);
+  const snapshotToken = getGameplaySliceSnapshotToken(activePlayer.instanceId, activePlayer.playerId);
   if (snapshotToken) request.snapshotToken = snapshotToken;
-  return sendPendingServerGameplayCommand(request);
+  const entry = serverCommandJournal.prepare({
+    ...scope,
+    commandId: request.command.id,
+    commandType: request.command.type,
+    payload: request.command.payload,
+    focusDistrictId: request.focusDistrictId,
+    expectedStateVersion: request.expectedStateVersion,
+    clientCreatedAt: request.command.issuedAt,
+    request
+  });
+  return { scope, entry, request: entry.request || request };
 }
 
-async function sendPendingServerGameplayCommand(request) {
-  const commandId = String(request?.command?.id || "");
+export async function submitPreparedServerGameplayCommand(prepared) {
+  const request = prepared?.request;
+  const scope = prepared?.scope || getCurrentServerCommandJournalScope(request);
+  const commandId = String(request?.command?.id || prepared?.entry?.commandId || "");
   if (!commandId) {
     return { accepted: false, errors: [{ message: "Chybí command ID serverové akce." }] };
   }
-  pendingServerGameplayCommands.set(commandId, request);
-  persistPendingServerGameplayCommands();
+  if (!scope?.playerId || !scope?.serverInstanceId) {
+    return { accepted: false, errors: [{ message: "Chybí scope pro ověření výsledku akce." }] };
+  }
+  serverCommandJournal.beginSubmit(scope, commandId);
   try {
     const response = await fetch(`${getGameplaySliceEndpointBase()}/submit`, {
       method: "POST",
@@ -1286,25 +1327,15 @@ async function sendPendingServerGameplayCommand(request) {
       body = null;
     }
     if (!body || typeof body !== "object") {
-      return {
-        accepted: false,
-        pending: true,
-        commandId,
-        errors: [{ code: "COMMAND_RESULT_UNKNOWN", message: "Výsledek operace zatím není potvrzený. Po obnovení spojení ho server dohledá." }]
-      };
+      return markServerGameplayCommandAmbiguous(scope, commandId);
     }
-    pendingServerGameplayCommands.delete(commandId);
-    persistPendingServerGameplayCommands();
     const normalizedBody = normalizeConflictCommandResponse(body);
     syncGameplaySliceResponse(normalizedBody);
+    serverCommandJournal.markTerminal(scope, commandId, normalizedBody.accepted ? "applied" : "rejected", normalizedBody.errors?.[0]?.code || null);
+    serverCommandJournal.remove(scope, commandId);
     return normalizedBody;
   } catch (_error) {
-    return {
-      accepted: false,
-      pending: true,
-      commandId,
-      errors: [{ code: "COMMAND_RESULT_UNKNOWN", message: "Výsledek operace zatím není potvrzený. Po obnovení spojení ho server dohledá." }]
-    };
+    return markServerGameplayCommandAmbiguous(scope, commandId);
   }
 }
 
@@ -1312,13 +1343,87 @@ export async function retryPendingServerGameplayCommands() {
   if (typeof window !== "undefined" && window.empireStreetsGameplayConnectionState !== "connected") {
     return [];
   }
-  const requests = [...pendingServerGameplayCommands.values()];
+  const scope = getCurrentServerCommandJournalScope();
+  if (!scope) return [];
+  const entries = serverCommandJournal.list(scope, ["prepared", "submitting", "ambiguous", "resolving"]);
   const results = [];
-  for (const request of requests) {
-    results.push(await sendPendingServerGameplayCommand(request));
+  for (const entry of entries) {
+    results.push(await resolvePendingServerGameplayCommand(scope, entry));
   }
   return results;
 }
+
+function getCurrentServerCommandJournalScope(request = null) {
+  const player = latestGameplaySliceReadModel?.player || null;
+  const playerId = player?.playerId || request?.command?.playerId || null;
+  const serverInstanceId = player?.instanceId || request?.command?.serverInstanceId || null;
+  return playerId && serverInstanceId ? { playerId, serverInstanceId } : null;
+}
+
+function markServerGameplayCommandAmbiguous(scope, commandId) {
+  serverCommandJournal.markAmbiguous(scope, commandId);
+  return {
+    accepted: false,
+    pending: true,
+    commandId,
+    errors: [{ code: "COMMAND_RESULT_UNKNOWN", message: "Výsledek operace se stále ověřuje. Neodesílej ji znovu." }]
+  };
+}
+
+async function resolvePendingServerGameplayCommand(scope, entry) {
+  const commandId = String(entry?.commandId || "");
+  if (!commandId || resolvingServerGameplayCommandIds.has(commandId)) return null;
+  const request = entry?.request;
+  if (!request?.command || request.command.playerId !== scope.playerId || request.command.serverInstanceId !== scope.serverInstanceId) {
+    serverCommandJournal.abandon(scope, commandId);
+    return null;
+  }
+  resolvingServerGameplayCommandIds.add(commandId);
+  serverCommandJournal.markResolving(scope, commandId);
+  try {
+    for (const delay of [0, 500, 1000, 2000, 4000, 8000]) {
+      if (delay > 0) await waitForServerCommandResult(delay);
+      const lookup = await lookupServerGameplayCommandResult(scope, entry);
+      if (!lookup) return markServerGameplayCommandAmbiguous(scope, commandId);
+      if (lookup.status === "applied" || lookup.status === "rejected") {
+        const normalized = normalizeConflictCommandResponse(lookup);
+        syncGameplaySliceResponse(normalized);
+        serverCommandJournal.markTerminal(scope, commandId, lookup.status, normalized.errors?.[0]?.code || null);
+        serverCommandJournal.remove(scope, commandId);
+        return normalized;
+      }
+      if (lookup.status === "not_found") {
+        return submitPreparedServerGameplayCommand({ scope, entry, request });
+      }
+    }
+    return markServerGameplayCommandAmbiguous(scope, commandId);
+  } finally {
+    resolvingServerGameplayCommandIds.delete(commandId);
+  }
+}
+
+async function lookupServerGameplayCommandResult(scope, entry) {
+  try {
+    const response = await fetch(`${getGameplaySliceEndpointBase()}/command-result`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        serverInstanceId: scope.serverInstanceId,
+        commandId: entry.commandId,
+        districtId: entry.focusDistrictId || null
+      })
+    });
+    const body = await response.json();
+    return body && typeof body === "object" ? body : null;
+  } catch {
+    return null;
+  }
+}
+
+const waitForServerCommandResult = (delayMs) => new Promise((resolve) => {
+  setTimeout(resolve, delayMs);
+});
 
 function normalizeConflictCommandResponse(response) {
   const errors = Array.isArray(response?.errors)
@@ -1335,32 +1440,6 @@ function normalizeConflictCommandResponse(response) {
     }));
   }
   return { ...response, errors };
-}
-
-function hydratePendingServerGameplayCommands() {
-  if (typeof window === "undefined") return;
-  try {
-    const stored = JSON.parse(window.sessionStorage?.getItem?.(PENDING_GAMEPLAY_COMMANDS_STORAGE_KEY) || "[]");
-    if (!Array.isArray(stored)) return;
-    stored.forEach((request) => {
-      const commandId = String(request?.command?.id || "");
-      if (commandId) pendingServerGameplayCommands.set(commandId, request);
-    });
-  } catch (_error) {
-    pendingServerGameplayCommands.clear();
-  }
-}
-
-function persistPendingServerGameplayCommands() {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage?.setItem?.(
-      PENDING_GAMEPLAY_COMMANDS_STORAGE_KEY,
-      JSON.stringify([...pendingServerGameplayCommands.values()])
-    );
-  } catch (_error) {
-    // Pending commands remain recoverable for the current page lifetime.
-  }
 }
 
 function getGameplaySliceEndpointBase() {
@@ -12382,13 +12461,18 @@ function bindDistrictCanvas(root) {
         return;
       }
 
+      const activeAttackMarker = interactionState.activeAttackMarkersByDistrictId.get(district.id);
+      if (activeAttackMarker) {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        closePopup();
+        queueOrOpenResultModal(root, "police", createDistrictAttackInProgressPayload(district, activeAttackMarker));
+        return;
+      }
+
       interactionState.selectedDistrictId = district.id;
       render();
       openPopup(district);
-      const activeAttackMarker = interactionState.activeAttackMarkersByDistrictId.get(district.id);
-      if (activeAttackMarker) {
-        queueOrOpenResultModal(root, "police", createDistrictAttackInProgressPayload(district, activeAttackMarker));
-      }
     } else {
       interactionState.selectedDistrictId = null;
       render();
@@ -13344,7 +13428,7 @@ const runtimePopupBinders = createRuntimePopupBinders({
   SETTINGS_MAP_REDUCED_EFFECTS_SELECTOR, SETTINGS_MAP_VISIBILITY_SELECTOR, SETTINGS_LANGUAGE_SELECTOR,
   PLAYER_PROFILE_OPEN_SELECTOR, PLAYER_POPUP_SELECTOR, PLAYER_POPUP_CARD_SELECTOR, PLAYER_POPUP_CLOSE_SELECTOR,
   PLAYER_POPUP_AVATAR_SELECTOR, PLAYER_POPUP_AVATAR_FALLBACK_SELECTOR, PLAYER_POPUP_IDENTITY_SELECTOR,
-  PLAYER_POPUP_FACTION_SELECTOR, PLAYER_POPUP_SERVER_SELECTOR, PLAYER_POPUP_START_DISTRICT_SELECTOR,
+  PLAYER_POPUP_FACTION_SELECTOR, PLAYER_POPUP_SERVER_SELECTOR, PLAYER_POPUP_EMPIRE_SCORE_SELECTOR,
   PLAYER_POPUP_CLEAN_MONEY_SELECTOR, PLAYER_POPUP_DIRTY_MONEY_SELECTOR, PLAYER_POPUP_INFLUENCE_SELECTOR,
   PLAYER_POPUP_HEAT_SELECTOR, PLAYER_POPUP_PROTECTION_SELECTOR, PLAYER_POPUP_GANG_SELECTOR,
   PLAYER_POPUP_ALLIANCE_SELECTOR, PLAYER_POPUP_DISTRICTS_SELECTOR, ALLIANCE_POPUP_OPEN_SELECTOR,
@@ -13352,10 +13436,11 @@ const runtimePopupBinders = createRuntimePopupBinders({
   STORAGE_POPUP_CLOSE_SELECTOR, NAV_LOGOUT_SELECTOR, TOPBAR_SPY_PILL_SELECTOR, TOPBAR_SPY_VALUE_SELECTOR,
   CURRENT_PLAYER_ID, FACTION_CATALOG, normalizeMapVisibilityMode, getSettingsState, applySettingsState,
   getDisplayedResourceSnapshot, getStoredRegistration, getLaunchPlayerAvatar, getCurrentPlayerDistrictSourceSnapshot,
-  getCurrentPlayerLaunchStartDistrictId, syncCurrentPlayerDistrictCountDisplays, getResolvedGangState,
+  syncCurrentPlayerDistrictCountDisplays, getResolvedGangState,
   getLaunchPlayerColor, createPlayerProfileViewModel, resolveRuntimeAssetUrl, formatGangHeatProtectionLabel,
   renderPlayerProfilePanel, renderStorageList, getResolvedWeaponInventory, getResolvedMaterialInventory,
   getResolvedDrugInventory, getStoredFactorySupplies, getServerStorageSummary: getGameplayStorageSummary, clearLegacyState, renderSpyResourceState,
+  clearAccountIdentity, leaveActiveServerRegistration,
   windowRef: typeof window === "undefined" ? null : window
 });
 
@@ -13544,7 +13629,6 @@ const {
   factionCatalog: FACTION_CATALOG,
   gangHeatSelector: GANG_HEAT_SELECTOR,
   getCurrentPlayerDistrictSourceSnapshot,
-  getCurrentPlayerLaunchStartDistrictId,
   getDisplayedResourceSnapshot,
   getRegistrationAccentColor,
   getResolvedGangState,
@@ -13554,7 +13638,6 @@ const {
   playerPopupGangSelector: PLAYER_POPUP_GANG_SELECTOR,
   playerPopupIdentitySelector: PLAYER_POPUP_IDENTITY_SELECTOR,
   playerPopupServerSelector: PLAYER_POPUP_SERVER_SELECTOR,
-  playerPopupStartDistrictSelector: PLAYER_POPUP_START_DISTRICT_SELECTOR,
   renderGangMembersState,
   renderSpyResourceState,
   syncCurrentPlayerDistrictCountDisplays,

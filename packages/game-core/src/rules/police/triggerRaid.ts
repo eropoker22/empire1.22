@@ -9,7 +9,11 @@ import { resolveWantedLevel } from "./wantedLevel";
 import { resolvePoliceConfig } from "./policeConfig";
 import { calculatePlayerPolicePressure } from "./policePressure";
 import { resolveCityHallPoliceMitigation, shouldCreateRaidAfterCityHallMitigation } from "./cityHallPoliceMitigation";
-import { getCurrentDayNightPhase, getDayNightModifiers } from "../day-night/dayNight";
+import {
+  getCurrentDayNightPhase,
+  getDayNightModifiers,
+  resolveDayNightGameClock
+} from "../day-night/dayNight";
 import {
   countOpenPendingRaids,
   resolveMaxConcurrentRaidsForPhase
@@ -57,7 +61,15 @@ export const triggerRaid = (
   const events: CoreEvent[] = [];
   const decisions: RaidTriggerDecision[] = [];
   const currentTick = state.root.tick;
-  const phaseId = getCurrentDayNightPhase(state, context).phaseId;
+  const gameTime = getCurrentDayNightPhase(state, context);
+  const gameClock = resolveDayNightGameClock(gameTime);
+  const phaseId = gameTime.phaseId;
+  const isScheduledRaidTime = (gameClock.gameHour === 6 && gameClock.gameMinute === 0)
+    || (gameClock.gameHour === 12 && gameClock.gameMinute === 30)
+    || (gameClock.gameHour === 22 && gameClock.gameMinute === 0);
+  if (!isScheduledRaidTime) {
+    return { nextState: state, events: [], decisions: [] };
+  }
   const maxConcurrentRaids = resolveMaxConcurrentRaidsForPhase(config, phaseId);
   const raidDurationTicks = Math.max(1, Math.floor(Number(config.raidDurationTicks || config.pendingRaidTtlTicks || 1)));
 

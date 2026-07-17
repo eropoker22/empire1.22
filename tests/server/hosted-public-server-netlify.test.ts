@@ -52,15 +52,21 @@ describe("hosted public server matchmaking", () => {
       server,
       "POST",
       { mode: "free", preferredServerInstanceId: id },
-      {},
+      { "idempotency-key": "hosted-public-pending" },
       { NODE_ENV: "production" },
       repositories
     );
-    const body = JSON.parse(response.body) as { accepted: boolean; reservation: { serverInstanceId: string; joinTicket: string } };
+    const body = JSON.parse(response.body) as {
+      accepted: boolean;
+      reservation: { serverInstanceId: string; status: string; joinTicket: string | null };
+      errors: Array<{ code: string }>;
+    };
 
-    expect(body.accepted).toBe(true);
+    expect(body.accepted).toBe(false);
     expect(body.reservation.serverInstanceId).toBe(id);
-    expect(body.reservation.joinTicket).toMatch(/^join:/);
+    expect(body.reservation.status).toBe("reserved");
+    expect(body.reservation.joinTicket).toBeNull();
+    expect(body.errors[0]?.code).toBe("matchmaking.preparing");
   });
 });
 

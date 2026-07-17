@@ -12,6 +12,7 @@ import {
 import { createAttackDistrictCommandFixture } from "../fixtures/command-fixtures";
 import { createPostgresAdminDurableRepositories } from "../../apps/server/src/admin/read-only";
 
+process.loadEnvFile?.(".env.local");
 const databaseUrl = process.env.EMPIRE_TEST_DATABASE_URL?.trim();
 const describeWhenDatabaseConfigured = databaseUrl ? describe : describe.skip;
 
@@ -90,5 +91,5 @@ describeWhenDatabaseConfigured("postgres persistence live smoke", () => {
     } finally {
       await persistence.close();
     }
-  });
+  }, 60_000);
 });

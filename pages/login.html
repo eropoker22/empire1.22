@@ -52,7 +52,7 @@
       </div>
       <div class="foreground-character" aria-hidden="true"></div>
 
-      <section class="hud-panel leaderboard-panel" aria-label="Player leaderboard">
+      <section class="hud-panel leaderboard-panel" aria-label="Player leaderboard" hidden>
         <div class="panel-heading">
           <h2>LEADERBOARD</h2>
           <span class="leaderboard-season"><span class="leaderboard-season__label">SEASON</span><span class="leaderboard-season__value">01</span></span>
@@ -150,7 +150,7 @@
         </div>
       </section>
 
-      <section class="hud-panel active-events" aria-label="Aktivní události" data-login-active-events>
+      <section class="hud-panel active-events" aria-label="Aktivní události" data-login-active-events hidden>
         <div class="active-events__header">
           <h2>AKTIVNÍ UDÁLOSTI</h2>
         </div>
@@ -214,6 +214,10 @@
           <label class="field-shell" for="register-password">
             <span class="field-icon">▣</span>
             <input type="password" id="register-password" name="password" placeholder="Heslo" autocomplete="new-password">
+          </label>
+          <label class="field-shell" for="register-invite">
+            <span class="field-icon">◇</span>
+            <input type="password" id="register-invite" name="invite" placeholder="Closed alpha invite" autocomplete="off">
           </label>
           <button type="submit" class="enter-city-button" data-submit-label="ZALOŽIT GANG">ZALOŽIT GANG</button>
         </form>
@@ -324,7 +328,7 @@
       <section class="login-leaderboard-detail" role="dialog" aria-modal="true" aria-labelledby="login-leaderboard-title" tabindex="-1">
         <button type="button" class="login-leaderboard-close" data-login-leaderboard-close aria-label="Zavřít leaderboard detail">✕</button>
         <div class="login-leaderboard-identity">
-          <span class="login-leaderboard-kicker">CITY RANKING TERMINAL</span>
+          <span class="login-leaderboard-kicker">LEADERBOARD</span>
           <h2 id="login-leaderboard-title" data-login-leaderboard-name>KrVlado</h2>
           <p class="login-leaderboard-meta" data-login-leaderboard-meta>Downtown ruler · WAR-01</p>
         </div>
@@ -353,6 +357,6 @@
     <script type="module" src="../page-assets/js/data/districtImages.js"></script>
     <script type="module" src="../page-assets/js/data/buildings.js"></script>
     <script type="module" src="../page-assets/js/data/events.js"></script>
-    <script type="module" src="../page-assets/js/login.js"></script>
+    <script type="module" src="../page-assets/js/login-entry.js"></script>
   </body>
 </html>

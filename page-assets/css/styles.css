@@ -5005,6 +5005,376 @@ html body.game-body #spy-confirm-modal .spy-confirm-popup-body .attack-setup-pop
   }
 }
 
+/* Market keeps its own centering because the shared popup animation only scales. */
+@media (min-width: 721px) {
+  html body .market-popup-shell[data-market-popup]:not([hidden]) .market-popup-card {
+    top: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    animation: none !important;
+    will-change: auto !important;
+  }
+}
+
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body .market-popup-shell[data-market-popup] .market-popup-heading > .market-popup-close::before {
+    position: absolute !important;
+    top: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: 50% !important;
+    margin: 0 !important;
+    transform: translate(-50%, -50%) !important;
+  }
+}
+
+/* Keep the player profile and active attack status compact without covering mobile resources. */
+html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-district-attack-warning #police-action-result-modal-close {
+  top: 9px !important;
+  right: 10px !important;
+  width: 18px !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  min-height: 18px !important;
+  padding: 0 !important;
+  border-color: rgba(251, 113, 133, 0.72) !important;
+  border-radius: 50% !important;
+  background: rgba(42, 8, 18, 0.62) !important;
+  color: transparent !important;
+  box-shadow:
+    inset 0 0 8px rgba(251, 113, 133, 0.22),
+    0 0 10px rgba(251, 113, 133, 0.5),
+    0 0 18px rgba(244, 63, 94, 0.2) !important;
+}
+
+html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-district-attack-warning #police-action-result-modal-close::before,
+html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-district-attack-warning #police-action-result-modal-close::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 1px;
+  border-radius: 1px;
+  background: #fb7185;
+  box-shadow: 0 0 5px rgba(251, 113, 133, 0.92);
+}
+
+html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-district-attack-warning #police-action-result-modal-close::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-district-attack-warning #police-action-result-modal-close::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-district-attack-warning {
+    width: min(520px, calc(100vw - 20px)) !important;
+    border-color: rgba(251, 113, 133, 0.56) !important;
+    background:
+      linear-gradient(145deg, rgba(104, 18, 42, 0.42), rgba(18, 7, 18, 0.58) 58%, rgba(75, 12, 28, 0.44)) !important;
+    backdrop-filter: blur(28px) saturate(165%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(165%) !important;
+  }
+
+  html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-district-attack-warning .police-action-result-modal__details {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(.player-popup-shell:not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(.player-popup-shell:not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.player-popup-shell:not([hidden])) .game-resource-strip {
+    z-index: 24050 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(.player-popup-shell:not([hidden])) .game-resource-strip > * {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked .player-popup-shell:not([hidden]) {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding: calc(var(--mobile-overlay-top-offset, var(--mobile-topbar-offset, 72px)) + 8px) 8px max(8px, env(safe-area-inset-bottom)) !important;
+    box-sizing: border-box !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked .player-popup-shell:not([hidden]) .player-popup-card {
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    width: min(520px, 100%) !important;
+    max-height: calc(var(--mobile-locked-vh, 100svh) - var(--mobile-overlay-top-offset, var(--mobile-topbar-offset, 72px)) - 16px) !important;
+    margin: 0 !important;
+    transform: none !important;
+  }
+}
+
+/* Final Lockdown entry and final ranking. */
+.final-lockdown-modal[hidden] {
+  display: none !important;
+}
+
+.final-lockdown-modal {
+  position: fixed;
+  z-index: 2147483500;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.final-lockdown-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 6, 12, 0.86);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.final-lockdown-modal__card {
+  position: relative;
+  width: min(620px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  overflow: auto;
+  border: 1px solid rgba(248, 113, 113, 0.7);
+  border-radius: 8px;
+  padding: 34px;
+  background: #0a1018;
+  box-shadow: 0 24px 90px rgba(0, 0, 0, 0.72), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  color: #eef6ff;
+}
+
+.final-lockdown-modal__card::before {
+  position: absolute;
+  top: 0;
+  right: 28px;
+  left: 28px;
+  height: 3px;
+  content: "";
+  background: #f87171;
+  box-shadow: 0 0 18px rgba(248, 113, 113, 0.8);
+}
+
+.final-lockdown-modal__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid rgba(226, 232, 240, 0.24);
+  border-radius: 4px;
+  padding: 0;
+  background: #121c28;
+  color: #f8fafc;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.final-lockdown-modal__close:hover,
+.final-lockdown-modal__close:focus-visible {
+  border-color: #f87171;
+  background: #3b1015;
+}
+
+.final-lockdown-modal__eyebrow,
+.final-lockdown-modal__section-label {
+  display: block;
+  color: #fca5a5;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.final-lockdown-modal h2 {
+  margin: 8px 44px 10px 0;
+  color: #ffffff;
+  font-size: 30px;
+  line-height: 1.08;
+}
+
+.final-lockdown-modal__lead {
+  max-width: 540px;
+  margin: 0;
+  color: #b9c7d8;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.final-lockdown-modal__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin: 24px 0;
+}
+
+.final-lockdown-modal__stat {
+  min-height: 82px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 5px;
+  padding: 12px;
+  background: #0e1722;
+}
+
+.final-lockdown-modal__stat span {
+  display: block;
+  color: #8ea1b8;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.final-lockdown-modal__stat strong {
+  display: block;
+  margin-top: 8px;
+  color: #ffffff;
+  font-size: 20px;
+}
+
+.final-lockdown-modal__ranking {
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  padding-top: 18px;
+}
+
+.final-lockdown-modal__ranking ol {
+  display: grid;
+  gap: 7px;
+  margin: 11px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.final-lockdown-modal__ranking li {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 4px;
+  padding: 0 12px;
+  background: #0d1620;
+}
+
+.final-lockdown-modal__ranking li span,
+.final-lockdown-modal__ranking li em {
+  color: #94a3b8;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.final-lockdown-modal__ranking li strong {
+  overflow: hidden;
+  color: #eaf2fa;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.final-lockdown-modal .is-current-player {
+  border-color: rgba(34, 211, 238, 0.65);
+  background: #102532;
+}
+
+.final-lockdown-modal__confirm {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 22px;
+  border: 1px solid #fb7185;
+  border-radius: 4px;
+  background: #a61b35;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.final-lockdown-modal__confirm:hover,
+.final-lockdown-modal__confirm:focus-visible {
+  background: #c92343;
+}
+
+.final-lockdown-modal__results-table-wrap {
+  overflow-x: auto;
+  margin-top: 23px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.final-lockdown-modal__results-table {
+  width: 100%;
+  min-width: 480px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.final-lockdown-modal__results-table th,
+.final-lockdown-modal__results-table td {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  padding: 12px 14px;
+  color: #c7d4e2;
+  font-size: 13px;
+}
+
+.final-lockdown-modal__results-table th {
+  color: #8ea1b8;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.final-lockdown-modal__results-table td:nth-child(1),
+.final-lockdown-modal__results-table td:nth-child(3),
+.final-lockdown-modal__results-table td:nth-child(4) {
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.final-lockdown-modal__results-table tr:last-child td {
+  border-bottom: 0;
+}
+
+@media (max-width: 720px) {
+  .final-lockdown-modal {
+    align-items: end;
+    padding: 10px;
+  }
+
+  .final-lockdown-modal__card {
+    max-height: calc(100vh - 20px);
+    padding: 28px 18px 18px;
+  }
+
+  .final-lockdown-modal h2 {
+    font-size: 25px;
+  }
+
+  .final-lockdown-modal__stats {
+    grid-template-columns: 1fr;
+  }
+
+  .final-lockdown-modal__stat {
+    display: flex;
+    min-height: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .final-lockdown-modal__stat strong {
+    margin: 0;
+  }
+}
+
 html body.game-body :is(
   .district-popup-shell[data-district-popup]:not([hidden]),
   #buildings-modal.buildings-popup-shell:not([hidden]),
@@ -5665,4 +6035,121 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup_
   min-height: 0 !important;
   align-self: start !important;
   padding-bottom: 18px !important;
+}
+
+@media (min-width: 721px) {
+  html body.game-body .wanted-popup-card .wanted-popup-hero {
+    width: min(100%, 460px) !important;
+  }
+}
+
+html body.game-body .district-popup-action[data-district-action-id="trap"][data-district-trap-state="active"] {
+  --district-action-rgb: 34, 197, 94 !important;
+  --district-action-secondary-rgb: 16, 185, 129 !important;
+  --district-action-text: #dcfce7 !important;
+}
+
+/* Desktop leaderboard close control must render a literal cross, not the old plus glyph. */
+@media (min-width: 721px) {
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-close {
+    display: grid !important;
+    place-items: center !important;
+    font-size: 0 !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-close::before {
+    content: "✕" !important;
+    position: absolute !important;
+    top: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: 50% !important;
+    inset: auto !important;
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: none !important;
+    color: currentColor !important;
+    font-family: "Segoe UI", Arial, sans-serif !important;
+    font-size: 18px !important;
+    font-weight: 600 !important;
+    line-height: 1 !important;
+    transform: translate(-50%, -50%) !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-close::after {
+    content: none !important;
+    display: none !important;
+  }
+}
+
+/* Final desktop market placement: touch-capable desktops must not receive mobile scale-only positioning. */
+@media (min-width: 721px) {
+  html body.game-body .market-popup-shell[data-market-popup]:not([hidden]) .market-popup-card {
+    position: absolute !important;
+    top: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: 50% !important;
+    margin: 0 !important;
+    transform: translate(-50%, -50%) !important;
+    animation: none !important;
+    will-change: auto !important;
+  }
+
+  html body.game-body .market-popup-shell[data-market-mode="market"] .market-popup-row__trade {
+    grid-template-columns: minmax(124px, 0.7fr) minmax(0, 1fr) !important;
+  }
+
+  html body.game-body .market-popup-shell[data-market-mode="market"] .market-popup-row__quantity-controls {
+    grid-template-columns: 34px minmax(46px, 1fr) 34px !important;
+  }
+
+  html body.game-body .market-popup-shell[data-market-mode="market"] .market-popup-row__quantity {
+    width: 100% !important;
+    min-width: 46px !important;
+    padding: 0 4px !important;
+    color: #ffffff !important;
+    opacity: 1 !important;
+  }
+
+  html body.game-body .wanted-popup-card .wanted-popup-hero__copy > .wanted-popup-cost-row {
+    margin-top: 10px !important;
+    padding: 0 !important;
+  }
+
+  html body.game-body .wanted-popup-card .wanted-popup-hero__copy > .wanted-popup-cost-row .wanted-popup-cost {
+    display: flex !important;
+    min-height: 28px !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 1px solid rgba(148, 163, 184, 0.18) !important;
+    border-radius: 999px !important;
+    background: rgba(3, 9, 17, 0.58) !important;
+    text-align: center !important;
+  }
+}
+
+/* Mobile HEAT and alliance modal corrections. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body .wanted-popup-card .wanted-popup-meta--header {
+    display: flex !important;
+  }
+
+  html body.game-body .wanted-popup-card .wanted-popup-meta--header .wanted-popup-row:first-child,
+  html body.game-body .wanted-popup-card .wanted-popup-meta--mobile {
+    display: none !important;
+  }
+
+  html body.game-modal-scroll-locked #alliance-modal.modal:not(.hidden):not([hidden]) > .modal__backdrop {
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(3, 7, 18, 0.78) !important;
+    backdrop-filter: blur(7px) !important;
+    -webkit-backdrop-filter: blur(7px) !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
 }

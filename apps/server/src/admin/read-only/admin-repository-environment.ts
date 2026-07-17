@@ -17,18 +17,16 @@ export const resolveAdminDurableRepositories = (
     }
     return { accepted: true, repositories: provided };
   }
-  if (environment.NODE_ENV !== "production") {
-    return { accepted: true, repositories: createInMemoryAdminDurableRepositories() };
-  }
   const driver = String(environment.EMPIRE_PERSISTENCE_DRIVER ?? environment.GAMEPLAY_PERSISTENCE_DRIVER ?? "").trim().toLowerCase();
   const databaseUrl = String(environment.EMPIRE_DATABASE_URL ?? environment.GAMEPLAY_DATABASE_URL ?? "").trim();
-  if (driver !== "postgres" || !databaseUrl) {
-    return unavailable();
+  if (driver === "postgres" && databaseUrl) {
+    return {
+      accepted: true,
+      repositories: createPostgresAdminDurableRepositories(createPostgresDatabase(databaseUrl))
+    };
   }
-  return {
-    accepted: true,
-    repositories: createPostgresAdminDurableRepositories(createPostgresDatabase(databaseUrl))
-  };
+  if (environment.NODE_ENV === "production") return unavailable();
+  return { accepted: true, repositories: createInMemoryAdminDurableRepositories() };
 };
 
 const allDurable = (repositories: AdminDurableRepositories): boolean =>

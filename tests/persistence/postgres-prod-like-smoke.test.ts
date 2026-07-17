@@ -7,7 +7,9 @@ import {
   createPostgresGameplayIdentitySessionRepository
 } from "../../apps/server/src/runtime/persistence/postgres";
 import type { AccountIdentityProvider } from "../../apps/server/src/auth";
-import type { GameplaySliceResponse } from "@empire/shared-types";
+import { createHostedControlPlaneService, createHostedRuntimeWorker } from "../../apps/server/src/admin/hosted";
+import { createPostgresAdminDurableRepositories, hashAdminPassword } from "../../apps/server/src/admin/read-only";
+import type { AdminSessionView, GameplaySliceResponse } from "@empire/shared-types";
 import {
   applyPostgresTestMigrations,
   resolveLivePostgresSmokeConfig
@@ -30,7 +32,6 @@ describe("postgres prod-like runtime smoke", () => {
     await applyPostgresTestMigrations(database);
 
     const origin = "https://play.empire.test";
-    const freeServerInstanceId = "instance:free:eu-central:public-1";
     const warServerInstanceId = "instance:war:eu-central:public-1";
     const runId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const accountId = `account:postgres-smoke:${runId}`;
@@ -41,8 +42,54 @@ describe("postgres prod-like runtime smoke", () => {
       EMPIRE_DATABASE_URL: liveConfig.databaseUrl!,
       GAMEPLAY_SLICE_SESSION_SECRET: "postgres-smoke-session-secret",
       GAMEPLAY_SLICE_SNAPSHOT_SECRET: "postgres-smoke-snapshot-secret",
+      EMPIRE_ADMIN_WRITES_ENABLED: "true",
+      EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true",
+      EMPIRE_SERVER_PROVISIONING_ENABLED: "true",
+      EMPIRE_LEGACY_MATCHMAKING_ENABLED: "true",
       EMPIRE_ALLOWED_ORIGINS: origin
     };
+    const adminRepositories = createPostgresAdminDurableRepositories(database);
+    const adminUserId = `admin-user:postgres-smoke:${runId}`;
+    const workerId = `worker:postgres-smoke:${runId}`;
+    const at = new Date().toISOString();
+    const password = await hashAdminPassword("PostgresSmokeFixturePassword");
+    await adminRepositories.users.create({
+      adminUserId,
+      username: `PostgresSmoke${runId}`,
+      normalizedUsername: `postgressmoke${runId}`,
+      ...password,
+      passwordVersion: 1,
+      role: "owner",
+      status: "active",
+      displayName: "Postgres Smoke",
+      createdAt: at,
+      updatedAt: at,
+      lastLoginAt: null,
+      passwordChangedAt: at,
+      version: 1
+    });
+    await adminRepositories.hosted.writeWorkerHeartbeat({
+      workerId,
+      region: "eu-central",
+      buildSha: "postgres-smoke",
+      startedAt: at,
+      lastHeartbeatAt: at,
+      status: "online"
+    });
+    const adminSession: AdminSessionView = {
+      adminSessionId: `admin-session:postgres-smoke:${runId}`,
+      adminUserId,
+      actorId: adminUserId,
+      username: `PostgresSmoke${runId}`,
+      displayName: "Postgres Smoke",
+      role: "owner",
+      authenticationMethod: "password",
+      createdAt: at,
+      expiresAt: new Date(Date.now() + 120_000).toISOString(),
+      revokedAt: null,
+      lastSeenAt: at
+    };
+    const controlPlane = createHostedControlPlaneService({ repositories: adminRepositories, environment });
 
     const createHandler = (currentAccountId: string) => {
       const server = createServerApp({
@@ -51,22 +98,74 @@ describe("postgres prod-like runtime smoke", () => {
       });
       return {
         server,
-        handler: createGameplaySliceFunctionHandler({ environment, server })
+        handler: createGameplaySliceFunctionHandler({ environment, server, adminRepositories })
       };
     };
 
     const first = createHandler(accountId);
     const identityRepository = createPostgresGameplayIdentitySessionRepository(database);
+    let worker: ReturnType<typeof createHostedRuntimeWorker> | null = null;
+    let freeServerInstanceId: string | null = null;
 
     try {
-      const reserve = await readJson(first.handler(postEvent("/api/matchmaking/reserve", {
+      const created = await controlPlane.createServer({
+        session: adminSession,
+        payload: {
+          mode: "free",
+          displayName: `Postgres Smoke ${runId}`,
+          region: "eu-central",
+          capacity: 4,
+          joinPolicy: "closed",
+          mapComposition: { downtown: 8, commercial: 40, residential: 38, industrial: 38, park: 37 }
+        },
+        idempotencyKey: `postgres-smoke-create-${runId}`,
+        correlationId: `postgres-smoke:create:${runId}`
+      });
+      if (!created.accepted) throw new Error(`Hosted smoke server creation failed: ${created.errors[0]?.code ?? "unknown"}`);
+      freeServerInstanceId = created.data.server.serverInstanceId;
+      worker = createHostedRuntimeWorker({
+        workerId,
+        region: "eu-central",
+        buildSha: "postgres-smoke",
+        controlPlane: adminRepositories.hosted,
+        server: first.server
+      });
+      await worker.runOnce();
+      const provisioned = await adminRepositories.hosted.getServer(freeServerInstanceId);
+      if (!provisioned || provisioned.provisioningState !== "ready") throw new Error("Hosted smoke server was not provisioned.");
+      const openJoins = await controlPlane.requestAction({
+        session: adminSession,
+        serverInstanceId: freeServerInstanceId,
+        payload: { action: "open-joins", expectedVersion: provisioned.version, reason: "Postgres smoke join verification" },
+        idempotencyKey: `postgres-smoke-open-${runId}`,
+        correlationId: `postgres-smoke:open:${runId}`
+      });
+      if (!openJoins.accepted) throw new Error(`Hosted smoke joins failed: ${openJoins.errors[0]?.code ?? "unknown"}`);
+      await worker.runOnce();
+
+      const matchmakingKey = `postgres-smoke-matchmaking-${runId}`;
+      const matchmakingRequest = {
         playerId: "player:forged-reserve",
         mode: "free",
         preferredServerInstanceId: freeServerInstanceId
-      }, createHeaders(origin, accountId))));
-      const reserveJson = expectJson(reserve);
+      };
+      const pendingReserve = await readJson(first.handler(postEvent("/api/matchmaking/reserve", matchmakingRequest,
+        createHeaders(origin, accountId, matchmakingKey))));
+      const pendingReserveJson = expectJson(pendingReserve);
+      expect(pendingReserveJson.accepted).toBe(false);
+      expect(pendingReserveJson.reservation).toMatchObject({
+        serverInstanceId: freeServerInstanceId,
+        status: "reserved",
+        joinTicket: null
+      });
+      expect(pendingReserveJson.errors[0]?.code).toBe("matchmaking.preparing");
+
+      await worker.runOnce();
+      const committedReserve = await readJson(first.handler(postEvent("/api/matchmaking/reserve", matchmakingRequest,
+        createHeaders(origin, accountId, matchmakingKey))));
+      const reserveJson = expectJson(committedReserve);
       expect(reserveJson.accepted).toBe(true);
-      expect(reserveJson.reservation?.serverInstanceId).toBe(freeServerInstanceId);
+      expect(reserveJson.reservation).toMatchObject({ serverInstanceId: freeServerInstanceId, status: "committed" });
       const joinTicket = String(reserveJson.reservation?.joinTicket ?? "");
       expect(joinTicket).toBeTruthy();
       await expect(countRows(database, "empire_join_tickets", "ticket_id", joinTicket)).resolves.toBe(1);
@@ -132,7 +231,6 @@ describe("postgres prod-like runtime smoke", () => {
         loadWithCookieJson.readModel?.spawnSelection?.districts?.find((district: { status?: string }) => district.status === "available")?.districtId ?? ""
       );
       expect(spawnDistrictId).toBeTruthy();
-
       const spawnSubmit = await readJson(first.handler(postEvent("/api/gameplay-slice/submit", {
         snapshotToken,
         focusDistrictId: spawnDistrictId,
@@ -293,11 +391,11 @@ describe("postgres prod-like runtime smoke", () => {
         const warReserve = await readJson(war.handler(postEvent("/api/matchmaking/reserve", {
           mode: "war",
           preferredServerInstanceId: warServerInstanceId
-        }, createHeaders(origin, warAccountId))));
+        }, createHeaders(origin, warAccountId, `postgres-smoke-war-${runId}-canonical`))));
         const legacyWarReserve = await readJson(war.handler(postEvent("/api/matchmaking/reserve", {
           mode: "war",
           preferredServerInstanceId: "war-eu-01"
-        }, createHeaders(origin, warAccountId))));
+        }, createHeaders(origin, warAccountId, `postgres-smoke-war-${runId}-legacy`))));
         const warReserveJson = expectJson(warReserve);
         const legacyWarReserveJson = expectJson(legacyWarReserve);
         expect(warReserveJson.accepted).toBe(false);
@@ -309,10 +407,12 @@ describe("postgres prod-like runtime smoke", () => {
         await war.server.instanceManager.getPersistenceRepositories().close?.();
       }
     } finally {
+      await worker?.stop();
       await first.server.instanceManager.getPersistenceRepositories().close?.();
+      if (freeServerInstanceId) await cleanupHostedSmokeFixture(database, freeServerInstanceId, adminUserId, workerId);
       await database.close();
     }
-  });
+  }, 90_000);
 });
 
 const postEvent = (
@@ -341,10 +441,12 @@ const expectJson = <T = GameplaySliceResponse & Record<string, any>>(response: J
 
 const createHeaders = (
   origin: string,
-  accountId: string
+  accountId: string,
+  idempotencyKey?: string
 ): Record<string, string> => ({
   origin,
-  "x-empire-account-id": accountId
+  "x-empire-account-id": accountId,
+  ...(idempotencyKey ? { "idempotency-key": idempotencyKey } : {})
 });
 
 const createFixedProductionAccountProvider = (accountId: string): AccountIdentityProvider => ({
@@ -371,4 +473,27 @@ const countRows = async (
     [value]
   );
   return Number(result.rows[0]?.count ?? 0);
+};
+
+const cleanupHostedSmokeFixture = async (
+  database: ReturnType<typeof createPostgresDatabase>,
+  serverInstanceId: string,
+  adminUserId: string,
+  workerId: string
+): Promise<void> => {
+  await database.transaction(async (client) => {
+    await client.query("DELETE FROM empire_hosted_join_jobs WHERE server_instance_id=$1", [serverInstanceId]);
+    await client.query("DELETE FROM empire_hosted_join_reservations WHERE server_instance_id=$1", [serverInstanceId]);
+    await client.query("DELETE FROM empire_hosted_instance_heartbeats WHERE server_instance_id=$1", [serverInstanceId]);
+    await client.query("DELETE FROM empire_hosted_server_action_requests WHERE server_instance_id=$1", [serverInstanceId]);
+    await client.query("DELETE FROM empire_hosted_server_provisioning_jobs WHERE server_instance_id=$1", [serverInstanceId]);
+    await client.query("DELETE FROM empire_hosted_server_idempotency WHERE resource_id=$1", [serverInstanceId]);
+    await client.query("DELETE FROM empire_hosted_server_idempotency WHERE admin_user_id=$1", [adminUserId]);
+    await client.query("DELETE FROM empire_hosted_server_instances WHERE server_instance_id=$1", [serverInstanceId]);
+    await client.query("DELETE FROM empire_server_instances WHERE server_instance_id=$1", [serverInstanceId]);
+    await client.query("DELETE FROM empire_hosted_instance_heartbeats WHERE worker_id=$1", [workerId]);
+    await client.query("DELETE FROM empire_hosted_worker_heartbeats WHERE worker_id=$1", [workerId]);
+    await client.query("DELETE FROM empire_admin_access_audit WHERE actor_id=$1", [adminUserId]);
+    await client.query("DELETE FROM empire_admin_users WHERE admin_user_id=$1", [adminUserId]);
+  });
 };

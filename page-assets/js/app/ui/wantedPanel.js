@@ -210,7 +210,7 @@ export function renderWantedLevels(mount, levels = []) {
     } else {
       title.textContent = formatWantedHeatStarsFallback(levelId, maxLevel);
     }
-    copy.textContent = `${tier?.title || ""} • ${tier?.effect || ""}`;
+    copy.textContent = String(tier?.title || "");
     entry.append(title, copy);
     mount.append?.(entry);
   }

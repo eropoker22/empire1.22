@@ -9,7 +9,7 @@ export const createPublicServerListResponse = async (
   environment: Record<string, string | undefined>,
   repositories: AdminDurableRepositories | null
 ) => {
-  if (environment.NODE_ENV !== "production") {
+  if (repositories?.kind !== "postgres" && environment.NODE_ENV !== "production") {
     const publicIds = new Set(publicServerRegistry.filter((entry) => entry.isPublic).map((entry) => entry.serverInstanceId));
     return createJsonResponse(200, { accepted: true,
       servers: server.adminMonitoring.listServerSummaries().filter((summary) => publicIds.has(summary.serverInstanceId)), errors: [] });
@@ -22,7 +22,7 @@ export const createPublicServerListResponse = async (
     const servers = (await listHostedPublicServerCandidates(repositories)).map(({ hosted, summary }) => {
       return { serverInstanceId: hosted.serverInstanceId, displayName: hosted.displayName, mode: hosted.mode,
         region: hosted.region, status: hosted.status, joinPolicy: hosted.joinPolicy, playerCount: summary.playerCount,
-        capacity: hosted.capacity, currentTick: summary.currentTick };
+        capacity: hosted.capacity, currentTick: summary.currentTick, startedAt: hosted.lastStartedAt };
     });
     return createJsonResponse(200, { accepted: true, servers, errors: [] });
   } catch (_error) {

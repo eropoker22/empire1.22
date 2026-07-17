@@ -75,7 +75,7 @@ describe("player territory lifecycle", () => {
     }, context);
     expect(replay.nextState).toBe(result.nextState);
     const rejected = routeCommand(result.nextState, emergencyCommand("command:after-defeat"), context);
-    expect(rejected.errors[0]?.code).toBe("player_not_active");
+    expect(rejected.errors[0]?.code).toBe("PLAYER_DEFEATED");
   });
 
   it("selects a deterministic headquarters after the original home is lost", () => {

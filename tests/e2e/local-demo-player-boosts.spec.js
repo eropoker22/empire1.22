@@ -28,6 +28,10 @@ const PVP_SOURCE_DISTRICT_ID = pvpTarget?.district?.legacyNeighborIds?.[0] ?? 4;
 
 async function seedBoostSession(page) {
   await page.addInitScript(({ sessionKey, scopedSessionKey, sourceDistrictId, targetDistrictId }) => {
+    window.EmpireConfigOverrides = Object.freeze({
+      ...(window.EmpireConfigOverrides || {}),
+      localDemoEnabled: true
+    });
     window.__EMPIRE_E2E__ = true;
     const now = new Date().toISOString();
     const serverId = "instance:free:eu-central:public-1";

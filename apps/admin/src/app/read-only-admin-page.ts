@@ -137,6 +137,10 @@ const renderCreateWizard = (step: number): string => `
 const renderLifecycle = (server: AdminHostedServerView, session: AdminSessionView): string => `
   <div class="admin-lifecycle"><h4>Lifecycle: ${escape(server.displayName)}</h4>
     <p>${pill(server.status)} ${pill(server.provisioningState)} · version ${server.version}</p>
+    <div class="admin-kv-grid">${kv("Committed players", server.committedPlayers ?? 0)}
+      ${kv("Reserved slots", server.reservedSlots ?? 0)}${kv("Capacity", server.capacity)}
+      ${kv("Join policy", server.joinPolicy)}${kv("Lease owner", server.runtimeLeaseOwnerId)}
+      ${kv("Last error", server.lastErrorCode)}</div>
     <label><span>Důvod akce</span><input data-admin-action-reason minlength="3" maxlength="240" required></label>
     <div class="admin-lifecycle__actions">
       ${lifecycleButton(server, "open-joins", "Open joins")}${lifecycleButton(server, "close-joins", "Close joins")}

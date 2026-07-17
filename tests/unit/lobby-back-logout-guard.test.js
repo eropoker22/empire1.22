@@ -15,6 +15,8 @@ describe("lobby browser back logout guard", () => {
     expect(source).toContain('window.addEventListener("popstate"');
     expect(source).toContain('window.addEventListener("pageshow"');
     expect(source).toContain("promptLobbyLogoutConfirmation().then");
+    expect(source).toContain("clearAccountIdentity();");
+    expect(source).not.toContain("clearAuthSession();");
     expect(source).not.toContain('window.addEventListener("beforeunload"');
   });
 });

@@ -9,6 +9,8 @@ const gameplayApiPaths = [
   "/api/gameplay-slice/",
   "/api/servers",
   "/api/matchmaking/reserve",
+  "/api/account/",
+  "/api/lobby/",
   "/api/admin/"
 ];
 

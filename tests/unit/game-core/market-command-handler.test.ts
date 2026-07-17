@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyCommand, calculateMarketPrice } from "@empire/game-core";
+import { applyCommand, calculateMarketPrice, tickMarket } from "@empire/game-core";
 import { resolveModeConfig } from "@empire/game-config";
 import { createCoreStateFixture } from "../../fixtures/game-state-fixtures";
 import type {
@@ -82,6 +82,7 @@ const cancelListingCommand = (
 describe("market command handler", () => {
   it("buys from normal market with server calculated price and stock mutation", () => {
     const state = createState();
+    const initialStock = Number(tickMarket(state, 0).nextState.market?.stock["metal-parts"] ?? 0);
     const unitPrice = calculateMarketPrice(state, "metal-parts", "normal").finalPrice;
     const result = applyCommand(state, buyCommand({
       resourceId: "metal-parts",
@@ -94,7 +95,7 @@ describe("market command handler", () => {
     expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(10000 - unitPrice * 2);
     expect(result.nextState.resourceStatesById["resource:1"].balances["metal-parts"]).toBe(12);
     expect(result.nextState.resourceStatesById["resource:1"].balances.metalParts).toBeUndefined();
-    expect(result.nextState.market?.stock).toMatchObject({ "metal-parts": 898 });
+    expect(result.nextState.market?.stock).toMatchObject({ "metal-parts": initialStock - 2 });
     expect(result.events[0]).toMatchObject({
       type: "market-transaction-resolved",
       payload: {
@@ -110,6 +111,7 @@ describe("market command handler", () => {
 
   it("sells resources into normal market and credits clean cash", () => {
     const state = createState();
+    const initialStock = Number(tickMarket(state, 0).nextState.market?.stock["metal-parts"] ?? 0);
     const unitPrice = Math.max(1, Math.floor(calculateMarketPrice(state, "metal-parts", "normal").finalPrice * 0.65));
     const result = applyCommand(state, sellCommand({
       resourceId: "metal-parts",
@@ -119,7 +121,7 @@ describe("market command handler", () => {
     expect(result.errors).toHaveLength(0);
     expect(result.nextState.resourceStatesById["resource:1"].balances["metal-parts"]).toBe(7);
     expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(10000 + unitPrice * 3);
-    expect(result.nextState.market?.stock).toMatchObject({ "metal-parts": 903 });
+    expect(result.nextState.market?.stock).toMatchObject({ "metal-parts": initialStock + 3 });
   });
 
   it("rejects failed buys without mutating cash, inventory or stock", () => {

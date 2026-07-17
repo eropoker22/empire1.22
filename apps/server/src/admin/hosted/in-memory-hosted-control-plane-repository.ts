@@ -1,10 +1,12 @@
-import type { HostedControlPlaneRepository, HostedServerRecord, HostedProvisioningJobRecord, HostedActionRequestRecord, HostedWorkerHeartbeatRecord } from "./hosted-control-plane-repository";
+import type { HostedControlPlaneRepository, HostedServerRecord, HostedProvisioningJobRecord, HostedActionRequestRecord, HostedWorkerHeartbeatRecord, HostedJoinReservationRecord, HostedJoinJobRecord } from "./hosted-control-plane-repository";
 
 export const createInMemoryHostedControlPlaneRepository = (seed: { servers?: HostedServerRecord[] } = {}): HostedControlPlaneRepository => {
   const servers = new Map((seed.servers ?? []).map((entry) => [entry.serverInstanceId, { ...entry }]));
   const jobs = new Map<string, HostedProvisioningJobRecord>();
   const actions = new Map<string, HostedActionRequestRecord>();
   const workers = new Map<string, HostedWorkerHeartbeatRecord>();
+  const joinReservations = new Map<string, HostedJoinReservationRecord>();
+  const joinJobs = new Map<string, HostedJoinJobRecord>();
   const idempotency = new Map<string, { hash: string; resourceId: string; server?: HostedServerRecord; job?: HostedProvisioningJobRecord; action?: HostedActionRequestRecord }>();
   return {
     durable: false,
@@ -92,10 +94,83 @@ export const createInMemoryHostedControlPlaneRepository = (seed: { servers?: Hos
       if (request) Object.assign(request, { status: "failed", claimedUntil: null, lastErrorCode: input.errorCode,
         updatedAt: input.at, version: request.version + 1 });
     },
+    getJoinReservation: async (reservationId) => copy(joinReservations.get(reservationId) ?? null),
+    getJoinReservationByIdempotency: async (playerIdentityId, idempotencyKey) => copy(
+      [...joinReservations.values()].find((entry) => entry.playerIdentityId === playerIdentityId && entry.idempotencyKey === idempotencyKey) ?? null
+    ),
+    reserveJoinTransaction: async (input) => {
+      const replay = [...joinReservations.values()].find((entry) =>
+        entry.playerIdentityId === input.reservation.playerIdentityId && entry.idempotencyKey === input.reservation.idempotencyKey);
+      if (replay) return replay.serverInstanceId === input.reservation.serverInstanceId && replay.requestHash === input.reservation.requestHash
+        ? { kind: "replayed", reservation: copy(replay), job: copy([...joinJobs.values()].find((entry) => entry.reservationId === replay.reservationId) ?? null) }
+        : { kind: "conflict" };
+      const server = servers.get(input.reservation.serverInstanceId);
+      if (!server) return { kind: "not-found" };
+      for (const reservation of joinReservations.values()) {
+        if (reservation.status === "reserved" && reservation.expiresAt <= input.reservation.createdAt) reservation.status = "expired";
+      }
+      const active = [...joinReservations.values()].find((entry) => entry.serverInstanceId === input.reservation.serverInstanceId
+        && entry.playerIdentityId === input.reservation.playerIdentityId && (entry.status === "reserved" || entry.status === "committed"));
+      if (active) return { kind: "replayed", reservation: copy(active), job: copy([...joinJobs.values()].find((entry) => entry.reservationId === active.reservationId) ?? null) };
+      if (server.version !== input.reservation.expectedServerVersion) return { kind: "stale-version" };
+      if (server.provisioningState !== "ready" || server.joinPolicy !== "open" || !(server.status === "lobby" || server.status === "running")) return { kind: "not-joinable" };
+      const occupied = [...joinReservations.values()].filter((entry) => entry.serverInstanceId === server.serverInstanceId
+        && (entry.status === "committed" || (entry.status === "reserved" && entry.expiresAt > input.reservation.createdAt))).length;
+      if (occupied >= server.capacity) return { kind: "server-full" };
+      const reservation = { ...input.reservation, reservedSlot: occupied + 1 };
+      joinReservations.set(reservation.reservationId, copy(reservation));
+      joinJobs.set(input.job.jobId, copy(input.job));
+      return { kind: "created", reservation: copy(reservation), job: copy(input.job) };
+    },
+    claimJoinJob: async (workerId, now, until) => {
+      const job = [...joinJobs.values()].find((entry) => {
+        const reservation = joinReservations.get(entry.reservationId);
+        return reservation?.status === "reserved" && reservation.expiresAt > now && entry.availableAt <= now
+          && (entry.status === "pending" || (entry.status === "claimed" && (entry.claimedUntil ?? "") <= now));
+      });
+      if (!job) return null;
+      Object.assign(job, { status: "claimed", claimedByWorkerId: workerId, claimedUntil: until,
+        attempt: job.attempt + 1, updatedAt: now, version: job.version + 1 });
+      return copy(job);
+    },
+    completeJoin: async (input) => {
+      const reservation = joinReservations.get(input.reservationId); const job = joinJobs.get(input.jobId);
+      if (!reservation || !job) return false;
+      if (reservation.status === "committed") return reservation.joinTicketId === input.joinTicketId;
+      if (reservation.status !== "reserved" || reservation.expiresAt <= input.at) return false;
+      Object.assign(reservation, { status: "committed", joinTicketId: input.joinTicketId, committedAt: input.at,
+        updatedAt: input.at, version: reservation.version + 1 });
+      Object.assign(job, { status: "completed", claimedUntil: null, lastErrorCode: null,
+        updatedAt: input.at, version: job.version + 1 });
+      return true;
+    },
+    failJoin: async (input) => {
+      const reservation = joinReservations.get(input.reservationId); const job = joinJobs.get(input.jobId);
+      if (reservation && reservation.status !== "committed") Object.assign(reservation, { status: input.status,
+        canceledAt: input.status === "expired" ? reservation.canceledAt : input.at, updatedAt: input.at, version: reservation.version + 1 });
+      if (job && job.status !== "completed") Object.assign(job, { status: "failed", claimedUntil: null,
+        lastErrorCode: input.errorCode, updatedAt: input.at, version: job.version + 1 });
+    },
+    expireJoinReservations: async (at) => {
+      let expired = 0;
+      for (const reservation of joinReservations.values()) {
+        if (reservation.status !== "reserved" || reservation.expiresAt > at) continue;
+        Object.assign(reservation, { status: "expired", updatedAt: at, version: reservation.version + 1 });
+        const job = [...joinJobs.values()].find((entry) => entry.reservationId === reservation.reservationId);
+        if (job && job.status !== "completed") Object.assign(job, { status: "failed", claimedUntil: null,
+          lastErrorCode: "JOIN_RESERVATION_EXPIRED", updatedAt: at, version: job.version + 1 });
+        expired += 1;
+      }
+      return expired;
+    },
+    getJoinCapacity: async (serverInstanceId, at) => ({
+      committedPlayers: [...joinReservations.values()].filter((entry) => entry.serverInstanceId === serverInstanceId && entry.status === "committed").length,
+      reservedSlots: [...joinReservations.values()].filter((entry) => entry.serverInstanceId === serverInstanceId && entry.status === "reserved" && entry.expiresAt > at).length
+    }),
     writeWorkerHeartbeat: async (record) => { workers.set(record.workerId, copy(record)); },
     getFreshWorkerHeartbeat: async (since) => copy([...workers.values()].filter((entry) => entry.status === "online" && entry.lastHeartbeatAt >= since).sort((a, b) => b.lastHeartbeatAt.localeCompare(a.lastHeartbeatAt))[0] ?? null),
     acquireRuntimeLease: async (input) => { const server = servers.get(input.serverInstanceId); if (!server || (server.runtimeLeaseOwnerId !== input.workerId && server.runtimeLeaseExpiresAt && server.runtimeLeaseExpiresAt > input.now)) return false; Object.assign(server, { runtimeLeaseOwnerId: input.workerId, runtimeLeaseExpiresAt: input.expiresAt, lastWorkerHeartbeatAt: input.now }); return true; },
-    releaseRuntimeLease: async (id, workerId, at) => { const server = servers.get(id); if (server?.runtimeLeaseOwnerId === workerId) Object.assign(server, { runtimeLeaseOwnerId: null, runtimeLeaseExpiresAt: null, updatedAt: at }); },
+    releaseRuntimeLease: async (id, workerId, at) => { const server = servers.get(id); if (server?.runtimeLeaseOwnerId === workerId && server.status !== "running") Object.assign(server, { runtimeLeaseOwnerId: null, runtimeLeaseExpiresAt: null, updatedAt: at }); },
     writeInstanceHeartbeat: async (input) => { const server = servers.get(input.serverInstanceId); if (server?.runtimeLeaseOwnerId === input.workerId) Object.assign(server, { lastWorkerHeartbeatAt: input.at, runtimeLeaseExpiresAt: input.leaseExpiresAt, lastErrorCode: input.lastErrorCode }); }
   };
 };

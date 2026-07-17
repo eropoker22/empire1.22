@@ -119,10 +119,8 @@ export function createDistrictPopupMetricsRuntime(deps = {}) {
       title = "Do zničeného districtu nelze nastražit past.";
     } else if (hasTrapHere) {
       label = "Past aktivní";
-      subtitle = trapMoveCooldownSeconds > 0 ? formatTrapMoveCooldownLabel(trapMoveCooldownSeconds) : "v tomto districtu";
-      title = trapMoveCooldownSeconds > 0
-        ? `Past už v tomto districtu běží. Přesun bude možný za ${formatTrapMoveCooldownLabel(trapMoveCooldownSeconds)}.`
-        : `V tomto districtu je nastražená tvoje past.`;
+      subtitle = "v tomto districtu";
+      title = "V tomto districtu je nastražená tvoje past.";
     } else if (moveLocked) {
       label = "Přesunout past";
       subtitle = formatTrapMoveCooldownLabel(trapMoveCooldownSeconds);
@@ -148,7 +146,7 @@ export function createDistrictPopupMetricsRuntime(deps = {}) {
       moveLocked,
       buildingVisible: hasTrapHere,
       buildingLabel: "Toxická past",
-      buildingMeta: trapMoveCooldownSeconds > 0 ? formatTrapMoveCooldownLabel(trapMoveCooldownSeconds) : "připraveno"
+      buildingMeta: "aktivní"
     };
   };
 

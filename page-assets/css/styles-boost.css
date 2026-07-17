@@ -806,7 +806,7 @@
 .boost-cost-chip strong { color: #dbeafe; font-size: 0.65rem; font-variant-numeric: tabular-nums; }
 .boost-cost-chip.is-missing { border-color: rgba(248, 113, 113, 0.55); background: rgba(127, 29, 29, 0.14); }
 .boost-cost-chip.is-missing strong { color: #fecaca; }
-.boost-cost-chip--cash { flex: 1 1 100%; }
+.boost-cost-chip--cash { flex: 1 1 86px; }
 
 .boost-card__activate {
   width: 100%;

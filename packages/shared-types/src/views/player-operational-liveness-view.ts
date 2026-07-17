@@ -11,6 +11,18 @@ export type PlayerOperationalLivenessState =
   | "defeated"
   | "invalid_softlock";
 
+export interface PlayerProgressionCapabilityView {
+  canExecuteNow: boolean;
+  canExecuteLater: boolean;
+  nextAvailableAtTick: number | null;
+  reasonCode: string | null;
+  sourceDistrictId: string | null;
+  targetDistrictId: string | null;
+  routeDistrictId: string | null;
+  recommendedPayloadPreview: Record<string, unknown> | null;
+  evidence: string[];
+}
+
 export interface PlayerOperationalLivenessView {
   state: PlayerOperationalLivenessState;
   canProgressNow: boolean;
@@ -30,6 +42,7 @@ export interface PlayerOperationalLivenessView {
   corridorTargets: string[];
   blockingReasons: string[];
   recommendedActions: string[];
+  capabilities: Record<string, PlayerProgressionCapabilityView>;
   corridorAvailable: boolean;
   lastStand: {
     active: boolean;

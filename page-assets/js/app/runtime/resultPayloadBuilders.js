@@ -259,15 +259,17 @@ export function createResultPayloadBuilders(deps = {}) {
       return [
         { label: "Útočník", value: getResultDistrictOwnerLabel(attackerDistrictId, "Neznámý gang") },
         { label: "Obránce", value: getResultDistrictOwnerLabel(districtId, "Neobsazeno") },
-        { label: "Konec boje za", value: formatDurationLabel(remainingMs), nowrap: true, countdownUntil: Number(attackMarker?.expiresAt || 0) }
+        { label: "Konec boje", value: formatDurationLabel(remainingMs), nowrap: true, countdownUntil: Number(attackMarker?.expiresAt || 0) }
       ];
     };
 
     return {
       tone: "is-district-attack-warning",
-      title: "Útok probíhá",
-      badge: "Boj o district",
+      title: "Probíhá útok",
+      badge: "",
       summary: "",
+      hideBadge: true,
+      hideSummary: true,
       syncToBuildingAction: false,
       rows: buildRows(),
       getRows: buildRows,

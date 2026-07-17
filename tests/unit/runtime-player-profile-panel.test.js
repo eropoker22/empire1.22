@@ -57,7 +57,7 @@ const createElements = () => ({
   identity: new FakeElement("strong"),
   faction: new FakeElement("strong"),
   server: new FakeElement("strong"),
-  startDistrict: new FakeElement("strong"),
+  empireScore: new FakeElement("strong"),
   cleanMoney: new FakeElement("strong"),
   dirtyMoney: new FakeElement("strong"),
   influence: new FakeElement("strong"),
@@ -86,7 +86,7 @@ describe("player profile panel renderer", () => {
         heat: 12
       },
       districtCount: 3,
-      startDistrictId: 27,
+      empireScore: 12345,
       allianceLabel: "Neon Pact",
       avatarSrc: "../img/avatar.png",
       accentColor: "#3b82f6",
@@ -102,7 +102,7 @@ describe("player profile panel renderer", () => {
       identityLabel: "Smoke Boss",
       factionLabel: "Hackeři",
       serverLabel: "Free EU",
-      startDistrictLabel: "District 27",
+      empireScoreLabel: "12 345",
       cleanMoneyLabel: "$1 200",
       dirtyMoneyLabel: "$300",
       influenceLabel: "8",
@@ -126,7 +126,7 @@ describe("player profile panel renderer", () => {
       identityLabel: "Smoke Boss",
       factionLabel: "Hackeři",
       serverLabel: "War EU",
-      startDistrictLabel: "District 27",
+      empireScoreLabel: "12 345",
       cleanMoneyLabel: "$1 200",
       dirtyMoneyLabel: "$300",
       influenceLabel: "8",
@@ -149,7 +149,7 @@ describe("player profile panel renderer", () => {
     expect(elements.name.textContent).toBe("Smoke Boss");
     expect(elements.faction.textContent).toBe("Hackeři");
     expect(elements.server.textContent).toBe("War EU");
-    expect(elements.startDistrict.textContent).toBe("District 27");
+    expect(elements.empireScore.textContent).toBe("12 345");
     expect(elements.cleanMoney.textContent).toBe("$1 200");
     expect(elements.dirtyMoney.textContent).toBe("$300");
     expect(elements.influence.textContent).toBe("8");

@@ -75,7 +75,7 @@ describe("current gameplay cleanup guard", () => {
     const chatRuntime = read("page-assets/js/app/alliance-runtime.js");
     const browserAdapter = read("packages/game-config/src/legacy-page/economy-config.js");
 
-    expect(page).toContain('name="empire-gameplay-execution-mode" content="local-demo"');
+    expect(page).toContain('name="empire-gameplay-execution-mode" content="auto"');
     expect(page).toContain("Demo chat je lokální kanál tohoto prohlížeče.");
     expect(page).toContain("Strategické boosty");
     expect(chatRuntime).toContain('empire:demo:global-chat:v1');

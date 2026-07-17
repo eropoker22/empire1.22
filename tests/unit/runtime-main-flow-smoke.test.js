@@ -114,9 +114,11 @@ describe("runtime main UI flow smoke guard", () => {
       expect(source).toContain("const openPoliceRaidOnlyForDistrict = (district, policeAction = null) => {");
       expect(source).toMatch(/closePopup\(\);\r?\n    hideTooltip\(\);/u);
       expect(source).toContain('queueOrOpenResultModal(root, "police", {');
-      expect(source).toContain("const openStoredOwnedPoliceRaidAlert = () => {");
+      expect(source).toContain("const appendStoredOwnedPoliceRaidAlert = () => {");
       expect(source).toContain('root.dataset.ownedPoliceRaidAlertOpened === "true"');
       expect(source).toContain("createOwnedDistrictPoliceRaidAlertPayload(district, activeOwnedPoliceAction)");
+      expect(source).toContain("appendBuildingActionResultEntry(root, \"police\", payload, {");
+      expect(source).toContain('title: "Probíhá policejní razie"');
       expect(source).toContain("scheduleStoredOwnedPoliceRaidAlert();");
       expect(source).toContain("return openPoliceRaidOnlyForDistrict(district, activePoliceAction);");
       expect(source).toMatch(/event\.stopPropagation\?\.\(\);\r?\n        openPoliceRaidOnlyForDistrict\(district, activePoliceAction\);\r?\n        return;/u);

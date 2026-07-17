@@ -1,9 +1,21 @@
-import type { DomainError, GameplaySliceResponse, LoadGameplaySliceRequest, SubmitGameplayCommandRequest } from "@empire/shared-types";
+import type {
+  DomainError,
+  GameplayCommandResultLookupResponse,
+  GameplaySliceResponse,
+  LoadGameplaySliceRequest,
+  LookupGameplayCommandResultRequest,
+  SubmitGameplayCommandRequest
+} from "@empire/shared-types";
 import { createServerApp, type ServerApp } from "../app";
 import { ensureGameplaySliceSessionResult } from "../bootstrap";
 import { createInstanceSnapshot } from "../runtime/persistence/mappers";
 import { createSnapshotTokenCodec, type SnapshotTokenCryptoProvider } from "../runtime/persistence/services";
-import { createGameplaySliceValidationResponse, validateLoadGameplaySliceRequest, validateSubmitGameplayCommandRequest } from "../transport/gameplay-slice-request-validation";
+import {
+  createGameplaySliceValidationResponse,
+  validateLoadGameplaySliceRequest,
+  validateSubmitGameplayCommandRequest
+} from "../transport/gameplay-slice-request-validation";
+import { validateLookupGameplayCommandResultRequest } from "../transport/gameplay-command-result-lookup-validation";
 import { validateCommandPlayerIdentity } from "../transport/player-identity-guard";
 import { createGameplaySessionTokenCodec } from "../transport/gameplay-session-token-codec";
 import { readRequiredGameplaySessionSecret, readRequiredSnapshotSecret } from "./snapshot-secret";
@@ -18,6 +30,7 @@ import { validateStateChangingOrigin } from "./csrf-origin-guard";
 import { resolveAdminDurableRepositories, type AdminDurableRepositories } from "../admin/read-only";
 import { createAdminGameplaySliceBoundary } from "./admin-gameplay-slice-boundary";
 import { createPublicServerListResponse } from "./public-server-list-netlify";
+import { createPlayerEntryNetlifyBoundary } from "../player-entry/player-entry-netlify";
 
 interface NetlifyFunctionEvent {
   httpMethod: string;
@@ -26,7 +39,7 @@ interface NetlifyFunctionEvent {
   headers?: Record<string, string | string[] | undefined>;
 }
 
-interface GameplaySliceFunctionHandlerOptions {
+export interface GameplaySliceFunctionHandlerOptions {
   cryptoProvider?: SnapshotTokenCryptoProvider;
   environment?: Record<string, string | undefined>;
   allowImplicitInstanceCreation?: boolean;
@@ -47,6 +60,8 @@ export const createGameplaySliceFunctionHandler = (
   const adminResolution = resolveAdminDurableRepositories(environment, options.adminRepositories);
   const adminRepositories = adminResolution.accepted ? adminResolution.repositories : null;
   const handleAdminRequest = createAdminGameplaySliceBoundary({ environment, repositories: adminRepositories ?? undefined });
+  const handlePlayerEntryRequest = createPlayerEntryNetlifyBoundary({ environment,
+    gameplaySessionService: server.gameplaySessionService });
   const allowImplicitInstanceCreation =
     options.allowImplicitInstanceCreation ?? environment.NODE_ENV !== "production";
   const snapshotTokenCodec = snapshotSecret.secret
@@ -70,74 +85,70 @@ export const createGameplaySliceFunctionHandler = (
         toFunctionResponse
       })
     : null;
-
   return async (event: NetlifyFunctionEvent): Promise<NetlifyFunctionResponse> => {
     const adminResponse = await handleAdminRequest(event);
     if (adminResponse) return adminResponse;
+    const playerEntryResponse = await handlePlayerEntryRequest({
+      ...event,
+      body: parseBoundaryBody(event.body)
+    });
+    if (playerEntryResponse) return playerEntryResponse;
     if (event.httpMethod.toUpperCase() === "OPTIONS") {
       return createJsonResponse(204, null);
     }
-
     const route = resolveGameplaySliceFunctionRoute(event.path);
-
     if (!route) {
       return createJsonResponse(
         404,
         createErrorResponse("transport.not_found", "Gameplay slice endpoint was not found.")
       );
     }
-
     if (environment.NODE_ENV !== "production" && server.instanceManager.listInstances().length === 0) {
       ensureDefaultLobbyServers(server);
     }
-
     if (!snapshotSecret.accepted || !snapshotTokenCodec) {
       return createJsonResponse(500, createErrorResponseFromErrors(snapshotSecret.errors));
     }
-
     if (!gameplaySessionSecret.accepted || !sessionTokenCodec) {
       return createJsonResponse(500, createErrorResponseFromErrors(gameplaySessionSecret.errors));
     }
-
     if (route === "servers") {
       return await createPublicServerListResponse(server, environment, adminRepositories);
     }
-
     const productionGuardError = sessionHandlers?.validateProductionSessionRuntime() ?? null;
     if (productionGuardError) {
       return createJsonResponse(500, createErrorResponseFromErrors([productionGuardError]));
     }
-
     if (isStateChangingRoute(route)) {
       const originError = validateStateChangingOrigin(event.headers, environment);
       if (originError) {
         return createJsonResponse(200, createErrorResponseFromErrors([originError]));
       }
     }
-
     const parsedBody = parseNetlifyJsonBody(event.body);
-
     if (!parsedBody.accepted) {
       return createJsonResponse(
         parsedBody.statusCode,
         createErrorResponseFromErrors([parsedBody.error])
       );
     }
-
     if (route === "matchmaking-reserve") {
+      if (environment.NODE_ENV === "production" && environment.EMPIRE_LEGACY_MATCHMAKING_ENABLED !== "true") {
+        return createJsonResponse(410, createErrorResponse(
+          "MATCHMAKING_ENTRY_REPLACED",
+          "Production player entry requires account session and lobby spawn confirmation."
+        ));
+      }
       return await handlePublicServerMatchmakingReserve(
         server, event.httpMethod, parsedBody.body, event.headers, environment, adminRepositories
       );
     }
-
     const requestPath = `/api/gameplay-slice/${route}`;
-
     if (route === "load") {
       const validation = validateLoadGameplaySliceRequest(parsedBody.body);
       if (!validation.accepted) {
         return createJsonResponse(200, createGameplaySliceValidationResponse(validation.errors));
       }
-
       const request: LoadGameplaySliceRequest = {
         ...validation.request,
         sessionToken: resolveGameplaySessionToken(event.headers, validation.request.sessionToken)
@@ -149,27 +160,43 @@ export const createGameplaySliceFunctionHandler = (
       if (snapshotTokenError) {
         return createJsonResponse(200, createErrorResponseFromErrors([snapshotTokenError]));
       }
-
+      if (server.instanceManager.getInstanceById(request.serverInstanceId)) await server.instanceManager.restoreInstance(request.serverInstanceId);
       return await toFunctionResponse(await server.gameplaySliceJsonHandler.handle({
         method: event.httpMethod,
         path: requestPath,
         body: request
       }), request.serverInstanceId);
     }
-
     if (route === "join") {
       return sessionHandlers!.handleJoin(parsedBody.body, event.headers);
     }
-
     if (route === "logout") {
       return await sessionHandlers!.handleLogout(parsedBody.body, event.headers);
     }
-
+    if (route === "command-result") {
+      const validation = validateLookupGameplayCommandResultRequest(parsedBody.body);
+      if (!validation.accepted) {
+        return createJsonResponse(200, {
+          accepted: false,
+          status: "not_found",
+          readModel: null,
+          errors: validation.errors
+        });
+      }
+      const request: LookupGameplayCommandResultRequest = {
+        ...validation.request,
+        sessionToken: resolveGameplaySessionToken(event.headers, validation.request.sessionToken)
+      };
+      return await toFunctionResponse(await server.gameplaySliceJsonHandler.handle({
+        method: event.httpMethod,
+        path: requestPath,
+        body: request
+      }), request.serverInstanceId);
+    }
     const validation = validateSubmitGameplayCommandRequest(parsedBody.body);
     if (!validation.accepted) {
       return createJsonResponse(200, createGameplaySliceValidationResponse(validation.errors));
     }
-
     const request: SubmitGameplayCommandRequest = {
       ...validation.request,
       sessionToken: resolveGameplaySessionToken(event.headers, validation.request.sessionToken)
@@ -181,7 +208,6 @@ export const createGameplaySliceFunctionHandler = (
     if (snapshotTokenError) {
       return createJsonResponse(200, createErrorResponseFromErrors([snapshotTokenError]));
     }
-
     const identityErrors = validateCommandPlayerIdentity(request.command, null, {
       sessionToken: request.sessionToken,
       sessionTokenCodec
@@ -189,7 +215,6 @@ export const createGameplaySliceFunctionHandler = (
     if (identityErrors.length > 0) {
       return createJsonResponse(200, createErrorResponseFromErrors(identityErrors));
     }
-
     const ensureResult = await ensureGameplaySliceSessionResult(server.instanceManager, request, {
       snapshotToken: request.snapshotToken,
       snapshotTokenCodec,
@@ -204,22 +229,19 @@ export const createGameplaySliceFunctionHandler = (
       body: request
     }), request.command.serverInstanceId);
   };
-
   function toFunctionResponse(response: {
     status: number;
-    body: GameplaySliceResponse;
+    body: GameplaySliceResponse | GameplayCommandResultLookupResponse;
   }, instanceId: string): Promise<NetlifyFunctionResponse> {
     const runtime = server.instanceManager.getInstanceById(instanceId);
-
     return Promise.resolve(runtime
       ? snapshotTokenCodec!.seal(createInstanceSnapshot(runtime))
-      : response.body.snapshotToken ?? null
+      : ("snapshotToken" in response.body ? response.body.snapshotToken ?? null : null)
     ).then((snapshotToken) => createJsonResponse(response.status, {
       ...response.body,
       snapshotToken
     }));
   }
-
   async function validateSnapshotTokenForInstance(
     snapshotToken: string | null | undefined,
     serverInstanceId: string
@@ -228,7 +250,6 @@ export const createGameplaySliceFunctionHandler = (
     if (!token) {
       return null;
     }
-
     const snapshot = await snapshotTokenCodec!.open(token);
     return snapshot?.instanceId === serverInstanceId
       ? null
@@ -237,7 +258,6 @@ export const createGameplaySliceFunctionHandler = (
           message: "Snapshot token is invalid."
         };
   }
-
   function resolveGameplaySessionToken(
     headers: Record<string, string | string[] | undefined> | undefined,
     bodySessionToken: string | null | undefined
@@ -248,10 +268,12 @@ export const createGameplaySliceFunctionHandler = (
     return String(bodySessionToken ?? "").trim() || null;
   }
 };
-
+const parseBoundaryBody = (body: string | null): unknown => {
+  if (!body) return null;
+  try { return JSON.parse(body) as unknown; } catch (_error) { return null; }
+};
 const readProcessEnvironment = (): Record<string, string | undefined> => (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {};
 export const handler = createGameplaySliceFunctionHandler();
-
 const createErrorResponse = (
   code: string,
   message: string
@@ -260,7 +282,6 @@ const createErrorResponse = (
   readModel: null,
   errors: [{ code, message }]
 });
-
 const createErrorResponseFromErrors = (
   errors: DomainError[]
 ): GameplaySliceResponse => ({
@@ -268,7 +289,6 @@ const createErrorResponseFromErrors = (
   readModel: null,
   errors
 });
-
 const isStateChangingRoute = (
   route: ReturnType<typeof resolveGameplaySliceFunctionRoute>
 ): boolean => route === "matchmaking-reserve" || route === "join" || route === "logout" || route === "submit";

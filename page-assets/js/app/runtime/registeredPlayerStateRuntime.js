@@ -32,7 +32,6 @@ export function createRegisteredPlayerStateRuntime(deps = {}) {
     const playerGang = scope.querySelector(deps.playerPopupGangSelector);
     const playerFaction = scope.querySelector(deps.playerPopupFactionSelector);
     const playerServer = scope.querySelector(deps.playerPopupServerSelector);
-    const playerStartDistrict = scope.querySelector(deps.playerPopupStartDistrictSelector);
 
     deps.applyTopbarEconomy(root, { instant: true });
 
@@ -70,11 +69,6 @@ export function createRegisteredPlayerStateRuntime(deps = {}) {
 
     if (playerServer) {
       playerServer.textContent = registration.serverLabel || registration.serverId || "-";
-    }
-
-    if (playerStartDistrict) {
-      const startDistrictId = Number(registration.startDistrictId || 0) || deps.getCurrentPlayerLaunchStartDistrictId();
-      playerStartDistrict.textContent = startDistrictId ? `District ${startDistrictId}` : "-";
     }
 
     const syncGangOverview = () => {

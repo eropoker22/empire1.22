@@ -10,8 +10,8 @@ import {
   submitServerCityEventCommand,
   renderSpyResourceState
 } from "./runtime.js";
-import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
 import { bindSharedCountdown } from "./ui/sharedCountdownTicker.js";
+import { bindSharedModal, closeSharedModal, openSharedModal } from "./ui/sharedModalStack.js";
 import { GAMEPLAY_EXECUTION_MODES, getGameplayExecutionMode } from "./runtime/gameplayExecutionMode.js";
 
 const MAX_VISIBLE_EVENTS_PER_CHARACTER = 3;
@@ -709,6 +709,8 @@ function initCityEventsRuntime() {
   const detailDeclineBtn = document.getElementById("event-detail-decline");
 
   if (!modal || !openBtn || !detailModal || !tasklist) return;
+  bindSharedModal(modal);
+  bindSharedModal(detailModal);
 
   let selectedAgentKey = null;
   let selectedEventTask = null;
@@ -793,10 +795,7 @@ function initCityEventsRuntime() {
   };
 
   const closeEventDetailModal = () => {
-    detailModal.classList.add("hidden");
-    detailModal.hidden = true;
-    closeOverlay(detailModal, { restoreFocus: true });
-    selectedEventTask = null;
+    closeSharedModal(detailModal);
   };
 
   const openEventDetailModal = (task) => {
@@ -845,8 +844,13 @@ function initCityEventsRuntime() {
     if (wasHidden) {
       detailModal.hidden = false;
       detailModal.classList.remove("hidden");
-      openOverlay(detailModal, { type: "modal", ariaModal: true, restoreFocusOnClose: true });
-      detailCloseBtn?.focus({ preventScroll: true });
+      openSharedModal(detailModal, {
+        trigger: task.trigger || document.activeElement,
+        onClose: () => {
+          detailModal.classList.add("hidden");
+          selectedEventTask = null;
+        }
+      });
     }
   };
 
@@ -951,8 +955,14 @@ function initCityEventsRuntime() {
     syncRefreshLabel();
     modal.hidden = false;
     modal.classList.remove("hidden");
-    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: true });
-    closeBtn?.focus({ preventScroll: true });
+    openSharedModal(modal, {
+      trigger: openBtn,
+      onClose: () => {
+        modal.classList.add("hidden");
+        modal.classList.add("events-modal--compact");
+        if (selectedEventTask) closeEventDetailModal();
+      }
+    });
     document.dispatchEvent(new CustomEvent("empire:city-events-opened", { detail: { open: true } }));
   };
 
@@ -960,10 +970,7 @@ function initCityEventsRuntime() {
     if (selectedEventTask) {
       closeEventDetailModal();
     }
-    modal.classList.add("hidden");
-    modal.hidden = true;
-    modal.classList.add("events-modal--compact");
-    closeOverlay(modal, { restoreFocus: true });
+    closeSharedModal(modal);
   };
 
   const finalizeCityEventRun = (taskId) => {
@@ -1113,9 +1120,7 @@ function initCityEventsRuntime() {
   };
 
   openBtn.addEventListener("click", openModal);
-  backdrop?.addEventListener("click", closeModal);
   closeBtn?.addEventListener("click", closeModal);
-  detailBackdrop?.addEventListener("click", closeEventDetailModal);
   detailCloseBtn?.addEventListener("click", closeEventDetailModal);
   detailDeclineBtn?.addEventListener("click", closeEventDetailModal);
   detailAcceptBtn?.addEventListener("click", async () => {
@@ -1174,16 +1179,6 @@ function initCityEventsRuntime() {
       : taskLookup.get(taskId);
     if (selectedTask) {
       openEventDetailModal(selectedTask);
-    }
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !detailModal.classList.contains("hidden")) {
-      closeEventDetailModal();
-      return;
-    }
-    if (event.key === "Escape" && !modal.classList.contains("hidden")) {
-      closeModal();
     }
   });
 

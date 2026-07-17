@@ -1,6 +1,8 @@
 import type {
   AuthContext,
+  GameplayCommandResultLookupResponse,
   GameplaySliceResponse,
+  LookupGameplayCommandResultRequest,
   LoadGameplaySliceRequest,
   ServerAssignedFocusDistrictId,
   SubmitGameplayCommandRequest
@@ -14,20 +16,17 @@ import type { ServerCommandIngress } from "./command-ingress";
 import { validateCommandPlayerIdentity } from "./player-identity-guard";
 import type { GameplaySessionTokenCodec } from "./gameplay-session-token-codec";
 import type { GameplaySessionService } from "../auth";
+import { lookupGameplayCommandResult } from "./gameplay-command-result-lookup";
 
 export interface GameplaySliceTransportOptions {
   sessionTokenCodec?: GameplaySessionTokenCodec | null;
   gameplaySessionService?: GameplaySessionService | null;
 }
 
-/**
- * Responsibility: Transport boundary dedicated to the first district/building gameplay slice.
- * Belongs here: request validation, instance lookup, and projection response shaping.
- * Does not belong here: gameplay rules or client rendering.
- */
 export interface GameplaySliceTransport {
   load(request: LoadGameplaySliceRequest): Promise<GameplaySliceResponse>;
   submit(request: SubmitGameplayCommandRequest, authContext?: AuthContext | null): Promise<GameplaySliceResponse>;
+  lookupCommandResult?(request: LookupGameplayCommandResultRequest): Promise<GameplayCommandResultLookupResponse>;
 }
 
 export const createGameplaySliceTransport = (
@@ -50,11 +49,9 @@ export const createGameplaySliceTransport = (
           errors: sessionResult.errors
         };
       }
-
       if (!runtime) {
         return createNotFoundResponse("Slice runtime or projection was not found.");
       }
-
       return {
         accepted: true,
         readModel: createGameplaySliceProjection(runtime, sessionResult.session.playerId, request.districtId),
@@ -80,7 +77,7 @@ export const createGameplaySliceTransport = (
             message: "Command rejected by transport session guard.",
             expectedStateVersion: request.expectedStateVersion,
             focusDistrictId: request.focusDistrictId
-          });
+          }).catch(() => undefined);
         }
         return {
           accepted: false,
@@ -105,7 +102,6 @@ export const createGameplaySliceTransport = (
         sessionToken: request.sessionToken,
         sessionTokenCodec: options.sessionTokenCodec
       });
-
       if (identityErrors.length > 0) {
         const runtime = instanceManager.getInstanceById(request.command.serverInstanceId);
         if (runtime) {
@@ -117,16 +113,14 @@ export const createGameplaySliceTransport = (
             message: "Command rejected by transport identity guard.",
             expectedStateVersion: request.expectedStateVersion,
             focusDistrictId: request.focusDistrictId
-          });
+          }).catch(() => undefined);
         }
-
         return {
           accepted: false,
           readModel: null,
           errors: identityErrors
         };
       }
-
       if (isServerAssignedFocusDistrictId(request.focusDistrictId)) {
         const runtime = instanceManager.getInstanceById(request.command.serverInstanceId);
         const errors = [
@@ -138,7 +132,6 @@ export const createGameplaySliceTransport = (
             }
           }
         ];
-
         if (runtime) {
           void writeCommandRejectionDiagnostic({
             runtime,
@@ -148,9 +141,8 @@ export const createGameplaySliceTransport = (
             message: "Command rejected by transport request guard.",
             expectedStateVersion: request.expectedStateVersion,
             focusDistrictId: request.focusDistrictId
-          });
+          }).catch(() => undefined);
         }
-
         return {
           accepted: false,
           readModel: runtime
@@ -160,15 +152,12 @@ export const createGameplaySliceTransport = (
           metadata: runtime ? createGameplaySliceResponseMetadata(runtime) : undefined,
         };
       }
-
       const dispatchResult = await commandIngress.submit(request.command, {
         expectedStateVersion: request.expectedStateVersion
       });
-
       if (!dispatchResult) {
         return createNotFoundResponse("Target instance was not found for the submitted command.");
       }
-
       return {
         accepted: dispatchResult.errors.length === 0,
         readModel: createGameplaySliceProjection(
@@ -190,9 +179,33 @@ export const createGameplaySliceTransport = (
             }
           : null
       };
+    },
+    lookupCommandResult: async (request) => {
+      const runtime = instanceManager.getInstanceById(request.serverInstanceId);
+      const sessionResult = await validateRequestSession(
+        request.sessionToken,
+        request.serverInstanceId,
+        runtime?.clock.nowIso()
+      );
+      if (!sessionResult.accepted) {
+        return {
+          accepted: false,
+          status: "not_found",
+          readModel: null,
+          errors: sessionResult.errors
+        };
+      }
+      if (!runtime) {
+        return {
+          accepted: false,
+          status: "not_found",
+          readModel: null,
+          errors: [{ code: "transport.not_found", message: "Slice runtime or projection was not found." }]
+        };
+      }
+      return lookupGameplayCommandResult(runtime, sessionResult.session.playerId, request);
     }
   };
-
   async function validateRequestSession(
     sessionTokenOrId: string | null | undefined,
     serverInstanceId: string,
@@ -225,24 +238,12 @@ export const createGameplaySliceTransport = (
     });
   }
 };
-
-const isServerAssignedFocusDistrictId = (
-  districtId: string
-): districtId is ServerAssignedFocusDistrictId =>
+const isServerAssignedFocusDistrictId = (districtId: string): districtId is ServerAssignedFocusDistrictId =>
   districtId === SERVER_ASSIGNED_FOCUS_DISTRICT_ID;
-
 const createGameplaySliceResponseMetadata = (runtime: ServerInstanceRuntime): GameplaySliceResponse["metadata"] => ({
   serverTick: runtime.state.root.tick,
   stateVersion: runtime.state.root.version
 });
-
 const createNotFoundResponse = (message: string): GameplaySliceResponse => ({
-  accepted: false,
-  readModel: null,
-  errors: [
-    {
-      code: "transport.not_found",
-      message
-    }
-  ]
+  accepted: false, readModel: null, errors: [{ code: "transport.not_found", message }]
 });

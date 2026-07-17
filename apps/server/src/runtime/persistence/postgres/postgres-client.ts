@@ -19,7 +19,11 @@ export const createPostgresDatabase = (databaseUrl: string): PostgresDatabase =>
   let poolPromise: Promise<Pool> | null = null;
 
   const getPool = async (): Promise<Pool> => {
-    poolPromise ??= import("pg").then(({ Pool }) => new Pool({ connectionString }));
+    poolPromise ??= import("pg").then(({ Pool }) => {
+      const pool = new Pool({ connectionString });
+      pool.on("error", () => undefined);
+      return pool;
+    });
     return poolPromise;
   };
 

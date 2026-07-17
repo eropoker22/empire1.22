@@ -9,6 +9,7 @@ import {
   resolveUsableConflictOriginDistricts,
   type UsableConflictOrigins
 } from "./playerConflictOrigins";
+import { resolvePlayerProgressionCapabilities } from "./playerProgressionCapabilities";
 export { resolveUsableConflictOriginDistricts } from "./playerConflictOrigins";
 
 export const resolvePlayerOperationalLiveness = (
@@ -32,30 +33,13 @@ export const resolvePlayerOperationalLiveness = (
   }
 
   const frontier = calculatePlayerFrontier(state, playerId);
-  const spyAvailable = getPlayerSpyOperationState(state, playerId).slots.some((slot) => slot.availableAtTick <= state.root.tick);
-  const population = Math.max(0, Number(player.population ?? state.resourceStatesById[player.resourceStateId]?.balances.population ?? 0));
   const directTargets = [...frontier.emptyDistrictIds, ...frontier.enemyDistrictIds];
   const corridorRoutes = resolveAllianceCorridorRoutes(state, playerId);
-  const recommendedActions: string[] = [];
-  let conflictNow = false;
-  if (spyAvailable && (directTargets.length > 0 || corridorRoutes.length > 0) && origins.usableOriginDistrictIds.length > 0) {
-    conflictNow = true;
-    recommendedActions.push("spy");
-  }
-  if (population >= 1 && frontier.emptyDistrictIds.length > 0 && origins.usableOriginDistrictIds.length > 0) {
-    conflictNow = true;
-    recommendedActions.push("rob");
-  }
-  if (frontier.enemyDistrictIds.some((targetId) => hasValidAttackAuthorization(state, playerId, targetId))) {
-    recommendedActions.push("attack");
-  }
-  if (frontier.emptyDistrictIds.some((targetId) => validateOccupyEmptyDistrictAuthorization(state, playerId, targetId) === true)) {
-    recommendedActions.push("occupy");
-  }
-
-  const economyActions = resolveEconomyProgressActions(state, playerId);
-  recommendedActions.push(...economyActions);
-  const canProgressNow = conflictNow || economyActions.length > 0;
+  const capabilities = resolvePlayerProgressionCapabilities(state, playerId, context);
+  const recommendedActions = Object.entries(capabilities)
+    .filter(([, capability]) => capability.canExecuteNow)
+    .map(([action]) => action);
+  const canProgressNow = recommendedActions.length > 0;
   const deadline = resolveNextProgressDeadline(state, playerId);
   const canProgressLater = deadline !== null;
   const finalLockdown = state.root.phase === "final_lockdown" || state.finalLockdownState?.status === "active";
@@ -73,7 +57,7 @@ export const resolvePlayerOperationalLiveness = (
       ? frontier.state === "open" ? "open_frontier" : frontier.state === "no_frontier" ? "playable" : frontier.state
       : canProgressLater
         ? "temporarily_sealed"
-        : emergencyRecovery.canClaim || economyActions.length > 0
+        : emergencyRecovery.canClaim
           ? "economy_recovery"
           : "invalid_softlock";
   const invalidInvariant = stateName === "invalid_softlock";
@@ -89,7 +73,8 @@ export const resolvePlayerOperationalLiveness = (
     directTargets,
     corridorTargets: [...new Set(corridorRoutes.map((route) => route.targetDistrictId))],
     blockingReasons: invalidInvariant ? ["ACTIVE_PLAYER_SOFTLOCKED"] : [],
-    recommendedActions: [...new Set(recommendedActions)],
+    recommendedActions,
+    capabilities,
     corridorAvailable: corridorRoutes.length > 0,
     lastStand: {
       active: lastStandActive,
@@ -100,33 +85,6 @@ export const resolvePlayerOperationalLiveness = (
     emergencyRecovery,
     invalidInvariant
   };
-};
-
-const resolveEconomyProgressActions = (state: CoreGameState, playerId: string): string[] => {
-  const player = state.playersById[playerId];
-  if (!player) return [];
-  const actions: string[] = [];
-  const cityEvents = state.playerCityEventStatesByPlayerId?.[playerId];
-  if (cityEvents?.pendingRewards.some((reward) => reward.amount > 0)) actions.push("claim-city-event-reward");
-  if (!cityEvents?.activeRun && Object.values(cityEvents?.offersByAgent ?? {}).flat()
-    .some((offer) => offer.status === "available" && offer.expiresAtTick > state.root.tick)) actions.push("start-city-event");
-  const ownedBuildingIds = new Set(Object.values(state.districtsById)
-    .filter((district) => district.ownerPlayerId === playerId)
-    .flatMap((district) => district.buildingIds));
-  const canCollect = [...ownedBuildingIds].some((buildingId) => {
-    const building = state.buildingsById[buildingId];
-    if (!building || building.status !== "active") return false;
-    if (Object.values(building.productionLines ?? {}).some((line) => Number(line.legacyOutputAmount ?? 0) > 0)) return true;
-    return Object.values(state.resourceStatesById).some((resource) =>
-      resource.ownerType === "building" && resource.ownerId === buildingId
-      && Object.values(resource.balances).some((amount) => Number(amount) > 0));
-  });
-  if (canCollect) actions.push("collect-production");
-  const balances = state.resourceStatesById[player.resourceStateId]?.balances ?? {};
-  if (Object.entries(balances).some(([key, amount]) => !["cash", "dirty-cash", "population"].includes(key) && Number(amount) > 0)) {
-    actions.push("market-sell");
-  }
-  return actions;
 };
 
 const resolveNextProgressDeadline = (
@@ -204,6 +162,7 @@ const emptyView = (state: PlayerOperationalLivenessView["state"], invalidInvaria
   remainingTicks: null, ownedDistrictCount: 0, activeDistrictCount: 0, ownedDistrictIds: [], activeOwnedDistrictIds: [],
   usableOriginDistrictIds: [], temporarilyBlockedOriginDistrictIds: [], permanentlyInvalidOriginDistrictIds: [],
   frontierState: "no_frontier", directTargets: [], corridorTargets: [], blockingReasons: [], recommendedActions: [],
+  capabilities: {},
   corridorAvailable: false, lastStand: { active: false, districtId: null, protectedUntilTick: null, remainingTicks: 0 },
   emergencyRecovery: { canClaim: false, used: false, cleanCash: 0, population: 0, disabledReason: "UNAVAILABLE" }, invalidInvariant
 });

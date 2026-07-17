@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="../page-assets/css/styles-game-admin-slice.css">
     <link rel="stylesheet" href="../page-assets/css/styles-gameplay-slice-client.css?v=result-popup-center-20260528">
     <link rel="stylesheet" href="../page-assets/css/styles-closed-alpha-ux.css">
+    <link rel="stylesheet" href="../page-assets/css/styles-game-lobby-modal.css?v=lobby-actions-20260717">
   </head>
   <body class="game-body game-body--booting">
     <header id="game-header" class="game-topbar">
@@ -42,7 +43,7 @@
 
           <div class="game-utility-actions">
             <button type="button" class="button game-toolbar-button game-toolbar-button--settings nav-btn nav-btn--settings" data-nav-settings>Nastavení</button>
-            <button type="button" class="button game-toolbar-button game-toolbar-button--logout topbar__logout" data-nav-logout>Odhlásit se</button>
+            <button type="button" class="button game-toolbar-button game-toolbar-button--logout topbar__logout" data-nav-logout>Lobby</button>
           </div>
         </div>
       </div>
@@ -349,7 +350,37 @@
 
       <div class="game-mobile-utility-actions" aria-label="Mobilní utility akce">
         <button type="button" class="button game-toolbar-button game-toolbar-button--settings nav-btn nav-btn--settings" data-nav-settings>Nastavení</button>
-        <button type="button" class="button game-toolbar-button game-toolbar-button--logout topbar__logout" data-nav-logout>Odhlásit se</button>
+        <button type="button" class="button game-toolbar-button game-toolbar-button--logout topbar__logout" data-nav-logout>Lobby</button>
+      </div>
+
+      <div class="game-lobby-modal" data-game-lobby-modal hidden aria-hidden="true">
+        <button class="game-lobby-modal__backdrop" type="button" data-game-lobby-close aria-label="Zavřít nabídku Lobby"></button>
+        <section class="game-lobby-modal__card" role="dialog" aria-modal="true" aria-labelledby="game-lobby-modal-title">
+          <div class="game-lobby-modal__glow" aria-hidden="true"></div>
+          <button class="game-lobby-modal__close" type="button" data-game-lobby-close aria-label="Zavřít">×</button>
+          <p class="game-lobby-modal__eyebrow">EMPIRE NAVIGATION</p>
+          <h2 id="game-lobby-modal-title">Kam chceš pokračovat?</h2>
+          <p class="game-lobby-modal__lead">Návrat do lobby nemění tvoje členství na serveru. Úplné odhlášení pouze ukončí session.</p>
+          <div class="game-lobby-modal__actions">
+            <button class="game-lobby-action game-lobby-action--primary" type="button" data-game-lobby-action="lobby">
+              <span class="game-lobby-action__icon" aria-hidden="true">⌂</span>
+              <span class="game-lobby-action__copy"><strong>Zpět do Lobby</strong><small>Servery, můj gang a přehled účtu</small></span>
+              <span class="game-lobby-action__arrow" aria-hidden="true">→</span>
+            </button>
+            <button class="game-lobby-action" type="button" data-game-lobby-action="logout">
+              <span class="game-lobby-action__icon" aria-hidden="true">↪</span>
+              <span class="game-lobby-action__copy"><strong>Odhlásit se ze hry</strong><small>Bez opuštění aktuálního serveru</small></span>
+              <span class="game-lobby-action__arrow" aria-hidden="true">→</span>
+            </button>
+            <button class="game-lobby-action game-lobby-action--danger" type="button" data-game-lobby-action="leave-server">
+              <span class="game-lobby-action__icon" aria-hidden="true">×</span>
+              <span class="game-lobby-action__copy"><strong>Odhlásit se ze serveru</strong><small data-game-leave-cooldown>Kontroluji časové okno…</small></span>
+              <span class="game-lobby-action__arrow" aria-hidden="true">→</span>
+            </button>
+          </div>
+          <p class="game-lobby-modal__rule">Opuštění serveru je dostupné pouze během první hodiny od jeho prvního spuštění.</p>
+          <p class="game-lobby-modal__error" data-game-lobby-error role="alert"></p>
+        </section>
       </div>
 
       <div id="game-overlay-region" class="game-overlay-roots" data-overlay-roots aria-hidden="true">
@@ -963,7 +994,7 @@
             <p class="player-popup-row"><span>Gang</span><strong data-player-popup-gang>Guest Crew</strong></p>
             <p class="player-popup-row"><span>Frakce</span><strong data-player-popup-faction>-</strong></p>
             <p class="player-popup-row"><span>Server</span><strong data-player-popup-server>-</strong></p>
-            <p class="player-popup-row"><span>Start district</span><strong data-player-popup-start-district>-</strong></p>
+            <p class="player-popup-row"><span>Empire score</span><strong data-player-popup-empire-score>0</strong></p>
             <p class="player-popup-row"><span>Vliv</span><strong data-player-popup-influence>0</strong></p>
             <p class="player-popup-row"><span>Hledanost</span><strong data-player-popup-heat>0</strong></p>
             <p class="player-popup-row"><span>Ochrana po razii</span><strong data-player-popup-protection>Bez ochrany</strong></p>
@@ -1658,7 +1689,7 @@
       </div>
 
       <div id="events-modal" class="modal hidden">
-        <div id="events-modal-backdrop" class="modal__backdrop"></div>
+        <div id="events-modal-backdrop" class="modal__backdrop" data-shared-modal-close></div>
         <div class="modal__content modal__content--profile events-modal__content">
           <div class="modal__header">
             <h3 id="events-modal-title">Pouliční zakázky <span id="events-refresh-countdown" class="events-modal__refresh-pill">MĚSTSKÝ ČAS · plánované nabídky</span></h3>
@@ -1706,7 +1737,7 @@
       </div>
 
       <div id="event-detail-modal" class="modal hidden">
-        <div id="event-detail-modal-backdrop" class="modal__backdrop"></div>
+        <div id="event-detail-modal-backdrop" class="modal__backdrop" data-shared-modal-close></div>
         <div class="modal__content modal__content--profile event-detail-modal__content">
           <div class="modal__header">
             <h3 id="event-detail-title">Detail zakázky</h3>
@@ -2274,7 +2305,7 @@
     <script type="module" src="../page-assets/js/data/buildings.js"></script>
     <script type="module" src="../page-assets/js/data/events.js"></script>
     <script type="module" src="../page-assets/js/app/mobile-performance-runtime.js"></script>
-    <script type="module" src="../page-assets/js/app.js?v=live-raid-storage-20260711"></script>
+    <script type="module" src="../page-assets/js/app-entry.js?v=authoritative-entry-20260717"></script>
     <script type="module" src="../page-assets/js/app/final-lockdown-popup-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/city-events-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/alliance-runtime.js"></script>

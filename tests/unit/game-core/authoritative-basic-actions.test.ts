@@ -107,7 +107,7 @@ describe("authoritative basic action commands", () => {
     state.playersById["player:1"] = { ...state.playersById["player:1"], population: 2 };
     const result = applyCommand(state, createRobDistrictCommandFixture(), context);
 
-    expect(result.errors).toMatchObject([{ code: "TARGET_NOT_EMPTY" }]);
+    expect(result.errors).toMatchObject([{ code: "TARGET_NO_LONGER_NEUTRAL" }]);
     expect(result.nextState).toBe(state);
   });
 
@@ -147,13 +147,15 @@ describe("authoritative basic action commands", () => {
   it("blocks repeated heists while the authoritative cooldown is active", () => {
     const state = createHeistState();
     const first = applyCommand(state, createHeistDistrictCommandFixture({ id: "command:heist:cooldown:1" }), context);
-    const repeated = applyCommand(first.nextState, createHeistDistrictCommandFixture({ id: "command:heist:cooldown:2" }), context);
+    const repeated = applyCommand(first.nextState, createHeistDistrictCommandFixture({
+      id: "command:heist:cooldown:2",
+      payload: {
+        expectedConflictRevision: first.nextState.districtsById["district:2"].conflictRevision
+      }
+    }), context);
 
     expect(repeated.errors).toContainEqual(expect.objectContaining({
-      code: "HEIST_VICTIM_PROTECTED",
-      details: expect.objectContaining({
-        remainingTicks: context.config.balance.conflict!.heist!.victimProtectionTicks
-      })
+      code: "TARGET_HEIST_PROTECTED"
     }));
     expect(repeated.nextState).toBe(first.nextState);
   });
@@ -163,7 +165,7 @@ describe("authoritative basic action commands", () => {
     state.playersById["player:1"] = { ...state.playersById["player:1"], population: 100 };
     const result = applyCommand(state, createHeistDistrictCommandFixture(), context);
 
-    expect(result.errors).toMatchObject([{ code: "TARGET_NOT_ENEMY" }]);
+    expect(result.errors).toMatchObject([{ code: "TARGET_OWNER_CHANGED" }]);
     expect(result.nextState).toBe(state);
   });
 
@@ -254,7 +256,7 @@ describe("authoritative basic action commands", () => {
       expect.objectContaining({
         districtId: "district:2",
         enabled: false,
-        disabledCode: "TARGET_NOT_EMPTY",
+        disabledCode: "TARGET_NO_LONGER_NEUTRAL",
         cooldownRemainingTicks: 0
       })
     ]);
@@ -340,7 +342,7 @@ describe("authoritative basic action commands", () => {
       expect.objectContaining({
         districtId: "district:2",
         enabled: false,
-        disabledCode: "HEIST_VICTIM_PROTECTED",
+        disabledCode: "TARGET_HEIST_PROTECTED",
         cooldownRemainingTicks: context.config.balance.conflict!.heist!.sameTargetCooldownTicks,
         disabledReason: expect.stringContaining("chráněný")
       })

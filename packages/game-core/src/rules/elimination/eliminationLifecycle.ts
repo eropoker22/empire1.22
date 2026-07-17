@@ -1,4 +1,4 @@
-import type { CityFeedEvent, EliminationState, Notification, PlayerId } from "@empire/shared-types";
+import type { CityFeedEvent, EliminationState, PlayerId } from "@empire/shared-types";
 import type { CoreGameState } from "../../entities";
 import { CORE_EVENT_TYPES, createEvent, type CoreEvent } from "../../events";
 import type { GameCoreContext } from "../../engine/context";
@@ -6,6 +6,7 @@ import { compareEliminationScores, createPlayerEliminationScore, type PlayerElim
 import { resolveEliminationConfig, resolveQuietHoursResumeTick } from "./eliminationConfig";
 import { appendResolvedCityFeedEvents } from "../events/rumorPipeline";
 import { applyDefeatedDistrictPolicy } from "./eliminationDistrictPolicy";
+import { applyPlayerDefeatLifecycle } from "../liveness/playerTerritoryLifecycle";
 
 export interface EliminationResult {
   eliminatedPlayerId: PlayerId;
@@ -61,38 +62,23 @@ export const runScheduledElimination = (
     .sort(compareEliminationScores)[0];
   const finalPlacement = activePlayerIds.length;
   const nextEliminationTick = currentTick + config.intervalTicks;
-  const eliminatedPlayer = state.playersById[weakest.playerId];
-  const notification = createEliminationNotification(state, weakest.playerId, currentTick);
   const feedEvent = createEliminationFeedEvent(state, weakest, currentTick);
   const eliminationState = updateEliminationState(stateRecord, weakest.playerId, currentTick, effectiveScheduledTick, nextEliminationTick);
   const neutralizedState = appendResolvedCityFeedEvents(
     applyDefeatedDistrictPolicy(state, weakest.playerId, config),
     [feedEvent]
   );
+  const defeated = applyPlayerDefeatLifecycle(neutralizedState, {
+    playerId: weakest.playerId,
+    reason: "scheduled_weakest_player",
+    sourceEventId: `elimination:${currentTick}:${weakest.playerId}`,
+    issuedAt: new Date(0).toISOString(),
+    finalPlacement
+  });
   const nextState: CoreGameState = {
-    ...neutralizedState,
-    playersById: {
-      ...neutralizedState.playersById,
-      [weakest.playerId]: {
-        ...eliminatedPlayer,
-        status: config.eliminatedPlayerStatus,
-        metadata: {
-          ...(eliminatedPlayer.metadata ?? {}),
-          eliminatedAtTick: currentTick,
-          eliminationReason: "scheduled_weakest_player",
-          finalPlacement
-        },
-        version: eliminatedPlayer.version + 1
-      }
-    },
-    notificationsById: {
-      ...neutralizedState.notificationsById,
-      [notification.id]: notification
-    },
-    cityFeedEventsById: neutralizedState.cityFeedEventsById,
+    ...defeated.nextState,
     root: {
-      ...neutralizedState.root,
-      notificationIds: [...neutralizedState.root.notificationIds, notification.id]
+      ...defeated.nextState.root
     },
     eliminationState
   };
@@ -125,11 +111,7 @@ export const runScheduledElimination = (
         remainingPlayers: activePlayerIds.length - 1,
         serverCapacity: context.config.balance.maxPlayersPerServer
       }),
-      createEvent(CORE_EVENT_TYPES.notificationCreated, {
-        notificationId: notification.id,
-        playerId: weakest.playerId,
-        category: notification.category
-      })
+      ...defeated.events.filter((event) => event.type === CORE_EVENT_TYPES.notificationCreated)
     ],
     result
   };
@@ -194,25 +176,6 @@ const updateEliminationState = (
   version: state.version + 1
 });
 
-const createEliminationNotification = (
-  state: CoreGameState,
-  playerId: PlayerId,
-  scheduledTick: number
-): Notification => ({
-  id: `notification:elimination:${scheduledTick}:${playerId}`,
-  recipientType: "player",
-  recipientId: playerId,
-  category: "elimination.defeated",
-  title: "Byl jsi vyřazen ze serveru",
-  bodyKey: "elimination.defeated",
-  payload: {
-    body: "Po pravidelném vyhodnocení jsi byl nejslabší aktivní hráč. Tvůj gang ztratil kontrolu nad ulicemi.",
-    eliminatedAtTick: scheduledTick,
-    serverInstanceId: state.serverInstance.id
-  },
-  createdAt: new Date(0).toISOString(),
-  readAt: null
-});
 const createEliminationFeedEvent = (
   state: CoreGameState,
   score: PlayerEliminationScore,

@@ -1,4 +1,6 @@
 import { closeOverlay, openOverlay } from "./legacyOverlayCoordinator.js";
+import { getCurrentPlayerId, getLeaderboardPlayers } from "../features/leaderboard.js";
+import { leaveMembership, loadLobbyOverview, logoutAccount } from "../player-entry-client.js";
 
 function isHtmlElement(element) {
   const view = element?.ownerDocument?.defaultView || (typeof window !== "undefined" ? window : null);
@@ -50,7 +52,7 @@ export function createRuntimePopupBinders(deps = {}) {
     PLAYER_POPUP_IDENTITY_SELECTOR = '',
     PLAYER_POPUP_FACTION_SELECTOR = '',
     PLAYER_POPUP_SERVER_SELECTOR = '',
-    PLAYER_POPUP_START_DISTRICT_SELECTOR = '',
+    PLAYER_POPUP_EMPIRE_SCORE_SELECTOR = '',
     PLAYER_POPUP_CLEAN_MONEY_SELECTOR = '',
     PLAYER_POPUP_DIRTY_MONEY_SELECTOR = '',
     PLAYER_POPUP_INFLUENCE_SELECTOR = '',
@@ -76,9 +78,10 @@ export function createRuntimePopupBinders(deps = {}) {
     getDisplayedResourceSnapshot = () => ({}),
     getStoredRegistration = () => null,
     clearLegacyState = () => {},
+    clearAccountIdentity = () => {},
+    leaveActiveServerRegistration = () => {},
     getLaunchPlayerAvatar = () => '',
     getCurrentPlayerDistrictSourceSnapshot = () => ({ districtCount: 0 }),
-    getCurrentPlayerLaunchStartDistrictId = () => 0,
     syncCurrentPlayerDistrictCountDisplays = () => {},
     getResolvedGangState = () => ({}),
     getLaunchPlayerColor = () => '#67e1ff',
@@ -93,6 +96,11 @@ export function createRuntimePopupBinders(deps = {}) {
     getResolvedDrugInventory = () => ({}),
     getStoredFactorySupplies = () => ({}),
     getServerStorageSummary = () => null,
+    now = () => Date.now(),
+    loadLobbyOverviewRequest = loadLobbyOverview,
+    leaveMembershipRequest = leaveMembership,
+    logoutAccountRequest = logoutAccount,
+    gameplayLogoutEndpoint = "/api/gameplay-slice/logout",
     windowRef = typeof window !== 'undefined' ? window : null
   } = deps;
 
@@ -288,7 +296,7 @@ function bindPlayerProfilePopup(root) {
   const popupIdentity = scope.querySelector(PLAYER_POPUP_IDENTITY_SELECTOR);
   const popupFaction = scope.querySelector(PLAYER_POPUP_FACTION_SELECTOR);
   const popupServer = scope.querySelector(PLAYER_POPUP_SERVER_SELECTOR);
-  const popupStartDistrict = scope.querySelector(PLAYER_POPUP_START_DISTRICT_SELECTOR);
+  const popupEmpireScore = scope.querySelector(PLAYER_POPUP_EMPIRE_SCORE_SELECTOR);
   const popupCleanMoney = scope.querySelector(PLAYER_POPUP_CLEAN_MONEY_SELECTOR);
   const popupDirtyMoney = scope.querySelector(PLAYER_POPUP_DIRTY_MONEY_SELECTOR);
   const popupInfluence = scope.querySelector(PLAYER_POPUP_INFLUENCE_SELECTOR);
@@ -310,7 +318,6 @@ function bindPlayerProfilePopup(root) {
       : null;
     const avatarSrc = getLaunchPlayerAvatar(CURRENT_PLAYER_ID);
     const districtCount = getCurrentPlayerDistrictSourceSnapshot().districtCount;
-    const startDistrictId = Number(registration?.startDistrictId || 0) || getCurrentPlayerLaunchStartDistrictId();
     const allianceLabel = windowRef?.empireStreetsAllianceState?.getActiveAlliance?.()?.name
       || root.querySelector("[data-gang-alliance]")?.textContent?.trim()
       || "Žádná";
@@ -319,13 +326,19 @@ function bindPlayerProfilePopup(root) {
     syncCurrentPlayerDistrictCountDisplays(root, districtCount);
 
     const gangState = getResolvedGangState();
+    const leaderboardPlayers = getLeaderboardPlayers();
+    const currentPlayerId = getCurrentPlayerId();
+    const currentLeaderboardEntry = leaderboardPlayers.find((entry) => (
+      entry?.isCurrentPlayer || String(entry?.id || "") === currentPlayerId
+    ));
+    const empireScore = Number(currentLeaderboardEntry?.empireScore || 0);
     const profileViewModel = createPlayerProfileViewModel({
       registration,
       faction,
       displaySnapshot,
       gangState,
       districtCount,
-      startDistrictId,
+      empireScore,
       allianceLabel,
       avatarSrc,
       accentColor,
@@ -341,7 +354,7 @@ function bindPlayerProfilePopup(root) {
       identity: popupIdentity,
       faction: popupFaction,
       server: popupServer,
-      startDistrict: popupStartDistrict,
+      empireScore: popupEmpireScore,
       cleanMoney: popupCleanMoney,
       dirtyMoney: popupDirtyMoney,
       influence: popupInfluence,
@@ -492,30 +505,147 @@ function bindStoragePopup(root) {
 }
 
 function bindLogoutActions(root) {
-    if (!root) {
-      return;
-    }
+  if (!root) {
+    return;
+  }
   const scope = root.ownerDocument || document;
   const buttons = Array.from(scope.querySelectorAll(NAV_LOGOUT_SELECTOR));
-
   if (buttons.length === 0) {
     return;
   }
+  const modal = scope.querySelector("[data-game-lobby-modal]");
+  if (!modal) {
+    for (const button of buttons) button.addEventListener("click", () => navigate("./lobby.html"));
+    return;
+  }
+  scope.body?.append(modal);
+  const actionButtons = Array.from(modal.querySelectorAll("[data-game-lobby-action]"));
+  const closeNodes = Array.from(modal.querySelectorAll("[data-game-lobby-close]"));
+  const leaveButton = modal.querySelector('[data-game-lobby-action="leave-server"]');
+  const cooldown = modal.querySelector("[data-game-leave-cooldown]");
+  const errorMessage = modal.querySelector("[data-game-lobby-error]");
+  let updateTimer = null;
+  let busy = false;
+  let previouslyFocused = null;
+  let activeMembership = null;
+  let membershipObservedAt = 0;
 
-  const logout = () => {
-    const mode = String(getStoredRegistration()?.serverMode || "").trim().toLowerCase();
-    clearLegacyState();
-    const nextHref = mode === "war" || mode === "free"
-      ? `./login.html?mode=${mode}`
-      : "./login.html";
-
-    if (windowRef?.location) {
-      windowRef.location.href = nextHref;
+  const registration = () => getStoredRegistration() || {};
+  const mode = () => String(registration().activeServerMode || registration().serverMode || "").trim().toLowerCase();
+  const href = (page) => ["free", "war"].includes(mode()) ? `./${page}.html?mode=${mode()}` : `./${page}.html`;
+  const leaveAvailability = () => {
+    const serverRemaining = Number(activeMembership?.earlyLeaveRemainingMs || 0);
+    const elapsed = membershipObservedAt > 0 ? Math.max(0, now() - membershipObservedAt) : 0;
+    const preStart = Boolean(activeMembership?.canLeaveEarly && !activeMembership?.earlyLeaveDeadline);
+    return {
+      allowed: Boolean(activeMembership?.canLeaveEarly) && (preStart || serverRemaining - elapsed > 0),
+      preStart,
+      remainingMs: Math.max(0, serverRemaining - elapsed)
+    };
+  };
+  const formatCooldown = (remainingMs) => {
+    const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  };
+  const updateLeaveButton = () => {
+    const availability = leaveAvailability();
+    if (leaveButton) leaveButton.disabled = busy || !availability.allowed;
+    if (cooldown) cooldown.textContent = availability.allowed
+      ? availability.preStart ? "Dostupné před startem serveru" : `Dostupné ještě ${formatCooldown(availability.remainingMs)}`
+      : "Možnost odhlášení ze serveru vypršela";
+  };
+  const setError = (message = "") => {
+    if (errorMessage) errorMessage.textContent = message;
+  };
+  const setBusy = (value) => {
+    busy = value;
+    for (const button of actionButtons) button.disabled = value;
+    updateLeaveButton();
+  };
+  const close = () => {
+    if (busy) return;
+    hideOverlay(modal);
+    scope.body?.classList?.remove("is-game-lobby-modal-open");
+    if (updateTimer !== null) windowRef?.clearInterval?.(updateTimer);
+    updateTimer = null;
+    previouslyFocused?.focus?.();
+  };
+  const refreshMembership = async () => {
+    const overview = await loadLobbyOverviewRequest();
+    activeMembership = overview.activeBlockingMembership;
+    membershipObservedAt = now();
+    updateLeaveButton();
+  };
+  const open = (event) => {
+    event?.preventDefault?.();
+    previouslyFocused = scope.activeElement;
+    setError();
+    showOverlay(modal, { trigger: event?.currentTarget, alwaysOnTop: true });
+    scope.body?.classList?.add("is-game-lobby-modal-open");
+    updateLeaveButton();
+    void refreshMembership().catch(() => {
+      activeMembership = null;
+      updateLeaveButton();
+    });
+    if (updateTimer === null) updateTimer = windowRef?.setInterval?.(updateLeaveButton, 1000) ?? null;
+    actionButtons[0]?.focus?.();
+  };
+  const revokeGameplaySession = async () => {
+    if (typeof windowRef?.fetch !== "function") throw new Error("Odhlášení teď není dostupné.");
+    const response = await windowRef.fetch(gameplayLogoutEndpoint, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: "{}"
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || payload?.accepted !== true) throw new Error("Session se nepodařilo bezpečně ukončit.");
+  };
+  const run = async (action) => {
+    if (busy) return;
+    if (action === "lobby") {
+      navigate(href("lobby"));
+      return;
+    }
+    if (action === "leave-server" && !leaveAvailability().allowed) {
+      updateLeaveButton();
+      return;
+    }
+    setBusy(true);
+    setError();
+    try {
+      if (action === "leave-server") {
+        if (!activeMembership?.membershipId) throw new Error("Aktivní membership se nepodařilo načíst.");
+        await leaveMembershipRequest(activeMembership.membershipId);
+        await revokeGameplaySession();
+        const lobbyHref = href("lobby");
+        navigate(lobbyHref);
+      } else {
+        await revokeGameplaySession();
+        await logoutAccountRequest();
+        navigate(href("login"));
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Akci se nepodařilo dokončit.");
+      setBusy(false);
     }
   };
 
+  for (const actionButton of actionButtons) {
+    actionButton.addEventListener("click", () => void run(actionButton.dataset.gameLobbyAction));
+  }
+  for (const closeNode of closeNodes) closeNode.addEventListener("click", close);
   for (const button of buttons) {
-    button.addEventListener("click", logout);
+    button.addEventListener("click", open);
+  }
+  scope.addEventListener?.("keydown", (event) => {
+    if (event.key === "Escape" && !modal.hidden) close();
+  });
+
+  function navigate(nextHref) {
+    if (windowRef?.location) windowRef.location.href = nextHref;
   }
 }
 

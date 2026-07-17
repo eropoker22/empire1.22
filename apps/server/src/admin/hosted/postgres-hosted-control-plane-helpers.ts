@@ -3,8 +3,8 @@ import type { PostgresQueryable } from "../../runtime/persistence/postgres";
 import type { HostedActionRequestRecord, HostedActionTransactionResult, HostedCreateTransactionResult, HostedProvisioningJobRecord, HostedServerRecord, HostedWorkerHeartbeatRecord } from "./hosted-control-plane-repository";
 
 export const HOSTED_CONTROL_PLANE_MIGRATION = {
-  filename: "007_hosted_server_control_plane.sql",
-  checksum: "a473d59eb1cdef82ab15985242884ab339bdf74027fe87a1070ec987f4267959"
+  filename: "008_hosted_join_reservations.sql",
+  checksum: "2ac161ceb55a280f3f7d2f9c99c693ad2947a63d4adddff86c17f1f9582eb4a9"
 } as const;
 
 export interface HostedServerRow extends Record<string, unknown> { [key: string]: unknown }

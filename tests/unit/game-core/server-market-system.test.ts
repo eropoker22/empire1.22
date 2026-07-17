@@ -50,7 +50,7 @@ describe("server market system", () => {
 
     expect(marketConfig.id).toBe("server_market");
     expect(state.market.mode).toBe("free");
-    expect(state.market.stock["metal-parts"]).toBe(900);
+    expect(state.market.stock["metal-parts"]).toBe(26);
     expect(state.market.stock["tech-core"]).toBe(0);
   });
 
@@ -286,10 +286,10 @@ describe("server market system", () => {
     serverA.playersById["player:1"].cleanCash = 100000;
     serverB.playersById["player:1"].cleanCash = 100000;
 
-    const boughtA = buyResource(serverA, serverA.playersById["player:1"], "biomass", 100, "normal", "cleanCash");
+    const boughtA = buyResource(serverA, serverA.playersById["player:1"], "biomass", 10, "normal", "cleanCash");
 
     expect(boughtA.success).toBe(true);
-    expect(boughtA.nextState?.market.stock.biomass).toBe(serverA.market.stock.biomass - 100);
+    expect(boughtA.nextState?.market.stock.biomass).toBe(serverA.market.stock.biomass - 10);
     expect(serverB.market.stock.biomass).toBe(marketConfig.resources.biomass.normalMarketStartStock);
     expect(getServerTotalMoney(serverB)).toBe(getServerTotalMoney(serverA));
   });

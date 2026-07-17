@@ -309,7 +309,7 @@ const state = {
   serverStatusIndex: 0
 };
 
-document.addEventListener("DOMContentLoaded", () => {
+const initializeLoginPage = () => {
   const registration = getRegistrationDraft();
   state.activeMode = resolveInitialMode(registration);
 
@@ -328,7 +328,7 @@ document.addEventListener("DOMContentLoaded", () => {
   startLoginActiveEventsCycle();
   updateModeCards();
   updateTerminalTab();
-});
+};
 
 const resolveInitialMode = (registration) => {
   const params = new URLSearchParams(window.location.search);
@@ -1009,4 +1009,10 @@ function startServerStatusCycle() {
   };
 
   state.serverStatusTimer = window.setInterval(nextStatus, 7200);
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initializeLoginPage, { once: true });
+} else {
+  initializeLoginPage();
 }

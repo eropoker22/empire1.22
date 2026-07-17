@@ -1,4 +1,4 @@
-export type GameplaySliceFunctionRoute = "load" | "submit" | "join" | "logout" | "servers" | "matchmaking-reserve";
+export type GameplaySliceFunctionRoute = "load" | "submit" | "command-result" | "join" | "logout" | "servers" | "matchmaking-reserve";
 
 export const resolveGameplaySliceFunctionRoute = (
   path: string
@@ -11,6 +11,7 @@ export const resolveGameplaySliceFunctionRoute = (
   const lastSegment = segments.at(-1);
   return lastSegment === "load" ||
     lastSegment === "submit" ||
+    lastSegment === "command-result" ||
     lastSegment === "join" ||
     lastSegment === "logout" ||
     lastSegment === "servers"

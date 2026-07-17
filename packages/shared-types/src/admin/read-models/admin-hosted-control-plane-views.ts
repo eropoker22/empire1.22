@@ -36,6 +36,8 @@ export interface AdminHostedServerView {
   runtimeLeaseExpiresAt: string | null;
   currentSnapshotId: string | null;
   lastErrorCode: string | null;
+  committedPlayers?: number;
+  reservedSlots?: number;
   createdAt: string;
   updatedAt: string;
 }

@@ -27,13 +27,16 @@ function createServerMarketCatalogPanelPayload({
   activeTab = "market",
   serverMarket = {},
   playerView = {},
+  cityMarketOfferIds = [],
   formatPrice = (value) => String(value)
 } = {}) {
   const isBlackMarket = activeTab === "black-market";
+  const allowedCityMarketOffers = new Set(Array.isArray(cityMarketOfferIds) ? cityMarketOfferIds : []);
   const balances = playerView?.resourceBalances || playerView?.economy?.resources || {};
   const resources = normalizeServerResources(serverMarket).filter((resource = {}) => {
     const marketView = isBlackMarket ? resource.blackMarket : resource.normalMarket;
-    return marketView?.available === true;
+    return marketView?.available === true
+      && (isBlackMarket || allowedCityMarketOffers.size === 0 || allowedCityMarketOffers.has(String(resource.id || "")));
   });
   return {
     items: resources.map((resource = {}) => {
@@ -271,7 +274,9 @@ export function createMarketPopupRuntime(deps = {}) {
 
     const renderMarketTab = () => {
       const priceState = deps.refreshMarketPricesIfNeeded?.(false);
-      const tabConfig = deps.MARKET_TAB_CONFIG?.[activeTab] || deps.MARKET_TAB_CONFIG?.market || {};
+      const tabConfig = activeTab === "market"
+        ? deps.getCityMarketTabConfig?.() || deps.MARKET_TAB_CONFIG?.market || {}
+        : deps.MARKET_TAB_CONFIG?.[activeTab] || deps.MARKET_TAB_CONFIG?.market || {};
       const serverScope = deps.getMarketServerScope?.();
       const serverMarket = deps.getServerMarketReadModel?.();
       const serverPlayerView = deps.getServerPlayerView?.();
@@ -329,6 +334,7 @@ export function createMarketPopupRuntime(deps = {}) {
               activeTab,
               serverMarket: dataSource.serverMarket,
               playerView: serverPlayerView,
+              cityMarketOfferIds: tabConfig.items?.map((item) => item.itemId),
               formatPrice: deps.formatMarketPrice
             })
           : deps.createMarketCatalogPanelPayload?.({
@@ -438,7 +444,9 @@ export function createMarketPopupRuntime(deps = {}) {
       }
 
       const state = deps.getResolvedMarketPriceState?.();
-      const delay = Math.max(250, new Date(state.nextRefreshAt).getTime() - Date.now());
+      const priceRefreshDelay = Math.max(250, new Date(state.nextRefreshAt).getTime() - Date.now());
+      const cityOfferRefreshDelay = Math.max(250, Number(deps.getCityMarketOfferRefreshDelayMs?.() || Number.POSITIVE_INFINITY));
+      const delay = Math.min(priceRefreshDelay, cityOfferRefreshDelay);
 
       marketPriceTimerId = windowRef?.setTimeout?.(() => {
         deps.refreshMarketPricesIfNeeded?.(true);

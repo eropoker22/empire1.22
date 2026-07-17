@@ -258,7 +258,13 @@ const renderPendingDeliveries = () => {
   if (!section) return;
   const deliveries = latestSlice?.player?.storage?.pendingDeliveries || [];
   section.innerHTML = `<h3 class="storage-popup-subtitle">ČEKAJÍCÍ ZÁSILKY</h3><div class="pending-deliveries__list">${deliveries.length
-    ? deliveries.map((delivery) => `<div class="pending-delivery"><span>${escapeHtml(delivery.label)} × ${delivery.amount}</span><small>${escapeHtml(delivery.reason)}</small>${delivery.claimState === "claimable" ? `<button type="button" class="button" data-pending-delivery-claim="${escapeHtml(delivery.id)}">Převzít</button>` : ""}</div>`).join("")
+    ? deliveries.map((delivery) => {
+        const source = String(delivery.source || "other").replaceAll("-", " ");
+        const status = delivery.claimState === "claimable"
+          ? "PŘIPRAVENO K PŘEVZETÍ"
+          : delivery.claimState === "restorative" ? "VRÁCENO" : "ČEKÁ NA MÍSTO";
+        return `<div class="pending-delivery"><span>${escapeHtml(delivery.label)} × ${delivery.amount}</span><small>${escapeHtml(source)} · ${escapeHtml(status)} · ${escapeHtml(delivery.reason)}</small>${delivery.claimState === "claimable" ? `<button type="button" class="button" data-pending-delivery-claim="${escapeHtml(delivery.id)}">Převzít</button>` : ""}</div>`;
+      }).join("")
     : "<p>Žádné čekající zásilky.</p>"}</div>`;
   section.querySelectorAll("[data-pending-delivery-claim]").forEach((button) => button.addEventListener("click", async () => {
     button.disabled = true;

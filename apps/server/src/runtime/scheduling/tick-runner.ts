@@ -55,7 +55,7 @@ export const runInstanceTick = (
         tick: runtime.state.root.tick
       },
       clock
-    );
+    ).catch(() => undefined);
 
     return runtime;
   } catch (_error) {
@@ -73,7 +73,7 @@ export const runInstanceTick = (
         tick: readRuntimeTick(runtime)
       },
       clock
-    );
+    ).catch(() => undefined);
     return runtime;
   } finally {
     runtime.scheduler.tickInProgress = false;

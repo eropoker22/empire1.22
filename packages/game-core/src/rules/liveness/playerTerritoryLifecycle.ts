@@ -11,6 +11,12 @@ export interface TerritoryLifecycleResult {
   events: CoreEvent[];
 }
 
+export type PlayerDefeatReason =
+  | "last_district_lost"
+  | "scheduled_weakest_player"
+  | "final_lockdown"
+  | "administrative";
+
 export const countActiveOwnedDistricts = (state: CoreGameState, playerId: string): number =>
   Object.values(state.districtsById).filter((district) =>
     district.ownerPlayerId === playerId && district.status !== "destroyed" && district.status !== "locked").length;
@@ -47,7 +53,13 @@ export const reconcilePlayerTerritoryLifecycle = (
   const player = state.playersById[input.playerId];
   if (!player || player.status !== "active") return { nextState: state, events: [] };
   const currentActiveDistrictCount = countActiveOwnedDistricts(state, player.id);
-  if (currentActiveDistrictCount === 0) return defeatPlayer(state, player, input);
+  if (currentActiveDistrictCount === 0) {
+    return applyPlayerDefeatLifecycle(state, {
+      ...input,
+      playerId: player.id,
+      reason: "last_district_lost"
+    });
+  }
 
   const headquarters = resolveCurrentHeadquartersDistrict(state, player.id);
   let nextPlayer: Player = {
@@ -105,20 +117,34 @@ export const reconcilePlayerTerritoryLifecycle = (
   };
 };
 
-const defeatPlayer = (
+export const applyPlayerDefeatLifecycle = (
   state: CoreGameState,
-  player: Player,
-  input: { sourceEventId: string; issuedAt: string }
+  input: {
+    playerId: string;
+    reason: PlayerDefeatReason;
+    sourceEventId: string;
+    issuedAt: string;
+    finalPlacement?: number | null;
+  }
 ): TerritoryLifecycleResult => {
+  const player = state.playersById[input.playerId];
+  if (!player || player.status !== "active") return { nextState: state, events: [] };
   const cleaned = cleanupDefeatedAllianceState(state, player, input);
+  const scheduled = input.reason === "scheduled_weakest_player";
   const notification = createNotification({
     id: `notification:defeat:${input.sourceEventId}:${player.id}`,
     recipientType: "player",
     recipientId: player.id,
     category: "elimination.defeated",
-    title: "Tvoje impérium padlo.",
+    title: scheduled ? "Byl jsi vyřazen ze serveru" : "Tvoje impérium padlo.",
     bodyKey: "elimination.defeated",
-    payload: { playerId: player.id, defeatedAtTick: state.root.tick, reason: "last_district_lost" },
+    payload: {
+      playerId: player.id,
+      defeatedAtTick: state.root.tick,
+      reason: input.reason,
+      ...(scheduled ? { body: "Po pravidelném vyhodnocení jsi byl nejslabší aktivní hráč. Tvůj gang ztratil kontrolu nad ulicemi." } : {}),
+      ...(input.finalPlacement != null ? { finalPlacement: input.finalPlacement } : {})
+    },
     createdAt: input.issuedAt,
     readAt: null
   });
@@ -136,7 +162,9 @@ const defeatPlayer = (
         metadata: {
           ...(cleanedPlayer.metadata ?? {}),
           eliminatedAtTick: state.root.tick,
-          eliminationReason: "last_district_lost"
+          eliminationReason: input.reason,
+          defeatLifecycleSourceEventId: input.sourceEventId,
+          ...(input.finalPlacement != null ? { finalPlacement: input.finalPlacement } : {})
         },
         version: cleanedPlayer.version + 1
       }
@@ -155,8 +183,9 @@ const defeatPlayer = (
     events: [
       createEvent(CORE_EVENT_TYPES.playerEliminated, {
         playerId: player.id,
-        reason: "last_district_lost",
-        eliminatedAtTick: state.root.tick
+        reason: input.reason,
+        eliminatedAtTick: state.root.tick,
+        ...(input.finalPlacement != null ? { finalPlacement: input.finalPlacement } : {})
       }),
       createEvent(CORE_EVENT_TYPES.notificationCreated, {
         notificationId: notification.id,

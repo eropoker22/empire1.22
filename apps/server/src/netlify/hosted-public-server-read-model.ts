@@ -23,8 +23,9 @@ export const listHostedPublicServerCandidates = async (
   ]);
   const summaryById = new Map(summaries.map((entry) => [entry.serverInstanceId, entry]));
 
-  return hosted.flatMap((entry) => {
+  const candidates = await Promise.all(hosted.map(async (entry) => {
     const summary = summaryById.get(entry.serverInstanceId);
+    const capacity = await repositories.hosted.getJoinCapacity(entry.serverInstanceId, now.toISOString());
     const lastHeartbeatAt = entry.lastWorkerHeartbeatAt
       ? Date.parse(entry.lastWorkerHeartbeatAt)
       : Number.NaN;
@@ -33,11 +34,12 @@ export const listHostedPublicServerCandidates = async (
       && (entry.status === "lobby" || entry.status === "running")
       && Boolean(entry.currentSnapshotId)
       && Boolean(summary)
-      && summary!.playerCount < entry.capacity
+      && Math.max(summary!.playerCount, capacity.committedPlayers) + capacity.reservedSlots < entry.capacity
       && summary!.workerStatus === "live"
       && Number.isFinite(lastHeartbeatAt)
       && now.getTime() - lastHeartbeatAt <= PUBLIC_HEARTBEAT_MAX_AGE_MS;
 
-    return ready && summary ? [{ hosted: entry, summary }] : [];
-  });
+    return ready && summary ? { hosted: entry, summary } : null;
+  }));
+  return candidates.filter((entry): entry is HostedPublicServerCandidate => entry !== null);
 };

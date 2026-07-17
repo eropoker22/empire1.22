@@ -1,0 +1,312 @@
+import { createDistrictGeometry, getDistrictAtPoint } from "./app/district-geometry.js";
+import {
+  confirmSpawnDistrict,
+  createMembershipJoinTicket,
+  joinGameplayMembership,
+  loadLobbyOverview,
+  loadSpawnDistricts,
+  logoutAccount
+} from "./app/player-entry-client.js";
+
+const POLL_MS = 15_000;
+const CANVAS_WIDTH = 1600;
+const CANVAS_HEIGHT = 980;
+const geometry = createDistrictGeometry(CANVAS_WIDTH, CANVAS_HEIGHT, 0, 48, 0);
+const state = { overview: null, mode: "free", selectedServerId: null, spawn: null, selectedDistrictId: null, busy: false };
+
+const initialize = () => {
+  bindNavigation();
+  bindModal();
+  bindModeTabs();
+  void refresh(true);
+  window.setInterval(() => { if (!document.hidden && !state.busy) void refresh(false); }, POLL_MS);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) void refresh(false); });
+};
+
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initialize, { once: true });
+else initialize();
+
+async function refresh(initial) {
+  try {
+    state.overview = await loadLobbyOverview();
+    const requested = new URLSearchParams(location.search).get("mode");
+    if (initial && ["free", "war"].includes(requested)) state.mode = requested;
+    if (!state.selectedServerId) state.selectedServerId = visibleServers()[0]?.serverInstanceId || null;
+    render();
+  } catch (error) {
+    if (error?.code === "ACCOUNT_SESSION_REQUIRED" || error?.status === 401) {
+      location.replace("./login.html");
+      return;
+    }
+    setFlowMessage(error instanceof Error ? error.message : "Lobby teď není dostupná.", true);
+  }
+}
+
+function render() {
+  const overview = state.overview;
+  if (!overview) return;
+  text("[data-lobby-user]", overview.account.username);
+  text("[data-lobby-top-user]", overview.account.username);
+  text("[data-lobby-user-meta]", overview.gangProfile.gangName);
+  text("[data-lobby-status-count]", `${overview.availableServers.reduce((sum, server) => sum + server.committedPlayers, 0)} aktivních hráčů`);
+  text("[data-lobby-refresh-countdown]", "LIVE / 15 s");
+  renderGang(overview);
+  renderActiveMembership(overview.activeBlockingMembership);
+  renderServers();
+  renderSelectedServer();
+  document.querySelectorAll("[data-server-mode-tab]").forEach((button) => {
+    const active = button.dataset.serverModeTab === state.mode;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+}
+
+function renderGang(overview) {
+  text("[data-live-gang-name]", overview.gangProfile.gangName);
+  text("[data-live-gang-user]", overview.account.username);
+  const active = overview.activeBlockingMembership;
+  text("[data-live-gang-server]", active ? active.serverDisplayName : "Žádný rozehraný server");
+  text("[data-live-gang-membership]", active ? statusLabel(active.status) : "Připraven vybrat server");
+  const identity = active?.factionId
+    ? `${active.factionId} · ${active.avatarId || "avatar čeká"}`
+    : active ? "Serverová identita čeká na dokončení" : "Bez serverové identity";
+  text("[data-live-gang-identity]", identity);
+  text("[data-live-gang-district]", active?.reservedSpawnDistrictId || "Bez rezervovaného districtu");
+  const history = document.querySelector("[data-live-gang-history]");
+  if (history) {
+    const completed = overview.memberships.filter((membership) => membership.status === "completed");
+    history.innerHTML = completed.length
+      ? completed.map((membership) => `<li><strong>${escapeHtml(membership.serverDisplayName)}</strong><span>${escapeHtml(membership.factionId || "bez frakce")} · ${escapeHtml(membership.reservedSpawnDistrictId)}</span></li>`).join("")
+      : "<li>Žádný dokončený server.</li>";
+  }
+}
+
+function renderActiveMembership(membership) {
+  const card = document.querySelector("[data-lobby-active-server-card]");
+  if (!card) return;
+  card.hidden = !membership;
+  if (!membership) return;
+  text("[data-active-server-name]", membership.serverDisplayName);
+  text("[data-active-server-mode]", membership.factionId || "SETUP");
+  text("[data-active-server-status]", statusLabel(membership.status));
+  text("[data-active-server-district]", membership.reservedSpawnDistrictId);
+  text("[data-active-server-note]", membership.status === "setup_required" || membership.status === "finalizing_setup"
+    ? "District i kapacita jsou potvrzené serverem. Dokonči serverovou identitu."
+    : "Návrat do lobby membership nemění.");
+  const button = document.querySelector("[data-lobby-continue-active]");
+  if (!(button instanceof HTMLButtonElement)) return;
+  button.disabled = membership.status === "defeated" || membership.status === "leave_pending";
+  button.textContent = membership.status === "setup_required" || membership.status === "finalizing_setup"
+    ? "DOKONČIT VSTUP" : membership.status === "active" ? "POKRAČOVAT VE HŘE" : "VÝSLEDKY";
+  button.onclick = () => void continueMembership(membership);
+}
+
+function renderServers() {
+  const list = document.querySelector("[data-server-list]");
+  if (!list) return;
+  const blocking = state.overview.activeBlockingMembership;
+  const servers = visibleServers();
+  list.innerHTML = servers.length ? servers.map((server) => {
+    const selected = server.serverInstanceId === state.selectedServerId;
+    const disabled = Boolean(blocking) || !server.joinable;
+    const cta = blocking ? "ROZEHRANÝ SERVER BLOKUJE VSTUP" : server.joinable ? "VYBRAT DISTRICT" : disabledServerLabel(server.disabledReason);
+    return `<article class="server-card ${selected ? "is-selected" : ""}" data-live-server="${escapeHtml(server.serverInstanceId)}">
+      <button type="button" class="server-card__main" data-select-live-server="${escapeHtml(server.serverInstanceId)}">
+        <span>${escapeHtml(server.region)} · ${escapeHtml(server.mode.toUpperCase())}</span>
+        <strong>${escapeHtml(server.displayName)}</strong>
+        <small>${server.committedPlayers} hráčů + ${server.reservedSlots} rezervací / ${server.capacity}</small>
+      </button>
+      <button type="button" class="lobby-primary-cta" data-open-live-server="${escapeHtml(server.serverInstanceId)}" ${disabled ? "disabled" : ""}>${escapeHtml(cta)}</button>
+    </article>`;
+  }).join("") : '<p class="lobby-empty-state">Pro tento režim nejsou dostupné žádné skutečné servery.</p>';
+  list.querySelectorAll("[data-select-live-server]").forEach((button) => button.addEventListener("click", () => selectServer(button.dataset.selectLiveServer)));
+  list.querySelectorAll("[data-open-live-server]").forEach((button) => button.addEventListener("click", () => void openSpawnModal(button.dataset.openLiveServer)));
+}
+
+function renderSelectedServer() {
+  const server = selectedServer();
+  text("[data-lobby-detail-name]", server?.displayName || "Nevybrán");
+  text("[data-lobby-detail-region]", server?.region || "-");
+  text("[data-lobby-detail-status]", server ? server.status.toUpperCase() : "-");
+  text("[data-lobby-detail-mode]", server?.mode?.toUpperCase() || "-");
+  text("[data-lobby-detail-capacity]", server ? `${server.committedPlayers} + ${server.reservedSlots} / ${server.capacity}` : "-");
+  text("[data-lobby-detail-description]", server ? `Durable hosted server · ${disabledServerLabel(server.disabledReason)}` : "Vyber server pro detail.");
+  text("[data-lobby-summary-server]", server?.displayName || "Nevybrán");
+  text("[data-lobby-summary-mode]", state.mode.toUpperCase());
+  text("[data-lobby-summary-district]", state.selectedDistrictId || "Nevybrán");
+  const open = document.querySelector("[data-lobby-open-selected]");
+  if (open instanceof HTMLButtonElement) {
+    open.disabled = !server?.joinable || Boolean(state.overview?.activeBlockingMembership);
+    open.onclick = () => void openSpawnModal(server?.serverInstanceId);
+  }
+}
+
+function bindModeTabs() {
+  document.querySelectorAll("[data-server-mode-tab]").forEach((button) => button.addEventListener("click", () => {
+    state.mode = button.dataset.serverModeTab === "war" ? "war" : "free";
+    state.selectedServerId = visibleServers()[0]?.serverInstanceId || null;
+    render();
+  }));
+}
+
+function bindNavigation() {
+  document.querySelectorAll("[data-lobby-nav-target]").forEach((button) => button.addEventListener("click", () => {
+    if (button.disabled) return;
+    const target = button.dataset.lobbyNavTarget;
+    document.querySelectorAll("[data-lobby-view]").forEach((view) => { view.hidden = view.dataset.lobbyView !== target; });
+    document.querySelectorAll("[data-lobby-nav-target]").forEach((item) => item.classList.toggle("is-active", item === button));
+  }));
+  document.querySelector("[data-live-account-logout]")?.addEventListener("click", () => void performLogout());
+}
+
+function bindModal() {
+  document.querySelectorAll("[data-server-detail-close]").forEach((node) => node.addEventListener("click", closeSpawnModal));
+  document.querySelector("[data-server-detail-continue]")?.addEventListener("click", () => void commitSpawn());
+  const canvas = document.querySelector("[data-server-detail-map]");
+  canvas?.addEventListener("click", (event) => {
+    if (!state.spawn || state.busy) return;
+    const rect = canvas.getBoundingClientRect();
+    const district = getDistrictAtPoint(geometry, {
+      x: ((event.clientX - rect.left) / rect.width) * CANVAS_WIDTH,
+      y: ((event.clientY - rect.top) / rect.height) * CANVAS_HEIGHT
+    });
+    const canonicalId = district ? `district:${district.id}` : null;
+    const option = state.spawn.districts.find((entry) => entry.districtId === canonicalId);
+    if (!option?.available) return;
+    state.selectedDistrictId = option.districtId;
+    text("[data-server-detail-hint]", `${option.label} · VYBRANÝ V NÁHLEDU`);
+    renderSpawnCanvas();
+    updateConfirmButton();
+  });
+}
+
+async function openSpawnModal(serverInstanceId) {
+  const server = state.overview?.availableServers.find((entry) => entry.serverInstanceId === serverInstanceId);
+  if (!server?.joinable || state.overview.activeBlockingMembership) return;
+  state.busy = true;
+  state.selectedServerId = serverInstanceId;
+  state.selectedDistrictId = null;
+  setFlowMessage("Načítám aktuální spawn distrikty…");
+  try {
+    state.spawn = await loadSpawnDistricts(serverInstanceId);
+    const modal = document.querySelector("[data-server-detail-modal]");
+    modal?.classList.remove("hidden");
+    modal?.setAttribute("aria-hidden", "false");
+    text("[data-server-detail-title]", server.displayName);
+    text("[data-server-detail-subtitle]", "Kliknutí pouze označí district. Rezervaci provede až POTVRDIT.");
+    text("[data-server-detail-capacity]", `${state.spawn.capacity.committedPlayers} + ${state.spawn.capacity.reservedSlots} / ${state.spawn.capacity.maximum}`);
+    text("[data-server-detail-hint]", "Vyber jeden serverem povolený district");
+    renderSpawnCanvas();
+  } catch (error) {
+    setFlowMessage(messageFor(error), true);
+  } finally {
+    state.busy = false;
+    updateConfirmButton();
+    renderSelectedServer();
+  }
+}
+
+function closeSpawnModal() {
+  const modal = document.querySelector("[data-server-detail-modal]");
+  modal?.classList.add("hidden");
+  modal?.setAttribute("aria-hidden", "true");
+  state.spawn = null;
+  state.selectedDistrictId = null;
+}
+
+function renderSpawnCanvas() {
+  const canvas = document.querySelector("[data-server-detail-map]");
+  if (!(canvas instanceof HTMLCanvasElement)) return;
+  canvas.width = CANVAS_WIDTH;
+  canvas.height = CANVAS_HEIGHT;
+  const context = canvas.getContext("2d");
+  if (!context) return;
+  context.fillStyle = "#050713";
+  context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+  const options = new Map((state.spawn?.districts || []).map((entry) => [entry.districtId, entry]));
+  for (const district of geometry.districts) {
+    const option = options.get(`district:${district.id}`);
+    const selected = option?.districtId === state.selectedDistrictId;
+    context.beginPath();
+    district.polygon.forEach((point, index) => index === 0 ? context.moveTo(point.x, point.y) : context.lineTo(point.x, point.y));
+    context.closePath();
+    context.fillStyle = selected ? "rgba(255,43,214,.52)" : option?.available ? "rgba(34,211,238,.26)" : "rgba(71,85,105,.12)";
+    context.strokeStyle = selected ? "#ff2bd6" : option?.available ? "#22d3ee" : "rgba(100,116,139,.25)";
+    context.lineWidth = selected ? 5 : option?.available ? 2 : 1;
+    context.fill();
+    context.stroke();
+  }
+}
+
+async function commitSpawn() {
+  if (!state.spawn || !state.selectedDistrictId || state.busy) return;
+  state.busy = true;
+  updateConfirmButton();
+  try {
+    const membership = await confirmSpawnDistrict({
+      serverInstanceId: state.spawn.serverInstanceId,
+      districtId: state.selectedDistrictId,
+      expectedAvailabilityRevision: state.spawn.availabilityRevision
+    });
+    location.assign(`./faction.html?membership=${encodeURIComponent(membership.membershipId)}`);
+  } catch (error) {
+    text("[data-server-detail-hint]", messageFor(error));
+    if (["SPAWN_ALREADY_RESERVED", "SPAWN_SELECTION_STALE", "SERVER_FULL"].includes(error?.code)) {
+      state.spawn = await loadSpawnDistricts(state.spawn.serverInstanceId).catch(() => state.spawn);
+      state.selectedDistrictId = null;
+      renderSpawnCanvas();
+    }
+  } finally {
+    state.busy = false;
+    updateConfirmButton();
+  }
+}
+
+async function continueMembership(membership) {
+  if (["setup_required", "finalizing_setup"].includes(membership.status)) {
+    location.assign(`./faction.html?membership=${encodeURIComponent(membership.membershipId)}`);
+    return;
+  }
+  if (membership.status !== "active") return;
+  state.busy = true;
+  try {
+    const ticketed = await createMembershipJoinTicket(membership.membershipId);
+    await joinGameplayMembership(ticketed);
+    location.assign("./game.html");
+  } catch (error) {
+    setFlowMessage(messageFor(error), true);
+  } finally {
+    state.busy = false;
+  }
+}
+
+async function performLogout() {
+  try {
+    await fetch("/api/gameplay-slice/logout", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: "{}" });
+    await logoutAccount();
+  } finally {
+    location.replace("./login.html");
+  }
+}
+
+function selectServer(serverId) { state.selectedServerId = serverId; state.selectedDistrictId = null; render(); }
+function selectedServer() { return state.overview?.availableServers.find((server) => server.serverInstanceId === state.selectedServerId) || null; }
+function visibleServers() { return (state.overview?.availableServers || []).filter((server) => server.mode === state.mode); }
+function updateConfirmButton() {
+  const button = document.querySelector("[data-server-detail-continue]");
+  if (button instanceof HTMLButtonElement) {
+    button.disabled = state.busy || !state.selectedDistrictId;
+    button.textContent = state.busy ? "POTVRZUJI…" : "POTVRDIT";
+  }
+}
+function setFlowMessage(message, error = false) {
+  const node = document.querySelector("[data-lobby-flow-note]");
+  if (!node) return;
+  node.textContent = message;
+  node.dataset.state = error ? "error" : "info";
+}
+function statusLabel(status) { return ({ setup_required: "DOKONČIT VSTUP", finalizing_setup: "AKTIVACE PROBÍHÁ", active: "AKTIVNÍ", leave_pending: "ODCHOD PROBÍHÁ", defeated: "PORAŽEN", completed: "DOKONČENO", left_early: "OPUŠTĚNO" })[status] || String(status).toUpperCase(); }
+function disabledServerLabel(code) { return ({ WORKER_OFFLINE: "WORKER OFFLINE", SERVER_PREPARING: "SERVER SE PŘIPRAVUJE", JOINS_CLOSED: "VSTUP UZAVŘEN", SERVER_FULL: "SERVER PLNÝ", SERVER_NOT_PLAYABLE: "SERVER NENÍ AKTIVNÍ" })[code] || "SERVER DOSTUPNÝ"; }
+function messageFor(error) { return ({ SPAWN_ALREADY_RESERVED: "Tento district mezitím získal jiný hráč. Vyber si jiný.", SERVER_FULL: "Server se mezitím zaplnil.", ACTIVE_MEMBERSHIP_EXISTS: "Nejdřív musíš dokončit nebo opustit svůj současný server.", SERVER_OFFLINE: "Server teď není dostupný. Tvoje předchozí membershipy zůstávají zachované." })[error?.code] || (error instanceof Error ? error.message : "Operace se nezdařila."); }
+function text(selector, value) { const node = document.querySelector(selector); if (node) node.textContent = String(value ?? ""); }
+function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]); }
