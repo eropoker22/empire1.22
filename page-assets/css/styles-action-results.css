@@ -141,6 +141,14 @@
   --result-secondary-rgb: 153, 246, 228;
 }
 
+@media (min-width: 721px) {
+  #trap-confirm-modal {
+    align-items: start;
+    justify-items: center;
+    padding: 78px 18px 18px;
+  }
+}
+
 #attack-confirm-modal .attack-confirm-modal__content {
   --result-accent-rgb: 248, 113, 113;
   --result-secondary-rgb: 254, 202, 202;
@@ -912,6 +920,39 @@
 .police-action-result-modal__details {
   display: grid;
   gap: 8px;
+}
+
+@media (min-width: 721px) {
+  .spy-result-modal__details,
+  .attack-result-modal__stats,
+  .police-action-result-modal__details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .spy-result-modal__details.modal__details--compact-trio,
+  .attack-result-modal__stats.modal__details--compact-trio,
+  .police-action-result-modal__details.modal__details--compact-trio {
+    grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  }
+
+  .spy-result-modal__details .modal__row,
+  .attack-result-modal__stats .modal__row,
+  .police-action-result-modal__details .modal__row {
+    grid-template-columns: 1fr;
+    align-content: start;
+    gap: 4px;
+  }
+
+  .spy-result-modal__details .modal__row strong,
+  .attack-result-modal__stats .modal__row strong,
+  .police-action-result-modal__details .modal__row strong {
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  #spy-result-modal .spy-result-modal__content.is-medium-fail .spy-result-modal__details .modal__row--full-width {
+    grid-column: 1 / -1;
+  }
 }
 
 #raid-result-modal .spy-result-modal__details {

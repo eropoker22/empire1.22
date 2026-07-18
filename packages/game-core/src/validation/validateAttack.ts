@@ -7,6 +7,7 @@ import {
   calculateTotalAttackPower,
   normalizeAttackWeaponLoadout,
   resolveDistrictActionAvailability,
+  resolveDistrictOperationBlock,
   resolveMajorOperationBlock,
   validateDistrictConflictRevision,
   resolveAttackWeaponInventory,
@@ -54,6 +55,8 @@ export const validateAttack = (
     "attack"
   );
   if (availabilityError) return [availabilityError];
+  const operationBlock = resolveDistrictOperationBlock(targetDistrict, "attack", state.root.tick);
+  if (operationBlock) return [operationBlock];
 
   const mapValidation = validateMapAction(
     state,

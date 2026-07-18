@@ -379,6 +379,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         }
         deps.appendBuildingActionResultEntry?.(root, "police", deps.createStorageCollectResultPayload?.({
           buildingLabel: deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.label || "Budova",
+          hideBadge: buildingName === "pharmacy",
           items: [{
             label: deps.getProductionResourceLabel?.(currentJob.output?.itemId),
             amount: collected.collectedAmount
@@ -861,6 +862,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
 
         deps.appendBuildingActionResultEntry?.(root, "police", deps.createStorageCollectResultPayload?.({
           buildingLabel: config?.label || "Budova",
+          hideBadge: buildingName === "pharmacy",
           items: collected.items,
           meta: deps.getProductionBuildingEffectsLabel?.(buildingName, deps.getStoredProductionBuildingState?.(buildingName).level)
         }), {}, { syncPreview: true, forceLog: true });

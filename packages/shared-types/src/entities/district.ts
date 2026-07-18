@@ -19,6 +19,8 @@ export interface NeutralDistrictLootPool {
   version: number;
 }
 
+export type DistrictOperationType = "spy" | "rob" | "occupy" | "heist" | "attack";
+
 /**
  * Responsibility: Stable district contract representing one map territory.
  * Belongs here: ownership, zone pressure, fixed building references, and legacy slot capacity.
@@ -45,6 +47,7 @@ export interface District {
   status: DistrictStatus;
   resourceModifiers: Record<string, number>;
   neutralLootPool?: NeutralDistrictLootPool | null;
+  operationLocks?: Partial<Record<DistrictOperationType, number>>;
   heistProtectedUntilTick?: number | null;
   attackProtectedUntilTick?: number | null;
   stabilizingUntilTick?: number | null;

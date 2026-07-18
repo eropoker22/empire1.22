@@ -409,8 +409,8 @@ export function formatBuildingActionOutputProfile(profile = {}, options = {}) {
     profile.heatMultiplier && Number(profile.heatMultiplier) !== 1
       ? formatDailyNumberChange("Heat", mechanics.dailyHeat, (Number(profile.heatMultiplier) - 1) * 100) || `Heat ${Number(profile.heatMultiplier) > 1 ? "+" : ""}${formatCompactNumber((Number(profile.heatMultiplier) - 1) * 100)}%`
       : "",
-    profile.durationMs ? `Trvání ${formatCooldownValue(profile.durationMs, options)}` : "",
-    profile.cooldownMs ? `Čekání ${formatCooldownValue(profile.cooldownMs, options)}` : ""
+    options.includeTiming === false || !profile.durationMs ? "" : `Trvání ${formatCooldownValue(profile.durationMs, options)}`,
+    options.includeTiming === false || !profile.cooldownMs ? "" : `Čekání ${formatCooldownValue(profile.cooldownMs, options)}`
   ].filter(Boolean);
 
   const resolved = parts

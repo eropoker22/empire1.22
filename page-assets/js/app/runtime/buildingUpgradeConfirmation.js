@@ -47,10 +47,6 @@ export function createBuildingUpgradeConfirmationController({
   dialog.setAttribute("aria-modal", "true");
   dialog.setAttribute("aria-label", "Potvrzení upgradu");
 
-  const eyebrow = documentRef.createElement("span");
-  eyebrow.className = "building-upgrade-confirm__eyebrow";
-  eyebrow.textContent = "POTVRZENÍ UPGRADU";
-
   const title = documentRef.createElement("h4");
   title.className = "building-upgrade-confirm__title";
 
@@ -100,7 +96,7 @@ export function createBuildingUpgradeConfirmationController({
   confirmButton.textContent = "Potvrdit upgrade";
 
   actions.append(cancelButton, confirmButton);
-  dialog.append(eyebrow, title, copy, grid, note, actions);
+  dialog.append(title, copy, grid, note, actions);
   overlay.append(backdrop, dialog);
   host.append(overlay);
 

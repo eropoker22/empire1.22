@@ -224,6 +224,19 @@ describe("district view model adapter", () => {
     expect(model.actions).toEqual([]);
   });
 
+  it("hides the action section while the district occupation is in progress", () => {
+    const model = buildDistrictActionViewModel({ id: 4 }, {
+      isOccupying: true,
+      statusMessage: "District 4 je obsazován.",
+      resolvedActions: [
+        { id: "attack", label: "Útok", enabled: true }
+      ]
+    });
+
+    expect(model.hidden).toBe(true);
+    expect(model.actions).toEqual([]);
+  });
+
   it("keeps downtown lock notice visible without suppressing other actions", () => {
     const model = buildDistrictActionViewModel({ id: 79, districtType: "downtown" }, {
       activePoliceAction: null,

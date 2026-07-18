@@ -9,6 +9,8 @@ const getVisibleActions = (context = {}) => resolveDistrictActions({
   canOccupyAfterSpy: false,
   availableSpies: 1,
   isOccupying: false,
+  isSpying: false,
+  isRobbing: false,
   currentTrapDistrictId: 0,
   trapMoveCooldownSeconds: 0,
   ...context
@@ -52,6 +54,17 @@ describe("legacy district action policy", () => {
     expect(actions.some((action) => action.id === "heist")).toBe(false);
   });
 
+  it("disables city robbery while the player is spying on the same district", () => {
+    const rob = getVisibleActions({ isUnoccupied: true, isSpying: true })
+      .find((action) => action.id === "rob");
+
+    expect(rob).toMatchObject({
+      visible: true,
+      enabled: false,
+      reason: "District 12 právě špehuješ. Vykrást ho lze až po návratu špeha."
+    });
+  });
+
   it("keeps spy visible but disabled when all spies are deployed", () => {
     const actions = getVisibleActions({ availableSpies: 0 });
     const spy = actions.find((action) => action.id === "spy");
@@ -67,10 +80,50 @@ describe("legacy district action policy", () => {
     });
   });
 
+  it("prioritizes an active robbery over the no-spies message", () => {
+    const spy = getVisibleActions({ availableSpies: 0, isUnoccupied: true, isRobbing: true })
+      .find((action) => action.id === "spy");
+
+    expect(spy).toMatchObject({
+      visible: true,
+      enabled: false,
+      stacked: true,
+      subtitle: "Probíhá krádež",
+      disabledTone: "no-spies",
+      reason: "District 12 právě vykrádáš. Špehování lze spustit až po dokončení vykradení."
+    });
+  });
+
   it("keeps neutral districts on occupy and city robbery after successful spy intel", () => {
     const actions = getVisibleActions({ isUnoccupied: true, canOccupyAfterSpy: true });
 
     expect(actions.map((action) => action.id)).toEqual(["occupy", "rob"]);
+  });
+
+  it("blocks occupying a neutral district while its robbery is in progress", () => {
+    const occupy = getVisibleActions({ isUnoccupied: true, canOccupyAfterSpy: true, isRobbing: true })
+      .find((action) => action.id === "occupy");
+
+    expect(occupy).toMatchObject({
+      visible: true,
+      enabled: false,
+      stacked: true,
+      subtitle: "Teď ne",
+      disabledTone: "robbery"
+    });
+  });
+
+  it("blocks a second occupation while another occupation is active", () => {
+    const occupy = getVisibleActions({ isUnoccupied: true, canOccupyAfterSpy: true, hasActiveOccupation: true })
+      .find((action) => action.id === "occupy");
+
+    expect(occupy).toMatchObject({
+      visible: true,
+      enabled: false,
+      stacked: true,
+      subtitle: "Přijď později",
+      disabledTone: "occupation"
+    });
   });
 
   it("does not show heist on own or non-adjacent districts", () => {

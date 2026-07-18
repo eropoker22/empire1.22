@@ -41,11 +41,12 @@ describe("runtime settings state", () => {
       CustomEventCtor: FakeCustomEvent
     });
 
-    expect(runtime.getSettingsState().reducedMapEffects).toBe(true);
+    expect(runtime.getSettingsState()).not.toHaveProperty("reducedMapEffects");
     const applied = runtime.applySettingsState({ language: "en", mapVisibilityMode: "only-player" });
 
     expect(saved).toEqual(applied);
     expect(documentRef.documentElement.dataset.mapVisibilityMode).toBe("only-player");
+    expect(documentRef.documentElement.dataset.mapEffects).toBe("full");
     expect(events[0].type).toBe("empire:settings-changed");
   });
 });

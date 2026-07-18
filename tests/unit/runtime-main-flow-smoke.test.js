@@ -94,6 +94,19 @@ describe("runtime main UI flow smoke guard", () => {
     expect(legacyStorage.getStorageKey).toBeTypeOf("function");
   });
 
+  it("does not reset persisted local-demo state during normal runtime initialization", () => {
+    const runtimeSource = read("page-assets/js/app/runtime.js");
+    const initRuntimeStart = runtimeSource.indexOf("function initRuntime(root = getDefaultRuntimeRoot()) {");
+    const bootstrapPageStart = runtimeSource.indexOf("function bootstrapPage() {");
+    const initRuntimeSource = runtimeSource.slice(initRuntimeStart, bootstrapPageStart);
+
+    expect(initRuntimeStart).toBeGreaterThan(-1);
+    expect(bootstrapPageStart).toBeGreaterThan(initRuntimeStart);
+    expect(initRuntimeSource).not.toContain("forceGameHtmlRefreshLivePhase(resolvedRoot);");
+    expect(initRuntimeSource).not.toContain("applyDevOnlyOnboardingStartState(resolvedRoot);");
+    expect(initRuntimeSource).not.toContain("devOnlyDemoResetVersion");
+  });
+
   it("keeps destroyed district popup reduced to a single message", () => {
     const runtimeSource = read("page-assets/js/app/runtime.js");
     const districtCssSource = read("page-assets/css/styles-district.css");

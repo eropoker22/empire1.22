@@ -235,12 +235,11 @@ import {
   DISTRICT_POPUP_OWNER_META_SELECTOR,
   DISTRICT_POPUP_OWNER_AVATAR_SELECTOR,
   DISTRICT_POPUP_OWNER_AVATAR_FALLBACK_SELECTOR,
-  DISTRICT_POPUP_DEFENSE_SELECTOR,
-  DISTRICT_POPUP_DEFENSE_POWER_SELECTOR,
-  DISTRICT_POPUP_RESIDENTS_SELECTOR,
-  DISTRICT_POPUP_INCOME_SELECTOR,
-  DISTRICT_POPUP_HEAT_SELECTOR,
+  DISTRICT_POPUP_CLEAN_SELECTOR,
+  DISTRICT_POPUP_DIRTY_SELECTOR,
   DISTRICT_POPUP_INFLUENCE_SELECTOR,
+  DISTRICT_POPUP_POPULATION_SELECTOR,
+  DISTRICT_POPUP_SUMMARY_SELECTOR,
   DISTRICT_POPUP_FLAGS_SELECTOR,
   DISTRICT_POPUP_TOGGLE_SELECTOR,
   DISTRICT_POPUP_CLOSE_SELECTOR,
@@ -310,7 +309,6 @@ import {
   SETTINGS_SAVE_SELECTOR,
   SETTINGS_MAP_BORDERS_SELECTOR,
   SETTINGS_MAP_ALLIANCE_SYMBOLS_SELECTOR,
-  SETTINGS_MAP_REDUCED_EFFECTS_SELECTOR,
   SETTINGS_MAP_VISIBILITY_SELECTOR,
   SETTINGS_LANGUAGE_SELECTOR,
   TOPBAR_INFLUENCE_SELECTOR,
@@ -6466,6 +6464,7 @@ function getDistrictEconomySnapshot(district) {
       districtInfluencePerHour: 0,
       buildingInfluencePerHour: 0,
       totalInfluencePerHour: 0,
+      districtPopulationPerHour: 0,
       passiveHeatPerDay: 0
     };
   }
@@ -6477,7 +6476,8 @@ function getDistrictEconomySnapshot(district) {
   const buildingProfile = resolveDistrictBuildingProfile(district);
   const baseCleanPerMinute = Number(districtIncomeRule.clean || 0);
   const baseDirtyPerMinute = Number(districtIncomeRule.dirty || 0);
-  const districtInfluencePerMinute = districtType === "park" ? 10 : 0;
+  const districtInfluencePerMinute = Number(districtIncomeRule.influence || 0);
+  const districtPopulationPerMinute = Number(districtIncomeRule.population || 0);
   let buildingCleanPerMinute = 0;
   let buildingDirtyPerMinute = 0;
   let buildingHeatPerMinute = 0;
@@ -6546,6 +6546,7 @@ function getDistrictEconomySnapshot(district) {
     districtInfluencePerHour,
     buildingInfluencePerHour,
     totalInfluencePerHour: Math.max(0, districtInfluencePerHour + buildingInfluencePerHour),
+    districtPopulationPerHour: Math.max(0, districtPopulationPerMinute * 60),
     passiveHeatPerDay
   };
 }
@@ -6582,6 +6583,7 @@ function getCurrentPlayerStartPhaseSourceSnapshot() {
   let cleanMoneyPerMinute = 0;
   let dirtyMoneyPerMinute = 0;
   let influencePerMinute = 0;
+  let populationPerMinute = 0;
   let heatPerDay = 0;
   let heatPerMinute = 0;
   let districtCount = 0;
@@ -6594,14 +6596,14 @@ function getCurrentPlayerStartPhaseSourceSnapshot() {
     }
 
     const districtType = resolveStartPhaseResourceDistrictType(district);
-    const districtIncomeRule = DISTRICT_MINUTE_INCOME_RULES_EMPIRE2[districtType] || DISTRICT_MINUTE_INCOME_RULES_EMPIRE2.resident;
     const snapshot = getDistrictEconomySnapshot(district);
     cleanMoneyPerMinute += Number(START_PHASE_RESOURCE_SIMULATION.cleanPerMinuteByDistrictType[districtType] || 0)
       + (Number(snapshot.buildingCleanHourlyIncome || 0) / 60);
-    dirtyMoneyPerMinute += Number(districtIncomeRule.dirty || 0)
+    dirtyMoneyPerMinute += Number(START_PHASE_RESOURCE_SIMULATION.dirtyPerMinuteByDistrictType[districtType] || 0)
       + (Number(snapshot.buildingDirtyHourlyIncome || 0) / 60);
-    influencePerMinute += START_PHASE_RESOURCE_SIMULATION.influencePerMinute
+    influencePerMinute += Number(START_PHASE_RESOURCE_SIMULATION.influencePerMinuteByDistrictType[districtType] || 0)
       + (Number(snapshot.buildingInfluencePerHour || 0) / 60);
+    populationPerMinute += Number(START_PHASE_RESOURCE_SIMULATION.populationPerMinuteByDistrictType[districtType] || 0);
     heatPerDay += Number(snapshot.passiveHeatPerDay || 0);
     heatPerMinute += Number(snapshot.passiveHeatPerDay || 0) / 1440;
     districtCount += 1;
@@ -6611,6 +6613,7 @@ function getCurrentPlayerStartPhaseSourceSnapshot() {
     cleanMoneyPerMinute: Math.max(0, cleanMoneyPerMinute * policeIncomeMultiplier),
     dirtyMoneyPerMinute: Math.max(0, dirtyMoneyPerMinute * policeIncomeMultiplier),
     influencePerMinute: Math.max(0, influencePerMinute),
+    populationPerMinute: Math.max(0, populationPerMinute),
     heatPerDay: Math.max(0, Math.round(heatPerDay * 10) / 10),
     heatPerMinute: Math.max(0, heatPerMinute),
     districtCount
@@ -6656,6 +6659,7 @@ function createStoredResourceSnapshot() {
     cleanMoneyPerMinute: 0,
     dirtyMoneyPerMinute: 0,
     influencePerMinute: 0,
+    populationPerMinute: 0,
     sourceMode: "stored"
   };
 }
@@ -6675,6 +6679,7 @@ function createStartPhaseDisplayedResourceSnapshot() {
     cleanMoneyPerMinute: districtSnapshot.cleanMoneyPerMinute,
     dirtyMoneyPerMinute: districtSnapshot.dirtyMoneyPerMinute,
     influencePerMinute: districtSnapshot.influencePerMinute,
+    populationPerMinute: districtSnapshot.populationPerMinute,
     sourceMode: "district"
   };
 }
@@ -6698,6 +6703,7 @@ function syncStartPhaseResourceSimulation(root, now = Date.now()) {
       dirtyRemainder: 0,
       influenceRemainder: 0,
       influenceTickRemainderMs: 0,
+      populationRemainder: 0,
       heatRemainder: 0
     };
     applyTopbarEconomy(root, { instant: true });
@@ -6719,11 +6725,13 @@ function syncStartPhaseResourceSimulation(root, now = Date.now()) {
   let dirtyRemainder = Math.max(0, Number(startPhaseResourceSimulationState.dirtyRemainder || 0));
   let influenceRemainder = Math.max(0, Number(startPhaseResourceSimulationState.influenceRemainder || 0));
   let influenceTickRemainderMs = Math.max(0, Number(startPhaseResourceSimulationState.influenceTickRemainderMs || 0));
+  let populationRemainder = Math.max(0, Number(startPhaseResourceSimulationState.populationRemainder || 0));
   let heatRemainder = Math.max(0, Number(startPhaseResourceSimulationState.heatRemainder || 0));
 
   let cleanDelta = 0;
   let dirtyDelta = 0;
   let influenceDelta = 0;
+  let populationDelta = 0;
   let heatDelta = 0;
 
   if (districtSnapshot.cleanMoneyPerMinute > 0) {
@@ -6749,6 +6757,12 @@ function syncStartPhaseResourceSimulation(root, now = Date.now()) {
     influenceTickRemainderMs = 0;
   }
 
+  if (districtSnapshot.populationPerMinute > 0) {
+    const populationRaw = districtSnapshot.populationPerMinute * elapsedMinutes + populationRemainder;
+    populationDelta = Math.floor(populationRaw);
+    populationRemainder = Math.max(0, populationRaw - populationDelta);
+  }
+
   if (districtSnapshot.heatPerMinute > 0) {
     const heatRaw = districtSnapshot.heatPerMinute * elapsedMinutes + heatRemainder;
     heatDelta = Math.floor(heatRaw);
@@ -6762,6 +6776,7 @@ function syncStartPhaseResourceSimulation(root, now = Date.now()) {
     dirtyRemainder,
     influenceRemainder,
     influenceTickRemainderMs,
+    populationRemainder,
     heatRemainder
   };
 
@@ -6778,6 +6793,13 @@ function syncStartPhaseResourceSimulation(root, now = Date.now()) {
       influence: Math.max(0, Math.floor(Number(gangState.influence || 0)) + influenceDelta)
     });
     renderSpyResourceState(root, { animate: true });
+  }
+
+  if (populationDelta > 0) {
+    setStoredGangState({
+      members: Math.max(0, Math.floor(Number(gangState.members || 0)) + populationDelta)
+    });
+    renderGangMembersState(root);
   }
 
   if (heatDelta > 0) {
@@ -9067,7 +9089,8 @@ async function confirmAndRunDistrictBuildingDetailAction(root, shell, request) {
   const rewardSummary = formatBuildingActionOutputProfile(resolved.actionProfile || {}, {
     mechanics,
     formatMoney: formatDistrictBuildingMoney,
-    formatCooldown: formatDistrictBuildingCooldown
+    formatCooldown: formatDistrictBuildingCooldown,
+    includeTiming: false
   }) || resolved.definition.rewardSummary;
   const riskSummary = formatBuildingActionRiskProfile(resolved.actionProfile || {}, {
     mechanics,
@@ -10052,8 +10075,8 @@ function bindDistrictCanvas(root) {
   } = mapShell;
   const {
     popup, popupCard, popupTitle, popupType, popupOwner, popupOwnerMeta,
-    popupOwnerAvatar, popupOwnerAvatarFallback, popupDefense, popupDefensePower,
-    popupResidents, popupIncome, popupHeat, popupInfluence, popupFlags, popupToggle,
+    popupOwnerAvatar, popupOwnerAvatarFallback, popupClean, popupDirty,
+    popupInfluence, popupPopulation, popupSummary, popupFlags, popupToggle,
     popupAtmosphereHero, popupAtmosphereImage, popupAtmosphereLabel, popupAtmosphereMood,
     popupAtmosphereWindow, popupAtmosphereWindowImage, popupAtmosphereWindowLabel,
     popupAtmosphereWindowMood, popupAtmosphereWindowClose, popupBuildings, popupBuildingsMeta,
@@ -10091,9 +10114,6 @@ function bindDistrictCanvas(root) {
     const fpsCap = Math.min(defaultFps, Number(metrics.mapEffectsFpsCap || defaultFps));
     return 1000 / Math.max(1, fpsCap);
   };
-  const shouldUseReducedMapEffects = (settings = getSettingsState()) => (
-    Boolean(settings.reducedMapEffects) || Boolean(getCurrentPerformanceMode().reducedMotion)
-  );
   const hoverCanvasContext = hoverCanvas?.getContext?.("2d") || null;
   const effectsCanvasContext = effectsCanvas?.getContext?.("2d") || null;
   const syncHoverCanvasSize = () => {
@@ -10134,7 +10154,7 @@ function bindDistrictCanvas(root) {
     borderColor: phaseHost.dataset.borderColor || "white",
     showDistrictBorders: initialSettings.mapDistrictBorders,
     showAllianceSymbols: initialSettings.mapAllianceSymbols,
-    reducedMapEffects: shouldUseReducedMapEffects(initialSettings),
+    reducedMapEffects: false,
     mapVisibilityMode: initialSettings.mapVisibilityMode,
     gamePhase: normalizeRuntimeGamePhase(phaseHost.dataset.gamePhase || initialWorldState.phaseState?.gamePhase || "launch"),
     revealedDistrictIds: new Set(),
@@ -10207,8 +10227,6 @@ function bindDistrictCanvas(root) {
   let tooltipSize = { width: 84, height: 52 };
   let lastMissionAnimationAt = 0;
   let lastMissionMarkerSyncAt = 0;
-  let dynamicEffectsReduced = false;
-  let consecutiveFastEffectFrames = 0;
   const districtSelectionGesture = {
     pointerId: null,
     startX: 0,
@@ -10331,7 +10349,6 @@ function bindDistrictCanvas(root) {
     getCurrentPlayerTrapMoveCooldownSeconds,
     getDistrictTrapControlState,
     hasKnownDistrictDefense,
-    renderDistrictDefenseSummary,
     renderDistrictEconomySummary,
     renderDistrictPopupGossip,
     renderDistrictPopupFlags
@@ -10339,9 +10356,6 @@ function bindDistrictCanvas(root) {
     calculateTotalDefensePower,
     currentPlayerId: CURRENT_PLAYER_ID,
     formatDefenseLoadout,
-    formatDistrictHeatLabel,
-    formatDistrictIncomeLabel,
-    formatDistrictInfluenceLabel,
     formatDistrictGossipTimestamp,
     getCurrentPlayerOwnedDistrictIds,
     getDistrictEconomySnapshot,
@@ -10355,15 +10369,14 @@ function bindDistrictCanvas(root) {
     renderDistrictFlags,
     renderDistrictMetricSummary,
     elements: {
-      popupDefense,
-      popupDefensePower,
+      popupClean,
+      popupDirty,
       popupFlags,
       popupGossip,
       popupGossipList,
-      popupHeat,
-      popupIncome,
       popupInfluence,
-      popupResidents
+      popupPopulation,
+      popupSummary
     }
   });
   const openDistrictBuildingDetail = (district, buildingName, options = {}) => {
@@ -10793,6 +10806,37 @@ function bindDistrictCanvas(root) {
       .some((order) => Number(String(order.targetDistrictId || "").replace("district:", "")) === targetDistrictId);
   };
 
+  const hasActiveOccupationInProgress = () => {
+    const now = Date.now();
+    const hasLocalOccupation = getStoredOccupyOrders().some((order) => (
+      new Date(order?.resolveAt || order?.createdAt || 0).getTime() > now
+    ));
+    const occupyTargets = latestGameplaySliceReadModel?.district?.occupyTargets;
+    const hasServerOccupation = Array.isArray(occupyTargets) && occupyTargets.some((target) => (
+      target?.disabledCode === "PLAYER_OCCUPY_OPERATION_ACTIVE"
+    ));
+    return hasLocalOccupation || hasServerOccupation;
+  };
+
+  const isDistrictSpyInProgress = (districtId) => {
+    const targetDistrictId = Number(districtId);
+    const now = Date.now();
+    return getResolvedSpyState().missions.some((mission) => (
+      getSpyMissionPhase(mission) === "active"
+      && Number(String(mission?.targetDistrictId || "").replace("district:", "")) === targetDistrictId
+      && getSpyMissionExpiryTimestamp(mission) > now
+    ));
+  };
+
+  const isDistrictRobberyInProgress = (districtId) => {
+    const targetDistrictId = Number(districtId);
+    const now = Date.now();
+    return getStoredRobberyOrders().some((order) => (
+      Number(String(order?.targetDistrictId || "").replace("district:", "")) === targetDistrictId
+      && new Date(order?.resolveAt || order?.createdAt || 0).getTime() > now
+    ));
+  };
+
   const isDowntownDistrict = (district) => (
     district?.isDowntown === true
     || String(district?.districtType || district?.zone || "").trim().toLowerCase() === "downtown"
@@ -10818,6 +10862,21 @@ function bindDistrictCanvas(root) {
 
     if (buildingActionMeta) {
       buildingActionMeta.textContent = `District ${selectedDistrict.id} · probíhá obsazení`;
+    }
+  };
+
+  const setActiveOccupationLockedFeedback = () => {
+    if (buildingActionState) {
+      buildingActionState.textContent = "Obsazení";
+      buildingActionState.classList.remove("building-action-status__state--idle");
+    }
+
+    if (buildingActionSummary) {
+      buildingActionSummary.textContent = "Jedno obsazování už probíhá. Další můžeš spustit až po jeho dokončení.";
+    }
+
+    if (buildingActionMeta) {
+      buildingActionMeta.textContent = "Obsazení · aktivní operace";
     }
   };
 
@@ -11056,6 +11115,11 @@ function bindDistrictCanvas(root) {
 
     if (!shouldRunLocalGameplayRuntime()) return false;
 
+    if (hasActiveOccupationInProgress()) {
+      setActiveOccupationLockedFeedback();
+      return false;
+    }
+
     if (isDistrictOccupationInProgress(selectedDistrict.id)) {
       setDistrictOccupationLockedFeedback(selectedDistrict);
       return false;
@@ -11147,6 +11211,11 @@ function bindDistrictCanvas(root) {
       return false;
     }
 
+    if (isDistrictSpyInProgress(selectedDistrict.id)) {
+      showWarning(`District ${selectedDistrict.id} právě špehuješ. Vykrást ho lze až po návratu špeha.`);
+      return false;
+    }
+
     if (isServerAuthoritativeGameplayRuntimeReady()) {
       showWarning("Vykradení potvrzuje serverový gameplay slice. Legacy lokální robbery výsledek je vypnutý.");
       return false;
@@ -11228,6 +11297,11 @@ function bindDistrictCanvas(root) {
 
     if (isDistrictOccupationInProgress(selectedDistrict.id)) {
       setDistrictOccupationLockedFeedback(selectedDistrict);
+      return false;
+    }
+
+    if (isDistrictRobberyInProgress(selectedDistrict.id)) {
+      showWarning(`District ${selectedDistrict.id} právě vykrádáš. Špehování lze spustit až po dokončení vykradení.`);
       return false;
     }
 
@@ -11340,7 +11414,10 @@ function bindDistrictCanvas(root) {
 
     const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
     const isOccupying = isDistrictOccupationInProgress(district.id);
-    const occupyingStatusMessage = isOccupying ? `District ${district.id} je obsazován.` : "";
+    const isSpying = isDistrictSpyInProgress(district.id);
+    const isRobbing = isDistrictRobberyInProgress(district.id);
+    const actionCountdowns = getDistrictActionCountdowns(district.id);
+    const occupationCountdown = actionCountdowns.occupy;
     const downtownOccupationLocked = isDowntownOccupationLocked(district);
     const downtownOccupationLockedMessage = downtownOccupationLocked ? getDowntownOccupationLockedMessage(district) : "";
     const isDestroyed = interactionState.destroyedDistrictIds.has(Number(district.id));
@@ -11382,6 +11459,7 @@ function bindDistrictCanvas(root) {
     }
     if (popupCard instanceof HTMLElement) {
       popupCard.dataset.districtId = String(district.id);
+      popupCard.dataset.districtOccupationActive = String(isOccupying);
     }
     ensureOnboardingDistrictPopupTopLayer(popup, district, root?.ownerDocument || document);
 
@@ -11441,6 +11519,11 @@ function bindDistrictCanvas(root) {
         card: popupCard
       }
     });
+    if (isOccupying && popupOwnerMeta) {
+      popupOwnerMeta.textContent = occupationCountdown
+        ? `Cooldown obsazení: ${occupationCountdown.label}`
+        : "Cooldown obsazení se načítá.";
+    }
 
     applyDistrictAtmosphere({
       card: popupCard,
@@ -11485,6 +11568,7 @@ function bindDistrictCanvas(root) {
       ownerLabel,
       adjacentOwnedCount: adjacentOwnedDistrictIds.length,
       hasKnownDefense,
+      defenseEstimate: hasKnownDefense ? getDistrictDefenseState(district.id).totalPower : 0,
       activePoliceAction,
       isOccupying,
       isDowntownOccupationLocked: downtownOccupationLocked,
@@ -11492,7 +11576,6 @@ function bindDistrictCanvas(root) {
       hasTrapHere: currentTrapDistrictId === district.id
     }));
 
-    renderDistrictDefenseSummary(district);
     renderDistrictEconomySummary(district);
     renderDistrictPopupBuildings(district);
     renderDistrictPopupGossip(district);
@@ -11509,6 +11592,9 @@ function bindDistrictCanvas(root) {
           canOccupyAfterSpy,
           availableSpies: spyState.available,
           isOccupying,
+          hasActiveOccupation: hasActiveOccupationInProgress(),
+          isSpying,
+          isRobbing,
           isDowntownOccupationLocked: downtownOccupationLocked,
           currentTrapDistrictId,
           trapMoveCooldownSeconds
@@ -11520,10 +11606,10 @@ function bindDistrictCanvas(root) {
 
     renderDistrictActionHub(buildDistrictActionViewModel(district, {
       activePoliceAction,
-      statusMessage: occupyingStatusMessage,
+      isOccupying,
       noticeMessage: downtownOccupationLockedMessage,
       resolvedActions,
-      actionCountdowns: getDistrictActionCountdowns(district.id),
+      actionCountdowns,
       trapControlState
     }, {
       normalizeReason: normalizeDistrictActionReason
@@ -11796,30 +11882,15 @@ function bindDistrictCanvas(root) {
       phaseHost.dataset.mapPhase || "day",
       interactionState,
       geometry,
-      { reducedMapEffects: interactionState.reducedMapEffects || dynamicEffectsReduced }
+      { reducedMapEffects: false }
     );
     const durationMs = Math.max(0, (window.performance?.now?.() ?? Date.now()) - startedAt);
     const metrics = recordMapEffectRender(window, durationMs);
     const mode = getCurrentPerformanceMode();
     const normalFps = mode.active ? 20 : 60;
 
-    if (durationMs > 16) {
-      dynamicEffectsReduced = true;
-      consecutiveFastEffectFrames = 0;
-      metrics.mapEffectsQuality = "reduced";
-      metrics.mapEffectsFpsCap = mode.active ? 15 : 30;
-      return;
-    }
-
-    consecutiveFastEffectFrames = durationMs < 10 ? consecutiveFastEffectFrames + 1 : 0;
-    if (dynamicEffectsReduced && consecutiveFastEffectFrames >= 12) {
-      dynamicEffectsReduced = false;
-      metrics.mapEffectsQuality = "full";
-      metrics.mapEffectsFpsCap = normalFps;
-    } else if (!metrics.mapEffectsFpsCap) {
-      metrics.mapEffectsQuality = "full";
-      metrics.mapEffectsFpsCap = normalFps;
-    }
+    metrics.mapEffectsQuality = "full";
+    metrics.mapEffectsFpsCap = normalFps;
   };
 
   const performRender = () => {
@@ -11906,11 +11977,6 @@ function bindDistrictCanvas(root) {
         clearEffectsCanvas();
       }
       lastMissionAnimationAt = 0;
-      return;
-    }
-
-    if (interactionState.reducedMapEffects) {
-      renderMapEffects();
       return;
     }
 
@@ -12174,7 +12240,6 @@ function bindDistrictCanvas(root) {
     const settings = event.detail?.settings || getSettingsState();
     interactionState.showDistrictBorders = Boolean(settings.mapDistrictBorders);
     interactionState.showAllianceSymbols = Boolean(settings.mapAllianceSymbols);
-    interactionState.reducedMapEffects = shouldUseReducedMapEffects(settings);
     interactionState.mapVisibilityMode = normalizeMapVisibilityMode(settings.mapVisibilityMode);
     render("ui:settings-change");
     ensureMissionAnimationLoop();
@@ -12247,7 +12312,6 @@ function bindDistrictCanvas(root) {
       ? event.detail
       : detectMobilePerformanceMode({ windowRef: window, documentRef: document });
     applyMobilePerformanceMode(currentPerformanceMode, { windowRef: window, documentRef: document });
-    interactionState.reducedMapEffects = shouldUseReducedMapEffects(getSettingsState());
     render("mobile-performance-mode");
     ensureMissionAnimationLoop();
   };
@@ -12262,7 +12326,6 @@ function bindDistrictCanvas(root) {
 
     currentPerformanceMode = detectMobilePerformanceMode({ windowRef: window, documentRef: document });
     applyMobilePerformanceMode(currentPerformanceMode, { windowRef: window, documentRef: document });
-    interactionState.reducedMapEffects = shouldUseReducedMapEffects(getSettingsState());
     syncInteractionDistrictAuthorityState();
     syncMapMissionMarkers(Date.now());
     render("visibility-return", { immediate: true });
@@ -12278,7 +12341,6 @@ function bindDistrictCanvas(root) {
       resizeRenderFrameId = null;
       currentPerformanceMode = detectMobilePerformanceMode({ windowRef: window, documentRef: document });
       applyMobilePerformanceMode(currentPerformanceMode, { windowRef: window, documentRef: document });
-      interactionState.reducedMapEffects = shouldUseReducedMapEffects(getSettingsState());
       render("resize");
       ensureMissionAnimationLoop();
     });
@@ -12644,6 +12706,11 @@ function bindDistrictCanvas(root) {
 
       if (isDistrictOccupationInProgress(selectedDistrict.id)) {
         setDistrictOccupationLockedFeedback(selectedDistrict);
+        return;
+      }
+
+      if (actionId === "occupy" && hasActiveOccupationInProgress()) {
+        setActiveOccupationLockedFeedback();
         return;
       }
 
@@ -13252,6 +13319,11 @@ function bindDistrictCanvas(root) {
         return;
       }
 
+      if (hasActiveOccupationInProgress()) {
+        setActiveOccupationLockedFeedback();
+        return;
+      }
+
       if (isServerAuthoritativeGameplayRuntimeReady()) {
         const targetDistrictId = `district:${selectedDistrict.id}`;
         const corridor = latestGameplaySliceReadModel?.frontier?.corridorTargets
@@ -13376,7 +13448,7 @@ const {
 const runtimePopupBinders = createRuntimePopupBinders({
   NAV_SETTINGS_SELECTOR, SETTINGS_MODAL_SELECTOR, SETTINGS_MODAL_BACKDROP_SELECTOR, SETTINGS_MODAL_CLOSE_SELECTOR,
   SETTINGS_SAVE_SELECTOR, SETTINGS_MAP_BORDERS_SELECTOR, SETTINGS_MAP_ALLIANCE_SYMBOLS_SELECTOR,
-  SETTINGS_MAP_REDUCED_EFFECTS_SELECTOR, SETTINGS_MAP_VISIBILITY_SELECTOR, SETTINGS_LANGUAGE_SELECTOR,
+  SETTINGS_MAP_VISIBILITY_SELECTOR, SETTINGS_LANGUAGE_SELECTOR,
   PLAYER_PROFILE_OPEN_SELECTOR, PLAYER_POPUP_SELECTOR, PLAYER_POPUP_CARD_SELECTOR, PLAYER_POPUP_CLOSE_SELECTOR,
   PLAYER_POPUP_AVATAR_SELECTOR, PLAYER_POPUP_AVATAR_FALLBACK_SELECTOR, PLAYER_POPUP_IDENTITY_SELECTOR,
   PLAYER_POPUP_FACTION_SELECTOR, PLAYER_POPUP_SERVER_SELECTOR, PLAYER_POPUP_EMPIRE_SCORE_SELECTOR,
@@ -14224,18 +14296,7 @@ function bindFreeSessionOnboarding(root) {
   const bridge = createOnboardingBridge({
     root,
     documentRef: document,
-    getContext: () => createFreeSessionUiContext(root),
-    onWelcomeStart: () => applyDevOnlyOnboardingStartState(root),
-    onComplete: (context) => completeDevOnlyOnboarding(root, context),
-    onStepEnter: (stepId) => {
-      if (stepId === "spy") {
-        return resetOnboardingSpyTargetState(root);
-      }
-      if (stepId === "attack-order") {
-        return resetOnboardingTrapTargetState(root);
-      }
-      return false;
-    }
+    getContext: () => createFreeSessionUiContext(root)
   });
   onboardingBridgesByRoot.set(root, bridge);
   bridge.init();
@@ -14678,14 +14739,6 @@ function initRuntime(root = getDefaultRuntimeRoot()) {
     return context;
   }
 
-  forceGameHtmlRefreshLivePhase(resolvedRoot);
-  if (isLocalDemoGameplayExecutionMode() && getAuthoritySession()?.devOnlyDemoResetVersion !== 1) {
-    applyDevOnlyOnboardingStartState(resolvedRoot);
-    updateStoredPreviewSession((session) => ({
-      ...session,
-      devOnlyDemoResetVersion: 1
-    }));
-  }
   hydrateInitialState(resolvedRoot);
   const context = createPageContext(resolvedRoot);
   window.empireStreetsPage = context;

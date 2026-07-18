@@ -5,6 +5,7 @@ import type { CoreError } from "../errors";
 import {
   createRobCooldownKey,
   createRobSourceCooldownKey,
+  resolveDistrictOperationBlock,
   resolveDistrictActionAvailability,
   validateMapAction
 } from "../rules";
@@ -18,6 +19,8 @@ export const validateRob = (
   if (!targetDistrict) return [{ code: "TARGET_NOT_FOUND", message: "Cílový district neexistuje." }];
   const availabilityError = resolveDistrictActionAvailability(state, command.playerId, targetDistrict.id, "rob");
   if (availabilityError) return [availabilityError];
+  const operationBlock = resolveDistrictOperationBlock(targetDistrict, "rob", state.root.tick);
+  if (operationBlock) return [operationBlock];
 
   const originDistrictId = command.payload.sourceDistrictId
     ?? resolveSingleOwnedOrigin(state, command.playerId, command.payload.targetDistrictId);

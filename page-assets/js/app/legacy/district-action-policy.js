@@ -39,6 +39,9 @@ export function resolveDistrictActions(context) {
     canOccupyAfterSpy,
     availableSpies,
     isOccupying,
+    hasActiveOccupation,
+    isSpying,
+    isRobbing,
     isDowntownOccupationLocked,
     currentTrapDistrictId,
     trapMoveCooldownSeconds
@@ -67,13 +70,26 @@ export function resolveDistrictActions(context) {
   if (context.serverAuthoritative) {
     return DISTRICT_ACTION_CATALOG
       .filter((action) => action.id !== "defense")
-      .map((action) => ({
-        id: action.id,
-        visible: true,
-        enabled: true,
-        label: action.defaultLabel,
-        reason: null
-      }));
+      .map((action) => {
+        const blockedByRobbery = action.id === "occupy" && isRobbing;
+        const blockedByOccupation = action.id === "occupy" && hasActiveOccupation;
+        const blocked = blockedByRobbery || blockedByOccupation;
+        return {
+          id: action.id,
+          visible: true,
+          enabled: !blocked,
+          label: action.defaultLabel,
+          stacked: blocked,
+          subtitle: blockedByOccupation ? "Přijď později" : (blockedByRobbery ? "Teď ne" : ""),
+          disabledTone: blockedByOccupation ? "occupation" : (blockedByRobbery ? "robbery" : ""),
+          title: blockedByOccupation
+            ? "Jedno obsazování už probíhá. Další můžeš spustit po jeho dokončení."
+            : (blockedByRobbery ? `District ${districtId} právě vykrádáš. Obsazení lze spustit až po dokončení vykradení.` : ""),
+          reason: blockedByOccupation
+            ? "Jedno obsazování už probíhá. Další můžeš spustit po jeho dokončení."
+            : (blockedByRobbery ? `District ${districtId} právě vykrádáš. Obsazení lze spustit až po dokončení vykradení.` : null)
+        };
+      });
   }
 
   return DISTRICT_ACTION_CATALOG.map((action) => {
@@ -154,13 +170,26 @@ export function resolveDistrictActions(context) {
 
     if (action.id === "occupy") {
       const visible = !isDowntownOccupationLocked && !isOwnedByCurrentPlayer && isUnoccupied && canOccupyAfterSpy && hasAdjacentOwnedDistrict;
+      const blockedByRobbery = visible && isRobbing;
+      const blockedByOccupation = visible && hasActiveOccupation;
+      const blocked = blockedByRobbery || blockedByOccupation;
 
       return {
         id: action.id,
         visible,
-        enabled: visible,
+        enabled: visible && !blocked,
         label: action.defaultLabel,
-        reason: visible
+        stacked: blocked,
+        subtitle: blockedByOccupation ? "Přijď později" : (blockedByRobbery ? "Teď ne" : ""),
+        disabledTone: blockedByOccupation ? "occupation" : (blockedByRobbery ? "robbery" : ""),
+        title: blockedByOccupation
+          ? "Jedno obsazování už probíhá. Další můžeš spustit po jeho dokončení."
+          : (blockedByRobbery ? `District ${districtId} právě vykrádáš. Obsazení lze spustit až po dokončení vykradení.` : ""),
+        reason: blockedByOccupation
+          ? "Jedno obsazování už probíhá. Další můžeš spustit po jeho dokončení."
+          : blockedByRobbery
+          ? `District ${districtId} právě vykrádáš. Obsazení lze spustit až po dokončení vykradení.`
+          : visible
           ? null
           : isDowntownOccupationLocked
             ? "Downtown districty lze obsazovat až ve final lockdown fázi."
@@ -170,33 +199,43 @@ export function resolveDistrictActions(context) {
 
     if (action.id === "rob") {
       const visible = !isOwnedByCurrentPlayer && isUnoccupied && hasAdjacentOwnedDistrict;
-
-      return {
-        id: action.id,
-        visible,
-        enabled: visible,
-        label: action.defaultLabel,
-        reason: visible ? null : "Vykrást district lze jen na prázdný sousední district."
-      };
-    }
-
-    if (action.id === "spy") {
-      const visible = !isOwnedByCurrentPlayer && hasAdjacentOwnedDistrict && !canOccupyAfterSpy;
-      const enabled = visible && availableSpies > 0;
-      const noSpiesAvailable = visible && !enabled;
+      const enabled = visible && !isSpying;
 
       return {
         id: action.id,
         visible,
         enabled,
         label: action.defaultLabel,
-        stacked: noSpiesAvailable,
-        subtitle: noSpiesAvailable ? "Žádní špehové" : "",
-        disabledTone: noSpiesAvailable ? "no-spies" : "",
-        title: noSpiesAvailable ? "Žádní špehové nejsou dostupní." : "",
+        reason: !visible
+          ? "Vykrást district lze jen na prázdný sousední district."
+          : isSpying
+            ? `District ${districtId} právě špehuješ. Vykrást ho lze až po návratu špeha.`
+            : null
+      };
+    }
+
+    if (action.id === "spy") {
+      const visible = !isOwnedByCurrentPlayer && hasAdjacentOwnedDistrict && !canOccupyAfterSpy;
+      const enabled = visible && availableSpies > 0 && !isRobbing;
+      const noSpiesAvailable = visible && availableSpies <= 0;
+      const blockedByRobbery = visible && isRobbing;
+
+      return {
+        id: action.id,
+        visible,
+        enabled,
+        label: action.defaultLabel,
+        stacked: noSpiesAvailable || blockedByRobbery,
+        subtitle: blockedByRobbery ? "Probíhá krádež" : (noSpiesAvailable ? "Žádní špehové" : ""),
+        disabledTone: noSpiesAvailable || blockedByRobbery ? "no-spies" : "",
+        title: blockedByRobbery
+          ? `District ${districtId} právě vykrádáš. Špehování lze spustit až po dokončení vykradení.`
+          : (noSpiesAvailable ? "Žádní špehové nejsou dostupní." : ""),
         reason: enabled
           ? null
-          : !visible
+          : blockedByRobbery
+            ? `District ${districtId} právě vykrádáš. Špehování lze spustit až po dokončení vykradení.`
+            : !visible
             ? "Špehování vyžaduje sousední vlastněný district."
             : null
       };

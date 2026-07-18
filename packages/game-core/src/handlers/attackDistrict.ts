@@ -7,7 +7,7 @@ import { calculateBaseDefensePower, calculateAttackPopulationRequired, calculate
   calculateBazookaTotalDestructionBonusPercent, calculateGrenadeDefenseIgnorePercent, calculateSmgComboBonus,
   calculateTotalAttackPower, calculateTowerAttackReductionPercent, applyDayNightAttackDurationTicks,
   applyDayNightHeatGain, resolveAttackDurationGuardrailTicks, resolveAttackDurationTicks, applyDefenseCombatLosses,
-  applyMajorOperationCooldowns, consumeCapturedDistrictDefense, resolveCombat, resolveTrap } from "../rules";
+  applyMajorOperationCooldowns, applyDistrictOperationLock, consumeCapturedDistrictDefense, resolveCombat, resolveTrap } from "../rules";
 import { createDefaultDistrictEffectModifiers, resolveActiveDistrictEffectModifiers } from "../rules/economy/calculateIncome";
 import { resolveActiveAlliancePenaltyStatModifiers } from "../rules/alliances/alliancePenaltyModifiers";
 import {
@@ -362,7 +362,7 @@ export const handleAttackDistrict = (
     resourceStatesById: nextResourceStatesById,
     districtsById: {
       ...postCombatDefenseState.districtsById,
-      [targetDistrict.id]: bumpDistrictSecurityRevision({
+      [targetDistrict.id]: bumpDistrictSecurityRevision(applyDistrictOperationLock({
         ...targetAfterDefenseLosses,
         ownerPlayerId: districtDestroyed
           ? null
@@ -394,7 +394,7 @@ export const handleAttackDistrict = (
             ? targetDistrict.status
             : "contested",
         version: targetAfterDefenseLosses.version + 1
-      })
+      }, "attack", state.root.tick + attackDurationTicks))
     },
     buildingsById: nextBuildingsById,
     cooldownStatesById: {

@@ -7,6 +7,7 @@ import { CORE_EVENT_TYPES, createEvent, createNotification } from "../events";
 import {
   createOccupyGlobalCooldownKey,
   createOccupySourceCooldownKey,
+  applyDistrictOperationLock,
   applyMajorOperationCooldowns,
   resolveOccupyBalance,
   resolveOccupyInfluenceCost,
@@ -167,7 +168,7 @@ export const handleOccupyDistrict = (
         influence: Math.max(0, Number(sourceDistrict.influence || 0) - influenceCost),
         version: sourceDistrict.version + 1
       },
-      [targetDistrict.id]: (occupySucceeded ? bumpDistrictSecurityRevision : bumpDistrictConflictRevision)({
+      [targetDistrict.id]: (occupySucceeded ? bumpDistrictSecurityRevision : bumpDistrictConflictRevision)(applyDistrictOperationLock({
         ...targetDistrict,
         ...(occupySucceeded
           ? {
@@ -184,7 +185,7 @@ export const handleOccupyDistrict = (
         heat: Math.max(0, Number(targetDistrict.heat || 0) + heatGain),
         lastHeatDecayTick: state.root.tick,
         version: targetDistrict.version + 1
-      })
+      }, "occupy", state.root.tick + cooldownTicks))
     },
     buildingsById: nextBuildingsById,
     resourceStatesById: {

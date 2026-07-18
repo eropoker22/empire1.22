@@ -191,19 +191,15 @@ describe("district panel rendering", () => {
     const flags = createElement(document);
 
     renderDistrictMetricSummary({
-      defense: createElement(document),
-      defensePower: createElement(document),
-      residents: createElement(document),
-      income: createElement(document),
-      heat: createElement(document),
-      influence: createElement(document)
+      clean: createElement(document),
+      dirty: createElement(document),
+      influence: createElement(document),
+      population: createElement(document)
     }, {
-      defenseLabel: "Žádná",
-      defensePowerLabel: "0",
-      residentsLabel: "12",
-      incomeLabel: "$120/h",
-      heatLabel: "+2/den",
-      influenceLabel: "+1/h"
+      cleanLabel: "500",
+      dirtyLabel: "50",
+      influenceLabel: "2",
+      populationLabel: "0"
     });
 
     renderDistrictFlags(flags, [
@@ -248,12 +244,10 @@ describe("district panel rendering", () => {
     expect(list.children[0].children[0].textContent).toBe("Autosalon");
     expect(list.children[0].title).toBe("Autosalon");
     expect(list.children[1].children[0].textContent).toBe("Noční Lékárna");
-    expect(list.children[1].children[1].textContent).toBe("Výroba");
+    expect(list.children[1].children).toHaveLength(1);
     expect(list.children[1].dataset.districtBuildingKind).toBe("Výroba");
     expect(list.children[1].dataset.districtBuildingKindType).toBe("production");
     expect(list.children[1].classList.contains("district-popup-buildings__chip--kind-production")).toBe(true);
-    expect(list.children[1].children[1].dataset.districtBuildingKindType).toBe("production");
-    expect(list.children[1].children[1].classList.contains("district-popup-buildings__chip-kind--production")).toBe(true);
     expect(list.children[2].classList.contains("district-popup-buildings__chip--trap")).toBe(true);
     expect(list.children[2].dataset.districtBuildingTrap).toBe("active");
     expect(list.children[2].children[1].textContent).toBe("59:59");

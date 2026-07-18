@@ -74,6 +74,59 @@ describe("authority state bootstrap", () => {
     });
   });
 
+  it("preserves discovered districts, ownership, and active production across reloads", async () => {
+    const authorityState = await import("../../page-assets/js/app/model/authority-state.js");
+    const productionJob = {
+      version: 2,
+      recipeId: "druglab:meth",
+      queuedAmount: 2,
+      producedAmount: 0,
+      isProducing: true,
+      readyAtMs: 1_800_000,
+      lastProgressAtMs: 1_700_000
+    };
+
+    authorityState.updateStoredPreviewSession((session) => ({
+      ...session,
+      missions: {
+        ...session.missions,
+        occupyOrders: [{ id: "occupy:12", targetDistrictId: 12, resolveAt: "2026-07-18T12:30:00.000Z" }],
+        spy: {
+          ...session.missions.spy,
+          missions: [{ id: "spy:19", targetDistrictId: 19, returnAt: "2026-07-18T12:20:00.000Z" }]
+        },
+        spyIntel: {
+          occupiableDistrictIds: [19],
+          revealedTypeDistrictIds: [19],
+          revealedDefenseDistrictIds: [19]
+        }
+      },
+      production: {
+        ...session.production,
+        jobs: { "druglab:meth": productionJob }
+      },
+      world: {
+        ...session.world,
+        ownedDistrictIds: [4, 12]
+      }
+    }));
+
+    vi.resetModules();
+    const reloadedAuthorityState = await import("../../page-assets/js/app/model/authority-state.js");
+    const restored = reloadedAuthorityState.getStoredPreviewSession();
+
+    expect(restored.missions.spyIntel).toMatchObject({
+      occupiableDistrictIds: [19],
+      revealedTypeDistrictIds: [19],
+      revealedDefenseDistrictIds: [19]
+    });
+    expect(restored.missions.occupyOrders).toEqual([
+      expect.objectContaining({ id: "occupy:12", targetDistrictId: 12 })
+    ]);
+    expect(restored.world.ownedDistrictIds).toEqual([4, 12]);
+    expect(restored.production.jobs["druglab:meth"]).toMatchObject(productionJob);
+  });
+
   it("migrates legacy Factory slots and supplies to canonical jobs exactly once", async () => {
     window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
       inventory: {

@@ -271,11 +271,7 @@ export function resolveBuildingSpecialActionDefinition({
     label: String(actionLabel || "Akce").trim() || "Akce",
     shortDescription: implemented ? "Akce se spustí po potvrzení." : "",
     confirmTitle: String(actionLabel || "Potvrdit akci").trim() || "Potvrdit akci",
-    confirmBody: implemented
-      ? hasServerConfig
-        ? "Po potvrzení se akce spustí přes server. Cena, efekt, riziko a cooldown jsou uvedené níže."
-        : "Po potvrzení se akce spustí. Cena, efekt, riziko a cooldown jsou uvedené níže."
-      : "",
+    confirmBody: "",
     costSummary: formatCostSummary(profile),
     rewardSummary: formatRewardSummary(profile),
     riskSummary: formatRiskSummary(profile),

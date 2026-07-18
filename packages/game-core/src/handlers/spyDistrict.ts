@@ -10,6 +10,7 @@ import type { CoreError } from "../errors";
 import { CORE_EVENT_TYPES, createEvent } from "../events";
 import {
   calculateBaseDefensePower,
+  applyDistrictOperationLock,
   resolveSpy,
   resolvePlayerSpyBoostEffects,
   type SpyOutcome
@@ -31,6 +32,7 @@ import { increasePlayerPoliceHeat } from "./playerPoliceState";
 import { applyGarageCooldownReductionTicks } from "./garageBuildingActions";
 import { resolveCombinedCameraAlarmBonuses } from "./recruitmentCenterBuildingActions";
 import { createSpyReportNotification } from "./conflictReportNotifications";
+import { bumpDistrictConflictRevision } from "../state";
 
 /**
  * Responsibility: Orchestrates one authoritative spy command and report creation.
@@ -150,6 +152,14 @@ export const handleSpyDistrict = (
           },
           version: cooldownState.version + (state.cooldownStatesById[cooldownState.id] ? 1 : 0)
         }
+      },
+      districtsById: {
+        ...state.districtsById,
+        [targetDistrict.id]: bumpDistrictConflictRevision(applyDistrictOperationLock(
+          targetDistrict,
+          "spy",
+          slotAvailableAtTick
+        ))
       },
       playerSpyOperationStatesByPlayerId: {
         ...state.playerSpyOperationStatesByPlayerId,

@@ -56,27 +56,29 @@ export function createBuildingSpecialActionConfirmationController({
   dialog.setAttribute("aria-modal", "true");
   dialog.setAttribute("aria-label", "Potvrzení speciální akce");
 
-  const eyebrow = documentRef.createElement("span");
-  eyebrow.className = "building-special-action-confirm__eyebrow";
-  eyebrow.textContent = "Speciální akce";
-
   const title = documentRef.createElement("h4");
   title.className = "building-special-action-confirm__title";
 
+  const titleRow = documentRef.createElement("div");
+  titleRow.className = "building-special-action-confirm__title-row";
+  const headerDetails = documentRef.createElement("div");
+  headerDetails.className = "building-special-action-confirm__header-details";
+  const cooldown = documentRef.createElement("span");
+  cooldown.className = "building-special-action-confirm__cooldown";
+  const risk = documentRef.createElement("span");
+  risk.className = "building-special-action-confirm__risk";
+  headerDetails.append(cooldown, risk);
+  titleRow.append(title, headerDetails);
+
   const meta = documentRef.createElement("p");
   meta.className = "building-special-action-confirm__meta";
-
-  const copy = documentRef.createElement("p");
-  copy.className = "building-special-action-confirm__copy";
 
   const grid = documentRef.createElement("div");
   grid.className = "building-special-action-confirm__grid";
   const cost = createInfoRow(documentRef, "Cena");
   const reward = createInfoRow(documentRef, "Efekt");
   const input = createInfoRow(documentRef, "Volba");
-  const risk = createInfoRow(documentRef, "Riziko");
-  const cooldown = createInfoRow(documentRef, "Čekání");
-  grid.append(cost.row, reward.row, input.row, risk.row, cooldown.row);
+  grid.append(cost.row, reward.row, input.row);
 
   const reason = documentRef.createElement("p");
   reason.className = "building-special-action-confirm__reason";
@@ -95,7 +97,7 @@ export function createBuildingSpecialActionConfirmationController({
   confirmButton.textContent = "Potvrdit akci";
 
   actions.append(cancelButton, confirmButton);
-  dialog.append(eyebrow, title, meta, copy, grid, reason, actions);
+  dialog.append(titleRow, meta, grid, reason, actions);
   overlay.append(backdrop, dialog);
   host.append(overlay);
 
@@ -125,8 +127,7 @@ export function createBuildingSpecialActionConfirmationController({
     titleLabel = "Potvrdit akci",
     buildingLabel = "Budova",
     districtLabel = "",
-    description = "",
-    costSummary = "Bez ceny",
+    costSummary = "",
     rewardSummary = "Efekt podle akce",
     inputSummary = "",
     riskSummary = "Bez přímého heat rizika",
@@ -136,13 +137,13 @@ export function createBuildingSpecialActionConfirmationController({
   } = {}) => {
     setText(title, titleLabel);
     setText(meta, [buildingLabel, districtLabel].filter(Boolean).join(" · "));
-    setText(copy, description || "Potvrď spuštění speciální akce.");
     setText(cost.value, costSummary);
+    cost.row.hidden = !String(costSummary || "").trim();
     setText(reward.value, rewardSummary);
     setText(input.value, inputSummary);
     input.row.hidden = !inputSummary;
-    setText(risk.value, riskSummary);
-    setText(cooldown.value, cooldownLabel);
+    setText(cooldown, `Čekání: ${cooldownLabel}`);
+    setText(risk, `Riziko: ${riskSummary}`);
     setText(reason, disabledReason);
     reason.hidden = !disabledReason;
     confirmButton.disabled = !canConfirm;

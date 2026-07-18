@@ -20,7 +20,7 @@ export function getCollectItemsTotal(items = []) {
   return normalizeCollectItems(items).reduce((total, item) => total + Math.max(0, Number(item.amount || 0)), 0);
 }
 
-export function createStorageCollectResultPayload({ buildingLabel = "Budova", items = [], meta = "Sklad", districtLabel = "" } = {}) {
+export function createStorageCollectResultPayload({ buildingLabel = "Budova", items = [], meta = "Sklad", districtLabel = "", hideBadge = false } = {}) {
   const normalizedItems = normalizeCollectItems(items);
   const total = getCollectItemsTotal(normalizedItems);
   const itemSummary = normalizedItems.length
@@ -30,6 +30,7 @@ export function createStorageCollectResultPayload({ buildingLabel = "Budova", it
     tone: "is-specialty-financial",
     title: `${buildingLabel}: výběr do skladu`,
     badge: "Sklad",
+    hideBadge: Boolean(hideBadge),
     summary: `Do skladu přesunuto: ${itemSummary}.`,
     rows: [
       { label: "Budova", value: buildingLabel },

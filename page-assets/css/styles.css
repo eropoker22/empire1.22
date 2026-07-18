@@ -1081,6 +1081,26 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
     flex-direction: column !important;
   }
 
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="power-plant"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-body {
+    flex: 0 0 auto !important;
+    grid-template-rows: auto !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="power-plant"].is-building-detail-single-panel .district-building-detail-card.building-detail-modal__content {
+    height: auto !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="power-plant"] .district-building-detail-card .building-info-card__effects {
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    row-gap: 8px !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="power-plant"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel--merged {
+    flex: 0 0 auto !important;
+  }
+
   html body.game-body .district-building-detail-card .building-info-card__section,
   html body.game-body .district-building-detail-card .building-info-card__effects {
     gap: 5px !important;
@@ -3120,9 +3140,34 @@ html body.game-body #profile-gang-card.right-panel-card .profile-row--members > 
   text-shadow: 0 0 12px rgba(134, 239, 172, 0.32) !important;
 }
 
+html body.game-body #profile-gang-card.right-panel-card :is(
+  .profile-row--members,
+  .profile-row--faction,
+  .profile-row--alliance
+) {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.045), transparent 58%),
+    rgba(0, 0, 0, 0.58) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 16px rgba(0, 0, 0, 0.32),
+    0 6px 14px rgba(0, 0, 0, 0.16) !important;
+}
+
+html body.game-body #profile-gang-card.right-panel-card :is(
+  .profile-row--members,
+  .profile-row--faction,
+  .profile-row--alliance
+) :is(.gang-profile-row__label, span:last-child) {
+  color: #ffffff !important;
+  text-shadow: none !important;
+}
+
 html body.game-body #profile-gang-card.right-panel-card .profile-row--faction .gang-profile-row__label,
 html body.game-body #profile-gang-card.right-panel-card .profile-row--faction > span:last-child {
-  color: rgba(254, 240, 138, 0.96) !important;
+  color: #ffffff !important;
+  text-shadow: none !important;
 }
 
 html body.game-body #profile-gang-card.right-panel-card [data-gang-members],
@@ -6238,6 +6283,68 @@ html body.game-body .district-popup-action[data-district-action-id="trap"][data-
     gap: 4px !important;
     margin-top: 8px !important;
     padding: 0 !important;
+  }
+}
+
+/* Final requested overrides for district actions and gang profile rows. */
+html body.game-body .district-popup-action[data-district-action-id="occupy"][data-district-action-disabled-tone="robbery"] .district-popup-action__sub {
+  color: #f87171 !important;
+  font-weight: 900 !important;
+  text-shadow: 0 0 8px rgba(248, 113, 113, 0.32) !important;
+}
+
+html body.game-body .district-popup-action[data-district-action-id="occupy"][data-district-action-disabled-tone="occupation"]:disabled {
+  border-color: rgba(148, 163, 184, 0.3) !important;
+  background:
+    linear-gradient(135deg, rgba(71, 85, 105, 0.54), rgba(15, 23, 42, 0.72)),
+    rgba(15, 23, 42, 0.64) !important;
+  color: rgba(226, 232, 240, 0.76) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 18px rgba(2, 6, 23, 0.18) !important;
+  filter: saturate(0.5) !important;
+  opacity: 1 !important;
+  cursor: not-allowed !important;
+}
+
+html body.game-body .district-popup-action[data-district-action-id="occupy"][data-district-action-disabled-tone="occupation"] .district-popup-action__sub {
+  color: #f87171 !important;
+  font-weight: 900 !important;
+  text-shadow: 0 0 8px rgba(248, 113, 113, 0.32) !important;
+}
+
+html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profile-row--members,
+html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profile-row--faction,
+html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profile-row--alliance {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.045), transparent 58%),
+    rgba(0, 0, 0, 0.58) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 16px rgba(0, 0, 0, 0.32),
+    0 6px 14px rgba(0, 0, 0, 0.16) !important;
+}
+
+html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profile-row--members :is(.gang-profile-row__label, span:last-child),
+html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profile-row--faction :is(.gang-profile-row__label, span:last-child),
+html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profile-row--alliance :is(.gang-profile-row__label, span:last-child) {
+  color: #ffffff !important;
+  text-shadow: none !important;
+}
+
+@media (max-width: 560px) {
+  html body.game-body .building-special-action-confirm__actions {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+  }
+
+  html body.game-body .building-special-action-confirm__button {
+    flex: 1 1 0 !important;
+    width: auto !important;
+    min-width: 0 !important;
   }
 }
 

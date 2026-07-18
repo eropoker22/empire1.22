@@ -40,7 +40,6 @@ export function createRuntimePopupBinders(deps = {}) {
     SETTINGS_SAVE_SELECTOR = '',
     SETTINGS_MAP_BORDERS_SELECTOR = '',
     SETTINGS_MAP_ALLIANCE_SYMBOLS_SELECTOR = '',
-    SETTINGS_MAP_REDUCED_EFFECTS_SELECTOR = '',
     SETTINGS_MAP_VISIBILITY_SELECTOR = '',
     SETTINGS_LANGUAGE_SELECTOR = '',
     PLAYER_PROFILE_OPEN_SELECTOR = '',
@@ -116,7 +115,6 @@ function bindSettingsModal(root) {
   const saveButton = scope.querySelector(SETTINGS_SAVE_SELECTOR);
   const mapBordersInput = scope.querySelector(SETTINGS_MAP_BORDERS_SELECTOR);
   const mapAllianceSymbolsInput = scope.querySelector(SETTINGS_MAP_ALLIANCE_SYMBOLS_SELECTOR);
-  const mapReducedEffectsInput = scope.querySelector(SETTINGS_MAP_REDUCED_EFFECTS_SELECTOR);
   const mapVisibilitySelect = scope.querySelector(SETTINGS_MAP_VISIBILITY_SELECTOR);
   const languageSelect = scope.querySelector(SETTINGS_LANGUAGE_SELECTOR);
 
@@ -126,7 +124,6 @@ function bindSettingsModal(root) {
     || !(saveButton instanceof HTMLButtonElement)
     || !(mapBordersInput instanceof HTMLInputElement)
     || !(mapAllianceSymbolsInput instanceof HTMLInputElement)
-    || !(mapReducedEffectsInput instanceof HTMLInputElement)
     || !(mapVisibilitySelect instanceof HTMLSelectElement)
     || !(languageSelect instanceof HTMLSelectElement)
   ) {
@@ -220,7 +217,6 @@ function bindSettingsModal(root) {
   const applySettingsToForm = (settings) => {
     mapBordersInput.checked = Boolean(settings.mapDistrictBorders);
     mapAllianceSymbolsInput.checked = Boolean(settings.mapAllianceSymbols);
-    mapReducedEffectsInput.checked = Boolean(settings.reducedMapEffects);
     mapVisibilitySelect.value = normalizeMapVisibilityMode(settings.mapVisibilityMode);
     languageSelect.value = settings.language === "en" ? "en" : "cs";
   };
@@ -228,7 +224,6 @@ function bindSettingsModal(root) {
   const captureFormSettings = () => ({
     mapDistrictBorders: Boolean(mapBordersInput.checked),
     mapAllianceSymbols: Boolean(mapAllianceSymbolsInput.checked),
-    reducedMapEffects: Boolean(mapReducedEffectsInput.checked),
     mapVisibilityMode: normalizeMapVisibilityMode(mapVisibilitySelect.value),
     language: languageSelect.value === "en" ? "en" : "cs"
   });
@@ -267,7 +262,6 @@ function bindSettingsModal(root) {
 
   mapBordersInput.addEventListener("change", previewSettings);
   mapAllianceSymbolsInput.addEventListener("change", previewSettings);
-  mapReducedEffectsInput.addEventListener("change", previewSettings);
   mapVisibilitySelect.addEventListener("change", previewSettings);
   languageSelect.addEventListener("change", previewSettings);
   backdrop?.addEventListener("click", () => closeModal({ revert: true }));

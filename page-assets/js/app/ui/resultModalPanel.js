@@ -153,15 +153,23 @@ export function renderActionResultRows(container, rows = [], options = {}) {
     return;
   }
 
-  container.innerHTML = rows
-    .filter((row) => row && row.label != null && row.value != null)
+  const visibleRows = rows.filter((row) => row && row.label != null && row.value != null);
+  if (container.classList) {
+    if (visibleRows.length === 3) {
+      container.classList.add("modal__details--compact-trio");
+    } else {
+      container.classList.remove("modal__details--compact-trio");
+    }
+  }
+
+  container.innerHTML = visibleRows
     .map((row) => {
       const countdownUntil = getActionResultCountdownUntil(row);
       const countdownAttributes = countdownUntil
         ? ` data-action-result-countdown-until="${escapeAttribute(countdownUntil)}" data-action-result-countdown-done="${escapeAttribute(row.countdownDoneLabel || "0s")}"`
         : "";
       return `
-        <div class="modal__row">
+        <div class="modal__row${row.fullWidth ? " modal__row--full-width" : ""}">
           <span>${escapeModalHtml(row.label)}</span>
           <strong class="${row.nowrap ? "modal__nowrap-value" : ""}"${countdownAttributes}>${escapeModalHtml(getActionResultCountdownValue(row))}</strong>
         </div>

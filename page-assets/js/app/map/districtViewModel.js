@@ -166,6 +166,7 @@ export function buildSelectedDistrictSummaryViewModel(district = {}, state = {},
 
 export function buildDistrictActionViewModel(district = {}, playerState = {}, options = {}) {
   const activePoliceAction = playerState.activePoliceAction || null;
+  const isOccupying = Boolean(playerState.isOccupying);
   const resolvedActions = Array.isArray(playerState.resolvedActions) ? playerState.resolvedActions : [];
   const actionCountdowns = playerState.actionCountdowns || {};
   const trapControlState = playerState.trapControlState || {};
@@ -184,12 +185,12 @@ export function buildDistrictActionViewModel(district = {}, playerState = {}, op
   const hasNoticeMessage = Boolean(noticeMessage);
 
   return {
-    hidden: !hasStatusMessage && !hasNoticeMessage && !hasVisibleDistrictAction,
-    headHidden: hasVisibleDistrictAction || hasStatusMessage,
+    hidden: isOccupying || (!hasStatusMessage && !hasNoticeMessage && !hasVisibleDistrictAction),
+    headHidden: isOccupying || hasVisibleDistrictAction || hasStatusMessage,
     policeMessage,
     statusMessage,
     noticeMessage,
-    actions: hasStatusMessage
+    actions: isOccupying || hasStatusMessage
       ? []
       : resolvedActions.map((action = {}) => {
           const countdown = actionCountdowns[action.id] || null;

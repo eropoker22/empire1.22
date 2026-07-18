@@ -197,6 +197,18 @@ describe("result modal panel helpers", () => {
     expect(container.innerHTML).not.toContain("Prázdné");
   });
 
+  it("marks exactly three information rows for a compact desktop layout", () => {
+    const container = new FakeElement();
+
+    renderActionResultRows(container, [
+      { label: "Budova", value: "Energetická stanice" },
+      { label: "Akce", value: "Snížit heat" },
+      { label: "Cooldown", value: "1h", nowrap: true }
+    ]);
+
+    expect(container.classList.contains("modal__details--compact-trio")).toBe(true);
+  });
+
   it("keeps countdown rows live after the result window is opened", () => {
     vi.useFakeTimers();
     vi.setSystemTime(1_000);

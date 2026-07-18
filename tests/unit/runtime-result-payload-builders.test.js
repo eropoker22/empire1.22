@@ -193,6 +193,11 @@ describe("result payload builders", () => {
       scenarioLabel: "Neúspěch",
       isUnownedDistrict: true
     });
+    const partial = builders.createSpyResultPayload({
+      mission: { targetDistrictId: 3 },
+      scenarioLabel: "Částečný úspěch",
+      isUnownedDistrict: true
+    });
     const critical = builders.createSpyResultPayload({
       mission: { targetDistrictId: 3 },
       scenarioLabel: "Kritický neúspěch",
@@ -202,6 +207,10 @@ describe("result payload builders", () => {
 
     expect(success.summary).toBe("Occupied success");
     expect(success.rows.map((row) => row.label)).toContain("Odhad síly obrany");
+    expect(partial.rows.find((row) => row.label === "Budovy")).toMatchObject({
+      value: "Nezjištěno",
+      fullWidth: true
+    });
     expect(captured.rows).toEqual([
       { label: "Stav špeha", value: "Zajat" },
       { label: "Cooldown", value: "40000ms", nowrap: true, countdownUntil: 41000 }

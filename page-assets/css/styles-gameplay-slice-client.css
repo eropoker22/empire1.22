@@ -779,8 +779,11 @@ body[data-city-phase="night"] .gameplay-slice-client {
 
 .gameplay-slice-client .district-panel__action-button:disabled {
   cursor: not-allowed;
-  opacity: 0.48;
-  filter: saturate(0.35);
+  opacity: 1;
+  color: #d1d5db;
+  border-color: #6b7280;
+  background: #4b5563;
+  filter: grayscale(1);
   box-shadow: none;
 }
 
@@ -799,7 +802,8 @@ body[data-city-phase="night"] .gameplay-slice-client {
   border: 1px solid rgba(224, 91, 91, 0.2);
   border-radius: 8px;
   background: rgba(224, 91, 91, 0.07);
-  color: #f2c3bd;
+  color: #ff6b6b;
+  font-size: 0.72rem;
 }
 
 .gameplay-slice-client .district-building-popup-host {

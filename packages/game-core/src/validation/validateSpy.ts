@@ -2,7 +2,7 @@ import type { SpyDistrictCommand } from "@empire/shared-types";
 import type { PlayerSpyOperationSlot, PlayerSpyOperationState } from "@empire/shared-types";
 import type { CoreError } from "../errors";
 import type { CoreGameState } from "../entities";
-import { resolveDistrictActionAvailability, validateMapAction } from "../rules";
+import { resolveDistrictActionAvailability, resolveDistrictOperationBlock, validateMapAction } from "../rules";
 import { createPlayerSpyOperationState } from "../state";
 import { hasValidAttackAuthorization, validateOccupyEmptyDistrictAuthorization } from "./spyIntel";
 
@@ -40,6 +40,8 @@ export const validateSpy = (
 
   const availabilityError = resolveDistrictActionAvailability(state, command.playerId, targetDistrict.id, "spy");
   if (availabilityError) return [availabilityError];
+  const operationBlock = resolveDistrictOperationBlock(targetDistrict, "spy", state.root.tick);
+  if (operationBlock) return [operationBlock];
   const activeIntel = targetDistrict.ownerPlayerId
     ? hasValidAttackAuthorization(state, command.playerId, targetDistrict.id)
     : validateOccupyEmptyDistrictAuthorization(state, command.playerId, targetDistrict.id) === true;

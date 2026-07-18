@@ -12,11 +12,11 @@ import {
 } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
 
 export const DISTRICT_MINUTE_INCOME_RULES_EMPIRE2 = Object.freeze({
-  resident: Object.freeze({ clean: 2, dirty: 0.5 }),
-  economy: Object.freeze({ clean: 3, dirty: 1 }),
-  industrial: Object.freeze({ clean: 3, dirty: 1 }),
-  park: Object.freeze({ clean: 2, dirty: 1 }),
-  downtown: Object.freeze({ clean: 5, dirty: 2 })
+  resident: Object.freeze({ clean: 500 / 60, dirty: 50 / 60, influence: 2 / 60, population: 0 }),
+  economy: Object.freeze({ clean: 1200 / 60, dirty: 250 / 60, influence: 4 / 60, population: 20 / 60 }),
+  industrial: Object.freeze({ clean: 800 / 60, dirty: 100 / 60, influence: 3 / 60, population: 15 / 60 }),
+  park: Object.freeze({ clean: 150 / 60, dirty: 550 / 60, influence: 3 / 60, population: 10 / 60 }),
+  downtown: Object.freeze({ clean: 3000 / 60, dirty: 600 / 60, influence: 15 / 60, population: 0 })
 });
 
 export const DISTRICT_BUILDING_MINUTE_INCOME_RULES_EMPIRE2 = Object.freeze({

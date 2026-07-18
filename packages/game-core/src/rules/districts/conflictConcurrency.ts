@@ -1,4 +1,4 @@
-import type { District } from "@empire/shared-types";
+import type { District, DistrictOperationType } from "@empire/shared-types";
 import type { ConflictBalanceConfig } from "../../contracts";
 import type { CoreGameState } from "../../entities";
 import { resolveDistrictRelation } from "../map/mapRelations";
@@ -47,6 +47,52 @@ export const applyMajorOperationCooldowns = (
 });
 
 export type ConflictAction = "attack" | "heist" | "occupy" | "rob" | "spy";
+
+const CONFLICTING_DISTRICT_OPERATIONS: Record<DistrictOperationType, DistrictOperationType[]> = {
+  spy: ["rob"],
+  rob: ["spy", "occupy"],
+  occupy: ["rob"],
+  heist: ["attack"],
+  attack: ["heist"]
+};
+
+const districtOperationLabel = (action: DistrictOperationType): string => ({
+  spy: "špehování",
+  rob: "vykradení districtu",
+  occupy: "obsazení districtu",
+  heist: "vykradení hráče",
+  attack: "útok"
+}[action]);
+
+export const resolveDistrictOperationBlock = (
+  district: District,
+  action: DistrictOperationType,
+  tick: number
+): { code: "DISTRICT_OPERATION_ACTIVE"; message: string; untilTick: number } | null => {
+  const operationLocks = district.operationLocks ?? {};
+  const blockingOperation = CONFLICTING_DISTRICT_OPERATIONS[action].find(
+    (candidate) => Number(operationLocks[candidate] ?? 0) > tick
+  );
+  if (!blockingOperation) return null;
+
+  return {
+    code: "DISTRICT_OPERATION_ACTIVE",
+    message: `${districtOperationLabel(blockingOperation)} v tomto districtu ještě probíhá; ${districtOperationLabel(action)} nelze spustit současně.`,
+    untilTick: Number(operationLocks[blockingOperation])
+  };
+};
+
+export const applyDistrictOperationLock = <TDistrict extends District>(
+  district: TDistrict,
+  action: DistrictOperationType,
+  untilTick: number
+): TDistrict => ({
+  ...district,
+  operationLocks: {
+    ...district.operationLocks,
+    [action]: Math.max(Number(district.operationLocks?.[action] ?? 0), Math.floor(untilTick))
+  }
+});
 
 export const resolveDistrictActionAvailability = (
   state: CoreGameState,

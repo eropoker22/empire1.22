@@ -25,8 +25,6 @@ describe("onboarding district popup layer", () => {
     expect(runtimeSource).toContain("const ownedDistrictIds = [ONBOARDING_ATTACK_TARGET_DISTRICT_ID];");
     expect(runtimeSource).toContain("delete nextPoliceActionById[ONBOARDING_ATTACK_TARGET_DISTRICT_ID];");
     expect(runtimeSource).toContain("districtId !== ONBOARDING_ATTACK_TARGET_DISTRICT_ID");
-    expect(runtimeSource).toContain('if (stepId === "attack-order")');
-    expect(runtimeSource).toContain("return resetOnboardingTrapTargetState(root);");
     expect(runtimeSource).toContain("function isOnboardingDistrictPopupTopLayerTarget(district, documentRef = document)");
     expect(runtimeSource).toContain("function ensureOnboardingDistrictPopupTopLayer(popupElement, district, documentRef = document)");
     expect(runtimeSource).toContain("body.append(popupElement);");
@@ -48,6 +46,8 @@ describe("onboarding district popup layer", () => {
     expect(runtimeSource).toContain("heat: Math.max(0, Math.floor(Number(DEV_ONLY_ONBOARDING_START_STATE.gang?.heat || 0)))");
     expect(runtimeSource).toContain("function resetDevOnlyOnboardingAllianceState()");
     expect(runtimeSource).toContain('document.dispatchEvent(new CustomEvent("empire:onboarding-alliance-reset"');
+    expect(runtimeSource).not.toContain("onWelcomeStart: () => applyDevOnlyOnboardingStartState(root)");
+    expect(runtimeSource).not.toContain("onComplete: (context) => completeDevOnlyOnboarding(root, context)");
     expect(allianceRuntimeSource).toContain("const isOnboardingActiveForAllianceDemo = () =>");
     expect(allianceRuntimeSource).toContain("const disableDevOnlyActiveAlliance = baseBoard?.disableDevOnlyActiveAlliance === true || isOnboardingActiveForAllianceDemo();");
     expect(allianceRuntimeSource).toContain("const shouldUseActiveDemoAlliance = !disableDevOnlyActiveAlliance && getCurrentGamePhaseForAllianceDemo() === \"launch\";");

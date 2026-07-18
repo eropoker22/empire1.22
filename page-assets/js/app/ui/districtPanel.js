@@ -96,12 +96,10 @@ export function renderDistrictSummaryPanel(elements = {}, view = {}) {
 }
 
 export function renderDistrictMetricSummary(elements = {}, metrics = {}) {
-  setText(elements.defense, metrics.defenseLabel);
-  setText(elements.defensePower, metrics.defensePowerLabel);
-  setText(elements.residents, metrics.residentsLabel);
-  setText(elements.income, metrics.incomeLabel);
-  setText(elements.heat, metrics.heatLabel);
+  setText(elements.clean, metrics.cleanLabel);
+  setText(elements.dirty, metrics.dirtyLabel);
   setText(elements.influence, metrics.influenceLabel);
+  setText(elements.population, metrics.populationLabel);
   return true;
 }
 
@@ -203,15 +201,6 @@ export function renderDistrictBuildingList(elements = {}, view = {}) {
       chip.textContent = building.label || building.displayName || building.name || "Budova";
     }
 
-    if (building.kindLabel) {
-      const kind = createElement(list, "span", "district-popup-buildings__chip-kind");
-      if (kind) {
-        kind.classList.add(`district-popup-buildings__chip-kind--${kindToken}`);
-        kind.dataset.districtBuildingKindType = kindToken;
-        kind.textContent = building.kindLabel;
-        chip.append(kind);
-      }
-    }
     if (!buildingsInteractive) {
       chip.title = "Budovu můžeš používat jen ve vlastním districtu.";
     } else if (building.name && building.displayName && building.displayName !== building.name) {

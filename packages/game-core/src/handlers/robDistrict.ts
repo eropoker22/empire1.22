@@ -6,6 +6,7 @@ import type { CoreEvent } from "../events";
 import { CORE_EVENT_TYPES, createEvent } from "../events";
 import {
   applyDayNightHeatGain,
+  applyDistrictOperationLock,
   applyFactionAggressiveHeatGain,
   createRobCooldownKey,
   createRobSourceCooldownKey,
@@ -149,13 +150,13 @@ export const handleRobDistrict = (
       },
       districtsById: {
         ...state.districtsById,
-        [targetDistrict.id]: bumpDistrictConflictRevision({
+        [targetDistrict.id]: bumpDistrictConflictRevision(applyDistrictOperationLock({
           ...targetDistrict,
           neutralLootPool: nextPool,
           heat: Math.max(0, targetDistrict.heat + districtHeat),
           lastHeatDecayTick: state.root.tick,
           version: targetDistrict.version + 1
-        })
+        }, "rob", state.root.tick + cooldownTicks))
       },
       resourceStatesById: {
         ...state.resourceStatesById,

@@ -188,7 +188,11 @@ export function createResultPayloadBuilders(deps = {}) {
       { label: "Odhad síly obrany", value: options.showPowerRange === false ? "Nezjištěno" : defenseIntel.powerRangeLabel },
       { label: "Typ distriktu", value: options.showType === false ? "Nezjištěno" : (typeMeta?.label || "Neznámý") },
       { label: "Atmosféra", value: options.showAtmosphere === false ? "Nezjištěno" : (atmosphereMeta?.label || "Neznámá") },
-      { label: "Budovy", value: options.showBuildings === false ? "Nezjištěno" : buildingLabel }
+      {
+        label: "Budovy",
+        value: options.showBuildings === false ? "Nezjištěno" : buildingLabel,
+        fullWidth: options.fullWidthBuildings === true
+      }
     );
 
     return rows;
@@ -497,7 +501,8 @@ export function createResultPayloadBuilders(deps = {}) {
             showWeapons: false,
             showPowerRange: false,
             showAtmosphere: true,
-            showBuildings: false
+            showBuildings: false,
+            fullWidthBuildings: true
           })
         : [
             { label: "Stav špeha", value: "Zajat" },

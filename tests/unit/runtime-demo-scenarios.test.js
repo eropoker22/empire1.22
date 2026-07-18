@@ -70,13 +70,33 @@ describe("runtime demo scenarios", () => {
       "seller:scarlet-yard"
     ]);
     expect(START_PHASE_RESOURCE_SIMULATION.cleanPerMinuteByDistrictType).toMatchObject({
-      resident: 5,
-      industrial: 10,
-      park: 20,
-      economy: 40,
+      resident: 500 / 60,
+      industrial: 800 / 60,
+      park: 150 / 60,
+      economy: 1200 / 60,
       downtown: 50
     });
-    expect(START_PHASE_RESOURCE_SIMULATION.influencePerMinute).toBe(1);
+    expect(START_PHASE_RESOURCE_SIMULATION.dirtyPerMinuteByDistrictType).toEqual({
+      resident: 50 / 60,
+      industrial: 100 / 60,
+      park: 550 / 60,
+      economy: 250 / 60,
+      downtown: 10
+    });
+    expect(START_PHASE_RESOURCE_SIMULATION.influencePerMinuteByDistrictType).toEqual({
+      resident: 2 / 60,
+      industrial: 3 / 60,
+      park: 3 / 60,
+      economy: 4 / 60,
+      downtown: 15 / 60
+    });
+    expect(START_PHASE_RESOURCE_SIMULATION.populationPerMinuteByDistrictType).toEqual({
+      resident: 0,
+      industrial: 15 / 60,
+      park: 10 / 60,
+      economy: 20 / 60,
+      downtown: 0
+    });
   });
 
   it("keeps normal free/live flow outside demo scenario mode", () => {

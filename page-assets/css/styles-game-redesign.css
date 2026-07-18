@@ -1934,47 +1934,6 @@ body.game-body--booting .game-logo-slot {
     inset 0 0 38px rgba(255, 154, 61, 0.06);
 }
 
-:root[data-map-effects="reduced"] .mount-point--map {
-  background:
-    linear-gradient(180deg, rgba(4, 8, 14, 0.12), rgba(4, 8, 14, 0.34)),
-    linear-gradient(135deg, #07111b 0%, #0a1320 48%, #060c15 100%);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.025),
-    0 18px 34px rgba(0, 0, 0, 0.24);
-}
-
-:root[data-map-effects="reduced"] .mount-point--map::after,
-:root[data-map-effects="reduced"] .map-interaction-overlay::after {
-  content: none;
-}
-
-:root[data-map-effects="reduced"] .map-stage-shell,
-:root[data-map-effects="reduced"] .mount-point--map,
-:root[data-map-effects="reduced"] .map-viewport,
-:root[data-map-effects="reduced"] .map-canvas-shell,
-:root[data-map-effects="reduced"] .map-district-canvas,
-:root[data-map-effects="reduced"] .map-interaction-overlay::before,
-:root[data-map-effects="reduced"] .map-interaction-overlay::after {
-  transition: none;
-}
-
-:root[data-map-effects="reduced"] .map-stage-shell.has-map-hover .map-stage-title,
-:root[data-map-effects="reduced"] .map-stage-shell.is-district-focused .map-stage-title {
-  text-shadow: none;
-}
-
-:root[data-map-effects="reduced"] .mount-point--map.has-map-hover,
-:root[data-map-effects="reduced"] .mount-point--map.is-district-focused,
-:root[data-map-effects="reduced"] .map-canvas-shell.is-district-focused {
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.025),
-    0 18px 34px rgba(0, 0, 0, 0.24);
-}
-
-:root[data-map-effects="reduced"] .map-stage-shell.is-district-focused {
-  transform: none;
-}
-
 .map-zoom-controls {
   display: none;
 }
@@ -2636,6 +2595,21 @@ body.game-body--booting .game-logo-slot {
   box-shadow:
     inset 2px 0 0 rgba(248, 113, 113, 0.34),
     inset 0 0 14px rgba(248, 113, 113, 0.04);
+}
+
+#profile-gang-card.right-panel-card :is(
+  .profile-row--members,
+  .profile-row--faction,
+  .profile-row--alliance
+) {
+  border-color: rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.035), transparent 56%),
+    rgba(0, 0, 0, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    inset 0 0 16px rgba(0, 0, 0, 0.28),
+    0 8px 18px rgba(0, 0, 0, 0.18);
 }
 
 #profile-gang-card.right-panel-card .gang-profile-value-button {

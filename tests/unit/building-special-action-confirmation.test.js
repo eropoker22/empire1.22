@@ -15,7 +15,6 @@ describe("building special action confirmation", () => {
       titleLabel: "Tržní tlak",
       buildingLabel: "Burza",
       districtLabel: "District 79",
-      description: "Po potvrzení se akce odešle na server.",
       inputSummary: "Kategorie: materials · Režim: pump",
       canConfirm: true
     });
@@ -23,6 +22,11 @@ describe("building special action confirmation", () => {
     expect(host.textContent).toContain("Volba");
     expect(host.textContent).toContain("Kategorie: materials");
     expect(host.textContent).toContain("Režim: pump");
+    expect(host.textContent).toContain("Čekání: Připraveno");
+    expect(host.textContent).toContain("Riziko: Bez přímého heat rizika");
+    expect(host.textContent).not.toContain("Speciální akce");
+    expect(host.querySelector(".building-special-action-confirm__copy")).toBe(null);
+    expect(host.querySelector(".building-special-action-confirm__stat").hidden).toBe(true);
     expect(host.querySelector(".building-special-action-confirm__button--confirm").disabled).toBe(false);
   });
 });

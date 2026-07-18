@@ -4,9 +4,11 @@ import { applyCommand } from "../../../packages/game-core/src/engine";
 import { seedNeutralDistrictLootPool } from "../../../packages/game-core/src/rules";
 import {
   createAttackDistrictCommandFixture,
+  createHeistDistrictCommandFixture,
   createOccupyDistrictCommandFixture,
   createPlaceDefenseCommandFixture,
-  createRobDistrictCommandFixture
+  createRobDistrictCommandFixture,
+  createSpyDistrictCommandFixture
 } from "../../fixtures/command-fixtures";
 import {
   createCombatStateFixture,
@@ -141,6 +143,92 @@ describe("conflict concurrency integrity", () => {
     expect(attack.errors).toEqual([]);
     expect(occupy.errors[0]?.code).toBe("PLAYER_MAJOR_OPERATION_ACTIVE");
     expect(occupy.nextState).toBe(attack.nextState);
+  });
+
+  it("blocks spying and occupying a district while it is being robbed", () => {
+    const state = createCombatStateFixture();
+    state.districtsById["district:2"] = {
+      ...state.districtsById["district:2"],
+      ownerPlayerId: null,
+      controllerAllianceId: null,
+      status: "neutral"
+    };
+
+    const robbed = applyCommand(state, createRobDistrictCommandFixture({
+      payload: { expectedConflictRevision: state.districtsById["district:2"].conflictRevision }
+    }), context);
+    const expectedConflictRevision = robbed.nextState.districtsById["district:2"].conflictRevision;
+    const spy = applyCommand(robbed.nextState, createSpyDistrictCommandFixture(), context);
+    const occupy = applyCommand(robbed.nextState, createOccupyDistrictCommandFixture({
+      payload: { expectedConflictRevision }
+    }), context);
+
+    expect(robbed.errors).toEqual([]);
+    expect(spy.errors[0]?.code).toBe("DISTRICT_OPERATION_ACTIVE");
+    expect(occupy.errors[0]?.code).toBe("DISTRICT_OPERATION_ACTIVE");
+  });
+
+  it("blocks robbing a district while it is being spied on", () => {
+    const state = createCombatStateFixture();
+    state.districtsById["district:2"] = {
+      ...state.districtsById["district:2"],
+      ownerPlayerId: null,
+      controllerAllianceId: null,
+      status: "neutral"
+    };
+
+    const spy = applyCommand(state, createSpyDistrictCommandFixture(), context);
+    const rob = applyCommand(spy.nextState, createRobDistrictCommandFixture(), context);
+
+    expect(spy.errors).toEqual([]);
+    expect(rob.errors[0]?.code).toBe("DISTRICT_OPERATION_ACTIVE");
+  });
+
+  it("blocks robbing a district after a failed occupation attempt", () => {
+    const state = createCombatStateFixture();
+    state.districtsById["district:1"] = { ...state.districtsById["district:1"], influence: 10_000 };
+    state.districtsById["district:2"] = {
+      ...state.districtsById["district:2"],
+      ownerPlayerId: null,
+      controllerAllianceId: null,
+      status: "neutral"
+    };
+    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
+    const failedOccupationContext = {
+      ...context,
+      config: {
+        ...config,
+        balance: {
+          ...config.balance,
+          conflict: {
+            ...config.balance.conflict!,
+            occupyFailureChancePct: 100
+          }
+        }
+      }
+    };
+
+    const occupy = applyCommand(state, createOccupyDistrictCommandFixture({
+      payload: { expectedConflictRevision: state.districtsById["district:2"].conflictRevision }
+    }), failedOccupationContext);
+    const rob = applyCommand(occupy.nextState, createRobDistrictCommandFixture(), context);
+
+    expect(occupy.errors).toEqual([]);
+    expect(occupy.nextState.districtsById["district:2"].ownerPlayerId).toBeNull();
+    expect(rob.errors[0]?.code).toBe("DISTRICT_OPERATION_ACTIVE");
+  });
+
+  it("blocks attacking a player district while it is being heisted", () => {
+    const state = createCombatStateFixture();
+    const heist = applyCommand(state, createHeistDistrictCommandFixture({
+      payload: { expectedConflictRevision: state.districtsById["district:2"].conflictRevision }
+    }), context);
+    const attack = applyCommand(heist.nextState, createAttackDistrictCommandFixture({
+      payload: { expectedConflictRevision: heist.nextState.districtsById["district:2"].conflictRevision }
+    }), context);
+
+    expect(heist.errors).toEqual([]);
+    expect(attack.errors[0]?.code).toBe("DISTRICT_OPERATION_ACTIVE");
   });
 
   it("serializes competitive robbery against the current finite pool", () => {

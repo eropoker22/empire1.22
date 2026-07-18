@@ -15,13 +15,6 @@ function createElement(scopeElement, tagName, className = "") {
   return element;
 }
 
-function setSummaryMetricCardHidden(metricElement, hidden) {
-  const card = metricElement?.closest?.(".district-popup-summary-card");
-  if (card) {
-    card.hidden = Boolean(hidden);
-  }
-}
-
 export const TRAP_MOVE_LOCK_MS = 60 * 60 * 1000;
 
 export function formatTrapMoveCooldownLabel(totalSeconds = 0) {
@@ -166,92 +159,47 @@ export function createDistrictPopupMetricsRuntime(deps = {}) {
     return spyIntel.revealedDefenseDistrictIds.includes(Number(district.id));
   };
 
-  const renderDistrictDefenseSummary = (district) => {
-    if (!district) {
-      return;
-    }
-
-    const interactionState = getInteractionState();
-    if (interactionState.destroyedDistrictIds?.has?.(Number(district.id))) {
-      deps.renderDistrictMetricSummary({
-        defense: elements.popupDefense,
-        defensePower: elements.popupDefensePower,
-        residents: elements.popupResidents
-      }, {
-        defenseLabel: "Rozpadlá",
-        defensePowerLabel: "0",
-        residentsLabel: "0"
-      });
-      return;
-    }
-
-    if (!hasKnownDistrictDefense(district)) {
-      deps.renderDistrictMetricSummary({
-        defense: elements.popupDefense,
-        defensePower: elements.popupDefensePower,
-        residents: elements.popupResidents
-      }, {
-        defenseLabel: "Neznámá",
-        defensePowerLabel: "Neznámá",
-        residentsLabel: "Neznámí"
-      });
-      return;
-    }
-
-    const { loadout, residents, totalPower } = getDistrictDefenseState(district.id);
-    deps.renderDistrictMetricSummary({
-      defense: elements.popupDefense,
-      defensePower: elements.popupDefensePower,
-      residents: elements.popupResidents
-    }, {
-      defenseLabel: deps.formatDefenseLoadout(loadout) || "Žádná",
-      defensePowerLabel: String(totalPower),
-      residentsLabel: String(residents)
-    });
-  };
-
   const renderDistrictEconomySummary = (district) => {
     if (!district) {
-      setSummaryMetricCardHidden(elements.popupIncome, false);
+      if (elements.popupSummary) {
+        elements.popupSummary.hidden = true;
+      }
       deps.renderDistrictMetricSummary({
-        income: elements.popupIncome,
-        heat: elements.popupHeat,
-        influence: elements.popupInfluence
+        clean: elements.popupClean,
+        dirty: elements.popupDirty,
+        influence: elements.popupInfluence,
+        population: elements.popupPopulation
       }, {
-        incomeLabel: "Bez dat",
-        heatLabel: "Bez dat",
-        influenceLabel: "Bez dat"
+        cleanLabel: "Bez dat",
+        dirtyLabel: "Bez dat",
+        influenceLabel: "Bez dat",
+        populationLabel: "Bez dat"
       });
       return;
     }
 
     const interactionState = getInteractionState();
-    const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
-    const isOwnedByCurrentPlayer = currentPlayerOwnedDistrictIds.has(Number(district.id));
-    const isLaunchPhase = (interactionState.gamePhase || "launch") === "launch";
-    const isHidden = isLaunchPhase && deps.isDistrictTypeHidden(district, interactionState) && !isOwnedByCurrentPlayer;
     const isDestroyed = interactionState.destroyedDistrictIds?.has?.(Number(district.id));
+    const isOwnedByCurrentPlayer = !isDestroyed
+      && getCurrentPlayerOwnedDistrictIds(interactionState).has(Number(district.id));
+    if (elements.popupSummary) {
+      elements.popupSummary.hidden = !isOwnedByCurrentPlayer;
+    }
+    if (!isOwnedByCurrentPlayer) {
+      return;
+    }
     const economySnapshot = deps.getDistrictEconomySnapshot(district);
-    setSummaryMetricCardHidden(elements.popupIncome, !isOwnedByCurrentPlayer);
-    setSummaryMetricCardHidden(elements.popupInfluence, isHidden);
 
     deps.renderDistrictMetricSummary({
-      income: elements.popupIncome,
-      heat: elements.popupHeat,
-      influence: elements.popupInfluence
+      clean: elements.popupClean,
+      dirty: elements.popupDirty,
+      influence: elements.popupInfluence,
+      population: elements.popupPopulation
     }, {
-      incomeLabel: deps.formatDistrictIncomeLabel(economySnapshot.totalHourlyIncome, {
-        hidden: isHidden,
-        destroyed: isDestroyed
-      }),
-      heatLabel: deps.formatDistrictHeatLabel(economySnapshot.passiveHeatPerDay, {
-        hidden: isHidden,
-        destroyed: isDestroyed
-      }),
-      influenceLabel: deps.formatDistrictInfluenceLabel(economySnapshot.totalInfluencePerHour, {
-        hidden: isHidden,
-        destroyed: isDestroyed
-      })
+      cleanLabel: isDestroyed ? "0" : String(economySnapshot.baseCleanHourlyIncome || 0),
+      dirtyLabel: isDestroyed ? "0" : String(economySnapshot.baseDirtyHourlyIncome || 0),
+      influenceLabel: isDestroyed ? "0" : String(economySnapshot.districtInfluencePerHour || 0),
+      populationLabel: isDestroyed ? "0" : String(economySnapshot.districtPopulationPerHour || 0)
     });
   };
 
@@ -309,7 +257,6 @@ export function createDistrictPopupMetricsRuntime(deps = {}) {
     getCurrentPlayerTrapMoveCooldownSeconds,
     getDistrictTrapControlState,
     hasKnownDistrictDefense,
-    renderDistrictDefenseSummary,
     renderDistrictEconomySummary,
     renderDistrictPopupGossip,
     renderDistrictPopupFlags

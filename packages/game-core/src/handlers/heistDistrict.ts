@@ -7,6 +7,7 @@ import { CORE_EVENT_TYPES, createEvent } from "../events";
 import {
   createHeistAttackerTargetCooldownKey,
   createHeistGlobalCooldownKey,
+  applyDistrictOperationLock,
   applyMajorOperationCooldowns,
   resolveImmediateHeist
 } from "../rules";
@@ -130,13 +131,13 @@ export const handleHeistDistrict = (
     },
     districtsById: {
       ...state.districtsById,
-      [targetDistrict.id]: bumpTargetRevision({
+      [targetDistrict.id]: bumpTargetRevision(applyDistrictOperationLock({
         ...targetDistrict,
         heat: Math.max(0, targetDistrict.heat + resolution.heatGain),
         heistProtectedUntilTick: state.root.tick + config.victimProtectionTicks,
         lastHeatDecayTick: state.root.tick,
         version: targetDistrict.version + 1
-      })
+      }, "heist", state.root.tick + config.sameTargetCooldownTicks))
     },
     resourceStatesById: {
       ...state.resourceStatesById,

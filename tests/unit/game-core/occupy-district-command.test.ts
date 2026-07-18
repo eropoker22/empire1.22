@@ -5,6 +5,7 @@ import { PRODUCTION_GAME_LIFECYCLE_PHASES } from "@empire/shared-types";
 import {
   createAllianceFixture,
   createCombatStateFixture,
+  createDistrictFixture,
   createFixedBuildingFixture,
   seedSuccessfulSpyIntel
 } from "../../fixtures/game-state-fixtures";
@@ -431,6 +432,42 @@ describe("occupy district command", () => {
       }
     ]);
     expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBeNull();
+  });
+
+  it("blocks a second district occupation while the player's first occupation is active", () => {
+    const state = createNeutralOccupyState();
+    const secondTarget = createDistrictFixture({
+      id: "district:3",
+      ownerPlayerId: null,
+      status: "neutral",
+      adjacentDistrictIds: ["district:1"]
+    });
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      adjacentDistrictIds: ["district:2", secondTarget.id]
+    };
+    state.districtsById[secondTarget.id] = secondTarget;
+    state.root.districtIds.push(secondTarget.id);
+    seedSuccessfulSpyIntel(state, "player:1", "district:1", secondTarget.id, null);
+    state.cooldownStatesById["cooldown:1"] = {
+      id: "cooldown:1",
+      ownerType: "player",
+      ownerId: "player:1",
+      cooldowns: { "occupy:global": 2 },
+      version: 1
+    };
+
+    const result = applyCommand(state, createOccupyDistrictCommandFixture({
+      payload: {
+        districtId: secondTarget.id,
+        sourceDistrictId: "district:1",
+        expectedConflictRevision: secondTarget.conflictRevision
+      }
+    }), context);
+
+    expect(result.errors[0]?.code).toBe("PLAYER_OCCUPY_OPERATION_ACTIVE");
+    expect(result.errors[0]?.message).toContain("Už provádíš obsazení.");
+    expect(result.nextState).toBe(state);
   });
 
   it("keeps population cost gradual while influence overextension continues growing", () => {

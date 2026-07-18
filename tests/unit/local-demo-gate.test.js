@@ -42,6 +42,18 @@ describe("local game preview gate", () => {
     })).toBe(false);
   });
 
+  it("allows an explicit hosted demo link and keeps it active in the same tab", () => {
+    const sessionStorageRef = createSessionStorage();
+    expect(isExplicitLocalDemoEnabled({
+      locationRef: { hostname: "example.netlify.app", search: "?runtimeMode=local-demo" },
+      sessionStorageRef
+    })).toBe(true);
+    expect(isExplicitLocalDemoEnabled({
+      locationRef: { hostname: "example.netlify.app", search: "" },
+      sessionStorageRef
+    })).toBe(true);
+  });
+
   it("offers the demo switch only on loopback hosts", () => {
     expect(isLocalDemoAccessAvailable({ hostname: "127.0.0.1" })).toBe(true);
     expect(isLocalDemoAccessAvailable({ hostname: "empirestreets.cz" })).toBe(false);

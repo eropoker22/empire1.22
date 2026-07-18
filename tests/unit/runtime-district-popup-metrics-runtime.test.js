@@ -38,15 +38,14 @@ function createElement(document, tagName = "div") {
 function createRuntime(overrides = {}) {
   const document = new FakeDocument();
   const elements = {
-    popupDefense: createElement(document),
-    popupDefensePower: createElement(document),
+    popupClean: createElement(document),
+    popupDirty: createElement(document),
     popupFlags: createElement(document),
     popupGossip: createElement(document),
     popupGossipList: createElement(document),
-    popupHeat: createElement(document),
-    popupIncome: createElement(document),
     popupInfluence: createElement(document),
-    popupResidents: createElement(document)
+    popupPopulation: createElement(document),
+    popupSummary: createElement(document)
   };
   const runtime = createDistrictPopupMetricsRuntime({
     calculateTotalDefensePower: ({ loadout, residents }) =>
@@ -54,11 +53,13 @@ function createRuntime(overrides = {}) {
     currentPlayerId: 1,
     formatDefenseLoadout: (loadout) => Object.keys(loadout || {}).join(", "),
     formatDistrictGossipTimestamp: () => "teď",
-    formatDistrictHeatLabel: (value) => String(value),
-    formatDistrictIncomeLabel: (value) => String(value),
-    formatDistrictInfluenceLabel: (value) => String(value),
     getCurrentPlayerOwnedDistrictIds: () => new Set([1]),
-    getDistrictEconomySnapshot: () => ({ totalHourlyIncome: 10, passiveHeatPerDay: 2, totalInfluencePerHour: 3 }),
+    getDistrictEconomySnapshot: () => ({
+      baseCleanHourlyIncome: 800,
+      baseDirtyHourlyIncome: 100,
+      districtInfluencePerHour: 3,
+      districtPopulationPerHour: 15
+    }),
     ensureDistrictPassiveGossip: null,
     getDistrictGossipEntries: () => [{ text: "Nový drb", intelLevel: "verified", intelType: "rumor", createdAt: Date.now() }],
     getInteractionState: () => ({
@@ -110,44 +111,30 @@ describe("district popup metrics runtime", () => {
     const renderDistrictFlags = vi.fn();
     const runtime = createRuntime({ renderDistrictMetricSummary, renderDistrictFlags });
 
-    runtime.renderDistrictDefenseSummary({ id: 1 });
     runtime.renderDistrictEconomySummary({ id: 1, districtType: "industrial" });
     runtime.renderDistrictPopupGossip({ id: 1 });
     runtime.renderDistrictPopupFlags([{ label: "flag" }]);
 
-    expect(renderDistrictMetricSummary).toHaveBeenCalledTimes(2);
+    expect(renderDistrictMetricSummary).toHaveBeenCalledWith({
+      clean: expect.any(FakeElement),
+      dirty: expect.any(FakeElement),
+      influence: expect.any(FakeElement),
+      population: expect.any(FakeElement)
+    }, {
+      cleanLabel: "800",
+      dirtyLabel: "100",
+      influenceLabel: "3",
+      populationLabel: "15"
+    });
     expect(renderDistrictFlags).toHaveBeenCalledWith(expect.any(FakeElement), [{ label: "flag" }]);
   });
 
-  it("hides income summary card for foreign districts", () => {
+  it("hides production and population for a foreign district", () => {
     const runtime = createRuntime();
-    const incomeCard = { hidden: false };
-    runtime.testElements.popupIncome.closest = (selector) =>
-      selector === ".district-popup-summary-card" ? incomeCard : null;
 
     runtime.renderDistrictEconomySummary({ id: 2, districtType: "industrial" });
-    expect(incomeCard.hidden).toBe(true);
 
-    runtime.renderDistrictEconomySummary({ id: 1, districtType: "industrial" });
-    expect(incomeCard.hidden).toBe(false);
-  });
-
-  it("hides influence summary card for unknown foreign districts", () => {
-    const runtime = createRuntime({
-      isDistrictTypeHidden: (district) => Number(district.id) === 2
-    });
-    const influenceCard = { hidden: false };
-    runtime.testElements.popupInfluence.closest = (selector) =>
-      selector === ".district-popup-summary-card" ? influenceCard : null;
-
-    runtime.renderDistrictEconomySummary({ id: 2, districtType: "industrial" });
-    expect(influenceCard.hidden).toBe(true);
-
-    runtime.renderDistrictEconomySummary({ id: 3, districtType: "industrial" });
-    expect(influenceCard.hidden).toBe(false);
-
-    runtime.renderDistrictEconomySummary({ id: 1, districtType: "industrial" });
-    expect(influenceCard.hidden).toBe(false);
+    expect(runtime.testElements.popupSummary.hidden).toBe(true);
   });
 
   it("renders passive district gossip in the popup card", () => {

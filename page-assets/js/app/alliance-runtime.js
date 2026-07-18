@@ -1865,7 +1865,7 @@ const renderAllianceState = () => {
     return;
   }
 
-  document.querySelector("[data-gang-alliance]")?.replaceChildren(document.createTextNode(activeAlliance?.name || "Žádná"));
+  document.querySelector("[data-gang-alliance]")?.replaceChildren(document.createTextNode(activeAlliance?.name || "žádná"));
   document.querySelector("[data-player-popup-alliance]")?.replaceChildren(document.createTextNode(activeAlliance?.name || "Žádná"));
   renderAllianceLauncher(activeAlliance);
   createEntry?.classList.add("hidden");

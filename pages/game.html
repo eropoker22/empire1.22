@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <meta name="empire-gameplay-execution-mode" content="auto">
     <title>Empire Streets | Game Shell</title>
-    <link rel="stylesheet" href="../page-assets/css/styles.css?v=market-controls-20260715">
+    <link rel="stylesheet" href="../page-assets/css/styles.css?v=mobile-special-actions-20260718-7">
     <link rel="stylesheet" href="../page-assets/css/styles-game-admin-slice.css">
     <link rel="stylesheet" href="../page-assets/css/styles-gameplay-slice-client.css?v=result-popup-center-20260528">
     <link rel="stylesheet" href="../page-assets/css/styles-closed-alpha-ux.css">
@@ -304,7 +304,7 @@
               <p class="panel-note profile-row profile-row--wanted gang-profile-row"><span class="gang-profile-row__label">Hledanost</span><button type="button" class="button gang-profile-value-button profile-heat-panel" data-gang-heat>—</button></p>
               <p class="panel-note profile-row profile-row--faction gang-profile-row"><span class="gang-profile-row__label">Frakce</span><span data-gang-faction>-</span></p>
               <p class="panel-note profile-row profile-row--districts gang-profile-row"><span class="gang-profile-row__label">Distrikty</span><span data-gang-districts>0</span></p>
-              <p class="panel-note profile-row profile-row--alliance gang-profile-row"><span class="gang-profile-row__label">Aliance</span><span id="profile-alliance" data-gang-alliance>Žádná</span></p>
+              <p class="panel-note profile-row profile-row--alliance gang-profile-row"><span class="gang-profile-row__label">Aliance</span><span id="profile-alliance" data-gang-alliance>žádná</span></p>
             </div>
           </div>
           <div id="mobile-building-shortcuts-anchor" hidden aria-hidden="true"></div>
@@ -425,40 +425,29 @@
             </div>
             <section class="district-popup-status">
               <div class="district-popup-status__label">Přehled</div>
+              <span data-district-popup-type hidden></span>
               <div class="district-popup-status__flags" data-district-popup-flags></div>
               <section class="district-popup-gossip district-popup-gossip--overview" data-district-popup-gossip>
                 <div class="district-popup-gossip__label">Drby</div>
                 <div class="district-popup-gossip__list" data-district-popup-gossip-list></div>
               </section>
             </section>
-            <section class="district-popup-summary-grid" aria-label="Souhrn distriktu">
+            <section class="district-popup-summary-grid" aria-label="Souhrn distriktu" data-district-popup-summary>
               <article class="district-popup-summary-card">
-                <span class="district-popup-summary-card__label">Typ</span>
-                <strong class="district-popup-summary-card__value" data-district-popup-type>resident</strong>
+                <span class="district-popup-summary-card__label">Clean / hod</span>
+                <strong class="district-popup-summary-card__value" data-district-popup-clean>0</strong>
               </article>
               <article class="district-popup-summary-card">
-                <span class="district-popup-summary-card__label">Obrana</span>
-                <strong class="district-popup-summary-card__value" data-district-popup-defense>Žádná</strong>
+                <span class="district-popup-summary-card__label">Dirty / hod</span>
+                <strong class="district-popup-summary-card__value" data-district-popup-dirty>0</strong>
               </article>
               <article class="district-popup-summary-card">
-                <span class="district-popup-summary-card__label">Síla obrany</span>
-                <strong class="district-popup-summary-card__value" data-district-popup-defense-power>0</strong>
+                <span class="district-popup-summary-card__label">Vliv / hod</span>
+                <strong class="district-popup-summary-card__value" data-district-popup-influence>0</strong>
               </article>
               <article class="district-popup-summary-card">
-                <span class="district-popup-summary-card__label">Obyvatelé</span>
-                <strong class="district-popup-summary-card__value" data-district-popup-residents>0</strong>
-              </article>
-              <article class="district-popup-summary-card">
-                <span class="district-popup-summary-card__label">Příjem</span>
-                <strong class="district-popup-summary-card__value" data-district-popup-income>$0/hod</strong>
-              </article>
-              <article class="district-popup-summary-card">
-                <span class="district-popup-summary-card__label">Heat</span>
-                <strong class="district-popup-summary-card__value" data-district-popup-heat>0/den</strong>
-              </article>
-              <article class="district-popup-summary-card">
-                <span class="district-popup-summary-card__label">Vliv</span>
-                <strong class="district-popup-summary-card__value" data-district-popup-influence>0/hod</strong>
+                <span class="district-popup-summary-card__label">Populace / hod</span>
+                <strong class="district-popup-summary-card__value" data-district-popup-population>0</strong>
               </article>
             </section>
             <section class="district-popup-buildings" data-district-popup-buildings>
@@ -917,7 +906,6 @@
           <div class="wanted-popup-header">
             <div class="wanted-popup-header__title">
               <h3>Heat</h3>
-              <button type="button" class="button wanted-popup-police-toggle" data-wanted-popup-police-toggle aria-label="Zobrazit police feedback" aria-expanded="false">?</button>
               <div class="wanted-popup-meta wanted-popup-meta--header">
                 <p class="wanted-popup-row wanted-popup-row--compact">Heat <span data-wanted-popup-level>1 / 6</span></p>
                 <p class="wanted-popup-row wanted-popup-row--compact">Ochrana <span data-wanted-popup-protection>Bez ochrany</span></p>
@@ -2087,13 +2075,6 @@
               <span class="settings-modal__label">Znaky aliancí</span>
               <label class="toggle settings-toggle">
                 <input id="settings-map-alliance-symbols" type="checkbox" checked>
-                <span class="toggle__track"></span>
-              </label>
-            </div>
-            <div class="modal__row settings-modal__row settings-modal__row--toggle">
-              <span class="settings-modal__label">Menší efekty mapy</span>
-              <label class="toggle settings-toggle">
-                <input id="settings-map-reduced-effects" type="checkbox">
                 <span class="toggle__track"></span>
               </label>
             </div>

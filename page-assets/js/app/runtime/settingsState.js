@@ -2,7 +2,6 @@ export const DEFAULT_SETTINGS = Object.freeze({
   language: "cs",
   mapDistrictBorders: true,
   mapAllianceSymbols: true,
-  reducedMapEffects: false,
   mapVisibilityMode: "all"
 });
 
@@ -21,11 +20,9 @@ export function normalizeSettingsState(settings = {}) {
   };
 
   return {
-    ...merged,
     language: String(merged.language || DEFAULT_SETTINGS.language).trim().toLowerCase() === "en" ? "en" : "cs",
     mapDistrictBorders: Boolean(merged.mapDistrictBorders),
     mapAllianceSymbols: Boolean(merged.mapAllianceSymbols),
-    reducedMapEffects: Boolean(merged.reducedMapEffects),
     mapVisibilityMode: normalizeMapVisibilityMode(merged.mapVisibilityMode)
   };
 }
@@ -52,7 +49,7 @@ export function createSettingsStateRuntime(deps = {}) {
       documentRef.documentElement.lang = normalized.language;
       documentRef.documentElement.dataset.language = normalized.language;
       documentRef.documentElement.dataset.mapVisibilityMode = normalized.mapVisibilityMode;
-      documentRef.documentElement.dataset.mapEffects = normalized.reducedMapEffects ? "reduced" : "full";
+      documentRef.documentElement.dataset.mapEffects = "full";
     }
     if (documentRef?.dispatchEvent && typeof CustomEventCtor === "function") {
       documentRef.dispatchEvent(new CustomEventCtor("empire:settings-changed", {

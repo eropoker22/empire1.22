@@ -9,6 +9,7 @@ import {
   detectAlliedEncirclementAfterOccupy,
   isEncirclementConfirmationValid,
   resolveDistrictActionAvailability,
+  resolveDistrictOperationBlock,
   resolveMajorOperationBlock,
   resolveOccupyBalance,
   resolveOccupyInfluenceCost,
@@ -53,6 +54,8 @@ export const validateOccupy = (
   if (revisionError) return [revisionError];
   const availabilityError = resolveDistrictActionAvailability(state, command.playerId, targetDistrict.id, "occupy");
   if (availabilityError) return [availabilityError];
+  const operationBlock = resolveDistrictOperationBlock(targetDistrict, "occupy", state.root.tick);
+  if (operationBlock) return [operationBlock];
 
   const mapValidation = validateMapAction(state, {
     actorPlayerId: command.playerId,
@@ -95,6 +98,14 @@ export const validateOccupy = (
   const globalCooldownKey = createOccupyGlobalCooldownKey();
   const sourceCooldownKey = sourceDistrict ? createOccupySourceCooldownKey(sourceDistrict.id) : null;
   const cooldowns = state.cooldownStatesById[player.cooldownStateId]?.cooldowns ?? {};
+  const activeGlobalOccupyUntilTick = Number(cooldowns[globalCooldownKey] ?? 0);
+  if (activeGlobalOccupyUntilTick > state.root.tick) {
+    return [{
+      code: "PLAYER_OCCUPY_OPERATION_ACTIVE",
+      message: `Už provádíš obsazení. Další můžeš zahájit za ${activeGlobalOccupyUntilTick - state.root.tick} ticků.`,
+      details: { cooldownUntilTick: activeGlobalOccupyUntilTick }
+    }];
+  }
   const majorOperationBlock = sourceDistrict
     ? resolveMajorOperationBlock(cooldowns, sourceDistrict.id, state.root.tick)
     : null;
@@ -108,7 +119,6 @@ export const validateOccupy = (
     }];
   }
   const activeOccupyCooldownTick =
-    cooldowns[globalCooldownKey] ??
     (sourceCooldownKey ? cooldowns[sourceCooldownKey] : undefined) ??
     cooldowns[occupyCooldownKey];
 

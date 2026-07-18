@@ -2304,33 +2304,35 @@
   inset: 0;
   border: 0;
   background:
-    radial-gradient(circle at 50% 18%, rgba(251, 146, 60, 0.2), transparent 34%),
-    rgba(2, 6, 14, 0.68);
-  backdrop-filter: blur(10px);
+    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.045), transparent 34%),
+    rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(6px);
 }
 
 .building-special-action-confirm__dialog {
   position: relative;
   z-index: 1;
-  width: min(560px, calc(100vw - 28px));
-  max-height: min(78vh, 620px);
+  width: min(420px, calc(100vw - 28px));
+  max-height: min(72vh, 520px);
   overflow: auto;
-  padding: 18px;
-  border: 1px solid rgba(251, 146, 60, 0.44);
-  border-radius: 12px;
+  padding: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
   background:
-    linear-gradient(145deg, rgba(251, 146, 60, 0.16), rgba(34, 211, 238, 0.08) 40%, rgba(5, 10, 20, 0.94)),
-    rgba(5, 10, 20, 0.9);
+    linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(5, 10, 20, 0.18) 42%, rgba(0, 0, 0, 0.68)),
+    rgba(0, 0, 0, 0.58);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 20px 60px rgba(0, 0, 0, 0.44),
-    0 0 30px rgba(251, 146, 60, 0.18);
+    0 14px 38px rgba(0, 0, 0, 0.34),
+    0 0 24px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(12px) saturate(1.05);
+  -webkit-backdrop-filter: blur(12px) saturate(1.05);
   color: #f8fafc;
 }
 
 .building-special-action-confirm__eyebrow {
   display: block;
-  color: #fed7aa;
+  color: rgba(226, 232, 240, 0.78);
   font-size: 0.66rem;
   font-weight: 850;
   letter-spacing: 0;
@@ -2338,10 +2340,43 @@
 }
 
 .building-special-action-confirm__title {
-  margin: 5px 0 3px;
-  color: #fff7ed;
+  margin: 4px 0 2px;
+  color: #f8fafc;
   font-size: 1.22rem;
   line-height: 1.08;
+}
+
+.building-special-action-confirm__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.building-special-action-confirm__header-details {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+}
+
+.building-special-action-confirm__cooldown {
+  flex: 0 0 auto;
+  color: rgba(226, 232, 240, 0.72);
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.building-special-action-confirm__risk {
+  max-width: 180px;
+  color: #f87171;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: right;
+  text-shadow: 0 0 8px rgba(248, 113, 113, 0.26);
 }
 
 .building-special-action-confirm__meta,
@@ -2361,17 +2396,17 @@
 .building-special-action-confirm__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 14px;
+  gap: 6px;
+  margin-top: 10px;
 }
 
 .building-special-action-confirm__stat {
   display: grid;
   gap: 4px;
-  padding: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 9px;
-  background: rgba(2, 6, 14, 0.42);
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
 }
 
 .building-special-action-confirm__stat span {
@@ -2391,23 +2426,23 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .building-special-action-confirm__button {
   min-height: 38px;
   padding: 0 13px;
   border-radius: 8px;
-  border: 1px solid rgba(251, 146, 60, 0.36);
-  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(15, 23, 42, 0.46);
   color: #f8fafc;
   font-weight: 850;
 }
 
 .building-special-action-confirm__button--confirm {
-  border-color: rgba(251, 146, 60, 0.72);
-  background: linear-gradient(135deg, rgba(251, 146, 60, 0.95), rgba(249, 115, 22, 0.8));
-  color: #1f1205;
+  border-color: rgba(226, 232, 240, 0.34);
+  background: linear-gradient(135deg, rgba(226, 232, 240, 0.26), rgba(71, 85, 105, 0.38));
+  color: #f8fafc;
 }
 
 .building-special-action-confirm__button--ghost {
@@ -2419,12 +2454,23 @@
 .building-special-action-confirm__button:focus-visible:not(:disabled) {
   outline: none;
   transform: translateY(-1px);
-  box-shadow: 0 0 20px rgba(251, 146, 60, 0.22);
+  box-shadow: 0 0 20px rgba(226, 232, 240, 0.14);
 }
 
 .building-special-action-confirm__button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+}
+
+@media (min-width: 721px) {
+  :is(
+    .armory-popup-card,
+    .pharmacy-popup-card,
+    .druglab-popup-card,
+    .factory-popup-card
+  ) {
+    top: calc(50% + 24px);
+  }
 }
 
 @media (max-width: 560px) {
@@ -2437,11 +2483,12 @@
   }
 
   .building-special-action-confirm__actions {
-    flex-direction: column-reverse;
+    flex-direction: row;
+    gap: 8px;
   }
 
   .building-special-action-confirm__button {
-    width: 100%;
+    flex: 1 1 0;
   }
 }
 
@@ -4273,6 +4320,15 @@
   font-size: 15px;
   line-height: 1;
   white-space: nowrap;
+}
+
+.factory-popup-card.building-detail-modal__content .building-detail-actions--factory {
+  margin-top: 4px;
+  gap: 8px;
+}
+
+.factory-popup-card.building-detail-modal__content .factory-resource-strip {
+  gap: 5px;
 }
 
 .factory-popup-card.building-detail-modal__content .factory-resource-pill:nth-child(1) {
@@ -6325,6 +6381,41 @@
   line-height: 1.38;
 }
 
+.district-building-detail-shell[data-building-mechanics-type="convenience-store"] .district-building-detail-card .building-info-card__effects {
+  flex-direction: column !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  row-gap: 14px;
+  column-gap: 0;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="convenience-store"] .district-building-detail-card .district-building-detail-effect-cell {
+  flex: 0 0 auto;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="warehouse"] .district-building-detail-card .building-info-card__effects {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: center;
+  row-gap: 28px;
+  column-gap: 0;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="warehouse"] .district-building-detail-card .district-building-detail-effect-cell {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 720px) {
+  .district-building-detail-shell[data-building-mechanics-type="warehouse"] .district-building-detail-card .building-info-card__effects {
+    row-gap: 24px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="warehouse"] .district-building-detail-card .district-building-detail-effect-cell {
+    padding: 11px 18px;
+    border-radius: 999px;
+  }
+}
+
 .district-building-detail-effect-cell {
   position: relative;
   display: inline-flex;
@@ -8339,6 +8430,52 @@
   }
 }
 
+@media (min-width: 721px) {
+  .district-building-detail-shell[data-building-mechanics-type="warehouse"] .district-building-detail-card [data-district-building-detail-effects-section] {
+    display: flex !important;
+    flex-direction: column;
+    grid-column: 1 / -1;
+    width: 100%;
+    align-items: center !important;
+    justify-self: stretch;
+    text-align: center;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="warehouse"] .district-building-detail-card [data-district-building-detail-effects-section] > h5 {
+    margin: 2px 0 10px;
+    text-align: center;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="warehouse"] .district-building-detail-card .building-info-card__effects {
+    display: grid !important;
+    grid-template-columns: max-content !important;
+    justify-content: center !important;
+    justify-items: center !important;
+    align-items: center;
+    width: fit-content !important;
+    max-width: 100%;
+    row-gap: 96px !important;
+    column-gap: 0 !important;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="warehouse"] .district-building-detail-card .district-building-detail-effect-cell {
+    display: inline-flex !important;
+    flex: none !important;
+    width: max-content !important;
+    max-width: 100%;
+    margin-inline: auto !important;
+    margin-block: 12px;
+    justify-self: center;
+    align-self: center;
+  }
+}
+
+@media (max-width: 720px) {
+  .district-building-detail-shell[data-building-mechanics-type="warehouse"] .district-building-detail-card .building-info-card__effects {
+    row-gap: 56px !important;
+  }
+}
+
 /* Final district building detail hidden-strip guard. Hidden structural panels must never render as empty bars. */
 .district-building-detail-shell [hidden],
 .district-building-detail-shell [aria-hidden="true"],
@@ -8359,5 +8496,150 @@
   background: transparent !important;
   box-shadow: none !important;
   overflow: hidden !important;
+}
+
+.building-upgrade-confirm {
+  z-index: 70;
+}
+
+.building-upgrade-confirm__backdrop {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(251, 146, 60, 0.2), transparent 38%),
+    rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.building-upgrade-confirm__dialog {
+  width: min(420px, calc(100vw - 28px));
+  max-height: min(72vh, 520px);
+  display: block;
+  overflow: auto;
+  padding: 13px;
+  border: 1px solid rgba(251, 146, 60, 0.68);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 88% 8%, rgba(251, 146, 60, 0.38), transparent 48%),
+    radial-gradient(circle at 6% 96%, rgba(249, 115, 22, 0.2), transparent 56%),
+    linear-gradient(145deg, rgba(251, 146, 60, 0.22), rgba(66, 26, 6, 0.16) 42%, rgba(0, 0, 0, 0.36)),
+    rgba(34, 13, 3, 0.36);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 237, 213, 0.2),
+    0 14px 38px rgba(0, 0, 0, 0.34),
+    0 0 28px rgba(251, 146, 60, 0.3);
+  backdrop-filter: blur(10px) saturate(1.18);
+  -webkit-backdrop-filter: blur(10px) saturate(1.18);
+}
+
+.building-upgrade-confirm__title {
+  margin: 0 0 2px;
+  color: #fff7ed;
+  font-size: 1.22rem;
+  line-height: 1.08;
+}
+
+.building-upgrade-confirm__copy,
+.building-upgrade-confirm__note {
+  color: rgba(255, 237, 213, 0.84);
+  font-size: 0.82rem;
+  line-height: 1.42;
+}
+
+.building-upgrade-confirm__grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.building-upgrade-confirm__stat {
+  gap: 4px;
+  padding: 8px;
+  border-color: rgba(251, 146, 60, 0.4);
+  border-radius: 8px;
+  background: rgba(92, 38, 8, 0.18);
+  box-shadow: none;
+}
+
+.building-upgrade-confirm__stat span {
+  color: rgba(254, 215, 170, 0.72);
+  font-size: 0.62rem;
+}
+
+.building-upgrade-confirm__stat strong {
+  color: #fff7ed;
+  font-size: 0.78rem;
+}
+
+.building-upgrade-confirm__stat--benefits {
+  grid-column: 1 / -1;
+}
+
+.building-upgrade-confirm__benefits {
+  gap: 6px;
+}
+
+.building-upgrade-confirm__benefit {
+  padding: 7px;
+  border-color: rgba(251, 146, 60, 0.32);
+  border-radius: 8px;
+  background: rgba(92, 38, 8, 0.14);
+}
+
+.building-upgrade-confirm__payment-strip {
+  margin-top: 10px;
+  padding: 8px;
+  border-color: rgba(251, 146, 60, 0.32);
+  border-radius: 8px;
+  background: rgba(92, 38, 8, 0.16);
+}
+
+.building-upgrade-confirm__actions {
+  margin-top: 12px;
+  gap: 8px;
+}
+
+.building-upgrade-confirm__button {
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 13px;
+  border-color: rgba(251, 146, 60, 0.28);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.46);
+  color: #fff7ed;
+}
+
+.building-upgrade-confirm__button--confirm {
+  border-color: rgba(254, 215, 170, 0.58);
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.9), rgba(154, 52, 18, 0.94));
+  box-shadow: 0 0 16px rgba(251, 146, 60, 0.2);
+}
+
+@media (max-width: 720px) {
+  .building-upgrade-confirm__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .building-upgrade-confirm__actions {
+    flex-direction: row;
+  }
+
+  .building-upgrade-confirm__button {
+    width: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .building-upgrade-confirm__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .building-upgrade-confirm__actions {
+    flex-direction: row;
+  }
+
+  .building-upgrade-confirm__button {
+    flex: 1 1 0;
+    width: auto;
+  }
 }
 

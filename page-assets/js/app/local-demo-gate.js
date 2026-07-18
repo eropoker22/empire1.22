@@ -9,8 +9,6 @@ export const isLocalDemoAccessAvailable = (locationRef = globalThis.location) =>
 
 export const isExplicitLocalDemoEnabled = (options = {}) => {
   const locationRef = options.locationRef || globalThis.location;
-  if (!isLocalDemoAccessAvailable(locationRef)) return false;
-
   const configOverrides = options.configOverrides || globalThis.EmpireConfigOverrides;
   const sessionStorageRef = options.sessionStorageRef || globalThis.sessionStorage;
   const requestedMode = new URLSearchParams(String(locationRef?.search || "")).get("runtimeMode");
@@ -21,6 +19,10 @@ export const isExplicitLocalDemoEnabled = (options = {}) => {
   if (requestedMode === "local-demo") {
     sessionStorageRef?.setItem?.(LOCAL_DEMO_SESSION_KEY, "1");
     return true;
+  }
+
+  if (!isLocalDemoAccessAvailable(locationRef)) {
+    return sessionStorageRef?.getItem?.(LOCAL_DEMO_SESSION_KEY) === "1";
   }
 
   return configOverrides?.localDemoEnabled === true

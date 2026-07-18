@@ -6,6 +6,7 @@ import {
   createHeistAttackerTargetCooldownKey,
   createHeistGlobalCooldownKey,
   resolveDistrictActionAvailability,
+  resolveDistrictOperationBlock,
   resolveMajorOperationBlock,
   validateDistrictConflictRevision,
   validateMapAction
@@ -24,6 +25,8 @@ export const validateHeist = (
   if (revisionError) return [revisionError];
   const availabilityError = resolveDistrictActionAvailability(state, command.playerId, targetDistrict.id, "heist");
   if (availabilityError) return [availabilityError];
+  const operationBlock = resolveDistrictOperationBlock(targetDistrict, "heist", state.root.tick);
+  if (operationBlock) return [operationBlock];
 
   if (!HEIST_STYLES.has(command.payload.style)) {
     return [{

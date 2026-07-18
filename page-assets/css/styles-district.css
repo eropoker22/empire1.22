@@ -482,6 +482,25 @@
   font-size: 0.68rem;
 }
 
+.district-popup-card[data-district-occupation-active="true"] .district-popup-owner-label {
+  display: none;
+}
+
+.district-popup-card[data-district-occupation-active="true"] .district-popup-owner-copy {
+  gap: 5px;
+}
+
+.district-popup-card[data-district-occupation-active="true"] .district-popup-owner-name {
+  color: #ffffff;
+  font-size: 1.22rem;
+  line-height: 1.15;
+}
+
+.district-popup-card[data-district-occupation-active="true"] .district-popup-owner-meta {
+  color: rgba(255, 202, 202, 0.9);
+  font-weight: 700;
+}
+
 .district-popup-status,
 .district-popup-action-section {
   display: grid;

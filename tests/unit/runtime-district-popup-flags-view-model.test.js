@@ -16,12 +16,11 @@ describe("district popup flags view model", () => {
       ownerLabel: "TY",
       adjacentOwnedCount: 2,
       hasKnownDefense: true,
+      defenseEstimate: 42,
       canOccupyAfterSpy: false
     })).toEqual([
       { label: "Tvůj", tone: "good" },
-      { label: "Napojený: 2", tone: "good" },
-      { label: "Obrana známá", tone: "neutral" },
-      { label: "Obsazení nepřipravené", tone: "muted" }
+      { label: "Obrana cca: 42", tone: "neutral" }
     ]);
   });
 
@@ -49,8 +48,7 @@ describe("district popup flags view model", () => {
       hasTrapHere: true
     })).toEqual([
       { label: "Obsazován", tone: "warning" },
-      { label: "Bez napojení", tone: "muted" },
-      { label: "Obrana skrytá", tone: "muted" },
+      { label: "Obrana neznámá", tone: "muted" },
       { label: "Policejní akce", tone: "danger" },
       { label: "Obsazování běží", tone: "warning" },
       { label: "Toxická past", tone: "danger" }
