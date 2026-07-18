@@ -94,7 +94,6 @@ import {
   DEMO_SCENARIOS,
   DEV_ONLY_DESTROYED_DISTRICT_ID,
   DEV_ONLY_ONBOARDING_START_STATE,
-  DEV_ONLY_POLICE_INTERVAL_MS,
   DEV_ONLY_SPY_FULL_SUCCESS_CHANCE,
   LAUNCH_PLAYER_AVATAR_BY_FACTION_ID,
   LAUNCH_PLAYER_FACTION_ORDER,
@@ -916,7 +915,8 @@ import {
   createBuildingActionFeedItemElement,
   createBuildingActionFingerprint,
   isBuildingActionEntryOpenable,
-  normalizeBuildingActionSnapshot
+  normalizeBuildingActionSnapshot,
+  restoreBuildingActionEntries
 } from "./ui/eventFeedPanel.js";
 import { renderPlayerProfilePanel } from "./ui/playerProfilePanel.js";
 import {
@@ -964,8 +964,6 @@ const ONBOARDING_TRAP_READY_TIMESTAMP = "2020-01-01T00:00:00.000Z";
 const LOCAL_ALLIANCE_KEY = "empire_local_alliance_state";
 const productionTimers = new Map();
 let policeActionResultLiveTimerId = null;
-let devOnlyPoliceNextActionAt = 0;
-let devOnlyPoliceLastTargetPlayerId = null;
 let startPhaseResourceSimulationState = null;
 let districtGossipRuntime = null;
 let resultPayloadBuilders = null;
@@ -2540,8 +2538,7 @@ function syncDevOnlyDestroyedDistrictState() {
   const ownedDistrictIds = Array.isArray(storedWorldState.ownedDistrictIds)
     ? storedWorldState.ownedDistrictIds.map(Number).filter(Boolean)
     : [];
-  const shouldKeepDestroyedDistrict = isDemoScenarioMode(phaseState)
-    || normalizeRuntimeGamePhase(phaseState.gamePhase) === "live";
+  const shouldKeepDestroyedDistrict = isDemoScenarioMode(phaseState);
   const isApplied = storedWorldState.devOnlyScenarioDestroyedDistrictId === DEV_ONLY_DESTROYED_DISTRICT_ID;
   const hasDestroyedDistrict = destroyedDistrictIds.includes(DEV_ONLY_DESTROYED_DISTRICT_ID);
 
@@ -2568,85 +2565,6 @@ function syncDevOnlyDestroyedDistrictState() {
     destroyedDistrictIds: destroyedDistrictIds.filter((districtId) => districtId !== DEV_ONLY_DESTROYED_DISTRICT_ID),
     devOnlyScenarioDestroyedDistrictId: null
   });
-}
-
-function syncDevOnlyPolicePressure() {
-  const phaseState = getResolvedPhaseState();
-  const now = Date.now();
-
-  if (!isDemoScenarioMode(phaseState)) {
-    devOnlyPoliceNextActionAt = 0;
-    devOnlyPoliceLastTargetPlayerId = null;
-    return { triggered: false, marker: null };
-  }
-
-  if (!devOnlyPoliceNextActionAt) {
-    devOnlyPoliceNextActionAt = now + DEV_ONLY_POLICE_INTERVAL_MS;
-    return { triggered: false, marker: null };
-  }
-
-  if (devOnlyPoliceNextActionAt > now) {
-    return { triggered: false, marker: null };
-  }
-
-  const worldState = getResolvedWorldState();
-  const destroyedDistrictIds = new Set(worldState.destroyedDistrictIds || []);
-  const activePoliceActions = getResolvedDistrictPoliceActions();
-  const activePoliceEntries = Object.entries(activePoliceActions)
-    .map(([districtId, marker]) => [Number(districtId), marker])
-    .filter(([districtId, marker]) => Boolean(districtId && marker));
-  if (activePoliceEntries.length > 1) {
-    const [keptDistrictId, keptMarker] = activePoliceEntries
-      .slice()
-      .sort((left, right) => Number(right[1]?.startedAt || 0) - Number(left[1]?.startedAt || 0))[0];
-    setStoredWorldState({
-      ...worldState,
-      districtPoliceActionById: {
-        [keptDistrictId]: keptMarker
-      }
-    });
-    return { triggered: false, marker: keptMarker || null };
-  }
-
-  const activePoliceDistrictIds = new Set(activePoliceEntries.map(([districtId]) => districtId));
-  if (activePoliceDistrictIds.size > 0) {
-    return { triggered: false, marker: activePoliceEntries[0]?.[1] || null };
-  }
-
-  const launchDistrictEntries = Array.from(START_PHASE_OWNER_BY_DISTRICT_ID.entries())
-    .map(([districtId, ownerId]) => ({ districtId: Number(districtId), ownerId: Number(ownerId) }))
-    .filter(({ districtId, ownerId }) => districtId > 0 && ownerId > 0 && ownerId !== CURRENT_PLAYER_ID)
-    .filter(({ districtId }) => !destroyedDistrictIds.has(districtId));
-
-  if (launchDistrictEntries.length <= 0) {
-    devOnlyPoliceNextActionAt = now + DEV_ONLY_POLICE_INTERVAL_MS;
-    return { triggered: false, marker: null };
-  }
-
-  const preferredEntries = launchDistrictEntries.filter(({ ownerId }) => ownerId !== devOnlyPoliceLastTargetPlayerId);
-  const candidateEntries = preferredEntries.length > 0 ? preferredEntries : launchDistrictEntries;
-  const idleEntries = candidateEntries.filter(({ districtId }) => !activePoliceDistrictIds.has(districtId));
-  const eligibleEntries = idleEntries.length > 0 ? idleEntries : candidateEntries;
-  const selectedEntry = eligibleEntries[Math.floor(Math.random() * eligibleEntries.length)] || null;
-
-  devOnlyPoliceNextActionAt = now + DEV_ONLY_POLICE_INTERVAL_MS;
-  if (!selectedEntry) {
-    return { triggered: false, marker: null };
-  }
-
-  const result = markDistrictPoliceAction(selectedEntry.districtId, {
-    source: "dev-only-launch-pressure",
-    ignoreOwnership: true,
-    ignoreProtection: true,
-    skipImpact: true
-  });
-
-  if (!result.ok) {
-    return { triggered: false, marker: null };
-  }
-
-  devOnlyPoliceLastTargetPlayerId = selectedEntry.ownerId;
-  return { triggered: true, marker: result.marker || null };
 }
 
 function getDistrictGossipRuntime() {
@@ -3566,7 +3484,7 @@ function resolveBuildingActionPanel(root) {
     clearButton,
     feedElement,
     emptyElement,
-    entries: [],
+    entries: restorePersistedStreetNewsEntries(),
     captureScheduled: false,
     skipFingerprint: "",
     lastFingerprint: "",
@@ -3574,8 +3492,26 @@ function resolveBuildingActionPanel(root) {
     observer: null
   };
 
+  panel.lastFingerprint = panel.entries[0]
+    ? createBuildingActionFingerprint(panel.entries[0])
+    : "";
+
   buildingActionPanels.set(root, panel);
   return panel;
+}
+
+function restorePersistedStreetNewsEntries() {
+  if (getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.localDemo) return [];
+  return restoreBuildingActionEntries(getAuthoritySession()?.streetNewsFeed, Date.now(), BUILDING_ACTION_LOG_LIMIT);
+}
+
+function persistStreetNewsEntries(entries) {
+  if (getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.localDemo) return;
+  const persistedEntries = restoreBuildingActionEntries(entries, Date.now(), BUILDING_ACTION_LOG_LIMIT);
+  updateStoredPreviewSession((session) => ({
+    ...session,
+    streetNewsFeed: persistedEntries
+  }));
 }
 
 function syncBuildingActionSource(root, snapshot) {
@@ -4067,6 +4003,12 @@ function renderBuildingActionFeed(root, { syncPreview = false, previewSnapshot =
     return;
   }
 
+  const activeEntries = restoreBuildingActionEntries(panel.entries, Date.now(), BUILDING_ACTION_LOG_LIMIT);
+  if (activeEntries.length !== panel.entries.length) {
+    panel.entries = activeEntries;
+    persistStreetNewsEntries(panel.entries);
+  }
+
   const cooldownEntries = createActiveCooldownStreetNewsEntries();
   const visibleEntries = [...cooldownEntries, ...panel.entries];
 
@@ -4074,7 +4016,8 @@ function renderBuildingActionFeed(root, { syncPreview = false, previewSnapshot =
     ...visibleEntries
       .map((entry) => createBuildingActionFeedItemElement(root.ownerDocument || document, entry, {
         removeSelector: BUILDING_ACTION_REMOVE_SELECTOR,
-        onOpenResult: (selectedEntry) => queueOrOpenResultModal(root, selectedEntry.resultKind, selectedEntry.resultPayload)
+        onOpenResult: (selectedEntry) => queueOrOpenResultModal(root, selectedEntry.resultKind, selectedEntry.resultPayload),
+        onExpire: () => renderBuildingActionFeed(root)
       }))
       .filter(Boolean)
   );
@@ -4116,7 +4059,9 @@ function appendBuildingActionEntry(root, snapshot, { syncPreview = false, forceL
     return;
   }
 
-  panel.entries = [entry, ...panel.entries].slice(0, BUILDING_ACTION_LOG_LIMIT);
+  panel.entries = [entry, ...panel.entries.filter((existingEntry) => existingEntry.id !== entry.id)]
+    .slice(0, BUILDING_ACTION_LOG_LIMIT);
+  persistStreetNewsEntries(panel.entries);
   panel.lastFingerprint = fingerprint;
   renderBuildingActionFeed(root, { syncPreview, previewSnapshot: entry });
   panel.feedElement.scrollTop = 0;
@@ -4462,7 +4407,7 @@ function completeOccupyOrder(root, orderId) {
   });
 
   const occupyResultPayload = {
-    tone: occupyOutcome.succeeded ? "is-success" : "is-major-fail",
+    tone: `is-occupy-result ${occupyOutcome.succeeded ? "is-success" : "is-major-fail"}`,
     title: occupyOutcome.succeeded ? "Obsazení: Úspěch" : "Obsazení: Neúspěch",
     summary: occupyOutcome.succeeded
       ? `${occupyOutcome.message} District ${targetDistrictId} připadl tvému gangu. Vrátilo se ${occupyOutcome.populationRefunded} populace, zbytek ceny zmizel v ulicích.`
@@ -5690,6 +5635,7 @@ function syncFactoryProduction(instanceState, now = Date.now(), options = {}) {
     ownedFactoryCount,
     ownedWarehouseCount: 0,
     networkProductionBonusPct,
+    baseProductionMultiplier: effectiveProductionMultiplier,
     productionMultiplier: effectiveProductionMultiplier * activeBoostMultiplier
   };
 }
@@ -6256,15 +6202,6 @@ const {
   variantNamesByBaseName: DISTRICT_BUILDING_VARIANT_NAMES_BY_BASE_NAME
 });
 
-function getDemoLiveMinimumOwnedBuildingCountByBaseName(baseName, worldState = getResolvedWorldState()) {
-  const normalizedBaseName = normalizeBuildingLookupKey(baseName);
-  if (!normalizedBaseName) {
-    return 0;
-  }
-  const gamePhase = normalizeRuntimeGamePhase(worldState?.phaseState?.gamePhase || worldState?.phase || "live");
-  return gamePhase === "live" ? 2 : 0;
-}
-
 const {
   getApartmentBlockNetworkMultipliers,
   getArcadeNetworkMultipliers,
@@ -6324,7 +6261,7 @@ const {
   getStoredFactorySupplies,
   getStoredMaterialInventory,
   getStoredWeaponInventory,
-  getMinimumOwnedBuildingCountByBaseName: getDemoLiveMinimumOwnedBuildingCountByBaseName,
+  getMinimumOwnedBuildingCountByBaseName: () => 0,
   normalizeBuildingLookupKey,
   powerStationConfig: POWER_STATION_CONFIG,
   recyclingCenterConfig: RECYCLING_CENTER_CONFIG,
@@ -6371,7 +6308,7 @@ function getOwnedDistrictBuildingCountByBaseName(baseName) {
     return count + matchingCount;
   }, 0);
 
-  return Math.max(actualCount, getDemoLiveMinimumOwnedBuildingCountByBaseName(normalizedBaseName, worldState));
+  return actualCount;
 }
 
 function formatStrengthNumber(value = 0) {
@@ -6634,7 +6571,9 @@ function getCurrentPlayerStartPhaseSourceSnapshot() {
   const interactionState = {
     ownedDistrictIds: new Set(worldState.ownedDistrictIds || []),
     gamePhase,
-    launchOwnerByDistrictId: new Map(START_PHASE_OWNER_BY_DISTRICT_ID),
+    launchOwnerByDistrictId: gamePhase === "launch"
+      ? new Map(START_PHASE_OWNER_BY_DISTRICT_ID)
+      : new Map(),
     destroyedDistrictIds: new Set(worldState.destroyedDistrictIds || [])
   };
   const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
@@ -9657,8 +9596,10 @@ function isDistrictTypeKnownForCurrentPlayer(district, interactionState = {}) {
     return true;
   }
 
-  const launchOwnerId = interactionState.launchOwnerByDistrictId?.get?.(districtId)
-    || START_PHASE_OWNER_BY_DISTRICT_ID.get(districtId);
+  const launchOwnerId = interactionState.gamePhase === "launch"
+    ? (interactionState.launchOwnerByDistrictId?.get?.(districtId)
+      || START_PHASE_OWNER_BY_DISTRICT_ID.get(districtId))
+    : null;
   if (launchOwnerId && Number(launchOwnerId) === Number(CURRENT_PLAYER_ID)) {
     return true;
   }
@@ -9924,9 +9865,7 @@ function getDistrictFillStyle(district, isNight, interactionState = {}) {
   const gamePhase = interactionState.gamePhase || "launch";
   const isLaunchPhase = gamePhase === "launch";
   const launchOwnerByDistrictId = interactionState.launchOwnerByDistrictId || START_PHASE_OWNER_BY_DISTRICT_ID;
-  const launchOwnerId = (isLaunchPhase || gamePhase === "live")
-    ? launchOwnerByDistrictId.get(districtId)
-    : null;
+  const launchOwnerId = isLaunchPhase ? launchOwnerByDistrictId.get(districtId) : null;
 
   if (districtType === MAP_DOWNTOWN_DISTRICT_TYPE && !ownedDistrictIds.has(districtId) && !launchOwnerId) {
     return resolveMapZoneFillStyle(districtType, isNight);
@@ -10281,7 +10220,9 @@ function bindDistrictCanvas(root) {
     const worldState = getResolvedWorldState();
     interactionState.ownedDistrictIds = new Set(worldState.ownedDistrictIds || []);
     interactionState.destroyedDistrictIds = new Set(worldState.destroyedDistrictIds || []);
-    interactionState.launchOwnerByDistrictId = new Map(START_PHASE_OWNER_BY_DISTRICT_ID);
+    interactionState.launchOwnerByDistrictId = interactionState.gamePhase === "launch"
+      ? new Map(START_PHASE_OWNER_BY_DISTRICT_ID)
+      : new Map();
 
     for (const ownedDistrictId of interactionState.ownedDistrictIds) {
       interactionState.launchOwnerByDistrictId.delete(Number(ownedDistrictId));
@@ -10556,7 +10497,7 @@ function bindDistrictCanvas(root) {
       }
     },
     isClinicStabilizationReady: isClinicStabilizationProtocolReady,
-    isDemoLiveBuildingCatalogUnlocked: () => normalizeRuntimeGamePhase(getResolvedPhaseState().gamePhase) === "live",
+    isDemoLiveBuildingCatalogUnlocked: () => false,
     isDistrictTypeHidden,
     renderBuildingsPopupDetailPanel,
     renderBuildingsPopupTypesPanel,
@@ -11665,13 +11606,16 @@ function bindDistrictCanvas(root) {
       syncToBuildingAction: false
     };
     appendBuildingActionResultEntry(root, "police", payload, {
-      id: `stored-owned-police-raid:${activeOwnedPoliceAction.id || activeOwnedPoliceAction.raidId || activeOwnedPoliceAction.districtId || "active"}`,
+      id: `police-raid:${activeOwnedPoliceAction.districtId}:${activeOwnedPoliceAction.startedAt || activeOwnedPoliceAction.expiresAt}`,
       tone: "warning",
       title: "Probíhá policejní razie",
       summary: `District ${Number(activeOwnedPoliceAction.districtId)} · ${formatStoredPoliceRaidStreetNewsLosses(payload)}`,
       meta: "Kliknutím zobrazíš detail dopadů.",
       compact: true,
       persistent: true,
+      sourceKind: "police-raid",
+      category: "police-raid",
+      expiresAt: activeOwnedPoliceAction.expiresAt,
       districtId: activeOwnedPoliceAction.districtId
     }, { syncPreview: true, forceLog: true, refresh: false });
     return true;
@@ -12278,10 +12222,16 @@ function bindDistrictCanvas(root) {
 
     const districtLabel = formatDistrictReference(marker.districtId);
     appendBuildingActionResultEntry(root, "police", policeRaidPayload, {
+      id: `police-raid:${marker.districtId}:${marker.startedAt || marker.expiresAt}`,
       tone: "warning",
       title: "Spuštěna policejní razie",
       summary: `${districtLabel} je právě pod policejním zásahem.`,
-      meta: policeRaidPayload.badge || "Policejní zásah"
+      meta: policeRaidPayload.badge || "Policejní zásah",
+      compact: true,
+      persistent: true,
+      sourceKind: "police-raid",
+      category: "police-raid",
+      expiresAt: marker.expiresAt
     }, {
       refresh: false,
       syncPreview: true
@@ -13415,6 +13365,7 @@ const {
   createBuildingActionFingerprint,
   isBuildingActionEntryOpenable,
   openCurrentBuildingActionResultModal,
+  persistStreetNewsEntries,
   queueOrOpenResultModal,
   renderBuildingActionFeed,
   resolveBuildingActionPanel,
@@ -13530,9 +13481,11 @@ const {
   influenceActionCost: GANG_HEAT_INFLUENCE_COST,
   formatGangHeatProtectionLabel,
   gangHeatTiers: GANG_HEAT_TIERS,
+  getServerPlayerView,
   getPoliceTierShortEffect,
   getResolvedDistrictPoliceActions,
   getResolvedEconomyState,
+  isServerAuthoritativeMode: () => getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative,
   normalizeGangHeatJournal,
   renderHeatBadge,
   renderWantedFeedback,
@@ -13736,7 +13689,6 @@ const {
     syncDevOnlyDestroyedDistrictState();
     syncStartPhaseDistrictIncome(root);
     syncGangAutoPolicePressure();
-    syncDevOnlyPolicePressure();
   },
   onTick: ({ getMapPhaseFromClock, minuteStep, root, updatePhaseStatus }) => {
     syncDevOnlyDestroyedDistrictState();
@@ -13761,7 +13713,6 @@ const {
 
     updatePhaseStatus();
     syncGangAutoPolicePressure();
-    syncDevOnlyPolicePressure();
   },
   onGamePhaseChange: ({ root }) => {
     syncStartPhaseDistrictIncome(root);
@@ -13795,7 +13746,11 @@ function hydrateInitialState(root = getDefaultRuntimeRoot()) {
 
 function forceGameHtmlRefreshLivePhase(root = getDefaultRuntimeRoot()) {
   const resolvedRoot = resolveRuntimeRoot(root);
-  if (!resolvedRoot) {
+  if (!resolvedRoot || !isLocalDemoGameplayExecutionMode()) {
+    return false;
+  }
+
+  if (getAuthoritySession()?.devOnlyOnboardingStartPending === true) {
     return false;
   }
 
@@ -13804,35 +13759,32 @@ function forceGameHtmlRefreshLivePhase(root = getDefaultRuntimeRoot()) {
   const ownedDistrictIds = Array.isArray(worldState.ownedDistrictIds)
     ? worldState.ownedDistrictIds.map(Number).filter(Boolean)
     : [];
-  const previousDestroyedDistrictIds = Array.isArray(worldState.destroyedDistrictIds)
-    ? worldState.destroyedDistrictIds.map(Number).filter(Boolean)
-    : [];
-  const destroyedDistrictIds = new Set(previousDestroyedDistrictIds);
-  const startDistrictId = Number(getCurrentPlayerLaunchStartDistrictId() || 1);
   const isAlreadyLive = normalizeRuntimeGamePhase(phaseState.gamePhase) === "live";
-  destroyedDistrictIds.add(DEV_ONLY_DESTROYED_DISTRICT_ID);
-  const shouldKeepCurrentPlayerStartDistrict = startDistrictId > 0
-    && !destroyedDistrictIds.has(startDistrictId)
-    && (!isAlreadyLive || ownedDistrictIds.length <= 0);
-  const liveOwnedDistrictIds = ownedDistrictIds.filter((districtId) => districtId !== DEV_ONLY_DESTROYED_DISTRICT_ID);
-  const nextOwnedDistrictIds = shouldKeepCurrentPlayerStartDistrict
-    ? Array.from(new Set([...liveOwnedDistrictIds, startDistrictId]))
-    : liveOwnedDistrictIds;
-  const nextDestroyedDistrictIds = Array.from(destroyedDistrictIds);
+  const hasMapMockState = ownedDistrictIds.length > 0
+    || (worldState.destroyedDistrictIds || []).length > 0
+    || Object.keys(worldState.districtDefenseById || {}).length > 0
+    || Object.keys(worldState.districtDefenseLoadoutById || {}).length > 0
+    || Object.keys(worldState.districtDefenseResidentsById || {}).length > 0
+    || Object.keys(worldState.districtTrapById || {}).length > 0
+    || Object.keys(worldState.districtGossipById || {}).length > 0
+    || Object.keys(worldState.districtPoliceActionById || {}).length > 0
+    || Boolean(worldState.devOnlyScenarioDestroyedDistrictId);
 
-  if (
-    isAlreadyLive
-    && nextOwnedDistrictIds.length === ownedDistrictIds.length
-    && previousDestroyedDistrictIds.includes(DEV_ONLY_DESTROYED_DISTRICT_ID)
-  ) {
+  if (isAlreadyLive && !hasMapMockState) {
     return false;
   }
 
   setStoredWorldState({
     ...worldState,
-    ownedDistrictIds: nextOwnedDistrictIds,
-    destroyedDistrictIds: nextDestroyedDistrictIds,
-    devOnlyScenarioDestroyedDistrictId: DEV_ONLY_DESTROYED_DISTRICT_ID,
+    ownedDistrictIds: [],
+    destroyedDistrictIds: [],
+    districtDefenseById: {},
+    districtDefenseLoadoutById: {},
+    districtDefenseResidentsById: {},
+    districtTrapById: {},
+    districtGossipById: {},
+    districtPoliceActionById: {},
+    devOnlyScenarioDestroyedDistrictId: null,
     phaseState: {
       ...phaseState,
       gamePhase: "live"
@@ -13912,6 +13864,10 @@ function resetDevOnlyOnboardingAllianceState() {
 }
 
 function completeDevOnlyOnboarding(root = getDefaultRuntimeRoot(), context = {}) {
+  updateStoredPreviewSession((session) => ({
+    ...session,
+    devOnlyOnboardingStartPending: false
+  }));
   forceGameHtmlRefreshLivePhase(root);
 
   const resolvedRoot = resolveRuntimeRoot(root || getDefaultRuntimeRoot());
@@ -13960,8 +13916,19 @@ function applyDevOnlyOnboardingStartState(root = getDefaultRuntimeRoot()) {
   const factorySupplies = createFixedFactorySupplyAmountMap(amount);
 
   resetStartPhaseResourceSimulationState();
+  for (const jobId of Array.from(productionTimers.keys())) {
+    clearProductionJob(jobId);
+  }
+  setStoredDistrictBuildingDetailState({});
   updateStoredPreviewSession((session) => ({
     ...session,
+    devOnlyOnboardingStartPending: true,
+    streetNewsFeed: [],
+    playerBoosts: null,
+    production: {
+      jobs: {},
+      buildings: {}
+    },
     registration: session.registration
       ? {
           ...session.registration,
@@ -13995,9 +13962,16 @@ function applyDevOnlyOnboardingStartState(root = getDefaultRuntimeRoot()) {
   setStoredWorldState(nextWorldState);
 
   const resolvedRoot = resolveRuntimeRoot(root || getDefaultRuntimeRoot());
+  const actionPanel = resolveBuildingActionPanel(resolvedRoot);
+  if (actionPanel) {
+    actionPanel.entries = [];
+    actionPanel.lastFingerprint = "";
+  }
+  persistStreetNewsEntries([]);
   if (resolvedRoot) {
     syncPhaseHostFromAuthority(resolvedRoot.querySelector(MAP_PHASE_SELECTOR));
     renderStorageList({ summary: getGameplayStorageSummary(), weapons, materials, drugs, factorySupplies }, { root: resolvedRoot });
+    renderBuildingActionFeed(resolvedRoot);
     refreshAllUi({ root: resolvedRoot });
   }
 
@@ -14705,6 +14679,13 @@ function initRuntime(root = getDefaultRuntimeRoot()) {
   }
 
   forceGameHtmlRefreshLivePhase(resolvedRoot);
+  if (isLocalDemoGameplayExecutionMode() && getAuthoritySession()?.devOnlyDemoResetVersion !== 1) {
+    applyDevOnlyOnboardingStartState(resolvedRoot);
+    updateStoredPreviewSession((session) => ({
+      ...session,
+      devOnlyDemoResetVersion: 1
+    }));
+  }
   hydrateInitialState(resolvedRoot);
   const context = createPageContext(resolvedRoot);
   window.empireStreetsPage = context;

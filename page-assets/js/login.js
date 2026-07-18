@@ -3,6 +3,7 @@ import {
   getRegistrationDraft,
   saveLoginStep
 } from "./app/auth-flow.js";
+import { isExplicitLocalDemoEnabled } from "./app/local-demo-gate.js";
 import { STORAGE_KEYS } from "./config.js";
 import { LOGIN_ACTIVE_EVENTS } from "./data/events.js";
 
@@ -482,6 +483,12 @@ function bindGuest() {
   const guestGangInput = document.getElementById("guest-gang");
   if (!button || !guestUsernameInput || !guestGangInput) {
     return;
+  }
+
+  if (isExplicitLocalDemoEnabled()) {
+    guestUsernameInput.value ||= "DemoBoss";
+    guestGangInput.value ||= "Neon Demo Crew";
+    button.textContent = "VSTOUPIT DO DEMO";
   }
 
   const continueAsGuest = () => {

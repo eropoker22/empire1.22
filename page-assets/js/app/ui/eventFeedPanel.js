@@ -62,6 +62,7 @@ export function normalizeBuildingActionSnapshot(snapshot) {
   const compact = snapshot?.compact === true;
   const category = normalizeBuildingActionClassToken(snapshot?.category || snapshot?.resultPayload?.category || "", "other");
   const visibility = normalizeBuildingActionClassToken(snapshot?.visibility || snapshot?.resultPayload?.visibility || "", "private");
+  const expiresAt = Number(snapshot?.expiresAt || 0);
 
   return {
     tone,
@@ -76,7 +77,8 @@ export function normalizeBuildingActionSnapshot(snapshot) {
     compact,
     dismissible,
     persistent: !dismissible,
-    resultPayload
+    resultPayload,
+    ...(Number.isFinite(expiresAt) && expiresAt > 0 ? { expiresAt } : {})
   };
 }
 
@@ -252,7 +254,7 @@ function formatBuildingActionFeedCountdown(remainingMs) {
   return `${minutes}:${secondLabel}`;
 }
 
-function bindBuildingActionFeedCountdown(element, expiresAt) {
+function bindBuildingActionFeedCountdown(element, expiresAt, onExpire = null) {
   const windowRef = element?.ownerDocument?.defaultView;
   const targetMs = Number(expiresAt || 0);
   if (!element || !windowRef || !Number.isFinite(targetMs) || targetMs <= 0) {
@@ -264,6 +266,7 @@ function bindBuildingActionFeedCountdown(element, expiresAt) {
     element.textContent = `Čekání ${formatBuildingActionFeedCountdown(remainingMs)}`;
     if (remainingMs <= 0 && timerId) {
       windowRef.clearInterval(timerId);
+      onExpire?.();
     }
   };
 
@@ -287,8 +290,58 @@ export function createBuildingActionEntry(snapshot) {
     ...normalizedSnapshot,
     id: String(snapshot?.id || `street-news-${timestampMs}-${Math.random().toString(36).slice(2, 8)}`),
     timestampMs,
-    timeLabel: formatBuildingActionTimestamp(timestampMs)
+    timeLabel: formatBuildingActionTimestamp(timestampMs),
+    ...(Number.isFinite(Number(normalizedSnapshot.expiresAt)) ? { expiresAt: Number(normalizedSnapshot.expiresAt) } : {})
   };
+}
+
+function isLegacyPoliceRaidEntry(entry) {
+  const expiresAt = Number(entry?.expiresAt || 0);
+  if (Number.isFinite(expiresAt) && expiresAt > 0) {
+    return false;
+  }
+
+  const sourceKind = normalizeBuildingActionClassToken(entry?.sourceKind || entry?.kind || "", "");
+  if (sourceKind === "police-raid") {
+    return true;
+  }
+
+  const normalizeText = (value) => String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const title = normalizeText(entry?.title);
+  const summary = normalizeText(entry?.summary);
+  const payloadTitle = normalizeText(entry?.resultPayload?.title);
+  const payloadSummary = normalizeText(entry?.resultPayload?.summary);
+  const text = `${title} ${summary} ${payloadTitle} ${payloadSummary}`;
+  return text.includes("dopady razie")
+    || text.includes("policejni razie")
+    || text.includes("policejni zasah");
+}
+
+export function restoreBuildingActionEntries(entries, now = Date.now(), limit = 30) {
+  if (!Array.isArray(entries)) return [];
+
+  return entries
+    .filter((entry) => entry && typeof entry === "object")
+    .filter((entry) => !isLegacyPoliceRaidEntry(entry))
+    .filter((entry) => {
+      const expiresAt = Number(entry.expiresAt || 0);
+      return !Number.isFinite(expiresAt) || expiresAt <= 0 || expiresAt > now;
+    })
+    .map((entry) => {
+      const normalized = normalizeBuildingActionSnapshot(entry);
+      const timestampMs = Number.isFinite(Number(entry.timestampMs)) ? Number(entry.timestampMs) : now;
+      return {
+        ...normalized,
+        id: String(entry.id || `street-news-${timestampMs}`),
+        timestampMs,
+        timeLabel: String(entry.timeLabel || formatBuildingActionTimestamp(timestampMs)),
+        ...(Number.isFinite(Number(entry.expiresAt)) ? { expiresAt: Number(entry.expiresAt) } : {})
+      };
+    })
+    .slice(0, Math.max(1, Number(limit) || 30));
 }
 
 const TRASH_ICON_SVG = `
@@ -398,8 +451,8 @@ export function createBuildingActionFeedItemElement(documentRef, entry, options 
     const inlineMeta = ownerDocument.createElement("span");
     inlineMeta.className = "building-action-status__item-inline-meta";
     inlineMeta.textContent = entry.meta;
-    if (entry.sourceKind === "cooldown") {
-      bindBuildingActionFeedCountdown(inlineMeta, entry.timestampMs);
+    if (entry.sourceKind === "cooldown" || entry.expiresAt) {
+      bindBuildingActionFeedCountdown(inlineMeta, entry.expiresAt || entry.timestampMs, options.onExpire);
     }
     head.append(inlineMeta);
   }

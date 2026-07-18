@@ -1,9 +1,10 @@
 import { accountSession, loginAccount, registerAccount } from "./app/player-entry-client.js";
+import { isLocalDemoAccessAvailable } from "./app/local-demo-gate.js";
 
 const state = { activeTab: "login", submitting: false };
 
 const initialize = () => {
-  document.querySelector(".guest-access")?.setAttribute("hidden", "");
+  bindLocalDemoGuestAccess();
   bindTabs();
   bindPasswordToggle();
   bindForms();
@@ -12,6 +13,19 @@ const initialize = () => {
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initialize, { once: true });
 else initialize();
+
+function bindLocalDemoGuestAccess() {
+  const guestAccess = document.querySelector(".guest-access");
+  const guestButton = document.querySelector("#guest-btn");
+  if (!(guestAccess instanceof HTMLElement) || !(guestButton instanceof HTMLButtonElement)) return;
+  if (!isLocalDemoAccessAvailable()) {
+    guestAccess.hidden = true;
+    return;
+  }
+  guestAccess.hidden = false;
+  guestButton.textContent = "PŘIHLÁSIT SE JAKO HOST · DEMO";
+  guestButton.addEventListener("click", () => location.assign("./login.html?runtimeMode=local-demo"));
+}
 
 function bindTabs() {
   document.querySelectorAll("[data-tab]").forEach((button) => button.addEventListener("click", () => setTab(button.dataset.tab)));

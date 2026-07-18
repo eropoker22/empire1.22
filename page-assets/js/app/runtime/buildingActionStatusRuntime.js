@@ -34,6 +34,7 @@ export function createBuildingActionStatusRuntime(deps = {}) {
 
     panel.clearButton.addEventListener("click", () => {
       panel.entries = [];
+      deps.persistStreetNewsEntries?.(panel.entries);
       panel.lastFingerprint = "";
       panel.skipFingerprint = "";
       deps.renderBuildingActionFeed(root, {
@@ -57,6 +58,7 @@ export function createBuildingActionStatusRuntime(deps = {}) {
       }
 
       panel.entries = panel.entries.filter((entry) => entry.id !== messageId);
+      deps.persistStreetNewsEntries?.(panel.entries);
       panel.lastFingerprint = panel.entries[0]
         ? deps.createBuildingActionFingerprint(panel.entries[0])
         : "";

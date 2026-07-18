@@ -143,7 +143,18 @@ export function createGangWantedStatusRuntime(deps = {}) {
     };
 
     const syncWantedStatus = () => {
-      const gangState = deps.syncGangHeatDecay();
+      const serverPlayer = deps.getServerPlayerView?.() || null;
+      if (deps.isServerAuthoritativeMode?.() && !serverPlayer) {
+        elements.heatButton.textContent = "—";
+        elements.popupHeat.textContent = "—";
+        return null;
+      }
+
+      const localGangState = deps.syncGangHeatDecay();
+      const serverHeat = Number(serverPlayer?.police?.heat);
+      const gangState = Number.isFinite(serverHeat)
+        ? { ...localGangState, heat: Math.max(0, serverHeat) }
+        : localGangState;
       const heatLevel = deps.resolveGangHeatTier(gangState.heat);
       const economyState = deps.getResolvedEconomyState();
       const journal = deps.normalizeGangHeatJournal(gangState.heatJournal);
@@ -226,6 +237,7 @@ export function createGangWantedStatusRuntime(deps = {}) {
     document.addEventListener("empire:gang-state-changed", syncWantedStatus);
     document.addEventListener("empire:police-state-changed", syncWantedStatus);
     document.addEventListener("empire:economy-state-changed", syncWantedStatus);
+    document.addEventListener("empire:gameplay-slice-rendered", syncWantedStatus);
 
     syncWantedStatus();
     return true;

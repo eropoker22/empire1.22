@@ -151,6 +151,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     const productionBoost = deps.getPlayerProductionBoostSnapshot?.() || { multiplier: 1, expiresAtMs: null };
     const baseEffectiveDurationMs = Math.max(1000, Math.round(Number(recipe?.durationMs || 0) / durationMultiplier));
     const effectiveDurationMs = Math.max(1000, Math.round(baseEffectiveDurationMs / Math.max(1, Number(productionBoost.multiplier || 1))));
+    const durationReductionPct = Math.max(0, Math.round((1 - effectiveDurationMs / baseEffectiveDurationMs) * 100));
     const outputUnitAmount = buildingName === "pharmacy" || buildingName === "armory"
       ? 1
       : Math.max(1, Math.floor(Number(recipe?.output?.amount || 1)));
@@ -201,6 +202,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       recipe,
       job,
       effectiveDurationMs,
+      durationBonusLabel: durationReductionPct > 0 ? `−${durationReductionPct} %` : "",
       slotState: getProductionSlotState(job),
       outputInventoryAmount: deps.getInventoryAmount?.(recipe?.output?.inventory, recipe?.output?.itemId) || 0,
       outputInventoryCapacity: deps.getInventoryCapacity?.(recipe?.output?.itemId) || 0,

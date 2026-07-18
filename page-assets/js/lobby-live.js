@@ -7,6 +7,7 @@ import {
   loadSpawnDistricts,
   logoutAccount
 } from "./app/player-entry-client.js";
+import { isLocalDemoAccessAvailable } from "./app/local-demo-gate.js";
 
 const POLL_MS = 15_000;
 const CANVAS_WIDTH = 1600;
@@ -157,6 +158,12 @@ function bindNavigation() {
     document.querySelectorAll("[data-lobby-nav-target]").forEach((item) => item.classList.toggle("is-active", item === button));
   }));
   document.querySelector("[data-live-account-logout]")?.addEventListener("click", () => void performLogout());
+  const demoAccess = document.querySelector("[data-local-demo-access]");
+  const openDemo = document.querySelector("[data-open-local-demo]");
+  if (demoAccess instanceof HTMLElement && isLocalDemoAccessAvailable()) {
+    demoAccess.hidden = false;
+    openDemo?.addEventListener("click", () => location.assign("./login.html?runtimeMode=local-demo"));
+  }
 }
 
 function bindModal() {

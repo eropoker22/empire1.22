@@ -1,8 +1,10 @@
 import { bindDesktopGameScrollLimit } from "./app/runtime/desktopScrollLimitRuntime.js";
 import { bootstrapPage, PAGE_ROOT_SELECTOR } from "./app/render-ui.js";
 import { loadLobbyOverview } from "./app/player-entry-client.js";
+import { isExplicitGamePreviewEnabled } from "./app/local-demo-gate.js";
 
 async function canBootGame() {
+  if (isExplicitGamePreviewEnabled()) return true;
   try {
     const overview = await loadLobbyOverview();
     const membership = overview.activeBlockingMembership;

@@ -118,6 +118,11 @@ function getEffectiveFactorySlotDurationMs(slot = {}, config = {}, productionMul
   return Math.max(1000, Math.round(getFactorySlotDurationMs(slot, config) / Math.max(0.1, Number(productionMultiplier) || 1)));
 }
 
+function formatFactoryDurationBonus(baseDurationMs = 0, effectiveDurationMs = 0) {
+  const reductionPct = Math.max(0, Math.round((1 - Number(effectiveDurationMs || 0) / Math.max(1, Number(baseDurationMs || 0))) * 100));
+  return reductionPct > 0 ? `−${reductionPct} %` : "";
+}
+
 export function buildFactoryDashboardViewModel({
   factoryState = {},
   syncResult = {},
@@ -202,6 +207,8 @@ export function buildFactoryDashboardViewModel({
         affordableByMetal,
         affordableByTech
       ));
+      const baseDurationMs = getEffectiveFactorySlotDurationMs(slot, config, syncResult.baseProductionMultiplier || syncResult.productionMultiplier);
+      const durationMs = getEffectiveFactorySlotDurationMs(slot, config, syncResult.productionMultiplier);
       return {
         slot,
         title: slotMeta?.label || slot.resourceKey,
@@ -219,7 +226,8 @@ export function buildFactoryDashboardViewModel({
         },
         displayCost: displayInfo.displayCost,
         priceLabel: getFactorySlotPriceLabel(slot, config),
-        durationMs: getEffectiveFactorySlotDurationMs(slot, config, syncResult.productionMultiplier),
+        durationMs,
+        durationBonusLabel: formatFactoryDurationBonus(baseDurationMs, durationMs),
         ...getFactorySlotVisual(slot, config, formatDurationLabel)
       };
     })

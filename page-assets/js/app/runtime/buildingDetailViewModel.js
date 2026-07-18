@@ -1327,17 +1327,7 @@ export function createBuildingDetailMechanicRows({
       createMechanic("Večerní kurz", mechanics.schoolEveningCourseActive ? `bytové bloky zrychlené ${formatDistrictBuildingCooldown(mechanics.schoolEveningCourseRemainingMs)}` : "zrychlí nábor členů v bytových blocích")
     );
   } else if (mechanics.mechanicsType === "warehouse") {
-    const storage = mechanics.serverStorageSummary;
-    const summary = storage?.warehouseSummary;
-    if (!summary) return mechanicRows;
-    mechanicRows.push(
-      createMechanic("Síť skladišť", String(summary.ownedWarehouseCount)),
-      createMechanic("Nejvyšší level", `L${summary.highestWarehouseLevel}`),
-      createMechanic("Bonus sítě", `x${Number(summary.warehouseCountMultiplier || 1).toFixed(2)}`),
-      createMechanic("Bonus levelu", `x${Number(summary.warehouseLevelMultiplier || 1).toFixed(2)}`),
-      createMechanic("Celkový násobitel", `x${Number(summary.totalCapacityMultiplier || 1).toFixed(2)}`),
-      ...createServerWarehouseMaterialRows(storage)
-    );
+    return mechanicRows;
   } else if (mechanics.mechanicsType === "clinic") {
     mechanicRows.push(
       createMechanic("Stabilizace", mechanics.clinicRecoveryPool.totalFreshAmount > 0 ? "připravená" : "Čeká na ztráty tvojich členů za posledních 90min"),
@@ -1725,7 +1715,7 @@ export function createBuildingDetailViewModel({
     },
     stats: createBuildingDetailStatRows({ buildingName, mechanics, detailEntry, buildingProfile, playerHeat, now }),
     mechanics: createBuildingDetailMechanicRows({ buildingName, mechanics }),
-    hideMechanicsSection: mechanics.mechanicsType === "recruitment-center",
+    hideMechanicsSection: mechanics.mechanicsType === "recruitment-center" || mechanics.mechanicsType === "warehouse",
     effectsLabel: mechanics.effectsLabel || "Žádné aktivní mechaniky.",
     effects: createEffectItemsWithOwnedCount(mechanics.effectsLabel || "Žádné aktivní mechaniky.", mechanics, {
       buildingName,

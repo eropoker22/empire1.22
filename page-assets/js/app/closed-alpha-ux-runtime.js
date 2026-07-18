@@ -1,7 +1,6 @@
 import {
   getServerGameplaySliceReadModel,
   retryPendingServerGameplayCommands,
-  submitServerCityEventCommand,
   submitServerDistrictActionCommand,
   submitServerEmergencyRecoveryCommand
 } from "./runtime.js";
@@ -48,7 +47,8 @@ const formatTicks = (ticks, tickRateMs = 5000) => {
 
 const ensureShell = () => {
   const root = document.querySelector("main[data-page='game']");
-  if (!root || document.querySelector("[data-operations-center]")) return;
+  if (!root || root.dataset.closedAlphaUxReady === "true") return;
+  root.dataset.closedAlphaUxReady = "true";
   const connection = document.createElement("div");
   connection.className = "closed-alpha-connection";
   connection.dataset.connectionStatus = "reconnecting";
@@ -61,30 +61,6 @@ const ensureShell = () => {
   liveness.dataset.operationalLiveness = "true";
   liveness.hidden = true;
   root.prepend(liveness);
-
-  const trigger = document.createElement("button");
-  trigger.type = "button";
-  trigger.className = "button game-toolbar-button operations-center-trigger";
-  trigger.textContent = "CENTRUM OPERACÍ";
-  trigger.dataset.operationsCenterOpen = "true";
-  document.querySelector(".game-utility-actions")?.prepend(trigger);
-
-  const modal = document.createElement("div");
-  modal.className = "operations-center-modal";
-  modal.dataset.operationsCenter = "true";
-  modal.hidden = true;
-  modal.innerHTML = `
-    <div class="operations-center-modal__backdrop" data-shared-modal-close></div>
-    <section class="operations-center-modal__card" role="dialog" aria-modal="false" aria-labelledby="operations-center-title">
-      <header><div><span>CENTRUM OPERACÍ</span><h2 id="operations-center-title">Aktuální provoz</h2></div><button type="button" class="button" data-shared-modal-close aria-label="Zavřít">×</button></header>
-      <div class="operations-center-modal__body" data-operations-center-body></div>
-    </section>`;
-  document.body.append(modal);
-  bindSharedModal(modal);
-  trigger.addEventListener("click", () => {
-    renderOperations();
-    openSharedModal(modal, { trigger });
-  });
 
   const confirmation = document.createElement("div");
   confirmation.className = "operations-center-modal shared-confirmation-modal";
@@ -99,7 +75,6 @@ const ensureShell = () => {
   document.body.append(confirmation);
   bindSharedModal(confirmation);
   setupStreetNewsFilters();
-  ensurePendingDeliveries();
 };
 
 const showConfirmation = ({ kicker = "POTVRZENÍ", title, body, confirmLabel = "Potvrdit", cancelVisible = true, trigger, onConfirm }) => {
@@ -200,79 +175,6 @@ const renderEncirclementConfirmation = () => {
   });
 };
 
-const operationRow = (label, value, destination) => `
-  <button type="button" class="operations-center-row" data-operation-destination="${escapeHtml(destination)}">
-    <span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>
-  </button>`;
-
-const renderOperations = () => {
-  const body = document.querySelector("[data-operations-center-body]");
-  if (!body) return;
-  const player = latestSlice?.player;
-  if (!player) {
-    body.innerHTML = "<p>Serverový stav není dostupný.</p>";
-    return;
-  }
-  const lines = player.factoryProduction?.productionLines || [];
-  const productionValue = lines.some((line) => line.canCollect)
-    ? "HOTOVO K VYZVEDNUTÍ"
-    : lines.some((line) => line.status === "running") ? "VÝROBA BĚŽÍ" : "PŘIPRAVENO";
-  const cityValue = player.cityEvents?.activeRun
-    ? `BĚŽÍ · ${formatTicks(player.cityEvents.activeRun.remainingTicks, latestSlice?.mode?.tickRateMs || 5000)}`
-    : "BEZ AKTIVNÍ ZAKÁZKY";
-  const boostValue = player.boosts?.active?.label || "NEAKTIVNÍ";
-  const policeValue = player.police?.activeRaid ? "POLICEJNÍ RAZIE" : `HEAT ${player.police?.heat ?? 0}`;
-  const pending = player.storage?.pendingDeliveries?.length || 0;
-  const liveness = LIVENESS_LABELS[player.operationalLiveness?.state]?.[0] || "NEZNÁMÝ STAV";
-  body.innerHTML = [
-    operationRow("Výroba", productionValue, "factory"),
-    operationRow("City Events", cityValue, "city-events"),
-    operationRow("Strategický boost", boostValue, "boosts"),
-    operationRow("Policie", policeValue, "heat"),
-    operationRow("Čekající zásilky", String(pending), "storage"),
-    operationRow("Postup", liveness, "map")
-  ].join("");
-  body.querySelectorAll("[data-operation-destination]").forEach((button) => button.addEventListener("click", () => {
-    const destination = button.dataset.operationDestination;
-    closeSharedModal(document.querySelector("[data-operations-center]"), "navigate");
-    const selector = destination === "storage" ? "[data-storage-popup-open]"
-      : destination === "city-events" ? "#city-events-open"
-        : destination === "boosts" ? "[data-boost-open-trigger]"
-          : destination === "heat" ? "[data-gang-heat]" : null;
-    if (selector) document.querySelector(selector)?.click?.();
-  }));
-};
-
-const ensurePendingDeliveries = () => {
-  const grid = document.querySelector(".storage-popup-grid");
-  if (!grid || grid.querySelector("[data-pending-deliveries]")) return;
-  const section = document.createElement("section");
-  section.className = "storage-popup-section storage-popup-section--wide pending-deliveries";
-  section.dataset.pendingDeliveries = "true";
-  grid.append(section);
-};
-
-const renderPendingDeliveries = () => {
-  ensurePendingDeliveries();
-  const section = document.querySelector("[data-pending-deliveries]");
-  if (!section) return;
-  const deliveries = latestSlice?.player?.storage?.pendingDeliveries || [];
-  section.innerHTML = `<h3 class="storage-popup-subtitle">ČEKAJÍCÍ ZÁSILKY</h3><div class="pending-deliveries__list">${deliveries.length
-    ? deliveries.map((delivery) => {
-        const source = String(delivery.source || "other").replaceAll("-", " ");
-        const status = delivery.claimState === "claimable"
-          ? "PŘIPRAVENO K PŘEVZETÍ"
-          : delivery.claimState === "restorative" ? "VRÁCENO" : "ČEKÁ NA MÍSTO";
-        return `<div class="pending-delivery"><span>${escapeHtml(delivery.label)} × ${delivery.amount}</span><small>${escapeHtml(source)} · ${escapeHtml(status)} · ${escapeHtml(delivery.reason)}</small>${delivery.claimState === "claimable" ? `<button type="button" class="button" data-pending-delivery-claim="${escapeHtml(delivery.id)}">Převzít</button>` : ""}</div>`;
-      }).join("")
-    : "<p>Žádné čekající zásilky.</p>"}</div>`;
-  section.querySelectorAll("[data-pending-delivery-claim]").forEach((button) => button.addEventListener("click", async () => {
-    button.disabled = true;
-    const result = await submitServerCityEventCommand({ action: "claim", id: button.dataset.pendingDeliveryClaim });
-    if (result?.errors?.length) button.disabled = false;
-  }));
-};
-
 const setupStreetNewsFilters = () => {
   const feed = document.querySelector("[data-building-action-feed]");
   document.querySelectorAll("[data-street-news-filters]").forEach((filters) => filters.remove());
@@ -297,7 +199,6 @@ document.addEventListener("DOMContentLoaded", () => {
   latestSlice = getServerGameplaySliceReadModel();
   renderConnection();
   renderLiveness();
-  renderPendingDeliveries();
   renderEncirclementConfirmation();
 });
 
@@ -307,7 +208,6 @@ document.addEventListener("empire:gameplay-slice-rendered", (event) => {
   ensureShell();
   renderConnection();
   renderLiveness();
-  renderPendingDeliveries();
   renderEncirclementConfirmation();
   void retryPendingServerGameplayCommands();
 });

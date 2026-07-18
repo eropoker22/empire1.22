@@ -1858,6 +1858,13 @@ const renderAllianceState = () => {
   const activeAlliance = board?.activeAlliance || null;
   const allianceModal = qs("alliance-modal");
 
+  if (!board && !isDevOnlyAllianceDemoEnabled()) {
+    document.querySelector("[data-gang-alliance]")?.replaceChildren(document.createTextNode("Načítám…"));
+    document.querySelector("[data-player-popup-alliance]")?.replaceChildren(document.createTextNode("Načítám…"));
+    document.querySelector("[data-alliance-launcher-name]")?.replaceChildren(document.createTextNode("Načítám alianci…"));
+    return;
+  }
+
   document.querySelector("[data-gang-alliance]")?.replaceChildren(document.createTextNode(activeAlliance?.name || "Žádná"));
   document.querySelector("[data-player-popup-alliance]")?.replaceChildren(document.createTextNode(activeAlliance?.name || "Žádná"));
   renderAllianceLauncher(activeAlliance);

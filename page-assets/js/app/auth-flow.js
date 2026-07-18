@@ -73,11 +73,40 @@ const createFallbackServerFromRegistry = (serverEntry) => {
   });
 };
 
-export const SERVER_CATALOG = Object.freeze(
-  publicServerRegistry
+const LOCAL_DEMO_SERVER = Object.freeze({
+  id: "instance:demo:local:sandbox-1",
+  serverInstanceId: "instance:demo:local:sandbox-1",
+  name: "Local Demo Sandbox",
+  mode: "free",
+  region: "LOCAL",
+  players: 1,
+  capacity: 20,
+  startLabel: "VSTOUPIT DO DEMO",
+  badge: "LOCAL DEMO",
+  status: "ONLINE",
+  activity: "LOW",
+  joinPolicy: "open",
+  locked: false,
+  closed: false,
+  mapPending: false,
+  riskPercent: 5,
+  description: "Lokální sandbox pro dolaďování game.html bez zásahu do live serverů.",
+  map: Object.freeze({
+    totalDistricts: 161,
+    downtownDistricts: 8,
+    commercialDistricts: 40,
+    industrialDistricts: 38,
+    residentialDistricts: 38,
+    parkDistricts: 37
+  })
+});
+
+export const SERVER_CATALOG = Object.freeze([
+  ...publicServerRegistry
     .filter((serverEntry) => serverEntry.isPublic)
-    .map(createFallbackServerFromRegistry)
-);
+    .map(createFallbackServerFromRegistry),
+  LOCAL_DEMO_SERVER
+]);
 
 export const SERVER_ID_MIGRATION_MAP = publicServerInstanceIdMigrationMap;
 

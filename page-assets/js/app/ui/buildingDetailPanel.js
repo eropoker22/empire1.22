@@ -793,6 +793,12 @@ function createDealerSaleControls(scopeElement, actionButton, view) {
   amountLabel.append(amountCaption, amountInput);
   controls.append(slotLabel, itemLabel, amountLabel);
 
+  const command = actionButton.querySelector(".building-info-action-row__button");
+  const cooldown = actionButton.querySelector(".building-info-action-row__cooldown");
+  const defaultDisabledTone = actionButton.dataset.districtBuildingDetailDisabledTone || "";
+  const defaultActionState = actionButton.dataset.districtBuildingDetailActionState || "ready";
+  const defaultCooldownLabel = cooldown?.textContent || "";
+
   const sync = () => {
     const selectedSlot = view.slots?.find?.((slot) => slot.slotId === slotSelect.value) || null;
     const selectedItem = selectedSlot;
@@ -807,8 +813,14 @@ function createDealerSaleControls(scopeElement, actionButton, view) {
     if (Number(amountInput.value) < minimumAmount) amountInput.value = String(minimumAmount);
     amountInput.max = String(maxAmount);
     const amount = Number(amountInput.value);
-    const selectionBlocked = !selectedSlot || selectedSlot.locked || !selectedItem || maxAmount < minimumAmount || !Number.isInteger(amount) || amount < minimumAmount || amount > maxAmount;
+    const requiredAmount = Number.isInteger(amount) && amount > 0 ? Math.max(minimumAmount, amount) : minimumAmount;
+    const insufficientStock = Boolean(selectedItem && maxAmount < requiredAmount);
+    const selectionBlocked = !selectedSlot || selectedSlot.locked || !selectedItem || insufficientStock || !Number.isInteger(amount) || amount < minimumAmount || amount > maxAmount;
     actionButton.disabled = actionButton.dataset.districtBuildingDetailBaseDisabled === "true" || selectionBlocked;
+    actionButton.dataset.districtBuildingDetailDisabledTone = insufficientStock ? "insufficient-funds" : defaultDisabledTone;
+    actionButton.dataset.districtBuildingDetailActionState = insufficientStock ? "disabled" : defaultActionState;
+    if (command) command.textContent = insufficientStock ? "NEDOSTATEK" : "SPUSTIT";
+    if (cooldown) cooldown.textContent = insufficientStock ? "NEDOSTATEK" : defaultCooldownLabel;
     status.textContent = selectedItem
       ? `${view.phaseStatusLabel || ""} · minimum ${minimumAmount} ks · vlastním ${maxAmount} ks · prodej $${amount * Number(selectedItem.unitSalePriceDirtyCash || 0)} dirty`
       : "Vyber látku.";

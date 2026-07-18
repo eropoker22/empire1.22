@@ -60,12 +60,12 @@ function getRunningJobCountdownMs(job = null, unitDurationMs = 1000, options = {
   return Math.min(remainingTotalMs, unitMs);
 }
 
-function formatRecipeSlotTime(job = null, effectiveDurationMs = 1000, selectedBatches = 1, options = {}) {
+function formatRecipeSlotTime(job = null, effectiveDurationMs = 1000, selectedBatches = 1, options = {}, durationBonusLabel = "") {
   const countdownMs = getRunningJobCountdownMs(job, effectiveDurationMs, options);
   if (countdownMs !== null) {
-    return formatDuration(countdownMs, options);
+    return `${formatDuration(countdownMs, options)}${durationBonusLabel ? ` (${durationBonusLabel})` : ""}`;
   }
-  return formatDuration(Number(job?.durationMs || effectiveDurationMs * selectedBatches), options);
+  return `${formatDuration(Number(job?.durationMs || effectiveDurationMs * selectedBatches), options)}${durationBonusLabel ? ` (${durationBonusLabel})` : ""}`;
 }
 
 function bindMetricCountdown(metric, getValue, options = {}) {
@@ -368,7 +368,7 @@ function renderQuantityControl(viewModel = {}, callbacks = {}, options = {}) {
         ? (viewModel.disabledReason || "Chybí vstupy, místo ve frontě nebo volná lokální kapacita.")
         : "Spustit výrobu.";
     }
-    setMetricValue(timeMetric, formatRecipeSlotTime(job, effectiveDurationMs, selectedBatches, options));
+    setMetricValue(timeMetric, formatRecipeSlotTime(job, effectiveDurationMs, selectedBatches, options, viewModel.durationBonusLabel));
     setMetricValue(queueMetric, formatQueuedOutput(job, recipe, { useQuantityAsOutput, outputCap: viewModel.outputCap, queueCap: viewModel.queueCap }));
     if (costMetric) {
       const visibleCleanCost = job && !canQueueMore
@@ -389,7 +389,7 @@ function renderQuantityControl(viewModel = {}, callbacks = {}, options = {}) {
   });
 
   if (job?.status === "running") {
-    bindMetricCountdown(timeMetric, () => formatRecipeSlotTime(job, effectiveDurationMs, selectedBatches, options), options);
+    bindMetricCountdown(timeMetric, () => formatRecipeSlotTime(job, effectiveDurationMs, selectedBatches, options, viewModel.durationBonusLabel), options);
   }
 
   return { control, getStartBatchCount: () => selectedBatches, refresh };
@@ -468,7 +468,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     appendChildren(titleWrap, [title]);
     appendChildren(titleLine, [icon, titleWrap]);
     appendChildren(head, [titleLine, state]);
-    const timeMetric = createPharmacyMetricBlock(options.mount, "Čas", formatRecipeSlotTime(job, effectiveDurationMs, 1, options));
+    const timeMetric = createPharmacyMetricBlock(options.mount, "Čas", formatRecipeSlotTime(job, effectiveDurationMs, 1, options, viewModel.durationBonusLabel));
     const queueMetric = createPharmacyMetricBlock(options.mount, "Ve frontě", formatQueuedOutput(job, recipe, { useQuantityAsOutput: true, outputCap: viewModel.outputCap, queueCap: viewModel.queueCap }));
     const cleanCost = Math.max(0, Number(recipe.cleanMoneyCost || 0));
     const costMetric = createPharmacyMetricBlock(options.mount, "Cena", cleanCost ? `${formatMoney(cleanCost, options)} clean` : "-");
@@ -514,7 +514,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     appendChildren(titles, [productLabel ? product : null, title, strengthLabel]);
     appendChildren(titleWrap, [icon, titles]);
     appendChildren(head, [titleWrap, state]);
-    const timeMetric = createMetricBlock(options.mount, { label: "Čas", value: formatRecipeSlotTime(job, effectiveDurationMs, 1, options) });
+    const timeMetric = createMetricBlock(options.mount, { label: "Čas", value: formatRecipeSlotTime(job, effectiveDurationMs, 1, options, viewModel.durationBonusLabel) });
     const queueMetric = createMetricBlock(options.mount, { label: "Ve frontě", value: formatQueuedOutput(job, recipe, { outputCap: viewModel.outputCap, queueCap: viewModel.queueCap }), inline: true });
     appendChildren(metrics, [
       createMetricBlock(options.mount, {

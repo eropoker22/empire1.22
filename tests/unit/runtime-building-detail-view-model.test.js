@@ -181,7 +181,7 @@ describe("building detail view-model builder", () => {
     expect(smugglingStats.find((row) => row.label === "Síť")?.value).toBe("dirty tok +5 % · heat +4 %");
   });
 
-  it("shows warehouse capacities as separate mechanic rows with base capacity at zero owned warehouses", () => {
+  it("omits warehouse capacity mechanics", () => {
     const mechanics = createBuildingDetailMechanicRows({
       buildingName: "Skladiště",
       mechanics: {
@@ -219,17 +219,27 @@ describe("building detail view-model builder", () => {
       }
     });
 
-    expect(mechanics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ label: "Materiál", value: "Chemicals 0/60" }),
-      expect.objectContaining({ label: "Materiál", value: "Tech Core 0/24" }),
-      expect.objectContaining({ label: "Materiál", value: "Combat Module 0/8" })
-    ]));
-    expect(JSON.stringify(mechanics)).not.toContain("Drogy a boosty");
-    expect(JSON.stringify(mechanics)).not.toContain("Zbraně a obrana");
-    expect(mechanics.filter((row) => row.label === "Materiál").every((row) => row.tone === "warehouse-low")).toBe(true);
+    expect(mechanics).toEqual([]);
   });
 
-  it("colors warehouse material mechanic rows by used capacity", () => {
+  it("hides the empty warehouse mechanics section", () => {
+    const model = createBuildingDetailViewModel({
+      buildingName: "Skladiště",
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "warehouse",
+        ownedWarehouses: 1,
+        warehouseNetwork: {
+          incomeMultiplier: 1,
+          heatMultiplier: 1
+        }
+      }
+    });
+
+    expect(model.hideMechanicsSection).toBe(true);
+  });
+
+  it("omits warehouse material mechanics regardless of current usage", () => {
     const mechanics = createBuildingDetailMechanicRows({
       buildingName: "Skladiště",
       mechanics: {
@@ -258,15 +268,10 @@ describe("building detail view-model builder", () => {
       }
     });
 
-    expect(mechanics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ value: "Chemicals 30/100", tone: "warehouse-low" }),
-      expect.objectContaining({ value: "Biomass 85/100", tone: "warehouse-medium" }),
-      expect.objectContaining({ value: "Metal Parts 100/100", tone: "warehouse-high" }),
-      expect.objectContaining({ value: "Baseballová pálka 101/100", tone: "warehouse-high" })
-    ]));
+    expect(mechanics).toEqual([]);
   });
 
-  it("renders authoritative warehouse materials as current and maximum amounts", () => {
+  it("omits authoritative warehouse material mechanics", () => {
     const serverStorageSummary = {
       warehouseSummary: {
         ownedWarehouseCount: 2,
@@ -301,11 +306,7 @@ describe("building detail view-model builder", () => {
       serverStorageSummary
     };
 
-    expect(createBuildingDetailMechanicRows({ buildingName: "Skladiště", mechanics })).toEqual(expect.arrayContaining([
-      expect.objectContaining({ label: "Materiál", value: "Chemicals 42/120", tone: "warehouse-low" }),
-      expect.objectContaining({ label: "Materiál", value: "Metal Parts 125/120", tone: "warehouse-high" }),
-      expect.objectContaining({ label: "Materiál", value: "Combat Module 16/16", tone: "warehouse-high" })
-    ]));
+    expect(createBuildingDetailMechanicRows({ buildingName: "Skladiště", mechanics })).toEqual([]);
   });
 
   it("does not show generic infrastructure restriction copy in power station mechanics", () => {

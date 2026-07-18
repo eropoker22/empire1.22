@@ -121,6 +121,41 @@ describe("production building popup runtime", () => {
     }));
   });
 
+  it("adds the active production boost reduction to recipe timing", () => {
+    const renderedCards = [];
+    const runtime = createProductionBuildingPopupRuntime({
+      getInventoryAmount: () => 10,
+      getPlayerProductionBoostSnapshot: () => ({ multiplier: 1.25 }),
+      getProductionBuildingMultiplier: () => 1,
+      getProductionJob: () => null,
+      getResolvedEconomyState: () => ({ cleanMoney: 1000 }),
+      getStoredProductionBuildingState: () => ({ level: 1 }),
+      hasEnoughMaterials: () => true,
+      renderProductionPanelUi: vi.fn(() => true),
+      renderRecipeCard: vi.fn((viewModel) => {
+        renderedCards.push(viewModel);
+        return {};
+      }),
+      syncCompletedProductionJobs: vi.fn()
+    });
+    const root = createRoot({
+      '[data-production-panel="pharmacy"]': {}
+    });
+
+    runtime.renderProductionPanel(root, "pharmacy", {
+      chemicals: {
+        durationMs: 10_000,
+        inputs: {},
+        output: { inventory: "materials", itemId: "chemicals", amount: 1 }
+      }
+    });
+
+    expect(renderedCards[0]).toMatchObject({
+      effectiveDurationMs: 8_000,
+      durationBonusLabel: "−20 %"
+    });
+  });
+
   it("blocks legacy local production callbacks when the server bridge owns production", () => {
     const recipeCallbacks = {};
     const persistProductionJob = vi.fn();

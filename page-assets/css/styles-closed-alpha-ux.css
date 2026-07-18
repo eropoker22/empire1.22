@@ -67,14 +67,6 @@
 .shared-confirmation-modal__body p { margin: 0; color: #c6d4cf; line-height: 1.55; }
 .shared-confirmation-modal__actions { display: flex; justify-content: flex-end; gap: 10px; }
 .shared-confirmation-modal__actions .button { min-height: 44px; }
-.operations-center-row { display: flex; justify-content: space-between; gap: 12px; min-height: 56px; padding: 12px 16px; border: 0; background: #131c18; color: inherit; text-align: left; cursor: pointer; }
-.operations-center-row strong { color: #8be4c6; font-size: 12px; }
-
-.pending-deliveries__list { display: grid; gap: 8px; }
-.pending-delivery { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; align-items: center; padding: 10px; border: 1px solid #35433e; border-radius: 4px; background: #111916; }
-.pending-delivery small { color: #9aaba5; }
-.pending-delivery .button { grid-column: 2; grid-row: 1 / span 2; min-height: 44px; }
-
 .street-news-filters { display: flex; gap: 5px; overflow-x: auto; padding: 6px 0 9px; scrollbar-width: thin; }
 .street-news-filters .button { flex: 0 0 auto; min-height: 36px; padding: 6px 9px; border-radius: 4px; font-size: 10px; }
 .street-news-filters .is-active { border-color: #52cba2; color: #8ff0c8; }
@@ -88,7 +80,6 @@
   .operational-liveness-panel__recovery { margin-left: 0; }
   .operations-center-modal { align-items: end; padding: 0; }
   .operations-center-modal__card { width: 100%; max-height: 84vh; border-radius: 6px 6px 0 0; }
-  .operations-center-trigger { min-height: 44px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

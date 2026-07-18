@@ -295,7 +295,7 @@ describe("runtime map rendering guards", () => {
     expect(ownedFill).toBe("#ef444433");
   });
 
-  it("keeps live spawn owners colored without using district type fills", () => {
+  it("keeps the local live map neutral even when launch owners remain in memory", () => {
     const geometry = createDistrictGeometry(1600, 980);
     const district = geometry.districts.find((candidate) => candidate.districtType !== "downtown");
 
@@ -304,7 +304,7 @@ describe("runtime map rendering guards", () => {
       ownedDistrictIds: new Set(),
       destroyedDistrictIds: new Set(),
       launchOwnerByDistrictId: new Map([[district.id, 2]])
-    })).toBe("#3b82f633");
+    })).toBe("rgba(0, 0, 0, 0)");
 
     expect(getDistrictFillStyle(district, false, {
       gamePhase: "live",

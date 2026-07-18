@@ -6,19 +6,18 @@ export const MARKET_PLAYER_DEMO_SELLERS = Object.freeze([
   Object.freeze({ id: "seller:scarlet-yard", name: "Scarlet Yard" })
 ]);
 
-export const DEV_ONLY_POLICE_INTERVAL_MS = 30_000;
 export const DEV_ONLY_DESTROYED_DISTRICT_ID = 8;
 export const DEV_ONLY_SPY_FULL_SUCCESS_CHANCE = 0.99;
 
 export const DEV_ONLY_ONBOARDING_START_STATE = Object.freeze({
   economy: Object.freeze({
-    cleanMoney: 5_000,
-    dirtyMoney: 420
+    cleanMoney: 0,
+    dirtyMoney: 0
   }),
   gang: Object.freeze({
-    members: 250,
-    influence: 5,
-    heat: 50,
+    members: 0,
+    influence: 0,
+    heat: 0,
     alliance: null
   }),
   allianceBoard: Object.freeze({
@@ -35,7 +34,7 @@ export const DEV_ONLY_ONBOARDING_START_STATE = Object.freeze({
     ownedDistrictIds: Object.freeze([1]),
     gamePhase: "launch"
   }),
-  storageAmount: 5
+  storageAmount: 0
 });
 
 export const START_PHASE_RESOURCE_SIMULATION = Object.freeze({
@@ -147,8 +146,7 @@ export const DEMO_SCENARIOS = Object.freeze({
     factionOrder: LAUNCH_PLAYER_FACTION_ORDER,
     avatarByFactionId: LAUNCH_PLAYER_AVATAR_BY_FACTION_ID,
     resourceSimulation: START_PHASE_RESOURCE_SIMULATION,
-    destroyedDistrictId: DEV_ONLY_DESTROYED_DISTRICT_ID,
-    policeIntervalMs: DEV_ONLY_POLICE_INTERVAL_MS
+    destroyedDistrictId: DEV_ONLY_DESTROYED_DISTRICT_ID
   })
 });
 

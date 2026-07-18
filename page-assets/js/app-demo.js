@@ -1,4 +1,5 @@
 import { ENTRY_FLOW_TARGETS, getEntryFlowTarget } from "./app/auth-flow.js";
+import { isExplicitGamePreviewEnabled, isExplicitLocalDemoEnabled } from "./app/local-demo-gate.js";
 import { bindDesktopGameScrollLimit } from "./app/runtime/desktopScrollLimitRuntime.js";
 import { bootstrapPage, PAGE_ROOT_SELECTOR } from "./app/render-ui.js";
 
@@ -9,6 +10,7 @@ const ENTRY_REDIRECTS = Object.freeze({
 });
 
 function canBootGame() {
+  if (isExplicitGamePreviewEnabled() || isExplicitLocalDemoEnabled()) return true;
   const target = getEntryFlowTarget();
   if (target === ENTRY_FLOW_TARGETS.game) {
     return true;

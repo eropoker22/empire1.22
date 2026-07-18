@@ -101,6 +101,15 @@
               <button class="auth-mode-tab" type="button" data-server-mode-tab="war" role="tab" aria-selected="false">WAR Mode / Premium</button>
             </div>
 
+            <section class="lobby-active-server-card" data-local-demo-access hidden aria-label="Lokální demo">
+              <div class="lobby-active-server-card__copy">
+                <span>LOCAL ONLY</span>
+                <h2>Local Demo Sandbox</h2>
+                <p class="lobby-active-server-card__warning">Oddělené demo pro dolaďování hry. Nemění live účet ani hosted server.</p>
+              </div>
+              <button class="lobby-primary-cta lobby-primary-cta--enter" type="button" data-open-local-demo>OTEVŘÍT DEMO</button>
+            </section>
+
             <section class="lobby-server-list-only">
               <div class="auth-servers auth-servers--single" data-server-list data-testid="server-list" aria-live="polite"></div>
             </section>
@@ -263,6 +272,6 @@
     </div>
 
     <p class="lobby-flow-note" data-lobby-flow-note aria-live="polite"></p>
-    <script type="module" src="../page-assets/js/lobby-entry.js"></script>
+    <script type="module" src="../page-assets/js/lobby-entry.js?v=local-demo-sandbox-20260717"></script>
   </body>
 </html>

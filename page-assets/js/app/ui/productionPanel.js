@@ -34,6 +34,10 @@ function formatDuration(value, options = {}) {
   return minutes > 0 ? `${minutes}m ${String(seconds).padStart(2, "0")}s` : `${seconds}s`;
 }
 
+function appendDurationBonus(value, durationBonusLabel = "") {
+  return durationBonusLabel ? `${value} (${durationBonusLabel})` : value;
+}
+
 function formatProductionSpeedBonus(multiplier) {
   const numeric = Number(multiplier || 1);
   const bonusPct = Math.max(0, Math.round((numeric - 1) * 100));
@@ -71,13 +75,16 @@ function getPositiveDurationMs(...values) {
 function formatFactorySlotTime(slotView = {}, options = {}) {
   const slot = slotView.slot || {};
   if (!slot.isProducing) {
-    return slotView.secondaryLine || formatDuration(slotView.durationMs, options);
+    const value = slotView.durationBonusLabel
+      ? formatDuration(slotView.durationMs, options)
+      : slotView.secondaryLine || formatDuration(slotView.durationMs, options);
+    return appendDurationBonus(value, slotView.durationBonusLabel);
   }
 
   const slotCap = Math.max(0, Number(slotView.slotOutputCap ?? slot.slotCap ?? slotView.slotStorageCap ?? slot.slotStorageCap ?? 0));
   const producedAmount = Math.max(0, Number(slot.producedAmount || 0));
   if (slotCap > 0 && producedAmount >= slotCap) {
-    return slotView.secondaryLine || formatDuration(slotView.durationMs, options);
+    return appendDurationBonus(slotView.secondaryLine || formatDuration(slotView.durationMs, options), slotView.durationBonusLabel);
   }
 
   const durationMs = getPositiveDurationMs(slotView.durationMs, slot.durationMs, parseDurationLabelMs(slotView.secondaryLine));
@@ -86,7 +93,7 @@ function formatFactorySlotTime(slotView = {}, options = {}) {
   const progress = Math.max(0, Number(slot.productionRemainder || 0)) + elapsedSinceTickMs / durationMs;
   const progressInCycle = progress - Math.floor(progress);
   const remainingMs = progressInCycle > 0 ? durationMs * (1 - progressInCycle) : durationMs;
-  return formatDuration(remainingMs, options);
+  return appendDurationBonus(formatDuration(remainingMs, options), slotView.durationBonusLabel);
 }
 
 function bindFactoryMetricCountdown(valueElement, getValue, options = {}) {

@@ -301,7 +301,7 @@
                 </p>
               </div>
               <p class="panel-note profile-row profile-row--members gang-profile-row"><span class="gang-profile-row__label">Členové</span><span data-gang-members>0</span></p>
-              <p class="panel-note profile-row profile-row--wanted gang-profile-row"><span class="gang-profile-row__label">Hledanost</span><button type="button" class="button gang-profile-value-button profile-heat-panel" data-gang-heat>10</button></p>
+              <p class="panel-note profile-row profile-row--wanted gang-profile-row"><span class="gang-profile-row__label">Hledanost</span><button type="button" class="button gang-profile-value-button profile-heat-panel" data-gang-heat>—</button></p>
               <p class="panel-note profile-row profile-row--faction gang-profile-row"><span class="gang-profile-row__label">Frakce</span><span data-gang-faction>-</span></p>
               <p class="panel-note profile-row profile-row--districts gang-profile-row"><span class="gang-profile-row__label">Distrikty</span><span data-gang-districts>0</span></p>
               <p class="panel-note profile-row profile-row--alliance gang-profile-row"><span class="gang-profile-row__label">Aliance</span><span id="profile-alliance" data-gang-alliance>Žádná</span></p>
@@ -316,7 +316,7 @@
               </span>
               <span class="alliance-launcher__body">
                 <span class="alliance-launcher__eyebrow">Aliance</span>
-                <strong class="alliance-launcher__name" data-alliance-launcher-name>Žádná aliance</strong>
+                <strong class="alliance-launcher__name" data-alliance-launcher-name>Načítám alianci…</strong>
               </span>
             </button>
           </div>
@@ -928,7 +928,7 @@
           <div class="wanted-popup-top">
             <div class="wanted-popup-hero">
               <div class="wanted-popup-hero__copy">
-                <div class="wanted-popup-value" data-wanted-popup-heat>10</div>
+                <div class="wanted-popup-value" data-wanted-popup-heat>—</div>
                 <h3 class="wanted-popup-title" data-wanted-popup-tier>Nízký heat</h3>
                 <p class="wanted-popup-copy" data-wanted-popup-description>Lehký dohled. Gang je skoro pod radarem.</p>
                 <div class="wanted-popup-cost-row">
@@ -947,6 +947,11 @@
                 <button type="button" class="button wanted-popup-action wanted-popup-action--dirty" data-wanted-popup-dirty>Snížit dirty cash</button>
                 <button type="button" class="button wanted-popup-action wanted-popup-action--clean" data-wanted-popup-clean>Snížit clean cash</button>
                 <button type="button" class="button wanted-popup-action wanted-popup-action--influence" data-wanted-popup-influence>Snížit vlivem</button>
+              </div>
+              <div class="wanted-popup-cost-row wanted-popup-cost-row--mobile" aria-label="Ceny snížení heat">
+                <span class="wanted-popup-cost">$500 dirty • -10 heat</span>
+                <span class="wanted-popup-cost">$300 clean • -15 heat</span>
+                <span class="wanted-popup-cost">20 vliv • -10 heat</span>
               </div>
             </div>
           </div>
@@ -2305,7 +2310,7 @@
     <script type="module" src="../page-assets/js/data/buildings.js"></script>
     <script type="module" src="../page-assets/js/data/events.js"></script>
     <script type="module" src="../page-assets/js/app/mobile-performance-runtime.js"></script>
-    <script type="module" src="../page-assets/js/app-entry.js?v=authoritative-entry-20260717"></script>
+    <script type="module" src="../page-assets/js/app-entry.js?v=game-preview-access-20260717"></script>
     <script type="module" src="../page-assets/js/app/final-lockdown-popup-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/city-events-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/alliance-runtime.js"></script>

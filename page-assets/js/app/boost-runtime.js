@@ -67,19 +67,19 @@ function buildEffectLines(definition) {
   return lines;
 }
 
-function resolveButtonState(card, view, pendingBoostId, now) {
+export function resolveButtonState(card, view, pendingBoostId, now) {
   if (pendingBoostId === card.boostId) return { label: "AKTIVUJI…", deadline: null };
   if (card.isActive) {
     return {
-      label: `${card.isArmed ? "NABITO" : "AKTIVNÍ"} · ${formatCountdown(card.activeEndsAtMs, now)}`,
-      deadline: card.activeEndsAtMs
+      label: card.isArmed ? "NABITO" : "AKTIVNÍ",
+      deadline: null
     };
   }
   if (card.disabledReason === "boost_on_cooldown") {
     return { label: `COOLDOWN · ${formatCountdown(card.cooldownEndsAtMs, now)}`, deadline: card.cooldownEndsAtMs };
   }
   if (card.disabledReason === "boost_already_active") {
-    return { label: `BLOKOVÁNO · ${formatCountdown(view.active?.expiresAtMs, now)}`, deadline: view.active?.expiresAtMs };
+    return { label: "BLOKOVÁNO", deadline: null };
   }
   if (card.disabledReason === "boost_missing_resources") return { label: "CHYBÍ SUROVINY", deadline: null };
   if (card.disabledReason === "boost_missing_clean_cash") return { label: "CHYBÍ CASH", deadline: null };
@@ -90,6 +90,7 @@ function resolveButtonState(card, view, pendingBoostId, now) {
 function createCardMarkup(card, view, pendingBoostId) {
   const definition = PLAYER_BOOST_CONFIG[card.boostId] || {};
   const buttonState = resolveButtonState(card, view, pendingBoostId, Date.now());
+  const isBlockedByActiveBoost = !card.isActive && card.disabledReason === "boost_already_active";
   const materialChips = card.costs.map((cost) => `
     <span class="boost-cost-chip ${cost.enough ? "" : "is-missing"}" title="${cost.enough ? "Dostatek" : `Chybí ${cost.missingAmount} ks`}" aria-label="${escapeHtml(cost.label)}: potřeba ${cost.required}, ve SKLADU ${cost.stored}">
       <span>${escapeHtml(cost.label)}</span><strong>${cost.required} / ${cost.stored}</strong>
@@ -97,7 +98,7 @@ function createCardMarkup(card, view, pendingBoostId) {
   `).join("");
   const cashEnough = card.hasEnoughCleanCash;
   return `
-    <article class="boost-card boost-card--${card.uiAccent} ${card.isActive ? "is-active" : ""}" data-boost-card="${card.boostId}">
+    <article class="boost-card boost-card--${card.uiAccent} ${card.isActive ? "is-active" : ""} ${isBlockedByActiveBoost ? "is-blocked" : ""}" data-boost-card="${card.boostId}">
       <div class="boost-card__topline"><span>${escapeHtml(CATEGORY_LABELS[card.category] || card.category)}</span><i></i></div>
       <div class="boost-card__heading">
         <span class="boost-card__icon">${renderIcon(card.iconKey)}</span>

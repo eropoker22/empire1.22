@@ -4,7 +4,6 @@ import {
   DEMO_SCENARIOS,
   DEV_ONLY_DESTROYED_DISTRICT_ID,
   DEV_ONLY_ONBOARDING_START_STATE,
-  DEV_ONLY_POLICE_INTERVAL_MS,
   MARKET_PLAYER_DEMO_SELLERS,
   START_PHASE_OWNER_COORDINATES,
   START_PHASE_PLAYER_COLORS,
@@ -24,15 +23,13 @@ describe("runtime demo scenarios", () => {
       id: "launch",
       gamePhase: "launch",
       currentPlayerId: 1,
-      destroyedDistrictId: 8,
-      policeIntervalMs: 30_000
+      destroyedDistrictId: 8
     });
     expect(CURRENT_PLAYER_ID).toBe(1);
     expect(DEV_ONLY_DESTROYED_DISTRICT_ID).toBe(8);
-    expect(DEV_ONLY_POLICE_INTERVAL_MS).toBe(30_000);
     expect(DEV_ONLY_ONBOARDING_START_STATE).toMatchObject({
-      economy: { cleanMoney: 5_000, dirtyMoney: 420 },
-      gang: { members: 250, influence: 5, heat: 50, alliance: null },
+      economy: { cleanMoney: 0, dirtyMoney: 0 },
+      gang: { members: 0, influence: 0, heat: 0, alliance: null },
       allianceBoard: {
         activeAlliance: null,
         canCreateAlliance: false,
@@ -40,7 +37,7 @@ describe("runtime demo scenarios", () => {
         disableDevOnlyActiveAlliance: true
       },
       world: { ownedDistrictIds: [1], gamePhase: "launch" },
-      storageAmount: 5
+      storageAmount: 0
     });
     expect(START_PHASE_OWNER_COORDINATES).toHaveLength(20);
     expect(new Set(START_PHASE_OWNER_COORDINATES.map(([rowIndex, columnIndex]) => `${rowIndex}:${columnIndex}`)).size).toBe(20);
