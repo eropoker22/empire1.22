@@ -1,4 +1,5 @@
 import { accountSession, loginAccount, registerAccount } from "./app/player-entry-client.js";
+import { bindLoginAboutModal, bindLoginInfoModals } from "./app/login-about-modal.js";
 
 const state = { activeTab: "login", submitting: false };
 
@@ -7,6 +8,8 @@ const initialize = () => {
   bindTabs();
   bindPasswordToggle();
   bindForms();
+  bindLoginAboutModal();
+  bindLoginInfoModals();
   void accountSession().then(() => window.location.replace("./lobby.html")).catch(() => {});
 };
 

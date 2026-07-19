@@ -36,6 +36,7 @@
     <meta name="twitter:image:alt" content="Logo Empire Streets se zlatou korunou nad nočním městem.">
     <link rel="stylesheet" href="../page-assets/css/styles.css">
     <link rel="stylesheet" href="../page-assets/css/login.css">
+    <link rel="stylesheet" href="../page-assets/css/styles-login-about.css">
     <link rel="stylesheet" href="../page-assets/css/styles-static-hover.css">
   </head>
   <body class="login-body auth-body auth-body--login">
@@ -261,14 +262,42 @@
       <button type="button" data-login-info-open="help">Pomoc</button>
     </nav>
 
-    <div class="login-about-overlay" data-login-about-overlay hidden>
+    <div class="login-about-overlay login-about-overlay--encyclopedia" data-login-about-overlay data-about-tone="overview" hidden>
       <div class="login-about-backdrop" data-login-about-close></div>
-      <section class="login-about-dialog" role="dialog" aria-modal="true" aria-labelledby="login-about-title" tabindex="-1">
-        <button type="button" class="login-about-close" data-login-about-close aria-label="Zavřít okno O hře">✕</button>
-        <div class="login-about-header">
-          <h2 id="login-about-title">O hře</h2>
+      <section class="login-about-dialog login-about-encyclopedia" role="dialog" aria-modal="true" aria-labelledby="login-about-title" tabindex="-1">
+        <header class="login-about-terminal-header">
+          <div>
+            <span class="login-about-terminal-header__eyebrow">TAJNÝ MĚSTSKÝ TERMINÁL / OPERAČNÍ MANUÁL</span>
+            <h2 id="login-about-title"><span>EMPIRE STREETS</span><small>/ O HŘE</small></h2>
+            <p>MĚSTO NEMÁ PRAVIDLA. JEN NÁSLEDKY.</p>
+          </div>
+          <button type="button" class="login-about-close" data-login-about-close aria-label="Zavřít okno O hře">✕</button>
+        </header>
+        <div class="login-about-hero-copy">
+          <p>20 gangů. 161 districtů. Jedna válka o město, které si pamatuje každou zradu, každý dluh a každou mrtvou ulici.</p>
+          <p>Začni s jedním district-em. Vybuduj síť. Získej informace. Kup si loajalitu. Až přijde Final Lockdown, buď bude město tvoje, nebo v něm nebudeš existovat.</p>
         </div>
-        <div class="login-about-copy">
+        <div class="login-about-mobile-nav">
+          <label for="login-about-section-select">Databáze mechanik</label>
+          <select id="login-about-section-select" data-login-about-select aria-label="Vyber mechaniku O hře"></select>
+        </div>
+        <div class="login-about-workspace">
+          <nav class="login-about-navigation" aria-label="Mechaniky Empire Streets">
+            <div class="login-about-navigation__label">Navigace / databáze</div>
+            <div class="login-about-tablist" data-login-about-tabs role="tablist" aria-orientation="vertical"></div>
+          </nav>
+          <main class="login-about-content" data-login-about-content>
+            <div class="login-about-panels" data-login-about-panels></div>
+          </main>
+        </div>
+        <footer class="login-about-terminal-footer">
+          <span>SECURE ARCHIVE // SERVER AUTHORITATIVE RULES</span>
+          <span>ŠIPKY: NAVIGACE · ESC: ZAVŘÍT</span>
+        </footer>
+        <template data-login-about-legacy-story>
+          <section class="login-about-story" aria-label="Příběh města">
+            <div class="login-about-story__heading"><span>PŮVODNÍ ARCHIV</span><h4>Příběh města</h4></div>
+            <div class="login-about-story__copy">
           <p class="login-about-lead">Neon se odráží v mokrém asfaltu, sirény kvílí mezi mrakodrapy a za každým oknem sedí někdo, kdo něco ví, něco tají nebo čeká, až uděláš chybu. Tohle je Empire <span class="login-about-gold">Streets</span> — temná gangsterská strategie, kde se z jednoho kusu území může stát impérium… nebo hrob.</p>
           <p>Začínáš dole. Malý gang. První distrikt. Špinavé peníze v kapse a město plné lidí, kteří si myslí, že ulice patří jim.</p>
           <p><strong>Nepatří.</strong></p>
@@ -297,7 +326,9 @@
           <p>Je to boj o moc v neonovém městě, kde každý distrikt něco vydělává, každý soused může být hrozba a každá chyba se dřív nebo později vrátí s úroky.</p>
           <p>Vyber frakci. Vezmi si ulice. Vybuduj impérium.</p>
           <p class="login-about-final">A hlavně nezapomeň:<br><strong>Město sleduje každý tvůj krok.</strong></p>
-        </div>
+            </div>
+          </section>
+        </template>
       </section>
     </div>
 

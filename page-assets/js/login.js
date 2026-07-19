@@ -4,6 +4,7 @@ import {
   saveLoginStep
 } from "./app/auth-flow.js";
 import { isExplicitLocalDemoEnabled } from "./app/local-demo-gate.js";
+import { bindLoginAboutModal, bindLoginInfoModals } from "./app/login-about-modal.js";
 import { STORAGE_KEYS } from "./config.js";
 import { LOGIN_ACTIVE_EVENTS } from "./data/events.js";
 
@@ -560,72 +561,6 @@ function bindForgotPassword() {
 
   button.addEventListener("click", () => {
     showError(RESET_UNAVAILABLE_MESSAGE);
-  });
-}
-
-function bindLoginAboutModal() {
-  const openButton = document.querySelector("[data-login-about-open]");
-  const overlay = document.querySelector("[data-login-about-overlay]");
-  const dialog = overlay?.querySelector(".login-about-dialog");
-  if (!(openButton instanceof HTMLButtonElement) || !(overlay instanceof HTMLElement)) {
-    return;
-  }
-
-  const openAbout = () => {
-    overlay.hidden = false;
-    if (dialog instanceof HTMLElement) {
-      dialog.focus();
-    }
-  };
-  const closeAbout = () => {
-    overlay.hidden = true;
-    openButton.focus();
-  };
-
-  openButton.addEventListener("click", openAbout);
-  document.querySelectorAll("[data-login-about-close]").forEach((element) => {
-    element.addEventListener("click", closeAbout);
-  });
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !overlay.hidden) {
-      closeAbout();
-    }
-  });
-}
-
-function bindLoginInfoModals() {
-  document.querySelectorAll("[data-login-info-open]").forEach((button) => {
-    if (!(button instanceof HTMLButtonElement)) {
-      return;
-    }
-
-    const modalId = String(button.getAttribute("data-login-info-open") || "");
-    const overlay = document.querySelector(`[data-login-info-overlay="${modalId}"]`);
-    const dialog = overlay?.querySelector(".login-about-dialog");
-    if (!(overlay instanceof HTMLElement)) {
-      return;
-    }
-
-    const openModal = () => {
-      overlay.hidden = false;
-      if (dialog instanceof HTMLElement) {
-        dialog.focus();
-      }
-    };
-    const closeModal = () => {
-      overlay.hidden = true;
-      button.focus();
-    };
-
-    button.addEventListener("click", openModal);
-    overlay.querySelectorAll("[data-login-info-close]").forEach((element) => {
-      element.addEventListener("click", closeModal);
-    });
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && !overlay.hidden) {
-        closeModal();
-      }
-    });
   });
 }
 
