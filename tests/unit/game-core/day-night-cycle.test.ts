@@ -54,6 +54,21 @@ describe("day night cycle", () => {
       remainingTicks: 1440
     });
 
+    state.root.tick = 0;
+    expect(applyDayNightBuildingIncomeModifiers({
+      state,
+      context,
+      buildingTypeId: "strip_club",
+      cleanPerHour: 100,
+      dirtyPerHour: 100,
+      heatPerDay: 10,
+      influencePerDay: 0
+    })).toMatchObject({
+      cleanPerHour: 45,
+      dirtyPerHour: 45,
+      heatPerDay: 11
+    });
+
     state.root.tick = 1440;
     expect(getCurrentDayNightPhase(state, context)).toMatchObject({
       phaseId: "night",

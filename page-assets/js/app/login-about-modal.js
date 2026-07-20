@@ -45,9 +45,9 @@ const renderSectionPanel = (documentRef, section, legacyStoryTemplate) => {
   }
 
   const grid = createNode(documentRef, "div", "login-about-panel__grid");
-  appendList(documentRef, grid, "Jak to funguje", section.howItWorks, "login-about-section-block--wide");
-  appendList(documentRef, grid, "Co rozhoduje", section.decidingFactors);
-  appendList(documentRef, grid, "Co riskuješ", section.risks, "login-about-section-block--risk");
+  appendList(documentRef, grid, "Jak to zahraješ", section.howItWorks, "login-about-section-block--wide");
+  appendList(documentRef, grid, "Co ti dá výhodu", section.decidingFactors);
+  appendList(documentRef, grid, "O co můžeš přijít", section.risks, "login-about-section-block--risk");
   panel.append(grid);
 
   const callout = createNode(documentRef, "blockquote", "login-about-panel__callout", section.callout);

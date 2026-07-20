@@ -1,4 +1,5 @@
 import type { DrugLabBalanceConfig } from "../contracts";
+import { MINIMUM_PRODUCTION_QUEUE_RESERVE } from "./productionLineShared";
 
 const REQUIRED_RECIPES = ["neon-dust", "pulse-shot", "velvet-smoke", "ghost-serum", "overdrive-x"] as const;
 const KNOWN_RESOURCES = new Set([
@@ -28,6 +29,9 @@ export const validateDrugLabProductionConfig = (config: DrugLabBalanceConfig): v
       if (!Number.isInteger(value) || value <= 0) {
         throw new Error("Drug Lab recipe \"" + recipeId + "\" requires positive integer timing and capacities.");
       }
+    }
+    if (recipe.queueCap < recipe.localOutputCap + MINIMUM_PRODUCTION_QUEUE_RESERVE) {
+      throw new Error("Drug Lab recipe \"" + recipeId + "\" requires room for three queued items above local output capacity.");
     }
   }
   const ghost = config.recipes["ghost-serum"];

@@ -14,6 +14,7 @@ import { InstanceRegistry } from "./instance-manager/instance-registry";
 import { systemClock, type Clock } from "./scheduling/clock";
 import { createServerInstanceSummary } from "./instance-manager/server-instance-summary";
 import type { InstanceCommandDispatchResult } from "./orchestration/instance-command-dispatch-result";
+import type { RuntimeTickLeaseFence } from "./instance-manager/atomic-command-transaction";
 import { createGameplaySliceProjection } from "./projections/gameplay-slice-projection-service";
 import { createPlayerProjection } from "./projections/player-projection-service";
 
@@ -131,6 +132,14 @@ export class ServerInstanceManager {
   tickInstance(instanceId: ServerInstanceId): ServerInstanceRuntime | undefined {
     const runtime = this.registry.get(instanceId);
     return runtime ? this.lifecycle.tick(runtime) : undefined;
+  }
+
+  async tickInstanceDurably(
+    instanceId: ServerInstanceId,
+    runtimeLeaseFence?: RuntimeTickLeaseFence
+  ): Promise<ServerInstanceRuntime | undefined> {
+    const runtime = this.registry.get(instanceId);
+    return runtime ? this.lifecycle.tickDurably(runtime, runtimeLeaseFence) : undefined;
   }
 
   async dispatchCommand(

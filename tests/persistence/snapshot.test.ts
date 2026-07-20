@@ -42,6 +42,24 @@ describe("instance snapshot mapping", () => {
     expect(restored.commandRateLimitWindow.commandCountsByPlayerId["player:1"]).toBe(3);
   });
 
+  it("preserves the live runtime when no snapshot exists", async () => {
+    const runtime = createServerInstanceRuntime("instance:no-snapshot", "free");
+    runtime.state.root.version = 7;
+    runtime.state.root.districtIds.push("district:live");
+    runtime.processedCommandIds.add("command:live");
+    const restoreService = createPersistenceRestoreService({
+      save: async () => undefined,
+      loadLatest: async () => null
+    });
+
+    const restored = await restoreService.restore(runtime);
+
+    expect(restored).toBe(runtime);
+    expect(restored.state.root.version).toBe(7);
+    expect(restored.state.root.districtIds).toEqual(["district:live"]);
+    expect(restored.processedCommandIds.has("command:live")).toBe(true);
+  });
+
   it("seals snapshot DTOs into opaque tokens and rejects tampering", async () => {
     const runtime = createServerInstanceRuntime("instance:token", "free");
     runtime.processedCommandIds.add("command:sealed");

@@ -78,7 +78,7 @@ export function createFactoryPopupRuntime(deps = {}) {
 
     if (
       !openButton || !popup || closeElements.length === 0 || !slotList || !multiplierElement
-      || !ownedCountElement || !upgradeCostElement || !metalElement || !techElement || !combatElement
+      || !ownedCountElement || !upgradeCostElement
       || !upgradeButton
       || !collectButton
     ) {
@@ -531,13 +531,12 @@ export function createFactoryPopupRuntime(deps = {}) {
         }],
         buildingLabel: "Továrna",
         canConfirm: hasEnoughMoney,
-        confirmLabel: hasEnoughMoney ? "Potvrdit upgrade" : "Nedostatek clean cash",
+        confirmLabel: "Potvrdit upgrade",
         costLabel: deps.formatCurrency?.(upgradeCost) || String(upgradeCost),
-        description: "Potvrzením posuneš typ budovy na vyšší úroveň a okamžitě získáš nové bonusy.",
         noteLabel: hasEnoughMoney
           ? `Po potvrzení zaplatíš ${deps.formatCurrency?.(upgradeCost) || upgradeCost} clean cash.`
           : `Chybí ${deps.formatCurrency?.(upgradeCost - Number(economyState.cleanMoney || 0)) || (upgradeCost - Number(economyState.cleanMoney || 0))} clean cash.`,
-        titleLabel: `Továrna · L${factoryState.level} → L${nextLevel}`,
+        titleLabel: "Továrna",
         upgradeLabel: `L${factoryState.level} → L${nextLevel}`
       });
 

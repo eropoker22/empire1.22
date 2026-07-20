@@ -66,6 +66,21 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
     allowedIfContested: false,
     reportText: "Vybere obyvatele z lokálního zásobníku bytového bloku."
   },
+  collect_convenience_store_population: {
+    actionId: "collect_convenience_store_population",
+    buildingType: "convenience_store",
+    label: "Vybrat obyvatele",
+    description: "Přesune lokálně uložené obyvatele z Večerky do globální populace hráče.",
+    durationMs: 0,
+    cooldownMs: 0,
+    inputCost: {},
+    outputGain: {},
+    heatGain: 0,
+    influenceChange: 0,
+    requiredOwner: true,
+    allowedIfContested: false,
+    reportText: "Vybere obyvatele z lokálního zásobníku Večerky."
+  },
   evening_course: {
     actionId: "evening_course",
     buildingType: "school",

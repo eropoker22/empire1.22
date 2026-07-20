@@ -161,6 +161,11 @@ describe("building change guard", () => {
     expect(clientFreeModeStripClubConfig).toEqual(freeModeStripClubConfig);
   });
 
+  it("sets the Strip Club base output to 90 influence and 85 heat per day", () => {
+    expect(freeModeStripClubConfig.influencePerMinute * 1_440).toBe(90);
+    expect(freeModeStripClubConfig.heatPerMinute * 1_440).toBe(85);
+  });
+
   it("keeps removed buildings out of canonical source paths", () => {
     const canonicalSources = [
       "packages/game-config/src/public/building-definitions.ts",

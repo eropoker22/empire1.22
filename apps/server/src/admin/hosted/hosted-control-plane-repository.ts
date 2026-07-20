@@ -5,6 +5,8 @@ import type {
   HostedMapCompositionView
 } from "@empire/shared-types";
 
+export const HOSTED_WORKER_FRESH_MS = 30_000;
+
 export interface HostedServerRecord extends AdminHostedServerView {
   worldSeed: string;
   configVersion: number;
@@ -48,6 +50,7 @@ export interface HostedActionRequestRecord {
 
 export interface HostedWorkerHeartbeatRecord {
   workerId: string;
+  workerIncarnationId: string;
   region: string;
   startedAt: string;
   lastHeartbeatAt: string;
@@ -97,6 +100,7 @@ export type HostedActionTransactionResult =
   | { kind: "created" | "replayed"; request: HostedActionRequestRecord }
   | { kind: "conflict" }
   | { kind: "stale-version" }
+  | { kind: "not-ready" }
   | { kind: "not-found" };
 
 export type HostedJoinReservationResult =
@@ -122,14 +126,47 @@ export interface HostedControlPlaneRepository {
     requestHash: string;
     audit: AdminAuditEntryView;
   }): Promise<HostedActionTransactionResult>;
-  claimProvisioningJob(workerId: string, now: string, claimedUntil: string): Promise<HostedProvisioningJobRecord | null>;
-  beginProvisioning(jobId: string, serverInstanceId: string, at: string): Promise<boolean>;
-  completeProvisioning(input: { jobId: string; serverInstanceId: string; snapshotId: string; at: string; audit: AdminAuditEntryView }): Promise<void>;
-  failProvisioning(input: { jobId: string; serverInstanceId: string; errorCode: string; at: string; audit: AdminAuditEntryView }): Promise<void>;
-  claimAction(workerId: string, now: string, claimedUntil: string): Promise<HostedActionRequestRecord | null>;
-  prepareRuntimeRestart(input: { serverInstanceId: string; workerId: string; expectedVersion: number; at: string }): Promise<boolean>;
-  completeAction(input: { request: HostedActionRequestRecord; nextStatus: HostedServerRecord["status"]; nextJoinPolicy: HostedServerRecord["joinPolicy"]; at: string; audit: AdminAuditEntryView }): Promise<void>;
-  failAction(input: { request: HostedActionRequestRecord; errorCode: string; at: string; audit: AdminAuditEntryView }): Promise<void>;
+  claimProvisioningJob(workerId: string, workerIncarnationId: string, now: string, claimedUntil: string): Promise<HostedProvisioningJobRecord | null>;
+  beginProvisioning(input: {
+    jobId: string;
+    serverInstanceId: string;
+    workerId: string;
+    workerIncarnationId: string;
+    expectedJobVersion: number;
+    at: string;
+  }): Promise<boolean>;
+  completeProvisioning(input: {
+    jobId: string;
+    serverInstanceId: string;
+    workerId: string;
+    workerIncarnationId: string;
+    expectedJobVersion: number;
+    snapshotId: string;
+    at: string;
+    audit: AdminAuditEntryView;
+  }): Promise<boolean>;
+  failProvisioning(input: {
+    jobId: string;
+    serverInstanceId: string;
+    workerId: string;
+    workerIncarnationId: string;
+    expectedJobVersion: number;
+    errorCode: string;
+    at: string;
+    audit: AdminAuditEntryView;
+  }): Promise<boolean>;
+  claimAction(workerId: string, workerIncarnationId: string, now: string, claimedUntil: string): Promise<HostedActionRequestRecord | null>;
+  prepareRuntimeRestart(input: { serverInstanceId: string; workerId: string; workerIncarnationId: string; expectedVersion: number; at: string }): Promise<boolean>;
+  completeAction(input: { request: HostedActionRequestRecord; workerIncarnationId: string; nextStatus: HostedServerRecord["status"]; nextJoinPolicy: HostedServerRecord["joinPolicy"]; at: string; audit: AdminAuditEntryView }): Promise<boolean>;
+  failAction(input: { request: HostedActionRequestRecord; workerIncarnationId: string; errorCode: string; at: string; audit: AdminAuditEntryView }): Promise<boolean>;
+  finalizeResolvedServer(input: {
+    serverInstanceId: string;
+    workerId: string;
+    workerIncarnationId: string;
+    expectedVersion: number;
+    snapshotId: string;
+    at: string;
+  }): Promise<boolean>;
   getJoinReservation(reservationId: string): Promise<HostedJoinReservationRecord | null>;
   getJoinReservationByIdempotency(playerIdentityId: string, idempotencyKey: string): Promise<HostedJoinReservationRecord | null>;
   reserveJoinTransaction(input: {
@@ -141,9 +178,10 @@ export interface HostedControlPlaneRepository {
   failJoin(input: { reservationId: string; jobId: string; workerId: string; status: "expired" | "canceled" | "rejected"; errorCode: string; at: string }): Promise<void>;
   expireJoinReservations(at: string): Promise<number>;
   getJoinCapacity(serverInstanceId: string, at: string): Promise<{ committedPlayers: number; reservedSlots: number }>;
-  writeWorkerHeartbeat(record: HostedWorkerHeartbeatRecord): Promise<void>;
+  writeWorkerHeartbeat(record: HostedWorkerHeartbeatRecord, allowIncarnationTakeover?: boolean): Promise<void>;
   getFreshWorkerHeartbeat(since: string): Promise<HostedWorkerHeartbeatRecord | null>;
-  acquireRuntimeLease(input: { serverInstanceId: string; workerId: string; now: string; expiresAt: string }): Promise<boolean>;
-  releaseRuntimeLease(serverInstanceId: string, workerId: string, at: string): Promise<void>;
-  writeInstanceHeartbeat(input: { serverInstanceId: string; workerId: string; leaseExpiresAt: string; lastTick: number; lastSnapshotAt: string | null; lastErrorCode: string | null; at: string }): Promise<void>;
+  acquireRuntimeLease(input: { serverInstanceId: string; workerId: string; workerIncarnationId: string; now: string; expiresAt: string }): Promise<boolean>;
+  isRuntimeLeaseCurrent(input: { serverInstanceId: string; workerId: string; workerIncarnationId: string; at: string }): Promise<boolean>;
+  releaseRuntimeLease(serverInstanceId: string, workerId: string, workerIncarnationId: string, at: string): Promise<void>;
+  writeInstanceHeartbeat(input: { serverInstanceId: string; workerId: string; workerIncarnationId: string; leaseExpiresAt: string; lastTick: number; lastSnapshotAt: string | null; lastErrorCode: string | null; at: string }): Promise<void>;
 }

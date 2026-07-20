@@ -210,6 +210,20 @@ describe("postgres persistence repositories", () => {
 
     expect((await repository.loadLatest(runtime.record.id))?.integrity.rootVersion).toBe(7);
   });
+
+  it("rejects divergent snapshot payloads with the same rootVersion", async () => {
+    const database = new FakePostgresDatabase();
+    const repository = createPostgresSnapshotRepository(database);
+    const runtime = createServerInstanceRuntime("instance:postgres:divergent-snapshot", "free");
+    runtime.state.root.version = 8;
+    const snapshot = createInstanceSnapshot(runtime);
+    const divergent = structuredClone(snapshot);
+    divergent.lobby!.displayName = "Divergent server";
+
+    await repository.save(snapshot);
+    await expect(repository.save(divergent)).rejects.toThrow("Refusing divergent snapshot");
+    await expect(repository.loadLatest(runtime.record.id)).resolves.toEqual(snapshot);
+  });
 });
 
 describe("postgres tick lock", () => {
@@ -412,16 +426,20 @@ class FakePostgresDatabase implements PostgresDatabase {
         payload: parsePayload(params[5])
       };
       const current = this.latestSnapshots.get(serverInstanceId);
-      if (!current || current.rootVersion <= incoming.rootVersion) {
+      if (!current || current.rootVersion < incoming.rootVersion) {
         this.latestSnapshots.set(serverInstanceId, incoming);
         return result([{ snapshot_id: incoming.snapshotId, root_version: incoming.rootVersion }]);
       }
       return result([]);
     }
 
-    if (compactSql.startsWith("SELECT snapshot_id, root_version FROM empire_snapshot_latest")) {
+    if (compactSql.startsWith("SELECT snapshot_id, root_version, payload FROM empire_snapshot_latest")) {
       const current = this.latestSnapshots.get(String(params[0]));
-      return result(current ? [{ snapshot_id: current.snapshotId, root_version: current.rootVersion }] : []);
+      return result(current ? [{
+        snapshot_id: current.snapshotId,
+        root_version: current.rootVersion,
+        payload: current.payload
+      }] : []);
     }
 
     if (compactSql.startsWith("SELECT payload FROM empire_snapshot_latest")) {

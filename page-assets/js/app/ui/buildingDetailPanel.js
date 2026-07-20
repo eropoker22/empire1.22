@@ -923,6 +923,9 @@ export function renderBuildingDetailPanel(buildingViewModel = {}, callbacks = {}
   const card = shell.querySelector(".district-building-detail-card");
   const mechanicsType = syncBuildingDetailIdentityHooks(shell, card, rawMechanicsType);
   const useSinglePanelLayout = SINGLE_PANEL_BUILDING_DETAIL_TYPES.has(mechanicsType);
+  const convenienceStoreIsFull = mechanicsType === "convenience-store" && buildingViewModel.convenienceStoreIsFull === true;
+  shell.classList.toggle("is-convenience-store-full", convenienceStoreIsFull);
+  card?.classList?.toggle?.("is-convenience-store-full", convenienceStoreIsFull);
   removeBuildingDetailInfoPanel(shell);
   ensureBuildingDetailStructuralSections(shell);
 

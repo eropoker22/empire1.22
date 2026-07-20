@@ -1,5 +1,6 @@
 import * as crypto from "node:crypto";
 import type { DomainError, GameModeId, PlayerFactionId, ServerInstanceId } from "@empire/shared-types";
+import { revokeMatchingGameplaySessions } from "./in-memory-session-revocation";
 
 export interface AccountIdentity {
   accountId: string;
@@ -74,8 +75,7 @@ export interface GameplaySessionService {
     serverInstanceId?: string | null;
     nowIso: string;
   }): Promise<{ accepted: true; session: GameplaySessionRecord } | { accepted: false; errors: DomainError[] }>;
-  revokeSession(sessionId: string, nowIso: string): Promise<boolean>;
-  revokePlayerSessions(playerId: string, nowIso: string): Promise<number>;
+  revokeSession(sessionId: string, nowIso: string): Promise<boolean>; revokeAccountSessions(accountId: string, nowIso: string): Promise<number>; revokePlayerSessions(playerId: string, nowIso: string): Promise<number>;
   listRegistrations(): Promise<PlayerRegistrationRecord[]>;
 }
 
@@ -95,8 +95,7 @@ export interface GameplayIdentitySessionRepository {
   createSession(input: GameplaySessionRecord): Promise<GameplaySessionRecord>;
   getSessionById(sessionId: string): Promise<GameplaySessionRecord | null>;
   touchSession(sessionId: string, lastSeenAt: string): Promise<GameplaySessionRecord | null>;
-  revokeSession(sessionId: string, revokedAt: string): Promise<boolean>;
-  revokePlayerSessions(playerId: string, revokedAt: string): Promise<number>;
+  revokeSession(sessionId: string, revokedAt: string): Promise<boolean>; revokeAccountSessions(accountId: string, revokedAt: string): Promise<number>; revokePlayerSessions(playerId: string, revokedAt: string): Promise<number>;
   listRegistrations(): Promise<PlayerRegistrationRecord[]>;
 }
 
@@ -132,8 +131,7 @@ export const createUnavailableGameplaySessionService = (): GameplaySessionServic
     throw new Error("Gameplay session repository is not configured.");
   },
   validateSession: async () => reject("SESSION_INVALID", "Gameplay session repository is not configured."),
-  revokeSession: async () => false,
-  revokePlayerSessions: async () => 0,
+  revokeSession: async () => false, revokeAccountSessions: async () => 0, revokePlayerSessions: async () => 0,
   listRegistrations: async () => []
 });
 
@@ -212,6 +210,7 @@ export const createPersistentGameplaySessionService = (
         : reject("SESSION_INVALID", "Gameplay session is invalid.");
     },
     revokeSession: (sessionId, nowIso) => repository.revokeSession(sessionId, nowIso),
+    revokeAccountSessions: (accountId, nowIso) => repository.revokeAccountSessions(accountId, nowIso),
     revokePlayerSessions: (playerId, nowIso) => repository.revokePlayerSessions(playerId, nowIso),
     listRegistrations: () => repository.listRegistrations()
   };
@@ -303,6 +302,7 @@ export const createInMemoryGameplaySessionService = (
       session.version += 1;
       return true;
     },
+    revokeAccountSessions: async (accountId, nowIso) => revokeMatchingGameplaySessions(sessionsById, nowIso, (session) => session.accountId === accountId),
     revokePlayerSessions: async (playerId, nowIso) => {
       let count = 0;
       for (const session of sessionsById.values()) {

@@ -44,11 +44,11 @@ const ticks = (state: ReturnType<typeof createCoreStateWithFixedBuildingFixture>
 describe("drug lab production", () => {
   it("uses the canonical five one-piece recipes and strategic component roles", () => {
     const recipes = context.config.balance.drugLab!.recipes;
-    expect(recipes["neon-dust"]).toMatchObject({ cleanCashCostPerUnit: 500, inputCosts: { chemicals: 2 }, outputAmount: 1, localOutputCap: 10, queueCap: 8 });
-    expect(recipes["pulse-shot"]).toMatchObject({ cleanCashCostPerUnit: 800, inputCosts: { chemicals: 2, biomass: 1 }, outputAmount: 1, localOutputCap: 6, queueCap: 5 });
-    expect(recipes["velvet-smoke"]).toMatchObject({ cleanCashCostPerUnit: 900, inputCosts: { chemicals: 1, biomass: 2 }, outputAmount: 1, localOutputCap: 5, queueCap: 4 });
-    expect(recipes["ghost-serum"]).toMatchObject({ cleanCashCostPerUnit: 2500, inputCosts: { "neon-dust": 2, "pulse-shot": 1 }, itemRole: "boost-component", directlyUsable: false, outputAmount: 1, localOutputCap: 2, queueCap: 2 });
-    expect(recipes["overdrive-x"]).toMatchObject({ cleanCashCostPerUnit: 4500, inputCosts: { "pulse-shot": 1, "velvet-smoke": 2 }, itemRole: "boost-component", directlyUsable: false, outputAmount: 1, localOutputCap: 1, queueCap: 1 });
+    expect(recipes["neon-dust"]).toMatchObject({ cleanCashCostPerUnit: 500, inputCosts: { chemicals: 2 }, outputAmount: 1, localOutputCap: 10, queueCap: 13 });
+    expect(recipes["pulse-shot"]).toMatchObject({ cleanCashCostPerUnit: 800, inputCosts: { chemicals: 2, biomass: 1 }, outputAmount: 1, localOutputCap: 6, queueCap: 9 });
+    expect(recipes["velvet-smoke"]).toMatchObject({ cleanCashCostPerUnit: 900, inputCosts: { chemicals: 1, biomass: 2 }, outputAmount: 1, localOutputCap: 5, queueCap: 8 });
+    expect(recipes["ghost-serum"]).toMatchObject({ cleanCashCostPerUnit: 2500, inputCosts: { "neon-dust": 2, "pulse-shot": 1 }, itemRole: "boost-component", directlyUsable: false, outputAmount: 1, localOutputCap: 2, queueCap: 5 });
+    expect(recipes["overdrive-x"]).toMatchObject({ cleanCashCostPerUnit: 4500, inputCosts: { "pulse-shot": 1, "velvet-smoke": 2 }, itemRole: "boost-component", directlyUsable: false, outputAmount: 1, localOutputCap: 1, queueCap: 4 });
     expect(NEON_DURATION_TICKS).toBe(5 * Math.ceil(60_000 / context.config.tickRateMs));
     expect(Math.ceil(recipes["overdrive-x"].durationTicksPerUnit * context.config.balance.cooldownMultiplier)).toBe(30 * Math.ceil(60_000 / context.config.tickRateMs));
   });
@@ -77,7 +77,7 @@ describe("drug lab production", () => {
     });
     const invalid = applyCommand(state, start(building.id, "neon-dust", 0), context);
     const missing = applyCommand(state, start(building.id, "neon-dust", 1), context);
-    const queue = applyCommand(state, start(building.id, "neon-dust", 9), context);
+    const queue = applyCommand(state, start(building.id, "neon-dust", 14), context);
 
     expect(invalid.errors.map((error) => error.code)).toEqual(["drug_lab_invalid_quantity"]);
     expect(missing.errors.map((error) => error.code)).toEqual(["drug_lab_missing_inputs"]);
@@ -123,11 +123,11 @@ describe("drug lab production", () => {
         productionLines: {
           "ghost-serum": {
             recipeId: "ghost-serum",
-            queuedAmount: 1,
+            queuedAmount: 3,
             activeStartedAtTick: null,
             activeCompletesAtTick: null,
-            reservedCleanCash: 2500,
-            reservedResourceCosts: { "neon-dust": 2, "pulse-shot": 1 },
+            reservedCleanCash: 7500,
+            reservedResourceCosts: { "neon-dust": 6, "pulse-shot": 3 },
             unitCleanCashCost: 2500,
             unitResourceCosts: { "neon-dust": 2, "pulse-shot": 1 },
             version: 1
@@ -145,6 +145,7 @@ describe("drug lab production", () => {
     expect(collected.errors).toEqual([]);
     expect(collected.nextState.resourceStatesById["resource:1"]?.balances["ghost-serum"]).toBe(8);
     expect(collected.nextState.resourceStatesById["resource:" + building.id]?.balances["ghost-serum"]).toBe(1);
+    expect(line.queuedAmount).toBe(3);
     expect(line.activeCompletesAtTick).toBeGreaterThan(0);
   });
 

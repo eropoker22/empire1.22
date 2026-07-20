@@ -15,7 +15,7 @@ import { resolveFixedBuildingIncomeConfig } from "./fixedBuildingIncomeConfig";
 import { applyArcadeAuditChecks } from "../../handlers/arcadeBuildingActions";
 import { applyApartmentBlockPopulationProduction } from "../../handlers/apartmentBlockBuildingActions";
 import { applyCasinoAuditChecks } from "../../handlers/casinoBuildingActions";
-import { applyConvenienceStorePassiveRumors } from "../../handlers/convenienceStoreBuildingActions";
+import { applyConvenienceStorePassiveRumors, applyConvenienceStorePopulationProduction } from "../../handlers/convenienceStoreBuildingActions";
 import { applyExchangeOfficeAuditChecks } from "../../handlers/exchangeOfficeBuildingActions";
 import { applyRestaurantPassiveRumors } from "../../handlers/restaurantBuildingActions";
 import { applySchoolStudentProduction } from "../../handlers/schoolBuildingActions";
@@ -106,9 +106,12 @@ export const collectIncome = (state: CoreGameState, context?: GameCoreContext): 
   const restaurantRumorState = context?.config.balance.restaurant
     ? applyRestaurantPassiveRumors(stripClubRumorState, context.config.balance.restaurant, context.config.tickRateMs, context.config.balance.lobbyClub, context.config)
     : stripClubRumorState;
-  const convenienceRumorState = context?.config.balance.convenienceStore
-    ? applyConvenienceStorePassiveRumors(restaurantRumorState, context.config.balance.convenienceStore, context.config.tickRateMs, context.config.balance.restaurant, context.config.balance.lobbyClub, context.config)
+  const conveniencePopulationState = context?.config.balance.convenienceStore
+    ? applyConvenienceStorePopulationProduction(restaurantRumorState, context.config.balance.convenienceStore, context.config.tickRateMs)
     : restaurantRumorState;
+  const convenienceRumorState = context?.config.balance.convenienceStore
+    ? applyConvenienceStorePassiveRumors(conveniencePopulationState, context.config.balance.convenienceStore, context.config.tickRateMs, context.config.balance.restaurant, context.config.balance.lobbyClub, context.config)
+    : conveniencePopulationState;
   const vipLoungeRumorState = context?.config.balance.vipLounge
     ? applyVipLoungePassiveRumors(convenienceRumorState, context.config.balance.vipLounge, context.config.tickRateMs, context.config.balance.lobbyClub, context.config)
     : convenienceRumorState;

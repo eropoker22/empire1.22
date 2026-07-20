@@ -64,7 +64,7 @@ describe("factory dashboard view model and panel", () => {
     expect(viewModel.slots[1].primaryLine).toBe("$2500 clean · 4× Metal Parts · 2× Tech Core");
     expect(viewModel.slots[1].priceLabel).toBe("$2500 clean · 4× Metal Parts · 2× Tech Core");
     expect(viewModel.slots[1].secondaryLine).toBe("15 min / kus");
-    expect(viewModel.slots[1].slotStorageCap).toBe(2);
+    expect(viewModel.slots[1].slotStorageCap).toBe(5);
   });
 
   it("keeps factory output caps separate from queue caps", () => {
@@ -91,9 +91,9 @@ describe("factory dashboard view model and panel", () => {
     expect(viewModel.resources.metalParts).toBe("12/10");
     expect(viewModel.ownedCountLabel).toBe("3");
     expect(viewModel.slots[0]).toMatchObject({
-      slotStorageCap: 8,
+      slotStorageCap: 13,
       slotOutputCap: 10,
-      queueCap: 8,
+      queueCap: 13,
       queuedAmount: 5
     });
   });

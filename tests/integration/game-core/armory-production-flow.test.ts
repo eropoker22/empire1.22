@@ -46,27 +46,27 @@ describe("armory production", () => {
     expect(Object.fromEntries(
       Object.entries(armory.recipes).map(([recipeId, recipe]) => [recipeId, recipe.queueCap])
     )).toEqual({
-      "baseball-bat": 6,
-      pistol: 4,
-      grenade: 4,
-      smg: 3,
-      bazooka: 2,
-      vest: 4,
-      barricades: 5,
-      cameras: 4,
-      "defense-tower": 2,
-      alarm: 4
+      "baseball-bat": 11,
+      pistol: 8,
+      grenade: 7,
+      smg: 6,
+      bazooka: 5,
+      vest: 8,
+      barricades: 9,
+      cameras: 7,
+      "defense-tower": 5,
+      alarm: 7
     });
-    expect(armory.recipes["baseball-bat"]).toMatchObject({ category: "attack", cleanCashCostPerUnit: 0, inputCosts: { "metal-parts": 2 }, outputAmount: 1, localOutputCap: 8, queueCap: 6 });
-    expect(armory.recipes.pistol).toMatchObject({ inputCosts: { "metal-parts": 3, "tech-core": 1 }, durationTicksPerUnit: 75, localOutputCap: 5, queueCap: 4 });
-    expect(armory.recipes.grenade).toMatchObject({ inputCosts: { "metal-parts": 2, "tech-core": 1 }, localOutputCap: 4, queueCap: 4 });
-    expect(armory.recipes.smg).toMatchObject({ inputCosts: { "metal-parts": 2, "combat-module": 1 }, localOutputCap: 3, queueCap: 3 });
-    expect(armory.recipes.bazooka).toMatchObject({ inputCosts: { "metal-parts": 3, "combat-module": 2 }, localOutputCap: 2, queueCap: 2 });
-    expect(armory.recipes.vest).toMatchObject({ category: "defense", inputCosts: { "metal-parts": 3, "tech-core": 1 }, localOutputCap: 5, queueCap: 4 });
-    expect(armory.recipes.barricades).toMatchObject({ inputCosts: { "metal-parts": 4 }, localOutputCap: 6, queueCap: 5 });
-    expect(armory.recipes.cameras).toMatchObject({ inputCosts: { "metal-parts": 2, "tech-core": 2 }, durationTicksPerUnit: 90, localOutputCap: 4, queueCap: 4 });
-    expect(armory.recipes["defense-tower"]).toMatchObject({ inputCosts: { "tech-core": 3, "combat-module": 2 }, durationTicksPerUnit: 225, localOutputCap: 2, queueCap: 2 });
-    expect(armory.recipes.alarm).toMatchObject({ inputCosts: { "metal-parts": 2, "tech-core": 1 }, localOutputCap: 4, queueCap: 4 });
+    expect(armory.recipes["baseball-bat"]).toMatchObject({ category: "attack", cleanCashCostPerUnit: 0, inputCosts: { "metal-parts": 2 }, outputAmount: 1, localOutputCap: 8, queueCap: 11 });
+    expect(armory.recipes.pistol).toMatchObject({ inputCosts: { "metal-parts": 3, "tech-core": 1 }, durationTicksPerUnit: 75, localOutputCap: 5, queueCap: 8 });
+    expect(armory.recipes.grenade).toMatchObject({ inputCosts: { "metal-parts": 2, "tech-core": 1 }, localOutputCap: 4, queueCap: 7 });
+    expect(armory.recipes.smg).toMatchObject({ inputCosts: { "metal-parts": 2, "combat-module": 1 }, localOutputCap: 3, queueCap: 6 });
+    expect(armory.recipes.bazooka).toMatchObject({ inputCosts: { "metal-parts": 3, "combat-module": 2 }, localOutputCap: 2, queueCap: 5 });
+    expect(armory.recipes.vest).toMatchObject({ category: "defense", inputCosts: { "metal-parts": 3, "tech-core": 1 }, localOutputCap: 5, queueCap: 8 });
+    expect(armory.recipes.barricades).toMatchObject({ inputCosts: { "metal-parts": 4 }, localOutputCap: 6, queueCap: 9 });
+    expect(armory.recipes.cameras).toMatchObject({ inputCosts: { "metal-parts": 2, "tech-core": 2 }, durationTicksPerUnit: 90, localOutputCap: 4, queueCap: 7 });
+    expect(armory.recipes["defense-tower"]).toMatchObject({ inputCosts: { "tech-core": 3, "combat-module": 2 }, durationTicksPerUnit: 225, localOutputCap: 2, queueCap: 5 });
+    expect(armory.recipes.alarm).toMatchObject({ inputCosts: { "metal-parts": 2, "tech-core": 1 }, localOutputCap: 4, queueCap: 7 });
   });
 
   it("starts all ten independent lines and reserves only exact materials", () => {
@@ -118,7 +118,7 @@ describe("armory production", () => {
       playerBalances: { "metal-parts": 2, "tech-core": 0 }
     });
     expect(applyCommand(state, start(building.id, "baseball-bat", 0), context).errors[0]?.code).toBe("armory_invalid_quantity");
-    expect(applyCommand(state, start(building.id, "baseball-bat", 7), context).errors[0]?.code).toBe("armory_queue_full");
+    expect(applyCommand(state, start(building.id, "baseball-bat", 12), context).errors[0]?.code).toBe("armory_queue_full");
     const missing = applyCommand(state, start(building.id, "pistol", 1), context);
     expect(missing.errors[0]?.code).toBe("armory_missing_inputs");
     expect(missing.nextState).toBe(state);
@@ -126,9 +126,9 @@ describe("armory production", () => {
 
   it("counts the active piece in the canonical queue cap and rejects a full line without mutation", () => {
     const { state, building } = createCoreStateWithFixedBuildingFixture("armory", {
-      playerBalances: { "metal-parts": 20, "tech-core": 10 }
+      playerBalances: { "metal-parts": 30, "tech-core": 10 }
     });
-    const filled = applyCommand(state, start(building.id, "pistol", 4), context);
+    const filled = applyCommand(state, start(building.id, "pistol", 8), context);
     const view = createArmoryProductionBuildingView({
       state: filled.nextState,
       building: filled.nextState.buildingsById[building.id]!,
@@ -137,10 +137,10 @@ describe("armory production", () => {
       tickRateMs: context.config.tickRateMs
     })!;
     expect(view.productionLines.find((line) => line.recipeId === "pistol")).toMatchObject({
-      queuedAmount: 4,
-      queueCapacity: 4,
+      queuedAmount: 8,
+      queueCapacity: 8,
       activeAmount: 1,
-      waitingAmount: 3,
+      waitingAmount: 7,
       canStart: false,
       maxStartQuantity: 0
     });
@@ -155,14 +155,14 @@ describe("armory production", () => {
       productionResourceKey: "baseball-bat",
       productionStoredAmount: 7
     });
-    const started = applyCommand(state, start(building.id, "baseball-bat", 3), context);
+    const started = applyCommand(state, start(building.id, "baseball-bat", 4), context);
     const completed = ticks(started.nextState, batDuration);
     expect(completed.resourceStatesById["resource:" + building.id]?.balances["baseball-bat"]).toBe(8);
-    expect(completed.buildingsById[building.id]?.productionLines?.["baseball-bat"]).toMatchObject({ queuedAmount: 2, activeCompletesAtTick: null });
+    expect(completed.buildingsById[building.id]?.productionLines?.["baseball-bat"]).toMatchObject({ queuedAmount: 3, activeCompletesAtTick: null });
     const collected = applyCommand(completed, createCollectProductionCommandFixture({
       payload: { districtId: "district:1", buildingId: building.id, resourceKey: "baseball-bat" }
     }), context);
-    expect(collected.nextState.buildingsById[building.id]?.productionLines?.["baseball-bat"]?.activeCompletesAtTick).toBeGreaterThan(0);
+    expect(collected.nextState.buildingsById[building.id]?.productionLines?.["baseball-bat"]).toMatchObject({ queuedAmount: 3, activeCompletesAtTick: expect.any(Number) });
   });
 
   it("refunds exactly the waiting material reservation and never twice", () => {
@@ -281,7 +281,7 @@ describe("armory production", () => {
       producedAmount: 5,
       producedCapacity: 5,
       playerStoredCapacity: 24,
-      queueCapacity: 4,
+      queueCapacity: 8,
       status: "full",
       canStart: false
     });
@@ -302,7 +302,7 @@ describe("armory production", () => {
     expect(upgradedNetworkView.network.networkSpeedMultiplier).toBe(1.1);
     expect(upgradedNetworkView.productionLines.find((line) => line.recipeId === "pistol")).toMatchObject({
       producedCapacity: 5,
-      queueCapacity: 4
+      queueCapacity: 8
     });
   });
 

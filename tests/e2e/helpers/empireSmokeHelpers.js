@@ -555,6 +555,13 @@ export async function dismissBlockingGameOverlays(page) {
   await page.waitForLoadState("domcontentloaded");
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
+      await page.waitForFunction(() => {
+        const root = document.querySelector("#game-root");
+        const milestoneModal = document.querySelector("[data-server-milestone-modal]");
+        return root?.dataset?.runtimeInit === "ready"
+          && milestoneModal?.dataset?.serverMilestoneBound === "true";
+      }, undefined, { timeout: 5_000 }).catch(() => void 0);
+      await page.waitForTimeout(75);
       await page.evaluate(() => {
         const warning = document.querySelector("[data-elimination-countdown-warning].is-visible");
         const closeButton = document.querySelector(
@@ -567,6 +574,11 @@ export async function dismissBlockingGameOverlays(page) {
           warning.hidden = true;
           warning.classList.remove("is-visible");
           warning.style.pointerEvents = "none";
+        }
+
+        const milestoneModal = document.querySelector("[data-server-milestone-modal]");
+        if (milestoneModal instanceof HTMLElement && !milestoneModal.hidden) {
+          milestoneModal.querySelector("[data-server-milestone-confirm]")?.click();
         }
       });
       return;

@@ -22,6 +22,9 @@ declare global {
     }): string;
   }
   interface Window {
+    EmpireConfigOverrides?: {
+      localDemoEnabled?: boolean;
+    };
     empireStreetsRuntimeDiagnostics?: EmpireStreetsRuntimeDiagnostics;
   }
 }
@@ -98,16 +101,13 @@ export const isLegacyGameplayFallbackAllowed = (): boolean => {
   if (typeof window === "undefined") return false;
   const diagnosticsDecision = window.empireStreetsRuntimeDiagnostics?.shouldAllowDemoFallback?.();
   if (typeof diagnosticsDecision === "boolean") return diagnosticsDecision;
-  const host = window.location.hostname;
-  return window.location.protocol === "file:"
-    || !host
-    || host === "localhost"
-    || host === "127.0.0.1"
-    || host === "::1"
-    || host.endsWith(".local");
+  const forcedMode = getForcedDevelopmentRuntimeMode();
+  return forcedMode === "demo" || forcedMode === "legacy-fallback" || forcedMode === "local";
 };
 
 export type SelectedGameplayRuntimeMode = "server-authoritative" | "demo" | "legacy-fallback" | "local" | null;
+
+const LOCAL_DEMO_SESSION_KEY = "empire:local-demo-session:v1";
 
 const normalizeSelectedRuntimeMode = (value: unknown): SelectedGameplayRuntimeMode => {
   const normalized = String(value ?? "").trim().toLowerCase();
@@ -120,14 +120,26 @@ const normalizeSelectedRuntimeMode = (value: unknown): SelectedGameplayRuntimeMo
 
 export const getForcedDevelopmentRuntimeMode = (): SelectedGameplayRuntimeMode => {
   if (typeof window === "undefined") return null;
-  const canUseDevelopmentOverride = isLegacyGameplayFallbackAllowed();
+  const host = window.location.hostname;
+  const queryMode = new URLSearchParams(window.location.search).get("runtimeMode");
+  if (queryMode === "server-authoritative") return "server-authoritative";
+  if (queryMode === "local-demo") return "demo";
+  if (readBrowserStorageItem("sessionStorage", LOCAL_DEMO_SESSION_KEY) === "1") return "demo";
+
+  const canUseDevelopmentOverride = window.location.protocol === "file:"
+    || !host
+    || host === "localhost"
+    || host === "127.0.0.1"
+    || host === "::1"
+    || host.endsWith(".local");
   let requestedMode: SelectedGameplayRuntimeMode = null;
   if (canUseDevelopmentOverride) {
     try {
       requestedMode = normalizeSelectedRuntimeMode(
         window.empireStreetsRuntimeDiagnostics?.requestedMode
-        || new URLSearchParams(window.location.search).get("runtimeMode")
-        || window.localStorage?.getItem?.("empire:demo:execution-mode:v1")
+        || queryMode
+        || readBrowserStorageItem("localStorage", "empire:demo:execution-mode:v1")
+        || (window.EmpireConfigOverrides?.localDemoEnabled === true ? "demo" : null)
       );
     } catch (_error) {
       requestedMode = null;
@@ -139,6 +151,14 @@ export const getForcedDevelopmentRuntimeMode = (): SelectedGameplayRuntimeMode =
     document.querySelector?.('meta[name="empire-gameplay-execution-mode"]')?.getAttribute?.("content")
     || document.documentElement?.dataset?.gameplayExecutionMode
   );
+};
+
+const readBrowserStorageItem = (storageName: "localStorage" | "sessionStorage", key: string): string | null => {
+  try {
+    return window[storageName]?.getItem?.(key) ?? null;
+  } catch (_error) {
+    return null;
+  }
 };
 
 export const isGameplayDiagnosticsEnabled = (): boolean => {

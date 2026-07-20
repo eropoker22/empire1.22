@@ -18,6 +18,7 @@ export interface BuildingActionReportNotificationInput {
   exchangeResult?: Record<string, unknown>;
   arcadeResult?: Record<string, unknown>;
   apartmentResult?: Record<string, unknown>;
+  convenienceStoreResult?: Record<string, unknown>;
   clinicResult?: Record<string, unknown>;
   recyclingResult?: Record<string, unknown>;
   stripClubResult?: Record<string, unknown>;
@@ -79,6 +80,7 @@ export const createBuildingActionReportNotification = (
       exchangeResult: input.exchangeResult,
       arcadeResult: input.arcadeResult,
       apartmentResult: input.apartmentResult,
+      convenienceStoreResult: input.convenienceStoreResult,
       clinicResult: input.clinicResult,
       recyclingResult: input.recyclingResult,
       stripClubResult: input.stripClubResult,

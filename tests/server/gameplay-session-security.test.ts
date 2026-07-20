@@ -14,6 +14,7 @@ import { createInMemoryHostedControlPlaneRepository, type HostedServerRecord } f
 import { createInMemoryAdminDurableRepositories, type AdminDurableRepositories } from "../../apps/server/src/admin/read-only";
 import { createGameplaySliceFunctionHandler } from "../../apps/server/src/netlify/gameplay-slice-function";
 import { ensureDefaultLobbyServers } from "../../apps/server/src/netlify/gameplay-slice-function-default-servers";
+import { ensureGameplaySliceMembershipInState } from "../../apps/server/src/bootstrap/gameplay-slice-session-membership";
 import { createAdminReadOnlySeed } from "../fixtures/admin-read-only-fixture";
 import { createPlaceTrapCommandFixture } from "../fixtures/command-fixtures";
 
@@ -22,6 +23,8 @@ const env = {
   GAMEPLAY_SLICE_SNAPSHOT_SECRET: "test-snapshot-secret",
   GAMEPLAY_SLICE_SESSION_SECRET: "test-session-secret"
 };
+const PRODUCTION_SNAPSHOT_SECRET = "production-snapshot-secret-at-least-32-characters";
+const PRODUCTION_SESSION_SECRET = "production-session-secret-at-least-32-characters";
 
 const serverInstanceId = "instance:free:eu-central:public-1";
 
@@ -57,8 +60,8 @@ describe("gameplay session security", () => {
 
     try {
       process.env.NODE_ENV = "production";
-      process.env.GAMEPLAY_SLICE_SNAPSHOT_SECRET = "production-snapshot-secret";
-      process.env.GAMEPLAY_SLICE_SESSION_SECRET = "production-session-secret";
+      process.env.GAMEPLAY_SLICE_SNAPSHOT_SECRET = PRODUCTION_SNAPSHOT_SECRET;
+      process.env.GAMEPLAY_SLICE_SESSION_SECRET = PRODUCTION_SESSION_SECRET;
       delete process.env.EMPIRE_DATABASE_URL;
       delete process.env.GAMEPLAY_DATABASE_URL;
       const handler = createGameplaySliceFunctionHandler();
@@ -124,6 +127,30 @@ describe("gameplay session security", () => {
     expect(load.json.accepted).toBe(false);
     expect(load.json.readModel).toBeNull();
     expect(load.json.errors[0].code).toBe("SESSION_REQUIRED");
+  });
+
+  it("rejects an unauthenticated load before restoring or mutating runtime state", async () => {
+    const server = createServerApp({ environment: env });
+    ensureDefaultLobbyServers(server);
+    const runtime = server.instanceManager.getInstanceById(serverInstanceId);
+    expect(runtime).toBeDefined();
+    if (!runtime) return;
+    runtime.state.root = {
+      ...runtime.state.root,
+      version: 73
+    };
+    const stateBefore = runtime.state;
+    const handler = createGameplaySliceFunctionHandler({ environment: env, server });
+
+    const load = await readBody(handler(postEvent("/api/gameplay-slice/load", {
+      serverInstanceId,
+      snapshotToken: "forged-snapshot-token"
+    })));
+
+    expect(load.json.accepted).toBe(false);
+    expect(load.json.errors[0].code).toBe("SESSION_REQUIRED");
+    expect(runtime.state).toBe(stateBefore);
+    expect(runtime.state.root.version).toBe(73);
   });
 
   it("uses a join ticket once and binds load/submit/logout to the server session", async () => {
@@ -209,8 +236,8 @@ describe("gameplay session security", () => {
   it("uses HttpOnly cookie sessions in production and blocks body token fallback", async () => {
     const productionEnv = {
       NODE_ENV: "production",
-      GAMEPLAY_SLICE_SNAPSHOT_SECRET: "test-snapshot-secret",
-      GAMEPLAY_SLICE_SESSION_SECRET: "test-session-secret",
+      GAMEPLAY_SLICE_SNAPSHOT_SECRET: PRODUCTION_SNAPSHOT_SECRET,
+      GAMEPLAY_SLICE_SESSION_SECRET: PRODUCTION_SESSION_SECRET,
       EMPIRE_ALLOWED_ORIGINS: "https://play.empire.test"
     };
     const sessionService = createInMemoryGameplaySessionService({
@@ -224,6 +251,22 @@ describe("gameplay session security", () => {
       gameplaySessionService: sessionService
     });
     ensureDefaultLobbyServers(server);
+    const registration = await sessionService.getOrCreateRegistration({
+      accountId: "account:alice",
+      serverInstanceId,
+      nowIso: new Date().toISOString()
+    });
+    const runtime = server.instanceManager.getInstanceById(serverInstanceId)!;
+    runtime.state.serverInstance.worldSeed = "production-test-seed";
+    const membership = ensureGameplaySliceMembershipInState(runtime.state, {
+      serverInstanceId,
+      playerId: registration.playerId,
+      factionId: "mafian",
+      mode: "free"
+    });
+    expect(membership.accepted).toBe(true);
+    runtime.state = membership.state;
+    await server.instanceManager.saveInstanceSnapshot(serverInstanceId);
     const adminRepositories = createHostedProductionFixture(serverInstanceId);
     const handler = createGameplaySliceFunctionHandler({
       environment: productionEnv,
@@ -500,6 +543,18 @@ describe("gameplay session security", () => {
         serverInstanceId
       }
     });
+
+    await expect(service.revokeAccountSessions("account:persistent", "2026-06-24T00:00:04.000Z"))
+      .resolves.toBe(1);
+    await expect(service.validateSession({
+      sessionId: session.sessionId,
+      accountId: "account:persistent",
+      serverInstanceId,
+      nowIso: "2026-06-24T00:00:05.000Z"
+    })).resolves.toMatchObject({
+      accepted: false,
+      errors: [{ code: "SESSION_REVOKED" }]
+    });
   });
 });
 
@@ -584,6 +639,20 @@ const createFakeGameplayIdentitySessionRepository = (): GameplayIdentitySessionR
       });
       return true;
     },
+    revokeAccountSessions: async (accountId, revokedAt) => {
+      let count = 0;
+      for (const session of sessions.values()) {
+        if (session.accountId === accountId && !session.revokedAt) {
+          sessions.set(session.sessionId, {
+            ...session,
+            revokedAt,
+            version: session.version + 1
+          });
+          count += 1;
+        }
+      }
+      return count;
+    },
     revokePlayerSessions: async (playerId, revokedAt) => {
       let count = 0;
       for (const session of sessions.values()) {
@@ -629,12 +698,12 @@ const createHostedProductionFixture = (id: string): AdminDurableRepositories => 
   const memory = createInMemoryAdminDurableRepositories({ instances: [summary] });
   const hosted: HostedServerRecord = {
     serverInstanceId: id, mode: "free", displayName: "Production fixture", region: "EU Central",
-    capacity: 20, status: "lobby", joinPolicy: "open", provisioningState: "ready",
+    capacity: 20, status: "running", joinPolicy: "open", provisioningState: "ready",
     worldSeed: "production-test-seed", configVersion: 1,
     mapComposition: { downtown: 8, commercial: 40, residential: 38, industrial: 38, park: 37 },
     initialSnapshotId: "snapshot:test", currentSnapshotId: "snapshot:test",
     runtimeLeaseOwnerId: "worker:test", runtimeLeaseExpiresAt: new Date(now.getTime() + 30_000).toISOString(),
-    lastWorkerHeartbeatAt: now.toISOString(), lastStartedAt: null, lastPausedAt: null, lastStoppedAt: null,
+    lastWorkerHeartbeatAt: now.toISOString(), lastStartedAt: now.toISOString(), lastPausedAt: null, lastStoppedAt: null,
     lastErrorCode: null, createdByAdminUserId: "admin-user:test", createdAt: now.toISOString(),
     updatedAt: now.toISOString(), version: 1
   };

@@ -168,6 +168,7 @@ const mapNotificationToReport = (notification: Notification): ConflictReportView
       exchangeResult: asUnknownRecord(payload.exchangeResult),
       arcadeResult: asUnknownRecord(payload.arcadeResult),
       apartmentResult: asUnknownRecord(payload.apartmentResult),
+      convenienceStoreResult: asUnknownRecord(payload.convenienceStoreResult),
       clinicResult: asUnknownRecord(payload.clinicResult),
       recyclingResult: asUnknownRecord(payload.recyclingResult),
       stripClubResult: asUnknownRecord(payload.stripClubResult),

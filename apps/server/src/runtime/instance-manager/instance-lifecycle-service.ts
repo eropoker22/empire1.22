@@ -8,8 +8,10 @@ import { writeDiagnosticLog } from "../logging";
 import type { CommandDispatchOptions } from "../orchestration/command-dispatch-options";
 import { restoreOrCreateInitialState } from "../snapshots/instance-restore-service";
 import { runInstanceTick } from "../scheduling/tick-runner";
+import { runAtomicInstanceTick } from "../scheduling/atomic-tick-runner";
 import type { InstanceCommandDispatchResult } from "../orchestration/instance-command-dispatch-result";
 import { dispatchInstanceCommand } from "./instance-command-dispatch";
+import type { RuntimeTickLeaseFence } from "./atomic-command-transaction";
 
 export type { CommandDispatchOptions } from "../orchestration/command-dispatch-options";
 
@@ -63,8 +65,10 @@ export class InstanceLifecycleService {
     runtime.record.status = "stopped";
     runtime.record.stoppedAt = runtime.clock.nowIso();
     runtime.scheduler.isRunning = false;
-    void runtime.snapshotController.save(runtime).catch(() => undefined);
-    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "snapshot", "Stop triggered snapshot save.", {}, runtime.clock).catch(() => undefined);
+    if (!runtime.atomicCommandTransaction) {
+      void runtime.snapshotController.save(runtime).catch(() => undefined);
+      void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "snapshot", "Stop triggered snapshot save.", {}, runtime.clock).catch(() => undefined);
+    }
     runtime.eventPublisher.publish({
       type: "instance-status-changed",
       payload: { status: runtime.record.status },
@@ -99,6 +103,10 @@ export class InstanceLifecycleService {
     return runInstanceTick(runtime, runtime.clock);
   }
 
+  tickDurably(runtime: ServerInstanceRuntime, runtimeLeaseFence?: RuntimeTickLeaseFence): Promise<ServerInstanceRuntime> {
+    return runAtomicInstanceTick(runtime, runtime.clock, runtimeLeaseFence);
+  }
+
   async dispatch(
     runtime: ServerInstanceRuntime,
     command: GameCommand,
@@ -118,7 +126,7 @@ export class InstanceLifecycleService {
     );
     runtime.record.status = status;
     runtime.scheduler.isRunning = schedulerRunning;
-    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "snapshot", "Instance restored from snapshot or initial state.", {}, runtime.clock).catch(() => undefined);
+    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "snapshot", "Instance restore completed; warm state was retained when no snapshot existed.", {}, runtime.clock).catch(() => undefined);
     return runtime;
   }
 }

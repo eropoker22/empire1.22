@@ -7,6 +7,10 @@ export const PHASE_LOCKED_BUILDING_ACTION_RULES = Object.freeze({
     allowedPhase: "night",
     blockedReason: "VIP noc můžeš spustit jen v noci."
   }),
+  vip_lounge: Object.freeze({
+    allowedPhase: "night",
+    blockedReason: "Hostit VIP klienty můžeš jen v noci."
+  }),
   black_charter: Object.freeze({
     allowedPhase: "night",
     blockedReason: "Černý charter odlétá jen v noci."

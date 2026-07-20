@@ -444,8 +444,7 @@ export function createBuildingUpgradeConfirmationViewModel({
   const benefitModel = resolveBuildingUpgradeBenefits({ currentMechanics, nextMechanics, warehouseUpgradePreview });
   return {
     buildingLabel: buildingTypeLabel,
-    titleLabel: `${buildingTypeLabel} · L${currentLevel} → L${nextLevel}`,
-    description: "Potvrzením posuneš typ budovy na vyšší úroveň a okamžitě získáš nové bonusy.",
+    titleLabel: buildingTypeLabel,
     upgradeLabel: `L${currentLevel} → L${nextLevel}`,
     costLabel: currentMechanics.upgradeCostLabel || "$0",
     benefits: benefitModel.benefits,

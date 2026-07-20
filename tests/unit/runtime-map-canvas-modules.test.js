@@ -92,6 +92,30 @@ describe("map canvas extraction modules", () => {
     expect(context.calls.some(([name]) => name === "fillText")).toBe(false);
   });
 
+  it("anchors the alliance emblem inside the district top-left corner", () => {
+    const context = createFakeContext();
+    const district = createDistrict();
+    const animations = createMapCanvasAnimationRenderers({
+      getPolygonBounds: () => ({ minX: 20, minY: 20, maxX: 80, maxY: 80, width: 60, height: 60 }),
+      drawDistrictPolygonPath: () => true,
+      drawDistrictPolygon: () => true,
+      createSeededRandom: () => () => 0.5,
+      clamp: (value, min, max) => Math.min(max, Math.max(min, value)),
+      getLaunchPlayerColor: () => "#67e1ff",
+      getCurrentPlayerGangColor: () => "#67e1ff",
+      getCurrentPlayerFactionGlyph: () => "◆",
+      hexToRgbParts: () => [103, 225, 255]
+    });
+
+    animations.drawAllianceDistrictBadge(context, district, { symbol: "A", color: "#67e1ff" }, true);
+
+    const firstArc = context.calls.find(([name]) => name === "arc");
+    expect(firstArc?.[1]).toBeGreaterThan(20);
+    expect(firstArc?.[1]).toBeLessThan(50);
+    expect(firstArc?.[2]).toBeGreaterThan(20);
+    expect(firstArc?.[2]).toBeLessThan(50);
+  });
+
   it("renders a district canvas through the extracted renderer", () => {
     const context = createFakeContext();
     const canvas = { width: 120, height: 80, getContext: () => context };
@@ -113,6 +137,37 @@ describe("map canvas extraction modules", () => {
     expect(geometry.districts).toHaveLength(1);
     expect(context.calls.some(([name]) => name === "clearRect")).toBe(true);
     expect(context.calls.some(([name]) => name === "badge")).toBe(false);
+  });
+
+  it("draws public alliance badges for current and foreign district owners", () => {
+    const context = createFakeContext();
+    const canvas = { width: 120, height: 80, getContext: () => context };
+    const currentDistrict = createDistrict();
+    const foreignDistrict = { ...createDistrict(), id: 2, centerX: 90 };
+    const badgeOwners = [];
+    const drawnBadges = [];
+    const renderer = createDistrictCanvasRenderer({
+      createDistrictGeometry: () => ({ width: 120, height: 80, districts: [currentDistrict, foreignDistrict] }),
+      getEffectiveOwnedDistrictIds: () => new Set([currentDistrict.id, foreignDistrict.id]),
+      getCurrentPlayerOwnedDistrictIds: () => new Set([currentDistrict.id]),
+      getAllianceMapBadge: (ownerId) => {
+        badgeOwners.push(String(ownerId));
+        return { symbol: "A", ownerId };
+      },
+      drawAllianceDistrictBadge: (_context, district, badge) => drawnBadges.push([district.id, String(badge.ownerId)]),
+      getDistrictFillStyle: () => "rgba(103, 225, 255, 0.16)",
+      drawDistrictPolygon: () => {},
+      getLaunchPlayerColor: () => "#67e1ff",
+      currentPlayerId: "player:1"
+    });
+
+    renderer.renderDistrictCanvas(canvas, "night", {
+      mapVisibilityMode: "only-player",
+      districtOwnerById: { 1: "player:1", 2: "player:2" }
+    });
+
+    expect(badgeOwners).toEqual(["player:1", "player:2"]);
+    expect(drawnBadges).toEqual([[1, "player:1"], [2, "player:2"]]);
   });
 
   it("keeps activity effects in a separate canvas and omits foreign player tags", () => {

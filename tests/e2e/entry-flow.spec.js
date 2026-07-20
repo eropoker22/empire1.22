@@ -156,7 +156,7 @@ test.describe("entry flow", () => {
     await assertNoRuntimeErrors(errors);
   });
 
-  test("manual game page without active server redirects to lobby", async ({ page }) => {
+  test("manual local-demo game page without active server stays available", async ({ page }) => {
     const errors = createRuntimeErrorMonitor(page);
     await seedE2eSession(page, {
       registration: {
@@ -173,9 +173,9 @@ test.describe("entry flow", () => {
     });
 
     await page.goto("/pages/game.html", { waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(/\/pages\/lobby\.html$/);
-    await expect(page.getByTestId("lobby-page")).toBeVisible();
-    await expect(page.getByTestId("server-list")).toBeVisible();
+    await waitForMapReady(page);
+    await expect(page).toHaveURL(/\/pages\/game\.html$/);
+    await expect(page.locator("html")).toHaveAttribute("data-runtime-mode", "local-demo");
     await assertNoRuntimeErrors(errors);
   });
 });

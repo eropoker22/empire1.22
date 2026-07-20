@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { dismissBlockingGameOverlays } from "./helpers/empireSmokeHelpers.js";
 
 const SESSION_KEY = "empireStreets.session.v1";
 const SCOPED_SESSION_KEY = "empireStreets.session.free.instance-free-eu-central-public-1.v1";
@@ -99,6 +100,7 @@ async function openLocalGame(page) {
     && document.querySelector("#game-root")?.dataset?.runtimeInit === "ready"
     && document.documentElement?.dataset?.runtimeMode === "local-demo"
   ));
+  await dismissBlockingGameOverlays(page);
 }
 
 async function readSession(page) {
@@ -153,7 +155,7 @@ test("local-demo production chain keeps queues, partial collect and inventory sy
   const cleanBeforeChemicals = (await readSession(page)).economy.cleanMoney;
   await chemicals.locator(".pharmacy-slot__quantity-btn").last().click();
   await chemicals.getByRole("button", { name: "Spustit" }).click();
-  await expect(metric(chemicals, "Ve frontě")).toHaveText("2/8 ks");
+  await expect(metric(chemicals, "Ve frontě")).toHaveText("2/15 ks");
   const chemicalsJob = await readProductionJob(page, "pharmacy:chemicals");
   expect(chemicalsJob.cleanMoneyCost).toBe(720);
   expect((await readSession(page)).economy.cleanMoney).toBeLessThan(cleanBeforeChemicals);
@@ -161,7 +163,7 @@ test("local-demo production chain keeps queues, partial collect and inventory sy
   await finishProductionJob(page, "pharmacy:chemicals");
   await finishProductionJob(page, "pharmacy:chemicals");
   await expect(metric(chemicals, "Vyrobeno")).toHaveText("2/12 ks");
-  await expect(metric(chemicals, "Ve frontě")).toHaveText("0/8 ks");
+  await expect(metric(chemicals, "Ve frontě")).toHaveText("0/15 ks");
   await pharmacy.locator("[data-production-building-collect]").click();
   await expect(metric(chemicals, "Vyrobeno")).toHaveText("1/12 ks");
   expect((await readSession(page)).inventory.materials.chemicals).toBe(60);
@@ -172,7 +174,7 @@ test("local-demo production chain keeps queues, partial collect and inventory sy
   const cleanAfterBiomassStart = (await readSession(page)).economy.cleanMoney;
   const reservedBeforeCancel = (await readProductionJob(page, "pharmacy:biomass")).cleanMoneyCost;
   await biomass.getByRole("button", { name: "Zrušit" }).click();
-  await expect(metric(biomass, "Ve frontě")).toHaveText("1/6 ks");
+  await expect(metric(biomass, "Ve frontě")).toHaveText("1/11 ks");
   const cleanAfterCancel = (await readSession(page)).economy.cleanMoney;
   const reservedAfterCancel = (await readProductionJob(page, "pharmacy:biomass")).cleanMoneyCost;
   expect(cleanAfterCancel - cleanAfterBiomassStart).toBeGreaterThanOrEqual(420);
@@ -200,9 +202,10 @@ test("local-demo production chain keeps queues, partial collect and inventory sy
   await page.locator("[data-factory-popup-open]").click();
   const factory = page.locator("[data-factory-popup]");
   await expect(factory.locator(".factory-slot")).toHaveCount(3);
-  await cardByHeading(page, factory, ".factory-slot", "Metal Parts").getByRole("button", { name: "Spustit" }).click();
+  const metalParts = cardByHeading(page, factory, ".factory-slot", "Metal Parts");
+  await metalParts.getByRole("button", { name: "Spustit" }).click();
   await finishFactoryUnit(page, "metalParts");
-  await expect(factory.locator("[data-factory-resource-metal]")).toHaveText(/^1\s*\/\s*10$/);
+  await expect(metric(metalParts, "Vyrobeno")).toHaveText("1/10 ks");
   await factory.locator("[data-factory-collect]").click();
   await closePopup(page, "[data-factory-popup]", "[data-factory-popup-close]");
 
@@ -222,9 +225,9 @@ test("local-demo production chain keeps queues, partial collect and inventory sy
   expect((await readSession(page)).inventory.weapons.smg).toBe(1);
 
   const pistol = cardByHeading(page, armory, ".armory-slot", "Pistole");
-  for (let index = 1; index < 4; index += 1) await pistol.locator(".armory-slot__quantity-btn").last().click();
+  for (let index = 1; index < 8; index += 1) await pistol.locator(".armory-slot__quantity-btn").last().click();
   await pistol.getByRole("button", { name: "Spustit" }).click();
-  await expect(metric(pistol, "Ve frontě")).toHaveText("4/4 ks");
+  await expect(metric(pistol, "Ve frontě")).toHaveText("8/8 ks");
   await expect(pistol.locator(".armory-slot__quantity-btn").last()).toBeDisabled();
   await expect(pistol.getByRole("button", { name: "Spustit" })).toBeDisabled();
   await closePopup(page, "[data-armory-popup]", "[data-armory-popup-close]");

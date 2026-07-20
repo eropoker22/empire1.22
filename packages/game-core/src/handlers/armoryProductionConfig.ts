@@ -1,4 +1,5 @@
 import type { ArmoryBalanceConfig, ArmoryRecipeCategory, ArmoryRecipeId } from "../contracts";
+import { MINIMUM_PRODUCTION_QUEUE_RESERVE } from "./productionLineShared";
 
 const RECIPE_IDS: readonly ArmoryRecipeId[] = [
   "baseball-bat", "pistol", "grenade", "smg", "bazooka",
@@ -42,6 +43,9 @@ export const validateArmoryProductionConfig = (config: ArmoryBalanceConfig): voi
       if (!Number.isInteger(value) || value <= 0) {
         throw new Error("Armory recipe \"" + recipeId + "\" requires positive integer timing and capacities.");
       }
+    }
+    if (recipe.queueCap < recipe.localOutputCap + MINIMUM_PRODUCTION_QUEUE_RESERVE) {
+      throw new Error("Armory recipe \"" + recipeId + "\" requires room for three queued items above local output capacity.");
     }
     if (recipeId in HIGH_TIER_INPUTS
       && !hasExactInputCosts(recipe.inputCosts, HIGH_TIER_INPUTS[recipeId as keyof typeof HIGH_TIER_INPUTS])) {

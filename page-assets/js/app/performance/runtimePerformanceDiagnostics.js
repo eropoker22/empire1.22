@@ -63,7 +63,8 @@ export function createRuntimePerformanceDiagnostics(options = {}) {
   const development = options.development ?? isDevelopmentRuntime(windowRef);
   const requestedMode = readRequestedGameplayExecutionMode(windowRef);
   const configuredMode = readConfiguredGameplayExecutionMode(windowRef);
-  const allowLocalDemo = development || configuredMode === GAMEPLAY_EXECUTION_MODES.localDemo;
+  let allowLocalDemo = requestedMode === GAMEPLAY_EXECUTION_MODES.localDemo
+    || configuredMode === GAMEPLAY_EXECUTION_MODES.localDemo;
   let runtimeMode = requestedMode || getGameplayExecutionMode({ windowRef });
   const metrics = initializeRuntimeMetrics(getPerformanceMetrics(windowRef), runtimeMode);
   const activeLocalTickLabels = new Set();
@@ -71,6 +72,12 @@ export function createRuntimePerformanceDiagnostics(options = {}) {
   const clientStateRecomputeTimestamps = [];
   let lastServerSliceFingerprint = "";
   let lastLoggedSummary = "";
+
+  const refreshLocalDemoPermission = () => {
+    allowLocalDemo ||= readRequestedGameplayExecutionMode(windowRef) === GAMEPLAY_EXECUTION_MODES.localDemo
+      || readConfiguredGameplayExecutionMode(windowRef) === GAMEPLAY_EXECUTION_MODES.localDemo;
+    return allowLocalDemo;
+  };
 
   const syncRates = (nowMs = Date.now()) => {
     metrics.serverSliceRefreshPerMinute = pruneTimestamps(serverSliceRefreshTimestamps, nowMs);
@@ -132,7 +139,8 @@ export function createRuntimePerformanceDiagnostics(options = {}) {
 
   const setMode = (nextMode, details = {}) => {
     const normalizedMode = normalizeGameplayExecutionMode(nextMode) || GAMEPLAY_EXECUTION_MODES.unavailable;
-    runtimeMode = !allowLocalDemo && DEV_RUNTIME_MODES.has(normalizedMode)
+    const localDemoAllowed = refreshLocalDemoPermission();
+    runtimeMode = !localDemoAllowed && DEV_RUNTIME_MODES.has(normalizedMode)
       ? GAMEPLAY_EXECUTION_MODES.unavailable
       : normalizedMode;
     metrics.runtimeMode = runtimeMode;
@@ -197,9 +205,9 @@ export function createRuntimePerformanceDiagnostics(options = {}) {
     logSummary: () => logSummary(true),
     setMode,
     setLocalTickActive,
-    shouldAllowDemoFallback: () => allowLocalDemo && runtimeMode === GAMEPLAY_EXECUTION_MODES.localDemo,
-    shouldRunLocalTick: () => allowLocalDemo && DEV_RUNTIME_MODES.has(runtimeMode),
-    shouldRunLocalProjection: () => allowLocalDemo && DEV_RUNTIME_MODES.has(runtimeMode),
+    shouldAllowDemoFallback: () => refreshLocalDemoPermission() && runtimeMode === GAMEPLAY_EXECUTION_MODES.localDemo,
+    shouldRunLocalTick: () => refreshLocalDemoPermission() && DEV_RUNTIME_MODES.has(runtimeMode),
+    shouldRunLocalProjection: () => refreshLocalDemoPermission() && DEV_RUNTIME_MODES.has(runtimeMode),
     getLocalTickIntervalMs: (baseIntervalMs) => {
       const safeBase = Math.max(1, Number(baseIntervalMs || 1));
       const isDemoFallback = runtimeMode === GAMEPLAY_EXECUTION_MODES.localDemo;

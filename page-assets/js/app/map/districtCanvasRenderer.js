@@ -15,6 +15,21 @@ function noopDrawAnimation() {}
 function noopGetBadge() { return null; }
 function noopGetMarkers() { return new Map(); }
 
+function getDistrictOwnerFromLookup(lookup, districtId) {
+  if (!lookup || districtId === null || districtId === undefined) {
+    return null;
+  }
+
+  const candidates = [districtId, String(districtId), `district:${districtId}`];
+  for (const candidate of candidates) {
+    const ownerId = lookup instanceof Map ? lookup.get(candidate) : lookup[candidate];
+    if (ownerId !== null && ownerId !== undefined && String(ownerId).trim()) {
+      return ownerId;
+    }
+  }
+  return null;
+}
+
 export function createDistrictCanvasRenderer(deps = {}) {
   const {
     districtGeometryTopInset = 0,
@@ -387,8 +402,9 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
   const effectiveOwnedDistrictIds = getEffectiveOwnedDistrictIds(interactionState);
   const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
   const launchOwnerByDistrictId = interactionState.launchOwnerByDistrictId || startPhaseOwnerByDistrictId;
+  const districtOwnerById = interactionState.districtOwnerById || {};
   const getDistrictAllianceBadge = (ownerId) => (
-    showAllianceSymbols && mapVisibilityMode !== "only-player" && ownerId !== null && ownerId !== undefined
+    showAllianceSymbols && ownerId !== null && ownerId !== undefined
       ? getAllianceMapBadge(ownerId)
       : null
   );
@@ -440,6 +456,13 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
     const isDowntownDistrict = String(district.districtType || "").trim().toLowerCase() === "downtown";
     const rawLaunchOwnerId = launchOwnerByDistrictId.get(district.id) ?? null;
     const launchOwnerId = !isOwnedByCurrentPlayer ? rawLaunchOwnerId : null;
+    const districtOwnerId = isOwnedByCurrentPlayer
+      ? currentPlayerId
+      : getDistrictOwnerFromLookup(districtOwnerById, district.id)
+        ?? rawLaunchOwnerId
+        ?? district.ownerPlayerId
+        ?? district.ownerId
+        ?? null;
     const shouldShowLaunchOwnerMarker = showAllianceSymbols && mapVisibilityMode === "all" && Boolean(launchOwnerId);
     const launchOwnerColor = launchOwnerId ? getLaunchPlayerColor(launchOwnerId) : null;
     const currentPlayerColor = getLaunchPlayerColor(currentPlayerId);
@@ -501,24 +524,12 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
       context.restore();
     }
 
-    if (shouldShowLaunchOwnerMarker && launchOwnerId === currentPlayerId) {
-      const allianceBadge = getDistrictAllianceBadge(currentPlayerId);
+    if (!isDestroyed && districtOwnerId !== null && districtOwnerId !== undefined) {
+      const allianceBadge = getDistrictAllianceBadge(districtOwnerId);
       if (allianceBadge) {
         drawAllianceDistrictBadge(context, district, allianceBadge, isNight);
-      } else {
+      } else if (shouldShowLaunchOwnerMarker && launchOwnerId === currentPlayerId) {
         drawCurrentPlayerFactionBadge(context, district, isNight);
-      }
-    } else if (shouldShowLaunchOwnerMarker) {
-      const allianceBadge = getDistrictAllianceBadge(launchOwnerId);
-      if (allianceBadge) {
-        drawAllianceDistrictBadge(context, district, allianceBadge, isNight);
-      }
-    }
-
-    if (!launchOwnerId && isOwned && !isOwnedByCurrentPlayer) {
-      const allianceBadge = getDistrictAllianceBadge(district.ownerPlayerId ?? district.ownerId ?? null);
-      if (allianceBadge) {
-        drawAllianceDistrictBadge(context, district, allianceBadge, isNight);
       }
     }
 

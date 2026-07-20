@@ -66,6 +66,11 @@ await writeFile(
   [
     "https://www.empirestreets.cz/* https://empirestreets.cz/:splat 301!",
     "http://www.empirestreets.cz/* https://empirestreets.cz/:splat 301!",
+    "/api/servers /.netlify/functions/gameplay-slice/servers 200!",
+    "/api/admin/* /.netlify/functions/gameplay-slice/admin/:splat 200!",
+    "/api/account/* /.netlify/functions/gameplay-slice/account/:splat 200!",
+    "/api/lobby/* /.netlify/functions/gameplay-slice/lobby/:splat 200!",
+    "/api/gameplay-slice/* /.netlify/functions/gameplay-slice/:splat 200!",
     "/ /pages/login.html 200",
     "/login.html /pages/login.html 200",
     "/lobby.html /pages/lobby.html 200",

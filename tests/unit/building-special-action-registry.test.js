@@ -287,8 +287,7 @@ describe("building special action registry", () => {
       }
     });
 
-    expect(definition.confirmBody).toContain("Po potvrzení se akce spustí");
-    expect(definition.confirmBody).not.toContain("byly");
+    expect(definition.confirmBody).toBe("");
     expect(definition.shortDescription).toBe("Akce se spustí po potvrzení.");
     expect(definition.rewardSummary).toContain("Clean +$180");
   });

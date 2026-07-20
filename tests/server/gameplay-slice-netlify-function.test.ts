@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { webcrypto } from "node:crypto";
+import { createInMemoryGameplaySessionService } from "../../apps/server/src/auth";
 import { createServerApp, type ServerApp } from "../../apps/server/src/app";
 import { enabledSharedCitySpawnDistrictIds } from "../../apps/server/src/bootstrap/gameplay-slice-spawn-pool";
 import { createGameplaySliceFunctionHandler } from "../../apps/server/src/netlify/gameplay-slice-function";
@@ -7,6 +8,8 @@ import { createGameplaySessionTokenCodec } from "../../apps/server/src/transport
 
 const PUBLIC_FREE_SERVER_INSTANCE_ID = "instance:free:eu-central:public-1";
 const DEFAULT_SPAWN_DISTRICT_ID = enabledSharedCitySpawnDistrictIds[0]!;
+const PRODUCTION_SNAPSHOT_SECRET = "production-snapshot-secret-at-least-32-characters";
+const PRODUCTION_SESSION_SECRET = "production-session-secret-at-least-32-characters";
 
 const postEvent = (
   path: string,
@@ -136,6 +139,39 @@ const createPlaceTrapBody = (
 });
 
 describe("gameplay slice Netlify function", () => {
+  it("creates one bounded shared PostgreSQL authority for a default production handler", () => {
+    const database = {
+      query: vi.fn(),
+      transaction: vi.fn(),
+      close: vi.fn()
+    };
+    const databaseFactory = vi.fn(() => database as never);
+
+    createGameplaySliceFunctionHandler({
+      cryptoProvider: () => webcrypto,
+      environment: {
+        NODE_ENV: "production",
+        EMPIRE_DATABASE_URL: "postgresql://example:example@database.test:5432/empire",
+        EMPIRE_PERSISTENCE_DRIVER: "postgres",
+        GAMEPLAY_PERSISTENCE_DRIVER: "postgres",
+        GAMEPLAY_SLICE_SNAPSHOT_SECRET: PRODUCTION_SNAPSHOT_SECRET,
+        GAMEPLAY_SLICE_SESSION_SECRET: PRODUCTION_SESSION_SECRET
+      },
+      databaseFactory
+    });
+
+    expect(databaseFactory).toHaveBeenCalledTimes(1);
+    expect(databaseFactory).toHaveBeenCalledWith(
+      "postgresql://example:example@database.test:5432/empire",
+      {
+        max: 4,
+        idleTimeoutMillis: 10_000,
+        connectionTimeoutMillis: 5_000,
+        allowExitOnIdle: true
+      }
+    );
+  });
+
   it("allows the explicit dev/test snapshot secret fallback outside production", async () => {
     const handler = createTestHandler({
       NODE_ENV: "test"
@@ -178,10 +214,10 @@ describe("gameplay slice Netlify function", () => {
     });
   });
 
-  it("rejects production loads by default when the gameplay session runtime is not production-ready", async () => {
+  it("rejects production requests when the dedicated gameplay session secret is missing", async () => {
     const handler = createTestHandler({
       NODE_ENV: "production",
-      GAMEPLAY_SLICE_SNAPSHOT_SECRET: "test-production-snapshot-secret"
+      GAMEPLAY_SLICE_SNAPSHOT_SECRET: PRODUCTION_SNAPSHOT_SECRET
     });
     const load = await readBody(
       handler(
@@ -195,29 +231,99 @@ describe("gameplay slice Netlify function", () => {
 
     expect(load.statusCode).toBe(500);
     expect(load.json.accepted).toBe(false);
-    expect(load.json.errors[0].code).toBe("SESSION_INVALID");
+    expect(load.json.errors[0].code).toBe("transport.session_secret_unavailable");
+  });
+
+  it("rejects production requests when the snapshot secret is shorter than 32 characters", async () => {
+    const handler = createTestHandler({
+      NODE_ENV: "production",
+      GAMEPLAY_SLICE_SNAPSHOT_SECRET: "short-snapshot-secret",
+      GAMEPLAY_SLICE_SESSION_SECRET: PRODUCTION_SESSION_SECRET
+    });
+    const load = await readBody(handler(postEvent("/api/gameplay-slice/load", {
+      serverInstanceId: "instance:function-short-snapshot-secret",
+      playerId: "player:function-short-snapshot-secret"
+    })));
+
+    expect(load.statusCode).toBe(500);
+    expect(load.json.errors[0].code).toBe("transport.snapshot_secret_unavailable");
+  });
+
+  it("rejects production requests when the gameplay session secret is shorter than 32 characters", async () => {
+    const handler = createTestHandler({
+      NODE_ENV: "production",
+      GAMEPLAY_SLICE_SNAPSHOT_SECRET: PRODUCTION_SNAPSHOT_SECRET,
+      GAMEPLAY_SLICE_SESSION_SECRET: "short-session-secret"
+    });
+    const load = await readBody(handler(postEvent("/api/gameplay-slice/load", {
+      serverInstanceId: "instance:function-short-session-secret",
+      playerId: "player:function-short-session-secret"
+    })));
+
+    expect(load.statusCode).toBe(500);
+    expect(load.json.errors[0].code).toBe("transport.session_secret_unavailable");
+  });
+
+  it("rejects production requests when snapshot and gameplay session secrets are identical", async () => {
+    const handler = createTestHandler({
+      NODE_ENV: "production",
+      GAMEPLAY_SLICE_SNAPSHOT_SECRET: PRODUCTION_SNAPSHOT_SECRET,
+      GAMEPLAY_SLICE_SESSION_SECRET: PRODUCTION_SNAPSHOT_SECRET
+    });
+    const load = await readBody(handler(postEvent("/api/gameplay-slice/load", {
+      serverInstanceId: "instance:function-shared-production-secret",
+      playerId: "player:function-shared-production-secret"
+    })));
+
+    expect(load.statusCode).toBe(500);
+    expect(load.json.errors[0].code).toBe("transport.session_secret_unavailable");
   });
 
   it("keeps production fail-closed even if implicit instance creation is enabled for a test handler", async () => {
-    const handler = createTestHandler({
+    const environment = {
       NODE_ENV: "production",
-      GAMEPLAY_SLICE_SNAPSHOT_SECRET: "test-production-snapshot-secret"
-    }, {
-      allowImplicitInstanceCreation: true
+      GAMEPLAY_SLICE_SNAPSHOT_SECRET: PRODUCTION_SNAPSHOT_SECRET,
+      GAMEPLAY_SLICE_SESSION_SECRET: PRODUCTION_SESSION_SECRET,
+      EMPIRE_ALLOWED_ORIGINS: "https://play.empire.test"
+    };
+    const serverInstanceId = "instance:function-production-explicit-implicit";
+    const accountId = "account:function-production-explicit-implicit";
+    const gameplaySessionService = createInMemoryGameplaySessionService({ productionReady: true });
+    const server = createServerApp({
+      environment,
+      gameplaySessionTokenSecret: environment.GAMEPLAY_SLICE_SESSION_SECRET,
+      gameplaySessionService,
+      accountIdentityProvider: {
+        productionReady: true,
+        resolve: () => ({ accountId, provider: "production" })
+      }
     });
-    const load = await readBody(
+    const joinTicket = await gameplaySessionService.createJoinTicket({
+      accountId,
+      serverInstanceId,
+      mode: "free",
+      nowIso: new Date().toISOString()
+    });
+    const handler = createTestHandler(environment, {
+      allowImplicitInstanceCreation: true,
+      server
+    });
+    const join = await readBody(
       handler(
-        postEvent("/api/gameplay-slice/load", {
-          serverInstanceId: "instance:function-production-secret-explicit-implicit",
-          playerId: "player:function-production-secret-explicit-implicit",
-          districtId: "district:function-production-secret-explicit-implicit"
+        postEvent("/api/gameplay-slice/join", {
+          joinTicket: joinTicket.ticketId,
+          serverInstanceId,
+          preferredStartDistrictId: "district:function-production-explicit-implicit"
+        }, {
+          origin: environment.EMPIRE_ALLOWED_ORIGINS
         })
       )
     );
 
-    expect(load.statusCode).toBe(500);
-    expect(load.json.accepted).toBe(false);
-    expect(load.json.errors[0].code).toBe("SESSION_INVALID");
+    expect(join.statusCode).toBe(503);
+    expect(join.json.accepted).toBe(false);
+    expect(join.json.errors[0].code).toBe("server.runtime_authority_unavailable");
+    expect(server.instanceManager.getInstanceById(serverInstanceId)).toBeUndefined();
   });
 
   it("uses an explicit gameplay session secret separately from the snapshot secret", async () => {
@@ -379,12 +485,16 @@ describe("gameplay slice Netlify function", () => {
 
   it("rejects invalid snapshot tokens without leaking token details", async () => {
     const handler = createTestHandler();
+    const joined = await joinPublicFreeSession(handler, {
+      accountId: "function-invalid-snapshot-token"
+    });
     const load = await readBody(
       handler(
         postEvent("/api/gameplay-slice/load", {
-          serverInstanceId: "instance:function-invalid-snapshot-token",
-          playerId: "player:function-invalid-snapshot-token",
-          districtId: "district:function-invalid-snapshot-token",
+          serverInstanceId: joined.serverInstanceId,
+          playerId: joined.playerId,
+          districtId: joined.focusDistrictId,
+          sessionToken: joined.sessionToken,
           snapshotToken: "v1.invalid.invalid"
         })
       )
@@ -401,6 +511,44 @@ describe("gameplay slice Netlify function", () => {
         }
       ]
     });
+  });
+
+  it("does not overwrite a newer warm runtime with a stale persisted snapshot during load", async () => {
+    const environment = {
+      NODE_ENV: "test",
+      GAMEPLAY_SLICE_SNAPSHOT_SECRET: "test-warm-load-snapshot-secret",
+      GAMEPLAY_SLICE_SESSION_SECRET: "test-warm-load-session-secret"
+    };
+    const server = createServerApp({ environment });
+    const handler = createTestHandler(environment, { server });
+    const joined = await joinPublicFreeSession(handler, {
+      accountId: "function-warm-load"
+    });
+    const runtime = server.instanceManager.getInstanceById(joined.serverInstanceId);
+    if (!runtime) {
+      throw new Error("Expected the joined runtime to exist.");
+    }
+    await server.instanceManager.saveInstanceSnapshot(joined.serverInstanceId);
+    const warmState = runtime.state;
+    runtime.state.root.tick = 9;
+    runtime.state.root.version += 1;
+    const warmVersion = runtime.state.root.version;
+
+    const load = await readBody(handler(postEvent("/api/gameplay-slice/load", {
+      serverInstanceId: joined.serverInstanceId,
+      playerId: joined.playerId,
+      districtId: joined.focusDistrictId,
+      sessionToken: joined.sessionToken,
+      snapshotToken: joined.snapshotToken
+    })));
+
+    expect(load.statusCode).toBe(200);
+    expect(load.json.accepted).toBe(true);
+    expect(load.json.readModel.server.currentTick).toBe(9);
+    expect(load.json.readModel.server.stateVersion).toBe(warmVersion);
+    expect(runtime.state).toBe(warmState);
+    expect(runtime.state.root.districtIds).toHaveLength(161);
+    expect(runtime.state.playersById[joined.playerId]).toBeDefined();
   });
 
   it("loads and submits the first gameplay slice through the HTTP adapters", async () => {
@@ -584,7 +732,7 @@ describe("gameplay slice Netlify function", () => {
 
     expect(wrongPlayer.json.errors[0].code).toBe("PLAYER_IDENTITY_MISMATCH");
     expect(wrongPlayer.json.readModel).toBeNull();
-    expect(wrongInstance.json.errors[0].code).toBe("PLAYER_IDENTITY_MISMATCH");
+    expect(wrongInstance.json.errors[0].code).toBe("SESSION_INVALID");
     expect(wrongInstance.json.readModel).toBeNull();
   });
 

@@ -3,13 +3,14 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <meta name="empire-gameplay-execution-mode" content="auto">
+    <meta name="empire-gameplay-execution-mode" content="server-authoritative">
     <title>Empire Streets | Game Shell</title>
     <link rel="stylesheet" href="../page-assets/css/styles.css?v=mobile-special-actions-20260718-7">
     <link rel="stylesheet" href="../page-assets/css/styles-game-admin-slice.css">
     <link rel="stylesheet" href="../page-assets/css/styles-gameplay-slice-client.css?v=result-popup-center-20260528">
     <link rel="stylesheet" href="../page-assets/css/styles-closed-alpha-ux.css">
     <link rel="stylesheet" href="../page-assets/css/styles-game-lobby-modal.css?v=lobby-actions-20260717">
+    <link rel="stylesheet" href="../page-assets/css/styles-server-milestone-cards.css?v=server-milestones-20260719">
   </head>
   <body class="game-body game-body--booting">
     <header id="game-header" class="game-topbar">
@@ -60,7 +61,7 @@
           <div id="game-left-nav" class="panel-action-stack" aria-label="Left panel actions">
             <div id="city-events-card-anchor" hidden aria-hidden="true"></div>
             <section id="city-events-card" class="city-events-card" aria-label="City Events">
-              <button class="button panel-action-button events-hero" id="city-events-open" type="button" aria-label="City Events, lokální demo">
+              <button class="button panel-action-button events-hero" id="city-events-open" type="button" aria-label="City Events">
                 <span class="city-events-btn__icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" role="presentation" focusable="false">
                     <rect x="3.5" y="4.5" width="17" height="16" rx="3"></rect>
@@ -118,12 +119,6 @@
                   </button>
                 </div>
               </div>
-              <section class="player-boost-pinned" data-player-boost-pinned hidden aria-label="Aktivní strategický boost">
-                <span class="player-boost-pinned__badge" data-player-boost-pinned-badge>AKTIVNÍ</span>
-                <strong data-player-boost-pinned-title></strong>
-                <span data-player-boost-pinned-effect></span>
-                <span class="player-boost-pinned__time" data-player-boost-pinned-time></span>
-              </section>
               <p class="building-action-status__summary" data-building-action-summary>Zatím tu nejsou žádné poslední akce. Panel je připravený pro výsledek výroby, craftu nebo jiné budoucí události.</p>
               <p class="building-action-status__meta" data-building-action-meta>Čeká na první herní akci</p>
               <p class="building-action-status__empty" data-building-action-empty>Žádné uliční zprávy. Jakmile se něco stane, první záznam skočí sem.</p>
@@ -316,15 +311,15 @@
               </span>
               <span class="alliance-launcher__body">
                 <span class="alliance-launcher__eyebrow">Aliance</span>
-                <strong class="alliance-launcher__name" data-alliance-launcher-name>Načítám alianci…</strong>
+                <strong class="alliance-launcher__name" data-alliance-launcher-name></strong>
               </span>
             </button>
           </div>
           <div id="global-chat-card-anchor" hidden aria-hidden="true"></div>
           <div id="global-chat-card" class="right-panel-card">
-            <section class="alliance-chat server-chat-panel" aria-label="Demo chat">
+            <section class="alliance-chat server-chat-panel" aria-label="Městský chat">
               <div class="server-chat-panel__composer-head">
-                <div class="alliance-chat__title">Demo chat</div>
+                <div class="alliance-chat__title">Městský chat</div>
                 <button id="alliance-chat-send" type="button" class="button server-chat-panel__send server-chat-panel__send--arrow" aria-label="Odeslat zprávu" title="Odeslat" data-global-chat-send>
                   <span aria-hidden="true">→</span>
                 </button>
@@ -332,7 +327,7 @@
               <div id="alliance-chat-log" class="alliance-chat__log server-chat-panel__feed" data-global-chat-log>
                 <div class="alliance-chat__item server-chat-panel__message">
                   <span class="server-chat-panel__author">System:</span>
-                  <span class="server-chat-panel__text">Demo chat je lokální kanál tohoto prohlížeče.</span>
+                  <span class="server-chat-panel__text">Globální chat se připravuje. Chat aliance je dostupný uvnitř aliance.</span>
                 </div>
                 <div class="alliance-chat__item server-chat-panel__message">
                   <span class="server-chat-panel__author">Info:</span>
@@ -340,8 +335,8 @@
                 </div>
               </div>
               <div class="alliance-chat__input server-chat-panel__composer">
-                <input id="alliance-chat-input" type="text" class="server-chat-panel__input" placeholder="Napiš zprávu do demo chatu..." aria-label="Zpráva do demo chatu" data-global-chat-input>
-                <div class="server-chat-panel__status" id="global-chat-status">Zprávy zůstávají jen v tomhle prohlížeči.</div>
+                <input id="alliance-chat-input" type="text" class="server-chat-panel__input" placeholder="Napiš zprávu do městského chatu..." aria-label="Zpráva do městského chatu" data-global-chat-input>
+                <div class="server-chat-panel__status" id="global-chat-status">Pro komunikaci se spojenci otevři alianci.</div>
               </div>
             </section>
           </div>
@@ -397,6 +392,7 @@
           <div class="district-modal-hero district-modal-hero--district" data-district-popup-atmosphere data-testid="district-atmosphere-trigger" role="button" tabindex="0" aria-expanded="false" aria-label="Zobrazit atmosféru distriktu">
             <img class="district-modal-hero__image" data-district-popup-atmosphere-image alt="Atmosféra distriktu" loading="lazy">
             <div class="district-modal-hero__scrim"></div>
+            <span class="district-popup-alliance" data-district-popup-alliance hidden></span>
             <div class="district-modal-hero__copy">
               <span class="district-popup-eyebrow" data-district-popup-atmosphere-label>Neznámý sektor</span>
               <h3 class="district-popup-title" data-district-popup-title>District 1</h3>
@@ -1525,24 +1521,6 @@
 
           <div class="building-detail-actions building-detail-actions--factory">
             <div class="building-detail-actions__group">
-              <div class="building-detail-actions__label">Vyrobeno</div>
-              <div class="factory-resource-strip">
-                <div class="factory-resource-pill" data-resource-color="metal-parts">
-                  <span>Metal Parts</span>
-                  <strong data-factory-resource-metal>0</strong>
-                </div>
-                <div class="factory-resource-pill" data-resource-color="tech-core">
-                  <span>Tech Core</span>
-                  <strong data-factory-resource-tech>0</strong>
-                </div>
-                <div class="factory-resource-pill" data-resource-color="combat-module">
-                  <span>Bojový modul</span>
-                  <strong data-factory-resource-combat>0</strong>
-                </div>
-              </div>
-            </div>
-
-            <div class="building-detail-actions__group">
               <div class="building-detail-actions__label">Produkce</div>
               <div class="factory-slot-list factory-slot-grid" data-factory-slot-list></div>
             </div>
@@ -2008,7 +1986,6 @@
           </div>
           <div class="modal__body boost-modal__body">
             <section id="boost-modal-status" class="boost-modal__active-panel" data-boost-active-panel>
-              <span class="boost-modal__active-badge" data-boost-active-badge>SYSTÉM PŘIPRAVEN</span>
               <div>
                 <strong data-boost-active-title>Žádný aktivní protokol</strong>
                 <span data-boost-active-effect>Komponenty jsou připravené k aktivaci.</span>
@@ -2017,8 +1994,6 @@
               <span class="boost-modal__progress" aria-hidden="true"><i data-boost-active-progress></i></span>
             </section>
             <section id="boost-modal-content" class="boost-modal__grid" aria-label="Dostupné boost protokoly"></section>
-            <p class="boost-modal__rule">Boost nelze po aktivaci zrušit. Cooldown začíná okamžitě.</p>
-            <p class="boost-modal__feedback" data-boost-feedback aria-live="polite"></p>
           </div>
         </div>
       </div>
@@ -2176,7 +2151,7 @@
           <div class="game-admin-slice-surface">
             <aside class="game-admin-slice-surface__sidebar">
               <section class="mount-point game-admin-slice-surface__mount" data-game-slice-nav>
-                <h3 class="placeholder-title">Gameplay slice demo</h3>
+                <h3 class="placeholder-title">Herní stav</h3>
               </section>
               <section class="mount-point game-admin-slice-surface__mount" data-game-slice-filter>
                 <h3 class="placeholder-title">Current selection</h3>
@@ -2205,7 +2180,8 @@
         class="gameplay-slice-client"
         data-gameplay-slice-client
         data-gameplay-slice-endpoint-base="/api/gameplay-slice"
-        data-gameplay-slice-polling="false"
+        data-gameplay-slice-polling="true"
+        data-gameplay-slice-polling-interval-ms="5000"
         aria-label="Server-authoritative gameplay slice"
         hidden
       >
@@ -2231,48 +2207,34 @@
         <div class="elimination-result-popup__body" data-elimination-result-popup-body></div>
       </section>
     </div>
-    <div class="final-lockdown-modal" data-final-lockdown-modal="start" hidden>
-      <div class="final-lockdown-modal__backdrop" data-final-lockdown-close></div>
-      <section class="final-lockdown-modal__card" role="dialog" aria-modal="true" aria-labelledby="final-lockdown-start-title" tabindex="-1">
-        <button type="button" class="button final-lockdown-modal__close" data-final-lockdown-close aria-label="Zavřít Final Lockdown">×</button>
-        <span class="final-lockdown-modal__eyebrow">FINAL LOCKDOWN</span>
-        <h2 id="final-lockdown-start-title">Město se uzavírá</h2>
-        <p class="final-lockdown-modal__lead">Začíná poslední boj o Empire score. Každý district, budova a rozhodnutí teď rozhodují o pořadí.</p>
-        <div class="final-lockdown-modal__stats">
-          <div class="final-lockdown-modal__stat">
-            <span>Tvoje pozice</span>
-            <strong data-final-lockdown-rank>--</strong>
+    <div class="server-milestone-modal" data-server-milestone-modal hidden>
+      <div class="server-milestone-modal__backdrop" data-server-milestone-close></div>
+      <section class="server-milestone-card" role="dialog" aria-modal="true" aria-labelledby="server-milestone-title" aria-describedby="server-milestone-lead" tabindex="-1">
+        <div class="server-milestone-card__scanlines" aria-hidden="true"></div>
+        <header class="server-milestone-card__header">
+          <div class="server-milestone-card__signal" aria-hidden="true">
+            <span></span><span></span><span></span>
           </div>
-          <div class="final-lockdown-modal__stat">
-            <span>Empire score</span>
-            <strong data-final-lockdown-score>--</strong>
-          </div>
-          <div class="final-lockdown-modal__stat">
-            <span>Zbývá</span>
-            <strong data-final-lockdown-remaining>--</strong>
+          <span class="server-milestone-card__terminal">EMPIRE // SERVEROVÉ HLÁŠENÍ</span>
+          <button type="button" class="button server-milestone-card__close" data-server-milestone-close aria-label="Zavřít serverové hlášení">×</button>
+        </header>
+        <div class="server-milestone-card__content">
+          <div class="server-milestone-card__main">
+            <span class="server-milestone-card__eyebrow" data-server-milestone-eyebrow>VÍTEJ NA SERVERU</span>
+            <h2 id="server-milestone-title" data-server-milestone-title>Válka o město začíná</h2>
+            <p id="server-milestone-lead" class="server-milestone-card__lead" data-server-milestone-lead></p>
+            <p class="server-milestone-card__copy" data-server-milestone-copy></p>
+            <div class="server-milestone-card__stats" data-server-milestone-stats></div>
+            <div class="server-milestone-card__ranking" data-server-milestone-ranking hidden>
+              <span class="server-milestone-card__section-label">PRVNÍ TŘI MÍSTA</span>
+              <ol data-server-milestone-ranking-list></ol>
+            </div>
+            <blockquote class="server-milestone-card__callout" data-server-milestone-callout></blockquote>
           </div>
         </div>
-        <div class="final-lockdown-modal__ranking">
-          <span class="final-lockdown-modal__section-label">Aktuální čelo</span>
-          <ol data-final-lockdown-start-ranking></ol>
-        </div>
-        <button type="button" class="button final-lockdown-modal__confirm" data-final-lockdown-close>Jdu do finále</button>
-      </section>
-    </div>
-    <div class="final-lockdown-modal final-lockdown-modal--results" data-final-lockdown-modal="results" hidden>
-      <div class="final-lockdown-modal__backdrop" data-final-lockdown-close></div>
-      <section class="final-lockdown-modal__card" role="dialog" aria-modal="true" aria-labelledby="final-lockdown-results-title" tabindex="-1">
-        <button type="button" class="button final-lockdown-modal__close" data-final-lockdown-close aria-label="Zavřít konečné výsledky">×</button>
-        <span class="final-lockdown-modal__eyebrow">VÝSLEDKY FINAL LOCKDOWNU</span>
-        <h2 id="final-lockdown-results-title">Město zná své pořadí</h2>
-        <p class="final-lockdown-modal__lead" data-final-lockdown-results-summary>Konečný Empire score rozhodl o vítězích této hry.</p>
-        <div class="final-lockdown-modal__results-table-wrap">
-          <table class="final-lockdown-modal__results-table">
-            <thead><tr><th>#</th><th>Hráč</th><th>Empire score</th><th>Districty</th></tr></thead>
-            <tbody data-final-lockdown-results-ranking></tbody>
-          </table>
-        </div>
-        <button type="button" class="button final-lockdown-modal__confirm" data-final-lockdown-close>Zavřít výsledky</button>
+        <footer class="server-milestone-card__footer">
+          <button type="button" class="button server-milestone-card__confirm" data-server-milestone-confirm>Pokračovat</button>
+        </footer>
       </section>
     </div>
     <div class="elimination-countdown-warning" data-elimination-countdown-warning hidden aria-live="polite" aria-atomic="true">

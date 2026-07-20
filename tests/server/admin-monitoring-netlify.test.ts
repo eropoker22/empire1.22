@@ -42,6 +42,80 @@ describe("read-only admin Netlify boundary", () => {
     expect(login.headers["set-cookie"]).toContain("Secure");
   });
 
+  it("creates a requested hosted server over authenticated owner HTTP and replays idempotently", async () => {
+    const repositories = await createRepositories("owner");
+    const now = new Date("2026-07-16T10:00:00.000Z");
+    const environment = {
+      ...TEST_ENV,
+      EMPIRE_ADMIN_WRITES_ENABLED: "true",
+      EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true",
+      EMPIRE_SERVER_PROVISIONING_ENABLED: "true"
+    };
+    await repositories.hosted.writeWorkerHeartbeat({
+      workerId: "worker:admin-http-test",
+      workerIncarnationId: "worker-incarnation:admin-http-test",
+      region: "eu-central",
+      buildSha: "admin-http-test",
+      startedAt: now.toISOString(),
+      lastHeartbeatAt: now.toISOString(),
+      status: "online"
+    });
+    const handler = createAdminReadOnlyNetlifyHandler({
+      repositories,
+      environment,
+      now: () => now,
+      allowInMemoryForTests: true
+    });
+    const login = await handler(request("POST", "/api/admin/session", {
+      username: TEST_USERNAME,
+      password: TEST_PASSWORD
+    }));
+    const headers = {
+      ...cookie(login),
+      "idempotency-key": "admin-http-create-server-0001",
+      "x-request-id": "admin-http-create-server"
+    };
+    const payload = {
+      mode: "free",
+      displayName: "Admin HTTP Hosted Test",
+      region: "eu-central",
+      capacity: 20,
+      joinPolicy: "closed",
+      mapComposition: { downtown: 8, commercial: 40, residential: 38, industrial: 38, park: 37 }
+    };
+
+    const first = await json(handler(request("POST", "/api/admin/servers", payload, headers)));
+    const replay = await json(handler(request("POST", "/api/admin/servers", payload, headers)));
+
+    expect(first.statusCode).toBe(202);
+    expect(first.json).toMatchObject({
+      accepted: true,
+      data: {
+        replayed: false,
+        server: {
+          displayName: payload.displayName,
+          mode: "free",
+          status: "requested",
+          provisioningState: "requested",
+          joinPolicy: "closed"
+        },
+        provisioningJobId: expect.any(String)
+      },
+      errors: []
+    });
+    expect(replay.statusCode).toBe(202);
+    expect(replay.json).toMatchObject({
+      accepted: true,
+      data: {
+        replayed: true,
+        server: { serverInstanceId: first.json.data.server.serverInstanceId },
+        provisioningJobId: first.json.data.provisioningJobId
+      },
+      errors: []
+    });
+    await expect(repositories.hosted.listServers()).resolves.toHaveLength(1);
+  });
+
   it("rate limits repeated failures durably and audits authentication/access/logout", async () => {
     const repositories = await createRepositories("viewer");
     const handler = createAdminReadOnlyNetlifyHandler({ repositories, environment: TEST_ENV });

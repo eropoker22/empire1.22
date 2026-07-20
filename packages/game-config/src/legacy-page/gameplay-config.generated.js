@@ -29,7 +29,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 120000,
       "localOutputCap": 12,
-      "queueCap": 8
+      "queueCap": 15
     },
     "biomass": {
       "name": "Biomass",
@@ -42,7 +42,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 240000,
       "localOutputCap": 8,
-      "queueCap": 6
+      "queueCap": 11
     },
     "stim-pack": {
       "name": "Stim Pack",
@@ -55,7 +55,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 600000,
       "localOutputCap": 4,
-      "queueCap": 3
+      "queueCap": 7
     }
   },
   "drugLabRecipes": {
@@ -72,7 +72,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 300000,
       "localOutputCap": 10,
-      "queueCap": 8
+      "queueCap": 13
     },
     "pulse-shot": {
       "name": "Pulse Shot",
@@ -88,7 +88,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 480000,
       "localOutputCap": 6,
-      "queueCap": 5
+      "queueCap": 9
     },
     "velvet-smoke": {
       "name": "Velvet Smoke",
@@ -104,7 +104,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 900000,
       "localOutputCap": 5,
-      "queueCap": 4
+      "queueCap": 8
     },
     "ghost-serum": {
       "name": "Ghost Serum",
@@ -120,7 +120,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 1200000,
       "localOutputCap": 2,
-      "queueCap": 2
+      "queueCap": 5
     },
     "overdrive-x": {
       "name": "Overdrive X",
@@ -136,7 +136,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 1800000,
       "localOutputCap": 1,
-      "queueCap": 1
+      "queueCap": 4
     }
   },
   "armoryRecipes": {
@@ -153,7 +153,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 180000,
       "localOutputCap": 8,
-      "queueCap": 6
+      "queueCap": 11
     },
     "pistol": {
       "name": "Pistole",
@@ -169,7 +169,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 300000,
       "localOutputCap": 5,
-      "queueCap": 4
+      "queueCap": 8
     },
     "grenade": {
       "name": "Granát",
@@ -185,7 +185,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 360000,
       "localOutputCap": 4,
-      "queueCap": 4
+      "queueCap": 7
     },
     "smg": {
       "name": "SMG",
@@ -201,7 +201,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 480000,
       "localOutputCap": 3,
-      "queueCap": 3
+      "queueCap": 6
     },
     "bazooka": {
       "name": "Bazuka",
@@ -217,7 +217,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 840000,
       "localOutputCap": 2,
-      "queueCap": 2
+      "queueCap": 5
     },
     "vest": {
       "name": "Vesta",
@@ -233,7 +233,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 300000,
       "localOutputCap": 5,
-      "queueCap": 4
+      "queueCap": 8
     },
     "barricades": {
       "name": "Barikády",
@@ -248,7 +248,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 300000,
       "localOutputCap": 6,
-      "queueCap": 5
+      "queueCap": 9
     },
     "cameras": {
       "name": "Kamery",
@@ -264,7 +264,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 360000,
       "localOutputCap": 4,
-      "queueCap": 4
+      "queueCap": 7
     },
     "defense-tower": {
       "name": "Obranná věž",
@@ -280,7 +280,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 900000,
       "localOutputCap": 2,
-      "queueCap": 2
+      "queueCap": 5
     },
     "alarm": {
       "name": "Alarm",
@@ -296,7 +296,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 300000,
       "localOutputCap": 4,
-      "queueCap": 4
+      "queueCap": 7
     }
   },
   "playerBoosts": {
@@ -6489,7 +6489,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 240000,
       "localOutputCap": 10,
-      "queueCap": 8
+      "queueCap": 13
     },
     "tech-core": {
       "name": "Tech Core",
@@ -6504,7 +6504,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 480000,
       "localOutputCap": 5,
-      "queueCap": 4
+      "queueCap": 8
     },
     "combat-module": {
       "name": "Bojový modul",
@@ -6520,7 +6520,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "durationMs": 900000,
       "localOutputCap": 2,
-      "queueCap": 2
+      "queueCap": 5
     }
   },
   "factory": {
@@ -6555,7 +6555,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         },
         "durationMs": 240000,
         "localOutputCap": 10,
-        "queueCap": 8
+        "queueCap": 13
       },
       "tech-core": {
         "name": "Tech Core",
@@ -6570,7 +6570,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         },
         "durationMs": 480000,
         "localOutputCap": 5,
-        "queueCap": 4
+        "queueCap": 8
       },
       "combat-module": {
         "name": "Bojový modul",
@@ -6586,7 +6586,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         },
         "durationMs": 900000,
         "localOutputCap": 2,
-        "queueCap": 2
+        "queueCap": 5
       }
     }
   },
@@ -7131,9 +7131,16 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "dirtyCashPerMinute": 18,
       "influencePerMinute": 0.1,
       "heatPerMinute": 0.05,
-      "noSpecialActions": true,
+      "noSpecialActions": false,
       "noLaundering": true,
       "noAuditRisk": true,
+      "populationPerMinute": 0.8333333333333334,
+      "basePopulationCapacity": 50,
+      "collectPopulation": {
+        "actionId": "collect_convenience_store_population",
+        "cooldownMinutes": 0,
+        "minCollectPopulation": 30
+      },
       "passiveRumorIntervalMinutes": 10,
       "maxRumorChecksPerPlayerPerInterval": 1,
       "baseRumorChancePct": 11,
@@ -7183,7 +7190,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "maxDirtyIncomeMultiplier": 1.25,
         "maxInfluenceMultiplier": 1.3,
         "maxRumorMultiplier": 1.45,
-        "maxHeatMultiplier": 1.16
+        "maxHeatMultiplier": 1.16,
+        "populationPerMinuteBonusPerExtraStore": 0.08333333333333333
       },
       "restaurantSynergy": {
         "firstStoreThreshold": 3,
@@ -7209,8 +7217,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       ],
       "cleanCashPerMinute": 75,
       "dirtyCashPerMinute": 65,
-      "influencePerMinute": 0.38,
-      "heatPerMinute": 0.18,
+      "influencePerMinute": 0.0625,
+      "heatPerMinute": 0.059027777777777776,
       "noLaundering": true,
       "noAuditRisk": true,
       "passiveRumorIntervalMinutes": 30,

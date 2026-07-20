@@ -2810,7 +2810,7 @@ describe("run-building-action command flow", () => {
     expect(projection.selectedDistrictFeed.some((event) => event.id === restaurantCityFeedEvent?.id)).toBe(true);
   });
 
-  it("runs Convenience Store as passive street cash, influence, heat, and rumor building without actions", () => {
+  it("runs Convenience Store as passive street cash, population, influence, heat, and rumor building", () => {
     const { state, building } = createStateWithFixedBuilding("convenience_store", {
       id: "building:district-1:convenience_store:1",
       playerBalances: {
@@ -2840,12 +2840,16 @@ describe("run-building-action command flow", () => {
     expect(result.districtsById["district:1"].heat).toBeGreaterThan(0);
     expect(result.districtsById["district:1"].influence).toBeGreaterThan(0);
     expect(context.config.balance.convenienceStore).toMatchObject({
-      noSpecialActions: true,
+      noSpecialActions: false,
       noLaundering: true,
       noAuditRisk: true,
       dirtyCashPerMinute: 18
     });
     expect((context.config.balance.buildingActions ?? {}).convenience_street_info).toBeUndefined();
+    expect((context.config.balance.buildingActions ?? {}).collect_convenience_store_population).toMatchObject({
+      actionId: "collect_convenience_store_population",
+      buildingType: "convenience_store"
+    });
   });
 
   it("generates Convenience Store passive rumors with restaurant synergy and without reliability visibility", () => {
@@ -2956,6 +2960,7 @@ describe("run-building-action command flow", () => {
         "dirty-cash": 0
       }
     });
+    state.root.tick = context.config.balance.dayNight?.phases.day.durationTicks ?? 1440;
     const first = applyCommand(
       state,
       createRunBuildingActionCommandFixture({
@@ -2984,7 +2989,8 @@ describe("run-building-action command flow", () => {
     expect(first.errors).toEqual([]);
     expect(first.nextState.resourceStatesById["resource:1"].balances.cash).toBe(4200);
     expect(first.nextState.buildingsById[building.id].metadata?.stripClub).toMatchObject({
-      vipLoungeExpiresAtTick: ticksForMs((context.config.balance.stripClub?.vipLounge.durationMinutes ?? 0) * 60 * 1000)
+      vipLoungeExpiresAtTick: state.root.tick
+        + ticksForMs((context.config.balance.stripClub?.vipLounge.durationMinutes ?? 0) * 60 * 1000)
     });
     expect(second.errors.map((error) => error.code)).toContain("building_action_cooldown");
     expect(second.errors.map((error) => error.code)).toContain("strip_club_vip_lounge_active");

@@ -33,6 +33,10 @@ describe("runtime performance diagnostics", () => {
 
   it("keeps local demo isolated until server-authoritative mode is selected", () => {
     const windowRef = createWindowFixture();
+    const meta = document.createElement("meta");
+    meta.name = "empire-gameplay-execution-mode";
+    meta.content = "local-demo";
+    document.head.append(meta);
     const diagnostics = createRuntimePerformanceDiagnostics({
       windowRef,
       documentRef: document,
@@ -94,6 +98,43 @@ describe("runtime performance diagnostics", () => {
       lastMapInvalidationReason: "ui:settings-change",
       mapEffectsQuality: "full",
       demoFallbackActive: false
+    });
+
+    meta.remove();
+  });
+
+  it("requires an explicit local-demo mode before enabling local authority on development hosts", () => {
+    const windowRef = createWindowFixture();
+    const diagnostics = createRuntimePerformanceDiagnostics({
+      windowRef,
+      documentRef: document,
+      development: true
+    });
+
+    expect(diagnostics.getSummary()).toMatchObject({
+      runtimeMode: "unavailable",
+      localTickActive: false,
+      localProjectionActive: false,
+      serverSliceActive: false,
+      demoFallbackActive: false
+    });
+    expect(diagnostics.shouldAllowDemoFallback()).toBe(false);
+  });
+
+  it("accepts an explicit demo mode selected by the game entry after diagnostics boot", () => {
+    const windowRef = createWindowFixture();
+    const diagnostics = createRuntimePerformanceDiagnostics({
+      windowRef,
+      documentRef: document,
+      development: true
+    });
+
+    windowRef.__EMPIRE_GAMEPLAY_EXECUTION_MODE__ = "local-demo";
+    expect(diagnostics.setMode("local-demo", { reason: "game-entry-mode-selected" })).toBe("local-demo");
+    expect(diagnostics.getSummary()).toMatchObject({
+      runtimeMode: "local-demo",
+      localProjectionActive: true,
+      demoFallbackActive: true
     });
   });
 

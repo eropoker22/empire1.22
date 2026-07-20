@@ -9,9 +9,16 @@ export const freeModeConvenienceStoreConfig: ConvenienceStoreBalanceConfig = {
   dirtyCashPerMinute: 18,
   influencePerMinute: 0.1,
   heatPerMinute: 0.05,
-  noSpecialActions: true,
+  noSpecialActions: false,
   noLaundering: true,
   noAuditRisk: true,
+  populationPerMinute: 50 / 60,
+  basePopulationCapacity: 50,
+  collectPopulation: {
+    actionId: "collect_convenience_store_population",
+    cooldownMinutes: 0,
+    minCollectPopulation: 30
+  },
   passiveRumorIntervalMinutes: 10,
   maxRumorChecksPerPlayerPerInterval: 1,
   baseRumorChancePct: 11,
@@ -45,7 +52,8 @@ export const freeModeConvenienceStoreConfig: ConvenienceStoreBalanceConfig = {
     maxDirtyIncomeMultiplier: 1.25,
     maxInfluenceMultiplier: 1.3,
     maxRumorMultiplier: 1.45,
-    maxHeatMultiplier: 1.16
+    maxHeatMultiplier: 1.16,
+    populationPerMinuteBonusPerExtraStore: 5 / 60
   },
   restaurantSynergy: {
     firstStoreThreshold: 3,

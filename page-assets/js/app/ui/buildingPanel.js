@@ -170,7 +170,7 @@ export function renderBuildingsPopupDetail(mount, view = {}) {
       const button = createElement(
         mount,
         "button",
-        `button buildings-popup__building buildings-popup__building--type buildings-popup__building--interactive${item.baseName === view.activeBaseName ? " is-active" : ""}${item.apartmentIsFull ? " is-apartment-full" : ""}${item.clinicStabilizationReady ? " is-clinic-stabilization-ready" : ""}${item.schoolIsFull ? " is-school-full" : ""}`
+        `button buildings-popup__building buildings-popup__building--type buildings-popup__building--interactive${item.baseName === view.activeBaseName ? " is-active" : ""}${item.apartmentIsFull ? " is-apartment-full" : ""}${item.clinicStabilizationReady ? " is-clinic-stabilization-ready" : ""}${item.schoolIsFull ? " is-school-full" : ""}${item.convenienceStoreIsFull ? " is-convenience-store-full" : ""}${item.productionSlotIsFull ? " is-production-slot-full" : ""}`
       );
       const name = createElement(mount, "span");
       const count = createElement(mount, "span");
@@ -186,6 +186,10 @@ export function renderBuildingsPopupDetail(mount, view = {}) {
         button.title = "Stabilizační protokol je připravený ke spuštění.";
       } else if (item.schoolIsFull) {
         button.title = "Škola je plná. Členové čekají na vybrání.";
+      } else if (item.convenienceStoreIsFull) {
+        button.title = "Večerka je plná. Obyvatelé čekají na vybrání.";
+      } else if (item.productionSlotIsFull) {
+        button.title = "Výrobní slot je plný. Vyzvedni hotový výstup.";
       }
       name.textContent = item.baseName || "Budova";
       count.textContent = `${Math.max(0, Number(item.count || 0))}x`;

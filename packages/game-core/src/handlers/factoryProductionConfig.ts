@@ -1,4 +1,5 @@
 import type { FactoryBalanceConfig } from "../contracts";
+import { MINIMUM_PRODUCTION_QUEUE_RESERVE } from "./productionLineShared";
 
 const REQUIRED_RECIPES = ["metal-parts", "tech-core", "combat-module"] as const;
 const KNOWN_RESOURCES = new Set(["metal-parts", "tech-core", "combat-module"]);
@@ -19,6 +20,9 @@ export const validateFactoryProductionConfig = (config: FactoryBalanceConfig): v
     }
     for (const value of [recipe.durationTicksPerUnit, recipe.localOutputCap, recipe.queueCap]) {
       if (!Number.isInteger(value) || value <= 0) throw new Error("Factory recipe \"" + recipeId + "\" requires positive integer timing and capacities.");
+    }
+    if (recipe.queueCap < recipe.localOutputCap + MINIMUM_PRODUCTION_QUEUE_RESERVE) {
+      throw new Error("Factory recipe \"" + recipeId + "\" requires room for three queued items above local output capacity.");
     }
   }
   const metal = config.recipes["metal-parts"];

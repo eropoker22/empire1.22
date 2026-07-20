@@ -176,7 +176,11 @@ describe("conflict command flow", () => {
       targetDistrictId: "district:2"
     });
 
-    const occupied = applyCommand(spy.nextState, createOccupyDistrictCommandFixture(), context);
+    const occupied = applyCommand(spy.nextState, createOccupyDistrictCommandFixture({
+      payload: {
+        expectedConflictRevision: spy.nextState.districtsById["district:2"].conflictRevision
+      }
+    }), context);
 
     expect(occupied.errors).toEqual([]);
     expect(occupied.nextState.districtsById["district:2"]?.ownerPlayerId).toBe("player:1");
@@ -198,7 +202,11 @@ describe("conflict command flow", () => {
       occupyUnlocked: false
     });
 
-    const occupied = applyCommand(partialSpy.nextState, createOccupyDistrictCommandFixture(), context);
+    const occupied = applyCommand(partialSpy.nextState, createOccupyDistrictCommandFixture({
+      payload: {
+        expectedConflictRevision: partialSpy.nextState.districtsById["district:2"].conflictRevision
+      }
+    }), context);
 
     expect(occupied.errors).toContainEqual(expect.objectContaining({
       code: "OCCUPY_SPY_REQUIRED"
@@ -228,7 +236,11 @@ describe("conflict command flow", () => {
         expect(blockedSpy.nextState.policeStatesById["police:1"]?.heat).toBeGreaterThan(0);
       }
 
-      const occupied = applyCommand(blockedSpy.nextState, createOccupyDistrictCommandFixture(), context);
+      const occupied = applyCommand(blockedSpy.nextState, createOccupyDistrictCommandFixture({
+        payload: {
+          expectedConflictRevision: blockedSpy.nextState.districtsById["district:2"].conflictRevision
+        }
+      }), context);
 
       expect(occupied.errors).toContainEqual(expect.objectContaining({
         code: "OCCUPY_SPY_REQUIRED"

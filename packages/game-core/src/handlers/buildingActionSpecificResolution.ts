@@ -9,6 +9,7 @@ import { resolveCasinoAction } from "./casinoBuildingActions";
 import { resolveCentralBankAction } from "./centralBankBuildingActions";
 import { resolveCityHallAction } from "./cityHallBuildingActions";
 import { resolveClinicAction } from "./clinicBuildingActions";
+import { resolveConvenienceStoreAction } from "./convenienceStoreBuildingActions";
 import { resolveExchangeOfficeAction } from "./exchangeOfficeBuildingActions";
 import { resolveLobbyClubAction } from "./lobbyClubBuildingActions";
 import { resolvePowerStationAction } from "./powerStationBuildingActions";
@@ -72,6 +73,15 @@ export const resolveBuildingActionSpecificResolution = (
         actionId: action.actionId,
         balances: nextBalances,
         apartmentConfig: context.config.balance.apartmentBlock
+      })
+    : null;
+  const convenienceStoreResolution = !casinoResolution && !exchangeOfficeResolution && !arcadeResolution && !apartmentBlockResolution && context.config.balance.convenienceStore
+    ? resolveConvenienceStoreAction({
+        state,
+        building,
+        actionId: action.actionId,
+        balances: nextBalances,
+        config: context.config.balance.convenienceStore
       })
     : null;
   const clinicResolution = !casinoResolution && !exchangeOfficeResolution && !arcadeResolution && !apartmentBlockResolution && context.config.balance.clinic
@@ -216,12 +226,13 @@ export const resolveBuildingActionSpecificResolution = (
         context
       })
     : null;
-  const specialResolution = casinoResolution ?? exchangeOfficeResolution ?? arcadeResolution ?? apartmentBlockResolution ?? clinicResolution ?? recyclingCenterResolution ?? stripClubResolution ?? powerStationResolution ?? smugglingTunnelResolution ?? stockExchangeResolution ?? airportResolution ?? cityHallResolution ?? centralBankResolution ?? schoolResolution ?? lobbyClubResolution ?? streetDealersResolution;
+  const specialResolution = casinoResolution ?? exchangeOfficeResolution ?? arcadeResolution ?? apartmentBlockResolution ?? convenienceStoreResolution ?? clinicResolution ?? recyclingCenterResolution ?? stripClubResolution ?? powerStationResolution ?? smugglingTunnelResolution ?? stockExchangeResolution ?? airportResolution ?? cityHallResolution ?? centralBankResolution ?? schoolResolution ?? lobbyClubResolution ?? streetDealersResolution;
   return {
     casinoResolution,
     exchangeOfficeResolution,
     arcadeResolution,
     apartmentBlockResolution,
+    convenienceStoreResolution,
     clinicResolution,
     recyclingCenterResolution,
     stripClubResolution,

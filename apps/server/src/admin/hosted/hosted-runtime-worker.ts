@@ -1,6 +1,4 @@
-import * as crypto from "node:crypto";
 import { handleSelectSpawnDistrict } from "@empire/game-core";
-import type { AdminAuditEntryView } from "@empire/shared-types";
 import type { ServerApp } from "../../app/server-app";
 import { ensureGameplaySliceMembershipInState } from "../../bootstrap/gameplay-slice-session-membership";
 import type { ServerInstanceRuntime } from "../../runtime/instance";
@@ -8,10 +6,11 @@ import { syncRuntimeCapacityStatus } from "../../runtime/instance-manager/server
 import { findSharedCitySpawnCandidate } from "../../bootstrap/gameplay-slice-shared-city-seed";
 import type { PostgresPlayerEntryRepository } from "../../player-entry/postgres-player-entry-repository";
 import type { HostedActionRequestRecord, HostedControlPlaneRepository, HostedServerRecord } from "./hosted-control-plane-repository";
-
+import { applyHostedEarlyLeaveCleanup, createHostedInstanceFailureReporter, createHostedWorkerAudit,
+  isSnapshotForHostedRecord, syncHostedRuntimeStatus } from "./hosted-runtime-worker-state";
+import { createHostedRuntimeLeaseClient } from "./hosted-runtime-lease-client";
 const CLAIM_TTL_MS = 30_000;
 const RUNTIME_LEASE_MS = 20_000;
-
 export const createHostedRuntimeWorker = (options: {
   workerId: string;
   region: string;
@@ -20,37 +19,54 @@ export const createHostedRuntimeWorker = (options: {
   server: ServerApp;
   playerEntry?: PostgresPlayerEntryRepository;
   now?: () => Date;
+  workerIncarnationId?: string;
 }) => {
   const now = options.now ?? (() => new Date());
+  const lease = createHostedRuntimeLeaseClient({ ...options, now });
+  const workerAudit = createHostedWorkerAudit(options.workerId);
   const startedAt = now().toISOString();
-  let stopped = false;
-
-  const heartbeat = (status: "online" | "draining" | "stopped" | "failed" = "online") =>
-    options.controlPlane.writeWorkerHeartbeat({ workerId: options.workerId, region: options.region,
-      buildSha: options.buildSha, startedAt, lastHeartbeatAt: now().toISOString(), status });
-
+  let stopped = false, drainRequested = false, heartbeatRegistered = false;
+  const requestDrain = (): void => { drainRequested = true; };
+  const reportInstanceFailure = createHostedInstanceFailureReporter({
+    writeInstanceHeartbeat: lease.writeInstanceHeartbeat,
+    instanceManager: options.server.instanceManager,
+    now
+  });
+  const heartbeat = async (status: "online" | "draining" | "stopped" | "failed" = "online") => {
+    await options.controlPlane.writeWorkerHeartbeat({ workerId: options.workerId, workerIncarnationId: lease.workerIncarnationId, region: options.region,
+      buildSha: options.buildSha, startedAt, lastHeartbeatAt: now().toISOString(), status }, !heartbeatRegistered);
+    heartbeatRegistered = true;
+  };
   const restoreKnownInstances = async (): Promise<void> => {
     const servers = await options.controlPlane.listServers();
     for (const record of servers.filter((entry) => entry.provisioningState === "ready"
       && ["lobby", "running", "paused", "restarting"].includes(entry.status))) {
       const at = now();
       const leaseExpiresAt = new Date(at.getTime() + RUNTIME_LEASE_MS).toISOString();
-      if (await options.controlPlane.acquireRuntimeLease({ serverInstanceId: record.serverInstanceId,
-        workerId: options.workerId, now: at.toISOString(), expiresAt: leaseExpiresAt })) {
-        await ensureRuntime(record, true);
+      try {
+        if (await lease.acquire(record.serverInstanceId, at.toISOString(), leaseExpiresAt)) {
+          await ensureRuntime(record, true);
+        }
+      } catch (error) {
+        await reportInstanceFailure(record, leaseExpiresAt, safeCode(error)).catch(() => undefined);
       }
     }
   };
 
   const runOnce = async (): Promise<void> => {
-    if (stopped) return;
-    await heartbeat();
-    await options.controlPlane.expireJoinReservations(now().toISOString());
-    await processProvisioningJob();
-    await processJoinJob();
-    await processMembershipJob();
-    await processAction();
-    await tickOwnedInstances();
+    const phases: ReadonlyArray<() => Promise<unknown>> = [
+      () => heartbeat(),
+      () => options.controlPlane.expireJoinReservations(now().toISOString()),
+      processProvisioningJob,
+      processJoinJob,
+      processMembershipJob,
+      processAction,
+      tickOwnedInstances
+    ];
+    for (const phase of phases) {
+      if (stopped || drainRequested) return;
+      await phase();
+    }
   };
 
   const processMembershipJob = async (): Promise<void> => {
@@ -66,8 +82,7 @@ export const createHostedRuntimeWorker = (options: {
       const server = await options.controlPlane.getServer(job.serverInstanceId);
       if (!server || server.provisioningState !== "ready") throw safe("MEMBERSHIP_SERVER_NOT_READY");
       const leaseExpiresAt = new Date(claimedAt.getTime() + RUNTIME_LEASE_MS).toISOString();
-      if (!await options.controlPlane.acquireRuntimeLease({ serverInstanceId: server.serverInstanceId,
-        workerId: options.workerId, now: claimedAt.toISOString(), expiresAt: leaseExpiresAt })) {
+      if (!await lease.acquire(server.serverInstanceId, claimedAt.toISOString(), leaseExpiresAt)) {
         throw safe("MEMBERSHIP_LEASE_UNAVAILABLE");
       }
       const runtime = await ensureRuntime(server, true);
@@ -75,6 +90,7 @@ export const createHostedRuntimeWorker = (options: {
       if (job.jobType === "activate") {
         if (!membership.factionId || !membership.avatarId || !membership.gangColor) throw safe("MEMBERSHIP_SETUP_INVALID");
         const existingPlayer = runtime.state.playersById[membership.playerId];
+        let stateChanged = false;
         if (!existingPlayer) {
           const created = ensureGameplaySliceMembershipInState(runtime.state, {
             serverInstanceId: membership.serverInstanceId,
@@ -113,12 +129,20 @@ export const createHostedRuntimeWorker = (options: {
           });
           if (spawn.errors.length > 0) throw safe("MEMBERSHIP_SPAWN_CLAIM_FAILED");
           runtime.state = spawn.nextState;
-        } else if (existingPlayer.homeDistrictId !== membership.reservedSpawnDistrictId
-          || existingPlayer.metadata?.membershipId !== membership.membershipId) {
-          throw safe("MEMBERSHIP_ACTIVATION_CONFLICT");
+          stateChanged = true;
+        } else {
+          const ensured = ensureGameplaySliceMembershipInState(runtime.state, { serverInstanceId: membership.serverInstanceId,
+            playerId: membership.playerId, factionId: membership.factionId, mode: server.mode });
+          if (!ensured.accepted) throw safe("MEMBERSHIP_PLAYER_RESTORE_FAILED");
+          runtime.state = ensured.state;
+          stateChanged = ensured.stateChanged;
+          if (existingPlayer.homeDistrictId !== membership.reservedSpawnDistrictId
+            || existingPlayer.metadata?.membershipId !== membership.membershipId) {
+            throw safe("MEMBERSHIP_ACTIVATION_CONFLICT");
+          }
         }
         syncRuntimeCapacityStatus(runtime);
-        await options.server.instanceManager.saveInstanceSnapshot(server.serverInstanceId);
+        if (stateChanged) await options.server.instanceManager.saveInstanceSnapshot(server.serverInstanceId);
         const ticket = await options.server.gameplaySessionService.createJoinTicket({
           ticketId: `join:membership:${membership.membershipId}`,
           accountId: membership.accountId,
@@ -132,9 +156,9 @@ export const createHostedRuntimeWorker = (options: {
           throw safe("MEMBERSHIP_ACTIVATION_COMMIT_CONFLICT");
         }
       } else {
-        applyEarlyLeaveCleanup(runtime, membership.playerId);
+        const stateChanged = applyHostedEarlyLeaveCleanup(runtime, membership.playerId);
         syncRuntimeCapacityStatus(runtime);
-        await options.server.instanceManager.saveInstanceSnapshot(server.serverInstanceId);
+        if (stateChanged) await options.server.instanceManager.saveInstanceSnapshot(server.serverInstanceId);
         await options.server.gameplaySessionService.revokePlayerSessions(membership.playerId, claimedAt.toISOString());
         if (!await options.playerEntry.completeLeave({ membershipId: membership.membershipId, jobId: job.jobId,
           workerId: options.workerId, at: now().toISOString() })) throw safe("MEMBERSHIP_LEAVE_COMMIT_CONFLICT");
@@ -160,8 +184,7 @@ export const createHostedRuntimeWorker = (options: {
         throw safe("JOIN_SERVER_NOT_READY");
       }
       const leaseExpiresAt = new Date(claimedAt.getTime() + RUNTIME_LEASE_MS).toISOString();
-      if (!await options.controlPlane.acquireRuntimeLease({ serverInstanceId: server.serverInstanceId,
-        workerId: options.workerId, now: claimedAt.toISOString(), expiresAt: leaseExpiresAt })) {
+      if (!await lease.acquire(server.serverInstanceId, claimedAt.toISOString(), leaseExpiresAt)) {
         throw safe("JOIN_LEASE_UNAVAILABLE");
       }
       const runtime = await ensureRuntime(server, true);
@@ -179,7 +202,7 @@ export const createHostedRuntimeWorker = (options: {
       if (!membership.accepted) throw safe("JOIN_MEMBERSHIP_REJECTED");
       runtime.state = membership.state;
       syncRuntimeCapacityStatus(runtime);
-      await options.server.instanceManager.saveInstanceSnapshot(server.serverInstanceId);
+      if (membership.stateChanged) await options.server.instanceManager.saveInstanceSnapshot(server.serverInstanceId);
       const ticket = await options.server.gameplaySessionService.createJoinTicket({
         ticketId: `join:${reservation.reservationId}`,
         accountId: reservation.playerIdentityId,
@@ -193,7 +216,7 @@ export const createHostedRuntimeWorker = (options: {
         throw safe("JOIN_COMMIT_CONFLICT");
       }
       const snapshot = await options.server.instanceManager.getPersistenceRepositories().snapshotRepository.loadLatest(server.serverInstanceId);
-      await options.controlPlane.writeInstanceHeartbeat({ serverInstanceId: server.serverInstanceId, workerId: options.workerId,
+      await lease.writeInstanceHeartbeat({ serverInstanceId: server.serverInstanceId,
         leaseExpiresAt, lastTick: runtime.state.root.tick, lastSnapshotAt: snapshot?.createdAt ?? null,
         lastErrorCode: null, at: now().toISOString() });
     } catch (error) {
@@ -208,55 +231,57 @@ export const createHostedRuntimeWorker = (options: {
   };
 
   const stop = async (): Promise<void> => {
+    requestDrain();
     if (stopped) return;
     stopped = true;
     await heartbeat("draining");
     for (const runtime of options.server.instanceManager.listInstances()) {
-      await options.server.instanceManager.saveInstanceSnapshot(runtime.record.id);
-      await options.controlPlane.releaseRuntimeLease(runtime.record.id, options.workerId, now().toISOString());
+      await lease.release(runtime.record.id, now().toISOString());
     }
     await heartbeat("stopped");
   };
 
   const processProvisioningJob = async (): Promise<void> => {
     const claimedAt = now();
-    const job = await options.controlPlane.claimProvisioningJob(options.workerId, claimedAt.toISOString(),
+    const job = await options.controlPlane.claimProvisioningJob(options.workerId, lease.workerIncarnationId, claimedAt.toISOString(),
       new Date(claimedAt.getTime() + CLAIM_TTL_MS).toISOString());
     if (!job) return;
+    const claim = { jobId: job.jobId, serverInstanceId: job.serverInstanceId, workerId: options.workerId,
+      workerIncarnationId: lease.workerIncarnationId, expectedJobVersion: job.version };
+    let provisioningBegan = false;
     try {
-      if (!await options.controlPlane.beginProvisioning(job.jobId, job.serverInstanceId, claimedAt.toISOString())) {
-        throw safe("PROVISIONING_STATE_CONFLICT");
-      }
       const record = await options.controlPlane.getServer(job.serverInstanceId);
       if (!record) throw safe("PROVISIONING_SERVER_NOT_FOUND");
       const leaseExpiresAt = new Date(claimedAt.getTime() + RUNTIME_LEASE_MS).toISOString();
-      if (!await options.controlPlane.acquireRuntimeLease({ serverInstanceId: record.serverInstanceId,
-        workerId: options.workerId, now: claimedAt.toISOString(), expiresAt: leaseExpiresAt })) {
+      if (!await lease.acquire(record.serverInstanceId, claimedAt.toISOString(), leaseExpiresAt)) {
         throw safe("PROVISIONING_LEASE_UNAVAILABLE");
       }
+      if (!await options.controlPlane.beginProvisioning({ ...claim, at: claimedAt.toISOString() }))
+        throw safe("PROVISIONING_STATE_CONFLICT");
+      provisioningBegan = true;
+      const snapshotRepository = options.server.instanceManager.getPersistenceRepositories().snapshotRepository;
+      const existingSnapshot = await snapshotRepository.loadLatest(record.serverInstanceId);
       const runtime = await ensureRuntime(record, true);
       runtime.lobby.joinPolicy = "closed";
       runtime.record.status = "lobby";
-      await options.server.instanceManager.saveInstanceSnapshot(record.serverInstanceId);
-      const snapshot = await options.server.instanceManager.getPersistenceRepositories().snapshotRepository.loadLatest(record.serverInstanceId);
+      if (!existingSnapshot) await options.server.instanceManager.saveInstanceSnapshot(record.serverInstanceId);
+      const snapshot = existingSnapshot ?? await snapshotRepository.loadLatest(record.serverInstanceId);
       if (!snapshot) throw safe("INITIAL_SNAPSHOT_MISSING");
       const at = now().toISOString();
-      await options.controlPlane.completeProvisioning({ jobId: job.jobId, serverInstanceId: record.serverInstanceId,
-        snapshotId: snapshot.snapshotId, at, audit: workerAudit("provisioning-success", record.serverInstanceId, at) });
-      await options.controlPlane.writeInstanceHeartbeat({ serverInstanceId: record.serverInstanceId, workerId: options.workerId,
+      if (!await options.controlPlane.completeProvisioning({ ...claim, snapshotId: snapshot.snapshotId, at, audit: workerAudit("provisioning-success", record.serverInstanceId, at) })) throw safe("PROVISIONING_CLAIM_LOST");
+      await lease.writeInstanceHeartbeat({ serverInstanceId: record.serverInstanceId,
         leaseExpiresAt, lastTick: runtime.state.root.tick, lastSnapshotAt: snapshot.createdAt, lastErrorCode: null, at });
     } catch (error) {
-      const at = now().toISOString();
-      const code = safeCode(error);
-      await options.controlPlane.failProvisioning({ jobId: job.jobId, serverInstanceId: job.serverInstanceId,
-        errorCode: code, at, audit: workerAudit("provisioning-failure", job.serverInstanceId, at, "failure") });
-      await options.controlPlane.releaseRuntimeLease(job.serverInstanceId, options.workerId, at);
+      const at = now().toISOString(); const code = safeCode(error);
+      if (provisioningBegan) await options.controlPlane.failProvisioning({ ...claim, errorCode: code, at,
+        audit: workerAudit("provisioning-failure", job.serverInstanceId, at, "failure") });
+      await lease.release(job.serverInstanceId, at);
     }
   };
 
   const processAction = async (): Promise<void> => {
     const claimedAt = now();
-    const request = await options.controlPlane.claimAction(options.workerId, claimedAt.toISOString(),
+    const request = await options.controlPlane.claimAction(options.workerId, lease.workerIncarnationId, claimedAt.toISOString(),
       new Date(claimedAt.getTime() + CLAIM_TTL_MS).toISOString());
     if (!request) return;
     try {
@@ -265,25 +290,28 @@ export const createHostedRuntimeWorker = (options: {
       if (server.version !== request.expectedVersion) throw safe("LIFECYCLE_STALE_VERSION");
       const transition = await applyAction(server, request);
       const at = now().toISOString();
-      await options.controlPlane.completeAction({ request, ...transition, at,
-        audit: workerAudit("lifecycle-success", request.serverInstanceId, at) });
+      if (!await options.controlPlane.completeAction({ request, workerIncarnationId: lease.workerIncarnationId, ...transition, at,
+        audit: workerAudit("lifecycle-success", request.serverInstanceId, at) })) {
+        throw safe("LIFECYCLE_CLAIM_LOST");
+      }
       if (transition.releaseLease) {
-        await options.controlPlane.releaseRuntimeLease(request.serverInstanceId, options.workerId, at);
+        await lease.release(request.serverInstanceId, at);
       }
     } catch (error) {
       const at = now().toISOString();
-      await options.controlPlane.failAction({ request, errorCode: safeCode(error), at,
+      await options.controlPlane.failAction({ request, workerIncarnationId: lease.workerIncarnationId, errorCode: safeCode(error), at,
         audit: workerAudit("lifecycle-failure", request.serverInstanceId, at, "failure") });
     }
   };
 
   const applyAction = async (server: HostedServerRecord, request: HostedActionRequestRecord) => {
+    if (server.provisioningState !== "ready") throw safe("LIFECYCLE_SERVER_NOT_READY");
     const runtime = await ensureRuntime(server);
     const leaseAt = now();
     const leaseExpiresAt = new Date(leaseAt.getTime() + RUNTIME_LEASE_MS).toISOString();
     const requireLease = async () => {
-      if (!await options.controlPlane.acquireRuntimeLease({ serverInstanceId: server.serverInstanceId,
-        workerId: options.workerId, now: leaseAt.toISOString(), expiresAt: leaseExpiresAt })) throw safe("RUNTIME_LEASE_UNAVAILABLE");
+      if (!await lease.acquire(server.serverInstanceId, leaseAt.toISOString(), leaseExpiresAt))
+        throw safe("RUNTIME_LEASE_UNAVAILABLE");
     };
     await requireLease();
     switch (request.action) {
@@ -296,11 +324,13 @@ export const createHostedRuntimeWorker = (options: {
         return { nextStatus: server.status, nextJoinPolicy: "closed" as const, releaseLease: false };
       case "start":
         if (server.status !== "lobby") throw safe("START_INVALID_STATE");
+        if (runtime.config.balance.finalLockdown?.enabled && runtime.state.root.playerIds.filter((playerId) =>
+          runtime.state.playersById[playerId]?.status === "active").length <= runtime.config.balance.finalLockdown.triggerActivePlayers)
+          throw safe("START_REQUIRES_MORE_ACTIVE_PLAYERS");
         options.server.instanceManager.startInstance(server.serverInstanceId);
         return { nextStatus: "running" as const, nextJoinPolicy: server.joinPolicy, releaseLease: false };
       case "pause":
         if (server.status !== "running") throw safe("PAUSE_INVALID_STATE");
-        await options.server.instanceManager.saveInstanceSnapshot(server.serverInstanceId);
         options.server.instanceManager.pauseInstance(server.serverInstanceId);
         return { nextStatus: "paused" as const, nextJoinPolicy: server.joinPolicy, releaseLease: false };
       case "resume":
@@ -309,19 +339,17 @@ export const createHostedRuntimeWorker = (options: {
         return { nextStatus: "running" as const, nextJoinPolicy: server.joinPolicy, releaseLease: false };
       case "restart": {
         if (!(server.status === "running" || server.status === "restarting")) throw safe("RESTART_INVALID_STATE");
-        await options.server.instanceManager.saveInstanceSnapshot(server.serverInstanceId);
         if (!await options.controlPlane.prepareRuntimeRestart({ serverInstanceId: server.serverInstanceId,
-          workerId: options.workerId, expectedVersion: request.expectedVersion, at: now().toISOString() })) {
+          workerId: options.workerId, workerIncarnationId: lease.workerIncarnationId, expectedVersion: request.expectedVersion, at: now().toISOString() })) {
           throw safe("RESTART_STATE_CONFLICT");
         }
-        await options.controlPlane.releaseRuntimeLease(server.serverInstanceId, options.workerId, now().toISOString());
+        await lease.release(server.serverInstanceId, now().toISOString());
         await options.server.instanceManager.restoreInstance(server.serverInstanceId);
         await requireLease();
         options.server.instanceManager.startInstance(server.serverInstanceId);
         return { nextStatus: "running" as const, nextJoinPolicy: "closed" as const, releaseLease: false };
       }
       case "stop":
-        await options.server.instanceManager.saveInstanceSnapshot(server.serverInstanceId);
         options.server.instanceManager.stopInstance(server.serverInstanceId);
         return { nextStatus: "stopped" as const, nextJoinPolicy: "closed" as const, releaseLease: true };
     }
@@ -332,31 +360,54 @@ export const createHostedRuntimeWorker = (options: {
     for (const record of records.filter((entry) => entry.provisioningState === "ready" && ["lobby", "running", "paused"].includes(entry.status))) {
       const at = now();
       const leaseExpiresAt = new Date(at.getTime() + RUNTIME_LEASE_MS).toISOString();
-      const owned = await options.controlPlane.acquireRuntimeLease({ serverInstanceId: record.serverInstanceId,
-        workerId: options.workerId, now: at.toISOString(), expiresAt: leaseExpiresAt });
-      if (!owned) continue;
-      const runtime = await ensureRuntime(record, true);
-      if (record.status === "running") options.server.instanceManager.tickInstance(record.serverInstanceId);
-      await options.server.instanceManager.saveInstanceSnapshot(record.serverInstanceId);
-      const snapshot = await options.server.instanceManager.getPersistenceRepositories().snapshotRepository.loadLatest(record.serverInstanceId);
-      await options.controlPlane.writeInstanceHeartbeat({ serverInstanceId: record.serverInstanceId, workerId: options.workerId,
-        leaseExpiresAt, lastTick: runtime.state.root.tick, lastSnapshotAt: snapshot?.createdAt ?? null,
-        lastErrorCode: null, at: at.toISOString() });
-      const defeatedPlayerIds = Object.values(runtime.state.playersById)
-        .filter((player) => player.status === "defeated").map((player) => player.id);
-      const resolved = runtime.state.root.phase === "resolved";
-      await options.playerEntry?.syncResolvedMemberships(record.serverInstanceId, defeatedPlayerIds, resolved, at.toISOString());
-      const revokedPlayerIds = resolved ? Object.keys(runtime.state.playersById) : defeatedPlayerIds;
-      await Promise.all(revokedPlayerIds.map((playerId) =>
-        options.server.gameplaySessionService.revokePlayerSessions(playerId, at.toISOString())));
+      try {
+        const owned = await lease.acquire(record.serverInstanceId, at.toISOString(), leaseExpiresAt);
+        if (!owned) continue;
+        const runtime = await ensureRuntime(record, true);
+        if (record.status === "running") await options.server.instanceManager.tickInstanceDurably(
+          record.serverInstanceId, lease.tickFence(record.serverInstanceId));
+        const snapshot = await options.server.instanceManager.getPersistenceRepositories().snapshotRepository.loadLatest(record.serverInstanceId);
+        if (!snapshot) throw safe("RUNTIME_SNAPSHOT_MISSING");
+        if (runtime.record.status === "crashed") throw safe("RUNTIME_TICK_FAILED");
+        await lease.writeInstanceHeartbeat({ serverInstanceId: record.serverInstanceId,
+          leaseExpiresAt, lastTick: runtime.state.root.tick, lastSnapshotAt: snapshot.createdAt, lastErrorCode: null, at: at.toISOString() });
+        const defeatedPlayerIds = Object.values(runtime.state.playersById)
+          .filter((player) => player.status === "defeated").map((player) => player.id);
+        const resolved = runtime.state.root.phase === "resolved";
+        await options.playerEntry?.syncResolvedMemberships(record.serverInstanceId, defeatedPlayerIds, resolved, at.toISOString());
+        const revokedPlayerIds = resolved ? Object.keys(runtime.state.playersById) : defeatedPlayerIds;
+        await Promise.all(revokedPlayerIds.map((playerId) =>
+          options.server.gameplaySessionService.revokePlayerSessions(playerId, at.toISOString())));
+        if (resolved) {
+          const resolvedAt = now().toISOString();
+          if (!await options.controlPlane.finalizeResolvedServer({ serverInstanceId: record.serverInstanceId,
+            workerId: options.workerId, workerIncarnationId: lease.workerIncarnationId,
+            expectedVersion: record.version, snapshotId: snapshot.snapshotId, at: resolvedAt })) {
+            throw safe("RESOLVED_SERVER_CLOSE_CONFLICT");
+          }
+          runtime.lobby.joinPolicy = "closed";
+          runtime.record.status = "stopped";
+          runtime.record.stoppedAt = resolvedAt;
+          runtime.scheduler.isRunning = false;
+        }
+      } catch (error) {
+        const code = safeCode(error);
+        if (code !== "RUNTIME_LEASE_FENCE_REJECTED") {
+          await reportInstanceFailure(record, leaseExpiresAt, code).catch(() => undefined);
+        }
+      }
     }
   };
 
   const ensureRuntime = async (record: HostedServerRecord, restoreLatest = false) => {
+    const snapshotRepository = options.server.instanceManager.getPersistenceRepositories().snapshotRepository;
+    const snapshot = await snapshotRepository.loadLatest(record.serverInstanceId);
+    if (snapshot && !isSnapshotForHostedRecord(snapshot, record)) throw safe("RUNTIME_SNAPSHOT_INVALID");
+    if (record.provisioningState === "ready" && !snapshot) throw safe("RUNTIME_SNAPSHOT_MISSING");
     const existing = options.server.instanceManager.getInstanceById(record.serverInstanceId);
     if (existing) {
-      if (restoreLatest) await options.server.instanceManager.restoreInstance(record.serverInstanceId);
-      syncRuntimeStatus(existing, record);
+      if (restoreLatest && snapshot) await options.server.instanceManager.restoreInstance(record.serverInstanceId);
+      syncHostedRuntimeStatus(existing, record);
       return existing;
     }
     const creation = options.server.serverInstanceCreationService.createGameServerInstanceResult({
@@ -370,69 +421,17 @@ export const createHostedRuntimeWorker = (options: {
       worldSeed: record.worldSeed
     });
     if (!creation.accepted) throw safe("RUNTIME_CREATE_FAILED");
-    const snapshot = await options.server.instanceManager.getPersistenceRepositories().snapshotRepository.loadLatest(record.serverInstanceId);
     if (snapshot) await options.server.instanceManager.restoreInstance(record.serverInstanceId);
-    syncRuntimeStatus(creation.runtime, record);
+    syncHostedRuntimeStatus(creation.runtime, record);
     return creation.runtime;
   };
 
-  const syncRuntimeStatus = (runtime: ServerInstanceRuntime, record: HostedServerRecord): void => {
-    runtime.lobby.joinPolicy = record.joinPolicy === "open" ? "open" : "closed";
-    if (record.status === "running") options.server.instanceManager.startInstance(record.serverInstanceId);
-    else if (record.status === "paused") options.server.instanceManager.pauseInstance(record.serverInstanceId);
-    else runtime.record.status = record.status === "stopped" || record.status === "lobby" ? record.status : "lobby";
-  };
-
-  const workerAudit = (action: "provisioning-success" | "provisioning-failure" | "lifecycle-success" | "lifecycle-failure",
-    target: string, at: string, result: AdminAuditEntryView["result"] = "success"): AdminAuditEntryView => ({
-    id: `admin-audit:${crypto.randomUUID()}`, adminSessionId: null, actorId: options.workerId, role: null,
-    action, targetInstanceId: target, result, createdAt: at, correlationId: `hosted-worker:${crypto.randomUUID()}`
-  });
-
-  return { heartbeat, restoreKnownInstances, runOnce, stop };
+  return { heartbeat, restoreKnownInstances, requestDrain, runOnce, stop };
 };
-
 const safe = (code: string): Error => Object.assign(new Error(code), { safeCode: code });
 const safeCode = (error: unknown): string => typeof error === "object" && error !== null && "safeCode" in error
   ? String((error as { safeCode: unknown }).safeCode).slice(0, 80) : "HOSTED_WORKER_OPERATION_FAILED";
 
 const isTerminalJoinFailure = (code: string): boolean => new Set([
-  "JOIN_RESERVATION_UNAVAILABLE",
-  "JOIN_RESERVATION_EXPIRED",
-  "JOIN_SERVER_NOT_READY",
-  "JOIN_MEMBERSHIP_REJECTED"
+  "JOIN_RESERVATION_UNAVAILABLE", "JOIN_RESERVATION_EXPIRED", "JOIN_SERVER_NOT_READY", "JOIN_MEMBERSHIP_REJECTED"
 ]).has(code);
-
-const applyEarlyLeaveCleanup = (runtime: ServerInstanceRuntime, playerId: string): void => {
-  const player = runtime.state.playersById[playerId];
-  if (!player || player.status === "left") return;
-  runtime.state.playersById[playerId] = { ...player, status: "left", allianceId: null, version: player.version + 1 };
-  for (const districtId of runtime.state.root.districtIds) {
-    const district = runtime.state.districtsById[districtId];
-    if (!district || district.ownerPlayerId !== playerId) continue;
-    runtime.state.districtsById[districtId] = { ...district, ownerPlayerId: null, status: "neutral", version: district.version + 1 };
-    for (const buildingId of district.buildingIds) {
-      const building = runtime.state.buildingsById[buildingId];
-      if (building?.ownerPlayerId === playerId) runtime.state.buildingsById[buildingId] = {
-        ...building,
-        ownerPlayerId: "player:neutral",
-        status: building.status === "destroyed" ? "destroyed" : "disabled",
-        metadata: { ...(building.metadata ?? {}), releasedByEarlyLeavePlayerId: playerId },
-        version: building.version + 1
-      };
-    }
-  }
-  for (const allianceId of runtime.state.root.allianceIds) {
-    const alliance = runtime.state.alliancesById[allianceId];
-    if (!alliance || !alliance.memberIds.includes(playerId)) continue;
-    const membershipByPlayerId = { ...(alliance.membershipByPlayerId ?? {}) };
-    delete membershipByPlayerId[playerId];
-    runtime.state.alliancesById[allianceId] = {
-      ...alliance,
-      memberIds: alliance.memberIds.filter((id) => id !== playerId),
-      membershipByPlayerId,
-      version: alliance.version + 1
-    };
-  }
-  runtime.state.root.version += 1;
-};

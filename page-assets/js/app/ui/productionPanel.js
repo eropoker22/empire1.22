@@ -119,6 +119,69 @@ function appendChildren(parent, children = []) {
   }
 }
 
+function getFactoryMaterialRequirements(slotView = {}, serverLine = null, batchCount = 1) {
+  const quantity = Math.max(1, Math.floor(Number(batchCount || 1)));
+  if (serverLine) {
+    return (serverLine.costDisplayRows || [])
+      .filter((row) => String(row?.resourceKey || "") !== "cash")
+      .map((row) => ({
+        key: String(row.resourceKey || ""),
+        label: String(row.label || row.resourceKey || "Materiál"),
+        required: Math.max(0, Math.floor(Number(row.amount || 0) * quantity)),
+        available: Number.isFinite(Number(row.availableAmount)) ? Math.max(0, Math.floor(Number(row.availableAmount))) : null
+      }))
+      .filter((row) => row.required > 0);
+  }
+
+  const displayCost = slotView.displayCost || {};
+  const inputAmounts = slotView.inputAmounts || {};
+  return [
+    { key: "metalParts", label: "Metal Parts", required: Number(displayCost.metalParts || 0), available: inputAmounts.metalParts },
+    { key: "techCore", label: "Tech Core", required: Number(displayCost.techCore || 0), available: inputAmounts.techCore }
+  ]
+    .map((row) => ({
+      ...row,
+      required: Math.max(0, Math.floor(row.required * quantity)),
+      available: Number.isFinite(Number(row.available)) ? Math.max(0, Math.floor(Number(row.available))) : null
+    }))
+    .filter((row) => row.required > 0);
+}
+
+function createFactoryMaterialRequirements(scopeElement, slotView = {}, serverLine = null) {
+  if (getFactoryMaterialRequirements(slotView, serverLine).length === 0) {
+    return { element: null, refresh: () => {} };
+  }
+
+  const container = createElement(scopeElement, "div", "drug-production-slot__metric drug-production-slot__metric--supplies factory-slot__materials");
+  const row = createElement(scopeElement, "div", "drug-production-slot__supply-row factory-slot__material-row");
+  if (!container || !row) return { element: null, refresh: () => {} };
+  container.append(row);
+
+  const refresh = (batchCount = 1) => {
+    row.replaceChildren();
+    const requirements = getFactoryMaterialRequirements(slotView, serverLine, batchCount);
+    row.classList.toggle("drug-production-slot__supply-row--count-2", requirements.length === 2);
+    for (const requirement of requirements) {
+      const isMetalParts = requirement.key === "metalParts" || requirement.key === "metal-parts";
+      const resourceColor = isMetalParts ? "metal-parts" : "tech-core";
+      const pill = createElement(scopeElement, "div", `drug-production-slot__supply-pill factory-slot__material-pill factory-slot__material-pill--${isMetalParts ? "metal" : "tech"}`);
+      const label = createElement(scopeElement, "span", "drug-production-slot__supply-name");
+      const value = createElement(scopeElement, "strong", "drug-production-slot__supply-value");
+      if (!pill || !label || !value) continue;
+      pill.dataset.resourceColor = resourceColor;
+      label.textContent = requirement.label;
+      value.textContent = requirement.available === null
+        ? `${requirement.required}×`
+        : `${requirement.required}/${requirement.available}`;
+      pill.append(label, value);
+      row.append(pill);
+    }
+  };
+
+  refresh();
+  return { element: container, refresh };
+}
+
 function getOutputRows(outputs = [], options = {}) {
   return (Array.isArray(outputs) ? outputs : []).map((output) => ({
     label: output.label || (typeof options.getResourceLabel === "function" ? options.getResourceLabel(output.itemId) : output.itemId) || "Výstup",
@@ -428,44 +491,43 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     bindFactoryMetricCountdown(timeValue, () => formatFactorySlotTime(slotView, options), options);
   }
   const priceValue = appendMetric("Cena", serverLine
-    ? formatFactoryServerCost(serverLine, 1)
-    : slotView.priceLabel || "bez ceny");
+    ? formatFactoryServerCleanCashCost(serverLine, 1)
+    : formatFactoryCleanCashCost(slotView, 1));
+  const producedAmount = Math.max(0, Math.floor(Number(serverLine?.producedAmount ?? slot.producedAmount ?? 0)));
+  const producedCapacity = Math.max(0, Math.floor(Number(serverLine?.producedCapacity ?? slotView.slotOutputCap ?? slot.slotCap ?? 0)));
+  appendMetric("Vyrobeno", serverLine?.loading
+    ? "—"
+    : producedCapacity > 0 ? `${producedAmount}/${producedCapacity} ks` : `${producedAmount} ks`, true);
   const queuedAmount = Math.max(0, Math.floor(Number(slotView.queuedAmount || slot.queuedAmount || 0)));
   const queueCap = Math.max(0, Math.floor(Number(slotView.queueCap || slot.queueCap || slotView.slotStorageCap || slot.slotCap || 0)));
   appendMetric("Ve frontě", serverLine?.loading
     ? "—"
     : queueCap > 0 ? `${queuedAmount}/${queueCap} ks` : `${queuedAmount} ks`, true);
+  const materialRequirements = createFactoryMaterialRequirements(options.mount, slotView, serverLine);
+  if (materialRequirements.element) {
+    metrics.append(materialRequirements.element);
+  }
 
   let selectedBatches = 1;
-  const formatFactorySlotCost = (count = 1) => {
-    const displayCost = slotView.displayCost || {};
-    const cleanCash = Math.max(0, Math.floor(Number(displayCost.cleanCash || 0) * count));
-    const techCore = Math.max(0, Math.floor(Number(displayCost.techCore || 0) * count));
-    const metalParts = Math.max(0, Math.floor(Number(displayCost.metalParts || 0) * count));
-    const parts = [
-      cleanCash > 0 ? `$${cleanCash} clean` : "",
-      metalParts > 0 ? `${metalParts}× Metal Parts` : "",
-      techCore > 0 ? `${techCore} Tech Core` : ""
-    ].filter(Boolean);
-    return parts.join(" + ") || slotView.priceLabel || "bez ceny";
-  };
   const updatePrice = () => {
     if (!priceValue) return;
     if (serverLine) {
-      priceValue.textContent = formatFactoryServerCost(serverLine, selectedBatches);
+      priceValue.textContent = formatFactoryServerCleanCashCost(serverLine, selectedBatches);
+      materialRequirements.refresh(selectedBatches);
       return;
     }
     if (slotView.displayCost) {
-      priceValue.textContent = formatFactorySlotCost(selectedBatches);
+      priceValue.textContent = formatFactoryCleanCashCost(slotView, selectedBatches);
+      materialRequirements.refresh(selectedBatches);
       return;
     }
     if (slot.mode === "craft" || slot.resourceKey === "combatModule") {
-      const metal = Math.max(0, Number(slotView.unitCost?.metalParts || 0) * selectedBatches);
-      const tech = Math.max(0, Number(slotView.unitCost?.techCore || 0) * selectedBatches);
-      priceValue.textContent = `${metal} MP + ${tech} TC`;
+      priceValue.textContent = "bez ceny";
+      materialRequirements.refresh(selectedBatches);
       return;
     }
     priceValue.textContent = "bez ceny";
+    materialRequirements.refresh(selectedBatches);
   };
 
   const quantityControl = createElement(options.mount, "div", "armory-slot__quantity factory-slot__quantity");
@@ -561,16 +623,16 @@ export function renderServerFactorySlotList(mount, lines = [], callbacks = {}, o
       slot: {
         resourceKey: getFactoryLegacyResourceKey(line.resourceKey),
         isProducing: line.status === "processing",
-        producedAmount: 0,
+        producedAmount: line.producedAmount,
         queuedAmount: line.queuedAmount,
         queueCap: line.queueCapacity,
-        slotCap: line.queueCapacity
+        slotCap: line.producedCapacity
       },
       title: line.label,
       resourceColor: line.resourceKey,
       queuedAmount: line.queuedAmount,
       queueCap: line.queueCapacity,
-      slotOutputCap: line.queueCapacity,
+      slotOutputCap: line.producedCapacity,
       ...getFactoryServerVisual(line.resourceKey)
     }, callbacks, { ...options, mount });
     if (card) mount.append(card);
@@ -586,12 +648,16 @@ function formatFactoryServerTime(line, options) {
   return formatDuration(duration, options);
 }
 
-function formatFactoryServerCost(line, quantity) {
+function formatFactoryCleanCashCost(slotView, quantity) {
+  const cleanCash = Math.max(0, Number(slotView?.displayCost?.cleanCash || 0) * Math.max(1, Number(quantity || 1)));
+  return cleanCash > 0 ? `$${cleanCash} clean` : "bez ceny";
+}
+
+function formatFactoryServerCleanCashCost(line, quantity) {
   if (line.loading) return "—";
-  return (line.costDisplayRows || []).map((row) => {
-    const amount = Math.max(0, Number(row.amount || 0) * quantity);
-    return row.resourceKey === "cash" ? "$" + amount + " clean" : amount + "× " + row.label;
-  }).join(" · ");
+  const cashRow = (line.costDisplayRows || []).find((row) => String(row?.resourceKey || "") === "cash");
+  const amount = Math.max(0, Number(cashRow?.amount || 0) * Math.max(1, Number(quantity || 1)));
+  return amount > 0 ? "$" + amount + " clean" : "bez ceny";
 }
 
 function getFactoryServerStatusLabel(status) {

@@ -5,6 +5,7 @@ export * from "./postgres-command-result-repository";
 export * from "./postgres-gameplay-identity-session-repository";
 export * from "./postgres-log-repositories";
 export * from "./postgres-outbox-repository";
+export * from "./production-migration-contract";
 export * from "./postgres-runtime-persistence";
 export * from "./postgres-server-instance-row";
 export * from "./postgres-snapshot-repository";

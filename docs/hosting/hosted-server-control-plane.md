@@ -1,8 +1,21 @@
 # Hosted server control plane
 
+## Current launch decision: code-ready, deployment unproven
+
+The hosted control-plane implementation now closes the previously identified code-level authority gaps:
+
+- cold gameplay Function processes load ready hosted metadata and the latest PostgreSQL snapshot before join, load, submit, or command-result access;
+- hosted ticks and HTTP commands serialize through the same per-instance atomic transaction boundary;
+- snapshot persistence rejects stale root versions and divergent writes at the same root version;
+- provisioning and lifecycle workers use claim/version/expiry fencing, and successful lifecycle completion also requires the worker's live runtime lease;
+- production startup uses one exact migration filename/checksum contract;
+- the game page enables visibility-aware five-second polling with failure backoff.
+
+This is not proof that the public deployment is ready. The actual Netlify Functions environment, target database migration state, production secrets, deployed JSON routes, and live hosted worker have not been verified on `empirestreets.cz`. Real-player registration and its final account-to-gameplay session boundary are intentionally deferred and must remain closed. War mode remains closed.
+
 ## Ownership boundaries
 
-Netlify serves static browser assets and short request/response functions. It authenticates admin users, reads durable monitoring data, and appends create or lifecycle requests. A Netlify function never owns a game tick loop and never treats its process-local `ServerApp` registry as hosted authority.
+The target boundary is: Netlify serves static browser assets and short request/response functions. It authenticates players and admins, reads durable state, validates sessions, and submits account, lobby, admin, and gameplay operations. A Netlify function never owns a game tick loop and must never treat its process-local `ServerApp` registry or a browser snapshot token as hosted authority.
 
 PostgreSQL owns admin users and sessions, player accounts and sessions, server memberships, spawn reservations, setup/leave jobs and events, hosted instance metadata, idempotency records, provisioning jobs, lifecycle requests, snapshots, command persistence, worker heartbeats, and leases.
 
@@ -22,7 +35,77 @@ npm run db:migrate:status
 
 The compose database uses trust authentication bound only to `127.0.0.1` for isolated local development. Do not expose that port or reuse this configuration outside local development.
 
-Local commands load the ignored `.env.local` file. Configure PostgreSQL drivers, generated session and snapshot secrets, the local owner credentials, feature flags, worker identity, region, and `EMPIRE_PUBLIC_ORIGIN=http://127.0.0.1:5173` there. Verify `git check-ignore .env.local` before continuing. Never commit this file.
+Local Node commands load the ignored `.env.local` file, and the `runtime-worker` Compose service imports the same file. Configure both PostgreSQL drivers, generated session and snapshot secrets of at least 32 characters with different values, the local owner credentials, feature flags, worker identity, region, and `EMPIRE_ALLOWED_ORIGINS=http://127.0.0.1:5173` there. `EMPIRE_PUBLIC_ORIGIN` does not satisfy the gameplay CSRF allowlist. Verify `git check-ignore .env.local` before continuing. Never commit this file.
+
+Minimum Netlify Functions configuration:
+
+```text
+NODE_ENV=production
+EMPIRE_DATABASE_URL=<POSTGRES_CONNECTION_STRING>
+EMPIRE_PERSISTENCE_DRIVER=postgres
+GAMEPLAY_PERSISTENCE_DRIVER=postgres
+GAMEPLAY_SLICE_SESSION_SECRET=<UNIQUE_SECRET_AT_LEAST_32_CHARACTERS>
+GAMEPLAY_SLICE_SNAPSHOT_SECRET=<DIFFERENT_SECRET_AT_LEAST_32_CHARACTERS>
+EMPIRE_ALLOWED_ORIGINS=https://empirestreets.cz
+EMPIRE_ADMIN_FINGERPRINT_SECRET=<SECRET_AT_LEAST_32_CHARACTERS>
+EMPIRE_ADMIN_WRITES_ENABLED=true
+EMPIRE_HOSTED_CONTROL_PLANE_ENABLED=true
+EMPIRE_SERVER_PROVISIONING_ENABLED=true
+EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED=false
+EMPIRE_LEGACY_MATCHMAKING_ENABLED=false
+```
+
+Minimum hosted worker configuration:
+
+```text
+NODE_ENV=production
+EMPIRE_DATABASE_URL=<POSTGRES_CONNECTION_STRING>
+EMPIRE_PERSISTENCE_DRIVER=postgres
+GAMEPLAY_PERSISTENCE_DRIVER=postgres
+GAMEPLAY_SLICE_SESSION_SECRET=<SAME_SESSION_SECRET_USED_BY_FUNCTIONS>
+GAMEPLAY_SLICE_SNAPSHOT_SECRET=<SAME_SNAPSHOT_SECRET_USED_BY_FUNCTIONS>
+EMPIRE_HOSTED_WORKER_ID=<STABLE_WORKER_ID>
+EMPIRE_HOSTED_WORKER_REGION=eu-central
+EMPIRE_BUILD_SHA=<DEPLOY_SHA>
+```
+
+For local development, replace the allowed origin with the actual loopback origin used by the browser.
+
+## Database migrations
+
+Apply every migration in filename order and verify checksums before starting the API or worker:
+
+```text
+001_initial_runtime_persistence.sql
+002_command_reservations.sql
+003_gameplay_identity_sessions.sql
+004_atomic_command_execution.sql
+005_gameplay_identity_session_invariants.sql
+006_admin_read_only_control_plane.sql
+007_hosted_server_control_plane.sql
+008_hosted_join_reservations.sql
+009_player_entry_control_plane.sql
+010_runtime_instance_foreign_keys.sql
+011_hosted_runtime_lease_incarnation.sql
+```
+
+`npm run db:migrate:status` must report the complete current set. `PRODUCTION_MIGRATION_CONTRACT` is also enforced by API/worker readiness and requires the exact ordered filename/checksum set; missing, modified, extra, or unavailable history fails closed. A partially applied schema is a deployment failure, not a degraded mode.
+
+Migration `011` changes runtime lease authority. Drain every pre-`011` worker before applying it, then deploy only the matching API and worker builds; do not run old and new worker binaries together during this rollout.
+
+## Netlify routes and environment
+
+The deployed route contract is:
+
+- `/api/servers` -> the public server catalog handler
+- `/api/account/*` -> account registration, login, session, and logout handlers
+- `/api/lobby/*` -> lobby overview, spawn selection, membership, and server-entry handlers
+- `/api/gameplay-slice/*` -> gameplay join, load, submit, result, and logout handlers
+- `/api/admin/*` -> authenticated admin handlers
+
+Verify these routes in both `netlify.toml` and the built deploy artifact. A JSON API returning the static HTML 404 page is a failed deployment.
+
+Set all database credentials, session secrets, snapshot secrets, origin allowlists, and feature flags through the Netlify UI, CLI, or API with Functions scope. Environment values declared in `netlify.toml`, including `[build.environment]`, are not available to Functions at runtime. Netlify exposes only its documented read-only runtime values such as `URL`, `SITE_NAME`, and `SITE_ID`; see [Netlify Functions environment variables](https://docs.netlify.com/build/functions/environment-variables/). Redeploy after changing runtime environment values.
 
 ## Bootstrap owner
 
@@ -52,6 +135,10 @@ Rotation increments `passwordVersion` and revokes existing sessions.
 Apply migrations and bootstrap the owner before starting the worker. Configure the worker with secrets from the hosting platform:
 
 ```powershell
+$env:EMPIRE_PERSISTENCE_DRIVER='postgres'
+$env:GAMEPLAY_PERSISTENCE_DRIVER='postgres'
+$env:GAMEPLAY_SLICE_SESSION_SECRET='<UNIQUE_SECRET_AT_LEAST_32_CHARACTERS>'
+$env:GAMEPLAY_SLICE_SNAPSHOT_SECRET='<DIFFERENT_SECRET_AT_LEAST_32_CHARACTERS>'
 $env:EMPIRE_HOSTED_WORKER_ID='worker-eu-central-1'
 $env:EMPIRE_HOSTED_WORKER_REGION='eu-central'
 $env:EMPIRE_BUILD_SHA='<DEPLOY_SHA>'
@@ -79,7 +166,7 @@ EMPIRE_HOSTED_CONTROL_PLANE_ENABLED=true
 EMPIRE_SERVER_PROVISIONING_ENABLED=true
 ```
 
-Also configure `EMPIRE_ADMIN_FINGERPRINT_SECRET`, the allowed/public origin, PostgreSQL, current migrations, and a live worker. Run `npm run verify:hosted-control-plane` in strict mode before exposing write controls. Without PostgreSQL, current migration history, or a fresh worker heartbeat, the API returns a fail-closed unavailable code and the browser cannot fall back to an in-memory server.
+Also configure `EMPIRE_ADMIN_FINGERPRINT_SECRET`, `EMPIRE_ALLOWED_ORIGINS`, both PostgreSQL drivers, distinct session and snapshot secrets, current migrations, and a live worker. Run `npm run verify:hosted-control-plane` in strict mode before exposing write controls. `EMPIRE_PUBLIC_ORIGIN` is not accepted as a CSRF allowlist fallback. Without PostgreSQL, current migration history, production-ready gameplay sessions, or a fresh worker heartbeat, the API must fail closed and the browser must not fall back to an in-memory server.
 
 ## Create server flow
 
@@ -87,9 +174,9 @@ The admin wizard submits only mode, display name, region, capacity, join policy,
 
 One PostgreSQL transaction reserves the idempotency key, inserts the base and hosted instance records in `REQUESTED`, inserts one provisioning job, and appends the admin audit record. The API responds `202 Accepted`; it does not create a runtime.
 
-The worker claims the job, changes the state to `PROVISIONING`, acquires a lease, uses the canonical server creation and map validation code, persists the tick-zero snapshot, and finishes in `LOBBY` with joins closed. A retry reuses the same world seed and snapshot identifier, so it cannot create a second initial seed.
+The worker claims the job, acquires a lease, changes the state to `PROVISIONING`, uses the canonical server creation and map validation code, persists the tick-zero snapshot, and finishes in `LOBBY` with joins closed. Begin, completion, and failure accept only the current claimed worker incarnation, job version, unexpired claim, and matching live runtime lease. A delayed or superseded worker cannot overwrite a reclaimed job. A retry reuses the same world seed and snapshot identifier, so it cannot create a second initial seed.
 
-For the verified local fixture, create `Local Free Alpha 1` in mode `free`, region `eu-central`, capacity `4`, with joins closed. The canonical map contains 161 districts including 8 Downtown districts. Wait for `REQUESTED -> PROVISIONING -> LOBBY` and `WORKER ONLINE` before opening joins.
+For the verified local fixture, create `Local Free Alpha 1` in mode `free`, region `eu-central`, capacity `20`, with joins closed. Free capacity must exceed the canonical Final Lockdown trigger so the server cannot enter its endgame on the first tick. The canonical map contains 161 districts including 8 Downtown districts. Wait for `REQUESTED -> PROVISIONING -> LOBBY` and `WORKER ONLINE` before opening joins. Keep the server in `LOBBY` until the active roster also exceeds that canonical trigger; the worker rejects an unsafe start.
 
 ## Durable join reservations
 
@@ -117,11 +204,15 @@ Operators may create servers, open or close joins, start, pause, resume, and req
 
 `open-joins` is accepted only after provisioning with a snapshot and live worker. `close-joins` blocks new reservations without disconnecting current players. `pause` saves a snapshot and stops ticking. `resume` reacquires the lease before ticking. `restart` saves and restores the same snapshot, server ID, world seed, map, players, tick, and command results. `stop` saves state, closes joins, releases the lease, and retains all durable data.
 
+Lifecycle completion and failure first lock the current `processing` action request. The worker ID, action-request version, and claim expiry must still match; successful completion additionally requires the same worker to own a non-expired runtime lease. Reclaimed or delayed actions return without mutating newer server state.
+
+Running instances use `tickInstanceDurably`. Each tick reloads the latest snapshot inside the same PostgreSQL server-row transaction used by commands, advances the root version, saves before publishing runtime state/events, and leaves in-memory state unchanged if persistence fails. Snapshot repositories accept exact idempotent rewrites but reject stale or divergent equal-version payloads.
+
 Reset, hard delete, grants, player edits, district ownership edits, and conflict result edits are intentionally absent.
 
 ## Outages and rollback
 
-During worker outage, durable servers remain visible as `WORKER STALE` or `NO WORKER`; writes remain unavailable and no server is reported running solely because an HTTP request succeeded. After worker recovery, lease expiry allows another worker to restore the latest snapshot.
+During worker outage, durable servers must remain visible as `WORKER STALE` or `NO WORKER`; writes must remain unavailable and no server may be reported running solely because an HTTP request succeeded. Cold API hydration from hosted metadata plus the latest snapshot is implemented and regression-tested, but recovery after a fully cold API and worker restart still requires live verification against the target deployment.
 
 During database outage, login, monitoring, create, and lifecycle requests fail closed. Do not enable an in-memory production fallback.
 
@@ -135,11 +226,28 @@ docker compose -f docker-compose.hosted-dev.yml ps
 
 The API must report `ADMIN_DATABASE_UNAVAILABLE`, the worker health endpoint must return `503`, and both must recover after PostgreSQL becomes healthy. To verify process recovery, stop and restart `dev:hosted-api` and `dev:hosted-worker`; the admin account, hosted server, snapshots, registrations, and world seed must remain unchanged.
 
-For application rollback, stop or drain the new worker, deploy the previous request/function build, and retain migrations `007`, `008`, `009`, `010`, and all durable data. Database migrations are additive; do not drop hosted or membership tables during an application rollback.
+For application rollback, stop or drain the new worker, deploy the previous request/function build, and retain every applied migration from `001` through `011` plus all durable data. Database migrations are additive; do not drop hosted or membership tables during an application rollback.
 
 ## Production readiness gate
 
 Before a public rollout, all of these must be live-verified against the target PostgreSQL and hosting environment: migration status, active owner account, durable session and audit repositories, create idempotency under concurrency, provisioning retry, snapshot restore, worker heartbeat, lease failover, no double tick, public registry filtering, and the complete lifecycle E2E. Code-level or in-memory test success is not a deployment.
+
+Implemented locally and still requiring deployment acceptance:
+
+- cold Function hydration from hosted metadata and the latest snapshot without client snapshot authority;
+- worker tick and HTTP command serialization through one database-backed boundary, including rollback-safe publishing and snapshot CAS;
+- provisioning/lifecycle claim fencing, per-process runtime-lease incarnation fencing, and rolling-worker heartbeat fencing under retries and delayed workers;
+- exact production migration-contract rejection for missing, changed, extra, or unavailable history;
+- visibility-aware gameplay polling enabled at five seconds with bounded failure backoff.
+
+The remaining launch gate requires:
+
+- the real-player registration and account/gameplay-session entry boundary, intentionally deferred and disabled for now;
+- the actual Netlify Functions environment, target PostgreSQL migration contract, deployed routes, and live worker heartbeat to pass strict verification;
+- polling verified between at least two independent deployed clients;
+- account and gameplay logout revocation verified together;
+- `/api/account/*`, `/api/lobby/*`, `/api/gameplay-slice/*`, `/api/admin/*`, and `/api/servers` returning the expected JSON contracts on the deployed domain;
+- a closed Free test with multiple real clients before any public link is shared.
 
 Run strict local verification with the ignored environment loaded:
 
@@ -153,3 +261,5 @@ npm run test:player-entry:postgres
 ```
 
 Strict mode verifies live connectivity, every migration checksum, the active owner, durable account/session, join reservation, membership/job/event and snapshot tables, PostgreSQL persistence drivers, fresh worker heartbeat, and an acquire/release tick lease probe. A skipped PostgreSQL test is not a pass.
+
+It also requires a valid `EMPIRE_ALLOWED_ORIGINS` allowlist and two distinct secrets of at least 32 characters. Strict preflight does not by itself prove the deployed cold path, real database race behavior, browser synchronization, or the deferred player registration/session boundary; those remain separate mandatory release tests.

@@ -6,11 +6,13 @@ import {
   ensureLiveBountyTarget,
   type GameplaySliceMembershipRequest
 } from "./gameplay-slice-session-seed";
+import { ensureSharedCityMap } from "./gameplay-slice-shared-city-seed";
 
 type MembershipAccepted = {
   accepted: true;
   state: CoreGameState;
   joinedPlayer: boolean;
+  stateChanged: boolean;
   errors: [];
 };
 
@@ -18,6 +20,7 @@ type MembershipRejected = {
   accepted: false;
   state: CoreGameState;
   joinedPlayer: false;
+  stateChanged: false;
   errors: DomainError[];
 };
 
@@ -33,12 +36,22 @@ export const ensureGameplaySliceMembershipInState = (
   request: GameplaySliceMembershipRequest
 ): GameplaySliceMembershipResult => {
   if (state.playersById[request.playerId]) {
+    const config = resolveModeConfig(request.mode);
+    const stateChanged = ensureSharedCityMap(state, request.serverInstanceId, {
+      buildSlotLimit: config.balance.buildSlotLimit,
+      productionBuildings: config.balance.productionBuildings ?? {},
+      robbery: config.balance.conflict?.robbery
+    });
+    if (stateChanged) {
+      state.root.version += 1;
+    }
     ensureLiveBountyTarget(state, request);
 
     return {
       accepted: true,
       state,
       joinedPlayer: false,
+      stateChanged,
       errors: []
     };
   }
@@ -52,6 +65,7 @@ export const ensureGameplaySliceMembershipInState = (
       accepted: false,
       state,
       joinedPlayer: false,
+      stateChanged: false,
       errors: [
         {
           code: "server.player_cap_reached",
@@ -71,6 +85,7 @@ export const ensureGameplaySliceMembershipInState = (
     accepted: true,
     state: nextState,
     joinedPlayer: true,
+    stateChanged: true,
     errors: []
   };
 };

@@ -572,14 +572,31 @@ export function bindEliminationPurgePanel(root, deps = {}) {
 
   const getInput = () => createInput(getCountdownRemainingMs());
 
+  const captureScrollState = () => ({
+    body: Math.max(0, Number(body?.scrollTop || 0)),
+    leaderboard: Math.max(0, Number(body?.querySelector?.(".elimination-ai-panel__leaderboard")?.scrollTop || 0)),
+    score: Math.max(0, Number(body?.querySelector?.(".elimination-ai-panel__score")?.scrollTop || 0))
+  });
+
+  const restoreScrollState = (scrollState) => {
+    if (!body || !scrollState) return;
+    body.scrollTop = scrollState.body;
+    const leaderboard = body.querySelector?.(".elimination-ai-panel__leaderboard");
+    const score = body.querySelector?.(".elimination-ai-panel__score");
+    if (leaderboard) leaderboard.scrollTop = scrollState.leaderboard;
+    if (score) score.scrollTop = scrollState.score;
+  };
+
   const render = () => {
     if (!body) return false;
+    const scrollState = captureScrollState();
     const input = getInput();
     const statusClass = setHeader(panel, input);
     panel.dataset.aiState = statusClass;
     card?.classList?.remove?.("is-safe", "is-danger", "is-critical", "is-defeated", "is-final", "is-paused", "is-pauza");
     card?.classList?.add?.(`is-${statusClass}`);
     body.innerHTML = renderEliminationPurgePanelBody(input);
+    restoreScrollState(scrollState);
     return true;
   };
 

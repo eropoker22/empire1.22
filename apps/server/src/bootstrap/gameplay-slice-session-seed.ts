@@ -55,6 +55,7 @@ export const addPlayerToGameplaySliceState = (
   appendUnique(state.root.playerIds, player.id);
 
   ensureLiveBountyTarget(state, request);
+  state.root.version += 1;
 
   return state;
 };

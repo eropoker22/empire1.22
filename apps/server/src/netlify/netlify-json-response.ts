@@ -14,6 +14,10 @@ export const createJsonResponse = <TBody>(
     "access-control-allow-headers": "content-type",
     "access-control-allow-methods": "GET, POST, DELETE, OPTIONS",
     "content-type": "application/json; charset=utf-8",
+    "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
     ...headers
   },
   body: body ? JSON.stringify(body) : ""

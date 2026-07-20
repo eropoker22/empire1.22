@@ -12,12 +12,35 @@ import {
   createFixedClock
 } from "../../apps/server/src/runtime";
 import { sharedCitySpawnDistrictIds } from "../../apps/server/src/bootstrap/gameplay-slice-shared-city-seed";
+import { HostedRuntimeStatusFenceRejectedError } from
+  "../../apps/server/src/runtime/instance-manager/atomic-command-transaction";
 import {
   createPlaceTrapCommandFixture,
   createSelectSpawnDistrictCommandFixture
 } from "../fixtures/command-fixtures";
 
 describe("atomic command persistence", () => {
+  it("maps a hosted status fence loss to a stable rejection before reservation", async () => {
+    const fixture = await createFixture("hosted-status-fence");
+    const rootBefore = fixture.runtime.state.root.version;
+    fixture.runtime.atomicCommandTransaction = {
+      run: async (_instanceId, _callback, options) => {
+        expect(options).toEqual({ hostedStatusFence: "running-if-present" });
+        throw new HostedRuntimeStatusFenceRejectedError(fixture.instanceId);
+      }
+    };
+
+    const result = await fixture.server.instanceManager.dispatchCommand(fixture.instanceId, fixture.command);
+
+    expect(result?.errors).toEqual([{ code: "server.instance_not_running",
+      message: "Server instance is not accepting gameplay commands." }]);
+    expect(result?.commandResult).toBeNull();
+    expect(fixture.runtime.state.root.version).toBe(rootBefore);
+    expect(fixture.published).toEqual([]);
+    await expect(fixture.server.instanceManager.getPersistenceRepositories().commandReservationRepository
+      ?.getByCommandId(fixture.instanceId, fixture.command.id)).resolves.toBeNull();
+  });
+
   it("does not update runtime state or publish events when persistence fails before snapshot", async () => {
     const fixture = await createFixture("before-snapshot");
     const rootBefore = fixture.runtime.state.root.version;

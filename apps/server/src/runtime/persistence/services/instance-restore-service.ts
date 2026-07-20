@@ -1,10 +1,10 @@
-import { createInitialState } from "@empire/game-core";
 import type { ServerInstanceRuntime } from "../../instance";
+import type { InstanceSnapshotDto } from "../dto";
 import { restoreInstanceState } from "../mappers";
 import type { SnapshotRepository } from "../repositories";
 
 /**
- * Responsibility: Restores one instance state from the latest valid snapshot or initializes a fresh one.
+ * Responsibility: Restores one instance state from the latest valid snapshot.
  * Belongs here: restore workflow and snapshot fallback policy.
  * Does not belong here: registry orchestration or scheduler control.
  */
@@ -18,29 +18,28 @@ export const createPersistenceRestoreService = (
   restore: async (runtime) => {
     const snapshot = await snapshotRepository.loadLatest(runtime.record.id);
     if (!snapshot) {
-      runtime.state = createInitialState(runtime.record.id, runtime.record.mode);
-      runtime.processedCommandIds = new Set();
-      runtime.commandRateLimitWindow = {
+      return runtime;
+    }
+    return restoreRuntimeFromSnapshot(runtime, snapshot);
+  }
+});
+
+export const restoreRuntimeFromSnapshot = (
+  runtime: ServerInstanceRuntime,
+  snapshot: InstanceSnapshotDto
+): ServerInstanceRuntime => {
+  runtime.state = restoreInstanceState(snapshot);
+  runtime.processedCommandIds = new Set(snapshot.runtime?.processedCommandIds ?? []);
+  runtime.commandRateLimitWindow = snapshot.runtime?.commandRateLimitWindow
+    ? {
+        tick: snapshot.runtime.commandRateLimitWindow.tick,
+        commandCountsByPlayerId: {
+          ...snapshot.runtime.commandRateLimitWindow.commandCountsByPlayerId
+        }
+      }
+    : {
         tick: runtime.state.root.tick,
         commandCountsByPlayerId: {}
       };
-      return runtime;
-    }
-
-    runtime.state = restoreInstanceState(snapshot);
-    runtime.processedCommandIds = new Set(snapshot.runtime?.processedCommandIds ?? []);
-    runtime.commandRateLimitWindow = snapshot.runtime?.commandRateLimitWindow
-      ? {
-          tick: snapshot.runtime.commandRateLimitWindow.tick,
-          commandCountsByPlayerId: {
-            ...snapshot.runtime.commandRateLimitWindow.commandCountsByPlayerId
-          }
-        }
-      : {
-          tick: runtime.state.root.tick,
-          commandCountsByPlayerId: {}
-        };
-
-    return runtime;
-  }
-});
+  return runtime;
+};

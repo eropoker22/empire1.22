@@ -115,11 +115,10 @@ describe("alliance alpha UI", () => {
     expect(runtime).not.toContain("Zadej nazev aliance.");
   });
 
-  it("marks local preview surfaces instead of pretending they are server state", () => {
-    expect(html).toContain("Demo chat");
-    expect(html).not.toContain("Globální chat");
-    expect(html).toContain("Demo chat je lokální kanál tohoto prohlížeče.");
-    expect(html).toContain("Zprávy zůstávají jen v tomhle prohlížeči.");
+  it("keeps the temporary local chat behind the explicit demo runtime", () => {
+    expect(html).toContain("Městský chat");
+    expect(html).toContain("Globální chat se připravuje.");
+    expect(html).toContain("Pro komunikaci se spojenci otevři alianci.");
     expect(runtime).toContain('const GLOBAL_CHAT_KEY = "empire:demo:global-chat:v1";');
     expect(runtime).toContain("getGameplayExecutionMode");
     expect(runtime).toContain("const ALLIANCE_CREATE_REQUIRED_INFLUENCE = 40;");
@@ -132,7 +131,7 @@ describe("alliance alpha UI", () => {
     expect(runtime).toContain("readAlliancePreviewMessages");
     expect(runtime).not.toContain("Preview aliance ukazuje chat bez serverového uložení.");
     expect(runtime).toContain("Hlasování o vyloučení je v lokálním demu vypnuté.");
-    expect(runtime).toContain("Zpráva uložená jen v tomhle prohlížeči.");
+    expect(runtime).toContain("Lokální ukázka: zprávy zůstávají jen v tomto prohlížeči.");
     expect(runtime).not.toContain("const serverEchoExists");
   });
 
@@ -208,6 +207,19 @@ describe("alliance alpha UI", () => {
     expect(mapCanvasAnimations).toContain("createTintedAllianceIconCanvas");
     expect(mapCanvasAnimations).toContain("drawFallbackAllianceBadgeText");
     expect(mapCanvasAnimations).toContain("provider.getMapBadgeForOwner");
+    expect(runtime).toContain("respondToDevOnlyAllianceInvite");
+    expect(runtime).toContain("activateDevOnlyAlliance");
+    expect(runtime).not.toContain("isDevOnlyAllianceDemoEnabled() && /^\\d+$/u.test(String(ownerId ?? \"\").trim())");
+  });
+
+  it("shows the district owner's alliance in the popup hero", () => {
+    const gamePage = readText("pages/game.html");
+    const gameRuntime = readText("page-assets/js/app/runtime.js");
+
+    expect(gamePage).toContain('data-district-popup-alliance');
+    expect(gameRuntime).toContain("const getDistrictAllianceLabel = (district) => {");
+    expect(gameRuntime).toContain("popupAlliance.hidden = isDestroyed || !allianceLabel;");
+    expect(gameRuntime).not.toContain('"Aliance: žádná"');
   });
 
   it("keeps the alliance modal on five clear tabs", () => {

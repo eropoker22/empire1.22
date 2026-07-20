@@ -911,6 +911,12 @@
     0 0 18px rgba(var(--result-accent-rgb, 103, 232, 249), 0.04);
 }
 
+.spy-result-modal__summary[hidden],
+.attack-result-modal__summary[hidden],
+.police-action-result-modal__summary[hidden] {
+  display: none !important;
+}
+
 .spy-result-modal__summary {
   animation: actionResultFloat 2.6s ease-in-out infinite;
 }
@@ -2317,6 +2323,12 @@ html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-
 }
 
 @media (min-width: 721px) {
+  html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert .police-action-result-modal__details > .police-raid-impact {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+  }
+
   html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert .police-raid-impact__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }

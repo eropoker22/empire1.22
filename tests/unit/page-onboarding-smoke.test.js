@@ -72,12 +72,12 @@ describe("page onboarding smoke", () => {
     expect(page("login.html")).not.toContain('data-open-server-select');
     expect(page("login.html")).toContain('data-tab-link="register"');
     expect(page("login.html")).toContain('data-forgot-password');
-    expect(page("login.html")).toContain('src="../page-assets/js/login-entry.js"');
+    expect(page("login.html")).toContain('src="../page-assets/js/login-entry.js');
 
     expect(page("lobby.html")).toContain('data-server-list');
     expect(page("lobby.html")).toContain('data-server-detail-map');
     expect(page("lobby.html")).toContain('data-server-detail-continue');
-    expect(page("lobby.html")).toContain('src="../page-assets/js/lobby-entry.js"');
+    expect(page("lobby.html")).toContain('src="../page-assets/js/lobby-entry.js');
     const lobbyJsSource = readFileSync(resolve(root, "page-assets/js/lobby.js"), "utf8");
     expect(lobbyJsSource).not.toContain("war-demo");
     expect(lobbyJsSource).not.toContain("free-demo");
@@ -93,7 +93,7 @@ describe("page onboarding smoke", () => {
     expect(page("faction.html")).toContain('id="gang-color-grid"');
     expect(page("faction.html")).toContain('id="avatar-grid"');
     expect(page("faction.html")).toContain('id="go-game"');
-    expect(page("faction.html")).toContain('src="../page-assets/js/faction-entry.js"');
+    expect(page("faction.html")).toContain('src="../page-assets/js/faction-entry.js');
     const factionJsSource = readFileSync(resolve(root, "page-assets/js/faction.js"), "utf8");
     for (const avatarFolder of ["Mafia", "Kartel", "kult", "Tajnaorganizace", "Hacker", "Motogang", "SoukromaArmada", "Korporat"]) {
       expect((factionJsSource.match(new RegExp(`\\.\\./img/avatars/${avatarFolder}/`, "g")) || []).length).toBe(9);
@@ -189,7 +189,9 @@ describe("page onboarding smoke", () => {
     expect(adminHtml).toContain('href="./page-assets/css/styles-admin-dashboard.css"');
     expect(adminHtml).toContain('src="./page-assets/js/admin-assets/admin-app.js" defer');
     expect(adminHtml).not.toContain("data-static-fallback");
-    expect(page("login.html")).toMatch(/href="\.\.\/page-assets\/css\/login\.css">\r?\n\s*<link rel="stylesheet" href="\.\.\/page-assets\/css\/styles-static-hover\.css">/u);
+    expect(page("login.html")).toContain('href="../page-assets/css/login.css"');
+    expect(page("login.html")).toContain('href="../page-assets/css/styles-login-about.css"');
+    expect(page("login.html")).toContain('href="../page-assets/css/styles-static-hover.css"');
     expect(page("lobby.html")).toMatch(/href="\.\.\/page-assets\/css\/lobby\.css">\r?\n\s*<link rel="stylesheet" href="\.\.\/page-assets\/css\/styles-static-hover\.css">/u);
     expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain("transform: none !important;");
     expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain("transition-property: color, background, background-color");

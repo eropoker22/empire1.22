@@ -112,10 +112,57 @@ const netlifyConfig = read("netlify.toml");
 if (!netlifyConfig.includes('from = "/lobby.html"') || !netlifyConfig.includes('to = "/pages/lobby.html"')) {
   violations.push("netlify.toml must route /lobby.html to /pages/lobby.html for the guest login flow");
 }
+if (!netlifyConfig.includes('from = "/api/account/*"') || !netlifyConfig.includes('to = "/.netlify/functions/gameplay-slice/account/:splat"')) {
+  violations.push("netlify.toml must route account API requests to the gameplay-slice function");
+}
+if (!netlifyConfig.includes('from = "/api/lobby/*"') || !netlifyConfig.includes('to = "/.netlify/functions/gameplay-slice/lobby/:splat"')) {
+  violations.push("netlify.toml must route lobby API requests to the gameplay-slice function");
+}
+if (!netlifyConfig.includes('from = "/api/servers"') || !netlifyConfig.includes('to = "/.netlify/functions/gameplay-slice/servers"')) {
+  violations.push("netlify.toml must route the public server registry to the gameplay-slice function");
+}
+if (!netlifyConfig.includes('from = "/api/admin/*"') || !netlifyConfig.includes('to = "/.netlify/functions/gameplay-slice/admin/:splat"')) {
+  violations.push("netlify.toml must route admin API requests to the gameplay-slice function");
+}
+if (!netlifyConfig.includes('from = "/api/gameplay-slice/*"') || !netlifyConfig.includes('to = "/.netlify/functions/gameplay-slice/:splat"')) {
+  violations.push("netlify.toml must route gameplay API requests to the gameplay-slice function");
+}
+const globalSecurityHeaders = netlifyConfig.match(
+  /\[\[headers\]\]\s*\r?\n\s*for = "\/\*"\s*\r?\n\s*\[headers\.values\]([\s\S]*?)(?=\r?\n\[\[|$)/u
+);
+if (!globalSecurityHeaders) {
+  violations.push("netlify.toml must define global security headers for static pages");
+} else {
+  for (const [headerName, headerValue] of [
+    ["X-Content-Type-Options", "nosniff"],
+    ["X-Frame-Options", "DENY"],
+    ["Referrer-Policy", "strict-origin-when-cross-origin"],
+    ["Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()"]
+  ]) {
+    if (!globalSecurityHeaders[1].includes(`${headerName} = "${headerValue}"`)) {
+      violations.push(`netlify.toml must set ${headerName} to ${headerValue}`);
+    }
+  }
+}
 
 const netlifyPublishScript = read("scripts/build-netlify-client.mjs");
 if (!netlifyPublishScript.includes("/lobby.html /pages/lobby.html 200")) {
   violations.push("scripts/build-netlify-client.mjs must emit a /lobby.html redirect");
+}
+if (!netlifyPublishScript.includes("/api/account/* /.netlify/functions/gameplay-slice/account/:splat 200!")) {
+  violations.push("scripts/build-netlify-client.mjs must emit the account API redirect");
+}
+if (!netlifyPublishScript.includes("/api/lobby/* /.netlify/functions/gameplay-slice/lobby/:splat 200!")) {
+  violations.push("scripts/build-netlify-client.mjs must emit the lobby API redirect");
+}
+if (!netlifyPublishScript.includes("/api/servers /.netlify/functions/gameplay-slice/servers 200!")) {
+  violations.push("scripts/build-netlify-client.mjs must emit the public server registry redirect");
+}
+if (!netlifyPublishScript.includes("/api/admin/* /.netlify/functions/gameplay-slice/admin/:splat 200!")) {
+  violations.push("scripts/build-netlify-client.mjs must emit the admin API redirect");
+}
+if (!netlifyPublishScript.includes("/api/gameplay-slice/* /.netlify/functions/gameplay-slice/:splat 200!")) {
+  violations.push("scripts/build-netlify-client.mjs must emit the gameplay API redirect");
 }
 if (
   !netlifyPublishScript.includes("packages/game-config/src/legacy-page")

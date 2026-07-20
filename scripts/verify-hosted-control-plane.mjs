@@ -1,5 +1,6 @@
 import { access, readFile, readdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
+import { probeRollbackOnlyTickLease } from "./hosted-preflight-tick-probe.mjs";
 
 const checks = [];
 const failures = [];
@@ -9,6 +10,7 @@ const requiredFiles = [
   "apps/server/src/runtime/persistence/postgres/migrations/008_hosted_join_reservations.sql",
   "apps/server/src/runtime/persistence/postgres/migrations/009_player_entry_control_plane.sql",
   "apps/server/src/runtime/persistence/postgres/migrations/010_runtime_instance_foreign_keys.sql",
+  "apps/server/src/runtime/persistence/postgres/migrations/011_hosted_runtime_lease_incarnation.sql",
   "apps/server/src/player-entry/postgres-player-entry-repository.ts",
   "apps/server/src/admin/hosted/postgres-hosted-join-repository.ts",
   "apps/server/src/bootstrap/hosted-runtime-worker-cli.ts",
@@ -25,17 +27,28 @@ check(serviceSource.includes("Idempotency-Key") || serviceSource.includes("idemp
 check(!serviceSource.includes("passwordHash") && !serviceSource.includes("passwordSalt"), "browser-facing service excludes password material");
 
 const strict = process.env.NODE_ENV === "production" || process.env.EMPIRE_HOSTED_PREFLIGHT_STRICT === "1";
-const databaseUrl = String(process.env.EMPIRE_DATABASE_URL ?? process.env.EMPIRE_TEST_DATABASE_URL ?? "").trim();
+const hostedDatabaseUrl = String(process.env.EMPIRE_DATABASE_URL ?? "").trim();
+const databaseUrl = strict
+  ? hostedDatabaseUrl
+  : hostedDatabaseUrl || String(process.env.EMPIRE_TEST_DATABASE_URL ?? "").trim();
 if (strict) {
-  check(Boolean(databaseUrl), "PostgreSQL URL is configured");
+  const allowedOrigins = parseAllowedOrigins(process.env.EMPIRE_ALLOWED_ORIGINS);
+  const sessionSecret = String(process.env.GAMEPLAY_SLICE_SESSION_SECRET ?? "").trim();
+  const snapshotSecret = String(process.env.GAMEPLAY_SLICE_SNAPSHOT_SECRET ?? "").trim();
+  check(Boolean(hostedDatabaseUrl), "EMPIRE_DATABASE_URL is configured");
   check(process.env.EMPIRE_ADMIN_WRITES_ENABLED === "true", "admin writes flag is enabled");
   check(process.env.EMPIRE_HOSTED_CONTROL_PLANE_ENABLED === "true", "hosted control-plane flag is enabled");
   check(process.env.EMPIRE_SERVER_PROVISIONING_ENABLED === "true", "server provisioning flag is enabled");
-  check(Boolean(process.env.EMPIRE_PUBLIC_ORIGIN || process.env.EMPIRE_ALLOWED_ORIGINS), "public origin is configured");
+  check(allowedOrigins.length > 0 && allowedOrigins.every(isAllowedOrigin), "gameplay origin allowlist is configured");
+  check(sessionSecret.length >= 32, "gameplay session secret is at least 32 characters");
+  check(snapshotSecret.length >= 32, "snapshot secret is at least 32 characters");
+  check(Boolean(sessionSecret) && Boolean(snapshotSecret) && sessionSecret !== snapshotSecret,
+    "gameplay session and snapshot secrets are distinct");
   check(String(process.env.EMPIRE_ADMIN_FINGERPRINT_SECRET ?? "").length >= 32, "admin fingerprint secret is configured");
   check(process.env.EMPIRE_PERSISTENCE_DRIVER === "postgres", "runtime persistence is PostgreSQL");
   check(process.env.GAMEPLAY_PERSISTENCE_DRIVER === "postgres", "gameplay persistence is PostgreSQL");
-  check(Boolean(process.env.EMPIRE_HOSTED_WORKER_ID || process.env.EMPIRE_TICK_WORKER_OWNER_ID), "worker owner ID is configured");
+  check(Boolean(process.env.EMPIRE_HOSTED_WORKER_ID), "EMPIRE_HOSTED_WORKER_ID is configured");
+  check(process.env.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED !== "true", "closed alpha registration remains disabled");
 }
 
 if (databaseUrl) {
@@ -52,7 +65,7 @@ if (databaseUrl) {
       const sql = await readFile(new URL(filename, migrationsUrl), "utf8");
       return appliedByName.get(filename) === createHash("sha256").update(sql).digest("hex");
     }));
-    check(migrationFiles.length >= 10 && migrationChecks.every(Boolean) && applied.rows.length === migrationFiles.length,
+    check(migrationFiles.length >= 11 && migrationChecks.every(Boolean) && applied.rows.length === migrationFiles.length,
       "all database migrations are current");
     const expectedUsername = String(process.env.EMPIRE_ADMIN_BOOTSTRAP_USERNAME ?? "Erik22").normalize("NFKC").trim().toLocaleLowerCase("en-US");
     const user = await pool.query("SELECT role,status FROM empire_admin_users WHERE normalized_username=$1", [expectedUsername]);
@@ -74,23 +87,8 @@ if (databaseUrl) {
       to_regclass('empire_tick_locks') AS tick_locks`);
     check(Object.values(tables.rows[0] ?? {}).every(Boolean), "required durable repositories exist");
     const worker = await pool.query("SELECT last_heartbeat_at FROM empire_hosted_worker_heartbeats WHERE status='online' ORDER BY last_heartbeat_at DESC LIMIT 1");
-    check(Boolean(worker.rows[0]) && Date.now() - Date.parse(worker.rows[0].last_heartbeat_at) <= 60_000, "hosted worker heartbeat is fresh");
-    const leaseTarget = await pool.query("SELECT server_instance_id FROM empire_hosted_server_instances ORDER BY created_at LIMIT 1");
-    const leaseServerId = leaseTarget.rows[0]?.server_instance_id;
-    let leaseAcquired = false;
-    if (leaseServerId) {
-      const lease = await pool.query(`INSERT INTO empire_tick_locks
-        (id,server_instance_id,schema_version,lock_owner,locked_until,payload,created_at,updated_at)
-        VALUES ($1,$2,1,'hosted-preflight',now()+interval '10 seconds','{}'::jsonb,now(),now())
-        ON CONFLICT (server_instance_id) DO UPDATE SET lock_owner='hosted-preflight',
-          locked_until=now()+interval '10 seconds',updated_at=now()
-        WHERE empire_tick_locks.locked_until <= now() OR empire_tick_locks.lock_owner='hosted-preflight'
-        RETURNING server_instance_id`, [`tick-lock:${leaseServerId}`, leaseServerId]);
-      leaseAcquired = lease.rowCount === 1;
-      if (leaseAcquired) await pool.query(`UPDATE empire_tick_locks SET locked_until=now(),updated_at=now()
-        WHERE server_instance_id=$1 AND lock_owner='hosted-preflight'`, [leaseServerId]);
-    }
-    check(leaseAcquired, "tick lease can be acquired and released durably");
+    check(Boolean(worker.rows[0]) && Date.now() - Date.parse(worker.rows[0].last_heartbeat_at) <= 30_000, "hosted worker heartbeat is fresh");
+    check(await probeRollbackOnlyTickLease(pool), "tick lease can be acquired and released in a rollback-only probe");
   } catch (_error) {
     check(false, "live PostgreSQL hosted checks completed");
   } finally {
@@ -106,4 +104,18 @@ if (failures.length) {
   process.exitCode = 1;
 } else {
   console.log(`Hosted control-plane preflight passed (${strict ? "strict" : "code-level"} mode).`);
+}
+
+function parseAllowedOrigins(value) {
+  return String(value ?? "").split(",").map((origin) => origin.trim()).filter(Boolean);
+}
+
+function isAllowedOrigin(candidate) {
+  try {
+    const origin = new URL(candidate);
+    const loopback = origin.hostname === "localhost" || origin.hostname === "127.0.0.1" || origin.hostname === "[::1]";
+    return origin.origin === candidate && (origin.protocol === "https:" || loopback);
+  } catch {
+    return false;
+  }
 }

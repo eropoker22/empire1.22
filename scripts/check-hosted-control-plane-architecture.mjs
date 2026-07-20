@@ -10,6 +10,10 @@ const text = (path) => {
   try { return readFileSync(path, "utf8"); }
   catch { return ""; }
 };
+const hasDynamicModuleImport = (source, modulePath) => {
+  const escapedModulePath = modulePath.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return new RegExp(`import\\(\\s*["']${escapedModulePath}(?:\\?[^"']*)?["']\\s*\\)`, "u").test(source);
+};
 
 check(!staged.some((path) => /(^|\/)\.env(\.|$)/u.test(path) && !path.endsWith(".env.example")), "local environment files must not be staged");
 check(!tracked.some((path) => /(^|\/)\.env\.local$/u.test(path)), ".env.local must not be tracked");
@@ -49,9 +53,9 @@ check(!tracked.some((path) => path.endsWith(".ts") && /EMPIRE_ADMIN_SECRET|x-emp
 check(matchmakingHandler.includes('repositories?.kind === "postgres"') && matchmakingHandler.includes("listHostedPublicServerCandidates"), "hosted matchmaking must use the durable PostgreSQL registry");
 check(!matchmakingHandler.includes("publicServerRegistry"), "production matchmaking handler must not import the hardcoded public registry");
 check(functionHandler.includes("EMPIRE_LEGACY_MATCHMAKING_ENABLED"), "legacy matchmaking must be explicitly disabled in production");
-check(lobbyPage.includes("lobby-entry.js") && lobbyEntry.includes("isExplicitLocalDemoEnabled") && lobbyEntry.includes('"./lobby-live.js"'), "production lobby defaults to the live account/membership entrypoint");
-check(text("pages/login.html").includes("login-entry.js") && loginEntry.includes("isExplicitLocalDemoEnabled") && loginEntry.includes('"./login-live.js"'), "production login defaults to the live account entrypoint");
-check(factionPage.includes("faction-entry.js") && factionEntry.includes("isExplicitLocalDemoEnabled") && factionEntry.includes('"./faction-live.js"'), "production setup defaults to the live membership entrypoint");
+check(lobbyPage.includes("lobby-entry.js") && lobbyEntry.includes("isExplicitLocalDemoEnabled") && hasDynamicModuleImport(lobbyEntry, "./lobby-live.js"), "production lobby defaults to the live account/membership entrypoint");
+check(text("pages/login.html").includes("login-entry.js") && loginEntry.includes("isExplicitLocalDemoEnabled") && hasDynamicModuleImport(loginEntry, "./login-live.js"), "production login defaults to the live account entrypoint");
+check(factionPage.includes("faction-entry.js") && factionEntry.includes("isExplicitLocalDemoEnabled") && hasDynamicModuleImport(factionEntry, "./faction-live.js"), "production setup defaults to the live membership entrypoint");
 check(localDemoGate.includes("127.0.0.1") && localDemoGate.includes("localDemoEnabled === true"), "legacy entry flow requires an explicit loopback-only demo flag");
 check(!/SERVER_CATALOG|saveLobbyStep|SPAWN_SIDE_BAND_COLUMNS|Math\.random/u.test(lobbyLive), "production lobby has no static spawn/server authority");
 check(entryMigration.includes("empire_server_memberships_blocking_account_idx"), "one blocking membership is enforced by PostgreSQL");
@@ -59,9 +63,16 @@ check(entryMigration.includes("empire_server_memberships_reserved_district_idx")
 check(runtimeForeignKeyMigration.includes("REFERENCES empire_server_instances (server_instance_id)"), "atomic command foreign keys use the canonical server instance ID");
 check(text("apps/server/src/admin/hosted/hosted-control-plane-service.ts").includes('repositories.kind === "postgres"'), "production admin writes must require PostgreSQL");
 check(text("apps/server/src/runtime/persistence/postgres/migrations/007_hosted_server_control_plane.sql").includes("status <> 'running'"), "running status must require a lease invariant");
-const migration = text("apps/server/src/runtime/persistence/postgres/migrations/008_hosted_join_reservations.sql");
-const expectedChecksum = createHash("sha256").update(migration).digest("hex");
-check(text("apps/server/src/admin/hosted/postgres-hosted-control-plane-helpers.ts").includes(expectedChecksum), "hosted worker migration checksum must match migration 008");
+const migrationContract = text("apps/server/src/runtime/persistence/postgres/production-migration-contract.ts");
+const migrationPaths = tracked.filter((path) =>
+  /^apps\/server\/src\/runtime\/persistence\/postgres\/migrations\/\d{3}_[a-z0-9_]+\.sql$/u.test(path)
+).sort();
+check(migrationPaths.length >= 10, "production migration contract must cover the full schema");
+for (const path of migrationPaths) {
+  const filename = path.split("/").at(-1);
+  const expectedChecksum = createHash("sha256").update(text(path)).digest("hex");
+  check(migrationContract.includes(`\"${filename}\", \"${expectedChecksum}\"`), `${filename} must match the production migration contract`);
+}
 
 if (failures.length) {
   for (const failure of failures) console.error(`FAIL ${failure}`);

@@ -42,7 +42,7 @@ describe("local-demo Factory production lines", () => {
     expect(FACTORY_SLOT_STORAGE_CAPS).toEqual({ metalParts: 10, techCore: 5, combatModule: 2 });
     expect(Object.fromEntries(
       Object.entries(FACTORY_CONFIG.recipes).map(([recipeId, recipe]) => [recipeId, recipe.queueCap])
-    )).toEqual({ "metal-parts": 8, "tech-core": 4, "combat-module": 2 });
+    )).toEqual({ "metal-parts": 13, "tech-core": 8, "combat-module": 5 });
   });
 
   it("does not produce anything when no paid unit is queued", () => {
@@ -72,7 +72,7 @@ describe("local-demo Factory production lines", () => {
     }), startedAt + 60 * 60_000);
     const line = result.state.slots.find((slot) => slot.resourceKey === "metalParts");
 
-    expect(line).toMatchObject({ producedAmount: 10, slotCap: 10, queuedAmount: 3, queueCap: 8, isProducing: false });
+    expect(line).toMatchObject({ producedAmount: 10, slotCap: 10, queuedAmount: 3, queueCap: 13, isProducing: false });
   });
 
   it("uses the Factory network only for speed and never scales either cap", () => {
@@ -83,7 +83,7 @@ describe("local-demo Factory production lines", () => {
     const line = result.state.slots.find((slot) => slot.resourceKey === "metalParts");
 
     expect(result.productionMultiplier).toBe(1.1);
-    expect(line).toMatchObject({ producedAmount: 1, queuedAmount: 1, slotCap: 10, queueCap: 8 });
+    expect(line).toMatchObject({ producedAmount: 1, queuedAmount: 1, slotCap: 10, queueCap: 13 });
   });
 
   it("preserves a migrated queue above the new cap while blocking silent truncation", () => {
@@ -93,6 +93,6 @@ describe("local-demo Factory production lines", () => {
     }), startedAt);
     const line = result.state.slots.find((slot) => slot.resourceKey === "techCore");
 
-    expect(line).toMatchObject({ queuedAmount: 14, queueCap: 4, producedAmount: 0 });
+    expect(line).toMatchObject({ queuedAmount: 14, queueCap: 8, producedAmount: 0 });
   });
 });

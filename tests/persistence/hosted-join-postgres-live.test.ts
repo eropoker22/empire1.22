@@ -127,13 +127,25 @@ describeWhenDatabaseConfigured("hosted join reservation postgres live", () => {
         requestHash: `stop-hash:${suffix}`,
         audit: audit("lifecycle-request", serverInstanceId, adminUserId, afterExpiry, suffix)
       })).toMatchObject({ kind: "created" });
-      await repositories.hosted.completeAction({
-        request: action,
+      const workerId = `worker:join-live:${suffix}`;
+      const workerIncarnationId = `worker-incarnation:${suffix}`;
+      const lifecycleLeaseExpiresAt = new Date(Date.parse(afterExpiry) + 60_000).toISOString();
+      await repositories.hosted.writeWorkerHeartbeat({ workerId, workerIncarnationId, region: "local",
+        buildSha: "test", startedAt: afterExpiry, lastHeartbeatAt: afterExpiry, status: "online" }, true);
+      const claimedAction = await repositories.hosted.claimAction(workerId, workerIncarnationId, afterExpiry,
+        lifecycleLeaseExpiresAt);
+      expect(claimedAction).toMatchObject({ actionRequestId: action.actionRequestId, claimedByWorkerId: workerId });
+      if (!claimedAction) throw new Error("Lifecycle action claim was not acquired.");
+      expect(await repositories.hosted.acquireRuntimeLease({ serverInstanceId, workerId, now: afterExpiry,
+        workerIncarnationId, expiresAt: lifecycleLeaseExpiresAt })).toBe(true);
+      expect(await repositories.hosted.completeAction({
+        request: claimedAction,
+        workerIncarnationId,
         nextStatus: "stopped",
         nextJoinPolicy: "closed",
         at: afterExpiry,
         audit: audit("lifecycle-success", serverInstanceId, adminUserId, afterExpiry, suffix)
-      });
+      })).toBe(true);
       expect(await repositories.hosted.getJoinReservation(pendingAfterClose.reservation.reservationId))
         .toMatchObject({ status: "reserved" });
       expect(await repositories.hosted.getServer(serverInstanceId)).toMatchObject({ status: "stopped", joinPolicy: "closed" });

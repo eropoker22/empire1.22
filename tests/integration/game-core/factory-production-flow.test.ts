@@ -42,9 +42,9 @@ const ticks = (state: ReturnType<typeof createCoreStateWithFixedBuildingFixture>
 
 describe("factory production", () => {
   it("uses the canonical one-piece recipes, costs, timings and caps", () => {
-    expect(factory.recipes["metal-parts"]).toMatchObject({ cleanCashCostPerUnit: 300, inputCosts: {}, outputAmount: 1, localOutputCap: 10, queueCap: 8 });
-    expect(factory.recipes["tech-core"]).toMatchObject({ cleanCashCostPerUnit: 900, inputCosts: { "metal-parts": 4 }, outputAmount: 1, localOutputCap: 5, queueCap: 4 });
-    expect(factory.recipes["combat-module"]).toMatchObject({ cleanCashCostPerUnit: 2500, inputCosts: { "metal-parts": 4, "tech-core": 2 }, outputAmount: 1, localOutputCap: 2, queueCap: 2 });
+    expect(factory.recipes["metal-parts"]).toMatchObject({ cleanCashCostPerUnit: 300, inputCosts: {}, outputAmount: 1, localOutputCap: 10, queueCap: 13 });
+    expect(factory.recipes["tech-core"]).toMatchObject({ cleanCashCostPerUnit: 900, inputCosts: { "metal-parts": 4 }, outputAmount: 1, localOutputCap: 5, queueCap: 8 });
+    expect(factory.recipes["combat-module"]).toMatchObject({ cleanCashCostPerUnit: 2500, inputCosts: { "metal-parts": 4, "tech-core": 2 }, outputAmount: 1, localOutputCap: 2, queueCap: 5 });
     expect(metalDuration).toBe(4 * Math.ceil(60_000 / context.config.tickRateMs));
   });
 
@@ -103,7 +103,7 @@ describe("factory production", () => {
       playerBalances: { cash: 100, "metal-parts": 3 }
     });
     expect(applyCommand(state, start(building.id, "metal-parts", 0), context).errors[0]?.code).toBe("factory_invalid_quantity");
-    expect(applyCommand(state, start(building.id, "metal-parts", 9), context).errors[0]?.code).toBe("factory_queue_full");
+    expect(applyCommand(state, start(building.id, "metal-parts", 14), context).errors[0]?.code).toBe("factory_queue_full");
     const missing = applyCommand(state, start(building.id, "tech-core", 1), context);
     expect(missing.errors[0]?.code).toBe("factory_insufficient_clean_cash");
     expect(missing.nextState).toBe(state);
@@ -115,14 +115,14 @@ describe("factory production", () => {
       productionResourceKey: "metal-parts",
       productionStoredAmount: 9
     });
-    const started = applyCommand(state, start(building.id, "metal-parts", 3), context);
+    const started = applyCommand(state, start(building.id, "metal-parts", 4), context);
     const completed = ticks(started.nextState, metalDuration);
     expect(completed.resourceStatesById["resource:" + building.id]?.balances["metal-parts"]).toBe(10);
-    expect(completed.buildingsById[building.id]?.productionLines?.["metal-parts"]).toMatchObject({ queuedAmount: 2, activeCompletesAtTick: null });
+    expect(completed.buildingsById[building.id]?.productionLines?.["metal-parts"]).toMatchObject({ queuedAmount: 3, activeCompletesAtTick: null });
     const collected = applyCommand(completed, createCollectProductionCommandFixture({
       payload: { districtId: "district:1", buildingId: building.id, resourceKey: "metal-parts" }
     }), context);
-    expect(collected.nextState.buildingsById[building.id]?.productionLines?.["metal-parts"]?.activeCompletesAtTick).toBeGreaterThan(0);
+    expect(collected.nextState.buildingsById[building.id]?.productionLines?.["metal-parts"]).toMatchObject({ queuedAmount: 3, activeCompletesAtTick: expect.any(Number) });
   });
 
   it("catches up elapsed Factory time deterministically without exceeding paid queue", () => {
@@ -199,7 +199,7 @@ describe("factory production", () => {
     })!;
     expect(view.network).toMatchObject({ activeFactoryCount: 1, networkSpeedMultiplier: 1 });
     expect(view.producedSummary).toContainEqual(expect.objectContaining({ resourceKey: "tech-core", currentAmount: 5, capacity: 5, isFull: true }));
-    expect(view.productionLines.find((line) => line.recipeId === "metal-parts")).toMatchObject({ maxStartQuantity: 6, queueCapacity: 8 });
+    expect(view.productionLines.find((line) => line.recipeId === "metal-parts")).toMatchObject({ maxStartQuantity: 6, queueCapacity: 13 });
     expect(view.productionLines.find((line) => line.recipeId === "tech-core")).toMatchObject({ status: "full", canStart: false });
   });
 

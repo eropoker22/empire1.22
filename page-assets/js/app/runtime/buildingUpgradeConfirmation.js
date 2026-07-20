@@ -47,11 +47,18 @@ export function createBuildingUpgradeConfirmationController({
   dialog.setAttribute("aria-modal", "true");
   dialog.setAttribute("aria-label", "Potvrzení upgradu");
 
+  const closeButton = documentRef.createElement("button");
+  closeButton.type = "button";
+  closeButton.className = "building-upgrade-confirm__close";
+  closeButton.setAttribute("aria-label", "Zrušit upgrade");
+  closeButton.textContent = "×";
+
   const title = documentRef.createElement("h4");
   title.className = "building-upgrade-confirm__title";
 
-  const copy = documentRef.createElement("p");
-  copy.className = "building-upgrade-confirm__copy";
+  const header = documentRef.createElement("div");
+  header.className = "building-upgrade-confirm__header";
+  header.append(title, closeButton);
 
   const grid = documentRef.createElement("div");
   grid.className = "building-upgrade-confirm__grid";
@@ -85,18 +92,16 @@ export function createBuildingUpgradeConfirmationController({
   const actions = documentRef.createElement("div");
   actions.className = "building-upgrade-confirm__actions";
 
-  const cancelButton = documentRef.createElement("button");
-  cancelButton.type = "button";
-  cancelButton.className = "building-upgrade-confirm__button building-upgrade-confirm__button--ghost";
-  cancelButton.textContent = "Zpět";
-
   const confirmButton = documentRef.createElement("button");
   confirmButton.type = "button";
   confirmButton.className = "building-upgrade-confirm__button building-upgrade-confirm__button--confirm";
   confirmButton.textContent = "Potvrdit upgrade";
 
-  actions.append(cancelButton, confirmButton);
-  dialog.append(title, copy, grid, note, actions);
+  actions.append(confirmButton);
+  const footer = documentRef.createElement("div");
+  footer.className = "building-upgrade-confirm__footer";
+  footer.append(note, actions);
+  dialog.append(header, grid, footer);
   overlay.append(backdrop, dialog);
   host.append(overlay);
 
@@ -119,9 +124,7 @@ export function createBuildingUpgradeConfirmationController({
   const update = ({
     buildingLabel = "Budova",
     canConfirm = true,
-    confirmLabel = "Potvrdit upgrade",
     costLabel: nextCostLabel = "$0",
-    description = "",
     noteLabel = "",
     titleLabel = "",
     benefitLabel: nextBenefitLabel = "",
@@ -130,7 +133,6 @@ export function createBuildingUpgradeConfirmationController({
     upgradeLabel: nextUpgradeLabel = ""
   } = {}) => {
     setText(title, titleLabel || `${buildingLabel} · upgrade`);
-    setText(copy, description || `Opravdu chceš upgradovat ${buildingLabel.toLowerCase()}?`);
     setText(costValue, nextCostLabel);
     setText(upgradeValue, nextUpgradeLabel || "Vyšší level");
     benefitList.replaceChildren();
@@ -167,12 +169,13 @@ export function createBuildingUpgradeConfirmationController({
       benefitList.append(more);
     }
     setText(note, noteLabel);
-    confirmButton.textContent = confirmLabel;
+    note.classList.toggle("is-error", !canConfirm);
+    confirmButton.textContent = "Potvrdit upgrade";
     confirmButton.disabled = !canConfirm;
   };
 
   backdrop.addEventListener("click", () => finalize(false));
-  cancelButton.addEventListener("click", () => finalize(false));
+  closeButton.addEventListener("click", () => finalize(false));
   confirmButton.addEventListener("click", () => finalize(true));
 
   return {
@@ -186,13 +189,13 @@ export function createBuildingUpgradeConfirmationController({
       openOverlay(overlay, {
         type: "modal",
         ariaModal: true,
-        focusTarget: payload.canConfirm === false ? cancelButton : confirmButton,
+        focusTarget: payload.canConfirm === false ? closeButton : confirmButton,
         restoreFocusOnClose: false
       });
       overlay.hidden = false;
       return new Promise((resolve) => {
         currentResolve = resolve;
-        focusWithoutScroll(payload.canConfirm === false ? cancelButton : confirmButton);
+        focusWithoutScroll(payload.canConfirm === false ? closeButton : confirmButton);
       });
     },
     update

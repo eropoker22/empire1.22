@@ -21,7 +21,8 @@ describeWhenDatabaseConfigured("hosted control plane PostgreSQL live", () => {
       await repositories.users.create({ adminUserId, username: `LiveOwner${suffix}`, normalizedUsername: `liveowner${suffix}`,
         ...password, passwordVersion: 1, role: "owner", status: "active", displayName: "Live Owner",
         createdAt: at, updatedAt: at, lastLoginAt: null, passwordChangedAt: at, version: 1 });
-      await repositories.hosted.writeWorkerHeartbeat({ workerId: `worker:live:A:${suffix}`, region: "eu-central", startedAt: at,
+      await repositories.hosted.writeWorkerHeartbeat({ workerId: `worker:live:A:${suffix}`,
+        workerIncarnationId: `worker-incarnation:live:A:${suffix}`, region: "eu-central", startedAt: at,
         lastHeartbeatAt: at, buildSha: "live-test", status: "online" });
       const service = createHostedControlPlaneService({ repositories, environment: { NODE_ENV: "test",
         EMPIRE_ADMIN_WRITES_ENABLED: "true", EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true", EMPIRE_SERVER_PROVISIONING_ENABLED: "true" } });
@@ -49,17 +50,20 @@ describeWhenDatabaseConfigured("hosted control plane PostgreSQL live", () => {
       const districtIds = [...runtimeA.state.root.districtIds];
       await workerA.stop();
 
-      await repositories.hosted.writeWorkerHeartbeat({ workerId: `worker:live:B:${suffix}`, region: "eu-central", startedAt: at,
-        lastHeartbeatAt: new Date().toISOString(), buildSha: "live-test", status: "online" });
       const appB = createServerApp({ persistence });
       const workerB = createHostedRuntimeWorker({ workerId: `worker:live:B:${suffix}`, region: "eu-central", buildSha: "live-test",
         controlPlane: repositories.hosted, server: appB });
+      await workerB.heartbeat();
       await workerB.restoreKnownInstances();
       const runtimeB = appB.instanceManager.getInstanceById(serverInstanceId)!;
       expect(runtimeB.state.serverInstance.worldSeed).toBe(worldSeed);
       expect(runtimeB.state.root.districtIds).toEqual(districtIds);
+      await repositories.hosted.writeWorkerHeartbeat({ workerId: `worker:live:C:${suffix}`,
+        workerIncarnationId: `worker-incarnation:live:C:${suffix}`, region: "eu-central", startedAt: at,
+        lastHeartbeatAt: new Date().toISOString(), buildSha: "live-test", status: "online" });
       expect(await repositories.hosted.acquireRuntimeLease({ serverInstanceId, workerId: `worker:live:C:${suffix}`,
-        now: new Date().toISOString(), expiresAt: new Date(Date.now() + 20_000).toISOString() })).toBe(false);
+        workerIncarnationId: `worker-incarnation:live:C:${suffix}`, now: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 20_000).toISOString() })).toBe(false);
       await workerB.stop();
     } finally {
       if (serverInstanceId) {

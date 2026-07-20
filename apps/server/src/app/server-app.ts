@@ -27,7 +27,8 @@ import {
 } from "../auth";
 import {
   createPostgresDatabase,
-  createPostgresGameplayIdentitySessionRepository
+  createPostgresGameplayIdentitySessionRepository,
+  type PostgresDatabase
 } from "../runtime/persistence/postgres";
 import { readPlayerAccountCookie } from "../player-entry/player-account-cookie";
 import { createPostgresPlayerEntryRepository } from "../player-entry/postgres-player-entry-repository";
@@ -44,13 +45,17 @@ export interface ServerAppOptions {
   gameplaySessionTokenSecret?: string;
   accountIdentityProvider?: AccountIdentityProvider | null;
   gameplaySessionService?: GameplaySessionService | null;
+  database?: PostgresDatabase;
 }
 
 const DEFAULT_DEV_GAMEPLAY_SESSION_TOKEN_SECRET = "empire-streets-local-gameplay-session-dev-secret";
 
 export const createServerApp = (options: ServerAppOptions = {}) => {
   const isProduction = options.environment?.NODE_ENV === "production";
-  const selectedPersistence = options.persistence ?? createRuntimePersistenceRepositoriesFromEnvironment(options.environment);
+  const selectedPersistence = options.persistence ?? createRuntimePersistenceRepositoriesFromEnvironment(
+    options.environment,
+    options.database
+  );
   const persistence = isProduction && selectedPersistence.atomicCommandPersistenceMode !== "transactional"
     ? {
         ...selectedPersistence,
@@ -77,11 +82,13 @@ export const createServerApp = (options: ServerAppOptions = {}) => {
     : null;
   const accountIdentityProvider = options.accountIdentityProvider ?? createDefaultAccountIdentityProvider({
     environment: options.environment,
-    isProduction
+    isProduction,
+    database: options.database
   });
   const gameplaySessionService = options.gameplaySessionService ?? createDefaultGameplaySessionService({
     environment: options.environment,
-    isProduction
+    isProduction,
+    database: options.database
   });
   const gameplaySliceTransport = createGameplaySliceTransport(instanceManager, commandIngress, {
     sessionTokenCodec: gameplaySessionTokenCodec,
@@ -131,6 +138,7 @@ const createDefaultGameplaySessionService = (
   options: {
     environment?: Record<string, string | undefined>;
     isProduction: boolean;
+    database?: PostgresDatabase;
   }
 ): GameplaySessionService => {
   const driver = String(options.environment?.EMPIRE_PERSISTENCE_DRIVER ?? options.environment?.GAMEPLAY_PERSISTENCE_DRIVER ?? "")
@@ -142,7 +150,7 @@ const createDefaultGameplaySessionService = (
   ).trim();
 
   if (driver === "postgres" && databaseUrl) {
-    const database = createPostgresDatabase(databaseUrl);
+    const database = options.database ?? createPostgresDatabase(databaseUrl);
     return createPersistentGameplaySessionService(
       createPostgresGameplayIdentitySessionRepository(database),
       { productionReady: true }
@@ -156,12 +164,13 @@ const createDefaultGameplaySessionService = (
 const createDefaultAccountIdentityProvider = (options: {
   environment?: Record<string, string | undefined>;
   isProduction: boolean;
+  database?: PostgresDatabase;
 }): AccountIdentityProvider => {
   const driver = String(options.environment?.EMPIRE_PERSISTENCE_DRIVER ?? options.environment?.GAMEPLAY_PERSISTENCE_DRIVER ?? "")
     .trim().toLowerCase();
   const databaseUrl = String(options.environment?.EMPIRE_DATABASE_URL ?? options.environment?.GAMEPLAY_DATABASE_URL ?? "").trim();
   if (driver === "postgres" && databaseUrl) {
-    const repository = createPostgresPlayerEntryRepository(createPostgresDatabase(databaseUrl));
+    const repository = createPostgresPlayerEntryRepository(options.database ?? createPostgresDatabase(databaseUrl));
     return {
       productionReady: true,
       resolve: async ({ headers }) => {

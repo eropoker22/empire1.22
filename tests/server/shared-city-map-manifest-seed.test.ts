@@ -10,11 +10,12 @@ describe("shared city map seed", () => {
   it("seeds server districts directly from the canonical map manifest", () => {
     const state = createInitialState("instance:test", "free");
 
-    ensureSharedCityMap(state, "instance:test", {
+    const changed = ensureSharedCityMap(state, "instance:test", {
       buildSlotLimit: 4,
       productionBuildings: {}
     });
 
+    expect(changed).toBe(true);
     expect(state.root.districtIds).toEqual(empireStreetsCityMapManifest.districts.map((district) => district.id));
     for (const manifestDistrict of empireStreetsCityMapManifest.districts) {
       const serverDistrict = state.districtsById[manifestDistrict.id];
@@ -26,6 +27,10 @@ describe("shared city map seed", () => {
       expect(serverDistrict.status).toBe("neutral");
       expect(serverDistrict.buildingIds.length).toBeGreaterThan(0);
     }
+    expect(ensureSharedCityMap(state, "instance:test", {
+      buildSlotLimit: 4,
+      productionBuildings: {}
+    })).toBe(false);
   });
 
   it("derives spawn pool from manifest spawn candidates", () => {

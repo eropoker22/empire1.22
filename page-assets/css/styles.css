@@ -84,7 +84,10 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup_
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready:focus-visible,
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full,
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full:hover,
-html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full:focus-visible {
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full:focus-visible,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-convenience-store-full,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-convenience-store-full:hover,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-convenience-store-full:focus-visible {
   position: relative !important;
   overflow: hidden !important;
   isolation: isolate !important;
@@ -104,9 +107,15 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup_
 
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full > *,
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready > *,
-html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full > * {
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full > *,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-convenience-store-full > * {
   position: relative !important;
   z-index: 2 !important;
+}
+
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-convenience-store-full {
+  --buildings-type-border-hover: rgba(134, 239, 172, 0.94);
+  --buildings-type-glow: rgba(34, 197, 94, 0.34);
 }
 
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full > span:first-child,
@@ -114,7 +123,9 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup_
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready > span:first-child,
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready > span:nth-child(2),
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full > span:first-child,
-html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full > span:nth-child(2) {
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full > span:nth-child(2),
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-convenience-store-full > span:first-child,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-convenience-store-full > span:nth-child(2) {
   color: #ffffff !important;
   text-shadow:
     0 0 8px var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)),
@@ -124,7 +135,8 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup_
 
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full::before,
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready::before,
-html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full::before {
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full::before,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-convenience-store-full::before {
   background: var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)) !important;
   box-shadow:
     0 0 12px var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)),
@@ -134,7 +146,8 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup_
 
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full::after,
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready::after,
-html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full::after {
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full::after,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-convenience-store-full::after {
   content: "" !important;
   position: absolute !important;
   inset: 0 !important;
@@ -710,6 +723,28 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
   }
 }
 
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-production-slot-full,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-production-slot-full:hover,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-production-slot-full:focus-visible {
+  position: relative !important;
+  overflow: hidden !important;
+  isolation: isolate !important;
+  border-color: color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.72)) 74%, transparent) !important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.72)) 28%, transparent),
+    0 0 14px color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.28)) 82%, transparent),
+    0 8px 18px rgba(0, 0, 0, 0.22) !important;
+  animation: buildings-apartment-full-pulse 2.8s ease-in-out infinite !important;
+}
+
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-production-slot-full > * {
+  position: relative !important;
+  z-index: 2 !important;
+  text-shadow:
+    0 0 8px var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)),
+    0 0 16px var(--buildings-type-glow, rgba(34, 211, 238, 0.32)) !important;
+}
+
 /* Casino card lock: keep the approved visual treatment stable for this building. */
 html body.game-body .district-building-detail-shell[data-building-mechanics-type="casino"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] {
   background:
@@ -1098,6 +1133,32 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
   }
 
   html body.game-body .district-building-detail-shell[data-building-mechanics-type="power-plant"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel--merged {
+    flex: 0 0 auto !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="strip-club"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-body {
+    flex: 0 0 auto !important;
+    grid-template-rows: auto !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="strip-club"].is-building-detail-single-panel .district-building-detail-card.building-detail-modal__content {
+    height: auto !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="strip-club"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel--merged {
+    flex: 0 0 auto !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-body {
+    flex: 0 0 auto !important;
+    grid-template-rows: auto !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-card.building-detail-modal__content {
+    height: auto !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel--merged {
     flex: 0 0 auto !important;
   }
 
@@ -4069,66 +4130,75 @@ html body.game-body .onboarding-launch-button:focus-visible {
 }
 
 html body.game-body .elimination-ai-panel.is-open {
+  place-items: center !important;
   background:
-    radial-gradient(circle at 76% 12%, rgba(34, 211, 238, 0.1), transparent 34%),
-    linear-gradient(90deg, rgba(2, 6, 14, 0.12), rgba(2, 6, 14, 0.34)) !important;
+    radial-gradient(circle at 78% 12%, rgba(255, 35, 58, 0.13), transparent 32%),
+    radial-gradient(circle at 54% 88%, rgba(34, 211, 238, 0.09), transparent 34%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.26), rgba(1, 4, 10, 0.48)) !important;
 }
 
 html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__backdrop {
   background:
-    linear-gradient(90deg, rgba(2, 6, 14, 0.22), rgba(2, 6, 14, 0.56)),
-    rgba(1, 5, 12, 0.34) !important;
-  backdrop-filter: blur(7px) saturate(130%) !important;
-  -webkit-backdrop-filter: blur(7px) saturate(130%) !important;
+    linear-gradient(90deg, rgba(0, 0, 0, 0.24), rgba(1, 4, 10, 0.5)),
+    rgba(0, 0, 0, 0.18) !important;
+  backdrop-filter: blur(8px) saturate(118%) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(118%) !important;
 }
 
 html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__card {
-  border-radius: 16px !important;
-  border-color: rgba(226, 232, 240, 0.22) !important;
+  border-radius: 22px !important;
+  border-color: rgba(var(--ai-panel-state), 0.62) !important;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.022)),
-    radial-gradient(circle at 16% 0%, rgba(34, 211, 238, 0.12), transparent 38%),
-    radial-gradient(circle at 100% 16%, rgba(248, 113, 113, 0.12), transparent 34%),
-    rgba(3, 8, 18, 0.58) !important;
+    radial-gradient(circle at 10% 0%, rgba(34, 211, 238, 0.16), transparent 36%),
+    radial-gradient(circle at 100% 10%, rgba(var(--ai-panel-state), 0.2), transparent 38%),
+    linear-gradient(145deg, rgba(0, 0, 0, 0.58), rgba(1, 5, 11, 0.4)) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 0 28px rgba(255, 255, 255, 0.026),
-    0 24px 70px rgba(0, 0, 0, 0.46),
-    0 0 30px rgba(34, 211, 238, 0.12) !important;
-  backdrop-filter: blur(24px) saturate(150%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(150%) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 46px rgba(0, 0, 0, 0.64),
+    0 28px 82px rgba(0, 0, 0, 0.68),
+    0 0 0 1px rgba(34, 211, 238, 0.14),
+    0 0 42px rgba(var(--ai-panel-state), 0.28),
+    0 0 30px rgba(34, 211, 238, 0.18) !important;
+  backdrop-filter: blur(28px) saturate(142%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(142%) !important;
 }
 
 html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__card::before {
   background:
-    linear-gradient(120deg, rgba(255, 255, 255, 0.12), transparent 28%, transparent 76%, rgba(255, 255, 255, 0.045)),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 36%, rgba(255, 255, 255, 0.018)) !important;
-  opacity: 0.42 !important;
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.022) 0 1px, transparent 1px 7px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.16), transparent 28%, transparent 70%, rgba(var(--ai-panel-state), 0.18)) !important;
+  opacity: 0.78 !important;
   mix-blend-mode: screen !important;
 }
 
 html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__card::after {
-  opacity: 0.2 !important;
-  filter: blur(0.2px) drop-shadow(0 0 18px rgba(34, 211, 238, 0.14)) !important;
+  border-radius: 21px !important;
+  box-shadow:
+    inset 0 0 28px rgba(var(--ai-panel-state), 0.13),
+    inset 0 0 20px rgba(34, 211, 238, 0.08) !important;
+  opacity: 0.72 !important;
+  filter: drop-shadow(0 0 22px rgba(var(--ai-panel-state), 0.24)) !important;
 }
 
 html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__header {
-  min-height: 84px !important;
-  padding: 18px 18px 12px 20px !important;
+  min-height: 54px !important;
+  padding: 9px 12px !important;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.012)),
-    rgba(3, 8, 18, 0.26) !important;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.12) !important;
-  backdrop-filter: blur(16px) saturate(136%) !important;
-  -webkit-backdrop-filter: blur(16px) saturate(136%) !important;
+    linear-gradient(90deg, rgba(34, 211, 238, 0.08), transparent 42%, rgba(var(--ai-panel-state), 0.1)),
+    rgba(0, 0, 0, 0.34) !important;
+  border-bottom: 1px solid rgba(var(--ai-panel-state), 0.3) !important;
+  box-shadow: inset 0 -1px 0 rgba(34, 211, 238, 0.1), 0 8px 24px rgba(0, 0, 0, 0.16) !important;
+  backdrop-filter: blur(20px) saturate(136%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(136%) !important;
 }
 
 html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__eyebrow,
 html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__status-chip {
   border-radius: 999px !important;
-  background: rgba(255, 255, 255, 0.07) !important;
-  color: rgba(226, 232, 240, 0.92) !important;
-  text-shadow: none !important;
+  border-color: rgba(var(--ai-panel-state), 0.42) !important;
+  background: rgba(0, 0, 0, 0.3) !important;
+  color: #ffffff !important;
+  text-shadow: 0 0 10px rgba(var(--ai-panel-state), 0.36) !important;
 }
 
 html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__status-chip::before,
@@ -4144,10 +4214,11 @@ html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__title {
 }
 
 html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__close {
-  border: 1px solid rgba(226, 232, 240, 0.2) !important;
+  border: 1px solid rgba(var(--ai-panel-state), 0.52) !important;
   border-radius: 10px !important;
-  background: rgba(255, 255, 255, 0.075) !important;
+  background: rgba(0, 0, 0, 0.34) !important;
   color: #ffffff !important;
+  box-shadow: inset 0 0 12px rgba(var(--ai-panel-state), 0.08), 0 0 14px rgba(var(--ai-panel-state), 0.18) !important;
 }
 
 html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__hero,
@@ -4156,13 +4227,14 @@ html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__metric,
 html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__leaderboard-row,
 html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__score-row,
 html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__action-chips span {
-  border-color: rgba(226, 232, 240, 0.14) !important;
+  border-color: rgba(var(--ai-panel-state), 0.32) !important;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.014)),
-    rgba(3, 8, 18, 0.24) !important;
+    linear-gradient(145deg, rgba(var(--ai-panel-state), 0.1), transparent 52%),
+    rgba(0, 0, 0, 0.34) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 10px 24px rgba(0, 0, 0, 0.18) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 0 20px rgba(0, 0, 0, 0.34),
+    0 0 18px rgba(var(--ai-panel-state), 0.12) !important;
 }
 
 @media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {

@@ -9,6 +9,7 @@ import {
 import type { AccountIdentityProvider } from "../../apps/server/src/auth";
 import { createHostedControlPlaneService, createHostedRuntimeWorker } from "../../apps/server/src/admin/hosted";
 import { createPostgresAdminDurableRepositories, hashAdminPassword } from "../../apps/server/src/admin/read-only";
+import { ensureGameplaySliceMembershipInState } from "../../apps/server/src/bootstrap/gameplay-slice-session-membership";
 import type { AdminSessionView, GameplaySliceResponse } from "@empire/shared-types";
 import {
   applyPostgresTestMigrations,
@@ -40,8 +41,8 @@ describe("postgres prod-like runtime smoke", () => {
       NODE_ENV: "production",
       EMPIRE_PERSISTENCE_DRIVER: "postgres",
       EMPIRE_DATABASE_URL: liveConfig.databaseUrl!,
-      GAMEPLAY_SLICE_SESSION_SECRET: "postgres-smoke-session-secret",
-      GAMEPLAY_SLICE_SNAPSHOT_SECRET: "postgres-smoke-snapshot-secret",
+      GAMEPLAY_SLICE_SESSION_SECRET: "postgres-smoke-session-secret-2026-test",
+      GAMEPLAY_SLICE_SNAPSHOT_SECRET: "postgres-smoke-snapshot-secret-2026-test",
       EMPIRE_ADMIN_WRITES_ENABLED: "true",
       EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true",
       EMPIRE_SERVER_PROVISIONING_ENABLED: "true",
@@ -70,6 +71,7 @@ describe("postgres prod-like runtime smoke", () => {
     });
     await adminRepositories.hosted.writeWorkerHeartbeat({
       workerId,
+      workerIncarnationId: `worker-incarnation:${workerId}`,
       region: "eu-central",
       buildSha: "postgres-smoke",
       startedAt: at,
@@ -94,15 +96,17 @@ describe("postgres prod-like runtime smoke", () => {
     const createHandler = (currentAccountId: string) => {
       const server = createServerApp({
         environment,
+        database,
         accountIdentityProvider: createFixedProductionAccountProvider(currentAccountId)
       });
       return {
         server,
-        handler: createGameplaySliceFunctionHandler({ environment, server, adminRepositories })
+        handler: createGameplaySliceFunctionHandler({ environment, server, adminRepositories, database })
       };
     };
 
     const first = createHandler(accountId);
+    const workerServer = createServerApp({ environment, database });
     const identityRepository = createPostgresGameplayIdentitySessionRepository(database);
     let worker: ReturnType<typeof createHostedRuntimeWorker> | null = null;
     let freeServerInstanceId: string | null = null;
@@ -114,7 +118,7 @@ describe("postgres prod-like runtime smoke", () => {
           mode: "free",
           displayName: `Postgres Smoke ${runId}`,
           region: "eu-central",
-          capacity: 4,
+          capacity: 20,
           joinPolicy: "closed",
           mapComposition: { downtown: 8, commercial: 40, residential: 38, industrial: 38, park: 37 }
         },
@@ -128,11 +132,17 @@ describe("postgres prod-like runtime smoke", () => {
         region: "eu-central",
         buildSha: "postgres-smoke",
         controlPlane: adminRepositories.hosted,
-        server: first.server
+        server: workerServer
       });
       await worker.runOnce();
       const provisioned = await adminRepositories.hosted.getServer(freeServerInstanceId);
-      if (!provisioned || provisioned.provisioningState !== "ready") throw new Error("Hosted smoke server was not provisioned.");
+      if (!provisioned || provisioned.provisioningState !== "ready") {
+        throw new Error(`Hosted smoke server was not provisioned: ${JSON.stringify({
+          status: provisioned?.status ?? null,
+          provisioningState: provisioned?.provisioningState ?? null,
+          lastErrorCode: provisioned?.lastErrorCode ?? null
+        })}`);
+      }
       const openJoins = await controlPlane.requestAction({
         session: adminSession,
         serverInstanceId: freeServerInstanceId,
@@ -142,6 +152,14 @@ describe("postgres prod-like runtime smoke", () => {
       });
       if (!openJoins.accepted) throw new Error(`Hosted smoke joins failed: ${openJoins.errors[0]?.code ?? "unknown"}`);
       await worker.runOnce();
+      const opened = await adminRepositories.hosted.getServer(freeServerInstanceId);
+      if (opened?.joinPolicy !== "open" || opened.status !== "lobby") {
+        throw new Error(`Hosted smoke joins were not opened: ${JSON.stringify({
+          status: opened?.status ?? null,
+          joinPolicy: opened?.joinPolicy ?? null,
+          lastErrorCode: opened?.lastErrorCode ?? null
+        })}`);
+      }
 
       const matchmakingKey = `postgres-smoke-matchmaking-${runId}`;
       const matchmakingRequest = {
@@ -153,6 +171,9 @@ describe("postgres prod-like runtime smoke", () => {
         createHeaders(origin, accountId, matchmakingKey))));
       const pendingReserveJson = expectJson(pendingReserve);
       expect(pendingReserveJson.accepted).toBe(false);
+      if (!pendingReserveJson.reservation) {
+        throw new Error(`Hosted smoke reservation was not created: ${JSON.stringify(pendingReserveJson.errors ?? [])}`);
+      }
       expect(pendingReserveJson.reservation).toMatchObject({
         serverInstanceId: freeServerInstanceId,
         status: "reserved",
@@ -164,11 +185,17 @@ describe("postgres prod-like runtime smoke", () => {
       const committedReserve = await readJson(first.handler(postEvent("/api/matchmaking/reserve", matchmakingRequest,
         createHeaders(origin, accountId, matchmakingKey))));
       const reserveJson = expectJson(committedReserve);
-      expect(reserveJson.accepted).toBe(true);
+      if (!reserveJson.accepted) {
+        throw new Error(`Hosted smoke reservation was not committed: ${JSON.stringify({
+          reservation: reserveJson.reservation ?? null,
+          errors: reserveJson.errors ?? []
+        })}`);
+      }
       expect(reserveJson.reservation).toMatchObject({ serverInstanceId: freeServerInstanceId, status: "committed" });
       const joinTicket = String(reserveJson.reservation?.joinTicket ?? "");
       expect(joinTicket).toBeTruthy();
       await expect(countRows(database, "empire_join_tickets", "ticket_id", joinTicket)).resolves.toBe(1);
+      expect(first.server.instanceManager.getInstanceById(freeServerInstanceId)).toBeUndefined();
 
       const join = await readJson(first.handler(postEvent("/api/gameplay-slice/join", {
         joinTicket,
@@ -178,6 +205,7 @@ describe("postgres prod-like runtime smoke", () => {
       }, createHeaders(origin, accountId))));
       const joinJson = expectJson(join);
       expect(joinJson.accepted).toBe(true);
+      expect(first.server.instanceManager.getInstanceById(freeServerInstanceId)).toBeDefined();
       expect(joinJson.sessionToken ?? null).toBeNull();
       const setCookie = String(join.headers["set-cookie"] ?? "");
       const cookieHeader = toCookieHeader(setCookie);
@@ -207,11 +235,11 @@ describe("postgres prod-like runtime smoke", () => {
       expect(loadWithCookieJson.accepted).toBe(true);
       expect(loadWithCookieJson.readModel?.player.playerId).toBe(serverPlayerId);
 
-      const snapshotToken = String(loadWithCookieJson.snapshotToken ?? joinJson.snapshotToken ?? "");
+      expect(loadWithCookieJson.snapshotToken ?? null).toBeNull();
       const snapshotOnlyLoad = await readJson(first.handler(postEvent("/api/gameplay-slice/load", {
         serverInstanceId: freeServerInstanceId,
         playerId: serverPlayerId,
-        snapshotToken
+        snapshotToken: "snapshot-token-must-not-authorize-production-load"
       })));
       const snapshotOnlyLoadJson = expectJson(snapshotOnlyLoad);
       expect(snapshotOnlyLoadJson.accepted).toBe(false);
@@ -231,8 +259,41 @@ describe("postgres prod-like runtime smoke", () => {
         loadWithCookieJson.readModel?.spawnSelection?.districts?.find((district: { status?: string }) => district.status === "available")?.districtId ?? ""
       );
       expect(spawnDistrictId).toBeTruthy();
+      const workerRuntime = workerServer.instanceManager.getInstanceById(freeServerInstanceId);
+      if (!workerRuntime) throw new Error("Hosted smoke worker runtime disappeared before start.");
+      const finalLockdown = workerRuntime.config.balance.finalLockdown;
+      const minimumStartPlayers = (finalLockdown?.enabled ? finalLockdown.triggerActivePlayers : 0) + 1;
+      const activePlayerCount = workerRuntime.state.root.playerIds.filter((playerId) =>
+        workerRuntime.state.playersById[playerId]?.status === "active").length;
+      for (let index = activePlayerCount; index < minimumStartPlayers; index += 1) {
+        const membership = ensureGameplaySliceMembershipInState(workerRuntime.state, {
+          serverInstanceId: freeServerInstanceId,
+          playerId: `player:postgres-smoke:dummy:${runId}:${index + 1}`,
+          factionId: "mafian",
+          mode: "free"
+        });
+        if (!membership.accepted) throw new Error(`Hosted smoke dummy player ${index + 1} was rejected.`);
+        workerRuntime.state = membership.state;
+      }
+      expect(workerRuntime.state.root.playerIds.filter((playerId) =>
+        workerRuntime.state.playersById[playerId]?.status === "active").length).toBeGreaterThan(
+        finalLockdown?.enabled ? finalLockdown.triggerActivePlayers : 0
+      );
+      await workerServer.instanceManager.saveInstanceSnapshot(freeServerInstanceId);
+      const beforeStart = await adminRepositories.hosted.getServer(freeServerInstanceId);
+      if (!beforeStart) throw new Error("Hosted smoke server disappeared before start.");
+      const start = await controlPlane.requestAction({
+        session: adminSession,
+        serverInstanceId: freeServerInstanceId,
+        payload: { action: "start", expectedVersion: beforeStart.version, reason: "Postgres smoke gameplay start" },
+        idempotencyKey: `postgres-smoke-start-${runId}`,
+        correlationId: `postgres-smoke:start:${runId}`
+      });
+      if (!start.accepted) throw new Error(`Hosted smoke start failed: ${start.errors[0]?.code ?? "unknown"}`);
+      await worker.runOnce();
+      const started = await adminRepositories.hosted.getServer(freeServerInstanceId);
+      if (started?.status !== "running") throw new Error(`Hosted smoke server did not start: ${started?.status ?? "missing"}`);
       const spawnSubmit = await readJson(first.handler(postEvent("/api/gameplay-slice/submit", {
-        snapshotToken,
         focusDistrictId: spawnDistrictId,
         command: createSelectSpawnDistrictCommandFixture({
           id: `command:postgres-smoke:${runId}:spawn`,
@@ -256,7 +317,7 @@ describe("postgres prod-like runtime smoke", () => {
       }, { cookie: cookieHeader })));
       const postSpawnLoadJson = expectJson(postSpawnLoad);
       expect(postSpawnLoadJson.accepted).toBe(true);
-      const gameplaySnapshotToken = String(postSpawnLoadJson.snapshotToken ?? "");
+      expect(postSpawnLoadJson.snapshotToken ?? null).toBeNull();
 
       const actionCommand = createPlaceTrapCommandFixture({
         id: `command:postgres-smoke:${runId}:trap`,
@@ -265,7 +326,6 @@ describe("postgres prod-like runtime smoke", () => {
         payload: { districtId: homeDistrictId }
       });
       const actionSubmit = await readJson(first.handler(postEvent("/api/gameplay-slice/submit", {
-        snapshotToken: gameplaySnapshotToken,
         focusDistrictId: homeDistrictId,
         command: actionCommand
       }, {
@@ -278,7 +338,6 @@ describe("postgres prod-like runtime smoke", () => {
       expect(actionVersion).toEqual(expect.any(Number));
 
       const replaySubmit = await readJson(first.handler(postEvent("/api/gameplay-slice/submit", {
-        snapshotToken: gameplaySnapshotToken,
         focusDistrictId: homeDistrictId,
         command: actionCommand
       }, {
@@ -294,7 +353,6 @@ describe("postgres prod-like runtime smoke", () => {
       });
 
       const payloadConflict = await readJson(first.handler(postEvent("/api/gameplay-slice/submit", {
-        snapshotToken: gameplaySnapshotToken,
         focusDistrictId: homeDistrictId,
         command: {
           ...actionCommand,
@@ -323,11 +381,7 @@ describe("postgres prod-like runtime smoke", () => {
 
       const second = createHandler(accountId);
       try {
-        second.server.instanceManager.createInstance(freeServerInstanceId, "free");
-        await second.server.instanceManager.restoreInstance(freeServerInstanceId);
-        const restoredRuntime = second.server.instanceManager.getInstanceById(freeServerInstanceId);
-        expect(restoredRuntime?.state.playersById[serverPlayerId]?.homeDistrictId).toBe(homeDistrictId);
-        expect(restoredRuntime?.state.root.version).toBe(actionVersion);
+        expect(second.server.instanceManager.getInstanceById(freeServerInstanceId)).toBeUndefined();
 
         const restoredLoad = await readJson(second.handler(postEvent("/api/gameplay-slice/load", {
           serverInstanceId: freeServerInstanceId,
@@ -336,9 +390,11 @@ describe("postgres prod-like runtime smoke", () => {
         const restoredLoadJson = expectJson(restoredLoad);
         expect(restoredLoadJson.accepted).toBe(true);
         expect(restoredLoadJson.readModel?.player.homeDistrictId).toBe(homeDistrictId);
+        const restoredRuntime = second.server.instanceManager.getInstanceById(freeServerInstanceId);
+        expect(restoredRuntime?.state.playersById[serverPlayerId]?.homeDistrictId).toBe(homeDistrictId);
+        expect(restoredRuntime?.state.root.version).toBe(actionVersion);
 
         const restoredReplay = await readJson(second.handler(postEvent("/api/gameplay-slice/submit", {
-          snapshotToken: restoredLoadJson.snapshotToken,
           focusDistrictId: homeDistrictId,
           command: actionCommand
         }, {
@@ -408,6 +464,7 @@ describe("postgres prod-like runtime smoke", () => {
       }
     } finally {
       await worker?.stop();
+      await workerServer.instanceManager.getPersistenceRepositories().close?.();
       await first.server.instanceManager.getPersistenceRepositories().close?.();
       if (freeServerInstanceId) await cleanupHostedSmokeFixture(database, freeServerInstanceId, adminUserId, workerId);
       await database.close();

@@ -45,6 +45,7 @@ export const DISTRICT_POPUP_CLOSE_SELECTOR = "[data-district-popup-close]";
 export const DISTRICT_POPUP_ATMOSPHERE_IMAGE_SELECTOR = "[data-district-popup-atmosphere-image]";
 export const DISTRICT_POPUP_ATMOSPHERE_LABEL_SELECTOR = "[data-district-popup-atmosphere-label]";
 export const DISTRICT_POPUP_ATMOSPHERE_MOOD_SELECTOR = "[data-district-popup-atmosphere-mood]";
+export const DISTRICT_POPUP_ALLIANCE_SELECTOR = "[data-district-popup-alliance]";
 export const DISTRICT_POPUP_BUILDINGS_SELECTOR = "[data-district-popup-buildings]";
 export const DISTRICT_POPUP_BUILDINGS_META_SELECTOR = "[data-district-popup-buildings-meta]";
 export const DISTRICT_POPUP_BUILDINGS_LIST_SELECTOR = "[data-district-popup-buildings-list]";

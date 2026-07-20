@@ -129,6 +129,7 @@ export interface BuildingActionReport {
   exchangeResult?: Record<string, unknown>;
   arcadeResult?: Record<string, unknown>;
   apartmentResult?: Record<string, unknown>;
+  convenienceStoreResult?: Record<string, unknown>;
   clinicResult?: Record<string, unknown>;
   recyclingResult?: Record<string, unknown>;
   stripClubResult?: Record<string, unknown>;

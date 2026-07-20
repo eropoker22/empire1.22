@@ -22,6 +22,7 @@ export const createAdminReadOnlyNetlifyHandler = (options: {
   repositories: AdminDurableRepositories;
   environment: Record<string, string | undefined>;
   now?: () => Date;
+  allowInMemoryForTests?: boolean;
 }) => {
   const sessions = createAdminSessionService(options);
   const controlPlane = createHostedControlPlaneService(options);

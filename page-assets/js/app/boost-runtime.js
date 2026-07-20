@@ -81,8 +81,9 @@ export function resolveButtonState(card, view, pendingBoostId, now) {
   if (card.disabledReason === "boost_already_active") {
     return { label: "BLOKOVÁNO", deadline: null };
   }
-  if (card.disabledReason === "boost_missing_resources") return { label: "CHYBÍ SUROVINY", deadline: null };
-  if (card.disabledReason === "boost_missing_clean_cash") return { label: "CHYBÍ CASH", deadline: null };
+  if (card.disabledReason === "boost_missing_resources" || card.disabledReason === "boost_missing_clean_cash") {
+    return { label: "Chybí zdroje", deadline: null };
+  }
   if (card.disabledReason === "boost_unavailable") return { label: "NEDOSTUPNÉ", deadline: null };
   return { label: "AKTIVOVAT", deadline: null };
 }
@@ -91,6 +92,10 @@ function createCardMarkup(card, view, pendingBoostId) {
   const definition = PLAYER_BOOST_CONFIG[card.boostId] || {};
   const buttonState = resolveButtonState(card, view, pendingBoostId, Date.now());
   const isBlockedByActiveBoost = !card.isActive && card.disabledReason === "boost_already_active";
+  const isMissingResources = card.disabledReason === "boost_missing_resources" || card.disabledReason === "boost_missing_clean_cash";
+  const costCount = Math.max(1, card.costs.length + 1);
+  const compactEffect = String(definition.shortEffect || "").trim()
+    || buildEffectLines(definition).slice(0, 2).join(" · ");
   const materialChips = card.costs.map((cost) => `
     <span class="boost-cost-chip ${cost.enough ? "" : "is-missing"}" title="${cost.enough ? "Dostatek" : `Chybí ${cost.missingAmount} ks`}" aria-label="${escapeHtml(cost.label)}: potřeba ${cost.required}, ve SKLADU ${cost.stored}">
       <span>${escapeHtml(cost.label)}</span><strong>${cost.required} / ${cost.stored}</strong>
@@ -98,19 +103,19 @@ function createCardMarkup(card, view, pendingBoostId) {
   `).join("");
   const cashEnough = card.hasEnoughCleanCash;
   return `
-    <article class="boost-card boost-card--${card.uiAccent} ${card.isActive ? "is-active" : ""} ${isBlockedByActiveBoost ? "is-blocked" : ""}" data-boost-card="${card.boostId}">
+    <article class="boost-card boost-card--${card.uiAccent} ${card.isActive ? "is-active" : ""} ${isBlockedByActiveBoost ? "is-blocked" : ""} ${isMissingResources ? "is-missing-resources" : ""}" data-boost-card="${card.boostId}">
       <div class="boost-card__topline"><span>${escapeHtml(CATEGORY_LABELS[card.category] || card.category)}</span><i></i></div>
       <div class="boost-card__heading">
         <span class="boost-card__icon">${renderIcon(card.iconKey)}</span>
-        <div><h4>${escapeHtml(card.label)}</h4><p>${escapeHtml(card.description)}</p></div>
+        <h4>${escapeHtml(card.label)}</h4>
       </div>
-      <ul class="boost-card__effects">${buildEffectLines(definition).map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>
+      <p class="boost-card__effect">${escapeHtml(compactEffect)}</p>
       <div class="boost-card__timing">
         <span><small>${definition.consumptionMode === "next-valid-pvp-combat" ? "NABITÍ EXPIRUJE" : "TRVÁNÍ"}</small><strong>${formatMinutes(card.durationMs)}</strong></span>
         <span><small>COOLDOWN</small><strong>${formatMinutes(card.cooldownMs)}</strong></span>
       </div>
       <div class="boost-card__cost-heading"><span>CENA AKTIVACE</span><small>potřeba / ve SKLADU</small></div>
-      <div class="boost-card__costs">${materialChips}
+      <div class="boost-card__costs" data-cost-count="${costCount}">${materialChips}
         <span class="boost-cost-chip boost-cost-chip--cash ${cashEnough ? "" : "is-missing"}" title="${cashEnough ? "Dostatek clean cash" : `Chybí ${formatMoney(card.cleanCashCost - card.playerCleanCash)}`}" aria-label="Clean Cash: potřeba ${card.cleanCashCost}, dostupné ${card.playerCleanCash}">
           <span>Clean Cash</span><strong>${formatMoney(card.cleanCashCost)} / ${formatMoney(card.playerCleanCash)}</strong>
         </span>
@@ -138,7 +143,6 @@ function initBoostRuntime() {
   const confirmationSubmit = confirmationModal?.querySelector("[data-boost-confirm-submit]");
   const confirmationClose = confirmationModal?.querySelector("[data-boost-confirm-close]");
   const feedback = modal.querySelector("[data-boost-feedback]");
-  const pinned = document.querySelector("[data-player-boost-pinned]");
   let confirmationBoostId = null;
   let pendingBoostId = null;
   let restoreFocusElement = null;
@@ -155,9 +159,6 @@ function initBoostRuntime() {
     const panel = modal.querySelector("[data-boost-active-panel]");
     if (panel) {
       panel.dataset.accent = active?.uiAccent || "idle";
-      panel.querySelector("[data-boost-active-badge]").textContent = active
-        ? `${active.label.toUpperCase()} ${active.status === "armed" ? "NABITÝ" : "AKTIVNÍ"}`
-        : "SYSTÉM PŘIPRAVEN";
       panel.querySelector("[data-boost-active-title]").textContent = active
         ? (active.status === "armed" ? "Čeká na příští PvP boj" : active.effectSummary)
         : "Žádný aktivní protokol";
@@ -183,16 +184,6 @@ function initBoostRuntime() {
         time.textContent = countdown;
       }
     });
-    if (pinned) {
-      pinned.hidden = !active;
-      pinned.dataset.accent = active?.uiAccent || "";
-      if (active) {
-        pinned.querySelector("[data-player-boost-pinned-badge]").textContent = active.status === "armed" ? "NABITÝ" : "AKTIVNÍ";
-        pinned.querySelector("[data-player-boost-pinned-title]").textContent = active.label.toUpperCase();
-        pinned.querySelector("[data-player-boost-pinned-effect]").textContent = active.effectSummary;
-        pinned.querySelector("[data-player-boost-pinned-time]").textContent = `Zbývá ${countdown}`;
-      }
-    }
   };
 
   const updateButtonCountdowns = (view, now = Date.now()) => {

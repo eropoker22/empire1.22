@@ -67,10 +67,13 @@ const resolveBuildingChipKind = (buildingName) => {
 const isApartmentBlockBaseName = (buildingName) => normalizeBuildingChipName(buildingName) === "bytovy blok";
 const isClinicBaseName = (buildingName) => normalizeBuildingChipName(buildingName) === "klinika";
 const isSchoolBaseName = (buildingName) => normalizeBuildingChipName(buildingName) === "skola";
+const isConvenienceStoreBaseName = (buildingName) => normalizeBuildingChipName(buildingName) === "vecerka";
 const hasPulsingBuildingState = (entry = {}) => Boolean(
   entry.apartmentIsFull
   || entry.clinicStabilizationReady
   || entry.schoolIsFull
+  || entry.convenienceStoreIsFull
+  || entry.productionSlotIsFull
 );
 
 const createBuildingsPopupBackgroundImage = (backgroundImage) => backgroundImage
@@ -98,6 +101,12 @@ export function createBuildingsPopupRuntime(deps = {}) {
     : () => false;
   const isSchoolFull = typeof deps.isSchoolFull === "function"
     ? deps.isSchoolFull
+    : () => false;
+  const isConvenienceStoreFull = typeof deps.isConvenienceStoreFull === "function"
+    ? deps.isConvenienceStoreFull
+    : () => false;
+  const isProductionBuildingSlotFull = typeof deps.isProductionBuildingSlotFull === "function"
+    ? deps.isProductionBuildingSlotFull
     : () => false;
   const isDemoLiveBuildingCatalogUnlocked = typeof deps.isDemoLiveBuildingCatalogUnlocked === "function"
     ? deps.isDemoLiveBuildingCatalogUnlocked
@@ -301,6 +310,8 @@ export function createBuildingsPopupRuntime(deps = {}) {
           apartmentIsFull: isApartmentBlockBaseName(baseName) && isApartmentBlockFull({ district, building, baseName, displayName }),
           clinicStabilizationReady: isClinicBaseName(baseName) && isClinicStabilizationReady({ district, building, baseName, displayName }),
           schoolIsFull: isSchoolBaseName(baseName) && isSchoolFull({ district, building, baseName, displayName }),
+          convenienceStoreIsFull: isConvenienceStoreBaseName(baseName) && isConvenienceStoreFull({ district, building, baseName, displayName }),
+          productionSlotIsFull: isProductionBuildingSlotFull({ district, building, baseName, displayName }),
           setTitle: buildingProfile.setTitle,
           tier: buildingProfile.tier
         });
@@ -357,13 +368,17 @@ export function createBuildingsPopupRuntime(deps = {}) {
         count: 0,
         apartmentIsFull: false,
         clinicStabilizationReady: false,
-        schoolIsFull: false
+        schoolIsFull: false,
+        convenienceStoreIsFull: false,
+        productionSlotIsFull: false
       };
 
       existing.count += 1;
       existing.apartmentIsFull = Boolean(existing.apartmentIsFull || entry.apartmentIsFull);
       existing.clinicStabilizationReady = Boolean(existing.clinicStabilizationReady || entry.clinicStabilizationReady);
       existing.schoolIsFull = Boolean(existing.schoolIsFull || entry.schoolIsFull);
+      existing.convenienceStoreIsFull = Boolean(existing.convenienceStoreIsFull || entry.convenienceStoreIsFull);
+      existing.productionSlotIsFull = Boolean(existing.productionSlotIsFull || entry.productionSlotIsFull);
       groupedByBaseName.set(entry.baseName, existing);
     }
 

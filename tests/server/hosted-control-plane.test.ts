@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { resolveModeConfig } from "@empire/game-config";
 import type { AdminCreateServerRequestView, AdminSessionView } from "@empire/shared-types";
 import { createHostedControlPlaneService, createHostedRuntimeWorker } from "../../apps/server/src/admin/hosted";
 import { createInMemoryAdminDurableRepositories } from "../../apps/server/src/admin/read-only";
 import { createServerApp } from "../../apps/server/src/app";
+import { ensureGameplaySliceMembershipInState } from "../../apps/server/src/bootstrap/gameplay-slice-session-membership";
 
 const NOW = new Date("2026-07-16T10:00:00.000Z");
 const FLAGS = { NODE_ENV: "test", EMPIRE_ADMIN_WRITES_ENABLED: "true", EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true", EMPIRE_SERVER_PROVISIONING_ENABLED: "true" };
@@ -31,6 +33,11 @@ describe("hosted server control plane", () => {
     expect((await service.createServer({ session: session("viewer"), payload: validRequest, idempotencyKey: "test-create-viewer-0001", correlationId: "r" })).accepted).toBe(false);
     expect((await service.createServer({ session: owner, payload: { ...validRequest, region: "unknown" }, idempotencyKey: "test-create-region-0001", correlationId: "r" })).accepted).toBe(false);
     expect((await service.createServer({ session: owner, payload: { ...validRequest, capacity: 21 }, idempotencyKey: "test-create-capacity-001", correlationId: "r" })).accepted).toBe(false);
+    const finalLockdownCapacity = resolveModeConfig("free").balance.finalLockdown!.triggerActivePlayers;
+    expect((await service.createServer({ session: owner, payload: { ...validRequest, capacity: finalLockdownCapacity },
+      idempotencyKey: "test-create-lockdown-capacity", correlationId: "r" })).errors[0]?.code).toBe("ADMIN_CAPACITY_INVALID");
+    expect((await service.createServer({ session: owner, payload: { ...validRequest, joinPolicy: "open" }, idempotencyKey: "test-create-open-policy1", correlationId: "r" })).errors[0]?.code).toBe("ADMIN_JOIN_POLICY_INVALID");
+    expect((await service.createServer({ session: owner, payload: { ...validRequest, joinPolicy: "invite_only" }, idempotencyKey: "test-create-invite-policy", correlationId: "r" })).errors[0]?.code).toBe("ADMIN_JOIN_POLICY_INVALID");
     expect((await service.createServer({ session: owner, payload: { ...validRequest, mapComposition: { ...validRequest.mapComposition, downtown: 7, park: 38 } }, idempotencyKey: "test-create-map-invalid1", correlationId: "r" })).accepted).toBe(false);
     const repositories = createInMemoryAdminDurableRepositories();
     const disabled = createHostedControlPlaneService({ repositories, environment: { NODE_ENV: "test" }, allowInMemoryForTests: true });
@@ -65,14 +72,29 @@ describe("hosted server control plane", () => {
     const worker = createHostedRuntimeWorker({ workerId: "worker:A", region: "eu-central", buildSha: "test", controlPlane: repositories.hosted, server: app, now: () => NOW });
     await worker.runOnce();
     const id = created.data.server.serverInstanceId;
-    expect(await repositories.hosted.acquireRuntimeLease({ serverInstanceId: id, workerId: "worker:B", now: NOW.toISOString(), expiresAt: new Date(NOW.getTime() + 20_000).toISOString() })).toBe(false);
+    expect(await repositories.hosted.acquireRuntimeLease({ serverInstanceId: id, workerId: "worker:B",
+      workerIncarnationId: "worker-incarnation:B", now: NOW.toISOString(),
+      expiresAt: new Date(NOW.getTime() + 20_000).toISOString() })).toBe(false);
     const before = app.instanceManager.getInstanceById(id)!;
     const worldSeed = before.state.serverInstance.worldSeed;
     const districtIds = [...before.state.root.districtIds];
+    const minimumActivePlayers = resolveModeConfig("free").balance.finalLockdown!.triggerActivePlayers + 1;
+    for (let index = 0; index < minimumActivePlayers; index += 1) {
+      const membership = ensureGameplaySliceMembershipInState(before.state, {
+        serverInstanceId: id,
+        playerId: `player:lifecycle:${index + 1}`,
+        factionId: "mafian",
+        mode: "free"
+      });
+      if (!membership.accepted) throw new Error("fixture membership failed");
+      before.state = membership.state;
+    }
+    await app.instanceManager.saveInstanceSnapshot(id);
     let record = (await repositories.hosted.getServer(id))!;
     await service.requestAction({ session: owner, serverInstanceId: id, payload: { action: "start", expectedVersion: record.version, reason: "Integration start" }, idempotencyKey: "test-action-start-00001", correlationId: "request:2" });
     await worker.runOnce();
     record = (await repositories.hosted.getServer(id))!;
+    expect(record).toMatchObject({ status: "running", lastErrorCode: null });
     await service.requestAction({ session: owner, serverInstanceId: id, payload: { action: "restart", expectedVersion: record.version, reason: "Integration restart" }, idempotencyKey: "test-action-restart-01", correlationId: "request:3" });
     await worker.runOnce();
     const after = app.instanceManager.getInstanceById(id)!;
@@ -84,7 +106,8 @@ describe("hosted server control plane", () => {
 
 const setup = async () => {
   const repositories = createInMemoryAdminDurableRepositories();
-  await repositories.hosted.writeWorkerHeartbeat({ workerId: "worker:test", region: "eu-central", startedAt: NOW.toISOString(),
+  await repositories.hosted.writeWorkerHeartbeat({ workerId: "worker:test", workerIncarnationId: "worker-incarnation:test",
+    region: "eu-central", startedAt: NOW.toISOString(),
     lastHeartbeatAt: NOW.toISOString(), buildSha: "test", status: "online" });
   return { repositories, service: createHostedControlPlaneService({ repositories, environment: FLAGS, now: () => NOW, allowInMemoryForTests: true }) };
 };

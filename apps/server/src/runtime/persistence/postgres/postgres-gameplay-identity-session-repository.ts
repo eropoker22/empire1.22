@@ -7,6 +7,7 @@ import type {
 } from "../../../auth";
 import type { PostgresDatabase, PostgresQueryable } from "./postgres-client";
 import { ensurePostgresServerInstanceRow } from "./postgres-server-instance-row";
+import { revokeAccountGameplaySessions, revokePlayerGameplaySessions } from "./postgres-gameplay-session-revocation";
 
 interface PlayerRegistrationRow {
   [key: string]: unknown;
@@ -187,19 +188,8 @@ export const createPostgresGameplayIdentitySessionRepository = (
     );
     return (result.rowCount ?? 0) > 0;
   },
-  revokePlayerSessions: async (playerId, revokedAt) => {
-    const result = await database.query<GameplaySessionRow>(
-      `UPDATE empire_gameplay_sessions
-      SET revoked_at = $2::timestamptz,
-          version = version + 1,
-          updated_at = now()
-      WHERE player_id = $1
-        AND revoked_at IS NULL
-      RETURNING session_id`,
-      [playerId, revokedAt]
-    );
-    return result.rowCount ?? 0;
-  },
+  revokeAccountSessions: (accountId, revokedAt) => revokeAccountGameplaySessions(database, accountId, revokedAt),
+  revokePlayerSessions: (playerId, revokedAt) => revokePlayerGameplaySessions(database, playerId, revokedAt),
   listRegistrations: async () => {
     const result = await database.query<PlayerRegistrationRow>(
       `SELECT id, account_id, server_instance_id, player_id, status, created_at, version

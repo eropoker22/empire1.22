@@ -1,11 +1,6 @@
 import type { AdminAuditEntryView } from "@empire/shared-types";
 import type { PostgresQueryable } from "../../runtime/persistence/postgres";
-import type { HostedActionRequestRecord, HostedActionTransactionResult, HostedCreateTransactionResult, HostedProvisioningJobRecord, HostedServerRecord, HostedWorkerHeartbeatRecord } from "./hosted-control-plane-repository";
-
-export const HOSTED_CONTROL_PLANE_MIGRATION = {
-  filename: "008_hosted_join_reservations.sql",
-  checksum: "2ac161ceb55a280f3f7d2f9c99c693ad2947a63d4adddff86c17f1f9582eb4a9"
-} as const;
+import { HOSTED_WORKER_FRESH_MS, type HostedActionRequestRecord, type HostedActionTransactionResult, type HostedCreateTransactionResult, type HostedProvisioningJobRecord, type HostedServerRecord, type HostedWorkerHeartbeatRecord } from "./hosted-control-plane-repository";
 
 export interface HostedServerRow extends Record<string, unknown> { [key: string]: unknown }
 export interface ProvisioningRow extends Record<string, unknown> { [key: string]: unknown }
@@ -74,13 +69,14 @@ export const insertAudit = (db: PostgresQueryable, e: AdminAuditEntryView) => db
 );
 
 export const prepareRuntimeRestart = async (db: PostgresQueryable, input: {
-  serverInstanceId: string; workerId: string; expectedVersion: number; at: string;
+  serverInstanceId: string; workerId: string; workerIncarnationId: string; expectedVersion: number; at: string;
 }): Promise<boolean> => {
   const changed = await db.query(
-    `UPDATE empire_hosted_server_instances SET status='restarting',join_policy='closed',updated_at=$4::timestamptz
-     WHERE server_instance_id=$1 AND runtime_lease_owner_id=$2 AND version=$3
+    `UPDATE empire_hosted_server_instances SET status='restarting',join_policy='closed',updated_at=$5::timestamptz
+     WHERE server_instance_id=$1 AND runtime_lease_owner_id=$2 AND runtime_lease_incarnation_id=$3 AND version=$4
+       AND runtime_lease_expires_at > $5::timestamptz
        AND status IN ('running','restarting') RETURNING server_instance_id`,
-    [input.serverInstanceId, input.workerId, input.expectedVersion, input.at]
+    [input.serverInstanceId, input.workerId, input.workerIncarnationId, input.expectedVersion, input.at]
   );
   if ((changed.rowCount ?? 0) > 0) await db.query(
     `UPDATE empire_server_instances SET status='restarting',updated_at=$2::timestamptz WHERE server_instance_id=$1`,
@@ -89,17 +85,54 @@ export const prepareRuntimeRestart = async (db: PostgresQueryable, input: {
   return (changed.rowCount ?? 0) > 0;
 };
 
-export const failRestartIfInProgress = async (db: PostgresQueryable, input: {
-  serverInstanceId: string; errorCode: string; at: string;
-}): Promise<void> => {
-  await db.query(
+export const failActionIfLeaseCurrent = async (db: PostgresQueryable, input: {
+  serverInstanceId: string; workerId: string; workerIncarnationId: string; expectedVersion: number;
+  failRestart: boolean; errorCode: string; at: string;
+}): Promise<boolean> => {
+  const current = await db.query<{ status: string; version: number; runtime_lease_owner_id: string | null; runtime_lease_incarnation_id: string | null; runtime_lease_expires_at: Date | string | null }>(
+    `SELECT status,version,runtime_lease_owner_id,runtime_lease_incarnation_id,runtime_lease_expires_at FROM empire_hosted_server_instances
+     WHERE server_instance_id=$1 FOR UPDATE`, [input.serverInstanceId]);
+  const server = current.rows[0];
+  if (!server) return false;
+  const currentLease = server.runtime_lease_owner_id === input.workerId &&
+    server.runtime_lease_incarnation_id === input.workerIncarnationId && Boolean(server.runtime_lease_expires_at) &&
+    new Date(server.runtime_lease_expires_at!).toISOString() > input.at;
+  const releasedRestart = input.failRestart && !server.runtime_lease_owner_id && server.status === "restarting" &&
+    Number(server.version) === input.expectedVersion;
+  if (!currentLease && !releasedRestart) return false;
+  if (!releasedRestart && (!input.failRestart || server.status !== "restarting" || Number(server.version) !== input.expectedVersion)) {
+    const noted = await db.query(`UPDATE empire_hosted_server_instances SET last_error_code=$2,updated_at=$3::timestamptz
+      WHERE server_instance_id=$1`, [input.serverInstanceId, input.errorCode, input.at]);
+    return (noted.rowCount ?? 0) > 0;
+  }
+  const changed = await db.query(
     `UPDATE empire_hosted_server_instances SET status='failed',join_policy='closed',runtime_lease_owner_id=NULL,
-     runtime_lease_expires_at=NULL,last_error_code=$2,updated_at=$3::timestamptz,version=version+1
-     WHERE server_instance_id=$1 AND status='restarting'`,
-    [input.serverInstanceId, input.errorCode, input.at]);
-  await db.query(
+     runtime_lease_incarnation_id=NULL,runtime_lease_expires_at=NULL,last_error_code=$2,
+     updated_at=$3::timestamptz,version=version+1
+     WHERE server_instance_id=$1 AND status='restarting' AND version=$4
+       AND (runtime_lease_owner_id IS NULL OR (runtime_lease_owner_id=$5 AND runtime_lease_incarnation_id=$6))
+     RETURNING server_instance_id`,
+    [input.serverInstanceId, input.errorCode, input.at, input.expectedVersion, input.workerId, input.workerIncarnationId]);
+  if ((changed.rowCount ?? 0) > 0) await db.query(
     `UPDATE empire_server_instances SET status='failed',updated_at=$2::timestamptz
      WHERE server_instance_id=$1 AND status='restarting'`, [input.serverInstanceId, input.at]);
+  return (changed.rowCount ?? 0) > 0;
+};
+
+export const lockCurrentActionClaim = async (
+  client: PostgresQueryable,
+  input: { request: HostedActionRequestRecord; workerIncarnationId: string; at: string }
+): Promise<boolean> => {
+  const result = await client.query(
+    `SELECT action_request_id FROM empire_hosted_server_action_requests
+     WHERE action_request_id=$1 AND server_instance_id=$2 AND status='processing' AND claimed_by_worker_id=$3
+       AND version=$4 AND claimed_until > $5::timestamptz
+       AND EXISTS (SELECT 1 FROM empire_hosted_worker_heartbeats worker
+         WHERE worker.worker_id=$3 AND worker.worker_incarnation_id=$6 AND worker.status='online'
+           AND worker.last_heartbeat_at > clock_timestamp() - ($7::int * interval '1 millisecond')) FOR UPDATE`,
+    [input.request.actionRequestId, input.request.serverInstanceId, input.request.claimedByWorkerId,
+      input.request.version, input.at, input.workerIncarnationId, HOSTED_WORKER_FRESH_MS]);
+  return (result.rowCount ?? 0) > 0;
 };
 
 export const mapServer = (r: HostedServerRow): HostedServerRecord => ({
@@ -113,7 +146,7 @@ export const mapServer = (r: HostedServerRow): HostedServerRecord => ({
 });
 export const mapJob = (r: ProvisioningRow): HostedProvisioningJobRecord => ({jobId:String(r.job_id),serverInstanceId:String(r.server_instance_id),attempt:Number(r.attempt),status:r.status as HostedProvisioningJobRecord["status"],availableAt:date(r.available_at),claimedByWorkerId:nullable(r.claimed_by_worker_id),claimedUntil:dateOrNull(r.claimed_until),lastErrorCode:nullable(r.last_error_code),createdAt:date(r.created_at),updatedAt:date(r.updated_at),version:Number(r.version)});
 export const mapAction = (r: ActionRow): HostedActionRequestRecord => ({actionRequestId:String(r.action_request_id),serverInstanceId:String(r.server_instance_id),adminUserId:String(r.admin_user_id),action:r.action as HostedActionRequestRecord["action"],reason:String(r.reason),expectedVersion:Number(r.expected_version),status:r.status as HostedActionRequestRecord["status"],claimedByWorkerId:nullable(r.claimed_by_worker_id),claimedUntil:dateOrNull(r.claimed_until),lastErrorCode:nullable(r.last_error_code),createdAt:date(r.created_at),updatedAt:date(r.updated_at),version:Number(r.version)});
-export const mapWorker = (r: WorkerRow): HostedWorkerHeartbeatRecord => ({workerId:String(r.worker_id),region:String(r.region),startedAt:date(r.started_at),lastHeartbeatAt:date(r.last_heartbeat_at),buildSha:String(r.build_sha),status:r.status as HostedWorkerHeartbeatRecord["status"]});
+export const mapWorker = (r: WorkerRow): HostedWorkerHeartbeatRecord => ({workerId:String(r.worker_id),workerIncarnationId:String(r.worker_incarnation_id),region:String(r.region),startedAt:date(r.started_at),lastHeartbeatAt:date(r.last_heartbeat_at),buildSha:String(r.build_sha),status:r.status as HostedWorkerHeartbeatRecord["status"]});
 const json = (v: unknown): unknown => typeof v === "string" ? JSON.parse(v) : v;
 const nullable = (v: unknown): string | null => v == null ? null : String(v);
 const date = (v: unknown): string => v instanceof Date ? v.toISOString() : new Date(String(v)).toISOString();

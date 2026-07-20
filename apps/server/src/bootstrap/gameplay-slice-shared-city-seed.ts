@@ -49,15 +49,20 @@ export const ensureSharedCityMap = (
   state: CoreGameState,
   instanceId: ServerInstanceId,
   config: SharedCitySeedConfig
-): void => {
+): boolean => {
   const mapComposition = config.mapComposition ?? DEFAULT_SERVER_MAP_COMPOSITION;
   const validationErrors = validateServerMapComposition(mapComposition);
   if (validationErrors.length > 0) {
     throw new Error(validationErrors[0]?.message ?? "Invalid shared city map composition.");
   }
 
+  let changed = false;
   for (const districtPlan of createSharedCityPlans(mapComposition)) {
     if (state.districtsById[districtPlan.id]) {
+      if (!state.root.districtIds.includes(districtPlan.id)) {
+        state.root.districtIds.push(districtPlan.id);
+        changed = true;
+      }
       continue;
     }
 
@@ -83,7 +88,10 @@ export const ensureSharedCityMap = (
     state.districtsById[district.id] = district;
     appendUnique(state.root.districtIds, district.id);
     seedSharedCityDistrictBuildings(state, instanceId, district, config.productionBuildings);
+    changed = true;
   }
+
+  return changed;
 };
 
 const appendUnique = <TValue>(target: TValue[], value: TValue): void => {

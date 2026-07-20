@@ -129,10 +129,8 @@ describe("factory popup runtime", () => {
     });
     const root = createRoot({
       ".collect": collect,
-      ".combat": createElement(),
       ".header": createElement(),
       ".level": createElement(),
-      ".metal": createElement(),
       ".multiplier": createElement(),
       ".open": open,
       ".owned": createElement(),
@@ -141,17 +139,13 @@ describe("factory popup runtime", () => {
       ".supply-combat": createElement(),
       ".supply-metal": createElement(),
       ".supply-tech": createElement(),
-      ".tech": createElement(),
       ".upgrade": upgrade,
       ".upgrade-cost": createElement()
     }, { ".close": [close] });
 
-    runtime.bindFactoryPopup(root);
+    expect(runtime.bindFactoryPopup(root)).toBe(true);
     await open.dispatch("click");
 
-    expect(root.querySelector(".metal").textContent).toBe("7 / 10");
-    expect(root.querySelector(".tech").textContent).toBe("3 / 5");
-    expect(root.querySelector(".combat").textContent).toBe("1 / 2");
     expect(renderServerFactorySlotList).toHaveBeenCalled();
     expect(refreshServerFactoryReadModel).toHaveBeenCalledTimes(1);
     const callbacks = renderServerFactorySlotList.mock.calls[0][2];

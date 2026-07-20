@@ -9,6 +9,7 @@ import {
   writeJsonFileAtomic
 } from "./file-persistence-utils";
 import { join } from "node:path";
+import { classifySnapshotWrite } from "./snapshot-write-guard";
 
 /**
  * Responsibility: Local durable snapshot storage using versioned, readable JSON.
@@ -17,21 +18,26 @@ import { join } from "node:path";
  */
 export const createFileSnapshotRepository = (
   options: FilePersistenceOptions
-): SnapshotRepository => ({
-  save: async (snapshot) => {
-    const latest = await loadLatestSnapshot(options.rootDir, snapshot.instanceId);
-    if (latest && latest.integrity.rootVersion > snapshot.integrity.rootVersion) {
-      throw new Error(
-        `Refusing to overwrite snapshot ${latest.snapshotId} rootVersion ${latest.integrity.rootVersion} with stale rootVersion ${snapshot.integrity.rootVersion}.`
-      );
-    }
+): SnapshotRepository => {
+  let saveQueue = Promise.resolve();
 
-    await writeJsonFileAtomic(createSnapshotPath(options.rootDir, snapshot), snapshot);
-    await writeJsonFileAtomic(createLatestSnapshotPath(options.rootDir, snapshot.instanceId), snapshot);
-  },
-  loadLatest: async (instanceId: ServerInstanceId) =>
-    loadLatestSnapshot(options.rootDir, instanceId)
-});
+  return {
+    save: (snapshot) => {
+      const operation = saveQueue.then(() => saveSnapshot(options.rootDir, snapshot));
+      saveQueue = operation.catch(() => undefined);
+      return operation;
+    },
+    loadLatest: async (instanceId: ServerInstanceId) =>
+      loadLatestSnapshot(options.rootDir, instanceId)
+  };
+};
+
+const saveSnapshot = async (rootDir: string, snapshot: InstanceSnapshotDto): Promise<void> => {
+  const latest = await loadLatestSnapshot(rootDir, snapshot.instanceId);
+  if (classifySnapshotWrite(latest, snapshot) === "idempotent") return;
+  await writeJsonFileAtomic(createSnapshotPath(rootDir, snapshot), snapshot);
+  await writeJsonFileAtomic(createLatestSnapshotPath(rootDir, snapshot.instanceId), snapshot);
+};
 
 const loadLatestSnapshot = (
   rootDir: string,

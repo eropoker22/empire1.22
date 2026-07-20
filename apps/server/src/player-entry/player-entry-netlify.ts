@@ -23,7 +23,7 @@ export interface PlayerEntryRequest {
 export const createPlayerEntryNetlifyBoundary = (options: {
   environment: Record<string, string | undefined>;
   repository?: PostgresPlayerEntryRepository;
-  gameplaySessionService?: GameplaySessionService;
+  gameplaySessionService: GameplaySessionService;
 }) => {
   const repository = options.repository ?? resolveRepository(options.environment);
   return async (request: PlayerEntryRequest): Promise<NetlifyFunctionResponse | null> => {
@@ -62,6 +62,11 @@ export const createPlayerEntryNetlifyBoundary = (options: {
       if (route.kind === "session" && method === "DELETE") {
         const originError = stateChangeError(request, options.environment);
         if (originError) return originError;
+        if (options.environment.NODE_ENV === "production" && !options.gameplaySessionService.productionReady) {
+          return error(503, "PLAYER_ENTRY_UNAVAILABLE", "Player entry operace se nezdařila.");
+        }
+        const revokedAt = new Date().toISOString();
+        await options.gameplaySessionService.revokeAccountSessions(account.accountId, revokedAt);
         await repository.revokeSession(token);
         return success(200, null, { "set-cookie": clearPlayerAccountCookie(options.environment) });
       }
@@ -90,7 +95,7 @@ export const createPlayerEntryNetlifyBoundary = (options: {
         if (originError) return originError;
         const membership = await repository.getMembership(route.membershipId);
         if (!membership || membership.accountId !== account.accountId) return error(404, "MEMBERSHIP_NOT_FOUND", "Membership nebyl nalezen.");
-        if (membership.status !== "active" || !membership.factionId || !options.gameplaySessionService?.productionReady) {
+        if (membership.status !== "active" || !membership.factionId || !options.gameplaySessionService.productionReady) {
           return error(409, "MEMBERSHIP_NOT_ACTIVE", "Aktivní serverová identita zatím není připravená.");
         }
         const at = new Date().toISOString();
@@ -110,10 +115,13 @@ export const createPlayerEntryNetlifyBoundary = (options: {
       return error(405, "PLAYER_ENTRY_METHOD_NOT_ALLOWED", "Metoda není pro tuto route povolena.");
     } catch (caught) {
       const code = entryErrorCode(caught);
-      const status = code.includes("NOT_FOUND") ? 404
+      const status = code === "PLAYER_ENTRY_UNAVAILABLE" ? 503 : code.includes("NOT_FOUND") ? 404
         : code.includes("CONFLICT") || code.includes("EXISTS") || code.includes("STALE") || code.includes("RESERVED") ? 409
           : code.includes("FULL") ? 409 : code.includes("LOGIN") || code.includes("SESSION") ? 401 : 400;
-      return error(status, code, caught instanceof Error ? caught.message : "Player entry operace se nezdařila.");
+      const message = code === "PLAYER_ENTRY_UNAVAILABLE"
+        ? "Player entry operace se nezdařila."
+        : caught instanceof Error ? caught.message : "Player entry operace se nezdařila.";
+      return error(status, code, message);
     }
   };
 };

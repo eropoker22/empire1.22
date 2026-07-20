@@ -126,10 +126,13 @@ describe("building detail view-model builder", () => {
           cleanHourly: 32 * 60,
           dirtyHourly: 18 * 60,
           dailyHeat: 0.05 * 1440,
-          dailyInfluence: 0.1 * 1440
+          dailyInfluence: 0.1 * 1440,
+          convenienceStoreWholePopulation: 12,
+          convenienceStoreCapacity: 50,
+          convenienceStorePopulationPerMinute: 50 / 60
         },
-        statLabels: ["Čisté / hod", "Špinavé / hod", "Heat / den", "Vliv / den", "Drby"],
-        mechanicLabels: ["Cashflow", "Drby", "Síť večerek", "Synergie"]
+        statLabels: ["Obyvatelé", "Populace / hod", "Čisté / hod", "Špinavé / hod", "Drby"],
+        mechanicLabels: ["Lokální zásobník", "Populace", "Výběr", "Drby", "Síť večerek"]
       },
       {
         buildingName: "Strip club",
@@ -142,7 +145,7 @@ describe("building detail view-model builder", () => {
           dailyInfluence: 0.38 * 1440
         },
         statLabels: ["Čisté / hod", "Špinavé / hod", "Heat / den", "Vliv / den", "Drby"],
-        mechanicLabels: ["Vybrat cash", "VIP klienti", "Pouliční drby", "Soukromá party", "Síť clubů"]
+        mechanicLabels: ["Pouliční drby", "Síť clubů"]
       },
       {
         buildingName: "Pašovací tunel",
@@ -220,6 +223,21 @@ describe("building detail view-model builder", () => {
     });
 
     expect(mechanics).toEqual([]);
+  });
+
+  it("marks a full convenience store for the compact effects layout", () => {
+    const model = createBuildingDetailViewModel({
+      district: { id: 4 },
+      buildingName: "Večerka",
+      profile: { role: "Pouliční provoz", info: "", actions: [] },
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "convenience-store",
+        convenienceStoreIsFull: true
+      }
+    });
+
+    expect(model.convenienceStoreIsFull).toBe(true);
   });
 
   it("hides the empty warehouse mechanics section", () => {
@@ -458,6 +476,51 @@ describe("building detail view-model builder", () => {
     ]));
   });
 
+  it("shows Strip Club cash at half during day and blocks VIP clients until night", () => {
+    const createStripClubModel = (phase) => createBuildingDetailViewModel({
+      buildingName: "Strip club",
+      displayName: "Strip club",
+      profile: {
+        role: "Noční provoz",
+        actions: ["Vybrat cash", "Hostit VIP klienty", "Soukromá party"]
+      },
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "strip-club",
+        cleanHourly: 100,
+        dirtyHourly: 100,
+        dailyHeat: 10,
+        actionCooldowns: {}
+      },
+      economyState: { cleanMoney: 10000, dirtyMoney: 10000 },
+      actionProfiles: DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["strip club"],
+      phaseState: { mapPhase: phase },
+      now: 1000
+    });
+
+    const dayModel = createStripClubModel("day");
+    const nightModel = createStripClubModel("night");
+
+    expect(dayModel.effects).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        text: "DEN: clean $100/h -> $50/h · dirty $100/h -> $50/h · drby -10 % · přesnost +8 %",
+        tone: "day-night-day"
+      })
+    ]));
+    expect(dayModel.actions[1]).toMatchObject({
+      actionId: "vip_lounge",
+      disabled: true,
+      disabledReason: "Hostit VIP klienty můžeš jen v noci.",
+      phaseLockLabel: "Jen v noci"
+    });
+    expect(nightModel.actions[1]).toMatchObject({
+      actionId: "vip_lounge",
+      disabled: false,
+      disabledReason: "",
+      phaseLockLabel: ""
+    });
+  });
+
   it("blocks arcade night machines during day and rewrites arcade phase effects", () => {
     const createArcadeModel = (phase) => createBuildingDetailViewModel({
       buildingName: "Herna",
@@ -511,7 +574,7 @@ describe("building detail view-model builder", () => {
       actionId: "night_machines",
       disabled: false,
       disabledReason: "",
-      phaseLockLabel: "Jen v noci",
+      phaseLockLabel: "",
       phaseLockTone: "night"
     });
     expect(nightModel.actions.map((action) => action.cooldownMs)).toEqual([
@@ -608,7 +671,7 @@ describe("building detail view-model builder", () => {
     }
   });
 
-  it("keeps phase-only labels visible when the action is available", () => {
+  it("hides phase-only labels when the action is available", () => {
     const cases = [
       {
         buildingName: "Kasino",
@@ -616,7 +679,7 @@ describe("building detail view-model builder", () => {
         profile: { role: "High-risk praní", actions: ["Tichá herna", "VIP noc", "Podplacený inspektor"] },
         mechanics: { ...baseMechanics, mechanicsType: "casino", actionCooldowns: {} },
         actionProfiles: DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.kasino,
-        expected: { actionId: "vip_night", phaseLockLabel: "Jen v noci", phaseLockTone: "night" }
+        expected: { actionId: "vip_night", phaseLockLabel: "", phaseLockTone: "night" }
       },
       {
         buildingName: "Parlament",
@@ -624,7 +687,7 @@ describe("building detail view-model builder", () => {
         profile: { role: "Politika", actions: ["Politické okno"] },
         mechanics: { ...baseMechanics, mechanicsType: "parliament", actionCooldowns: {} },
         actionProfiles: DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.parlament,
-        expected: { actionId: "parliament_policy_window", phaseLockLabel: "Jen ve dne", phaseLockTone: "day" }
+        expected: { actionId: "parliament_policy_window", phaseLockLabel: "", phaseLockTone: "day" }
       }
     ];
 
@@ -1416,7 +1479,7 @@ describe("building detail view-model builder", () => {
     });
 
     expect(rows.some((row) => row.label === "Collect")).toBe(false);
-    expect(rows.map((row) => row.label)).toEqual(["Lokální zásobník", "Produkce"]);
+    expect(rows.map((row) => row.label)).toEqual(["Lokální zásobník"]);
   });
 
   it("uses the collect button instead of special action rows for apartment blocks", () => {

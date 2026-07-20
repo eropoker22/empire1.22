@@ -3,6 +3,7 @@ import type { InstanceSnapshotDto } from "../dto";
 import type { SnapshotRepository } from "../repositories";
 import type { PostgresDatabase, PostgresQueryable } from "./postgres-client";
 import { ensurePostgresServerInstanceRow } from "./postgres-server-instance-row";
+import { classifySnapshotWrite } from "../repositories/snapshot-write-guard";
 
 export const createPostgresSnapshotRepository = (
   database: PostgresDatabase
@@ -69,7 +70,7 @@ const createPostgresSnapshotRepositoryForQueryable = (
               root_version = EXCLUDED.root_version,
               payload = EXCLUDED.payload,
               updated_at = now()
-          WHERE empire_snapshot_latest.root_version <= EXCLUDED.root_version
+          WHERE empire_snapshot_latest.root_version < EXCLUDED.root_version
           RETURNING snapshot_id, root_version
         `,
         [
@@ -84,7 +85,7 @@ const createPostgresSnapshotRepositoryForQueryable = (
       );
 
       if ((upsert.rowCount ?? upsert.rows.length) > 0) return;
-      await throwStaleSnapshotError(client, snapshot);
+      await assertRejectedSnapshotIsIdempotent(client, snapshot);
     });
   },
   loadLatest: async (instanceId) => {
@@ -112,27 +113,25 @@ const withOptionalTransaction = async <TResult>(
   return callback(database);
 };
 
-const throwStaleSnapshotError = async (
+const assertRejectedSnapshotIsIdempotent = async (
   database: PostgresQueryable,
   snapshot: InstanceSnapshotDto
-): Promise<never> => {
+): Promise<void> => {
   const latest = await database.query<{
     snapshot_id: string;
     root_version: string | number;
+    payload: unknown;
   }>(
     `
-      SELECT snapshot_id, root_version
+      SELECT snapshot_id, root_version, payload
       FROM empire_snapshot_latest
       WHERE server_instance_id = $1
     `,
     [snapshot.instanceId]
   );
   const latestRow = latest.rows[0];
-  const latestRootVersion = Number(latestRow?.root_version ?? Number.NaN);
-
-  throw new Error(
-    `Refusing to overwrite snapshot ${latestRow?.snapshot_id ?? "unknown"} rootVersion ${latestRootVersion} with stale rootVersion ${snapshot.integrity.rootVersion}.`
-  );
+  if (!latestRow) throw new Error("Snapshot latest compare-and-swap rejected without a persisted snapshot.");
+  classifySnapshotWrite(coercePayload<InstanceSnapshotDto>(latestRow.payload), snapshot);
 };
 
 const coercePayload = <TPayload>(payload: unknown): TPayload => {

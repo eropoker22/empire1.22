@@ -88,6 +88,7 @@ export function getDistrictPopupElements(root) {
     popupAtmosphereImage: query(root, selectors.DISTRICT_POPUP_ATMOSPHERE_IMAGE_SELECTOR),
     popupAtmosphereLabel: query(root, selectors.DISTRICT_POPUP_ATMOSPHERE_LABEL_SELECTOR),
     popupAtmosphereMood: query(root, selectors.DISTRICT_POPUP_ATMOSPHERE_MOOD_SELECTOR),
+    popupAlliance: query(root, selectors.DISTRICT_POPUP_ALLIANCE_SELECTOR),
     popupAtmosphereWindow: query(root, DISTRICT_ATMOSPHERE_WINDOW_SELECTOR),
     popupAtmosphereWindowImage: query(root, DISTRICT_ATMOSPHERE_WINDOW_IMAGE_SELECTOR),
     popupAtmosphereWindowLabel: query(root, DISTRICT_ATMOSPHERE_WINDOW_LABEL_SELECTOR),

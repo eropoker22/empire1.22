@@ -45,6 +45,57 @@ describe("residential building actions", () => {
     });
   });
 
+  it("requires thirty people before Večerka population can be collected", () => {
+    const { state, building } = createConvenienceStoreState(29);
+    const result = applyCommand(state, createBuildingActionCommand(building.id, "collect_convenience_store_population"), context);
+
+    expect(freeConfig.balance.convenienceStore?.collectPopulation.minCollectPopulation).toBe(30);
+    expect(result.errors).toMatchObject([{ code: "convenience_store_insufficient_population" }]);
+    expect(result.nextState).toBe(state);
+  });
+
+  it("collects Večerka population into player population and gang members at thirty people", () => {
+    const { state, building } = createConvenienceStoreState(30);
+    state.playersById["player:1"] = { ...state.playersById["player:1"], population: 0 };
+
+    const result = applyCommand(state, createBuildingActionCommand(building.id, "collect_convenience_store_population"), context);
+
+    expect(result.errors).toEqual([]);
+    expect(result.nextState.playersById["player:1"].population).toBe(30);
+    expect(result.nextState.resourceStatesById["resource:1"].balances["gang-members"]).toBe(30);
+    expect(result.nextState.buildingsById[building.id].metadata?.convenienceStore).toMatchObject({
+      storedPopulation: 0,
+      populationWasFull: false
+    });
+  });
+
+  it("produces fifty people per hour and adds five per hour for each extra Večerka", () => {
+    const oneStore = createConvenienceStoreState(0);
+    oneStore.state.root.tick = ticksPerMinute * 30;
+    oneStore.state.buildingsById[oneStore.building.id] = {
+      ...oneStore.building,
+      metadata: { convenienceStore: { storedPopulation: 0, populationLastUpdatedTick: 0 } }
+    };
+    const twoStores = createConvenienceStoreState(0);
+    const secondStore = createFixedBuildingFixture("convenience_store", {
+      id: "building:district-1:convenience-store:2",
+      metadata: { convenienceStore: { storedPopulation: 0, populationLastUpdatedTick: 0 } }
+    });
+    twoStores.state.root.tick = ticksPerMinute * 30;
+    twoStores.state.buildingsById[twoStores.building.id] = {
+      ...twoStores.building,
+      metadata: { convenienceStore: { storedPopulation: 0, populationLastUpdatedTick: 0 } }
+    };
+    twoStores.state.buildingsById[secondStore.id] = secondStore;
+
+    const oneStoreResult = collectIncome(oneStore.state, context);
+    const twoStoresResult = collectIncome(twoStores.state, context);
+
+    expect(getConvenienceStorePopulation(oneStoreResult, oneStore.building.id)).toBeCloseTo(25, 5);
+    expect(getConvenienceStorePopulation(twoStoresResult, twoStores.building.id)).toBeCloseTo(27.5, 5);
+    expect(getConvenienceStorePopulation(twoStoresResult, secondStore.id)).toBeCloseTo(27.5, 5);
+  });
+
   it("runs school evening course, starts cooldown and no longer reports talent or clean income promises", () => {
     const { state, building } = createSchoolState({ cash: 1_000 });
     const result = applyCommand(state, createBuildingActionCommand(building.id, "evening_course"), context);
@@ -194,6 +245,21 @@ function createApartmentBlockState(storedPopulation: number) {
       }
     }
   });
+}
+
+function createConvenienceStoreState(storedPopulation: number) {
+  return createCoreStateWithFixedBuildingFixture("convenience_store", {
+    playerBalances: { cash: 1_000, "gang-members": 0 },
+    buildingOverrides: {
+      metadata: {
+        convenienceStore: { storedPopulation }
+      }
+    }
+  });
+}
+
+function getConvenienceStorePopulation(state: ReturnType<typeof collectIncome>, buildingId: string): number {
+  return Number((state.buildingsById[buildingId].metadata?.convenienceStore as { storedPopulation?: number })?.storedPopulation || 0);
 }
 
 function createApartmentBlockWithSchoolState(courseActive: boolean) {

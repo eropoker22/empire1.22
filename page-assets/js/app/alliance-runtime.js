@@ -657,6 +657,94 @@ const createDevOnlyAllianceFromDraft = ({ name, tag, emblemColor }) => {
   return true;
 };
 
+const activateDevOnlyAlliance = ({ allianceId, name, tag, emblemColor, ownerPlayerId, ownerName }) => {
+  if (!isDevOnlyAllianceDemoEnabled() || !latestAllianceBoard || latestAllianceBoard.activeAlliance) {
+    return false;
+  }
+
+  const currentPlayerId = latestAllianceBoard.currentPlayerId || "dev-player";
+  const readyDueAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
+  const safeAllianceId = String(allianceId || `dev-demo-joined-alliance:${Date.now()}`);
+  const safeName = String(name || "Demo aliance");
+  const safeTag = getAllianceIconOptionByTag(tag).tag;
+  const safeColor = resolveAllianceEmblemColor({ allianceId: safeAllianceId, name: safeName, tag: safeTag, emblemColor });
+  const activeAlliance = {
+    allianceId: safeAllianceId,
+    name: safeName,
+    tag: safeTag,
+    emblemColor: safeColor,
+    ownerPlayerId: ownerPlayerId || "dev-demo-alliance-leader",
+    ownerName: ownerName || "Leader",
+    memberCount: 2,
+    maxMembers: latestAllianceBoard.maxAllianceSize || MAX_ALLIANCE_SIZE_FALLBACK,
+    currentPlayerRole: "member",
+    canJoin: false,
+    joinDisabledReason: "Už jsi členem.",
+    canInvite: false,
+    canLeave: true,
+    canDisband: false,
+    canConfirmReady: true,
+    readyReasonCode: "active",
+    readyDueAt,
+    nextReadyDueAt: readyDueAt,
+    activeVote: null,
+    eligibleVotes: [],
+    members: [{
+      playerId: currentPlayerId,
+      name: "Ty",
+      role: "member",
+      status: "active",
+      readyDueAt,
+      graceEndsAt: readyDueAt,
+      activeDistrictCount: 0,
+      canStartKickVote: false,
+      presence: "online",
+      avatarSrc: getStoredPlayerAvatarSrc() || LAUNCH_PLAYER_AVATAR_BY_FACTION_ID.mafian
+    }],
+    pendingInvites: [],
+    chatMessages: [],
+    defenseContributions: [],
+    isDevOnlyDemo: true
+  };
+
+  latestAllianceBoard = {
+    ...latestAllianceBoard,
+    activeAlliance,
+    incomingInvites: [],
+    allianceBadgesByPlayerId: {
+      ...(latestAllianceBoard.allianceBadgesByPlayerId || {}),
+      [currentPlayerId]: { allianceId: safeAllianceId, name: safeName, tag: safeTag, emblemColor: safeColor }
+    },
+    canCreateAlliance: false,
+    createDisabledReason: "PLAYER_ALREADY_IN_ALLIANCE"
+  };
+  renderAllianceState();
+  window.dispatchEvent(new CustomEvent("empire:alliance-state-changed"));
+  return true;
+};
+
+const respondToDevOnlyAllianceInvite = (inviteId, response) => {
+  const invite = (latestAllianceBoard?.incomingInvites || []).find((entry) => entry.inviteId === inviteId);
+  if (!invite) return false;
+  if (response !== "accept") {
+    latestAllianceBoard = {
+      ...latestAllianceBoard,
+      incomingInvites: latestAllianceBoard.incomingInvites.filter((entry) => entry.inviteId !== inviteId)
+    };
+    renderAllianceState();
+    return true;
+  }
+  const publicAlliance = (latestAllianceBoard.publicAlliances || []).find((entry) => entry.allianceId === invite.allianceId);
+  return activateDevOnlyAlliance({
+    allianceId: invite.allianceId,
+    name: invite.allianceName,
+    tag: invite.allianceTag || publicAlliance?.tag,
+    emblemColor: publicAlliance?.emblemColor,
+    ownerPlayerId: invite.invitedByPlayerId || publicAlliance?.ownerPlayerId,
+    ownerName: invite.invitedByName || publicAlliance?.ownerName
+  });
+};
+
 const formatRelativeTime = (isoValue) => {
   const timestamp = Date.parse(isoValue || "");
   if (!Number.isFinite(timestamp)) return "-";
@@ -1467,9 +1555,9 @@ const renderGlobalServerChat = () => {
   if (input instanceof HTMLInputElement) input.disabled = !enabled;
   if (send instanceof HTMLButtonElement) send.disabled = !enabled;
   if (!enabled) {
-    log.innerHTML = '<div class="alliance-empty-state alliance-empty-state--compact">Demo chat je v serverovém režimu vypnutý.</div>';
+    log.innerHTML = '<div class="alliance-empty-state alliance-empty-state--compact">Globální chat se připravuje. Pro komunikaci se spojenci otevři alianci.</div>';
     const status = qs("global-chat-status");
-    if (status) status.textContent = "Serverový globální chat zatím není dostupný.";
+    if (status) status.textContent = "Městský chat zatím není dostupný.";
     return;
   }
   let messages = [];
@@ -1489,9 +1577,9 @@ const renderGlobalServerChat = () => {
       <span class="server-chat-panel__text">${escapeHtml(message.text || "")}</span>
     </div>
   `;
-  }).join("") : '<div class="alliance-empty-state alliance-empty-state--compact">Demo chat je prázdný.</div>';
+  }).join("") : '<div class="alliance-empty-state alliance-empty-state--compact">Městský chat je prázdný.</div>';
   const status = qs("global-chat-status");
-  if (status) status.textContent = "Lokální kanál: zprávy zůstávají jen v tomhle prohlížeči.";
+  if (status) status.textContent = "Lokální ukázka: zprávy zůstávají jen v tomto prohlížeči.";
 };
 
 const saveGlobalMessage = (text) => {
@@ -1506,7 +1594,7 @@ const saveGlobalMessage = (text) => {
   messages = [{ author: "Ty", text, color: getPlayerGangColor(), sentAt: new Date().toISOString() }, ...previousMessages].slice(0, 30);
   localStorage.setItem(GLOBAL_CHAT_KEY, JSON.stringify(messages));
   const status = qs("global-chat-status");
-  if (status) status.textContent = "Zpráva uložená jen v tomhle prohlížeči.";
+  if (status) status.textContent = "Zpráva je uložená jen v tomto prohlížeči.";
   return true;
 };
 
@@ -1861,7 +1949,7 @@ const renderAllianceState = () => {
   if (!board && !isDevOnlyAllianceDemoEnabled()) {
     document.querySelector("[data-gang-alliance]")?.replaceChildren(document.createTextNode("Načítám…"));
     document.querySelector("[data-player-popup-alliance]")?.replaceChildren(document.createTextNode("Načítám…"));
-    document.querySelector("[data-alliance-launcher-name]")?.replaceChildren(document.createTextNode("Načítám alianci…"));
+    document.querySelector("[data-alliance-launcher-name]")?.replaceChildren();
     return;
   }
 
@@ -2518,6 +2606,12 @@ const bindAllianceRuntime = () => {
       return;
     }
     if (target.hasAttribute("data-alliance-join")) {
+      if (isDevOnlyAllianceDemoEnabled()) {
+        const publicAlliance = getPublicAllianceById(target.getAttribute("data-alliance-join"));
+        const joined = publicAlliance ? activateDevOnlyAlliance(publicAlliance) : false;
+        notify(joined ? `Vstoupil jsi do aliance ${publicAlliance.name}.` : "Do této aliance teď nejde vstoupit.");
+        return;
+      }
       await runAllianceCommand("join-alliance", { allianceId: target.getAttribute("data-alliance-join") }, "Vstoupil jsi do aliance.");
       return;
     }
@@ -2530,6 +2624,13 @@ const bindAllianceRuntime = () => {
       return;
     }
     if (target.hasAttribute("data-alliance-invite-accept") || target.hasAttribute("data-alliance-invite-reject")) {
+      if (isDevOnlyAllianceDemoEnabled()) {
+        const inviteId = target.getAttribute("data-alliance-invite-accept") || target.getAttribute("data-alliance-invite-reject");
+        const response = target.hasAttribute("data-alliance-invite-accept") ? "accept" : "reject";
+        const handled = respondToDevOnlyAllianceInvite(inviteId, response);
+        notify(handled ? (response === "accept" ? "Pozvánka přijata." : "Pozvánka odmítnuta.") : "Pozvánku se nepodařilo zpracovat.");
+        return;
+      }
       await runAllianceCommand("respond-alliance-invite", {
         inviteId: target.getAttribute("data-alliance-invite-accept") || target.getAttribute("data-alliance-invite-reject"),
         response: target.hasAttribute("data-alliance-invite-accept") ? "accept" : "reject"

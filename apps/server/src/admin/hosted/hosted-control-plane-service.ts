@@ -12,9 +12,8 @@ import type {
 } from "@empire/shared-types";
 import { validateServerMapComposition } from "../../bootstrap/gameplay-slice-shared-city-seed";
 import type { AdminDurableRepositories } from "../read-only";
-import type { HostedActionRequestRecord, HostedServerRecord } from "./hosted-control-plane-repository";
+import { HOSTED_WORKER_FRESH_MS, type HostedActionRequestRecord, type HostedServerRecord } from "./hosted-control-plane-repository";
 
-const WORKER_FRESH_MS = 30_000;
 const ALLOWED_REGIONS = new Set(["eu-central"]);
 const IDEMPOTENCY_PATTERN = /^[a-zA-Z0-9._:-]{16,200}$/u;
 
@@ -32,7 +31,7 @@ export const createHostedControlPlaneService = (options: {
     const databaseAvailable = options.repositories.kind === "postgres" || options.allowInMemoryForTests === true;
     const migrationsCurrent = await options.repositories.hosted.isSchemaCurrent().catch(() => false) || options.allowInMemoryForTests === true;
     const [worker, servers] = databaseAvailable ? await Promise.all([
-      options.repositories.hosted.getFreshWorkerHeartbeat(new Date(now().getTime() - WORKER_FRESH_MS).toISOString()).catch(() => null),
+      options.repositories.hosted.getFreshWorkerHeartbeat(new Date(now().getTime() - HOSTED_WORKER_FRESH_MS).toISOString()).catch(() => null),
       options.repositories.hosted.listServers().catch(() => [])
     ]) : [null, []];
     const workerStatus = worker ? "online" as const : "offline" as const;
@@ -152,6 +151,7 @@ export const createHostedControlPlaneService = (options: {
         audit: audit(input.session, "lifecycle-request", input.correlationId, input.serverInstanceId, at)
       });
       if (result.kind === "not-found") return reject("ADMIN_INSTANCE_NOT_FOUND", "Admin instance was not found.");
+      if (result.kind === "not-ready") return reject("ADMIN_INSTANCE_NOT_READY", "Server provisioning is not ready.");
       if (result.kind === "stale-version") {
         await appendFailureAudit(input.session, "lifecycle-failure", input.correlationId, input.serverInstanceId);
         return reject("ADMIN_STALE_VERSION", "Server version changed. Refresh before retrying.");
@@ -183,10 +183,12 @@ const parseCreateRequest = (value: unknown, environment: Record<string, string |
   const region = String(value.region ?? "");
   if (!ALLOWED_REGIONS.has(region)) return reject("ADMIN_REGION_INVALID", "Region is invalid.");
   const capacity = Number(value.capacity);
-  if (!Number.isInteger(capacity) || capacity <= 0 || capacity > resolveModeConfig(mode).balance.maxPlayersPerServer) return reject("ADMIN_CAPACITY_INVALID", "Capacity is invalid.");
+  const modeConfig = resolveModeConfig(mode);
+  const finalLockdown = modeConfig.balance.finalLockdown;
+  const minimumCapacity = finalLockdown?.enabled ? finalLockdown.triggerActivePlayers : 0;
+  if (!Number.isInteger(capacity) || capacity <= minimumCapacity || capacity > modeConfig.balance.maxPlayersPerServer) return reject("ADMIN_CAPACITY_INVALID", "Capacity is invalid.");
   const joinPolicy = value.joinPolicy;
-  if (joinPolicy !== "closed" && joinPolicy !== "invite_only" && joinPolicy !== "open") return reject("ADMIN_JOIN_POLICY_INVALID", "Join policy is invalid.");
-  if (mode === "war" && joinPolicy !== "closed") return reject("ADMIN_JOIN_POLICY_INVALID", "War servers must be created closed.");
+  if (joinPolicy !== "closed") return reject("ADMIN_JOIN_POLICY_INVALID", "Servers must be created with joins closed.");
   const composition = record(value.mapComposition) ? {
     downtown: Number(value.mapComposition.downtown), commercial: Number(value.mapComposition.commercial),
     residential: Number(value.mapComposition.residential), industrial: Number(value.mapComposition.industrial), park: Number(value.mapComposition.park)

@@ -24,8 +24,24 @@ export interface ConvenienceStoreRumor {
 }
 
 interface ConvenienceStoreMetadata {
+  storedPopulation: number;
+  populationLastUpdatedTick?: number;
+  populationCapacity?: number;
+  populationWasFull?: boolean;
   lastPassiveRumorCheckTick?: number;
   rumorEvents: ConvenienceStoreRumor[];
+}
+
+export interface ConvenienceStoreActionResolution {
+  balances: Record<string, number>;
+  buildingMetadata: Record<string, unknown>;
+  heatGain: number;
+  influenceChange: number;
+  outputGain: Record<string, number>;
+  inputCost: Record<string, number>;
+  effectModifiers?: Record<string, number>;
+  reportText: string;
+  convenienceStoreResult: Record<string, unknown>;
 }
 
 export const getOwnedConvenienceStoreCount = (
@@ -51,6 +67,108 @@ export const resolveConvenienceStoreNetworkMultipliers = (
     rumorMultiplier: Math.min(config.network.maxRumorMultiplier, 1 + extra * config.network.rumorChanceBonusPctPerExtraStore / 100),
     heatMultiplier: Math.min(config.network.maxHeatMultiplier, 1 + extra * config.network.heatBonusPctPerExtraStore / 100)
   };
+};
+
+export const applyConvenienceStorePopulationProduction = (
+  state: CoreGameState,
+  config: ConvenienceStoreBalanceConfig,
+  tickRateMs: number
+): CoreGameState => {
+  let buildingsById = state.buildingsById;
+  let changed = false;
+
+  for (const building of Object.values(state.buildingsById)) {
+    if (building.buildingTypeId !== config.buildingTypeId || building.status !== "active" || !building.ownerPlayerId) {
+      continue;
+    }
+    const metadata = getConvenienceStoreMetadata(building);
+    const lastTick = metadata.populationLastUpdatedTick ?? state.root.tick;
+    const elapsedTicks = Math.max(0, state.root.tick - lastTick);
+    const capacity = Math.max(1, Math.floor(Number(config.basePopulationCapacity || 1)));
+    const extraStores = Math.max(0, getOwnedConvenienceStoreCount(state, building.ownerPlayerId, config) - 1);
+    const populationPerMinute = Math.max(0, Number(config.populationPerMinute || 0))
+      + extraStores * Math.max(0, Number(config.network.populationPerMinuteBonusPerExtraStore || 0));
+    const currentStored = Math.min(capacity, metadata.storedPopulation);
+    const gain = currentStored >= capacity
+      ? 0
+      : populationPerMinute * elapsedTicks * Math.max(1, tickRateMs) / 60_000;
+    const nextStored = Math.min(capacity, currentStored + gain);
+    const nextMetadata: ConvenienceStoreMetadata = {
+      ...metadata,
+      storedPopulation: nextStored,
+      populationLastUpdatedTick: state.root.tick,
+      populationCapacity: capacity,
+      populationWasFull: nextStored >= capacity
+    };
+
+    if (
+      Math.abs(nextMetadata.storedPopulation - metadata.storedPopulation) <= Number.EPSILON
+      && nextMetadata.populationLastUpdatedTick === metadata.populationLastUpdatedTick
+      && nextMetadata.populationCapacity === metadata.populationCapacity
+      && nextMetadata.populationWasFull === metadata.populationWasFull
+    ) {
+      continue;
+    }
+
+    buildingsById = updateBuildingMetadata(buildingsById, building, nextMetadata);
+    changed = true;
+  }
+
+  return changed ? { ...state, buildingsById } : state;
+};
+
+export const resolveConvenienceStoreAction = (input: {
+  state: CoreGameState;
+  building: CoreGameState["buildingsById"][string];
+  actionId: string;
+  balances: Record<string, number>;
+  config: ConvenienceStoreBalanceConfig;
+}): ConvenienceStoreActionResolution | null => {
+  if (input.actionId !== input.config.collectPopulation.actionId) {
+    return null;
+  }
+  const metadata = getConvenienceStoreMetadata(input.building);
+  const collected = Math.max(0, Math.floor(metadata.storedPopulation));
+  const remaining = Math.max(0, metadata.storedPopulation - collected);
+  const nextMetadata: ConvenienceStoreMetadata = {
+    ...metadata,
+    storedPopulation: remaining,
+    populationLastUpdatedTick: input.state.root.tick,
+    populationWasFull: false
+  };
+
+  return {
+    balances: {
+      ...input.balances,
+      "gang-members": Math.max(0, Number(input.balances["gang-members"] || 0) + collected)
+    },
+    buildingMetadata: withConvenienceStoreMetadata(input.building, nextMetadata),
+    heatGain: 0,
+    influenceChange: 0,
+    inputCost: {},
+    outputGain: { population: collected, "gang-members": collected },
+    reportText: `Vybral jsi ${collected} nových členů gangu z Večerky.`,
+    convenienceStoreResult: {
+      type: "collect_population",
+      collectedPopulation: collected,
+      remainingStoredPopulation: remaining
+    }
+  };
+};
+
+export const validateConvenienceStoreAction = (input: {
+  building: CoreGameState["buildingsById"][string];
+  actionId: string;
+  config?: ConvenienceStoreBalanceConfig;
+}): string | null => {
+  const config = input.config;
+  if (!config || input.building.buildingTypeId !== config.buildingTypeId || input.actionId !== config.collectPopulation.actionId) {
+    return null;
+  }
+  const storedPopulation = Math.floor(getConvenienceStoreMetadata(input.building).storedPopulation);
+  const minimum = Math.max(1, Math.floor(Number(config.collectPopulation.minCollectPopulation || 1)));
+  if (storedPopulation <= 0) return "convenience_store_no_population";
+  return storedPopulation < minimum ? "convenience_store_insufficient_population" : null;
 };
 
 export const resolveConvenienceStoreRumorStats = (input: {
@@ -186,6 +304,10 @@ export const applyConvenienceStorePassiveRumors = (
 export const getConvenienceStoreMetadata = (building: CoreGameState["buildingsById"][string]): ConvenienceStoreMetadata => {
   const raw = isRecord(building.metadata?.convenienceStore) ? building.metadata.convenienceStore : {};
   return {
+    storedPopulation: Math.max(0, Number(raw.storedPopulation || 0)),
+    populationLastUpdatedTick: asOptionalTick(raw.populationLastUpdatedTick),
+    populationCapacity: asOptionalPositiveInteger(raw.populationCapacity),
+    populationWasFull: Boolean(raw.populationWasFull),
     lastPassiveRumorCheckTick: asOptionalTick(raw.lastPassiveRumorCheckTick),
     rumorEvents: Array.isArray(raw.rumorEvents) ? raw.rumorEvents.filter(isRecord).map(normalizeRumor).slice(-12) : []
   };
@@ -261,7 +383,19 @@ const updateBuildingMetadata = (
 
 const cleanupMetadata = (metadata: ConvenienceStoreMetadata): ConvenienceStoreMetadata => ({
   ...metadata,
+  storedPopulation: Math.max(0, Number(metadata.storedPopulation || 0)),
+  populationLastUpdatedTick: asOptionalTick(metadata.populationLastUpdatedTick),
+  populationCapacity: asOptionalPositiveInteger(metadata.populationCapacity),
+  populationWasFull: Boolean(metadata.populationWasFull),
   rumorEvents: metadata.rumorEvents.slice(-12)
+});
+
+const withConvenienceStoreMetadata = (
+  building: CoreGameState["buildingsById"][string],
+  convenienceStore: ConvenienceStoreMetadata
+): Record<string, unknown> => ({
+  ...(building.metadata ?? {}),
+  convenienceStore: cleanupMetadata(convenienceStore)
 });
 
 const pickDistrictHint = (state: CoreGameState, seed: string): string | null => {
@@ -310,6 +444,11 @@ const deterministicRollPct = (seed: string): number => {
 const asOptionalTick = (value: unknown): number | undefined => {
   const numberValue = Number(value);
   return Number.isFinite(numberValue) && numberValue >= 0 ? Math.floor(numberValue) : undefined;
+};
+
+const asOptionalPositiveInteger = (value: unknown): number | undefined => {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) && numberValue > 0 ? Math.floor(numberValue) : undefined;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

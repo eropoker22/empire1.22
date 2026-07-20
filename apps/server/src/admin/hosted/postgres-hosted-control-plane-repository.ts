@@ -1,29 +1,24 @@
-import type { PostgresDatabase } from "../../runtime/persistence/postgres";
+import { isProductionSchemaCurrent, type PostgresDatabase } from "../../runtime/persistence/postgres";
 import type {
+  HostedActionRequestRecord,
   HostedControlPlaneRepository,
   HostedCreateTransactionResult,
 } from "./hosted-control-plane-repository";
-import { ACTION_COLUMNS, type ActionRow, failRestartIfInProgress, insertAction, insertAudit, insertJob, insertServer, JOB_COLUMNS,
-  HOSTED_CONTROL_PLANE_MIGRATION, loadActionReplay, loadCreateReplay, mapAction, mapJob, mapServer, mapWorker, type ProvisioningRow,
+import { HOSTED_WORKER_FRESH_MS } from "./hosted-control-plane-repository";
+import { ACTION_COLUMNS, type ActionRow, failActionIfLeaseCurrent, insertAction, insertAudit, insertJob, insertServer,
+  lockCurrentActionClaim,
+  loadActionReplay, loadCreateReplay, mapAction, mapServer, mapWorker,
   prepareRuntimeRestart, SERVER_SELECT, type HostedServerRow, type WorkerRow } from "./postgres-hosted-control-plane-helpers";
 import { createPostgresHostedJoinRepository } from "./postgres-hosted-join-repository";
+import { createPostgresHostedProvisioningRepository } from "./postgres-hosted-provisioning-repository";
 
 export const createPostgresHostedControlPlaneRepository = (
   database: PostgresDatabase
 ): HostedControlPlaneRepository => ({
   durable: true,
   ...createPostgresHostedJoinRepository(database),
-  isSchemaCurrent: async () => {
-    try {
-      const result = await database.query<{ present: boolean }>(
-        `SELECT EXISTS (SELECT 1 FROM empire_schema_migrations WHERE filename=$1 AND checksum=$2) AS present`,
-        [HOSTED_CONTROL_PLANE_MIGRATION.filename, HOSTED_CONTROL_PLANE_MIGRATION.checksum]
-      );
-      return result.rows[0]?.present === true;
-    } catch (_error) {
-      return false;
-    }
-  },
+  ...createPostgresHostedProvisioningRepository(database),
+  isSchemaCurrent: () => isProductionSchemaCurrent(database),
   listServers: async () => {
     const result = await database.query<HostedServerRow>(`${SERVER_SELECT} ORDER BY created_at, server_instance_id`);
     return result.rows.map(mapServer);
@@ -75,11 +70,12 @@ export const createPostgresHostedControlPlaneRepository = (
       if (replay.kind === "replayed") await insertAudit(client, { ...input.audit, action: "lifecycle-replay" });
       return replay;
     }
-    const server = await client.query<{ version: string | number }>(
-      `SELECT version FROM empire_hosted_server_instances WHERE server_instance_id=$1 FOR UPDATE`,
+    const server = await client.query<{ version: string | number; provisioning_state: string }>(
+      `SELECT version,provisioning_state FROM empire_hosted_server_instances WHERE server_instance_id=$1 FOR UPDATE`,
       [input.request.serverInstanceId]
     );
     if (!server.rows[0]) return { kind: "not-found" };
+    if (server.rows[0].provisioning_state !== "ready") return { kind: "not-ready" };
     if (Number(server.rows[0].version) !== input.request.expectedVersion) return { kind: "stale-version" };
     const reserved = await client.query(
       `INSERT INTO empire_hosted_server_idempotency
@@ -99,90 +95,39 @@ export const createPostgresHostedControlPlaneRepository = (
     await insertAudit(client, input.audit);
     return { kind: "created", request: input.request };
   }),
-  claimProvisioningJob: async (workerId, now, claimedUntil) => {
-    const result = await database.query<ProvisioningRow>(
-      `WITH candidate AS (
-        SELECT job_id FROM empire_hosted_server_provisioning_jobs
-        WHERE (status='pending' OR (status='claimed' AND claimed_until <= $2::timestamptz))
-          AND available_at <= $2::timestamptz
-        ORDER BY available_at, created_at FOR UPDATE SKIP LOCKED LIMIT 1
-       ) UPDATE empire_hosted_server_provisioning_jobs job SET status='claimed', claimed_by_worker_id=$1,
-         claimed_until=$3::timestamptz, attempt=attempt+1, version=version+1, updated_at=$2::timestamptz
-       FROM candidate WHERE job.job_id=candidate.job_id RETURNING ${qualifyColumns("job", JOB_COLUMNS)}`,
-      [workerId, now, claimedUntil]
-    );
-    return result.rows[0] ? mapJob(result.rows[0]) : null;
-  },
-  beginProvisioning: async (jobId, serverInstanceId, at) => {
-    const result = await database.transaction(async (client) => {
-      const changed = await client.query(
-        `UPDATE empire_hosted_server_instances SET status='provisioning',provisioning_state='provisioning',
-         join_policy='closed',updated_at=$2::timestamptz,version=version+1
-         WHERE server_instance_id=$1 AND provisioning_state IN ('requested','provisioning') RETURNING server_instance_id`,
-        [serverInstanceId, at]
-      );
-      if ((changed.rowCount ?? 0) > 0) await client.query(
-        `UPDATE empire_server_instances SET status='provisioning',updated_at=$2::timestamptz WHERE server_instance_id=$1`,
-        [serverInstanceId, at]
-      );
-      const job = await client.query(`SELECT job_id FROM empire_hosted_server_provisioning_jobs WHERE job_id=$1 AND server_instance_id=$2`, [jobId, serverInstanceId]);
-      return (changed.rowCount ?? 0) > 0 && (job.rowCount ?? 0) > 0;
-    });
-    return result;
-  },
-  completeProvisioning: (input) => database.transaction(async (client) => {
-    await client.query(
-      `UPDATE empire_hosted_server_instances SET status='lobby', provisioning_state='ready', join_policy='closed',
-       initial_snapshot_id=COALESCE(initial_snapshot_id,$2), current_snapshot_id=$2, last_error_code=NULL,
-       updated_at=$3::timestamptz, version=version+1
-       WHERE server_instance_id=$1 AND (initial_snapshot_id IS NULL OR initial_snapshot_id=$2)`,
-      [input.serverInstanceId, input.snapshotId, input.at]
-    );
-    await client.query(
-      `UPDATE empire_server_instances SET status='lobby', payload=jsonb_set(payload,'{joinPolicy}','"closed"'),
-       updated_at=$2::timestamptz WHERE server_instance_id=$1`, [input.serverInstanceId, input.at]);
-    await client.query(
-      `UPDATE empire_hosted_server_provisioning_jobs SET status='completed', claimed_until=NULL,
-       updated_at=$2::timestamptz, version=version+1 WHERE job_id=$1`, [input.jobId, input.at]);
-    await insertAudit(client, input.audit);
-  }),
-  failProvisioning: (input) => database.transaction(async (client) => {
-    await client.query(
-      `UPDATE empire_hosted_server_instances SET status='failed', provisioning_state='failed', join_policy='closed',
-       last_error_code=$2, updated_at=$3::timestamptz, version=version+1 WHERE server_instance_id=$1`,
-      [input.serverInstanceId, input.errorCode, input.at]);
-    await client.query(`UPDATE empire_server_instances SET status='failed', updated_at=$2::timestamptz WHERE server_instance_id=$1`,
-      [input.serverInstanceId, input.at]);
-    await client.query(
-      `UPDATE empire_hosted_server_provisioning_jobs SET status='failed', claimed_until=NULL,last_error_code=$2,
-       updated_at=$3::timestamptz,version=version+1 WHERE job_id=$1`, [input.jobId, input.errorCode, input.at]);
-    await insertAudit(client, input.audit);
-  }),
-  claimAction: async (workerId, now, claimedUntil) => {
+  claimAction: async (workerId, workerIncarnationId, now, claimedUntil) => {
     const result = await database.query<ActionRow>(
       `WITH candidate AS (
         SELECT action_request_id FROM empire_hosted_server_action_requests
-        WHERE status='requested' OR (status='processing' AND claimed_until <= $2::timestamptz)
+        WHERE (status='requested' OR (status='processing' AND claimed_until <= $3::timestamptz))
+          AND EXISTS (SELECT 1 FROM empire_hosted_worker_heartbeats worker
+            WHERE worker.worker_id=$1 AND worker.worker_incarnation_id=$2 AND worker.status='online'
+              AND worker.last_heartbeat_at > clock_timestamp() - ($5::int * interval '1 millisecond'))
         ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1
        ) UPDATE empire_hosted_server_action_requests request SET status='processing', claimed_by_worker_id=$1,
-         claimed_until=$3::timestamptz, updated_at=$2::timestamptz, version=version+1
+         claimed_until=$4::timestamptz, updated_at=$3::timestamptz, version=version+1
        FROM candidate WHERE request.action_request_id=candidate.action_request_id RETURNING ${qualifyColumns("request", ACTION_COLUMNS)}`,
-      [workerId, now, claimedUntil]
+      [workerId, workerIncarnationId, now, claimedUntil, HOSTED_WORKER_FRESH_MS]
     );
     return result.rows[0] ? mapAction(result.rows[0]) : null;
   },
   prepareRuntimeRestart: (input) => database.transaction((client) => prepareRuntimeRestart(client, input)),
   completeAction: (input) => database.transaction(async (client) => {
+    const workerId = input.request.claimedByWorkerId;
+    if (!workerId || !await lockCurrentActionClaim(client, input)) return false;
     const changed = await client.query(
       `UPDATE empire_hosted_server_instances SET status=$2, join_policy=$3,
        last_started_at=CASE WHEN $6='start' THEN $4::timestamptz ELSE last_started_at END,
        last_paused_at=CASE WHEN $2='paused' THEN $4::timestamptz ELSE last_paused_at END,
        last_stopped_at=CASE WHEN $2='stopped' THEN $4::timestamptz ELSE last_stopped_at END,
-       updated_at=$4::timestamptz, version=version+1 WHERE server_instance_id=$1 AND version=$5 RETURNING server_instance_id`,
+       last_error_code=NULL,updated_at=$4::timestamptz, version=version+1
+       WHERE server_instance_id=$1 AND version=$5 AND runtime_lease_owner_id=$7
+         AND runtime_lease_incarnation_id=$8
+         AND runtime_lease_expires_at > $4::timestamptz RETURNING server_instance_id`,
       [input.request.serverInstanceId, input.nextStatus, input.nextJoinPolicy, input.at, input.request.expectedVersion,
-        input.request.action]
+        input.request.action, workerId, input.workerIncarnationId]
     );
-    if ((changed.rowCount ?? 0) === 0) throw new Error("Lifecycle request has a stale server version.");
+    if ((changed.rowCount ?? 0) === 0) return false;
     await client.query(
       `UPDATE empire_server_instances SET status=$2,payload=jsonb_set(payload,'{joinPolicy}',to_jsonb($3::text)),
        updated_at=$4::timestamptz WHERE server_instance_id=$1`,
@@ -192,47 +137,104 @@ export const createPostgresHostedControlPlaneRepository = (
       `UPDATE empire_hosted_server_action_requests SET status='completed',claimed_until=NULL,updated_at=$2::timestamptz,
        version=version+1 WHERE action_request_id=$1`, [input.request.actionRequestId, input.at]);
     await insertAudit(client, input.audit);
+    return true;
   }),
   failAction: (input) => database.transaction(async (client) => {
-    await failRestartIfInProgress(client, { serverInstanceId: input.request.serverInstanceId,
-      errorCode: input.errorCode, at: input.at });
+    if (!input.request.claimedByWorkerId || !await lockCurrentActionClaim(client, input)) return false;
+    if (!await failActionIfLeaseCurrent(client, {
+      serverInstanceId: input.request.serverInstanceId, workerId: input.request.claimedByWorkerId,
+      workerIncarnationId: input.workerIncarnationId, expectedVersion: input.request.expectedVersion,
+      failRestart: input.request.action === "restart", errorCode: input.errorCode, at: input.at
+    })) return false;
     await client.query(
       `UPDATE empire_hosted_server_action_requests SET status='failed',claimed_until=NULL,last_error_code=$2,
        updated_at=$3::timestamptz,version=version+1 WHERE action_request_id=$1`,
       [input.request.actionRequestId, input.errorCode, input.at]);
     await insertAudit(client, input.audit);
+    return true;
   }),
-  writeWorkerHeartbeat: async (record) => {
+  finalizeResolvedServer: (input) => database.transaction(async (client) => {
+    const changed = await client.query(
+      `UPDATE empire_hosted_server_instances SET status='stopped',join_policy='closed',current_snapshot_id=$5,
+       runtime_lease_owner_id=NULL,runtime_lease_incarnation_id=NULL,runtime_lease_expires_at=NULL,
+       last_stopped_at=$6::timestamptz,last_error_code=NULL,updated_at=$6::timestamptz,version=version+1
+       WHERE server_instance_id=$1 AND provisioning_state='ready' AND status='running' AND version=$4
+         AND runtime_lease_owner_id=$2 AND runtime_lease_incarnation_id=$3
+         AND runtime_lease_expires_at > $6::timestamptz
+       RETURNING server_instance_id`,
+      [input.serverInstanceId, input.workerId, input.workerIncarnationId, input.expectedVersion,
+        input.snapshotId, input.at]
+    );
+    if ((changed.rowCount ?? 0) === 0) return false;
+    await client.query(
+      `UPDATE empire_server_instances SET status='ended',payload=jsonb_set(payload,'{joinPolicy}','"closed"'),
+       updated_at=$2::timestamptz WHERE server_instance_id=$1`,
+      [input.serverInstanceId, input.at]
+    );
+    return true;
+  }),
+  writeWorkerHeartbeat: async (record, allowIncarnationTakeover = false) => {
     await database.query(
       `INSERT INTO empire_hosted_worker_heartbeats
-       (id,worker_id,region,started_at,last_heartbeat_at,build_sha,status,updated_at)
-       VALUES ($1,$2,$3,$4::timestamptz,$5::timestamptz,$6,$7,$5::timestamptz)
-       ON CONFLICT (worker_id) DO UPDATE SET region=EXCLUDED.region,last_heartbeat_at=EXCLUDED.last_heartbeat_at,
-       build_sha=EXCLUDED.build_sha,status=EXCLUDED.status,updated_at=EXCLUDED.updated_at`,
-      [`hosted-worker:${record.workerId}`, record.workerId, record.region, record.startedAt,
-        record.lastHeartbeatAt, record.buildSha, record.status]
+       (id,worker_id,worker_incarnation_id,region,started_at,last_heartbeat_at,build_sha,status,updated_at)
+       VALUES ($1,$2,$3,$4,$5::timestamptz,$6::timestamptz,$7,$8,$6::timestamptz)
+       ON CONFLICT (worker_id) DO UPDATE SET worker_incarnation_id=EXCLUDED.worker_incarnation_id,
+       region=EXCLUDED.region,started_at=EXCLUDED.started_at,last_heartbeat_at=EXCLUDED.last_heartbeat_at,
+       build_sha=EXCLUDED.build_sha,status=EXCLUDED.status,updated_at=EXCLUDED.updated_at
+       WHERE ($9::boolean AND empire_hosted_worker_heartbeats.started_at <= EXCLUDED.started_at)
+          OR (empire_hosted_worker_heartbeats.worker_incarnation_id = EXCLUDED.worker_incarnation_id
+            AND empire_hosted_worker_heartbeats.started_at = EXCLUDED.started_at
+            AND empire_hosted_worker_heartbeats.last_heartbeat_at <= EXCLUDED.last_heartbeat_at)`,
+      [`hosted-worker:${record.workerId}`, record.workerId, record.workerIncarnationId, record.region,
+        record.startedAt, record.lastHeartbeatAt, record.buildSha, record.status, allowIncarnationTakeover]
     );
   },
   getFreshWorkerHeartbeat: async (since) => {
     const result = await database.query<WorkerRow>(
-      `SELECT worker_id,region,started_at,last_heartbeat_at,build_sha,status FROM empire_hosted_worker_heartbeats
+      `SELECT worker_id,worker_incarnation_id,region,started_at,last_heartbeat_at,build_sha,status FROM empire_hosted_worker_heartbeats
        WHERE status='online' AND last_heartbeat_at >= $1::timestamptz ORDER BY last_heartbeat_at DESC LIMIT 1`, [since]);
     return result.rows[0] ? mapWorker(result.rows[0]) : null;
   },
   acquireRuntimeLease: async (input) => {
     const result = await database.query(
-      `UPDATE empire_hosted_server_instances SET runtime_lease_owner_id=$2,runtime_lease_expires_at=$4::timestamptz,
-       last_worker_heartbeat_at=$3::timestamptz,updated_at=$3::timestamptz
-       WHERE server_instance_id=$1 AND (runtime_lease_owner_id=$2 OR runtime_lease_expires_at IS NULL OR runtime_lease_expires_at <= $3::timestamptz)
-       RETURNING server_instance_id`, [input.serverInstanceId, input.workerId, input.now, input.expiresAt]);
+      `UPDATE empire_hosted_server_instances SET runtime_lease_owner_id=$2,runtime_lease_incarnation_id=$3,
+       runtime_lease_expires_at=$5::timestamptz,last_worker_heartbeat_at=$4::timestamptz,updated_at=$4::timestamptz
+       WHERE server_instance_id=$1 AND $5::timestamptz > clock_timestamp()
+         AND EXISTS (SELECT 1 FROM empire_hosted_worker_heartbeats worker
+           WHERE worker.worker_id=$2 AND worker.worker_incarnation_id=$3 AND worker.status='online'
+             AND worker.last_heartbeat_at > clock_timestamp() - ($6::int * interval '1 millisecond'))
+         AND ((runtime_lease_owner_id=$2 AND runtime_lease_incarnation_id=$3)
+           OR runtime_lease_expires_at IS NULL OR runtime_lease_expires_at <= clock_timestamp())
+       RETURNING server_instance_id`, [input.serverInstanceId, input.workerId, input.workerIncarnationId,
+        input.now, input.expiresAt, HOSTED_WORKER_FRESH_MS]);
     return (result.rowCount ?? 0) > 0;
   },
-  releaseRuntimeLease: async (id, workerId, at) => {
-    await database.query(`UPDATE empire_hosted_server_instances SET runtime_lease_owner_id=NULL,runtime_lease_expires_at=NULL,
-      updated_at=$3::timestamptz WHERE server_instance_id=$1 AND runtime_lease_owner_id=$2 AND status <> 'running'`, [id, workerId, at]);
+  isRuntimeLeaseCurrent: async (input) => {
+    const result = await database.query(
+      `SELECT server_instance_id FROM empire_hosted_server_instances
+       WHERE server_instance_id=$1 AND runtime_lease_owner_id=$2 AND runtime_lease_incarnation_id=$3
+         AND runtime_lease_expires_at > clock_timestamp()`,
+      [input.serverInstanceId, input.workerId, input.workerIncarnationId]
+    );
+    return (result.rowCount ?? 0) === 1;
   },
-  writeInstanceHeartbeat: async (input) => {
-    await database.query(
+  releaseRuntimeLease: async (id, workerId, workerIncarnationId, at) => {
+    await database.query(`UPDATE empire_hosted_server_instances SET runtime_lease_owner_id=NULL,
+      runtime_lease_incarnation_id=NULL,runtime_lease_expires_at=NULL,updated_at=$4::timestamptz
+      WHERE server_instance_id=$1 AND runtime_lease_owner_id=$2 AND runtime_lease_incarnation_id=$3
+        AND status <> 'running'`, [id, workerId, workerIncarnationId, at]);
+  },
+  writeInstanceHeartbeat: (input) => database.transaction(async (client) => {
+    const current = await client.query(
+      `UPDATE empire_hosted_server_instances SET last_worker_heartbeat_at=$5::timestamptz,
+       runtime_lease_expires_at=$4::timestamptz,updated_at=$5::timestamptz
+       WHERE server_instance_id=$1 AND runtime_lease_owner_id=$2 AND runtime_lease_incarnation_id=$3
+         AND runtime_lease_expires_at > clock_timestamp() AND $4::timestamptz > clock_timestamp()
+       RETURNING server_instance_id`,
+      [input.serverInstanceId, input.workerId, input.workerIncarnationId, input.leaseExpiresAt, input.at]
+    );
+    if ((current.rowCount ?? 0) !== 1) return;
+    await client.query(
       `INSERT INTO empire_hosted_instance_heartbeats
        (id,server_instance_id,worker_id,lease_expires_at,last_tick,last_snapshot_at,last_error_code,last_heartbeat_at,updated_at)
        VALUES ($1,$2,$3,$4::timestamptz,$5,$6::timestamptz,$7,$8::timestamptz,$8::timestamptz)
@@ -242,11 +244,7 @@ export const createPostgresHostedControlPlaneRepository = (
       [`hosted-instance-heartbeat:${input.serverInstanceId}`, input.serverInstanceId, input.workerId,
         input.leaseExpiresAt, input.lastTick, input.lastSnapshotAt, input.lastErrorCode, input.at]
     );
-    await database.query(`UPDATE empire_hosted_server_instances SET last_worker_heartbeat_at=$3::timestamptz,
-      runtime_lease_expires_at=$4::timestamptz,updated_at=$3::timestamptz
-      WHERE server_instance_id=$1 AND runtime_lease_owner_id=$2`,
-    [input.serverInstanceId, input.workerId, input.at, input.leaseExpiresAt]);
-  }
+  })
 });
 
 const qualifyColumns = (alias: string, columns: string): string =>

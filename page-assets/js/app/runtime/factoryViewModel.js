@@ -224,6 +224,10 @@ export function buildFactoryDashboardViewModel({
           metalParts: displayInfo.displayCost.metalParts,
           techCore: displayInfo.displayCost.techCore
         },
+        inputAmounts: {
+          metalParts: Math.max(0, Number(supplyState.metalParts || 0)),
+          techCore: Math.max(0, Number(supplyState.techCore || 0))
+        },
         displayCost: displayInfo.displayCost,
         priceLabel: getFactorySlotPriceLabel(slot, config),
         durationMs,

@@ -292,7 +292,7 @@ const PASSIVE_DAY_NIGHT_BUILDING_EFFECTS = Object.freeze({
     night: { dirtyIncomePct: 25 }
   },
   "strip-club": {
-    day: { rumorGenerationPct: -10, rumorTruthPct: 8 },
+    day: { cleanIncomePct: -50, dirtyIncomePct: -50, rumorGenerationPct: -10, rumorTruthPct: 8 },
     night: { dirtyIncomePct: 25, influencePct: 20, rumorGenerationPct: 25 }
   },
   "vip-lounge": {
@@ -1267,10 +1267,10 @@ export function createBuildingDetailStatRows({
     );
   } else if (mechanics.mechanicsType === "convenience-store" || buildingKey === "vecerka") {
     statRows.splice(0, statRows.length,
+      createStat("Obyvatelé", `${mechanics.convenienceStoreWholePopulation}/${mechanics.convenienceStoreCapacity}`),
+      createStat("Populace / hod", `+${Math.round(mechanics.convenienceStorePopulationPerMinute * 60)}`),
       createStat("Čisté / hod", `+${formatDistrictBuildingMoney(mechanics.cleanHourly)}`),
       createStat("Špinavé / hod", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly)}`),
-      createStat("Heat / den", `+${formatCompactNumber(mechanics.dailyHeat)}`),
-      createStat("Vliv / den", `+${formatCompactNumber(mechanics.dailyInfluence)}`),
       createStat("Drby", "pasivní pouliční tipy")
     );
   } else if (mechanics.mechanicsType === "strip-club" || buildingKey === "strip club") {
@@ -1316,8 +1316,7 @@ export function createBuildingDetailMechanicRows({
         "Lokální zásobník",
         `${mechanics.apartmentWholePopulation}/${mechanics.apartmentCapacity}`,
         collectablePopulation >= APARTMENT_BLOCK_MIN_COLLECT_POPULATION ? "collect-ready" : "collect-pending"
-      ),
-      createMechanic("Produkce", `+${mechanics.apartmentPopulationPerMinute.toFixed(2)} obyv./min`)
+      )
     );
   } else if (mechanics.mechanicsType === "school") {
     mechanicRows.push(
@@ -1414,18 +1413,21 @@ export function createBuildingDetailMechanicRows({
       createMechanic("Riziko", "Prodej přidá heat a může spustit pouliční incident.")
     );
   } else if (mechanics.mechanicsType === "convenience-store" || buildingKey === "vecerka") {
+    const collectablePopulation = Math.max(0, Math.floor(Number(mechanics.convenienceStoreWholePopulation || 0)));
     mechanicRows.push(
-      createMechanic("Cashflow", "Malý clean i dirty příjem bez speciálních akcí."),
-      createMechanic("Drby", "Každých 10 minut proběhne pro hráče nejvýše jeden serverový check na pouliční drb."),
-      createMechanic("Síť večerek", "Více aktivních večerek zvedá cashflow, vliv a šanci na drb."),
-      createMechanic("Synergie", "Restaurace mohou zlepšit šanci a pravdivost civilních drbů.")
+      createMechanicWithTone(
+        "Lokální zásobník",
+        `${mechanics.convenienceStoreWholePopulation}/${mechanics.convenienceStoreCapacity}`,
+        collectablePopulation >= 30 ? "collect-ready" : "collect-pending"
+      ),
+      createMechanic("Populace", `+${Math.round(mechanics.convenienceStorePopulationPerMinute * 60)} obyv./hod`),
+      createMechanic("Výběr", "Dostupný až od 30 obyvatel."),
+      createMechanic("Drby", "Každých 10 minut můžeš dostat městkej drb."),
+      createMechanic("Síť večerek", "Každá další Večerka přidá +5 obyvatel za hodinu každé Večerce.")
     );
   } else if (mechanics.mechanicsType === "strip-club" || buildingKey === "strip club") {
     mechanicRows.push(
-      createMechanic("Vybrat cash", "+360 dirty cash a heat +3; cooldown 10 minut."),
-      createMechanic("VIP klienti", "Za clean cash dočasně zvednou cashflow, vliv, heat a šanci na drb."),
       createMechanic("Pouliční drby", "Každý aktivní Strip Club vytváří jeden drb každých 30 minut."),
-      createMechanic("Soukromá party", "Za clean cash přidá vliv, na 10 minut zrychlí jeho tvorbu a může přinést drb nebo skandál."),
       createMechanic("Síť clubů", "Více aktivních clubů zvedá cashflow, vliv, drby i heat.")
     );
   } else if (mechanics.mechanicsType === "smuggling-tunnel") {
@@ -1439,10 +1441,10 @@ export function createBuildingDetailMechanicRows({
     );
   } else if (mechanics.mechanicsType === "arcade") {
     mechanicRows.push(
-      createMechanic("Síť heren", `income ${formatMultiplierIncreasePercent(mechanics.arcadeNetwork.incomeMultiplier)} · limit ${formatMultiplierIncreasePercent(mechanics.arcadeNetwork.launderingLimitMultiplier)}`),
-      createMechanic("Noční automaty", "dočasně zvednou income, vliv, heat a audit risk"),
-      createMechanic("Zadní pokladna", "pere část dirty cash za fee"),
-      createMechanic("Riziko", `audit ${mechanics.arcadeAuditRisk} · heat z akcí`)
+      createMechanic("Síť heren", `Další Herny: příjem ${formatMultiplierIncreasePercent(mechanics.arcadeNetwork.incomeMultiplier)} · limit praní ${formatMultiplierIncreasePercent(mechanics.arcadeNetwork.launderingLimitMultiplier)}.`),
+      createMechanic("Noční automaty", "V noci dočasně zvýší příjem, vliv, heat a riziko kontroly."),
+      createMechanic("Zadní pokladna", "Vypere část špinavých peněz za menší poplatek."),
+      createMechanic("Riziko", `Riziko kontroly: ${mechanics.arcadeAuditRisk} · speciální akce přidávají heat.`)
     );
   } else {
     mechanicRows.push(
@@ -1529,10 +1531,10 @@ export function createBuildingDetailActionRows({
       Number(economyState.materials?.[itemId] || 0) < Math.max(0, Math.floor(Number(amount || 0)))
     ) || null;
     const phaseLockRule = getPhaseLockedBuildingActionRule(actionDefinition.actionId);
-    const phaseLockLabel = phaseLockRule
+    const phaseDisabledReason = resolvePhaseLockedBuildingActionDisabledReason(actionDefinition.actionId, phaseState);
+    const phaseLockLabel = phaseDisabledReason && phaseLockRule
       ? phaseLockRule.allowedPhase === "night" ? "Jen v noci" : "Jen ve dne"
       : "";
-    const phaseDisabledReason = resolvePhaseLockedBuildingActionDisabledReason(actionDefinition.actionId, phaseState);
     const casinoDisabledReason = actionDefinition.disabledReason
       || phaseDisabledReason
       || (cooldownRemaining > 0 ? `Akce čeká ${formatDistrictBuildingCooldown(cooldownRemaining)}.` : "")
@@ -1693,6 +1695,7 @@ export function createBuildingDetailViewModel({
     countLabel: createBuildingDetailCountLabel(mechanics),
     backgroundImagePath: buildingBackgroundPath,
     mechanicsType: mechanics.mechanicsType,
+    convenienceStoreIsFull: Boolean(mechanics.convenienceStoreIsFull),
     districtType,
     isDowntownBuilding,
     levelLabel: canUpgrade ? `L${mechanics.level}` : "",

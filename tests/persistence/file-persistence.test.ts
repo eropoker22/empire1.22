@@ -39,7 +39,6 @@ describe("file persistence repositories", () => {
 
       expect(result?.errors).toEqual([]);
       await flushAsyncReplayWrites();
-      await firstManager.saveInstanceSnapshot(instanceId);
 
       const secondManager = new ServerInstanceManager({
         persistence: createFileRuntimePersistenceRepositories({ rootDir })
@@ -75,6 +74,25 @@ describe("file persistence repositories", () => {
           rootVersion: 3
         }
       });
+    } finally {
+      await rm(rootDir, { recursive: true, force: true });
+    }
+  });
+
+  it("accepts only identical payloads at the same rootVersion", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "empire-file-snapshot-idempotency-"));
+    try {
+      const repository = createFileSnapshotRepository({ rootDir });
+      const runtime = createServerInstanceRuntime("instance:file-snapshot-idempotency", "free");
+      runtime.state.root.version = 4;
+      const snapshot = createInstanceSnapshot(runtime);
+      const divergent = structuredClone(snapshot);
+      divergent.lobby!.displayName = "Divergent server";
+
+      await repository.save(snapshot);
+      await repository.save(structuredClone(snapshot));
+      await expect(repository.save(divergent)).rejects.toThrow("Refusing divergent snapshot");
+      await expect(repository.loadLatest(runtime.record.id)).resolves.toEqual(snapshot);
     } finally {
       await rm(rootDir, { recursive: true, force: true });
     }

@@ -381,6 +381,10 @@ export const APARTMENT_BLOCK_NETWORK_CONFIG = Object.freeze({
   maxPopulationProductionMultiplier: 1.55,
   maxCapacityMultiplier: 1.75
 });
+export const CONVENIENCE_STORE_BASE_POPULATION_CAPACITY = 50;
+export const CONVENIENCE_STORE_MIN_COLLECT_POPULATION = 30;
+export const CONVENIENCE_STORE_POPULATION_PER_MINUTE = 50 / 60;
+export const CONVENIENCE_STORE_POPULATION_BONUS_PER_EXTRA_STORE_PER_MINUTE = 5 / 60;
 export const SCHOOL_CONFIG = Object.freeze({
   countOnMap: 6,
   cleanCashPerMinute: 18,

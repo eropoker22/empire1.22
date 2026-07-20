@@ -14,13 +14,23 @@ export interface PostgresDatabase extends PostgresQueryable {
   close(): Promise<void>;
 }
 
-export const createPostgresDatabase = (databaseUrl: string): PostgresDatabase => {
+export interface PostgresDatabasePoolOptions {
+  max?: number;
+  idleTimeoutMillis?: number;
+  connectionTimeoutMillis?: number;
+  allowExitOnIdle?: boolean;
+}
+
+export const createPostgresDatabase = (
+  databaseUrl: string,
+  poolOptions: PostgresDatabasePoolOptions = {}
+): PostgresDatabase => {
   const connectionString = validatePostgresDatabaseUrl(databaseUrl);
   let poolPromise: Promise<Pool> | null = null;
 
   const getPool = async (): Promise<Pool> => {
     poolPromise ??= import("pg").then(({ Pool }) => {
-      const pool = new Pool({ connectionString });
+      const pool = new Pool({ connectionString, ...poolOptions });
       pool.on("error", () => undefined);
       return pool;
     });

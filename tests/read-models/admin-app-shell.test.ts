@@ -2,6 +2,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError, type AdminApiClient } from "../../apps/admin/src/app/admin-monitoring-client";
 import { createAdminApp } from "../../apps/admin/src/app/create-admin-app";
+import { renderDashboard } from "../../apps/admin/src/app/read-only-admin-page";
+import { resolveModeConfig } from "@empire/game-config";
 import type { AdminInstanceDetailView, AdminInstanceSummaryView, AdminOverviewView, AdminSessionView } from "@empire/shared-types";
 
 const session: AdminSessionView = {
@@ -62,6 +64,55 @@ describe("read-only admin app", () => {
     await vi.waitFor(() => expect(client.login).toHaveBeenCalledWith("test-owner", "TestPassword-Only-For-Fixtures"));
     expect(input.value).toBe("");
   });
+
+  it("offers only the implemented closed policy during server creation", () => {
+    document.body.innerHTML = renderDashboard({
+      session: { ...session, role: "owner" },
+      overview: overview(),
+      selectedInstanceId: null,
+      detail: null,
+      controlPlane: {
+        writesEnabled: true,
+        provisioningEnabled: true,
+        databaseAvailable: true,
+        migrationsCurrent: true,
+        workerStatus: "online",
+        unavailableCode: null,
+        servers: []
+      },
+      wizardOpen: true,
+      wizardStep: 3
+    });
+
+    expect(document.querySelector('[name="joinPolicy"][value="closed"]')).not.toBeNull();
+    expect(document.querySelector('[name="joinPolicy"][value="invite_only"]')).toBeNull();
+    expect(document.querySelector<HTMLInputElement>('[name="joinPolicy"][value="open"]')?.disabled).toBe(true);
+    expect(document.querySelector<HTMLOptionElement>('[name="mode"] [value="war"]')?.disabled).toBe(true);
+    expect(document.querySelector<HTMLInputElement>('[name="capacity"]')?.min).toBe(String(
+      resolveModeConfig("free").balance.finalLockdown!.triggerActivePlayers + 1
+    ));
+  });
+
+  it("disables lifecycle controls until provisioning is ready", () => {
+    document.body.innerHTML = renderDashboard({
+      session: { ...session, role: "owner" }, overview: overview(), selectedInstanceId: "server:requested", detail: null,
+      controlPlane: {
+        writesEnabled: true, provisioningEnabled: true, databaseAvailable: true, migrationsCurrent: true,
+        workerStatus: "online", unavailableCode: null, servers: [{
+          serverInstanceId: "server:requested", displayName: "Requested", mode: "free", region: "eu-central",
+          capacity: 20, status: "requested", joinPolicy: "closed", provisioningState: "requested",
+          currentSnapshotId: null, runtimeLeaseOwnerId: null, runtimeLeaseExpiresAt: null,
+          lastWorkerHeartbeatAt: null, lastErrorCode: null, createdAt: "2026-07-16T10:00:00.000Z",
+          updatedAt: "2026-07-16T10:00:00.000Z", version: 1, committedPlayers: 0, reservedSlots: 0
+        }]
+      }, wizardOpen: false, wizardStep: 1
+    });
+
+    const actions = [...document.querySelectorAll<HTMLButtonElement>("[data-admin-lifecycle]")];
+    expect(actions.length).toBeGreaterThan(0);
+    expect(actions.every((button) => button.disabled && button.getAttribute("aria-disabled") === "true")).toBe(true);
+  });
+
 });
 
 const createClient = (): AdminApiClient => ({

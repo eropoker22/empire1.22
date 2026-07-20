@@ -10,6 +10,8 @@ export interface MultiLineProductionRecipe {
   durationTicksPerUnit: number;
 }
 
+export const MINIMUM_PRODUCTION_QUEUE_RESERVE = 3;
+
 export const getProductionLine = (
   building: Building,
   recipeId: string

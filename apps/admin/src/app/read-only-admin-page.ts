@@ -6,6 +6,13 @@ import type {
   AdminOverviewView,
   AdminSessionView
 } from "@empire/shared-types";
+import { resolveModeConfig } from "@empire/game-config";
+
+const FREE_MODE_CONFIG = resolveModeConfig("free");
+const FREE_SERVER_MIN_CAPACITY = FREE_MODE_CONFIG.balance.finalLockdown?.enabled
+  ? FREE_MODE_CONFIG.balance.finalLockdown.triggerActivePlayers + 1
+  : 1;
+const FREE_SERVER_MAX_CAPACITY = FREE_MODE_CONFIG.balance.maxPlayersPerServer;
 
 export const renderLogin = (message = "Přihlaste se do admin konzole."): string => `
   <section class="admin-login" aria-labelledby="admin-login-title">
@@ -100,9 +107,9 @@ const renderCreateWizard = (step: number): string => `
     <fieldset data-admin-wizard-panel="1" ${step === 1 ? "" : "hidden"}>
       <legend>Základ</legend>
       <label><span>Název</span><input name="displayName" minlength="3" maxlength="80" required></label>
-      <label><span>Mode</span><select name="mode"><option value="free">Free</option><option value="war">War</option></select></label>
+      <label><span>Mode</span><select name="mode"><option value="free">Free</option><option value="war" disabled>War (připravuje se)</option></select></label>
       <label><span>Region</span><select name="region"><option value="eu-central">EU Central</option></select></label>
-      <label><span>Kapacita</span><input name="capacity" type="number" min="1" max="20" value="20" required></label>
+      <label><span>Kapacita</span><input name="capacity" type="number" min="${FREE_SERVER_MIN_CAPACITY}" max="${FREE_SERVER_MAX_CAPACITY}" value="${FREE_SERVER_MAX_CAPACITY}" required></label>
       <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Další</button>
     </fieldset>
     <fieldset data-admin-wizard-panel="2" ${step === 2 ? "" : "hidden"}>
@@ -119,7 +126,6 @@ const renderCreateWizard = (step: number): string => `
     <fieldset data-admin-wizard-panel="3" ${step === 3 ? "" : "hidden"}>
       <legend>Přístup</legend>
       <label><input type="radio" name="joinPolicy" value="closed" checked> Closed</label>
-      <label><input type="radio" name="joinPolicy" value="invite_only"> Invite-only</label>
       <label><input type="radio" name="joinPolicy" value="open" disabled> Open (až po provisioningu)</label>
       <button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
       <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Další</button>
@@ -149,8 +155,29 @@ const renderLifecycle = (server: AdminHostedServerView, session: AdminSessionVie
       ${session.role === "owner" ? lifecycleButton(server, "stop", "Stop") : ""}
     </div><p data-admin-action-error role="alert"></p>
   </div>`;
-const lifecycleButton = (server: AdminHostedServerView, action: string, label: string) =>
-  `<button class="admin-button" type="button" data-admin-lifecycle="${attr(action)}" data-admin-server-id="${attr(server.serverInstanceId)}">${escape(label)}</button>`;
+const lifecycleButton = (server: AdminHostedServerView, action: string, label: string) => {
+  const unavailableReason = lifecycleUnavailableReason(server, action);
+  const disabled = unavailableReason
+    ? ` disabled aria-disabled="true" title="${attr(unavailableReason)}"`
+    : "";
+  return `<button class="admin-button" type="button" data-admin-lifecycle="${attr(action)}" data-admin-server-id="${attr(server.serverInstanceId)}"${disabled}>${escape(label)}</button>`;
+};
+
+const lifecycleUnavailableReason = (server: AdminHostedServerView, action: string): string | null => {
+  if (server.provisioningState !== "ready") return "Počkejte na dokončení provisioningu.";
+  if (action === "open-joins") return server.joinPolicy === "open" || !(server.status === "lobby" || server.status === "running")
+    ? "Server teď nelze otevřít pro vstup."
+    : null;
+  if (action === "close-joins") return server.joinPolicy === "closed" ? "Vstupy už jsou zavřené." : null;
+  if (action === "start") return server.status === "lobby" ? null : "Spustit lze pouze server v lobby.";
+  if (action === "pause") return server.status === "running" ? null : "Pozastavit lze pouze běžící server.";
+  if (action === "resume") return server.status === "paused" ? null : "Pokračovat lze pouze u pozastaveného serveru.";
+  if (action === "restart") return server.status === "running" ? null : "Restartovat lze pouze běžící server.";
+  if (action === "stop") return ["lobby", "running", "paused", "restarting"].includes(server.status)
+    ? null
+    : "Server už nelze zastavit.";
+  return "Akce není dostupná.";
+};
 
 const renderServers = (instances: AdminInstanceSummaryView[], selected: string | null): string => `
   <section id="admin-servers" class="admin-panel admin-section-anchor">

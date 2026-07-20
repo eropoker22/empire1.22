@@ -27,7 +27,7 @@ describe("building upgrade confirmation benefits", () => {
       resourceStatus: { canConfirm: true, missing: [] }
     });
 
-    expect(model.titleLabel).toBe("Rekrutační centrum · L1 → L2");
+    expect(model.titleLabel).toBe("Rekrutační centrum");
     expect(model.titleLabel).not.toContain("Urban Soldiers Hub");
   });
 
@@ -256,7 +256,7 @@ describe("building upgrade confirmation benefits", () => {
       resourceStatus: { canConfirm: true, missing: [] }
     });
 
-    expect(model.titleLabel).toBe("Klinika · L1 → L2");
+    expect(model.titleLabel).toBe("Klinika");
     expect(model.titleLabel).not.toContain("BlackCross Medical");
     expect(model.benefits.map((benefit) => benefit.label)).toContain("Recovery rate");
     expectNoGenericBuildingCardCopy(model);
@@ -272,8 +272,7 @@ describe("building upgrade confirmation benefits", () => {
 
     controller.update({
       buildingLabel: "Kasino",
-      titleLabel: "Kasino · L1 → L2",
-      description: "Potvrzením posuneš typ budovy na vyšší úroveň a okamžitě získáš nové bonusy.",
+      titleLabel: "Kasino",
       costLabel: "$7,500",
       upgradeLabel: "L1 → L2",
       benefits: [
@@ -283,13 +282,36 @@ describe("building upgrade confirmation benefits", () => {
       noteLabel: "Po potvrzení zaplatíš $7,500."
     });
 
-    expect(host.querySelector(".building-upgrade-confirm__title")?.textContent).toBe("Kasino · L1 → L2");
+    expect(host.querySelector(".building-upgrade-confirm__title")?.textContent).toBe("Kasino");
+    expect(host.querySelector(".building-upgrade-confirm__copy")).toBeNull();
     expect(host.querySelector(".building-upgrade-confirm__stat--cost")?.textContent).toContain("$7,500");
     expect(host.querySelector(".building-upgrade-confirm__stat--level")?.textContent).toContain("L1 → L2");
     expect(host.querySelectorAll(".building-upgrade-confirm__benefit")).toHaveLength(2);
     expect(host.querySelector(".building-upgrade-confirm__payment-strip")?.textContent).toContain("Po potvrzení zaplatíš $7,500.");
-    expect(host.querySelector(".building-upgrade-confirm__button--ghost")?.textContent).toBe("Zpět");
+    expect(host.querySelector(".building-upgrade-confirm__button--ghost")).toBeNull();
+    expect(host.querySelector(".building-upgrade-confirm__close")?.getAttribute("aria-label")).toBe("Zrušit upgrade");
     expect(host.querySelector(".building-upgrade-confirm__button--confirm")?.textContent).toBe("Potvrdit upgrade");
+  });
+
+  it("keeps the confirmation label when clean cash is missing", () => {
+    const host = document.createElement("div");
+    const controller = createBuildingUpgradeConfirmationController({
+      documentRef: document,
+      host,
+      variant: "district"
+    });
+
+    controller.update({
+      buildingLabel: "Kasino",
+      canConfirm: false,
+      noteLabel: "Chybí $1,200 clean cash."
+    });
+
+    const paymentStrip = host.querySelector(".building-upgrade-confirm__payment-strip");
+    const confirmButton = host.querySelector(".building-upgrade-confirm__button--confirm");
+    expect(paymentStrip?.classList.contains("is-error")).toBe(true);
+    expect(confirmButton?.textContent).toBe("Potvrdit upgrade");
+    expect(confirmButton?.disabled).toBe(true);
   });
 
   it("uses server-provided warehouse capacities for the upgrade preview", () => {

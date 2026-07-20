@@ -36,6 +36,7 @@ describe("current gameplay cleanup guard", () => {
       expect(Object.keys(browserRecipes)).toEqual(Object.keys(typedRecipes));
       for (const [recipeId, recipe] of Object.entries(typedRecipes)) {
         expect(recipe.outputAmount, recipeId).toBe(1);
+        expect(recipe.queueCap, recipeId).toBeGreaterThanOrEqual(recipe.localOutputCap + 3);
         expect(browserRecipes[recipeId], recipeId).toMatchObject({
           inputs: recipe.inputCosts,
           cleanMoneyCost: recipe.cleanCashCostPerUnit,
@@ -47,16 +48,16 @@ describe("current gameplay cleanup guard", () => {
     }
 
     expect(Object.fromEntries(Object.entries(config.balance.armory.recipes).map(([id, recipe]) => [id, recipe.queueCap]))).toEqual({
-      "baseball-bat": 6,
-      pistol: 4,
-      grenade: 4,
-      smg: 3,
-      bazooka: 2,
-      vest: 4,
-      barricades: 5,
-      cameras: 4,
-      "defense-tower": 2,
-      alarm: 4
+      "baseball-bat": 11,
+      pistol: 8,
+      grenade: 7,
+      smg: 6,
+      bazooka: 5,
+      vest: 8,
+      barricades: 9,
+      cameras: 7,
+      "defense-tower": 5,
+      alarm: 7
     });
   });
 
@@ -70,13 +71,13 @@ describe("current gameplay cleanup guard", () => {
     expect(runtime).not.toContain("usePharmacyBoost,");
   });
 
-  it("keeps demo-only surfaces labeled and separated from server authority", () => {
+  it("keeps demo-only surfaces behind an explicit server-authoritative default", () => {
     const page = read("pages/game.html");
     const chatRuntime = read("page-assets/js/app/alliance-runtime.js");
     const browserAdapter = read("packages/game-config/src/legacy-page/economy-config.js");
 
-    expect(page).toContain('name="empire-gameplay-execution-mode" content="auto"');
-    expect(page).toContain("Demo chat je lokální kanál tohoto prohlížeče.");
+    expect(page).toContain('name="empire-gameplay-execution-mode" content="server-authoritative"');
+    expect(page).toContain("Globální chat se připravuje.");
     expect(page).toContain("Strategické boosty");
     expect(chatRuntime).toContain('empire:demo:global-chat:v1');
     expect(browserAdapter).toContain('from "./gameplay-config.generated.js"');
@@ -112,7 +113,13 @@ describe("current gameplay cleanup guard", () => {
     expect(`${boostRuntime}\n${page}`).not.toContain("Demo boost");
     expect(page).toContain('id="boost-modal"');
     expect(page).toContain("POTVRDIT AKTIVACI");
-    expect(page).toContain("data-player-boost-pinned");
+    expect(page).not.toContain("data-player-boost-pinned");
+    expect(boostRuntime).not.toContain("data-player-boost-pinned");
+    expect(boostRuntime).toContain('data-cost-count="${costCount}"');
+    expect(boostStyles).toContain('.boost-card__costs[data-cost-count="3"]');
+    expect(boostStyles).toContain(".boost-card.is-missing-resources .boost-card__activate:disabled");
+    expect(runtime).toContain("sourceKind: \"player-boost\"");
+    expect(runtime).toContain("{ syncPreview: false, forceLog: true }");
     expect(page).toContain("Otevřít strategické boosty");
   });
 });

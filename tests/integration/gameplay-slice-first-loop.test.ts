@@ -233,7 +233,10 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
         id: "command:first-loop:attack:1",
         playerId: firstRequest.playerId,
         sourceDistrictId,
-        targetDistrictId: targetDistrictId!
+        targetDistrictId: targetDistrictId!,
+        expectedConflictRevision: spyReadModel!.district!.attackTargets.find((target) =>
+          target.districtId === targetDistrictId
+        )!.expectedConflictRevision
       })
     });
     const attackReadModel = attack.readModel as GameplaySliceView;
@@ -313,7 +316,10 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
         id: "command:first-loop:occupy:1",
         playerId: request.playerId,
         sourceDistrictId,
-        targetDistrictId
+        targetDistrictId,
+        expectedConflictRevision: spyReadModel.district!.occupyTargets.find((target) =>
+          target.districtId === targetDistrictId
+        )!.expectedConflictRevision
       })
     });
     const occupyReadModel = occupy.readModel as GameplaySliceView;
@@ -377,7 +383,10 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
       id: "command:first-loop:occupy-render:1",
       playerId: request.playerId,
       sourceDistrictId,
-      targetDistrictId
+      targetDistrictId,
+      expectedConflictRevision: client.getGameplaySlice()!.district!.occupyTargets.find((target) =>
+        target.districtId === targetDistrictId
+      )!.expectedConflictRevision
     }));
 
     expect(occupyRender.errors).toEqual([]);

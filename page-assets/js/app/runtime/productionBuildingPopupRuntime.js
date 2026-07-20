@@ -910,13 +910,12 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           }],
           buildingLabel: config?.label || "Budova",
           canConfirm: hasEnoughMoney,
-          confirmLabel: hasEnoughMoney ? "Potvrdit upgrade" : "Nedostatek clean cash",
+          confirmLabel: "Potvrdit upgrade",
           costLabel: deps.formatCurrency?.(upgradeCost) || String(upgradeCost),
-          description: "Potvrzením posuneš typ budovy na vyšší úroveň a okamžitě získáš nové bonusy.",
           noteLabel: hasEnoughMoney
             ? `Po potvrzení zaplatíš ${deps.formatCurrency?.(upgradeCost) || upgradeCost} clean cash.`
             : `Chybí ${deps.formatCurrency?.(upgradeCost - Number(economyState.cleanMoney || 0)) || (upgradeCost - Number(economyState.cleanMoney || 0))} clean cash.`,
-          titleLabel: `${config?.label || "Budova"} · L${currentState.level} → L${nextLevel}`,
+          titleLabel: config?.label || "Budova",
           upgradeLabel: `L${currentState.level} → L${nextLevel}`
         });
 

@@ -734,6 +734,33 @@ describe("building detail, production and recipe UI modules", () => {
     expect(action.querySelector(".building-info-action-row__desc").textContent).toBe("Nemáš žádné ztráty k vytěžení.");
   });
 
+  it("toggles the compact full-store effects layout only for a full convenience store", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:convenience-store" });
+    const viewModel = {
+      shell,
+      mechanicsType: "convenience-store",
+      title: "Večerka",
+      name: "Večerka",
+      stats: [],
+      mechanics: [],
+      effects: [
+        { text: "Clean cash +100/h", tone: "clean" },
+        { text: "Plná kapacita", tone: "neutral" }
+      ],
+      collect: { visible: true, enabled: true, title: "Vybrat obyvatele" },
+      upgrade: { visible: false, disabled: true, title: "" },
+      actions: []
+    };
+
+    renderBuildingDetailPanel({ ...viewModel, convenienceStoreIsFull: true });
+    expect(shell.classList.contains("is-convenience-store-full")).toBe(true);
+
+    renderBuildingDetailPanel({ ...viewModel, convenienceStoreIsFull: false });
+    expect(shell.classList.contains("is-convenience-store-full")).toBe(false);
+  });
+
   it("renders fixed Street Dealer slots and submits the slot-bound local sale intent", () => {
     const document = setupDocument();
     const root = document.createElement("div");
@@ -1834,6 +1861,7 @@ describe("building detail, production and recipe UI modules", () => {
         isProducing: true,
         queuedAmount: 1,
         producedAmount: 0,
+        slotCap: 5,
         productionRemainder: 0.5,
         lastTick: 100000
       },
@@ -1844,6 +1872,7 @@ describe("building detail, production and recipe UI modules", () => {
       priceLabel: "650 + 1 Tech Core",
       unitCost: { metalParts: 2, techCore: 1 },
       displayCost: { cleanCash: 650, techCore: 1 },
+      inputAmounts: { techCore: 5 },
       queuedAmount: 1,
       slotStorageCap: 5
     }, { onStartSlot, onPauseSlot }, { mount, now: 100000 });
@@ -1851,14 +1880,17 @@ describe("building detail, production and recipe UI modules", () => {
     expect(findMetricValue(card, "Výstup")).toBe(null);
     expect(card.querySelector(".drug-production-slot__product")).toBe(null);
     expect(findMetricValue(card, "Čas")).toBe("7m 30s");
-    expect(findMetricValue(card, "Cena")).toBe("$650 clean + 1 Tech Core");
+    expect(findMetricValue(card, "Cena")).toBe("$650 clean");
+    expect(findMetricValue(card, "Vyrobeno")).toBe("0/5 ks");
     expect(findMetricValue(card, "Ve frontě")).toBe("1/5 ks");
+    expect(card.querySelector(".factory-slot__material-pill").children.map((child) => child.textContent)).toEqual(["Tech Core", "1/5"]);
     expect(card.querySelector("[data-factory-slot-toggle-state=\"start\"]").textContent).toBe("Spustit");
     expect(card.querySelector("[data-factory-slot-toggle-state=\"stop\"]").textContent).toBe("Zrušit");
 
     card.querySelectorAll(".factory-slot__quantity-btn")[1].click();
 
-    expect(findMetricValue(card, "Cena")).toBe("$1300 clean + 2 Tech Core");
+    expect(findMetricValue(card, "Cena")).toBe("$1300 clean");
+    expect(card.querySelector(".factory-slot__material-pill").children.map((child) => child.textContent)).toEqual(["Tech Core", "2/5"]);
 
     card.querySelector("[data-factory-slot-toggle-state=\"start\"]").click();
 
@@ -1866,6 +1898,34 @@ describe("building detail, production and recipe UI modules", () => {
 
     card.querySelector("[data-factory-slot-toggle-state=\"stop\"]").click();
     expect(onPauseSlot).toHaveBeenCalledWith(expect.any(Object));
+  });
+
+  it("centers and colors the Metal Parts requirement inside the Tech Core slot", () => {
+    const document = setupDocument();
+    const mount = document.createElement("div");
+    const card = renderFactorySlotCard({
+      slot: {
+        id: "tech",
+        resourceKey: "techCore",
+        queuedAmount: 0,
+        producedAmount: 2,
+        slotCap: 5
+      },
+      title: "Tech Core",
+      durationMs: 600000,
+      displayCost: { cleanCash: 900, metalParts: 3 },
+      inputAmounts: { metalParts: 8 },
+      queueCap: 5,
+      slotOutputCap: 5,
+      canStart: true
+    }, {}, { mount, now: 100000 });
+
+    const materialRow = card.querySelector(".factory-slot__material-row");
+    const materialPill = card.querySelector(".factory-slot__material-pill");
+    expect(findMetricValue(card, "Vyrobeno")).toBe("2/5 ks");
+    expect(materialRow.children).toHaveLength(1);
+    expect(materialPill.dataset.resourceColor).toBe("metal-parts");
+    expect(materialPill.children.map((child) => child.textContent)).toEqual(["Metal Parts", "3/8"]);
   });
 
   it("uses the existing Factory slot layout for authoritative production lines", () => {
@@ -1878,6 +1938,8 @@ describe("building detail, production and recipe UI modules", () => {
       resourceKey: "combat-module",
       label: "Bojový modul",
       status: "waiting",
+      producedAmount: 1,
+      producedCapacity: 2,
       queuedAmount: 1,
       queueCapacity: 2,
       maxStartQuantity: 1,
@@ -1902,7 +1964,12 @@ describe("building detail, production and recipe UI modules", () => {
     expect(card.querySelector(".factory-slot__title-wrap")).not.toBe(null);
     expect(card.querySelector(".drug-production-slot__icon--red")).not.toBe(null);
     expect(findMetricValue(card, "Čas")).toBe("15m 00s");
-    expect(findMetricValue(card, "Cena")).toBe("$2500 clean · 4× Metal Parts · 2× Tech Core");
+    expect(findMetricValue(card, "Cena")).toBe("$2500 clean");
+    expect(findMetricValue(card, "Vyrobeno")).toBe("1/2 ks");
+    expect(card.querySelectorAll(".factory-slot__material-pill").map((pill) => pill.children.map((child) => child.textContent))).toEqual([
+      ["Metal Parts", "4×"],
+      ["Tech Core", "2×"]
+    ]);
     expect(findMetricValue(card, "Ve frontě")).toBe("1/2 ks");
     card.querySelector("[data-factory-slot-toggle-state=\"start\"]").click();
     card.querySelector("[data-factory-slot-toggle-state=\"stop\"]").click();
@@ -1932,7 +1999,9 @@ describe("building detail, production and recipe UI modules", () => {
     expect(card.querySelector(".drug-production-slot__state").textContent).toBe("Načítání");
     expect(findMetricValue(card, "Čas")).toBe("—");
     expect(findMetricValue(card, "Cena")).toBe("—");
+    expect(findMetricValue(card, "Vyrobeno")).toBe("—");
     expect(findMetricValue(card, "Ve frontě")).toBe("—");
+    expect(card.querySelector(".factory-slot__materials")).toBe(null);
     expect(card.querySelector("[data-factory-slot-toggle-state=\"start\"]").disabled).toBe(true);
     expect(card.querySelector("[data-factory-slot-toggle-state=\"stop\"]").disabled).toBe(true);
   });

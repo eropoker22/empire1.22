@@ -146,7 +146,8 @@ import {
   isDowntownCell,
   isPointInDistrict,
   remapDistrictId,
-  remapDistrictType
+  remapDistrictType,
+  resolveLegacyDistrictId
 } from "./map/mapGeometry.js";
 import {
   buildDistrictActionViewModel,
@@ -246,6 +247,7 @@ import {
   DISTRICT_POPUP_ATMOSPHERE_IMAGE_SELECTOR,
   DISTRICT_POPUP_ATMOSPHERE_LABEL_SELECTOR,
   DISTRICT_POPUP_ATMOSPHERE_MOOD_SELECTOR,
+  DISTRICT_POPUP_ALLIANCE_SELECTOR,
   DISTRICT_POPUP_BUILDINGS_SELECTOR,
   DISTRICT_POPUP_BUILDINGS_META_SELECTOR,
   DISTRICT_POPUP_BUILDINGS_LIST_SELECTOR,
@@ -603,6 +605,10 @@ import {
   APARTMENT_BLOCK_MIN_COLLECT_POPULATION,
   APARTMENT_BLOCK_NETWORK_CONFIG,
   APARTMENT_BLOCK_POPULATION_PER_MINUTE,
+  CONVENIENCE_STORE_BASE_POPULATION_CAPACITY,
+  CONVENIENCE_STORE_MIN_COLLECT_POPULATION,
+  CONVENIENCE_STORE_POPULATION_BONUS_PER_EXTRA_STORE_PER_MINUTE,
+  CONVENIENCE_STORE_POPULATION_PER_MINUTE,
   ARCADE_BASE_AUDIT_RISK_PCT,
   ARCADE_BASE_LAUNDERING_CAPACITY,
   ARCADE_NETWORK_CONFIG,
@@ -2528,6 +2534,10 @@ function markDistrictPoliceAction(districtId, options = {}) {
 }
 
 function syncDevOnlyDestroyedDistrictState() {
+  if (!isLocalDemoGameplayExecutionMode()) {
+    return;
+  }
+
   const phaseState = getResolvedPhaseState();
   const storedWorldState = getStoredWorldState();
   const destroyedDistrictIds = Array.isArray(storedWorldState.destroyedDistrictIds)
@@ -2843,6 +2853,10 @@ function getGangAutoPoliceIntervalMs(tierId) {
 }
 
 function syncGangAutoPolicePressure() {
+  if (!shouldRunLocalGameplayRuntime()) {
+    return { triggered: false, marker: null };
+  }
+
   const phaseState = getResolvedPhaseState();
   if ((phaseState.gamePhase || "live") === "launch") {
     return { triggered: false, marker: null };
@@ -3576,7 +3590,29 @@ function openCurrentBuildingActionResultModal(root) {
     return;
   }
 
-  queueOrOpenResultModal(root, snapshot.resultKind, snapshot.resultPayload);
+  openStreetNewsResult(root, snapshot.resultKind, snapshot.resultPayload);
+}
+
+function openStreetNewsResult(root, kind, payload = {}) {
+  if (kind === "server-milestone") {
+    root?.ownerDocument?.dispatchEvent?.(new CustomEvent("empire:server-milestone-open", {
+      detail: {
+        milestoneId: String(payload?.milestoneId || ""),
+        payload
+      }
+    }));
+    return;
+  }
+
+  queueOrOpenResultModal(root, kind, payload);
+}
+
+function bindServerMilestoneStreetNews(root) {
+  root?.ownerDocument?.addEventListener?.("empire:street-news-publish", (event) => {
+    const snapshot = event?.detail?.snapshot;
+    if (!snapshot || typeof snapshot !== "object") return;
+    appendBuildingActionEntry(root, snapshot, { forceLog: true });
+  });
 }
 
 function parseStreetNewsCooldownTimestamp(value) {
@@ -4014,7 +4050,7 @@ function renderBuildingActionFeed(root, { syncPreview = false, previewSnapshot =
     ...visibleEntries
       .map((entry) => createBuildingActionFeedItemElement(root.ownerDocument || document, entry, {
         removeSelector: BUILDING_ACTION_REMOVE_SELECTOR,
-        onOpenResult: (selectedEntry) => queueOrOpenResultModal(root, selectedEntry.resultKind, selectedEntry.resultPayload),
+        onOpenResult: (selectedEntry) => openStreetNewsResult(root, selectedEntry.resultKind, selectedEntry.resultPayload),
         onExpire: () => renderBuildingActionFeed(root)
       }))
       .filter(Boolean)
@@ -5667,14 +5703,15 @@ function publishPlayerBoostLifecycle(result) {
   const lifecycle = result?.expired || result?.activated || result?.consumed || null;
   if (!lifecycle?.message) return;
   const root = getDefaultRuntimeRoot();
-  setBuildingActionFeedback(
-    root,
-    lifecycle.type === "expired" ? "warning" : "success",
-    "Strategické boosty",
-    lifecycle.message,
-    "Soukromá zpráva",
-    { forceLog: true }
-  );
+  appendBuildingActionEntry(root, {
+    tone: lifecycle.type === "expired" ? "warning" : "success",
+    title: "Strategické boosty",
+    summary: lifecycle.message,
+    meta: "Soukromá zpráva",
+    sourceKind: "player-boost",
+    category: "boost",
+    visibility: "private"
+  }, { syncPreview: false, forceLog: true });
   document?.dispatchEvent?.(new CustomEvent("empire:player-boost-lifecycle", { detail: lifecycle }));
 }
 
@@ -6107,7 +6144,7 @@ function createEliminationStreetNewsPayload(result = {}) {
     : "Districty gangu jsou teď neobsazené";
   return {
     ...result,
-    tone: "warning",
+    tone: "elimination-failure",
     title: result.title || `Očista proběhla: ${gangName}`,
     summary: result.body || `Policie rozdrtila gang ${gangName}. Jeho území se vrací pod kontrolu města.`,
     badge: "Očista dokončena",
@@ -6122,7 +6159,7 @@ function createEliminationStreetNewsPayload(result = {}) {
 function appendEliminationStreetNews(root, result = {}) {
   const payload = createEliminationStreetNewsPayload(result);
   appendBuildingActionResultEntry(root, "elimination", payload, {
-    tone: "warning",
+    tone: "elimination-failure",
     title: payload.title,
     summary: payload.summary,
     meta: payload.badge
@@ -6811,6 +6848,10 @@ function syncStartPhaseResourceSimulation(root, now = Date.now()) {
 }
 
 function syncStartPhaseDistrictIncome(root, now = Date.now()) {
+  if (!shouldRunLocalGameplayRuntime()) {
+    return;
+  }
+
   syncStartPhaseResourceSimulation(root, now);
 }
 
@@ -7455,6 +7496,18 @@ function resetOwnedApartmentBlockPopulationEntries(sourceDistrict, populationCap
   }));
 }
 
+function resetConvenienceStorePopulationEntry(sourceDistrict, populationCapacity = CONVENIENCE_STORE_BASE_POPULATION_CAPACITY) {
+  const now = Date.now();
+  updateDistrictBuildingDetailEntry(sourceDistrict, "Večerka", (entry) => ({
+    ...entry,
+    storedPopulation: 0,
+    populationLastUpdatedAt: now,
+    populationCapacity,
+    populationFullNotifiedAt: 0,
+    lastCollectedAt: now
+  }));
+}
+
 function resetOwnedSchoolPopulationEntries(sourceDistrict, studentCapacity = SCHOOL_CONFIG.baseStudentCapacity) {
   const now = Date.now();
   updateDistrictBuildingDetailEntry(sourceDistrict, "Škola", (entry) => ({
@@ -7662,6 +7715,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
   const arcadeNetwork = mechanicsType === "arcade" ? getArcadeNetworkMultipliers(ownedArcades) : null;
   const ownedApartmentBlocks = mechanicsType === "apartment-block" ? getOwnedApartmentBlockCount() : 0;
   const apartmentNetwork = mechanicsType === "apartment-block" ? getApartmentBlockNetworkMultipliers(ownedApartmentBlocks) : null;
+  const ownedConvenienceStores = mechanicsType === "convenience-store" ? getOwnedDistrictBuildingCountByBaseName("vecerka") : 0;
   const ownedSchools = mechanicsType === "school" ? getOwnedSchoolCount() : 0;
   const schoolNetwork = mechanicsType === "school" ? getSchoolNetworkMultipliers(ownedSchools) : null;
   const schoolEveningCourseActive = mechanicsType === "school" && Number(entry.schoolEveningCourseExpiresAt || 0) > now;
@@ -7824,6 +7878,25 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
   const apartmentTimeToFullMs = mechanicsType === "apartment-block" && !apartmentIsFull && apartmentPopulationPerMinute > 0
     ? Math.ceil((apartmentCapacity - apartmentStoredPopulation) / apartmentPopulationPerMinute * 60000)
     : 0;
+  const convenienceStoreCapacity = mechanicsType === "convenience-store" ? CONVENIENCE_STORE_BASE_POPULATION_CAPACITY : 0;
+  const convenienceStoreElapsedMs = mechanicsType === "convenience-store"
+    ? Math.max(0, now - Number(entry.populationLastUpdatedAt || entry.lastCollectedAt || now))
+    : 0;
+  const convenienceStoreStoredBase = mechanicsType === "convenience-store"
+    ? Math.min(convenienceStoreCapacity, Math.max(0, Number(entry.storedPopulation || 0)))
+    : 0;
+  const convenienceStorePopulationPerMinute = mechanicsType === "convenience-store"
+    ? CONVENIENCE_STORE_POPULATION_PER_MINUTE
+      + Math.max(0, ownedConvenienceStores - 1) * CONVENIENCE_STORE_POPULATION_BONUS_PER_EXTRA_STORE_PER_MINUTE
+    : 0;
+  const convenienceStoreStoredPopulation = mechanicsType === "convenience-store"
+    ? Math.min(convenienceStoreCapacity, convenienceStoreStoredBase + convenienceStorePopulationPerMinute * convenienceStoreElapsedMs / 60000)
+    : 0;
+  const convenienceStoreWholePopulation = Math.max(0, Math.floor(convenienceStoreStoredPopulation));
+  const convenienceStoreIsFull = mechanicsType === "convenience-store" && convenienceStoreStoredPopulation >= convenienceStoreCapacity;
+  const convenienceStoreTimeToFullMs = mechanicsType === "convenience-store" && !convenienceStoreIsFull && convenienceStorePopulationPerMinute > 0
+    ? Math.ceil((convenienceStoreCapacity - convenienceStoreStoredPopulation) / convenienceStorePopulationPerMinute * 60000)
+    : 0;
   const schoolCapacity = schoolNetwork
     ? Math.max(1, Math.floor(SCHOOL_CONFIG.baseStudentCapacity * schoolNetwork.studentCapacityMultiplier))
     : 0;
@@ -7857,22 +7930,26 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
     .filter(Boolean);
   const canCollect =
     mechanicsType === "apartment-block" ? apartmentWholePopulation >= APARTMENT_BLOCK_MIN_COLLECT_POPULATION
+      : mechanicsType === "convenience-store" ? convenienceStoreWholePopulation >= CONVENIENCE_STORE_MIN_COLLECT_POPULATION
       : mechanicsType === "school" ? schoolWholeStudents > 0
       : false;
   const hasManualCollect =
-    mechanicsType === "apartment-block" || mechanicsType === "school";
+    mechanicsType === "apartment-block" || mechanicsType === "convenience-store" || mechanicsType === "school";
   const storedOutputLabel = [
     mechanicsType === "apartment-block" ? `${apartmentWholePopulation}/${apartmentCapacity} obyvatel` : "",
+    mechanicsType === "convenience-store" ? `${convenienceStoreWholePopulation}/${convenienceStoreCapacity} obyvatel` : "",
     mechanicsType === "school" ? `${schoolWholeStudents}/${schoolCapacity} členů` : ""
   ].filter(Boolean).join(" · ") || "Zatím nic";
   const effectsLabel = [
     cleanHourly > 0 ? `Clean cash +${formatDistrictBuildingMoney(cleanHourly)}/hod` : "",
     dirtyHourly > 0 ? `Dirty cash +${formatDistrictBuildingMoney(dirtyHourly)}/hod` : "",
     mechanicsType === "apartment-block" ? `Populace +${apartmentPopulationPerMinute.toFixed(2)}/min` : "",
+    mechanicsType === "convenience-store" ? `Populace +${convenienceStorePopulationPerMinute.toFixed(2)}/min` : "",
     mechanicsType === "school" ? `Populace +${schoolPopulationPerMinute.toFixed(2)}/min` : "",
     mechanicsType === "smuggling-tunnel" ? `Pouliční dealeři +${smugglingDealerSupplyBonusPct}% z pašovacích tunelů` : "",
     isGarage ? `Cooldowny -${garageSupport?.cooldownReductionPct || 0}%` : "",
     apartmentIsFull ? "Plná kapacita · Bytový blok je plný. Obyvatelé čekají na vybrání." : "",
+    convenienceStoreIsFull ? "Plná kapacita · Večerka je plná. Obyvatelé čekají na vybrání." : "",
     schoolIsFull ? "Plná kapacita · Škola má naplněnou lokální populační kapacitu." : "",
     mechanicsType === "smuggling-tunnel" && smugglingOpenChannelActive ? `Otevřený kanál aktivní ${formatDistrictBuildingCooldown(Number(entry.openChannelExpiresAt || 0) - now)}` : "",
     isPowerStation && powerStationBackupActive ? `Záložní síť aktivní ${formatDistrictBuildingCooldown(powerStationBackupRemainingMs)}` : "",
@@ -7934,6 +8011,13 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
     apartmentWholePopulation,
     apartmentIsFull,
     apartmentTimeToFullMs,
+    ownedConvenienceStores,
+    convenienceStoreStoredPopulation,
+    convenienceStoreCapacity,
+    convenienceStorePopulationPerMinute,
+    convenienceStoreWholePopulation,
+    convenienceStoreIsFull,
+    convenienceStoreTimeToFullMs,
     ownedSchools,
     schoolNetwork,
     schoolStoredStudents,
@@ -8009,6 +8093,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
 const RUNTIME_PASSIVE_PRODUCTION_SYNC_INTERVAL_MS = 30_000;
 const PASSIVE_DISTRICT_BUILDING_DETAIL_MECHANICS_TYPES = new Set([
   "apartment-block",
+  "convenience-store",
   "school"
 ]);
 let lastRuntimePassiveProductionSyncAt = 0;
@@ -8022,12 +8107,12 @@ function persistDistrictBuildingDetailProductionSnapshot(district, buildingName,
     return false;
   }
 
-  if (mechanics.mechanicsType === "apartment-block") {
+  if (mechanics.mechanicsType === "apartment-block" || mechanics.mechanicsType === "convenience-store") {
     updateDistrictBuildingDetailEntry(district, buildingName, (entry) => ({
       ...entry,
-      storedPopulation: mechanics.apartmentStoredPopulation,
+      storedPopulation: mechanics.mechanicsType === "apartment-block" ? mechanics.apartmentStoredPopulation : mechanics.convenienceStoreStoredPopulation,
       populationLastUpdatedAt: now,
-      populationCapacity: mechanics.apartmentCapacity,
+      populationCapacity: mechanics.mechanicsType === "apartment-block" ? mechanics.apartmentCapacity : mechanics.convenienceStoreCapacity,
       populationFullNotifiedAt: entry.populationFullNotifiedAt
     }));
     return true;
@@ -8052,13 +8137,13 @@ function initializeDistrictBuildingDetailProductionBaseline(district, buildingNa
     return false;
   }
 
-  if (mechanics.mechanicsType === "apartment-block") {
+  if (mechanics.mechanicsType === "apartment-block" || mechanics.mechanicsType === "convenience-store") {
     updateDistrictBuildingDetailEntry(district, buildingName, (entry) => ({
       ...entry,
       lastCollectedAt: now,
       storedPopulation: 0,
       populationLastUpdatedAt: now,
-      populationCapacity: mechanics.apartmentCapacity,
+      populationCapacity: mechanics.mechanicsType === "apartment-block" ? mechanics.apartmentCapacity : mechanics.convenienceStoreCapacity,
       populationFullNotifiedAt: 0
     }));
     return true;
@@ -8263,6 +8348,34 @@ function collectDistrictBuildingDetailOutput(root, shell) {
       context.buildingName,
       `Vybral jsi ${collectedPopulation} nových členů gangu z Bytového bloku.`,
       `${Math.floor(remainingPopulation)}/${mechanics.apartmentCapacity} zůstává lokálně`
+    );
+    appendBuildingActionResultEntry(root, "police", createStorageCollectResultPayload({ buildingLabel: context.buildingName, items: summary.map((value, index) => ({ label: `Položka ${index + 1}`, value })), meta: "Vybrat obyvatele", districtLabel: context.district?.id ? `District ${context.district.id}` : "Fixed building" }), {}, { syncPreview: true, forceLog: true });
+    dispatchDistrictBuildingProductionCollected(root, context, {
+      mechanicsType: mechanics.mechanicsType,
+      amount: collectedPopulation,
+      itemLabel: "členové gangu"
+    });
+    refreshDistrictBuildingDetailPopup(root, shell);
+    return;
+  }
+
+  if (mechanics.mechanicsType === "convenience-store") {
+    const collectedPopulation = Math.max(0, Math.floor(Number(mechanics.convenienceStoreStoredPopulation || 0)));
+    if (collectedPopulation < CONVENIENCE_STORE_MIN_COLLECT_POPULATION) {
+      setBuildingActionFeedback(root, "warning", context.buildingName, `Večerka potřebuje alespoň ${CONVENIENCE_STORE_MIN_COLLECT_POPULATION} lidí k výběru.`, `${collectedPopulation}/${CONVENIENCE_STORE_MIN_COLLECT_POPULATION} připraveno`);
+      return;
+    }
+    const gangState = getResolvedGangState();
+    setStoredGangState({ members: Math.max(0, Math.floor(Number(gangState.members || 0)) + collectedPopulation) });
+    renderGangMembersState(root);
+    summary.push(`${collectedPopulation} členů gangu`);
+    resetConvenienceStorePopulationEntry(context.district, mechanics.convenienceStoreCapacity);
+    setBuildingActionFeedback(
+      root,
+      "success",
+      context.buildingName,
+      `Vybral jsi ${collectedPopulation} nových členů gangu z Večerky.`,
+      `0/${mechanics.convenienceStoreCapacity} zůstává lokálně`
     );
     appendBuildingActionResultEntry(root, "police", createStorageCollectResultPayload({ buildingLabel: context.buildingName, items: summary.map((value, index) => ({ label: `Položka ${index + 1}`, value })), meta: "Vybrat obyvatele", districtLabel: context.district?.id ? `District ${context.district.id}` : "Fixed building" }), {}, { syncPreview: true, forceLog: true });
     dispatchDistrictBuildingProductionCollected(root, context, {
@@ -9949,6 +10062,18 @@ function drawDistrictPolygonPath(context, polygon) {
   return true;
 }
 
+function buildDistrictOwnerByIdFromGameplaySlice(gameplaySlice = latestGameplaySliceReadModel) {
+  const ownership = {};
+  for (const district of Array.isArray(gameplaySlice?.districts) ? gameplaySlice.districts : []) {
+    const legacyDistrictId = Number(resolveLegacyDistrictId(district?.districtId));
+    if (!Number.isFinite(legacyDistrictId) || legacyDistrictId <= 0 || !district?.ownerPlayerId) {
+      continue;
+    }
+    ownership[legacyDistrictId] = district.ownerPlayerId;
+  }
+  return ownership;
+}
+
 function getPolygonBounds(polygon) {
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
@@ -10077,7 +10202,7 @@ function bindDistrictCanvas(root) {
     popup, popupCard, popupTitle, popupType, popupOwner, popupOwnerMeta,
     popupOwnerAvatar, popupOwnerAvatarFallback, popupClean, popupDirty,
     popupInfluence, popupPopulation, popupSummary, popupFlags, popupToggle,
-    popupAtmosphereHero, popupAtmosphereImage, popupAtmosphereLabel, popupAtmosphereMood,
+    popupAtmosphereHero, popupAtmosphereImage, popupAtmosphereLabel, popupAtmosphereMood, popupAlliance,
     popupAtmosphereWindow, popupAtmosphereWindowImage, popupAtmosphereWindowLabel,
     popupAtmosphereWindowMood, popupAtmosphereWindowClose, popupBuildings, popupBuildingsMeta,
     popupBuildingsList, popupGossip, popupGossipList, districtActionSectionHead,
@@ -10160,6 +10285,10 @@ function bindDistrictCanvas(root) {
     revealedDistrictIds: new Set(),
     ownedDistrictIds: new Set(initialWorldState.ownedDistrictIds),
     destroyedDistrictIds: new Set(initialWorldState.destroyedDistrictIds),
+    districtOwnerById: {
+      ...(initialWorldState.districtOwnerById || initialWorldState.ownerByDistrictId || {}),
+      ...buildDistrictOwnerByIdFromGameplaySlice()
+    },
     launchOwnerByDistrictId: new Map(START_PHASE_OWNER_BY_DISTRICT_ID),
     ...initialMissionMarkers,
     animationTick: 0,
@@ -10238,6 +10367,10 @@ function bindDistrictCanvas(root) {
     const worldState = getResolvedWorldState();
     interactionState.ownedDistrictIds = new Set(worldState.ownedDistrictIds || []);
     interactionState.destroyedDistrictIds = new Set(worldState.destroyedDistrictIds || []);
+    interactionState.districtOwnerById = {
+      ...(worldState.districtOwnerById || worldState.ownerByDistrictId || {}),
+      ...buildDistrictOwnerByIdFromGameplaySlice()
+    };
     interactionState.launchOwnerByDistrictId = interactionState.gamePhase === "launch"
       ? new Map(START_PHASE_OWNER_BY_DISTRICT_ID)
       : new Map();
@@ -10508,6 +10641,43 @@ function bindDistrictCanvas(root) {
       } catch {
         return false;
       }
+    },
+    isConvenienceStoreFull({ district, baseName } = {}) {
+      try {
+        const mechanics = resolveDistrictBuildingDetailMechanics(district, baseName || "Večerka");
+        return mechanics?.mechanicsType === "convenience-store"
+          && Boolean(mechanics.convenienceStoreIsFull);
+      } catch {
+        return false;
+      }
+    },
+    isProductionBuildingSlotFull({ baseName } = {}) {
+      const normalizedBaseName = String(baseName || "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+      if (normalizedBaseName === "tovarna") {
+        return getStoredFactoryState().slots.some((slot) => (
+          Number(slot?.slotCap || 0) > 0
+          && Number(slot?.producedAmount || 0) >= Number(slot.slotCap)
+        ));
+      }
+
+      const productionBuilding = normalizedBaseName === "lekarna"
+        ? { key: "pharmacy", recipes: PHARMACY_RECIPES }
+        : normalizedBaseName === "lab" || normalizedBaseName === "drug lab"
+          ? { key: "druglab", recipes: DRUGLAB_RECIPES }
+          : normalizedBaseName === "zbrojovka"
+            ? { key: "armory", recipes: ARMORY_RECIPES }
+            : null;
+      if (!productionBuilding) return false;
+
+      return Object.keys(productionBuilding.recipes || {}).some((recipeId) => {
+        const job = normalizeLocalProductionJob(getProductionJob(`${productionBuilding.key}:${recipeId}`));
+        return Number(job?.localOutputCap || 0) > 0
+          && Number(job?.producedAmount || 0) >= Number(job.localOutputCap);
+      });
     },
     isClinicStabilizationReady: isClinicStabilizationProtocolReady,
     isDemoLiveBuildingCatalogUnlocked: () => false,
@@ -11407,6 +11577,23 @@ function bindDistrictCanvas(root) {
     spy: findActiveActionCountdown(getResolvedSpyState().missions, districtId, "returnAt")
   });
 
+  const getDistrictAllianceLabel = (district) => {
+    const districtId = Number(district?.id || 0);
+    const ownerId = getCurrentPlayerOwnedDistrictIds(interactionState).has(districtId)
+      ? CURRENT_PLAYER_ID
+      : interactionState.districtOwnerById?.[districtId]
+        ?? interactionState.districtOwnerById?.[String(districtId)]
+        ?? interactionState.launchOwnerByDistrictId?.get?.(districtId)
+        ?? district?.ownerPlayerId
+        ?? district?.ownerId
+        ?? null;
+    const badge = ownerId === null || ownerId === undefined
+      ? null
+      : window.empireStreetsAllianceState?.getMapBadgeForOwner?.(ownerId);
+    const allianceName = String(badge?.name || badge?.tag || "").trim();
+    return allianceName ? `Aliance: ${allianceName}` : "";
+  };
+
   const openPopup = (district) => {
     if (!popup || !popupTitle || !popupType || !popupOwner || !district) {
       return;
@@ -11523,6 +11710,11 @@ function bindDistrictCanvas(root) {
       popupOwnerMeta.textContent = occupationCountdown
         ? `Cooldown obsazení: ${occupationCountdown.label}`
         : "Cooldown obsazení se načítá.";
+    }
+    if (popupAlliance) {
+      const allianceLabel = getDistrictAllianceLabel(district);
+      popupAlliance.hidden = isDestroyed || !allianceLabel;
+      popupAlliance.textContent = allianceLabel;
     }
 
     applyDistrictAtmosphere({
@@ -12245,7 +12437,10 @@ function bindDistrictCanvas(root) {
     ensureMissionAnimationLoop();
   });
   phaseHost.addEventListener("gamephasechange", () => render("ui:game-phase-change"));
-  window.addEventListener("empire:alliance-state-changed", () => render("ui:alliance-state-change"));
+  window.addEventListener("empire:alliance-state-changed", () => {
+    syncInteractionDistrictAuthorityState();
+    render("ui:alliance-state-change");
+  });
   window.addEventListener("empire:bounty-state-changed", () => render("ui:bounty-state-change"));
   document.addEventListener("empire:world-state-changed", (event) => {
     const nextWorldMapFingerprint = createWorldMapFingerprint();
@@ -13438,7 +13633,7 @@ const {
   isBuildingActionEntryOpenable,
   openCurrentBuildingActionResultModal,
   persistStreetNewsEntries,
-  queueOrOpenResultModal,
+  queueOrOpenResultModal: openStreetNewsResult,
   renderBuildingActionFeed,
   resolveBuildingActionPanel,
   scheduleBuildingActionMutationCapture,
@@ -13758,9 +13953,11 @@ const {
   onLocalTickActiveChange: (active) => getRuntimePerformanceDiagnostics()?.setLocalTickActive?.("legacy-city-clock", active),
   recordLocalTick: () => getRuntimePerformanceDiagnostics()?.recordLocalTick?.(),
   onInitialSync: ({ root }) => {
-    syncDevOnlyDestroyedDistrictState();
-    syncStartPhaseDistrictIncome(root);
-    syncGangAutoPolicePressure();
+    if (isLocalDemoGameplayExecutionMode()) {
+      syncDevOnlyDestroyedDistrictState();
+      syncStartPhaseDistrictIncome(root);
+      syncGangAutoPolicePressure();
+    }
   },
   onTick: ({ getMapPhaseFromClock, minuteStep, root, updatePhaseStatus }) => {
     syncDevOnlyDestroyedDistrictState();
@@ -13795,8 +13992,10 @@ function hydrateInitialState(root = getDefaultRuntimeRoot()) {
   const resolvedRoot = resolveRuntimeRoot(root);
 
   if (resolvedRoot) {
-    ensureStartDistrictRecovery();
-    syncDevOnlyDestroyedDistrictState();
+    if (isLocalDemoGameplayExecutionMode()) {
+      ensureStartDistrictRecovery();
+      syncDevOnlyDestroyedDistrictState();
+    }
     syncPhaseHostFromAuthority(resolvedRoot.querySelector(MAP_PHASE_SELECTOR));
   }
 
@@ -14683,6 +14882,7 @@ function bindUiEvents(root, context = null) {
   bindGamePhaseToggle(root);
   bindMapNavigation(root);
   bindBuildingActionStatus(root);
+  bindServerMilestoneStreetNews(root);
   bindSettingsModal(root);
   bindLogoutActions(root);
   bindGangWantedStatus(root);

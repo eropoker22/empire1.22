@@ -3075,9 +3075,10 @@ var EmpireGameplaySliceClient = function(exports) {
     if (typeof window === "undefined") return false;
     const diagnosticsDecision = (_b = (_a = window.empireStreetsRuntimeDiagnostics) == null ? void 0 : _a.shouldAllowDemoFallback) == null ? void 0 : _b.call(_a);
     if (typeof diagnosticsDecision === "boolean") return diagnosticsDecision;
-    const host = window.location.hostname;
-    return window.location.protocol === "file:" || !host || host === "localhost" || host === "127.0.0.1" || host === "::1" || host.endsWith(".local");
+    const forcedMode = getForcedDevelopmentRuntimeMode();
+    return forcedMode === "demo" || forcedMode === "legacy-fallback" || forcedMode === "local";
   };
+  const LOCAL_DEMO_SESSION_KEY = "empire:local-demo-session:v1";
   const normalizeSelectedRuntimeMode = (value) => {
     const normalized = String(value ?? "").trim().toLowerCase();
     if (normalized === "local-demo") return "demo";
@@ -3087,14 +3088,19 @@ var EmpireGameplaySliceClient = function(exports) {
     return null;
   };
   const getForcedDevelopmentRuntimeMode = () => {
-    var _a, _b, _c, _d, _e, _f, _g, _h;
+    var _a, _b, _c, _d, _e, _f, _g;
     if (typeof window === "undefined") return null;
-    const canUseDevelopmentOverride = isLegacyGameplayFallbackAllowed();
+    const host = window.location.hostname;
+    const queryMode = new URLSearchParams(window.location.search).get("runtimeMode");
+    if (queryMode === "server-authoritative") return "server-authoritative";
+    if (queryMode === "local-demo") return "demo";
+    if (readBrowserStorageItem("sessionStorage", LOCAL_DEMO_SESSION_KEY) === "1") return "demo";
+    const canUseDevelopmentOverride = window.location.protocol === "file:" || !host || host === "localhost" || host === "127.0.0.1" || host === "::1" || host.endsWith(".local");
     let requestedMode = null;
     if (canUseDevelopmentOverride) {
       try {
         requestedMode = normalizeSelectedRuntimeMode(
-          ((_a = window.empireStreetsRuntimeDiagnostics) == null ? void 0 : _a.requestedMode) || new URLSearchParams(window.location.search).get("runtimeMode") || ((_c = (_b = window.localStorage) == null ? void 0 : _b.getItem) == null ? void 0 : _c.call(_b, "empire:demo:execution-mode:v1"))
+          ((_a = window.empireStreetsRuntimeDiagnostics) == null ? void 0 : _a.requestedMode) || queryMode || readBrowserStorageItem("localStorage", "empire:demo:execution-mode:v1") || (((_b = window.EmpireConfigOverrides) == null ? void 0 : _b.localDemoEnabled) === true ? "demo" : null)
         );
       } catch (_error) {
         requestedMode = null;
@@ -3102,8 +3108,16 @@ var EmpireGameplaySliceClient = function(exports) {
     }
     if (requestedMode) return requestedMode;
     return normalizeSelectedRuntimeMode(
-      ((_f = (_e = (_d = document.querySelector) == null ? void 0 : _d.call(document, 'meta[name="empire-gameplay-execution-mode"]')) == null ? void 0 : _e.getAttribute) == null ? void 0 : _f.call(_e, "content")) || ((_h = (_g = document.documentElement) == null ? void 0 : _g.dataset) == null ? void 0 : _h.gameplayExecutionMode)
+      ((_e = (_d = (_c = document.querySelector) == null ? void 0 : _c.call(document, 'meta[name="empire-gameplay-execution-mode"]')) == null ? void 0 : _d.getAttribute) == null ? void 0 : _e.call(_d, "content")) || ((_g = (_f = document.documentElement) == null ? void 0 : _f.dataset) == null ? void 0 : _g.gameplayExecutionMode)
     );
+  };
+  const readBrowserStorageItem = (storageName, key) => {
+    var _a, _b;
+    try {
+      return ((_b = (_a = window[storageName]) == null ? void 0 : _a.getItem) == null ? void 0 : _b.call(_a, key)) ?? null;
+    } catch (_error) {
+      return null;
+    }
   };
   const isGameplayDiagnosticsEnabled = () => {
     if (typeof window === "undefined") {

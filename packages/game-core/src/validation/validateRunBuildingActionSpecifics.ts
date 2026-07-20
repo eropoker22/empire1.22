@@ -6,6 +6,7 @@ import { validateCasinoAction } from "../handlers/casinoBuildingActions";
 import { validateCentralBankAction } from "../handlers/centralBankBuildingActions";
 import { validateCityHallAction } from "../handlers/cityHallBuildingActions";
 import { validateClinicAction } from "../handlers/clinicBuildingActions";
+import { validateConvenienceStoreAction } from "../handlers/convenienceStoreBuildingActions";
 import { validateExchangeOfficeAction } from "../handlers/exchangeOfficeBuildingActions";
 import { validateLobbyClubAction } from "../handlers/lobbyClubBuildingActions";
 import { validatePowerStationAction } from "../handlers/powerStationBuildingActions";
@@ -74,6 +75,18 @@ export const validateRunBuildingActionSpecifics = (
     errors.push({
       code: apartmentBlockErrorCode,
       message: "Apartment block action preconditions are not met."
+    });
+  }
+
+  const convenienceStoreErrorCode = validateConvenienceStoreAction({
+    building,
+    actionId: action.actionId,
+    config: context.config.balance.convenienceStore
+  });
+  if (convenienceStoreErrorCode) {
+    errors.push({
+      code: convenienceStoreErrorCode,
+      message: "Convenience store action preconditions are not met."
     });
   }
 

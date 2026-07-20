@@ -16,4 +16,12 @@ describe("boost card button states", () => {
     expect(resolveButtonState({ disabledReason: "boost_on_cooldown", cooldownEndsAtMs: 120_000 }, {}, null, 0))
       .toEqual({ label: "COOLDOWN · 02:00", deadline: 120_000 });
   });
+
+  it.each(["boost_missing_resources", "boost_missing_clean_cash"])(
+    "uses the same player-facing missing resources label for %s",
+    (disabledReason) => {
+      expect(resolveButtonState({ disabledReason }, {}, null, 0))
+        .toEqual({ label: "Chybí zdroje", deadline: null });
+    }
+  );
 });

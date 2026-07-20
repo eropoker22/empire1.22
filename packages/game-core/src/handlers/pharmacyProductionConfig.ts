@@ -1,4 +1,5 @@
 import type { PharmacyBalanceConfig } from "../contracts";
+import { MINIMUM_PRODUCTION_QUEUE_RESERVE } from "./productionLineShared";
 
 const REQUIRED_RECIPES = ["chemicals", "biomass", "stim-pack"] as const;
 
@@ -24,6 +25,9 @@ export const validatePharmacyProductionConfig = (config: PharmacyBalanceConfig):
       if (!Number.isInteger(value) || value <= 0) {
         throw new Error("Pharmacy recipe \"" + recipeId + "\" requires positive integer timing and capacities.");
       }
+    }
+    if (recipe.queueCap < recipe.localOutputCap + MINIMUM_PRODUCTION_QUEUE_RESERVE) {
+      throw new Error("Pharmacy recipe \"" + recipeId + "\" requires room for three queued items above local output capacity.");
     }
   }
 };

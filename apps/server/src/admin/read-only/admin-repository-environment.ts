@@ -1,4 +1,7 @@
-import { createPostgresDatabase } from "../../runtime/persistence/postgres";
+import {
+  createPostgresDatabase,
+  type PostgresDatabase
+} from "../../runtime/persistence/postgres";
 import type { AdminDurableRepositories } from "./admin-repositories";
 import { createInMemoryAdminDurableRepositories } from "./in-memory-admin-repositories";
 import { createPostgresAdminDurableRepositories } from "./postgres-admin-repositories";
@@ -9,7 +12,8 @@ export type AdminRepositoryResolution =
 
 export const resolveAdminDurableRepositories = (
   environment: Record<string, string | undefined>,
-  provided?: AdminDurableRepositories
+  provided?: AdminDurableRepositories,
+  database?: PostgresDatabase
 ): AdminRepositoryResolution => {
   if (provided) {
     if (environment.NODE_ENV === "production" && (provided.kind !== "postgres" || !allDurable(provided))) {
@@ -22,7 +26,7 @@ export const resolveAdminDurableRepositories = (
   if (driver === "postgres" && databaseUrl) {
     return {
       accepted: true,
-      repositories: createPostgresAdminDurableRepositories(createPostgresDatabase(databaseUrl))
+      repositories: createPostgresAdminDurableRepositories(database ?? createPostgresDatabase(databaseUrl))
     };
   }
   if (environment.NODE_ENV === "production") return unavailable();

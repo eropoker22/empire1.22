@@ -41,12 +41,18 @@ for (const relativePath of [
 const strict = process.env.NODE_ENV === "production" || process.env.EMPIRE_CLOSED_ALPHA_PREFLIGHT_STRICT === "1";
 if (strict) {
   const env = process.env;
-  check((env.EMPIRE_PERSISTENCE_DRIVER || env.GAMEPLAY_PERSISTENCE_DRIVER) === "postgres", "production persistence driver is postgres");
+  const sessionSecret = String(env.GAMEPLAY_SLICE_SESSION_SECRET ?? "").trim();
+  const snapshotSecret = String(env.GAMEPLAY_SLICE_SNAPSHOT_SECRET ?? "").trim();
+  const allowedOrigins = String(env.EMPIRE_ALLOWED_ORIGINS ?? "").split(",").map((value) => value.trim()).filter(Boolean);
+  check(env.EMPIRE_PERSISTENCE_DRIVER === "postgres", "runtime persistence driver is postgres");
+  check(env.GAMEPLAY_PERSISTENCE_DRIVER === "postgres", "gameplay persistence driver is postgres");
   check(Boolean(env.EMPIRE_DATABASE_URL || env.GAMEPLAY_DATABASE_URL), "production database URL is configured");
-  check(Boolean(env.GAMEPLAY_SLICE_SESSION_SECRET), "gameplay session secret is configured");
-  check(Boolean(env.GAMEPLAY_SLICE_SNAPSHOT_SECRET), "snapshot secret is configured");
-  check(Boolean(env.EMPIRE_ACCOUNT_IDENTITY_PROVIDER), "production account identity adapter is configured");
-  check(Boolean(env.EMPIRE_TICK_WORKER_OWNER_ID), "tick worker lease owner is configured");
+  check(sessionSecret.length >= 32, "gameplay session secret is at least 32 characters");
+  check(snapshotSecret.length >= 32, "snapshot secret is at least 32 characters");
+  check(Boolean(sessionSecret) && Boolean(snapshotSecret) && sessionSecret !== snapshotSecret,
+    "gameplay session and snapshot secrets are distinct");
+  check(allowedOrigins.length > 0 && allowedOrigins.every(isSecureOrigin), "gameplay origin allowlist is configured");
+  check(Boolean(env.EMPIRE_HOSTED_WORKER_ID), "hosted worker identity is configured");
 }
 
 for (const result of checks) console.log(`${result.passed ? "PASS" : "FAIL"} ${result.label}`);
@@ -55,4 +61,14 @@ if (failures.length) {
   process.exitCode = 1;
 } else {
   console.log(`Closed-alpha preflight passed (${checks.length} checks${strict ? ", strict production mode" : ", code-level mode"}).`);
+}
+
+function isSecureOrigin(candidate) {
+  try {
+    const parsed = new URL(candidate);
+    const loopback = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1" || parsed.hostname === "[::1]";
+    return parsed.origin === candidate && (parsed.protocol === "https:" || loopback);
+  } catch {
+    return false;
+  }
 }

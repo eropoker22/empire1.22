@@ -10,7 +10,7 @@ import {
 const defaults = {
   unitDurationMs: 1_000,
   localOutputCap: 2,
-  queueCapacity: 4,
+  queueCapacity: 5,
   unitCleanMoneyCost: 360,
   unitInputs: { chemicals: 2 },
   output: { inventory: "materials", itemId: "chemicals", amount: 1 }
@@ -18,11 +18,11 @@ const defaults = {
 
 describe("local-demo production line state", () => {
   it("queues the complete requested quantity and rejects queue overflow atomically", () => {
-    const queued = queueLocalProduction(null, { ...defaults, quantity: 4, now: 10_000 });
-    expect(queued).toMatchObject({ ok: true, job: { queuedAmount: 4, producedAmount: 0, isProducing: true } });
-    expect(queued.job.reservationUnits).toHaveLength(4);
-    expect(queued.job.cleanMoneyCost).toBe(1_440);
-    expect(queued.job.inputs).toEqual({ chemicals: 8 });
+    const queued = queueLocalProduction(null, { ...defaults, quantity: 5, now: 10_000 });
+    expect(queued).toMatchObject({ ok: true, job: { queuedAmount: 5, producedAmount: 0, isProducing: true } });
+    expect(queued.job.reservationUnits).toHaveLength(5);
+    expect(queued.job.cleanMoneyCost).toBe(1_800);
+    expect(queued.job.inputs).toEqual({ chemicals: 10 });
 
     const rejected = queueLocalProduction(queued.job, { ...defaults, quantity: 1, now: 10_000 });
     expect(rejected).toMatchObject({ ok: false, reason: "queue_full" });
@@ -30,20 +30,20 @@ describe("local-demo production line state", () => {
   });
 
   it("completes one unit per cycle and pauses without losing the paid queue at local capacity", () => {
-    const queued = queueLocalProduction(null, { ...defaults, quantity: 4, now: 10_000 }).job;
+    const queued = queueLocalProduction(null, { ...defaults, quantity: 5, now: 10_000 }).job;
     const first = advanceLocalProductionJob(queued, 11_000);
-    expect(first).toMatchObject({ completedAmount: 1, job: { producedAmount: 1, queuedAmount: 3, isProducing: true } });
+    expect(first).toMatchObject({ completedAmount: 1, job: { producedAmount: 1, queuedAmount: 4, isProducing: true } });
 
     const full = advanceLocalProductionJob(first.job, 12_000);
-    expect(full).toMatchObject({ completedAmount: 1, job: { producedAmount: 2, queuedAmount: 2, isProducing: false, status: "waiting" } });
-    expect(full.job.reservationUnits).toHaveLength(2);
+    expect(full).toMatchObject({ completedAmount: 1, job: { producedAmount: 2, queuedAmount: 3, isProducing: false, status: "waiting" } });
+    expect(full.job.reservationUnits).toHaveLength(3);
   });
 
   it("resumes a paused queue only after collect frees local output space", () => {
     const full = normalizeLocalProductionJob({
       ...defaults.output,
       version: 2,
-      queuedAmount: 2,
+      queuedAmount: 3,
       producedAmount: 2,
       isProducing: false,
       unitDurationMs: 1_000,
@@ -51,13 +51,14 @@ describe("local-demo production line state", () => {
       queueCapacity: 4,
       reservationUnits: [
         { cleanMoney: 360, inputs: { chemicals: 2 } },
+        { cleanMoney: 360, inputs: { chemicals: 2 } },
         { cleanMoney: 360, inputs: { chemicals: 2 } }
       ],
       output: defaults.output
     });
     const collected = collectLocalProduction(full, 1, 20_000);
     expect(collected).toMatchObject({ collectedAmount: 1, remainingAmount: 1 });
-    expect(collected.job).toMatchObject({ producedAmount: 1, queuedAmount: 2, isProducing: true, readyAtMs: 21_000 });
+    expect(collected.job).toMatchObject({ producedAmount: 1, queuedAmount: 3, isProducing: true, readyAtMs: 21_000 });
   });
 
   it("cancels only waiting units and refunds their exact stored reservations once", () => {
@@ -78,7 +79,7 @@ describe("local-demo production line state", () => {
       quantity: 3,
       output: { inventory: "weapons", itemId: "pistol", amount: 3 },
       durationMs: 5_000
-    }, { localOutputCap: 5, queueCapacity: 4 })).toMatchObject({
+    }, { localOutputCap: 5, queueCapacity: 8 })).toMatchObject({
       version: 2,
       queuedAmount: 0,
       producedAmount: 3,

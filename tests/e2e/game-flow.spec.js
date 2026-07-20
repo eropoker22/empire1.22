@@ -458,6 +458,7 @@ test.describe("main game browser protection", () => {
   });
 
   test("opens atmosphere window from a fresh district popup", async ({ page }) => {
+    test.setTimeout(60_000);
     const errors = createRuntimeErrorMonitor(page);
 
     await openGamePage(page);

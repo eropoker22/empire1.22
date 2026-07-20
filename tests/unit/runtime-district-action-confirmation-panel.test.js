@@ -209,6 +209,7 @@ describe("district action confirmation panel", () => {
     const source = element();
     const condition = element();
     const cost = element();
+    const note = element();
     const button = element();
     const viewModel = createOccupyConfirmationViewModel({
       district: { id: 18 },
@@ -221,7 +222,7 @@ describe("district action confirmation panel", () => {
 
     expect(viewModel.conditionLabel).toBe("Špehování potvrzeno");
     expect(viewModel.costLabel).toBe("250 populace");
-    expect(viewModel.note).toBe("Obsazení vyžaduje 250 populace. Aktuálně máš 249.");
+    expect(viewModel.note).toBe("");
     expect(viewModel.canConfirm).toBe(false);
 
     renderOccupyConfirmationPanel(viewModel, {
@@ -230,7 +231,7 @@ describe("district action confirmation panel", () => {
       occupyConfirmCondition: condition,
       occupyConfirmCost: cost,
       occupyConfirmDuration: element(),
-      occupyConfirmNote: element(),
+      occupyConfirmNote: note,
       occupyConfirmButton: button
     });
 
@@ -238,6 +239,8 @@ describe("district action confirmation panel", () => {
     expect(source.dataset.validationState).toBeUndefined();
     expect(condition.dataset.validationState).toBeUndefined();
     expect(cost.dataset.validationState).toBe("error");
+    expect(note.textContent).toBe("");
+    expect(note.hidden).toBe(true);
   });
 
   it("marks missing spies in the spy confirmation cell", () => {

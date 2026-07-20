@@ -428,6 +428,33 @@ describe("buildings popup runtime", () => {
     }));
   });
 
+  it("marks a production building when one of its output slots is full", () => {
+    const isProductionBuildingSlotFull = vi.fn(({ baseName }) => baseName === "Lékárna");
+    const { runtime, renderBuildingsPopupDetailPanel, renderBuildingsPopupTypesPanel } = createRuntime({
+      isProductionBuildingSlotFull,
+      resolveDistrictBuildingProfile: (district) => ({
+        buildings: [{ baseName: "Lékárna", displayName: `Lékárna ${district.id}` }],
+        districtLabel: `District ${district.id}`,
+        setTitle: "Sada",
+        tier: "early",
+        typeKey: district.districtType
+      })
+    });
+
+    runtime.renderBuildingsPopup("resident");
+
+    expect(isProductionBuildingSlotFull).toHaveBeenCalled();
+    expect(renderBuildingsPopupTypesPanel).toHaveBeenLastCalledWith(undefined, expect.objectContaining({
+      types: expect.arrayContaining([
+        expect.objectContaining({ typeKey: "resident", hasPulsingBuilding: true })
+      ])
+    }));
+    expect(renderBuildingsPopupDetailPanel).toHaveBeenLastCalledWith(undefined, expect.objectContaining({
+      baseTypes: [expect.objectContaining({ baseName: "Lékárna", productionSlotIsFull: true })],
+      entries: [expect.objectContaining({ displayName: "Lékárna 1", productionSlotIsFull: true })]
+    }));
+  });
+
   it("marks the school base cell as full when any school is full", () => {
     const isSchoolFull = vi.fn(({ district }) => Number(district.id) === 1);
     const { runtime, renderBuildingsPopupDetailPanel, renderBuildingsPopupTypesPanel } = createRuntime({

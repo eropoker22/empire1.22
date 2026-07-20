@@ -23,20 +23,33 @@ export function getCollectItemsTotal(items = []) {
 export function createStorageCollectResultPayload({ buildingLabel = "Budova", items = [], meta = "Sklad", districtLabel = "", hideBadge = false } = {}) {
   const normalizedItems = normalizeCollectItems(items);
   const total = getCollectItemsTotal(normalizedItems);
+  const recruitmentTitleByBuildingLabel = {
+    "Večerka": "Večerka: Nový nábor",
+    "Bytový blok": "Bytový blok - Nový nábor"
+  };
+  const recruitmentTitle = recruitmentTitleByBuildingLabel[String(buildingLabel || "").trim()] || "";
+  const isRecruitment = Boolean(recruitmentTitle);
+  const isConvenienceStoreRecruitment = String(buildingLabel || "").trim() === "Večerka";
+  const isApartmentBlockRecruitment = String(buildingLabel || "").trim() === "Bytový blok";
   const itemSummary = normalizedItems.length
     ? normalizedItems.map((item) => `${item.label} ${item.value}`).join(" · ")
     : "Bez položek";
   return {
     tone: "is-specialty-financial",
-    title: `${buildingLabel}: výběr do skladu`,
+    title: recruitmentTitle || `${buildingLabel}: výběr do skladu`,
     badge: "Sklad",
-    hideBadge: Boolean(hideBadge),
-    summary: `Do skladu přesunuto: ${itemSummary}.`,
+    hideBadge: isRecruitment || Boolean(hideBadge),
+    hideSummary: isApartmentBlockRecruitment,
+    summary: isConvenienceStoreRecruitment
+      ? "Podařilo se ti překecat místní na svou stranu."
+      : isApartmentBlockRecruitment
+        ? ""
+      : `Do skladu přesunuto: ${itemSummary}.`,
     rows: [
       { label: "Budova", value: buildingLabel },
       districtLabel ? { label: "District", value: districtLabel } : null,
-      { label: "Typ", value: meta },
-      { label: "Celkem", value: total > 0 ? `${total} ks` : `${normalizedItems.length} položek`, nowrap: true },
+      isConvenienceStoreRecruitment ? null : { label: "Typ", value: meta },
+      isApartmentBlockRecruitment ? null : { label: "Celkem", value: total > 0 ? `${total} ks` : `${normalizedItems.length} položek`, nowrap: true },
       ...normalizedItems.map((item) => ({ label: item.label, value: item.value, nowrap: true }))
     ].filter(Boolean),
     collectItems: normalizedItems

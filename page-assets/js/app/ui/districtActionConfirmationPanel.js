@@ -530,8 +530,8 @@ export function createOccupyConfirmationViewModel({
       : !canOccupyAfterSpy
         ? "Nejdřív musí proběhnout úspěšné špehování. Teprve pak lze district obsadit."
         : !hasEnoughPopulation
-          ? `Obsazení vyžaduje ${populationCost} populace. Aktuálně máš ${Math.max(0, Math.floor(Number(availablePopulation) || 0))}.`
-        : `Po potvrzení se spustí ${durationLabel} obsazování. District bliká tvojí barvou a po doběhnutí přejde pod tebe.`,
+          ? ""
+          : `Po potvrzení se spustí ${durationLabel} obsazování. District bliká tvojí barvou a po doběhnutí přejde pod tebe.`,
     canConfirm: hasSourceDistrict && canOccupyAfterSpy && hasEnoughPopulation,
     confirmLabel: "Spustit obsazení",
     atmosphereMeta
@@ -552,6 +552,9 @@ export function renderOccupyConfirmationPanel(viewModel = {}, elements = {}) {
   setElementText(elements.occupyConfirmCost, viewModel.costLabel || "");
   setElementText(elements.occupyConfirmDuration, viewModel.durationLabel || "");
   setElementText(elements.occupyConfirmNote, viewModel.note || "");
+  if (elements.occupyConfirmNote) {
+    elements.occupyConfirmNote.hidden = !viewModel.note;
+  }
   clearElementValidationStates(elements.occupyConfirmSource, elements.occupyConfirmCondition, elements.occupyConfirmCost);
 
   if (!viewModel.canConfirm) {

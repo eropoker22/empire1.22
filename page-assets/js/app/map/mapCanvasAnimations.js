@@ -1057,12 +1057,12 @@ function drawInlineAllianceBadgeIcon(context, badge, x, y, size = 32, color = "#
   return true;
 }
 
-function drawFallbackAllianceBadgeText(context, badge, x, y, isNight, softGlow) {
+function drawFallbackAllianceBadgeText(context, badge, x, y, isNight, softGlow, size = 18) {
   const text = String(badge?.symbol || badge?.tag || "AL").slice(0, 4);
-  context.font = "900 18px Bahnschrift, Segoe UI Symbol, Segoe UI Emoji, sans-serif";
+  context.font = `900 ${Math.max(9, Math.round(size * 0.58))}px Bahnschrift, Segoe UI Symbol, Segoe UI Emoji, sans-serif`;
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.lineWidth = 2.2;
+  context.lineWidth = 1.4;
   context.strokeStyle = isNight ? "rgba(3, 8, 16, 0.92)" : "rgba(232, 246, 255, 0.72)";
   context.fillStyle = isNight ? "rgba(245, 235, 255, 0.98)" : "rgba(255, 255, 255, 0.96)";
   context.strokeText(text, x, y);
@@ -1100,6 +1100,27 @@ function getAllianceBadgeColor(badge, fallbackColor = "#f7c948") {
   return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : fallbackColor;
 }
 
+function getAllianceBadgeAnchor(district) {
+  const polygon = Array.isArray(district?.polygon) ? district.polygon : [];
+  const centerX = Number(district?.centerX || 0);
+  const centerY = Number(district?.centerY || 0);
+  if (!polygon.length) {
+    return { x: centerX, y: centerY, size: 18 };
+  }
+
+  const topLeft = polygon.reduce((best, point) => {
+    const score = Number(point?.x || 0) + Number(point?.y || 0);
+    const bestScore = Number(best?.x || 0) + Number(best?.y || 0);
+    return score < bestScore ? point : best;
+  }, polygon[0]);
+  const bounds = getPolygonBounds(polygon);
+  return {
+    x: Number(topLeft.x || 0) + (centerX - Number(topLeft.x || 0)) * 0.31,
+    y: Number(topLeft.y || 0) + (centerY - Number(topLeft.y || 0)) * 0.31,
+    size: clamp(Math.min(bounds.width, bounds.height) * 0.26, 14, 20)
+  };
+}
+
 function drawAllianceDistrictBadge(context, district, badge, isNight = true) {
   if (!district || !badge?.symbol) {
     return;
@@ -1107,16 +1128,19 @@ function drawAllianceDistrictBadge(context, district, badge, isNight = true) {
 
   const badgeColor = getAllianceBadgeColor(badge, getLaunchPlayerColor(currentPlayerId));
   const [red, green, blue] = hexToRgbParts(badgeColor);
-  const haloRadius = 19;
-  const symbolY = district.centerY - 0.5;
+  const anchor = getAllianceBadgeAnchor(district);
+  const badgeX = anchor.x;
+  const badgeY = anchor.y;
+  const badgeSize = anchor.size;
+  const haloRadius = badgeSize * 0.78;
   const primaryGlow = `rgba(${red}, ${green}, ${blue}, ${isNight ? 0.78 : 0.58})`;
   const softGlow = isNight ? "rgba(168, 85, 247, 0.58)" : "rgba(34, 211, 238, 0.38)";
   const halo = context.createRadialGradient(
-    district.centerX,
-    symbolY,
+    badgeX,
+    badgeY,
     2,
-    district.centerX,
-    symbolY,
+    badgeX,
+    badgeY,
     haloRadius
   );
   halo.addColorStop(0, `rgba(${red}, ${green}, ${blue}, ${isNight ? 0.3 : 0.2})`);
@@ -1125,12 +1149,12 @@ function drawAllianceDistrictBadge(context, district, badge, isNight = true) {
 
   context.save();
   context.beginPath();
-  context.arc(district.centerX, symbolY, haloRadius, 0, Math.PI * 2);
+  context.arc(badgeX, badgeY, haloRadius, 0, Math.PI * 2);
   context.fillStyle = halo;
   context.fill();
 
   context.beginPath();
-  context.arc(district.centerX, symbolY, 14, 0, Math.PI * 2);
+  context.arc(badgeX, badgeY, badgeSize * 0.56, 0, Math.PI * 2);
   context.strokeStyle = `rgba(${red}, ${green}, ${blue}, ${isNight ? 0.42 : 0.3})`;
   context.lineWidth = 1.25;
   context.shadowBlur = isNight ? 16 : 10;
@@ -1142,13 +1166,13 @@ function drawAllianceDistrictBadge(context, district, badge, isNight = true) {
   const iconDrawn = drawAllianceBadgeIcon(
     context,
     badge,
-    district.centerX,
-    symbolY,
-    30,
+    badgeX,
+    badgeY,
+    badgeSize,
     badgeColor
   );
   if (!iconDrawn) {
-    drawFallbackAllianceBadgeText(context, badge, district.centerX, symbolY, isNight, softGlow);
+    drawFallbackAllianceBadgeText(context, badge, badgeX, badgeY, isNight, softGlow, badgeSize);
   }
   context.restore();
 }

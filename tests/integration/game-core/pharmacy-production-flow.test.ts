@@ -49,9 +49,9 @@ describe("pharmacy production", () => {
   it("uses the canonical clean-cash-only recipes", () => {
     const pharmacy = context.config.balance.pharmacy!;
     expect(pharmacy.independentProductionLines).toBe(true);
-    expect(pharmacy.recipes.chemicals).toMatchObject({ cleanCashCostPerUnit: 360, outputAmount: 1, localOutputCap: 12, queueCap: 8, inputCosts: {} });
-    expect(pharmacy.recipes.biomass).toMatchObject({ cleanCashCostPerUnit: 420, outputAmount: 1, localOutputCap: 8, queueCap: 6, inputCosts: {} });
-    expect(pharmacy.recipes["stim-pack"]).toMatchObject({ cleanCashCostPerUnit: 800, outputAmount: 1, localOutputCap: 4, queueCap: 3, inputCosts: {} });
+    expect(pharmacy.recipes.chemicals).toMatchObject({ cleanCashCostPerUnit: 360, outputAmount: 1, localOutputCap: 12, queueCap: 15, inputCosts: {} });
+    expect(pharmacy.recipes.biomass).toMatchObject({ cleanCashCostPerUnit: 420, outputAmount: 1, localOutputCap: 8, queueCap: 11, inputCosts: {} });
+    expect(pharmacy.recipes["stim-pack"]).toMatchObject({ cleanCashCostPerUnit: 800, outputAmount: 1, localOutputCap: 4, queueCap: 7, inputCosts: {} });
     expect(CHEMICAL_DURATION_TICKS).toBe(2 * Math.ceil(60_000 / context.config.tickRateMs));
     expect(Math.ceil(pharmacy.recipes.biomass.durationTicksPerUnit * context.config.balance.cooldownMultiplier)).toBe(4 * Math.ceil(60_000 / context.config.tickRateMs));
     expect(STIM_PACK_DURATION_TICKS).toBe(10 * Math.ceil(60_000 / context.config.tickRateMs));
@@ -110,10 +110,10 @@ describe("pharmacy production", () => {
         productionLines: {
           chemicals: {
             recipeId: "chemicals",
-            queuedAmount: 2,
+            queuedAmount: 3,
             activeStartedAtTick: null,
             activeCompletesAtTick: null,
-            reservedCleanCash: 720,
+            reservedCleanCash: 1080,
             unitCleanCashCost: 360,
             version: 1
           }
@@ -130,6 +130,7 @@ describe("pharmacy production", () => {
     expect(collected.errors).toEqual([]);
     expect(collected.nextState.resourceStatesById["resource:1"]?.balances.chemicals).toBe(60);
     expect(collected.nextState.resourceStatesById["resource:" + building.id]?.balances.chemicals).toBe(10);
+    expect(line.queuedAmount).toBe(3);
     expect(line.activeStartedAtTick).toBe(0);
     expect(line.activeCompletesAtTick).toBe(CHEMICAL_DURATION_TICKS);
   });
@@ -153,7 +154,7 @@ describe("pharmacy production", () => {
     expect(chemicals).toMatchObject({
       producedAmount: 12,
       producedCapacity: 12,
-      queueCapacity: 8,
+      queueCapacity: 15,
       status: "full",
       canStart: false,
       maxStartQuantity: 0
@@ -161,7 +162,7 @@ describe("pharmacy production", () => {
     expect(stimPack).toMatchObject({
       unitCleanCashCost: 800,
       effectiveUnitDurationTicks: STIM_PACK_DURATION_TICKS,
-      queueCapacity: 3,
+      queueCapacity: 7,
       status: "ready",
       canStart: false
     });
@@ -187,7 +188,7 @@ describe("pharmacy production", () => {
   it("rejects invalid quantities and full queues without changing cash or line state", () => {
     const { state, building } = createCoreStateWithFixedBuildingFixture("pharmacy", { playerBalances: { cash: 5000 } });
     const zero = applyCommand(state, start(building.id, "chemicals", 0), context);
-    const tooMany = applyCommand(state, start(building.id, "chemicals", 9), context);
+    const tooMany = applyCommand(state, start(building.id, "chemicals", 16), context);
 
     expect(zero.errors.map((error) => error.code)).toEqual(["pharmacy_invalid_quantity"]);
     expect(tooMany.errors.map((error) => error.code)).toEqual(["pharmacy_queue_full"]);

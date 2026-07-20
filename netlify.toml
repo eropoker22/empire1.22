@@ -8,6 +8,15 @@
 [functions]
   directory = "netlify/functions"
 
+[[headers]]
+  for = "/*"
+
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+
 [[redirects]]
   from = "https://www.empirestreets.cz/*"
   to = "https://empirestreets.cz/:splat"
@@ -29,6 +38,18 @@
 [[redirects]]
   from = "/api/admin/*"
   to = "/.netlify/functions/gameplay-slice/admin/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/account/*"
+  to = "/.netlify/functions/gameplay-slice/account/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/lobby/*"
+  to = "/.netlify/functions/gameplay-slice/lobby/:splat"
   status = 200
   force = true
 

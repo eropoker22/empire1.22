@@ -29,7 +29,10 @@ import {
   createInMemorySnapshotRepository
 } from "../persistence/repositories";
 import { createReplayLogWriter } from "../persistence/services/replay-log-writer";
-import { createPostgresRuntimePersistenceRepositories } from "../persistence/postgres";
+import {
+  createPostgresRuntimePersistenceRepositories,
+  type PostgresDatabase
+} from "../persistence/postgres";
 import type { RuntimeTickLock } from "../persistence/tick-lock";
 import { systemClock, type Clock } from "../scheduling/clock";
 import { createInstanceScheduler } from "../scheduling/instance-scheduler";
@@ -89,7 +92,8 @@ export const createFileRuntimePersistenceRepositories = (
 });
 
 export const createRuntimePersistenceRepositoriesFromEnvironment = (
-  environment: Record<string, string | undefined> = typeof process !== "undefined" ? process.env : {}
+  environment: Record<string, string | undefined> = typeof process !== "undefined" ? process.env : {},
+  database?: PostgresDatabase
 ): ServerRuntimePersistenceRepositories => {
   const driver = String(environment.EMPIRE_PERSISTENCE_DRIVER ?? environment.GAMEPLAY_PERSISTENCE_DRIVER ?? "memory")
     .trim()
@@ -102,7 +106,7 @@ export const createRuntimePersistenceRepositoriesFromEnvironment = (
 
   if (driver === "postgres") {
     const databaseUrl = String(environment.EMPIRE_DATABASE_URL ?? environment.GAMEPLAY_DATABASE_URL ?? "").trim();
-    return createPostgresRuntimePersistenceRepositories({ databaseUrl });
+    return createPostgresRuntimePersistenceRepositories({ databaseUrl, database });
   }
 
   if (driver === "memory") {

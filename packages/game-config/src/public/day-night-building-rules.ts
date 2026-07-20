@@ -170,9 +170,14 @@ export const dayNightBuildingRules: Record<string, DayNightBuildingRuleConfig> =
   },
   strip_club: {
     preferredPhase: "night",
-    phaseEffectSummary: "NOC BONUS: klub, VIP klienti a šeptanda sílí v noci.",
+    phaseEffectSummary: "DEN: clean cash -50 % a dirty cash -50 %. NOC BONUS: klub, VIP klienti a šeptanda sílí v noci.",
     phasePassiveModifiers: {
-      day: { passiveRumorGenerationMultiplier: 0.9, passiveRumorTruthModifierPct: 8 },
+      day: {
+        passiveCleanIncomeMultiplier: 0.5,
+        passiveDirtyIncomeMultiplier: 0.5,
+        passiveRumorGenerationMultiplier: 0.9,
+        passiveRumorTruthModifierPct: 8
+      },
       night: {
         passiveDirtyIncomeMultiplier: 1.25,
         passiveInfluenceMultiplier: 1.2,

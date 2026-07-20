@@ -132,9 +132,16 @@ export interface ConvenienceStoreBalanceConfig {
   dirtyCashPerMinute: number;
   influencePerMinute: number;
   heatPerMinute: number;
-  noSpecialActions: true;
+  noSpecialActions: false;
   noLaundering: true;
   noAuditRisk: true;
+  populationPerMinute: number;
+  basePopulationCapacity: number;
+  collectPopulation: {
+    actionId: string;
+    cooldownMinutes: number;
+    minCollectPopulation: number;
+  };
   passiveRumorIntervalMinutes: number;
   maxRumorChecksPerPlayerPerInterval: number;
   baseRumorChancePct: number;
@@ -158,6 +165,7 @@ export interface ConvenienceStoreBalanceConfig {
     maxInfluenceMultiplier: number;
     maxRumorMultiplier: number;
     maxHeatMultiplier: number;
+    populationPerMinuteBonusPerExtraStore: number;
   };
   restaurantSynergy: {
     firstStoreThreshold: number;

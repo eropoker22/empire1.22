@@ -21,7 +21,7 @@ export const freeModeDrugLabConfig: DrugLabBalanceConfig = {
       inputCosts: { chemicals: 2 },
       durationTicksPerUnit: baseCooldownTicksForFinalMinutes(5),
       localOutputCap: 10,
-      queueCap: 8
+      queueCap: 13
     },
     "pulse-shot": {
       label: "Pulse Shot",
@@ -34,7 +34,7 @@ export const freeModeDrugLabConfig: DrugLabBalanceConfig = {
       inputCosts: { chemicals: 2, biomass: 1 },
       durationTicksPerUnit: baseCooldownTicksForFinalMinutes(8),
       localOutputCap: 6,
-      queueCap: 5
+      queueCap: 9
     },
     "velvet-smoke": {
       label: "Velvet Smoke",
@@ -47,7 +47,7 @@ export const freeModeDrugLabConfig: DrugLabBalanceConfig = {
       inputCosts: { chemicals: 1, biomass: 2 },
       durationTicksPerUnit: baseCooldownTicksForFinalMinutes(15),
       localOutputCap: 5,
-      queueCap: 4
+      queueCap: 8
     },
     "ghost-serum": {
       label: "Ghost Serum",
@@ -60,7 +60,7 @@ export const freeModeDrugLabConfig: DrugLabBalanceConfig = {
       inputCosts: { "neon-dust": 2, "pulse-shot": 1 },
       durationTicksPerUnit: baseCooldownTicksForFinalMinutes(20),
       localOutputCap: 2,
-      queueCap: 2
+      queueCap: 5
     },
     "overdrive-x": {
       label: "Overdrive X",
@@ -73,7 +73,7 @@ export const freeModeDrugLabConfig: DrugLabBalanceConfig = {
       inputCosts: { "pulse-shot": 1, "velvet-smoke": 2 },
       durationTicksPerUnit: baseCooldownTicksForFinalMinutes(30),
       localOutputCap: 1,
-      queueCap: 1
+      queueCap: 4
     }
   }
 };

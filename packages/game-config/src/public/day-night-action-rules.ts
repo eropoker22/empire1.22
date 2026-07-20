@@ -87,7 +87,9 @@ export const dayNightActionRules: Record<string, DayNightActionRuleConfig> = Obj
     phaseEffectSummary: "NOC BONUS: strip club cash je silnější v noci."
   },
   vip_lounge: {
+    allowedPhases: ["night"],
     preferredPhase: "night",
+    blockedReason: "Hostit VIP klienty můžeš jen v noci.",
     heatMultiplier: 1.2,
     rumorChanceModifierPct: -10,
     phaseEffectSummary: "NOC BONUS: VIP klienti chodí v noci. Přes den je menší rumor value."

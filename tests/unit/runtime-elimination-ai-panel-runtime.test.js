@@ -24,7 +24,16 @@ function createPanelFixture() {
   const listeners = new Map();
   const panelListeners = new Map();
   const documentListeners = new Map();
-  const body = { innerHTML: "" };
+  const leaderboard = { scrollTop: 0 };
+  const score = { scrollTop: 0 };
+  const body = {
+    innerHTML: "",
+    scrollTop: 0,
+    querySelector: vi.fn((selector) => ({
+      ".elimination-ai-panel__leaderboard": leaderboard,
+      ".elimination-ai-panel__score": score
+    })[selector] || null)
+  };
   const card = { classList: { add: vi.fn(), remove: vi.fn() }, focus: vi.fn() };
   const title = { textContent: "" };
   const kicker = { textContent: "" };
@@ -69,9 +78,11 @@ function createPanelFixture() {
     card,
     documentListeners,
     listeners,
+    leaderboard,
     panel,
     panelListeners,
     root,
+    score,
     status,
     title,
     kicker
@@ -315,9 +326,15 @@ describe("elimination purge panel runtime", () => {
     expect(fixture.body.innerHTML).toContain("NeonViper (TY)");
     expect(timerApi.setInterval).toHaveBeenCalledWith(expect.any(Function), 1000);
 
+    fixture.body.scrollTop = 144;
+    fixture.leaderboard.scrollTop = 31;
+    fixture.score.scrollTop = 17;
     currentTime += 1000;
     intervalCallback();
     expect(fixture.body.innerHTML).toContain("14min 59s");
+    expect(fixture.body.scrollTop).toBe(144);
+    expect(fixture.leaderboard.scrollTop).toBe(31);
+    expect(fixture.score.scrollTop).toBe(17);
 
     const closeTarget = createTarget("[data-elimination-ai-panel-close]");
     fixture.listeners.get("click")({ target: closeTarget, preventDefault: vi.fn() });

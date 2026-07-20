@@ -3082,6 +3082,24 @@
   padding: 12px 112px 12px 12px;
 }
 
+.district-popup-alliance {
+  position: absolute;
+  z-index: 2;
+  top: 44px;
+  right: 10px;
+  max-width: min(44vw, 190px);
+  overflow: hidden;
+  color: rgba(245, 250, 255, 0.94);
+  font-size: 0.54rem;
+  font-weight: 750;
+  letter-spacing: 0.025em;
+  text-align: right;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+  text-shadow: 0 0 12px rgba(var(--district-accent-rgb), 0.76);
+}
+
 .district-popup-card .district-modal-hero--district[data-atmosphere-state="locked"] .district-modal-hero__copy {
   padding-right: 14px;
 }
@@ -3485,4 +3503,32 @@
 
 #alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden) .avatar-lightbox__legend-bio {
   display: none;
+}
+
+.district-popup-card[data-district-type="industrial"] :is(
+  .district-popup-owner-label,
+  .district-popup-status__label,
+  .district-popup-action-section__title,
+  .district-popup-summary-card__label,
+  .district-popup-buildings__label,
+  .district-popup-gossip__label
+) {
+  color: #ffffff !important;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.24) !important;
+}
+
+.district-popup-card[data-district-type="industrial"] :is(
+  .district-popup-owner-name,
+  .district-popup-owner-meta,
+  .district-popup-buildings__meta
+) {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.district-popup-card[data-district-type="industrial"] .district-popup-close,
+.district-popup-card[data-district-type="industrial"] .district-popup-close:hover,
+.district-popup-card[data-district-type="industrial"] .district-popup-close:focus-visible {
+  border-color: rgba(255, 255, 255, 0.58) !important;
+  color: #ffffff !important;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.62) !important;
 }

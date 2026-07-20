@@ -13,6 +13,7 @@ import {
   recordCommandRateLimitUsage,
   validateCommandDispatchGate
 } from "./instance-command-gates";
+import { withInstanceCommandLock } from "./instance-command-lock";
 import {
   createAppliedCommandResult,
   createEventRecord,
@@ -22,7 +23,10 @@ import {
 } from "./atomic-command-records";
 import { publishOutbox } from "./atomic-command-outbox";
 import { replayReservedCommand } from "./atomic-command-replay";
-import type { AtomicCommandTransactionRepositories } from "./atomic-command-transaction";
+import {
+  HostedRuntimeStatusFenceRejectedError,
+  type AtomicCommandTransactionRepositories
+} from "./atomic-command-transaction";
 
 export type AtomicCommandCrashPoint = "afterReserve" | "afterCommandLog" | "afterApplyBeforeSnapshot" |
   "afterSnapshotBeforeMarkApplied" | "afterMarkAppliedBeforeCommit" | "afterCommitBeforePublish" |
@@ -31,8 +35,6 @@ export type AtomicCommandCrashPoint = "afterReserve" | "afterCommandLog" | "afte
 export interface AtomicCommandDispatcherOptions {
   crashInjector?: (point: AtomicCommandCrashPoint) => void | Promise<void>;
 }
-
-const instanceLocks = new Map<string, Promise<void>>();
 
 export const dispatchAtomicInstanceCommand = async (
   runtime: ServerInstanceRuntime,
@@ -88,9 +90,20 @@ const dispatchAtomicInstanceCommandUnlocked = async (
   };
 
   if (runtime.atomicCommandTransaction) {
-    const committed = await runtime.atomicCommandTransaction.run(runtime.record.id, (txRepositories) =>
-      dispatchAtomicInstanceCommandInBoundary(runtime, command, options, crash, txRepositories)
-    );
+    let committed: BoundaryDispatchResult;
+    try {
+      committed = await runtime.atomicCommandTransaction.run(
+        runtime.record.id,
+        (txRepositories) => dispatchAtomicInstanceCommandInBoundary(runtime, command, options, crash, txRepositories),
+        { hostedStatusFence: "running-if-present" }
+      );
+    } catch (error) {
+      if (error instanceof HostedRuntimeStatusFenceRejectedError) {
+        return { runtime, errors: [{ code: "server.instance_not_running",
+          message: "Server instance is not accepting gameplay commands." }], commandResult: null };
+      }
+      throw error;
+    }
     return finalizeCommittedCommand(runtime, command, options, committed, crash);
   }
 
@@ -286,23 +299,3 @@ const ensureAdvancedRootVersion = (state: CoreGameState, previousRootVersion: nu
   state.root.version > previousRootVersion
     ? state
     : { ...state, root: { ...state.root, version: previousRootVersion + 1 } };
-const withInstanceCommandLock = async <TResult>(
-  instanceId: string,
-  callback: () => Promise<TResult>
-): Promise<TResult> => {
-  const previous = instanceLocks.get(instanceId) ?? Promise.resolve();
-  let release!: () => void;
-  const current = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  instanceLocks.set(instanceId, previous.then(() => current));
-  await previous;
-  try {
-    return await callback();
-  } finally {
-    release();
-    if (instanceLocks.get(instanceId) === current) {
-      instanceLocks.delete(instanceId);
-    }
-  }
-};

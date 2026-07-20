@@ -130,9 +130,7 @@ export function getGameplayExecutionMode(options = {}) {
   if (diagnosticsMode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
     return publishConflictAuthorityMatrix(windowRef, diagnosticsMode);
   }
-  return publishConflictAuthorityMatrix(windowRef, isDevelopmentGameplayHost(windowRef)
-    ? GAMEPLAY_EXECUTION_MODES.localDemo
-    : GAMEPLAY_EXECUTION_MODES.unavailable);
+  return publishConflictAuthorityMatrix(windowRef, GAMEPLAY_EXECUTION_MODES.unavailable);
 }
 
 export function isLocalDemoGameplayMode(options = {}) {

@@ -1,6 +1,5 @@
-import * as fs from "node:fs";
-import * as path from "node:path";
 import type { PostgresDatabase } from "../../../apps/server/src/runtime/persistence/postgres";
+import { migrateDatabase } from "../../../apps/server/src/runtime/persistence/postgres/migration-runner";
 
 process.loadEnvFile?.(".env.local");
 
@@ -10,19 +9,10 @@ export interface LivePostgresSmokeConfig {
   skipReason: string | null;
 }
 
-const MIGRATIONS_DIR = "apps/server/src/runtime/persistence/postgres/migrations";
-const MIGRATION_FILES = [
-  "001_initial_runtime_persistence.sql",
-  "002_command_reservations.sql",
-  "003_gameplay_identity_sessions.sql",
-  "004_atomic_command_execution.sql",
-  "005_gameplay_identity_session_invariants.sql",
-  "006_admin_read_only_control_plane.sql",
-  "007_hosted_server_control_plane.sql",
-  "008_hosted_join_reservations.sql",
-  "009_player_entry_control_plane.sql",
-  "010_runtime_instance_foreign_keys.sql"
-];
+const MIGRATIONS_DIRECTORY = new URL(
+  "../../../apps/server/src/runtime/persistence/postgres/migrations/",
+  import.meta.url
+);
 
 export const resolveLivePostgresSmokeConfig = (
   environment: Record<string, string | undefined> = process.env
@@ -52,11 +42,8 @@ export const resolveLivePostgresSmokeConfig = (
 export const applyPostgresTestMigrations = async (
   database: PostgresDatabase
 ): Promise<void> => {
-  for (const fileName of MIGRATION_FILES) {
-    const sql = (await fs.promises.readFile(path.join(MIGRATIONS_DIR, fileName), "utf8")).trim();
-    if (!sql) continue;
-    await database.query(sql);
-  }
+  const status = await migrateDatabase(database, MIGRATIONS_DIRECTORY);
+  if (!status.current) throw new Error("Test database migrations are not current.");
 };
 
 const isSafeTestDatabaseUrl = (databaseUrl: string): boolean => {

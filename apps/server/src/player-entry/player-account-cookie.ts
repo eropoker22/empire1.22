@@ -5,7 +5,13 @@ export const readPlayerAccountCookie = (headers?: Record<string, string | string
   const cookie = Array.isArray(raw) ? raw.join("; ") : String(raw ?? "");
   for (const part of cookie.split(";")) {
     const [name, ...value] = part.trim().split("=");
-    if (name === COOKIE_NAME) return decodeURIComponent(value.join("="));
+    if (name === COOKIE_NAME) {
+      try {
+        return decodeURIComponent(value.join("="));
+      } catch (_error) {
+        return null;
+      }
+    }
   }
   return null;
 };

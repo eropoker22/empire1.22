@@ -125,7 +125,8 @@ const createFixture = async () => {
     ...password, passwordVersion: 1, role: "owner", status: "active", displayName: "Player Entry Live", createdAt: at,
     updatedAt: at, lastLoginAt: null, passwordChangedAt: at, version: 1 });
   const workerId = `worker:player-entry:${suffix}`;
-  await admin.hosted.writeWorkerHeartbeat({ workerId, region: "eu-central", buildSha: "live-test", startedAt: at, lastHeartbeatAt: at, status: "online" });
+  await admin.hosted.writeWorkerHeartbeat({ workerId, workerIncarnationId: `worker-incarnation:${workerId}`,
+    region: "eu-central", buildSha: "live-test", startedAt: at, lastHeartbeatAt: at, status: "online" });
   const persistence = createPostgresRuntimePersistenceRepositories({ databaseUrl: live.databaseUrl!, database, tickLockOwnerId: workerId });
   const server = createServerApp({ persistence, environment: { NODE_ENV: "production", EMPIRE_PERSISTENCE_DRIVER: "postgres",
     EMPIRE_DATABASE_URL: live.databaseUrl!, GAMEPLAY_SLICE_SESSION_SECRET: "player-entry-live-session-secret" },

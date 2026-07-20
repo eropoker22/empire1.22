@@ -114,8 +114,8 @@ describe("district building data", () => {
 
       expect(Number(rules.income["Strip club"].clean || 0)).toBe(75);
       expect(Number(rules.income["Strip club"].dirty || 0)).toBe(65);
-      expect(Number(rules.heat["Strip club"].heat || 0)).toBe(0.18);
-      expect(Number(rules.influence["Strip club"].influence || 0)).toBe(0.38);
+      expect(Math.round(Number(rules.heat["Strip club"].heat || 0) * 1440)).toBe(85);
+      expect(Math.round(Number(rules.influence["Strip club"].influence || 0) * 1440)).toBe(90);
     }
   });
 });

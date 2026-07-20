@@ -109,6 +109,22 @@ describe("event feed panel helpers", () => {
     expect(item.children).toHaveLength(1);
   });
 
+  it("renders elimination street news with the negative red theme", () => {
+    const entry = createBuildingActionEntry({
+      id: "elimination-1",
+      tone: "elimination-failure",
+      title: "Očista proběhla: Neon Wolves",
+      summary: "Gang byl odstraněn z města.",
+      resultKind: "elimination",
+      resultPayload: { tone: "elimination-failure" },
+      timestampMs: 1000
+    });
+
+    const item = createBuildingActionFeedItemElement(new FakeDocument(), entry);
+
+    expect(item.className).toContain("building-action-status__item--negative");
+  });
+
   it("keeps non-resource action results clickable so players can inspect what happened", () => {
     const entry = createBuildingActionEntry({
       id: "entry-2",

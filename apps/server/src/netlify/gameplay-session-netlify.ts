@@ -32,8 +32,51 @@ export const createGameplaySessionNetlifyHandlers = (
     handleJoin(options, body, headers),
   handleLogout: (body: unknown, headers?: Record<string, string | string[] | undefined>) =>
     handleLogout(options, body, headers),
+  validateRequestSession: (
+    sessionToken: string | null | undefined,
+    serverInstanceId: string
+  ) => validateRequestSession(options, sessionToken, serverInstanceId),
   validateProductionSessionRuntime: () => validateProductionSessionRuntime(options)
 });
+
+const validateRequestSession = async (
+  options: GameplaySessionNetlifyHandlersOptions,
+  sessionToken: string | null | undefined,
+  serverInstanceId: string
+) => {
+  const rawSessionToken = String(sessionToken ?? "").trim();
+  if (!rawSessionToken) {
+    return {
+      accepted: false as const,
+      errors: [{ code: "SESSION_REQUIRED", message: "Gameplay session is required." }]
+    };
+  }
+
+  const tokenPayload = options.sessionTokenCodec.open(rawSessionToken);
+  if (!tokenPayload || tokenPayload.serverInstanceId !== serverInstanceId) {
+    return {
+      accepted: false as const,
+      errors: [{ code: "SESSION_INVALID", message: "Gameplay session is invalid." }]
+    };
+  }
+
+  const validated = await options.server.gameplaySessionService.validateSession({
+    sessionId: tokenPayload.sessionId,
+    accountId: tokenPayload.accountId,
+    serverInstanceId,
+    nowIso: new Date().toISOString()
+  });
+  if (!validated.accepted || validated.session.playerId !== tokenPayload.playerId) {
+    return validated.accepted
+      ? {
+          accepted: false as const,
+          errors: [{ code: "SESSION_INVALID", message: "Gameplay session is invalid." }]
+        }
+      : validated;
+  }
+
+  return validated;
+};
 
 const handleJoin = async (
   options: GameplaySessionNetlifyHandlersOptions,
@@ -45,9 +88,7 @@ const handleJoin = async (
   }
   const request = body as unknown as JoinGameplaySliceRequest;
   const identity = await options.server.accountIdentityProvider.resolve({ body, headers });
-  if (!identity) {
-    return createJsonResponse(200, createErrorResponse("SESSION_REQUIRED", "Account identity is required for join."));
-  }
+  if (!identity) return createJsonResponse(200, createErrorResponse("SESSION_REQUIRED", "Account identity is required for join."));
   const consumed = await options.server.gameplaySessionService.consumeJoinTicket({
     ticketId: String(request.joinTicket ?? ""),
     accountId: identity.accountId,
@@ -56,6 +97,10 @@ const handleJoin = async (
   });
   if (!consumed.accepted) {
     return createJsonResponse(200, createErrorResponseFromErrors(consumed.errors));
+  }
+  let runtime = options.server.instanceManager.getInstanceById(consumed.registration.serverInstanceId);
+  if (options.environment?.NODE_ENV === "production" && !runtime?.state.playersById[consumed.registration.playerId]) {
+    return createJsonResponse(200, createErrorResponse("server.player_not_ready", "Hosted player state is not ready."));
   }
   const loadRequest: LoadGameplaySliceRequest = {
     serverInstanceId: consumed.registration.serverInstanceId,
@@ -71,7 +116,7 @@ const handleJoin = async (
   if (!ensureResult.accepted) {
     return createJsonResponse(200, createErrorResponseFromErrors(ensureResult.errors));
   }
-  const runtime = options.server.instanceManager.getInstanceById(consumed.registration.serverInstanceId);
+  runtime = options.server.instanceManager.getInstanceById(consumed.registration.serverInstanceId);
   if (!runtime) {
     return createJsonResponse(200, createErrorResponse("server.instance_not_found", "Joined runtime was not found."));
   }

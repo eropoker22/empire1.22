@@ -58,6 +58,8 @@ describe("runtime main UI flow smoke guard", () => {
       for (const marker of requiredAnchors) {
         expect(html).toContain(marker);
       }
+      expect(html).toContain('data-gameplay-slice-polling="true"');
+      expect(html).toContain('data-gameplay-slice-polling-interval-ms="5000"');
       for (const exportName of requiredFacadeExports) {
         expect(runtime[exportName]).toBeDefined();
       }
@@ -158,7 +160,8 @@ describe("runtime main UI flow smoke guard", () => {
       expect(source).toContain('occupy: findActiveActionCountdown(getStoredOccupyOrders(), districtId, "resolveAt")');
       expect(source).toContain('rob: findActiveActionCountdown(getStoredRobberyOrders(), districtId, "resolveAt")');
       expect(source).toContain('spy: findActiveActionCountdown(getResolvedSpyState().missions, districtId, "returnAt")');
-      expect(source).toContain("actionCountdowns: getDistrictActionCountdowns(district.id)");
+      expect(source).toContain("const actionCountdowns = getDistrictActionCountdowns(district.id);");
+      expect(source).toMatch(/resolvedActions,\r?\n\s+actionCountdowns,\r?\n\s+trapControlState/u);
     }
   });
 

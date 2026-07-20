@@ -69,9 +69,9 @@ describe("legacy player flow smoke guard", () => {
   });
 
   it("walks login, lobby, faction and keeps the game map click contract wired", () => {
-    expect(page("login.html")).toContain('src="../page-assets/js/login-entry.js"');
-    expect(page("lobby.html")).toContain('src="../page-assets/js/lobby-entry.js"');
-    expect(page("faction.html")).toContain('src="../page-assets/js/faction-entry.js"');
+    expect(page("login.html")).toContain('src="../page-assets/js/login-entry.js');
+    expect(page("lobby.html")).toContain('src="../page-assets/js/lobby-entry.js');
+    expect(page("faction.html")).toContain('src="../page-assets/js/faction-entry.js');
 
     saveLoginStep({
       identity: "Flow Boss",

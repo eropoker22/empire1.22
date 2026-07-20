@@ -116,7 +116,7 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
     const at = new Date().toISOString();
     const result = await database.query<AccountSessionRow>(
       `${ACCOUNT_SESSION_SELECT}
-       WHERE session.token_hash=$1 AND session.revoked_at IS NULL AND session.expires_at > $2::timestamptz`,
+       WHERE session.token_hash=$1 AND account.status='active' AND session.revoked_at IS NULL AND session.expires_at > $2::timestamptz`,
       [hashToken(token), at]
     );
     const row = result.rows[0];
