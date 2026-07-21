@@ -204,6 +204,9 @@ describe("free session MVP flow", () => {
       }
     });
     progress = markOnboardingStepDone("heat-police", progress);
+    progress = markOnboardingStepDone("production-choice", progress);
+    progress = markOnboardingStepDone("alliance-guide", progress);
+    progress = markOnboardingStepDone("bounty-boost-guide", progress);
     update({ world: { ownedDistrictIds: [1] } }, { type: "spy:started", detail: { targetDistrictId: 2 } });
     update({ world: { ownedDistrictIds: [1] } }, { type: "trap:moved", detail: { targetDistrictId: 1, sourceDistrictId: 2 } });
     update({ world: { ownedDistrictIds: [1] } }, { type: "onboarding:next", detail: { stepId: "done" } });

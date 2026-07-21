@@ -44,12 +44,23 @@ function createOnboardingDom() {
       </section>
     </header>
     <main id="game-root">
-      <section id="game-map-mount" data-mount-role="map">
-        <div class="map-viewport" data-map-viewport>
-          <div class="map-canvas-shell" data-map-canvas>
-            <canvas class="map-district-canvas" data-district-canvas data-testid="district-canvas" width="1600" height="980"></canvas>
-          </div>
+      <section id="game-map-stage">
+        <div class="map-stage-actions map-stage-actions--desktop">
+          <button type="button" class="map-boost-btn map-boost-btn--desktop" data-boost-open-trigger>Boost</button>
         </div>
+        <div class="map-phase-toolbar">
+          <button type="button" class="map-bounty-shortcut" data-bounty-open-trigger>Bounty</button>
+        </div>
+        <div class="map-stage-actions map-stage-actions--mobile">
+          <button type="button" class="map-boost-btn" data-boost-open-trigger>Boost</button>
+        </div>
+        <section id="game-map-mount" data-mount-role="map">
+          <div class="map-viewport" data-map-viewport>
+            <div class="map-canvas-shell" data-map-canvas>
+              <canvas class="map-district-canvas" data-district-canvas data-testid="district-canvas" width="1600" height="980"></canvas>
+            </div>
+          </div>
+        </section>
       </section>
       <aside id="game-rail-left">
         <div id="game-left-nav" class="panel-action-stack">
@@ -70,19 +81,24 @@ function createOnboardingDom() {
           </div>
         </div>
       </aside>
-      <section id="game-gang-panel-mount" data-mount-role="gang-panel">
-        <div id="profile-gang-card" class="right-panel-card">
-          <p class="panel-note gang-profile-stars" aria-label="Gang level" data-gang-stars>
-            <span class="is-active" data-gang-star>★</span>
-            <span data-gang-star>★</span>
-          </p>
-          <p class="panel-note profile-row profile-row--members gang-profile-row"><span class="gang-profile-row__label">Členové</span><span data-gang-members>0</span></p>
-          <p class="panel-note profile-row profile-row--wanted gang-profile-row"><span class="gang-profile-row__label">Hledanost</span><button data-gang-heat>10</button></p>
-          <p class="panel-note profile-row profile-row--faction gang-profile-row"><span class="gang-profile-row__label">Frakce</span><span data-gang-faction>-</span></p>
-          <p class="panel-note profile-row profile-row--districts gang-profile-row"><span class="gang-profile-row__label">Distrikty</span><span data-gang-districts>0</span></p>
-          <p class="panel-note profile-row profile-row--alliance gang-profile-row"><span class="gang-profile-row__label">Aliance</span><span data-gang-alliance>Žádná</span></p>
-        </div>
-      </section>
+      <aside id="game-rail-right">
+        <section id="game-gang-panel-mount" data-mount-role="gang-panel">
+          <div id="profile-gang-card" class="right-panel-card">
+            <p class="panel-note gang-profile-stars" aria-label="Gang level" data-gang-stars>
+              <span class="is-active" data-gang-star>★</span>
+              <span data-gang-star>★</span>
+            </p>
+            <p class="panel-note profile-row profile-row--members gang-profile-row"><span class="gang-profile-row__label">Členové</span><span data-gang-members>0</span></p>
+            <p class="panel-note profile-row profile-row--wanted gang-profile-row"><span class="gang-profile-row__label">Hledanost</span><button data-gang-heat>10</button></p>
+            <p class="panel-note profile-row profile-row--faction gang-profile-row"><span class="gang-profile-row__label">Frakce</span><span data-gang-faction>-</span></p>
+            <p class="panel-note profile-row profile-row--districts gang-profile-row"><span class="gang-profile-row__label">Distrikty</span><span data-gang-districts>0</span></p>
+            <p class="panel-note profile-row profile-row--alliance gang-profile-row"><span class="gang-profile-row__label">Aliance</span><span data-gang-alliance>Žádná</span></p>
+          </div>
+        </section>
+        <section id="alliance-chat-card" class="right-panel-card">
+          <button type="button" id="alliance-btn" data-alliance-popup-open>Aliance</button>
+        </section>
+      </aside>
       <button data-building-action-building-id="b1" data-building-action-id="collect"></button>
       <button data-gang-heat></button>
       <button data-district-action-id="spy"></button>
@@ -162,16 +178,34 @@ function collectText(element) {
 describe("Empire onboarding flow", () => {
   it("step registry contains every mandatory onboarding chapter", () => {
     expect(ONBOARDING_STEPS.map((step) => step.id)).toEqual([...ONBOARDING_REQUIRED_STEP_IDS]);
-    expect(ONBOARDING_STEPS).toHaveLength(7);
-    expect(ONBOARDING_STEPS.map(({ title, body, cta }) => ({ title, body, cta }))).toEqual([
-      { title: "Vítej v Empire streets", body: "Tento krátký návod ti ukáže první kroky a základní mechaniky hry a vysvětlí o co ve hře jde. Pokud jsi ve hře nový nebo si chceš zopakovat základy tak klikni prosím na Začít.", cta: "Začít" },
-      { title: "Horní lišta", body: "Nahoře můžeš najít svůj profil kde uvidíš vše důležité, taky čisté peníze, špinavé peníze, svůj Vliv a při kliknutí na něj kolik máš dostupných špehů a taky SKLAD kde najdeš přehled o surovinách a zbraních které máš k dispozici.", cta: "Další" },
-      { title: "Panel tvého gangu", body: "Tady vidíš tvoji populaci, ta je palivem pro obsazování districtů, pro útok, pro obranu. Hledanost neboli Heat, tento ukazatel ti dává informaci jak moc blízko jsi průseru, policie tady funguje jako predátor každou hodinu u někoho vyvolá razii, číslo je klikatelné a roste díky tvojemu špinavému biznisu a chování ve hře.", cta: "Rozumím" },
-      { title: "Zdroje", body: "Eventy, budovy, bazar a speciální budovy drží tvůj gang při životě. Hra má přes 30 typů budov a 5 různých typů districtů. V každém districtu je okolo 2-3 budov. Produkuj biznis, recykluj, vydělávej, vyráběj, prodávej a plň různé úkoly! Ale pozor nic není zadarmo. Budovy lze upgradovat, třeba je vybírat a některé mají taky speciální akce. Každá akce má reakci.", cta: "Rozumím" },
-      { title: "Pošli špehy", body: "Sousední districty můžeš špehovat, vykrádat, po úspěšném špehování obsazovat a na nepřátelské districty můžeš útočit, případně je zcela zničit. Dávej pozor i tady policie není slepá! Klikni na District 2, vyšli špeha a potvrď misi.", cta: "Rozumím" },
-      { title: "Vlož past", body: "V každém districtu máš různé typy budov, když jich máš víc tak se navzájem posilňují. Taky můžeš dát do svého districtu obranu ve formě svých lidí a obranných zbraní nebo past. Jednu tam vyzkoušej vložit, pokud zautočí hráč na district ve kterém máš past příjde o celý útok a možnost na nějakou dobu útočit!", cta: "Rozumím" },
-      { title: "Eliminace", body: "Každé 4h reálného času (dva dny a dvě noci ve hře) probíhá eliminace tzv. Očista - Tvůj vliv, počet obyvatel, materiálů, districtů nebo například jak bohatý jsi počítá Empire score a nejslabší vypadává. Dokud hráčů není posledních 8 pak příjde final lockdown který trvá 12h a Empire score rozhodne o vítězi! Už je to na tobě jakou cestu zvolíš či sám nebo v Alianci, či čistě nebo cestou padoucha. Můžeš taky používat bounty nebo boosty které najdeš nad mapou. Základy znáš, hodně štěstí!", cta: "Pokračovat" }
+    expect(ONBOARDING_STEPS.map((step) => step.id)).toEqual([
+      "welcome",
+      "your-district",
+      "building-action",
+      "heat-police",
+      "production-choice",
+      "alliance-guide",
+      "bounty-boost-guide",
+      "spy",
+      "attack-order",
+      "done"
     ]);
+    expect(ONBOARDING_STEPS).toHaveLength(10);
+    expect(ONBOARDING_STEPS[0]?.id).toBe("welcome");
+    expect(ONBOARDING_STEPS.at(-1)?.id).toBe("done");
+    const originalStepCopy = [
+      { id: "welcome", title: "Vítej v Empire streets", body: "Tento krátký návod ti ukáže první kroky a základní mechaniky hry a vysvětlí o co ve hře jde. Pokud jsi ve hře nový nebo si chceš zopakovat základy tak klikni prosím na Začít.", cta: "Začít" },
+      { id: "your-district", title: "Horní lišta", body: "Nahoře můžeš najít svůj profil kde uvidíš vše důležité, taky čisté peníze, špinavé peníze, svůj Vliv a při kliknutí na něj kolik máš dostupných špehů a taky SKLAD kde najdeš přehled o surovinách a zbraních které máš k dispozici.", cta: "Další" },
+      { id: "building-action", title: "Panel tvého gangu", body: "Tady vidíš tvoji populaci, ta je palivem pro obsazování districtů, pro útok, pro obranu. Hledanost neboli Heat, tento ukazatel ti dává informaci jak moc blízko jsi průseru, policie tady funguje jako predátor každou hodinu u někoho vyvolá razii, číslo je klikatelné a roste díky tvojemu špinavému biznisu a chování ve hře.", cta: "Rozumím" },
+      { id: "heat-police", title: "Zdroje", body: "Eventy, budovy, bazar a speciální budovy drží tvůj gang při životě. Hra má přes 30 typů budov a 5 různých typů districtů. V každém districtu je okolo 2-3 budov. Produkuj biznis, recykluj, vydělávej, vyráběj, prodávej a plň různé úkoly! Ale pozor nic není zadarmo. Budovy lze upgradovat, třeba je vybírat a některé mají taky speciální akce. Každá akce má reakci.", cta: "Rozumím" },
+      { id: "spy", title: "Pošli špehy", body: "Sousední districty můžeš špehovat, vykrádat, po úspěšném špehování obsazovat a na nepřátelské districty můžeš útočit, případně je zcela zničit. Dávej pozor i tady policie není slepá! Klikni na District 2, vyšli špeha a potvrď misi.", cta: "Rozumím" },
+      { id: "attack-order", title: "Vlož past", body: "V každém districtu máš různé typy budov, když jich máš víc tak se navzájem posilňují. Taky můžeš dát do svého districtu obranu ve formě svých lidí a obranných zbraní nebo past. Jednu tam vyzkoušej vložit, pokud zautočí hráč na district ve kterém máš past příjde o celý útok a možnost na nějakou dobu útočit!", cta: "Rozumím" },
+      { id: "done", title: "Eliminace", body: "Každé 4h reálného času (dva dny a dvě noci ve hře) probíhá eliminace tzv. Očista - Tvůj vliv, počet obyvatel, materiálů, districtů nebo například jak bohatý jsi počítá Empire score a nejslabší vypadává. Dokud hráčů není posledních 8 pak příjde final lockdown který trvá 12h a Empire score rozhodne o vítězi! Už je to na tobě jakou cestu zvolíš či sám nebo v Alianci, či čistě nebo cestou padoucha. Můžeš taky používat bounty nebo boosty které najdeš nad mapou. Základy znáš, hodně štěstí!", cta: "Pokračovat" }
+    ];
+    expect(ONBOARDING_STEPS
+      .filter((step) => originalStepCopy.some((expected) => expected.id === step.id))
+      .map(({ id, title, body, cta }) => ({ id, title, body, cta })))
+      .toEqual(originalStepCopy);
     expect(ONBOARDING_STEPS.find((step) => step.id === "building-action")?.completionCondition).toBe("manual");
     const districtStep = ONBOARDING_STEPS.find((step) => step.id === "your-district");
     const buildingActionStep = ONBOARDING_STEPS.find((step) => step.id === "building-action");
@@ -217,6 +251,60 @@ describe("Empire onboarding flow", () => {
     expect(resourcesStep?.raiseFocusTargets).toBe(true);
     expect(resourcesStep?.showTargetRing).toBe(false);
     expect(resourcesStep?.completionCondition).toBe("manual");
+    const productionStep = ONBOARDING_STEPS.find((step) => step.id === "production-choice");
+    expect(productionStep).toEqual(expect.objectContaining({
+      completionCondition: "manual",
+      cta: "Rozumím",
+      focusBackdrop: true,
+      raiseFocusTargets: true,
+      showTargetRing: false
+    }));
+    expect(productionStep?.targetSelector).toContain("#building-shortcut-grid");
+    expect(productionStep?.focusSelectors).toEqual(expect.arrayContaining([
+      "#building-shortcut-grid [data-pharmacy-popup-open]",
+      "#building-shortcut-grid [data-druglab-popup-open]",
+      "#building-shortcut-grid [data-factory-popup-open]",
+      "#building-shortcut-grid [data-armory-popup-open]"
+    ]));
+    expect(productionStep?.body).toMatch(/Výroba neběží sama/u);
+    expect(productionStep?.body).toMatch(/vyber konkrétní recept/u);
+    expect(productionStep?.body).toMatch(/vstupy, čas a volný výrobní slot/u);
+    expect(productionStep?.body).toContain("SKLADU");
+    const allianceStep = ONBOARDING_STEPS.find((step) => step.id === "alliance-guide");
+    expect(allianceStep).toEqual(expect.objectContaining({
+      completionCondition: "manual",
+      cta: "Rozumím",
+      focusBackdrop: true,
+      raiseFocusTargets: true,
+      showTargetRing: false
+    }));
+    expect(allianceStep?.targetSelector).toContain("#alliance-btn");
+    expect(allianceStep?.focusSelectors).toEqual(expect.arrayContaining([
+      "#game-rail-right",
+      "#alliance-chat-card",
+      "#alliance-btn"
+    ]));
+    expect(allianceStep?.body).toMatch(/chatu/u);
+    expect(allianceStep?.body).toMatch(/spolupráci/u);
+    expect(allianceStep?.body).toMatch(/skutečné zásoby/u);
+    const bountyBoostStep = ONBOARDING_STEPS.find((step) => step.id === "bounty-boost-guide");
+    expect(bountyBoostStep).toEqual(expect.objectContaining({
+      completionCondition: "manual",
+      cta: "Rozumím",
+      focusBackdrop: true,
+      raiseFocusTargets: true,
+      showTargetRing: false
+    }));
+    expect(bountyBoostStep?.targetSelector).toContain("[data-bounty-open-trigger]");
+    expect(bountyBoostStep?.targetSelector).toContain("[data-boost-open-trigger]");
+    expect(bountyBoostStep?.focusSelectors).toEqual(expect.arrayContaining([
+      "[data-bounty-open-trigger]",
+      "[data-boost-open-trigger]"
+    ]));
+    expect(bountyBoostStep?.body).toMatch(/Odměna se při vypsání zamkne/u);
+    expect(bountyBoostStep?.body).toContain("Ghost Network");
+    expect(bountyBoostStep?.body).toContain("Industrial Overdrive");
+    expect(bountyBoostStep?.body).toContain("Tactical Grid");
     const spyStep = ONBOARDING_STEPS.find((step) => step.id === "spy");
     expect(spyStep?.placement).toBe("center");
     expect(spyStep?.targetSelector).toContain("[data-map-viewport]");
@@ -263,14 +351,38 @@ describe("Empire onboarding flow", () => {
 
   it("every onboarding step has the required registry fields and compact player-facing copy", () => {
     const forbiddenCopy = /server-authoritative|runtime|localStorage|slice|selector|started|confirm dialog/i;
+    const bodyLengthLimits = {
+      welcome: 190,
+      "your-district": 260,
+      "building-action": 380,
+      "heat-police": 390,
+      "production-choice": 300,
+      "alliance-guide": 330,
+      "bounty-boost-guide": 460,
+      spy: 300,
+      "attack-order": 340,
+      done: 560
+    };
+    const sentenceLimits = {
+      welcome: 2,
+      "your-district": 2,
+      "building-action": 2,
+      "heat-police": 7,
+      "production-choice": 4,
+      "alliance-guide": 4,
+      "bounty-boost-guide": 7,
+      spy: 5,
+      "attack-order": 5,
+      done: 7
+    };
     for (const step of ONBOARDING_STEPS) {
       expect(step.title).toEqual(expect.any(String));
       expect(step.title.length).toBeGreaterThan(0);
       expect(step.title.length).toBeLessThanOrEqual(24);
       expect(step.body).toEqual(expect.any(String));
       expect(step.body.length).toBeGreaterThan(0);
-      expect(step.body.length).toBeLessThanOrEqual(step.id === "welcome" ? 190 : (step.id === "your-district" ? 260 : (step.id === "building-action" ? 380 : (step.id === "heat-police" ? 390 : (step.id === "spy" ? 300 : (step.id === "attack-order" ? 340 : (step.id === "done" ? 560 : 58)))))));
-      expect(step.body.split(/[.!?]+/u).filter((part) => part.trim()).length).toBeLessThanOrEqual(step.id === "heat-police" || step.id === "done" ? 7 : (step.id === "spy" || step.id === "attack-order" ? 5 : 2));
+      expect(step.body.length).toBeLessThanOrEqual(bodyLengthLimits[step.id]);
+      expect(step.body.split(/[.!?]+/u).filter((part) => part.trim()).length).toBeLessThanOrEqual(sentenceLimits[step.id]);
       expect(step.bodyParagraphs).toEqual(expect.any(Array));
       expect(step.bodyParagraphs.length).toBeGreaterThanOrEqual(2);
       expect(step.bodyHighlights).toEqual(expect.any(Array));
@@ -306,6 +418,7 @@ describe("Empire onboarding flow", () => {
       const { document, root, mount, mapNavigation } = createOnboardingDom();
       root.append(mount);
       const isMapOnboardingStep = step.id === "spy" || step.id === "attack-order";
+      const hasFocusCutout = Boolean(step.focusBackdropHoleSelector);
 
       expect(renderOnboardingPanel({ currentStepId: step.id }, {}, { mount, root, readModel: {} })).toBe(true);
       expect(mapNavigation.resetZoom).toHaveBeenCalledTimes(isMapOnboardingStep ? 1 : 0);
@@ -361,11 +474,11 @@ describe("Empire onboarding flow", () => {
       expect(backdrop).toBeTruthy();
       expect(backdrop?.classList.contains("is-visible")).toBe(usesBackdrop);
       expect(backdrop?.classList.contains("is-focus")).toBe(step.focusBackdrop === true);
-      expect(backdrop?.classList.contains("is-cutout")).toBe(step.id === "building-action" || step.id === "heat-police" || isMapOnboardingStep);
+      expect(backdrop?.classList.contains("is-cutout")).toBe(hasFocusCutout);
       expect(backdrop?.hidden).toBe(!usesBackdrop);
       expect(backdrop?.dataset.onboardingMode).toBe(step.id === "welcome" ? "welcome" : (step.focusBackdrop === true ? "focus" : "none"));
       expect(backdrop?.dataset.onboardingScroll).toBe(step.id === "welcome" ? "page" : "guided");
-      expect(document.querySelectorAll("[data-onboarding-backdrop-mask]")).toHaveLength(step.id === "building-action" || step.id === "heat-police" || isMapOnboardingStep ? 4 : 0);
+      expect(document.querySelectorAll("[data-onboarding-backdrop-mask]")).toHaveLength(hasFocusCutout ? 4 : 0);
       if (step.id === "done") {
         expect(backdrop?.classList.contains("is-visible")).toBe(true);
         expect(backdrop?.classList.contains("is-focus")).toBe(true);
@@ -375,12 +488,24 @@ describe("Empire onboarding flow", () => {
       expect(document.querySelector("#game-header")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "your-district");
       expect(document.querySelector("#game-gang-panel-mount")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "your-district" || step.id === "building-action");
       expect(document.querySelector("#profile-gang-card")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "your-district" || step.id === "building-action");
-      expect(document.querySelector("#game-rail-left")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "heat-police");
-      expect(document.querySelector("#game-left-nav")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "heat-police");
+      expect(document.querySelector("#game-rail-left")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "heat-police" || step.id === "production-choice");
+      expect(document.querySelector("#game-left-nav")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "heat-police" || step.id === "production-choice");
       expect(document.querySelector("#city-events-card")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "heat-police");
       expect(document.querySelector("#buildings-card")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "heat-police");
       expect(document.querySelector("#market-card")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "heat-police");
-      expect(document.querySelector("#building-shortcut-grid")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "heat-police");
+      expect(document.querySelector("#building-shortcut-grid")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "heat-police" || step.id === "production-choice");
+      expect(Array.from(document.querySelectorAll("#building-shortcut-grid .building-shortcut-button")).every((button) =>
+        button.classList.contains("is-onboarding-focus-target")
+      )).toBe(step.id === "production-choice");
+      expect(document.querySelector("#game-rail-right")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "alliance-guide");
+      expect(document.querySelector("#alliance-chat-card")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "alliance-guide");
+      expect(document.querySelector("#alliance-btn")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "alliance-guide");
+      expect(document.querySelector(".map-phase-toolbar")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "bounty-boost-guide");
+      expect(document.querySelector(".map-stage-actions--desktop")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "bounty-boost-guide");
+      expect(document.querySelector(".map-stage-actions--mobile")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "bounty-boost-guide");
+      expect(Array.from(document.querySelectorAll("[data-bounty-open-trigger], [data-boost-open-trigger]")).every((button) =>
+        button.classList.contains("is-onboarding-focus-target")
+      )).toBe(step.id === "bounty-boost-guide");
       const gangProfileFocusSelectors = [
         "[data-gang-stars]",
         ".profile-row--members",
@@ -567,7 +692,7 @@ describe("Empire onboarding flow", () => {
     expect(onNext).toHaveBeenCalledWith("building-action");
   });
 
-  it("lets the resources CTA continue to spy step", () => {
+  it("lets the resources CTA continue to the new information steps", () => {
     const { root, mount } = createOnboardingDom();
     const onNext = vi.fn();
     root.append(mount);
@@ -661,6 +786,16 @@ describe("Empire onboarding flow", () => {
 
     document.querySelector("[data-onboarding-primary-action]")?.click();
     expect(onWelcomeStart).toHaveBeenCalledTimes(1);
+    expect(bridge.getProgress().currentStepId).toBe("production-choice");
+
+    document.querySelector("[data-onboarding-primary-action]")?.click();
+    expect(bridge.getProgress().currentStepId).toBe("alliance-guide");
+
+    document.querySelector("[data-onboarding-primary-action]")?.click();
+    expect(bridge.getProgress().currentStepId).toBe("bounty-boost-guide");
+
+    document.querySelector("[data-onboarding-primary-action]")?.click();
+    expect(onWelcomeStart).toHaveBeenCalledTimes(1);
     expect(bridge.getProgress().currentStepId).toBe("spy");
   });
 
@@ -682,10 +817,17 @@ describe("Empire onboarding flow", () => {
     bridge.init();
     expect(onStepEnter).toHaveBeenLastCalledWith("welcome", expect.objectContaining({ mode: "onboarding" }));
 
-    document.querySelector("[data-onboarding-primary-action]")?.click();
-    document.querySelector("[data-onboarding-primary-action]")?.click();
-    document.querySelector("[data-onboarding-primary-action]")?.click();
-    document.querySelector("[data-onboarding-primary-action]")?.click();
+    for (const stepId of [
+      "welcome",
+      "your-district",
+      "building-action",
+      "heat-police",
+      "production-choice",
+      "alliance-guide",
+      "bounty-boost-guide"
+    ]) {
+      bridge.markDone(stepId);
+    }
 
     expect(bridge.getProgress().currentStepId).toBe("spy");
     expect(onStepEnter).toHaveBeenCalledWith("spy", expect.objectContaining({
@@ -715,7 +857,17 @@ describe("Empire onboarding flow", () => {
     });
 
     bridge.init();
-    for (const stepId of ["welcome", "your-district", "building-action", "heat-police", "spy", "attack-order"]) {
+    for (const stepId of [
+      "welcome",
+      "your-district",
+      "building-action",
+      "heat-police",
+      "production-choice",
+      "alliance-guide",
+      "bounty-boost-guide",
+      "spy",
+      "attack-order"
+    ]) {
       bridge.markDone(stepId);
       expect(onComplete).not.toHaveBeenCalled();
     }
@@ -798,6 +950,27 @@ describe("Empire onboarding flow", () => {
     const progress = normalizeOnboardingProgress({ completed: true, currentStepId: "completed" });
 
     expect(shouldAutoStartOnboarding(progress, readModel)).toBe(false);
+  });
+
+  it("preserves completed progress and existing step IDs after inserting information steps", () => {
+    const completed = normalizeOnboardingProgress({
+      completed: true,
+      skipped: true,
+      currentStepId: "completed",
+      observedStepIds: ["welcome", "spy"]
+    });
+    const inProgress = normalizeOnboardingProgress({
+      currentStepId: "spy",
+      completedStepIds: ["welcome", "your-district"],
+      observedStepIds: ["welcome", "your-district", "spy"]
+    });
+
+    expect(completed).toEqual(expect.objectContaining({ completed: true, skipped: true, currentStepId: "completed" }));
+    expect(inProgress).toEqual(expect.objectContaining({
+      completed: false,
+      currentStepId: "spy",
+      observedStepIds: expect.arrayContaining(["welcome", "your-district", "spy"])
+    }));
   });
 
   it("skip stores the UI state as completed with a skipped current step", () => {

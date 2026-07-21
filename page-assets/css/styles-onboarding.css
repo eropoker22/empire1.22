@@ -806,6 +806,15 @@
 }
 
 .empire-onboarding {
+  --onboarding-glass-bg: rgba(2, 5, 10, 0.86);
+  --onboarding-glass-bg-strong: rgba(1, 3, 7, 0.95);
+  --onboarding-gold: #f5cc66;
+  --onboarding-gold-rgb: 245, 204, 102;
+  --onboarding-cyan: #54dff5;
+  --onboarding-cyan-rgb: 84, 223, 245;
+  --onboarding-text: #f7f2df;
+  --onboarding-muted: rgba(220, 226, 235, 0.78);
+  --onboarding-panel-radius: 18px;
   position: fixed;
   right: clamp(14px, 2.6vw, 32px);
   bottom: clamp(16px, 3.4vw, 36px);
@@ -816,20 +825,22 @@
   flex-direction: column;
   overflow: hidden;
   padding: 13px;
-  border: 1px solid rgba(248, 213, 107, 0.3);
+  isolation: isolate;
+  border: 1px solid rgba(var(--onboarding-gold-rgb), 0.46);
   border-radius: var(--onboarding-panel-radius);
   background:
-    linear-gradient(145deg, rgba(2, 4, 9, 0.78), rgba(0, 0, 0, 0.62)),
-    radial-gradient(circle at 94% 8%, rgba(22, 74, 127, 0.16), transparent 35%),
-    radial-gradient(circle at 0% 100%, rgba(248, 213, 107, 0.08), transparent 42%);
+    radial-gradient(circle at 92% 4%, rgba(var(--onboarding-gold-rgb), 0.15), transparent 34%),
+    radial-gradient(circle at 4% 100%, rgba(var(--onboarding-cyan-rgb), 0.09), transparent 38%),
+    linear-gradient(145deg, var(--onboarding-glass-bg-strong), var(--onboarding-glass-bg));
   color: var(--onboarding-text);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.055),
-    0 22px 54px rgba(0, 0, 0, 0.7),
-    0 0 22px rgba(248, 213, 107, 0.1),
-    0 0 30px rgba(22, 74, 127, 0.18);
-  -webkit-backdrop-filter: blur(16px) saturate(138%);
-  backdrop-filter: blur(16px) saturate(138%);
+    inset 0 18px 38px rgba(var(--onboarding-gold-rgb), 0.025),
+    0 24px 58px rgba(0, 0, 0, 0.76),
+    0 0 24px rgba(var(--onboarding-gold-rgb), 0.14),
+    0 0 34px rgba(var(--onboarding-cyan-rgb), 0.08);
+  -webkit-backdrop-filter: blur(22px) saturate(126%);
+  backdrop-filter: blur(22px) saturate(126%);
   pointer-events: auto;
   animation: onboardingPanelIn 160ms ease-out both;
 }
@@ -839,11 +850,13 @@
   inset: 0;
   z-index: 0;
   background:
-    linear-gradient(180deg, rgba(22, 74, 127, 0.13), transparent 13%),
-    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.026) 0 1px, transparent 1px 8px);
+    linear-gradient(180deg, rgba(var(--onboarding-gold-rgb), 0.08), transparent 15%),
+    radial-gradient(circle, rgba(255, 255, 255, 0.08) 0 0.6px, transparent 0.8px),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.022) 0 1px, transparent 1px 7px);
+  background-size: auto, 12px 12px, auto;
   content: "";
-  mix-blend-mode: screen;
-  opacity: 0.18;
+  mix-blend-mode: soft-light;
+  opacity: 0.2;
   pointer-events: none;
 }
 
@@ -854,9 +867,9 @@
   z-index: 0;
   width: 36%;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(248, 213, 107, 0.58), rgba(22, 74, 127, 0.7), transparent);
+  background: linear-gradient(90deg, transparent, rgba(var(--onboarding-gold-rgb), 0.84), rgba(var(--onboarding-cyan-rgb), 0.64), transparent);
   content: "";
-  opacity: 0.42;
+  opacity: 0.56;
   pointer-events: none;
   animation: onboardingScan 4.2s ease-in-out infinite;
 }
@@ -926,6 +939,9 @@
 @media (min-width: 901px) {
   .empire-onboarding[data-onboarding-step="your-district"],
   .empire-onboarding[data-onboarding-step="building-action"],
+  .empire-onboarding[data-onboarding-step="production-choice"],
+  .empire-onboarding[data-onboarding-step="alliance-guide"],
+  .empire-onboarding[data-onboarding-step="bounty-boost-guide"],
   .empire-onboarding[data-onboarding-step="spy"],
   .empire-onboarding[data-onboarding-step="attack-order"] {
     inset: 0;
@@ -1029,6 +1045,107 @@ html body.game-body #building-shortcut-grid.is-onboarding-focus-target .building
     0 0 18px rgba(248, 213, 107, 0.24),
     0 0 26px rgba(22, 74, 127, 0.28),
     0 12px 26px rgba(0, 0, 0, 0.34) !important;
+}
+
+html[data-onboarding-step="production-choice"] body.game-body #game-left-nav > :not(#building-shortcut-grid),
+body.game-body[data-onboarding-step="production-choice"] #game-left-nav > :not(#building-shortcut-grid) {
+  opacity: 0.14 !important;
+  filter: brightness(0.42) saturate(0.64) !important;
+}
+
+html[data-onboarding-step="production-choice"] body.game-body #building-shortcut-grid.is-onboarding-focus-target,
+body.game-body[data-onboarding-step="production-choice"] #building-shortcut-grid.is-onboarding-focus-target {
+  opacity: 1 !important;
+  filter: brightness(1.1) saturate(1.08) !important;
+  isolation: isolate;
+  outline: 1px solid rgba(245, 204, 102, 0.46);
+  outline-offset: 5px;
+  box-shadow:
+    0 0 22px rgba(245, 204, 102, 0.22),
+    0 0 34px rgba(84, 223, 245, 0.1) !important;
+}
+
+html[data-onboarding-step="production-choice"] body.game-body #building-shortcut-grid .building-shortcut-button.is-onboarding-focus-target,
+body.game-body[data-onboarding-step="production-choice"] #building-shortcut-grid .building-shortcut-button.is-onboarding-focus-target {
+  opacity: 1 !important;
+  filter: brightness(1.2) saturate(1.18) !important;
+  outline: 1px solid rgba(245, 204, 102, 0.72);
+  outline-offset: 2px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 244, 205, 0.08),
+    0 0 16px rgba(245, 204, 102, 0.34),
+    0 0 24px rgba(84, 223, 245, 0.12),
+    0 10px 24px rgba(0, 0, 0, 0.42) !important;
+}
+
+html[data-onboarding-step="alliance-guide"] body.game-body #game-rail-right.is-onboarding-focus-target,
+html[data-onboarding-step="alliance-guide"] body.game-body #alliance-chat-card.is-onboarding-focus-target,
+body.game-body[data-onboarding-step="alliance-guide"] #game-rail-right.is-onboarding-focus-target,
+body.game-body[data-onboarding-step="alliance-guide"] #alliance-chat-card.is-onboarding-focus-target {
+  position: relative !important;
+  opacity: 1 !important;
+  filter: brightness(1.1) saturate(1.08) !important;
+  isolation: isolate;
+  z-index: calc(var(--onboarding-z-backdrop) + 14) !important;
+}
+
+html[data-onboarding-step="alliance-guide"] body.game-body #alliance-chat-card.is-onboarding-focus-target {
+  outline: 1px solid rgba(245, 204, 102, 0.54);
+  outline-offset: 4px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 0 20px rgba(245, 204, 102, 0.24),
+    0 0 32px rgba(84, 223, 245, 0.18),
+    0 14px 30px rgba(0, 0, 0, 0.42) !important;
+}
+
+html[data-onboarding-step="alliance-guide"] body.game-body #alliance-btn.is-onboarding-focus-target,
+body.game-body[data-onboarding-step="alliance-guide"] #alliance-btn.is-onboarding-focus-target {
+  opacity: 1 !important;
+  filter: brightness(1.18) saturate(1.12) !important;
+  outline: 1px solid rgba(84, 223, 245, 0.72);
+  outline-offset: 2px;
+  box-shadow:
+    inset 0 0 0 1px rgba(245, 204, 102, 0.16),
+    0 0 17px rgba(84, 223, 245, 0.34),
+    0 0 28px rgba(245, 204, 102, 0.22) !important;
+}
+
+html[data-onboarding-step="bounty-boost-guide"] body.game-body .map-phase-toolbar.is-onboarding-focus-target,
+html[data-onboarding-step="bounty-boost-guide"] body.game-body .map-stage-actions--desktop.is-onboarding-focus-target,
+html[data-onboarding-step="bounty-boost-guide"] body.game-body .map-stage-actions--mobile.is-onboarding-focus-target,
+body.game-body[data-onboarding-step="bounty-boost-guide"] .map-phase-toolbar.is-onboarding-focus-target,
+body.game-body[data-onboarding-step="bounty-boost-guide"] .map-stage-actions--desktop.is-onboarding-focus-target,
+body.game-body[data-onboarding-step="bounty-boost-guide"] .map-stage-actions--mobile.is-onboarding-focus-target {
+  position: relative !important;
+  opacity: 1 !important;
+  filter: none !important;
+  isolation: isolate;
+  z-index: calc(var(--onboarding-z-backdrop) + 14) !important;
+}
+
+html[data-onboarding-step="bounty-boost-guide"] body.game-body [data-bounty-open-trigger].is-onboarding-focus-target,
+body.game-body[data-onboarding-step="bounty-boost-guide"] [data-bounty-open-trigger].is-onboarding-focus-target {
+  opacity: 1 !important;
+  filter: brightness(1.18) saturate(1.2) !important;
+  outline: 1px solid rgba(245, 204, 102, 0.7);
+  outline-offset: 3px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 223, 150, 0.12),
+    0 0 18px rgba(255, 52, 75, 0.52),
+    0 0 30px rgba(245, 204, 102, 0.26) !important;
+}
+
+html[data-onboarding-step="bounty-boost-guide"] body.game-body [data-boost-open-trigger].is-onboarding-focus-target,
+body.game-body[data-onboarding-step="bounty-boost-guide"] [data-boost-open-trigger].is-onboarding-focus-target {
+  opacity: 1 !important;
+  filter: brightness(1.18) saturate(1.16) !important;
+  outline: 1px solid rgba(245, 204, 102, 0.68);
+  outline-offset: 3px;
+  box-shadow:
+    inset 0 0 0 1px rgba(245, 204, 102, 0.14),
+    0 0 18px rgba(84, 223, 245, 0.5),
+    0 0 30px rgba(245, 204, 102, 0.22) !important;
 }
 
 html body.game-body #profile-gang-card .gang-profile-row.is-onboarding-focus-target,
@@ -1221,18 +1338,18 @@ html[data-onboarding-step="attack-order"] body.game-body #trap-confirm-modal[dat
 }
 
 .empire-onboarding__eyebrow {
-  color: #9cc7f0;
-  text-shadow: 0 0 12px rgba(22, 74, 127, 0.48);
+  color: var(--onboarding-cyan);
+  text-shadow: 0 0 12px rgba(var(--onboarding-cyan-rgb), 0.34);
 }
 
 .empire-onboarding__phase {
   width: max-content;
   max-width: 100%;
   padding: 3px 7px;
-  border: 1px solid rgba(157, 77, 255, 0.38);
+  border: 1px solid rgba(var(--onboarding-gold-rgb), 0.34);
   border-radius: 999px;
-  background: rgba(20, 6, 34, 0.78);
-  color: #dfcaff;
+  background: rgba(5, 9, 14, 0.78);
+  color: var(--onboarding-gold);
 }
 
 .empire-onboarding__progress {
@@ -1241,17 +1358,17 @@ html[data-onboarding-step="attack-order"] body.game-body #trap-confirm-modal[dat
   min-width: 88px;
   overflow: hidden;
   padding: 5px 8px;
-  border: 1px solid rgba(248, 213, 107, 0.28);
+  border: 1px solid rgba(var(--onboarding-gold-rgb), 0.34);
   border-radius: 999px;
   background:
     linear-gradient(135deg, rgba(0, 0, 0, 0.58), rgba(5, 13, 25, 0.6)),
     rgba(0, 0, 0, 0.42);
-  color: #ffe6a3;
+  color: #ffe9aa;
   text-align: center;
   white-space: nowrap;
   box-shadow:
-    inset 0 0 14px rgba(248, 213, 107, 0.06),
-    0 0 16px rgba(22, 74, 127, 0.16);
+    inset 0 0 14px rgba(var(--onboarding-gold-rgb), 0.07),
+    0 0 16px rgba(var(--onboarding-cyan-rgb), 0.12);
 }
 
 .empire-onboarding__progress::after {
@@ -1270,14 +1387,14 @@ html[data-onboarding-step="attack-order"] body.game-body #trap-confirm-modal[dat
   height: 6px;
   margin-bottom: 11px;
   overflow: hidden;
-  border: 1px solid rgba(248, 213, 107, 0.16);
+  border: 1px solid rgba(var(--onboarding-gold-rgb), 0.2);
   border-radius: 999px;
   background:
-    linear-gradient(90deg, rgba(248, 213, 107, 0.08), rgba(22, 74, 127, 0.16)),
+    linear-gradient(90deg, rgba(var(--onboarding-gold-rgb), 0.09), rgba(var(--onboarding-cyan-rgb), 0.12)),
     rgba(0, 0, 0, 0.42);
   box-shadow:
     inset 0 0 12px rgba(0, 0, 0, 0.58),
-    0 0 12px rgba(22, 74, 127, 0.18);
+    0 0 12px rgba(var(--onboarding-cyan-rgb), 0.12);
 }
 
 .empire-onboarding__progress-fill {
@@ -1287,10 +1404,10 @@ html[data-onboarding-step="attack-order"] body.game-body #trap-confirm-modal[dat
   overflow: hidden;
   border-radius: inherit;
   background:
-    linear-gradient(90deg, rgba(248, 213, 107, 0.96), rgba(22, 74, 127, 0.96));
+    linear-gradient(90deg, rgba(var(--onboarding-gold-rgb), 0.98), rgba(var(--onboarding-cyan-rgb), 0.9));
   box-shadow:
-    0 0 14px rgba(248, 213, 107, 0.24),
-    0 0 18px rgba(22, 74, 127, 0.24);
+    0 0 14px rgba(var(--onboarding-gold-rgb), 0.26),
+    0 0 18px rgba(var(--onboarding-cyan-rgb), 0.18);
   transition: width 220ms ease;
 }
 
@@ -1334,11 +1451,11 @@ html[data-onboarding-step="attack-order"] body.game-body #trap-confirm-modal[dat
 
 .empire-onboarding__title {
   margin: 0;
-  color: #ffffff;
-  font-size: 18px;
-  line-height: 1.08;
+  color: #fffdf5;
+  font-size: 19px;
+  line-height: 1.12;
   letter-spacing: 0;
-  text-shadow: 0 0 18px rgba(248, 213, 107, 0.18), 0 0 16px rgba(22, 74, 127, 0.18);
+  text-shadow: 0 0 18px rgba(var(--onboarding-gold-rgb), 0.2), 0 0 16px rgba(var(--onboarding-cyan-rgb), 0.12);
   animation: onboardingStepGlow 220ms ease-out both;
 }
 
@@ -1366,7 +1483,7 @@ html[data-onboarding-step="attack-order"] body.game-body #trap-confirm-modal[dat
   margin-top: 8px;
   overflow: visible;
   padding-right: 0;
-  scrollbar-color: rgba(251, 54, 90, 0.52) rgba(255, 255, 255, 0.06);
+  scrollbar-color: rgba(var(--onboarding-gold-rgb), 0.54) rgba(255, 255, 255, 0.06);
   scrollbar-width: thin;
 }
 
@@ -1374,12 +1491,12 @@ html[data-onboarding-step="attack-order"] body.game-body #trap-confirm-modal[dat
 .empire-onboarding__task {
   margin: 0;
   font-size: 13px;
-  line-height: 1.38;
+  line-height: 1.5;
   letter-spacing: 0;
 }
 
 .empire-onboarding__body {
-  color: rgba(226, 237, 255, 0.9);
+  color: rgba(247, 242, 223, 0.92);
 }
 
 .empire-onboarding__body-paragraph {
@@ -1397,8 +1514,8 @@ html[data-onboarding-step="attack-order"] body.game-body #trap-confirm-modal[dat
 }
 
 .empire-onboarding__body-accent[data-tone="cyan"] {
-  color: #9cc7f0;
-  text-shadow: 0 0 12px rgba(22, 74, 127, 0.42);
+  color: var(--onboarding-cyan);
+  text-shadow: 0 0 12px rgba(var(--onboarding-cyan-rgb), 0.34);
 }
 
 .empire-onboarding__body-accent[data-tone="green"] {
@@ -1416,12 +1533,12 @@ html[data-onboarding-step="attack-order"] body.game-body #trap-confirm-modal[dat
   gap: 4px;
   margin-top: 10px;
   padding: 10px 11px;
-  border: 1px solid rgba(255, 79, 216, 0.28);
-  border-radius: 9px;
+  border: 1px solid rgba(var(--onboarding-gold-rgb), 0.28);
+  border-radius: 10px;
   background:
-    linear-gradient(90deg, rgba(64, 5, 29, 0.92), rgba(10, 7, 22, 0.88));
-  color: #ffd7df;
-  box-shadow: inset 0 0 18px rgba(255, 79, 216, 0.08);
+    linear-gradient(90deg, rgba(16, 12, 5, 0.9), rgba(3, 9, 15, 0.88));
+  color: var(--onboarding-text);
+  box-shadow: inset 0 0 18px rgba(var(--onboarding-gold-rgb), 0.06);
 }
 
 .empire-onboarding__summary {
@@ -1567,7 +1684,7 @@ html[data-onboarding-step="attack-order"] body.game-body #trap-confirm-modal[dat
   gap: 8px;
   margin-top: 11px;
   padding-top: 9px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(var(--onboarding-gold-rgb), 0.16);
   background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.42));
 }
 
@@ -1606,9 +1723,9 @@ html[data-onboarding-step="attack-order"] body.game-body #trap-confirm-modal[dat
   align-self: center;
   justify-self: stretch;
   padding: 0 14px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(0, 0, 0, 0.28);
-  color: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(220, 226, 235, 0.16);
+  background: rgba(0, 0, 0, 0.32);
+  color: var(--onboarding-muted);
   font-size: 12px;
   box-shadow: none;
 }
@@ -1627,10 +1744,10 @@ html[data-onboarding-step="attack-order"] body.game-body #trap-confirm-modal[dat
   align-self: center;
   justify-self: stretch;
   padding: 0 12px;
-  border: 1px solid rgba(22, 74, 127, 0.44);
+  border: 1px solid rgba(var(--onboarding-gold-rgb), 0.34);
   background:
-    linear-gradient(135deg, rgba(4, 14, 26, 0.74), rgba(0, 0, 0, 0.34));
-  color: rgba(224, 238, 255, 0.9);
+    linear-gradient(135deg, rgba(13, 12, 8, 0.8), rgba(0, 0, 0, 0.42));
+  color: rgba(247, 242, 223, 0.9);
   font-size: 12px;
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.04),
@@ -1659,24 +1776,27 @@ html[data-onboarding-step="attack-order"] body.game-body #trap-confirm-modal[dat
 }
 
 .empire-onboarding__button--primary {
-  border: 1px solid rgba(248, 213, 107, 0.58);
+  border: 1px solid rgba(var(--onboarding-gold-rgb), 0.78);
   background:
-    linear-gradient(135deg, rgba(248, 213, 107, 0.94), rgba(22, 74, 127, 0.96)),
+    linear-gradient(135deg, #ffe49a, #d4a638),
     linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent);
-  color: #ffffff;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.42);
+  color: #110d04;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.24);
   box-shadow:
-    0 0 18px rgba(248, 213, 107, 0.2),
-    0 0 20px rgba(22, 74, 127, 0.24),
+    0 0 18px rgba(var(--onboarding-gold-rgb), 0.28),
+    0 0 20px rgba(var(--onboarding-cyan-rgb), 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
 .empire-onboarding__button--primary:hover,
 .empire-onboarding__button--primary:focus-visible {
-  border-color: rgba(38, 92, 150, 0.78);
+  border-color: rgba(255, 235, 168, 0.9);
+  background:
+    linear-gradient(135deg, #ffe9aa, #e0b64d),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent);
   box-shadow:
-    0 0 20px rgba(248, 213, 107, 0.26),
-    0 0 28px rgba(22, 74, 127, 0.3),
+    0 0 22px rgba(var(--onboarding-gold-rgb), 0.36),
+    0 0 28px rgba(var(--onboarding-cyan-rgb), 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.34);
 }
 
