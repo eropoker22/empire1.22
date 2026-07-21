@@ -46,16 +46,19 @@ describe("login about encyclopedia", () => {
     expect(demoSource).toContain("bindLoginAboutModal();");
   });
 
-  it("uses canonical public server facts and honest planned statuses", () => {
+  it("uses public server facts and honest planned statuses", () => {
     expect(ABOUT_GAME_FACTS).toMatchObject({ maxPlayers: 20, districtCount: 161, downtownCount: 8, warOpen: false });
     const market = ABOUT_GAME_SECTIONS.find((section) => section.id === "market");
     expect(market?.status).toBe("Částečně aktivní");
-    expect(market?.chips).toContain("Lobby market: připravuje se");
+    expect(market?.chips).toContain("Lobby Market: připravuje se");
     expect(ABOUT_GAME_SECTIONS.find((section) => section.id === "war-mode")?.status).toBe("Připravuje se");
+    expect(ABOUT_GAME_SECTIONS.find((section) => section.id === "purge")?.status).toBe("Závisí na serveru");
   });
 
   it.each([
     ["overview", "Přehled"],
+    ["factions", "Frakce"],
+    ["victory", "Jak vyhrát"],
     ["attack", "Útok"],
     ["trap", "Past"],
     ["bounty", "Bounty"],
@@ -114,9 +117,22 @@ describe("login about encyclopedia", () => {
     expect(overlay.hidden).toBe(true);
   });
 
-  it("preserves the original copy and responsive accessibility rules", () => {
-    expect(pageSource).toContain("Neon se odráží v mokrém asfaltu");
-    expect(pageSource).toContain("Město sleduje každý tvůj krok.");
+  it("uses player-facing copy and responsive accessibility rules", () => {
+    const playerCopy = ABOUT_GAME_SECTIONS.flatMap((entry) => [
+      entry.label, entry.hook, entry.intro, ...entry.howItWorks, ...entry.decidingFactors, ...entry.risks, entry.callout, ...entry.chips
+    ]).join(" ");
+    expect(pageSource).toContain("MĚSTO NEMÁ PRAVIDLA. JEN NÁSLEDKY.");
+    expect(pageSource).toContain("Neon se láme v kalužích");
+    expect(pageSource).toContain("MĚSTO SLEDUJE KAŽDÝ TVŮJ KROK.");
+    expect(ABOUT_GAME_SECTIONS.find((entry) => entry.id === "servers")?.intro).toContain("60 minut");
+    expect(ABOUT_GAME_SECTIONS.find((entry) => entry.id === "servers")?.intro).toContain("dvou připravených hráčích");
+    expect(ABOUT_GAME_SECTIONS.find((entry) => entry.id === "membership")?.intro).toContain("první hodiny od startu serveru");
+    expect(ABOUT_GAME_SECTIONS.find((entry) => entry.id === "storage")?.intro).not.toContain("lokálním slotu");
+    expect(ABOUT_GAME_SECTIONS.find((entry) => entry.id === "defense")?.intro).toContain("Obranná věž");
+    expect(ABOUT_GAME_SECTIONS.find((entry) => entry.id === "defense")?.intro).not.toContain("kulomet");
+    expect(ABOUT_GAME_SECTIONS.find((entry) => entry.id === "economy")?.howItWorks.join(" ")).not.toContain("vždy očistit");
+    expect(ABOUT_GAME_SECTIONS.find((entry) => entry.id === "final-lockdown")?.howItWorks.join(" ")).not.toContain("Vyhraje to");
+    for (const term of ["join policy", "membership", "canonical"]) expect(playerCopy.toLowerCase()).not.toContain(term);
     expect(pageSource).toContain('role="dialog" aria-modal="true"');
     expect(pageSource).toContain('role="tablist"');
     expect(aboutStyles).toContain("@media (max-width: 780px)");
