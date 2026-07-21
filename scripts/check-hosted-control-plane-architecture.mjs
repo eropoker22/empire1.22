@@ -46,11 +46,16 @@ const lobbyEntry = text("page-assets/js/lobby-entry.js");
 const loginEntry = text("page-assets/js/login-entry.js");
 const factionEntry = text("page-assets/js/faction-entry.js");
 const localDemoGate = text("page-assets/js/app/local-demo-gate.js");
+const lifecyclePolicy = text("packages/game-config/src/public/free-hosted-server-lifecycle-policy.ts");
+const controlPlanePolicy = text("apps/server/src/admin/hosted/hosted-control-plane-policy.ts");
+const lifecycleCompletion = text("apps/server/src/admin/hosted/hosted-lifecycle-action-completion.ts");
+const postgresJoin = text("apps/server/src/admin/hosted/postgres-hosted-join-repository.ts");
+const readyMembershipQuery = text("apps/server/src/runtime/persistence/postgres/hosted-ready-membership-query.ts");
 check(handler.includes('header(request.headers, "idempotency-key")'), "create and lifecycle endpoints require Idempotency-Key");
 check(handler.includes("expectedVersion") || text("apps/server/src/admin/hosted/hosted-control-plane-service.ts").includes("expectedVersion"), "lifecycle actions require expectedVersion");
 check(!/hard-delete|reset-server|grant-money|grant-resources|edit-player/u.test(handler), "forbidden destructive/gameplay admin endpoint detected");
 check(!tracked.some((path) => path.endsWith(".ts") && /EMPIRE_ADMIN_SECRET|x-empire-admin-secret/u.test(text(path))), "legacy shared admin secret is forbidden");
-check(matchmakingHandler.includes('repositories?.kind === "postgres"') && matchmakingHandler.includes("listHostedPublicServerCandidates"), "hosted matchmaking must use the durable PostgreSQL registry");
+check(matchmakingHandler.includes('repositories?.kind === "postgres"') && matchmakingHandler.includes("listHostedPublicServers"), "hosted matchmaking must use the durable PostgreSQL registry");
 check(!matchmakingHandler.includes("publicServerRegistry"), "production matchmaking handler must not import the hardcoded public registry");
 check(functionHandler.includes("EMPIRE_LEGACY_MATCHMAKING_ENABLED"), "legacy matchmaking must be explicitly disabled in production");
 check(lobbyPage.includes("lobby-entry.js") && lobbyEntry.includes("isExplicitLocalDemoEnabled") && hasDynamicModuleImport(lobbyEntry, "./lobby-live.js"), "production lobby defaults to the live account/membership entrypoint");
@@ -63,6 +68,25 @@ check(entryMigration.includes("empire_server_memberships_reserved_district_idx")
 check(runtimeForeignKeyMigration.includes("REFERENCES empire_server_instances (server_instance_id)"), "atomic command foreign keys use the canonical server instance ID");
 check(text("apps/server/src/admin/hosted/hosted-control-plane-service.ts").includes('repositories.kind === "postgres"'), "production admin writes must require PostgreSQL");
 check(text("apps/server/src/runtime/persistence/postgres/migrations/007_hosted_server_control_plane.sql").includes("status <> 'running'"), "running status must require a lease invariant");
+check(lifecyclePolicy.includes("minimumReadyPlayersToStart: 2") && lifecyclePolicy.includes("registrationWindowMs: 60 * 60 * 1000"),
+  "hosted Free lifecycle must keep the two-player start and one-hour window canonical");
+check(lifecyclePolicy.includes('control: Object.freeze({') && lifecyclePolicy.includes("eliminationEnabled: false")
+  && lifecyclePolicy.includes('full: Object.freeze({') && lifecyclePolicy.includes("eliminationEnabled: true"),
+  "control and full server templates must explicitly separate elimination policy");
+check(controlPlanePolicy.includes("CREATE_KEYS") && !controlPlanePolicy.match(/CREATE_KEYS[^;]+registrationClosesAt/us),
+  "browser create payload must not control registrationClosesAt");
+check(controlPlanePolicy.includes("resolveModeConfig(mode)") && controlPlanePolicy.includes("config.balance.maxPlayersPerServer"),
+  "hosted capacity must remain canonical and independent from minimum ready players");
+check(lifecycleCompletion.includes('joinPolicy: registration.state === "open" ? "open" : "closed"'),
+  "starting a hosted server must preserve an open registration window");
+check(readyMembershipQuery.includes("FROM empire_server_memberships membership")
+  && readyMembershipQuery.includes("membership.status='active'")
+  && readyMembershipQuery.includes("JOIN empire_snapshot_latest snapshot")
+  && readyMembershipQuery.includes("'homeDistrictId'")
+  && !readyMembershipQuery.includes("reservation.status='reserved'"),
+  "start readiness must use durable active memberships rather than pending join reservations");
+check(postgresJoin.indexOf("FOR UPDATE") < postgresJoin.indexOf("SELECT clock_timestamp() AS now"),
+  "join boundary must read authoritative database time after acquiring the server lock");
 const migrationContract = text("apps/server/src/runtime/persistence/postgres/production-migration-contract.ts");
 const migrationPaths = tracked.filter((path) =>
   /^apps\/server\/src\/runtime\/persistence\/postgres\/migrations\/\d{3}_[a-z0-9_]+\.sql$/u.test(path)

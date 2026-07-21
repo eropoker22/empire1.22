@@ -66,7 +66,7 @@ describe("hosted runtime worker recovery", () => {
       .loadLatest(record.serverInstanceId)).toBeNull();
     expect(await controlPlane.getServer(record.serverInstanceId)).toMatchObject({
       status: "running",
-      lastErrorCode: "RUNTIME_SNAPSHOT_MISSING"
+      lastErrorCode: null
     });
   });
 
@@ -136,7 +136,7 @@ describe("hosted runtime worker recovery", () => {
     expect(await controlPlane.getServer(record.serverInstanceId)).toMatchObject({
       status: "running",
       joinPolicy: "open",
-      lastErrorCode: "MEMBERSHIP_SYNC_FAILED"
+      lastErrorCode: null
     });
 
     await worker.runOnce();
@@ -311,15 +311,28 @@ const withSnapshot = (record: HostedServerRecord, snapshot: InstanceSnapshotDto)
   currentSnapshotId: snapshot.snapshotId
 });
 
-const server = (serverInstanceId: string, overrides: Partial<HostedServerRecord> = {}): HostedServerRecord => ({
+const server = (serverInstanceId: string, overrides: Partial<HostedServerRecord> = {}): HostedServerRecord => Object.assign({
   serverInstanceId,
   mode: "free",
+  serverTemplate: "full",
   displayName: serverInstanceId,
   region: "eu-central",
   capacity: 20,
   status: "running",
   joinPolicy: "open",
   provisioningState: "ready",
+  minimumReadyPlayersToStart: 2,
+  registrationWindowMinutes: 60,
+  registrationScheduleVersion: 1,
+  registrationOpensAt: new Date(T0.getTime() - 30 * 60_000).toISOString(),
+  registrationClosesAt: new Date(T0.getTime() + 30 * 60_000).toISOString(),
+  registrationClosedAt: null,
+  registrationBaselinePlayers: null,
+  canonicalFinalLockdownTrigger: 8,
+  canonicalFirstEliminationTick: 5_760,
+  canonicalTickRateMs: 5_000,
+  effectiveFinalLockdownTrigger: null,
+  effectiveFirstEliminationTick: null,
   worldSeed: `seed:${serverInstanceId}`,
   configVersion: 1,
   mapComposition: MAP,
@@ -335,9 +348,8 @@ const server = (serverInstanceId: string, overrides: Partial<HostedServerRecord>
   createdByAdminUserId: "admin:test",
   createdAt: T0.toISOString(),
   updatedAt: T0.toISOString(),
-  version: 1,
-  ...overrides
-});
+  version: 1
+} satisfies HostedServerRecord, overrides);
 
 const provisioningJob = (serverInstanceId: string): HostedProvisioningJobRecord => ({
   jobId: `provisioning-job:${serverInstanceId}`,

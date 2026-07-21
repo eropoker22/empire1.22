@@ -698,7 +698,13 @@ const createHostedProductionFixture = (id: string): AdminDurableRepositories => 
   const memory = createInMemoryAdminDurableRepositories({ instances: [summary] });
   const hosted: HostedServerRecord = {
     serverInstanceId: id, mode: "free", displayName: "Production fixture", region: "EU Central",
+    serverTemplate: "full",
     capacity: 20, status: "running", joinPolicy: "open", provisioningState: "ready",
+    minimumReadyPlayersToStart: 2, registrationWindowMinutes: 60, registrationScheduleVersion: 1,
+    registrationOpensAt: new Date(now.getTime() - 30 * 60_000).toISOString(),
+    registrationClosesAt: new Date(now.getTime() + 30 * 60_000).toISOString(), registrationClosedAt: null,
+    registrationBaselinePlayers: null, canonicalFinalLockdownTrigger: 8, canonicalFirstEliminationTick: 5_760,
+    canonicalTickRateMs: 5_000, effectiveFinalLockdownTrigger: null, effectiveFirstEliminationTick: null,
     worldSeed: "production-test-seed", configVersion: 1,
     mapComposition: { downtown: 8, commercial: 40, residential: 38, industrial: 38, park: 37 },
     initialSnapshotId: "snapshot:test", currentSnapshotId: "snapshot:test",

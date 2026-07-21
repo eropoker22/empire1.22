@@ -59,7 +59,6 @@ export const createInMemoryHostedRuntimeRepository = (state: {
       state.runtimeLeaseIncarnations.get(input.serverInstanceId) !== input.workerIncarnationId ||
       !server.runtimeLeaseExpiresAt || server.runtimeLeaseExpiresAt <= input.at ||
       input.leaseExpiresAt <= input.at) return;
-    Object.assign(server, { lastWorkerHeartbeatAt: input.at, runtimeLeaseExpiresAt: input.leaseExpiresAt,
-      lastErrorCode: input.lastErrorCode });
+    Object.assign(server, { lastWorkerHeartbeatAt: input.at, runtimeLeaseExpiresAt: input.leaseExpiresAt });
   }
 });

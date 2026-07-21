@@ -11,6 +11,8 @@ import { ACTION_COLUMNS, type ActionRow, failActionIfLeaseCurrent, insertAction,
   prepareRuntimeRestart, SERVER_SELECT, type HostedServerRow, type WorkerRow } from "./postgres-hosted-control-plane-helpers";
 import { createPostgresHostedJoinRepository } from "./postgres-hosted-join-repository";
 import { createPostgresHostedProvisioningRepository } from "./postgres-hosted-provisioning-repository";
+import { createPostgresHostedRegistrationRepository } from "./postgres-hosted-registration-repository";
+import { completePostgresHostedAction } from "./postgres-hosted-action-completion";
 
 export const createPostgresHostedControlPlaneRepository = (
   database: PostgresDatabase
@@ -18,6 +20,7 @@ export const createPostgresHostedControlPlaneRepository = (
   durable: true,
   ...createPostgresHostedJoinRepository(database),
   ...createPostgresHostedProvisioningRepository(database),
+  ...createPostgresHostedRegistrationRepository(database),
   isSchemaCurrent: () => isProductionSchemaCurrent(database),
   listServers: async () => {
     const result = await database.query<HostedServerRow>(`${SERVER_SELECT} ORDER BY created_at, server_instance_id`);
@@ -77,6 +80,12 @@ export const createPostgresHostedControlPlaneRepository = (
     if (!server.rows[0]) return { kind: "not-found" };
     if (server.rows[0].provisioning_state !== "ready") return { kind: "not-ready" };
     if (Number(server.rows[0].version) !== input.request.expectedVersion) return { kind: "stale-version" };
+    const activeOperation = await client.query(
+      `SELECT action_request_id FROM empire_hosted_server_action_requests
+       WHERE server_instance_id=$1 AND status IN ('requested','processing') LIMIT 1`,
+      [input.request.serverInstanceId]
+    );
+    if ((activeOperation.rowCount ?? 0) > 0) return { kind: "operation-active" };
     const reserved = await client.query(
       `INSERT INTO empire_hosted_server_idempotency
        (id,admin_user_id,operation,idempotency_key,request_hash,resource_id,response_payload,created_at,updated_at)
@@ -112,33 +121,7 @@ export const createPostgresHostedControlPlaneRepository = (
     return result.rows[0] ? mapAction(result.rows[0]) : null;
   },
   prepareRuntimeRestart: (input) => database.transaction((client) => prepareRuntimeRestart(client, input)),
-  completeAction: (input) => database.transaction(async (client) => {
-    const workerId = input.request.claimedByWorkerId;
-    if (!workerId || !await lockCurrentActionClaim(client, input)) return false;
-    const changed = await client.query(
-      `UPDATE empire_hosted_server_instances SET status=$2, join_policy=$3,
-       last_started_at=CASE WHEN $6='start' THEN $4::timestamptz ELSE last_started_at END,
-       last_paused_at=CASE WHEN $2='paused' THEN $4::timestamptz ELSE last_paused_at END,
-       last_stopped_at=CASE WHEN $2='stopped' THEN $4::timestamptz ELSE last_stopped_at END,
-       last_error_code=NULL,updated_at=$4::timestamptz, version=version+1
-       WHERE server_instance_id=$1 AND version=$5 AND runtime_lease_owner_id=$7
-         AND runtime_lease_incarnation_id=$8
-         AND runtime_lease_expires_at > $4::timestamptz RETURNING server_instance_id`,
-      [input.request.serverInstanceId, input.nextStatus, input.nextJoinPolicy, input.at, input.request.expectedVersion,
-        input.request.action, workerId, input.workerIncarnationId]
-    );
-    if ((changed.rowCount ?? 0) === 0) return false;
-    await client.query(
-      `UPDATE empire_server_instances SET status=$2,payload=jsonb_set(payload,'{joinPolicy}',to_jsonb($3::text)),
-       updated_at=$4::timestamptz WHERE server_instance_id=$1`,
-      [input.request.serverInstanceId, input.nextStatus, input.nextJoinPolicy, input.at]
-    );
-    await client.query(
-      `UPDATE empire_hosted_server_action_requests SET status='completed',claimed_until=NULL,updated_at=$2::timestamptz,
-       version=version+1 WHERE action_request_id=$1`, [input.request.actionRequestId, input.at]);
-    await insertAudit(client, input.audit);
-    return true;
-  }),
+  completeAction: (input) => completePostgresHostedAction(database, input),
   failAction: (input) => database.transaction(async (client) => {
     if (!input.request.claimedByWorkerId || !await lockCurrentActionClaim(client, input)) return false;
     if (!await failActionIfLeaseCurrent(client, {

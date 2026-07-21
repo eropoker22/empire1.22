@@ -1,17 +1,20 @@
 import type { PostgresDatabase } from "../../runtime/persistence/postgres";
 import type {
   HostedControlPlaneRepository,
-  HostedJoinJobRecord,
   HostedJoinReservationRecord,
   HostedJoinReservationResult
 } from "./hosted-control-plane-repository";
+import {
+  isPostgresHostedServerJoinableAt,
+  type PostgresHostedJoinGateRow
+} from "./postgres-hosted-join-gate";
+import { claimPostgresHostedJoinJob, loadPostgresHostedJoinJob } from "./postgres-hosted-join-job";
 
 type JoinMethods = Pick<HostedControlPlaneRepository,
   "getJoinReservation" | "getJoinReservationByIdempotency" | "reserveJoinTransaction" |
   "claimJoinJob" | "completeJoin" | "failJoin" | "expireJoinReservations" | "getJoinCapacity">;
 
 interface ReservationRow extends Record<string, unknown> { [key: string]: unknown }
-interface JoinJobRow extends Record<string, unknown> { [key: string]: unknown }
 
 export const createPostgresHostedJoinRepository = (database: PostgresDatabase): JoinMethods => ({
   getJoinReservation: async (reservationId) => {
@@ -35,21 +38,25 @@ export const createPostgresHostedJoinRepository = (database: PostgresDatabase): 
       if (reservation.serverInstanceId !== input.reservation.serverInstanceId || reservation.requestHash !== input.reservation.requestHash) {
         return { kind: "conflict" } satisfies HostedJoinReservationResult;
       }
-      return { kind: "replayed", reservation, job: await loadJob(client, reservation.reservationId) } satisfies HostedJoinReservationResult;
+      return { kind: "replayed", reservation, job: await loadPostgresHostedJoinJob(client, reservation.reservationId) } satisfies HostedJoinReservationResult;
     }
 
-    const server = await client.query<{ version: string | number; capacity: number; status: string; join_policy: string; provisioning_state: string }>(
-      `SELECT version,capacity,status,join_policy,provisioning_state
+    const server = await client.query<PostgresHostedJoinGateRow>(
+      `SELECT version,capacity,status,join_policy,provisioning_state,current_snapshot_id,runtime_lease_owner_id,
+        runtime_lease_expires_at,last_worker_heartbeat_at,registration_opens_at,registration_closes_at,
+        registration_closed_at,registration_window_minutes
        FROM empire_hosted_server_instances WHERE server_instance_id=$1 FOR UPDATE`,
       [input.reservation.serverInstanceId]
     );
     const hosted = server.rows[0];
     if (!hosted) return { kind: "not-found" } satisfies HostedJoinReservationResult;
+    const databaseClock = await client.query<{ now: unknown }>("SELECT clock_timestamp() AS now");
+    const databaseNow = iso(databaseClock.rows[0]?.now);
 
     await client.query(
       `UPDATE empire_hosted_join_reservations SET status='expired',updated_at=$2::timestamptz,version=version+1
        WHERE server_instance_id=$1 AND status='reserved' AND expires_at <= $2::timestamptz`,
-      [input.reservation.serverInstanceId, input.reservation.createdAt]
+      [input.reservation.serverInstanceId, databaseNow]
     );
     const active = await client.query<ReservationRow>(
       `${RESERVATION_SELECT} WHERE server_instance_id=$1 AND player_identity_id=$2 AND status IN ('reserved','committed')`,
@@ -57,12 +64,12 @@ export const createPostgresHostedJoinRepository = (database: PostgresDatabase): 
     );
     if (active.rows[0]) {
       const reservation = mapReservation(active.rows[0]);
-      return { kind: "replayed", reservation, job: await loadJob(client, reservation.reservationId) } satisfies HostedJoinReservationResult;
+      return { kind: "replayed", reservation, job: await loadPostgresHostedJoinJob(client, reservation.reservationId) } satisfies HostedJoinReservationResult;
     }
     if (Number(hosted.version) !== input.reservation.expectedServerVersion) {
       return { kind: "stale-version" } satisfies HostedJoinReservationResult;
     }
-    if (hosted.provisioning_state !== "ready" || hosted.join_policy !== "open" || !["lobby", "running"].includes(hosted.status)) {
+    if (!isPostgresHostedServerJoinableAt(hosted, new Date(databaseNow))) {
       return { kind: "not-joinable" } satisfies HostedJoinReservationResult;
     }
     const capacity = await client.query<{ committed_players: string | number; reserved_slots: string | number }>(
@@ -76,7 +83,7 @@ export const createPostgresHostedJoinRepository = (database: PostgresDatabase): 
         ) occupied) AS committed_players,
         (SELECT count(*) FROM empire_hosted_join_reservations
           WHERE server_instance_id=$1 AND status='reserved' AND expires_at > $2::timestamptz) AS reserved_slots`,
-      [input.reservation.serverInstanceId, input.reservation.createdAt]
+      [input.reservation.serverInstanceId, databaseNow]
     );
     const committedPlayers = Number(capacity.rows[0]?.committed_players ?? 0);
     const reservedSlots = Number(capacity.rows[0]?.reserved_slots ?? 0);
@@ -108,22 +115,7 @@ export const createPostgresHostedJoinRepository = (database: PostgresDatabase): 
     );
     return { kind: "created", reservation, job: input.job } satisfies HostedJoinReservationResult;
   }),
-  claimJoinJob: async (workerId, now, claimedUntil) => {
-    const result = await database.query<JoinJobRow>(
-      `WITH candidate AS (
-         SELECT job.job_id FROM empire_hosted_join_jobs job
-         JOIN empire_hosted_join_reservations reservation ON reservation.reservation_id=job.reservation_id
-         WHERE (job.status='pending' OR (job.status='claimed' AND job.claimed_until <= $2::timestamptz))
-           AND job.available_at <= $2::timestamptz AND reservation.status='reserved'
-           AND reservation.expires_at > $2::timestamptz
-         ORDER BY job.available_at,job.created_at FOR UPDATE OF job SKIP LOCKED LIMIT 1
-       ) UPDATE empire_hosted_join_jobs job SET status='claimed',claimed_by_worker_id=$1,
-         claimed_until=$3::timestamptz,attempt=attempt+1,updated_at=$2::timestamptz,version=version+1
-       FROM candidate WHERE job.job_id=candidate.job_id RETURNING ${qualify("job", JOB_COLUMNS)}`,
-      [workerId, now, claimedUntil]
-    );
-    return result.rows[0] ? mapJob(result.rows[0]) : null;
-  },
+  claimJoinJob: (workerId, now, claimedUntil) => claimPostgresHostedJoinJob(database, workerId, now, claimedUntil),
   completeJoin: (input) => database.transaction(async (client) => {
     const result = await client.query<ReservationRow>(
       `${RESERVATION_SELECT} WHERE reservation_id=$1 FOR UPDATE`, [input.reservationId]);
@@ -192,11 +184,6 @@ export const createPostgresHostedJoinRepository = (database: PostgresDatabase): 
   }
 });
 
-const loadJob = async (client: { query<T extends Record<string, unknown>>(sql: string, params?: readonly unknown[]): Promise<{ rows: T[] }> }, reservationId: string) => {
-  const result = await client.query<JoinJobRow>(`${JOB_SELECT} WHERE reservation_id=$1`, [reservationId]);
-  return result.rows[0] ? mapJob(result.rows[0]) : null;
-};
-
 const completeJob = async (
   client: { query(sql: string, params?: readonly unknown[]): Promise<unknown> },
   jobId: string,
@@ -230,28 +217,9 @@ const mapReservation = (row: ReservationRow): HostedJoinReservationRecord => ({
   version: Number(row.version)
 });
 
-const mapJob = (row: JoinJobRow): HostedJoinJobRecord => ({
-  jobId: String(row.job_id),
-  reservationId: String(row.reservation_id),
-  serverInstanceId: String(row.server_instance_id),
-  status: row.status as HostedJoinJobRecord["status"],
-  attempt: Number(row.attempt),
-  availableAt: iso(row.available_at),
-  claimedByWorkerId: nullable(row.claimed_by_worker_id),
-  claimedUntil: isoOrNull(row.claimed_until),
-  lastErrorCode: nullable(row.last_error_code),
-  createdAt: iso(row.created_at),
-  updatedAt: iso(row.updated_at),
-  version: Number(row.version)
-});
-
 const RESERVATION_COLUMNS = `reservation_id,server_instance_id,player_identity_id,status,idempotency_key,request_hash,
   expected_server_version,reserved_slot,faction_id,join_ticket_id,expires_at,created_at,committed_at,canceled_at,updated_at,version`;
 const RESERVATION_SELECT = `SELECT ${RESERVATION_COLUMNS} FROM empire_hosted_join_reservations`;
-const JOB_COLUMNS = `job_id,reservation_id,server_instance_id,status,attempt,available_at,claimed_by_worker_id,
-  claimed_until,last_error_code,created_at,updated_at,version`;
-const JOB_SELECT = `SELECT ${JOB_COLUMNS} FROM empire_hosted_join_jobs`;
-const qualify = (alias: string, columns: string) => columns.split(",").map((column) => `${alias}.${column.trim()}`).join(",");
 const nullable = (value: unknown): string | null => value == null ? null : String(value);
 const iso = (value: unknown): string => value instanceof Date ? value.toISOString() : new Date(String(value)).toISOString();
 const isoOrNull = (value: unknown): string | null => value == null ? null : iso(value);

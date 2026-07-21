@@ -42,11 +42,17 @@ export const loadActionReplay = async (client: PostgresQueryable, userId: string
 
 export const insertServer = (db: PostgresQueryable, s: HostedServerRecord) => db.query(
   `INSERT INTO empire_hosted_server_instances (${SERVER_INSERT_COLUMNS})
-   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13,$14,$15,$16::timestamptz,$17::timestamptz,$18::timestamptz,$19::timestamptz,$20::timestamptz,$21,$22,$23::timestamptz,$24::timestamptz,$25)`,
+   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::timestamptz,$14::timestamptz,$15::timestamptz,
+    $16,$17,$18,$19,$20,$21,$22,$23,$24::jsonb,$25,$26,$27,$28::timestamptz,$29::timestamptz,$30::timestamptz,
+    $31::timestamptz,$32::timestamptz,$33,$34,$35::timestamptz,$36::timestamptz,$37,$38)`,
   [`hosted-server:${s.serverInstanceId}`,s.serverInstanceId,s.mode,s.displayName,s.region,s.capacity,s.status,s.joinPolicy,
-    s.provisioningState,s.worldSeed,s.configVersion,JSON.stringify(s.mapComposition),s.initialSnapshotId,s.currentSnapshotId,
-    s.runtimeLeaseOwnerId,s.runtimeLeaseExpiresAt,s.lastWorkerHeartbeatAt,s.lastStartedAt,s.lastPausedAt,s.lastStoppedAt,
-    s.lastErrorCode,s.createdByAdminUserId,s.createdAt,s.updatedAt,s.version]
+    s.provisioningState,s.minimumReadyPlayersToStart,s.registrationWindowMinutes,s.registrationScheduleVersion,
+    s.registrationOpensAt,s.registrationClosesAt,s.registrationClosedAt,s.registrationBaselinePlayers,
+    s.canonicalFinalLockdownTrigger,s.canonicalFirstEliminationTick,s.canonicalTickRateMs,s.effectiveFinalLockdownTrigger,
+    s.effectiveFirstEliminationTick,s.worldSeed,s.configVersion,JSON.stringify(s.mapComposition),s.initialSnapshotId,
+    s.currentSnapshotId,s.runtimeLeaseOwnerId,
+    s.runtimeLeaseExpiresAt,s.lastWorkerHeartbeatAt,s.lastStartedAt,s.lastPausedAt,s.lastStoppedAt,s.lastErrorCode,
+    s.createdByAdminUserId,s.createdAt,s.updatedAt,s.version,s.serverTemplate]
 );
 export const insertJob = (db: PostgresQueryable, j: HostedProvisioningJobRecord) => db.query(
   `INSERT INTO empire_hosted_server_provisioning_jobs
@@ -57,10 +63,12 @@ export const insertJob = (db: PostgresQueryable, j: HostedProvisioningJobRecord)
 );
 export const insertAction = (db: PostgresQueryable, r: HostedActionRequestRecord) => db.query(
   `INSERT INTO empire_hosted_server_action_requests
-   (id,action_request_id,server_instance_id,admin_user_id,action,reason,expected_version,status,claimed_by_worker_id,claimed_until,last_error_code,created_at,updated_at,version)
-   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::timestamptz,$11,$12::timestamptz,$13::timestamptz,$14)`,
-  [`hosted-action:${r.actionRequestId}`,r.actionRequestId,r.serverInstanceId,r.adminUserId,r.action,r.reason,r.expectedVersion,
-    r.status,r.claimedByWorkerId,r.claimedUntil,r.lastErrorCode,r.createdAt,r.updatedAt,r.version]
+   (id,action_request_id,server_instance_id,admin_user_id,action,action_payload,reason,expected_version,status,
+    claimed_by_worker_id,claimed_until,last_error_code,created_at,updated_at,version)
+   VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11::timestamptz,$12,$13::timestamptz,$14::timestamptz,$15)`,
+  [`hosted-action:${r.actionRequestId}`,r.actionRequestId,r.serverInstanceId,r.adminUserId,r.action,
+    JSON.stringify(r.actionPayload),r.reason,r.expectedVersion,r.status,r.claimedByWorkerId,r.claimedUntil,r.lastErrorCode,
+    r.createdAt,r.updatedAt,r.version]
 );
 export const insertAudit = (db: PostgresQueryable, e: AdminAuditEntryView) => db.query(
   `INSERT INTO empire_admin_access_audit (id,admin_session_id,actor_id,role,action,target_instance_id,result,correlation_id,created_at)
@@ -137,7 +145,14 @@ export const lockCurrentActionClaim = async (
 
 export const mapServer = (r: HostedServerRow): HostedServerRecord => ({
   serverInstanceId:String(r.server_instance_id),mode:r.mode as HostedServerRecord["mode"],displayName:String(r.display_name),region:String(r.region),capacity:Number(r.capacity),
+  serverTemplate:r.server_template as HostedServerRecord["serverTemplate"],
   status:r.status as HostedServerRecord["status"],joinPolicy:r.join_policy as HostedServerRecord["joinPolicy"],provisioningState:r.provisioning_state as HostedServerRecord["provisioningState"],
+  minimumReadyPlayersToStart:Number(r.minimum_ready_players_to_start),registrationWindowMinutes:Number(r.registration_window_minutes),
+  registrationScheduleVersion:Number(r.registration_schedule_version),registrationOpensAt:dateOrNull(r.registration_opens_at),
+  registrationClosesAt:dateOrNull(r.registration_closes_at),registrationClosedAt:dateOrNull(r.registration_closed_at),
+  registrationBaselinePlayers:numberOrNull(r.registration_baseline_players),canonicalFinalLockdownTrigger:numberOrNull(r.canonical_final_lockdown_trigger),
+  canonicalFirstEliminationTick:numberOrNull(r.canonical_first_elimination_tick),canonicalTickRateMs:numberOrNull(r.canonical_tick_rate_ms),
+  effectiveFinalLockdownTrigger:numberOrNull(r.effective_final_lockdown_trigger),effectiveFirstEliminationTick:numberOrNull(r.effective_first_elimination_tick),
   worldSeed:String(r.world_seed),configVersion:Number(r.config_version),mapComposition:json(r.map_composition) as HostedServerRecord["mapComposition"],
   initialSnapshotId:nullable(r.initial_snapshot_id),currentSnapshotId:nullable(r.current_snapshot_id),runtimeLeaseOwnerId:nullable(r.runtime_lease_owner_id),
   runtimeLeaseExpiresAt:dateOrNull(r.runtime_lease_expires_at),lastWorkerHeartbeatAt:dateOrNull(r.last_worker_heartbeat_at),lastStartedAt:dateOrNull(r.last_started_at),
@@ -145,20 +160,21 @@ export const mapServer = (r: HostedServerRow): HostedServerRecord => ({
   createdByAdminUserId:String(r.created_by_admin_user_id),createdAt:date(r.created_at),updatedAt:date(r.updated_at),version:Number(r.version)
 });
 export const mapJob = (r: ProvisioningRow): HostedProvisioningJobRecord => ({jobId:String(r.job_id),serverInstanceId:String(r.server_instance_id),attempt:Number(r.attempt),status:r.status as HostedProvisioningJobRecord["status"],availableAt:date(r.available_at),claimedByWorkerId:nullable(r.claimed_by_worker_id),claimedUntil:dateOrNull(r.claimed_until),lastErrorCode:nullable(r.last_error_code),createdAt:date(r.created_at),updatedAt:date(r.updated_at),version:Number(r.version)});
-export const mapAction = (r: ActionRow): HostedActionRequestRecord => ({actionRequestId:String(r.action_request_id),serverInstanceId:String(r.server_instance_id),adminUserId:String(r.admin_user_id),action:r.action as HostedActionRequestRecord["action"],reason:String(r.reason),expectedVersion:Number(r.expected_version),status:r.status as HostedActionRequestRecord["status"],claimedByWorkerId:nullable(r.claimed_by_worker_id),claimedUntil:dateOrNull(r.claimed_until),lastErrorCode:nullable(r.last_error_code),createdAt:date(r.created_at),updatedAt:date(r.updated_at),version:Number(r.version)});
+export const mapAction = (r: ActionRow): HostedActionRequestRecord => ({actionRequestId:String(r.action_request_id),serverInstanceId:String(r.server_instance_id),adminUserId:String(r.admin_user_id),action:r.action as HostedActionRequestRecord["action"],actionPayload:asRecord(r.action_payload) as HostedActionRequestRecord["actionPayload"],reason:String(r.reason),expectedVersion:Number(r.expected_version),status:r.status as HostedActionRequestRecord["status"],claimedByWorkerId:nullable(r.claimed_by_worker_id),claimedUntil:dateOrNull(r.claimed_until),lastErrorCode:nullable(r.last_error_code),createdAt:date(r.created_at),updatedAt:date(r.updated_at),version:Number(r.version)});
 export const mapWorker = (r: WorkerRow): HostedWorkerHeartbeatRecord => ({workerId:String(r.worker_id),workerIncarnationId:String(r.worker_incarnation_id),region:String(r.region),startedAt:date(r.started_at),lastHeartbeatAt:date(r.last_heartbeat_at),buildSha:String(r.build_sha),status:r.status as HostedWorkerHeartbeatRecord["status"]});
 const json = (v: unknown): unknown => typeof v === "string" ? JSON.parse(v) : v;
 const nullable = (v: unknown): string | null => v == null ? null : String(v);
+const numberOrNull = (v: unknown): number | null => v == null ? null : Number(v);
 const date = (v: unknown): string => v instanceof Date ? v.toISOString() : new Date(String(v)).toISOString();
 const dateOrNull = (v: unknown): string | null => v == null ? null : date(v);
 const asRecord = (value: unknown): Record<string, unknown> => {
   const parsed = typeof value === "string" ? JSON.parse(value) as unknown : value;
   return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
 };
-export const SERVER_COLUMNS = `server_instance_id,mode,display_name,region,capacity,status,join_policy,provisioning_state,world_seed,config_version,map_composition,initial_snapshot_id,current_snapshot_id,runtime_lease_owner_id,runtime_lease_expires_at,last_worker_heartbeat_at,last_started_at,last_paused_at,last_stopped_at,last_error_code,created_by_admin_user_id,created_at,updated_at,version`;
+export const SERVER_COLUMNS = `server_instance_id,mode,display_name,region,capacity,status,join_policy,provisioning_state,minimum_ready_players_to_start,registration_window_minutes,registration_schedule_version,registration_opens_at,registration_closes_at,registration_closed_at,registration_baseline_players,canonical_final_lockdown_trigger,canonical_first_elimination_tick,canonical_tick_rate_ms,effective_final_lockdown_trigger,effective_first_elimination_tick,world_seed,config_version,map_composition,initial_snapshot_id,current_snapshot_id,runtime_lease_owner_id,runtime_lease_expires_at,last_worker_heartbeat_at,last_started_at,last_paused_at,last_stopped_at,last_error_code,created_by_admin_user_id,created_at,updated_at,version,server_template`;
 export const SERVER_SELECT = `SELECT ${SERVER_COLUMNS} FROM empire_hosted_server_instances`;
 const SERVER_INSERT_COLUMNS = `id,${SERVER_COLUMNS}`;
 export const JOB_COLUMNS = `job_id,server_instance_id,attempt,status,available_at,claimed_by_worker_id,claimed_until,last_error_code,created_at,updated_at,version`;
-export const ACTION_COLUMNS = `action_request_id,server_instance_id,admin_user_id,action,reason,expected_version,status,claimed_by_worker_id,claimed_until,last_error_code,created_at,updated_at,version`;
+export const ACTION_COLUMNS = `action_request_id,server_instance_id,admin_user_id,action,action_payload,reason,expected_version,status,claimed_by_worker_id,claimed_until,last_error_code,created_at,updated_at,version`;
 const JOB_SELECT = `SELECT ${JOB_COLUMNS} FROM empire_hosted_server_provisioning_jobs`;
 const ACTION_SELECT = `SELECT ${ACTION_COLUMNS} FROM empire_hosted_server_action_requests`;

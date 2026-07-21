@@ -85,12 +85,18 @@ const register = (
 ) => repository.writeWorkerHeartbeat({ workerId: "worker:stable", workerIncarnationId,
   region: "eu-central", startedAt, lastHeartbeatAt, buildSha: "test", status: "online" }, true);
 
-const server = (overrides: Partial<HostedServerRecord> = {}): HostedServerRecord => ({
+const server = (overrides: Partial<HostedServerRecord> = {}): HostedServerRecord => Object.assign({
   serverInstanceId: "instance:lease-incarnation", mode: "free", displayName: "Lease", region: "eu-central",
+  serverTemplate: "full",
   capacity: 20, status: "running", joinPolicy: "closed", provisioningState: "ready", worldSeed: "lease-seed",
+  minimumReadyPlayersToStart: 2, registrationWindowMinutes: 60, registrationScheduleVersion: 1,
+  registrationOpensAt: new Date(Date.parse(T0) - 30 * 60_000).toISOString(),
+  registrationClosesAt: new Date(Date.parse(T0) + 30 * 60_000).toISOString(), registrationClosedAt: null,
+  registrationBaselinePlayers: null, canonicalFinalLockdownTrigger: 8, canonicalFirstEliminationTick: 5_760,
+  canonicalTickRateMs: 5_000, effectiveFinalLockdownTrigger: null, effectiveFirstEliminationTick: null,
   configVersion: 1, mapComposition: { downtown: 8, commercial: 40, residential: 38, industrial: 38, park: 37 },
   initialSnapshotId: "snapshot:initial", currentSnapshotId: "snapshot:initial", runtimeLeaseOwnerId: null,
   runtimeLeaseExpiresAt: null, lastWorkerHeartbeatAt: null, lastStartedAt: T0, lastPausedAt: null,
   lastStoppedAt: null, lastErrorCode: null, createdByAdminUserId: "admin:test", createdAt: T0, updatedAt: T0,
-  version: 1, ...overrides
-});
+  version: 1
+} satisfies HostedServerRecord, overrides);

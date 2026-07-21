@@ -11,6 +11,7 @@ const requiredFiles = [
   "apps/server/src/runtime/persistence/postgres/migrations/009_player_entry_control_plane.sql",
   "apps/server/src/runtime/persistence/postgres/migrations/010_runtime_instance_foreign_keys.sql",
   "apps/server/src/runtime/persistence/postgres/migrations/011_hosted_runtime_lease_incarnation.sql",
+  "apps/server/src/runtime/persistence/postgres/migrations/012_hosted_server_registration_lifecycle.sql",
   "apps/server/src/player-entry/postgres-player-entry-repository.ts",
   "apps/server/src/admin/hosted/postgres-hosted-join-repository.ts",
   "apps/server/src/bootstrap/hosted-runtime-worker-cli.ts",
@@ -65,7 +66,7 @@ if (databaseUrl) {
       const sql = await readFile(new URL(filename, migrationsUrl), "utf8");
       return appliedByName.get(filename) === createHash("sha256").update(sql).digest("hex");
     }));
-    check(migrationFiles.length >= 11 && migrationChecks.every(Boolean) && applied.rows.length === migrationFiles.length,
+    check(migrationFiles.length >= 12 && migrationChecks.every(Boolean) && applied.rows.length === migrationFiles.length,
       "all database migrations are current");
     const expectedUsername = String(process.env.EMPIRE_ADMIN_BOOTSTRAP_USERNAME ?? "Erik22").normalize("NFKC").trim().toLocaleLowerCase("en-US");
     const user = await pool.query("SELECT role,status FROM empire_admin_users WHERE normalized_username=$1", [expectedUsername]);

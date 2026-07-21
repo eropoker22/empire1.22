@@ -77,6 +77,7 @@ describe("read-only admin Netlify boundary", () => {
     };
     const payload = {
       mode: "free",
+      serverTemplate: "full",
       displayName: "Admin HTTP Hosted Test",
       region: "eu-central",
       capacity: 20,

@@ -169,7 +169,8 @@ const success = <T>(data: T) => ({ accepted: true as const, data, errors: [] as 
 const controlPlaneError = (entry: AdminApiErrorView) => error(
   entry.code === "ADMIN_FORBIDDEN" ? 403
     : entry.code === "ADMIN_INSTANCE_NOT_FOUND" ? 404
-    : entry.code === "ADMIN_STALE_VERSION" || entry.code === "ADMIN_IDEMPOTENCY_CONFLICT" ? 409
+    : entry.code === "ADMIN_STALE_VERSION" || entry.code === "ADMIN_IDEMPOTENCY_CONFLICT"
+      || entry.code === "SERVER_LIFECYCLE_OPERATION_ACTIVE" ? 409
     : entry.code.includes("UNAVAILABLE") || entry.code.includes("DISABLED") || entry.code.includes("OFFLINE") || entry.code.includes("PENDING") ? 503
     : 400,
   entry.code,

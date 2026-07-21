@@ -29,7 +29,7 @@ describeWhenDatabaseConfigured("hosted control plane PostgreSQL live", () => {
       const session: AdminSessionView = { adminSessionId: `session:live:${suffix}`, adminUserId, actorId: adminUserId,
         username: `LiveOwner${suffix}`, displayName: "Live Owner", role: "owner", authenticationMethod: "password",
         createdAt: at, expiresAt: new Date(Date.now() + 60_000).toISOString(), revokedAt: null, lastSeenAt: at };
-      const payload = { mode: "free", displayName: "Live Hosted", region: "eu-central", capacity: 20, joinPolicy: "closed",
+      const payload = { mode: "free", serverTemplate: "full", displayName: "Live Hosted", region: "eu-central", capacity: 20, joinPolicy: "closed",
         mapComposition: { downtown: 8, commercial: 40, residential: 38, industrial: 38, park: 37 } };
       const first = await service.createServer({ session, payload, idempotencyKey: `live-create-${suffix}-0001`, correlationId: `request:${suffix}:1` });
       const replay = await service.createServer({ session, payload, idempotencyKey: `live-create-${suffix}-0001`, correlationId: `request:${suffix}:2` });
@@ -64,6 +64,18 @@ describeWhenDatabaseConfigured("hosted control plane PostgreSQL live", () => {
       expect(await repositories.hosted.acquireRuntimeLease({ serverInstanceId, workerId: `worker:live:C:${suffix}`,
         workerIncarnationId: `worker-incarnation:live:C:${suffix}`, now: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 20_000).toISOString() })).toBe(false);
+      const concurrentVersion = (await repositories.hosted.getServer(serverInstanceId))?.version;
+      if (!concurrentVersion) throw new Error("Live hosted server disappeared before concurrent start test.");
+      const concurrentStarts = await Promise.all(["a", "b"].map((key) => service.requestAction({
+        session,
+        serverInstanceId: serverInstanceId!,
+        payload: { action: "start", expectedVersion: concurrentVersion, reason: `Concurrent live start ${key}` },
+        idempotencyKey: `live-concurrent-start-${suffix}-${key}`,
+        correlationId: `request:${suffix}:start:${key}`
+      })));
+      expect(concurrentStarts.filter((result) => result.accepted)).toHaveLength(1);
+      expect(concurrentStarts.find((result) => !result.accepted)?.errors[0]?.code)
+        .toBe("SERVER_LIFECYCLE_OPERATION_ACTIVE");
       await workerB.stop();
     } finally {
       if (serverInstanceId) {
@@ -74,10 +86,12 @@ describeWhenDatabaseConfigured("hosted control plane PostgreSQL live", () => {
         await database.query("DELETE FROM empire_hosted_server_instances WHERE server_instance_id=$1", [serverInstanceId]);
         await database.query("DELETE FROM empire_server_instances WHERE server_instance_id=$1", [serverInstanceId]);
       }
+      await database.query("DELETE FROM empire_hosted_instance_heartbeats WHERE worker_id LIKE $1", [`worker:live:%:${suffix}`]);
       await database.query("DELETE FROM empire_hosted_worker_heartbeats WHERE worker_id LIKE $1", [`worker:live:%:${suffix}`]);
+      await database.query("DELETE FROM empire_hosted_server_idempotency WHERE admin_user_id=$1", [adminUserId]);
       await database.query("DELETE FROM empire_admin_access_audit WHERE actor_id=$1", [adminUserId]);
       await database.query("DELETE FROM empire_admin_users WHERE admin_user_id=$1", [adminUserId]);
       await database.close();
     }
-  });
+  }, 20_000);
 });

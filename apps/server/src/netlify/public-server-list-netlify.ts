@@ -1,7 +1,7 @@
 import { publicServerRegistry } from "@empire/game-config";
 import type { ServerApp } from "../app";
 import type { AdminDurableRepositories } from "../admin/read-only";
-import { listHostedPublicServerCandidates } from "./hosted-public-server-read-model";
+import { listHostedPublicServers } from "./hosted-public-server-read-model";
 import { createJsonResponse } from "./netlify-json-response";
 
 export const createPublicServerListResponse = async (
@@ -19,11 +19,7 @@ export const createPublicServerListResponse = async (
       errors: [{ code: "SERVER_REGISTRY_UNAVAILABLE", message: "Server registry is unavailable." }] });
   }
   try {
-    const servers = (await listHostedPublicServerCandidates(repositories)).map(({ hosted, summary }) => {
-      return { serverInstanceId: hosted.serverInstanceId, displayName: hosted.displayName, mode: hosted.mode,
-        region: hosted.region, status: hosted.status, joinPolicy: hosted.joinPolicy, playerCount: summary.playerCount,
-        capacity: hosted.capacity, currentTick: summary.currentTick, startedAt: hosted.lastStartedAt };
-    });
+    const servers = (await listHostedPublicServers(repositories)).map(({ view }) => view);
     return createJsonResponse(200, { accepted: true, servers, errors: [] });
   } catch (_error) {
     return createJsonResponse(503, { accepted: false, servers: [],

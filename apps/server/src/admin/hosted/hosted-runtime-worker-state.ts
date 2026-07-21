@@ -11,7 +11,7 @@ type InstanceHeartbeatWriter = (input: Omit<
 >) => Promise<void>;
 
 export const createHostedWorkerAudit = (workerId: string) => (
-  action: "provisioning-success" | "provisioning-failure" | "lifecycle-success" | "lifecycle-failure",
+  action: AdminAuditEntryView["action"],
   target: string,
   at: string,
   result: AdminAuditEntryView["result"] = "success"
@@ -30,9 +30,25 @@ export const isSnapshotForHostedRecord = (
 
 export const syncHostedRuntimeStatus = (
   runtime: ServerInstanceRuntime,
-  record: HostedServerRecord
+  record: HostedServerRecord,
+  now = new Date()
 ): void => {
-  runtime.lobby.joinPolicy = record.joinPolicy === "open" ? "open" : "closed";
+  const registrationOpen = record.registrationOpensAt !== null && record.registrationClosesAt !== null
+    && record.registrationClosedAt === null && now.getTime() >= Date.parse(record.registrationOpensAt)
+    && now.getTime() < Date.parse(record.registrationClosesAt);
+  runtime.lobby.joinPolicy = registrationOpen && (record.status === "lobby" || record.status === "running") ? "open" : "closed";
+  runtime.state.serverPacingState = {
+    id: `server-pacing:${record.serverInstanceId}`,
+    serverInstanceId: record.serverInstanceId,
+    registrationOpensAt: record.registrationOpensAt,
+    registrationClosesAt: record.registrationClosesAt,
+    registrationClosedAt: record.registrationClosedAt,
+    registrationBaselinePlayers: record.registrationBaselinePlayers,
+    effectiveFinalLockdownTrigger: record.effectiveFinalLockdownTrigger,
+    effectiveFirstEliminationTick: record.effectiveFirstEliminationTick,
+    eliminationEnabled: record.serverTemplate === "full",
+    version: record.version
+  };
   if (record.status === "running") {
     runtime.record.status = "running";
     runtime.scheduler.isRunning = runtime.state.root.phase !== "resolved";

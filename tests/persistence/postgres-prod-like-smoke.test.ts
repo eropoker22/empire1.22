@@ -9,7 +9,7 @@ import {
 import type { AccountIdentityProvider } from "../../apps/server/src/auth";
 import { createHostedControlPlaneService, createHostedRuntimeWorker } from "../../apps/server/src/admin/hosted";
 import { createPostgresAdminDurableRepositories, hashAdminPassword } from "../../apps/server/src/admin/read-only";
-import { ensureGameplaySliceMembershipInState } from "../../apps/server/src/bootstrap/gameplay-slice-session-membership";
+import { createPostgresPlayerEntryRepository } from "../../apps/server/src/player-entry";
 import type { AdminSessionView, GameplaySliceResponse } from "@empire/shared-types";
 import {
   applyPostgresTestMigrations,
@@ -107,6 +107,7 @@ describe("postgres prod-like runtime smoke", () => {
 
     const first = createHandler(accountId);
     const workerServer = createServerApp({ environment, database });
+    const playerEntry = createPostgresPlayerEntryRepository(database);
     const identityRepository = createPostgresGameplayIdentitySessionRepository(database);
     let worker: ReturnType<typeof createHostedRuntimeWorker> | null = null;
     let freeServerInstanceId: string | null = null;
@@ -116,6 +117,7 @@ describe("postgres prod-like runtime smoke", () => {
         session: adminSession,
         payload: {
           mode: "free",
+          serverTemplate: "full",
           displayName: `Postgres Smoke ${runId}`,
           region: "eu-central",
           capacity: 20,
@@ -132,7 +134,8 @@ describe("postgres prod-like runtime smoke", () => {
         region: "eu-central",
         buildSha: "postgres-smoke",
         controlPlane: adminRepositories.hosted,
-        server: workerServer
+        server: workerServer,
+        playerEntry
       });
       await worker.runOnce();
       const provisioned = await adminRepositories.hosted.getServer(freeServerInstanceId);
@@ -146,7 +149,7 @@ describe("postgres prod-like runtime smoke", () => {
       const openJoins = await controlPlane.requestAction({
         session: adminSession,
         serverInstanceId: freeServerInstanceId,
-        payload: { action: "open-joins", expectedVersion: provisioned.version, reason: "Postgres smoke join verification" },
+        payload: { action: "open-registration-now", expectedVersion: provisioned.version, reason: "Postgres smoke join verification" },
         idempotencyKey: `postgres-smoke-open-${runId}`,
         correlationId: `postgres-smoke:open:${runId}`
       });
@@ -160,6 +163,30 @@ describe("postgres prod-like runtime smoke", () => {
           lastErrorCode: opened?.lastErrorCode ?? null
         })}`);
       }
+
+      for (let index = 1; index <= 2; index += 1) {
+        const readyAccount = (await playerEntry.registerAccount({
+          username: `ready_${index}_${runId.replaceAll("-", "").slice(0, 10)}`,
+          password: "PostgresSmokeReadyPlayerPassword",
+          gangName: `Ready Gang ${index}`
+        })).session;
+        const selection = await playerEntry.getSpawnSelection(readyAccount.accountId, freeServerInstanceId);
+        const district = selection.districts.find((entry) => entry.available);
+        if (!district) throw new Error(`Hosted smoke ready player ${index} has no spawn district.`);
+        const membership = await playerEntry.confirmSpawnDistrict(readyAccount.accountId, {
+          serverInstanceId: freeServerInstanceId,
+          districtId: district.districtId,
+          expectedAvailabilityRevision: selection.availabilityRevision
+        }, `postgres-smoke-ready-confirm-${runId}-${index}`);
+        await playerEntry.finalizeSetup(readyAccount.accountId, {
+          membershipId: membership.membershipId,
+          factionId: index === 1 ? "mafian" : "hackeri",
+          avatarId: index === 1 ? "mafian:1" : "hackeri:1",
+          gangColor: index === 1 ? "#22d3ee" : "#3b82f6"
+        }, `postgres-smoke-ready-setup-${runId}-${index}`);
+      }
+      await worker.runOnce();
+      await worker.runOnce();
 
       const matchmakingKey = `postgres-smoke-matchmaking-${runId}`;
       const matchmakingRequest = {
@@ -261,25 +288,8 @@ describe("postgres prod-like runtime smoke", () => {
       expect(spawnDistrictId).toBeTruthy();
       const workerRuntime = workerServer.instanceManager.getInstanceById(freeServerInstanceId);
       if (!workerRuntime) throw new Error("Hosted smoke worker runtime disappeared before start.");
-      const finalLockdown = workerRuntime.config.balance.finalLockdown;
-      const minimumStartPlayers = (finalLockdown?.enabled ? finalLockdown.triggerActivePlayers : 0) + 1;
-      const activePlayerCount = workerRuntime.state.root.playerIds.filter((playerId) =>
-        workerRuntime.state.playersById[playerId]?.status === "active").length;
-      for (let index = activePlayerCount; index < minimumStartPlayers; index += 1) {
-        const membership = ensureGameplaySliceMembershipInState(workerRuntime.state, {
-          serverInstanceId: freeServerInstanceId,
-          playerId: `player:postgres-smoke:dummy:${runId}:${index + 1}`,
-          factionId: "mafian",
-          mode: "free"
-        });
-        if (!membership.accepted) throw new Error(`Hosted smoke dummy player ${index + 1} was rejected.`);
-        workerRuntime.state = membership.state;
-      }
       expect(workerRuntime.state.root.playerIds.filter((playerId) =>
-        workerRuntime.state.playersById[playerId]?.status === "active").length).toBeGreaterThan(
-        finalLockdown?.enabled ? finalLockdown.triggerActivePlayers : 0
-      );
-      await workerServer.instanceManager.saveInstanceSnapshot(freeServerInstanceId);
+        workerRuntime.state.playersById[playerId]?.status === "active").length).toBeGreaterThanOrEqual(2);
       const beforeStart = await adminRepositories.hosted.getServer(freeServerInstanceId);
       if (!beforeStart) throw new Error("Hosted smoke server disappeared before start.");
       const start = await controlPlane.requestAction({
@@ -539,8 +549,19 @@ const cleanupHostedSmokeFixture = async (
   workerId: string
 ): Promise<void> => {
   await database.transaction(async (client) => {
+    const membershipAccounts = await client.query<{ account_id: string }>(
+      "SELECT account_id FROM empire_server_memberships WHERE server_instance_id=$1",
+      [serverInstanceId]
+    );
+    const accountIds = membershipAccounts.rows.map((row) => String(row.account_id));
+    await client.query("DELETE FROM empire_server_membership_jobs WHERE server_instance_id=$1", [serverInstanceId]);
+    await client.query("DELETE FROM empire_server_membership_events WHERE server_instance_id=$1", [serverInstanceId]);
     await client.query("DELETE FROM empire_hosted_join_jobs WHERE server_instance_id=$1", [serverInstanceId]);
     await client.query("DELETE FROM empire_hosted_join_reservations WHERE server_instance_id=$1", [serverInstanceId]);
+    await client.query("DELETE FROM empire_server_memberships WHERE server_instance_id=$1", [serverInstanceId]);
+    if (accountIds.length > 0) {
+      await client.query("DELETE FROM empire_accounts WHERE account_id=ANY($1::text[])", [accountIds]);
+    }
     await client.query("DELETE FROM empire_hosted_instance_heartbeats WHERE server_instance_id=$1", [serverInstanceId]);
     await client.query("DELETE FROM empire_hosted_server_action_requests WHERE server_instance_id=$1", [serverInstanceId]);
     await client.query("DELETE FROM empire_hosted_server_provisioning_jobs WHERE server_instance_id=$1", [serverInstanceId]);

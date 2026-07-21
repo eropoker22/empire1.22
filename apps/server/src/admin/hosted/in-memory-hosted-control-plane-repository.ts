@@ -1,13 +1,25 @@
-import type { HostedControlPlaneRepository, HostedServerRecord, HostedProvisioningJobRecord, HostedActionRequestRecord, HostedWorkerHeartbeatRecord, HostedJoinReservationRecord, HostedJoinJobRecord } from "./hosted-control-plane-repository";
+import { FREE_HOSTED_SERVER_LIFECYCLE_POLICY, resolveModeConfig } from "@empire/game-config";
+import type { HostedControlPlaneRepository, HostedServerRecord, HostedProvisioningJobRecord, HostedActionRequestRecord, HostedWorkerHeartbeatRecord, HostedJoinReservationRecord, HostedJoinJobRecord, HostedReadyMembershipRecord } from "./hosted-control-plane-repository";
 import { createInMemoryHostedJoinRepository } from "./in-memory-hosted-join-repository";
+import { createInMemoryHostedLifecycleRepository } from "./in-memory-hosted-lifecycle-repository";
 import { createInMemoryHostedRuntimeRepository } from "./in-memory-hosted-runtime-repository";
 import {
   copyInMemoryHostedValue as copy,
   isCurrentInMemoryHostedWorker as isCurrentWorker
 } from "./in-memory-hosted-control-plane-utils";
 
-export const createInMemoryHostedControlPlaneRepository = (seed: { servers?: HostedServerRecord[] } = {}): HostedControlPlaneRepository => {
-  const servers = new Map((seed.servers ?? []).map((entry) => [entry.serverInstanceId, { ...entry }]));
+export interface InMemoryHostedControlPlaneRepository extends HostedControlPlaneRepository {
+  setReadyMembershipsForTests(serverInstanceId: string, memberships: HostedReadyMembershipRecord[]): void;
+}
+
+export const createInMemoryHostedControlPlaneRepository = (seed: {
+  servers?: HostedServerSeed[];
+  readyMembershipsByServerId?: Record<string, HostedReadyMembershipRecord[]>;
+} = {}): InMemoryHostedControlPlaneRepository => {
+  const servers = new Map((seed.servers ?? []).map((entry) => {
+    const hydrated = hydrateServerSeed(entry);
+    return [hydrated.serverInstanceId, hydrated];
+  }));
   const runtimeLeaseIncarnations = new Map<string, string>();
   const jobs = new Map<string, HostedProvisioningJobRecord>();
   const provisioningClaimIncarnations = new Map<string, string>();
@@ -16,11 +28,17 @@ export const createInMemoryHostedControlPlaneRepository = (seed: { servers?: Hos
   const joinReservations = new Map<string, HostedJoinReservationRecord>();
   const joinJobs = new Map<string, HostedJoinJobRecord>();
   const idempotency = new Map<string, { hash: string; resourceId: string; server?: HostedServerRecord; job?: HostedProvisioningJobRecord; action?: HostedActionRequestRecord }>();
+  const readyMembershipsByServerId = new Map(Object.entries(seed.readyMembershipsByServerId ?? {})
+    .map(([serverInstanceId, memberships]) => [serverInstanceId, memberships.map(copy)]));
   return {
     durable: false,
+    setReadyMembershipsForTests: (id, memberships) => {
+      readyMembershipsByServerId.set(id, memberships.map(copy));
+    },
     isSchemaCurrent: async () => false,
     listServers: async () => [...servers.values()].map(copy),
     getServer: async (id) => servers.has(id) ? copy(servers.get(id)!) : null,
+    listReadyMemberships: async (id) => (readyMembershipsByServerId.get(id) ?? []).map(copy),
     createServerTransaction: async (input) => {
       const key = `${input.adminUserId}:create:${input.idempotencyKey}`;
       const existing = idempotency.get(key);
@@ -46,6 +64,10 @@ export const createInMemoryHostedControlPlaneRepository = (seed: { servers?: Hos
       }
       if (server.provisioningState !== "ready") return { kind: "not-ready" };
       if (server.version !== input.request.expectedVersion) return { kind: "stale-version" };
+      if ([...actions.values()].some((entry) => entry.serverInstanceId === input.request.serverInstanceId
+        && (entry.status === "requested" || entry.status === "processing"))) {
+        return { kind: "operation-active" };
+      }
       idempotency.set(key, { hash: input.requestHash, resourceId: input.request.actionRequestId, action: copy(input.request) });
       actions.set(input.request.actionRequestId, copy(input.request));
       return { kind: "created", request: copy(input.request) };
@@ -115,38 +137,6 @@ export const createInMemoryHostedControlPlaneRepository = (seed: { servers?: Hos
       Object.assign(server, { status: "restarting", joinPolicy: "closed", updatedAt: input.at });
       return true;
     },
-    completeAction: async (input) => {
-      const server = servers.get(input.request.serverInstanceId); const request = actions.get(input.request.actionRequestId);
-      if (!server || !isCurrentActionClaim(request, input, workers)) return false;
-      const workerId = input.request.claimedByWorkerId;
-      if (!workerId || server.version !== input.request.expectedVersion || server.runtimeLeaseOwnerId !== workerId ||
-        runtimeLeaseIncarnations.get(server.serverInstanceId) !== input.workerIncarnationId ||
-        !server.runtimeLeaseExpiresAt || server.runtimeLeaseExpiresAt <= input.at) return false;
-      Object.assign(server, { status: input.nextStatus, joinPolicy: input.nextJoinPolicy, lastErrorCode: null,
-        updatedAt: input.at, version: server.version + 1 });
-      Object.assign(request, { status: "completed", claimedUntil: null, updatedAt: input.at, version: request.version + 1 });
-      return true;
-    },
-    failAction: async (input) => {
-      const request = actions.get(input.request.actionRequestId);
-      if (!isCurrentActionClaim(request, input, workers)) return false;
-      const server = servers.get(input.request.serverInstanceId);
-      const workerId = input.request.claimedByWorkerId;
-      const currentLease = server?.runtimeLeaseOwnerId === workerId &&
-        runtimeLeaseIncarnations.get(server.serverInstanceId) === input.workerIncarnationId &&
-        Boolean(server.runtimeLeaseExpiresAt) && server.runtimeLeaseExpiresAt! > input.at;
-      const releasedRestart = input.request.action === "restart" && !server?.runtimeLeaseOwnerId &&
-        server?.status === "restarting" && server.version === input.request.expectedVersion;
-      if (!server || (!currentLease && !releasedRestart)) return false;
-      if (input.request.action === "restart" && server.status === "restarting" && server.version === input.request.expectedVersion) {
-        runtimeLeaseIncarnations.delete(server.serverInstanceId);
-        Object.assign(server, { status: "failed", joinPolicy: "closed", runtimeLeaseOwnerId: null,
-          runtimeLeaseExpiresAt: null, lastErrorCode: input.errorCode, updatedAt: input.at, version: server.version + 1 });
-      } else Object.assign(server, { lastErrorCode: input.errorCode, updatedAt: input.at });
-      Object.assign(request, { status: "failed", claimedUntil: null, lastErrorCode: input.errorCode,
-        updatedAt: input.at, version: request.version + 1 });
-      return true;
-    },
     finalizeResolvedServer: async (input) => {
       const server = servers.get(input.serverInstanceId);
       if (!server || server.provisioningState !== "ready" || server.status !== "running" ||
@@ -167,8 +157,44 @@ export const createInMemoryHostedControlPlaneRepository = (seed: { servers?: Hos
       });
       return true;
     },
+    ...createInMemoryHostedLifecycleRepository({ servers, actions, workers, runtimeLeaseIncarnations,
+      readyMembershipsByServerId }),
     ...createInMemoryHostedJoinRepository({ servers, joinReservations, joinJobs }),
     ...createInMemoryHostedRuntimeRepository({ servers, runtimeLeaseIncarnations, workers })
+  };
+};
+
+type HostedLifecycleKeys = "minimumReadyPlayersToStart" | "registrationWindowMinutes" | "registrationScheduleVersion"
+  | "registrationOpensAt" | "registrationClosesAt" | "registrationClosedAt" | "registrationBaselinePlayers"
+  | "canonicalFinalLockdownTrigger" | "canonicalFirstEliminationTick" | "canonicalTickRateMs"
+  | "effectiveFinalLockdownTrigger" | "effectiveFirstEliminationTick" | "serverTemplate";
+type HostedServerSeed = Omit<HostedServerRecord, HostedLifecycleKeys>
+  & Partial<Pick<HostedServerRecord, HostedLifecycleKeys>>;
+
+const hydrateServerSeed = (entry: HostedServerSeed): HostedServerRecord => {
+  const config = resolveModeConfig(entry.mode);
+  const elimination = config.balance.elimination;
+  return {
+    ...entry,
+    serverTemplate: entry.serverTemplate ?? "full",
+    minimumReadyPlayersToStart: entry.minimumReadyPlayersToStart
+      ?? FREE_HOSTED_SERVER_LIFECYCLE_POLICY.minimumReadyPlayersToStart,
+    registrationWindowMinutes: entry.registrationWindowMinutes
+      ?? FREE_HOSTED_SERVER_LIFECYCLE_POLICY.registrationWindowMs / 60_000,
+    registrationScheduleVersion: entry.registrationScheduleVersion ?? 0,
+    registrationOpensAt: entry.registrationOpensAt ?? null,
+    registrationClosesAt: entry.registrationClosesAt ?? null,
+    registrationClosedAt: entry.registrationClosedAt ?? null,
+    registrationBaselinePlayers: entry.registrationBaselinePlayers ?? null,
+    canonicalFinalLockdownTrigger: entry.canonicalFinalLockdownTrigger
+      ?? config.balance.finalLockdown?.triggerActivePlayers ?? null,
+    canonicalFirstEliminationTick: entry.serverTemplate === "control" ? null
+      : entry.canonicalFirstEliminationTick ?? elimination?.firstEliminationTick ?? null,
+    canonicalTickRateMs: entry.serverTemplate === "control" ? null
+      : entry.canonicalTickRateMs ?? (elimination?.enabled ? config.tickRateMs : null),
+    effectiveFinalLockdownTrigger: entry.effectiveFinalLockdownTrigger ?? null,
+    effectiveFirstEliminationTick: entry.serverTemplate === "control" ? null
+      : entry.effectiveFirstEliminationTick ?? null
   };
 };
 
@@ -180,13 +206,3 @@ const isCurrentProvisioningClaim = (
   job.claimedByWorkerId === input.workerId && workerIncarnationId === input.workerIncarnationId &&
   job.version === input.expectedJobVersion &&
   Boolean(job.claimedUntil) && job.claimedUntil! > input.at);
-
-const isCurrentActionClaim = (
-  request: HostedActionRequestRecord | undefined,
-  input: { request: HostedActionRequestRecord; workerIncarnationId: string; at: string },
-  workers: Map<string, HostedWorkerHeartbeatRecord>
-): request is HostedActionRequestRecord => Boolean(request && input.request.claimedByWorkerId &&
-  isCurrentWorker(workers.get(input.request.claimedByWorkerId), input.workerIncarnationId, input.at) &&
-  request.serverInstanceId === input.request.serverInstanceId && request.status === "processing" &&
-  request.claimedByWorkerId === input.request.claimedByWorkerId && request.version === input.request.version &&
-  Boolean(request.claimedUntil) && request.claimedUntil! > input.at);

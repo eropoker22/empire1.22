@@ -3,7 +3,12 @@ import type { PublicServerMatchmakingRequest, PublicServerMatchmakingResponse } 
 import type { AdminDurableRepositories } from "../admin/read-only";
 import type { HostedJoinReservationRecord, HostedServerRecord } from "../admin/hosted";
 import type { ServerApp } from "../app";
-import { listHostedPublicServerCandidates, type HostedPublicServerCandidate } from "./hosted-public-server-read-model";
+import {
+  listHostedPublicServers,
+  selectHostedPublicServerCandidates,
+  type HostedPublicServerCandidate
+} from "./hosted-public-server-read-model";
+import { rejectUnavailablePreferredServer } from "./public-server-matchmaking-availability";
 import { createJsonResponse, type NetlifyFunctionResponse } from "./netlify-json-response";
 
 export const handlePublicServerMatchmakingReserve = async (
@@ -81,21 +86,13 @@ const reserveHostedPublicServer = async (
       const hosted = await repositories.hosted.getServer(existing.serverInstanceId);
       return hosted ? responseForReservation(existing, hosted) : reject("matchmaking.unavailable", "Matchmaking is unavailable.");
     }
-    const candidates = selectCandidates(await listHostedPublicServerCandidates(repositories), request);
-    if (candidates.length === 0) {
-      const preferredId = String(request.preferredServerInstanceId ?? "").trim();
-      if (preferredId) {
-        const preferred = await repositories.hosted.getServer(preferredId);
-        const capacity = preferred ? await repositories.hosted.getJoinCapacity(preferredId, new Date().toISOString()) : null;
-        if (preferred && capacity && preferred.provisioningState === "ready" && preferred.joinPolicy === "open"
-          && (preferred.status === "lobby" || preferred.status === "running")
-          && capacity.committedPlayers + capacity.reservedSlots >= preferred.capacity) {
-          return reject("SERVER_FULL", "The selected server has no available capacity.");
-        }
-      }
-      return reject("matchmaking.no_public_server", "No public server is currently available for this request.");
-    }
     const now = new Date();
+    const publicServers = await listHostedPublicServers(repositories, now);
+    const candidates = selectCandidates(selectHostedPublicServerCandidates(publicServers), request);
+    if (candidates.length === 0) {
+      return rejectUnavailablePreferredServer(publicServers, request);
+    }
+    let sawFullServer = false;
     for (const selected of candidates) {
       const reservationId = `reservation:${crypto.randomUUID()}`;
       const createdAt = now.toISOString();
@@ -137,9 +134,12 @@ const reserveHostedPublicServer = async (
         return responseForReservation(result.reservation, selected.hosted);
       }
       if (result.kind === "conflict") return reject("matchmaking.idempotency_conflict", "Matchmaking idempotency key conflicts with another request.");
+      if (result.kind === "server-full") sawFullServer = true;
       if (result.kind !== "server-full" && result.kind !== "stale-version" && result.kind !== "not-joinable") break;
     }
-    return reject("SERVER_FULL", "The selected server has no available capacity.");
+    return sawFullServer
+      ? reject("SERVER_FULL", "The selected server has no available capacity.")
+      : reject("matchmaking.no_public_server", "No public server is currently available for this request.");
   } catch (_error) {
     return reject("matchmaking.unavailable", "Matchmaking is unavailable.");
   }
@@ -211,7 +211,7 @@ const selectCandidates = (
     const latency = latencyByRegion.get(region) ?? 250;
     const regionPenalty = preferredRegion && preferredRegion !== region ? 1000 : 0;
     return latency + regionPenalty
-      + (candidate.summary.playerCount / Math.max(1, candidate.hosted.capacity)) * 100;
+      + (candidate.view.playerCount / Math.max(1, candidate.hosted.capacity)) * 100;
   }
 };
 

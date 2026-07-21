@@ -19,7 +19,8 @@ const T4 = "2026-07-19T10:04:00.000Z";
 
 describe("hosted lifecycle claim fencing", () => {
   it("rejects a late completion after another worker reclaimed the action", async () => {
-    const repository = createInMemoryHostedControlPlaneRepository({ servers: [server()] });
+    const repository = createInMemoryHostedControlPlaneRepository({ servers: [server()],
+      readyMembershipsByServerId: readyMembershipSeed });
     await enqueue(repository, action());
     await registerWorker(repository, "worker:old", "worker-incarnation:old", T0);
     const stale = await repository.claimAction("worker:old", "worker-incarnation:old", T0, T1);
@@ -87,7 +88,8 @@ describe("hosted lifecycle claim fencing", () => {
   });
 
   it("requires the completing worker to own a non-expired runtime lease", async () => {
-    const repository = createInMemoryHostedControlPlaneRepository({ servers: [server()] });
+    const repository = createInMemoryHostedControlPlaneRepository({ servers: [server()],
+      readyMembershipsByServerId: readyMembershipSeed });
     await enqueue(repository, action());
     await registerWorker(repository, "worker:owner", "worker-incarnation:owner", T0);
     const request = await repository.claimAction("worker:owner", "worker-incarnation:owner", T0, T4);
@@ -111,7 +113,17 @@ describe("hosted lifecycle claim fencing", () => {
   });
 
   it("locks the PostgreSQL claim row and fences completion by lease owner and expiry", async () => {
-    const queryMock = vi.fn(async (_sql: string, _params?: readonly unknown[]) => pgResult(1));
+    const hosted = server({ runtimeLeaseOwnerId: "worker:owner", runtimeLeaseExpiresAt: T4,
+      lastWorkerHeartbeatAt: T2 });
+    const queryMock = vi.fn(async (sql: string, _params?: readonly unknown[]) => {
+      if (sql.includes("clock_timestamp() AS authoritative_now")) return pgRows([{ ...postgresServerRow(hosted),
+        authoritative_now: T2, runtime_lease_incarnation_id: "worker-incarnation:owner" }]);
+      if (sql.includes("JOIN empire_accounts") && sql.includes("FOR UPDATE OF membership")) return pgRows([
+        { membership_id: "membership:one", player_id: "player:one", reserved_spawn_district_id: "district:1" },
+        { membership_id: "membership:two", player_id: "player:two", reserved_spawn_district_id: "district:2" }
+      ]);
+      return pgResult(1);
+    });
     const query = queryMock as unknown as PostgresQueryable["query"];
     const database = {
       query,
@@ -125,14 +137,15 @@ describe("hosted lifecycle claim fencing", () => {
       nextStatus: "running", nextJoinPolicy: "closed",
       at: T2, audit: audit("postgres-complete") })).toBe(true);
     const statements = queryMock.mock.calls.map(([sql]) => String(sql).replace(/\s+/g, " "));
-    expect(statements[0]).toContain("status='processing' AND claimed_by_worker_id=$3");
-    expect(statements[0]).toContain("version=$4 AND claimed_until > $5::timestamptz");
-    expect(statements[0]).toContain("worker.worker_incarnation_id=$6");
-    expect(statements[0]).toContain("FOR UPDATE");
-    expect(statements[1]).toContain("runtime_lease_owner_id=$7");
-    expect(statements[1]).toContain("runtime_lease_incarnation_id=$8");
-    expect(statements[1]).toContain("runtime_lease_expires_at > $4::timestamptz");
-    expect(queryMock.mock.calls[0]?.[1]).toEqual([request.actionRequestId, request.serverInstanceId,
+    const claimIndex = statements.findIndex((sql) => sql.includes("status='processing' AND claimed_by_worker_id=$3"));
+    const updateIndex = statements.findIndex((sql) => sql.includes("SET status=$2,join_policy=$3,registration_schedule_version=$4"));
+    expect(statements[claimIndex]).toContain("version=$4 AND claimed_until > $5::timestamptz");
+    expect(statements[claimIndex]).toContain("worker.worker_incarnation_id=$6");
+    expect(statements[claimIndex]).toContain("FOR UPDATE");
+    expect(statements[updateIndex]).toContain("runtime_lease_owner_id=$17");
+    expect(statements[updateIndex]).toContain("runtime_lease_incarnation_id=$18");
+    expect(statements[updateIndex]).toContain("runtime_lease_expires_at > clock_timestamp()");
+    expect(queryMock.mock.calls[claimIndex]?.[1]).toEqual([request.actionRequestId, request.serverInstanceId,
       "worker:owner", request.version, T2, "worker-incarnation:owner", 30_000]);
   });
 
@@ -182,18 +195,25 @@ const registerWorker = (
 ) => repository.writeWorkerHeartbeat({ workerId, workerIncarnationId, region: "eu-central", buildSha: "test",
   startedAt, lastHeartbeatAt, status: "online" }, true);
 
-const server = (overrides: Partial<HostedServerRecord> = {}): HostedServerRecord => ({
+const server = (overrides: Partial<HostedServerRecord> = {}): HostedServerRecord => Object.assign({
   serverInstanceId: "instance:fence", mode: "free", displayName: "Fence", region: "eu-central", capacity: 20,
+  serverTemplate: "full",
   status: "lobby", joinPolicy: "closed", provisioningState: "ready", worldSeed: "fence-seed", configVersion: 1,
+  minimumReadyPlayersToStart: 2, registrationWindowMinutes: 60, registrationScheduleVersion: 1,
+  registrationOpensAt: new Date(Date.parse(T0) - 30 * 60_000).toISOString(),
+  registrationClosesAt: new Date(Date.parse(T0) + 30 * 60_000).toISOString(), registrationClosedAt: null,
+  registrationBaselinePlayers: null, canonicalFinalLockdownTrigger: 8, canonicalFirstEliminationTick: 5_760,
+  canonicalTickRateMs: 5_000, effectiveFinalLockdownTrigger: null, effectiveFirstEliminationTick: null,
   mapComposition: { downtown: 8, commercial: 40, residential: 38, industrial: 38, park: 37 },
   initialSnapshotId: "snapshot:initial", currentSnapshotId: "snapshot:initial", runtimeLeaseOwnerId: null,
   runtimeLeaseExpiresAt: null, lastWorkerHeartbeatAt: null, lastStartedAt: null, lastPausedAt: null,
   lastStoppedAt: null, lastErrorCode: null, createdByAdminUserId: "admin:owner", createdAt: T0, updatedAt: T0,
-  version: 1, ...overrides
-});
+  version: 1
+} satisfies HostedServerRecord, overrides);
 
 const action = (overrides: Partial<HostedActionRequestRecord> = {}): HostedActionRequestRecord => ({
   actionRequestId: "action:fence", serverInstanceId: "instance:fence", adminUserId: "admin:owner", action: "start",
+  actionPayload: {},
   reason: "Fence lifecycle mutation.", expectedVersion: 1, status: "requested", claimedByWorkerId: null,
   claimedUntil: null, lastErrorCode: null, createdAt: T0, updatedAt: T0, version: 1, ...overrides
 });
@@ -204,3 +224,33 @@ const audit = (actionName: string): AdminAuditEntryView => ({
 });
 
 const pgResult = (rowCount: number) => ({ rows: rowCount > 0 ? [{}] : [], rowCount, command: "", oid: 0, fields: [] });
+
+const readyMembershipSeed = { "instance:fence": [
+  { membershipId: "membership:one", playerId: "player:one", reservedSpawnDistrictId: "district:1" },
+  { membershipId: "membership:two", playerId: "player:two", reservedSpawnDistrictId: "district:2" }
+] };
+
+const postgresServerRow = (hosted: HostedServerRecord): Record<string, unknown> => ({
+  server_instance_id: hosted.serverInstanceId, mode: hosted.mode, server_template: hosted.serverTemplate,
+  display_name: hosted.displayName, region: hosted.region, capacity: hosted.capacity, status: hosted.status,
+  join_policy: hosted.joinPolicy, provisioning_state: hosted.provisioningState,
+  minimum_ready_players_to_start: hosted.minimumReadyPlayersToStart,
+  registration_window_minutes: hosted.registrationWindowMinutes,
+  registration_schedule_version: hosted.registrationScheduleVersion,
+  registration_opens_at: hosted.registrationOpensAt, registration_closes_at: hosted.registrationClosesAt,
+  registration_closed_at: hosted.registrationClosedAt, registration_baseline_players: hosted.registrationBaselinePlayers,
+  canonical_final_lockdown_trigger: hosted.canonicalFinalLockdownTrigger,
+  canonical_first_elimination_tick: hosted.canonicalFirstEliminationTick,
+  canonical_tick_rate_ms: hosted.canonicalTickRateMs,
+  effective_final_lockdown_trigger: hosted.effectiveFinalLockdownTrigger,
+  effective_first_elimination_tick: hosted.effectiveFirstEliminationTick,
+  world_seed: hosted.worldSeed, config_version: hosted.configVersion, map_composition: hosted.mapComposition,
+  initial_snapshot_id: hosted.initialSnapshotId, current_snapshot_id: hosted.currentSnapshotId,
+  runtime_lease_owner_id: hosted.runtimeLeaseOwnerId, runtime_lease_expires_at: hosted.runtimeLeaseExpiresAt,
+  last_worker_heartbeat_at: hosted.lastWorkerHeartbeatAt, last_started_at: hosted.lastStartedAt,
+  last_paused_at: hosted.lastPausedAt, last_stopped_at: hosted.lastStoppedAt, last_error_code: hosted.lastErrorCode,
+  created_by_admin_user_id: hosted.createdByAdminUserId, created_at: hosted.createdAt,
+  updated_at: hosted.updatedAt, version: hosted.version
+});
+
+const pgRows = (rows: Record<string, unknown>[]) => ({ rows, rowCount: rows.length, command: "", oid: 0, fields: [] });

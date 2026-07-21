@@ -1,6 +1,7 @@
 import type {
   AdminAuditEntryView,
   AdminHostedServerView,
+  HostedLifecycleActionPayloadView,
   HostedLifecycleAction,
   HostedMapCompositionView
 } from "@empire/shared-types";
@@ -37,6 +38,7 @@ export interface HostedActionRequestRecord {
   serverInstanceId: string;
   adminUserId: string;
   action: HostedLifecycleAction;
+  actionPayload: HostedLifecycleActionPayloadView;
   reason: string;
   expectedVersion: number;
   status: "requested" | "processing" | "completed" | "failed";
@@ -92,6 +94,17 @@ export interface HostedJoinJobRecord {
   version: number;
 }
 
+export interface HostedReadyMembershipRecord {
+  membershipId: string;
+  playerId: string;
+  reservedSpawnDistrictId: string;
+}
+
+export type HostedRegistrationFreezeResult =
+  | { kind: "frozen"; server: HostedServerRecord }
+  | { kind: "already-frozen" | "not-due"; server: HostedServerRecord }
+  | { kind: "conflict" | "not-found"; server: null };
+
 export type HostedCreateTransactionResult =
   | { kind: "created" | "replayed"; server: HostedServerRecord; job: HostedProvisioningJobRecord }
   | { kind: "conflict" };
@@ -99,6 +112,7 @@ export type HostedCreateTransactionResult =
 export type HostedActionTransactionResult =
   | { kind: "created" | "replayed"; request: HostedActionRequestRecord }
   | { kind: "conflict" }
+  | { kind: "operation-active" }
   | { kind: "stale-version" }
   | { kind: "not-ready" }
   | { kind: "not-found" };
@@ -112,6 +126,7 @@ export interface HostedControlPlaneRepository {
   isSchemaCurrent(): Promise<boolean>;
   listServers(): Promise<HostedServerRecord[]>;
   getServer(serverInstanceId: string): Promise<HostedServerRecord | null>;
+  listReadyMemberships(serverInstanceId: string): Promise<HostedReadyMembershipRecord[]>;
   createServerTransaction(input: {
     server: HostedServerRecord;
     job: HostedProvisioningJobRecord;
@@ -159,6 +174,15 @@ export interface HostedControlPlaneRepository {
   prepareRuntimeRestart(input: { serverInstanceId: string; workerId: string; workerIncarnationId: string; expectedVersion: number; at: string }): Promise<boolean>;
   completeAction(input: { request: HostedActionRequestRecord; workerIncarnationId: string; nextStatus: HostedServerRecord["status"]; nextJoinPolicy: HostedServerRecord["joinPolicy"]; at: string; audit: AdminAuditEntryView }): Promise<boolean>;
   failAction(input: { request: HostedActionRequestRecord; workerIncarnationId: string; errorCode: string; at: string; audit: AdminAuditEntryView }): Promise<boolean>;
+  freezeRegistrationLifecycle(input: {
+    serverInstanceId: string;
+    workerId: string;
+    workerIncarnationId: string;
+    expectedVersion: number;
+    at: string;
+    closedAudit: AdminAuditEntryView;
+    triggerAudit: AdminAuditEntryView;
+  }): Promise<HostedRegistrationFreezeResult>;
   finalizeResolvedServer(input: {
     serverInstanceId: string;
     workerId: string;

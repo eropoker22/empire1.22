@@ -8,9 +8,9 @@ import type {
   ServerMembershipView,
   SpawnDistrictSelectionView
 } from "@empire/shared-types";
-import { findSharedCitySpawnCandidate } from "../bootstrap/gameplay-slice-shared-city-seed";
 import type { PostgresDatabase, PostgresQueryable } from "../runtime/persistence/postgres";
 import { hashAccountPassword, verifyAccountPassword, type AccountPasswordRecord } from "./account-password";
+import { entryError, entryErrorCode } from "./player-entry-error";
 import {
   createServerPlayerId,
   hashEntryRequest,
@@ -22,8 +22,15 @@ import {
   validGangName,
   validPlayerUsername
 } from "./player-entry-policy";
+import { createLobbyServerSummary, loadHostedSpawnSelection } from "./postgres-player-entry-registration";
+import {
+  HOSTED_PLAYER_ENTRY_SERVER_COLUMNS,
+  PLAYER_ENTRY_BLOCKING_STATUSES,
+  readAuthoritativePostgresNow,
+  type HostedPlayerEntryServerRow
+} from "./postgres-player-entry-server-query";
 
-const BLOCKING_STATUSES: ServerMembershipStatus[] = ["setup_required", "finalizing_setup", "active", "leave_pending", "defeated"];
+const BLOCKING_STATUSES: ServerMembershipStatus[] = [...PLAYER_ENTRY_BLOCKING_STATUSES];
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const WORKER_FRESH_MS = 30_000;
 
@@ -137,37 +144,17 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
     return (result.rowCount ?? 0) > 0;
   },
 
-  getOverview: async (account: AuthenticatedAccount, now = new Date()): Promise<LobbyOverviewView> => {
+  getOverview: async (account: AuthenticatedAccount, injectedNow?: Date): Promise<LobbyOverviewView> => {
+    const now = await readAuthoritativePostgresNow(database, injectedNow);
     const accountView = publicAccount(account);
     const membershipRows = await database.query<MembershipRow>(`${MEMBERSHIP_SELECT} WHERE membership.account_id=$1 ORDER BY membership.joined_at DESC`, [account.accountId]);
     const memberships = membershipRows.rows.map(mapMembership);
-    const servers = await database.query<HostedServerRow>(
-      `SELECT server_instance_id,display_name,mode,region,status,join_policy,provisioning_state,capacity,
-        last_started_at,last_worker_heartbeat_at,runtime_lease_expires_at
+    const servers = await database.query<HostedPlayerEntryServerRow>(
+      `SELECT ${HOSTED_PLAYER_ENTRY_SERVER_COLUMNS}
        FROM empire_hosted_server_instances ORDER BY created_at DESC`
     );
-    const availableServers = await Promise.all(servers.rows.map(async (server) => {
-      const occupancy = await getOccupancy(database, String(server.server_instance_id), now.toISOString());
-      const workerFresh = Boolean(server.last_worker_heartbeat_at)
-        && Date.parse(iso(server.last_worker_heartbeat_at)) > now.getTime() - WORKER_FRESH_MS;
-      const joinable = server.provisioning_state === "ready" && server.join_policy === "open"
-        && ["lobby", "running"].includes(String(server.status)) && workerFresh
-        && occupancy.committedPlayers + occupancy.reservedSlots < Number(server.capacity);
-      return {
-        serverInstanceId: String(server.server_instance_id),
-        displayName: String(server.display_name),
-        mode: server.mode as "free" | "war",
-        region: String(server.region),
-        status: String(server.status),
-        joinPolicy: String(server.join_policy),
-        provisioningState: String(server.provisioning_state),
-        capacity: Number(server.capacity),
-        ...occupancy,
-        joinable,
-        disabledReason: joinable ? null : disabledReason(server, occupancy, workerFresh),
-        startedAt: isoOrNull(server.last_started_at)
-      };
-    }));
+    const availableServers = await Promise.all(servers.rows.map((server) =>
+      createLobbyServerSummary(database, server, now, WORKER_FRESH_MS)));
     const views = memberships.map((membership) => toMembershipView(membership, now));
     return {
       account: accountView,
@@ -180,10 +167,11 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
     };
   },
 
-  getSpawnSelection: async (accountId: string, serverInstanceId: string, now = new Date()): Promise<SpawnDistrictSelectionView> =>
-    loadSpawnSelection(database, accountId, serverInstanceId, now),
+  getSpawnSelection: async (accountId: string, serverInstanceId: string, injectedNow?: Date): Promise<SpawnDistrictSelectionView> =>
+    loadHostedSpawnSelection(database, accountId, serverInstanceId,
+      await readAuthoritativePostgresNow(database, injectedNow), WORKER_FRESH_MS),
 
-  confirmSpawnDistrict: async (accountId: string, request: ConfirmSpawnDistrictRequest, idempotencyKey: string, now = new Date()) => {
+  confirmSpawnDistrict: async (accountId: string, request: ConfirmSpawnDistrictRequest, idempotencyKey: string, injectedNow?: Date) => {
     if (!validIdempotencyKey(idempotencyKey)) throw entryError("IDEMPOTENCY_KEY_REQUIRED", "Požadavek vyžaduje stabilní Idempotency-Key.");
     const requestHash = hashEntryRequest(request);
     return database.transaction(async (client) => {
@@ -194,13 +182,13 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
         if (String(replay.rows[0].confirm_request_hash) !== requestHash) throw entryError("IDEMPOTENCY_CONFLICT", "Idempotency-Key už byl použit pro jiný district.");
         return mapMembership(replay.rows[0]);
       }
-      const server = await client.query<HostedServerRow>(
-        `SELECT server_instance_id,display_name,mode,region,status,join_policy,provisioning_state,capacity,last_started_at,
-          last_worker_heartbeat_at,runtime_lease_expires_at,version
+      const server = await client.query<HostedPlayerEntryServerRow>(
+        `SELECT ${HOSTED_PLAYER_ENTRY_SERVER_COLUMNS}
          FROM empire_hosted_server_instances WHERE server_instance_id=$1 FOR UPDATE`, [request.serverInstanceId]
       );
       const hosted = server.rows[0];
       if (!hosted) throw entryError("SERVER_NOT_FOUND", "Server nebyl nalezen.");
+      const now = await readAuthoritativePostgresNow(client, injectedNow);
       const existing = await client.query<MembershipRow>(
         `${MEMBERSHIP_SELECT} WHERE membership.account_id=$1 AND membership.status=ANY($2::text[]) LIMIT 1`, [accountId, BLOCKING_STATUSES]
       );
@@ -209,7 +197,7 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
       if (!PLAYER_ENTRY_POLICY.allowRejoinAfterEarlyLeave && (previous.rowCount ?? 0) > 0) {
         throw entryError("SERVER_REJOIN_NOT_ALLOWED", "Na stejný server se po opuštění nelze znovu přihlásit.");
       }
-      const selection = await loadSpawnSelection(client, accountId, request.serverInstanceId, now, hosted);
+      const selection = await loadHostedSpawnSelection(client, accountId, request.serverInstanceId, now, WORKER_FRESH_MS, hosted);
       if (selection.membershipEligibility !== "eligible") throw entryError("ACTIVE_MEMBERSHIP_EXISTS", "Současné členství blokuje nový server.");
       if (selection.capacity.committedPlayers + selection.capacity.reservedSlots >= selection.capacity.maximum) throw entryError("SERVER_FULL", "Server se mezitím zaplnil.");
       const district = selection.districts.find((entry) => entry.districtId === request.districtId);
@@ -243,8 +231,20 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
         metadata: { districtId: request.districtId, reservedSlot: slot } });
       const inserted = await client.query<MembershipRow>(`${MEMBERSHIP_SELECT} WHERE membership.membership_id=$1`, [membershipId]);
       return mapMembership(inserted.rows[0]!);
-    }).catch((error) => {
-      if (postgresCode(error) === "23505") throw entryError("SPAWN_ALREADY_RESERVED", "Tento district mezitím získal jiný hráč. Vyber si jiný.");
+    }).catch(async (error) => {
+      if (postgresCode(error) === "23505") {
+        const replay = await database.query<MembershipRow>(
+          `${MEMBERSHIP_SELECT} WHERE membership.account_id=$1 AND membership.confirm_idempotency_key=$2`,
+          [accountId, idempotencyKey]
+        );
+        if (replay.rows[0]) {
+          if (String(replay.rows[0].confirm_request_hash) !== requestHash) {
+            throw entryError("IDEMPOTENCY_CONFLICT", "Idempotency-Key už byl použit pro jiný district.");
+          }
+          return mapMembership(replay.rows[0]);
+        }
+        throw entryError("SPAWN_ALREADY_RESERVED", "Tento district mezitím získal jiný hráč. Vyber si jiný.");
+      }
       throw error;
     });
   },
@@ -433,99 +433,6 @@ const createSession = async (database: PostgresDatabase, account: Omit<AccountSe
   return { token, session: { ...account, sessionId, expiresAt } };
 };
 
-const loadSpawnSelection = async (
-  database: PostgresQueryable,
-  accountId: string,
-  serverInstanceId: string,
-  now: Date,
-  lockedServer?: HostedServerRow
-): Promise<SpawnDistrictSelectionView> => {
-  const serverResult = lockedServer ? null : await database.query<HostedServerRow>(
-    `SELECT server_instance_id,display_name,mode,region,status,join_policy,provisioning_state,capacity,last_started_at,
-      last_worker_heartbeat_at,runtime_lease_expires_at,version FROM empire_hosted_server_instances WHERE server_instance_id=$1`,
-    [serverInstanceId]
-  );
-  const server = lockedServer ?? serverResult?.rows[0];
-  if (!server) throw entryError("SERVER_NOT_FOUND", "Server nebyl nalezen.");
-  const workerFresh = Boolean(server.last_worker_heartbeat_at)
-    && Date.parse(iso(server.last_worker_heartbeat_at)) > now.getTime() - WORKER_FRESH_MS;
-  if (server.provisioning_state !== "ready" || server.join_policy !== "open"
-    || !["lobby", "running"].includes(String(server.status)) || !workerFresh) {
-    throw entryError("SERVER_OFFLINE", "Server teď není dostupný. Tvoje předchozí membershipy zůstávají zachované.");
-  }
-  const snapshot = await database.query<{ snapshot_id: string; payload: SnapshotPayload }>(
-    "SELECT snapshot_id,payload FROM empire_snapshot_latest WHERE server_instance_id=$1", [serverInstanceId]
-  );
-  const latest = snapshot.rows[0];
-  if (!latest?.payload?.state) throw entryError("SERVER_OFFLINE", "Server zatím nemá dostupný snapshot.");
-  const blocking = await database.query<{ count: string | number }>(
-    "SELECT count(*)::int AS count FROM empire_server_memberships WHERE account_id=$1 AND status=ANY($2::text[])",
-    [accountId, BLOCKING_STATUSES]
-  );
-  const occupancy = await getOccupancy(database, serverInstanceId, now.toISOString());
-  const reserved = await database.query<{ district_id: string }>(
-    `SELECT reserved_spawn_district_id AS district_id FROM empire_server_memberships
-     WHERE server_instance_id=$1 AND status=ANY($2::text[])`, [serverInstanceId, BLOCKING_STATUSES]
-  );
-  const reservedIds = new Set(reserved.rows.map((row) => String(row.district_id)));
-  const districts = Object.values(latest.payload.state.districtsById ?? {})
-    .filter((district): district is SnapshotDistrict => Boolean(district && findSharedCitySpawnCandidate(String(district.id))?.enabled))
-    .map((district) => {
-      const disabledReason = district.zone === "downtown" ? "DOWNTOWN"
-        : district.ownerPlayerId ? "OWNED"
-        : reservedIds.has(String(district.id)) ? "RESERVED"
-        : district.status !== "neutral" ? String(district.status).toUpperCase()
-        : district.lockdownUntilTick ? "LOCKDOWN"
-        : null;
-      return {
-        districtId: String(district.id),
-        zone: String(district.zone),
-        label: String(district.name || district.id),
-        available: disabledReason === null,
-        disabledReason,
-        buildingPreview: (district.buildingIds ?? []).slice(0, 3).map(String),
-        neighboringDistrictCount: (district.adjacentDistrictIds ?? []).length,
-        spawnCategory: String(findSharedCitySpawnCandidate(String(district.id))?.zones[0] ?? "edge"),
-        version: Number(district.version ?? 1)
-      };
-    });
-  const availabilityRevision = hashEntryRequest({
-    serverVersion: Number(server.version),
-    reserved: [...reservedIds].sort(),
-    committedPlayers: occupancy.committedPlayers,
-    reservedSlots: occupancy.reservedSlots,
-    districts: districts.map(({ districtId, available, disabledReason, version }) => ({ districtId, available, disabledReason, version }))
-  });
-  return {
-    serverInstanceId,
-    membershipEligibility: Number(blocking.rows[0]?.count ?? 0) === 0 ? "eligible" : "blocked",
-    capacity: { ...occupancy, maximum: Number(server.capacity) },
-    serverStatus: String(server.status),
-    joinPolicy: String(server.join_policy),
-    generatedAt: now.toISOString(),
-    availabilityRevision,
-    districts
-  };
-};
-
-const getOccupancy = async (database: PostgresQueryable, serverInstanceId: string, at: string) => {
-  const result = await database.query<{ committed_players: string | number; reserved_slots: string | number }>(
-    `SELECT
-      (SELECT count(*) FROM (
-        SELECT account_id AS identity FROM empire_server_memberships WHERE server_instance_id=$1 AND status=ANY($3::text[])
-        UNION
-        SELECT account_id AS identity FROM empire_player_registrations WHERE server_instance_id=$1 AND status='active' AND account_id IS NOT NULL
-      ) occupied) AS committed_players,
-      (SELECT count(*) FROM empire_hosted_join_reservations
-       WHERE server_instance_id=$1 AND status='reserved' AND expires_at > $2::timestamptz) AS reserved_slots`,
-    [serverInstanceId, at, BLOCKING_STATUSES]
-  );
-  return {
-    committedPlayers: Number(result.rows[0]?.committed_players ?? 0),
-    reservedSlots: Number(result.rows[0]?.reserved_slots ?? 0)
-  };
-};
-
 const completeMembershipJob = async (
   database: PostgresDatabase,
   input: { membershipId: string; jobId: string; workerId: string; joinTicketId: string | null; at: string },
@@ -649,14 +556,7 @@ const mapPassword = (row: AccountRow): AccountPasswordRecord => ({
   passwordParameters: row.password_parameters as AccountPasswordRecord["passwordParameters"]
 });
 
-const disabledReason = (server: HostedServerRow, occupancy: { committedPlayers: number; reservedSlots: number }, workerFresh: boolean) =>
-  !workerFresh ? "WORKER_OFFLINE" : server.provisioning_state !== "ready" ? "SERVER_PREPARING"
-    : server.join_policy !== "open" ? "JOINS_CLOSED" : !["lobby", "running"].includes(String(server.status)) ? "SERVER_NOT_PLAYABLE"
-      : occupancy.committedPlayers + occupancy.reservedSlots >= Number(server.capacity) ? "SERVER_FULL" : "SERVER_UNAVAILABLE";
-
-export const entryError = (code: string, message: string): Error => Object.assign(new Error(message), { entryCode: code });
-export const entryErrorCode = (error: unknown): string => typeof error === "object" && error !== null && "entryCode" in error
-  ? String((error as { entryCode: unknown }).entryCode) : "PLAYER_ENTRY_UNAVAILABLE";
+export { entryError, entryErrorCode };
 
 const validIdempotencyKey = (value: string) => /^[a-zA-Z0-9._:-]{16,200}$/u.test(value);
 const hashToken = (value: string) => crypto.createHash("sha256").update(value).digest("hex");
@@ -668,10 +568,7 @@ const isoOrNull = (value: unknown): string | null => value == null ? null : iso(
 interface AccountRow extends Record<string, unknown> { account_id: unknown; username: unknown; display_name: unknown; gang_name: unknown; status: unknown; password_hash: unknown; password_salt: unknown; password_algorithm: unknown; password_parameters: unknown }
 interface AccountSessionRow extends AccountRow { session_id: unknown; expires_at: unknown }
 interface MembershipRow extends Record<string, unknown> { membership_id: unknown; account_id: unknown; server_instance_id: unknown; display_name: unknown; mode: unknown; server_started_at: unknown; player_id: unknown; reserved_spawn_district_id: unknown; status: unknown; confirm_request_hash: unknown; setup_idempotency_key: unknown; setup_request_hash: unknown; faction_id: unknown; avatar_id: unknown; gang_color: unknown; joined_at: unknown; early_leave_deadline: unknown; setup_completed_at: unknown; early_leave_at: unknown; completed_at: unknown; starter_package_applied_at: unknown; join_ticket_id: unknown; version: unknown }
-interface HostedServerRow extends Record<string, unknown> { server_instance_id: unknown; display_name: unknown; mode: unknown; region: unknown; status: unknown; join_policy: unknown; provisioning_state: unknown; capacity: unknown; last_started_at: unknown; last_worker_heartbeat_at: unknown; runtime_lease_expires_at: unknown; version: unknown }
 interface JobRow extends Record<string, unknown> { job_id: unknown; membership_id: unknown; server_instance_id: unknown; job_type: unknown; status: unknown }
-interface SnapshotDistrict { id: unknown; name?: unknown; zone?: unknown; status?: unknown; ownerPlayerId?: unknown; lockdownUntilTick?: unknown; buildingIds?: unknown[]; adjacentDistrictIds?: unknown[]; version?: unknown }
-interface SnapshotPayload { state?: { districtsById?: Record<string, SnapshotDistrict> } }
 
 const ACCOUNT_SESSION_SELECT = `SELECT session.session_id,session.expires_at,account.account_id,account.username,account.display_name,
   account.gang_name,account.status,account.password_hash,account.password_salt,account.password_algorithm,account.password_parameters

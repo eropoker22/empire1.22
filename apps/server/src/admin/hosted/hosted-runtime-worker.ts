@@ -5,10 +5,13 @@ import type { ServerInstanceRuntime } from "../../runtime/instance";
 import { syncRuntimeCapacityStatus } from "../../runtime/instance-manager/server-instance-joinability";
 import { findSharedCitySpawnCandidate } from "../../bootstrap/gameplay-slice-shared-city-seed";
 import type { PostgresPlayerEntryRepository } from "../../player-entry/postgres-player-entry-repository";
-import type { HostedActionRequestRecord, HostedControlPlaneRepository, HostedServerRecord } from "./hosted-control-plane-repository";
+import type { HostedControlPlaneRepository, HostedServerRecord } from "./hosted-control-plane-repository";
 import { applyHostedEarlyLeaveCleanup, createHostedInstanceFailureReporter, createHostedWorkerAudit,
   isSnapshotForHostedRecord, syncHostedRuntimeStatus } from "./hosted-runtime-worker-state";
+import { applyHostedLifecycleAction, captureHostedRuntimeLifecycle, hostedLifecycleFailureAuditAction,
+  hostedLifecycleSuccessAuditAction, restoreHostedRuntimeLifecycle } from "./hosted-runtime-worker-actions";
 import { createHostedRuntimeLeaseClient } from "./hosted-runtime-lease-client";
+import { resolveHostedServerRegistrationState } from "./hosted-server-registration-state";
 const CLAIM_TTL_MS = 30_000;
 const RUNTIME_LEASE_MS = 20_000;
 export const createHostedRuntimeWorker = (options: {
@@ -183,6 +186,8 @@ export const createHostedRuntimeWorker = (options: {
       if (!server || server.provisioningState !== "ready" || !(server.status === "lobby" || server.status === "running")) {
         throw safe("JOIN_SERVER_NOT_READY");
       }
+      const registrationState = resolveHostedServerRegistrationState(server, claimedAt);
+      if (!registrationState.canCreateMembership) throw safe(registrationState.reasonCode ?? "SERVER_REGISTRATION_CLOSED");
       const leaseExpiresAt = new Date(claimedAt.getTime() + RUNTIME_LEASE_MS).toISOString();
       if (!await lease.acquire(server.serverInstanceId, claimedAt.toISOString(), leaseExpiresAt)) {
         throw safe("JOIN_LEASE_UNAVAILABLE");
@@ -284,74 +289,48 @@ export const createHostedRuntimeWorker = (options: {
     const request = await options.controlPlane.claimAction(options.workerId, lease.workerIncarnationId, claimedAt.toISOString(),
       new Date(claimedAt.getTime() + CLAIM_TTL_MS).toISOString());
     if (!request) return;
+    let rollback: { runtime: ServerInstanceRuntime; snapshot: ReturnType<typeof captureHostedRuntimeLifecycle> } | null = null;
     try {
       const server = await options.controlPlane.getServer(request.serverInstanceId);
       if (!server) throw safe("LIFECYCLE_SERVER_NOT_FOUND");
       if (server.version !== request.expectedVersion) throw safe("LIFECYCLE_STALE_VERSION");
-      const transition = await applyAction(server, request);
+      const leaseAt = now();
+      const leaseExpiresAt = new Date(leaseAt.getTime() + RUNTIME_LEASE_MS).toISOString();
+      if (!await lease.acquire(server.serverInstanceId, leaseAt.toISOString(), leaseExpiresAt)) {
+        throw safe("RUNTIME_LEASE_UNAVAILABLE");
+      }
+      const runtime = await ensureRuntime(server);
+      rollback = { runtime, snapshot: captureHostedRuntimeLifecycle(runtime) };
+      const transition = await applyHostedLifecycleAction({
+        server, request, runtime, serverApp: options.server, controlPlane: options.controlPlane, now: leaseAt,
+        prepareRestart: async () => {
+          if (!await options.controlPlane.prepareRuntimeRestart({ serverInstanceId: server.serverInstanceId,
+            workerId: options.workerId, workerIncarnationId: lease.workerIncarnationId,
+            expectedVersion: request.expectedVersion, at: now().toISOString() })) throw safe("RESTART_STATE_CONFLICT");
+        },
+        restoreAfterRestart: async () => {
+          await lease.release(server.serverInstanceId, now().toISOString());
+          await options.server.instanceManager.restoreInstance(server.serverInstanceId);
+          const restartAt = now();
+          if (!await lease.acquire(server.serverInstanceId, restartAt.toISOString(),
+            new Date(restartAt.getTime() + RUNTIME_LEASE_MS).toISOString())) throw safe("RUNTIME_LEASE_UNAVAILABLE");
+        }
+      });
       const at = now().toISOString();
       if (!await options.controlPlane.completeAction({ request, workerIncarnationId: lease.workerIncarnationId, ...transition, at,
-        audit: workerAudit("lifecycle-success", request.serverInstanceId, at) })) {
+        audit: workerAudit(hostedLifecycleSuccessAuditAction(request.action), request.serverInstanceId, at) })) {
         throw safe("LIFECYCLE_CLAIM_LOST");
       }
+      rollback = null;
       if (transition.releaseLease) {
         await lease.release(request.serverInstanceId, at);
       }
     } catch (error) {
       const at = now().toISOString();
-      await options.controlPlane.failAction({ request, workerIncarnationId: lease.workerIncarnationId, errorCode: safeCode(error), at,
-        audit: workerAudit("lifecycle-failure", request.serverInstanceId, at, "failure") });
-    }
-  };
-
-  const applyAction = async (server: HostedServerRecord, request: HostedActionRequestRecord) => {
-    if (server.provisioningState !== "ready") throw safe("LIFECYCLE_SERVER_NOT_READY");
-    const runtime = await ensureRuntime(server);
-    const leaseAt = now();
-    const leaseExpiresAt = new Date(leaseAt.getTime() + RUNTIME_LEASE_MS).toISOString();
-    const requireLease = async () => {
-      if (!await lease.acquire(server.serverInstanceId, leaseAt.toISOString(), leaseExpiresAt))
-        throw safe("RUNTIME_LEASE_UNAVAILABLE");
-    };
-    await requireLease();
-    switch (request.action) {
-      case "open-joins":
-        if (server.provisioningState !== "ready" || !(["lobby", "running"] as string[]).includes(server.status)) throw safe("JOINS_NOT_READY");
-        options.server.instanceManager.openInstanceForJoin(server.serverInstanceId);
-        return { nextStatus: server.status, nextJoinPolicy: "open" as const, releaseLease: false };
-      case "close-joins":
-        options.server.instanceManager.closeInstanceForJoin(server.serverInstanceId);
-        return { nextStatus: server.status, nextJoinPolicy: "closed" as const, releaseLease: false };
-      case "start":
-        if (server.status !== "lobby") throw safe("START_INVALID_STATE");
-        if (runtime.config.balance.finalLockdown?.enabled && runtime.state.root.playerIds.filter((playerId) =>
-          runtime.state.playersById[playerId]?.status === "active").length <= runtime.config.balance.finalLockdown.triggerActivePlayers)
-          throw safe("START_REQUIRES_MORE_ACTIVE_PLAYERS");
-        options.server.instanceManager.startInstance(server.serverInstanceId);
-        return { nextStatus: "running" as const, nextJoinPolicy: server.joinPolicy, releaseLease: false };
-      case "pause":
-        if (server.status !== "running") throw safe("PAUSE_INVALID_STATE");
-        options.server.instanceManager.pauseInstance(server.serverInstanceId);
-        return { nextStatus: "paused" as const, nextJoinPolicy: server.joinPolicy, releaseLease: false };
-      case "resume":
-        if (server.status !== "paused") throw safe("RESUME_INVALID_STATE");
-        options.server.instanceManager.startInstance(server.serverInstanceId);
-        return { nextStatus: "running" as const, nextJoinPolicy: server.joinPolicy, releaseLease: false };
-      case "restart": {
-        if (!(server.status === "running" || server.status === "restarting")) throw safe("RESTART_INVALID_STATE");
-        if (!await options.controlPlane.prepareRuntimeRestart({ serverInstanceId: server.serverInstanceId,
-          workerId: options.workerId, workerIncarnationId: lease.workerIncarnationId, expectedVersion: request.expectedVersion, at: now().toISOString() })) {
-          throw safe("RESTART_STATE_CONFLICT");
-        }
-        await lease.release(server.serverInstanceId, now().toISOString());
-        await options.server.instanceManager.restoreInstance(server.serverInstanceId);
-        await requireLease();
-        options.server.instanceManager.startInstance(server.serverInstanceId);
-        return { nextStatus: "running" as const, nextJoinPolicy: "closed" as const, releaseLease: false };
-      }
-      case "stop":
-        options.server.instanceManager.stopInstance(server.serverInstanceId);
-        return { nextStatus: "stopped" as const, nextJoinPolicy: "closed" as const, releaseLease: true };
+      const errorCode = safeCode(error);
+      if (rollback) restoreHostedRuntimeLifecycle(rollback.runtime, rollback.snapshot);
+      await options.controlPlane.failAction({ request, workerIncarnationId: lease.workerIncarnationId, errorCode, at,
+        audit: workerAudit(hostedLifecycleFailureAuditAction(request.action, errorCode), request.serverInstanceId, at, "failure") });
     }
   };
 
@@ -363,10 +342,17 @@ export const createHostedRuntimeWorker = (options: {
       try {
         const owned = await lease.acquire(record.serverInstanceId, at.toISOString(), leaseExpiresAt);
         if (!owned) continue;
-        const runtime = await ensureRuntime(record, true);
-        if (record.status === "running") await options.server.instanceManager.tickInstanceDurably(
-          record.serverInstanceId, lease.tickFence(record.serverInstanceId));
-        const snapshot = await options.server.instanceManager.getPersistenceRepositories().snapshotRepository.loadLatest(record.serverInstanceId);
+        const frozen = await options.controlPlane.freezeRegistrationLifecycle({ serverInstanceId: record.serverInstanceId,
+          workerId: options.workerId, workerIncarnationId: lease.workerIncarnationId, expectedVersion: record.version,
+          at: at.toISOString(), closedAudit: workerAudit("registration-closed-automatically", record.serverInstanceId, at.toISOString()),
+          triggerAudit: workerAudit("effective-lockdown-trigger-frozen", record.serverInstanceId, at.toISOString()) });
+        if (frozen.kind === "conflict" || frozen.kind === "not-found") throw safe("RUNTIME_REGISTRATION_FREEZE_CONFLICT");
+        if (!frozen.server) throw safe("RUNTIME_REGISTRATION_FREEZE_CONFLICT");
+        const effectiveRecord = frozen.server;
+        const runtime = await ensureRuntime(effectiveRecord, true);
+        if (effectiveRecord.status === "running") await options.server.instanceManager.tickInstanceDurably(
+          effectiveRecord.serverInstanceId, lease.tickFence(effectiveRecord.serverInstanceId));
+        const snapshot = await options.server.instanceManager.getPersistenceRepositories().snapshotRepository.loadLatest(effectiveRecord.serverInstanceId);
         if (!snapshot) throw safe("RUNTIME_SNAPSHOT_MISSING");
         if (runtime.record.status === "crashed") throw safe("RUNTIME_TICK_FAILED");
         await lease.writeInstanceHeartbeat({ serverInstanceId: record.serverInstanceId,
@@ -380,9 +366,9 @@ export const createHostedRuntimeWorker = (options: {
           options.server.gameplaySessionService.revokePlayerSessions(playerId, at.toISOString())));
         if (resolved) {
           const resolvedAt = now().toISOString();
-          if (!await options.controlPlane.finalizeResolvedServer({ serverInstanceId: record.serverInstanceId,
+          if (!await options.controlPlane.finalizeResolvedServer({ serverInstanceId: effectiveRecord.serverInstanceId,
             workerId: options.workerId, workerIncarnationId: lease.workerIncarnationId,
-            expectedVersion: record.version, snapshotId: snapshot.snapshotId, at: resolvedAt })) {
+            expectedVersion: effectiveRecord.version, snapshotId: snapshot.snapshotId, at: resolvedAt })) {
             throw safe("RESOLVED_SERVER_CLOSE_CONFLICT");
           }
           runtime.lobby.joinPolicy = "closed";
@@ -407,7 +393,7 @@ export const createHostedRuntimeWorker = (options: {
     const existing = options.server.instanceManager.getInstanceById(record.serverInstanceId);
     if (existing) {
       if (restoreLatest && snapshot) await options.server.instanceManager.restoreInstance(record.serverInstanceId);
-      syncHostedRuntimeStatus(existing, record);
+      syncHostedRuntimeStatus(existing, record, now());
       return existing;
     }
     const creation = options.server.serverInstanceCreationService.createGameServerInstanceResult({
@@ -422,7 +408,7 @@ export const createHostedRuntimeWorker = (options: {
     });
     if (!creation.accepted) throw safe("RUNTIME_CREATE_FAILED");
     if (snapshot) await options.server.instanceManager.restoreInstance(record.serverInstanceId);
-    syncHostedRuntimeStatus(creation.runtime, record);
+    syncHostedRuntimeStatus(creation.runtime, record, now());
     return creation.runtime;
   };
 
@@ -433,5 +419,7 @@ const safeCode = (error: unknown): string => typeof error === "object" && error 
   ? String((error as { safeCode: unknown }).safeCode).slice(0, 80) : "HOSTED_WORKER_OPERATION_FAILED";
 
 const isTerminalJoinFailure = (code: string): boolean => new Set([
-  "JOIN_RESERVATION_UNAVAILABLE", "JOIN_RESERVATION_EXPIRED", "JOIN_SERVER_NOT_READY", "JOIN_MEMBERSHIP_REJECTED"
+  "JOIN_RESERVATION_UNAVAILABLE", "JOIN_RESERVATION_EXPIRED", "JOIN_SERVER_NOT_READY", "JOIN_MEMBERSHIP_REJECTED",
+  "SERVER_REGISTRATION_NOT_SCHEDULED", "SERVER_REGISTRATION_NOT_OPEN", "SERVER_REGISTRATION_CLOSED",
+  "SERVER_REGISTRATION_CLOSED_EARLY", "SERVER_REGISTRATION_SCHEDULE_INVALID"
 ]).has(code);

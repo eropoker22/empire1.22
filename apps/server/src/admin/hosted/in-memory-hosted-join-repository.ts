@@ -4,6 +4,7 @@ import type {
   HostedJoinReservationRecord,
   HostedServerRecord
 } from "./hosted-control-plane-repository";
+import { resolveHostedServerRegistrationState } from "./hosted-server-registration-state";
 import { copyInMemoryHostedValue as copy } from "./in-memory-hosted-control-plane-utils";
 
 type InMemoryHostedJoinRepository = Pick<HostedControlPlaneRepository,
@@ -47,8 +48,7 @@ export const createInMemoryHostedJoinRepository = (state: {
       return { kind: "replayed", reservation: copy(active), job: copy(job) };
     }
     if (server.version !== input.reservation.expectedServerVersion) return { kind: "stale-version" };
-    if (server.provisioningState !== "ready" || server.joinPolicy !== "open" ||
-      !(server.status === "lobby" || server.status === "running")) return { kind: "not-joinable" };
+    if (!isInMemoryHostedServerJoinableAt(server, input.reservation.createdAt)) return { kind: "not-joinable" };
     const occupied = [...state.joinReservations.values()].filter((entry) =>
       entry.serverInstanceId === server.serverInstanceId &&
       (entry.status === "committed" ||
@@ -62,7 +62,9 @@ export const createInMemoryHostedJoinRepository = (state: {
   claimJoinJob: async (workerId, now, until) => {
     const job = [...state.joinJobs.values()].find((entry) => {
       const reservation = state.joinReservations.get(entry.reservationId);
+      const server = state.servers.get(entry.serverInstanceId);
       return reservation?.status === "reserved" && reservation.expiresAt > now && entry.availableAt <= now &&
+        server !== undefined && isInMemoryHostedServerJoinableAt(server, now) &&
         (entry.status === "pending" || (entry.status === "claimed" && (entry.claimedUntil ?? "") <= now));
     });
     if (!job) return null;
@@ -116,3 +118,13 @@ export const createInMemoryHostedJoinRepository = (state: {
       entry.serverInstanceId === serverInstanceId && entry.status === "reserved" && entry.expiresAt > at).length
   })
 });
+
+const isInMemoryHostedServerJoinableAt = (server: HostedServerRecord, at: string): boolean =>
+  server.provisioningState === "ready"
+  && (server.status === "lobby" || server.status === "running")
+  && resolveHostedServerRegistrationState({
+    registrationOpensAt: server.registrationOpensAt,
+    registrationClosesAt: server.registrationClosesAt,
+    registrationClosedAt: server.registrationClosedAt,
+    registrationWindowMinutes: server.registrationWindowMinutes
+  }, new Date(at)).canCreateMembership;

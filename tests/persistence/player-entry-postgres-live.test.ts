@@ -13,6 +13,59 @@ const live = resolveLivePostgresSmokeConfig();
 const run = live.run ? it : it.skip;
 
 describe("player entry postgres live", () => {
+  run("accepts the last millisecond, rejects closesAt, and replays after close", async () => {
+    const fixture = await createFixture();
+    try {
+      const hosted = await fixture.createServer(4);
+      const [acceptedAccount, rejectedAccount] = await Promise.all([
+        fixture.createAccount("boundary-accepted"),
+        fixture.createAccount("boundary-rejected")
+      ]);
+      const closesAt = Date.parse(hosted.registrationClosesAt!);
+      const beforeClose = new Date(closesAt - 1);
+      const atClose = new Date(closesAt);
+      await fixture.database.query(
+        `UPDATE empire_hosted_server_instances
+         SET last_worker_heartbeat_at=$2::timestamptz,runtime_lease_expires_at=$3::timestamptz
+         WHERE server_instance_id=$1`,
+        [hosted.serverInstanceId, atClose.toISOString(), new Date(closesAt + 60_000).toISOString()]
+      );
+      const acceptedProjection = await fixture.entry.getSpawnSelection(
+        acceptedAccount.accountId,
+        hosted.serverInstanceId,
+        beforeClose
+      );
+      const rejectedProjection = await fixture.entry.getSpawnSelection(
+        rejectedAccount.accountId,
+        hosted.serverInstanceId,
+        beforeClose
+      );
+      const acceptedDistrict = acceptedProjection.districts.find((district) => district.available)!;
+      const rejectedDistrict = rejectedProjection.districts.find((district) =>
+        district.available && district.districtId !== acceptedDistrict.districtId)!;
+      const idempotencyKey = key("boundary-replay");
+      const acceptedRequest = request(acceptedProjection, acceptedDistrict.districtId);
+      const [accepted, rejected] = await Promise.allSettled([
+        fixture.entry.confirmSpawnDistrict(acceptedAccount.accountId, acceptedRequest, idempotencyKey, beforeClose),
+        fixture.entry.confirmSpawnDistrict(rejectedAccount.accountId,
+          request(rejectedProjection, rejectedDistrict.districtId), key("boundary-closed"), atClose)
+      ]);
+      expect(accepted.status).toBe("fulfilled");
+      expect(rejected.status === "rejected" ? entryErrorCode(rejected.reason) : null).toBe("SERVER_REGISTRATION_CLOSED");
+      if (accepted.status !== "fulfilled") throw accepted.reason;
+      await expect(fixture.entry.confirmSpawnDistrict(
+        acceptedAccount.accountId,
+        acceptedRequest,
+        idempotencyKey,
+        new Date(closesAt + 5_000)
+      )).resolves.toMatchObject({ membershipId: accepted.value.membershipId });
+      expect(await fixture.count("empire_server_memberships", hosted.serverInstanceId)).toBe(1);
+      expect(await fixture.count("empire_hosted_join_reservations", hosted.serverInstanceId)).toBe(1);
+    } finally {
+      await fixture.close();
+    }
+  }, 60_000);
+
   run("serializes same-district and last-slot races without partial memberships", async () => {
     const fixture = await createFixture();
     try {
@@ -115,6 +168,17 @@ describe("player entry postgres live", () => {
 const createFixture = async () => {
   const database = createPostgresDatabase(live.databaseUrl!);
   await applyPostgresTestMigrations(database);
+  await database.query(
+    `UPDATE empire_server_membership_jobs SET status='failed',claimed_by_worker_id=NULL,claimed_until=NULL,
+       last_error_code='TEST_FIXTURE_SUPERSEDED',updated_at=clock_timestamp(),version=version+1
+     WHERE server_instance_id LIKE 'instance:player-entry:%' AND status IN ('pending','claimed')`
+  );
+  await database.query(
+    `UPDATE empire_hosted_server_instances SET status='stopped',join_policy='closed',
+       runtime_lease_owner_id=NULL,runtime_lease_incarnation_id=NULL,runtime_lease_expires_at=NULL,
+       updated_at=clock_timestamp(),version=version+1
+     WHERE server_instance_id LIKE 'instance:player-entry:%' AND status <> 'stopped'`
+  );
   const suffix = crypto.randomUUID();
   const admin = createPostgresAdminDurableRepositories(database);
   const entry = createPostgresPlayerEntryRepository(database);
@@ -125,7 +189,8 @@ const createFixture = async () => {
     ...password, passwordVersion: 1, role: "owner", status: "active", displayName: "Player Entry Live", createdAt: at,
     updatedAt: at, lastLoginAt: null, passwordChangedAt: at, version: 1 });
   const workerId = `worker:player-entry:${suffix}`;
-  await admin.hosted.writeWorkerHeartbeat({ workerId, workerIncarnationId: `worker-incarnation:${workerId}`,
+  const workerIncarnationId = `worker-incarnation:${workerId}`;
+  await admin.hosted.writeWorkerHeartbeat({ workerId, workerIncarnationId,
     region: "eu-central", buildSha: "live-test", startedAt: at, lastHeartbeatAt: at, status: "online" });
   const persistence = createPostgresRuntimePersistenceRepositories({ databaseUrl: live.databaseUrl!, database, tickLockOwnerId: workerId });
   const server = createServerApp({ persistence, environment: { NODE_ENV: "production", EMPIRE_PERSISTENCE_DRIVER: "postgres",
@@ -133,7 +198,13 @@ const createFixture = async () => {
     accountIdentityProvider: { productionReady: true, resolve: () => null },
     gameplaySessionService: createPersistentGameplaySessionService(createPostgresGameplayIdentitySessionRepository(database),
       { productionReady: true }) });
-  const worker = createHostedRuntimeWorker({ workerId, region: "eu-central", buildSha: "live-test", controlPlane: admin.hosted, server, playerEntry: entry });
+  const scopedControlPlane = {
+    ...admin.hosted,
+    listServers: async () => (await admin.hosted.listServers())
+      .filter((record) => record.serverInstanceId.startsWith(`instance:player-entry:${suffix}:`))
+  };
+  const worker = createHostedRuntimeWorker({ workerId, workerIncarnationId, region: "eu-central", buildSha: "live-test",
+    controlPlane: scopedControlPlane, server, playerEntry: entry });
   let serverIndex = 0;
   return {
     database, admin, entry, server, worker,
@@ -142,12 +213,18 @@ const createFixture = async () => {
     createServer: async (capacity: number, startedAt: string | null = null) => {
       serverIndex += 1;
       const serverInstanceId = `instance:player-entry:${suffix}:${serverIndex}`;
-      const record: HostedServerRecord = { serverInstanceId, mode: "free", displayName: `Player Entry ${serverIndex} ${suffix.slice(0, 6)}`,
-        region: "eu-central", capacity, status: startedAt ? "running" : "lobby", joinPolicy: "open", provisioningState: "ready",
+      const record: HostedServerRecord = { serverInstanceId, mode: "free", serverTemplate: "full",
+        displayName: `Player Entry ${serverIndex} ${suffix.slice(0, 6)}`,
+        region: "eu-central", capacity, status: "lobby", joinPolicy: "open", provisioningState: "ready",
+        minimumReadyPlayersToStart: 2, registrationWindowMinutes: 60, registrationScheduleVersion: 1,
+        registrationOpensAt: new Date(Date.parse(at) - 30 * 60_000).toISOString(),
+        registrationClosesAt: new Date(Date.parse(at) + 30 * 60_000).toISOString(), registrationClosedAt: null,
+        registrationBaselinePlayers: null, canonicalFinalLockdownTrigger: 8, canonicalFirstEliminationTick: 5_760,
+        canonicalTickRateMs: 5_000, effectiveFinalLockdownTrigger: null, effectiveFirstEliminationTick: null,
         worldSeed: crypto.randomBytes(32).toString("base64url"), configVersion: 1,
         mapComposition: { downtown: 8, commercial: 40, residential: 38, industrial: 38, park: 37 }, initialSnapshotId: null,
-        currentSnapshotId: null, runtimeLeaseOwnerId: workerId, runtimeLeaseExpiresAt: new Date(Date.now() + 60_000).toISOString(),
-        lastWorkerHeartbeatAt: new Date().toISOString(), lastStartedAt: startedAt, lastPausedAt: null, lastStoppedAt: null,
+        currentSnapshotId: null, runtimeLeaseOwnerId: null, runtimeLeaseExpiresAt: null,
+        lastWorkerHeartbeatAt: null, lastStartedAt: null, lastPausedAt: null, lastStoppedAt: null,
         lastErrorCode: null, createdByAdminUserId: adminUserId, createdAt: at, updatedAt: at, version: 1 };
       await admin.hosted.createServerTransaction({ server: record, job: { jobId: `job:${serverInstanceId}`, serverInstanceId,
         attempt: 1, status: "completed", availableAt: at, claimedByWorkerId: null, claimedUntil: null, lastErrorCode: null,
@@ -155,13 +232,31 @@ const createFixture = async () => {
         requestHash: crypto.createHash("sha256").update(serverInstanceId).digest("hex"), audit: { id: `audit:${serverInstanceId}`,
           adminSessionId: null, actorId: adminUserId, role: "owner", action: "create-server-request", targetInstanceId: serverInstanceId,
           result: "success", createdAt: at, correlationId: `test:${serverInstanceId}` } });
+      const leaseAt = new Date();
+      expect(await admin.hosted.acquireRuntimeLease({ serverInstanceId, workerId, workerIncarnationId,
+        now: leaseAt.toISOString(), expiresAt: new Date(leaseAt.getTime() + 60_000).toISOString() })).toBe(true);
       const created = server.serverInstanceCreationService.createGameServerInstanceResult({ serverInstanceId, mode: "free",
         displayName: record.displayName, region: record.region, capacity, mapComposition: record.mapComposition as never, joinPolicy: "open",
         worldSeed: record.worldSeed });
       if (!created.accepted) throw new Error("Player entry live runtime fixture failed.");
       if (startedAt) server.instanceManager.startInstance(serverInstanceId);
       await server.instanceManager.saveInstanceSnapshot(serverInstanceId);
-      return record;
+      const snapshot = await server.instanceManager.getPersistenceRepositories().snapshotRepository.loadLatest(serverInstanceId);
+      if (!snapshot) throw new Error("Player entry live snapshot fixture failed.");
+      await database.query(
+        `UPDATE empire_hosted_server_instances
+         SET initial_snapshot_id=$2,current_snapshot_id=$2,
+           status=CASE WHEN $3::timestamptz IS NULL THEN status ELSE 'running' END,
+           last_started_at=$3::timestamptz,updated_at=clock_timestamp()
+         WHERE server_instance_id=$1`,
+        [serverInstanceId, snapshot.snapshotId, startedAt]
+      );
+      if (startedAt) await database.query(
+        "UPDATE empire_server_instances SET status='running',updated_at=clock_timestamp() WHERE server_instance_id=$1",
+        [serverInstanceId]
+      );
+      return { ...record, status: startedAt ? "running" : "lobby", lastStartedAt: startedAt,
+        initialSnapshotId: snapshot.snapshotId, currentSnapshotId: snapshot.snapshotId };
     },
     count: async (table: string, serverInstanceId: string) => Number((await database.query<{ count: number }>(
       `SELECT count(*)::int AS count FROM ${table} WHERE server_instance_id=$1`, [serverInstanceId])).rows[0]?.count ?? 0),
