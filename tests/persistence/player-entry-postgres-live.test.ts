@@ -1,5 +1,6 @@
 import * as crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
+import type { MatchResult } from "@empire/shared-types";
 import { createHostedRuntimeWorker, type HostedServerRecord } from "../../apps/server/src/admin/hosted";
 import { createPostgresAdminDurableRepositories, hashAdminPassword } from "../../apps/server/src/admin/read-only";
 import { createServerApp } from "../../apps/server/src/app";
@@ -131,7 +132,17 @@ describe("player entry postgres live", () => {
       expect(Object.keys(fixture.server.instanceManager.getInstanceById(serverA.serverInstanceId)!.state.playersById)).toHaveLength(1);
       expect(await fixture.eventCount(membershipA.membershipId, "player-activated")).toBe(1);
 
-      await fixture.entry.syncResolvedMemberships(serverA.serverInstanceId, [], true, new Date().toISOString());
+      await fixture.entry.syncResolvedMemberships(serverA.serverInstanceId, [],
+        result(serverA.serverInstanceId, membershipA.playerId), new Date().toISOString());
+      expect(await fixture.entry.getMembership(membershipA.membershipId)).toMatchObject({
+        finalRank: 1,
+        finalScore: 12_500
+      });
+      expect(await fixture.entry.getMatchResults(account.accountId, serverA.serverInstanceId)).toMatchObject({
+        serverInstanceId: serverA.serverInstanceId,
+        currentAccountPlacement: 1,
+        currentAccountFinalScore: 12_500
+      });
       const serverB = await fixture.createServer(4);
       const projectionB = await fixture.entry.getSpawnSelection(account.accountId, serverB.serverInstanceId);
       const membershipB = await fixture.entry.confirmSpawnDistrict(account.accountId,
@@ -143,7 +154,8 @@ describe("player entry postgres live", () => {
       expect(await fixture.entry.getMembership(membershipA.membershipId)).toMatchObject({ status: "completed", factionId: "mafian", avatarId: "mafian:1" });
       expect(await fixture.entry.getMembership(membershipB.membershipId)).toMatchObject({ status: "active", factionId: "hackeri", avatarId: "hackeri:1" });
 
-      await fixture.entry.syncResolvedMemberships(serverB.serverInstanceId, [], true, new Date().toISOString());
+      await fixture.entry.syncResolvedMemberships(serverB.serverInstanceId, [],
+        result(serverB.serverInstanceId, membershipB.playerId), new Date().toISOString());
       const startedAt = new Date(Date.now() - 30 * 60 * 1000);
       const leaveServer = await fixture.createServer(4, startedAt.toISOString());
       const leaveAccount = await fixture.createAccount("leave-ok");
@@ -270,3 +282,13 @@ const request = (projection: { serverInstanceId: string; availabilityRevision: s
   serverInstanceId: projection.serverInstanceId, districtId, expectedAvailabilityRevision: projection.availabilityRevision
 });
 const key = (scope: string) => `${scope}:${crypto.randomUUID()}`;
+const result = (serverInstanceId: string, playerId: string): MatchResult => ({
+  id: `match:${serverInstanceId}`,
+  serverInstanceId,
+  endedAt: new Date().toISOString(),
+  winnerPlayerId: playerId,
+  winnerAllianceId: null,
+  ranking: [{ subjectType: "player", subjectId: playerId, rank: 1, score: 12_500,
+    scoreBreakdown: { finalScore: 12_500 } }],
+  reason: "final_lockdown_score"
+});

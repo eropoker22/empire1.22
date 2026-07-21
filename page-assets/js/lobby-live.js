@@ -93,7 +93,12 @@ function renderGang(overview) {
   if (history) {
     const completed = overview.memberships.filter((membership) => membership.status === "completed");
     history.innerHTML = completed.length
-      ? completed.map((membership) => `<li><strong>${escapeHtml(membership.serverDisplayName)}</strong><span>${escapeHtml(membership.factionId || "bez frakce")} · ${escapeHtml(membership.reservedSpawnDistrictId)}</span></li>`).join("")
+      ? completed.map((membership) => {
+        const result = membership.finalRank === null
+          ? "výsledek se načítá"
+          : `#${membership.finalRank} · ${membership.finalScore === null ? "—" : Math.round(membership.finalScore).toLocaleString("cs-CZ")} Empire Score`;
+        return `<li><strong>${escapeHtml(membership.serverDisplayName)}</strong><span>${escapeHtml(result)}</span></li>`;
+      }).join("")
       : "<li>Žádný dokončený server.</li>";
   }
 }

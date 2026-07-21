@@ -35,6 +35,8 @@ export const logoutAccount = () => playerEntryRequest("/api/account/session", { 
 export const loadLobbyOverview = () => playerEntryRequest("/api/lobby/overview");
 export const loadSpawnDistricts = (serverInstanceId) =>
   playerEntryRequest(`/api/lobby/servers/${encodeURIComponent(serverInstanceId)}/spawn-districts`);
+export const loadServerResults = (serverInstanceId) =>
+  playerEntryRequest(`/api/lobby/servers/${encodeURIComponent(serverInstanceId)}/results`);
 export const confirmSpawnDistrict = (body) => playerEntryRequest("/api/lobby/spawn-confirm", {
   method: "POST",
   headers: { "idempotency-key": createStableIdempotencyKey("spawn", body) },

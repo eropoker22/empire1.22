@@ -117,6 +117,15 @@ describe("hosted runtime worker recovery", () => {
         phase: "resolved",
         version: runtime.state.root.version + 1
       };
+      runtime.state.matchResult = {
+        id: `match:${record.serverInstanceId}`,
+        serverInstanceId: record.serverInstanceId,
+        endedAt: T0.toISOString(),
+        winnerPlayerId: null,
+        winnerAllianceId: null,
+        ranking: [],
+        reason: "final_lockdown_score"
+      };
     });
     const controlPlane = createInMemoryHostedControlPlaneRepository({
       servers: [withSnapshot(record, snapshot)]

@@ -4,6 +4,7 @@ import type {
   ConfirmSpawnDistrictRequest,
   FinalizeServerSetupRequest,
   LobbyOverviewView,
+  MatchResult,
   ServerMembershipStatus,
   ServerMembershipView,
   SpawnDistrictSelectionView
@@ -23,6 +24,7 @@ import {
   validPlayerUsername
 } from "./player-entry-policy";
 import { createLobbyServerSummary, loadHostedSpawnSelection } from "./postgres-player-entry-registration";
+import { loadHostedMatchResultsForAccount, persistHostedMatchResult } from "./postgres-player-entry-results";
 import {
   HOSTED_PLAYER_ENTRY_SERVER_COLUMNS,
   PLAYER_ENTRY_BLOCKING_STATUSES,
@@ -56,6 +58,9 @@ export interface MembershipRecord {
   setupCompletedAt: string | null;
   earlyLeaveAt: string | null;
   completedAt: string | null;
+  finalRank: number | null;
+  finalScore: number | null;
+  finalScoreBreakdown: Record<string, number> | null;
   starterPackageAppliedAt: string | null;
   joinTicketId: string | null;
   version: number;
@@ -74,7 +79,8 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
   isSchemaCurrent: async () => {
     const result = await database.query<{ present: boolean }>(
       `SELECT to_regclass('public.empire_server_memberships') IS NOT NULL
-          AND to_regclass('public.empire_auth_throttle_buckets') IS NOT NULL AS present`
+          AND to_regclass('public.empire_auth_throttle_buckets') IS NOT NULL
+          AND to_regclass('public.empire_hosted_match_results') IS NOT NULL AS present`
     );
     return Boolean(result.rows[0]?.present);
   },
@@ -348,6 +354,9 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
     return result.rows[0] ? toMembershipView(mapMembership(result.rows[0]), now) : null;
   },
 
+  getMatchResults: async (accountId: string, serverInstanceId: string) =>
+    loadHostedMatchResultsForAccount(database, accountId, serverInstanceId),
+
   claimMembershipJob: async (workerId: string, now: string, claimedUntil: string): Promise<MembershipJobRecord | null> => {
     const result = await database.query<JobRow>(
       `WITH candidate AS (
@@ -386,7 +395,12 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
     });
   },
 
-  syncResolvedMemberships: async (serverInstanceId: string, defeatedPlayerIds: string[], resolved: boolean, at: string) => {
+  syncResolvedMemberships: async (
+    serverInstanceId: string,
+    defeatedPlayerIds: string[],
+    matchResult: MatchResult | null,
+    at: string
+  ) => {
     if (defeatedPlayerIds.length > 0) await database.query(
       `WITH changed AS (
          UPDATE empire_server_memberships SET status='defeated',updated_at=$3::timestamptz,version=version+1
@@ -398,7 +412,8 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
          server_instance_id,account_id,'defeated','completed',NULL,'{}'::jsonb,$3::timestamptz FROM changed
        ON CONFLICT (event_id) DO NOTHING`, [serverInstanceId, defeatedPlayerIds, at]
     );
-    if (resolved) await database.transaction(async (client) => {
+    if (matchResult) await database.transaction(async (client) => {
+      await persistHostedMatchResult(client, serverInstanceId, matchResult, at);
       await client.query(
         `UPDATE empire_server_membership_jobs SET status='failed',claimed_by_worker_id=NULL,claimed_until=NULL,
           last_error_code='SERVER_COMPLETED',updated_at=$2::timestamptz,version=version+1
@@ -506,6 +521,8 @@ const toMembershipView = (membership: MembershipRecord, now: Date): ServerMember
     setupCompletedAt: membership.setupCompletedAt,
     earlyLeaveAt: membership.earlyLeaveAt,
     completedAt: membership.completedAt,
+    finalRank: membership.finalRank,
+    finalScore: membership.finalScore,
     canLeaveEarly,
     earlyLeaveDeadline: membership.earlyLeaveDeadline,
     earlyLeaveRemainingMs: Number.isFinite(remaining) ? Math.max(0, remaining) : 0,
@@ -532,6 +549,9 @@ const mapMembership = (row: MembershipRow): MembershipRecord => ({
   setupCompletedAt: isoOrNull(row.setup_completed_at),
   earlyLeaveAt: isoOrNull(row.early_leave_at),
   completedAt: isoOrNull(row.completed_at),
+  finalRank: nullableNumber(row.final_rank),
+  finalScore: nullableNumber(row.final_score),
+  finalScoreBreakdown: numericRecord(row.final_score_breakdown),
   starterPackageAppliedAt: isoOrNull(row.starter_package_applied_at),
   joinTicketId: nullable(row.join_ticket_id),
   version: Number(row.version)
@@ -568,7 +588,7 @@ const isoOrNull = (value: unknown): string | null => value == null ? null : iso(
 
 interface AccountRow extends Record<string, unknown> { account_id: unknown; username: unknown; display_name: unknown; gang_name: unknown; status: unknown; password_hash: unknown; password_salt: unknown; password_algorithm: unknown; password_parameters: unknown }
 interface AccountSessionRow extends AccountRow { session_id: unknown; expires_at: unknown }
-interface MembershipRow extends Record<string, unknown> { membership_id: unknown; account_id: unknown; server_instance_id: unknown; display_name: unknown; mode: unknown; server_started_at: unknown; player_id: unknown; reserved_spawn_district_id: unknown; status: unknown; confirm_request_hash: unknown; setup_idempotency_key: unknown; setup_request_hash: unknown; faction_id: unknown; avatar_id: unknown; gang_color: unknown; joined_at: unknown; early_leave_deadline: unknown; setup_completed_at: unknown; early_leave_at: unknown; completed_at: unknown; starter_package_applied_at: unknown; join_ticket_id: unknown; version: unknown }
+interface MembershipRow extends Record<string, unknown> { membership_id: unknown; account_id: unknown; server_instance_id: unknown; display_name: unknown; mode: unknown; server_started_at: unknown; player_id: unknown; reserved_spawn_district_id: unknown; status: unknown; confirm_request_hash: unknown; setup_idempotency_key: unknown; setup_request_hash: unknown; faction_id: unknown; avatar_id: unknown; gang_color: unknown; joined_at: unknown; early_leave_deadline: unknown; setup_completed_at: unknown; early_leave_at: unknown; completed_at: unknown; final_rank: unknown; final_score: unknown; final_score_breakdown: unknown; starter_package_applied_at: unknown; join_ticket_id: unknown; version: unknown }
 interface JobRow extends Record<string, unknown> { job_id: unknown; membership_id: unknown; server_instance_id: unknown; job_type: unknown; status: unknown }
 
 const ACCOUNT_SESSION_SELECT = `SELECT session.session_id,session.expires_at,account.account_id,account.username,account.display_name,
@@ -579,6 +599,7 @@ const MEMBERSHIP_SELECT = `SELECT membership.membership_id,membership.account_id
   membership.player_id,membership.reserved_spawn_district_id,membership.status,membership.confirm_request_hash,
   membership.setup_idempotency_key,membership.setup_request_hash,membership.faction_id,membership.avatar_id,membership.gang_color,
   membership.joined_at,membership.early_leave_deadline,membership.setup_completed_at,membership.early_leave_at,membership.completed_at,
+  membership.final_rank,membership.final_score,membership.final_score_breakdown,
   membership.starter_package_applied_at,membership.join_ticket_id,membership.version
   FROM empire_server_memberships membership JOIN empire_hosted_server_instances server ON server.server_instance_id=membership.server_instance_id`;
 
@@ -586,4 +607,12 @@ const resolveEarlyLeaveDeadline = (stored: unknown, serverStartedAt: unknown): s
   if (stored != null) return iso(stored);
   if (serverStartedAt == null) return null;
   return new Date(Date.parse(iso(serverStartedAt)) + PLAYER_ENTRY_POLICY.earlyLeaveWindowMs).toISOString();
+};
+
+const nullableNumber = (value: unknown): number | null => value == null || !Number.isFinite(Number(value)) ? null : Number(value);
+const numericRecord = (value: unknown): Record<string, number> | null => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return Object.fromEntries(Object.entries(value)
+    .filter(([, item]) => Number.isFinite(Number(item)))
+    .map(([key, item]) => [key, Number(item)]));
 };

@@ -123,7 +123,7 @@ describe("scheduled elimination system", () => {
       scoreBreakdownAtElimination: expect.any(Object)
     });
     expect(createPlayerFinalEmpireScore(result.nextState, "player:3", context).score)
-      .toBe(result.nextState.playersById["player:3"].metadata.scoreAtElimination);
+      .toBe(result.nextState.playersById["player:3"]!.metadata?.scoreAtElimination);
     expect(result.events.find((event) => event.type === "player-eliminated")?.payload).toMatchObject({
       playerId: "player:3",
       gangName: "Player 3",

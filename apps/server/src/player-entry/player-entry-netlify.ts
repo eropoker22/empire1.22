@@ -88,6 +88,12 @@ export const createPlayerEntryNetlifyBoundary = (options: {
         return success(200, null, { "set-cookie": clearPlayerAccountCookie(options.environment) });
       }
       if (route.kind === "overview" && method === "GET") return success(200, await repository.getOverview(account));
+      if (route.kind === "results" && method === "GET") {
+        const results = await repository.getMatchResults(account.accountId, route.serverInstanceId);
+        return results
+          ? success(200, results)
+          : error(404, "MATCH_RESULTS_NOT_FOUND", "Výsledky tohoto serveru nejsou dostupné.");
+      }
       if (route.kind === "spawn" && method === "GET") return success(200, await repository.getSpawnSelection(account.accountId, route.serverInstanceId));
       if (route.kind === "confirm-spawn" && method === "POST") {
         const originError = stateChangeError(request, options.environment);
@@ -190,6 +196,7 @@ const resolveRoute = (path: string): Route | null => {
   if (parts[2] === "overview" && parts.length === 3) return { kind: "overview" };
   if (parts[2] === "spawn-confirm" && parts.length === 3) return { kind: "confirm-spawn" };
   if (parts[2] === "setup" && parts[3] === "finalize" && parts.length === 4) return { kind: "setup" };
+  if (parts[2] === "servers" && parts[4] === "results" && parts.length === 5) return { kind: "results", serverInstanceId: decodeURIComponent(parts[3]!) };
   if (parts[2] === "servers" && parts[4] === "spawn-districts" && parts.length === 5) return { kind: "spawn", serverInstanceId: decodeURIComponent(parts[3]!) };
   if (parts[2] === "memberships" && parts.length === 4) return { kind: "membership", membershipId: decodeURIComponent(parts[3]!) };
   if (parts[2] === "memberships" && parts[4] === "join-ticket" && parts.length === 5) return { kind: "join-ticket", membershipId: decodeURIComponent(parts[3]!) };
@@ -243,5 +250,5 @@ const header = (headers: PlayerEntryRequest["headers"], name: string) => {
 };
 
 type Route = { kind: "register" | "session" | "registration-policy" | "overview" | "confirm-spawn" | "setup" }
-  | { kind: "spawn"; serverInstanceId: string }
+  | { kind: "spawn" | "results"; serverInstanceId: string }
   | { kind: "membership" | "join-ticket" | "leave"; membershipId: string };

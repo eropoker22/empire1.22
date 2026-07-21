@@ -360,7 +360,14 @@ export const createHostedRuntimeWorker = (options: {
         const defeatedPlayerIds = Object.values(runtime.state.playersById)
           .filter((player) => player.status === "defeated").map((player) => player.id);
         const resolved = runtime.state.root.phase === "resolved";
-        await options.playerEntry?.syncResolvedMemberships(record.serverInstanceId, defeatedPlayerIds, resolved, at.toISOString());
+        const matchResult = resolved ? runtime.state.matchResult : null;
+        if (resolved && !matchResult) throw safe("RUNTIME_MATCH_RESULT_MISSING");
+        await options.playerEntry?.syncResolvedMemberships(
+          record.serverInstanceId,
+          defeatedPlayerIds,
+          matchResult,
+          at.toISOString()
+        );
         const revokedPlayerIds = resolved ? Object.keys(runtime.state.playersById) : defeatedPlayerIds;
         await Promise.all(revokedPlayerIds.map((playerId) =>
           options.server.gameplaySessionService.revokePlayerSessions(playerId, at.toISOString())));

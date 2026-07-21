@@ -35,11 +35,34 @@ export interface ServerMembershipView {
   setupCompletedAt: string | null;
   earlyLeaveAt: string | null;
   completedAt: string | null;
+  finalRank: number | null;
+  finalScore: number | null;
   canLeaveEarly: boolean;
   earlyLeaveDeadline: string | null;
   earlyLeaveRemainingMs: number;
   earlyLeaveBlockedReason: string | null;
   joinTicket: string | null;
+}
+
+export interface HostedMatchRankingEntryView {
+  playerId: string;
+  playerName: string;
+  gangName: string;
+  rank: number;
+  score: number;
+}
+
+export interface HostedMatchResultsView {
+  serverInstanceId: string;
+  serverDisplayName: string;
+  completedAt: string;
+  completionReason: string;
+  winner: HostedMatchRankingEntryView | null;
+  top3: HostedMatchRankingEntryView[];
+  currentPlayerId: string;
+  currentAccountPlacement: number | null;
+  currentAccountFinalScore: number | null;
+  currentAccountScoreBreakdown: Record<string, number> | null;
 }
 
 export interface LobbyServerSummaryView {
