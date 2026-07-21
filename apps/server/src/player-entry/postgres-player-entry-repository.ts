@@ -73,7 +73,8 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
   database,
   isSchemaCurrent: async () => {
     const result = await database.query<{ present: boolean }>(
-      "SELECT to_regclass('public.empire_server_memberships') IS NOT NULL AS present"
+      `SELECT to_regclass('public.empire_server_memberships') IS NOT NULL
+          AND to_regclass('public.empire_auth_throttle_buckets') IS NOT NULL AS present`
     );
     return Boolean(result.rows[0]?.present);
   },

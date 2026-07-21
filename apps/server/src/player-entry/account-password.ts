@@ -15,6 +15,8 @@ const PARAMETERS = Object.freeze({
   maxMemory: 64 * 1024 * 1024
 });
 
+export const ACCOUNT_PASSWORD_MINIMUM_LENGTH = 12;
+
 export const hashAccountPassword = async (password: string): Promise<AccountPasswordRecord> => {
   assertPassword(password);
   const salt = crypto.randomBytes(32);
@@ -47,8 +49,8 @@ const derive = (password: string, salt: Uint8Array, parameters: typeof PARAMETER
   }, (error, result) => error ? reject(error) : resolve(result)));
 
 const assertPassword = (password: string): void => {
-  if (typeof password !== "string" || password.length < 12 || password.length > 1024) {
-    throw new Error("Account password must contain between 12 and 1024 characters.");
+  if (typeof password !== "string" || password.length < ACCOUNT_PASSWORD_MINIMUM_LENGTH || password.length > 1024) {
+    throw new Error(`Account password must contain between ${ACCOUNT_PASSWORD_MINIMUM_LENGTH} and 1024 characters.`);
   }
 };
 

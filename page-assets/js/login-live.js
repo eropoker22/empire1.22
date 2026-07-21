@@ -1,8 +1,13 @@
-import { accountSession, loginAccount, registerAccount } from "./app/player-entry-client.js";
+import {
+  accountSession,
+  loadAccountRegistrationPolicy,
+  loginAccount,
+  registerAccount
+} from "./app/player-entry-client.js";
 import { bindLoginAboutModal, bindLoginInfoModals } from "./app/login-about-modal.js";
 import { isLocalDemoAccessAvailable } from "./app/local-demo-gate.js";
 
-const state = { activeTab: "login", submitting: false };
+const state = { activeTab: "login", submitting: false, registrationEnabled: false };
 
 const initialize = () => {
   bindLocalDemoGuestAccess();
@@ -11,6 +16,7 @@ const initialize = () => {
   bindForms();
   bindLoginAboutModal();
   bindLoginInfoModals();
+  void loadRegistrationPolicy();
   void accountSession().then(() => window.location.replace("./lobby.html")).catch(() => {});
 };
 
@@ -39,6 +45,10 @@ function bindTabs() {
 }
 
 function setTab(tab) {
+  if (tab === "register" && !state.registrationEnabled) {
+    renderRegistrationPolicy("REGISTRACE JE MOMENTÁLNĚ UZAVŘENA", "Do closed alpha se nyní mohou přihlásit pouze existující účty.");
+    return;
+  }
   state.activeTab = tab === "register" ? "register" : "login";
   document.querySelector("#login-form")?.classList.toggle("hidden", state.activeTab !== "login");
   document.querySelector("#register-form")?.classList.toggle("hidden", state.activeTab !== "register");
@@ -49,6 +59,57 @@ function setTab(tab) {
   });
   showError("");
 }
+
+async function loadRegistrationPolicy() {
+  try {
+    const policy = await loadAccountRegistrationPolicy();
+    state.registrationEnabled = policy?.registrationEnabled === true;
+    applyRegistrationAvailability(policy);
+  } catch (_error) {
+    state.registrationEnabled = false;
+    applyRegistrationAvailability(null);
+    renderRegistrationPolicy(
+      "STAV REGISTRACE NENÍ DOSTUPNÝ",
+      "Stav registrace se nepodařilo ověřit. Přihlášení existujícího účtu zůstává dostupné."
+    );
+  }
+}
+
+function applyRegistrationAvailability(policy) {
+  const enabled = policy?.registrationEnabled === true;
+  const registerTab = document.querySelector('[data-tab="register"]');
+  const registerLink = document.querySelector('[data-tab-link="register"]');
+  [registerTab, registerLink].forEach((control) => {
+    if (!(control instanceof HTMLButtonElement)) return;
+    control.disabled = !enabled;
+    control.setAttribute("aria-disabled", String(!enabled));
+  });
+  document.querySelectorAll("#register-form input, #register-form button").forEach((control) => {
+    if (control instanceof HTMLInputElement || control instanceof HTMLButtonElement) control.disabled = !enabled;
+  });
+  const invite = document.querySelector("#register-invite");
+  if (invite instanceof HTMLInputElement) {
+    invite.required = policy?.inviteRequired === true;
+    invite.placeholder = policy?.inviteRequired === true ? "Povinný closed alpha invite" : "Closed alpha invite";
+  }
+  if (!enabled && state.activeTab === "register") setTab("login");
+  renderRegistrationPolicy(
+    enabled ? "INVITE-ONLY REGISTRACE JE OTEVŘENÁ" : "REGISTRACE JE MOMENTÁLNĚ UZAVŘENA",
+    enabled
+      ? `Pro vstup potřebuješ platný invite. Heslo musí mít alespoň ${policy.passwordMinimumLength} znaků.`
+      : "Do closed alpha se nyní mohou přihlásit pouze existující účty."
+  );
+}
+
+function renderRegistrationPolicy(title, message) {
+  const node = document.querySelector("[data-registration-policy-status]");
+  if (!node) return;
+  node.innerHTML = `<strong>${escapeText(title)}</strong><span>${escapeText(message)}</span>`;
+}
+
+const escapeText = (value) => String(value || "").replace(/[&<>'"]/g, (character) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
+})[character]);
 
 function bindPasswordToggle() {
   document.querySelector("[data-password-toggle]")?.addEventListener("click", () => {

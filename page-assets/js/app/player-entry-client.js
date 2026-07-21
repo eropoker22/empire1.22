@@ -28,6 +28,7 @@ export const createStableIdempotencyKey = (scope, payload) => {
 };
 
 export const accountSession = () => playerEntryRequest("/api/account/session");
+export const loadAccountRegistrationPolicy = () => playerEntryRequest("/api/account/registration-policy");
 export const loginAccount = (body) => playerEntryRequest("/api/account/session", { method: "POST", body: JSON.stringify(body) });
 export const registerAccount = (body) => playerEntryRequest("/api/account/register", { method: "POST", body: JSON.stringify(body) });
 export const logoutAccount = () => playerEntryRequest("/api/account/session", { method: "DELETE", body: "{}" });

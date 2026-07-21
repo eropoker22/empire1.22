@@ -315,6 +315,8 @@ const initializeLoginPage = () => {
   const registration = getRegistrationDraft();
   state.activeMode = resolveInitialMode(registration);
 
+  enableLocalDemoRegistration();
+
   hydrateInputs(registration);
   bindModeCards();
   bindTerminalTabs();
@@ -330,6 +332,16 @@ const initializeLoginPage = () => {
   startLoginActiveEventsCycle();
   updateModeCards();
   updateTerminalTab();
+};
+
+const enableLocalDemoRegistration = () => {
+  document.querySelectorAll('[data-tab="register"], [data-tab-link="register"], #register-form input, #register-form button')
+    .forEach((control) => {
+      if (control instanceof HTMLButtonElement || control instanceof HTMLInputElement) control.disabled = false;
+      control.setAttribute?.("aria-disabled", "false");
+    });
+  const status = document.querySelector("[data-registration-policy-status]");
+  if (status) status.textContent = "LOKÁLNÍ DEV DEMO · DATA SE NEUKLÁDAJÍ NA SERVER";
 };
 
 const resolveInitialMode = (registration) => {

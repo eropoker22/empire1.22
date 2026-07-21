@@ -1706,6 +1706,23 @@ body.login-body::after {
   box-shadow: 0 0 16px rgba(255, 223, 75, 0.38), inset 0 0 14px rgba(255, 223, 75, 0.08);
 }
 
+.registration-policy-status {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 9px 11px;
+  border: 1px solid rgba(84, 223, 245, 0.2);
+  border-radius: 9px;
+  background: rgba(1, 7, 14, 0.56);
+  color: rgba(222, 232, 239, 0.76);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.registration-policy-status strong { color: #8cecff; font-size: 0.66rem; letter-spacing: 0.08em; }
+.terminal-tab:disabled,
+.terminal-link:disabled { cursor: not-allowed; filter: grayscale(1); opacity: 0.42; }
+
 .auth-error {
   display: flex;
   align-items: center;

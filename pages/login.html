@@ -187,8 +187,12 @@
         <div class="terminal-frame"></div>
         <div class="terminal-tabs" role="tablist" aria-label="Typ přístupu">
           <button class="terminal-tab is-active" type="button" data-tab="login" data-testid="login-tab" role="tab" aria-selected="true">PŘÍSTUP</button>
-          <button class="terminal-tab" type="button" data-tab="register" data-testid="register-tab" role="tab" aria-selected="false">ZALOŽIT GANG</button>
+          <button class="terminal-tab" type="button" data-tab="register" data-testid="register-tab" role="tab" aria-selected="false" aria-disabled="true" disabled>ZALOŽIT GANG</button>
         </div>
+
+        <p class="registration-policy-status" data-registration-policy-status role="status" aria-live="polite">
+          <strong>OVĚŘUJI REGISTRACI</strong><span>Přihlášení existujícího účtu zůstává dostupné.</span>
+        </p>
 
         <form id="login-form" class="auth-form terminal-form" data-testid="login-form" autocomplete="on" novalidate>
           <label class="field-shell" for="login-username">
@@ -226,7 +230,7 @@
         <p id="auth-error" class="auth-error hidden" role="alert"></p>
 
         <div class="terminal-actions">
-          <button class="terminal-link" type="button" data-tab-link="register">▣ Založit gang</button>
+          <button class="terminal-link" type="button" data-tab-link="register" aria-disabled="true" disabled>▣ Založit gang</button>
           <button class="terminal-link" type="button" data-forgot-password>▣ Zapomenuté heslo</button>
         </div>
 

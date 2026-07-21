@@ -1,10 +1,16 @@
-import * as crypto from "node:crypto";
 import type { ConfirmSpawnDistrictRequest, FinalizeServerSetupRequest } from "@empire/shared-types";
 import { validateStateChangingOrigin } from "../netlify/csrf-origin-guard";
 import { createJsonResponse, type NetlifyFunctionResponse } from "../netlify/netlify-json-response";
 import { createPostgresDatabase } from "../runtime/persistence/postgres";
 import type { GameplaySessionService } from "../auth/gameplay-session-service";
 import { clearPlayerAccountCookie, createPlayerAccountCookie, readPlayerAccountCookie } from "./player-account-cookie";
+import { isValidClosedAlphaInvite, resolveAccountRegistrationPolicy } from "./account-registration-policy";
+import {
+  createPostgresAuthThrottle,
+  resolveAuthNetworkIdentifier,
+  type AuthThrottleAction,
+  type AuthThrottleService
+} from "./postgres-auth-throttle";
 import {
   createPostgresPlayerEntryRepository,
   entryError,
@@ -24,23 +30,32 @@ export const createPlayerEntryNetlifyBoundary = (options: {
   environment: Record<string, string | undefined>;
   repository?: PostgresPlayerEntryRepository;
   gameplaySessionService: GameplaySessionService;
+  authThrottle?: AuthThrottleService;
 }) => {
   const repository = options.repository ?? resolveRepository(options.environment);
+  const authThrottle = options.authThrottle ?? resolveAuthThrottle(repository, options.environment);
   return async (request: PlayerEntryRequest): Promise<NetlifyFunctionResponse | null> => {
     const route = resolveRoute(request.path);
     if (!route) return null;
-    if (!repository || !await repository.isSchemaCurrent().catch(() => false)) {
-      return error(503, "PLAYER_ENTRY_UNAVAILABLE", "Player entry databáze není dostupná.");
-    }
     const method = request.httpMethod.toUpperCase();
     if (method === "OPTIONS") return createJsonResponse(204, null);
+    const persistenceReady = Boolean(repository && await repository.isSchemaCurrent().catch(() => false));
+    const authSecurityReady = options.environment.NODE_ENV !== "production" || Boolean(authThrottle);
+    if (route.kind === "registration-policy" && method === "GET") {
+      return success(200, resolveAccountRegistrationPolicy(options.environment, persistenceReady && authSecurityReady));
+    }
+    if (!repository || !persistenceReady) return error(503, "PLAYER_ENTRY_UNAVAILABLE", "Player entry databáze není dostupná.");
     try {
       if (route.kind === "register" && method === "POST") {
         const originError = stateChangeError(request, options.environment);
         if (originError) return originError;
-        if (!registrationEnabled(options.environment)) return error(403, "ACCOUNT_REGISTRATION_CLOSED", "Registrace je momentálně uzavřená.");
+        if (!resolveAccountRegistrationPolicy(options.environment, persistenceReady && authSecurityReady).registrationEnabled) {
+          return error(403, "ACCOUNT_REGISTRATION_CLOSED", "Registrace je momentálně uzavřená.");
+        }
         const body = record(request.body) ? request.body : {};
-        if (!validInvite(body.inviteCode, options.environment)) return error(403, "ACCOUNT_INVITE_REQUIRED", "Je vyžadován platný invite code.");
+        const throttleError = await consumeAuthThrottle(authThrottle, "register", body.username, request.headers);
+        if (throttleError) return throttleError;
+        if (!isValidClosedAlphaInvite(body.inviteCode, options.environment)) return error(403, "ACCOUNT_INVITE_REQUIRED", "Je vyžadován platný invite code.");
         const created = await repository.registerAccount({
           username: String(body.username ?? ""), password: String(body.password ?? ""), gangName: String(body.gangName ?? "")
         });
@@ -50,6 +65,8 @@ export const createPlayerEntryNetlifyBoundary = (options: {
         const originError = stateChangeError(request, options.environment);
         if (originError) return originError;
         const body = record(request.body) ? request.body : {};
+        const throttleError = await consumeAuthThrottle(authThrottle, "login", body.username, request.headers);
+        if (throttleError) return throttleError;
         const login = await repository.login({ username: String(body.username ?? ""), password: String(body.password ?? "") });
         return success(200, publicAccount(login.session), { "set-cookie": createPlayerAccountCookie(login.token, login.session.expiresAt, options.environment) });
       }
@@ -132,10 +149,43 @@ const resolveRepository = (environment: Record<string, string | undefined>) => {
   return driver === "postgres" && databaseUrl ? createPostgresPlayerEntryRepository(createPostgresDatabase(databaseUrl)) : null;
 };
 
+const resolveAuthThrottle = (
+  repository: PostgresPlayerEntryRepository | null,
+  environment: Record<string, string | undefined>
+): AuthThrottleService | null => {
+  if (!repository?.database) return null;
+  try {
+    return createPostgresAuthThrottle(repository.database, environment);
+  } catch (_error) {
+    return null;
+  }
+};
+
+const consumeAuthThrottle = async (
+  service: AuthThrottleService | null,
+  action: AuthThrottleAction,
+  username: unknown,
+  headers: PlayerEntryRequest["headers"]
+): Promise<NetlifyFunctionResponse | null> => {
+  if (!service) return error(503, "ACCOUNT_AUTH_THROTTLE_UNAVAILABLE", "Přihlášení je dočasně nedostupné.");
+  const decision = await service.consume({
+    action,
+    username: String(username ?? ""),
+    networkIdentifier: resolveAuthNetworkIdentifier(headers)
+  });
+  return decision.allowed ? null : error(
+    429,
+    "ACCOUNT_RATE_LIMITED",
+    "Příliš mnoho pokusů. Zkus to znovu později.",
+    { "retry-after": String(decision.retryAfterSeconds) }
+  );
+};
+
 const resolveRoute = (path: string): Route | null => {
   const parts = String(path).split("?")[0]!.split("/").filter(Boolean);
   if (parts[0] === "api" && parts[1] === "account" && parts[2] === "register" && parts.length === 3) return { kind: "register" };
   if (parts[0] === "api" && parts[1] === "account" && parts[2] === "session" && parts.length === 3) return { kind: "session" };
+  if (parts[0] === "api" && parts[1] === "account" && parts[2] === "registration-policy" && parts.length === 3) return { kind: "registration-policy" };
   if (parts[0] !== "api" || parts[1] !== "lobby") return null;
   if (parts[2] === "overview" && parts.length === 3) return { kind: "overview" };
   if (parts[2] === "spawn-confirm" && parts.length === 3) return { kind: "confirm-spawn" };
@@ -154,20 +204,6 @@ const stateChangeError = (request: PlayerEntryRequest, environment: Record<strin
   const invalidOrigin = validateStateChangingOrigin(request.headers, environment);
   return invalidOrigin ? error(403, invalidOrigin.code, invalidOrigin.message) : null;
 };
-
-const registrationEnabled = (environment: Record<string, string | undefined>) =>
-  environment.NODE_ENV !== "production" || String(environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED).toLowerCase() === "true";
-
-const validInvite = (value: unknown, environment: Record<string, string | undefined>) => {
-  const expected = String(environment.EMPIRE_CLOSED_ALPHA_INVITE_CODE_HASH ?? "").trim();
-  if (!expected) return environment.NODE_ENV !== "production";
-  const supplied = crypto.createHash("sha256").update(String(value ?? "")).digest("hex");
-  return supplied.length === expected.length && crypto.timingSafeEqual(hexBytes(supplied), hexBytes(expected));
-};
-
-const hexBytes = (value: string): Uint8Array => Uint8Array.from(
-  value.match(/.{1,2}/gu) ?? [], (pair) => Number.parseInt(pair, 16)
-);
 
 const success = <T>(status: number, data: T, headers: Record<string, string> = {}) =>
   createJsonResponse(status, { accepted: true, data, errors: [] }, { "cache-control": "no-store", ...headers });
@@ -206,6 +242,6 @@ const header = (headers: PlayerEntryRequest["headers"], name: string) => {
   return (Array.isArray(value) ? String(value[0] ?? "") : String(value ?? "")).trim();
 };
 
-type Route = { kind: "register" | "session" | "overview" | "confirm-spawn" | "setup" }
+type Route = { kind: "register" | "session" | "registration-policy" | "overview" | "confirm-spawn" | "setup" }
   | { kind: "spawn"; serverInstanceId: string }
   | { kind: "membership" | "join-ticket" | "leave"; membershipId: string };
