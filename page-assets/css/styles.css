@@ -6150,6 +6150,24 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup_
   }
 }
 
+html body.game-body .wanted-popup-card .wanted-popup-cost-row--full {
+  grid-column: 1 / -1 !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+html body.game-body .wanted-popup-card .wanted-popup-cost-row--full .wanted-popup-cost {
+  display: flex !important;
+  min-height: 30px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 1px solid rgba(148, 163, 184, 0.2) !important;
+  border-radius: 999px !important;
+  background: rgba(3, 9, 17, 0.62) !important;
+  text-align: center !important;
+}
+
 html body.game-body .district-popup-action[data-district-action-id="trap"][data-district-trap-state="active"] {
   --district-action-rgb: 34, 197, 94 !important;
   --district-action-secondary-rgb: 16, 185, 129 !important;

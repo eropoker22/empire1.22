@@ -246,10 +246,10 @@ function initMobileLeaderboardPlacement(windowObj = window, documentObj = docume
     if (media.matches) {
       if (allianceChatCard) {
         if (streetNewsAnchor) {
-          moveElementAfterAnchor(streetNewsAnchor, leaderboardBlock);
+          moveElementAfterAnchor(streetNewsAnchor, allianceChatCard);
         }
-        moveElementAfterAnchor(leaderboardBlock, globalChatCard);
-        moveElementAfterAnchor(globalChatCard, allianceChatCard);
+        moveElementAfterAnchor(allianceChatCard, globalChatCard);
+        moveElementAfterAnchor(globalChatCard, leaderboardBlock);
         return;
       }
       moveElementAfterAnchor(streetNewsAnchor, leaderboardBlock);

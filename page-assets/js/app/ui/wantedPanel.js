@@ -258,6 +258,7 @@ export function renderWantedPanel(wantedViewModel = {}, options = {}) {
   renderWantedTitle(mounts.popupTier, wantedViewModel);
   if (mounts.popupDescription) mounts.popupDescription.textContent = String(wantedViewModel.description || "");
   if (mounts.popupProtection) mounts.popupProtection.textContent = String(wantedViewModel.protectionLabel || "");
+  if (mounts.popupAuditRisk) mounts.popupAuditRisk.textContent = `${Math.max(0, Number(wantedViewModel.auditRiskPct || 0) || 0)} %`;
 
   renderWantedLevels(mounts.popupLevels, wantedViewModel.levels);
   renderHeatJournalList(mounts.popupRiseList, wantedViewModel.riseEntries, {

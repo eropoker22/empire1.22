@@ -48,7 +48,8 @@ export function createOnboardingSandboxSession(sourceSession = {}, defaults = {}
       policeRaidProtectionUntil: 0,
       autoPoliceNextActionAt: 0,
       heatJournal: [],
-      dirtyHeatReductionTimestamps: []
+      dirtyHeatReductionTimestamps: [],
+      heatReductionAuditTimestamps: []
     },
     allianceBoard: {
       maxAllianceSize: Math.max(1, Number(source.allianceBoard?.maxAllianceSize || 4) || 4),

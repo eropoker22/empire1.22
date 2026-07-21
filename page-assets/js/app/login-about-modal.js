@@ -1,6 +1,37 @@
 import { ABOUT_GAME_GROUPS, ABOUT_GAME_SECTIONS } from "../data/about-game-sections.js";
 
 const FOCUSABLE_SELECTOR = "button:not([disabled]), select:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex='-1'])";
+const DEFAULT_SECTION_BLOCK_TITLES = Object.freeze(["Jak válka funguje", "Co ti dá výhodu", "O co můžeš přijít"]);
+const SECTION_BLOCK_TITLES = Object.freeze({
+  start: ["První vstup", "Co musí být připravené", "Co už nejde vzít zpět"],
+  servers: ["Jak se dostat dovnitř", "Podmínky vstupu", "Kdy zůstaneš venku"],
+  membership: ["Co platí po vstupu", "Co hlídá čas", "Kdy už neodejdeš"],
+  factions: ["Styly frakcí", "Jak vybírat", "Špatná volba bolí"],
+  districts: ["Co jednotlivé zóny přinášejí", "Co určuje hodnotu districtu", "Co mění hranice"],
+  victory: ["Cesta k vítězství", "Co se v závěru počítá", "Co impérium zlomí"],
+  "free-mode": ["Jak probíhá Free Mode", "Co musíš zvládnout", "Čemu se vyhnout"],
+  "war-mode": ["Co je v plánu", "Na čem má režim stát", "Co zatím neplatí"],
+  economy: ["Jak zdroje obíhají", "Co musíš hlídat", "Kde vzniká tlak"],
+  buildings: ["Výrobní postup", "Co výrobu omezuje", "Co ji zastaví"],
+  storage: ["Jak přebírat zásoby", "Co určuje kapacitu", "Kdy se sklad zasekne"],
+  market: ["Jak obchodovat", "Co určuje cenu", "Co o sobě prozradíš"],
+  "day-night": ["Jak pracovat s fází", "Co mění dostupnost", "Co zkazí načasování"],
+  spy: ["Průběh špehování", "Co ovlivní výsledek", "Co může operace stát"],
+  rob: ["Jak vykrást district", "Co určuje kořist", "Kdy odejdeš s prázdnou"],
+  heist: ["Průběh heistu", "Co rozhodne výsledek", "Možné následky"],
+  attack: ["Průběh útoku", "Co rozhoduje boj", "Co nasazuješ do hry"],
+  defense: ["Jak připravit district", "Z čeho obrana roste", "Co se skutečně spotřebuje"],
+  trap: ["Jak past nastražit", "Co určuje spuštění", "Jak může selhat"],
+  boosts: ["Jak boost aktivovat", "Co musíš mít", "Kdy ho promarníš"],
+  heat: ["Jak Heat vzniká", "Co zvyšuje tlak", "Co přichází potom"],
+  police: ["Jak reagovat", "Co určuje zásah", "Následky policejního zásahu"],
+  purge: ["Jak se připravit", "Co hra sleduje", "Co znamená porážka"],
+  bounty: ["Jak vypsat odměnu", "Co musí sedět", "Co Bounty rozpoutá"],
+  rumors: ["Jak číst městské zprávy", "Co má cenu ověřit", "Kdy informace škodí"],
+  alliances: ["Co Aliance umí", "Na čem stojí pomoc", "Kde vzniká zrada"],
+  "last-stand": ["Jak využít poslední šanci", "Co omezuje ochranu", "Kdy už nepomůže"],
+  "final-lockdown": ["Jak přežít závěr", "Co určuje pořadí", "Co už nejde zachránit"]
+});
 let lastAboutSectionId = "overview";
 let openModalCount = 0;
 
@@ -45,9 +76,10 @@ const renderSectionPanel = (documentRef, section, legacyStoryTemplate) => {
   }
 
   const grid = createNode(documentRef, "div", "login-about-panel__grid");
-  appendList(documentRef, grid, "Jak to zahraješ", section.howItWorks, "login-about-section-block--wide");
-  appendList(documentRef, grid, "Co ti dá výhodu", section.decidingFactors);
-  appendList(documentRef, grid, "O co můžeš přijít", section.risks, "login-about-section-block--risk");
+  const [howTitle, factorsTitle, consequencesTitle] = SECTION_BLOCK_TITLES[section.id] || DEFAULT_SECTION_BLOCK_TITLES;
+  appendList(documentRef, grid, howTitle, section.howItWorks, "login-about-section-block--wide");
+  appendList(documentRef, grid, factorsTitle, section.decidingFactors);
+  appendList(documentRef, grid, consequencesTitle, section.risks, "login-about-section-block--risk");
   panel.append(grid);
 
   const callout = createNode(documentRef, "blockquote", "login-about-panel__callout", section.callout);

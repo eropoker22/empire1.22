@@ -12,7 +12,7 @@ window.empireStreetsRuntimeDiagnostics?.setMode?.(executionMode, {
 });
 
 if (executionMode === "local-demo") {
-  void import("./app-demo.js?v=game-preview-access-20260717");
+  void import("./app-demo.js?v=heat-audit-20260721");
 } else {
-  void import("./app.js?v=game-preview-access-20260717");
+  void import("./app.js?v=heat-audit-20260721");
 }

@@ -144,12 +144,15 @@ body.auth-body--login .login-about-overlay--encyclopedia .login-about-terminal-h
 .login-about-panel__callout { margin: 9px 0 0; padding: 12px 14px; border: 1px solid rgba(var(--about-accent-rgb), .58); border-left: 3px solid var(--about-accent); border-radius: 10px; color: #fff; background: linear-gradient(90deg, rgba(var(--about-accent-rgb), .13), rgba(0,3,9,.2)); box-shadow: 0 0 20px rgba(var(--about-accent-rgb), .14), inset 0 0 16px rgba(var(--about-accent-rgb), .05); font: 800 .82rem/1.45 var(--font-ui); }
 
 .login-about-story { margin-top: 34px; padding-top: 25px; border-top: 1px solid rgba(var(--about-accent-rgb), .22); }
-.login-about-story__heading h4 { margin: 4px 0 18px; color: #fff; font: 950 1.6rem/1 var(--font-display); }
-.login-about-story__copy { columns: 2 320px; column-gap: 14px; }
-.login-about-story__copy p { break-inside: avoid; margin: 0 0 10px; padding: 13px 14px; border: 1px solid rgba(var(--about-accent-rgb),.22); border-radius: 11px; color: rgba(224,236,248,.82); background: rgba(0,3,9,.24); box-shadow: 0 0 12px rgba(var(--about-accent-rgb),.035), inset 0 0 16px rgba(var(--about-accent-rgb),.025); font: 540 .78rem/1.55 var(--font-ui); }
+.login-about-story__heading { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+.login-about-story__heading h4 { margin: 0; color: #fff; font: 950 1.6rem/1 var(--font-display); }
+.login-about-story__copy { position: relative; display: grid; gap: 0; overflow: hidden; padding: clamp(18px, 2.6vw, 28px); border: 1px solid rgba(var(--about-accent-rgb),.28); border-radius: 15px; background: radial-gradient(circle at 0 0, rgba(var(--about-accent-rgb),.1), transparent 38%), linear-gradient(145deg, rgba(2,7,15,.72), rgba(0,3,9,.45)); box-shadow: 0 16px 34px rgba(0,0,0,.25), inset 0 0 28px rgba(var(--about-accent-rgb),.035); }
+.login-about-story__copy::before { position: absolute; top: 20px; bottom: 20px; left: 0; width: 2px; background: linear-gradient(180deg, transparent, var(--about-accent), transparent); content: ""; opacity: .72; }
+.login-about-story__copy p { max-width: 900px; margin: 0; padding: 0; border: 0; color: rgba(224,236,248,.82); background: none; box-shadow: none; font: 540 clamp(.8rem, 1vw, .88rem)/1.72 var(--font-ui); }
+.login-about-story__copy p + p { margin-top: 13px; }
 .login-about-story__copy strong, .login-about-gold { color: var(--about-accent); }
-.login-about-story__copy .login-about-lead { border-left: 2px solid var(--about-accent); color: #edf7ff; }
-.login-about-story__copy .login-about-final { border-color: rgba(var(--about-accent-rgb), .3); color: #fff; }
+.login-about-story__copy .login-about-lead { max-width: 940px; padding-bottom: 14px; border-bottom: 1px solid rgba(var(--about-accent-rgb),.2); color: #edf7ff; font-size: clamp(.92rem, 1.2vw, 1.02rem); font-weight: 680; }
+.login-about-story__copy .login-about-final { max-width: 940px; margin-top: 22px; padding: 15px 17px; border: 1px solid rgba(var(--about-accent-rgb), .32); border-radius: 10px; color: #fff; background: rgba(var(--about-accent-rgb),.07); text-align: center; box-shadow: inset 0 0 18px rgba(var(--about-accent-rgb),.04); }
 
 .login-about-terminal-footer { display: flex; justify-content: space-between; gap: 16px; padding: 6px 15px; border-top: 1px solid rgba(var(--about-accent-rgb), .34); color: rgba(210,227,244,.6); background: rgba(0,3,9,.34); box-shadow: 0 -1px 16px rgba(var(--about-accent-rgb),.08); font: 750 .54rem/1.2 var(--font-ui); letter-spacing: .12em; }
 .login-about-mobile-nav { display: none; }
@@ -181,7 +184,8 @@ body.auth-body--login .login-about-overlay--encyclopedia .login-about-terminal-h
   .login-about-panel__intro { font-size: .81rem; line-height: 1.52; }
   .login-about-panel__grid { grid-template-columns: 1fr; margin-top: 16px; }
   .login-about-section-block--wide { grid-column: auto; }
-  .login-about-story__copy { columns: 1; }
+  .login-about-story__heading { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .login-about-story__copy { padding: 17px 16px; }
   .login-about-terminal-footer { display: none; }
 }
 

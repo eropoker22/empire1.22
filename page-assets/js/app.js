@@ -1,5 +1,5 @@
 import { bindDesktopGameScrollLimit } from "./app/runtime/desktopScrollLimitRuntime.js";
-import { bootstrapPage, PAGE_ROOT_SELECTOR } from "./app/render-ui.js";
+import { bootstrapPage, PAGE_ROOT_SELECTOR } from "./app/render-ui.js?v=heat-audit-20260721";
 import { loadLobbyOverview } from "./app/player-entry-client.js";
 import { isExplicitGamePreviewEnabled } from "./app/local-demo-gate.js";
 

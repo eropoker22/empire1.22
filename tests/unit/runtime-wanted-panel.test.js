@@ -100,6 +100,7 @@ describe("wanted panel UI module", () => {
       popupTier: new FakeElement(),
       popupDescription: new FakeElement(),
       popupProtection: new FakeElement(),
+      popupAuditRisk: new FakeElement(),
       popupLevels: new FakeElement(),
       popupRiseList: new FakeElement(),
       popupFallList: new FakeElement(),
@@ -115,6 +116,7 @@ describe("wanted panel UI module", () => {
       title: "Známý problém",
       description: "Častější kontroly.",
       protectionLabel: "Bez ochrany",
+      auditRiskPct: 30,
       levels: [
         { id: 1, label: "Tier 1", title: "Nízký heat", effect: "nízké riziko" },
         { id: 3, label: "Tier 3", title: "Známý problém", effect: "zásahy", active: true }
@@ -140,6 +142,7 @@ describe("wanted panel UI module", () => {
     expect(mounts.popupTier.children[0].children[2].classList.contains("is-active")).toBe(true);
     expect(mounts.popupTier.children[0].children[3].classList.contains("is-active")).toBe(false);
     expect(mounts.popupTier.children[1].textContent).toBe("Známý problém");
+    expect(mounts.popupAuditRisk.textContent).toBe("30 %");
     expect(mounts.popupLevels.children).toHaveLength(2);
     expect(mounts.popupLevels.children[0].children[0].children[0].classList.contains("wanted-popup-stars")).toBe(true);
     expect(mounts.popupRiseList.children[0].children[0].textContent).toBe("Black market");

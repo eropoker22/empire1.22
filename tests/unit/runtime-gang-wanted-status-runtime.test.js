@@ -59,6 +59,7 @@ describe("gang wanted status runtime", () => {
         heat: 72,
         influence: 12,
         heatJournal: [],
+        heatReductionAuditTimestamps: [990],
         policeRaidProtectionUntil: 123
       },
       heatLevel: { id: 3, label: "III", title: "Raid risk", description: "Police pressure" },
@@ -78,6 +79,7 @@ describe("gang wanted status runtime", () => {
       influenceActionCost: 20,
       formatProtectionLabel: () => "chráněno",
       getTierEffect: () => "vyšší kontroly",
+      resolveAuditRisk: () => 10,
       now: () => 1000
     });
 
@@ -89,6 +91,7 @@ describe("gang wanted status runtime", () => {
       dirtyActionDisabled: true,
       cleanActionDisabled: false,
       influenceActionDisabled: true,
+      auditRiskPct: 10,
       protectionLabel: "chráněno"
     });
     expect(viewModel.pendingRaid).toMatchObject({ raidId: "raid:1" });

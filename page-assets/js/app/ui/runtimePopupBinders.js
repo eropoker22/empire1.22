@@ -113,6 +113,7 @@ function bindSettingsModal(root) {
   const backdrop = scope.querySelector(SETTINGS_MODAL_BACKDROP_SELECTOR);
   const closeButton = scope.querySelector(SETTINGS_MODAL_CLOSE_SELECTOR);
   const saveButton = scope.querySelector(SETTINGS_SAVE_SELECTOR);
+  const onboardingButton = scope.querySelector("[data-onboarding-launch]");
   const mapBordersInput = scope.querySelector(SETTINGS_MAP_BORDERS_SELECTOR);
   const mapAllianceSymbolsInput = scope.querySelector(SETTINGS_MAP_ALLIANCE_SYMBOLS_SELECTOR);
   const mapVisibilitySelect = scope.querySelector(SETTINGS_MAP_VISIBILITY_SELECTOR);
@@ -266,6 +267,7 @@ function bindSettingsModal(root) {
   languageSelect.addEventListener("change", previewSettings);
   backdrop?.addEventListener("click", () => closeModal({ revert: true }));
   closeButton?.addEventListener("click", () => closeModal({ revert: true }));
+  onboardingButton?.addEventListener("click", () => closeModal({ revert: true }));
   saveButton.addEventListener("click", saveSettings);
 
   document.addEventListener("keydown", (event) => {

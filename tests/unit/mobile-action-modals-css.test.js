@@ -695,13 +695,13 @@ describe("mobile action modal CSS", () => {
     }
   });
 
-  it("swaps the alliance and leaderboard launch positions on desktop and mobile", () => {
+  it("keeps the desktop launch positions and swaps alliance before leaderboard on mobile", () => {
     expect(mobileRuntime).toContain('const leaderboardLaunchRow = leaderboardCard?.closest(".leaderboard-launch-row");');
     expect(mobileRuntime).toContain("const leaderboardBlock = leaderboardLaunchRow || leaderboardCard;");
     expect(mobileRuntime).toContain('const streetNewsAnchor = documentObj.getElementById("mobile-alliance-card-anchor");');
-    expect(mobileRuntime).toContain("moveElementAfterAnchor(streetNewsAnchor, leaderboardBlock);");
-    expect(mobileRuntime).toContain("moveElementAfterAnchor(leaderboardBlock, globalChatCard);");
-    expect(mobileRuntime).toContain("moveElementAfterAnchor(globalChatCard, allianceChatCard);");
+    expect(mobileRuntime).toContain("moveElementAfterAnchor(streetNewsAnchor, allianceChatCard);");
+    expect(mobileRuntime).toContain("moveElementAfterAnchor(allianceChatCard, globalChatCard);");
+    expect(mobileRuntime).toContain("moveElementAfterAnchor(globalChatCard, leaderboardBlock);");
     expect(mobileRuntime).toContain("moveElementAfterAnchor(leaderboardAnchor, allianceChatCard);");
     expect(mobileRuntime).toContain("moveElementAfterAnchor(allianceChatAnchor, leaderboardBlock);");
     expect(mobileRuntime).not.toContain("moveElementAfterAnchor(globalChatCard, leaderboardCard);");

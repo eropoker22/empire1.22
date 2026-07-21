@@ -259,6 +259,7 @@ export function createDefaultPreviewSession(_factionId = "mafian") {
       autoPoliceNextActionAt: 0,
       heatJournal: [],
       dirtyHeatReductionTimestamps: [],
+      heatReductionAuditTimestamps: [],
       lastHeatDecayAt: new Date().toISOString()
     },
     missions: {
@@ -365,6 +366,9 @@ function normalizePreviewSession(session) {
         : [],
       dirtyHeatReductionTimestamps: Array.isArray(session?.gang?.dirtyHeatReductionTimestamps)
         ? session.gang.dirtyHeatReductionTimestamps.map((entry) => Number(entry)).filter(Number.isFinite)
+        : [],
+      heatReductionAuditTimestamps: Array.isArray(session?.gang?.heatReductionAuditTimestamps)
+        ? session.gang.heatReductionAuditTimestamps.map((entry) => Number(entry)).filter(Number.isFinite)
         : [],
       lastHeatDecayAt: typeof session?.gang?.lastHeatDecayAt === "string" && session.gang.lastHeatDecayAt
         ? session.gang.lastHeatDecayAt

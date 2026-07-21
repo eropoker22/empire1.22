@@ -33,4 +33,4 @@ export {
   renderBuildingActionResult,
   renderGangMembersState,
   renderSpyResourceState
-} from "./runtime.js";
+} from "./runtime.js?v=heat-audit-20260721";

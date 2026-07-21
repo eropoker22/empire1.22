@@ -10,6 +10,7 @@ export function buildGangWantedStatusViewModel({
 } = {}, options = {}) {
   const heatValue = Number(gangState.heat || 0);
   const safePoliceFeedback = policeFeedback && typeof policeFeedback === "object" ? policeFeedback : {};
+  const now = typeof options.now === "function" ? options.now() : Date.now();
   return {
     heat: heatValue,
     levelId: heatLevel.id,
@@ -23,6 +24,9 @@ export function buildGangWantedStatusViewModel({
     protectionLabel: typeof options.formatProtectionLabel === "function"
       ? options.formatProtectionLabel(gangState.policeRaidProtectionUntil)
       : "",
+    auditRiskPct: typeof options.resolveAuditRisk === "function"
+      ? options.resolveAuditRisk(gangState.heatReductionAuditTimestamps, now)
+      : Math.max(0, Number(gangState.auditRiskPct || 0) || 0),
     levels: (Array.isArray(heatTiers) ? heatTiers : []).map((tier) => ({
       id: tier.id,
       label: tier.label,
@@ -35,7 +39,7 @@ export function buildGangWantedStatusViewModel({
     dirtyActionDisabled: Number(economyState.dirtyMoney || 0) < Number(options.dirtyActionCost || 0),
     cleanActionDisabled: Number(economyState.cleanMoney || 0) < Number(options.cleanActionCost || 0),
     influenceActionDisabled: Number(gangState.influence || 0) < Number(options.influenceActionCost || 0),
-    now: typeof options.now === "function" ? options.now() : Date.now()
+    now
   };
 }
 
@@ -75,6 +79,7 @@ function resolveWantedElements(root, selectors = {}) {
     popupTier: resolveTextMirror(selectors.popupTier),
     popupDescription: resolveTextMirror(selectors.popupDescription),
     popupProtection: resolveTextMirror(selectors.popupProtection),
+    popupAuditRisk: selectors.popupAuditRisk ? resolveTextMirror(selectors.popupAuditRisk) : null,
     popupLevels: root.querySelector(selectors.popupLevels),
     popupRiseList: root.querySelector(selectors.popupRiseList),
     popupFallList: root.querySelector(selectors.popupFallList),
@@ -172,6 +177,7 @@ export function createGangWantedStatusRuntime(deps = {}) {
         influenceActionCost: deps.influenceActionCost,
         formatProtectionLabel: deps.formatGangHeatProtectionLabel,
         getTierEffect: deps.getPoliceTierShortEffect,
+        resolveAuditRisk: deps.resolveGangHeatAuditRisk,
         now: deps.now
       });
 
@@ -187,6 +193,7 @@ export function createGangWantedStatusRuntime(deps = {}) {
           popupTier: elements.popupTier,
           popupDescription: elements.popupDescription,
           popupProtection: elements.popupProtection,
+          popupAuditRisk: elements.popupAuditRisk,
           popupLevels: elements.popupLevels,
           popupRiseList: elements.popupRiseList,
           popupFallList: elements.popupFallList,

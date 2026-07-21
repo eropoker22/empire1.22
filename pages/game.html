@@ -885,6 +885,7 @@
               <div class="wanted-popup-meta wanted-popup-meta--header">
                 <p class="wanted-popup-row wanted-popup-row--compact">Heat <span data-wanted-popup-level>1 / 6</span></p>
                 <p class="wanted-popup-row wanted-popup-row--compact">Ochrana <span data-wanted-popup-protection>Bez ochrany</span></p>
+                <p class="wanted-popup-row wanted-popup-row--compact">Audit risk <span data-wanted-popup-audit-risk>0 %</span></p>
               </div>
             </div>
             <button type="button" class="button wanted-popup-close" data-wanted-popup-close aria-label="Zavřít heat panel">✕</button>
@@ -895,15 +896,11 @@
                 <div class="wanted-popup-value" data-wanted-popup-heat>—</div>
                 <h3 class="wanted-popup-title" data-wanted-popup-tier>Nízký heat</h3>
                 <p class="wanted-popup-copy" data-wanted-popup-description>Lehký dohled. Gang je skoro pod radarem.</p>
-                <div class="wanted-popup-cost-row">
-                  <span class="wanted-popup-cost" data-wanted-popup-dirty-cost>$500 dirty • -10 heat</span>
-                  <span class="wanted-popup-cost" data-wanted-popup-clean-cost>$300 clean • -15 heat</span>
-                  <span class="wanted-popup-cost" data-wanted-popup-influence-cost>20 vliv • -10 heat</span>
-                </div>
               </div>
               <div class="wanted-popup-meta wanted-popup-meta--mobile">
                 <p class="wanted-popup-row wanted-popup-row--compact">Heat <span data-wanted-popup-level>1 / 6</span></p>
                 <p class="wanted-popup-row wanted-popup-row--compact">Ochrana <span data-wanted-popup-protection>Bez ochrany</span></p>
+                <p class="wanted-popup-row wanted-popup-row--compact">Audit risk <span data-wanted-popup-audit-risk>0 %</span></p>
               </div>
             </div>
             <div class="wanted-popup-side">
@@ -912,11 +909,11 @@
                 <button type="button" class="button wanted-popup-action wanted-popup-action--clean" data-wanted-popup-clean>Snížit clean cash</button>
                 <button type="button" class="button wanted-popup-action wanted-popup-action--influence" data-wanted-popup-influence>Snížit vlivem</button>
               </div>
-              <div class="wanted-popup-cost-row wanted-popup-cost-row--mobile" aria-label="Ceny snížení heat">
-                <span class="wanted-popup-cost">$500 dirty • -10 heat</span>
-                <span class="wanted-popup-cost">$300 clean • -15 heat</span>
-                <span class="wanted-popup-cost">20 vliv • -10 heat</span>
-              </div>
+            </div>
+            <div class="wanted-popup-cost-row wanted-popup-cost-row--full" aria-label="Ceny snížení heat">
+              <span class="wanted-popup-cost" data-wanted-popup-dirty-cost>$2 500 dirty • -5 heat</span>
+              <span class="wanted-popup-cost" data-wanted-popup-clean-cost>$10 000 clean • -10 heat</span>
+              <span class="wanted-popup-cost" data-wanted-popup-influence-cost>50 vliv • -15 heat</span>
             </div>
           </div>
           <div class="wanted-popup-feedback" data-wanted-popup-feedback hidden></div>
@@ -2235,7 +2232,7 @@
     <script type="module" src="../page-assets/js/data/buildings.js"></script>
     <script type="module" src="../page-assets/js/data/events.js"></script>
     <script type="module" src="../page-assets/js/app/mobile-performance-runtime.js"></script>
-    <script type="module" src="../page-assets/js/app-entry.js?v=game-preview-access-20260717"></script>
+    <script type="module" src="../page-assets/js/app-entry.js?v=heat-audit-20260721"></script>
     <script type="module" src="../page-assets/js/app/final-lockdown-popup-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/city-events-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/alliance-runtime.js"></script>

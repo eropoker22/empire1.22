@@ -588,7 +588,8 @@ import {
   GANG_HEAT_POLICE_DURATION_MS,
   GANG_HEAT_RAID_PROTECTION_MS,
   GANG_HEAT_TIERS
-} from "./runtime/heatData.js";
+} from "./runtime/heatData.js?v=heat-audit-20260721";
+import * as gangHeatAuditData from "./runtime/heatData.js?v=heat-audit-20260721";
 import {
   PRODUCTION_BUILDING_CONFIG,
   PRODUCTION_RESOURCE_LABELS,
@@ -705,7 +706,7 @@ import {
   renderHeatBadge,
   renderWantedFeedback,
   renderWantedPanel
-} from "./ui/wantedPanel.js";
+} from "./ui/wantedPanel.js?v=heat-audit-20260721";
 import { createRuntimePopupBinders } from "./ui/runtimePopupBinders.js";
 import { replaceListItems, renderAuthStatus, renderFactionPreviewPanel } from "./ui/authPanel.js";
 import {
@@ -813,7 +814,7 @@ import {
 import { createBuildingsPopupRuntime } from "./runtime/buildingsPopupRuntime.js";
 import { createBuildingActionStatusRuntime } from "./runtime/buildingActionStatusRuntime.js";
 import { createRegisteredPlayerStateRuntime } from "./runtime/registeredPlayerStateRuntime.js";
-import { createGangWantedStatusRuntime } from "./runtime/gangWantedStatusRuntime.js";
+import { createGangWantedStatusRuntime } from "./runtime/gangWantedStatusRuntime.js?v=heat-audit-20260721";
 import { createCityStatusBarRuntime } from "./runtime/cityStatusBarRuntime.js";
 import {
   bindEliminationCountdownWarning,
@@ -13800,6 +13801,22 @@ function registerDirtyHeatReduction() {
   return recent;
 }
 
+function registerHeatReductionAudit() {
+  const gangState = getResolvedGangState();
+  const now = Date.now();
+  const auditWindowMs = Number(gangHeatAuditData.GANG_HEAT_AUDIT_WINDOW_MS || (30 * 60 * 1000));
+  const recent = (Array.isArray(gangState.heatReductionAuditTimestamps)
+    ? gangState.heatReductionAuditTimestamps
+    : [])
+    .map((timestamp) => Number(timestamp))
+    .filter((timestamp) => Number.isFinite(timestamp) && now - timestamp >= 0 && now - timestamp <= auditWindowMs);
+  recent.push(now);
+  setStoredGangState({ heatReductionAuditTimestamps: recent });
+  return typeof gangHeatAuditData.resolveGangHeatAuditRisk === "function"
+    ? gangHeatAuditData.resolveGangHeatAuditRisk(recent, now)
+    : Math.min(100, recent.length * 10);
+}
+
 function triggerPoliceActionFromDirtyBribe() {
   const recent = registerDirtyHeatReduction();
   if (recent.length < GANG_HEAT_DIRTY_TRIGGER_COUNT) {
@@ -13841,6 +13858,11 @@ const {
   renderHeatBadge,
   renderWantedFeedback,
   renderWantedPanel,
+  resolveGangHeatAuditRisk: (timestamps, now) => (
+    typeof gangHeatAuditData.resolveGangHeatAuditRisk === "function"
+      ? gangHeatAuditData.resolveGangHeatAuditRisk(timestamps, now)
+      : 0
+  ),
   resolvePoliceHeatFeedback,
   resolveGangHeatTier,
   syncGangHeatDecay,
@@ -13856,13 +13878,14 @@ const {
       reason: "Uplacení tlaku špinavými penězi.",
       type: "fall"
     });
+    const auditRiskPct = registerHeatReductionAudit();
     const triggerState = triggerPoliceActionFromDirtyBribe();
     applyTopbarEconomy(root);
     renderFeedback(
       triggerState.triggered ? "danger" : "success",
       triggerState.triggered
-        ? `Heat snížen na ${nextHeat}. Podezřelé praní přitáhlo policii do District ${triggerState.districtId}.${Array.isArray(triggerState.marker?.impact?.rows) && triggerState.marker.impact.rows.length ? ` Dopad: ${triggerState.marker.impact.rows.slice(0, 2).map((row) => `${row.label} ${row.value}`).join(" • ")}.` : ""}`
-        : `Heat snížen na ${nextHeat}. Dirty cash stáhlo tlak policie.`
+        ? `Heat snížen na ${nextHeat}. Audit risk vzrostl na ${auditRiskPct} %. Podezřelé praní přitáhlo policii do District ${triggerState.districtId}.${Array.isArray(triggerState.marker?.impact?.rows) && triggerState.marker.impact.rows.length ? ` Dopad: ${triggerState.marker.impact.rows.slice(0, 2).map((row) => `${row.label} ${row.value}`).join(" • ")}.` : ""}`
+        : `Heat snížen na ${nextHeat}. Audit risk vzrostl na ${auditRiskPct} %.`
     );
     syncWantedStatus();
   },
@@ -13878,8 +13901,9 @@ const {
       reason: "Legální krytí a zahlazení stop.",
       type: "fall"
     });
+    const auditRiskPct = registerHeatReductionAudit();
     applyTopbarEconomy(root);
-    renderFeedback("success", `Heat snížen na ${nextHeat}. Legal cover stáhlo policejní tlak.`);
+    renderFeedback("success", `Heat snížen na ${nextHeat}. Audit risk vzrostl na ${auditRiskPct} %.`);
     syncWantedStatus();
   },
   onInfluenceAction: ({ renderFeedback, root, syncWantedStatus }) => {
@@ -13896,8 +13920,9 @@ const {
       reason: "Vlivové kontakty stáhly policejní tlak.",
       type: "fall"
     });
+    const auditRiskPct = registerHeatReductionAudit();
     applyTopbarEconomy(root);
-    renderFeedback("success", `Heat snížen na ${nextHeat}. Vlivové kontakty stáhly policejní tlak.`);
+    renderFeedback("success", `Heat snížen na ${nextHeat}. Audit risk vzrostl na ${auditRiskPct} %.`);
     syncWantedStatus();
   },
   onClearLog: ({ renderFeedback, syncWantedStatus }) => {
@@ -13914,6 +13939,7 @@ const {
     gangStar: GANG_STAR_SELECTOR,
     gangStars: GANG_STARS_SELECTOR,
     popup: WANTED_POPUP_SELECTOR,
+    popupAuditRisk: "[data-wanted-popup-audit-risk]",
     popupClose: WANTED_POPUP_CLOSE_SELECTOR,
     popupDescription: WANTED_POPUP_DESCRIPTION_SELECTOR,
     popupFeedback: WANTED_POPUP_FEEDBACK_SELECTOR,
