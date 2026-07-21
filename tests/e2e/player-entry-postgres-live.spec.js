@@ -20,10 +20,12 @@ test("new player completes authoritative lobby entry and returns without leaving
   const password = randomBytes(24).toString("base64url");
 
   await page.goto("/pages/login.html");
-  await page.locator('[data-tab-link="register"]').click();
+  await page.locator("[data-login-registration-open]").click();
   await page.locator("#register-username").fill(username);
   await page.locator("#register-gang").fill(gangName);
+  await page.locator("#register-birth-date").fill("1990-01-01");
   await page.locator("#register-password").fill(password);
+  await page.locator("#register-password-confirmation").fill(password);
   await page.getByTestId("register-form").getByRole("button", { name: "ZALOŽIT GANG" }).click();
 
   await expect(page).toHaveURL(/\/pages\/lobby\.html/u);

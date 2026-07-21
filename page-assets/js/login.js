@@ -5,6 +5,7 @@ import {
 } from "./app/auth-flow.js";
 import { isExplicitLocalDemoEnabled } from "./app/local-demo-gate.js";
 import { bindLoginAboutModal, bindLoginInfoModals } from "./app/login-about-modal.js";
+import { bindLoginRegistrationModal } from "./app/login-registration-modal.js";
 import { STORAGE_KEYS } from "./config.js";
 import { LOGIN_ACTIVE_EVENTS } from "./data/events.js";
 
@@ -297,7 +298,6 @@ const SERVER_STATUS_STATES = Object.freeze([
 
 const state = {
   activeMode: DEFAULT_PUBLIC_SERVER_MODE,
-  activeTab: "login",
   selectedLeaderboardPlayerId: null,
   leaderboardToastTimer: null,
   activeEventsIndex: 0,
@@ -319,8 +319,8 @@ const initializeLoginPage = () => {
 
   hydrateInputs(registration);
   bindModeCards();
-  bindTerminalTabs();
   bindForms();
+  bindLoginRegistrationModal({ onOpen: () => showRegistrationError("") });
   bindGuest();
   bindPasswordToggle();
   bindSoundToggle();
@@ -331,17 +331,21 @@ const initializeLoginPage = () => {
   startServerStatusCycle();
   startLoginActiveEventsCycle();
   updateModeCards();
-  updateTerminalTab();
 };
 
 const enableLocalDemoRegistration = () => {
-  document.querySelectorAll('[data-tab="register"], [data-tab-link="register"], #register-form input, #register-form button')
+  document.querySelectorAll("#register-form input, #register-form button")
     .forEach((control) => {
       if (control instanceof HTMLButtonElement || control instanceof HTMLInputElement) control.disabled = false;
       control.setAttribute?.("aria-disabled", "false");
     });
   const status = document.querySelector("[data-registration-policy-status]");
-  if (status) status.textContent = "LOKÁLNÍ DEV DEMO · DATA SE NEUKLÁDAJÍ NA SERVER";
+  if (status) {
+    status.querySelector("strong").textContent = "LOKÁLNÍ DEV DEMO";
+    status.querySelector("span").textContent = "Účet ani zadané údaje se neukládají na server.";
+  }
+  const birthDate = document.getElementById("register-birth-date");
+  if (birthDate instanceof HTMLInputElement) birthDate.max = latestEligibleBirthDate(16);
 };
 
 const resolveInitialMode = (registration) => {
@@ -378,6 +382,23 @@ function getInputValue(id) {
   return String(input instanceof HTMLInputElement ? input.value : "").trim();
 }
 
+const latestEligibleBirthDate = (minimumAgeYears) => {
+  const now = new Date();
+  return `${now.getFullYear() - minimumAgeYears}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+};
+
+const isAtLeastAge = (dateOfBirth, minimumAgeYears) => {
+  const latest = latestEligibleBirthDate(minimumAgeYears);
+  return /^\d{4}-\d{2}-\d{2}$/u.test(dateOfBirth) && dateOfBirth <= latest;
+};
+
+function showRegistrationError(message) {
+  const error = document.getElementById("register-error");
+  if (!error) return;
+  error.textContent = message;
+  error.hidden = !message;
+}
+
 function bindModeCards() {
   document.querySelectorAll("[data-mode]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -401,49 +422,6 @@ function updateModeCards() {
     const isActive = normalizeMode(button.dataset.mode) === state.activeMode;
     button.classList.toggle("is-active", isActive);
     button.setAttribute("aria-pressed", isActive ? "true" : "false");
-  });
-}
-
-function bindTerminalTabs() {
-  document.querySelectorAll("[data-tab]").forEach((button) => {
-    button.addEventListener("click", () => {
-      setActiveTab(button.dataset.tab === "register" ? "register" : "login");
-    });
-  });
-
-  document.querySelectorAll("[data-tab-link]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const nextTab = state.activeTab === "register" ? "login" : "register";
-      setActiveTab(nextTab);
-    });
-  });
-}
-
-function setActiveTab(tab) {
-  state.activeTab = tab === "register" ? "register" : "login";
-  hideError();
-  updateTerminalTab();
-}
-
-function updateTerminalTab() {
-  const isRegister = state.activeTab === "register";
-  document.getElementById("login-form")?.classList.toggle("hidden", isRegister);
-  document.getElementById("register-form")?.classList.toggle("hidden", !isRegister);
-  document.querySelector(".guest-access")?.classList.toggle("hidden", isRegister);
-
-  document.querySelectorAll("[data-tab]").forEach((button) => {
-    const isActive = button.dataset.tab === state.activeTab;
-    button.classList.toggle("is-active", isActive);
-    button.setAttribute("aria-selected", isActive ? "true" : "false");
-  });
-
-  document.querySelectorAll("[data-tab-link]").forEach((button) => {
-    if (!(button instanceof HTMLElement)) {
-      return;
-    }
-
-    button.textContent = state.activeTab === "register" ? "▣ PŘIHLÁSIT" : "▣ ZALOŽIT GANG";
-    button.setAttribute("aria-label", state.activeTab === "register" ? "Přepnout zpět na přihlášení" : "Přepnout na vytvoření gangu");
   });
 }
 
@@ -474,12 +452,23 @@ function bindForms() {
     const username = getInputValue("register-username");
     const gangName = getInputValue("register-gang");
     const password = getInputValue("register-password");
+    const passwordConfirmation = getInputValue("register-password-confirmation");
+    const dateOfBirth = getInputValue("register-birth-date");
 
-    if (!username || !gangName || !password) {
-      showError(LOGIN_REQUIRED_MESSAGE);
+    if (!username || !gangName || !dateOfBirth || !password || !passwordConfirmation) {
+      showRegistrationError(LOGIN_REQUIRED_MESSAGE);
+      return;
+    }
+    if (password !== passwordConfirmation) {
+      showRegistrationError("Zadaná hesla se neshodují.");
+      return;
+    }
+    if (!isAtLeastAge(dateOfBirth, 16)) {
+      showRegistrationError("Účet si může založit pouze hráč, kterému už bylo 16 let.");
       return;
     }
 
+    showRegistrationError("");
     window.localStorage.setItem(GUEST_GANG_KEY, gangName);
     runAccessSequence({
       form: registerForm,

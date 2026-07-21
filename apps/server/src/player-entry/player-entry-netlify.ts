@@ -4,7 +4,8 @@ import { createJsonResponse, type NetlifyFunctionResponse } from "../netlify/net
 import { createPostgresDatabase } from "../runtime/persistence/postgres";
 import type { GameplaySessionService } from "../auth/gameplay-session-service";
 import { clearPlayerAccountCookie, createPlayerAccountCookie, readPlayerAccountCookie } from "./player-account-cookie";
-import { isValidClosedAlphaInvite, resolveAccountRegistrationPolicy } from "./account-registration-policy";
+import { resolveAccountRegistrationPolicy } from "./account-registration-policy";
+import { validateAccountRegistrationRequest } from "./account-registration-request";
 import {
   createPostgresAuthThrottle,
   resolveAuthNetworkIdentifier,
@@ -52,13 +53,10 @@ export const createPlayerEntryNetlifyBoundary = (options: {
         if (!resolveAccountRegistrationPolicy(options.environment, persistenceReady && authSecurityReady).registrationEnabled) {
           return error(403, "ACCOUNT_REGISTRATION_CLOSED", "Registrace je momentálně uzavřená.");
         }
-        const body = record(request.body) ? request.body : {};
+        const body = validateAccountRegistrationRequest(request.body);
         const throttleError = await consumeAuthThrottle(authThrottle, "register", body.username, request.headers);
         if (throttleError) return throttleError;
-        if (!isValidClosedAlphaInvite(body.inviteCode, options.environment)) return error(403, "ACCOUNT_INVITE_REQUIRED", "Je vyžadován platný invite code.");
-        const created = await repository.registerAccount({
-          username: String(body.username ?? ""), password: String(body.password ?? ""), gangName: String(body.gangName ?? "")
-        });
+        const created = await repository.registerAccount(body);
         return success(201, publicAccount(created.session), { "set-cookie": createPlayerAccountCookie(created.token, created.session.expiresAt, options.environment) });
       }
       if (route.kind === "session" && method === "POST") {

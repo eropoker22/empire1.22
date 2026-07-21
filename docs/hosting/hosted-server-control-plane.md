@@ -188,7 +188,7 @@ The production player path does not call this compatibility matchmaking route. I
 
 ## Player account and lobby entry
 
-`login.html` creates or resumes an HttpOnly account session. Passwords, account IDs, player IDs, faction choices, avatars, capacity, and server state are never accepted as browser authority. Registration can be opened for a closed-alpha deployment with `EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED=true` and a SHA-256 invite hash in `EMPIRE_CLOSED_ALPHA_INVITE_CODE_HASH`.
+`login.html` creates or resumes an HttpOnly account session. Passwords, account IDs, player IDs, faction choices, avatars, capacity, and server state are never accepted as browser authority. Public account registration can be opened with `EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED=true`; it does not use invitations. Every new account supplies a nick, gang name, date of birth, and the password twice. PostgreSQL time is authoritative for the minimum age of 16 years, and production registration additionally requires durable auth throttling through `EMPIRE_AUTH_THROTTLE_PEPPER`.
 
 `lobby.html` reads `/api/lobby/overview`. Můj gang, available servers, membership history, capacity, join policy, and active membership come from PostgreSQL. No static server catalog, guest identity, fake online count, or localStorage membership is used by the production page.
 

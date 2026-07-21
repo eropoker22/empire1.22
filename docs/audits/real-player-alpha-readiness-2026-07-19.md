@@ -6,7 +6,7 @@
 
 The repository now closes the previously identified cold restore, tick/command serialization, snapshot CAS, provisioning/lifecycle fencing, migration-contract, and gameplay polling gaps. The deployed site must nevertheless stay closed to external testers because the real-player registration/session boundary is intentionally deferred and the actual Netlify environment, target PostgreSQL schema, deployed routes, secrets, and live hosted worker have not been verified.
 
-War mode remains closed. The first external test should be a small invite-only Free server.
+War mode remains closed. The first external test should use a small controlled Free server with normal public account registration enabled only for the planned test window.
 
 ## Public deployment evidence
 
@@ -111,7 +111,7 @@ Required result:
 7. Finish and live-verify the intentionally deferred real-player registration/account/gameplay-session boundary.
 8. Implement result-view grace after the now-durable resolved-server shutdown.
 9. Add rate limiting, health propagation, monitoring, backups, and incident rollback notes.
-10. Open one invite-only Free server only after the active roster exceeds the canonical Final Lockdown trigger (currently 8); keep War mode and public registration closed.
+10. Open one controlled Free server after the required ready-player minimum is met; keep War mode closed and enable public account registration only for the planned test window.
 
 ## Configuration gate
 

@@ -1,5 +1,6 @@
 import * as crypto from "node:crypto";
 import type {
+  AccountRegistrationRequest,
   AccountSessionView,
   ConfirmSpawnDistrictRequest,
   FinalizeServerSetupRequest,
@@ -11,6 +12,7 @@ import type {
 } from "@empire/shared-types";
 import type { PostgresDatabase, PostgresQueryable } from "../runtime/persistence/postgres";
 import { hashAccountPassword, verifyAccountPassword, type AccountPasswordRecord } from "./account-password";
+import { ACCOUNT_REGISTRATION_MINIMUM_AGE_YEARS, normalizeDateOfBirth } from "./account-registration-request";
 import { entryError, entryErrorCode } from "./player-entry-error";
 import {
   createServerPlayerId,
@@ -80,35 +82,53 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
     const result = await database.query<{ present: boolean }>(
       `SELECT to_regclass('public.empire_server_memberships') IS NOT NULL
           AND to_regclass('public.empire_auth_throttle_buckets') IS NOT NULL
-          AND to_regclass('public.empire_hosted_match_results') IS NOT NULL AS present`
+          AND to_regclass('public.empire_hosted_match_results') IS NOT NULL
+          AND EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema='public' AND table_name='empire_accounts' AND column_name='date_of_birth'
+          ) AS present`
     );
     return Boolean(result.rows[0]?.present);
   },
 
-  registerAccount: async (input: { username: string; password: string; gangName: string; displayName?: string }) => {
+  registerAccount: async (input: AccountRegistrationRequest & { displayName?: string }) => {
     const username = input.username.normalize("NFKC").trim();
     const normalizedUsername = normalizePlayerUsername(username);
     const gangName = input.gangName.normalize("NFKC").trim();
     const displayName = String(input.displayName || username).normalize("NFKC").trim();
+    const dateOfBirth = normalizeDateOfBirth(input.dateOfBirth);
     if (!validPlayerUsername(username)) throw entryError("ACCOUNT_USERNAME_INVALID", "Uživatelské jméno není platné.");
     if (!validGangName(gangName) || !validGangName(displayName)) throw entryError("ACCOUNT_PROFILE_INVALID", "Profil účtu není platný.");
+    if (input.password !== input.passwordConfirmation) {
+      throw entryError("ACCOUNT_PASSWORD_CONFIRMATION_MISMATCH", "Zadaná hesla se neshodují.");
+    }
     const password = await hashAccountPassword(input.password);
     const accountId = `account:${crypto.randomUUID()}`;
-    const at = new Date().toISOString();
     try {
-      await database.query(
-        `INSERT INTO empire_accounts
-         (id,account_id,username,normalized_username,password_hash,password_salt,password_algorithm,password_parameters,
-          status,display_name,gang_name,created_at,updated_at,last_login_at,version)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,'active',$9,$10,$11::timestamptz,$11::timestamptz,NULL,1)`,
-        [`player-account:${accountId}`, accountId, username, normalizedUsername, password.passwordHash, password.passwordSalt,
-          password.passwordAlgorithm, JSON.stringify(password.passwordParameters), displayName, gangName, at]
-      );
+      return await database.transaction(async (client) => {
+        const clock = await client.query<{ now: unknown; eligible: boolean }>(
+          `SELECT clock_timestamp() AS now,
+             $1::date <= ((clock_timestamp() AT TIME ZONE 'UTC')::date - make_interval(years => $2))::date AS eligible`,
+          [dateOfBirth, ACCOUNT_REGISTRATION_MINIMUM_AGE_YEARS]
+        );
+        if (clock.rows[0]?.eligible !== true) {
+          throw entryError("ACCOUNT_AGE_REQUIREMENT_NOT_MET", "Účet si může založit pouze hráč, kterému už bylo 16 let.");
+        }
+        const at = iso(clock.rows[0]?.now);
+        await client.query(
+          `INSERT INTO empire_accounts
+           (id,account_id,username,normalized_username,password_hash,password_salt,password_algorithm,password_parameters,
+            status,display_name,gang_name,date_of_birth,created_at,updated_at,last_login_at,version)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,'active',$9,$10,$11::date,$12::timestamptz,$12::timestamptz,NULL,1)`,
+          [`player-account:${accountId}`, accountId, username, normalizedUsername, password.passwordHash, password.passwordSalt,
+            password.passwordAlgorithm, JSON.stringify(password.passwordParameters), displayName, gangName, dateOfBirth, at]
+        );
+        return createSession(client, { accountId, username, displayName, gangName }, at);
+      });
     } catch (error) {
       if (postgresCode(error) === "23505") throw entryError("ACCOUNT_USERNAME_TAKEN", "Uživatelské jméno už existuje.");
       throw error;
     }
-    return createSession(database, { accountId, username, displayName, gangName }, at);
   },
 
   login: async (input: { username: string; password: string }) => {
@@ -436,7 +456,7 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
 
 export type PostgresPlayerEntryRepository = ReturnType<typeof createPostgresPlayerEntryRepository>;
 
-const createSession = async (database: PostgresDatabase, account: Omit<AccountSessionView, "expiresAt">, at: string) => {
+const createSession = async (database: PostgresQueryable, account: Omit<AccountSessionView, "expiresAt">, at: string) => {
   const token = crypto.randomBytes(32).toString("base64url");
   const sessionId = `account-session:${crypto.randomUUID()}`;
   const expiresAt = new Date(Date.parse(at) + SESSION_TTL_MS).toISOString();

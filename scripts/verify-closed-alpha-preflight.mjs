@@ -53,6 +53,13 @@ if (strict) {
     "gameplay session and snapshot secrets are distinct");
   check(allowedOrigins.length > 0 && allowedOrigins.every(isSecureOrigin), "gameplay origin allowlist is configured");
   check(Boolean(env.EMPIRE_HOSTED_WORKER_ID), "hosted worker identity is configured");
+  const registrationEnabled = env.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED === "true";
+  if (registrationEnabled) {
+    check(String(env.EMPIRE_AUTH_THROTTLE_PEPPER ?? "").trim().length >= 32,
+      "public account registration has durable auth throttling");
+  } else {
+    check(true, "public account registration is safely disabled");
+  }
 }
 
 for (const result of checks) console.log(`${result.passed ? "PASS" : "FAIL"} ${result.label}`);

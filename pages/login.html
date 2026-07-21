@@ -36,6 +36,7 @@
     <meta name="twitter:image:alt" content="Logo Empire Streets se zlatou korunou nad nočním městem.">
     <link rel="stylesheet" href="../page-assets/css/styles.css">
     <link rel="stylesheet" href="../page-assets/css/login.css">
+    <link rel="stylesheet" href="../page-assets/css/styles-login-registration.css">
     <link rel="stylesheet" href="../page-assets/css/styles-login-about.css">
     <link rel="stylesheet" href="../page-assets/css/styles-static-hover.css">
   </head>
@@ -43,9 +44,9 @@
     <main class="login-stage" id="auth-root" data-page="login" data-testid="login-page">
       <div class="city-backdrop" aria-hidden="true">
         <div class="city-skyline city-skyline--back"></div>
-        <div class="neon-sign neon-sign--vultures">NIGHT<br>VULTURES</div>
-        <div class="neon-sign neon-sign--blood">BLOOD<br>KINGS</div>
-        <div class="neon-sign neon-sign--iron">IRON<br>SYNDICATE</div>
+        <div class="neon-sign neon-sign--vultures">NO SAFE<br>ZONE</div>
+        <div class="neon-sign neon-sign--blood">CLEAN<br>CASH</div>
+        <div class="neon-sign neon-sign--iron">BLACK<br>MARKET</div>
         <div class="neon-sign neon-sign--raid">POLICE RAID<br><span>Downtown sector 17</span></div>
         <div class="neon-sign neon-sign--trust">TRUST<br>NOBODY</div>
         <div class="police-light police-light--left"></div>
@@ -58,96 +59,10 @@
           <h2>LEADERBOARD</h2>
           <span class="leaderboard-season"><span class="leaderboard-season__label">SEASON</span><span class="leaderboard-season__value">01</span></span>
         </div>
-        <ol class="leaderboard-list" data-leaderboard>
-          <li class="leaderboard-item is-leading" data-login-leaderboard-player="kr-vlado" role="button" tabindex="0" aria-label="Zobrazit detail hráče KrVlado">
-            <span class="leaderboard-rank">#1</span>
-            <p><strong>KrVlado</strong><small>Black Harbor</small></p>
-            <span class="leaderboard-score">14 820</span>
-          </li>
-          <li class="leaderboard-item" data-login-leaderboard-player="neon-boss" role="button" tabindex="0" aria-label="Zobrazit detail hráče NeonBoss">
-            <span class="leaderboard-rank">#2</span>
-            <p><strong>NeonBoss</strong><small>Chrome Royals</small></p>
-            <span class="leaderboard-score">13 640</span>
-          </li>
-          <li class="leaderboard-item" data-login-leaderboard-player="street-wolf" role="button" tabindex="0" aria-label="Zobrazit detail hráče StreetWolf">
-            <span class="leaderboard-rank">#3</span>
-            <p><strong>StreetWolf</strong><small>Wolf District</small></p>
-            <span class="leaderboard-score">12 975</span>
-          </li>
-          <li class="leaderboard-item" data-login-leaderboard-player="toxic-king" role="button" tabindex="0" aria-label="Zobrazit detail hráče ToxicKing">
-            <span class="leaderboard-rank">#4</span>
-            <p><strong>ToxicKing</strong><small>Toxic Crown</small></p>
-            <span class="leaderboard-score">11 730</span>
-          </li>
-          <li class="leaderboard-item" data-login-leaderboard-player="ghost-dealer" role="button" tabindex="0" aria-label="Zobrazit detail hráče GhostDealer">
-            <span class="leaderboard-rank">#5</span>
-            <p><strong>GhostDealer</strong><small>Ghost Exchange</small></p>
-            <span class="leaderboard-score">10 420</span>
-          </li>
-          <li class="leaderboard-item" data-login-leaderboard-player="iron-mike" role="button" tabindex="0" aria-label="Zobrazit detail hráče IronMike">
-            <span class="leaderboard-rank">#6</span>
-            <p><strong>IronMike</strong><small>Iron Chapel</small></p>
-            <span class="leaderboard-score">9 980</span>
-          </li>
-          <li class="leaderboard-item" data-login-leaderboard-player="cyber-saint" role="button" tabindex="0" aria-label="Zobrazit detail hráče CyberSaint">
-            <span class="leaderboard-rank">#7</span>
-            <p><strong>CyberSaint</strong><small>Saint Protocol</small></p>
-            <span class="leaderboard-score">9 260</span>
-          </li>
-          <li class="leaderboard-item" data-login-leaderboard-player="black-mamba" role="button" tabindex="0" aria-label="Zobrazit detail hráče BlackMamba">
-            <span class="leaderboard-rank">#8</span>
-            <p><strong>BlackMamba</strong><small>Mamba Circle</small></p>
-            <span class="leaderboard-score">8 940</span>
-          </li>
-          <li class="leaderboard-item" data-login-leaderboard-player="vulture-x" role="button" tabindex="0" aria-label="Zobrazit detail hráče VultureX">
-            <span class="leaderboard-rank">#9</span>
-            <p><strong>VultureX</strong><small>Vanta Vultures</small></p>
-            <span class="leaderboard-score">8 510</span>
-          </li>
-          <li class="leaderboard-item" data-login-leaderboard-player="district-zero" role="button" tabindex="0" aria-label="Zobrazit detail hráče DistrictZero">
-            <span class="leaderboard-rank">#10</span>
-            <p><strong>DistrictZero</strong><small>Zero Block</small></p>
-            <span class="leaderboard-score">8 120</span>
-          </li>
-          <li class="leaderboard-item" data-login-leaderboard-player="cash-reaper" role="button" tabindex="0" aria-label="Zobrazit detail hráče CashReaper">
-            <span class="leaderboard-rank">#11</span>
-            <p><strong>CashReaper</strong><small>Cash Syndics</small></p>
-            <span class="leaderboard-score">7 880</span>
-          </li>
-          <li class="leaderboard-item" data-login-leaderboard-player="zero-shade" role="button" tabindex="0" aria-label="Zobrazit detail hráče ZeroShade">
-            <span class="leaderboard-rank">#12</span>
-            <p><strong>ZeroShade</strong><small>Shade Wire</small></p>
-            <span class="leaderboard-score">7 540</span>
-          </li>
-          <li class="leaderboard-item" data-login-leaderboard-player="switch-runner" role="button" tabindex="0" aria-label="Zobrazit detail hráče SwitchRunner">
-            <span class="leaderboard-rank">#13</span>
-            <p><strong>SwitchRunner</strong><small>Rail Switch</small></p>
-            <span class="leaderboard-score">7 210</span>
-          </li>
-          <li class="leaderboard-item" data-login-leaderboard-player="silent-ace" role="button" tabindex="0" aria-label="Zobrazit detail hráče SilentAce">
-            <span class="leaderboard-rank">#14</span>
-            <p><strong>SilentAce</strong><small>Ace Division</small></p>
-            <span class="leaderboard-score">6 980</span>
-          </li>
-          <li class="leaderboard-item" data-login-leaderboard-player="black-lotus" role="button" tabindex="0" aria-label="Zobrazit detail hráče BlackLotus">
-            <span class="leaderboard-rank">#15</span>
-            <p><strong>BlackLotus</strong><small>Lotus Noir</small></p>
-            <span class="leaderboard-score">6 720</span>
-          </li>
-          <li class="leaderboard-item" data-login-leaderboard-player="iron-saint" role="button" tabindex="0" aria-label="Zobrazit detail hráče IronSaint">
-            <span class="leaderboard-rank">#16</span>
-            <p><strong>IronSaint</strong><small>Iron Saints</small></p>
-            <span class="leaderboard-score">6 390</span>
-          </li>
-          <li class="leaderboard-item" data-login-leaderboard-player="neon-reaper" role="button" tabindex="0" aria-label="Zobrazit detail hráče NeonReaper">
-            <span class="leaderboard-rank">#17</span>
-            <p><strong>NeonReaper</strong><small>Afterglow Crew</small></p>
-            <span class="leaderboard-score">6 040</span>
-          </li>
-        </ol>
+        <ol class="leaderboard-list" data-leaderboard></ol>
         <div class="leaderboard-summary">
-          <span>SEASON RESET</span>
-          <strong>02D 14H</strong>
+          <span>SERVEROVÁ DATA</span>
+          <strong>—</strong>
         </div>
       </section>
 
@@ -155,44 +70,11 @@
         <div class="active-events__header">
           <h2>AKTIVNÍ UDÁLOSTI</h2>
         </div>
-        <div class="active-events__feed" data-login-active-events-feed aria-live="polite">
-          <article class="event-card" data-tone="raid">
-            <span class="event-symbol">◇</span>
-            <div>
-              <h3>POLICE RAID</h3>
-              <p>Zvýšená aktivita policie v sektoru Downtown a Industrial.</p>
-            </div>
-            <time>08:42</time>
-          </article>
-          <article class="event-card" data-tone="toxic">
-            <span class="event-symbol">☠</span>
-            <div>
-              <h3>TOXIC TRAP</h3>
-              <p>Toxické pasti jsou aktivní v Park zóně. Vyšší riziko, vyšší odměna.</p>
-            </div>
-            <time>13:27</time>
-          </article>
-          <article class="event-card" data-tone="war">
-            <span class="event-symbol">✣</span>
-            <div>
-              <h3>GANG WAR</h3>
-              <p>Probíhá válka o území mezi gangy Night Vultures a Purple Cobras.</p>
-            </div>
-            <time>21:15</time>
-          </article>
-        </div>
+        <div class="active-events__feed" data-login-active-events-feed aria-live="polite"></div>
       </section>
 
       <section class="login-terminal" aria-label="Přihlášení do Empire Streets">
         <div class="terminal-frame"></div>
-        <div class="terminal-tabs" role="tablist" aria-label="Typ přístupu">
-          <button class="terminal-tab is-active" type="button" data-tab="login" data-testid="login-tab" role="tab" aria-selected="true">PŘÍSTUP</button>
-          <button class="terminal-tab" type="button" data-tab="register" data-testid="register-tab" role="tab" aria-selected="false" aria-disabled="true" disabled>ZALOŽIT GANG</button>
-        </div>
-
-        <p class="registration-policy-status" data-registration-policy-status role="status" aria-live="polite">
-          <strong>OVĚŘUJI REGISTRACI</strong><span>Přihlášení existujícího účtu zůstává dostupné.</span>
-        </p>
 
         <form id="login-form" class="auth-form terminal-form" data-testid="login-form" autocomplete="on" novalidate>
           <label class="field-shell" for="login-username">
@@ -207,30 +89,10 @@
           <button type="submit" class="enter-city-button" data-submit-label="VSTOUPIT DO MĚSTA">VSTOUPIT DO MĚSTA</button>
         </form>
 
-        <form id="register-form" class="auth-form terminal-form hidden" data-testid="register-form" autocomplete="on" novalidate>
-          <label class="field-shell" for="register-username">
-            <span class="field-icon">●</span>
-            <input type="text" id="register-username" name="username" placeholder="Jméno bosse" autocomplete="username">
-          </label>
-          <label class="field-shell" for="register-gang">
-            <span class="field-icon">◆</span>
-            <input type="text" id="register-gang" name="gang" placeholder="Název gangu" autocomplete="organization">
-          </label>
-          <label class="field-shell" for="register-password">
-            <span class="field-icon">▣</span>
-            <input type="password" id="register-password" name="password" placeholder="Heslo" autocomplete="new-password">
-          </label>
-          <label class="field-shell" for="register-invite">
-            <span class="field-icon">◇</span>
-            <input type="password" id="register-invite" name="invite" placeholder="Closed alpha invite" autocomplete="off">
-          </label>
-          <button type="submit" class="enter-city-button" data-submit-label="ZALOŽIT GANG">ZALOŽIT GANG</button>
-        </form>
-
         <p id="auth-error" class="auth-error hidden" role="alert"></p>
 
         <div class="terminal-actions">
-          <button class="terminal-link" type="button" data-tab-link="register" aria-disabled="true" disabled>▣ Založit gang</button>
+          <button class="terminal-link" type="button" data-login-registration-open>▣ Založit gang</button>
           <button class="terminal-link" type="button" data-forgot-password>▣ Zapomenuté heslo</button>
         </div>
 
@@ -259,6 +121,52 @@
         </button>
       </section>
     </main>
+
+    <div class="login-registration-overlay" data-login-registration-overlay hidden aria-hidden="true">
+      <div class="login-registration-backdrop" data-login-registration-close></div>
+      <section class="login-registration-dialog" role="dialog" aria-modal="true" aria-labelledby="login-registration-title" aria-describedby="login-registration-intro" tabindex="-1">
+        <header class="login-registration-header">
+          <div>
+            <span>VSTUP DO PODSVĚTÍ</span>
+            <h2 id="login-registration-title">ZALOŽIT GANG</h2>
+          </div>
+          <button type="button" class="login-registration-close" data-login-registration-close aria-label="Zavřít registraci">✕</button>
+        </header>
+        <p id="login-registration-intro" class="login-registration-intro">
+          Vyber si nick a jméno, pod kterým tě město pozná. Účet si může založit pouze hráč, kterému už bylo 16 let.
+        </p>
+        <p class="login-registration-policy" data-registration-policy-status role="status" aria-live="polite">
+          <strong>OVĚŘUJI REGISTRACI</strong><span>Přihlášení existujícího účtu zůstává dostupné.</span>
+        </p>
+        <form id="register-form" class="login-registration-form" data-testid="register-form" autocomplete="on" novalidate>
+          <div class="login-registration-fields">
+            <label class="login-registration-field" for="register-username">
+              <span>Nick</span>
+              <input type="text" id="register-username" name="username" placeholder="Jméno bosse" autocomplete="username" minlength="3" maxlength="32" required disabled>
+            </label>
+            <label class="login-registration-field" for="register-gang">
+              <span>Jméno gangu</span>
+              <input type="text" id="register-gang" name="gang" placeholder="Název gangu" autocomplete="organization" minlength="2" maxlength="40" required disabled>
+            </label>
+            <label class="login-registration-field login-registration-field--wide" for="register-birth-date">
+              <span>Datum narození</span>
+              <input type="date" id="register-birth-date" name="birthDate" autocomplete="bday" required disabled>
+              <small>Registrace je dostupná od 16 let.</small>
+            </label>
+            <label class="login-registration-field" for="register-password">
+              <span>Heslo</span>
+              <input type="password" id="register-password" name="password" placeholder="Alespoň 12 znaků" autocomplete="new-password" minlength="12" required disabled>
+            </label>
+            <label class="login-registration-field" for="register-password-confirmation">
+              <span>Heslo znovu</span>
+              <input type="password" id="register-password-confirmation" name="passwordConfirmation" placeholder="Zopakuj heslo" autocomplete="new-password" minlength="12" required disabled>
+            </label>
+          </div>
+          <p id="register-error" class="login-registration-error" role="alert" hidden></p>
+          <button type="submit" class="login-registration-submit" data-submit-label="ZALOŽIT GANG" disabled>ZALOŽIT GANG</button>
+        </form>
+      </section>
+    </div>
 
     <nav class="login-footer" aria-label="Footer">
       <button type="button" data-login-about-open>O hře</button>
@@ -346,11 +254,11 @@
         <button type="button" class="login-leaderboard-close" data-login-leaderboard-close aria-label="Zavřít leaderboard detail">✕</button>
         <div class="login-leaderboard-identity">
           <span class="login-leaderboard-kicker">LEADERBOARD</span>
-          <h2 id="login-leaderboard-title" data-login-leaderboard-name>KrVlado</h2>
-          <p class="login-leaderboard-meta" data-login-leaderboard-meta>Downtown ruler · WAR-01</p>
+          <h2 id="login-leaderboard-title" data-login-leaderboard-name>—</h2>
+          <p class="login-leaderboard-meta" data-login-leaderboard-meta>Data nejsou načtená.</p>
         </div>
         <div class="login-leaderboard-stats" data-login-leaderboard-stats></div>
-        <p class="login-leaderboard-status" data-login-leaderboard-status>Drží tlak na Downtown a sbírá respekt rychleji než zbytek lobby.</p>
+        <p class="login-leaderboard-status" data-login-leaderboard-status>Leaderboard je dostupný pouze s ověřenými daty.</p>
         <div class="login-leaderboard-actions">
           <button type="button" data-login-leaderboard-mock-action>Zobrazit profil</button>
           <button type="button" data-login-leaderboard-mock-action>Označit cíl</button>
@@ -373,7 +281,6 @@
     <script type="module" src="../page-assets/js/data/districtPools.js"></script>
     <script type="module" src="../page-assets/js/data/districtImages.js"></script>
     <script type="module" src="../page-assets/js/data/buildings.js"></script>
-    <script type="module" src="../page-assets/js/data/events.js"></script>
     <script type="module" src="../page-assets/js/login-entry.js?v=local-demo-sandbox-20260717"></script>
   </body>
 </html>

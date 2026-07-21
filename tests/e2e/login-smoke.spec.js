@@ -24,11 +24,15 @@ test.describe("login smoke", () => {
     await openLoginPage(page);
     await waitForAboutController(page);
     await expect(page.getByTestId("login-form")).toBeVisible();
-    await expect(page.getByTestId("register-tab")).toHaveCount(1);
     await expect(page.getByTestId("guest-login-button")).toBeVisible();
 
-    await page.locator("[data-tab-link='register']").click();
+    await page.locator("[data-login-registration-open]").click();
     await expect(page.getByTestId("register-form")).toBeVisible();
+    await expect(page.getByTestId("login-form")).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "ZALOŽIT GANG" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator("[data-login-registration-overlay]")).toBeHidden();
+    await expect(page.locator("[data-login-registration-open]")).toBeFocused();
 
     await page.locator("[data-login-about-open]").click();
     await expect(page.locator("[data-login-about-overlay]")).toBeVisible();

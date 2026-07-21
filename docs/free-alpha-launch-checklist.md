@@ -59,8 +59,8 @@ Do not invite real players yet. Registration and the final real-player account/g
   - `EMPIRE_ALLOWED_ORIGINS=https://empirestreets.cz`
   - `EMPIRE_ADMIN_FINGERPRINT_SECRET` with at least 32 characters
   - `EMPIRE_ADMIN_WRITES_ENABLED=true`, `EMPIRE_HOSTED_CONTROL_PLANE_ENABLED=true`, and `EMPIRE_SERVER_PROVISIONING_ENABLED=true` only when production admin writes are intentionally opened
-  - `EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED=false` unless an invite-only registration window is intentionally opened
-  - `EMPIRE_CLOSED_ALPHA_INVITE_CODE_HASH` when closed-alpha registration is enabled
+  - `EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED=true` only when public account registration is intentionally opened
+  - `EMPIRE_AUTH_THROTTLE_PEPPER` with at least 32 characters when account registration or login is enabled
   - `EMPIRE_LEGACY_MATCHMAKING_ENABLED` unset or false
   - read-only admin session configuration described in `docs/admin/read-only-authority-foundation.md`
 - Required hosted worker environment variables:

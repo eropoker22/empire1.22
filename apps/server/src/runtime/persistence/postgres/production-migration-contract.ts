@@ -14,7 +14,8 @@ export const PRODUCTION_MIGRATION_CONTRACT = [
   ["011_hosted_runtime_lease_incarnation.sql", "0dff42cf24f0cd496396be8ce6ba1805a53eb82009b18d4354e19a82a753ef39"],
   ["012_hosted_server_registration_lifecycle.sql", "d953586be246675f4308dbf6ab7c90034a33d35dd2ee61e1aa38bde655303085"],
   ["013_account_auth_throttle.sql", "abd403bc05b289de698cb185339f6dd37c06915f65924061dfbfc58f5812d2bf"],
-  ["014_hosted_match_results.sql", "34eeced3fb1cc24c8b79f032eb7f89068dcfaf243346d701308eeb1fee8834e8"]
+  ["014_hosted_match_results.sql", "34eeced3fb1cc24c8b79f032eb7f89068dcfaf243346d701308eeb1fee8834e8"],
+  ["015_account_age_requirement.sql", "c3cf5a53a903324aef99f6d9e78bcda3df383e0d5f1fa19f6c730c03222c04ee"]
 ] as const;
 
 export const isProductionSchemaCurrent = async (

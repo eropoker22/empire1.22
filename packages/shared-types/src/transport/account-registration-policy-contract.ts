@@ -1,6 +1,14 @@
 export interface AccountRegistrationPolicyView {
   registrationEnabled: boolean;
-  inviteRequired: boolean;
-  mode: "closed_alpha" | "closed";
+  mode: "open" | "closed";
   passwordMinimumLength: number;
+  minimumAgeYears: number;
+}
+
+export interface AccountRegistrationRequest {
+  username: string;
+  gangName: string;
+  dateOfBirth: string;
+  password: string;
+  passwordConfirmation: string;
 }

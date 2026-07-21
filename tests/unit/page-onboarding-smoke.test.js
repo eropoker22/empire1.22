@@ -70,7 +70,10 @@ describe("page onboarding smoke", () => {
     expect(page("login.html")).toContain('id="register-form"');
     expect(page("login.html")).toContain('id="guest-btn"');
     expect(page("login.html")).not.toContain('data-open-server-select');
-    expect(page("login.html")).toContain('data-tab-link="register"');
+    expect(page("login.html")).toContain("data-login-registration-open");
+    expect(page("login.html")).toContain("data-login-registration-overlay");
+    expect(page("login.html")).toContain('id="register-password-confirmation"');
+    expect(page("login.html")).toContain('id="register-birth-date"');
     expect(page("login.html")).toContain('data-forgot-password');
     expect(page("login.html")).toContain('src="../page-assets/js/login-entry.js');
 
@@ -218,14 +221,15 @@ describe("page onboarding smoke", () => {
     expect(bountyRuntimeSource).toContain("formatBountyDistrictOptionLabel");
     expect(bountyRuntimeSource).toContain("formatBountyDistrictTypeLabel");
     const loginCssSource = readFileSync(resolve(root, "page-assets/css/login.css"), "utf8");
+    const registrationCssSource = readFileSync(resolve(root, "page-assets/css/styles-login-registration.css"), "utf8");
     expect(loginCssSource).toContain(".mode-card--free");
     expect(loginCssSource).toContain("linear-gradient(145deg, rgba(3, 16, 31, 0.94), rgba(1, 6, 16, 0.98))");
     expect(loginCssSource).toContain("linear-gradient(145deg, rgba(36, 24, 7, 0.95), rgba(16, 10, 4, 0.98))");
     expect(loginCssSource).toContain("width: 100%;");
     expect(loginCssSource).toMatch(/@media \(min-width: 841px\) \{\r?\n  \.mode-card--war \.mode-content \{\r?\n    transform: translateY\(-5px\);/u);
-    expect(loginCssSource).toContain("#register-form .field-shell");
-    expect(loginCssSource).toContain("#register-form .field-shell input");
-    expect(loginCssSource).toContain("#register-form .enter-city-button");
+    expect(registrationCssSource).toContain(".login-registration-dialog");
+    expect(registrationCssSource).toContain(".login-registration-fields");
+    expect(registrationCssSource).toContain("rgba(18, 3, 8, 0.9)");
     const gameRedesignSource = readFileSync(resolve(root, "page-assets/css/styles-game-redesign.css"), "utf8");
     expect(gameRedesignSource).toMatch(/body\.game-body > \.game-topbar \{\r?\n\s*position: sticky;/u);
     expect(gameRedesignSource).toContain("z-index: 70;");

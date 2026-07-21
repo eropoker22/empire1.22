@@ -168,6 +168,8 @@ describe("postgres prod-like runtime smoke", () => {
         const readyAccount = (await playerEntry.registerAccount({
           username: `ready_${index}_${runId.replaceAll("-", "").slice(0, 10)}`,
           password: "PostgresSmokeReadyPlayerPassword",
+          passwordConfirmation: "PostgresSmokeReadyPlayerPassword",
+          dateOfBirth: "1990-01-01",
           gangName: `Ready Gang ${index}`
         })).session;
         const selection = await playerEntry.getSpawnSelection(readyAccount.accountId, freeServerInstanceId);

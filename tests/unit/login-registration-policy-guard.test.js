@@ -7,11 +7,17 @@ const pageSource = readFileSync(resolve(process.cwd(), "pages/login.html"), "utf
 
 describe("login registration policy guard", () => {
   it("keeps registration closed until the public policy succeeds", () => {
-    expect(pageSource).toContain('data-tab="register"');
-    expect(pageSource).toMatch(/data-tab="register"[^>]+disabled/u);
+    expect(pageSource).toContain("data-login-registration-open");
+    expect(pageSource).toContain("data-login-registration-overlay");
+    expect(pageSource).toMatch(/id="register-password-confirmation"[^>]+disabled/u);
+    expect(pageSource).toMatch(/class="login-registration-submit"[^>]+disabled/u);
     expect(liveSource).toContain("loadAccountRegistrationPolicy");
     expect(liveSource).toContain("state.registrationEnabled = false");
     expect(liveSource).toContain("Stav registrace se nepodařilo ověřit");
+    expect(liveSource).toContain("bindLoginRegistrationModal");
+    expect(liveSource).toContain("passwordConfirmation");
+    expect(liveSource).toContain("dateOfBirth");
+    expect(liveSource).not.toContain("inviteCode");
     expect(liveSource).not.toContain("EmpireConfigOverrides");
   });
 });

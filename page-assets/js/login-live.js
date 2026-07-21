@@ -5,15 +5,16 @@ import {
   registerAccount
 } from "./app/player-entry-client.js";
 import { bindLoginAboutModal, bindLoginInfoModals } from "./app/login-about-modal.js";
+import { bindLoginRegistrationModal } from "./app/login-registration-modal.js";
 import { isLocalDemoAccessAvailable } from "./app/local-demo-gate.js";
 
-const state = { activeTab: "login", submitting: false, registrationEnabled: false };
+const state = { submitting: false, registrationEnabled: false };
 
 const initialize = () => {
   bindLocalDemoGuestAccess();
-  bindTabs();
   bindPasswordToggle();
   bindForms();
+  bindLoginRegistrationModal({ onOpen: () => showRegistrationError("") });
   bindLoginAboutModal();
   bindLoginInfoModals();
   void loadRegistrationPolicy();
@@ -39,27 +40,6 @@ function bindLocalDemoGuestAccess() {
   guestButton.addEventListener("click", () => location.assign("./login.html?runtimeMode=local-demo"));
 }
 
-function bindTabs() {
-  document.querySelectorAll("[data-tab]").forEach((button) => button.addEventListener("click", () => setTab(button.dataset.tab)));
-  document.querySelectorAll("[data-tab-link]").forEach((button) => button.addEventListener("click", () => setTab(state.activeTab === "login" ? "register" : "login")));
-}
-
-function setTab(tab) {
-  if (tab === "register" && !state.registrationEnabled) {
-    renderRegistrationPolicy("REGISTRACE JE MOMENTÁLNĚ UZAVŘENA", "Do closed alpha se nyní mohou přihlásit pouze existující účty.");
-    return;
-  }
-  state.activeTab = tab === "register" ? "register" : "login";
-  document.querySelector("#login-form")?.classList.toggle("hidden", state.activeTab !== "login");
-  document.querySelector("#register-form")?.classList.toggle("hidden", state.activeTab !== "register");
-  document.querySelectorAll("[data-tab]").forEach((button) => {
-    const active = button.dataset.tab === state.activeTab;
-    button.classList.toggle("is-active", active);
-    button.setAttribute("aria-selected", String(active));
-  });
-  showError("");
-}
-
 async function loadRegistrationPolicy() {
   try {
     const policy = await loadAccountRegistrationPolicy();
@@ -77,39 +57,36 @@ async function loadRegistrationPolicy() {
 
 function applyRegistrationAvailability(policy) {
   const enabled = policy?.registrationEnabled === true;
-  const registerTab = document.querySelector('[data-tab="register"]');
-  const registerLink = document.querySelector('[data-tab-link="register"]');
-  [registerTab, registerLink].forEach((control) => {
-    if (!(control instanceof HTMLButtonElement)) return;
-    control.disabled = !enabled;
-    control.setAttribute("aria-disabled", String(!enabled));
-  });
-  document.querySelectorAll("#register-form input, #register-form button").forEach((control) => {
+  document.querySelectorAll("#register-form input, #register-form button[type='submit']").forEach((control) => {
     if (control instanceof HTMLInputElement || control instanceof HTMLButtonElement) control.disabled = !enabled;
   });
-  const invite = document.querySelector("#register-invite");
-  if (invite instanceof HTMLInputElement) {
-    invite.required = policy?.inviteRequired === true;
-    invite.placeholder = policy?.inviteRequired === true ? "Povinný closed alpha invite" : "Closed alpha invite";
-  }
-  if (!enabled && state.activeTab === "register") setTab("login");
+  const minimumLength = Number(policy?.passwordMinimumLength) || 12;
+  ["register-password", "register-password-confirmation"].forEach((id) => {
+    const input = document.getElementById(id);
+    if (input instanceof HTMLInputElement) {
+      input.minLength = minimumLength;
+      input.placeholder = id === "register-password" ? `Alespoň ${minimumLength} znaků` : "Zopakuj heslo";
+    }
+  });
+  const minimumAge = Number(policy?.minimumAgeYears) || 16;
+  const birthDate = document.getElementById("register-birth-date");
+  if (birthDate instanceof HTMLInputElement) birthDate.max = latestEligibleBirthDate(minimumAge);
   renderRegistrationPolicy(
-    enabled ? "INVITE-ONLY REGISTRACE JE OTEVŘENÁ" : "REGISTRACE JE MOMENTÁLNĚ UZAVŘENA",
+    enabled ? "REGISTRACE ÚČTŮ JE OTEVŘENÁ" : "REGISTRACE JE MOMENTÁLNĚ UZAVŘENA",
     enabled
-      ? `Pro vstup potřebuješ platný invite. Heslo musí mít alespoň ${policy.passwordMinimumLength} znaků.`
-      : "Do closed alpha se nyní mohou přihlásit pouze existující účty."
+      ? `Pozvánku nepotřebuješ. Zadej nick, jméno gangu, datum narození a heslo dvakrát. Minimální věk je ${minimumAge} let.`
+      : "Nový účet teď nelze založit. Přihlášení existujícího účtu zůstává dostupné."
   );
 }
 
 function renderRegistrationPolicy(title, message) {
   const node = document.querySelector("[data-registration-policy-status]");
   if (!node) return;
-  node.innerHTML = `<strong>${escapeText(title)}</strong><span>${escapeText(message)}</span>`;
+  const titleNode = node.querySelector("strong");
+  const messageNode = node.querySelector("span");
+  if (titleNode) titleNode.textContent = title;
+  if (messageNode) messageNode.textContent = message;
 }
-
-const escapeText = (value) => String(value || "").replace(/[&<>'"]/g, (character) => ({
-  "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
-})[character]);
 
 function bindPasswordToggle() {
   document.querySelector("[data-password-toggle]")?.addEventListener("click", () => {
@@ -120,36 +97,75 @@ function bindPasswordToggle() {
 }
 
 function bindForms() {
-  document.querySelector("#login-form")?.addEventListener("submit", (event) => void submit(event, async () => loginAccount({
-    username: value("login-username"), password: value("login-password")
-  })));
-  document.querySelector("#register-form")?.addEventListener("submit", (event) => void submit(event, async () => registerAccount({
-    username: value("register-username"), gangName: value("register-gang"), password: value("register-password"),
-    inviteCode: value("register-invite")
-  })));
+  document.querySelector("#login-form")?.addEventListener("submit", (event) => void submit({
+    event,
+    operation: () => loginAccount({ username: value("login-username"), password: rawValue("login-password") }),
+    showFailure: showLoginError
+  }));
+  document.querySelector("#register-form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!state.registrationEnabled) {
+      showRegistrationError("Registrace nových účtů není právě dostupná.");
+      return;
+    }
+    const password = rawValue("register-password");
+    const passwordConfirmation = rawValue("register-password-confirmation");
+    if (password !== passwordConfirmation) {
+      showRegistrationError("Zadaná hesla se neshodují.");
+      return;
+    }
+    void submit({
+      event,
+      operation: () => registerAccount({
+        username: value("register-username"),
+        gangName: value("register-gang"),
+        dateOfBirth: value("register-birth-date"),
+        password,
+        passwordConfirmation
+      }),
+      showFailure: showRegistrationError
+    });
+  });
 }
 
-async function submit(event, operation) {
+async function submit({ event, operation, showFailure }) {
   event.preventDefault();
   if (state.submitting) return;
-  const button = event.currentTarget.querySelector("button[type='submit']");
+  const form = event.currentTarget;
+  if (form instanceof HTMLFormElement && !form.reportValidity()) return;
+  const button = form?.querySelector?.("button[type='submit']");
   state.submitting = true;
   if (button) button.disabled = true;
-  showError("");
+  showFailure("");
   try {
     await operation();
     window.location.replace("./lobby.html");
   } catch (error) {
-    showError(error instanceof Error ? error.message : "Přihlášení se nezdařilo.");
+    showFailure(error instanceof Error ? error.message : "Operace se nezdařila.");
     state.submitting = false;
-    if (button) button.disabled = false;
+    if (button) button.disabled = form?.id === "register-form" ? !state.registrationEnabled : false;
   }
 }
 
-const value = (id) => String(document.getElementById(id)?.value || "").trim();
-function showError(message) {
+const latestEligibleBirthDate = (minimumAgeYears) => {
+  const now = new Date();
+  const year = now.getFullYear() - minimumAgeYears;
+  return `${year}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+};
+
+const value = (id) => rawValue(id).trim();
+const rawValue = (id) => String(document.getElementById(id)?.value || "");
+
+function showLoginError(message) {
   const node = document.querySelector("#auth-error");
   if (!node) return;
   node.textContent = message;
   node.classList.toggle("hidden", !message);
+}
+
+function showRegistrationError(message) {
+  const node = document.querySelector("#register-error");
+  if (!node) return;
+  node.textContent = message;
+  node.hidden = !message;
 }

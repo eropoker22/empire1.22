@@ -49,7 +49,13 @@ if (strict) {
   check(process.env.EMPIRE_PERSISTENCE_DRIVER === "postgres", "runtime persistence is PostgreSQL");
   check(process.env.GAMEPLAY_PERSISTENCE_DRIVER === "postgres", "gameplay persistence is PostgreSQL");
   check(Boolean(process.env.EMPIRE_HOSTED_WORKER_ID), "EMPIRE_HOSTED_WORKER_ID is configured");
-  check(process.env.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED !== "true", "closed alpha registration remains disabled");
+  const registrationEnabled = process.env.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED === "true";
+  if (registrationEnabled) {
+    check(String(process.env.EMPIRE_AUTH_THROTTLE_PEPPER ?? "").trim().length >= 32,
+      "public account registration has durable auth throttling");
+  } else {
+    check(true, "public account registration is safely disabled");
+  }
 }
 
 if (databaseUrl) {
