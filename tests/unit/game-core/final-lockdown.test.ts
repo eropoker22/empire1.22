@@ -8,6 +8,7 @@ import {
   createFinalEmpireRanking,
   createPlayerFinalEmpireScore,
   createPlayerView,
+  runFinalLockdownLifecycle,
   runTick,
   type CoreGameState
 } from "@empire/game-core";
@@ -38,6 +39,66 @@ describe("Free BR Final Lockdown", () => {
       remainingActiveTicks: FREE_CONFIG.balance.finalLockdown!.activeDurationTicks
     });
     expect(result.nextState.eliminationState?.nextEliminationTick).toBeNull();
+  });
+
+  it("uses the frozen hosted trigger for a two-player server", () => {
+    const state = createTop8State();
+    for (let index = 3; index <= 8; index += 1) {
+      state.playersById[`player:${index}`] = {
+        ...state.playersById[`player:${index}`],
+        status: "defeated"
+      };
+    }
+    state.root.tick = FREE_CONFIG.balance.elimination!.firstEliminationTick;
+    state.serverPacingState = createFrozenPacingState(state, {
+      effectiveFinalLockdownTrigger: 1
+    });
+
+    const atTwoPlayers = runFinalLockdownLifecycle(state, CONTEXT);
+    expect(atTwoPlayers.nextState.finalLockdownState).toBeNull();
+
+    const atOnePlayer = {
+      ...atTwoPlayers.nextState,
+      playersById: {
+        ...atTwoPlayers.nextState.playersById,
+        "player:2": {
+          ...atTwoPlayers.nextState.playersById["player:2"],
+          status: "defeated" as const
+        }
+      }
+    };
+    const started = runFinalLockdownLifecycle(atOnePlayer, CONTEXT);
+
+    expect(started.nextState.finalLockdownState).toMatchObject({
+      status: "active",
+      startedAtTick: FREE_CONFIG.balance.elimination!.firstEliminationTick
+    });
+  });
+
+  it("waits only for hosted registration freeze, not the elimination grace deadline", () => {
+    const state = createTop8State();
+    const effectiveFirstEliminationTick = FREE_CONFIG.balance.elimination!.firstEliminationTick + 100;
+    state.root.tick = effectiveFirstEliminationTick - 1;
+    state.serverPacingState = createFrozenPacingState(state, {
+      registrationClosedAt: null,
+      effectiveFirstEliminationTick
+    });
+
+    const whileRegistrationOpen = runFinalLockdownLifecycle(state, CONTEXT);
+    expect(whileRegistrationOpen.nextState.finalLockdownState).toBeNull();
+
+    const afterRegistrationClosed = {
+      ...whileRegistrationOpen.nextState,
+      serverPacingState: {
+        ...whileRegistrationOpen.nextState.serverPacingState!,
+        registrationClosedAt: "2026-01-01T10:00:00.000Z"
+      }
+    };
+    const afterFreeze = runFinalLockdownLifecycle(afterRegistrationClosed, CONTEXT);
+    expect(afterFreeze.nextState.finalLockdownState).toMatchObject({
+      status: "active",
+      startedAtTick: effectiveFirstEliminationTick - 1
+    });
   });
 
   it("advances the Final Lockdown timer outside quiet hours", () => {
@@ -172,6 +233,23 @@ const createTop8State = (options: { startedAt?: string } = {}): CoreGameState =>
 
   return state;
 };
+
+const createFrozenPacingState = (
+  state: CoreGameState,
+  overrides: Partial<NonNullable<CoreGameState["serverPacingState"]>> = {}
+): NonNullable<CoreGameState["serverPacingState"]> => ({
+  id: `${state.serverInstance.id}:pacing`,
+  serverInstanceId: state.serverInstance.id,
+  registrationOpensAt: "2026-01-01T09:00:00.000Z",
+  registrationClosesAt: "2026-01-01T10:00:00.000Z",
+  registrationClosedAt: "2026-01-01T10:00:00.000Z",
+  registrationBaselinePlayers: 2,
+  eliminationEnabled: true,
+  effectiveFinalLockdownTrigger: 8,
+  effectiveFirstEliminationTick: FREE_CONFIG.balance.elimination!.firstEliminationTick,
+  version: 1,
+  ...overrides
+});
 
 const addPlayerWithEmpire = (state: CoreGameState, index: number): void => {
   const playerId = `player:${index}`;

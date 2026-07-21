@@ -11,6 +11,7 @@ import {
   resolveControlVictoryProgress,
   resolveControlVictoryRules
 } from "./victoryControlProgress";
+import { resolveEffectiveFinalLockdownTrigger } from "../server-pacing/serverPacingPolicy";
 
 export interface VictoryCheckResult {
   nextState: CoreGameState;
@@ -106,7 +107,7 @@ export const checkVictory = (
           activeElapsedTicks: state.finalLockdownState?.activeElapsedTicks ?? 0,
           activeDurationTicks: state.finalLockdownState?.activeDurationTicks ?? context.config.balance.finalLockdown?.activeDurationTicks ?? 0,
           remainingActiveTicks: state.finalLockdownState?.remainingActiveTicks ?? context.config.balance.finalLockdown?.activeDurationTicks ?? 0,
-          triggerActivePlayers: context.config.balance.finalLockdown?.triggerActivePlayers ?? null,
+          triggerActivePlayers: resolveEffectiveFinalLockdownTrigger(state, context.config),
           topRankCount: context.config.balance.finalLockdown?.topRankCount ?? 3
         }
       : null;

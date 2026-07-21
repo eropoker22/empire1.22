@@ -1,4 +1,8 @@
 import type { GameModeId } from "../ids/game-mode-id";
+import type {
+  HostedServerRegistrationReasonCode,
+  HostedServerRegistrationStatus
+} from "../admin/read-models/admin-hosted-control-plane-views";
 
 export type ServerMembershipStatus =
   | "setup_required"
@@ -49,9 +53,19 @@ export interface LobbyServerSummaryView {
   capacity: number;
   committedPlayers: number;
   reservedSlots: number;
+  readyPlayers: number;
+  minimumReadyPlayersToStart: number;
+  registrationState: HostedServerRegistrationStatus;
+  registrationOpensAt: string | null;
+  registrationClosesAt: string | null;
+  registrationClosedAt: string | null;
+  registrationRemainingMs: number;
+  registrationReasonCode: HostedServerRegistrationReasonCode | null;
+  canStart: boolean;
   joinable: boolean;
   disabledReason: string | null;
   startedAt: string | null;
+  generatedAt: string;
 }
 
 export interface LobbyOverviewView {
@@ -89,6 +103,17 @@ export interface SpawnDistrictSelectionView {
   capacity: { committedPlayers: number; reservedSlots: number; maximum: number };
   serverStatus: string;
   joinPolicy: string;
+  readyPlayers: number;
+  minimumReadyPlayersToStart: number;
+  registrationState: HostedServerRegistrationStatus;
+  registrationOpensAt: string | null;
+  registrationClosesAt: string | null;
+  registrationClosedAt: string | null;
+  registrationRemainingMs: number;
+  registrationReasonCode: HostedServerRegistrationReasonCode | null;
+  canStart: boolean;
+  joinable: boolean;
+  disabledReason: string | null;
   generatedAt: string;
   availabilityRevision: string;
   districts: SpawnDistrictOptionView[];

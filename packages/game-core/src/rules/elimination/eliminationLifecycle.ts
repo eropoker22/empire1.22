@@ -7,6 +7,10 @@ import { resolveEliminationConfig, resolveQuietHoursResumeTick } from "./elimina
 import { appendResolvedCityFeedEvents } from "../events/rumorPipeline";
 import { applyDefeatedDistrictPolicy } from "./eliminationDistrictPolicy";
 import { applyPlayerDefeatLifecycle } from "../liveness/playerTerritoryLifecycle";
+import {
+  resolveEffectiveEliminationMinimumPlayers,
+  resolveEffectiveFirstEliminationTick
+} from "../server-pacing/serverPacingPolicy";
 
 export interface EliminationResult {
   eliminatedPlayerId: PlayerId;
@@ -30,14 +34,23 @@ export const runScheduledElimination = (
   if (!config?.enabled) return { nextState: state, events: [], result: null };
 
   const currentTick = state.root.tick;
-  const stateRecord = state.eliminationState ?? createInitialEliminationState(state, config.firstEliminationTick);
-  const scheduledTick = stateRecord.nextEliminationTick ?? config.firstEliminationTick;
+  const effectiveFirstEliminationTick = resolveEffectiveFirstEliminationTick(state, context.config);
+  const effectiveMinimumPlayers = resolveEffectiveEliminationMinimumPlayers(state, context.config);
+  if (effectiveFirstEliminationTick === null || effectiveMinimumPlayers === null) {
+    return { nextState: state, events: [], result: null };
+  }
+
+  const stateRecord = alignInitialEliminationDeadline(
+    state.eliminationState ?? createInitialEliminationState(state, effectiveFirstEliminationTick),
+    effectiveFirstEliminationTick
+  );
+  const scheduledTick = stateRecord.nextEliminationTick ?? effectiveFirstEliminationTick;
   if (currentTick < scheduledTick || stateRecord.lastEliminationTick === currentTick) {
     return { nextState: { ...state, eliminationState: stateRecord }, events: [], result: null };
   }
 
   const activePlayerIds = state.root.playerIds.filter((playerId) => state.playersById[playerId]?.status === "active");
-  if (activePlayerIds.length <= config.minActivePlayers) {
+  if (activePlayerIds.length <= effectiveMinimumPlayers) {
     return { nextState: { ...state, eliminationState: stopEliminationState(stateRecord) }, events: [], result: null };
   }
 
@@ -130,6 +143,28 @@ const createInitialEliminationState = (state: CoreGameState, firstEliminationTic
   lastEliminationReason: null,
   version: 1
 });
+
+const alignInitialEliminationDeadline = (
+  state: EliminationState,
+  effectiveFirstEliminationTick: number
+): EliminationState => {
+  if (
+    state.eliminationCount > 0 ||
+    state.lastEliminationTick !== null ||
+    state.nextEliminationTick === null ||
+    state.nextEliminationTick >= effectiveFirstEliminationTick
+  ) {
+    return state;
+  }
+
+  return {
+    ...state,
+    nextEliminationTick: effectiveFirstEliminationTick,
+    deferredFromTick: null,
+    lastScheduledEliminationTick: null,
+    version: state.version + 1
+  };
+};
 
 const deferEliminationState = (
   state: EliminationState,

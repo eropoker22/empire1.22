@@ -5,7 +5,10 @@ import { createPersistenceRestoreService } from "../../apps/server/src/runtime/p
 import { createSnapshotTokenCodec } from "../../apps/server/src/runtime/persistence/services/snapshot-token-codec";
 import { createServerInstanceRuntime } from "../../apps/server/src/runtime/instance-manager/instance-factory";
 import { restoreInstanceState } from "../../apps/server/src/runtime/persistence/mappers/restore-instance-state";
-import { resolvePlayerOperationalLiveness } from "@empire/game-core";
+import {
+  resolveEffectiveFinalLockdownTrigger,
+  resolvePlayerOperationalLiveness
+} from "@empire/game-core";
 import { resolveModeConfig } from "@empire/game-config";
 import { createCoreStateFixture } from "../fixtures/game-state-fixtures";
 
@@ -58,6 +61,34 @@ describe("instance snapshot mapping", () => {
     expect(restored.state.root.version).toBe(7);
     expect(restored.state.root.districtIds).toEqual(["district:live"]);
     expect(restored.processedCommandIds.has("command:live")).toBe(true);
+  });
+
+  it("persists hosted pacing and keeps legacy snapshots on canonical fallback", () => {
+    const runtime = createServerInstanceRuntime("instance:pacing", "free");
+    runtime.state.serverPacingState = {
+      id: "instance:pacing:pacing",
+      serverInstanceId: runtime.record.id,
+      registrationOpensAt: "2026-01-01T09:00:00.000Z",
+      registrationClosesAt: "2026-01-01T10:00:00.000Z",
+      registrationClosedAt: "2026-01-01T10:00:00.000Z",
+      registrationBaselinePlayers: 2,
+      eliminationEnabled: true,
+      effectiveFinalLockdownTrigger: 1,
+      effectiveFirstEliminationTick: 6_000,
+      version: 1
+    };
+
+    const restored = restoreInstanceState(JSON.parse(JSON.stringify(createInstanceSnapshot(runtime))));
+    expect(restored.serverPacingState).toEqual(runtime.state.serverPacingState);
+    expect(resolveEffectiveFinalLockdownTrigger(restored, runtime.config)).toBe(1);
+
+    const legacySnapshot = JSON.parse(JSON.stringify(createInstanceSnapshot(runtime)));
+    delete legacySnapshot.state.serverPacingState;
+    const restoredLegacy = restoreInstanceState(legacySnapshot);
+    expect(restoredLegacy.serverPacingState).toBeUndefined();
+    expect(resolveEffectiveFinalLockdownTrigger(restoredLegacy, runtime.config)).toBe(
+      runtime.config.balance.finalLockdown?.triggerActivePlayers
+    );
   });
 
   it("seals snapshot DTOs into opaque tokens and rejects tampering", async () => {

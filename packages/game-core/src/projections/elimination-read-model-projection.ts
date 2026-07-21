@@ -8,6 +8,12 @@ import {
   resolveNextEliminationTick,
   resolveQuietHoursResumeTick
 } from "../rules/elimination/eliminationConfig";
+import {
+  isServerPacingEliminationEnabled,
+  isServerPacingGraceActive,
+  resolveEffectiveEliminationMinimumPlayers,
+  resolveEffectiveFirstEliminationTick
+} from "../rules/server-pacing/serverPacingPolicy";
 
 export const createEliminationReadModel = (
   state: CoreGameState,
@@ -17,7 +23,7 @@ export const createEliminationReadModel = (
   const config = context ? resolveEliminationConfig(context.config) : null;
   const activePlayerIds = state.root.playerIds.filter((id) => state.playersById[id]?.status === "active");
   const player = state.playersById[playerId] ?? null;
-  if (!config?.enabled || !context) {
+  if (!config?.enabled || !context || !isServerPacingEliminationEnabled(state, context.config)) {
     return createDisabledReadModel(state, playerId, activePlayerIds.length);
   }
 
@@ -26,11 +32,15 @@ export const createEliminationReadModel = (
     .sort(compareEliminationScores);
   const currentPlayerIndex = scores.findIndex((score) => score.playerId === playerId);
   const currentScore = currentPlayerIndex >= 0 ? scores[currentPlayerIndex] : null;
-  const eliminationsStopped = activePlayerIds.length <= config.minActivePlayers;
+  const effectiveFirstEliminationTick = resolveEffectiveFirstEliminationTick(state, context.config);
+  const effectiveMinimumPlayers = resolveEffectiveEliminationMinimumPlayers(state, context.config);
+  const graceActive = isServerPacingGraceActive(state, context.config);
+  const eliminationsStopped = !graceActive &&
+    effectiveMinimumPlayers !== null &&
+    activePlayerIds.length <= effectiveMinimumPlayers;
   const rawNextEliminationTick = eliminationsStopped
     ? null
-    : state.eliminationState?.nextEliminationTick
-      ?? resolveNextEliminationTick(config, state.eliminationState?.lastEliminationTick ?? null);
+    : resolveReadModelNextEliminationTick(state, config, effectiveFirstEliminationTick);
   const quietHoursResumeTick = resolveReadModelQuietHoursResumeTick(state, config, rawNextEliminationTick, context);
   const nextEliminationTick = rawNextEliminationTick === null ? null : quietHoursResumeTick ?? rawNextEliminationTick;
   const ticksUntilNext = nextEliminationTick === null ? null : Math.max(0, nextEliminationTick - state.root.tick);
@@ -39,9 +49,9 @@ export const createEliminationReadModel = (
 
   return {
     enabled: true,
-    firstEliminationTick: config.firstEliminationTick,
+    firstEliminationTick: effectiveFirstEliminationTick ?? config.firstEliminationTick,
     intervalTicks: config.intervalTicks,
-    minActivePlayers: config.minActivePlayers,
+    minActivePlayers: effectiveMinimumPlayers ?? config.minActivePlayers,
     nextEliminationTick,
     ticksUntilNextElimination: ticksUntilNext,
     eliminationsStopped,
@@ -69,6 +79,23 @@ export const createEliminationReadModel = (
     playerStatus: player?.status ?? null,
     lastElimination: createLastElimination(state)
   };
+};
+
+const resolveReadModelNextEliminationTick = (
+  state: CoreGameState,
+  config: NonNullable<ReturnType<typeof resolveEliminationConfig>>,
+  effectiveFirstEliminationTick: number | null
+): number | null => {
+  if (effectiveFirstEliminationTick === null) return null;
+  const stateRecord = state.eliminationState;
+  if (!stateRecord) return effectiveFirstEliminationTick;
+
+  const candidate = stateRecord.nextEliminationTick
+    ?? resolveNextEliminationTick(config, stateRecord.lastEliminationTick);
+  if (stateRecord.eliminationCount === 0 && stateRecord.lastEliminationTick === null) {
+    return Math.max(candidate, effectiveFirstEliminationTick);
+  }
+  return candidate;
 };
 
 const createDisabledReadModel = (

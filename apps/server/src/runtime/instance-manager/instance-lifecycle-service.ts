@@ -23,6 +23,7 @@ export type { CommandDispatchOptions } from "../orchestration/command-dispatch-o
 export class InstanceLifecycleService {
   start(runtime: ServerInstanceRuntime): ServerInstanceRuntime {
     const nowIso = runtime.clock.nowIso();
+    const startedAt = resolveInitialStartedAt(runtime, nowIso);
     runtime.record.status = "booting";
     runtime.eventPublisher.publish({
       type: "instance-status-changed",
@@ -31,13 +32,14 @@ export class InstanceLifecycleService {
     });
     runtime = ensureProductionLifecyclePhase(runtime, PRODUCTION_GAME_LIFECYCLE_PHASES.live);
     runtime.record.status = "running";
-    runtime.record.startedAt = runtime.clock.nowIso();
+    runtime.record.startedAt = startedAt;
+    runtime = synchronizeStartedServerInstance(runtime, startedAt);
     runtime.scheduler.isRunning = true;
     void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "lifecycle", "Instance started.", {}, runtime.clock).catch(() => undefined);
     runtime.eventPublisher.publish({
       type: "instance-status-changed",
       payload: { status: runtime.record.status },
-      occurredAt: runtime.clock.nowIso()
+      occurredAt: nowIso
     });
     return runtime;
   }
@@ -145,5 +147,35 @@ const ensureProductionLifecyclePhase = (
     version: runtime.state.root.version + 1
   };
 
+  return runtime;
+};
+
+const resolveInitialStartedAt = (runtime: ServerInstanceRuntime, nowIso: string): string => {
+  if (runtime.record.startedAt) return runtime.record.startedAt;
+  const stateStartedAt = runtime.state.serverInstance.startedAt;
+  const stateStartedAtMs = Date.parse(stateStartedAt);
+  return Number.isFinite(stateStartedAtMs) && stateStartedAtMs > 0 ? stateStartedAt : nowIso;
+};
+
+const synchronizeStartedServerInstance = (
+  runtime: ServerInstanceRuntime,
+  startedAt: string
+): ServerInstanceRuntime => {
+  const serverInstance = runtime.state.serverInstance;
+  if (
+    serverInstance.status === "running" &&
+    serverInstance.startedAt === startedAt &&
+    serverInstance.currentTick === runtime.state.root.tick
+  ) {
+    return runtime;
+  }
+
+  runtime.state.serverInstance = {
+    ...serverInstance,
+    status: "running",
+    startedAt,
+    currentTick: runtime.state.root.tick,
+    version: serverInstance.version + 1
+  };
   return runtime;
 };

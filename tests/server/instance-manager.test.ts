@@ -58,6 +58,29 @@ describe("ServerInstanceManager", () => {
 
     expect(runtime.record.createdAt).toBe(fixedNow);
     expect(runtime.record.startedAt).toBe(fixedNow);
+    expect(runtime.state.serverInstance).toMatchObject({
+      status: "running",
+      startedAt: fixedNow
+    });
+  });
+
+  it("preserves the original start timestamp when a paused instance resumes", () => {
+    let currentIso = "2026-05-17T12:00:00.000Z";
+    const server = createServerApp({
+      clock: {
+        now: () => new Date(currentIso),
+        nowIso: () => currentIso
+      }
+    });
+    const runtime = server.instanceManager.createInstance("instance:resume-start-time", "free");
+
+    server.instanceManager.startInstance(runtime.record.id);
+    currentIso = "2026-05-17T13:00:00.000Z";
+    server.instanceManager.pauseInstance(runtime.record.id);
+    server.instanceManager.startInstance(runtime.record.id);
+
+    expect(runtime.record.startedAt).toBe("2026-05-17T12:00:00.000Z");
+    expect(runtime.state.serverInstance.startedAt).toBe("2026-05-17T12:00:00.000Z");
   });
 
   it("uses the injected clock for command audit and runtime event timestamps", async () => {

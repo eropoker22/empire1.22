@@ -22,5 +22,6 @@ export * from "./player-color";
 export * from "./police-state";
 export * from "./resource-state";
 export * from "./server-instance";
+export * from "./server-pacing-state";
 export * from "./victory-state";
 export * from "./weapon";

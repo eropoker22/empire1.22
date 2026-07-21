@@ -33,6 +33,7 @@ import type {
   PoliceState,
   ResourceState,
   ServerInstance,
+  ServerPacingState,
   TrapId,
   VictoryState,
   FormerAllianceTruce
@@ -45,6 +46,7 @@ import type {
  */
 export interface NormalizedGameState {
   serverInstance: ServerInstance;
+  serverPacingState?: ServerPacingState | null;
   root: GameStateRoot;
   playersById: Record<PlayerId, Player>;
   playerBoostStatesByPlayerId?: Record<PlayerId, PlayerBoostState>;

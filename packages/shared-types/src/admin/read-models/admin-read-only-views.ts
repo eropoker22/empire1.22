@@ -211,7 +211,16 @@ export type AdminAuditAction =
   | "lifecycle-request"
   | "lifecycle-replay"
   | "lifecycle-success"
-  | "lifecycle-failure";
+  | "lifecycle-failure"
+  | "registration-scheduled"
+  | "registration-opened-now"
+  | "registration-canceled-before-open"
+  | "registration-closed-automatically"
+  | "registration-closed-early"
+  | "server-start-requested"
+  | "server-start-rejected-minimum-players"
+  | "server-started"
+  | "effective-lockdown-trigger-frozen";
 
 export interface AdminAuditEntryView {
   id: string;

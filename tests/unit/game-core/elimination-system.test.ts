@@ -37,6 +37,73 @@ describe("scheduled elimination system", () => {
     expect(Object.values(result.nextState.playersById).every((player) => player.status === "active")).toBe(true);
   });
 
+  it("does not initialize or run elimination while hosted registration is open", () => {
+    const state = createEliminationState();
+    state.root.tick = FIRST_ELIMINATION_TICK + 500;
+    state.serverPacingState = createHostedPacingState(state, {
+      registrationClosedAt: null,
+      effectiveFirstEliminationTick: FIRST_ELIMINATION_TICK + 1_000
+    });
+
+    const result = runScheduledElimination(state, context);
+    const model = createEliminationReadModel(result.nextState, "player:3", context);
+
+    expect(result.result).toBeNull();
+    expect(result.nextState.eliminationState).toBeNull();
+    expect(model.eliminationsStopped).toBe(false);
+    expect(model.nextEliminationTick).toBeNull();
+  });
+
+  it("keeps elimination disabled for a hosted control template after close and restart", () => {
+    const state = createEliminationState();
+    state.root.tick = FIRST_ELIMINATION_TICK + 10_000;
+    state.serverPacingState = createHostedPacingState(state, {
+      eliminationEnabled: false,
+      effectiveFirstEliminationTick: FIRST_ELIMINATION_TICK
+    });
+
+    const first = runScheduledElimination(state, context);
+    const restored = JSON.parse(JSON.stringify(first.nextState)) as CoreGameState;
+    const second = runScheduledElimination(restored, context);
+    const model = createEliminationReadModel(second.nextState, "player:3", context);
+
+    expect(first.result).toBeNull();
+    expect(second.result).toBeNull();
+    expect(second.nextState.eliminationState).toBeNull();
+    expect(model.enabled).toBe(false);
+  });
+
+  it("clamps the first hosted elimination to the frozen effective deadline", () => {
+    const effectiveFirstEliminationTick = FIRST_ELIMINATION_TICK + 100;
+    const state = createEliminationState();
+    state.serverPacingState = createHostedPacingState(state, { effectiveFirstEliminationTick });
+    state.root.tick = FIRST_ELIMINATION_TICK;
+
+    const beforeDeadline = runScheduledElimination(state, context);
+    expect(beforeDeadline.result).toBeNull();
+    expect(beforeDeadline.nextState.eliminationState?.nextEliminationTick).toBe(effectiveFirstEliminationTick);
+
+    const atDeadline = runScheduledElimination({
+      ...beforeDeadline.nextState,
+      root: { ...beforeDeadline.nextState.root, tick: effectiveFirstEliminationTick }
+    }, context);
+    expect(atDeadline.result?.eliminatedPlayerId).toBe("player:3");
+  });
+
+  it("uses the frozen cutoff so a two-player hosted server can reach its final one", () => {
+    const state = createEliminationState({ players: 2 });
+    state.root.tick = FIRST_ELIMINATION_TICK;
+    state.serverPacingState = createHostedPacingState(state, {
+      registrationBaselinePlayers: 2,
+      effectiveFinalLockdownTrigger: 1
+    });
+
+    const result = runScheduledElimination(state, context);
+
+    expect(result.result?.activePlayersRemaining).toBe(1);
+    expect(Object.values(result.nextState.playersById).filter((player) => player.status === "active")).toHaveLength(1);
+  });
+
   it("eliminates exactly one weakest active player at the scheduled tick", () => {
     const state = createEliminationState();
     state.root.tick = FIRST_ELIMINATION_TICK;
@@ -415,6 +482,23 @@ const createEliminationState = (options: {
   }
   return state;
 };
+
+const createHostedPacingState = (
+  state: CoreGameState,
+  overrides: Partial<NonNullable<CoreGameState["serverPacingState"]>> = {}
+): NonNullable<CoreGameState["serverPacingState"]> => ({
+  id: `${state.serverInstance.id}:pacing`,
+  serverInstanceId: state.serverInstance.id,
+  registrationOpensAt: "2026-01-01T09:00:00.000Z",
+  registrationClosesAt: "2026-01-01T10:00:00.000Z",
+  registrationClosedAt: "2026-01-01T10:00:00.000Z",
+  registrationBaselinePlayers: state.root.playerIds.length,
+  eliminationEnabled: true,
+  effectiveFinalLockdownTrigger: 8,
+  effectiveFirstEliminationTick: FIRST_ELIMINATION_TICK,
+  version: 1,
+  ...overrides
+});
 
 const addDistrict = (
   state: CoreGameState,
