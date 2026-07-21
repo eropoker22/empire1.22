@@ -120,18 +120,18 @@ const normalizeSelectedRuntimeMode = (value: unknown): SelectedGameplayRuntimeMo
 
 export const getForcedDevelopmentRuntimeMode = (): SelectedGameplayRuntimeMode => {
   if (typeof window === "undefined") return null;
-  const host = window.location.hostname;
+  const host = String(window.location.hostname || "").toLowerCase();
+  const isLoopback = host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]";
   const queryMode = new URLSearchParams(window.location.search).get("runtimeMode");
   if (queryMode === "server-authoritative") return "server-authoritative";
+  if (!isLoopback) {
+    removeBrowserStorageItem("sessionStorage", LOCAL_DEMO_SESSION_KEY);
+    return "server-authoritative";
+  }
   if (queryMode === "local-demo") return "demo";
   if (readBrowserStorageItem("sessionStorage", LOCAL_DEMO_SESSION_KEY) === "1") return "demo";
 
-  const canUseDevelopmentOverride = window.location.protocol === "file:"
-    || !host
-    || host === "localhost"
-    || host === "127.0.0.1"
-    || host === "::1"
-    || host.endsWith(".local");
+  const canUseDevelopmentOverride = isLoopback;
   let requestedMode: SelectedGameplayRuntimeMode = null;
   if (canUseDevelopmentOverride) {
     try {
@@ -161,19 +161,25 @@ const readBrowserStorageItem = (storageName: "localStorage" | "sessionStorage", 
   }
 };
 
+const removeBrowserStorageItem = (storageName: "localStorage" | "sessionStorage", key: string): void => {
+  try {
+    window[storageName]?.removeItem?.(key);
+  } catch (_error) {}
+};
+
 export const isGameplayDiagnosticsEnabled = (): boolean => {
   if (typeof window === "undefined") {
     return false;
   }
-  const host = window.location.hostname;
-  return host === "localhost" || host === "127.0.0.1" || host === "::1" || window.location.search.includes("gameplayDiagnostics=1");
+  const host = String(window.location.hostname || "").toLowerCase();
+  return host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]";
 };
 
 export const writeGameplaySliceDiagnostic = (endpoint: string, message: string): void => {
   if (!isGameplayDiagnosticsEnabled()) {
     return;
   }
-  console.warn("[gameplay-slice] Server-authoritative runtime failed; legacy fallback remains active.", {
+  console.warn("[gameplay-slice] Server-authoritative runtime is unavailable.", {
     endpoint,
     error: sanitizeDiagnosticText(message, 240)
   });
@@ -181,7 +187,7 @@ export const writeGameplaySliceDiagnostic = (endpoint: string, message: string):
 
 export const renderGameplaySliceDiagnostic = (endpoint: string, message: string): string => [
   `<strong>Server-authoritative gameplay slice unavailable</strong>`,
-  `<span>Legacy fallback is active for this local session.</span>`,
+  `<span>Gameplay remains unavailable until the live server reconnects.</span>`,
   `<span data-gameplay-slice-diagnostic-endpoint>${escapeHtml(endpoint)}</span>`,
   `<span data-gameplay-slice-diagnostic-error>${escapeHtml(sanitizeDiagnosticText(message, 240))}</span>`
 ].join("");

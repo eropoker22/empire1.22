@@ -5,6 +5,12 @@ const isLoopbackLocation = (locationRef) => {
 
 const LOCAL_DEMO_SESSION_KEY = "empire:local-demo-session:v1";
 
+const clearStoredLocalDemoSession = (sessionStorageRef) => {
+  try {
+    sessionStorageRef?.removeItem?.(LOCAL_DEMO_SESSION_KEY);
+  } catch (_error) {}
+};
+
 export const isLocalDemoAccessAvailable = (locationRef = globalThis.location) => isLoopbackLocation(locationRef);
 
 export const isExplicitLocalDemoEnabled = (options = {}) => {
@@ -12,17 +18,19 @@ export const isExplicitLocalDemoEnabled = (options = {}) => {
   const configOverrides = options.configOverrides || globalThis.EmpireConfigOverrides;
   const sessionStorageRef = options.sessionStorageRef || globalThis.sessionStorage;
   const requestedMode = new URLSearchParams(String(locationRef?.search || "")).get("runtimeMode");
+
+  if (!isLocalDemoAccessAvailable(locationRef)) {
+    clearStoredLocalDemoSession(sessionStorageRef);
+    return false;
+  }
+
   if (requestedMode === "server-authoritative") {
-    sessionStorageRef?.removeItem?.(LOCAL_DEMO_SESSION_KEY);
+    clearStoredLocalDemoSession(sessionStorageRef);
     return false;
   }
   if (requestedMode === "local-demo") {
     sessionStorageRef?.setItem?.(LOCAL_DEMO_SESSION_KEY, "1");
     return true;
-  }
-
-  if (!isLocalDemoAccessAvailable(locationRef)) {
-    return sessionStorageRef?.getItem?.(LOCAL_DEMO_SESSION_KEY) === "1";
   }
 
   return configOverrides?.localDemoEnabled === true

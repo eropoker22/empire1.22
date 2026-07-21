@@ -1,5 +1,6 @@
 import { accountSession, loginAccount, registerAccount } from "./app/player-entry-client.js";
 import { bindLoginAboutModal, bindLoginInfoModals } from "./app/login-about-modal.js";
+import { isLocalDemoAccessAvailable } from "./app/local-demo-gate.js";
 
 const state = { activeTab: "login", submitting: false };
 
@@ -20,8 +21,15 @@ function bindLocalDemoGuestAccess() {
   const guestAccess = document.querySelector(".guest-access");
   const guestButton = document.querySelector("#guest-btn");
   if (!(guestAccess instanceof HTMLElement) || !(guestButton instanceof HTMLButtonElement)) return;
+  if (!isLocalDemoAccessAvailable()) {
+    guestAccess.hidden = true;
+    guestAccess.setAttribute("aria-hidden", "true");
+    guestAccess.querySelectorAll("input, button").forEach((control) => control.setAttribute("tabindex", "-1"));
+    return;
+  }
   guestAccess.hidden = false;
-  guestButton.textContent = "VSTOUPIT DO DEMO";
+  guestAccess.setAttribute("aria-hidden", "false");
+  guestButton.textContent = "LOKÁLNÍ UI DEMO";
   guestButton.addEventListener("click", () => location.assign("./login.html?runtimeMode=local-demo"));
 }
 

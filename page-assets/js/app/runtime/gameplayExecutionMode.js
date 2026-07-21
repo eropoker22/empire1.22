@@ -79,14 +79,11 @@ const MODE_STORAGE_KEY = "empire:demo:execution-mode:v1";
 const MODE_META_SELECTOR = 'meta[name="empire-gameplay-execution-mode"]';
 
 export function isDevelopmentGameplayHost(windowRef = typeof window === "undefined" ? null : window) {
-  const protocol = String(windowRef?.location?.protocol || "");
   const host = String(windowRef?.location?.hostname || "").toLowerCase();
-  return protocol === "file:"
-    || !host
-    || host === "localhost"
+  return host === "localhost"
     || host === "127.0.0.1"
     || host === "::1"
-    || host.endsWith(".local");
+    || host === "[::1]";
 }
 
 export function normalizeGameplayExecutionMode(value) {

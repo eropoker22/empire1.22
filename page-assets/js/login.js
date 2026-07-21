@@ -479,6 +479,7 @@ function bindForms() {
 }
 
 function bindGuest() {
+  const guestAccess = document.querySelector(".guest-access");
   const button = document.getElementById("guest-btn");
   const guestUsernameInput = document.getElementById("guest-username");
   const guestGangInput = document.getElementById("guest-gang");
@@ -486,10 +487,15 @@ function bindGuest() {
     return;
   }
 
+  if (guestAccess instanceof HTMLElement) {
+    guestAccess.hidden = false;
+    guestAccess.setAttribute("aria-hidden", "false");
+  }
+
   if (isExplicitLocalDemoEnabled()) {
     guestUsernameInput.value ||= "DemoBoss";
     guestGangInput.value ||= "Neon Demo Crew";
-    button.textContent = "VSTOUPIT DO DEMO";
+    button.textContent = "LOKÁLNÍ UI DEMO";
   }
 
   const continueAsGuest = () => {

@@ -38,15 +38,18 @@ const installBrowser = ({
     EmpireConfigOverrides: { localDemoEnabled },
     empireStreetsRuntimeDiagnostics: { setMode },
     localStorage: { getItem: () => null },
-    sessionStorage: { getItem: () => sessionDemoEnabled ? "1" : null },
+    sessionStorage: {
+      getItem: () => sessionDemoEnabled ? "1" : null,
+      removeItem: vi.fn()
+    },
     location: { hostname, protocol: hostname === "localhost" ? "http:" : "https:", search }
   } as unknown as Window & typeof globalThis;
   return { setMode };
 };
 
 describe("gameplay slice runtime policy", () => {
-  it("honors the configured local-demo mode without starting a server slice", () => {
-    const { setMode } = installBrowser({ hostname: "empire.example", search: "" });
+  it("honors the configured local-demo mode on loopback without starting a server slice", () => {
+    const { setMode } = installBrowser({ hostname: "localhost", search: "", metaContent: "local-demo" });
     const root = { dataset: {}, hidden: false } as unknown as HTMLElement;
 
     expect(getForcedDevelopmentRuntimeMode()).toBe("demo");
@@ -90,18 +93,18 @@ describe("gameplay slice runtime policy", () => {
     expect(isLegacyGameplayFallbackAllowed()).toBe(true);
   });
 
-  it("honors an explicit hosted local-demo request before app-entry runs", () => {
+  it("rejects an explicit hosted local-demo request before app-entry runs", () => {
     installBrowser({
       hostname: "empirestreets.cz",
       search: "?runtimeMode=local-demo",
       metaContent: "server-authoritative"
     });
 
-    expect(getForcedDevelopmentRuntimeMode()).toBe("demo");
-    expect(isLegacyGameplayFallbackAllowed()).toBe(true);
+    expect(getForcedDevelopmentRuntimeMode()).toBe("server-authoritative");
+    expect(isLegacyGameplayFallbackAllowed()).toBe(false);
   });
 
-  it("honors the hosted local-demo session before app-entry runs", () => {
+  it("rejects the hosted local-demo session before app-entry runs", () => {
     installBrowser({
       hostname: "empirestreets.cz",
       search: "",
@@ -109,7 +112,7 @@ describe("gameplay slice runtime policy", () => {
       sessionDemoEnabled: true
     });
 
-    expect(getForcedDevelopmentRuntimeMode()).toBe("demo");
-    expect(isLegacyGameplayFallbackAllowed()).toBe(true);
+    expect(getForcedDevelopmentRuntimeMode()).toBe("server-authoritative");
+    expect(isLegacyGameplayFallbackAllowed()).toBe(false);
   });
 });
