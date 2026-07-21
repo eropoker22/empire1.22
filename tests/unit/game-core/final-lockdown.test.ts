@@ -167,6 +167,22 @@ describe("Free BR Final Lockdown", () => {
     });
   });
 
+  it("records the authoritative completion time instead of the Unix epoch", () => {
+    const state = createTop8State({ startedAt: "2026-01-01T11:00:00.000Z" });
+    const duration = FREE_CONFIG.balance.finalLockdown!.activeDurationTicks;
+    state.finalLockdownState = createActiveFinalLockdownState(state, duration - 1);
+    state.root.phase = PRODUCTION_GAME_LIFECYCLE_PHASES.finalLockdown;
+    const endedAt = "2026-01-02T08:15:00.000Z";
+
+    const result = runTick(state, {
+      config: FREE_CONFIG,
+      clock: { now: () => new Date(endedAt), nowIso: () => endedAt }
+    });
+
+    expect(result.nextState.matchResult?.endedAt).toBe(endedAt);
+    expect(result.nextState.matchResult?.endedAt).not.toBe(new Date(0).toISOString());
+  });
+
   it("ranks a smaller downtown empire above a wider weak sprawl when final score is higher", () => {
     const state = createTop8State();
     const playerOneScore = createPlayerFinalEmpireScore(state, "player:1", CONTEXT);

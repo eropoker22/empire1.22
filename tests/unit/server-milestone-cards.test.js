@@ -60,7 +60,7 @@ describe("server milestone cards", () => {
     const confirm = document.querySelector("[data-server-milestone-confirm]");
 
     controller.handleGameplaySlice({
-      server: { serverInstanceId: "server:1" },
+      server: { serverInstanceId: "server:1", generatedAt: "2026-07-21T12:00:00.000Z" },
       mode: { tickRateMs: 5000 },
       player: { instanceId: "server:1" }
     });
@@ -87,12 +87,12 @@ describe("server milestone cards", () => {
     });
     expect(modal.dataset.serverMilestone).toBe("first-purge");
     expect(document.querySelector("[data-server-milestone-eyebrow]").hidden).toBe(false);
-    expect(document.querySelector("[data-server-milestone-lead]").textContent).toContain("4 hodiny");
+    expect(document.querySelector("[data-server-milestone-lead]").textContent).toContain("skutečný serverový odpočet");
     expect(confirm.textContent).toBe("Začít se připravovat");
 
     confirm.click();
     controller.handleGameplaySlice({
-      server: { serverInstanceId: "server:1" },
+      server: { serverInstanceId: "server:1", generatedAt: "2026-07-21T12:00:00.000Z" },
       mode: { tickRateMs: 5000 },
       elimination: { activePlayersRemaining: 8 },
       player: {
@@ -101,8 +101,8 @@ describe("server milestone cards", () => {
       }
     });
     expect(modal.dataset.serverMilestone).toBe("lockdown");
-    expect(document.querySelector("[data-server-milestone-title]").textContent).toContain("osm hráčů");
-    expect(document.querySelector("[data-server-milestone-lead]").textContent).toContain("12 hodin");
+    expect(document.querySelector("[data-server-milestone-title]").textContent).toContain("závěrečné fáze");
+    expect(document.querySelector("[data-server-milestone-lead]").textContent).toContain("serverový odpočet");
     expect(confirm.textContent).toBe("Jdu do finále");
 
     confirm.click();
@@ -152,7 +152,11 @@ describe("server milestone cards", () => {
     vi.setSystemTime(new Date("2026-07-21T12:00:00.000Z"));
     const controller = mount();
     const purgeSlice = {
-      server: { serverInstanceId: "server:countdowns", currentTick: 100 },
+      server: {
+        serverInstanceId: "server:countdowns",
+        currentTick: 100,
+        generatedAt: "2026-07-21T12:00:00.000Z"
+      },
       mode: { tickRateMs: 1_000 },
       elimination: {
         enabled: true, eliminationsStopped: false, firstEliminationTick: 14_500,
@@ -171,7 +175,11 @@ describe("server milestone cards", () => {
 
     controller.close();
     controller.handleGameplaySlice({
-      server: { serverInstanceId: "server:countdowns", currentTick: 100 },
+      server: {
+        serverInstanceId: "server:countdowns",
+        currentTick: 100,
+        generatedAt: "2026-07-21T12:00:00.000Z"
+      },
       mode: { tickRateMs: 1_000 },
       elimination: { activePlayersRemaining: 8 },
       player: {
@@ -183,10 +191,10 @@ describe("server milestone cards", () => {
       }
     });
     expect(document.querySelector('[data-server-milestone-stat="final-lockdown-countdown"] strong').textContent)
-      .toBe("12 h 0 min 0 s");
+      .toBe("11 h 59 min 59 s");
     vi.advanceTimersByTime(1_000);
     expect(document.querySelector('[data-server-milestone-stat="final-lockdown-countdown"] strong').textContent)
-      .toBe("11 h 59 min 59 s");
+      .toBe("11 h 59 min 58 s");
   });
 
   it("reopens a selected card from a street news event", () => {
@@ -203,8 +211,8 @@ describe("server milestone cards", () => {
   it("creates stable openable payloads for every announcement", () => {
     const snapshots = SERVER_MILESTONE_IDS.map((id, index) => createServerMilestoneFeedSnapshot(id, 1000 + index));
     expect(snapshots.map((entry) => entry.resultPayload.milestoneId)).toEqual(SERVER_MILESTONE_IDS);
-    expect(snapshots[1].title).toBe("První Očista za 4 hodiny");
-    expect(snapshots[2].summary).toContain("12 hodin");
+    expect(snapshots[1].title).toBe("První Očista se blíží");
+    expect(snapshots[2].summary).toBe("Závěrečná fáze války právě začala.");
     expect(snapshots[3].title).toContain("vítěze");
   });
 

@@ -35,11 +35,13 @@ export const createPlayerEliminationScore = (
   const population = positiveNumber(player?.population ?? resourceBalances.population);
   const totalResourceValue = Object.entries(resourceBalances)
     .filter(([key]) => key !== "cash" && key !== "dirty-cash" && key !== "population")
-    .reduce((sum, [, value]) => sum + positiveNumber(value), 0);
+    .reduce((sum, [key, value]) => sum + (positiveNumber(value) * resolveResourceScoreValue(weights.resourceScoreValues, key)), 0);
   const activeBuildingCount = Object.values(state.buildingsById)
     .filter((building) => building.ownerPlayerId === playerId && building.status === "active").length;
   const totalOwnedDistrictInfluence = districts.reduce((sum, district) => sum + positiveNumber(district.influence), 0);
-  const recentActivityBonus = player?.lastActionAt ? weights.recentActivityBonus : 0;
+  const recentActivityBonus = isRecentlyActive(state, player?.lastActionAt ?? null, context, weights.recentActivityWindowTicks)
+    ? weights.recentActivityBonus
+    : 0;
   const score =
     districts.length * weights.controlledDistricts
     + totalOwnedDistrictInfluence * weights.districtInfluence
@@ -97,4 +99,29 @@ const compareLastActionAt = (left: string | null, right: string | null): number 
 const positiveNumber = (value: unknown): number => {
   const amount = Number(value ?? 0);
   return Number.isFinite(amount) ? Math.max(0, amount) : 0;
+};
+
+const resolveResourceScoreValue = (registry: Record<string, number> | undefined, resourceKey: string): number => {
+  const configured = Number(registry?.[resourceKey]);
+  return Number.isFinite(configured) && configured >= 0 ? configured : 1;
+};
+
+const isRecentlyActive = (
+  state: CoreGameState,
+  lastActionAt: string | null,
+  context: GameCoreContext,
+  windowTicks: number
+): boolean => {
+  const lastActionMs = Date.parse(lastActionAt ?? "");
+  if (!Number.isFinite(lastActionMs)) return false;
+  const contextNowMs = context.clock?.now?.().getTime() ?? Date.parse(context.clock?.nowIso?.() ?? "");
+  const startedAtMs = Date.parse(state.serverInstance.startedAt || "");
+  const derivedNowMs = Number.isFinite(startedAtMs)
+    ? startedAtMs + (Math.max(0, state.root.tick) * Math.max(1, context.config.tickRateMs))
+    : Number.NaN;
+  const nowMs = Number.isFinite(contextNowMs) ? contextNowMs : derivedNowMs;
+  if (!Number.isFinite(nowMs)) return false;
+  const windowMs = Math.max(0, Number(windowTicks) || 0) * Math.max(1, context.config.tickRateMs);
+  const ageMs = nowMs - lastActionMs;
+  return ageMs >= 0 && ageMs <= windowMs;
 };

@@ -13,14 +13,17 @@ describe("leaderboard server authority", () => {
   });
 
   it("uses score and rank supplied by the server projection", () => {
-    expect(source).toContain("empireScore: Math.max(0, Number(entry?.score || 0))");
+    expect(source).toContain("entry?.score === null || entry?.score === undefined");
     expect(source).toContain("currentRank: normalizeNumber(entry?.rank)");
-    expect(source).toContain("return Math.max(0, Number(player?.empireScore || 0))");
+    expect(source).toContain("Math.max(0, Number(player.empireScore))");
+    expect(source).not.toContain("MOCK_PLAYERS");
+    expect(source).toContain('import("../dev-fixtures/leaderboardDemoData.js")');
+    expect(source).toContain("Tato statistika se připravuje.");
   });
 
   it("reuses leaderboard score for the player profile", () => {
     expect(playerProfileSource).toContain('import { getCurrentPlayerId, getLeaderboardPlayers } from "../features/leaderboard.js";');
     expect(playerProfileSource).toContain("const leaderboardPlayers = getLeaderboardPlayers();");
-    expect(playerProfileSource).toContain("const empireScore = Number(currentLeaderboardEntry?.empireScore || 0);");
+    expect(playerProfileSource).toContain("const empireScore = currentLeaderboardEntry?.empireScore ?? null;");
   });
 });

@@ -79,7 +79,7 @@ export function renderPlayerProfilePanel(elements = {}, view = {}) {
   setText(elements.identity, identityLabel);
   setText(elements.faction, view.factionLabel || "-");
   setText(elements.server, view.serverLabel || "-");
-  setText(elements.empireScore, view.empireScoreLabel ?? "0");
+  setText(elements.empireScore, view.empireScoreLabel ?? "—");
   setText(elements.cleanMoney, view.cleanMoneyLabel || "$0");
   setText(elements.dirtyMoney, view.dirtyMoneyLabel || "$0");
   setText(elements.influence, view.influenceLabel ?? "0");

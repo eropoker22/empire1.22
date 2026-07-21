@@ -162,6 +162,8 @@ export interface EliminationScoreWeightsConfig {
   population: number;
   activeBuildingCount: number;
   recentActivityBonus: number;
+  recentActivityWindowTicks: number;
+  resourceScoreValues: Record<string, number>;
 }
 
 export interface EliminationQuietHoursConfig {

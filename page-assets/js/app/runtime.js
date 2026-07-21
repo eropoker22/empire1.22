@@ -985,6 +985,8 @@ const eventRumorBridgesByRoot = new WeakMap();
 const eliminationPurgePanelsByRoot = new WeakMap();
 const eliminationResultPopupsByRoot = new WeakMap();
 const eliminationCountdownWarningsByRoot = new WeakMap();
+let eliminationDemoViewModelFactory = null;
+let eliminationDemoFixturePromise = null;
 const ELIMINATION_RESULT_POPUP_SELECTOR = "[data-elimination-result-popup]";
 let latestGameplaySliceReadModel = null;
 let onboardingSandboxSession = null;
@@ -14485,6 +14487,32 @@ function bindEliminationResultPopupOverlay(root) {
   return true;
 }
 
+function loadLocalEliminationDemoFixture() {
+  if (getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.localDemo) {
+    return Promise.resolve(false);
+  }
+  if (!eliminationDemoFixturePromise) {
+    eliminationDemoFixturePromise = import("./dev-fixtures/eliminationDemoData.js")
+      .then((fixture) => {
+        eliminationDemoViewModelFactory = fixture.createMockEliminationAiPanelViewModel;
+        return true;
+      })
+      .catch((error) => {
+        console.error("Local elimination demo fixture could not be loaded.", error);
+        eliminationDemoViewModelFactory = null;
+        return false;
+      });
+  }
+  return eliminationDemoFixturePromise;
+}
+
+function getEliminationPanelPlayerView(root) {
+  if (getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    return latestGameplaySliceReadModel?.player || null;
+  }
+  return createFreeSessionUiContext(root);
+}
+
 function bindEliminationPurgeWindow(root) {
   if (!root || eliminationPurgePanelsByRoot.has(root)) {
     return false;
@@ -14493,9 +14521,14 @@ function bindEliminationPurgeWindow(root) {
   root.ownerDocument?.addEventListener?.("empire:gameplay-slice-rendered", (event) => {
     latestGameplaySliceReadModel = event?.detail?.gameplaySlice || null;
   });
+  const allowDemoFixtures = getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.localDemo;
   const panel = bindEliminationPurgePanel(root, {
     getGameplaySlice: () => latestGameplaySliceReadModel,
-    getPlayerView: () => latestGameplaySliceReadModel?.player || createFreeSessionUiContext(root),
+    getPlayerView: () => getEliminationPanelPlayerView(root),
+    getViewModel: (options) => allowDemoFixtures && typeof eliminationDemoViewModelFactory === "function"
+      ? eliminationDemoViewModelFactory(options)
+      : null,
+    allowDemoFixtures,
     onCountdownElapsed: (result) => {
       const resolvedResult = handleEliminationCountdownResolved(root, result);
       queueOrOpenResultModal(root, "elimination", resolvedResult);
@@ -14507,6 +14540,9 @@ function bindEliminationPurgeWindow(root) {
     return false;
   }
   eliminationPurgePanelsByRoot.set(root, panel);
+  if (allowDemoFixtures) {
+    void loadLocalEliminationDemoFixture().then(() => panel.render?.());
+  }
   return true;
 }
 
@@ -14515,8 +14551,14 @@ function bindEliminationCountdownWarningOverlay(root) {
     return false;
   }
 
+  const allowDemoFixtures = getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.localDemo;
   const warning = bindEliminationCountdownWarning(root, {
-    getPlayerView: () => latestGameplaySliceReadModel?.player || createFreeSessionUiContext(root),
+    getGameplaySlice: () => latestGameplaySliceReadModel,
+    getPlayerView: () => getEliminationPanelPlayerView(root),
+    getViewModel: (options) => allowDemoFixtures && typeof eliminationDemoViewModelFactory === "function"
+      ? eliminationDemoViewModelFactory(options)
+      : null,
+    allowDemoFixtures,
     onCountdownElapsed: (result) => {
       const resolvedResult = handleEliminationCountdownResolved(root, result);
       queueOrOpenResultModal(root, "elimination", resolvedResult);
@@ -14527,6 +14569,9 @@ function bindEliminationCountdownWarningOverlay(root) {
     return false;
   }
   eliminationCountdownWarningsByRoot.set(root, warning);
+  if (allowDemoFixtures) {
+    void loadLocalEliminationDemoFixture().then(() => warning.render?.());
+  }
   return true;
 }
 

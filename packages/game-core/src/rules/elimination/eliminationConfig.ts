@@ -9,7 +9,9 @@ export const DEFAULT_ELIMINATION_SCORE_WEIGHTS: EliminationBalanceConfig["scoreW
   dirtyCash: 0.05,
   resources: 0.2,
   population: 2,
-  recentActivityBonus: 250
+  recentActivityBonus: 250,
+  recentActivityWindowTicks: 720,
+  resourceScoreValues: {}
 };
 
 export const resolveEliminationConfig = (

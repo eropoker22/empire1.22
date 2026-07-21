@@ -3,11 +3,20 @@ import {
   bindEliminationAiPanel,
   bindEliminationCountdownWarning,
   bindEliminationResultPopup,
-  createMockEliminationAiPanelViewModel,
   renderEliminationAiPanel,
   renderEliminationResultPopupBody,
   renderFinalLockdownPurgePanel
 } from "../../page-assets/js/app/runtime/eliminationPurgePanelRuntime.js";
+import { createMockEliminationAiPanelViewModel } from "../../page-assets/js/app/dev-fixtures/eliminationDemoData.js";
+
+const createDemoDeps = (overrides = {}) => ({
+  allowDemoFixtures: true,
+  getViewModel: ({ mode, countdownRemainingMs } = {}) => createMockEliminationAiPanelViewModel({
+    mode,
+    countdownRemainingMs
+  }),
+  ...overrides
+});
 
 function createTarget(matchSelector) {
   const target = {
@@ -194,7 +203,7 @@ function createResultPopupFixture() {
 
 describe("elimination purge panel runtime", () => {
   it("renders the production mock elimination briefing", () => {
-    const html = renderEliminationAiPanel();
+    const html = renderEliminationAiPanel(createMockEliminationAiPanelViewModel());
 
     expect(html).not.toContain("OČISTA / PURGE OKNO");
     expect(html).not.toContain("PURGE-07");
@@ -251,7 +260,7 @@ describe("elimination purge panel runtime", () => {
   });
 
   it("prepares the mock final lockdown variant", () => {
-    const html = renderFinalLockdownPurgePanel();
+    const html = renderFinalLockdownPurgePanel(createMockEliminationAiPanelViewModel({ mode: "final_lockdown" }));
 
     expect(html).toContain("Do rozsudku");
     expect(html).toContain("7h 42m");
@@ -310,7 +319,7 @@ describe("elimination purge panel runtime", () => {
       }),
       clearInterval: vi.fn()
     };
-    const runtime = bindEliminationAiPanel(fixture.root, { timerApi });
+    const runtime = bindEliminationAiPanel(fixture.root, createDemoDeps({ timerApi }));
     const trigger = createTarget("[data-elimination-ai-panel-open]");
 
     fixture.listeners.get("click")({ target: trigger, preventDefault: vi.fn() });
@@ -364,12 +373,12 @@ describe("elimination purge panel runtime", () => {
       avatarSrc: "../img/avatars/lowkey.jpg",
       districtsNeutralized: 4
     }));
-    bindEliminationAiPanel(fixture.root, {
+    bindEliminationAiPanel(fixture.root, createDemoDeps({
       initialCountdownMs: 1000,
       resetCountdown: true,
       timerApi,
       onCountdownElapsed
-    });
+    }));
     const trigger = createTarget("[data-elimination-ai-panel-open]");
 
     fixture.listeners.get("click")({ target: trigger, preventDefault: vi.fn() });
@@ -507,12 +516,12 @@ describe("elimination purge panel runtime", () => {
       clearInterval: vi.fn()
     };
 
-    bindEliminationCountdownWarning(fixture.root, {
+    bindEliminationCountdownWarning(fixture.root, createDemoDeps({
       initialCountdownMs: 361000,
       resetCountdown: true,
       timerApi,
       onCountdownElapsed
-    });
+    }));
 
     expect(fixture.warning.hidden).toBe(true);
     expect(fixture.timeNode.textContent).toBe("6min 01s");
@@ -550,11 +559,11 @@ describe("elimination purge panel runtime", () => {
       clearInterval: vi.fn()
     };
 
-    bindEliminationCountdownWarning(fixture.root, {
+    bindEliminationCountdownWarning(fixture.root, createDemoDeps({
       initialCountdownMs: 300000,
       resetCountdown: true,
       timerApi
-    });
+    }));
 
     expect(fixture.warning.hidden).toBe(false);
     expect(fixture.timeNode.textContent).toBe("5min 00s");
@@ -583,7 +592,7 @@ describe("elimination purge panel runtime", () => {
     const fixture = createPanelFixture();
     fixture.root.querySelector = vi.fn(() => null);
     fixture.root.contains = vi.fn(() => false);
-    bindEliminationAiPanel(fixture.root);
+    bindEliminationAiPanel(fixture.root, createDemoDeps());
     const trigger = createTarget("[data-elimination-ai-panel-open]");
     const closeTarget = createTarget("[data-elimination-ai-panel-close]");
 
@@ -609,6 +618,7 @@ describe("elimination purge panel runtime", () => {
       unitLabel: state === "final" ? "PURGE-LOCK" : "PURGE-07"
     };
     bindEliminationAiPanel(fixture.root, {
+      allowDemoFixtures: true,
       getViewModel: () => viewModel
     });
     const trigger = createTarget("[data-elimination-ai-panel-open]");

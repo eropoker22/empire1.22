@@ -125,6 +125,9 @@ export const applyPlayerDefeatLifecycle = (
     sourceEventId: string;
     issuedAt: string;
     finalPlacement?: number | null;
+    scoreAtElimination?: number | null;
+    scoreBreakdownAtElimination?: Record<string, number> | null;
+    rankFromBottomAtElimination?: number | null;
   }
 ): TerritoryLifecycleResult => {
   const player = state.playersById[input.playerId];
@@ -164,7 +167,10 @@ export const applyPlayerDefeatLifecycle = (
           eliminatedAtTick: state.root.tick,
           eliminationReason: input.reason,
           defeatLifecycleSourceEventId: input.sourceEventId,
-          ...(input.finalPlacement != null ? { finalPlacement: input.finalPlacement } : {})
+          ...(input.finalPlacement != null ? { finalPlacement: input.finalPlacement } : {}),
+          ...(input.scoreAtElimination != null ? { scoreAtElimination: input.scoreAtElimination } : {}),
+          ...(input.scoreBreakdownAtElimination ? { scoreBreakdownAtElimination: input.scoreBreakdownAtElimination } : {}),
+          ...(input.rankFromBottomAtElimination != null ? { rankFromBottomAtElimination: input.rankFromBottomAtElimination } : {})
         },
         version: cleanedPlayer.version + 1
       }

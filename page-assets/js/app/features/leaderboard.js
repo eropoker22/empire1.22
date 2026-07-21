@@ -28,6 +28,14 @@ const SELECTED_SERVER_STORAGE_KEY = STORAGE_KEYS.selectedServer;
 const PLAYER_STATE_STORAGE_KEY = "empirestreets.playerState";
 const DEFAULT_SERVER_ID = "war-eu-01";
 const DEFAULT_CITY_MINUTES = 5 * 60 + 55;
+const LIVE_SUPPORTED_TABS = new Set(["overall", "influence", "districts", "alliance"]);
+const LIVE_UNAVAILABLE_COPY = "Leaderboard se právě nepodařilo načíst.";
+const LIVE_EMPTY_COPY = "Na tomto serveru zatím nejsou aktivní hráči.";
+const LIVE_PENDING_TAB_COPY = "Tato statistika se připravuje.";
+
+let demoLeaderboardPlayers = [];
+let calculateDemoScore = null;
+let demoFixturePromise = null;
 
 function focusWithoutScroll(element) {
   if (!(element instanceof HTMLElement) || typeof element.focus !== "function") {
@@ -103,489 +111,6 @@ export const leaderboardState = {
   modeFilter: "current"
 };
 
-const MOCK_PLAYERS = Object.freeze([
-  {
-    id: "guest-5470",
-    name: "Host-5470",
-    gangName: "Ghost Crew",
-    faction: "Mafia",
-    alliance: "Black Sun Pact",
-    districts: 8,
-    cleanMoney: 82000,
-    dirtyMoney: 116000,
-    influence: 590,
-    wanted: 260,
-    successfulAttacks: 18,
-    successfulDefenses: 11,
-    robberies: 16,
-    unitsKilled: 430,
-    unitsLost: 215,
-    buildingsOwned: 21,
-    lastRank: 14,
-    currentRank: 12,
-    lastActiveMinutes: 4,
-    isCurrentPlayer: true,
-    serverId: "war-eu-01",
-    serverLabel: "WAR-01",
-    mode: "war"
-  },
-  {
-    id: "raven",
-    name: "Raven",
-    gangName: "Northline Syndicate",
-    faction: "Mafia",
-    alliance: "Black Sun Pact",
-    districts: 18,
-    cleanMoney: 245000,
-    dirtyMoney: 388000,
-    influence: 1320,
-    wanted: 420,
-    successfulAttacks: 42,
-    successfulDefenses: 27,
-    robberies: 31,
-    unitsKilled: 1280,
-    unitsLost: 410,
-    buildingsOwned: 49,
-    lastRank: 6,
-    currentRank: 5,
-    lastActiveMinutes: 7,
-    serverId: "war-eu-01",
-    serverLabel: "WAR-01",
-    mode: "war"
-  },
-  {
-    id: "hex",
-    name: "Hex",
-    gangName: "Hex-91 Block",
-    faction: "Hackeři",
-    alliance: "Chrome Choir",
-    districts: 15,
-    cleanMoney: 198000,
-    dirtyMoney: 260000,
-    influence: 1105,
-    wanted: 610,
-    successfulAttacks: 37,
-    successfulDefenses: 19,
-    robberies: 42,
-    unitsKilled: 990,
-    unitsLost: 360,
-    buildingsOwned: 41,
-    lastRank: 4,
-    currentRank: 7,
-    lastActiveMinutes: 36,
-    serverId: "war-eu-01",
-    serverLabel: "WAR-01",
-    mode: "war"
-  },
-  {
-    id: "nyx",
-    name: "Nyx",
-    gangName: "Velvet Knives",
-    faction: "Tajná organizace",
-    alliance: "Velvet Accord",
-    districts: 13,
-    cleanMoney: 224000,
-    dirtyMoney: 141000,
-    influence: 1460,
-    wanted: 180,
-    successfulAttacks: 24,
-    successfulDefenses: 33,
-    robberies: 15,
-    unitsKilled: 650,
-    unitsLost: 160,
-    buildingsOwned: 37,
-    lastRank: 5,
-    currentRank: 4,
-    lastActiveMinutes: 12,
-    serverId: "war-eu-01",
-    serverLabel: "WAR-01",
-    mode: "war"
-  },
-  {
-    id: "viper",
-    name: "Viper",
-    gangName: "Acid Runners",
-    faction: "Kartel",
-    alliance: "Black Sun Pact",
-    districts: 11,
-    cleanMoney: 88000,
-    dirtyMoney: 310000,
-    influence: 840,
-    wanted: 735,
-    successfulAttacks: 49,
-    successfulDefenses: 12,
-    robberies: 55,
-    unitsKilled: 1510,
-    unitsLost: 670,
-    buildingsOwned: 30,
-    lastRank: 9,
-    currentRank: 6,
-    lastActiveMinutes: 2,
-    serverId: "war-eu-01",
-    serverLabel: "WAR-01",
-    mode: "war"
-  },
-  {
-    id: "iron-saint",
-    name: "Iron Saint",
-    gangName: "Iron Chapel",
-    faction: "Soukromá armáda",
-    alliance: "Iron Parish",
-    districts: 20,
-    cleanMoney: 192000,
-    dirtyMoney: 225000,
-    influence: 1190,
-    wanted: 540,
-    successfulAttacks: 34,
-    successfulDefenses: 48,
-    robberies: 12,
-    unitsKilled: 1430,
-    unitsLost: 510,
-    buildingsOwned: 58,
-    lastRank: 2,
-    currentRank: 2,
-    lastActiveMinutes: 18,
-    serverId: "war-eu-01",
-    serverLabel: "WAR-01",
-    mode: "war"
-  },
-  {
-    id: "black-lotus",
-    name: "Black Lotus",
-    gangName: "Lotus Exchange",
-    faction: "Korporace",
-    alliance: "Velvet Accord",
-    districts: 12,
-    cleanMoney: 420000,
-    dirtyMoney: 102000,
-    influence: 1040,
-    wanted: 72,
-    successfulAttacks: 15,
-    successfulDefenses: 21,
-    robberies: 8,
-    unitsKilled: 420,
-    unitsLost: 120,
-    buildingsOwned: 44,
-    lastRank: 8,
-    currentRank: 8,
-    lastActiveMinutes: 9,
-    serverId: "war-eu-01",
-    serverLabel: "WAR-01",
-    mode: "war"
-  },
-  {
-    id: "neon-butcher",
-    name: "Neon Butcher",
-    gangName: "Meatlight Crew",
-    faction: "Motogang",
-    alliance: "Chrome Choir",
-    districts: 10,
-    cleanMoney: 72000,
-    dirtyMoney: 232000,
-    influence: 760,
-    wanted: 880,
-    successfulAttacks: 61,
-    successfulDefenses: 8,
-    robberies: 38,
-    unitsKilled: 1770,
-    unitsLost: 920,
-    buildingsOwned: 26,
-    lastRank: 13,
-    currentRank: 9,
-    lastActiveMinutes: 3,
-    serverId: "war-eu-02",
-    serverLabel: "WAR-02",
-    mode: "war"
-  },
-  {
-    id: "ghost-dealer",
-    name: "Ghost Dealer",
-    gangName: "Quiet Market",
-    faction: "Kartel",
-    alliance: "Ghost Market",
-    districts: 7,
-    cleanMoney: 336000,
-    dirtyMoney: 92000,
-    influence: 690,
-    wanted: 58,
-    successfulAttacks: 9,
-    successfulDefenses: 16,
-    robberies: 22,
-    unitsKilled: 310,
-    unitsLost: 90,
-    buildingsOwned: 23,
-    lastRank: 15,
-    currentRank: 13,
-    lastActiveMinutes: 14,
-    serverId: "free-eu-01",
-    serverLabel: "FREE-01",
-    mode: "free"
-  },
-  {
-    id: "chrome-wolf",
-    name: "Chrome Wolf",
-    gangName: "Wolf Grid",
-    faction: "Hackeři",
-    alliance: "Chrome Choir",
-    districts: 14,
-    cleanMoney: 154000,
-    dirtyMoney: 187000,
-    influence: 920,
-    wanted: 310,
-    successfulAttacks: 28,
-    successfulDefenses: 29,
-    robberies: 27,
-    unitsKilled: 890,
-    unitsLost: 330,
-    buildingsOwned: 35,
-    lastRank: 7,
-    currentRank: 10,
-    lastActiveMinutes: 22,
-    serverId: "free-eu-01",
-    serverLabel: "FREE-01",
-    mode: "free"
-  },
-  {
-    id: "silent-crown",
-    name: "Silent Crown",
-    gangName: "Crown Silence",
-    faction: "Tajná organizace",
-    alliance: "Velvet Accord",
-    districts: 17,
-    cleanMoney: 285000,
-    dirtyMoney: 142000,
-    influence: 1675,
-    wanted: 94,
-    successfulAttacks: 20,
-    successfulDefenses: 44,
-    robberies: 10,
-    unitsKilled: 610,
-    unitsLost: 130,
-    buildingsOwned: 52,
-    lastRank: 1,
-    currentRank: 1,
-    lastActiveMinutes: 1,
-    serverId: "war-eu-02",
-    serverLabel: "WAR-02",
-    mode: "war"
-  },
-  {
-    id: "blood-maven",
-    name: "Blood Maven",
-    gangName: "Red Ledger",
-    faction: "Mafia",
-    alliance: "Iron Parish",
-    districts: 16,
-    cleanMoney: 122000,
-    dirtyMoney: 410000,
-    influence: 990,
-    wanted: 970,
-    successfulAttacks: 58,
-    successfulDefenses: 18,
-    robberies: 46,
-    unitsKilled: 1860,
-    unitsLost: 780,
-    buildingsOwned: 40,
-    lastRank: 3,
-    currentRank: 3,
-    lastActiveMinutes: 5,
-    serverId: "war-eu-01",
-    serverLabel: "WAR-01",
-    mode: "war"
-  },
-  {
-    id: "district-rat",
-    name: "District Rat",
-    gangName: "Sewer Kings",
-    faction: "Kult",
-    alliance: "Ghost Market",
-    districts: 9,
-    cleanMoney: 68000,
-    dirtyMoney: 174000,
-    influence: 520,
-    wanted: 240,
-    successfulAttacks: 16,
-    successfulDefenses: 25,
-    robberies: 33,
-    unitsKilled: 580,
-    unitsLost: 210,
-    buildingsOwned: 24,
-    lastRank: 16,
-    currentRank: 15,
-    lastActiveMinutes: 48,
-    serverId: "free-eu-02",
-    serverLabel: "FREE-02",
-    mode: "free"
-  },
-  {
-    id: "velvet-snake",
-    name: "Velvet Snake",
-    gangName: "Snake Room",
-    faction: "Tajná organizace",
-    alliance: "Velvet Accord",
-    districts: 6,
-    cleanMoney: 205000,
-    dirtyMoney: 77000,
-    influence: 1130,
-    wanted: 130,
-    successfulAttacks: 11,
-    successfulDefenses: 18,
-    robberies: 9,
-    unitsKilled: 260,
-    unitsLost: 80,
-    buildingsOwned: 19,
-    lastRank: 10,
-    currentRank: 14,
-    lastActiveMinutes: 19,
-    serverId: "free-eu-01",
-    serverLabel: "FREE-01",
-    mode: "free"
-  },
-  {
-    id: "zero-prophet",
-    name: "Zero Prophet",
-    gangName: "Afterglow Circuit",
-    faction: "Hackeři",
-    alliance: "Chrome Choir",
-    districts: 12,
-    cleanMoney: 175000,
-    dirtyMoney: 98000,
-    influence: 1250,
-    wanted: 205,
-    successfulAttacks: 23,
-    successfulDefenses: 21,
-    robberies: 14,
-    unitsKilled: 640,
-    unitsLost: 190,
-    buildingsOwned: 29,
-    lastRank: 11,
-    currentRank: 11,
-    lastActiveMinutes: 8,
-    serverId: "free-eu-02",
-    serverLabel: "FREE-02",
-    mode: "free"
-  },
-  {
-    id: "kader-crew",
-    name: "Kadeř Crew",
-    gangName: "Razorshop Saints",
-    faction: "Motogang",
-    alliance: "Black Sun Pact",
-    districts: 5,
-    cleanMoney: 112000,
-    dirtyMoney: 128000,
-    influence: 460,
-    wanted: 340,
-    successfulAttacks: 19,
-    successfulDefenses: 9,
-    robberies: 29,
-    unitsKilled: 480,
-    unitsLost: 260,
-    buildingsOwned: 17,
-    lastRank: 17,
-    currentRank: 16,
-    lastActiveMinutes: 11,
-    serverId: "free-eu-01",
-    serverLabel: "FREE-01",
-    mode: "free"
-  },
-  {
-    id: "switch-runner",
-    name: "Switch Runner",
-    gangName: "Switch Yard",
-    faction: "Korporace",
-    alliance: "Ghost Market",
-    districts: 4,
-    cleanMoney: 262000,
-    dirtyMoney: 54000,
-    influence: 610,
-    wanted: 88,
-    successfulAttacks: 7,
-    successfulDefenses: 13,
-    robberies: 18,
-    unitsKilled: 210,
-    unitsLost: 60,
-    buildingsOwned: 16,
-    lastRank: 18,
-    currentRank: 18,
-    lastActiveMinutes: 6,
-    serverId: "free-eu-03",
-    serverLabel: "FREE-03",
-    mode: "free"
-  },
-  {
-    id: "vale-syndicate",
-    name: "Vale Syndicate",
-    gangName: "Vale Syndicate",
-    faction: "Korporace",
-    alliance: "Velvet Accord",
-    districts: 13,
-    cleanMoney: 310000,
-    dirtyMoney: 176000,
-    influence: 1015,
-    wanted: 390,
-    successfulAttacks: 25,
-    successfulDefenses: 32,
-    robberies: 19,
-    unitsKilled: 720,
-    unitsLost: 260,
-    buildingsOwned: 43,
-    lastRank: 12,
-    currentRank: 10,
-    lastActiveMinutes: 28,
-    serverId: "war-eu-02",
-    serverLabel: "WAR-02",
-    mode: "war"
-  },
-  {
-    id: "night-vulture",
-    name: "Night Vulture",
-    gangName: "Night Vultures",
-    faction: "Mafia",
-    alliance: "Black Sun Pact",
-    districts: 19,
-    cleanMoney: 238000,
-    dirtyMoney: 330000,
-    influence: 1210,
-    wanted: 680,
-    successfulAttacks: 45,
-    successfulDefenses: 26,
-    robberies: 36,
-    unitsKilled: 1390,
-    unitsLost: 540,
-    buildingsOwned: 55,
-    lastRank: 6,
-    currentRank: 4,
-    lastActiveMinutes: 10,
-    serverId: "war-eu-03",
-    serverLabel: "WAR-03",
-    mode: "war"
-  },
-  {
-    id: "rust-bishop",
-    name: "Rust Bishop",
-    gangName: "Rusted Parish",
-    faction: "Kult",
-    alliance: "Iron Parish",
-    districts: 7,
-    cleanMoney: 94000,
-    dirtyMoney: 149000,
-    influence: 705,
-    wanted: 455,
-    successfulAttacks: 21,
-    successfulDefenses: 22,
-    robberies: 17,
-    unitsKilled: 560,
-    unitsLost: 230,
-    buildingsOwned: 20,
-    lastRank: 19,
-    currentRank: 17,
-    lastActiveMinutes: 16,
-    serverId: "free-eu-02",
-    serverLabel: "FREE-02",
-    mode: "free"
-  }
-]);
 
 const leaderboardContext = {
   root: null,
@@ -613,6 +138,28 @@ const leaderboardContext = {
   toastTimer: 0,
   bound: false
 };
+
+function loadLocalDemoFixture() {
+  if (getLeaderboardExecutionMode() !== GAMEPLAY_EXECUTION_MODES.localDemo) {
+    return Promise.resolve(false);
+  }
+  if (!demoFixturePromise) {
+    demoFixturePromise = import("../dev-fixtures/leaderboardDemoData.js")
+      .then((fixture) => {
+        demoLeaderboardPlayers = fixture.LEADERBOARD_DEMO_PLAYERS.map((player) => ({ ...player }));
+        calculateDemoScore = fixture.calculateDemoEmpireScore;
+        if (leaderboardContext.popup) renderLeaderboard();
+        return true;
+      })
+      .catch((error) => {
+        console.error("Local demo leaderboard fixture could not be loaded.", error);
+        demoLeaderboardPlayers = [];
+        calculateDemoScore = null;
+        return false;
+      });
+  }
+  return demoFixturePromise;
+}
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -661,25 +208,27 @@ function mapServerLeaderboardEntry(entry) {
     faction: String(entry?.factionId || "-"),
     alliance: String(entry?.allianceTag || ""),
     districts: normalizeNumber(entry?.controlledDistricts),
-    cleanMoney: 0,
-    dirtyMoney: 0,
+    cleanMoney: null,
+    dirtyMoney: null,
     influence: normalizeNumber(entry?.influence),
-    wanted: 0,
-    successfulAttacks: 0,
-    successfulDefenses: 0,
-    robberies: 0,
-    unitsKilled: 0,
-    unitsLost: 0,
-    buildingsOwned: 0,
+    wanted: null,
+    successfulAttacks: null,
+    successfulDefenses: null,
+    robberies: null,
+    unitsKilled: null,
+    unitsLost: null,
+    buildingsOwned: null,
     lastRank: entry?.movement === null ? normalizeNumber(entry?.rank) : Math.max(1, normalizeNumber(entry?.rank) + Number(entry?.movement || 0)),
     currentRank: normalizeNumber(entry?.rank),
-    lastActiveMinutes: entry?.status === "active" ? 0 : 999,
+    lastActiveMinutes: null,
     status: String(entry?.status || "active"),
     isCurrentPlayer: Boolean(entry?.isCurrentPlayer),
     serverId: String(slice?.server?.serverInstanceId || "server"),
     serverLabel: String(slice?.server?.serverInstanceId || "SERVER").toUpperCase(),
     mode: String(slice?.mode?.mode || "free"),
-    empireScore: Math.max(0, Number(entry?.score || 0))
+    empireScore: entry?.score === null || entry?.score === undefined
+      ? null
+      : Math.max(0, Number(entry.score))
   };
 }
 
@@ -763,7 +312,8 @@ function countResolvedOrders(orders) {
 }
 
 function createCurrentPlayerFromSources() {
-  const fallback = MOCK_PLAYERS.find((player) => player.isCurrentPlayer) || MOCK_PLAYERS[0];
+  const fallback = demoLeaderboardPlayers.find((player) => player.isCurrentPlayer) || demoLeaderboardPlayers[0] || null;
+  if (!fallback) return null;
   const session = getAuthoritySession();
   const registration = session.registration || null;
   const playerState = getPlayerStateStorage();
@@ -809,38 +359,16 @@ export function getCurrentPlayerId() {
   if (getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
     return String(getServerLeaderboardView()?.currentPlayer?.playerId || "");
   }
-  return createCurrentPlayerFromSources().id;
+  return createCurrentPlayerFromSources()?.id || "";
 }
 
 export function calculateEmpireScore(player) {
   if (getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
-    return Math.max(0, Number(player?.empireScore || 0));
+    return player?.empireScore === null || player?.empireScore === undefined
+      ? null
+      : Math.max(0, Number(player.empireScore));
   }
-  const districts = normalizeNumber(player?.districts);
-  const influence = normalizeNumber(player?.influence);
-  const cleanMoney = normalizeNumber(player?.cleanMoney);
-  const dirtyMoney = normalizeNumber(player?.dirtyMoney);
-  const buildingsOwned = normalizeNumber(player?.buildingsOwned);
-  const successfulAttacks = normalizeNumber(player?.successfulAttacks);
-  const successfulDefenses = normalizeNumber(player?.successfulDefenses);
-  const robberies = normalizeNumber(player?.robberies);
-  const unitsKilled = normalizeNumber(player?.unitsKilled);
-  const unitsLost = normalizeNumber(player?.unitsLost);
-  const wanted = normalizeNumber(player?.wanted);
-
-  return Math.round(
-    (districts * 2500)
-    + (influence * 1.2)
-    + (cleanMoney * 0.015)
-    + (dirtyMoney * 0.01)
-    + (buildingsOwned * 350)
-    + (successfulAttacks * 420)
-    + (successfulDefenses * 260)
-    + (robberies * 180)
-    + (unitsKilled * 12)
-    - (unitsLost * 6)
-    - (Math.max(0, wanted - 500) * 3)
-  );
+  return typeof calculateDemoScore === "function" ? calculateDemoScore(player) : null;
 }
 
 export function getLeaderboardPlayers() {
@@ -856,7 +384,8 @@ export function getLeaderboardPlayers() {
   }
   if (executionMode !== GAMEPLAY_EXECUTION_MODES.localDemo) return [];
   const currentPlayer = createCurrentPlayerFromSources();
-  const players = MOCK_PLAYERS
+  if (!currentPlayer) return [];
+  const players = demoLeaderboardPlayers
     .filter((player) => !player.isCurrentPlayer && player.id !== currentPlayer.id)
     .map((player) => ({ ...player, isCurrentPlayer: false }));
 
@@ -926,7 +455,7 @@ function getAttackIndex(player) {
 
 function sortPlayers(players, tab) {
   const sorters = {
-    overall: (player) => player.empireScore,
+    overall: (player) => Number.isFinite(Number(player.empireScore)) ? Number(player.empireScore) : -1,
     influence: (player) => normalizeNumber(player.influence),
     districts: (player) => normalizeNumber(player.districts),
     money: (player) => normalizeNumber(player.cleanMoney) + normalizeNumber(player.dirtyMoney),
@@ -951,8 +480,9 @@ function rankPlayers(players) {
 
 export function getSortedLeaderboard(tab = leaderboardState.activeTab) {
   const players = filterPlayers(getLeaderboardPlayers());
-  if (getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative && tab === "overall") {
-    return [...players].sort((left, right) => left.currentRank - right.currentRank);
+  if (getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    if (!LIVE_SUPPORTED_TABS.has(tab)) return [];
+    if (tab === "overall") return [...players].sort((left, right) => left.currentRank - right.currentRank);
   }
   return rankPlayers(sortPlayers(players, tab === "alliance" ? "overall" : tab));
 }
@@ -974,12 +504,12 @@ export function getAllianceLeaderboard(players = getLeaderboardPlayers()) {
     };
 
     current.members += 1;
-    current.totalEmpireScore += calculateEmpireScore(player);
+    current.totalEmpireScore += calculateEmpireScore(player) ?? 0;
     current.totalDistricts += normalizeNumber(player.districts);
     current.totalInfluence += normalizeNumber(player.influence);
-    current.totalWanted += normalizeNumber(player.wanted);
-    current.totalActivity += normalizeNumber(player.lastActiveMinutes);
-    current.topPlayer = !current.topPlayer || calculateEmpireScore(player) > calculateEmpireScore(current.topPlayer)
+    current.totalWanted += player.wanted === null ? 0 : normalizeNumber(player.wanted);
+    current.totalActivity += player.lastActiveMinutes === null ? 0 : normalizeNumber(player.lastActiveMinutes);
+    current.topPlayer = !current.topPlayer || (calculateEmpireScore(player) ?? -1) > (calculateEmpireScore(current.topPlayer) ?? -1)
       ? player
       : current.topPlayer;
 
@@ -1019,6 +549,10 @@ function getVisibleAllianceLeaderboard() {
 
 function formatNumber(value) {
   return normalizeNumber(value).toLocaleString("cs-CZ");
+}
+
+function formatOptionalNumber(value) {
+  return value === null || value === undefined ? "—" : formatNumber(value);
 }
 
 function formatMoney(value) {
@@ -1068,6 +602,11 @@ function getRankClass(rank) {
 }
 
 function getPlayerStatusText(player) {
+  if (getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    return player.status === "defeated"
+      ? "Tento gang byl v této válce poražen."
+      : "Aktivní gang v aktuálním serverovém pořadí.";
+  }
   if (player.status === "defeated") return "Hráč byl poražen.";
   if (normalizeNumber(player.wanted) >= 600) {
     return "Policie ho má na radaru.";
@@ -1098,7 +637,7 @@ function createStat(label, value) {
 }
 
 function getRankSummary(players) {
-  const totalEmpireScore = players.reduce((sum, player) => sum + calculateEmpireScore(player), 0);
+  const totalEmpireScore = players.reduce((sum, player) => sum + (calculateEmpireScore(player) ?? 0), 0);
   const totalWanted = players.reduce((sum, player) => sum + normalizeNumber(player.wanted), 0);
   const activePlayers = players.filter((player) => normalizeNumber(player.lastActiveMinutes, 999) <= 20).length;
 
@@ -1121,7 +660,9 @@ function renderStats(players, alliances = []) {
       createStat("Aliance", formatNumber(alliances.length)),
       createStat("Top pakt", topAlliance?.alliance || "-"),
       createStat("District tlak", formatNumber(alliances.reduce((sum, alliance) => sum + alliance.totalDistricts, 0))),
-      createStat("Tlak hledanosti", formatNumber(alliances.reduce((sum, alliance) => sum + alliance.totalWanted, 0)))
+      createStat("Tlak hledanosti", getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative
+        ? "—"
+        : formatNumber(alliances.reduce((sum, alliance) => sum + alliance.totalWanted, 0)))
     ].join("");
     return;
   }
@@ -1130,7 +671,9 @@ function renderStats(players, alliances = []) {
   const serverMode = getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative;
   leaderboardContext.statsElement.innerHTML = [
     createStat("Hráči ve výpisu", formatNumber(summary.totalPlayers)),
-    createStat("Online / aktivní", formatNumber(summary.activePlayers)),
+    createStat(serverMode ? "Aktivní" : "Online / aktivní", serverMode
+      ? formatNumber(players.filter((player) => player.status === "active").length)
+      : formatNumber(summary.activePlayers)),
     createStat("Empire score", formatNumber(summary.totalEmpireScore)),
     createStat(serverMode ? "Poražení" : "Police heat", serverMode
       ? formatNumber(players.filter((player) => player.status === "defeated").length)
@@ -1142,7 +685,7 @@ function renderPlayerRow(player) {
   const rank = normalizeNumber(player.currentRank);
   const wantedClass = getWantedClass(player.wanted);
   const rankClass = getRankClass(rank);
-  const score = formatNumber(player.empireScore);
+  const score = formatOptionalNumber(player.empireScore);
   const selectedClass = leaderboardState.selectedPlayerId === player.id ? " is-selected" : "";
   const currentClass = player.isCurrentPlayer ? " is-current" : "";
 
@@ -1162,7 +705,7 @@ function renderPlayerRow(player) {
       <span>${getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative
         ? `<span class="leaderboard-cell-muted">${player.status === "defeated" ? "Poražen" : "Aktivní"}</span>`
         : `<span class="leaderboard-wanted ${wantedClass}">${formatNumber(player.wanted)}</span>`}</span>
-      <span class="leaderboard-score-cell">${formatNumber(player.empireScore)}</span>
+      <span class="leaderboard-score-cell">${formatOptionalNumber(player.empireScore)}</span>
       <span class="leaderboard-actions">
         <button type="button" class="button leaderboard-row-action" data-leaderboard-action="view" data-player-id="${escapeHtml(player.id)}" aria-label="Detail hráče ${escapeHtml(player.name)}">Detail</button>
       </span>
@@ -1208,7 +751,7 @@ function renderAllianceRow(alliance) {
       <span class="leaderboard-number-cell">${formatNumber(alliance.totalInfluence)}</span>
       <span class="leaderboard-score-cell">${formatNumber(alliance.totalEmpireScore)}</span>
       <span class="leaderboard-cell-muted">${escapeHtml(alliance.topPlayer?.name || "-")}</span>
-      <span><span class="leaderboard-wanted ${wantedClass}">${formatNumber(alliance.totalWanted)}</span></span>
+      <span><span class="leaderboard-wanted ${wantedClass}">${getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative ? "—" : formatNumber(alliance.totalWanted)}</span></span>
       <span class="leaderboard-actions">
         <button type="button" class="button leaderboard-row-action" data-leaderboard-action="view-alliance" data-alliance="${escapeHtml(alliance.alliance)}">Profil</button>
       </span>
@@ -1259,7 +802,9 @@ export function renderMyRankPanel() {
   if (!currentPlayer) {
     mount.innerHTML = `
       <span class="leaderboard-panel-label">TVŮJ RANK</span>
-      <p>Mimo výpis.</p>
+      <p>${getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative && !getServerLeaderboardView()
+        ? "Serverová data nejsou dostupná."
+        : "Mimo výpis."}</p>
     `;
     return;
   }
@@ -1283,7 +828,9 @@ export function renderPlayerDetail(playerId) {
   if (!player) {
     mount.innerHTML = `
       <div class="leaderboard-detail-empty">
-        <span>Vyber hráče.</span>
+        <span>${getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative && !getServerLeaderboardView()
+          ? LIVE_UNAVAILABLE_COPY
+          : "Vyber hráče."}</span>
       </div>
     `;
     return;
@@ -1295,7 +842,7 @@ export function renderPlayerDetail(playerId) {
 
   const stats = getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative ? [
     ["Rank", `#${rankedPlayer.currentRank}`],
-    ["Empire score", formatNumber(score)],
+    ["Empire score", formatOptionalNumber(score)],
     ["Distrikty", formatNumber(player.districts)],
     ["Vliv", formatNumber(player.influence)],
     ["Stav", player.status === "defeated" ? "Poražen" : "Aktivní"]
@@ -1357,8 +904,14 @@ function renderHeader() {
 }
 
 function renderControls() {
+  const liveMode = getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative;
   for (const tab of leaderboardContext.tabs) {
-    const isActive = tab.dataset.leaderboardTab === leaderboardState.activeTab;
+    const tabId = tab.dataset.leaderboardTab;
+    const isSupported = !liveMode || LIVE_SUPPORTED_TABS.has(tabId);
+    const isActive = tabId === leaderboardState.activeTab;
+    tab.disabled = !isSupported;
+    tab.setAttribute("aria-disabled", isSupported ? "false" : "true");
+    tab.title = isSupported ? "" : LIVE_PENDING_TAB_COPY;
     tab.classList.toggle("is-active", isActive);
     tab.setAttribute("aria-selected", isActive ? "true" : "false");
   }
@@ -1375,14 +928,25 @@ function renderControls() {
 }
 
 export function renderLeaderboard() {
+  const liveMode = getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative;
+  if (liveMode && !LIVE_SUPPORTED_TABS.has(leaderboardState.activeTab)) {
+    leaderboardState.activeTab = "overall";
+  }
   const config = TAB_CONFIG[leaderboardState.activeTab] || TAB_CONFIG.overall;
+  const serverView = liveMode ? getServerLeaderboardView() : null;
+  const liveUnavailable = liveMode && !serverView;
   const players = getSortedLeaderboard(leaderboardState.activeTab);
   const alliances = leaderboardState.activeTab === "alliance" ? getVisibleAllianceLeaderboard() : [];
+  const liveEmpty = liveMode && Boolean(serverView) && getLeaderboardPlayers().length === 0;
 
   renderHeader();
   renderControls();
   renderMyRankPanel();
-  renderStats(players, alliances);
+  if (leaderboardContext.statsElement && (liveUnavailable || liveEmpty)) {
+    leaderboardContext.statsElement.innerHTML = "";
+  } else {
+    renderStats(players, alliances);
+  }
 
   if (leaderboardContext.tableTitleElement) {
     leaderboardContext.tableTitleElement.textContent = getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.localDemo
@@ -1395,15 +959,23 @@ export function renderLeaderboard() {
   }
 
   if (leaderboardContext.countElement) {
-    leaderboardContext.countElement.textContent = leaderboardState.activeTab === "alliance"
+    leaderboardContext.countElement.textContent = liveUnavailable
+      ? "—"
+      : leaderboardState.activeTab === "alliance"
       ? `${formatNumber(alliances.length)} aliancí`
       : `${formatNumber(players.length)} hráčů`;
   }
 
   if (leaderboardContext.listElement) {
-    leaderboardContext.listElement.innerHTML = leaderboardState.activeTab === "alliance"
-      ? renderAllianceTable(alliances)
-      : renderPlayerTable(players);
+    leaderboardContext.listElement.innerHTML = liveUnavailable
+      ? `<div class="leaderboard-detail-empty">${escapeHtml(LIVE_UNAVAILABLE_COPY)}</div>`
+      : liveEmpty
+        ? `<div class="leaderboard-detail-empty">${escapeHtml(LIVE_EMPTY_COPY)}</div>`
+        : getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.localDemo && demoLeaderboardPlayers.length === 0
+          ? '<div class="leaderboard-detail-empty">Načítám lokální demo pořadí.</div>'
+          : leaderboardState.activeTab === "alliance"
+            ? renderAllianceTable(alliances)
+            : renderPlayerTable(players);
   }
 
   if (!leaderboardState.selectedPlayerId) {
@@ -1598,7 +1170,7 @@ function bindEvents(openButton, closeElements) {
   for (const tab of leaderboardContext.tabs) {
     tab.addEventListener("click", () => {
       const nextTab = tab.dataset.leaderboardTab;
-      if (!TAB_CONFIG[nextTab]) {
+      if (tab.disabled || !TAB_CONFIG[nextTab]) {
         return;
       }
 
@@ -1640,6 +1212,7 @@ function bindEvents(openButton, closeElements) {
   document.addEventListener("empire:runtime-mode-changed", () => {
     leaderboardState.selectedServerId = null;
     leaderboardState.selectedPlayerId = null;
+    void loadLocalDemoFixture();
     renderLeaderboard();
   });
 }
@@ -1694,5 +1267,6 @@ export function bindLeaderboardPopup(root) {
     showLeaderboardToast
   };
 
+  void loadLocalDemoFixture();
   renderLeaderboard();
 }

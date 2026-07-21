@@ -32,9 +32,9 @@ export const resolveFinalLockdown = (
   const topPlayerIds = ranking.slice(0, topRankCount).map((entry) => entry.playerId);
   const matchResultId = state.root.matchResultId ?? `match:${state.serverInstance.id}:${state.root.tick}`;
   const victoryStateId = state.root.victoryStateId ?? `victory:${state.serverInstance.id}`;
-  const endedAt = new Date(0).toISOString();
+  const endedAt = context.clock?.nowIso() ?? state.serverInstance.startedAt;
   const notifications = ranking.map((score, index) =>
-    createFinalLockdownResolvedNotification(state, score.playerId, index + 1, score.score)
+    createFinalLockdownResolvedNotification(state, score.playerId, index + 1, score.score, endedAt)
   );
   const stateWithFeed = appendResolvedCityFeedEvents(state, [
     createFinalLockdownResolvedFeedEvent(state, ranking.slice(0, topRankCount))
@@ -118,10 +118,9 @@ const createEliminatedRanking = (state: CoreGameState, activeRankCount: number):
       subjectType: "player" as const,
       subjectId: playerId,
       rank: Math.max(activeRankCount + 1, Number(state.playersById[playerId]?.metadata?.finalPlacement ?? activeRankCount + 1)),
-      score: 0,
-      scoreBreakdown: {
-        finalPlacement: Number(state.playersById[playerId]?.metadata?.finalPlacement ?? 0)
-      }
+      score: Number(state.playersById[playerId]?.metadata?.scoreAtElimination ?? 0),
+      scoreBreakdown: state.playersById[playerId]?.metadata?.scoreBreakdownAtElimination as Record<string, number>
+        ?? { finalPlacement: Number(state.playersById[playerId]?.metadata?.finalPlacement ?? 0) }
     }))
     .sort((left, right) => left.rank - right.rank || left.subjectId.localeCompare(right.subjectId));
 

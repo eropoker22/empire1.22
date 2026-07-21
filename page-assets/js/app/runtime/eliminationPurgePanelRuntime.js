@@ -1,14 +1,8 @@
 import {
-  MOCK_ELIMINATION_COUNTDOWN_MS,
-  createMockEliminationAiPanelViewModel,
-  createMockEliminationPurgePanelViewModel
-} from "./eliminationPurgePanelViewModel.js";
+  createEliminationPanelViewModel,
+  createFinalLockdownPanelViewModel
+} from "./eliminationPanelReadModelAdapter.js";
 import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
-
-export {
-  createMockEliminationAiPanelViewModel,
-  createMockEliminationPurgePanelViewModel
-};
 
 const PURGE_PANEL_SELECTOR = "[data-elimination-ai-panel]";
 const PURGE_PANEL_BODY_SELECTOR = "[data-elimination-ai-panel-body]";
@@ -24,7 +18,8 @@ const RESULT_POPUP_BODY_SELECTOR = "[data-elimination-result-popup-body]";
 const RESULT_POPUP_CARD_SELECTOR = ".elimination-result-popup__card";
 const RESULT_POPUP_CLOSE_SELECTOR = "[data-elimination-result-popup-close]";
 const RESULT_POPUP_AVATAR_SELECTOR = "[data-elimination-result-popup-avatar]";
-const MOCK_ELIMINATION_RESET_COUNTDOWN_MS = 4 * 60 * 60 * 1000;
+const DEMO_ELIMINATION_COUNTDOWN_MS = 15 * 60 * 1000;
+const DEMO_ELIMINATION_RESET_COUNTDOWN_MS = 4 * 60 * 60 * 1000;
 const COUNTDOWN_WARNING_THRESHOLD_MS = 300000;
 const COUNTDOWN_WARNING_REOPEN_THRESHOLD_MS = 60000;
 let sharedMockCountdownEndsAt = null;
@@ -96,18 +91,39 @@ function getSafeNow(timerApi) {
   return Number.isFinite(now) ? now : Date.now();
 }
 
-function ensureSharedMockCountdownEndsAt(timerApi, initialRemainingMs = MOCK_ELIMINATION_COUNTDOWN_MS) {
+function ensureSharedMockCountdownEndsAt(timerApi, initialRemainingMs = DEMO_ELIMINATION_COUNTDOWN_MS) {
   if (!sharedMockCountdownEndsAt) {
-    sharedMockCountdownEndsAt = getSafeNow(timerApi) + Math.max(0, Number(initialRemainingMs) || MOCK_ELIMINATION_COUNTDOWN_MS);
+    sharedMockCountdownEndsAt = getSafeNow(timerApi) + Math.max(0, Number(initialRemainingMs) || DEMO_ELIMINATION_COUNTDOWN_MS);
   }
   return sharedMockCountdownEndsAt;
 }
 
 function getCountdownResetMs(value) {
-  return Math.max(1000, Number(value) || MOCK_ELIMINATION_RESET_COUNTDOWN_MS);
+  return Math.max(1000, Number(value) || DEMO_ELIMINATION_RESET_COUNTDOWN_MS);
 }
 
-function getSharedMockCountdownRemainingMs(timerApi, initialRemainingMs, resetRemainingMs = MOCK_ELIMINATION_RESET_COUNTDOWN_MS) {
+function getAuthoritativeCountdownRemainingMs(deps, timerApi, mode = "elimination") {
+  const gameplaySlice = deps.getGameplaySlice?.() || null;
+  if (!gameplaySlice) return null;
+  const normalizedMode = normalizeMode(mode);
+  const source = normalizedMode === "final_lockdown" || normalizedMode === "final"
+    ? gameplaySlice.player?.finalLockdown
+    : gameplaySlice.player?.elimination || gameplaySlice.elimination;
+  if (!source || source.enabled !== true) return null;
+  const tickRateMs = getFiniteNumber(gameplaySlice.mode?.tickRateMs);
+  const currentTick = getFiniteNumber(gameplaySlice.server?.currentTick) || 0;
+  const remainingTicks = normalizedMode === "final_lockdown" || normalizedMode === "final"
+    ? getFiniteNumber(source.remainingActiveTicks)
+    : source.isQuietHoursNow && getFiniteNumber(source.quietHoursResumeTick) !== null
+      ? Math.max(0, Number(source.quietHoursResumeTick) - currentTick)
+      : getFiniteNumber(source.ticksUntilNextElimination);
+  if (tickRateMs === null || tickRateMs <= 0 || remainingTicks === null) return null;
+  const generatedAtMs = Date.parse(String(gameplaySlice.server?.generatedAt || ""));
+  const elapsedMs = Number.isFinite(generatedAtMs) ? Math.max(0, getSafeNow(timerApi) - generatedAtMs) : 0;
+  return Math.max(0, Math.ceil(remainingTicks * tickRateMs - elapsedMs));
+}
+
+function getSharedMockCountdownRemainingMs(timerApi, initialRemainingMs, resetRemainingMs = DEMO_ELIMINATION_RESET_COUNTDOWN_MS) {
   const now = getSafeNow(timerApi);
   const remainingMs = ensureSharedMockCountdownEndsAt(timerApi, initialRemainingMs) - now;
   if (remainingMs > 0) return remainingMs;
@@ -238,7 +254,7 @@ function normalizePanelViewModel(viewModel = {}, fallbackMode = "elimination") {
     actions: asArray(viewModel.actions),
     scoreTitle: viewModel.scoreTitle || "Rozpis score",
     scoreBreakdown: asArray(viewModel.scoreBreakdown),
-    scoreTotal: viewModel.scoreTotal || "0",
+    scoreTotal: viewModel.scoreTotal || "—",
     eliminationResult: viewModel.eliminationResult || null
   };
 }
@@ -252,19 +268,29 @@ function resolvePanelViewModel(input = {}, fallbackMode = "elimination") {
     || "viewMode" in input
   ));
   if (!isInputEnvelope && isPanelViewModel(input)) return normalizePanelViewModel(input, fallbackMode);
-  return createMockEliminationAiPanelViewModel({
-    mode: input.mode || input.mockMode || input.viewMode || fallbackMode,
-    countdownRemainingMs: input.countdownRemainingMs
-  });
+  const mode = normalizeMode(input.mode || input.viewMode || fallbackMode);
+  return normalizePanelViewModel(
+    mode === "final_lockdown" || mode === "final"
+      ? createFinalLockdownPanelViewModel(null)
+      : createEliminationPanelViewModel(null),
+    mode
+  );
 }
 
-function resolveReadModelPanelViewModel(playerView = null, mode = "elimination") {
+function resolveReadModelPanelViewModel(playerView = null, mode = "elimination", gameplaySlice = null, countdownRemainingMs = null) {
   const normalizedMode = normalizeMode(mode);
   const source = normalizedMode === "final_lockdown" || normalizedMode === "final"
     ? playerView?.finalLockdown
     : playerView?.elimination;
-  const candidate = source?.viewModel || source?.panelViewModel || source?.aiPanelViewModel || null;
-  return isPanelViewModel(candidate) ? candidate : null;
+  const modeConfig = {
+    tickRateMs: gameplaySlice?.mode?.tickRateMs,
+    currentTick: gameplaySlice?.server?.currentTick,
+    serverCapacity: gameplaySlice?.server?.maxPlayersPerServer,
+    countdownRemainingMs
+  };
+  return normalizedMode === "final_lockdown" || normalizedMode === "final"
+    ? createFinalLockdownPanelViewModel(source, modeConfig)
+    : createEliminationPanelViewModel(source, modeConfig);
 }
 
 function createSection(title, content, modifier = "") {
@@ -530,8 +556,14 @@ export function bindEliminationPurgePanel(root, deps = {}) {
 
   const createInput = (countdownRemainingMs) => {
     const mode = deps.getMockMode?.() || deps.mockMode || "elimination";
-    const viewModel = deps.getViewModel?.();
-    const readModelViewModel = resolveReadModelPanelViewModel(deps.getPlayerView?.(), mode);
+    const viewModel = deps.getViewModel?.({ mode, countdownRemainingMs });
+    const gameplaySlice = deps.getGameplaySlice?.() || null;
+    const readModelViewModel = resolveReadModelPanelViewModel(
+      deps.getPlayerView?.() || gameplaySlice?.player || null,
+      mode,
+      gameplaySlice,
+      countdownRemainingMs
+    );
     return {
       viewModel: isPanelViewModel(viewModel) ? viewModel : readModelViewModel,
       mode,
@@ -540,10 +572,15 @@ export function bindEliminationPurgePanel(root, deps = {}) {
   };
 
   const handleCountdownElapsed = () => {
+    if (deps.allowDemoFixtures !== true) return null;
     return resolveCountdownElapsed(createInput(0), deps, documentRef, countdownEndsAt || sharedMockCountdownEndsAt);
   };
 
   const getCountdownRemainingMs = () => {
+    const mode = deps.getMockMode?.() || deps.mockMode || "elimination";
+    if (deps.allowDemoFixtures !== true) {
+      return getAuthoritativeCountdownRemainingMs(deps, timerApi, mode);
+    }
     const resetMs = getCountdownResetMs(deps.resetCountdownMs);
     if (!countdownEndsAt) {
       return getSharedMockCountdownRemainingMs(timerApi, deps.initialCountdownMs, resetMs);
@@ -612,7 +649,9 @@ export function bindEliminationPurgePanel(root, deps = {}) {
 
   const open = (trigger = null) => {
     lastTrigger = trigger;
-    countdownEndsAt = ensureSharedMockCountdownEndsAt(timerApi, deps.initialCountdownMs);
+    if (deps.allowDemoFixtures === true) {
+      countdownEndsAt = ensureSharedMockCountdownEndsAt(timerApi, deps.initialCountdownMs);
+    }
     render();
     panel.hidden = false;
     panel.classList?.add?.("is-open");
@@ -628,12 +667,14 @@ export function bindEliminationPurgePanel(root, deps = {}) {
       lastTrigger = trigger;
     }
     const resolvedResult = result && typeof result === "object" ? result : resolveEliminationResult(createInput(0));
-    const now = getSafeNow(timerApi);
-    const resetMs = getCountdownResetMs(deps.resetCountdownMs);
-    countdownEndsAt = sharedMockCountdownEndsAt && sharedMockCountdownEndsAt > now
-      ? sharedMockCountdownEndsAt
-      : now + resetMs;
-    sharedMockCountdownEndsAt = countdownEndsAt;
+    if (deps.allowDemoFixtures === true) {
+      const now = getSafeNow(timerApi);
+      const resetMs = getCountdownResetMs(deps.resetCountdownMs);
+      countdownEndsAt = sharedMockCountdownEndsAt && sharedMockCountdownEndsAt > now
+        ? sharedMockCountdownEndsAt
+        : now + resetMs;
+      sharedMockCountdownEndsAt = countdownEndsAt;
+    }
     render();
     return deps.openEliminationResultPopup?.(resolvedResult, trigger) ?? false;
   };
@@ -785,11 +826,18 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
   let intervalId = null;
   let dismissedCountdownEndsAt = null;
   let dismissedDuringFinalMinute = false;
+  let activeCountdownKey = null;
 
   const createInput = (countdownRemainingMs) => {
     const mode = deps.getMockMode?.() || deps.mockMode || "elimination";
-    const viewModel = deps.getViewModel?.();
-    const readModelViewModel = resolveReadModelPanelViewModel(deps.getPlayerView?.(), mode);
+    const viewModel = deps.getViewModel?.({ mode, countdownRemainingMs });
+    const gameplaySlice = deps.getGameplaySlice?.() || null;
+    const readModelViewModel = resolveReadModelPanelViewModel(
+      deps.getPlayerView?.() || gameplaySlice?.player || null,
+      mode,
+      gameplaySlice,
+      countdownRemainingMs
+    );
     return {
       viewModel: isPanelViewModel(viewModel) ? viewModel : readModelViewModel,
       mode,
@@ -798,8 +846,18 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
   };
 
   const getWarningCountdownRemainingMs = () => {
+    const mode = deps.getMockMode?.() || deps.mockMode || "elimination";
+    if (deps.allowDemoFixtures !== true) {
+      const gameplaySlice = deps.getGameplaySlice?.() || null;
+      const source = gameplaySlice?.player?.elimination || gameplaySlice?.elimination || null;
+      activeCountdownKey = source?.nextEliminationTick === null || source?.nextEliminationTick === undefined
+        ? null
+        : `${gameplaySlice?.server?.serverInstanceId || "server"}:${source.nextEliminationTick}`;
+      return getAuthoritativeCountdownRemainingMs(deps, timerApi, mode);
+    }
     const now = getSafeNow(timerApi);
     const endsAt = ensureSharedMockCountdownEndsAt(timerApi, deps.initialCountdownMs);
+    activeCountdownKey = endsAt;
     const remainingMs = endsAt - now;
     if (remainingMs > 0) return remainingMs;
 
@@ -811,8 +869,8 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
 
   const render = () => {
     const remainingMs = getWarningCountdownRemainingMs();
-    const shouldShow = remainingMs > 0 && remainingMs <= COUNTDOWN_WARNING_THRESHOLD_MS;
-    if (dismissedCountdownEndsAt !== sharedMockCountdownEndsAt) {
+    const shouldShow = remainingMs !== null && remainingMs > 0 && remainingMs <= COUNTDOWN_WARNING_THRESHOLD_MS;
+    if (dismissedCountdownEndsAt !== activeCountdownKey) {
       dismissedCountdownEndsAt = null;
       dismissedDuringFinalMinute = false;
     }
@@ -823,7 +881,7 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
       dismissedCountdownEndsAt = null;
       dismissedDuringFinalMinute = false;
     }
-    const isDismissed = dismissedCountdownEndsAt === sharedMockCountdownEndsAt;
+    const isDismissed = activeCountdownKey !== null && dismissedCountdownEndsAt === activeCountdownKey;
     const isVisible = shouldShow && !isDismissed;
     warning.hidden = !isVisible;
     warning.classList?.toggle?.("is-visible", isVisible);
@@ -839,8 +897,8 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
 
   const closeWarning = () => {
     const remainingMs = getWarningCountdownRemainingMs();
-    dismissedCountdownEndsAt = sharedMockCountdownEndsAt;
-    dismissedDuringFinalMinute = remainingMs <= COUNTDOWN_WARNING_REOPEN_THRESHOLD_MS;
+    dismissedCountdownEndsAt = activeCountdownKey;
+    dismissedDuringFinalMinute = remainingMs !== null && remainingMs <= COUNTDOWN_WARNING_REOPEN_THRESHOLD_MS;
     warning.hidden = true;
     warning.classList?.toggle?.("is-visible", false);
   };
@@ -851,7 +909,9 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
     closeWarning();
   };
 
-  ensureSharedMockCountdownEndsAt(timerApi, deps.initialCountdownMs);
+  if (deps.allowDemoFixtures === true) {
+    ensureSharedMockCountdownEndsAt(timerApi, deps.initialCountdownMs);
+  }
   render();
   if (typeof timerApi?.setInterval === "function") {
     intervalId = timerApi.setInterval(render, 1000);

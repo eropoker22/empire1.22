@@ -1,4 +1,3 @@
-import { getActiveServerRegistration } from "./auth-flow.js";
 import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
 
 export const SERVER_MILESTONE_IDS = Object.freeze(["welcome", "first-purge", "lockdown", "winners"]);
@@ -20,8 +19,8 @@ const SERVER_MILESTONE_CONTENT = Object.freeze({
     leadParagraphs: Object.freeze([
       "Dostal jsi jeden district, pár lidí a nějaké materiály pro start.",
       "V první hodině se můžeš ze serveru odhlásit.",
-      "Hra trvá cca 72h. První Očista začíná za 8h od konce registrace na server a pak přijde každé 4h.",
-      "Posledních 8 hráčů si to rozdá ve finální fázi, která se ukončí 12h od svého začátku. Hodně štěstí!"
+      "Tempo Očisty i závěrečné fáze určuje aktuální server. Vždy sleduj skutečný odpočet ve hře.",
+      "Až začne Final Lockdown, rozhodne to, co jsi dokázal obsadit, udržet a ubránit. Hodně štěstí!"
     ]),
     copy: "Získej informace. Rozjeď výrobu. Hlídej Heat a nevěř dohodě, která tě nic nestála. Každý server je samostatná válka a všechno, co vybuduješ, musíš také ubránit.",
     stats: Object.freeze([
@@ -36,33 +35,33 @@ const SERVER_MILESTONE_CONTENT = Object.freeze({
   }),
   "first-purge": Object.freeze({
     eyebrow: "PRVNÍ OČISTA",
-    title: "Za čtyři hodiny město začne vybírat",
-    lead: "První Očista se spustí za 4 hodiny. Do té doby musíš městu dokázat, že nejsi nejslabší článek.",
+    title: "Město začalo odpočítávat",
+    lead: "První Očista se blíží. Přesný čas ukazuje skutečný serverový odpočet.",
     copy: "Buduj Empire score, zabírej území a nenech svoje impérium stát na místě. Odpočet není varování pro později. Je to čas, který už právě ztrácíš.",
     stats: Object.freeze([
-      Object.freeze({ key: "first-purge-countdown", label: "První Očista", value: "Za 4 hodiny" }),
+      Object.freeze({ key: "first-purge-countdown", label: "První Očista", value: "—" }),
       Object.freeze({ label: "Rozhoduje", value: "Stav impéria" }),
       Object.freeze({ label: "V sázce", value: "Tvoje místo" })
     ]),
     callout: "Až odpočet doběhne, pravidla už číst nebudeš. Budeš jen čekat, čí jméno město smaže.",
     confirm: "Začít se připravovat",
-    feedTitle: "První Očista za 4 hodiny",
+    feedTitle: "První Očista se blíží",
     feedSummary: "Město spustilo odpočet k prvnímu vyřazení."
   }),
   lockdown: Object.freeze({
     eyebrow: "FINAL LOCKDOWN ZAČAL",
-    title: "Zůstalo posledních osm hráčů",
-    lead: "Město se uzavřelo. Do konce války zbývá posledních 12 hodin.",
+    title: "Město vstoupilo do závěrečné fáze",
+    lead: "Final Lockdown začal. Skutečný čas do konce ukazuje serverový odpočet.",
     copy: "Bezpečné tempo skončilo. Každý district, budova a rozhodnutí teď mění konečné pořadí. Diplomacie má cenu jen tehdy, když ti koupí čas na poslední úder.",
     stats: Object.freeze([
-      Object.freeze({ label: "Zbývá hráčů", value: "8" }),
-      Object.freeze({ key: "final-lockdown-countdown", label: "Čas do konce", value: "12 hodin" }),
+      Object.freeze({ label: "Zbývá hráčů", value: "—" }),
+      Object.freeze({ key: "final-lockdown-countdown", label: "Čas do konce", value: "—" }),
       Object.freeze({ label: "Fáze", value: "Final Lockdown" })
     ]),
     callout: "Na začátku buduješ. Uprostřed intrikuješ. Na konci bereš.",
     confirm: "Jdu do finále",
     feedTitle: "Final Lockdown začal",
-    feedSummary: "Zůstalo 8 hráčů a posledních 12 hodin války."
+    feedSummary: "Závěrečná fáze války právě začala."
   }),
   winners: Object.freeze({
     eyebrow: "VÁLKA SKONČILA",
@@ -79,7 +78,7 @@ const SERVER_MILESTONE_CONTENT = Object.freeze({
 
 const formatScore = (value) => {
   const score = Number(value);
-  return Number.isFinite(score) ? Math.round(score).toLocaleString("cs-CZ") : "--";
+  return Number.isFinite(score) ? Math.round(score).toLocaleString("cs-CZ") : "—";
 };
 
 const createAcknowledgementKey = (serverInstanceId, id) =>
@@ -119,7 +118,8 @@ const resolveFirstPurgeDeadlineMs = (gameplaySlice = {}, nowMs = Date.now()) => 
   const remainingTicks = Number(elimination?.ticksUntilNextElimination);
   const tickRateMs = Number(gameplaySlice.mode?.tickRateMs);
   if (!Number.isFinite(remainingTicks) || remainingTicks < 0 || !Number.isFinite(tickRateMs) || tickRateMs <= 0) return null;
-  return nowMs + (remainingTicks * tickRateMs);
+  const generatedAtMs = Date.parse(String(gameplaySlice.server?.generatedAt || ""));
+  return (Number.isFinite(generatedAtMs) ? generatedAtMs : nowMs) + (remainingTicks * tickRateMs);
 };
 
 const resolveFinalLockdownDeadlineMs = (gameplaySlice = {}, nowMs = Date.now()) => {
@@ -128,11 +128,13 @@ const resolveFinalLockdownDeadlineMs = (gameplaySlice = {}, nowMs = Date.now()) 
   const currentTick = Number(gameplaySlice.server?.currentTick);
   const endsAtTick = Number(finalLockdown?.endsAtEstimatedTick);
   if (Number.isFinite(tickRateMs) && tickRateMs > 0 && Number.isFinite(currentTick) && Number.isFinite(endsAtTick)) {
-    return nowMs + (Math.max(0, endsAtTick - currentTick) * tickRateMs);
+    const generatedAtMs = Date.parse(String(gameplaySlice.server?.generatedAt || ""));
+    return (Number.isFinite(generatedAtMs) ? generatedAtMs : nowMs) + (Math.max(0, endsAtTick - currentTick) * tickRateMs);
   }
   const remainingActiveTicks = Number(finalLockdown?.remainingActiveTicks);
   if (!Number.isFinite(tickRateMs) || tickRateMs <= 0 || !Number.isFinite(remainingActiveTicks) || remainingActiveTicks < 0) return null;
-  return nowMs + (remainingActiveTicks * tickRateMs);
+  const generatedAtMs = Date.parse(String(gameplaySlice.server?.generatedAt || ""));
+  return (Number.isFinite(generatedAtMs) ? generatedAtMs : nowMs) + (remainingActiveTicks * tickRateMs);
 };
 
 const formatCountdown = (remainingMs) => {
@@ -184,8 +186,8 @@ export function createServerMilestoneFeedSnapshot(id, timestampMs = Date.now(), 
     id: `server-milestone:${id}`,
     timestampMs,
     tone: id === "winners" ? "success" : id === "welcome" ? "event" : "warning",
-    title: content.feedTitle,
-    summary: content.feedSummary,
+    title: String(payload.feedTitle || content.feedTitle),
+    summary: String(payload.feedSummary || content.feedSummary),
     meta: "Serverové hlášení · klikni pro detail",
     resultKind: "server-milestone",
     resultPayload: {
@@ -335,7 +337,10 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
     if (!serverInstanceId || !modal.hidden) return false;
     if (announce("welcome", serverInstanceId)) return true;
     if (shouldOpenFirstPurgeCard(gameplaySlice)
-      && announce("first-purge", serverInstanceId, { firstPurgeDeadlineMs })) return true;
+      && announce("first-purge", serverInstanceId, {
+        firstPurgeDeadlineMs,
+        feedSummary: "Město spustilo skutečný odpočet k prvnímu vyřazení."
+      })) return true;
 
     const elimination = gameplaySlice.elimination || gameplaySlice.player?.elimination;
     const finalLockdown = gameplaySlice.player?.finalLockdown;
@@ -343,10 +348,18 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
     const status = String(finalLockdown?.status || "");
     const ranking = Array.isArray(finalLockdown?.leaderboardTop3) ? finalLockdown.leaderboardTop3.slice(0, 3) : [];
     const lockdownActive = Boolean(finalLockdown?.enabled && (finalLockdown.active || status === "active" || status === "paused"));
-    const finalEightReached = !Number.isFinite(activePlayersRemaining) || activePlayersRemaining <= 8;
-
-    if (lockdownActive && finalEightReached
-      && announce("lockdown", serverInstanceId, { ranking, finalLockdownDeadlineMs })) return true;
+    if (lockdownActive && announce("lockdown", serverInstanceId, {
+      ranking,
+      finalLockdownDeadlineMs,
+      stats: [
+        { label: "Zbývá hráčů", value: Number.isFinite(activePlayersRemaining) ? String(activePlayersRemaining) : "—" },
+        { key: "final-lockdown-countdown", label: "Čas do konce", value: "—" },
+        { label: "Fáze", value: "Final Lockdown" }
+      ],
+      feedSummary: Number.isFinite(activePlayersRemaining)
+        ? `Final Lockdown začal. Ve válce zbývá ${activePlayersRemaining} hráčů.`
+        : "Final Lockdown začal podle pravidel tohoto serveru."
+    })) return true;
     if (finalLockdown?.enabled && status === "resolved" && ranking.length >= 3) {
       const rank = Number(finalLockdown.currentPlayerRank);
       const lead = Number.isFinite(rank)
@@ -390,19 +403,10 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
   });
 
   if (options.autoWelcome !== false) {
-    let attempts = 0;
-    const waitForRuntime = () => {
-      const root = documentRef.querySelector("#game-root");
-      if (root?.dataset?.runtimeInit === "ready" || attempts >= 80) {
-        const registration = getActiveServerRegistration();
-        const serverInstanceId = String(registration?.serverInstanceId || registration?.serverId || "");
-        if (serverInstanceId) announce("welcome", serverInstanceId);
-        return;
-      }
-      attempts += 1;
-      windowRef.setTimeout(waitForRuntime, 50);
-    };
-    windowRef.setTimeout(waitForRuntime, 0);
+    windowRef.setTimeout(() => {
+      const gameplaySlice = windowRef.empireStreetsGameplaySliceReadModel || null;
+      if (gameplaySlice?.server?.serverInstanceId) handleGameplaySlice(gameplaySlice);
+    }, 0);
   }
 
   return Object.freeze({ announce, close, handleGameplaySlice, open, getActiveId: () => activeId });

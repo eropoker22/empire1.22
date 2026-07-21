@@ -3,6 +3,8 @@ import {
   applyCommand,
   createEliminationReadModel,
   createInitialState,
+  createPlayerEliminationScore,
+  createPlayerFinalEmpireScore,
   createPlayerView,
   runTick,
   runScheduledElimination
@@ -115,8 +117,13 @@ describe("scheduled elimination system", () => {
     expect(result.nextState.playersById["player:3"].metadata).toMatchObject({
       eliminatedAtTick: FIRST_ELIMINATION_TICK,
       eliminationReason: "scheduled_weakest_player",
-      finalPlacement: 9
+      finalPlacement: 9,
+      rankFromBottomAtElimination: 1,
+      scoreAtElimination: expect.any(Number),
+      scoreBreakdownAtElimination: expect.any(Object)
     });
+    expect(createPlayerFinalEmpireScore(result.nextState, "player:3", context).score)
+      .toBe(result.nextState.playersById["player:3"].metadata.scoreAtElimination);
     expect(result.events.find((event) => event.type === "player-eliminated")?.payload).toMatchObject({
       playerId: "player:3",
       gangName: "Player 3",
@@ -245,6 +252,71 @@ describe("scheduled elimination system", () => {
     const result = runScheduledElimination(state, context);
 
     expect(result.result?.eliminatedPlayerId).toBe("player:2");
+  });
+
+  it("awards the activity bonus only inside the configured recent window", () => {
+    const state = createEliminationState();
+    state.playersById["player:3"] = {
+      ...state.playersById["player:3"],
+      lastActionAt: "2026-01-01T12:00:15.000Z"
+    };
+    const recentContext = {
+      config: {
+        ...config,
+        tickRateMs: 1_000,
+        balance: {
+          ...config.balance,
+          elimination: {
+            ...config.balance.elimination!,
+            scoreWeights: {
+              ...config.balance.elimination!.scoreWeights,
+              recentActivityBonus: 250,
+              recentActivityWindowTicks: 10
+            }
+          }
+        }
+      },
+      clock: {
+        now: () => new Date("2026-01-01T12:00:20.000Z"),
+        nowIso: () => "2026-01-01T12:00:20.000Z"
+      }
+    };
+
+    expect(createPlayerEliminationScore(state, "player:3", recentContext).recentActivityBonus).toBe(250);
+    state.playersById["player:3"] = {
+      ...state.playersById["player:3"],
+      lastActionAt: "2026-01-01T11:59:59.000Z"
+    };
+    expect(createPlayerEliminationScore(state, "player:3", recentContext).recentActivityBonus).toBe(0);
+  });
+
+  it("uses the typed resource score registry while preserving a default value of one", () => {
+    const state = createEliminationState();
+    state.resourceStatesById["resource:3"] = {
+      ...state.resourceStatesById["resource:3"],
+      balances: {
+        ...state.resourceStatesById["resource:3"].balances,
+        chemicals: 10,
+        biomass: 5
+      }
+    };
+    const weightedContext = {
+      config: {
+        ...config,
+        balance: {
+          ...config.balance,
+          elimination: {
+            ...config.balance.elimination!,
+            scoreWeights: {
+              ...config.balance.elimination!.scoreWeights,
+              resourceScoreValues: { chemicals: 3 }
+            }
+          }
+        }
+      }
+    };
+
+    expect(createPlayerEliminationScore(state, "player:3", weightedContext).totalResourceValue).toBe(35);
   });
 
   it("neutralizes defeated player districts and disables their buildings", () => {

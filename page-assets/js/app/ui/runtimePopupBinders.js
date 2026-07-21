@@ -327,7 +327,7 @@ function bindPlayerProfilePopup(root) {
     const currentLeaderboardEntry = leaderboardPlayers.find((entry) => (
       entry?.isCurrentPlayer || String(entry?.id || "") === currentPlayerId
     ));
-    const empireScore = Number(currentLeaderboardEntry?.empireScore || 0);
+    const empireScore = currentLeaderboardEntry?.empireScore ?? null;
     const profileViewModel = createPlayerProfileViewModel({
       registration,
       faction,

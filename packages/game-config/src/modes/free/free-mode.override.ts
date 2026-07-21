@@ -107,7 +107,9 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
         dirtyCash: 0.05,
         resources: 0.2,
         population: 2,
-        recentActivityBonus: 250
+        recentActivityBonus: 250,
+        recentActivityWindowTicks: ticksFromHours(1),
+        resourceScoreValues: {}
       }
     },
     finalLockdown: {

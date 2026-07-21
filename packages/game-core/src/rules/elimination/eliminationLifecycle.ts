@@ -7,6 +7,7 @@ import { resolveEliminationConfig, resolveQuietHoursResumeTick } from "./elimina
 import { appendResolvedCityFeedEvents } from "../events/rumorPipeline";
 import { applyDefeatedDistrictPolicy } from "./eliminationDistrictPolicy";
 import { applyPlayerDefeatLifecycle } from "../liveness/playerTerritoryLifecycle";
+import { createPlayerFinalEmpireScore } from "../victory/finalEmpireScore";
 import {
   resolveEffectiveEliminationMinimumPlayers,
   resolveEffectiveFirstEliminationTick
@@ -73,6 +74,7 @@ export const runScheduledElimination = (
   const weakest = activePlayerIds
     .map((playerId) => createPlayerEliminationScore(state, playerId, context))
     .sort(compareEliminationScores)[0];
+  const frozenFinalScore = createPlayerFinalEmpireScore(state, weakest.playerId, context);
   const finalPlacement = activePlayerIds.length;
   const nextEliminationTick = currentTick + config.intervalTicks;
   const feedEvent = createEliminationFeedEvent(state, weakest, currentTick);
@@ -85,8 +87,11 @@ export const runScheduledElimination = (
     playerId: weakest.playerId,
     reason: "scheduled_weakest_player",
     sourceEventId: `elimination:${currentTick}:${weakest.playerId}`,
-    issuedAt: new Date(0).toISOString(),
-    finalPlacement
+    issuedAt: context.clock?.nowIso() ?? state.serverInstance.startedAt,
+    finalPlacement,
+    scoreAtElimination: frozenFinalScore.score,
+    scoreBreakdownAtElimination: frozenFinalScore.scoreBreakdown,
+    rankFromBottomAtElimination: 1
   });
   const nextState: CoreGameState = {
     ...defeated.nextState,

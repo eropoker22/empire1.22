@@ -36,6 +36,11 @@ export const createPlayerFinalEmpireScore = (
   context: GameCoreContext
 ): PlayerFinalEmpireScore => {
   const player = state.playersById[playerId];
+  const frozenScore = Number(player?.metadata?.scoreAtElimination);
+  const frozenBreakdown = player?.metadata?.scoreBreakdownAtElimination;
+  if (player?.status === "defeated" && Number.isFinite(frozenScore) && frozenBreakdown && typeof frozenBreakdown === "object") {
+    return createFrozenFinalEmpireScore(playerId, player?.name ?? playerId, player?.factionId ?? "mafian", frozenScore, frozenBreakdown);
+  }
   const finalConfig = context.config.balance.finalLockdown;
   const base = createPlayerEliminationScore(state, playerId, context);
   const ownedDistricts = Object.values(state.districtsById)
@@ -81,6 +86,30 @@ export const createPlayerFinalEmpireScore = (
       heatPenalty: roundScore(heatPenalty),
       finalScore: roundScore(score)
     }
+  };
+};
+
+const createFrozenFinalEmpireScore = (
+  playerId: PlayerId,
+  playerName: string,
+  factionId: PlayerFactionId,
+  score: number,
+  breakdown: object
+): PlayerFinalEmpireScore => {
+  const scoreBreakdown = Object.fromEntries(Object.entries(breakdown).map(([key, value]) => [key, Number(value) || 0]));
+  return {
+    playerId,
+    playerName,
+    factionId,
+    score,
+    baseScore: Number(scoreBreakdown.baseScore ?? score),
+    controlledDistricts: Number(scoreBreakdown.controlledDistricts ?? 0),
+    downtownDistricts: Number(scoreBreakdown.downtownDistricts ?? 0),
+    rareBuildings: Number(scoreBreakdown.rareBuildings ?? 0),
+    activeBuildings: Number(scoreBreakdown.activeBuildings ?? 0),
+    heat: Number(scoreBreakdown.heat ?? 0),
+    heatPenalty: Number(scoreBreakdown.heatPenalty ?? 0),
+    scoreBreakdown
   };
 };
 

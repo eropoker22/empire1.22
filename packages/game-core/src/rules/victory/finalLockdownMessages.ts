@@ -2,7 +2,11 @@ import type { CityFeedEvent, Notification } from "@empire/shared-types";
 import type { CoreGameState } from "../../entities";
 import type { createFinalEmpireRanking } from "./finalEmpireScore";
 
-export const createFinalLockdownStartedNotification = (state: CoreGameState, playerId: string): Notification => ({
+export const createFinalLockdownStartedNotification = (
+  state: CoreGameState,
+  playerId: string,
+  createdAt: string
+): Notification => ({
   id: `notification:final-lockdown:start:${state.root.tick}:${playerId}`,
   recipientType: "player",
   recipientId: playerId,
@@ -10,11 +14,11 @@ export const createFinalLockdownStartedNotification = (state: CoreGameState, pla
   title: "Final Lockdown začal",
   bodyKey: "final_lockdown.started",
   payload: {
-    body: "Přežil jsi čistky. Teď vyhraj město. Final Lockdown začal — 12 aktivních hodin do rozsudku.",
+    body: "Přežil jsi Očistu. Teď vyhraj město. Final Lockdown začal a skutečný odpočet běží.",
     startedAtTick: state.root.tick,
     serverInstanceId: state.serverInstance.id
   },
-  createdAt: new Date(0).toISOString(),
+  createdAt,
   readAt: null
 });
 
@@ -22,7 +26,8 @@ export const createFinalLockdownResolvedNotification = (
   state: CoreGameState,
   playerId: string,
   rank: number,
-  score: number
+  score: number,
+  createdAt: string
 ): Notification => ({
   id: `notification:final-lockdown:resolved:${state.root.tick}:${playerId}`,
   recipientType: "player",
@@ -38,11 +43,11 @@ export const createFinalLockdownResolvedNotification = (
     score: Math.round(score * 100) / 100,
     serverInstanceId: state.serverInstance.id
   },
-  createdAt: new Date(0).toISOString(),
+  createdAt,
   readAt: null
 });
 
-export const createFinalLockdownStartedFeedEvent = (state: CoreGameState): CityFeedEvent => ({
+export const createFinalLockdownStartedFeedEvent = (state: CoreGameState, activePlayerCount: number): CityFeedEvent => ({
   id: `city-feed:final-lockdown:started:${state.root.tick}`,
   sourceEventId: `final-lockdown:started:${state.root.tick}:global_city:final_lockdown`,
   sourceType: "system",
@@ -59,13 +64,14 @@ export const createFinalLockdownStartedFeedEvent = (state: CoreGameState): CityF
   confidence: "confirmed",
   rumorCategory: "final_lockdown",
   templateId: "system.final_lockdown_started",
-  message: "Final Lockdown začal. Přežilo 8 gangů. Město spouští posledních 12 aktivních hodin o trůn.",
+  message: `Final Lockdown začal. Ve válce zbývá ${activePlayerCount} aktivních gangů a serverový odpočet běží.`,
   messageKey: "system.final_lockdown_started",
   payload: {
     rumorCategory: "final_lockdown",
     confidence: "confirmed",
     audience: "global_city",
-    intensityBand: "high"
+    intensityBand: "high",
+    activePlayerCount
   }
 });
 

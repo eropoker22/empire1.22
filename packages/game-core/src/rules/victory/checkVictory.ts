@@ -169,7 +169,7 @@ export const checkVictory = (
   const winnerAllianceId = summary.winnerType === "alliance" ? summary.winnerId : null;
   const victoryStateId = state.root.victoryStateId ?? `victory:${state.serverInstance.id}`;
   const matchResultId = state.root.matchResultId ?? `match:${state.serverInstance.id}:${state.root.tick}`;
-  const endedAt = new Date(0).toISOString();
+  const endedAt = context.clock?.nowIso() ?? state.serverInstance.startedAt;
 
   return {
     nextState: {

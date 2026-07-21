@@ -118,8 +118,9 @@ const startFinalLockdown = (
     finalTopPlayerIds: [],
     version: 1
   };
-  const feedEvent = createFinalLockdownStartedFeedEvent(state);
-  const notifications = activePlayerIds.map((playerId) => createFinalLockdownStartedNotification(state, playerId));
+  const createdAt = context.clock?.nowIso() ?? state.serverInstance.startedAt;
+  const feedEvent = createFinalLockdownStartedFeedEvent(state, activePlayerIds.length);
+  const notifications = activePlayerIds.map((playerId) => createFinalLockdownStartedNotification(state, playerId, createdAt));
   const stateWithFeed = appendResolvedCityFeedEvents(state, [feedEvent]);
   const nextState: CoreGameState = {
     ...stateWithFeed,
