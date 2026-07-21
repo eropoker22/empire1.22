@@ -106,8 +106,10 @@ describe("page onboarding smoke", () => {
     expect(page("game.html")).toContain('data-district-atmosphere-window');
     expect(page("game.html")).toContain("VYPSAT BOUNTY");
     expect(page("game.html")).toContain('id="bounty-target-picker"');
-    expect(page("game.html")).toContain('data-br-info-open');
-    expect(page("game.html")).toContain('id="battle-royale-info-modal"');
+    expect(page("game.html")).toContain('data-login-about-open');
+    expect(page("game.html")).toContain('data-login-about-overlay');
+    expect(page("game.html")).toContain('src="../page-assets/js/app/game-about-modal-runtime.js"');
+    expect(page("game.html")).not.toContain('id="battle-royale-info-modal"');
     expect(page("game.html")).toContain('class="city-status-bar"');
     expect(page("game.html")).toContain("Čas města");
     expect(page("game.html")).toContain("Očista");
@@ -131,7 +133,7 @@ describe("page onboarding smoke", () => {
     expect(gameHtml.indexOf('id="city-events-card-anchor"')).toBeLessThan(gameHtml.indexOf('id="city-events-card"'));
     expect(gameHtml.indexOf('id="city-events-card"')).toBeLessThan(gameHtml.indexOf('id="buildings-card"'));
     expect(gameHtml).toContain('data-onboarding-launch');
-    expect(gameHtml).toContain('id="onboarding-launch-button"');
+    expect(gameHtml).not.toContain('id="onboarding-launch-button"');
     expect(gameHtml).toContain('id="settings-onboarding-btn"');
     expect(gameHtml).toContain('<span class="game-brand-name">EmpireStreets</span>');
     expect(gameHtml).not.toMatch(/<spa\s*\r?\n\s*\+0z0n/u);
@@ -139,7 +141,6 @@ describe("page onboarding smoke", () => {
     expect(gameHtml).toContain('id="game-overlay-region" class="game-overlay-roots"');
     expect(gameHtml).not.toContain("Overlay roots");
     expect(gameHtml).not.toContain("mount-point--overlay");
-    expect(gameHtml).toContain('src="../page-assets/js/app/battle-royale-info-runtime.js"');
     expect(gameHtml).toContain("<tr><th>CÍL</th><th>TYP</th><th>DISTRICT</th><th>ODMĚNA</th><th>STATUS / VYPSAL</th></tr>");
     const allianceRuntimeSource = readFileSync(resolve(root, "page-assets/js/app/alliance-runtime.js"), "utf8");
     expect(allianceRuntimeSource).toContain("submitServerAllianceCommand");
@@ -244,7 +245,7 @@ describe("page onboarding smoke", () => {
     expect(gameRedesignSource).toContain("#profile-gang-card.right-panel-card .gang-profile-row.profile-row");
     expect(gameRedesignSource).toContain("#profile-gang-card.right-panel-card .profile-row--wanted");
     expect(gameRedesignSource).toContain(".map-phase-info-button");
-    expect(gameRedesignSource).toContain(".battle-royale-info-modal__content");
+    expect(gameHtml).toContain('href="../page-assets/css/styles-game-about.css"');
     const cityStatusMobileCssSource = readFileSync(resolve(root, "page-assets/css/styles-mobile-fixes.css"), "utf8");
     expect(cityStatusMobileCssSource).toContain("#game-command-bar-mount .city-status-pill:nth-child(3)");
     expect(cityStatusMobileCssSource).toContain("grid-template-columns: repeat(4, minmax(0, 1fr)) !important;");
@@ -285,7 +286,7 @@ describe("page onboarding smoke", () => {
     expect(gameplaySliceCssSource).toContain("must not be visible inside game.html");
     expect(gameplaySliceCssSource).toContain(".game-body .gameplay-slice-client");
     expect(gameplaySliceCssSource).toContain("height: 0 !important;");
-    expect(readFileSync(resolve(root, "page-assets/js/app/battle-royale-info-runtime.js"), "utf8")).toContain("initBattleRoyaleInfoRuntime");
+    expect(readFileSync(resolve(root, "page-assets/js/app/game-about-modal-runtime.js"), "utf8")).toContain("initGameAboutModalRuntime");
     expect(readFileSync(resolve(root, "page-assets/css/styles-building-modals.css"), "utf8")).toMatch(
       /\.district-building-detail-stats \{\r?\n\s*display: none !important;/u,
     );

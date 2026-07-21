@@ -32,7 +32,13 @@ export const createAdminApp = (options: AdminAppOptions = {}) => {
     target.innerHTML = renderLoading();
     document.addEventListener("visibilitychange", handleVisibility);
     registration.start();
-    try { session = await client.getSession(); await refresh(); } catch (error) { handleError(error); }
+    try {
+      session = await client.getSession();
+      await refresh();
+    } catch (error) {
+      if (!session) showLogin(initialLoginMessage(error));
+      else handleError(error);
+    }
   };
 
   const refresh = async (): Promise<void> => {
@@ -130,7 +136,7 @@ export const createAdminApp = (options: AdminAppOptions = {}) => {
         await refresh();
       } catch (error) {
         const message = target?.querySelector<HTMLElement>("[data-admin-login-error]");
-        if (message) message.textContent = error instanceof Error ? error.message : "Přihlášení selhalo.";
+        if (message) message.textContent = loginErrorMessage(error);
       }
     });
   };
@@ -138,17 +144,19 @@ export const createAdminApp = (options: AdminAppOptions = {}) => {
   const logout = async (): Promise<void> => {
     activeRequest?.abort(); clearSchedule(); registration.stop();
     try { await client.logout(); } catch (_error) { /* The server clears the cookie whenever reachable. */ }
+    showLogin("Admin session byla ukončena.");
+  };
+
+  const showLogin = (message?: string): void => {
     session = null; overview = null; detail = null; controlPlane = null;
-    if (target) target.innerHTML = renderLogin("Admin session byla ukončena.");
+    if (target) target.innerHTML = renderLogin(message);
     bindLogin();
   };
 
   const handleError = (error: unknown): void => {
     if (!target) return;
     if (error instanceof AdminApiError && (error.status === 401 || error.code.includes("SESSION"))) {
-      session = null; overview = null; detail = null; controlPlane = null;
-      target.innerHTML = renderLogin(error.code === "ADMIN_SESSION_EXPIRED" ? "Admin session vypršela." : undefined);
-      bindLogin();
+      showLogin(error.code === "ADMIN_SESSION_EXPIRED" ? "Admin session vypršela." : undefined);
       return;
     }
     target.innerHTML = renderUnavailable(error instanceof Error ? error.message : "Monitoring není dostupný.");
@@ -200,3 +208,24 @@ const updateUrl = (instanceId: string | null): void => {
 };
 const isAbort = (error: unknown): boolean => error instanceof DOMException && error.name === "AbortError";
 const createKey = (): string => `admin-ui:${crypto.randomUUID()}`;
+const initialLoginMessage = (error: unknown): string | undefined => {
+  if (error instanceof AdminApiError && (error.status === 401 || error.code.includes("SESSION"))) {
+    return error.code === "ADMIN_SESSION_EXPIRED" ? "Admin session vypršela." : undefined;
+  }
+  if (error instanceof AdminApiError && error.code === "ADMIN_CONFIGURATION_UNAVAILABLE") {
+    return "Admin API momentálně není připojené k databázi. Přihlášení můžeš zkusit, ale serverové připojení musí být nejdřív dostupné.";
+  }
+  return "Admin API momentálně neodpovídá. Přihlašovací formulář zůstává dostupný pro další pokus.";
+};
+const loginErrorMessage = (error: unknown): string => {
+  if (error instanceof AdminApiError && error.code === "ADMIN_INVALID_RESPONSE") {
+    return "Admin API nevrátilo platná data. Nepoužívej VS Code Live Server; spusť `npm run dev:hosted-api` a `npm run dev:admin`.";
+  }
+  if (error instanceof AdminApiError && error.code === "ADMIN_CONFIGURATION_UNAVAILABLE") {
+    return "Admin server nemá nastavené databázové připojení. Zkontroluj produkční EMPIRE_DATABASE_URL.";
+  }
+  if (error instanceof AdminApiError && error.code === "ADMIN_DATABASE_UNAVAILABLE") {
+    return "Admin databáze je právě nedostupná. Zkus přihlášení znovu později.";
+  }
+  return error instanceof Error ? error.message : "Přihlášení selhalo.";
+};

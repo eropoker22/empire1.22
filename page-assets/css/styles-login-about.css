@@ -158,9 +158,9 @@ body.auth-body--login .login-about-overlay--encyclopedia .login-about-terminal-h
 @keyframes login-about-panel-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 @media (max-width: 780px) {
-  body.auth-body--login .login-about-overlay--encyclopedia { align-items: stretch; padding: max(6px, env(safe-area-inset-top)) 6px max(6px, env(safe-area-inset-bottom)); }
-  body.auth-body--login .login-about-overlay--encyclopedia .login-about-encyclopedia { width: calc(100vw - 12px); height: calc(100dvh - max(12px, env(safe-area-inset-top) + env(safe-area-inset-bottom))); border-radius: 16px; grid-template-rows: auto auto auto minmax(0,1fr); }
-  .login-about-terminal-header { align-items: center; padding: 13px 13px 10px; }
+  body.auth-body--login .login-about-overlay--encyclopedia { align-items: stretch; padding: 0 6px; }
+  body.auth-body--login .login-about-overlay--encyclopedia .login-about-encyclopedia { width: calc(100vw - 12px); height: 100dvh; min-height: 100dvh; max-height: 100dvh; border-radius: 0; grid-template-rows: auto auto auto minmax(0,1fr); }
+  .login-about-terminal-header { align-items: center; padding: max(13px, env(safe-area-inset-top)) 13px 10px; }
   .login-about-terminal-header__eyebrow { display: none; }
   .login-about-terminal-header h2 { margin: 0 0 4px; font-size: clamp(1.12rem, 6vw, 1.52rem); }
   .login-about-terminal-header p { font-size: .57rem; letter-spacing: .08em; }

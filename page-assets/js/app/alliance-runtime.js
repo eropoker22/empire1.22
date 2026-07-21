@@ -499,7 +499,7 @@ const createDevOnlyAllianceBoard = (baseBoard = null) => {
   const currentPlayerId = baseBoard?.currentPlayerId || "dev-player";
   const allianceId = "dev-demo-alliance-zabijaci";
   const maxAllianceSize = baseBoard?.maxAllianceSize || MAX_ALLIANCE_SIZE_FALLBACK;
-  const disableDevOnlyActiveAlliance = baseBoard?.disableDevOnlyActiveAlliance === true || isOnboardingActiveForAllianceDemo();
+  const suppressLocalDemoAlliance = isOnboardingActiveForAllianceDemo();
   const readyDueAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
   const members = createDevOnlyAllianceMembers(currentPlayerId, readyDueAt);
   const leader = members.find((member) => member.role === "leader") || members[0];
@@ -514,7 +514,7 @@ const createDevOnlyAllianceBoard = (baseBoard = null) => {
       createdAt: nowIso
     }
   ];
-  const shouldUseActiveDemoAlliance = !disableDevOnlyActiveAlliance && getCurrentGamePhaseForAllianceDemo() === "launch";
+  const shouldUseActiveDemoAlliance = !suppressLocalDemoAlliance && getCurrentGamePhaseForAllianceDemo() === "launch";
   const activeAlliance = shouldUseActiveDemoAlliance ? {
     allianceId,
     name: "Zabijáci",
@@ -545,18 +545,18 @@ const createDevOnlyAllianceBoard = (baseBoard = null) => {
     isDevOnlyDemo: true
   } : null;
   const canCreateAlliance = baseBoard?.canCreateAlliance === true
-    || (!disableDevOnlyActiveAlliance && !activeAlliance && hasRequiredInfluenceForAllianceCreate());
+    || (!suppressLocalDemoAlliance && !activeAlliance && hasRequiredInfluenceForAllianceCreate());
   return {
     maxAllianceSize,
     currentPlayerId,
     activeAlliance,
-    publicAlliances: disableDevOnlyActiveAlliance
+    publicAlliances: suppressLocalDemoAlliance
       ? (baseBoard?.publicAlliances || [])
       : normalizeDemoPublicAllianceIcons(baseBoard?.publicAlliances, maxAllianceSize),
-    incomingInvites: disableDevOnlyActiveAlliance
+    incomingInvites: suppressLocalDemoAlliance
       ? (baseBoard?.incomingInvites || [])
       : (baseBoard?.incomingInvites?.length ? baseBoard.incomingInvites : createDevOnlyIncomingInvites()),
-    eligibleInviteTargets: disableDevOnlyActiveAlliance
+    eligibleInviteTargets: suppressLocalDemoAlliance
       ? (baseBoard?.eligibleInviteTargets || [])
       : createDevOnlyAllianceInviteTargets(members),
     allianceBadgesByPlayerId: activeAlliance ? Object.fromEntries(members.map((member) => [
@@ -570,13 +570,12 @@ const createDevOnlyAllianceBoard = (baseBoard = null) => {
     ])) : (baseBoard?.allianceBadgesByPlayerId || {}),
     canCreateAlliance,
     createDisabledReason: canCreateAlliance ? null : (baseBoard?.createDisabledReason || "ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE"),
-    isDevOnlyCreatePreview: true,
-    disableDevOnlyActiveAlliance
+    isDevOnlyCreatePreview: true
   };
 };
 
 const refreshDevOnlyCreateEligibility = () => {
-  if (!latestAllianceBoard?.isDevOnlyCreatePreview || latestAllianceBoard.activeAlliance || latestAllianceBoard.disableDevOnlyActiveAlliance) {
+  if (!latestAllianceBoard?.isDevOnlyCreatePreview || latestAllianceBoard.activeAlliance || isOnboardingActiveForAllianceDemo()) {
     return false;
   }
   const canCreateAlliance = hasRequiredInfluenceForAllianceCreate();
@@ -2665,6 +2664,11 @@ const bindAllianceRuntime = () => {
     if (event.key === "Enter" && target instanceof HTMLInputElement && target.hasAttribute("data-alliance-chat-input")) {
       event.preventDefault();
       document.querySelector("[data-alliance-chat-send]")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      return;
+    }
+    if (event.key === "Enter" && target instanceof HTMLInputElement && target.hasAttribute("data-global-chat-input")) {
+      event.preventDefault();
+      qs("alliance-chat-send")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     }
   });
 
@@ -2691,10 +2695,7 @@ const bindAllianceRuntime = () => {
   });
   document.addEventListener("empire:runtime-mode-changed", renderGlobalServerChat);
   document.addEventListener("empire:onboarding-alliance-reset", (event) => {
-    latestAllianceBoard = createDevOnlyAllianceBoard(event?.detail?.allianceBoard || {
-      activeAlliance: null,
-      disableDevOnlyActiveAlliance: true
-    });
+    latestAllianceBoard = createDevOnlyAllianceBoard(event?.detail?.allianceBoard || { activeAlliance: null });
     rerenderAll();
     window.dispatchEvent(new CustomEvent("empire:alliance-state-changed"));
   });

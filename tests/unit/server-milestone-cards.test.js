@@ -27,7 +27,7 @@ const mount = () => {
         <button data-server-milestone-close>×</button>
         <span data-server-milestone-eyebrow></span>
         <h2 data-server-milestone-title></h2>
-        <p data-server-milestone-lead></p>
+        <div data-server-milestone-lead></div>
         <p data-server-milestone-copy></p>
         <div data-server-milestone-stats></div>
         <div data-server-milestone-ranking hidden><ol data-server-milestone-ranking-list></ol></div>
@@ -66,6 +66,8 @@ describe("server milestone cards", () => {
     });
     expect(modal.dataset.serverMilestone).toBe("welcome");
     expect(document.querySelector("[data-server-milestone-title]").textContent).toBe("Válka o město začíná");
+    expect(document.querySelector("[data-server-milestone-eyebrow]").hidden).toBe(true);
+    expect(document.querySelectorAll(".server-milestone-card__lead-paragraph")).toHaveLength(4);
     expect(confirm.textContent).toBe("Vstoupit do ulic");
 
     confirm.click();
@@ -84,6 +86,7 @@ describe("server milestone cards", () => {
       player: { instanceId: "server:1" }
     });
     expect(modal.dataset.serverMilestone).toBe("first-purge");
+    expect(document.querySelector("[data-server-milestone-eyebrow]").hidden).toBe(false);
     expect(document.querySelector("[data-server-milestone-lead]").textContent).toContain("4 hodiny");
     expect(confirm.textContent).toBe("Začít se připravovat");
 
@@ -142,6 +145,48 @@ describe("server milestone cards", () => {
       ...base,
       elimination: { ...base.elimination, nextEliminationTick: 4000, ticksUntilNextElimination: 100 }
     })).toBe(false);
+  });
+
+  it("renders live server-derived countdowns for the first purge and Final Lockdown", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-21T12:00:00.000Z"));
+    const controller = mount();
+    const purgeSlice = {
+      server: { serverInstanceId: "server:countdowns", currentTick: 100 },
+      mode: { tickRateMs: 1_000 },
+      elimination: {
+        enabled: true, eliminationsStopped: false, firstEliminationTick: 14_500,
+        nextEliminationTick: 14_500, ticksUntilNextElimination: 14_400, activePlayersRemaining: 20
+      },
+      player: { instanceId: "server:countdowns" }
+    };
+    controller.announce("welcome", "server:countdowns");
+    controller.close();
+    controller.handleGameplaySlice(purgeSlice);
+    expect(document.querySelector('[data-server-milestone-stat="first-purge-countdown"] strong').textContent)
+      .toBe("4 h 0 min 0 s");
+    vi.advanceTimersByTime(1_000);
+    expect(document.querySelector('[data-server-milestone-stat="first-purge-countdown"] strong').textContent)
+      .toBe("3 h 59 min 59 s");
+
+    controller.close();
+    controller.handleGameplaySlice({
+      server: { serverInstanceId: "server:countdowns", currentTick: 100 },
+      mode: { tickRateMs: 1_000 },
+      elimination: { activePlayersRemaining: 8 },
+      player: {
+        instanceId: "server:countdowns",
+        finalLockdown: {
+          enabled: true, active: true, status: "active", remainingActiveTicks: 43_200,
+          endsAtEstimatedTick: 43_300, leaderboardTop3: []
+        }
+      }
+    });
+    expect(document.querySelector('[data-server-milestone-stat="final-lockdown-countdown"] strong').textContent)
+      .toBe("12 h 0 min 0 s");
+    vi.advanceTimersByTime(1_000);
+    expect(document.querySelector('[data-server-milestone-stat="final-lockdown-countdown"] strong').textContent)
+      .toBe("11 h 59 min 59 s");
   });
 
   it("reopens a selected card from a street news event", () => {

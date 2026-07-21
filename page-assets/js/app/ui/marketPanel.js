@@ -389,6 +389,13 @@ export function renderPlayerMarketPanel(listElement, viewModel = {}, callbacks =
   appendChildren(sellPanel, sellHeader, form);
 
   const listingsWrap = createElement(ownerDocument, "section", "market-player-listings");
+  const listingsHeader = createElement(ownerDocument, "div", "market-player-listings__header");
+  const listingsTitle = ownerDocument.createElement("strong");
+  listingsTitle.textContent = "Nabídky hráčů";
+  const listingsCount = ownerDocument.createElement("span");
+  listingsCount.textContent = `${listings.length} aktivní`;
+  appendChildren(listingsHeader, listingsTitle, listingsCount);
+  appendChildren(listingsWrap, listingsHeader);
 
   if (listings.length <= 0) {
     const empty = createElement(ownerDocument, "p", "market-player-empty");

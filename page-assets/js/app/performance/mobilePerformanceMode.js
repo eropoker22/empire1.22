@@ -1,5 +1,5 @@
 const MOBILE_MAX_WIDTH = 840;
-const MOBILE_DPR_CAP = 1.5;
+const MOBILE_DPR_CAP = 2;
 const DESKTOP_RENDER_FPS = 60;
 const MOBILE_RENDER_FPS = 30;
 const MOBILE_POLLING_MULTIPLIER = 2;
@@ -58,6 +58,29 @@ export function getCappedDevicePixelRatio(windowRef, mode = null) {
   const safeDpr = Number.isFinite(rawDpr) && rawDpr > 0 ? rawDpr : 1;
   const cap = Number(mode?.dprCap || Number.POSITIVE_INFINITY);
   return Math.max(1, Math.min(safeDpr, cap));
+}
+
+export function resolveMapCanvasResolution(options = {}) {
+  const baseWidth = Math.max(1, Number(options.baseWidth || 1600));
+  const baseHeight = Math.max(1, Number(options.baseHeight || 980));
+  const cssWidth = Math.max(1, Number(options.cssWidth || baseWidth));
+  const mode = options.mode || {};
+
+  if (!mode.active) {
+    return {
+      width: baseWidth,
+      height: baseHeight,
+      pixelRatio: Number((baseWidth / cssWidth).toFixed(3))
+    };
+  }
+
+  const ratio = getCappedDevicePixelRatio(options.windowRef, mode);
+  const width = Math.min(1280, Math.max(640, Math.round(cssWidth * ratio)));
+  return {
+    width,
+    height: Math.round(width * (baseHeight / baseWidth)),
+    pixelRatio: Number((width / cssWidth).toFixed(3))
+  };
 }
 
 export function getPerformanceMetrics(windowRef = typeof window === "undefined" ? null : window) {

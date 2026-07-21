@@ -587,7 +587,7 @@ describe("Empire onboarding flow", () => {
       storage: createMemoryStorage(),
       getContext: () => ({
         registration: { identity: "Operator" },
-        mode: "dev-only",
+        mode: "onboarding",
         world: { ownedDistrictIds: [1] }
       })
     });
@@ -604,7 +604,29 @@ describe("Empire onboarding flow", () => {
     expect(document.querySelector("[data-free-onboarding-panel]")?.dataset.onboardingStep).toBe("building-action");
   });
 
-  it("runs dev-only welcome start setup only when the welcome CTA is clicked", () => {
+  it("starts the isolated onboarding state on auto-start and restart", () => {
+    const { document, root } = createOnboardingDom();
+    const onStart = vi.fn();
+    const bridge = createOnboardingBridge({
+      documentRef: document,
+      root,
+      storage: createMemoryStorage(),
+      getContext: () => ({
+        registration: { identity: "Operator" },
+        world: { ownedDistrictIds: [27] }
+      }),
+      onStart
+    });
+
+    bridge.init();
+    expect(onStart).toHaveBeenCalledTimes(1);
+    expect(onStart).toHaveBeenLastCalledWith(expect.objectContaining({ mode: "onboarding" }));
+
+    bridge.restart();
+    expect(onStart).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the welcome CTA callback scoped to the first step", () => {
     const { document, root } = createOnboardingDom();
     const onWelcomeStart = vi.fn();
     const bridge = createOnboardingBridge({
@@ -613,7 +635,7 @@ describe("Empire onboarding flow", () => {
       storage: createMemoryStorage(),
       getContext: () => ({
         registration: { identity: "Operator" },
-        mode: "dev-only",
+        mode: "onboarding",
         world: { ownedDistrictIds: [1] }
       }),
       onWelcomeStart
@@ -624,7 +646,7 @@ describe("Empire onboarding flow", () => {
 
     expect(onWelcomeStart).toHaveBeenCalledTimes(1);
     expect(onWelcomeStart).toHaveBeenCalledWith(expect.objectContaining({
-      mode: "dev-only",
+      mode: "onboarding",
       world: { ownedDistrictIds: [1] }
     }));
     expect(bridge.getProgress().currentStepId).toBe("your-district");
@@ -651,14 +673,14 @@ describe("Empire onboarding flow", () => {
       storage: createMemoryStorage(),
       getContext: () => ({
         registration: { identity: "Operator" },
-        mode: "dev-only",
+        mode: "onboarding",
         world: { ownedDistrictIds: [1] }
       }),
       onStepEnter
     });
 
     bridge.init();
-    expect(onStepEnter).toHaveBeenLastCalledWith("welcome", expect.objectContaining({ mode: "dev-only" }));
+    expect(onStepEnter).toHaveBeenLastCalledWith("welcome", expect.objectContaining({ mode: "onboarding" }));
 
     document.querySelector("[data-onboarding-primary-action]")?.click();
     document.querySelector("[data-onboarding-primary-action]")?.click();
@@ -667,7 +689,7 @@ describe("Empire onboarding flow", () => {
 
     expect(bridge.getProgress().currentStepId).toBe("spy");
     expect(onStepEnter).toHaveBeenCalledWith("spy", expect.objectContaining({
-      mode: "dev-only",
+      mode: "onboarding",
       progress: expect.objectContaining({ currentStepId: "spy" })
     }));
     const callsAfterSpyEntry = onStepEnter.mock.calls.length;
@@ -686,7 +708,7 @@ describe("Empire onboarding flow", () => {
       storage: createMemoryStorage(),
       getContext: () => ({
         registration: { identity: "Operator" },
-        mode: "dev-only",
+        mode: "onboarding",
         world: { ownedDistrictIds: [1] }
       }),
       onComplete
@@ -706,7 +728,7 @@ describe("Empire onboarding flow", () => {
     }));
     expect(onComplete).toHaveBeenCalledTimes(1);
     expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({
-      mode: "dev-only",
+      mode: "onboarding",
       progress: expect.objectContaining({ completed: true, currentStepId: "completed" })
     }));
   });
@@ -720,7 +742,7 @@ describe("Empire onboarding flow", () => {
       storage: createMemoryStorage(),
       getContext: () => ({
         registration: { identity: "Operator" },
-        mode: "dev-only",
+        mode: "onboarding",
         world: { ownedDistrictIds: [1] }
       }),
       onComplete
@@ -736,15 +758,15 @@ describe("Empire onboarding flow", () => {
     }));
     expect(onComplete).toHaveBeenCalledTimes(1);
     expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({
-      mode: "dev-only",
+      mode: "onboarding",
       progress: expect.objectContaining({ completed: true, skipped: true })
     }));
   });
 
-  it("finds the first owned district in the dev-only read model", () => {
+  it("finds the first owned district in the onboarding read model", () => {
     const readModel = createOnboardingReadModel({
       registration: { identity: "Operator" },
-      mode: "dev-only",
+      mode: "onboarding",
       world: { ownedDistrictIds: [27] },
       districts: [
         { id: 12, adjacentDistrictIds: [27] },
@@ -785,8 +807,8 @@ describe("Empire onboarding flow", () => {
       expect(progress.skipped).toBe(true);
       expect(progress.currentStepId).toBe("skipped");
     }
-    expect(resolveOnboardingStorageKey({ registration: { identity: "Boss" }, mode: "dev-only" }))
-      .toBe("empire:onboarding:demo-v1:dev-only:Boss");
+    expect(resolveOnboardingStorageKey({ registration: { identity: "Boss" }, mode: "onboarding" }))
+      .toBe("empire:onboarding:v2:onboarding:Boss");
   });
 
   it("serializes completed/skipped only as UI preference fields", () => {

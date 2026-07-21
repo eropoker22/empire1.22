@@ -70,6 +70,7 @@ describe("server market system", () => {
 
   it("applies owned shopping mall discounts to normal and black market buys", () => {
     const state = initializeServerMarket(createMarketStateFixture(), 1000);
+    state.playersById["player:1"].cleanCash = 1_000_000;
     (state as any).buildingsById = Object.fromEntries(Array.from({ length: 3 }, (_value, index) => [
       `building:shopping-mall:${index + 1}`,
       {
@@ -79,11 +80,12 @@ describe("server market system", () => {
         status: "active"
       }
     ]));
+    const blackResourceId = getMarketViewModel(state, state.playersById["player:1"], 1000).blackMarket.offerResourceIds[0];
     const baseNormalPrice = calculateMarketPrice(state, "metal-parts", "normal").finalPrice;
-    const baseBlackPrice = calculateMarketPrice(state, "neon-dust", "black").finalPrice;
+    const baseBlackPrice = calculateMarketPrice(state, blackResourceId, "black").finalPrice;
 
     const normalBuy = buyResource(state, state.playersById["player:1"], "metal-parts", 1, "normal", "cleanCash", 1000);
-    const blackBuy = buyResource(state, state.playersById["player:1"], "neon-dust", 1, "black", "cleanCash", 1000);
+    const blackBuy = buyResource(state, state.playersById["player:1"], blackResourceId, 1, "black", "cleanCash", 1000);
     const view = getMarketViewModel(state, state.playersById["player:1"], 1000);
 
     expect(normalBuy.success).toBe(true);
@@ -135,12 +137,15 @@ describe("server market system", () => {
 
   it("dirty cash can only be used on black market and uses worse rate", () => {
     const state = initializeServerMarket(createMarketStateFixture(), 1000);
+    state.playersById["player:1"].cleanCash = 1_000_000;
+    state.playersById["player:1"].dirtyCash = 1_000_000;
     const normalDirty = buyResource(state, state.playersById["player:1"], "chemicals", 1, "normal", "dirtyCash");
     expect(normalDirty.success).toBe(false);
     expect(normalDirty.reason).toBe("DIRTY_CASH_NOT_ALLOWED");
 
-    const clean = buyResource(state, state.playersById["player:1"], "neon-dust", 1, "black", "cleanCash", 1000);
-    const dirty = buyResource(state, state.playersById["player:1"], "neon-dust", 1, "black", "dirtyCash", 1000);
+    const blackResourceId = getMarketViewModel(state, state.playersById["player:1"], 1000).blackMarket.offerResourceIds[0];
+    const clean = buyResource(state, state.playersById["player:1"], blackResourceId, 1, "black", "cleanCash", 1000);
+    const dirty = buyResource(state, state.playersById["player:1"], blackResourceId, 1, "black", "dirtyCash", 1000);
     expect(dirty.success).toBe(true);
     expect(dirty.totalPrice).toBe(Math.ceil((clean.unitPrice ?? 0) * marketConfig.blackMarket.dirtyCashPaymentMultiplier));
   });
@@ -266,6 +271,7 @@ describe("server market system", () => {
 
     expect(chemicals.normalMarket.available).toBe(true);
     expect(techCore.normalMarket.available).toBe(false);
+    expect(marketConfig.blackMarket.offerCount).toBe(2);
     expect(viewModel.blackMarket.offerResourceIds).toHaveLength(marketConfig.blackMarket.offerCount);
     expect(viewModel.blackMarket.heatByValue).toEqual([
       { min: 3500, heat: 10 },

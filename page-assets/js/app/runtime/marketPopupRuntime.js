@@ -204,7 +204,7 @@ export function createMarketPopupRuntime(deps = {}) {
         gangState: deps.getResolvedGangState?.(),
         serverScope: deps.getMarketServerScope?.(),
         playerTabId: deps.MARKET_PLAYER_TAB_ID,
-        refreshCountdownSeconds: deps.getMarketRefreshCountdownSeconds?.(),
+        refreshAtCityTime: deps.getMarketRefreshCityTimeLabel?.(),
         normalizePlayerMarketListings: deps.normalizePlayerMarketListings,
         normalizeMarketTransactions: deps.normalizeMarketTransactions,
         getStockAmount,

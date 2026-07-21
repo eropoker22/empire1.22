@@ -65,6 +65,41 @@ describe("read-only admin app", () => {
     expect(input.value).toBe("");
   });
 
+  it("keeps the login form available when the initial admin API probe is unavailable", async () => {
+    const client = createClient();
+    client.getSession = vi.fn().mockRejectedValue(new AdminApiError(
+      503,
+      "ADMIN_CONFIGURATION_UNAVAILABLE",
+      "Admin durable repository is unavailable."
+    ));
+
+    await createAdminApp({ client, pollIntervalMs: 60_000 }).mount();
+
+    expect(document.querySelector("[data-admin-login]")).not.toBeNull();
+    expect(document.querySelector("[data-admin-username]")).not.toBeNull();
+    expect(document.querySelector("[data-admin-password]")).not.toBeNull();
+    expect(document.body.textContent).toContain("Admin API momentálně není připojené k databázi");
+    expect(document.body.textContent).not.toContain("ADMIN SERVER NEDOSTUPNÝ");
+  });
+
+  it("explains missing production database configuration after a login attempt", async () => {
+    const client = createClient();
+    client.getSession = vi.fn().mockRejectedValue(new AdminApiError(401, "ADMIN_SESSION_REQUIRED", "Session required."));
+    client.login = vi.fn().mockRejectedValue(new AdminApiError(
+      503,
+      "ADMIN_CONFIGURATION_UNAVAILABLE",
+      "Admin durable repository is unavailable."
+    ));
+    await createAdminApp({ client, pollIntervalMs: 60_000 }).mount();
+
+    document.querySelector<HTMLInputElement>("[data-admin-username]")!.value = "owner";
+    document.querySelector<HTMLInputElement>("[data-admin-password]")!.value = "password";
+    document.querySelector<HTMLFormElement>("[data-admin-login]")!.requestSubmit();
+
+    await vi.waitFor(() => expect(document.querySelector("[data-admin-login-error]")?.textContent)
+      .toContain("EMPIRE_DATABASE_URL"));
+  });
+
   it("offers only the implemented closed policy during server creation", () => {
     document.body.innerHTML = renderDashboard({
       session: { ...session, role: "owner" },

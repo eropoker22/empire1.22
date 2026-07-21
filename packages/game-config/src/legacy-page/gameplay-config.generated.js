@@ -6959,7 +6959,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "minRiskFactor": 1,
       "maxRiskFactor": 2.2,
       "rotationSeconds": 1800,
-      "offerCount": 5
+      "offerCount": 2
     },
     "playerMarket": {
       "listingLimitPerSeller": 5,

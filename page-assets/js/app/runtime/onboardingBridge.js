@@ -16,10 +16,12 @@ import {
   createOnboardingReadModel,
   resolveOnboardingMode
 } from "./onboardingReadModel.js";
+import { ONBOARDING_SANDBOX_MODE } from "./onboardingSandboxState.js";
 
-export const STORAGE_PREFIX = "empire:onboarding:demo-v1";
+export const STORAGE_PREFIX = "empire:onboarding:v2";
 const LEGACY_STORAGE_PREFIXES = Object.freeze([
-  "empire:onboarding:v1"
+  "empire:onboarding:v1",
+  "empire:onboarding:demo-v1"
 ]);
 const LEGACY_STORAGE_KEYS = Object.freeze([
   "empireStreets.freeSessionOnboarding.v1"
@@ -85,8 +87,8 @@ function isConfirmedTrapOnboardingTarget(detail = {}) {
 export function resolveOnboardingStorageKey(context = {}) {
   const safeContext = safeObject(context);
   const playerId = createOnboardingReadModel(safeContext).playerId;
-  const mode = resolveOnboardingMode({ ...safeContext, mode: "dev-only" });
-  return `${STORAGE_PREFIX}:${sanitizeKeyPart(mode, "dev-only")}:${sanitizeKeyPart(playerId, "dev-player")}`;
+  const mode = resolveOnboardingMode({ ...safeContext, mode: ONBOARDING_SANDBOX_MODE });
+  return `${STORAGE_PREFIX}:${sanitizeKeyPart(mode, ONBOARDING_SANDBOX_MODE)}:${sanitizeKeyPart(playerId, "player")}`;
 }
 
 function readStoredProgress(storage = null, key = "") {
@@ -298,7 +300,7 @@ export function createOnboardingBridge(deps = {}) {
 
   const getContext = () => ({
     ...(typeof deps.getContext === "function" ? safeObject(deps.getContext()) : {}),
-    mode: "dev-only",
+    mode: ONBOARDING_SANDBOX_MODE,
     progress
   });
 
@@ -406,6 +408,9 @@ export function createOnboardingBridge(deps = {}) {
       version: ONBOARDING_VERSION
     });
     persist();
+    if (typeof deps.onStart === "function") {
+      deps.onStart(getContext());
+    }
     showPanel();
     render();
     return progress;
@@ -490,7 +495,7 @@ export function createOnboardingBridge(deps = {}) {
         update({ type: "city-feed:opened" });
         return;
       }
-      if (target.closest("[data-br-info-open]")) {
+      if (target.closest("[data-login-about-open]")) {
         update({ type: "elimination:opened" });
         return;
       }
@@ -525,6 +530,9 @@ export function createOnboardingBridge(deps = {}) {
   const init = () => {
     refreshReadModel();
     if (shouldAutoStartOnboarding(progress, readModel)) {
+      if (typeof deps.onStart === "function") {
+        deps.onStart(getContext());
+      }
       render();
     }
     bindEvents();

@@ -16,9 +16,13 @@ const FOCUSABLE_SELECTOR = [
 
 const SERVER_MILESTONE_CONTENT = Object.freeze({
   welcome: Object.freeze({
-    eyebrow: "VÍTEJ NA SERVERU",
     title: "Válka o město začíná",
-    lead: "Dostal jsi jeden district, pár lidí a jméno, které zatím nikdo nemusí respektovat.",
+    leadParagraphs: Object.freeze([
+      "Dostal jsi jeden district, pár lidí a nějaké materiály pro start.",
+      "V první hodině se můžeš ze serveru odhlásit.",
+      "Hra trvá cca 72h. První Očista začíná za 8h od konce registrace na server a pak přijde každé 4h.",
+      "Posledních 8 hráčů si to rozdá ve finální fázi, která se ukončí 12h od svého začátku. Hodně štěstí!"
+    ]),
     copy: "Získej informace. Rozjeď výrobu. Hlídej Heat a nevěř dohodě, která tě nic nestála. Každý server je samostatná válka a všechno, co vybuduješ, musíš také ubránit.",
     stats: Object.freeze([
       Object.freeze({ label: "Start", value: "1 district" }),
@@ -36,7 +40,7 @@ const SERVER_MILESTONE_CONTENT = Object.freeze({
     lead: "První Očista se spustí za 4 hodiny. Do té doby musíš městu dokázat, že nejsi nejslabší článek.",
     copy: "Buduj Empire score, zabírej území a nenech svoje impérium stát na místě. Odpočet není varování pro později. Je to čas, který už právě ztrácíš.",
     stats: Object.freeze([
-      Object.freeze({ label: "První Očista", value: "Za 4 hodiny" }),
+      Object.freeze({ key: "first-purge-countdown", label: "První Očista", value: "Za 4 hodiny" }),
       Object.freeze({ label: "Rozhoduje", value: "Stav impéria" }),
       Object.freeze({ label: "V sázce", value: "Tvoje místo" })
     ]),
@@ -52,7 +56,7 @@ const SERVER_MILESTONE_CONTENT = Object.freeze({
     copy: "Bezpečné tempo skončilo. Každý district, budova a rozhodnutí teď mění konečné pořadí. Diplomacie má cenu jen tehdy, když ti koupí čas na poslední úder.",
     stats: Object.freeze([
       Object.freeze({ label: "Zbývá hráčů", value: "8" }),
-      Object.freeze({ label: "Čas do konce", value: "12 hodin" }),
+      Object.freeze({ key: "final-lockdown-countdown", label: "Čas do konce", value: "12 hodin" }),
       Object.freeze({ label: "Fáze", value: "Final Lockdown" })
     ]),
     callout: "Na začátku buduješ. Uprostřed intrikuješ. Na konci bereš.",
@@ -110,9 +114,39 @@ export function shouldOpenFirstPurgeCard(gameplaySlice = {}) {
     && remainingTicks <= Math.ceil(FOUR_HOURS_MS / tickRateMs);
 }
 
+const resolveFirstPurgeDeadlineMs = (gameplaySlice = {}, nowMs = Date.now()) => {
+  const elimination = gameplaySlice.elimination || gameplaySlice.player?.elimination;
+  const remainingTicks = Number(elimination?.ticksUntilNextElimination);
+  const tickRateMs = Number(gameplaySlice.mode?.tickRateMs);
+  if (!Number.isFinite(remainingTicks) || remainingTicks < 0 || !Number.isFinite(tickRateMs) || tickRateMs <= 0) return null;
+  return nowMs + (remainingTicks * tickRateMs);
+};
+
+const resolveFinalLockdownDeadlineMs = (gameplaySlice = {}, nowMs = Date.now()) => {
+  const finalLockdown = gameplaySlice.player?.finalLockdown;
+  const tickRateMs = Number(gameplaySlice.mode?.tickRateMs);
+  const currentTick = Number(gameplaySlice.server?.currentTick);
+  const endsAtTick = Number(finalLockdown?.endsAtEstimatedTick);
+  if (Number.isFinite(tickRateMs) && tickRateMs > 0 && Number.isFinite(currentTick) && Number.isFinite(endsAtTick)) {
+    return nowMs + (Math.max(0, endsAtTick - currentTick) * tickRateMs);
+  }
+  const remainingActiveTicks = Number(finalLockdown?.remainingActiveTicks);
+  if (!Number.isFinite(tickRateMs) || tickRateMs <= 0 || !Number.isFinite(remainingActiveTicks) || remainingActiveTicks < 0) return null;
+  return nowMs + (remainingActiveTicks * tickRateMs);
+};
+
+const formatCountdown = (remainingMs) => {
+  const totalSeconds = Math.max(0, Math.ceil(Number(remainingMs) / 1000));
+  const hours = Math.floor(totalSeconds / 3_600);
+  const minutes = Math.floor((totalSeconds % 3_600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${hours} h ${minutes} min ${seconds} s`;
+};
+
 const createStatElement = (documentRef, stat) => {
   const element = documentRef.createElement("div");
   element.className = "server-milestone-card__stat";
+  if (stat?.key) element.dataset.serverMilestoneStat = String(stat.key);
   const label = documentRef.createElement("span");
   const value = documentRef.createElement("strong");
   label.textContent = String(stat?.label || "");
@@ -121,13 +155,22 @@ const createStatElement = (documentRef, stat) => {
   return element;
 };
 
+const createLeadElement = (documentRef, text) => {
+  const paragraph = documentRef.createElement("p");
+  paragraph.className = "server-milestone-card__lead-paragraph";
+  paragraph.textContent = String(text || "");
+  return paragraph;
+};
+
 const createRankingElement = (documentRef, entry, index) => {
   const item = documentRef.createElement("li");
   if (entry?.isCurrentPlayer) item.classList.add("is-current-player");
   const rank = documentRef.createElement("span");
   const name = documentRef.createElement("strong");
   const score = documentRef.createElement("em");
-  rank.textContent = String(Number(entry?.rank) || index + 1);
+  const resolvedRank = Number(entry?.rank) || index + 1;
+  item.classList.add(`is-rank-${resolvedRank}`);
+  rank.textContent = String(resolvedRank);
   name.textContent = String(entry?.playerName || `Hráč #${index + 1}`);
   score.textContent = formatScore(entry?.score);
   item.append(rank, name, score);
@@ -180,6 +223,36 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
   const payloads = new Map();
   let activeId = "";
   let initialFocus = null;
+  let countdownDeadlineMs = null;
+  let countdownStatKey = "";
+  let countdownTimer = null;
+
+  const stopCountdown = () => {
+    if (countdownTimer !== null) windowRef.clearInterval(countdownTimer);
+    countdownTimer = null;
+    countdownDeadlineMs = null;
+    countdownStatKey = "";
+  };
+
+  const refreshCountdown = () => {
+    if (!activeId || countdownDeadlineMs === null || !countdownStatKey) return;
+    const value = elements.stats.querySelector(`[data-server-milestone-stat="${countdownStatKey}"] strong`);
+    if (!value) return;
+    const remainingMs = Math.max(0, countdownDeadlineMs - Date.now());
+    value.textContent = formatCountdown(remainingMs);
+    if (remainingMs === 0) stopCountdown();
+  };
+
+  const startCountdown = (statKey, deadlineMs) => {
+    stopCountdown();
+    if (!Number.isFinite(deadlineMs)) return;
+    countdownStatKey = statKey;
+    countdownDeadlineMs = Number(deadlineMs);
+    refreshCountdown();
+    if (countdownDeadlineMs !== null) {
+      countdownTimer = windowRef.setInterval(refreshCountdown, 1_000);
+    }
+  };
 
   const publishFeedEntry = (id, payload = {}) => {
     const snapshot = createServerMilestoneFeedSnapshot(id, Date.now(), payload);
@@ -190,13 +263,18 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
   const render = (id, payload = {}) => {
     const content = SERVER_MILESTONE_CONTENT[id];
     if (!content) return false;
+    stopCountdown();
     const ranking = Array.isArray(payload.ranking) ? payload.ranking.slice(0, 3) : [];
     const stats = Array.isArray(payload.stats) && payload.stats.length ? payload.stats : content.stats;
     activeId = id;
     modal.dataset.serverMilestone = id;
-    elements.eyebrow.textContent = content.eyebrow;
+    elements.eyebrow.textContent = content.eyebrow || "";
+    elements.eyebrow.hidden = !content.eyebrow;
     elements.title.textContent = content.title;
-    elements.lead.textContent = payload.lead || content.lead;
+    const leadParagraphs = payload.lead
+      ? [payload.lead]
+      : content.leadParagraphs || [content.lead];
+    elements.lead.replaceChildren(...leadParagraphs.map((text) => createLeadElement(documentRef, text)));
     elements.copy.textContent = content.copy;
     elements.callout.textContent = content.callout;
     elements.confirm.textContent = content.confirm;
@@ -204,6 +282,8 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
     elements.stats.hidden = stats.length === 0;
     elements.rankingList.replaceChildren(...ranking.map((entry, index) => createRankingElement(documentRef, entry, index)));
     elements.ranking.hidden = ranking.length === 0;
+    if (id === "first-purge") startCountdown("first-purge-countdown", payload.firstPurgeDeadlineMs);
+    if (id === "lockdown") startCountdown("final-lockdown-countdown", payload.finalLockdownDeadlineMs);
     return true;
   };
 
@@ -222,6 +302,7 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
 
   const close = () => {
     if (modal.hidden) return;
+    stopCountdown();
     modal.hidden = true;
     closeOverlay(modal, { restoreFocus: false });
     activeId = "";
@@ -243,9 +324,18 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
 
   const handleGameplaySlice = (gameplaySlice = {}) => {
     const serverInstanceId = String(gameplaySlice.server?.serverInstanceId || gameplaySlice.player?.instanceId || "");
+    const firstPurgeDeadlineMs = resolveFirstPurgeDeadlineMs(gameplaySlice);
+    const finalLockdownDeadlineMs = resolveFinalLockdownDeadlineMs(gameplaySlice);
+    if (activeId === "first-purge" && firstPurgeDeadlineMs !== null) {
+      startCountdown("first-purge-countdown", firstPurgeDeadlineMs);
+    }
+    if (activeId === "lockdown" && finalLockdownDeadlineMs !== null) {
+      startCountdown("final-lockdown-countdown", finalLockdownDeadlineMs);
+    }
     if (!serverInstanceId || !modal.hidden) return false;
     if (announce("welcome", serverInstanceId)) return true;
-    if (shouldOpenFirstPurgeCard(gameplaySlice) && announce("first-purge", serverInstanceId)) return true;
+    if (shouldOpenFirstPurgeCard(gameplaySlice)
+      && announce("first-purge", serverInstanceId, { firstPurgeDeadlineMs })) return true;
 
     const elimination = gameplaySlice.elimination || gameplaySlice.player?.elimination;
     const finalLockdown = gameplaySlice.player?.finalLockdown;
@@ -255,7 +345,8 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
     const lockdownActive = Boolean(finalLockdown?.enabled && (finalLockdown.active || status === "active" || status === "paused"));
     const finalEightReached = !Number.isFinite(activePlayersRemaining) || activePlayersRemaining <= 8;
 
-    if (lockdownActive && finalEightReached && announce("lockdown", serverInstanceId, { ranking })) return true;
+    if (lockdownActive && finalEightReached
+      && announce("lockdown", serverInstanceId, { ranking, finalLockdownDeadlineMs })) return true;
     if (finalLockdown?.enabled && status === "resolved" && ranking.length >= 3) {
       const rank = Number(finalLockdown.currentPlayerRank);
       const lead = Number.isFinite(rank)

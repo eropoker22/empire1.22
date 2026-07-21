@@ -73,7 +73,7 @@ describe("market stock view model adapters", () => {
       },
       economy: { cleanMoney: 100 },
       gangState: { heat: 2 },
-      refreshCountdownSeconds: 30,
+      refreshAtCityTime: "11:00",
       normalizeMarketTransactions: (transactions) => transactions,
       getStockAmount: () => 4,
       formatPrice: (value) => `${value}$`
@@ -85,7 +85,7 @@ describe("market stock view model adapters", () => {
       stockSummary: "4 ks",
       economy: { cleanMoney: 100 },
       gangState: { heat: 2 },
-      refreshCountdownSeconds: 30,
+      refreshAtCityTime: "11:00",
       recentTransactions: [{ id: "tx-1" }]
     });
   });

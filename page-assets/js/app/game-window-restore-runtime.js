@@ -96,12 +96,6 @@ export const GAME_WINDOW_RESTORE_DEFINITIONS = Object.freeze([
     windowSelector: "#faction-actions-modal"
   },
   {
-    id: "battle-royale-info",
-    openSelector: "[data-br-info-open]",
-    closeSelector: "[data-br-info-close], [data-nav-logout]",
-    windowSelector: "#battle-royale-info-modal"
-  },
-  {
     id: "elimination-ai",
     openSelector: "[data-elimination-ai-panel-open]",
     closeSelector: "[data-elimination-ai-panel-close], [data-nav-logout]",

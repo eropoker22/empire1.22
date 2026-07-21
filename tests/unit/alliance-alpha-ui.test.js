@@ -238,6 +238,7 @@ describe("alliance alpha UI", () => {
     expect(runtime).toContain("server-chat-panel alliance-chat--modal");
     expect(runtime).toContain("server-chat-panel__send server-chat-panel__send--arrow");
     expect(runtime).toContain('data-alliance-chat-send aria-label="Odeslat zprávu"');
+    expect(runtime).toContain('target.hasAttribute("data-global-chat-input")');
     expect(css).toContain(".alliance-chat__visibility");
     expect(css).toContain(".alliance-chat--modal .alliance-chat__item");
     expect(css).toContain(".alliance-chat--modal .server-chat-panel__send--arrow");

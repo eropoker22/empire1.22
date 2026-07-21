@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="../page-assets/css/styles-closed-alpha-ux.css">
     <link rel="stylesheet" href="../page-assets/css/styles-game-lobby-modal.css?v=lobby-actions-20260717">
     <link rel="stylesheet" href="../page-assets/css/styles-server-milestone-cards.css?v=server-milestones-20260719">
+    <link rel="stylesheet" href="../page-assets/css/styles-login-about.css">
+    <link rel="stylesheet" href="../page-assets/css/styles-game-about.css">
   </head>
   <body class="game-body game-body--booting">
     <header id="game-header" class="game-topbar">
@@ -139,9 +141,6 @@
                 </span>
                 <span class="leaderboard-button__label">Leaderboard</span>
               </button>
-              <button id="onboarding-launch-button" type="button" class="button onboarding-launch-button" data-onboarding-launch aria-label="Spustit onboarding" title="Onboarding">
-                <span class="onboarding-launch-button__glyph" aria-hidden="true">O</span>
-              </button>
             </div>
           </div>
         </aside>
@@ -155,25 +154,11 @@
                 <div class="map-stage-actions map-stage-actions--desktop" aria-label="Map quick actions desktop">
                   <button
                     type="button"
-                    class="button city-events-target-btn map-bounty-shortcut map-bounty-shortcut--desktop"
-                    data-bounty-open-trigger
-                    aria-label="Otevřít bounty panel"
-                    title="Bounty"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                      <circle cx="12" cy="12" r="7"></circle>
-                      <circle cx="12" cy="12" r="3.2"></circle>
-                      <path d="M5.5 5.5L12 12"></path>
-                      <path d="M5.5 5.5H9.2"></path>
-                      <path d="M5.5 5.5V9.2"></path>
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
                     class="button map-faction-action-btn map-faction-action-btn--desktop"
                     data-faction-actions-open-trigger
                     aria-label="Frakční akce"
                     title="Frakční akce"
+                    hidden
                   >
                     <span aria-hidden="true">F</span>
                   </button>
@@ -184,10 +169,19 @@
               </div>
               <div class="map-phase-toolbar" aria-label="Phase switch">
                 <button type="button" class="button map-phase-button" data-game-phase-toggle hidden aria-hidden="true" disabled>Fáze hry: LIVE</button>
-                <button type="button" class="button map-phase-info-button" data-br-info-open aria-label="Info o Battle Royale" title="Info o Battle Royale">
-                  <span aria-hidden="true">i</span>
+                <button type="button" class="button city-events-target-btn map-bounty-shortcut map-bounty-shortcut--phase" data-bounty-open-trigger aria-label="Otevřít bounty panel" title="Bounty">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <circle cx="12" cy="12" r="7"></circle>
+                    <circle cx="12" cy="12" r="3.2"></circle>
+                    <path d="M5.5 5.5L12 12"></path>
+                    <path d="M5.5 5.5H9.2"></path>
+                    <path d="M5.5 5.5V9.2"></path>
+                  </svg>
                 </button>
                 <button type="button" class="button map-phase-button" data-border-toggle>HRANY</button>
+                <button type="button" class="button map-phase-info-button" data-login-about-open aria-label="O hře" title="O hře">
+                  <span aria-hidden="true">i</span>
+                </button>
               </div>
             </div>
             <div id="game-map-mount" class="mount-point mount-point--map" data-mount-role="map">
@@ -251,25 +245,11 @@
             <div class="map-stage-actions map-stage-actions--mobile" aria-label="Map quick actions">
               <button
                 type="button"
-                class="button city-events-target-btn map-bounty-shortcut"
-                data-bounty-open-trigger
-                aria-label="Otevřít bounty panel"
-                title="Bounty"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <circle cx="12" cy="12" r="7"></circle>
-                  <circle cx="12" cy="12" r="3.2"></circle>
-                  <path d="M5.5 5.5L12 12"></path>
-                  <path d="M5.5 5.5H9.2"></path>
-                  <path d="M5.5 5.5V9.2"></path>
-                </svg>
-              </button>
-              <button
-                type="button"
                 class="button map-faction-action-btn"
                 data-faction-actions-open-trigger
                 aria-label="Frakční akce"
                 title="Frakční akce"
+                hidden
               >
                 <span aria-hidden="true">F</span>
               </button>
@@ -1736,54 +1716,73 @@
         </div>
       </div>
 
-      <div id="battle-royale-info-modal" class="modal hidden battle-royale-info-modal">
-        <div id="battle-royale-info-modal-backdrop" class="modal__backdrop" data-br-info-close></div>
-        <div class="modal__content battle-royale-info-modal__content" role="dialog" aria-modal="true" aria-labelledby="battle-royale-info-modal-title">
-          <div class="modal__header battle-royale-info-modal__header">
+      <div class="login-about-overlay login-about-overlay--encyclopedia" data-login-about-overlay data-about-tone="overview" hidden>
+        <div class="login-about-backdrop" data-login-about-close></div>
+        <section class="login-about-dialog login-about-encyclopedia" role="dialog" aria-modal="true" aria-labelledby="game-about-title" tabindex="-1">
+          <header class="login-about-terminal-header">
             <div>
-              <div class="battle-royale-info-modal__eyebrow">Battle Royale briefing</div>
-              <h3 id="battle-royale-info-modal-title">Fáze, spawn a eliminace</h3>
+              <h2 id="game-about-title"><span>EMPIRE STREETS</span><small>/ O HŘE</small></h2>
+              <p>VYBER TAH. POCHOP RIZIKO. VEZMI SI MĚSTO.</p>
             </div>
-            <button class="modal__close" id="battle-royale-info-modal-close" type="button" data-br-info-close aria-label="Zavřít">×</button>
+            <button type="button" class="login-about-close" data-login-about-close aria-label="Zavřít okno O hře">✕</button>
+          </header>
+          <div class="login-about-hero-copy">
+            <p>Začínáš s jedním district-em. Klikni na mechaniku a zjisti, jak ji použít proti ostatním gangům.</p>
+            <p>Vydělávej, vyráběj, špehuj a útoč. Každý panel ti ukáže, co udělat, co ti pomůže a co můžeš ztratit.</p>
           </div>
-          <div class="modal__body battle-royale-info-modal__body">
-            <div class="battle-royale-info-modal__lead">
-              Server startuje jako několikadenní válka pro 20 hráčů. Mapa se postupně čistí eliminacemi, ale noční okno drží tempo férové.
-            </div>
-            <div class="battle-royale-info-modal__grid" aria-label="Pravidla Battle Royale">
-              <div class="battle-royale-info-modal__item">
-                <span>01</span>
-                <strong>20 hráčů</strong>
-                <p>Každý server spawne maximálně dvacet hráčů do jedné mapy.</p>
-              </div>
-              <div class="battle-royale-info-modal__item">
-                <span>02</span>
-                <strong>Spawn hrany</strong>
-                <p>Start je povolený jen na levém, pravém nebo spodním okraji mapy.</p>
-              </div>
-              <div class="battle-royale-info-modal__item">
-                <span>03</span>
-                <strong>První eliminace po 8h</strong>
-                <p>První eliminační fáze přijde osm hodin po startu serveru.</p>
-              </div>
-              <div class="battle-royale-info-modal__item">
-                <span>04</span>
-                <strong>Další po 4h</strong>
-                <p>Po první eliminaci se další vlna spouští každé čtyři hodiny.</p>
-              </div>
-              <div class="battle-royale-info-modal__item battle-royale-info-modal__item--wide">
-                <span>05</span>
-                <strong>Noční klid 00:00-06:00</strong>
-                <p>Mezi půlnocí a šestou ráno Europe/Bratislava eliminace neběží. Zmeškané řezy se nestackují; v 06:00 proběhne maximálně jeden.</p>
-              </div>
-              <div class="battle-royale-info-modal__item battle-royale-info-modal__item--wide">
-                <span>06</span>
-                <strong>Stop při 8 hráčích</strong>
-                <p>Eliminace skončily. Posledních 8 hráčů bojuje o město.</p>
-              </div>
-            </div>
+          <div class="login-about-mobile-nav">
+            <label for="game-about-section-select">Databáze mechanik</label>
+            <select id="game-about-section-select" data-login-about-select aria-label="Vyber mechaniku O hře"></select>
           </div>
-        </div>
+          <div class="login-about-workspace">
+            <nav class="login-about-navigation" aria-label="Mechaniky Empire Streets">
+              <div class="login-about-navigation__label">Vyber herní mechaniku</div>
+              <div class="login-about-tablist" data-login-about-tabs role="tablist" aria-orientation="vertical"></div>
+            </nav>
+            <main class="login-about-content" data-login-about-content>
+              <div class="login-about-panels" data-login-about-panels></div>
+            </main>
+          </div>
+          <footer class="login-about-terminal-footer">
+            <span>TVŮJ GANG // TVOJE ROZHODNUTÍ // TVOJE NÁSLEDKY</span>
+            <span>ŠIPKY: VYBER MECHANIKU · ESC: ZAVŘÍT</span>
+          </footer>
+          <template data-login-about-legacy-story>
+            <section class="login-about-story" aria-label="Příběh města">
+              <div class="login-about-story__heading"><span>PŮVODNÍ ARCHIV</span><h4>Příběh města</h4></div>
+              <div class="login-about-story__copy">
+                <p class="login-about-lead">Neon se odráží v mokrém asfaltu, sirény kvílí mezi mrakodrapy a za každým oknem sedí někdo, kdo něco ví, něco tají nebo čeká, až uděláš chybu. Tohle je Empire <span class="login-about-gold">Streets</span> — temná gangsterská strategie, kde se z jednoho kusu území může stát impérium… nebo hrob.</p>
+                <p>Začínáš dole. Malý gang. První distrikt. Špinavé peníze v kapse a město plné lidí, kteří si myslí, že ulice patří jim.</p>
+                <p><strong>Nepatří.</strong></p>
+                <p>Ve hře proti sobě stojí až 20 hráčů na jedné mapě plné districtů, kde každý tah mění rovnováhu sil. Každý distrikt má svůj význam. Některé vydělávají čistý cash, jiné produkují suroviny, další ti dávají vliv, populaci, obranu nebo přístup k nebezpečnějším akcím. Město je rozdělené na různé typy území — obchodní čtvrti, rezidenční zóny, průmyslové bloky, parky a nebezpečný Downtown, kde se moc koncentruje rychleji než krev na chodníku.</p>
+                <p>Vybereš si frakci a s ní styl, jakým budeš město ovládat.</p>
+                <p>Mafie spoléhá na respekt, vliv a stará pravidla ulice.<br>Kartel tlačí přes špinavé peníze, obchod a tvrdou expanzi.<br>Hackeři využívají technologii, informace, kamery a alarmy.<br>Kult pracuje se strachem, poslušností a fanatickou vírou.<br>Motorkářský gang sází na rychlost, brutalitu a kratší cooldowny.<br>Korporace nevypadá jako gang — a právě proto je nebezpečná.<br>Tajná organizace hraje ve stínech a málokdy nechává stopy.<br>Soukromá armáda nevyjednává. Přijde, obsadí, zničí.</p>
+                <p>Každá frakce má vlastní identitu, výhody i slabiny. Není tu jedna správná cesta. Jen ta, kterou přežiješ.</p>
+                <p>Základní pravidlo je jednoduché: bez informací jsi mrtvý.</p>
+                <p>Proto posíláš špehy. Zjišťuješ, kdo drží okolní distrikty, kde je slabina a kde se může skrývat příležitost. Úspěšné špehování ti může otevřít cestu k obsazení nebo útoku. Neúspěch tě zpomalí, prozradí, nebo tě nechá slepého přesně ve chvíli, kdy někdo jiný ostří nůž.</p>
+                <p>Prázdné distrikty můžeš vykrádat, abys získal materiál a zdroje. Po úspěšném průzkumu je můžeš obsadit a rozšířit svoje území. Nepřátelské distrikty můžeš napadat, ničit jejich obranu, přebírat území nebo zanechat za sebou jen kouř a varování pro ostatní.</p>
+                <p>Jenže každá akce něco stojí.</p>
+                <p>Ve městě pracuješ se zdroji jako Clean Cash, Dirty Cash, Influence, Heat a Population. Špinavé peníze musíš očistit, aby se daly bezpečně použít. Vliv ti otevírá možnosti, které samotné peníze nekoupí. Populace je tvoje síla v ulicích. A Heat?</p>
+                <p>Heat je problém, který roste potichu.</p>
+                <p>Čím víc kradeš, útočíš, vyrábíš a rozšiřuješ impérium, tím víc si tě všímá policie. Nejdřív jsou to jen hlášení. Pak podezření. Pak razie. A nakonec zjistíš, že sirény nejsou zvuk města — jsou odpočet.</p>
+                <p>Policie může zabavit zásoby, narušit tvoje plány a přinutit tě zpomalit přesně ve chvíli, kdy se ostatní derou dopředu. Kdo ignoruje Heat, ten dřív nebo později pozná, že město má vlastní zákony. A ty zákony se většinou píšou obuškem.</p>
+                <p>Svoje území musíš bránit. Stavíš obranu, posiluješ distrikty, používáš kamery, alarmy, barikády a další vybavení. Můžeš nastražit past, která čeká ve tmě na prvního idiota, který si myslí, že tvoje hranice jsou jen čára na mapě.</p>
+                <p>Vedle toho rozjíždíš produkci. Lékárny, zbrojovky, továrny a další budovy drží tvoje impérium při životě. Vyrábíš materiály, posiluješ výzbroj, připravuješ zásoby a buduješ zázemí, bez kterého žádný gang dlouho nevydrží. Ulice se neovládají jen zbraněmi. Ovládají se logistikou, penězi a tím, kdo vydrží déle, když ostatní začnou krvácet.</p>
+                <p>Město navíc mluví.</p>
+                <p>Drby, podezření a útržky informací se šíří podniky, kluby, restauracemi i temnými rohy mapy. Ne všechno je pravda. Ne všechno je lež. City feed ti napoví, kde se něco děje, kdo přitahuje pozornost, kde roste tlak a kde může být příležitost. Ale přesná pravda? Tu si musíš vybojovat špehem, akcí nebo rizikem.</p>
+                <p>Můžeš hrát sám. Nebo vstoupit do aliance.</p>
+                <p>Aliance ti může dát sílu, ochranu a prostor k přežití. Ale důvěra je v Empire <span class="login-about-gold">Streets</span> jen slovo, které zní dobře do chvíle, než někdo zjistí, že tě může prodat levněji, než tě chránit. Spojenci můžou držet hranice. Můžou tě zachránit. Můžou tě taky zavřít v pasti, ze které už nevede žádná čistá cesta ven.</p>
+                <p>Čas běží. Slabí odpadají. Neaktivní mizí. Město se zužuje. Tlak roste.</p>
+                <p>A pak přijde Final Lockdown.</p>
+                <p>Ulice se zavřou. Výmluvy skončí. Zůstane jen to, co jsi vybudoval, ukradl, ubránil a přežil. Vliv, cash, distrikty, obrana, pasti, spojenci, nepřátelé a poslední rozhodnutí, které oddělí vládce města od dalšího jména v policejním hlášení.</p>
+                <p>Empire <span class="login-about-gold">Streets</span> není hra o spravedlnosti.</p>
+                <p>Je to boj o moc v neonovém městě, kde každý distrikt něco vydělává, každý soused může být hrozba a každá chyba se dřív nebo později vrátí s úroky.</p>
+                <p>Vyber frakci. Vezmi si ulice. Vybuduj impérium.</p>
+                <p class="login-about-final">A hlavně nezapomeň:<br><strong>Město sleduje každý tvůj krok.</strong></p>
+              </div>
+            </section>
+          </template>
+        </section>
       </div>
 
       <div id="bounty-modal" class="modal hidden bounty-board-modal">
@@ -2013,19 +2012,8 @@
       <div id="faction-actions-modal" class="modal hidden faction-actions-modal">
         <div id="faction-actions-modal-backdrop" class="modal__backdrop"></div>
         <div class="modal__content modal__content--profile faction-actions-modal__content">
-          <div class="modal__header faction-actions-modal__header">
-            <div>
-              <div class="faction-actions-modal__eyebrow">FRAKČNÍ PROFIL</div>
-              <h3>Frakční efekty</h3>
-            </div>
-            <button class="modal__close" id="faction-actions-modal-close" aria-label="Zavřít">✕</button>
-          </div>
           <div class="modal__body faction-actions-modal__body">
-            <div class="faction-actions-modal__intro">
-              Aktivní pasivní efekty tvé frakce se aplikují automaticky v herním jádru.
-            </div>
-            <div id="faction-actions-modal-grid" class="faction-actions-modal__grid"></div>
-            <div id="faction-actions-modal-status" class="faction-actions-modal__status">Načítám aktivní frakční efekty.</div>
+            <p class="faction-actions-modal__notice">Speciální schopnosti frakce se zatím připravují</p>
           </div>
         </div>
       </div>
@@ -2211,30 +2199,24 @@
       <div class="server-milestone-modal__backdrop" data-server-milestone-close></div>
       <section class="server-milestone-card" role="dialog" aria-modal="true" aria-labelledby="server-milestone-title" aria-describedby="server-milestone-lead" tabindex="-1">
         <div class="server-milestone-card__scanlines" aria-hidden="true"></div>
-        <header class="server-milestone-card__header">
-          <div class="server-milestone-card__signal" aria-hidden="true">
-            <span></span><span></span><span></span>
-          </div>
-          <span class="server-milestone-card__terminal">EMPIRE // SERVEROVÉ HLÁŠENÍ</span>
-          <button type="button" class="button server-milestone-card__close" data-server-milestone-close aria-label="Zavřít serverové hlášení">×</button>
-        </header>
+        <button type="button" class="button server-milestone-card__close" data-server-milestone-close aria-label="Zavřít serverové hlášení">×</button>
         <div class="server-milestone-card__content">
           <div class="server-milestone-card__main">
             <span class="server-milestone-card__eyebrow" data-server-milestone-eyebrow>VÍTEJ NA SERVERU</span>
             <h2 id="server-milestone-title" data-server-milestone-title>Válka o město začíná</h2>
-            <p id="server-milestone-lead" class="server-milestone-card__lead" data-server-milestone-lead></p>
+            <div id="server-milestone-lead" class="server-milestone-card__lead" data-server-milestone-lead></div>
             <p class="server-milestone-card__copy" data-server-milestone-copy></p>
             <div class="server-milestone-card__stats" data-server-milestone-stats></div>
             <div class="server-milestone-card__ranking" data-server-milestone-ranking hidden>
               <span class="server-milestone-card__section-label">PRVNÍ TŘI MÍSTA</span>
               <ol data-server-milestone-ranking-list></ol>
             </div>
-            <blockquote class="server-milestone-card__callout" data-server-milestone-callout></blockquote>
+            <div class="server-milestone-card__callout-row">
+              <blockquote class="server-milestone-card__callout" data-server-milestone-callout></blockquote>
+              <button type="button" class="button server-milestone-card__confirm" data-server-milestone-confirm>Pokračovat</button>
+            </div>
           </div>
         </div>
-        <footer class="server-milestone-card__footer">
-          <button type="button" class="button server-milestone-card__confirm" data-server-milestone-confirm>Pokračovat</button>
-        </footer>
       </section>
     </div>
     <div class="elimination-countdown-warning" data-elimination-countdown-warning hidden aria-live="polite" aria-atomic="true">
@@ -2259,7 +2241,7 @@
     <script type="module" src="../page-assets/js/app/alliance-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/bounty-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/faction-actions-runtime.js"></script>
-    <script type="module" src="../page-assets/js/app/battle-royale-info-runtime.js"></script>
+    <script type="module" src="../page-assets/js/app/game-about-modal-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/boost-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/game-window-restore-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/mobile-layout-runtime.js"></script>

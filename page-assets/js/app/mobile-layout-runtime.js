@@ -246,21 +246,22 @@ function initMobileLeaderboardPlacement(windowObj = window, documentObj = docume
     if (media.matches) {
       if (allianceChatCard) {
         if (streetNewsAnchor) {
-          moveElementAfterAnchor(streetNewsAnchor, allianceChatCard);
+          moveElementAfterAnchor(streetNewsAnchor, leaderboardBlock);
         }
-        moveElementAfterAnchor(allianceChatCard, globalChatCard);
-        moveElementAfterAnchor(globalChatCard, leaderboardBlock);
+        moveElementAfterAnchor(leaderboardBlock, globalChatCard);
+        moveElementAfterAnchor(globalChatCard, allianceChatCard);
         return;
       }
-      moveElementAfterAnchor(globalChatCard, leaderboardBlock);
+      moveElementAfterAnchor(streetNewsAnchor, leaderboardBlock);
+      moveElementAfterAnchor(leaderboardBlock, globalChatCard);
       return;
     }
 
     if (allianceChatCard) {
-      moveElementAfterAnchor(allianceChatAnchor, allianceChatCard);
+      moveElementAfterAnchor(leaderboardAnchor, allianceChatCard);
     }
     moveElementAfterAnchor(globalChatAnchor, globalChatCard);
-    moveElementAfterAnchor(leaderboardAnchor, leaderboardBlock);
+    moveElementAfterAnchor(allianceChatAnchor, leaderboardBlock);
   };
 
   applyPlacement();

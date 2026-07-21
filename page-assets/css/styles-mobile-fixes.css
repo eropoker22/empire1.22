@@ -1029,9 +1029,8 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
 
   .leaderboard-launch-row {
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) 30px !important;
-    grid-auto-flow: column !important;
-    grid-auto-columns: auto !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-auto-flow: row !important;
     align-items: stretch !important;
     gap: 6px !important;
     width: 100% !important;
@@ -1048,15 +1047,6 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     margin-top: 0 !important;
     padding-inline: 8px !important;
     gap: 5px !important;
-  }
-
-  .leaderboard-launch-row #onboarding-launch-button {
-    grid-column: auto !important;
-    justify-self: end !important;
-    align-self: stretch !important;
-    width: 30px !important;
-    min-width: 30px !important;
-    min-height: 30px !important;
   }
 
   #building-shortcut-grid {
@@ -5742,6 +5732,15 @@ html body .storage-popup-heading > .storage-popup-close::before {
 
 /* Final hard override: mobile faction action modal stays centered vertically. */
 @media (max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body.game-modal-scroll-locked:has(#faction-actions-modal.faction-actions-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(#faction-actions-modal.faction-actions-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(#faction-actions-modal.faction-actions-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    z-index: 24050 !important;
+  }
+
   html body.game-modal-scroll-locked #faction-actions-modal.faction-actions-modal:not(.hidden):not([hidden]) {
     position: fixed !important;
     inset: 0 !important;

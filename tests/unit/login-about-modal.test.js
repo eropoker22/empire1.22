@@ -7,6 +7,7 @@ import { ABOUT_GAME_FACTS, ABOUT_GAME_SECTIONS } from "../../page-assets/js/data
 import { bindLoginAboutModal } from "../../page-assets/js/app/login-about-modal.js";
 
 const pageSource = readFileSync(resolve(process.cwd(), "pages/login.html"), "utf8");
+const gamePageSource = readFileSync(resolve(process.cwd(), "pages/game.html"), "utf8");
 const liveSource = readFileSync(resolve(process.cwd(), "page-assets/js/login-live.js"), "utf8");
 const demoSource = readFileSync(resolve(process.cwd(), "page-assets/js/login.js"), "utf8");
 const entrySource = readFileSync(resolve(process.cwd(), "page-assets/js/login-entry.js"), "utf8");
@@ -44,6 +45,9 @@ describe("login about encyclopedia", () => {
     expect(demoSource).toContain('from "./app/login-about-modal.js"');
     expect(liveSource).toContain("bindLoginAboutModal();");
     expect(demoSource).toContain("bindLoginAboutModal();");
+    expect(gamePageSource).toContain('data-login-about-open');
+    expect(gamePageSource).toContain('data-login-about-overlay');
+    expect(gamePageSource).toContain('src="../page-assets/js/app/game-about-modal-runtime.js"');
   });
 
   it("uses public server facts and honest planned statuses", () => {

@@ -63,6 +63,7 @@ export const MARKET_TAB_CONFIG = {
     sellMultiplier: 0.35,
     variance: 0.22,
     items: createBrowserMarketItems(MARKET_CONFIG.blackMarketResourceIds)
+      .slice(0, MARKET_CONFIG.blackMarket.offerCount)
   },
   "player-market": {
     label: "Hráčský bazar",

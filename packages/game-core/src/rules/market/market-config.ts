@@ -140,7 +140,7 @@ export const marketConfig = Object.freeze({
     minRiskFactor: 1,
     maxRiskFactor: 2.2,
     rotationSeconds: 30 * 60,
-    offerCount: 5
+    offerCount: 2
   }),
   shoppingMallBonus: Object.freeze({
     buildingTypeId: "shopping_mall",

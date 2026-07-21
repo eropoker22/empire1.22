@@ -9,34 +9,6 @@ export const MARKET_PLAYER_DEMO_SELLERS = Object.freeze([
 export const DEV_ONLY_DESTROYED_DISTRICT_ID = 8;
 export const DEV_ONLY_SPY_FULL_SUCCESS_CHANCE = 0.99;
 
-export const DEV_ONLY_ONBOARDING_START_STATE = Object.freeze({
-  economy: Object.freeze({
-    cleanMoney: 0,
-    dirtyMoney: 0
-  }),
-  gang: Object.freeze({
-    members: 0,
-    influence: 0,
-    heat: 0,
-    alliance: null
-  }),
-  allianceBoard: Object.freeze({
-    activeAlliance: null,
-    allianceBadgesByPlayerId: Object.freeze({}),
-    publicAlliances: Object.freeze([]),
-    incomingInvites: Object.freeze([]),
-    eligibleInviteTargets: Object.freeze([]),
-    canCreateAlliance: false,
-    createDisabledReason: "ONBOARDING_NO_ALLIANCE",
-    disableDevOnlyActiveAlliance: true
-  }),
-  world: Object.freeze({
-    ownedDistrictIds: Object.freeze([1]),
-    gamePhase: "launch"
-  }),
-  storageAmount: 0
-});
-
 export const START_PHASE_RESOURCE_SIMULATION = Object.freeze({
   cleanPerMinuteByDistrictType: Object.freeze({
     resident: 500 / 60,

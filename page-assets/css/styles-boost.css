@@ -303,6 +303,16 @@
   padding: 28px 18px 30px;
 }
 
+.faction-actions-modal__notice {
+  margin: 0;
+  color: #dcfce7;
+  font-size: 14px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-shadow: 0 0 12px rgba(74, 222, 128, 0.46);
+}
+
 .faction-actions-modal__intro,
 .faction-actions-modal__status {
   display: none;

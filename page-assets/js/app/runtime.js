@@ -61,8 +61,8 @@ import {
   resolveSpyScenario
 } from "../../../packages/game-core/src/legacy-page/spy-preview-rules.js";
 import {
-  getAuthoritySession,
-  updateStoredPreviewSession
+  getAuthoritySession as getPersistedAuthoritySession,
+  updateStoredPreviewSession as updatePersistedPreviewSession
 } from "./model/authority-state.js";
 import {
   clearAccountIdentity,
@@ -93,7 +93,6 @@ import {
   CURRENT_PLAYER_ID,
   DEMO_SCENARIOS,
   DEV_ONLY_DESTROYED_DISTRICT_ID,
-  DEV_ONLY_ONBOARDING_START_STATE,
   DEV_ONLY_SPY_FULL_SUCCESS_CHANCE,
   LAUNCH_PLAYER_AVATAR_BY_FACTION_ID,
   LAUNCH_PLAYER_FACTION_ORDER,
@@ -103,6 +102,11 @@ import {
   START_PHASE_RESOURCE_SIMULATION,
   isDemoScenarioMode
 } from "./onboarding/demoScenarios.js";
+import {
+  ONBOARDING_SANDBOX_MODE,
+  ONBOARDING_SPY_CAPACITY,
+  createOnboardingSandboxSession
+} from "./runtime/onboardingSandboxState.js";
 import { bindLeaderboardPopup } from "./features/leaderboard.js";
 import { bindMapNavigation } from "./map-navigation.js";
 import { createMapCanvasAnimationRenderers } from "./map/mapCanvasAnimations.js";
@@ -201,9 +205,9 @@ import { buildMapMissionMarkersViewModel } from "./map/mapMissionMarkersViewMode
 import {
   applyMobilePerformanceMode,
   detectMobilePerformanceMode,
-  getCappedDevicePixelRatio,
   getPerformanceMetrics,
-  recordMapEffectRender
+  recordMapEffectRender,
+  resolveMapCanvasResolution
 } from "./performance/mobilePerformanceMode.js";
 import { getPoliceTierShortEffect, resolvePoliceOperationImpact } from "./police-raid-config.js";
 import { renderPoliceRaidImpactDetails } from "./police-raid-modal.js";
@@ -950,7 +954,7 @@ function hasValidatedServerGameplaySlice() {
 }
 
 function isServerAuthoritativeGameplayRuntimeReady() {
-  if (typeof document === "undefined" || !hasValidatedServerGameplaySlice()) {
+  if (isOnboardingSandboxActive() || typeof document === "undefined" || !hasValidatedServerGameplaySlice()) {
     return false;
   }
 
@@ -964,8 +968,6 @@ function isServerAuthoritativeGameplayRuntimeReady() {
 const spyMissionTimers = new Map();
 const ONBOARDING_ATTACK_TARGET_DISTRICT_ID = 1;
 const ONBOARDING_SPY_TARGET_DISTRICT_ID = 2;
-const ONBOARDING_TRAP_READY_TIMESTAMP = "2020-01-01T00:00:00.000Z";
-const LOCAL_ALLIANCE_KEY = "empire_local_alliance_state";
 const productionTimers = new Map();
 let policeActionResultLiveTimerId = null;
 let startPhaseResourceSimulationState = null;
@@ -984,12 +986,63 @@ const eliminationResultPopupsByRoot = new WeakMap();
 const eliminationCountdownWarningsByRoot = new WeakMap();
 const ELIMINATION_RESULT_POPUP_SELECTOR = "[data-elimination-result-popup]";
 let latestGameplaySliceReadModel = null;
+let onboardingSandboxSession = null;
+let onboardingSandboxTimerBaseline = null;
+
+function isOnboardingSandboxActive() {
+  return Boolean(onboardingSandboxSession);
+}
+
+function getAuthoritySession() {
+  return onboardingSandboxSession || getPersistedAuthoritySession();
+}
+
+function updateStoredPreviewSession(updater) {
+  if (!isOnboardingSandboxActive()) {
+    return updatePersistedPreviewSession(updater);
+  }
+
+  const nextSession = typeof updater === "function" ? updater(onboardingSandboxSession) : updater;
+  if (nextSession && typeof nextSession === "object") {
+    onboardingSandboxSession = nextSession;
+  }
+  return onboardingSandboxSession;
+}
+
+function captureOnboardingTimerBaseline() {
+  return new Map([
+    [attackMissionTimers, new Set(attackMissionTimers.keys())],
+    [occupyMissionTimers, new Set(occupyMissionTimers.keys())],
+    [robberyMissionTimers, new Set(robberyMissionTimers.keys())],
+    [spyMissionTimers, new Set(spyMissionTimers.keys())],
+    [productionTimers, new Set(productionTimers.keys())]
+  ]);
+}
+
+function clearOnboardingSandboxTimers() {
+  if (!(onboardingSandboxTimerBaseline instanceof Map)) {
+    return;
+  }
+  for (const [timers, originalIds] of onboardingSandboxTimerBaseline.entries()) {
+    for (const [timerKey, timerId] of timers.entries()) {
+      if (originalIds.has(timerKey)) {
+        continue;
+      }
+      window.clearTimeout?.(timerId);
+      timers.delete(timerKey);
+    }
+  }
+  onboardingSandboxTimerBaseline = null;
+}
 
 function getRuntimePerformanceDiagnostics() {
   return typeof window === "undefined" ? null : window.empireStreetsRuntimeDiagnostics || null;
 }
 
 function getCurrentGameplayExecutionMode() {
+  if (isOnboardingSandboxActive()) {
+    return GAMEPLAY_EXECUTION_MODES.localDemo;
+  }
   return getGameplayExecutionMode({
     diagnosticsMode: getRuntimePerformanceDiagnostics()?.getSummary?.().runtimeMode,
     serverReady: isServerAuthoritativeGameplayRuntimeReady(),
@@ -1002,6 +1055,9 @@ function isLocalDemoGameplayExecutionMode() {
 }
 
 function shouldRunLocalGameplayRuntime() {
+  if (isOnboardingSandboxActive()) {
+    return true;
+  }
   const diagnostics = getRuntimePerformanceDiagnostics();
   if (diagnostics?.shouldRunLocalTick) {
     return diagnostics.shouldRunLocalTick();
@@ -2021,7 +2077,7 @@ const {
   getResolvedMaterialInventory: getLegacyResolvedMaterialInventory,
   getResolvedProductionState,
   getResolvedSpyIntel,
-  getResolvedSpyState,
+  getResolvedSpyState: getLegacyResolvedSpyState,
   getSpyMissionExpiryTimestamp,
   getSpyMissionPhase,
   getStoredAttackOrders,
@@ -2059,6 +2115,19 @@ const {
   maxSpies: MAX_SPIES,
   updateStoredPreviewSession
 });
+
+function getResolvedSpyState() {
+  const state = getLegacyResolvedSpyState();
+  if (!isOnboardingSandboxActive()) {
+    return state;
+  }
+  const missions = Array.isArray(state?.missions) ? state.missions : [];
+  return {
+    ...state,
+    available: clamp(ONBOARDING_SPY_CAPACITY - missions.length, 0, ONBOARDING_SPY_CAPACITY),
+    missions
+  };
+}
 
 function getServerPlayerResourceBalances() {
   if (!isServerAuthoritativeGameplayRuntimeReady()) {
@@ -2228,12 +2297,6 @@ function getMarketPriceEntry(tabId, itemId) {
   return state.items[getMarketPriceKey(tabId, itemId)] || null;
 }
 
-function getMarketRefreshCountdownSeconds() {
-  const state = getResolvedMarketPriceState();
-  const ms = new Date(state.nextRefreshAt).getTime() - Date.now();
-  return Math.max(0, Math.ceil(ms / 1000));
-}
-
 function applyTopbarEconomy(root, { instant = false } = {}) {
   const displaySnapshot = getDisplayedResourceSnapshot();
   updateTopbarResources(displaySnapshot, {
@@ -2376,6 +2439,12 @@ function getResolvedWorldState() {
     districtGossipById: pruneDistrictGossipMap(world.districtGossipById),
     districtPoliceActionById: world.districtPoliceActionById && typeof world.districtPoliceActionById === "object"
       ? world.districtPoliceActionById
+      : {},
+    districtOwnerById: world.districtOwnerById && typeof world.districtOwnerById === "object"
+      ? world.districtOwnerById
+      : {},
+    ownerByDistrictId: world.ownerByDistrictId && typeof world.ownerByDistrictId === "object"
+      ? world.ownerByDistrictId
       : {},
     devOnlyScenarioDestroyedDistrictId: Number(world.devOnlyScenarioDestroyedDistrictId || 0) || null
   };
@@ -2716,7 +2785,8 @@ function setStoredGangState(payload) {
 
 function getResolvedGangState() {
   const storedState = getStoredGangState();
-  const members = clamp(Number.parseInt(String(storedState?.members ?? DEFAULT_GANG_MEMBERS), 10) || DEFAULT_GANG_MEMBERS, 0, 9999);
+  const parsedMembers = Number.parseInt(String(storedState?.members ?? DEFAULT_GANG_MEMBERS), 10);
+  const members = clamp(Number.isFinite(parsedMembers) ? parsedMembers : DEFAULT_GANG_MEMBERS, 0, 9999);
   const influence = Math.max(0, Number.parseInt(String(storedState?.influence ?? 0), 10) || 0);
   const heat = clamp(Number.parseInt(String(storedState?.heat ?? 0), 10) || 0, 0, 9999);
   const policeRaidProtectionUntil = Math.max(0, Number(storedState?.policeRaidProtectionUntil || 0) || 0);
@@ -3164,9 +3234,28 @@ function createOwnedDistrictPoliceRaidAlertPayload(district, policeAction) {
   return getResultPayloadBuilders().createOwnedDistrictPoliceRaidAlertPayload(district, policeAction);
 }
 
-function getCityMarketOfferSchedule(phaseState = getResolvedPhaseState()) {
-  const cityMinutes = ((Math.floor(Number(phaseState?.cityMinutes ?? DEFAULT_CITY_MINUTES)) % (24 * 60)) + (24 * 60)) % (24 * 60);
-  const cityDayIndex = Math.max(0, Math.floor(Number(phaseState?.cityDayIndex || 0)));
+function getResolvedMarketCityMinutes(phaseState = null) {
+  const dayNight = latestGameplaySliceReadModel?.player?.dayNight;
+  const hasAuthoritativeClock = dayNight?.gameHour !== undefined
+    && dayNight?.gameMinute !== undefined
+    && Number.isFinite(Number(dayNight.gameHour))
+    && Number.isFinite(Number(dayNight.gameMinute));
+  if (hasAuthoritativeClock) {
+    return (Math.floor(Number(dayNight.gameHour)) * 60) + Math.floor(Number(dayNight.gameMinute));
+  }
+
+  return Number(phaseState?.cityMinutes ?? getResolvedPhaseState()?.cityMinutes ?? DEFAULT_CITY_MINUTES);
+}
+
+function formatMarketCityTime(cityMinutes) {
+  const normalizedMinutes = ((Math.floor(Number(cityMinutes || 0)) % (24 * 60)) + (24 * 60)) % (24 * 60);
+  return `${String(Math.floor(normalizedMinutes / 60)).padStart(2, "0")}:${String(normalizedMinutes % 60).padStart(2, "0")}`;
+}
+
+function getCityMarketOfferSchedule(phaseState = null) {
+  const resolvedPhaseState = phaseState || getResolvedPhaseState();
+  const cityMinutes = ((Math.floor(getResolvedMarketCityMinutes(resolvedPhaseState)) % (24 * 60)) + (24 * 60)) % (24 * 60);
+  const cityDayIndex = Math.max(0, Math.floor(Number(resolvedPhaseState?.cityDayIndex || 0)));
   const isEveningOffer = cityMinutes >= CITY_MARKET_REFRESH_MINUTES[1] || cityMinutes < CITY_MARKET_REFRESH_MINUTES[0];
   const offerDayIndex = cityMinutes < CITY_MARKET_REFRESH_MINUTES[0] ? Math.max(0, cityDayIndex - 1) : cityDayIndex;
   const nextRefreshMinute = cityMinutes < CITY_MARKET_REFRESH_MINUTES[0]
@@ -3177,8 +3266,13 @@ function getCityMarketOfferSchedule(phaseState = getResolvedPhaseState()) {
 
   return {
     offerWindowId: `${offerDayIndex}:${isEveningOffer ? "evening" : "day"}`,
+    nextRefreshCityMinute: nextRefreshMinute % (24 * 60),
     refreshDelayMs: Math.max(250, (nextRefreshMinute - cityMinutes) * CITY_CLOCK_TICK_MS)
   };
+}
+
+function getMarketRefreshCityTimeLabel() {
+  return formatMarketCityTime(getCityMarketOfferSchedule().nextRefreshCityMinute);
 }
 
 function hashCityMarketOfferSeed(value) {
@@ -5175,22 +5269,6 @@ function createFactoryPlayerSupplyMap(rawValue = {}) {
   return createFactoryResourceMap(rawValue, true);
 }
 
-function createFixedInventoryAmountMap(template = {}, amount = 0) {
-  const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
-  return Object.keys(template || {}).reduce((accumulator, key) => {
-    accumulator[key] = safeAmount;
-    return accumulator;
-  }, {});
-}
-
-function createFixedFactorySupplyAmountMap(amount = 0) {
-  const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
-  return FACTORY_RESOURCE_KEYS.reduce((accumulator, key) => {
-    accumulator[key] = safeAmount;
-    return accumulator;
-  }, {});
-}
-
 function getFactorySlotBaseStorageCap(resourceKey) {
   return Math.max(1, Math.floor(Number(FACTORY_SLOT_STORAGE_CAPS?.[resourceKey] || FACTORY_SLOT_STORAGE_CAP)));
 }
@@ -5982,7 +6060,7 @@ const {
   getMarketListingTotal,
   getMarketMaxStock,
   getMarketMoneyLabel,
-  getMarketRefreshCountdownSeconds,
+  getMarketRefreshCityTimeLabel,
   getMarketServerScope,
   getMarketStockAmount,
   getMarketStockConfig,
@@ -6589,6 +6667,9 @@ function getDistrictEconomySnapshot(district) {
 }
 
 function isStartPhaseResourceSimulationActive(phaseState = getResolvedPhaseState()) {
+  if (isOnboardingSandboxActive()) {
+    return false;
+  }
   const gamePhase = normalizeRuntimeGamePhase(phaseState?.gamePhase);
   return gamePhase === "launch" || gamePhase === "live";
 }
@@ -9808,7 +9889,7 @@ function renderSpyResourceState(root, { animate = false, instant = false } = {})
   updateTopbarResources({
     ...displaySnapshot,
     spyAvailable: spyState.available,
-    maxSpies: MAX_SPIES,
+    maxSpies: isOnboardingSandboxActive() ? ONBOARDING_SPY_CAPACITY : MAX_SPIES,
     resourceMode
   }, {
     root,
@@ -10063,6 +10144,9 @@ function drawDistrictPolygonPath(context, polygon) {
 }
 
 function buildDistrictOwnerByIdFromGameplaySlice(gameplaySlice = latestGameplaySliceReadModel) {
+  if (isOnboardingSandboxActive()) {
+    return {};
+  }
   const ownership = {};
   for (const district of Array.isArray(gameplaySlice?.districts) ? gameplaySlice.districts : []) {
     const legacyDistrictId = Number(resolveLegacyDistrictId(district?.districtId));
@@ -10304,17 +10388,11 @@ function bindDistrictCanvas(root) {
     syncEffectsCanvasSize();
     effectsCanvasContext.clearRect(0, 0, effectsCanvas.width, effectsCanvas.height);
   };
+  const baseCanvasWidth = Math.max(1, Number(canvas.getAttribute("width") || canvas.width || 1600));
+  const baseCanvasHeight = Math.max(1, Number(canvas.getAttribute("height") || canvas.height || 980));
   const syncDistrictCanvasResolution = () => {
     const mode = getCurrentPerformanceMode();
     const metrics = getPerformanceMetrics(window);
-
-    if (!mode.active) {
-      metrics.mapCanvasPixelRatio = 1;
-      metrics.mapCanvasWidth = canvas.width;
-      metrics.mapCanvasHeight = canvas.height;
-      return false;
-    }
-
     const rect = canvasHost.getBoundingClientRect?.() || {};
     const cssWidth = Number(canvasHost.clientWidth || canvasHost.offsetWidth || rect.width || canvas.width || 0);
     const cssHeight = Number(canvasHost.clientHeight || canvasHost.offsetHeight || rect.height || Math.round(cssWidth * (980 / 1600)) || canvas.height || 0);
@@ -10323,10 +10401,16 @@ function bindDistrictCanvas(root) {
       return false;
     }
 
-    const ratio = getCappedDevicePixelRatio(window, mode);
-    const targetWidth = clamp(Math.round(cssWidth * ratio), 320, 1200);
-    const targetHeight = clamp(Math.round(cssHeight * ratio), 196, 735);
-    metrics.mapCanvasPixelRatio = ratio;
+    const resolution = resolveMapCanvasResolution({
+      windowRef: window,
+      mode,
+      cssWidth,
+      baseWidth: baseCanvasWidth,
+      baseHeight: baseCanvasHeight
+    });
+    const targetWidth = resolution.width;
+    const targetHeight = resolution.height;
+    metrics.mapCanvasPixelRatio = resolution.pixelRatio;
     metrics.mapCanvasWidth = targetWidth;
     metrics.mapCanvasHeight = targetHeight;
 
@@ -14015,56 +14099,6 @@ function hydrateInitialState(root = getDefaultRuntimeRoot()) {
   };
 }
 
-function forceGameHtmlRefreshLivePhase(root = getDefaultRuntimeRoot()) {
-  const resolvedRoot = resolveRuntimeRoot(root);
-  if (!resolvedRoot || !isLocalDemoGameplayExecutionMode()) {
-    return false;
-  }
-
-  if (getAuthoritySession()?.devOnlyOnboardingStartPending === true) {
-    return false;
-  }
-
-  const worldState = getResolvedWorldState();
-  const phaseState = worldState.phaseState || {};
-  const ownedDistrictIds = Array.isArray(worldState.ownedDistrictIds)
-    ? worldState.ownedDistrictIds.map(Number).filter(Boolean)
-    : [];
-  const isAlreadyLive = normalizeRuntimeGamePhase(phaseState.gamePhase) === "live";
-  const hasMapMockState = ownedDistrictIds.length > 0
-    || (worldState.destroyedDistrictIds || []).length > 0
-    || Object.keys(worldState.districtDefenseById || {}).length > 0
-    || Object.keys(worldState.districtDefenseLoadoutById || {}).length > 0
-    || Object.keys(worldState.districtDefenseResidentsById || {}).length > 0
-    || Object.keys(worldState.districtTrapById || {}).length > 0
-    || Object.keys(worldState.districtGossipById || {}).length > 0
-    || Object.keys(worldState.districtPoliceActionById || {}).length > 0
-    || Boolean(worldState.devOnlyScenarioDestroyedDistrictId);
-
-  if (isAlreadyLive && !hasMapMockState) {
-    return false;
-  }
-
-  setStoredWorldState({
-    ...worldState,
-    ownedDistrictIds: [],
-    destroyedDistrictIds: [],
-    districtDefenseById: {},
-    districtDefenseLoadoutById: {},
-    districtDefenseResidentsById: {},
-    districtTrapById: {},
-    districtGossipById: {},
-    districtPoliceActionById: {},
-    devOnlyScenarioDestroyedDistrictId: null,
-    phaseState: {
-      ...phaseState,
-      gamePhase: "live"
-    }
-  });
-  syncPhaseHostFromAuthority(resolvedRoot.querySelector(MAP_PHASE_SELECTOR));
-  return true;
-}
-
 function refreshAllUi(state = null) {
   const snapshot = state?.root ? state : hydrateInitialState(resolveRuntimeRoot(state));
   const root = snapshot.root;
@@ -14102,151 +14136,46 @@ function refreshAllUi(state = null) {
   return snapshot;
 }
 
-function createDevOnlyOnboardingAllianceBoard() {
-  const board = DEV_ONLY_ONBOARDING_START_STATE.allianceBoard || {};
-  return {
-    maxAllianceSize: Math.max(1, Math.floor(Number(board.maxAllianceSize || 4)) || 4),
-    currentPlayerId: String(CURRENT_PLAYER_ID),
-    activeAlliance: null,
-    allianceBadgesByPlayerId: {},
-    publicAlliances: [],
-    incomingInvites: [],
-    eligibleInviteTargets: [],
-    canCreateAlliance: board.canCreateAlliance === true,
-    createDisabledReason: board.createDisabledReason || "ONBOARDING_NO_ALLIANCE",
-    disableDevOnlyActiveAlliance: true
-  };
-}
-
-function resetDevOnlyOnboardingAllianceState() {
-  const allianceBoard = createDevOnlyOnboardingAllianceBoard();
-  try {
-    window.localStorage?.removeItem?.(LOCAL_ALLIANCE_KEY);
-  } catch (_error) {
-    // Onboarding must not inherit a deprecated local alliance preview.
-  }
-  updateStoredPreviewSession((session) => ({
-    ...session,
-    allianceBoard
-  }));
-  document.dispatchEvent(new CustomEvent("empire:onboarding-alliance-reset", { detail: { allianceBoard } }));
-  window.dispatchEvent(new CustomEvent("empire:alliance-state-changed"));
-  return allianceBoard;
-}
-
-function completeDevOnlyOnboarding(root = getDefaultRuntimeRoot(), context = {}) {
-  updateStoredPreviewSession((session) => ({
-    ...session,
-    devOnlyOnboardingStartPending: false
-  }));
-  forceGameHtmlRefreshLivePhase(root);
-
+function refreshOnboardingRuntime(root = getDefaultRuntimeRoot()) {
   const resolvedRoot = resolveRuntimeRoot(root || getDefaultRuntimeRoot());
-  if (resolvedRoot) {
-    syncPhaseHostFromAuthority(resolvedRoot.querySelector(MAP_PHASE_SELECTOR));
-    refreshAllUi({ root: resolvedRoot });
+  if (!resolvedRoot) {
+    return false;
   }
-
-  if (context?.progress?.skipped === true && typeof window !== "undefined" && typeof window.location?.reload === "function") {
-    window.location.reload();
-  }
-
+  syncPhaseHostFromAuthority(resolvedRoot.querySelector(MAP_PHASE_SELECTOR));
+  refreshAllUi({ root: resolvedRoot });
   return true;
 }
 
-function applyDevOnlyOnboardingStartState(root = getDefaultRuntimeRoot()) {
-  const amount = Math.max(0, Math.floor(Number(DEV_ONLY_ONBOARDING_START_STATE.storageAmount || 0)));
-  const worldState = getResolvedWorldState();
-  const phaseState = worldState.phaseState || {};
-  const ownedDistrictIds = Array.isArray(DEV_ONLY_ONBOARDING_START_STATE.world?.ownedDistrictIds)
-    ? DEV_ONLY_ONBOARDING_START_STATE.world.ownedDistrictIds.map(Number).filter(Boolean)
-    : [];
-  const onboardingStartDistrictId = ownedDistrictIds[0] || 1;
-  const nextTrapById = { ...(worldState.districtTrapById || {}) };
-  for (const [districtId, trap] of Object.entries(nextTrapById)) {
-    if (trap?.isArmed && Number(trap.ownerId) === CURRENT_PLAYER_ID) {
-      delete nextTrapById[districtId];
-    }
+function startOnboardingSandbox(root = getDefaultRuntimeRoot()) {
+  if (!isOnboardingSandboxActive()) {
+    onboardingSandboxTimerBaseline = captureOnboardingTimerBaseline();
+    onboardingSandboxSession = createOnboardingSandboxSession(getPersistedAuthoritySession(), {
+      weaponInventory: DEFAULT_WEAPON_INVENTORY,
+      materialInventory: DEFAULT_MATERIAL_INVENTORY,
+      drugInventory: DEFAULT_DRUG_INVENTORY
+    });
   }
-  const nextWorldState = {
-    ...worldState,
-    ownedDistrictIds,
-    destroyedDistrictIds: (worldState.destroyedDistrictIds || [])
-      .map(Number)
-      .filter((districtId) => districtId && !ownedDistrictIds.includes(districtId)),
-    districtPoliceActionById: {},
-    districtTrapById: nextTrapById,
-    phaseState: {
-      ...phaseState,
-      gamePhase: DEV_ONLY_ONBOARDING_START_STATE.world?.gamePhase === "launch" ? "launch" : "live"
-    }
-  };
-  const weapons = createFixedInventoryAmountMap(DEFAULT_WEAPON_INVENTORY, amount);
-  const materials = createFixedInventoryAmountMap(DEFAULT_MATERIAL_INVENTORY, amount);
-  const drugs = createFixedInventoryAmountMap(DEFAULT_DRUG_INVENTORY, amount);
-  const factorySupplies = createFixedFactorySupplyAmountMap(amount);
-
-  resetStartPhaseResourceSimulationState();
-  for (const jobId of Array.from(productionTimers.keys())) {
-    clearProductionJob(jobId);
-  }
-  setStoredDistrictBuildingDetailState({});
-  updateStoredPreviewSession((session) => ({
-    ...session,
-    devOnlyOnboardingStartPending: true,
-    streetNewsFeed: [],
-    playerBoosts: null,
-    production: {
-      jobs: {},
-      buildings: {}
-    },
-    registration: session.registration
-      ? {
-          ...session.registration,
-          preferredStartDistrictId: onboardingStartDistrictId,
-          startDistrictId: onboardingStartDistrictId
-        }
-      : session.registration
+  document.documentElement.dataset.onboardingSandbox = "true";
+  document.body?.setAttribute?.("data-onboarding-sandbox", "true");
+  document.dispatchEvent(new CustomEvent("empire:onboarding-alliance-reset", {
+    detail: { allianceBoard: onboardingSandboxSession.allianceBoard }
   }));
-  setStoredEconomyState({
-    cleanMoney: Math.max(0, Math.floor(Number(DEV_ONLY_ONBOARDING_START_STATE.economy?.cleanMoney || 0))),
-    dirtyMoney: Math.max(0, Math.floor(Number(DEV_ONLY_ONBOARDING_START_STATE.economy?.dirtyMoney || 0)))
-  });
-  setStoredGangState({
-    members: Math.max(0, Math.floor(Number(DEV_ONLY_ONBOARDING_START_STATE.gang?.members || 0))),
-    influence: Math.max(0, Math.floor(Number(DEV_ONLY_ONBOARDING_START_STATE.gang?.influence || 0))),
-    heat: Math.max(0, Math.floor(Number(DEV_ONLY_ONBOARDING_START_STATE.gang?.heat || 0))),
-    alliance: null,
-    allianceId: null,
-    activeAllianceId: null,
-    policeRaidProtectionUntil: 0,
-    autoPoliceNextActionAt: 0,
-    heatJournal: [],
-    dirtyHeatReductionTimestamps: [],
-    lastHeatDecayAt: new Date().toISOString()
-  });
-  resetDevOnlyOnboardingAllianceState();
-  setStoredWeaponInventory(weapons);
-  setStoredMaterialInventory(materials);
-  setStoredDrugInventory(drugs);
-  setStoredFactorySupplies(factorySupplies);
-  setStoredWorldState(nextWorldState);
+  window.dispatchEvent(new CustomEvent("empire:alliance-state-changed"));
+  refreshOnboardingRuntime(root);
+  return onboardingSandboxSession;
+}
 
-  const resolvedRoot = resolveRuntimeRoot(root || getDefaultRuntimeRoot());
-  const actionPanel = resolveBuildingActionPanel(resolvedRoot);
-  if (actionPanel) {
-    actionPanel.entries = [];
-    actionPanel.lastFingerprint = "";
+function stopOnboardingSandbox(root = getDefaultRuntimeRoot()) {
+  if (!isOnboardingSandboxActive()) {
+    return false;
   }
-  persistStreetNewsEntries([]);
-  if (resolvedRoot) {
-    syncPhaseHostFromAuthority(resolvedRoot.querySelector(MAP_PHASE_SELECTOR));
-    renderStorageList({ summary: getGameplayStorageSummary(), weapons, materials, drugs, factorySupplies }, { root: resolvedRoot });
-    renderBuildingActionFeed(resolvedRoot);
-    refreshAllUi({ root: resolvedRoot });
-  }
-
-  return getAuthoritySession();
+  clearOnboardingSandboxTimers();
+  onboardingSandboxSession = null;
+  delete document.documentElement.dataset.onboardingSandbox;
+  document.body?.removeAttribute?.("data-onboarding-sandbox");
+  window.dispatchEvent(new CustomEvent("empire:alliance-state-changed"));
+  refreshOnboardingRuntime(root);
+  return true;
 }
 
 function resetOnboardingSpyTargetState(root = getDefaultRuntimeRoot()) {
@@ -14439,7 +14368,9 @@ function createFreeSessionUiContext(root) {
   const player = gameplaySlice?.player || null;
   return {
     registration: getStoredRegistration(),
-    mode: player?.mode || gameplaySlice?.mode?.id || "dev-only",
+    mode: isOnboardingSandboxActive()
+      ? ONBOARDING_SANDBOX_MODE
+      : player?.mode || gameplaySlice?.mode?.id || getStoredRegistration()?.serverMode || "free",
     gameplaySlice,
     player,
     elimination: player?.elimination || gameplaySlice?.elimination || null,
@@ -14495,7 +14426,9 @@ function bindFreeSessionOnboarding(root) {
   const bridge = createOnboardingBridge({
     root,
     documentRef: document,
-    getContext: () => createFreeSessionUiContext(root)
+    getContext: () => createFreeSessionUiContext(root),
+    onStart: () => startOnboardingSandbox(root),
+    onComplete: () => stopOnboardingSandbox(root)
   });
   onboardingBridgesByRoot.set(root, bridge);
   bridge.init();
@@ -15162,7 +15095,6 @@ export {
   DEFAULT_MATERIAL_INVENTORY,
   DEFAULT_WEAPON_INVENTORY,
   DEMO_SCENARIOS,
-  DEV_ONLY_ONBOARDING_START_STATE,
   DISTRICT_TYPE_GRID,
   DRUGLAB_RECIPES,
   FACTION_CATALOG,
@@ -15267,7 +15199,7 @@ export {
   getLaunchPlayerName,
   getMarketPriceEntry,
   getMarketPriceKey,
-  getMarketRefreshCountdownSeconds,
+  getMarketRefreshCityTimeLabel,
   getPointOnPolygonPerimeter,
   getPriceVarianceForTab,
   getProductionJob,

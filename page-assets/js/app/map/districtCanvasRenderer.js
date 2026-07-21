@@ -59,6 +59,8 @@ export function createDistrictCanvasRenderer(deps = {}) {
   } = deps;
 
 function drawMapImage(context, image, width, height) {
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
   const imageRatio = image.width / image.height;
   const canvasRatio = width / height;
   let drawWidth = width;
@@ -397,7 +399,7 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
   const showDistrictBorders = interactionState.showDistrictBorders !== false;
   const showAllianceSymbols = interactionState.showAllianceSymbols !== false;
   const reducedMapEffects = Boolean(interactionState.reducedMapEffects);
-  const borderScale = options.compactDistrictBorders ? 0.72 : 1;
+  const borderScale = options.compactDistrictBorders ? 0.64 : 1;
   const mapVisibilityMode = normalizeMapVisibilityMode(interactionState.mapVisibilityMode);
   const effectiveOwnedDistrictIds = getEffectiveOwnedDistrictIds(interactionState);
   const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);

@@ -36,13 +36,12 @@ function resolvePlayerId(context = {}) {
 }
 
 export function resolveOnboardingMode(context = {}) {
-  const world = safeObject(context.world);
   const registration = safeObject(context.registration);
-  const phase = safeObject(context.phase || world.phaseState);
-  if (phase.gamePhase === "launch" || context.mode === "dev-only") {
-    return "dev-only";
+  const mode = String(context.mode || "").trim();
+  if (mode === "onboarding") {
+    return mode;
   }
-  return String(registration.serverMode || context.mode || "dev-only").trim() || "dev-only";
+  return String(registration.serverMode || mode || "free").trim() || "free";
 }
 
 function getOwnedDistrictIds(context = {}) {

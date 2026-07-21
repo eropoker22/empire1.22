@@ -1,4 +1,4 @@
-/* Empire onboarding: UI-only operator layer for the dev-only city flow. */
+/* Empire onboarding: isolated UI-only guide over the current city state. */
 
 :root {
   --onboarding-bg: rgba(5, 5, 12, 0.96);
@@ -32,8 +32,8 @@
 
 .leaderboard-launch-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 36px;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
   width: 100%;
   align-items: stretch;
 }
@@ -41,72 +41,6 @@
 .leaderboard-launch-row #leaderboard-card {
   width: 100%;
   min-width: 0;
-}
-
-.onboarding-launch-button {
-  position: relative;
-  width: 36px;
-  min-width: 36px;
-  min-height: 36px;
-  padding: 0;
-  border-radius: 999px;
-  border: 1px solid rgba(251, 54, 90, 0.72);
-  background:
-    radial-gradient(circle at 52% 42%, rgba(255, 79, 216, 0.32), transparent 49%),
-    radial-gradient(circle at 50% 58%, rgba(68, 245, 255, 0.16), transparent 58%),
-    linear-gradient(145deg, rgba(6, 3, 10, 0.99), rgba(31, 4, 34, 0.98));
-  color: #fff7fb;
-  font-size: 12px;
-  font-weight: 950;
-  line-height: 1;
-  letter-spacing: 0;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 0 16px rgba(251, 54, 90, 0.38),
-    0 12px 22px rgba(0, 0, 0, 0.42);
-}
-
-.onboarding-launch-button::before {
-  position: absolute;
-  inset: 5px;
-  border-radius: inherit;
-  border: 1px solid rgba(68, 245, 255, 0.38);
-  content: "";
-  opacity: 0.78;
-  pointer-events: none;
-}
-
-.onboarding-launch-button__glyph {
-  position: relative;
-  z-index: 1;
-  display: inline-grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  text-shadow:
-    0 0 10px rgba(251, 54, 90, 0.72),
-    0 0 16px rgba(68, 245, 255, 0.22);
-}
-
-.onboarding-launch-button::after {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 7px);
-  z-index: 5;
-  width: max-content;
-  max-width: 180px;
-  padding: 6px 8px;
-  border: 1px solid rgba(251, 54, 90, 0.48);
-  border-radius: 7px;
-  background: rgba(6, 6, 13, 0.98);
-  color: #ffe4ec;
-  content: attr(aria-label);
-  font-size: 10px;
-  font-weight: 800;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(3px);
-  transition: opacity 160ms ease, transform 160ms ease;
 }
 
 .elimination-ai-panel[hidden] {
@@ -869,25 +803,6 @@
     max-height: none !important;
     border-radius: 0 !important;
   }
-}
-
-.onboarding-launch-button:hover,
-.onboarding-launch-button:focus-visible {
-  border-color: rgba(255, 79, 216, 0.92);
-  color: #ffffff;
-  outline: none;
-  transform: translateY(-1px);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.11),
-    0 0 22px rgba(251, 54, 90, 0.58),
-    0 0 30px rgba(68, 245, 255, 0.18),
-    0 14px 26px rgba(0, 0, 0, 0.46);
-}
-
-.onboarding-launch-button:hover::after,
-.onboarding-launch-button:focus-visible::after {
-  opacity: 1;
-  transform: translateY(0);
 }
 
 .empire-onboarding {
@@ -2203,8 +2118,8 @@ html[data-onboarding-map-mode="zoom-out"] .map-canvas-shell {
 
 @media (max-width: 720px) {
   .leaderboard-launch-row {
-    grid-template-columns: minmax(0, 1fr) 36px;
-    gap: 7px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
   }
 
   .empire-onboarding[data-onboarding-step="your-district"] {
@@ -2215,17 +2130,6 @@ html[data-onboarding-map-mode="zoom-out"] .map-canvas-shell {
   .empire-onboarding[data-onboarding-step="building-action"] {
     inset: auto max(10px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px));
     max-height: min(42dvh, calc(100dvh - 96px));
-  }
-
-  .onboarding-launch-button {
-    width: 36px;
-    min-width: 36px;
-    min-height: 36px;
-    font-size: 12px;
-  }
-
-  .onboarding-launch-button::after {
-    display: none;
   }
 
   .empire-onboarding__header {
@@ -2278,9 +2182,7 @@ html[data-onboarding-map-mode="zoom-out"] .map-canvas-shell {
   .empire-onboarding-map-highlight__glow,
   .empire-onboarding-map-highlight__line,
   .empire-onboarding-target-label,
-  .empire-onboarding__fallback::before,
-  .onboarding-launch-button,
-  .onboarding-launch-button::after {
+  .empire-onboarding__fallback::before {
     animation: none !important;
     scroll-behavior: auto !important;
     transition: none !important;

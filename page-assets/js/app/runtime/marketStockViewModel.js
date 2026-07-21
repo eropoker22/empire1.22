@@ -114,7 +114,7 @@ export function createMarketDashboardAdapter({
   gangState = {},
   serverScope = {},
   playerTabId = "player-market",
-  refreshCountdownSeconds = 0,
+  refreshAtCityTime = "--:--",
   normalizePlayerMarketListings = (listings) => safeArray(listings),
   normalizeMarketTransactions = (transactions) => safeArray(transactions),
   getStockAmount = getMarketStockAmount,
@@ -135,7 +135,7 @@ export function createMarketDashboardAdapter({
     }),
     economy,
     gangState,
-    refreshCountdownSeconds,
+    refreshAtCityTime,
     recentTransactions: normalizeDashboardTransactions(marketState, normalizeMarketTransactions),
     formatPrice
   };

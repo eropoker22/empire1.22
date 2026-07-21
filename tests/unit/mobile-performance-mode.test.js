@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   applyMobilePerformanceMode,
   detectMobilePerformanceMode,
-  getCappedDevicePixelRatio
+  getCappedDevicePixelRatio,
+  resolveMapCanvasResolution
 } from "../../page-assets/js/app/performance/mobilePerformanceMode.js";
 
 class FakeClassList {
@@ -47,7 +48,7 @@ describe("mobile performance mode", () => {
 
     expect(mode.active).toBe(true);
     expect(mode.renderFpsCap).toBe(30);
-    expect(getCappedDevicePixelRatio(windowRef, mode)).toBe(1.5);
+    expect(getCappedDevicePixelRatio(windowRef, mode)).toBe(2);
 
     applyMobilePerformanceMode(mode, { windowRef, documentRef });
 
@@ -74,5 +75,28 @@ describe("mobile performance mode", () => {
     expect(getCappedDevicePixelRatio(windowRef, mode)).toBe(2.5);
     expect(documentRef.documentElement.classList.contains("is-mobile-performance-mode")).toBe(false);
   });
-});
 
+  it("restores the canonical desktop canvas resolution after leaving mobile mode", () => {
+    const resolution = resolveMapCanvasResolution({
+      windowRef: { devicePixelRatio: 2 },
+      mode: { active: false },
+      cssWidth: 1180,
+      baseWidth: 1600,
+      baseHeight: 980
+    });
+
+    expect(resolution).toEqual({ width: 1600, height: 980, pixelRatio: 1.356 });
+  });
+
+  it("keeps mobile canvas sharp without exceeding the thermal-safe size cap", () => {
+    const resolution = resolveMapCanvasResolution({
+      windowRef: { devicePixelRatio: 3 },
+      mode: { active: true, dprCap: 2 },
+      cssWidth: 390,
+      baseWidth: 1600,
+      baseHeight: 980
+    });
+
+    expect(resolution).toEqual({ width: 780, height: 478, pixelRatio: 2 });
+  });
+});

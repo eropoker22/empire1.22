@@ -18,7 +18,7 @@ describe("market view model builders", () => {
       stockSummary: "neomezeně",
       economy: { cleanMoney: 1200, dirtyMoney: 450 },
       gangState: { heat: 7 },
-      refreshCountdownSeconds: 42,
+      refreshAtCityTime: "19:00",
       recentTransactions: [
         { type: "buy", itemName: "Chemicals", amount: 1, total: 100 },
         { type: "sell", itemName: "Biomass", amount: 2, total: 50 },
@@ -33,7 +33,7 @@ describe("market view model builders", () => {
       { label: "Čisté", value: "1200$", tone: "clean" },
       { label: "Špinavé", value: "450$", tone: "dirty" },
       { label: "Heat", value: "7", tone: "danger" },
-      { label: "Obnova", value: "42 s", tone: "timer" },
+      { label: "Obnova · čas města", value: "19:00", tone: "timer" },
       { label: "Zásoba", value: "neomezeně", tone: "danger" }
     ]);
     expect(dashboard.recentTransactions).toHaveLength(1);
