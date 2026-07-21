@@ -26,7 +26,7 @@ describe("gameplay slice browser bootstrap", () => {
     });
   });
 
-  it("maps the legacy onboarding district into a spawn preference, not authoritative focus", () => {
+  it("does not derive gameplay authority from a legacy browser session", () => {
     expect(
       resolveGameplaySliceBootstrapRequest(
         {},
@@ -38,16 +38,10 @@ describe("gameplay slice browser bootstrap", () => {
           }
         })
       )
-    ).toEqual({
-      serverInstanceId: "instance:war:eu-central:public-1",
-      playerId: "player:host-alpha",
-      accountId: "Host Alpha",
-      preferredStartDistrictId: "district:27",
-      factionId: null
-    });
+    ).toBeNull();
   });
 
-  it("uses server-confirmed home district as the next focus district", () => {
+  it("ignores server-looking focus data stored in the browser", () => {
     expect(
       resolveGameplaySliceBootstrapRequest(
         {},
@@ -60,17 +54,10 @@ describe("gameplay slice browser bootstrap", () => {
           }
         })
       )
-    ).toEqual({
-      serverInstanceId: "instance:war:eu-central:public-1",
-      playerId: "player:host-alpha",
-      accountId: "Host Alpha",
-      districtId: "district:spawn:1",
-      preferredStartDistrictId: "district:27",
-      factionId: null
-    });
+    ).toBeNull();
   });
 
-  it("prefers the last server-confirmed district over the assigned home cache on rejoin", () => {
+  it("ignores a cached district on rejoin", () => {
     expect(
       resolveGameplaySliceBootstrapRequest(
         {},
@@ -83,16 +70,10 @@ describe("gameplay slice browser bootstrap", () => {
           }
         })
       )
-    ).toEqual({
-      serverInstanceId: "instance:war:eu-central:public-1",
-      playerId: "player:host-alpha",
-      accountId: "Host Alpha",
-      districtId: "district:connector:1",
-      factionId: null
-    });
+    ).toBeNull();
   });
 
-  it("preserves a server-authoritative instance ID from the lobby summary", () => {
+  it("requires the live entrypoint to publish account-backed IDs", () => {
     expect(
       resolveGameplaySliceBootstrapRequest(
         {},
@@ -107,14 +88,7 @@ describe("gameplay slice browser bootstrap", () => {
           }
         })
       )
-    ).toEqual({
-      serverInstanceId: "instance:free:eu-central:public-1",
-      playerId: "player:host-alpha",
-      accountId: "Host Alpha",
-      districtId: "district:spawn:2",
-      preferredStartDistrictId: "district:27",
-      factionId: "red-syndicate"
-    });
+    ).toBeNull();
   });
 
   it("returns null when the session is missing server identity", () => {
@@ -128,5 +102,12 @@ describe("gameplay slice browser bootstrap", () => {
         })
       )
     ).toBeNull();
+  });
+
+  it("rejects an unscoped server ID even when page data is explicit", () => {
+    expect(resolveGameplaySliceBootstrapRequest({
+      serverInstanceId: "free-eu-01",
+      playerId: "player:manual"
+    })).toBeNull();
   });
 });

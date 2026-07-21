@@ -71,41 +71,7 @@ export const joinGameplayMembership = async (membership) => {
     const failure = payload?.errors?.[0] || {};
     throw Object.assign(new Error(failure.message || "Vstup do hry se nezdařil."), { code: failure.code || "GAMEPLAY_JOIN_FAILED" });
   }
-  persistServerConfirmedProjection(membership, payload.readModel);
   return payload;
-};
-
-const persistServerConfirmedProjection = (membership, readModel) => {
-  const player = readModel?.player || {};
-  const registration = {
-    identity: membership.playerId || player.playerId,
-    activeServerId: membership.serverInstanceId,
-    activeServerInstanceId: membership.serverInstanceId,
-    serverId: membership.serverInstanceId,
-    serverInstanceId: membership.serverInstanceId,
-    activeServerName: membership.serverDisplayName,
-    serverLabel: membership.serverDisplayName,
-    preferredStartDistrictId: membership.reservedSpawnDistrictId,
-    startDistrictId: membership.reservedSpawnDistrictId,
-    assignedHomeDistrictId: player.homeDistrictId || membership.reservedSpawnDistrictId,
-    lastServerConfirmedDistrictId: player.homeDistrictId || membership.reservedSpawnDistrictId,
-    factionId: membership.factionId,
-    selectedFaction: membership.factionId,
-    avatarId: membership.avatarId,
-    gangColor: membership.gangColor,
-    factionLocked: true,
-    hasCompletedServerEntry: true,
-    serverConfirmed: true
-  };
-  try {
-    const existing = JSON.parse(localStorage.getItem("empireStreets.session.v1") || "null");
-    localStorage.setItem("empireStreets.session.v1", JSON.stringify({
-      ...(existing && typeof existing === "object" ? existing : {}),
-      registration
-    }));
-  } catch (_error) {
-    // This cache never authorizes gameplay; HttpOnly sessions remain authoritative.
-  }
 };
 
 const stablePayload = (value) => JSON.stringify(sort(value));

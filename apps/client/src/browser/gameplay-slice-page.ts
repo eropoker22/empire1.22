@@ -4,7 +4,6 @@ import { createFetchClientTransport, createGameplaySlicePoller, type ClientTrans
 import { createOverlayBackdrop } from "../modals/overlay-backdrop";
 import { getTopOverlay, isOverlayOpen, shouldSuppressMapInput } from "../modals/overlay-state";
 import { resolveGameplaySliceBootstrapRequest } from "./gameplay-slice-bootstrap";
-import { persistServerConfirmedGameplaySliceFocus } from "./gameplay-slice-focus-cache";
 import { createDistrictSheetOverlayController } from "./gameplay-slice-overlays";
 import {
   createGameplaySliceVisibilityRuntime,
@@ -24,7 +23,6 @@ import {
   markGameplaySliceUnavailableRuntime,
   markMissingGameplaySessionRuntime
 } from "./gameplay-slice-runtime-policy";
-export { persistServerConfirmedGameplaySliceFocus } from "./gameplay-slice-focus-cache";
 export { setGameplayRuntimeMarker, type GameplayRuntimeMarker } from "./gameplay-slice-runtime-diagnostics";
 const DEFAULT_ENDPOINT_BASE = "/api/gameplay-slice";
 const LEGACY_DISTRICT_POPUP_SELECTOR = "[data-testid='district-popup']";
@@ -44,7 +42,7 @@ const activeGameplaySlicePages = new Set<MountedGameplaySlicePageInternal>();
  */
 export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): MountedGameplaySlicePage | null => {
   if (applyDevelopmentRuntimeOverride(options.root)) return null;
-  const request = resolveGameplaySliceBootstrapRequest(options.root.dataset, getBrowserStorage());
+  const request = resolveGameplaySliceBootstrapRequest(options.root.dataset);
 
   if (!request) {
     markMissingGameplaySessionRuntime(options.root);
@@ -159,12 +157,6 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     } else {
       activeDistrictSheetId = null;
     }
-    persistServerConfirmedGameplaySliceFocus(
-      getBrowserStorage(),
-      options.root.dataset.sessionStorageKey,
-      client.getGameplaySlice()
-    );
-
     const phase = state.player?.dayNight?.uiThemeHint;
     if (phase) {
       document.body.dataset.cityPhase = phase;
@@ -451,15 +443,6 @@ const createPageApi = () => ({
     .filter((mount): mount is MountedGameplaySlicePage => mount !== null)
 });
 
-const getBrowserStorage = (): Storage | null => {
-  try {
-    return window.localStorage;
-  } catch (_error) {
-    return null;
-  }
-};
-
 if (typeof window !== "undefined" && typeof document !== "undefined") {
   window.EmpireGameplaySliceClient = createPageApi();
-  window.EmpireGameplaySliceClient.autoMount();
 }

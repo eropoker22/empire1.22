@@ -15,6 +15,17 @@
     <link rel="stylesheet" href="../page-assets/css/styles-game-about.css">
   </head>
   <body class="game-body game-body--booting">
+    <section class="game-authority-gate" data-game-authority-gate role="status" aria-live="polite" aria-hidden="false">
+      <div class="game-authority-gate__card">
+        <span>EMPIRE STREETS // LIVE</span>
+        <strong data-game-authority-status>PŘIPOJUJI SERVER</strong>
+        <p data-game-authority-message>Ověřuji účet, členství a aktuální stav města.</p>
+        <div class="game-authority-gate__actions">
+          <a href="./lobby.html">Zpět do lobby</a>
+          <button type="button" data-game-authority-retry hidden>Zkusit znovu</button>
+        </div>
+      </div>
+    </section>
     <header id="game-header" class="game-topbar">
       <div class="game-topbar-inner">
         <div class="game-brand">
@@ -2244,6 +2255,5 @@
     <script type="module" src="../page-assets/js/app/mobile-layout-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/game-admin-slice-launcher.js"></script>
     <script type="module" src="../page-assets/js/app/closed-alpha-ux-runtime.js"></script>
-    <script src="../page-assets/js/client-assets/gameplay-slice-client.js"></script>
   </body>
 </html>

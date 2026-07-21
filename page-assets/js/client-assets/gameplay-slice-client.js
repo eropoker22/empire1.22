@@ -1498,7 +1498,6 @@ var EmpireGameplaySliceClient = function(exports) {
     const fetchJson = options.fetchImpl ?? globalThis.fetch;
     const endpointBase = options.endpointBase.replace(/\/+$/u, "");
     const storage = options.storage ?? resolveBrowserStorage();
-    const legacySessionStorage = options.storage ?? resolveBrowserLegacySessionStorage();
     let consumedJoinTicket = null;
     const post = async (route, request) => {
       if (!fetchJson) {
@@ -1527,7 +1526,6 @@ var EmpireGameplaySliceClient = function(exports) {
       persistGameplaySliceTokens(requestForEndpoint, payload, storage);
       if (endpointRoute === "join" && payload.accepted && requestJoinTicket) {
         consumedJoinTicket = requestJoinTicket;
-        clearConsumedLegacyJoinTicket(legacySessionStorage, requestJoinTicket);
       }
       return payload;
     };
@@ -1559,19 +1557,6 @@ var EmpireGameplaySliceClient = function(exports) {
     const { joinTicket: _joinTicket, ...rest } = request;
     return rest;
   };
-  const clearConsumedLegacyJoinTicket = (storage, consumedTicket) => {
-    const sessionKey = "empireStreets.session.v1";
-    try {
-      const rawSession = storage == null ? void 0 : storage.getItem(sessionKey);
-      if (!rawSession) return;
-      const session = JSON.parse(rawSession);
-      if (readJoinTicket(session.registration) !== consumedTicket) return;
-      const registration = { ...session.registration ?? {} };
-      delete registration.joinTicket;
-      storage == null ? void 0 : storage.setItem(sessionKey, JSON.stringify({ ...session, registration }));
-    } catch (_error) {
-    }
-  };
   const persistGameplaySliceTokens = (request, response, storage) => {
     const snapshotKey = createGameplaySliceTokenStorageKey("snapshot", request);
     const snapshotToken = String(response.snapshotToken ?? "").trim();
@@ -1602,13 +1587,6 @@ var EmpireGameplaySliceClient = function(exports) {
   const resolveBrowserStorage = () => {
     try {
       return globalThis.sessionStorage ?? null;
-    } catch (_error) {
-      return null;
-    }
-  };
-  const resolveBrowserLegacySessionStorage = () => {
-    try {
-      return globalThis.localStorage ?? null;
     } catch (_error) {
       return null;
     }
@@ -2708,52 +2686,9 @@ var EmpireGameplaySliceClient = function(exports) {
     const detail = error instanceof Error ? error.message.trim() : "";
     return detail ? `${fallback} ${detail}` : fallback;
   };
-  const DEFAULT_SESSION_STORAGE_KEY = "empireStreets.session.v1";
-  const LEGACY_PUBLIC_SERVER_ID_MIGRATIONS = {
-    "war-eu-01": "instance:war:eu-central:public-1",
-    "war-eu-02": "instance:war:eu-central:public-1",
-    "war-eu-03": "instance:war:eu-central:public-1",
-    "war-eu-04": "instance:war:eu-central:public-1",
-    "war-eu-05": "instance:war:eu-central:public-1",
-    "free-eu-01": "instance:free:eu-central:public-1",
-    "free-eu-02": "instance:free:eu-central:public-2",
-    "free-eu-03": "instance:free:eu-central:public-2"
-  };
-  const resolveGameplaySliceBootstrapRequest = (dataset, storage) => {
-    const explicit = createExplicitRequest(dataset);
-    if (explicit) {
-      return explicit;
-    }
-    const session = readLegacySession(storage, dataset.sessionStorageKey);
-    const registration = session == null ? void 0 : session.registration;
-    const serverInstanceId = normalizeServerInstanceId(
-      (registration == null ? void 0 : registration.activeServerInstanceId) || (registration == null ? void 0 : registration.serverInstanceId) || (registration == null ? void 0 : registration.activeServerId) || (registration == null ? void 0 : registration.serverId)
-    );
-    const preferredStartDistrictId = normalizeDistrictId(
-      (registration == null ? void 0 : registration.preferredStartDistrictId) || (registration == null ? void 0 : registration.startDistrictId)
-    );
-    const districtId = normalizeDistrictId(
-      (registration == null ? void 0 : registration.lastServerConfirmedDistrictId) || (registration == null ? void 0 : registration.assignedHomeDistrictId)
-    );
-    const playerId = normalizePlayerId((registration == null ? void 0 : registration.identity) || (registration == null ? void 0 : registration.gangName));
-    const accountId = normalizeToken((registration == null ? void 0 : registration.accountId) || (registration == null ? void 0 : registration.identity) || (registration == null ? void 0 : registration.gangName));
-    const factionId = normalizeFactionId((registration == null ? void 0 : registration.factionId) || (registration == null ? void 0 : registration.selectedFaction));
-    const joinTicket = normalizeToken(registration == null ? void 0 : registration.joinTicket);
-    if (!serverInstanceId || !playerId) {
-      return null;
-    }
-    return {
-      serverInstanceId,
-      playerId,
-      ...accountId ? { accountId } : {},
-      ...districtId ? { districtId } : {},
-      ...preferredStartDistrictId ? { preferredStartDistrictId } : {},
-      factionId,
-      ...joinTicket ? { joinTicket } : {}
-    };
-  };
+  const resolveGameplaySliceBootstrapRequest = (dataset, _storage = null) => createExplicitRequest(dataset);
   const createExplicitRequest = (dataset) => {
-    const serverInstanceId = normalizeToken(dataset.serverInstanceId);
+    const serverInstanceId = normalizeServerInstanceId(dataset.serverInstanceId);
     const playerId = normalizeToken(dataset.playerId);
     const accountId = normalizeToken(dataset.accountId);
     const districtId = normalizeDistrictId(dataset.districtId);
@@ -2766,21 +2701,6 @@ var EmpireGameplaySliceClient = function(exports) {
       factionId
     } : null;
   };
-  const readLegacySession = (storage, storageKey = DEFAULT_SESSION_STORAGE_KEY) => {
-    if (!storage) {
-      return null;
-    }
-    const raw = storage.getItem(storageKey || DEFAULT_SESSION_STORAGE_KEY);
-    if (!raw) {
-      return null;
-    }
-    try {
-      const parsed = JSON.parse(raw);
-      return parsed && typeof parsed === "object" ? parsed : null;
-    } catch (_error) {
-      return null;
-    }
-  };
   const normalizeToken = (value) => {
     const normalized = String(value ?? "").trim();
     return normalized.length > 0 ? normalized : null;
@@ -2790,8 +2710,7 @@ var EmpireGameplaySliceClient = function(exports) {
     if (!normalized) {
       return null;
     }
-    const migrated = LEGACY_PUBLIC_SERVER_ID_MIGRATIONS[normalized] ?? normalized;
-    return migrated.startsWith("instance:") ? migrated : `instance:${migrated}`;
+    return normalized.startsWith("instance:") ? normalized : null;
   };
   const normalizeDistrictId = (value) => {
     const raw = String(value ?? "").trim();
@@ -2804,56 +2723,8 @@ var EmpireGameplaySliceClient = function(exports) {
     const numericId = Number.parseInt(raw, 10);
     return numericId > 0 ? `district:${numericId}` : null;
   };
-  const normalizePlayerId = (value) => {
-    const raw = String(value ?? "").trim();
-    if (!raw) {
-      return null;
-    }
-    if (raw.startsWith("player:")) {
-      return raw;
-    }
-    const slug = raw.toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-+|-+$/gu, "");
-    return slug ? `player:${slug}` : null;
-  };
   const normalizeFactionId = (value) => {
     const normalized = String(value ?? "").trim().toLowerCase();
-    return normalized.length > 0 ? normalized : null;
-  };
-  const persistServerConfirmedGameplaySliceFocus = (storage, storageKey, gameplaySlice) => {
-    var _a;
-    const assignedHomeDistrictId = normalizeStorageToken(gameplaySlice == null ? void 0 : gameplaySlice.player.homeDistrictId);
-    const lastServerConfirmedDistrictId = normalizeStorageToken(
-      ((_a = gameplaySlice == null ? void 0 : gameplaySlice.district) == null ? void 0 : _a.districtId) || assignedHomeDistrictId
-    );
-    const serverConfirmedFactionId = normalizeStorageToken(gameplaySlice == null ? void 0 : gameplaySlice.player.factionId);
-    if (!storage || !lastServerConfirmedDistrictId) {
-      return;
-    }
-    try {
-      const key = storageKey || DEFAULT_SESSION_STORAGE_KEY;
-      const parsed = JSON.parse(storage.getItem(key) || "null");
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        return;
-      }
-      const registration = parsed.registration && typeof parsed.registration === "object" && !Array.isArray(parsed.registration) ? parsed.registration : {};
-      storage.setItem(key, JSON.stringify({
-        ...parsed,
-        registration: {
-          ...registration,
-          ...assignedHomeDistrictId ? { assignedHomeDistrictId } : {},
-          ...serverConfirmedFactionId ? {
-            factionId: serverConfirmedFactionId,
-            selectedFaction: serverConfirmedFactionId,
-            serverConfirmedFactionId
-          } : {},
-          lastServerConfirmedDistrictId
-        }
-      }));
-    } catch (_error) {
-    }
-  };
-  const normalizeStorageToken = (value) => {
-    const normalized = String(value ?? "").trim();
     return normalized.length > 0 ? normalized : null;
   };
   const MOBILE_DISTRICT_SHEET_SCROLL_MEDIA = "(max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse)";
@@ -3090,12 +2961,17 @@ var EmpireGameplaySliceClient = function(exports) {
   const getForcedDevelopmentRuntimeMode = () => {
     var _a, _b, _c, _d, _e, _f, _g;
     if (typeof window === "undefined") return null;
-    const host = window.location.hostname;
+    const host = String(window.location.hostname || "").toLowerCase();
+    const isLoopback = host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]";
     const queryMode = new URLSearchParams(window.location.search).get("runtimeMode");
     if (queryMode === "server-authoritative") return "server-authoritative";
+    if (!isLoopback) {
+      removeBrowserStorageItem("sessionStorage", LOCAL_DEMO_SESSION_KEY);
+      return "server-authoritative";
+    }
     if (queryMode === "local-demo") return "demo";
     if (readBrowserStorageItem("sessionStorage", LOCAL_DEMO_SESSION_KEY) === "1") return "demo";
-    const canUseDevelopmentOverride = window.location.protocol === "file:" || !host || host === "localhost" || host === "127.0.0.1" || host === "::1" || host.endsWith(".local");
+    const canUseDevelopmentOverride = isLoopback;
     let requestedMode = null;
     if (canUseDevelopmentOverride) {
       try {
@@ -3119,25 +2995,32 @@ var EmpireGameplaySliceClient = function(exports) {
       return null;
     }
   };
+  const removeBrowserStorageItem = (storageName, key) => {
+    var _a, _b;
+    try {
+      (_b = (_a = window[storageName]) == null ? void 0 : _a.removeItem) == null ? void 0 : _b.call(_a, key);
+    } catch (_error) {
+    }
+  };
   const isGameplayDiagnosticsEnabled = () => {
     if (typeof window === "undefined") {
       return false;
     }
-    const host = window.location.hostname;
-    return host === "localhost" || host === "127.0.0.1" || host === "::1" || window.location.search.includes("gameplayDiagnostics=1");
+    const host = String(window.location.hostname || "").toLowerCase();
+    return host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]";
   };
   const writeGameplaySliceDiagnostic = (endpoint, message) => {
     if (!isGameplayDiagnosticsEnabled()) {
       return;
     }
-    console.warn("[gameplay-slice] Server-authoritative runtime failed; legacy fallback remains active.", {
+    console.warn("[gameplay-slice] Server-authoritative runtime is unavailable.", {
       endpoint,
       error: sanitizeDiagnosticText(message, 240)
     });
   };
   const renderGameplaySliceDiagnostic = (endpoint, message) => [
     `<strong>Server-authoritative gameplay slice unavailable</strong>`,
-    `<span>Legacy fallback is active for this local session.</span>`,
+    `<span>Gameplay remains unavailable until the live server reconnects.</span>`,
     `<span data-gameplay-slice-diagnostic-endpoint>${escapeHtml(endpoint)}</span>`,
     `<span data-gameplay-slice-diagnostic-error>${escapeHtml(sanitizeDiagnosticText(message, 240))}</span>`
   ].join("");
@@ -3190,7 +3073,7 @@ var EmpireGameplaySliceClient = function(exports) {
   const activeGameplaySlicePages = /* @__PURE__ */ new Set();
   const mountGameplaySlicePage = (options) => {
     if (applyDevelopmentRuntimeOverride(options.root)) return null;
-    const request = resolveGameplaySliceBootstrapRequest(options.root.dataset, getBrowserStorage());
+    const request = resolveGameplaySliceBootstrapRequest(options.root.dataset);
     if (!request) {
       markMissingGameplaySessionRuntime(options.root);
       return null;
@@ -3297,11 +3180,6 @@ var EmpireGameplaySliceClient = function(exports) {
       } else {
         activeDistrictSheetId = null;
       }
-      persistServerConfirmedGameplaySliceFocus(
-        getBrowserStorage(),
-        options.root.dataset.sessionStorageKey,
-        client.getGameplaySlice()
-      );
       const phase = (_d = (_c = state.player) == null ? void 0 : _c.dayNight) == null ? void 0 : _d.uiThemeHint;
       if (phase) {
         document.body.dataset.cityPhase = phase;
@@ -3539,20 +3417,11 @@ var EmpireGameplaySliceClient = function(exports) {
     mount: (options) => mountGameplaySlicePage(options),
     autoMount: () => Array.from(document.querySelectorAll("[data-gameplay-slice-client]")).map((root) => mountGameplaySlicePage({ root })).filter((mount) => mount !== null)
   });
-  const getBrowserStorage = () => {
-    try {
-      return window.localStorage;
-    } catch (_error) {
-      return null;
-    }
-  };
   if (typeof window !== "undefined" && typeof document !== "undefined") {
     window.EmpireGameplaySliceClient = createPageApi();
-    window.EmpireGameplaySliceClient.autoMount();
   }
   exports.closeDistrictSheet = closeDistrictSheet;
   exports.mountGameplaySlicePage = mountGameplaySlicePage;
-  exports.persistServerConfirmedGameplaySliceFocus = persistServerConfirmedGameplaySliceFocus;
   exports.renderGameplaySliceStatus = renderGameplaySliceStatus;
   exports.setGameplayRuntimeMarker = setGameplayRuntimeMarker;
   Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });

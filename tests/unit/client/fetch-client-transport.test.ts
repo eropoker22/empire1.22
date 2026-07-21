@@ -73,7 +73,7 @@ describe("fetch client transport", () => {
     expect(storage.getItem("empire:gameplay-slice:snapshot:instance:1:player:1")).toBe("sealed:snapshot:1");
   });
 
-  it("consumes a join ticket once and uses the validated session on later loads", async () => {
+  it("consumes a request join ticket once without mutating browser identity cache", async () => {
     const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
     const storage = createMemoryStorage();
     storage.setItem("empireStreets.session.v1", JSON.stringify({
@@ -118,7 +118,7 @@ describe("fetch client transport", () => {
     expect(calls[0]?.body).toHaveProperty("joinTicket", "join:ticket:1");
     expect(calls[1]?.body).not.toHaveProperty("joinTicket");
     expect(JSON.parse(storage.getItem("empireStreets.session.v1") ?? "{}")?.registration)
-      .not.toHaveProperty("joinTicket");
+      .toHaveProperty("joinTicket", "join:ticket:1");
   });
 });
 

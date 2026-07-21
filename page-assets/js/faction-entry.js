@@ -1,6 +1,6 @@
-import { isExplicitLocalDemoEnabled } from "./app/local-demo-gate.js";
+import { CLIENT_EXECUTION_MODES, resolveClientEntryExecutionMode } from "./app/runtime/clientAuthorityState.js";
 
-if (isExplicitLocalDemoEnabled()) {
+if (resolveClientEntryExecutionMode() === CLIENT_EXECUTION_MODES.localDemo) {
   void import("./faction.js");
 } else {
   void import("./faction-live.js");

@@ -22,7 +22,6 @@ export const createFetchClientTransport = (
   const fetchJson = options.fetchImpl ?? globalThis.fetch;
   const endpointBase = options.endpointBase.replace(/\/+$/u, "");
   const storage = options.storage ?? resolveBrowserStorage();
-  const legacySessionStorage = options.storage ?? resolveBrowserLegacySessionStorage();
   let consumedJoinTicket: string | null = null;
 
   const post = async <TRequest>(
@@ -60,7 +59,6 @@ export const createFetchClientTransport = (
     persistGameplaySliceTokens(requestForEndpoint, payload, storage);
     if (endpointRoute === "join" && payload.accepted && requestJoinTicket) {
       consumedJoinTicket = requestJoinTicket;
-      clearConsumedLegacyJoinTicket(legacySessionStorage, requestJoinTicket);
     }
     return payload;
   };
@@ -108,21 +106,6 @@ const readJoinTicket = (request: unknown): string | null => {
 const omitJoinTicket = <TRequest>(request: TRequest): TRequest => {
   const { joinTicket: _joinTicket, ...rest } = request as TRequest & { joinTicket?: unknown };
   return rest as TRequest;
-};
-
-const clearConsumedLegacyJoinTicket = (storage: Storage | null, consumedTicket: string): void => {
-  const sessionKey = "empireStreets.session.v1";
-  try {
-    const rawSession = storage?.getItem(sessionKey);
-    if (!rawSession) return;
-    const session = JSON.parse(rawSession) as { registration?: Record<string, unknown> };
-    if (readJoinTicket(session.registration) !== consumedTicket) return;
-    const registration = { ...(session.registration ?? {}) };
-    delete registration.joinTicket;
-    storage?.setItem(sessionKey, JSON.stringify({ ...session, registration }));
-  } catch (_error) {
-    // A malformed compatibility session must not invalidate the server response.
-  }
 };
 
 const persistGameplaySliceTokens = (
@@ -181,14 +164,6 @@ const createGameplaySliceTokenStorageKey = (
 const resolveBrowserStorage = (): Storage | null => {
   try {
     return globalThis.sessionStorage ?? null;
-  } catch (_error) {
-    return null;
-  }
-};
-
-const resolveBrowserLegacySessionStorage = (): Storage | null => {
-  try {
-    return globalThis.localStorage ?? null;
   } catch (_error) {
     return null;
   }
