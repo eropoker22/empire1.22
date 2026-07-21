@@ -14,6 +14,11 @@ import {
   saveLobbyStep,
   SERVER_CATALOG
 } from "./app/auth-flow.js";
+import {
+  createHostedRegistrationTicker,
+  hostedRegistrationCtaLabel,
+  resolveHostedRegistrationPresentation
+} from "./app/hosted-registration-ui.js";
 
 const FACTION_ENTRY_HREF = "./faction.html";
 const GAME_ENTRY_HREF = "./game.html";
@@ -31,9 +36,6 @@ const SERVER_LIST_REFRESH_SECONDS = 20;
 const SERVER_LIST_ENDPOINT = "/api/servers";
 const MATCHMAKING_RESERVE_ENDPOINT = "/api/matchmaking/reserve";
 const MATRIX_DIGITS = "0123456789";
-const SERVER_COUNTDOWN_OFFSETS_MINUTES = Object.freeze({
-  "instance:free:eu-central:public-1": 12
-});
 const SERVER_LIST_FALLBACK_SOURCE = "dev-static-fallback";
 const SERVER_LIST_SERVER_SOURCE = "server-summary";
 
@@ -119,6 +121,12 @@ function createServerFromSummary(summary) {
       : mode === "war" ? "UZAVŘENO" : status,
     badge: mode === "war" && !joinable ? "PŘIPRAVUJEME" : mode === "war" ? "WAR Mode" : "FREE Battle Royale",
     joinPolicy: joinPolicy || (joinable ? "open" : "closed"),
+    joinable,
+    registrationState: String(summary.registrationState || (joinable ? "open" : "not_scheduled")),
+    registrationOpensAt: String(summary.registrationOpensAt || ""),
+    registrationClosesAt: String(summary.registrationClosesAt || ""),
+    registrationRemainingMs: Math.max(0, Number(summary.registrationRemainingMs || 0) || 0),
+    disabledReason: String(summary.disabledReason || ""),
     status,
     activity: playerCount / maxPlayers > 0.75 ? "HIGH" : playerCount / maxPlayers > 0.35 ? "MEDIUM" : "LOW",
     full,
@@ -304,13 +312,8 @@ const initializeLobbyPage = () => {
     hoveredDistrictId: null,
     selectedDistrictId: activeServerRegistration?.preferredStartDistrictId || activeServerRegistration?.startDistrictId || null,
     serverDistrictSelections: new Map(),
-    launchByServerId: Object.fromEntries(
-      Object.entries(SERVER_COUNTDOWN_OFFSETS_MINUTES).map(([serverId, minutes]) => [
-        serverId,
-        Date.now() + (minutes * 60 * 1000)
-      ])
-    ),
     countdownTimer: null,
+    serverGeneratedAt: "",
     detailZoom: 1,
     detailPanX: 0,
     detailPanY: 0,
@@ -507,28 +510,13 @@ const initializeLobbyPage = () => {
     }
   };
 
-  const formatRemaining = (ms) => {
-    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
-  };
-
-  const getServerCountdownText = (serverId) => {
+  const getServerCountdownText = (serverId, nowMs = state.countdownTimer?.nowMs?.() ?? Date.now()) => {
     const server = availableServers.find((entry) => entry.id === serverId);
-    if (server?.full || server?.locked || server?.offline) {
+    if (server?.full || server?.offline) {
       return "";
     }
-    const launchAt = Number(state.launchByServerId[serverId] || 0);
-    if (!launchAt) {
-      return "";
-    }
-    const msRemaining = launchAt - Date.now();
-    if (msRemaining <= 0) {
-      return "Start probíhá";
-    }
-    return `Začíná za ${formatRemaining(msRemaining)}`;
+    const registration = resolveHostedRegistrationPresentation(server, nowMs);
+    return registration.countdownLabel || registration.scheduleLabel;
   };
 
   const getDistrictTypeCounts = (server = getSelectedServer()) => {
@@ -590,7 +578,8 @@ const initializeLobbyPage = () => {
   };
 
   const getSelectedServer = () => availableServers.find((entry) => entry.id === state.serverId) || null;
-  const isServerUnavailable = (server) => Boolean(server?.full || server?.locked || server?.offline);
+  const isServerUnavailable = (server) => Boolean(server?.full || server?.offline
+    || !resolveHostedRegistrationPresentation(server, state.countdownTimer?.nowMs?.() ?? Date.now()).locallyJoinable);
   const getServerRiskPercent = (server) => Math.max(0, Math.min(100, Math.round(
     Number(server?.riskPercent ?? server?.riskPct ?? server?.heat ?? 0) || 0
   )));
@@ -779,15 +768,24 @@ const initializeLobbyPage = () => {
     closeDetailModal();
   };
 
-  const updateCountdowns = () => {
+  const updateCountdowns = (nowMs = Date.now()) => {
     if (list instanceof HTMLElement) {
       list.querySelectorAll("[data-server-countdown]").forEach((node) => {
         const serverId = String(node.getAttribute("data-server-countdown") || "");
-        node.textContent = getServerCountdownText(serverId);
+        node.textContent = getServerCountdownText(serverId, nowMs);
       });
     }
     if (detailModalCountdown && state.serverId) {
-      detailModalCountdown.textContent = getServerCountdownText(state.serverId);
+      detailModalCountdown.textContent = getServerCountdownText(state.serverId, nowMs);
+    }
+    const selected = getSelectedServer();
+    const selectedPresentation = selected ? resolveHostedRegistrationPresentation(selected, nowMs) : null;
+    if (lobbyOpenSelectedButton instanceof HTMLButtonElement) {
+      lobbyOpenSelectedButton.disabled = !selectedPresentation?.locallyJoinable;
+      lobbyOpenSelectedButton.textContent = selected ? hostedRegistrationCtaLabel(selected, nowMs) : "VYBRAT DISTRICT";
+    }
+    if (selectedPresentation?.needsRefresh) {
+      void hydrateServerSummaries();
     }
   };
 
@@ -795,7 +793,9 @@ const initializeLobbyPage = () => {
     if (state.countdownTimer) {
       return;
     }
-    state.countdownTimer = window.setInterval(updateCountdowns, 1000);
+    state.countdownTimer = createHostedRegistrationTicker({ onTick: updateCountdowns });
+    state.countdownTimer.syncServerTime(state.serverGeneratedAt);
+    state.countdownTimer.start();
   };
 
   const drawMapImageCover = (context, image, width, height) => {
@@ -1054,6 +1054,8 @@ const initializeLobbyPage = () => {
       lobbyEnterSelectedButton.disabled = state.isReservingServer || !state.serverId || !state.selectedDistrictId || isServerUnavailable(server);
       if (state.isReservingServer) {
         lobbyEnterSelectedButton.textContent = "REZERVUJI SERVER...";
+      } else if (server && isServerUnavailable(server)) {
+        lobbyEnterSelectedButton.textContent = hostedRegistrationCtaLabel(server, state.countdownTimer?.nowMs?.() ?? Date.now());
       } else {
         lobbyEnterSelectedButton.innerHTML = server?.mode === "war"
           ? (isServerUnavailable(server) ? "UZAVŘENO" : "VSTOUPIT DO WAR / DEV <span>›</span>")
@@ -1189,6 +1191,9 @@ const initializeLobbyPage = () => {
     }
     if (lobbyEnterSelectedButton instanceof HTMLButtonElement) {
       lobbyEnterSelectedButton.disabled = !state.serverId || !state.selectedDistrictId || serverUnavailable;
+      if (serverUnavailable) {
+        lobbyEnterSelectedButton.textContent = hostedRegistrationCtaLabel(server, state.countdownTimer?.nowMs?.() ?? Date.now());
+      }
     }
     if (detailModalTypeCounts instanceof HTMLElement) {
       detailModalTypeCounts.innerHTML = renderTypeCountMarkup(server);
@@ -1217,16 +1222,18 @@ const initializeLobbyPage = () => {
 
     const servers = getVisibleServers();
     const recommendedServer = servers.find((server) => !isServerUnavailable(server)) || servers[0] || null;
-    list.innerHTML = servers.map((server) => `
-      <button type="button" class="auth-server-card ${server.id === state.serverId ? "is-selected" : ""} ${recommendedServer?.id === server.id ? "is-recommended" : ""} ${server.locked ? "is-locked" : ""} ${server.full ? "is-full" : ""} ${server.offline ? "is-offline" : ""}" data-server-card="${server.id}" data-server-mode="${server.mode}" ${recommendedServer?.id === server.id ? "data-recommended-server=\"true\"" : ""} data-testid="server-card-${server.id}">
-        <span class="auth-server-card__label">${server.name}</span>
-        <span class="auth-server-card__meta">${server.region} • ${server.players}/${server.capacity}</span>
-        <span class="auth-server-card__status">${server.status || "ONLINE"}</span>
-        <span class="auth-server-card__countdown" data-server-countdown="${server.id}">${getServerCountdownText(server.id)}</span>
-        <span class="auth-server-card__subtitle">${server.mapPending ? "War mapa se připravuje" : server.map?.totalDistricts ? `${server.map.totalDistricts} districtů / ${server.map.downtownDistricts} downtown` : serverListSource === SERVER_LIST_FALLBACK_SOURCE ? "DEV fallback katalog" : ""}</span>
-        <span class="auth-server-card__signal is-${String(server.activity || "medium").toLowerCase()}"><i></i><i></i><i></i><i></i></span>
-      </button>
-    `).join("");
+    list.innerHTML = servers.map((server) => {
+      const registration = resolveHostedRegistrationPresentation(server, state.countdownTimer?.nowMs?.() ?? Date.now());
+      return `
+        <button type="button" class="auth-server-card ${server.id === state.serverId ? "is-selected" : ""} ${recommendedServer?.id === server.id ? "is-recommended" : ""} ${server.locked ? "is-locked" : ""} ${server.full ? "is-full" : ""} ${server.offline ? "is-offline" : ""}" data-server-card="${server.id}" data-server-mode="${server.mode}" ${recommendedServer?.id === server.id ? "data-recommended-server=\"true\"" : ""} data-testid="server-card-${server.id}">
+          <span class="auth-server-card__label">${server.name}</span>
+          <span class="auth-server-card__meta">${server.region} • ${server.players}/${server.capacity}</span>
+          <span class="auth-server-card__status">${registration.statusLabel}</span>
+          <span class="auth-server-card__countdown" data-server-countdown="${server.id}">${getServerCountdownText(server.id)}</span>
+          <span class="auth-server-card__subtitle">${server.mapPending ? "War mapa se připravuje" : server.map?.totalDistricts ? `${server.map.totalDistricts} districtů / ${server.map.downtownDistricts} downtown` : serverListSource === SERVER_LIST_FALLBACK_SOURCE ? "DEV fallback katalog" : ""}</span>
+          <span class="auth-server-card__signal is-${String(server.activity || "medium").toLowerCase()}"><i></i><i></i><i></i><i></i></span>
+        </button>`;
+    }).join("");
 
     for (const button of list.querySelectorAll("[data-server-card]")) {
       button.addEventListener("click", () => {
@@ -1273,6 +1280,8 @@ const initializeLobbyPage = () => {
 
       const payload = await response.json();
       const serverSummaries = Array.isArray(payload?.servers) ? payload.servers : [];
+      state.serverGeneratedAt = String(payload?.generatedAt || "");
+      state.countdownTimer?.syncServerTime?.(state.serverGeneratedAt);
       const nextServers = mergeServerSummariesWithFallback(serverSummaries, SERVER_CATALOG);
       if (nextServers.length < 1 || nextServers.length === availableServers.length && nextServers.every((server, index) => server === availableServers[index])) {
         return;
@@ -1313,7 +1322,7 @@ const initializeLobbyPage = () => {
 
       if (state.serverRefreshSecondsRemaining <= 0) {
         state.serverRefreshSecondsRemaining = SERVER_LIST_REFRESH_SECONDS;
-        refreshServerList();
+        void hydrateServerSummaries();
         renderServerRefreshCountdown(true);
         window.setTimeout(() => renderServerRefreshCountdown(false), 520);
         return;

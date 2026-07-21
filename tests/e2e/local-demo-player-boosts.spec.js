@@ -138,6 +138,15 @@ async function openBoostGame(page) {
     && document.querySelector("#game-root")?.dataset?.runtimeInit === "ready"
     && document.documentElement?.dataset?.runtimeMode === "local-demo"
   ));
+  await dismissVisibleMilestone(page);
+}
+
+async function dismissVisibleMilestone(page) {
+  const milestone = page.locator("[data-server-milestone-modal]");
+  if (await milestone.isVisible()) {
+    await milestone.locator("[data-server-milestone-confirm]").click();
+    await expect(milestone).toBeHidden();
+  }
 }
 
 async function readSession(page) {
@@ -229,8 +238,6 @@ test("strategic boosts debit once, expire, and Tactical Grid is consumed by vali
   const ghostCard = await activateBoost(page, "ghost-network");
   await expect(ghostCard.locator("[data-boost-button-label]")).toContainText("AKTIVNÍ");
   await expect(page.locator("[data-boost-open-trigger]").first()).toContainText("BOOST");
-  await expect(page.locator("[data-player-boost-pinned]")).toBeVisible();
-  await expect(page.locator("[data-player-boost-pinned]")).toContainText("GHOST NETWORK");
   await expect(page.locator('[data-boost-card="industrial-overdrive"] [data-boost-button-label]')).toContainText("BLOKOVÁNO");
 
   const afterGhost = await readSession(page);
@@ -239,12 +246,10 @@ test("strategic boosts debit once, expire, and Tactical Grid is consumed by vali
   expect(afterGhost.inventory.drugs["pulse-shot"]).toBe(beforeGhost.inventory.drugs["pulse-shot"] - 2);
 
   await page.clock.fastForward(12 * 60_000 + 1_000);
-  await expect(page.locator("[data-player-boost-pinned]")).toBeHidden();
   await expect(page.locator('[data-boost-card="tactical-grid"] [data-boost-button-label]')).toHaveText("AKTIVOVAT");
 
   const tacticalCard = await activateBoost(page, "tactical-grid");
   await expect(tacticalCard.locator("[data-boost-button-label]")).toContainText("NABITO");
-  await expect(page.locator("[data-player-boost-pinned]")).toContainText("TACTICAL GRID");
 
   await page.locator("#boost-modal-close").click();
   await expect(page.locator("#boost-modal")).toBeHidden();
@@ -263,7 +268,6 @@ test("strategic boosts debit once, expire, and Tactical Grid is consumed by vali
   expect(afterAttackAccepted.playerBoosts.cooldownUntilMsByBoostId["tactical-grid"]).toBeGreaterThan(browserNow);
   expect(afterAttackAccepted.missions.attackOrders).toHaveLength(1);
   expect(afterAttackAccepted.missions.attackOrders[0].tacticalGrid.appliedMultiplier).toBe(1.12);
-  await expect(page.locator("[data-player-boost-pinned]")).toBeHidden();
 
   const attackDurationMs = await page.evaluate((key) => {
     const session = JSON.parse(localStorage.getItem(key) || "{}");

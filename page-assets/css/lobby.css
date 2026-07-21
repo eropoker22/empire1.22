@@ -1212,6 +1212,101 @@ body.servers-page .auth-server-card.is-selected {
 .auth-server-card__signal.is-high i { opacity: 1; }
 .auth-server-card__signal.is-low { color: var(--lobby-muted); }
 
+.live-server-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  min-height: 126px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.live-server-card__main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 14px;
+  width: 100%;
+  padding: 18px 20px;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.live-server-card__main .auth-server-card__label,
+.live-server-card__main .auth-server-card__subtitle {
+  grid-column: 1;
+}
+
+.live-server-card__main .auth-server-card__meta,
+.live-server-card__main .auth-server-card__status,
+.live-server-card__main .auth-server-card__schedule,
+.live-server-card__main .auth-server-card__countdown {
+  position: static;
+  inset: auto;
+  transform: none;
+}
+
+.live-server-card__main .auth-server-card__status,
+.live-server-card__main .auth-server-card__schedule,
+.live-server-card__main .auth-server-card__countdown {
+  grid-column: 2;
+  justify-self: end;
+  text-align: right;
+}
+
+.live-server-card > .lobby-primary-cta {
+  align-self: stretch;
+  min-width: 178px;
+  border-radius: 0;
+}
+
+.lobby-registration-status {
+  display: grid;
+  gap: 5px;
+  margin-top: 14px;
+  padding: 11px 13px;
+  border: 1px solid rgba(95, 185, 199, 0.22);
+  border-radius: 10px;
+  background: rgba(2, 9, 18, 0.7);
+}
+
+.lobby-registration-status strong {
+  color: #dffaff;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.lobby-registration-status span {
+  color: #83cbd6;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 760px) {
+  .live-server-card {
+    grid-template-columns: 1fr;
+  }
+
+  .live-server-card > .lobby-primary-cta {
+    min-height: 46px;
+    border-radius: 0 0 12px 12px;
+  }
+
+  .live-server-card__main {
+    grid-template-columns: 1fr;
+  }
+
+  .live-server-card__main .auth-server-card__status,
+  .live-server-card__main .auth-server-card__schedule,
+  .live-server-card__main .auth-server-card__countdown {
+    grid-column: 1;
+    justify-self: start;
+    text-align: left;
+  }
+}
+
 .auth-server-card.is-locked,
 .auth-server-card.is-full {
   opacity: 0.72;
@@ -4877,5 +4972,29 @@ body.lobby-command-body {
   .lobby-top-player {
     min-width: 138px;
     padding: 10px 15px 9px;
+  }
+}
+
+body.servers-page .auth-server-card.live-server-card {
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 0.42fr);
+  padding: 0;
+  overflow: hidden;
+}
+
+body.servers-page .auth-server-card.live-server-card > .lobby-primary-cta {
+  align-self: stretch;
+  min-height: 100%;
+  border-width: 0 0 0 1px;
+  border-radius: 0;
+}
+
+@media (max-width: 760px) {
+  body.servers-page .auth-server-card.live-server-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.servers-page .auth-server-card.live-server-card > .lobby-primary-cta {
+    min-height: 46px;
+    border-width: 1px 0 0;
   }
 }

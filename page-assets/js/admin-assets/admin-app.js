@@ -1,6 +1,5 @@
 (function() {
   "use strict";
-  var _a;
   class AdminApiError extends Error {
     constructor(status, code, message) {
       super(message);
@@ -64,41 +63,6 @@
     }
     return payload.data;
   };
-  const mapTotal = (form) => {
-    const data = new FormData(form);
-    return 8 + ["commercial", "residential", "industrial", "park"].reduce((sum, key) => sum + Number(data.get(key) ?? 0), 0);
-  };
-  const validateWizardPanel = (form, step) => {
-    const panel = form.querySelector(`[data-admin-wizard-panel="${step}"]`);
-    if (!panel) return false;
-    for (const field of panel.querySelectorAll("input,select")) {
-      if (!field.reportValidity()) return false;
-    }
-    if (step === 2 && mapTotal(form) !== 161) {
-      const message = form.querySelector("[data-admin-create-error]");
-      if (message) message.textContent = "Mapa musí obsahovat přesně 161 districtů.";
-      return false;
-    }
-    return true;
-  };
-  const updateWizardReview = (form) => {
-    const review = form.querySelector("[data-admin-create-review]");
-    if (!review) return;
-    const data = new FormData(form);
-    const values = [
-      ["Název", data.get("displayName")],
-      ["Mode", data.get("mode")],
-      ["Region", data.get("region")],
-      ["Kapacita", data.get("capacity")],
-      ["Join policy", data.get("joinPolicy")],
-      ["Mapa", `8 / ${data.get("commercial")} / ${data.get("residential")} / ${data.get("industrial")} / ${data.get("park")}`]
-    ];
-    review.innerHTML = values.map(([label, value]) => `<span><small>${escapeHtml(label)}</small><strong>${escapeHtml(value ?? "-")}</strong></span>`).join("");
-  };
-  const escapeHtml = (value) => String(value).replace(
-    /[&<>"']/gu,
-    (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]
-  );
   const publicBuildingNameVariants = {
     stock_exchange: ["Vortex Exchange"],
     central_bank: ["Iron Reserve Bank", "Federal Reserve Node", "Obsidian Reserve Bank"],
@@ -10073,7 +10037,7 @@
     }
   };
   const mergeModeConfig = (base, override) => {
-    var _a2, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p;
     return {
       ...base,
       ...override,
@@ -10082,7 +10046,7 @@
         ...override.balance,
         conflict: {
           ...base.balance.conflict,
-          ...((_a2 = override.balance) == null ? void 0 : _a2.conflict) ?? {}
+          ...((_a = override.balance) == null ? void 0 : _a.conflict) ?? {}
         },
         police: {
           ...base.balance.police,
@@ -18184,7 +18148,7 @@
     }
   };
   const validateConvenienceStoreConfig = (config) => {
-    var _a2;
+    var _a;
     if (config.id !== "convenience_store" || config.buildingTypeId !== "convenience_store") {
       throw new Error("Convenience Store config requires canonical identifiers.");
     }
@@ -18220,7 +18184,7 @@
       }
       expectedMin = tier.maxOwned + 1;
     }
-    if (tiers.length === 0 || ((_a2 = tiers.at(-1)) == null ? void 0 : _a2.maxOwned) !== null) {
+    if (tiers.length === 0 || ((_a = tiers.at(-1)) == null ? void 0 : _a.maxOwned) !== null) {
       throw new Error("Convenience Store truth tiers require an open-ended final tier.");
     }
     for (const [field, value] of Object.entries(config.network)) {
@@ -18415,7 +18379,7 @@
   };
   const EXPECTED_SLOT_RESOURCES = ["neon-dust", "pulse-shot", "velvet-smoke"];
   const validateStreetDealersConfig = (config) => {
-    var _a2;
+    var _a;
     const dealers = config.balance.streetDealers;
     if (!dealers) return;
     if (dealers.dealerSlots.length !== EXPECTED_SLOT_RESOURCES.length || dealers.sellableDrugs.length !== EXPECTED_SLOT_RESOURCES.length) {
@@ -18424,7 +18388,7 @@
     for (const [index, resourceKey] of EXPECTED_SLOT_RESOURCES.entries()) {
       const slot = dealers.dealerSlots[index];
       const drug = dealers.sellableDrugs.find((candidate) => candidate.itemId === resourceKey);
-      const recipe = (_a2 = config.balance.drugLab) == null ? void 0 : _a2.recipes[resourceKey];
+      const recipe = (_a = config.balance.drugLab) == null ? void 0 : _a.recipes[resourceKey];
       if (!slot || slot.slotId !== `slot-${index + 1}` || slot.itemId !== resourceKey || !drug || !recipe) {
         throw new Error(`Street Dealers require ${resourceKey} in slot ${index + 1}.`);
       }
@@ -18663,6 +18627,14 @@
   function normalizeBuildingName(value) {
     return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
   }
+  const FREE_HOSTED_SERVER_LIFECYCLE_POLICY = Object.freeze({
+    version: 1,
+    minimumReadyPlayersToStart: 2,
+    registrationWindowMs: 60 * 60 * 1e3,
+    allowJoinsWhileRunningDuringWindow: true,
+    requireFreshWorkerForRegistration: true,
+    allowSetupCompletionAfterWindow: true
+  });
   const DEFAULT_PUBLIC_MAP_COMPOSITION = Object.freeze({
     downtown: 8,
     commercial: 40,
@@ -40065,9 +40037,375 @@
   new Map(
     empireStreetsCityMapManifest.districts.map((district) => [district.id, district])
   );
-  const FREE_MODE_CONFIG = resolveModeConfig("free");
-  const FREE_SERVER_MIN_CAPACITY = ((_a = FREE_MODE_CONFIG.balance.finalLockdown) == null ? void 0 : _a.enabled) ? FREE_MODE_CONFIG.balance.finalLockdown.triggerActivePlayers + 1 : 1;
-  const FREE_SERVER_MAX_CAPACITY = FREE_MODE_CONFIG.balance.maxPlayersPerServer;
+  const mapTotal = (form) => {
+    const data = new FormData(form);
+    return 8 + ["commercial", "residential", "industrial", "park"].reduce((sum, key) => sum + Number(data.get(key) ?? 0), 0);
+  };
+  const validateWizardPanel = (form, step) => {
+    const panel = form.querySelector(`[data-admin-wizard-panel="${step}"]`);
+    const serverTemplate = form.elements.namedItem("serverTemplate");
+    if (!panel) return false;
+    for (const field of panel.querySelectorAll("input,select")) {
+      if (!field.reportValidity()) return false;
+    }
+    if (step === 2 && mapTotal(form) !== 161) {
+      const message = form.querySelector("[data-admin-create-error]");
+      if (message) message.textContent = "Mapa musí obsahovat přesně 161 districtů.";
+      return false;
+    }
+    if (step === 1 && serverTemplate instanceof HTMLSelectElement && serverTemplate.value === "full" && Number(new FormData(form).get("capacity")) !== 20) {
+      const message = form.querySelector("[data-admin-create-error]");
+      if (message) message.textContent = "Plnohodnotná šablona používá canonical kapacitu 20 hráčů.";
+      return false;
+    }
+    return true;
+  };
+  const updateWizardReview = (form) => {
+    const review = form.querySelector("[data-admin-create-review]");
+    if (!review) return;
+    const data = new FormData(form);
+    const serverTemplate = data.get("serverTemplate") === "full" ? "Plnohodnotný server" : "Kontrolní test";
+    const values = [
+      ["Název", data.get("displayName")],
+      ["Mode", data.get("mode")],
+      ["Region", data.get("region")],
+      ["Šablona", serverTemplate],
+      ["Kapacita", data.get("capacity")],
+      ["Minimum ke spuštění", FREE_HOSTED_SERVER_LIFECYCLE_POLICY.minimumReadyPlayersToStart],
+      ["Registrační okno", `${FREE_HOSTED_SERVER_LIFECYCLE_POLICY.registrationWindowMs / 6e4} minut`],
+      ["Vstup po vytvoření", "Uzavřený do naplánování registrace"],
+      ["Mapa", `8 / ${data.get("commercial")} / ${data.get("residential")} / ${data.get("industrial")} / ${data.get("park")}`]
+    ];
+    review.innerHTML = values.map(([label, value]) => `<span><small>${escapeHtml(label)}</small><strong>${escapeHtml(value ?? "-")}</strong></span>`).join("");
+  };
+  const escapeHtml = (value) => String(value).replace(
+    /[&<>"']/gu,
+    (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]
+  );
+  const canonicalCapacity = resolveModeConfig("free").balance.maxPlayersPerServer;
+  const createAdminCreateController = (options) => {
+    const bind = () => {
+      var _a, _b, _c;
+      const target = options.target();
+      (_a = target == null ? void 0 : target.querySelector("[data-admin-create-open]")) == null ? void 0 : _a.addEventListener("click", () => {
+        options.updateState({
+          wizardOpen: true,
+          wizardStep: 1,
+          idempotencyKey: options.state().idempotencyKey ?? options.createKey()
+        });
+        options.render();
+      });
+      (_b = target == null ? void 0 : target.querySelector("[data-admin-create-cancel]")) == null ? void 0 : _b.addEventListener("click", () => {
+        options.updateState({ wizardOpen: false, wizardStep: 1, idempotencyKey: null });
+        options.render();
+      });
+      target == null ? void 0 : target.querySelectorAll("[data-admin-wizard-next]").forEach((button2) => button2.addEventListener("click", () => {
+        const form = target.querySelector("[data-admin-create-form]");
+        const state = options.state();
+        if (!form || !validateWizardPanel(form, state.wizardStep)) return;
+        options.updateState({ wizardStep: Math.min(4, state.wizardStep + 1) });
+        applyStep();
+      }));
+      target == null ? void 0 : target.querySelectorAll("[data-admin-wizard-back]").forEach((button2) => button2.addEventListener("click", () => {
+        options.updateState({ wizardStep: Math.max(1, options.state().wizardStep - 1) });
+        applyStep();
+      }));
+      bindTemplatePolicy();
+      bindMapTotal();
+      (_c = target == null ? void 0 : target.querySelector("[data-admin-create-form]")) == null ? void 0 : _c.addEventListener("submit", (event) => void submit(event));
+    };
+    const submit = async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const idempotencyKey = options.state().idempotencyKey;
+      if (!form.reportValidity() || !idempotencyKey) return;
+      if (mapTotal(form) !== 161) return showError(form, "Mapa musí obsahovat přesně 161 districtů.");
+      const data = new FormData(form);
+      const serverTemplate = data.get("serverTemplate") === "full" ? "full" : "control";
+      const payload = {
+        displayName: String(data.get("displayName") ?? ""),
+        mode: String(data.get("mode")),
+        region: String(data.get("region")),
+        capacity: Number(data.get("capacity")),
+        serverTemplate,
+        joinPolicy: "closed",
+        mapComposition: {
+          downtown: 8,
+          commercial: Number(data.get("commercial")),
+          residential: Number(data.get("residential")),
+          industrial: Number(data.get("industrial")),
+          park: Number(data.get("park"))
+        }
+      };
+      const submitButton = form.querySelector("[type=submit]");
+      if (submitButton) submitButton.disabled = true;
+      try {
+        const result = await options.client.createServer(payload, idempotencyKey);
+        options.selectInstance(result.server.serverInstanceId);
+        options.updateState({ wizardOpen: false, wizardStep: 1, idempotencyKey: null });
+        await options.refresh();
+      } catch (error) {
+        showError(form, error instanceof Error ? error.message : "Server nebylo možné vytvořit.");
+        if (submitButton) submitButton.disabled = false;
+      }
+    };
+    const bindMapTotal = () => {
+      var _a;
+      const form = (_a = options.target()) == null ? void 0 : _a.querySelector("[data-admin-create-form]");
+      const output = form == null ? void 0 : form.querySelector("[data-admin-map-total]");
+      if (!form || !output) return;
+      const update = () => {
+        const total = mapTotal(form);
+        output.value = String(total);
+        output.dataset.valid = String(total === 161);
+        updateWizardReview(form);
+      };
+      form.querySelectorAll("[data-admin-map-count]").forEach((input) => input.addEventListener("input", update));
+      update();
+    };
+    const bindTemplatePolicy = () => {
+      var _a;
+      const form = (_a = options.target()) == null ? void 0 : _a.querySelector("[data-admin-create-form]");
+      const template = form == null ? void 0 : form.querySelector("[data-admin-server-template]");
+      const capacity = form == null ? void 0 : form.querySelector("[data-admin-server-capacity]");
+      if (!form || !template || !capacity) return;
+      const update = () => {
+        const full = template.value === "full";
+        if (full) capacity.value = String(canonicalCapacity);
+        else if (capacity.dataset.serverTemplate === "full") capacity.value = String(capacity.min);
+        capacity.readOnly = full;
+        capacity.setAttribute("aria-readonly", String(full));
+        capacity.dataset.serverTemplate = full ? "full" : "control";
+        updateWizardReview(form);
+      };
+      template.addEventListener("change", update);
+      update();
+    };
+    const applyStep = () => {
+      const target = options.target();
+      target == null ? void 0 : target.querySelectorAll("[data-admin-wizard-panel]").forEach((panel) => {
+        panel.hidden = Number(panel.dataset.adminWizardPanel) !== options.state().wizardStep;
+      });
+      const form = target == null ? void 0 : target.querySelector("[data-admin-create-form]");
+      if (form) updateWizardReview(form);
+    };
+    return { bind };
+  };
+  const showError = (form, text) => {
+    const message = form.querySelector("[data-admin-create-error]");
+    if (message) message.textContent = text;
+  };
+  const createAdminRegistrationController = (options) => {
+    const drafts = /* @__PURE__ */ new Map();
+    let timer = null;
+    let serverClockMs = Number.NaN;
+    let performanceClockMs = 0;
+    let refreshedBoundary = "";
+    const bind = () => {
+      var _a;
+      const target = options.target();
+      target == null ? void 0 : target.querySelectorAll("[data-admin-registration-action]").forEach((button2) => button2.addEventListener("click", () => void submit(button2)));
+      (_a = target == null ? void 0 : target.querySelector("[data-admin-registration-opens-at]")) == null ? void 0 : _a.addEventListener("input", (event) => {
+        const instanceId = options.selectedInstanceId();
+        if (instanceId && event.currentTarget instanceof HTMLInputElement) drafts.set(instanceId, event.currentTarget.value);
+      });
+    };
+    const schedulePayload = (instanceId) => {
+      var _a;
+      const input = (_a = options.target()) == null ? void 0 : _a.querySelector("[data-admin-registration-opens-at]");
+      const value = drafts.get(instanceId) ?? (input == null ? void 0 : input.value) ?? "";
+      const timestamp = value ? new Date(value) : null;
+      return { registrationOpensAt: timestamp && Number.isFinite(timestamp.getTime()) ? timestamp.toISOString() : void 0 };
+    };
+    const submit = async (button2) => {
+      var _a, _b;
+      const instanceId = button2.dataset.adminServerId;
+      const action2 = button2.dataset.adminRegistrationAction;
+      const hosted = (_a = options.controlPlane()) == null ? void 0 : _a.servers.find((entry) => entry.serverInstanceId === instanceId);
+      const target = options.target();
+      const reason = ((_b = target == null ? void 0 : target.querySelector("[data-admin-action-reason]")) == null ? void 0 : _b.value.trim()) ?? "";
+      const message = target == null ? void 0 : target.querySelector("[data-admin-action-error]");
+      if (!instanceId || !action2 || !hosted) return;
+      if (reason.length < 3) {
+        if (message) message.textContent = "Uveďte důvod akce alespoň třemi znaky.";
+        return;
+      }
+      if (action2 === "close-registration-now" && !window.confirm("Nouzově ukončit registraci? Existující hráči zůstanou na serveru.")) return;
+      const payload = {
+        action: action2,
+        expectedVersion: hosted.version,
+        reason,
+        ...action2 === "close-registration-now" ? { confirmationToken: "CLOSE_REGISTRATION" } : {},
+        ...action2 === "schedule-registration" ? schedulePayload(instanceId) : {}
+      };
+      if (action2 === "schedule-registration" && !payload.registrationOpensAt) {
+        if (message) message.textContent = "Vyber platný čas otevření registrace.";
+        return;
+      }
+      button2.disabled = true;
+      try {
+        await options.client.requestLifecycleAction(instanceId, payload, options.createKey());
+        if (action2 === "schedule-registration") drafts.delete(instanceId);
+        await options.refresh();
+      } catch (error) {
+        if (message) message.textContent = error instanceof Error ? error.message : "Registraci nebylo možné změnit.";
+        button2.disabled = false;
+      }
+    };
+    const restoreDraft = () => {
+      var _a;
+      const instanceId = options.selectedInstanceId();
+      const input = (_a = options.target()) == null ? void 0 : _a.querySelector("[data-admin-registration-opens-at]");
+      if (instanceId && input && drafts.has(instanceId)) input.value = drafts.get(instanceId);
+    };
+    const syncClock = (generatedAt) => {
+      const parsed = Date.parse(String(generatedAt || ""));
+      if (!Number.isFinite(parsed)) return;
+      serverClockMs = parsed;
+      performanceClockMs = performance.now();
+    };
+    const updateCountdowns = () => {
+      var _a;
+      const nowMs = Number.isFinite(serverClockMs) ? serverClockMs + Math.max(0, performance.now() - performanceClockMs) : Date.now();
+      (_a = options.target()) == null ? void 0 : _a.querySelectorAll("[data-admin-registration-countdown]").forEach((node) => {
+        const state = node.dataset.registrationState;
+        const targetIso = state === "scheduled" ? node.dataset.registrationOpensAt : node.dataset.registrationClosesAt;
+        const remainingMs = Date.parse(String(targetIso || "")) - nowMs;
+        if (state !== "scheduled" && state !== "open" || !Number.isFinite(remainingMs)) return;
+        node.textContent = `${state === "scheduled" ? "začne za" : "zbývá"} ${formatDuration(remainingMs)}`;
+        if (remainingMs > 0) return;
+        const key = `${options.selectedInstanceId()}:${state}:${targetIso}`;
+        if (refreshedBoundary === key) return;
+        refreshedBoundary = key;
+        void options.refresh();
+      });
+    };
+    const start = () => {
+      if (!timer) timer = setInterval(updateCountdowns, 1e3);
+    };
+    const stop = () => {
+      if (timer) clearInterval(timer);
+      timer = null;
+    };
+    return { bind, restoreDraft, start, stop, syncClock, updateCountdowns };
+  };
+  const formatDuration = (milliseconds) => {
+    const seconds = Math.max(0, Math.floor(milliseconds / 1e3));
+    return [Math.floor(seconds / 3600), Math.floor(seconds % 3600 / 60), seconds % 60].map((value) => String(value).padStart(2, "0")).join(":");
+  };
+  const freeConfig = resolveModeConfig("free");
+  const minimumCapacity = FREE_HOSTED_SERVER_LIFECYCLE_POLICY.minimumReadyPlayersToStart;
+  const maximumCapacity = freeConfig.balance.maxPlayersPerServer;
+  const registrationMinutes$1 = FREE_HOSTED_SERVER_LIFECYCLE_POLICY.registrationWindowMs / 6e4;
+  const renderAdminCreateWizard = (step) => `
+  <form class="admin-wizard" data-admin-create-form>
+    <div class="admin-wizard__steps" aria-label="Kroky vytvoření serveru">
+      ${["Základ", "Mapa", "Přístup", "Kontrola"].map((label, index) => `<span class="${step === index + 1 ? "is-active" : ""}">${index + 1}. ${label}</span>`).join("")}
+    </div>
+    <fieldset data-admin-wizard-panel="1" ${step === 1 ? "" : "hidden"}>
+      <legend>Základ</legend>
+      <label><span>Název</span><input name="displayName" minlength="3" maxlength="80" required></label>
+      <label><span>Mode</span><select name="mode"><option value="free">Free</option><option value="war" disabled>War (připravuje se)</option></select></label>
+      <label><span>Region</span><select name="region"><option value="eu-central">EU Central</option></select></label>
+      <label class="admin-template-selector"><span>Bezpečná Free šablona</span><select name="serverTemplate" data-admin-server-template>
+        <option value="control">Kontrolní test · 2–20 hráčů · bez Očisty</option>
+        <option value="full">Plnohodnotný server · 20 hráčů · canonical Očista</option>
+      </select><small>Šablona určuje serverová lifecycle pravidla. Browser neposílá raw balance ani nastavení Očisty.</small></label>
+      <label><span>Kapacita</span><input name="capacity" data-admin-server-capacity type="number" min="${minimumCapacity}" max="${maximumCapacity}" value="${minimumCapacity}" required></label>
+      <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Další</button>
+    </fieldset>
+    <fieldset data-admin-wizard-panel="2" ${step === 2 ? "" : "hidden"}>
+      <legend>Mapa</legend><div class="admin-map-counts">
+        <label><span>Downtown</span><input value="8" disabled></label>
+        <label><span>Commercial</span><input name="commercial" data-admin-map-count type="number" min="0" value="40" required></label>
+        <label><span>Residential</span><input name="residential" data-admin-map-count type="number" min="0" value="38" required></label>
+        <label><span>Industrial</span><input name="industrial" data-admin-map-count type="number" min="0" value="38" required></label>
+        <label><span>Park</span><input name="park" data-admin-map-count type="number" min="0" value="37" required></label>
+      </div><p>Celkem: <output data-admin-map-total>161</output> / 161</p>
+      <button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
+      <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Další</button>
+    </fieldset>
+    <fieldset data-admin-wizard-panel="3" ${step === 3 ? "" : "hidden"}>
+      <legend>Přístup</legend><input type="hidden" name="joinPolicy" value="closed">
+      <div class="admin-kv-grid admin-wizard__policy">
+        ${kv$2("Kapacita", "Kontrolní 2–20 / plná 20")}
+        ${kv$2("Minimum ke spuštění", minimumCapacity)}
+        ${kv$2("Registrační okno", `${registrationMinutes$1} minut`)}
+      </div>
+      <p class="admin-notice">Kontrolní šablona je pro malý setup bez Očisty. Plnohodnotná šablona drží canonical kapacitu 20 a standardní Očistu. Server vznikne se zavřeným vstupem.</p>
+      <button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
+      <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Další</button>
+    </fieldset>
+    <fieldset data-admin-wizard-panel="4" ${step === 4 ? "" : "hidden"}>
+      <legend>Kontrola</legend><div class="admin-kv-grid" data-admin-create-review></div>
+      <p class="admin-notice">Server vznikne jako REQUESTED a joins zůstanou zavřené do dokončení provisioningu.</p>
+      <button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
+      <button class="admin-button admin-button--primary" type="submit">Create Server</button>
+    </fieldset>
+    <button class="admin-button" type="button" data-admin-create-cancel>Zrušit</button>
+    <p data-admin-create-error role="alert"></p>
+  </form>`;
+  const kv$2 = (label, value) => `<span><small>${escape$2(label)}</small><strong>${escape$2(value)}</strong></span>`;
+  const escape$2 = (value) => String(value).replace(/[&<>"']/gu, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+  const registrationMinutes = FREE_HOSTED_SERVER_LIFECYCLE_POLICY.registrationWindowMs / 6e4;
+  const renderAdminRegistration = (server, session) => {
+    const state = String(server.registrationState || "not_scheduled");
+    const canSchedule = server.provisioningState === "ready" && server.status === "lobby" && (state === "not_scheduled" || state === "closed" || state === "closed_early");
+    const canCancel = server.provisioningState === "ready" && server.status === "lobby" && state === "scheduled";
+    const canClose = session.role === "owner" && state === "open";
+    return `<section class="admin-registration" aria-labelledby="admin-registration-${attr$1(server.serverInstanceId)}">
+    <div class="admin-registration__head">
+      <div><span>REGISTRACE HRÁČŮ</span><h5 id="admin-registration-${attr$1(server.serverInstanceId)}">${escape$1(stateLabel(state))}</h5></div>
+      <strong data-admin-registration-countdown data-registration-state="${attr$1(state)}"
+        data-registration-opens-at="${attr$1(server.registrationOpensAt ?? "")}" data-registration-closes-at="${attr$1(server.registrationClosesAt ?? "")}">
+        ${escape$1(countdown(server))}
+      </strong>
+    </div>
+    <div class="admin-kv-grid">
+      ${kv$1("Otevření", timeWithZone(server.registrationOpensAt))}${kv$1("Automatické zavření", timeWithZone(server.registrationClosesAt))}
+      ${kv$1("Délka", `${server.registrationWindowMinutes ?? registrationMinutes} minut`)}
+      ${kv$1("Připravení hráči", `${numberOrDash(server.readyPlayers)} / ${numberOrDash(server.minimumReadyPlayersToStart)}`)}
+    </div>
+    <label class="admin-registration__schedule"><span>Plánované otevření · ${escape$1(browserTimeZone())}</span>
+      <input type="datetime-local" data-admin-registration-opens-at ${canSchedule ? "" : "disabled"}>
+    </label>
+    <div class="admin-registration__actions">
+      ${button(server, "schedule-registration", "Naplánovat registraci", canSchedule)}
+      ${button(server, "open-registration-now", "Otevřít nyní na 60 minut", canSchedule)}
+      ${button(server, "cancel-registration", "Zrušit plán", canCancel)}
+      ${session.role === "owner" ? button(server, "close-registration-now", "Uzavřít registraci nyní", canClose, true) : ""}
+    </div>
+  </section>`;
+  };
+  const renderAdminStartReadiness = (server) => {
+    const canStart = server.canStart === true;
+    return `<section class="admin-start-readiness ${canStart ? "is-ready" : "is-blocked"}">
+    <span>PŘIPRAVENÍ HRÁČI <strong>${escape$1(numberOrDash(server.readyPlayers))} / ${escape$1(numberOrDash(server.minimumReadyPlayersToStart))}</strong></span>
+    <span>START SERVERU <strong>${canStart ? "PŘIPRAVENO" : "BLOKOVÁNO"}</strong></span>
+    ${canStart ? "" : `<p>${escape$1(server.startDisabledReason || "Čekám na autoritativní stav serveru.")}</p>`}
+  </section>`;
+  };
+  const button = (server, action2, label, enabled, dangerous = false) => `<button class="admin-button${dangerous ? " admin-button--danger" : ""}" type="button"
+    data-admin-registration-action="${attr$1(action2)}" data-admin-server-id="${attr$1(server.serverInstanceId)}"
+    ${enabled ? "" : 'disabled aria-disabled="true"'}>${escape$1(label)}</button>`;
+  const stateLabel = (state) => ({
+    not_scheduled: "NENAPLÁNOVÁNO",
+    scheduled: "NAPLÁNOVÁNO",
+    open: "REGISTRACE OTEVŘENA",
+    closed: "REGISTRACE UKONČENA",
+    closed_early: "NOUZOVĚ UKONČENO"
+  })[state] || "NENAPLÁNOVÁNO";
+  const countdown = (server) => server.registrationState === "open" ? `zbývá ${duration(server.registrationRemainingMs)}` : server.registrationState === "scheduled" ? `začne za ${duration(server.registrationRemainingMs)}` : "";
+  const duration = (value) => {
+    const seconds = Math.max(0, Math.floor(Number(value ?? 0) / 1e3));
+    return [Math.floor(seconds / 3600), Math.floor(seconds % 3600 / 60), seconds % 60].map((part) => String(part).padStart(2, "0")).join(":");
+  };
+  const numberOrDash = (value) => Number.isFinite(value) ? Number(value) : "–";
+  const browserTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "místní čas";
+  const timeWithZone = (value) => value ? `${new Date(value).toLocaleString("cs-CZ")} · ${browserTimeZone()}` : "–";
+  const kv$1 = (label, value) => `<span><small>${escape$1(label)}</small><strong>${escape$1(value)}</strong></span>`;
+  const attr$1 = (value) => escape$1(value);
+  const escape$1 = (value) => String(value).replace(/[&<>"']/gu, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
   const renderLogin = (message = "Přihlaste se do admin konzole.") => `
   <section class="admin-login" aria-labelledby="admin-login-title">
     <p class="admin-boot__eyebrow">Empire Streets</p>
@@ -40134,60 +40472,22 @@
       ${kv("Migrace", control.migrationsCurrent ? "CURRENT" : "PENDING")}${kv("Worker", control.workerStatus.toUpperCase())}
       ${kv("Provisioning", control.provisioningEnabled ? "ENABLED" : "DISABLED")}</div>
     ${ready && !wizardOpen ? `<button class="admin-button admin-button--primary" type="button" data-admin-create-open>Vytvořit server</button>` : ""}
-    ${wizardOpen && ready ? renderCreateWizard(wizardStep) : ""}
+    ${wizardOpen && ready ? renderAdminCreateWizard(wizardStep) : ""}
     ${selected && ready ? renderLifecycle(selected, session) : ""}
   </section>`;
   };
-  const renderCreateWizard = (step) => `
-  <form class="admin-wizard" data-admin-create-form>
-    <div class="admin-wizard__steps" aria-label="Kroky vytvoření serveru">
-      ${["Základ", "Mapa", "Přístup", "Kontrola"].map((label, index) => `<span class="${step === index + 1 ? "is-active" : ""}">${index + 1}. ${label}</span>`).join("")}
-    </div>
-    <fieldset data-admin-wizard-panel="1" ${step === 1 ? "" : "hidden"}>
-      <legend>Základ</legend>
-      <label><span>Název</span><input name="displayName" minlength="3" maxlength="80" required></label>
-      <label><span>Mode</span><select name="mode"><option value="free">Free</option><option value="war" disabled>War (připravuje se)</option></select></label>
-      <label><span>Region</span><select name="region"><option value="eu-central">EU Central</option></select></label>
-      <label><span>Kapacita</span><input name="capacity" type="number" min="${FREE_SERVER_MIN_CAPACITY}" max="${FREE_SERVER_MAX_CAPACITY}" value="${FREE_SERVER_MAX_CAPACITY}" required></label>
-      <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Další</button>
-    </fieldset>
-    <fieldset data-admin-wizard-panel="2" ${step === 2 ? "" : "hidden"}>
-      <legend>Mapa</legend><div class="admin-map-counts">
-        <label><span>Downtown</span><input value="8" disabled></label>
-        <label><span>Commercial</span><input name="commercial" data-admin-map-count type="number" min="0" value="40" required></label>
-        <label><span>Residential</span><input name="residential" data-admin-map-count type="number" min="0" value="38" required></label>
-        <label><span>Industrial</span><input name="industrial" data-admin-map-count type="number" min="0" value="38" required></label>
-        <label><span>Park</span><input name="park" data-admin-map-count type="number" min="0" value="37" required></label>
-      </div><p>Celkem: <output data-admin-map-total>161</output> / 161</p>
-      <button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
-      <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Další</button>
-    </fieldset>
-    <fieldset data-admin-wizard-panel="3" ${step === 3 ? "" : "hidden"}>
-      <legend>Přístup</legend>
-      <label><input type="radio" name="joinPolicy" value="closed" checked> Closed</label>
-      <label><input type="radio" name="joinPolicy" value="open" disabled> Open (až po provisioningu)</label>
-      <button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
-      <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Další</button>
-    </fieldset>
-    <fieldset data-admin-wizard-panel="4" ${step === 4 ? "" : "hidden"}>
-      <legend>Kontrola</legend><div class="admin-kv-grid" data-admin-create-review></div>
-      <p class="admin-notice">Server vznikne jako REQUESTED a joins zůstanou zavřené do dokončení provisioningu.</p>
-      <button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
-      <button class="admin-button admin-button--primary" type="submit">Create Server</button>
-    </fieldset>
-    <button class="admin-button" type="button" data-admin-create-cancel>Zrušit</button>
-    <p data-admin-create-error role="alert"></p>
-  </form>`;
   const renderLifecycle = (server, session) => `
   <div class="admin-lifecycle"><h4>Lifecycle: ${escape(server.displayName)}</h4>
     <p>${pill(server.status)} ${pill(server.provisioningState)} · version ${server.version}</p>
-    <div class="admin-kv-grid">${kv("Committed players", server.committedPlayers ?? 0)}
+    <div class="admin-kv-grid">${kv("Šablona", server.serverTemplate === "full" ? "Plnohodnotný server" : "Kontrolní test")}
+      ${kv("Committed players", server.committedPlayers ?? 0)}
       ${kv("Reserved slots", server.reservedSlots ?? 0)}${kv("Capacity", server.capacity)}
       ${kv("Join policy", server.joinPolicy)}${kv("Lease owner", server.runtimeLeaseOwnerId)}
       ${kv("Last error", server.lastErrorCode)}</div>
+    ${renderAdminRegistration(server, session)}
+    ${renderAdminStartReadiness(server)}
     <label><span>Důvod akce</span><input data-admin-action-reason minlength="3" maxlength="240" required></label>
     <div class="admin-lifecycle__actions">
-      ${lifecycleButton(server, "open-joins", "Open joins")}${lifecycleButton(server, "close-joins", "Close joins")}
       ${lifecycleButton(server, "start", "Start")}${lifecycleButton(server, "pause", "Pause")}
       ${lifecycleButton(server, "resume", "Resume")}${lifecycleButton(server, "restart", "Safe restart")}
       ${session.role === "owner" ? lifecycleButton(server, "stop", "Stop") : ""}
@@ -40200,9 +40500,11 @@
   };
   const lifecycleUnavailableReason = (server, action2) => {
     if (server.provisioningState !== "ready") return "Počkejte na dokončení provisioningu.";
-    if (action2 === "open-joins") return server.joinPolicy === "open" || !(server.status === "lobby" || server.status === "running") ? "Server teď nelze otevřít pro vstup." : null;
-    if (action2 === "close-joins") return server.joinPolicy === "closed" ? "Vstupy už jsou zavřené." : null;
-    if (action2 === "start") return server.status === "lobby" ? null : "Spustit lze pouze server v lobby.";
+    if (action2 === "start") {
+      if (server.status !== "lobby") return "Spustit lze pouze server v lobby.";
+      if (server.canStart !== true) return server.startDisabledReason || "Čekám na autoritativní stav připravených hráčů.";
+      return null;
+    }
     if (action2 === "pause") return server.status === "running" ? null : "Pozastavit lze pouze běžící server.";
     if (action2 === "resume") return server.status === "paused" ? null : "Pokračovat lze pouze u pozastaveného serveru.";
     if (action2 === "restart") return server.status === "running" ? null : "Restartovat lze pouze běžící server.";
@@ -40275,6 +40577,7 @@
       if (!target) return;
       target.innerHTML = renderLoading();
       document.addEventListener("visibilitychange", handleVisibility);
+      registration.start();
       try {
         session = await client.getSession();
         await refresh();
@@ -40302,6 +40605,7 @@
         overview = nextOverview;
         detail = nextDetail;
         controlPlane = nextControlPlane;
+        registration.syncClock(controlPlane.generatedAt);
         backoff = pollInterval;
         render();
         schedule(pollInterval);
@@ -40316,13 +40620,15 @@
       if (!target || !session || !overview) return;
       target.innerHTML = renderDashboard({ session, overview, detail, selectedInstanceId, controlPlane, wizardOpen, wizardStep });
       bindActions();
+      registration.restoreDraft();
+      registration.updateCountdowns();
     };
     const bindActions = () => {
-      var _a2, _b, _c, _d, _e;
+      var _a, _b;
       target == null ? void 0 : target.querySelectorAll("[data-admin-instance]").forEach((link) => link.addEventListener("click", (event) => {
-        var _a3;
+        var _a2;
         event.preventDefault();
-        const next = ((_a3 = link.dataset.adminInstance) == null ? void 0 : _a3.trim()) || null;
+        const next = ((_a2 = link.dataset.adminInstance) == null ? void 0 : _a2.trim()) || null;
         if (next === selectedInstanceId) return;
         selectedInstanceId = next;
         detail = null;
@@ -40330,115 +40636,33 @@
         render();
         void refresh();
       }));
-      (_a2 = target == null ? void 0 : target.querySelector("[data-admin-refresh]")) == null ? void 0 : _a2.addEventListener("click", () => void refresh());
+      (_a = target == null ? void 0 : target.querySelector("[data-admin-refresh]")) == null ? void 0 : _a.addEventListener("click", () => void refresh());
       (_b = target == null ? void 0 : target.querySelector("[data-admin-logout]")) == null ? void 0 : _b.addEventListener("click", () => void logout());
-      (_c = target == null ? void 0 : target.querySelector("[data-admin-create-open]")) == null ? void 0 : _c.addEventListener("click", () => {
-        wizardOpen = true;
-        wizardStep = 1;
-        createIdempotencyKey ?? (createIdempotencyKey = createKey());
-        render();
-      });
-      (_d = target == null ? void 0 : target.querySelector("[data-admin-create-cancel]")) == null ? void 0 : _d.addEventListener("click", () => {
-        wizardOpen = false;
-        wizardStep = 1;
-        createIdempotencyKey = null;
-        render();
-      });
-      target == null ? void 0 : target.querySelectorAll("[data-admin-wizard-next]").forEach((button) => button.addEventListener("click", () => {
-        const form = target == null ? void 0 : target.querySelector("[data-admin-create-form]");
-        if (!form || !validateWizardPanel(form, wizardStep)) return;
-        wizardStep = Math.min(4, wizardStep + 1);
-        applyWizardStep();
-      }));
-      target == null ? void 0 : target.querySelectorAll("[data-admin-wizard-back]").forEach((button) => button.addEventListener("click", () => {
-        wizardStep = Math.max(1, wizardStep - 1);
-        applyWizardStep();
-      }));
-      bindMapTotal();
-      (_e = target == null ? void 0 : target.querySelector("[data-admin-create-form]")) == null ? void 0 : _e.addEventListener("submit", (event) => void submitCreate(event));
-      target == null ? void 0 : target.querySelectorAll("[data-admin-lifecycle]").forEach((button) => button.addEventListener("click", () => void submitLifecycle(button)));
+      creation.bind();
+      target == null ? void 0 : target.querySelectorAll("[data-admin-lifecycle]").forEach((button2) => button2.addEventListener("click", () => void submitLifecycle(button2)));
+      registration.bind();
     };
-    const submitCreate = async (event) => {
-      event.preventDefault();
-      const form = event.currentTarget;
-      if (!form.reportValidity() || !createIdempotencyKey) return;
-      if (mapTotal(form) !== 161) {
-        const message = form.querySelector("[data-admin-create-error]");
-        if (message) message.textContent = "Mapa musí obsahovat přesně 161 districtů.";
-        return;
-      }
-      const data = new FormData(form);
-      const payload = {
-        displayName: String(data.get("displayName") ?? ""),
-        mode: String(data.get("mode")),
-        region: String(data.get("region")),
-        capacity: Number(data.get("capacity")),
-        joinPolicy: String(data.get("joinPolicy")),
-        mapComposition: {
-          downtown: 8,
-          commercial: Number(data.get("commercial")),
-          residential: Number(data.get("residential")),
-          industrial: Number(data.get("industrial")),
-          park: Number(data.get("park"))
-        }
-      };
-      const submit = form.querySelector("[type=submit]");
-      if (submit) submit.disabled = true;
-      try {
-        const result = await client.createServer(payload, createIdempotencyKey);
-        selectedInstanceId = result.server.serverInstanceId;
-        updateUrl(selectedInstanceId);
-        wizardOpen = false;
-        wizardStep = 1;
-        createIdempotencyKey = null;
-        await refresh();
-      } catch (error) {
-        const message = form.querySelector("[data-admin-create-error]");
-        if (message) message.textContent = error instanceof Error ? error.message : "Server nebylo možné vytvořit.";
-        if (submit) submit.disabled = false;
-      }
-    };
-    const submitLifecycle = async (button) => {
-      var _a2;
-      const instanceId = button.dataset.adminServerId;
-      const action2 = button.dataset.adminLifecycle;
+    const submitLifecycle = async (button2) => {
+      var _a;
+      const instanceId = button2.dataset.adminServerId;
+      const action2 = button2.dataset.adminLifecycle;
       const hosted = controlPlane == null ? void 0 : controlPlane.servers.find((entry) => entry.serverInstanceId === instanceId);
-      const reason = ((_a2 = target == null ? void 0 : target.querySelector("[data-admin-action-reason]")) == null ? void 0 : _a2.value.trim()) ?? "";
+      const reason = ((_a = target == null ? void 0 : target.querySelector("[data-admin-action-reason]")) == null ? void 0 : _a.value.trim()) ?? "";
       if (!instanceId || !action2 || !hosted) return;
       if (reason.length < 3) {
         const message = target == null ? void 0 : target.querySelector("[data-admin-action-error]");
         if (message) message.textContent = "Uveďte důvod akce alespoň třemi znaky.";
         return;
       }
-      button.disabled = true;
+      button2.disabled = true;
       try {
         await client.requestLifecycleAction(instanceId, { action: action2, expectedVersion: hosted.version, reason }, createKey());
         await refresh();
       } catch (error) {
         const message = target == null ? void 0 : target.querySelector("[data-admin-action-error]");
         if (message) message.textContent = error instanceof Error ? error.message : "Akci nebylo možné zařadit.";
-        button.disabled = false;
+        button2.disabled = false;
       }
-    };
-    const bindMapTotal = () => {
-      const form = target == null ? void 0 : target.querySelector("[data-admin-create-form]");
-      const output = form == null ? void 0 : form.querySelector("[data-admin-map-total]");
-      if (!form || !output) return;
-      const update = () => {
-        const total = mapTotal(form);
-        output.value = String(total);
-        output.dataset.valid = String(total === 161);
-        updateWizardReview(form);
-      };
-      form.querySelectorAll("[data-admin-map-count]").forEach((input) => input.addEventListener("input", update));
-      update();
-    };
-    const applyWizardStep = () => {
-      target == null ? void 0 : target.querySelectorAll("[data-admin-wizard-panel]").forEach((panel) => {
-        panel.hidden = Number(panel.dataset.adminWizardPanel) !== wizardStep;
-      });
-      const form = target == null ? void 0 : target.querySelector("[data-admin-create-form]");
-      if (form) updateWizardReview(form);
     };
     const bindLogin = () => {
       const form = target == null ? void 0 : target.querySelector("[data-admin-login]");
@@ -40466,6 +40690,7 @@
     const logout = async () => {
       activeRequest == null ? void 0 : activeRequest.abort();
       clearSchedule();
+      registration.stop();
       try {
         await client.logout();
       } catch (_error) {
@@ -40478,7 +40703,7 @@
       bindLogin();
     };
     const handleError = (error) => {
-      var _a2;
+      var _a;
       if (!target) return;
       if (error instanceof AdminApiError && (error.status === 401 || error.code.includes("SESSION"))) {
         session = null;
@@ -40490,13 +40715,17 @@
         return;
       }
       target.innerHTML = renderUnavailable(error instanceof Error ? error.message : "Monitoring není dostupný.");
-      (_a2 = target.querySelector("[data-admin-refresh]")) == null ? void 0 : _a2.addEventListener("click", () => void refresh());
+      (_a = target.querySelector("[data-admin-refresh]")) == null ? void 0 : _a.addEventListener("click", () => void refresh());
     };
     const handleVisibility = () => {
       if (document.hidden) {
         activeRequest == null ? void 0 : activeRequest.abort();
         clearSchedule();
-      } else if (session) void refresh();
+        registration.stop();
+      } else {
+        registration.start();
+        if (session) void refresh();
+      }
     };
     const schedule = (delay) => {
       clearSchedule();
@@ -40506,6 +40735,31 @@
       if (timer) clearTimeout(timer);
       timer = null;
     };
+    const registration = createAdminRegistrationController({
+      client,
+      target: () => target,
+      selectedInstanceId: () => selectedInstanceId,
+      controlPlane: () => controlPlane,
+      refresh,
+      createKey
+    });
+    const creation = createAdminCreateController({
+      client,
+      target: () => target,
+      state: () => ({ wizardOpen, wizardStep, idempotencyKey: createIdempotencyKey }),
+      updateState: (next) => {
+        if (next.wizardOpen !== void 0) wizardOpen = next.wizardOpen;
+        if (next.wizardStep !== void 0) wizardStep = next.wizardStep;
+        if (next.idempotencyKey !== void 0) createIdempotencyKey = next.idempotencyKey;
+      },
+      selectInstance: (instanceId) => {
+        selectedInstanceId = instanceId;
+        updateUrl(instanceId);
+      },
+      render,
+      refresh,
+      createKey
+    });
     return { mount, refresh };
   };
   const selectedFromUrl = () => typeof location === "undefined" ? null : new URL(location.href).searchParams.get("instance");

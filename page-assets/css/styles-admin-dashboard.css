@@ -1833,6 +1833,93 @@ button {
   border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+.admin-registration,
+.admin-start-readiness {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(39, 221, 255, 0.2);
+  border-radius: calc(var(--admin-radius) + 2px);
+  background:
+    linear-gradient(135deg, rgba(19, 57, 78, 0.2), transparent 54%),
+    rgba(2, 7, 15, 0.72);
+  box-shadow: inset 0 0 22px rgba(0, 196, 212, 0.05);
+}
+
+.admin-registration__head,
+.admin-registration__actions,
+.admin-start-readiness {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-registration__head {
+  display: grid;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-registration__head span,
+.admin-start-readiness > span {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.admin-registration__head h5 {
+  margin: 4px 0 0;
+  color: #eafcff;
+  font-size: 15px;
+}
+
+.admin-registration__head > strong {
+  justify-self: end;
+  color: #58e6ff;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 12px rgba(39, 221, 255, 0.34);
+}
+
+.admin-registration__schedule {
+  grid-column: 1 / -1;
+}
+
+.admin-registration__actions {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-start-readiness {
+  border-color: rgba(255, 85, 104, 0.24);
+  background: rgba(35, 5, 12, 0.42);
+}
+
+.admin-start-readiness.is-ready {
+  border-color: rgba(72, 255, 175, 0.24);
+  background: rgba(5, 35, 26, 0.4);
+}
+
+.admin-start-readiness strong {
+  display: block;
+  margin-top: 4px;
+  color: #ff8b9a;
+  font-size: 15px;
+}
+
+.admin-start-readiness.is-ready strong {
+  color: #6df7bd;
+}
+
+.admin-start-readiness p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #ff8b9a;
+  font-size: 12px;
+}
+
+.admin-wizard__policy {
+  grid-column: 1 / -1;
+}
+
 .admin-wizard__steps,
 .admin-lifecycle__actions,
 .admin-map-counts {
@@ -1887,6 +1974,27 @@ button {
   font-weight: 700;
 }
 
+.admin-template-selector {
+  grid-column: 1 / -1;
+  padding: 12px;
+  border: 1px solid rgba(62, 220, 255, 0.2);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(16, 117, 151, 0.1), rgba(3, 8, 16, 0.72));
+  box-shadow: inset 0 0 18px rgba(62, 220, 255, 0.04);
+}
+
+.admin-template-selector small {
+  color: rgba(199, 218, 238, 0.72);
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.admin-wizard input[readonly] {
+  border-color: rgba(255, 190, 76, 0.35);
+  color: #ffe5a8;
+  background: rgba(35, 23, 5, 0.72);
+}
+
 .admin-wizard input,
 .admin-wizard select,
 .admin-lifecycle input {
@@ -1913,8 +2021,21 @@ button {
 @media (max-width: 900px) {
   .admin-wizard__steps,
   .admin-map-counts,
-  .admin-lifecycle__actions {
+  .admin-lifecycle__actions,
+  .admin-registration__actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .admin-registration__head,
+  .admin-registration__actions,
+  .admin-start-readiness {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-registration__head > strong {
+    justify-self: start;
   }
 }
 

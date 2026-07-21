@@ -8,20 +8,35 @@ import {
   logoutAccount
 } from "./app/player-entry-client.js";
 import { isLocalDemoAccessAvailable } from "./app/local-demo-gate.js";
+import {
+  createHostedRegistrationTicker,
+  hostedRegistrationCtaLabel,
+  hostedRegistrationDisabledCopy,
+  resolveHostedRegistrationPresentation
+} from "./app/hosted-registration-ui.js";
 
 const POLL_MS = 15_000;
 const CANVAS_WIDTH = 1600;
 const CANVAS_HEIGHT = 980;
 const geometry = createDistrictGeometry(CANVAS_WIDTH, CANVAS_HEIGHT, 0, 48, 0);
 const state = { overview: null, mode: "free", selectedServerId: null, spawn: null, selectedDistrictId: null, busy: false };
+const registrationRefreshes = new Set();
+const registrationTicker = createHostedRegistrationTicker({ onTick: updateRegistrationCountdowns });
 
 const initialize = () => {
   bindNavigation();
   bindModal();
   bindModeTabs();
   void refresh(true);
+  registrationTicker.start();
   window.setInterval(() => { if (!document.hidden && !state.busy) void refresh(false); }, POLL_MS);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) void refresh(false); });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) registrationTicker.stop();
+    else {
+      registrationTicker.start();
+      void refresh(false);
+    }
+  });
 };
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initialize, { once: true });
@@ -30,6 +45,7 @@ else initialize();
 async function refresh(initial) {
   try {
     state.overview = await loadLobbyOverview();
+    registrationTicker.syncServerTime(state.overview.generatedAt);
     const requested = new URLSearchParams(location.search).get("mode");
     if (initial && ["free", "war"].includes(requested)) state.mode = requested;
     if (!state.selectedServerId) state.selectedServerId = visibleServers()[0]?.serverInstanceId || null;
@@ -109,15 +125,22 @@ function renderServers() {
   const servers = visibleServers();
   list.innerHTML = servers.length ? servers.map((server) => {
     const selected = server.serverInstanceId === state.selectedServerId;
-    const disabled = Boolean(blocking) || !server.joinable;
-    const cta = blocking ? "ROZEHRANÝ SERVER BLOKUJE VSTUP" : server.joinable ? "VYBRAT DISTRICT" : disabledServerLabel(server.disabledReason);
-    return `<article class="server-card ${selected ? "is-selected" : ""}" data-live-server="${escapeHtml(server.serverInstanceId)}">
-      <button type="button" class="server-card__main" data-select-live-server="${escapeHtml(server.serverInstanceId)}">
-        <span>${escapeHtml(server.region)} · ${escapeHtml(server.mode.toUpperCase())}</span>
-        <strong>${escapeHtml(server.displayName)}</strong>
-        <small>${server.committedPlayers} hráčů + ${server.reservedSlots} rezervací / ${server.capacity}</small>
+    const presentation = registrationPresentation(server);
+    const disabled = Boolean(blocking) || !presentation.locallyJoinable;
+    const cta = blocking ? "ROZEHRANÝ SERVER BLOKUJE VSTUP" : hostedRegistrationCtaLabel(server, registrationTicker.nowMs());
+    const disabledTitle = blocking ? "Nejdřív dokonči rozehraný server." : hostedRegistrationDisabledCopy(server.disabledReason);
+    return `<article class="auth-server-card live-server-card ${selected ? "is-selected" : ""} ${disabled ? "is-locked" : ""}"
+      data-live-server="${escapeHtml(server.serverInstanceId)}" data-server-mode="${escapeHtml(server.mode)}">
+      <button type="button" class="live-server-card__main" data-select-live-server="${escapeHtml(server.serverInstanceId)}">
+        <span class="auth-server-card__meta">${escapeHtml(server.region)} · ${escapeHtml(server.mode.toUpperCase())}</span>
+        <strong class="auth-server-card__label">${escapeHtml(server.displayName)}</strong>
+        <small class="auth-server-card__subtitle">${server.committedPlayers} hráčů + ${server.reservedSlots} rezervací / ${server.capacity}</small>
+        <span class="auth-server-card__status" data-live-registration-status="${escapeHtml(server.serverInstanceId)}">${escapeHtml(presentation.statusLabel)}</span>
+        <span class="auth-server-card__schedule" data-live-registration-schedule="${escapeHtml(server.serverInstanceId)}">${escapeHtml(presentation.scheduleLabel)}</span>
+        <span class="auth-server-card__countdown" data-live-registration-countdown="${escapeHtml(server.serverInstanceId)}">${escapeHtml(presentation.countdownLabel)}</span>
       </button>
-      <button type="button" class="lobby-primary-cta" data-open-live-server="${escapeHtml(server.serverInstanceId)}" ${disabled ? "disabled" : ""}>${escapeHtml(cta)}</button>
+      <button type="button" class="lobby-primary-cta" data-open-live-server="${escapeHtml(server.serverInstanceId)}"
+        ${disabled ? `disabled title="${escapeHtml(disabledTitle)}"` : ""}>${escapeHtml(cta)}</button>
     </article>`;
   }).join("") : '<p class="lobby-empty-state">Pro tento režim nejsou dostupné žádné skutečné servery.</p>';
   list.querySelectorAll("[data-select-live-server]").forEach((button) => button.addEventListener("click", () => selectServer(button.dataset.selectLiveServer)));
@@ -131,13 +154,18 @@ function renderSelectedServer() {
   text("[data-lobby-detail-status]", server ? server.status.toUpperCase() : "-");
   text("[data-lobby-detail-mode]", server?.mode?.toUpperCase() || "-");
   text("[data-lobby-detail-capacity]", server ? `${server.committedPlayers} + ${server.reservedSlots} / ${server.capacity}` : "-");
-  text("[data-lobby-detail-description]", server ? `Durable hosted server · ${disabledServerLabel(server.disabledReason)}` : "Vyber server pro detail.");
+  const presentation = server ? registrationPresentation(server) : null;
+  text("[data-lobby-detail-registration-status]", presentation?.statusLabel || "-");
+  text("[data-lobby-detail-registration-countdown]", presentation ? `${presentation.scheduleLabel}${presentation.countdownLabel ? ` · ${presentation.countdownLabel}` : ""}` : "");
+  text("[data-lobby-detail-description]", server ? `Durable hosted server · ${server.disabledReason ? hostedRegistrationDisabledCopy(server.disabledReason) : "vstup je otevřený"}` : "Vyber server pro detail.");
   text("[data-lobby-summary-server]", server?.displayName || "Nevybrán");
   text("[data-lobby-summary-mode]", state.mode.toUpperCase());
   text("[data-lobby-summary-district]", state.selectedDistrictId || "Nevybrán");
   const open = document.querySelector("[data-lobby-open-selected]");
   if (open instanceof HTMLButtonElement) {
-    open.disabled = !server?.joinable || Boolean(state.overview?.activeBlockingMembership);
+    open.disabled = !presentation?.locallyJoinable || Boolean(state.overview?.activeBlockingMembership);
+    open.textContent = state.overview?.activeBlockingMembership ? "ROZEHRANÝ SERVER BLOKUJE VSTUP"
+      : server ? hostedRegistrationCtaLabel(server, registrationTicker.nowMs()) : "VYBRAT DISTRICT";
     open.onclick = () => void openSpawnModal(server?.serverInstanceId);
   }
 }
@@ -189,7 +217,7 @@ function bindModal() {
 
 async function openSpawnModal(serverInstanceId) {
   const server = state.overview?.availableServers.find((entry) => entry.serverInstanceId === serverInstanceId);
-  if (!server?.joinable || state.overview.activeBlockingMembership) return;
+  if (!server || !registrationPresentation(server).locallyJoinable || state.overview.activeBlockingMembership) return;
   state.busy = true;
   state.selectedServerId = serverInstanceId;
   state.selectedDistrictId = null;
@@ -202,6 +230,7 @@ async function openSpawnModal(serverInstanceId) {
     text("[data-server-detail-title]", server.displayName);
     text("[data-server-detail-subtitle]", "Kliknutí pouze označí district. Rezervaci provede až POTVRDIT.");
     text("[data-server-detail-capacity]", `${state.spawn.capacity.committedPlayers} + ${state.spawn.capacity.reservedSlots} / ${state.spawn.capacity.maximum}`);
+    text("[data-server-detail-countdown]", registrationPresentation(server).countdownLabel);
     text("[data-server-detail-hint]", "Vyber jeden serverem povolený district");
     renderSpawnCanvas();
   } catch (error) {
@@ -263,6 +292,10 @@ async function commitSpawn() {
       state.selectedDistrictId = null;
       renderSpawnCanvas();
     }
+    if (["SERVER_REGISTRATION_CLOSED", "SERVER_REGISTRATION_CLOSED_EARLY", "SERVER_REGISTRATION_NOT_OPEN"].includes(error?.code)) {
+      state.selectedDistrictId = null;
+      void refresh(false);
+    }
   } finally {
     state.busy = false;
     updateConfirmButton();
@@ -302,7 +335,8 @@ function visibleServers() { return (state.overview?.availableServers || []).filt
 function updateConfirmButton() {
   const button = document.querySelector("[data-server-detail-continue]");
   if (button instanceof HTMLButtonElement) {
-    button.disabled = state.busy || !state.selectedDistrictId;
+    const server = state.overview?.availableServers.find((entry) => entry.serverInstanceId === state.spawn?.serverInstanceId);
+    button.disabled = state.busy || !state.selectedDistrictId || !server || !registrationPresentation(server).locallyJoinable;
     button.textContent = state.busy ? "POTVRZUJI…" : "POTVRDIT";
   }
 }
@@ -313,7 +347,48 @@ function setFlowMessage(message, error = false) {
   node.dataset.state = error ? "error" : "info";
 }
 function statusLabel(status) { return ({ setup_required: "DOKONČIT VSTUP", finalizing_setup: "AKTIVACE PROBÍHÁ", active: "AKTIVNÍ", leave_pending: "ODCHOD PROBÍHÁ", defeated: "PORAŽEN", completed: "DOKONČENO", left_early: "OPUŠTĚNO" })[status] || String(status).toUpperCase(); }
-function disabledServerLabel(code) { return ({ WORKER_OFFLINE: "WORKER OFFLINE", SERVER_PREPARING: "SERVER SE PŘIPRAVUJE", JOINS_CLOSED: "VSTUP UZAVŘEN", SERVER_FULL: "SERVER PLNÝ", SERVER_NOT_PLAYABLE: "SERVER NENÍ AKTIVNÍ" })[code] || "SERVER DOSTUPNÝ"; }
-function messageFor(error) { return ({ SPAWN_ALREADY_RESERVED: "Tento district mezitím získal jiný hráč. Vyber si jiný.", SERVER_FULL: "Server se mezitím zaplnil.", ACTIVE_MEMBERSHIP_EXISTS: "Nejdřív musíš dokončit nebo opustit svůj současný server.", SERVER_OFFLINE: "Server teď není dostupný. Tvoje předchozí membershipy zůstávají zachované." })[error?.code] || (error instanceof Error ? error.message : "Operace se nezdařila."); }
+function messageFor(error) { return ({ SPAWN_ALREADY_RESERVED: "Tento district mezitím získal jiný hráč. Vyber si jiný.", SERVER_FULL: "Server se mezitím zaplnil.", SERVER_REGISTRATION_NOT_OPEN: "Registrace na tento server ještě nezačala.", SERVER_REGISTRATION_CLOSED: "Registrační okno tohoto serveru už skončilo.", SERVER_REGISTRATION_CLOSED_EARLY: "Registrace na tento server byla nouzově ukončena.", ACTIVE_MEMBERSHIP_EXISTS: "Nejdřív musíš dokončit nebo opustit svůj současný server.", SERVER_OFFLINE: "Server teď není dostupný. Tvoje předchozí membershipy zůstávají zachované." })[error?.code] || (error instanceof Error ? error.message : "Operace se nezdařila."); }
 function text(selector, value) { const node = document.querySelector(selector); if (node) node.textContent = String(value ?? ""); }
 function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]); }
+
+function registrationPresentation(server) {
+  return resolveHostedRegistrationPresentation(server, registrationTicker.nowMs());
+}
+
+function updateRegistrationCountdowns(nowMs) {
+  if (!state.overview) return;
+  for (const server of state.overview.availableServers) {
+    const presentation = resolveHostedRegistrationPresentation(server, nowMs);
+    text(`[data-live-registration-status="${cssEscape(server.serverInstanceId)}"]`, presentation.statusLabel);
+    text(`[data-live-registration-schedule="${cssEscape(server.serverInstanceId)}"]`, presentation.scheduleLabel);
+    text(`[data-live-registration-countdown="${cssEscape(server.serverInstanceId)}"]`, presentation.countdownLabel);
+    const button = document.querySelector(`[data-open-live-server="${cssEscape(server.serverInstanceId)}"]`);
+    if (button instanceof HTMLButtonElement && !state.overview.activeBlockingMembership) {
+      button.disabled = !presentation.locallyJoinable;
+      button.textContent = hostedRegistrationCtaLabel(server, nowMs);
+      button.title = presentation.locallyJoinable ? "" : hostedRegistrationDisabledCopy(server.disabledReason);
+    }
+    if (presentation.needsRefresh && !state.busy) {
+      const key = `${server.serverInstanceId}:${server.registrationState}:${server.registrationOpensAt}:${server.registrationClosesAt}`;
+      if (!registrationRefreshes.has(key)) {
+        registrationRefreshes.add(key);
+        void refresh(false);
+      }
+    }
+  }
+  renderSelectedRegistration(nowMs);
+  updateConfirmButton();
+}
+
+function renderSelectedRegistration(nowMs) {
+  const server = selectedServer();
+  if (!server) return;
+  const presentation = resolveHostedRegistrationPresentation(server, nowMs);
+  text("[data-lobby-detail-registration-status]", presentation.statusLabel);
+  text("[data-lobby-detail-registration-countdown]", `${presentation.scheduleLabel}${presentation.countdownLabel ? ` · ${presentation.countdownLabel}` : ""}`);
+  if (state.spawn?.serverInstanceId === server.serverInstanceId) text("[data-server-detail-countdown]", presentation.countdownLabel);
+}
+
+function cssEscape(value) {
+  return globalThis.CSS?.escape ? globalThis.CSS.escape(String(value)) : String(value).replace(/([:\\.])/g, "\\$1");
+}

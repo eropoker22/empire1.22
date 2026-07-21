@@ -6,13 +6,8 @@ import type {
   AdminOverviewView,
   AdminSessionView
 } from "@empire/shared-types";
-import { resolveModeConfig } from "@empire/game-config";
-
-const FREE_MODE_CONFIG = resolveModeConfig("free");
-const FREE_SERVER_MIN_CAPACITY = FREE_MODE_CONFIG.balance.finalLockdown?.enabled
-  ? FREE_MODE_CONFIG.balance.finalLockdown.triggerActivePlayers + 1
-  : 1;
-const FREE_SERVER_MAX_CAPACITY = FREE_MODE_CONFIG.balance.maxPlayersPerServer;
+import { renderAdminCreateWizard } from "./admin-create-wizard-view";
+import { renderAdminRegistration, renderAdminStartReadiness } from "./admin-registration-view";
 
 export const renderLogin = (message = "Přihlaste se do admin konzole."): string => `
   <section class="admin-login" aria-labelledby="admin-login-title">
@@ -94,62 +89,23 @@ const renderControlPlane = (control: AdminControlPlaneAvailabilityView | null, s
       ${kv("Migrace", control.migrationsCurrent ? "CURRENT" : "PENDING")}${kv("Worker", control.workerStatus.toUpperCase())}
       ${kv("Provisioning", control.provisioningEnabled ? "ENABLED" : "DISABLED")}</div>
     ${ready && !wizardOpen ? `<button class="admin-button admin-button--primary" type="button" data-admin-create-open>Vytvořit server</button>` : ""}
-    ${wizardOpen && ready ? renderCreateWizard(wizardStep) : ""}
+    ${wizardOpen && ready ? renderAdminCreateWizard(wizardStep) : ""}
     ${selected && ready ? renderLifecycle(selected, session) : ""}
   </section>`;
 };
 
-const renderCreateWizard = (step: number): string => `
-  <form class="admin-wizard" data-admin-create-form>
-    <div class="admin-wizard__steps" aria-label="Kroky vytvoření serveru">
-      ${["Základ", "Mapa", "Přístup", "Kontrola"].map((label, index) => `<span class="${step === index + 1 ? "is-active" : ""}">${index + 1}. ${label}</span>`).join("")}
-    </div>
-    <fieldset data-admin-wizard-panel="1" ${step === 1 ? "" : "hidden"}>
-      <legend>Základ</legend>
-      <label><span>Název</span><input name="displayName" minlength="3" maxlength="80" required></label>
-      <label><span>Mode</span><select name="mode"><option value="free">Free</option><option value="war" disabled>War (připravuje se)</option></select></label>
-      <label><span>Region</span><select name="region"><option value="eu-central">EU Central</option></select></label>
-      <label><span>Kapacita</span><input name="capacity" type="number" min="${FREE_SERVER_MIN_CAPACITY}" max="${FREE_SERVER_MAX_CAPACITY}" value="${FREE_SERVER_MAX_CAPACITY}" required></label>
-      <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Další</button>
-    </fieldset>
-    <fieldset data-admin-wizard-panel="2" ${step === 2 ? "" : "hidden"}>
-      <legend>Mapa</legend><div class="admin-map-counts">
-        <label><span>Downtown</span><input value="8" disabled></label>
-        <label><span>Commercial</span><input name="commercial" data-admin-map-count type="number" min="0" value="40" required></label>
-        <label><span>Residential</span><input name="residential" data-admin-map-count type="number" min="0" value="38" required></label>
-        <label><span>Industrial</span><input name="industrial" data-admin-map-count type="number" min="0" value="38" required></label>
-        <label><span>Park</span><input name="park" data-admin-map-count type="number" min="0" value="37" required></label>
-      </div><p>Celkem: <output data-admin-map-total>161</output> / 161</p>
-      <button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
-      <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Další</button>
-    </fieldset>
-    <fieldset data-admin-wizard-panel="3" ${step === 3 ? "" : "hidden"}>
-      <legend>Přístup</legend>
-      <label><input type="radio" name="joinPolicy" value="closed" checked> Closed</label>
-      <label><input type="radio" name="joinPolicy" value="open" disabled> Open (až po provisioningu)</label>
-      <button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
-      <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Další</button>
-    </fieldset>
-    <fieldset data-admin-wizard-panel="4" ${step === 4 ? "" : "hidden"}>
-      <legend>Kontrola</legend><div class="admin-kv-grid" data-admin-create-review></div>
-      <p class="admin-notice">Server vznikne jako REQUESTED a joins zůstanou zavřené do dokončení provisioningu.</p>
-      <button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
-      <button class="admin-button admin-button--primary" type="submit">Create Server</button>
-    </fieldset>
-    <button class="admin-button" type="button" data-admin-create-cancel>Zrušit</button>
-    <p data-admin-create-error role="alert"></p>
-  </form>`;
-
 const renderLifecycle = (server: AdminHostedServerView, session: AdminSessionView): string => `
   <div class="admin-lifecycle"><h4>Lifecycle: ${escape(server.displayName)}</h4>
     <p>${pill(server.status)} ${pill(server.provisioningState)} · version ${server.version}</p>
-    <div class="admin-kv-grid">${kv("Committed players", server.committedPlayers ?? 0)}
+    <div class="admin-kv-grid">${kv("Šablona", server.serverTemplate === "full" ? "Plnohodnotný server" : "Kontrolní test")}
+      ${kv("Committed players", server.committedPlayers ?? 0)}
       ${kv("Reserved slots", server.reservedSlots ?? 0)}${kv("Capacity", server.capacity)}
       ${kv("Join policy", server.joinPolicy)}${kv("Lease owner", server.runtimeLeaseOwnerId)}
       ${kv("Last error", server.lastErrorCode)}</div>
+    ${renderAdminRegistration(server, session)}
+    ${renderAdminStartReadiness(server)}
     <label><span>Důvod akce</span><input data-admin-action-reason minlength="3" maxlength="240" required></label>
     <div class="admin-lifecycle__actions">
-      ${lifecycleButton(server, "open-joins", "Open joins")}${lifecycleButton(server, "close-joins", "Close joins")}
       ${lifecycleButton(server, "start", "Start")}${lifecycleButton(server, "pause", "Pause")}
       ${lifecycleButton(server, "resume", "Resume")}${lifecycleButton(server, "restart", "Safe restart")}
       ${session.role === "owner" ? lifecycleButton(server, "stop", "Stop") : ""}
@@ -165,11 +121,11 @@ const lifecycleButton = (server: AdminHostedServerView, action: string, label: s
 
 const lifecycleUnavailableReason = (server: AdminHostedServerView, action: string): string | null => {
   if (server.provisioningState !== "ready") return "Počkejte na dokončení provisioningu.";
-  if (action === "open-joins") return server.joinPolicy === "open" || !(server.status === "lobby" || server.status === "running")
-    ? "Server teď nelze otevřít pro vstup."
-    : null;
-  if (action === "close-joins") return server.joinPolicy === "closed" ? "Vstupy už jsou zavřené." : null;
-  if (action === "start") return server.status === "lobby" ? null : "Spustit lze pouze server v lobby.";
+  if (action === "start") {
+    if (server.status !== "lobby") return "Spustit lze pouze server v lobby.";
+    if (server.canStart !== true) return server.startDisabledReason || "Čekám na autoritativní stav připravených hráčů.";
+    return null;
+  }
   if (action === "pause") return server.status === "running" ? null : "Pozastavit lze pouze běžící server.";
   if (action === "resume") return server.status === "paused" ? null : "Pokračovat lze pouze u pozastaveného serveru.";
   if (action === "restart") return server.status === "running" ? null : "Restartovat lze pouze běžící server.";

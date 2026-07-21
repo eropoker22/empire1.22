@@ -14,12 +14,22 @@ test("owner creates, provisions and controls a hosted server", async ({ page }) 
       expect(request.headers()["idempotency-key"]).toBeTruthy();
       const payload = request.postDataJSON();
       expect(payload.mapComposition).toEqual({ downtown: 8, commercial: 40, residential: 38, industrial: 38, park: 37 });
+      expect(payload).toMatchObject({ serverTemplate: "control", capacity: 2, joinPolicy: "closed" });
+      expect(payload).not.toHaveProperty("eliminationInterval");
+      expect(payload).not.toHaveProperty("finalLockdownTrigger");
       hosted = hostedServer("requested", "requested", 1);
       return json(route, 202, success({ replayed: false, server: hosted, provisioningJobId: "job:e2e" }));
     }
     if (path.endsWith("/actions") && request.method() === "POST") {
       const payload = request.postDataJSON();
       expect(payload.expectedVersion).toBe(hosted.version);
+      if (payload.action === "schedule-registration") {
+        expect(payload.registrationOpensAt).toBeTruthy();
+        expect(payload).not.toHaveProperty("registrationClosesAt");
+      }
+      if (payload.action === "close-registration-now") {
+        expect(payload.confirmationToken).toBe("CLOSE_REGISTRATION");
+      }
       const next = transition(hosted, payload.action);
       hosted = { ...hosted, ...next, version: hosted.version + 1, updatedAt: NOW };
       return json(route, 202, success({ replayed: false, actionRequestId: `action:${payload.action}`,
@@ -32,7 +42,7 @@ test("owner creates, provisions and controls a hosted server", async ({ page }) 
           : { ...hosted, status: "lobby", provisioningState: "ready", currentSnapshotId: "snapshot:e2e:0", version: 3 };
       }
       return json(route, 200, success({ writesEnabled: true, provisioningEnabled: true, databaseAvailable: true,
-        migrationsCurrent: true, workerStatus: "online", unavailableCode: null, servers: hosted ? [hosted] : [] }));
+        migrationsCurrent: true, workerStatus: "online", unavailableCode: null, servers: hosted ? [hosted] : [], generatedAt: NOW }));
     }
     if (path === "/api/admin/overview") return json(route, 200, success(overview(hosted)));
     if (path.includes("/api/admin/instances/")) return json(route, 200, success(detail(hosted)));
@@ -48,7 +58,7 @@ test("owner creates, provisions and controls a hosted server", async ({ page }) 
   await page.getByRole("button", { name: "Další" }).click();
   await expect(page.locator("[data-admin-map-total]")).toHaveText("161");
   await page.getByRole("button", { name: "Další" }).click();
-  await page.getByLabel("Closed").check();
+  await expect(page.locator('[name="joinPolicy"]')).toHaveValue("closed");
   await page.getByRole("button", { name: "Další" }).click();
   await expect(page.locator("[data-admin-create-review]")).toContainText("E2E Hosted");
   await page.getByRole("button", { name: "Create Server" }).click();
@@ -58,10 +68,29 @@ test("owner creates, provisions and controls a hosted server", async ({ page }) 
   await expect(page.locator("#admin-control-plane")).toContainText("ready");
 
   const reason = page.locator("[data-admin-action-reason]");
-  let expectedVersion = 3;
+  await expect(page.locator(".admin-start-readiness")).toContainText("0 / 2");
+  await expect(page.getByRole("button", { name: "Start", exact: true })).toBeDisabled();
+  await reason.fill("E2E registration schedule");
+  await page.locator("[data-admin-registration-opens-at]").fill("2026-07-16T10:00");
+  await page.getByRole("button", { name: "Naplánovat registraci", exact: true }).click();
+  await expect(page.locator(".admin-registration")).toContainText("NAPLÁNOVÁNO");
+
+  hosted = { ...hosted, registrationState: "open", registrationOpensAt: NOW,
+    registrationClosesAt: "2026-07-16T11:00:00.000Z", joinPolicy: "open", readyPlayers: 1,
+    canStart: false, startDisabledReason: "Server potřebuje alespoň 2 aktivní hráče.", version: hosted.version + 1 };
+  await page.getByRole("button", { name: "Obnovit" }).click();
+  await expect(page.locator(".admin-start-readiness")).toContainText("1 / 2");
+  await expect(page.getByRole("button", { name: "Start", exact: true })).toBeDisabled();
+
+  hosted = { ...hosted, readyPlayers: 2, canStart: true, startDisabledReason: null, version: hosted.version + 1 };
+  await page.getByRole("button", { name: "Obnovit" }).click();
+  await expect(page.locator(".admin-start-readiness")).toContainText("2 / 2");
+  await expect(page.getByRole("button", { name: "Start", exact: true })).toBeEnabled();
+
+  let expectedVersion = hosted.version;
   for (const [button, expectedStatus] of [
-    ["Open joins", "lobby"], ["Start", "running"], ["Pause", "paused"], ["Resume", "running"],
-    ["Close joins", "running"], ["Safe restart", "running"], ["Stop", "stopped"]
+    ["Start", "running"], ["Pause", "paused"], ["Resume", "running"],
+    ["Safe restart", "running"], ["Stop", "stopped"]
   ]) {
     await reason.fill(`E2E ${button}`);
     await page.getByRole("button", { name: button, exact: true }).click();
@@ -79,11 +108,24 @@ const session = { adminSessionId: "session:owner", adminUserId: "user:owner", ac
   displayName: "Test Owner", role: "owner", authenticationMethod: "password", createdAt: NOW,
   expiresAt: "2026-07-16T11:00:00.000Z", revokedAt: null, lastSeenAt: NOW };
 const hostedServer = (status, provisioningState, version) => ({ serverInstanceId: "instance:free:eu-central:e2e", mode: "free",
-  displayName: "E2E Hosted", region: "eu-central", capacity: 20, status, joinPolicy: "closed", provisioningState, version,
+  displayName: "E2E Hosted", serverTemplate: "control", region: "eu-central", capacity: 2, status, joinPolicy: "closed", provisioningState, version,
+  minimumReadyPlayersToStart: 2, registrationWindowMinutes: 60, registrationScheduleVersion: 0,
+  registrationOpensAt: null, registrationClosesAt: null, registrationClosedAt: null, registrationBaselinePlayers: null,
+  canonicalFinalLockdownTrigger: 8, canonicalFirstEliminationTick: 720, canonicalTickRateMs: 10_000,
+  effectiveFinalLockdownTrigger: null, effectiveFirstEliminationTick: null, readyPlayers: 0,
+  registrationState: "not_scheduled", registrationRemainingMs: 0,
+  registrationReasonCode: "SERVER_REGISTRATION_NOT_SCHEDULED", canStart: false,
+  startDisabledReason: "Registrace na server ještě nezačala.", joinable: false,
+  disabledReason: "SERVER_REGISTRATION_NOT_SCHEDULED",
   lastWorkerHeartbeatAt: NOW, runtimeLeaseOwnerId: "worker:e2e", runtimeLeaseExpiresAt: "2026-07-16T10:01:00.000Z",
   currentSnapshotId: null, lastErrorCode: null, createdAt: NOW, updatedAt: NOW });
 const transition = (server, action) => ({
-  "open-joins": { joinPolicy: "open" }, "close-joins": { joinPolicy: "closed" }, start: { status: "running" },
+  "schedule-registration": {
+    registrationState: "scheduled", registrationScheduleVersion: server.registrationScheduleVersion + 1,
+    registrationOpensAt: NOW, registrationClosesAt: "2026-07-16T11:00:00.000Z",
+    registrationRemainingMs: 0, registrationReasonCode: "SERVER_REGISTRATION_NOT_OPEN"
+  },
+  start: { status: "running" },
   pause: { status: "paused" }, resume: { status: "running" }, restart: { status: server.status }, stop: { status: "stopped", joinPolicy: "closed" }
 }[action]);
 const overview = (server) => ({ generatedAt: NOW, databaseStatus: "available", instances: server ? [summary(server)] : [],

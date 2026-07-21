@@ -18,7 +18,10 @@ describe("faction actions runtime", () => {
   it("shows canonical local passive effects without an activation command", () => {
     const storage = createStorage({ registration: { factionId: "hackeri" } });
     const previousWindow = globalThis.window;
-    globalThis.window = { localStorage: storage, location: { hostname: "localhost", protocol: "http:" } };
+    globalThis.window = {
+      localStorage: storage,
+      location: { hostname: "localhost", protocol: "http:", search: "?runtimeMode=local-demo" }
+    };
     try {
       expect(getFactionPassiveView(storage)).toMatchObject({
         factionId: "hackeri",

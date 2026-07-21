@@ -66,7 +66,8 @@ describe("district building gameplay slice", () => {
 
     expect(initialRender.player?.playerId).toBe(playerId);
     expect(initialRender.districtPanel?.districtId).toBe(districtId);
-    expect(initialRender.mapDistricts).toHaveLength(3);
+    expect(initialRender.mapDistricts).toHaveLength(Object.keys(runtime.state.districtsById).length);
+    expect(initialRender.mapDistricts.length).toBeGreaterThanOrEqual(161);
     expect(initialRender.mapDistricts.find((district) => district.districtId === districtId)?.ownerColor).toBe("#3b82f6");
     expect(initialRender.mapDistricts.find((district) => district.districtId === enemyDistrictId)?.ownerColor).toBe("#ef4444");
     expect(initialRender.mapDistricts.find((district) => district.districtId === neutralDistrictId)?.ownerColor).toBeNull();

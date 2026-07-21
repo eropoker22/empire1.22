@@ -50,6 +50,11 @@ async function openLocalGame(page) {
     && document.querySelector("#game-root")?.dataset?.runtimeInit === "ready"
     && document.documentElement?.dataset?.runtimeMode === "local-demo"
   ));
+  const milestone = page.locator("[data-server-milestone-modal]");
+  if (await milestone.isVisible()) {
+    await milestone.locator("[data-server-milestone-confirm]").click();
+    await expect(milestone).toBeHidden();
+  }
 }
 
 async function closePopup(page, popupSelector, closeSelector) {
