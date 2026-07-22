@@ -1,6 +1,6 @@
 import * as crypto from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
-import type { PostgresDatabase } from "./postgres-client";
+import type { PostgresDatabase, PostgresQueryable } from "./postgres-client";
 
 export interface DatabaseMigrationStatus {
   current: boolean;
@@ -13,7 +13,59 @@ export const getDatabaseMigrationStatus = async (
   migrationsDirectory: URL
 ): Promise<DatabaseMigrationStatus> => {
   const files = await loadMigrations(migrationsDirectory);
-  await ensureHistoryTable(database);
+  return database.transaction(async (client) => {
+    await acquireMigrationLock(client);
+    await ensureHistoryTable(client);
+    return resolveMigrationStatus(client, files);
+  });
+};
+
+export const migrateDatabase = async (
+  database: PostgresDatabase,
+  migrationsDirectory: URL
+): Promise<DatabaseMigrationStatus> => {
+  const files = await loadMigrations(migrationsDirectory);
+  return database.transaction(async (client) => {
+    await acquireMigrationLock(client);
+    await ensureHistoryTable(client);
+    const status = await resolveMigrationStatus(client, files);
+    for (const filename of status.pending) {
+      const migration = files.find((entry) => entry.filename === filename)!;
+      const alreadyApplied = await client.query<{ checksum: string }>(
+        `SELECT checksum FROM empire_schema_migrations WHERE filename=$1`, [filename]);
+      if (alreadyApplied.rows[0]) {
+        if (alreadyApplied.rows[0].checksum !== migration.checksum) {
+          throw new Error(`Database migration checksum mismatch: ${filename}.`);
+        }
+        continue;
+      }
+      await client.query(migration.sql);
+      await client.query(
+        `INSERT INTO empire_schema_migrations (filename, checksum, applied_at) VALUES ($1,$2,now())`,
+        [filename, migration.checksum]
+      );
+    }
+    return resolveMigrationStatus(client, files);
+  });
+};
+
+const acquireMigrationLock = (database: PostgresQueryable): Promise<unknown> => database.query(
+  `SELECT pg_advisory_xact_lock($1)`,
+  [1_843_771_153]
+);
+
+const ensureHistoryTable = (database: PostgresQueryable): Promise<unknown> => database.query(`
+  CREATE TABLE IF NOT EXISTS empire_schema_migrations (
+    filename text PRIMARY KEY,
+    checksum text NOT NULL,
+    applied_at timestamptz NOT NULL
+  )
+`);
+
+const resolveMigrationStatus = async (
+  database: PostgresQueryable,
+  files: Awaited<ReturnType<typeof loadMigrations>>
+): Promise<DatabaseMigrationStatus> => {
   const history = await database.query<{ filename: string; checksum: string }>(
     `SELECT filename, checksum FROM empire_schema_migrations ORDER BY filename`
   );
@@ -28,43 +80,6 @@ export const getDatabaseMigrationStatus = async (
   const pending = files.filter((entry) => !appliedSet.has(entry.filename)).map((entry) => entry.filename);
   return { current: pending.length === 0, pending, applied };
 };
-
-export const migrateDatabase = async (
-  database: PostgresDatabase,
-  migrationsDirectory: URL
-): Promise<DatabaseMigrationStatus> => {
-  const files = await loadMigrations(migrationsDirectory);
-  await ensureHistoryTable(database);
-  let status = await getDatabaseMigrationStatus(database, migrationsDirectory);
-  for (const filename of status.pending) {
-    const migration = files.find((entry) => entry.filename === filename)!;
-    await database.transaction(async (client) => {
-      const alreadyApplied = await client.query<{ checksum: string }>(
-        `SELECT checksum FROM empire_schema_migrations WHERE filename=$1 FOR UPDATE`, [filename]);
-      if (alreadyApplied.rows[0]) {
-        if (alreadyApplied.rows[0].checksum !== migration.checksum) {
-          throw new Error(`Database migration checksum mismatch: ${filename}.`);
-        }
-        return;
-      }
-      await client.query(migration.sql);
-      await client.query(
-        `INSERT INTO empire_schema_migrations (filename, checksum, applied_at) VALUES ($1,$2,now())`,
-        [filename, migration.checksum]
-      );
-    });
-  }
-  status = await getDatabaseMigrationStatus(database, migrationsDirectory);
-  return status;
-};
-
-const ensureHistoryTable = (database: PostgresDatabase): Promise<unknown> => database.query(`
-  CREATE TABLE IF NOT EXISTS empire_schema_migrations (
-    filename text PRIMARY KEY,
-    checksum text NOT NULL,
-    applied_at timestamptz NOT NULL
-  )
-`);
 
 const loadMigrations = async (directory: URL) => {
   const filenames = (await readdir(directory)).filter((name) => /^\d{3}_[a-z0-9_]+\.sql$/u.test(name)).sort();

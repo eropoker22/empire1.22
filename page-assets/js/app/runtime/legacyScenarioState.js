@@ -16,6 +16,7 @@ export let CURRENT_PLAYER_ID = 1;
 export let LAUNCH_PLAYER_FACTION_ORDER = Object.freeze([]);
 export let LAUNCH_PLAYER_AVATAR_BY_FACTION_ID = Object.freeze({});
 export let DEMO_SCENARIOS = Object.freeze({});
+const scenarioDataListeners = new Set();
 
 export const installLegacyScenarioData = (source = {}) => {
   MARKET_PLAYER_DEMO_SELLERS = frozenArray(source.MARKET_PLAYER_DEMO_SELLERS);
@@ -29,6 +30,14 @@ export const installLegacyScenarioData = (source = {}) => {
   LAUNCH_PLAYER_FACTION_ORDER = frozenArray(source.LAUNCH_PLAYER_FACTION_ORDER);
   LAUNCH_PLAYER_AVATAR_BY_FACTION_ID = Object.freeze({ ...(source.LAUNCH_PLAYER_AVATAR_BY_FACTION_ID || {}) });
   DEMO_SCENARIOS = Object.freeze({ ...(source.DEMO_SCENARIOS || {}) });
+  scenarioDataListeners.forEach((listener) => listener());
+};
+
+export const subscribeLegacyScenarioData = (listener) => {
+  if (typeof listener !== "function") return () => {};
+  scenarioDataListeners.add(listener);
+  listener();
+  return () => scenarioDataListeners.delete(listener);
 };
 
 export const isDemoScenarioMode = (phaseState = {}) => {

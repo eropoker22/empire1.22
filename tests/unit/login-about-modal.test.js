@@ -40,7 +40,8 @@ describe("login about encyclopedia", () => {
   });
 
   it("keeps one shared controller in production and explicit local-demo flows", () => {
-    expect(entrySource).toContain("isExplicitLocalDemoEnabled");
+    expect(entrySource).toContain("resolveClientEntryExecutionMode");
+    expect(entrySource).toContain("CLIENT_EXECUTION_MODES.localDemo");
     expect(liveSource).toContain('from "./app/login-about-modal.js"');
     expect(demoSource).toContain('from "./app/login-about-modal.js"');
     expect(liveSource).toContain("bindLoginAboutModal();");
@@ -126,7 +127,7 @@ describe("login about encyclopedia", () => {
       entry.label, entry.hook, entry.intro, ...entry.howItWorks, ...entry.decidingFactors, ...entry.risks, entry.callout, ...entry.chips
     ]).join(" ");
     expect(pageSource).toContain("MĚSTO NEMÁ PRAVIDLA. JEN NÁSLEDKY.");
-    expect(pageSource).toContain("Neon se láme v kalužích");
+    expect(pageSource).toContain("Neon se láme v dešti");
     expect(pageSource).toContain("MĚSTO SLEDUJE KAŽDÝ TVŮJ KROK.");
     expect(ABOUT_GAME_SECTIONS.find((entry) => entry.id === "servers")?.intro).toContain("60 minut");
     expect(ABOUT_GAME_SECTIONS.find((entry) => entry.id === "servers")?.intro).toContain("dvou připravených hráčích");

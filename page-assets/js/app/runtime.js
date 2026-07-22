@@ -100,7 +100,8 @@ import {
   START_PHASE_PLAYER_COLORS,
   START_PHASE_PLAYER_NAMES,
   START_PHASE_RESOURCE_SIMULATION,
-  isDemoScenarioMode
+  isDemoScenarioMode,
+  subscribeLegacyScenarioData
 } from "./runtime/legacyScenarioState.js";
 import {
   ONBOARDING_SANDBOX_MODE,
@@ -3276,6 +3277,22 @@ function getCityMarketOfferSchedule(phaseState = null) {
   };
 }
 
+function getResolvedLocalDistrictOwnerId(districtId) {
+  const normalizedDistrictId = Number(districtId);
+  if (!Number.isFinite(normalizedDistrictId) || normalizedDistrictId <= 0) return null;
+  const worldState = getResolvedWorldState();
+  const explicitOwnerId = normalizeEliminationOwnerId(
+    worldState.districtOwnerById?.[normalizedDistrictId]
+      ?? worldState.districtOwnerById?.[String(normalizedDistrictId)]
+      ?? worldState.ownerByDistrictId?.[normalizedDistrictId]
+      ?? worldState.ownerByDistrictId?.[String(normalizedDistrictId)]
+  );
+  if (explicitOwnerId > 0) return explicitOwnerId;
+  return normalizeRuntimeGamePhase(worldState.phaseState?.gamePhase) === "launch"
+    ? normalizeEliminationOwnerId(START_PHASE_OWNER_BY_DISTRICT_ID.get(normalizedDistrictId)) || null
+    : null;
+}
+
 function getMarketRefreshCityTimeLabel() {
   return formatMarketCityTime(getCityMarketOfferSchedule().nextRefreshCityMinute);
 }
@@ -4274,7 +4291,7 @@ function completeAttackOrder(root, orderId) {
     destroysDistrict: false,
     defenseLossRatio: 0
   };
-  const launchOwnerId = START_PHASE_OWNER_BY_DISTRICT_ID.get(targetDistrictId);
+  const launchOwnerId = getResolvedLocalDistrictOwnerId(targetDistrictId);
   const isValidPvpCombat = Number.isFinite(Number(launchOwnerId))
     && Number(launchOwnerId) > 0
     && Number(launchOwnerId) !== Number(CURRENT_PLAYER_ID);
@@ -6122,6 +6139,11 @@ function createPageContext(root) {
 const markMounts = markMountsUi;
 
 const START_PHASE_OWNER_BY_DISTRICT_ID = createLaunchOwnerMap(START_PHASE_OWNER_COORDINATES);
+subscribeLegacyScenarioData(() => {
+  const nextOwners = createLaunchOwnerMap(START_PHASE_OWNER_COORDINATES);
+  START_PHASE_OWNER_BY_DISTRICT_ID.clear();
+  nextOwners.forEach((ownerId, districtId) => START_PHASE_OWNER_BY_DISTRICT_ID.set(districtId, ownerId));
+});
 
 function getLaunchPlayerColor(ownerId) {
   return getLaunchPlayerRuntime().getLaunchPlayerColor(ownerId);
@@ -11184,7 +11206,7 @@ function bindDistrictCanvas(root) {
     }
 
     const orderId = `attack-order:${Date.now()}`;
-    const launchOwnerId = START_PHASE_OWNER_BY_DISTRICT_ID.get(Number(selectedDistrict.id));
+    const launchOwnerId = getResolvedLocalDistrictOwnerId(selectedDistrict.id);
     const isValidPvpCombat = Number.isFinite(Number(launchOwnerId))
       && Number(launchOwnerId) > 0
       && Number(launchOwnerId) !== Number(CURRENT_PLAYER_ID);

@@ -6,9 +6,6 @@ import {
   FACTION_DEFINITIONS,
   LEGACY_FACTION_ID_MAP
 } from "../../packages/game-config/src/public/faction-definitions.ts";
-import {
-  getFactionActionForPlayer
-} from "../../page-assets/js/app/faction-actions-runtime.js";
 
 describe("legacy faction compatibility bridge", () => {
   it("does not expose legacy faction starting resources or weapon presets", () => {
@@ -27,15 +24,16 @@ describe("legacy faction compatibility bridge", () => {
     const pageSource = readFileSync("pages/faction.html", "utf8");
     const runtimeSource = readFileSync("page-assets/js/faction.js", "utf8");
     const actionSource = readFileSync("page-assets/js/app/faction-actions-runtime.js", "utf8");
-    const previewSource = `${pageSource}\n${runtimeSource}\n${actionSource}`;
+    const gameSource = readFileSync("pages/game.html", "utf8");
+    const previewSource = `${pageSource}\n${runtimeSource}\n${actionSource}\n${gameSource}`;
 
     expect(previewSource).not.toMatch(/startovn|starting package|start package|startingPackage|startovní cash/i);
     expect(previewSource).not.toContain("Spustit akci");
     expect(previewSource).not.toContain("není core-backed");
     expect(previewSource).toContain("Funguje teď");
     expect(previewSource).toContain("Připravuje se");
-    expect(actionSource).toContain("AKTIVNÍ");
-    expect(actionSource).not.toContain("PŘIPRAVUJEME");
+    expect(gameSource).toContain("Speciální schopnosti frakce se zatím připravují");
+    expect(actionSource).not.toContain("data-faction-action-run");
   });
 
   it("keeps legacy preview catalog synchronized with authoritative public definitions", () => {
@@ -113,18 +111,13 @@ describe("legacy faction compatibility bridge", () => {
   });
 
   it("keeps Kartel action preview-only and avoids starting resource copy", () => {
-    const action = getFactionActionForPlayer({
-      getItem: () => JSON.stringify({ registration: { factionId: "kartel" } })
-    });
+    const action = FACTION_CATALOG.kartel.specialAction;
 
     expect(action).toMatchObject({
-      factionId: "kartel",
-      name: "Kartel",
-      code: "Noční zásilka",
-      canRun: false
+      name: "Noční zásilka",
+      status: "preview"
     });
-    expect(action.effect).toContain("v této verzi ho zatím nelze spustit");
-    expect(action.effect).not.toContain("startovní");
+    expect(JSON.stringify(action)).not.toContain("startovní");
   });
 
   it("shows Tajna organizace spy, trap and secret action preview without starting resources", () => {
@@ -258,16 +251,12 @@ describe("legacy faction compatibility bridge", () => {
     });
   });
 
-  it("renders only canonical active passives in the game modal", () => {
+  it("keeps the game modal limited to the planned faction ability notice", () => {
     const source = readFileSync("page-assets/js/app/faction-actions-runtime.js", "utf8");
-    const action = getFactionActionForPlayer({
-      getItem: () => JSON.stringify({ registration: { factionId: "kartel" } })
-    });
+    const gameSource = readFileSync("pages/game.html", "utf8");
 
-    expect(action.effect).toContain("v této verzi ho zatím nelze spustit");
-    expect(action.canRun).toBe(false);
-    expect(source).toContain("activePassiveEffects");
-    expect(source).toContain("AKTIVNÍ");
+    expect(gameSource).toContain("Speciální schopnosti frakce se zatím připravují");
+    expect(source).not.toContain("activePassiveEffects");
     expect(source).not.toContain("data-faction-action-run");
     expect(source).not.toContain("Preview schopnosti");
     expect(source).not.toContain("spuštěno");

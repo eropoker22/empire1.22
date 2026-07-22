@@ -82,7 +82,7 @@ async function seedLocalDemo(page) {
     localStorage.setItem("empire:active_mode", "free");
     localStorage.setItem(sessionKey, JSON.stringify(session));
     localStorage.setItem(scopedSessionKey, JSON.stringify(session));
-    localStorage.setItem("empire:onboarding:demo-v1:dev-only:Production%20QA", JSON.stringify({
+    localStorage.setItem("empire:onboarding:v2:onboarding:Production%20QA", JSON.stringify({
       completed: true,
       skipped: true,
       currentStepId: "completed",

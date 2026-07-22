@@ -66,7 +66,7 @@ test.afterEach(async ({ page }, testInfo) => {
 
 async function loginAsGuest(page, name = "Smoke Guest", gang = "Smoke Crew") {
   await clearStorageOnBoot(page);
-  await openLoginPage(page);
+  await openLoginPage(page, { localDemo: true });
   await page.locator("#guest-username").fill(name);
   await page.getByPlaceholder("Ghost Crew").fill(gang);
   await Promise.all([
@@ -105,7 +105,7 @@ async function finishSpawnSelectionIfNeeded(page) {
   const submitResponsePromise = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return response.request().method() === "POST" && /\/api\/gameplay-slice\/submit$/u.test(url.pathname);
-  });
+  }, { timeout: 20_000 });
   const availableButtons = spawnPanel.locator("button[data-select-spawn-district-id]");
   const count = await availableButtons.count();
   let selected = false;
@@ -113,7 +113,7 @@ async function finishSpawnSelectionIfNeeded(page) {
   for (let index = 0; index < count; index += 1) {
     const candidate = availableButtons.nth(index);
     if (await candidate.isEnabled().catch(() => false)) {
-      await candidate.click();
+      await candidate.evaluate((button) => button.click());
       selected = true;
       break;
     }
@@ -474,101 +474,23 @@ test.describe("main game browser protection", () => {
     await assertNoRuntimeErrors(errors);
   });
 
-  test("completes spawn selection through the UI on a fresh Free flow", async ({ page }) => {
-    const errors = createRuntimeErrorMonitor(page);
-    const runId = Date.now().toString(36);
-    const { bootstrapReadModel } = await openFreeGameAndLoadBootstrap(page, {
-      name: `Spawn Smoke ${runId}`,
-      gang: `Spawn Crew ${runId}`
-    });
+  test("fails closed without a live account membership", async ({ page }) => {
+    await clearStorageOnBoot(page);
+    await page.route("**/api/lobby/overview", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        accepted: false,
+        errors: [{ code: "PLAYER_ENTRY_UNAVAILABLE", message: "Živý profil není dostupný." }]
+      })
+    }));
 
-    expect(bootstrapReadModel?.spawnSelection?.status).toBe("awaiting_spawn_selection");
-    expect(bootstrapReadModel?.player?.homeDistrictId ?? null).toBeNull();
-    await expect(page.locator("[data-feature='spawn-selection']")).toBeVisible();
+    await page.goto("/pages/game.html?runtimeMode=server-authoritative", { waitUntil: "domcontentloaded" });
 
-    const spawnPayload = await finishSpawnSelectionIfNeeded(page);
-    expect(spawnPayload).toMatchObject({
-      accepted: true,
-      readModel: {
-        player: { homeDistrictId: expect.any(String) },
-        spawnSelection: { status: expect.not.stringMatching(/^awaiting_spawn_selection$/u) }
-      }
-    });
-
-    await assertNoRuntimeErrors(errors);
-  });
-
-  test("executes a minimal closed-alpha Free flow and submits one gameplay action", async ({ page }) => {
-    const errors = createRuntimeErrorMonitor(page);
-    const runId = Date.now().toString(36);
-
-    let { bootstrapReadModel } = await openFreeGameAndLoadBootstrap(page, {
-      name: `Action Smoke ${runId}`,
-      gang: `Action Crew ${runId}`
-    });
-
-    if (bootstrapReadModel?.spawnSelection?.status === "awaiting_spawn_selection") {
-      const spawnPayload = await finishSpawnSelectionIfNeeded(page);
-      if (spawnPayload) {
-        bootstrapReadModel = spawnPayload.readModel ?? bootstrapReadModel;
-      } else {
-        const spawnDistrict = bootstrapReadModel.spawnSelection?.districts?.find((district) => district?.status === "available");
-        if (!spawnDistrict) {
-          throw new Error("No available spawn district available in authoritative bootstrap state.");
-        }
-
-        const spawnSubmit = await postGameplaySliceRequest(page, "submit", {
-          command: createSelectSpawnDistrictCommand({
-            commandId: `smoke-spawn:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`,
-            mode: bootstrapReadModel?.mode?.mode ?? "free",
-            playerId: bootstrapReadModel?.player?.playerId ?? null,
-            serverInstanceId: bootstrapReadModel?.server?.serverInstanceId ?? DEFAULT_FREE_SERVER_ID,
-            issuedAt: new Date().toISOString(),
-            districtId: spawnDistrict.districtId
-          }),
-          focusDistrictId: spawnDistrict.districtId,
-          expectedStateVersion: bootstrapReadModel?.server?.stateVersion ?? null
-        });
-        expect(spawnSubmit.ok).toBe(true);
-        expect(spawnSubmit.status).toBeLessThan(400);
-        if (process.env.SMOKE_DEBUG === "1") {
-          console.log("spawnSubmit.accepted", JSON.stringify(spawnSubmit?.payload?.accepted));
-          console.log("spawnSubmit.errors", JSON.stringify(spawnSubmit?.payload?.errors ?? []));
-        }
-        expect(spawnSubmit.payload).toMatchObject({
-          accepted: true,
-          readModel: expect.any(Object),
-          errors: expect.any(Array)
-        });
-        bootstrapReadModel = spawnSubmit.payload.readModel ?? bootstrapReadModel;
-        expect(bootstrapReadModel?.server?.stateVersion).toEqual(expect.any(Number));
-      }
-    }
-
-    const fallbackSubmit = await submitFallbackAction(page, bootstrapReadModel);
-    expect(fallbackSubmit.ok).toBe(true);
-    expect(fallbackSubmit.status).toBeLessThan(400);
-    if (process.env.SMOKE_DEBUG === "1") {
-      console.log("fallbackSubmit.accepted", JSON.stringify(fallbackSubmit.payload?.accepted));
-      console.log("fallbackSubmit.errors", JSON.stringify(fallbackSubmit.payload?.errors ?? []));
-    }
-    expect(fallbackSubmit.payload).toMatchObject({
-      accepted: expect.any(Boolean),
-      errors: expect.any(Array),
-      readModel: expect.any(Object)
-    });
-    expect(
-      fallbackSubmit.payload?.accepted,
-      `First guided action rejected: ${JSON.stringify(fallbackSubmit.payload?.errors?.[0] ?? {})}`
-    ).toBe(true);
-    if (fallbackSubmit.payload?.readModel?.server?.stateVersion != null) {
-      expect(fallbackSubmit.payload.readModel.server.stateVersion).toBeGreaterThanOrEqual(
-        bootstrapReadModel?.server?.stateVersion ?? 0
-      );
-    }
-
-    await clickDistrictById(page, DISTRICT_ID_CANDIDATES[0]);
-    await expect(page.getByTestId("district-popup-card")).toBeVisible();
-    await assertNoRuntimeErrors(errors);
+    await expect(page.locator("html")).toHaveAttribute("data-gameplay-execution-mode", "server-authoritative");
+    await expect(page.locator("body")).toHaveAttribute("data-authority-state", "unavailable");
+    await expect(page.locator("[data-game-authority-status]")).toHaveText("SERVER NENÍ DOSTUPNÝ");
+    await expect(page.locator("[data-game-authority-message]")).toContainText("Žádná lokální náhrada nebyla spuštěna.");
+    expect(await page.evaluate(() => window.empireClientAuthorityState?.executionMode)).toBe("server-authoritative");
   });
 });

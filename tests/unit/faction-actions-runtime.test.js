@@ -1,131 +1,57 @@
-import { describe, expect, it } from "vitest";
-import { STORAGE_KEYS } from "../../page-assets/js/config.js";
-import {
-  getCurrentPlayerFactionId,
-  getFactionActionForPlayer,
-  getFactionPassiveView
-} from "../../page-assets/js/app/faction-actions-runtime.js";
+// @vitest-environment jsdom
 
-function createStorage(session) {
-  return {
-    getItem(key) {
-      return key === STORAGE_KEYS.session ? JSON.stringify(session) : null;
-    }
-  };
+import { readFileSync } from "node:fs";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const gameSource = readFileSync("pages/game.html", "utf8");
+const runtimeSource = readFileSync("page-assets/js/app/faction-actions-runtime.js", "utf8");
+
+function mountFactionModal() {
+  document.body.innerHTML = `
+    <main data-client-surface="game-shell">
+      <button type="button" data-faction-actions-open-trigger>Frakce</button>
+      <div id="faction-actions-modal" class="modal hidden" hidden>
+        <button id="faction-actions-modal-backdrop" type="button">Zavřít</button>
+        <p>Speciální schopnosti frakce se zatím připravují</p>
+      </div>
+    </main>`;
 }
 
 describe("faction actions runtime", () => {
-  it("shows canonical local passive effects without an activation command", () => {
-    const storage = createStorage({ registration: { factionId: "hackeri" } });
-    const previousWindow = globalThis.window;
-    globalThis.window = {
-      localStorage: storage,
-      location: { hostname: "localhost", protocol: "http:", search: "?runtimeMode=local-demo" }
-    };
-    try {
-      expect(getFactionPassiveView(storage)).toMatchObject({
-        factionId: "hackeri",
-        source: "local-demo"
-      });
-      expect(getFactionPassiveView(storage).activePassiveEffects).toContain("+15 % účinnost kamer");
-    } finally {
-      globalThis.window = previousWindow;
-    }
-  });
-  it("shows only the current player's faction action", () => {
-    const action = getFactionActionForPlayer(createStorage({
-      registration: {
-        factionId: "hackeri"
-      }
-    }));
-
-    expect(action).toMatchObject({
-      factionId: "hackeri",
-      name: "Hackeři",
-      code: "Výpadek systému",
-      canRun: false
-    });
-    expect(action.effect).toContain("v této verzi ho zatím nelze spustit");
+  beforeEach(() => {
+    vi.resetModules();
+    document.body.replaceChildren();
   });
 
-  it("prefers selectedFaction from the locked registration", () => {
-    const storage = createStorage({
-      registration: {
-        factionId: "mafian",
-        selectedFaction: "korporace"
-      }
-    });
-
-    expect(getCurrentPlayerFactionId(storage)).toBe("korporace");
-    expect(getFactionActionForPlayer(storage)).toMatchObject({
-      factionId: "korporace",
-      name: "Korporát",
-      code: "Právní štít",
-      canRun: false
-    });
+  it("keeps the faction window limited to the planned ability notice", () => {
+    expect(gameSource).toContain("Speciální schopnosti frakce se zatím připravují");
+    expect(gameSource).not.toContain("data-faction-action-run");
+    expect(runtimeSource).not.toContain("localStorage");
+    expect(runtimeSource).not.toContain("getFactionActionForPlayer");
   });
 
-  it("shows private army action as preview-only", () => {
-    const action = getFactionActionForPlayer(createStorage({
-      registration: {
-        factionId: "soukroma-armada"
-      }
-    }));
+  it("opens and closes the existing faction modal without creating a preview command", async () => {
+    mountFactionModal();
+    await import("../../page-assets/js/app/faction-actions-runtime.js");
 
-    expect(action).toMatchObject({
-      factionId: "soukroma-armada",
-      name: "Soukromá armáda",
-      code: "Taktické nasazení",
-      canRun: false
-    });
-    expect(action.effect).toContain("v této verzi ho zatím nelze spustit");
+    const modal = document.getElementById("faction-actions-modal");
+    document.querySelector("[data-faction-actions-open-trigger]").click();
+    expect(modal.hidden).toBe(false);
+    expect(modal.classList.contains("hidden")).toBe(false);
+
+    document.getElementById("faction-actions-modal-backdrop").click();
+    expect(modal.hidden).toBe(true);
+    expect(modal.classList.contains("hidden")).toBe(true);
   });
 
-  it("shows Kartel action as preview-only", () => {
-    const action = getFactionActionForPlayer(createStorage({
-      registration: {
-        factionId: "kartel"
-      }
-    }));
+  it("closes the faction modal with Escape", async () => {
+    mountFactionModal();
+    await import("../../page-assets/js/app/faction-actions-runtime.js");
 
-    expect(action).toMatchObject({
-      factionId: "kartel",
-      name: "Kartel",
-      code: "Noční zásilka",
-      canRun: false
-    });
-    expect(action.effect).toContain("v této verzi ho zatím nelze spustit");
-  });
+    const modal = document.getElementById("faction-actions-modal");
+    document.querySelector("[data-faction-actions-open-trigger]").click();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
 
-  it("shows secret organization action as preview-only", () => {
-    const action = getFactionActionForPlayer(createStorage({
-      registration: {
-        factionId: "tajna-organizace"
-      }
-    }));
-
-    expect(action).toMatchObject({
-      factionId: "tajna-organizace",
-      name: "Tajná organizace",
-      code: "Spící buňka",
-      canRun: false
-    });
-    expect(action.effect).toContain("v této verzi ho zatím nelze spustit");
-  });
-
-  it("shows hacker action as preview-only", () => {
-    const action = getFactionActionForPlayer(createStorage({
-      registration: {
-        factionId: "hackeri"
-      }
-    }));
-
-    expect(action).toMatchObject({
-      factionId: "hackeri",
-      name: "Hackeři",
-      code: "Výpadek systému",
-      canRun: false
-    });
-    expect(action.effect).toContain("v této verzi ho zatím nelze spustit");
+    expect(modal.hidden).toBe(true);
   });
 });

@@ -1,14 +1,15 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  createDistrictGeometry,
-  getDistrictAtPoint,
-  getDistrictFillStyle,
-  renderDistrictCanvas
-} from "../../page-assets/js/app/runtime.js";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import * as demoScenarioData from "../../page-assets/js/app/onboarding/demoScenarios.js";
 import {
   DAY_MAP_IMAGE_PATH,
   NIGHT_MAP_IMAGE_PATH
 } from "../../page-assets/js/app/runtime/constants.js";
+import { installLegacyScenarioData } from "../../page-assets/js/app/runtime/legacyScenarioState.js";
+
+let createDistrictGeometry;
+let getDistrictAtPoint;
+let getDistrictFillStyle;
+let renderDistrictCanvas;
 
 const originalWindow = globalThis.window;
 
@@ -121,6 +122,16 @@ class FakeCanvas {
 }
 
 describe("runtime map rendering guards", () => {
+  beforeAll(async () => {
+    installLegacyScenarioData(demoScenarioData);
+    ({
+      createDistrictGeometry,
+      getDistrictAtPoint,
+      getDistrictFillStyle,
+      renderDistrictCanvas
+    } = await import("../../page-assets/js/app/runtime.js"));
+  });
+
   beforeEach(() => {
     globalThis.window = {
       localStorage: createMemoryStorage(),

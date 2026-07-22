@@ -19,14 +19,12 @@ import {
   publicAccount,
   type PostgresPlayerEntryRepository
 } from "./postgres-player-entry-repository";
-
 export interface PlayerEntryRequest {
   httpMethod: string;
   path: string;
   body: unknown;
   headers?: Record<string, string | string[] | undefined>;
 }
-
 export const createPlayerEntryNetlifyBoundary = (options: {
   environment: Record<string, string | undefined>;
   repository?: PostgresPlayerEntryRepository;
@@ -246,7 +244,6 @@ const header = (headers: PlayerEntryRequest["headers"], name: string) => {
   const value = Object.entries(headers ?? {}).find(([key]) => key.toLowerCase() === name)?.[1];
   return (Array.isArray(value) ? String(value[0] ?? "") : String(value ?? "")).trim();
 };
-
 type Route = { kind: "register" | "session" | "registration-policy" | "overview" | "confirm-spawn" | "setup" }
   | { kind: "spawn" | "results"; serverInstanceId: string }
   | { kind: "membership" | "join-ticket" | "leave"; membershipId: string };

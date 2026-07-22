@@ -12,7 +12,6 @@ import {
   resolveEffectiveEliminationMinimumPlayers,
   resolveEffectiveFirstEliminationTick
 } from "../server-pacing/serverPacingPolicy";
-
 export interface EliminationResult {
   eliminatedPlayerId: PlayerId;
   finalPlacement: number;
@@ -21,7 +20,6 @@ export interface EliminationResult {
   nextEliminationTick: number;
   activePlayersRemaining: number;
 }
-
 const createEliminationTitle = (gangName: string): string => `Očista proběhla: ${gangName}`;
 const createEliminationBody = (gangName: string): string =>
   `Policie rozdrtila gang ${gangName}. Jeho území se vrací pod kontrolu města.`;

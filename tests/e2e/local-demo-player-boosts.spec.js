@@ -24,10 +24,11 @@ const pvpTarget = Array.from(launchOwners.entries())
     && candidate.district?.legacyNeighborIds?.length > 0
   ));
 const PVP_TARGET_DISTRICT_ID = pvpTarget?.districtId ?? 5;
+const PVP_TARGET_OWNER_ID = pvpTarget?.ownerId ?? 2;
 const PVP_SOURCE_DISTRICT_ID = pvpTarget?.district?.legacyNeighborIds?.[0] ?? 4;
 
 async function seedBoostSession(page) {
-  await page.addInitScript(({ sessionKey, scopedSessionKey, sourceDistrictId, targetDistrictId }) => {
+  await page.addInitScript(({ sessionKey, scopedSessionKey, sourceDistrictId, targetDistrictId, targetOwnerId }) => {
     window.EmpireConfigOverrides = Object.freeze({
       ...(window.EmpireConfigOverrides || {}),
       localDemoEnabled: true
@@ -60,6 +61,7 @@ async function seedBoostSession(page) {
         ownedDistrictIds: [sourceDistrictId],
         phaseState: { gamePhase: "live", mapPhase: "night", cityMinutes: 1_334 },
         destroyedDistrictIds: [],
+        districtOwnerById: { [targetDistrictId]: targetOwnerId },
         districtDefenseById: { [targetDistrictId]: 4 },
         districtDefenseLoadoutById: {},
         districtDefenseResidentsById: {},
@@ -114,7 +116,7 @@ async function seedBoostSession(page) {
     localStorage.setItem("empire:active_mode", "free");
     localStorage.setItem(sessionKey, JSON.stringify(session));
     localStorage.setItem(scopedSessionKey, JSON.stringify(session));
-    localStorage.setItem("empire:onboarding:demo-v1:dev-only:Boost%20QA", JSON.stringify({
+    localStorage.setItem("empire:onboarding:v2:onboarding:Boost%20QA", JSON.stringify({
       completed: true,
       skipped: true,
       currentStepId: "completed",
@@ -125,7 +127,8 @@ async function seedBoostSession(page) {
     sessionKey: SESSION_KEY,
     scopedSessionKey: SCOPED_SESSION_KEY,
     sourceDistrictId: PVP_SOURCE_DISTRICT_ID,
-    targetDistrictId: PVP_TARGET_DISTRICT_ID
+    targetDistrictId: PVP_TARGET_DISTRICT_ID,
+    targetOwnerId: PVP_TARGET_OWNER_ID
   });
 }
 
@@ -253,6 +256,19 @@ test("strategic boosts debit once, expire, and Tactical Grid is consumed by vali
 
   await page.locator("#boost-modal-close").click();
   await expect(page.locator("#boost-modal")).toBeHidden();
+  const pvpState = await page.evaluate(({ districtId, sessionKey }) => {
+    const session = JSON.parse(localStorage.getItem(sessionKey) || "{}");
+    return {
+      executionMode: document.documentElement.dataset.gameplayExecutionMode,
+      localAttackAuthority: window.__EMPIRE_GAMEPLAY_AUTHORITY_MATRIX__?.attack?.localMutation,
+      targetOwnerId: session.world?.districtOwnerById?.[districtId],
+      activeBoostId: session.playerBoosts?.active?.boostId || null
+    };
+  }, { districtId: PVP_TARGET_DISTRICT_ID, sessionKey: SESSION_KEY });
+  expect(pvpState.executionMode).toBe("local-demo");
+  expect(pvpState.localAttackAuthority).toBe(true);
+  expect(pvpState.targetOwnerId).toBe(PVP_TARGET_OWNER_ID);
+  expect(pvpState.activeBoostId).toBe("tactical-grid");
   expect(await page.evaluate((districtId) => window.EmpireRuntime.openAttackPanel(districtId), PVP_TARGET_DISTRICT_ID)).toBe(true);
   const attackSetup = page.locator("[data-attack-setup-popup]");
   await expect(attackSetup).toBeVisible();

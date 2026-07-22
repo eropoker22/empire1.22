@@ -58,9 +58,12 @@ check(!tracked.some((path) => path.endsWith(".ts") && /EMPIRE_ADMIN_SECRET|x-emp
 check(matchmakingHandler.includes('repositories?.kind === "postgres"') && matchmakingHandler.includes("listHostedPublicServers"), "hosted matchmaking must use the durable PostgreSQL registry");
 check(!matchmakingHandler.includes("publicServerRegistry"), "production matchmaking handler must not import the hardcoded public registry");
 check(functionHandler.includes("EMPIRE_LEGACY_MATCHMAKING_ENABLED"), "legacy matchmaking must be explicitly disabled in production");
-check(lobbyPage.includes("lobby-entry.js") && lobbyEntry.includes("isExplicitLocalDemoEnabled") && hasDynamicModuleImport(lobbyEntry, "./lobby-live.js"), "production lobby defaults to the live account/membership entrypoint");
-check(text("pages/login.html").includes("login-entry.js") && loginEntry.includes("isExplicitLocalDemoEnabled") && hasDynamicModuleImport(loginEntry, "./login-live.js"), "production login defaults to the live account entrypoint");
-check(factionPage.includes("faction-entry.js") && factionEntry.includes("isExplicitLocalDemoEnabled") && hasDynamicModuleImport(factionEntry, "./faction-live.js"), "production setup defaults to the live membership entrypoint");
+check(lobbyPage.includes("lobby-entry.js") && lobbyEntry.includes("resolveClientEntryExecutionMode")
+  && hasDynamicModuleImport(lobbyEntry, "./lobby-live.js"), "production lobby defaults to the live account/membership entrypoint");
+check(text("pages/login.html").includes("login-entry.js") && loginEntry.includes("resolveClientEntryExecutionMode")
+  && hasDynamicModuleImport(loginEntry, "./login-live.js"), "production login defaults to the live account entrypoint");
+check(factionPage.includes("faction-entry.js") && factionEntry.includes("resolveClientEntryExecutionMode")
+  && hasDynamicModuleImport(factionEntry, "./faction-live.js"), "production setup defaults to the live membership entrypoint");
 check(localDemoGate.includes("127.0.0.1") && localDemoGate.includes("localDemoEnabled === true"), "legacy entry flow requires an explicit loopback-only demo flag");
 check(!/SERVER_CATALOG|saveLobbyStep|SPAWN_SIDE_BAND_COLUMNS|Math\.random/u.test(lobbyLive), "production lobby has no static spawn/server authority");
 check(entryMigration.includes("empire_server_memberships_blocking_account_idx"), "one blocking membership is enforced by PostgreSQL");

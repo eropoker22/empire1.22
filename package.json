@@ -88,7 +88,7 @@
     "test:integration": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/integration --exclude tests/integration/free-mode-shared-city-simulation.test.ts",
     "test:simulation": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/unit/tools/free-br-simulation.test.ts tests/unit/tools/production-chain-simulation.test.ts tests/unit/game-core/free-session-balance-anti-snowball.test.ts tests/unit/game-core/faction-foundation-simulation.test.ts tests/unit/game-core/police-free-session-simulation.test.ts",
     "test:server": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/server",
-    "test:persistence": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/persistence",
+    "test:persistence": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/persistence --maxWorkers=1 --minWorkers=1",
     "test:persistence:postgres": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/persistence/postgres-live.test.ts",
     "test:persistence:postgres:smoke": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/persistence/postgres-prod-like-smoke.test.ts",
     "test:player-entry:postgres": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/persistence/player-entry-postgres-live.test.ts",

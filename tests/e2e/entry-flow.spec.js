@@ -19,7 +19,7 @@ test.afterEach(async ({ page }, testInfo) => {
 });
 
 async function loginAsGuest(page, name = "Entry Host", gang = "Entry Crew") {
-  await openLoginPage(page);
+  await openLoginPage(page, { localDemo: true });
   await page.locator("#guest-username").fill(name);
   await page.getByPlaceholder("Ghost Crew").fill(gang);
   await Promise.all([

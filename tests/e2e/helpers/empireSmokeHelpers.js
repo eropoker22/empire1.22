@@ -7,8 +7,9 @@ const DISTRICT_CANVAS_WIDTH = 1600;
 const DISTRICT_CANVAS_HEIGHT = 980;
 const DEFAULT_TEST_AVATAR = "../img/avatars/Mafia/2854d1df-0f7c-4fe4-aa85-7a70dfe299db.jpg";
 const CANONICAL_FREE_SERVER_ID = "instance:free:eu-central:public-1";
-const ONBOARDING_STORAGE_PREFIX = "empire:onboarding:demo-v1";
+const ONBOARDING_STORAGE_PREFIX = "empire:onboarding:v2";
 const ONBOARDING_VERSION = "demo-v1-clean";
+const LOCAL_DEMO_SESSION_KEY = "empire:local-demo-session:v1";
 
 const BENIGN_CONSOLE_ERROR_PATTERNS = [
   /favicon\.ico/i,
@@ -20,10 +21,6 @@ const RESERVE_TIMEOUT_MS = Number(process.env.PLAYWRIGHT_E2E_RESERVE_TIMEOUT_MS 
 
 async function installE2eStabilityScript(page) {
   await page.addInitScript(() => {
-    window.EmpireConfigOverrides = Object.freeze({
-      ...(window.EmpireConfigOverrides || {}),
-      localDemoEnabled: true
-    });
     const install = () => {
       if (document.getElementById("empire-e2e-stability-style")) {
         return;
@@ -292,18 +289,19 @@ export async function seedE2eSession(page, overrides = {}) {
   const session = createE2eSession(overrides);
   await attachE2eJoinTicket(page, session);
   await installE2eStabilityScript(page);
-  await page.addInitScript(({ key, onboardingPrefix, onboardingVersion, skipOnboarding, value }) => {
+  await page.addInitScript(({ key, localDemoSessionKey, onboardingPrefix, onboardingVersion, skipOnboarding, value }) => {
     const flags = new Set(String(window.name || "").split("|").filter(Boolean));
     if (flags.has("empire-e2e-session-seeded")) {
       return;
     }
     window.localStorage.clear();
     window.sessionStorage.clear();
+    window.sessionStorage.setItem(localDemoSessionKey, "1");
     window.localStorage.setItem(key, JSON.stringify(value));
     if (skipOnboarding) {
       const registration = value?.registration || {};
       const playerId = String(registration.playerId || registration.identity || registration.gangName || "dev-player").trim() || "dev-player";
-      const onboardingKey = `${onboardingPrefix}:${encodeURIComponent("dev-only")}:${encodeURIComponent(playerId)}`;
+      const onboardingKey = `${onboardingPrefix}:${encodeURIComponent("onboarding")}:${encodeURIComponent(playerId)}`;
       window.localStorage.setItem(onboardingKey, JSON.stringify({
         completed: true,
         skipped: true,
@@ -316,6 +314,7 @@ export async function seedE2eSession(page, overrides = {}) {
     window.name = Array.from(flags).join("|");
   }, {
     key: SESSION_STORAGE_KEY,
+    localDemoSessionKey: LOCAL_DEMO_SESSION_KEY,
     onboardingPrefix: ONBOARDING_STORAGE_PREFIX,
     onboardingVersion: ONBOARDING_VERSION,
     skipOnboarding: overrides.skipOnboarding !== false,
@@ -361,8 +360,13 @@ async function attachE2eJoinTicket(page, session) {
   registration.serverRegion = registration.activeServerRegion;
 }
 
-export async function openLoginPage(page) {
-  await page.goto("/pages/login.html", { waitUntil: "domcontentloaded" });
+export async function openLoginPage(page, options = {}) {
+  const href = options.localDemo === true
+    ? "/pages/login.html?runtimeMode=local-demo"
+    : options.serverAuthoritative === true
+      ? "/pages/login.html?runtimeMode=server-authoritative"
+      : "/pages/login.html";
+  await page.goto(href, { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("login-page")).toBeVisible();
   await expect(page).toHaveTitle(/Empire Streets \| Ovládni město/);
 }
@@ -492,10 +496,10 @@ export async function completeSpawnSelectionIfVisible(page) {
 }
 
 export async function waitForMapReady(page) {
-  await expect(page.getByTestId("game-page")).toBeVisible();
-  await expect(page.getByTestId("district-canvas")).toBeVisible();
   await dismissOnboardingGuide(page);
   await dismissBlockingGameOverlays(page);
+  await expect(page.getByTestId("game-page")).toBeVisible();
+  await expect(page.getByTestId("district-canvas")).toBeVisible();
   await page.waitForFunction(() => (
     typeof window.empireStreetsDistrictState?.getDistrictById === "function"
     && (
@@ -525,7 +529,7 @@ async function forceHideOnboardingGuide(page) {
     const session = JSON.parse(window.localStorage.getItem("empireStreets.session.v1") || "{}");
     const registration = session?.registration || {};
     const playerId = String(registration.playerId || registration.identity || registration.gangName || "dev-player").trim() || "dev-player";
-    window.localStorage.setItem(`${prefix}:${encodeURIComponent("dev-only")}:${encodeURIComponent(playerId)}`, JSON.stringify({
+    window.localStorage.setItem(`${prefix}:${encodeURIComponent("onboarding")}:${encodeURIComponent(playerId)}`, JSON.stringify({
       completed: true,
       skipped: true,
       currentStepId: "completed",

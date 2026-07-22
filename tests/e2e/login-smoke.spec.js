@@ -17,14 +17,36 @@ test.afterEach(async ({ page }, testInfo) => {
 });
 
 test.describe("login smoke", () => {
-  test("renders login, register and guest entry without runtime errors", async ({ page }) => {
+  test("renders live login and registration without runtime errors", async ({ page }) => {
     const errors = createRuntimeErrorMonitor(page);
     await clearStorageOnBoot(page);
+    await page.route("**/api/account/registration-policy", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        accepted: true,
+        data: {
+          registrationEnabled: true,
+          mode: "open",
+          passwordMinimumLength: 12,
+          minimumAgeYears: 16
+        }
+      })
+    }));
+    await page.route("**/api/account/session", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        accepted: false,
+        errors: [{ code: "ACCOUNT_SESSION_REQUIRED", message: "Přihlášení je vyžadováno." }]
+      })
+    }));
 
-    await openLoginPage(page);
+    await openLoginPage(page, { serverAuthoritative: true });
     await waitForAboutController(page);
     await expect(page.getByTestId("login-form")).toBeVisible();
     await expect(page.getByTestId("guest-login-button")).toBeVisible();
+    await expect(page.getByTestId("guest-login-button")).toHaveText("LOKÁLNÍ UI DEMO");
 
     await page.locator("[data-login-registration-open]").click();
     await expect(page.getByTestId("register-form")).toBeVisible();
@@ -36,7 +58,7 @@ test.describe("login smoke", () => {
 
     await page.locator("[data-login-about-open]").click();
     await expect(page.locator("[data-login-about-overlay]")).toBeVisible();
-    await expect(page.getByRole("dialog", { name: "O hře" })).toContainText("Město sleduje každý tvůj krok.");
+    await expect(page.getByRole("dialog", { name: "O hře" })).toContainText("MĚSTO SLEDUJE KAŽDÝ TVŮJ KROK.");
     for (const tabName of ["Přehled", "Útok", "Past", "Bounty", "Očista"]) {
       await expect(page.getByRole("tab", { name: tabName, exact: true })).toBeVisible();
     }
@@ -88,7 +110,7 @@ test.describe("login smoke", () => {
     const errors = createRuntimeErrorMonitor(page);
     await clearStorageOnBoot(page);
 
-    await openLoginPage(page);
+    await openLoginPage(page, { localDemo: true });
     await page.locator("#guest-username").fill("E2E Host");
     await page.getByPlaceholder("Ghost Crew").fill("E2E Crew");
     await Promise.all([

@@ -9,13 +9,14 @@ const gameHtml = () => read("pages/game.html");
 const appSource = () => read("page-assets/js/app.js");
 const renderUiSource = () => read("page-assets/js/app/render-ui.js");
 const runtimeSource = () => read("page-assets/js/app/runtime.js");
+const serverCommandAuthorityGuardSource = () => read("page-assets/js/app/runtime/serverCommandAuthorityGuard.js");
 
 describe("runtime refactor guard", () => {
   it("keeps the canonical module load path intact", () => {
     expect(gameHtml()).toMatch(/type="module" src="\.\.\/page-assets\/js\/app-entry\.js(?:\?[^"]*)?"/u);
     expect(gameHtml()).not.toContain('src="../page-assets/js/app/runtime.js"');
-    expect(appSource()).toContain('from "./app/render-ui.js"');
-    expect(renderUiSource()).toContain('from "./runtime.js"');
+    expect(appSource()).toMatch(/from "\.\/app\/render-ui\.js(?:\?[^"]*)?"/u);
+    expect(renderUiSource()).toMatch(/from "\.\/runtime\.js(?:\?[^"]*)?"/u);
   });
 
   it("does not introduce inline HTML event handlers for the game shell", () => {
@@ -153,10 +154,13 @@ describe("runtime refactor guard", () => {
 
   it("blocks legacy authoritative robbery and defense mutations when server slice is ready", () => {
     const source = runtimeSource();
+    const authorityGuardSource = serverCommandAuthorityGuardSource();
 
     expect(source).toContain("function isServerAuthoritativeGameplayRuntimeReady()");
     expect(source).toContain("getGameplayExecutionMode({");
-    expect(source).toContain("selectedMode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative");
+    expect(source).toContain("canSubmitServerGameplayCommand({");
+    expect(authorityGuardSource).toContain("options.onboardingSandboxActive !== true");
+    expect(authorityGuardSource).toContain("options.executionMode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative");
     expect(source).not.toContain('document.body?.dataset?.gameplayRuntime === "server-authoritative-ready"');
     expect(source).toContain("latestGameplaySliceReadModel?.player?.playerId");
     expect(source).toContain("Legacy lokální robbery výsledek je vypnutý.");

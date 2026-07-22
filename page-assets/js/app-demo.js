@@ -1,7 +1,6 @@
 import { ENTRY_FLOW_TARGETS, getEntryFlowTarget } from "./app/auth-flow.js";
 import { isExplicitGamePreviewEnabled, isExplicitLocalDemoEnabled } from "./app/local-demo-gate.js";
 import { bindDesktopGameScrollLimit } from "./app/runtime/desktopScrollLimitRuntime.js";
-import { bootstrapPage, PAGE_ROOT_SELECTOR } from "./app/render-ui.js?v=heat-audit-20260721";
 import * as localDemoScenarios from "./app/onboarding/demoScenarios.js";
 import * as localDemoFixtures from "./app/dev-fixtures/allianceDemoData.js";
 import { installLegacyScenarioData } from "./app/runtime/legacyScenarioState.js";
@@ -30,14 +29,15 @@ function canBootGame() {
 
 const shouldBootGame = canBootGame();
 
-function bootGamePage() {
+async function bootGamePage() {
+  const { bootstrapPage } = await import("./app/render-ui.js?v=heat-audit-20260721");
   const runtime = bootstrapPage();
   bindDesktopGameScrollLimit();
   return runtime;
 }
 
 if (shouldBootGame && document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", bootGamePage, { once: true });
-} else if (shouldBootGame && document.querySelector(PAGE_ROOT_SELECTOR)) {
-  bootGamePage();
+  document.addEventListener("DOMContentLoaded", () => void bootGamePage(), { once: true });
+} else if (shouldBootGame) {
+  void bootGamePage();
 }

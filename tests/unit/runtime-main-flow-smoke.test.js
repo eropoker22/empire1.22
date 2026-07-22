@@ -64,7 +64,7 @@ describe("runtime main UI flow smoke guard", () => {
         expect(runtime[exportName]).toBeDefined();
       }
 
-      expect(renderUiSource).toContain('from "./runtime.js"');
+      expect(renderUiSource).toMatch(/from "\.\/runtime\.js(?:\?[^"]*)?"/u);
       expect(consoleError).not.toHaveBeenCalled();
     } finally {
       consoleError.mockRestore();

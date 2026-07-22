@@ -5,18 +5,15 @@ import type { CoreEvent } from "../../events";
 import { CORE_EVENT_TYPES, createEvent, createNotification } from "../../events";
 import { cleanupAllianceDefense } from "../alliances/allianceDefenseCleanup";
 import { bumpDistrictConflictRevision } from "../../state";
-
 export interface TerritoryLifecycleResult {
   nextState: CoreGameState;
   events: CoreEvent[];
 }
-
 export type PlayerDefeatReason =
   | "last_district_lost"
   | "scheduled_weakest_player"
   | "final_lockdown"
   | "administrative";
-
 export const countActiveOwnedDistricts = (state: CoreGameState, playerId: string): number =>
   Object.values(state.districtsById).filter((district) =>
     district.ownerPlayerId === playerId && district.status !== "destroyed" && district.status !== "locked").length;

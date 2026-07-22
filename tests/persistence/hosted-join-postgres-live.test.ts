@@ -8,6 +8,7 @@ import type {
 import { createPostgresAdminDurableRepositories } from "../../apps/server/src/admin/read-only";
 import { createPostgresDatabase } from "../../apps/server/src/runtime/persistence/postgres";
 
+process.loadEnvFile?.(".env.local");
 const databaseUrl = process.env.EMPIRE_TEST_DATABASE_URL?.trim();
 const describeWhenDatabaseConfigured = databaseUrl ? describe : describe.skip;
 
