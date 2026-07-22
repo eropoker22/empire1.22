@@ -1,6 +1,6 @@
 # Legacy Runtime Guard
 
-`pages/game.html` still loads the legacy canvas runtime for map rendering, local pre-alpha gameplay, and older modal shells. The checked-in static page declares `local-demo`; it is not production authority.
+`pages/game.html` still loads the legacy canvas shell for rendering and older modal surfaces. Public entry uses the server-authoritative bootstrap; local gameplay mutations are available only through the explicit loopback demo entry and are not production authority.
 
 The single execution-mode resolver is `page-assets/js/app/runtime/gameplayExecutionMode.js`:
 

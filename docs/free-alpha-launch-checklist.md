@@ -12,7 +12,7 @@ The hosted runtime code now has local coverage for the previously blocking autho
 - production startup checks the exact migration filename/checksum contract and fails closed on missing, changed, extra, or unavailable migration history;
 - `pages/game.html` enables visibility-aware gameplay polling every five seconds, with retry backoff after failures.
 
-Do not invite real players yet. Registration and the final real-player account/gameplay-session entry boundary are intentionally deferred to the next phase. The Netlify Functions environment, target PostgreSQL migrations, production secrets, deployed route contracts, and a live hosted worker heartbeat have also not been proven on `empirestreets.cz`. Local tests are implementation evidence, not deployment evidence.
+The public account, membership, and gameplay-session entry boundary is implemented. Do not admit real players until the Netlify Functions environment, target PostgreSQL migrations, production secrets, deployed route contracts, and live hosted worker heartbeat are proven on `empirestreets.cz`. Local tests are implementation evidence, not deployment evidence.
 
 ## A) Local Test
 
@@ -84,6 +84,10 @@ Do not invite real players yet. Registration and the final real-player account/g
   - `apps/server/src/runtime/persistence/postgres/migrations/009_player_entry_control_plane.sql`
   - `apps/server/src/runtime/persistence/postgres/migrations/010_runtime_instance_foreign_keys.sql`
   - `apps/server/src/runtime/persistence/postgres/migrations/011_hosted_runtime_lease_incarnation.sql`
+  - `apps/server/src/runtime/persistence/postgres/migrations/012_hosted_server_registration_lifecycle.sql`
+  - `apps/server/src/runtime/persistence/postgres/migrations/013_account_auth_throttle.sql`
+  - `apps/server/src/runtime/persistence/postgres/migrations/014_hosted_match_results.sql`
+  - `apps/server/src/runtime/persistence/postgres/migrations/015_account_age_requirement.sql`
 - Run `npm run db:migrate:status` and reject the deploy unless every migration filename and checksum is current.
 - Run strict hosted preflight with `EMPIRE_HOSTED_PREFLIGHT_STRICT=1`; a skipped database check is not a pass.
 - Verify production persistence is Postgres-backed.
@@ -96,7 +100,7 @@ Do not invite real players yet. Registration and the final real-player account/g
 - Verify admin monitoring only works with the secret/token.
 - Verify War server remains closed.
 - Re-run cold restore, serialized tick/command persistence, lifecycle/provisioning fencing, and cross-client polling against the deployed Function, target PostgreSQL, and live worker. Local regression coverage does not replace this production acceptance gate.
-- Keep `EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED=false` until the real-player registration/session phase is implemented and explicitly approved.
+- Keep `EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED=false` until the deployed authority preflight, PostgreSQL smoke, and first registration smoke are explicitly approved.
 
 ## D) After Launch
 

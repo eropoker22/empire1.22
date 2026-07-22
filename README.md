@@ -1,23 +1,29 @@
 # Empire Streets
 
-Empire Streets is a pre-alpha browser strategy game. The repository contains both the current static/local demo and server-authoritative core, transport, persistence, and read-model work. A production multiplayer deployment is not finished.
+Empire Streets is a browser strategy game with a server-authoritative closed-alpha runtime. The repository also keeps an explicit loopback-only local UI demo, isolated onboarding sandbox, simulations, and test fixtures. None of those development layers is a production fallback.
 
 ## Runtime Status
 
-- The checked-in `pages/game.html` and Netlify static build explicitly run in `local-demo` mode.
-- Local demo state is browser-local and is not production authority.
-- `server-authoritative` mode exists for the gameplay slice and closed-alpha development, but it must be selected explicitly or backed by a ready server session.
-- A requested server mode never falls back to local demo after a server/session failure.
+- Public and staging builds always use the live account, lobby, membership, and gameplay APIs.
+- Local demo is browser-local, requires a loopback hostname plus an explicit opt-in, and is never production authority.
+- Onboarding uses a separate sandbox and reloads the authoritative gameplay slice after it ends.
+- Server-authoritative failures remain loading, reconnecting, unavailable, or unauthorized states; they never switch to demo data.
 - Production must fail closed without a production account identity provider and gameplay session repository.
 - War mode is not ready for public play.
 
-The execution boundary is centralized in `page-assets/js/app/runtime/gameplayExecutionMode.js`. It exposes only:
+The client authority boundary is centralized in `page-assets/js/app/runtime/clientAuthorityState.js` and `page-assets/js/app/runtime/gameplayExecutionMode.js`. It distinguishes:
 
 - `local-demo`
 - `server-authoritative`
-- `unavailable`
+- `onboarding-sandbox`
 
-Demo-only city events, global demo chat, and local alliance previews run only in `local-demo`. They are disabled in server-authoritative mode.
+Demo-only city events, global demo chat, and local alliance previews run only in explicit local demo. Production modules cannot statically import development fixtures; verify the boundary with `npm run check:production-fixture-boundary`.
+
+## Accounts And Server Entry
+
+Public account registration is controlled by the existing `EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED` feature flag. It does not use invitation codes. A new player supplies a nick, gang name, date of birth, password, and password confirmation; PostgreSQL time enforces a minimum age of 16 years. Authentication uses an HttpOnly cookie and durable PostgreSQL throttling.
+
+Registration for a specific hosted Free server is a separate one-hour window. A server can start with two fully prepared players, can continue accepting new players while the window remains open, and never treats browser time as authority.
 
 ## Gameplay Configuration
 
@@ -74,6 +80,7 @@ The repository requires Node 20 or newer (`.node-version`, `.nvmrc`).
 - `npm run test:e2e:full` runs all Playwright scenarios.
 - `npm run build:admin:page` prepares the Netlify publish output in ignored `client/`.
 - `npm run verify:closed-alpha` runs the closed-alpha security and browser smoke gate.
+- `npm run verify:production-authority-cutover` checks public-host demo lockout, production fixture imports, live entrypoints, registration authority, and cookie requirements.
 - `npm run test:persistence:postgres:smoke` is opt-in and requires `EMPIRE_TEST_DATABASE_URL`.
 
 Generated `client/` output is ignored. Source changes belong in root `pages/`, `page-assets/`, and typed packages.
@@ -87,3 +94,4 @@ Generated `client/` output is ignored. Source changes belong in root `pages/`, `
 - [Production-chain simulation report](docs/balance/production-chain-simulation-report.md)
 - [Pre-alpha readiness](docs/pre-alpha-gameplay-readiness.md)
 - [Legacy runtime guard](docs/legacy-runtime-guard.md)
+- [Production authority cutover](docs/production-authority-cutover.md)
