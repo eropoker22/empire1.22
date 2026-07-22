@@ -9792,7 +9792,9 @@
           dirtyCash: 0.05,
           resources: 0.2,
           population: 2,
-          recentActivityBonus: 250
+          recentActivityBonus: 250,
+          recentActivityWindowTicks: ticksFromHours(1),
+          resourceScoreValues: {}
         }
       },
       finalLockdown: {
@@ -18672,7 +18674,7 @@
       serverInstanceId: "instance:war:eu-central:public-1",
       mode: "war",
       region: "EU Central",
-      displayName: "Vortex City WAR-01",
+      displayName: "Vortex City War",
       capacity: 150,
       // TODO(public-war-map): War stays closed until a larger validated map exists.
       // A paid 150-player War server must not launch on the current 161-district Free map.
@@ -40445,7 +40447,14 @@
     </header>
     <div class="admin-content">
       ${renderOverview(input.overview)}
-      ${renderControlPlane(input.controlPlane, input.session, input.wizardOpen, input.wizardStep, input.selectedInstanceId)}
+      ${renderControlPlane(
+    input.controlPlane,
+    input.session,
+    input.wizardOpen,
+    input.wizardStep,
+    input.selectedInstanceId,
+    input.frontendBuildSha ?? null
+  )}
       ${renderServers(input.overview.instances, input.selectedInstanceId)}
       ${input.selectedInstanceId ? renderDetail(input.detail) : renderNoSelection()}
     </div>
@@ -40461,7 +40470,7 @@
     </div>
     <p class="admin-copy">Data vygenerována ${time(overview.generatedAt)}. Stav LIVE určuje durable heartbeat, ne úspěch HTTP requestu.</p>
   </section>`;
-  const renderControlPlane = (control, session, wizardOpen, wizardStep, selectedInstanceId) => {
+  const renderControlPlane = (control, session, wizardOpen, wizardStep, selectedInstanceId, frontendBuildSha) => {
     if (!control) return `<section class="admin-panel" role="status"><h3>Načítám control plane...</h3></section>`;
     const ready = !control.unavailableCode && session.role !== "viewer";
     const selected = control.servers.find((entry) => entry.serverInstanceId === selectedInstanceId) ?? null;
@@ -40470,11 +40479,21 @@
       ${badge(control.unavailableCode ?? "WRITES ENABLED", ready ? "success" : "warning")}</div>
     <div class="admin-kv-grid">${kv("Database", control.databaseAvailable ? "AVAILABLE" : "UNAVAILABLE")}
       ${kv("Migrace", control.migrationsCurrent ? "CURRENT" : "PENDING")}${kv("Worker", control.workerStatus.toUpperCase())}
-      ${kv("Provisioning", control.provisioningEnabled ? "ENABLED" : "DISABLED")}</div>
+      ${kv("Provisioning", control.provisioningEnabled ? "ENABLED" : "DISABLED")}
+      ${kv("Frontend SHA", frontendBuildSha ?? "NEZNÁMÉ")}${kv("API SHA", control.apiBuildSha ?? "NEZNÁMÉ")}
+      ${kv("Worker SHA", control.workerBuildSha ?? "NEZNÁMÉ")}${kv("Schema", control.schemaVersion ?? "NEZNÁMÉ")}</div>
+    ${renderBuildCompatibility(frontendBuildSha, control.apiBuildSha, control.workerBuildSha)}
     ${ready && !wizardOpen ? `<button class="admin-button admin-button--primary" type="button" data-admin-create-open>Vytvořit server</button>` : ""}
     ${wizardOpen && ready ? renderAdminCreateWizard(wizardStep) : ""}
     ${selected && ready ? renderLifecycle(selected, session) : ""}
   </section>`;
+  };
+  const renderBuildCompatibility = (frontend, api, worker) => {
+    const values = [frontend, api ?? null, worker ?? null];
+    if (values.some((value) => !value)) {
+      return `<p class="admin-notice">Kompatibilitu buildů nelze potvrdit, protože alespoň jedno SHA chybí.</p>`;
+    }
+    return new Set(values).size === 1 ? `<p class="admin-copy">Frontend, API a worker běží ze stejného buildu.</p>` : `<p class="admin-notice">POZOR: Frontend, API a worker neběží ze stejného SHA.</p>`;
   };
   const renderLifecycle = (server, session) => `
   <div class="admin-lifecycle"><h4>Lifecycle: ${escape(server.displayName)}</h4>
@@ -40619,7 +40638,16 @@
     };
     const render = () => {
       if (!target || !session || !overview) return;
-      target.innerHTML = renderDashboard({ session, overview, detail, selectedInstanceId, controlPlane, wizardOpen, wizardStep });
+      target.innerHTML = renderDashboard({
+        session,
+        overview,
+        detail,
+        selectedInstanceId,
+        controlPlane,
+        wizardOpen,
+        wizardStep,
+        frontendBuildSha: readFrontendBuildSha()
+      });
       bindActions();
       registration.restoreDraft();
       registration.updateCountdowns();
@@ -40769,6 +40797,11 @@
   };
   const isAbort = (error) => error instanceof DOMException && error.name === "AbortError";
   const createKey = () => `admin-ui:${crypto.randomUUID()}`;
+  const readFrontendBuildSha = () => {
+    var _a;
+    const value = ((_a = document.querySelector('meta[name="empire-build-sha"]')) == null ? void 0 : _a.content.trim()) ?? "";
+    return value && value !== "__EMPIRE_BUILD_SHA__" && value !== "local" ? value : null;
+  };
   const initialLoginMessage = (error) => {
     if (error instanceof AdminApiError && (error.status === 401 || error.code.includes("SESSION"))) {
       return error.code === "ADMIN_SESSION_EXPIRED" ? "Admin session vypršela." : void 0;

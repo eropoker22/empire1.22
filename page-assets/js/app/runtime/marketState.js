@@ -3,7 +3,7 @@ import {
   MARKET_TAB_CONFIG,
   getMarketPriceKey
 } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
-import { MARKET_PLAYER_DEMO_SELLERS } from "../onboarding/demoScenarios.js";
+import { MARKET_PLAYER_DEMO_SELLERS } from "./legacyScenarioState.js";
 import {
   DEFAULT_MARKET_SERVER_ID,
   MARKET_PLAYER_LISTING_LIMIT,
@@ -97,6 +97,7 @@ export function hashMarketString(value) {
 }
 
 export function createDefaultPlayerMarketListings(serverId = DEFAULT_MARKET_SERVER_ID, now = Date.now()) {
+  if (MARKET_PLAYER_DEMO_SELLERS.length === 0) return [];
   const normalizedServerId = normalizeMarketServerId(serverId);
   const random = createSeededRandom(hashMarketString(`player-market:${normalizedServerId}`));
   const catalog = getPlayerMarketCatalog();

@@ -80,6 +80,7 @@
     "balance:free-mode": "npm run simulate:free-br:matrix -- --runs=20",
     "generate:browser-config": "node scripts/run-local-bin.mjs vite-node/vite-node.mjs scripts/generate-browser-gameplay-config.ts",
     "check:browser-config": "node scripts/run-local-bin.mjs vite-node/vite-node.mjs scripts/generate-browser-gameplay-config.ts --check",
+    "check:production-fixture-boundary": "node scripts/check-production-fixture-boundary.mjs",
     "typecheck": "node scripts/run-local-bin.mjs typescript/bin/tsc -p tsconfig.test.json --noEmit",
     "test": "npm run test:unit && npm run test:integration && npm run test:server && npm run test:persistence && npm run test:read-models",
     "test:full": "npm test && npm run test:simulation",
@@ -101,6 +102,7 @@
     "quality": "npm run lint && npm run smoke:ui && npm run typecheck && npm run test:full && npm run coverage:check",
     "verify:closed-alpha": "node scripts/verify-closed-alpha-preflight.mjs && npm run typecheck && npm run lint && node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/server/gameplay-session-security.test.ts tests/server/atomic-command-persistence.test.ts tests/unit/game-core/authoritative-basic-actions.test.ts tests/unit/game-config/empire-city-map-manifest.test.ts tests/unit/game-core/player-operational-liveness.test.ts tests/unit/game-core/player-territory-lifecycle.test.ts tests/unit/runtime-conflict-authority-matrix.test.js && npm run test:e2e:smoke",
     "verify:hosted-control-plane": "node scripts/check-hosted-control-plane-architecture.mjs && node scripts/verify-hosted-control-plane.mjs",
+    "verify:production-authority-cutover": "node scripts/check-production-fixture-boundary.mjs && node scripts/verify-production-authority-cutover.mjs",
     "verify:prod-like": "npm run verify:closed-alpha && npm run test:persistence:postgres:smoke"
   },
   "devDependencies": {

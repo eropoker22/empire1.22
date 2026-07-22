@@ -8,6 +8,7 @@ const readText = (path) => readFileSync(resolve(root, path), "utf8").replace(/\r
 describe("alliance alpha UI", () => {
   const html = readText("pages/game.html");
   const runtime = readText("page-assets/js/app/alliance-runtime.js");
+  const demoFixture = readText("page-assets/js/app/dev-fixtures/allianceDemoData.js");
   const iconRegistry = readText("page-assets/js/app/alliance-icons.js");
   const mapCanvasAnimations = readText("page-assets/js/app/map/mapCanvasAnimations.js");
   const css = readText("page-assets/css/styles-alliance.css");
@@ -58,12 +59,13 @@ describe("alliance alpha UI", () => {
     expect(css).toContain(".alliance-ready-card__actions");
     expect(runtime).toContain("alliance-overview-member-list");
     expect(runtime).toContain("Název aliance");
-    expect(runtime).toContain("DEV_ONLY_ALLIANCE_DEMO_MEMBERS");
+    expect(runtime).toContain("ALLIANCE_DEMO_DATA");
+    expect(runtime).toContain("localDemoFixtureState.js");
     expect(runtime).toContain("LAUNCH_PLAYER_AVATAR_BY_FACTION_ID");
-    expect(runtime).toContain("START_PHASE_PLAYER_NAMES");
+    expect(demoFixture).toContain("NeonRaven");
     expect(runtime).toContain("avatarSrc");
-    expect(runtime).toContain('presence: "online"');
-    expect(runtime).toContain('presence: "offline"');
+    expect(demoFixture).toContain('presence: "online"');
+    expect(demoFixture).toContain('presence: "offline"');
     expect(runtime).toContain("getMemberPresence");
     expect(runtime).toContain("renderMemberPresence");
     expect(runtime).toContain("alliance-member-name-line");

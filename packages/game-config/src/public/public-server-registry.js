@@ -39,7 +39,7 @@ export const publicServerRegistry = Object.freeze([
     serverInstanceId: "instance:war:eu-central:public-1",
     mode: "war",
     region: "EU Central",
-    displayName: "Vortex City WAR-01",
+    displayName: "Vortex City War",
     capacity: 150,
     // TODO(public-war-map): War stays closed until a larger validated map exists.
     // A paid 150-player War server must not launch on the current 161-district Free map.

@@ -10,6 +10,8 @@ import {
   normalizeMarketTransactions,
   normalizePlayerMarketListings
 } from "../../page-assets/js/app/runtime/marketState.js";
+import { installLegacyScenarioData } from "../../page-assets/js/app/runtime/legacyScenarioState.js";
+import { MARKET_PLAYER_DEMO_SELLERS } from "../../page-assets/js/app/onboarding/demoScenarios.js";
 
 describe("market state helpers", () => {
   it("normalizes server scope with stable fallback values", () => {
@@ -20,17 +22,16 @@ describe("market state helpers", () => {
     });
   });
 
-  it("creates default market state with stock and demo player listings", () => {
+  it("creates an honest default market state without installed demo listings", () => {
     const state = createDefaultMarketPriceState("free-01", 1_700_000_000_000);
 
     expect(state.serverId).toBe("free-01");
     expect(state.items[getMarketStockKey("market", "chemicals")].price).toBe(450);
     expect(state.items[getMarketStockKey("market", "stim-pack")].price).toBe(1000);
-    expect(state.items[getMarketStockKey("black-market", "neon-dust")].price).toBe(1900);
-    expect(state.items[getMarketStockKey("black-market", "bazooka")].price).toBe(25890);
+    expect(state.items[getMarketStockKey("black-market", "tech-core")].price).toBe(3260);
+    expect(state.items[getMarketStockKey("black-market", "combat-module")].price).toBe(12250);
     expect(state.stock[getMarketStockKey("market", "chemicals")]).toBe(24);
-    expect(state.playerListings.length).toBeGreaterThan(0);
-    expect(state.playerListings[0].id).toContain("demo-player-market:free-01:");
+    expect(state.playerListings).toEqual([]);
   });
 
   it("clamps market stock and normalizes partial trade state", () => {
@@ -77,9 +78,12 @@ describe("market state helpers", () => {
   });
 
   it("creates deterministic default player listings per server", () => {
+    installLegacyScenarioData({ MARKET_PLAYER_DEMO_SELLERS });
     const first = createDefaultPlayerMarketListings("free-01", 1_000);
     const second = createDefaultPlayerMarketListings("free-01", 1_000);
 
     expect(first).toEqual(second);
+    expect(first.length).toBeGreaterThan(0);
+    expect(first[0].id).toContain("demo-player-market:free-01:");
   });
 });

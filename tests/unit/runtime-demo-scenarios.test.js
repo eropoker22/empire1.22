@@ -10,6 +10,8 @@ import {
   START_PHASE_RESOURCE_SIMULATION,
   isDemoScenarioMode
 } from "../../page-assets/js/app/onboarding/demoScenarios.js";
+import * as demoScenarioData from "../../page-assets/js/app/onboarding/demoScenarios.js";
+import { installLegacyScenarioData } from "../../page-assets/js/app/runtime/legacyScenarioState.js";
 import {
   MAP_GRID_COLUMNS,
   MAP_GRID_ROWS
@@ -95,12 +97,13 @@ describe("runtime demo scenarios", () => {
   });
 
   it("keeps runtime compatibility exports for legacy debug modules", async () => {
+    installLegacyScenarioData(demoScenarioData);
     const runtime = await import("../../page-assets/js/app/runtime.js");
-    expect(runtime.DEMO_SCENARIOS).toBe(DEMO_SCENARIOS);
-    expect(runtime.isDemoScenarioMode).toBe(isDemoScenarioMode);
+    expect(runtime.DEMO_SCENARIOS).toEqual(DEMO_SCENARIOS);
+    expect(runtime.isDemoScenarioMode({ gamePhase: "launch" })).toBe(true);
     expect(runtime.CURRENT_PLAYER_ID).toBe(CURRENT_PLAYER_ID);
-    expect(runtime.START_PHASE_OWNER_COORDINATES).toBe(START_PHASE_OWNER_COORDINATES);
-    expect(runtime.START_PHASE_PLAYER_COLORS).toBe(START_PHASE_PLAYER_COLORS);
-    expect(runtime.START_PHASE_PLAYER_NAMES).toBe(START_PHASE_PLAYER_NAMES);
+    expect(runtime.START_PHASE_OWNER_COORDINATES).toEqual(START_PHASE_OWNER_COORDINATES);
+    expect(runtime.START_PHASE_PLAYER_COLORS).toEqual(START_PHASE_PLAYER_COLORS);
+    expect(runtime.START_PHASE_PLAYER_NAMES).toEqual(START_PHASE_PLAYER_NAMES);
   }, 10000);
 });

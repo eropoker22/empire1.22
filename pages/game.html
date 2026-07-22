@@ -42,15 +42,15 @@
           <section class="game-resource-strip" aria-label="Player resources">
             <div class="resource-pill">
               <span class="resource-label">Čisté peníze</span>
-              <strong class="resource-value" data-topbar-clean-money>$0</strong>
+              <strong class="resource-value" data-topbar-clean-money>—</strong>
             </div>
             <div class="resource-pill">
               <span class="resource-label">Špinavé peníze</span>
-              <strong class="resource-value" data-topbar-dirty-money>$0</strong>
+              <strong class="resource-value" data-topbar-dirty-money>—</strong>
             </div>
             <button type="button" class="resource-pill resource-pill--interactive resource-pill--influence" data-topbar-spy-pill aria-label="Vliv nebo špeh">
               <span class="resource-label" data-topbar-spy-label>Vliv</span>
-              <strong class="resource-value resource-value--inline" data-topbar-influence data-topbar-spy-value>0</strong>
+              <strong class="resource-value resource-value--inline" data-topbar-influence data-topbar-spy-value>—</strong>
             </button>
             <button type="button" class="button game-toolbar-button" data-storage-popup-open>SKLAD</button>
           </section>
@@ -226,19 +226,19 @@
               <div class="city-status-bar" aria-label="Stav města">
                 <div class="city-status-pill">
                   <span class="city-status-pill__label" data-mobile-short="Čas">Čas města</span>
-                  <strong class="city-status-pill__value" data-city-clock>05:55</strong>
+                  <strong class="city-status-pill__value" data-city-clock>—</strong>
                 </div>
                 <div class="city-status-pill">
                   <span class="city-status-pill__label" data-mobile-short="">Očista</span>
-                  <strong class="city-status-pill__value" data-city-day-phase>čeká se</strong>
+                  <strong class="city-status-pill__value" data-city-day-phase>Načítá se</strong>
                 </div>
                 <div class="city-status-pill">
                   <span class="city-status-pill__label" data-mobile-short="Stav">Stav</span>
-                  <strong class="city-status-pill__value" data-city-game-phase>SAFE</strong>
+                  <strong class="city-status-pill__value" data-city-game-phase>—</strong>
                 </div>
                 <div class="city-status-pill">
                   <span class="city-status-pill__label" data-mobile-short="Hráči">Hráči</span>
-                  <strong class="city-status-pill__value" data-city-status>20/20</strong>
+                  <strong class="city-status-pill__value" data-city-status>—</strong>
                 </div>
                 <div class="city-status-pill city-status-pill--action">
                   <span class="city-status-pill__label" data-mobile-short=""></span>
@@ -286,11 +286,11 @@
                   <span data-gang-star>★</span>
                 </p>
               </div>
-              <p class="panel-note profile-row profile-row--members gang-profile-row"><span class="gang-profile-row__label">Členové</span><span data-gang-members>0</span></p>
+              <p class="panel-note profile-row profile-row--members gang-profile-row"><span class="gang-profile-row__label">Členové</span><span data-gang-members>—</span></p>
               <p class="panel-note profile-row profile-row--wanted gang-profile-row"><span class="gang-profile-row__label">Hledanost</span><button type="button" class="button gang-profile-value-button profile-heat-panel" data-gang-heat>—</button></p>
-              <p class="panel-note profile-row profile-row--faction gang-profile-row"><span class="gang-profile-row__label">Frakce</span><span data-gang-faction>-</span></p>
-              <p class="panel-note profile-row profile-row--districts gang-profile-row"><span class="gang-profile-row__label">Distrikty</span><span data-gang-districts>0</span></p>
-              <p class="panel-note profile-row profile-row--alliance gang-profile-row"><span class="gang-profile-row__label">Aliance</span><span id="profile-alliance" data-gang-alliance>žádná</span></p>
+              <p class="panel-note profile-row profile-row--faction gang-profile-row"><span class="gang-profile-row__label">Frakce</span><span data-gang-faction>—</span></p>
+              <p class="panel-note profile-row profile-row--districts gang-profile-row"><span class="gang-profile-row__label">Distrikty</span><span data-gang-districts>—</span></p>
+              <p class="panel-note profile-row profile-row--alliance gang-profile-row"><span class="gang-profile-row__label">Aliance</span><span id="profile-alliance" data-gang-alliance>—</span></p>
             </div>
           </div>
           <div id="mobile-building-shortcuts-anchor" hidden aria-hidden="true"></div>
@@ -962,23 +962,23 @@
             </div>
             <div class="player-popup-header__copy">
               <span class="player-popup-eyebrow">Profil hráče</span>
-              <h3 class="player-popup-title" data-player-popup-name>Host</h3>
+              <h3 class="player-popup-title" data-player-popup-name>—</h3>
             </div>
             <button type="button" class="player-popup-close" data-player-popup-close aria-label="Zavřít">✕</button>
           </div>
           <div class="player-popup-body">
-            <p class="player-popup-row"><span>Uživatelské jméno</span><strong data-player-popup-identity>Host</strong></p>
-            <p class="player-popup-row"><span>Gang</span><strong data-player-popup-gang>Guest Crew</strong></p>
-            <p class="player-popup-row"><span>Frakce</span><strong data-player-popup-faction>-</strong></p>
-            <p class="player-popup-row"><span>Server</span><strong data-player-popup-server>-</strong></p>
-            <p class="player-popup-row"><span>Empire score</span><strong data-player-popup-empire-score>0</strong></p>
-            <p class="player-popup-row"><span>Vliv</span><strong data-player-popup-influence>0</strong></p>
-            <p class="player-popup-row"><span>Hledanost</span><strong data-player-popup-heat>0</strong></p>
-            <p class="player-popup-row"><span>Ochrana po razii</span><strong data-player-popup-protection>Bez ochrany</strong></p>
-            <p class="player-popup-row"><span>Aliance</span><strong data-player-popup-alliance>Žádná</strong></p>
-            <p class="player-popup-row"><span>Distrikty</span><strong data-player-popup-districts>0</strong></p>
-            <p class="player-popup-row"><span>Čisté peníze</span><strong data-player-popup-clean-money>$0</strong></p>
-            <p class="player-popup-row"><span>Špinavé peníze</span><strong data-player-popup-dirty-money>$0</strong></p>
+            <p class="player-popup-row"><span>Uživatelské jméno</span><strong data-player-popup-identity>—</strong></p>
+            <p class="player-popup-row"><span>Gang</span><strong data-player-popup-gang>—</strong></p>
+            <p class="player-popup-row"><span>Frakce</span><strong data-player-popup-faction>—</strong></p>
+            <p class="player-popup-row"><span>Server</span><strong data-player-popup-server>—</strong></p>
+            <p class="player-popup-row"><span>Empire score</span><strong data-player-popup-empire-score>—</strong></p>
+            <p class="player-popup-row"><span>Vliv</span><strong data-player-popup-influence>—</strong></p>
+            <p class="player-popup-row"><span>Hledanost</span><strong data-player-popup-heat>—</strong></p>
+            <p class="player-popup-row"><span>Ochrana po razii</span><strong data-player-popup-protection>—</strong></p>
+            <p class="player-popup-row"><span>Aliance</span><strong data-player-popup-alliance>—</strong></p>
+            <p class="player-popup-row"><span>Distrikty</span><strong data-player-popup-districts>—</strong></p>
+            <p class="player-popup-row"><span>Čisté peníze</span><strong data-player-popup-clean-money>—</strong></p>
+            <p class="player-popup-row"><span>Špinavé peníze</span><strong data-player-popup-dirty-money>—</strong></p>
           </div>
         </div>
       </div>
@@ -2241,7 +2241,6 @@
     <script type="module" src="../page-assets/js/data/districtPools.js"></script>
     <script type="module" src="../page-assets/js/data/districtImages.js"></script>
     <script type="module" src="../page-assets/js/data/buildings.js"></script>
-    <script type="module" src="../page-assets/js/data/events.js"></script>
     <script type="module" src="../page-assets/js/app/mobile-performance-runtime.js"></script>
     <script type="module" src="../page-assets/js/app-entry.js?v=heat-audit-20260721"></script>
     <script type="module" src="../page-assets/js/app/final-lockdown-popup-runtime.js"></script>

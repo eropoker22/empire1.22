@@ -1,4 +1,4 @@
-import { access, cp, mkdir, rm, writeFile } from "node:fs/promises";
+import { access, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -23,7 +23,6 @@ const requiredPublishFiles = [
   "admin.html",
   "pages/login.html",
   "social/empire-streets-og.png",
-  "page-assets/js/login.js",
   "page-assets/js/client-assets/gameplay-slice-client.js",
   "page-assets/js/app/auth-flow.js",
   "page-assets/js/app/model/authority-state.js",
@@ -36,10 +35,24 @@ const requiredPublishFiles = [
   "packages/game-core/src/legacy-page/production-preview-rules.js",
   "packages/game-core/src/legacy-page/spy-preview-rules.js"
 ];
+const forbiddenPublishPaths = [
+  "page-assets/js/login.js",
+  "page-assets/js/lobby.js",
+  "page-assets/js/faction.js",
+  "page-assets/js/app-demo.js",
+  "page-assets/js/app/dev-fixtures",
+  "page-assets/js/app/onboarding/demoScenarios.js",
+  "page-assets/js/data/events.js",
+  "page-assets/js/admin-dashboard"
+];
 
 await rm(publishDir, { recursive: true, force: true });
 await mkdir(publishDir, { recursive: true });
 await cp(resolve(rootDir, "admin.html"), resolve(publishDir, "admin.html"));
+const adminBuildSha = String(process.env.EMPIRE_BUILD_SHA ?? "local").trim() || "local";
+const generatedAdminHtml = (await readFile(resolve(publishDir, "admin.html"), "utf8"))
+  .replace("__EMPIRE_BUILD_SHA__", adminBuildSha);
+await writeFile(resolve(publishDir, "admin.html"), generatedAdminHtml, "utf8");
 
 for (const file of staticPageFiles) {
   const targetFile = resolve(publishDir, file);
@@ -51,6 +64,10 @@ for (const dir of staticDirs) {
   const targetDir = resolve(publishDir, dir);
   await mkdir(dirname(targetDir), { recursive: true });
   await cp(resolve(rootDir, dir), targetDir, { recursive: true });
+}
+
+for (const path of forbiddenPublishPaths) {
+  await rm(resolve(publishDir, path), { recursive: true, force: true });
 }
 
 try {
@@ -101,6 +118,15 @@ await writeFile(
 
 for (const file of requiredPublishFiles) {
   await access(resolve(publishDir, file));
+}
+
+for (const path of forbiddenPublishPaths) {
+  try {
+    await access(resolve(publishDir, path));
+    throw new Error(`Forbidden development fixture in publish output: client/${path}`);
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
 }
 
 for (const file of [["pages", "admin.html"].join("/"), ["admin", "index.html"].join("/")]) {

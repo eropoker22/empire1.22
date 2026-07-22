@@ -1,4 +1,5 @@
 import { closeOverlay as closeLegacyOverlay, openOverlay as openLegacyOverlay } from "./ui/legacyOverlayCoordinator.js";
+import { isLocalDemoAccessAvailable } from "./local-demo-gate.js";
 
 const trigger = document.querySelector("[data-slice-panel-open]");
 const overlay = document.querySelector("[data-game-admin-slice-overlay]");
@@ -17,6 +18,12 @@ let mountedSurface = null;
 // Dev/demo bridge only. The production game page must not eagerly load the
 // generated admin slice bundle; it is injected only when explicitly enabled.
 const isAdminSliceDebugEnabled = () => {
+  if (!isLocalDemoAccessAvailable()) {
+    try {
+      window.localStorage.removeItem(DEBUG_STORAGE_KEY);
+    } catch (_error) {}
+    return false;
+  }
   const params = new URLSearchParams(window.location.search);
   return params.get("debugSlice") === "1" || window.localStorage.getItem(DEBUG_STORAGE_KEY) === "1";
 };

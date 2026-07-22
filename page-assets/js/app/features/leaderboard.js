@@ -26,7 +26,7 @@ const LEADERBOARD_COUNT_SELECTOR = "[data-leaderboard-count]";
 
 const SELECTED_SERVER_STORAGE_KEY = STORAGE_KEYS.selectedServer;
 const PLAYER_STATE_STORAGE_KEY = "empirestreets.playerState";
-const DEFAULT_SERVER_ID = "war-eu-01";
+const DEFAULT_SERVER_ID = "server";
 const DEFAULT_CITY_MINUTES = 5 * 60 + 55;
 const LIVE_SUPPORTED_TABS = new Set(["overall", "influence", "districts", "alliance"]);
 const LIVE_UNAVAILABLE_COPY = "Leaderboard se právě nepodařilo načíst.";
@@ -48,15 +48,6 @@ function focusWithoutScroll(element) {
   }
   return true;
 }
-
-const SERVER_LABELS = Object.freeze({
-  "war-eu-01": { label: "WAR-01", mode: "war" },
-  "war-eu-02": { label: "WAR-02", mode: "war" },
-  "war-eu-03": { label: "WAR-03", mode: "war" },
-  "free-eu-01": { label: "FREE-01", mode: "free" },
-  "free-eu-02": { label: "FREE-02", mode: "free" },
-  "free-eu-03": { label: "FREE-03", mode: "free" }
-});
 
 const TAB_CONFIG = Object.freeze({
   overall: {
@@ -234,12 +225,13 @@ function mapServerLeaderboardEntry(entry) {
 
 function getServerMeta(serverId = "") {
   const normalizedServerId = normalizeText(serverId, DEFAULT_SERVER_ID).toLowerCase();
-  const meta = SERVER_LABELS[normalizedServerId] || null;
-  const inferredMode = normalizedServerId.includes("free") ? "free" : "war";
+  const inferredMode = normalizedServerId.includes("free")
+    ? "free"
+    : normalizedServerId.includes("war") ? "war" : "server";
   return {
     serverId: normalizedServerId,
-    serverLabel: meta?.label || normalizedServerId.toUpperCase(),
-    mode: meta?.mode || inferredMode
+    serverLabel: normalizedServerId.toUpperCase(),
+    mode: inferredMode
   };
 }
 

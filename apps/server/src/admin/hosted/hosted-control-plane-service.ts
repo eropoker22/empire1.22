@@ -6,6 +6,7 @@ import type {
   AdminSessionView
 } from "@empire/shared-types";
 import type { AdminDurableRepositories } from "../read-only";
+import { PRODUCTION_MIGRATION_CONTRACT } from "../../runtime/persistence/postgres";
 import { HOSTED_WORKER_FRESH_MS, type HostedActionRequestRecord, type HostedServerRecord } from "./hosted-control-plane-repository";
 import {
   createHostedAdminServerView,
@@ -50,6 +51,8 @@ export const createHostedControlPlaneService = (options: {
       return createHostedAdminServerView({ server, now: generatedAt, ...capacity, readyPlayers: ready.length });
     }));
     return { writesEnabled, provisioningEnabled, databaseAvailable, migrationsCurrent, workerStatus, unavailableCode,
+      apiBuildSha: safeBuildSha(options.environment.EMPIRE_BUILD_SHA), workerBuildSha: safeBuildSha(worker?.buildSha),
+      schemaVersion: PRODUCTION_MIGRATION_CONTRACT.at(-1)?.[0] ?? null,
       servers: serverViews, generatedAt: generatedAt.toISOString() };
   };
 
@@ -196,6 +199,10 @@ const audit = (session: AdminSessionView, action: "create-server-request" | "lif
   role: session.role, action, targetInstanceId: target, result: "success" as const, createdAt: at, correlationId
 });
 const enabled = (value: string | undefined): boolean => String(value).trim().toLowerCase() === "true";
+const safeBuildSha = (value: string | undefined): string | null => {
+  const normalized = String(value ?? "").trim();
+  return normalized && normalized !== "local" ? normalized : null;
+};
 const record = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const accept = <T>(data: T) => ({ accepted: true as const, data, errors: [] as [] });
 const reject = (code: string, message: string) => ({ accepted: false as const, data: null, errors: [{ code, message }] });

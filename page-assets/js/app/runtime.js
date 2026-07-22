@@ -101,7 +101,7 @@ import {
   START_PHASE_PLAYER_NAMES,
   START_PHASE_RESOURCE_SIMULATION,
   isDemoScenarioMode
-} from "./onboarding/demoScenarios.js";
+} from "./runtime/legacyScenarioState.js";
 import {
   ONBOARDING_SANDBOX_MODE,
   ONBOARDING_SPY_CAPACITY,
@@ -932,6 +932,7 @@ import {
   GAMEPLAY_EXECUTION_MODES,
   getGameplayExecutionMode
 } from "./runtime/gameplayExecutionMode.js";
+import { canSubmitServerGameplayCommand } from "./runtime/serverCommandAuthorityGuard.js";
 // Legacy static-page preview runtime; browser-local only when no server authority is present.
 const BUILDING_ACTION_LOG_LIMIT = 30;
 const MONEY_STAT_COUNT_TICK_MS = 26;
@@ -955,16 +956,17 @@ function hasValidatedServerGameplaySlice() {
 }
 
 function isServerAuthoritativeGameplayRuntimeReady() {
-  if (isOnboardingSandboxActive() || typeof document === "undefined" || !hasValidatedServerGameplaySlice()) {
-    return false;
-  }
-
   const selectedMode = getGameplayExecutionMode({
     diagnosticsMode: getRuntimePerformanceDiagnostics()?.getSummary?.().runtimeMode,
     serverReady: false,
     windowRef: typeof window === "undefined" ? null : window
   });
-  return selectedMode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative;
+  return canSubmitServerGameplayCommand({
+    onboardingSandboxActive: isOnboardingSandboxActive(),
+    documentAvailable: typeof document !== "undefined",
+    hasValidatedGameplaySlice: hasValidatedServerGameplaySlice(),
+    executionMode: selectedMode
+  });
 }
 const spyMissionTimers = new Map();
 const ONBOARDING_ATTACK_TARGET_DISTRICT_ID = 1;

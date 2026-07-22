@@ -2,7 +2,8 @@ import { submitServerAllianceCommand } from "./runtime.js";
 import { STORAGE_KEYS } from "../config.js";
 import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
 import { ALLIANCE_ICON_OPTIONS, getAllianceIconById, getAllianceIconByTag } from "./alliance-icons.js";
-import { LAUNCH_PLAYER_AVATAR_BY_FACTION_ID, START_PHASE_PLAYER_NAMES } from "./onboarding/demoScenarios.js";
+import { LAUNCH_PLAYER_AVATAR_BY_FACTION_ID } from "./runtime/legacyScenarioState.js";
+import { ALLIANCE_DEMO_DATA } from "./runtime/localDemoFixtureState.js";
 import { GAMEPLAY_EXECUTION_MODES, getGameplayExecutionMode } from "./runtime/gameplayExecutionMode.js";
 
 const GLOBAL_CHAT_KEY = "empire:demo:global-chat:v1";
@@ -53,42 +54,6 @@ const ALLIANCE_COLOR_OPTIONS = Object.freeze([
   { id: "orange", label: "Oheň", value: "#fb923c" },
   { id: "white", label: "Chrome", value: "#f8fafc" }
 ]);
-
-const DEV_ONLY_ALLIANCE_DEMO_MEMBERS = Object.freeze([
-  Object.freeze({
-    key: "current",
-    name: "Ty",
-    role: "member",
-    status: "active",
-    presence: "online",
-    activeDistrictCount: 3,
-    avatarSrc: LAUNCH_PLAYER_AVATAR_BY_FACTION_ID.mafian
-  }),
-  Object.freeze({
-    key: "leader",
-    playerId: "dev-demo-zabijaci-leader",
-    name: START_PHASE_PLAYER_NAMES[0] || "NeonRaven",
-    role: "leader",
-    status: "active",
-    presence: "offline",
-    activeDistrictCount: 5,
-    avatarSrc: LAUNCH_PLAYER_AVATAR_BY_FACTION_ID.kartel
-  }),
-  Object.freeze({
-    key: "shadow",
-    playerId: "dev-demo-zabijaci-shadow",
-    name: START_PHASE_PLAYER_NAMES[1] || "GhostByte",
-    role: "member",
-    status: "active",
-    presence: "offline",
-    activeDistrictCount: 2,
-    avatarSrc: LAUNCH_PLAYER_AVATAR_BY_FACTION_ID.hackeri
-  })
-]);
-
-const DEV_ONLY_ALLIANCE_INVITE_TARGET_NAMES = Object.freeze(
-  START_PHASE_PLAYER_NAMES.slice(2, 8)
-);
 
 const READY_STATUS_COPY = {
   due_soon: { label: "Aktivní", hint: "Brzy zvol Zůstávám nebo Končím.", tone: "warning" },
@@ -331,7 +296,7 @@ const appendLocalAllianceChatMessage = (activeAlliance, body) => {
   return nextMessages;
 };
 
-const isDevOnlyAllianceDemoEnabled = () => getGameplayExecutionMode({
+const isDevOnlyAllianceDemoEnabled = () => Boolean(ALLIANCE_DEMO_DATA) && getGameplayExecutionMode({
   windowRef: typeof window === "undefined" ? null : window,
   diagnosticsMode: typeof window === "undefined"
     ? null
@@ -363,7 +328,7 @@ const getAllianceCreateInfluenceRequirementMessage = () =>
   `Vytvořit alianci půjde až od ${ALLIANCE_CREATE_REQUIRED_INFLUENCE} vlivu. Teď máš ${getCurrentPlayerInfluenceForAllianceCreate()}.`;
 
 const createDevOnlyAllianceMembers = (currentPlayerId, readyDueAt) =>
-  DEV_ONLY_ALLIANCE_DEMO_MEMBERS.map((member) => ({
+  (ALLIANCE_DEMO_DATA?.members || []).map((member) => ({
     playerId: member.key === "current" ? currentPlayerId : member.playerId,
     name: member.name,
     role: member.role,
@@ -374,13 +339,13 @@ const createDevOnlyAllianceMembers = (currentPlayerId, readyDueAt) =>
     canStartKickVote: member.key !== "current",
     presence: member.presence,
     avatarSrc: member.key === "current"
-      ? (getStoredPlayerAvatarSrc() || member.avatarSrc)
-      : member.avatarSrc
+      ? (getStoredPlayerAvatarSrc() || LAUNCH_PLAYER_AVATAR_BY_FACTION_ID[member.avatarFactionId])
+      : LAUNCH_PLAYER_AVATAR_BY_FACTION_ID[member.avatarFactionId]
   }));
 
 const createDevOnlyAllianceInviteTargets = (members = []) => {
   const memberNames = new Set(members.map((member) => String(member.name || "").trim().toLowerCase()).filter(Boolean));
-  return DEV_ONLY_ALLIANCE_INVITE_TARGET_NAMES
+  return (ALLIANCE_DEMO_DATA?.inviteTargetNames || [])
     .filter((name) => !memberNames.has(String(name).trim().toLowerCase()))
     .map((name, index) => ({
       playerId: `dev-demo-invite-${index + 1}`,
@@ -397,90 +362,28 @@ const getInviteTargetsForSelect = (activeAlliance) => {
   return createDevOnlyAllianceInviteTargets(activeAlliance.members || []);
 };
 
-const createDevOnlyAlliancePendingInvites = () => [
-  {
-    inviteId: "dev-demo-sent-invite-razor",
-    targetPlayerId: "dev-demo-invite-razor",
-    targetName: "Razor",
-    createdAt: new Date(Date.now() - 12 * 60 * 1000).toISOString()
-  },
-  {
-    inviteId: "dev-demo-sent-invite-nyx",
-    targetPlayerId: "dev-demo-invite-nyx",
-    targetName: "Nyx",
-    createdAt: new Date(Date.now() - 48 * 60 * 1000).toISOString()
-  }
-];
+const createDevOnlyAlliancePendingInvites = () => (ALLIANCE_DEMO_DATA?.pendingInvites || [])
+  .map(({ ageMs, ...invite }) => ({ ...invite, createdAt: new Date(Date.now() - ageMs).toISOString() }));
 
-const createDevOnlyIncomingInvites = () => [
-  {
-    inviteId: "dev-demo-incoming-iron-crown",
-    allianceId: "dev-demo-alliance-iron-crown",
-    allianceName: "Iron Crown",
-    allianceTag: "CROWN",
-    invitedByPlayerId: "dev-demo-leader-viktor",
-    invitedByName: "Viktor",
-    createdAt: new Date(Date.now() - 18 * 60 * 1000).toISOString()
-  },
-  {
-    inviteId: "dev-demo-incoming-ghost-market",
-    allianceId: "dev-demo-alliance-ghost-market",
-    allianceName: "Ghost Market",
-    allianceTag: "GHOST",
-    invitedByPlayerId: "dev-demo-leader-mira",
-    invitedByName: "Mira",
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-  }
-];
+const createDevOnlyIncomingInvites = () => (ALLIANCE_DEMO_DATA?.incomingInvites || [])
+  .map(({ ageMs, ...invite }) => ({ ...invite, createdAt: new Date(Date.now() - ageMs).toISOString() }));
 
-const createDevOnlyPublicAlliances = (maxAllianceSize) => [
-  {
-    allianceId: "dev-demo-public-night-vipers",
-    name: "Night Vipers",
-    tag: "SNAKE",
-    emblemColor: "#34d399",
-    ownerPlayerId: "dev-demo-owner-karlos",
-    ownerName: "Karlos",
-    memberCount: 2,
+const createDevOnlyPublicAlliances = (maxAllianceSize) => (ALLIANCE_DEMO_DATA?.publicAlliances || [])
+  .map((alliance) => ({
+    ...alliance,
+    memberCount: alliance.full ? maxAllianceSize : alliance.memberCount,
     maxMembers: maxAllianceSize,
-    canJoin: true,
+    canJoin: !alliance.full,
+    ...(alliance.full ? { joinDisabledReason: "Aliance je plná." } : {}),
     chatMessages: [],
     receivedInvites: []
-  },
-  {
-    allianceId: "dev-demo-public-raven-syndicate",
-    name: "Raven Syndicate",
-    tag: "RAVEN",
-    emblemColor: "#ff3f8f",
-    ownerPlayerId: "dev-demo-owner-sable",
-    ownerName: "Sable",
-    memberCount: 3,
-    maxMembers: maxAllianceSize,
-    canJoin: true,
-    chatMessages: [],
-    receivedInvites: []
-  },
-  {
-    allianceId: "dev-demo-public-skull-yard",
-    name: "Skull Yard",
-    tag: "SKULL",
-    emblemColor: "#ff2f5f",
-    ownerPlayerId: "dev-demo-owner-drake",
-    ownerName: "Drake",
-    memberCount: maxAllianceSize,
-    maxMembers: maxAllianceSize,
-    canJoin: false,
-    joinDisabledReason: "Aliance je plná.",
-    chatMessages: [],
-    receivedInvites: []
-  }
-];
+  }));
 
 const normalizeDemoPublicAllianceIcons = (alliances, maxAllianceSize) => {
   const fallbackAlliances = createDevOnlyPublicAlliances(maxAllianceSize);
   const source = Array.isArray(alliances) && alliances.length ? alliances : fallbackAlliances;
   return source.map((alliance, index) => {
-    const fallback = fallbackAlliances[index % fallbackAlliances.length];
+    const fallback = fallbackAlliances[index % Math.max(1, fallbackAlliances.length)] || alliance;
     const icon = getAllianceIconByTag(alliance?.tag || fallback.tag);
     return {
       ...fallback,
@@ -495,9 +398,11 @@ const createDevOnlyAllianceBoard = (baseBoard = null) => {
   if (!isDevOnlyAllianceDemoEnabled() || baseBoard?.activeAlliance) {
     return baseBoard;
   }
+  const demoAlliance = ALLIANCE_DEMO_DATA?.activeAlliance;
+  if (!demoAlliance) return baseBoard;
   const nowIso = new Date().toISOString();
   const currentPlayerId = baseBoard?.currentPlayerId || "dev-player";
-  const allianceId = "dev-demo-alliance-zabijaci";
+  const allianceId = demoAlliance.allianceId;
   const maxAllianceSize = baseBoard?.maxAllianceSize || MAX_ALLIANCE_SIZE_FALLBACK;
   const suppressLocalDemoAlliance = isOnboardingActiveForAllianceDemo();
   const readyDueAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
@@ -506,22 +411,22 @@ const createDevOnlyAllianceBoard = (baseBoard = null) => {
   const storedChatMessages = readAlliancePreviewMessages(allianceId);
   const defaultChatMessages = [
     {
-      messageId: "dev-demo-alliance-chat-1",
+      messageId: demoAlliance.chatMessageId,
       allianceId,
-      authorPlayerId: "dev-demo-zabijaci-leader",
-      authorName: leader?.name || "NeonRaven",
-      body: "Zabijáci jsou připraveni.",
+      authorPlayerId: demoAlliance.ownerPlayerId,
+      authorName: leader?.name || "Lokální hráč",
+      body: demoAlliance.chatBody,
       createdAt: nowIso
     }
   ];
   const shouldUseActiveDemoAlliance = !suppressLocalDemoAlliance && getCurrentGamePhaseForAllianceDemo() === "launch";
   const activeAlliance = shouldUseActiveDemoAlliance ? {
     allianceId,
-    name: "Zabijáci",
-    tag: "REAPER",
-    emblemColor: "#ff2f5f",
-    ownerPlayerId: "dev-demo-zabijaci-leader",
-    ownerName: leader?.name || "NeonRaven",
+    name: demoAlliance.name,
+    tag: demoAlliance.tag,
+    emblemColor: demoAlliance.emblemColor,
+    ownerPlayerId: demoAlliance.ownerPlayerId,
+    ownerName: leader?.name || "Lokální hráč",
     memberCount: members.length,
     maxMembers: maxAllianceSize,
     currentPlayerRole: "member",
@@ -563,9 +468,9 @@ const createDevOnlyAllianceBoard = (baseBoard = null) => {
       member.playerId,
       {
         allianceId,
-        name: "Zabijáci",
-        tag: "REAPER",
-        emblemColor: "#ff2f5f"
+        name: demoAlliance.name,
+        tag: demoAlliance.tag,
+        emblemColor: demoAlliance.emblemColor
       }
     ])) : (baseBoard?.allianceBadgesByPlayerId || {}),
     canCreateAlliance,

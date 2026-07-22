@@ -39,6 +39,7 @@ export const renderDashboard = (input: {
   controlPlane: AdminControlPlaneAvailabilityView | null;
   wizardOpen: boolean;
   wizardStep: number;
+  frontendBuildSha?: string | null;
 }): string => `
   <aside class="admin-sidebar">
     <div class="admin-brand"><span class="admin-brand__mark">ES</span><div><p>Empire Streets</p><strong>Admin</strong></div></div>
@@ -59,7 +60,8 @@ export const renderDashboard = (input: {
     </header>
     <div class="admin-content">
       ${renderOverview(input.overview)}
-      ${renderControlPlane(input.controlPlane, input.session, input.wizardOpen, input.wizardStep, input.selectedInstanceId)}
+      ${renderControlPlane(input.controlPlane, input.session, input.wizardOpen, input.wizardStep, input.selectedInstanceId,
+        input.frontendBuildSha ?? null)}
       ${renderServers(input.overview.instances, input.selectedInstanceId)}
       ${input.selectedInstanceId ? renderDetail(input.detail) : renderNoSelection()}
     </div>
@@ -78,7 +80,7 @@ const renderOverview = (overview: AdminOverviewView): string => `
   </section>`;
 
 const renderControlPlane = (control: AdminControlPlaneAvailabilityView | null, session: AdminSessionView,
-  wizardOpen: boolean, wizardStep: number, selectedInstanceId: string | null): string => {
+  wizardOpen: boolean, wizardStep: number, selectedInstanceId: string | null, frontendBuildSha: string | null): string => {
   if (!control) return `<section class="admin-panel" role="status"><h3>Načítám control plane...</h3></section>`;
   const ready = !control.unavailableCode && session.role !== "viewer";
   const selected = control.servers.find((entry) => entry.serverInstanceId === selectedInstanceId) ?? null;
@@ -87,11 +89,24 @@ const renderControlPlane = (control: AdminControlPlaneAvailabilityView | null, s
       ${badge(control.unavailableCode ?? "WRITES ENABLED", ready ? "success" : "warning")}</div>
     <div class="admin-kv-grid">${kv("Database", control.databaseAvailable ? "AVAILABLE" : "UNAVAILABLE")}
       ${kv("Migrace", control.migrationsCurrent ? "CURRENT" : "PENDING")}${kv("Worker", control.workerStatus.toUpperCase())}
-      ${kv("Provisioning", control.provisioningEnabled ? "ENABLED" : "DISABLED")}</div>
+      ${kv("Provisioning", control.provisioningEnabled ? "ENABLED" : "DISABLED")}
+      ${kv("Frontend SHA", frontendBuildSha ?? "NEZNÁMÉ")}${kv("API SHA", control.apiBuildSha ?? "NEZNÁMÉ")}
+      ${kv("Worker SHA", control.workerBuildSha ?? "NEZNÁMÉ")}${kv("Schema", control.schemaVersion ?? "NEZNÁMÉ")}</div>
+    ${renderBuildCompatibility(frontendBuildSha, control.apiBuildSha, control.workerBuildSha)}
     ${ready && !wizardOpen ? `<button class="admin-button admin-button--primary" type="button" data-admin-create-open>Vytvořit server</button>` : ""}
     ${wizardOpen && ready ? renderAdminCreateWizard(wizardStep) : ""}
     ${selected && ready ? renderLifecycle(selected, session) : ""}
   </section>`;
+};
+
+const renderBuildCompatibility = (frontend: string | null, api?: string | null, worker?: string | null): string => {
+  const values = [frontend, api ?? null, worker ?? null];
+  if (values.some((value) => !value)) {
+    return `<p class="admin-notice">Kompatibilitu buildů nelze potvrdit, protože alespoň jedno SHA chybí.</p>`;
+  }
+  return new Set(values).size === 1
+    ? `<p class="admin-copy">Frontend, API a worker běží ze stejného buildu.</p>`
+    : `<p class="admin-notice">POZOR: Frontend, API a worker neběží ze stejného SHA.</p>`;
 };
 
 const renderLifecycle = (server: AdminHostedServerView, session: AdminSessionView): string => `

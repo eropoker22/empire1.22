@@ -72,7 +72,8 @@ export const createAdminApp = (options: AdminAppOptions = {}) => {
 
   const render = (): void => {
     if (!target || !session || !overview) return;
-    target.innerHTML = renderDashboard({ session, overview, detail, selectedInstanceId, controlPlane, wizardOpen, wizardStep });
+    target.innerHTML = renderDashboard({ session, overview, detail, selectedInstanceId, controlPlane, wizardOpen, wizardStep,
+      frontendBuildSha: readFrontendBuildSha() });
     bindActions();
     registration.restoreDraft();
     registration.updateCountdowns();
@@ -208,6 +209,10 @@ const updateUrl = (instanceId: string | null): void => {
 };
 const isAbort = (error: unknown): boolean => error instanceof DOMException && error.name === "AbortError";
 const createKey = (): string => `admin-ui:${crypto.randomUUID()}`;
+const readFrontendBuildSha = (): string | null => {
+  const value = document.querySelector<HTMLMetaElement>('meta[name="empire-build-sha"]')?.content.trim() ?? "";
+  return value && value !== "__EMPIRE_BUILD_SHA__" && value !== "local" ? value : null;
+};
 const initialLoginMessage = (error: unknown): string | undefined => {
   if (error instanceof AdminApiError && (error.status === 401 || error.code.includes("SESSION"))) {
     return error.code === "ADMIN_SESSION_EXPIRED" ? "Admin session vypršela." : undefined;

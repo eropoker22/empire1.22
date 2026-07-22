@@ -129,6 +129,9 @@ export interface AdminControlPlaneAvailabilityView {
   migrationsCurrent: boolean;
   workerStatus: "online" | "stale" | "offline";
   unavailableCode: string | null;
+  apiBuildSha?: string | null;
+  workerBuildSha?: string | null;
+  schemaVersion?: string | null;
   servers: AdminHostedServerView[];
   generatedAt: string;
 }
