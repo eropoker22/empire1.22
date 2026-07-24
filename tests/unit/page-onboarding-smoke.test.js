@@ -193,7 +193,7 @@ describe("page onboarding smoke", () => {
     expect(adminHtml).toContain('href="./page-assets/css/styles-admin-dashboard.css"');
     expect(adminHtml).toContain('src="./page-assets/js/admin-assets/admin-app.js" defer');
     expect(adminHtml).not.toContain("data-static-fallback");
-    expect(page("login.html")).toContain('href="../page-assets/css/login.css"');
+    expect(page("login.html")).toMatch(/href="\.\.\/page-assets\/css\/login\.css(?:\?[^"]+)?"/u);
     expect(page("login.html")).toContain('href="../page-assets/css/styles-login-about.css"');
     expect(page("login.html")).toContain('href="../page-assets/css/styles-static-hover.css"');
     expect(page("lobby.html")).toMatch(/href="\.\.\/page-assets\/css\/lobby\.css">\r?\n\s*<link rel="stylesheet" href="\.\.\/page-assets\/css\/styles-static-hover\.css">/u);

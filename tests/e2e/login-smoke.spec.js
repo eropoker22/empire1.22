@@ -46,7 +46,7 @@ test.describe("login smoke", () => {
     await waitForAboutController(page);
     await expect(page.getByTestId("login-form")).toBeVisible();
     await expect(page.getByTestId("guest-login-button")).toBeVisible();
-    await expect(page.getByTestId("guest-login-button")).toHaveText("LOKÁLNÍ UI DEMO");
+    await expect(page.getByTestId("guest-login-button")).toHaveText("SPUSTIT LOKÁLNÍ DEMO");
 
     await page.locator("[data-login-registration-open]").click();
     await expect(page.getByTestId("register-form")).toBeVisible();

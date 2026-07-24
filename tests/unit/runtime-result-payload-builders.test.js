@@ -85,7 +85,9 @@ describe("result payload builders", () => {
     const spyPayload = builders.createSpyDetectionAlertPayload(2);
 
     expect(policePayload.badge).toBe("");
-    expect(policePayload.summary).toBe("Policie zasáhla tvůj district. Zkontroluj dopady a počkej na konec razie.");
+    expect(policePayload.summary).toBe(
+      "Policie zasáhla tvůj district. Část zdrojů je pryč a některé akce zůstanou zamčené až do konce razie."
+    );
     expect(policePayload.getRows()).toHaveLength(3);
     expect(policePayload.getRows().map((row) => row.label)).toEqual(["District", "Typ razie", "Konec za"]);
     expect(spyPayload.summary).toContain("North Pact");
