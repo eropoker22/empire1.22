@@ -496,7 +496,7 @@ function bindGuest() {
   if (isExplicitLocalDemoEnabled()) {
     guestUsernameInput.value ||= "DemoBoss";
     guestGangInput.value ||= "Neon Demo Crew";
-    button.textContent = "LOKÁLNÍ UI DEMO";
+    button.textContent = "SPUSTIT LOKÁLNÍ DEMO";
   }
 
   const continueAsGuest = () => {

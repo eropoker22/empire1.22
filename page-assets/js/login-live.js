@@ -7,10 +7,18 @@ import {
 import { bindLoginAboutModal, bindLoginInfoModals } from "./app/login-about-modal.js";
 import { bindLoginRegistrationModal } from "./app/login-registration-modal.js";
 import { isLocalDemoAccessAvailable } from "./app/local-demo-gate.js";
+import { STORAGE_KEYS } from "./config.js";
 
-const state = { submitting: false, registrationEnabled: false };
+const state = {
+  submitting: false,
+  registrationEnabled: false,
+  activeMode: "free"
+};
 
 const initialize = () => {
+  state.activeMode = resolveInitialMode();
+  bindModeCards();
+  updateModeCards();
   bindLocalDemoGuestAccess();
   bindPasswordToggle();
   bindForms();
@@ -18,11 +26,48 @@ const initialize = () => {
   bindLoginAboutModal();
   bindLoginInfoModals();
   void loadRegistrationPolicy();
-  void accountSession().then(() => window.location.replace("./lobby.html")).catch(() => {});
+  void accountSession().then(() => window.location.replace(lobbyHref())).catch(() => {});
 };
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initialize, { once: true });
 else initialize();
+
+function normalizeMode(value) {
+  const mode = String(value || "").trim().toLowerCase();
+  return mode === "free" || mode === "war" ? mode : "";
+}
+
+function resolveInitialMode() {
+  const requestedMode = normalizeMode(new URLSearchParams(window.location.search).get("mode"));
+  const storedMode = normalizeMode(window.localStorage.getItem(STORAGE_KEYS.activeAuthMode));
+  return requestedMode || storedMode || "free";
+}
+
+function lobbyHref() {
+  return `./lobby.html?mode=${state.activeMode}`;
+}
+
+function bindModeCards() {
+  document.querySelectorAll("[data-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const mode = normalizeMode(button.getAttribute("data-mode"));
+      if (!mode || mode === state.activeMode) return;
+      state.activeMode = mode;
+      window.localStorage.setItem(STORAGE_KEYS.activeAuthMode, mode);
+      updateModeCards();
+    });
+  });
+}
+
+function updateModeCards() {
+  document.body.classList.toggle("auth-body--free", state.activeMode === "free");
+  document.body.classList.toggle("auth-body--war", state.activeMode === "war");
+  document.querySelectorAll("[data-mode]").forEach((button) => {
+    const isActive = normalizeMode(button.getAttribute("data-mode")) === state.activeMode;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+}
 
 function bindLocalDemoGuestAccess() {
   const guestAccess = document.querySelector(".guest-access");
@@ -36,8 +81,8 @@ function bindLocalDemoGuestAccess() {
   }
   guestAccess.hidden = false;
   guestAccess.setAttribute("aria-hidden", "false");
-  guestButton.textContent = "LOKÁLNÍ UI DEMO";
-  guestButton.addEventListener("click", () => location.assign("./login.html?runtimeMode=local-demo"));
+  guestButton.textContent = "SPUSTIT LOKÁLNÍ DEMO";
+  guestButton.addEventListener("click", () => location.assign(`./login.html?runtimeMode=local-demo&mode=${state.activeMode}`));
 }
 
 async function loadRegistrationPolicy() {
@@ -139,7 +184,7 @@ async function submit({ event, operation, showFailure }) {
   showFailure("");
   try {
     await operation();
-    window.location.replace("./lobby.html");
+    window.location.replace(lobbyHref());
   } catch (error) {
     showFailure(error instanceof Error ? error.message : "Operace se nezdařila.");
     state.submitting = false;

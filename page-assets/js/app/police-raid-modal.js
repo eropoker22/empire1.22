@@ -1,5 +1,16 @@
 const OVERVIEW_LABELS = new Set(["District", "Typ razie", "Konec za"]);
-const IMPACT_LABELS = new Set(["Income na 1h", "Zabavení", "Drogy", "Materiály", "Zatčení", "Zbraně", "Síla zbraní", "Vliv"]);
+const IMPACT_LABELS = new Set([
+  "Income na 1h",
+  "Income po dobu razie",
+  "Zabavení",
+  "Zabavení cash",
+  "Drogy",
+  "Materiály",
+  "Zatčení",
+  "Zbraně",
+  "Síla zbraní",
+  "Vliv"
+]);
 const LOCK_LABELS = new Set(["Zákaz akcí", "Výroba"]);
 
 function escapeHtml(value) {
@@ -11,12 +22,69 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function trimSentence(value) {
+  return String(value || "").trim().replace(/[.!?]+$/u, "");
+}
+
+function playerFacingValue(label, value) {
+  const text = trimSentence(value);
+  const normalized = text.toLocaleLowerCase("cs");
+
+  if (label === "Zákaz akcí") {
+    if (normalized.includes("bez tvrdého zákazu")) {
+      return "Akce můžeš používat dál. Policie tě pouze sleduje.";
+    }
+    if (normalized.includes("všechny akce")) {
+      return "Do konce razie nemůžeš provádět žádné akce ani speciální akce v budovách.";
+    }
+    return `Do konce razie nemůžeš použít: ${text}.`;
+  }
+
+  if (label === "Výroba") {
+    if (normalized.includes("bez omezení výroby")) {
+      return "Výroba běží dál normálně.";
+    }
+    if (normalized.includes("výroba zablokovaná")) {
+      return "Výroba stojí až do konce razie.";
+    }
+    if (normalized.includes("silně omezená výroba")) {
+      return "Výroba běží výrazně pomaleji až do konce razie.";
+    }
+    return `Do konce razie platí: ${text}.`;
+  }
+
+  if (label.startsWith("Income")) {
+    const penalty = text.replace(/^-/u, "").replace(/\s+globálně$/u, "");
+    return `Do konce razie dostáváš o ${penalty} méně ze všech příjmů.`;
+  }
+
+  if (label === "Drogy") {
+    return `Policie zabavila ${text.replace(/^-/u, "")} zásob drog.`;
+  }
+
+  if (label === "Materiály") {
+    const penalty = text.replace(/^-/u, "").replace(/\s+včetně factory supplies$/iu, "");
+    return `Policie zabavila ${penalty} materiálů a výrobních zásob.`;
+  }
+
+  if (label === "Zatčení") {
+    const penalty = text.replace(/^-/u, "").replace(/\s+obyvatel$/iu, "");
+    return `Policie odvedla ${penalty} obyvatel z tvého gangu.`;
+  }
+
+  if (label === "Vliv") {
+    return `Tvůj vliv klesl o ${text.replace(/^-/u, "")}.`;
+  }
+
+  return String(value || "").trim();
+}
+
 function normalizeRows(rows = []) {
   return (Array.isArray(rows) ? rows : [])
     .filter((row) => row && row.label != null && row.value != null)
     .map((row) => ({
       label: String(row.label || "").trim(),
-      value: String(row.value || "").trim(),
+      value: playerFacingValue(String(row.label || "").trim(), row.value),
       nowrap: Boolean(row.nowrap)
     }));
 }
@@ -131,7 +199,7 @@ export function renderPoliceRaidImpactDetails(container, payload = {}, rows = []
         `).join("")}
       </div>
       <div class="police-raid-impact__grid">
-        ${groupMarkup("Dopad", impactRows, "is-impact")}
+        ${groupMarkup("Co se teď děje", impactRows, "is-impact")}
         ${groupMarkup("Blokace", lockRows, "is-lock")}
         ${groupMarkup("Zabaveno", actualRows, "is-loss")}
       </div>
@@ -140,14 +208,14 @@ export function renderPoliceRaidImpactDetails(container, payload = {}, rows = []
         <section class="police-raid-impact-detail__card" role="dialog" aria-modal="true" aria-label="Detail dopadů razie">
           <header class="police-raid-impact-detail__header">
             <div>
-              <span>Momentální razie</span>
-              <h4>Co ti policie vzala a zablokovala</h4>
+              <span>Policejní protokol je aktivní</span>
+              <h4>Co jsi ztratil a co teď nemůžeš použít</h4>
             </div>
             <button class="police-raid-impact-detail__close" type="button" data-police-raid-impact-close aria-label="Zavřít">×</button>
           </header>
           <div class="police-raid-impact-detail__body">
-            ${detailGroupMarkup("Přišel jsi o", lossRows, "is-loss")}
-            ${detailGroupMarkup("Blokované akce", lockRows, "is-lock", "Žádná aktivní blokace")}
+            ${detailGroupMarkup("Zabaveno a ztraceno", lossRows, "is-loss", "Policie ti nic dalšího nezabavila.")}
+            ${detailGroupMarkup("Dočasně blokováno", lockRows, "is-lock", "Žádná aktivní blokace.")}
           </div>
         </section>
       </div>

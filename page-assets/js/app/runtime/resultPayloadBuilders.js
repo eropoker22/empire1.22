@@ -247,7 +247,7 @@ export function createResultPayloadBuilders(deps = {}) {
       tone: `${tierEntry.tone} is-specialty-${specialtyMeta.key} is-owned-district-raid-alert`,
       title: "Dopady razie",
       badge: "",
-      summary: "Policie zasáhla tvůj district. Zkontroluj dopady a počkej na konec razie.",
+      summary: "Policie zasáhla tvůj district. Část zdrojů je pryč a některé akce zůstanou zamčené až do konce razie.",
       syncToBuildingAction: false,
       getRows: buildRows,
       refreshMs: 1000,
