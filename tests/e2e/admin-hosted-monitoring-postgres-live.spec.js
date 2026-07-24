@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
+import { loadLocalEnvFile } from "../helpers/load-local-env.js";
 
-process.loadEnvFile?.(".env.local");
+loadLocalEnvFile();
 
 const liveEnabled = process.env.EMPIRE_ADMIN_HOSTED_LIVE_E2E === "1";
 const username = String(process.env.EMPIRE_ADMIN_BOOTSTRAP_USERNAME ?? "").trim();

@@ -1,7 +1,8 @@
 import type { PostgresDatabase } from "../../../apps/server/src/runtime/persistence/postgres";
 import { migrateDatabase } from "../../../apps/server/src/runtime/persistence/postgres/migration-runner";
+import { loadLocalEnvFile } from "../../helpers/load-local-env.js";
 
-process.loadEnvFile?.(".env.local");
+loadLocalEnvFile();
 
 export interface LivePostgresSmokeConfig {
   databaseUrl: string | null;
