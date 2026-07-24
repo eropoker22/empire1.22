@@ -1637,6 +1637,10 @@ body.login-body::after {
   border-top: 1px solid rgba(0, 245, 255, 0.14);
 }
 
+.guest-access[hidden] {
+  display: none !important;
+}
+
 .guest-access input,
 .guest-access button {
   min-width: 0;
