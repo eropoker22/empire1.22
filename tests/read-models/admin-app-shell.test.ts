@@ -141,6 +141,40 @@ describe("read-only admin app", () => {
       .toBe(String(FREE_HOSTED_SERVER_LIFECYCLE_POLICY.minimumReadyPlayersToStart));
   });
 
+  it("distinguishes a ready account platform from undeployed game hosting", () => {
+    document.body.innerHTML = renderDashboard({
+      session: { ...session, role: "owner" },
+      overview: overview(),
+      selectedInstanceId: null,
+      detail: null,
+      controlPlane: {
+        writesEnabled: false,
+        provisioningEnabled: false,
+        databaseAvailable: true,
+        migrationsCurrent: true,
+        workerStatus: "offline",
+        buildCompatibility: "current",
+        sessionSecurity: "current",
+        originPolicy: "current",
+        registrationEnabled: false,
+        unavailableCode: "ADMIN_WRITES_DISABLED",
+        apiBuildSha: BUILD_SHA,
+        workerBuildSha: null,
+        schemaVersion: "015_account_age_requirement.sql",
+        servers: [],
+        generatedAt: "2026-07-16T10:00:00.000Z"
+      },
+      wizardOpen: false,
+      wizardStep: 1,
+      frontendBuildSha: BUILD_SHA
+    });
+
+    expect(document.body.textContent).toContain("Account platformREADY");
+    expect(document.body.textContent).toContain("Game hostingNOT DEPLOYED");
+    expect(document.body.textContent).toContain("Herní worker není nasazený.");
+    expect(document.querySelector("[data-admin-create-open]")).toBeNull();
+  });
+
   it("locks full template capacity without exposing raw elimination balance", async () => {
     const owner = { ...session, role: "owner" as const };
     const client = createClient();

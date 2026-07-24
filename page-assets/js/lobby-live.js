@@ -147,7 +147,7 @@ function renderServers() {
       <button type="button" class="lobby-primary-cta" data-open-live-server="${escapeHtml(server.serverInstanceId)}"
         ${disabled ? `disabled title="${escapeHtml(disabledTitle)}"` : ""}>${escapeHtml(cta)}</button>
     </article>`;
-  }).join("") : '<p class="lobby-empty-state">Pro tento režim nejsou dostupné žádné skutečné servery.</p>';
+  }).join("") : '<p class="lobby-empty-state">Herní servery zatím nejsou spuštěné.</p>';
   list.querySelectorAll("[data-select-live-server]").forEach((button) => button.addEventListener("click", () => selectServer(button.dataset.selectLiveServer)));
   list.querySelectorAll("[data-open-live-server]").forEach((button) => button.addEventListener("click", () => void openSpawnModal(button.dataset.openLiveServer)));
 }

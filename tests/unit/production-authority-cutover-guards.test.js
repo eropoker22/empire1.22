@@ -25,6 +25,9 @@ describe("production authority cutover guards", () => {
     expect(adminView).toContain('kv("API SHA"');
     expect(adminView).toContain('kv("Worker SHA"');
     expect(adminView).toContain('kv("Schema"');
+    expect(adminView).toContain('kv("Account platform"');
+    expect(adminView).toContain('kv("Game hosting"');
+    expect(read("page-assets/js/lobby-live.js")).toContain("Herní servery zatím nejsou spuštěné.");
   });
 
   it("documents public registration without invitation authority", () => {

@@ -85,12 +85,18 @@ const renderControlPlane = (control: AdminControlPlaneAvailabilityView | null, s
   const frontendCompatible = Boolean(frontendBuildSha)
     && frontendBuildSha === control.apiBuildSha
     && control.buildCompatibility === "current";
+  const accountPlatformReady = control.databaseAvailable && control.migrationsCurrent
+    && control.sessionSecurity === "current" && control.originPolicy === "current" && frontendCompatible;
+  const gameHostingDeployed = control.writesEnabled && control.provisioningEnabled
+    && control.workerStatus === "online" && Boolean(control.workerBuildSha);
   const ready = !control.unavailableCode && frontendCompatible && session.role !== "viewer";
   const selected = control.servers.find((entry) => entry.serverInstanceId === selectedInstanceId) ?? null;
   return `<section id="admin-control-plane" class="admin-panel admin-section-anchor">
     <div class="admin-panel__head"><div><span>Hosted control plane</span><h3>Provisioning a lifecycle</h3></div>
       ${badge(control.unavailableCode ?? "WRITES ENABLED", ready ? "success" : "warning")}</div>
-    <div class="admin-kv-grid">${kv("Database", control.databaseAvailable ? "AVAILABLE" : "UNAVAILABLE")}
+    <div class="admin-kv-grid">${kv("Account platform", accountPlatformReady ? "READY" : "BLOCKED")}
+      ${kv("Game hosting", gameHostingDeployed ? "DEPLOYED" : "NOT DEPLOYED")}
+      ${kv("Database", control.databaseAvailable ? "AVAILABLE" : "UNAVAILABLE")}
       ${kv("Migrace", control.migrationsCurrent ? "CURRENT" : "PENDING")}${kv("Worker", control.workerStatus.toUpperCase())}
       ${kv("Provisioning", control.provisioningEnabled ? "ENABLED" : "DISABLED")}
       ${kv("Build parity", frontendCompatible ? "CURRENT" : "BLOCKED")}
@@ -99,14 +105,27 @@ const renderControlPlane = (control: AdminControlPlaneAvailabilityView | null, s
       ${kv("Registrace", control.registrationEnabled ? "ENABLED" : "DISABLED")}
       ${kv("Frontend SHA", frontendBuildSha ?? "NEZNÁMÉ")}${kv("API SHA", control.apiBuildSha ?? "NEZNÁMÉ")}
       ${kv("Worker SHA", control.workerBuildSha ?? "NEZNÁMÉ")}${kv("Schema", control.schemaVersion ?? "NEZNÁMÉ")}</div>
-    ${renderBuildCompatibility(frontendBuildSha, control.apiBuildSha, control.workerBuildSha)}
+    ${renderBuildCompatibility(frontendBuildSha, control.apiBuildSha, control.workerBuildSha, gameHostingDeployed)}
     ${ready && !wizardOpen ? `<button class="admin-button admin-button--primary" type="button" data-admin-create-open>Vytvořit server</button>` : ""}
     ${wizardOpen && ready ? renderAdminCreateWizard(wizardStep) : ""}
     ${selected && ready ? renderLifecycle(selected, session) : ""}
   </section>`;
 };
 
-const renderBuildCompatibility = (frontend: string | null, api?: string | null, worker?: string | null): string => {
+const renderBuildCompatibility = (
+  frontend: string | null,
+  api?: string | null,
+  worker?: string | null,
+  gameHostingDeployed = true
+): string => {
+  if (!gameHostingDeployed) {
+    if (!frontend || !api) {
+      return `<p class="admin-notice">Build účtové platformy nelze potvrdit, protože frontend nebo API SHA chybí.</p>`;
+    }
+    return frontend === api
+      ? `<p class="admin-copy">Frontend a API běží ze stejného buildu. Herní worker není nasazený.</p>`
+      : `<p class="admin-notice">POZOR: Frontend a API neběží ze stejného SHA. Herní worker není nasazený.</p>`;
+  }
   const values = [frontend, api ?? null, worker ?? null];
   if (values.some((value) => !value)) {
     return `<p class="admin-notice">Kompatibilitu buildů nelze potvrdit, protože alespoň jedno SHA chybí.</p>`;
