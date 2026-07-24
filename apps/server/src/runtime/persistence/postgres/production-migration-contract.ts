@@ -1,11 +1,11 @@
 import type { PostgresQueryable } from "./postgres-client";
 
 export const PRODUCTION_MIGRATION_CONTRACT = [
-  ["001_initial_runtime_persistence.sql", "19e2c294896a01b8abec83e338be40f9180d66a7b904f561f94cf6bea7567bbf"],
-  ["002_command_reservations.sql", "72f4ff74a09a091109209d4ee0a9890011bc3d75d8e7b1f93190fc67bc963720"],
-  ["003_gameplay_identity_sessions.sql", "a0d6b329910abd4778c2b02bcf29569b2ee2b8ade1bdb75120814294f04ad61a"],
-  ["004_atomic_command_execution.sql", "39f2ea8bc851916755f771ad347c77311f73f3c791931f02e6c61e3cb83699ae"],
-  ["005_gameplay_identity_session_invariants.sql", "55dd49a64a18704e5d91357325f59cf97bb9a58aeb5add3b4b218cfc93184b3a"],
+  ["001_initial_runtime_persistence.sql", "dc69af8d1e768f043d2e798e2b91c25a063e96d6acd92d58a9670eff7ca01f39"],
+  ["002_command_reservations.sql", "252a68b513b87de96d1ed2c7ecdc919f4cc04c7439c026f85884fc4cfac4bc3f"],
+  ["003_gameplay_identity_sessions.sql", "dbaf35366990a167c4b13c0234cc5b6ec76bebb9effde1794e08426fb3febb08"],
+  ["004_atomic_command_execution.sql", "bcf38e7b7aee9437134122b3ace58e4627131989c5450b6ff512c59da18a12f8"],
+  ["005_gameplay_identity_session_invariants.sql", "114d0bc150640b6fbed017a233edea7d726daa70d412aa8c23e93ceef52006ba"],
   ["006_admin_read_only_control_plane.sql", "dd642a133102ab66928627e0b99530e8a455313a66b69fd2e0472858262db904"],
   ["007_hosted_server_control_plane.sql", "a473d59eb1cdef82ab15985242884ab339bdf74027fe87a1070ec987f4267959"],
   ["008_hosted_join_reservations.sql", "2ac161ceb55a280f3f7d2f9c99c693ad2947a63d4adddff86c17f1f9582eb4a9"],

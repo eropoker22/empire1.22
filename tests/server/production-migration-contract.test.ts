@@ -1,10 +1,10 @@
-import * as crypto from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import {
   isProductionSchemaCurrent,
   PRODUCTION_MIGRATION_CONTRACT
 } from "../../apps/server/src/runtime/persistence/postgres/production-migration-contract";
+import { checksumMigrationSql } from "../../apps/server/src/runtime/persistence/postgres/migration-runner";
 import type { PostgresQueryable } from "../../apps/server/src/runtime/persistence/postgres";
 
 describe("production migration contract", () => {
@@ -13,9 +13,14 @@ describe("production migration contract", () => {
     const filenames = (await readdir(directory)).filter((name) => /^\d{3}_[a-z0-9_]+\.sql$/u.test(name)).sort();
     const actual = await Promise.all(filenames.map(async (filename) => {
       const sql = await readFile(new URL(filename, directory), "utf8");
-      return [filename, crypto.createHash("sha256").update(sql).digest("hex")] as const;
+      return [filename, checksumMigrationSql(sql)] as const;
     }));
     expect(actual).toEqual(PRODUCTION_MIGRATION_CONTRACT);
+  });
+
+  it("keeps checksums stable across checkout line endings", () => {
+    expect(checksumMigrationSql("SELECT 1;\nSELECT 2;\n"))
+      .toBe(checksumMigrationSql("SELECT 1;\r\nSELECT 2;\r\n"));
   });
 
   it("accepts only the complete exact migration history", async () => {

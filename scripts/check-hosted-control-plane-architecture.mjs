@@ -97,7 +97,7 @@ const migrationPaths = tracked.filter((path) =>
 check(migrationPaths.length >= 10, "production migration contract must cover the full schema");
 for (const path of migrationPaths) {
   const filename = path.split("/").at(-1);
-  const expectedChecksum = createHash("sha256").update(text(path)).digest("hex");
+  const expectedChecksum = createHash("sha256").update(text(path).replace(/\r\n/gu, "\n")).digest("hex");
   check(migrationContract.includes(`\"${filename}\", \"${expectedChecksum}\"`), `${filename} must match the production migration contract`);
 }
 

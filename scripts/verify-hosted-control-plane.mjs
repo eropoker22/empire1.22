@@ -76,7 +76,7 @@ if (databaseUrl) {
     const appliedByName = new Map(applied.rows.map((row) => [String(row.filename), String(row.checksum)]));
     const migrationChecks = await Promise.all(migrationFiles.map(async (filename) => {
       const sql = await readFile(new URL(filename, migrationsUrl), "utf8");
-      return appliedByName.get(filename) === createHash("sha256").update(sql).digest("hex");
+      return appliedByName.get(filename) === migrationChecksum(sql);
     }));
     check(migrationFiles.length >= 12 && migrationChecks.every(Boolean) && applied.rows.length === migrationFiles.length,
       "all database migrations are current");
@@ -142,4 +142,8 @@ function isTlsPostgresUrl(candidate) {
   } catch {
     return false;
   }
+}
+
+function migrationChecksum(sql) {
+  return createHash("sha256").update(sql.replace(/\r\n/gu, "\n")).digest("hex");
 }

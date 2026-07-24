@@ -86,6 +86,11 @@ const loadMigrations = async (directory: URL) => {
   if (filenames.length === 0) throw new Error("No database migrations were found.");
   return Promise.all(filenames.map(async (filename) => {
     const sql = await readFile(new URL(filename, directory), "utf8");
-    return { filename, sql, checksum: crypto.createHash("sha256").update(sql).digest("hex") };
+    return { filename, sql, checksum: checksumMigrationSql(sql) };
   }));
 };
+
+export const checksumMigrationSql = (sql: string): string => crypto
+  .createHash("sha256")
+  .update(sql.replace(/\r\n/gu, "\n"))
+  .digest("hex");
