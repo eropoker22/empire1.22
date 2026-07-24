@@ -51,6 +51,7 @@ const controlPlanePolicy = text("apps/server/src/admin/hosted/hosted-control-pla
 const lifecycleCompletion = text("apps/server/src/admin/hosted/hosted-lifecycle-action-completion.ts");
 const postgresJoin = text("apps/server/src/admin/hosted/postgres-hosted-join-repository.ts");
 const readyMembershipQuery = text("apps/server/src/runtime/persistence/postgres/hosted-ready-membership-query.ts");
+const hostedPreflight = text("scripts/verify-hosted-control-plane.mjs");
 check(handler.includes('header(request.headers, "idempotency-key")'), "create and lifecycle endpoints require Idempotency-Key");
 check(handler.includes("expectedVersion") || text("apps/server/src/admin/hosted/hosted-control-plane-service.ts").includes("expectedVersion"), "lifecycle actions require expectedVersion");
 check(!/hard-delete|reset-server|grant-money|grant-resources|edit-player/u.test(handler), "forbidden destructive/gameplay admin endpoint detected");
@@ -88,6 +89,8 @@ check(readyMembershipQuery.includes("FROM empire_server_memberships membership")
   && readyMembershipQuery.includes("'homeDistrictId'")
   && !readyMembershipQuery.includes("reservation.status='reserved'"),
   "start readiness must use durable active memberships rather than pending join reservations");
+check(hostedPreflight.indexOf("const buildSha") < hostedPreflight.indexOf("if (strict)"),
+  "hosted preflight build SHA must be available in code-level and strict modes");
 check(postgresJoin.indexOf("FOR UPDATE") < postgresJoin.indexOf("SELECT clock_timestamp() AS now"),
   "join boundary must read authoritative database time after acquiring the server lock");
 const migrationContract = text("apps/server/src/runtime/persistence/postgres/production-migration-contract.ts");

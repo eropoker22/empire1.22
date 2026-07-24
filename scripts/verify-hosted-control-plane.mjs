@@ -35,11 +35,11 @@ const hostedDatabaseUrl = String(process.env.EMPIRE_DATABASE_URL ?? "").trim();
 const databaseUrl = strict
   ? hostedDatabaseUrl
   : hostedDatabaseUrl || String(process.env.EMPIRE_TEST_DATABASE_URL ?? "").trim();
+const buildSha = String(process.env.EMPIRE_BUILD_SHA ?? "").trim();
 if (strict) {
   const allowedOrigins = parseAllowedOrigins(process.env.EMPIRE_ALLOWED_ORIGINS);
   const sessionSecret = String(process.env.GAMEPLAY_SLICE_SESSION_SECRET ?? "").trim();
   const snapshotSecret = String(process.env.GAMEPLAY_SLICE_SNAPSHOT_SECRET ?? "").trim();
-  const buildSha = String(process.env.EMPIRE_BUILD_SHA ?? "").trim();
   check(Boolean(hostedDatabaseUrl), "EMPIRE_DATABASE_URL is configured");
   check(isTlsPostgresUrl(hostedDatabaseUrl), "EMPIRE_DATABASE_URL requires PostgreSQL TLS");
   check(process.env.EMPIRE_ADMIN_WRITES_ENABLED === "true", "admin writes flag is enabled");
