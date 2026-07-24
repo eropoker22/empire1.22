@@ -230,7 +230,7 @@ const serialized = [
 
 if (process.argv.includes("--check")) {
   const current = await readFile(outputPath, "utf8").catch(() => "");
-  if (current !== serialized) {
+  if (current.replace(/\r\n?/g, "\n") !== serialized) {
     console.error("Browser gameplay config is stale. Run `npm run generate:browser-config`.");
     process.exitCode = 1;
   }
