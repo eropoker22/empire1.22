@@ -1,0 +1,11 @@
+FROM node:20-bookworm-slim AS validation
+WORKDIR /app
+ARG EMPIRE_BUILD_SHA
+ENV EMPIRE_BUILD_SHA=$EMPIRE_BUILD_SHA
+COPY . .
+RUN test "$(node -p "process.versions.node.split('.')[0]")" = "20"
+RUN npm ci
+RUN npm run generate:browser-config
+RUN npm run check:browser-config
+RUN npm run build:admin:page
+RUN npm run build:hosted-worker

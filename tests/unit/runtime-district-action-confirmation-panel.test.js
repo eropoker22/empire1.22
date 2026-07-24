@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canRenderOccupyConfirmationPanel,
   canRenderRobberyConfirmationPanel,
   createAttackConfirmationViewModel,
   createOccupyConfirmationViewModel,
@@ -23,6 +24,19 @@ function element() {
 }
 
 describe("district action confirmation panel", () => {
+  it("renders occupy confirmation without a visible source field", () => {
+    expect(canRenderOccupyConfirmationPanel({
+      district: { id: 15 },
+      elements: {
+        occupyConfirmTitle: element(),
+        occupyConfirmCondition: element(),
+        occupyConfirmCost: element(),
+        occupyConfirmDuration: element(),
+        occupyConfirmNote: element()
+      }
+    })).toBe(true);
+  });
+
   it("builds attack confirmation view-model without applying the action", () => {
     const viewModel = createAttackConfirmationViewModel({
       district: { id: 12 },

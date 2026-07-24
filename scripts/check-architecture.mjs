@@ -299,10 +299,12 @@ if (adminHtmlSources.length !== 1 || adminHtmlSources[0] !== "admin.html") {
 
 const allowedProductionHtmlSources = [
   "admin.html",
+  "pages/closed-alpha-terms.html",
   "pages/faction.html",
   "pages/game.html",
   "pages/lobby.html",
-  "pages/login.html"
+  "pages/login.html",
+  "pages/privacy.html"
 ];
 const rootHtmlSources = fs.readdirSync(root, { withFileTypes: true })
   .filter((entry) => entry.isFile() && entry.name.endsWith(".html"))

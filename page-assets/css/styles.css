@@ -3,7 +3,7 @@
 @import "./styles-popups.css";
 @import "./styles-auth-faction.css";
 @import "./styles-game-redesign.css";
-@import "./styles-building-modals.css";
+@import "./styles-building-modals.css?v=building-special-actions-20260723-1";
 @import "./styles-alliance.css";
 @import "./styles-city-events.css";
 @import "./styles-bounty.css";
@@ -6416,5 +6416,448 @@ html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profil
     -webkit-backdrop-filter: blur(7px) !important;
     opacity: 1 !important;
     pointer-events: auto !important;
+  }
+}
+
+/* Market quantity steppers keep the selected amount readable between − and +. */
+html body.game-body .market-popup-row__quantity-controls {
+  display: grid !important;
+  grid-template-columns: 32px minmax(44px, 1fr) 32px !important;
+  align-items: center !important;
+  gap: 6px !important;
+  width: 100% !important;
+}
+
+html body.game-body .market-popup-row__quantity-step {
+  display: grid !important;
+  place-items: center !important;
+  width: 32px !important;
+  min-width: 32px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 !important;
+  border: 1px solid rgba(103, 232, 249, 0.34) !important;
+  border-radius: 9px !important;
+  background: rgba(5, 15, 27, 0.94) !important;
+  color: #dffcff !important;
+  font-size: 17px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  box-shadow: inset 0 0 10px rgba(34, 211, 238, 0.08) !important;
+}
+
+html body.game-body .market-popup-row__quantity {
+  width: 100% !important;
+  min-width: 44px !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  background: rgba(2, 8, 18, 0.96) !important;
+  opacity: 1 !important;
+  appearance: textfield !important;
+  text-align: center !important;
+}
+
+html body.game-body .market-popup-row__quantity::-webkit-inner-spin-button,
+html body.game-body .market-popup-row__quantity::-webkit-outer-spin-button {
+  margin: 0 !important;
+  appearance: none !important;
+}
+
+@media (max-width: 720px) {
+  /* Buildings: transparent black mobile glass, while desktop keeps its current card. */
+  html body.game-body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content {
+    background:
+      radial-gradient(circle at 18% 0%, rgba(148, 163, 184, 0.1), transparent 38%),
+      linear-gradient(180deg, rgba(5, 9, 15, 0.86), rgba(0, 0, 0, 0.9)) !important;
+    box-shadow:
+      inset 0 0 0 1px rgba(203, 213, 225, 0.12),
+      inset 0 -28px 70px rgba(0, 0, 0, 0.28),
+      0 24px 60px rgba(0, 0, 0, 0.48) !important;
+    backdrop-filter: blur(10px) saturate(108%) !important;
+    -webkit-backdrop-filter: blur(10px) saturate(108%) !important;
+  }
+
+  html body.game-body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content::before {
+    opacity: 0.1 !important;
+  }
+
+  html body.game-body #buildings-modal.buildings-popup-shell:not([hidden]) :is(
+    .buildings-popup__detail-card,
+    .buildings-popup__group--types,
+    .buildings-popup__group--names
+  ) {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent),
+      rgba(3, 7, 12, 0.78) !important;
+    backdrop-filter: blur(5px) saturate(106%) !important;
+    -webkit-backdrop-filter: blur(5px) saturate(106%) !important;
+  }
+
+  /* Spy confirmation keeps the mobile resource bar visible above the card. */
+  html body.game-body {
+    --spy-confirm-window-safe-top: calc(var(--mobile-topbar-offset, 72px) + 8px);
+    --spy-confirm-window-safe-bottom: max(8px, env(safe-area-inset-bottom));
+    --spy-confirm-window-safe-height: calc(var(--mobile-locked-vh, 100svh) - var(--spy-confirm-window-safe-top) - var(--spy-confirm-window-safe-bottom));
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#spy-confirm-modal:not(.hidden):not([hidden])) :is(
+    #game-header,
+    .game-topbar,
+    .game-resource-strip
+  ) {
+    z-index: 24050 !important;
+    display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transform: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#spy-confirm-modal:not(.hidden):not([hidden])) .game-topbar {
+    display: block !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#spy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > * {
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  html body.game-body #spy-confirm-modal:not(.hidden):not([hidden]) {
+    align-items: flex-start !important;
+    padding: var(--spy-confirm-window-safe-top) 8px var(--spy-confirm-window-safe-bottom) !important;
+  }
+
+  html body.game-body #spy-confirm-modal:not(.hidden):not([hidden]) .spy-confirm-popup-card {
+    max-height: var(--spy-confirm-window-safe-height) !important;
+    margin: 0 auto !important;
+  }
+
+  /* Four production buildings use the complete phone height from every entry path. */
+  html body.game-body :is(
+    .armory-popup-shell,
+    .pharmacy-popup-shell,
+    .druglab-popup-shell,
+    .factory-popup-shell,
+    .district-building-detail-shell[data-building-mechanics-type="armory"],
+    .district-building-detail-shell[data-building-mechanics-type="pharmacy"],
+    .district-building-detail-shell[data-building-mechanics-type="drug-lab"],
+    .district-building-detail-shell[data-building-mechanics-type="factory"]
+  ):not([hidden]) {
+    align-items: stretch !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  html body.game-body :is(
+    .armory-popup-shell:not([hidden]) .armory-popup-card.building-detail-modal__content,
+    .pharmacy-popup-shell:not([hidden]) .pharmacy-popup-card.building-detail-modal__content,
+    .druglab-popup-shell:not([hidden]) .druglab-popup-card.building-detail-modal__content,
+    .factory-popup-shell:not([hidden]) .factory-popup-card.building-detail-modal__content,
+    .district-building-detail-shell[data-building-mechanics-type="armory"]:not([hidden]) .district-building-detail-card.building-detail-modal__content,
+    .district-building-detail-shell[data-building-mechanics-type="pharmacy"]:not([hidden]) .district-building-detail-card.building-detail-modal__content,
+    .district-building-detail-shell[data-building-mechanics-type="drug-lab"]:not([hidden]) .district-building-detail-card.building-detail-modal__content,
+    .district-building-detail-shell[data-building-mechanics-type="factory"]:not([hidden]) .district-building-detail-card.building-detail-modal__content
+  ) {
+    position: relative !important;
+    inset: auto !important;
+    width: min(430px, 100vw) !important;
+    height: var(--mobile-locked-vh, 100svh) !important;
+    max-height: var(--mobile-locked-vh, 100svh) !important;
+    margin: 0 auto !important;
+    border-radius: 0 !important;
+    transform: none !important;
+  }
+
+  /* Factory metrics keep each label and value on one compact line. */
+  html body.game-body .factory-popup-card.building-detail-modal__content .factory-slot .drug-production-slot__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  html body.game-body .factory-popup-card.building-detail-modal__content .factory-slot .drug-production-slot__metric:not(.drug-production-slot__metric--supplies) {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 6px !important;
+    min-width: 0 !important;
+    padding: 7px 8px !important;
+    white-space: nowrap !important;
+  }
+
+  html body.game-body .factory-popup-card.building-detail-modal__content .factory-slot .drug-production-slot__metric:not(.drug-production-slot__metric--supplies) :is(
+    .drug-production-slot__metric-value,
+    .drug-production-slot__metric-inline-value
+  ) {
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+    margin-left: auto !important;
+    text-align: right !important;
+    white-space: nowrap !important;
+  }
+
+  html body.game-body .factory-popup-card.building-detail-modal__content .factory-slot .drug-production-slot__metric--supplies {
+    grid-column: 1 / -1 !important;
+  }
+
+  /* Mobile market header and tabs stay in one compact row. */
+  html body.game-body .market-popup-title[data-mobile-title] {
+    font-size: 0 !important;
+  }
+
+  html body.game-body .market-popup-title[data-mobile-title]::after {
+    content: attr(data-mobile-title);
+    font-size: 1rem !important;
+    line-height: 1.08 !important;
+  }
+
+  html body.game-body .market-popup-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 4px !important;
+  }
+
+  html body.game-body .market-popup-tab {
+    min-width: 0 !important;
+    padding-inline: 4px !important;
+    font-size: clamp(7px, 2.15vw, 9px) !important;
+    letter-spacing: 0.015em !important;
+    white-space: nowrap !important;
+  }
+
+  html body.game-body .market-popup-tab[data-market-tab="market"][data-mobile-label] {
+    color: #f8fafc !important;
+    -webkit-text-fill-color: #f8fafc !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  html body.game-body .market-popup-row__trade {
+    grid-template-columns: max-content minmax(0, 1fr) !important;
+    grid-template-areas:
+      "qty-label total"
+      "qty-controls qty-controls"
+      "actions actions" !important;
+    align-items: center !important;
+  }
+
+  html body.game-body .market-popup-row__quantity-wrap {
+    display: contents !important;
+  }
+
+  html body.game-body .market-popup-row__quantity-wrap > span {
+    grid-area: qty-label !important;
+    align-self: center !important;
+    white-space: nowrap !important;
+  }
+
+  html body.game-body .market-popup-row__total {
+    grid-area: total !important;
+    justify-self: end !important;
+    align-self: center !important;
+    min-width: 0 !important;
+    text-align: right !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  html body.game-body .market-popup-row__quantity-controls {
+    grid-area: qty-controls !important;
+    grid-template-columns: 38px minmax(56px, 1fr) 38px !important;
+    justify-self: stretch !important;
+    min-width: 0 !important;
+    margin-top: 2px !important;
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+  }
+
+  html body.game-body .market-popup-row__quantity-step {
+    position: relative !important;
+    z-index: 2 !important;
+    width: 38px !important;
+    min-width: 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 0 !important;
+    line-height: 1 !important;
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+  }
+
+  html body.game-body .market-popup-row__quantity {
+    position: relative !important;
+    z-index: 1 !important;
+    width: 100% !important;
+    min-width: 56px !important;
+    min-height: 38px !important;
+    padding: 0 4px !important;
+    font-size: 14px !important;
+    font-weight: 900 !important;
+    line-height: 38px !important;
+    text-align: center !important;
+    box-sizing: border-box !important;
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+    appearance: textfield !important;
+    -moz-appearance: textfield !important;
+  }
+
+  html body.game-body .market-popup-row__quantity::-webkit-inner-spin-button,
+  html body.game-body .market-popup-row__quantity::-webkit-outer-spin-button {
+    margin: 0 !important;
+    -webkit-appearance: none !important;
+  }
+
+  html body.game-body .market-popup-dashboard__chip[data-market-dashboard-tone="stock"] strong,
+  html body.game-body .market-popup-dashboard__chip[data-market-dashboard-tone="timer"] strong {
+    color: #facc15 !important;
+    text-shadow: 0 0 10px rgba(250, 204, 21, 0.28) !important;
+  }
+
+  html body.game-body .market-popup-shell[data-market-mode="market"] .market-popup-row__stock::after {
+    background: linear-gradient(90deg, #f59e0b, #fde047) !important;
+    box-shadow:
+      0 0 10px rgba(245, 158, 11, 0.34),
+      0 0 16px rgba(253, 224, 71, 0.22) !important;
+  }
+
+  /* Mobile action controls must remain above visual layers and respond to one tap. */
+  html body.game-body :is(
+    .district-popup-shell:not([hidden]) .district-popup-card,
+    .attack-setup-popup-shell:not([hidden]) .attack-setup-popup-card,
+    .robbery-setup-popup-shell:not([hidden]) .robbery-setup-popup-card,
+    .defense-setup-popup-shell:not([hidden]) .defense-setup-popup-card,
+    #attack-confirm-modal:not(.hidden):not([hidden]) .district-action-confirm-popup-card,
+    #raid-confirm-modal:not(.hidden):not([hidden]) .district-action-confirm-popup-card,
+    #trap-confirm-modal:not(.hidden):not([hidden]) .district-action-confirm-popup-card,
+    #spy-confirm-modal:not(.hidden):not([hidden]) .district-action-confirm-popup-card,
+    #occupy-confirm-modal:not(.hidden):not([hidden]) .district-action-confirm-popup-card
+  ) {
+    pointer-events: auto !important;
+    isolation: isolate !important;
+  }
+
+  html body.game-body :is(
+    .district-popup-shell:not([hidden]) .district-popup-card,
+    .attack-setup-popup-shell:not([hidden]) .attack-setup-popup-card,
+    .robbery-setup-popup-shell:not([hidden]) .robbery-setup-popup-card,
+    .defense-setup-popup-shell:not([hidden]) .defense-setup-popup-card,
+    #attack-confirm-modal:not(.hidden):not([hidden]) .district-action-confirm-popup-card,
+    #raid-confirm-modal:not(.hidden):not([hidden]) .district-action-confirm-popup-card,
+    #trap-confirm-modal:not(.hidden):not([hidden]) .district-action-confirm-popup-card,
+    #spy-confirm-modal:not(.hidden):not([hidden]) .district-action-confirm-popup-card,
+    #occupy-confirm-modal:not(.hidden):not([hidden]) .district-action-confirm-popup-card
+  ) :is(button:not(:disabled), input:not(:disabled), select:not(:disabled)) {
+    position: relative !important;
+    z-index: 3 !important;
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+  }
+
+  /* Gang profile: three game stats side by side, then full-width faction and alliance. */
+  html body.game-body #profile-gang-card.right-panel-card {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    padding: 8px !important;
+  }
+
+  html body.game-body #profile-gang-card.right-panel-card .gang-profile-header {
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    margin: 0 !important;
+    padding: 2px 2px 7px !important;
+  }
+
+  html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profile-row {
+    min-width: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 6px !important;
+  }
+
+  html body.game-body #profile-gang-card.right-panel-card :is(
+    .profile-row--members,
+    .profile-row--wanted,
+    .profile-row--districts
+  ) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto minmax(18px, auto) !important;
+    align-content: center !important;
+    justify-items: center !important;
+    gap: 3px !important;
+    min-height: 48px !important;
+    padding: 4px 5px !important;
+    text-align: center !important;
+  }
+
+  html body.game-body #profile-gang-card.right-panel-card .profile-row--members {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+  }
+
+  html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profile-row--wanted {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+    background:
+      linear-gradient(90deg, rgba(254, 202, 202, 0.22), transparent 62%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)),
+      rgba(45, 8, 13, 0.58) !important;
+    border-color: rgba(248, 113, 113, 0.44) !important;
+    box-shadow:
+      inset 2px 0 0 rgba(248, 113, 113, 0.78),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.026),
+      0 0 16px rgba(248, 113, 113, 0.16),
+      0 6px 14px rgba(0, 0, 0, 0.12) !important;
+  }
+
+  html body.game-body #profile-gang-card.right-panel-card .profile-row--districts {
+    grid-column: 3 !important;
+    grid-row: 2 !important;
+  }
+
+  html body.game-body #profile-gang-card.right-panel-card .profile-row--faction {
+    grid-column: 1 / -1 !important;
+    grid-row: 3 !important;
+  }
+
+  html body.game-body #profile-gang-card.right-panel-card .profile-row--alliance {
+    grid-column: 1 / -1 !important;
+    grid-row: 4 !important;
+  }
+
+  html body.game-body #profile-gang-card.right-panel-card :is(
+    .profile-row--members,
+    .profile-row--wanted,
+    .profile-row--districts
+  ) :is(.gang-profile-row__label, span:last-child, .profile-heat-panel) {
+    min-width: 0 !important;
+    justify-self: center !important;
+    text-align: center !important;
+  }
+
+  html body.game-body #profile-gang-card.right-panel-card :is(
+    .profile-row--members,
+    .profile-row--wanted,
+    .profile-row--districts
+  ) .gang-profile-row__label {
+    font-size: clamp(6.5px, 1.9vw, 8px) !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  html body.game-body #profile-gang-card.right-panel-card .profile-row--wanted .profile-heat-panel {
+    min-width: 34px !important;
+    min-height: 20px !important;
+    padding-inline: 6px !important;
+  }
+
+  html body.game-body #profile-gang-card.right-panel-card :is(
+    .profile-row--faction,
+    .profile-row--alliance
+  ) {
+    grid-template-columns: minmax(74px, 0.7fr) minmax(0, 1fr) !important;
+    min-height: 30px !important;
+    padding: 6px 8px !important;
   }
 }

@@ -114,7 +114,6 @@ const SPY_CONFIRMATION_REQUIRED_KEYS = [
 
 const OCCUPY_CONFIRMATION_REQUIRED_KEYS = [
   "occupyConfirmTitle",
-  "occupyConfirmSource",
   "occupyConfirmCondition",
   "occupyConfirmCost",
   "occupyConfirmDuration",

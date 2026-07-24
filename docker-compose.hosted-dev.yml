@@ -20,13 +20,15 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.hosted-worker
+      args:
+        EMPIRE_BUILD_SHA: ${EMPIRE_BUILD_SHA:-local-compose}
     env_file:
       - .env.local
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       EMPIRE_DATABASE_URL: postgresql://empire_dev@postgres:5432/empire_hosted_dev
       EMPIRE_PERSISTENCE_DRIVER: postgres
       GAMEPLAY_PERSISTENCE_DRIVER: postgres

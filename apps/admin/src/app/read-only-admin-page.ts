@@ -82,7 +82,10 @@ const renderOverview = (overview: AdminOverviewView): string => `
 const renderControlPlane = (control: AdminControlPlaneAvailabilityView | null, session: AdminSessionView,
   wizardOpen: boolean, wizardStep: number, selectedInstanceId: string | null, frontendBuildSha: string | null): string => {
   if (!control) return `<section class="admin-panel" role="status"><h3>Načítám control plane...</h3></section>`;
-  const ready = !control.unavailableCode && session.role !== "viewer";
+  const frontendCompatible = Boolean(frontendBuildSha)
+    && frontendBuildSha === control.apiBuildSha
+    && control.buildCompatibility === "current";
+  const ready = !control.unavailableCode && frontendCompatible && session.role !== "viewer";
   const selected = control.servers.find((entry) => entry.serverInstanceId === selectedInstanceId) ?? null;
   return `<section id="admin-control-plane" class="admin-panel admin-section-anchor">
     <div class="admin-panel__head"><div><span>Hosted control plane</span><h3>Provisioning a lifecycle</h3></div>
@@ -90,6 +93,10 @@ const renderControlPlane = (control: AdminControlPlaneAvailabilityView | null, s
     <div class="admin-kv-grid">${kv("Database", control.databaseAvailable ? "AVAILABLE" : "UNAVAILABLE")}
       ${kv("Migrace", control.migrationsCurrent ? "CURRENT" : "PENDING")}${kv("Worker", control.workerStatus.toUpperCase())}
       ${kv("Provisioning", control.provisioningEnabled ? "ENABLED" : "DISABLED")}
+      ${kv("Build parity", frontendCompatible ? "CURRENT" : "BLOCKED")}
+      ${kv("Session security", (control.sessionSecurity ?? "blocked").toUpperCase())}
+      ${kv("Origin policy", (control.originPolicy ?? "blocked").toUpperCase())}
+      ${kv("Registrace", control.registrationEnabled ? "ENABLED" : "DISABLED")}
       ${kv("Frontend SHA", frontendBuildSha ?? "NEZNÁMÉ")}${kv("API SHA", control.apiBuildSha ?? "NEZNÁMÉ")}
       ${kv("Worker SHA", control.workerBuildSha ?? "NEZNÁMÉ")}${kv("Schema", control.schemaVersion ?? "NEZNÁMÉ")}</div>
     ${renderBuildCompatibility(frontendBuildSha, control.apiBuildSha, control.workerBuildSha)}

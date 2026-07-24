@@ -10,6 +10,9 @@ RUN npm run build:hosted-worker
 
 FROM node:20-bookworm-slim AS runtime
 ENV NODE_ENV=production
+ARG EMPIRE_BUILD_SHA=local
+ENV EMPIRE_BUILD_SHA=$EMPIRE_BUILD_SHA
+LABEL org.opencontainers.image.revision=$EMPIRE_BUILD_SHA
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force

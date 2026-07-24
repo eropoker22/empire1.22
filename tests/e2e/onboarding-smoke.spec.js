@@ -251,7 +251,11 @@ test.describe("onboarding flow smoke", () => {
     await page.getByTestId("continue-to-game").click();
 
     await expect(page).toHaveURL(/\/pages\/game\.html$/);
-    await expect(page.getByTestId("game-page")).toBeVisible();
+    await page.waitForFunction(() => (
+      document.documentElement.dataset.runtimeMode === "local-demo"
+      && document.querySelector("#game-root")?.dataset?.runtimeInit === "ready"
+    ), null, { timeout: 60_000 });
+    await expect(page.getByTestId("game-page")).toBeVisible({ timeout: 10_000 });
 
     const session = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)), SESSION_STORAGE_KEY);
     expect(session.registration).toMatchObject({

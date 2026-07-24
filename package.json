@@ -103,6 +103,9 @@
     "verify:closed-alpha": "node scripts/verify-closed-alpha-preflight.mjs && npm run typecheck && npm run lint && node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/server/gameplay-session-security.test.ts tests/server/atomic-command-persistence.test.ts tests/unit/game-core/authoritative-basic-actions.test.ts tests/unit/game-config/empire-city-map-manifest.test.ts tests/unit/game-core/player-operational-liveness.test.ts tests/unit/game-core/player-territory-lifecycle.test.ts tests/unit/runtime-conflict-authority-matrix.test.js && npm run test:e2e:smoke",
     "verify:hosted-control-plane": "node scripts/check-hosted-control-plane-architecture.mjs && node scripts/verify-hosted-control-plane.mjs",
     "verify:production-authority-cutover": "node scripts/check-production-fixture-boundary.mjs && node scripts/verify-production-authority-cutover.mjs",
+    "verify:staging-env": "node scripts/validate-staging-environment.mjs",
+    "release:staging:manifest": "node scripts/create-staging-release-manifest.mjs",
+    "build:staging:release": "npm run verify:staging-env && npm run build:admin:page && npm run build:hosted-worker && npm run release:staging:manifest",
     "verify:prod-like": "npm run verify:closed-alpha && npm run test:persistence:postgres:smoke"
   },
   "devDependencies": {

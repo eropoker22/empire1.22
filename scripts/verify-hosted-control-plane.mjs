@@ -12,6 +12,9 @@ const requiredFiles = [
   "apps/server/src/runtime/persistence/postgres/migrations/010_runtime_instance_foreign_keys.sql",
   "apps/server/src/runtime/persistence/postgres/migrations/011_hosted_runtime_lease_incarnation.sql",
   "apps/server/src/runtime/persistence/postgres/migrations/012_hosted_server_registration_lifecycle.sql",
+  "apps/server/src/runtime/persistence/postgres/migrations/013_account_auth_throttle.sql",
+  "apps/server/src/runtime/persistence/postgres/migrations/014_hosted_match_results.sql",
+  "apps/server/src/runtime/persistence/postgres/migrations/015_account_age_requirement.sql",
   "apps/server/src/player-entry/postgres-player-entry-repository.ts",
   "apps/server/src/admin/hosted/postgres-hosted-join-repository.ts",
   "apps/server/src/bootstrap/hosted-runtime-worker-cli.ts",
@@ -36,7 +39,9 @@ if (strict) {
   const allowedOrigins = parseAllowedOrigins(process.env.EMPIRE_ALLOWED_ORIGINS);
   const sessionSecret = String(process.env.GAMEPLAY_SLICE_SESSION_SECRET ?? "").trim();
   const snapshotSecret = String(process.env.GAMEPLAY_SLICE_SNAPSHOT_SECRET ?? "").trim();
+  const buildSha = String(process.env.EMPIRE_BUILD_SHA ?? "").trim();
   check(Boolean(hostedDatabaseUrl), "EMPIRE_DATABASE_URL is configured");
+  check(isTlsPostgresUrl(hostedDatabaseUrl), "EMPIRE_DATABASE_URL requires PostgreSQL TLS");
   check(process.env.EMPIRE_ADMIN_WRITES_ENABLED === "true", "admin writes flag is enabled");
   check(process.env.EMPIRE_HOSTED_CONTROL_PLANE_ENABLED === "true", "hosted control-plane flag is enabled");
   check(process.env.EMPIRE_SERVER_PROVISIONING_ENABLED === "true", "server provisioning flag is enabled");
@@ -49,6 +54,7 @@ if (strict) {
   check(process.env.EMPIRE_PERSISTENCE_DRIVER === "postgres", "runtime persistence is PostgreSQL");
   check(process.env.GAMEPLAY_PERSISTENCE_DRIVER === "postgres", "gameplay persistence is PostgreSQL");
   check(Boolean(process.env.EMPIRE_HOSTED_WORKER_ID), "EMPIRE_HOSTED_WORKER_ID is configured");
+  check(/^[0-9a-f]{40}$/u.test(buildSha), "EMPIRE_BUILD_SHA is an exact Git SHA");
   const registrationEnabled = process.env.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED === "true";
   if (registrationEnabled) {
     check(String(process.env.EMPIRE_AUTH_THROTTLE_PEPPER ?? "").trim().length >= 32,
@@ -93,8 +99,10 @@ if (databaseUrl) {
       to_regclass('empire_hosted_worker_heartbeats') AS worker_heartbeats,
       to_regclass('empire_tick_locks') AS tick_locks`);
     check(Object.values(tables.rows[0] ?? {}).every(Boolean), "required durable repositories exist");
-    const worker = await pool.query("SELECT last_heartbeat_at FROM empire_hosted_worker_heartbeats WHERE status='online' ORDER BY last_heartbeat_at DESC LIMIT 1");
+    const worker = await pool.query("SELECT last_heartbeat_at,build_sha FROM empire_hosted_worker_heartbeats WHERE status='online' ORDER BY last_heartbeat_at DESC LIMIT 1");
     check(Boolean(worker.rows[0]) && Date.now() - Date.parse(worker.rows[0].last_heartbeat_at) <= 30_000, "hosted worker heartbeat is fresh");
+    check(Boolean(worker.rows[0]) && worker.rows[0].build_sha === buildSha,
+      "hosted worker build SHA matches API release SHA");
     check(await probeRollbackOnlyTickLease(pool), "tick lease can be acquired and released in a rollback-only probe");
   } catch (_error) {
     check(false, "live PostgreSQL hosted checks completed");
@@ -120,8 +128,17 @@ function parseAllowedOrigins(value) {
 function isAllowedOrigin(candidate) {
   try {
     const origin = new URL(candidate);
-    const loopback = origin.hostname === "localhost" || origin.hostname === "127.0.0.1" || origin.hostname === "[::1]";
-    return origin.origin === candidate && (origin.protocol === "https:" || loopback);
+    return origin.origin === candidate && origin.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function isTlsPostgresUrl(candidate) {
+  try {
+    const url = new URL(candidate);
+    return ["postgres:", "postgresql:"].includes(url.protocol)
+      && ["require", "verify-ca", "verify-full"].includes(url.searchParams.get("sslmode"));
   } catch {
     return false;
   }

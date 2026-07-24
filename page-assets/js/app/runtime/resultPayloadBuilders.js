@@ -393,7 +393,6 @@ export function createResultPayloadBuilders(deps = {}) {
     lootEntries = [],
     heatGain = null,
     riskLabel = "",
-    successChance = null,
     zoneLabel = ""
   } = {}) => {
     const safeLootEntries = Array.isArray(lootEntries) ? lootEntries : [];
@@ -408,7 +407,6 @@ export function createResultPayloadBuilders(deps = {}) {
     const detailRows = [
       ...(zoneLabel ? [{ label: "Zóna", value: zoneLabel }] : []),
       ...(riskLabel ? [{ label: "Risk", value: String(riskLabel) }] : []),
-      ...(Number.isFinite(Number(successChance)) ? [{ label: "Šance", value: `${Math.max(0, Math.round(Number(successChance)))}%` }] : []),
       ...(Number.isFinite(Number(heatGain)) ? [{ label: "Heat", value: `+${Math.max(0, Math.round(Number(heatGain)))}` }] : [])
     ];
 

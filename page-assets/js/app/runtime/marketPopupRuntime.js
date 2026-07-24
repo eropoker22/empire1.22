@@ -297,7 +297,9 @@ export function createMarketPopupRuntime(deps = {}) {
       popup.dataset.marketAuthoritative = String(tabState.isAuthoritative);
 
       if (titleElement) {
-        titleElement.textContent = getMarketTitle();
+        const marketTitle = getMarketTitle();
+        titleElement.textContent = marketTitle;
+        titleElement.dataset.mobileTitle = activeTab === "market" ? "Market" : marketTitle;
       }
 
       if (serverBadgeElement) {

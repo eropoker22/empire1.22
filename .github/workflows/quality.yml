@@ -37,6 +37,13 @@ jobs:
       - name: Build admin page
         run: npm run build:admin:page
 
+      - name: Build hosted worker bundle
+        run: npm run build:hosted-worker
+
+      - name: Build immutable worker image
+        if: github.event_name == 'push'
+        run: docker build --build-arg EMPIRE_BUILD_SHA=${{ github.sha }} --tag empire-hosted-worker:${{ github.sha }} --file Dockerfile.hosted-worker .
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 

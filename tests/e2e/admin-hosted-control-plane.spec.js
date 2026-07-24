@@ -1,9 +1,18 @@
 import { expect, test } from "@playwright/test";
 
 test("owner creates, provisions and controls a hosted server", async ({ page }) => {
+  const buildSha = "a".repeat(40);
   let authenticated = false;
   let hosted = null;
   let provisioningReads = 0;
+  await page.addInitScript((sha) => {
+    const applyBuildSha = () => {
+      const meta = document.querySelector('meta[name="empire-build-sha"]');
+      if (meta) meta.content = sha;
+    };
+    new MutationObserver(applyBuildSha).observe(document, { childList: true, subtree: true });
+    applyBuildSha();
+  }, buildSha);
   await page.route("**/api/admin/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -42,7 +51,8 @@ test("owner creates, provisions and controls a hosted server", async ({ page }) 
           : { ...hosted, status: "lobby", provisioningState: "ready", currentSnapshotId: "snapshot:e2e:0", version: 3 };
       }
       return json(route, 200, success({ writesEnabled: true, provisioningEnabled: true, databaseAvailable: true,
-        migrationsCurrent: true, workerStatus: "online", unavailableCode: null, servers: hosted ? [hosted] : [], generatedAt: NOW }));
+        migrationsCurrent: true, workerStatus: "online", buildCompatibility: "current", unavailableCode: null,
+        apiBuildSha: buildSha, workerBuildSha: buildSha, servers: hosted ? [hosted] : [], generatedAt: NOW }));
     }
     if (path === "/api/admin/overview") return json(route, 200, success(overview(hosted)));
     if (path.includes("/api/admin/instances/")) return json(route, 200, success(detail(hosted)));
@@ -50,6 +60,7 @@ test("owner creates, provisions and controls a hosted server", async ({ page }) 
   });
 
   await page.goto("/admin.html");
+  await expect(page.locator('meta[name="empire-build-sha"]')).toHaveAttribute("content", buildSha);
   await page.locator("[data-admin-username]").fill("test-owner");
   await page.locator("[data-admin-password]").fill("TestPassword-Only-For-Fixtures");
   await page.getByRole("button", { name: "Přihlásit" }).click();

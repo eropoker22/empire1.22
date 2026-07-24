@@ -128,6 +128,10 @@ export interface AdminControlPlaneAvailabilityView {
   databaseAvailable: boolean;
   migrationsCurrent: boolean;
   workerStatus: "online" | "stale" | "offline";
+  buildCompatibility?: "current" | "missing" | "mismatch";
+  sessionSecurity?: "current" | "blocked" | "not-applicable";
+  originPolicy?: "current" | "blocked" | "not-applicable";
+  registrationEnabled?: boolean;
   unavailableCode: string | null;
   apiBuildSha?: string | null;
   workerBuildSha?: string | null;

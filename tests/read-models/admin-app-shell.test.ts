@@ -6,6 +6,7 @@ import { renderDashboard } from "../../apps/admin/src/app/read-only-admin-page";
 import { FREE_HOSTED_SERVER_LIFECYCLE_POLICY, resolveModeConfig } from "@empire/game-config";
 import type { AdminHostedServerView, AdminInstanceDetailView, AdminInstanceSummaryView, AdminOverviewView, AdminSessionView } from "@empire/shared-types";
 
+const BUILD_SHA = "admin-test-build";
 const session: AdminSessionView = {
   adminSessionId: "session:viewer", adminUserId: "user:viewer", actorId: "user:viewer", username: "viewer", displayName: "Viewer", role: "viewer",
   createdAt: "2026-07-16T10:00:00.000Z", expiresAt: "2026-07-16T10:30:00.000Z", revokedAt: null,
@@ -14,6 +15,7 @@ const session: AdminSessionView = {
 
 describe("read-only admin app", () => {
   beforeEach(() => {
+    document.head.innerHTML = `<meta name="empire-build-sha" content="${BUILD_SHA}">`;
     document.body.innerHTML = `<main id="admin-dashboard-root"></main>`;
     history.replaceState(null, "", "/admin.html");
     Object.defineProperty(document, "hidden", { configurable: true, value: false });
@@ -112,12 +114,16 @@ describe("read-only admin app", () => {
         databaseAvailable: true,
         migrationsCurrent: true,
         workerStatus: "online",
+        buildCompatibility: "current",
         unavailableCode: null,
+        apiBuildSha: BUILD_SHA,
+        workerBuildSha: BUILD_SHA,
         servers: [],
         generatedAt: "2026-07-16T10:00:00.000Z"
       },
       wizardOpen: true,
-      wizardStep: 3
+      wizardStep: 3,
+      frontendBuildSha: BUILD_SHA
     });
 
     expect(document.querySelector<HTMLInputElement>('[name="joinPolicy"][value="closed"]')?.type).toBe("hidden");
@@ -174,11 +180,12 @@ describe("read-only admin app", () => {
       session: { ...session, role: "owner" }, overview: overview(), selectedInstanceId: "server:requested", detail: null,
       controlPlane: {
         writesEnabled: true, provisioningEnabled: true, databaseAvailable: true, migrationsCurrent: true,
-        workerStatus: "online", unavailableCode: null, generatedAt: "2026-07-16T10:00:00.000Z",
+        workerStatus: "online", buildCompatibility: "current", unavailableCode: null,
+        apiBuildSha: BUILD_SHA, workerBuildSha: BUILD_SHA, generatedAt: "2026-07-16T10:00:00.000Z",
         servers: [hostedServer({ serverInstanceId: "server:requested", displayName: "Requested",
           status: "requested", provisioningState: "requested", currentSnapshotId: null,
           lastWorkerHeartbeatAt: null, runtimeLeaseOwnerId: null, runtimeLeaseExpiresAt: null })]
-      }, wizardOpen: false, wizardStep: 1
+      }, wizardOpen: false, wizardStep: 1, frontendBuildSha: BUILD_SHA
     });
 
     const actions = [...document.querySelectorAll<HTMLButtonElement>("[data-admin-lifecycle]")];
@@ -287,10 +294,11 @@ const hostedServer = (overrides: Partial<AdminHostedServerView> = {}): AdminHost
 
 const controlPlane = (server: AdminHostedServerView) => ({
   writesEnabled: true, provisioningEnabled: true, databaseAvailable: true, migrationsCurrent: true,
-  workerStatus: "online" as const, unavailableCode: null, servers: [server], generatedAt: "2026-07-16T10:00:00.000Z"
+  workerStatus: "online" as const, buildCompatibility: "current" as const, unavailableCode: null,
+  apiBuildSha: BUILD_SHA, workerBuildSha: BUILD_SHA, servers: [server], generatedAt: "2026-07-16T10:00:00.000Z"
 });
 
 const renderHosted = (server: AdminHostedServerView): string => renderDashboard({
   session: { ...session, role: "owner" }, overview: overview(), selectedInstanceId: server.serverInstanceId,
-  detail: null, controlPlane: controlPlane(server), wizardOpen: false, wizardStep: 1
+  detail: null, controlPlane: controlPlane(server), wizardOpen: false, wizardStep: 1, frontendBuildSha: BUILD_SHA
 });

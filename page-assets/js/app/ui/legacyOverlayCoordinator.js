@@ -1,6 +1,7 @@
 import { lockModalScroll, unlockModalScroll } from "./modalScrollLock.js";
 
 const DEFAULT_GHOST_CLICK_SUPPRESSION_MS = 450;
+const COORDINATOR_STATE_KEY = Symbol.for("empire.legacyOverlayCoordinator.state");
 const FOCUSABLE_SELECTOR = [
   "button:not([disabled])",
   "[href]",
@@ -10,9 +11,19 @@ const FOCUSABLE_SELECTOR = [
   "[tabindex]:not([tabindex='-1'])"
 ].join(",");
 
-const overlayStack = [];
-const overlayZIndexRestore = new WeakMap();
-let suppressMapInputUntil = 0;
+const coordinatorState = globalThis[COORDINATOR_STATE_KEY] || {
+  interactionShieldDocuments: new WeakSet(),
+  overlayStack: [],
+  overlayZIndexRestore: new WeakMap(),
+  suppressionStartedAt: 0,
+  suppressMapInputUntil: 0
+};
+globalThis[COORDINATOR_STATE_KEY] = coordinatorState;
+coordinatorState.suppressionStartedAt = Number(coordinatorState.suppressionStartedAt) || 0;
+
+const overlayStack = coordinatorState.overlayStack;
+const overlayZIndexRestore = coordinatorState.overlayZIndexRestore;
+const interactionShieldDocuments = coordinatorState.interactionShieldDocuments;
 
 function getElementView(element) {
   return element?.ownerDocument?.defaultView || (typeof window !== "undefined" ? window : null);
@@ -33,6 +44,62 @@ function now() {
     return window.performance.now();
   }
   return Date.now();
+}
+
+function isOnboardingInteractionTarget(target) {
+  const element = target?.nodeType === 1 ? target : target?.parentElement;
+  return Boolean(element?.closest?.("[data-onboarding-panel], .is-onboarding-focus-target"));
+}
+
+function findOpenedOverlayAncestor(target) {
+  let element = target?.nodeType === 1 ? target : target?.parentElement;
+  while (element) {
+    if (Number(element.__empireOverlayOpenedAt || 0) > 0 && isElementVisible(element)) {
+      return element;
+    }
+    element = element.parentElement;
+  }
+  return null;
+}
+
+function blockBackgroundInteraction(event) {
+  if (isOnboardingInteractionTarget(event?.target)) {
+    return;
+  }
+
+  const topOverlay = getTopOverlay();
+  if (topOverlay?.element?.contains?.(event?.target)) {
+    return;
+  }
+
+  const activeTargetOverlay = findOpenedOverlayAncestor(event?.target);
+  if (
+    !topOverlay
+    && Number(activeTargetOverlay?.__empireOverlayOpenedAt || 0) > coordinatorState.suppressionStartedAt
+  ) {
+    return;
+  }
+
+  if (!topOverlay && now() >= coordinatorState.suppressMapInputUntil) {
+    return;
+  }
+
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  event?.stopImmediatePropagation?.();
+}
+
+function ensureInteractionShield(ownerDocument) {
+  if (!ownerDocument?.addEventListener || interactionShieldDocuments.has(ownerDocument)) {
+    return;
+  }
+
+  interactionShieldDocuments.add(ownerDocument);
+  ownerDocument.addEventListener("pointerdown", blockBackgroundInteraction, true);
+  ownerDocument.addEventListener("pointerup", blockBackgroundInteraction, true);
+  ownerDocument.addEventListener("touchstart", blockBackgroundInteraction, { capture: true, passive: false });
+  ownerDocument.addEventListener("touchend", blockBackgroundInteraction, { capture: true, passive: false });
+  ownerDocument.addEventListener("click", blockBackgroundInteraction, true);
 }
 
 function lockBodyScroll(element) {
@@ -174,7 +241,9 @@ function pruneClosedOverlays() {
 }
 
 export function suppressMapInput(ms = DEFAULT_GHOST_CLICK_SUPPRESSION_MS) {
-  suppressMapInputUntil = Math.max(suppressMapInputUntil, now() + ms);
+  const startedAt = now();
+  coordinatorState.suppressionStartedAt = startedAt;
+  coordinatorState.suppressMapInputUntil = Math.max(coordinatorState.suppressMapInputUntil, startedAt + ms);
 }
 
 export function suppressMapInputFor(ms = DEFAULT_GHOST_CLICK_SUPPRESSION_MS) {
@@ -188,11 +257,42 @@ export function isOverlayOpen() {
 
 export function getTopOverlay() {
   pruneClosedOverlays();
-  return overlayStack.at(-1) || null;
+  let topEntry = null;
+  let topIndex = -1;
+  let topOpenedAt = Number.NEGATIVE_INFINITY;
+  let topZIndex = Number.NEGATIVE_INFINITY;
+
+  for (let index = 0; index < overlayStack.length; index += 1) {
+    const entry = overlayStack[index];
+    const view = getElementView(entry.element);
+    const parsedZIndex = Number.parseInt(view?.getComputedStyle?.(entry.element)?.zIndex, 10);
+    const zIndex = Number.isFinite(parsedZIndex) ? parsedZIndex : 0;
+    const openedAt = Number(entry.element?.__empireOverlayOpenedAt || 0);
+    const hasHigherPriority = entry.alwaysOnTop === true && topEntry?.alwaysOnTop !== true;
+    const hasSamePriority = Boolean(entry.alwaysOnTop) === Boolean(topEntry?.alwaysOnTop);
+    if (
+      !topEntry
+      || hasHigherPriority
+      || (
+        hasSamePriority
+        && (
+          openedAt > topOpenedAt
+          || (openedAt === topOpenedAt && (zIndex > topZIndex || (zIndex === topZIndex && index > topIndex)))
+        )
+      )
+    ) {
+      topEntry = entry;
+      topIndex = index;
+      topOpenedAt = openedAt;
+      topZIndex = zIndex;
+    }
+  }
+
+  return topEntry;
 }
 
 export function shouldSuppressMapInput(event) {
-  const suppressed = isOverlayOpen() || now() < suppressMapInputUntil;
+  const suppressed = isOverlayOpen() || now() < coordinatorState.suppressMapInputUntil;
   if (suppressed) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
@@ -206,6 +306,10 @@ export function openOverlay(element, options = {}) {
     return false;
   }
 
+  ensureInteractionShield(element.ownerDocument);
+  coordinatorState.suppressMapInputUntil = 0;
+  element.hidden = false;
+  element.__empireOverlayOpenedAt = now();
   pruneClosedOverlays();
 
   const restoreFocusTo = isHtmlElement(options.restoreFocusTo)

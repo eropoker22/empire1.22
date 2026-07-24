@@ -14,10 +14,8 @@ describe("market view model builders", () => {
   it("builds dashboard chips and scoped copy labels", () => {
     const dashboard = createMarketDashboardViewModel({
       activeTab: "black-market",
-      tabLabel: "Black market",
       stockSummary: "neomezeně",
       economy: { cleanMoney: 1200, dirtyMoney: 450 },
-      gangState: { heat: 7 },
       refreshAtCityTime: "19:00",
       recentTransactions: [
         { type: "buy", itemName: "Chemicals", amount: 1, total: 100 },
@@ -29,10 +27,8 @@ describe("market view model builders", () => {
     });
 
     expect(dashboard.chips).toEqual([
-      { label: "Black market", value: "policie blízko", tone: "danger" },
       { label: "Čisté", value: "1200$", tone: "clean" },
       { label: "Špinavé", value: "450$", tone: "dirty" },
-      { label: "Heat", value: "7", tone: "danger" },
       { label: "Obnova · čas města", value: "19:00", tone: "timer" },
       { label: "Zásoba", value: "neomezeně", tone: "danger" }
     ]);

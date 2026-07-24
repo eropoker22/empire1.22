@@ -4563,12 +4563,10 @@ function completeOccupyOrder(root, orderId) {
       ? `${occupyOutcome.message} District ${targetDistrictId} připadl tvému gangu. Vrátilo se ${occupyOutcome.populationRefunded} populace, zbytek ceny zmizel v ulicích.`
       : `${occupyOutcome.message} District ${targetDistrictId} zůstal neobsazený a ztratil jsi ${occupyOutcome.populationLost} populace.`,
     rows: [
-      { label: "Zdroj", value: String(order.sourceDistrictId || "---") },
       { label: "Cíl", value: `District ${targetDistrictId}` },
       { label: "Cena", value: `${occupyOutcome.populationCost} populace` },
       { label: "Vráceno", value: `${occupyOutcome.populationRefunded} populace` },
       { label: "Ztraceno", value: `${occupyOutcome.populationLost} populace` },
-      { label: "Šance", value: `${occupyOutcome.successChancePct}% úspěch / ${occupyOutcome.failureChancePct}% neúspěch`, nowrap: true },
       { label: "Trvání", value: formatDurationLabel(new Date(order.resolveAt).getTime() - new Date(order.createdAt).getTime()), nowrap: true },
       { label: "Stav districtu", value: occupyOutcome.succeeded ? "Obsazený" : "Neobsazený" }
     ]
@@ -4673,7 +4671,6 @@ function completeRobberyOrder(root, orderId) {
     lootEntries,
     heatGain: robberyOutcome.heatGain,
     riskLabel: robberyOutcome.riskLabel,
-    successChance: robberyOutcome.successChance,
     zoneLabel: robberyOutcome.zoneLabel
   });
   syncBuildingActionSource(root, {

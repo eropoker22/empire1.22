@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <meta name="empire-gameplay-execution-mode" content="server-authoritative">
     <title>Empire Streets | Game Shell</title>
-    <link rel="stylesheet" href="../page-assets/css/styles.css?v=mobile-special-actions-20260718-7">
+    <link rel="stylesheet" href="../page-assets/css/styles.css?v=mobile-special-actions-20260723-10">
     <link rel="stylesheet" href="../page-assets/css/styles-game-admin-slice.css">
     <link rel="stylesheet" href="../page-assets/css/styles-gameplay-slice-client.css?v=result-popup-center-20260528">
     <link rel="stylesheet" href="../page-assets/css/styles-closed-alpha-ux.css">
@@ -772,7 +772,6 @@
             <button class="button attack-setup-popup-close" id="occupy-confirm-modal-close" type="button" aria-label="Zavřít" data-occupy-confirm-close>✕</button>
           </div>
           <div class="modal__body spy-confirm-modal__body district-action-confirm-popup-body">
-            <p class="attack-setup-popup-row">Zdroj <span><strong data-occupy-confirm-source>---</strong></span></p>
             <p class="attack-setup-popup-row">Podmínka <span><strong data-occupy-confirm-condition>Špehování</strong></span></p>
             <p class="attack-setup-popup-row">Cena <span><strong data-occupy-confirm-cost>0 populace</strong></span></p>
             <p class="attack-setup-popup-row">Trvání <span><strong data-occupy-confirm-duration>20s</strong></span></p>
@@ -1562,12 +1561,12 @@
           <div class="market-popup-heading">
             <div class="market-popup-heading__copy">
               <span class="market-popup-eyebrow">TRŽNÍ TERMINÁL</span>
-              <h3 class="market-popup-title" id="market-popup-title" data-market-title>Městský market</h3>
+              <h3 class="market-popup-title" id="market-popup-title" data-market-title data-mobile-title="Market">Městský market</h3>
             </div>
             <button type="button" class="button market-popup-close" data-market-popup-close aria-label="Zavřít market">✕</button>
           </div>
           <div class="market-popup-tabs" aria-label="Typ marketu" role="tablist">
-            <button type="button" class="button market-popup-tab is-active" data-market-tab="market" role="tab" aria-selected="true">Městský market</button>
+            <button type="button" class="button market-popup-tab is-active" data-market-tab="market" data-mobile-label="Market" role="tab" aria-selected="true">Market</button>
             <button type="button" class="button market-popup-tab" data-market-tab="black-market" role="tab" aria-selected="false">Černý trh</button>
             <button type="button" class="button market-popup-tab" data-market-tab="player-market" role="tab" aria-selected="false">Hráčský bazar</button>
           </div>

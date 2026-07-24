@@ -87,6 +87,10 @@ Apply every migration in filename order and verify checksums before starting the
 009_player_entry_control_plane.sql
 010_runtime_instance_foreign_keys.sql
 011_hosted_runtime_lease_incarnation.sql
+012_hosted_server_registration_lifecycle.sql
+013_account_auth_throttle.sql
+014_hosted_match_results.sql
+015_account_age_requirement.sql
 ```
 
 `npm run db:migrate:status` must report the complete current set. `PRODUCTION_MIGRATION_CONTRACT` is also enforced by API/worker readiness and requires the exact ordered filename/checksum set; missing, modified, extra, or unavailable history fails closed. A partially applied schema is a deployment failure, not a degraded mode.
@@ -226,7 +230,7 @@ docker compose -f docker-compose.hosted-dev.yml ps
 
 The API must report `ADMIN_DATABASE_UNAVAILABLE`, the worker health endpoint must return `503`, and both must recover after PostgreSQL becomes healthy. To verify process recovery, stop and restart `dev:hosted-api` and `dev:hosted-worker`; the admin account, hosted server, snapshots, registrations, and world seed must remain unchanged.
 
-For application rollback, stop or drain the new worker, deploy the previous request/function build, and retain every applied migration from `001` through `011` plus all durable data. Database migrations are additive; do not drop hosted or membership tables during an application rollback.
+For application rollback, stop or drain the new worker, deploy the previous request/function build, and retain every applied migration from `001` through `015` plus all durable data. Database migrations are additive; do not drop hosted or membership tables during an application rollback.
 
 ## Production readiness gate
 

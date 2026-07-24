@@ -18,6 +18,7 @@ export interface PostgresDatabasePoolOptions {
   max?: number;
   idleTimeoutMillis?: number;
   connectionTimeoutMillis?: number;
+  statementTimeoutMillis?: number;
   allowExitOnIdle?: boolean;
 }
 
@@ -30,7 +31,12 @@ export const createPostgresDatabase = (
 
   const getPool = async (): Promise<Pool> => {
     poolPromise ??= import("pg").then(({ Pool }) => {
-      const pool = new Pool({ connectionString, ...poolOptions });
+      const { statementTimeoutMillis, ...nativePoolOptions } = poolOptions;
+      const pool = new Pool({
+        connectionString,
+        ...nativePoolOptions,
+        ...(statementTimeoutMillis === undefined ? {} : { statement_timeout: statementTimeoutMillis })
+      });
       pool.on("error", () => undefined);
       return pool;
     });

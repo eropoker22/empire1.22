@@ -43,6 +43,8 @@ describe("postgres prod-like runtime smoke", () => {
       EMPIRE_DATABASE_URL: liveConfig.databaseUrl!,
       GAMEPLAY_SLICE_SESSION_SECRET: "postgres-smoke-session-secret-2026-test",
       GAMEPLAY_SLICE_SNAPSHOT_SECRET: "postgres-smoke-snapshot-secret-2026-test",
+      EMPIRE_ADMIN_FINGERPRINT_SECRET: "postgres-smoke-admin-fingerprint-secret-2026-test",
+      EMPIRE_BUILD_SHA: "postgres-smoke",
       EMPIRE_ADMIN_WRITES_ENABLED: "true",
       EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true",
       EMPIRE_SERVER_PROVISIONING_ENABLED: "true",

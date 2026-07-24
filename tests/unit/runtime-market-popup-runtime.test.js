@@ -122,14 +122,17 @@ describe("market popup runtime", () => {
     expect(runtime.bindMarketPopup(root)).toBe(true);
     open.dispatch("click");
     expect(title.textContent).toBe("Městský market");
+    expect(title.dataset.mobileTitle).toBe("Market");
     tab.dispatch("click");
     expect(title.textContent).toBe("Černý trh");
+    expect(title.dataset.mobileTitle).toBe("Černý trh");
     playerTab.dispatch("click");
 
     expect(openMarketPanel).toHaveBeenCalledWith(popup);
     expect(renderMarketPanel).toHaveBeenCalledTimes(1);
     expect(renderBlackMarketPanel).toHaveBeenCalledTimes(1);
     expect(title.textContent).toBe("Hráčský bazar");
+    expect(title.dataset.mobileTitle).toBe("Hráčský bazar");
   });
 
   it("renders only resources available in the selected server market", () => {

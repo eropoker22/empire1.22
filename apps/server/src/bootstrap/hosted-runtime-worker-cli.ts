@@ -16,6 +16,9 @@ const region = String(process.env.EMPIRE_HOSTED_WORKER_REGION ?? "eu-central").t
 const buildSha = String(process.env.EMPIRE_BUILD_SHA ?? "local").trim();
 const port = Number(process.env.PORT ?? 8080);
 if (!databaseUrl || !workerId) throw new Error("Hosted worker requires EMPIRE_DATABASE_URL and EMPIRE_HOSTED_WORKER_ID.");
+if (process.env.NODE_ENV === "production" && !/^[0-9a-f]{40}$/u.test(buildSha)) {
+  throw new Error("Production hosted worker requires an exact 40-character EMPIRE_BUILD_SHA.");
+}
 if (String(process.env.EMPIRE_PERSISTENCE_DRIVER ?? "").trim().toLowerCase() !== "postgres" ||
   String(process.env.GAMEPLAY_PERSISTENCE_DRIVER ?? "").trim().toLowerCase() !== "postgres") {
   throw new Error("Hosted worker requires PostgreSQL runtime and gameplay persistence drivers.");
@@ -26,7 +29,12 @@ if (gameplaySessionSecret.length < 32 || snapshotSecret.length < 32 || gameplayS
   throw new Error("Hosted worker requires distinct gameplay session and snapshot secrets of at least 32 characters.");
 }
 
-const database = createPostgresDatabase(databaseUrl);
+const database = createPostgresDatabase(databaseUrl, {
+  max: 4,
+  idleTimeoutMillis: 10_000,
+  connectionTimeoutMillis: 5_000,
+  statementTimeoutMillis: 30_000
+});
 const controlPlane = createPostgresHostedControlPlaneRepository(database);
 const playerEntry = createPostgresPlayerEntryRepository(database);
 if (!await isProductionSchemaCurrent(database)) {

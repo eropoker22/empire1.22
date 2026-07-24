@@ -37,6 +37,7 @@ import {
   type NetlifyPostgresDatabaseFactory
 } from "./netlify-postgres-database";
 import { createGameplayFunctionErrorResponse } from "./gameplay-function-error-response";
+import { handleApiReadinessRequest } from "./api-readiness-netlify";
 import { rejectInvalidGameplayRequestSession } from "./gameplay-request-session-guard";
 import { validateSnapshotTokenForInstance } from "./snapshot-token-instance-guard";
 import { createHostedRuntimeRequestGuard } from "./hosted-runtime-request-guard";
@@ -128,6 +129,7 @@ export const createGameplaySliceFunctionHandler = (
         createGameplaySliceRouteError("transport.not_found", "Gameplay slice endpoint was not found.")
       );
     }
+    if (route === "health") return handleApiReadinessRequest(event.httpMethod, sharedDatabase, environment);
     if (environment.NODE_ENV !== "production" && server.instanceManager.listInstances().length === 0) {
       ensureDefaultLobbyServers(server);
     }

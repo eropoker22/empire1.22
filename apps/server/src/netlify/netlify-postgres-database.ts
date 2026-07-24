@@ -13,6 +13,7 @@ const NETLIFY_POOL_OPTIONS: PostgresDatabasePoolOptions = {
   max: 4,
   idleTimeoutMillis: 10_000,
   connectionTimeoutMillis: 5_000,
+  statementTimeoutMillis: 15_000,
   allowExitOnIdle: true
 };
 

@@ -10,7 +10,8 @@ import { ensureGameplaySliceMembershipInState } from "../../apps/server/src/boot
 import { findSharedCitySpawnCandidate } from "../../apps/server/src/bootstrap/gameplay-slice-shared-city-seed";
 
 const NOW = new Date("2026-07-16T10:00:00.000Z");
-const FLAGS = { NODE_ENV: "test", EMPIRE_ADMIN_WRITES_ENABLED: "true", EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true", EMPIRE_SERVER_PROVISIONING_ENABLED: "true" };
+const FLAGS = { NODE_ENV: "test", EMPIRE_ADMIN_WRITES_ENABLED: "true", EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true",
+  EMPIRE_SERVER_PROVISIONING_ENABLED: "true", EMPIRE_BUILD_SHA: "test" };
 const owner = session("owner");
 const validRequest: AdminCreateServerRequestView = {
   mode: "free", serverTemplate: "full", displayName: "Hosted Test", region: "eu-central", capacity: 20, joinPolicy: "closed",
@@ -47,6 +48,37 @@ describe("hosted server control plane", () => {
     const repositories = createInMemoryAdminDurableRepositories();
     const disabled = createHostedControlPlaneService({ repositories, environment: { NODE_ENV: "test" }, allowInMemoryForTests: true });
     expect((await disabled.createServer({ session: owner, payload: validRequest, idempotencyKey: "test-create-disabled-001", correlationId: "r" })).errors[0]?.code).toBe("ADMIN_WRITES_DISABLED");
+  });
+
+  it("blocks writes when API and worker build SHAs are unavailable or mismatched", async () => {
+    const repositories = createInMemoryAdminDurableRepositories();
+    await repositories.hosted.writeWorkerHeartbeat({ workerId: "worker:test", workerIncarnationId: "worker-incarnation:test",
+      region: "eu-central", startedAt: NOW.toISOString(), lastHeartbeatAt: NOW.toISOString(),
+      buildSha: "worker-sha", status: "online" });
+    const missing = createHostedControlPlaneService({ repositories,
+      environment: { ...FLAGS, EMPIRE_BUILD_SHA: "" }, now: () => NOW, allowInMemoryForTests: true });
+    expect((await missing.availability()).unavailableCode).toBe("BUILD_SHA_UNAVAILABLE");
+    const mismatched = createHostedControlPlaneService({ repositories,
+      environment: { ...FLAGS, EMPIRE_BUILD_SHA: "api-sha" }, now: () => NOW, allowInMemoryForTests: true });
+    expect((await mismatched.availability()).unavailableCode).toBe("BUILD_SHA_MISMATCH");
+    expect((await mismatched.createServer({ session: owner, payload: validRequest,
+      idempotencyKey: "test-create-build-mismatch", correlationId: "build-mismatch" })).errors[0]?.code)
+      .toBe("BUILD_SHA_MISMATCH");
+  });
+
+  it("blocks production writes when session or origin policy is not secure", async () => {
+    const repositories = createInMemoryAdminDurableRepositories();
+    await repositories.hosted.writeWorkerHeartbeat({ workerId: "worker:test", workerIncarnationId: "worker-incarnation:test",
+      region: "eu-central", startedAt: NOW.toISOString(), lastHeartbeatAt: NOW.toISOString(),
+      buildSha: "test", status: "online" });
+    const insecure = createHostedControlPlaneService({ repositories,
+      environment: { ...FLAGS, NODE_ENV: "production" }, now: () => NOW, allowInMemoryForTests: true });
+    expect(await insecure.availability()).toMatchObject({
+      sessionSecurity: "blocked",
+      originPolicy: "blocked",
+      registrationEnabled: false,
+      unavailableCode: "SESSION_SECURITY_INVALID"
+    });
   });
 
   it("snapshots the explicit control/full template without exposing elimination balance", async () => {

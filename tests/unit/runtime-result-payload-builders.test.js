@@ -162,7 +162,8 @@ describe("result payload builders", () => {
       order: { targetDistrictId: 5, createdAt: new Date(1_000).toISOString(), resolveAt: new Date(2_000).toISOString() },
       deployedMembers: 5,
       memberLoss: 0,
-      lootEntries: [["tech-core", 1]]
+      lootEntries: [["tech-core", 1]],
+      successChance: 75
     });
     const withoutLoot = builders.createRobberyResultPayload({
       order: { targetDistrictId: 5, createdAt: new Date(1_000).toISOString(), resolveAt: new Date(2_000).toISOString() },
@@ -175,6 +176,7 @@ describe("result payload builders", () => {
     expect(withLoot.raidResultPayload.title).toBe("VYKRÁST DISTRICT: ČISTÝ LOOT");
     expect(withLoot.raidResultPayload.summary).toContain("Území se neobsazuje");
     expect(withLoot.raidResultPayload.rows).not.toContainEqual({ label: "Akce", value: "Vykrást district" });
+    expect(withLoot.raidResultPayload.rows.map((row) => row.label)).not.toContain("Šance");
     expect(withLoot.raidResultPayload.rows.some((row) => row.value === "Tech Core x1")).toBe(true);
     expect(withoutLoot.raidTone).toBe("is-disaster");
     expect(withoutLoot.raidResultPayload.title).toBe("VYKRÁST DISTRICT: BEZ LOOTU");

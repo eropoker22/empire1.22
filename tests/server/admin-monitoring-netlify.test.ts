@@ -47,6 +47,7 @@ describe("read-only admin Netlify boundary", () => {
     const now = new Date("2026-07-16T10:00:00.000Z");
     const environment = {
       ...TEST_ENV,
+      EMPIRE_BUILD_SHA: "admin-http-test",
       EMPIRE_ADMIN_WRITES_ENABLED: "true",
       EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true",
       EMPIRE_SERVER_PROVISIONING_ENABLED: "true"

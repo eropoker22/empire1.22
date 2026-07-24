@@ -58,12 +58,14 @@ if (strict) {
   const registrationEnabled = env.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED === "true";
   const throttlePepper = String(env.EMPIRE_AUTH_THROTTLE_PEPPER ?? "").trim();
   const origins = String(env.EMPIRE_ALLOWED_ORIGINS ?? "").split(",").map((value) => value.trim()).filter(Boolean);
+  const databaseUrl = String(env.EMPIRE_DATABASE_URL ?? env.GAMEPLAY_DATABASE_URL ?? "").trim();
   check(env.EMPIRE_PERSISTENCE_DRIVER === "postgres", "runtime persistence is PostgreSQL");
   check(env.GAMEPLAY_PERSISTENCE_DRIVER === "postgres", "gameplay persistence is PostgreSQL");
-  check(Boolean(env.EMPIRE_DATABASE_URL || env.GAMEPLAY_DATABASE_URL), "production database URL is configured");
+  check(isTlsPostgresUrl(databaseUrl), "production database URL uses PostgreSQL TLS");
   check(origins.length > 0 && origins.every(isSecureOrigin), "origin allowlist is explicit and secure");
   check(String(env.GAMEPLAY_SLICE_SESSION_SECRET ?? "").length >= 32, "gameplay session secret is strong");
   check(Boolean(env.EMPIRE_HOSTED_WORKER_ID), "hosted worker identity is configured");
+  check(/^[0-9a-f]{40}$/u.test(String(env.EMPIRE_BUILD_SHA ?? "")), "release build SHA is exact");
   if (registrationEnabled) {
     check(throttlePepper.length >= 32, "public account registration has durable throttle pepper");
   } else {
@@ -92,8 +94,17 @@ function isSecureOrigin(candidate) {
   if (candidate === "*") return false;
   try {
     const url = new URL(candidate);
-    const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-    return url.origin === candidate && (url.protocol === "https:" || loopback);
+    return url.origin === candidate && url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function isTlsPostgresUrl(candidate) {
+  try {
+    const url = new URL(candidate);
+    return ["postgres:", "postgresql:"].includes(url.protocol)
+      && ["require", "verify-ca", "verify-full"].includes(url.searchParams.get("sslmode"));
   } catch {
     return false;
   }

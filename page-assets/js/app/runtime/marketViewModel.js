@@ -314,19 +314,6 @@ export function createMarketItemAtmosphere({
   };
 }
 
-function createMarketMood(activeTab = "market", tabLabel = "Market") {
-  const safeTabLabel = String(tabLabel || "Market");
-  if (activeTab === "black-market") {
-    return { label: safeTabLabel, value: "policie blízko", tone: "danger" };
-  }
-
-  if (activeTab === "player-market") {
-    return { label: safeTabLabel, value: "živé nabídky", tone: "bazaar" };
-  }
-
-  return { label: safeTabLabel, value: "hlad po zásobách", tone: "stock" };
-}
-
 export function createMarketTabStateViewModel({
   activeTab = "market",
   source = "unavailable",
@@ -366,23 +353,18 @@ export function createMarketTabStateViewModel({
 
 export function createMarketDashboardViewModel({
   activeTab = "market",
-  tabLabel = "Market",
   stockSummary = "0 ks",
   economy = {},
-  gangState = {},
   refreshAtCityTime = "--:--",
   recentTransactions = [],
   formatPrice = (value) => String(value)
 } = {}) {
   const isDangerMode = activeTab === "black-market";
   const safeRecentTransactions = Array.isArray(recentTransactions) ? recentTransactions : [];
-  const mood = createMarketMood(activeTab, tabLabel);
   return {
     chips: [
-      { label: mood.label, value: mood.value, tone: mood.tone },
       { label: "Čisté", value: formatPrice(economy.cleanMoney), tone: "clean" },
       { label: "Špinavé", value: formatPrice(economy.dirtyMoney), tone: "dirty" },
-      { label: "Heat", value: String(gangState.heat || 0), tone: isDangerMode ? "danger" : "neutral" },
       activeTab === "player-market"
         ? { label: "Provoz", value: "živě", tone: "bazaar" }
         : { label: "Obnova · čas města", value: String(refreshAtCityTime || "--:--"), tone: "timer" },

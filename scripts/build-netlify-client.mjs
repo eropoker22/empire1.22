@@ -16,7 +16,9 @@ const staticPageFiles = [
   "pages/login.html",
   "pages/lobby.html",
   "pages/faction.html",
-  "pages/game.html"
+  "pages/game.html",
+  "pages/privacy.html",
+  "pages/closed-alpha-terms.html"
 ];
 const requiredPublishFiles = [
   ".htaccess",
@@ -83,6 +85,7 @@ await writeFile(
   [
     "https://www.empirestreets.cz/* https://empirestreets.cz/:splat 301!",
     "http://www.empirestreets.cz/* https://empirestreets.cz/:splat 301!",
+    "/api/health /.netlify/functions/gameplay-slice/health 200!",
     "/api/servers /.netlify/functions/gameplay-slice/servers 200!",
     "/api/admin/* /.netlify/functions/gameplay-slice/admin/:splat 200!",
     "/api/account/* /.netlify/functions/gameplay-slice/account/:splat 200!",
@@ -93,6 +96,8 @@ await writeFile(
     "/lobby.html /pages/lobby.html 200",
     "/game.html /pages/game.html 200",
     "/faction.html /pages/faction.html 200",
+    "/privacy.html /pages/privacy.html 200",
+    "/closed-alpha-terms.html /pages/closed-alpha-terms.html 200",
     ""
   ].join("\n"),
   "utf8"
@@ -111,6 +116,8 @@ await writeFile(
     "RewriteRule ^lobby\\.html$ pages/lobby.html [L]",
     "RewriteRule ^game\\.html$ pages/game.html [L]",
     "RewriteRule ^faction\\.html$ pages/faction.html [L]",
+    "RewriteRule ^privacy\\.html$ pages/privacy.html [L]",
+    "RewriteRule ^closed-alpha-terms\\.html$ pages/closed-alpha-terms.html [L]",
     ""
   ].join("\n"),
   "utf8"

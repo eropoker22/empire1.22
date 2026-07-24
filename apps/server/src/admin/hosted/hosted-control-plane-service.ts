@@ -36,11 +36,28 @@ export const createHostedControlPlaneService = (options: {
       options.repositories.hosted.listServers().catch(() => [])
     ]) : [null, []];
     const workerStatus = worker ? "online" as const : "offline" as const;
+    const apiBuildSha = safeBuildSha(options.environment.EMPIRE_BUILD_SHA);
+    const workerBuildSha = safeBuildSha(worker?.buildSha);
+    const buildCompatibility = !apiBuildSha || !workerBuildSha ? "missing" as const
+      : apiBuildSha === workerBuildSha ? "current" as const
+      : "mismatch" as const;
+    const production = options.environment.NODE_ENV === "production";
+    const sessionSecurity = !production ? "not-applicable" as const
+      : hasSecureSessions(options.environment) ? "current" as const
+      : "blocked" as const;
+    const originPolicy = !production ? "not-applicable" as const
+      : hasSecureOriginPolicy(options.environment.EMPIRE_ALLOWED_ORIGINS) ? "current" as const
+      : "blocked" as const;
+    const registrationEnabled = enabled(options.environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED);
     const unavailableCode = !writesEnabled ? "ADMIN_WRITES_DISABLED"
       : !provisioningEnabled ? "SERVER_PROVISIONING_DISABLED"
       : !databaseAvailable ? "DATABASE_UNAVAILABLE"
       : !migrationsCurrent ? "DATABASE_MIGRATIONS_PENDING"
       : !worker ? "WORKER_OFFLINE"
+      : sessionSecurity === "blocked" ? "SESSION_SECURITY_INVALID"
+      : originPolicy === "blocked" ? "ORIGIN_POLICY_INVALID"
+      : buildCompatibility === "missing" ? "BUILD_SHA_UNAVAILABLE"
+      : buildCompatibility === "mismatch" ? "BUILD_SHA_MISMATCH"
       : null;
     const serverViews = await Promise.all(servers.map(async (server) => {
       const [capacity, ready] = await Promise.all([
@@ -50,8 +67,9 @@ export const createHostedControlPlaneService = (options: {
       ]);
       return createHostedAdminServerView({ server, now: generatedAt, ...capacity, readyPlayers: ready.length });
     }));
-    return { writesEnabled, provisioningEnabled, databaseAvailable, migrationsCurrent, workerStatus, unavailableCode,
-      apiBuildSha: safeBuildSha(options.environment.EMPIRE_BUILD_SHA), workerBuildSha: safeBuildSha(worker?.buildSha),
+    return { writesEnabled, provisioningEnabled, databaseAvailable, migrationsCurrent, workerStatus, buildCompatibility,
+      sessionSecurity, originPolicy, registrationEnabled, unavailableCode,
+      apiBuildSha, workerBuildSha,
       schemaVersion: PRODUCTION_MIGRATION_CONTRACT.at(-1)?.[0] ?? null,
       servers: serverViews, generatedAt: generatedAt.toISOString() };
   };
@@ -199,9 +217,28 @@ const audit = (session: AdminSessionView, action: "create-server-request" | "lif
   role: session.role, action, targetInstanceId: target, result: "success" as const, createdAt: at, correlationId
 });
 const enabled = (value: string | undefined): boolean => String(value).trim().toLowerCase() === "true";
+const hasSecureSessions = (environment: Record<string, string | undefined>): boolean => {
+  const secrets = [
+    environment.GAMEPLAY_SLICE_SESSION_SECRET,
+    environment.GAMEPLAY_SLICE_SNAPSHOT_SECRET,
+    environment.EMPIRE_ADMIN_FINGERPRINT_SECRET
+  ].map((value) => String(value ?? "").trim());
+  return secrets.every((value) => value.length >= 32) && new Set(secrets).size === secrets.length;
+};
+const hasSecureOriginPolicy = (value: string | undefined): boolean => {
+  const origins = String(value ?? "").split(",").map((entry) => entry.trim()).filter(Boolean);
+  return origins.length > 0 && origins.every((entry) => {
+    try {
+      const parsed = new URL(entry);
+      return parsed.protocol === "https:" && parsed.origin === entry;
+    } catch {
+      return false;
+    }
+  });
+};
 const safeBuildSha = (value: string | undefined): string | null => {
   const normalized = String(value ?? "").trim();
-  return normalized && normalized !== "local" ? normalized : null;
+  return normalized && !["local", "unknown"].includes(normalized.toLowerCase()) ? normalized : null;
 };
 const record = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const accept = <T>(data: T) => ({ accepted: true as const, data, errors: [] as [] });
