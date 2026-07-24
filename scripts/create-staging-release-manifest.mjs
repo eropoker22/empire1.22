@@ -3,15 +3,21 @@ import { mkdir, readdir, writeFile } from "node:fs/promises";
 import {
   createReleaseManifest,
   STAGING_MANIFEST_PATH,
+  validateCodeLevelReleaseEnvironment,
   validateReleaseSource,
   validateStagingEnvironment
 } from "./staging-release-contract.mjs";
 
-const validation = validateStagingEnvironment(process.env, {
-  allowRegistrationEnabled: process.argv.includes("--allow-registration-enabled")
-});
-if (!validation.passed) {
-  throw new Error("Refusing to create a release manifest from an invalid staging environment.");
+const codeLevel = process.argv.includes("--code-level");
+if (codeLevel) {
+  validateCodeLevelReleaseEnvironment(process.env);
+} else {
+  const validation = validateStagingEnvironment(process.env, {
+    allowRegistrationEnabled: process.argv.includes("--allow-registration-enabled")
+  });
+  if (!validation.passed) {
+    throw new Error("Refusing to create a release manifest from an invalid staging environment.");
+  }
 }
 
 const gitSha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
@@ -26,7 +32,11 @@ const migrationFiles = (await readdir(migrationsDirectory))
 const expectedSchemaVersion = migrationFiles.at(-1);
 if (!expectedSchemaVersion) throw new Error("No production migration was found.");
 
-const manifest = createReleaseManifest({ gitSha, expectedSchemaVersion });
+const manifest = createReleaseManifest({
+  gitSha,
+  expectedSchemaVersion,
+  verificationMode: codeLevel ? "code-level" : "staging-environment"
+});
 const output = new URL(`../${STAGING_MANIFEST_PATH}`, import.meta.url);
 await mkdir(new URL("./", output), { recursive: true });
 await writeFile(output, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");

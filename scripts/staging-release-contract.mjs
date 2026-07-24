@@ -110,10 +110,29 @@ export const validateReleaseSource = ({ gitSha, configuredSha, worktreeStatus })
   return gitSha;
 };
 
-export const createReleaseManifest = ({ gitSha, expectedSchemaVersion, createdAt = new Date().toISOString() }) => {
+export const validateCodeLevelReleaseEnvironment = (environment, options = {}) => {
+  if (environment.EMPIRE_RELEASE_ENVIRONMENT !== STAGING_ENVIRONMENT) {
+    throw new Error("Code-level release manifest requires EMPIRE_RELEASE_ENVIRONMENT=staging.");
+  }
+  const nodeMajor = Number(String(options.nodeVersion ?? process.versions.node).split(".")[0]);
+  if (nodeMajor !== 20) {
+    throw new Error("Code-level release manifest requires Node.js 20.");
+  }
+  return true;
+};
+
+export const createReleaseManifest = ({
+  gitSha,
+  expectedSchemaVersion,
+  createdAt = new Date().toISOString(),
+  verificationMode = "code-level"
+}) => {
   if (!SHA_PATTERN.test(gitSha)) throw new Error("Release manifest requires an exact 40-character Git SHA.");
   if (!/^\d{3}_[a-z0-9_]+\.sql$/u.test(String(expectedSchemaVersion ?? ""))) {
     throw new Error("Release manifest requires an exact production schema migration filename.");
+  }
+  if (!["code-level", "staging-environment"].includes(verificationMode)) {
+    throw new Error("Release manifest requires a known verification mode.");
   }
   return {
     gitSha,
@@ -123,7 +142,8 @@ export const createReleaseManifest = ({ gitSha, expectedSchemaVersion, createdAt
     expectedSchemaVersion,
     nodeVersion: STAGING_NODE_VERSION,
     createdAt,
-    environment: STAGING_ENVIRONMENT
+    environment: STAGING_ENVIRONMENT,
+    verificationMode
   };
 };
 

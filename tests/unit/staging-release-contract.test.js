@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createReleaseManifest,
+  validateCodeLevelReleaseEnvironment,
   validateReleaseSource,
   validateStagingEnvironment
 } from "../../scripts/staging-release-contract.mjs";
@@ -96,6 +97,18 @@ describe("staging release contract", () => {
     })).toThrow(/dirty worktree/u);
   });
 
+  it("allows code-level manifest metadata without requiring hosting secrets", () => {
+    expect(validateCodeLevelReleaseEnvironment({
+      EMPIRE_RELEASE_ENVIRONMENT: "staging"
+    }, { nodeVersion: "20.19.0" })).toBe(true);
+    expect(() => validateCodeLevelReleaseEnvironment({
+      EMPIRE_RELEASE_ENVIRONMENT: "production"
+    }, { nodeVersion: "20.19.0" })).toThrow(/EMPIRE_RELEASE_ENVIRONMENT=staging/u);
+    expect(() => validateCodeLevelReleaseEnvironment({
+      EMPIRE_RELEASE_ENVIRONMENT: "staging"
+    }, { nodeVersion: "22.0.0" })).toThrow(/Node\.js 20/u);
+  });
+
   it("creates one immutable SHA for frontend, API and worker", () => {
     expect(createReleaseManifest({
       gitSha: SHA,
@@ -109,12 +122,18 @@ describe("staging release contract", () => {
       expectedSchemaVersion: "015_account_age_requirement.sql",
       nodeVersion: "20",
       createdAt: "2026-07-23T12:00:00.000Z",
-      environment: "staging"
+      environment: "staging",
+      verificationMode: "code-level"
     });
     expect(() => createReleaseManifest({
       gitSha: SHA,
       expectedSchemaVersion: "",
       createdAt: "2026-07-23T12:00:00.000Z"
     })).toThrow(/schema migration filename/u);
+    expect(() => createReleaseManifest({
+      gitSha: SHA,
+      expectedSchemaVersion: "015_account_age_requirement.sql",
+      verificationMode: "live"
+    })).toThrow(/verification mode/u);
   });
 });

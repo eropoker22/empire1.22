@@ -131,6 +131,10 @@ docker build --build-arg EMPIRE_BUILD_SHA=$env:EMPIRE_BUILD_SHA `
 `npm run release:staging:manifest` writes `artifacts/release-manifest.json`. It refuses an invalid staging
 environment, a dirty worktree, or a SHA that differs from `HEAD`. The artifact contains no secrets.
 
+Without hosting credentials, `npm run release:staging:manifest:code-level` creates the same public metadata artifact
+from a clean SHA without simulating DB or secret readiness. Its `verificationMode` is `code-level`; it is not evidence
+of a deployed staging environment.
+
 ## External mutation approval plan
 
 Before performing the first external mutation, present and approve this exact scope:
