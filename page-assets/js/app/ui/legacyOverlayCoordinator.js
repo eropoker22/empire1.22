@@ -264,6 +264,11 @@ export function isOverlayOpen() {
   return overlayStack.length > 0;
 }
 
+export function isOverlayElementOpen(element) {
+  pruneClosedOverlays();
+  return overlayStack.some((entry) => entry.element === element);
+}
+
 export function getTopOverlay() {
   pruneClosedOverlays();
   let topEntry = null;
@@ -445,6 +450,7 @@ if (typeof window !== "undefined") {
     closeOverlay,
     closeTopOverlay,
     getTopOverlay,
+    isOverlayElementOpen,
     isOverlayOpen,
     isTopOverlayElement,
     openOverlay,

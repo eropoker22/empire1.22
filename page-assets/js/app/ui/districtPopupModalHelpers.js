@@ -11,6 +11,7 @@ import {
 } from "./modalHelpers.js";
 import {
   closeOverlay,
+  isOverlayElementOpen,
   openOverlay
 } from "./legacyOverlayCoordinator.js";
 
@@ -178,13 +179,15 @@ export function showDistrictPopupModal(element) {
   }
 
   bindMobileDistrictPopupBackgroundScroll(element);
-  openOverlay(element, {
-    type: isMainDistrictPopup(element) ? "mobile-sheet" : "modal",
-    ariaModal: true,
-    lockScroll: !shouldAllowMainDistrictBackgroundScroll(element),
-    restoreFocusOnClose: false,
-    skipFocus: true
-  });
+  if (!isOverlayElementOpen(element)) {
+    openOverlay(element, {
+      type: isMainDistrictPopup(element) ? "mobile-sheet" : "modal",
+      ariaModal: true,
+      lockScroll: !shouldAllowMainDistrictBackgroundScroll(element),
+      restoreFocusOnClose: false,
+      skipFocus: true
+    });
+  }
   element.hidden = false;
   return true;
 }

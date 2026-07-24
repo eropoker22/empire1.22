@@ -1,7 +1,17 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
 
-import { bindDistrictAtmosphereWindowControls } from "../../page-assets/js/app/ui/districtPopupModalHelpers.js";
+import {
+  bindDistrictAtmosphereWindowControls,
+  hideDistrictPopupModal,
+  showDistrictPopupModal
+} from "../../page-assets/js/app/ui/districtPopupModalHelpers.js";
 import { setElementHtml } from "../../page-assets/js/app/ui/districtPopupElements.js";
+import {
+  closeOverlay,
+  getTopOverlay,
+  openOverlay
+} from "../../page-assets/js/app/ui/legacyOverlayCoordinator.js";
 
 function createElement() {
   const listeners = new Map();
@@ -93,5 +103,23 @@ describe("district popup modal helpers", () => {
     expect(trigger.attrs.get("aria-expanded")).toBe("true");
     expect(openClick.preventDefault).toHaveBeenCalledTimes(1);
     expect(openClick.stopPropagation).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not move a refreshed district sheet above its active action modal", () => {
+    const districtPopup = document.createElement("div");
+    const actionModal = document.createElement("div");
+    districtPopup.setAttribute("data-district-popup", "");
+    document.body.append(districtPopup, actionModal);
+
+    showDistrictPopupModal(districtPopup);
+    openOverlay(actionModal, { skipFocus: true });
+    showDistrictPopupModal(districtPopup);
+
+    expect(getTopOverlay()?.element).toBe(actionModal);
+
+    actionModal.hidden = true;
+    closeOverlay(actionModal, { restoreFocus: false, suppressMapInput: false });
+    hideDistrictPopupModal(districtPopup);
+    document.body.innerHTML = "";
   });
 });
