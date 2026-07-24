@@ -80,6 +80,15 @@ function blockBackgroundInteraction(event) {
     return;
   }
 
+  if (
+    !topOverlay
+    && now() < coordinatorState.suppressMapInputUntil
+    && (event?.type === "pointerdown" || event?.type === "touchstart")
+  ) {
+    coordinatorState.suppressMapInputUntil = 0;
+    return;
+  }
+
   if (!topOverlay && now() >= coordinatorState.suppressMapInputUntil) {
     return;
   }

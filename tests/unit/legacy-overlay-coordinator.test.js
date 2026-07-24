@@ -121,4 +121,22 @@ describe("legacy overlay coordinator priority layers", () => {
     expect(onboardingClick).toHaveBeenCalledOnce();
     expect(regularClick).not.toHaveBeenCalled();
   });
+
+  it("blocks a ghost click after close but allows the next physical gesture", () => {
+    const backgroundButton = document.createElement("button");
+    const backgroundClick = vi.fn();
+    backgroundButton.addEventListener("click", backgroundClick);
+    document.body.append(backgroundButton);
+
+    openOverlay(actionOverlay, { skipFocus: true });
+    actionOverlay.hidden = true;
+    closeOverlay(actionOverlay, { restoreFocus: false });
+
+    backgroundButton.click();
+    expect(backgroundClick).not.toHaveBeenCalled();
+
+    backgroundButton.dispatchEvent(new Event("pointerdown", { bubbles: true, cancelable: true }));
+    backgroundButton.click();
+    expect(backgroundClick).toHaveBeenCalledOnce();
+  });
 });
