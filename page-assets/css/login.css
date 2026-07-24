@@ -3115,10 +3115,31 @@ body.auth-body--war .login-legal-links a {
 
   .mode-dock {
     order: 2;
-    margin-top: 12px;
+    margin-top: 0;
     width: 100%;
     gap: 9px;
     align-self: center;
+  }
+
+  .mode-dock::before {
+    content: "";
+    grid-column: 1 / -1;
+    width: calc(100% - 16px);
+    height: 2px;
+    margin: 14px 8px 7px;
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(39, 125, 204, 0.82) 18%,
+      rgba(0, 196, 212, 0.96) 38%,
+      rgba(244, 196, 48, 0.96) 62%,
+      rgba(39, 125, 204, 0.82) 82%,
+      transparent 100%
+    );
+    box-shadow:
+      0 0 8px rgba(0, 196, 212, 0.42),
+      0 0 12px rgba(244, 196, 48, 0.3);
   }
 
   .leaderboard-panel {
