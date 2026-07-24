@@ -24,7 +24,7 @@ const requiredPublishFiles = [
   ".htaccess",
   "admin.html",
   "pages/login.html",
-  "social/empire-streets-og.png",
+  "img/logmes.png",
   "page-assets/js/client-assets/gameplay-slice-client.js",
   "page-assets/js/app/auth-flow.js",
   "page-assets/js/app/model/authority-state.js",
