@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { createReleaseManifest, validateStagingEnvironment } from "../../scripts/staging-release-contract.mjs";
+import {
+  createReleaseManifest,
+  validateReleaseSource,
+  validateStagingEnvironment
+} from "../../scripts/staging-release-contract.mjs";
 
 const SHA = "854a5336e6f816343baf9bdec81a4bd3690a82de";
 const secret = (character) => character.repeat(64);
 const validEnvironment = {
+  EMPIRE_RELEASE_ENVIRONMENT: "staging",
   NODE_ENV: "production",
   EMPIRE_PUBLIC_ORIGIN: "https://alpha.empirestreets.cz",
   EMPIRE_ALLOWED_ORIGINS: "https://alpha.empirestreets.cz",
@@ -57,6 +62,40 @@ describe("staging release contract", () => {
     });
   });
 
+  it("rejects a non-staging release environment", () => {
+    const result = validateStagingEnvironment({
+      ...validEnvironment,
+      EMPIRE_RELEASE_ENVIRONMENT: "production"
+    }, { nodeVersion: "20.19.0" });
+    expect(result.checks.find((check) => check.name === "EMPIRE_RELEASE_ENVIRONMENT")).toMatchObject({
+      passed: false,
+      errorCode: "STAGING_RELEASE_ENVIRONMENT_INVALID"
+    });
+  });
+
+  it("accepts only a clean source whose configured SHA exactly matches HEAD", () => {
+    expect(validateReleaseSource({
+      gitSha: SHA,
+      configuredSha: SHA,
+      worktreeStatus: ""
+    })).toBe(SHA);
+    expect(() => validateReleaseSource({
+      gitSha: SHA,
+      configuredSha: "unknown",
+      worktreeStatus: ""
+    })).toThrow(/EMPIRE_BUILD_SHA/u);
+    expect(() => validateReleaseSource({
+      gitSha: SHA,
+      configuredSha: "a".repeat(40),
+      worktreeStatus: ""
+    })).toThrow(/must equal/u);
+    expect(() => validateReleaseSource({
+      gitSha: SHA,
+      configuredSha: SHA,
+      worktreeStatus: " M package.json"
+    })).toThrow(/dirty worktree/u);
+  });
+
   it("creates one immutable SHA for frontend, API and worker", () => {
     expect(createReleaseManifest({
       gitSha: SHA,
@@ -72,5 +111,10 @@ describe("staging release contract", () => {
       createdAt: "2026-07-23T12:00:00.000Z",
       environment: "staging"
     });
+    expect(() => createReleaseManifest({
+      gitSha: SHA,
+      expectedSchemaVersion: "",
+      createdAt: "2026-07-23T12:00:00.000Z"
+    })).toThrow(/schema migration filename/u);
   });
 });

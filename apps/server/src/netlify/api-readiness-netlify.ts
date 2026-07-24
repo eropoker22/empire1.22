@@ -7,7 +7,7 @@ export const handleApiReadinessRequest = (
   environment: Record<string, string | undefined>
 ): Promise<NetlifyFunctionResponse> => method.toUpperCase() === "GET"
   ? createApiReadinessResponse(database, environment)
-  : Promise.resolve(createJsonResponse(405, { status: "unavailable", code: "METHOD_NOT_ALLOWED" }));
+  : Promise.resolve(readinessJson(405, { status: "unavailable", service: "empire-api", code: "METHOD_NOT_ALLOWED" }));
 
 export const createApiReadinessResponse = async (
   database: PostgresDatabase | null,
@@ -20,11 +20,17 @@ export const createApiReadinessResponse = async (
   } catch {
     return unavailable("DATABASE_UNAVAILABLE", buildSha, "unavailable");
   }
-  const schemaCurrent = await isProductionSchemaCurrent(database);
+  let schemaCurrent = false;
+  try {
+    schemaCurrent = await isProductionSchemaCurrent(database);
+  } catch {
+    return unavailable("DATABASE_SCHEMA_UNAVAILABLE", buildSha, "available");
+  }
   if (!schemaCurrent) return unavailable("DATABASE_MIGRATIONS_PENDING", buildSha, "available");
   if (!buildSha) return unavailable("BUILD_SHA_UNAVAILABLE", null, "available", "current");
-  return createJsonResponse(200, {
+  return readinessJson(200, {
     status: "ready",
+    service: "empire-api",
     code: null,
     database: "available",
     schema: "current",
@@ -37,7 +43,18 @@ const unavailable = (
   buildSha: string | null,
   database: "available" | "unavailable",
   schema: "current" | "unavailable" = "unavailable"
-) => createJsonResponse(503, { status: "unavailable", code, database, schema, buildSha });
+) => readinessJson(503, {
+  status: "unavailable",
+  service: "empire-api",
+  code,
+  database,
+  schema,
+  buildSha
+});
+
+const readinessJson = (statusCode: number, body: Record<string, unknown>) => createJsonResponse(statusCode, body, {
+  "cache-control": "no-store"
+});
 
 const normalizeBuildSha = (value: string | undefined): string | null => {
   const normalized = String(value ?? "").trim();

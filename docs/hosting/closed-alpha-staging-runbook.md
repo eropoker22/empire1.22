@@ -72,6 +72,7 @@ Run it independently for each secret and store the result directly in the provid
 
 | Variable | Component | Required | Safe format | Initial staging state |
 | --- | --- | --- | --- | --- |
+| `EMPIRE_RELEASE_ENVIRONMENT` | build tooling | Yes | Exact `staging` environment marker | `staging` |
 | `NODE_ENV` | API, worker | Yes | `production` | Required |
 | `EMPIRE_PUBLIC_ORIGIN` | frontend, API | Yes | Exact staging HTTPS origin | Missing until site exists |
 | `EMPIRE_ALLOWED_ORIGINS` | API | Yes | Comma-separated exact HTTPS origins | Missing until site exists |

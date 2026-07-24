@@ -1,6 +1,11 @@
 import { execFileSync } from "node:child_process";
 import { mkdir, readdir, writeFile } from "node:fs/promises";
-import { createReleaseManifest, STAGING_MANIFEST_PATH, validateStagingEnvironment } from "./staging-release-contract.mjs";
+import {
+  createReleaseManifest,
+  STAGING_MANIFEST_PATH,
+  validateReleaseSource,
+  validateStagingEnvironment
+} from "./staging-release-contract.mjs";
 
 const validation = validateStagingEnvironment(process.env, {
   allowRegistrationEnabled: process.argv.includes("--allow-registration-enabled")
@@ -11,10 +16,8 @@ if (!validation.passed) {
 
 const gitSha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 const configuredSha = String(process.env.EMPIRE_BUILD_SHA ?? "").trim();
-if (gitSha !== configuredSha) throw new Error("EMPIRE_BUILD_SHA must equal the current Git HEAD.");
-
 const worktree = execFileSync("git", ["status", "--porcelain", "--untracked-files=all"], { encoding: "utf8" }).trim();
-if (worktree) throw new Error("Refusing to create a release manifest from a dirty worktree.");
+validateReleaseSource({ gitSha, configuredSha, worktreeStatus: worktree });
 
 const migrationsDirectory = new URL("../apps/server/src/runtime/persistence/postgres/migrations/", import.meta.url);
 const migrationFiles = (await readdir(migrationsDirectory))

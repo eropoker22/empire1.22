@@ -20,6 +20,8 @@ export const validateStagingEnvironment = (environment, options = {}) => {
   const registrationEnabled = environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED === "true";
   const allowRegistrationEnabled = options.allowRegistrationEnabled === true;
 
+  add("EMPIRE_RELEASE_ENVIRONMENT", "build", true, environment.EMPIRE_RELEASE_ENVIRONMENT === STAGING_ENVIRONMENT,
+    STAGING_ENVIRONMENT, "STAGING_RELEASE_ENVIRONMENT_INVALID");
   add("NODE_ENV", "API + worker", true, environment.NODE_ENV === "production", "production", "STAGING_NODE_ENV_INVALID");
   add("EMPIRE_PUBLIC_ORIGIN", "frontend + API", true,
     Boolean(publicOrigin) && publicOrigin.protocol === "https:" && !PRODUCTION_HOSTNAMES.has(publicOrigin.hostname)
@@ -92,8 +94,27 @@ export const validateStagingEnvironment = (environment, options = {}) => {
   return { passed: checks.every((entry) => !entry.required || entry.passed), checks };
 };
 
+export const validateReleaseSource = ({ gitSha, configuredSha, worktreeStatus }) => {
+  if (!SHA_PATTERN.test(String(gitSha ?? ""))) {
+    throw new Error("Release source requires an exact 40-character Git HEAD.");
+  }
+  if (!SHA_PATTERN.test(String(configuredSha ?? ""))) {
+    throw new Error("Release source requires an exact 40-character EMPIRE_BUILD_SHA.");
+  }
+  if (gitSha !== configuredSha) {
+    throw new Error("EMPIRE_BUILD_SHA must equal the current Git HEAD.");
+  }
+  if (String(worktreeStatus ?? "").trim()) {
+    throw new Error("Refusing to create a release manifest from a dirty worktree.");
+  }
+  return gitSha;
+};
+
 export const createReleaseManifest = ({ gitSha, expectedSchemaVersion, createdAt = new Date().toISOString() }) => {
   if (!SHA_PATTERN.test(gitSha)) throw new Error("Release manifest requires an exact 40-character Git SHA.");
+  if (!/^\d{3}_[a-z0-9_]+\.sql$/u.test(String(expectedSchemaVersion ?? ""))) {
+    throw new Error("Release manifest requires an exact production schema migration filename.");
+  }
   return {
     gitSha,
     frontendBuildSha: gitSha,
