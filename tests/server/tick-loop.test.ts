@@ -180,11 +180,43 @@ describe("server instance tick runner", () => {
 
     runInstanceTick(freeRuntime, createFixedClock("2026-05-15T05:00:05.000Z"));
     runInstanceTick(warRuntime, createFixedClock("2026-05-15T05:00:05.000Z"));
-    expect(freeRuntime.state.root.tick).toBe(2);
+    expect(freeRuntime.state.root.tick).toBe(1);
     expect(warRuntime.state.root.tick).toBe(1);
+
+    runInstanceTick(freeRuntime, createFixedClock("2026-05-15T05:00:10.000Z"));
+    expect(freeRuntime.state.root.tick).toBe(2);
 
     runInstanceTick(warRuntime, createFixedClock("2026-05-15T05:00:15.000Z"));
     expect(warRuntime.state.root.tick).toBe(2);
+  });
+
+  it("records tick diagnostics only when server debug tools are enabled", () => {
+    const server = createServerApp();
+    const runtime = server.instanceManager.createInstance("instance:tick:metrics", "free");
+    runtime.config = {
+      ...runtime.config,
+      technical: {
+        ...runtime.config.technical,
+        debug: {
+          ...runtime.config.technical.debug,
+          allowDebugTools: true
+        }
+      }
+    };
+    server.instanceManager.startInstance(runtime.record.id);
+
+    runInstanceTick(runtime, createFixedClock("2026-05-15T05:00:00.000Z"));
+    runInstanceTick(runtime, createFixedClock("2026-05-15T05:00:05.000Z"));
+    runtime.scheduler.tickInProgress = true;
+    runInstanceTick(runtime, createFixedClock("2026-05-15T05:00:10.000Z"));
+    runtime.scheduler.tickInProgress = false;
+
+    expect(runtime.runtimeHealth.performanceDiagnostics).toMatchObject({
+      tickCount: 1,
+      skippedTickCount: 1
+    });
+    expect(runtime.runtimeHealth.performanceDiagnostics.averageTickDurationMs).toBeGreaterThanOrEqual(0);
+    expect(runtime.runtimeHealth.performanceDiagnostics.maxTickDurationMs).toBeGreaterThanOrEqual(0);
   });
 
   it("marks the instance crashed and stops scheduler when tick execution throws", () => {

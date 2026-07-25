@@ -9,6 +9,7 @@ import {
   createGameplaySliceVisibilityRuntime,
   getGameplaySlicePollerPerformanceOptions,
   recordClientStateRecompute,
+  recordGameplayPollError,
   recordGameplaySliceRefresh
 } from "./gameplay-slice-performance-metrics";
 import {
@@ -23,6 +24,8 @@ import {
   markGameplaySliceUnavailableRuntime,
   markMissingGameplaySessionRuntime
 } from "./gameplay-slice-runtime-policy";
+import { createGameplaySliceSelectiveRenderer } from "./gameplay-slice-selective-renderer";
+import { GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS } from "./gameplay-slice-timing";
 export { setGameplayRuntimeMarker, type GameplayRuntimeMarker } from "./gameplay-slice-runtime-diagnostics";
 const DEFAULT_ENDPOINT_BASE = "/api/gameplay-slice";
 const LEGACY_DISTRICT_POPUP_SELECTOR = "[data-testid='district-popup']";
@@ -34,16 +37,17 @@ export interface MountedGameplaySlicePage { destroy(): void; }
 interface MountedGameplaySlicePageInternal extends MountedGameplaySlicePage { closeDistrictSheetFromExternal(reason?: string): boolean; }
 declare global { interface Window { EmpireGameplaySliceClient?: { closeDistrictSheet(reason?: string): boolean; mount(options: GameplaySlicePageMountOptions): MountedGameplaySlicePage | null; autoMount(): MountedGameplaySlicePage[]; }; } }
 const activeGameplaySlicePages = new Set<MountedGameplaySlicePageInternal>();
-
+const mountedGameplaySlicePagesByRoot = new WeakMap<HTMLElement, MountedGameplaySlicePageInternal>();
 /**
  * Responsibility: Browser mount for the server-fed gameplay slice on game.html.
  * Belongs here: DOM event wiring and rendering already prepared client HTML.
  * Does not belong here: gameplay resolution or legacy runtime mutation.
  */
 export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): MountedGameplaySlicePage | null => {
+  const existingMount = mountedGameplaySlicePagesByRoot.get(options.root);
+  if (existingMount) return existingMount;
   if (applyDevelopmentRuntimeOverride(options.root)) return null;
   const request = resolveGameplaySliceBootstrapRequest(options.root.dataset);
-
   if (!request) {
     markMissingGameplaySessionRuntime(options.root);
     return null;
@@ -59,6 +63,7 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     createCommandId: createBrowserCommandId
   });
   const mounts = resolveMounts(options.root);
+  const selectiveRenderer = createGameplaySliceSelectiveRenderer();
   let currentLoadRequest = request;
   const districtSheetOverlay = createDistrictSheetOverlayController();
   let pointerOrigin: { pointerId: number; x: number; y: number; atMs: number } | null = null;
@@ -165,10 +170,7 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       detail: { gameplaySlice, playerView: gameplaySlice?.player ?? null, connection: state.connection }
     }));
     document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", { detail: state.connection }));
-    mounts.status.innerHTML = renderGameplaySliceStatus(state);
-    mounts.topBar.innerHTML = state.topBarHtml;
-    mounts.map.innerHTML = state.mapHtml;
-    mounts.panel.innerHTML = state.sidePanelHtml;
+    selectiveRenderer.render(mounts, [renderGameplaySliceStatus(state), state.topBarHtml, state.mapHtml, state.sidePanelHtml], reason);
     refreshLiveCooldownLabels(options.root);
     districtSheetOverlay.syncFromState(state);
     overlayBackdrop.sync();
@@ -322,6 +324,7 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       }
     },
     onError: () => {
+      recordGameplayPollError();
       mounts.status.innerHTML = [
         "<strong>Synchronizace se serverem zastarala</strong>",
         "<span>Obnova ze serveru selhala. Zůstává poslední známý stav.</span>"
@@ -332,7 +335,7 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     }
   });
 
-  const visibilityRuntime = createGameplaySliceVisibilityRuntime({ root: options.root, poller });
+  const visibilityRuntime = createGameplaySliceVisibilityRuntime({ root: options.root });
   visibilityRuntime.start();
   legacyDistrictPopupObserver?.observe(legacyDistrictPopup as HTMLElement, {
     attributeFilter: ["aria-hidden", "class", "hidden"],
@@ -364,10 +367,18 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       });
     });
 
+  let destroyed = false;
+  const handlePageHide = () => {
+    mountedPage.destroy();
+  };
   const mountedPage: MountedGameplaySlicePageInternal = {
     closeDistrictSheetFromExternal: (reason = "external district popup close") =>
       closeDistrictSheetAfterLegacyClose(reason),
     destroy: () => {
+      if (destroyed) {
+        return;
+      }
+      destroyed = true;
       poller.destroy();
       visibilityRuntime.destroy();
       legacyDistrictPopupObserver?.disconnect();
@@ -380,9 +391,13 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       overlayBackdrop.sync();
       overlayBackdrop.destroy();
       activeGameplaySlicePages.delete(mountedPage);
+      mountedGameplaySlicePagesByRoot.delete(options.root);
+      window.removeEventListener("pagehide", handlePageHide);
     }
   };
   activeGameplaySlicePages.add(mountedPage);
+  mountedGameplaySlicePagesByRoot.set(options.root, mountedPage);
+  window.addEventListener("pagehide", handlePageHide, { once: true });
   return mountedPage;
 };
 
@@ -424,7 +439,9 @@ const createBrowserCommandId = (prefix: string): string =>
 const parsePollingIntervalMs = (value: string | undefined): number => {
   const intervalMs = Number.parseInt(String(value ?? ""), 10);
 
-  return Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : 5000;
+  return Number.isFinite(intervalMs) && intervalMs > 0
+    ? intervalMs
+    : GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS;
 };
 
 export const closeDistrictSheet = (reason = "external district popup close"): boolean => {

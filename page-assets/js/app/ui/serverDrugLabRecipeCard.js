@@ -1,3 +1,5 @@
+import { FREE_GAMEPLAY_TICK_MS } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
+
 function createElement(scope, tag, className = "") {
   const documentRef = scope?.ownerDocument || (typeof document !== "undefined" ? document : null);
   if (!documentRef?.createElement) return null;
@@ -138,7 +140,7 @@ export function renderServerDrugLabRecipeCard(viewModel = {}, callbacks = {}, op
     metric(options.mount, "Vyrobeno", String(line.producedAmount || 0) + "/" + String(line.producedCapacity || 0) + " ks"),
     metric(options.mount, "Čas", line.status === "processing"
       ? formatDuration(line.remainingMs, options)
-      : formatDuration(Number(line.effectiveUnitDurationTicks || 0) * Number(viewModel.tickRateMs || 5000), options)),
+      : formatDuration(Number(line.effectiveUnitDurationTicks || 0) * Number(viewModel.tickRateMs || FREE_GAMEPLAY_TICK_MS), options)),
     metric(options.mount, "Ve skladu", String(line.playerStoredAmount || 0) + "/" + String(line.playerStoredCapacity || 0) + " ks", true),
     metric(options.mount, "Ve frontě", String(line.queuedAmount || 0) + "/" + String(line.queueCapacity || 0) + " ks", true)
   );

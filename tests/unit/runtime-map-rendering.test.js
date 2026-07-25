@@ -10,6 +10,9 @@ let createDistrictGeometry;
 let getDistrictAtPoint;
 let getDistrictFillStyle;
 let renderDistrictCanvas;
+let renderDistrictSelectionCanvas;
+let renderDistrictStateCanvas;
+let renderDistrictStaticCanvas;
 
 const originalWindow = globalThis.window;
 
@@ -128,7 +131,10 @@ describe("runtime map rendering guards", () => {
       createDistrictGeometry,
       getDistrictAtPoint,
       getDistrictFillStyle,
-      renderDistrictCanvas
+      renderDistrictCanvas,
+      renderDistrictSelectionCanvas,
+      renderDistrictStateCanvas,
+      renderDistrictStaticCanvas
     } = await import("../../page-assets/js/app/runtime.js"));
   });
 
@@ -197,6 +203,30 @@ describe("runtime map rendering guards", () => {
     }, { day: dayImage, night: nightImage });
 
     expect(context.calls.find(([name]) => name === "drawImage")?.[1]).toBe(nightImage);
+  });
+
+  it("renders static, state and selection work on separate canvases", () => {
+    const interactionState = {
+      gamePhase: "live",
+      selectedDistrictId: 1,
+      ownedDistrictIds: new Set(),
+      destroyedDistrictIds: new Set(),
+      launchOwnerByDistrictId: new Map()
+    };
+    const staticContext = new FakeCanvasContext();
+    const stateContext = new FakeCanvasContext();
+    const selectionContext = new FakeCanvasContext();
+
+    renderDistrictStaticCanvas(new FakeCanvas(staticContext), "day", interactionState);
+    renderDistrictStateCanvas(new FakeCanvas(stateContext), "day", interactionState);
+    renderDistrictSelectionCanvas(new FakeCanvas(selectionContext), "day", interactionState);
+
+    expect(staticContext.calls.some(([name]) => name === "createLinearGradient")).toBe(true);
+    expect(staticContext.calls.some(([name]) => name === "fill")).toBe(false);
+    expect(stateContext.calls.some(([name]) => name === "fill")).toBe(true);
+    expect(stateContext.calls.some(([name]) => name === "createLinearGradient")).toBe(false);
+    expect(selectionContext.calls.filter(([name]) => name === "stroke").length).toBeGreaterThanOrEqual(2);
+    expect(selectionContext.calls.some(([name]) => name === "createLinearGradient")).toBe(false);
   });
 
   it("hit-tests a mock district point like a map click", () => {

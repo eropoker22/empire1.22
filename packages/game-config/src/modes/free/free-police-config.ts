@@ -33,9 +33,9 @@ export const freeModePoliceConfig: PoliceSystemBalanceConfig = {
   },
   heatReductionBySeverity: { low: 0, medium: 8, high: 30, extreme: 55 },
   heatDecay: {
-    playerIntervalTicks: 30,
+    playerIntervalTicks: ticksFromMinutes(2.5),
     playerDecayByWantedLevel: { 0: 4, 1: 3, 2: 2, 3: 1, 4: 1, 5: 1 },
-    districtIntervalTicks: 60,
+    districtIntervalTicks: ticksFromMinutes(5),
     districtBaseDecay: 3,
     districtHighPassiveHeatPerDayThreshold: 100,
     districtHighPassiveHeatMultiplier: 0.5,

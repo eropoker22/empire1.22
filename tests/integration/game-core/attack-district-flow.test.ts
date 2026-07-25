@@ -150,7 +150,7 @@ describe("attack-district command flow", () => {
           ...resolvedConfig.balance,
           conflict: {
             ...baseConflict,
-            attackCooldownTicks: 100,
+            attackCooldownTicks: 200,
             minAttackDurationTicks: 0
           }
         }
@@ -177,9 +177,9 @@ describe("attack-district command flow", () => {
 
     expect(result.errors).toEqual([]);
     expect(attackEvent?.payload).toMatchObject({
-      attackDurationTicks: 89
+      attackDurationTicks: 177
     });
-    expect(result.nextState.cooldownStatesById["cooldown:1"].cooldowns["attack:global"]).toBe(89);
+    expect(result.nextState.cooldownStatesById["cooldown:1"].cooldowns["attack:global"]).toBe(177);
   });
 
   it("reduces attack preparation cooldown for Motorkářský gang faction", () => {
@@ -306,7 +306,7 @@ describe("attack-district command flow", () => {
           ...resolvedConfig.balance,
           conflict: {
             ...baseConflict,
-            attackCooldownTicks: 100,
+            attackCooldownTicks: 200,
             minAttackDurationTicks: 0
           }
         }
@@ -341,9 +341,9 @@ describe("attack-district command flow", () => {
 
     expect(result.errors).toEqual([]);
     expect(attackEvent?.payload).toMatchObject({
-      attackDurationTicks: 82
+      attackDurationTicks: 164
     });
-    expect(result.nextState.cooldownStatesById["cooldown:1"].cooldowns["attack:global"]).toBe(82);
+    expect(result.nextState.cooldownStatesById["cooldown:1"].cooldowns["attack:global"]).toBe(164);
   });
 
   it("does not store non-material combat losses in recovery or salvage pools", () => {

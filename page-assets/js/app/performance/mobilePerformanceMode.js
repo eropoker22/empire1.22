@@ -2,7 +2,7 @@ const MOBILE_MAX_WIDTH = 840;
 const MOBILE_DPR_CAP = 2;
 const DESKTOP_RENDER_FPS = 60;
 const MOBILE_RENDER_FPS = 30;
-const MOBILE_POLLING_MULTIPLIER = 2;
+const MOBILE_POLLING_MULTIPLIER = 1;
 const METRICS_KEY = "empireStreetsPerformanceMetrics";
 const MOBILE_PERFORMANCE_CLASS = "is-mobile-performance-mode";
 

@@ -167,6 +167,34 @@ export function ensureMapEffectsCanvas(canvas, canvasHost, className, options = 
   return effectsCanvas;
 }
 
+export function ensureMapStaticCanvas(canvas, canvasHost, className, options = {}) {
+  if (!canvas || !canvasHost || !className) return null;
+  let staticCanvas = canvasHost.querySelector?.(`.${className}`) || null;
+  if (getCanvasLike(staticCanvas)) return staticCanvas;
+  const ownerDocument = getOwnerDocument(canvasHost, options.document);
+  if (!ownerDocument?.createElement) return null;
+  staticCanvas = ownerDocument.createElement("canvas");
+  staticCanvas.className = className;
+  staticCanvas.setAttribute?.("aria-hidden", "true");
+  if (typeof canvas.before === "function") canvas.before(staticCanvas);
+  else canvasHost.append?.(staticCanvas);
+  return staticCanvas;
+}
+
+export function ensureMapSelectionCanvas(canvas, canvasHost, className, options = {}) {
+  if (!canvas || !canvasHost || !className) return null;
+  let selectionCanvas = canvasHost.querySelector?.(`.${className}`) || null;
+  if (getCanvasLike(selectionCanvas)) return selectionCanvas;
+  const ownerDocument = getOwnerDocument(canvasHost, options.document);
+  if (!ownerDocument?.createElement) return null;
+  selectionCanvas = ownerDocument.createElement("canvas");
+  selectionCanvas.className = className;
+  selectionCanvas.setAttribute?.("aria-hidden", "true");
+  if (typeof canvas.after === "function") canvas.after(selectionCanvas);
+  else canvasHost.append?.(selectionCanvas);
+  return selectionCanvas;
+}
+
 export function setMapOverlayPoint(interactionOverlay, name, x, y) {
   if (!interactionOverlay?.style || !name) {
     return false;
@@ -232,6 +260,12 @@ export function initMapShell(options = {}) {
     options.classes?.interactionOverlay || options.interactionOverlayClass,
     options
   );
+  const staticCanvas = ensureMapStaticCanvas(
+    elements.canvas,
+    elements.canvasHost,
+    options.classes?.staticCanvas || options.staticCanvasClass,
+    options
+  );
   const hoverCanvas = ensureMapHoverCanvas(
     elements.canvas,
     elements.canvasHost,
@@ -244,11 +278,19 @@ export function initMapShell(options = {}) {
     options.classes?.effectsCanvas || options.effectsCanvasClass,
     options
   );
+  const selectionCanvas = ensureMapSelectionCanvas(
+    elements.canvas,
+    elements.canvasHost,
+    options.classes?.selectionCanvas || options.selectionCanvasClass,
+    options
+  );
 
   return {
     ...elements,
     interactionOverlay,
+    staticCanvas,
     effectsCanvas,
+    selectionCanvas,
     hoverCanvas,
     canRender: true
   };

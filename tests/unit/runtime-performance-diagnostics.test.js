@@ -40,7 +40,8 @@ describe("runtime performance diagnostics", () => {
     const diagnostics = createRuntimePerformanceDiagnostics({
       windowRef,
       documentRef: document,
-      development: true
+      development: true,
+      debugEnabled: true
     });
 
     expect(diagnostics.getSummary()).toMatchObject({
@@ -49,7 +50,7 @@ describe("runtime performance diagnostics", () => {
       serverSliceActive: false,
       demoFallbackActive: true
     });
-    expect(diagnostics.getLocalTickIntervalMs(10_000)).toBe(30_000);
+    expect(diagnostics.getLocalTickIntervalMs(10_000)).toBe(10_000);
 
     diagnostics.setLocalTickActive("city-clock", true);
     diagnostics.recordLocalTick();
@@ -157,5 +158,39 @@ describe("runtime performance diagnostics", () => {
       demoFallbackActive: false
     });
     expect(diagnostics.shouldAllowDemoFallback()).toBe(false);
+  });
+
+  it("collects render diagnostics only behind the explicit debug flag", () => {
+    const disabled = createRuntimePerformanceDiagnostics({
+      windowRef: createWindowFixture(),
+      documentRef: document,
+      development: true,
+      debugEnabled: false
+    });
+    const enabled = createRuntimePerformanceDiagnostics({
+      windowRef: createWindowFixture("?performanceDebug=1"),
+      documentRef: document,
+      development: true,
+      debugEnabled: true
+    });
+
+    disabled.recordMapLayerRedraw("static");
+    disabled.recordEffectFrame();
+    enabled.recordMapLayerRedraw("static");
+    enabled.recordEffectFrame();
+    enabled.setMapRafActive(true);
+
+    expect(disabled.getSummary()).toMatchObject({
+      debugEnabled: false,
+      mapStaticRedrawCount: 0,
+      mapEffectFrameCount: 0,
+      activeMapRafLoops: 0
+    });
+    expect(enabled.getSummary()).toMatchObject({
+      debugEnabled: true,
+      mapStaticRedrawCount: 1,
+      mapEffectFrameCount: 1,
+      activeMapRafLoops: 1
+    });
   });
 });

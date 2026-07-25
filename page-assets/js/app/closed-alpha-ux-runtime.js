@@ -6,6 +6,7 @@ import {
 } from "./runtime.js";
 import { GAMEPLAY_EXECUTION_MODES, getGameplayExecutionMode } from "./runtime/gameplayExecutionMode.js";
 import { bindSharedModal, closeSharedModal, openSharedModal } from "./ui/sharedModalStack.js";
+import { FREE_GAMEPLAY_TICK_MS } from "../../../packages/game-config/src/legacy-page/economy-config.js";
 
 const CONNECTION_LABELS = Object.freeze({
   connected: "PŘIPOJENO",
@@ -40,7 +41,7 @@ const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (character
   "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
 })[character]);
 
-const formatTicks = (ticks, tickRateMs = 5000) => {
+const formatTicks = (ticks, tickRateMs = FREE_GAMEPLAY_TICK_MS) => {
   const seconds = Math.max(0, Math.ceil(Number(ticks || 0) * tickRateMs / 1000));
   return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 };
@@ -128,7 +129,7 @@ const renderLiveness = () => {
   if (!element || !view) return;
   const [title, fallback] = LIVENESS_LABELS[view.state] || LIVENESS_LABELS.invalid_softlock;
   const next = view.nextProgressAtTick !== null
-    ? `${fallback} Další možnost za ${formatTicks(view.remainingTicks, latestSlice?.mode?.tickRateMs || 5000)}.`
+    ? `${fallback} Další možnost za ${formatTicks(view.remainingTicks, latestSlice?.mode?.tickRateMs || FREE_GAMEPLAY_TICK_MS)}.`
     : fallback;
   const corridor = view.corridorAvailable && view.corridorTargets?.[0]
     ? `<span>ALIANČNÍ KORIDOR → ${escapeHtml(view.corridorTargets[0])}</span>` : "";

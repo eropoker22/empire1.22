@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { webcrypto } from "node:crypto";
 import { createInstanceSnapshot } from "../../apps/server/src/runtime/persistence/mappers/create-instance-snapshot";
 import { createPersistenceRestoreService } from "../../apps/server/src/runtime/persistence/services/instance-restore-service";
+import { createInstanceSnapshotService } from "../../apps/server/src/runtime/persistence/services/instance-snapshot-service";
 import { createSnapshotTokenCodec } from "../../apps/server/src/runtime/persistence/services/snapshot-token-codec";
 import { createServerInstanceRuntime } from "../../apps/server/src/runtime/instance-manager/instance-factory";
 import { restoreInstanceState } from "../../apps/server/src/runtime/persistence/mappers/restore-instance-state";
@@ -20,12 +21,51 @@ describe("instance snapshot mapping", () => {
     const snapshot = createInstanceSnapshot(runtime);
 
     expect(snapshot.instanceId).toBe("instance:1");
+    expect(snapshot.snapshotId).toBe(
+      `snapshot:instance:1:${runtime.state.root.tick}:${runtime.state.root.version}`
+    );
     expect(snapshot.version.schemaVersion).toBe(1);
     expect(snapshot.integrity.rootVersion).toBe(runtime.state.root.version);
     expect(snapshot.runtime.processedCommandIds).toEqual(["command:1"]);
     expect(snapshot.runtime.commandRateLimitWindow.commandCountsByPlayerId).toEqual({
       "player:1": 2
     });
+  });
+
+  it("uses distinct ids for multiple command snapshots in the same tick", () => {
+    const runtime = createServerInstanceRuntime("instance:snapshot-id", "free");
+    const first = createInstanceSnapshot(runtime);
+    runtime.state.root.version += 1;
+    const second = createInstanceSnapshot(runtime);
+
+    expect(second.tick).toBe(first.tick);
+    expect(second.snapshotId).not.toBe(first.snapshotId);
+  });
+
+  it("records successful snapshot diagnostics only when debug tools are enabled", async () => {
+    const runtime = createServerInstanceRuntime("instance:snapshot-metrics", "free");
+    runtime.config = {
+      ...runtime.config,
+      technical: {
+        ...runtime.config.technical,
+        debug: {
+          ...runtime.config.technical.debug,
+          allowDebugTools: true
+        }
+      }
+    };
+    const save = vi.fn(async () => undefined);
+    const service = createInstanceSnapshotService({
+      save,
+      loadLatest: async () => null
+    });
+
+    await service.save(runtime);
+
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(runtime.runtimeHealth.performanceDiagnostics.snapshotWriteCount).toBe(1);
+    expect(runtime.runtimeHealth.performanceDiagnostics.lastSnapshotSizeBytes).toBeGreaterThan(0);
+    expect(runtime.runtimeHealth.performanceDiagnostics.lastSnapshotSerializationDurationMs).toBeGreaterThanOrEqual(0);
   });
 
   it("restores runtime anti-replay metadata from snapshots", async () => {

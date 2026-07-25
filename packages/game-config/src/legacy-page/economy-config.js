@@ -80,6 +80,7 @@ export const MARKET_TAB_CONFIG = {
 export const getMarketPriceKey = (tabId, itemId) => `${tabId}:${itemId}`;
 import {
   ARMORY_RECIPES,
+  BROWSER_GAMEPLAY_CONFIG,
   DRUGLAB_RECIPES,
   FACTORY_CONFIG,
   FACTORY_RECIPES,
@@ -95,6 +96,8 @@ import {
   PARK_DAY_NIGHT_ACTION_RULES,
   WAREHOUSE_STORAGE_CONFIG
 } from "./gameplay-config.generated.js";
+
+export const FREE_GAMEPLAY_TICK_MS = BROWSER_GAMEPLAY_CONFIG.cityEvents.tickRateMs;
 
 export {
   ARMORY_RECIPES,

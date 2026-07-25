@@ -43,6 +43,7 @@ import {
 import type { BuildingStatsProjectionInput, BuildingStatView } from "./district-building-stats-types";
 
 export const createFinanceBuildingStats = (input: BuildingStatsProjectionInput): BuildingStatView[] | null => {
+  const tickRateMs = input.tickRateMs ?? input.dayNightConfig?.tickRateMs ?? 5_000;
   if (input.building.buildingTypeId === "shopping_mall" && input.shoppingMallConfig && input.building.ownerPlayerId) {
     const ownedCount = getOwnedShoppingMallCount(input.state, input.building.ownerPlayerId, input.shoppingMallConfig);
     const network = resolveShoppingMallNetworkMultipliers(ownedCount, input.shoppingMallConfig);
@@ -68,7 +69,8 @@ export const createFinanceBuildingStats = (input: BuildingStatsProjectionInput):
       state: input.state,
       building: input.building,
       config: input.stockExchangeConfig,
-      tick: input.tick
+      tick: input.tick,
+      tickRateMs
     });
     const activeEffects = metadata.marketEffects
       .map((effect) => `${effect.mode} ${effect.category} ${formatTickLabel(Math.max(0, effect.expiresAtTick - input.tick))}`)
@@ -110,7 +112,7 @@ export const createFinanceBuildingStats = (input: BuildingStatsProjectionInput):
       { label: "Ochrana clean cash", value: `${formatNumber(stats.cleanCashProtectionPct)} %` },
       { label: "Úrok rezervy", value: `${formatNumber(stats.interestPct)} % každých ${formatNumber(stats.interestIntervalMinutes)} min` },
       { label: "Max úrok za tick", value: `$${formatNumber(stats.maxInterestCleanCash)}` },
-      { label: "Další úrok", value: metadata.lastInterestTick === undefined || !stats.tier ? "počítá se" : formatTickLabel(Math.max(0, metadata.lastInterestTick + Math.ceil(stats.tier.interestIntervalMinutes * 60000 / Math.max(1, input.tickRateMs ?? 5000)) - input.tick)) },
+      { label: "Další úrok", value: metadata.lastInterestTick === undefined || !stats.tier ? "počítá se" : formatTickLabel(Math.max(0, metadata.lastInterestTick + Math.ceil(stats.tier.interestIntervalMinutes * 60000 / Math.max(1, tickRateMs)) - input.tick)) },
       { label: "Poslední úrok", value: latestInterest ? `$${formatNumber(latestInterest.amount)}` : "žádný" },
       { label: "Market poplatek", value: `-${formatNumber(stats.marketFeeReductionPct)} %` },
       { label: "Stabilita ekonomiky", value: `pokuty -${formatNumber(stats.fineReductionPct)} %, krize -${formatNumber(stats.economicCrisisImpactReductionPct)} %` },

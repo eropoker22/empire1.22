@@ -1,6 +1,7 @@
 import type { ServerInstanceRuntime } from "../../instance";
 import { createInstanceSnapshot } from "../mappers";
 import type { SnapshotRepository } from "../repositories";
+import { recordRuntimeSnapshotWrite } from "../../monitoring/runtime-performance-diagnostics";
 
 /**
  * Responsibility: Creates and stores validated snapshots for authoritative instances.
@@ -17,6 +18,6 @@ export const createInstanceSnapshotService = (
   save: async (runtime) => {
     const snapshot = createInstanceSnapshot(runtime);
     await snapshotRepository.save(snapshot);
+    recordRuntimeSnapshotWrite(runtime, snapshot);
   }
 });
-

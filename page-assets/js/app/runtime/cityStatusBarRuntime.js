@@ -278,6 +278,7 @@ export function createCityStatusBarRuntime(deps = {}) {
 
     let clockTimerId = null;
     let latestGameplaySlice = null;
+    let hiddenAtMs = null;
     const shouldRunLocalTick = () => deps.shouldRunLocalTick?.() !== false;
     const stopClockTimer = () => {
       if (clockTimerId === null) return;
@@ -328,8 +329,25 @@ export function createCityStatusBarRuntime(deps = {}) {
     const handlePerformanceModeChange = () => restartClockTimer();
     const handleVisibilityChange = () => {
       if (root.ownerDocument?.hidden) {
+        hiddenAtMs = Date.now();
         stopClockTimer();
       } else {
+        const intervalMs = Math.max(1, Number(deps.getTickIntervalMs?.(tickMs) || tickMs));
+        const elapsedTicks = hiddenAtMs === null
+          ? 0
+          : Math.max(0, Math.floor((Date.now() - hiddenAtMs) / intervalMs));
+        hiddenAtMs = null;
+        if (elapsedTicks > 0 && shouldRunLocalTick()) {
+          deps.recordLocalTick?.(elapsedTicks);
+          deps.onTick?.({
+            elapsedTicks,
+            getMapPhaseFromClock: getMapPhaseFromCityMinutes,
+            minuteStep: minuteStep * elapsedTicks,
+            phaseHost: elements.phaseHost,
+            root,
+            updatePhaseStatus
+          });
+        }
         startClockTimer();
       }
     };

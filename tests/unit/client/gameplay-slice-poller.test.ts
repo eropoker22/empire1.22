@@ -4,6 +4,7 @@ import {
   createGameplaySlicePoller,
   type PollingTimerDriver
 } from "../../../apps/client/src/transport";
+import { GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS } from "../../../apps/client/src/browser/gameplay-slice-timing";
 
 interface FakeInterval {
   callback: () => void;
@@ -69,6 +70,10 @@ const flushMicrotasks = async (): Promise<void> => {
 };
 
 describe("gameplay slice poller", () => {
+  it("uses a separate canonical ten-second stable polling interval", () => {
+    expect(GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS).toBe(10_000);
+  });
+
   it("start schedules one interval and repeated start does not schedule another", () => {
     const timerDriver = new FakeTimerDriver();
     const poller = createGameplaySlicePoller({
@@ -182,6 +187,29 @@ describe("gameplay slice poller", () => {
     expect(timerDriver.clearedHandles).toHaveLength(1);
   });
 
+  it("allows at most one in-flight refresh", async () => {
+    let resolveLoad!: (value: GameplaySliceResponse) => void;
+    const load = vi.fn(() => new Promise<GameplaySliceResponse>((resolve) => {
+      resolveLoad = resolve;
+    }));
+    const onSkipped = vi.fn();
+    const poller = createGameplaySlicePoller({
+      load,
+      getRequest: () => request,
+      intervalMs: 2500,
+      timerDriver: new FakeTimerDriver(),
+      onSkipped
+    });
+
+    const first = poller.refreshOnce();
+    await expect(poller.refreshOnce()).resolves.toBeNull();
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(onSkipped).toHaveBeenCalledWith("in-progress");
+
+    resolveLoad(response);
+    await first;
+  });
+
   it("does not poll while document is hidden and refreshes when visible again", async () => {
     const timerDriver = new FakeTimerDriver();
     const visibilityDocument = new FakeVisibilityDocument();
@@ -207,6 +235,33 @@ describe("gameplay slice poller", () => {
     expect(load).toHaveBeenCalledTimes(1);
     expect(poller.isRunning()).toBe(true);
     expect(timerDriver.intervals).toHaveLength(1);
+  });
+
+  it("repeated visibility cycles keep one interval and one refresh per return", async () => {
+    const timerDriver = new FakeTimerDriver();
+    const visibilityDocument = new FakeVisibilityDocument();
+    const load = vi.fn(async () => response);
+    const poller = createGameplaySlicePoller({
+      load,
+      getRequest: () => request,
+      intervalMs: 2500,
+      timerDriver,
+      visibilityDocument
+    });
+
+    poller.start();
+    for (let cycle = 0; cycle < 2; cycle += 1) {
+      visibilityDocument.hidden = true;
+      visibilityDocument.dispatchVisibilityChange();
+      visibilityDocument.hidden = false;
+      visibilityDocument.dispatchVisibilityChange();
+      await flushMicrotasks();
+    }
+
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(timerDriver.intervals).toHaveLength(3);
+    expect(timerDriver.clearedHandles).toHaveLength(2);
+    expect(poller.isRunning()).toBe(true);
   });
 
   it("destroy clears active polling and removes visibility listener", () => {
@@ -253,5 +308,29 @@ describe("gameplay slice poller", () => {
 
     expect(timerDriver.intervals.map((interval) => interval.intervalMs)).toEqual([1000, 2000, 3000]);
     expect(timerDriver.clearedHandles).toHaveLength(2);
+  });
+
+  it("resets error backoff after a successful refresh", async () => {
+    const timerDriver = new FakeTimerDriver();
+    let shouldFail = true;
+    const poller = createGameplaySlicePoller({
+      load: async () => {
+        if (shouldFail) throw new Error("offline");
+        return response;
+      },
+      getRequest: () => request,
+      intervalMs: 1000,
+      timerDriver
+    });
+
+    poller.start();
+    timerDriver.fire();
+    await flushMicrotasks();
+    shouldFail = false;
+    timerDriver.fire(1);
+    await flushMicrotasks();
+
+    expect(timerDriver.intervals.map((interval) => interval.intervalMs)).toEqual([1000, 2000, 1000]);
+    expect(poller.isRunning()).toBe(true);
   });
 });

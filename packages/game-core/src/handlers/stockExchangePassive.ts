@@ -18,11 +18,15 @@ export const resolveStockExchangeInspectionRiskPct = (input: {
   building: CoreGameState["buildingsById"][string];
   config: StockExchangeBalanceConfig;
   tick: number;
+  tickRateMs: number;
 }): number => {
   const metadata = getStockExchangeMetadata(input.building, input.tick);
   const player = input.building.ownerPlayerId ? input.state.playersById[input.building.ownerPlayerId] : undefined;
   const policeState = player ? input.state.policeStatesById[player.policeStateId] : undefined;
-  const actionWindowTicks = minutesToTicks(input.config.financialInspection.multiActionWindowMinutes, 5000);
+  const actionWindowTicks = minutesToTicks(
+    input.config.financialInspection.multiActionWindowMinutes,
+    input.tickRateMs
+  );
   const recentActions = metadata.actionHistory.filter((action) => input.tick - action.tick <= actionWindowTicks).length;
   const eventRisk = metadata.riskEvents.reduce((total, event) => total + Math.max(0, Number(event.riskPct || 0)), 0);
   const multiActionRisk = recentActions >= input.config.financialInspection.multiActionThreshold
@@ -78,7 +82,13 @@ export const applyStockExchangeFinancialInspections = (
     if (building.buildingTypeId !== config.buildingTypeId || !building.ownerPlayerId || building.status !== "active") continue;
     const metadata = getStockExchangeMetadata(building, nextState.root.tick);
     if (Number(metadata.lastInspectionTick ?? 0) + intervalTicks > nextState.root.tick) continue;
-    const riskPct = resolveStockExchangeInspectionRiskPct({ state: nextState, building, config, tick: nextState.root.tick });
+    const riskPct = resolveStockExchangeInspectionRiskPct({
+      state: nextState,
+      building,
+      config,
+      tick: nextState.root.tick,
+      tickRateMs
+    });
     const roll = deterministicUnitInterval(`${nextState.serverInstance.worldSeed}:stock-inspection:${building.id}:${nextState.root.tick}`);
     let nextMetadata: StockExchangeMetadata = { ...metadata, lastInspectionTick: nextState.root.tick };
     if (roll < riskPct / 100) {

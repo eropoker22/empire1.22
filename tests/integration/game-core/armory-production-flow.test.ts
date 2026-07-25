@@ -58,14 +58,14 @@ describe("armory production", () => {
       alarm: 7
     });
     expect(armory.recipes["baseball-bat"]).toMatchObject({ category: "attack", cleanCashCostPerUnit: 0, inputCosts: { "metal-parts": 2 }, outputAmount: 1, localOutputCap: 8, queueCap: 11 });
-    expect(armory.recipes.pistol).toMatchObject({ inputCosts: { "metal-parts": 3, "tech-core": 1 }, durationTicksPerUnit: 75, localOutputCap: 5, queueCap: 8 });
+    expect(armory.recipes.pistol).toMatchObject({ inputCosts: { "metal-parts": 3, "tech-core": 1 }, durationTicksPerUnit: 37, localOutputCap: 5, queueCap: 8 });
     expect(armory.recipes.grenade).toMatchObject({ inputCosts: { "metal-parts": 2, "tech-core": 1 }, localOutputCap: 4, queueCap: 7 });
     expect(armory.recipes.smg).toMatchObject({ inputCosts: { "metal-parts": 2, "combat-module": 1 }, localOutputCap: 3, queueCap: 6 });
     expect(armory.recipes.bazooka).toMatchObject({ inputCosts: { "metal-parts": 3, "combat-module": 2 }, localOutputCap: 2, queueCap: 5 });
     expect(armory.recipes.vest).toMatchObject({ category: "defense", inputCosts: { "metal-parts": 3, "tech-core": 1 }, localOutputCap: 5, queueCap: 8 });
     expect(armory.recipes.barricades).toMatchObject({ inputCosts: { "metal-parts": 4 }, localOutputCap: 6, queueCap: 9 });
-    expect(armory.recipes.cameras).toMatchObject({ inputCosts: { "metal-parts": 2, "tech-core": 2 }, durationTicksPerUnit: 90, localOutputCap: 4, queueCap: 7 });
-    expect(armory.recipes["defense-tower"]).toMatchObject({ inputCosts: { "tech-core": 3, "combat-module": 2 }, durationTicksPerUnit: 225, localOutputCap: 2, queueCap: 5 });
+    expect(armory.recipes.cameras).toMatchObject({ inputCosts: { "metal-parts": 2, "tech-core": 2 }, durationTicksPerUnit: 45, localOutputCap: 4, queueCap: 7 });
+    expect(armory.recipes["defense-tower"]).toMatchObject({ inputCosts: { "tech-core": 3, "combat-module": 2 }, durationTicksPerUnit: 112, localOutputCap: 2, queueCap: 5 });
     expect(armory.recipes.alarm).toMatchObject({ inputCosts: { "metal-parts": 2, "tech-core": 1 }, localOutputCap: 4, queueCap: 7 });
   });
 

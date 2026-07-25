@@ -1,4 +1,5 @@
 import { createServerBuildingActionDefaultPayload } from "./buildingSpecialActionServerDefaults.js";
+import { FREE_GAMEPLAY_TICK_MS } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
 
 export function resolveServerDistrictIdFromBuildingContext(context = {}) {
   const rawId = context?.serverDistrictId
@@ -19,7 +20,8 @@ export function formatServerBuildingActionDisabledReason(actionView, deps = {}) 
   const cooldownTicks = Math.max(0, Math.floor(Number(actionView?.cooldownRemainingTicks || 0)));
   if (cooldownTicks > 0) {
     const formatCooldown = deps.formatCooldown || ((ms) => `${ms}ms`);
-    return `Akce čeká ${formatCooldown(cooldownTicks * 5000)}.`;
+    const tickRateMs = Math.max(1, Number(deps.tickRateMs || FREE_GAMEPLAY_TICK_MS));
+    return `Akce čeká ${formatCooldown(cooldownTicks * tickRateMs)}.`;
   }
   return String(actionView?.disabledReason || "").trim();
 }
@@ -148,7 +150,8 @@ export async function submitServerBuildingActionCommandBridge({ context, actionP
   }
 
   const disabledReason = formatServerBuildingActionDisabledReason(target.actionView, {
-    formatCooldown: deps.formatCooldown
+    formatCooldown: deps.formatCooldown,
+    tickRateMs: deps.getSlice?.()?.mode?.tickRateMs
   });
   if (!target.actionView.enabled || disabledReason) {
     return {

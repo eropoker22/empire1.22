@@ -1,12 +1,11 @@
-import type { DomainError, GameCommand, GameplaySliceResponse } from "@empire/shared-types";
-import { districtPanelFeature } from "../features";
+import type { GameCommand } from "@empire/shared-types";
 import { createClientStore, createInitialClientUiState } from "../state";
 import { createCommandDispatcher, type ClientTransport } from "../transport";
 import { createClientAppShell, type ClientAppShell } from "./client-app-shell";
 import { createInitialClientRenderState, type ClientRenderState } from "./client-render-state";
+import { createClientResponseCommitter } from "./client-response-committer";
 import { renderClientShell } from "./client-shell-renderer";
-import { getMapManifestMismatch, hasCurrentMapManifestMismatch } from "./map-manifest-guard";
-import { canReuseServerSliceRender, createServerSliceRenderFingerprint } from "./server-slice-render-reuse";
+import { hasCurrentMapManifestMismatch } from "./map-manifest-guard";
 
 /**
  * Responsibility: Client composition root that wires store, transport, and UI shell boundaries.
@@ -14,106 +13,20 @@ import { canReuseServerSliceRender, createServerSliceRenderFingerprint } from ".
  * Does not belong here: gameplay logic or server authority decisions.
  */
 export interface CreateClientAppOptions { transport: ClientTransport; onStateRecompute?(reason: string): void; }
-const spawnSelectionFeature = "spawn-selection";
 export const createClientApp = ({ transport, onStateRecompute }: CreateClientAppOptions): ClientAppShell => {
   const store = createClientStore(createInitialClientUiState());
   const dispatcher = createCommandDispatcher(transport);
   let renderState = createInitialClientRenderState();
-  let lastCommittedSliceFingerprint = "";
   const recomputeRenderState = (reason: string): ClientRenderState => {
     onStateRecompute?.(reason);
     renderState = renderClientShell(store);
     return renderState;
   };
-
-  const commitResponse = (
-    response: GameplaySliceResponse,
-    selectedDistrictId?: string | null,
-    commandId?: string
-  ): ClientRenderState => {
-    const hasAuthoritativeReadModel = Boolean(response.readModel);
-    const missingReadModelMessage = "Gameplay slice response did not include an authoritative read model.";
-    const mapManifestMismatch = getMapManifestMismatch(response);
-    const responseErrors = mapManifestMismatch
-      ? [...response.errors, mapManifestMismatch]
-      : response.errors;
-    const firstErrorMessage = responseErrors[0]?.message ?? null;
-    const nextSliceFingerprint = createServerSliceRenderFingerprint(response.readModel, selectedDistrictId);
-    const canReuseCommittedRenderState = canReuseServerSliceRender(
-      nextSliceFingerprint,
-      lastCommittedSliceFingerprint,
-      commandId,
-      responseErrors.length
-    );
-
-    if (canReuseCommittedRenderState) {
-      store.setConnectionState({
-        status: "ready",
-        lastErrorMessage: null,
-        staleData: false
-      });
-      return renderState;
-    }
-
-    if (response.readModel) {
-      const serverSelectedDistrictId = response.readModel.district?.districtId ??
-        response.readModel.player.homeDistrictId ??
-        selectedDistrictId ??
-        null;
-      const activeSidePanel = response.readModel.spawnSelection?.status === "awaiting_spawn_selection"
-        ? spawnSelectionFeature
-        : districtPanelFeature;
-      store.setGameplaySlice(response.readModel);
-      store.patchUiState({
-        selectedDistrictId: serverSelectedDistrictId,
-        activeSidePanel
-      });
-    }
-
-    if (commandId) {
-      store.patchUiState({
-        lastCommandStatus: {
-          commandId,
-          accepted: response.accepted
-        }
-      });
-    }
-
-    store.setGameplaySliceMetadata(response.metadata ?? (
-      response.readModel
-        ? {
-            serverTick: response.readModel.server.currentTick,
-            stateVersion: response.readModel.server.stateVersion
-          }
-        : null
-    ));
-    store.setErrors(responseErrors);
-    store.setConnectionState({
-      status: hasAuthoritativeReadModel && !mapManifestMismatch ? "ready" : "error",
-      lastErrorMessage: firstErrorMessage ?? (hasAuthoritativeReadModel ? null : missingReadModelMessage),
-      staleData: responseErrors.length > 0 || !hasAuthoritativeReadModel
-    });
-    if (nextSliceFingerprint) lastCommittedSliceFingerprint = nextSliceFingerprint;
-    return recomputeRenderState(commandId ? "server-command-response" : "server-slice-response");
-  };
-  const commitTransportFailure = (message: string, commandId?: string): ClientRenderState => {
-    const errors: DomainError[] = [{ code: "client.transport_error", message }];
-    store.setErrors(errors);
-    store.setConnectionState({
-      status: "error",
-      lastErrorMessage: message,
-      staleData: true
-    });
-    if (commandId) {
-      store.patchUiState({
-        lastCommandStatus: {
-          commandId,
-          accepted: false
-        }
-      });
-    }
-    return recomputeRenderState("transport-failure");
-  };
+  const responseCommitter = createClientResponseCommitter({
+    store,
+    getRenderState: () => renderState,
+    recomputeRenderState
+  });
   recomputeRenderState("initial-client-shell");
 
   const createLoadRequestForSelectedDistrict = (districtId: string) => {
@@ -133,6 +46,7 @@ export const createClientApp = ({ transport, onStateRecompute }: CreateClientApp
 
   return createClientAppShell({
     load: async (request) => {
+      const operationSequence = responseCommitter.issueOperation();
       store.setConnectionState({
         status: "connecting",
         lastErrorMessage: null,
@@ -141,10 +55,12 @@ export const createClientApp = ({ transport, onStateRecompute }: CreateClientApp
 
       try {
         const response = await transport.load(request);
-        return commitResponse(response, request.districtId);
+        return responseCommitter.commitResponse(response, request.districtId, undefined, operationSequence);
       } catch (error) {
-        return commitTransportFailure(
-          createTransportFailureMessage("Unable to load gameplay slice from server.", error)
+        return responseCommitter.commitTransportFailure(
+          createTransportFailureMessage("Unable to load gameplay slice from server.", error),
+          undefined,
+          operationSequence
         );
       }
     },
@@ -157,10 +73,15 @@ export const createClientApp = ({ transport, onStateRecompute }: CreateClientApp
       return recomputeRenderState("ui-clear-district-selection");
     },
     selectDistrict: async (districtId: string) => {
+      const operationSequence = responseCommitter.issueOperation();
       const request = createLoadRequestForSelectedDistrict(districtId);
 
       if (!request) {
-        return commitTransportFailure("Cannot select a district before the gameplay slice is loaded.");
+        return responseCommitter.commitTransportFailure(
+          "Cannot select a district before the gameplay slice is loaded.",
+          undefined,
+          operationSequence
+        );
       }
 
       store.setConnectionState({
@@ -175,10 +96,12 @@ export const createClientApp = ({ transport, onStateRecompute }: CreateClientApp
 
       try {
         const response = await transport.load(request);
-        return commitResponse(response, districtId);
+        return responseCommitter.commitResponse(response, districtId, undefined, operationSequence);
       } catch (error) {
-        return commitTransportFailure(
-          createTransportFailureMessage("Unable to load selected district from server.", error)
+        return responseCommitter.commitTransportFailure(
+          createTransportFailureMessage("Unable to load selected district from server.", error),
+          undefined,
+          operationSequence
         );
       }
     },
@@ -189,15 +112,24 @@ export const createClientApp = ({ transport, onStateRecompute }: CreateClientApp
       return recomputeRenderState("ui-select-building");
     },
     dispatch: async (command: GameCommand) => {
+      const operationSequence = responseCommitter.issueOperation();
       const uiState = store.getUiState();
       const currentSlice = store.getReadModel().gameplaySlice;
 
       if (hasCurrentMapManifestMismatch(currentSlice)) {
-        return commitTransportFailure("Client map manifest does not match the server map manifest. Map actions are disabled.", command.id);
+        return responseCommitter.commitTransportFailure(
+          "Client map manifest does not match the server map manifest. Map actions are disabled.",
+          command.id,
+          operationSequence
+        );
       }
 
       if (!uiState.selectedDistrictId && command.type !== "select-spawn-district") {
-        return commitTransportFailure("No district is selected for the district panel slice.", command.id);
+        return responseCommitter.commitTransportFailure(
+          "No district is selected for the district panel slice.",
+          command.id,
+          operationSequence
+        );
       }
 
       store.patchUiState({
@@ -221,7 +153,7 @@ export const createClientApp = ({ transport, onStateRecompute }: CreateClientApp
             .filter((pendingCommandId) => pendingCommandId !== command.id)
         });
 
-        return commitResponse(response, uiState.selectedDistrictId, command.id);
+        return responseCommitter.commitResponse(response, uiState.selectedDistrictId, command.id, operationSequence);
       } catch (_error) {
         store.patchUiState({
           pendingCommandIds: store
@@ -230,9 +162,10 @@ export const createClientApp = ({ transport, onStateRecompute }: CreateClientApp
             .filter((pendingCommandId) => pendingCommandId !== command.id)
         });
 
-        return commitTransportFailure(
+        return responseCommitter.commitTransportFailure(
           createTransportFailureMessage("Unable to submit gameplay command to server.", _error),
-          command.id
+          command.id,
+          operationSequence
         );
       }
     },

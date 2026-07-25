@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type {
   GameCommand,
   GameplaySliceResponse,
@@ -124,6 +124,78 @@ describe("client optimistic concurrency", () => {
     expect(render.errors[0]?.code).toBe("client.transport_error");
     expect(render.errors[0]?.message).toContain("map manifest");
   });
+
+  it("uses the command response immediately without a redundant load", async () => {
+    const load = vi.fn(async () => ({
+      accepted: true,
+      readModel: createGameplaySliceView(7),
+      errors: []
+    }));
+    const send = vi.fn(async () => ({
+      accepted: true,
+      readModel: createGameplaySliceView(8),
+      errors: []
+    }));
+    const client = createClientApp({ transport: { load, send } });
+
+    await client.load({
+      serverInstanceId: "instance:client-concurrency",
+      playerId: "player:client-concurrency",
+      districtId: "district:client-concurrency"
+    });
+    const render = await client.dispatch(createCommand());
+
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(client.getGameplaySlice()?.server.stateVersion).toBe(8);
+    expect(render.lastCommandStatus).toEqual({
+      commandId: "command:client-concurrency:1",
+      accepted: true
+    });
+  });
+
+  it("does not let a late polling response overwrite a newer command response", async () => {
+    let loadCalls = 0;
+    let resolveLateLoad!: (response: GameplaySliceResponse) => void;
+    const transport: ClientTransport = {
+      load: async () => {
+        loadCalls += 1;
+        if (loadCalls === 1) {
+          return { accepted: true, readModel: createGameplaySliceView(7), errors: [] };
+        }
+        return new Promise<GameplaySliceResponse>((resolve) => {
+          resolveLateLoad = resolve;
+        });
+      },
+      send: async () => ({
+        accepted: true,
+        readModel: createGameplaySliceView(8),
+        errors: []
+      })
+    };
+    const client = createClientApp({ transport });
+    const request = {
+      serverInstanceId: "instance:client-concurrency",
+      playerId: "player:client-concurrency",
+      districtId: "district:client-concurrency"
+    };
+
+    await client.load(request);
+    const lateLoad = client.load(request);
+    await client.dispatch(createCommand());
+    resolveLateLoad({
+      accepted: true,
+      readModel: createGameplaySliceView(7),
+      errors: []
+    });
+    await lateLoad;
+
+    expect(client.getGameplaySlice()?.server.stateVersion).toBe(8);
+    expect(client.getRenderState().lastCommandStatus).toEqual({
+      commandId: "command:client-concurrency:1",
+      accepted: true
+    });
+  });
 });
 
 const createCommand = (): GameCommand => ({
@@ -158,7 +230,7 @@ const createGameplaySliceView = (
     mode: "free",
     label: "Empire Streets Free",
     matchStyle: "short",
-    tickRateMs: 5000,
+    tickRateMs: 10_000,
     sessionKeyPrefix: "empire:free"
   },
   player: {

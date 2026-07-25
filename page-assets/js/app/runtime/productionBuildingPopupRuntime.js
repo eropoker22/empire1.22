@@ -1,4 +1,5 @@
 import { createBuildingUpgradeConfirmationController } from "./buildingUpgradeConfirmation.js";
+import { FREE_GAMEPLAY_TICK_MS } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
 import {
   cancelWaitingLocalProduction,
   collectLocalProduction,
@@ -415,7 +416,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       recipeId: line.recipeId,
       recipe,
       serverLine: line,
-      tickRateMs: deps.getServerTickRateMs?.() || 5000,
+      tickRateMs: deps.getServerTickRateMs?.() || FREE_GAMEPLAY_TICK_MS,
       visual: deps.PRODUCTION_SLOT_VISUALS?.pharmacy?.[line.recipeId] || null
     }, {
       onStart: async ({ batchCount }) => {
@@ -463,7 +464,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       recipe,
       serverLine: line,
       cleanCashAmount: drugLab.cleanCashAmount,
-      tickRateMs: deps.getServerTickRateMs?.() || 5000,
+      tickRateMs: deps.getServerTickRateMs?.() || FREE_GAMEPLAY_TICK_MS,
       visual: deps.PRODUCTION_SLOT_VISUALS?.druglab?.[line.recipeId] || null
     }, {
       onStart: async ({ batchCount }) => {
@@ -510,7 +511,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       recipeId: line.recipeId,
       recipe,
       serverLine: line,
-      tickRateMs: deps.getServerTickRateMs?.() || 5000,
+      tickRateMs: deps.getServerTickRateMs?.() || FREE_GAMEPLAY_TICK_MS,
       visual: deps.PRODUCTION_SLOT_VISUALS?.armory?.[line.recipeId] || null
     }, {
       onStart: async ({ batchCount }) => {

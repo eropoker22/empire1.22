@@ -68,7 +68,7 @@ const createGameplaySliceView = (): GameplaySliceView =>
       mode: "free",
       label: "Empire Streets Free",
       matchStyle: "short",
-      tickRateMs: 5000,
+      tickRateMs: 10_000,
       sessionKeyPrefix: "empire:free"
     },
     player: {
@@ -147,6 +147,46 @@ describe("gameplay slice page event guard", () => {
     resetOverlayStateForTests();
     document.body.innerHTML = "";
     vi.restoreAllMocks();
+  });
+
+  it("repeated mount on the same root reuses one authority runtime", async () => {
+    const load = vi.fn(async () => createGameplaySliceResponse());
+    const transport = {
+      load,
+      send: async () => createGameplaySliceResponse()
+    };
+    const root = createRoot();
+    document.body.append(root);
+
+    const first = mountGameplaySlicePage({ root, transport });
+    const second = mountGameplaySlicePage({ root, transport });
+    await flushMicrotasks();
+
+    expect(second).toBe(first);
+    expect(load).toHaveBeenCalledTimes(1);
+
+    first?.destroy();
+  });
+
+  it("pagehide cleans the mounted authority runtime before a later remount", async () => {
+    const load = vi.fn(async () => createGameplaySliceResponse());
+    const transport = {
+      load,
+      send: async () => createGameplaySliceResponse()
+    };
+    const root = createRoot();
+    document.body.append(root);
+
+    const first = mountGameplaySlicePage({ root, transport });
+    await flushMicrotasks();
+    window.dispatchEvent(new Event("pagehide"));
+
+    const second = mountGameplaySlicePage({ root, transport });
+    await flushMicrotasks();
+
+    expect(second).not.toBe(first);
+    expect(load).toHaveBeenCalledTimes(2);
+    second?.destroy();
   });
 
   it("tap uvnitř mobile sheet neprojde na mapu ani sheet neuzavře", async () => {

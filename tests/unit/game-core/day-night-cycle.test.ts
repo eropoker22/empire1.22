@@ -50,8 +50,8 @@ describe("day night cycle", () => {
     expect(getCurrentDayNightPhase(state, context)).toMatchObject({
       phaseId: "day",
       startedAtTick: 0,
-      endsAtTick: 1440,
-      remainingTicks: 1440
+      endsAtTick: 720,
+      remainingTicks: 720
     });
 
     state.root.tick = 0;
@@ -69,12 +69,12 @@ describe("day night cycle", () => {
       heatPerDay: 11
     });
 
-    state.root.tick = 1440;
+    state.root.tick = 720;
     expect(getCurrentDayNightPhase(state, context)).toMatchObject({
       phaseId: "night",
-      startedAtTick: 1440,
-      endsAtTick: 2880,
-      remainingTicks: 1440
+      startedAtTick: 720,
+      endsAtTick: 1440,
+      remainingTicks: 720
     });
   });
 
@@ -83,6 +83,7 @@ describe("day night cycle", () => {
     const warConfig = resolveModeConfig("war");
 
     expect(resolveDayNightPhaseDurationTicks(5000)).toBe(1440);
+    expect(resolveDayNightPhaseDurationTicks(10_000)).toBe(720);
     expect(freeConfig.balance.dayLengthTicks).toBe(freeConfig.balance.nightLengthTicks);
     expect(warConfig.balance.dayLengthTicks).toBe(warConfig.balance.nightLengthTicks);
   });
@@ -121,19 +122,19 @@ describe("day night cycle", () => {
       realPhaseDurationMs: 2 * 60 * 60 * 1000
     });
 
-    state.root.tick = 720;
+    state.root.tick = 360;
     expect(createDayNightReadModel(state, context)).toMatchObject({
       phaseId: "day",
       gameClockLabel: "12:00"
     });
 
-    state.root.tick = 1439;
+    state.root.tick = 719;
     expect(createDayNightReadModel(state, context)).toMatchObject({
       phaseId: "day",
       gameClockLabel: "17:59"
     });
 
-    state.root.tick = 1440;
+    state.root.tick = 720;
     expect(createDayNightReadModel(state, context)).toMatchObject({
       phaseId: "night",
       gameClockLabel: "18:00",
@@ -141,13 +142,13 @@ describe("day night cycle", () => {
       phaseEndsAtGameHour: 6
     });
 
-    state.root.tick = 2160;
+    state.root.tick = 1080;
     expect(createDayNightReadModel(state, context)).toMatchObject({
       phaseId: "night",
       gameClockLabel: "00:00"
     });
 
-    state.root.tick = 2879;
+    state.root.tick = 1439;
     expect(createDayNightReadModel(state, context)).toMatchObject({
       phaseId: "night",
       gameClockLabel: "05:59"
@@ -158,8 +159,8 @@ describe("day night cycle", () => {
   it("emits city feed when the phase changes", () => {
     const state = createCoreStateFixture();
     const context = createContext("free");
-    state.root.tick = 1439;
-    state.serverInstance.currentTick = 1439;
+    state.root.tick = 719;
+    state.serverInstance.currentTick = 719;
 
     const result = runTick(state, context);
     const feed = Object.values(result.nextState.cityFeedEventsById);
@@ -191,7 +192,7 @@ describe("day night cycle", () => {
       heatPerDay: 11
     });
 
-    state.root.tick = 1440;
+    state.root.tick = 720;
     expect(applyDayNightBuildingIncomeModifiers({
       state,
       context,
@@ -211,7 +212,7 @@ describe("day night cycle", () => {
     const state = createCoreStateFixture();
     const context = createContext("free");
 
-    state.root.tick = 1440;
+    state.root.tick = 720;
     expect(applyDayNightBuildingIncomeModifiers({
       state,
       context,
@@ -244,7 +245,7 @@ describe("day night cycle", () => {
     });
     const cityHallDayRule = resolveDayNightPassiveBuildingRule(state, context, "city_hall");
 
-    state.root.tick = 1440;
+    state.root.tick = 720;
     const restaurantNight = applyDayNightBuildingIncomeModifiers({
       state,
       context,
@@ -274,7 +275,7 @@ describe("day night cycle", () => {
       dayNightConfig: context.config
     });
 
-    state.root.tick = 1440;
+    state.root.tick = 720;
     const night = resolveRestaurantRumorStats({
       state,
       playerId: "player:1",
@@ -303,7 +304,7 @@ describe("day night cycle", () => {
       influencePerDay: 10
     });
 
-    state.root.tick = 1440;
+    state.root.tick = 720;
     const night = applyDayNightBuildingIncomeModifiers({
       state,
       context,
@@ -333,7 +334,7 @@ describe("day night cycle", () => {
       influencePerDay: 0
     });
 
-    state.root.tick = 1440;
+    state.root.tick = 720;
     const night = applyDayNightBuildingIncomeModifiers({
       state,
       context,
@@ -352,7 +353,7 @@ describe("day night cycle", () => {
   it("applies passive population and production modifiers to school and lab loops", () => {
     const context = createContext("free");
     const daySchoolFixture = createCoreStateWithFixedBuildingFixture("school");
-    daySchoolFixture.state.root.tick = 12;
+    daySchoolFixture.state.root.tick = 6;
     daySchoolFixture.building.metadata = {
       school: {
         storedStudents: 0,
@@ -360,7 +361,7 @@ describe("day night cycle", () => {
       }
     };
     const nightSchoolFixture = createCoreStateWithFixedBuildingFixture("school");
-    nightSchoolFixture.state.root.tick = 1452;
+    nightSchoolFixture.state.root.tick = 726;
     nightSchoolFixture.building.metadata = {
       school: {
         storedStudents: 0,
@@ -383,7 +384,7 @@ describe("day night cycle", () => {
       buildingTypeId: "drug_lab",
       amountPerTick: 100
     });
-    state.root.tick = 1440;
+    state.root.tick = 720;
     const drugLabNight = applyDayNightProductionMultiplier({
       state,
       context,
@@ -437,7 +438,7 @@ describe("day night cycle", () => {
       });
       const dayRule = resolveDayNightPassiveBuildingRule(state, context, buildingTypeId);
 
-      state.root.tick = 1440;
+      state.root.tick = 720;
       const nightIncome = applyDayNightBuildingIncomeModifiers({
         state,
         context,
@@ -581,7 +582,7 @@ describe("day night cycle", () => {
       blockedReason: "VIP noc můžeš spustit jen v noci."
     });
 
-    state.root.tick = 1440;
+    state.root.tick = 720;
     expect(resolveDayNightActionRule(state, context, "night_machines", "arcade")).toMatchObject({
       allowed: true,
       phaseAvailability: "buffed",
@@ -613,7 +614,7 @@ describe("day night cycle", () => {
       message: "Noční automaty se rozjíždí až po setmění."
     }));
 
-    state.root.tick = 1440;
+    state.root.tick = 720;
     expect(validateRunBuildingAction(state, command, context).some((error) => error.code === "building_action_phase_blocked")).toBe(false);
   });
 
@@ -628,7 +629,7 @@ describe("day night cycle", () => {
       phaseBadgeLabel: "DEN BONUS"
     });
 
-    state.root.tick = 1440;
+    state.root.tick = 720;
     expect(resolveDayNightActionRule(state, context, "parliament_policy_window", "parliament")).toMatchObject({
       allowed: false,
       phaseAvailability: "blocked",
@@ -648,7 +649,7 @@ describe("day night cycle", () => {
     });
     expect(applyDayNightActionHeat(12, state, context, "good_rate", "exchange")).toBe(12);
 
-    state.root.tick = 1440;
+    state.root.tick = 720;
     expect(resolveDayNightActionRule(state, context, "good_rate", "exchange")).toMatchObject({
       allowed: false,
       phaseAvailability: "blocked",
@@ -669,7 +670,7 @@ describe("day night cycle", () => {
     });
     expect(applyDayNightActionHeat(10, state, context, "quiet_backroom", "casino")).toBe(13);
 
-    state.root.tick = 1440;
+    state.root.tick = 720;
     expect(resolveDayNightActionRule(state, context, "quiet_backroom", "casino")).toMatchObject({
       allowed: true,
       phaseAvailability: "buffed",
@@ -730,7 +731,7 @@ describe("day night cycle", () => {
     const officialCover = context.config.balance.buildingActions?.official_cover;
     expect(officialCover).toBeDefined();
 
-    state.root.tick = 1440;
+    state.root.tick = 720;
     const preview = resolveEffectiveBuildingActionPreview({
       action: officialCover!,
       state,
@@ -778,7 +779,7 @@ describe("day night cycle", () => {
       phaseAvailability: "penalized"
     });
 
-    state.root.tick = 1440;
+    state.root.tick = 720;
     expect(resolveEffectiveBuildingActionPreview({
       action: syntheticQuietBackroom,
       state,
@@ -810,7 +811,7 @@ describe("day night cycle", () => {
       currentPhase: "day"
     });
 
-    state.root.tick = 1440;
+    state.root.tick = 720;
     expect(resolveEffectiveBuildingActionPreview({
       action: nightMachines!,
       state,
@@ -829,7 +830,7 @@ describe("day night cycle", () => {
       playerBalances: { cash: 10000 }
     });
     const context = createContext("free");
-    state.root.tick = 1440;
+    state.root.tick = 720;
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
       influence: 1000
@@ -859,7 +860,7 @@ describe("day night cycle", () => {
         actionId: "official_cover"
       }
     });
-    state.root.tick = 1440;
+    state.root.tick = 720;
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
       influence: 1000
@@ -876,7 +877,7 @@ describe("day night cycle", () => {
       playerBalances: { cash: 10000, influence: 1000 }
     });
     const context = createContext("free");
-    state.root.tick = 1440;
+    state.root.tick = 720;
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
       influence: 1000
@@ -966,7 +967,7 @@ describe("day night cycle", () => {
     expect(calculatePlayerPolicePressure(state, "player:1", context).playerHeatPressure).toBe(115);
     expect(applyDayNightHeistDetectionChance({ gameState: { ...state, config: context.config }, baseChance: 0.3 })).toBeCloseTo(0.45);
 
-    state.root.tick = 1440;
+    state.root.tick = 720;
     expect(calculatePlayerPolicePressure(state, "player:1", context).playerHeatPressure).toBe(90);
     expect(applyDayNightHeistDetectionChance({ gameState: { ...state, config: context.config }, baseChance: 0.3 })).toBeCloseTo(0.2);
   });
@@ -974,12 +975,12 @@ describe("day night cycle", () => {
   it("projects day night read model onto player view", () => {
     const state = createCoreStateFixture();
     const context = createContext("free");
-    state.root.tick = 1440;
+    state.root.tick = 720;
 
     expect(createDayNightReadModel(state, context)).toMatchObject({
       phaseId: "night",
       label: "NOC",
-      remainingTicks: 1440,
+      remainingTicks: 720,
       uiThemeHint: "night"
     });
     expect(createPlayerView(state, "player:1", context).dayNight).toMatchObject({
@@ -1034,7 +1035,7 @@ describe("day night cycle", () => {
       heatMultiplier: 1
     });
 
-    state.root.tick = 1440;
+    state.root.tick = 720;
     expect(resolveCityHallNightPatrolPressure({
       state,
       context,

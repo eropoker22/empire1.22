@@ -411,47 +411,53 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
       : null
   );
   const bountyDistrictMarkers = getBountyDistrictMarkers();
+  const renderStaticLayer = options.renderStaticLayer !== false;
+  const renderStateLayer = options.renderStateLayer !== false;
+  const renderSelectionLayer = options.renderSelectionLayer !== false;
+  const renderFinalTintLayer = options.renderFinalTintLayer !== false;
 
   context.clearRect(0, 0, width, height);
 
-  const activeImage = isNight ? imageSet?.night : imageSet?.day;
+  if (renderStaticLayer) {
+    const activeImage = isNight ? imageSet?.night : imageSet?.day;
 
-  if (activeImage) {
-    drawMapImage(context, activeImage, width, height);
-  } else {
-    const backgroundGradient = context.createLinearGradient(0, 0, width, height);
-    backgroundGradient.addColorStop(0, isNight ? "#04111f" : "#102235");
-    backgroundGradient.addColorStop(0.5, isNight ? "#08172b" : "#16344f");
-    backgroundGradient.addColorStop(1, isNight ? "#050b16" : "#0b1828");
-    context.fillStyle = backgroundGradient;
+    if (activeImage) {
+      drawMapImage(context, activeImage, width, height);
+    } else {
+      const backgroundGradient = context.createLinearGradient(0, 0, width, height);
+      backgroundGradient.addColorStop(0, isNight ? "#04111f" : "#102235");
+      backgroundGradient.addColorStop(0.5, isNight ? "#08172b" : "#16344f");
+      backgroundGradient.addColorStop(1, isNight ? "#050b16" : "#0b1828");
+      context.fillStyle = backgroundGradient;
+      context.fillRect(0, 0, width, height);
+    }
+
+    context.fillStyle = reducedMapEffects
+      ? (isNight ? "rgba(4, 8, 14, 0.18)" : "rgba(6, 14, 24, 0.08)")
+      : (isNight ? "rgba(4, 8, 14, 0.28)" : "rgba(6, 14, 24, 0.14)");
     context.fillRect(0, 0, width, height);
+
+    if (!reducedMapEffects) {
+      context.save();
+      context.globalCompositeOperation = "screen";
+      const imageBloom = context.createRadialGradient(width * 0.52, height * 0.42, 30, width * 0.52, height * 0.42, width * 0.58);
+      imageBloom.addColorStop(0, isNight ? "rgba(103, 225, 255, 0.12)" : "rgba(255, 255, 255, 0.08)");
+      imageBloom.addColorStop(1, "rgba(103, 225, 255, 0)");
+      context.fillStyle = imageBloom;
+      context.fillRect(0, 0, width, height);
+      context.restore();
+
+      const glowGradient = context.createRadialGradient(width * 0.2, height * 0.18, 20, width * 0.2, height * 0.18, width * 0.55);
+      glowGradient.addColorStop(0, isNight ? "rgba(103, 225, 255, 0.22)" : "rgba(103, 225, 255, 0.15)");
+      glowGradient.addColorStop(1, "rgba(103, 225, 255, 0)");
+      context.fillStyle = glowGradient;
+      context.fillRect(0, 0, width, height);
+    }
   }
 
-  context.fillStyle = reducedMapEffects
-    ? (isNight ? "rgba(4, 8, 14, 0.18)" : "rgba(6, 14, 24, 0.08)")
-    : (isNight ? "rgba(4, 8, 14, 0.28)" : "rgba(6, 14, 24, 0.14)");
-  context.fillRect(0, 0, width, height);
-
-  if (!reducedMapEffects) {
-    context.save();
-    context.globalCompositeOperation = "screen";
-    const imageBloom = context.createRadialGradient(width * 0.52, height * 0.42, 30, width * 0.52, height * 0.42, width * 0.58);
-    imageBloom.addColorStop(0, isNight ? "rgba(103, 225, 255, 0.12)" : "rgba(255, 255, 255, 0.08)");
-    imageBloom.addColorStop(1, "rgba(103, 225, 255, 0)");
-    context.fillStyle = imageBloom;
-    context.fillRect(0, 0, width, height);
-    context.restore();
-
-    const glowGradient = context.createRadialGradient(width * 0.2, height * 0.18, 20, width * 0.2, height * 0.18, width * 0.55);
-    glowGradient.addColorStop(0, isNight ? "rgba(103, 225, 255, 0.22)" : "rgba(103, 225, 255, 0.15)");
-    glowGradient.addColorStop(1, "rgba(103, 225, 255, 0)");
-    context.fillStyle = glowGradient;
-    context.fillRect(0, 0, width, height);
-  }
-
-  for (const district of geometry.districts) {
+  if (renderStateLayer || renderSelectionLayer) for (const district of geometry.districts) {
     const isHovered = district.id === hoveredDistrictId;
-    const isSelected = district.id === selectedDistrictId;
+    const isSelected = renderSelectionLayer && district.id === selectedDistrictId;
     const isOwned = effectiveOwnedDistrictIds.has(district.id);
     const isOwnedByCurrentPlayer = currentPlayerOwnedDistrictIds.has(district.id);
     const isDestroyed = interactionState.destroyedDistrictIds?.has?.(district.id) === true;
@@ -470,17 +476,20 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
     const currentPlayerColor = getLaunchPlayerColor(currentPlayerId);
     const fillStyle = getDistrictFillStyle(district, isNight, interactionState);
 
-    drawDistrictPolygon(context, district.polygon);
-    context.fillStyle = fillStyle;
-    context.fill();
+    if (renderStateLayer) {
+      drawDistrictPolygon(context, district.polygon);
+      context.fillStyle = fillStyle;
+      context.fill();
 
-    if (isDestroyed) {
-      drawDestroyedDistrictOverlay(context, district, isNight, reducedMapEffects, borderScale);
+      if (isDestroyed) {
+        drawDestroyedDistrictOverlay(context, district, isNight, reducedMapEffects, borderScale);
+      }
+
+      drawDowntownNeonBorder(context, district, isNight, reducedMapEffects, borderScale);
     }
 
-    drawDowntownNeonBorder(context, district, isNight, reducedMapEffects, borderScale);
-
     if (isSelected) {
+      drawDistrictPolygon(context, district.polygon);
       context.save();
       context.shadowBlur = reducedMapEffects ? 0 : 26;
       context.shadowColor = isNight ? "rgba(255, 154, 61, 0.74)" : "rgba(255, 154, 61, 0.6)";
@@ -489,9 +498,16 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
       context.lineWidth = (reducedMapEffects ? 2.4 : 4) * borderScale;
       context.stroke();
       context.restore();
+      if (!renderStateLayer) {
+        drawDistrictPolygon(context, district.polygon);
+        context.strokeStyle = "rgba(255, 154, 61, 0.92)";
+        context.lineWidth = 2.8 * borderScale;
+        context.stroke();
+      }
     }
 
-    const shouldDrawBorder = showDistrictBorders || isSelected || isOwnedByCurrentPlayer || Boolean(launchOwnerColor);
+    const shouldDrawBorder = renderStateLayer
+      && (showDistrictBorders || isSelected || isOwnedByCurrentPlayer || Boolean(launchOwnerColor));
     if (shouldDrawBorder) {
       drawDistrictPolygon(context, district.polygon);
       context.strokeStyle = isSelected
@@ -511,7 +527,7 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
       context.stroke();
     }
 
-    if (!launchOwnerId && isOwnedByCurrentPlayer) {
+    if (renderStateLayer && !launchOwnerId && isOwnedByCurrentPlayer) {
       context.save();
       context.globalCompositeOperation = "screen";
       context.shadowBlur = reducedMapEffects ? 12 : isNight ? 32 : 24;
@@ -526,7 +542,7 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
       context.restore();
     }
 
-    if (!isDestroyed && districtOwnerId !== null && districtOwnerId !== undefined) {
+    if (renderStateLayer && !isDestroyed && districtOwnerId !== null && districtOwnerId !== undefined) {
       const allianceBadge = getDistrictAllianceBadge(districtOwnerId);
       if (allianceBadge) {
         drawAllianceDistrictBadge(context, district, allianceBadge, isNight);
@@ -539,7 +555,7 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
       ? bountyDistrictMarkers.get(district.id)
       : bountyDistrictMarkers?.[district.id];
 
-    if (bountyMarker) {
+    if (renderStateLayer && bountyMarker) {
       drawBountyDistrictHighlight(context, district, isNight);
       drawBountyDistrictBadge(context, district, bountyMarker, isNight);
     }
@@ -550,8 +566,10 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
     renderDistrictActivityEffects(context, geometry, interactionState, { reducedMapEffects });
   }
 
-  context.fillStyle = isNight ? "rgba(6, 12, 22, 0.08)" : "rgba(255, 255, 255, 0.015)";
-  context.fillRect(0, 0, width, height);
+  if (renderFinalTintLayer) {
+    context.fillStyle = isNight ? "rgba(6, 12, 22, 0.08)" : "rgba(255, 255, 255, 0.015)";
+    context.fillRect(0, 0, width, height);
+  }
 
   return geometry;
 }
@@ -561,6 +579,33 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
   return {
     drawMapImage,
     renderDistrictEffectsCanvas,
-    renderDistrictCanvas
+    renderDistrictCanvas,
+    renderDistrictStaticCanvas: (canvas, phase, interactionState, imageSet, options = {}) =>
+      renderDistrictCanvas(canvas, phase, interactionState, imageSet, {
+        ...options,
+        renderStaticLayer: true,
+        renderStateLayer: false,
+        renderSelectionLayer: false,
+        renderFinalTintLayer: false,
+        renderActivityEffects: false
+      }),
+    renderDistrictStateCanvas: (canvas, phase, interactionState, imageSet, options = {}) =>
+      renderDistrictCanvas(canvas, phase, interactionState, imageSet, {
+        ...options,
+        renderStaticLayer: false,
+        renderStateLayer: true,
+        renderSelectionLayer: false,
+        renderFinalTintLayer: false,
+        renderActivityEffects: false
+      }),
+    renderDistrictSelectionCanvas: (canvas, phase, interactionState, imageSet, options = {}) =>
+      renderDistrictCanvas(canvas, phase, interactionState, imageSet, {
+        ...options,
+        renderStaticLayer: false,
+        renderStateLayer: false,
+        renderSelectionLayer: true,
+        renderFinalTintLayer: true,
+        renderActivityEffects: false
+      })
   };
 }

@@ -25,8 +25,8 @@ import {
 
 const config = resolveModeConfig("free");
 const context = { config };
-const FIRST_ELIMINATION_TICK = 5_760;
-const ELIMINATION_INTERVAL_TICKS = 2_880;
+const FIRST_ELIMINATION_TICK = 2_880;
+const ELIMINATION_INTERVAL_TICKS = 1_440;
 
 describe("scheduled elimination system", () => {
   it("does not eliminate anyone before firstEliminationTick", () => {
@@ -340,7 +340,7 @@ describe("scheduled elimination system", () => {
 
     const result = runScheduledElimination(state, context);
     const feedEvent = Object.values(result.nextState.cityFeedEventsById)
-      .find((event) => event.sourceEventId === "elimination:5760:player:3");
+      .find((event) => event.sourceEventId === "elimination:2880:player:3");
 
     expect(feedEvent).toMatchObject({
       visibility: "all",
@@ -493,8 +493,8 @@ describe("scheduled elimination system", () => {
 
   it("free mode uses an eight hour grace period and four hour interval", () => {
     expect(resolveModeConfig("free").balance.elimination).toMatchObject({
-      intervalTicks: 2_880,
-      firstEliminationTick: 5_760,
+      intervalTicks: 1_440,
+      firstEliminationTick: 2_880,
       minActivePlayers: 8,
       dangerZoneSize: 3,
       quietHours: {

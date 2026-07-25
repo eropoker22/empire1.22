@@ -11,6 +11,12 @@ import { createInstanceSnapshot, restoreInstanceState } from "../persistence";
 import type { Clock } from "./clock";
 import { isInstanceTickDue } from "./instance-scheduler";
 import { runInstanceTick } from "./tick-runner";
+import {
+  recordRuntimeSnapshotWrite,
+  recordRuntimeTickCompleted,
+  recordRuntimeTickSkipped,
+  runtimePerformanceNow
+} from "../monitoring/runtime-performance-diagnostics";
 
 interface CommittedTick {
   nextState: CoreGameState;
@@ -37,10 +43,15 @@ export const runAtomicInstanceTick = async (
     if (runtime.state.root.tick !== previousTick) await runtime.snapshotController.save(runtime);
     return runtime;
   }
-  if (!runtime.scheduler.isRunning || runtime.scheduler.tickInProgress) return runtime;
+  if (!runtime.scheduler.isRunning || runtime.scheduler.tickInProgress) {
+    if (runtime.scheduler.tickInProgress) recordRuntimeTickSkipped(runtime);
+    return runtime;
+  }
   const tickNow = clock.now();
   if (!isInstanceTickDue(runtime.scheduler, tickNow)) return runtime;
 
+  const tickStartedAtMs = runtimePerformanceNow();
+  let tickCompleted = false;
   runtime.scheduler.tickInProgress = true;
   runtime.runtimeHealth.lastTickStartedAt = clock.nowIso();
   try {
@@ -60,7 +71,9 @@ export const runAtomicInstanceTick = async (
         processedCommandIds,
         commandRateLimitWindow
       };
-      await repositories.snapshotRepository.save(createInstanceSnapshot(stagedRuntime));
+      const snapshot = createInstanceSnapshot(stagedRuntime);
+      await repositories.snapshotRepository.save(snapshot);
+      recordRuntimeSnapshotWrite(runtime, snapshot);
       return { nextState, events: result.events, processedCommandIds, commandRateLimitWindow } satisfies CommittedTick;
     }, { runtimeLeaseFence });
 
@@ -77,6 +90,7 @@ export const runAtomicInstanceTick = async (
     runtime.eventPublisher.publish(tickEvent);
     runtime.runtimeHealth.lastTickCompletedAt = clock.nowIso();
     runtime.scheduler.lastTickAtMs = tickNow.getTime();
+    tickCompleted = true;
     void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "tick", "Tick completed.", {
       tick: runtime.state.root.tick
     }, clock).catch(() => undefined);
@@ -96,6 +110,7 @@ export const runAtomicInstanceTick = async (
     }, clock).catch(() => undefined);
   } finally {
     runtime.scheduler.tickInProgress = false;
+    if (tickCompleted) recordRuntimeTickCompleted(runtime, tickStartedAtMs);
   }
   return runtime;
 };

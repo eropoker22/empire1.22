@@ -60,7 +60,7 @@ describe("Free BR strategic cooldowns", () => {
     const reducedTicks = reducedPayload?.attackDurationTicks;
 
     expect(reducedResult.errors).toEqual([]);
-    expect(reducedTicks).toBe(196);
+    expect(reducedTicks).toBe(98);
     expect(Number(reducedTicks)).toBeGreaterThanOrEqual(15 * TICKS_PER_MINUTE);
   });
 
@@ -70,7 +70,7 @@ describe("Free BR strategic cooldowns", () => {
     addOwnedBuildings(spyState, "garage", 8);
     const spyResult = applyCommand(spyState, createSpyDistrictCommandFixture(), context);
     expect(spyResult.errors).toEqual([]);
-    expect(spyResult.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["spy:district:2"]).toBe(67);
+    expect(spyResult.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["spy:district:2"]).toBe(34);
     expect(spyResult.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["spy:district:2"]).toBeGreaterThanOrEqual(4 * TICKS_PER_MINUTE);
 
     const occupyState = createNeutralOccupyState();
@@ -80,7 +80,7 @@ describe("Free BR strategic cooldowns", () => {
     const occupyResult = applyCommand(occupyState, createOccupyDistrictCommandFixture(), context);
 
     expect(occupyResult.errors).toEqual([]);
-    expect(occupyResult.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:global"]).toBe(113);
+    expect(occupyResult.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:global"]).toBe(57);
     expect(occupyResult.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:source:district:1"]).toBeGreaterThanOrEqual(8 * TICKS_PER_MINUTE);
 
     const robState = createNeutralRobState();
@@ -88,8 +88,8 @@ describe("Free BR strategic cooldowns", () => {
     const robResult = applyCommand(robState, createRobDistrictCommandFixture(), context);
 
     expect(robResult.errors).toEqual([]);
-    expect(robResult.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["rob:district:2"]).toBe(101);
-    expect(robResult.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["rob-source:district:1"]).toBe(101);
+    expect(robResult.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["rob:district:2"]).toBe(51);
+    expect(robResult.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["rob-source:district:1"]).toBe(51);
   });
 
   it("applies car dealer escape chance bonus from owned autosalons with cap", () => {

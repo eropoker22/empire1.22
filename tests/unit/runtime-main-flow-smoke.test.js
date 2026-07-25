@@ -59,7 +59,9 @@ describe("runtime main UI flow smoke guard", () => {
         expect(html).toContain(marker);
       }
       expect(html).toContain('data-gameplay-slice-polling="true"');
-      expect(html).toContain('data-gameplay-slice-polling-interval-ms="5000"');
+      expect(html).not.toContain("data-gameplay-slice-polling-interval-ms");
+      expect(read("apps/client/src/browser/gameplay-slice-timing.ts"))
+        .toContain("GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS = 10_000");
       for (const exportName of requiredFacadeExports) {
         expect(runtime[exportName]).toBeDefined();
       }

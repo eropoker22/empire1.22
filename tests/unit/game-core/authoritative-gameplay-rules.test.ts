@@ -158,9 +158,9 @@ describe("authoritative gameplay rules", () => {
     );
 
     expect(result.errors).toEqual([]);
-    expect(cooldown).toBe(264);
+    expect(cooldown).toBe(132);
     expect(report?.payload).toMatchObject({
-      attackDurationTicks: 264,
+      attackDurationTicks: 132,
       outcomeTier: "clean_capture",
       districtCaptured: true
     });

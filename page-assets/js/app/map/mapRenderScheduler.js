@@ -44,7 +44,7 @@ export function createMapRenderScheduler(options = {}) {
   const documentRef = options.documentRef || windowRef?.document || (typeof document === "undefined" ? null : document);
   const render = typeof options.render === "function" ? options.render : () => {};
   let frameIntervalMs = Math.max(0, Number(options.frameIntervalMs || 0));
-  let dirty = false;
+  const dirtyLayers = new Set();
   let scheduled = false;
   let frameId = null;
   let destroyed = false;
@@ -67,13 +67,14 @@ export function createMapRenderScheduler(options = {}) {
       return false;
     }
 
-    if (!dirty && !flushOptions.force) {
+    if (dirtyLayers.size === 0 && !flushOptions.force) {
       return false;
     }
 
-    dirty = false;
+    const layers = dirtyLayers.size > 0 ? [...dirtyLayers] : ["all"];
+    dirtyLayers.clear();
     const startedAt = defaultNow(windowRef);
-    render({ reason: lastReason, time });
+    render({ reason: lastReason, time, layers });
     const durationMs = Math.max(0, defaultNow(windowRef) - startedAt);
     lastRenderAt = Number(time) || defaultNow(windowRef);
     recordMapRender(options.metricsWindowRef || windowRef, durationMs);
@@ -90,7 +91,7 @@ export function createMapRenderScheduler(options = {}) {
       scheduled = false;
       frameId = null;
 
-      if (destroyed || isHidden() || !dirty) {
+      if (destroyed || isHidden() || dirtyLayers.size === 0) {
         return;
       }
 
@@ -109,7 +110,15 @@ export function createMapRenderScheduler(options = {}) {
       return false;
     }
 
-    dirty = true;
+    const layers = Array.isArray(invalidateOptions.layers) && invalidateOptions.layers.length > 0
+      ? invalidateOptions.layers
+      : Array.isArray(invalidateOptions.layers)
+        ? []
+        : ["all"];
+    if (layers.length === 0) {
+      return false;
+    }
+    for (const layer of layers) dirtyLayers.add(String(layer));
     lastReason = normalizeInvalidationReason(reason);
     windowRef?.empireStreetsRuntimeDiagnostics?.recordMapInvalidation?.(lastReason);
 
@@ -129,7 +138,7 @@ export function createMapRenderScheduler(options = {}) {
     }
 
     options.onVisible?.();
-    if (dirty) {
+    if (dirtyLayers.size > 0) {
       schedule();
     }
   };
@@ -147,7 +156,8 @@ export function createMapRenderScheduler(options = {}) {
       clearScheduledFrame();
       documentRef?.removeEventListener?.("visibilitychange", handleVisibilityChange);
     },
-    isDirty: () => dirty,
+    isDirty: () => dirtyLayers.size > 0,
+    getDirtyLayers: () => [...dirtyLayers],
     isScheduled: () => scheduled,
     getLastRenderAt: () => lastRenderAt,
     setFrameIntervalMs(nextIntervalMs) {

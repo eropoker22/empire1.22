@@ -1605,6 +1605,9 @@ var EmpireGameplaySliceClient = function(exports) {
     intervalMultiplier = 1,
     maxErrorIntervalMultiplier = 4,
     onRunningChange,
+    onAttempt,
+    onSkipped,
+    onSuccess,
     onResponse,
     onError
   }) => {
@@ -1648,7 +1651,7 @@ var EmpireGameplaySliceClient = function(exports) {
       }
     };
     const syncErrorBackoff = () => {
-      const multiplier = Math.min(maxBackoffMultiplier, consecutiveErrors + 1);
+      const multiplier = Math.min(maxBackoffMultiplier, 2 ** consecutiveErrors);
       const nextIntervalMs = baseIntervalMs * multiplier;
       if (nextIntervalMs !== currentIntervalMs) {
         restartWithInterval(nextIntervalMs);
@@ -1664,17 +1667,29 @@ var EmpireGameplaySliceClient = function(exports) {
       }
     };
     const refreshOnce = async () => {
-      if (refreshInProgress || destroyed || isPausedForVisibility()) {
+      if (refreshInProgress) {
+        onSkipped == null ? void 0 : onSkipped("in-progress");
+        return null;
+      }
+      if (destroyed) {
+        onSkipped == null ? void 0 : onSkipped("destroyed");
+        return null;
+      }
+      if (isPausedForVisibility()) {
+        onSkipped == null ? void 0 : onSkipped("hidden");
         return null;
       }
       const request = getRequest();
       if (!request) {
+        onSkipped == null ? void 0 : onSkipped("missing-request");
         return null;
       }
       refreshInProgress = true;
+      onAttempt == null ? void 0 : onAttempt();
       try {
         const response = await load(request);
         await (onResponse == null ? void 0 : onResponse(response));
+        onSuccess == null ? void 0 : onSuccess();
         resetErrorBackoff();
         return response;
       } catch (error) {
@@ -1726,6 +1741,116 @@ var EmpireGameplaySliceClient = function(exports) {
         }
       },
       refreshOnce
+    };
+  };
+  const empireCityMapManifestHash = "fnv1a32:a3aa0021";
+  const getMapManifestMismatch = (response) => {
+    var _a, _b, _c;
+    const serverHash = ((_a = response.readModel) == null ? void 0 : _a.server.mapManifestHash) ?? null;
+    if (!serverHash || serverHash === empireCityMapManifestHash) {
+      return null;
+    }
+    return {
+      code: "client.map_manifest_mismatch",
+      message: "Client map manifest does not match the server map manifest.",
+      details: {
+        clientMapManifestHash: empireCityMapManifestHash,
+        serverMapManifestHash: serverHash,
+        mapManifestId: ((_b = response.readModel) == null ? void 0 : _b.server.mapManifestId) ?? null,
+        mapManifestVersion: ((_c = response.readModel) == null ? void 0 : _c.server.mapManifestVersion) ?? null
+      }
+    };
+  };
+  const hasCurrentMapManifestMismatch = (slice) => {
+    const serverHash = (slice == null ? void 0 : slice.server.mapManifestHash) ?? null;
+    return Boolean(serverHash && serverHash !== empireCityMapManifestHash);
+  };
+  const createServerSliceRenderFingerprint = (readModel, selectedDistrictId) => {
+    var _a, _b;
+    return readModel ? JSON.stringify({
+      instanceId: readModel.server.serverInstanceId,
+      playerId: readModel.player.playerId,
+      stateVersion: readModel.server.stateVersion,
+      currentTick: readModel.server.currentTick,
+      selectedDistrictId: ((_a = readModel.district) == null ? void 0 : _a.districtId) ?? readModel.server.selectedDistrictId ?? selectedDistrictId ?? "",
+      spawnStatus: ((_b = readModel.spawnSelection) == null ? void 0 : _b.status) || ""
+    }) : "";
+  };
+  const canReuseServerSliceRender = (nextFingerprint, previousFingerprint, commandId, errorCount) => Boolean(
+    nextFingerprint && nextFingerprint === previousFingerprint && !commandId && errorCount === 0
+  );
+  const spawnSelectionFeature = "spawn-selection";
+  const createClientResponseCommitter = (options) => {
+    let lastCommittedSliceFingerprint = "";
+    let nextOperationSequence = 0;
+    let lastCommittedOperationSequence = 0;
+    const canCommit = (operationSequence) => operationSequence >= lastCommittedOperationSequence;
+    const markCommitted = (operationSequence) => {
+      lastCommittedOperationSequence = Math.max(lastCommittedOperationSequence, operationSequence);
+    };
+    return {
+      issueOperation: () => ++nextOperationSequence,
+      commitResponse: (response, selectedDistrictId, commandId, operationSequence) => {
+        var _a, _b, _c;
+        if (!canCommit(operationSequence)) return options.getRenderState();
+        const hasAuthoritativeReadModel = Boolean(response.readModel);
+        const mapManifestMismatch = getMapManifestMismatch(response);
+        const responseErrors = mapManifestMismatch ? [...response.errors, mapManifestMismatch] : response.errors;
+        const nextSliceFingerprint = createServerSliceRenderFingerprint(response.readModel, selectedDistrictId);
+        if (canReuseServerSliceRender(
+          nextSliceFingerprint,
+          lastCommittedSliceFingerprint,
+          commandId,
+          responseErrors.length
+        )) {
+          options.store.setConnectionState({ status: "ready", lastErrorMessage: null, staleData: false });
+          markCommitted(operationSequence);
+          return options.getRenderState();
+        }
+        if (response.readModel) {
+          const serverSelectedDistrictId = ((_a = response.readModel.district) == null ? void 0 : _a.districtId) ?? response.readModel.player.homeDistrictId ?? selectedDistrictId ?? null;
+          options.store.setGameplaySlice(response.readModel);
+          options.store.patchUiState({
+            selectedDistrictId: serverSelectedDistrictId,
+            activeSidePanel: ((_b = response.readModel.spawnSelection) == null ? void 0 : _b.status) === "awaiting_spawn_selection" ? spawnSelectionFeature : districtPanelFeature
+          });
+        }
+        if (commandId) {
+          options.store.patchUiState({
+            lastCommandStatus: { commandId, accepted: response.accepted }
+          });
+        }
+        options.store.setGameplaySliceMetadata(response.metadata ?? (response.readModel ? {
+          serverTick: response.readModel.server.currentTick,
+          stateVersion: response.readModel.server.stateVersion
+        } : null));
+        options.store.setErrors(responseErrors);
+        options.store.setConnectionState({
+          status: hasAuthoritativeReadModel && !mapManifestMismatch ? "ready" : "error",
+          lastErrorMessage: ((_c = responseErrors[0]) == null ? void 0 : _c.message) ?? (hasAuthoritativeReadModel ? null : "Gameplay slice response did not include an authoritative read model."),
+          staleData: responseErrors.length > 0 || !hasAuthoritativeReadModel
+        });
+        if (nextSliceFingerprint) lastCommittedSliceFingerprint = nextSliceFingerprint;
+        markCommitted(operationSequence);
+        return options.recomputeRenderState(commandId ? "server-command-response" : "server-slice-response");
+      },
+      commitTransportFailure: (message, commandId, operationSequence) => {
+        if (!canCommit(operationSequence)) return options.getRenderState();
+        const errors = [{ code: "client.transport_error", message }];
+        options.store.setErrors(errors);
+        options.store.setConnectionState({
+          status: "error",
+          lastErrorMessage: message,
+          staleData: true
+        });
+        if (commandId) {
+          options.store.patchUiState({
+            lastCommandStatus: { commandId, accepted: false }
+          });
+        }
+        markCommitted(operationSequence);
+        return options.recomputeRenderState("transport-failure");
+      }
     };
   };
   const DAY_MAP_IMAGE_PATH = "../img/mapaden2.png";
@@ -2460,123 +2585,20 @@ var EmpireGameplaySliceClient = function(exports) {
         return "Nedostupné";
     }
   };
-  const empireCityMapManifestHash = "fnv1a32:a3aa0021";
-  const getMapManifestMismatch = (response) => {
-    var _a, _b, _c;
-    const serverHash = ((_a = response.readModel) == null ? void 0 : _a.server.mapManifestHash) ?? null;
-    if (!serverHash || serverHash === empireCityMapManifestHash) {
-      return null;
-    }
-    return {
-      code: "client.map_manifest_mismatch",
-      message: "Client map manifest does not match the server map manifest.",
-      details: {
-        clientMapManifestHash: empireCityMapManifestHash,
-        serverMapManifestHash: serverHash,
-        mapManifestId: ((_b = response.readModel) == null ? void 0 : _b.server.mapManifestId) ?? null,
-        mapManifestVersion: ((_c = response.readModel) == null ? void 0 : _c.server.mapManifestVersion) ?? null
-      }
-    };
-  };
-  const hasCurrentMapManifestMismatch = (slice) => {
-    const serverHash = (slice == null ? void 0 : slice.server.mapManifestHash) ?? null;
-    return Boolean(serverHash && serverHash !== empireCityMapManifestHash);
-  };
-  const createServerSliceRenderFingerprint = (readModel, selectedDistrictId) => {
-    var _a, _b;
-    return readModel ? JSON.stringify({
-      instanceId: readModel.server.serverInstanceId,
-      playerId: readModel.player.playerId,
-      stateVersion: readModel.server.stateVersion,
-      currentTick: readModel.server.currentTick,
-      selectedDistrictId: ((_a = readModel.district) == null ? void 0 : _a.districtId) ?? readModel.server.selectedDistrictId ?? selectedDistrictId ?? "",
-      spawnStatus: ((_b = readModel.spawnSelection) == null ? void 0 : _b.status) || ""
-    }) : "";
-  };
-  const canReuseServerSliceRender = (nextFingerprint, previousFingerprint, commandId, errorCount) => Boolean(
-    nextFingerprint && nextFingerprint === previousFingerprint && !commandId && errorCount === 0
-  );
-  const spawnSelectionFeature = "spawn-selection";
   const createClientApp = ({ transport, onStateRecompute }) => {
     const store = createClientStore(createInitialClientUiState());
     const dispatcher = createCommandDispatcher(transport);
     let renderState = createInitialClientRenderState();
-    let lastCommittedSliceFingerprint = "";
     const recomputeRenderState = (reason) => {
       onStateRecompute == null ? void 0 : onStateRecompute(reason);
       renderState = renderClientShell(store);
       return renderState;
     };
-    const commitResponse = (response, selectedDistrictId, commandId) => {
-      var _a, _b, _c;
-      const hasAuthoritativeReadModel = Boolean(response.readModel);
-      const missingReadModelMessage = "Gameplay slice response did not include an authoritative read model.";
-      const mapManifestMismatch = getMapManifestMismatch(response);
-      const responseErrors = mapManifestMismatch ? [...response.errors, mapManifestMismatch] : response.errors;
-      const firstErrorMessage = ((_a = responseErrors[0]) == null ? void 0 : _a.message) ?? null;
-      const nextSliceFingerprint = createServerSliceRenderFingerprint(response.readModel, selectedDistrictId);
-      const canReuseCommittedRenderState = canReuseServerSliceRender(
-        nextSliceFingerprint,
-        lastCommittedSliceFingerprint,
-        commandId,
-        responseErrors.length
-      );
-      if (canReuseCommittedRenderState) {
-        store.setConnectionState({
-          status: "ready",
-          lastErrorMessage: null,
-          staleData: false
-        });
-        return renderState;
-      }
-      if (response.readModel) {
-        const serverSelectedDistrictId = ((_b = response.readModel.district) == null ? void 0 : _b.districtId) ?? response.readModel.player.homeDistrictId ?? selectedDistrictId ?? null;
-        const activeSidePanel = ((_c = response.readModel.spawnSelection) == null ? void 0 : _c.status) === "awaiting_spawn_selection" ? spawnSelectionFeature : districtPanelFeature;
-        store.setGameplaySlice(response.readModel);
-        store.patchUiState({
-          selectedDistrictId: serverSelectedDistrictId,
-          activeSidePanel
-        });
-      }
-      if (commandId) {
-        store.patchUiState({
-          lastCommandStatus: {
-            commandId,
-            accepted: response.accepted
-          }
-        });
-      }
-      store.setGameplaySliceMetadata(response.metadata ?? (response.readModel ? {
-        serverTick: response.readModel.server.currentTick,
-        stateVersion: response.readModel.server.stateVersion
-      } : null));
-      store.setErrors(responseErrors);
-      store.setConnectionState({
-        status: hasAuthoritativeReadModel && !mapManifestMismatch ? "ready" : "error",
-        lastErrorMessage: firstErrorMessage ?? (hasAuthoritativeReadModel ? null : missingReadModelMessage),
-        staleData: responseErrors.length > 0 || !hasAuthoritativeReadModel
-      });
-      if (nextSliceFingerprint) lastCommittedSliceFingerprint = nextSliceFingerprint;
-      return recomputeRenderState(commandId ? "server-command-response" : "server-slice-response");
-    };
-    const commitTransportFailure = (message, commandId) => {
-      const errors = [{ code: "client.transport_error", message }];
-      store.setErrors(errors);
-      store.setConnectionState({
-        status: "error",
-        lastErrorMessage: message,
-        staleData: true
-      });
-      if (commandId) {
-        store.patchUiState({
-          lastCommandStatus: {
-            commandId,
-            accepted: false
-          }
-        });
-      }
-      return recomputeRenderState("transport-failure");
-    };
+    const responseCommitter = createClientResponseCommitter({
+      store,
+      getRenderState: () => renderState,
+      recomputeRenderState
+    });
     recomputeRenderState("initial-client-shell");
     const createLoadRequestForSelectedDistrict = (districtId) => {
       const playerView = store.getReadModel().playerView;
@@ -2592,6 +2614,7 @@ var EmpireGameplaySliceClient = function(exports) {
     };
     return createClientAppShell({
       load: async (request) => {
+        const operationSequence = responseCommitter.issueOperation();
         store.setConnectionState({
           status: "connecting",
           lastErrorMessage: null,
@@ -2599,10 +2622,12 @@ var EmpireGameplaySliceClient = function(exports) {
         });
         try {
           const response = await transport.load(request);
-          return commitResponse(response, request.districtId);
+          return responseCommitter.commitResponse(response, request.districtId, void 0, operationSequence);
         } catch (error) {
-          return commitTransportFailure(
-            createTransportFailureMessage("Unable to load gameplay slice from server.", error)
+          return responseCommitter.commitTransportFailure(
+            createTransportFailureMessage("Unable to load gameplay slice from server.", error),
+            void 0,
+            operationSequence
           );
         }
       },
@@ -2615,9 +2640,14 @@ var EmpireGameplaySliceClient = function(exports) {
         return recomputeRenderState("ui-clear-district-selection");
       },
       selectDistrict: async (districtId) => {
+        const operationSequence = responseCommitter.issueOperation();
         const request = createLoadRequestForSelectedDistrict(districtId);
         if (!request) {
-          return commitTransportFailure("Cannot select a district before the gameplay slice is loaded.");
+          return responseCommitter.commitTransportFailure(
+            "Cannot select a district before the gameplay slice is loaded.",
+            void 0,
+            operationSequence
+          );
         }
         store.setConnectionState({
           status: "connecting",
@@ -2630,10 +2660,12 @@ var EmpireGameplaySliceClient = function(exports) {
         recomputeRenderState("ui-select-district-pending");
         try {
           const response = await transport.load(request);
-          return commitResponse(response, districtId);
+          return responseCommitter.commitResponse(response, districtId, void 0, operationSequence);
         } catch (error) {
-          return commitTransportFailure(
-            createTransportFailureMessage("Unable to load selected district from server.", error)
+          return responseCommitter.commitTransportFailure(
+            createTransportFailureMessage("Unable to load selected district from server.", error),
+            void 0,
+            operationSequence
           );
         }
       },
@@ -2645,13 +2677,22 @@ var EmpireGameplaySliceClient = function(exports) {
       },
       dispatch: async (command) => {
         var _a;
+        const operationSequence = responseCommitter.issueOperation();
         const uiState = store.getUiState();
         const currentSlice = store.getReadModel().gameplaySlice;
         if (hasCurrentMapManifestMismatch(currentSlice)) {
-          return commitTransportFailure("Client map manifest does not match the server map manifest. Map actions are disabled.", command.id);
+          return responseCommitter.commitTransportFailure(
+            "Client map manifest does not match the server map manifest. Map actions are disabled.",
+            command.id,
+            operationSequence
+          );
         }
         if (!uiState.selectedDistrictId && command.type !== "select-spawn-district") {
-          return commitTransportFailure("No district is selected for the district panel slice.", command.id);
+          return responseCommitter.commitTransportFailure(
+            "No district is selected for the district panel slice.",
+            command.id,
+            operationSequence
+          );
         }
         store.patchUiState({
           pendingCommandIds: [...uiState.pendingCommandIds, command.id]
@@ -2667,14 +2708,15 @@ var EmpireGameplaySliceClient = function(exports) {
           store.patchUiState({
             pendingCommandIds: store.getUiState().pendingCommandIds.filter((pendingCommandId) => pendingCommandId !== command.id)
           });
-          return commitResponse(response, uiState.selectedDistrictId, command.id);
+          return responseCommitter.commitResponse(response, uiState.selectedDistrictId, command.id, operationSequence);
         } catch (_error) {
           store.patchUiState({
             pendingCommandIds: store.getUiState().pendingCommandIds.filter((pendingCommandId) => pendingCommandId !== command.id)
           });
-          return commitTransportFailure(
+          return responseCommitter.commitTransportFailure(
             createTransportFailureMessage("Unable to submit gameplay command to server.", _error),
-            command.id
+            command.id,
+            operationSequence
           );
         }
       },
@@ -2779,6 +2821,10 @@ var EmpireGameplaySliceClient = function(exports) {
     (_a = window.empireStreetsPerformanceMetrics).managedIntervalCounts ?? (_a.managedIntervalCounts = {});
     return window.empireStreetsPerformanceMetrics;
   };
+  const isPerformanceDebugEnabled = () => {
+    var _a;
+    return Boolean((_a = window.empireStreetsRuntimeDiagnostics) == null ? void 0 : _a.debugEnabled);
+  };
   const serverSliceRefreshTimestamps = [];
   let lastServerSliceFingerprint = "";
   const pruneTimestamps = (timestamps, nowMs) => {
@@ -2841,6 +2887,11 @@ var EmpireGameplaySliceClient = function(exports) {
     const metrics = getPerformanceMetrics();
     metrics.clientStateRecomputePerMinute = (metrics.clientStateRecomputePerMinute ?? 0) + 1;
   };
+  const recordGameplayPollError = () => {
+    if (!isPerformanceDebugEnabled()) return;
+    const metrics = getPerformanceMetrics();
+    metrics.gameplayPollErrorCount = (metrics.gameplayPollErrorCount ?? 0) + 1;
+  };
   const getPollingIntervalMultiplier = () => {
     var _a;
     const multiplier = Number(((_a = window.empireStreetsPerformanceMode) == null ? void 0 : _a.pollingMultiplier) ?? 1);
@@ -2849,9 +2900,24 @@ var EmpireGameplaySliceClient = function(exports) {
   const getGameplaySlicePollerPerformanceOptions = () => ({
     visibilityDocument: document,
     intervalMultiplier: getPollingIntervalMultiplier(),
-    onRunningChange: (delta) => trackIntervalMetric("gameplay-slice-poller", delta)
+    onRunningChange: (delta) => trackIntervalMetric("gameplay-slice-poller", delta),
+    onAttempt: () => {
+      if (!isPerformanceDebugEnabled()) return;
+      const metrics = getPerformanceMetrics();
+      metrics.gameplayPollCount = (metrics.gameplayPollCount ?? 0) + 1;
+    },
+    onSuccess: () => {
+      if (!isPerformanceDebugEnabled()) return;
+      const metrics = getPerformanceMetrics();
+      metrics.gameplayPollSuccessCount = (metrics.gameplayPollSuccessCount ?? 0) + 1;
+    },
+    onSkipped: () => {
+      if (!isPerformanceDebugEnabled()) return;
+      const metrics = getPerformanceMetrics();
+      metrics.gameplayPollSkippedCount = (metrics.gameplayPollSkippedCount ?? 0) + 1;
+    }
   });
-  const createGameplaySliceVisibilityRuntime = ({ root, poller }) => {
+  const createGameplaySliceVisibilityRuntime = ({ root }) => {
     let cooldownTimerId = null;
     const stopCooldownTimer = () => {
       if (cooldownTimerId === null) return;
@@ -2871,7 +2937,6 @@ var EmpireGameplaySliceClient = function(exports) {
       }
       refreshLiveCooldownLabels(root);
       startCooldownTimer();
-      void poller.refreshOnce();
     };
     return {
       start() {
@@ -3065,13 +3130,36 @@ var EmpireGameplaySliceClient = function(exports) {
     });
     return allowLegacyFallback;
   };
+  const createGameplaySliceSelectiveRenderer = () => {
+    let hasRendered = false;
+    return {
+      render(mounts, html, reason) {
+        var _a, _b, _c, _d;
+        const updatedMountCount = [mounts.status, mounts.topBar, mounts.map, mounts.panel].filter((mount, index) => {
+          if (mount.innerHTML === html[index]) return false;
+          mount.innerHTML = html[index];
+          return true;
+        }).length;
+        if (!hasRendered) {
+          (_b = (_a = window.empireStreetsRuntimeDiagnostics) == null ? void 0 : _a.recordFullUiRender) == null ? void 0 : _b.call(_a, reason);
+          hasRendered = true;
+        } else if (updatedMountCount > 0) {
+          (_d = (_c = window.empireStreetsRuntimeDiagnostics) == null ? void 0 : _c.recordSelectiveUiUpdate) == null ? void 0 : _d.call(_c, reason, updatedMountCount);
+        }
+      }
+    };
+  };
+  const GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS = 1e4;
   const DEFAULT_ENDPOINT_BASE = "/api/gameplay-slice";
   const LEGACY_DISTRICT_POPUP_SELECTOR = "[data-testid='district-popup']";
   const MOBILE_SHEET_SELECTOR = ".mobile-sheet";
   const MAP_TAP_PIXEL_THRESHOLD = 10;
   const DISTRICT_TAP_DEBOUNCE_MS = 350;
   const activeGameplaySlicePages = /* @__PURE__ */ new Set();
+  const mountedGameplaySlicePagesByRoot = /* @__PURE__ */ new WeakMap();
   const mountGameplaySlicePage = (options) => {
+    const existingMount = mountedGameplaySlicePagesByRoot.get(options.root);
+    if (existingMount) return existingMount;
     if (applyDevelopmentRuntimeOverride(options.root)) return null;
     const request = resolveGameplaySliceBootstrapRequest(options.root.dataset);
     if (!request) {
@@ -3089,6 +3177,7 @@ var EmpireGameplaySliceClient = function(exports) {
       createCommandId: createBrowserCommandId
     });
     const mounts = resolveMounts(options.root);
+    const selectiveRenderer = createGameplaySliceSelectiveRenderer();
     let currentLoadRequest = request;
     const districtSheetOverlay = createDistrictSheetOverlayController();
     let pointerOrigin = null;
@@ -3188,10 +3277,7 @@ var EmpireGameplaySliceClient = function(exports) {
         detail: { gameplaySlice, playerView: (gameplaySlice == null ? void 0 : gameplaySlice.player) ?? null, connection: state.connection }
       }));
       document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", { detail: state.connection }));
-      mounts.status.innerHTML = renderGameplaySliceStatus(state);
-      mounts.topBar.innerHTML = state.topBarHtml;
-      mounts.map.innerHTML = state.mapHtml;
-      mounts.panel.innerHTML = state.sidePanelHtml;
+      selectiveRenderer.render(mounts, [renderGameplaySliceStatus(state), state.topBarHtml, state.mapHtml, state.sidePanelHtml], reason);
       refreshLiveCooldownLabels(options.root);
       districtSheetOverlay.syncFromState(state);
       overlayBackdrop.sync();
@@ -3318,6 +3404,7 @@ var EmpireGameplaySliceClient = function(exports) {
         }
       },
       onError: () => {
+        recordGameplayPollError();
         mounts.status.innerHTML = [
           "<strong>Synchronizace se serverem zastarala</strong>",
           "<span>Obnova ze serveru selhala. Zůstává poslední známý stav.</span>"
@@ -3327,7 +3414,7 @@ var EmpireGameplaySliceClient = function(exports) {
         }));
       }
     });
-    const visibilityRuntime = createGameplaySliceVisibilityRuntime({ root: options.root, poller });
+    const visibilityRuntime = createGameplaySliceVisibilityRuntime({ root: options.root });
     visibilityRuntime.start();
     legacyDistrictPopupObserver == null ? void 0 : legacyDistrictPopupObserver.observe(legacyDistrictPopup, {
       attributeFilter: ["aria-hidden", "class", "hidden"],
@@ -3355,9 +3442,17 @@ var EmpireGameplaySliceClient = function(exports) {
         }
       });
     });
+    let destroyed = false;
+    const handlePageHide = () => {
+      mountedPage.destroy();
+    };
     const mountedPage = {
       closeDistrictSheetFromExternal: (reason = "external district popup close") => closeDistrictSheetAfterLegacyClose(reason),
       destroy: () => {
+        if (destroyed) {
+          return;
+        }
+        destroyed = true;
         poller.destroy();
         visibilityRuntime.destroy();
         legacyDistrictPopupObserver == null ? void 0 : legacyDistrictPopupObserver.disconnect();
@@ -3370,9 +3465,13 @@ var EmpireGameplaySliceClient = function(exports) {
         overlayBackdrop.sync();
         overlayBackdrop.destroy();
         activeGameplaySlicePages.delete(mountedPage);
+        mountedGameplaySlicePagesByRoot.delete(options.root);
+        window.removeEventListener("pagehide", handlePageHide);
       }
     };
     activeGameplaySlicePages.add(mountedPage);
+    mountedGameplaySlicePagesByRoot.set(options.root, mountedPage);
+    window.addEventListener("pagehide", handlePageHide, { once: true });
     return mountedPage;
   };
   const resolveMounts = (root) => ({
@@ -3403,7 +3502,7 @@ var EmpireGameplaySliceClient = function(exports) {
   const createBrowserCommandId = (prefix) => `${prefix}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
   const parsePollingIntervalMs = (value) => {
     const intervalMs = Number.parseInt(String(value ?? ""), 10);
-    return Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : 5e3;
+    return Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS;
   };
   const closeDistrictSheet = (reason = "external district popup close") => {
     let closed = false;

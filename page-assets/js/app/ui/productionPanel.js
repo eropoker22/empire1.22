@@ -1,5 +1,6 @@
 import { renderRecipeCard, renderRecipeList } from "./recipePanel.js";
 import { bindSharedCountdown } from "./sharedCountdownTicker.js";
+import { FREE_GAMEPLAY_TICK_MS } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
 
 function getDocument(scopeElement = null) {
   return scopeElement?.ownerDocument || (typeof document !== "undefined" ? document : null);
@@ -644,7 +645,7 @@ function formatFactoryServerTime(line, options) {
   if (line.loading) return "—";
   const duration = Number(line.remainingMs || 0) > 0
     ? Number(line.remainingMs)
-    : Number(line.effectiveUnitDurationTicks || 0) * Number(options.tickRateMs || 5000);
+    : Number(line.effectiveUnitDurationTicks || 0) * Number(options.tickRateMs || FREE_GAMEPLAY_TICK_MS);
   return formatDuration(duration, options);
 }
 

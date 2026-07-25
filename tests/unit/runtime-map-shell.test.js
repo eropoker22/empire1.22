@@ -78,7 +78,7 @@ describe("map shell", () => {
     expect(renderMapMissingState("Missing", {})).toBe(false);
   });
 
-  it("initializes shell elements, overlay and hover canvas", () => {
+  it("initializes shell elements and all logical canvas layers", () => {
     const document = new FakeDocument();
     const root = new FakeRoot(document);
     const canvas = new FakeElement("canvas", document);
@@ -95,12 +95,20 @@ describe("map shell", () => {
     const shell = initMapShell({
       root,
       selectors: { canvas: "[data-canvas]", phaseHost: "[data-phase]", viewport: "[data-viewport]", canvasHost: "[data-host]" },
-      classes: { effectsCanvas: "map-effects", interactionOverlay: "map-interaction", hoverCanvas: "map-hover" }
+      classes: {
+        staticCanvas: "map-static",
+        effectsCanvas: "map-effects",
+        selectionCanvas: "map-selection",
+        interactionOverlay: "map-interaction",
+        hoverCanvas: "map-hover"
+      }
     });
 
     expect(shell.canRender).toBe(true);
     expect(shell.interactionOverlay.classList.contains("map-interaction")).toBe(true);
+    expect(shell.staticCanvas.classList.contains("map-static")).toBe(true);
     expect(shell.effectsCanvas.classList.contains("map-effects")).toBe(true);
+    expect(shell.selectionCanvas.classList.contains("map-selection")).toBe(true);
     expect(shell.hoverCanvas.classList.contains("map-hover")).toBe(true);
     expect(shell.statusPanel).toBe(statusPanel);
 

@@ -318,6 +318,72 @@ describe("city status bar runtime", () => {
     }));
   });
 
+  it("pauses while hidden and performs one elapsed-time catch-up on return", () => {
+    const documentListeners = new Map();
+    const ownerDocument = {
+      hidden: false,
+      addEventListener: vi.fn((type, listener) => documentListeners.set(type, listener)),
+      removeEventListener: vi.fn()
+    };
+    const elements = {
+      "#phase": createElement(),
+      "#clock": createElement(),
+      "#day": createElement(),
+      "#game": createElement(),
+      "#status": createElement(),
+      "#production": createElement()
+    };
+    const onTick = vi.fn();
+    const recordLocalTick = vi.fn();
+    const windowRef = {
+      addEventListener: vi.fn(),
+      clearInterval: vi.fn(),
+      setInterval: vi.fn(() => 42)
+    };
+    let nowMs = 1_000;
+    const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
+    const runtime = createCityStatusBarRuntime({
+      minuteStep: 1,
+      onTick,
+      recordLocalTick,
+      selectors: {
+        clock: "#clock",
+        dayPhase: "#day",
+        gamePhase: "#game",
+        phaseHost: "#phase",
+        production: "#production",
+        status: "#status"
+      },
+      shouldRunLocalTick: () => true,
+      syncPhaseHostFromAuthority: vi.fn(() => ({
+        cityMinutes: 6 * 60,
+        gamePhase: "live",
+        mapPhase: "day"
+      })),
+      tickMs: 10_000,
+      windowRef
+    });
+
+    try {
+      expect(runtime.bindCityStatusBar({ ...createRoot(elements), ownerDocument })).toBe(true);
+      ownerDocument.hidden = true;
+      documentListeners.get("visibilitychange")();
+      nowMs += 35_000;
+      ownerDocument.hidden = false;
+      documentListeners.get("visibilitychange")();
+
+      expect(recordLocalTick).toHaveBeenCalledWith(3);
+      expect(onTick).toHaveBeenCalledTimes(1);
+      expect(onTick).toHaveBeenCalledWith(expect.objectContaining({
+        elapsedTicks: 3,
+        minuteStep: 3
+      }));
+      expect(windowRef.setInterval).toHaveBeenCalledTimes(2);
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
   it("does not crash when the city status DOM is missing", () => {
     const runtime = createCityStatusBarRuntime({
       selectors: { phaseHost: "#phase" },

@@ -1,5 +1,8 @@
 import { getStoredPreviewSession, updateStoredPreviewSession } from "./model/authority-state.js";
-import { CITY_EVENT_CONFIG } from "../../../packages/game-config/src/legacy-page/gameplay-config.generated.js";
+import {
+  BROWSER_GAMEPLAY_CONFIG,
+  CITY_EVENT_CONFIG
+} from "../../../packages/game-config/src/legacy-page/gameplay-config.generated.js";
 import {
   addGangHeat,
   appendBuildingActionResultEntry,
@@ -723,7 +726,7 @@ function initCityEventsRuntime() {
     return {
       active,
       remainingSec: active
-        ? Math.max(0, Math.ceil(Number(activeRun.remainingTicks || 0) * Number(getServerGameplaySliceReadModel()?.mode?.tickRateMs || 5000) / 1000))
+        ? Math.max(0, Math.ceil(Number(activeRun.remainingTicks || 0) * Number(getServerGameplaySliceReadModel()?.mode?.tickRateMs || BROWSER_GAMEPLAY_CONFIG.cityEvents.tickRateMs) / 1000))
         : 0
     };
   };
@@ -735,7 +738,7 @@ function initCityEventsRuntime() {
       run: activeRun,
       task: activeRun ? getServerTasks(selectedAgentKey || "victor").find((task) => task.offerId === activeRun.offerId) || null : null,
       remainingSec: activeRun
-        ? Math.max(0, Math.ceil(Number(activeRun.remainingTicks || 0) * Number(getServerGameplaySliceReadModel()?.mode?.tickRateMs || 5000) / 1000))
+        ? Math.max(0, Math.ceil(Number(activeRun.remainingTicks || 0) * Number(getServerGameplaySliceReadModel()?.mode?.tickRateMs || BROWSER_GAMEPLAY_CONFIG.cityEvents.tickRateMs) / 1000))
         : 0
     };
   };

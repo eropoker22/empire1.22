@@ -311,8 +311,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "ghost-serum": 2,
         "pulse-shot": 2
       },
-      "activeDurationTicks": 144,
-      "cooldownTicks": 420,
+      "activeDurationTicks": 72,
+      "cooldownTicks": 210,
       "consumptionMode": "timed",
       "effect": {
         "spyDurationMultiplier": 0.65,
@@ -335,8 +335,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "overdrive-x": 2,
         "combat-module": 2
       },
-      "activeDurationTicks": 144,
-      "cooldownTicks": 540,
+      "activeDurationTicks": 72,
+      "cooldownTicks": 270,
       "consumptionMode": "timed",
       "effect": {
         "productionSpeedMultiplier": 1.25
@@ -358,8 +358,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "overdrive-x": 1,
         "combat-module": 3
       },
-      "activeDurationTicks": 240,
-      "cooldownTicks": 720,
+      "activeDurationTicks": 120,
+      "cooldownTicks": 360,
       "consumptionMode": "next-valid-pvp-combat",
       "effect": {
         "combatPowerMultiplier": 1.12
@@ -478,7 +478,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
     },
     "maxActiveRunsPerPlayer": 1,
     "maxStrategicOffersPerCityDay": 1,
-    "tickRateMs": 5000,
+    "tickRateMs": 10000,
     "definitions": [
       {
         "id": "victor_01",
@@ -499,7 +499,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "victor_02",
@@ -519,7 +519,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1260000,
-        "durationTicks": 252
+        "durationTicks": 126
       },
       {
         "id": "victor_03",
@@ -539,7 +539,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1200000,
-        "durationTicks": 240
+        "durationTicks": 120
       },
       {
         "id": "victor_04",
@@ -559,7 +559,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1260000,
-        "durationTicks": 252
+        "durationTicks": 126
       },
       {
         "id": "victor_05",
@@ -579,7 +579,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1260000,
-        "durationTicks": 252
+        "durationTicks": 126
       },
       {
         "id": "victor_06",
@@ -599,7 +599,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1140000,
-        "durationTicks": 228
+        "durationTicks": 114
       },
       {
         "id": "victor_07",
@@ -619,7 +619,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "victor_08",
@@ -639,7 +639,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "victor_09",
@@ -658,7 +658,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "victor_10",
@@ -678,7 +678,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1680000,
-        "durationTicks": 336
+        "durationTicks": 168
       },
       {
         "id": "victor_11",
@@ -698,7 +698,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 840000,
-        "durationTicks": 168
+        "durationTicks": 84
       },
       {
         "id": "victor_12",
@@ -718,7 +718,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1560000,
-        "durationTicks": 312
+        "durationTicks": 156
       },
       {
         "id": "victor_13",
@@ -738,7 +738,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "victor_14",
@@ -758,7 +758,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1620000,
-        "durationTicks": 324
+        "durationTicks": 162
       },
       {
         "id": "victor_15",
@@ -778,7 +778,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1800000,
-        "durationTicks": 360
+        "durationTicks": 180
       },
       {
         "id": "victor_16",
@@ -797,7 +797,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1260000,
-        "durationTicks": 252
+        "durationTicks": 126
       },
       {
         "id": "victor_17",
@@ -817,7 +817,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1260000,
-        "durationTicks": 252
+        "durationTicks": 126
       },
       {
         "id": "victor_18",
@@ -837,7 +837,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1140000,
-        "durationTicks": 228
+        "durationTicks": 114
       },
       {
         "id": "victor_19",
@@ -857,7 +857,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1440000,
-        "durationTicks": 288
+        "durationTicks": 144
       },
       {
         "id": "victor_20",
@@ -877,7 +877,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1320000,
-        "durationTicks": 264
+        "durationTicks": 132
       },
       {
         "id": "victor_21",
@@ -897,7 +897,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1200000,
-        "durationTicks": 240
+        "durationTicks": 120
       },
       {
         "id": "victor_22",
@@ -917,7 +917,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "victor_23",
@@ -937,7 +937,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "victor_24",
@@ -957,7 +957,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "victor_25",
@@ -977,7 +977,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1140000,
-        "durationTicks": 228
+        "durationTicks": 114
       },
       {
         "id": "victor_26",
@@ -996,7 +996,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "victor_27",
@@ -1016,7 +1016,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "victor_28",
@@ -1035,7 +1035,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "victor_29",
@@ -1054,7 +1054,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1380000,
-        "durationTicks": 276
+        "durationTicks": 138
       },
       {
         "id": "victor_30",
@@ -1074,7 +1074,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1200000,
-        "durationTicks": 240
+        "durationTicks": 120
       },
       {
         "id": "victor_31",
@@ -1093,7 +1093,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "victor_32",
@@ -1113,7 +1113,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1320000,
-        "durationTicks": 264
+        "durationTicks": 132
       },
       {
         "id": "victor_33",
@@ -1133,7 +1133,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1320000,
-        "durationTicks": 264
+        "durationTicks": 132
       },
       {
         "id": "victor_34",
@@ -1153,7 +1153,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "victor_35",
@@ -1172,7 +1172,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1260000,
-        "durationTicks": 252
+        "durationTicks": 126
       },
       {
         "id": "victor_36",
@@ -1192,7 +1192,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1500000,
-        "durationTicks": 300
+        "durationTicks": 150
       },
       {
         "id": "victor_37",
@@ -1213,7 +1213,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "victor_38",
@@ -1233,7 +1233,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1320000,
-        "durationTicks": 264
+        "durationTicks": 132
       },
       {
         "id": "victor_39",
@@ -1253,7 +1253,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1260000,
-        "durationTicks": 252
+        "durationTicks": 126
       },
       {
         "id": "victor_40",
@@ -1273,7 +1273,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "victor_41",
@@ -1293,7 +1293,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 600
         },
         "durationMs": 1800000,
-        "durationTicks": 360
+        "durationTicks": 180
       },
       {
         "id": "victor_42",
@@ -1314,7 +1314,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "victor_43",
@@ -1334,7 +1334,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "victor_44",
@@ -1354,7 +1354,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "victor_45",
@@ -1374,7 +1374,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "victor_46",
@@ -1394,7 +1394,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 600
         },
         "durationMs": 1560000,
-        "durationTicks": 312
+        "durationTicks": 156
       },
       {
         "id": "victor_47",
@@ -1413,7 +1413,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "victor_48",
@@ -1433,7 +1433,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1140000,
-        "durationTicks": 228
+        "durationTicks": 114
       },
       {
         "id": "victor_49",
@@ -1454,7 +1454,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1320000,
-        "durationTicks": 264
+        "durationTicks": 132
       },
       {
         "id": "victor_50",
@@ -1474,7 +1474,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1740000,
-        "durationTicks": 348
+        "durationTicks": 174
       },
       {
         "id": "victor_51",
@@ -1495,7 +1495,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1140000,
-        "durationTicks": 228
+        "durationTicks": 114
       },
       {
         "id": "victor_52",
@@ -1515,7 +1515,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1260000,
-        "durationTicks": 252
+        "durationTicks": 126
       },
       {
         "id": "victor_53",
@@ -1535,7 +1535,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "victor_54",
@@ -1555,7 +1555,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "victor_55",
@@ -1575,7 +1575,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "victor_56",
@@ -1595,7 +1595,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "victor_57",
@@ -1615,7 +1615,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "victor_58",
@@ -1635,7 +1635,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1320000,
-        "durationTicks": 264
+        "durationTicks": 132
       },
       {
         "id": "victor_59",
@@ -1655,7 +1655,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "victor_60",
@@ -1675,7 +1675,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1140000,
-        "durationTicks": 228
+        "durationTicks": 114
       },
       {
         "id": "victor_61",
@@ -1695,7 +1695,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1380000,
-        "durationTicks": 276
+        "durationTicks": 138
       },
       {
         "id": "victor_62",
@@ -1715,7 +1715,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "victor_63",
@@ -1735,7 +1735,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "victor_64",
@@ -1754,7 +1754,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "victor_65",
@@ -1774,7 +1774,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "victor_66",
@@ -1794,7 +1794,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1320000,
-        "durationTicks": 264
+        "durationTicks": 132
       },
       {
         "id": "victor_67",
@@ -1813,7 +1813,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "victor_68",
@@ -1833,7 +1833,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1200000,
-        "durationTicks": 240
+        "durationTicks": 120
       },
       {
         "id": "victor_69",
@@ -1853,7 +1853,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "victor_70",
@@ -1873,7 +1873,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "victor_71",
@@ -1893,7 +1893,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1140000,
-        "durationTicks": 228
+        "durationTicks": 114
       },
       {
         "id": "victor_72",
@@ -1912,7 +1912,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "victor_73",
@@ -1932,7 +1932,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "victor_74",
@@ -1952,7 +1952,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1320000,
-        "durationTicks": 264
+        "durationTicks": 132
       },
       {
         "id": "victor_75",
@@ -1973,7 +1973,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "victor_76",
@@ -1992,7 +1992,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1140000,
-        "durationTicks": 228
+        "durationTicks": 114
       },
       {
         "id": "victor_77",
@@ -2012,7 +2012,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1320000,
-        "durationTicks": 264
+        "durationTicks": 132
       },
       {
         "id": "victor_78",
@@ -2032,7 +2032,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "victor_79",
@@ -2053,7 +2053,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1320000,
-        "durationTicks": 264
+        "durationTicks": 132
       },
       {
         "id": "victor_80",
@@ -2073,7 +2073,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "victor_81",
@@ -2093,7 +2093,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "victor_82",
@@ -2113,7 +2113,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "victor_83",
@@ -2133,7 +2133,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "victor_84",
@@ -2153,7 +2153,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "victor_85",
@@ -2173,7 +2173,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1320000,
-        "durationTicks": 264
+        "durationTicks": 132
       },
       {
         "id": "victor_86",
@@ -2194,7 +2194,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "victor_87",
@@ -2213,7 +2213,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "victor_88",
@@ -2233,7 +2233,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "victor_89",
@@ -2253,7 +2253,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "victor_90",
@@ -2273,7 +2273,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1380000,
-        "durationTicks": 276
+        "durationTicks": 138
       },
       {
         "id": "victor_91",
@@ -2293,7 +2293,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "victor_92",
@@ -2313,7 +2313,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1140000,
-        "durationTicks": 228
+        "durationTicks": 114
       },
       {
         "id": "victor_93",
@@ -2333,7 +2333,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1440000,
-        "durationTicks": 288
+        "durationTicks": 144
       },
       {
         "id": "victor_94",
@@ -2353,7 +2353,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "victor_95",
@@ -2373,7 +2373,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1320000,
-        "durationTicks": 264
+        "durationTicks": 132
       },
       {
         "id": "victor_96",
@@ -2393,7 +2393,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1320000,
-        "durationTicks": 264
+        "durationTicks": 132
       },
       {
         "id": "victor_97",
@@ -2414,7 +2414,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "victor_98",
@@ -2434,7 +2434,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "victor_99",
@@ -2453,7 +2453,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "victor_100",
@@ -2474,7 +2474,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 400
         },
         "durationMs": 1620000,
-        "durationTicks": 324
+        "durationTicks": 162
       },
       {
         "id": "leon_01",
@@ -2494,7 +2494,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "leon_02",
@@ -2514,7 +2514,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "leon_03",
@@ -2535,7 +2535,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "leon_04",
@@ -2555,7 +2555,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "leon_05",
@@ -2575,7 +2575,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "leon_06",
@@ -2595,7 +2595,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "leon_07",
@@ -2615,7 +2615,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "leon_08",
@@ -2634,7 +2634,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 840000,
-        "durationTicks": 168
+        "durationTicks": 84
       },
       {
         "id": "leon_09",
@@ -2654,7 +2654,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "leon_10",
@@ -2674,7 +2674,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "leon_11",
@@ -2694,7 +2694,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "leon_12",
@@ -2714,7 +2714,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 840000,
-        "durationTicks": 168
+        "durationTicks": 84
       },
       {
         "id": "leon_13",
@@ -2734,7 +2734,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "leon_14",
@@ -2754,7 +2754,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "leon_15",
@@ -2774,7 +2774,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "leon_16",
@@ -2794,7 +2794,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "leon_17",
@@ -2815,7 +2815,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 660000,
-        "durationTicks": 132
+        "durationTicks": 66
       },
       {
         "id": "leon_18",
@@ -2835,7 +2835,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "leon_19",
@@ -2854,7 +2854,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "leon_20",
@@ -2874,7 +2874,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "leon_21",
@@ -2894,7 +2894,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "leon_22",
@@ -2914,7 +2914,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "leon_23",
@@ -2934,7 +2934,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "leon_24",
@@ -2954,7 +2954,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "leon_25",
@@ -2973,7 +2973,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "leon_26",
@@ -2993,7 +2993,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "leon_27",
@@ -3013,7 +3013,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 840000,
-        "durationTicks": 168
+        "durationTicks": 84
       },
       {
         "id": "leon_28",
@@ -3033,7 +3033,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "leon_29",
@@ -3054,7 +3054,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "leon_30",
@@ -3075,7 +3075,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "leon_31",
@@ -3094,7 +3094,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "leon_32",
@@ -3114,7 +3114,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 660000,
-        "durationTicks": 132
+        "durationTicks": 66
       },
       {
         "id": "leon_33",
@@ -3134,7 +3134,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "leon_34",
@@ -3153,7 +3153,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "leon_35",
@@ -3172,7 +3172,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "leon_36",
@@ -3192,7 +3192,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "leon_37",
@@ -3212,7 +3212,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "leon_38",
@@ -3233,7 +3233,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "leon_39",
@@ -3253,7 +3253,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "leon_40",
@@ -3273,7 +3273,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "leon_41",
@@ -3293,7 +3293,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "leon_42",
@@ -3313,7 +3313,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "leon_43",
@@ -3333,7 +3333,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "leon_44",
@@ -3353,7 +3353,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "leon_45",
@@ -3373,7 +3373,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1140000,
-        "durationTicks": 228
+        "durationTicks": 114
       },
       {
         "id": "leon_46",
@@ -3393,7 +3393,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "leon_47",
@@ -3413,7 +3413,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "leon_48",
@@ -3433,7 +3433,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "leon_49",
@@ -3453,7 +3453,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "leon_50",
@@ -3473,7 +3473,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 600
         },
         "durationMs": 1500000,
-        "durationTicks": 300
+        "durationTicks": 150
       },
       {
         "id": "leon_51",
@@ -3493,7 +3493,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "leon_52",
@@ -3513,7 +3513,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "leon_53",
@@ -3532,7 +3532,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "leon_54",
@@ -3553,7 +3553,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1140000,
-        "durationTicks": 228
+        "durationTicks": 114
       },
       {
         "id": "leon_55",
@@ -3573,7 +3573,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "leon_56",
@@ -3593,7 +3593,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "leon_57",
@@ -3613,7 +3613,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "leon_58",
@@ -3632,7 +3632,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 840000,
-        "durationTicks": 168
+        "durationTicks": 84
       },
       {
         "id": "leon_59",
@@ -3651,7 +3651,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "leon_60",
@@ -3671,7 +3671,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 840000,
-        "durationTicks": 168
+        "durationTicks": 84
       },
       {
         "id": "leon_61",
@@ -3691,7 +3691,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "leon_62",
@@ -3712,7 +3712,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "leon_63",
@@ -3732,7 +3732,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "leon_64",
@@ -3752,7 +3752,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1140000,
-        "durationTicks": 228
+        "durationTicks": 114
       },
       {
         "id": "leon_65",
@@ -3773,7 +3773,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "leon_66",
@@ -3793,7 +3793,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 840000,
-        "durationTicks": 168
+        "durationTicks": 84
       },
       {
         "id": "leon_67",
@@ -3813,7 +3813,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 660000,
-        "durationTicks": 132
+        "durationTicks": 66
       },
       {
         "id": "leon_68",
@@ -3832,7 +3832,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "leon_69",
@@ -3852,7 +3852,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "leon_70",
@@ -3872,7 +3872,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "leon_71",
@@ -3891,7 +3891,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "leon_72",
@@ -3911,7 +3911,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "leon_73",
@@ -3931,7 +3931,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "leon_74",
@@ -3950,7 +3950,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "leon_75",
@@ -3970,7 +3970,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "leon_76",
@@ -3990,7 +3990,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "leon_77",
@@ -4011,7 +4011,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "leon_78",
@@ -4030,7 +4030,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "leon_79",
@@ -4050,7 +4050,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 660000,
-        "durationTicks": 132
+        "durationTicks": 66
       },
       {
         "id": "leon_80",
@@ -4069,7 +4069,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 840000,
-        "durationTicks": 168
+        "durationTicks": 84
       },
       {
         "id": "leon_81",
@@ -4089,7 +4089,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "leon_82",
@@ -4108,7 +4108,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 840000,
-        "durationTicks": 168
+        "durationTicks": 84
       },
       {
         "id": "leon_83",
@@ -4128,7 +4128,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "leon_84",
@@ -4148,7 +4148,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "leon_85",
@@ -4168,7 +4168,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1140000,
-        "durationTicks": 228
+        "durationTicks": 114
       },
       {
         "id": "leon_86",
@@ -4188,7 +4188,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "leon_87",
@@ -4207,7 +4207,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "leon_88",
@@ -4227,7 +4227,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "leon_89",
@@ -4247,7 +4247,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "leon_90",
@@ -4267,7 +4267,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "leon_91",
@@ -4287,7 +4287,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "leon_92",
@@ -4307,7 +4307,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "leon_93",
@@ -4328,7 +4328,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "leon_94",
@@ -4348,7 +4348,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "leon_95",
@@ -4368,7 +4368,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "leon_96",
@@ -4388,7 +4388,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "leon_97",
@@ -4408,7 +4408,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "leon_98",
@@ -4428,7 +4428,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1140000,
-        "durationTicks": 228
+        "durationTicks": 114
       },
       {
         "id": "leon_99",
@@ -4449,7 +4449,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "leon_100",
@@ -4469,7 +4469,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 600
         },
         "durationMs": 1500000,
-        "durationTicks": 300
+        "durationTicks": 150
       },
       {
         "id": "nyra_01",
@@ -4489,7 +4489,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 840000,
-        "durationTicks": 168
+        "durationTicks": 84
       },
       {
         "id": "nyra_02",
@@ -4509,7 +4509,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "nyra_03",
@@ -4529,7 +4529,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_04",
@@ -4549,7 +4549,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_05",
@@ -4569,7 +4569,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "nyra_06",
@@ -4589,7 +4589,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_07",
@@ -4609,7 +4609,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_08",
@@ -4629,7 +4629,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "nyra_09",
@@ -4649,7 +4649,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "nyra_10",
@@ -4669,7 +4669,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_11",
@@ -4689,7 +4689,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_12",
@@ -4710,7 +4710,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_13",
@@ -4730,7 +4730,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "nyra_14",
@@ -4750,7 +4750,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "nyra_15",
@@ -4770,7 +4770,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "nyra_16",
@@ -4790,7 +4790,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "nyra_17",
@@ -4810,7 +4810,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "nyra_18",
@@ -4830,7 +4830,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_19",
@@ -4850,7 +4850,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_20",
@@ -4870,7 +4870,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 840000,
-        "durationTicks": 168
+        "durationTicks": 84
       },
       {
         "id": "nyra_21",
@@ -4891,7 +4891,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 660000,
-        "durationTicks": 132
+        "durationTicks": 66
       },
       {
         "id": "nyra_22",
@@ -4911,7 +4911,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_23",
@@ -4931,7 +4931,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "nyra_24",
@@ -4951,7 +4951,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "nyra_25",
@@ -4971,7 +4971,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 660000,
-        "durationTicks": 132
+        "durationTicks": 66
       },
       {
         "id": "nyra_26",
@@ -4991,7 +4991,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "nyra_27",
@@ -5011,7 +5011,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "nyra_28",
@@ -5031,7 +5031,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_29",
@@ -5051,7 +5051,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "nyra_30",
@@ -5071,7 +5071,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_31",
@@ -5091,7 +5091,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "nyra_32",
@@ -5111,7 +5111,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "nyra_33",
@@ -5131,7 +5131,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_34",
@@ -5151,7 +5151,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "nyra_35",
@@ -5171,7 +5171,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "nyra_36",
@@ -5191,7 +5191,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_37",
@@ -5211,7 +5211,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "nyra_38",
@@ -5231,7 +5231,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_39",
@@ -5251,7 +5251,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "nyra_40",
@@ -5271,7 +5271,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "nyra_41",
@@ -5291,7 +5291,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "nyra_42",
@@ -5311,7 +5311,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "nyra_43",
@@ -5331,7 +5331,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_44",
@@ -5351,7 +5351,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "nyra_45",
@@ -5372,7 +5372,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_46",
@@ -5392,7 +5392,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "nyra_47",
@@ -5412,7 +5412,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "nyra_48",
@@ -5432,7 +5432,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "nyra_49",
@@ -5452,7 +5452,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "nyra_50",
@@ -5472,7 +5472,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 600
         },
         "durationMs": 1500000,
-        "durationTicks": 300
+        "durationTicks": 150
       },
       {
         "id": "nyra_51",
@@ -5492,7 +5492,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 840000,
-        "durationTicks": 168
+        "durationTicks": 84
       },
       {
         "id": "nyra_52",
@@ -5512,7 +5512,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_53",
@@ -5532,7 +5532,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "nyra_54",
@@ -5552,7 +5552,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "nyra_55",
@@ -5572,7 +5572,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "nyra_56",
@@ -5592,7 +5592,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_57",
@@ -5612,7 +5612,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1140000,
-        "durationTicks": 228
+        "durationTicks": 114
       },
       {
         "id": "nyra_58",
@@ -5632,7 +5632,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 660000,
-        "durationTicks": 132
+        "durationTicks": 66
       },
       {
         "id": "nyra_59",
@@ -5652,7 +5652,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "nyra_60",
@@ -5673,7 +5673,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "nyra_61",
@@ -5693,7 +5693,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "nyra_62",
@@ -5713,7 +5713,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_63",
@@ -5733,7 +5733,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_64",
@@ -5753,7 +5753,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "nyra_65",
@@ -5773,7 +5773,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "nyra_66",
@@ -5793,7 +5793,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "nyra_67",
@@ -5813,7 +5813,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "nyra_68",
@@ -5833,7 +5833,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "nyra_69",
@@ -5853,7 +5853,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "nyra_70",
@@ -5873,7 +5873,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_71",
@@ -5893,7 +5893,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "nyra_72",
@@ -5913,7 +5913,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "nyra_73",
@@ -5933,7 +5933,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "nyra_74",
@@ -5953,7 +5953,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "nyra_75",
@@ -5973,7 +5973,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "nyra_76",
@@ -5993,7 +5993,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_77",
@@ -6013,7 +6013,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "nyra_78",
@@ -6033,7 +6033,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "nyra_79",
@@ -6053,7 +6053,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_80",
@@ -6073,7 +6073,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "nyra_81",
@@ -6093,7 +6093,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 660000,
-        "durationTicks": 132
+        "durationTicks": 66
       },
       {
         "id": "nyra_82",
@@ -6113,7 +6113,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "nyra_83",
@@ -6133,7 +6133,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_84",
@@ -6153,7 +6153,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "nyra_85",
@@ -6173,7 +6173,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "nyra_86",
@@ -6193,7 +6193,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "nyra_87",
@@ -6213,7 +6213,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "nyra_88",
@@ -6233,7 +6233,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 660000,
-        "durationTicks": 132
+        "durationTicks": 66
       },
       {
         "id": "nyra_89",
@@ -6253,7 +6253,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1020000,
-        "durationTicks": 204
+        "durationTicks": 102
       },
       {
         "id": "nyra_90",
@@ -6273,7 +6273,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "nyra_91",
@@ -6293,7 +6293,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "nyra_92",
@@ -6313,7 +6313,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "nyra_93",
@@ -6333,7 +6333,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 720000,
-        "durationTicks": 144
+        "durationTicks": 72
       },
       {
         "id": "nyra_94",
@@ -6353,7 +6353,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 0
         },
         "durationMs": 780000,
-        "durationTicks": 156
+        "durationTicks": 78
       },
       {
         "id": "nyra_95",
@@ -6373,7 +6373,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "nyra_96",
@@ -6393,7 +6393,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 900000,
-        "durationTicks": 180
+        "durationTicks": 90
       },
       {
         "id": "nyra_97",
@@ -6413,7 +6413,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1080000,
-        "durationTicks": 216
+        "durationTicks": 108
       },
       {
         "id": "nyra_98",
@@ -6433,7 +6433,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 960000,
-        "durationTicks": 192
+        "durationTicks": 96
       },
       {
         "id": "nyra_99",
@@ -6453,7 +6453,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 200
         },
         "durationMs": 1140000,
-        "durationTicks": 228
+        "durationTicks": 114
       },
       {
         "id": "nyra_100",
@@ -6473,7 +6473,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "failureDirtyCashLoss": 600
         },
         "durationMs": 1500000,
-        "durationTicks": 300
+        "durationTicks": 150
       }
     ]
   },

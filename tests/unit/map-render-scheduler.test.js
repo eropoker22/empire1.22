@@ -72,6 +72,32 @@ describe("map render scheduler", () => {
     expect(render).toHaveBeenCalledTimes(1);
   });
 
+  it("coalesces only explicitly invalidated layers", () => {
+    const windowRef = new FakeWindow();
+    const documentRef = new FakeDocument();
+    const render = vi.fn();
+    const scheduler = createMapRenderScheduler({ windowRef, documentRef, render });
+
+    scheduler.invalidate("owner-change", { layers: ["state"] });
+    scheduler.invalidate("selection-change", { layers: ["selection"] });
+    windowRef.fireFrame(1, 16);
+
+    expect(render).toHaveBeenCalledWith(expect.objectContaining({
+      layers: ["state", "selection"]
+    }));
+  });
+
+  it("does not schedule a frame for non-map UI changes", () => {
+    const windowRef = new FakeWindow();
+    const documentRef = new FakeDocument();
+    const render = vi.fn();
+    const scheduler = createMapRenderScheduler({ windowRef, documentRef, render });
+
+    expect(scheduler.invalidate("countdown", { layers: [] })).toBe(false);
+    expect(scheduler.isScheduled()).toBe(false);
+    expect(render).not.toHaveBeenCalled();
+  });
+
   it("keeps dirty work paused while the document is hidden", () => {
     const windowRef = new FakeWindow();
     const documentRef = new FakeDocument();
@@ -107,4 +133,3 @@ describe("map render scheduler", () => {
     expect(render).not.toHaveBeenCalled();
   });
 });
-

@@ -1,5 +1,6 @@
 import { createBuildingUpgradeConfirmationController } from "./buildingUpgradeConfirmation.js";
 import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
+import { FREE_GAMEPLAY_TICK_MS } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
 
 function queryAll(root, selector) {
   return selector ? Array.from(root?.querySelectorAll?.(selector) || []) : [];
@@ -178,7 +179,7 @@ export function createFactoryPopupRuntime(deps = {}) {
             slotList,
             createFactoryLoadingLines(),
             {},
-            { tickRateMs: deps.getServerTickRateMs?.() || 5000, formatDurationLabel: deps.formatDurationLabel }
+            { tickRateMs: deps.getServerTickRateMs?.() || FREE_GAMEPLAY_TICK_MS, formatDurationLabel: deps.formatDurationLabel }
           );
           return;
         }
@@ -210,7 +211,7 @@ export function createFactoryPopupRuntime(deps = {}) {
             deps.setBuildingActionFeedback?.(root, error ? "warning" : "success", "Továrna", error?.message || "Čekající výroba byla zrušena.");
             renderFactoryDashboard();
           }
-        }, { tickRateMs: deps.getServerTickRateMs?.() || 5000, formatDurationLabel: deps.formatDurationLabel });
+        }, { tickRateMs: deps.getServerTickRateMs?.() || FREE_GAMEPLAY_TICK_MS, formatDurationLabel: deps.formatDurationLabel });
         return;
       }
       if (!isLegacyLocalProductionEnabled()) {
@@ -227,7 +228,7 @@ export function createFactoryPopupRuntime(deps = {}) {
           slotList,
           createFactoryLoadingLines(),
           {},
-          { tickRateMs: deps.getServerTickRateMs?.() || 5000, formatDurationLabel: deps.formatDurationLabel }
+          { tickRateMs: deps.getServerTickRateMs?.() || FREE_GAMEPLAY_TICK_MS, formatDurationLabel: deps.formatDurationLabel }
         );
         return;
       }

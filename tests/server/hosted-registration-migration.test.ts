@@ -20,4 +20,17 @@ describe("hosted registration migration", () => {
     expect(sql).toContain("'schedule-registration'");
     expect(sql).toContain("'close-registration-now'");
   });
+
+  it("migrates only not-yet-running Free hosted instances to the ten-second tick", async () => {
+    const sql = await readFile(new URL(
+      "../../apps/server/src/runtime/persistence/postgres/migrations/016_free_mode_ten_second_tick.sql",
+      import.meta.url
+    ), "utf8");
+
+    expect(sql).toContain("canonical_first_elimination_tick = 2880");
+    expect(sql).toContain("canonical_tick_rate_ms = 10000");
+    expect(sql).toContain("status IN ('requested', 'provisioning', 'lobby')");
+    expect(sql).not.toContain("'running'");
+    expect(sql).not.toContain("'paused'");
+  });
 });

@@ -8,7 +8,7 @@ import {
 
 const OLD_FREE_MINIMUM_VICTORY_TICKS = 51_840;
 const OLD_FREE_CONTROL_HOLD_TICKS = 4_320;
-const FREE_HARD_TIMEOUT_TICKS = 120_960;
+const FREE_HARD_TIMEOUT_TICKS = 60_480;
 
 describe("victory duration design", () => {
   it("does not resolve when a player controls 74 percent of active districts", () => {
@@ -208,14 +208,14 @@ describe("victory duration design", () => {
     });
   });
 
-  it("sets free mode day and night to 2h each at tickRateMs 5000", () => {
+  it("sets free mode day and night to 2h each at tickRateMs 10000", () => {
     const config = resolveModeConfig("free");
 
-    expect(config.tickRateMs).toBe(5000);
-    expect(config.balance.dayLengthTicks).toBe(1440);
-    expect(config.balance.nightLengthTicks).toBe(1440);
-    expect(config.balance.dayNight?.phases.day.durationTicks).toBe(1440);
-    expect(config.balance.dayNight?.phases.night.durationTicks).toBe(1440);
+    expect(config.tickRateMs).toBe(10_000);
+    expect(config.balance.dayLengthTicks).toBe(720);
+    expect(config.balance.nightLengthTicks).toBe(720);
+    expect(config.balance.dayNight?.phases.day.durationTicks).toBe(720);
+    expect(config.balance.dayNight?.phases.night.durationTicks).toBe(720);
   });
 
   it("sets war mode day and night to 2h each at tickRateMs 15000", () => {

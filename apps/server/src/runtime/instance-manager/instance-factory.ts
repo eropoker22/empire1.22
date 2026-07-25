@@ -5,6 +5,7 @@ import { createNullInstanceEventPublisher } from "../events/instance-event-publi
 import { InstanceEventQueue } from "../events/instance-event-queue";
 import { createInstanceLogger } from "../logging/instance-logger";
 import { createInstanceMonitorSnapshot } from "../monitoring/instance-metrics";
+import { createRuntimePerformanceDiagnostics } from "../monitoring/runtime-performance-diagnostics";
 import type {
   CommandLogRepository,
   CommandReservationRepository,
@@ -136,7 +137,8 @@ export const createServerInstanceRuntime = (
   const runtimeHealth = {
     lastErrorAt: null,
     lastTickStartedAt: null,
-    lastTickCompletedAt: null
+    lastTickCompletedAt: null,
+    performanceDiagnostics: createRuntimePerformanceDiagnostics()
   };
   const logger = createInstanceLogger(instanceId, undefined, clock);
   const replayLogWriter = createReplayLogWriter(

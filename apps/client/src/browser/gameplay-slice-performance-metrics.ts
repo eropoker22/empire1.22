@@ -2,8 +2,11 @@ import { refreshLiveCooldownLabels } from "../shared-ui";
 
 declare global {
   interface EmpireStreetsRuntimeDiagnostics {
+    debugEnabled?: boolean;
     observeServerSlice?(gameplaySlice: unknown): { changed: boolean; fingerprint: string };
     recordClientStateRecompute?(reason?: string): number;
+    recordFullUiRender?(reason?: string): number;
+    recordSelectiveUiUpdate?(reason?: string, count?: number): number;
   }
   interface Window {
     empireStreetsPerformanceMode?: { active?: boolean; pollingMultiplier?: number };
@@ -22,13 +25,18 @@ declare global {
       mapInvalidationReasonCounts?: Record<string, number>;
       lastMapInvalidationReason?: string | null;
       demoFallbackActive?: boolean;
+      gameplayPollCount?: number;
+      gameplayPollSuccessCount?: number;
+      gameplayPollErrorCount?: number;
+      gameplayPollSkippedCount?: number;
+      fullUiRenderCount?: number;
+      selectiveUiUpdateCount?: number;
     };
   }
 }
 
 interface VisibilityRuntimeOptions {
   root: HTMLElement;
-  poller: { refreshOnce(): Promise<unknown | null> };
 }
 
 const getPerformanceMetrics = () => {
@@ -40,6 +48,9 @@ const getPerformanceMetrics = () => {
   window.empireStreetsPerformanceMetrics.managedIntervalCounts ??= {};
   return window.empireStreetsPerformanceMetrics;
 };
+
+const isPerformanceDebugEnabled = (): boolean =>
+  Boolean(window.empireStreetsRuntimeDiagnostics?.debugEnabled);
 
 const serverSliceRefreshTimestamps: number[] = [];
 let lastServerSliceFingerprint = "";
@@ -110,6 +121,12 @@ export const recordClientStateRecompute = (reason: string): void => {
   metrics.clientStateRecomputePerMinute = (metrics.clientStateRecomputePerMinute ?? 0) + 1;
 };
 
+export const recordGameplayPollError = (): void => {
+  if (!isPerformanceDebugEnabled()) return;
+  const metrics = getPerformanceMetrics();
+  metrics.gameplayPollErrorCount = (metrics.gameplayPollErrorCount ?? 0) + 1;
+};
+
 export const getPollingIntervalMultiplier = (): number => {
   const multiplier = Number(window.empireStreetsPerformanceMode?.pollingMultiplier ?? 1);
   return Number.isFinite(multiplier) && multiplier >= 1 ? multiplier : 1;
@@ -118,10 +135,25 @@ export const getPollingIntervalMultiplier = (): number => {
 export const getGameplaySlicePollerPerformanceOptions = () => ({
   visibilityDocument: document,
   intervalMultiplier: getPollingIntervalMultiplier(),
-  onRunningChange: (delta: 1 | -1) => trackIntervalMetric("gameplay-slice-poller", delta)
+  onRunningChange: (delta: 1 | -1) => trackIntervalMetric("gameplay-slice-poller", delta),
+  onAttempt: () => {
+    if (!isPerformanceDebugEnabled()) return;
+    const metrics = getPerformanceMetrics();
+    metrics.gameplayPollCount = (metrics.gameplayPollCount ?? 0) + 1;
+  },
+  onSuccess: () => {
+    if (!isPerformanceDebugEnabled()) return;
+    const metrics = getPerformanceMetrics();
+    metrics.gameplayPollSuccessCount = (metrics.gameplayPollSuccessCount ?? 0) + 1;
+  },
+  onSkipped: () => {
+    if (!isPerformanceDebugEnabled()) return;
+    const metrics = getPerformanceMetrics();
+    metrics.gameplayPollSkippedCount = (metrics.gameplayPollSkippedCount ?? 0) + 1;
+  }
 });
 
-export const createGameplaySliceVisibilityRuntime = ({ root, poller }: VisibilityRuntimeOptions) => {
+export const createGameplaySliceVisibilityRuntime = ({ root }: VisibilityRuntimeOptions) => {
   let cooldownTimerId: ReturnType<typeof window.setInterval> | null = null;
   const stopCooldownTimer = (): void => {
     if (cooldownTimerId === null) return;
@@ -141,7 +173,6 @@ export const createGameplaySliceVisibilityRuntime = ({ root, poller }: Visibilit
     }
     refreshLiveCooldownLabels(root);
     startCooldownTimer();
-    void poller.refreshOnce();
   };
   return {
     start() {

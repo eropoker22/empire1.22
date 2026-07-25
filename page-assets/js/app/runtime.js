@@ -19,6 +19,7 @@ import {
   FACTORY_SLOT_CONFIG,
   FACTORY_SLOT_STORAGE_CAP,
   FACTORY_SLOT_STORAGE_CAPS,
+  FREE_GAMEPLAY_TICK_MS,
   getMarketPriceKey,
   MARKET_PRICE_REFRESH_MS,
   MARKET_TAB_CONFIG,
@@ -129,8 +130,17 @@ import {
   MAP_INTERACTION_OVERLAY_CLASS,
   MAP_OWNER_FILL_ALPHA,
   MAP_REDUCED_ACTIVITY_COLORS,
-  MAP_REDUCED_ACTIVITY_FALLBACK_COLOR
+  MAP_REDUCED_ACTIVITY_FALLBACK_COLOR,
+  MAP_SELECTION_CANVAS_CLASS,
+  MAP_STATIC_CANVAS_CLASS
 } from "./map/mapConstants.js";
+import {
+  ALL_MAP_RENDER_LAYERS,
+  MAP_RENDER_LAYERS,
+  createGameplaySliceMapFingerprints,
+  diffGameplaySliceMapLayers,
+  resolveMapRenderLayers
+} from "./map/mapLayerInvalidation.js";
 import {
   resolveMapDestroyedFillStyle,
   resolveMapDistrictOwnerLabel,
@@ -939,7 +949,7 @@ const BUILDING_ACTION_LOG_LIMIT = 30;
 const MONEY_STAT_COUNT_TICK_MS = 26;
 const CITY_CLOCK_MINUTES_PER_TICK = 1;
 // 720 game minutes (06:00-18:00) must take 2 real hours, so one game minute advances every 10 seconds.
-const CITY_CLOCK_TICK_MS = 10 * 1000;
+const CITY_CLOCK_TICK_MS = FREE_GAMEPLAY_TICK_MS;
 const DEFAULT_CITY_MINUTES = 5 * 60 + 55;
 const CITY_MARKET_OFFER_COUNT = 2;
 const CITY_MARKET_REFRESH_MINUTES = Object.freeze([11 * 60, 19 * 60]);
@@ -1181,7 +1191,7 @@ function getServerFactoryReadModel() {
 }
 
 function getServerTickRateMs() {
-  return Math.max(1, Number(latestGameplaySliceReadModel?.mode?.tickRateMs || 5000));
+  return Math.max(1, Number(latestGameplaySliceReadModel?.mode?.tickRateMs || FREE_GAMEPLAY_TICK_MS));
 }
 
 function submitServerPharmacyCommand({ type, payload } = {}) {
@@ -1827,7 +1837,7 @@ async function resolveServerBuildingActionTarget(context, definition) {
 function formatServerBuildingActionDisabledReason(actionView) {
   const cooldownTicks = Math.max(0, Math.floor(Number(actionView?.cooldownRemainingTicks || 0)));
   if (cooldownTicks > 0) {
-    return `Akce čeká ${formatDistrictBuildingCooldown(cooldownTicks * 5000)}.`;
+    return `Akce čeká ${formatDistrictBuildingCooldown(cooldownTicks * getServerTickRateMs())}.`;
   }
   return String(actionView?.disabledReason || "").trim();
 }
@@ -10267,7 +10277,10 @@ const districtCanvasRenderer = createDistrictCanvasRenderer({
 const {
   drawMapImage,
   renderDistrictEffectsCanvas,
-  renderDistrictCanvas
+  renderDistrictCanvas,
+  renderDistrictSelectionCanvas,
+  renderDistrictStateCanvas,
+  renderDistrictStaticCanvas
 } = districtCanvasRenderer;
 function bindDistrictCanvas(root) {
   const mapShell = initMapShell({
@@ -10285,7 +10298,9 @@ function bindDistrictCanvas(root) {
     classes: {
       effectsCanvas: MAP_EFFECTS_CANVAS_CLASS,
       interactionOverlay: MAP_INTERACTION_OVERLAY_CLASS,
-      hoverCanvas: MAP_HOVER_CANVAS_CLASS
+      hoverCanvas: MAP_HOVER_CANVAS_CLASS,
+      selectionCanvas: MAP_SELECTION_CANVAS_CLASS,
+      staticCanvas: MAP_STATIC_CANVAS_CLASS
     }
   });
   const districtPopupElements = getDistrictPopupElements(root);
@@ -10303,7 +10318,9 @@ function bindDistrictCanvas(root) {
     overlayControls,
     statusPanel,
     interactionOverlay,
+    staticCanvas,
     effectsCanvas,
+    selectionCanvas,
     hoverCanvas
   } = mapShell;
   const {
@@ -10412,6 +10429,13 @@ function bindDistrictCanvas(root) {
     syncEffectsCanvasSize();
     effectsCanvasContext.clearRect(0, 0, effectsCanvas.width, effectsCanvas.height);
   };
+  const syncLayerCanvasSizes = () => {
+    for (const layerCanvas of [staticCanvas, selectionCanvas, hoverCanvas, effectsCanvas]) {
+      if (!layerCanvas) continue;
+      if (layerCanvas.width !== canvas.width) layerCanvas.width = canvas.width;
+      if (layerCanvas.height !== canvas.height) layerCanvas.height = canvas.height;
+    }
+  };
   const baseCanvasWidth = Math.max(1, Number(canvas.getAttribute("width") || canvas.width || 1600));
   const baseCanvasHeight = Math.max(1, Number(canvas.getAttribute("height") || canvas.height || 980));
   const syncDistrictCanvasResolution = () => {
@@ -10444,14 +10468,7 @@ function bindDistrictCanvas(root) {
 
     canvas.width = targetWidth;
     canvas.height = targetHeight;
-    if (hoverCanvas) {
-      hoverCanvas.width = targetWidth;
-      hoverCanvas.height = targetHeight;
-    }
-    if (effectsCanvas) {
-      effectsCanvas.width = targetWidth;
-      effectsCanvas.height = targetHeight;
-    }
+    syncLayerCanvasSizes();
     interactionState.geometryCache = null;
     return true;
   };
@@ -10539,7 +10556,7 @@ function bindDistrictCanvas(root) {
       hoveredDistrict: geometry?.districts?.find((district) => district.id === interactionState.hoveredDistrictId) || null,
       focusedDistrict: null
     });
-    render();
+    render("district-close");
   };
 
   if (popup instanceof HTMLElement) {
@@ -10636,7 +10653,7 @@ function bindDistrictCanvas(root) {
 
     if (safeDistrict?.id) {
       interactionState.selectedDistrictId = Number(safeDistrict.id);
-      render();
+      render("district-open");
       openPopup(safeDistrict);
     }
 
@@ -10724,7 +10741,7 @@ function bindDistrictCanvas(root) {
         hoveredDistrict: geometry?.districts?.find((district) => district.id === interactionState.hoveredDistrictId) || null,
         focusedDistrict: null
       });
-      render();
+      render("selection-change");
     },
     formatDistrictBuildingTierLabel,
     getCurrentPlayerOwnedDistrictIds,
@@ -11035,7 +11052,7 @@ function bindDistrictCanvas(root) {
     }
 
     populateDefenseSetupPopup(selectedDistrict);
-    render();
+    render("state-change");
   };
 
   const submitServerDefenseSetup = async (selectedDistrict) => {
@@ -11456,7 +11473,7 @@ function bindDistrictCanvas(root) {
       intelLevel: "verified"
     });
     scheduleOccupyOrder(root, createdOrder);
-    render();
+    render("mission-started");
     ensureMissionAnimationLoop();
 
     if (buildingActionState) {
@@ -11544,7 +11561,7 @@ function bindDistrictCanvas(root) {
       intelLevel: "verified"
     });
     scheduleRobberyOrder(root, createdOrder);
-    render();
+    render("mission-started");
     ensureMissionAnimationLoop();
 
     if (buildingActionState) {
@@ -11625,7 +11642,7 @@ function bindDistrictCanvas(root) {
     });
     renderSpyResourceState(root);
     scheduleSpyMission(root, mission);
-    render();
+    render("mission-started");
     ensureMissionAnimationLoop();
 
     if (buildingActionState) {
@@ -12069,14 +12086,38 @@ function bindDistrictCanvas(root) {
     };
   };
 
-  const renderCanvasOnly = () => {
-    syncDistrictCanvasResolution();
-    geometry = renderDistrictCanvas(canvas, phaseHost.dataset.mapPhase || "day", interactionState, imageSet, {
+  const renderCanvasOnly = (requestedLayers = ALL_MAP_RENDER_LAYERS) => {
+    const layers = new Set(requestedLayers);
+    const resolutionChanged = syncDistrictCanvasResolution();
+    if (layers.has("all") || resolutionChanged) {
+      layers.clear();
+      ALL_MAP_RENDER_LAYERS.forEach((layer) => layers.add(layer));
+    }
+    syncLayerCanvasSizes();
+    const phase = phaseHost.dataset.mapPhase || "day";
+    const renderOptions = {
       renderActivityEffects: false,
       compactDistrictBorders: Boolean(getCurrentPerformanceMode().active)
-    });
-    renderMapEffects();
-    renderHoverCanvas();
+    };
+
+    if (staticCanvas && layers.has(MAP_RENDER_LAYERS.static)) {
+      geometry = renderDistrictStaticCanvas(staticCanvas, phase, interactionState, imageSet, renderOptions);
+      getRuntimePerformanceDiagnostics()?.recordMapLayerRedraw?.(MAP_RENDER_LAYERS.static);
+    }
+    if (layers.has(MAP_RENDER_LAYERS.state)) {
+      geometry = renderDistrictStateCanvas(canvas, phase, interactionState, imageSet, renderOptions);
+      getRuntimePerformanceDiagnostics()?.recordMapLayerRedraw?.(MAP_RENDER_LAYERS.state);
+    }
+    if (selectionCanvas && layers.has(MAP_RENDER_LAYERS.selection)) {
+      renderDistrictSelectionCanvas(selectionCanvas, phase, interactionState, imageSet, renderOptions);
+      getRuntimePerformanceDiagnostics()?.recordMapLayerRedraw?.(MAP_RENDER_LAYERS.selection);
+    }
+    if (layers.has(MAP_RENDER_LAYERS.effects)) {
+      renderMapEffects();
+    }
+    if (layers.has(MAP_RENDER_LAYERS.hover)) {
+      renderHoverCanvas();
+    }
   };
 
   const buildCurrentMapStatusViewModel = () => buildMapStatusViewModel({
@@ -12186,6 +12227,7 @@ function bindDistrictCanvas(root) {
     );
     const durationMs = Math.max(0, (window.performance?.now?.() ?? Date.now()) - startedAt);
     const metrics = recordMapEffectRender(window, durationMs);
+    getRuntimePerformanceDiagnostics()?.recordEffectFrame?.();
     const mode = getCurrentPerformanceMode();
     const normalFps = mode.active ? 20 : 60;
 
@@ -12193,12 +12235,16 @@ function bindDistrictCanvas(root) {
     metrics.mapEffectsFpsCap = normalFps;
   };
 
-  const performRender = () => {
+  const performRender = ({ layers = ALL_MAP_RENDER_LAYERS } = {}) => {
+    const layerSet = new Set(layers);
+    getRuntimePerformanceDiagnostics()?.recordMapRenderCycle?.(layers);
     syncPhaseHostFromAuthority(phaseHost);
     interactionState.borderColor = phaseHost.dataset.borderColor || "white";
     interactionState.gamePhase = normalizeRuntimeGamePhase(phaseHost.dataset.gamePhase || "launch");
     interactionState.animationTick = Date.now();
-    syncMapMissionMarkers(interactionState.animationTick);
+    if (layerSet.has("all") || layerSet.has(MAP_RENDER_LAYERS.effects) || layerSet.has(MAP_RENDER_LAYERS.state)) {
+      syncMapMissionMarkers(interactionState.animationTick);
+    }
     refreshMapAfterStateChange({
       elements: {
         overlayControls,
@@ -12206,7 +12252,7 @@ function bindDistrictCanvas(root) {
       },
       overlayState: createDefaultMapOverlayState(),
       callbacks: {
-        redrawMap: renderCanvasOnly,
+        redrawMap: () => renderCanvasOnly(layers),
         buildStatusViewModel: buildCurrentMapStatusViewModel,
         syncShellVisualState: () => syncMapInteractionVisualState({
           hoveredDistrict: geometry?.districts?.find((district) => district.id === interactionState.hoveredDistrictId) || null,
@@ -12245,8 +12291,10 @@ function bindDistrictCanvas(root) {
 
   const render = (reason = "ui-interaction", options = {}) => {
     mapRenderScheduler.setFrameIntervalMs(getMapFrameIntervalMs());
+    const layers = options.layers || resolveMapRenderLayers(reason);
     return mapRenderScheduler.invalidate(reason, {
       ...options,
+      layers,
       immediate: Boolean(options.immediate || !geometry)
     });
   };
@@ -12264,6 +12312,7 @@ function bindDistrictCanvas(root) {
     });
   };
   let lastWorldMapFingerprint = createWorldMapFingerprint();
+  let lastServerMapFingerprints = null;
 
   const ensureMissionAnimationLoop = () => {
     const hasActiveMissions = hasActiveMapMissions();
@@ -12273,6 +12322,7 @@ function bindDistrictCanvas(root) {
         window.cancelAnimationFrame(spyAnimationFrameId);
         spyAnimationFrameId = null;
       }
+      getRuntimePerformanceDiagnostics()?.setMapRafActive?.(false);
       if (!hasActiveMissions || getCurrentPerformanceMode().reducedMotion) {
         clearEffectsCanvas();
       }
@@ -12287,6 +12337,7 @@ function bindDistrictCanvas(root) {
     const animate = (time) => {
       if (document.hidden) {
         spyAnimationFrameId = null;
+        getRuntimePerformanceDiagnostics()?.setMapRafActive?.(false);
         return;
       }
 
@@ -12302,6 +12353,7 @@ function bindDistrictCanvas(root) {
 
       if (!hasActiveMapMissions()) {
         spyAnimationFrameId = null;
+        getRuntimePerformanceDiagnostics()?.setMapRafActive?.(false);
         clearEffectsCanvas();
         render("mission-complete");
         return;
@@ -12313,16 +12365,17 @@ function bindDistrictCanvas(root) {
     };
 
     spyAnimationFrameId = window.requestAnimationFrame(animate);
+    getRuntimePerformanceDiagnostics()?.setMapRafActive?.(true);
   };
 
   const districtStateApi = {
     revealDistrictType(districtId) {
       interactionState.revealedDistrictIds.add(Number(districtId));
-      render();
+      render("state-change");
     },
     concealDistrictType(districtId) {
       interactionState.revealedDistrictIds.delete(Number(districtId));
-      render();
+      render("state-change");
     },
     captureDistrict(districtId) {
       const normalizedDistrictId = Number(districtId);
@@ -12330,7 +12383,7 @@ function bindDistrictCanvas(root) {
       interactionState.launchOwnerByDistrictId.delete(normalizedDistrictId);
       interactionState.ownedDistrictIds.add(normalizedDistrictId);
       interactionState.revealedDistrictIds.add(normalizedDistrictId);
-      render();
+      render("state-change");
     },
     destroyDistrict(districtId) {
       const normalizedDistrictId = Number(districtId);
@@ -12338,11 +12391,11 @@ function bindDistrictCanvas(root) {
       interactionState.ownedDistrictIds.delete(normalizedDistrictId);
       interactionState.launchOwnerByDistrictId.delete(normalizedDistrictId);
       interactionState.revealedDistrictIds.add(normalizedDistrictId);
-      render();
+      render("state-change");
     },
     loseDistrict(districtId) {
       interactionState.ownedDistrictIds.delete(Number(districtId));
-      render();
+      render("state-change");
     },
     setOwnedDistricts(districtIds = []) {
       interactionState.ownedDistrictIds = new Set(districtIds.map((districtId) => Number(districtId)));
@@ -12351,7 +12404,7 @@ function bindDistrictCanvas(root) {
         interactionState.revealedDistrictIds.add(districtId);
       }
 
-      render();
+      render("state-change");
     },
     getDistrictById(districtId) {
       const normalizedDistrictId = Number(districtId);
@@ -12371,7 +12424,7 @@ function bindDistrictCanvas(root) {
       }
 
       interactionState.selectedDistrictId = Number(district.id);
-      render();
+      render("selection-change");
       return true;
     },
     openDistrict(districtId) {
@@ -12386,7 +12439,7 @@ function bindDistrictCanvas(root) {
       }
 
       interactionState.selectedDistrictId = Number(district.id);
-      render();
+      render("district-open");
       openPopup(district);
       return true;
     },
@@ -12419,7 +12472,7 @@ function bindDistrictCanvas(root) {
       }
 
       interactionState.selectedDistrictId = Number(district.id);
-      render();
+      render("district-open");
       if (isDistrictOccupationInProgress(district.id)) {
         openPopup(district);
         setDistrictOccupationLockedFeedback(district);
@@ -12436,7 +12489,7 @@ function bindDistrictCanvas(root) {
       }
 
       interactionState.selectedDistrictId = Number(district.id);
-      render();
+      render("district-open");
       if (isDistrictOccupationInProgress(district.id)) {
         openPopup(district);
         setDistrictOccupationLockedFeedback(district);
@@ -12459,7 +12512,7 @@ function bindDistrictCanvas(root) {
       }
 
       interactionState.selectedDistrictId = Number(district.id);
-      render();
+      render("district-open");
       if (isDistrictOccupationInProgress(district.id)) {
         openPopup(district);
         setDistrictOccupationLockedFeedback(district);
@@ -12477,7 +12530,7 @@ function bindDistrictCanvas(root) {
 
       interactionState.selectedDistrictId = Number(district.id);
       if (isDistrictOccupationInProgress(district.id)) {
-        render();
+        render("district-open");
         openPopup(district);
         setDistrictOccupationLockedFeedback(district);
         return false;
@@ -12624,6 +12677,7 @@ function bindDistrictCanvas(root) {
         window.cancelAnimationFrame(spyAnimationFrameId);
         spyAnimationFrameId = null;
       }
+      getRuntimePerformanceDiagnostics()?.setMapRafActive?.(false);
       return;
     }
 
@@ -12653,11 +12707,19 @@ function bindDistrictCanvas(root) {
     ensureMissionAnimationLoop();
   };
   const handleMapTransformChange = () => {
-    render("ui:map-transform");
     ensureMissionAnimationLoop();
   };
-  const handleServerSliceRendered = () => {
-    render("server-slice-change");
+  const handleServerSliceRendered = (event) => {
+    const nextFingerprints = createGameplaySliceMapFingerprints(event?.detail?.gameplaySlice || null);
+    const layers = diffGameplaySliceMapLayers(lastServerMapFingerprints, nextFingerprints);
+    lastServerMapFingerprints = nextFingerprints;
+    if (layers.length === 0) {
+      return;
+    }
+    if (layers.includes(MAP_RENDER_LAYERS.state)) {
+      syncInteractionDistrictAuthorityState();
+    }
+    render("server-slice-change", { layers });
     ensureMissionAnimationLoop();
   };
   window.addEventListener("empire:mobile-performance-mode-changed", handleMobilePerformanceModeChange);
@@ -12786,11 +12848,11 @@ function bindDistrictCanvas(root) {
       }
 
       interactionState.selectedDistrictId = district.id;
-      render();
+      render("selection-change");
       openPopup(district);
     } else {
       interactionState.selectedDistrictId = null;
-      render();
+      render("selection-change");
       closePopup();
     }
   });
@@ -12968,7 +13030,7 @@ function bindDistrictCanvas(root) {
     }
 
     interactionState.selectedDistrictId = district.id;
-    render();
+    render("district-open");
     closeBuildingsPopup();
     openPopup(district);
     return true;
@@ -13684,11 +13746,12 @@ function bindDistrictCanvas(root) {
       ensureMissionAnimationLoop();
     });
 
-  window.addEventListener("beforeunload", () => {
+  const cleanupDistrictCanvas = () => {
     if (spyAnimationFrameId !== null) {
       window.cancelAnimationFrame(spyAnimationFrameId);
       spyAnimationFrameId = null;
     }
+    getRuntimePerformanceDiagnostics()?.setMapRafActive?.(false);
     if (hoverPointerFrameId !== null) {
       window.cancelAnimationFrame(hoverPointerFrameId);
       hoverPointerFrameId = null;
@@ -13708,7 +13771,11 @@ function bindDistrictCanvas(root) {
     document.removeEventListener("empire:gameplay-slice-rendered", handleServerSliceRendered);
     window.removeEventListener("resize", requestMapResizeRender);
     viewport.removeEventListener("empire:map-transform-changed", handleMapTransformChange);
-  }, { once: true });
+    window.removeEventListener("beforeunload", cleanupDistrictCanvas);
+    window.removeEventListener("pagehide", cleanupDistrictCanvas);
+  };
+  window.addEventListener("beforeunload", cleanupDistrictCanvas, { once: true });
+  window.addEventListener("pagehide", cleanupDistrictCanvas, { once: true });
 }
 
 const {
@@ -14099,15 +14166,20 @@ const {
     const worldState = getResolvedWorldState();
     const currentPhaseState = worldState.phaseState || getResolvedPhaseState();
     const currentCityMinutes = currentPhaseState.cityMinutes ?? DEFAULT_CITY_MINUTES;
-    const nextCityMinutes = (currentCityMinutes + minuteStep) % (24 * 60);
-    const crossedCityDayBoundary = currentCityMinutes < (6 * 60) && nextCityMinutes >= (6 * 60);
+    const elapsedCityMinutes = currentCityMinutes + minuteStep;
+    const nextCityMinutes = elapsedCityMinutes % (24 * 60);
+    const crossedCityDayBoundaries = Math.max(
+      0,
+      Math.floor((elapsedCityMinutes - (6 * 60)) / (24 * 60))
+        - Math.floor((currentCityMinutes - (6 * 60)) / (24 * 60))
+    );
 
     setStoredWorldState({
       ...worldState,
       phaseState: {
         ...currentPhaseState,
         cityMinutes: nextCityMinutes,
-        cityDayIndex: Math.max(0, Math.floor(Number(currentPhaseState.cityDayIndex || 0))) + (crossedCityDayBoundary ? 1 : 0),
+        cityDayIndex: Math.max(0, Math.floor(Number(currentPhaseState.cityDayIndex || 0))) + crossedCityDayBoundaries,
         mapPhase: getMapPhaseFromClock(nextCityMinutes),
         gamePhase: currentPhaseState.gamePhase === "launch" ? "launch" : "live"
       }
@@ -15343,6 +15415,9 @@ export {
   remapDistrictId,
   remapDistrictType,
   renderDistrictCanvas,
+  renderDistrictSelectionCanvas,
+  renderDistrictStateCanvas,
+  renderDistrictStaticCanvas,
   renderAttackConfirmPanel,
   renderAttackPanel,
   renderAttackProgress,

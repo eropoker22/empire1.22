@@ -18,7 +18,7 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
 
     expect(freeConfig.mode).toBe("free");
     expect(warConfig.mode).toBe("war");
-    expect(freeConfig.tickRateMs).toBe(5000);
+    expect(freeConfig.tickRateMs).toBe(10_000);
     expect(warConfig.tickRateMs).toBe(15000);
     expect(freeConfig.balance.productionMultiplier).toBe(1.2);
     expect(warConfig.balance.productionMultiplier).toBe(0.85);
@@ -33,10 +33,10 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
     expect(freeConfig.balance.minimumVictoryTicks).toBeUndefined();
     expect(freeConfig.balance.districtControlHoldTicks).toBeUndefined();
     expect(freeConfig.balance.allowDurationVictoryFallback).toBe(false);
-    expect(freeConfig.balance.hardTimeoutTicks).toBe(120960);
-    expect(freeConfig.balance.dayLengthTicks).toBe(1440);
-    expect(freeConfig.balance.nightLengthTicks).toBe(1440);
-    expect(freeConfig.balance.conflict?.minAttackDurationTicks).toBe(264);
+    expect(freeConfig.balance.hardTimeoutTicks).toBe(60_480);
+    expect(freeConfig.balance.dayLengthTicks).toBe(720);
+    expect(freeConfig.balance.nightLengthTicks).toBe(720);
+    expect(freeConfig.balance.conflict?.minAttackDurationTicks).toBe(132);
     expect(freeConfig.balance.conflict?.attackHeatGain).toBe(8);
     expect(warConfig.balance.victoryConditionKey).toBe("long-war-control");
     expect(warConfig.balance.conflict?.attackHeatGain).toBe(14);

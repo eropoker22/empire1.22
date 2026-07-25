@@ -34,6 +34,9 @@ export interface GameplaySlicePollerOptions<TResponse = GameplaySliceResponse> {
   intervalMultiplier?: number;
   maxErrorIntervalMultiplier?: number;
   onRunningChange?(delta: 1 | -1): void;
+  onAttempt?(): void;
+  onSkipped?(reason: "in-progress" | "destroyed" | "hidden" | "missing-request"): void;
+  onSuccess?(): void;
   onResponse?(response: TResponse): void | Promise<void>;
   onError?(error: unknown): void;
 }
@@ -58,6 +61,9 @@ export const createGameplaySlicePoller = <TResponse = GameplaySliceResponse>({
   intervalMultiplier = 1,
   maxErrorIntervalMultiplier = 4,
   onRunningChange,
+  onAttempt,
+  onSkipped,
+  onSuccess,
   onResponse,
   onError
 }: GameplaySlicePollerOptions<TResponse>): GameplaySlicePoller<TResponse> => {
@@ -107,7 +113,7 @@ export const createGameplaySlicePoller = <TResponse = GameplaySliceResponse>({
   };
 
   const syncErrorBackoff = (): void => {
-    const multiplier = Math.min(maxBackoffMultiplier, consecutiveErrors + 1);
+    const multiplier = Math.min(maxBackoffMultiplier, 2 ** consecutiveErrors);
     const nextIntervalMs = baseIntervalMs * multiplier;
     if (nextIntervalMs !== currentIntervalMs) {
       restartWithInterval(nextIntervalMs);
@@ -125,21 +131,33 @@ export const createGameplaySlicePoller = <TResponse = GameplaySliceResponse>({
   };
 
   const refreshOnce = async (): Promise<TResponse | null> => {
-    if (refreshInProgress || destroyed || isPausedForVisibility()) {
+    if (refreshInProgress) {
+      onSkipped?.("in-progress");
+      return null;
+    }
+    if (destroyed) {
+      onSkipped?.("destroyed");
+      return null;
+    }
+    if (isPausedForVisibility()) {
+      onSkipped?.("hidden");
       return null;
     }
 
     const request = getRequest();
 
     if (!request) {
+      onSkipped?.("missing-request");
       return null;
     }
 
     refreshInProgress = true;
+    onAttempt?.();
 
     try {
       const response = await load(request);
       await onResponse?.(response);
+      onSuccess?.();
       resetErrorBackoff();
       return response;
     } catch (error) {

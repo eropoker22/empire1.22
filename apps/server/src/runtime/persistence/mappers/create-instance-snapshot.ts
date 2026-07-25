@@ -7,7 +7,7 @@ import type { InstanceSnapshotDto } from "../dto";
  * Does not belong here: repository calls or gameplay logic.
  */
 export const createInstanceSnapshot = (runtime: ServerInstanceRuntime): InstanceSnapshotDto => ({
-  snapshotId: `snapshot:${runtime.record.id}:${runtime.state.root.tick}`,
+  snapshotId: `snapshot:${runtime.record.id}:${runtime.state.root.tick}:${runtime.state.root.version}`,
   instanceId: runtime.record.id,
   createdAt: runtime.clock.nowIso(),
   tick: runtime.state.root.tick,

@@ -24,6 +24,15 @@ export function isDevelopmentRuntime(windowRef = typeof window === "undefined" ?
   return isDevelopmentGameplayHost(windowRef);
 }
 
+export function isPerformanceDebugEnabled(windowRef = typeof window === "undefined" ? null : window) {
+  if (!isDevelopmentRuntime(windowRef)) return false;
+  try {
+    return new URLSearchParams(String(windowRef?.location?.search || "")).get("performanceDebug") === "1";
+  } catch (_error) {
+    return false;
+  }
+}
+
 export function createServerSliceFingerprint(gameplaySlice = null) {
   if (!gameplaySlice || typeof gameplaySlice !== "object") {
     return "";
@@ -54,6 +63,14 @@ function initializeRuntimeMetrics(metrics, initialMode) {
   metrics.demoFallbackActive = initialMode === GAMEPLAY_EXECUTION_MODES.localDemo;
   metrics.serverSliceUnchangedRefreshCount = Number(metrics.serverSliceUnchangedRefreshCount || 0);
   metrics.localTickCount = Number(metrics.localTickCount || 0);
+  metrics.mapFullRedrawCount = Number(metrics.mapFullRedrawCount || 0);
+  metrics.mapStaticRedrawCount = Number(metrics.mapStaticRedrawCount || 0);
+  metrics.mapStateRedrawCount = Number(metrics.mapStateRedrawCount || 0);
+  metrics.mapSelectionRedrawCount = Number(metrics.mapSelectionRedrawCount || 0);
+  metrics.mapEffectFrameCount = Number(metrics.mapEffectFrameCount || 0);
+  metrics.activeMapRafLoops = Number(metrics.activeMapRafLoops || 0);
+  metrics.fullUiRenderCount = Number(metrics.fullUiRenderCount || 0);
+  metrics.selectiveUiUpdateCount = Number(metrics.selectiveUiUpdateCount || 0);
   return metrics;
 }
 
@@ -61,6 +78,7 @@ export function createRuntimePerformanceDiagnostics(options = {}) {
   const windowRef = options.windowRef || (typeof window === "undefined" ? null : window);
   const documentRef = options.documentRef || windowRef?.document || (typeof document === "undefined" ? null : document);
   const development = options.development ?? isDevelopmentRuntime(windowRef);
+  const debugEnabled = options.debugEnabled ?? isPerformanceDebugEnabled(windowRef);
   const requestedMode = readRequestedGameplayExecutionMode(windowRef);
   const configuredMode = readConfiguredGameplayExecutionMode(windowRef);
   let allowLocalDemo = requestedMode === GAMEPLAY_EXECUTION_MODES.localDemo
@@ -106,6 +124,20 @@ export function createRuntimePerformanceDiagnostics(options = {}) {
       mapInvalidationReasonCounts: { ...(metrics.mapInvalidationReasonCounts || {}) },
       lastMapInvalidationReason: metrics.lastMapInvalidationReason || null,
       demoFallbackActive: Boolean(metrics.demoFallbackActive),
+      debugEnabled,
+      gameplayPollCount: Number(metrics.gameplayPollCount || 0),
+      gameplayPollSuccessCount: Number(metrics.gameplayPollSuccessCount || 0),
+      gameplayPollErrorCount: Number(metrics.gameplayPollErrorCount || 0),
+      gameplayPollSkippedCount: Number(metrics.gameplayPollSkippedCount || 0),
+      mapFullRedrawCount: Number(metrics.mapFullRedrawCount || 0),
+      mapStaticRedrawCount: Number(metrics.mapStaticRedrawCount || 0),
+      mapStateRedrawCount: Number(metrics.mapStateRedrawCount || 0),
+      mapSelectionRedrawCount: Number(metrics.mapSelectionRedrawCount || 0),
+      mapEffectFrameCount: Number(metrics.mapEffectFrameCount || 0),
+      activeMapRafLoops: Number(metrics.activeMapRafLoops || 0),
+      fullUiRenderCount: Number(metrics.fullUiRenderCount || 0),
+      selectiveUiUpdateCount: Number(metrics.selectiveUiUpdateCount || 0),
+      activeGameplayTimers: Number(metrics.activeIntervalsCount || 0),
       mapRenderFpsCap: Number(metrics.mapRenderFpsCap || 0),
       mapEffectsFpsCap: Number(metrics.mapEffectsFpsCap || 0),
       mapEffectsQuality: metrics.mapEffectsQuality || "full",
@@ -121,7 +153,7 @@ export function createRuntimePerformanceDiagnostics(options = {}) {
   const logSummary = (force = false) => {
     const summary = getSummary();
     const fingerprint = JSON.stringify(summary);
-    if (force || fingerprint !== lastLoggedSummary) {
+    if (debugEnabled && (force || fingerprint !== lastLoggedSummary)) {
       lastLoggedSummary = fingerprint;
       windowRef?.console?.info?.("[Empire Streets runtime]", summary);
     }
@@ -198,6 +230,7 @@ export function createRuntimePerformanceDiagnostics(options = {}) {
 
   const api = {
     development,
+    debugEnabled,
     get requestedMode() {
       return requestedMode;
     },
@@ -208,17 +241,14 @@ export function createRuntimePerformanceDiagnostics(options = {}) {
     shouldAllowDemoFallback: () => refreshLocalDemoPermission() && runtimeMode === GAMEPLAY_EXECUTION_MODES.localDemo,
     shouldRunLocalTick: () => refreshLocalDemoPermission() && DEV_RUNTIME_MODES.has(runtimeMode),
     shouldRunLocalProjection: () => refreshLocalDemoPermission() && DEV_RUNTIME_MODES.has(runtimeMode),
-    getLocalTickIntervalMs: (baseIntervalMs) => {
-      const safeBase = Math.max(1, Number(baseIntervalMs || 1));
-      const isDemoFallback = runtimeMode === GAMEPLAY_EXECUTION_MODES.localDemo;
-      return isDemoFallback && windowRef?.empireStreetsPerformanceMode?.active ? safeBase * 3 : safeBase;
-    },
-    recordLocalTick: () => {
-      if (!api.shouldRunLocalTick()) return false;
-      metrics.localTickCount += 1;
+    getLocalTickIntervalMs: (baseIntervalMs) => Math.max(1, Number(baseIntervalMs || 1)),
+    recordLocalTick: (count = 1) => {
+      if (!api.shouldRunLocalTick() || !debugEnabled) return false;
+      metrics.localTickCount += Math.max(1, Math.floor(Number(count || 1)));
       return true;
     },
     recordClientStateRecompute: (reason = "unknown") => {
+      if (!debugEnabled) return metrics.clientStateRecomputePerMinute;
       const nowMs = Date.now();
       clientStateRecomputeTimestamps.push(nowMs);
       metrics.lastClientStateRecomputeReason = String(reason || "unknown");
@@ -226,12 +256,53 @@ export function createRuntimePerformanceDiagnostics(options = {}) {
       return metrics.clientStateRecomputePerMinute;
     },
     recordMapInvalidation: (reason = "state-change") => {
+      if (!debugEnabled) return 0;
       const normalizedReason = String(reason || "state-change");
       const counts = metrics.mapInvalidationReasonCounts || {};
       counts[normalizedReason] = Number(counts[normalizedReason] || 0) + 1;
       metrics.mapInvalidationReasonCounts = counts;
       metrics.lastMapInvalidationReason = normalizedReason;
       return counts[normalizedReason];
+    },
+    recordMapLayerRedraw: (layer = "state") => {
+      if (!debugEnabled) return 0;
+      const metricByLayer = {
+        static: "mapStaticRedrawCount",
+        state: "mapStateRedrawCount",
+        selection: "mapSelectionRedrawCount"
+      };
+      const metric = metricByLayer[layer];
+      if (metric) metrics[metric] = Number(metrics[metric] || 0) + 1;
+      return metric ? metrics[metric] : 0;
+    },
+    recordMapRenderCycle: (layers = []) => {
+      if (!debugEnabled) return 0;
+      const layerSet = new Set(layers);
+      if (layerSet.has("all") || ["static", "state", "selection"].every((layer) => layerSet.has(layer))) {
+        metrics.mapFullRedrawCount += 1;
+      }
+      return metrics.mapFullRedrawCount;
+    },
+    recordEffectFrame: () => {
+      if (!debugEnabled) return 0;
+      metrics.mapEffectFrameCount += 1;
+      return metrics.mapEffectFrameCount;
+    },
+    setMapRafActive: (active) => {
+      metrics.activeMapRafLoops = debugEnabled && active ? 1 : 0;
+      return metrics.activeMapRafLoops;
+    },
+    recordFullUiRender: (reason = "initial") => {
+      if (!debugEnabled) return 0;
+      metrics.fullUiRenderCount += 1;
+      metrics.lastFullUiRenderReason = String(reason || "initial");
+      return metrics.fullUiRenderCount;
+    },
+    recordSelectiveUiUpdate: (reason = "state-change", count = 1) => {
+      if (!debugEnabled) return 0;
+      metrics.selectiveUiUpdateCount += Math.max(1, Number(count || 1));
+      metrics.lastSelectiveUiUpdateReason = String(reason || "state-change");
+      return metrics.selectiveUiUpdateCount;
     },
     observeServerSlice
   };

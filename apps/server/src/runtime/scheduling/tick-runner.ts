@@ -4,6 +4,11 @@ import type { ServerInstanceRuntime } from "../instance/server-instance-runtime"
 import { writeDiagnosticLog } from "../logging";
 import { systemClock, type Clock } from "./clock";
 import { isInstanceTickDue } from "./instance-scheduler";
+import {
+  recordRuntimeTickCompleted,
+  recordRuntimeTickSkipped,
+  runtimePerformanceNow
+} from "../monitoring/runtime-performance-diagnostics";
 
 /**
  * Responsibility: Executes one safe tick for a single instance runtime.
@@ -15,13 +20,14 @@ export const runInstanceTick = (
   clock: Clock = systemClock
 ): ServerInstanceRuntime => {
   if (!runtime.scheduler.isRunning || runtime.scheduler.tickInProgress) {
+    if (runtime.scheduler.tickInProgress) recordRuntimeTickSkipped(runtime);
     return runtime;
   }
   const tickNow = clock.now();
-  if (!isInstanceTickDue(runtime.scheduler, tickNow)) {
-    return runtime;
-  }
+  if (!isInstanceTickDue(runtime.scheduler, tickNow)) return runtime;
 
+  const tickStartedAtMs = runtimePerformanceNow();
+  let tickCompleted = false;
   runtime.scheduler.tickInProgress = true;
   runtime.runtimeHealth.lastTickStartedAt = clock.nowIso();
 
@@ -45,6 +51,7 @@ export const runInstanceTick = (
     runtime.eventPublisher.publish(tickEvent);
     runtime.runtimeHealth.lastTickCompletedAt = clock.nowIso();
     runtime.scheduler.lastTickAtMs = tickNow.getTime();
+    tickCompleted = true;
     void writeDiagnosticLog(
       runtime.replayLogWriter,
       runtime.record.id,
@@ -77,6 +84,7 @@ export const runInstanceTick = (
     return runtime;
   } finally {
     runtime.scheduler.tickInProgress = false;
+    if (tickCompleted) recordRuntimeTickCompleted(runtime, tickStartedAtMs);
   }
 };
 
