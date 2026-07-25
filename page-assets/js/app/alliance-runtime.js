@@ -1037,7 +1037,12 @@ const setModalVisible = (modal, visible) => {
     modal.hidden = false;
     modal.classList.remove("hidden");
     modal.setAttribute("aria-hidden", "false");
-    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: true });
+    openOverlay(modal, {
+      type: "modal",
+      ariaModal: true,
+      restoreFocusOnClose: true,
+      alwaysOnTop: modal.classList.contains("avatar-lightbox")
+    });
   } else {
     modal.classList.add("hidden");
     modal.hidden = true;
@@ -1788,12 +1793,9 @@ const renderPublicAlliancesPanel = (board) => {
 const renderAllianceLauncher = (activeAlliance) => {
   const button = qs("alliance-btn");
   if (!button) return;
+  button.classList.toggle("alliance-button--empty", !activeAlliance);
   if (!activeAlliance) {
-    button.innerHTML = `
-      <span class="alliance-launcher__body alliance-launcher__body--empty">
-        <span class="alliance-launcher__eyebrow">Aliance</span>
-      </span>
-    `;
+    button.textContent = "ALIANCE";
     return;
   }
   const iconKey = activeAlliance ? getAllianceIconOptionByTag(activeAlliance.tag).id : "reaper";

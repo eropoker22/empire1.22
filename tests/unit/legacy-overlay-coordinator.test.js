@@ -51,15 +51,18 @@ describe("legacy overlay coordinator priority layers", () => {
     openOverlay(actionOverlay, { skipFocus: true });
 
     expect(getTopOverlay()?.element).toBe(actionOverlay);
+    expect(Number.parseInt(actionOverlay.style.zIndex, 10)).toBeGreaterThan(50000);
     closeOverlay(districtOverlay, { restoreFocus: false, suppressMapInput: false });
   });
 
   it("reveals a hidden overlay before registering and focusing it", () => {
     actionOverlay.hidden = true;
+    actionOverlay.classList.add("hidden");
 
     openOverlay(actionOverlay);
 
     expect(actionOverlay.hidden).toBe(false);
+    expect(actionOverlay.classList.contains("hidden")).toBe(false);
     expect(getTopOverlay()?.element).toBe(actionOverlay);
   });
 

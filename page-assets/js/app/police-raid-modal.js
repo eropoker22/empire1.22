@@ -34,6 +34,9 @@ function playerFacingValue(label, value) {
     if (normalized.includes("bez tvrdého zákazu")) {
       return "Akce můžeš používat dál. Policie tě pouze sleduje.";
     }
+    if (normalized.includes("hlučné akce pod dohledem")) {
+      return "Špehování je do konce razie zakázané. Hlučné akce můžeš použít, ale policie je sleduje.";
+    }
     if (normalized.includes("všechny akce")) {
       return "Do konce razie nemůžeš provádět žádné akce ani speciální akce v budovách.";
     }

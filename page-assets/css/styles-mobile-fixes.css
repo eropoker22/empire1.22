@@ -7314,3 +7314,64 @@ html body.game-modal-scroll-locked .district-building-detail-shell .district-bui
   box-shadow: none !important;
   overflow: hidden !important;
 }
+
+/* Final police raid composition: keep overview and active impact groups aligned. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body:has(#police-action-result-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body:has(#police-action-result-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body:has(#police-action-result-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  html body #police-action-result-modal:not(.hidden):not([hidden]),
+  html body.game-modal-scroll-locked #police-action-result-modal:not(.hidden):not([hidden]) {
+    align-items: flex-start !important;
+    padding: max(2px, env(safe-area-inset-top)) 4px max(6px, env(safe-area-inset-bottom)) !important;
+  }
+
+  html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert,
+  html body.game-modal-scroll-locked #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert {
+    max-height: calc(var(--mobile-locked-vh, 100svh) - max(4px, env(safe-area-inset-top)) - max(8px, env(safe-area-inset-bottom))) !important;
+    margin: 0 auto !important;
+  }
+
+  html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert .police-raid-impact__overview,
+  html body.game-modal-scroll-locked #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert .police-raid-impact__overview {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    align-items: stretch !important;
+    gap: 5px !important;
+  }
+
+  html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert .police-raid-impact__grid,
+  html body.game-modal-scroll-locked #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert .police-raid-impact__grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    align-items: stretch !important;
+    gap: 7px !important;
+  }
+
+  html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert .police-raid-impact__overview > *,
+  html body.game-modal-scroll-locked #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert .police-raid-impact__overview > * {
+    grid-column: auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+  }
+
+  html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert .police-raid-impact__grid > .police-raid-impact__group.is-impact,
+  html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert .police-raid-impact__grid > .police-raid-impact__group.is-lock,
+  html body.game-modal-scroll-locked #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert .police-raid-impact__grid > .police-raid-impact__group.is-impact,
+  html body.game-modal-scroll-locked #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert .police-raid-impact__grid > .police-raid-impact__group.is-lock {
+    grid-column: auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+  }
+
+  html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert .police-raid-impact__grid > .police-raid-impact__group.is-loss,
+  html body.game-modal-scroll-locked #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert .police-raid-impact__grid > .police-raid-impact__group.is-loss {
+    grid-column: 1 / -1 !important;
+  }
+}

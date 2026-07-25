@@ -88,6 +88,12 @@
     0 0 28px rgba(255, 47, 95, 0.16);
 }
 
+#alliance-btn.alliance-button--empty {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  text-align: center;
+}
+
 .alliance-launcher__crest {
   width: 44px;
   height: 44px;
@@ -110,31 +116,11 @@
   height: 34px;
 }
 
-.alliance-launcher__crest-fallback {
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-}
-
 .alliance-launcher__body {
   display: flex;
   flex-direction: column;
   gap: 3px;
   min-width: 0;
-}
-
-#alliance-btn .alliance-launcher__body--empty {
-  grid-column: 1 / -1;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-
-#alliance-btn .alliance-launcher__body--empty .alliance-launcher__eyebrow {
-  color: var(--alliance-text);
-  font-size: 1rem;
-  line-height: 1;
-  letter-spacing: 0.04em;
 }
 
 .alliance-launcher__eyebrow,
@@ -2798,10 +2784,6 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
   #alliance-btn .alliance-launcher__crest {
     width: 32px;
     height: 32px;
-  }
-
-  #alliance-btn .alliance-launcher__body--empty .alliance-launcher__eyebrow {
-    font-size: 0.9rem;
   }
 
   #alliance-create-modal .alliance-create-modal__name-row {

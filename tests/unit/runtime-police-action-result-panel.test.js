@@ -121,7 +121,7 @@ describe("police action result panel", () => {
       { label: "Doba razie", value: "60s" },
       { label: "Konec za", value: "30s" },
       { label: "Income na 1h", value: "-20%" },
-      { label: "Zákaz akcí", value: "špehování, útok" },
+      { label: "Zákaz akcí", value: "špehování a hlučné akce pod dohledem" },
       { label: "Výroba", value: "výroba zablokovaná po dobu razie" },
       { label: "Zabavené zbraně", value: "2" }
     ]);
@@ -136,7 +136,7 @@ describe("police action result panel", () => {
     expect(container.innerHTML).toContain("Zabaveno a ztraceno");
     expect(container.innerHTML).toContain("Dočasně blokováno");
     expect(container.innerHTML).toContain("Co jsi ztratil a co teď nemůžeš použít");
-    expect(container.innerHTML).toContain("Do konce razie nemůžeš použít: špehování, útok.");
+    expect(container.innerHTML).toContain("Špehování je do konce razie zakázané. Hlučné akce můžeš použít, ale policie je sleduje.");
     expect(container.innerHTML).toContain("Výroba stojí až do konce razie.");
     expect(container.innerHTML).toContain("Do konce razie dostáváš o 20% méně ze všech příjmů.");
     expect(container.innerHTML).toContain("Zabavené zbraně");

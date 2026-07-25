@@ -200,8 +200,9 @@ function restoreOverlayZIndex(element) {
 }
 
 function raiseOverlayAbovePrevious(element) {
-  const currentEntry = overlayStack.findLast((entry) => entry.element === element);
-  const previousEntry = overlayStack.at(-1);
+  const currentIndex = overlayStack.findLastIndex((entry) => entry.element === element);
+  const currentEntry = currentIndex >= 0 ? overlayStack[currentIndex] : null;
+  const previousEntry = currentIndex > 0 ? overlayStack[currentIndex - 1] : null;
   if (hasAlwaysOnTopOverlay() && currentEntry?.alwaysOnTop !== true) {
     return;
   }
@@ -323,6 +324,7 @@ export function openOverlay(element, options = {}) {
   ensureInteractionShield(element.ownerDocument);
   coordinatorState.suppressMapInputUntil = 0;
   element.hidden = false;
+  element.classList.remove("hidden");
   element.__empireOverlayOpenedAt = now();
   pruneClosedOverlays();
 

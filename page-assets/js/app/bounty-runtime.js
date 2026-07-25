@@ -210,6 +210,7 @@ function closeBountyAvatarLightbox() {
   if (image instanceof HTMLImageElement) {
     image.removeAttribute("src");
   }
+  lightbox.classList.remove("avatar-lightbox--district-owner");
   lightbox.classList.add("hidden");
   lightbox.hidden = true;
   lightbox.setAttribute("aria-hidden", "true");
@@ -258,7 +259,13 @@ function openBountyAvatarLightbox({ src, name, meta, trigger }) {
   if (metaEl) {
     metaEl.textContent = String(meta || "Bounty cíl").trim();
   }
-  openOverlay(lightbox, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
+  lightbox.classList.add("avatar-lightbox--district-owner");
+  openOverlay(lightbox, {
+    type: "modal",
+    ariaModal: true,
+    restoreFocusOnClose: false,
+    alwaysOnTop: true
+  });
   lightbox.hidden = false;
   lightbox.classList.remove("hidden");
   lightbox.setAttribute("aria-hidden", "false");

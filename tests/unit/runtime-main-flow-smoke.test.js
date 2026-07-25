@@ -135,7 +135,9 @@ describe("runtime main UI flow smoke guard", () => {
       expect(source).toContain('root.dataset.ownedPoliceRaidAlertOpened === "true"');
       expect(source).toContain("createOwnedDistrictPoliceRaidAlertPayload(district, activeOwnedPoliceAction)");
       expect(source).toContain("appendBuildingActionResultEntry(root, \"police\", payload, {");
-      expect(source).toContain('title: "Probíhá policejní razie"');
+      expect(source).toContain('title: "Dopady razie"');
+      expect(source).toContain('summary: "Policie zasáhla tvůj district."');
+      expect(source).not.toContain("formatStoredPoliceRaidStreetNewsLosses");
       expect(source).toContain("scheduleStoredOwnedPoliceRaidAlert();");
       expect(source).toContain("return openPoliceRaidOnlyForDistrict(district, activePoliceAction);");
       expect(source).toMatch(/event\.stopPropagation\?\.\(\);\r?\n        openPoliceRaidOnlyForDistrict\(district, activePoliceAction\);\r?\n        return;/u);

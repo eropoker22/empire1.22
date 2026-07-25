@@ -3337,23 +3337,6 @@ function getCityMarketOfferRefreshDelayMs() {
   return getCityMarketOfferSchedule().refreshDelayMs;
 }
 
-function formatStoredPoliceRaidStreetNewsLosses(policeRaidPayload = {}) {
-  const rows = typeof policeRaidPayload.getRows === "function"
-    ? policeRaidPayload.getRows()
-    : policeRaidPayload.rows;
-  const lossRows = (Array.isArray(rows) ? rows : [])
-    .filter((row) => {
-      const label = String(row?.label || "").toLowerCase();
-      return label.includes("zabaven") || label.includes("zatčen") || label.includes("ztracen");
-    })
-    .slice(0, 3)
-    .map((row) => `${row.label}: ${row.value}`);
-
-  return lossRows.length
-    ? lossRows.join(" · ")
-    : "Ztráty zatím nejsou vyčíslené.";
-}
-
 function createDistrictAttackInProgressPayload(district, attackMarker) {
   return getResultPayloadBuilders().createDistrictAttackInProgressPayload(district, attackMarker);
 }
@@ -12011,8 +11994,8 @@ function bindDistrictCanvas(root) {
     appendBuildingActionResultEntry(root, "police", payload, {
       id: `police-raid:${activeOwnedPoliceAction.districtId}:${activeOwnedPoliceAction.startedAt || activeOwnedPoliceAction.expiresAt}`,
       tone: "warning",
-      title: "Probíhá policejní razie",
-      summary: `District ${Number(activeOwnedPoliceAction.districtId)} · ${formatStoredPoliceRaidStreetNewsLosses(payload)}`,
+      title: "Dopady razie",
+      summary: "Policie zasáhla tvůj district.",
       meta: "Kliknutím zobrazíš detail dopadů.",
       compact: true,
       persistent: true,
@@ -12641,12 +12624,11 @@ function bindDistrictCanvas(root) {
       return;
     }
 
-    const districtLabel = formatDistrictReference(marker.districtId);
     appendBuildingActionResultEntry(root, "police", policeRaidPayload, {
       id: `police-raid:${marker.districtId}:${marker.startedAt || marker.expiresAt}`,
       tone: "warning",
-      title: "Spuštěna policejní razie",
-      summary: `${districtLabel} je právě pod policejním zásahem.`,
+      title: "Dopady razie",
+      summary: "Policie zasáhla tvůj district.",
       meta: policeRaidPayload.badge || "Policejní zásah",
       compact: true,
       persistent: true,

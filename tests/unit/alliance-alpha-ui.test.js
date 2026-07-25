@@ -104,8 +104,13 @@ describe("alliance alpha UI", () => {
     expect(runtime).toContain('runAllianceCommand("create-alliance", { name, tag, emblemColor }');
     expect(runtime).toContain('runAllianceCommand("send-public-alliance-message"');
     expect(runtime).toContain('runAllianceCommand("send-public-alliance-invite"');
-    expect(runtime).toContain("alliance-launcher__body--empty");
-    expect(css).toContain("#alliance-btn .alliance-launcher__body--empty");
+    expect(html).toContain('class="button alliance-button alliance-button--empty" id="alliance-btn" data-alliance-popup-open>ALIANCE</button>');
+    expect(html).not.toContain("alliance-launcher__crest-fallback");
+    expect(runtime).toContain('button.classList.toggle("alliance-button--empty", !activeAlliance);');
+    expect(runtime).toContain('button.textContent = "ALIANCE";');
+    expect(runtime).not.toContain("alliance-launcher__body--empty");
+    expect(css).toContain("#alliance-btn.alliance-button--empty");
+    expect(css).not.toContain(".alliance-launcher__crest-fallback");
     expect(runtime).not.toContain("Žádná aliance");
     expect(runtime).not.toContain("Zprávu veřejné alianci může poslat jen hráč v alianci.");
     expect(runtime).not.toContain("Pozvánku veřejné alianci může poslat jen leader aliance.");

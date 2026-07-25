@@ -139,7 +139,12 @@ function openDistrictOwnerAvatarLightbox(trigger) {
   if (title) title.textContent = name;
   if (metaEl) metaEl.textContent = meta;
   lightbox.classList.add("avatar-lightbox--district-owner");
-  openOverlay(lightbox, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
+  openOverlay(lightbox, {
+    type: "modal",
+    ariaModal: true,
+    restoreFocusOnClose: false,
+    alwaysOnTop: true
+  });
   lightbox.hidden = false;
   lightbox.classList.remove("hidden");
   lightbox.setAttribute("aria-hidden", "false");

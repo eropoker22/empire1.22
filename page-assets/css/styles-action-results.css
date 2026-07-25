@@ -2392,7 +2392,12 @@ html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
-  html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert .police-raid-impact__group.is-impact {
+  html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert .police-raid-impact__group.is-impact,
+  html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert .police-raid-impact__group.is-lock {
+    grid-column: auto;
+  }
+
+  html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert .police-raid-impact__group.is-loss {
     grid-column: 1 / -1;
   }
 }

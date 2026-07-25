@@ -32,6 +32,8 @@ describe("mobile action modal CSS", () => {
   const clientModalHelpers = readText("client/page-assets/js/app/ui/modalHelpers.js");
   const districtPopupModalHelpers = readText("page-assets/js/app/ui/districtPopupModalHelpers.js");
   const clientDistrictPopupModalHelpers = readText("client/page-assets/js/app/ui/districtPopupModalHelpers.js");
+  const bountyRuntime = readText("page-assets/js/app/bounty-runtime.js");
+  const clientBountyRuntime = readText("client/page-assets/js/app/bounty-runtime.js");
   const buildingsPopupRuntime = readText("page-assets/js/app/runtime/buildingsPopupRuntime.js");
   const clientBuildingsPopupRuntime = readText("client/page-assets/js/app/runtime/buildingsPopupRuntime.js");
   const runtimeSource = readText("page-assets/js/app/runtime.js");
@@ -325,6 +327,29 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("width: min(430px, calc(100vw - 16px)) !important;");
       expect(stylesheet).toContain("object-fit: cover !important;");
       expect(stylesheet).toContain("background: rgba(0, 0, 0, 0.62) !important;");
+    }
+
+    for (const source of [bountyRuntime, clientBountyRuntime]) {
+      expect(source).toContain('lightbox.classList.add("avatar-lightbox--district-owner");');
+      expect(source).toContain('lightbox.classList.remove("avatar-lightbox--district-owner");');
+      expect(source).toContain("alwaysOnTop: true");
+    }
+  });
+
+  it("keeps police raid impact columns aligned on desktop and mobile", () => {
+    for (const stylesheet of [actionCss, clientActionCss]) {
+      expect(stylesheet).toContain(".police-raid-impact__group.is-impact,");
+      expect(stylesheet).toContain(".police-raid-impact__group.is-lock");
+      expect(stylesheet).toContain(".police-raid-impact__group.is-loss");
+    }
+
+    for (const stylesheet of [css, clientCss]) {
+      expect(stylesheet).toContain("Final police raid composition: keep overview and active impact groups aligned.");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked #police-action-result-modal:not(.hidden):not([hidden])");
+      expect(stylesheet).toContain(":has(#police-action-result-modal:not(.hidden):not([hidden])) .game-resource-strip");
+      expect(stylesheet).toContain("padding: max(2px, env(safe-area-inset-top)) 4px max(6px, env(safe-area-inset-bottom)) !important;");
+      expect(stylesheet).toContain("grid-template-columns: repeat(3, minmax(0, 1fr)) !important;");
+      expect(stylesheet).toContain("grid-template-columns: repeat(2, minmax(0, 1fr)) !important;");
     }
   });
 
