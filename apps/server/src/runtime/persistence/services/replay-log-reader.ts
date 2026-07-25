@@ -24,7 +24,7 @@ export const createReplayLogReader = (
 ): ReplayLogReader => ({
   getInstanceSummary: async (instanceId) => {
     const [snapshot, commands, events, diagnostics] = await Promise.all([
-      snapshotRepository.loadLatest(instanceId),
+      snapshotRepository.loadRecoveryHead(instanceId),
       commandLogRepository.listByInstance(instanceId),
       eventLogRepository.listByInstance(instanceId),
       diagnosticLogRepository.listByInstance(instanceId)
@@ -45,4 +45,3 @@ export const createReplayLogReader = (
     };
   }
 });
-

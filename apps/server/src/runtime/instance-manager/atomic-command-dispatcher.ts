@@ -1,7 +1,11 @@
 import { applyCommand, type CoreGameState } from "@empire/game-core";
 import type { GameCommand, InstanceRuntimeEvent } from "@empire/shared-types";
 import { findSharedCitySpawnCandidate } from "../../bootstrap/gameplay-slice-shared-city-seed";
-import { createInstanceSnapshot, restoreInstanceState } from "../persistence";
+import {
+  createDueAuthoritativeCheckpoint,
+  createInstanceSnapshot,
+  restoreRuntimeFromSnapshot
+} from "../persistence";
 import type { ServerInstanceRuntime } from "../instance/server-instance-runtime";
 import type { CommandDispatchOptions, InstanceCommandDispatchResult } from "../orchestration";
 import { writeCommandRejectionDiagnostic, writeDiagnosticLog } from "../logging";
@@ -116,7 +120,7 @@ interface BoundaryDispatchResult {
   commandResult: InstanceCommandDispatchResult["commandResult"];
   nextState: CoreGameState | null;
   appliedEvent: InstanceRuntimeEvent | null;
-  rateLimitCommand: GameCommand | null;
+  commandRateLimitWindow: ServerInstanceRuntime["commandRateLimitWindow"] | null;
 }
 
 const dispatchAtomicInstanceCommandInBoundary = async (
@@ -126,9 +130,9 @@ const dispatchAtomicInstanceCommandInBoundary = async (
   crash: ((point: AtomicCommandCrashPoint) => void | Promise<void>) | undefined,
   repositories: AtomicCommandTransactionRepositories
 ): Promise<BoundaryDispatchResult> => {
-  const latestSnapshot = await repositories.snapshotRepository.loadLatest(runtime.record.id);
+  const latestSnapshot = await repositories.snapshotRepository.loadRecoveryHead(runtime.record.id);
   if (latestSnapshot && latestSnapshot.integrity.rootVersion > runtime.state.root.version) {
-    runtime.state = restoreInstanceState(latestSnapshot);
+    restoreRuntimeFromSnapshot(runtime, latestSnapshot);
   }
   const reservedAt = runtime.clock.nowIso();
   const authoritativeCommand: GameCommand = {
@@ -155,7 +159,7 @@ const dispatchAtomicInstanceCommandInBoundary = async (
       commandResult: replay.commandResult,
       nextState: null,
       appliedEvent: null,
-      rateLimitCommand: null
+      commandRateLimitWindow: null
     };
   }
 
@@ -172,7 +176,7 @@ const dispatchAtomicInstanceCommandInBoundary = async (
       commandResult: result,
       nextState: null,
       appliedEvent: null,
-      rateLimitCommand: null
+      commandRateLimitWindow: null
     };
   }
 
@@ -206,7 +210,7 @@ const dispatchAtomicInstanceCommandInBoundary = async (
       commandResult,
       nextState: null,
       appliedEvent: null,
-      rateLimitCommand: null
+      commandRateLimitWindow: null
     };
   }
 
@@ -223,11 +227,22 @@ const dispatchAtomicInstanceCommandInBoundary = async (
   const stagedRuntime = {
     ...runtime,
     state: nextState,
-    processedCommandIds: new Set([...runtime.processedCommandIds, authoritativeCommand.id])
+    processedCommandIds: new Set([...runtime.processedCommandIds, authoritativeCommand.id]),
+    commandRateLimitWindow: {
+      tick: runtime.commandRateLimitWindow.tick,
+      commandCountsByPlayerId: { ...runtime.commandRateLimitWindow.commandCountsByPlayerId }
+    }
   };
+  recordCommandRateLimitUsage(stagedRuntime, authoritativeCommand);
   const snapshot = createInstanceSnapshot(stagedRuntime);
+  const checkpoint = createDueAuthoritativeCheckpoint({
+    snapshot,
+    previousPhase: runtime.state.root.phase,
+    snapshotIntervalTicks: runtime.config.technical.snapshotIntervalTicks
+  });
 
-  await repositories.snapshotRepository.save(snapshot);
+  await repositories.snapshotRepository.saveRecoveryHead(snapshot);
+  if (checkpoint) await repositories.snapshotRepository.saveCheckpoint(checkpoint);
   await crash?.("afterSnapshotBeforeMarkApplied");
   await repositories.eventLogRepository.append(eventRecord);
   const commandResult = createAppliedCommandResult({
@@ -257,7 +272,7 @@ const dispatchAtomicInstanceCommandInBoundary = async (
     commandResult,
     nextState,
     appliedEvent,
-    rateLimitCommand: authoritativeCommand
+    commandRateLimitWindow: stagedRuntime.commandRateLimitWindow
   };
 };
 
@@ -286,9 +301,7 @@ const finalizeCommittedCommand = async (
     commandType: command.type
   }, runtime.clock).catch(() => undefined);
   runtime.processedCommandIds.add(command.id);
-  if (committed.rateLimitCommand) {
-    recordCommandRateLimitUsage(runtime, committed.rateLimitCommand);
-  }
+  if (committed.commandRateLimitWindow) runtime.commandRateLimitWindow = committed.commandRateLimitWindow;
   runtime.state = committed.nextState;
   runtime.eventQueue.enqueue(committed.appliedEvent);
   await crash?.("afterCommitBeforePublish");

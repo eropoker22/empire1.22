@@ -17,7 +17,7 @@ export const createInstanceSnapshotService = (
 ): InstanceSnapshotService => ({
   save: async (runtime) => {
     const snapshot = createInstanceSnapshot(runtime);
-    await snapshotRepository.save(snapshot);
+    await snapshotRepository.saveRecoveryHead(snapshot);
     recordRuntimeSnapshotWrite(runtime, snapshot);
   }
 });

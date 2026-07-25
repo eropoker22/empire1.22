@@ -12,6 +12,7 @@ import {
 } from "@empire/game-core";
 import { resolveModeConfig } from "@empire/game-config";
 import { createCoreStateFixture } from "../fixtures/game-state-fixtures";
+import { createNullSnapshotRepository } from "../../apps/server/src/runtime/persistence/repositories";
 
 describe("instance snapshot mapping", () => {
   it("creates a versioned snapshot dto", () => {
@@ -54,10 +55,10 @@ describe("instance snapshot mapping", () => {
         }
       }
     };
-    const save = vi.fn(async () => undefined);
+    const save = vi.fn(async () => "created" as const);
     const service = createInstanceSnapshotService({
-      save,
-      loadLatest: async () => null
+      ...createNullSnapshotRepository(),
+      saveRecoveryHead: save
     });
 
     await service.save(runtime);
@@ -75,8 +76,12 @@ describe("instance snapshot mapping", () => {
     const snapshot = createInstanceSnapshot(runtime);
     const freshRuntime = createServerInstanceRuntime("instance:1", "free");
     const restoreService = createPersistenceRestoreService({
-      save: async () => undefined,
-      loadLatest: async () => snapshot
+      ...createNullSnapshotRepository(),
+      loadForRecovery: async () => ({
+        snapshot,
+        source: "recovery-head",
+        reasonCode: "RECOVERY_HEAD_VALID"
+      })
     });
 
     const restored = await restoreService.restore(freshRuntime);
@@ -91,8 +96,7 @@ describe("instance snapshot mapping", () => {
     runtime.state.root.districtIds.push("district:live");
     runtime.processedCommandIds.add("command:live");
     const restoreService = createPersistenceRestoreService({
-      save: async () => undefined,
-      loadLatest: async () => null
+      ...createNullSnapshotRepository()
     });
 
     const restored = await restoreService.restore(runtime);

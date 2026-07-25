@@ -68,12 +68,12 @@ describeWhenDatabaseConfigured("postgres persistence live smoke", () => {
       const runtime = createServerInstanceRuntime(instanceId, "free", { persistence });
       runtime.state.root.version = 3;
       const snapshot = createInstanceSnapshot(runtime);
-      await persistence.snapshotRepository.save(snapshot);
+      await persistence.snapshotRepository.saveRecoveryHead(snapshot);
 
       expect(await persistence.commandLogRepository.listByInstance(instanceId)).toHaveLength(1);
       expect(await persistence.eventLogRepository.listByInstance(instanceId)).toHaveLength(1);
       expect(await persistence.diagnosticLogRepository.listByInstance(instanceId)).toHaveLength(1);
-      expect((await persistence.snapshotRepository.loadLatest(instanceId))?.snapshotId).toBe(snapshot.snapshotId);
+      expect((await persistence.snapshotRepository.loadRecoveryHead(instanceId))?.snapshotId).toBe(snapshot.snapshotId);
       expect((await acquirePostgresTickLock(database, {
         serverInstanceId: instanceId,
         ownerId: "live-smoke",

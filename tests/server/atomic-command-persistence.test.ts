@@ -87,6 +87,19 @@ describe("atomic command persistence", () => {
       .filter((record) => record.causedByCommandId === fixture.command.id)).toHaveLength(1);
   });
 
+  it("persists processed command ids and the committed rate limit window in the recovery head", async () => {
+    const fixture = await createFixture("recovery-head-runtime-state");
+
+    const result = await fixture.server.instanceManager.dispatchCommand(fixture.instanceId, fixture.command);
+    const head = await fixture.server.instanceManager.getPersistenceRepositories()
+      .snapshotRepository.loadRecoveryHead(fixture.instanceId);
+
+    expect(result?.errors).toEqual([]);
+    expect(head?.runtime.processedCommandIds).toContain(fixture.command.id);
+    expect(head?.runtime.commandRateLimitWindow).toEqual(fixture.runtime.commandRateLimitWindow);
+    expect(head?.runtime.commandRateLimitWindow.commandCountsByPlayerId[fixture.playerId]).toBeGreaterThan(0);
+  });
+
   it("assigns authoritative command time and ignores client issuedAt in replay identity", async () => {
     const serverTime = "2026-07-15T10:30:00.000Z";
     const fixture = await createFixture("authoritative-time", serverTime);

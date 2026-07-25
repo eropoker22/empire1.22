@@ -73,7 +73,7 @@ export const createHostedInstanceFailureReporter = (options: {
   const at = options.now().toISOString();
   const runtime = options.instanceManager.getInstanceById(record.serverInstanceId);
   const snapshot = await options.instanceManager.getPersistenceRepositories().snapshotRepository
-    .loadLatest(record.serverInstanceId).catch(() => null);
+    .loadRecoveryHead(record.serverInstanceId).catch(() => null);
   await options.writeInstanceHeartbeat({
     serverInstanceId: record.serverInstanceId,
     leaseExpiresAt,

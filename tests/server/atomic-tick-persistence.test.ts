@@ -62,8 +62,8 @@ describe("atomic hosted tick persistence", () => {
     fixture.runtime.atomicCommandTransaction = createSerializedBoundary({
       ...fixture.repositories,
       snapshotRepository: {
-        loadLatest: fixture.repositories.snapshotRepository.loadLatest,
-        save: async () => {
+        ...fixture.repositories.snapshotRepository,
+        saveRecoveryHead: async () => {
           throw new Error("Injected tick snapshot failure.");
         }
       }
@@ -91,8 +91,8 @@ describe("atomic hosted tick persistence", () => {
       run: async (_instanceId, callback, options) => {
         expect(options?.runtimeLeaseFence).toEqual(fence);
         await callback({ ...fixture.repositories, snapshotRepository: {
-          loadLatest: fixture.repositories.snapshotRepository.loadLatest,
-          save: async () => undefined
+          ...fixture.repositories.snapshotRepository,
+          saveRecoveryHead: async () => "updated"
         } });
         throw new RuntimeLeaseFenceRejectedError(fixture.instanceId);
       }
@@ -107,6 +107,25 @@ describe("atomic hosted tick persistence", () => {
     expect(fixture.runtime.scheduler.isRunning).toBe(true);
     expect(fixture.runtime.scheduler.tickInProgress).toBe(false);
     expect(published).toEqual([]);
+  });
+
+  it("updates one recovery head every tick and checkpoints only at the configured cadence", async () => {
+    const fixture = await createFixture("checkpoint-cadence");
+
+    for (let index = 0; index < fixture.runtime.config.technical.snapshotIntervalTicks; index += 1) {
+      fixture.runtime.scheduler.lastTickAtMs = null;
+      await fixture.server.instanceManager.tickInstanceDurably(fixture.instanceId);
+    }
+
+    const head = await fixture.repositories.snapshotRepository.loadRecoveryHead(fixture.instanceId);
+    const checkpointCounts = await fixture.repositories.snapshotRepository.countCheckpoints(fixture.instanceId);
+    expect(head?.tick).toBe(fixture.runtime.config.technical.snapshotIntervalTicks);
+    expect(checkpointCounts).toMatchObject({
+      total: 1,
+      rolling: 1,
+      lifecycle: 0,
+      terminal: 0
+    });
   });
 });
 

@@ -6,4 +6,5 @@ export * from "./event-record";
 export * from "./instance-metadata-record";
 export * from "./instance-snapshot-dto";
 export * from "./outbox-record";
+export * from "./snapshot-checkpoint-record";
 export * from "./version-metadata";

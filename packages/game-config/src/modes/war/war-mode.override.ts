@@ -1,6 +1,7 @@
 import type { ResolvedGameModeConfig } from "../../contracts/game-mode-config";
 import { basePoliceConfig } from "../../base/base-police-config";
 import { createDayNightConfig, resolveDayNightPhaseDurationTicks } from "../../public/day-night-config";
+import { resolveSnapshotCheckpointIntervalTicks } from "../../base/snapshot-checkpoint-cadence";
 
 const WAR_MODE_TICK_RATE_MS = 15000;
 const WAR_MODE_DAY_NIGHT_PHASE_TICKS = resolveDayNightPhaseDurationTicks(WAR_MODE_TICK_RATE_MS);
@@ -132,7 +133,7 @@ export const warModeOverride: Partial<ResolvedGameModeConfig> = {
     sessionTtlMs: 1000 * 60 * 60 * 24 * 10,
     gameDurationMs: 1000 * 60 * 60 * 24 * 10,
     storageKeyPrefix: "empire:war",
-    snapshotIntervalTicks: 12,
+    snapshotIntervalTicks: resolveSnapshotCheckpointIntervalTicks(WAR_MODE_TICK_RATE_MS),
     notificationBatchWindowMs: 400,
     debug: {
       allowDebugTools: false,

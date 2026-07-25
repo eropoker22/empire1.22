@@ -7,6 +7,13 @@ import type {
   RuntimeOutboxRepository,
   SnapshotRepository
 } from "../repositories";
+import { createSnapshotPersistenceMetrics } from "../repositories";
+import {
+  createSnapshotMaintenanceRunner,
+  resolveSnapshotRetentionPolicy,
+  type SnapshotRetentionPolicy,
+  type SnapshotMaintenanceRunner
+} from "../services";
 import type { RuntimeTickLock } from "../tick-lock";
 import type { AtomicCommandTransactionBoundary } from "../../instance-manager/atomic-command-transaction";
 import { createPostgresAtomicCommandTransaction } from "./postgres-atomic-command-transaction";
@@ -31,6 +38,8 @@ export interface PostgresRuntimePersistenceOptions {
   database?: PostgresDatabase;
   tickLockOwnerId?: string;
   tickLockTtlMs?: number;
+  snapshotRetentionPolicy?: Partial<SnapshotRetentionPolicy>;
+  snapshotMaintenanceIntervalMs?: number;
 }
 
 export interface PostgresRuntimePersistenceRepositories {
@@ -42,6 +51,7 @@ export interface PostgresRuntimePersistenceRepositories {
   atomicCommandTransaction: AtomicCommandTransactionBoundary;
   diagnosticLogRepository: DiagnosticLogRepository;
   snapshotRepository: SnapshotRepository;
+  snapshotMaintenance: SnapshotMaintenanceRunner;
   tickLock: RuntimeTickLock;
   atomicCommandPersistenceMode: "transactional";
   close(): Promise<void>;
@@ -57,6 +67,8 @@ export const createPostgresRuntimePersistenceRepositories = (
 ): PostgresRuntimePersistenceRepositories => {
   const databaseUrl = validatePostgresDatabaseUrl(options.databaseUrl);
   const database = options.database ?? createPostgresDatabase(databaseUrl);
+  const snapshotMetrics = createSnapshotPersistenceMetrics();
+  const snapshotRepository = createPostgresSnapshotRepository(database, snapshotMetrics);
 
   return {
     commandLogRepository: createPostgresCommandLogRepository(database),
@@ -64,9 +76,14 @@ export const createPostgresRuntimePersistenceRepositories = (
     commandResultRepository: createPostgresCommandResultRepository(database),
     eventLogRepository: createPostgresEventLogRepository(database),
     outboxRepository: createPostgresRuntimeOutboxRepository(database),
-    atomicCommandTransaction: createPostgresAtomicCommandTransaction(database),
+    atomicCommandTransaction: createPostgresAtomicCommandTransaction(database, snapshotMetrics),
     diagnosticLogRepository: createPostgresDiagnosticLogRepository(database),
-    snapshotRepository: createPostgresSnapshotRepository(database),
+    snapshotRepository,
+    snapshotMaintenance: createSnapshotMaintenanceRunner(
+      snapshotRepository,
+      resolveSnapshotRetentionPolicy(options.snapshotRetentionPolicy),
+      { intervalMs: options.snapshotMaintenanceIntervalMs }
+    ),
     tickLock: createPostgresRuntimeTickLock(database, {
       ownerId: options.tickLockOwnerId,
       ttlMs: options.tickLockTtlMs

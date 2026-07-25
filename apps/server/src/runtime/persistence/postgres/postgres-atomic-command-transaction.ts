@@ -14,6 +14,10 @@ import {
 import { createPostgresRuntimeOutboxRepository } from "./postgres-outbox-repository";
 import { ensurePostgresServerInstanceRow } from "./postgres-server-instance-row";
 import { createPostgresSnapshotRepositoryForTransaction } from "./postgres-snapshot-repository";
+import {
+  createSnapshotPersistenceMetrics,
+  type SnapshotPersistenceMetrics
+} from "../repositories";
 
 /**
  * Responsibility: Single Postgres transaction boundary for command execution.
@@ -21,7 +25,8 @@ import { createPostgresSnapshotRepositoryForTransaction } from "./postgres-snaps
  * Does not belong here: gameplay command application or event publishing.
  */
 export const createPostgresAtomicCommandTransaction = (
-  database: PostgresDatabase
+  database: PostgresDatabase,
+  snapshotMetrics: SnapshotPersistenceMetrics = createSnapshotPersistenceMetrics()
 ): AtomicCommandTransactionBoundary => ({
   run: (instanceId, callback, options) =>
     database.transaction(async (client) => {
@@ -37,7 +42,7 @@ export const createPostgresAtomicCommandTransaction = (
         commandResultRepository: createPostgresCommandResultRepository(client),
         eventLogRepository: createPostgresEventLogRepository(client),
         outboxRepository: createPostgresRuntimeOutboxRepository(client),
-        snapshotRepository: createPostgresSnapshotRepositoryForTransaction(client)
+        snapshotRepository: createPostgresSnapshotRepositoryForTransaction(client, snapshotMetrics)
       });
       if (options?.runtimeLeaseFence) {
         await assertCurrentRuntimeLease(client, instanceId, options.runtimeLeaseFence, false);

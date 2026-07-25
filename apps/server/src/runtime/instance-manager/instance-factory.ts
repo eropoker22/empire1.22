@@ -41,6 +41,7 @@ import { createGameStateRepository } from "../snapshots/game-state-repository";
 import { createSnapshotController } from "../snapshots/instance-snapshot-controller";
 import type { ServerInstanceRuntime } from "../instance/server-instance-runtime";
 import type { AtomicCommandTransactionBoundary } from "./atomic-command-transaction";
+import type { SnapshotMaintenanceRunner } from "../persistence/services";
 
 export interface ServerRuntimePersistenceRepositories {
   commandLogRepository: CommandLogRepository;
@@ -53,6 +54,7 @@ export interface ServerRuntimePersistenceRepositories {
   atomicCommandTransaction?: AtomicCommandTransactionBoundary;
   tickLock?: RuntimeTickLock;
   atomicCommandPersistenceMode?: "transactional" | "best-effort" | "unavailable";
+  snapshotMaintenance?: SnapshotMaintenanceRunner;
   close?(): Promise<void>;
 }
 

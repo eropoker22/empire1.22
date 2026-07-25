@@ -253,7 +253,7 @@ describe("hosted runtime worker recovery", () => {
     if (!provisioningRecord) throw new Error("Expected the provisioning server record.");
     const initialSnapshot = await createSnapshot(appBeforeCrash, provisioningRecord);
     const persistence = appBeforeCrash.instanceManager.getPersistenceRepositories();
-    const save = vi.spyOn(persistence.snapshotRepository, "save");
+    const save = vi.spyOn(persistence.snapshotRepository, "saveRecoveryHead");
     const current = { value: new Date(T1.getTime() + 1_000) };
     const appAfterCrash = createServerApp({ persistence, clock: clock(() => current.value) });
 

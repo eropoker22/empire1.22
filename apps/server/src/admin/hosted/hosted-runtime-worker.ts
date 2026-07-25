@@ -11,6 +11,11 @@ import { applyHostedEarlyLeaveCleanup, createHostedInstanceFailureReporter, crea
 import { applyHostedLifecycleAction, captureHostedRuntimeLifecycle, hostedLifecycleFailureAuditAction,
   hostedLifecycleSuccessAuditAction, restoreHostedRuntimeLifecycle } from "./hosted-runtime-worker-actions";
 import { createHostedRuntimeLeaseClient } from "./hosted-runtime-lease-client";
+import {
+  runHostedSnapshotMaintenance,
+  saveHostedLifecycleCheckpoint,
+  saveHostedProvisioningCheckpoint
+} from "./hosted-runtime-snapshot-persistence";
 import { resolveHostedServerRegistrationState } from "./hosted-server-registration-state";
 const CLAIM_TTL_MS = 30_000;
 const RUNTIME_LEASE_MS = 20_000;
@@ -60,6 +65,7 @@ export const createHostedRuntimeWorker = (options: {
     const phases: ReadonlyArray<() => Promise<unknown>> = [
       () => heartbeat(),
       () => options.controlPlane.expireJoinReservations(now().toISOString()),
+      () => runHostedSnapshotMaintenance(options.server, now().toISOString()),
       processProvisioningJob,
       processJoinJob,
       processMembershipJob,
@@ -220,7 +226,8 @@ export const createHostedRuntimeWorker = (options: {
         workerId: options.workerId, joinTicketId: ticket.ticketId, at: now().toISOString() })) {
         throw safe("JOIN_COMMIT_CONFLICT");
       }
-      const snapshot = await options.server.instanceManager.getPersistenceRepositories().snapshotRepository.loadLatest(server.serverInstanceId);
+      const snapshot = await options.server.instanceManager.getPersistenceRepositories()
+        .snapshotRepository.loadRecoveryHead(server.serverInstanceId);
       await lease.writeInstanceHeartbeat({ serverInstanceId: server.serverInstanceId,
         leaseExpiresAt, lastTick: runtime.state.root.tick, lastSnapshotAt: snapshot?.createdAt ?? null,
         lastErrorCode: null, at: now().toISOString() });
@@ -265,12 +272,15 @@ export const createHostedRuntimeWorker = (options: {
         throw safe("PROVISIONING_STATE_CONFLICT");
       provisioningBegan = true;
       const snapshotRepository = options.server.instanceManager.getPersistenceRepositories().snapshotRepository;
-      const existingSnapshot = await snapshotRepository.loadLatest(record.serverInstanceId);
+      const existingSnapshot = await snapshotRepository.loadRecoveryHead(record.serverInstanceId);
       const runtime = await ensureRuntime(record, true);
       runtime.lobby.joinPolicy = "closed";
       runtime.record.status = "lobby";
-      if (!existingSnapshot) await options.server.instanceManager.saveInstanceSnapshot(record.serverInstanceId);
-      const snapshot = existingSnapshot ?? await snapshotRepository.loadLatest(record.serverInstanceId);
+      if (!existingSnapshot) {
+        await options.server.instanceManager.saveInstanceSnapshot(record.serverInstanceId);
+        await saveHostedProvisioningCheckpoint(options.server, record.serverInstanceId);
+      }
+      const snapshot = existingSnapshot ?? await snapshotRepository.loadRecoveryHead(record.serverInstanceId);
       if (!snapshot) throw safe("INITIAL_SNAPSHOT_MISSING");
       const at = now().toISOString();
       if (!await options.controlPlane.completeProvisioning({ ...claim, snapshotId: snapshot.snapshotId, at, audit: workerAudit("provisioning-success", record.serverInstanceId, at) })) throw safe("PROVISIONING_CLAIM_LOST");
@@ -321,6 +331,7 @@ export const createHostedRuntimeWorker = (options: {
         audit: workerAudit(hostedLifecycleSuccessAuditAction(request.action), request.serverInstanceId, at) })) {
         throw safe("LIFECYCLE_CLAIM_LOST");
       }
+      await saveHostedLifecycleCheckpoint(options.server, request.serverInstanceId, request.action);
       rollback = null;
       if (transition.releaseLease) {
         await lease.release(request.serverInstanceId, at);
@@ -352,7 +363,8 @@ export const createHostedRuntimeWorker = (options: {
         const runtime = await ensureRuntime(effectiveRecord, true);
         if (effectiveRecord.status === "running") await options.server.instanceManager.tickInstanceDurably(
           effectiveRecord.serverInstanceId, lease.tickFence(effectiveRecord.serverInstanceId));
-        const snapshot = await options.server.instanceManager.getPersistenceRepositories().snapshotRepository.loadLatest(effectiveRecord.serverInstanceId);
+        const snapshot = await options.server.instanceManager.getPersistenceRepositories()
+          .snapshotRepository.loadRecoveryHead(effectiveRecord.serverInstanceId);
         if (!snapshot) throw safe("RUNTIME_SNAPSHOT_MISSING");
         if (runtime.record.status === "crashed") throw safe("RUNTIME_TICK_FAILED");
         await lease.writeInstanceHeartbeat({ serverInstanceId: record.serverInstanceId,
@@ -394,7 +406,8 @@ export const createHostedRuntimeWorker = (options: {
 
   const ensureRuntime = async (record: HostedServerRecord, restoreLatest = false) => {
     const snapshotRepository = options.server.instanceManager.getPersistenceRepositories().snapshotRepository;
-    const snapshot = await snapshotRepository.loadLatest(record.serverInstanceId);
+    const recovery = await snapshotRepository.loadForRecovery(record.serverInstanceId);
+    const snapshot = recovery.snapshot;
     if (snapshot && !isSnapshotForHostedRecord(snapshot, record)) throw safe("RUNTIME_SNAPSHOT_INVALID");
     if (record.provisioningState === "ready" && !snapshot) throw safe("RUNTIME_SNAPSHOT_MISSING");
     const existing = options.server.instanceManager.getInstanceById(record.serverInstanceId);

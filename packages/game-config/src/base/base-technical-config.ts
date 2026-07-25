@@ -1,4 +1,5 @@
 import type { TechnicalConfig } from "../contracts/technical-config";
+import { resolveSnapshotCheckpointIntervalTicks } from "./snapshot-checkpoint-cadence";
 
 /**
  * Responsibility: Shared technical defaults for runtime and persistence behavior.
@@ -9,11 +10,10 @@ export const baseTechnicalConfig: TechnicalConfig = {
   sessionTtlMs: 1000 * 60 * 60 * 12,
   gameDurationMs: 1000 * 60 * 60 * 24,
   storageKeyPrefix: "empire:base",
-  snapshotIntervalTicks: 10,
+  snapshotIntervalTicks: resolveSnapshotCheckpointIntervalTicks(5_000),
   notificationBatchWindowMs: 250,
   debug: {
     allowDebugTools: false,
     enableDeterministicSeeds: false
   }
 };
-

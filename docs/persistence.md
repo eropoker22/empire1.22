@@ -142,17 +142,24 @@ If a runtime does not have a `commandReservationRepository`, command submit fail
 
 ### Snapshots
 
-`snapshotRepository.save(snapshot)` writes snapshot history and latest pointer in one transaction:
+Snapshot persistence has two explicit responsibilities:
 
-1. Ensures a server instance row exists.
-2. Inserts immutable history into `empire_snapshots` with `ON CONFLICT DO NOTHING`.
-3. Upserts `empire_snapshot_latest`.
-4. Updates latest only when `existing.root_version <= incoming.root_version`.
-5. Throws a stale snapshot error when a lower `rootVersion` attempts to overwrite newer latest state.
+1. `snapshotRepository.saveRecoveryHead(snapshot)` conditionally upserts the single
+   `empire_snapshot_latest` row for the instance. It rejects a lower `rootVersion`
+   and runs inside the same transaction as the authoritative tick or command.
+2. `snapshotRepository.saveCheckpoint(checkpoint)` appends an intentional periodic,
+   lifecycle, terminal, manual, or migrated legacy checkpoint to `empire_snapshots`.
 
-`snapshotRepository.loadLatest(instanceId)` reads the JSONB payload from `empire_snapshot_latest` and returns the existing `InstanceSnapshotDto`.
+`snapshotRepository.loadForRecovery(instanceId)` validates and restores the recovery
+head. When the head is missing it can fall back to the newest valid checkpoint and
+recreate the head; an existing corrupt head fails closed instead of silently replacing
+newer committed state.
 
-Restore currently uses latest snapshot persistence where the runtime calls `ServerInstanceManager.restoreInstance()` or `runtime.snapshotController.restore()`. The gameplay slice serverless transport still supports snapshot-token restore for cold HTTP flow; database-backed session/player registration orchestration is a separate follow-up.
+Periodic checkpoint cadence comes from the mode's `snapshotIntervalTicks`. Recovery
+safety does not depend on that cadence. The hosted worker invokes the bounded,
+advisory-locked retention runner from its existing maintenance loop. See
+`docs/architecture/snapshot-persistence.md` for the schema, recovery, and retention
+contract.
 
 ### Atomic Command Transaction
 

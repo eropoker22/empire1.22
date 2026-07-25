@@ -16,11 +16,11 @@ export const createPersistenceRestoreService = (
   snapshotRepository: SnapshotRepository
 ): PersistenceRestoreService => ({
   restore: async (runtime) => {
-    const snapshot = await snapshotRepository.loadLatest(runtime.record.id);
-    if (!snapshot) {
+    const recovery = await snapshotRepository.loadForRecovery(runtime.record.id);
+    if (!recovery.snapshot) {
       return runtime;
     }
-    return restoreRuntimeFromSnapshot(runtime, snapshot);
+    return restoreRuntimeFromSnapshot(runtime, recovery.snapshot);
   }
 });
 

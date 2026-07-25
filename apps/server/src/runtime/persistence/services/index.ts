@@ -4,3 +4,6 @@ export * from "./replay-log-reader";
 export * from "./replay-log-writer";
 export * from "./retention-policy";
 export * from "./snapshot-token-codec";
+export * from "./snapshot-integrity-validator";
+export * from "./snapshot-checkpoint-policy";
+export * from "./snapshot-maintenance-runner";

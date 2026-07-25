@@ -7,7 +7,11 @@ import {
   type RuntimeTickLeaseFence
 } from "../instance-manager/atomic-command-transaction";
 import { writeDiagnosticLog } from "../logging";
-import { createInstanceSnapshot, restoreInstanceState } from "../persistence";
+import {
+  createDueAuthoritativeCheckpoint,
+  createInstanceSnapshot,
+  restoreInstanceState
+} from "../persistence";
 import type { Clock } from "./clock";
 import { isInstanceTickDue } from "./instance-scheduler";
 import { runInstanceTick } from "./tick-runner";
@@ -56,7 +60,7 @@ export const runAtomicInstanceTick = async (
   runtime.runtimeHealth.lastTickStartedAt = clock.nowIso();
   try {
     const committed = await runtime.atomicCommandTransaction.run(runtime.record.id, async (repositories) => {
-      const latest = await repositories.snapshotRepository.loadLatest(runtime.record.id);
+      const latest = await repositories.snapshotRepository.loadRecoveryHead(runtime.record.id);
       const baseState = prepareHostedTickState(runtime, latest ? restoreInstanceState(latest) : structuredClone(runtime.state));
       const result = runTick(baseState, { config: runtime.config });
       const nextState = ensureAdvancedRootVersion(result.nextState, baseState.root.version);
@@ -72,7 +76,13 @@ export const runAtomicInstanceTick = async (
         commandRateLimitWindow
       };
       const snapshot = createInstanceSnapshot(stagedRuntime);
-      await repositories.snapshotRepository.save(snapshot);
+      const checkpoint = createDueAuthoritativeCheckpoint({
+        snapshot,
+        previousPhase: baseState.root.phase,
+        snapshotIntervalTicks: runtime.config.technical.snapshotIntervalTicks
+      });
+      await repositories.snapshotRepository.saveRecoveryHead(snapshot);
+      if (checkpoint) await repositories.snapshotRepository.saveCheckpoint(checkpoint);
       recordRuntimeSnapshotWrite(runtime, snapshot);
       return { nextState, events: result.events, processedCommandIds, commandRateLimitWindow } satisfies CommittedTick;
     }, { runtimeLeaseFence });

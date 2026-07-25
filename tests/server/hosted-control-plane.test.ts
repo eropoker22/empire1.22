@@ -118,8 +118,18 @@ describe("hosted server control plane", () => {
     expect(snapshot?.tick).toBe(0);
     expect(snapshot?.state.root.playerIds).toEqual([]);
     expect(Object.keys(snapshot?.state.districtsById ?? {})).toHaveLength(161);
+    await expect(serverApp.instanceManager.getPersistenceRepositories().snapshotRepository
+      .countCheckpoints(created.data.server.serverInstanceId)).resolves.toMatchObject({
+        total: 1,
+        lifecycle: 1
+      });
     await worker.runOnce();
     expect((await repositories.hosted.getServer(created.data.server.serverInstanceId))?.initialSnapshotId).toBe(snapshot?.snapshotId);
+    await expect(serverApp.instanceManager.getPersistenceRepositories().snapshotRepository
+      .countCheckpoints(created.data.server.serverInstanceId)).resolves.toMatchObject({
+        total: 1,
+        lifecycle: 1
+      });
   });
 
   it("serializes concurrent start requests behind one active lifecycle operation", async () => {
@@ -215,6 +225,11 @@ describe("hosted server control plane", () => {
     expect(after.state.serverInstance.worldSeed).toBe(worldSeed);
     expect(after.state.root.districtIds).toEqual(districtIds);
     expect((await repositories.hosted.getServer(id))?.status).toBe("running");
+    await expect(app.instanceManager.getPersistenceRepositories().snapshotRepository
+      .countCheckpoints(id)).resolves.toMatchObject({
+        total: 3,
+        lifecycle: 3
+      });
   });
 });
 

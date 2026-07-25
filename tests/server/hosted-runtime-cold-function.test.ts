@@ -153,15 +153,19 @@ describe("hosted runtime cold Netlify function", () => {
     const loader = createHostedRuntimeLoader({ server: boundary.server, controlPlane: fixture.hosted });
     expect((await loader.load(INSTANCE_ID)).accepted).toBe(true);
     const runtime = boundary.server.instanceManager.getInstanceById(INSTANCE_ID)!;
-    const staleSnapshot = await fixture.persistence.snapshotRepository.loadLatest(INSTANCE_ID);
+    const staleSnapshot = await fixture.persistence.snapshotRepository.loadRecoveryHead(INSTANCE_ID);
     if (!staleSnapshot) throw new Error("Expected a stale snapshot fixture.");
     const entered = deferredSignal();
     const release = deferredSignal();
-    const loadSpy = vi.spyOn(fixture.persistence.snapshotRepository, "loadLatest")
+    const loadSpy = vi.spyOn(fixture.persistence.snapshotRepository, "loadForRecovery")
       .mockImplementationOnce(async () => {
         entered.resolve();
         await release.promise;
-        return staleSnapshot;
+        return {
+          snapshot: staleSnapshot,
+          source: "recovery-head",
+          reasonCode: "RECOVERY_HEAD_VALID"
+        };
       });
 
     const delayedLoad = loader.load(INSTANCE_ID);

@@ -1,4 +1,5 @@
 import type { ResolvedGameModeConfig } from "../contracts/game-mode-config";
+import { resolveSnapshotCheckpointIntervalTicks } from "./snapshot-checkpoint-cadence";
 
 /**
  * Responsibility: Legacy compatibility export for the shared config baseline.
@@ -30,7 +31,7 @@ export const baseModeConfig: Omit<ResolvedGameModeConfig, "mode"> = {
     sessionTtlMs: 1000 * 60 * 60 * 12,
     gameDurationMs: 1000 * 60 * 60 * 24,
     storageKeyPrefix: "empire:base",
-    snapshotIntervalTicks: 10,
+    snapshotIntervalTicks: resolveSnapshotCheckpointIntervalTicks(5_000),
     notificationBatchWindowMs: 250,
     debug: {
       allowDebugTools: false,

@@ -423,7 +423,7 @@ class FakePostgresDatabase implements PostgresDatabase {
       const incoming: LatestSnapshotRow = {
         snapshotId: String(params[3]),
         rootVersion: Number(params[4]),
-        payload: parsePayload(params[5])
+        payload: parsePayload(params[6])
       };
       const current = this.latestSnapshots.get(serverInstanceId);
       if (!current || current.rootVersion < incoming.rootVersion) {

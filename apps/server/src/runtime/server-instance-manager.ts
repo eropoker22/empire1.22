@@ -17,6 +17,10 @@ import type { InstanceCommandDispatchResult } from "./orchestration/instance-com
 import type { RuntimeTickLeaseFence } from "./instance-manager/atomic-command-transaction";
 import { createGameplaySliceProjection } from "./projections/gameplay-slice-projection-service";
 import { createPlayerProjection } from "./projections/player-projection-service";
+import {
+  createInstanceSnapshot,
+  createLifecycleCheckpoint
+} from "./persistence";
 
 /**
  * Responsibility: Top-level orchestrator for isolated server instance runtimes.
@@ -200,6 +204,20 @@ export class ServerInstanceManager {
     }
 
     await runtime.snapshotController.save(runtime);
+    return true;
+  }
+
+  async saveInstanceCheckpoint(
+    instanceId: ServerInstanceId,
+    reasonCode: string,
+    options: { terminal?: boolean; protected?: boolean } = {}
+  ): Promise<boolean> {
+    const runtime = this.registry.get(instanceId);
+    if (!runtime?.snapshotRepository) return false;
+    const snapshot = createInstanceSnapshot(runtime);
+    const checkpoint = createLifecycleCheckpoint(snapshot, reasonCode, options);
+    await runtime.snapshotRepository.saveRecoveryHead(snapshot);
+    await runtime.snapshotRepository.saveCheckpoint(checkpoint);
     return true;
   }
 

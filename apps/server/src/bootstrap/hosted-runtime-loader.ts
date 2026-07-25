@@ -46,8 +46,9 @@ const loadHostedRuntime = async (
     const recordError = validateHostedRecord(record, serverInstanceId, requireRunning);
     if (recordError) return rejected(recordError);
 
-    const snapshot = await options.server.instanceManager.getPersistenceRepositories()
-      .snapshotRepository.loadLatest(serverInstanceId);
+    const recovery = await options.server.instanceManager.getPersistenceRepositories()
+      .snapshotRepository.loadForRecovery(serverInstanceId);
+    const snapshot = recovery.snapshot;
     const snapshotError = validateSnapshot(snapshot, record!);
     if (snapshotError) return rejected(snapshotError);
 

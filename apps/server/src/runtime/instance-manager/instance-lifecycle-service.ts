@@ -34,6 +34,7 @@ export class InstanceLifecycleService {
     runtime.record.status = "running";
     runtime.record.startedAt = startedAt;
     runtime = synchronizeStartedServerInstance(runtime, startedAt);
+    runtime = advanceLifecyclePersistenceVersion(runtime, "running");
     runtime.scheduler.isRunning = true;
     void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "lifecycle", "Instance started.", {}, runtime.clock).catch(() => undefined);
     runtime.eventPublisher.publish({
@@ -53,6 +54,7 @@ export class InstanceLifecycleService {
       occurredAt: runtime.clock.nowIso()
     });
     runtime.record.status = "paused";
+    runtime = advanceLifecyclePersistenceVersion(runtime, "paused");
     void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "lifecycle", "Instance paused.", {}, runtime.clock).catch(() => undefined);
     runtime.eventPublisher.publish({
       type: "instance-status-changed",
@@ -67,6 +69,7 @@ export class InstanceLifecycleService {
     runtime.record.status = "stopped";
     runtime.record.stoppedAt = runtime.clock.nowIso();
     runtime.scheduler.isRunning = false;
+    runtime = advanceLifecyclePersistenceVersion(runtime, "ended");
     if (!runtime.atomicCommandTransaction) {
       void runtime.snapshotController.save(runtime).catch(() => undefined);
       void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "snapshot", "Stop triggered snapshot save.", {}, runtime.clock).catch(() => undefined);
@@ -84,6 +87,7 @@ export class InstanceLifecycleService {
     runtime.scheduler.isRunning = false;
     runtime.record.status = "running";
     runtime.scheduler.isRunning = true;
+    runtime = advanceLifecyclePersistenceVersion(runtime, "running");
     void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "lifecycle", "Instance restarted.", {}, runtime.clock).catch(() => undefined);
     return runtime;
   }
@@ -176,6 +180,25 @@ const synchronizeStartedServerInstance = (
     startedAt,
     currentTick: runtime.state.root.tick,
     version: serverInstance.version + 1
+  };
+  return runtime;
+};
+
+const advanceLifecyclePersistenceVersion = (
+  runtime: ServerInstanceRuntime,
+  status: ServerInstanceRuntime["state"]["serverInstance"]["status"]
+): ServerInstanceRuntime => {
+  runtime.record.version += 1;
+  runtime.state.root = {
+    ...runtime.state.root,
+    version: runtime.state.root.version + 1
+  };
+  runtime.state.serverInstance = {
+    ...runtime.state.serverInstance,
+    status,
+    currentTick: runtime.state.root.tick,
+    endedAt: status === "ended" ? runtime.record.stoppedAt : runtime.state.serverInstance.endedAt,
+    version: runtime.state.serverInstance.version + 1
   };
   return runtime;
 };

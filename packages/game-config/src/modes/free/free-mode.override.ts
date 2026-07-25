@@ -47,6 +47,7 @@ import {
 } from "./free-mode-timing";
 import { createDayNightConfig, resolveDayNightPhaseDurationTicks } from "../../public/day-night-config";
 import { FACTION_DEFINITION_BY_ID } from "../../public/faction-definitions";
+import { resolveSnapshotCheckpointIntervalTicks } from "../../base/snapshot-checkpoint-cadence";
 
 const FREE_MODE_DAY_NIGHT_PHASE_TICKS = resolveDayNightPhaseDurationTicks(FREE_MODE_TICK_RATE_MS);
 const FREE_MODE_ELIMINATION_INTERVAL_TICKS = ticksFromHours(4);
@@ -338,7 +339,7 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
     sessionTtlMs: FREE_MODE_HARD_TIMEOUT_MS,
     gameDurationMs: FREE_MODE_HARD_TIMEOUT_MS,
     storageKeyPrefix: "empire:free",
-    snapshotIntervalTicks: 8,
+    snapshotIntervalTicks: resolveSnapshotCheckpointIntervalTicks(FREE_MODE_TICK_RATE_MS),
     notificationBatchWindowMs: 200,
     debug: {
       allowDebugTools: false,

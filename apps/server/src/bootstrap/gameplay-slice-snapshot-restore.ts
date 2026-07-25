@@ -1,6 +1,9 @@
 import type { GameModeId, ServerInstanceId } from "@empire/shared-types";
 import type { ServerInstanceManager } from "../runtime";
-import { createPersistenceRestoreService, type SnapshotTokenCodec } from "../runtime/persistence/services";
+import {
+  restoreRuntimeFromSnapshot,
+  type SnapshotTokenCodec
+} from "../runtime/persistence/services";
 import type { InstanceSnapshotDto } from "../runtime/persistence/dto";
 
 export interface EnsureGameplaySliceSessionOptions {
@@ -39,10 +42,7 @@ export const restoreGameplaySliceSessionFromSnapshot = async (
   const mode = normalizeMode(snapshot.mode) ?? request.fallbackMode;
   const runtime = instanceManager.createInstance(request.serverInstanceId, mode);
 
-  await createPersistenceRestoreService({
-    save: async () => undefined,
-    loadLatest: async () => snapshot
-  }).restore(runtime);
+  restoreRuntimeFromSnapshot(runtime, snapshot);
 
   instanceManager.startInstance(request.serverInstanceId);
   return true;

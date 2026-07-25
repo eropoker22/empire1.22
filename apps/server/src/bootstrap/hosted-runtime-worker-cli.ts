@@ -41,7 +41,37 @@ if (!await isProductionSchemaCurrent(database)) {
   throw new Error("Hosted worker refuses to start with pending or mismatched database migrations.");
 }
 
-const persistence = createPostgresRuntimePersistenceRepositories({ databaseUrl, database, tickLockOwnerId: workerId });
+const persistence = createPostgresRuntimePersistenceRepositories({
+  databaseUrl,
+  database,
+  tickLockOwnerId: workerId,
+  snapshotRetentionPolicy: {
+    rollingCheckpointCountActive: positiveIntegerEnvironment(
+      "EMPIRE_SNAPSHOT_ROLLING_ACTIVE",
+      24
+    ),
+    rollingCheckpointCountTerminal: positiveIntegerEnvironment(
+      "EMPIRE_SNAPSHOT_ROLLING_TERMINAL",
+      5
+    ),
+    retainLifecycleCheckpoints: booleanEnvironment(
+      "EMPIRE_SNAPSHOT_RETAIN_LIFECYCLE",
+      true
+    ),
+    terminalRetentionDays: positiveIntegerEnvironment(
+      "EMPIRE_SNAPSHOT_TERMINAL_RETENTION_DAYS",
+      30
+    ),
+    cleanupBatchSize: positiveIntegerEnvironment(
+      "EMPIRE_SNAPSHOT_CLEANUP_BATCH_SIZE",
+      250
+    )
+  },
+  snapshotMaintenanceIntervalMs: positiveIntegerEnvironment(
+    "EMPIRE_SNAPSHOT_MAINTENANCE_INTERVAL_MS",
+    15 * 60 * 1000
+  )
+});
 const server = createServerApp({ persistence, database, environment: { ...process.env, NODE_ENV: "production" } });
 if (!server.gameplaySessionService.productionReady) {
   throw new Error("Hosted worker refuses to start without a production-ready gameplay session repository.");
@@ -72,7 +102,14 @@ runLoop.start();
 const healthServer = http.createServer((request, response) => {
   if (request.url !== "/health") { response.writeHead(404).end(); return; }
   response.writeHead(healthy && !shuttingDown ? 200 : 503, { "content-type": "application/json" });
-  response.end(JSON.stringify({ status: healthy && !shuttingDown ? "ok" : "unavailable", lastErrorCode }));
+  response.end(JSON.stringify({
+    status: healthy && !shuttingDown ? "ok" : "unavailable",
+    lastErrorCode,
+    snapshotPersistence: {
+      maintenance: persistence.snapshotMaintenance.getHealth(),
+      metrics: persistence.snapshotRepository.getMetrics()
+    }
+  }));
 });
 healthServer.listen(port, "0.0.0.0");
 
@@ -96,3 +133,16 @@ const safeErrorCode = (error: unknown): string => {
   const code = String(candidate ?? "").trim();
   return /^[A-Z0-9_:-]{1,80}$/u.test(code) ? code : "HOSTED_WORKER_OPERATION_FAILED";
 };
+
+function positiveIntegerEnvironment(key: string, fallback: number): number {
+  const value = Number(process.env[key] ?? fallback);
+  return Number.isSafeInteger(value) && value > 0 ? value : fallback;
+}
+
+function booleanEnvironment(key: string, fallback: boolean): boolean {
+  const value = String(process.env[key] ?? "").trim().toLowerCase();
+  if (!value) return fallback;
+  if (value === "true" || value === "1") return true;
+  if (value === "false" || value === "0") return false;
+  return fallback;
+}

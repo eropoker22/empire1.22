@@ -1,148 +1,231 @@
 import type { ServerInstanceId } from "@empire/shared-types";
-import type { InstanceSnapshotDto } from "../dto";
-import type { SnapshotRepository } from "../repositories";
+import type { InstanceSnapshotDto, SnapshotCheckpointRecord } from "../dto";
+import { assertSnapshotIntegrity } from "../services/snapshot-integrity-validator";
+import {
+  createSnapshotPersistenceMetrics,
+  type SnapshotRepository,
+  type SnapshotWriteResult
+} from "../repositories";
 import type { PostgresDatabase, PostgresQueryable } from "./postgres-client";
-import { ensurePostgresServerInstanceRow } from "./postgres-server-instance-row";
-import { classifySnapshotWrite } from "../repositories/snapshot-write-guard";
+import { cleanupPostgresCheckpoints } from "./postgres-snapshot-maintenance";
+import {
+  assertRejectedRecoveryHeadIsIdempotent,
+  createCheckpointHistoryId,
+  createRecoveryHeadId,
+  ensureSnapshotInstanceRow,
+  loadCheckpointCandidates,
+  loadRecoveryHeadFrom,
+  type PostgresSnapshotRepositoryOptions,
+  recordCheckpointMetric,
+  withOptionalTransaction
+} from "./postgres-snapshot-storage";
 
 export const createPostgresSnapshotRepository = (
-  database: PostgresDatabase
+  database: PostgresDatabase,
+  metrics = createSnapshotPersistenceMetrics()
 ): SnapshotRepository => createPostgresSnapshotRepositoryForQueryable(database, {
-  wrapWritesInTransaction: true
+  wrapWritesInTransaction: true,
+  metrics
 });
 
 export const createPostgresSnapshotRepositoryForTransaction = (
-  client: PostgresQueryable
+  client: PostgresQueryable,
+  metrics = createSnapshotPersistenceMetrics()
 ): SnapshotRepository => createPostgresSnapshotRepositoryForQueryable(client, {
-  wrapWritesInTransaction: false
+  wrapWritesInTransaction: false,
+  metrics
 });
 
 const createPostgresSnapshotRepositoryForQueryable = (
   database: PostgresQueryable,
-  options: { wrapWritesInTransaction: boolean }
-): SnapshotRepository => ({
-  save: async (snapshot) => {
-    await withOptionalTransaction(database, options, async (client) => {
-      await ensurePostgresServerInstanceRow(client, snapshot.instanceId, {
-        mode: snapshot.mode,
-        status: snapshot.metadata.status,
-        payload: {
-          snapshotId: snapshot.snapshotId,
-          displayName: snapshot.lobby?.displayName,
-          region: snapshot.lobby?.region,
-          capacity: snapshot.lobby?.capacity,
-          joinPolicy: snapshot.lobby?.joinPolicy
-        },
-        createdAt: snapshot.metadata.createdAt
+  options: PostgresSnapshotRepositoryOptions
+): SnapshotRepository => {
+  const metrics = options.metrics ?? createSnapshotPersistenceMetrics();
+
+  const saveRecoveryHead = async (snapshot: InstanceSnapshotDto): Promise<SnapshotWriteResult> => {
+    const serializationStartedAt = performance.now();
+    let serialized = "";
+    try {
+      assertSnapshotIntegrity(snapshot, snapshot.instanceId);
+      serialized = JSON.stringify(snapshot);
+      metrics.lastSnapshotSerializationDurationMs = Math.max(0, performance.now() - serializationStartedAt);
+      metrics.lastSerializedSnapshotSizeBytes = new TextEncoder().encode(serialized).byteLength;
+      if (metrics.lastSerializedSnapshotSizeBytes > 5 * 1024 * 1024) {
+        console.warn("[snapshot-persistence] recovery-head serialized size exceeded 5 MiB");
+      }
+      const databaseStartedAt = performance.now();
+      const result = await withOptionalTransaction(database, options, async (client) => {
+        await ensureSnapshotInstanceRow(client, snapshot);
+        const current = await loadRecoveryHeadFrom(client, snapshot.instanceId, true);
+        const decision = classifySnapshotWrite(current, snapshot);
+        if (decision === "idempotent") return decision;
+        const upsert = await client.query(
+          `
+            INSERT INTO empire_snapshot_latest (
+              id, server_instance_id, schema_version, snapshot_id,
+              root_version, tick, payload, created_at, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::timestamptz, now())
+            ON CONFLICT (server_instance_id) DO UPDATE
+            SET schema_version = EXCLUDED.schema_version,
+                snapshot_id = EXCLUDED.snapshot_id,
+                root_version = EXCLUDED.root_version,
+                tick = EXCLUDED.tick,
+                payload = EXCLUDED.payload,
+                created_at = EXCLUDED.created_at,
+                updated_at = now()
+            WHERE empire_snapshot_latest.root_version < EXCLUDED.root_version
+            RETURNING snapshot_id
+          `,
+          [
+            createRecoveryHeadId(snapshot.instanceId),
+            snapshot.instanceId,
+            snapshot.version.schemaVersion,
+            snapshot.snapshotId,
+            snapshot.integrity.rootVersion,
+            snapshot.tick,
+            serialized,
+            snapshot.createdAt
+          ]
+        );
+        if ((upsert.rowCount ?? upsert.rows.length) !== 1) {
+          await assertRejectedRecoveryHeadIsIdempotent(client, snapshot);
+          return "idempotent";
+        }
+        return current ? "updated" : "created";
       });
+      metrics.lastDatabaseSaveDurationMs = Math.max(0, performance.now() - databaseStartedAt);
+      if (result !== "idempotent") metrics.recoveryHeadUpdates += 1;
+      return result;
+    } catch (error) {
+      metrics.recoveryHeadUpdateFailures += 1;
+      if (String((error as Error)?.message ?? "").includes("stale rootVersion")) {
+        metrics.rootVersionDowngradeAttempts += 1;
+        console.warn("[snapshot-persistence] recovery-head downgrade attempt rejected");
+      }
+      throw error;
+    }
+  };
 
-      await client.query(
+  const saveCheckpoint = async (checkpoint: SnapshotCheckpointRecord): Promise<SnapshotWriteResult> => {
+    try {
+      assertSnapshotIntegrity(checkpoint.snapshot, checkpoint.instanceId);
+      const serialized = JSON.stringify(checkpoint.snapshot);
+      const databaseStartedAt = performance.now();
+      const result = await withOptionalTransaction(database, options, async (client) => {
+        await ensureSnapshotInstanceRow(client, checkpoint.snapshot);
+        const inserted = await client.query(
+          `
+            INSERT INTO empire_snapshots (
+              id, server_instance_id, schema_version, snapshot_id, root_version,
+              tick, checkpoint_kind, reason_code, lifecycle_phase, is_protected,
+              payload, created_at, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12::timestamptz, now())
+            ON CONFLICT (server_instance_id, snapshot_id) DO NOTHING
+            RETURNING snapshot_id
+          `,
+          [
+            createCheckpointHistoryId(checkpoint),
+            checkpoint.instanceId,
+            checkpoint.snapshot.version.schemaVersion,
+            checkpoint.checkpointId,
+            checkpoint.rootVersion,
+            checkpoint.tick,
+            checkpoint.kind,
+            checkpoint.reasonCode,
+            checkpoint.lifecyclePhase,
+            checkpoint.protected,
+            serialized,
+            checkpoint.createdAt
+          ]
+        );
+        return (inserted.rowCount ?? inserted.rows.length) === 1 ? "created" : "idempotent";
+      });
+      metrics.lastDatabaseSaveDurationMs = Math.max(0, performance.now() - databaseStartedAt);
+      if (result === "created") recordCheckpointMetric(metrics, checkpoint.kind);
+      return result;
+    } catch (error) {
+      metrics.checkpointSaveFailures += 1;
+      throw error;
+    }
+  };
+
+  const loadRecoveryHead = (instanceId: ServerInstanceId) =>
+    loadRecoveryHeadFrom(database, instanceId, false);
+
+  const loadLatestCheckpoint = async (instanceId: ServerInstanceId) =>
+    (await loadCheckpointCandidates(database, instanceId, 1))[0] ?? null;
+
+  return {
+    saveRecoveryHead,
+    saveCheckpoint,
+    loadRecoveryHead,
+    loadLatestCheckpoint,
+    loadForRecovery: async (instanceId) => {
+      const head = await loadRecoveryHead(instanceId);
+      if (head) {
+        try {
+          assertSnapshotIntegrity(head, instanceId);
+        } catch (error) {
+          metrics.recoveryIntegrityFailures += 1;
+          console.warn("[snapshot-recovery] source=recovery-head status=invalid");
+          throw error;
+        }
+        metrics.recoveryFromHead += 1;
+        return { snapshot: head, source: "recovery-head", reasonCode: "RECOVERY_HEAD_VALID" };
+      }
+      const candidates = await loadCheckpointCandidates(database, instanceId, 20);
+      const checkpoint = candidates.find((candidate) => {
+        try {
+          assertSnapshotIntegrity(candidate.snapshot, instanceId);
+          return true;
+        } catch (_error) {
+          return false;
+        }
+      });
+      if (!checkpoint) {
+        return { snapshot: null, source: "none", reasonCode: "RECOVERY_SNAPSHOT_MISSING" };
+      }
+      await saveRecoveryHead(checkpoint.snapshot);
+      metrics.recoveryFromCheckpointFallback += 1;
+      console.warn("[snapshot-recovery] source=checkpoint-fallback reason=RECOVERY_HEAD_MISSING_CHECKPOINT_USED");
+      return {
+        snapshot: checkpoint.snapshot,
+        source: "checkpoint-fallback",
+        reasonCode: "RECOVERY_HEAD_MISSING_CHECKPOINT_USED"
+      };
+    },
+    cleanupCheckpoints: (policy, nowIso) =>
+      cleanupPostgresCheckpoints(database, options, policy, nowIso, metrics),
+    countCheckpoints: async (instanceId) => {
+      const result = await database.query<{
+        total: string | number;
+        rolling: string | number;
+        lifecycle: string | number;
+        terminal: string | number;
+      }>(
         `
-          INSERT INTO empire_snapshots (
-            id, server_instance_id, schema_version, snapshot_id, root_version,
-            tick, payload, created_at, updated_at
-          )
-          VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::timestamptz, now())
-          ON CONFLICT (server_instance_id, snapshot_id) DO NOTHING
+          SELECT
+            count(*) AS total,
+            count(*) FILTER (WHERE checkpoint_kind IN ('periodic-checkpoint', 'legacy-checkpoint')) AS rolling,
+            count(*) FILTER (WHERE checkpoint_kind = 'lifecycle-checkpoint') AS lifecycle,
+            count(*) FILTER (WHERE checkpoint_kind = 'terminal-checkpoint') AS terminal
+          FROM empire_snapshots
+          WHERE server_instance_id = $1
         `,
-        [
-          createSnapshotHistoryId(snapshot),
-          snapshot.instanceId,
-          snapshot.version.schemaVersion,
-          snapshot.snapshotId,
-          snapshot.integrity.rootVersion,
-          snapshot.tick,
-          JSON.stringify(snapshot),
-          snapshot.createdAt
-        ]
+        [instanceId]
       );
-
-      const upsert = await client.query(
-        `
-          INSERT INTO empire_snapshot_latest (
-            id, server_instance_id, schema_version, snapshot_id,
-            root_version, payload, created_at, updated_at
-          )
-          VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::timestamptz, now())
-          ON CONFLICT (server_instance_id) DO UPDATE
-          SET schema_version = EXCLUDED.schema_version,
-              snapshot_id = EXCLUDED.snapshot_id,
-              root_version = EXCLUDED.root_version,
-              payload = EXCLUDED.payload,
-              updated_at = now()
-          WHERE empire_snapshot_latest.root_version < EXCLUDED.root_version
-          RETURNING snapshot_id, root_version
-        `,
-        [
-          createLatestSnapshotId(snapshot.instanceId),
-          snapshot.instanceId,
-          snapshot.version.schemaVersion,
-          snapshot.snapshotId,
-          snapshot.integrity.rootVersion,
-          JSON.stringify(snapshot),
-          snapshot.createdAt
-        ]
-      );
-
-      if ((upsert.rowCount ?? upsert.rows.length) > 0) return;
-      await assertRejectedSnapshotIsIdempotent(client, snapshot);
-    });
-  },
-  loadLatest: async (instanceId) => {
-    const result = await database.query<{ payload: unknown }>(
-      `
-        SELECT payload
-        FROM empire_snapshot_latest
-        WHERE server_instance_id = $1
-      `,
-      [instanceId]
-    );
-    const row = result.rows[0];
-    return row ? coercePayload<InstanceSnapshotDto>(row.payload) : null;
-  }
-});
-
-const withOptionalTransaction = async <TResult>(
-  database: PostgresQueryable,
-  options: { wrapWritesInTransaction: boolean },
-  callback: (client: PostgresQueryable) => Promise<TResult>
-): Promise<TResult> => {
-  if (options.wrapWritesInTransaction && "transaction" in database && typeof database.transaction === "function") {
-    return database.transaction(callback);
-  }
-  return callback(database);
+      const row = result.rows[0];
+      return {
+        total: Number(row?.total ?? 0),
+        rolling: Number(row?.rolling ?? 0),
+        lifecycle: Number(row?.lifecycle ?? 0),
+        terminal: Number(row?.terminal ?? 0)
+      };
+    },
+    getMetrics: () => ({ ...metrics }),
+    save: async (snapshot) => { await saveRecoveryHead(snapshot); },
+    loadLatest: loadRecoveryHead
+  };
 };
-
-const assertRejectedSnapshotIsIdempotent = async (
-  database: PostgresQueryable,
-  snapshot: InstanceSnapshotDto
-): Promise<void> => {
-  const latest = await database.query<{
-    snapshot_id: string;
-    root_version: string | number;
-    payload: unknown;
-  }>(
-    `
-      SELECT snapshot_id, root_version, payload
-      FROM empire_snapshot_latest
-      WHERE server_instance_id = $1
-    `,
-    [snapshot.instanceId]
-  );
-  const latestRow = latest.rows[0];
-  if (!latestRow) throw new Error("Snapshot latest compare-and-swap rejected without a persisted snapshot.");
-  classifySnapshotWrite(coercePayload<InstanceSnapshotDto>(latestRow.payload), snapshot);
-};
-
-const coercePayload = <TPayload>(payload: unknown): TPayload => {
-  if (typeof payload === "string") {
-    return JSON.parse(payload) as TPayload;
-  }
-  return payload as TPayload;
-};
-
-const createSnapshotHistoryId = (snapshot: InstanceSnapshotDto): string =>
-  `snapshot-history:${snapshot.instanceId}:${snapshot.snapshotId}`;
-
-const createLatestSnapshotId = (instanceId: ServerInstanceId): string =>
-  `snapshot-latest:${instanceId}`;
