@@ -19,7 +19,6 @@ import { resolveSmugglingTunnelAction } from "./smugglingTunnelBuildingActions";
 import { resolveStockExchangeAction } from "./stockExchangeBuildingActions";
 import { resolveStreetDealersAction } from "./streetDealersBuildingActions";
 import { resolveStripClubAction } from "./stripClubBuildingActions";
-
 interface BuildingActionSpecificResolutionInput {
   state: CoreGameState;
   command: RunBuildingActionCommand;

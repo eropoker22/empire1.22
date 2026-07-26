@@ -14,10 +14,13 @@ import {
 import type {
   CommandRecord,
   DiagnosticRecord,
-  EventRecord
+  EventRecord,
+  SnapshotCheckpointRecord
 } from "../../apps/server/src/runtime";
 import {
+  SNAPSHOT_CHECKPOINT_KINDS,
   createInstanceSnapshot,
+  createSnapshotCheckpoint,
   createServerInstanceRuntime
 } from "../../apps/server/src/runtime";
 import { createAttackDistrictCommandFixture } from "../fixtures/command-fixtures";
@@ -224,6 +227,65 @@ describe("postgres persistence repositories", () => {
     await expect(repository.save(divergent)).rejects.toThrow("Refusing divergent snapshot");
     await expect(repository.loadLatest(runtime.record.id)).resolves.toEqual(snapshot);
   });
+
+  it("accepts only an identical checkpoint when a checkpoint id already exists", async () => {
+    const database = new FakePostgresDatabase();
+    const repository = createPostgresSnapshotRepository(database);
+    const runtime = createServerInstanceRuntime("instance:postgres:checkpoint-conflict", "free");
+    runtime.state.root.tick = 30;
+    runtime.state.root.version = 31;
+    const checkpoint = createSnapshotCheckpoint(createInstanceSnapshot(runtime), {
+      kind: SNAPSHOT_CHECKPOINT_KINDS.periodic,
+      reasonCode: "periodic-cadence"
+    });
+
+    await expect(repository.saveCheckpoint(checkpoint)).resolves.toBe("created");
+    await expect(repository.saveCheckpoint(structuredClone(checkpoint))).resolves.toBe("idempotent");
+    await expect(repository.saveCheckpoint({
+      ...structuredClone(checkpoint),
+      kind: SNAPSHOT_CHECKPOINT_KINDS.lifecycle
+    })).rejects.toThrow("collides with a different persisted checkpoint");
+
+    const divergentPayload = structuredClone(checkpoint);
+    divergentPayload.snapshot.lobby!.displayName = "Divergent checkpoint";
+    await expect(repository.saveCheckpoint(divergentPayload))
+      .rejects.toThrow("collides with a different persisted checkpoint");
+  });
+
+  it("searches checkpoint fallback in bounded batches until valid history is exhausted", async () => {
+    const database = new FakePostgresDatabase();
+    const repository = createPostgresSnapshotRepository(database);
+    const runtime = createServerInstanceRuntime("instance:postgres:checkpoint-pages", "free");
+    runtime.state.root.tick = 1;
+    runtime.state.root.version = 2;
+    const valid = createSnapshotCheckpoint(createInstanceSnapshot(runtime), {
+      kind: SNAPSHOT_CHECKPOINT_KINDS.periodic,
+      reasonCode: "valid-fallback"
+    });
+
+    for (let index = 0; index < 21; index += 1) {
+      runtime.state.root.tick = 100 + index;
+      runtime.state.root.version = 200 + index;
+      const corrupt = createSnapshotCheckpoint(createInstanceSnapshot(runtime), {
+        kind: SNAPSHOT_CHECKPOINT_KINDS.periodic,
+        reasonCode: `corrupt-${index}`
+      });
+      corrupt.snapshot.integrity.entityCounts.players += 1;
+      database.seedCheckpoint(corrupt);
+    }
+    database.seedCheckpoint(valid);
+
+    await expect(repository.loadForRecovery(runtime.record.id)).resolves.toMatchObject({
+      source: "checkpoint-fallback",
+      snapshot: {
+        snapshotId: valid.snapshot.snapshotId,
+        integrity: { rootVersion: valid.rootVersion }
+      }
+    });
+    expect(database.checkpointCandidateCursorRoots).toEqual([null, 201]);
+    await expect(repository.loadRecoveryHead(runtime.record.id))
+      .resolves.toMatchObject({ snapshotId: valid.snapshot.snapshotId });
+  });
 });
 
 describe("postgres tick lock", () => {
@@ -275,7 +337,14 @@ class FakePostgresDatabase implements PostgresDatabase {
   private readonly diagnosticRows: StoredRow[] = [];
   private readonly commandReservationRows: CommandReservationStoredRow[] = [];
   private readonly latestSnapshots = new Map<string, LatestSnapshotRow>();
+  private readonly checkpoints = new Map<string, SnapshotCheckpointStoredRow>();
   private readonly tickLocks = new Map<string, TickLockRow>();
+  readonly checkpointCandidateCursorRoots: Array<number | null> = [];
+
+  seedCheckpoint(checkpoint: SnapshotCheckpointRecord): void {
+    const row = checkpointRow(checkpoint);
+    this.checkpoints.set(checkpointKey(checkpoint.instanceId, checkpoint.checkpointId), row);
+  }
 
   async query<TRow extends QueryResultRow = QueryResultRow>(
     sql: string,
@@ -415,7 +484,54 @@ class FakePostgresDatabase implements PostgresDatabase {
     }
 
     if (compactSql.startsWith("INSERT INTO empire_snapshots")) {
-      return result([]);
+      const row: SnapshotCheckpointStoredRow = {
+        snapshot_id: String(params[3]),
+        checkpoint_kind: String(params[6]),
+        reason_code: String(params[7]),
+        lifecycle_phase: params[8] === null ? null : String(params[8]),
+        is_protected: params[9] === true,
+        root_version: Number(params[4]),
+        tick: Number(params[5]),
+        created_at: String(params[11]),
+        payload: parsePayload(params[10])
+      };
+      const key = checkpointKey(String(params[1]), row.snapshot_id);
+      if (this.checkpoints.has(key)) return result([]);
+      this.checkpoints.set(key, row);
+      return result([{ snapshot_id: row.snapshot_id }]);
+    }
+
+    if (compactSql.startsWith("SELECT snapshot_id, checkpoint_kind, reason_code")) {
+      const instanceId = String(params[0]);
+      if (compactSql.includes("AND snapshot_id = $2")) {
+        const row = this.checkpoints.get(checkpointKey(instanceId, String(params[1])));
+        return result(row ? [row] : []);
+      }
+      const limit = Number(params[1]);
+      const cursor = params[2] === null ? null : {
+        rootVersion: Number(params[2]),
+        tick: Number(params[3]),
+        createdAt: String(params[4]),
+        checkpointId: String(params[5])
+      };
+      this.checkpointCandidateCursorRoots.push(cursor?.rootVersion ?? null);
+      const rows = [...this.checkpoints.entries()]
+        .filter(([key]) => key.startsWith(`${instanceId}\u0000`))
+        .map(([, row]) => row)
+        .sort(compareCheckpointRows)
+        .filter((row) => !cursor || compareCheckpointRows(row, {
+          snapshot_id: cursor.checkpointId,
+          checkpoint_kind: "",
+          reason_code: "",
+          lifecycle_phase: null,
+          is_protected: false,
+          root_version: cursor.rootVersion,
+          tick: cursor.tick,
+          created_at: cursor.createdAt,
+          payload: null
+        }) > 0)
+        .slice(0, limit);
+      return result(rows);
     }
 
     if (compactSql.startsWith("INSERT INTO empire_snapshot_latest")) {
@@ -524,6 +640,18 @@ interface LatestSnapshotRow {
   payload: unknown;
 }
 
+interface SnapshotCheckpointStoredRow extends QueryResultRow {
+  snapshot_id: string;
+  checkpoint_kind: string;
+  reason_code: string;
+  lifecycle_phase: string | null;
+  is_protected: boolean;
+  root_version: number;
+  tick: number;
+  created_at: string;
+  payload: unknown;
+}
+
 interface TickLockRow {
   ownerId: string;
   lockedUntil: string;
@@ -539,6 +667,29 @@ const result = <TRow extends QueryResultRow>(rows: QueryResultRow[]): QueryResul
 
 const parsePayload = (value: unknown): unknown =>
   typeof value === "string" ? JSON.parse(value) : value;
+
+const checkpointKey = (instanceId: string, checkpointId: string): string =>
+  `${instanceId}\u0000${checkpointId}`;
+
+const checkpointRow = (checkpoint: SnapshotCheckpointRecord): SnapshotCheckpointStoredRow => ({
+  snapshot_id: checkpoint.checkpointId,
+  checkpoint_kind: checkpoint.kind,
+  reason_code: checkpoint.reasonCode,
+  lifecycle_phase: checkpoint.lifecyclePhase,
+  is_protected: checkpoint.protected,
+  root_version: checkpoint.rootVersion,
+  tick: checkpoint.tick,
+  created_at: checkpoint.createdAt,
+  payload: structuredClone(checkpoint.snapshot)
+});
+
+const compareCheckpointRows = (
+  left: SnapshotCheckpointStoredRow,
+  right: SnapshotCheckpointStoredRow
+): number => right.root_version - left.root_version ||
+  right.tick - left.tick ||
+  right.created_at.localeCompare(left.created_at) ||
+  right.snapshot_id.localeCompare(left.snapshot_id);
 
 const sortStoredRows = (left: StoredRow, right: StoredRow): number =>
   left.sequence - right.sequence || left.id.localeCompare(right.id);

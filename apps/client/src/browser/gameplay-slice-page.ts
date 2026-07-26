@@ -1,6 +1,6 @@
 import { createClientApp, createClientSurfaceActionRouter, resolveClientSurfaceAction, type ClientRenderState } from "../app";
 import { escapeHtml, refreshLiveCooldownLabels } from "../shared-ui";
-import { createFetchClientTransport, createGameplaySlicePoller, type ClientTransport } from "../transport";
+import { createFetchClientTransport, createGameplaySlicePoller } from "../transport";
 import { createOverlayBackdrop } from "../modals/overlay-backdrop";
 import { getTopOverlay, isOverlayOpen, shouldSuppressMapInput } from "../modals/overlay-state";
 import { resolveGameplaySliceBootstrapRequest } from "./gameplay-slice-bootstrap";
@@ -26,23 +26,23 @@ import {
 } from "./gameplay-slice-runtime-policy";
 import { createGameplaySliceSelectiveRenderer } from "./gameplay-slice-selective-renderer";
 import { GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS } from "./gameplay-slice-timing";
+import {
+  createMountedGameplaySlicePageExternalPort,
+  installGameplaySlicePageApi,
+  registerMountedGameplaySlicePage,
+  type GameplaySlicePageMountOptions,
+  type MountedGameplaySlicePage,
+  type MountedGameplaySlicePageExternalPort
+} from "./gameplay-slice-page-api";
+export * from "./gameplay-slice-page-api";
 export { setGameplayRuntimeMarker, type GameplayRuntimeMarker } from "./gameplay-slice-runtime-diagnostics";
 const DEFAULT_ENDPOINT_BASE = "/api/gameplay-slice";
 const LEGACY_DISTRICT_POPUP_SELECTOR = "[data-testid='district-popup']";
 const MOBILE_SHEET_SELECTOR = ".mobile-sheet";
 const MAP_TAP_PIXEL_THRESHOLD = 10;
 const DISTRICT_TAP_DEBOUNCE_MS = 350;
-export interface GameplaySlicePageMountOptions { root: HTMLElement; transport?: ClientTransport; }
-export interface MountedGameplaySlicePage { destroy(): void; }
-interface MountedGameplaySlicePageInternal extends MountedGameplaySlicePage { closeDistrictSheetFromExternal(reason?: string): boolean; }
-declare global { interface Window { EmpireGameplaySliceClient?: { closeDistrictSheet(reason?: string): boolean; mount(options: GameplaySlicePageMountOptions): MountedGameplaySlicePage | null; autoMount(): MountedGameplaySlicePage[]; }; } }
-const activeGameplaySlicePages = new Set<MountedGameplaySlicePageInternal>();
-const mountedGameplaySlicePagesByRoot = new WeakMap<HTMLElement, MountedGameplaySlicePageInternal>();
-/**
- * Responsibility: Browser mount for the server-fed gameplay slice on game.html.
- * Belongs here: DOM event wiring and rendering already prepared client HTML.
- * Does not belong here: gameplay resolution or legacy runtime mutation.
- */
+const mountedGameplaySlicePagesByRoot = new WeakMap<HTMLElement, MountedGameplaySlicePageExternalPort>();
+/** Browser mount for server-fed DOM state; gameplay resolution stays on the server. */
 export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): MountedGameplaySlicePage | null => {
   const existingMount = mountedGameplaySlicePagesByRoot.get(options.root);
   if (existingMount) return existingMount;
@@ -167,7 +167,12 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       document.body.dataset.cityPhase = phase;
     }
     document.dispatchEvent(new CustomEvent("empire:gameplay-slice-rendered", {
-      detail: { gameplaySlice, playerView: gameplaySlice?.player ?? null, connection: state.connection }
+      detail: {
+        gameplaySlice,
+        playerView: gameplaySlice?.player ?? null,
+        connection: state.connection,
+        renderState: state
+      }
     }));
     document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", { detail: state.connection }));
     selectiveRenderer.render(mounts, [renderGameplaySliceStatus(state), state.topBarHtml, state.mapHtml, state.sidePanelHtml], reason);
@@ -371,9 +376,20 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
   const handlePageHide = () => {
     mountedPage.destroy();
   };
-  const mountedPage: MountedGameplaySlicePageInternal = {
-    closeDistrictSheetFromExternal: (reason = "external district popup close") =>
+  let unregisterMountedPage: () => void = () => {};
+  const mountedPage: MountedGameplaySlicePageExternalPort = createMountedGameplaySlicePageExternalPort({
+    root: options.root,
+    closeDistrictSheet: (reason = "external district popup close") =>
       closeDistrictSheetAfterLegacyClose(reason),
+    getCurrentReadModel: () => client.getGameplaySlice(),
+    getCurrentRenderState: () => client.getRenderState(),
+    handleSurfaceAction: (target) => router.handleTarget(target),
+    selectDistrict: (districtId) => client.selectDistrict(districtId),
+    submitCommand: (command) => client.dispatch(command),
+    applyState: (state, reason) => {
+      recordGameplaySliceRefresh(client.getGameplaySlice());
+      render(state, reason);
+    },
     destroy: () => {
       if (destroyed) {
         return;
@@ -390,12 +406,12 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       districtSheetOverlay.closeOnDestroy();
       overlayBackdrop.sync();
       overlayBackdrop.destroy();
-      activeGameplaySlicePages.delete(mountedPage);
+      unregisterMountedPage();
       mountedGameplaySlicePagesByRoot.delete(options.root);
       window.removeEventListener("pagehide", handlePageHide);
     }
-  };
-  activeGameplaySlicePages.add(mountedPage);
+  });
+  unregisterMountedPage = registerMountedGameplaySlicePage(mountedPage);
   mountedGameplaySlicePagesByRoot.set(options.root, mountedPage);
   window.addEventListener("pagehide", handlePageHide, { once: true });
   return mountedPage;
@@ -444,22 +460,4 @@ const parsePollingIntervalMs = (value: string | undefined): number => {
     : GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS;
 };
 
-export const closeDistrictSheet = (reason = "external district popup close"): boolean => {
-  let closed = false;
-  for (const mountedPage of activeGameplaySlicePages) {
-    closed = mountedPage.closeDistrictSheetFromExternal(reason) || closed;
-  }
-  return closed;
-};
-
-const createPageApi = () => ({
-  closeDistrictSheet,
-  mount: (options: GameplaySlicePageMountOptions) => mountGameplaySlicePage(options),
-  autoMount: () => Array.from(document.querySelectorAll<HTMLElement>("[data-gameplay-slice-client]"))
-    .map((root) => mountGameplaySlicePage({ root }))
-    .filter((mount): mount is MountedGameplaySlicePage => mount !== null)
-});
-
-if (typeof window !== "undefined" && typeof document !== "undefined") {
-  window.EmpireGameplaySliceClient = createPageApi();
-}
+installGameplaySlicePageApi(mountGameplaySlicePage);

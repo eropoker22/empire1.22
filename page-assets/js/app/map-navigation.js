@@ -11,6 +11,11 @@ const ZOOM_STEP = 0.18;
 const PINCH_SUPPRESS_MS = 280;
 
 function bindMapNavigation(root) {
+  const existingController = root?.empireStreetsMapNavigation;
+  if (existingController?.isActive?.()) {
+    return existingController;
+  }
+
   const viewport = root.querySelector(MAP_VIEWPORT_SELECTOR);
   const canvasHost = root.querySelector(MAP_CANVAS_SELECTOR);
   const zoomButtons = Array.from(root.querySelectorAll(MAP_ZOOM_BUTTON_SELECTOR));
@@ -19,6 +24,13 @@ function bindMapNavigation(root) {
     return;
   }
 
+  const listenerController = typeof window.AbortController === "function"
+    ? new window.AbortController()
+    : null;
+  const listenerOptions = (options = {}) => (
+    listenerController ? { ...options, signal: listenerController.signal } : options
+  );
+  let destroyed = false;
   const initialScale = window.matchMedia?.(MOBILE_MEDIA)?.matches ? MOBILE_INITIAL_SCALE : MIN_SCALE;
   const state = {
     scale: initialScale,
@@ -140,7 +152,7 @@ function bindMapNavigation(root) {
     event.preventDefault();
     const direction = event.deltaY < 0 ? 1 : -1;
     setScale(state.scale + direction * ZOOM_STEP);
-  });
+  }, listenerOptions({ passive: false }));
 
   for (const button of zoomButtons) {
     button.addEventListener("click", (event) => {
@@ -150,7 +162,7 @@ function bindMapNavigation(root) {
 
       const direction = button.dataset.mapZoom === "in" ? 1 : -1;
       setScale(state.scale + direction * ZOOM_STEP);
-    });
+    }, listenerOptions());
   }
 
   viewport.addEventListener("pointerdown", (event) => {
@@ -176,7 +188,7 @@ function bindMapNavigation(root) {
     state.originX = state.x;
     state.originY = state.y;
     viewport.classList.add("is-dragging");
-  });
+  }, listenerOptions());
 
   let dragPointerFrameId = null;
   let pendingDragEvent = null;
@@ -186,7 +198,7 @@ function bindMapNavigation(root) {
     const event = pendingDragEvent;
     pendingDragEvent = null;
 
-    if (!event || state.pointerId !== event.pointerId) {
+    if (destroyed || !event || state.pointerId !== event.pointerId) {
       return;
     }
 
@@ -216,7 +228,7 @@ function bindMapNavigation(root) {
     if (dragPointerFrameId === null) {
       dragPointerFrameId = window.requestAnimationFrame(flushDragPointerMove);
     }
-  });
+  }, listenerOptions());
 
   const releasePointer = (event) => {
     if (shouldSuppressMapInput(event)) {
@@ -250,20 +262,37 @@ function bindMapNavigation(root) {
     }
   };
 
-  viewport.addEventListener("pointerup", releasePointer);
-  viewport.addEventListener("pointercancel", releasePointer);
+  viewport.addEventListener("pointerup", releasePointer, listenerOptions());
+  viewport.addEventListener("pointercancel", releasePointer, listenerOptions());
   viewport.addEventListener("pointerleave", (event) => {
     if (state.pointerId === event.pointerId) {
       releasePointer(event);
     }
-  });
+  }, listenerOptions());
 
   render();
 
   const controller = {
     getState: () => ({ scale: state.scale, x: state.x, y: state.y }),
     resetZoom,
-    setScale
+    setScale,
+    isActive: () => !destroyed,
+    destroy() {
+      if (destroyed) return false;
+      destroyed = true;
+      listenerController?.abort();
+      if (dragPointerFrameId !== null) window.cancelAnimationFrame(dragPointerFrameId);
+      dragPointerFrameId = null;
+      pendingDragEvent = null;
+      activePointers.clear();
+      viewport.classList.remove("is-dragging");
+      for (const target of [viewport, canvasHost, root, window]) {
+        if (target?.empireStreetsMapNavigation === controller) {
+          delete target.empireStreetsMapNavigation;
+        }
+      }
+      return true;
+    }
   };
   viewport.empireStreetsMapNavigation = controller;
   canvasHost.empireStreetsMapNavigation = controller;

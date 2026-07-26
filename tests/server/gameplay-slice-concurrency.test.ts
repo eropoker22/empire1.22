@@ -196,8 +196,7 @@ describe("gameplay slice optimistic concurrency", () => {
       createDevGameplaySession(server, { serverInstanceId: instanceId, playerId })
     ));
     const runtime = server.instanceManager.getInstanceById(instanceId)!;
-    const state = createCombatStateFixture();
-    state.serverInstance = { ...state.serverInstance, id: instanceId };
+    const state = createCombatStateFixture(instanceId);
     state.root.version = 100;
     state.playersById["player:2"] = { ...state.playersById["player:2"], lastStandUsedAtTick: 0 };
     state.districtsById["district:2"] = { ...state.districtsById["district:2"], defenseLoadout: {} };

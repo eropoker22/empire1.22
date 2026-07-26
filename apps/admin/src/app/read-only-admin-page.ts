@@ -46,7 +46,7 @@ export const renderDashboard = (input: {
     <nav class="admin-nav" aria-label="Sekce admin konzole">
       ${nav("overview", "Overview")}${nav("servers", "Servery")}${nav("players", "Hráči")}${nav("map", "Mapa")}
       ${nav("economy", "Ekonomika")}${nav("production", "Výroba")}${nav("police", "Police")}${nav("liveness", "Liveness")}
-      ${nav("commands", "Commands")}${nav("events", "Events")}${nav("diagnostics", "Diagnostics")}
+      ${nav("snapshots", "Snapshoty")}${nav("commands", "Commands")}${nav("events", "Events")}${nav("diagnostics", "Diagnostics")}
     </nav>
   </aside>
   <section class="admin-main">
@@ -206,6 +206,16 @@ const renderDetail = (detail: AdminInstanceDetailView | null): string => detail 
   ${section("production", "Výroba", `<div class="admin-kv-grid">${kv("Buildings", detail.production.productionBuildingCount)}${kv("Ready", detail.production.readyToCollectCount)}${kv("Crafts", detail.production.activeCraftCount)}${kv("Storage full", detail.production.storageFullCount)}</div>`)}
   ${section("police", "Police", `<div class="admin-kv-grid">${kv("Pressure", detail.police.heatPressure)}${kv("Max heat", detail.police.maxPlayerHeat)}${kv("Wanted", detail.police.wantedPlayerCount)}${kv("Raids", detail.police.pendingRaidCount)}</div>`)}
   ${section("liveness", "Liveness", `<div class="admin-kv-grid">${kv("Active", detail.liveness.activePlayers)}${kv("Playable", detail.liveness.playablePlayers)}${kv("Sealed", detail.liveness.temporarilySealedPlayers)}${kv("Softlocks", detail.liveness.invalidSoftlocks)}</div>`)}
+  ${section("snapshots", "Snapshot persistence", `<div class="admin-kv-grid">
+    ${kv("Recovery head tick", detail.snapshot.tick)}${kv("Recovery head root version", detail.snapshot.stateVersion)}
+    ${kv("Recovery head updated", time(detail.snapshot.createdAt))}${kv("Last checkpoint", time(detail.snapshot.lastCheckpointAt ?? null))}
+    ${kv("Rolling checkpoints", detail.snapshot.rollingCheckpointCount ?? 0)}
+    ${kv("Lifecycle checkpoints", detail.snapshot.lifecycleCheckpointCount ?? 0)}
+    ${kv("Terminal checkpoints", detail.snapshot.terminalCheckpointCount ?? 0)}
+    ${kv("Last cleanup", time(detail.snapshot.lastCleanupAt ?? null))}
+    ${kv("Cleanup status", detail.snapshot.lastCleanupStatus ?? "unavailable")}
+    ${kv("Storage health", detail.snapshot.storageHealth ?? "unavailable")}
+  </div>`)}
   ${section("commands", "Commands", table(["Type", "Command", "Actor", "Tick", "Received"], detail.commands.map((row) => `<tr><td>${escape(row.commandType)}</td><td>${escape(row.commandId)}</td><td>${escape(row.actorId)}</td><td>${row.tickAtReceive}</td><td>${time(row.receivedAt)}</td></tr>`).join("")))}
   ${section("events", "Events", table(["Type", "Event", "Command", "Tick", "Occurred"], detail.events.map((row) => `<tr><td>${escape(row.eventType)}</td><td>${escape(row.eventId)}</td><td>${escape(row.causedByCommandId ?? "-")}</td><td>${row.tick}</td><td>${time(row.occurredAt)}</td></tr>`).join("")))}
   ${section("diagnostics", "Diagnostics", table(["Level", "Category", "Code", "Command", "Occurred"], detail.diagnostics.map((row) => `<tr><td>${pill(row.level)}</td><td>${escape(row.category)}</td><td>${escape(row.messageCode)}</td><td>${escape(row.commandId ?? "-")}</td><td>${time(row.occurredAt)}</td></tr>`).join("")))}

@@ -1,4 +1,9 @@
-import { submitServerBountyCommand } from "./runtime.js";
+import { submitServerBountyCommand } from "./runtime/serverGameplaySource.js";
+import { getLocalDemoGameplayBridgeForMode } from "./runtime/localDemoGameplayBridge.js";
+import {
+  GAMEPLAY_EXECUTION_MODES,
+  getGameplayExecutionMode
+} from "./runtime/gameplayExecutionMode.js";
 import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
 import {
   getBountyDisplayLabel,
@@ -13,64 +18,16 @@ const PAGE_SELECTOR = 'main[data-page="game"]';
 const BOUNTY_STORAGE_KEY = "empireStreets.bounty.v1";
 const BOUNTY_MINIMUM_CASH = 5_000;
 const BOUNTY_REFRESH_MS = 1_000;
-const LOWKEYLAD_AVATAR_SRC = "../img/avatars/Mafia/grok_image_1773619750005.jpg";
-const NEONVIKTOR_AVATAR_SRC = "../img/avatars/Hacker/grok_image_1773621424855.jpg";
-const SABLEQUEEN_AVATAR_SRC = "../img/avatars/Kartel/f7281b4a-f79f-4d76-b975-5153d414208f.jpg";
 let lastBountyAvatarTrigger = null;
-
-const DEV_BOUNTY_TARGETS = Object.freeze([
-  {
-    playerId: "dev-bounty-lowkeylad",
-    name: "LowKeyLad",
-    avatarSrc: LOWKEYLAD_AVATAR_SRC,
-    factionLabel: "Street Crew",
-    allianceId: null,
-    isAlly: false,
-    isSelf: false,
-    activeDistrictCount: 3,
-    canTarget: true,
-    disabledReason: null,
-    districts: [
-      { districtId: "district-7", name: "District 7", zone: "Residential", status: "active" },
-      { districtId: "district-12", name: "District 12", zone: "Commercial", status: "active" },
-      { districtId: "district-21", name: "District 21", zone: "Park", status: "active" }
-    ]
-  },
-  {
-    playerId: "dev-bounty-neonviktor",
-    name: "NeonViktor",
-    avatarSrc: NEONVIKTOR_AVATAR_SRC,
-    factionLabel: "Chrome Syndicate",
-    allianceId: null,
-    isAlly: false,
-    isSelf: false,
-    activeDistrictCount: 2,
-    canTarget: true,
-    disabledReason: null,
-    districts: [
-      { districtId: "district-4", name: "District 4", zone: "Industrial", status: "active" },
-      { districtId: "district-18", name: "District 18", zone: "Downtown", status: "active" }
-    ]
-  },
-  {
-    playerId: "dev-bounty-sablequeen",
-    name: "SableQueen",
-    avatarSrc: SABLEQUEEN_AVATAR_SRC,
-    factionLabel: "Night Market",
-    allianceId: null,
-    isAlly: false,
-    isSelf: false,
-    activeDistrictCount: 4,
-    canTarget: true,
-    disabledReason: null,
-    districts: [
-      { districtId: "district-2", name: "District 2", zone: "Residential", status: "active" },
-      { districtId: "district-9", name: "District 9", zone: "Commercial", status: "active" },
-      { districtId: "district-16", name: "District 16", zone: "Industrial", status: "active" },
-      { districtId: "district-24", name: "District 24", zone: "Park", status: "active" }
-    ]
-  }
-]);
+let bountyRuntimeCleanup = null;
+const getCurrentGameplayMode = () => getGameplayExecutionMode({
+  windowRef: typeof window === "undefined" ? null : window,
+  diagnosticsMode: globalThis.empireStreetsRuntimeDiagnostics?.getSummary?.().runtimeMode
+});
+const getActiveLocalDemoGameplayBridge = () =>
+  getLocalDemoGameplayBridgeForMode(getCurrentGameplayMode());
+const getDevBountyTargets = () =>
+  getActiveLocalDemoGameplayBridge()?.getBountyDemoTargets?.() || [];
 
 const OBJECTIVE_COPY = Object.freeze({
   "attack-player": {
@@ -201,10 +158,13 @@ function resolveBountyAvatarSrc(entry, targets = []) {
   return String(target?.avatarSrc || target?.avatarUrl || "").trim();
 }
 
-function closeBountyAvatarLightbox() {
+function closeBountyAvatarLightbox(options = {}) {
+  const restoreFocus = options?.restoreFocus !== false;
+  const suppressMapInput = options?.suppressMapInput !== false;
   const lightbox = document.getElementById("alliance-member-lightbox");
   const image = document.getElementById("alliance-member-lightbox-image");
   if (!lightbox) {
+    lastBountyAvatarTrigger = null;
     return;
   }
   if (image instanceof HTMLImageElement) {
@@ -214,29 +174,29 @@ function closeBountyAvatarLightbox() {
   lightbox.classList.add("hidden");
   lightbox.hidden = true;
   lightbox.setAttribute("aria-hidden", "true");
-  closeOverlay(lightbox, { restoreFocus: false });
-  if (lastBountyAvatarTrigger instanceof HTMLElement) {
+  closeOverlay(lightbox, { restoreFocus: false, suppressMapInput });
+  if (restoreFocus && lastBountyAvatarTrigger instanceof HTMLElement) {
     lastBountyAvatarTrigger.focus({ preventScroll: true });
   }
   lastBountyAvatarTrigger = null;
 }
 
-function bindBountyAvatarLightboxControls() {
+function bindBountyAvatarLightboxControls(addListener) {
   const lightbox = document.getElementById("alliance-member-lightbox");
-  if (!lightbox || lightbox.dataset.bountyAvatarLightboxBound === "true") {
-    return;
+  if (!lightbox) {
+    return false;
   }
-  lightbox.dataset.bountyAvatarLightboxBound = "true";
-  document.getElementById("alliance-member-lightbox-backdrop")?.addEventListener("click", closeBountyAvatarLightbox);
-  document.getElementById("alliance-member-lightbox-close")?.addEventListener("click", closeBountyAvatarLightbox);
-  document.addEventListener("keydown", (event) => {
+  addListener(document.getElementById("alliance-member-lightbox-backdrop"), "click", closeBountyAvatarLightbox);
+  addListener(document.getElementById("alliance-member-lightbox-close"), "click", closeBountyAvatarLightbox);
+  addListener(document, "keydown", (event) => {
     if (event.key === "Escape" && lastBountyAvatarTrigger) {
       closeBountyAvatarLightbox();
     }
   });
+  return true;
 }
 
-function openBountyAvatarLightbox({ src, name, meta, trigger }) {
+function openBountyAvatarLightbox({ src, name, meta, trigger, ensureControls }) {
   const avatarSrc = String(src || "").trim();
   if (!avatarSrc) {
     return;
@@ -248,7 +208,7 @@ function openBountyAvatarLightbox({ src, name, meta, trigger }) {
   if (!lightbox || !(image instanceof HTMLImageElement)) {
     return;
   }
-  bindBountyAvatarLightboxControls();
+  ensureControls?.();
   lastBountyAvatarTrigger = trigger instanceof HTMLElement ? trigger : null;
   const displayName = String(name || "Bounty cíl").trim();
   image.src = avatarSrc;
@@ -323,7 +283,10 @@ function isDevOnlyBountyFallbackEnabled() {
     return false;
   }
   const host = String(window.location?.hostname || "").toLowerCase();
-  return !host || host === "localhost" || host === "127.0.0.1" || host === "::1";
+  const isLoopback = !host || host === "localhost" || host === "127.0.0.1" || host === "::1";
+  return getCurrentGameplayMode() === GAMEPLAY_EXECUTION_MODES.localDemo
+    && isLoopback
+    && Boolean(getActiveLocalDemoGameplayBridge());
 }
 
 function withDevBountyTargets(readModel, localBounties = []) {
@@ -355,7 +318,7 @@ function withDevBountyTargets(readModel, localBounties = []) {
       : [1, 6, 12, 24],
     eligibleTargets: targets.length > 0
       ? targets
-      : DEV_BOUNTY_TARGETS.map((target) => ({
+      : getDevBountyTargets().map((target) => ({
           ...target,
           districts: target.districts.map((district) => ({ ...district }))
         })),
@@ -401,10 +364,13 @@ function createEmptyBountyReadModel() {
   };
 }
 
-function initBountyRuntime() {
+export function initBountyRuntime() {
+  if (bountyRuntimeCleanup) {
+    return bountyRuntimeCleanup;
+  }
   const root = document.querySelector(PAGE_SELECTOR);
   if (!root) {
-    return;
+    return null;
   }
 
   clearLegacyLocalBountyState();
@@ -487,8 +453,22 @@ function initBountyRuntime() {
     || !confirmAnonymous
     || !confirmSubmitBtn
   ) {
-    return;
+    return null;
   }
+
+  const listenerCleanups = [];
+  const addListener = (target, type, listener, options) => {
+    if (!target?.addEventListener) {
+      return;
+    }
+    target.addEventListener(type, listener, options);
+    listenerCleanups.push(() => target.removeEventListener(type, listener, options));
+  };
+  let isDestroyed = false;
+  let avatarLightboxControlsBound = false;
+  let publishedBountyState = null;
+  const previousBountyState = window.empireStreetsBountyState;
+  const previousBountyModalShortcut = window.Empire?.openBountyModalShortcut;
 
   const uiState = {
     isOpen: false,
@@ -929,11 +909,11 @@ function initBountyRuntime() {
   };
 
   const startRefreshTimer = () => {
-    if (uiState.refreshTimerId !== null) {
+    if (uiState.refreshTimerId !== null || document.hidden) {
       return;
     }
     uiState.refreshTimerId = window.setInterval(() => {
-      if (!uiState.isOpen) {
+      if (!uiState.isOpen || document.hidden) {
         stopRefreshTimer();
         return;
       }
@@ -953,13 +933,16 @@ function initBountyRuntime() {
     startRefreshTimer();
   };
 
-  const closeModal = () => {
+  const closeModal = (options = {}) => {
     if (uiState.isConfirmOpen) {
-      closeConfirmModal();
+      closeConfirmModal(options);
     }
     modal.classList.add("hidden");
     modal.hidden = true;
-    closeOverlay(modal, { restoreFocus: false });
+    closeOverlay(modal, {
+      restoreFocus: false,
+      suppressMapInput: options?.suppressMapInput !== false
+    });
     uiState.isOpen = false;
     stopRefreshTimer();
   };
@@ -980,10 +963,13 @@ function initBountyRuntime() {
     uiState.isConfirmOpen = true;
   };
 
-  const closeConfirmModal = () => {
+  const closeConfirmModal = (options = {}) => {
     confirmModal.classList.add("hidden");
     confirmModal.hidden = true;
-    closeOverlay(confirmModal, { restoreFocus: false });
+    closeOverlay(confirmModal, {
+      restoreFocus: false,
+      suppressMapInput: options?.suppressMapInput !== false
+    });
     uiState.isConfirmOpen = false;
     uiState.pendingPreview = null;
   };
@@ -1026,11 +1012,17 @@ function initBountyRuntime() {
     if (!target || !avatarSrc) {
       return;
     }
+    const ensureControls = () => {
+      if (!avatarLightboxControlsBound) {
+        avatarLightboxControlsBound = bindBountyAvatarLightboxControls(addListener);
+      }
+    };
     openBountyAvatarLightbox({
       src: avatarSrc,
       name: target.name,
       meta: `${target.factionLabel || "Bounty cíl"} · ${target.activeDistrictCount} districtů`,
-      trigger: targetAvatarWrap
+      trigger: targetAvatarWrap,
+      ensureControls
     });
   };
 
@@ -1066,6 +1058,9 @@ function initBountyRuntime() {
         isAnonymous: preview.isAnonymous
       };
       const response = await submitServerBountyCommand({ action: "create", payload });
+      if (isDestroyed) {
+        return;
+      }
       if (!response?.accepted) {
         const message = response?.errors?.[0]?.message || "Server bounty odmítl.";
         setStatusLine(message, "danger");
@@ -1081,13 +1076,18 @@ function initBountyRuntime() {
         `${formatObjectiveLabel(preview.objectiveType)} · ${formatMoney(preview.rewardCleanCash)} · server escrow`
       );
     } catch (error) {
+      if (isDestroyed) {
+        return;
+      }
       const message = error instanceof Error ? error.message : "Bounty submit selhal.";
       setStatusLine(message, "danger");
       pushBountyStatus(root, "Bounty chyba", message, "Escrow se nezamklo");
     } finally {
-      uiState.isSubmitting = false;
-      confirmSubmitBtn.disabled = false;
-      syncPreview();
+      if (!isDestroyed) {
+        uiState.isSubmitting = false;
+        confirmSubmitBtn.disabled = false;
+        syncPreview();
+      }
     }
   };
 
@@ -1116,6 +1116,9 @@ function initBountyRuntime() {
       action: "cancel",
       payload: { bountyId: normalizedId }
     });
+    if (isDestroyed) {
+      return;
+    }
     uiState.isBoardLoading = false;
     if (!response?.accepted) {
       renderBoard();
@@ -1135,8 +1138,11 @@ function initBountyRuntime() {
   };
 
   const publishBountyState = () => {
+    if (isDestroyed) {
+      return;
+    }
     const bounty = getBountyReadModel();
-    window.empireStreetsBountyState = {
+    publishedBountyState = {
       getState: () => bounty,
       getDistrictMarkers: () => {
         const markerMap = new Map();
@@ -1163,6 +1169,7 @@ function initBountyRuntime() {
         document.dispatchEvent(new CustomEvent("empire:open-bounty-modal"));
       }
     };
+    window.empireStreetsBountyState = publishedBountyState;
     window.dispatchEvent(new CustomEvent("empire:bounty-state-changed", { detail: bounty }));
   };
 
@@ -1181,21 +1188,21 @@ function initBountyRuntime() {
     openModal();
   };
 
-  openButtons.forEach((button) => button.addEventListener("click", onOpenTrigger));
-  document.addEventListener("empire:open-bounty-modal", onOpenTrigger);
-  backdrop?.addEventListener("click", closeModal);
-  closeBtn?.addEventListener("click", closeModal);
-  cancelBtn?.addEventListener("click", closeModal);
-  confirmBackdrop?.addEventListener("click", closeConfirmModal);
-  confirmCloseBtn?.addEventListener("click", closeConfirmModal);
-  confirmCancelBtn?.addEventListener("click", closeConfirmModal);
-  confirmSubmitBtn.addEventListener("click", () => void confirmSubmit());
-  submitBtn.addEventListener("click", handleSubmit);
-  targetAvatarWrap?.addEventListener("click", (event) => {
+  openButtons.forEach((button) => addListener(button, "click", onOpenTrigger));
+  addListener(document, "empire:open-bounty-modal", onOpenTrigger);
+  addListener(backdrop, "click", closeModal);
+  addListener(closeBtn, "click", closeModal);
+  addListener(cancelBtn, "click", closeModal);
+  addListener(confirmBackdrop, "click", closeConfirmModal);
+  addListener(confirmCloseBtn, "click", closeConfirmModal);
+  addListener(confirmCancelBtn, "click", closeConfirmModal);
+  addListener(confirmSubmitBtn, "click", () => void confirmSubmit());
+  addListener(submitBtn, "click", handleSubmit);
+  addListener(targetAvatarWrap, "click", (event) => {
     event.preventDefault();
     openSelectedTargetAvatar();
   });
-  targetAvatarWrap?.addEventListener("keydown", (event) => {
+  addListener(targetAvatarWrap, "keydown", (event) => {
     if (event.key !== "Enter" && event.key !== " ") {
       return;
     }
@@ -1203,20 +1210,20 @@ function initBountyRuntime() {
     openSelectedTargetAvatar();
   });
   tabButtons.forEach((button) => {
-    button.addEventListener("click", () => {
+    addListener(button, "click", () => {
       const nextTab = String(button.dataset.bountyTab || "create");
       uiState.activeTab = nextTab === "active" ? "active" : "create";
       syncTabs();
     });
   });
-  targetSelect.addEventListener("change", () => {
+  addListener(targetSelect, "change", () => {
     uiState.isTargetPickerOpen = false;
     uiState.isDistrictPickerOpen = false;
     syncTargetPickerSelection();
     renderDistrictOptions();
     syncPreview();
   });
-  targetPicker?.addEventListener("click", (event) => {
+  addListener(targetPicker, "click", (event) => {
     const toggle = event.target?.closest?.("[data-bounty-target-toggle]");
     if (toggle) {
       uiState.isTargetPickerOpen = !uiState.isTargetPickerOpen;
@@ -1237,7 +1244,7 @@ function initBountyRuntime() {
     renderDistrictOptions();
     syncPreview();
   });
-  districtPicker?.addEventListener("click", (event) => {
+  addListener(districtPicker, "click", (event) => {
     const toggle = event.target?.closest?.("[data-bounty-district-toggle]");
     if (toggle) {
       uiState.isDistrictPickerOpen = !uiState.isDistrictPickerOpen;
@@ -1255,12 +1262,12 @@ function initBountyRuntime() {
     syncDistrictPickerSelection();
     syncPreview();
   });
-  districtSelect.addEventListener("change", syncPreview);
-  cashRange.addEventListener("input", () => {
+  addListener(districtSelect, "change", syncPreview);
+  addListener(cashRange, "input", () => {
     cashInput.value = cashRange.value;
     syncPreview();
   });
-  cashInput.addEventListener("input", () => {
+  addListener(cashInput, "input", () => {
     const max = Math.max(0, Math.floor(Number(cashInput.max || 0)));
     const value = Math.min(max, Math.max(0, Math.floor(Number(cashInput.value || 0))));
     cashInput.value = String(value);
@@ -1268,7 +1275,7 @@ function initBountyRuntime() {
     syncPreview();
   });
   cashPresetButtons.forEach((button) => {
-    button.addEventListener("click", () => {
+    addListener(button, "click", () => {
       const preset = String(button.dataset.bountyCashPreset || "").trim();
       const max = Math.max(0, Math.floor(Number(cashInput.max || 0)));
       const nextValue = preset === "max" ? max : Math.max(0, Math.floor(Number(preset || 0)));
@@ -1277,14 +1284,14 @@ function initBountyRuntime() {
       syncPreview();
     });
   });
-  anonymousInput.addEventListener("change", syncPreview);
-  objectiveInputs.forEach((input) => input.addEventListener("change", () => {
+  addListener(anonymousInput, "change", syncPreview);
+  objectiveInputs.forEach((input) => addListener(input, "change", () => {
     uiState.isDistrictPickerOpen = false;
     renderDistrictOptions();
     syncPreview();
   }));
   durationSegments.forEach((segment) => {
-    segment.addEventListener("click", () => {
+    addListener(segment, "click", () => {
       const input = segment.querySelector('input[name="bounty-duration"]');
       if (!(input instanceof HTMLInputElement) || input.disabled) {
         return;
@@ -1295,8 +1302,8 @@ function initBountyRuntime() {
       }
     });
   });
-  durationInputs.forEach((input) => input.addEventListener("change", syncPreview));
-  boardBody.addEventListener("click", (event) => {
+  durationInputs.forEach((input) => addListener(input, "change", syncPreview));
+  addListener(boardBody, "click", (event) => {
     const button = event.target?.closest?.("[data-bounty-cancel]");
     if (!button || button.disabled) {
       return;
@@ -1304,10 +1311,10 @@ function initBountyRuntime() {
     void handleCancelBounty(button.dataset.bountyCancel);
   });
 
-  window.addEventListener("empire:bounty-action-resolved", () => {
+  addListener(window, "empire:bounty-action-resolved", () => {
     pushBountyStatus(root, "Bounty", "Legacy bounty event ignorován.", "Claim řeší pouze server po skutečné akci");
   });
-  document.addEventListener("empire:gameplay-slice-rendered", (event) => {
+  addListener(document, "empire:gameplay-slice-rendered", (event) => {
     uiState.gameplaySlice = event?.detail?.gameplaySlice || null;
     uiState.bounty = withDevBountyTargets(uiState.gameplaySlice?.bounty || createEmptyBountyReadModel(), uiState.localDemoBounties);
     if (uiState.isOpen) {
@@ -1316,7 +1323,7 @@ function initBountyRuntime() {
       publishBountyState();
     }
   });
-  document.addEventListener("keydown", (event) => {
+  addListener(document, "keydown", (event) => {
     if (event.key !== "Escape") {
       return;
     }
@@ -1329,20 +1336,73 @@ function initBountyRuntime() {
     }
   });
 
-  window.addEventListener("beforeunload", () => {
-    stopRefreshTimer();
-  });
+  const handleVisibilityChange = () => {
+    if (document.hidden) {
+      stopRefreshTimer();
+      return;
+    }
+    if (uiState.isOpen) {
+      refreshView();
+      startRefreshTimer();
+    }
+  };
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  listenerCleanups.push(() => document.removeEventListener("visibilitychange", handleVisibilityChange));
 
   window.Empire = window.Empire || {};
-  window.Empire.openBountyModalShortcut = () => {
+  const openBountyModalShortcut = () => {
     document.dispatchEvent(new CustomEvent("empire:open-bounty-modal"));
   };
+  window.Empire.openBountyModalShortcut = openBountyModalShortcut;
+
+  const cleanup = () => {
+    if (isDestroyed) {
+      return;
+    }
+    isDestroyed = true;
+    stopRefreshTimer();
+    for (const removeListener of listenerCleanups.splice(0).reverse()) {
+      removeListener();
+    }
+    if (lastBountyAvatarTrigger) {
+      closeBountyAvatarLightbox({ restoreFocus: false, suppressMapInput: false });
+    }
+    closeConfirmModal({ suppressMapInput: false });
+    closeModal({ suppressMapInput: false });
+    uiState.isSubmitting = false;
+    confirmSubmitBtn.disabled = false;
+    if (window.empireStreetsBountyState === publishedBountyState) {
+      if (previousBountyState === undefined) {
+        delete window.empireStreetsBountyState;
+      } else {
+        window.empireStreetsBountyState = previousBountyState;
+      }
+    }
+    if (window.Empire?.openBountyModalShortcut === openBountyModalShortcut) {
+      if (previousBountyModalShortcut === undefined) {
+        delete window.Empire.openBountyModalShortcut;
+      } else {
+        window.Empire.openBountyModalShortcut = previousBountyModalShortcut;
+      }
+    }
+    if (bountyRuntimeCleanup === cleanup) {
+      bountyRuntimeCleanup = null;
+    }
+  };
+  bountyRuntimeCleanup = cleanup;
 
   syncFromGlobalReadModel();
-  closeModal();
+  closeModal({ suppressMapInput: false });
   publishBountyState();
+  return cleanup;
+}
+
+export function destroyBountyRuntime() {
+  bountyRuntimeCleanup?.();
 }
 
 if (typeof document !== "undefined") {
   initBountyRuntime();
+  window.addEventListener("pagehide", destroyBountyRuntime);
+  window.addEventListener("pageshow", initBountyRuntime);
 }

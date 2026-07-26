@@ -1,5 +1,91 @@
 var EmpireGameplaySliceClient = function(exports) {
   "use strict";
+  const activeGameplaySlicePages = /* @__PURE__ */ new Set();
+  const createMountedGameplaySlicePageExternalPort = (options) => {
+    const applyExternalState = async (action, reason) => {
+      const state = await action();
+      if (!state) return null;
+      options.applyState(state, reason);
+      return state;
+    };
+    return {
+      closeDistrictSheetFromExternal: options.closeDistrictSheet,
+      getCurrentReadModel: options.getCurrentReadModel,
+      getCurrentRenderState: options.getCurrentRenderState,
+      handleSurfaceActionFromExternal: (target) => {
+        if (!options.root.contains(target)) return Promise.resolve(null);
+        return applyExternalState(
+          () => options.handleSurfaceAction(target),
+          "external:surface-action"
+        );
+      },
+      selectDistrictFromExternal: (districtId) => applyExternalState(
+        () => options.selectDistrict(districtId),
+        "external:select-district"
+      ),
+      submitCommandFromExternal: async (command) => {
+        var _a;
+        const state = await options.submitCommand(command);
+        options.applyState(state, "external:command");
+        return {
+          accepted: ((_a = state.lastCommandStatus) == null ? void 0 : _a.commandId) === command.id && state.lastCommandStatus.accepted === true,
+          errors: state.errors,
+          readModel: options.getCurrentReadModel(),
+          renderState: state,
+          transportFailure: state.errors.some((error) => error.code === "client.transport_error")
+        };
+      },
+      destroy: options.destroy
+    };
+  };
+  const registerMountedGameplaySlicePage = (mountedPage) => {
+    activeGameplaySlicePages.add(mountedPage);
+    return () => activeGameplaySlicePages.delete(mountedPage);
+  };
+  const closeDistrictSheet = (reason = "external district popup close") => {
+    let closed = false;
+    for (const mountedPage of activeGameplaySlicePages) {
+      closed = mountedPage.closeDistrictSheetFromExternal(reason) || closed;
+    }
+    return closed;
+  };
+  const getSoleMountedGameplaySlicePage = () => {
+    if (activeGameplaySlicePages.size !== 1) return null;
+    return activeGameplaySlicePages.values().next().value ?? null;
+  };
+  const getCurrentGameplaySliceReadModel = () => {
+    var _a;
+    return ((_a = getSoleMountedGameplaySlicePage()) == null ? void 0 : _a.getCurrentReadModel()) ?? null;
+  };
+  const getCurrentGameplaySliceRenderState = () => {
+    var _a;
+    return ((_a = getSoleMountedGameplaySlicePage()) == null ? void 0 : _a.getCurrentRenderState()) ?? null;
+  };
+  const handleGameplaySliceSurfaceAction = (target) => {
+    const mountedPage = getSoleMountedGameplaySlicePage();
+    return mountedPage ? mountedPage.handleSurfaceActionFromExternal(target) : Promise.resolve(null);
+  };
+  const selectGameplaySliceDistrict = (districtId) => {
+    const mountedPage = getSoleMountedGameplaySlicePage();
+    return mountedPage ? mountedPage.selectDistrictFromExternal(districtId) : Promise.resolve(null);
+  };
+  const submitGameplaySliceCommand = (command) => {
+    const mountedPage = getSoleMountedGameplaySlicePage();
+    return mountedPage ? mountedPage.submitCommandFromExternal(command) : Promise.resolve(null);
+  };
+  const installGameplaySlicePageApi = (mountPage) => {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    window.EmpireGameplaySliceClient = {
+      closeDistrictSheet,
+      getCurrentReadModel: getCurrentGameplaySliceReadModel,
+      getCurrentRenderState: getCurrentGameplaySliceRenderState,
+      handleSurfaceAction: handleGameplaySliceSurfaceAction,
+      selectDistrict: selectGameplaySliceDistrict,
+      submitCommand: submitGameplaySliceCommand,
+      mount: mountPage,
+      autoMount: () => Array.from(document.querySelectorAll("[data-gameplay-slice-client]")).map((root) => mountPage({ root })).filter((mount2) => mount2 !== null)
+    };
+  };
   const createClientAppShell = (shell) => shell;
   const createInitialClientRenderState = () => ({
     topBarHtml: "",
@@ -1198,7 +1284,7 @@ var EmpireGameplaySliceClient = function(exports) {
   }
   const OVERLAY_BACKDROP_ATTRIBUTE = "overlayBackdrop";
   const createOverlayBackdrop = (options = {}) => {
-    const mount = options.mount ?? document.body;
+    const mount2 = options.mount ?? document.body;
     const backdrop = document.createElement("div");
     backdrop.className = "gameplay-slice-backdrop overlay-root backdrop";
     backdrop.dataset[OVERLAY_BACKDROP_ATTRIBUTE] = "true";
@@ -1226,7 +1312,7 @@ var EmpireGameplaySliceClient = function(exports) {
       backdrop.hidden = !isOverlayOpen();
     };
     sync();
-    mount.appendChild(backdrop);
+    mount2.appendChild(backdrop);
     return {
       element: backdrop,
       sync,
@@ -3034,6 +3120,8 @@ var EmpireGameplaySliceClient = function(exports) {
       removeBrowserStorageItem("sessionStorage", LOCAL_DEMO_SESSION_KEY);
       return "server-authoritative";
     }
+    const entrypointMode = normalizeSelectedRuntimeMode(window.__EMPIRE_GAMEPLAY_EXECUTION_MODE__);
+    if (entrypointMode) return entrypointMode;
     if (queryMode === "local-demo") return "demo";
     if (readBrowserStorageItem("sessionStorage", LOCAL_DEMO_SESSION_KEY) === "1") return "demo";
     const canUseDevelopmentOverride = isLoopback;
@@ -3135,9 +3223,9 @@ var EmpireGameplaySliceClient = function(exports) {
     return {
       render(mounts, html, reason) {
         var _a, _b, _c, _d;
-        const updatedMountCount = [mounts.status, mounts.topBar, mounts.map, mounts.panel].filter((mount, index) => {
-          if (mount.innerHTML === html[index]) return false;
-          mount.innerHTML = html[index];
+        const updatedMountCount = [mounts.status, mounts.topBar, mounts.map, mounts.panel].filter((mount2, index) => {
+          if (mount2.innerHTML === html[index]) return false;
+          mount2.innerHTML = html[index];
           return true;
         }).length;
         if (!hasRendered) {
@@ -3155,7 +3243,6 @@ var EmpireGameplaySliceClient = function(exports) {
   const MOBILE_SHEET_SELECTOR = ".mobile-sheet";
   const MAP_TAP_PIXEL_THRESHOLD = 10;
   const DISTRICT_TAP_DEBOUNCE_MS = 350;
-  const activeGameplaySlicePages = /* @__PURE__ */ new Set();
   const mountedGameplaySlicePagesByRoot = /* @__PURE__ */ new WeakMap();
   const mountGameplaySlicePage = (options) => {
     const existingMount = mountedGameplaySlicePagesByRoot.get(options.root);
@@ -3239,8 +3326,8 @@ var EmpireGameplaySliceClient = function(exports) {
         mounts.panel.innerHTML = "";
       } else {
         options.root.hidden = true;
-        Object.values(mounts).forEach((mount) => {
-          mount.innerHTML = "";
+        Object.values(mounts).forEach((mount2) => {
+          mount2.innerHTML = "";
         });
       }
     };
@@ -3274,7 +3361,12 @@ var EmpireGameplaySliceClient = function(exports) {
         document.body.dataset.cityPhase = phase;
       }
       document.dispatchEvent(new CustomEvent("empire:gameplay-slice-rendered", {
-        detail: { gameplaySlice, playerView: (gameplaySlice == null ? void 0 : gameplaySlice.player) ?? null, connection: state.connection }
+        detail: {
+          gameplaySlice,
+          playerView: (gameplaySlice == null ? void 0 : gameplaySlice.player) ?? null,
+          connection: state.connection,
+          renderState: state
+        }
       }));
       document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", { detail: state.connection }));
       selectiveRenderer.render(mounts, [renderGameplaySliceStatus(state), state.topBarHtml, state.mapHtml, state.sidePanelHtml], reason);
@@ -3446,8 +3538,20 @@ var EmpireGameplaySliceClient = function(exports) {
     const handlePageHide = () => {
       mountedPage.destroy();
     };
-    const mountedPage = {
-      closeDistrictSheetFromExternal: (reason = "external district popup close") => closeDistrictSheetAfterLegacyClose(reason),
+    let unregisterMountedPage = () => {
+    };
+    const mountedPage = createMountedGameplaySlicePageExternalPort({
+      root: options.root,
+      closeDistrictSheet: (reason = "external district popup close") => closeDistrictSheetAfterLegacyClose(reason),
+      getCurrentReadModel: () => client.getGameplaySlice(),
+      getCurrentRenderState: () => client.getRenderState(),
+      handleSurfaceAction: (target) => router.handleTarget(target),
+      selectDistrict: (districtId) => client.selectDistrict(districtId),
+      submitCommand: (command) => client.dispatch(command),
+      applyState: (state, reason) => {
+        recordGameplaySliceRefresh(client.getGameplaySlice());
+        render(state, reason);
+      },
       destroy: () => {
         if (destroyed) {
           return;
@@ -3464,12 +3568,12 @@ var EmpireGameplaySliceClient = function(exports) {
         districtSheetOverlay.closeOnDestroy();
         overlayBackdrop.sync();
         overlayBackdrop.destroy();
-        activeGameplaySlicePages.delete(mountedPage);
+        unregisterMountedPage();
         mountedGameplaySlicePagesByRoot.delete(options.root);
         window.removeEventListener("pagehide", handlePageHide);
       }
-    };
-    activeGameplaySlicePages.add(mountedPage);
+    });
+    unregisterMountedPage = registerMountedGameplaySlicePage(mountedPage);
     mountedGameplaySlicePagesByRoot.set(options.root, mountedPage);
     window.addEventListener("pagehide", handlePageHide, { once: true });
     return mountedPage;
@@ -3485,10 +3589,10 @@ var EmpireGameplaySliceClient = function(exports) {
     if (existing) {
       return existing;
     }
-    const mount = document.createElement("div");
-    mount.dataset[`gameplaySlice${role.charAt(0).toUpperCase()}${role.slice(1)}`] = "true";
-    root.append(mount);
-    return mount;
+    const mount2 = document.createElement("div");
+    mount2.dataset[`gameplaySlice${role.charAt(0).toUpperCase()}${role.slice(1)}`] = "true";
+    root.append(mount2);
+    return mount2;
   };
   const renderGameplaySliceStatus = (state) => {
     var _a;
@@ -3504,25 +3608,33 @@ var EmpireGameplaySliceClient = function(exports) {
     const intervalMs = Number.parseInt(String(value ?? ""), 10);
     return Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS;
   };
-  const closeDistrictSheet = (reason = "external district popup close") => {
-    let closed = false;
-    for (const mountedPage of activeGameplaySlicePages) {
-      closed = mountedPage.closeDistrictSheetFromExternal(reason) || closed;
-    }
-    return closed;
-  };
-  const createPageApi = () => ({
-    closeDistrictSheet,
-    mount: (options) => mountGameplaySlicePage(options),
-    autoMount: () => Array.from(document.querySelectorAll("[data-gameplay-slice-client]")).map((root) => mountGameplaySlicePage({ root })).filter((mount) => mount !== null)
-  });
-  if (typeof window !== "undefined" && typeof document !== "undefined") {
-    window.EmpireGameplaySliceClient = createPageApi();
-  }
+  installGameplaySlicePageApi(mountGameplaySlicePage);
+  const mount = mountGameplaySlicePage;
+  const getCurrentReadModel = getCurrentGameplaySliceReadModel;
+  const getCurrentRenderState = getCurrentGameplaySliceRenderState;
+  const handleSurfaceAction = handleGameplaySliceSurfaceAction;
+  const selectDistrict = selectGameplaySliceDistrict;
+  const submitCommand = submitGameplaySliceCommand;
+  const autoMount = () => Array.from(document.querySelectorAll("[data-gameplay-slice-client]")).map((root) => mountGameplaySlicePage({ root })).filter((mounted) => mounted !== null);
+  exports.autoMount = autoMount;
   exports.closeDistrictSheet = closeDistrictSheet;
+  exports.createMountedGameplaySlicePageExternalPort = createMountedGameplaySlicePageExternalPort;
+  exports.getCurrentGameplaySliceReadModel = getCurrentGameplaySliceReadModel;
+  exports.getCurrentGameplaySliceRenderState = getCurrentGameplaySliceRenderState;
+  exports.getCurrentReadModel = getCurrentReadModel;
+  exports.getCurrentRenderState = getCurrentRenderState;
+  exports.handleGameplaySliceSurfaceAction = handleGameplaySliceSurfaceAction;
+  exports.handleSurfaceAction = handleSurfaceAction;
+  exports.installGameplaySlicePageApi = installGameplaySlicePageApi;
+  exports.mount = mount;
   exports.mountGameplaySlicePage = mountGameplaySlicePage;
+  exports.registerMountedGameplaySlicePage = registerMountedGameplaySlicePage;
   exports.renderGameplaySliceStatus = renderGameplaySliceStatus;
+  exports.selectDistrict = selectDistrict;
+  exports.selectGameplaySliceDistrict = selectGameplaySliceDistrict;
   exports.setGameplayRuntimeMarker = setGameplayRuntimeMarker;
+  exports.submitCommand = submitCommand;
+  exports.submitGameplaySliceCommand = submitGameplaySliceCommand;
   Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
   return exports;
 }({});

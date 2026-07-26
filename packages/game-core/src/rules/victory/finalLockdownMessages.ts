@@ -2,6 +2,9 @@ import type { CityFeedEvent, Notification } from "@empire/shared-types";
 import type { CoreGameState } from "../../entities";
 import type { createFinalEmpireRanking } from "./finalEmpireScore";
 
+const FINAL_LOCKDOWN_FEED_TTL_MS = 15 * 60 * 60 * 1000;
+const DEFAULT_TICK_RATE_MS = 10_000;
+
 export const createFinalLockdownStartedNotification = (
   state: CoreGameState,
   playerId: string,
@@ -47,7 +50,11 @@ export const createFinalLockdownResolvedNotification = (
   readAt: null
 });
 
-export const createFinalLockdownStartedFeedEvent = (state: CoreGameState, activePlayerCount: number): CityFeedEvent => ({
+export const createFinalLockdownStartedFeedEvent = (
+  state: CoreGameState,
+  activePlayerCount: number,
+  tickRateMs = DEFAULT_TICK_RATE_MS
+): CityFeedEvent => ({
   id: `city-feed:final-lockdown:started:${state.root.tick}`,
   sourceEventId: `final-lockdown:started:${state.root.tick}:global_city:final_lockdown`,
   sourceType: "system",
@@ -57,7 +64,7 @@ export const createFinalLockdownStartedFeedEvent = (state: CoreGameState, active
   intelType: "confirmed_event",
   visibility: "all",
   createdAtTick: state.root.tick,
-  expiresAtTick: state.root.tick + 10_800,
+  expiresAtTick: state.root.tick + resolveFinalLockdownFeedTtlTicks(tickRateMs),
   freshness: "fresh",
   priority: 100,
   audience: "global_city",
@@ -77,7 +84,8 @@ export const createFinalLockdownStartedFeedEvent = (state: CoreGameState, active
 
 export const createFinalLockdownResolvedFeedEvent = (
   state: CoreGameState,
-  topScores: ReturnType<typeof createFinalEmpireRanking>
+  topScores: ReturnType<typeof createFinalEmpireRanking>,
+  tickRateMs = DEFAULT_TICK_RATE_MS
 ): CityFeedEvent => ({
   id: `city-feed:final-lockdown:resolved:${state.root.tick}`,
   sourceEventId: `final-lockdown:resolved:${state.root.tick}:global_city:final_lockdown`,
@@ -88,7 +96,7 @@ export const createFinalLockdownResolvedFeedEvent = (
   intelType: "confirmed_event",
   visibility: "all",
   createdAtTick: state.root.tick,
-  expiresAtTick: state.root.tick + 10_800,
+  expiresAtTick: state.root.tick + resolveFinalLockdownFeedTtlTicks(tickRateMs),
   freshness: "fresh",
   priority: 100,
   audience: "global_city",
@@ -105,3 +113,6 @@ export const createFinalLockdownResolvedFeedEvent = (
     topRankCount: topScores.length
   }
 });
+
+const resolveFinalLockdownFeedTtlTicks = (tickRateMs: number): number =>
+  Math.max(1, Math.ceil(FINAL_LOCKDOWN_FEED_TTL_MS / Math.max(1, Number(tickRateMs) || DEFAULT_TICK_RATE_MS)));

@@ -13,6 +13,20 @@ import { PLAYER_FACTION_IDS, type PlayerFactionId } from "@empire/shared-types";
 import type { FactionBotBehaviorProfile } from "./factionBotBehavior";
 import { resolveFactionBotBehavior } from "./factionBotBehavior";
 import type { PacingMetrics } from "./types";
+import {
+  findScheduledTick,
+  scoreRouteSeed,
+  shouldRunExtraAttack,
+  stableHash
+} from "./pacingActionSchedule";
+import {
+  ticksFromHours,
+  ticksFromMinutes
+} from "../../../../packages/game-config/src/modes/free/free-mode-timing";
+
+const MINIMUM_ACTION_INTERVAL_TICKS = ticksFromMinutes(2);
+const BASE_EXTRA_ATTACK_WINDOW_TICKS = ticksFromMinutes(12);
+const ECONOMY_INTERVAL_TICKS = ticksFromHours(1);
 
 export const executeBotActions = (
   state: CoreGameState,
@@ -21,9 +35,15 @@ export const executeBotActions = (
   tick: number,
   previousTick = Math.max(0, tick - 1)
 ): void => {
-  const baseAttackIntervalTicks = Math.max(24, Math.floor((context.config.balance.conflict?.attackCooldownTicks ?? 36) * 4));
-  const baseExtraAttackChancePct = Math.max(0, (144 / baseAttackIntervalTicks - 1) * 100);
-  const economyIntervalTicks = 720;
+  const fallbackAttackCooldownTicks = ticksFromMinutes(3);
+  const baseAttackIntervalTicks = Math.max(
+    MINIMUM_ACTION_INTERVAL_TICKS,
+    Math.floor((context.config.balance.conflict?.attackCooldownTicks ?? fallbackAttackCooldownTicks) * 4)
+  );
+  const baseExtraAttackChancePct = Math.max(
+    0,
+    (BASE_EXTRA_ATTACK_WINDOW_TICKS / baseAttackIntervalTicks - 1) * 100
+  );
 
   for (const playerId of state.root.playerIds) {
     const player = state.playersById[playerId];
@@ -31,7 +51,7 @@ export const executeBotActions = (
     const profile = resolveFactionBotBehavior(player.factionId);
     const isDangerZone = isPlayerInDangerZone(state, context, playerId);
 
-    const economyTick = findScheduledTick(playerId, economyIntervalTicks, previousTick, tick);
+    const economyTick = findScheduledTick(playerId, ECONOMY_INTERVAL_TICKS, previousTick, tick);
     if (economyTick !== null) {
       collectReadyProduction(state, context, playerId, economyTick);
       craftArmoryPistol(state, context, playerId, economyTick);
@@ -262,7 +282,10 @@ const resolveAttackIntervalTicks = (
   isDangerZone: boolean
 ): number => {
   const dangerMultiplier = isDangerZone ? Math.max(1, profile.dangerZoneAttackMultiplier) : 1;
-  return Math.max(24, Math.floor((baseAttackIntervalTicks * profile.attackIntervalMultiplier) / dangerMultiplier));
+  return Math.max(
+    MINIMUM_ACTION_INTERVAL_TICKS,
+    Math.floor((baseAttackIntervalTicks * profile.attackIntervalMultiplier) / dangerMultiplier)
+  );
 };
 
 const resolveExtraAttackChancePct = (
@@ -339,39 +362,6 @@ const playerSurvivalScore = (state: CoreGameState, playerId: string): number => 
 const countControlledDistricts = (state: CoreGameState, playerId: string): number =>
   Object.values(state.districtsById).filter((district) => district.ownerPlayerId === playerId && district.status !== "destroyed").length;
 
-const playerOffset = (playerId: string, interval: number): number =>
-  (stableHash(playerId) % Math.max(1, Math.floor(interval / 12))) * 12;
-
-const findScheduledTick = (
-  playerId: string,
-  interval: number,
-  previousTick: number,
-  currentTick: number
-): number | null => {
-  const offset = playerOffset(playerId, interval);
-  let scheduledTick = offset;
-  if (scheduledTick <= previousTick) {
-    scheduledTick += Math.ceil((previousTick - scheduledTick + 1) / interval) * interval;
-  }
-  return scheduledTick > 0 && scheduledTick <= currentTick ? scheduledTick : null;
-};
-
-const shouldRunExtraAttack = (playerId: string, tick: number, chancePct: number): boolean => {
-  if (chancePct <= 0) return false;
-  return stableHash(`${playerId}:${Math.floor(tick / 720)}:extra-attack`) % 10_000 < Math.min(100, chancePct) * 100;
-};
-
-const scoreRouteSeed = (playerId: string, districtId: string, tick: number): number =>
-  stableHash(`${playerId}:${districtId}:${Math.floor(tick / 720)}`);
-
-const stableHash = (value: string): number => {
-  let hash = 2166136261;
-  for (const char of value) {
-    hash ^= char.charCodeAt(0);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-};
 const copyState = (target: CoreGameState, source: CoreGameState): void => {
   Object.assign(target, source);
 };

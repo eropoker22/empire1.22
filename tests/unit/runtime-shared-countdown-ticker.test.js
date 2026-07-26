@@ -77,4 +77,45 @@ describe("shared production countdown ticker", () => {
     secondCleanup();
     expect(getSharedCountdownDiagnostics()).toEqual({ bindingCount: 0, hasActiveTicker: false });
   });
+
+  it("stops the physical ticker while hidden and resumes with one recompute", () => {
+    let hidden = false;
+    let visibilityChange = () => {};
+    const callbacks = new Map();
+    const documentRef = {
+      get hidden() {
+        return hidden;
+      },
+      addEventListener: vi.fn((_type, callback) => {
+        visibilityChange = callback;
+      }),
+      removeEventListener: vi.fn()
+    };
+    const timerApi = {
+      document: documentRef,
+      setInterval: vi.fn((callback) => {
+        const timerId = callbacks.size + 1;
+        callbacks.set(timerId, callback);
+        return timerId;
+      }),
+      clearInterval: vi.fn((timerId) => callbacks.delete(timerId))
+    };
+    const element = {
+      isConnected: true,
+      ownerDocument: { defaultView: timerApi },
+      closest: () => null,
+      textContent: ""
+    };
+    const getValue = vi.fn(() => "00:08");
+    const cleanup = bindSharedCountdown(element, getValue);
+
+    hidden = true;
+    visibilityChange();
+    expect(getSharedCountdownDiagnostics().hasActiveTicker).toBe(false);
+    hidden = false;
+    visibilityChange();
+    expect(getSharedCountdownDiagnostics().hasActiveTicker).toBe(true);
+    expect(getValue).toHaveBeenCalledTimes(2);
+    cleanup();
+  });
 });

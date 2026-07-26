@@ -1,93 +1,165 @@
 # Frontend Runtime Audit
 
-## Production Static Frontend
+## Authority entrypoints
 
-- Source entrypoints: `pages/*.html`.
-- Source assets: `page-assets/**` and `img/**`.
-- Netlify publish output: generated `client/**`.
-- Build path: `npm run build:admin:page` runs the admin slice bundle build and then `scripts/build-netlify-client.mjs`.
-- `scripts/build-netlify-client.mjs` deletes `client/` and copies `pages`, `page-assets`, `img`, and the legacy browser-only package modules into the publish directory.
+`pages/game.html` loads the shared data modules, the standalone presentation
+surfaces, and `page-assets/js/app-entry.js`.
 
-`client/` is not canonical source. It is ignored by git and can be stale until the publish build is rerun.
+`app-entry.js` is the only authority switch:
 
-## Legacy / Demo Browser Runtime
+- `server-authoritative` is the default and loads `page-assets/js/app.js`;
+- `local-demo` loads `page-assets/js/app-demo.js` only when the loopback gate is
+  explicitly enabled;
+- `onboarding-sandbox` remains a separate restricted mode and does not activate
+  the local gameplay bridge.
 
-- `page-assets/js/app/runtime.js` is the legacy static-page browser runtime.
-- `page-assets/js/app/model/authority-state.js` stores preview-mode state in browser storage when no server-fed session exists.
-- `packages/game-config/src/legacy-page/**` and `packages/game-core/src/legacy-page/**` are browser preview compatibility modules copied into `client/` because the static browser ESM imports them directly.
-- `page-assets/js/admin-assets/admin-slice-demo.js` is a generated debug/admin demo bundle, not production gameplay authority.
+Public hosts cannot enable local demo through a query parameter or stale browser
+storage.
 
-These files remain because the current production static page still depends on the legacy shell. They should be migrated by slice, not deleted wholesale.
+## Server-authoritative path
 
-## Server-Authoritative Runtime
+The production dependency direction is:
 
-- `apps/server/src/runtime/**` is the authoritative instance runtime.
-- `packages/game-core/src/**` is the authoritative rules layer.
-- `packages/game-config/src/**` is the canonical mode and balance configuration layer.
-- `apps/client/src/**` is the new thin client shell intended to render server-fed state and dispatch commands only.
+```text
+pages/game.html
+  -> app-entry.js
+    -> app.js
+      -> serverAuthoritativePageController
+        -> gameplayPresentationCoordinator
+          -> serverGameplayUiController
+          -> serverMapPresentationController
+        -> serverGameplaySource
+          -> mounted gameplay-slice client
+            -> /api/gameplay-slice/load
+            -> /api/gameplay-slice/submit
+```
 
-`pages/game.html` still boots the legacy static runtime via `page-assets/js/app.js`, and also mounts the server-fed gameplay slice bundle at `[data-gameplay-slice-client]`. The slice reads `/api/gameplay-slice/load` and dispatches migrated surface commands through `/api/gameplay-slice/submit`.
+The page controller mounts once, subscribes once, and destroys its controllers
+and source listeners on `pagehide`. Presentation controllers receive a read
+model and command adapter; they do not calculate gameplay outcomes or persist an
+authoritative local state.
 
-## Local Dev Flow
+The mounted gameplay-slice client derives player authority from the validated
+gameplay session on the server. Browser `playerId`, `accountId`, and snapshot
+tokens are not identity proof.
 
-- `npm run dev:admin` is plain Vite. It serves the static pages but does not provide Netlify redirects or `/api/gameplay-slice/*`, so the server-fed slice reaches `server-authoritative-error` and the page continues through the legacy fallback.
-- `npm run dev:game` is the recommended local gameplay command. It uses `vite.game.config.ts`, which mounts a Vite middleware over the production `createGameplaySliceFunctionHandler()` from `apps/server/src/netlify/gameplay-slice-function.ts`.
-- The local middleware handles `/api/gameplay-slice/*`, `/api/servers`, `/api/matchmaking/reserve`, and `/api/admin/monitoring` through the same server app composition used by the Netlify function. It is an adapter, not a duplicate gameplay implementation.
-- The active browser runtime is machine-readable through `document.body.dataset.gameplayRuntime` and the slice root `data-gameplay-runtime`.
+Command responses are committed immediately. A monotonically increasing client
+operation sequence prevents an older polling response from replacing a newer
+command response. Stable polling uses its own 10-second constant, permits one
+request at a time, pauses while the page is hidden, performs one refresh on
+return, and resets bounded exponential backoff after success.
 
-Runtime markers:
+## Map presentation
 
-- `initializing`: the slice has a valid bootstrap request and is loading `/api/gameplay-slice/load`.
-- `demo-ready`: development/demo UI is running through localStorage/legacy fallback; this is allowed for Netlify demo builds but is not a server-authoritative multiplayer success.
-- `server-authoritative-ready`: the server-fed read model loaded and the slice is visible.
-- `server-authoritative-error`: the slice attempted to load but the endpoint/network/response failed; local diagnostics show the endpoint and sanitized error while legacy remains active.
-- `legacy-fallback`: no server-fed bootstrap request exists.
+`serverMapPresentationController.js` owns the production map lifecycle. It
+preserves the existing five-canvas composition and visual order:
 
-## Smoke Commands
+1. static;
+2. state;
+3. selection;
+4. effects;
+5. hover.
 
-- `npm run smoke:ui:legacy`: static legacy page wiring only.
-- `npm run smoke:free-session`: browser demo/free-session UX pass against the local game URL; it seeds localStorage before navigation and expects `demo-ready`.
-- `npm run smoke:free-session:server`: server-authoritative variant of the free-session UX pass; it expects `server-authoritative-ready`.
-- `npm run smoke:gameplay-slice`: self-contained server-authoritative smoke with demo-friendly skip when the gameplay session/server is not connected yet.
-- `npm run smoke:gameplay-slice:server`: strict closed-alpha server smoke. It starts `vite.game.config.ts`, verifies `/api/gameplay-slice/load`, submits one enabled server-fed building action, spy action, and attack action, verifies the returned read models, confirms non-success spy results do not unlock occupy, and fails on demo/legacy fallback or legacy mutation events.
-- `npm run test:e2e:smoke`: Playwright smoke; its web server now uses `vite.game.config.ts`, so API routes are present during browser flow tests.
+The controller compares stable map-specific fingerprints and invalidates only
+the affected layers. Static geometry is not invalidated by cash, countdown, or
+unchanged polling data. The effect RAF draws only the effects canvas, stops when
+no live effect remains, and is cancelled while the document is hidden.
 
-## Migrated Gameplay Slice Actions
+## Local-demo path
 
-The current server-fed client surface owns these command paths when clicked inside `[data-gameplay-slice-client]`:
+The explicit development dependency direction is:
 
-- fixed building action: `run-building-action`
-- production collection: `collect-production`
-- item processing: `craft-item`
-- district spy from the server-fed district panel: `spy-district`
-- district attack from an enabled server-fed attack target: `attack-district`
-- district occupy from an enabled server-fed occupy target: `occupy-district`
-- trap placement from the server-fed district panel: `place-trap`
+```text
+pages/game.html
+  -> app-entry.js
+    -> app-demo.js
+      -> localDemoLegacyBootstrap
+        -> runtime.js
+        -> localDemoGameplayBridge
+```
 
-Broader police UX and legacy conflict surfaces outside the slice still exist. Attack and spy clicks inside `[data-gameplay-slice-client]` dispatch through `/api/gameplay-slice/submit`; they must not emit legacy mutation events such as `empire:attack-started` or `empire:spy-started`.
+`localDemoLegacyBootstrap.js` is the only allowed importer of the root
+`runtime.js`. It verifies loopback access and explicit activation, rejects a
+root already mounted by the server-authoritative controller, installs the local
+mutation bridge, and removes the bridge plus every runtime-owned timer, RAF,
+listener, and autosave hook during cleanup.
 
-`spy-district` now uses a server-side parity v2 model: the server resolves `success`, `partial`, `failed`, and `critical_failed`; only `success` unlocks occupy; `partial` reveals limited intel; `failed` and `critical_failed` keep a blocked spy slot in authoritative cooldown state. The model is still synchronous at command submit time because the authoritative write model does not yet have durable pending spy mission entities or a worker/lease completion path.
+`runtime.js` remains a local-demo compatibility runtime. It is not a production
+module and is deliberately excluded from the generated publish output.
 
-The migrated action owner is the server-fed slice button plus `apps/client/src/app/client-surface-actions.ts`; legacy build-slot hooks are intentionally ignored there. The legacy runtime may still render the rest of the game shell, but it must not replay the same server-fed button mutation.
+## Import-time side effects
 
-## Current Duplicate Map
+Before this extraction the production `app.js -> render-ui.js -> runtime.js`
+chain evaluated the legacy runtime and registered scenario/storage/global
+compatibility state before the production authority bootstrap completed.
+Runtime bootstrap could then attach legacy listeners, intervals, autosave, and
+RAF ownership.
 
-- `pages/**` vs `client/pages/**`: `client/pages` is generated from `pages`.
-- `page-assets/**` vs `client/page-assets/**`: `client/page-assets` is generated from `page-assets`.
-- `packages/*/src/legacy-page/**` vs `client/packages/*/src/legacy-page/**`: generated browser compatibility copies.
-- `page-assets/js/app/runtime.js` vs `apps/client/src/**`: not direct duplicates. The former is legacy static runtime; the latter is the target thin client architecture.
+The production path now imports only presentation, map, UI, source, and command
+adapter modules. Importing `app.js` does not start a local simulation, load the
+local-demo authority store, or install local mutation handlers.
 
-## Safe Migration Plan
+Standalone presentation roots in `game.html` may bind their own modal/UI
+lifecycles, but gameplay mutation events are routed through the
+server-authoritative command adapter unless the explicit local-demo bridge is
+installed.
 
-- Keep as production now: `pages/**`, `page-assets/**`, `img/**`, `packages/game-config/src/**`, `packages/game-core/src/**`, `apps/server/src/**`.
-- Keep as generated publish output: `client/**`.
-- Keep as dev/demo: `tools/debug/**`, `page-assets/js/admin-assets/admin-slice-demo.js`, `page-assets/js/app/game-admin-slice-launcher.js`.
-- Mark as deprecated legacy bridge: `page-assets/js/app/runtime.js`, `page-assets/js/app/model/authority-state.js`, `packages/*/src/legacy-page/**`.
-- Later deletion candidates after slice migration: legacy browser mutation helpers in `runtime.js`, browser `legacy-page` package copies, and the hidden game-admin slice overlay inside `pages/game.html`.
+## Event boundary
 
-## Known Risks
+Presentation events such as district selection, modal lifecycle, settings
+changes, visibility changes, and `empire:gameplay-slice-rendered` may coordinate
+DOM and canvas state.
 
-- `page-assets/js/app/runtime.js` still contains browser-side preview mutations for police, heat, production, attacks, legacy spy fallback, and inventory. When `[data-gameplay-slice-client]` reaches `server-authoritative-ready`, server-fed spy and attack buttons dispatch through `/api/gameplay-slice/submit` and must not emit legacy mutation events such as `empire:spy-started` or `empire:attack-started`. True async pending spy missions remain a future server feature; parity v2 intentionally avoids adding a browser timer or worker lease.
-- `pages/game.html` still contains hidden debug/admin slice overlay markup, although the debug bundle is loaded lazily by query/localStorage guard.
-- `apps/client/src` is structurally separated and mounted as a gameplay slice, not yet as the full production `game.html` entrypoint.
-- `client/` can differ from source after local edits until `npm run build:admin:page` is run.
+Events that would mutate cash, Heat, ownership, production, inventory, police,
+market, bounty, or alliance state are not an authority mechanism in production.
+The production UI submits the existing gameplay command and renders the
+returned read model. Local-demo compatibility events are installed and consumed
+only behind the loopback-only local-demo adapter.
+
+## Architecture guards
+
+`scripts/production-game-import-graph.mjs` parses static imports, export-from
+edges, and statically named dynamic imports. It:
+
+- skips `app-demo.js` only when the edge is structurally inside the explicit
+  `CLIENT_EXECUTION_MODES.localDemo` branch;
+- rejects direct or transitive production imports of `runtime.js`;
+- rejects computed dynamic imports that cannot be audited;
+- rejects production dependencies on local-demo storage, fixtures, and
+  stateful bootstrap modules while allowing the inert presentation bridge;
+- allows `runtime.js` only from `localDemoLegacyBootstrap.js`.
+
+`npm run lint` executes this graph check through
+`check:production-fixture-boundary`. `scripts/build-netlify-client.mjs` also
+removes `app-demo.js`, `render-ui.js`, `runtime.js`, the local-demo adapter, and
+development fixtures from `client/`, then fails if any forbidden path remains.
+
+Measured with the same parser against baseline commit `2899d91`, the production
+`game.html` graph reached 198 modules and 3,173,199 bytes of source JavaScript
+when the legacy runtime edge was allowed. The final graph contains 19 roots,
+128 reachable modules, 1,595,384 bytes of source JavaScript, and zero
+legacy-runtime or local-gameplay-event violations. These are uncompressed
+source-graph bytes, not invented bundle or transfer-size numbers.
+
+## Generated output
+
+`client/` is generated publish output and is not canonical source. Run
+`npm run build:admin:page` after source changes. The build recreates `client/`
+from routed pages and approved static assets, then verifies the required files
+and production exclusions.
+
+## Remaining legacy debt
+
+- `runtime.js` still contains local-demo simulation and compatibility UI code.
+  It measured 15,461 lines / 597,056 source bytes at baseline and 15,236 lines /
+  583,826 source bytes after the safe extractions (line-ending-aware UTF-8
+  source measurements).
+- The small `window.EmpireGameplaySliceClient` port remains as an explicit
+  compatibility boundary between the compiled thin client and static page
+  controllers.
+- Some `empire:*` presentation events remain because standalone page surfaces
+  share existing DOM contracts.
+- Browser `legacy-page` package copies remain for the explicit local demo.
+
+These items do not place `runtime.js` in the production import graph. The graph
+guard and publish exclusions prevent that dependency from returning silently.

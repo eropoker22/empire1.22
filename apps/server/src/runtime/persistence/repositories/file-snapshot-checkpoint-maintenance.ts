@@ -5,6 +5,7 @@ import {
   type SnapshotCheckpointRecord
 } from "../dto";
 import type { SnapshotRetentionPolicy } from "../services/retention-policy";
+import { isTerminalSnapshot } from "../services/snapshot-retention-classification";
 import type { SnapshotPersistenceMetrics } from "./snapshot-repository";
 import { readJsonFile } from "./file-persistence-utils";
 
@@ -28,8 +29,7 @@ export const cleanupFileCheckpoints = async (
           checkpoint: await readJsonFile<SnapshotCheckpointRecord>(join(directory, filename))
         })))).filter((entry): entry is { filename: string; checkpoint: SnapshotCheckpointRecord } =>
         Boolean(entry.checkpoint));
-      const terminal = records.some(({ checkpoint }) =>
-        checkpoint.snapshot.metadata.status === "stopped" || checkpoint.snapshot.state.root.phase === "resolved");
+      const terminal = records.some(({ checkpoint }) => isTerminalSnapshot(checkpoint.snapshot));
       const rollingLimit = terminal
         ? policy.rollingCheckpointCountTerminal
         : policy.rollingCheckpointCountActive;
@@ -76,7 +76,7 @@ export const compareNewestCheckpoint = (
   right.checkpointId.localeCompare(left.checkpointId);
 
 const readDirectory = (directory: string): Promise<string[]> =>
-  readdir(directory).catch((error: NodeJS.ErrnoException) => {
-    if (error.code === "ENOENT") return [];
+  readdir(directory).catch((error: unknown) => {
+    if ((error as { code?: string }).code === "ENOENT") return [];
     throw error;
   });

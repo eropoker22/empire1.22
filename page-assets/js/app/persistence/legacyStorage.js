@@ -1,7 +1,6 @@
 import { STORAGE_KEYS } from "../../config.js";
 
 const SESSION_STORAGE_KEY = STORAGE_KEYS.session;
-const SETTINGS_STORAGE_KEY = STORAGE_KEYS.settings;
 const DISTRICT_BUILDING_DETAIL_STATE_KEY = "empireStreets.districtBuildingDetails.v1";
 const CLINIC_RECOVERY_POOL_KEY = "empireStreets.clinicRecoveryPool.v1";
 const AVATAR_STORAGE_KEY = STORAGE_KEYS.avatar;
@@ -9,7 +8,7 @@ const DEMO_STATE_STORAGE_PREFIX = "empireStreets.demoState";
 
 export const LEGACY_STORAGE_KEYS = Object.freeze({
   session: SESSION_STORAGE_KEY,
-  settings: SETTINGS_STORAGE_KEY,
+  settings: STORAGE_KEYS.settings,
   districtBuildingDetails: DISTRICT_BUILDING_DETAIL_STATE_KEY,
   clinicRecoveryPool: CLINIC_RECOVERY_POOL_KEY,
   avatar: AVATAR_STORAGE_KEY
@@ -215,13 +214,10 @@ export function saveDemoState(id, state, options = {}) {
   return saveJsonStorage(getDemoStorageKey(id), state, options);
 }
 
-export function loadSettingsState(fallback = null, options = {}) {
-  return loadJsonStorage(SETTINGS_STORAGE_KEY, fallback, options);
-}
-
-export function saveSettingsState(state, options = {}) {
-  return saveJsonStorage(SETTINGS_STORAGE_KEY, state, options);
-}
+export {
+  loadSettingsState,
+  saveSettingsState
+} from "./settingsPreferenceStorage.js";
 
 export function loadClinicRecoveryPool(options = {}) {
   const value = loadJsonStorage(CLINIC_RECOVERY_POOL_KEY, [], options);

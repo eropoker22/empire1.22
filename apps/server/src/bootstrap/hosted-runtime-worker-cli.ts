@@ -1,6 +1,10 @@
 import "../../../../scripts/load-local-environment";
 import * as http from "node:http";
-import { createHostedRuntimeWorker, createPostgresHostedControlPlaneRepository } from "../admin/hosted";
+import {
+  createHostedRuntimeWorker,
+  createPostgresHostedControlPlaneRepository,
+  createPostgresHostedRuntimeMutationCommitter
+} from "../admin/hosted";
 import { createServerApp } from "../app/server-app";
 import {
   createPostgresDatabase,
@@ -76,8 +80,12 @@ const server = createServerApp({ persistence, database, environment: { ...proces
 if (!server.gameplaySessionService.productionReady) {
   throw new Error("Hosted worker refuses to start without a production-ready gameplay session repository.");
 }
+const runtimeMutationCommitter = createPostgresHostedRuntimeMutationCommitter(
+  database,
+  persistence.snapshotMetrics
+);
 const worker = createHostedRuntimeWorker({ workerId, region, buildSha,
-  controlPlane, server, playerEntry });
+  controlPlane, server, playerEntry, runtimeMutationCommitter });
 let healthy = true;
 let shuttingDown = false;
 let lastErrorCode: string | null = null;

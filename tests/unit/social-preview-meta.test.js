@@ -6,9 +6,9 @@ const root = process.cwd();
 const readText = (path) => readFileSync(resolve(root, path), "utf8").replace(/\r\n/g, "\n");
 const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-const publicOgImageUrl = "https://empirestreets.cz/social/empire-streets-og.png";
-const expectedTitle = "Empire Streets | Ovládni město";
-const expectedDescription = "Cyberpunk gang strategie v ulicích bez pravidel. Buduj impérium, špehuj soupeře, ovládni districty a přežij policejní tlak.";
+const publicOgImageUrl = "https://empirestreets.cz/img/logmes.png";
+const expectedTitle = "Empire Streets | Město bez pravidel";
+const expectedDescription = "Město nemá pravidla. Jen následky. Vybuduj gang, ovládni districty a přežij tlak ulic.";
 const descriptionMetaPattern = new RegExp(
   `<meta\\s+name="description"\\s+content="${escapeRegExp(expectedDescription)}"|<meta\\s+content="${escapeRegExp(expectedDescription)}"\\s+name="description"`,
   "s"
@@ -31,7 +31,7 @@ describe("social preview metadata", () => {
     const buildScript = readText("scripts/build-netlify-client.mjs");
 
     expect(buildScript).toContain('await cp(resolve(rootDir, "public"), publishDir, { recursive: true });');
-    expect(buildScript).toContain('"social/empire-streets-og.png"');
+    expect(buildScript).toContain('"img/logmes.png"');
   });
 
   it("uses the production public OG image on public entry pages", () => {
@@ -54,14 +54,14 @@ describe("social preview metadata", () => {
       expect(html).toContain(`<meta property="og:image:secure_url" content="${publicOgImageUrl}">`);
       expect(html).toContain(`<meta property="og:image:url" content="${publicOgImageUrl}">`);
       expect(html).toContain('<meta property="og:image:type" content="image/png">');
-      expect(html).toContain('<meta property="og:image:width" content="1200">');
-      expect(html).toContain('<meta property="og:image:height" content="630">');
-      expect(html).toContain('<meta property="og:image:alt" content="Logo Empire Streets se zlatou korunou nad nočním městem.">');
+      expect(html).toContain('<meta property="og:image:width" content="667">');
+      expect(html).toContain('<meta property="og:image:height" content="343">');
+      expect(html).toContain('<meta property="og:image:alt" content="Logo Empire Streets na pozadí nočního města.">');
       expect(html).toContain('<meta name="twitter:card" content="summary_large_image">');
       expect(html).toContain(`<meta name="twitter:title" content="${expectedTitle}">`);
       expect(html).toContain(`<meta name="twitter:description" content="${expectedDescription}">`);
       expect(html).toContain(`<meta name="twitter:image" content="${publicOgImageUrl}">`);
-      expect(html).toContain('<meta name="twitter:image:alt" content="Logo Empire Streets se zlatou korunou nad nočním městem.">');
+      expect(html).toContain('<meta name="twitter:image:alt" content="Logo Empire Streets na pozadí nočního města.">');
       expect(html).not.toContain("https://empirestreets.com/social/empire-streets-og.png");
       expect(html).not.toContain("https://empstr.netlify.app/social/empire-streets-og.png");
     }
@@ -81,10 +81,10 @@ describe("social preview metadata", () => {
     expect(htaccess).toContain("RewriteRule ^(.*)$ https://empirestreets.cz/$1 [L,R=301]");
   });
 
-  it("keeps the generated OG assets in the required 1200x630 PNG format", () => {
+  it("keeps the generated public preview assets in their canonical PNG format", () => {
     const imagePaths = [
-      "public/social/empire-streets-og.png",
-      "client/social/empire-streets-og.png"
+      "img/logmes.png",
+      "client/img/logmes.png"
     ];
 
     for (const imagePath of imagePaths) {
@@ -92,8 +92,8 @@ describe("social preview metadata", () => {
 
       expect(dimensions.signature).toBe("89504e470d0a1a0a");
       expect(dimensions.chunkType).toBe("IHDR");
-      expect(dimensions.width).toBe(1200);
-      expect(dimensions.height).toBe(630);
+      expect(dimensions.width).toBe(667);
+      expect(dimensions.height).toBe(343);
     }
   });
 });

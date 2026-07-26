@@ -16,8 +16,11 @@ export const PRODUCTION_MIGRATION_CONTRACT = [
   ["013_account_auth_throttle.sql", "abd403bc05b289de698cb185339f6dd37c06915f65924061dfbfc58f5812d2bf"],
   ["014_hosted_match_results.sql", "34eeced3fb1cc24c8b79f032eb7f89068dcfaf243346d701308eeb1fee8834e8"],
   ["015_account_age_requirement.sql", "c3cf5a53a903324aef99f6d9e78bcda3df383e0d5f1fa19f6c730c03222c04ee"],
-  ["016_free_mode_ten_second_tick.sql", "441a6a9fcad15933b5d5f17902ce7478d9b680000cfe18a948efcafd0fa7ac2"],
-  ["017_snapshot_recovery_heads_and_checkpoints.sql", "2d444076d8d4a9b48cf14fc7f25905e9efc3c9d42d63d958cfcbd076f803f78a"]
+  ["016_free_mode_ten_second_tick.sql", "441a6a9fcad15933b5d5f17902ce7478d9b680000cfe18a948efcaf6d0fa7ac2"],
+  ["017_snapshot_recovery_heads_and_checkpoints.sql", "2d444076d8d4a9b48cf14fc7f25905e9efc3c9d42d63d958cfcbd076f803f78a"],
+  ["018_drop_redundant_snapshot_head_tick_index.sql", "aba373b9727a39d592edc24270cc4a25fce35420a8f4fe9dbe2b71d7bb0e14df"],
+  ["019_drop_redundant_snapshot_head_root_version_index.sql", "648eae11d66cd5719ea1d70c63bb3f78daaa462d16af17c747635a573d0a2775"],
+  ["020_hosted_player_job_incarnation_fencing.sql", "4878adbe92dead29abb1aa3f360acd119ab53c6766174f7611ece1c7c37dde2b"]
 ] as const;
 
 export const isProductionSchemaCurrent = async (

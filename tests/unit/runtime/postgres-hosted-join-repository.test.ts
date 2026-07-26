@@ -55,7 +55,12 @@ describe("postgres hosted join registration gate", () => {
     const queryMock = vi.fn(async (_sql: string) => result([]));
     const repository = createPostgresHostedControlPlaneRepository(databaseFor(queryMock));
 
-    expect(await repository.claimJoinJob("worker:1", CLOSES_AT, "2026-07-20T17:01:00.000Z")).toBeNull();
+    expect(await repository.claimJoinJob(
+      "worker:1",
+      "worker-incarnation:1",
+      CLOSES_AT,
+      "2026-07-20T17:01:00.000Z"
+    )).toBeNull();
     const sql = String(queryMock.mock.calls[0]?.[0]).replace(/\s+/g, " ");
     expect(sql).toContain("server.registration_opens_at <= clock_timestamp()");
     expect(sql).toContain("server.registration_closes_at > clock_timestamp()");
@@ -102,6 +107,7 @@ const joinInput = (createdAt: string): { reservation: HostedJoinReservationRecor
       attempt: 0,
       availableAt: createdAt,
       claimedByWorkerId: null,
+      claimedByWorkerIncarnationId: null,
       claimedUntil: null,
       lastErrorCode: null,
       createdAt,
@@ -154,6 +160,7 @@ const jobRow = (job: HostedJoinJobRecord) => ({
   attempt: job.attempt,
   available_at: job.availableAt,
   claimed_by_worker_id: job.claimedByWorkerId,
+  claimed_by_worker_incarnation_id: job.claimedByWorkerIncarnationId,
   claimed_until: job.claimedUntil,
   last_error_code: job.lastErrorCode,
   created_at: job.createdAt,

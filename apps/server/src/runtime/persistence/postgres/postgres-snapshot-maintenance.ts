@@ -1,4 +1,8 @@
 import type { SnapshotRetentionPolicy } from "../services/retention-policy";
+import {
+  TERMINAL_HOSTED_INSTANCE_STATUS_SQL,
+  TERMINAL_RUNTIME_INSTANCE_STATUS_SQL
+} from "../services/snapshot-retention-classification";
 import type { SnapshotPersistenceMetrics } from "../repositories";
 import type { PostgresQueryable } from "./postgres-client";
 import {
@@ -6,7 +10,7 @@ import {
   withOptionalTransaction
 } from "./postgres-snapshot-storage";
 
-const SNAPSHOT_CLEANUP_ADVISORY_LOCK = 1_843_771_154;
+export const SNAPSHOT_CLEANUP_ADVISORY_LOCK = 1_843_771_154;
 
 export const cleanupPostgresCheckpoints = async (
   database: PostgresQueryable,
@@ -31,10 +35,16 @@ export const cleanupPostgresCheckpoints = async (
                      PARTITION BY s.server_instance_id
                      ORDER BY s.root_version DESC, s.tick DESC, s.created_at DESC, s.snapshot_id DESC
                    ) AS rolling_rank,
-                   i.status,
+                   (
+                     COALESCE(hosted.status IN (${TERMINAL_HOSTED_INSTANCE_STATUS_SQL}), false)
+                     OR i.status IN (${TERMINAL_RUNTIME_INSTANCE_STATUS_SQL})
+                     OR s.payload #>> '{state,root,phase}' = 'resolved'
+                   ) AS is_terminal,
                    s.created_at
             FROM empire_snapshots s
             JOIN empire_server_instances i ON i.server_instance_id = s.server_instance_id
+            LEFT JOIN empire_hosted_server_instances hosted
+              ON hosted.server_instance_id = s.server_instance_id
             WHERE s.checkpoint_kind IN ('periodic-checkpoint', 'legacy-checkpoint')
               AND s.is_protected = false
           ),
@@ -42,23 +52,29 @@ export const cleanupPostgresCheckpoints = async (
             SELECT id, created_at
             FROM rolling
             WHERE (
-              status IN ('stopped', 'destroyed', 'completed', 'resolved')
+              is_terminal
               AND (
                 rolling_rank > $1
                 OR created_at < $2::timestamptz - ($3::text || ' days')::interval
               )
             ) OR (
-              status NOT IN ('stopped', 'destroyed', 'completed', 'resolved')
+              NOT is_terminal
               AND rolling_rank > $4
             )
             UNION
             SELECT s.id, s.created_at
             FROM empire_snapshots s
             JOIN empire_server_instances i ON i.server_instance_id = s.server_instance_id
+            LEFT JOIN empire_hosted_server_instances hosted
+              ON hosted.server_instance_id = s.server_instance_id
             WHERE $5::boolean = false
               AND s.checkpoint_kind = 'lifecycle-checkpoint'
               AND s.is_protected = false
-              AND i.status IN ('stopped', 'destroyed', 'completed', 'resolved')
+              AND (
+                COALESCE(hosted.status IN (${TERMINAL_HOSTED_INSTANCE_STATUS_SQL}), false)
+                OR i.status IN (${TERMINAL_RUNTIME_INSTANCE_STATUS_SQL})
+                OR s.payload #>> '{state,root,phase}' = 'resolved'
+              )
               AND s.created_at < $2::timestamptz - ($3::text || ' days')::interval
           ),
           locked AS (

@@ -8,7 +8,10 @@ import { writeDiagnosticLog } from "../logging";
 import type { CommandDispatchOptions } from "../orchestration/command-dispatch-options";
 import { restoreOrCreateInitialState } from "../snapshots/instance-restore-service";
 import { runInstanceTick } from "../scheduling/tick-runner";
-import { runAtomicInstanceTick } from "../scheduling/atomic-tick-runner";
+import {
+  runAtomicInstanceTick,
+  runAtomicInstanceTickUnlocked
+} from "../scheduling/atomic-tick-runner";
 import type { InstanceCommandDispatchResult } from "../orchestration/instance-command-dispatch-result";
 import { dispatchInstanceCommand } from "./instance-command-dispatch";
 import type { RuntimeTickLeaseFence } from "./atomic-command-transaction";
@@ -69,7 +72,7 @@ export class InstanceLifecycleService {
     runtime.record.status = "stopped";
     runtime.record.stoppedAt = runtime.clock.nowIso();
     runtime.scheduler.isRunning = false;
-    runtime = advanceLifecyclePersistenceVersion(runtime, "ended");
+    runtime = advanceLifecyclePersistenceVersion(runtime, runtime.state.serverInstance.status);
     if (!runtime.atomicCommandTransaction) {
       void runtime.snapshotController.save(runtime).catch(() => undefined);
       void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "snapshot", "Stop triggered snapshot save.", {}, runtime.clock).catch(() => undefined);
@@ -109,8 +112,14 @@ export class InstanceLifecycleService {
     return runInstanceTick(runtime, runtime.clock);
   }
 
-  tickDurably(runtime: ServerInstanceRuntime, runtimeLeaseFence?: RuntimeTickLeaseFence): Promise<ServerInstanceRuntime> {
-    return runAtomicInstanceTick(runtime, runtime.clock, runtimeLeaseFence);
+  tickDurably(
+    runtime: ServerInstanceRuntime,
+    runtimeLeaseFence?: RuntimeTickLeaseFence,
+    lockAlreadyHeld = false
+  ): Promise<ServerInstanceRuntime> {
+    return lockAlreadyHeld
+      ? runAtomicInstanceTickUnlocked(runtime, runtime.clock, runtimeLeaseFence)
+      : runAtomicInstanceTick(runtime, runtime.clock, runtimeLeaseFence);
   }
 
   async dispatch(

@@ -122,4 +122,18 @@ describe("current gameplay cleanup guard", () => {
     expect(runtime).toContain("{ syncPreview: false, forceLog: true }");
     expect(page).toContain("Otevřít strategické boosty");
   });
+
+  it("stops standalone presentation timers during hidden and page lifecycle states", () => {
+    const bountyRuntime = read("page-assets/js/app/bounty-runtime.js");
+    const boostRuntime = read("page-assets/js/app/boost-runtime.js");
+
+    expect(bountyRuntime).toContain('document.addEventListener("visibilitychange"');
+    expect(bountyRuntime).toContain('window.addEventListener("pagehide"');
+    expect(bountyRuntime).not.toContain('window.addEventListener("beforeunload"');
+    expect(boostRuntime).toContain("const disposeCountdown = bindSharedCountdown");
+    expect(boostRuntime).toContain("boostRuntimeCleanup = () =>");
+    expect(boostRuntime).toContain('window.addEventListener("pagehide", destroyBoostRuntime)');
+    expect(boostRuntime).toContain('window.addEventListener("pageshow", initBoostRuntime)');
+    expect(boostRuntime).toContain('document.removeEventListener("keydown", handleKeyDown)');
+  });
 });

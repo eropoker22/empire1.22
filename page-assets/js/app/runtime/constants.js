@@ -67,6 +67,9 @@ export const BUILDING_ACTION_REMOVE_SELECTOR = "[data-building-action-remove]";
 
 export const GANG_MEMBERS_SELECTOR = "[data-gang-members]";
 export const GANG_HEAT_SELECTOR = "[data-gang-heat]";
+export const GANG_FACTION_SELECTOR = "[data-gang-faction]";
+export const GANG_DISTRICTS_SELECTOR = "[data-gang-districts]";
+export const GANG_ALLIANCE_SELECTOR = "[data-gang-alliance]";
 export const GANG_STAR_SELECTOR = "[data-gang-star]";
 export const GANG_STARS_SELECTOR = "[data-gang-stars]";
 export const WANTED_POPUP_SELECTOR = "[data-wanted-popup]";

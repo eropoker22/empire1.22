@@ -49,33 +49,8 @@ export const createPostgresHostedProvisioningRepository = (
     );
     return true;
   }),
-  completeProvisioning: (input) => database.transaction(async (client) => {
-    if (!await lockCurrentClaim(client, input)) return false;
-    const changed = await client.query(
-      `UPDATE empire_hosted_server_instances SET status='lobby', provisioning_state='ready', join_policy='closed',
-       initial_snapshot_id=COALESCE(initial_snapshot_id,$4), current_snapshot_id=$4, last_error_code=NULL,
-       updated_at=$5::timestamptz, version=version+1
-       WHERE server_instance_id=$1 AND provisioning_state='provisioning'
-         AND runtime_lease_owner_id=$2 AND runtime_lease_incarnation_id=$3
-         AND runtime_lease_expires_at > $5::timestamptz
-         AND (initial_snapshot_id IS NULL OR initial_snapshot_id=$4)
-       RETURNING server_instance_id`,
-      [input.serverInstanceId, input.workerId, input.workerIncarnationId, input.snapshotId, input.at]
-    );
-    if ((changed.rowCount ?? 0) === 0) return false;
-    await client.query(
-      `UPDATE empire_server_instances SET status='lobby', payload=jsonb_set(payload,'{joinPolicy}','"closed"'),
-       updated_at=$2::timestamptz WHERE server_instance_id=$1`,
-      [input.serverInstanceId, input.at]
-    );
-    await client.query(
-      `UPDATE empire_hosted_server_provisioning_jobs SET status='completed', claimed_until=NULL,
-       updated_at=$2::timestamptz, version=version+1 WHERE job_id=$1`,
-      [input.jobId, input.at]
-    );
-    await insertAudit(client, input.audit);
-    return true;
-  }),
+  completeProvisioning: (input) => database.transaction((client) =>
+    completePostgresHostedProvisioningInTransaction(client, input)),
   failProvisioning: (input) => database.transaction(async (client) => {
     if (!await lockCurrentClaim(client, input)) return false;
     const changed = await client.query(
@@ -101,6 +76,37 @@ export const createPostgresHostedProvisioningRepository = (
     return true;
   })
 });
+
+export const completePostgresHostedProvisioningInTransaction = async (
+  client: PostgresQueryable,
+  input: Parameters<HostedControlPlaneRepository["completeProvisioning"]>[0]
+): Promise<boolean> => {
+  if (!await lockCurrentClaim(client, input)) return false;
+  const changed = await client.query(
+    `UPDATE empire_hosted_server_instances SET status='lobby', provisioning_state='ready', join_policy='closed',
+     initial_snapshot_id=COALESCE(initial_snapshot_id,$4), current_snapshot_id=$4, last_error_code=NULL,
+     updated_at=$5::timestamptz, version=version+1
+     WHERE server_instance_id=$1 AND provisioning_state='provisioning'
+       AND runtime_lease_owner_id=$2 AND runtime_lease_incarnation_id=$3
+       AND runtime_lease_expires_at > $5::timestamptz
+       AND (initial_snapshot_id IS NULL OR initial_snapshot_id=$4)
+     RETURNING server_instance_id`,
+    [input.serverInstanceId, input.workerId, input.workerIncarnationId, input.snapshotId, input.at]
+  );
+  if ((changed.rowCount ?? 0) === 0) return false;
+  await client.query(
+    `UPDATE empire_server_instances SET status='lobby', payload=jsonb_set(payload,'{joinPolicy}','"closed"'),
+     updated_at=$2::timestamptz WHERE server_instance_id=$1`,
+    [input.serverInstanceId, input.at]
+  );
+  await client.query(
+    `UPDATE empire_hosted_server_provisioning_jobs SET status='completed', claimed_until=NULL,
+     updated_at=$2::timestamptz, version=version+1 WHERE job_id=$1`,
+    [input.jobId, input.at]
+  );
+  await insertAudit(client, input.audit);
+  return true;
+};
 
 const lockCurrentClaim = async (
   client: PostgresQueryable,

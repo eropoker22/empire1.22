@@ -1,25 +1,18 @@
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, extname, relative, resolve, sep } from "node:path";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  auditForbiddenBrowserEventDispatches,
+  auditLegacyRuntimeImporters,
+  auditProductionGameImportGraph,
+  isModuleImportGuardedByLocalDemoMode
+} from "./production-game-import-graph.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const productionRoots = [
+const additionalProductionRoots = [
   "page-assets/js/login-live.js",
   "page-assets/js/lobby-live.js",
   "page-assets/js/faction-live.js",
-  "page-assets/js/app.js",
-  "page-assets/js/app/mobile-performance-runtime.js",
-  "page-assets/js/app/final-lockdown-popup-runtime.js",
-  "page-assets/js/app/city-events-runtime.js",
-  "page-assets/js/app/alliance-runtime.js",
-  "page-assets/js/app/bounty-runtime.js",
-  "page-assets/js/app/faction-actions-runtime.js",
-  "page-assets/js/app/game-about-modal-runtime.js",
-  "page-assets/js/app/boost-runtime.js",
-  "page-assets/js/app/game-window-restore-runtime.js",
-  "page-assets/js/app/mobile-layout-runtime.js",
-  "page-assets/js/app/game-admin-slice-launcher.js",
-  "page-assets/js/app/closed-alpha-ux-runtime.js",
   "page-assets/js/admin-assets/admin-app.js"
 ];
 const productionPages = [
@@ -38,6 +31,8 @@ const entrypoints = [
 const forbiddenGraphFragments = [
   "/dev-fixtures/",
   "/onboarding/demoscenarios.js",
+  "/persistence/legacystorage.js",
+  "/runtime/localdemolegacybootstrap.js",
   "/login.js",
   "/lobby.js",
   "/faction.js",
@@ -50,11 +45,38 @@ const forbiddenSeedText = [
   "WAR-01",
   "8.47M"
 ];
-const staticImportPattern = /(?:^|\n)\s*(?:import|export)\s+(?:[^'"\n]*?\s+from\s+)?["']([^"']+)["']/gu;
+const requiredPublishExclusions = [
+  "page-assets/js/app-demo.js",
+  "page-assets/js/app/render-ui.js",
+  "page-assets/js/app/runtime.js",
+  "page-assets/js/app/runtime/localDemoFixtureState.js",
+  "page-assets/js/app/runtime/localDemoLegacyBootstrap.js"
+];
 const errors = [];
-const visited = new Set();
-
-for (const rootFile of productionRoots) walkStaticImports(resolve(root, rootFile), []);
+const importGraph = auditProductionGameImportGraph({
+  rootDir: root,
+  additionalRootFiles: additionalProductionRoots,
+  forbiddenPathFragments: forbiddenGraphFragments,
+  forbiddenContent: forbiddenSeedText
+});
+errors.push(...importGraph.violations.map((violation) => violation.message));
+const legacyRuntimeImporters = auditLegacyRuntimeImporters({ rootDir: root });
+errors.push(...legacyRuntimeImporters.violations.map((violation) => violation.message));
+const browserEventAudit = auditForbiddenBrowserEventDispatches({
+  rootDir: root,
+  modulePaths: [
+    ...importGraph.modules.map((module) => module.path),
+    "apps/client/src/browser/gameplay-slice-browser-entry.ts",
+    "apps/client/src/browser/gameplay-slice-page.ts"
+  ]
+});
+errors.push(...browserEventAudit.violations.map((violation) => violation.message));
+const publishScript = readFileSync(resolve(root, "scripts/build-netlify-client.mjs"), "utf8");
+for (const excludedPath of requiredPublishExclusions) {
+  if (!publishScript.includes(`"${excludedPath}"`)) {
+    errors.push(`scripts/build-netlify-client.mjs: produkční publish musí odstranit ${excludedPath}.`);
+  }
+}
 
 for (const [entrypoint, liveModule, demoModule] of entrypoints) {
   const source = readFileSync(resolve(root, entrypoint), "utf8");
@@ -63,6 +85,8 @@ for (const [entrypoint, liveModule, demoModule] of entrypoints) {
   }
   if (!source.includes("CLIENT_EXECUTION_MODES.localDemo")) {
     errors.push(`${entrypoint}: demo import není chráněný explicitním local-demo režimem.`);
+  } else if (!isModuleImportGuardedByLocalDemoMode(entrypoint, source, demoModule)) {
+    errors.push(`${entrypoint}: demo import není strukturálně uvnitř CLIENT_EXECUTION_MODES.localDemo větve.`);
   }
 }
 
@@ -78,45 +102,8 @@ if (errors.length) {
   errors.forEach((error) => console.error(`- ${error}`));
   process.exitCode = 1;
 } else {
-  console.log(`Production fixture boundary OK (${visited.size} live modulů, ${productionPages.length} stránek).`);
-}
-
-function walkStaticImports(filePath, chain) {
-  const normalizedFile = normalizePath(filePath);
-  if (visited.has(normalizedFile)) return;
-  visited.add(normalizedFile);
-  const source = readFileSync(filePath, "utf8");
-
-  for (const seed of forbiddenSeedText) {
-    if (source.includes(seed)) {
-      errors.push(`${relative(root, filePath)}: live graf obsahuje seed hodnotu ${JSON.stringify(seed)}.`);
-    }
-  }
-
-  for (const specifier of source.matchAll(staticImportPattern)) {
-    const imported = specifier[1].split("?")[0];
-    if (!imported.startsWith(".")) continue;
-    const resolvedImport = resolveImport(dirname(filePath), imported);
-    if (!resolvedImport) continue;
-    const normalizedImport = normalizePath(resolvedImport).toLowerCase();
-    const forbidden = forbiddenGraphFragments.find((fragment) => normalizedImport.endsWith(fragment) || normalizedImport.includes(fragment));
-    if (forbidden) {
-      const importChain = [...chain, relative(root, filePath), relative(root, resolvedImport)].join(" -> ");
-      errors.push(`Zakázaný produkční import (${forbidden}): ${importChain}`);
-      continue;
-    }
-    walkStaticImports(resolvedImport, [...chain, relative(root, filePath)]);
-  }
-}
-
-function resolveImport(baseDir, specifier) {
-  const candidate = resolve(baseDir, specifier);
-  const candidates = extname(candidate)
-    ? [candidate]
-    : [candidate, `${candidate}.js`, `${candidate}.mjs`, `${candidate}.ts`, resolve(candidate, "index.js"), resolve(candidate, "index.ts")];
-  return candidates.find((entry) => existsSync(entry)) || null;
-}
-
-function normalizePath(filePath) {
-  return filePath.split(sep).join("/");
+  console.log(
+    `Production fixture boundary OK (${importGraph.moduleCount} live modulů, `
+    + `${importGraph.sourceBytes} B zdrojového JS, ${productionPages.length} stránek).`
+  );
 }

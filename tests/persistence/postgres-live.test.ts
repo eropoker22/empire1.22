@@ -12,6 +12,7 @@ import {
 import { createAttackDistrictCommandFixture } from "../fixtures/command-fixtures";
 import { createPostgresAdminDurableRepositories } from "../../apps/server/src/admin/read-only";
 import { loadLocalEnvFile } from "../helpers/load-local-env.js";
+import { createIsolatedPostgresTestSchema } from "./helpers/isolated-postgres-test-schema";
 
 loadLocalEnvFile();
 const databaseUrl = process.env.EMPIRE_TEST_DATABASE_URL?.trim();
@@ -19,9 +20,13 @@ const describeWhenDatabaseConfigured = databaseUrl ? describe : describe.skip;
 
 describeWhenDatabaseConfigured("postgres persistence live smoke", () => {
   it("stores logs, snapshots, and tick locks against a migrated database", async () => {
-    const database = createPostgresDatabase(databaseUrl!);
+    const isolated = await createIsolatedPostgresTestSchema(
+      databaseUrl!,
+      "postgres_persistence_live"
+    );
+    const database = isolated.database;
     const persistence = createPostgresRuntimePersistenceRepositories({
-      databaseUrl: databaseUrl!,
+      databaseUrl: isolated.databaseUrl,
       database
     });
     const instanceId = `instance:postgres:live:${Date.now()}`;
@@ -91,6 +96,7 @@ describeWhenDatabaseConfigured("postgres persistence live smoke", () => {
       expect(adminDetail?.commands.every((row) => row.serverInstanceId === instanceId)).toBe(true);
     } finally {
       await persistence.close();
+      await isolated.close();
     }
   }, 60_000);
 });

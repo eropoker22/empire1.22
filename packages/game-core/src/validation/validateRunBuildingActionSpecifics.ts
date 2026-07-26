@@ -36,7 +36,6 @@ export const validateRunBuildingActionSpecifics = (
       message: "Casino action preconditions are not met."
     });
   }
-
   const exchangeOfficeErrorCode = validateExchangeOfficeAction({
     state,
     building,
@@ -50,7 +49,6 @@ export const validateRunBuildingActionSpecifics = (
       message: "Exchange office action preconditions are not met."
     });
   }
-
   const arcadeErrorCode = validateArcadeAction({
     state,
     building,
@@ -64,7 +62,6 @@ export const validateRunBuildingActionSpecifics = (
       message: "Arcade action preconditions are not met."
     });
   }
-
   const apartmentBlockErrorCode = validateApartmentBlockAction({
     state,
     building,
@@ -77,7 +74,6 @@ export const validateRunBuildingActionSpecifics = (
       message: "Apartment block action preconditions are not met."
     });
   }
-
   const convenienceStoreErrorCode = validateConvenienceStoreAction({
     building,
     actionId: action.actionId,
@@ -89,7 +85,6 @@ export const validateRunBuildingActionSpecifics = (
       message: "Convenience store action preconditions are not met."
     });
   }
-
   const clinicErrorCode = validateClinicAction({
     state,
     playerId: player.id,
@@ -104,7 +99,6 @@ export const validateRunBuildingActionSpecifics = (
       message: "Clinic action preconditions are not met."
     });
   }
-
   const recyclingCenterErrorCode = validateRecyclingCenterAction({
     state,
     playerId: player.id,
@@ -119,7 +113,6 @@ export const validateRunBuildingActionSpecifics = (
       message: "Recycling center action preconditions are not met."
     });
   }
-
   const stripClubErrorCode = validateStripClubAction({
     state,
     district,
@@ -133,7 +126,6 @@ export const validateRunBuildingActionSpecifics = (
       message: "Strip Club action preconditions are not met."
     });
   }
-
   const powerStationErrorCode = validatePowerStationAction({
     state,
     building,
@@ -146,7 +138,6 @@ export const validateRunBuildingActionSpecifics = (
       message: "Power station action preconditions are not met."
     });
   }
-
   const smugglingTunnelErrorCode = validateSmugglingTunnelAction({
     state,
     player,
@@ -161,7 +152,6 @@ export const validateRunBuildingActionSpecifics = (
       message: "Smuggling tunnel action preconditions are not met."
     });
   }
-
   const stockExchangeErrorCode = validateStockExchangeAction({
     state,
     building,
@@ -177,7 +167,6 @@ export const validateRunBuildingActionSpecifics = (
       message: "Stock exchange action preconditions are not met."
     });
   }
-
   const airportErrorCode = validateAirportAction({
     state,
     building,
@@ -192,7 +181,6 @@ export const validateRunBuildingActionSpecifics = (
       message: "Airport action preconditions are not met."
     });
   }
-
   const cityHallErrorCode = validateCityHallAction({
     state,
     building,
@@ -209,7 +197,6 @@ export const validateRunBuildingActionSpecifics = (
       message: "City Hall action preconditions are not met."
     });
   }
-
   const centralBankErrorCode = validateCentralBankAction({
     state,
     building,

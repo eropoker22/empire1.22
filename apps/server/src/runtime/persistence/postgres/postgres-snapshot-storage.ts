@@ -1,12 +1,16 @@
 import type { ServerInstanceId } from "@empire/shared-types";
+import type { QueryResultRow } from "pg";
 import type {
   InstanceSnapshotDto,
   SnapshotCheckpointKind,
   SnapshotCheckpointRecord
 } from "../dto";
+import {
+  assertSnapshotCheckpointIntegrity,
+  assertSnapshotIntegrity
+} from "../services/snapshot-integrity-validator";
 import type {
-  SnapshotPersistenceMetrics,
-  SnapshotWriteResult
+  SnapshotPersistenceMetrics
 } from "../repositories";
 import { classifySnapshotWrite } from "../repositories/snapshot-write-guard";
 import type { PostgresDatabase, PostgresQueryable } from "./postgres-client";
@@ -15,6 +19,13 @@ import { ensurePostgresServerInstanceRow } from "./postgres-server-instance-row"
 export interface PostgresSnapshotRepositoryOptions {
   wrapWritesInTransaction: boolean;
   metrics?: SnapshotPersistenceMetrics;
+}
+
+export interface SnapshotCheckpointCursor {
+  rootVersion: number;
+  tick: number;
+  createdAt: string;
+  checkpointId: string;
 }
 
 export const ensureSnapshotInstanceRow = (
@@ -53,7 +64,8 @@ export const loadRecoveryHeadFrom = async (
 export const loadCheckpointCandidates = async (
   database: PostgresQueryable,
   instanceId: ServerInstanceId,
-  limit: number
+  limit: number,
+  cursor: SnapshotCheckpointCursor | null = null
 ): Promise<SnapshotCheckpointRecord[]> => {
   const result = await database.query<CheckpointRow>(
     `
@@ -61,12 +73,99 @@ export const loadCheckpointCandidates = async (
              is_protected, root_version, tick, created_at, payload
       FROM empire_snapshots
       WHERE server_instance_id = $1
+        AND (
+          $3::bigint IS NULL
+          OR (root_version, tick, created_at, snapshot_id) <
+             ($3::bigint, $4::integer, $5::timestamptz, $6::text)
+        )
       ORDER BY root_version DESC, tick DESC, created_at DESC, snapshot_id DESC
       LIMIT $2
     `,
-    [instanceId, limit]
+    [
+      instanceId,
+      limit,
+      cursor?.rootVersion ?? null,
+      cursor?.tick ?? null,
+      cursor?.createdAt ?? null,
+      cursor?.checkpointId ?? null
+    ]
   );
   return result.rows.map((row) => checkpointFromRow(instanceId, row));
+};
+
+const RECOVERY_CHECKPOINT_BATCH_SIZE = 20;
+
+export const loadLatestValidCheckpoint = async (
+  database: PostgresQueryable,
+  instanceId: ServerInstanceId,
+  metrics: SnapshotPersistenceMetrics
+): Promise<SnapshotCheckpointRecord | null> => {
+  let cursor: SnapshotCheckpointCursor | null = null;
+  while (true) {
+    const candidates = await loadCheckpointCandidates(
+      database,
+      instanceId,
+      RECOVERY_CHECKPOINT_BATCH_SIZE,
+      cursor
+    );
+    for (const candidate of candidates) {
+      try {
+        assertSnapshotCheckpointIntegrity(candidate);
+        return candidate;
+      } catch (_error) {
+        metrics.recoveryIntegrityFailures += 1;
+      }
+    }
+    if (candidates.length < RECOVERY_CHECKPOINT_BATCH_SIZE) return null;
+    const last = candidates.at(-1)!;
+    cursor = {
+      rootVersion: last.rootVersion,
+      tick: last.tick,
+      createdAt: last.createdAt,
+      checkpointId: last.checkpointId
+    };
+  }
+};
+
+export const assertRejectedCheckpointIsIdempotent = async (
+  database: PostgresQueryable,
+  checkpoint: SnapshotCheckpointRecord
+): Promise<void> => {
+  const result = await database.query<CheckpointRow>(
+    `
+      SELECT snapshot_id, checkpoint_kind, reason_code, lifecycle_phase,
+             is_protected, root_version, tick, created_at, payload
+      FROM empire_snapshots
+      WHERE server_instance_id = $1
+        AND snapshot_id = $2
+      LIMIT 1
+    `,
+    [checkpoint.instanceId, checkpoint.checkpointId]
+  );
+  const row = result.rows[0];
+  if (!row) {
+    throw new Error(`Checkpoint ${checkpoint.checkpointId} conflict was reported without a persisted row.`);
+  }
+  const existing = checkpointFromRow(checkpoint.instanceId, row);
+  assertSnapshotCheckpointIntegrity(existing);
+  assertSnapshotIntegrity(checkpoint.snapshot, checkpoint.instanceId);
+  const sameMetadata =
+    existing.kind === checkpoint.kind &&
+    existing.reasonCode === checkpoint.reasonCode &&
+    existing.lifecyclePhase === checkpoint.lifecyclePhase &&
+    existing.protected === checkpoint.protected &&
+    existing.tick === checkpoint.tick &&
+    existing.rootVersion === checkpoint.rootVersion &&
+    Date.parse(existing.createdAt) === Date.parse(checkpoint.createdAt);
+  let sameSnapshot = false;
+  try {
+    sameSnapshot = classifySnapshotWrite(existing.snapshot, checkpoint.snapshot) === "idempotent";
+  } catch (_error) {
+    sameSnapshot = false;
+  }
+  if (!sameMetadata || !sameSnapshot) {
+    throw new Error(`Checkpoint ${checkpoint.checkpointId} collides with a different persisted checkpoint.`);
+  }
 };
 
 export const assertRejectedRecoveryHeadIsIdempotent = async (
@@ -104,7 +203,7 @@ export const recordCheckpointMetric = (
   if (kind === "terminal-checkpoint") metrics.terminalCheckpointsCreated += 1;
 };
 
-interface CheckpointRow {
+interface CheckpointRow extends QueryResultRow {
   snapshot_id: string;
   checkpoint_kind: SnapshotCheckpointKind;
   reason_code: string;

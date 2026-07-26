@@ -16,16 +16,18 @@ describeWhenDatabaseConfigured("hosted control plane PostgreSQL live", () => {
     const adminUserId = `admin-user:live:${suffix}`;
     let serverInstanceId: string | null = null;
     const at = new Date().toISOString();
+    const workerAt = new Date(Date.parse(at) + 1).toISOString();
     try {
       const password = await hashAdminPassword("TestPassword-Only-For-Fixtures");
       await repositories.users.create({ adminUserId, username: `LiveOwner${suffix}`, normalizedUsername: `liveowner${suffix}`,
         ...password, passwordVersion: 1, role: "owner", status: "active", displayName: "Live Owner",
         createdAt: at, updatedAt: at, lastLoginAt: null, passwordChangedAt: at, version: 1 });
       await repositories.hosted.writeWorkerHeartbeat({ workerId: `worker:live:A:${suffix}`,
-        workerIncarnationId: `worker-incarnation:live:A:${suffix}`, region: "eu-central", startedAt: at,
-        lastHeartbeatAt: at, buildSha: "live-test", status: "online" });
+        workerIncarnationId: `worker-incarnation:live:A:${suffix}`, region: "eu-central", startedAt: workerAt,
+        lastHeartbeatAt: workerAt, buildSha: "test", status: "online" });
       const service = createHostedControlPlaneService({ repositories, environment: { NODE_ENV: "test",
-        EMPIRE_ADMIN_WRITES_ENABLED: "true", EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true", EMPIRE_SERVER_PROVISIONING_ENABLED: "true" } });
+        EMPIRE_ADMIN_WRITES_ENABLED: "true", EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true",
+        EMPIRE_SERVER_PROVISIONING_ENABLED: "true", EMPIRE_BUILD_SHA: "test" } });
       const session: AdminSessionView = { adminSessionId: `session:live:${suffix}`, adminUserId, actorId: adminUserId,
         username: `LiveOwner${suffix}`, displayName: "Live Owner", role: "owner", authenticationMethod: "password",
         createdAt: at, expiresAt: new Date(Date.now() + 60_000).toISOString(), revokedAt: null, lastSeenAt: at };
@@ -33,14 +35,17 @@ describeWhenDatabaseConfigured("hosted control plane PostgreSQL live", () => {
         mapComposition: { downtown: 8, commercial: 40, residential: 38, industrial: 38, park: 37 } };
       const first = await service.createServer({ session, payload, idempotencyKey: `live-create-${suffix}-0001`, correlationId: `request:${suffix}:1` });
       const replay = await service.createServer({ session, payload, idempotencyKey: `live-create-${suffix}-0001`, correlationId: `request:${suffix}:2` });
-      expect(first.accepted && replay.accepted && replay.data.server.serverInstanceId).toBe(first.accepted ? first.data.server.serverInstanceId : "");
-      if (!first.accepted) throw new Error("Live create failed.");
+      if (!first.accepted) throw new Error(`Live create failed: ${first.errors[0]?.code ?? "unknown"}.`);
+      if (!replay.accepted) throw new Error(`Live create replay failed: ${replay.errors[0]?.code ?? "unknown"}.`);
+      expect(first).toMatchObject({ accepted: true });
+      expect(replay).toMatchObject({ accepted: true });
+      expect(replay.data.server.serverInstanceId).toBe(first.data.server.serverInstanceId);
       serverInstanceId = first.data.server.serverInstanceId;
 
       const persistence = createPostgresRuntimePersistenceRepositories({ databaseUrl: databaseUrl!, database,
         tickLockOwnerId: `worker:live:A:${suffix}` });
       const appA = createServerApp({ persistence });
-      const workerA = createHostedRuntimeWorker({ workerId: `worker:live:A:${suffix}`, region: "eu-central", buildSha: "live-test",
+      const workerA = createHostedRuntimeWorker({ workerId: `worker:live:A:${suffix}`, region: "eu-central", buildSha: "test",
         controlPlane: repositories.hosted, server: appA });
       await workerA.runOnce();
       const record = await repositories.hosted.getServer(serverInstanceId);
@@ -51,7 +56,7 @@ describeWhenDatabaseConfigured("hosted control plane PostgreSQL live", () => {
       await workerA.stop();
 
       const appB = createServerApp({ persistence });
-      const workerB = createHostedRuntimeWorker({ workerId: `worker:live:B:${suffix}`, region: "eu-central", buildSha: "live-test",
+      const workerB = createHostedRuntimeWorker({ workerId: `worker:live:B:${suffix}`, region: "eu-central", buildSha: "test",
         controlPlane: repositories.hosted, server: appB });
       await workerB.heartbeat();
       await workerB.restoreKnownInstances();
@@ -60,7 +65,7 @@ describeWhenDatabaseConfigured("hosted control plane PostgreSQL live", () => {
       expect(runtimeB.state.root.districtIds).toEqual(districtIds);
       await repositories.hosted.writeWorkerHeartbeat({ workerId: `worker:live:C:${suffix}`,
         workerIncarnationId: `worker-incarnation:live:C:${suffix}`, region: "eu-central", startedAt: at,
-        lastHeartbeatAt: new Date().toISOString(), buildSha: "live-test", status: "online" });
+        lastHeartbeatAt: new Date().toISOString(), buildSha: "test", status: "online" });
       expect(await repositories.hosted.acquireRuntimeLease({ serverInstanceId, workerId: `worker:live:C:${suffix}`,
         workerIncarnationId: `worker-incarnation:live:C:${suffix}`, now: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 20_000).toISOString() })).toBe(false);

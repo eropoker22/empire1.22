@@ -53,5 +53,5 @@ export const createInstanceSnapshot = (runtime: ServerInstanceRuntime): Instance
     capacity: runtime.lobby.maxPlayers,
     joinPolicy: runtime.lobby.joinPolicy
   },
-  state: runtime.state
+  state: structuredClone(runtime.state)
 });

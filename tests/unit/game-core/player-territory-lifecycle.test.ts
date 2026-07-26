@@ -26,10 +26,13 @@ describe("player territory lifecycle", () => {
     }, context);
     const player = result.nextState.playersById["player:1"];
     const district = result.nextState.districtsById["district:1"];
+    const protectionTicks = context.config.balance.playerLiveness!.lastStand.protectionTicks;
+    const protectedUntilTick = state.root.tick + protectionTicks;
     expect(player.lastStandUsedAtTick).toBe(100);
     expect(player.lastStandDistrictId).toBe("district:1");
-    expect(player.lastStandProtectedUntilTick).toBe(244);
-    expect(district.attackProtectedUntilTick).toBe(244);
+    expect(protectionTicks * context.config.tickRateMs).toBe(12 * 60 * 1000);
+    expect(player.lastStandProtectedUntilTick).toBe(protectedUntilTick);
+    expect(district.attackProtectedUntilTick).toBe(protectedUntilTick);
 
     const replay = reconcilePlayerTerritoryLifecycle(result.nextState, {
       playerId: "player:1",

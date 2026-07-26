@@ -1,6 +1,6 @@
-import type { ServerApp } from "../../app/server-app";
 import type { AdminAuditAction } from "@empire/shared-types";
 import type { ServerInstanceRuntime } from "../../runtime/instance";
+import { InstanceLifecycleService } from "../../runtime/instance-manager/instance-lifecycle-service";
 import { resolveReadyPlayerCount } from "../../runtime/lifecycle/hosted-ready-player-count";
 import type {
   HostedActionRequestRecord,
@@ -19,13 +19,12 @@ export const applyHostedLifecycleAction = async (input: {
   server: HostedServerRecord;
   request: HostedActionRequestRecord;
   runtime: ServerInstanceRuntime;
-  serverApp: ServerApp;
   controlPlane: HostedControlPlaneRepository;
   now: Date;
   prepareRestart: () => Promise<void>;
   restoreAfterRestart: () => Promise<void>;
 }): Promise<HostedLifecycleTransition> => {
-  const { server, request, runtime, serverApp, now } = input;
+  const { server, request, runtime, now } = input;
   if (server.provisioningState !== "ready") throw safe("LIFECYCLE_SERVER_NOT_READY");
   const registration = resolveHostedServerRegistrationState(server, now);
   switch (request.action) {
@@ -38,32 +37,32 @@ export const applyHostedLifecycleAction = async (input: {
         || Date.parse(request.actionPayload.registrationOpensAt) <= now.getTime()) {
         throw safe("SERVER_REGISTRATION_SCHEDULE_INVALID");
       }
-      serverApp.instanceManager.closeInstanceForJoin(server.serverInstanceId);
+      closeRuntimeForJoin(runtime);
       return unchanged(server, "closed");
     case "open-registration-now":
       requireLobby(server);
       if (registration.state === "open" || registration.state === "scheduled") {
         throw safe(registration.state === "open" ? "SERVER_REGISTRATION_ALREADY_OPEN" : "SERVER_REGISTRATION_WINDOW_IMMUTABLE");
       }
-      serverApp.instanceManager.openInstanceForJoin(server.serverInstanceId);
+      openRuntimeForJoin(runtime);
       return unchanged(server, "open");
     case "cancel-registration":
       requireLobby(server);
       if (registration.state !== "scheduled") throw safe("SERVER_REGISTRATION_NOT_SCHEDULED");
-      serverApp.instanceManager.closeInstanceForJoin(server.serverInstanceId);
+      closeRuntimeForJoin(runtime);
       return unchanged(server, "closed");
     case "close-registration-now":
       if (registration.state !== "open") throw safe("SERVER_REGISTRATION_NOT_OPEN");
-      serverApp.instanceManager.closeInstanceForJoin(server.serverInstanceId);
+      closeRuntimeForJoin(runtime);
       return unchanged(server, "closed");
     case "open-joins":
       if (!registration.canCreateMembership || !(server.status === "lobby" || server.status === "running")) {
         throw safe(registration.reasonCode ?? "JOINS_NOT_READY");
       }
-      serverApp.instanceManager.openInstanceForJoin(server.serverInstanceId);
+      openRuntimeForJoin(runtime);
       return unchanged(server, "open");
     case "close-joins":
-      serverApp.instanceManager.closeInstanceForJoin(server.serverInstanceId);
+      closeRuntimeForJoin(runtime);
       return unchanged(server, "closed");
     case "start": {
       requireLobby(server);
@@ -77,27 +76,63 @@ export const applyHostedLifecycleAction = async (input: {
       if (ready.count < server.minimumReadyPlayersToStart) {
         throw safe("SERVER_START_MINIMUM_PLAYERS_NOT_MET");
       }
-      serverApp.instanceManager.startInstance(server.serverInstanceId);
+      applyHostedLifecycleTransition(runtime, request.action);
       return { nextStatus: "running", nextJoinPolicy: registration.state === "open" ? "open" : "closed",
         releaseLease: false };
     }
     case "pause":
       if (server.status !== "running") throw safe("PAUSE_INVALID_STATE");
-      serverApp.instanceManager.pauseInstance(server.serverInstanceId);
+      applyHostedLifecycleTransition(runtime, request.action);
       return unchanged({ ...server, status: "paused" }, server.joinPolicy);
     case "resume":
       if (server.status !== "paused") throw safe("RESUME_INVALID_STATE");
-      serverApp.instanceManager.startInstance(server.serverInstanceId);
+      applyHostedLifecycleTransition(runtime, request.action);
       return unchanged({ ...server, status: "running" }, server.joinPolicy);
     case "restart":
       if (!(server.status === "running" || server.status === "restarting")) throw safe("RESTART_INVALID_STATE");
       await input.prepareRestart();
       await input.restoreAfterRestart();
+      applyHostedLifecycleTransition(runtime, request.action);
       return { nextStatus: "running", nextJoinPolicy: registration.state === "open" ? "open" : "closed",
         releaseLease: false };
     case "stop":
-      serverApp.instanceManager.stopInstance(server.serverInstanceId);
+      applyHostedLifecycleTransition(runtime, request.action);
       return { nextStatus: "stopped", nextJoinPolicy: "closed", releaseLease: true };
+  }
+};
+
+export const applyHostedLifecycleTransition = (
+  runtime: ServerInstanceRuntime,
+  action: HostedActionRequestRecord["action"]
+): void => {
+  const lifecycle = new InstanceLifecycleService();
+  if (action === "start" || action === "resume") lifecycle.start(runtime);
+  else if (action === "pause") lifecycle.pause(runtime);
+  else if (action === "restart") lifecycle.restart(runtime);
+  else if (action === "stop") lifecycle.stop(runtime);
+  else if (action === "open-registration-now" || action === "open-joins") openRuntimeForJoin(runtime);
+  else closeRuntimeForJoin(runtime);
+};
+
+export const synchronizeHostedRuntimeLifecycleDecision = (
+  runtime: ServerInstanceRuntime,
+  server: HostedServerRecord
+): void => {
+  runtime.record.status = hostedRuntimeStatus(server.status);
+  runtime.record.startedAt = server.lastStartedAt ?? runtime.record.startedAt;
+  runtime.record.stoppedAt = server.lastStoppedAt ?? runtime.record.stoppedAt;
+  runtime.lobby.joinPolicy = server.joinPolicy === "open" ? "open" : "closed";
+  runtime.scheduler.isRunning = server.status === "running" && runtime.state.root.phase !== "resolved";
+  if (server.lastStartedAt && runtime.state.serverInstance.startedAt !== server.lastStartedAt) {
+    runtime.state.serverInstance = {
+      ...runtime.state.serverInstance,
+      startedAt: server.lastStartedAt,
+      version: runtime.state.serverInstance.version + 1
+    };
+    runtime.state.root = {
+      ...runtime.state.root,
+      version: runtime.state.root.version + 1
+    };
   }
 };
 
@@ -142,5 +177,21 @@ const unchanged = (server: HostedServerRecord, joinPolicy: HostedServerRecord["j
 });
 const requireLobby = (server: HostedServerRecord): void => {
   if (server.status !== "lobby") throw safe("SERVER_START_STATE_INVALID");
+};
+const openRuntimeForJoin = (runtime: ServerInstanceRuntime): void => {
+  runtime.lobby.joinPolicy = "open";
+  if (runtime.record.status === "full") runtime.record.status = "lobby";
+};
+const closeRuntimeForJoin = (runtime: ServerInstanceRuntime): void => {
+  runtime.lobby.joinPolicy = "closed";
+};
+const hostedRuntimeStatus = (
+  status: HostedServerRecord["status"]
+): ServerInstanceRuntime["record"]["status"] => {
+  if (status === "running" || status === "restarting" || status === "paused"
+    || status === "stopped" || status === "lobby") {
+    return status;
+  }
+  return status === "archived" ? "stopped" : "lobby";
 };
 const safe = (code: string): Error => Object.assign(new Error(code), { safeCode: code });

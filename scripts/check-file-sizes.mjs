@@ -79,6 +79,13 @@ const sourceFileBudgets = [
   ["tools/debug/src/free-mode-pacing/report.ts", 252]
 ];
 const sourceFileBudgetByPath = new Map(sourceFileBudgets);
+const browserPresentationBudgets = new Map([
+  ["page-assets/js/app/map/serverMapPresentationController.js", 275],
+  ["page-assets/js/app/runtime/serverGameplayCommandTransport.js", 350],
+  ["page-assets/js/app/ui/serverGameplayDistrictController.js", 325],
+  ["page-assets/js/app/ui/serverGameplayLeaderboardController.js", 280],
+  ["page-assets/js/app/ui/serverGameplayLobbyController.js", 265]
+]);
 const generatedSourceHeadersByPath = new Map([
   [
     "packages/game-config/src/legacy-page/gameplay-config.generated.js",
@@ -97,6 +104,7 @@ const legacyFileBudgets = [
   }
 ];
 const violations = [];
+const checkedBrowserPresentationFiles = new Set();
 
 const walk = (dir) => {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -139,6 +147,29 @@ for (const sourceRoot of sourceRoots) {
   const fullPath = path.join(root, sourceRoot);
   if (fs.existsSync(fullPath)) {
     walk(fullPath);
+  }
+}
+
+for (const [directory, matches] of [
+  ["page-assets/js/app/presentation", (name) => name.endsWith(".js")],
+  ["page-assets/js/app/map", (name) => /^server.*\.js$/u.test(name)],
+  ["page-assets/js/app/ui", (name) => /^server.*\.js$/u.test(name)],
+  ["page-assets/js/app/runtime", (name) => /^(?:serverGameplay|localDemo).*\.js$/u.test(name)],
+  ["page-assets/js/app/persistence", (name) => name === "settingsPreferenceStorage.js"]
+]) {
+  const fullDirectory = path.join(root, directory);
+  if (!fs.existsSync(fullDirectory)) continue;
+  for (const entry of fs.readdirSync(fullDirectory, { withFileTypes: true })) {
+    if (!entry.isFile() || !matches(entry.name)) continue;
+    const fullPath = path.join(fullDirectory, entry.name);
+    const relativePath = path.relative(root, fullPath).replace(/\\/g, "/");
+    if (checkedBrowserPresentationFiles.has(relativePath)) continue;
+    checkedBrowserPresentationFiles.add(relativePath);
+    const lineCount = fs.readFileSync(fullPath, "utf8").split(/\r?\n/u).length;
+    const budget = browserPresentationBudgets.get(relativePath) ?? maxLines;
+    if (lineCount > budget) {
+      violations.push(`${relativePath} has ${lineCount} lines (browser presentation budget ${budget})`);
+    }
   }
 }
 

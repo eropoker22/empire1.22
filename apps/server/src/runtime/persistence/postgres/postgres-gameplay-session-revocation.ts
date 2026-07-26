@@ -1,19 +1,19 @@
-import type { PostgresDatabase } from "./postgres-client";
+import type { PostgresQueryable } from "./postgres-client";
 
 export const revokeAccountGameplaySessions = (
-  database: PostgresDatabase,
+  database: PostgresQueryable,
   accountId: string,
   revokedAt: string
 ): Promise<number> => revokeSessions(database, "account_id", accountId, revokedAt);
 
 export const revokePlayerGameplaySessions = (
-  database: PostgresDatabase,
+  database: PostgresQueryable,
   playerId: string,
   revokedAt: string
 ): Promise<number> => revokeSessions(database, "player_id", playerId, revokedAt);
 
 const revokeSessions = async (
-  database: PostgresDatabase,
+  database: PostgresQueryable,
   identityColumn: "account_id" | "player_id",
   identityId: string,
   revokedAt: string

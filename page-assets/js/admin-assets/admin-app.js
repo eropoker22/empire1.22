@@ -908,6 +908,18 @@
     fixedBuildings: baseFixedBuildingsConfig,
     buildingActions: baseBuildingActionsConfig
   };
+  const SNAPSHOT_CHECKPOINT_CADENCE_MS = 5 * 60 * 1e3;
+  const resolveSnapshotCheckpointIntervalTicks = (tickRateMs) => {
+    if (!Number.isFinite(tickRateMs) || tickRateMs <= 0) {
+      throw new Error("Snapshot checkpoint cadence requires a positive tick rate.");
+    }
+    return Math.max(1, Math.ceil(SNAPSHOT_CHECKPOINT_CADENCE_MS / tickRateMs));
+  };
+  ({
+    technical: {
+      snapshotIntervalTicks: resolveSnapshotCheckpointIntervalTicks(5e3)
+    }
+  });
   const basePublicModeConfig = {
     mode: "free",
     label: "Empire Streets",
@@ -919,7 +931,7 @@
     sessionTtlMs: 1e3 * 60 * 60 * 12,
     gameDurationMs: 1e3 * 60 * 60 * 24,
     storageKeyPrefix: "empire:base",
-    snapshotIntervalTicks: 10,
+    snapshotIntervalTicks: resolveSnapshotCheckpointIntervalTicks(5e3),
     notificationBatchWindowMs: 250,
     debug: {
       allowDebugTools: false,
@@ -2969,12 +2981,12 @@
       maxHeatMultiplier: 1.18
     }
   };
-  const FREE_MODE_TICK_RATE_MS = 5e3;
+  const FREE_MODE_TICK_RATE_MS = 1e4;
   const FREE_MODE_COOLDOWN_MULTIPLIER = 0.8;
   const ticksFromMinutes = (minutes, tickRateMs = FREE_MODE_TICK_RATE_MS) => Math.ceil(minutes * 60 * 1e3 / tickRateMs);
   const ticksFromHours = (hours, tickRateMs = FREE_MODE_TICK_RATE_MS) => ticksFromMinutes(hours * 60, tickRateMs);
   const ticksFromDays = (days, tickRateMs = FREE_MODE_TICK_RATE_MS) => ticksFromHours(days * 24, tickRateMs);
-  const baseCooldownTicksForFinalMinutes = (minutes) => Math.ceil(ticksFromMinutes(minutes) / FREE_MODE_COOLDOWN_MULTIPLIER);
+  const baseCooldownTicksForFinalMinutes = (minutes) => Math.max(1, Math.floor(ticksFromMinutes(minutes) / FREE_MODE_COOLDOWN_MULTIPLIER));
   const freeModeDrugLabConfig = {
     independentProductionLines: true,
     upgrade: {
@@ -9313,9 +9325,9 @@
     },
     heatReductionBySeverity: { low: 0, medium: 8, high: 30, extreme: 55 },
     heatDecay: {
-      playerIntervalTicks: 30,
+      playerIntervalTicks: ticksFromMinutes(2.5),
       playerDecayByWantedLevel: { 0: 4, 1: 3, 2: 2, 3: 1, 4: 1, 5: 1 },
-      districtIntervalTicks: 60,
+      districtIntervalTicks: ticksFromMinutes(5),
       districtBaseDecay: 3,
       districtHighPassiveHeatPerDayThreshold: 100,
       districtHighPassiveHeatMultiplier: 0.5,
@@ -10023,7 +10035,7 @@
       sessionTtlMs: FREE_MODE_HARD_TIMEOUT_MS,
       gameDurationMs: FREE_MODE_HARD_TIMEOUT_MS,
       storageKeyPrefix: "empire:free",
-      snapshotIntervalTicks: 8,
+      snapshotIntervalTicks: resolveSnapshotCheckpointIntervalTicks(FREE_MODE_TICK_RATE_MS),
       notificationBatchWindowMs: 200,
       debug: {
         allowDebugTools: false,
@@ -10218,7 +10230,7 @@
       sessionTtlMs: 1e3 * 60 * 60 * 24 * 10,
       gameDurationMs: 1e3 * 60 * 60 * 24 * 10,
       storageKeyPrefix: "empire:war",
-      snapshotIntervalTicks: 12,
+      snapshotIntervalTicks: resolveSnapshotCheckpointIntervalTicks(WAR_MODE_TICK_RATE_MS),
       notificationBatchWindowMs: 400,
       debug: {
         allowDebugTools: false,
@@ -40433,7 +40445,7 @@
     <nav class="admin-nav" aria-label="Sekce admin konzole">
       ${nav("overview", "Overview")}${nav("servers", "Servery")}${nav("players", "Hráči")}${nav("map", "Mapa")}
       ${nav("economy", "Ekonomika")}${nav("production", "Výroba")}${nav("police", "Police")}${nav("liveness", "Liveness")}
-      ${nav("commands", "Commands")}${nav("events", "Events")}${nav("diagnostics", "Diagnostics")}
+      ${nav("snapshots", "Snapshoty")}${nav("commands", "Commands")}${nav("events", "Events")}${nav("diagnostics", "Diagnostics")}
     </nav>
   </aside>
   <section class="admin-main">
@@ -40574,6 +40586,16 @@
   ${section("production", "Výroba", `<div class="admin-kv-grid">${kv("Buildings", detail.production.productionBuildingCount)}${kv("Ready", detail.production.readyToCollectCount)}${kv("Crafts", detail.production.activeCraftCount)}${kv("Storage full", detail.production.storageFullCount)}</div>`)}
   ${section("police", "Police", `<div class="admin-kv-grid">${kv("Pressure", detail.police.heatPressure)}${kv("Max heat", detail.police.maxPlayerHeat)}${kv("Wanted", detail.police.wantedPlayerCount)}${kv("Raids", detail.police.pendingRaidCount)}</div>`)}
   ${section("liveness", "Liveness", `<div class="admin-kv-grid">${kv("Active", detail.liveness.activePlayers)}${kv("Playable", detail.liveness.playablePlayers)}${kv("Sealed", detail.liveness.temporarilySealedPlayers)}${kv("Softlocks", detail.liveness.invalidSoftlocks)}</div>`)}
+  ${section("snapshots", "Snapshot persistence", `<div class="admin-kv-grid">
+    ${kv("Recovery head tick", detail.snapshot.tick)}${kv("Recovery head root version", detail.snapshot.stateVersion)}
+    ${kv("Recovery head updated", time(detail.snapshot.createdAt))}${kv("Last checkpoint", time(detail.snapshot.lastCheckpointAt ?? null))}
+    ${kv("Rolling checkpoints", detail.snapshot.rollingCheckpointCount ?? 0)}
+    ${kv("Lifecycle checkpoints", detail.snapshot.lifecycleCheckpointCount ?? 0)}
+    ${kv("Terminal checkpoints", detail.snapshot.terminalCheckpointCount ?? 0)}
+    ${kv("Last cleanup", time(detail.snapshot.lastCleanupAt ?? null))}
+    ${kv("Cleanup status", detail.snapshot.lastCleanupStatus ?? "unavailable")}
+    ${kv("Storage health", detail.snapshot.storageHealth ?? "unavailable")}
+  </div>`)}
   ${section("commands", "Commands", table(["Type", "Command", "Actor", "Tick", "Received"], detail.commands.map((row) => `<tr><td>${escape(row.commandType)}</td><td>${escape(row.commandId)}</td><td>${escape(row.actorId)}</td><td>${row.tickAtReceive}</td><td>${time(row.receivedAt)}</td></tr>`).join("")))}
   ${section("events", "Events", table(["Type", "Event", "Command", "Tick", "Occurred"], detail.events.map((row) => `<tr><td>${escape(row.eventType)}</td><td>${escape(row.eventId)}</td><td>${escape(row.causedByCommandId ?? "-")}</td><td>${row.tick}</td><td>${time(row.occurredAt)}</td></tr>`).join("")))}
   ${section("diagnostics", "Diagnostics", table(["Level", "Category", "Code", "Command", "Occurred"], detail.diagnostics.map((row) => `<tr><td>${pill(row.level)}</td><td>${escape(row.category)}</td><td>${escape(row.messageCode)}</td><td>${escape(row.commandId ?? "-")}</td><td>${time(row.occurredAt)}</td></tr>`).join("")))}

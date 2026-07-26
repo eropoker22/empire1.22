@@ -59,7 +59,7 @@ export const createInMemoryHostedJoinRepository = (state: {
     state.joinJobs.set(input.job.jobId, copy(input.job));
     return { kind: "created", reservation: copy(reservation), job: copy(input.job) };
   },
-  claimJoinJob: async (workerId, now, until) => {
+  claimJoinJob: async (workerId, workerIncarnationId, now, until) => {
     const job = [...state.joinJobs.values()].find((entry) => {
       const reservation = state.joinReservations.get(entry.reservationId);
       const server = state.servers.get(entry.serverInstanceId);
@@ -68,34 +68,46 @@ export const createInMemoryHostedJoinRepository = (state: {
         (entry.status === "pending" || (entry.status === "claimed" && (entry.claimedUntil ?? "") <= now));
     });
     if (!job) return null;
-    Object.assign(job, { status: "claimed", claimedByWorkerId: workerId, claimedUntil: until,
+    Object.assign(job, { status: "claimed", claimedByWorkerId: workerId,
+      claimedByWorkerIncarnationId: workerIncarnationId, claimedUntil: until,
       attempt: job.attempt + 1, updatedAt: now, version: job.version + 1 });
     return copy(job);
   },
   completeJoin: async (input) => {
     const reservation = state.joinReservations.get(input.reservationId);
     const job = state.joinJobs.get(input.jobId);
-    if (!reservation || !job) return false;
-    if (reservation.status === "committed") return reservation.joinTicketId === input.joinTicketId;
+    if (!reservation || !job || reservation.serverInstanceId !== input.serverInstanceId
+      || reservation.playerIdentityId !== input.playerIdentityId
+      || job.serverInstanceId !== input.serverInstanceId) return false;
+    if (reservation.status === "committed") {
+      if (reservation.joinTicketId !== input.joinTicketId) return false;
+      if (job.status === "completed") return true;
+      if (!isCurrentClaim(job, input)) return false;
+      Object.assign(job, { status: "completed", claimedByWorkerId: null, claimedByWorkerIncarnationId: null,
+        claimedUntil: null, lastErrorCode: null, updatedAt: input.at, version: job.version + 1 });
+      return true;
+    }
+    if (!isCurrentClaim(job, input)) return false;
     if (reservation.status !== "reserved" || reservation.expiresAt <= input.at) return false;
     Object.assign(reservation, { status: "committed", joinTicketId: input.joinTicketId, committedAt: input.at,
       updatedAt: input.at, version: reservation.version + 1 });
-    Object.assign(job, { status: "completed", claimedUntil: null, lastErrorCode: null,
+    Object.assign(job, { status: "completed", claimedByWorkerId: null, claimedByWorkerIncarnationId: null,
+      claimedUntil: null, lastErrorCode: null,
       updatedAt: input.at, version: job.version + 1 });
     return true;
   },
   failJoin: async (input) => {
     const reservation = state.joinReservations.get(input.reservationId);
     const job = state.joinJobs.get(input.jobId);
-    if (reservation && reservation.status !== "committed") {
-      Object.assign(reservation, { status: input.status,
-        canceledAt: input.status === "expired" ? reservation.canceledAt : input.at,
-        updatedAt: input.at, version: reservation.version + 1 });
-    }
-    if (job && job.status !== "completed") {
-      Object.assign(job, { status: "failed", claimedUntil: null,
-        lastErrorCode: input.errorCode, updatedAt: input.at, version: job.version + 1 });
-    }
+    if (!reservation || !job || reservation.serverInstanceId !== input.serverInstanceId
+      || job.serverInstanceId !== input.serverInstanceId || !isCurrentClaim(job, input)
+      || reservation.status !== "reserved") return false;
+    Object.assign(reservation, { status: input.status,
+      canceledAt: input.status === "expired" ? reservation.canceledAt : input.at,
+      updatedAt: input.at, version: reservation.version + 1 });
+    Object.assign(job, { status: "failed", claimedByWorkerId: null, claimedByWorkerIncarnationId: null,
+      claimedUntil: null, lastErrorCode: input.errorCode, updatedAt: input.at, version: job.version + 1 });
+    return true;
   },
   expireJoinReservations: async (at) => {
     let expired = 0;
@@ -104,7 +116,8 @@ export const createInMemoryHostedJoinRepository = (state: {
       Object.assign(reservation, { status: "expired", updatedAt: at, version: reservation.version + 1 });
       const job = [...state.joinJobs.values()].find((entry) => entry.reservationId === reservation.reservationId);
       if (job && job.status !== "completed") {
-        Object.assign(job, { status: "failed", claimedUntil: null,
+        Object.assign(job, { status: "failed", claimedByWorkerId: null, claimedByWorkerIncarnationId: null,
+          claimedUntil: null,
           lastErrorCode: "JOIN_RESERVATION_EXPIRED", updatedAt: at, version: job.version + 1 });
       }
       expired += 1;
@@ -128,3 +141,13 @@ const isInMemoryHostedServerJoinableAt = (server: HostedServerRecord, at: string
     registrationClosedAt: server.registrationClosedAt,
     registrationWindowMinutes: server.registrationWindowMinutes
   }, new Date(at)).canCreateMembership;
+
+const isCurrentClaim = (
+  job: HostedJoinJobRecord,
+  input: { workerId: string; workerIncarnationId: string; expectedJobVersion: number; at: string }
+): boolean => job.status === "claimed"
+  && job.claimedByWorkerId === input.workerId
+  && job.claimedByWorkerIncarnationId === input.workerIncarnationId
+  && job.version === input.expectedJobVersion
+  && Boolean(job.claimedUntil)
+  && job.claimedUntil! > input.at;

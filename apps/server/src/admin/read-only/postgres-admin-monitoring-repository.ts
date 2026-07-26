@@ -9,6 +9,10 @@ import type { InstanceSnapshotDto } from "../../runtime/persistence/dto";
 import type { PostgresQueryable } from "../../runtime/persistence/postgres";
 import type { AdminInstanceMonitoringRepository } from "./admin-repositories";
 import { createAdminDetailFromSnapshot } from "./admin-snapshot-projection";
+import {
+  loadAdminSnapshotStorageMetadata,
+  resolveAdminSnapshotStorageHealth
+} from "./admin-snapshot-storage-metadata";
 
 const HEARTBEAT_LIVE_MS = 30_000;
 const HEARTBEAT_STALE_MS = 120_000;
@@ -54,15 +58,24 @@ export const createPostgresAdminMonitoringRepository = (
     listKnownInstances,
     getInstanceSummary,
     getInstanceRuntimeProjection: async (id) => {
-      const [summary, snapshot, commands, events, diagnostics] = await Promise.all([
+      const [summary, snapshot, snapshotStorage, commands, events, diagnostics] = await Promise.all([
         getInstanceSummary(id),
         loadSnapshot(database, id),
+        loadAdminSnapshotStorageMetadata(database, id),
         listCommands(id, 50),
         listEvents(id, 50),
         listDiagnostics(id, 50)
       ]);
       if (!summary) return null;
-      return createAdminDetailFromSnapshot({ summary, snapshot, commands, events, diagnostics, generatedAt: now().toISOString() });
+      return createAdminDetailFromSnapshot({
+        summary,
+        snapshot,
+        snapshotStorage,
+        commands,
+        events,
+        diagnostics,
+        generatedAt: now().toISOString()
+      });
     },
     getInstanceHealth: async (id) => (await getInstanceSummary(id))?.freshness ?? null,
     listInstanceCommandSummaries: listCommands,
@@ -85,8 +98,13 @@ export const createPostgresAdminMonitoringRepository = (
       } : null;
     },
     getSnapshotMetadata: async (id) => {
-      const snapshot = await loadSnapshot(database, id);
+      const [snapshot, snapshotStorage] = await Promise.all([
+        loadSnapshot(database, id),
+        loadAdminSnapshotStorageMetadata(database, id)
+      ]);
       if (!snapshot) return null;
+      const generatedAt = now();
+      const stale = age(generatedAt, snapshot.createdAt) > SNAPSHOT_STALE_MS;
       return {
         serverInstanceId: id,
         snapshotId: snapshot.snapshotId,
@@ -94,7 +112,14 @@ export const createPostgresAdminMonitoringRepository = (
         tick: snapshot.tick,
         stateVersion: snapshot.integrity.rootVersion,
         schemaVersion: snapshot.version.schemaVersion,
-        stale: age(now(), snapshot.createdAt) > SNAPSHOT_STALE_MS
+        stale,
+        ...snapshotStorage,
+        storageHealth: resolveAdminSnapshotStorageHealth({
+          hasRecoveryHead: true,
+          recoveryHeadStale: stale,
+          metadata: snapshotStorage,
+          now: generatedAt
+        })
       };
     }
   };

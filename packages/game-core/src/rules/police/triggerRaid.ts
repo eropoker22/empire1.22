@@ -11,8 +11,7 @@ import { calculatePlayerPolicePressure } from "./policePressure";
 import { resolveCityHallPoliceMitigation, shouldCreateRaidAfterCityHallMitigation } from "./cityHallPoliceMitigation";
 import {
   getCurrentDayNightPhase,
-  getDayNightModifiers,
-  resolveDayNightGameClock
+  getDayNightModifiers
 } from "../day-night/dayNight";
 import {
   countOpenPendingRaids,
@@ -27,6 +26,7 @@ import {
   isRaidCooldownActive,
   resolveRaidSeverity
 } from "./raidTriggerHelpers";
+import { isScheduledRaidBoundary } from "./raidSchedule";
 
 const RAID_PENDING_FLAG = "raid:pending";
 
@@ -62,11 +62,8 @@ export const triggerRaid = (
   const decisions: RaidTriggerDecision[] = [];
   const currentTick = state.root.tick;
   const gameTime = getCurrentDayNightPhase(state, context);
-  const gameClock = resolveDayNightGameClock(gameTime);
   const phaseId = gameTime.phaseId;
-  const isScheduledRaidTime = (gameClock.gameHour === 6 && gameClock.gameMinute === 0)
-    || (gameClock.gameHour === 12 && gameClock.gameMinute === 30)
-    || (gameClock.gameHour === 22 && gameClock.gameMinute === 0);
+  const isScheduledRaidTime = isScheduledRaidBoundary(state, context, currentTick);
   if (!isScheduledRaidTime) {
     return { nextState: state, events: [], decisions: [] };
   }

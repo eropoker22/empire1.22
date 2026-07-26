@@ -154,8 +154,8 @@ const loadCheckpoints = async (
   instanceId: ServerInstanceId
 ): Promise<SnapshotCheckpointRecord[]> => {
   const directory = createCheckpointDir(rootDir, instanceId);
-  const filenames = await readdir(directory).catch((error: NodeJS.ErrnoException) => {
-    if (error.code === "ENOENT") return [];
+  const filenames = await readdir(directory).catch((error: unknown) => {
+    if ((error as { code?: string }).code === "ENOENT") return [];
     throw error;
   });
   const checkpoints = await Promise.all(filenames

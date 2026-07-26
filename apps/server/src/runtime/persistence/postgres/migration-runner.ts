@@ -39,7 +39,14 @@ export const migrateDatabase = async (
         }
         continue;
       }
+      if (filename === SNAPSHOT_RECOVERY_MIGRATION) {
+        await assertSnapshotRecoveryMigrationCanRunOnline(client);
+        await client.query("SET LOCAL lock_timeout = '5s'");
+      }
       await client.query(migration.sql);
+      if (filename === SNAPSHOT_RECOVERY_MIGRATION) {
+        await client.query("SET LOCAL lock_timeout = DEFAULT");
+      }
       await client.query(
         `INSERT INTO empire_schema_migrations (filename, checksum, applied_at) VALUES ($1,$2,now())`,
         [filename, migration.checksum]
@@ -49,12 +56,63 @@ export const migrateDatabase = async (
   });
 };
 
-const acquireMigrationLock = (database: PostgresQueryable): Promise<unknown> => database.query(
+const SNAPSHOT_RECOVERY_MIGRATION = "017_snapshot_recovery_heads_and_checkpoints.sql";
+export const SNAPSHOT_RECOVERY_ONLINE_ROW_LIMIT = 50_000;
+
+export class SnapshotRecoveryMigrationOnlineSafetyError extends Error {
+  readonly safeCode = "SNAPSHOT_RECOVERY_MIGRATION_REQUIRES_CONTROLLED_ROLLOUT";
+
+  constructor(exceedsOnlineRowLimit: boolean) {
+    super(
+      `Migration ${SNAPSHOT_RECOVERY_MIGRATION} refuses automatic execution when legacy snapshots already exist` +
+      `${exceedsOnlineRowLimit ? ` (more than ${SNAPSHOT_RECOVERY_ONLINE_ROW_LIMIT} rows)` : ""}; run ` +
+      "`npm run db:migrate -- --controlled-snapshot-recovery` from the controlled snapshot backfill runbook."
+    );
+    this.name = "SnapshotRecoveryMigrationOnlineSafetyError";
+  }
+}
+
+export const assertSnapshotRecoveryMigrationCanRunOnline = async (
+  database: PostgresQueryable
+): Promise<void> => {
+  const result = await database.query<{
+    has_snapshot_history: boolean;
+    has_recovery_head: boolean;
+    exceeds_safe_limit: boolean;
+  }>(
+    `SELECT CASE
+       WHEN to_regclass('empire_snapshots') IS NULL THEN false
+       ELSE EXISTS (SELECT 1 FROM empire_snapshots LIMIT 1)
+     END AS has_snapshot_history,
+     CASE
+       WHEN to_regclass('empire_snapshot_latest') IS NULL THEN false
+       ELSE EXISTS (SELECT 1 FROM empire_snapshot_latest LIMIT 1)
+     END AS has_recovery_head,
+     CASE
+       WHEN to_regclass('empire_snapshots') IS NULL THEN false
+       ELSE EXISTS (
+          SELECT 1
+          FROM empire_snapshots
+          OFFSET $1
+          LIMIT 1
+        )
+     END AS exceeds_safe_limit`,
+    [SNAPSHOT_RECOVERY_ONLINE_ROW_LIMIT]
+  );
+  const safety = result.rows[0];
+  if (safety?.has_snapshot_history || safety?.has_recovery_head) {
+    throw new SnapshotRecoveryMigrationOnlineSafetyError(safety.exceeds_safe_limit);
+  }
+};
+
+export const DATABASE_MIGRATION_ADVISORY_LOCK = 1_843_771_153;
+
+export const acquireMigrationLock = (database: PostgresQueryable): Promise<unknown> => database.query(
   `SELECT pg_advisory_xact_lock($1)`,
-  [1_843_771_153]
+  [DATABASE_MIGRATION_ADVISORY_LOCK]
 );
 
-const ensureHistoryTable = (database: PostgresQueryable): Promise<unknown> => database.query(`
+export const ensureHistoryTable = (database: PostgresQueryable): Promise<unknown> => database.query(`
   CREATE TABLE IF NOT EXISTS empire_schema_migrations (
     filename text PRIMARY KEY,
     checksum text NOT NULL,

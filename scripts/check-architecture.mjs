@@ -357,7 +357,9 @@ const adminDtoSource = readRequiredFile("packages/shared-types/src/admin/read-mo
 for (const typeName of ["AdminPlayerSummaryView", "AdminDistrictSummaryView", "AdminEconomySummaryView", "AdminProductionSummaryView",
   "AdminPoliceSummaryView", "AdminLivenessSummaryView", "AdminAllianceSummaryView", "AdminSnapshotSummaryView",
   "AdminCommandSummaryView", "AdminEventSummaryView", "AdminDiagnosticSummaryView"]) {
-  const block = adminDtoSource.match(new RegExp(`interface\\s+${typeName}\\s*\\{([\\s\\S]*?)\\n\\}`, "u"))?.[1] ?? "";
+  const block = adminDtoSource.match(
+    new RegExp(`interface\\s+${typeName}(?:\\s+extends\\s+[^\\{]+)?\\s*\\{([\\s\\S]*?)\\n\\}`, "u")
+  )?.[1] ?? "";
   if (!block.includes("serverInstanceId: string")) violations.push(`${typeName} must carry serverInstanceId`);
 }
 

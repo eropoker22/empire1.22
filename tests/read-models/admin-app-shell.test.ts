@@ -40,6 +40,26 @@ describe("read-only admin app", () => {
     expect(document.body.textContent).not.toContain("Detail server:A");
   });
 
+  it("renders recovery head, checkpoint retention, and cleanup health metadata", () => {
+    document.body.innerHTML = renderDashboard({
+      session,
+      overview: overview(),
+      selectedInstanceId: "server:A",
+      detail: detail("server:A"),
+      controlPlane: null,
+      wizardOpen: false,
+      wizardStep: 1
+    });
+
+    expect(document.querySelector("#admin-snapshots")?.textContent).toContain("Recovery head tick42");
+    expect(document.querySelector("#admin-snapshots")?.textContent).toContain("Recovery head root version77");
+    expect(document.querySelector("#admin-snapshots")?.textContent).toContain("Rolling checkpoints24");
+    expect(document.querySelector("#admin-snapshots")?.textContent).toContain("Lifecycle checkpoints3");
+    expect(document.querySelector("#admin-snapshots")?.textContent).toContain("Terminal checkpoints1");
+    expect(document.querySelector("#admin-snapshots")?.textContent).toContain("Cleanup statussuccess");
+    expect(document.querySelector("#admin-snapshots")?.textContent).toContain("Storage healthhealthy");
+  });
+
   it("does not let a late response from the previous selection overwrite the current detail", async () => {
     const pendingA = deferred<AdminInstanceDetailView>();
     const client = createClient();
@@ -300,7 +320,22 @@ const detail = (id: string): AdminInstanceDetailView => ({
   police: { serverInstanceId: id, heatPressure: "none", maxPlayerHeat: 0, wantedPlayerCount: 0, pendingRaidCount: 0 },
   liveness: { serverInstanceId: id, activePlayers: 0, playablePlayers: 0, temporarilySealedPlayers: 0, encircledPlayers: 0,
     lastStandPlayers: 0, emergencyRecoveryEligiblePlayers: 0, invalidSoftlocks: 0 },
-  alliances: [], snapshot: { serverInstanceId: id, snapshotId: null, createdAt: null, tick: null, stateVersion: null, schemaVersion: null, stale: false },
+  alliances: [], snapshot: {
+    serverInstanceId: id,
+    snapshotId: "snapshot:head:42",
+    createdAt: "2026-07-16T10:19:50.000Z",
+    tick: 42,
+    stateVersion: 77,
+    schemaVersion: 3,
+    stale: false,
+    lastCheckpointAt: "2026-07-16T10:15:00.000Z",
+    rollingCheckpointCount: 24,
+    lifecycleCheckpointCount: 3,
+    terminalCheckpointCount: 1,
+    lastCleanupAt: "2026-07-16T10:10:00.000Z",
+    lastCleanupStatus: "success",
+    storageHealth: "healthy"
+  },
   commands: [], events: [], diagnostics: []
 });
 

@@ -138,12 +138,10 @@ export class ServerInstanceManager {
     return runtime ? this.lifecycle.tick(runtime) : undefined;
   }
 
-  async tickInstanceDurably(
-    instanceId: ServerInstanceId,
-    runtimeLeaseFence?: RuntimeTickLeaseFence
-  ): Promise<ServerInstanceRuntime | undefined> {
+  async tickInstanceDurably(instanceId: ServerInstanceId, runtimeLeaseFence?: RuntimeTickLeaseFence,
+    options: { lockAlreadyHeld?: boolean } = {}): Promise<ServerInstanceRuntime | undefined> {
     const runtime = this.registry.get(instanceId);
-    return runtime ? this.lifecycle.tickDurably(runtime, runtimeLeaseFence) : undefined;
+    return runtime ? this.lifecycle.tickDurably(runtime, runtimeLeaseFence, options.lockAlreadyHeld === true) : undefined;
   }
 
   async dispatchCommand(
@@ -216,8 +214,18 @@ export class ServerInstanceManager {
     if (!runtime?.snapshotRepository) return false;
     const snapshot = createInstanceSnapshot(runtime);
     const checkpoint = createLifecycleCheckpoint(snapshot, reasonCode, options);
-    await runtime.snapshotRepository.saveRecoveryHead(snapshot);
-    await runtime.snapshotRepository.saveCheckpoint(checkpoint);
+    const save = async (
+      snapshotRepository: ServerRuntimePersistenceRepositories["snapshotRepository"]
+    ): Promise<void> => {
+      await snapshotRepository.saveRecoveryHead(snapshot);
+      await snapshotRepository.saveCheckpoint(checkpoint);
+    };
+    if (runtime.atomicCommandTransaction) {
+      await runtime.atomicCommandTransaction.run(instanceId, (repositories) =>
+        save(repositories.snapshotRepository));
+    } else {
+      await save(runtime.snapshotRepository);
+    }
     return true;
   }
 

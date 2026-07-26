@@ -118,7 +118,11 @@ export function renderPoliceFeedPanel(mount, viewModel = {}, callbacks = {}, opt
     ? `AKTUÁLNÍ ODHAD ZÁSAHU · ${safeText(viewModel.pendingRaid.severity, "vysoká")} · dirty cash ${Number(preview?.seizedDirtyCash || 0)} · heat -${Number(preview?.heatReducedBy || 0)}${mitigation ? ` · Soud -${Number(mitigation.reductionPct || 0)} %` : ""}`
     : safeText(viewModel.recommendedAction, "");
   if (viewModel.pendingRaid?.expiresAtMs) {
-    bindSharedCountdown(pendingCountdown, () => `ZÁSAH ZA ${formatRemainingMs(Number(viewModel.pendingRaid.expiresAtMs) - Date.now())}`);
+    const unbindCountdown = bindSharedCountdown(
+      pendingCountdown,
+      () => `ZÁSAH ZA ${formatRemainingMs(Number(viewModel.pendingRaid.expiresAtMs) - Date.now())}`
+    );
+    callbacks.onCountdownBound?.(unbindCountdown);
   }
   acknowledge.type = "button";
   acknowledge.textContent = "BERU NA VĚDOMÍ";
@@ -141,9 +145,4 @@ export function renderPoliceFeedPanel(mount, viewModel = {}, callbacks = {}, opt
   return true;
 }
 
-if (typeof window !== "undefined") {
-  window.EmpirePoliceFeedPanel = {
-    renderPoliceFeedPanel
-  };
-}
 import { bindSharedCountdown } from "./sharedCountdownTicker.js";

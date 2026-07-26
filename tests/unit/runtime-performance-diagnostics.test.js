@@ -31,6 +31,20 @@ describe("runtime performance diagnostics", () => {
     meta.remove();
   });
 
+  it("keeps the entrypoint server authority ahead of stale local demo storage", () => {
+    const windowRef = createWindowFixture();
+    windowRef.localStorage.setItem("empire:demo:execution-mode:v1", "local-demo");
+    windowRef.__EMPIRE_GAMEPLAY_EXECUTION_MODE__ = "server-authoritative";
+
+    expect(getGameplayExecutionMode({
+      windowRef,
+      serverReady: false,
+      diagnosticsMode: "local-demo"
+    })).toBe("server-authoritative");
+    expect(windowRef.__EMPIRE_GAMEPLAY_AUTHORITY_MATRIX__.attack.serverCommand).toBe(true);
+    expect(windowRef.__EMPIRE_GAMEPLAY_AUTHORITY_MATRIX__.attack.localMutation).toBe(false);
+  });
+
   it("keeps local demo isolated until server-authoritative mode is selected", () => {
     const windowRef = createWindowFixture();
     const meta = document.createElement("meta");

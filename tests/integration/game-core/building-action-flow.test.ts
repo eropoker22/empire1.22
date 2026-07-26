@@ -19,6 +19,7 @@ const MAFIAN_HEAT_GAIN_MULTIPLIER = 0.96;
 const mafianHeat = (baseHeat: number): number => baseHeat * MAFIAN_HEAT_GAIN_MULTIPLIER;
 const mafianIllegalHeat = (baseHeat: number): number => Math.floor(baseHeat * MAFIAN_HEAT_GAIN_MULTIPLIER);
 const ticksForMs = (ms: number): number => Math.ceil(ms / context.config.tickRateMs);
+const ticksForMinutes = (minutes: number): number => ticksForMs(minutes * 60 * 1000);
 const cooldownTicksForMs = (ms: number): number =>
   Math.ceil(ticksForMs(ms) * context.config.balance.cooldownMultiplier);
 
@@ -219,8 +220,11 @@ describe("run-building-action command flow", () => {
       ]
     });
 
+    const neonDustSaleMinutes = context.config.balance.streetDealers?.sellableDrugs.find(
+      (drug) => drug.itemId === "neon-dust"
+    )?.cooldownMinutes ?? 4;
     let completedState = started.nextState;
-    for (let index = 0; index < 48; index += 1) {
+    for (let index = 0; index < ticksForMinutes(neonDustSaleMinutes); index += 1) {
       completedState = runTick(completedState, saleContext).nextState;
     }
     const completedBalances = completedState.resourceStatesById["resource:1"].balances;
@@ -338,6 +342,20 @@ describe("run-building-action command flow", () => {
       }),
       context
     );
+    const dealerSupply = context.config.balance.smugglingTunnel?.dealerSupply;
+    const dealerSupplyBonusPct = dealerSupply
+      ? Math.min(
+          dealerSupply.maxBonusPct,
+          smugglingTunnelIds.length * dealerSupply.bonusPctPerTunnel
+        )
+      : 0;
+    const saleSpeedMultiplier = 1 + dealerSupplyBonusPct * (dealerSupply?.saleSpeedSharePct ?? 0) / 10_000;
+    const neonDustSaleMinutes = context.config.balance.streetDealers?.sellableDrugs.find(
+      (drug) => drug.itemId === "neon-dust"
+    )?.cooldownMinutes ?? 4;
+    const expectedSaleDurationTicks = Math.ceil(
+      neonDustSaleMinutes * 60 * 1000 / saleSpeedMultiplier / context.config.tickRateMs
+    );
 
     expect(started.errors).toEqual([]);
     expect(started.nextState.playersById["player:1"].metadata?.streetDealers).toMatchObject({
@@ -347,7 +365,7 @@ describe("run-building-action command flow", () => {
           itemId: "neon-dust",
           amount: 10,
           rewardDirtyCash: 6250,
-          completesAtTick: 45
+          completesAtTick: expectedSaleDurationTicks
         }
       ]
     });
@@ -479,7 +497,9 @@ describe("run-building-action command flow", () => {
     expect(insider.nextState.resourceStatesById["resource:1"].balances.cash).toBe(18500);
     expectMafianHeat(insider.nextState.districtsById["district:1"].heat, 4);
     expect(insider.nextState.buildingsById[building.id].metadata?.stockExchange).toMatchObject({
-      insiderWindowExpiresAtTick: 72,
+      insiderWindowExpiresAtTick: ticksForMinutes(
+        context.config.balance.stockExchange?.insiderWindow.durationMinutes ?? 6
+      ),
       riskEvents: [{ actionId: "insider_window", riskPct: 10 }]
     });
   });
@@ -558,7 +578,9 @@ describe("run-building-action command flow", () => {
     expect(frozen.errors).toEqual([]);
     expect(frozen.nextState.resourceStatesById["resource:1"].balances.cash).toBe(8000);
     expect(frozen.nextState.buildingsById[building.id].metadata?.centralBank).toMatchObject({
-      frozenAccountsExpiresAtTick: 96,
+      frozenAccountsExpiresAtTick: ticksForMinutes(
+        context.config.balance.centralBank?.frozenAccounts.durationMinutes ?? 8
+      ),
       riskEvents: [{ actionId: "frozen_accounts", riskPct: 8 }]
     });
 
@@ -634,10 +656,16 @@ describe("run-building-action command flow", () => {
     expectMafianHeat(pressure.nextState.districtsById["district:1"].heat, 3);
     expect(pressure.nextState.districtsById["district:1"].influence).toBe(55);
     expect(pressure.nextState.buildingsById[building.id].metadata?.lobbyClub).toMatchObject({
-      backroomPressureExpiresAtTick: 96,
+      backroomPressureExpiresAtTick: ticksForMinutes(
+        context.config.balance.lobbyClub?.backroomPressure.durationMinutes ?? 8
+      ),
       riskEvents: [{ actionId: "backroom_pressure", riskPct: 8 }]
     });
-    expect(pressure.nextState.buildingsById[building.id].actionCooldowns.backroom_pressure).toBe(192);
+    expect(pressure.nextState.buildingsById[building.id].actionCooldowns.backroom_pressure).toBe(
+      cooldownTicksForMs(
+        (context.config.balance.lobbyClub?.backroomPressure.cooldownMinutes ?? 20) * 60 * 1000
+      )
+    );
     expect(pressureReport).toMatchObject({
       buildingActionId: "backroom_pressure",
       lobbyClubResult: {
@@ -674,9 +702,13 @@ describe("run-building-action command flow", () => {
     expect(quiet.nextState.resourceStatesById["resource:1"].balances.cash).toBe(3500);
     expect(quiet.nextState.districtsById["district:1"].influence).toBe(65);
     expect(quiet.nextState.buildingsById[building.id].metadata?.lobbyClub).toMatchObject({
-      riskReductionExpiresAtTick: 96,
+      riskReductionExpiresAtTick: ticksForMinutes(
+        context.config.balance.lobbyClub?.quietNegotiation.riskReductionMinutes ?? 8
+      ),
       nextInfluenceDiscountPct: 8,
-      nextInfluenceDiscountExpiresAtTick: 96,
+      nextInfluenceDiscountExpiresAtTick: ticksForMinutes(
+        context.config.balance.lobbyClub?.quietNegotiation.nextInfluenceActionDiscountMinutes ?? 8
+      ),
       riskEvents: [{ actionId: "quiet_negotiation", riskPct: 6 }]
     });
 
@@ -698,7 +730,9 @@ describe("run-building-action command flow", () => {
     expect(media.nextState.districtsById["district:1"].influence).toBe(80);
     expectMafianHeat(media.nextState.districtsById["district:1"].heat, 4);
     expect(media.nextState.buildingsById[building.id].metadata?.lobbyClub).toMatchObject({
-      mediaScreenExpiresAtTick: 96,
+      mediaScreenExpiresAtTick: ticksForMinutes(
+        context.config.balance.lobbyClub?.mediaScreen.durationMinutes ?? 8
+      ),
       riskEvents: [{ actionId: "media_screen", riskPct: 7 }]
     });
   });
@@ -764,12 +798,15 @@ describe("run-building-action command flow", () => {
     expect(importStarted.errors).toEqual([]);
     expect(importStarted.nextState.resourceStatesById["resource:1"].balances.cash).toBe(8000);
     expectMafianHeat(importStarted.nextState.districtsById["district:1"].heat, 6);
+    const expressImportTicks = ticksForMs(
+      (context.config.balance.airport?.expressImport.durationSeconds ?? 90) * 1000
+    );
     expect(importStarted.nextState.buildingsById[building.id].metadata?.airport).toMatchObject({
-      pendingImports: [{ category: "materials", completesAtTick: 18 }]
+      pendingImports: [{ category: "materials", completesAtTick: expressImportTicks }]
     });
 
     let completedState = importStarted.nextState;
-    for (let index = 0; index < 18; index += 1) {
+    for (let index = 0; index < expressImportTicks; index += 1) {
       completedState = runTick(completedState, airportContext).nextState;
     }
     const completedBalances = completedState.resourceStatesById["resource:1"].balances;
@@ -809,7 +846,9 @@ describe("run-building-action command flow", () => {
     expect(charter.errors).toEqual([]);
     expect(charter.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(2500);
     expect(charter.nextState.buildingsById[building.id].metadata?.airport).toMatchObject({
-      blackCharterExpiresAtTick: nightStartTick + 96,
+      blackCharterExpiresAtTick: nightStartTick + ticksForMinutes(
+        context.config.balance.airport?.blackCharter.durationMinutes ?? 8
+      ),
       blackCharterOffer: {
         discountPct: 6,
         purchaseCustomsRiskPct: 15
@@ -831,7 +870,9 @@ describe("run-building-action command flow", () => {
     expect(corridor.errors).toEqual([]);
     expect(corridor.nextState.resourceStatesById["resource:1"].balances.cash).toBe(8200);
     expect(corridor.nextState.buildingsById[building.id].metadata?.airport).toMatchObject({
-      evacuationCorridorExpiresAtTick: 84
+      evacuationCorridorExpiresAtTick: ticksForMinutes(
+        context.config.balance.airport?.evacuationCorridor.durationMinutes ?? 7
+      )
     });
 
     const marketState = {
@@ -911,13 +952,17 @@ describe("run-building-action command flow", () => {
           heatGainReductionPct: 35,
           policeControlChanceReductionPct: 20,
           rumorChanceReductionPct: 15,
-          expiresAtTick: 96
+          expiresAtTick: ticksForMinutes(
+            context.config.balance.cityHall?.officialCover.durationMinutes ?? 8
+          )
         },
         "district:2": {
           heatGainReductionPct: 35,
           policeControlChanceReductionPct: 20,
           rumorChanceReductionPct: 15,
-          expiresAtTick: 96
+          expiresAtTick: ticksForMinutes(
+            context.config.balance.cityHall?.officialCover.durationMinutes ?? 8
+          )
         }
       },
       riskEvents: [{ actionId: "official_cover", riskPct: 8 }]
@@ -971,7 +1016,9 @@ describe("run-building-action command flow", () => {
     expect(decree.nextState.buildingsById[building.id].metadata?.cityHall).toMatchObject({
       emergencyDecree: {
         modeId: "suspended_checks",
-        expiresAtTick: 72
+        expiresAtTick: ticksForMinutes(
+          context.config.balance.cityHall?.emergencyDecree.durationMinutes ?? 6
+        )
       },
       riskEvents: [{ actionId: "emergency_decree", riskPct: 12 }]
     });
@@ -1017,8 +1064,11 @@ describe("run-building-action command flow", () => {
     expect(passive.districtsById["district:1"].influence).toBeGreaterThan(0);
     expect(passive.districtsById["district:1"].heat).toBeGreaterThan(0);
 
+    const vipRumorIntervalMinutes = context.config.balance.vipLounge?.network.tiers.find(
+      (tier) => tier.minOwned === 3
+    )?.rumorIntervalMinutes ?? 4;
     let rumorState = state;
-    for (let index = 0; index < 50; index += 1) {
+    for (let index = 0; index < ticksForMinutes(vipRumorIntervalMinutes) + 2; index += 1) {
       rumorState = runTick(rumorState, vipContext).nextState;
     }
     expect(rumorState.buildingsById[building.id].metadata?.vipLounge).toMatchObject({
@@ -1303,7 +1353,13 @@ describe("run-building-action command flow", () => {
     );
     expect(result.nextState.buildingsById[building.id].metadata?.exchangeOffice).toMatchObject({
       launderedEvents: [{ tick: 0, amount: 1600 }],
-      auditRiskBonuses: [{ expiresAtTick: 96, riskPct: 4, source: "good_rate" }]
+      auditRiskBonuses: [{
+        expiresAtTick: ticksForMinutes(
+          context.config.balance.exchangeOffice?.goodRate.auditRiskDurationMinutes ?? 8
+        ),
+        riskPct: 4,
+        source: "good_rate"
+      }]
     });
     expect(report).toMatchObject({
       message: expect.stringContaining("1408 clean cash"),
@@ -1396,7 +1452,13 @@ describe("run-building-action command flow", () => {
     expect(result.nextState.districtsById["district:1"].influence).toBe(1);
     expect(result.nextState.buildingsById[building.id].metadata?.arcade).toMatchObject({
       launderedEvents: [{ tick: 0, amount: 1300 }],
-      auditRiskBonuses: [{ expiresAtTick: 96, riskPct: 3, source: "back_cashdesk" }]
+      auditRiskBonuses: [{
+        expiresAtTick: ticksForMinutes(
+          context.config.balance.arcade?.backCashdesk.auditRiskDurationMinutes ?? 8
+        ),
+        riskPct: 3,
+        source: "back_cashdesk"
+      }]
     });
     expect(result.nextState.buildingsById[building.id].actionCooldowns.back_cashdesk).toBe(
       cooldownTicksForMs(16 * 60 * 1000)
@@ -1450,7 +1512,9 @@ describe("run-building-action command flow", () => {
 
     expect(first.errors).toEqual([]);
     expect(first.nextState.buildingsById[building.id].metadata?.arcade).toMatchObject({
-      nightMachinesExpiresAtTick: nightStartTick + 84
+      nightMachinesExpiresAtTick: nightStartTick + ticksForMinutes(
+        context.config.balance.arcade?.nightMachines.durationMinutes ?? 7
+      )
     });
     expect(second.errors.map((error) => error.code)).toContain("building_action_cooldown");
     expect(second.errors.map((error) => error.code)).toContain("arcade_night_machines_active");
@@ -1576,7 +1640,7 @@ describe("run-building-action command flow", () => {
         "dirty-cash": 0
       }
     });
-    state.root.tick = 12;
+    state.root.tick = ticksForMinutes(1);
 
     const result = collectIncome(state, context);
     const metadata = result.buildingsById[building.id].metadata?.apartmentBlock as {
@@ -1622,7 +1686,7 @@ describe("run-building-action command flow", () => {
       buildingIds: [building.id, ...recruitmentBuildings.map((recruitmentBuilding) => recruitmentBuilding.id)],
       slotCount: 5
     };
-    state.root.tick = 12;
+    state.root.tick = ticksForMinutes(1);
 
     const result = collectIncome(state, context);
     const metadata = result.buildingsById[building.id].metadata?.apartmentBlock as {
@@ -1657,7 +1721,7 @@ describe("run-building-action command flow", () => {
         ...state.playersById["player:1"],
         factionId
       };
-      state.root.tick = 12;
+      state.root.tick = ticksForMinutes(1);
       const result = collectIncome(state, context);
       return Number((result.buildingsById[building.id].metadata?.apartmentBlock as { storedPopulation?: number })?.storedPopulation || 0);
     };
@@ -3052,7 +3116,9 @@ describe("run-building-action command flow", () => {
     expectMafianHeat(result.nextState.districtsById["district:1"].heat, 20);
     expect(result.nextState.districtsById["district:1"].influence).toBe(4);
     expect(result.nextState.buildingsById[building.id].metadata?.stripClub).toMatchObject({
-      privatePartyExpiresAtTick: 120,
+      privatePartyExpiresAtTick: ticksForMinutes(
+        context.config.balance.stripClub?.privateParty.durationMinutes ?? 10
+      ),
       scandalEvents: expect.any(Array)
     });
     expect(report).toMatchObject({

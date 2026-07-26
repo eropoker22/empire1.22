@@ -601,5 +601,22 @@ describe("city feed event integration", () => {
     }, context);
 
     expect(Object.values(second.cityFeedEventsById)).toHaveLength(1);
+
+    const afterCooldown = applyRumorEventToState({
+      ...second,
+      root: { ...second.root, tick: 12 }
+    }, {
+      sourceEventId: "spam:3",
+      sourceType: "building_action",
+      category: "rumor",
+      visibility: "all",
+      districtId: "district:1",
+      createdAtTick: 12,
+      confidence: "rumor",
+      rumorCategory: "market",
+      message: "Market signal"
+    }, context);
+
+    expect(Object.values(afterCooldown.cityFeedEventsById)).toHaveLength(2);
   });
 });

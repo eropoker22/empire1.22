@@ -22,6 +22,7 @@ declare global {
     }): string;
   }
   interface Window {
+    __EMPIRE_GAMEPLAY_EXECUTION_MODE__?: "server-authoritative" | "local-demo";
     EmpireConfigOverrides?: {
       localDemoEnabled?: boolean;
     };
@@ -128,6 +129,8 @@ export const getForcedDevelopmentRuntimeMode = (): SelectedGameplayRuntimeMode =
     removeBrowserStorageItem("sessionStorage", LOCAL_DEMO_SESSION_KEY);
     return "server-authoritative";
   }
+  const entrypointMode = normalizeSelectedRuntimeMode(window.__EMPIRE_GAMEPLAY_EXECUTION_MODE__);
+  if (entrypointMode) return entrypointMode;
   if (queryMode === "local-demo") return "demo";
   if (readBrowserStorageItem("sessionStorage", LOCAL_DEMO_SESSION_KEY) === "1") return "demo";
 

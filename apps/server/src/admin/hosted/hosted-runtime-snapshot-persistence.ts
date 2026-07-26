@@ -1,5 +1,10 @@
 import type { ServerInstanceId } from "@empire/shared-types";
 import type { ServerApp } from "../../app/server-app";
+import type { ServerInstanceRuntime } from "../../runtime/instance";
+import {
+  createInstanceSnapshot,
+  createLifecycleCheckpoint
+} from "../../runtime/persistence";
 import type { HostedActionRequestRecord } from "./hosted-control-plane-repository";
 
 const DURABLE_LIFECYCLE_ACTIONS = new Set<HostedActionRequestRecord["action"]>([
@@ -40,6 +45,37 @@ export const saveHostedLifecycleCheckpoint = (
     }
   );
 };
+
+export const createHostedProvisioningSnapshotWrite = (
+  runtime: ServerInstanceRuntime
+) => {
+  const snapshot = createInstanceSnapshot(runtime);
+  return {
+    snapshot,
+    checkpoint: createLifecycleCheckpoint(snapshot, "instance-provisioned", {
+      protected: true
+    })
+  };
+};
+
+export const createHostedLifecycleSnapshotWrite = (
+  runtime: ServerInstanceRuntime,
+  action: HostedActionRequestRecord["action"]
+) => {
+  if (!DURABLE_LIFECYCLE_ACTIONS.has(action)) return null;
+  const snapshot = createInstanceSnapshot(runtime);
+  return {
+    snapshot,
+    checkpoint: createLifecycleCheckpoint(snapshot, lifecycleCheckpointReason(action), {
+      protected: action === "start",
+      terminal: action === "stop"
+    })
+  };
+};
+
+export const isHostedLifecycleSnapshotAction = (
+  action: HostedActionRequestRecord["action"]
+): boolean => DURABLE_LIFECYCLE_ACTIONS.has(action);
 
 const lifecycleCheckpointReason = (
   action: HostedActionRequestRecord["action"]

@@ -2,6 +2,10 @@ import {
   DEFAULT_ELIMINATION_SCORE_WEIGHTS,
   type ResolvedGameModeConfig
 } from "@empire/game-core";
+import {
+  ticksFromHours,
+  ticksFromMinutes
+} from "../../../../packages/game-config/src/modes/free/free-mode-timing";
 import type {
   FreeModePacingVariant,
   PacingVariantName
@@ -25,8 +29,8 @@ export const FREE_MODE_PACING_VARIANTS: FreeModePacingVariant[] = [
   {
     variantName: "elimination-8h-stop8-lower-catastrophe-faster-attacks",
     catastropheChance: 0.02,
-    attackCooldownTicks: 30,
-    minAttackDurationTicks: 30,
+    attackCooldownTicks: ticksFromMinutes(2.5),
+    minAttackDurationTicks: ticksFromMinutes(2.5),
     elimination: createEliminationVariant()
   }
 ];
@@ -78,8 +82,8 @@ export const applyPacingVariantToConfig = (
 function createEliminationVariant(): FreeModePacingVariant["elimination"] {
   return {
   enabled: true,
-  firstEliminationTick: 5_760,
-  eliminationIntervalTicks: 2_880,
+  firstEliminationTick: ticksFromHours(8),
+  eliminationIntervalTicks: ticksFromHours(4),
   minActivePlayers: 8,
   dangerZoneSize: 3,
   quietHours: {

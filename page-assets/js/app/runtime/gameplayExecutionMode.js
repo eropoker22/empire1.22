@@ -116,6 +116,8 @@ export function readConfiguredGameplayExecutionMode(windowRef = typeof window ==
 
 export function getGameplayExecutionMode(options = {}) {
   const windowRef = options.windowRef || (typeof window === "undefined" ? null : window);
+  const entrypointMode = normalizeGameplayExecutionMode(windowRef?.__EMPIRE_GAMEPLAY_EXECUTION_MODE__);
+  if (entrypointMode) return publishConflictAuthorityMatrix(windowRef, entrypointMode);
   const requestedMode = readRequestedGameplayExecutionMode(windowRef);
   if (requestedMode) return publishConflictAuthorityMatrix(windowRef, requestedMode);
   const configuredMode = readConfiguredGameplayExecutionMode(windowRef);

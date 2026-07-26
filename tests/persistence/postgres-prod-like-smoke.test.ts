@@ -7,14 +7,18 @@ import {
   createPostgresGameplayIdentitySessionRepository
 } from "../../apps/server/src/runtime/persistence/postgres";
 import type { AccountIdentityProvider } from "../../apps/server/src/auth";
-import { createHostedControlPlaneService, createHostedRuntimeWorker } from "../../apps/server/src/admin/hosted";
+import {
+  createHostedControlPlaneService,
+  createHostedRuntimeWorker,
+  createPostgresHostedRuntimeMutationCommitter
+} from "../../apps/server/src/admin/hosted";
 import { createPostgresAdminDurableRepositories, hashAdminPassword } from "../../apps/server/src/admin/read-only";
 import { createPostgresPlayerEntryRepository } from "../../apps/server/src/player-entry";
 import type { AdminSessionView, GameplaySliceResponse } from "@empire/shared-types";
 import {
-  applyPostgresTestMigrations,
   resolveLivePostgresSmokeConfig
 } from "./helpers/postgres-prod-like-smoke-helpers";
+import { createIsolatedPostgresTestSchema } from "./helpers/isolated-postgres-test-schema";
 
 type JsonResponse<T = GameplaySliceResponse & Record<string, any>> = {
   json: T | null;
@@ -29,8 +33,11 @@ const runSmoke = liveConfig.run ? it : it.skip;
 
 describe("postgres prod-like runtime smoke", () => {
   runSmoke("verifies the closed-alpha free flow against live Postgres persistence", async () => {
-    const database = createPostgresDatabase(liveConfig.databaseUrl!);
-    await applyPostgresTestMigrations(database);
+    const isolated = await createIsolatedPostgresTestSchema(
+      liveConfig.databaseUrl!,
+      "postgres_prod_like_smoke"
+    );
+    const database = isolated.database;
 
     const origin = "https://play.empire.test";
     const warServerInstanceId = "instance:war:eu-central:public-1";
@@ -40,7 +47,7 @@ describe("postgres prod-like runtime smoke", () => {
     const environment = {
       NODE_ENV: "production",
       EMPIRE_PERSISTENCE_DRIVER: "postgres",
-      EMPIRE_DATABASE_URL: liveConfig.databaseUrl!,
+      EMPIRE_DATABASE_URL: isolated.databaseUrl,
       GAMEPLAY_SLICE_SESSION_SECRET: "postgres-smoke-session-secret-2026-test",
       GAMEPLAY_SLICE_SNAPSHOT_SECRET: "postgres-smoke-snapshot-secret-2026-test",
       EMPIRE_ADMIN_FINGERPRINT_SECRET: "postgres-smoke-admin-fingerprint-secret-2026-test",
@@ -137,7 +144,8 @@ describe("postgres prod-like runtime smoke", () => {
         buildSha: "postgres-smoke",
         controlPlane: adminRepositories.hosted,
         server: workerServer,
-        playerEntry
+        playerEntry,
+        runtimeMutationCommitter: createPostgresHostedRuntimeMutationCommitter(database)
       });
       await worker.runOnce();
       const provisioned = await adminRepositories.hosted.getServer(freeServerInstanceId);
@@ -481,7 +489,7 @@ describe("postgres prod-like runtime smoke", () => {
       await workerServer.instanceManager.getPersistenceRepositories().close?.();
       await first.server.instanceManager.getPersistenceRepositories().close?.();
       if (freeServerInstanceId) await cleanupHostedSmokeFixture(database, freeServerInstanceId, adminUserId, workerId);
-      await database.close();
+      await isolated.close();
     }
   }, 90_000);
 });

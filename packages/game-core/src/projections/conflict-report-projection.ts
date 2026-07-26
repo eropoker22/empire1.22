@@ -30,7 +30,6 @@ export const createConflictReportViews = (
 
 const mapNotificationToReport = (notification: Notification): ConflictReportView | null => {
   const payload = notification.payload as Record<string, unknown>;
-
   if (notification.category === "report.spy") {
     return {
       reportId: String(payload.reportId ?? notification.id),

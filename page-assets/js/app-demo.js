@@ -28,13 +28,77 @@ function canBootGame() {
 }
 
 const shouldBootGame = canBootGame();
+let activeRuntime = null;
+let bootGeneration = 0;
+let bootPromise = null;
+let bootPromiseGeneration = -1;
+let desktopScrollController = null;
+let localDemoLifecycleModule = null;
+let localDemoLifecycleModulePromise = null;
+
+const loadLocalDemoLifecycleModule = () => {
+  if (!localDemoLifecycleModulePromise) {
+    localDemoLifecycleModulePromise = import("./app/runtime/localDemoLegacyBootstrap.js")
+      .then((module) => {
+        localDemoLifecycleModule = module;
+        return module;
+      });
+  }
+  return localDemoLifecycleModulePromise;
+};
 
 async function bootGamePage() {
-  const { bootstrapPage } = await import("./app/render-ui.js?v=heat-audit-20260721");
-  const runtime = bootstrapPage();
-  bindDesktopGameScrollLimit();
-  return runtime;
+  if (activeRuntime) return activeRuntime;
+  const requestedGeneration = bootGeneration;
+  if (bootPromise && bootPromiseGeneration === requestedGeneration) {
+    return bootPromise;
+  }
+
+  const pendingBoot = (async () => {
+    const { bootstrapLocalDemoLegacyPage } = await loadLocalDemoLifecycleModule();
+    if (requestedGeneration !== bootGeneration) return null;
+    const runtime = bootstrapLocalDemoLegacyPage();
+    if (!runtime || requestedGeneration !== bootGeneration) {
+      localDemoLifecycleModule?.destroyLocalDemoLegacyPage?.();
+      return null;
+    }
+    activeRuntime = runtime;
+    desktopScrollController?.destroy?.();
+    desktopScrollController = bindDesktopGameScrollLimit();
+    return runtime;
+  })();
+  bootPromise = pendingBoot;
+  bootPromiseGeneration = requestedGeneration;
+  try {
+    return await pendingBoot;
+  } finally {
+    if (bootPromise === pendingBoot) {
+      bootPromise = null;
+      bootPromiseGeneration = -1;
+    }
+  }
 }
+
+function destroyGamePage() {
+  bootGeneration += 1;
+  activeRuntime = null;
+  desktopScrollController?.destroy?.();
+  desktopScrollController = null;
+  return localDemoLifecycleModule?.destroyLocalDemoLegacyPage?.() || false;
+}
+
+function handlePageHide() {
+  destroyGamePage();
+}
+
+function handlePageShow(event) {
+  if (shouldBootGame && (event?.persisted === true || !activeRuntime)) {
+    void bootGamePage();
+  }
+}
+
+window.addEventListener("pagehide", handlePageHide);
+window.addEventListener("pageshow", handlePageShow);
 
 if (shouldBootGame && document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => void bootGamePage(), { once: true });

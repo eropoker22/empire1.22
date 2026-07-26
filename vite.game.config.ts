@@ -4,6 +4,17 @@ import { defineConfig, type Plugin } from "vite";
 import type { createGameplaySliceFunctionHandler } from "./apps/server/src/netlify/gameplay-slice-function";
 
 const fromRoot = (...segments: string[]): string => resolve(__dirname, ...segments);
+const toWatchGlob = (...segments: string[]): string =>
+  `${fromRoot(...segments).replaceAll("\\", "/")}/**`;
+
+export const GAME_DEV_WATCH_IGNORED = Object.freeze([
+  toWatchGlob(".cache"),
+  toWatchGlob("client"),
+  toWatchGlob("dist-worker"),
+  toWatchGlob("netlify", "functions"),
+  toWatchGlob("playwright-report"),
+  toWatchGlob("test-results")
+]);
 
 const gameplayApiPaths = [
   "/api/gameplay-slice/",
@@ -13,6 +24,13 @@ const gameplayApiPaths = [
   "/api/lobby/",
   "/api/admin/"
 ];
+
+interface DevIncomingRequest {
+  url?: string;
+  method?: string;
+  headers: Record<string, string | string[] | number | undefined>;
+  on(event: string, listener: (value?: unknown) => void): void;
+}
 
 const createGameplayApiMiddleware = (): Plugin => {
   return {
@@ -38,7 +56,8 @@ const createGameplayApiMiddleware = (): Plugin => {
       };
 
       server.middlewares.use(async (request, response, next) => {
-        const path = new URL(request.url || "/", "http://localhost").pathname;
+        const incoming = request as unknown as DevIncomingRequest;
+        const path = new URL(incoming.url || "/", "http://localhost").pathname;
         if (!gameplayApiPaths.some((apiPath) => path === apiPath || path.startsWith(apiPath))) {
           next();
           return;
@@ -47,10 +66,10 @@ const createGameplayApiMiddleware = (): Plugin => {
         try {
           const handler = await getHandler();
           const result = await handler({
-            httpMethod: request.method || "GET",
+            httpMethod: incoming.method || "GET",
             path,
-            body: await readRequestBody(request, request.method),
-            headers: normalizeRequestHeaders(request.headers)
+            body: await readRequestBody(incoming, incoming.method),
+            headers: normalizeRequestHeaders(incoming.headers)
           });
 
           response.statusCode = result.statusCode;
@@ -79,7 +98,7 @@ const createGameplayApiMiddleware = (): Plugin => {
 };
 
 const readRequestBody = (
-  request: { on(event: string, listener: (chunk?: unknown) => void): void },
+  request: DevIncomingRequest,
   method = "GET"
 ): Promise<string | null> => {
   if (method.toUpperCase() === "GET" || method.toUpperCase() === "HEAD") {
@@ -161,6 +180,9 @@ export default defineConfig({
   server: {
     host: "127.0.0.1",
     port: 5174,
-    strictPort: true
+    strictPort: true,
+    watch: {
+      ignored: [...GAME_DEV_WATCH_IGNORED]
+    }
   }
 });

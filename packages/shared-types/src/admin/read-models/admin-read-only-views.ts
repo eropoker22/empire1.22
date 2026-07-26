@@ -1,3 +1,5 @@
+import type { AdminSnapshotStorageView } from "./admin-snapshot-storage-view";
+
 export type AdminRole = "viewer" | "operator" | "owner";
 export type AdminWorkerStatus = "live" | "stale" | "offline" | "no-worker";
 export type AdminDataSource = "durable-control-plane" | "durable-snapshot";
@@ -134,7 +136,7 @@ export interface AdminAllianceSummaryView {
   memberCount: number;
 }
 
-export interface AdminSnapshotSummaryView {
+export interface AdminSnapshotSummaryView extends AdminSnapshotStorageView {
   serverInstanceId: string;
   snapshotId: string | null;
   createdAt: string | null;

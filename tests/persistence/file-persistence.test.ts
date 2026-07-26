@@ -2,7 +2,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { ServerInstanceManager } from "../../apps/server/src/runtime";
+import {
+  defaultRetentionPolicy,
+  SNAPSHOT_CHECKPOINT_KINDS,
+  ServerInstanceManager,
+  createSnapshotCheckpoint
+} from "../../apps/server/src/runtime";
 import {
   createFileRuntimePersistenceRepositories,
   createServerInstanceRuntime
@@ -73,6 +78,41 @@ describe("file persistence repositories", () => {
         integrity: {
           rootVersion: 3
         }
+      });
+    } finally {
+      await rm(rootDir, { recursive: true, force: true });
+    }
+  });
+
+  it("uses terminal retention for archived checkpoint history", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "empire-file-snapshot-terminal-retention-"));
+    try {
+      const repository = createFileSnapshotRepository({ rootDir });
+      const runtime = createServerInstanceRuntime("instance:file-terminal-retention", "free");
+      runtime.state.root.phase = "live";
+      for (let tick = 1; tick <= 4; tick += 1) {
+        runtime.state.root.tick = tick;
+        runtime.state.root.version += 1;
+        const snapshot = createInstanceSnapshot(runtime);
+        snapshot.metadata.status = "archived";
+        await repository.saveCheckpoint(createSnapshotCheckpoint(snapshot, {
+          kind: SNAPSHOT_CHECKPOINT_KINDS.periodic,
+          reasonCode: "periodic-cadence"
+        }));
+      }
+
+      await expect(repository.cleanupCheckpoints({
+        ...defaultRetentionPolicy.snapshots,
+        rollingCheckpointCountActive: 3,
+        rollingCheckpointCountTerminal: 1,
+        terminalRetentionDays: 365_000,
+        cleanupBatchSize: 100
+      }, "2026-07-26T12:00:00.000Z")).resolves.toMatchObject({
+        acquired: true,
+        deletedRows: 3
+      });
+      await expect(repository.countCheckpoints(runtime.record.id)).resolves.toMatchObject({
+        rolling: 1
       });
     } finally {
       await rm(rootDir, { recursive: true, force: true });

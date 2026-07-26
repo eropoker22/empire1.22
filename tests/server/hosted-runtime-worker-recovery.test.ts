@@ -14,6 +14,7 @@ import { createServerApp } from "../../apps/server/src/app";
 import { ensureGameplaySliceMembershipInState } from "../../apps/server/src/bootstrap/gameplay-slice-session-membership";
 import type { PostgresPlayerEntryRepository } from "../../apps/server/src/player-entry/postgres-player-entry-repository";
 import type { InstanceSnapshotDto } from "../../apps/server/src/runtime/persistence/dto";
+import { createInMemoryRuntimePersistenceRepositories } from "../../apps/server/src/runtime";
 
 const T0 = new Date("2026-07-20T10:00:00.000Z");
 const T1 = new Date("2026-07-20T10:01:00.000Z");
@@ -47,6 +48,65 @@ describe("hosted runtime worker recovery", () => {
 
     expect(writeWorkerHeartbeat).toHaveBeenCalledTimes(1);
     expect(expireJoinReservations).not.toHaveBeenCalled();
+  });
+
+  it("runs tracked maintenance after gameplay work without delaying the worker cycle", async () => {
+    const persistence = createInMemoryRuntimePersistenceRepositories();
+    const maintenanceEntered = deferred<void>();
+    const maintenanceGate = deferred<void>();
+    const maintenance = vi.fn(async (nowIso: string) => {
+      maintenanceEntered.resolve();
+      await maintenanceGate.promise;
+      return {
+        acquired: true,
+        deletedRows: 0,
+        durationMs: 1,
+        completedAt: nowIso
+      };
+    });
+    persistence.snapshotMaintenance = {
+      runIfDue: maintenance,
+      runNow: maintenance,
+      getHealth: () => ({
+        lastStartedAt: null,
+        lastCompletedAt: null,
+        lastStatus: "never",
+        lastDeletedRows: 0,
+        lastDurationMs: 0,
+        nextDueAt: null
+      })
+    };
+    const events: string[] = [];
+    const base = createInMemoryHostedControlPlaneRepository();
+    const controlPlane: HostedControlPlaneRepository = {
+      ...base,
+      listServers: async () => {
+        events.push("gameplay");
+        return [];
+      }
+    };
+    const app = createServerApp({
+      clock: clock(() => T0),
+      persistence
+    });
+    const worker = hostedWorker(controlPlane, app, () => T0);
+
+    await expect(worker.runOnce()).resolves.toBeUndefined();
+    await maintenanceEntered.promise;
+    events.push("maintenance");
+    expect(events).toEqual(["gameplay", "maintenance"]);
+
+    await expect(worker.runOnce()).resolves.toBeUndefined();
+    expect(maintenance).toHaveBeenCalledTimes(1);
+
+    let stopped = false;
+    const stopping = worker.stop().then(() => {
+      stopped = true;
+    });
+    expect(stopped).toBe(false);
+    maintenanceGate.resolve();
+    await stopping;
+    expect(stopped).toBe(true);
   });
 
   it("fails closed when a ready hosted server has no durable snapshot", async () => {
@@ -88,11 +148,15 @@ describe("hosted runtime worker recovery", () => {
     });
     const controlPlane: HostedControlPlaneRepository = { ...base, writeInstanceHeartbeat: heartbeat };
     const originalTick = app.instanceManager.tickInstanceDurably.bind(app.instanceManager);
-    const tick = vi.spyOn(app.instanceManager, "tickInstanceDurably").mockImplementation(async (instanceId) => {
+    const tick = vi.spyOn(app.instanceManager, "tickInstanceDurably").mockImplementation(async (
+      instanceId,
+      runtimeLeaseFence,
+      tickOptions
+    ) => {
       if (instanceId === first.serverInstanceId) {
         throw Object.assign(new Error("Injected tick failure."), { safeCode: "INJECTED_TICK_FAILURE" });
       }
-      return originalTick(instanceId);
+      return originalTick(instanceId, runtimeLeaseFence, tickOptions);
     });
 
     await expect(hostedWorker(controlPlane, app, () => T0).runOnce()).resolves.toBeUndefined();
@@ -407,6 +471,7 @@ const joinJob = (
   attempt: 0,
   availableAt: T0.toISOString(),
   claimedByWorkerId: null,
+  claimedByWorkerIncarnationId: null,
   claimedUntil: null,
   lastErrorCode: null,
   createdAt: T0.toISOString(),

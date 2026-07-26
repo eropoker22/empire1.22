@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS empire_snapshot_latest_instance_tick_idx;

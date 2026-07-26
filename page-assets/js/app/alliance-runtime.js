@@ -1,18 +1,26 @@
-import { submitServerAllianceCommand } from "./runtime.js";
+import { submitServerAllianceCommand } from "./runtime/serverGameplaySource.js";
+import { getLocalDemoGameplayBridge } from "./runtime/localDemoGameplayBridge.js";
 import { STORAGE_KEYS } from "../config.js";
 import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
 import { ALLIANCE_ICON_OPTIONS, getAllianceIconById, getAllianceIconByTag } from "./alliance-icons.js";
-import { LAUNCH_PLAYER_AVATAR_BY_FACTION_ID } from "./runtime/legacyScenarioState.js";
-import { ALLIANCE_DEMO_DATA } from "./runtime/localDemoFixtureState.js";
 import { GAMEPLAY_EXECUTION_MODES, getGameplayExecutionMode } from "./runtime/gameplayExecutionMode.js";
+import {
+  captureLegacyRuntimeLifecycle,
+  destroyLegacyRuntimeLifecycle
+} from "./runtime/legacyRuntimeLifecycle.js";
 
 const GLOBAL_CHAT_KEY = "empire:demo:global-chat:v1";
 const ALLIANCE_CHAT_PREVIEW_KEY = "empire:demo:alliance-chat:v1";
 const ALLIANCE_COLOR_PREVIEW_KEY = "empire:demo:alliance-color:v1";
+const ALLIANCE_RUNTIME_LIFECYCLE_OWNER = "alliance-runtime";
 const MAX_ALLIANCE_SIZE_FALLBACK = 4;
 const MAX_ALLIANCE_NAME_LENGTH = 32;
 const ALLIANCE_CREATE_REQUIRED_INFLUENCE = 40;
 const DEFAULT_ALLIANCE_EMBLEM_COLOR = "#f7c948";
+const getAllianceDemoData = () =>
+  getLocalDemoGameplayBridge()?.getAllianceDemoData?.() || null;
+const getLaunchPlayerAvatar = (factionId) =>
+  getLocalDemoGameplayBridge()?.getLaunchPlayerAvatarByFactionId?.(factionId) || "";
 
 let latestAllianceBoard = null;
 let selectedIconKey = "reaper";
@@ -25,6 +33,8 @@ let pendingAllianceCommand = false;
 let lastAllianceMemberAvatarTrigger = null;
 let allianceCountdownTimer = null;
 let allianceCreateInfluenceObserver = null;
+let allianceRuntimeRoot = null;
+let allianceRuntimeMounted = false;
 
 const qs = (id) => document.getElementById(id);
 const ALLIANCE_MODAL_IDS = [
@@ -296,7 +306,7 @@ const appendLocalAllianceChatMessage = (activeAlliance, body) => {
   return nextMessages;
 };
 
-const isDevOnlyAllianceDemoEnabled = () => Boolean(ALLIANCE_DEMO_DATA) && getGameplayExecutionMode({
+const isDevOnlyAllianceDemoEnabled = () => Boolean(getAllianceDemoData()) && getGameplayExecutionMode({
   windowRef: typeof window === "undefined" ? null : window,
   diagnosticsMode: typeof window === "undefined"
     ? null
@@ -328,7 +338,7 @@ const getAllianceCreateInfluenceRequirementMessage = () =>
   `Vytvořit alianci půjde až od ${ALLIANCE_CREATE_REQUIRED_INFLUENCE} vlivu. Teď máš ${getCurrentPlayerInfluenceForAllianceCreate()}.`;
 
 const createDevOnlyAllianceMembers = (currentPlayerId, readyDueAt) =>
-  (ALLIANCE_DEMO_DATA?.members || []).map((member) => ({
+  (getAllianceDemoData()?.members || []).map((member) => ({
     playerId: member.key === "current" ? currentPlayerId : member.playerId,
     name: member.name,
     role: member.role,
@@ -339,13 +349,13 @@ const createDevOnlyAllianceMembers = (currentPlayerId, readyDueAt) =>
     canStartKickVote: member.key !== "current",
     presence: member.presence,
     avatarSrc: member.key === "current"
-      ? (getStoredPlayerAvatarSrc() || LAUNCH_PLAYER_AVATAR_BY_FACTION_ID[member.avatarFactionId])
-      : LAUNCH_PLAYER_AVATAR_BY_FACTION_ID[member.avatarFactionId]
+      ? (getStoredPlayerAvatarSrc() || getLaunchPlayerAvatar(member.avatarFactionId))
+      : getLaunchPlayerAvatar(member.avatarFactionId)
   }));
 
 const createDevOnlyAllianceInviteTargets = (members = []) => {
   const memberNames = new Set(members.map((member) => String(member.name || "").trim().toLowerCase()).filter(Boolean));
-  return (ALLIANCE_DEMO_DATA?.inviteTargetNames || [])
+  return (getAllianceDemoData()?.inviteTargetNames || [])
     .filter((name) => !memberNames.has(String(name).trim().toLowerCase()))
     .map((name, index) => ({
       playerId: `dev-demo-invite-${index + 1}`,
@@ -362,13 +372,13 @@ const getInviteTargetsForSelect = (activeAlliance) => {
   return createDevOnlyAllianceInviteTargets(activeAlliance.members || []);
 };
 
-const createDevOnlyAlliancePendingInvites = () => (ALLIANCE_DEMO_DATA?.pendingInvites || [])
+const createDevOnlyAlliancePendingInvites = () => (getAllianceDemoData()?.pendingInvites || [])
   .map(({ ageMs, ...invite }) => ({ ...invite, createdAt: new Date(Date.now() - ageMs).toISOString() }));
 
-const createDevOnlyIncomingInvites = () => (ALLIANCE_DEMO_DATA?.incomingInvites || [])
+const createDevOnlyIncomingInvites = () => (getAllianceDemoData()?.incomingInvites || [])
   .map(({ ageMs, ...invite }) => ({ ...invite, createdAt: new Date(Date.now() - ageMs).toISOString() }));
 
-const createDevOnlyPublicAlliances = (maxAllianceSize) => (ALLIANCE_DEMO_DATA?.publicAlliances || [])
+const createDevOnlyPublicAlliances = (maxAllianceSize) => (getAllianceDemoData()?.publicAlliances || [])
   .map((alliance) => ({
     ...alliance,
     memberCount: alliance.full ? maxAllianceSize : alliance.memberCount,
@@ -398,7 +408,7 @@ const createDevOnlyAllianceBoard = (baseBoard = null) => {
   if (!isDevOnlyAllianceDemoEnabled() || baseBoard?.activeAlliance) {
     return baseBoard;
   }
-  const demoAlliance = ALLIANCE_DEMO_DATA?.activeAlliance;
+  const demoAlliance = getAllianceDemoData()?.activeAlliance;
   if (!demoAlliance) return baseBoard;
   const nowIso = new Date().toISOString();
   const currentPlayerId = baseBoard?.currentPlayerId || "dev-player";
@@ -536,7 +546,7 @@ const createDevOnlyAllianceFromDraft = ({ name, tag, emblemColor }) => {
       activeDistrictCount: 0,
       canStartKickVote: false,
       presence: "online",
-      avatarSrc: getStoredPlayerAvatarSrc() || LAUNCH_PLAYER_AVATAR_BY_FACTION_ID.mafian
+      avatarSrc: getStoredPlayerAvatarSrc() || getLaunchPlayerAvatar("mafian")
     }],
     pendingInvites: [],
     chatMessages: [],
@@ -603,7 +613,7 @@ const activateDevOnlyAlliance = ({ allianceId, name, tag, emblemColor, ownerPlay
       activeDistrictCount: 0,
       canStartKickVote: false,
       presence: "online",
-      avatarSrc: getStoredPlayerAvatarSrc() || LAUNCH_PLAYER_AVATAR_BY_FACTION_ID.mafian
+      avatarSrc: getStoredPlayerAvatarSrc() || getLaunchPlayerAvatar("mafian")
     }],
     pendingInvites: [],
     chatMessages: [],
@@ -691,9 +701,32 @@ const updateAllianceReadyCountdowns = () => {
   });
 };
 
-const ensureAllianceCountdownTimer = () => {
-  if (allianceCountdownTimer !== null) return;
+const stopAllianceCountdownTimer = () => {
+  if (allianceCountdownTimer === null) return false;
+  window.clearInterval(allianceCountdownTimer);
+  allianceCountdownTimer = null;
+  return true;
+};
+
+const hasVisibleAllianceReadyCountdown = () => (
+  Array.from(document.querySelectorAll("[data-alliance-ready-countdown]")).some((element) => (
+    !element.closest?.('[hidden], .hidden, [aria-hidden="true"]')
+  ))
+);
+
+const syncAllianceCountdownTimer = () => {
+  if (
+    !allianceRuntimeMounted
+    || document.hidden
+    || !hasVisibleAllianceReadyCountdown()
+  ) {
+    stopAllianceCountdownTimer();
+    return false;
+  }
+  updateAllianceReadyCountdowns();
+  if (allianceCountdownTimer !== null) return true;
   allianceCountdownTimer = window.setInterval(updateAllianceReadyCountdowns, 1000);
+  return true;
 };
 
 const formatTimeUntil = (isoValue) => {
@@ -1052,6 +1085,7 @@ const setModalVisible = (modal, visible) => {
   if (ALLIANCE_MODAL_IDS.includes(modal.id)) {
     syncAllianceModalBodyState();
   }
+  syncAllianceCountdownTimer();
 };
 
 const isModalVisible = (id) => {
@@ -1913,6 +1947,7 @@ const rerenderAll = () => {
   renderAllianceState();
   renderGlobalServerChat();
   syncCreateModalState();
+  syncAllianceCountdownTimer();
 };
 
 const openAllianceModal = () => {
@@ -2270,7 +2305,7 @@ const getAllianceMapBadgeForOwner = (ownerId) => {
   return null;
 };
 
-const bindAllianceRuntime = () => {
+const mountAllianceRuntimeBindings = () => {
   qs("alliance-btn")?.addEventListener("click", openAllianceModal);
   qs("alliance-modal-backdrop")?.addEventListener("click", closeAllAllianceModals);
   qs("alliance-create-toggle-btn")?.addEventListener("click", openCreateModal);
@@ -2627,8 +2662,54 @@ const bindAllianceRuntime = () => {
   syncCreateModalState();
   latestAllianceBoard = createDevOnlyAllianceBoard(latestAllianceBoard);
   rerenderAll();
-  ensureAllianceCountdownTimer();
+  document.addEventListener("visibilitychange", syncAllianceCountdownTimer);
+  window.addEventListener("pagehide", destroyAllianceRuntime, { once: true });
 };
+
+export const bindAllianceRuntime = () => {
+  if (allianceRuntimeMounted) return false;
+  const root = document.querySelector('main[data-page="game"]') || document.documentElement;
+  if (!root) return false;
+
+  allianceRuntimeRoot = root;
+  allianceRuntimeMounted = true;
+  try {
+    captureLegacyRuntimeLifecycle(
+      root,
+      ALLIANCE_RUNTIME_LIFECYCLE_OWNER,
+      mountAllianceRuntimeBindings
+    );
+    syncAllianceCountdownTimer();
+    return true;
+  } catch (error) {
+    destroyAllianceRuntime();
+    throw error;
+  }
+};
+
+export function destroyAllianceRuntime() {
+  if (!allianceRuntimeMounted) return false;
+  const root = allianceRuntimeRoot;
+  allianceRuntimeMounted = false;
+  allianceRuntimeRoot = null;
+  stopAllianceCountdownTimer();
+  allianceCreateInfluenceObserver?.disconnect?.();
+  allianceCreateInfluenceObserver = null;
+  closeAllAllianceModals();
+  destroyLegacyRuntimeLifecycle(root, ALLIANCE_RUNTIME_LIFECYCLE_OWNER);
+  pendingKickVoteTarget = null;
+  pendingPublicAllianceAction = null;
+  pendingAllianceExitMode = "leave";
+  pendingAllianceCommand = false;
+  lastAllianceMemberAvatarTrigger = null;
+  latestAllianceBoard = null;
+  selectedAllianceTab = "overview";
+  document.body?.classList.remove("alliance-command-pending", "alliance-modal-open");
+  if (window.empireStreetsAllianceState) {
+    delete window.empireStreetsAllianceState;
+  }
+  return true;
+}
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", bindAllianceRuntime, { once: true });

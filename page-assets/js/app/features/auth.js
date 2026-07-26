@@ -1,1 +1,1 @@
-export { bindFactionRegistration } from "../runtime.js";
+export { bindFactionRegistration } from "../runtime/localDemoLegacyBootstrap.js";

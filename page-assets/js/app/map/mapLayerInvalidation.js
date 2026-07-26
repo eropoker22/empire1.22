@@ -13,6 +13,9 @@ export const createGameplaySliceMapFingerprints = (gameplaySlice = null) => {
     ? gameplaySlice.districts.map((district) => ({
         districtId: district?.districtId || "",
         ownerPlayerId: district?.ownerPlayerId || "",
+        ownerColor: district?.ownerColor || "",
+        name: district?.name || "",
+        zone: district?.zone || "",
         status: district?.status || "",
         heat: Number(district?.heat || 0),
         influence: Number(district?.influence || 0),
@@ -37,6 +40,8 @@ export const createGameplaySliceMapFingerprints = (gameplaySlice = null) => {
     }),
     state: JSON.stringify({
       districts,
+      playerColor: gameplaySlice?.player?.color || "",
+      factionId: gameplaySlice?.player?.factionId || "",
       police: gameplaySlice?.player?.police || gameplaySlice?.police || null,
       alliance: gameplaySlice?.player?.alliance || null,
       bounty: gameplaySlice?.player?.bounty || gameplaySlice?.bounty || null
@@ -56,6 +61,17 @@ export const createGameplaySliceMapFingerprints = (gameplaySlice = null) => {
             report?.expiresAt || null
           ])
         : [],
+      declaredEffects: [
+        ...(Array.isArray(gameplaySlice?.mapEffects) ? gameplaySlice.mapEffects : []),
+        ...(Array.isArray(gameplaySlice?.activeMapEffects) ? gameplaySlice.activeMapEffects : [])
+      ].map((effect) => [
+        effect?.id || effect?.effectId || "",
+        effect?.type || effect?.kind || effect?.actionType || "",
+        effect?.districtId || effect?.targetDistrictId || "",
+        effect?.status || "",
+        effect?.startedAt || effect?.createdAt || null,
+        effect?.expiresAt || effect?.resolveAt || null
+      ]),
       police: gameplaySlice?.player?.police || gameplaySlice?.police || null
     })
   };

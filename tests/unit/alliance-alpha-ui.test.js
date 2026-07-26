@@ -59,9 +59,11 @@ describe("alliance alpha UI", () => {
     expect(css).toContain(".alliance-ready-card__actions");
     expect(runtime).toContain("alliance-overview-member-list");
     expect(runtime).toContain("Název aliance");
-    expect(runtime).toContain("ALLIANCE_DEMO_DATA");
-    expect(runtime).toContain("localDemoFixtureState.js");
-    expect(runtime).toContain("LAUNCH_PLAYER_AVATAR_BY_FACTION_ID");
+    expect(runtime).not.toContain("ALLIANCE_DEMO_DATA");
+    expect(runtime).not.toContain("localDemoFixtureState.js");
+    expect(runtime).toContain("getLocalDemoGameplayBridge");
+    expect(runtime).toContain("getAllianceDemoData");
+    expect(runtime).toContain("getLaunchPlayerAvatarByFactionId");
     expect(demoFixture).toContain("NeonRaven");
     expect(runtime).toContain("avatarSrc");
     expect(demoFixture).toContain('presence: "online"');

@@ -48,7 +48,12 @@ export const appendCityFeedEvents = (
     }, state, pipelineContext);
     return resolved.event ? [resolved.event] : [];
   });
-  return appendResolvedCityFeedEvents(state, resolvedEvents, limit);
+  return appendResolvedCityFeedEvents(
+    state,
+    resolvedEvents,
+    limit,
+    context?.config.tickRateMs
+  );
 };
 
 export const createCityFeedEventsFromCoreEvent = (

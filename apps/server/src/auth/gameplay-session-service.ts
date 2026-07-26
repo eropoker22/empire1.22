@@ -1,6 +1,9 @@
 import * as crypto from "node:crypto";
 import type { DomainError, GameModeId, PlayerFactionId, ServerInstanceId } from "@empire/shared-types";
 import { revokeMatchingGameplaySessions } from "./in-memory-session-revocation";
+import { prepareGameplayJoinTicket } from "./gameplay-join-ticket";
+
+export { prepareGameplayJoinTicket } from "./gameplay-join-ticket";
 
 export interface AccountIdentity {
   accountId: string;
@@ -49,6 +52,14 @@ export interface GameplaySessionRecord {
 
 export interface GameplaySessionService {
   readonly productionReady: boolean;
+  prepareJoinTicket(input: {
+    ticketId?: string;
+    accountId: string;
+    serverInstanceId: ServerInstanceId;
+    mode: GameModeId;
+    factionId?: PlayerFactionId | string | null;
+    nowIso: string;
+  }): JoinTicketRecord;
   createJoinTicket(input: {
     ticketId?: string;
     accountId: string;
@@ -78,6 +89,8 @@ export interface GameplaySessionService {
   revokeSession(sessionId: string, nowIso: string): Promise<boolean>; revokeAccountSessions(accountId: string, nowIso: string): Promise<number>; revokePlayerSessions(playerId: string, nowIso: string): Promise<number>;
   listRegistrations(): Promise<PlayerRegistrationRecord[]>;
 }
+
+export type CreateGameplayJoinTicketInput = Parameters<GameplaySessionService["createJoinTicket"]>[0];
 
 export interface GameplayIdentitySessionRepository {
   createJoinTicket(input: JoinTicketRecord): Promise<JoinTicketRecord>;
@@ -120,6 +133,9 @@ export const createUnavailableAccountIdentityProvider = (): AccountIdentityProvi
 
 export const createUnavailableGameplaySessionService = (): GameplaySessionService => ({
   productionReady: false,
+  prepareJoinTicket: () => {
+    throw new Error("Gameplay session repository is not configured.");
+  },
   createJoinTicket: async () => {
     throw new Error("Gameplay session repository is not configured.");
   },
@@ -143,19 +159,9 @@ export const createPersistentGameplaySessionService = (
 
   return {
     productionReady: options.productionReady ?? true,
+    prepareJoinTicket: (input) => prepareGameplayJoinTicket(input, ticketTtlMs),
     createJoinTicket: async (input) => {
-      const ticket: JoinTicketRecord = {
-        ticketId: input.ticketId ?? `join:${randomToken()}`,
-        accountId: input.accountId,
-        serverInstanceId: input.serverInstanceId,
-        mode: input.mode,
-        factionId: input.factionId ?? null,
-        issuedAt: input.nowIso,
-        expiresAt: new Date(Date.parse(input.nowIso) + ticketTtlMs).toISOString(),
-        consumedAt: null,
-        nonce: randomToken()
-      };
-      return repository.createJoinTicket(ticket);
+      return repository.createJoinTicket(prepareGameplayJoinTicket(input, ticketTtlMs));
     },
     getOrCreateRegistration: (input) => repository.getOrCreateRegistration(input),
     consumeJoinTicket: async (input) => {
@@ -227,18 +233,9 @@ export const createInMemoryGameplaySessionService = (
 
   return {
     productionReady: Boolean(options.productionReady),
+    prepareJoinTicket: (input) => prepareGameplayJoinTicket(input, ticketTtlMs),
     createJoinTicket: async (input) => {
-      const ticket: JoinTicketRecord = {
-        ticketId: input.ticketId ?? `join:${randomToken()}`,
-        accountId: input.accountId,
-        serverInstanceId: input.serverInstanceId,
-        mode: input.mode,
-        factionId: input.factionId ?? null,
-        issuedAt: input.nowIso,
-        expiresAt: new Date(Date.parse(input.nowIso) + ticketTtlMs).toISOString(),
-        consumedAt: null,
-        nonce: randomToken()
-      };
+      const ticket = prepareGameplayJoinTicket(input, ticketTtlMs);
       tickets.set(ticket.ticketId, ticket);
       return ticket;
     },

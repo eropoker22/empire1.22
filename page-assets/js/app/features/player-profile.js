@@ -1,1 +1,1 @@
-export { bindPlayerProfilePopup, bindRegisteredPlayerState } from "../runtime.js";
+export { bindPlayerProfilePopup, bindRegisteredPlayerState } from "../runtime/localDemoLegacyBootstrap.js";

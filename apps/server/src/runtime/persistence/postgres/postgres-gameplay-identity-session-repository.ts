@@ -1,37 +1,18 @@
 import * as crypto from "node:crypto";
 import type {
   GameplayIdentitySessionRepository,
-  GameplaySessionRecord,
-  JoinTicketRecord,
-  PlayerRegistrationRecord
+  GameplaySessionRecord
 } from "../../../auth";
-import type { PostgresDatabase, PostgresQueryable } from "./postgres-client";
-import { ensurePostgresServerInstanceRow } from "./postgres-server-instance-row";
+import type { PostgresDatabase } from "./postgres-client";
+import {
+  getOrCreatePostgresGameplayRegistration,
+  mapJoinTicketRow,
+  mapPlayerRegistrationRow,
+  savePostgresJoinTicket,
+  type JoinTicketRow,
+  type PlayerRegistrationRow
+} from "./postgres-gameplay-identity-writes";
 import { revokeAccountGameplaySessions, revokePlayerGameplaySessions } from "./postgres-gameplay-session-revocation";
-
-interface PlayerRegistrationRow {
-  [key: string]: unknown;
-  id: string;
-  account_id: string;
-  server_instance_id: string;
-  player_id: string;
-  status: "active" | "revoked";
-  created_at: Date | string;
-  version: string | number;
-}
-
-interface JoinTicketRow {
-  [key: string]: unknown;
-  ticket_id: string;
-  account_id: string;
-  server_instance_id: string;
-  mode: "free" | "war";
-  faction_id: string | null;
-  issued_at: Date | string;
-  expires_at: Date | string;
-  consumed_at: Date | string | null;
-  nonce: string;
-}
 
 interface GameplaySessionRow {
   [key: string]: unknown;
@@ -50,43 +31,7 @@ interface GameplaySessionRow {
 export const createPostgresGameplayIdentitySessionRepository = (
   database: PostgresDatabase
 ): GameplayIdentitySessionRepository => ({
-  createJoinTicket: async (ticket) => {
-    await ensurePostgresServerInstanceRow(database, ticket.serverInstanceId, {
-      mode: ticket.mode,
-      status: "lobby"
-    });
-    const result = await database.query<JoinTicketRow>(
-      `INSERT INTO empire_join_tickets (
-        id,
-        ticket_id,
-        account_id,
-        server_instance_id,
-        mode,
-        faction_id,
-        nonce,
-        issued_at,
-        expires_at,
-        consumed_at,
-        payload
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9::timestamptz, $10::timestamptz, '{}'::jsonb)
-      ON CONFLICT (ticket_id) DO UPDATE SET
-        updated_at = now()
-      RETURNING ticket_id, account_id, server_instance_id, mode, faction_id, issued_at, expires_at, consumed_at, nonce`,
-      [
-        `join-ticket:${ticket.ticketId}`,
-        ticket.ticketId,
-        ticket.accountId,
-        ticket.serverInstanceId,
-        ticket.mode,
-        ticket.factionId ?? null,
-        ticket.nonce,
-        ticket.issuedAt,
-        ticket.expiresAt,
-        ticket.consumedAt
-      ]
-    );
-    return mapJoinTicketRow(result.rows[0]!);
-  },
+  createJoinTicket: (ticket) => savePostgresJoinTicket(database, ticket),
   consumeJoinTicket: async (input) => database.transaction(async (client) => {
     const result = await client.query<JoinTicketRow>(
       `UPDATE empire_join_tickets
@@ -98,6 +43,29 @@ export const createPostgresGameplayIdentitySessionRepository = (
         AND server_instance_id = $3
         AND consumed_at IS NULL
         AND expires_at > $4::timestamptz
+        AND (
+          NOT EXISTS (
+            SELECT 1
+            FROM empire_hosted_server_instances hosted
+            WHERE hosted.server_instance_id = $3
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM empire_hosted_join_reservations reservation
+            WHERE reservation.server_instance_id = $3
+              AND reservation.player_identity_id = $2
+              AND reservation.status = 'committed'
+              AND reservation.join_ticket_id = empire_join_tickets.ticket_id
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM empire_server_memberships membership
+            WHERE membership.server_instance_id = $3
+              AND membership.account_id = $2
+              AND membership.status = 'active'
+              AND membership.join_ticket_id = empire_join_tickets.ticket_id
+          )
+        )
       RETURNING ticket_id, account_id, server_instance_id, mode, faction_id, issued_at, expires_at, consumed_at, nonce`,
       [input.ticketId, input.accountId, input.serverInstanceId, input.consumedAt]
     );
@@ -105,7 +73,7 @@ export const createPostgresGameplayIdentitySessionRepository = (
       return null;
     }
     const ticket = mapJoinTicketRow(result.rows[0]);
-    const registration = await getOrCreateRegistration(client, {
+    const registration = await getOrCreatePostgresGameplayRegistration(client, {
       accountId: input.accountId,
       serverInstanceId: input.serverInstanceId,
       nowIso: input.consumedAt
@@ -113,7 +81,7 @@ export const createPostgresGameplayIdentitySessionRepository = (
     return { ticket, registration };
   }),
   getOrCreateRegistration: async (input) => (
-    database.transaction((client) => getOrCreateRegistration(client, input))
+    database.transaction((client) => getOrCreatePostgresGameplayRegistration(client, input))
   ),
   createSession: async (session) => {
     const result = await database.query<GameplaySessionRow>(
@@ -200,63 +168,6 @@ export const createPostgresGameplayIdentitySessionRepository = (
   }
 });
 
-const getOrCreateRegistration = async (
-  client: PostgresQueryable,
-  input: { accountId: string; serverInstanceId: string; nowIso: string }
-): Promise<PlayerRegistrationRecord> => {
-  await ensurePostgresServerInstanceRow(client, input.serverInstanceId, {
-    mode: "free",
-    status: "lobby"
-  });
-  const playerId = createServerPlayerId(input.serverInstanceId, input.accountId);
-  const result = await client.query<PlayerRegistrationRow>(
-    `INSERT INTO empire_player_registrations (
-      id,
-      server_instance_id,
-      player_id,
-      account_id,
-      session_id,
-      payload,
-      status,
-      version,
-      created_at
-    ) VALUES ($1, $2, $3, $4, NULL, '{}'::jsonb, 'active', 1, $5::timestamptz)
-    ON CONFLICT (server_instance_id, account_id) DO UPDATE SET
-      updated_at = now()
-    RETURNING id, account_id, server_instance_id, player_id, status, created_at, version`,
-    [
-      `registration:${randomToken()}`,
-      input.serverInstanceId,
-      playerId,
-      input.accountId,
-      input.nowIso
-    ]
-  );
-  return mapPlayerRegistrationRow(result.rows[0]!);
-};
-
-const mapPlayerRegistrationRow = (row: PlayerRegistrationRow): PlayerRegistrationRecord => ({
-  id: row.id,
-  accountId: row.account_id,
-  serverInstanceId: row.server_instance_id,
-  playerId: row.player_id,
-  status: row.status,
-  createdAt: toIso(row.created_at),
-  version: Number(row.version)
-});
-
-const mapJoinTicketRow = (row: JoinTicketRow): JoinTicketRecord => ({
-  ticketId: row.ticket_id,
-  accountId: row.account_id,
-  serverInstanceId: row.server_instance_id,
-  mode: row.mode,
-  factionId: row.faction_id,
-  issuedAt: toIso(row.issued_at),
-  expiresAt: toIso(row.expires_at),
-  consumedAt: row.consumed_at ? toIso(row.consumed_at) : null,
-  nonce: row.nonce
-});
-
 const mapGameplaySessionRow = (row: GameplaySessionRow): GameplaySessionRecord => ({
   sessionId: row.session_id,
   registrationId: row.registration_id,
@@ -269,9 +180,6 @@ const mapGameplaySessionRow = (row: GameplaySessionRow): GameplaySessionRecord =
   revokedAt: row.revoked_at ? toIso(row.revoked_at) : null,
   version: Number(row.version)
 });
-
-const createServerPlayerId = (serverInstanceId: string, accountId: string): string =>
-  `player:${crypto.createHash("sha256").update(`${serverInstanceId}:${accountId}`).digest("hex").slice(0, 24)}`;
 
 const hashToken = (value: string): string =>
   crypto.createHash("sha256").update(value).digest("hex");

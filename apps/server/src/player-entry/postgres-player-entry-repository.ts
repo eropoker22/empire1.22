@@ -28,6 +28,13 @@ import {
 import { createLobbyServerSummary, loadHostedSpawnSelection } from "./postgres-player-entry-registration";
 import { loadHostedMatchResultsForAccount, persistHostedMatchResult } from "./postgres-player-entry-results";
 import {
+  claimPostgresMembershipJob,
+  completePostgresMembershipJob,
+  failPostgresMembershipJob,
+  type MembershipJobCompletionInput,
+  type MembershipJobRecord
+} from "./postgres-player-entry-membership-jobs";
+import {
   HOSTED_PLAYER_ENTRY_SERVER_COLUMNS,
   PLAYER_ENTRY_BLOCKING_STATUSES,
   readAuthoritativePostgresNow,
@@ -68,13 +75,7 @@ export interface MembershipRecord {
   version: number;
 }
 
-export interface MembershipJobRecord {
-  jobId: string;
-  membershipId: string;
-  serverInstanceId: string;
-  jobType: "activate" | "leave";
-  status: "pending" | "claimed" | "completed" | "failed";
-}
+export type { MembershipJobCompletionInput, MembershipJobRecord };
 
 export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) => ({
   database,
@@ -340,7 +341,8 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
     } else {
       const jobId = `membership-job:${crypto.randomUUID()}`;
       if (membership.status === "finalizing_setup") await client.query(
-        `UPDATE empire_server_membership_jobs SET status='failed',claimed_by_worker_id=NULL,claimed_until=NULL,
+        `UPDATE empire_server_membership_jobs SET status='failed',claimed_by_worker_id=NULL,
+          claimed_by_worker_incarnation_id=NULL,claimed_until=NULL,
           last_error_code='EARLY_LEAVE_REQUESTED',updated_at=$2::timestamptz,version=version+1
          WHERE membership_id=$1 AND job_type='activate' AND status IN ('pending','claimed')`,
         [membershipId, at]
@@ -377,43 +379,22 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
   getMatchResults: async (accountId: string, serverInstanceId: string) =>
     loadHostedMatchResultsForAccount(database, accountId, serverInstanceId),
 
-  claimMembershipJob: async (workerId: string, now: string, claimedUntil: string): Promise<MembershipJobRecord | null> => {
-    const result = await database.query<JobRow>(
-      `WITH candidate AS (
-         SELECT job_id FROM empire_server_membership_jobs
-         WHERE (status='pending' OR (status='claimed' AND claimed_until <= $2::timestamptz)) AND available_at <= $2::timestamptz
-         ORDER BY available_at,created_at FOR UPDATE SKIP LOCKED LIMIT 1
-       ) UPDATE empire_server_membership_jobs job SET status='claimed',claimed_by_worker_id=$1,claimed_until=$3::timestamptz,
-         attempt=attempt+1,updated_at=$2::timestamptz,version=version+1
-       FROM candidate WHERE job.job_id=candidate.job_id
-       RETURNING job.job_id,job.membership_id,job.server_instance_id,job.job_type,job.status`,
-      [workerId, now, claimedUntil]
-    );
-    return result.rows[0] ? mapJob(result.rows[0]) : null;
-  },
+  claimMembershipJob: async (
+    workerId: string,
+    workerIncarnationId: string,
+    now: string,
+    claimedUntil: string
+  ): Promise<MembershipJobRecord | null> =>
+    claimPostgresMembershipJob(database, workerId, workerIncarnationId, now, claimedUntil),
 
-  completeActivation: async (input: { membershipId: string; jobId: string; workerId: string; joinTicketId: string; at: string }) =>
-    completeMembershipJob(database, input, "active"),
+  completeActivation: async (input: MembershipJobCompletionInput & { joinTicketId: string }) =>
+    completePostgresMembershipJob(database, input, "active"),
 
-  completeLeave: async (input: { membershipId: string; jobId: string; workerId: string; at: string }) =>
-    completeMembershipJob(database, { ...input, joinTicketId: null }, "left_early"),
+  completeLeave: async (input: Omit<MembershipJobCompletionInput, "joinTicketId">) =>
+    completePostgresMembershipJob(database, { ...input, joinTicketId: null }, "left_early"),
 
-  failMembershipJob: async (input: { membershipId: string; jobId: string; workerId: string; errorCode: string; at: string }) => {
-    await database.transaction(async (client) => {
-      await client.query(
-        `UPDATE empire_server_membership_jobs SET status=CASE WHEN attempt < 5 THEN 'pending' ELSE 'failed' END,
-          claimed_by_worker_id=NULL,claimed_until=NULL,last_error_code=$4,
-          available_at=CASE WHEN attempt < 5 THEN $5::timestamptz + interval '5 seconds' ELSE available_at END,
-          updated_at=$5::timestamptz,version=version+1
-         WHERE job_id=$1 AND claimed_by_worker_id=$2 AND membership_id=$3`,
-        [input.jobId, input.workerId, input.membershipId, input.errorCode, input.at]
-      );
-      await client.query(
-        `UPDATE empire_server_memberships SET last_error_code=$2,updated_at=$3::timestamptz,version=version+1 WHERE membership_id=$1`,
-        [input.membershipId, input.errorCode, input.at]
-      );
-    });
-  },
+  failMembershipJob: (input: Parameters<typeof failPostgresMembershipJob>[1]) =>
+    failPostgresMembershipJob(database, input),
 
   syncResolvedMemberships: async (
     serverInstanceId: string,
@@ -435,7 +416,8 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
     if (matchResult) await database.transaction(async (client) => {
       await persistHostedMatchResult(client, serverInstanceId, matchResult, at);
       await client.query(
-        `UPDATE empire_server_membership_jobs SET status='failed',claimed_by_worker_id=NULL,claimed_until=NULL,
+       `UPDATE empire_server_membership_jobs SET status='failed',claimed_by_worker_id=NULL,
+         claimed_by_worker_incarnation_id=NULL,claimed_until=NULL,
           last_error_code='SERVER_COMPLETED',updated_at=$2::timestamptz,version=version+1
          WHERE server_instance_id=$1 AND status IN ('pending','claimed')`, [serverInstanceId, at]
       );
@@ -468,46 +450,6 @@ const createSession = async (database: PostgresQueryable, account: Omit<AccountS
   );
   return { token, session: { ...account, sessionId, expiresAt } };
 };
-
-const completeMembershipJob = async (
-  database: PostgresDatabase,
-  input: { membershipId: string; jobId: string; workerId: string; joinTicketId: string | null; at: string },
-  nextStatus: "active" | "left_early"
-) => database.transaction(async (client) => {
-  const result = await client.query<MembershipRow>(`${MEMBERSHIP_SELECT} WHERE membership.membership_id=$1 FOR UPDATE`, [input.membershipId]);
-  const row = result.rows[0];
-  if (!row) return false;
-  if (row.status === nextStatus) {
-    await finishJob(client, input);
-    return true;
-  }
-  const expected = nextStatus === "active" ? "finalizing_setup" : "leave_pending";
-  if (row.status !== expected) return false;
-  await client.query(
-    `UPDATE empire_server_memberships SET status=$2,
-      setup_completed_at=CASE WHEN $2='active' THEN $3::timestamptz ELSE setup_completed_at END,
-      starter_package_applied_at=CASE WHEN $2='active' THEN COALESCE(starter_package_applied_at,$3::timestamptz) ELSE starter_package_applied_at END,
-      early_leave_at=CASE WHEN $2='left_early' THEN $3::timestamptz ELSE early_leave_at END,
-      join_ticket_id=COALESCE($4,join_ticket_id),last_error_code=NULL,updated_at=$3::timestamptz,version=version+1
-     WHERE membership_id=$1`, [input.membershipId, nextStatus, input.at, input.joinTicketId]
-  );
-  if (nextStatus === "left_early") await client.query(
-    `UPDATE empire_hosted_join_reservations SET status='canceled',canceled_at=$2::timestamptz,updated_at=$2::timestamptz,
-      version=version+1 WHERE membership_id=$1 AND status='committed'`, [input.membershipId, input.at]
-  );
-  await insertMembershipEvent(client, { membershipId: input.membershipId, serverInstanceId: String(row.server_instance_id),
-    accountId: String(row.account_id), eventType: nextStatus === "active" ? "player-activated" : "early-leave",
-    result: "completed", at: input.at, metadata: nextStatus === "active"
-      ? { starterPackageApplied: true, districtId: String(row.reserved_spawn_district_id) }
-      : { setupCompleted: Boolean(row.setup_completed_at) } });
-  await finishJob(client, input);
-  return true;
-});
-
-const finishJob = (client: PostgresQueryable, input: { jobId: string; workerId: string; at: string }) => client.query(
-  `UPDATE empire_server_membership_jobs SET status='completed',claimed_until=NULL,last_error_code=NULL,updated_at=$3::timestamptz,
-   version=version+1 WHERE job_id=$1 AND claimed_by_worker_id=$2`, [input.jobId, input.workerId, input.at]
-);
 
 const insertMembershipEvent = (database: PostgresQueryable, input: {
   membershipId: string; serverInstanceId: string; accountId: string; eventType: string;
@@ -577,11 +519,6 @@ const mapMembership = (row: MembershipRow): MembershipRecord => ({
   version: Number(row.version)
 });
 
-const mapJob = (row: JobRow): MembershipJobRecord => ({
-  jobId: String(row.job_id), membershipId: String(row.membership_id), serverInstanceId: String(row.server_instance_id),
-  jobType: row.job_type as "activate" | "leave", status: row.status as MembershipJobRecord["status"]
-});
-
 const mapAccount = (row: AccountRow | AccountSessionRow) => ({
   accountId: String(row.account_id), username: String(row.username), displayName: String(row.display_name), gangName: String(row.gang_name)
 });
@@ -609,7 +546,6 @@ const isoOrNull = (value: unknown): string | null => value == null ? null : iso(
 interface AccountRow extends Record<string, unknown> { account_id: unknown; username: unknown; display_name: unknown; gang_name: unknown; status: unknown; password_hash: unknown; password_salt: unknown; password_algorithm: unknown; password_parameters: unknown }
 interface AccountSessionRow extends AccountRow { session_id: unknown; expires_at: unknown }
 interface MembershipRow extends Record<string, unknown> { membership_id: unknown; account_id: unknown; server_instance_id: unknown; display_name: unknown; mode: unknown; server_started_at: unknown; player_id: unknown; reserved_spawn_district_id: unknown; status: unknown; confirm_request_hash: unknown; setup_idempotency_key: unknown; setup_request_hash: unknown; faction_id: unknown; avatar_id: unknown; gang_color: unknown; joined_at: unknown; early_leave_deadline: unknown; setup_completed_at: unknown; early_leave_at: unknown; completed_at: unknown; final_rank: unknown; final_score: unknown; final_score_breakdown: unknown; starter_package_applied_at: unknown; join_ticket_id: unknown; version: unknown }
-interface JobRow extends Record<string, unknown> { job_id: unknown; membership_id: unknown; server_instance_id: unknown; job_type: unknown; status: unknown }
 
 const ACCOUNT_SESSION_SELECT = `SELECT session.session_id,session.expires_at,account.account_id,account.username,account.display_name,
   account.gang_name,account.status,account.password_hash,account.password_salt,account.password_algorithm,account.password_parameters

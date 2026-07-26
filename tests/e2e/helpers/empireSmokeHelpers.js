@@ -368,7 +368,7 @@ export async function openLoginPage(page, options = {}) {
       : "/pages/login.html";
   await page.goto(href, { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("login-page")).toBeVisible();
-  await expect(page).toHaveTitle(/Empire Streets \| Ovládni město/);
+  await expect(page).toHaveTitle(/Empire Streets \| Město bez pravidel/);
 }
 
 export async function openLobbyPage(page, options = {}) {

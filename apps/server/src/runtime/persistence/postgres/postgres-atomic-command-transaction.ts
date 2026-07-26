@@ -31,11 +31,11 @@ export const createPostgresAtomicCommandTransaction = (
   run: (instanceId, callback, options) =>
     database.transaction(async (client) => {
       if (options?.runtimeLeaseFence) {
-        await assertCurrentRuntimeLease(client, instanceId, options.runtimeLeaseFence, true);
+        await assertCurrentPostgresRuntimeLease(client, instanceId, options.runtimeLeaseFence, true);
       } else if (options?.hostedStatusFence === "running-if-present") {
         await assertHostedRuntimeRunning(client, instanceId);
       }
-      await lockServerInstanceRow(client, instanceId);
+      await lockPostgresServerInstanceRow(client, instanceId);
       const result = await callback({
         commandLogRepository: createPostgresCommandLogRepository(client),
         commandReservationRepository: createPostgresCommandReservationRepositoryForTransaction(client),
@@ -45,7 +45,7 @@ export const createPostgresAtomicCommandTransaction = (
         snapshotRepository: createPostgresSnapshotRepositoryForTransaction(client, snapshotMetrics)
       });
       if (options?.runtimeLeaseFence) {
-        await assertCurrentRuntimeLease(client, instanceId, options.runtimeLeaseFence, false);
+        await assertCurrentPostgresRuntimeLease(client, instanceId, options.runtimeLeaseFence, false);
       }
       return result;
     })
@@ -68,7 +68,7 @@ const assertHostedRuntimeRunning = async (
   }
 };
 
-const assertCurrentRuntimeLease = async (
+export const assertCurrentPostgresRuntimeLease = async (
   client: PostgresQueryable,
   instanceId: string,
   fence: RuntimeLeaseFence,
@@ -87,7 +87,7 @@ const assertCurrentRuntimeLease = async (
   if ((result.rowCount ?? 0) !== 1) throw new RuntimeLeaseFenceRejectedError(instanceId);
 };
 
-const lockServerInstanceRow = async (
+export const lockPostgresServerInstanceRow = async (
   client: PostgresQueryable,
   instanceId: string
 ): Promise<void> => {

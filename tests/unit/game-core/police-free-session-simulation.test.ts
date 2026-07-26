@@ -14,8 +14,10 @@ const RESOURCE_STATE_ID = "resource:1";
 const FREE_CONFIG = resolveModeConfig("free");
 const CONTEXT = { config: FREE_CONFIG };
 const TICKS_PER_MINUTE = Math.round(60_000 / FREE_CONFIG.tickRateMs);
-const SESSION_MINUTES = 120;
-const SESSION_TICKS = SESSION_MINUTES * TICKS_PER_MINUTE;
+const SESSION_MINUTES = 180;
+const ACTIVE_SESSION_TICKS = SESSION_MINUTES * TICKS_PER_MINUTE;
+const RAID_SETTLEMENT_TICKS = FREE_CONFIG.balance.police!.raidDurationTicks + 1;
+const SESSION_TICKS = ACTIVE_SESSION_TICKS + RAID_SETTLEMENT_TICKS;
 const runtimeEnv = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {};
 
 type RiskTier = "low" | "medium" | "high" | "extreme";
@@ -305,7 +307,7 @@ const simulateScenario = (scenario: ScenarioDefinition): ScenarioMetrics => {
   const metrics = createEmptyMetrics(scenario.name);
 
   for (let tick = 0; tick < SESSION_TICKS; tick += 1) {
-    if (tick % TICKS_PER_MINUTE === 0) {
+    if (tick < ACTIVE_SESSION_TICKS && tick % TICKS_PER_MINUTE === 0) {
       const minute = tick / TICKS_PER_MINUTE;
       applyPassiveMinute(state, scenario);
       scenario.applyMinute?.(state, minute);
@@ -313,7 +315,7 @@ const simulateScenario = (scenario: ScenarioDefinition): ScenarioMetrics => {
     const tickResult = runTick(state, CONTEXT);
     state = tickResult.nextState;
     captureEvents(metrics, state, tickResult.events);
-    captureModel(metrics, state);
+    if (tick < ACTIVE_SESSION_TICKS) captureModel(metrics, state);
   }
 
   metrics.ticksElapsed = SESSION_TICKS;
@@ -426,30 +428,33 @@ describe("free-session police balance simulation", () => {
     const warConfig = resolveModeConfig("war");
 
     expect(FREE_CONFIG.balance.police).toMatchObject({
-      raidCooldownTicks: 360,
-      raidDurationTicks: 360,
-      pendingRaidTtlTicks: 360,
       maxConcurrentRaidsByPhase: {
-        day: 2,
+        day: 1,
         night: 1
       },
       highPressureRaidThreshold: 115,
       heatDecay: {
-        playerIntervalTicks: 30,
-        districtIntervalTicks: 60,
         districtBaseDecay: 3
       }
     });
+    const freePolice = FREE_CONFIG.balance.police!;
+    const freeHeatDecay = freePolice.heatDecay!;
+    expect(freePolice.raidCooldownTicks * FREE_CONFIG.tickRateMs).toBe(4 * 60 * 60 * 1000);
+    expect(freePolice.raidDurationTicks * FREE_CONFIG.tickRateMs).toBe(60 * 60 * 1000);
+    expect(freePolice.pendingRaidTtlTicks).toBe(freePolice.raidDurationTicks);
+    expect(freeHeatDecay.playerIntervalTicks * FREE_CONFIG.tickRateMs).toBe(2.5 * 60 * 1000);
+    expect(freeHeatDecay.districtIntervalTicks * FREE_CONFIG.tickRateMs).toBe(5 * 60 * 1000);
     expect(warConfig.balance.police).toMatchObject({
-      raidCooldownTicks: 4,
-      raidDurationTicks: 120,
-      pendingRaidTtlTicks: 120,
       maxConcurrentRaidsByPhase: {
-        day: 2,
+        day: 1,
         night: 1
       },
       highPressureRaidThreshold: 100
     });
+    const warPolice = warConfig.balance.police!;
+    expect(warPolice.raidCooldownTicks * warConfig.tickRateMs).toBe(4 * 60 * 60 * 1000);
+    expect(warPolice.raidDurationTicks * warConfig.tickRateMs).toBe(60 * 60 * 1000);
+    expect(warPolice.pendingRaidTtlTicks).toBe(warPolice.raidDurationTicks);
   });
 
   it("keeps quiet play safe, pressures active play, and checks snowball control", () => {

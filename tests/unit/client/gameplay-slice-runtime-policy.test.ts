@@ -18,13 +18,17 @@ const installBrowser = ({
   search,
   metaContent = "local-demo",
   localDemoEnabled = false,
-  sessionDemoEnabled = false
+  sessionDemoEnabled = false,
+  storedMode = null,
+  entrypointMode = null
 }: {
   hostname: string;
   search: string;
   metaContent?: string;
   localDemoEnabled?: boolean;
   sessionDemoEnabled?: boolean;
+  storedMode?: string | null;
+  entrypointMode?: "server-authoritative" | "local-demo" | null;
 }) => {
   const setMode = vi.fn();
   const meta = { getAttribute: () => metaContent };
@@ -35,9 +39,10 @@ const installBrowser = ({
   } as unknown as Document;
   globalThis.window = {
     document: globalThis.document,
+    __EMPIRE_GAMEPLAY_EXECUTION_MODE__: entrypointMode || undefined,
     EmpireConfigOverrides: { localDemoEnabled },
     empireStreetsRuntimeDiagnostics: { setMode },
-    localStorage: { getItem: () => null },
+    localStorage: { getItem: () => storedMode },
     sessionStorage: {
       getItem: () => sessionDemoEnabled ? "1" : null,
       removeItem: vi.fn()
@@ -79,6 +84,21 @@ describe("gameplay slice runtime policy", () => {
 
     expect(getForcedDevelopmentRuntimeMode()).toBe("server-authoritative");
     expect(isLegacyGameplayFallbackAllowed()).toBe(false);
+  });
+
+  it("uses the entrypoint authority instead of a stale localStorage demo preference", () => {
+    installBrowser({
+      hostname: "localhost",
+      search: "",
+      metaContent: "server-authoritative",
+      storedMode: "local-demo",
+      entrypointMode: "server-authoritative"
+    });
+    const root = { dataset: {}, hidden: false } as unknown as HTMLElement;
+
+    expect(getForcedDevelopmentRuntimeMode()).toBe("server-authoritative");
+    expect(applyDevelopmentRuntimeOverride(root)).toBe(false);
+    expect(root.hidden).toBe(false);
   });
 
   it("uses an explicit local demo config before the module entrypoint runs", () => {

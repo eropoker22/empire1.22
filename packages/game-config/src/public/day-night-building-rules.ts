@@ -1,5 +1,4 @@
 import type { DayNightBuildingRuleConfig } from "@empire/game-core/contracts/game-mode-config";
-
 export const dayNightBuildingRules: Record<string, DayNightBuildingRuleConfig> = Object.freeze({
   central_bank: {
     preferredPhase: "day",

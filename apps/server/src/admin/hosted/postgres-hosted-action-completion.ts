@@ -20,6 +20,14 @@ import {
 
 type CompletionInput = Parameters<HostedControlPlaneRepository["completeAction"]>[0];
 
+export type PostgresHostedActionCompletionResult =
+  | { completed: false }
+  | {
+      completed: true;
+      server: HostedServerRecord;
+      authoritativeNow: string;
+    };
+
 interface LockedServerRow extends HostedServerRow {
   authoritative_now: unknown;
   runtime_lease_incarnation_id: unknown;
@@ -28,18 +36,26 @@ interface LockedServerRow extends HostedServerRow {
 export const completePostgresHostedAction = (
   database: PostgresDatabase,
   input: CompletionInput
-): Promise<boolean> => database.transaction(async (client) => {
+): Promise<boolean> => database.transaction(async (client) =>
+  (await completePostgresHostedActionInTransaction(client, input)).completed);
+
+export const completePostgresHostedActionInTransaction = async (
+  client: PostgresQueryable,
+  input: CompletionInput
+): Promise<PostgresHostedActionCompletionResult> => {
   const locked = await client.query<LockedServerRow>(
     `SELECT clock_timestamp() AS authoritative_now,runtime_lease_incarnation_id,${SERVER_COLUMNS}
      FROM empire_hosted_server_instances WHERE server_instance_id=$1 FOR UPDATE`,
     [input.request.serverInstanceId]
   );
   const row = locked.rows[0];
-  if (!row) return false;
+  if (!row) return { completed: false };
   const authoritativeNow = iso(row.authoritative_now);
-  if (!await lockCurrentActionClaim(client, { ...input, at: authoritativeNow })) return false;
+  if (!await lockCurrentActionClaim(client, { ...input, at: authoritativeNow })) {
+    return { completed: false };
+  }
   const server = mapServer(row);
-  if (!hasCurrentLease(server, row, input, authoritativeNow)) return false;
+  if (!hasCurrentLease(server, row, input, authoritativeNow)) return { completed: false };
 
   const readyMemberships = input.request.action === "start"
     ? await listHostedReadyMemberships(client, server.serverInstanceId, { lockRows: true }) : [];
@@ -64,10 +80,12 @@ export const completePostgresHostedAction = (
   });
   if (decision.kind === "rejected") {
     await rejectClaimedAction(client, input, authoritativeNow, decision.errorCode);
-    return false;
+    return { completed: false };
   }
 
-  if (!await updateHostedServer(client, server, decision.server, input, authoritativeNow)) return false;
+  if (!await updateHostedServer(client, server, decision.server, input, authoritativeNow)) {
+    return { completed: false };
+  }
   await client.query(
     `UPDATE empire_server_instances
      SET status=$2,payload=jsonb_set(payload,'{joinPolicy}',to_jsonb($3::text)),updated_at=$4::timestamptz
@@ -81,8 +99,12 @@ export const completePostgresHostedAction = (
     [input.request.actionRequestId, authoritativeNow]
   );
   await insertCompletionAudits(client, input.audit, decision.auditActions, authoritativeNow);
-  return true;
-});
+  return {
+    completed: true,
+    server: decision.server,
+    authoritativeNow
+  };
+};
 
 const updateHostedServer = async (
   client: PostgresQueryable,

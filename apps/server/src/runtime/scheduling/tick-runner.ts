@@ -32,10 +32,19 @@ export const runInstanceTick = (
   runtime.runtimeHealth.lastTickStartedAt = clock.nowIso();
 
   try {
+    const previousRootVersion = runtime.state.root.version;
     const result = runTick(runtime.state, {
       config: runtime.config
     });
-    runtime.state = result.nextState;
+    runtime.state = result.nextState.root.version > previousRootVersion
+      ? result.nextState
+      : {
+          ...result.nextState,
+          root: {
+            ...result.nextState.root,
+            version: previousRootVersion + 1
+          }
+        };
 
     for (const event of result.events) {
       runtime.eventQueue.enqueue(event);

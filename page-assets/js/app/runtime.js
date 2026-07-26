@@ -554,7 +554,14 @@ import {
   normalizeRuntimeHexColor,
   resolveRuntimeAssetUrl
 } from "./runtime/utils.js";
-import { initRuntimeCompatibilityGlobals } from "./runtime/compatibility.js";
+import {
+  initRuntimeCompatibilityGlobals,
+  unregisterRuntimePublicHandlers
+} from "./runtime/compatibility.js";
+import {
+  captureLegacyRuntimeLifecycle,
+  destroyLegacyRuntimeLifecycle
+} from "./runtime/legacyRuntimeLifecycle.js";
 import {
   MARKET_BLACK_HEAT_BY_VALUE,
   MARKET_PLAYER_LISTING_LIMIT,
@@ -811,10 +818,19 @@ import {
 } from "./runtime/playerIdentityVisuals.js";
 import { createLaunchPlayerRuntime } from "./runtime/launchPlayerRuntime.js";
 import { createAuthoritySessionAccessors } from "./runtime/authoritySessionAccessors.js";
+import { createServerGameplayCommandId } from "./runtime/serverCommandJournal.js";
 import {
-  createServerCommandJournal,
-  createServerGameplayCommandId
-} from "./runtime/serverCommandJournal.js";
+  getServerGameplaySliceReadModel as getCanonicalServerGameplaySliceReadModel,
+  prepareServerGameplayCommand as prepareCanonicalServerGameplayCommand,
+  retryPendingServerGameplayCommands as retryCanonicalServerGameplayCommands,
+  submitPreparedServerGameplayCommand as submitCanonicalPreparedServerGameplayCommand,
+  submitServerAllianceCommand as submitCanonicalServerAllianceCommand,
+  submitServerBountyCommand as submitCanonicalServerBountyCommand,
+  submitServerCityEventCommand as submitCanonicalServerCityEventCommand,
+  submitServerEmergencyRecoveryCommand as submitCanonicalServerEmergencyRecoveryCommand,
+  submitServerGameplayCommand as submitCanonicalServerGameplayCommand,
+  syncServerGameplaySliceResponse
+} from "./runtime/serverGameplaySource.js";
 import { createDistrictBuildingProfileRuntime } from "./runtime/districtBuildingProfileRuntime.js";
 import { createBuildingNetworkRuntime } from "./runtime/buildingNetworkRuntime.js";
 import { createDistrictActionPanelRuntime } from "./runtime/districtActionPanelRuntime.js";
@@ -992,6 +1008,7 @@ let launchPlayerRuntime = null;
 const runtimeInitializedRoots = new WeakSet();
 const runtimeUiBoundRoots = new WeakSet();
 const runtimeContextsByRoot = new WeakMap();
+const LEGACY_RUNTIME_LIFECYCLE_OWNER = "legacy-runtime";
 const onboardingBridgesByRoot = new WeakMap();
 const policeHeatBridgesByRoot = new WeakMap();
 const eventRumorBridgesByRoot = new WeakMap();
@@ -1244,63 +1261,21 @@ function submitServerArmoryCommand({ type, payload } = {}) {
 }
 
 export function getServerGameplaySliceReadModel() {
-  return latestGameplaySliceReadModel;
+  return getCanonicalServerGameplaySliceReadModel() || latestGameplaySliceReadModel;
 }
 
 function submitServerCityEventCommand({ action, id } = {}) {
-  const normalizedId = String(id || "").trim();
-  const command = action === "start"
-    ? { type: "start-city-event", payload: { offerId: normalizedId } }
-    : action === "claim"
-      ? { type: "claim-city-event-reward", payload: { pendingRewardId: normalizedId } }
-      : null;
-  if (!command || !normalizedId) {
-    return Promise.resolve({
-      accepted: false,
-      errors: [{ message: "Neplatná City Events akce." }]
-    });
-  }
-  return submitServerDistrictActionCommand({
-    ...command,
-    focusDistrictId: latestGameplaySliceReadModel?.district?.districtId
-      || latestGameplaySliceReadModel?.player?.homeDistrictId
-  });
+  return submitCanonicalServerCityEventCommand({ action, id });
 }
 
 function submitServerEmergencyRecoveryCommand() {
-  return submitServerDistrictActionCommand({
-    type: "claim-emergency-recovery",
-    payload: {},
-    focusDistrictId: latestGameplaySliceReadModel?.player?.homeDistrictId
-  });
+  return submitCanonicalServerEmergencyRecoveryCommand();
 }
 
 function createGameplaySliceCommandId(prefix = "command:market") {
   return createServerGameplayCommandId(prefix);
 }
 
-const serverCommandJournal = createServerCommandJournal();
-const resolvingServerGameplayCommandIds = new Set();
-const CONFLICT_ERROR_MESSAGES = Object.freeze({
-  DISTRICT_CONFLICT_STATE_CHANGED: "Situace v districtu se mezitím změnila. Načítám aktuální stav.",
-  TARGET_OWNER_CHANGED: "District mezitím změnil vlastníka. Původní akci nelze provést.",
-  TARGET_NO_LONGER_NEUTRAL: "District už mezitím obsadil jiný hráč.",
-  TARGET_ATTACK_PROTECTED: "District se právě vzpamatovává z boje. Další útok bude možný za chvíli.",
-  TARGET_HEIST_PROTECTED: "District je po heistu dočasně chráněný.",
-  TARGET_STABILIZING: "District se po převzetí ještě stabilizuje.",
-  TARGET_LOCKED: "District je dočasně uzamčený.",
-  TARGET_DESTROYED: "Zničený district nelze použít pro tuto akci.",
-  SOURCE_CONFLICT_LOCKED: "Tento source district právě podporuje jinou operaci.",
-  PLAYER_MAJOR_OPERATION_ACTIVE: "Tvůj gang právě dokončuje jinou velkou operaci.",
-  SPY_INTEL_ALREADY_ACTIVE: "Na tento district už máš stále platné informace.",
-  SPY_SLOT_LIMIT_REACHED: "Oba špionážní sloty jsou právě obsazené.",
-  TARGET_LOOT_EXHAUSTED: "Někdo byl rychlejší. V districtu už nezbyl použitelný loot.",
-  ALLIANCE_RELATION_CHANGED: "Vztah k vlastníkovi districtu se mezitím změnil.",
-  FORMER_ALLY_TRUCE_ACTIVE: "Po rozpadu spojenectví ještě běží příměří.",
-  PLAYER_DEFEATED: "Poražený hráč už nemůže spouštět herní akce.",
-  PLAYER_HAS_NO_VALID_ORIGIN: "Pro tuto akci nemáš použitelný zdrojový district.",
-  LAST_STAND_PROTECTION_ACTIVE: "Poslední bašta hráče je dočasně chráněná."
-});
 const STALE_CONFLICT_ERROR_CODES = new Set([
   "DISTRICT_CONFLICT_STATE_CHANGED",
   "TARGET_OWNER_CHANGED",
@@ -1311,22 +1286,11 @@ const hasStaleConflictError = (response) => Array.isArray(response?.errors)
   && response.errors.some((error) => STALE_CONFLICT_ERROR_CODES.has(String(error?.code || "")));
 
 export async function submitServerDistrictActionCommand({ type, payload, focusDistrictId, commandId } = {}) {
-  const connectionState = typeof window !== "undefined" ? window.empireStreetsGameplayConnectionState : "connected";
-  if (connectionState && connectionState !== "connected") {
-    return {
-      accepted: false,
-      errors: [{ message: connectionState === "session_expired" ? "Relace vypršela. Obnov přihlášení." : "Serverový stav se obnovuje. Akce zatím není dostupná." }]
-    };
-  }
-  if (!isServerAuthoritativeGameplayRuntimeReady()) {
-    return { accepted: false, errors: [{ message: "Serverový herní stav ještě není načtený." }] };
-  }
-  const slice = latestGameplaySliceReadModel || null;
-  const player = slice?.player || null;
-  if (!slice || !player?.playerId || !player?.instanceId) {
-    return { accepted: false, errors: [{ message: "Chybí serverový kontext pro herní akci." }] };
-  }
-  const prepared = prepareServerGameplayCommand({
+  return submitCanonicalServerGameplayCommand({ type, payload, focusDistrictId, commandId });
+}
+
+export function prepareServerGameplayCommand({ type, payload, focusDistrictId, commandId, slice, player } = {}) {
+  return prepareCanonicalServerGameplayCommand({
     type,
     payload,
     focusDistrictId,
@@ -1334,186 +1298,14 @@ export async function submitServerDistrictActionCommand({ type, payload, focusDi
     slice,
     player
   });
-  return submitPreparedServerGameplayCommand(prepared);
-}
-
-export function prepareServerGameplayCommand({ type, payload, focusDistrictId, commandId, slice, player } = {}) {
-  const activeSlice = slice || latestGameplaySliceReadModel || null;
-  const activePlayer = player || activeSlice?.player || null;
-  if (!activeSlice || !activePlayer?.playerId || !activePlayer?.instanceId) {
-    throw new Error("Server gameplay command requires an authoritative player and instance scope.");
-  }
-  const scope = {
-    playerId: activePlayer.playerId,
-    serverInstanceId: activePlayer.instanceId
-  };
-  const request = {
-    command: {
-      id: commandId || createGameplaySliceCommandId(`command:${String(type || "district-action")}`),
-      type,
-      mode: activePlayer.mode || activeSlice.mode?.mode || "free",
-      playerId: activePlayer.playerId,
-      serverInstanceId: activePlayer.instanceId,
-      issuedAt: new Date().toISOString(),
-      payload: payload || {},
-      clientRequestId: null
-    },
-    focusDistrictId: focusDistrictId || activeSlice?.district?.districtId || activePlayer.homeDistrictId,
-    expectedStateVersion: activeSlice.server?.stateVersion ?? null
-  };
-  const snapshotToken = getGameplaySliceSnapshotToken(activePlayer.instanceId, activePlayer.playerId);
-  if (snapshotToken) request.snapshotToken = snapshotToken;
-  const entry = serverCommandJournal.prepare({
-    ...scope,
-    commandId: request.command.id,
-    commandType: request.command.type,
-    payload: request.command.payload,
-    focusDistrictId: request.focusDistrictId,
-    expectedStateVersion: request.expectedStateVersion,
-    clientCreatedAt: request.command.issuedAt,
-    request
-  });
-  return { scope, entry, request: entry.request || request };
 }
 
 export async function submitPreparedServerGameplayCommand(prepared) {
-  const request = prepared?.request;
-  const scope = prepared?.scope || getCurrentServerCommandJournalScope(request);
-  const commandId = String(request?.command?.id || prepared?.entry?.commandId || "");
-  if (!commandId) {
-    return { accepted: false, errors: [{ message: "Chybí command ID serverové akce." }] };
-  }
-  if (!scope?.playerId || !scope?.serverInstanceId) {
-    return { accepted: false, errors: [{ message: "Chybí scope pro ověření výsledku akce." }] };
-  }
-  serverCommandJournal.beginSubmit(scope, commandId);
-  try {
-    const response = await fetch(`${getGameplaySliceEndpointBase()}/submit`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify(request)
-    });
-    let body = null;
-    try {
-      body = await response.json();
-    } catch (_error) {
-      body = null;
-    }
-    if (!body || typeof body !== "object") {
-      return markServerGameplayCommandAmbiguous(scope, commandId);
-    }
-    const normalizedBody = normalizeConflictCommandResponse(body);
-    syncGameplaySliceResponse(normalizedBody);
-    serverCommandJournal.markTerminal(scope, commandId, normalizedBody.accepted ? "applied" : "rejected", normalizedBody.errors?.[0]?.code || null);
-    serverCommandJournal.remove(scope, commandId);
-    return normalizedBody;
-  } catch (_error) {
-    return markServerGameplayCommandAmbiguous(scope, commandId);
-  }
+  return submitCanonicalPreparedServerGameplayCommand(prepared);
 }
 
 export async function retryPendingServerGameplayCommands() {
-  if (typeof window !== "undefined" && window.empireStreetsGameplayConnectionState !== "connected") {
-    return [];
-  }
-  const scope = getCurrentServerCommandJournalScope();
-  if (!scope) return [];
-  const entries = serverCommandJournal.list(scope, ["prepared", "submitting", "ambiguous", "resolving"]);
-  const results = [];
-  for (const entry of entries) {
-    results.push(await resolvePendingServerGameplayCommand(scope, entry));
-  }
-  return results;
-}
-
-function getCurrentServerCommandJournalScope(request = null) {
-  const player = latestGameplaySliceReadModel?.player || null;
-  const playerId = player?.playerId || request?.command?.playerId || null;
-  const serverInstanceId = player?.instanceId || request?.command?.serverInstanceId || null;
-  return playerId && serverInstanceId ? { playerId, serverInstanceId } : null;
-}
-
-function markServerGameplayCommandAmbiguous(scope, commandId) {
-  serverCommandJournal.markAmbiguous(scope, commandId);
-  return {
-    accepted: false,
-    pending: true,
-    commandId,
-    errors: [{ code: "COMMAND_RESULT_UNKNOWN", message: "Výsledek operace se stále ověřuje. Neodesílej ji znovu." }]
-  };
-}
-
-async function resolvePendingServerGameplayCommand(scope, entry) {
-  const commandId = String(entry?.commandId || "");
-  if (!commandId || resolvingServerGameplayCommandIds.has(commandId)) return null;
-  const request = entry?.request;
-  if (!request?.command || request.command.playerId !== scope.playerId || request.command.serverInstanceId !== scope.serverInstanceId) {
-    serverCommandJournal.abandon(scope, commandId);
-    return null;
-  }
-  resolvingServerGameplayCommandIds.add(commandId);
-  serverCommandJournal.markResolving(scope, commandId);
-  try {
-    for (const delay of [0, 500, 1000, 2000, 4000, 8000]) {
-      if (delay > 0) await waitForServerCommandResult(delay);
-      const lookup = await lookupServerGameplayCommandResult(scope, entry);
-      if (!lookup) return markServerGameplayCommandAmbiguous(scope, commandId);
-      if (lookup.status === "applied" || lookup.status === "rejected") {
-        const normalized = normalizeConflictCommandResponse(lookup);
-        syncGameplaySliceResponse(normalized);
-        serverCommandJournal.markTerminal(scope, commandId, lookup.status, normalized.errors?.[0]?.code || null);
-        serverCommandJournal.remove(scope, commandId);
-        return normalized;
-      }
-      if (lookup.status === "not_found") {
-        return submitPreparedServerGameplayCommand({ scope, entry, request });
-      }
-    }
-    return markServerGameplayCommandAmbiguous(scope, commandId);
-  } finally {
-    resolvingServerGameplayCommandIds.delete(commandId);
-  }
-}
-
-async function lookupServerGameplayCommandResult(scope, entry) {
-  try {
-    const response = await fetch(`${getGameplaySliceEndpointBase()}/command-result`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({
-        serverInstanceId: scope.serverInstanceId,
-        commandId: entry.commandId,
-        districtId: entry.focusDistrictId || null
-      })
-    });
-    const body = await response.json();
-    return body && typeof body === "object" ? body : null;
-  } catch {
-    return null;
-  }
-}
-
-const waitForServerCommandResult = (delayMs) => new Promise((resolve) => {
-  setTimeout(resolve, delayMs);
-});
-
-function normalizeConflictCommandResponse(response) {
-  const errors = Array.isArray(response?.errors)
-    ? response.errors.map((error) => {
-        const code = String(error?.code || "");
-        return CONFLICT_ERROR_MESSAGES[code]
-          ? { ...error, message: CONFLICT_ERROR_MESSAGES[code] }
-          : error;
-      })
-    : [];
-  if (typeof document !== "undefined" && errors.some((error) => STALE_CONFLICT_ERROR_CODES.has(String(error?.code || "")))) {
-    document.dispatchEvent(new CustomEvent("empire:conflict-state-stale", {
-      detail: { commandId: response?.commandResult?.commandId || null, errors }
-    }));
-  }
-  return { ...response, errors };
+  return retryCanonicalServerGameplayCommands();
 }
 
 function getGameplaySliceEndpointBase() {
@@ -1545,21 +1337,8 @@ function setGameplaySliceSnapshotToken(serverInstanceId, playerId, token) {
 }
 
 function syncGameplaySliceResponse(response) {
-  const player = latestGameplaySliceReadModel?.player || null;
-  const responsePlayer = response?.readModel?.player || player;
-  if (response?.snapshotToken && responsePlayer?.instanceId && responsePlayer?.playerId) {
-    setGameplaySliceSnapshotToken(responsePlayer.instanceId, responsePlayer.playerId, response.snapshotToken);
-  }
-  if (response?.readModel) {
-    latestGameplaySliceReadModel = response.readModel;
-    window.empireStreetsGameplaySliceReadModel = response.readModel;
-    document.dispatchEvent(new CustomEvent("empire:gameplay-slice-rendered", {
-      detail: {
-        gameplaySlice: response.readModel,
-        playerView: response.readModel.player || null
-      }
-    }));
-  }
+  if (response?.readModel) latestGameplaySliceReadModel = response.readModel;
+  return syncServerGameplaySliceResponse(response);
 }
 
 async function submitServerMarketCommand({
@@ -1609,106 +1388,11 @@ async function submitServerMarketCommand({
 }
 
 async function submitServerBountyCommand({ action = "create", payload = {} } = {}) {
-  if (!isServerAuthoritativeGameplayRuntimeReady()) {
-    return {
-      accepted: false,
-      errors: [{ message: "Server-authoritative gameplay runtime není připravený." }]
-    };
-  }
-
-  const slice = latestGameplaySliceReadModel || null;
-  const player = slice?.player || null;
-  const focusDistrictId = slice?.district?.districtId || player?.homeDistrictId || null;
-  if (!slice || !player || !focusDistrictId) {
-    return {
-      accepted: false,
-      errors: [{ message: "Bounty akci nejde odeslat bez server slice kontextu." }]
-    };
-  }
-
-  const normalizedAction = action === "cancel" ? "cancel" : "create";
-  const command = {
-    id: createGameplaySliceCommandId(normalizedAction === "cancel" ? "command:bounty-cancel" : "command:bounty-create"),
-    type: normalizedAction === "cancel" ? "cancel-bounty" : "create-bounty",
-    mode: player.mode || slice.mode?.mode || "free",
-    playerId: player.playerId,
-    serverInstanceId: player.instanceId,
-    issuedAt: new Date().toISOString(),
-    payload,
-    clientRequestId: null
-  };
-  const request = {
-    command,
-    focusDistrictId,
-    expectedStateVersion: slice.server?.stateVersion ?? null
-  };
-  const snapshotToken = getGameplaySliceSnapshotToken(player.instanceId, player.playerId);
-  if (snapshotToken) {
-    request.snapshotToken = snapshotToken;
-  }
-
-  const response = await fetch(`${getGameplaySliceEndpointBase()}/submit`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json"
-    },
-    credentials: "same-origin",
-    body: JSON.stringify(request)
-  }).then((payloadResponse) => payloadResponse.json());
-
-  syncGameplaySliceResponse(response);
-  return response;
+  return submitCanonicalServerBountyCommand({ action, payload });
 }
 
 async function submitServerAllianceCommand({ type = "", payload = {} } = {}) {
-  if (!isServerAuthoritativeGameplayRuntimeReady()) {
-    return {
-      accepted: false,
-      errors: [{ message: "Server-authoritative gameplay runtime není připravený." }]
-    };
-  }
-
-  const slice = latestGameplaySliceReadModel || null;
-  const player = slice?.player || null;
-  const focusDistrictId = slice?.district?.districtId || player?.homeDistrictId || null;
-  if (!slice || !player || !focusDistrictId) {
-    return {
-      accepted: false,
-      errors: [{ message: "Aliance akci nejde odeslat bez server slice kontextu." }]
-    };
-  }
-
-  const command = {
-    id: createGameplaySliceCommandId(`command:alliance:${String(type || "action")}`),
-    type,
-    mode: player.mode || slice.mode?.mode || "free",
-    playerId: player.playerId,
-    serverInstanceId: player.instanceId,
-    issuedAt: new Date().toISOString(),
-    payload,
-    clientRequestId: null
-  };
-  const request = {
-    command,
-    focusDistrictId,
-    expectedStateVersion: slice.server?.stateVersion ?? null
-  };
-  const snapshotToken = getGameplaySliceSnapshotToken(player.instanceId, player.playerId);
-  if (snapshotToken) {
-    request.snapshotToken = snapshotToken;
-  }
-
-  const response = await fetch(`${getGameplaySliceEndpointBase()}/submit`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json"
-    },
-    credentials: "same-origin",
-    body: JSON.stringify(request)
-  }).then((payloadResponse) => payloadResponse.json());
-
-  syncGameplaySliceResponse(response);
-  return response;
+  return submitCanonicalServerAllianceCommand({ type, payload });
 }
 
 function resolveServerDistrictIdFromBuildingContext(context = {}) {
@@ -12533,6 +12217,10 @@ function bindDistrictCanvas(root) {
       openPopup(selectedDistrict);
       return true;
     },
+    destroy() {
+      cleanupDistrictCanvas();
+      return true;
+    },
     getState() {
       return {
         gamePhase: interactionState.gamePhase,
@@ -13785,7 +13473,9 @@ const {
   MutationObserver: typeof MutationObserver !== "undefined" ? MutationObserver : null,
   buildingActionEmptySnapshot: BUILDING_ACTION_EMPTY_SNAPSHOT,
   buildingActionRemoveSelector: BUILDING_ACTION_REMOVE_SELECTOR,
-  clearInterval: typeof window !== "undefined" ? window.clearInterval.bind(window) : null,
+  clearInterval: typeof window !== "undefined"
+    ? (timerId) => window.clearInterval(timerId)
+    : null,
   createBuildingActionFingerprint,
   isBuildingActionEntryOpenable,
   openCurrentBuildingActionResultModal,
@@ -13794,7 +13484,9 @@ const {
   renderBuildingActionFeed,
   resolveBuildingActionPanel,
   scheduleBuildingActionMutationCapture,
-  setInterval: typeof window !== "undefined" ? window.setInterval.bind(window) : null,
+  setInterval: typeof window !== "undefined"
+    ? (callback, delay) => window.setInterval(callback, delay)
+    : null,
   windowRef: typeof window === "undefined" ? null : window
 });
 const runtimePopupBinders = createRuntimePopupBinders({
@@ -14951,48 +14643,50 @@ function bindUiEvents(root, context = null) {
     return false;
   }
 
-  runtimeUiBoundRoots.add(root);
-  bindTopbarMoneySkipControls(root);
-  bindFactionRegistration(root);
-  bindRegisteredPlayerState(root);
-  bindDistrictCanvas(root);
-  bindMapPhaseToggle(root);
-  bindBorderColorToggle(root);
-  bindGamePhaseToggle(root);
-  bindMapNavigation(root);
-  bindBuildingActionStatus(root);
-  bindServerMilestoneStreetNews(root);
-  bindSettingsModal(root);
-  bindLogoutActions(root);
-  bindGangWantedStatus(root);
-  bindFreeSessionOnboarding(root);
-  bindEliminationResultPopupOverlay(root);
-  bindEliminationPurgeWindow(root);
-  bindEliminationCountdownWarningOverlay(root);
-  bindEventRumorFeed(root);
-  bindPoliceHeatFeedback(root);
-  bindPlayerProfilePopup(root);
-  bindAlliancePopup(root);
-  bindMarketPopup(root);
-  bindLeaderboardPopup(root);
-  bindStoragePopup(root);
-  bindPharmacyPopup(root);
-  bindDrugLabPopup(root);
-  bindFactoryPopup(root);
-  bindArmoryPopup(root);
-  bindCityStatusBar(root);
-  bindOverflowTextTooltips(root);
-  bindSpyResourceToggle(root);
-  bindAttackOrders(root);
-  bindOccupyOrders(root);
-  bindRobberyOrders(root);
-  bindSpyMissions(root);
+  return captureLegacyRuntimeLifecycle(root, LEGACY_RUNTIME_LIFECYCLE_OWNER, () => {
+    runtimeUiBoundRoots.add(root);
+    bindTopbarMoneySkipControls(root);
+    bindFactionRegistration(root);
+    bindRegisteredPlayerState(root);
+    bindDistrictCanvas(root);
+    bindMapPhaseToggle(root);
+    bindBorderColorToggle(root);
+    bindGamePhaseToggle(root);
+    bindMapNavigation(root);
+    bindBuildingActionStatus(root);
+    bindServerMilestoneStreetNews(root);
+    bindSettingsModal(root);
+    bindLogoutActions(root);
+    bindGangWantedStatus(root);
+    bindFreeSessionOnboarding(root);
+    bindEliminationResultPopupOverlay(root);
+    bindEliminationPurgeWindow(root);
+    bindEliminationCountdownWarningOverlay(root);
+    bindEventRumorFeed(root);
+    bindPoliceHeatFeedback(root);
+    bindPlayerProfilePopup(root);
+    bindAlliancePopup(root);
+    bindMarketPopup(root);
+    bindLeaderboardPopup(root);
+    bindStoragePopup(root);
+    bindPharmacyPopup(root);
+    bindDrugLabPopup(root);
+    bindFactoryPopup(root);
+    bindArmoryPopup(root);
+    bindCityStatusBar(root);
+    bindOverflowTextTooltips(root);
+    bindSpyResourceToggle(root);
+    bindAttackOrders(root);
+    bindOccupyOrders(root);
+    bindRobberyOrders(root);
+    bindSpyMissions(root);
 
-  if (context) {
-    runtimeContextsByRoot.set(root, context);
-  }
+    if (context) {
+      runtimeContextsByRoot.set(root, context);
+    }
 
-  return true;
+    return true;
+  });
 }
 
 function initRuntime(root = getDefaultRuntimeRoot()) {
@@ -15002,6 +14696,14 @@ function initRuntime(root = getDefaultRuntimeRoot()) {
     return null;
   }
 
+  return captureLegacyRuntimeLifecycle(
+    resolvedRoot,
+    LEGACY_RUNTIME_LIFECYCLE_OWNER,
+    () => initResolvedRuntime(resolvedRoot)
+  );
+}
+
+function initResolvedRuntime(resolvedRoot) {
   if (!runtimeInitializedRoots.has(resolvedRoot)) {
     resolvedRoot.ownerDocument?.addEventListener?.("empire:runtime-mode-changed", (event) => {
       if (event?.detail?.runtimeMode === "server-authoritative") {
@@ -15036,12 +14738,84 @@ function initRuntime(root = getDefaultRuntimeRoot()) {
   return context;
 }
 
+function destroyRuntime(root = getDefaultRuntimeRoot()) {
+  const resolvedRoot = resolveRuntimeRoot(root);
+  if (!resolvedRoot) return false;
+  const wasMounted = runtimeInitializedRoots.has(resolvedRoot)
+    || runtimeUiBoundRoots.has(resolvedRoot)
+    || runtimeContextsByRoot.has(resolvedRoot);
+  if (!wasMounted) return false;
+  const context = runtimeContextsByRoot.get(resolvedRoot) || null;
+  const windowRef = resolvedRoot.ownerDocument?.defaultView || (typeof window === "undefined" ? null : window);
+  const actionPanel = buildingActionPanels.get(resolvedRoot);
+
+  stopLegacyGameplayTimers();
+  clearPoliceActionResultLiveTimer();
+  if (actionPanel?.cooldownFeedTimerId != null) {
+    windowRef?.clearInterval?.(actionPanel.cooldownFeedTimerId);
+    actionPanel.cooldownFeedTimerId = null;
+  }
+  actionPanel?.observer?.disconnect?.();
+  buildingActionPanels.delete(resolvedRoot);
+
+  resolvedRoot.querySelectorAll?.("[data-district-building-detail-popup]")?.forEach?.((shell) => {
+    stopDistrictBuildingDetailLiveRefresh(shell);
+    districtBuildingDetailContextByShell.delete(shell);
+    districtBuildingDetailUpgradeConfirmations.delete(shell);
+    districtBuildingDetailActionConfirmations.delete(shell);
+  });
+
+  for (const registry of [
+    onboardingBridgesByRoot,
+    eliminationPurgePanelsByRoot,
+    eliminationResultPopupsByRoot,
+    eliminationCountdownWarningsByRoot
+  ]) {
+    registry.get(resolvedRoot)?.destroy?.();
+    registry.delete(resolvedRoot);
+  }
+  policeHeatBridgesByRoot.delete(resolvedRoot);
+  eventRumorBridgesByRoot.delete(resolvedRoot);
+
+  windowRef?.empireStreetsDistrictState?.destroy?.();
+  windowRef?.empireStreetsMapNavigation?.destroy?.();
+  destroyLegacyRuntimeLifecycle(
+    resolvedRoot,
+    LEGACY_RUNTIME_LIFECYCLE_OWNER
+  );
+
+  if (onboardingSandboxSession) clearOnboardingSandboxTimers();
+  onboardingSandboxSession = null;
+  onboardingSandboxTimerBaseline = null;
+  latestGameplaySliceReadModel = null;
+  startPhaseResourceSimulationState = null;
+  runtimeUiBoundRoots.delete(resolvedRoot);
+  runtimeInitializedRoots.delete(resolvedRoot);
+  runtimeContextsByRoot.delete(resolvedRoot);
+  delete resolvedRoot.dataset.bootstrap;
+  delete resolvedRoot.dataset.runtimeInit;
+  resolvedRoot.ownerDocument?.documentElement?.removeAttribute?.("data-onboarding-sandbox");
+  resolvedRoot.ownerDocument?.body?.removeAttribute?.("data-onboarding-sandbox");
+
+  if (windowRef) {
+    if (windowRef.empireStreetsPage === context) delete windowRef.empireStreetsPage;
+    delete windowRef.empireStreetsDistrictState;
+    delete windowRef.empireStreetsMapNavigation;
+    delete windowRef.EmpireRuntime;
+    delete windowRef.EmpireRuntimeModules;
+    if (windowRef.Empire?.Map) delete windowRef.Empire.Map;
+  }
+  unregisterRuntimePublicHandlers({ windowRef });
+  return true;
+}
+
 function bootstrapPage() {
   const root = document.querySelector(PAGE_ROOT_SELECTOR);
   if (!root) {
     return null;
   }
 
+  initCompatibilityGlobals();
   return initRuntime(root);
 }
 
@@ -15321,6 +15095,7 @@ export {
   drawMapImage,
   drawRobberyDistrictAnimation,
   drawSpyDistrictAnimation,
+  destroyRuntime,
   formatCurrency,
   formatDurationLabel,
   getAdjacentDistrictIdsFromGeometry,

@@ -159,6 +159,7 @@ export function initBuildingDetailPanel(options = {}) {
   return {
     open: (buildingViewModel, callbacks = {}) => openBuildingDetailPanel(buildingViewModel, callbacks, options),
     close: () => closeBuildingDetailPanel(options.root),
+    destroy: () => destroyBuildingDetailPanel(options.root, options),
     render: (buildingViewModel, callbacks = {}) => renderBuildingDetailPanel(buildingViewModel, callbacks, options)
   };
 }
@@ -294,18 +295,19 @@ export function ensureBuildingDetailPanel(root, callbacks = {}, options = {}) {
     if (typeof callbacks.onClose === "function") callbacks.onClose(shell);
   };
 
-  shell.querySelectorAll("[data-district-building-detail-close]").forEach((element) => {
+  const closeControls = Array.from(shell.querySelectorAll("[data-district-building-detail-close]"));
+  closeControls.forEach((element) => {
     element.addEventListener("pointerdown", guardCloseInteraction);
     element.addEventListener("pointerup", guardCloseInteraction);
     element.addEventListener("click", close);
   });
-  collectButton?.addEventListener("click", () => {
+  const handleCollect = () => {
     if (typeof callbacks.onCollect === "function") callbacks.onCollect(shell);
-  });
-  upgradeButton?.addEventListener("click", () => {
+  };
+  const handleUpgrade = () => {
     if (typeof callbacks.onUpgrade === "function") callbacks.onUpgrade(shell);
-  });
-  body?.addEventListener("click", (event) => {
+  };
+  const handleBodyClick = (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     const tabButton = target.closest("[data-district-building-detail-tab]");
@@ -337,10 +339,26 @@ export function ensureBuildingDetailPanel(root, callbacks = {}, options = {}) {
         });
       }
     }
-  });
-  getDocument(root)?.addEventListener?.("keydown", (event) => {
+  };
+  const handleKeydown = (event) => {
     if (event.key === "Escape" && !shell.hidden) close();
-  });
+  };
+  const documentRef = getDocument(root);
+  collectButton?.addEventListener("click", handleCollect);
+  upgradeButton?.addEventListener("click", handleUpgrade);
+  body?.addEventListener("click", handleBodyClick);
+  documentRef?.addEventListener?.("keydown", handleKeydown);
+  shell.__empireBuildingDetailCleanup = () => {
+    closeControls.forEach((element) => {
+      element.removeEventListener("pointerdown", guardCloseInteraction);
+      element.removeEventListener("pointerup", guardCloseInteraction);
+      element.removeEventListener("click", close);
+    });
+    collectButton?.removeEventListener("click", handleCollect);
+    upgradeButton?.removeEventListener("click", handleUpgrade);
+    body?.removeEventListener("click", handleBodyClick);
+    documentRef?.removeEventListener?.("keydown", handleKeydown);
+  };
 
   return shell;
 }
@@ -1088,11 +1106,28 @@ export function closeBuildingDetailPanel(root = null) {
   return true;
 }
 
+export function destroyBuildingDetailPanel(root = null, options = {}) {
+  const scope = root || (typeof document !== "undefined" ? document : null);
+  if (!scope?.querySelectorAll) return false;
+  const popupKey = String(options.popupKey || "").trim();
+  let destroyed = false;
+  scope.querySelectorAll("[data-district-building-detail-popup]").forEach((shell) => {
+    if (popupKey && shell.dataset.districtBuildingDetailKey !== popupKey) return;
+    shell.__empireBuildingDetailCleanup?.();
+    shell.hidden = true;
+    closeOverlay(shell, { restoreFocus: false });
+    shell.remove();
+    destroyed = true;
+  });
+  return destroyed;
+}
+
 if (typeof window !== "undefined") {
   window.EmpireBuildingDetailPanel = {
     initBuildingDetailPanel,
     openBuildingDetailPanel,
     closeBuildingDetailPanel,
+    destroyBuildingDetailPanel,
     renderBuildingDetailPanel,
     renderBuildingStats,
     renderBuildingActions,

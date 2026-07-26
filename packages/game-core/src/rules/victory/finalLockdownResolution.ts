@@ -37,8 +37,12 @@ export const resolveFinalLockdown = (
     createFinalLockdownResolvedNotification(state, score.playerId, index + 1, score.score, endedAt)
   );
   const stateWithFeed = appendResolvedCityFeedEvents(state, [
-    createFinalLockdownResolvedFeedEvent(state, ranking.slice(0, topRankCount))
-  ]);
+    createFinalLockdownResolvedFeedEvent(
+      state,
+      ranking.slice(0, topRankCount),
+      context.config.tickRateMs
+    )
+  ], undefined, context.config.tickRateMs);
 
   return {
     nextState: {

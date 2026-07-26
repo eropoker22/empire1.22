@@ -5,6 +5,7 @@ import type {
   DiagnosticLogRepository,
   EventLogRepository,
   RuntimeOutboxRepository,
+  SnapshotPersistenceMetrics,
   SnapshotRepository
 } from "../repositories";
 import { createSnapshotPersistenceMetrics } from "../repositories";
@@ -52,6 +53,7 @@ export interface PostgresRuntimePersistenceRepositories {
   diagnosticLogRepository: DiagnosticLogRepository;
   snapshotRepository: SnapshotRepository;
   snapshotMaintenance: SnapshotMaintenanceRunner;
+  snapshotMetrics: SnapshotPersistenceMetrics;
   tickLock: RuntimeTickLock;
   atomicCommandPersistenceMode: "transactional";
   close(): Promise<void>;
@@ -84,6 +86,7 @@ export const createPostgresRuntimePersistenceRepositories = (
       resolveSnapshotRetentionPolicy(options.snapshotRetentionPolicy),
       { intervalMs: options.snapshotMaintenanceIntervalMs }
     ),
+    snapshotMetrics,
     tickLock: createPostgresRuntimeTickLock(database, {
       ownerId: options.tickLockOwnerId,
       ttlMs: options.tickLockTtlMs

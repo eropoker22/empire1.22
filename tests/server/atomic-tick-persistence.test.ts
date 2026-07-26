@@ -53,6 +53,52 @@ describe("atomic hosted tick persistence", () => {
     expect(published.map((event) => event.type)).toContain("tick-completed");
   });
 
+  it("holds the instance lock through tick commit and live-state publication", async () => {
+    const fixture = await createFixture("publish-race");
+    let boundaryCalls = 0;
+    let releaseTick!: () => void;
+    let reportTickCommitted!: () => void;
+    let commandBoundaryStarted = false;
+    const tickCommitted = new Promise<void>((resolve) => {
+      reportTickCommitted = resolve;
+    });
+    const tickCanPublish = new Promise<void>((resolve) => {
+      releaseTick = resolve;
+    });
+    fixture.runtime.atomicCommandTransaction = {
+      run: async (_instanceId, callback) => {
+        boundaryCalls += 1;
+        const result = await callback(fixture.repositories);
+        if (boundaryCalls === 1) {
+          reportTickCommitted();
+          await tickCanPublish;
+        } else {
+          commandBoundaryStarted = true;
+        }
+        return result;
+      }
+    };
+    const trapCommand = createPlaceTrapCommandFixture({
+      id: `command:atomic-tick:${fixture.name}:trap`,
+      playerId: fixture.playerId,
+      serverInstanceId: fixture.instanceId,
+      payload: { districtId: fixture.districtId }
+    });
+
+    const tickPromise = fixture.server.instanceManager.tickInstanceDurably(fixture.instanceId);
+    await tickCommitted;
+    const commandPromise = fixture.server.instanceManager.dispatchCommand(fixture.instanceId, trapCommand);
+    expect(commandBoundaryStarted).toBe(false);
+    releaseTick();
+    await Promise.all([tickPromise, commandPromise]);
+
+    const latest = await fixture.repositories.snapshotRepository.loadRecoveryHead(fixture.instanceId);
+    expect(commandBoundaryStarted).toBe(true);
+    expect(latest?.state.root.tick).toBe(1);
+    expect(latest?.state.root.trapIds).toHaveLength(1);
+    expect(fixture.runtime.state).toEqual(latest?.state);
+  });
+
   it("does not publish or replace runtime state when the atomic snapshot write fails", async () => {
     const fixture = await createFixture("rollback");
     const beforeState = structuredClone(fixture.runtime.state);
@@ -111,6 +157,7 @@ describe("atomic hosted tick persistence", () => {
 
   it("updates one recovery head every tick and checkpoints only at the configured cadence", async () => {
     const fixture = await createFixture("checkpoint-cadence");
+    fixture.runtime.atomicCommandTransaction = createSerializedBoundary(fixture.repositories);
 
     for (let index = 0; index < fixture.runtime.config.technical.snapshotIntervalTicks; index += 1) {
       fixture.runtime.scheduler.lastTickAtMs = null;
@@ -121,9 +168,9 @@ describe("atomic hosted tick persistence", () => {
     const checkpointCounts = await fixture.repositories.snapshotRepository.countCheckpoints(fixture.instanceId);
     expect(head?.tick).toBe(fixture.runtime.config.technical.snapshotIntervalTicks);
     expect(checkpointCounts).toMatchObject({
-      total: 1,
+      total: 2,
       rolling: 1,
-      lifecycle: 0,
+      lifecycle: 1,
       terminal: 0
     });
   });

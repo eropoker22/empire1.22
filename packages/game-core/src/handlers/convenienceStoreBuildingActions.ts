@@ -1,8 +1,16 @@
 import type { ConvenienceStoreBalanceConfig, FixedBuildingBalanceConfig, LobbyClubBalanceConfig, ResolvedGameModeConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import { applyResolvedRumorEventsToState, createPassiveBuildingRumorInput, type ResolveRumorEventInput } from "../rules/events/rumorPipeline";
+import {
+  convenienceStoreDeterministicRollPct as deterministicRollPct,
+  convenienceStoreMinutesToTicks as minutesToTicks,
+  formatConvenienceStoreReliability as formatReliability,
+  getOwnedActiveConvenienceSupportBuildingCount as getOwnedActiveBuildingCount,
+  pickConvenienceStoreAreaHint as pickAreaHint,
+  pickConvenienceStoreBuildingHint as pickBuildingHint,
+  pickConvenienceStoreDistrictHint as pickDistrictHint
+} from "./convenienceStoreBuildingActionHelpers";
 import { getOwnedLobbyClubCount } from "./lobbyClubBuildingActions";
-
 export interface ConvenienceStoreNetworkMultipliers {
   cleanIncomeMultiplier: number;
   dirtyIncomeMultiplier: number;
@@ -10,7 +18,6 @@ export interface ConvenienceStoreNetworkMultipliers {
   rumorMultiplier: number;
   heatMultiplier: number;
 }
-
 export interface ConvenienceStoreRumor {
   type: string;
   truthChancePct: number;
@@ -22,7 +29,6 @@ export interface ConvenienceStoreRumor {
   reliabilityLabel: string | null;
   text: string;
 }
-
 interface ConvenienceStoreMetadata {
   storedPopulation: number;
   populationLastUpdatedTick?: number;
@@ -31,7 +37,6 @@ interface ConvenienceStoreMetadata {
   lastPassiveRumorCheckTick?: number;
   rumorEvents: ConvenienceStoreRumor[];
 }
-
 export interface ConvenienceStoreActionResolution {
   balances: Record<string, number>;
   buildingMetadata: Record<string, unknown>;
@@ -43,7 +48,6 @@ export interface ConvenienceStoreActionResolution {
   reportText: string;
   convenienceStoreResult: Record<string, unknown>;
 }
-
 export const getOwnedConvenienceStoreCount = (
   state: CoreGameState,
   playerId: string,
@@ -54,7 +58,6 @@ export const getOwnedConvenienceStoreCount = (
     && building.ownerPlayerId === playerId
     && building.status === "active"
   ).length;
-
 export const resolveConvenienceStoreNetworkMultipliers = (
   count: number,
   config: ConvenienceStoreBalanceConfig
@@ -68,7 +71,6 @@ export const resolveConvenienceStoreNetworkMultipliers = (
     heatMultiplier: Math.min(config.network.maxHeatMultiplier, 1 + extra * config.network.heatBonusPctPerExtraStore / 100)
   };
 };
-
 export const applyConvenienceStorePopulationProduction = (
   state: CoreGameState,
   config: ConvenienceStoreBalanceConfig,
@@ -116,7 +118,6 @@ export const applyConvenienceStorePopulationProduction = (
 
   return changed ? { ...state, buildingsById } : state;
 };
-
 export const resolveConvenienceStoreAction = (input: {
   state: CoreGameState;
   building: CoreGameState["buildingsById"][string];
@@ -155,7 +156,6 @@ export const resolveConvenienceStoreAction = (input: {
     }
   };
 };
-
 export const validateConvenienceStoreAction = (input: {
   building: CoreGameState["buildingsById"][string];
   actionId: string;
@@ -170,7 +170,6 @@ export const validateConvenienceStoreAction = (input: {
   if (storedPopulation <= 0) return "convenience_store_no_population";
   return storedPopulation < minimum ? "convenience_store_insufficient_population" : null;
 };
-
 export const resolveConvenienceStoreRumorStats = (input: {
   state: CoreGameState;
   playerId: string;
@@ -208,7 +207,6 @@ export const resolveConvenienceStoreRumorStats = (input: {
     reliabilityVisible: false
   };
 };
-
 export const applyConvenienceStoreIncomeModifiers = (input: {
   config: ConvenienceStoreBalanceConfig;
   state: CoreGameState;
@@ -236,7 +234,6 @@ export const applyConvenienceStoreIncomeModifiers = (input: {
     maxLevel: 1
   };
 };
-
 export const applyConvenienceStorePassiveRumors = (
   state: CoreGameState,
   config: ConvenienceStoreBalanceConfig,
@@ -398,25 +395,6 @@ const withConvenienceStoreMetadata = (
   convenienceStore: cleanupMetadata(convenienceStore)
 });
 
-const pickDistrictHint = (state: CoreGameState, seed: string): string | null => {
-  const districts = Object.values(state.districtsById).filter((district) => district.status !== "destroyed");
-  return districts.length > 0 ? districts[Math.floor(deterministicRollPct(`${seed}:district-index`) / 100 * districts.length)]?.name ?? null : null;
-};
-
-const pickAreaHint = (state: CoreGameState, seed: string): string | null => {
-  const districts = Object.values(state.districtsById).filter((district) => district.status !== "destroyed");
-  const district = districts.length > 0 ? districts[Math.floor(deterministicRollPct(`${seed}:area-index`) / 100 * districts.length)] : null;
-  return district?.zone ? `${district.zone} zóně` : null;
-};
-
-const pickBuildingHint = (state: CoreGameState, seed: string): string | null => {
-  const buildings = Object.values(state.buildingsById).filter((building) => building.status === "active");
-  return buildings.length > 0 ? buildings[Math.floor(deterministicRollPct(`${seed}:building-index`) / 100 * buildings.length)]?.buildingTypeId ?? null : null;
-};
-
-const formatReliability = (truthChancePct: number): string =>
-  truthChancePct >= 60 ? "střední" : truthChancePct >= 50 ? "nízká až střední" : "nízká";
-
 const normalizeRumor = (value: Record<string, unknown>): ConvenienceStoreRumor => ({
   type: String(value.type || "fake"),
   truthChancePct: Math.max(0, Number(value.truthChancePct || 0)),
@@ -428,18 +406,6 @@ const normalizeRumor = (value: Record<string, unknown>): ConvenienceStoreRumor =
   reliabilityLabel: value.reliabilityLabel ? String(value.reliabilityLabel) : null,
   text: String(value.text || "")
 });
-
-const minutesToTicks = (minutes: number, tickRateMs: number): number =>
-  Math.max(1, Math.ceil((Math.max(0, Number(minutes || 0)) * 60 * 1000) / Math.max(1, tickRateMs)));
-
-const deterministicRollPct = (seed: string): number => {
-  let hash = 2166136261;
-  for (let index = 0; index < seed.length; index += 1) {
-    hash ^= seed.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0) % 10000 / 100;
-};
 
 const asOptionalTick = (value: unknown): number | undefined => {
   const numberValue = Number(value);
@@ -453,10 +419,3 @@ const asOptionalPositiveInteger = (value: unknown): number | undefined => {
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
-
-const getOwnedActiveBuildingCount = (state: CoreGameState, playerId: string, buildingTypeId: string): number =>
-  Object.values(state.buildingsById).filter((building) =>
-    building.buildingTypeId === buildingTypeId
-    && building.ownerPlayerId === playerId
-    && building.status === "active"
-  ).length;

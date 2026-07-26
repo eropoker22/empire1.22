@@ -176,8 +176,11 @@ export function renderHeatJournalList(mount, entries = [], options = {}) {
     }
 
     title.textContent = String(entry?.reason || "");
-    delta.textContent = `${entry?.type === "fall" ? "-" : "+"}${Math.max(0, Number(entry?.amount || 0))} heat`;
-    timestamp.textContent = formatRelativeHeatTime(entry?.createdAt, now);
+    delta.textContent = String(
+      entry?.deltaLabel
+        || `${entry?.type === "fall" ? "-" : "+"}${Math.max(0, Number(entry?.amount || 0))} heat`
+    );
+    timestamp.textContent = String(entry?.timestampLabel || formatRelativeHeatTime(entry?.createdAt, now));
     item.append(title, delta, timestamp);
     mount.append?.(item);
   }
@@ -254,11 +257,20 @@ export function renderWantedPanel(wantedViewModel = {}, options = {}) {
 
   const heat = Number(wantedViewModel.heat ?? 0);
   if (mounts.popupHeat) mounts.popupHeat.textContent = String(heat);
-  if (mounts.popupLevel) mounts.popupLevel.textContent = `${wantedViewModel.levelId || 0} / 6`;
+  if (mounts.popupLevel) {
+    mounts.popupLevel.textContent = String(
+      wantedViewModel.levelLabel || `${wantedViewModel.levelId || 0} / 6`
+    );
+  }
   renderWantedTitle(mounts.popupTier, wantedViewModel);
   if (mounts.popupDescription) mounts.popupDescription.textContent = String(wantedViewModel.description || "");
   if (mounts.popupProtection) mounts.popupProtection.textContent = String(wantedViewModel.protectionLabel || "");
-  if (mounts.popupAuditRisk) mounts.popupAuditRisk.textContent = `${Math.max(0, Number(wantedViewModel.auditRiskPct || 0) || 0)} %`;
+  if (mounts.popupAuditRisk) {
+    mounts.popupAuditRisk.textContent = String(
+      wantedViewModel.auditRiskLabel
+        || `${Math.max(0, Number(wantedViewModel.auditRiskPct || 0) || 0)} %`
+    );
+  }
 
   renderWantedLevels(mounts.popupLevels, wantedViewModel.levels);
   renderHeatJournalList(mounts.popupRiseList, wantedViewModel.riseEntries, {
@@ -281,15 +293,4 @@ export function renderWantedPanel(wantedViewModel = {}, options = {}) {
   }
 
   return true;
-}
-
-if (typeof window !== "undefined") {
-  window.EmpireWantedPanel = {
-    renderHeatBadge,
-    resolveHeatBadgePoliceThreat,
-    renderHeatJournalList,
-    renderWantedFeedback,
-    renderWantedLevels,
-    renderWantedPanel
-  };
 }

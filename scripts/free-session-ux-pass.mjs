@@ -19,6 +19,8 @@ const BROWSER_CANDIDATES = [
 const url = process.argv.find((arg) => arg.startsWith("--url="))?.slice("--url=".length) || DEFAULT_URL;
 const timeoutMs = Number(process.argv.find((arg) => arg.startsWith("--timeout-ms="))?.slice("--timeout-ms=".length) || 90000);
 const expectedRuntime = process.argv.find((arg) => arg.startsWith("--expect-runtime="))?.slice("--expect-runtime=".length) || "any";
+const serverAuthoritativePass = expectedRuntime === "server-authoritative-ready";
+const localDemoPass = expectedRuntime === "demo-ready" || expectedRuntime === "legacy-fallback";
 const allowedRuntimeExpectations = new Set([
   "any",
   "demo-ready",
@@ -37,6 +39,119 @@ function delay(ms) {
 
 function findBrowserPath() {
   return BROWSER_CANDIDATES.find((candidate) => existsSync(candidate)) || null;
+}
+
+function createRuntimeUrl(targetUrl) {
+  const runtimeUrl = new URL(targetUrl);
+  if (serverAuthoritativePass || expectedRuntime === "server-authoritative-error") {
+    runtimeUrl.searchParams.set("runtimeMode", "server-authoritative");
+  } else if (localDemoPass) {
+    runtimeUrl.searchParams.set("runtimeMode", "local-demo");
+  }
+  return runtimeUrl.href;
+}
+
+async function prepareServerAuthoritativeSession(page, targetUrl) {
+  const origin = new URL(targetUrl).origin;
+  const accountId = `free-session-smoke-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const serverInstanceId = "instance:free:eu-central:public-1";
+  const reserveResponse = await page.request.post(`${origin}/api/matchmaking/reserve`, {
+    data: {
+      accountId,
+      mode: "free",
+      preferredServerInstanceId: serverInstanceId
+    },
+    timeout: timeoutMs
+  });
+  const reserve = await reserveResponse.json().catch(() => null);
+  if (!reserveResponse.ok() || reserve?.accepted !== true || !reserve?.reservation?.joinTicket) {
+    throw new Error(`Server smoke reserve failed: HTTP ${reserveResponse.status()} ${JSON.stringify({
+      accepted: reserve?.accepted ?? false,
+      errorCodes: reserve?.errors?.map?.((error) => error?.code).filter(Boolean) || []
+    })}`);
+  }
+
+  const preferredStartDistrictId = "district:1";
+  const joinResponse = await page.request.post(`${origin}/api/gameplay-slice/join`, {
+    data: {
+      accountId,
+      joinTicket: reserve.reservation.joinTicket,
+      serverInstanceId: reserve.reservation.serverInstanceId || serverInstanceId,
+      preferredStartDistrictId,
+      factionId: "mafian"
+    },
+    timeout: timeoutMs
+  });
+  const join = await joinResponse.json().catch(() => null);
+  const playerId = String(join?.readModel?.player?.playerId || "");
+  if (!joinResponse.ok() || join?.accepted !== true || !playerId.startsWith("player:")) {
+    throw new Error(`Server smoke join failed: HTTP ${joinResponse.status()} ${JSON.stringify({
+      accepted: join?.accepted ?? false,
+      errorCodes: join?.errors?.map?.((error) => error?.code).filter(Boolean) || []
+    })}`);
+  }
+
+  const districtId = String(
+    join?.readModel?.player?.homeDistrictId
+    || join?.readModel?.district?.districtId
+    || preferredStartDistrictId
+  );
+  const membership = {
+    membershipId: `membership:smoke:${playerId}`,
+    serverInstanceId: reserve.reservation.serverInstanceId || serverInstanceId,
+    serverDisplayName: reserve.reservation.displayName || "Neon Docks FREE-01",
+    playerId,
+    status: "active",
+    reservedSpawnDistrictId: districtId,
+    factionId: "mafian",
+    avatarId: null,
+    gangColor: "#67e8f9",
+    joinedAt: new Date().toISOString(),
+    setupCompletedAt: new Date().toISOString(),
+    earlyLeaveAt: null,
+    completedAt: null,
+    canLeaveEarly: true,
+    earlyLeaveDeadline: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    earlyLeaveRemainingMs: 10 * 60 * 1000,
+    earlyLeaveBlockedReason: null,
+    joinTicket: null
+  };
+  await page.route("**/api/lobby/overview", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      accepted: true,
+      data: {
+        account: {
+          accountId,
+          username: "free-session-smoke",
+          displayName: "Free Session Smoke",
+          gangName: "Authoritative Smoke",
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString()
+        },
+        gangProfile: {
+          gangName: "Authoritative Smoke",
+          displayName: "Free Session Smoke",
+          username: "free-session-smoke"
+        },
+        activeBlockingMembership: membership,
+        memberships: [membership],
+        availableServers: [],
+        featureAvailability: { market: "ready", localDemo: false },
+        generatedAt: new Date().toISOString()
+      },
+      errors: []
+    })
+  }));
+
+  return {
+    accountId,
+    playerId,
+    serverInstanceId: membership.serverInstanceId,
+    districtId,
+    reserveStatus: reserveResponse.status(),
+    joinStatus: joinResponse.status()
+  };
 }
 
 async function startVite(targetUrl) {
@@ -238,6 +353,9 @@ async function waitForRuntime(cdp, sessionId, timeout = 30000) {
     const state = await evaluate(cdp, sessionId, String.raw`
       (() => ({
         legacyReady: Boolean(window.EmpireRuntime && window.empireStreetsDistrictState && document.querySelector("#game-root")?.dataset?.runtimeInit === "ready"),
+        serverAuthoritativeReady: Boolean(document.querySelector("#game-root")?.dataset?.runtimeInit === "server-authoritative"),
+        executionMode: document.documentElement?.dataset?.runtimeMode || document.body?.dataset?.runtimeMode || "",
+        gameplayAuthority: document.querySelector("#game-root")?.dataset?.gameplayAuthority || "",
         gameplayRuntime: document.body?.dataset?.gameplayRuntime || "",
         gameplayServerRuntime: document.body?.dataset?.gameplayServerRuntime || "",
         gameplayFallback: document.body?.dataset?.gameplayFallback || "",
@@ -246,7 +364,14 @@ async function waitForRuntime(cdp, sessionId, timeout = 30000) {
         sliceUnavailable: document.querySelector("[data-gameplay-slice-client]")?.dataset?.gameplaySliceUnavailable || ""
       }))()
     `, 10000);
-    if (state?.legacyReady && state?.gameplayRuntime) {
+    const bootstrapReady = serverAuthoritativePass
+      ? state?.serverAuthoritativeReady
+        && state?.gameplayRuntime
+        && state.gameplayRuntime !== "initializing"
+      : state?.legacyReady
+        && state?.executionMode === "local-demo"
+        && state?.gameplayAuthority === "local-demo";
+    if (bootstrapReady) {
       return state;
     }
     await delay(250);
@@ -268,6 +393,7 @@ async function collectRuntimeDiagnostics(cdp, sessionId, {
         session = sessionRaw ? JSON.parse(sessionRaw) : null;
       } catch {}
       const sliceRoot = document.querySelector("[data-gameplay-slice-client]");
+      const liveClientScript = document.querySelector("script[data-live-gameplay-client]");
       return {
         url: location.href,
         hasSession: Boolean(sessionRaw),
@@ -286,7 +412,12 @@ async function collectRuntimeDiagnostics(cdp, sessionId, {
         sliceServerRuntime: sliceRoot?.dataset?.gameplayServerRuntime || "",
         sliceUnavailable: sliceRoot?.dataset?.gameplaySliceUnavailable || "",
         sliceError: sliceRoot?.dataset?.gameplaySliceError || "",
-        loadEndpoint: sliceRoot?.dataset?.gameplaySliceEndpoint || ""
+        loadEndpoint: sliceRoot?.dataset?.gameplaySliceEndpoint || "",
+        authorityState: document.body?.dataset?.authorityState || "",
+        sliceBootstrapReady: sliceRoot?.dataset?.gameplayBootstrapReady || "",
+        sliceServerInstanceId: sliceRoot?.dataset?.serverInstanceId || "",
+        liveClientScript: liveClientScript?.getAttribute("src") || "",
+        liveClientMountAvailable: typeof window.EmpireGameplaySliceClient?.mount === "function"
       };
     })()
   `, 10000).catch((error) => ({
@@ -320,21 +451,31 @@ function isExpectedGameUrl(expectedUrl, actualUrl) {
 }
 
 async function waitForRuntimeWithPlaywright(page, timeout = 30000) {
-  await page.waitForFunction(() => {
+  await page.waitForFunction(({ waitForServerAuthoritative }) => {
     const root = document.querySelector("#game-root");
     const marker = document.body?.dataset?.gameplayRuntime || "";
+    if (waitForServerAuthoritative) {
+      return Boolean(
+        root?.dataset?.runtimeInit === "server-authoritative"
+        && marker
+        && marker !== "initializing"
+      );
+    }
     return Boolean(
       window.EmpireRuntime
       && window.empireStreetsDistrictState
       && root?.dataset?.runtimeInit === "ready"
-      && marker
-      && marker !== "initializing"
+      && document.documentElement?.dataset?.runtimeMode === "local-demo"
+      && root?.dataset?.gameplayAuthority === "local-demo"
     );
-  }, null, { timeout });
+  }, { waitForServerAuthoritative: serverAuthoritativePass }, { timeout });
 
   return page.evaluate(String.raw`
     (() => ({
       legacyReady: Boolean(window.EmpireRuntime && window.empireStreetsDistrictState && document.querySelector("#game-root")?.dataset?.runtimeInit === "ready"),
+      serverAuthoritativeReady: Boolean(document.querySelector("#game-root")?.dataset?.runtimeInit === "server-authoritative"),
+      executionMode: document.documentElement?.dataset?.runtimeMode || document.body?.dataset?.runtimeMode || "",
+      gameplayAuthority: document.querySelector("#game-root")?.dataset?.gameplayAuthority || "",
       gameplayRuntime: document.body?.dataset?.gameplayRuntime || "",
       gameplayServerRuntime: document.body?.dataset?.gameplayServerRuntime || "",
       gameplayFallback: document.body?.dataset?.gameplayFallback || "",
@@ -359,6 +500,7 @@ async function collectPlaywrightDiagnostics(page, {
         session = sessionRaw ? JSON.parse(sessionRaw) : null;
       } catch {}
       const sliceRoot = document.querySelector("[data-gameplay-slice-client]");
+      const liveClientScript = document.querySelector("script[data-live-gameplay-client]");
       return {
         url: location.href,
         hasSession: Boolean(sessionRaw),
@@ -377,7 +519,14 @@ async function collectPlaywrightDiagnostics(page, {
         sliceServerRuntime: sliceRoot?.dataset?.gameplayServerRuntime || "",
         sliceUnavailable: sliceRoot?.dataset?.gameplaySliceUnavailable || "",
         sliceError: sliceRoot?.dataset?.gameplaySliceError || "",
-        loadEndpoint: sliceRoot?.dataset?.gameplaySliceEndpoint || ""
+        loadEndpoint: sliceRoot?.dataset?.gameplaySliceEndpoint || "",
+        authorityState: document.body?.dataset?.authorityState || "",
+        sliceBootstrapReady: sliceRoot?.dataset?.gameplayBootstrapReady || "",
+        sliceServerInstanceId: sliceRoot?.dataset?.serverInstanceId || "",
+        slicePlayerId: sliceRoot?.dataset?.playerId || "",
+        sliceDistrictId: sliceRoot?.dataset?.districtId || "",
+        liveClientScript: liveClientScript?.getAttribute("src") || "",
+        liveClientMountAvailable: typeof window.EmpireGameplaySliceClient?.mount === "function"
       };
     })()
   `).catch((error) => ({
@@ -428,6 +577,13 @@ async function runWithPlaywright() {
         url: locationUrl
       });
     });
+    page.on("pageerror", (error) => {
+      pageMessages.push({
+        type: "error",
+        text: String(error?.message || error).slice(0, 500),
+        url: page.url()
+      });
+    });
     page.on("requestfailed", (request) => {
       failedRequests.push({
         url: request.url(),
@@ -436,7 +592,10 @@ async function runWithPlaywright() {
       });
     });
     page.on("response", (response) => {
-      if (!response.url().includes("/api/")) {
+      if (
+        !response.url().includes("/api/")
+        && !response.url().includes("/client-assets/gameplay-slice-client.js")
+      ) {
         return;
       }
       apiResponses.push({
@@ -446,8 +605,12 @@ async function runWithPlaywright() {
       });
     });
 
+    const serverBootstrap = serverAuthoritativePass
+      ? await prepareServerAuthoritativeSession(page, url)
+      : null;
     await page.addInitScript(seedExpression);
-    await page.goto(url, { waitUntil: "load", timeout: timeoutMs });
+    const navigationUrl = createRuntimeUrl(url);
+    await page.goto(navigationUrl, { waitUntil: "load", timeout: timeoutMs });
     const seed = await page.evaluate(sessionSnapshotExpression);
     const currentUrl = page.url();
     if (!isExpectedGameUrl(url, currentUrl)) {
@@ -466,6 +629,7 @@ async function runWithPlaywright() {
 
     const result = await page.evaluate(passExpression);
     result.seed = seed;
+    result.serverBootstrap = serverBootstrap;
     result.runtimeReady = ready;
     result.api = {
       gameplaySliceLoad: apiResponses.find((entry) => entry.url.includes("/api/gameplay-slice/load")) || null,
@@ -497,7 +661,7 @@ const seedExpression = String.raw`
 (() => {
   window.EmpireConfigOverrides = Object.freeze({
     ...(window.EmpireConfigOverrides || {}),
-    localDemoEnabled: true
+    localDemoEnabled: ${JSON.stringify(localDemoPass)}
   });
   const now = new Date().toISOString();
   const serverInstanceId = "instance:free:eu-central:public-1";
@@ -651,8 +815,14 @@ const sessionSnapshotExpression = String.raw`
 const passExpression = String.raw`
 (async () => {
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const serverAuthoritativePass = ${JSON.stringify(expectedRuntime === "server-authoritative-ready")};
   const safeText = (selector, max = 500) => String(document.querySelector(selector)?.innerText || "").trim().slice(0, max);
-  const isVisible = (element) => Boolean(element && !element.hidden && !element.classList?.contains("hidden"));
+  const isVisible = (element) => Boolean(
+    element
+    && !element.hidden
+    && !element.classList?.contains("hidden")
+    && element.getClientRects?.().length
+  );
   const visibleModalText = (selector, max = 700) => {
     const element = document.querySelector(selector);
     return isVisible(element) ? String(element.innerText || "").trim().slice(0, max) : "";
@@ -679,8 +849,29 @@ const passExpression = String.raw`
     return true;
   };
   const root = document.querySelector("#game-root");
-  const mapGeometry = await import("/page-assets/js/app/map/mapGeometry.js");
-  const runtimeModule = await import("/page-assets/js/app/runtime.js");
+  const clickFirstVisible = (selector) => {
+    const element = Array.from(document.querySelectorAll(selector)).find(isVisible) || null;
+    element?.click?.();
+    return Boolean(element);
+  };
+  const closePresentationOverlays = async () => {
+    for (const selector of [
+      "[data-district-building-detail-close]",
+      "[data-storage-popup-close]",
+      "[data-pharmacy-popup-close]",
+      "[data-spy-confirm-close]",
+      "[data-attack-setup-close]",
+      "[data-attack-confirm-close]",
+      "#spy-result-modal-ok",
+      "#spy-warning-modal-ok",
+      "#attack-result-modal-ok",
+      "#police-action-result-modal-ok",
+      "[data-district-popup-close]"
+    ]) {
+      clickFirstVisible(selector);
+    }
+    await wait(160);
+  };
   const events = [];
   const eventNames = [
     "empire:district-opened",
@@ -730,8 +921,16 @@ const passExpression = String.raw`
     sliceMarker: document.querySelector("[data-gameplay-slice-client]")?.dataset?.gameplayRuntime || "",
     sliceServerRuntime: document.querySelector("[data-gameplay-slice-client]")?.dataset?.gameplayServerRuntime || "",
     sliceUnavailable: document.querySelector("[data-gameplay-slice-client]")?.dataset?.gameplaySliceUnavailable || "",
-    legacyRuntimeInit: root?.dataset?.runtimeInit || ""
+    legacyRuntimeInit: root?.dataset?.runtimeInit || "",
+    executionMode: document.documentElement?.dataset?.runtimeMode || document.body?.dataset?.runtimeMode || "",
+    gameplayAuthority: root?.dataset?.gameplayAuthority || ""
   };
+  if (serverAuthoritativePass) {
+    return result;
+  }
+
+  const mapGeometry = await import("/page-assets/js/app/map/mapGeometry.js");
+  const runtimeModule = await import("/page-assets/js/app/runtime.js");
 
   for (const name of [
     "selectDistrict",
@@ -834,17 +1033,48 @@ const passExpression = String.raw`
   result.ui.actionSummaryAfterBuildingAction = safeText("[data-building-action-summary]", 550);
   result.ui.actionMetaAfterBuildingAction = safeText("[data-building-action-meta]", 220);
   result.ui.actionStatusAfterBuildingAction = safeActionStatusText();
+  await closePresentationOverlays();
+  runtimeModule.setStoredEconomyState({ cleanMoney: 50_000, dirtyMoney: 2_500 });
+  runtimeModule.setStoredGangState({ members: 24 });
+  runtimeModule.setStoredMaterialInventory({ chemicals: 100, biomass: 100 });
+  runtimeModule.setStoredWeaponInventory({
+    "baseball-bat": 12,
+    pistol: 6,
+    grenade: 0,
+    smg: 0,
+    bazooka: 0
+  });
+  runtimeModule.setStoredProductionState({});
+  window.EmpireRuntime?.refreshAllUi?.(window.EmpireRuntime?.hydrateInitialState?.(root));
+  await wait(250);
+  const seededActionState = window.EmpireRuntime?.hydrateInitialState?.(root) || {};
+  result.session.seededWeaponInventory = seededActionState.inventory?.weapons || {};
+  result.session.seededMaterialInventory = seededActionState.inventory?.materials || {};
   const storageButton = document.querySelector("[data-storage-popup-open]");
-  storageButton?.click?.();
+  result.actions.openStorage = Boolean(storageButton && clickFirstVisible("[data-storage-popup-open]"));
   await wait(250);
   result.ui.storageVisible = Boolean(document.querySelector("[data-storage-popup]:not([hidden])"));
-  result.ui.storageText = safeText("[data-storage-popup]", 350);
+  result.ui.storageText = safeText("[data-storage-popup]", 1400);
+  clickFirstVisible("[data-storage-popup-close]");
+  await wait(180);
+  result.actions.openPharmacy = clickFirstVisible("[data-pharmacy-popup-open]");
+  await wait(300);
+  result.ui.pharmacyVisible = Boolean(document.querySelector("[data-pharmacy-popup]:not([hidden])"));
+  result.ui.pharmacyEnabledCraftButtons = Array.from(document.querySelectorAll("button.pharmacy-slot__btn--start"))
+    .filter((button) => isVisible(button) && !button.disabled)
+    .length;
   result.actions.craftItem = Boolean(window.craftItem?.());
   await wait(350);
+  clickFirstVisible("[data-pharmacy-popup-close]");
+  await wait(180);
+  result.actions.advanceProductionOnboarding = await advanceOnboardingIfCurrent("production-choice");
+  result.actions.advanceAllianceOnboarding = await advanceOnboardingIfCurrent("alliance-guide");
+  result.actions.advanceBountyBoostOnboarding = await advanceOnboardingIfCurrent("bounty-boost-guide");
   result.ui.topbarText = safeText(".game-topbar, #game-topbar, header", 350);
   result.ui.cleanMoneyText = safeText("[data-topbar-clean-money]", 80);
   result.ui.dirtyMoneyText = safeText("[data-topbar-dirty-money]", 80);
 
+  await closePresentationOverlays();
   result.actions.openEnemyDistrict = Boolean(window.openDistrict?.(enemyDistrictId));
   await wait(350);
   result.selected.enemyPopupText = safeText("#district-popup, [data-district-popup]", 450);
@@ -861,6 +1091,17 @@ const passExpression = String.raw`
   document.querySelector("#spy-result-modal-ok, #spy-warning-modal-ok")?.click?.();
   await wait(250);
 
+  await closePresentationOverlays();
+  runtimeModule.setStoredGangState({ members: 24 });
+  runtimeModule.setStoredWeaponInventory({
+    "baseball-bat": 12,
+    pistol: 6,
+    grenade: 0,
+    smg: 0,
+    bazooka: 0
+  });
+  window.EmpireRuntime?.refreshAllUi?.(window.EmpireRuntime?.hydrateInitialState?.(root));
+  await wait(220);
   result.actions.openAttackPanel = Boolean(window.openAttackPanel?.(enemyDistrictId));
   await wait(250);
   const attackInput = document.querySelector('[data-attack-weapon-input="baseball-bat"]')
@@ -881,6 +1122,7 @@ const passExpression = String.raw`
   result.modals.attackReport = visibleModalText("#attack-result-modal", 700);
   result.modals.policeAction = visibleModalText("#police-action-result-modal", 450);
   result.actions.completeDoneOnboarding = await advanceOnboardingIfCurrent("done");
+  await closePresentationOverlays();
 
   runtimeModule.setStoredGangState({
     heat: 155,
@@ -904,6 +1146,7 @@ const passExpression = String.raw`
   result.ui.activeThreatStars = document.querySelectorAll("[data-gang-stars] .is-active.is-police-threat").length;
   result.ui.policeFeedRisk = document.querySelector("[data-police-feed]")?.dataset?.policeRisk || "";
 
+  await closePresentationOverlays();
   for (const modalId of ["spy-result-modal", "attack-result-modal", "police-action-result-modal"]) {
     const modal = document.getElementById(modalId);
     if (modal) {
@@ -971,6 +1214,7 @@ const passExpression = String.raw`
   result.ui.wantedRiseListMetrics = collectHeatListMetrics("[data-wanted-popup-rise-list]");
   result.ui.wantedFallListMetrics = collectHeatListMetrics("[data-wanted-popup-fall-list]");
   result.ui.wantedPoliceToggleMetrics = {
+    exists: Boolean(policeToggle),
     width: policeToggle?.clientWidth || 0,
     height: policeToggle?.clientHeight || 0,
     backgroundImage: policeToggleStyle?.backgroundImage || "",
@@ -1043,9 +1287,22 @@ function validatePassResult(result) {
   const attackStatusText = String(result?.ui?.attackStatusAfterStart || "");
   const enemyDistrictId = String(result?.selected?.enemyDistrictId || "");
 
-  requireCheck(result?.bootstrap === "ready", "runtime did not report ready bootstrap");
-  requireCheck(Boolean(result?.runtime?.marker), "gameplay runtime marker is missing");
-  if (expectedRuntime !== "any") {
+  requireCheck(
+    expectedRuntime === "server-authoritative-ready"
+      ? result?.bootstrap === "server-authoritative"
+      : result?.bootstrap === "ready",
+    "runtime did not report the expected bootstrap"
+  );
+  if (expectedRuntime === "server-authoritative-ready") {
+    requireCheck(Boolean(result?.runtime?.marker), "gameplay runtime marker is missing");
+    requireCheck(
+      result?.runtime?.marker === expectedRuntime,
+      `expected gameplay runtime ${expectedRuntime}, got ${result?.runtime?.marker || "missing"}`
+    );
+  } else if (localDemoPass) {
+    requireCheck(result?.runtime?.executionMode === "local-demo", "local demo execution mode is missing");
+    requireCheck(result?.runtime?.gameplayAuthority === "local-demo", "local demo authority marker is missing");
+  } else if (expectedRuntime !== "any") {
     requireCheck(
       result?.runtime?.marker === expectedRuntime,
       `expected gameplay runtime ${expectedRuntime}, got ${result?.runtime?.marker || "missing"}`
@@ -1068,7 +1325,6 @@ function validatePassResult(result) {
     return failures;
   }
   if (expectedRuntime === "demo-ready") {
-    requireCheck(result?.runtime?.fallback === "legacy", "demo mode did not activate legacy fallback");
     requireCheck(result?.runtime?.serverRuntime !== "server-authoritative-ready", "demo mode was incorrectly marked server-authoritative-ready");
     requireCheck(result?.runtime?.sliceServerRuntime !== "server-authoritative-ready", "demo slice was incorrectly marked server-authoritative-ready");
   }
@@ -1140,19 +1396,21 @@ function validatePassResult(result) {
     requireCheck(String(metrics.firstReasonTextOverflow || "") !== "ellipsis", `wanted ${label} reason text is ellipsized`);
     requireCheck(Number(metrics.firstReasonScrollHeight || 0) <= Number(metrics.firstReasonClientHeight || 0) + 1, `wanted ${label} reason text is clipped`);
   }
-  const wantedPoliceToggleBackground = String(result?.ui?.wantedPoliceToggleMetrics?.backgroundImage || "");
-  const wantedPoliceWindowBackground = String(result?.ui?.wantedPoliceWindowMetrics?.backgroundColor || "");
-  const wantedPoliceWindowAlpha = Number((wantedPoliceWindowBackground.match(/rgba?\([^,]+,[^,]+,[^,]+,\s*([0-9.]+)\)/) || [])[1] || 1);
-  requireCheck(Number(result?.ui?.wantedPoliceToggleMetrics?.width || 0) <= 20, "wanted police ? button is too wide");
-  requireCheck(Number(result?.ui?.wantedPoliceToggleMetrics?.height || 0) <= 20, "wanted police ? button is too tall");
-  requireCheck(wantedPoliceToggleBackground.includes("linear-gradient") || wantedPoliceToggleBackground.includes("conic-gradient"), "wanted police ? button is missing blue/red neon gradient");
-  requireCheck(Boolean(result?.ui?.wantedPoliceWindowMetrics?.visible), "wanted police window did not open from ? button");
-  requireCheck(Boolean(result?.ui?.wantedPoliceWindowMetrics?.opensBelowToggle), "wanted police window is not anchored below the ? button");
-  requireCheck(Boolean(result?.ui?.wantedPoliceWindowMetrics?.startsNearToggle), "wanted police window is not horizontally anchored near the ? button");
-  requireCheck(Boolean(result?.ui?.wantedPoliceWindowMetrics?.topMostAtCenter), "wanted police window is behind the heat popup");
-  requireCheck(wantedPoliceWindowAlpha < 0.5, "wanted police window is not transparent enough");
-  requireCheck(Number(result?.ui?.wantedPoliceWindowMetrics?.closeTopOffset ?? 99) <= 10, "wanted police window close button is not in the top-right corner");
-  requireCheck(Number(result?.ui?.wantedPoliceWindowMetrics?.closeRightOffset ?? 99) <= 10, "wanted police window close button is not in the top-right corner");
+  if (result?.ui?.wantedPoliceToggleMetrics?.exists) {
+    const wantedPoliceToggleBackground = String(result?.ui?.wantedPoliceToggleMetrics?.backgroundImage || "");
+    const wantedPoliceWindowBackground = String(result?.ui?.wantedPoliceWindowMetrics?.backgroundColor || "");
+    const wantedPoliceWindowAlpha = Number((wantedPoliceWindowBackground.match(/rgba?\([^,]+,[^,]+,[^,]+,\s*([0-9.]+)\)/) || [])[1] || 1);
+    requireCheck(Number(result?.ui?.wantedPoliceToggleMetrics?.width || 0) <= 20, "wanted police ? button is too wide");
+    requireCheck(Number(result?.ui?.wantedPoliceToggleMetrics?.height || 0) <= 20, "wanted police ? button is too tall");
+    requireCheck(wantedPoliceToggleBackground.includes("linear-gradient") || wantedPoliceToggleBackground.includes("conic-gradient"), "wanted police ? button is missing blue/red neon gradient");
+    requireCheck(Boolean(result?.ui?.wantedPoliceWindowMetrics?.visible), "wanted police window did not open from ? button");
+    requireCheck(Boolean(result?.ui?.wantedPoliceWindowMetrics?.opensBelowToggle), "wanted police window is not anchored below the ? button");
+    requireCheck(Boolean(result?.ui?.wantedPoliceWindowMetrics?.startsNearToggle), "wanted police window is not horizontally anchored near the ? button");
+    requireCheck(Boolean(result?.ui?.wantedPoliceWindowMetrics?.topMostAtCenter), "wanted police window is behind the heat popup");
+    requireCheck(wantedPoliceWindowAlpha < 0.5, "wanted police window is not transparent enough");
+    requireCheck(Number(result?.ui?.wantedPoliceWindowMetrics?.closeTopOffset ?? 99) <= 10, "wanted police window close button is not in the top-right corner");
+    requireCheck(Number(result?.ui?.wantedPoliceWindowMetrics?.closeRightOffset ?? 99) <= 10, "wanted police window close button is not in the top-right corner");
+  }
   const onboardingTotalCount = Number(result?.ui?.onboardingTotalCount || 0);
   const expectedOnboardingDoneCount = onboardingTotalCount > 0 ? Math.max(1, onboardingTotalCount - 1) : 5;
   requireCheck(

@@ -1,1 +1,1 @@
-export { bindMarketPopup } from "../runtime.js";
+export { bindMarketPopup } from "../runtime/localDemoLegacyBootstrap.js";

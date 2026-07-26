@@ -75,6 +75,23 @@ describe("map layer invalidation", () => {
     )).toEqual([MAP_RENDER_LAYERS.state]);
   });
 
+  it("invalidates only effects when a declared server map effect changes", () => {
+    const previous = createSlice();
+    const next = createSlice({
+      mapEffects: [{
+        effectId: "effect:1",
+        type: "attack-district",
+        districtId: "district:1",
+        expiresAt: "2026-07-26T12:00:00.000Z"
+      }]
+    });
+
+    expect(diffGameplaySliceMapLayers(
+      createGameplaySliceMapFingerprints(previous),
+      createGameplaySliceMapFingerprints(next)
+    )).toEqual([MAP_RENDER_LAYERS.effects]);
+  });
+
   it("invalidates all size-dependent layers on resize", () => {
     expect(resolveMapRenderLayers("resize")).toEqual(Object.values(MAP_RENDER_LAYERS));
   });

@@ -1,6 +1,9 @@
 import { CLIENT_EXECUTION_MODES, resolveClientEntryExecutionMode } from "./app/runtime/clientAuthorityState.js";
+import { isExplicitGamePreviewEnabled } from "./app/local-demo-gate.js";
 
-const executionMode = resolveClientEntryExecutionMode();
+const executionMode = resolveClientEntryExecutionMode({
+  localDemoEnabled: isExplicitGamePreviewEnabled() ? true : undefined
+});
 window.__EMPIRE_GAMEPLAY_EXECUTION_MODE__ = executionMode;
 document.documentElement.dataset.gameplayExecutionMode = executionMode;
 document.documentElement.dataset.runtimeMode = executionMode;
@@ -12,7 +15,7 @@ window.empireStreetsRuntimeDiagnostics?.setMode?.(executionMode, {
 });
 
 if (executionMode === CLIENT_EXECUTION_MODES.localDemo) {
-  void import("./app-demo.js?v=heat-audit-20260721");
+  void import("./app-demo.js?v=runtime-modules-20260726");
 } else {
-  void import("./app.js?v=heat-audit-20260721");
+  void import("./app.js?v=runtime-modules-20260726");
 }

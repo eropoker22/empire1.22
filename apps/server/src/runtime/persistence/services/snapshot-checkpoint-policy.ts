@@ -10,6 +10,7 @@ export const createDueAuthoritativeCheckpoint = (input: {
   snapshot: InstanceSnapshotDto;
   previousPhase: string;
   snapshotIntervalTicks: number;
+  includePeriodic?: boolean;
 }): SnapshotCheckpointRecord | null => {
   const { snapshot, previousPhase } = input;
   const nextPhase = snapshot.state.root.phase;
@@ -29,6 +30,7 @@ export const createDueAuthoritativeCheckpoint = (input: {
       protected: nextPhase === PRODUCTION_GAME_LIFECYCLE_PHASES.finalLockdown
     });
   }
+  if (input.includePeriodic === false) return null;
   const interval = normalizeSnapshotInterval(input.snapshotIntervalTicks);
   if (snapshot.tick <= 0 || snapshot.tick % interval !== 0) return null;
   return createSnapshotCheckpoint(snapshot, {

@@ -238,20 +238,15 @@ describe("free session balance and anti-snowball simulation", () => {
 
   it("documents key free-mode knobs used by the balance simulation", () => {
     expect(FREE_CONFIG).toMatchObject({
-      tickRateMs: 5000,
+      tickRateMs: 10_000,
       balance: {
         maxPlayersPerServer: 20,
         maxAllianceSize: 4,
         victoryConditionKey: "final-lockdown",
         allowDurationVictoryFallback: false,
-        hardTimeoutTicks: 120960,
         cooldownMultiplier: 0.8,
         productionMultiplier: 1.2,
         conflict: {
-          spyCooldownTicks: 72,
-          attackCooldownTicks: 264,
-          occupyCooldownTicks: 144,
-          minAttackDurationTicks: 264,
           attackHeatGain: 8
         },
         police: {
@@ -261,6 +256,11 @@ describe("free session balance and anti-snowball simulation", () => {
         }
       }
     });
+    expect(FREE_CONFIG.balance.hardTimeoutTicks! * FREE_CONFIG.tickRateMs).toBe(7 * 24 * 60 * 60 * 1000);
+    expect(FREE_CONFIG.balance.conflict!.spyCooldownTicks * FREE_CONFIG.tickRateMs).toBe(6 * 60 * 1000);
+    expect(FREE_CONFIG.balance.conflict!.attackCooldownTicks * FREE_CONFIG.tickRateMs).toBe(22 * 60 * 1000);
+    expect((FREE_CONFIG.balance.conflict!.occupyCooldownTicks ?? 0) * FREE_CONFIG.tickRateMs).toBe(12 * 60 * 1000);
+    expect((FREE_CONFIG.balance.conflict!.minAttackDurationTicks ?? 0) * FREE_CONFIG.tickRateMs).toBe(22 * 60 * 1000);
     expect(FREE_CONFIG.balance.districtControlVictoryThreshold).toBe(1);
     expect(FREE_CONFIG.balance.districtControlVictoryThreshold).not.toBe(0.75);
     expect(FREE_CONFIG.balance.minimumVictoryTicks).toBeUndefined();

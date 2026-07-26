@@ -39,7 +39,10 @@ async function chooseServerAndEnter(page) {
   await freeCard.click();
   await selectLobbyDistrict(page);
   await expect(page.getByTestId("enter-selected-server")).toBeEnabled();
-  await page.getByTestId("enter-selected-server").click();
+  await Promise.all([
+    page.waitForURL(/\/pages\/faction\.html$/, { waitUntil: "domcontentloaded" }),
+    page.getByTestId("enter-selected-server").click()
+  ]);
   return serverId;
 }
 

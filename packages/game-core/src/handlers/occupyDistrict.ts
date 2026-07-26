@@ -251,7 +251,6 @@ export const handleOccupyDistrict = (
       category: report.category
     })
   ];
-
   if (!occupySucceeded) {
     return {
       nextState: nextStateWithRecovery,

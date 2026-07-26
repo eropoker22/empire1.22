@@ -21,11 +21,12 @@ import {
   type PacingSimulationResult
 } from "./types";
 import { PLAYER_FACTION_IDS, type PlayerFactionId } from "@empire/shared-types";
+import { ticksFromHours } from "../../../../packages/game-config/src/modes/free/free-mode-timing";
 
 const DEFAULT_CHECKPOINT_HOURS = [24, 48, 72, 96];
 const DEFAULT_BOT_COUNT = 20;
 const DEFAULT_DISTRICT_COUNT = 100;
-const DEFAULT_TICK_STRIDE = 720;
+const DEFAULT_TICK_STRIDE = ticksFromHours(1);
 
 export const runFreeModePacingSimulation = (
   options: FreeModePacingOptions = {}

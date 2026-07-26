@@ -1,4 +1,4 @@
-import type { PostgresDatabase } from "../../runtime/persistence/postgres";
+import type { PostgresDatabase, PostgresQueryable } from "../../runtime/persistence/postgres";
 import type {
   HostedControlPlaneRepository,
   HostedJoinReservationRecord,
@@ -8,6 +8,7 @@ import {
   isPostgresHostedServerJoinableAt,
   type PostgresHostedJoinGateRow
 } from "./postgres-hosted-join-gate";
+import { failPostgresHostedJoinInTransaction } from "./postgres-hosted-join-failure";
 import { claimPostgresHostedJoinJob, loadPostgresHostedJoinJob } from "./postgres-hosted-join-job";
 
 type JoinMethods = Pick<HostedControlPlaneRepository,
@@ -15,7 +16,6 @@ type JoinMethods = Pick<HostedControlPlaneRepository,
   "claimJoinJob" | "completeJoin" | "failJoin" | "expireJoinReservations" | "getJoinCapacity">;
 
 interface ReservationRow extends Record<string, unknown> { [key: string]: unknown }
-
 export const createPostgresHostedJoinRepository = (database: PostgresDatabase): JoinMethods => ({
   getJoinReservation: async (reservationId) => {
     const result = await database.query<ReservationRow>(`${RESERVATION_SELECT} WHERE reservation_id=$1`, [reservationId]);
@@ -105,58 +105,29 @@ export const createPostgresHostedJoinRepository = (database: PostgresDatabase): 
         reservation.updatedAt, reservation.version]
     );
     await client.query(
-      `INSERT INTO empire_hosted_join_jobs
-       (id,job_id,reservation_id,server_instance_id,status,attempt,available_at,claimed_by_worker_id,
-        claimed_until,last_error_code,created_at,updated_at,version)
-       VALUES ($1,$2,$3,$4,$5,$6,$7::timestamptz,$8,$9::timestamptz,$10,$11::timestamptz,$12::timestamptz,$13)`,
+       `INSERT INTO empire_hosted_join_jobs
+        (id,job_id,reservation_id,server_instance_id,status,attempt,available_at,claimed_by_worker_id,
+         claimed_by_worker_incarnation_id,claimed_until,last_error_code,created_at,updated_at,version)
+        VALUES ($1,$2,$3,$4,$5,$6,$7::timestamptz,$8,$9,$10::timestamptz,$11,$12::timestamptz,$13::timestamptz,$14)`,
       [`hosted-join-job:${input.job.jobId}`, input.job.jobId, reservation.reservationId, reservation.serverInstanceId,
         input.job.status, input.job.attempt, input.job.availableAt, input.job.claimedByWorkerId,
-        input.job.claimedUntil, input.job.lastErrorCode, input.job.createdAt, input.job.updatedAt, input.job.version]
+        input.job.claimedByWorkerIncarnationId, input.job.claimedUntil, input.job.lastErrorCode,
+        input.job.createdAt, input.job.updatedAt, input.job.version]
     );
     return { kind: "created", reservation, job: input.job } satisfies HostedJoinReservationResult;
   }),
-  claimJoinJob: (workerId, now, claimedUntil) => claimPostgresHostedJoinJob(database, workerId, now, claimedUntil),
-  completeJoin: (input) => database.transaction(async (client) => {
-    const result = await client.query<ReservationRow>(
-      `${RESERVATION_SELECT} WHERE reservation_id=$1 FOR UPDATE`, [input.reservationId]);
-    if (!result.rows[0]) return false;
-    const reservation = mapReservation(result.rows[0]);
-    if (reservation.status === "committed" && reservation.joinTicketId === input.joinTicketId) {
-      await completeJob(client, input.jobId, input.workerId, input.at);
-      return true;
-    }
-    if (reservation.status !== "reserved" || Date.parse(reservation.expiresAt) <= Date.parse(input.at)) return false;
-    const changed = await client.query(
-      `UPDATE empire_hosted_join_reservations SET status='committed',join_ticket_id=$2,
-       committed_at=$3::timestamptz,updated_at=$3::timestamptz,version=version+1
-       WHERE reservation_id=$1 AND status='reserved' RETURNING reservation_id`,
-      [input.reservationId, input.joinTicketId, input.at]
-    );
-    if ((changed.rowCount ?? 0) === 0) return false;
-    await completeJob(client, input.jobId, input.workerId, input.at);
-    return true;
-  }),
-  failJoin: (input) => database.transaction(async (client) => {
-    await client.query(
-      `UPDATE empire_hosted_join_reservations SET status=$2,
-       canceled_at=CASE WHEN $2='expired' THEN canceled_at ELSE $4::timestamptz END,
-       updated_at=$4::timestamptz,version=version+1
-       WHERE reservation_id=$1 AND status <> 'committed'`,
-      [input.reservationId, input.status, input.errorCode, input.at]
-    );
-    await client.query(
-      `UPDATE empire_hosted_join_jobs SET status='failed',claimed_until=NULL,last_error_code=$3,
-       updated_at=$4::timestamptz,version=version+1
-       WHERE job_id=$1 AND (claimed_by_worker_id=$2 OR claimed_by_worker_id IS NULL) AND status <> 'completed'`,
-      [input.jobId, input.workerId, input.errorCode, input.at]
-    );
-  }),
+  claimJoinJob: (workerId, workerIncarnationId, now, claimedUntil) =>
+    claimPostgresHostedJoinJob(database, workerId, workerIncarnationId, now, claimedUntil),
+  completeJoin: (input) => database.transaction((client) =>
+    completePostgresHostedJoinInTransaction(client, input)),
+  failJoin: (input) => database.transaction((client) => failPostgresHostedJoinInTransaction(client, input)),
   expireJoinReservations: async (at) => {
     const result = await database.query(
       `WITH expired AS (
          UPDATE empire_hosted_join_reservations SET status='expired',updated_at=$1::timestamptz,version=version+1
          WHERE status='reserved' AND expires_at <= $1::timestamptz RETURNING reservation_id
-       ) UPDATE empire_hosted_join_jobs job SET status='failed',claimed_until=NULL,last_error_code='JOIN_RESERVATION_EXPIRED',
+       ) UPDATE empire_hosted_join_jobs job SET status='failed',claimed_by_worker_id=NULL,
+         claimed_by_worker_incarnation_id=NULL,claimed_until=NULL,last_error_code='JOIN_RESERVATION_EXPIRED',
          updated_at=$1::timestamptz,version=version+1 FROM expired
        WHERE job.reservation_id=expired.reservation_id AND job.status <> 'completed' RETURNING job.job_id`,
       [at]
@@ -184,19 +155,80 @@ export const createPostgresHostedJoinRepository = (database: PostgresDatabase): 
   }
 });
 
-const completeJob = async (
-  client: { query(sql: string, params?: readonly unknown[]): Promise<unknown> },
-  jobId: string,
-  workerId: string,
-  at: string
-) => {
-  await client.query(
-    `UPDATE empire_hosted_join_jobs SET status='completed',claimed_until=NULL,last_error_code=NULL,
-     updated_at=$3::timestamptz,version=version+1
-     WHERE job_id=$1 AND claimed_by_worker_id=$2`,
-    [jobId, workerId, at]
+export const completePostgresHostedJoinInTransaction = async (
+  client: PostgresQueryable,
+  input: Parameters<HostedControlPlaneRepository["completeJoin"]>[0]
+): Promise<boolean> => {
+  const job = await client.query<{
+    status: string;
+    claimed_by_worker_id: string | null;
+    claimed_by_worker_incarnation_id: string | null;
+    claimed_until: unknown;
+    version: string | number;
+  }>(
+    `SELECT status,claimed_by_worker_id,claimed_by_worker_incarnation_id,claimed_until,version
+     FROM empire_hosted_join_jobs
+     WHERE job_id=$1 AND reservation_id=$2 AND server_instance_id=$3 FOR UPDATE`,
+    [input.jobId, input.reservationId, input.serverInstanceId]
   );
+  const currentJob = job.rows[0];
+  if (!currentJob) return false;
+  const result = await client.query<ReservationRow>(
+    `${RESERVATION_SELECT}
+     WHERE reservation_id=$1 AND server_instance_id=$2 AND player_identity_id=$3
+     FOR UPDATE`,
+    [input.reservationId, input.serverInstanceId, input.playerIdentityId]
+  );
+  if (!result.rows[0]) return false;
+  const reservation = mapReservation(result.rows[0]);
+  if (reservation.status === "committed" && reservation.joinTicketId === input.joinTicketId) {
+    if (currentJob.status === "completed") return true;
+    return isCurrentJoinClaim(currentJob, input)
+      ? completeJob(client, input)
+      : false;
+  }
+  if (!isCurrentJoinClaim(currentJob, input)) return false;
+  if (reservation.status !== "reserved" || Date.parse(reservation.expiresAt) <= Date.parse(input.at)) return false;
+  const changed = await client.query(
+    `UPDATE empire_hosted_join_reservations SET status='committed',join_ticket_id=$2,
+     committed_at=$3::timestamptz,updated_at=$3::timestamptz,version=version+1
+     WHERE reservation_id=$1 AND server_instance_id=$4 AND status='reserved' RETURNING reservation_id`,
+    [input.reservationId, input.joinTicketId, input.at, input.serverInstanceId]
+  );
+  if ((changed.rowCount ?? 0) === 0) return false;
+  return completeJob(client, input);
 };
+
+const completeJob = async (
+  client: PostgresQueryable,
+  input: Parameters<HostedControlPlaneRepository["completeJoin"]>[0]
+): Promise<boolean> => {
+  const result = await client.query(
+    `UPDATE empire_hosted_join_jobs SET status='completed',claimed_by_worker_id=NULL,
+     claimed_by_worker_incarnation_id=NULL,claimed_until=NULL,last_error_code=NULL,
+     updated_at=$6::timestamptz,version=version+1
+     WHERE job_id=$1 AND server_instance_id=$2 AND status='claimed' AND claimed_by_worker_id=$3
+       AND claimed_by_worker_incarnation_id=$4 AND version=$5 AND claimed_until > $6::timestamptz
+     RETURNING job_id`,
+    [input.jobId, input.serverInstanceId, input.workerId, input.workerIncarnationId,
+      input.expectedJobVersion, input.at]
+  );
+  if ((result.rowCount ?? 0) !== 1) {
+    throw new Error(`Hosted join job ${input.jobId} claim changed while it was locked.`);
+  }
+  return true;
+};
+
+const isCurrentJoinClaim = (
+  job: { status: string; claimed_by_worker_id: string | null; claimed_by_worker_incarnation_id: string | null;
+    claimed_until: unknown; version: string | number },
+  input: Parameters<HostedControlPlaneRepository["completeJoin"]>[0]
+): boolean => job.status === "claimed"
+  && job.claimed_by_worker_id === input.workerId
+  && job.claimed_by_worker_incarnation_id === input.workerIncarnationId
+  && Number(job.version) === input.expectedJobVersion
+  && Boolean(job.claimed_until)
+  && Date.parse(String(job.claimed_until)) > Date.parse(input.at);
 
 const mapReservation = (row: ReservationRow): HostedJoinReservationRecord => ({
   reservationId: String(row.reservation_id),

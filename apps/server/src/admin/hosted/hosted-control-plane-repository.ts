@@ -87,6 +87,7 @@ export interface HostedJoinJobRecord {
   attempt: number;
   availableAt: string;
   claimedByWorkerId: string | null;
+  claimedByWorkerIncarnationId: string | null;
   claimedUntil: string | null;
   lastErrorCode: string | null;
   createdAt: string;
@@ -197,9 +198,12 @@ export interface HostedControlPlaneRepository {
     reservation: HostedJoinReservationRecord;
     job: HostedJoinJobRecord;
   }): Promise<HostedJoinReservationResult>;
-  claimJoinJob(workerId: string, now: string, claimedUntil: string): Promise<HostedJoinJobRecord | null>;
-  completeJoin(input: { reservationId: string; jobId: string; workerId: string; joinTicketId: string; at: string }): Promise<boolean>;
-  failJoin(input: { reservationId: string; jobId: string; workerId: string; status: "expired" | "canceled" | "rejected"; errorCode: string; at: string }): Promise<void>;
+  claimJoinJob(workerId: string, workerIncarnationId: string, now: string, claimedUntil: string): Promise<HostedJoinJobRecord | null>;
+  completeJoin(input: { reservationId: string; jobId: string; serverInstanceId: string; playerIdentityId: string; workerId: string;
+    workerIncarnationId: string; expectedJobVersion: number; joinTicketId: string; at: string }): Promise<boolean>;
+  failJoin(input: { reservationId: string; jobId: string; serverInstanceId: string; workerId: string;
+    workerIncarnationId: string; expectedJobVersion: number; status: "expired" | "canceled" | "rejected";
+    errorCode: string; at: string }): Promise<boolean>;
   expireJoinReservations(at: string): Promise<number>;
   getJoinCapacity(serverInstanceId: string, at: string): Promise<{ committedPlayers: number; reservedSlots: number }>;
   writeWorkerHeartbeat(record: HostedWorkerHeartbeatRecord, allowIncarnationTakeover?: boolean): Promise<void>;

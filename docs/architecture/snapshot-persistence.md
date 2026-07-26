@@ -42,10 +42,15 @@ appropriate.
 
 ## Retention and cleanup
 
-The hosted worker executes snapshot maintenance through its existing run loop. The
+The hosted worker schedules one tracked, non-overlapping maintenance task after its
+gameplay phases and drains that task before persistence shutdown. The
 default policy keeps 24 active rolling checkpoints, 5 terminal rolling checkpoints,
 all protected lifecycle checkpoints and every terminal checkpoint. Non-protected
 terminal history expires after 30 days.
+
+Terminal retention is selected for hosted instances in the canonical
+`stopped`, `failed`, or `archived` states and for snapshots whose gameplay root
+phase is already `resolved`. All other hosted states use the active policy.
 
 Cleanup:
 
@@ -70,9 +75,29 @@ The policy is configurable with:
 Worker health reports only counters, timestamps, durations and row counts. It never
 exposes snapshot payloads, session tokens, cookies or secrets.
 
+The existing authorized read-only admin detail also exposes the recovery-head tick
+and root version, last checkpoint time, checkpoint counts by purpose, last cleanup
+status/time, and a coarse storage-health classification. It never exposes or
+downloads the snapshot payload.
+
 ## Deployment
 
 Migration `017_snapshot_recovery_heads_and_checkpoints.sql` backfills a missing head
 from the highest root version and tick before classifying existing history as legacy
 checkpoints. It intentionally does not perform a large blocking delete. The deployed
 maintenance runner trims legacy history in bounded batches after schema migration.
+The normal migrator runs `017` automatically only when snapshot history is empty.
+Any existing legacy row requires the controlled path so a corrupt newest row
+cannot become the recovery head; histories above 50,000 rows are called out
+explicitly in the safety error.
+For every database with existing snapshot history, follow
+`docs/hosting/snapshot-recovery-controlled-migration-runbook.md` and run
+`npm run db:migrate -- --controlled-snapshot-recovery`. The controlled path backfills
+metadata and heads in retryable batches, creates indexes concurrently, verifies the
+prepared schema and basic head integrity, and records the unchanged canonical `017`
+checksum. Interrupted controlled runs are idempotent and may be restarted.
+Migration `018_drop_redundant_snapshot_head_tick_index.sql` removes the redundant
+tick index from the one-row-per-instance recovery-head table without rewriting an
+already-applied migration. Migration
+`019_drop_redundant_snapshot_head_root_version_index.sql` removes the remaining
+redundant composite index; the unique instance index remains the recovery lookup.

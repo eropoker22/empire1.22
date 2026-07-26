@@ -6,6 +6,7 @@ import {
   RuntimeLeaseFenceRejectedError,
   type RuntimeTickLeaseFence
 } from "../instance-manager/atomic-command-transaction";
+import { withInstanceCommandLock } from "../instance-manager/instance-command-lock";
 import { writeDiagnosticLog } from "../logging";
 import {
   createDueAuthoritativeCheckpoint,
@@ -37,6 +38,15 @@ export const runAtomicInstanceTick = async (
   runtime: ServerInstanceRuntime,
   clock: Clock = runtime.clock,
   runtimeLeaseFence?: RuntimeTickLeaseFence
+): Promise<ServerInstanceRuntime> =>
+  withInstanceCommandLock(runtime.record.id, () =>
+    runAtomicInstanceTickUnlocked(runtime, clock, runtimeLeaseFence)
+  );
+
+export const runAtomicInstanceTickUnlocked = async (
+  runtime: ServerInstanceRuntime,
+  clock: Clock = runtime.clock,
+  runtimeLeaseFence?: RuntimeTickLeaseFence
 ): Promise<ServerInstanceRuntime> => {
   if (!runtime.atomicCommandTransaction) {
     if (runtimeLeaseFence?.isCurrent && !await runtimeLeaseFence.isCurrent()) {
@@ -62,8 +72,9 @@ export const runAtomicInstanceTick = async (
     const committed = await runtime.atomicCommandTransaction.run(runtime.record.id, async (repositories) => {
       const latest = await repositories.snapshotRepository.loadRecoveryHead(runtime.record.id);
       const baseState = prepareHostedTickState(runtime, latest ? restoreInstanceState(latest) : structuredClone(runtime.state));
+      const previousRootVersion = latest?.integrity.rootVersion ?? baseState.root.version;
       const result = runTick(baseState, { config: runtime.config });
-      const nextState = ensureAdvancedRootVersion(result.nextState, baseState.root.version);
+      const nextState = ensureAdvancedRootVersion(result.nextState, previousRootVersion);
       const processedCommandIds = new Set(latest?.runtime?.processedCommandIds ?? runtime.processedCommandIds);
       const commandRateLimitWindow = {
         tick: nextState.root.tick,

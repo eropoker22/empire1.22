@@ -1,1 +1,1 @@
-export { bindAttackOrders, showAttackToast } from "../runtime.js";
+export { bindAttackOrders, showAttackToast } from "../runtime/localDemoLegacyBootstrap.js";

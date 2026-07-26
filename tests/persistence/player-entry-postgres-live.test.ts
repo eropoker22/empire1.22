@@ -1,14 +1,19 @@
 import * as crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type { MatchResult } from "@empire/shared-types";
-import { createHostedRuntimeWorker, type HostedServerRecord } from "../../apps/server/src/admin/hosted";
+import {
+  createHostedRuntimeWorker,
+  createPostgresHostedRuntimeMutationCommitter,
+  type HostedServerRecord
+} from "../../apps/server/src/admin/hosted";
 import { createPostgresAdminDurableRepositories, hashAdminPassword } from "../../apps/server/src/admin/read-only";
 import { createServerApp } from "../../apps/server/src/app";
 import { createPersistentGameplaySessionService } from "../../apps/server/src/auth";
 import { createPostgresPlayerEntryRepository, entryErrorCode } from "../../apps/server/src/player-entry";
-import { createPostgresDatabase, createPostgresGameplayIdentitySessionRepository,
+import { createPostgresGameplayIdentitySessionRepository,
   createPostgresRuntimePersistenceRepositories } from "../../apps/server/src/runtime/persistence/postgres";
-import { applyPostgresTestMigrations, resolveLivePostgresSmokeConfig } from "./helpers/postgres-prod-like-smoke-helpers";
+import { resolveLivePostgresSmokeConfig } from "./helpers/postgres-prod-like-smoke-helpers";
+import { createIsolatedPostgresTestSchema } from "./helpers/isolated-postgres-test-schema";
 
 const live = resolveLivePostgresSmokeConfig();
 const run = live.run ? it : it.skip;
@@ -178,8 +183,11 @@ describe("player entry postgres live", () => {
 });
 
 const createFixture = async () => {
-  const database = createPostgresDatabase(live.databaseUrl!);
-  await applyPostgresTestMigrations(database);
+  const isolated = await createIsolatedPostgresTestSchema(
+    live.databaseUrl!,
+    "player_entry_live"
+  );
+  const database = isolated.database;
   await database.query(
     `UPDATE empire_server_membership_jobs SET status='failed',claimed_by_worker_id=NULL,claimed_until=NULL,
        last_error_code='TEST_FIXTURE_SUPERSEDED',updated_at=clock_timestamp(),version=version+1
@@ -204,9 +212,13 @@ const createFixture = async () => {
   const workerIncarnationId = `worker-incarnation:${workerId}`;
   await admin.hosted.writeWorkerHeartbeat({ workerId, workerIncarnationId,
     region: "eu-central", buildSha: "live-test", startedAt: at, lastHeartbeatAt: at, status: "online" });
-  const persistence = createPostgresRuntimePersistenceRepositories({ databaseUrl: live.databaseUrl!, database, tickLockOwnerId: workerId });
+  const persistence = createPostgresRuntimePersistenceRepositories({
+    databaseUrl: isolated.databaseUrl,
+    database,
+    tickLockOwnerId: workerId
+  });
   const server = createServerApp({ persistence, environment: { NODE_ENV: "production", EMPIRE_PERSISTENCE_DRIVER: "postgres",
-    EMPIRE_DATABASE_URL: live.databaseUrl!, GAMEPLAY_SLICE_SESSION_SECRET: "player-entry-live-session-secret" },
+    EMPIRE_DATABASE_URL: isolated.databaseUrl, GAMEPLAY_SLICE_SESSION_SECRET: "player-entry-live-session-secret" },
     accountIdentityProvider: { productionReady: true, resolve: () => null },
     gameplaySessionService: createPersistentGameplaySessionService(createPostgresGameplayIdentitySessionRepository(database),
       { productionReady: true }) });
@@ -216,7 +228,8 @@ const createFixture = async () => {
       .filter((record) => record.serverInstanceId.startsWith(`instance:player-entry:${suffix}:`))
   };
   const worker = createHostedRuntimeWorker({ workerId, workerIncarnationId, region: "eu-central", buildSha: "live-test",
-    controlPlane: scopedControlPlane, server, playerEntry: entry });
+    controlPlane: scopedControlPlane, server, playerEntry: entry,
+    runtimeMutationCommitter: createPostgresHostedRuntimeMutationCommitter(database, persistence.snapshotMetrics) });
   let serverIndex = 0;
   return {
     database, admin, entry, server, worker,
@@ -233,7 +246,7 @@ const createFixture = async () => {
         registrationOpensAt: new Date(Date.parse(at) - 30 * 60_000).toISOString(),
         registrationClosesAt: new Date(Date.parse(at) + 30 * 60_000).toISOString(), registrationClosedAt: null,
         registrationBaselinePlayers: null, canonicalFinalLockdownTrigger: 8, canonicalFirstEliminationTick: 5_760,
-        canonicalTickRateMs: 5_000, effectiveFinalLockdownTrigger: null, effectiveFirstEliminationTick: null,
+        canonicalTickRateMs: 10_000, effectiveFinalLockdownTrigger: null, effectiveFirstEliminationTick: null,
         worldSeed: crypto.randomBytes(32).toString("base64url"), configVersion: 1,
         mapComposition: { downtown: 8, commercial: 40, residential: 38, industrial: 38, park: 37 }, initialSnapshotId: null,
         currentSnapshotId: null, runtimeLeaseOwnerId: null, runtimeLeaseExpiresAt: null,
@@ -275,7 +288,11 @@ const createFixture = async () => {
       `SELECT count(*)::int AS count FROM ${table} WHERE server_instance_id=$1`, [serverInstanceId])).rows[0]?.count ?? 0),
     eventCount: async (membershipId: string, type: string) => Number((await database.query<{ count: number }>(
       "SELECT count(*)::int AS count FROM empire_server_membership_events WHERE membership_id=$1 AND event_type=$2", [membershipId, type])).rows[0]?.count ?? 0),
-    close: async () => { await worker.stop(); await persistence.close(); }
+    close: async () => {
+      await worker.stop();
+      await persistence.close();
+      await isolated.close();
+    }
   };
 };
 

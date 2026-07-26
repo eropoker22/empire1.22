@@ -1,24 +1,35 @@
-import { getStoredPreviewSession, updateStoredPreviewSession } from "./model/authority-state.js";
 import {
   BROWSER_GAMEPLAY_CONFIG,
   CITY_EVENT_CONFIG
 } from "../../../packages/game-config/src/legacy-page/gameplay-config.generated.js";
 import {
-  addGangHeat,
-  appendBuildingActionResultEntry,
-  applyInventoryOutput,
-  applyTopbarEconomy,
-  getResolvedGangState,
   getServerGameplaySliceReadModel,
-  submitServerCityEventCommand,
-  renderSpyResourceState
-} from "./runtime.js";
+  submitServerCityEventCommand
+} from "./runtime/serverGameplaySource.js";
+import { getLocalDemoGameplayBridge } from "./runtime/localDemoGameplayBridge.js";
 import { bindSharedCountdown } from "./ui/sharedCountdownTicker.js";
 import { bindSharedModal, closeSharedModal, openSharedModal } from "./ui/sharedModalStack.js";
 import { GAMEPLAY_EXECUTION_MODES, getGameplayExecutionMode } from "./runtime/gameplayExecutionMode.js";
 
 const MAX_VISIBLE_EVENTS_PER_CHARACTER = 3;
 const LOCAL_CITY_EVENT_VISIBLE_MINUTES = 3 * 60;
+let cityEventsRuntimeCleanup = null;
+
+const addGangHeat = (...args) => getLocalDemoGameplayBridge()?.addGangHeat?.(...args);
+const appendBuildingActionResultEntry = (...args) =>
+  getLocalDemoGameplayBridge()?.appendBuildingActionResultEntry?.(...args);
+const applyInventoryOutput = (...args) =>
+  getLocalDemoGameplayBridge()?.applyInventoryOutput?.(...args) || 0;
+const applyTopbarEconomy = (...args) =>
+  getLocalDemoGameplayBridge()?.applyTopbarEconomy?.(...args);
+const getResolvedGangState = (...args) =>
+  getLocalDemoGameplayBridge()?.getResolvedGangState?.(...args) || {};
+const renderSpyResourceState = (...args) =>
+  getLocalDemoGameplayBridge()?.renderSpyResourceState?.(...args);
+const getStoredPreviewSession = (...args) =>
+  getLocalDemoGameplayBridge()?.getStoredPreviewSession?.(...args) || null;
+const updateStoredPreviewSession = (...args) =>
+  getLocalDemoGameplayBridge()?.updateStoredPreviewSession?.(...args) || null;
 
 const CITY_EVENT_REWARD_ALIASES = Object.freeze({
   dirtyCash: "dirty-cash",
@@ -663,9 +674,10 @@ function claimPendingCityEventRewards() {
   };
 }
 
-function initCityEventsRuntime() {
+export function initCityEventsRuntime() {
+  if (cityEventsRuntimeCleanup) return false;
   const root = document.querySelector("main[data-page='game']");
-  if (!root) return;
+  if (!root) return false;
 
   const diagnostics = window.empireStreetsRuntimeDiagnostics || null;
   const shouldRunLocalCityEvents = () => getGameplayExecutionMode({
@@ -711,10 +723,17 @@ function initCityEventsRuntime() {
   const detailAcceptBtn = document.getElementById("event-detail-accept");
   const detailDeclineBtn = document.getElementById("event-detail-decline");
 
-  if (!modal || !openBtn || !detailModal || !tasklist) return;
+  if (!modal || !openBtn || !detailModal || !tasklist) return false;
   bindSharedModal(modal);
   bindSharedModal(detailModal);
 
+  const listeners = [];
+  const listen = (target, type, listener, options) => {
+    if (!target?.addEventListener || typeof listener !== "function") return;
+    target.addEventListener(type, listener, options);
+    listeners.push({ target, type, listener, options });
+  };
+  let destroyed = false;
   let selectedAgentKey = null;
   let selectedEventTask = null;
   let serverSubmitPending = false;
@@ -1122,17 +1141,18 @@ function initCityEventsRuntime() {
     }
   };
 
-  openBtn.addEventListener("click", openModal);
-  closeBtn?.addEventListener("click", closeModal);
-  detailCloseBtn?.addEventListener("click", closeEventDetailModal);
-  detailDeclineBtn?.addEventListener("click", closeEventDetailModal);
-  detailAcceptBtn?.addEventListener("click", async () => {
+  listen(openBtn, "click", openModal);
+  listen(closeBtn, "click", closeModal);
+  listen(detailCloseBtn, "click", closeEventDetailModal);
+  listen(detailDeclineBtn, "click", closeEventDetailModal);
+  listen(detailAcceptBtn, "click", async () => {
     if (!selectedEventTask) return;
     if (shouldRunServerCityEvents()) {
       if (serverSubmitPending || selectedEventTask.canStart === false) return;
       serverSubmitPending = true;
       openEventDetailModal(selectedEventTask);
       const response = await submitServerCityEventCommand({ action: "start", id: selectedEventTask.offerId });
+      if (destroyed) return;
       serverSubmitPending = false;
       if (response?.accepted) {
         closeEventDetailModal();
@@ -1148,7 +1168,7 @@ function initCityEventsRuntime() {
   });
 
   agentButtons.forEach((button) => {
-    button.addEventListener("click", () => {
+    listen(button, "click", () => {
       const agentKey = String(button.dataset.agent || "");
       renderTasks(agentKey);
       document.dispatchEvent(new CustomEvent("empire:city-events-agent-selected", {
@@ -1160,7 +1180,7 @@ function initCityEventsRuntime() {
     });
   });
 
-  tasklist.addEventListener("click", async (event) => {
+  listen(tasklist, "click", async (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     const claimButton = target.closest("[data-city-event-claim]");
@@ -1169,6 +1189,7 @@ function initCityEventsRuntime() {
       serverSubmitPending = true;
       claimButton.disabled = true;
       const response = await submitServerCityEventCommand({ action: "claim", id: claimButton.dataset.cityEventClaim });
+      if (destroyed) return;
       serverSubmitPending = false;
       if (!response?.accepted) writeCityEventsInfo(response?.errors?.[0]?.message || "Odměnu se nepodařilo vyzvednout.");
       if (selectedAgentKey) renderTasks(selectedAgentKey);
@@ -1249,19 +1270,46 @@ function initCityEventsRuntime() {
     else startLocalTimers();
   };
 
-  document.addEventListener("empire:runtime-mode-changed", restartLocalTimers);
-  document.addEventListener("empire:gameplay-slice-rendered", handleServerSliceRendered);
-  document.addEventListener("visibilitychange", handleVisibilityChange);
-  window.addEventListener("empire:mobile-performance-mode-changed", restartLocalTimers);
-  window.addEventListener("beforeunload", () => {
+  const destroy = () => {
+    if (destroyed) return false;
+    destroyed = true;
+    serverSubmitPending = false;
     stopLocalTimers();
-    document.removeEventListener("empire:runtime-mode-changed", restartLocalTimers);
-    document.removeEventListener("empire:gameplay-slice-rendered", handleServerSliceRendered);
-    document.removeEventListener("visibilitychange", handleVisibilityChange);
-    window.removeEventListener("empire:mobile-performance-mode-changed", restartLocalTimers);
-  }, { once: true });
+    closeSharedModal(detailModal, "reopen");
+    closeSharedModal(modal, "reopen");
+    detailModal.hidden = true;
+    detailModal.classList.add("hidden");
+    modal.hidden = true;
+    modal.classList.add("hidden", "events-modal--compact");
+    selectedEventTask = null;
+    selectedAgentKey = null;
+    for (const registration of listeners.splice(0).reverse()) {
+      registration.target.removeEventListener(
+        registration.type,
+        registration.listener,
+        registration.options
+      );
+    }
+    if (cityEventsRuntimeCleanup === destroy) cityEventsRuntimeCleanup = null;
+    return true;
+  };
+  cityEventsRuntimeCleanup = destroy;
+
+  listen(document, "empire:runtime-mode-changed", restartLocalTimers);
+  listen(document, "empire:gameplay-slice-rendered", handleServerSliceRendered);
+  listen(document, "visibilitychange", handleVisibilityChange);
+  listen(window, "empire:mobile-performance-mode-changed", restartLocalTimers);
   restartLocalTimers();
+  return true;
 }
+
+export function destroyCityEventsRuntime() {
+  return cityEventsRuntimeCleanup?.() || false;
+}
+
+const handleCityEventsPageShow = () => {
+  initCityEventsRuntime();
+};
 
 if (typeof document !== "undefined") {
   if (document.readyState === "loading") {
@@ -1269,4 +1317,9 @@ if (typeof document !== "undefined") {
   } else {
     initCityEventsRuntime();
   }
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", destroyCityEventsRuntime);
+  window.addEventListener("pageshow", handleCityEventsPageShow);
 }

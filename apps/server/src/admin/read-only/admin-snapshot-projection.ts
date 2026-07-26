@@ -9,6 +9,10 @@ import type {
 } from "@empire/shared-types";
 import type { InstanceSnapshotDto } from "../../runtime/persistence/dto";
 import { assertAdminInstanceDetailScope } from "./admin-scope-guard";
+import {
+  type AdminSnapshotStorageMetadata,
+  resolveAdminSnapshotStorageHealth
+} from "./admin-snapshot-storage-metadata";
 
 export const createAdminDetailFromSnapshot = (input: {
   summary: AdminInstanceSummaryView;
@@ -17,6 +21,7 @@ export const createAdminDetailFromSnapshot = (input: {
   events: AdminEventSummaryView[];
   diagnostics: AdminDiagnosticSummaryView[];
   generatedAt: string;
+  snapshotStorage?: AdminSnapshotStorageMetadata;
 }): AdminInstanceDetailView => {
   const { summary, snapshot, generatedAt } = input;
   const id = summary.serverInstanceId;
@@ -136,7 +141,16 @@ export const createAdminDetailFromSnapshot = (input: {
       tick: snapshot?.tick ?? null,
       stateVersion: snapshot?.integrity.rootVersion ?? null,
       schemaVersion: snapshot?.version.schemaVersion ?? null,
-      stale: summary.snapshotStale
+      stale: summary.snapshotStale,
+      ...(input.snapshotStorage ? {
+        ...input.snapshotStorage,
+        storageHealth: resolveAdminSnapshotStorageHealth({
+          hasRecoveryHead: Boolean(snapshot),
+          recoveryHeadStale: summary.snapshotStale,
+          metadata: input.snapshotStorage,
+          now: new Date(generatedAt)
+        })
+      } : {})
     },
     commands: input.commands,
     events: input.events,

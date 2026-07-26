@@ -123,6 +123,7 @@ const reserveHostedPublicServer = async (
           attempt: 0,
           availableAt: createdAt,
           claimedByWorkerId: null,
+          claimedByWorkerIncarnationId: null,
           claimedUntil: null,
           lastErrorCode: null,
           createdAt,

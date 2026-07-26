@@ -6,8 +6,10 @@ import {
 import {
   SNAPSHOT_CHECKPOINT_KINDS,
   createDueAuthoritativeCheckpoint,
+  createInMemoryRuntimePersistenceRepositories,
   createInstanceSnapshot,
   createLifecycleCheckpoint,
+  ServerInstanceManager,
   createServerInstanceRuntime,
   createSnapshotCheckpoint,
   createSnapshotMaintenanceRunner,
@@ -75,6 +77,20 @@ describe("snapshot recovery head and checkpoint strategy", () => {
     });
   });
 
+  it("does not create periodic history for ordinary commands on a cadence tick", () => {
+    const runtime = createServerInstanceRuntime("instance:snapshot:command-cadence", "free");
+    runtime.state.root.phase = "live";
+    runtime.state.root.tick = 30;
+    runtime.state.root.version = 31;
+
+    expect(createDueAuthoritativeCheckpoint({
+      snapshot: createInstanceSnapshot(runtime),
+      previousPhase: "live",
+      snapshotIntervalTicks: 30,
+      includePeriodic: false
+    })).toBeNull();
+  });
+
   it("creates protected lifecycle and terminal checkpoints without duplicate identities", async () => {
     const repository = createInMemorySnapshotRepository();
     const runtime = createServerInstanceRuntime("instance:snapshot:lifecycle", "free");
@@ -109,6 +125,70 @@ describe("snapshot recovery head and checkpoint strategy", () => {
     expect(terminal?.checkpointId).not.toBe(finalLockdown.checkpointId);
   });
 
+  it("writes lifecycle heads and checkpoints through one atomic boundary", async () => {
+    const persistence = createInMemoryRuntimePersistenceRepositories();
+    if (
+      !persistence.commandReservationRepository ||
+      !persistence.commandResultRepository ||
+      !persistence.outboxRepository
+    ) {
+      throw new Error("Expected complete in-memory persistence repositories.");
+    }
+    let boundaryRuns = 0;
+    persistence.atomicCommandTransaction = {
+      run: async (_instanceId, callback) => {
+        boundaryRuns += 1;
+        return callback({
+          commandLogRepository: persistence.commandLogRepository,
+          commandReservationRepository: persistence.commandReservationRepository!,
+          commandResultRepository: persistence.commandResultRepository!,
+          eventLogRepository: persistence.eventLogRepository,
+          outboxRepository: persistence.outboxRepository!,
+          snapshotRepository: persistence.snapshotRepository
+        });
+      }
+    };
+    const manager = new ServerInstanceManager({ persistence });
+    const runtime = manager.createInstance("instance:snapshot:lifecycle-atomic", "free");
+
+    await expect(manager.saveInstanceCheckpoint(
+      runtime.record.id,
+      "instance-provisioned",
+      { protected: true }
+    )).resolves.toBe(true);
+
+    expect(boundaryRuns).toBe(1);
+    await expect(persistence.snapshotRepository.loadRecoveryHead(runtime.record.id))
+      .resolves.toMatchObject({ instanceId: runtime.record.id });
+    await expect(persistence.snapshotRepository.countCheckpoints(runtime.record.id))
+      .resolves.toMatchObject({ lifecycle: 1 });
+  });
+
+  it("persists an administrative stop as a protected terminal checkpoint without marking gameplay resolved", async () => {
+    const persistence = createInMemoryRuntimePersistenceRepositories();
+    const manager = new ServerInstanceManager({ persistence });
+    const runtime = manager.createInstance("instance:snapshot:stopped-terminal", "free");
+
+    manager.stopInstance(runtime.record.id);
+    await expect(manager.saveInstanceCheckpoint(
+      runtime.record.id,
+      "instance-stopped",
+      { terminal: true }
+    )).resolves.toBe(true);
+
+    expect(runtime.record.status).toBe("stopped");
+    expect(runtime.state.serverInstance.status).not.toBe("ended");
+    await expect(persistence.snapshotRepository.loadLatestCheckpoint(runtime.record.id))
+      .resolves.toMatchObject({
+        kind: SNAPSHOT_CHECKPOINT_KINDS.terminal,
+        reasonCode: "instance-stopped",
+        protected: true,
+        snapshot: {
+          metadata: { status: "stopped" }
+        }
+      });
+  });
+
   it("recovers from the newest valid checkpoint when a recovery head is missing", async () => {
     const repository = createInMemorySnapshotRepository();
     const runtime = createServerInstanceRuntime("instance:snapshot:fallback", "free");
@@ -136,6 +216,23 @@ describe("snapshot recovery head and checkpoint strategy", () => {
     expect(validateSnapshotIntegrity(snapshot, runtime.record.id)).toEqual({
       valid: false,
       failureCode: "SNAPSHOT_ENTITY_COUNTS_MISMATCH"
+    });
+  });
+
+  it("fails malformed snapshot shapes with an explicit payload reason", () => {
+    const runtime = createServerInstanceRuntime("instance:snapshot:malformed", "free");
+    const missingCounts = structuredClone(createInstanceSnapshot(runtime)) as unknown as {
+      integrity: { entityCounts?: unknown };
+    };
+    delete missingCounts.integrity.entityCounts;
+
+    expect(validateSnapshotIntegrity(missingCounts as never, runtime.record.id)).toEqual({
+      valid: false,
+      failureCode: "SNAPSHOT_PAYLOAD_INVALID"
+    });
+    expect(validateSnapshotIntegrity({ state: {} } as never, runtime.record.id)).toEqual({
+      valid: false,
+      failureCode: "SNAPSHOT_PAYLOAD_INVALID"
     });
   });
 
@@ -176,6 +273,39 @@ describe("snapshot recovery head and checkpoint strategy", () => {
     await expect(repository.cleanupCheckpoints(policy, "2026-07-25T12:15:00.000Z"))
       .resolves.toMatchObject({ deletedRows: 0 });
   });
+
+  it.each(["failed", "archived"])(
+    "uses terminal checkpoint retention for a %s hosted instance",
+    async (status) => {
+      const repository = createInMemorySnapshotRepository();
+      const runtime = createServerInstanceRuntime(`instance:snapshot:terminal-${status}`, "free");
+      runtime.state.root.phase = "live";
+      for (let tick = 1; tick <= 4; tick += 1) {
+        runtime.state.root.tick = tick;
+        runtime.state.root.version += 1;
+        const snapshot = createInstanceSnapshot(runtime);
+        snapshot.metadata.status = status;
+        await repository.saveCheckpoint(createSnapshotCheckpoint(snapshot, {
+          kind: SNAPSHOT_CHECKPOINT_KINDS.periodic,
+          reasonCode: "periodic-cadence"
+        }));
+      }
+
+      await expect(repository.cleanupCheckpoints({
+        ...defaultRetentionPolicy.snapshots,
+        rollingCheckpointCountActive: 3,
+        rollingCheckpointCountTerminal: 1,
+        terminalRetentionDays: 365_000,
+        cleanupBatchSize: 100
+      }, "2026-07-26T12:00:00.000Z")).resolves.toMatchObject({
+        acquired: true,
+        deletedRows: 3
+      });
+      await expect(repository.countCheckpoints(runtime.record.id)).resolves.toMatchObject({
+        rolling: 1
+      });
+    }
+  );
 
   it("deduplicates concurrent maintenance calls and enforces the batch policy", async () => {
     const repository = createInMemorySnapshotRepository();

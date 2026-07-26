@@ -5,8 +5,11 @@ import type {
   HostedJoinReservationRecord,
   HostedServerRecord
 } from "../../apps/server/src/admin/hosted";
-import { createPostgresAdminDurableRepositories } from "../../apps/server/src/admin/read-only";
-import { createPostgresDatabase } from "../../apps/server/src/runtime/persistence/postgres";
+import {
+  createPostgresAdminDurableRepositories,
+  hashAdminPassword
+} from "../../apps/server/src/admin/read-only";
+import { createIsolatedPostgresTestSchema } from "./helpers/isolated-postgres-test-schema";
 import { loadLocalEnvFile } from "../helpers/load-local-env.js";
 
 loadLocalEnvFile();
@@ -15,20 +18,13 @@ const describeWhenDatabaseConfigured = databaseUrl ? describe : describe.skip;
 
 describeWhenDatabaseConfigured("hosted join reservation postgres live", () => {
   it("reserves the last slot atomically and releases an expired reservation", async () => {
-    const database = createPostgresDatabase(databaseUrl!);
-    await database.query(
-      `UPDATE empire_hosted_server_action_requests SET status='failed',claimed_until=NULL,
-         last_error_code='TEST_FIXTURE_SUPERSEDED',updated_at=clock_timestamp(),version=version+1
-       WHERE server_instance_id LIKE 'instance:local-join-live:%' AND status IN ('requested','processing')`
-    );
+    const isolated = await createIsolatedPostgresTestSchema(databaseUrl!, "hosted_join_race");
+    const database = isolated.database;
     const repositories = createPostgresAdminDurableRepositories(database);
     const suffix = crypto.randomUUID();
     const serverInstanceId = `instance:local-join-live:${suffix}`;
     const createdAt = new Date().toISOString();
-    const adminUser = await repositories.users.getByNormalizedUsername("erik22");
-    expect(adminUser).toMatchObject({ role: "owner", status: "active" });
-    if (!adminUser) throw new Error("Live owner admin Erik22 is required.");
-    const adminUserId = adminUser.adminUserId;
+    const adminUserId = await createFixtureOwner(repositories, suffix, createdAt);
     const server: HostedServerRecord = {
       serverInstanceId,
       mode: "free",
@@ -48,7 +44,7 @@ describeWhenDatabaseConfigured("hosted join reservation postgres live", () => {
       registrationBaselinePlayers: null,
       canonicalFinalLockdownTrigger: 8,
       canonicalFirstEliminationTick: 5_760,
-      canonicalTickRateMs: 5_000,
+      canonicalTickRateMs: 10_000,
       effectiveFinalLockdownTrigger: null,
       effectiveFirstEliminationTick: null,
       worldSeed: crypto.randomBytes(32).toString("base64url"),
@@ -176,18 +172,18 @@ describeWhenDatabaseConfigured("hosted join reservation postgres live", () => {
         .toMatchObject({ status: "reserved" });
       expect(await repositories.hosted.getServer(serverInstanceId)).toMatchObject({ status: "stopped", joinPolicy: "closed" });
     } finally {
-      await database.close();
+      await isolated.close();
     }
   });
 
   it("opens registration from the database clock for exactly sixty minutes", async () => {
-    const database = createPostgresDatabase(databaseUrl!);
+    const isolated = await createIsolatedPostgresTestSchema(databaseUrl!, "hosted_registration_clock");
+    const database = isolated.database;
     const repositories = createPostgresAdminDurableRepositories(database);
     const suffix = crypto.randomUUID();
     const serverInstanceId = `instance:registration-live:${suffix}`;
     const requestedAt = new Date().toISOString();
-    const adminUser = await repositories.users.getByNormalizedUsername("erik22");
-    if (!adminUser) throw new Error("Live owner admin Erik22 is required.");
+    const adminUserId = await createFixtureOwner(repositories, suffix, requestedAt);
     const hosted: HostedServerRecord = {
       serverInstanceId,
       mode: "free",
@@ -207,7 +203,7 @@ describeWhenDatabaseConfigured("hosted join reservation postgres live", () => {
       registrationBaselinePlayers: null,
       canonicalFinalLockdownTrigger: 8,
       canonicalFirstEliminationTick: 5_760,
-      canonicalTickRateMs: 5_000,
+      canonicalTickRateMs: 10_000,
       effectiveFinalLockdownTrigger: null,
       effectiveFirstEliminationTick: null,
       worldSeed: crypto.randomBytes(32).toString("base64url"),
@@ -222,7 +218,7 @@ describeWhenDatabaseConfigured("hosted join reservation postgres live", () => {
       lastPausedAt: null,
       lastStoppedAt: null,
       lastErrorCode: null,
-      createdByAdminUserId: adminUser.adminUserId,
+      createdByAdminUserId: adminUserId,
       createdAt: requestedAt,
       updatedAt: requestedAt,
       version: 1
@@ -234,15 +230,15 @@ describeWhenDatabaseConfigured("hosted join reservation postgres live", () => {
         job: { jobId: `job:${serverInstanceId}`, serverInstanceId, attempt: 1, status: "completed",
           availableAt: requestedAt, claimedByWorkerId: null, claimedUntil: null, lastErrorCode: null,
           createdAt: requestedAt, updatedAt: requestedAt, version: 1 },
-        adminUserId: adminUser.adminUserId,
+        adminUserId,
         idempotencyKey: `create-registration:${suffix}`,
         requestHash: `create-registration:${suffix}`,
-        audit: audit("create-server-request", serverInstanceId, adminUser.adminUserId, requestedAt, suffix)
+        audit: audit("create-server-request", serverInstanceId, adminUserId, requestedAt, suffix)
       })).kind).toBe("created");
       const request = {
         actionRequestId: `action:open-registration:${suffix}`,
         serverInstanceId,
-        adminUserId: adminUser.adminUserId,
+        adminUserId,
         action: "open-registration-now" as const,
         actionPayload: {},
         reason: "Open the live registration boundary test.",
@@ -257,7 +253,7 @@ describeWhenDatabaseConfigured("hosted join reservation postgres live", () => {
       };
       expect((await repositories.hosted.enqueueActionTransaction({ request,
         idempotencyKey: `open-registration:${suffix}`, requestHash: `open-registration:${suffix}`,
-        audit: audit("lifecycle-request", serverInstanceId, adminUser.adminUserId, requestedAt, suffix) })).kind)
+        audit: audit("lifecycle-request", serverInstanceId, adminUserId, requestedAt, suffix) })).kind)
         .toBe("created");
       const workerId = `worker:registration-live:${suffix}`;
       const workerIncarnationId = `worker-incarnation:registration-live:${suffix}`;
@@ -271,7 +267,7 @@ describeWhenDatabaseConfigured("hosted join reservation postgres live", () => {
         now: requestedAt, expiresAt: leaseExpiresAt })).toBe(true);
       expect(await repositories.hosted.completeAction({ request: claimed, workerIncarnationId,
         nextStatus: "lobby", nextJoinPolicy: "open", at: "2000-01-01T00:00:00.000Z",
-        audit: audit("lifecycle-success", serverInstanceId, adminUser.adminUserId, requestedAt, suffix) })).toBe(true);
+        audit: audit("lifecycle-success", serverInstanceId, adminUserId, requestedAt, suffix) })).toBe(true);
       const opened = await repositories.hosted.getServer(serverInstanceId);
       expect(opened).toMatchObject({ joinPolicy: "open", registrationScheduleVersion: 1 });
       if (!opened?.registrationOpensAt || !opened.registrationClosesAt) {
@@ -280,10 +276,35 @@ describeWhenDatabaseConfigured("hosted join reservation postgres live", () => {
       expect(Date.parse(opened.registrationClosesAt) - Date.parse(opened.registrationOpensAt)).toBe(3_600_000);
       expect(Date.parse(opened.registrationOpensAt)).toBeGreaterThan(Date.parse("2025-01-01T00:00:00.000Z"));
     } finally {
-      await database.close();
+      await isolated.close();
     }
   });
 });
+
+const createFixtureOwner = async (
+  repositories: ReturnType<typeof createPostgresAdminDurableRepositories>,
+  suffix: string,
+  now: string
+): Promise<string> => {
+  const adminUserId = `admin-user:hosted-join:${suffix}`;
+  const password = await hashAdminPassword("HostedJoinFixturePassword");
+  await repositories.users.create({
+    adminUserId,
+    username: `JoinOwner${suffix.slice(0, 8)}`,
+    normalizedUsername: `joinowner${suffix.replaceAll("-", "")}`,
+    ...password,
+    passwordVersion: 1,
+    role: "owner",
+    status: "active",
+    displayName: "Hosted join fixture",
+    createdAt: now,
+    updatedAt: now,
+    lastLoginAt: null,
+    passwordChangedAt: now,
+    version: 1
+  });
+  return adminUserId;
+};
 
 const joinInput = (
   server: HostedServerRecord,
@@ -320,6 +341,7 @@ const joinInput = (
       attempt: 0,
       availableAt: createdAt,
       claimedByWorkerId: null,
+      claimedByWorkerIncarnationId: null,
       claimedUntil: null,
       lastErrorCode: null,
       createdAt,

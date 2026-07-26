@@ -7,3 +7,4 @@ export * from "./snapshot-token-codec";
 export * from "./snapshot-integrity-validator";
 export * from "./snapshot-checkpoint-policy";
 export * from "./snapshot-maintenance-runner";
+export * from "./snapshot-retention-classification";

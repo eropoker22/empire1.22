@@ -164,6 +164,7 @@ describe("occupy district command", () => {
     const state = createNeutralOccupyState();
     seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
     const result = applyCommand(state, createOccupyDistrictCommandFixture(), context);
+    const occupyCooldownTicks = context.config.balance.conflict!.occupyCooldownTicks ?? 0;
 
     expect(result.errors).toEqual([]);
     expect(result.nextState.districtsById["district:1"].influence).toBe(5);
@@ -177,7 +178,8 @@ describe("occupy district command", () => {
       ownerPlayerId: "player:1",
       status: "active"
     });
-    expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:global"]).toBe(144);
+    expect(occupyCooldownTicks * context.config.tickRateMs).toBe(12 * 60 * 1000);
+    expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:global"]).toBe(occupyCooldownTicks);
     expect(result.nextState.policeStatesById["police:1"]?.heat).toBe(2);
     expect(result.nextState.notificationsById["notification:command:occupy:1:occupy-report"]).toMatchObject({
       category: "report.occupy",
@@ -191,7 +193,7 @@ describe("occupy district command", () => {
         populationLost: 45,
         populationRefunded: 5,
         result: "success",
-        cooldownTicks: 144
+        cooldownTicks: occupyCooldownTicks
       })
     });
     expect(result.events).toEqual([
@@ -208,7 +210,7 @@ describe("occupy district command", () => {
           populationLost: 45,
           populationRefunded: 5,
           result: "success",
-          cooldownTicks: 144
+          cooldownTicks: occupyCooldownTicks
         })
       }),
       expect.objectContaining({

@@ -213,9 +213,7 @@ const dispatchAtomicInstanceCommandInBoundary = async (
       commandRateLimitWindow: null
     };
   }
-
   await crash?.("afterApplyBeforeSnapshot");
-
   const nextState = ensureAdvancedRootVersion(result.nextState, previousRootVersion);
   const appliedAt = runtime.clock.nowIso();
   const appliedEvent: InstanceRuntimeEvent = {
@@ -238,7 +236,8 @@ const dispatchAtomicInstanceCommandInBoundary = async (
   const checkpoint = createDueAuthoritativeCheckpoint({
     snapshot,
     previousPhase: runtime.state.root.phase,
-    snapshotIntervalTicks: runtime.config.technical.snapshotIntervalTicks
+    snapshotIntervalTicks: runtime.config.technical.snapshotIntervalTicks,
+    includePeriodic: false
   });
 
   await repositories.snapshotRepository.saveRecoveryHead(snapshot);

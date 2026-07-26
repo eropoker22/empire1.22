@@ -1,1 +1,1 @@
-export { bindAlliancePopup } from "../runtime.js";
+export { bindAlliancePopup } from "../runtime/localDemoLegacyBootstrap.js";

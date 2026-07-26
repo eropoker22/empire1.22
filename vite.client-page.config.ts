@@ -21,7 +21,7 @@ export default defineConfig({
     emptyOutDir: true,
     minify: false,
     lib: {
-      entry: fromRoot("apps/client/src/browser/gameplay-slice-page.ts"),
+      entry: fromRoot("apps/client/src/browser/gameplay-slice-browser-entry.ts"),
       name: "EmpireGameplaySliceClient",
       formats: ["iife"],
       fileName: () => "gameplay-slice-client.js"

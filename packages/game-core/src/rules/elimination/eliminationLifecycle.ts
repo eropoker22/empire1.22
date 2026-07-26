@@ -79,7 +79,7 @@ export const runScheduledElimination = (
   const eliminationState = updateEliminationState(stateRecord, weakest.playerId, currentTick, effectiveScheduledTick, nextEliminationTick);
   const neutralizedState = appendResolvedCityFeedEvents(
     applyDefeatedDistrictPolicy(state, weakest.playerId, config),
-    [feedEvent]
+    [feedEvent], undefined, context.config.tickRateMs
   );
   const defeated = applyPlayerDefeatLifecycle(neutralizedState, {
     playerId: weakest.playerId,

@@ -1,1 +1,1 @@
-export { bindArmoryPopup, bindDrugLabPopup, bindFactoryPopup, bindPharmacyPopup, renderProductionPanel } from "../runtime.js";
+export { bindArmoryPopup, bindDrugLabPopup, bindFactoryPopup, bindPharmacyPopup, renderProductionPanel } from "../runtime/localDemoLegacyBootstrap.js";

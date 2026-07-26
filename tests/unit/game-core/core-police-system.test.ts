@@ -40,6 +40,9 @@ const createContext = (policeOverride = {}) => {
     }
   };
 };
+const FREE_POLICE_CONFIG = resolveModeConfig("free").balance.police!;
+const PLAYER_HEAT_DECAY_INTERVAL_TICKS = FREE_POLICE_CONFIG.heatDecay!.playerIntervalTicks;
+const DISTRICT_HEAT_DECAY_INTERVAL_TICKS = FREE_POLICE_CONFIG.heatDecay!.districtIntervalTicks;
 
 const addPoliceState = (state: ReturnType<typeof createCoreStateFixture>, heat: number) => {
   state.policeStatesById["police:1"] = {
@@ -252,6 +255,30 @@ describe("core police system completion", () => {
     expect(raid?.expiresAtTick).toBe(raid!.createdAtTick + duration);
   });
 
+  it("does not skip the 06:00 raid boundary on the first ten-second gameplay tick", () => {
+    const atFirstTick = createCoreStateFixture();
+    addPoliceState(atFirstTick, 150);
+    atFirstTick.root.tick = 1;
+    atFirstTick.districtsById["district:1"] = {
+      ...atFirstTick.districtsById["district:1"],
+      heat: 70
+    };
+
+    const afterBoundary = triggerRaid(atFirstTick, createContext());
+
+    expect(afterBoundary.events.some((event) => event.type === "police-raid-triggered")).toBe(true);
+
+    const outsideBoundary = createCoreStateFixture();
+    addPoliceState(outsideBoundary, 150);
+    outsideBoundary.root.tick = 2;
+    outsideBoundary.districtsById["district:1"] = {
+      ...outsideBoundary.districtsById["district:1"],
+      heat: 70
+    };
+
+    expect(triggerRaid(outsideBoundary, createContext()).events).toEqual([]);
+  });
+
   it("caps simultaneous police raids to the canonical day limit", () => {
     const state = createCoreStateFixture();
     state.playersById = {};
@@ -333,7 +360,7 @@ describe("core police system completion", () => {
       },
       lockedDistrictId: "district:1",
       disruptedBuildingIds: [building.id],
-      buildingDisruptionUntilTick: 120,
+      buildingDisruptionUntilTick: FREE_POLICE_CONFIG.buildingDisruptionTicksBySeverity.extreme,
       heatReducedBy: 55
     });
     expect(balances).toMatchObject({
@@ -345,11 +372,11 @@ describe("core police system completion", () => {
     expect(resolved.nextState.playersById["player:1"].salvagePool).toBeUndefined();
     expect(resolved.nextState.districtsById["district:1"]).toMatchObject({
       status: "locked",
-      lockdownUntilTick: 180
+      lockdownUntilTick: FREE_POLICE_CONFIG.lockdownTicksBySeverity.extreme
     });
     expect(resolved.nextState.buildingsById[building.id]).toMatchObject({
       status: "disabled",
-      disruptedUntilTick: 120
+      disruptedUntilTick: FREE_POLICE_CONFIG.buildingDisruptionTicksBySeverity.extreme
     });
 
     const secondResolve = resolvePendingRaid(resolved.nextState, "player:1", raid!.raidId, createContext());
@@ -444,8 +471,10 @@ describe("core police system completion", () => {
       seizedResources: {
         chemicals: 1
       },
-      lockdownUntilTick: 45,
-      buildingDisruptionUntilTick: 30,
+      lockdownUntilTick: Math.ceil(FREE_POLICE_CONFIG.lockdownTicksBySeverity.extreme * 0.25),
+      buildingDisruptionUntilTick: Math.ceil(
+        FREE_POLICE_CONFIG.buildingDisruptionTicksBySeverity.extreme * 0.25
+      ),
       courtMitigationPct: 75,
       courtBuildingsOwned: 2,
       courthouseMitigation: {
@@ -523,8 +552,8 @@ describe("core police system completion", () => {
         seizedResources: {
           chemicals: 5
         },
-        lockdownTicks: 180,
-        buildingDisruptionTicks: 120
+        lockdownTicks: FREE_POLICE_CONFIG.lockdownTicksBySeverity.extreme,
+        buildingDisruptionTicks: FREE_POLICE_CONFIG.buildingDisruptionTicksBySeverity.extreme
       }
     });
     expect(raid?.previewConsequences).toMatchObject({
@@ -538,7 +567,9 @@ describe("core police system completion", () => {
       },
       lockedDistrictId: "district:1",
       disruptedBuildingIds: [targetBuilding.id],
-      buildingDisruptionUntilTick: 30,
+      buildingDisruptionUntilTick: Math.ceil(
+        FREE_POLICE_CONFIG.buildingDisruptionTicksBySeverity.extreme * 0.25
+      ),
       heatReducedBy: 55,
       courtMitigationPct: 75,
       courtBuildingsOwned: 2,
@@ -552,7 +583,9 @@ describe("core police system completion", () => {
       "dirty-cash": 945,
       chemicals: 49
     });
-    expect(resolved.nextState.districtsById["district:1"].lockdownUntilTick).toBe(45);
+    expect(resolved.nextState.districtsById["district:1"].lockdownUntilTick).toBe(
+      Math.ceil(FREE_POLICE_CONFIG.lockdownTicksBySeverity.extreme * 0.25)
+    );
     expect(resolved.events[0]?.payload).toMatchObject({
       courtMitigationPct: 75,
       courtBuildingsOwned: 2,
@@ -886,21 +919,21 @@ describe("core police system completion", () => {
   it("decays player heat on the configured interval", () => {
     const state = createCoreStateFixture();
     addPoliceState(state, 85);
-    state.root.tick = 30;
+    state.root.tick = PLAYER_HEAT_DECAY_INTERVAL_TICKS;
 
     const result = applyPoliceHeatDecay(state, createContext());
 
     expect(result.policeStatesById["police:1"]).toMatchObject({
       heat: 84,
       wantedLevel: 4,
-      lastDecayTick: 30
+      lastDecayTick: PLAYER_HEAT_DECAY_INTERVAL_TICKS
     });
   });
 
   it("never decays player heat below zero", () => {
     const state = createCoreStateFixture();
     addPoliceState(state, 2);
-    state.root.tick = 30;
+    state.root.tick = PLAYER_HEAT_DECAY_INTERVAL_TICKS;
 
     const result = applyPoliceHeatDecay(state, createContext());
 
@@ -913,7 +946,7 @@ describe("core police system completion", () => {
   it("recalculates wanted level after player heat decay", () => {
     const state = createCoreStateFixture();
     addPoliceState(state, 41);
-    state.root.tick = 30;
+    state.root.tick = PLAYER_HEAT_DECAY_INTERVAL_TICKS;
 
     const result = applyPoliceHeatDecay(state, createContext());
 
@@ -926,7 +959,7 @@ describe("core police system completion", () => {
   it("skips player heat decay while a raid is pending", () => {
     const state = createCoreStateFixture();
     addPoliceState(state, 85);
-    state.root.tick = 30;
+    state.root.tick = PLAYER_HEAT_DECAY_INTERVAL_TICKS;
     state.policeStatesById["police:1"].pendingRaids = [{
       raidId: "raid:pending",
       playerId: "player:1",
@@ -951,14 +984,14 @@ describe("core police system completion", () => {
     expect(result.policeStatesById["police:1"]).toMatchObject({
       heat: 85,
       wantedLevel: 4,
-      lastDecayTick: 30
+      lastDecayTick: PLAYER_HEAT_DECAY_INTERVAL_TICKS
     });
     expect(result.policeStatesById["police:1"].pendingRaids?.[0].status).toBe("pending");
   });
 
   it("decays district heat on the configured interval", () => {
     const state = createCoreStateFixture();
-    state.root.tick = 60;
+    state.root.tick = DISTRICT_HEAT_DECAY_INTERVAL_TICKS;
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
       heat: 90,
@@ -974,13 +1007,13 @@ describe("core police system completion", () => {
 
     expect(result.districtsById["district:1"]).toMatchObject({
       heat: 87,
-      lastHeatDecayTick: 60
+      lastHeatDecayTick: DISTRICT_HEAT_DECAY_INTERVAL_TICKS
     });
   });
 
   it("initializes missing district heat decay tick without retroactive decay", () => {
     const state = createCoreStateFixture();
-    state.root.tick = 180;
+    state.root.tick = DISTRICT_HEAT_DECAY_INTERVAL_TICKS * 3;
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
       heat: 90
@@ -995,13 +1028,13 @@ describe("core police system completion", () => {
 
     expect(result.districtsById["district:1"]).toMatchObject({
       heat: 90,
-      lastHeatDecayTick: 180
+      lastHeatDecayTick: DISTRICT_HEAT_DECAY_INTERVAL_TICKS * 3
     });
   });
 
   it("decays district heat normally after initializing the decay tick", () => {
     const state = createCoreStateFixture();
-    state.root.tick = 180;
+    state.root.tick = DISTRICT_HEAT_DECAY_INTERVAL_TICKS * 3;
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
       heat: 90
@@ -1018,24 +1051,24 @@ describe("core police system completion", () => {
       ...initialized,
       root: {
         ...initialized.root,
-        tick: 240
+        tick: DISTRICT_HEAT_DECAY_INTERVAL_TICKS * 4
       }
     };
     const result = applyPoliceHeatDecay(nextState, context);
 
     expect(result.districtsById["district:1"]).toMatchObject({
       heat: 87,
-      lastHeatDecayTick: 240
+      lastHeatDecayTick: DISTRICT_HEAT_DECAY_INTERVAL_TICKS * 4
     });
   });
 
   it("keeps existing valid district heat decay ticks compatible", () => {
     const state = createCoreStateFixture();
-    state.root.tick = 120;
+    state.root.tick = DISTRICT_HEAT_DECAY_INTERVAL_TICKS * 2;
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
       heat: 90,
-      lastHeatDecayTick: 60
+      lastHeatDecayTick: DISTRICT_HEAT_DECAY_INTERVAL_TICKS
     };
 
     const result = applyPoliceHeatDecay(state, createContext({
@@ -1047,13 +1080,13 @@ describe("core police system completion", () => {
 
     expect(result.districtsById["district:1"]).toMatchObject({
       heat: 87,
-      lastHeatDecayTick: 120
+      lastHeatDecayTick: DISTRICT_HEAT_DECAY_INTERVAL_TICKS * 2
     });
   });
 
   it("never decays district heat below zero", () => {
     const state = createCoreStateFixture();
-    state.root.tick = 60;
+    state.root.tick = DISTRICT_HEAT_DECAY_INTERVAL_TICKS;
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
       heat: 2,
@@ -1069,14 +1102,14 @@ describe("core police system completion", () => {
 
     expect(result.districtsById["district:1"]).toMatchObject({
       heat: 0,
-      lastHeatDecayTick: 60
+      lastHeatDecayTick: DISTRICT_HEAT_DECAY_INTERVAL_TICKS
     });
   });
 
   it("still triggers raids after applying decay when pressure remains high", () => {
     const state = createCoreStateFixture();
     addPoliceState(state, 120);
-    state.root.tick = 30;
+    state.root.tick = PLAYER_HEAT_DECAY_INTERVAL_TICKS;
 
     const decayed = applyPoliceHeatDecay(state, createContext());
     decayed.root.tick = resolveModeConfig("free").balance.dayLengthTicks

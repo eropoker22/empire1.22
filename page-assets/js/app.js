@@ -1,7 +1,10 @@
 import { bindDesktopGameScrollLimit } from "./app/runtime/desktopScrollLimitRuntime.js";
-import { bootstrapPage, PAGE_ROOT_SELECTOR } from "./app/render-ui.js?v=heat-audit-20260721";
+import {
+  mountServerAuthoritativePage,
+  PAGE_ROOT_SELECTOR
+} from "./app/presentation/serverAuthoritativePageController.js";
+import { createServerAuthoritativePageLifecycle } from "./app/presentation/serverAuthoritativePageLifecycle.js";
 import { loadLobbyOverview } from "./app/player-entry-client.js";
-import { isExplicitGamePreviewEnabled } from "./app/local-demo-gate.js";
 import {
   bindGameAuthorityGate,
   mountLiveGameplayClient,
@@ -9,8 +12,20 @@ import {
   showLiveGameplayUnavailable
 } from "./app/runtime/liveGameplayBootstrap.js";
 
+let activePresentation = null;
+let authorityGateBound = false;
+let desktopScrollController = null;
+
+const pageLifecycle = createServerAuthoritativePageLifecycle({
+  onPageHide: () => {
+    activePresentation = null;
+    desktopScrollController?.destroy?.();
+    desktopScrollController = null;
+  },
+  onResume: (context) => bootGamePage(context)
+});
+
 async function resolveGameBootContext() {
-  if (isExplicitGamePreviewEnabled()) return { kind: "preview" };
   try {
     const overview = await loadLobbyOverview();
     const membership = overview.activeBlockingMembership;
@@ -31,22 +46,26 @@ async function resolveGameBootContext() {
 }
 
 function bootGamePage(context) {
-  bindGameAuthorityGate();
+  if (!authorityGateBound) {
+    authorityGateBound = true;
+    bindGameAuthorityGate();
+  }
   if (context.kind === "unavailable") {
     showLiveGameplayUnavailable(context.error);
     return null;
   }
-  if (context.kind === "preview") {
-    const previewRuntime = bootstrapPage();
-    bindDesktopGameScrollLimit();
-    return previewRuntime;
+  if (activePresentation) {
+    return activePresentation;
   }
+  pageLifecycle.track(context);
   const sliceRoot = prepareLiveGameplayBootstrap(context.membership);
-  const runtime = bootstrapPage();
+  const presentation = mountServerAuthoritativePage();
+  activePresentation = presentation;
   document.body.classList.add("game-body--booting");
-  bindDesktopGameScrollLimit();
+  desktopScrollController?.destroy?.();
+  desktopScrollController = bindDesktopGameScrollLimit();
   void mountLiveGameplayClient(sliceRoot).catch((error) => showLiveGameplayUnavailable(error));
-  return runtime;
+  return presentation;
 }
 
 void resolveGameBootContext().then((context) => {

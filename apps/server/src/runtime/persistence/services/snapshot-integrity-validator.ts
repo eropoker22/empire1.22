@@ -1,5 +1,5 @@
 import type { ServerInstanceId } from "@empire/shared-types";
-import type { InstanceSnapshotDto } from "../dto";
+import type { InstanceSnapshotDto, SnapshotCheckpointRecord } from "../dto";
 
 export type SnapshotIntegrityFailureCode =
   | "SNAPSHOT_PAYLOAD_INVALID"
@@ -7,7 +7,8 @@ export type SnapshotIntegrityFailureCode =
   | "SNAPSHOT_VERSION_METADATA_INVALID"
   | "SNAPSHOT_ROOT_VERSION_INVALID"
   | "SNAPSHOT_TICK_INVALID"
-  | "SNAPSHOT_ENTITY_COUNTS_MISMATCH";
+  | "SNAPSHOT_ENTITY_COUNTS_MISMATCH"
+  | "SNAPSHOT_CHECKPOINT_METADATA_MISMATCH";
 
 export interface SnapshotIntegrityValidation {
   valid: boolean;
@@ -28,7 +29,20 @@ export const validateSnapshotIntegrity = (
   snapshot: InstanceSnapshotDto,
   instanceId: ServerInstanceId
 ): SnapshotIntegrityValidation => {
-  if (!snapshot || typeof snapshot !== "object" || !snapshot.state || !snapshot.integrity || !snapshot.version) {
+  const candidate: unknown = snapshot;
+  if (
+    !isRecord(candidate) ||
+    !isRecord(candidate.state) ||
+    !isRecord(candidate.state.root) ||
+    !isRecord(candidate.state.serverInstance) ||
+    !isRecord(candidate.state.playersById) ||
+    !isRecord(candidate.state.alliancesById) ||
+    !isRecord(candidate.state.districtsById) ||
+    !isRecord(candidate.state.buildingsById) ||
+    !isRecord(candidate.integrity) ||
+    !isRecord(candidate.integrity.entityCounts) ||
+    !isRecord(candidate.version)
+  ) {
     return invalid("SNAPSHOT_PAYLOAD_INVALID");
   }
   if (
@@ -80,7 +94,27 @@ export const assertSnapshotIntegrity = (
   if (!validation.valid) throw new SnapshotRecoveryIntegrityError(validation.failureCode!);
 };
 
+export const assertSnapshotCheckpointIntegrity = (
+  checkpoint: SnapshotCheckpointRecord
+): void => {
+  assertSnapshotIntegrity(checkpoint.snapshot, checkpoint.instanceId);
+  const checkpointCreatedAt = Date.parse(checkpoint.createdAt);
+  const snapshotCreatedAt = Date.parse(checkpoint.snapshot.createdAt);
+  if (
+    checkpoint.instanceId !== checkpoint.snapshot.instanceId ||
+    checkpoint.tick !== checkpoint.snapshot.tick ||
+    checkpoint.rootVersion !== checkpoint.snapshot.integrity.rootVersion ||
+    !Number.isFinite(checkpointCreatedAt) ||
+    checkpointCreatedAt !== snapshotCreatedAt
+  ) {
+    throw new SnapshotRecoveryIntegrityError("SNAPSHOT_CHECKPOINT_METADATA_MISMATCH");
+  }
+};
+
 const invalid = (failureCode: SnapshotIntegrityFailureCode): SnapshotIntegrityValidation => ({
   valid: false,
   failureCode
 });
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);

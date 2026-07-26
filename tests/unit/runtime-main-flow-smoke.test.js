@@ -8,7 +8,8 @@ const read = (relativePath) => readFileSync(resolve(root, relativePath), "utf8")
 describe("runtime main UI flow smoke guard", () => {
   it("keeps the boot path, critical anchors, and runtime facade wired together", async () => {
     const html = read("pages/game.html");
-    const renderUiSource = read("page-assets/js/app/render-ui.js");
+    const appSource = read("page-assets/js/app.js");
+    const localDemoFacade = read("page-assets/js/app/render-ui.js");
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
     try {
@@ -40,6 +41,7 @@ describe("runtime main UI flow smoke guard", () => {
       ];
       const requiredFacadeExports = [
         "bootstrapPage",
+        "destroyRuntime",
         "initRuntime",
         "refreshAllUi",
         "bindPlayerProfilePopup",
@@ -66,7 +68,9 @@ describe("runtime main UI flow smoke guard", () => {
         expect(runtime[exportName]).toBeDefined();
       }
 
-      expect(renderUiSource).toMatch(/from "\.\/runtime\.js(?:\?[^"]*)?"/u);
+      expect(appSource).toContain('from "./app/presentation/serverAuthoritativePageController.js"');
+      expect(appSource).not.toContain("runtime.js");
+      expect(localDemoFacade).toContain('from "./runtime/localDemoLegacyBootstrap.js"');
       expect(consoleError).not.toHaveBeenCalled();
     } finally {
       consoleError.mockRestore();
@@ -125,9 +129,8 @@ describe("runtime main UI flow smoke guard", () => {
 
   it("opens only the police raid information window for districts under raid", () => {
     const runtimeSource = read("page-assets/js/app/runtime.js");
-    const clientRuntimeSource = read("client/page-assets/js/app/runtime.js");
 
-    for (const source of [runtimeSource, clientRuntimeSource]) {
+    for (const source of [runtimeSource]) {
       expect(source).toContain("const openPoliceRaidOnlyForDistrict = (district, policeAction = null) => {");
       expect(source).toMatch(/closePopup\(\);\r?\n    hideTooltip\(\);/u);
       expect(source).toContain('queueOrOpenResultModal(root, "police", {');
@@ -154,9 +157,8 @@ describe("runtime main UI flow smoke guard", () => {
 
   it("feeds active district action countdowns into the popup action hub", () => {
     const runtimeSource = read("page-assets/js/app/runtime.js");
-    const clientRuntimeSource = read("client/page-assets/js/app/runtime.js");
 
-    for (const source of [runtimeSource, clientRuntimeSource]) {
+    for (const source of [runtimeSource]) {
       expect(source).toContain("const formatActionCountdownLabel = (remainingMs) => {");
       expect(source).toContain('return `Zbývá ${minutes}:${String(seconds).padStart(2, "0")}`;');
       expect(source).toContain("const getDistrictActionCountdowns = (districtId) => ({");
@@ -170,7 +172,7 @@ describe("runtime main UI flow smoke guard", () => {
   });
 
   it("keeps the Buildings card closed on every game.html refresh", () => {
-    for (const sourcePath of ["page-assets/js/app/runtime.js", "client/page-assets/js/app/runtime.js"]) {
+    for (const sourcePath of ["page-assets/js/app/runtime.js"]) {
       const source = read(sourcePath);
 
       expect(source).toMatch(/const shouldAutoOpenBuildingsPopupOnRefresh = \(\) => \{\r?\n    return false;\r?\n  \};/u);
@@ -181,9 +183,8 @@ describe("runtime main UI flow smoke guard", () => {
 
   it("keeps foreign discovered district buildings from opening details", () => {
     const runtimeSource = read("page-assets/js/app/runtime.js");
-    const clientRuntimeSource = read("client/page-assets/js/app/runtime.js");
 
-    for (const source of [runtimeSource, clientRuntimeSource]) {
+    for (const source of [runtimeSource]) {
       const buildingsClickIndex = source.indexOf('popupBuildingsList.addEventListener("click"');
       const ownershipGuardIndex = source.indexOf("const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);", buildingsClickIndex);
       const openDetailIndex = source.indexOf("openDistrictBuildingDetail(selectedDistrict", buildingsClickIndex);
@@ -210,9 +211,8 @@ describe("runtime main UI flow smoke guard", () => {
 
   it("starts the trap move lock from every trap placement or move", () => {
     const runtimeSource = read("page-assets/js/app/runtime.js");
-    const clientRuntimeSource = read("client/page-assets/js/app/runtime.js");
 
-    for (const source of [runtimeSource, clientRuntimeSource]) {
+    for (const source of [runtimeSource]) {
       expect(source).toContain("const trapActionTimestamp = new Date().toISOString();");
       expect(source).toContain("armedAt: trapActionTimestamp");
       expect(source).toContain("movedAt: trapActionTimestamp");

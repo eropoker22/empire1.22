@@ -39,6 +39,12 @@ describe("Free BR Final Lockdown", () => {
       remainingActiveTicks: FREE_CONFIG.balance.finalLockdown!.activeDurationTicks
     });
     expect(result.nextState.eliminationState?.nextEliminationTick).toBeNull();
+    const feedEvent = Object.values(result.nextState.cityFeedEventsById)
+      .find((event) => event.rumorCategory === "final_lockdown");
+    expect(
+      ((feedEvent?.expiresAtTick ?? 0) - (feedEvent?.createdAtTick ?? 0))
+      * FREE_CONFIG.tickRateMs
+    ).toBe(15 * 60 * 60 * 1000);
   });
 
   it("uses the frozen hosted trigger for a two-player server", () => {

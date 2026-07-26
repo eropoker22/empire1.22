@@ -6,6 +6,7 @@ import {
 } from "../dto";
 import type { SnapshotRetentionPolicy } from "../services/retention-policy";
 import { assertSnapshotIntegrity } from "../services/snapshot-integrity-validator";
+import { isTerminalSnapshot } from "../services/snapshot-retention-classification";
 import {
   createSnapshotPersistenceMetrics,
   emptySnapshotCheckpointCounts,
@@ -129,8 +130,7 @@ const cleanupInMemoryCheckpoints = async (
   try {
     for (const checkpoints of checkpointsByInstanceId.values()) {
       const values = [...checkpoints.values()];
-      const terminal = values.some((checkpoint) => checkpoint.snapshot.metadata.status === "stopped"
-        || checkpoint.snapshot.state.root.phase === "resolved");
+      const terminal = values.some((checkpoint) => isTerminalSnapshot(checkpoint.snapshot));
       const rollingLimit = terminal
         ? policy.rollingCheckpointCountTerminal
         : policy.rollingCheckpointCountActive;

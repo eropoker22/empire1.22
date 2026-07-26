@@ -7,6 +7,15 @@ declare const process: {
   loadEnvFile?(path?: string): void;
 };
 
+declare const __dirname: string;
+
+declare class Buffer extends Uint8Array {
+  static isBuffer(value: unknown): value is Buffer;
+  static from(value: string): Buffer;
+  static concat(values: readonly Uint8Array[]): Buffer;
+  toString(encoding?: string): string;
+}
+
 declare module "node:fs" {
   export const promises: {
     mkdir(path: string, options?: { recursive?: boolean }): Promise<void>;
@@ -20,7 +29,7 @@ declare module "node:fs" {
 declare module "node:fs/promises" {
   export function mkdtemp(prefix: string): Promise<string>;
   export function rm(path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void>;
-  export function readdir(path: URL): Promise<string[]>;
+  export function readdir(path: string | URL): Promise<string[]>;
   export function readFile(path: URL, encoding: "utf8"): Promise<string>;
 }
 
@@ -30,11 +39,11 @@ declare module "node:http" {
     method?: string;
     headers: Record<string, string | string[] | undefined>;
     setEncoding(encoding: "utf8"): void;
-    on(event: "data", listener: (chunk: string) => void): void;
-    on(event: "end", listener: () => void): void;
-    on(event: "error", listener: (error: Error) => void): void;
+    on(event: string, listener: (value?: unknown) => void): void;
   }
   export interface ServerResponse {
+    statusCode: number;
+    setHeader(name: string, value: string | readonly string[]): void;
     writeHead(status: number, headers?: Record<string, string>): ServerResponse;
     end(data?: string): void;
   }
@@ -57,6 +66,7 @@ declare module "node:child_process" {
 declare module "node:path" {
   export function dirname(path: string): string;
   export function join(...paths: string[]): string;
+  export function resolve(...paths: string[]): string;
 }
 
 declare module "node:os" {

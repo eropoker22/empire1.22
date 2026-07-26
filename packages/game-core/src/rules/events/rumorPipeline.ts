@@ -26,6 +26,7 @@ import { applyDayNightRumorTruthChancePct, shouldGenerateDayNightRumor } from ".
 import { deterministicRollPct } from "../../utils/math";
 import { getLobbyClubMetadata, getOwnedLobbyClubs } from "../../handlers/lobbyClubMetadata";
 import { applyFactionRumorTruthChancePct, getFactionPassiveModifiers } from "../factions/factionRules";
+import { isSuppressedByRecentSimilarEvent } from "./rumorFeedSuppression";
 
 export const CITY_FEED_DEFAULT_LIMIT = 50;
 
@@ -79,7 +80,7 @@ export interface ResolvedRumorEvent {
 
 export const RUMOR_FEED_CONFIG = Object.freeze({
   recentTemplateSuppressionCount: 8,
-  categoryCooldownTicks: 2,
+  categoryCooldownSeconds: 10,
   staleAfterRatio: 0.55,
   defaultExpiresAfterSeconds: 1_800,
   modeExpirationMultiplier: {
@@ -179,13 +180,21 @@ export const applyRumorEventToState = (
   context: RumorPipelineContext = {}
 ): CoreGameState => {
   const resolved = resolveRumorEvent(input, state, context);
-  return resolved.event ? appendResolvedCityFeedEvents(state, [resolved.event], context.limit) : state;
+  return resolved.event
+    ? appendResolvedCityFeedEvents(
+        state,
+        [resolved.event],
+        context.limit,
+        context.config?.tickRateMs
+      )
+    : state;
 };
 
 export const appendResolvedCityFeedEvents = (
   state: CoreGameState,
   events: readonly CityFeedEvent[],
-  limit = CITY_FEED_DEFAULT_LIMIT
+  limit = CITY_FEED_DEFAULT_LIMIT,
+  tickRateMs = 10_000
 ): CoreGameState => {
   if (events.length <= 0) return state;
   const existing = pruneExpiredEvents(state.cityFeedEventsById ?? {}, state.root.tick);
@@ -196,7 +205,13 @@ export const appendResolvedCityFeedEvents = (
   for (const event of events) {
     const sourceKey = event.sourceEventId || event.id;
     if (!event.id || sourceKeys.has(sourceKey)) continue;
-    if (isSuppressedByRecentSimilarEvent(event, nextEntries, state.root.tick)) continue;
+    if (isSuppressedByRecentSimilarEvent(
+      event,
+      nextEntries,
+      state.root.tick,
+      RUMOR_FEED_CONFIG.categoryCooldownSeconds,
+      tickRateMs
+    )) continue;
     sourceKeys.add(sourceKey);
     nextEntries[event.id] = sanitizeCityFeedEvent(event);
     changed = true;
@@ -610,24 +625,6 @@ const resolveExpirationTicks = (
 
 const secondsToTicks = (seconds: number, tickRateMs = 1_000): number =>
   Math.max(1, Math.ceil((Math.max(1, seconds) * 1000) / Math.max(1, tickRateMs)));
-
-const isSuppressedByRecentSimilarEvent = (
-  event: CityFeedEvent,
-  existing: Record<string, CityFeedEvent>,
-  currentTick: number
-): boolean => {
-  if (event.confidence === "confirmed" || event.priority === 100) return false;
-  const cooldown = RUMOR_FEED_CONFIG.categoryCooldownTicks;
-  return Object.values(existing).some((candidate) =>
-    (candidate.expiresAtTick ?? Infinity) > currentTick
-    && candidate.audience === event.audience
-    && candidate.rumorCategory === event.rumorCategory
-    && candidate.confidence === event.confidence
-    && (candidate.districtId ?? "") === (event.districtId ?? "")
-    && (candidate.sourceBuildingType ?? "") === (event.sourceBuildingType ?? "")
-    && Math.abs(candidate.createdAtTick - event.createdAtTick) <= cooldown
-  );
-};
 
 const pruneExpiredEvents = (
   events: Record<string, CityFeedEvent>,

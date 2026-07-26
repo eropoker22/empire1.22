@@ -1,9 +1,13 @@
 import { PLAYER_BOOST_CONFIG } from "../../../packages/game-config/src/legacy-page/gameplay-config.generated.js";
 import {
-  activatePlayerBoost,
-  getPlayerBoostViewModel,
-  setBuildingActionFeedback
-} from "./runtime.js";
+  activateServerPlayerBoost,
+  getServerGameplaySliceReadModel
+} from "./runtime/serverGameplaySource.js";
+import { getLocalDemoGameplayBridgeForMode } from "./runtime/localDemoGameplayBridge.js";
+import {
+  GAMEPLAY_EXECUTION_MODES,
+  getGameplayExecutionMode
+} from "./runtime/gameplayExecutionMode.js";
 import { bindSharedCountdown } from "./ui/sharedCountdownTicker.js";
 import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
 
@@ -19,6 +23,81 @@ const ERROR_MESSAGES = Object.freeze({
   boost_duplicate_activation: "Tento požadavek už byl zpracován.",
   boost_state_conflict: "Aktivaci se nepodařilo dokončit."
 });
+const BOOST_RESOURCE_LABELS = Object.freeze({
+  "ghost-serum": "Ghost Serum",
+  "pulse-shot": "Pulse Shot",
+  "overdrive-x": "Overdrive X",
+  "combat-module": "Combat Module"
+});
+let boostRuntimeCleanup = null;
+
+const getCurrentGameplayMode = () => getGameplayExecutionMode({
+  windowRef: typeof window === "undefined" ? null : window,
+  diagnosticsMode: globalThis.empireStreetsRuntimeDiagnostics?.getSummary?.().runtimeMode
+});
+const getActiveLocalDemoGameplayBridge = () =>
+  getLocalDemoGameplayBridgeForMode(getCurrentGameplayMode());
+
+const createUnavailablePlayerBoostView = () => ({
+  active: null,
+  cards: Object.entries(PLAYER_BOOST_CONFIG).map(([boostId, definition]) => ({
+    boostId,
+    label: definition.label,
+    category: definition.category,
+    description: definition.description,
+    shortEffect: definition.shortEffect,
+    costs: Object.entries(definition.inputCosts || {}).map(([resourceKey, required]) => ({
+      resourceKey,
+      label: BOOST_RESOURCE_LABELS[resourceKey] || resourceKey,
+      required,
+      stored: 0,
+      enough: false,
+      missingAmount: required
+    })),
+    cleanCashCost: definition.cleanCashCost,
+    playerCleanCash: 0,
+    hasEnoughCleanCash: false,
+    durationMs: definition.durationMs,
+    cooldownMs: definition.cooldownMs,
+    cooldownEndsAtMs: null,
+    cooldownRemainingMs: 0,
+    activeEndsAtMs: null,
+    isActive: false,
+    isArmed: false,
+    isBlockedByActiveBoost: false,
+    canActivate: false,
+    disabledReason: "boost_unavailable",
+    uiAccent: definition.uiAccent,
+    iconKey: definition.iconKey
+  }))
+});
+
+const getPlayerBoostViewModel = (now = Date.now()) => {
+  const mode = getCurrentGameplayMode();
+  if (mode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    return getServerGameplaySliceReadModel()?.player?.boosts || createUnavailablePlayerBoostView();
+  }
+  if (mode === GAMEPLAY_EXECUTION_MODES.localDemo) {
+    return getActiveLocalDemoGameplayBridge()?.getPlayerBoostViewModel?.(now)
+      || createUnavailablePlayerBoostView();
+  }
+  return createUnavailablePlayerBoostView();
+};
+
+const activatePlayerBoost = (boostId, options = {}) => {
+  const mode = getCurrentGameplayMode();
+  if (mode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    return activateServerPlayerBoost(boostId);
+  }
+  if (mode !== GAMEPLAY_EXECUTION_MODES.localDemo) {
+    return Promise.resolve({ ok: false, code: "boost_unavailable" });
+  }
+  return getActiveLocalDemoGameplayBridge()?.activatePlayerBoost?.(boostId, options)
+    || Promise.resolve({ ok: false, code: "boost_unavailable" });
+};
+
+const setBuildingActionFeedback = (...args) =>
+  getActiveLocalDemoGameplayBridge()?.setBuildingActionFeedback?.(...args);
 
 const escapeHtml = (value) => String(value ?? "")
   .replaceAll("&", "&amp;")
@@ -128,6 +207,7 @@ function createCardMarkup(card, view, pendingBoostId) {
 }
 
 function initBoostRuntime() {
+  if (boostRuntimeCleanup) return boostRuntimeCleanup;
   const root = document.querySelector(PAGE_SELECTOR);
   const modal = document.getElementById("boost-modal");
   const content = document.getElementById("boost-modal-content");
@@ -298,6 +378,20 @@ function initBoostRuntime() {
     renderCards();
   };
 
+  const handleModalClick = (event) => {
+    const button = event.target instanceof Element ? event.target.closest("[data-boost-activate]") : null;
+    if (button instanceof HTMLButtonElement && !button.disabled) showConfirmation(button.dataset.boostActivate);
+  };
+  const handleKeyDown = (event) => {
+    if (event.key !== "Escape") return;
+    if (confirmationModal && !confirmationModal.hidden) {
+      closeConfirmation();
+      return;
+    }
+    if (isOpen()) close();
+  };
+  const handleBoostStateChange = () => renderCards();
+
   openButtons.forEach((button) => button.addEventListener("click", open));
   closeButton?.addEventListener("click", close);
   backdrop?.addEventListener("click", close);
@@ -305,24 +399,42 @@ function initBoostRuntime() {
   confirmationBack?.addEventListener("click", closeConfirmation);
   confirmationClose?.addEventListener("click", closeConfirmation);
   confirmationSubmit?.addEventListener("click", confirmActivation);
-  modal.addEventListener("click", (event) => {
-    const button = event.target instanceof Element ? event.target.closest("[data-boost-activate]") : null;
-    if (button instanceof HTMLButtonElement && !button.disabled) showConfirmation(button.dataset.boostActivate);
-  });
-  document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape") return;
-    if (confirmationModal && !confirmationModal.hidden) {
-      closeConfirmation();
-      return;
-    }
-    if (isOpen()) close();
-  });
-  document.addEventListener("empire:player-boost-state-change", () => renderCards());
-  document.addEventListener("empire:runtime-mode-changed", () => renderCards());
+  modal.addEventListener("click", handleModalClick);
+  document.addEventListener("keydown", handleKeyDown);
+  document.addEventListener("empire:player-boost-state-change", handleBoostStateChange);
+  document.addEventListener("empire:runtime-mode-changed", handleBoostStateChange);
+  document.addEventListener("empire:local-demo-gameplay-bridge-ready", handleBoostStateChange);
 
   const tickerHost = openButtons[0] || root;
-  bindSharedCountdown(tickerHost, () => Date.now(), { render: tickUi });
+  const disposeCountdown = bindSharedCountdown(tickerHost, () => Date.now(), { render: tickUi });
   tickUi();
+  boostRuntimeCleanup = () => {
+    openButtons.forEach((button) => button.removeEventListener("click", open));
+    closeButton?.removeEventListener("click", close);
+    backdrop?.removeEventListener("click", close);
+    confirmationBackdrop?.removeEventListener("click", closeConfirmation);
+    confirmationBack?.removeEventListener("click", closeConfirmation);
+    confirmationClose?.removeEventListener("click", closeConfirmation);
+    confirmationSubmit?.removeEventListener("click", confirmActivation);
+    modal.removeEventListener("click", handleModalClick);
+    document.removeEventListener("keydown", handleKeyDown);
+    document.removeEventListener("empire:player-boost-state-change", handleBoostStateChange);
+    document.removeEventListener("empire:runtime-mode-changed", handleBoostStateChange);
+    document.removeEventListener("empire:local-demo-gameplay-bridge-ready", handleBoostStateChange);
+    disposeCountdown();
+    closeOverlay(confirmationModal, { restoreFocus: false });
+    closeOverlay(modal, { restoreFocus: false });
+    boostRuntimeCleanup = null;
+  };
+  return boostRuntimeCleanup;
 }
 
-if (typeof document !== "undefined") initBoostRuntime();
+function destroyBoostRuntime() {
+  boostRuntimeCleanup?.();
+}
+
+if (typeof document !== "undefined") {
+  initBoostRuntime();
+  window.addEventListener("pagehide", destroyBoostRuntime);
+  window.addEventListener("pageshow", initBoostRuntime);
+}

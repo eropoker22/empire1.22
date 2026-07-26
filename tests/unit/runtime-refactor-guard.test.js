@@ -8,15 +8,19 @@ const read = (relativePath) => readFileSync(resolve(root, relativePath), "utf8")
 const gameHtml = () => read("pages/game.html");
 const appSource = () => read("page-assets/js/app.js");
 const renderUiSource = () => read("page-assets/js/app/render-ui.js");
+const localDemoAdapterSource = () => read("page-assets/js/app/runtime/localDemoLegacyBootstrap.js");
 const runtimeSource = () => read("page-assets/js/app/runtime.js");
 const serverCommandAuthorityGuardSource = () => read("page-assets/js/app/runtime/serverCommandAuthorityGuard.js");
 
 describe("runtime refactor guard", () => {
-  it("keeps the canonical module load path intact", () => {
+  it("keeps production and local-demo module paths explicitly separated", () => {
     expect(gameHtml()).toMatch(/type="module" src="\.\.\/page-assets\/js\/app-entry\.js(?:\?[^"]*)?"/u);
     expect(gameHtml()).not.toContain('src="../page-assets/js/app/runtime.js"');
-    expect(appSource()).toMatch(/from "\.\/app\/render-ui\.js(?:\?[^"]*)?"/u);
-    expect(renderUiSource()).toMatch(/from "\.\/runtime\.js(?:\?[^"]*)?"/u);
+    expect(appSource()).toContain('from "./app/presentation/serverAuthoritativePageController.js"');
+    expect(appSource()).not.toContain("runtime.js");
+    expect(appSource()).not.toContain("render-ui.js");
+    expect(renderUiSource()).toContain('from "./runtime/localDemoLegacyBootstrap.js"');
+    expect(localDemoAdapterSource()).toMatch(/from "\.\.\/runtime\.js"/u);
   });
 
   it("does not introduce inline HTML event handlers for the game shell", () => {
@@ -55,7 +59,7 @@ describe("runtime refactor guard", () => {
     }
   });
 
-  it("imports the runtime facade without critical console errors", async () => {
+  it("imports the explicit local-demo facade without critical console errors", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
     try {

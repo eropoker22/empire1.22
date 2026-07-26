@@ -1,1 +1,1 @@
-export { bindBuildingActionStatus } from "../runtime.js";
+export { bindBuildingActionStatus } from "../runtime/localDemoLegacyBootstrap.js";

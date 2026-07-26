@@ -1,22 +1,28 @@
 import type { ServerInstanceId } from "@empire/shared-types";
 import type { InstanceSnapshotDto, SnapshotCheckpointRecord } from "../dto";
-import { assertSnapshotIntegrity } from "../services/snapshot-integrity-validator";
+import {
+  assertSnapshotCheckpointIntegrity,
+  assertSnapshotIntegrity
+} from "../services/snapshot-integrity-validator";
 import {
   createSnapshotPersistenceMetrics,
   type SnapshotRepository,
   type SnapshotWriteResult
 } from "../repositories";
+import { classifySnapshotWrite } from "../repositories/snapshot-write-guard";
 import type { PostgresDatabase, PostgresQueryable } from "./postgres-client";
 import { cleanupPostgresCheckpoints } from "./postgres-snapshot-maintenance";
 import {
+  assertRejectedCheckpointIsIdempotent,
   assertRejectedRecoveryHeadIsIdempotent,
   createCheckpointHistoryId,
   createRecoveryHeadId,
   ensureSnapshotInstanceRow,
   loadCheckpointCandidates,
+  loadLatestValidCheckpoint,
   loadRecoveryHeadFrom,
-  type PostgresSnapshotRepositoryOptions,
   recordCheckpointMetric,
+  type PostgresSnapshotRepositoryOptions,
   withOptionalTransaction
 } from "./postgres-snapshot-storage";
 
@@ -109,7 +115,7 @@ const createPostgresSnapshotRepositoryForQueryable = (
 
   const saveCheckpoint = async (checkpoint: SnapshotCheckpointRecord): Promise<SnapshotWriteResult> => {
     try {
-      assertSnapshotIntegrity(checkpoint.snapshot, checkpoint.instanceId);
+      assertSnapshotCheckpointIntegrity(checkpoint);
       const serialized = JSON.stringify(checkpoint.snapshot);
       const databaseStartedAt = performance.now();
       const result = await withOptionalTransaction(database, options, async (client) => {
@@ -140,7 +146,9 @@ const createPostgresSnapshotRepositoryForQueryable = (
             checkpoint.createdAt
           ]
         );
-        return (inserted.rowCount ?? inserted.rows.length) === 1 ? "created" : "idempotent";
+        if ((inserted.rowCount ?? inserted.rows.length) === 1) return "created";
+        await assertRejectedCheckpointIsIdempotent(client, checkpoint);
+        return "idempotent";
       });
       metrics.lastDatabaseSaveDurationMs = Math.max(0, performance.now() - databaseStartedAt);
       if (result === "created") recordCheckpointMetric(metrics, checkpoint.kind);
@@ -175,15 +183,7 @@ const createPostgresSnapshotRepositoryForQueryable = (
         metrics.recoveryFromHead += 1;
         return { snapshot: head, source: "recovery-head", reasonCode: "RECOVERY_HEAD_VALID" };
       }
-      const candidates = await loadCheckpointCandidates(database, instanceId, 20);
-      const checkpoint = candidates.find((candidate) => {
-        try {
-          assertSnapshotIntegrity(candidate.snapshot, instanceId);
-          return true;
-        } catch (_error) {
-          return false;
-        }
-      });
+      const checkpoint = await loadLatestValidCheckpoint(database, instanceId, metrics);
       if (!checkpoint) {
         return { snapshot: null, source: "none", reasonCode: "RECOVERY_SNAPSHOT_MISSING" };
       }

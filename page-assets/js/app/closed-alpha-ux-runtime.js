@@ -1,9 +1,9 @@
 import {
   getServerGameplaySliceReadModel,
   retryPendingServerGameplayCommands,
-  submitServerDistrictActionCommand,
+  submitServerGameplayCommand,
   submitServerEmergencyRecoveryCommand
-} from "./runtime.js";
+} from "./runtime/serverGameplaySource.js";
 import { GAMEPLAY_EXECUTION_MODES, getGameplayExecutionMode } from "./runtime/gameplayExecutionMode.js";
 import { bindSharedModal, closeSharedModal, openSharedModal } from "./ui/sharedModalStack.js";
 import { FREE_GAMEPLAY_TICK_MS } from "../../../packages/game-config/src/legacy-page/economy-config.js";
@@ -162,7 +162,7 @@ const renderEncirclementConfirmation = () => {
     title: "Uzavření přímé expanze",
     body: `Obsazením ${pending.targetDistrictId} uzavřeš přímou expanzi spojence ${pending.affectedPlayerIds.join(", ")}. Spojenec však získá alianční koridor přes tvoje území.`,
     onConfirm: async () => {
-      const response = await submitServerDistrictActionCommand({
+      const response = await submitServerGameplayCommand({
         type: "occupy-district",
         payload: {
           districtId: pending.targetDistrictId,

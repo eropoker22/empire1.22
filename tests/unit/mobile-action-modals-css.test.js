@@ -37,7 +37,6 @@ describe("mobile action modal CSS", () => {
   const buildingsPopupRuntime = readText("page-assets/js/app/runtime/buildingsPopupRuntime.js");
   const clientBuildingsPopupRuntime = readText("client/page-assets/js/app/runtime/buildingsPopupRuntime.js");
   const runtimeSource = readText("page-assets/js/app/runtime.js");
-  const clientRuntimeSource = readText("client/page-assets/js/app/runtime.js");
   const onboardingCss = readText("page-assets/css/styles-onboarding.css");
   const cityEventsCss = readText("page-assets/css/styles-city-events.css");
   const clientCityEventsCss = readText("client/page-assets/css/styles-city-events.css");
@@ -287,7 +286,7 @@ describe("mobile action modal CSS", () => {
   });
 
   it("keeps unknown district atmosphere text out of the popup hero header", () => {
-    for (const source of [runtimeSource, readText("client/page-assets/js/app/runtime.js")]) {
+    for (const source of [runtimeSource]) {
       expect(source).toContain("const isAtmosphereLocked = atmosphereMeta.typeKey === \"unknown\";");
       expect(source).toContain("labelElement.hidden = isAtmosphereLocked;");
       expect(source).toContain("labelElement.textContent = isAtmosphereLocked ? \"\" : atmosphereMeta.label;");
@@ -494,7 +493,7 @@ describe("mobile action modal CSS", () => {
   });
 
   it("pulses apartment block chips only on full capacity, not regular collect readiness", () => {
-    for (const source of [runtimeSource, clientRuntimeSource]) {
+    for (const source of [runtimeSource]) {
       const apartmentPulsePredicate = source.slice(
         source.indexOf("isApartmentBlockFull({ district, baseName } = {})"),
         source.indexOf("isClinicStabilizationReady", source.indexOf("isApartmentBlockFull({ district, baseName } = {})"))
@@ -506,7 +505,7 @@ describe("mobile action modal CSS", () => {
   });
 
   it("pulses school chips only on full capacity", () => {
-    for (const source of [runtimeSource, clientRuntimeSource]) {
+    for (const source of [runtimeSource]) {
       const schoolPulsePredicate = source.slice(
         source.indexOf("isSchoolFull({ district, baseName } = {})"),
         source.indexOf("isClinicStabilizationReady", source.indexOf("isSchoolFull({ district, baseName } = {})"))

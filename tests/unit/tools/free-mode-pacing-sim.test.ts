@@ -9,23 +9,23 @@ describe("free mode pacing simulation tool", () => {
       maxHours: 24,
       botCount: 10,
       districtCount: 40,
-      tickStride: 720,
+      tickStride: 360,
       quiet: true
     });
 
     expect(result.snapshots).toHaveLength(1);
     expect(result.snapshots[0]).toMatchObject({
       simulatedHours: 24,
-      currentTick: 17280,
+      currentTick: 8640,
       activeDistricts: expect.any(Number),
       totalAttacks: expect.any(Number),
       victoryReached: false
     });
     expect(result.config).toMatchObject({
-      tickRateMs: 5000,
-      ticksPerHour: 720,
-      tickStride: 720,
-      victoryThreshold: 0.75,
+      tickRateMs: 10000,
+      ticksPerHour: 360,
+      tickStride: 360,
+      victoryThreshold: 1,
       allowDurationVictoryFallback: false
     });
   });
@@ -37,7 +37,7 @@ describe("free mode pacing simulation tool", () => {
       maxHours: 24,
       botCount: 10,
       districtCount: 40,
-      tickStride: 720,
+      tickStride: 360,
       quiet: true
     });
 
@@ -51,7 +51,7 @@ describe("free mode pacing simulation tool", () => {
     for (const result of suite.results) {
       expect(result.snapshots[0]).toMatchObject({
         simulatedHours: 24,
-        currentTick: 17280,
+        currentTick: 8640,
         activeDistricts: expect.any(Number)
       });
     }
@@ -64,17 +64,17 @@ describe("free mode pacing simulation tool", () => {
       maxHours: 24,
       botCount: 10,
       districtCount: 40,
-      tickStride: 720,
+      tickStride: 360,
       variantName: "elimination-8h-stop8",
       quiet: true
     });
 
     expect(result.snapshots[0]).toMatchObject({
       simulatedHours: 24,
-      currentTick: 17280,
+      currentTick: 8640,
       activeDistricts: expect.any(Number)
     });
     const nextEliminationTick = result.finalState.eliminationState?.nextEliminationTick ?? null;
-    expect(nextEliminationTick === null || nextEliminationTick >= 5_760).toBe(true);
+    expect(nextEliminationTick === null || nextEliminationTick >= 2_880).toBe(true);
   });
 });
