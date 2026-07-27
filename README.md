@@ -21,7 +21,7 @@ Demo-only city events, global demo chat, and local alliance previews run only in
 
 ## Accounts And Server Entry
 
-Public account registration is controlled by the existing `EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED` feature flag. It does not use invitation codes. A new player supplies a nick, gang name, date of birth, password, and password confirmation; PostgreSQL time enforces a minimum age of 16 years. Authentication uses an HttpOnly cookie and durable PostgreSQL throttling.
+Public account registration is controlled by the existing `EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED` feature flag. It does not use invitation codes. A new player supplies a nick, gang name, date of birth, password, password confirmation, and explicit acceptance of the server-advertised `EMPIRE_ACCOUNT_TERMS_VERSION`; PostgreSQL time enforces a minimum age of 16 years. Authentication uses an HttpOnly cookie and durable PostgreSQL throttling.
 
 Registration for a specific hosted Free server is a separate one-hour window. A server can start with two fully prepared players, can continue accepting new players while the window remains open, and never treats browser time as authority.
 

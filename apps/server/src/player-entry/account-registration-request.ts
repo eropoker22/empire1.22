@@ -1,18 +1,53 @@
 import type { AccountRegistrationRequest } from "@empire/shared-types";
+import { ACCOUNT_PASSWORD_MINIMUM_LENGTH } from "./account-password";
+import { validateAccountTermsAcceptance } from "./account-terms";
 import { entryError } from "./player-entry-error";
+import { validGangName, validPlayerUsername } from "./player-entry-policy";
 
 export const ACCOUNT_REGISTRATION_MINIMUM_AGE_YEARS = 16;
 
-export const validateAccountRegistrationRequest = (value: unknown): AccountRegistrationRequest => {
-  if (!isRecord(value) || !onlyKeys(value, ["username", "gangName", "dateOfBirth", "password", "passwordConfirmation"])) {
+export const validateAccountRegistrationRequest = (
+  value: unknown,
+  expectedTermsVersion: string | null
+): AccountRegistrationRequest => {
+  if (!isRecord(value) || !onlyKeys(value, [
+    "username",
+    "gangName",
+    "dateOfBirth",
+    "password",
+    "passwordConfirmation",
+    "termsAccepted",
+    "termsVersion"
+  ])) {
     throw entryError("ACCOUNT_REGISTRATION_PAYLOAD_INVALID", "Registrace obsahuje nepovolená nebo chybějící pole.");
   }
+  const username = String(value.username ?? "").normalize("NFKC").trim();
+  const gangName = String(value.gangName ?? "").normalize("NFKC").trim();
+  const password = String(value.password ?? "");
+  const passwordConfirmation = String(value.passwordConfirmation ?? "");
+  if (!validPlayerUsername(username)) {
+    throw entryError("ACCOUNT_USERNAME_INVALID", "Uživatelské jméno není platné.");
+  }
+  if (!validGangName(gangName)) {
+    throw entryError("ACCOUNT_PROFILE_INVALID", "Profil účtu není platný.");
+  }
+  if (password.length < ACCOUNT_PASSWORD_MINIMUM_LENGTH) {
+    throw entryError(
+      "ACCOUNT_PASSWORD_TOO_SHORT",
+      `Heslo musí obsahovat alespoň ${ACCOUNT_PASSWORD_MINIMUM_LENGTH} znaků.`
+    );
+  }
+  if (password.length > 1024 || passwordConfirmation.length > 1024) {
+    throw entryError("ACCOUNT_REGISTRATION_PAYLOAD_INVALID", "Registrační payload je příliš dlouhý.");
+  }
+  const terms = validateAccountTermsAcceptance(value.termsAccepted, value.termsVersion, expectedTermsVersion);
   const request = {
-    username: String(value.username ?? "").trim(),
-    gangName: String(value.gangName ?? "").trim(),
+    username,
+    gangName,
     dateOfBirth: normalizeDateOfBirth(value.dateOfBirth),
-    password: String(value.password ?? ""),
-    passwordConfirmation: String(value.passwordConfirmation ?? "")
+    password,
+    passwordConfirmation,
+    ...terms
   };
   if (request.password !== request.passwordConfirmation) {
     throw entryError("ACCOUNT_PASSWORD_CONFIRMATION_MISMATCH", "Zadaná hesla se neshodují.");

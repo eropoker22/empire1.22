@@ -83,6 +83,7 @@ Run it independently for each secret and store the result directly in the provid
 | `GAMEPLAY_SLICE_SNAPSHOT_SECRET` | API, worker | Yes | Unique 64 hex or 43+ base64url | Missing |
 | `EMPIRE_ADMIN_FINGERPRINT_SECRET` | API | Yes | Unique 64 hex or 43+ base64url | Missing |
 | `EMPIRE_AUTH_THROTTLE_PEPPER` | API | Required before registration | Unique 64 hex or 43+ base64url | Missing |
+| `EMPIRE_ACCOUNT_TERMS_VERSION` | API | Required before registration | Explicit internal staging terms version | Missing |
 | `EMPIRE_BUILD_SHA` | frontend, API, worker | Yes | Exact lowercase 40-character Git SHA | Set per release |
 | `EMPIRE_HOSTED_WORKER_ID` | worker | Yes | Stable staging-specific ID | Missing |
 | `EMPIRE_HOSTED_WORKER_REGION` | worker | Yes | Provider region near DB | Missing |
@@ -366,7 +367,7 @@ approval.
 
 Before inviting the first tester, record:
 
-- deployed SHA and migration `001-015`;
+- deployed SHA and migrations `001-021`;
 - verified and unverified flows;
 - backup checksum and restore result;
 - rollback SHA;

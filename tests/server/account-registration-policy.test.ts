@@ -8,19 +8,35 @@ import type { PostgresPlayerEntryRepository } from "../../apps/server/src/player
 const environment = {
   NODE_ENV: "production",
   EMPIRE_ALLOWED_ORIGINS: "https://empire.test",
-  EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true"
+  EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true",
+  EMPIRE_ACCOUNT_TERMS_VERSION: "closed-alpha-internal-v1"
 };
+const ready = { persistenceReady: true, authSecurityReady: true };
 
 describe("account registration policy", () => {
-  it("opens public registration with persistence and the registration flag", () => {
-    expect(resolveAccountRegistrationPolicy(environment, true)).toEqual({
+  it("opens public registration only with persistence, auth security, terms and the registration flag", () => {
+    expect(resolveAccountRegistrationPolicy(environment, ready)).toEqual({
       registrationEnabled: true,
       mode: "open",
       passwordMinimumLength: 12,
-      minimumAgeYears: 16
+      minimumAgeYears: 16,
+      termsAcceptanceRequired: true,
+      termsVersion: "closed-alpha-internal-v1"
     });
-    expect(resolveAccountRegistrationPolicy({ ...environment, EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "false" }, true).registrationEnabled).toBe(false);
-    expect(resolveAccountRegistrationPolicy(environment, false).registrationEnabled).toBe(false);
+    expect(resolveAccountRegistrationPolicy(
+      { ...environment, EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "false" },
+      ready
+    ).registrationEnabled).toBe(false);
+    expect(resolveAccountRegistrationPolicy(environment, { ...ready, persistenceReady: false }).registrationEnabled).toBe(false);
+    expect(resolveAccountRegistrationPolicy(environment, { ...ready, authSecurityReady: false }).registrationEnabled).toBe(false);
+    expect(resolveAccountRegistrationPolicy(
+      { ...environment, EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: undefined },
+      ready
+    ).registrationEnabled).toBe(false);
+    expect(resolveAccountRegistrationPolicy(
+      { ...environment, EMPIRE_ACCOUNT_TERMS_VERSION: undefined },
+      ready
+    )).toMatchObject({ registrationEnabled: false, termsVersion: null });
   });
 
   it("serves only the public registration fields", async () => {
@@ -32,9 +48,11 @@ describe("account registration policy", () => {
       registrationEnabled: true,
       mode: "open",
       passwordMinimumLength: 12,
-      minimumAgeYears: 16
+      minimumAgeYears: 16,
+      termsAcceptanceRequired: true,
+      termsVersion: "closed-alpha-internal-v1"
     });
-    expect(JSON.stringify(payload)).not.toContain("invite");
+    expect(JSON.stringify(payload)).not.toMatch(/invite|secret|pepper|database/iu);
   });
 
   it("creates an account without an invite and sends both password fields to the repository", async () => {
@@ -47,7 +65,9 @@ describe("account registration policy", () => {
       gangName: "Alpha Gang",
       dateOfBirth: "1990-04-12",
       password: "long-secure-password",
-      passwordConfirmation: "long-secure-password"
+      passwordConfirmation: "long-secure-password",
+      termsAccepted: true,
+      termsVersion: "closed-alpha-internal-v1"
     });
     expect(response?.headers["set-cookie"]).toContain("HttpOnly");
     expect(response?.headers["set-cookie"]).toContain("Secure");
@@ -103,6 +123,8 @@ const registerRequest = (overrides: Record<string, unknown> = {}) => ({
     dateOfBirth: "1990-04-12",
     password: "long-secure-password",
     passwordConfirmation: "long-secure-password",
+    termsAccepted: true,
+    termsVersion: "closed-alpha-internal-v1",
     ...overrides
   },
   headers: { origin: environment.EMPIRE_ALLOWED_ORIGINS, "content-type": "application/json", "x-forwarded-for": "203.0.113.1" }

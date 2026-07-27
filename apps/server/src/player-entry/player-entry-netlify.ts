@@ -1,4 +1,3 @@
-import type { ConfirmSpawnDistrictRequest, FinalizeServerSetupRequest } from "@empire/shared-types";
 import { validateStateChangingOrigin } from "../netlify/csrf-origin-guard";
 import { createJsonResponse, type NetlifyFunctionResponse } from "../netlify/netlify-json-response";
 import { createPostgresDatabase } from "../runtime/persistence/postgres";
@@ -6,6 +5,7 @@ import type { GameplaySessionService } from "../auth/gameplay-session-service";
 import { clearPlayerAccountCookie, createPlayerAccountCookie, readPlayerAccountCookie } from "./player-account-cookie";
 import { resolveAccountRegistrationPolicy } from "./account-registration-policy";
 import { validateAccountRegistrationRequest } from "./account-registration-request";
+import { resolveCurrentAccountTermsVersion } from "./account-terms";
 import {
   createPostgresAuthThrottle,
   resolveAuthNetworkIdentifier,
@@ -14,11 +14,14 @@ import {
 } from "./postgres-auth-throttle";
 import {
   createPostgresPlayerEntryRepository,
-  entryError,
   entryErrorCode,
   publicAccount,
   type PostgresPlayerEntryRepository
 } from "./postgres-player-entry-repository";
+import {
+  validateConfirmSpawn,
+  validateFinalizeSetup
+} from "./player-entry-request-validation";
 export interface PlayerEntryRequest {
   httpMethod: string;
   path: string;
@@ -40,18 +43,22 @@ export const createPlayerEntryNetlifyBoundary = (options: {
     if (method === "OPTIONS") return createJsonResponse(204, null);
     const persistenceReady = Boolean(repository && await repository.isSchemaCurrent().catch(() => false));
     const authSecurityReady = options.environment.NODE_ENV !== "production" || Boolean(authThrottle);
+    const registrationReadiness = { persistenceReady, authSecurityReady };
     if (route.kind === "registration-policy" && method === "GET") {
-      return success(200, resolveAccountRegistrationPolicy(options.environment, persistenceReady && authSecurityReady));
+      return success(200, resolveAccountRegistrationPolicy(options.environment, registrationReadiness));
     }
     if (!repository || !persistenceReady) return error(503, "PLAYER_ENTRY_UNAVAILABLE", "Player entry databáze není dostupná.");
     try {
       if (route.kind === "register" && method === "POST") {
         const originError = stateChangeError(request, options.environment);
         if (originError) return originError;
-        if (!resolveAccountRegistrationPolicy(options.environment, persistenceReady && authSecurityReady).registrationEnabled) {
+        if (!resolveAccountRegistrationPolicy(options.environment, registrationReadiness).registrationEnabled) {
           return error(403, "ACCOUNT_REGISTRATION_CLOSED", "Registrace je momentálně uzavřená.");
         }
-        const body = validateAccountRegistrationRequest(request.body);
+        const body = validateAccountRegistrationRequest(
+          request.body,
+          resolveCurrentAccountTermsVersion(options.environment)
+        );
         const throttleError = await consumeAuthThrottle(authThrottle, "register", body.username, request.headers);
         if (throttleError) return throttleError;
         const created = await repository.registerAccount(body);
@@ -68,9 +75,14 @@ export const createPlayerEntryNetlifyBoundary = (options: {
       }
       const token = readPlayerAccountCookie(request.headers) ?? "";
       const account = await repository.authenticate(token);
-      if (!account) return error(401, "ACCOUNT_SESSION_REQUIRED", "Přihlášení je vyžadováno.", {
+      if (!account) return error(
+        401,
+        token ? "ACCOUNT_SESSION_INVALID" : "ACCOUNT_SESSION_REQUIRED",
+        token ? "Account session není platná." : "Přihlášení je vyžadováno.",
+        {
         "set-cookie": clearPlayerAccountCookie(options.environment)
-      });
+        }
+      );
       if (route.kind === "session" && method === "GET") return success(200, publicAccount(account));
       if (route.kind === "session" && method === "DELETE") {
         const originError = stateChangeError(request, options.environment);
@@ -135,7 +147,8 @@ export const createPlayerEntryNetlifyBoundary = (options: {
     } catch (caught) {
       const code = entryErrorCode(caught);
       const status = code === "PLAYER_ENTRY_UNAVAILABLE" ? 503 : code.includes("NOT_FOUND") ? 404
-        : code.includes("CONFLICT") || code.includes("EXISTS") || code.includes("STALE") || code.includes("RESERVED") ? 409
+        : code.includes("CONFLICT") || code.includes("EXISTS") || code.includes("TAKEN")
+          || code.includes("STALE") || code.includes("RESERVED") ? 409
           : code.includes("FULL") ? 409 : code.includes("LOGIN") || code.includes("SESSION") ? 401 : 400;
       const message = code === "PLAYER_ENTRY_UNAVAILABLE"
         ? "Player entry operace se nezdařila."
@@ -213,33 +226,6 @@ const success = <T>(status: number, data: T, headers: Record<string, string> = {
 const error = (status: number, code: string, message: string, headers: Record<string, string> = {}) =>
   createJsonResponse(status, { accepted: false, data: null, errors: [{ code, message }] }, { "cache-control": "no-store", ...headers });
 const record = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
-const validateConfirmSpawn = (value: unknown): ConfirmSpawnDistrictRequest => {
-  if (!record(value) || !onlyKeys(value, ["serverInstanceId", "districtId", "expectedAvailabilityRevision"])) {
-    throw entryError("PLAYER_ENTRY_PAYLOAD_INVALID", "Potvrzení districtu obsahuje nepovolená pole.");
-  }
-  const serverInstanceId = safeIdentifier(value.serverInstanceId, "SERVER_ID_INVALID");
-  const districtId = safeIdentifier(value.districtId, "DISTRICT_ID_INVALID");
-  const expectedAvailabilityRevision = String(value.expectedAvailabilityRevision ?? "");
-  if (!/^[a-f0-9]{64}$/u.test(expectedAvailabilityRevision)) throw entryError("SPAWN_REVISION_INVALID", "Revision nabídky districtů není platná.");
-  return { serverInstanceId, districtId, expectedAvailabilityRevision };
-};
-const validateFinalizeSetup = (value: unknown): FinalizeServerSetupRequest => {
-  if (!record(value) || !onlyKeys(value, ["membershipId", "factionId", "avatarId", "gangColor"])) {
-    throw entryError("PLAYER_ENTRY_PAYLOAD_INVALID", "Server setup obsahuje nepovolená pole.");
-  }
-  return {
-    membershipId: safeIdentifier(value.membershipId, "MEMBERSHIP_ID_INVALID"),
-    factionId: safeIdentifier(value.factionId, "FACTION_ID_INVALID"),
-    avatarId: safeIdentifier(value.avatarId, "AVATAR_ID_INVALID"),
-    gangColor: String(value.gangColor ?? "")
-  };
-};
-const safeIdentifier = (value: unknown, code: string) => {
-  const identifier = String(value ?? "").trim();
-  if (!/^[a-zA-Z0-9._:-]{1,200}$/u.test(identifier)) throw entryError(code, "Identifikátor není platný.");
-  return identifier;
-};
-const onlyKeys = (value: Record<string, unknown>, allowed: string[]) => Object.keys(value).every((key) => allowed.includes(key));
 const header = (headers: PlayerEntryRequest["headers"], name: string) => {
   const value = Object.entries(headers ?? {}).find(([key]) => key.toLowerCase() === name)?.[1];
   return (Array.isArray(value) ? String(value[0] ?? "") : String(value ?? "")).trim();

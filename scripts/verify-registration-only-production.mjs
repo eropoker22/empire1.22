@@ -25,9 +25,20 @@ check(isExplicitLocalDemoEnabled({
 check(publicStorage.getItem("empire:local-demo-session:v1") === null,
   "public production hostname clears stale demo state", "REGISTRATION_ONLY_STALE_DEMO_CLEARED");
 
-const [cookieSource, registrationRequest, lobbySource, controlPlaneSource, poolSource, healthSource] = await Promise.all([
+const [
+  cookieSource,
+  registrationRequest,
+  termsSource,
+  termsMigration,
+  lobbySource,
+  controlPlaneSource,
+  poolSource,
+  healthSource
+] = await Promise.all([
   source("apps/server/src/player-entry/player-account-cookie.ts"),
   source("apps/server/src/player-entry/account-registration-request.ts"),
+  source("apps/server/src/player-entry/account-terms.ts"),
+  source("apps/server/src/runtime/persistence/postgres/migrations/021_account_terms_acceptance.sql"),
   source("page-assets/js/lobby-live.js"),
   source("apps/server/src/admin/hosted/hosted-control-plane-service.ts"),
   source("apps/server/src/netlify/netlify-postgres-database.ts"),
@@ -37,8 +48,14 @@ check(cookieSource.includes('"HttpOnly"') && cookieSource.includes('"SameSite=St
   && cookieSource.includes('"Path=/"') && cookieSource.includes('environment.NODE_ENV === "production" ? "Secure"'),
 "production account cookie is HttpOnly, Secure, SameSite Strict and path scoped", "REGISTRATION_ONLY_COOKIE_POLICY_INVALID");
 check(registrationRequest.includes("ACCOUNT_REGISTRATION_MINIMUM_AGE_YEARS = 16")
-  && registrationRequest.includes("ACCOUNT_PASSWORD_CONFIRMATION_MISMATCH"),
-"registration enforces age 16 and password confirmation on the server", "REGISTRATION_ONLY_REGISTRATION_POLICY_INVALID");
+  && registrationRequest.includes("ACCOUNT_PASSWORD_CONFIRMATION_MISMATCH")
+  && registrationRequest.includes('"termsAccepted"')
+  && registrationRequest.includes('"termsVersion"')
+  && termsSource.includes("EMPIRE_ACCOUNT_TERMS_VERSION")
+  && termsSource.includes("ACCOUNT_TERMS_ACCEPTANCE_REQUIRED")
+  && termsMigration.includes("PRIMARY KEY (account_id, terms_version)"),
+"registration enforces age, password confirmation and versioned terms on the server",
+"REGISTRATION_ONLY_REGISTRATION_POLICY_INVALID");
 check(lobbySource.includes("Herní servery zatím nejsou spuštěné."),
   "lobby has an honest no-server state", "REGISTRATION_ONLY_LOBBY_EMPTY_STATE_MISSING");
 check(controlPlaneSource.includes("EMPIRE_ADMIN_WRITES_ENABLED")

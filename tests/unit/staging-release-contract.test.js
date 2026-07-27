@@ -23,6 +23,7 @@ const validEnvironment = {
   GAMEPLAY_SLICE_SNAPSHOT_SECRET: secret("b"),
   EMPIRE_ADMIN_FINGERPRINT_SECRET: secret("c"),
   EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "false",
+  EMPIRE_ACCOUNT_TERMS_VERSION: "closed-alpha-internal-v1",
   EMPIRE_ADMIN_WRITES_ENABLED: "false",
   EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true",
   EMPIRE_SERVER_PROVISIONING_ENABLED: "false"
@@ -60,6 +61,23 @@ describe("staging release contract", () => {
     expect(result.checks.find((check) => check.name === "STAGING_SECRETS_DISTINCT")).toMatchObject({
       set: false,
       passed: false
+    });
+  });
+
+  it("requires an explicit terms version before staging registration opens", () => {
+    const open = {
+      ...validEnvironment,
+      EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true",
+      EMPIRE_AUTH_THROTTLE_PEPPER: secret("d")
+    };
+    expect(validateStagingEnvironment(open, { allowRegistrationEnabled: true, nodeVersion: "20.19.0" }).passed).toBe(true);
+    const missing = validateStagingEnvironment(
+      { ...open, EMPIRE_ACCOUNT_TERMS_VERSION: "" },
+      { allowRegistrationEnabled: true, nodeVersion: "20.19.0" }
+    );
+    expect(missing.checks.find((check) => check.name === "EMPIRE_ACCOUNT_TERMS_VERSION")).toMatchObject({
+      passed: false,
+      errorCode: "STAGING_ACCOUNT_TERMS_VERSION_INVALID"
     });
   });
 

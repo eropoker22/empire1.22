@@ -13,6 +13,7 @@ import type {
 import type { PostgresDatabase, PostgresQueryable } from "../runtime/persistence/postgres";
 import { hashAccountPassword, verifyAccountPassword, type AccountPasswordRecord } from "./account-password";
 import { ACCOUNT_REGISTRATION_MINIMUM_AGE_YEARS, normalizeDateOfBirth } from "./account-registration-request";
+import { validAccountTermsVersion } from "./account-terms";
 import { entryError, entryErrorCode } from "./player-entry-error";
 import {
   createServerPlayerId,
@@ -81,13 +82,14 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
   database,
   isSchemaCurrent: async () => {
     const result = await database.query<{ present: boolean }>(
-      `SELECT to_regclass('public.empire_server_memberships') IS NOT NULL
-          AND to_regclass('public.empire_auth_throttle_buckets') IS NOT NULL
-          AND to_regclass('public.empire_hosted_match_results') IS NOT NULL
+      `SELECT to_regclass('empire_server_memberships') IS NOT NULL
+          AND to_regclass('empire_auth_throttle_buckets') IS NOT NULL
+          AND to_regclass('empire_hosted_match_results') IS NOT NULL
           AND EXISTS (
             SELECT 1 FROM information_schema.columns
-            WHERE table_schema='public' AND table_name='empire_accounts' AND column_name='date_of_birth'
-          ) AS present`
+            WHERE table_schema=current_schema() AND table_name='empire_accounts' AND column_name='date_of_birth'
+          )
+          AND to_regclass('empire_account_terms_acceptances') IS NOT NULL AS present`
     );
     return Boolean(result.rows[0]?.present);
   },
@@ -103,15 +105,22 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
     if (input.password !== input.passwordConfirmation) {
       throw entryError("ACCOUNT_PASSWORD_CONFIRMATION_MISMATCH", "Zadaná hesla se neshodují.");
     }
+    if (input.termsAccepted !== true || !validAccountTermsVersion(input.termsVersion)) {
+      throw entryError("ACCOUNT_TERMS_ACCEPTANCE_REQUIRED", "Pro založení účtu musíš přijmout aktuální podmínky.");
+    }
     const password = await hashAccountPassword(input.password);
     const accountId = `account:${crypto.randomUUID()}`;
     try {
       return await database.transaction(async (client) => {
-        const clock = await client.query<{ now: unknown; eligible: boolean }>(
+        const clock = await client.query<{ now: unknown; eligible: boolean; future: boolean }>(
           `SELECT clock_timestamp() AS now,
+             $1::date > (clock_timestamp() AT TIME ZONE 'UTC')::date AS future,
              $1::date <= ((clock_timestamp() AT TIME ZONE 'UTC')::date - make_interval(years => $2))::date AS eligible`,
           [dateOfBirth, ACCOUNT_REGISTRATION_MINIMUM_AGE_YEARS]
         );
+        if (clock.rows[0]?.future === true) {
+          throw entryError("ACCOUNT_DATE_OF_BIRTH_INVALID", "Zadej platné datum narození.");
+        }
         if (clock.rows[0]?.eligible !== true) {
           throw entryError("ACCOUNT_AGE_REQUIREMENT_NOT_MET", "Účet si může založit pouze hráč, kterému už bylo 16 let.");
         }
@@ -123,6 +132,11 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,'active',$9,$10,$11::date,$12::timestamptz,$12::timestamptz,NULL,1)`,
           [`player-account:${accountId}`, accountId, username, normalizedUsername, password.passwordHash, password.passwordSalt,
             password.passwordAlgorithm, JSON.stringify(password.passwordParameters), displayName, gangName, dateOfBirth, at]
+        );
+        await client.query(
+          `INSERT INTO empire_account_terms_acceptances (account_id,terms_version,accepted_at)
+           VALUES ($1,$2,$3::timestamptz)`,
+          [accountId, input.termsVersion, at]
         );
         return createSession(client, { accountId, username, displayName, gangName }, at);
       });

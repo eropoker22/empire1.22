@@ -12,6 +12,7 @@ import { STORAGE_KEYS } from "./config.js";
 const state = {
   submitting: false,
   registrationEnabled: false,
+  registrationPolicy: null,
   activeMode: "free"
 };
 
@@ -97,9 +98,11 @@ async function loadRegistrationPolicy() {
   try {
     const policy = await loadAccountRegistrationPolicy();
     state.registrationEnabled = policy?.registrationEnabled === true;
+    state.registrationPolicy = policy;
     applyRegistrationAvailability(policy);
   } catch (_error) {
     state.registrationEnabled = false;
+    state.registrationPolicy = null;
     applyRegistrationAvailability(null);
     renderRegistrationPolicy(
       "STAV REGISTRACE NENÍ DOSTUPNÝ",
@@ -124,6 +127,8 @@ function applyRegistrationAvailability(policy) {
   const minimumAge = Number(policy?.minimumAgeYears) || 16;
   const birthDate = document.getElementById("register-birth-date");
   if (birthDate instanceof HTMLInputElement) birthDate.max = latestEligibleBirthDate(minimumAge);
+  const terms = document.getElementById("register-terms");
+  if (terms instanceof HTMLInputElement && !enabled) terms.checked = false;
   renderRegistrationPolicy(
     enabled ? "REGISTRACE ÚČTŮ JE OTEVŘENÁ" : "REGISTRACE JE MOMENTÁLNĚ UZAVŘENA",
     enabled
@@ -163,8 +168,13 @@ function bindForms() {
     }
     const password = rawValue("register-password");
     const passwordConfirmation = rawValue("register-password-confirmation");
+    const terms = document.getElementById("register-terms");
     if (password !== passwordConfirmation) {
       showRegistrationError("Zadaná hesla se neshodují.");
+      return;
+    }
+    if (!(terms instanceof HTMLInputElement) || !terms.checked || !state.registrationPolicy?.termsVersion) {
+      showRegistrationError("Pro založení účtu musíš přijmout aktuální podmínky a ochranu osobních údajů.");
       return;
     }
     void submit({
@@ -174,7 +184,9 @@ function bindForms() {
         gangName: value("register-gang"),
         dateOfBirth: value("register-birth-date"),
         password,
-        passwordConfirmation
+        passwordConfirmation,
+        termsAccepted: true,
+        termsVersion: state.registrationPolicy.termsVersion
       }),
       showFailure: showRegistrationError
     });
@@ -202,8 +214,8 @@ async function submit({ event, operation, showFailure }) {
 
 const latestEligibleBirthDate = (minimumAgeYears) => {
   const now = new Date();
-  const year = now.getFullYear() - minimumAgeYears;
-  return `${year}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const year = now.getUTCFullYear() - minimumAgeYears;
+  return `${year}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
 };
 
 const value = (id) => rawValue(id).trim();

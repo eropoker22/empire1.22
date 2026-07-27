@@ -2,6 +2,10 @@ import * as crypto from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { Pool, type PoolClient } from "pg";
 import { describe, expect, it } from "vitest";
+import {
+  assertHostedRuntimeWorkerSchemaCurrent,
+  HOSTED_WORKER_SCHEMA_ERROR
+} from "../../apps/server/src/bootstrap/hosted-runtime-worker-preflight";
 import { createApiReadinessResponse } from "../../apps/server/src/netlify/api-readiness-netlify";
 import {
   createInstanceSnapshot,
@@ -32,7 +36,7 @@ const migrationsDirectory = new URL(
 );
 
 describe("PostgreSQL staging contract live", () => {
-  run("rejects schema 016, migrates canonically through 020, and detects checksum tampering", async () => {
+  run("rejects schema 016, migrates canonically through 021, and detects checksum tampering", async () => {
     const isolated = await createEmptySchema(live.databaseUrl!, "staging_contract");
     try {
       await applyMigrationsThrough(isolated.database, 15);
@@ -55,17 +59,14 @@ describe("PostgreSQL staging contract live", () => {
       });
       expect(rejected.statusCode).toBe(503);
       expect(JSON.parse(rejected.body)).toMatchObject({ code: "DATABASE_MIGRATIONS_PENDING" });
-      const workerPreflight = await runHostedWorkerPreflight(isolated.databaseUrl);
-      expect(workerPreflight.exitCode).toBe(1);
-      expect(workerPreflight.output).toContain(
-        "Hosted worker refuses to start with pending or mismatched database migrations."
-      );
+      await expect(assertHostedRuntimeWorkerSchemaCurrent(isolated.database))
+        .rejects.toThrow(HOSTED_WORKER_SCHEMA_ERROR);
       expect(await countRows(isolated.database, "empire_hosted_worker_heartbeats")).toBe(heartbeatBefore);
 
       const migrationTimings = await applyRemainingMigrationsIndividually(isolated.database);
       const migrated = await getDatabaseMigrationStatus(isolated.database, migrationsDirectory);
       expect(migrated.current).toBe(true);
-      expect(migrated.applied).toHaveLength(20);
+      expect(migrated.applied).toHaveLength(PRODUCTION_MIGRATION_CONTRACT.length);
       expect(await isProductionSchemaCurrent(isolated.database)).toBe(true);
 
       const rerunStartedAt = performance.now();
@@ -87,7 +88,7 @@ describe("PostgreSQL staging contract live", () => {
 
       await isolated.database.query(
         "UPDATE empire_schema_migrations SET checksum='tampered' WHERE filename=$1",
-        ["020_hosted_player_job_incarnation_fencing.sql"]
+        ["021_account_terms_acceptance.sql"]
       );
       expect(await isProductionSchemaCurrent(isolated.database)).toBe(false);
       await expect(getDatabaseMigrationStatus(isolated.database, migrationsDirectory))
@@ -267,7 +268,8 @@ const assertPostMigrationSchema = async (database: PostgresDatabase): Promise<vo
     `SELECT table_name,column_name FROM information_schema.columns
      WHERE table_schema=current_schema()
        AND table_name IN ('empire_snapshot_latest','empire_snapshots','empire_snapshot_maintenance',
-                          'empire_hosted_join_jobs','empire_server_membership_jobs')`
+                          'empire_hosted_join_jobs','empire_server_membership_jobs',
+                          'empire_account_terms_acceptances')`
   );
   const names = new Set(columns.rows.map((row) => `${row.table_name}.${row.column_name}`));
   for (const expected of [
@@ -280,7 +282,10 @@ const assertPostMigrationSchema = async (database: PostgresDatabase): Promise<vo
     "empire_snapshots.is_protected",
     "empire_snapshot_maintenance.last_deleted_rows",
     "empire_hosted_join_jobs.claimed_by_worker_incarnation_id",
-    "empire_server_membership_jobs.claimed_by_worker_incarnation_id"
+    "empire_server_membership_jobs.claimed_by_worker_incarnation_id",
+    "empire_account_terms_acceptances.account_id",
+    "empire_account_terms_acceptances.terms_version",
+    "empire_account_terms_acceptances.accepted_at"
   ]) expect(names.has(expected)).toBe(true);
 
   const indexes = await database.query<{ indexname: string }>(
@@ -333,7 +338,8 @@ const applyRemainingMigrationsIndividually = async (database: PostgresDatabase) 
     ["017", "018_drop_redundant_snapshot_head_tick_index.sql"],
     ["018", "019_drop_redundant_snapshot_head_root_version_index.sql"],
     ["019", "020_hosted_player_job_incarnation_fencing.sql"],
-    ["020", null]
+    ["020", "021_account_terms_acceptance.sql"],
+    ["021", null]
   ] as const;
   for (const [number, stopBeforeFilename] of boundaries) {
     const startedAt = performance.now();
@@ -367,60 +373,3 @@ const withApplicationName = (databaseUrl: string, applicationName: string): stri
 };
 
 const quoteIdentifier = (value: string): string => `"${value.replaceAll("\"", "\"\"")}"`;
-
-const runHostedWorkerPreflight = async (databaseUrl: string): Promise<{
-  exitCode: number | null;
-  output: string;
-}> => {
-  const childProcess = await import("node:child_process") as unknown as {
-    spawn: (...arguments_: unknown[]) => {
-      stdout: { on(event: "data", listener: (chunk: unknown) => void): void };
-      stderr: { on(event: "data", listener: (chunk: unknown) => void): void };
-      kill(): void;
-      once(event: "error", listener: (error: Error) => void): void;
-      once(event: "close", listener: (exitCode: number | null) => void): void;
-    };
-  };
-  const nodeProcess = process as unknown as {
-    execPath: string;
-    cwd(): string;
-    env: Record<string, string | undefined>;
-  };
-  return new Promise((resolve, reject) => {
-  const worker = childProcess.spawn(nodeProcess.execPath, [
-    "scripts/run-local-bin.mjs",
-    "vite-node/vite-node.mjs",
-    "apps/server/src/bootstrap/hosted-runtime-worker-cli.ts"
-  ], {
-    cwd: nodeProcess.cwd(),
-    env: {
-      ...nodeProcess.env,
-      EMPIRE_DATABASE_URL: databaseUrl,
-      EMPIRE_TEST_DATABASE_URL: databaseUrl,
-      EMPIRE_HOSTED_WORKER_ID: `worker:schema-016:${crypto.randomUUID()}`,
-      EMPIRE_PERSISTENCE_DRIVER: "postgres",
-      GAMEPLAY_PERSISTENCE_DRIVER: "postgres",
-      GAMEPLAY_SLICE_SESSION_SECRET: "s".repeat(40),
-      GAMEPLAY_SLICE_SNAPSHOT_SECRET: "t".repeat(40),
-      NODE_ENV: "development",
-      PORT: "0"
-    },
-    stdio: ["ignore", "pipe", "pipe"]
-  });
-  let output = "";
-  worker.stdout.on("data", (chunk) => { output += String(chunk); });
-  worker.stderr.on("data", (chunk) => { output += String(chunk); });
-  const timeout = setTimeout(() => {
-    worker.kill();
-    reject(new Error("Hosted worker schema-016 preflight exceeded 45 seconds."));
-  }, 45_000);
-  worker.once("error", (error) => {
-    clearTimeout(timeout);
-    reject(error);
-  });
-  worker.once("close", (exitCode) => {
-    clearTimeout(timeout);
-    resolve({ exitCode, output });
-  });
-  });
-};

@@ -1,4 +1,5 @@
 export * from "./account-password";
+export * from "./account-terms";
 export * from "./player-entry-policy";
 export * from "./player-entry-error";
 export * from "./postgres-player-entry-repository";

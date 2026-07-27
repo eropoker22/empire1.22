@@ -180,7 +180,9 @@ describe("postgres prod-like runtime smoke", () => {
           password: "PostgresSmokeReadyPlayerPassword",
           passwordConfirmation: "PostgresSmokeReadyPlayerPassword",
           dateOfBirth: "1990-01-01",
-          gangName: `Ready Gang ${index}`
+          gangName: `Ready Gang ${index}`,
+          termsAccepted: true,
+          termsVersion: "postgres-smoke-v1"
         })).session;
         const selection = await playerEntry.getSpawnSelection(readyAccount.accountId, freeServerInstanceId);
         const district = selection.districts.find((entry) => entry.available);

@@ -1,4 +1,5 @@
 export const PRODUCTION_REGISTRATION_ORIGIN = "https://empirestreets.cz";
+const TERMS_VERSION_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,99}$/u;
 
 export const validateRegistrationOnlyProductionEnvironment = (
   environment,
@@ -65,6 +66,9 @@ export const validateRegistrationOnlyProductionEnvironment = (
   add("EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED", "account API", true,
     environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED === String(registrationEnabled),
     String(registrationEnabled), "REGISTRATION_ONLY_REGISTRATION_FLAG_MISMATCH");
+  add("EMPIRE_ACCOUNT_TERMS_VERSION", "account API", registrationEnabled,
+    !registrationEnabled || TERMS_VERSION_PATTERN.test(String(environment.EMPIRE_ACCOUNT_TERMS_VERSION ?? "")),
+    "explicit approved terms version", "REGISTRATION_ONLY_TERMS_VERSION_INVALID");
 
   return {
     passed: checks.every((check) => check.passed),

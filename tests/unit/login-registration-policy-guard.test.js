@@ -10,6 +10,7 @@ describe("login registration policy guard", () => {
     expect(pageSource).toContain("data-login-registration-open");
     expect(pageSource).toContain("data-login-registration-overlay");
     expect(pageSource).toMatch(/id="register-password-confirmation"[^>]+disabled/u);
+    expect(pageSource).toMatch(/id="register-terms"[^>]+required[^>]+disabled/u);
     expect(pageSource).toMatch(/class="login-registration-submit"[^>]+disabled/u);
     expect(liveSource).toContain("loadAccountRegistrationPolicy");
     expect(liveSource).toContain("state.registrationEnabled = false");
@@ -17,6 +18,8 @@ describe("login registration policy guard", () => {
     expect(liveSource).toContain("bindLoginRegistrationModal");
     expect(liveSource).toContain("passwordConfirmation");
     expect(liveSource).toContain("dateOfBirth");
+    expect(liveSource).toContain("termsAccepted: true");
+    expect(liveSource).toContain("termsVersion");
     expect(liveSource).not.toContain("inviteCode");
     expect(liveSource).not.toContain("EmpireConfigOverrides");
   });

@@ -6,6 +6,7 @@ export const STAGING_NODE_VERSION = "20";
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/u;
 const SECURE_SECRET_PATTERN = /^(?:[0-9a-f]{64,}|[A-Za-z0-9_-]{43,})$/u;
+const TERMS_VERSION_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,99}$/u;
 const PRODUCTION_HOSTNAMES = new Set(["empirestreets.cz", "www.empirestreets.cz"]);
 const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
@@ -56,6 +57,9 @@ export const validateStagingEnvironment = (environment, options = {}) => {
   add("EMPIRE_AUTH_THROTTLE_PEPPER", "API", registrationEnabled,
     !registrationEnabled || isSecureSecret(environment.EMPIRE_AUTH_THROTTLE_PEPPER),
     "64 hex or 43+ base64url characters", "STAGING_AUTH_THROTTLE_PEPPER_WEAK");
+  add("EMPIRE_ACCOUNT_TERMS_VERSION", "API", registrationEnabled,
+    !registrationEnabled || TERMS_VERSION_PATTERN.test(String(environment.EMPIRE_ACCOUNT_TERMS_VERSION ?? "")),
+    "explicit internal staging terms version", "STAGING_ACCOUNT_TERMS_VERSION_INVALID");
   add("EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED", "API", true,
     environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED === "false" || (allowRegistrationEnabled && registrationEnabled),
     allowRegistrationEnabled ? "false, or true after green preflight" : "false before green preflight",

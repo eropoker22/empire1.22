@@ -9840,6 +9840,7 @@
         spyCooldownTicks: ticksFromMinutes(6),
         spyAuthorizationTtlTicks: ticksFromMinutes(10),
         spySlotCooldownTicks: ticksFromMinutes(6),
+        spyCaptureCooldownTicks: ticksFromMinutes(10),
         defenseCapacity: {
           baseCapacityPoints: 20,
           zoneBonusPoints: { downtown: 4 },
@@ -10109,6 +10110,7 @@
   const WAR_MODE_TICK_RATE_MS = 15e3;
   const WAR_MODE_DAY_NIGHT_PHASE_TICKS = resolveDayNightPhaseDurationTicks(WAR_MODE_TICK_RATE_MS);
   const WAR_MODE_RAID_DURATION_TICKS = Math.ceil(60 * 60 * 1e3 / WAR_MODE_TICK_RATE_MS);
+  const WAR_MODE_SPY_CAPTURE_COOLDOWN_TICKS = Math.ceil(10 * 60 * 1e3 / WAR_MODE_TICK_RATE_MS);
   const warModeOverride = {
     mode: "war",
     tickRateMs: WAR_MODE_TICK_RATE_MS,
@@ -10201,6 +10203,7 @@
       victoryConditionKey: "long-war-control",
       conflict: {
         spyCooldownTicks: 4,
+        spyCaptureCooldownTicks: WAR_MODE_SPY_CAPTURE_COOLDOWN_TICKS,
         attackCooldownTicks: 48,
         robCooldownTicks: 40,
         heistCooldownTicks: 32,
@@ -18551,6 +18554,9 @@
       }
       if ((config.balance.conflict.spySlotCooldownTicks ?? 0) < 0) {
         throw new Error("Conflict config requires a non-negative spySlotCooldownTicks.");
+      }
+      if ((config.balance.conflict.spyCaptureCooldownTicks ?? 0) < 0) {
+        throw new Error("Conflict config requires a non-negative spyCaptureCooldownTicks.");
       }
       const defenseCapacity = config.balance.conflict.defenseCapacity;
       if (defenseCapacity) {

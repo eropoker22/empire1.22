@@ -32,7 +32,9 @@ const request = (dateOfBirth: string) => ({
   gangName: "Age Gang",
   dateOfBirth,
   password: "long-secure-password",
-  passwordConfirmation: "long-secure-password"
+  passwordConfirmation: "long-secure-password",
+  termsAccepted: true as const,
+  termsVersion: "closed-alpha-internal-v1"
 });
 
 const registrationDatabase = () => {
@@ -42,7 +44,11 @@ const registrationDatabase = () => {
       queries.push({ sql, params });
       if (sql.includes("clock_timestamp() AS now")) {
         const dateOfBirth = String(params[0] ?? "");
-        return result([{ now: NOW, eligible: dateOfBirth <= "2010-07-21" }]);
+        return result([{
+          now: NOW,
+          eligible: dateOfBirth <= "2010-07-21",
+          future: dateOfBirth > "2026-07-21"
+        }]);
       }
       return result([]);
     }

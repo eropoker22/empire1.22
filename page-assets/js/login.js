@@ -347,6 +347,11 @@ const enableLocalDemoRegistration = () => {
   }
   const birthDate = document.getElementById("register-birth-date");
   if (birthDate instanceof HTMLInputElement) birthDate.max = latestEligibleBirthDate(16);
+  const terms = document.getElementById("register-terms");
+  if (terms instanceof HTMLInputElement) {
+    terms.required = false;
+    terms.closest(".login-registration-consent")?.setAttribute("hidden", "");
+  }
 };
 
 const resolveInitialMode = (registration) => {
@@ -392,7 +397,7 @@ function getInputValue(id) {
 
 const latestEligibleBirthDate = (minimumAgeYears) => {
   const now = new Date();
-  return `${now.getFullYear() - minimumAgeYears}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  return `${now.getUTCFullYear() - minimumAgeYears}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
 };
 
 const isAtLeastAge = (dateOfBirth, minimumAgeYears) => {

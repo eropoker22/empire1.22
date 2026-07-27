@@ -235,7 +235,8 @@ const createFixture = async () => {
     database, admin, entry, server, worker,
     createAccount: async (label: string) => (await entry.registerAccount({ username: `p_${label}_${suffix.slice(0, 8)}`,
       password: "PlayerEntryFixturePassword", passwordConfirmation: "PlayerEntryFixturePassword",
-      dateOfBirth: "1990-01-01", gangName: `Gang ${label}` })).session,
+      dateOfBirth: "1990-01-01", gangName: `Gang ${label}`,
+      termsAccepted: true, termsVersion: "player-entry-live-v1" })).session,
     createServer: async (capacity: number, startedAt: string | null = null) => {
       serverIndex += 1;
       const serverInstanceId = `instance:player-entry:${suffix}:${serverIndex}`;

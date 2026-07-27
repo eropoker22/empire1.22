@@ -26,6 +26,7 @@ test("new player completes authoritative lobby entry and returns without leaving
   await page.locator("#register-birth-date").fill("1990-01-01");
   await page.locator("#register-password").fill(password);
   await page.locator("#register-password-confirmation").fill(password);
+  await page.locator("#register-terms").check();
   await page.getByTestId("register-form").getByRole("button", { name: "ZALOŽIT GANG" }).click();
 
   await expect(page).toHaveURL(/\/pages\/lobby\.html/u);

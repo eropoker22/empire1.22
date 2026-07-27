@@ -8,11 +8,11 @@ import {
 import { createServerApp } from "../app/server-app";
 import {
   createPostgresDatabase,
-  createPostgresRuntimePersistenceRepositories,
-  isProductionSchemaCurrent
+  createPostgresRuntimePersistenceRepositories
 } from "../runtime/persistence/postgres";
 import { createPostgresPlayerEntryRepository } from "../player-entry/postgres-player-entry-repository";
 import { createHostedRuntimeWorkerRunLoop, shutdownHostedRuntimeWorker } from "./hosted-runtime-worker-run-loop";
+import { assertHostedRuntimeWorkerSchemaCurrent } from "./hosted-runtime-worker-preflight";
 
 const databaseUrl = String(process.env.EMPIRE_DATABASE_URL ?? "").trim();
 const workerId = String(process.env.EMPIRE_HOSTED_WORKER_ID ?? "").trim();
@@ -41,8 +41,11 @@ const database = createPostgresDatabase(databaseUrl, {
 });
 const controlPlane = createPostgresHostedControlPlaneRepository(database);
 const playerEntry = createPostgresPlayerEntryRepository(database);
-if (!await isProductionSchemaCurrent(database)) {
-  throw new Error("Hosted worker refuses to start with pending or mismatched database migrations.");
+try {
+  await assertHostedRuntimeWorkerSchemaCurrent(database);
+} catch (error) {
+  await database.close();
+  throw error;
 }
 
 const persistence = createPostgresRuntimePersistenceRepositories({

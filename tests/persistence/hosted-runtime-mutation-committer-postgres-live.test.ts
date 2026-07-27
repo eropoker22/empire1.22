@@ -302,7 +302,9 @@ const createFixture = async () => {
       password: "MutationFixturePassword",
       passwordConfirmation: "MutationFixturePassword",
       dateOfBirth: "1990-01-01",
-      gangName: `Mutation ${label}`
+      gangName: `Mutation ${label}`,
+      termsAccepted: true,
+      termsVersion: "hosted-mutation-live-v1"
     })).session;
     const registration = await sessions.getOrCreateRegistration({
       accountId: account.accountId,

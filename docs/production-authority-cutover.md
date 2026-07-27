@@ -71,10 +71,11 @@ The account registration modal collects:
 - date of birth;
 - password;
 - password confirmation.
+- explicit acceptance of the current terms and privacy version.
 
-There is no invite field and no invite authority. The API verifies matching passwords and the minimum age of 16 years. Age is evaluated against authoritative PostgreSQL UTC time inside the account-creation transaction.
+There is no invite field and no invite authority. The API verifies matching passwords, the minimum age of 16 years, and the exact terms version returned by the registration policy. Age and acceptance time are evaluated against authoritative PostgreSQL UTC time inside the account-creation transaction.
 
-The read-only registration policy exposes only whether registration is enabled, the open/closed mode, minimum password length, and minimum age. If policy loading fails, login remains available and registration fails closed.
+The read-only registration policy exposes only whether registration is enabled, the open/closed mode, minimum password length, minimum age, whether terms acceptance is required, and the current public terms version. If policy loading fails, login remains available and registration fails closed.
 
 The feature flag retains its historical name:
 
@@ -83,6 +84,7 @@ The feature flag retains its historical name:
 When enabled in production, durable auth throttling also requires:
 
 - `EMPIRE_AUTH_THROTTLE_PEPPER`
+- `EMPIRE_ACCOUNT_TERMS_VERSION`
 
 The throttle stores hashes of normalized account/network identifiers. It never stores a raw password, date of birth, cookie, or network address.
 

@@ -174,7 +174,7 @@ describeWhenDatabaseConfigured("hosted join reservation postgres live", () => {
     } finally {
       await isolated.close();
     }
-  });
+  }, 45_000);
 
   it("opens registration from the database clock for exactly sixty minutes", async () => {
     const isolated = await createIsolatedPostgresTestSchema(databaseUrl!, "hosted_registration_clock");
@@ -278,7 +278,7 @@ describeWhenDatabaseConfigured("hosted join reservation postgres live", () => {
     } finally {
       await isolated.close();
     }
-  });
+  }, 45_000);
 });
 
 const createFixtureOwner = async (

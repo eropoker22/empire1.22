@@ -39,8 +39,10 @@ check(!gameHtml.includes(">20/20<") && !gameHtml.includes(">Host<") && !gameHtml
 check(appSource.includes("loadLobbyOverview") && appSource.includes("mountLiveGameplayClient"), "live game boot requires lobby membership and gameplay slice");
 check(!appSource.includes("app-demo.js"), "live game module has no demo fallback import");
 check(loginLive.includes("loadAccountRegistrationPolicy") && loginLive.includes("accountSession"), "login uses live registration policy and account session");
-check(loginLive.includes("passwordConfirmation") && loginLive.includes("dateOfBirth") && !loginLive.includes("inviteCode"),
-  "login registration requires date of birth and password confirmation without invite data");
+check(loginLive.includes("passwordConfirmation") && loginLive.includes("dateOfBirth")
+  && loginLive.includes("termsAccepted: true") && loginLive.includes("termsVersion")
+  && !loginLive.includes("inviteCode"),
+  "login registration requires date of birth, password confirmation and terms acceptance without invite data");
 check(lobbyLive.includes("loadLobbyOverview"), "lobby uses live overview");
 check(factionLive.includes("loadLobbyOverview") && factionLive.includes("finalizeServerSetup"), "faction setup uses live membership");
 check(entryNetlify.includes('driver === "postgres"') && !entryNetlify.includes("createInMemory"), "player entry production bootstrap is PostgreSQL-only");

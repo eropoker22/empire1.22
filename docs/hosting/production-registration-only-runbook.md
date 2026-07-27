@@ -43,6 +43,7 @@ Set these names only in the Production context of the confirmed Netlify site:
 | `GAMEPLAY_SLICE_SNAPSHOT_SECRET` | Functions | different unique random secret, at least 32 bytes |
 | `EMPIRE_ADMIN_FINGERPRINT_SECRET` | Functions | different unique random secret, at least 32 bytes |
 | `EMPIRE_AUTH_THROTTLE_PEPPER` | Functions | different unique random secret, at least 32 bytes |
+| `EMPIRE_ACCOUNT_TERMS_VERSION` | Functions | explicit approved terms version; required before opening |
 | `EMPIRE_ADMIN_WRITES_ENABLED` | admin API | `false` |
 | `EMPIRE_HOSTED_CONTROL_PLANE_ENABLED` | admin API | `false` |
 | `EMPIRE_SERVER_PROVISIONING_ENABLED` | admin API | `false` |
@@ -124,7 +125,9 @@ offline as an account-platform failure.
 
 The current privacy and closed-alpha terms pages are staging drafts. Public registration must not remain
 open until truthful operator identity, contact, processing purposes, retention, deletion procedure and
-closed-alpha terms are supplied and approved. Do not invent those details.
+closed-alpha terms are supplied and approved. The approved publication must receive a stable
+`EMPIRE_ACCOUNT_TERMS_VERSION`; migration `021_account_terms_acceptance.sql` stores only account ID,
+that version and PostgreSQL acceptance time. Do not invent legal details or reuse the internal staging version.
 
 A short operator-owned acceptance registration may be performed only under the approved test procedure.
 After that test, close registration again and confirm that existing login still works.
@@ -135,7 +138,8 @@ After that test, close registration again and confirm that existing login still 
 2. Set `EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED=false`.
 3. Trigger a production deploy from the same known SHA.
 4. Verify `/api/account/registration-policy` reports registration closed.
-5. Verify an existing account can still log in.
+5. Verify direct `POST /api/account/register` returns `ACCOUNT_REGISTRATION_CLOSED`.
+6. Verify an existing account session and fresh login still work.
 
 ## Rollback
 

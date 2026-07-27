@@ -170,6 +170,15 @@
                 <input type="password" id="register-password-confirmation" name="passwordConfirmation" placeholder="Zopakuj heslo" autocomplete="new-password" minlength="12" required disabled>
               </label>
             </div>
+            <label class="login-registration-consent" for="register-terms">
+              <input type="checkbox" id="register-terms" name="termsAccepted" required disabled>
+              <span>
+                Souhlasím s aktuálními
+                <a href="/closed-alpha-terms.html" target="_blank" rel="noopener">Podmínkami pre-alpha</a>
+                a beru na vědomí
+                <a href="/privacy.html" target="_blank" rel="noopener">Ochranu osobních údajů</a>.
+              </span>
+            </label>
             <p id="register-error" class="login-registration-error" role="alert" hidden></p>
             <button type="submit" class="login-registration-submit" data-submit-label="ZALOŽIT GANG" disabled>ZALOŽIT GANG</button>
           </form>

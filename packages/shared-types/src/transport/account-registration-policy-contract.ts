@@ -3,6 +3,8 @@ export interface AccountRegistrationPolicyView {
   mode: "open" | "closed";
   passwordMinimumLength: number;
   minimumAgeYears: number;
+  termsAcceptanceRequired: boolean;
+  termsVersion: string | null;
 }
 
 export interface AccountRegistrationRequest {
@@ -11,4 +13,6 @@ export interface AccountRegistrationRequest {
   dateOfBirth: string;
   password: string;
   passwordConfirmation: string;
+  termsAccepted: true;
+  termsVersion: string;
 }

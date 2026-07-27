@@ -279,6 +279,48 @@ body.login-registration-open {
   letter-spacing: 0.03em;
 }
 
+.login-registration-consent {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  padding: 10px 11px;
+  color: rgba(206, 220, 236, 0.76);
+  border: 1px solid rgba(114, 224, 255, 0.18);
+  border-radius: 9px;
+  background: rgba(0, 4, 10, 0.48);
+  font: 700 0.65rem / 1.45 var(--font-ui);
+}
+
+.login-registration-consent input {
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  accent-color: var(--registration-accent);
+}
+
+.login-registration-consent a {
+  color: #8cecff;
+  text-decoration-color: rgba(140, 236, 255, 0.44);
+  text-underline-offset: 2px;
+}
+
+.login-registration-consent a:hover,
+.login-registration-consent a:focus-visible {
+  color: #fff;
+  outline: none;
+  text-shadow: 0 0 10px rgba(0, 229, 255, 0.72);
+}
+
+.login-registration-consent:has(input:focus-visible) {
+  border-color: var(--registration-accent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--registration-accent) 14%, transparent);
+}
+
+.login-registration-consent:has(input:disabled) {
+  opacity: 0.46;
+}
+
 .login-registration-date-control {
   position: relative;
   display: grid;

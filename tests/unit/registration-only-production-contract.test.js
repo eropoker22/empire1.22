@@ -22,7 +22,8 @@ const validEnvironment = {
   EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "false",
   EMPIRE_SERVER_PROVISIONING_ENABLED: "false",
   EMPIRE_LEGACY_MATCHMAKING_ENABLED: "false",
-  EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "false"
+  EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "false",
+  EMPIRE_ACCOUNT_TERMS_VERSION: "closed-alpha-approved-v1"
 };
 
 describe("registration-only production contract", () => {
@@ -36,6 +37,13 @@ describe("registration-only production contract", () => {
     const environment = { ...validEnvironment, EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true" };
     expect(validateRegistrationOnlyProductionEnvironment(environment).passed).toBe(false);
     expect(validateRegistrationOnlyProductionEnvironment(environment, { registrationEnabled: true }).passed).toBe(true);
+    expect(validateRegistrationOnlyProductionEnvironment(
+      { ...environment, EMPIRE_ACCOUNT_TERMS_VERSION: "" },
+      { registrationEnabled: true }
+    ).checks.find((check) => check.name === "EMPIRE_ACCOUNT_TERMS_VERSION")).toMatchObject({
+      passed: false,
+      errorCode: "REGISTRATION_ONLY_TERMS_VERSION_INVALID"
+    });
   });
 
   it("rejects unsafe origins, direct database URLs, enabled hosting writes and reused secrets", () => {
