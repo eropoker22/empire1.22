@@ -15,15 +15,12 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
   if (config.tickRateMs <= 0) {
     throw new Error("Mode config requires a positive tickRateMs.");
   }
-
   if (config.balance.maxPlayersPerServer <= 0) {
     throw new Error("Mode config requires a positive maxPlayersPerServer.");
   }
-
   if (config.balance.maxAllianceSize <= 0) {
     throw new Error("Mode config requires a positive maxAllianceSize.");
   }
-
   if (config.balance.maxAllianceSize > 4) {
     throw new Error("Mode config allows alliances with at most 4 players.");
   }
@@ -163,6 +160,9 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
     }
     if ((config.balance.conflict.spySlotCooldownTicks ?? 0) < 0) {
       throw new Error("Conflict config requires a non-negative spySlotCooldownTicks.");
+    }
+    if ((config.balance.conflict.spyCaptureCooldownTicks ?? 0) < 0) {
+      throw new Error("Conflict config requires a non-negative spyCaptureCooldownTicks.");
     }
     const defenseCapacity = config.balance.conflict.defenseCapacity;
     if (defenseCapacity) {

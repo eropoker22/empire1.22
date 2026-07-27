@@ -232,6 +232,11 @@ describe("conflict command flow", () => {
       expect(report?.payload.blockedUntilTick).toBeGreaterThan(blockedSpy.nextState.root.tick);
       expect(blockedSpy.nextState.playerSpyOperationStatesByPlayerId?.["player:1"]?.slots[0]?.availableAtTick)
         .toBeGreaterThan(blockedSpy.nextState.root.tick);
+      expect(Number(report?.payload.blockedUntilTick) - blockedSpy.nextState.root.tick).toBe(
+        outcome === "critical_failed"
+          ? context.config.balance.conflict.spyCaptureCooldownTicks
+          : context.config.balance.conflict.spySlotCooldownTicks
+      );
       if (outcome === "critical_failed") {
         expect(blockedSpy.nextState.policeStatesById["police:1"]?.heat).toBeGreaterThan(0);
       }

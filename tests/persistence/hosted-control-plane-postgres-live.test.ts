@@ -1,16 +1,24 @@
 import { describe, expect, it } from "vitest";
 import type { AdminSessionView } from "@empire/shared-types";
-import { createHostedControlPlaneService, createHostedRuntimeWorker } from "../../apps/server/src/admin/hosted";
+import {
+  createHostedControlPlaneService,
+  createHostedRuntimeWorker,
+  createPostgresHostedRuntimeMutationCommitter
+} from "../../apps/server/src/admin/hosted";
 import { createPostgresAdminDurableRepositories, hashAdminPassword } from "../../apps/server/src/admin/read-only";
 import { createServerApp } from "../../apps/server/src/app";
-import { createPostgresDatabase, createPostgresRuntimePersistenceRepositories } from "../../apps/server/src/runtime/persistence/postgres";
+import { createPostgresRuntimePersistenceRepositories } from "../../apps/server/src/runtime/persistence/postgres";
+import { loadLocalEnvFile } from "../helpers/load-local-env.js";
+import { createIsolatedPostgresTestSchema } from "./helpers/isolated-postgres-test-schema";
 
+loadLocalEnvFile();
 const databaseUrl = process.env.EMPIRE_TEST_DATABASE_URL?.trim();
 const describeWhenDatabaseConfigured = databaseUrl ? describe : describe.skip;
 
 describeWhenDatabaseConfigured("hosted control plane PostgreSQL live", () => {
   it("persists idempotent create, provisioning, lease and snapshot restore", async () => {
-    const database = createPostgresDatabase(databaseUrl!);
+    const isolated = await createIsolatedPostgresTestSchema(databaseUrl!, "hosted_control_plane");
+    const database = isolated.database;
     const repositories = createPostgresAdminDurableRepositories(database);
     const suffix = `${Date.now()}`;
     const adminUserId = `admin-user:live:${suffix}`;
@@ -42,13 +50,17 @@ describeWhenDatabaseConfigured("hosted control plane PostgreSQL live", () => {
       expect(replay.data.server.serverInstanceId).toBe(first.data.server.serverInstanceId);
       serverInstanceId = first.data.server.serverInstanceId;
 
-      const persistence = createPostgresRuntimePersistenceRepositories({ databaseUrl: databaseUrl!, database,
+      const persistence = createPostgresRuntimePersistenceRepositories({ databaseUrl: isolated.databaseUrl, database,
         tickLockOwnerId: `worker:live:A:${suffix}` });
       const appA = createServerApp({ persistence });
       const workerA = createHostedRuntimeWorker({ workerId: `worker:live:A:${suffix}`, region: "eu-central", buildSha: "test",
-        controlPlane: repositories.hosted, server: appA });
+        controlPlane: repositories.hosted, server: appA,
+        runtimeMutationCommitter: createPostgresHostedRuntimeMutationCommitter(database) });
       await workerA.runOnce();
       const record = await repositories.hosted.getServer(serverInstanceId);
+      if (record?.status !== "lobby" || record.provisioningState !== "ready") {
+        throw new Error(`Hosted live provisioning failed: ${record?.lastErrorCode ?? "UNKNOWN"}.`);
+      }
       expect(record).toMatchObject({ status: "lobby", provisioningState: "ready", joinPolicy: "closed" });
       const runtimeA = appA.instanceManager.getInstanceById(serverInstanceId)!;
       const worldSeed = runtimeA.state.serverInstance.worldSeed;
@@ -57,7 +69,8 @@ describeWhenDatabaseConfigured("hosted control plane PostgreSQL live", () => {
 
       const appB = createServerApp({ persistence });
       const workerB = createHostedRuntimeWorker({ workerId: `worker:live:B:${suffix}`, region: "eu-central", buildSha: "test",
-        controlPlane: repositories.hosted, server: appB });
+        controlPlane: repositories.hosted, server: appB,
+        runtimeMutationCommitter: createPostgresHostedRuntimeMutationCommitter(database) });
       await workerB.heartbeat();
       await workerB.restoreKnownInstances();
       const runtimeB = appB.instanceManager.getInstanceById(serverInstanceId)!;
@@ -83,20 +96,7 @@ describeWhenDatabaseConfigured("hosted control plane PostgreSQL live", () => {
         .toBe("SERVER_LIFECYCLE_OPERATION_ACTIVE");
       await workerB.stop();
     } finally {
-      if (serverInstanceId) {
-        await database.query("DELETE FROM empire_hosted_instance_heartbeats WHERE server_instance_id=$1", [serverInstanceId]);
-        await database.query("DELETE FROM empire_hosted_server_action_requests WHERE server_instance_id=$1", [serverInstanceId]);
-        await database.query("DELETE FROM empire_hosted_server_provisioning_jobs WHERE server_instance_id=$1", [serverInstanceId]);
-        await database.query("DELETE FROM empire_hosted_server_idempotency WHERE resource_id=$1", [serverInstanceId]);
-        await database.query("DELETE FROM empire_hosted_server_instances WHERE server_instance_id=$1", [serverInstanceId]);
-        await database.query("DELETE FROM empire_server_instances WHERE server_instance_id=$1", [serverInstanceId]);
-      }
-      await database.query("DELETE FROM empire_hosted_instance_heartbeats WHERE worker_id LIKE $1", [`worker:live:%:${suffix}`]);
-      await database.query("DELETE FROM empire_hosted_worker_heartbeats WHERE worker_id LIKE $1", [`worker:live:%:${suffix}`]);
-      await database.query("DELETE FROM empire_hosted_server_idempotency WHERE admin_user_id=$1", [adminUserId]);
-      await database.query("DELETE FROM empire_admin_access_audit WHERE actor_id=$1", [adminUserId]);
-      await database.query("DELETE FROM empire_admin_users WHERE admin_user_id=$1", [adminUserId]);
-      await database.close();
+      await isolated.close();
     }
-  }, 20_000);
+  }, 60_000);
 });

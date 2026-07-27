@@ -216,6 +216,35 @@ describe("event feed panel helpers", () => {
     expect(item.children[0].children[3].children).toHaveLength(0);
   });
 
+  it("renders a captured spy countdown as a compact red street-news message", () => {
+    const entry = createBuildingActionEntry({
+      id: "cooldown:spy:captured",
+      tone: "error",
+      title: "ŠPEH ZAJAT",
+      summary: "",
+      meta: "10 min 0 s",
+      sourceKind: "cooldown",
+      compact: true,
+      countdownStyle: "words",
+      countdownPrefix: "",
+      expiresAt: Date.now() + (10 * 60 * 1000),
+      dismissible: false,
+      persistent: true,
+      timestampMs: 3000
+    });
+
+    const item = createBuildingActionFeedItemElement(new FakeDocument(), entry, {
+      removeSelector: "[data-building-action-remove]",
+      onOpenResult: () => {}
+    });
+
+    expect(item.className).toContain("building-action-status__item--error");
+    expect(item.className).toContain("building-action-status__item--negative");
+    expect(item.classList.contains("building-action-status__item--cooldown")).toBe(true);
+    expect(item.children[0].children[0].textContent).toBe("ŠPEH ZAJAT");
+    expect(item.children[0].children[1].textContent).toBe("10 min 0 s");
+  });
+
   it("keeps special action cooldown previews clickable even without a direct resource delta", () => {
     const entry = createBuildingActionEntry({
       id: "cooldown:building:1:vip_night",

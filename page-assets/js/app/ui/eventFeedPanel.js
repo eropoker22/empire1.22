@@ -18,6 +18,8 @@ export function resolveBuildingActionTheme(rawTone) {
   const tone = String(rawTone || "").trim().toLowerCase();
 
   if (
+    tone === "error"
+    ||
     tone.includes("fail")
     || tone.includes("disaster")
     || tone.includes("catastrophe")
@@ -60,6 +62,10 @@ export function normalizeBuildingActionSnapshot(snapshot) {
     ? snapshot.resultPayload
     : null;
   const compact = snapshot?.compact === true;
+  const hasCountdownStyle = Object.prototype.hasOwnProperty.call(snapshot || {}, "countdownStyle");
+  const hasCountdownPrefix = Object.prototype.hasOwnProperty.call(snapshot || {}, "countdownPrefix");
+  const countdownStyle = snapshot?.countdownStyle === "words" ? "words" : "clock";
+  const countdownPrefix = hasCountdownPrefix ? String(snapshot.countdownPrefix || "") : "Čekání ";
   const category = normalizeBuildingActionClassToken(snapshot?.category || snapshot?.resultPayload?.category || "", "other");
   const visibility = normalizeBuildingActionClassToken(snapshot?.visibility || snapshot?.resultPayload?.visibility || "", "private");
   const expiresAt = Number(snapshot?.expiresAt || 0);
@@ -67,7 +73,7 @@ export function normalizeBuildingActionSnapshot(snapshot) {
   return {
     tone,
     title: title || (tone === "idle" ? BUILDING_ACTION_EMPTY_SNAPSHOT.title : "Uliční zpráva"),
-    summary: summary || (tone === "idle" ? BUILDING_ACTION_EMPTY_SNAPSHOT.summary : "Bez detailu."),
+    summary: summary || (compact ? "" : tone === "idle" ? BUILDING_ACTION_EMPTY_SNAPSHOT.summary : "Bez detailu."),
     meta: meta || (tone === "idle" ? BUILDING_ACTION_EMPTY_SNAPSHOT.meta : ""),
     resultKind,
     districtType,
@@ -75,6 +81,8 @@ export function normalizeBuildingActionSnapshot(snapshot) {
     category,
     visibility,
     compact,
+    ...(hasCountdownStyle ? { countdownStyle } : {}),
+    ...(hasCountdownPrefix ? { countdownPrefix } : {}),
     dismissible,
     persistent: !dismissible,
     resultPayload,
@@ -240,11 +248,16 @@ export function formatBuildingActionTimestamp(timestampMs) {
   });
 }
 
-function formatBuildingActionFeedCountdown(remainingMs) {
+export function formatBuildingActionFeedCountdown(remainingMs, style = "clock") {
   const totalSeconds = Math.max(0, Math.ceil(Number(remainingMs || 0) / 1000));
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
+  if (style === "words") {
+    return hours > 0
+      ? `${hours} h ${minutes} min ${seconds} s`
+      : `${minutes} min ${seconds} s`;
+  }
   const secondLabel = String(seconds).padStart(2, "0");
 
   if (hours > 0) {
@@ -254,7 +267,10 @@ function formatBuildingActionFeedCountdown(remainingMs) {
   return `${minutes}:${secondLabel}`;
 }
 
-function bindBuildingActionFeedCountdown(element, expiresAt, onExpire = null) {
+function bindBuildingActionFeedCountdown(element, expiresAt, onExpire = null, {
+  style = "clock",
+  prefix = "Čekání "
+} = {}) {
   const windowRef = element?.ownerDocument?.defaultView;
   const targetMs = Number(expiresAt || 0);
   if (!element || !windowRef || !Number.isFinite(targetMs) || targetMs <= 0) {
@@ -263,7 +279,7 @@ function bindBuildingActionFeedCountdown(element, expiresAt, onExpire = null) {
 
   const update = () => {
     const remainingMs = Math.max(0, targetMs - Date.now());
-    element.textContent = `Čekání ${formatBuildingActionFeedCountdown(remainingMs)}`;
+    element.textContent = `${prefix}${formatBuildingActionFeedCountdown(remainingMs, style)}`;
     if (remainingMs <= 0 && timerId) {
       windowRef.clearInterval(timerId);
       onExpire?.();
@@ -452,7 +468,15 @@ export function createBuildingActionFeedItemElement(documentRef, entry, options 
     inlineMeta.className = "building-action-status__item-inline-meta";
     inlineMeta.textContent = entry.meta;
     if (entry.sourceKind === "cooldown" || entry.expiresAt) {
-      bindBuildingActionFeedCountdown(inlineMeta, entry.expiresAt || entry.timestampMs, options.onExpire);
+      bindBuildingActionFeedCountdown(
+        inlineMeta,
+        entry.expiresAt || entry.timestampMs,
+        options.onExpire,
+        {
+          style: entry.countdownStyle,
+          prefix: entry.countdownPrefix
+        }
+      );
     }
     head.append(inlineMeta);
   }

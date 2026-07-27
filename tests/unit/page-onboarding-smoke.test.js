@@ -75,6 +75,7 @@ describe("page onboarding smoke", () => {
     expect(page("login.html")).toContain('id="register-password-confirmation"');
     expect(page("login.html")).toContain('id="register-birth-date"');
     expect(page("login.html")).toContain('data-forgot-password');
+    expect(page("login.html")).not.toContain("styles-server-defeat-notice.css");
     expect(page("login.html")).toContain('src="../page-assets/js/login-entry.js');
 
     expect(page("lobby.html")).toContain('data-server-list');
@@ -111,6 +112,7 @@ describe("page onboarding smoke", () => {
     expect(page("game.html")).toContain('id="bounty-target-picker"');
     expect(page("game.html")).toContain('data-login-about-open');
     expect(page("game.html")).toContain('data-login-about-overlay');
+    expect(page("game.html")).toContain("styles-server-defeat-notice.css");
     expect(page("game.html")).toContain('src="../page-assets/js/app/game-about-modal-runtime.js"');
     expect(page("game.html")).not.toContain('id="battle-royale-info-modal"');
     expect(page("game.html")).toContain('class="city-status-bar"');
@@ -194,7 +196,7 @@ describe("page onboarding smoke", () => {
     expect(adminHtml).toContain('src="./page-assets/js/admin-assets/admin-app.js" defer');
     expect(adminHtml).not.toContain("data-static-fallback");
     expect(page("login.html")).toMatch(/href="\.\.\/page-assets\/css\/login\.css(?:\?[^"]+)?"/u);
-    expect(page("login.html")).toContain('href="../page-assets/css/styles-login-about.css"');
+    expect(page("login.html")).toMatch(/href="\.\.\/page-assets\/css\/styles-login-about\.css(?:\?[^"]+)?"/u);
     expect(page("login.html")).toContain('href="../page-assets/css/styles-static-hover.css"');
     expect(page("lobby.html")).toMatch(/href="\.\.\/page-assets\/css\/lobby\.css">\r?\n\s*<link rel="stylesheet" href="\.\.\/page-assets\/css\/styles-static-hover\.css">/u);
     expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain("transform: none !important;");
@@ -229,7 +231,8 @@ describe("page onboarding smoke", () => {
     expect(loginCssSource).toMatch(/@media \(min-width: 841px\) \{\r?\n  \.mode-card--war \.mode-content \{\r?\n    transform: translateY\(-5px\);/u);
     expect(registrationCssSource).toContain(".login-registration-dialog");
     expect(registrationCssSource).toContain(".login-registration-fields");
-    expect(registrationCssSource).toContain("rgba(18, 3, 8, 0.9)");
+    expect(registrationCssSource).toContain("--registration-accent: var(--active-mode, #00e5ff)");
+    expect(registrationCssSource).toContain(".login-registration-content");
     const gameRedesignSource = readFileSync(resolve(root, "page-assets/css/styles-game-redesign.css"), "utf8");
     expect(gameRedesignSource).toMatch(/body\.game-body > \.game-topbar \{\r?\n\s*position: sticky;/u);
     expect(gameRedesignSource).toContain("z-index: 70;");

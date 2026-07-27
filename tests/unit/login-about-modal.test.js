@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ABOUT_GAME_FACTS, ABOUT_GAME_SECTIONS } from "../../page-assets/js/data/about-game-sections.js";
-import { bindLoginAboutModal } from "../../page-assets/js/app/login-about-modal.js";
+import { bindLoginAboutModal, bindLoginInfoModals } from "../../page-assets/js/app/login-about-modal.js";
 
 const pageSource = readFileSync(resolve(process.cwd(), "pages/login.html"), "utf8");
 const gamePageSource = readFileSync(resolve(process.cwd(), "pages/game.html"), "utf8");
@@ -143,5 +143,42 @@ describe("login about encyclopedia", () => {
     expect(aboutStyles).toContain("@media (max-width: 780px)");
     expect(aboutStyles).toContain("@media (prefers-reduced-motion: reduce)");
     expect(aboutStyles).toContain("overflow: hidden;");
+  });
+
+  it("opens all login information links in one shared about-style placeholder modal", () => {
+    document.body.innerHTML = `
+      <button type="button" data-login-info-open="news">Novinky</button>
+      <button type="button" data-login-info-open="help">Pomoc</button>
+      <a href="/closed-alpha-terms.html" data-login-info-open="terms">Podmínky pre-alpha</a>
+      <a href="/privacy.html" data-login-info-open="privacy">Ochrana osobních údajů</a>
+      <div class="login-info-overlay" data-login-info-overlay hidden>
+        <button type="button" data-login-info-close aria-label="Zavřít informační okno">Zavřít</button>
+        <section class="login-info-dialog" role="dialog" tabindex="-1">
+          <h2><small data-login-info-title></small></h2>
+          <p>Na obsahu se pracuje.</p>
+        </section>
+      </div>`;
+    bindLoginInfoModals();
+    const overlay = document.querySelector("[data-login-info-overlay]");
+
+    for (const [id, title] of [
+      ["news", "/ NOVINKY"],
+      ["help", "/ POMOC"],
+      ["terms", "/ PODMÍNKY PRE-ALPHA"],
+      ["privacy", "/ OCHRANA OSOBNÍCH ÚDAJŮ"]
+    ]) {
+      document.querySelector(`[data-login-info-open="${id}"]`).click();
+      expect(overlay.hidden).toBe(false);
+      expect(overlay.querySelector("[data-login-info-title]").textContent).toBe(title);
+      expect(overlay.textContent).toContain("Na obsahu se pracuje.");
+      overlay.querySelector("[data-login-info-close]").click();
+      expect(overlay.hidden).toBe(true);
+    }
+
+    expect(pageSource.match(/data-login-info-overlay/g)).toHaveLength(1);
+    expect(pageSource).toContain('data-login-info-open="privacy"');
+    expect(pageSource).toContain('data-login-info-open="terms"');
+    expect(aboutStyles).toContain(".login-info-dialog");
+    expect(pageSource).not.toContain("login-about-dialog--empty");
   });
 });

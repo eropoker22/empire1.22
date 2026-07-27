@@ -2,6 +2,7 @@ export interface ConflictBalanceConfig {
   spyCooldownTicks: number;
   spyAuthorizationTtlTicks?: number;
   spySlotCooldownTicks?: number;
+  spyCaptureCooldownTicks?: number;
   defenseCapacity?: {
     baseCapacityPoints: number;
     zoneBonusPoints: Record<string, number>;

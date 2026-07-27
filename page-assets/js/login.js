@@ -331,6 +331,7 @@ const initializeLoginPage = () => {
   startServerStatusCycle();
   startLoginActiveEventsCycle();
   updateModeCards();
+  autoStartLocalDemo();
 };
 
 const enableLocalDemoRegistration = () => {
@@ -361,6 +362,13 @@ const normalizeMode = (mode) => {
 
 const getModeServersUrl = (mode) => `${LOBBY_ENTRY_HREF}?mode=${normalizeMode(mode) || DEFAULT_PUBLIC_SERVER_MODE}`;
 const sanitizeGuestValue = (value, maxLength) => String(value || "").trim().slice(0, maxLength);
+
+const autoStartLocalDemo = () => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("autoStartLocalDemo") !== "1" || !isExplicitLocalDemoEnabled()) return;
+  const button = document.getElementById("guest-btn");
+  if (button instanceof HTMLButtonElement) button.click();
+};
 
 function hydrateInputs(registration) {
   setInputValue("login-username", registration?.isGuest ? "" : registration?.identity);

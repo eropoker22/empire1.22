@@ -3,9 +3,11 @@ body.login-registration-open {
 }
 
 .login-registration-overlay {
+  --registration-accent: var(--active-mode, #00e5ff);
+  --registration-accent-soft: color-mix(in srgb, var(--registration-accent) 24%, transparent);
   position: fixed;
-  inset: 0;
   z-index: 96;
+  inset: 0;
   display: grid;
   place-items: center;
   padding: clamp(12px, 3vw, 34px);
@@ -19,33 +21,38 @@ body.login-registration-open {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 50% 18%, rgba(255, 35, 62, 0.15), transparent 38%),
-    rgba(0, 2, 7, 0.72);
-  backdrop-filter: blur(9px) saturate(0.85);
-  -webkit-backdrop-filter: blur(9px) saturate(0.85);
+    radial-gradient(circle at 50% 18%, var(--registration-accent-soft), transparent 36%),
+    radial-gradient(circle at 12% 88%, rgba(244, 114, 182, 0.1), transparent 28%),
+    rgba(0, 2, 7, 0.48);
+  backdrop-filter: blur(6px) saturate(1.16);
+  -webkit-backdrop-filter: blur(6px) saturate(1.16);
 }
 
 .login-registration-dialog {
   position: relative;
-  width: min(580px, 100%);
-  max-height: min(760px, calc(100dvh - 28px));
-  overflow: auto;
-  padding: clamp(18px, 3vw, 28px);
-  color: #f7f1f2;
-  border: 1px solid rgba(255, 66, 86, 0.68);
-  border-radius: 22px;
-  background:
-    linear-gradient(135deg, rgba(255, 48, 70, 0.09), transparent 34%),
-    radial-gradient(circle at 100% 0, rgba(255, 38, 64, 0.14), transparent 35%),
-    linear-gradient(155deg, rgba(18, 3, 8, 0.9), rgba(3, 5, 11, 0.84));
-  box-shadow:
-    0 30px 90px rgba(0, 0, 0, 0.68),
-    0 0 30px rgba(255, 38, 64, 0.2),
-    inset 0 0 38px rgba(255, 45, 68, 0.045),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.035);
-  backdrop-filter: blur(22px) saturate(1.05);
-  -webkit-backdrop-filter: blur(22px) saturate(1.05);
   isolation: isolate;
+  width: min(680px, calc(100vw - 32px));
+  max-height: min(790px, calc(100dvh - 28px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  color: rgba(232, 240, 255, 0.92);
+  border: 1px solid color-mix(in srgb, var(--registration-accent) 82%, white 8%);
+  border-radius: 16px;
+  outline: none;
+  background:
+    radial-gradient(circle at 88% 0, color-mix(in srgb, var(--registration-accent) 18%, transparent), transparent 34%),
+    radial-gradient(circle at 4% 100%, rgba(0, 229, 255, 0.08), transparent 30%),
+    linear-gradient(145deg, rgba(1, 5, 12, 0.52), rgba(0, 2, 7, 0.7));
+  box-shadow:
+    0 28px 76px rgba(0, 0, 0, 0.82),
+    0 0 0 1px color-mix(in srgb, var(--registration-accent) 22%, transparent),
+    0 0 24px color-mix(in srgb, var(--registration-accent) 34%, transparent),
+    0 0 68px color-mix(in srgb, var(--registration-accent) 14%, transparent),
+    inset 0 0 58px color-mix(in srgb, var(--registration-accent) 7%, transparent);
+  backdrop-filter: blur(18px) saturate(1.24);
+  -webkit-backdrop-filter: blur(18px) saturate(1.24);
+  animation: login-registration-enter 180ms ease-out both;
 }
 
 .login-registration-dialog::before,
@@ -56,94 +63,149 @@ body.login-registration-open {
 }
 
 .login-registration-dialog::before {
+  z-index: 0;
   inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  opacity: 0.12;
-  background: repeating-linear-gradient(0deg, transparent 0 4px, rgba(255, 255, 255, 0.08) 4px 5px);
+  background:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.022) 0 1px, transparent 1px 6px),
+    linear-gradient(90deg, color-mix(in srgb, var(--registration-accent) 10%, transparent), transparent 22%, transparent 78%, rgba(244, 114, 182, 0.07));
+  opacity: 0.78;
+  mix-blend-mode: screen;
 }
 
 .login-registration-dialog::after {
-  top: 0;
-  left: 9%;
-  right: 9%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, #ff526c 28%, #ffd0d7 50%, #ff526c 72%, transparent);
-  box-shadow: 0 0 16px rgba(255, 54, 78, 0.82);
+  z-index: 2;
+  inset: 5px;
+  border: 1px solid color-mix(in srgb, var(--registration-accent) 22%, transparent);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 0 30px color-mix(in srgb, var(--registration-accent) 8%, transparent),
+    0 0 12px color-mix(in srgb, var(--registration-accent) 8%, transparent);
+}
+
+.login-registration-header,
+.login-registration-content {
+  position: relative;
+  z-index: 3;
 }
 
 .login-registration-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 12px;
-}
-
-.login-registration-header span {
-  display: block;
-  margin-bottom: 4px;
-  color: rgba(255, 118, 135, 0.82);
-  font-size: 0.66rem;
-  font-weight: 900;
-  letter-spacing: 0.2em;
+  gap: 16px;
+  padding: 16px 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--registration-accent) 32%, transparent);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--registration-accent) 12%, transparent), rgba(0, 2, 8, 0.18) 56%, rgba(0, 2, 8, 0.28));
+  box-shadow: 0 1px 18px color-mix(in srgb, var(--registration-accent) 14%, transparent);
 }
 
 .login-registration-header h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
   margin: 0;
-  color: #fff7f8;
-  font-size: clamp(1.45rem, 4vw, 2.1rem);
-  line-height: 1;
-  letter-spacing: 0.07em;
-  text-shadow: 0 0 18px rgba(255, 67, 90, 0.5);
+  color: #fff;
+  font: 1000 clamp(1.2rem, 3vw, 1.7rem) / 0.95 var(--font-display);
+  letter-spacing: 0.045em;
+  text-shadow:
+    0 0 10px rgba(255, 255, 255, 0.3),
+    0 0 24px color-mix(in srgb, var(--registration-accent) 40%, transparent);
+}
+
+.login-registration-header h2 small {
+  color: var(--registration-accent);
+  font-size: 0.45em;
+  letter-spacing: 0.14em;
+}
+
+.login-registration-header p {
+  margin: 6px 0 0;
+  color: rgba(179, 198, 218, 0.66);
+  font: 800 0.58rem / 1.2 var(--font-ui);
+  letter-spacing: 0.14em;
 }
 
 .login-registration-close {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  place-items: center;
   flex: 0 0 auto;
   width: 30px;
   height: 30px;
   padding: 0;
-  color: #ff7185;
-  border: 0;
-  background: transparent;
-  font-size: 1rem;
+  color: #fff;
+  border: 1px solid color-mix(in srgb, var(--registration-accent) 88%, white 8%);
+  border-radius: 7px;
+  background: rgba(0, 3, 9, 0.52);
+  font-size: 0.72rem;
   font-weight: 900;
   cursor: pointer;
-  text-shadow: 0 0 9px rgba(255, 47, 73, 0.9), 0 0 20px rgba(255, 47, 73, 0.52);
+  box-shadow:
+    0 0 8px color-mix(in srgb, var(--registration-accent) 54%, transparent),
+    0 0 18px color-mix(in srgb, var(--registration-accent) 22%, transparent),
+    inset 0 0 10px color-mix(in srgb, var(--registration-accent) 16%, transparent);
+  text-shadow: 0 0 4px #fff, 0 0 10px var(--registration-accent);
 }
 
 .login-registration-close:hover,
 .login-registration-close:focus-visible {
-  color: #fff;
   outline: none;
-  text-shadow: 0 0 10px #ff334f, 0 0 24px #ff334f;
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--registration-accent) 18%, rgba(0, 3, 9, 0.68));
+  box-shadow:
+    0 0 12px color-mix(in srgb, var(--registration-accent) 72%, transparent),
+    0 0 28px color-mix(in srgb, var(--registration-accent) 32%, transparent);
+}
+
+.login-registration-content {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px;
+  scrollbar-color: color-mix(in srgb, var(--registration-accent) 70%, transparent) rgba(2, 6, 13, 0.42);
+  scrollbar-width: thin;
 }
 
 .login-registration-intro {
-  max-width: 56ch;
-  margin: 0 0 14px;
-  color: rgba(239, 225, 229, 0.82);
-  font-size: 0.86rem;
-  line-height: 1.55;
+  margin: 0 0 13px;
+  padding-left: 12px;
+  color: rgba(220, 232, 246, 0.78);
+  border-left: 2px solid color-mix(in srgb, var(--registration-accent) 64%, transparent);
+  font: 650 0.82rem / 1.55 var(--font-ui);
 }
 
 .login-registration-policy {
+  position: relative;
   display: grid;
   gap: 3px;
-  margin: 0 0 14px;
-  padding: 9px 11px;
-  border: 1px solid rgba(255, 72, 94, 0.28);
+  margin: 0 0 15px;
+  padding: 10px 12px 10px 38px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 212, 92, 0.28);
   border-radius: 10px;
-  background: rgba(18, 2, 7, 0.48);
-  color: rgba(238, 218, 223, 0.76);
-  font-size: 0.7rem;
-  line-height: 1.4;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.024) 0 1px, transparent 1px 10px),
+    linear-gradient(90deg, rgba(255, 212, 92, 0.09), rgba(0, 4, 10, 0.58));
+  color: rgba(222, 231, 242, 0.7);
+  font: 700 0.68rem / 1.4 var(--font-ui);
+}
+
+.login-registration-policy::before {
+  content: "◆";
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  color: #ffd45c;
+  transform: translateY(-50%);
+  text-shadow: 0 0 12px rgba(255, 212, 92, 0.72);
 }
 
 .login-registration-policy strong {
-  color: #ff8797;
-  font-size: 0.68rem;
-  letter-spacing: 0.09em;
+  color: #ffe58f;
+  font-size: 0.67rem;
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 12px rgba(255, 212, 92, 0.28);
 }
 
 .login-registration-form {
@@ -168,114 +230,315 @@ body.login-registration-open {
 }
 
 .login-registration-field > span {
-  color: rgba(255, 221, 226, 0.88);
-  font-size: 0.68rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
+  color: rgba(204, 223, 241, 0.8);
+  font: 900 0.64rem / 1 var(--font-ui);
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .login-registration-field input {
   width: 100%;
-  min-height: 46px;
+  min-height: 44px;
   padding: 10px 12px;
-  color: #fff;
-  border: 1px solid rgba(255, 88, 109, 0.34);
-  border-radius: 11px;
+  color: #f4fbff;
+  border: 1px solid rgba(114, 224, 255, 0.22);
+  border-radius: 9px;
   outline: none;
-  background: rgba(1, 4, 10, 0.7);
-  font: inherit;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 10px),
+    linear-gradient(180deg, rgba(0, 229, 255, 0.04), transparent 34%),
+    rgba(0, 4, 10, 0.78);
+  font: 800 0.76rem var(--font-ui);
+  letter-spacing: 0.045em;
   color-scheme: dark;
-  box-shadow: inset 0 0 18px rgba(255, 44, 70, 0.035);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 0 18px rgba(0, 229, 255, 0.04);
 }
 
 .login-registration-field input::placeholder {
-  color: rgba(211, 190, 196, 0.48);
+  color: rgba(125, 145, 165, 0.64);
 }
 
 .login-registration-field input:focus {
-  border-color: #ff5d73;
-  box-shadow: 0 0 0 2px rgba(255, 52, 78, 0.14), 0 0 20px rgba(255, 45, 70, 0.18);
+  border-color: var(--registration-accent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--registration-accent) 14%, transparent),
+    0 0 18px color-mix(in srgb, var(--registration-accent) 16%, transparent),
+    inset 0 0 18px color-mix(in srgb, var(--registration-accent) 6%, transparent);
 }
 
 .login-registration-field input:disabled {
   cursor: not-allowed;
-  opacity: 0.48;
+  opacity: 0.46;
 }
 
 .login-registration-field small {
-  color: rgba(229, 204, 210, 0.58);
-  font-size: 0.66rem;
+  color: rgba(179, 198, 218, 0.56);
+  font-size: 0.62rem;
+  letter-spacing: 0.03em;
+}
+
+.login-registration-date-control {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  border-radius: 9px;
+}
+
+.login-registration-date-control::before,
+.login-registration-date-control::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.login-registration-date-control::before {
+  inset: 4px;
+  border: 1px solid color-mix(in srgb, var(--registration-accent) 10%, transparent);
+  border-radius: 6px;
+  clip-path: polygon(0 0, 18px 0, 18px 1px, calc(100% - 18px) 1px, calc(100% - 18px) 0, 100% 0, 100% 100%, calc(100% - 18px) 100%, calc(100% - 18px) calc(100% - 1px), 18px calc(100% - 1px), 18px 100%, 0 100%);
+}
+
+.login-registration-date-control::after {
+  top: 7px;
+  right: 46px;
+  bottom: 7px;
+  width: 1px;
+  background: linear-gradient(transparent, var(--registration-accent), transparent);
+  box-shadow: 0 0 9px var(--registration-accent);
+  opacity: 0.5;
+}
+
+.login-registration-date-code {
+  position: absolute;
+  z-index: 3;
+  left: 12px;
+  top: 50%;
+  color: var(--registration-accent);
+  transform: translateY(-50%);
+  font: 950 0.58rem / 1 var(--font-ui);
+  letter-spacing: 0.12em;
+  pointer-events: none;
+  text-shadow: 0 0 10px color-mix(in srgb, var(--registration-accent) 64%, transparent);
+}
+
+.login-registration-date-control input[type="date"] {
+  padding-left: 63px;
+  padding-right: 12px;
+  border-color: color-mix(in srgb, var(--registration-accent) 38%, transparent);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--registration-accent) 9%, transparent), transparent 26%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 10px),
+    linear-gradient(180deg, color-mix(in srgb, var(--registration-accent) 6%, transparent), transparent 42%),
+    rgba(0, 4, 10, 0.86);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
+  box-shadow:
+    inset 0 0 22px color-mix(in srgb, var(--registration-accent) 5%, transparent),
+    0 0 14px color-mix(in srgb, var(--registration-accent) 7%, transparent);
+}
+
+.login-registration-date-control input[type="date"]:focus {
+  border-color: var(--registration-accent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--registration-accent) 18%, transparent),
+    0 0 22px color-mix(in srgb, var(--registration-accent) 24%, transparent),
+    inset 0 0 24px color-mix(in srgb, var(--registration-accent) 8%, transparent);
+}
+
+.login-registration-date-control input[type="date"]::-webkit-calendar-picker-indicator {
+  width: 22px;
+  height: 22px;
+  padding: 5px;
+  border: 1px solid color-mix(in srgb, var(--registration-accent) 45%, transparent);
+  border-radius: 5px;
+  background-color: color-mix(in srgb, var(--registration-accent) 13%, rgba(0, 3, 9, 0.72));
+  cursor: pointer;
+  filter: invert(90%) sepia(64%) saturate(946%) hue-rotate(132deg) brightness(105%);
+  box-shadow:
+    0 0 8px color-mix(in srgb, var(--registration-accent) 34%, transparent),
+    inset 0 0 8px color-mix(in srgb, var(--registration-accent) 12%, transparent);
+}
+
+.login-registration-age-gate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: color-mix(in srgb, var(--registration-accent) 62%, #aebdd0) !important;
+  font-weight: 850;
+  letter-spacing: 0.09em !important;
+  text-transform: uppercase;
+}
+
+.login-registration-age-gate > span {
+  color: #ffd45c;
+  font-size: 0.48rem;
+  text-shadow: 0 0 9px rgba(255, 212, 92, 0.72);
 }
 
 .login-registration-error {
   margin: 0;
   padding: 9px 11px;
-  color: #ff9aaa;
+  color: #ffb1be;
+  border: 1px solid rgba(255, 61, 89, 0.28);
   border-left: 2px solid #ff3d59;
-  background: rgba(63, 3, 14, 0.42);
-  font-size: 0.75rem;
-  font-weight: 800;
-  line-height: 1.4;
+  border-radius: 8px;
+  background: rgba(63, 3, 14, 0.38);
+  font: 800 0.73rem / 1.4 var(--font-ui);
+  box-shadow: inset 0 0 18px rgba(255, 61, 89, 0.05);
 }
 
 .login-registration-submit {
-  min-height: 48px;
+  position: relative;
+  min-height: 50px;
+  overflow: hidden;
   padding: 10px 18px;
-  color: #fff5f6;
-  border: 1px solid rgba(255, 91, 111, 0.8);
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(178, 8, 32, 0.92), rgba(93, 3, 18, 0.94));
-  font: inherit;
-  font-weight: 950;
-  letter-spacing: 0.1em;
+  color: #f4fbff;
+  border: 1px solid color-mix(in srgb, var(--registration-accent) 70%, white 14%);
+  border-radius: 10px;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 11px),
+    linear-gradient(180deg, color-mix(in srgb, var(--registration-accent) 18%, rgba(255, 255, 255, 0.02)), transparent 38%),
+    linear-gradient(90deg, color-mix(in srgb, var(--registration-accent) 70%, #07101c), rgba(3, 9, 18, 0.96));
+  font: 950 0.88rem var(--font-ui);
+  letter-spacing: 0.12em;
   cursor: pointer;
-  box-shadow: 0 0 24px rgba(255, 40, 67, 0.25), inset 0 0 18px rgba(255, 255, 255, 0.05);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--registration-accent) 48%, transparent);
+  box-shadow:
+    0 0 22px color-mix(in srgb, var(--registration-accent) 24%, transparent),
+    inset 0 0 18px rgba(255, 255, 255, 0.05);
 }
 
 .login-registration-submit:hover,
 .login-registration-submit:focus-visible {
-  border-color: #ffbdc6;
   outline: none;
-  filter: brightness(1.12);
-  box-shadow: 0 0 30px rgba(255, 45, 71, 0.4), inset 0 0 18px rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+  border-color: #fff;
+  filter: brightness(1.1);
+  box-shadow:
+    0 0 28px color-mix(in srgb, var(--registration-accent) 44%, transparent),
+    inset 0 0 20px color-mix(in srgb, var(--registration-accent) 10%, transparent);
 }
 
 .login-registration-submit:disabled {
   cursor: not-allowed;
-  filter: grayscale(0.85);
+  transform: none;
+  filter: grayscale(0.75);
   opacity: 0.42;
   box-shadow: none;
 }
 
+.login-registration-signature {
+  margin: 14px 0 0;
+  color: rgba(141, 167, 190, 0.5);
+  font: 800 0.56rem / 1 var(--font-ui);
+  letter-spacing: 0.16em;
+  text-align: center;
+}
+
+@keyframes login-registration-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @media (max-width: 560px) {
   .login-registration-overlay {
-    align-items: end;
-    padding: 8px;
+    place-items: center;
+    padding: 10px;
   }
 
   .login-registration-dialog {
-    width: 100%;
-    max-height: calc(100dvh - 16px);
-    padding: 18px 15px max(18px, env(safe-area-inset-bottom));
-    border-radius: 18px;
+    width: calc(100vw - 20px);
+    max-height: calc(100dvh - 20px);
+    border-radius: 13px;
+  }
+
+  .login-registration-header {
+    align-items: flex-start;
+    padding: max(13px, env(safe-area-inset-top)) 13px 11px;
+  }
+
+  .login-registration-header h2 {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 1.08rem;
+  }
+
+  .login-registration-header p {
+    font-size: 0.52rem;
+    letter-spacing: 0.1em;
+  }
+
+  .login-registration-close {
+    width: 34px;
+    height: 34px;
+  }
+
+  .login-registration-content {
+    padding: 14px 13px calc(15px + env(safe-area-inset-bottom));
+  }
+
+  .login-registration-intro {
+    font-size: 0.76rem;
   }
 
   .login-registration-fields {
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .login-registration-field--wide {
     grid-column: auto;
   }
 
-  .login-registration-submit,
-  .login-registration-close {
-    min-height: 44px;
+  .login-registration-field input {
+    min-height: 43px;
   }
 
-  .login-registration-close {
-    width: 44px;
+  .login-registration-submit {
+    min-height: 48px;
+  }
+}
+
+@media (max-width: 380px), (max-height: 700px) {
+  .login-registration-header {
+    padding-block: 10px;
+  }
+
+  .login-registration-header p,
+  .login-registration-signature {
+    display: none;
+  }
+
+  .login-registration-content {
+    padding-block: 11px;
+  }
+
+  .login-registration-intro,
+  .login-registration-policy {
+    margin-bottom: 10px;
+  }
+
+  .login-registration-form {
+    gap: 10px;
+  }
+
+  .login-registration-field {
+    gap: 4px;
+  }
+
+  .login-registration-field input {
+    min-height: 40px;
+    padding-block: 8px;
   }
 }
 

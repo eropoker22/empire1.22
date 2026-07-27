@@ -97,16 +97,25 @@ export const handleSpyDistrict = (
     criticalFailureChanceMultiplier: boostSnapshot.criticalFailureChanceMultiplier,
     extraIntelBlocksOnSuccess: boostSnapshot.extraIntelBlocksOnSuccess
   });
-  const spyCooldownTicks = applyGarageCooldownReductionTicks({
-    baseTicks: context.config.balance.conflict?.spySlotCooldownTicks
-      ?? context.config.balance.conflict?.spyCooldownTicks
-      ?? 2,
-    state,
-    playerId: player.id,
-    config: context.config.balance.garage,
-    category: "districtSpy"
-  });
-  const boostedSpyCooldownTicks = Math.max(1, Math.ceil(spyCooldownTicks * boostSnapshot.spyDurationMultiplier));
+  const isCriticalCapture = reportResult.result === "critical_failed";
+  const baseSpySlotCooldownTicks = context.config.balance.conflict?.spySlotCooldownTicks
+    ?? context.config.balance.conflict?.spyCooldownTicks
+    ?? 2;
+  const spyCooldownTicks = isCriticalCapture
+    ? Math.max(
+        1,
+        Math.ceil(context.config.balance.conflict?.spyCaptureCooldownTicks ?? baseSpySlotCooldownTicks)
+      )
+    : applyGarageCooldownReductionTicks({
+        baseTicks: baseSpySlotCooldownTicks,
+        state,
+        playerId: player.id,
+        config: context.config.balance.garage,
+        category: "districtSpy"
+      });
+  const boostedSpyCooldownTicks = isCriticalCapture
+    ? spyCooldownTicks
+    : Math.max(1, Math.ceil(spyCooldownTicks * boostSnapshot.spyDurationMultiplier));
   const slotAvailableAtTick = state.root.tick + boostedSpyCooldownTicks;
   const blockedUntilTick = isBlockedSpyOutcome(reportResult.result) ? slotAvailableAtTick : null;
   const report = createSpyReportNotification({

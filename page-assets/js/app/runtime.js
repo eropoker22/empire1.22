@@ -950,6 +950,7 @@ import {
   createBuildingActionEntry,
   createBuildingActionFeedItemElement,
   createBuildingActionFingerprint,
+  formatBuildingActionFeedCountdown,
   isBuildingActionEntryOpenable,
   normalizeBuildingActionSnapshot,
   restoreBuildingActionEntries
@@ -3590,13 +3591,16 @@ function createStreetNewsCooldownEntry({
   meta,
   expiresAt,
   now,
+  tone = "event",
+  countdownStyle = "clock",
+  countdownPrefix = "Čekání ",
   resultKind = "",
   resultPayload = null,
   districtType = ""
 }) {
   return createBuildingActionEntry({
     id,
-    tone: "event",
+    tone,
     title,
     summary,
     meta: meta || `Čekání ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
@@ -3604,6 +3608,8 @@ function createStreetNewsCooldownEntry({
     dismissible: false,
     persistent: true,
     compact: true,
+    countdownStyle,
+    countdownPrefix,
     timestampMs: expiresAt,
     districtType,
     resultKind,
@@ -3686,9 +3692,14 @@ function collectMissionCooldownStreetNewsEntries(now) {
     }
     appendStreetNewsCooldownEntry(entries, {
       id: `cooldown:spy:${String(mission?.id || `${mission?.sourceDistrictId || ""}:${mission?.targetDistrictId || ""}:${expiresAt}`)}`,
-      title: isCaptured ? "Špeh zajat" : "Špehování",
-      summary: formatStreetNewsCooldownDistrict(mission?.targetDistrictId),
-      meta: `Čekání ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
+      title: isCaptured ? "ŠPEH ZAJAT" : "Špehování",
+      summary: isCaptured ? "" : formatStreetNewsCooldownDistrict(mission?.targetDistrictId),
+      meta: isCaptured
+        ? formatBuildingActionFeedCountdown(expiresAt - now, "words")
+        : `Čekání ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
+      tone: isCaptured ? "error" : "event",
+      countdownStyle: isCaptured ? "words" : "clock",
+      countdownPrefix: isCaptured ? "" : "Čekání ",
       expiresAt
     }, now);
   }

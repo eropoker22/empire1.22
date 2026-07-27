@@ -77,6 +77,7 @@ export const createEliminationReadModel = (
     currentPlayerRankFromBottom: currentPlayerIndex >= 0 ? currentPlayerIndex + 1 : null,
     currentPlayerScoreBreakdown: currentScore ? createEliminationScoreBreakdown(currentScore) : null,
     playerStatus: player?.status ?? null,
+    currentPlayerDefeat: createCurrentPlayerDefeat(player),
     lastElimination: createLastElimination(state)
   };
 };
@@ -122,8 +123,32 @@ const createDisabledReadModel = (
   currentPlayerRankFromBottom: null,
   currentPlayerScoreBreakdown: null,
   playerStatus: state.playersById[playerId]?.status ?? null,
+  currentPlayerDefeat: createCurrentPlayerDefeat(state.playersById[playerId] ?? null),
   lastElimination: createLastElimination(state)
 });
+
+const DEFEAT_REASONS = new Set([
+  "last_district_lost",
+  "scheduled_weakest_player",
+  "final_lockdown",
+  "administrative"
+]);
+
+const createCurrentPlayerDefeat = (
+  player: CoreGameState["playersById"][string] | null
+): NonNullable<EliminationReadModel["currentPlayerDefeat"]> | null => {
+  if (player?.status !== "defeated") return null;
+  const rawReason = String(player.metadata?.eliminationReason ?? "");
+  const reason = DEFEAT_REASONS.has(rawReason)
+    ? rawReason as NonNullable<EliminationReadModel["currentPlayerDefeat"]>["reason"]
+    : "administrative";
+  const finalPlacement = Number(player.metadata?.finalPlacement);
+  return {
+    reason,
+    eliminatedAtTick: Math.max(0, Number(player.metadata?.eliminatedAtTick ?? 0)),
+    finalPlacement: Number.isFinite(finalPlacement) && finalPlacement > 0 ? finalPlacement : null
+  };
+};
 
 const createEliminationScoreBreakdown = (score: ReturnType<typeof createPlayerEliminationScore>): Record<string, number> => ({
   controlledDistricts: score.controlledDistricts,

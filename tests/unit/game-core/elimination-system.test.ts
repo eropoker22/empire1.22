@@ -136,6 +136,11 @@ describe("scheduled elimination system", () => {
       .find((notification) => notification.category === "elimination.defeated")?.payload).toMatchObject({
         body: "Po pravidelném vyhodnocení jsi byl nejslabší aktivní hráč. Tvůj gang ztratil kontrolu nad ulicemi."
       });
+    expect(createEliminationReadModel(result.nextState, "player:3", context).currentPlayerDefeat).toEqual({
+      reason: "scheduled_weakest_player",
+      eliminatedAtTick: FIRST_ELIMINATION_TICK,
+      finalPlacement: 9
+    });
   });
 
   it("runs during the tick lifecycle before victory checks", () => {

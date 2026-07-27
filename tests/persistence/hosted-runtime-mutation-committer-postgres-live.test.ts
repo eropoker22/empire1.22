@@ -50,6 +50,43 @@ describe("hosted runtime mutation committer PostgreSQL live", () => {
       expect(await fixture.headVersion()).toBe(firstSnapshot.integrity.rootVersion);
       expect(await fixture.sessionRevokedAt(first.sessionId)).not.toBeNull();
 
+      const fenced = await fixture.createLeaveJob("incarnation-fence");
+      const fencedSnapshot = fixture.advanceSnapshot();
+      await fixture.database.query(
+        `UPDATE empire_server_membership_jobs
+         SET claimed_by_worker_incarnation_id='worker-incarnation:replacement'
+         WHERE job_id=$1`,
+        [fenced.jobId]
+      );
+      expect(await fixture.committer.commitMembership({
+        snapshot: fencedSnapshot,
+        completion: {
+          membershipId: fenced.membershipId,
+          jobId: fenced.jobId,
+          serverInstanceId: fixture.serverInstanceId,
+          accountId: fenced.accountId,
+          workerId: fixture.workerId,
+          workerIncarnationId: fixture.workerIncarnationId,
+          expectedJobVersion: 1,
+          joinTicketId: null,
+          at: fixture.now
+        },
+        nextStatus: "left_early",
+        revokePlayerId: fenced.playerId,
+        fence: fixture.fence
+      })).toBe(false);
+      expect(await fixture.membershipStatus(fenced.membershipId)).toBe("leave_pending");
+      expect(await fixture.headVersion()).toBe(firstSnapshot.integrity.rootVersion);
+      expect(await fixture.sessionRevokedAt(fenced.sessionId)).toBeNull();
+      await fixture.database.query(
+        "DELETE FROM empire_server_membership_jobs WHERE job_id=$1",
+        [fenced.jobId]
+      );
+      await fixture.database.query(
+        "DELETE FROM empire_server_memberships WHERE membership_id=$1",
+        [fenced.membershipId]
+      );
+
       const second = await fixture.createLeaveJob("stale");
       const mismatchedSnapshot = fixture.advanceSnapshot();
       await expect(fixture.committer.commitMembership({

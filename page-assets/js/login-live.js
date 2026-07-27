@@ -72,6 +72,8 @@ function updateModeCards() {
 function bindLocalDemoGuestAccess() {
   const guestAccess = document.querySelector(".guest-access");
   const guestButton = document.querySelector("#guest-btn");
+  const guestUsernameInput = document.querySelector("#guest-username");
+  const guestGangInput = document.querySelector("#guest-gang");
   if (!(guestAccess instanceof HTMLElement) || !(guestButton instanceof HTMLButtonElement)) return;
   if (!isLocalDemoAccessAvailable()) {
     guestAccess.hidden = true;
@@ -82,7 +84,13 @@ function bindLocalDemoGuestAccess() {
   guestAccess.hidden = false;
   guestAccess.setAttribute("aria-hidden", "false");
   guestButton.textContent = "SPUSTIT LOKÁLNÍ DEMO";
-  guestButton.addEventListener("click", () => location.assign(`./login.html?runtimeMode=local-demo&mode=${state.activeMode}`));
+  guestButton.addEventListener("click", () => {
+    const username = guestUsernameInput instanceof HTMLInputElement ? guestUsernameInput.value.trim() : "";
+    const gangName = guestGangInput instanceof HTMLInputElement ? guestGangInput.value.trim() : "";
+    if (username) window.localStorage.setItem(STORAGE_KEYS.guestUsername, username);
+    if (gangName) window.localStorage.setItem(STORAGE_KEYS.guestGangName, gangName);
+    location.assign(`./login.html?runtimeMode=local-demo&mode=${state.activeMode}&autoStartLocalDemo=1`);
+  });
 }
 
 async function loadRegistrationPolicy() {

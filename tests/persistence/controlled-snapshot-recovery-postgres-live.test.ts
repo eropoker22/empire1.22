@@ -129,6 +129,28 @@ describeWhenDatabaseConfigured("controlled snapshot recovery PostgreSQL live", (
          VALUES ($1, 'archived')`,
         [runtime.record.id]
       );
+      await scopedDatabase.query(
+        `INSERT INTO empire_snapshots (
+           id,server_instance_id,schema_version,snapshot_id,root_version,tick,
+           checkpoint_kind,reason_code,lifecycle_phase,is_protected,payload,created_at,updated_at
+         ) VALUES
+           ($1,$3,$4,$5,$6,$7,'lifecycle-checkpoint','final-lockdown-entered','final_lockdown',true,$8::jsonb,$9::timestamptz,now()),
+           ($2,$3,$4,$10,$11,$12,'terminal-checkpoint','instance-completed','resolved',true,$8::jsonb,$9::timestamptz,now())`,
+        [
+          `snapshot-protected:lifecycle:${runtime.record.id}`,
+          `snapshot-protected:terminal:${runtime.record.id}`,
+          runtime.record.id,
+          valid.version.schemaVersion,
+          `checkpoint:lifecycle:${runtime.record.id}`,
+          valid.integrity.rootVersion + 1,
+          valid.tick + 1,
+          JSON.stringify(valid),
+          valid.createdAt,
+          `checkpoint:terminal:${runtime.record.id}`,
+          valid.integrity.rootVersion + 2,
+          valid.tick + 2
+        ]
+      );
       const lockAcquired = deferred<void>();
       const releaseLock = deferred<void>();
       const heldLock = lockDatabase.transaction(async (client) => {
@@ -146,13 +168,36 @@ describeWhenDatabaseConfigured("controlled snapshot recovery PostgreSQL live", (
       )).resolves.toMatchObject({ acquired: false, deletedRows: 0 });
       releaseLock.resolve();
       await heldLock;
-      await expect(cleanupPostgresCheckpoints(
+      const cleaned = await cleanupPostgresCheckpoints(
         scopedDatabase,
         { wrapWritesInTransaction: true },
         retentionPolicy,
         "2026-07-26T12:00:00.000Z",
         createSnapshotPersistenceMetrics()
-      )).resolves.toMatchObject({ acquired: true, deletedRows: 2 });
+      );
+      expect(cleaned).toMatchObject({ acquired: true, deletedRows: 2 });
+      const protectedRows = await scopedDatabase.query<{ count: string | number }>(
+        `SELECT count(*) AS count FROM empire_snapshots
+         WHERE server_instance_id=$1 AND is_protected=true
+           AND checkpoint_kind IN ('lifecycle-checkpoint','terminal-checkpoint')`,
+        [runtime.record.id]
+      );
+      expect(Number(protectedRows.rows[0]?.count)).toBe(2);
+      await expect(cleanupPostgresCheckpoints(
+        scopedDatabase,
+        { wrapWritesInTransaction: true },
+        retentionPolicy,
+        "2026-07-26T12:01:00.000Z",
+        createSnapshotPersistenceMetrics()
+      )).resolves.toMatchObject({ acquired: true, deletedRows: 0 });
+      const maintenance = await scopedDatabase.query<{
+        last_status: string;
+        last_deleted_rows: string | number;
+      }>(
+        `SELECT last_status,last_deleted_rows FROM empire_snapshot_maintenance WHERE scope='global'`
+      );
+      expect(maintenance.rows[0]).toMatchObject({ last_status: "success" });
+      expect(Number(maintenance.rows[0]?.last_deleted_rows)).toBe(0);
 
       const migration = await scopedDatabase.query<{ count: string | number }>(
         `SELECT count(*) AS count

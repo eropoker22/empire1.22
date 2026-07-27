@@ -15,7 +15,7 @@ window.empireStreetsRuntimeDiagnostics?.setMode?.(executionMode, {
 });
 
 if (executionMode === CLIENT_EXECUTION_MODES.localDemo) {
-  void import("./app-demo.js?v=runtime-modules-20260726");
+  void import("./app-demo.js?v=defeat-notice-20260726-v2");
 } else {
-  void import("./app.js?v=runtime-modules-20260726");
+  void import("./app.js?v=defeat-notice-20260726-v2");
 }

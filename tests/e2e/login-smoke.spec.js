@@ -48,6 +48,8 @@ test.describe("login smoke", () => {
     await expect(page.getByTestId("guest-login-button")).toBeVisible();
     await expect(page.getByTestId("guest-login-button")).toHaveText("SPUSTIT LOKÁLNÍ DEMO");
 
+    await expect(page.locator("[data-server-defeat-notice]")).toHaveCount(0);
+
     await page.locator("[data-login-registration-open]").click();
     await expect(page.getByTestId("register-form")).toBeVisible();
     await expect(page.getByTestId("login-form")).toBeVisible();
@@ -69,10 +71,10 @@ test.describe("login smoke", () => {
     await expect(page.locator("[data-login-about-open]")).toBeFocused();
 
     await page.locator("[data-login-info-open='news']").click();
-    await expect(page.locator("[data-login-info-overlay='news']")).toBeVisible();
+    await expect(page.locator("[data-login-info-overlay]")).toBeVisible();
     await expect(page.getByRole("dialog", { name: "Novinky" })).toBeVisible();
-    await page.locator("[data-login-info-overlay='news'] .login-about-close").click();
-    await expect(page.locator("[data-login-info-overlay='news']")).toBeHidden();
+    await page.locator("[data-login-info-overlay] .login-info-close").click();
+    await expect(page.locator("[data-login-info-overlay]")).toBeHidden();
     await expect(page).not.toHaveURL(/about-game\.html/u);
 
     await assertNoRuntimeErrors(errors);
@@ -107,10 +109,25 @@ test.describe("login smoke", () => {
   });
 
   test("continues as guest and persists a session", async ({ page }) => {
-    const errors = createRuntimeErrorMonitor(page);
     await clearStorageOnBoot(page);
+    await page.setViewportSize({ width: 390, height: 844 });
 
-    await openLoginPage(page, { localDemo: true });
+    await Promise.all([
+      page.waitForResponse((response) => response.url().endsWith("/api/account/session")),
+      openLoginPage(page)
+    ]);
+    const errors = createRuntimeErrorMonitor(page);
+    const foregroundStyle = await page.locator(".foreground-character").evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        display: style.display,
+        maskImage: style.maskImage || style.webkitMaskImage,
+        pointerEvents: style.pointerEvents
+      };
+    });
+    expect(foregroundStyle.display).toBe("block");
+    expect(foregroundStyle.maskImage).toContain("tapetamobil-character-mask.svg");
+    expect(foregroundStyle.pointerEvents).toBe("none");
     await page.locator("#guest-username").fill("E2E Host");
     await page.getByPlaceholder("Ghost Crew").fill("E2E Crew");
     await Promise.all([

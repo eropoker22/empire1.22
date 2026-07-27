@@ -1,17 +1,41 @@
-const REPORT_RESULT_LABELS = Object.freeze({
-  success: "Úspěch",
-  partial: "Částečný úspěch",
-  failed: "Neúspěch",
-  failure: "Neúspěch",
-  blocked: "Zablokováno",
-  catastrophe: "Katastrofa",
-  critical_failed: "Kritické selhání"
-});
-const NUMBER_FORMATTER = new Intl.NumberFormat("cs-CZ");
+import { formatBuildingActionFeedCountdown } from "./eventFeedPanel.js";
+import {
+  formatNumber,
+  formatNumberRecord,
+  formatSigned,
+  parseTimestamp,
+  resultLabel,
+  toTitleCase
+} from "./serverGameplayReportFormatting.js";
 
-export function createServerReportFeedEntries(reports = []) {
+export function createServerReportFeedEntries(reports = [], readModel = {}) {
   return normalizeReports(reports).map((report) => {
     const resultPayload = createServerReportResultView(report);
+    const captureExpiresAt = resolveActiveSpyCaptureExpiresAt(report, readModel);
+    if (captureExpiresAt > 0) {
+      return {
+        id: String(report.reportId),
+        timestampMs: parseTimestamp(report.createdAt),
+        timeLabel: `Tick ${formatNumber(report.tick)}`,
+        tone: "error",
+        title: "ŠPEH ZAJAT",
+        summary: "",
+        meta: formatBuildingActionFeedCountdown(captureExpiresAt - Date.now(), "words"),
+        sourceKind: "cooldown",
+        compact: true,
+        countdownStyle: "words",
+        countdownPrefix: "",
+        expiresAt: captureExpiresAt,
+        resultKind: "spy",
+        resultPayload: resultPayload
+          ? { ...resultPayload, openable: false }
+          : { openable: false },
+        dismissible: false,
+        persistent: true,
+        category: "spy",
+        visibility: "private"
+      };
+    }
     return {
       id: String(report.reportId),
       timestampMs: parseTimestamp(report.createdAt),
@@ -43,7 +67,17 @@ export function createServerReportResultView(report) {
 }
 
 export function createServerReportFeedFingerprint(entries = []) {
-  return JSON.stringify(Array.isArray(entries) ? entries : []);
+  return JSON.stringify((Array.isArray(entries) ? entries : []).map((entry) =>
+    entry?.sourceKind === "cooldown"
+      ? {
+          id: entry.id,
+          title: entry.title,
+          tone: entry.tone,
+          sourceKind: entry.sourceKind,
+          resultKind: entry.resultKind
+        }
+      : entry
+  ));
 }
 
 export function createServerBattleResultView(report) {
@@ -179,37 +213,21 @@ function createDistrictStateLabel(report) {
   return "Udržený";
 }
 
-function resultLabel(result) {
-  return REPORT_RESULT_LABELS[result] || toTitleCase(result || "Neznámý");
-}
-
-function formatNumberRecord(values = {}) {
-  const entries = Object.entries(values)
-    .filter(([, amount]) => Number(amount || 0) !== 0);
-  return entries.length > 0
-    ? entries.map(([key, amount]) => `${formatNumber(amount)} ${toTitleCase(key)}`).join(", ")
-    : "Žádné";
-}
-
-function formatSigned(value) {
-  const amount = Number(value || 0);
-  return amount >= 0 ? `+${formatNumber(amount)}` : formatNumber(amount);
-}
-
-function formatNumber(value) {
-  return NUMBER_FORMATTER.format(Number(value || 0));
-}
-
-function parseTimestamp(value) {
-  const parsed = Date.parse(String(value || ""));
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function toTitleCase(value) {
-  return String(value || "")
-    .replaceAll("_", "-")
-    .split("-")
-    .filter(Boolean)
-    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
-    .join(" ");
+function resolveActiveSpyCaptureExpiresAt(report, readModel) {
+  if (report?.reportType !== "spy" || report.result !== "critical_failed") return 0;
+  const blockedUntilTick = Number(report.blockedUntilTick);
+  const currentTick = Number(readModel?.server?.currentTick);
+  const tickRateMs = Number(readModel?.mode?.tickRateMs);
+  const generatedAt = parseTimestamp(readModel?.server?.generatedAt);
+  if (
+    !Number.isFinite(blockedUntilTick)
+    || !Number.isFinite(currentTick)
+    || !Number.isFinite(tickRateMs)
+    || tickRateMs <= 0
+    || generatedAt <= 0
+    || blockedUntilTick <= currentTick
+  ) {
+    return 0;
+  }
+  return generatedAt + ((blockedUntilTick - currentTick) * tickRateMs);
 }

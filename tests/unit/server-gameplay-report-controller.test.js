@@ -7,6 +7,7 @@ import {
 } from "../../page-assets/js/app/ui/serverGameplayReportController.js";
 import {
   createServerBattleResultView,
+  createServerReportFeedEntries,
   createServerSpyResultView
 } from "../../page-assets/js/app/ui/serverGameplayReportViewModel.js";
 
@@ -29,6 +30,37 @@ describe("server gameplay report controller", () => {
     expect(createServerSpyResultView(createSpyReport())).toMatchObject({
       tone: "is-success",
       title: "Výsledek špehování"
+    });
+  });
+
+  it("renders an active critical spy capture as a red ten-minute street-news countdown", () => {
+    const generatedAt = "2026-07-26T10:00:00.000Z";
+    const [entry] = createServerReportFeedEntries([
+      createSpyReport({
+        result: "critical_failed",
+        tick: 120,
+        blockedUntilTick: 180
+      })
+    ], {
+      server: {
+        currentTick: 120,
+        generatedAt
+      },
+      mode: {
+        tickRateMs: 10_000
+      }
+    });
+
+    expect(entry).toMatchObject({
+      tone: "error",
+      title: "ŠPEH ZAJAT",
+      summary: "",
+      sourceKind: "cooldown",
+      compact: true,
+      countdownStyle: "words",
+      countdownPrefix: "",
+      expiresAt: Date.parse(generatedAt) + (10 * 60 * 1000),
+      persistent: true
     });
   });
 

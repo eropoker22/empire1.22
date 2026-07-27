@@ -35,9 +35,9 @@
     <meta name="twitter:image" content="https://empirestreets.cz/img/logmes.png">
     <meta name="twitter:image:alt" content="Logo Empire Streets na pozadí nočního města.">
     <link rel="stylesheet" href="../page-assets/css/styles.css">
-    <link rel="stylesheet" href="../page-assets/css/login.css?v=20260724-login-shell">
-    <link rel="stylesheet" href="../page-assets/css/styles-login-registration.css">
-    <link rel="stylesheet" href="../page-assets/css/styles-login-about.css">
+    <link rel="stylesheet" href="../page-assets/css/login.css?v=20260726-mobile-character-cutout">
+    <link rel="stylesheet" href="../page-assets/css/styles-login-registration.css?v=20260726-registration-glass">
+    <link rel="stylesheet" href="../page-assets/css/styles-login-about.css?v=20260726-login-info-popup">
     <link rel="stylesheet" href="../page-assets/css/styles-static-hover.css">
   </head>
   <body class="login-body auth-body auth-body--login auth-body--free">
@@ -67,8 +67,8 @@
       </section>
 
       <nav class="login-legal-links" aria-label="Právní informace">
-        <a href="/privacy.html">Ochrana osobních údajů</a>
-        <a href="/closed-alpha-terms.html">Podmínky closed alpha</a>
+        <a href="/privacy.html" data-login-info-open="privacy">Ochrana osobních údajů</a>
+        <a href="/closed-alpha-terms.html" data-login-info-open="terms">Podmínky pre-alpha</a>
       </nav>
 
       <section class="hud-panel active-events" aria-label="Aktivní události" data-login-active-events hidden>
@@ -91,15 +91,14 @@
             <input type="password" id="login-password" name="password" placeholder="Heslo" autocomplete="current-password">
             <button class="password-eye" type="button" data-password-toggle aria-label="Zobrazit heslo">◎</button>
           </label>
+          <div class="terminal-actions">
+            <button class="terminal-link" type="button" data-login-registration-open>▣ Založit gang</button>
+            <button class="terminal-link" type="button" data-forgot-password>▣ Zapomenuté heslo</button>
+          </div>
           <button type="submit" class="enter-city-button" data-submit-label="VSTOUPIT DO MĚSTA">VSTOUPIT DO MĚSTA</button>
         </form>
 
         <p id="auth-error" class="auth-error hidden" role="alert"></p>
-
-        <div class="terminal-actions">
-          <button class="terminal-link" type="button" data-login-registration-open>▣ Založit gang</button>
-          <button class="terminal-link" type="button" data-forgot-password>▣ Zapomenuté heslo</button>
-        </div>
 
         <div class="guest-access" aria-label="Lokální vývojové demo" aria-hidden="true" hidden>
           <input type="text" id="guest-username" placeholder="Host" maxlength="24" autocomplete="nickname">
@@ -132,44 +131,50 @@
       <section class="login-registration-dialog" role="dialog" aria-modal="true" aria-labelledby="login-registration-title" aria-describedby="login-registration-intro" tabindex="-1">
         <header class="login-registration-header">
           <div>
-            <span>VSTUP DO PODSVĚTÍ</span>
-            <h2 id="login-registration-title">ZALOŽIT GANG</h2>
+            <h2 id="login-registration-title"><span>EMPIRE STREETS</span><small>/ ZALOŽIT GANG</small></h2>
+            <p>VSTUP DO PODSVĚTÍ // NOVÁ IDENTITA</p>
           </div>
           <button type="button" class="login-registration-close" data-login-registration-close aria-label="Zavřít registraci">✕</button>
         </header>
-        <p id="login-registration-intro" class="login-registration-intro">
-          Vyber si nick a jméno, pod kterým tě město pozná. Účet si může založit pouze hráč, kterému už bylo 16 let.
-        </p>
-        <p class="login-registration-policy" data-registration-policy-status role="status" aria-live="polite">
-          <strong>OVĚŘUJI REGISTRACI</strong><span>Přihlášení existujícího účtu zůstává dostupné.</span>
-        </p>
-        <form id="register-form" class="login-registration-form" data-testid="register-form" autocomplete="on" novalidate>
-          <div class="login-registration-fields">
-            <label class="login-registration-field" for="register-username">
-              <span>Nick</span>
-              <input type="text" id="register-username" name="username" placeholder="Jméno bosse" autocomplete="username" minlength="3" maxlength="32" required disabled>
-            </label>
-            <label class="login-registration-field" for="register-gang">
-              <span>Jméno gangu</span>
-              <input type="text" id="register-gang" name="gang" placeholder="Název gangu" autocomplete="organization" minlength="2" maxlength="40" required disabled>
-            </label>
-            <label class="login-registration-field login-registration-field--wide" for="register-birth-date">
-              <span>Datum narození</span>
-              <input type="date" id="register-birth-date" name="birthDate" autocomplete="bday" required disabled>
-              <small>Registrace je dostupná od 16 let.</small>
-            </label>
-            <label class="login-registration-field" for="register-password">
-              <span>Heslo</span>
-              <input type="password" id="register-password" name="password" placeholder="Alespoň 12 znaků" autocomplete="new-password" minlength="12" required disabled>
-            </label>
-            <label class="login-registration-field" for="register-password-confirmation">
-              <span>Heslo znovu</span>
-              <input type="password" id="register-password-confirmation" name="passwordConfirmation" placeholder="Zopakuj heslo" autocomplete="new-password" minlength="12" required disabled>
-            </label>
-          </div>
-          <p id="register-error" class="login-registration-error" role="alert" hidden></p>
-          <button type="submit" class="login-registration-submit" data-submit-label="ZALOŽIT GANG" disabled>ZALOŽIT GANG</button>
-        </form>
+        <div class="login-registration-content">
+          <p id="login-registration-intro" class="login-registration-intro">
+            Vyber si nick a jméno, pod kterým tě město pozná. Účet si může založit pouze hráč, kterému už bylo 16 let.
+          </p>
+          <p class="login-registration-policy" data-registration-policy-status role="status" aria-live="polite">
+            <strong>OVĚŘUJI REGISTRACI</strong><span>Přihlášení existujícího účtu zůstává dostupné.</span>
+          </p>
+          <form id="register-form" class="login-registration-form" data-testid="register-form" autocomplete="on" novalidate>
+            <div class="login-registration-fields">
+              <label class="login-registration-field" for="register-username">
+                <span>Nick</span>
+                <input type="text" id="register-username" name="username" placeholder="Jméno bosse" autocomplete="username" minlength="3" maxlength="32" required disabled>
+              </label>
+              <label class="login-registration-field" for="register-gang">
+                <span>Jméno gangu</span>
+                <input type="text" id="register-gang" name="gang" placeholder="Název gangu" autocomplete="organization" minlength="2" maxlength="40" required disabled>
+              </label>
+              <label class="login-registration-field login-registration-field--wide" for="register-birth-date">
+                <span>Datum narození</span>
+                <span class="login-registration-date-control">
+                  <span class="login-registration-date-code" aria-hidden="true">DOB //</span>
+                  <input type="date" id="register-birth-date" name="birthDate" autocomplete="bday" required disabled>
+                </span>
+                <small class="login-registration-age-gate"><span aria-hidden="true">◆</span> AGE GATE // MINIMÁLNÍ VĚK 16+</small>
+              </label>
+              <label class="login-registration-field" for="register-password">
+                <span>Heslo</span>
+                <input type="password" id="register-password" name="password" placeholder="Alespoň 12 znaků" autocomplete="new-password" minlength="12" required disabled>
+              </label>
+              <label class="login-registration-field" for="register-password-confirmation">
+                <span>Heslo znovu</span>
+                <input type="password" id="register-password-confirmation" name="passwordConfirmation" placeholder="Zopakuj heslo" autocomplete="new-password" minlength="12" required disabled>
+              </label>
+            </div>
+            <p id="register-error" class="login-registration-error" role="alert" hidden></p>
+            <button type="submit" class="login-registration-submit" data-submit-label="ZALOŽIT GANG" disabled>ZALOŽIT GANG</button>
+          </form>
+          <p class="login-registration-signature" aria-hidden="true">TVOJE JMÉNO // TVŮJ GANG // TVOJE ULICE</p>
+        </div>
       </section>
     </div>
 
@@ -231,25 +236,18 @@
       </section>
     </div>
 
-    <div class="login-about-overlay" data-login-info-overlay="news" hidden>
-      <div class="login-about-backdrop" data-login-info-close></div>
-      <section class="login-about-dialog login-about-dialog--empty" role="dialog" aria-modal="true" aria-labelledby="login-news-title" tabindex="-1">
-        <button type="button" class="login-about-close" data-login-info-close aria-label="Zavřít okno Novinky">✕</button>
-        <div class="login-about-header">
-          <h2 id="login-news-title">Novinky</h2>
-        </div>
-        <div class="login-about-copy" aria-live="polite"></div>
-      </section>
-    </div>
-
-    <div class="login-about-overlay" data-login-info-overlay="help" hidden>
-      <div class="login-about-backdrop" data-login-info-close></div>
-      <section class="login-about-dialog login-about-dialog--empty" role="dialog" aria-modal="true" aria-labelledby="login-help-title" tabindex="-1">
-        <button type="button" class="login-about-close" data-login-info-close aria-label="Zavřít okno Pomoc">✕</button>
-        <div class="login-about-header">
-          <h2 id="login-help-title">Pomoc</h2>
-        </div>
-        <div class="login-about-copy" aria-live="polite"></div>
+    <div class="login-info-overlay" data-login-info-overlay hidden>
+      <div class="login-info-backdrop" data-login-info-close></div>
+      <section class="login-info-dialog" role="dialog" aria-modal="true" aria-labelledby="login-info-title" tabindex="-1">
+        <header class="login-info-header">
+          <div>
+            <h2 id="login-info-title"><span>EMPIRE STREETS</span><small data-login-info-title>/ NOVINKY</small></h2>
+          </div>
+          <button type="button" class="login-info-close" data-login-info-close aria-label="Zavřít informační okno">✕</button>
+        </header>
+        <main class="login-info-content" aria-live="polite">
+          <p>Na obsahu se pracuje.</p>
+        </main>
       </section>
     </div>
 
@@ -286,6 +284,6 @@
     <script type="module" src="../page-assets/js/data/districtPools.js"></script>
     <script type="module" src="../page-assets/js/data/districtImages.js"></script>
     <script type="module" src="../page-assets/js/data/buildings.js"></script>
-    <script type="module" src="../page-assets/js/login-entry.js?v=local-demo-sandbox-20260717"></script>
+    <script type="module" src="../page-assets/js/login-entry.js?v=20260726-defeat-preview-removed"></script>
   </body>
 </html>

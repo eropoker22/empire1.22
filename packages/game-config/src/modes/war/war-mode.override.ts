@@ -6,6 +6,7 @@ import { resolveSnapshotCheckpointIntervalTicks } from "../../base/snapshot-chec
 const WAR_MODE_TICK_RATE_MS = 15000;
 const WAR_MODE_DAY_NIGHT_PHASE_TICKS = resolveDayNightPhaseDurationTicks(WAR_MODE_TICK_RATE_MS);
 const WAR_MODE_RAID_DURATION_TICKS = Math.ceil((60 * 60 * 1000) / WAR_MODE_TICK_RATE_MS);
+const WAR_MODE_SPY_CAPTURE_COOLDOWN_TICKS = Math.ceil((10 * 60 * 1000) / WAR_MODE_TICK_RATE_MS);
 
 /**
  * Responsibility: War mode override focused on longer pacing and larger coordination windows.
@@ -104,6 +105,7 @@ export const warModeOverride: Partial<ResolvedGameModeConfig> = {
     victoryConditionKey: "long-war-control",
     conflict: {
       spyCooldownTicks: 4,
+      spyCaptureCooldownTicks: WAR_MODE_SPY_CAPTURE_COOLDOWN_TICKS,
       attackCooldownTicks: 48,
       robCooldownTicks: 40,
       heistCooldownTicks: 32,

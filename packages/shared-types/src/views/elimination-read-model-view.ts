@@ -2,6 +2,11 @@ import type { PlayerId } from "../ids/entity-id";
 import type { PlayerStatus } from "../entities/player";
 
 export type EliminationRiskStatus = "safe" | "danger" | "critical" | "defeated";
+export type EliminationDefeatReason =
+  | "last_district_lost"
+  | "scheduled_weakest_player"
+  | "final_lockdown"
+  | "administrative";
 
 export interface EliminationDangerZoneEntry {
   playerId: PlayerId;
@@ -41,6 +46,11 @@ export interface EliminationReadModel {
   currentPlayerRankFromBottom: number | null;
   currentPlayerScoreBreakdown: Record<string, number> | null;
   playerStatus: PlayerStatus | null;
+  currentPlayerDefeat?: {
+    reason: EliminationDefeatReason;
+    eliminatedAtTick: number;
+    finalPlacement: number | null;
+  } | null;
   lastElimination: {
     playerId: PlayerId;
     playerName: string;

@@ -10,6 +10,7 @@ import { createServerGameplaySettingsController } from "./serverGameplaySettings
 import { createServerGameplayStatusController } from "./serverGameplayStatusController.js";
 import { createServerGameplayStorageController } from "./serverGameplayStorageController.js";
 import { createServerGameplayWantedPoliceController } from "./serverGameplayWantedPoliceController.js";
+import { createServerDefeatNoticeController } from "./serverDefeatNoticeController.js?v=20260726-preview-removed";
 
 export function createServerGameplayUiController({
   root,
@@ -33,6 +34,7 @@ export function createServerGameplayUiController({
     documentRef
   });
   const controllers = [
+    createServerDefeatNoticeController({ documentRef, windowRef }),
     createServerGameplayResourceController({ root, documentRef }),
     createServerGameplayStatusController({ root, documentRef }),
     createServerGameplayProfileController({ root, documentRef }),

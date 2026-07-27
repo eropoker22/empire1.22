@@ -8,6 +8,10 @@ export interface DatabaseMigrationStatus {
   applied: string[];
 }
 
+export interface DatabaseMigrationOptions {
+  stopBeforeFilename?: string;
+}
+
 export const getDatabaseMigrationStatus = async (
   database: PostgresDatabase,
   migrationsDirectory: URL
@@ -22,15 +26,23 @@ export const getDatabaseMigrationStatus = async (
 
 export const migrateDatabase = async (
   database: PostgresDatabase,
-  migrationsDirectory: URL
+  migrationsDirectory: URL,
+  options: DatabaseMigrationOptions = {}
 ): Promise<DatabaseMigrationStatus> => {
   const files = await loadMigrations(migrationsDirectory);
+  const stopBeforeIndex = options.stopBeforeFilename
+    ? files.findIndex((entry) => entry.filename === options.stopBeforeFilename)
+    : files.length;
+  if (options.stopBeforeFilename && stopBeforeIndex < 0) {
+    throw new Error(`Database migration stop target was not found: ${options.stopBeforeFilename}.`);
+  }
   return database.transaction(async (client) => {
     await acquireMigrationLock(client);
     await ensureHistoryTable(client);
     const status = await resolveMigrationStatus(client, files);
     for (const filename of status.pending) {
       const migration = files.find((entry) => entry.filename === filename)!;
+      if (files.indexOf(migration) >= stopBeforeIndex) continue;
       const alreadyApplied = await client.query<{ checksum: string }>(
         `SELECT checksum FROM empire_schema_migrations WHERE filename=$1`, [filename]);
       if (alreadyApplied.rows[0]) {

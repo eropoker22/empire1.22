@@ -1,5 +1,12 @@
 import { ABOUT_GAME_GROUPS, ABOUT_GAME_SECTIONS } from "../data/about-game-sections.js";
 
+const LOGIN_INFO_LABELS = Object.freeze({
+  news: "Novinky",
+  help: "Pomoc",
+  terms: "Podmínky pre-alpha",
+  privacy: "Ochrana osobních údajů"
+});
+
 const FOCUSABLE_SELECTOR = "button:not([disabled]), select:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex='-1'])";
 const DEFAULT_SECTION_BLOCK_TITLES = Object.freeze(["Jak válka funguje", "Co ti dá výhodu", "O co můžeš přijít"]);
 const SECTION_BLOCK_TITLES = Object.freeze({
@@ -192,14 +199,19 @@ const bindDialog = ({ overlay, openButtons, closeSelector, onOpen, onKeyDown }) 
     if (isOpen) return;
     isOpen = true;
     restoreFocus = button || overlay.ownerDocument.activeElement;
-    onOpen?.();
+    onOpen?.(button);
     overlay.hidden = false;
     overlay.removeAttribute("aria-hidden");
     setBodyModalState(overlay.ownerDocument, true);
     const target = overlay.querySelector("[role='tab'][aria-selected='true']") || dialog;
     target.focus();
   };
-  for (const button of openButtons) button.addEventListener("click", () => open(button));
+  for (const button of openButtons) {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      open(button);
+    });
+  }
   overlay.querySelectorAll(closeSelector).forEach((button) => button.addEventListener("click", close));
   overlay.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
@@ -243,8 +255,20 @@ export const bindLoginAboutModal = (root = document) => {
 };
 
 export const bindLoginInfoModals = (root = document) => {
-  root.querySelectorAll("[data-login-info-overlay]").forEach((overlay) => {
-    const modalId = overlay.getAttribute("data-login-info-overlay");
-    bindDialog({ overlay, openButtons: [...root.querySelectorAll(`[data-login-info-open="${modalId}"]`)], closeSelector: "[data-login-info-close]" });
+  const overlay = root.querySelector("[data-login-info-overlay]");
+  const openButtons = [...root.querySelectorAll("[data-login-info-open]")];
+  if (!(overlay instanceof HTMLElement) || !openButtons.length) return;
+  bindDialog({
+    overlay,
+    openButtons,
+    closeSelector: "[data-login-info-close]",
+    onOpen: (button) => {
+      const modalId = button?.getAttribute?.("data-login-info-open") || "";
+      const label = LOGIN_INFO_LABELS[modalId] || "Informace";
+      const title = overlay.querySelector("[data-login-info-title]");
+      if (title) title.textContent = `/ ${label.toUpperCase()}`;
+      const close = overlay.querySelector("[data-login-info-close][aria-label]");
+      close?.setAttribute("aria-label", `Zavřít okno ${label}`);
+    }
   });
 };

@@ -7,8 +7,10 @@ const source = readFileSync(resolve(process.cwd(), "page-assets/js/login-live.js
 describe("live login demo guest access", () => {
   it("exposes the explicit demo link only on loopback hosts", () => {
     expect(source).toContain("isLocalDemoAccessAvailable");
-    expect(source).toContain("runtimeMode=local-demo&mode=${state.activeMode}");
+    expect(source).toContain("runtimeMode=local-demo&mode=${state.activeMode}&autoStartLocalDemo=1");
     expect(source).toContain('guestButton.textContent = "SPUSTIT LOKÁLNÍ DEMO"');
+    expect(source).toContain("STORAGE_KEYS.guestUsername");
+    expect(source).toContain("STORAGE_KEYS.guestGangName");
     expect(source).toContain("guestAccess.hidden = true");
     expect(source).toContain("guestAccess.hidden = false");
   });

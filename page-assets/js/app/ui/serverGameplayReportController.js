@@ -110,8 +110,8 @@ export function createServerGameplayReportController({
     diagnostics.queuedResults += 1;
     openNextPendingResult();
   }
-  function renderFeed(reports) {
-    const entries = createServerReportFeedEntries(reports);
+  function renderFeed(reports, readModel) {
+    const entries = createServerReportFeedEntries(reports, readModel);
     const fingerprint = createServerReportFeedFingerprint(entries);
     if (fingerprint === renderedFingerprint) return 0;
     const items = entries
@@ -146,7 +146,7 @@ export function createServerGameplayReportController({
     }
     trimSeenReports(seenReportIds);
     latestReports = reports;
-    const writes = renderFeed(reports);
+    const writes = renderFeed(reports, readModel);
     initialized = true;
     for (const report of [...newReports].reverse()) queueResult(report);
     return writes;

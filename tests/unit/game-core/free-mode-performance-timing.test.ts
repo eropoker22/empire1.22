@@ -20,6 +20,7 @@ describe("free mode performance timing", () => {
 
     expect(conflict.attackCooldownTicks * tickRateMs).toBe(22 * minute);
     expect(conflict.spyCooldownTicks * tickRateMs).toBe(6 * minute);
+    expect(conflict.spyCaptureCooldownTicks! * tickRateMs).toBe(10 * minute);
     expect(heist.globalCooldownTicks * tickRateMs).toBe(8 * minute);
     expect(heist.sameTargetCooldownTicks * tickRateMs).toBe(12 * minute);
     expect(conflict.attackTargetProtectionTicks! * tickRateMs).toBe(10 * minute);

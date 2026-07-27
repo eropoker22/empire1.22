@@ -144,6 +144,7 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
       spyCooldownTicks: ticksFromMinutes(6),
       spyAuthorizationTtlTicks: ticksFromMinutes(10),
       spySlotCooldownTicks: ticksFromMinutes(6),
+      spyCaptureCooldownTicks: ticksFromMinutes(10),
       defenseCapacity: {
         baseCapacityPoints: 20,
         zoneBonusPoints: { downtown: 4 },

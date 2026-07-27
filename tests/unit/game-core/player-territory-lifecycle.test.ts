@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createEliminationReadModel,
   handleClaimEmergencyRecovery,
   reconcilePlayerTerritoryLifecycle,
   resolveCurrentHeadquartersDistrict,
@@ -69,6 +70,11 @@ describe("player territory lifecycle", () => {
       status: "defeated",
       allianceId: null,
       currentHeadquartersDistrictId: null
+    });
+    expect(createEliminationReadModel(result.nextState, "player:1", context).currentPlayerDefeat).toEqual({
+      reason: "last_district_lost",
+      eliminatedAtTick: state.root.tick,
+      finalPlacement: null
     });
     const replay = reconcilePlayerTerritoryLifecycle(result.nextState, {
       playerId: "player:1",
