@@ -6866,20 +6866,24 @@ function normalizeBuildingLookupKey(value) {
     .trim();
 }
 
-function resolveBuildingPopupTarget(buildingName) {
-  const lookupKey = normalizeBuildingLookupKey(buildingName);
-  if (!lookupKey) {
+function resolveBuildingPopupTarget(buildingName, buildingTypeId = "") {
+  const lookupKeys = [
+    normalizeBuildingLookupKey(buildingName),
+    normalizeBuildingLookupKey(buildingTypeId)
+  ].filter(Boolean);
+  if (lookupKeys.length === 0) {
     return null;
   }
 
   const variantBaseName = resolveDistrictBuildingVariantBaseName(buildingName);
   const variantLookupKey = normalizeBuildingLookupKey(variantBaseName);
-  const candidateKeys = [lookupKey, variantLookupKey].filter(Boolean);
+  const candidateKeys = [...lookupKeys, variantLookupKey].filter(Boolean);
   return BUILDING_POPUP_TARGETS.find((target) => candidateKeys.some((candidateKey) => target.lookupKeys.includes(candidateKey))) || null;
 }
 
 function shouldOpenGenericDistrictBuildingDetail(buildingName, options = {}) {
-  return Boolean(options?.preferGenericDetail) && !resolveBuildingPopupTarget(buildingName);
+  return Boolean(options?.preferGenericDetail)
+    && !resolveBuildingPopupTarget(buildingName, options?.serverBuildingTypeId);
 }
 
 function resolveDistrictBuildingVariantBaseName(buildingName) {
@@ -10766,7 +10770,7 @@ function bindDistrictCanvas(root) {
       ? geometry.districts.find((entry) => Number(entry.id) === Number(district.id)) || district
       : district;
     const buildingLabel = String(buildingName || "Budova").trim() || "Budova";
-    const popupTarget = resolveBuildingPopupTarget(buildingLabel);
+    const popupTarget = resolveBuildingPopupTarget(buildingLabel, options.serverBuildingTypeId);
     const shouldOpenGenericDetail = shouldOpenGenericDistrictBuildingDetail(buildingLabel, options);
     const serverAuthoritative = isServerAuthoritativeGameplayRuntimeReady();
     const serverDistrictId = String(latestGameplaySliceReadModel?.district?.districtId || "");

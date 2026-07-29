@@ -221,6 +221,7 @@ test.describe("live/demo shared presentation parity", () => {
       await closeSurface(localPage, "restaurant");
       await closeSurface(localPage, "district");
       await openProductionShortcut(localPage, "pharmacy");
+      await localPage.locator("[data-production-building-tab='pharmacy:info']").click();
       const localPharmacy = await getParitySurfaceSignature(localPage, "pharmacy");
       await closeSurface(localPage, "pharmacy");
 
@@ -252,6 +253,7 @@ test.describe("live/demo shared presentation parity", () => {
       await openDistrictById(serverPage, entry.spawnDistrictId);
       await openBuildingFromDistrict(serverPage, "pharmacy");
       await expect(serverPage.locator("[data-pharmacy-popup]")).toBeVisible();
+      await serverPage.locator("[data-production-building-tab='pharmacy:info']").click();
       const serverPharmacy = await getParitySurfaceSignature(serverPage, "pharmacy");
 
       for (const [surface, localSignature, serverSignature, prefix] of [
