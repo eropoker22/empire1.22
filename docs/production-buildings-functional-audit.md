@@ -15,7 +15,15 @@ Canonical balance lives in typed config:
 
 The static browser imports `gameplay-config.generated.js`, generated from those files by `scripts/generate-browser-gameplay-config.ts`. `legacy-page/economy-config.js` only re-exports generated production values and adds non-production demo catalog data. It is not a second balance source.
 
-The current Netlify/static experience runs these lines as local-demo gameplay. Game-core already contains server-authoritative production handlers and projections, but the four static production modals are not being newly connected to a production multiplayer deployment in this cleanup.
+At the time of this audit, the Netlify/static experience ran these lines as local-demo gameplay.
+Game-core already contained server-authoritative production handlers and projections, but the four
+static production modals were not connected to the multiplayer client in that cleanup.
+
+**Status update — 2026-07-29:** Pharmacy, Drug Lab, Factory and Armory now use the same shared
+presentation in explicit local demo and hosted server-authoritative play. The hosted adapter
+resolves the exact physical building from the scoped district read model and submits existing
+typed production commands. Local-demo storage mutations remain isolated to the explicit
+loopback-only demo adapter.
 
 ## Shared Rules
 

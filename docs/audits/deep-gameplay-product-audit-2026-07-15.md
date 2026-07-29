@@ -4,6 +4,12 @@ Date: 2026-07-15
 
 Scope: current dirty `main` worktree, static `local-demo`, server-authoritative core, commands, read models, building actions, production, economy, social systems, police, events, modals and repository hygiene.
 
+> Historical audit note (2026-07-29): the City Events browser command bridge and shared hosted
+> presentation described below as missing have since been implemented. The hosted gameplay slice
+> now runs controller-only outside spawn selection, while the shared district/building/City Events
+> presentation consumes authoritative read models and typed command responses. The original
+> findings remain unchanged below as a record of the 2026-07-15 state.
+
 ## Verdict
 
 Empire Streets is a broad and playable pre-alpha with unusually strong typed configuration and focused domain coverage. It is ready for continued local gameplay testing. It is not ready for a public multiplayer test yet.

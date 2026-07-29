@@ -1,12 +1,19 @@
 # Empire Streets Pre-Alpha Readiness
 
-Last reviewed: 2026-07-13.
+Last reviewed: 2026-07-29.
 
 ## Verdict
 
-Empire Streets is suitable for local/demo iteration and internal closed-alpha engineering checks. It is not yet a production multiplayer game. The static Netlify build is explicitly marked `local-demo`; browser state must not be interpreted as server authority.
+Empire Streets has an explicit loopback-only `local-demo` for development and a separate
+`server-authoritative` production path. The production client defaults to server authority and
+must fail closed when the hosted API, account identity, gameplay session or persistence is not
+production-ready. A hosted deployment still requires its environment and release gates to be
+verified; browser demo state is never production authority.
 
-The repository also contains meaningful server-authoritative foundations: validated gameplay sessions, command handling, state versions, persistence interfaces, typed config, read models, storage capacity, production-line handlers, conflict rules, heat/police rules, alliances, and simulations. Those foundations do not by themselves make the static client a production deployment.
+The server path includes validated gameplay sessions, typed commands, state versions, PostgreSQL
+persistence, recovery heads/checkpoints, hosted worker ownership and authoritative read models.
+The polished district/building presentation is shared between modes, while its data and mutation
+adapters remain explicitly separated.
 
 ## Current Player Loop
 
@@ -45,25 +52,30 @@ Active owned Warehouses increase capacity by count and highest active level. No 
 
 These browser systems are allowed only while execution mode is `local-demo`:
 
-- Demo Events
+- Demo fixture data for City Events
 - Demo chat and local alliance preview storage
 - Strategic boost protocols with local-demo persistence and fail-closed server-authoritative hooks
-- local production modal mutations
+- local production mutations behind the local-demo adapter
 - selected legacy canvas previews
 
 Their storage keys use the `empire:demo:` prefix where they persist state. They must close, hide, or refuse mutation in `server-authoritative` mode.
 
+The City Events modal and the four production-building modals are shared presentation surfaces.
+In `server-authoritative` mode they consume server read models and typed command responses; they do
+not enable their local-demo mutation/storage adapters.
+
 ## Server Deployment Gaps
 
-Before production multiplayer, the project still needs:
+Before a production multiplayer opening, the project still needs:
 
-1. A production account identity provider and durable gameplay session repository.
-2. Production deployment configuration that selects `server-authoritative` mode explicitly.
-3. End-to-end replacement or server wiring for every remaining local-demo mutation surface.
-4. Live Postgres verification using `EMPIRE_TEST_DATABASE_URL` in a controlled environment.
-5. Load, reconnect, idempotency, state-version conflict, and multi-instance operational testing.
-6. Product decisions and complete server contracts for demo-only City Events and global chat; strategic boosts already use the typed command/read-model boundary.
-7. Continued review of robbery/heist depth, bounty claim semantics, raid timing, and long-running order UX.
+1. Exact production deployment identity, TLS/origin, build SHA and secret gates.
+2. A complete live PostgreSQL, recovery, reconnect and multi-instance operational gate.
+3. Browser acceptance proving every exposed server surface stays authoritative and fail-closed.
+4. Load, idempotency, state-version conflict and worker recovery testing at the intended scale.
+5. A server contract or explicit production feature flag for remaining demo-only social previews,
+   including global chat.
+6. Continued review of robbery/heist depth, bounty claim semantics, raid timing, and long-running
+   order UX.
 
 Production must fail closed when identity, session, or gameplay authority is unavailable. Snapshot tokens never authorize load, submit, join, or logout.
 

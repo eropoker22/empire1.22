@@ -88,3 +88,115 @@ local-demo
 Spawn selection may temporarily use the gameplay-slice surface while the server is in
 `awaiting_spawn_selection`. No other production state may create a second visible topbar, map,
 district panel, building detail or City Events modal.
+
+## Implemented ownership model
+
+The hosted game now mounts `gameplay-slice-page.ts` with
+`presentationMode: "controller-only"`. In this mode it keeps the gameplay session, polling,
+read-model publication and typed command transport, but does not create a second visible topbar,
+map, district panel, building card, building detail or `district_sheet` overlay. Spawn selection
+remains the only explicit presentation exception.
+
+The visible hosted surface is the same shared presentation used by the explicit local demo:
+
+```text
+server gameplay read model
+  -> serverDistrictSelectionCoordinator.js
+  -> ServerBuildingPresentationAdapter
+  -> buildingDetailPanel.js / shared production popup runtimes
+
+local demo state
+  -> LocalDemoBuildingPresentationAdapter
+  -> buildingDetailPanel.js / shared production popup runtimes
+```
+
+The adapters only normalize presentation data. Local demo retains its isolated local mutations.
+The server adapter never computes a gameplay result and never writes demo production state; all
+hosted production and City Events actions continue through typed server commands.
+
+## Canonical district and building selection
+
+Hosted district presentation no longer opens synchronously from unverified legacy geometry.
+`serverDistrictSelectionCoordinator.js` first requests the canonical district, waits for the
+response and verifies that the response district matches the request. Building presentation is
+then resolved by the physical identity:
+
+```text
+serverInstanceId + districtId + buildingId
+```
+
+The request generation prevents a delayed response for district A from replacing a newer
+selection of district B. A missing or mismatched district/building fails closed with a scoped
+loading or error state instead of opening a local card or the first matching building from the
+latest global slice.
+
+## Shared production and City Events presentation
+
+- Restaurant and ordinary building details use `buildingDetailPanel.js` in both modes.
+- Pharmacy, Drug Lab and Armory use `productionBuildingPopupRuntime.js` with either the local-demo
+  state adapter or authoritative server production projection and typed commands.
+- Factory uses the same visible factory shell through `factoryPopupRuntime.js`.
+- Successful hosted command responses update the server gameplay read-model source and refresh the
+  currently open shared modal instead of falling back to local storage.
+- City Events use one trigger, one shared main modal, one shared detail modal and one modal-stack
+  owner. The hosted adapter supplies server offers, active runs and typed command callbacks; the
+  local demo adapter supplies demo tasks.
+
+## Development-only ownership diagnostics
+
+`uiOwnershipDiagnostics.js` runs only on loopback with the explicit debug/E2E switch. It records
+execution mode, requested and selected district/building IDs, state version, active overlay and
+visible modal owners. It reports:
+
+- more than one visible district popup,
+- more than one visible building detail,
+- more than one City Events main/detail modal,
+- more than one active district-sheet overlay,
+- duplicate IDs among visible modal roots,
+- a hidden renderer retaining the body scroll lock.
+
+Visible roots identify their owner with `data-ui-owner`:
+
+- `legacy-shared` for district and building presentation,
+- `city-events-shared` for City Events,
+- `server-slice` for the controller-only gameplay slice and spawn selection.
+
+## Card design clarification
+
+The word “repair” in this sprint means repairing the existing building-card presentation and
+layout. It does **not** mean adding a building-repair gameplay mechanic. No
+`RepairBuildingCommand`, repair mutation, new balance rule or repair button was added. The current
+shared command catalogue has no such command, so server authority and gameplay rules remain
+unchanged.
+
+## Browser coverage prepared
+
+The parity harness captures screenshots, visible DOM, CSS classes, modal ownership, overlay,
+overflow, execution mode, state version and selected IDs under:
+
+```text
+artifacts/live-demo-ui-parity/<phase>/<mode>/<viewport>/
+```
+
+Prepared hosted coverage:
+
+- `live-production-pharmacy.spec.js`
+- `live-production-drug-lab.spec.js`
+- `live-production-factory.spec.js`
+- `live-production-armory.spec.js`
+- `live-city-events.spec.js`
+- `live-demo-ui-parity.spec.js`
+- `live-district-selection-race.spec.js`
+
+The harness also fails on console/page errors, duplicate visible owners and any server-authoritative
+write to demo gameplay, production or factory storage keys. Dynamic countdowns and identifiers are
+masked for visual comparisons.
+
+## Deferred validation status
+
+Before the owner deferred further test execution, JavaScript syntax checks, Playwright test
+discovery and the client page build completed successfully. A first hosted Pharmacy attempt reached
+the lobby but the disposable server registration window had expired before gameplay entry; it did
+not exercise the modal. A fresh disposable server was provisioned, but the rerun and the full
+Node 24 verification gate are intentionally deferred to the owner's next prompt. They must not be
+reported as passed until they actually run.
