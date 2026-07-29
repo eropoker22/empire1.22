@@ -187,6 +187,8 @@ export function renderDistrictBuildingList(elements = {}, view = {}) {
       chip.dataset.districtBuildingInteractive = "false";
       chip.setAttribute?.("aria-disabled", "true");
     }
+    chip.dataset.districtBuildingId = building.buildingId || "";
+    chip.dataset.districtBuildingType = building.buildingTypeId || "";
     chip.dataset.districtBuildingDisplayName = building.displayName || building.name || "";
     chip.dataset.districtBuildingKind = building.kindLabel || "";
     const kindToken = resolveBuildingKindToken(building.kindLabel || "");

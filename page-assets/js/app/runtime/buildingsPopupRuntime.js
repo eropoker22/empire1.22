@@ -81,6 +81,9 @@ export function createBuildingsPopupRuntime(deps = {}) {
     String(interactionState?.gamePhase || "launch").trim().toLowerCase() === "live"
     && Boolean(isDemoLiveBuildingCatalogUnlocked(interactionState))
   );
+  const getDistrictPresentation = typeof deps.getDistrictPresentation === "function"
+    ? deps.getDistrictPresentation
+    : () => null;
 
   const isDestroyedDistrict = (district, interactionState = getInteractionState()) => (
     Boolean(interactionState.destroyedDistrictIds?.has?.(Number(district?.id)))
@@ -144,14 +147,21 @@ export function createBuildingsPopupRuntime(deps = {}) {
 
     const interactionState = getInteractionState();
     const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
-    const isOwnedByCurrentPlayer = currentPlayerOwnedDistrictIds.has(Number(district.id));
+    const districtPresentation = getDistrictPresentation(district);
+    const isOwnedByCurrentPlayer = typeof districtPresentation?.isOwnedByPlayer === "boolean"
+      ? districtPresentation.isOwnedByPlayer
+      : currentPlayerOwnedDistrictIds.has(Number(district.id));
     const spyIntel = getResolvedSpyIntel() || {};
     const isRevealedBySpy = Array.isArray(spyIntel.revealedTypeDistrictIds)
       && spyIntel.revealedTypeDistrictIds.map(Number).includes(Number(district.id));
     const isLaunchPhase = (interactionState.gamePhase || "launch") === "launch";
     const isHidden = isLaunchPhase && deps.isDistrictTypeHidden(district, interactionState) && !isOwnedByCurrentPlayer;
-    const isDestroyed = interactionState.destroyedDistrictIds?.has?.(Number(district.id));
-    const canShowBuildings = isOwnedByCurrentPlayer || isRevealedBySpy;
+    const isDestroyed = typeof districtPresentation?.destroyed === "boolean"
+      ? districtPresentation.destroyed
+      : interactionState.destroyedDistrictIds?.has?.(Number(district.id));
+    const canShowBuildings = typeof districtPresentation?.intelKnown === "boolean"
+      ? districtPresentation.intelKnown
+      : isOwnedByCurrentPlayer || isRevealedBySpy;
 
     if (isDestroyed) {
       deps.renderDistrictBuildingList({
@@ -199,6 +209,8 @@ export function createBuildingsPopupRuntime(deps = {}) {
       metaText: "",
       interactive: isOwnedByCurrentPlayer,
       buildings: buildingProfile.buildings.map((building) => ({
+        buildingId: building.buildingId || "",
+        buildingTypeId: building.buildingTypeId || "",
         name: building.baseName || building.displayName,
         label: building.baseName || building.displayName,
         displayName: building.displayName,
@@ -266,6 +278,8 @@ export function createBuildingsPopupRuntime(deps = {}) {
 
         entries.push({
           baseName,
+          buildingId: building.buildingId || "",
+          buildingTypeId: building.buildingTypeId || "",
           displayName,
           variantName: building.variantName || (displayName !== baseName ? displayName : null),
           districtId: Number(district.id) || 0,

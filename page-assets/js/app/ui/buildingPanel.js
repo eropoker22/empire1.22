@@ -227,6 +227,8 @@ export function renderBuildingsPopupDetail(mount, view = {}) {
           button.dataset.buildingsOpenBuildingName = entry.baseName || "";
           button.dataset.buildingsOpenBuildingDisplayName = entry.displayName || "";
           button.dataset.buildingsOpenBuildingDistrictId = String(entry.districtId || "");
+          button.dataset.buildingsOpenBuildingId = entry.buildingId || "";
+          button.dataset.buildingsOpenBuildingType = entry.buildingTypeId || "";
           button.title = isOwnedByCurrentPlayer
             ? `${entry.displayName || entry.baseName || "Budova"} · ${entry.districtLabel || "District"}`
             : `${entry.displayName || entry.baseName || "Budova"} · ${entry.districtLabel || "District"} · demo nastavení`;

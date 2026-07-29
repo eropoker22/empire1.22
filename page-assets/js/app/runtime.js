@@ -821,6 +821,8 @@ import { createAuthoritySessionAccessors } from "./runtime/authoritySessionAcces
 import { createServerGameplayCommandId } from "./runtime/serverCommandJournal.js";
 import {
   getServerGameplaySliceReadModel as getCanonicalServerGameplaySliceReadModel,
+  getCurrentRenderState as getServerGameplayRenderState,
+  handleServerGameplaySurfaceAction as handleCanonicalServerGameplaySurfaceAction,
   prepareServerGameplayCommand as prepareCanonicalServerGameplayCommand,
   retryPendingServerGameplayCommands as retryCanonicalServerGameplayCommands,
   submitPreparedServerGameplayCommand as submitCanonicalPreparedServerGameplayCommand,
@@ -833,6 +835,14 @@ import {
   syncServerGameplaySliceResponse
 } from "./runtime/serverGameplaySource.js";
 import { createServerDistrictSelectionCoordinator } from "./runtime/serverDistrictSelectionCoordinator.js";
+import {
+  LocalDemoBuildingPresentationAdapter,
+  ServerBuildingPresentationAdapter
+} from "./runtime/buildingPresentationAdapters.js";
+import { createServerDistrictActionPresentation } from "./runtime/serverDistrictActionPresentation.js";
+import { createServerGameplayDistrictView } from "./ui/serverGameplayDistrictView.js";
+import { renderServerGameplayDistrictSummary } from "./ui/serverGameplayDistrictSummaryRenderer.js";
+import { resolveDistrictBuildingChipKind } from "./ui/districtBuildingChipKind.js";
 import { createDistrictBuildingProfileRuntime } from "./runtime/districtBuildingProfileRuntime.js";
 import { createBuildingNetworkRuntime } from "./runtime/buildingNetworkRuntime.js";
 import { createDistrictActionPanelRuntime } from "./runtime/districtActionPanelRuntime.js";
@@ -1022,6 +1032,7 @@ let eliminationDemoViewModelFactory = null;
 let eliminationDemoFixturePromise = null;
 const ELIMINATION_RESULT_POPUP_SELECTOR = "[data-elimination-result-popup]";
 let latestGameplaySliceReadModel = null;
+let activeServerBuildingPresentationTarget = null;
 let onboardingSandboxSession = null;
 let onboardingSandboxTimerBaseline = null;
 
@@ -1156,12 +1167,69 @@ function getAttackWeaponLabels() {
   ]));
 }
 
-function getServerPharmacyReadModel() {
+function normalizeServerProductionBuildingType(value = "") {
+  const normalized = String(value || "").trim().replace(/-/gu, "_");
+  return normalized === "druglab" ? "drug_lab" : normalized;
+}
+
+function setActiveServerBuildingPresentationTarget({
+  buildingId = "",
+  buildingTypeId = "",
+  districtId = "",
+  serverInstanceId = ""
+} = {}) {
+  const normalizedBuildingId = String(buildingId || "").trim();
+  const normalizedDistrictId = String(districtId || "").trim();
+  const normalizedBuildingTypeId = normalizeServerProductionBuildingType(buildingTypeId);
+  if (!normalizedBuildingId || !normalizedDistrictId) {
+    activeServerBuildingPresentationTarget = null;
+    return null;
+  }
+  activeServerBuildingPresentationTarget = {
+    buildingId: normalizedBuildingId,
+    buildingTypeId: normalizedBuildingTypeId,
+    districtId: normalizedDistrictId,
+    serverInstanceId: String(serverInstanceId || "").trim()
+  };
+  return activeServerBuildingPresentationTarget;
+}
+
+function getServerBuildingByType(buildingTypeId) {
   if (!isServerAuthoritativeGameplayRuntimeReady()) {
     return null;
   }
+  const district = latestGameplaySliceReadModel?.district || null;
+  const canonicalTypeId = normalizeServerProductionBuildingType(buildingTypeId);
+  if (!district?.districtId || !canonicalTypeId) {
+    return null;
+  }
+  const target = activeServerBuildingPresentationTarget;
+  if (
+    target
+    && target.districtId === district.districtId
+    && (!target.serverInstanceId
+      || target.serverInstanceId === String(
+        latestGameplaySliceReadModel?.server?.serverInstanceId
+        || latestGameplaySliceReadModel?.player?.instanceId
+        || ""
+      ))
+    && (!target.buildingTypeId || target.buildingTypeId === canonicalTypeId)
+  ) {
+    const exactBuilding = district.buildings?.find?.(
+      (candidate) => String(candidate?.buildingId || "") === target.buildingId
+    ) || null;
+    return normalizeServerProductionBuildingType(exactBuilding?.buildingTypeId) === canonicalTypeId
+      ? exactBuilding
+      : null;
+  }
+  return district.buildings?.find?.(
+    (candidate) => normalizeServerProductionBuildingType(candidate?.buildingTypeId) === canonicalTypeId
+  ) || null;
+}
+
+function getServerPharmacyReadModel() {
   const district = latestGameplaySliceReadModel?.district;
-  const building = district?.buildings?.find?.((candidate) => candidate?.buildingTypeId === "pharmacy" && candidate?.pharmacy);
+  const building = getServerBuildingByType("pharmacy");
   if (!building?.pharmacy || !district?.districtId) {
     return null;
   }
@@ -1173,11 +1241,8 @@ function getServerPharmacyReadModel() {
 }
 
 function getServerDrugLabReadModel() {
-  if (!isServerAuthoritativeGameplayRuntimeReady()) {
-    return null;
-  }
   const district = latestGameplaySliceReadModel?.district;
-  const building = district?.buildings?.find?.((candidate) => candidate?.buildingTypeId === "drug_lab" && candidate?.drugLab);
+  const building = getServerBuildingByType("drug_lab");
   if (!building?.drugLab || !district?.districtId) {
     return null;
   }
@@ -1193,21 +1258,31 @@ function getServerFactoryReadModel() {
   if (!isServerAuthoritativeGameplayRuntimeReady()) {
     return null;
   }
+  const district = latestGameplaySliceReadModel?.district;
+  const building = getServerBuildingByType("factory");
+  if (building?.factory && district?.districtId) {
+    return {
+      ...building.factory,
+      districtId: district.districtId,
+      buildingId: building.factory.buildingId || building.buildingId,
+      level: building.level
+    };
+  }
   const playerFactory = latestGameplaySliceReadModel?.player?.factoryProduction;
-  if (playerFactory?.buildingId && playerFactory?.districtId && Array.isArray(playerFactory.productionLines)) {
+  const activeTarget = activeServerBuildingPresentationTarget;
+  if (
+    playerFactory?.buildingId
+    && playerFactory?.districtId
+    && Array.isArray(playerFactory.productionLines)
+    && (!activeTarget
+      || (
+        activeTarget.buildingId === String(playerFactory.buildingId)
+        && activeTarget.districtId === String(playerFactory.districtId)
+      ))
+  ) {
     return playerFactory;
   }
-  const district = latestGameplaySliceReadModel?.district;
-  const building = district?.buildings?.find?.((candidate) => candidate?.buildingTypeId === "factory" && candidate?.factory);
-  if (!building?.factory || !district?.districtId) {
-    return null;
-  }
-  return {
-    ...building.factory,
-    districtId: district.districtId,
-    buildingId: building.factory.buildingId || building.buildingId,
-    level: building.level
-  };
+  return null;
 }
 
 function getServerTickRateMs() {
@@ -1231,11 +1306,8 @@ function submitServerDrugLabCommand({ type, payload } = {}) {
 }
 
 function getServerArmoryReadModel() {
-  if (!isServerAuthoritativeGameplayRuntimeReady()) {
-    return null;
-  }
   const district = latestGameplaySliceReadModel?.district;
-  const building = district?.buildings?.find?.((candidate) => candidate?.buildingTypeId === "armory" && candidate?.armory);
+  const building = getServerBuildingByType("armory");
   if (!building?.armory || !district?.districtId) {
     return null;
   }
@@ -1261,6 +1333,87 @@ function submitServerArmoryCommand({ type, payload } = {}) {
     payload,
     focusDistrictId: payload?.districtId || latestGameplaySliceReadModel?.district?.districtId
   });
+}
+
+function submitServerProductionBuildingUpgrade({ districtId, buildingId } = {}) {
+  const canonicalDistrictId = String(districtId || "").trim();
+  const canonicalBuildingId = String(buildingId || "").trim();
+  if (!canonicalDistrictId || !canonicalBuildingId) {
+    return Promise.resolve({
+      accepted: false,
+      errors: [{ message: "Chybí přesná identita budovy pro upgrade." }]
+    });
+  }
+  return submitServerDistrictActionCommand({
+    type: "upgrade-building",
+    payload: {
+      districtId: canonicalDistrictId,
+      buildingId: canonicalBuildingId
+    },
+    focusDistrictId: canonicalDistrictId
+  });
+}
+
+async function submitServerBuildingSurfaceAction(surfaceDataset = {}, inputValues = {}) {
+  if (!isServerAuthoritativeGameplayRuntimeReady()) {
+    return {
+      accepted: false,
+      errors: [{ message: "Serverový herní stav ještě není načtený." }]
+    };
+  }
+  const scope = document.querySelector("[data-gameplay-slice-client]");
+  if (!(scope instanceof HTMLElement)) {
+    return {
+      accepted: false,
+      errors: [{ message: "Serverový command controller není připojený." }]
+    };
+  }
+  const proxy = document.createElement("button");
+  proxy.type = "button";
+  for (const [key, value] of Object.entries(surfaceDataset || {})) {
+    if (value !== null && value !== undefined && String(value) !== "") {
+      proxy.dataset[key] = String(value);
+    }
+  }
+  for (const [key, value] of Object.entries(inputValues || {})) {
+    if (value === null || value === undefined || String(value) === "") {
+      continue;
+    }
+    const input = document.createElement("input");
+    input.dataset.buildingActionInput = key;
+    input.value = String(value);
+    if (key === "dealerSlotId") {
+      input.dataset.dealerSlotInput = "true";
+    } else if (key === "itemId") {
+      input.dataset.dealerItemInput = "true";
+    } else if (key === "amount") {
+      input.dataset.dealerAmountInput = "true";
+    }
+    proxy.append(input);
+  }
+  scope.append(proxy);
+  try {
+    const response = await handleCanonicalServerGameplaySurfaceAction(proxy);
+    if (response?.readModel) {
+      latestGameplaySliceReadModel = response.readModel;
+    }
+    const errors = Array.isArray(response?.renderState?.errors)
+      ? response.renderState.errors
+      : [];
+    return {
+      accepted: Boolean(response) && errors.length === 0,
+      errors,
+      readModel: response?.readModel || latestGameplaySliceReadModel,
+      renderState: response?.renderState || null
+    };
+  } catch (_error) {
+    return {
+      accepted: false,
+      errors: [{ message: "Serverovou akci se nepodařilo bezpečně odeslat." }]
+    };
+  } finally {
+    proxy.remove();
+  }
 }
 
 export function getServerGameplaySliceReadModel() {
@@ -1494,16 +1647,26 @@ async function resolveServerBuildingActionTarget(context, definition) {
     return { ok: false, message: "Server nevrátil detail vybraného districtu." };
   }
 
-  const expectedType = normalizeServerBuildingTypeId(definition?.buildingTypeId);
-  const building = (district.buildings || []).find((candidate) =>
-    normalizeServerBuildingTypeId(candidate?.buildingTypeId) === expectedType
-      && Array.isArray(candidate?.actions)
-      && candidate.actions.some((action) => action?.actionId === definition.actionId)
-  ) || (district.buildings || []).find((candidate) =>
-    normalizeServerBuildingTypeId(candidate?.buildingTypeId) === expectedType
+  const expectedBuildingId = String(context?.serverBuildingId || "").trim();
+  const expectedType = normalizeServerBuildingTypeId(
+    context?.serverBuildingTypeId || definition?.buildingTypeId
   );
+  const building = expectedBuildingId
+    ? (district.buildings || []).find(
+        (candidate) => String(candidate?.buildingId || "") === expectedBuildingId
+      )
+    : (district.buildings || []).find((candidate) =>
+        normalizeServerBuildingTypeId(candidate?.buildingTypeId) === expectedType
+          && Array.isArray(candidate?.actions)
+          && candidate.actions.some((action) => action?.actionId === definition.actionId)
+      ) || (district.buildings || []).find((candidate) =>
+        normalizeServerBuildingTypeId(candidate?.buildingTypeId) === expectedType
+      );
 
-  if (!building?.buildingId) {
+  if (
+    !building?.buildingId
+    || (expectedType && normalizeServerBuildingTypeId(building.buildingTypeId) !== expectedType)
+  ) {
     return { ok: false, message: "Server v districtu nenašel odpovídající budovu." };
   }
 
@@ -1569,12 +1732,25 @@ async function resolveServerBuildingUpgradeTarget(context, mechanics = {}) {
     return { ok: false, message: "Server nevrátil detail vybraného districtu." };
   }
 
-  const expectedType = getServerBuildingTypeIdForDetailMechanics(mechanics.mechanicsType || resolveDistrictBuildingDetailMechanicsType(context.buildingName));
-  const building = (district.buildings || []).find((candidate) =>
-    normalizeServerBuildingTypeId(candidate?.buildingTypeId) === expectedType
+  const expectedBuildingId = String(context?.serverBuildingId || "").trim();
+  const expectedType = normalizeServerBuildingTypeId(
+    context?.serverBuildingTypeId
+    || getServerBuildingTypeIdForDetailMechanics(
+      mechanics.mechanicsType || resolveDistrictBuildingDetailMechanicsType(context.buildingName)
+    )
   );
+  const building = expectedBuildingId
+    ? (district.buildings || []).find(
+        (candidate) => String(candidate?.buildingId || "") === expectedBuildingId
+      )
+    : (district.buildings || []).find((candidate) =>
+        normalizeServerBuildingTypeId(candidate?.buildingTypeId) === expectedType
+      );
 
-  if (!building?.buildingId) {
+  if (
+    !building?.buildingId
+    || (expectedType && normalizeServerBuildingTypeId(building.buildingTypeId) !== expectedType)
+  ) {
     return { ok: false, message: "Server v districtu nenašel odpovídající budovu pro upgrade." };
   }
 
@@ -4825,6 +5001,7 @@ const {
   submitServerPharmacyCommand,
   submitServerDrugLabCommand,
   submitServerArmoryCommand,
+  submitServerProductionBuildingUpgrade,
   syncBuildingDetailTopbarVisibility,
   syncCompletedProductionJobs
 });
@@ -6028,6 +6205,24 @@ const {
   backgroundImagesByBaseName: DISTRICT_BUILDING_BACKGROUND_IMAGES_BY_BASE_NAME,
   variantNamesByBaseName: DISTRICT_BUILDING_VARIANT_NAMES_BY_BASE_NAME
 });
+
+const localDemoBuildingPresentationAdapter = new LocalDemoBuildingPresentationAdapter({
+  resolveDistrictBuildingProfile
+});
+const serverBuildingPresentationAdapter = new ServerBuildingPresentationAdapter({
+  getReadModel: getServerGameplaySliceReadModel,
+  resolveDistrictBuildingProfile
+});
+
+function getSharedDistrictBuildingPresentation(district) {
+  return isServerAuthoritativeGameplayRuntimeReady()
+    ? serverBuildingPresentationAdapter.getDistrictPresentation(district)
+    : localDemoBuildingPresentationAdapter.getDistrictPresentation(district);
+}
+
+function resolveSharedDistrictBuildingProfile(district) {
+  return getSharedDistrictBuildingPresentation(district)?.profile || null;
+}
 
 const {
   getApartmentBlockNetworkMultipliers,
@@ -8042,6 +8237,11 @@ function refreshDistrictBuildingDetailPopup(root, shell) {
     return;
   }
 
+  if (context.authorityMode === "server-authoritative") {
+    refreshServerGenericDistrictBuildingDetail(root, shell);
+    return;
+  }
+
   openGenericDistrictBuildingDetail(root, context.district, context.buildingName, context.displayName);
 }
 
@@ -8111,9 +8311,35 @@ function dispatchDistrictBuildingProductionCollected(root, context = {}, detail 
   }));
 }
 
-function collectDistrictBuildingDetailOutput(root, shell) {
+async function collectDistrictBuildingDetailOutput(root, shell) {
   const context = districtBuildingDetailContextByShell.get(shell);
   if (!context) {
+    return;
+  }
+
+  if (context.authorityMode === "server-authoritative") {
+    const result = await submitServerBuildingSurfaceAction({
+      collectBuildingId: context.serverBuildingId
+    });
+    if (!result.accepted) {
+      setBuildingActionFeedback(
+        root,
+        "warning",
+        context.displayName || context.buildingName,
+        result.errors?.map((error) => error?.message || error?.code).filter(Boolean).join(" · ")
+          || "Server výstup budovy nevydal.",
+        context.serverDistrictId || ""
+      );
+      return;
+    }
+    setBuildingActionFeedback(
+      root,
+      "success",
+      context.displayName || context.buildingName,
+      result.readModel?.reports?.[0]?.summary || "Server potvrdil výběr výstupu.",
+      context.serverDistrictId || ""
+    );
+    refreshServerGenericDistrictBuildingDetail(root, shell);
     return;
   }
 
@@ -8364,6 +8590,55 @@ function getDistrictBuildingUpgradeResourceStatus(mechanics) {
 async function confirmDistrictBuildingDetailUpgrade(root, shell) {
   const context = districtBuildingDetailContextByShell.get(shell);
   if (!context) {
+    return;
+  }
+
+  if (context.authorityMode === "server-authoritative") {
+    const currentLevel = Math.max(1, Number(
+      String(context.serverPresentation?.viewModel?.levelLabel || "L1").replace(/[^\d]/gu, "")
+      || 1
+    ));
+    const confirmation = getDistrictBuildingDetailUpgradeConfirmation(root, shell);
+    const confirmed = await confirmation.open({
+      buildingLabel: context.displayName || context.buildingName,
+      titleLabel: context.displayName || context.buildingName,
+      upgradeLabel: `L${currentLevel} → L${currentLevel + 1}`,
+      costLabel: "Ověří server",
+      benefits: [{
+        icon: "+",
+        label: "Budova",
+        value: "Vyšší level",
+        detail: "Výsledek i cenu autoritativně ověří server."
+      }],
+      noteLabel: "Změna se projeví až po potvrzené serverové odpovědi.",
+      canConfirm: true
+    });
+    if (!confirmed) {
+      return;
+    }
+    const result = await submitServerProductionBuildingUpgrade({
+      districtId: context.serverDistrictId,
+      buildingId: context.serverBuildingId
+    });
+    if (!result.accepted) {
+      setBuildingActionFeedback(
+        root,
+        "warning",
+        context.displayName || context.buildingName,
+        result.errors?.map((error) => error?.message || error?.code).filter(Boolean).join(" · ")
+          || "Server upgrade odmítl.",
+        context.serverDistrictId || ""
+      );
+      return;
+    }
+    setBuildingActionFeedback(
+      root,
+      "success",
+      context.displayName || context.buildingName,
+      result.readModel?.reports?.[0]?.summary || "Server upgrade potvrdil.",
+      context.serverDistrictId || ""
+    );
+    refreshServerGenericDistrictBuildingDetail(root, shell);
     return;
   }
 
@@ -8987,6 +9262,73 @@ async function confirmAndRunDistrictBuildingDetailAction(root, shell, request) {
     return false;
   }
 
+  if (context.authorityMode === "server-authoritative") {
+    const actionIndex = Number.isFinite(Number(request?.actionIndex))
+      ? Number(request.actionIndex)
+      : Number.isFinite(Number(request))
+        ? Number(request)
+        : -1;
+    const action = context.serverPresentation?.viewModel?.actions?.[actionIndex] || null;
+    if (!action?.actionId) {
+      setBuildingActionFeedback(
+        root,
+        "warning",
+        context.displayName || context.buildingName,
+        "Server už tuto akci pro vybranou budovu nenabízí.",
+        context.serverDistrictId || ""
+      );
+      return false;
+    }
+    const requiredInputs = Array.isArray(action.requiresInput) ? action.requiresInput : [];
+    const disabledReason = action.disabledReason
+      || (requiredInputs.length > 0
+        ? "Tato serverová akce vyžaduje doplnění vstupu, který tento sdílený detail zatím nenabízí."
+        : "");
+    const controller = getDistrictBuildingSpecialActionConfirmation(root, shell);
+    const confirmed = await controller.open({
+      titleLabel: action.title,
+      buildingLabel: context.displayName || context.buildingName,
+      districtLabel: context.serverDistrictId || "",
+      description: action.serverAction?.description || "",
+      costSummary: action.buttonCostLabel || "Bez přímé ceny",
+      rewardSummary: action.rewardSummary || "Výsledek určí server.",
+      inputSummary: requiredInputs.map((input) => input?.label).filter(Boolean).join(" · "),
+      riskSummary: Array.isArray(action.serverAction?.riskSummary)
+        ? action.serverAction.riskSummary.join(" · ")
+        : "",
+      cooldownLabel: action.cooldownLabel || "",
+      disabledReason,
+      canConfirm: !disabledReason
+    });
+    if (!confirmed) {
+      return false;
+    }
+    const result = await submitServerBuildingSurfaceAction({
+      buildingActionBuildingId: context.serverBuildingId,
+      buildingActionId: action.actionId
+    });
+    if (!result.accepted) {
+      setBuildingActionFeedback(
+        root,
+        "warning",
+        action.title,
+        result.errors?.map((error) => error?.message || error?.code).filter(Boolean).join(" · ")
+          || "Server akci odmítl.",
+        context.displayName || context.buildingName
+      );
+      return false;
+    }
+    setBuildingActionFeedback(
+      root,
+      "success",
+      action.title,
+      result.readModel?.reports?.[0]?.summary || "Server akci potvrdil.",
+      context.displayName || context.buildingName
+    );
+    refreshServerGenericDistrictBuildingDetail(root, shell);
+    return true;
+  }
+
   const resolved = resolveDistrictBuildingActionRequest(context, request);
   if (!resolved.action) {
     return false;
@@ -9172,15 +9514,6 @@ async function runDistrictBuildingActionFromContext(root, context, request, opti
         || actionProfile?.summary
         || definition.rewardSummary
         || "Server akci přijal.";
-      const actionCooldownUntil = Date.now() + actionCooldownMs;
-      updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
-        ...entry,
-        actionCooldowns: {
-          ...(entry.actionCooldowns || {}),
-          [definition.actionId]: actionCooldownUntil
-        }
-      }));
-      applyServerBuildingActionLocalPreviewEffects(context, definition, actionProfile || {}, actionCooldownUntil);
       setBuildingActionFeedback(
         root,
         "success",
@@ -9188,26 +9521,6 @@ async function runDistrictBuildingActionFromContext(root, context, request, opti
         reportSummary,
         context.district?.id ? `${context.buildingName} · District ${context.district.id}` : context.buildingName
       );
-      appendBuildingActionResultEntry(root, "police", {
-        title: `${context.buildingName}: ${action}`,
-        summary: reportSummary,
-        badge: context.district?.id ? `District ${context.district.id}` : "Server",
-        tone: "success",
-        items: [
-          { label: "Budova", value: context.displayName || context.buildingName },
-          { label: "Akce", value: action },
-          { label: "Handler", value: "Server" },
-          { label: "Cooldown", value: cooldownView.label, nowrap: true, countdownUntil: actionCooldownMs > 0 ? actionCooldownUntil : 0 }
-        ],
-        meta: context.district?.id ? `District ${context.district.id}` : "",
-        actionId: definition.actionId,
-        buildingTypeId: definition.buildingTypeId
-      }, {
-        tone: "success",
-        title: `${context.buildingName}: ${action}`,
-        summary: reportSummary,
-        meta: context.district?.id ? `District ${context.district.id}` : "Server"
-      }, { syncPreview: true, forceLog: true, refresh: false });
       if (options.shell) {
         refreshDistrictBuildingDetailPopup(root, options.shell);
       }
@@ -9512,10 +9825,118 @@ function openGenericDistrictBuildingDetail(root, district, buildingName, display
   syncBuildingDetailTopbarVisibility(root);
 }
 
+function getServerDistrictBuildingDetailPopupKey(presentation = {}) {
+  return [
+    "server",
+    presentation.serverInstanceId || "instance",
+    presentation.serverDistrictId || "district",
+    presentation.buildingId || "building"
+  ].join(":");
+}
+
+function openServerGenericDistrictBuildingDetail(root, district, buildingRequest = {}) {
+  const presentation = serverBuildingPresentationAdapter.getBuildingDetailPresentation(
+    district,
+    {
+      buildingId: buildingRequest.serverBuildingId || buildingRequest.buildingId || "",
+      buildingTypeId: buildingRequest.serverBuildingTypeId || buildingRequest.buildingTypeId || "",
+      buildingName: buildingRequest.buildingName || buildingRequest.displayName || ""
+    },
+    { renderState: getServerGameplayRenderState() }
+  );
+  if (!presentation?.buildingId || !presentation?.serverDistrictId) {
+    setBuildingActionFeedback(
+      root,
+      "warning",
+      buildingRequest.displayName || buildingRequest.buildingName || "Budova",
+      "Server nevrátil přesný stav vybrané budovy.",
+      district?.id ? `District ${district.id}` : ""
+    );
+    return false;
+  }
+
+  const popupKey = getServerDistrictBuildingDetailPopupKey(presentation);
+  const shell = ensureDistrictBuildingDetailPopup(root, popupKey);
+  if (!(shell instanceof HTMLElement)) {
+    return false;
+  }
+  const body = shell.querySelector(".district-building-detail-body");
+  const previousScrollTop = body instanceof HTMLElement ? body.scrollTop : 0;
+  const previousTab = shell.dataset.activeDistrictBuildingDetailTab || "";
+  const viewModel = {
+    ...presentation.viewModel,
+    backgroundImagePath: presentation.viewModel.backgroundImagePath
+      || getDistrictBuildingDetailBackgroundPath(
+        district,
+        presentation.baseName,
+        presentation.displayName
+      )
+  };
+
+  districtBuildingDetailContextByShell.set(shell, {
+    authorityMode: "server-authoritative",
+    district,
+    buildingName: presentation.baseName,
+    displayName: presentation.displayName,
+    serverInstanceId: presentation.serverInstanceId,
+    serverDistrictId: presentation.serverDistrictId,
+    serverBuildingId: presentation.buildingId,
+    serverBuildingTypeId: presentation.buildingTypeId,
+    serverPresentation: presentation
+  });
+  shell.dataset.uiOwner = "legacy-shared";
+  shell.dataset.executionMode = "server-authoritative";
+  shell.dataset.districtBuildingDetailKey = popupKey;
+  shell.dataset.districtBuildingDetailName = normalizeBuildingLookupKey(presentation.baseName) || "building";
+  shell.dataset.districtBuildingDetailDisplayName = presentation.displayName;
+  shell.dataset.districtBuildingDetailDistrictId = presentation.serverDistrictId;
+  shell.dataset.serverInstanceId = presentation.serverInstanceId;
+  shell.dataset.serverDistrictId = presentation.serverDistrictId;
+  shell.dataset.serverBuildingId = presentation.buildingId;
+  shell.dataset.serverBuildingTypeId = presentation.buildingTypeId;
+  shell.dataset.buildingDistrictType = viewModel.districtType || district?.districtType || "unknown";
+  closeOtherDistrictBuildingDetailPopups(root, shell);
+  stopDistrictBuildingDetailLiveRefresh(shell);
+  renderBuildingDetailPanel({ shell, ...viewModel });
+  if (previousTab && previousTab !== "all") {
+    syncDistrictBuildingDetailTabs(shell, previousTab);
+  }
+  if (body instanceof HTMLElement) {
+    body.scrollTop = previousScrollTop;
+  }
+  syncBuildingDetailTopbarVisibility(root);
+  setActiveServerBuildingPresentationTarget({
+    buildingId: presentation.buildingId,
+    buildingTypeId: presentation.buildingTypeId,
+    districtId: presentation.serverDistrictId,
+    serverInstanceId: presentation.serverInstanceId
+  });
+  return true;
+}
+
+function refreshServerGenericDistrictBuildingDetail(root, shell) {
+  const context = districtBuildingDetailContextByShell.get(shell);
+  if (!context || context.authorityMode !== "server-authoritative") {
+    return false;
+  }
+  return openServerGenericDistrictBuildingDetail(root, context.district, {
+    buildingName: context.buildingName,
+    displayName: context.displayName,
+    serverBuildingId: context.serverBuildingId,
+    serverBuildingTypeId: context.serverBuildingTypeId
+  });
+}
+
 function isDistrictTypeKnownForCurrentPlayer(district, interactionState = {}) {
   const districtId = Number(district?.id || 0);
   if (!districtId) {
     return false;
+  }
+  if (isServerAuthoritativeGameplayRuntimeReady()) {
+    const canonicalDistrictId = `district:${districtId}`;
+    const serverDistrict = latestGameplaySliceReadModel?.district;
+    return String(serverDistrict?.districtId || "") === canonicalDistrictId
+      && serverDistrict?.intelKnown === true;
   }
 
   if (interactionState.destroyedDistrictIds?.has?.(districtId)) {
@@ -10172,8 +10593,25 @@ function bindDistrictCanvas(root) {
   };
   const syncInteractionDistrictAuthorityState = () => {
     const worldState = getResolvedWorldState();
-    interactionState.ownedDistrictIds = new Set(worldState.ownedDistrictIds || []);
-    interactionState.destroyedDistrictIds = new Set(worldState.destroyedDistrictIds || []);
+    const serverDistricts = isServerAuthoritativeGameplayRuntimeReady()
+      ? (Array.isArray(latestGameplaySliceReadModel?.districts) ? latestGameplaySliceReadModel.districts : [])
+      : null;
+    const playerId = String(latestGameplaySliceReadModel?.player?.playerId || "");
+    interactionState.ownedDistrictIds = serverDistricts
+      ? new Set(serverDistricts
+        .filter((district) => (
+          district?.isOwnedByPlayer === true
+          || (playerId && String(district?.ownerPlayerId || "") === playerId)
+        ))
+        .map((district) => Number(resolveLegacyDistrictId(district?.districtId)))
+        .filter(Boolean))
+      : new Set(worldState.ownedDistrictIds || []);
+    interactionState.destroyedDistrictIds = serverDistricts
+      ? new Set(serverDistricts
+        .filter((district) => district?.status === "destroyed")
+        .map((district) => Number(resolveLegacyDistrictId(district?.districtId)))
+        .filter(Boolean))
+      : new Set(worldState.destroyedDistrictIds || []);
     interactionState.districtOwnerById = {
       ...(worldState.districtOwnerById || worldState.ownerByDistrictId || {}),
       ...buildDistrictOwnerByIdFromGameplaySlice()
@@ -10327,10 +10765,23 @@ function bindDistrictCanvas(root) {
     const buildingLabel = String(buildingName || "Budova").trim() || "Budova";
     const popupTarget = resolveBuildingPopupTarget(buildingLabel);
     const shouldOpenGenericDetail = shouldOpenGenericDistrictBuildingDetail(buildingLabel, options);
+    const serverAuthoritative = isServerAuthoritativeGameplayRuntimeReady();
+    const serverDistrictId = String(latestGameplaySliceReadModel?.district?.districtId || "");
+    const serverBuildingId = String(options.serverBuildingId || "");
+    const serverBuildingTypeId = String(options.serverBuildingTypeId || "");
+    const serverInstanceId = String(
+      latestGameplaySliceReadModel?.server?.serverInstanceId
+      || latestGameplaySliceReadModel?.player?.instanceId
+      || ""
+    );
     document.dispatchEvent(new CustomEvent("empire:building-opened", {
       detail: {
         districtId: safeDistrict?.id || null,
-        buildingName: buildingLabel
+        buildingName: buildingLabel,
+        executionMode: serverAuthoritative ? "server-authoritative" : "local-demo",
+        serverDistrictId: serverAuthoritative ? serverDistrictId : null,
+        serverBuildingId: serverAuthoritative ? serverBuildingId : null,
+        serverBuildingTypeId: serverAuthoritative ? serverBuildingTypeId : null
       }
     }));
 
@@ -10348,8 +10799,19 @@ function bindDistrictCanvas(root) {
       if (popup) {
         hideDistrictPopupModal(popup);
       }
-      openGenericDistrictBuildingDetail(root, safeDistrict, buildingLabel, options.displayName || buildingLabel);
-      return true;
+      return serverAuthoritative
+        ? openServerGenericDistrictBuildingDetail(root, safeDistrict, {
+            buildingName: buildingLabel,
+            displayName: options.displayName || buildingLabel,
+            serverBuildingId,
+            serverBuildingTypeId
+          })
+        : (openGenericDistrictBuildingDetail(
+            root,
+            safeDistrict,
+            buildingLabel,
+            options.displayName || buildingLabel
+          ), true);
     }
 
     const openButton = root.querySelector(popupTarget.openSelector);
@@ -10365,6 +10827,14 @@ function bindDistrictCanvas(root) {
     }
 
     closeOtherDistrictBuildingDetailPopups(root, null);
+    if (serverAuthoritative) {
+      setActiveServerBuildingPresentationTarget({
+        buildingId: serverBuildingId,
+        buildingTypeId: serverBuildingTypeId,
+        districtId: serverDistrictId,
+        serverInstanceId
+      });
+    }
     openButton.click();
     if (popup) {
       hideDistrictPopupModal(popup);
@@ -10491,10 +10961,11 @@ function bindDistrictCanvas(root) {
     isClinicStabilizationReady: isClinicStabilizationProtocolReady,
     isDemoLiveBuildingCatalogUnlocked: () => false,
     isDistrictTypeHidden,
+    getDistrictPresentation: getSharedDistrictBuildingPresentation,
     renderBuildingsPopupDetailPanel,
     renderBuildingsPopupTypesPanel,
     renderDistrictBuildingList,
-    resolveDistrictBuildingProfile,
+    resolveDistrictBuildingProfile: resolveSharedDistrictBuildingProfile,
     elements: {
       buildingsPopup,
       buildingsPopupDetailMount,
@@ -11403,9 +11874,127 @@ function bindDistrictCanvas(root) {
     return allianceName ? `Aliance: ${allianceName}` : "";
   };
 
+  const openServerSharedDistrictPopup = (district) => {
+    if (popupRefreshTimerId !== null) {
+      window.clearInterval(popupRefreshTimerId);
+      popupRefreshTimerId = null;
+    }
+    const readModel = latestGameplaySliceReadModel || getServerGameplaySliceReadModel();
+    const serverView = createServerGameplayDistrictView(
+      readModel,
+      getServerGameplayRenderState()
+    );
+    const canonicalDistrictId = `district:${district.id}`;
+    if (!serverView || String(serverView.districtId || "") !== canonicalDistrictId) {
+      showServerDistrictLoadError({
+        district,
+        error: new Error("Serverový district view-model neodpovídá vybranému districtu.")
+      });
+      return false;
+    }
+    popup.dataset.uiOwner = "legacy-shared";
+    popup.dataset.executionMode = "server-authoritative";
+    popup.dataset.serverDistrictId = canonicalDistrictId;
+    popup.dataset.stateVersion = String(readModel?.server?.stateVersion ?? "");
+
+    if (popupCard instanceof HTMLElement) {
+      delete popupCard.dataset.serverLoading;
+      popupCard.removeAttribute("aria-busy");
+    }
+    if (districtPopupServerLoading instanceof HTMLElement) {
+      districtPopupServerLoading.hidden = true;
+      districtPopupServerLoading.removeAttribute("title");
+    }
+    popup.dataset.districtId = String(district.id);
+    popupCard.dataset.districtId = String(district.id);
+    popupCard.dataset.districtOccupationActive = "false";
+    setDestroyedDistrictPopupMode(readModel?.district?.status === "destroyed");
+    setDistrictPopupMobilePositionMode(
+      readModel?.district?.isOwnedByPlayer || serverView.actions.some((action) => action.enabled)
+        ? "raised"
+        : "default"
+    );
+
+    const summaryRows = Array.from(
+      popupSummary?.querySelectorAll?.(".district-popup-summary-card") || []
+    ).map((row) => ({
+      label: row.querySelector(".district-popup-summary-card__label"),
+      value: row.querySelector(".district-popup-summary-card__value")
+    }));
+    renderServerGameplayDistrictSummary({
+      elements: districtPopupElements,
+      summaryRows,
+      view: serverView
+    });
+
+    const presentation = serverBuildingPresentationAdapter.getDistrictPresentation(district);
+    const profileBuildings = Array.isArray(presentation?.profile?.buildings)
+      ? presentation.profile.buildings
+      : [];
+    renderDistrictBuildingList({
+      section: popupBuildings,
+      meta: popupBuildingsMeta,
+      list: popupBuildingsList
+    }, {
+      metaText: serverView.buildingMetaText,
+      interactive: presentation?.isOwnedByPlayer === true,
+      emptyText: profileBuildings.length === 0 ? serverView.buildingEmptyText : "",
+      buildings: profileBuildings.map((building) => ({
+        buildingId: building.buildingId,
+        buildingTypeId: building.buildingTypeId,
+        name: building.baseName || building.displayName,
+        label: building.baseName || building.displayName,
+        displayName: building.displayName,
+        kindLabel: resolveDistrictBuildingChipKind(
+          building.serverBuilding?.role || building.baseName || building.displayName
+        )
+      }))
+    });
+
+    const actions = createServerDistrictActionPresentation(readModel, canonicalDistrictId);
+    renderDistrictActionHub({
+      actions,
+      emptyText: actions.length === 0
+        ? "Pro tento district teď není dostupná žádná akce."
+        : "",
+      hidden: readModel?.district?.status === "destroyed",
+      headHidden: readModel?.district?.status === "destroyed"
+    }, {
+      onAction: () => {}
+    }, {
+      elements: {
+        section: districtActionSection,
+        head: districtActionSectionHead,
+        mount: districtActionsMount
+      }
+    });
+
+    if (popupGossip instanceof HTMLElement) {
+      popupGossip.hidden = true;
+    }
+    showDistrictPopupModal(popup);
+    document.dispatchEvent(new CustomEvent("empire:district-opened", {
+      detail: {
+        district,
+        districtId: district.id,
+        isOwnedByCurrentPlayer: presentation?.isOwnedByPlayer === true,
+        ownerLabel: serverView.ownerLabel
+      }
+    }));
+    applyDistrictPopupOverviewMode();
+    syncMapInteractionVisualState({
+      hoveredDistrict: geometry?.districts?.find((entry) => entry.id === interactionState.hoveredDistrictId) || null,
+      focusedDistrict: district
+    });
+    return true;
+  };
+
   const openPopup = (district) => {
     if (!popup || !popupTitle || !popupType || !popupOwner || !district) {
       return;
+    }
+    if (isServerAuthoritativeGameplayRuntimeReady()) {
+      return openServerSharedDistrictPopup(district);
     }
     if (popupCard instanceof HTMLElement) {
       delete popupCard.dataset.serverLoading;
@@ -11592,9 +12181,13 @@ function bindDistrictCanvas(root) {
 
     const resolvedActions = activePoliceAction || isOccupying
       ? []
-      : resolveDistrictActions({
+      : isServerAuthoritativeGameplayRuntimeReady()
+        ? createServerDistrictActionPresentation(
+            latestGameplaySliceReadModel,
+            `district:${district.id}`
+          )
+        : resolveDistrictActions({
           districtId: district.id,
-          serverAuthoritative: isServerAuthoritativeGameplayRuntimeReady(),
           isOwnedByCurrentPlayer,
           isDestroyed: interactionState.destroyedDistrictIds.has(district.id),
           hasAdjacentOwnedDistrict: adjacentOwnedDistrictIds.length > 0,
@@ -12105,6 +12698,7 @@ function bindDistrictCanvas(root) {
   };
   let lastWorldMapFingerprint = createWorldMapFingerprint();
   let lastServerMapFingerprints = null;
+  let lastServerVisibleSurfaceFingerprint = "";
 
   const ensureMissionAnimationLoop = () => {
     const hasActiveMissions = hasActiveMapMissions();
@@ -12207,7 +12801,7 @@ function bindDistrictCanvas(root) {
     },
     getDistrictBuildingProfile(districtId) {
       const district = districtStateApi.getDistrictById(districtId);
-      return district ? resolveDistrictBuildingProfile(district) : null;
+      return district ? resolveSharedDistrictBuildingProfile(district) : null;
     },
     selectDistrict(districtId) {
       const district = districtStateApi.getDistrictById(districtId);
@@ -12520,7 +13114,41 @@ function bindDistrictCanvas(root) {
     ensureMissionAnimationLoop();
   };
   const handleServerSliceRendered = (event) => {
-    const nextFingerprints = createGameplaySliceMapFingerprints(event?.detail?.gameplaySlice || null);
+    const nextSlice = event?.detail?.gameplaySlice || null;
+    if (nextSlice) {
+      latestGameplaySliceReadModel = nextSlice;
+    }
+    const nextSurfaceFingerprint = JSON.stringify({
+      district: nextSlice?.district || null,
+      reports: Array.isArray(nextSlice?.reports) ? nextSlice.reports.slice(0, 1) : []
+    });
+    if (
+      isServerAuthoritativeGameplayRuntimeReady()
+      && nextSurfaceFingerprint !== lastServerVisibleSurfaceFingerprint
+    ) {
+      lastServerVisibleSurfaceFingerprint = nextSurfaceFingerprint;
+      const selectedDistrict = geometry?.districts?.find(
+        (district) => Number(district.id) === Number(interactionState.selectedDistrictId)
+      ) || null;
+      if (
+        selectedDistrict
+        && popup instanceof HTMLElement
+        && !popup.hidden
+        && String(nextSlice?.district?.districtId || "") === `district:${selectedDistrict.id}`
+      ) {
+        openServerSharedDistrictPopup(selectedDistrict);
+      }
+      root.querySelectorAll("[data-district-building-detail-popup]:not([hidden])").forEach((shell) => {
+        const context = districtBuildingDetailContextByShell.get(shell);
+        if (
+          context?.authorityMode === "server-authoritative"
+          && context.serverDistrictId === String(nextSlice?.district?.districtId || "")
+        ) {
+          refreshServerGenericDistrictBuildingDetail(root, shell);
+        }
+      });
+    }
+    const nextFingerprints = createGameplaySliceMapFingerprints(nextSlice);
     const layers = diffGameplaySliceMapLayers(lastServerMapFingerprints, nextFingerprints);
     lastServerMapFingerprints = nextFingerprints;
     if (layers.length === 0) {
@@ -12704,7 +13332,9 @@ function bindDistrictCanvas(root) {
 
       openDistrictBuildingDetail(selectedDistrict, chipButton.dataset.districtBuildingName || "", {
         displayName: chipButton.dataset.districtBuildingDisplayName || "",
-        preferGenericDetail: true
+        preferGenericDetail: true,
+        serverBuildingId: chipButton.dataset.districtBuildingId || "",
+        serverBuildingTypeId: chipButton.dataset.districtBuildingType || ""
       });
     });
   }
@@ -12823,7 +13453,9 @@ function bindDistrictCanvas(root) {
 
       openDistrictBuildingDetail(district, buildingButton.dataset.buildingsOpenBuildingName || "", {
         displayName: buildingButton.dataset.buildingsOpenBuildingDisplayName || "",
-        preferGenericDetail: true
+        preferGenericDetail: true,
+        serverBuildingId: buildingButton.dataset.buildingsOpenBuildingId || "",
+        serverBuildingTypeId: buildingButton.dataset.buildingsOpenBuildingType || ""
       });
       return true;
     }
@@ -12887,19 +13519,26 @@ function bindDistrictCanvas(root) {
         return;
       }
 
-      if (isDistrictOccupationInProgress(selectedDistrict.id)) {
+      if (
+        getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.localDemo
+        && isDistrictOccupationInProgress(selectedDistrict.id)
+      ) {
         setDistrictOccupationLockedFeedback(selectedDistrict);
         return;
       }
 
-      if (actionId === "occupy" && hasActiveOccupationInProgress()) {
+      if (
+        getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.localDemo
+        && actionId === "occupy"
+        && hasActiveOccupationInProgress()
+      ) {
         setActiveOccupationLockedFeedback();
         return;
       }
 
       const executionMode = getCurrentGameplayExecutionMode();
       if (executionMode !== GAMEPLAY_EXECUTION_MODES.localDemo
-        && ["heist", "occupy", "rob", "spy", "trap"].includes(actionId)) {
+        && actionId === "heist") {
         if (!isServerAuthoritativeGameplayRuntimeReady()) {
           showWarning("Serverový gameplay slice není dostupný. Akce nebyla provedena.");
           return;
@@ -13006,6 +13645,13 @@ function bindDistrictCanvas(root) {
       }
 
       if (actionId === "trap") {
+        if (isServerAuthoritativeGameplayRuntimeReady()) {
+          populateTrapConfirmPopup(selectedDistrict);
+          if (trapConfirmPopup) {
+            showDistrictPopupModal(trapConfirmPopup);
+          }
+          return;
+        }
         const currentTrapDistrictId = getCurrentPlayerTrapDistrictId();
         const trapMoveCooldownSeconds = getCurrentPlayerTrapMoveCooldownSeconds();
 
@@ -13083,6 +13729,13 @@ function bindDistrictCanvas(root) {
       }
 
       if (actionId === "rob") {
+        if (isServerAuthoritativeGameplayRuntimeReady()) {
+          populateRobberySetupPopup(selectedDistrict);
+          if (robberySetupPopup) {
+            showDistrictPopupModal(robberySetupPopup);
+          }
+          return;
+        }
         const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
         const adjacentOwnedDistrictIds = getAdjacentDistrictIdsFromGeometry(geometry, selectedDistrict.id)
           .filter((districtId) => currentPlayerOwnedDistrictIds.has(districtId));
@@ -13948,6 +14601,7 @@ const {
   },
   getServerTickRateMs,
   submitServerFactoryCommand,
+  submitServerProductionBuildingUpgrade,
   syncBuildingDetailTopbarVisibility,
   syncFactoryProduction
 });
