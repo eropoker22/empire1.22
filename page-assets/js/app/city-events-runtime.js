@@ -724,6 +724,8 @@ export function initCityEventsRuntime() {
   const detailDeclineBtn = document.getElementById("event-detail-decline");
 
   if (!modal || !openBtn || !detailModal || !tasklist) return false;
+  modal.dataset.uiOwner = "city-events-shared";
+  detailModal.dataset.uiOwner = "city-events-shared";
   bindSharedModal(modal);
   bindSharedModal(detailModal);
 
@@ -1151,14 +1153,22 @@ export function initCityEventsRuntime() {
       if (serverSubmitPending || selectedEventTask.canStart === false) return;
       serverSubmitPending = true;
       openEventDetailModal(selectedEventTask);
-      const response = await submitServerCityEventCommand({ action: "start", id: selectedEventTask.offerId });
-      if (destroyed) return;
-      serverSubmitPending = false;
-      if (response?.accepted) {
-        closeEventDetailModal();
-      } else {
-        writeCityEventsInfo(response?.errors?.[0]?.message || "Zakázku se nepodařilo spustit.");
-        openEventDetailModal(selectedEventTask);
+      try {
+        const response = await submitServerCityEventCommand({ action: "start", id: selectedEventTask.offerId });
+        if (destroyed) return;
+        if (response?.accepted) {
+          closeEventDetailModal();
+        } else {
+          writeCityEventsInfo(response?.errors?.[0]?.message || "Zakázku se nepodařilo spustit.");
+          openEventDetailModal(selectedEventTask);
+        }
+      } catch {
+        if (!destroyed) {
+          writeCityEventsInfo("Zakázku se nepodařilo bezpečně odeslat.");
+          openEventDetailModal(selectedEventTask);
+        }
+      } finally {
+        serverSubmitPending = false;
       }
       return;
     }
@@ -1188,11 +1198,24 @@ export function initCityEventsRuntime() {
       if (serverSubmitPending || claimButton.disabled) return;
       serverSubmitPending = true;
       claimButton.disabled = true;
-      const response = await submitServerCityEventCommand({ action: "claim", id: claimButton.dataset.cityEventClaim });
-      if (destroyed) return;
-      serverSubmitPending = false;
-      if (!response?.accepted) writeCityEventsInfo(response?.errors?.[0]?.message || "Odměnu se nepodařilo vyzvednout.");
-      if (selectedAgentKey) renderTasks(selectedAgentKey);
+      try {
+        const response = await submitServerCityEventCommand({ action: "claim", id: claimButton.dataset.cityEventClaim });
+        if (destroyed) return;
+        if (!response?.accepted) {
+          writeCityEventsInfo(response?.errors?.[0]?.message || "Odměnu se nepodařilo vyzvednout.");
+        }
+      } catch {
+        if (!destroyed) {
+          writeCityEventsInfo("Odměnu se nepodařilo bezpečně vyzvednout.");
+        }
+      } finally {
+        serverSubmitPending = false;
+        if (!destroyed && selectedAgentKey) {
+          renderTasks(selectedAgentKey);
+        } else if (!destroyed) {
+          claimButton.disabled = false;
+        }
+      }
       return;
     }
     const row = target.closest("[data-event-open]");
@@ -1248,7 +1271,11 @@ export function initCityEventsRuntime() {
   };
   const restartLocalTimers = () => {
     stopLocalTimers();
-    const available = shouldRunLocalCityEvents() || shouldRunServerCityEvents();
+    const localMode = shouldRunLocalCityEvents();
+    const serverMode = shouldRunServerCityEvents();
+    modal.dataset.executionMode = serverMode ? "server-authoritative" : localMode ? "local-demo" : "disabled";
+    detailModal.dataset.executionMode = modal.dataset.executionMode;
+    const available = localMode || serverMode;
     openBtn.hidden = !available;
     openBtn.setAttribute("aria-hidden", available ? "false" : "true");
     if (!available && !modal.classList.contains("hidden")) closeModal();

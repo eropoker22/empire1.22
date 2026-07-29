@@ -43,7 +43,7 @@ describe("City Events runtime authority", () => {
     expect(source).toContain("getServerGameplaySliceReadModel()?.player?.cityEvents");
     expect(source).toContain('submitServerCityEventCommand({ action: "start", id: selectedEventTask.offerId })');
     expect(source).toContain('submitServerCityEventCommand({ action: "claim", id: claimButton.dataset.cityEventClaim })');
-    expect(source).toContain("const available = shouldRunLocalCityEvents() || shouldRunServerCityEvents()");
+    expect(source).toContain("const available = localMode || serverMode;");
     expect(source).not.toContain("submitServerCityEventCommand({ action: \"start\", id: selectedEventTask.definitionId");
   });
 
@@ -54,6 +54,16 @@ describe("City Events runtime authority", () => {
     expect(source).toContain("openSharedModal(detailModal");
     expect(source).toContain("openSharedModal(modal");
     expect(source).not.toContain('document.addEventListener("keydown", (event) => {');
+  });
+
+  it("marks one shared owner and releases pending server submits after failures", () => {
+    expect(source).toContain('modal.dataset.uiOwner = "city-events-shared";');
+    expect(source).toContain('detailModal.dataset.uiOwner = "city-events-shared";');
+    expect(source).toContain('modal.dataset.executionMode = serverMode ? "server-authoritative"');
+    expect(source).toContain("Zakázku se nepodařilo bezpečně odeslat.");
+    expect(source).toContain("Odměnu se nepodařilo bezpečně vyzvednout.");
+    expect(source.match(/finally \{/gu)).toHaveLength(2);
+    expect(source.match(/serverSubmitPending = false;/gu).length).toBeGreaterThanOrEqual(3);
   });
 
   it("uses the shared gang influence state for local unlocks", () => {
