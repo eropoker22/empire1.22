@@ -5,6 +5,7 @@ import type { ClientTransport } from "../transport";
 export interface GameplaySlicePageMountOptions {
   root: HTMLElement;
   transport?: ClientTransport;
+  presentationMode?: "full" | "controller-only";
 }
 
 export interface MountedGameplaySlicePage {

@@ -62,10 +62,18 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     client,
     createCommandId: createBrowserCommandId
   });
+  const presentationMode = options.presentationMode
+    || (options.root.dataset.gameplaySlicePresentationMode === "controller-only"
+      ? "controller-only"
+      : "full");
+  const ownsVisiblePresentation = presentationMode === "full";
+  options.root.dataset.gameplaySlicePresentationMode = presentationMode;
   const mounts = resolveMounts(options.root);
   const selectiveRenderer = createGameplaySliceSelectiveRenderer();
   let currentLoadRequest = request;
-  const districtSheetOverlay = createDistrictSheetOverlayController();
+  const districtSheetOverlay = ownsVisiblePresentation
+    ? createDistrictSheetOverlayController()
+    : null;
   let pointerOrigin: { pointerId: number; x: number; y: number; atMs: number } | null = null;
   let lastPointerTapIsValid = true;
   let lastDistrictTap = { districtId: null as string | null, atMs: 0 };
@@ -78,7 +86,7 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       districtId: undefined
     };
   };
-  const overlayBackdrop = createOverlayBackdrop({
+  const overlayBackdrop = ownsVisiblePresentation ? createOverlayBackdrop({
     mount: options.root,
     onCloseTopOverlay: (type) => {
       if (type !== "district_sheet") {
@@ -86,18 +94,18 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       }
 
       clearDistrictSheetFocus();
-      districtSheetOverlay.markClosedByBackdrop();
+      districtSheetOverlay?.markClosedByBackdrop();
       render(client.clearDistrictSelection?.() ?? client.getRenderState());
     }
-  });
+  }) : null;
   const closeDistrictSheetAfterLegacyClose = (reason: string): boolean => {
-    if (!districtSheetOverlay.isOpen() && getTopOverlay() !== "district_sheet") {
+    if (!districtSheetOverlay || (!districtSheetOverlay.isOpen() && getTopOverlay() !== "district_sheet")) {
       return false;
     }
 
     clearDistrictSheetFocus();
     districtSheetOverlay.closeFromExternal(reason);
-    overlayBackdrop.sync();
+    overlayBackdrop?.sync();
     render(client.clearDistrictSelection?.() ?? client.getRenderState());
     return true;
   };
@@ -105,7 +113,9 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     closeDistrictSheetAfterLegacyClose("legacy district popup closed");
   };
   const legacyDistrictPopup = document.querySelector<HTMLElement>(LEGACY_DISTRICT_POPUP_SELECTOR);
-  const legacyDistrictPopupObserver = typeof MutationObserver !== "undefined" && legacyDistrictPopup
+  const legacyDistrictPopupObserver = ownsVisiblePresentation
+    && typeof MutationObserver !== "undefined"
+    && legacyDistrictPopup
     ? new MutationObserver(() => {
         const isHidden = legacyDistrictPopup.hidden
           || legacyDistrictPopup.getAttribute("aria-hidden") === "true"
@@ -122,7 +132,7 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     const allowLegacyFallback = markGameplaySliceUnavailableRuntime(options.root, endpoint, message);
     writeGameplaySliceDiagnostic(endpoint, message);
     options.root.dataset.gameplaySliceUnavailable = "true";
-    if (isGameplayDiagnosticsEnabled()) {
+    if (ownsVisiblePresentation && isGameplayDiagnosticsEnabled()) {
       options.root.hidden = false;
       mounts.status.innerHTML = renderGameplaySliceDiagnostic(endpoint, message);
       mounts.topBar.innerHTML = "";
@@ -146,8 +156,10 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     delete options.root.dataset.gameplaySliceUnavailable;
     setGameplayRuntimeMarker(options.root, "server-authoritative-ready");
     options.root.dataset.lastClientRenderReason = reason;
-    options.root.hidden = false;
-    if (gameplaySlice?.spawnSelection?.status === "awaiting_spawn_selection" && !gameplaySlice.player.homeDistrictId) {
+    const spawnSelectionVisible = gameplaySlice?.spawnSelection?.status === "awaiting_spawn_selection"
+      && !gameplaySlice.player.homeDistrictId;
+    options.root.hidden = !ownsVisiblePresentation && !spawnSelectionVisible;
+    if (spawnSelectionVisible) {
       options.root.dataset.spawnSelectionVisible = "true";
     } else {
       delete options.root.dataset.spawnSelectionVisible;
@@ -175,10 +187,16 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       }
     }));
     document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", { detail: state.connection }));
+    if (!ownsVisiblePresentation && !spawnSelectionVisible) {
+      Object.values(mounts).forEach((mount) => {
+        if (mount.childNodes.length > 0) mount.replaceChildren();
+      });
+      return;
+    }
     selectiveRenderer.render(mounts, [renderGameplaySliceStatus(state), state.topBarHtml, state.mapHtml, state.sidePanelHtml], reason);
     refreshLiveCooldownLabels(options.root);
-    districtSheetOverlay.syncFromState(state);
-    overlayBackdrop.sync();
+    districtSheetOverlay?.syncFromState(state);
+    overlayBackdrop?.sync();
   }
 
   const isInsideMobileSheet = (target: EventTarget | null): target is HTMLElement =>
@@ -265,7 +283,7 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       const isRapidRepeat = action.districtId === lastDistrictTap.districtId
         && selectedAtMs - lastDistrictTap.atMs < DISTRICT_TAP_DEBOUNCE_MS;
       const isSameDistrictAsOpen = action.districtId === activeDistrictSheetId;
-      const isDistrictOpen = districtSheetOverlay.isOpen();
+      const isDistrictOpen = districtSheetOverlay?.isOpen() === true;
 
       if (isDistrictOpen && isSameDistrictAsOpen) {
         return;
@@ -330,10 +348,12 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     },
     onError: () => {
       recordGameplayPollError();
-      mounts.status.innerHTML = [
-        "<strong>Synchronizace se serverem zastarala</strong>",
-        "<span>Obnova ze serveru selhala. Zůstává poslední známý stav.</span>"
-      ].join("");
+      if (ownsVisiblePresentation) {
+        mounts.status.innerHTML = [
+          "<strong>Synchronizace se serverem zastarala</strong>",
+          "<span>Obnova ze serveru selhala. Zůstává poslední známý stav.</span>"
+        ].join("");
+      }
       document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", {
         detail: { status: "stale", lastErrorMessage: "Obnova ze serveru selhala.", staleData: true }
       }));
@@ -342,15 +362,17 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
 
   const visibilityRuntime = createGameplaySliceVisibilityRuntime({ root: options.root });
   visibilityRuntime.start();
-  legacyDistrictPopupObserver?.observe(legacyDistrictPopup as HTMLElement, {
-    attributeFilter: ["aria-hidden", "class", "hidden"],
-    attributes: true
-  });
-  document.addEventListener("empire:district-closed", handleLegacyDistrictClosed);
-  options.root.addEventListener("click", handleClick);
-  options.root.addEventListener("pointerdown", handlePointerDown);
-  options.root.addEventListener("pointerup", handlePointerUp);
-  options.root.addEventListener("pointercancel", handlePointerCancel);
+  if (ownsVisiblePresentation) {
+    legacyDistrictPopupObserver?.observe(legacyDistrictPopup as HTMLElement, {
+      attributeFilter: ["aria-hidden", "class", "hidden"],
+      attributes: true
+    });
+    document.addEventListener("empire:district-closed", handleLegacyDistrictClosed);
+    options.root.addEventListener("click", handleClick);
+    options.root.addEventListener("pointerdown", handlePointerDown);
+    options.root.addEventListener("pointerup", handlePointerUp);
+    options.root.addEventListener("pointercancel", handlePointerCancel);
+  }
   void client
     .load(request)
     .then((state) => {
@@ -398,14 +420,16 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       poller.destroy();
       visibilityRuntime.destroy();
       legacyDistrictPopupObserver?.disconnect();
-      document.removeEventListener("empire:district-closed", handleLegacyDistrictClosed);
-      options.root.removeEventListener("click", handleClick);
-      options.root.removeEventListener("pointerdown", handlePointerDown);
-      options.root.removeEventListener("pointerup", handlePointerUp);
-      options.root.removeEventListener("pointercancel", handlePointerCancel);
-      districtSheetOverlay.closeOnDestroy();
-      overlayBackdrop.sync();
-      overlayBackdrop.destroy();
+      if (ownsVisiblePresentation) {
+        document.removeEventListener("empire:district-closed", handleLegacyDistrictClosed);
+        options.root.removeEventListener("click", handleClick);
+        options.root.removeEventListener("pointerdown", handlePointerDown);
+        options.root.removeEventListener("pointerup", handlePointerUp);
+        options.root.removeEventListener("pointercancel", handlePointerCancel);
+      }
+      districtSheetOverlay?.closeOnDestroy();
+      overlayBackdrop?.sync();
+      overlayBackdrop?.destroy();
       unregisterMountedPage();
       mountedGameplaySlicePagesByRoot.delete(options.root);
       window.removeEventListener("pagehide", handlePageHide);

@@ -368,11 +368,12 @@
         <div id="game-report-root" data-mount-role="reports"></div>
       </div>
 
-      <div class="district-popup-shell" data-district-popup data-testid="district-popup" hidden>
+      <div class="district-popup-shell" data-district-popup data-ui-owner="legacy-shared" data-testid="district-popup" hidden>
         <div class="district-popup-backdrop" data-district-popup-close data-testid="district-popup-backdrop"></div>
         <div class="district-popup-card" data-district-popup-card data-testid="district-popup-card" role="dialog" aria-modal="true" aria-label="District detail">
           <button type="button" class="button district-popup-toggle" data-district-popup-toggle aria-pressed="false">Zapnout přehled</button>
           <button type="button" class="button district-popup-close" data-district-popup-close aria-label="Zavřít district okno">×</button>
+          <div class="district-popup-server-loading" data-district-popup-server-loading role="status" aria-live="polite" hidden>Načítám stav districtu…</div>
           <div class="district-modal-hero district-modal-hero--district" data-district-popup-atmosphere data-testid="district-atmosphere-trigger" role="button" tabindex="0" aria-expanded="false" aria-label="Zobrazit atmosféru distriktu">
             <img class="district-modal-hero__image" data-district-popup-atmosphere-image alt="Atmosféra distriktu" loading="lazy">
             <div class="district-modal-hero__scrim"></div>
@@ -2169,6 +2170,7 @@
         data-gameplay-slice-client
         data-gameplay-slice-endpoint-base="/api/gameplay-slice"
         data-gameplay-slice-polling="true"
+        data-gameplay-slice-presentation-mode="controller-only"
         aria-label="Server-authoritative gameplay slice"
         hidden
       >

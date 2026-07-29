@@ -12,6 +12,7 @@ export const prepareLiveGameplayBootstrap = (membership, documentRef = document)
   root.dataset.districtId = membership.reservedSpawnDistrictId;
   root.dataset.factionId = membership.factionId || "";
   root.dataset.gameplayBootstrapReady = "true";
+  root.dataset.gameplaySlicePresentationMode = "controller-only";
   documentRef.body?.classList.add("game-body--booting");
   documentRef.body?.setAttribute("data-authority-state", "booting");
   setGameShellLocked(documentRef, true);
@@ -36,7 +37,7 @@ export const mountLiveGameplayClient = async (root, documentRef = document) => {
   await ensureClientScript(documentRef);
   const mount = window.EmpireGameplaySliceClient?.mount;
   if (typeof mount !== "function") throw new Error("Gameplay client failed to initialize.");
-  const mounted = mount({ root });
+  const mounted = mount({ root, presentationMode: "controller-only" });
   if (!mounted) throw new Error("Gameplay client rejected the live bootstrap.");
   return mounted;
 };

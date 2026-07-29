@@ -168,6 +168,52 @@ describe("gameplay slice page event guard", () => {
     first?.destroy();
   });
 
+  it("controller-only mode publishes server state without mounting a second visible surface", async () => {
+    const load = vi.fn(async (request: LoadGameplaySliceRequest) => (
+      request.districtId
+        ? createGameplaySliceResponseForDistrict(request.districtId)
+        : createGameplaySliceResponse()
+    ));
+    const root = createRoot();
+    root.dataset.gameplaySlicePresentationMode = "controller-only";
+    const mapButton = document.createElement("button");
+    mapButton.dataset.districtId = "district:map:1";
+    root.append(mapButton);
+    document.body.append(root);
+    const rendered = vi.fn();
+    document.addEventListener("empire:gameplay-slice-rendered", rendered);
+
+    const mounted = mountGameplaySlicePage({
+      root,
+      presentationMode: "controller-only",
+      transport: {
+        load,
+        send: async () => createGameplaySliceResponse()
+      }
+    });
+    await flushMicrotasks();
+
+    expect(root.hidden).toBe(true);
+    expect(root.dataset.gameplaySlicePresentationMode).toBe("controller-only");
+    expect(root.querySelector("[data-gameplay-slice-map]")?.childElementCount ?? 0).toBe(0);
+    expect(rendered).toHaveBeenCalledTimes(1);
+    expect(isOverlayOpen()).toBe(false);
+
+    mapButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    await flushMicrotasks();
+    expect(load).toHaveBeenCalledTimes(1);
+
+    await window.EmpireGameplaySliceClient?.selectDistrict("district:map:2");
+    await flushMicrotasks();
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(root.hidden).toBe(true);
+    expect(rendered).toHaveBeenCalledTimes(2);
+    expect(isOverlayOpen()).toBe(false);
+
+    document.removeEventListener("empire:gameplay-slice-rendered", rendered);
+    mounted?.destroy();
+  });
+
   it("pagehide cleans the mounted authority runtime before a later remount", async () => {
     const load = vi.fn(async () => createGameplaySliceResponse());
     const transport = {
