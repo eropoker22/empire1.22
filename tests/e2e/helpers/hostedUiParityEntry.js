@@ -6,6 +6,13 @@ import { dismissOnboardingGuide } from "./empireSmokeHelpers.js";
 const canvasWidth = 1600;
 const canvasHeight = 980;
 const geometry = createDistrictGeometry(canvasWidth, canvasHeight, 0, 48, 0);
+const DEMO_GAMEPLAY_STORAGE_PATTERNS = Object.freeze([
+  /^empireStreets\.session(?:\.|$)/u,
+  /^empireStreets\.production(?:\.|$)/u,
+  /^empireStreets\.factory(?:\.|$)/u,
+  /^empire:production(?:[:.]|$)/u,
+  /^empire:factory(?:[:.]|$)/u
+]);
 
 function createIdentity(prefix = "Parity") {
   const suffix = randomBytes(6).toString("hex");
@@ -55,11 +62,19 @@ async function loadSpawnDistricts(page, serverInstanceId) {
   return response.data.districts;
 }
 
-async function selectSpawnDistrict(page, districts, preferredDistrictId) {
-  const option = districts.find((district) => (
-    district.available && district.districtId === preferredDistrictId
-  ));
-  expect(option, `Spawn district ${preferredDistrictId} must be available`).toBeTruthy();
+async function selectSpawnDistrict(page, districts, preferredDistrictIds) {
+  const candidates = (Array.isArray(preferredDistrictIds)
+    ? preferredDistrictIds
+    : [preferredDistrictIds]).map(String);
+  const option = candidates
+    .map((districtId) => districts.find((district) => (
+      district.available && district.districtId === districtId
+    )))
+    .find(Boolean);
+  expect(
+    option,
+    `One of the requested spawn districts must be available: ${candidates.join(", ")}`
+  ).toBeTruthy();
   const renderedDistrict = geometry.districts.find(
     (district) => `district:${district.id}` === option.districtId
   );
@@ -73,6 +88,7 @@ async function selectSpawnDistrict(page, districts, preferredDistrictId) {
   );
   await expect(page.getByTestId("confirm-server-district")).toBeEnabled();
   await page.getByTestId("confirm-server-district").click();
+  return option.districtId;
 }
 
 async function completeFactionSelection(page) {
@@ -84,7 +100,7 @@ async function completeFactionSelection(page) {
   await page.getByTestId("continue-to-game").click();
 }
 
-async function waitForLiveGame(page) {
+export async function waitForLiveGame(page) {
   await expect(page).toHaveURL(/\/pages\/game\.html/u, { timeout: 120_000 });
   await expect(page.locator("html")).toHaveAttribute(
     "data-runtime-mode",
@@ -102,21 +118,98 @@ async function waitForLiveGame(page) {
     await expect(milestoneModal).toBeHidden();
   }
   await dismissOnboardingGuide(page);
+  await page.evaluate(() => {
+    window.__EMPIRE_DEMO_GAMEPLAY_STORAGE_WRITES__ = [];
+  });
+}
+
+export async function installHostedUiParityInstrumentation(page) {
+  const diagnostics = {
+    consoleErrors: [],
+    pageErrors: [],
+    submitRequests: []
+  };
+  page.on("console", (message) => {
+    if (message.type() === "error") diagnostics.consoleErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => diagnostics.pageErrors.push(error.message));
+  page.on("request", (request) => {
+    if (!request.url().includes("/api/gameplay-slice/submit")) return;
+    try {
+      diagnostics.submitRequests.push(request.postDataJSON());
+    } catch {
+      diagnostics.submitRequests.push({ unreadable: true });
+    }
+  });
+  await page.addInitScript(({ storagePatterns }) => {
+    window.__EMPIRE_E2E__ = true;
+    window.__EMPIRE_DEMO_GAMEPLAY_STORAGE_WRITES__ = [];
+    const originalSetItem = Storage.prototype.setItem;
+    const originalRemoveItem = Storage.prototype.removeItem;
+    const matchesDemoGameplayKey = (key) => storagePatterns.some((source) => (
+      new RegExp(source, "u").test(String(key || ""))
+    ));
+    Storage.prototype.setItem = function setItem(key, value) {
+      if (matchesDemoGameplayKey(key)) {
+        window.__EMPIRE_DEMO_GAMEPLAY_STORAGE_WRITES__.push({
+          operation: "setItem",
+          key: String(key)
+        });
+      }
+      return originalSetItem.call(this, key, value);
+    };
+    Storage.prototype.removeItem = function removeItem(key) {
+      if (matchesDemoGameplayKey(key)) {
+        window.__EMPIRE_DEMO_GAMEPLAY_STORAGE_WRITES__.push({
+          operation: "removeItem",
+          key: String(key)
+        });
+      }
+      return originalRemoveItem.call(this, key);
+    };
+  }, {
+    storagePatterns: DEMO_GAMEPLAY_STORAGE_PATTERNS.map((pattern) => pattern.source)
+  });
+  return diagnostics;
+}
+
+export async function expectHostedUiParityClean(page, diagnostics) {
+  const storageWrites = await page.evaluate(() => (
+    window.__EMPIRE_DEMO_GAMEPLAY_STORAGE_WRITES__ || []
+  ));
+  expect(storageWrites, "Server-authoritative UI must not write demo gameplay storage").toEqual([]);
+  expect(diagnostics.consoleErrors, "Hosted parity flow must not log console errors").toEqual([]);
+  expect(diagnostics.pageErrors, "Hosted parity flow must not raise page errors").toEqual([]);
 }
 
 export async function registerAndEnterHostedUiParityGame(page, {
   serverInstanceId,
   spawnDistrictId,
+  spawnDistrictIds,
   identityPrefix = "Parity"
 } = {}) {
   expect(serverInstanceId, "EMPIRE_UI_PARITY_SERVER_ID is required").toBeTruthy();
-  expect(spawnDistrictId, "A canonical spawn district is required").toBeTruthy();
+  const requestedSpawnDistrictIds = spawnDistrictIds || [spawnDistrictId];
+  expect(
+    requestedSpawnDistrictIds.some(Boolean),
+    "At least one canonical spawn district is required"
+  ).toBe(true);
+  const diagnostics = await installHostedUiParityInstrumentation(page);
   const identity = createIdentity(identityPrefix);
   await registerAccount(page, identity);
   await openServer(page, serverInstanceId);
   const districts = await loadSpawnDistricts(page, serverInstanceId);
-  await selectSpawnDistrict(page, districts, spawnDistrictId);
+  const selectedSpawnDistrictId = await selectSpawnDistrict(
+    page,
+    districts,
+    requestedSpawnDistrictIds.filter(Boolean)
+  );
   await completeFactionSelection(page);
   await waitForLiveGame(page);
-  return { identity, serverInstanceId, spawnDistrictId };
+  return {
+    diagnostics,
+    identity,
+    serverInstanceId,
+    spawnDistrictId: selectedSpawnDistrictId
+  };
 }

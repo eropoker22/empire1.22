@@ -214,21 +214,15 @@ export async function openFirstCityEventDetail(page) {
   await expect(page.locator("#event-detail-modal")).toBeVisible();
 }
 
-function artifactDirectory(mode, viewportName) {
-  return path.resolve("artifacts", "live-demo-ui-parity", "baseline", mode, viewportName);
+function artifactDirectory(phase, mode, viewportName) {
+  return path.resolve("artifacts", "live-demo-ui-parity", phase, mode, viewportName);
 }
 
-export async function captureParitySurface(page, {
-  mode,
-  viewport,
-  surfaceName
-}) {
+export async function readParitySurfaceMetadata(page, surfaceName) {
   const definition = paritySurfaces[surfaceName];
   const target = page.locator(definition.selector).first();
   await expect(target).toBeVisible();
-  const directory = artifactDirectory(mode, viewport.name);
-  await fs.mkdir(directory, { recursive: true });
-  const metadata = await page.evaluate(({ selector, shellSelector }) => {
+  return page.evaluate(({ selector, shellSelector }) => {
     const targetElement = document.querySelector(selector);
     const shell = document.querySelector(shellSelector) || targetElement;
     const isVisible = (element) => {
@@ -241,8 +235,7 @@ export async function captureParitySurface(page, {
         && rect.width > 0
         && rect.height > 0;
     };
-    const modalCandidates = Array.from(document.querySelectorAll([
-      "[role='dialog']",
+    const ownedModalRootSelector = [
       "[data-district-popup]",
       "[data-district-building-detail-popup]",
       "[data-pharmacy-popup]",
@@ -252,7 +245,20 @@ export async function captureParitySurface(page, {
       "#events-modal",
       "#event-detail-modal",
       "[data-gameplay-slice-client]"
-    ].join(","))).filter(isVisible);
+    ].join(",");
+    const ownedModalRoots = Array.from(
+      document.querySelectorAll(ownedModalRootSelector)
+    ).filter(isVisible);
+    const unownedDialogs = Array.from(document.querySelectorAll("[role='dialog']"))
+      .filter(isVisible)
+      .filter((element) => {
+        const ownedRoot = element.closest(ownedModalRootSelector);
+        return !ownedRoot || ownedRoot === element;
+      });
+    const modalCandidates = Array.from(new Set([
+      ...ownedModalRoots,
+      ...unownedDialogs
+    ]));
     const overlays = modalCandidates.map((element) => ({
       id: element.id || null,
       owner: element.dataset.uiOwner || null,
@@ -264,10 +270,15 @@ export async function captureParitySurface(page, {
       || window.empireStreetsGameplaySliceReadModel
       || null;
     const visibleBuildingDetail = document.querySelector("[data-district-building-detail-popup]:not([hidden])");
+    const classNames = Array.from(new Set([
+      ...Array.from(shell?.classList || []),
+      ...Array.from(targetElement?.classList || []),
+      ...Array.from(shell?.querySelectorAll?.("*") || [])
+        .flatMap((element) => Array.from(element.classList || []))
+    ])).sort();
     return {
       html: shell?.outerHTML || "",
-      classNames: Array.from(new Set(Array.from(shell?.querySelectorAll?.("*") || [])
-        .flatMap((element) => Array.from(element.classList || [])))).sort(),
+      classNames,
       visibleModalCount: modalCandidates.length,
       visibleModalOwners: overlays.map((entry) => entry.owner).filter(Boolean),
       topOverlay: overlays[0] || null,
@@ -280,18 +291,73 @@ export async function captureParitySurface(page, {
         || selectedDistrict?.districtId
         || selectedDistrict?.id
         || null,
-      selectedBuildingId: visibleBuildingDetail?.dataset.districtBuildingDetailName
-        || shell?.dataset.serverBuildingId
+      selectedBuildingId: shell?.dataset.serverBuildingId
+        || visibleBuildingDetail?.dataset.serverBuildingId
+        || visibleBuildingDetail?.dataset.districtBuildingDetailName
         || shell?.dataset.buildingId
-        || null
+        || null,
+      surfaceOwner: shell?.dataset.uiOwner
+        || targetElement?.closest?.("[data-ui-owner]")?.dataset?.uiOwner
+        || null,
+      uiOwnership: window.empireUiOwnershipDiagnostics?.getSummary?.() || null
     };
   }, { selector: definition.selector, shellSelector: definition.shell });
+}
+
+export async function captureParitySurface(page, {
+  mode,
+  phase = "after",
+  viewport,
+  surfaceName
+}) {
+  const definition = paritySurfaces[surfaceName];
+  const target = page.locator(definition.selector).first();
+  await expect(target).toBeVisible();
+  const directory = artifactDirectory(phase, mode, viewport.name);
+  await fs.mkdir(directory, { recursive: true });
+  const metadata = await readParitySurfaceMetadata(page, surfaceName);
   const basePath = path.join(directory, surfaceName);
-  await target.screenshot({ path: `${basePath}.png`, animations: "disabled" });
+  const dynamicMasks = target.locator([
+    "[data-production-progress]",
+    "[data-production-countdown]",
+    "[data-countdown]",
+    "[data-city-events-countdown]",
+    "time"
+  ].join(","));
+  await target.screenshot({
+    path: `${basePath}.png`,
+    animations: "disabled",
+    mask: await dynamicMasks.count() ? [dynamicMasks] : []
+  });
   await fs.writeFile(`${basePath}.html`, metadata.html, "utf8");
   await fs.writeFile(`${basePath}.json`, `${JSON.stringify({
     ...metadata,
     html: undefined
   }, null, 2)}\n`, "utf8");
   return metadata;
+}
+
+export async function getParitySurfaceSignature(page, surfaceName) {
+  const metadata = await readParitySurfaceMetadata(page, surfaceName);
+  return {
+    owner: metadata.surfaceOwner,
+    canonicalClassNames: metadata.classNames.filter((className) => (
+      !/^(?:is|has|tone|state|status|theme|mode)--?/u.test(className)
+      && !/(?:loading|disabled|active|selected|server-authoritative|local-demo)/u.test(className)
+    )),
+    selectedDistrictId: metadata.selectedDistrictId,
+    selectedBuildingId: metadata.selectedBuildingId,
+    visibleModalCount: metadata.visibleModalCount
+  };
+}
+
+export async function expectNoDuplicateVisibleUi(page) {
+  const summary = await page.evaluate(() => (
+    window.empireUiOwnershipDiagnostics?.check?.("playwright-assertion")
+    || window.empireUiOwnershipDiagnostics?.getSummary?.()
+    || null
+  ));
+  expect(summary, "Development UI ownership diagnostics must be active").toBeTruthy();
+  expect(summary.violations || [], "Only one visible renderer may own each surface").toEqual([]);
+  return summary;
 }
