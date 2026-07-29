@@ -22,7 +22,7 @@ export function formatDistrictIncomeLabel(hourlyIncome = 0, options = {}) {
   }
 
   if (options.destroyed) {
-    return "V piči, zničen.";
+    return "District zničen.";
   }
 
   return `${formatDistrictMoneyAmount(hourlyIncome)}/hod`;
