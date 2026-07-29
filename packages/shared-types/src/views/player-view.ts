@@ -34,6 +34,7 @@ export interface PlayerView {
   factionId: PlayerFactionId;
   homeDistrictId: DistrictId | null;
   color: PlayerColorHex;
+  profile?: PlayerProfilePresentationView | null;
   serverTime: string;
   resourceBalances: Record<string, number>;
   /** Present on gameplay read models from the authoritative server. */
@@ -61,6 +62,12 @@ export interface PlayerView {
   alliance?: PlayerAllianceLifecycleView | null;
   notifications: Notification[];
   victoryState: VictoryState | null;
+}
+
+export interface PlayerProfilePresentationView {
+  displayName: string;
+  gangName: string;
+  avatarId: string | null;
 }
 
 export interface PlayerAttackWeaponsView {

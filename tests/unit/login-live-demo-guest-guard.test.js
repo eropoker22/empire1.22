@@ -5,14 +5,14 @@ import { resolve } from "node:path";
 const source = readFileSync(resolve(process.cwd(), "page-assets/js/login-live.js"), "utf8");
 
 describe("live login demo guest access", () => {
-  it("exposes the explicit demo link only on loopback hosts", () => {
-    expect(source).toContain("isLocalDemoAccessAvailable");
+  it("offers the local demo entry only through the loopback gate", () => {
     expect(source).toContain("runtimeMode=local-demo&mode=${state.activeMode}&autoStartLocalDemo=1");
     expect(source).toContain('guestButton.textContent = "SPUSTIT LOKÁLNÍ DEMO"');
     expect(source).toContain("STORAGE_KEYS.guestUsername");
     expect(source).toContain("STORAGE_KEYS.guestGangName");
-    expect(source).toContain("guestAccess.hidden = true");
-    expect(source).toContain("guestAccess.hidden = false");
+    expect(source).toContain("isLocalDemoAccessAvailable()");
+    expect(source).toContain("guestAccess.hidden = !localDemoAvailable");
+    expect(source).toContain("if (!localDemoAvailable) return");
   });
 
   it("keeps the live mode cards and lobby destination synchronized", () => {

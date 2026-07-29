@@ -1,4 +1,5 @@
 import { readGameplaySessionCookie } from "./gameplay-session-cookie";
+import { requiresHostedRuntimeAuthority } from "./hosted-runtime-authority-environment";
 
 export interface GameplaySliceFunctionEvent {
   httpMethod: string;
@@ -27,6 +28,6 @@ export const resolveGameplaySessionToken = (
 ): string | null => {
   const cookieToken = String(readGameplaySessionCookie(headers) ?? "").trim();
   if (cookieToken) return cookieToken;
-  if (environment.NODE_ENV === "production") return null;
+  if (requiresHostedRuntimeAuthority(environment)) return null;
   return String(bodySessionToken ?? "").trim() || null;
 };

@@ -1,19 +1,36 @@
 import type {
+  AdminAuditEntryView,
   AdminControlPlaneAvailabilityView,
-  AdminHostedServerView,
   AdminInstanceDetailView,
-  AdminInstanceSummaryView,
   AdminOverviewView,
   AdminSessionView
 } from "@empire/shared-types";
-import { renderAdminCreateWizard } from "./admin-create-wizard-view";
-import { renderAdminRegistration, renderAdminStartReadiness } from "./admin-registration-view";
+import { renderAdminAudit } from "./admin-audit-view";
+import { renderAdminCommandCenter } from "./admin-command-center-view";
+import { renderAdminControlPlane, renderAdminServers } from "./admin-control-plane-view";
+import { renderAdminInstanceDetail } from "./admin-instance-detail-view";
+import { renderAdminOperationsAlerts } from "./admin-operations-alerts-view";
+import {
+  adminIcon,
+  attribute,
+  escapeHtml,
+  formatTime
+} from "./admin-view-helpers";
+import type { AdminServerFilterState } from "./admin-app-dom";
+
+export type AdminRefreshStatus = "loading" | "current" | "backoff" | "paused";
+
+export interface AdminDashboardNotice {
+  tone: "success" | "warning" | "danger";
+  title: string;
+  message: string;
+}
 
 export const renderLogin = (message = "Přihlaste se do admin konzole."): string => `
   <section class="admin-login" aria-labelledby="admin-login-title">
     <p class="admin-boot__eyebrow">Empire Streets</p>
     <h1 id="admin-login-title">Admin konzole</h1>
-    <p>${escape(message)}</p>
+    <p>${escapeHtml(message)}</p>
     <form data-admin-login>
       <label><span>Uživatelské jméno</span><input data-admin-username type="text" autocomplete="username" required></label>
       <label><span>Heslo</span><input data-admin-password type="password" autocomplete="current-password" required></label>
@@ -23,12 +40,18 @@ export const renderLogin = (message = "Přihlaste se do admin konzole."): string
   </section>`;
 
 export const renderLoading = (): string => `
-  <section class="admin-login" role="status"><p class="admin-boot__eyebrow">Read-only monitoring</p><h1>Načítám admin konzoli...</h1></section>`;
+  <section class="admin-login admin-loading" role="status" aria-live="polite">
+    <p class="admin-boot__eyebrow">Empire Streets</p><h1>Načítám Control Center</h1>
+    <div class="admin-loading__skeleton" aria-hidden="true"><span></span><span></span><span></span></div>
+    <p>Ověřuji session a serverové read modely.</p>
+  </section>`;
 
 export const renderUnavailable = (detail: string): string => `
-  <section class="admin-login" role="alert"><p class="admin-boot__eyebrow">Read-only monitoring</p>
-    <h1>ADMIN SERVER NEDOSTUPNÝ</h1><p>${escape(detail)}</p>
-    <button class="admin-button admin-button--primary" type="button" data-admin-refresh>Obnovit</button>
+  <section class="admin-login" role="alert"><p class="admin-boot__eyebrow">Empire Streets</p>
+    <h1>Admin server nedostupný</h1><p>Control Center se právě nemůže bezpečně připojit.</p>
+    <button class="admin-button admin-button--primary" type="button" data-admin-refresh>${adminIcon("refresh")}<span data-admin-refresh-label>Obnovit</span></button>
+    <details class="admin-disclosure admin-disclosure--technical"><summary><span>Technický detail</span><small>Bez citlivých údajů</small></summary>
+      <p class="admin-copy">${escapeHtml(detail)}</p></details>
   </section>`;
 
 export const renderDashboard = (input: {
@@ -40,194 +63,137 @@ export const renderDashboard = (input: {
   wizardOpen: boolean;
   wizardStep: number;
   frontendBuildSha?: string | null;
+  localDevelopment?: boolean;
+  auditEntries?: AdminAuditEntryView[] | null;
+  auditError?: string | null;
+  refreshStatus?: AdminRefreshStatus;
+  lastSuccessfulRefreshAt?: string | null;
+  refreshError?: string | null;
+  serverFilters?: AdminServerFilterState;
+  mobileNavOpen?: boolean;
+  notice?: AdminDashboardNotice | null;
 }): string => `
-  <aside class="admin-sidebar">
-    <div class="admin-brand"><span class="admin-brand__mark">ES</span><div><p>Empire Streets</p><strong>Admin</strong></div></div>
-    <nav class="admin-nav" aria-label="Sekce admin konzole">
-      ${nav("overview", "Overview")}${nav("servers", "Servery")}${nav("players", "Hráči")}${nav("map", "Mapa")}
-      ${nav("economy", "Ekonomika")}${nav("production", "Výroba")}${nav("police", "Police")}${nav("liveness", "Liveness")}
-      ${nav("snapshots", "Snapshoty")}${nav("commands", "Commands")}${nav("events", "Events")}${nav("diagnostics", "Diagnostics")}
-    </nav>
-  </aside>
+  ${renderSidebar(input)}
   <section class="admin-main">
-    <header class="admin-topbar">
-      <div class="admin-topbar__title"><p>Durable control plane</p><h1>Read-only admin</h1></div>
-      <div class="admin-topbar__controls">
-        <div class="admin-profile"><span>Operátor</span><strong>${escape(input.session.displayName)} · ${escape(input.session.role)}</strong></div>
-        <button class="admin-button" type="button" data-admin-refresh>Obnovit</button>
-        <button class="admin-button" type="button" data-admin-logout>Odhlásit</button>
-      </div>
-    </header>
+    ${renderTopbar(input)}
     <div class="admin-content">
-      ${renderOverview(input.overview)}
-      ${renderControlPlane(input.controlPlane, input.session, input.wizardOpen, input.wizardStep, input.selectedInstanceId,
-        input.frontendBuildSha ?? null)}
-      ${renderServers(input.overview.instances, input.selectedInstanceId)}
-      ${input.selectedInstanceId ? renderDetail(input.detail) : renderNoSelection()}
+      ${renderNotice(input.notice)}
+      ${renderAdminCommandCenter({
+        overview: input.overview,
+        controlPlane: input.controlPlane,
+        detail: input.detail,
+        selectedInstanceId: input.selectedInstanceId
+      })}
+      ${renderAdminOperationsAlerts({
+        overview: input.overview,
+        controlPlane: input.controlPlane,
+        detail: input.detail,
+        refreshError: input.refreshError
+      })}
+      <div class="admin-operations-workspace">
+        <div class="admin-operations-workspace__registry">
+          ${renderAdminServers(input.overview.instances, input.selectedInstanceId, input.serverFilters ?? {
+            query: "", status: "all", mode: "all", worker: "all"
+          })}
+        </div>
+        <div class="admin-operations-workspace__control">
+          ${renderAdminControlPlane({
+            control: input.controlPlane,
+            session: input.session,
+            wizardOpen: input.wizardOpen,
+            wizardStep: input.wizardStep,
+            selectedInstanceId: input.selectedInstanceId,
+            frontendBuildSha: input.frontendBuildSha ?? null,
+            localDevelopment: input.localDevelopment === true
+          })}
+        </div>
+      </div>
+      ${input.selectedInstanceId ? renderAdminInstanceDetail(input.detail) : renderNoSelection()}
+      ${renderAdminAudit({ role: input.session.role, entries: input.auditEntries ?? null, error: input.auditError })}
     </div>
   </section>`;
 
-const renderOverview = (overview: AdminOverviewView): string => `
-  <section id="admin-overview" class="admin-section-anchor">
-    <div class="admin-section__head"><div><p>Overview</p><h2>Autoritativní stav instancí</h2></div>${badge("DB AVAILABLE", "success")}</div>
-    <div class="admin-metrics">
-      ${metric("Známé servery", overview.counts.known)}${metric("Live", overview.counts.live)}${metric("Stale", overview.counts.stale)}
-      ${metric("Offline", overview.counts.offline)}${metric("No worker", overview.counts.noWorker)}${metric("Failed", overview.counts.failed)}
-      ${metric("Running", overview.counts.running)}${metric("Lobby", overview.counts.lobby)}${metric("Paused", overview.counts.paused)}
-      ${metric("Hráči", overview.counts.players)}
+const renderSidebar = (input: Parameters<typeof renderDashboard>[0]): string => {
+  const control = input.controlPlane;
+  const healthy = control?.databaseAvailable && control.workerStatus === "online" && !control.unavailableCode;
+  const hasDetail = Boolean(input.detail);
+  const selectedHosted = control?.servers.find((server) => server.serverInstanceId === input.selectedInstanceId);
+  const mobileOpen = input.mobileNavOpen === true;
+  return `<aside class="admin-sidebar">
+    <div class="admin-brand">
+      <span class="admin-brand__mark">ES</span><div><p>Empire Streets</p><strong>Admin</strong></div>
     </div>
-    <p class="admin-copy">Data vygenerována ${time(overview.generatedAt)}. Stav LIVE určuje durable heartbeat, ne úspěch HTTP requestu.</p>
-  </section>`;
-
-const renderControlPlane = (control: AdminControlPlaneAvailabilityView | null, session: AdminSessionView,
-  wizardOpen: boolean, wizardStep: number, selectedInstanceId: string | null, frontendBuildSha: string | null): string => {
-  if (!control) return `<section class="admin-panel" role="status"><h3>Načítám control plane...</h3></section>`;
-  const frontendCompatible = Boolean(frontendBuildSha)
-    && frontendBuildSha === control.apiBuildSha
-    && control.buildCompatibility === "current";
-  const accountPlatformReady = control.databaseAvailable && control.migrationsCurrent
-    && control.sessionSecurity === "current" && control.originPolicy === "current" && frontendCompatible;
-  const gameHostingDeployed = control.writesEnabled && control.provisioningEnabled
-    && control.workerStatus === "online" && Boolean(control.workerBuildSha);
-  const ready = !control.unavailableCode && frontendCompatible && session.role !== "viewer";
-  const selected = control.servers.find((entry) => entry.serverInstanceId === selectedInstanceId) ?? null;
-  return `<section id="admin-control-plane" class="admin-panel admin-section-anchor">
-    <div class="admin-panel__head"><div><span>Hosted control plane</span><h3>Provisioning a lifecycle</h3></div>
-      ${badge(control.unavailableCode ?? "WRITES ENABLED", ready ? "success" : "warning")}</div>
-    <div class="admin-kv-grid">${kv("Account platform", accountPlatformReady ? "READY" : "BLOCKED")}
-      ${kv("Game hosting", gameHostingDeployed ? "DEPLOYED" : "NOT DEPLOYED")}
-      ${kv("Database", control.databaseAvailable ? "AVAILABLE" : "UNAVAILABLE")}
-      ${kv("Migrace", control.migrationsCurrent ? "CURRENT" : "PENDING")}${kv("Worker", control.workerStatus.toUpperCase())}
-      ${kv("Provisioning", control.provisioningEnabled ? "ENABLED" : "DISABLED")}
-      ${kv("Build parity", frontendCompatible ? "CURRENT" : "BLOCKED")}
-      ${kv("Session security", (control.sessionSecurity ?? "blocked").toUpperCase())}
-      ${kv("Origin policy", (control.originPolicy ?? "blocked").toUpperCase())}
-      ${kv("Registrace", control.registrationEnabled ? "ENABLED" : "DISABLED")}
-      ${kv("Frontend SHA", frontendBuildSha ?? "NEZNÁMÉ")}${kv("API SHA", control.apiBuildSha ?? "NEZNÁMÉ")}
-      ${kv("Worker SHA", control.workerBuildSha ?? "NEZNÁMÉ")}${kv("Schema", control.schemaVersion ?? "NEZNÁMÉ")}</div>
-    ${renderBuildCompatibility(frontendBuildSha, control.apiBuildSha, control.workerBuildSha, gameHostingDeployed)}
-    ${ready && !wizardOpen ? `<button class="admin-button admin-button--primary" type="button" data-admin-create-open>Vytvořit server</button>` : ""}
-    ${wizardOpen && ready ? renderAdminCreateWizard(wizardStep) : ""}
-    ${selected && ready ? renderLifecycle(selected, session) : ""}
-  </section>`;
+    <button class="admin-button admin-button--ghost admin-nav-toggle" type="button" data-admin-nav-toggle
+      aria-expanded="${mobileOpen}" aria-controls="admin-primary-nav">${adminIcon("menu")}<span>Navigace</span></button>
+    <div class="admin-brand__statusline" data-state="${healthy ? "healthy" : "warning"}"><span></span><div><strong>${healthy ? "SYSTEM ONLINE" : "VYŽADUJE KONTROLU"}</strong>
+      <small>${control ? `DB ${control.databaseAvailable ? "available" : "unavailable"} · worker ${control.workerStatus}` : "Načítám control plane"}</small></div>
+    </div>
+    <nav id="admin-primary-nav" class="admin-nav" data-open="${mobileOpen}" aria-label="Sekce admin konzole">
+      <div class="admin-nav__group"><span>Hlavní</span>
+        ${nav("overview", "Přehled", "overview")}${nav("servers", "Servery", "server")}
+        ${input.detail?.players.length ? nav("players", "Hráči", "players") : ""}
+      </div>
+      <details class="admin-nav__disclosure" open>
+        <summary>Provoz</summary>
+        ${control ? nav("control-plane", "Control plane", "control") : ""}
+        ${selectedHosted ? nav("registration", "Registrace", "registration") : ""}
+        ${hasDetail ? nav("instance-detail", "Herní stav", "game") : ""}
+      </details>
+      <details class="admin-nav__disclosure">
+        <summary>Systém</summary>
+        ${control ? nav("builds", "Buildy", "build") : ""}
+        ${input.detail?.diagnostics.length ? nav("diagnostics", "Diagnostika", "diagnostics") : ""}
+        ${input.detail ? nav("snapshots", "Snapshoty", "snapshot") : ""}
+        ${input.session.role === "owner" ? nav("audit", "Audit trail", "diagnostics") : ""}
+      </details>
+    </nav>
+    <div class="admin-sidebar-card"><span>Oprávnění</span><strong>${escapeHtml(roleLabel(input.session.role))}</strong>
+      <p>${escapeHtml(input.session.displayName)}<br>Session do ${formatTime(input.session.expiresAt)}</p></div>
+  </aside>`;
 };
 
-const renderBuildCompatibility = (
-  frontend: string | null,
-  api?: string | null,
-  worker?: string | null,
-  gameHostingDeployed = true
-): string => {
-  if (!gameHostingDeployed) {
-    if (!frontend || !api) {
-      return `<p class="admin-notice">Build účtové platformy nelze potvrdit, protože frontend nebo API SHA chybí.</p>`;
-    }
-    return frontend === api
-      ? `<p class="admin-copy">Frontend a API běží ze stejného buildu. Herní worker není nasazený.</p>`
-      : `<p class="admin-notice">POZOR: Frontend a API neběží ze stejného SHA. Herní worker není nasazený.</p>`;
-  }
-  const values = [frontend, api ?? null, worker ?? null];
-  if (values.some((value) => !value)) {
-    return `<p class="admin-notice">Kompatibilitu buildů nelze potvrdit, protože alespoň jedno SHA chybí.</p>`;
-  }
-  return new Set(values).size === 1
-    ? `<p class="admin-copy">Frontend, API a worker běží ze stejného buildu.</p>`
-    : `<p class="admin-notice">POZOR: Frontend, API a worker neběží ze stejného SHA.</p>`;
+const renderTopbar = (input: Parameters<typeof renderDashboard>[0]): string => {
+  const status = input.refreshStatus ?? "current";
+  const statusLabel = {
+    loading: "OBNOVUJI DATA",
+    current: "DATA AKTUÁLNÍ",
+    backoff: "OBNOVA OMEZENA",
+    paused: "POLLING POZASTAVEN"
+  }[status];
+  const environment = input.localDevelopment ? "LOCAL" : "HOSTED";
+  return `<header class="admin-topbar">
+    <div class="admin-topbar__title"><p>${environment} · Provozní přehled</p><h1>Empire Streets Control Center</h1></div>
+    <div class="admin-topbar__controls">
+      <div class="admin-refresh-state" data-admin-refresh-state data-state="${attribute(status)}" aria-live="polite">
+        <span>${statusLabel}</span><small>${input.lastSuccessfulRefreshAt ? `naposledy ${formatTime(input.lastSuccessfulRefreshAt)}` : "čekám na první read model"}</small>
+      </div>
+      <div class="admin-profile"><span>${escapeHtml(environment)}</span><strong>${escapeHtml(input.session.displayName)}</strong><small>${escapeHtml(input.session.role)}</small></div>
+      <button class="admin-button admin-button--icon" type="button" data-admin-refresh aria-label="Ručně obnovit data"
+        ${status === "loading" ? "disabled aria-busy=\"true\"" : "aria-busy=\"false\""}>
+        ${adminIcon("refresh")}<span data-admin-refresh-label>${status === "loading" ? "Obnovuji…" : "Obnovit"}</span>
+      </button>
+      <button class="admin-button admin-button--ghost admin-button--icon" type="button" data-admin-logout>
+        ${adminIcon("logout")}<span>Odhlásit</span>
+      </button>
+    </div>
+  </header>`;
 };
 
-const renderLifecycle = (server: AdminHostedServerView, session: AdminSessionView): string => `
-  <div class="admin-lifecycle"><h4>Lifecycle: ${escape(server.displayName)}</h4>
-    <p>${pill(server.status)} ${pill(server.provisioningState)} · version ${server.version}</p>
-    <div class="admin-kv-grid">${kv("Šablona", server.serverTemplate === "full" ? "Plnohodnotný server" : "Kontrolní test")}
-      ${kv("Committed players", server.committedPlayers ?? 0)}
-      ${kv("Reserved slots", server.reservedSlots ?? 0)}${kv("Capacity", server.capacity)}
-      ${kv("Join policy", server.joinPolicy)}${kv("Lease owner", server.runtimeLeaseOwnerId)}
-      ${kv("Last error", server.lastErrorCode)}</div>
-    ${renderAdminRegistration(server, session)}
-    ${renderAdminStartReadiness(server)}
-    <label><span>Důvod akce</span><input data-admin-action-reason minlength="3" maxlength="240" required></label>
-    <div class="admin-lifecycle__actions">
-      ${lifecycleButton(server, "start", "Start")}${lifecycleButton(server, "pause", "Pause")}
-      ${lifecycleButton(server, "resume", "Resume")}${lifecycleButton(server, "restart", "Safe restart")}
-      ${session.role === "owner" ? lifecycleButton(server, "stop", "Stop") : ""}
-    </div><p data-admin-action-error role="alert"></p>
-  </div>`;
-const lifecycleButton = (server: AdminHostedServerView, action: string, label: string) => {
-  const unavailableReason = lifecycleUnavailableReason(server, action);
-  const disabled = unavailableReason
-    ? ` disabled aria-disabled="true" title="${attr(unavailableReason)}"`
-    : "";
-  return `<button class="admin-button" type="button" data-admin-lifecycle="${attr(action)}" data-admin-server-id="${attr(server.serverInstanceId)}"${disabled}>${escape(label)}</button>`;
-};
-
-const lifecycleUnavailableReason = (server: AdminHostedServerView, action: string): string | null => {
-  if (server.provisioningState !== "ready") return "Počkejte na dokončení provisioningu.";
-  if (action === "start") {
-    if (server.status !== "lobby") return "Spustit lze pouze server v lobby.";
-    if (server.canStart !== true) return server.startDisabledReason || "Čekám na autoritativní stav připravených hráčů.";
-    return null;
-  }
-  if (action === "pause") return server.status === "running" ? null : "Pozastavit lze pouze běžící server.";
-  if (action === "resume") return server.status === "paused" ? null : "Pokračovat lze pouze u pozastaveného serveru.";
-  if (action === "restart") return server.status === "running" ? null : "Restartovat lze pouze běžící server.";
-  if (action === "stop") return ["lobby", "running", "paused", "restarting"].includes(server.status)
-    ? null
-    : "Server už nelze zastavit.";
-  return "Akce není dostupná.";
-};
-
-const renderServers = (instances: AdminInstanceSummaryView[], selected: string | null): string => `
-  <section id="admin-servers" class="admin-panel admin-section-anchor">
-    <div class="admin-panel__head"><div><span>Servery</span><h3>Durable instance registry</h3></div>${badge(`${instances.length} INSTANCÍ`, "info")}</div>
-    ${instances.length === 0 ? `<p class="admin-copy">Žádné instance.</p>` : table(
-      ["Instance", "Mode / region", "Status", "Worker", "Hráči", "Snapshot", "Heartbeat"],
-      instances.map((item) => `<tr class="${item.serverInstanceId === selected ? "is-selected" : ""}">
-        <td><a href="?instance=${encodeURIComponent(item.serverInstanceId)}" data-admin-instance="${attr(item.serverInstanceId)}"><strong>${escape(item.displayName)}</strong><br><small>${escape(item.serverInstanceId)}</small></a></td>
-        <td>${escape(item.mode)} / ${escape(item.region)}</td><td>${pill(item.status)}</td><td>${pill(item.workerStatus)}</td>
-        <td>${item.playerCount} / ${item.capacity}</td><td>${time(item.lastSnapshotAt)}</td><td>${time(item.lastHeartbeatAt)}</td></tr>`).join(""))}
-  </section>`;
+const renderNotice = (notice: AdminDashboardNotice | null | undefined): string => notice ? `
+  <aside class="admin-action-notice admin-action-notice--${attribute(notice.tone)}" role="status">
+    <div><strong>${escapeHtml(notice.title)}</strong><span>${escapeHtml(notice.message)}</span></div>
+    <button class="admin-button admin-button--ghost" type="button" data-admin-notice-dismiss>Zavřít</button>
+  </aside>` : "";
 
 const renderNoSelection = (): string => `
-  <section class="admin-panel" role="status"><div class="admin-panel__head"><div><span>Detail</span><h3>Vyberte instanci</h3></div></div>
-    <p class="admin-copy">Bez explicitně vybrané instance se detailní data nenačítají.</p></section>`;
+  <section class="admin-empty-state" role="status"><span aria-hidden="true">◇</span><div><h3>Vyberte instanci</h3>
+    <p>Detailní data se načtou až po explicitním výběru serveru.</p></div></section>`;
 
-const renderDetail = (detail: AdminInstanceDetailView | null): string => detail ? `
-  <section class="admin-section-anchor">
-    <div class="admin-section__head"><div><p>Instance detail</p><h2>${escape(detail.summary.displayName)}</h2><small>${escape(detail.serverInstanceId)}</small></div>
-      ${badge(detail.summary.workerStatus.toUpperCase(), detail.summary.workerStatus === "live" ? "success" : "warning")}</div>
-    <div class="admin-kv-grid">${kv("Mode", detail.summary.mode)}${kv("Region", detail.summary.region)}${kv("Status", detail.summary.status)}
-      ${kv("Join policy", detail.summary.joinPolicy)}${kv("Tick", detail.summary.currentTick)}${kv("State version", detail.summary.stateVersion)}
-      ${kv("Snapshot", time(detail.summary.lastSnapshotAt))}${kv("Heartbeat", time(detail.summary.lastHeartbeatAt))}${kv("Lease owner", detail.summary.leaseOwner)}</div>
-    ${detail.runtimeAvailable ? "" : `<p class="admin-notice">Live runtime není dostupný. Zobrazená data pocházejí z durable snapshotu a mohou být stale.</p>`}
-  </section>
-  ${section("players", "Hráči", table(["Hráč", "Stav", "Districty", "Cash", "Heat"], detail.players.map((row) => `<tr><td>${escape(row.displayName)}<br><small>${escape(row.playerId)}</small></td><td>${escape(row.status)}</td><td>${row.ownedDistrictCount}</td><td>${row.cash}</td><td>${row.heat}</td></tr>`).join("")))}
-  ${section("map", "Mapa", table(["District", "Zone", "Owner", "Heat", "Buildings"], detail.districts.map((row) => `<tr><td>${escape(row.name)}<br><small>${escape(row.districtId)}</small></td><td>${escape(row.zone)}</td><td>${escape(row.ownerPlayerId ?? "-")}</td><td>${row.heat}</td><td>${row.buildingCount}</td></tr>`).join("")))}
-  ${section("economy", "Ekonomika", `<div class="admin-kv-grid">${kv("Clean cash", detail.economy.totalCleanCash)}${kv("Dirty cash", detail.economy.totalDirtyCash)}${kv("Resources", Object.values(detail.economy.totalResources).reduce((sum, value) => sum + value, 0))}</div>`)}
-  ${section("production", "Výroba", `<div class="admin-kv-grid">${kv("Buildings", detail.production.productionBuildingCount)}${kv("Ready", detail.production.readyToCollectCount)}${kv("Crafts", detail.production.activeCraftCount)}${kv("Storage full", detail.production.storageFullCount)}</div>`)}
-  ${section("police", "Police", `<div class="admin-kv-grid">${kv("Pressure", detail.police.heatPressure)}${kv("Max heat", detail.police.maxPlayerHeat)}${kv("Wanted", detail.police.wantedPlayerCount)}${kv("Raids", detail.police.pendingRaidCount)}</div>`)}
-  ${section("liveness", "Liveness", `<div class="admin-kv-grid">${kv("Active", detail.liveness.activePlayers)}${kv("Playable", detail.liveness.playablePlayers)}${kv("Sealed", detail.liveness.temporarilySealedPlayers)}${kv("Softlocks", detail.liveness.invalidSoftlocks)}</div>`)}
-  ${section("snapshots", "Snapshot persistence", `<div class="admin-kv-grid">
-    ${kv("Recovery head tick", detail.snapshot.tick)}${kv("Recovery head root version", detail.snapshot.stateVersion)}
-    ${kv("Recovery head updated", time(detail.snapshot.createdAt))}${kv("Last checkpoint", time(detail.snapshot.lastCheckpointAt ?? null))}
-    ${kv("Rolling checkpoints", detail.snapshot.rollingCheckpointCount ?? 0)}
-    ${kv("Lifecycle checkpoints", detail.snapshot.lifecycleCheckpointCount ?? 0)}
-    ${kv("Terminal checkpoints", detail.snapshot.terminalCheckpointCount ?? 0)}
-    ${kv("Last cleanup", time(detail.snapshot.lastCleanupAt ?? null))}
-    ${kv("Cleanup status", detail.snapshot.lastCleanupStatus ?? "unavailable")}
-    ${kv("Storage health", detail.snapshot.storageHealth ?? "unavailable")}
-  </div>`)}
-  ${section("commands", "Commands", table(["Type", "Command", "Actor", "Tick", "Received"], detail.commands.map((row) => `<tr><td>${escape(row.commandType)}</td><td>${escape(row.commandId)}</td><td>${escape(row.actorId)}</td><td>${row.tickAtReceive}</td><td>${time(row.receivedAt)}</td></tr>`).join("")))}
-  ${section("events", "Events", table(["Type", "Event", "Command", "Tick", "Occurred"], detail.events.map((row) => `<tr><td>${escape(row.eventType)}</td><td>${escape(row.eventId)}</td><td>${escape(row.causedByCommandId ?? "-")}</td><td>${row.tick}</td><td>${time(row.occurredAt)}</td></tr>`).join("")))}
-  ${section("diagnostics", "Diagnostics", table(["Level", "Category", "Code", "Command", "Occurred"], detail.diagnostics.map((row) => `<tr><td>${pill(row.level)}</td><td>${escape(row.category)}</td><td>${escape(row.messageCode)}</td><td>${escape(row.commandId ?? "-")}</td><td>${time(row.occurredAt)}</td></tr>`).join("")))}
-` : `<section class="admin-panel" role="status"><h3>Načítám detail instance...</h3></section>`;
+const nav = (id: string, label: string, icon: Parameters<typeof adminIcon>[0]): string =>
+  `<a class="admin-nav__item" href="#admin-${attribute(id)}">${adminIcon(icon)}<strong>${escapeHtml(label)}</strong></a>`;
 
-const nav = (id: string, label: string) => `<a class="admin-nav__item" href="#admin-${id}"><span class="admin-nav__dot"></span><strong>${escape(label)}</strong></a>`;
-const section = (id: string, title: string, body: string) => `<section id="admin-${id}" class="admin-panel admin-section-anchor"><div class="admin-panel__head"><div><span>Instance</span><h3>${escape(title)}</h3></div></div>${body}</section>`;
-const metric = (label: string, value: number) => `<article class="admin-metric"><span>${escape(label)}</span><strong>${value}</strong></article>`;
-const kv = (label: string, value: unknown) => `<span><small>${escape(label)}</small><strong>${escape(value ?? "-")}</strong></span>`;
-const badge = (label: string, tone: string) => `<span class="admin-badge admin-badge--${tone}">${escape(label)}</span>`;
-const pill = (value: string) => `<span class="admin-table-status">${escape(value)}</span>`;
-const table = (headers: string[], rows: string) => `<div class="admin-table-wrap"><table class="admin-table"><thead><tr>${headers.map((head) => `<th>${escape(head)}</th>`).join("")}</tr></thead><tbody>${rows || `<tr><td colspan="${headers.length}">Žádná data.</td></tr>`}</tbody></table></div>`;
-const time = (value: string | null) => value ? escape(new Date(value).toLocaleString("cs-CZ")) : "-";
-const escape = (value: unknown) => String(value).replace(/[&<>"']/gu, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char]!);
-const attr = escape;
+const roleLabel = (role: AdminSessionView["role"]): string => ({
+  viewer: "Pouze čtení",
+  operator: "Operátor",
+  owner: "Owner"
+})[role];

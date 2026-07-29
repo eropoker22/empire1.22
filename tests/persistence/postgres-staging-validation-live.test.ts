@@ -36,7 +36,7 @@ const migrationsDirectory = new URL(
 );
 
 describe("PostgreSQL staging contract live", () => {
-  run("rejects schema 016, migrates canonically through 021, and detects checksum tampering", async () => {
+  run("rejects schema 016, migrates canonically through 022, and detects checksum tampering", async () => {
     const isolated = await createEmptySchema(live.databaseUrl!, "staging_contract");
     try {
       await applyMigrationsThrough(isolated.database, 15);
@@ -88,7 +88,7 @@ describe("PostgreSQL staging contract live", () => {
 
       await isolated.database.query(
         "UPDATE empire_schema_migrations SET checksum='tampered' WHERE filename=$1",
-        ["021_account_terms_acceptance.sql"]
+        ["022_single_player_hosted_start.sql"]
       );
       expect(await isProductionSchemaCurrent(isolated.database)).toBe(false);
       await expect(getDatabaseMigrationStatus(isolated.database, migrationsDirectory))
@@ -339,7 +339,8 @@ const applyRemainingMigrationsIndividually = async (database: PostgresDatabase) 
     ["018", "019_drop_redundant_snapshot_head_root_version_index.sql"],
     ["019", "020_hosted_player_job_incarnation_fencing.sql"],
     ["020", "021_account_terms_acceptance.sql"],
-    ["021", null]
+    ["021", "022_single_player_hosted_start.sql"],
+    ["022", null]
   ] as const;
   for (const [number, stopBeforeFilename] of boundaries) {
     const startedAt = performance.now();

@@ -23,17 +23,44 @@ afterEach(() => {
 });
 
 describe("production game import graph", () => {
-  it("keeps all local-demo legacy modules out of the production publish output", () => {
+  it("publishes only the temporarily restored runtime, not local-demo adapters", () => {
     const buildScript = readFileSync(resolve(process.cwd(), "scripts/build-netlify-client.mjs"), "utf8");
+    const requiredPublishFiles =
+      buildScript.match(/const requiredPublishFiles = \[([\s\S]*?)\n\];/u)?.[1] ?? "";
+    const forbiddenPublishPaths =
+      buildScript.match(/const forbiddenPublishPaths = \[([\s\S]*?)\n\];/u)?.[1] ?? "";
     for (const forbiddenPath of [
       "page-assets/js/app-demo.js",
       "page-assets/js/app/render-ui.js",
-      "page-assets/js/app/runtime.js",
       "page-assets/js/app/runtime/localDemoFixtureState.js",
       "page-assets/js/app/runtime/localDemoLegacyBootstrap.js"
     ]) {
       expect(buildScript).toContain(`"${forbiddenPath}"`);
     }
+    expect(requiredPublishFiles).toContain('"page-assets/js/app/runtime.js",');
+    expect(forbiddenPublishPaths).not.toContain('"page-assets/js/app/runtime.js"');
+  });
+
+  it("can explicitly record a temporary production compatibility edge", () => {
+    const fixtureRoot = createGraphFixture({
+      "page-assets/js/app.js": 'import "./app/runtime.js";\n'
+    });
+    const report = auditProductionGameImportGraph({
+      rootDir: fixtureRoot,
+      allowedProductionLegacyRuntimeImporters: ["page-assets/js/app.js"]
+    });
+
+    expect(report.violations).toEqual([]);
+    expect(report.skippedModeEdges).toContainEqual({
+      from: "page-assets/js/app.js",
+      to: "page-assets/js/app/runtime.js",
+      reason: "temporary-legacy-runtime-compatibility",
+      chain: [
+        "page-assets/js/app-entry.js",
+        "page-assets/js/app.js",
+        "page-assets/js/app/runtime.js"
+      ]
+    });
   });
 
   it("parses multiline imports, export-from and literal dynamic imports", () => {

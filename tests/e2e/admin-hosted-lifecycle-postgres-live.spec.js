@@ -37,7 +37,8 @@ test("owner drives the live hosted lifecycle without losing durable state", asyn
   await page.waitForTimeout(11_000);
   expect((await instanceDetail(page)).summary.currentTick).toBeGreaterThan(pausedTick);
 
-  await requestAction(page, "close-joins", "Close joins after live verification", { status: "running", joinPolicy: "closed" });
+  await requestAction(page, "close-registration-now", "Close registration after live verification",
+    { status: "running", joinPolicy: "closed" });
   const beforeRestart = await instanceDetail(page);
   await requestAction(page, "restart", "Safe restart live lifecycle verification", { status: "running", joinPolicy: "closed" });
   const afterRestart = await instanceDetail(page);
@@ -56,16 +57,12 @@ test("owner drives the live hosted lifecycle without losing durable state", asyn
 const requestAction = async (page, action, reason, expected) => {
   const responsePromise = page.waitForResponse((response) =>
     new URL(response.url()).pathname.endsWith("/actions") && response.request().method() === "POST");
-  await page.evaluate(({ action, reason }) => {
-    const reasonInput = document.querySelector("[data-admin-action-reason]");
-    const button = document.querySelector(`[data-admin-lifecycle="${action}"]`);
-    if (!(reasonInput instanceof HTMLInputElement) || !(button instanceof HTMLButtonElement)) {
-      throw new Error(`Lifecycle control ${action} is missing.`);
-    }
-    reasonInput.value = reason;
-    reasonInput.dispatchEvent(new Event("input", { bubbles: true }));
-    button.click();
-  }, { action, reason });
+  const registrationAction = action.includes("registration");
+  await page.locator(registrationAction
+    ? `[data-admin-registration-action="${action}"]`
+    : `[data-admin-lifecycle="${action}"]`).click();
+  await page.locator(registrationAction ? "[data-admin-registration-reason]" : "[data-admin-action-reason]").fill(reason);
+  await page.locator(registrationAction ? "[data-admin-registration-confirm]" : "[data-admin-lifecycle-confirm]").click();
   expect((await responsePromise).status()).toBe(202);
 
   await expect.poll(async () => {

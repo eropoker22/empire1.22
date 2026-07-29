@@ -5,6 +5,14 @@ const fromRoot = (...segments: string[]): string => resolve(__dirname, ...segmen
 
 export default defineConfig({
   server: {
+    host: "127.0.0.1",
+    watch: {
+      ignored: [
+        "**/.cache/**",
+        "**/playwright-report/**",
+        "**/test-results/**"
+      ]
+    },
     proxy: {
       "/api": {
         target: "http://127.0.0.1:8787",

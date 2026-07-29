@@ -21,6 +21,7 @@ import {
 import { createPlayerProfileViewModel } from "../runtime/playerProfileViewModel.js";
 import { closeOverlay, openOverlay } from "./legacyOverlayCoordinator.js";
 import { renderPlayerProfilePanel } from "./playerProfilePanel.js";
+import { resolveLivePlayerAvatarSrc } from "../model/livePlayerAvatarCatalog.js";
 
 export function createServerGameplayProfileController({
   root,
@@ -130,7 +131,8 @@ export function createServerPlayerProfileView(readModel) {
       entry?.isCurrentPlayer || String(entry?.playerId) === String(player.playerId)
     ))
     || null;
-  const identity = String(leaderboardEntry?.name || player.displayName || player.playerId || "—");
+  const identity = String(player.profile?.displayName || leaderboardEntry?.name || player.playerId || "—");
+  const gangName = String(player.profile?.gangName || leaderboardEntry?.gangName || identity);
   const police = readModel.police || player.police || null;
   const districtCount = (readModel.districts || []).filter((district) => (
     district?.isOwnedByPlayer || String(district?.ownerPlayerId) === String(player.playerId)
@@ -139,6 +141,7 @@ export function createServerPlayerProfileView(readModel) {
   return createPlayerProfileViewModel({
     registration: {
       identity,
+      gangName,
       factionId: player.factionId,
       serverLabel: readModel.server?.serverInstanceId || player.instanceId || "—"
     },
@@ -156,7 +159,9 @@ export function createServerPlayerProfileView(readModel) {
     districtCount,
     empireScore: leaderboardEntry?.score ?? null,
     allianceLabel: player.alliance?.allianceName || leaderboardEntry?.allianceTag || "Žádná",
-    avatarSrc: player.avatarSrc || player.avatarUrl || "",
+    avatarSrc: player.avatarSrc
+      || player.avatarUrl
+      || resolveLivePlayerAvatarSrc(player.profile?.avatarId || leaderboardEntry?.avatarId, player.factionId),
     accentColor: player.color || player.faction?.uiTheme?.accent || "#22d3ee",
     protectionLabel: formatProtectionLabel(police?.protection)
   });

@@ -56,7 +56,27 @@ export const resolveClientSurfaceAction = (
 
   const collectButton = target.closest<ClientSurfaceActionElement>("button[data-collect-building-id]");
   if (collectButton?.dataset.collectBuildingId) {
-    return { kind: "collect", buildingId: collectButton.dataset.collectBuildingId };
+    return {
+      kind: "collect",
+      buildingId: collectButton.dataset.collectBuildingId,
+      ...(collectButton.dataset.collectResourceKey
+        ? { resourceKey: collectButton.dataset.collectResourceKey }
+        : {})
+    };
+  }
+
+  const cancelProductionButton = target.closest<ClientSurfaceActionElement>(
+    "button[data-cancel-production-building-id][data-cancel-production-recipe-id]"
+  );
+  if (
+    cancelProductionButton?.dataset.cancelProductionBuildingId
+    && cancelProductionButton?.dataset.cancelProductionRecipeId
+  ) {
+    return {
+      kind: "cancel-production",
+      buildingId: cancelProductionButton.dataset.cancelProductionBuildingId,
+      recipeId: cancelProductionButton.dataset.cancelProductionRecipeId
+    };
   }
 
   const buildingAction = resolveBuildingAction(target);
@@ -69,7 +89,10 @@ export const resolveClientSurfaceAction = (
     return {
       kind: "craft",
       buildingId: craftButton.dataset.craftBuildingId,
-      recipeId: craftButton.dataset.craftRecipeId
+      recipeId: craftButton.dataset.craftRecipeId,
+      ...(toPositiveInteger(craftButton.dataset.craftQuantity) === undefined
+        ? {}
+        : { quantity: toPositiveInteger(craftButton.dataset.craftQuantity) })
     };
   }
 
@@ -151,4 +174,9 @@ const readNumberInput = (values: Record<string, string | number | undefined>, ke
 const toPositiveNumber = (value: string | undefined): number | undefined => {
   const parsed = Number(value || "");
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+};
+
+const toPositiveInteger = (value: string | undefined): number | undefined => {
+  const parsed = Number(value || "");
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 };

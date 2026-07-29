@@ -3,6 +3,7 @@ import type { AdminDurableRepositories } from "../admin/read-only";
 import type { ServerApp } from "../app";
 import { createHostedRuntimeLoader, type HostedRuntimeLoader } from "../bootstrap/hosted-runtime-loader";
 import { createGameplayFunctionErrorResponse } from "./gameplay-function-error-response";
+import { requiresHostedRuntimeAuthority } from "./hosted-runtime-authority-environment";
 import { createJsonResponse, type NetlifyFunctionResponse } from "./netlify-json-response";
 
 export const createHostedRuntimeRequestGuard = (options: {
@@ -10,25 +11,27 @@ export const createHostedRuntimeRequestGuard = (options: {
   repositories: AdminDurableRepositories | null;
   environment: Record<string, string | undefined>;
 }) => {
-  const production = options.environment.NODE_ENV === "production";
-  const loader = production && options.repositories?.kind === "postgres"
+  const authorityRequired = requiresHostedRuntimeAuthority(options.environment);
+  const loader = authorityRequired && options.repositories?.kind === "postgres"
     ? createHostedRuntimeLoader({ server: options.server, controlPlane: options.repositories.hosted })
     : null;
 
   return {
-    prepare: (serverInstanceId: string) => prepareHostedRuntime(production, loader, serverInstanceId),
-    prepareSubmit: (serverInstanceId: string) => prepareHostedRuntime(production, loader, serverInstanceId, true),
-    prepareJoin: (body: unknown) => prepareHostedRuntime(production, loader, readServerInstanceId(body))
+    prepare: (serverInstanceId: string) => prepareHostedRuntime(authorityRequired, loader, serverInstanceId),
+    prepareSubmit: (serverInstanceId: string) =>
+      prepareHostedRuntime(authorityRequired, loader, serverInstanceId, true),
+    prepareJoin: (body: unknown) =>
+      prepareHostedRuntime(authorityRequired, loader, readServerInstanceId(body))
   };
 };
 
 const prepareHostedRuntime = async (
-  production: boolean,
+  authorityRequired: boolean,
   loader: HostedRuntimeLoader | null,
   serverInstanceId: string,
   requireRunning = false
 ): Promise<NetlifyFunctionResponse | null> => {
-  if (!production) return null;
+  if (!authorityRequired) return null;
   if (!serverInstanceId) return createJsonResponse(200, createGameplayFunctionErrorResponse([{
     code: "transport.invalid_request",
     message: "Gameplay request requires serverInstanceId."

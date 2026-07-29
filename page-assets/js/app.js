@@ -1,9 +1,9 @@
 import { bindDesktopGameScrollLimit } from "./app/runtime/desktopScrollLimitRuntime.js";
 import {
-  mountServerAuthoritativePage,
+  bootstrapPage,
+  destroyRuntime,
   PAGE_ROOT_SELECTOR
-} from "./app/presentation/serverAuthoritativePageController.js";
-import { createServerAuthoritativePageLifecycle } from "./app/presentation/serverAuthoritativePageLifecycle.js";
+} from "./app/runtime.js?v=legacy-production-compat-20260728";
 import { loadLobbyOverview } from "./app/player-entry-client.js";
 import {
   bindGameAuthorityGate,
@@ -12,18 +12,10 @@ import {
   showLiveGameplayUnavailable
 } from "./app/runtime/liveGameplayBootstrap.js";
 
-let activePresentation = null;
+let activeRuntime = null;
 let authorityGateBound = false;
 let desktopScrollController = null;
-
-const pageLifecycle = createServerAuthoritativePageLifecycle({
-  onPageHide: () => {
-    activePresentation = null;
-    desktopScrollController?.destroy?.();
-    desktopScrollController = null;
-  },
-  onResume: (context) => bootGamePage(context)
-});
+let activeBootContext = null;
 
 async function resolveGameBootContext() {
   try {
@@ -54,19 +46,36 @@ function bootGamePage(context) {
     showLiveGameplayUnavailable(context.error);
     return null;
   }
-  if (activePresentation) {
-    return activePresentation;
+  if (activeRuntime) {
+    return activeRuntime;
   }
-  pageLifecycle.track(context);
+  activeBootContext = context;
   const sliceRoot = prepareLiveGameplayBootstrap(context.membership);
-  const presentation = mountServerAuthoritativePage();
-  activePresentation = presentation;
+  const runtime = bootstrapPage();
+  activeRuntime = runtime;
   document.body.classList.add("game-body--booting");
   desktopScrollController?.destroy?.();
   desktopScrollController = bindDesktopGameScrollLimit();
   void mountLiveGameplayClient(sliceRoot).catch((error) => showLiveGameplayUnavailable(error));
-  return presentation;
+  return runtime;
 }
+
+function destroyGamePage() {
+  const root = activeRuntime?.root || document.querySelector(PAGE_ROOT_SELECTOR);
+  activeRuntime = null;
+  desktopScrollController?.destroy?.();
+  desktopScrollController = null;
+  return root ? destroyRuntime(root) : false;
+}
+
+window.addEventListener("pagehide", () => {
+  destroyGamePage();
+});
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted === true && activeBootContext && !activeRuntime) {
+    bootGamePage(activeBootContext);
+  }
+});
 
 void resolveGameBootContext().then((context) => {
   if (context.kind === "redirect") return;

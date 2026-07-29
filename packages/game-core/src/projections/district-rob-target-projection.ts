@@ -42,6 +42,7 @@ export const createDistrictRobTargetViews = (
     const lootPoolLevel = fraction <= 0 ? "exhausted" as const : fraction < 0.2 ? "low" as const
       : fraction < 0.65 ? "partial" as const : "rich" as const;
     return {
+      sourceDistrictId: source.id,
       districtId: target.id, name: target.name, ownerPlayerId: target.ownerPlayerId, status: target.status,
       enabled: errors.length === 0 && !populationBlocked, disabledCode,
       disabledReason: errors[0]?.message ?? (disabledCode ? actionReason(disabledCode) : null),

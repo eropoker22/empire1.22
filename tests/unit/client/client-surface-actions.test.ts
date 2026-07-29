@@ -64,6 +64,7 @@ const createGameplaySliceFixture = (): GameplaySliceView => ({
   reports: [],
   district: {
     districtId: "district:1",
+    intelKnown: true,
     conflictRevision: 1,
     name: "Owned District",
     zone: "downtown",
@@ -130,11 +131,37 @@ const createGameplaySliceFixture = (): GameplaySliceView => ({
             enabled: true,
             disabledReason: null
           }
-        ]
+        ],
+        pharmacy: {
+          buildingId: "building:pharmacy:1",
+          lines: [{
+            recipeId: "chemicals",
+            resourceKey: "chemicals",
+            label: "Chemicals",
+            producedAmount: 2,
+            producedCapacity: 20,
+            queuedAmount: 2,
+            queueCapacity: 8,
+            activeAmount: 1,
+            waitingAmount: 1,
+            unitCleanCashCost: 100,
+            baseUnitDurationTicks: 12,
+            effectiveUnitDurationTicks: 10,
+            remainingTicks: 4,
+            remainingMs: 40_000,
+            status: "processing",
+            canStart: true,
+            canCancelWaiting: true,
+            canCollect: true,
+            maxStartQuantity: 3,
+            disabledReason: null
+          }]
+        }
       }
     ],
     attackTargets: [
       {
+        sourceDistrictId: "district:1",
         districtId: "district:2",
         name: "Target District",
         ownerPlayerId: "player:2",
@@ -149,6 +176,7 @@ const createGameplaySliceFixture = (): GameplaySliceView => ({
     ],
     spyTargets: [
       {
+        sourceDistrictId: "district:1",
         districtId: "district:2",
         name: "Target District",
         ownerPlayerId: "player:2",
@@ -323,7 +351,8 @@ describe("client surface actions", () => {
 
   it("resolves production collect click targets", () => {
     const collectButton = createMockElement({
-      collectBuildingId: "building:factory:1"
+      collectBuildingId: "building:factory:1",
+      collectResourceKey: "metal-parts"
     });
     collectButton.setClosest(
       "button[data-collect-building-id]",
@@ -332,7 +361,40 @@ describe("client surface actions", () => {
 
     expect(resolveClientSurfaceAction(collectButton.element)).toEqual({
       kind: "collect",
-      buildingId: "building:factory:1"
+      buildingId: "building:factory:1",
+      resourceKey: "metal-parts"
+    });
+  });
+
+  it("resolves server production quantity and cancellation hooks", () => {
+    const craftButton = createMockElement({
+      craftBuildingId: "building:pharmacy:1",
+      craftRecipeId: "chemicals",
+      craftQuantity: "3"
+    });
+    craftButton.setClosest(
+      "button[data-craft-building-id][data-craft-recipe-id]",
+      craftButton.element
+    );
+    expect(resolveClientSurfaceAction(craftButton.element)).toEqual({
+      kind: "craft",
+      buildingId: "building:pharmacy:1",
+      recipeId: "chemicals",
+      quantity: 3
+    });
+
+    const cancelButton = createMockElement({
+      cancelProductionBuildingId: "building:pharmacy:1",
+      cancelProductionRecipeId: "chemicals"
+    });
+    cancelButton.setClosest(
+      "button[data-cancel-production-building-id][data-cancel-production-recipe-id]",
+      cancelButton.element
+    );
+    expect(resolveClientSurfaceAction(cancelButton.element)).toEqual({
+      kind: "cancel-production",
+      buildingId: "building:pharmacy:1",
+      recipeId: "chemicals"
     });
   });
 
@@ -397,7 +459,7 @@ describe("client surface actions", () => {
     slice.district!.slots = [
       {
         slotIndex: 0,
-        buildingId: "building:factory:1",
+        buildingId: "building:pharmacy:1",
         buildingTypeId: "factory",
         status: "active",
         canBuild: false,
@@ -439,7 +501,7 @@ describe("client surface actions", () => {
     });
 
     const collectButton = createMockElement({
-      collectBuildingId: "building:factory:1"
+      collectBuildingId: "building:pharmacy:1"
     });
     collectButton.setClosest(
       "button[data-collect-building-id]",
@@ -454,7 +516,7 @@ describe("client surface actions", () => {
         serverInstanceId: "instance:1",
         payload: {
           districtId: "district:1",
-          buildingId: "building:factory:1"
+          buildingId: "building:pharmacy:1"
         }
       }
     ]);
@@ -579,6 +641,7 @@ describe("client surface actions", () => {
     const slice = createGameplaySliceFixture();
     slice.district!.heistTargets = [
       {
+        sourceDistrictId: "district:1",
         districtId: "district:4",
         name: "Heist Target",
         ownerPlayerId: "player:4",
@@ -823,6 +886,7 @@ describe("client surface actions", () => {
     const slice = createGameplaySliceFixture();
     slice.district!.occupyTargets = [
       {
+        sourceDistrictId: "district:1",
         districtId: "district:3",
         name: "Neutral District",
         ownerPlayerId: null,
@@ -873,6 +937,86 @@ describe("client surface actions", () => {
           districtId: "district:3",
           sourceDistrictId: "district:1",
           expectedConflictRevision: 1
+        }
+      }
+    ]);
+  });
+
+  it("dispatches production quantity, targeted collect, and cancellation from server-fed lines", async () => {
+    const slice = createGameplaySliceFixture();
+    const renderState = createInitialClientRenderState();
+    const dispatched: Array<{ type: string; payload: Record<string, unknown> }> = [];
+    const router = createClientSurfaceActionRouter({
+      client: {
+        load: async () => renderState,
+        selectDistrict: async () => renderState,
+        selectBuilding: async () => renderState,
+        dispatch: async (command) => {
+          dispatched.push({
+            type: command.type,
+            payload: command.payload as unknown as Record<string, unknown>
+          });
+          return renderState;
+        },
+        getRenderState: () => renderState,
+        getGameplaySlice: () => slice
+      },
+      createCommandId: (prefix) => `${prefix}:1`,
+      getIssuedAt: () => new Date(0).toISOString()
+    });
+
+    const craftButton = createMockElement({
+      craftBuildingId: "building:pharmacy:1",
+      craftRecipeId: "chemicals",
+      craftQuantity: "3"
+    });
+    craftButton.setClosest(
+      "button[data-craft-building-id][data-craft-recipe-id]",
+      craftButton.element
+    );
+    await router.handleTarget(craftButton.element);
+
+    const collectButton = createMockElement({
+      collectBuildingId: "building:pharmacy:1",
+      collectResourceKey: "chemicals"
+    });
+    collectButton.setClosest("button[data-collect-building-id]", collectButton.element);
+    await router.handleTarget(collectButton.element);
+
+    const cancelButton = createMockElement({
+      cancelProductionBuildingId: "building:pharmacy:1",
+      cancelProductionRecipeId: "chemicals"
+    });
+    cancelButton.setClosest(
+      "button[data-cancel-production-building-id][data-cancel-production-recipe-id]",
+      cancelButton.element
+    );
+    await router.handleTarget(cancelButton.element);
+
+    expect(dispatched).toEqual([
+      {
+        type: "craft-item",
+        payload: {
+          districtId: "district:1",
+          buildingId: "building:pharmacy:1",
+          recipeId: "chemicals",
+          quantity: 3
+        }
+      },
+      {
+        type: "collect-production",
+        payload: {
+          districtId: "district:1",
+          buildingId: "building:pharmacy:1",
+          resourceKey: "chemicals"
+        }
+      },
+      {
+        type: "cancel-pharmacy-production",
+        payload: {
+          districtId: "district:1",
+          buildingId: "building:pharmacy:1",
+          recipeId: "chemicals"
         }
       }
     ]);
@@ -948,6 +1092,169 @@ describe("client surface actions", () => {
 
     expect(selected).toEqual(["district:2"]);
     expect(dispatched).toEqual(["place-trap"]);
+  });
+
+  it("fails closed for a foreign trap and disabled defense projections", async () => {
+    const slice = createGameplaySliceFixture();
+    slice.district!.isOwnedByPlayer = false;
+    slice.district!.ownerPlayerId = "player:2";
+    slice.district!.placeDefense = {
+      enabled: false,
+      disabledCode: "DEFENSE_ITEM_UNAVAILABLE",
+      disabledReason: "V inventáři nemáš žádnou obrannou položku.",
+      expectedTargetVersion: 1,
+      preferredItemId: null,
+      preferredAmount: 1,
+      usedCapacityPoints: 0,
+      maxCapacityPoints: 20,
+      availableInventoryAmounts: {},
+      ownerOwnedAmounts: {},
+      alliedContributionAmounts: {},
+      playerRemovableAmounts: {}
+    };
+    const renderState = createInitialClientRenderState();
+    const dispatched: string[] = [];
+    const selectedBuildings: string[] = [];
+    const router = createClientSurfaceActionRouter({
+      client: {
+        load: async () => renderState,
+        selectDistrict: async () => renderState,
+        selectBuilding: async (buildingId) => {
+          if (buildingId) selectedBuildings.push(buildingId);
+          return renderState;
+        },
+        dispatch: async (command) => {
+          dispatched.push(command.type);
+          return renderState;
+        },
+        getRenderState: () => renderState,
+        getGameplaySlice: () => slice
+      },
+      createCommandId: (prefix) => `${prefix}:1`,
+      getIssuedAt: () => new Date(0).toISOString()
+    });
+    const trapButton = createMockElement({ placeTrap: "true" });
+    trapButton.setClosest("button[data-place-trap]", trapButton.element);
+    const defenseButton = createMockElement({ placeDefense: "true" });
+    defenseButton.setClosest("button[data-place-defense]", defenseButton.element);
+    const buildingCard = createMockElement({
+      buildingId: "building:pharmacy:1",
+      buildingType: "pharmacy"
+    });
+    buildingCard.setClosest(
+      "article[data-building-id][data-building-type]",
+      buildingCard.element
+    );
+
+    await router.handleTarget(trapButton.element);
+    await router.handleTarget(defenseButton.element);
+    await router.handleTarget(buildingCard.element);
+
+    expect(dispatched).toEqual([]);
+    expect(selectedBuildings).toEqual([]);
+  });
+
+  it("relocates an existing trap through the authoritative relocation projection", async () => {
+    const slice = createGameplaySliceFixture();
+    slice.district!.trap = {
+      enabled: true,
+      disabledReason: null,
+      activeTrap: null,
+      relocationSource: {
+        trapId: "trap:1",
+        districtId: "district:9",
+        expectedSourceVersion: 3,
+        expectedTargetVersion: 4,
+        expectedTrapVersion: 5,
+        canRelocate: true,
+        disabledReason: null
+      }
+    };
+    const renderState = createInitialClientRenderState();
+    const dispatched: unknown[] = [];
+    const router = createClientSurfaceActionRouter({
+      client: {
+        load: async () => renderState,
+        selectDistrict: async () => renderState,
+        selectBuilding: async () => renderState,
+        dispatch: async (command) => {
+          dispatched.push(command);
+          return renderState;
+        },
+        getRenderState: () => renderState,
+        getGameplaySlice: () => slice
+      },
+      createCommandId: (prefix) => `${prefix}:1`,
+      getIssuedAt: () => new Date(0).toISOString()
+    });
+    const trapButton = createMockElement({ placeTrap: "true" });
+    trapButton.setClosest("button[data-place-trap]", trapButton.element);
+
+    await router.handleTarget(trapButton.element);
+
+    expect(dispatched).toEqual([
+      expect.objectContaining({
+        type: "relocate-trap",
+        payload: {
+          trapId: "trap:1",
+          sourceDistrictId: "district:9",
+          targetDistrictId: "district:1",
+          expectedSourceVersion: 3,
+          expectedTargetVersion: 4,
+          expectedTrapVersion: 5
+        }
+      })
+    ]);
+  });
+
+  it("dispatches the defense item selected by the authoritative projection", async () => {
+    const slice = createGameplaySliceFixture();
+    slice.district!.placeDefense = {
+      enabled: true,
+      disabledCode: null,
+      disabledReason: null,
+      expectedTargetVersion: 7,
+      preferredItemId: "vest",
+      preferredAmount: 1,
+      usedCapacityPoints: 0,
+      maxCapacityPoints: 20,
+      availableInventoryAmounts: { vest: 1 },
+      ownerOwnedAmounts: {},
+      alliedContributionAmounts: {},
+      playerRemovableAmounts: {}
+    };
+    const renderState = createInitialClientRenderState();
+    const dispatched: unknown[] = [];
+    const router = createClientSurfaceActionRouter({
+      client: {
+        load: async () => renderState,
+        selectDistrict: async () => renderState,
+        selectBuilding: async () => renderState,
+        dispatch: async (command) => {
+          dispatched.push(command);
+          return renderState;
+        },
+        getRenderState: () => renderState,
+        getGameplaySlice: () => slice
+      },
+      createCommandId: (prefix) => `${prefix}:1`,
+      getIssuedAt: () => new Date(0).toISOString()
+    });
+    const defenseButton = createMockElement({ placeDefense: "true" });
+    defenseButton.setClosest("button[data-place-defense]", defenseButton.element);
+
+    await router.handleTarget(defenseButton.element);
+
+    expect(dispatched).toEqual([
+      expect.objectContaining({
+        type: "place-defense",
+        payload: expect.objectContaining({
+          defenseItemId: "vest",
+          amount: 1,
+          expectedTargetVersion: 7
+        })
+      })
+    ]);
   });
 
   it("keeps bottom sheet open when closing a stacked modal overlay", async () => {

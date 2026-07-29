@@ -36,7 +36,7 @@ export default defineConfig({
     ]
   },
   build: {
-    target: "node20",
+    target: "node24",
     ssr: true,
     outDir: fromRoot("netlify/functions"),
     emptyOutDir: true,

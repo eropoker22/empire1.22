@@ -1,6 +1,7 @@
 import type { ServerApp } from "../../app/server-app";
 import type { ServerInstanceRuntime } from "../../runtime/instance";
 import { withInstanceCommandLock } from "../../runtime/instance-manager/instance-command-lock";
+import { restoreRuntimeFromSnapshot } from "../../runtime/persistence";
 import type { PostgresPlayerEntryRepository } from "../../player-entry/postgres-player-entry-repository";
 import type { HostedControlPlaneRepository, HostedServerRecord } from "./hosted-control-plane-repository";
 import { createHostedInstanceFailureReporter, createHostedWorkerAudit,
@@ -59,7 +60,7 @@ export const createHostedRuntimeWorker = (options: HostedRuntimeWorkerOptions) =
   const restoreKnownInstances = async (): Promise<void> => {
     const servers = await options.controlPlane.listServers();
     for (const record of servers.filter((entry) => entry.provisioningState === "ready"
-      && ["lobby", "running", "paused", "restarting"].includes(entry.status))) {
+      && (entry.status === "restarting" || requiresPeriodicRuntimeWork(entry)))) {
       const at = now();
       const leaseExpiresAt = new Date(at.getTime() + RUNTIME_LEASE_MS).toISOString();
       try {
@@ -251,7 +252,8 @@ export const createHostedRuntimeWorker = (options: HostedRuntimeWorkerOptions) =
   };
   const tickOwnedInstances = async (): Promise<void> => {
     const records = await options.controlPlane.listServers();
-    for (const record of records.filter((entry) => entry.provisioningState === "ready" && ["lobby", "running", "paused"].includes(entry.status))) {
+    for (const record of records.filter((entry) =>
+      entry.provisioningState === "ready" && requiresPeriodicRuntimeWork(entry))) {
       const at = now();
       const leaseExpiresAt = new Date(at.getTime() + RUNTIME_LEASE_MS).toISOString();
       try {
@@ -265,7 +267,7 @@ export const createHostedRuntimeWorker = (options: HostedRuntimeWorkerOptions) =
         if (!frozen.server) throw safe("RUNTIME_REGISTRATION_FREEZE_CONFLICT");
         const effectiveRecord = frozen.server;
         await withInstanceCommandLock(effectiveRecord.serverInstanceId, async () => {
-          const runtime = await ensureRuntime(effectiveRecord, true);
+          const runtime = await ensureRuntime(effectiveRecord, effectiveRecord.status === "running");
           if (effectiveRecord.status === "running") await options.server.instanceManager.tickInstanceDurably(
             effectiveRecord.serverInstanceId,
             lease.tickFence(effectiveRecord.serverInstanceId),
@@ -314,14 +316,18 @@ export const createHostedRuntimeWorker = (options: HostedRuntimeWorkerOptions) =
     }
   };
   const ensureRuntime = async (record: HostedServerRecord, restoreLatest = false) => {
+    const existing = options.server.instanceManager.getInstanceById(record.serverInstanceId);
+    if (existing && !restoreLatest) {
+      syncHostedRuntimeStatus(existing, record, now());
+      return existing;
+    }
     const snapshotRepository = options.server.instanceManager.getPersistenceRepositories().snapshotRepository;
     const recovery = await snapshotRepository.loadForRecovery(record.serverInstanceId);
     const snapshot = recovery.snapshot;
     if (snapshot && !isSnapshotForHostedRecord(snapshot, record)) throw safe("RUNTIME_SNAPSHOT_INVALID");
     if (record.provisioningState === "ready" && !snapshot) throw safe("RUNTIME_SNAPSHOT_MISSING");
-    const existing = options.server.instanceManager.getInstanceById(record.serverInstanceId);
     if (existing) {
-      if (restoreLatest && snapshot) await options.server.instanceManager.restoreInstance(record.serverInstanceId);
+      if (snapshot) restoreRuntimeFromSnapshot(existing, snapshot);
       syncHostedRuntimeStatus(existing, record, now());
       return existing;
     }
@@ -336,7 +342,7 @@ export const createHostedRuntimeWorker = (options: HostedRuntimeWorkerOptions) =
       worldSeed: record.worldSeed
     });
     if (!creation.accepted) throw safe("RUNTIME_CREATE_FAILED");
-    if (snapshot && restoreLatest) await options.server.instanceManager.restoreInstance(record.serverInstanceId);
+    if (snapshot) restoreRuntimeFromSnapshot(creation.runtime, snapshot);
     syncHostedRuntimeStatus(creation.runtime, record, now());
     return creation.runtime;
   };
@@ -362,6 +368,12 @@ const requireDurableMutationCommitter = (
   if (options.controlPlane.durable) throw safe("HOSTED_MUTATION_COMMITTER_UNAVAILABLE");
   return null;
 };
+
+const requiresPeriodicRuntimeWork = (record: HostedServerRecord): boolean =>
+  record.status === "running"
+  || (record.status === "lobby" || record.status === "paused")
+    && record.registrationClosesAt !== null
+    && record.registrationClosedAt === null;
 
 const completeInMemoryProvisioningMutation = async (
   options: HostedRuntimeWorkerOptions,

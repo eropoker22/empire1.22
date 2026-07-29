@@ -29,6 +29,7 @@
       { signal }
     ),
     getControlPlane: (signal) => request(`${basePath}/control-plane`, { signal }),
+    getAudit: (signal) => request(`${basePath}/audit`, { signal }),
     createServer: (input, idempotencyKey, signal) => request(`${basePath}/servers`, {
       method: "POST",
       headers: { "content-type": "application/json", "idempotency-key": idempotencyKey },
@@ -63,6 +64,85 @@
     }
     return payload.data;
   };
+  const selectedAdminInstanceFromUrl = () => typeof location === "undefined" ? null : new URL(location.href).searchParams.get("instance");
+  const updateAdminInstanceUrl = (instanceId) => {
+    const url = new URL(location.href);
+    instanceId ? url.searchParams.set("instance", instanceId) : url.searchParams.delete("instance");
+    history.replaceState(null, "", url);
+  };
+  const readAdminFrontendBuildSha = () => {
+    var _a;
+    const value = ((_a = document.querySelector('meta[name="empire-build-sha"]')) == null ? void 0 : _a.content.trim()) ?? "";
+    return value && value !== "__EMPIRE_BUILD_SHA__" && value !== "local" ? value : null;
+  };
+  const isAdminLoopbackLocation = () => {
+    const hostname = typeof location === "undefined" ? "" : location.hostname.toLowerCase();
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname === "[::1]";
+  };
+  const createAdminIdempotencyKey = () => `admin-ui:${crypto.randomUUID()}`;
+  const isAbortError = (error) => error instanceof DOMException && error.name === "AbortError";
+  const hasFocusedAdminInput = (target) => {
+    const active = document.activeElement;
+    return Boolean((target == null ? void 0 : target.contains(active)) && (active instanceof HTMLInputElement || active instanceof HTMLSelectElement || active instanceof HTMLTextAreaElement));
+  };
+  const captureAdminFocus = (target) => {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement) || !(target == null ? void 0 : target.contains(active))) return null;
+    const dataAttribute = active.getAttributeNames().find((name) => name.startsWith("data-admin-")) ?? null;
+    return {
+      tagName: active.tagName.toLowerCase(),
+      id: active.id || null,
+      dataAttribute,
+      dataValue: dataAttribute ? active.getAttribute(dataAttribute) : null
+    };
+  };
+  const restoreAdminFocus = (target, snapshot) => {
+    if (!target || !snapshot) return;
+    const byId = snapshot.id ? document.getElementById(snapshot.id) : null;
+    if (byId instanceof HTMLElement && target.contains(byId)) {
+      byId.focus({ preventScroll: true });
+      return;
+    }
+    if (!snapshot.dataAttribute) return;
+    const matching = [...target.querySelectorAll(snapshot.tagName)].find((element) => element.getAttribute(snapshot.dataAttribute) === snapshot.dataValue);
+    matching == null ? void 0 : matching.focus({ preventScroll: true });
+  };
+  const updateAdminRefreshUi = (target, status) => {
+    const node = target == null ? void 0 : target.querySelector("[data-admin-refresh-state]");
+    if (!node) return;
+    node.dataset.state = status;
+    const output = node.querySelector("span");
+    if (output) output.textContent = {
+      loading: "OBNOVUJI DATA",
+      current: "DATA AKTUÁLNÍ",
+      backoff: "OBNOVA OMEZENA",
+      paused: "POLLING POZASTAVEN"
+    }[status];
+    const button2 = target == null ? void 0 : target.querySelector("[data-admin-refresh]");
+    if (!button2) return;
+    button2.disabled = status === "loading";
+    button2.setAttribute("aria-busy", String(status === "loading"));
+    const label = button2.querySelector("[data-admin-refresh-label]");
+    if (label) label.textContent = status === "loading" ? "Obnovuji…" : "Obnovit";
+  };
+  const DEFAULT_ADMIN_SERVER_FILTERS = {
+    query: "",
+    status: "all",
+    mode: "all",
+    worker: "all"
+  };
+  const applyAdminServerFilters = (target, filters) => {
+    const query = normalize(filters.query);
+    let visibleCount = 0;
+    target == null ? void 0 : target.querySelectorAll("[data-admin-server-item]").forEach((item) => {
+      const visible = (!query || normalize(item.textContent ?? "").includes(query)) && (filters.status === "all" || item.dataset.adminServerStatus === filters.status) && (filters.mode === "all" || item.dataset.adminServerMode === filters.mode) && (filters.worker === "all" || item.dataset.adminServerWorker === filters.worker);
+      item.hidden = !visible;
+      if (visible && item.matches("tr")) visibleCount += 1;
+    });
+    const output = target == null ? void 0 : target.querySelector("[data-admin-server-visible-count]");
+    if (output) output.textContent = String(visibleCount);
+  };
+  const normalize = (value) => value.normalize("NFD").replace(new RegExp("\\p{Diacritic}", "gu"), "").replace(/[^\p{Letter}\p{Number}]+/gu, " ").replace(/\s+/gu, " ").trim().toLocaleLowerCase("cs-CZ");
   const publicBuildingNameVariants = {
     stock_exchange: ["Vortex Exchange"],
     central_bank: ["Iron Reserve Bank", "Federal Reserve Node", "Obsidian Reserve Bank"],
@@ -18335,7 +18415,7 @@
       if (!agents.has(agent.agentId) || agent.offerCount !== 3 || agent.requiredInfluence < 0) {
         throw new Error(`Invalid City Event agent '${agent.agentId}'.`);
       }
-      for (const time2 of agent.refreshTimes) assertClockTime(time2.hour, time2.minute, `${agent.agentId} refresh`);
+      for (const time of agent.refreshTimes) assertClockTime(time.hour, time.minute, `${agent.agentId} refresh`);
       if (agent.availability) {
         assertClockTime(agent.availability.opensAt.hour, agent.availability.opensAt.minute, `${agent.agentId} opening`);
         assertClockTime(agent.availability.closesAt.hour, agent.availability.closesAt.minute, `${agent.agentId} closing`);
@@ -18648,8 +18728,8 @@
     return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
   }
   const FREE_HOSTED_SERVER_LIFECYCLE_POLICY = Object.freeze({
-    version: 1,
-    minimumReadyPlayersToStart: 2,
+    version: 2,
+    minimumReadyPlayersToStart: 1,
     registrationWindowMs: 60 * 60 * 1e3,
     allowJoinsWhileRunningDuringWindow: true,
     requireFreshWorkerForRegistration: true,
@@ -40096,16 +40176,16 @@
       ["Vstup po vytvoření", "Uzavřený do naplánování registrace"],
       ["Mapa", `8 / ${data.get("commercial")} / ${data.get("residential")} / ${data.get("industrial")} / ${data.get("park")}`]
     ];
-    review.innerHTML = values.map(([label, value]) => `<span><small>${escapeHtml(label)}</small><strong>${escapeHtml(value ?? "-")}</strong></span>`).join("");
+    review.innerHTML = values.map(([label, value]) => `<span><small>${escapeHtml$1(label)}</small><strong>${escapeHtml$1(value ?? "-")}</strong></span>`).join("");
   };
-  const escapeHtml = (value) => String(value).replace(
+  const escapeHtml$1 = (value) => String(value).replace(
     /[&<>"']/gu,
     (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]
   );
   const canonicalCapacity = resolveModeConfig("free").balance.maxPlayersPerServer;
   const createAdminCreateController = (options) => {
     const bind = () => {
-      var _a, _b, _c;
+      var _a, _b, _c, _d;
       const target = options.target();
       (_a = target == null ? void 0 : target.querySelector("[data-admin-create-open]")) == null ? void 0 : _a.addEventListener("click", () => {
         options.updateState({
@@ -40114,15 +40194,27 @@
           idempotencyKey: options.state().idempotencyKey ?? options.createKey()
         });
         options.render();
+        queueMicrotask(() => {
+          var _a2, _b2;
+          return (_b2 = (_a2 = options.target()) == null ? void 0 : _a2.querySelector("[data-admin-create-form] input:not([type=hidden])")) == null ? void 0 : _b2.focus();
+        });
       });
-      (_b = target == null ? void 0 : target.querySelector("[data-admin-create-cancel]")) == null ? void 0 : _b.addEventListener("click", () => {
+      const close = () => {
         options.updateState({ wizardOpen: false, wizardStep: 1, idempotencyKey: null });
         options.render();
+        queueMicrotask(() => {
+          var _a2, _b2;
+          return (_b2 = (_a2 = options.target()) == null ? void 0 : _a2.querySelector("[data-admin-create-open]")) == null ? void 0 : _b2.focus();
+        });
+      };
+      (_b = target == null ? void 0 : target.querySelector("[data-admin-create-cancel]")) == null ? void 0 : _b.addEventListener("click", close);
+      (_c = target == null ? void 0 : target.querySelector("[data-admin-create-backdrop]")) == null ? void 0 : _c.addEventListener("click", (event) => {
+        if (event.target === event.currentTarget) close();
       });
       target == null ? void 0 : target.querySelectorAll("[data-admin-wizard-next]").forEach((button2) => button2.addEventListener("click", () => {
-        const form = target.querySelector("[data-admin-create-form]");
+        const form2 = target.querySelector("[data-admin-create-form]");
         const state = options.state();
-        if (!form || !validateWizardPanel(form, state.wizardStep)) return;
+        if (!form2 || !validateWizardPanel(form2, state.wizardStep)) return;
         options.updateState({ wizardStep: Math.min(4, state.wizardStep + 1) });
         applyStep();
       }));
@@ -40132,9 +40224,19 @@
       }));
       bindTemplatePolicy();
       bindMapTotal();
-      (_c = target == null ? void 0 : target.querySelector("[data-admin-create-form]")) == null ? void 0 : _c.addEventListener("submit", (event) => void submit(event));
+      const form = target == null ? void 0 : target.querySelector("[data-admin-create-form]");
+      form == null ? void 0 : form.addEventListener("submit", (event) => void submit(event));
+      (_d = target == null ? void 0 : target.querySelector("[role=dialog]")) == null ? void 0 : _d.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          close();
+          return;
+        }
+        if (event.key === "Tab") trapDialogFocus(event);
+      });
     };
     const submit = async (event) => {
+      var _a;
       event.preventDefault();
       const form = event.currentTarget;
       const idempotencyKey = options.state().idempotencyKey;
@@ -40163,6 +40265,8 @@
         const result = await options.client.createServer(payload, idempotencyKey);
         options.selectInstance(result.server.serverInstanceId);
         options.updateState({ wizardOpen: false, wizardStep: 1, idempotencyKey: null });
+        (_a = options.onCreated) == null ? void 0 : _a.call(options, result.server.serverInstanceId, result.server.displayName);
+        options.render();
         await options.refresh();
       } catch (error) {
         showError(form, error instanceof Error ? error.message : "Server nebylo možné vytvořit.");
@@ -40202,12 +40306,18 @@
       update();
     };
     const applyStep = () => {
+      var _a;
       const target = options.target();
       target == null ? void 0 : target.querySelectorAll("[data-admin-wizard-panel]").forEach((panel) => {
         panel.hidden = Number(panel.dataset.adminWizardPanel) !== options.state().wizardStep;
       });
       const form = target == null ? void 0 : target.querySelector("[data-admin-create-form]");
-      if (form) updateWizardReview(form);
+      if (form) {
+        updateWizardReview(form);
+        (_a = form.querySelector(`[data-admin-wizard-panel="${options.state().wizardStep}"] input:not([type=hidden]),
+        [data-admin-wizard-panel="${options.state().wizardStep}"] select,
+        [data-admin-wizard-panel="${options.state().wizardStep}"] button`)) == null ? void 0 : _a.focus();
+      }
     };
     return { bind };
   };
@@ -40215,19 +40325,413 @@
     const message = form.querySelector("[data-admin-create-error]");
     if (message) message.textContent = text;
   };
+  const trapDialogFocus = (event) => {
+    const dialog = event.currentTarget;
+    const focusable = [...dialog.querySelectorAll(
+      "button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex='-1'])"
+    )].filter((element) => !element.closest("[hidden]"));
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+  const escapeHtml = (value) => String(value).replace(
+    /[&<>"']/gu,
+    (character) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    })[character]
+  );
+  const attribute = escapeHtml;
+  const formatTime = (value) => value ? escapeHtml(new Date(value).toLocaleString("cs-CZ")) : "–";
+  const formatNumber = (value) => new Intl.NumberFormat("cs-CZ").format(value);
+  const badge = (label, tone) => `<span class="admin-badge admin-badge--${attribute(tone)}"><span aria-hidden="true"></span>${escapeHtml(label)}</span>`;
+  const pill = (value) => {
+    const presentation = resolveStatusPresentation(value);
+    return `<span class="admin-table-status admin-table-status--${attribute(presentation.tone)}"
+    data-status-value="${attribute(value)}" title="${attribute(value)}"><span aria-hidden="true"></span>${escapeHtml(presentation.label)}</span>`;
+  };
+  const statusLabel = (value) => resolveStatusPresentation(value).label;
+  const keyValue = (label, value) => `<span><small>${escapeHtml(label)}</small><strong>${escapeHtml(value ?? "–")}</strong></span>`;
+  const codeValue = (label, value) => {
+    const normalized = (value == null ? void 0 : value.trim()) || "";
+    const short = normalized.length > 14 ? `${normalized.slice(0, 8)}…${normalized.slice(-4)}` : normalized || "Nedostupné";
+    return `<span><small>${escapeHtml(label)}</small><code title="${attribute(normalized || "Nedostupné")}">${escapeHtml(short)}</code></span>`;
+  };
+  const adminIcon = (name) => {
+    const paths = {
+      overview: '<path d="M4 4h6v6H4zM14 4h6v4h-6zM14 12h6v8h-6zM4 14h6v6H4z"/>',
+      server: '<rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/>',
+      players: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+      control: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
+      registration: '<path d="M12 5v14M5 12h14"/><circle cx="12" cy="12" r="9"/>',
+      game: '<path d="M8 21h8M12 17v4M5 3h14l-1 14H6L5 3zM8 7h8M9 11h6"/>',
+      build: '<path d="m14.7 6.3 3 3M3 21l6.5-1.5L19 10a2.12 2.12 0 0 0-3-3l-9.5 9.5L3 21zM12 4l2-2 8 8-2 2"/>',
+      diagnostics: '<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 17h.01"/>',
+      snapshot: '<path d="M12 2 3 7l9 5 9-5-9-5zM3 12l9 5 9-5M3 17l9 5 9-5"/>',
+      refresh: '<path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/>',
+      logout: '<path d="M10 17l5-5-5-5M15 12H3M15 3h5a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1h-5"/>',
+      menu: '<path d="M4 7h16M4 12h16M4 17h16"/>'
+    };
+    return `<svg class="admin-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[name]}</svg>`;
+  };
+  const table = (headers, rows) => `
+  <div class="admin-table-wrap">
+    <table class="admin-table">
+      <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead>
+      <tbody>${rows || `<tr><td colspan="${headers.length}">Žádná data.</td></tr>`}</tbody>
+    </table>
+  </div>`;
+  const disclosureSection = (id2, eyebrow, title, body, open = false) => `
+  <details id="admin-${attribute(id2)}" class="admin-panel admin-disclosure-section admin-section-anchor"${open ? " open" : ""}>
+    <summary>
+      <div><span>${escapeHtml(eyebrow)}</span><h3>${escapeHtml(title)}</h3></div>
+      <span class="admin-disclosure-section__action">Zobrazit detail</span>
+    </summary>
+    <div class="admin-disclosure-section__body">${body}</div>
+  </details>`;
+  const resolveStatusPresentation = (value) => {
+    const normalized = value.trim().toLowerCase();
+    const labels = {
+      running: "Běží",
+      lobby: "Lobby",
+      paused: "Pozastaven",
+      restarting: "Restartuje se",
+      stopped: "Zastaven",
+      failed: "Chyba",
+      crashed: "Havárie",
+      online: "Online",
+      live: "Online",
+      offline: "Offline",
+      stale: "Zastaralý",
+      "no-worker": "Bez workeru",
+      no_worker: "Bez workeru",
+      ready: "Připraven",
+      requested: "Požadováno",
+      provisioning: "Připravuje se",
+      scheduled: "Naplánováno",
+      open: "Otevřeno",
+      closed: "Zavřeno",
+      closed_early: "Nouzově zavřeno",
+      current: "Aktuální",
+      pending: "Čeká",
+      success: "Úspěch",
+      error: "Chyba",
+      warning: "Varování",
+      active: "Aktivní"
+    };
+    let tone = "neutral";
+    if (["online", "live", "running", "ready", "open", "success", "applied", "healthy"].includes(normalized)) {
+      tone = "success";
+    } else if (["failed", "crashed", "error", "blocked", "closed_early", "danger"].includes(normalized)) {
+      tone = "danger";
+    } else if (["offline", "no-worker", "no_worker"].includes(normalized)) {
+      tone = "offline";
+    } else if (["stale", "warning", "paused", "requested", "provisioning", "scheduled", "pending", "restarting"].includes(normalized)) {
+      tone = "warning";
+    }
+    return { label: labels[normalized] ?? value, tone };
+  };
+  const adminActionLabel = (action2) => actionPresentation(action2).label;
+  const renderLifecycleConfirmationDialog = (input) => {
+    const presentation = actionPresentation(input.action);
+    const dangerClass = presentation.tone === "danger" ? " admin-modal--danger" : "";
+    const confirmClass = presentation.tone === "danger" ? " admin-button--danger" : presentation.tone === "primary" ? " admin-button--primary" : "";
+    return `<div class="admin-modal-backdrop" data-admin-lifecycle-backdrop>
+    <section class="admin-modal admin-action-dialog${dangerClass}" role="dialog" aria-modal="true"
+      aria-labelledby="admin-lifecycle-dialog-title" data-admin-lifecycle-dialog
+      data-admin-lifecycle-action="${attribute(input.action)}" data-admin-server-id="${attribute(input.server.serverInstanceId)}">
+      <header class="admin-modal__head"><div><span>Lifecycle akce</span>
+        <h2 id="admin-lifecycle-dialog-title">${escapeHtml(presentation.title)}</h2>
+        <p>${escapeHtml(presentation.detail)}</p></div>
+        <button class="admin-button admin-button--ghost admin-button--close" type="button"
+          data-admin-lifecycle-cancel aria-label="Zavřít dialog">×</button>
+      </header>
+      <div class="admin-action-dialog__body">
+        <div class="admin-action-dialog__target">
+          <div><span>Cílový server</span><strong>${escapeHtml(input.server.displayName)}</strong>
+            <small title="${attribute(input.server.serverInstanceId)}">${escapeHtml(input.server.serverInstanceId)}</small></div>
+          <div>${pill(input.server.status)}<small>version ${input.server.version}</small></div>
+        </div>
+        ${input.action === "stop" ? `<p class="admin-danger-copy"><strong>Zastavení přeruší běžící instanci.</strong>
+          Existující serverová autorizace a durable stav zůstávají canonical autoritou.</p>` : ""}
+        <label><span>Důvod akce</span>
+          <textarea data-admin-action-reason minlength="3" maxlength="240" required
+            placeholder="Povinný auditní důvod">${escapeHtml(input.reason)}</textarea>
+          <small>Důvod bude uložen s lifecycle požadavkem.</small>
+        </label>
+        <div class="admin-action-dialog__actions">
+          <button class="admin-button admin-button--ghost" type="button" data-admin-lifecycle-cancel>Zrušit</button>
+          <button class="admin-button${confirmClass}" type="button" data-admin-lifecycle-confirm>
+            ${escapeHtml(presentation.confirmLabel)}</button>
+        </div>
+        <p class="admin-form-error" data-admin-action-error role="alert" aria-live="polite"></p>
+      </div>
+    </section>
+  </div>`;
+  };
+  const renderRegistrationConfirmationDialog = (input) => {
+    const presentation = actionPresentation(input.action);
+    const dangerClass = presentation.tone === "danger" ? " admin-modal--danger" : "";
+    const confirmClass = presentation.tone === "danger" ? " admin-button--danger" : " admin-button--primary";
+    return `<div class="admin-modal-backdrop" data-admin-registration-backdrop>
+    <section class="admin-modal admin-action-dialog${dangerClass}" role="dialog" aria-modal="true"
+      aria-labelledby="admin-registration-dialog-title" data-admin-registration-dialog
+      data-admin-registration-action="${attribute(input.action)}" data-admin-server-id="${attribute(input.server.serverInstanceId)}">
+      <header class="admin-modal__head"><div><span>Registrace serveru</span>
+        <h2 id="admin-registration-dialog-title">${escapeHtml(presentation.title)}</h2>
+        <p>${escapeHtml(presentation.detail)}</p></div>
+        <button class="admin-button admin-button--ghost admin-button--close" type="button"
+          data-admin-registration-cancel aria-label="Zavřít dialog">×</button>
+      </header>
+      <div class="admin-action-dialog__body">
+        <div class="admin-action-dialog__target">
+          <div><span>Cílový server</span><strong>${escapeHtml(input.server.displayName)}</strong>
+            <small title="${attribute(input.server.serverInstanceId)}">${escapeHtml(input.server.serverInstanceId)}</small></div>
+          <div>${pill(input.server.registrationState ?? "not_scheduled")}<small>${input.server.committedPlayers ?? 0} committed · ${input.server.reservedSlots ?? 0} reserved</small></div>
+        </div>
+        <div class="admin-kv-grid">
+          <span><small>Časové okno</small><strong>${input.server.registrationWindowMinutes ?? 60} minut</strong></span>
+          <span><small>Kapacita</small><strong>${input.server.committedPlayers ?? 0} + ${input.server.reservedSlots ?? 0} / ${input.server.capacity}</strong></span>
+          <span><small>Plánované otevření</small><strong>${escapeHtml(input.registrationOpensAt ? new Date(input.registrationOpensAt).toLocaleString("cs-CZ") : input.action === "open-registration-now" ? "Ihned" : "—")}</strong></span>
+        </div>
+        <label><span>Důvod změny registrace</span>
+          <textarea data-admin-registration-reason minlength="3" maxlength="240" required
+            placeholder="Povinný auditní důvod">${escapeHtml(input.reason)}</textarea>
+        </label>
+        <div class="admin-action-dialog__actions">
+          <button class="admin-button admin-button--ghost" type="button" data-admin-registration-cancel>Zrušit</button>
+          <button class="admin-button ${confirmClass}" type="button" data-admin-registration-confirm>
+            ${escapeHtml(presentation.confirmLabel)}</button>
+        </div>
+        <p class="admin-form-error" data-admin-registration-error role="alert" aria-live="polite"></p>
+      </div>
+    </section>
+  </div>`;
+  };
+  const ACTION_PRESENTATIONS = {
+    "open-joins": {
+      label: "Joiny otevřeny",
+      confirmLabel: "Otevřít joiny",
+      title: "Otevřít joiny",
+      detail: "Povolí serverem řízený vstup hráčů.",
+      tone: "primary"
+    },
+    "close-joins": {
+      label: "Joiny uzavřeny",
+      confirmLabel: "Uzavřít joiny",
+      title: "Uzavřít joiny",
+      detail: "Nové vstupy budou serverově odmítnuty.",
+      tone: "neutral"
+    },
+    "schedule-registration": {
+      label: "Registrace naplánována",
+      confirmLabel: "Naplánovat",
+      title: "Naplánovat registraci",
+      detail: "Potvrdí plánované registrační okno.",
+      tone: "primary"
+    },
+    "open-registration-now": {
+      label: "Registrace otevřena",
+      confirmLabel: "Otevřít registraci",
+      title: "Otevřít registraci",
+      detail: "Registrace se otevře okamžitě podle canonical okna.",
+      tone: "primary"
+    },
+    "cancel-registration": {
+      label: "Plán registrace zrušen",
+      confirmLabel: "Zrušit plán",
+      title: "Zrušit plán registrace",
+      detail: "Naplánované otevření se neprovede.",
+      tone: "neutral"
+    },
+    "close-registration-now": {
+      label: "Registrace nouzově uzavřena",
+      confirmLabel: "Uzavřít registraci",
+      title: "Nouzově uzavřít registraci",
+      detail: "Nové registrace budou okamžitě zastaveny.",
+      tone: "danger"
+    },
+    start: {
+      label: "Start serveru",
+      confirmLabel: "Spustit server",
+      title: "Spustit server",
+      detail: "Server přejde z lobby do aktivního gameplay runtime.",
+      tone: "primary"
+    },
+    pause: {
+      label: "Pozastavení serveru",
+      confirmLabel: "Pozastavit server",
+      title: "Pozastavit server",
+      detail: "Autoritativní runtime bude bezpečně pozastaven.",
+      tone: "neutral"
+    },
+    resume: {
+      label: "Obnovení serveru",
+      confirmLabel: "Obnovit server",
+      title: "Obnovit server",
+      detail: "Pozastavený runtime bude znovu spuštěn.",
+      tone: "primary"
+    },
+    restart: {
+      label: "Bezpečný restart",
+      confirmLabel: "Bezpečně restartovat",
+      title: "Bezpečný restart",
+      detail: "Worker obnoví instanci z posledního potvrzeného recovery stavu.",
+      tone: "neutral"
+    },
+    stop: {
+      label: "Zastavení serveru",
+      confirmLabel: "Zastavit server",
+      title: "Zastavit server",
+      detail: "Destruktivní lifecycle akce dostupná pouze ownerovi.",
+      tone: "danger"
+    }
+  };
+  const actionPresentation = (action2) => ACTION_PRESENTATIONS[action2];
+  const createAdminLifecycleActionController = (options) => {
+    let submitting = false;
+    const bind = () => {
+      var _a;
+      (_a = options.target()) == null ? void 0 : _a.querySelectorAll("[data-admin-lifecycle]").forEach((button2) => button2.addEventListener("click", () => openDialog(button2)));
+    };
+    const openDialog = (sourceButton) => {
+      var _a, _b, _c, _d;
+      if (sourceButton.disabled) return;
+      const instanceId = sourceButton.dataset.adminServerId;
+      const action2 = sourceButton.dataset.adminLifecycle;
+      const hosted = (_a = options.controlPlane()) == null ? void 0 : _a.servers.find((entry) => entry.serverInstanceId === instanceId);
+      if (!instanceId || !action2 || !hosted) return;
+      (_c = (_b = options.target()) == null ? void 0 : _b.querySelector("[data-admin-lifecycle-backdrop]")) == null ? void 0 : _c.remove();
+      (_d = options.target()) == null ? void 0 : _d.insertAdjacentHTML("beforeend", renderLifecycleConfirmationDialog({
+        server: hosted,
+        action: action2,
+        reason: options.actionReasons.get(instanceId) ?? ""
+      }));
+      bindDialog();
+      queueMicrotask(() => {
+        var _a2, _b2;
+        return (_b2 = (_a2 = options.target()) == null ? void 0 : _a2.querySelector("[data-admin-action-reason]")) == null ? void 0 : _b2.focus();
+      });
+    };
+    const bindDialog = () => {
+      var _a, _b;
+      const target = options.target();
+      const backdrop = target == null ? void 0 : target.querySelector("[data-admin-lifecycle-backdrop]");
+      const dialog = backdrop == null ? void 0 : backdrop.querySelector("[data-admin-lifecycle-dialog]");
+      if (!backdrop || !dialog) return;
+      const close = () => {
+        var _a2;
+        const action2 = dialog.dataset.adminLifecycleAction;
+        (_a2 = dialog.closest("[data-admin-lifecycle-backdrop]")) == null ? void 0 : _a2.remove();
+        options.render();
+        if (action2) queueMicrotask(() => {
+          var _a3, _b2;
+          return (_b2 = (_a3 = options.target()) == null ? void 0 : _a3.querySelector(`[data-admin-lifecycle="${action2}"]`)) == null ? void 0 : _b2.focus();
+        });
+      };
+      backdrop.addEventListener("click", (event) => {
+        if (event.target === event.currentTarget) close();
+      });
+      dialog.querySelectorAll("[data-admin-lifecycle-cancel]").forEach((button2) => button2.addEventListener("click", close));
+      (_a = dialog.querySelector("[data-admin-action-reason]")) == null ? void 0 : _a.addEventListener("input", (event) => {
+        const instanceId = dialog.dataset.adminServerId;
+        if (instanceId && event.currentTarget instanceof HTMLTextAreaElement) {
+          options.actionReasons.set(instanceId, event.currentTarget.value);
+        }
+      });
+      (_b = dialog.querySelector("[data-admin-lifecycle-confirm]")) == null ? void 0 : _b.addEventListener("click", (event) => void submit(dialog, event.currentTarget));
+      dialog.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !submitting) {
+          event.preventDefault();
+          close();
+        }
+        if (event.key === "Tab") trapFocus$1(event);
+      });
+    };
+    const submit = async (dialog, button2) => {
+      var _a, _b, _c, _d;
+      if (submitting) return;
+      const instanceId = dialog.dataset.adminServerId;
+      const action2 = dialog.dataset.adminLifecycleAction;
+      const hosted = (_a = options.controlPlane()) == null ? void 0 : _a.servers.find((entry) => entry.serverInstanceId === instanceId);
+      const reason = ((_b = dialog.querySelector("[data-admin-action-reason]")) == null ? void 0 : _b.value.trim()) ?? "";
+      const message = dialog.querySelector("[data-admin-action-error]");
+      if (!instanceId || !action2 || !hosted) return;
+      options.actionReasons.set(instanceId, reason);
+      if (reason.length < 3) {
+        if (message) message.textContent = "Uveďte důvod akce alespoň třemi znaky.";
+        (_c = dialog.querySelector("[data-admin-action-reason]")) == null ? void 0 : _c.focus();
+        return;
+      }
+      submitting = true;
+      button2.disabled = true;
+      button2.setAttribute("aria-busy", "true");
+      button2.textContent = "Provádím…";
+      try {
+        const result = await options.client.requestLifecycleAction(
+          instanceId,
+          { action: action2, expectedVersion: hosted.version, reason },
+          options.createKey()
+        );
+        options.actionReasons.delete(instanceId);
+        options.onAccepted(instanceId, action2, result);
+        (_d = dialog.closest("[data-admin-lifecycle-backdrop]")) == null ? void 0 : _d.remove();
+        await options.refresh();
+      } catch (error) {
+        if (message) message.textContent = error instanceof Error ? error.message : "Akci nebylo možné zařadit.";
+        button2.disabled = false;
+        button2.setAttribute("aria-busy", "false");
+        button2.textContent = actionConfirmLabel(action2);
+      } finally {
+        submitting = false;
+      }
+    };
+    return { bind };
+  };
+  const trapFocus$1 = (event) => {
+    const dialog = event.currentTarget;
+    const focusable = [...dialog.querySelectorAll(
+      "button:not(:disabled), textarea:not(:disabled), input:not(:disabled), select:not(:disabled)"
+    )].filter((element) => !element.closest("[hidden]"));
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (!first || !last) return;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+  const actionConfirmLabel = (action2) => action2 === "stop" ? "Zastavit server" : action2 === "restart" ? "Bezpečně restartovat" : action2 === "start" ? "Spustit server" : action2 === "resume" ? "Obnovit server" : action2 === "pause" ? "Pozastavit server" : adminActionLabel(action2);
   const createAdminRegistrationController = (options) => {
     const drafts = /* @__PURE__ */ new Map();
     let timer = null;
     let serverClockMs = Number.NaN;
     let performanceClockMs = 0;
     let refreshedBoundary = "";
+    let submitting = false;
     const bind = () => {
       var _a;
       const target = options.target();
-      target == null ? void 0 : target.querySelectorAll("[data-admin-registration-action]").forEach((button2) => button2.addEventListener("click", () => void submit(button2)));
+      target == null ? void 0 : target.querySelectorAll("[data-admin-registration-action]").forEach((button2) => button2.addEventListener("click", () => openDialog(button2)));
       (_a = target == null ? void 0 : target.querySelector("[data-admin-registration-opens-at]")) == null ? void 0 : _a.addEventListener("input", (event) => {
         const instanceId = options.selectedInstanceId();
-        if (instanceId && event.currentTarget instanceof HTMLInputElement) drafts.set(instanceId, event.currentTarget.value);
+        if (event.currentTarget instanceof HTMLInputElement) {
+          event.currentTarget.setCustomValidity("");
+          if (instanceId) drafts.set(instanceId, event.currentTarget.value);
+        }
       });
     };
     const schedulePayload = (instanceId) => {
@@ -40237,20 +40741,86 @@
       const timestamp = value ? new Date(value) : null;
       return { registrationOpensAt: timestamp && Number.isFinite(timestamp.getTime()) ? timestamp.toISOString() : void 0 };
     };
-    const submit = async (button2) => {
+    const openDialog = (sourceButton) => {
       var _a, _b;
-      const instanceId = button2.dataset.adminServerId;
-      const action2 = button2.dataset.adminRegistrationAction;
+      if (sourceButton.disabled) return;
+      const instanceId = sourceButton.dataset.adminServerId;
+      const action2 = sourceButton.dataset.adminRegistrationAction;
       const hosted = (_a = options.controlPlane()) == null ? void 0 : _a.servers.find((entry) => entry.serverInstanceId === instanceId);
       const target = options.target();
-      const reason = ((_b = target == null ? void 0 : target.querySelector("[data-admin-action-reason]")) == null ? void 0 : _b.value.trim()) ?? "";
-      const message = target == null ? void 0 : target.querySelector("[data-admin-action-error]");
       if (!instanceId || !action2 || !hosted) return;
-      if (reason.length < 3) {
-        if (message) message.textContent = "Uveďte důvod akce alespoň třemi znaky.";
+      const schedule = action2 === "schedule-registration" ? schedulePayload(instanceId).registrationOpensAt : void 0;
+      if (action2 === "schedule-registration" && !schedule) {
+        const input = target == null ? void 0 : target.querySelector("[data-admin-registration-opens-at]");
+        input == null ? void 0 : input.setCustomValidity("Vyber platný čas otevření registrace.");
+        input == null ? void 0 : input.reportValidity();
+        focusInvalid(input);
         return;
       }
-      if (action2 === "close-registration-now" && !window.confirm("Nouzově ukončit registraci? Existující hráči zůstanou na serveru.")) return;
+      (_b = target == null ? void 0 : target.querySelector("[data-admin-registration-backdrop]")) == null ? void 0 : _b.remove();
+      target == null ? void 0 : target.insertAdjacentHTML("beforeend", renderRegistrationConfirmationDialog({
+        server: hosted,
+        action: action2,
+        reason: options.actionReasons.get(instanceId) ?? "",
+        registrationOpensAt: schedule
+      }));
+      bindDialog();
+      queueMicrotask(() => {
+        var _a2;
+        return (_a2 = target == null ? void 0 : target.querySelector("[data-admin-registration-reason]")) == null ? void 0 : _a2.focus();
+      });
+    };
+    const bindDialog = () => {
+      var _a, _b;
+      const target = options.target();
+      const backdrop = target == null ? void 0 : target.querySelector("[data-admin-registration-backdrop]");
+      const dialog = backdrop == null ? void 0 : backdrop.querySelector("[data-admin-registration-dialog]");
+      if (!backdrop || !dialog) return;
+      const close = () => {
+        var _a2;
+        (_a2 = dialog.closest("[data-admin-registration-backdrop]")) == null ? void 0 : _a2.remove();
+        options.render();
+        queueMicrotask(() => {
+          var _a3, _b2;
+          return (_b2 = (_a3 = options.target()) == null ? void 0 : _a3.querySelector(`[data-admin-registration-action="${dialog.dataset.adminRegistrationAction}"]`)) == null ? void 0 : _b2.focus();
+        });
+      };
+      backdrop.addEventListener("click", (event) => {
+        if (event.target === event.currentTarget && !submitting) close();
+      });
+      dialog.querySelectorAll("[data-admin-registration-cancel]").forEach((button2) => button2.addEventListener("click", () => {
+        if (!submitting) close();
+      }));
+      (_a = dialog.querySelector("[data-admin-registration-reason]")) == null ? void 0 : _a.addEventListener("input", (event) => {
+        const instanceId = dialog.dataset.adminServerId;
+        if (instanceId && event.currentTarget instanceof HTMLTextAreaElement) {
+          options.actionReasons.set(instanceId, event.currentTarget.value);
+        }
+      });
+      (_b = dialog.querySelector("[data-admin-registration-confirm]")) == null ? void 0 : _b.addEventListener("click", (event) => void submit(dialog, event.currentTarget));
+      dialog.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !submitting) {
+          event.preventDefault();
+          close();
+        }
+        if (event.key === "Tab") trapFocus(event);
+      });
+    };
+    const submit = async (dialog, button2) => {
+      var _a, _b, _c, _d, _e;
+      if (submitting) return;
+      const instanceId = dialog.dataset.adminServerId;
+      const action2 = dialog.dataset.adminRegistrationAction;
+      const hosted = (_a = options.controlPlane()) == null ? void 0 : _a.servers.find((entry) => entry.serverInstanceId === instanceId);
+      const reason = ((_b = dialog.querySelector("[data-admin-registration-reason]")) == null ? void 0 : _b.value.trim()) ?? "";
+      const message = dialog.querySelector("[data-admin-registration-error]");
+      if (!instanceId || !action2 || !hosted) return;
+      options.actionReasons.set(instanceId, reason);
+      if (reason.length < 3) {
+        if (message) message.textContent = "Uveďte důvod akce alespoň třemi znaky.";
+        (_c = dialog.querySelector("[data-admin-registration-reason]")) == null ? void 0 : _c.focus();
+        return;
+      }
       const payload = {
         action: action2,
         expectedVersion: hosted.version,
@@ -40258,18 +40828,24 @@
         ...action2 === "close-registration-now" ? { confirmationToken: "CLOSE_REGISTRATION" } : {},
         ...action2 === "schedule-registration" ? schedulePayload(instanceId) : {}
       };
-      if (action2 === "schedule-registration" && !payload.registrationOpensAt) {
-        if (message) message.textContent = "Vyber platný čas otevření registrace.";
-        return;
-      }
+      if (action2 === "schedule-registration" && !payload.registrationOpensAt) return;
+      submitting = true;
       button2.disabled = true;
+      button2.setAttribute("aria-busy", "true");
+      button2.textContent = "Provádím…";
       try {
         await options.client.requestLifecycleAction(instanceId, payload, options.createKey());
         if (action2 === "schedule-registration") drafts.delete(instanceId);
+        (_d = options.onActionAccepted) == null ? void 0 : _d.call(options, instanceId, action2);
+        (_e = dialog.closest("[data-admin-registration-backdrop]")) == null ? void 0 : _e.remove();
         await options.refresh();
       } catch (error) {
         if (message) message.textContent = error instanceof Error ? error.message : "Registraci nebylo možné změnit.";
         button2.disabled = false;
+        button2.setAttribute("aria-busy", "false");
+        button2.textContent = "Potvrdit změnu";
+      } finally {
+        submitting = false;
       }
     };
     const restoreDraft = () => {
@@ -40313,81 +40889,507 @@
     const seconds = Math.max(0, Math.floor(milliseconds / 1e3));
     return [Math.floor(seconds / 3600), Math.floor(seconds % 3600 / 60), seconds % 60].map((value) => String(value).padStart(2, "0")).join(":");
   };
+  const focusInvalid = (input) => {
+    var _a;
+    input == null ? void 0 : input.focus();
+    (_a = input == null ? void 0 : input.scrollIntoView) == null ? void 0 : _a.call(input, { block: "center", behavior: "smooth" });
+  };
+  const trapFocus = (event) => {
+    const dialog = event.currentTarget;
+    const focusable = [...dialog.querySelectorAll(
+      "button:not(:disabled), textarea:not(:disabled), input:not(:disabled), select:not(:disabled)"
+    )].filter((element) => !element.closest("[hidden]"));
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (!first || !last) return;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+  const createAdminAppControllers = (options) => {
+    const registration = createAdminRegistrationController({
+      client: options.client,
+      target: options.target,
+      selectedInstanceId: options.selectedInstanceId,
+      controlPlane: options.controlPlane,
+      actionReasons: options.actionReasons,
+      render: options.render,
+      refresh: options.refresh,
+      createKey: createAdminIdempotencyKey,
+      onActionAccepted: (instanceId, action2) => {
+        options.actionReasons.delete(instanceId);
+        options.clearAudit();
+        options.setNotice({ tone: "success", title: "Registrace serveru změněna", message: adminActionLabel(action2) });
+      }
+    });
+    const lifecycle = createAdminLifecycleActionController({
+      client: options.client,
+      target: options.target,
+      controlPlane: options.controlPlane,
+      selectedInstanceId: options.selectedInstanceId,
+      actionReasons: options.actionReasons,
+      createKey: createAdminIdempotencyKey,
+      render: options.render,
+      refresh: options.refresh,
+      onAccepted: (_instanceId, action2, result) => {
+        options.clearAudit();
+        options.setNotice({
+          tone: "success",
+          title: "Lifecycle požadavek přijat",
+          message: `${adminActionLabel(action2)} · ${result.status} · ${result.actionRequestId}`
+        });
+      }
+    });
+    const creation = createAdminCreateController({
+      client: options.client,
+      target: options.target,
+      state: options.wizardState,
+      updateState: options.updateWizardState,
+      selectInstance: options.selectInstance,
+      render: options.render,
+      refresh: options.refresh,
+      createKey: createAdminIdempotencyKey,
+      onCreated: (_instanceId, displayName) => {
+        options.clearAudit();
+        options.setNotice({
+          tone: "success",
+          title: "Server vytvořen",
+          message: `${displayName} byl zařazen do provisioningu.`
+        });
+      }
+    });
+    return { registration, lifecycle, creation };
+  };
+  const createAdminDashboardBindings = (options) => ({
+    bind: () => {
+      var _a, _b, _c, _d, _e, _f;
+      const target = options.target();
+      target == null ? void 0 : target.querySelectorAll("[data-admin-instance], [data-admin-mobile-instance]").forEach((link) => link.addEventListener("click", (event) => {
+        var _a2, _b2;
+        event.preventDefault();
+        const next = ((_a2 = link.dataset.adminInstance) == null ? void 0 : _a2.trim()) || ((_b2 = link.dataset.adminMobileInstance) == null ? void 0 : _b2.trim()) || null;
+        if (!next || next === options.selectedInstanceId()) return;
+        options.selectInstance(next);
+        options.setMobileNavOpen(false);
+        updateAdminInstanceUrl(next);
+        options.render();
+        void options.refresh();
+      }));
+      (_a = target == null ? void 0 : target.querySelector("[data-admin-refresh]")) == null ? void 0 : _a.addEventListener("click", (event) => {
+        const button2 = event.currentTarget;
+        if (!button2.disabled) void options.refresh();
+      });
+      (_b = target == null ? void 0 : target.querySelector("[data-admin-audit-refresh]")) == null ? void 0 : _b.addEventListener("click", (event) => {
+        event.currentTarget.disabled = true;
+        void options.refresh(true);
+      });
+      (_c = target == null ? void 0 : target.querySelector("[data-admin-logout]")) == null ? void 0 : _c.addEventListener("click", () => void options.logout());
+      (_d = target == null ? void 0 : target.querySelector("[data-admin-notice-dismiss]")) == null ? void 0 : _d.addEventListener("click", options.dismissNotice);
+      const search = target == null ? void 0 : target.querySelector("[data-admin-search]");
+      search == null ? void 0 : search.addEventListener("input", () => {
+        options.updateServerFilters({ query: search.value });
+        applyAdminServerFilters(target, options.serverFilters());
+      });
+      target == null ? void 0 : target.querySelectorAll("[data-admin-server-filter]").forEach((select) => select.addEventListener("change", () => {
+        const key = select.dataset.adminServerFilter;
+        options.updateServerFilters({ [key]: select.value });
+        applyAdminServerFilters(target, options.serverFilters());
+      }));
+      (_e = target == null ? void 0 : target.querySelector("[data-admin-filter-reset]")) == null ? void 0 : _e.addEventListener("click", () => {
+        options.updateServerFilters(DEFAULT_ADMIN_SERVER_FILTERS);
+        const filters = options.serverFilters();
+        if (search) search.value = filters.query;
+        target.querySelectorAll("[data-admin-server-filter]").forEach((select) => {
+          const key = select.dataset.adminServerFilter;
+          select.value = filters[key];
+        });
+        applyAdminServerFilters(target, filters);
+      });
+      search == null ? void 0 : search.addEventListener("blur", () => queueMicrotask(options.flushPendingRender));
+      const navItems = [...(target == null ? void 0 : target.querySelectorAll(".admin-nav__item")) ?? []];
+      const activateNavItem = (active) => navItems.forEach((item) => {
+        const selected = item === active;
+        item.classList.toggle("is-active", selected);
+        if (selected) item.setAttribute("aria-current", "location");
+        else item.removeAttribute("aria-current");
+      });
+      navItems.forEach((item) => item.addEventListener("click", () => {
+        activateNavItem(item);
+        options.setMobileNavOpen(false);
+        const nav2 = target == null ? void 0 : target.querySelector("#admin-primary-nav");
+        const toggle = target == null ? void 0 : target.querySelector("[data-admin-nav-toggle]");
+        if (nav2) nav2.dataset.open = "false";
+        if (toggle) toggle.setAttribute("aria-expanded", "false");
+        const destination = item.hash ? target == null ? void 0 : target.querySelector(item.hash) : null;
+        if (destination instanceof HTMLDetailsElement) destination.open = true;
+      }));
+      (_f = target == null ? void 0 : target.querySelector("[data-admin-nav-toggle]")) == null ? void 0 : _f.addEventListener("click", (event) => {
+        const open = !options.mobileNavOpen();
+        options.setMobileNavOpen(open);
+        event.currentTarget.setAttribute("aria-expanded", String(open));
+        const nav2 = target == null ? void 0 : target.querySelector("#admin-primary-nav");
+        if (nav2) nav2.dataset.open = String(open);
+      });
+      const hashItem = navItems.find((item) => item.hash === window.location.hash);
+      const defaultItem = navItems.find((item) => item.hash === "#admin-overview");
+      if (hashItem ?? defaultItem) activateNavItem(hashItem ?? defaultItem);
+      options.controllers.forEach((controller) => controller.bind());
+      target == null ? void 0 : target.querySelectorAll("[data-admin-preserve-input]").forEach((input) => input.addEventListener("blur", () => queueMicrotask(options.flushPendingRender)));
+      applyAdminServerFilters(target, options.serverFilters());
+    }
+  });
+  const initialAdminLoginMessage = (error) => {
+    if (isSessionError(error)) {
+      return error instanceof AdminApiError && error.code === "ADMIN_SESSION_EXPIRED" ? "Admin session vypršela." : void 0;
+    }
+    if (error instanceof AdminApiError && error.code === "ADMIN_CONFIGURATION_UNAVAILABLE") {
+      return "Admin API momentálně není připojené k databázi. Přihlášení můžeš zkusit, ale serverové připojení musí být nejdřív dostupné.";
+    }
+    return "Admin API momentálně neodpovídá. Přihlašovací formulář zůstává dostupný pro další pokus.";
+  };
+  const adminLoginErrorMessage = (error) => {
+    if (error instanceof AdminApiError && error.code === "ADMIN_INVALID_RESPONSE") {
+      return "Admin API nevrátilo platná data. Nepoužívej VS Code Live Server; spusť `npm run dev:hosted-api` a `npm run dev:admin`.";
+    }
+    if (error instanceof AdminApiError && error.code === "ADMIN_CONFIGURATION_UNAVAILABLE") {
+      return "Admin server nemá nastavené databázové připojení. Zkontroluj produkční EMPIRE_DATABASE_URL.";
+    }
+    if (error instanceof AdminApiError && error.code === "ADMIN_DATABASE_UNAVAILABLE") {
+      return "Admin databáze je právě nedostupná. Zkus přihlášení znovu později.";
+    }
+    return error instanceof Error ? error.message : "Přihlášení selhalo.";
+  };
+  const isSessionError = (error) => error instanceof AdminApiError && (error.status === 401 || error.code.includes("SESSION"));
+  const createAdminLoginController = (options) => ({
+    bind: () => {
+      const target = options.target();
+      const form = target == null ? void 0 : target.querySelector("[data-admin-login]");
+      const usernameInput = target == null ? void 0 : target.querySelector("[data-admin-username]");
+      const passwordInput = target == null ? void 0 : target.querySelector("[data-admin-password]");
+      if (!form || !usernameInput || !passwordInput) return;
+      form.addEventListener("submit", async (event) => {
+        var _a;
+        event.preventDefault();
+        const username = usernameInput.value;
+        const password = passwordInput.value;
+        passwordInput.value = "";
+        try {
+          await options.onAuthenticated(await options.client.login(username, password));
+        } catch (error) {
+          const message = (_a = options.target()) == null ? void 0 : _a.querySelector("[data-admin-login-error]");
+          if (message) message.textContent = adminLoginErrorMessage(error);
+        }
+      });
+    }
+  });
+  const createAdminRefreshController = (options) => {
+    let requestSequence = 0;
+    let activeRequest = null;
+    let timer = null;
+    let backoff = options.pollInterval;
+    const refresh = async (includeAudit = false) => {
+      const context = options.context();
+      if (!context.mounted || !context.session) return;
+      if (document.hidden) {
+        options.onStatus("paused");
+        return;
+      }
+      if (context.wizardOpen) {
+        schedule(options.pollInterval);
+        return;
+      }
+      const sequence = ++requestSequence;
+      activeRequest == null ? void 0 : activeRequest.abort();
+      activeRequest = new AbortController();
+      options.onStatus("loading");
+      try {
+        const requestedInstanceId = context.selectedInstanceId;
+        const [overview, detail, controlPlane] = await Promise.all([
+          options.client.getOverview(activeRequest.signal),
+          requestedInstanceId ? options.client.getInstance(requestedInstanceId, activeRequest.signal) : Promise.resolve(null),
+          options.client.getControlPlane(activeRequest.signal)
+        ]);
+        const audit = await loadAudit(context, includeAudit, activeRequest.signal);
+        if (sequence !== requestSequence || requestedInstanceId !== options.context().selectedInstanceId) return;
+        options.apply({
+          overview,
+          detail,
+          controlPlane,
+          auditEntries: audit.entries,
+          auditError: audit.error,
+          refreshedAt: (/* @__PURE__ */ new Date()).toISOString()
+        });
+        options.syncClock(controlPlane.generatedAt);
+        backoff = options.pollInterval;
+        options.onStatus("current");
+        options.render();
+        schedule(options.pollInterval);
+      } catch (error) {
+        if (isAbortError(error)) return;
+        backoff = Math.min(options.maxBackoff, backoff * 2);
+        options.onStatus("backoff");
+        options.onError(error);
+        if (options.context().session) schedule(backoff);
+      }
+    };
+    const loadAudit = async (context, force, signal) => {
+      var _a;
+      if (((_a = context.session) == null ? void 0 : _a.role) !== "owner" || !force && context.auditEntries !== null) {
+        return { entries: context.auditEntries, error: context.auditError };
+      }
+      try {
+        return { entries: await options.client.getAudit(signal), error: null };
+      } catch (error) {
+        if (isSessionError(error) || isAbortError(error)) throw error;
+        return { entries: context.auditEntries, error: error instanceof Error ? error.message : "Audit trail není dostupný." };
+      }
+    };
+    const schedule = (delay) => {
+      clearSchedule();
+      if (options.context().mounted) timer = setTimeout(() => void refresh(), delay);
+    };
+    const clearSchedule = () => {
+      if (timer) clearTimeout(timer);
+      timer = null;
+    };
+    const cancel = () => {
+      requestSequence += 1;
+      activeRequest == null ? void 0 : activeRequest.abort();
+      activeRequest = null;
+      clearSchedule();
+    };
+    const pause = () => {
+      cancel();
+      options.onStatus("paused");
+    };
+    return { refresh, cancel, pause };
+  };
+  const renderAdminAudit = (input) => {
+    var _a;
+    if (input.role !== "owner") return "";
+    const status = input.error ? badge("AUDIT NEDOSTUPNÝ", "warning") : badge(`${((_a = input.entries) == null ? void 0 : _a.length) ?? 0} ZÁZNAMŮ`, "info");
+    return `<details id="admin-audit" class="admin-panel admin-audit admin-section-anchor">
+    <summary class="admin-panel__head">
+      <div><span>Owner only</span><h3>Bezpečnostní audit trail</h3></div>
+      <div class="admin-actions">${status}<span class="admin-audit__open-label">Otevřít audit</span></div>
+    </summary>
+    <div class="admin-audit__body">
+      <div class="admin-audit__toolbar">
+        <p>Citlivé provozní operace a jejich korelační identifikátory.</p>
+        <button class="admin-button" type="button" data-admin-audit-refresh>Načíst nejnovější</button>
+      </div>
+      ${input.error ? `<p class="admin-notice" role="alert">${escapeHtml(input.error)}</p>` : ""}
+      ${input.entries === null ? `<p class="admin-copy" role="status">Načítám audit trail...</p>` : table(
+      ["Výsledek", "Akce", "Actor / role", "Instance", "Čas", "Correlation"],
+      input.entries.map((entry) => `<tr data-admin-search-row>
+          <td>${pill(entry.result)}</td><td>${escapeHtml(entry.action)}</td>
+          <td>${escapeHtml(entry.actorId ?? "system")}<br><small>${escapeHtml(entry.role ?? "worker")}</small></td>
+          <td>${escapeHtml(entry.targetInstanceId ?? "–")}</td><td>${formatTime(entry.createdAt)}</td>
+          <td><code>${escapeHtml(entry.correlationId)}</code></td>
+        </tr>`).join("")
+    )}
+    </div>
+  </details>`;
+  };
+  const renderAdminCommandCenter = (input) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
+    const health = resolveHealth(input.controlPlane);
+    const attentionCount = input.overview.counts.failed + input.overview.counts.stale + input.overview.counts.offline + input.overview.counts.noWorker;
+    return `<section id="admin-overview" class="admin-command-center admin-section-anchor" aria-labelledby="admin-command-center-title">
+    <div class="admin-command-center__primary">
+      <div class="admin-command-center__status" data-tone="${health.tone}" data-admin-system-health>
+        <span class="admin-command-center__pulse" aria-hidden="true"></span>
+        <div>
+          <p>Empire Streets Control Center</p>
+          <h2 id="admin-command-center-title">${escapeHtml(health.title)}</h2>
+          <span>${escapeHtml(health.detail)}</span>
+        </div>
+      </div>
+      <div class="admin-service-grid" aria-label="Stav služeb">
+        ${service(
+      "API",
+      input.controlPlane ? "Online" : "Nedostupné",
+      input.controlPlane ? "success" : "danger"
+    )}
+        ${service(
+      "Databáze",
+      ((_a = input.controlPlane) == null ? void 0 : _a.databaseAvailable) ? "Online" : "Nedostupná",
+      ((_b = input.controlPlane) == null ? void 0 : _b.databaseAvailable) ? "success" : "danger"
+    )}
+        ${service(
+      "Hosted worker",
+      ((_c = input.controlPlane) == null ? void 0 : _c.workerStatus) ?? "Ověřuji",
+      ((_d = input.controlPlane) == null ? void 0 : _d.workerStatus) === "online" ? "success" : ((_e = input.controlPlane) == null ? void 0 : _e.workerStatus) === "stale" ? "warning" : "danger"
+    )}
+        ${service(
+      "DB schéma",
+      ((_f = input.controlPlane) == null ? void 0 : _f.migrationsCurrent) ? "Aktuální" : "Vyžaduje migraci",
+      ((_g = input.controlPlane) == null ? void 0 : _g.migrationsCurrent) ? "success" : "danger"
+    )}
+        ${service("Buildy", buildLabel(input.controlPlane), buildTone(input.controlPlane))}
+        ${service(
+      "Registrace",
+      ((_h = input.controlPlane) == null ? void 0 : _h.registrationEnabled) ? "Zapnutá" : "Vypnutá",
+      ((_i = input.controlPlane) == null ? void 0 : _i.registrationEnabled) ? "success" : "neutral"
+    )}
+      </div>
+    </div>
+    <div class="admin-command-metrics">
+      ${metric("Běžící servery", input.overview.counts.running, "cyan", "Autoritativně running")}
+      ${metric("Aktivní hráči", input.overview.counts.players, "neutral", "Napříč instancemi")}
+      ${metric("Lobby", input.overview.counts.lobby, "gold", "Čekají na start")}
+      ${metric(
+      "Stav serverů",
+      attentionCount,
+      attentionCount ? "warning" : "success",
+      `stale ${input.overview.counts.stale} · offline ${input.overview.counts.offline} · failed ${input.overview.counts.failed}`
+    )}
+      ${metric(
+      "Worker",
+      ((_j = input.controlPlane) == null ? void 0 : _j.workerStatus) ?? "Neznámý",
+      ((_k = input.controlPlane) == null ? void 0 : _k.workerStatus) === "online" ? "success" : "warning",
+      "Hosted runtime"
+    )}
+      ${metric(
+      "Registrace",
+      ((_l = input.controlPlane) == null ? void 0 : _l.registrationEnabled) ? "Zapnutá" : "Vypnutá",
+      ((_m = input.controlPlane) == null ? void 0 : _m.registrationEnabled) ? "success" : "neutral",
+      "Účtová policy"
+    )}
+    </div>
+    <div class="admin-command-center__foot">
+      <span>Read model ${formatTime(input.overview.generatedAt)}</span>
+      <span>${((_n = input.detail) == null ? void 0 : _n.freshness.stale) ? "Vybraný detail je stale" : "Data detailu bez známé freshness výstrahy"}</span>
+    </div>
+  </section>`;
+  };
+  const resolveHealth = (control) => {
+    if (!control) return {
+      tone: "warning",
+      title: "Ověřuji stav systému",
+      detail: "Čekám na control-plane read model."
+    };
+    const blocked = !control.databaseAvailable || !control.migrationsCurrent || control.workerStatus === "offline" || control.buildCompatibility === "mismatch" || Boolean(control.unavailableCode);
+    if (blocked) return {
+      tone: "danger",
+      title: "Systém vyžaduje zásah",
+      detail: control.unavailableCode ?? "Alespoň jedna kritická služba není v bezpečném stavu."
+    };
+    if (control.workerStatus === "stale" || control.buildCompatibility !== "current") return {
+      tone: "warning",
+      title: "Systém běží omezeně",
+      detail: "Provoz pokračuje, ale worker nebo build kompatibilita vyžaduje kontrolu."
+    };
+    return {
+      tone: "success",
+      title: "Systém je připraven",
+      detail: "Databáze, migrace, worker a build compatibility jsou potvrzené."
+    };
+  };
+  const service = (label, value, tone) => `
+  <article class="admin-service admin-service--${attribute(tone)}">
+    <span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>
+  </article>`;
+  const metric = (label, value, tone, detail) => `<article class="admin-command-metric admin-command-metric--${attribute(tone)}">
+  <span>${escapeHtml(label)}</span>
+  <strong>${typeof value === "number" ? formatNumber(value) : escapeHtml(value)}</strong>
+  <small>${escapeHtml(detail)}</small>
+</article>`;
+  const buildLabel = (control) => ({
+    current: "Kompatibilní",
+    mismatch: "Neshoda SHA",
+    missing: "Chybí metadata"
+  })[(control == null ? void 0 : control.buildCompatibility) ?? "missing"] ?? "Neznámý stav";
+  const buildTone = (control) => (control == null ? void 0 : control.buildCompatibility) === "current" ? "success" : (control == null ? void 0 : control.buildCompatibility) === "mismatch" ? "danger" : "warning";
   const freeConfig = resolveModeConfig("free");
   const minimumCapacity = FREE_HOSTED_SERVER_LIFECYCLE_POLICY.minimumReadyPlayersToStart;
   const maximumCapacity = freeConfig.balance.maxPlayersPerServer;
   const registrationMinutes$1 = FREE_HOSTED_SERVER_LIFECYCLE_POLICY.registrationWindowMs / 6e4;
   const renderAdminCreateWizard = (step) => `
-  <form class="admin-wizard" data-admin-create-form>
-    <div class="admin-wizard__steps" aria-label="Kroky vytvoření serveru">
-      ${["Základ", "Mapa", "Přístup", "Kontrola"].map((label, index) => `<span class="${step === index + 1 ? "is-active" : ""}">${index + 1}. ${label}</span>`).join("")}
-    </div>
-    <fieldset data-admin-wizard-panel="1" ${step === 1 ? "" : "hidden"}>
-      <legend>Základ</legend>
-      <label><span>Název</span><input name="displayName" minlength="3" maxlength="80" required></label>
-      <label><span>Mode</span><select name="mode"><option value="free">Free</option><option value="war" disabled>War (připravuje se)</option></select></label>
-      <label><span>Region</span><select name="region"><option value="eu-central">EU Central</option></select></label>
-      <label class="admin-template-selector"><span>Bezpečná Free šablona</span><select name="serverTemplate" data-admin-server-template>
-        <option value="control">Kontrolní test · 2–20 hráčů · bez Očisty</option>
-        <option value="full">Plnohodnotný server · 20 hráčů · canonical Očista</option>
-      </select><small>Šablona určuje serverová lifecycle pravidla. Browser neposílá raw balance ani nastavení Očisty.</small></label>
-      <label><span>Kapacita</span><input name="capacity" data-admin-server-capacity type="number" min="${minimumCapacity}" max="${maximumCapacity}" value="${minimumCapacity}" required></label>
-      <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Další</button>
-    </fieldset>
-    <fieldset data-admin-wizard-panel="2" ${step === 2 ? "" : "hidden"}>
-      <legend>Mapa</legend><div class="admin-map-counts">
-        <label><span>Downtown</span><input value="8" disabled></label>
-        <label><span>Commercial</span><input name="commercial" data-admin-map-count type="number" min="0" value="40" required></label>
-        <label><span>Residential</span><input name="residential" data-admin-map-count type="number" min="0" value="38" required></label>
-        <label><span>Industrial</span><input name="industrial" data-admin-map-count type="number" min="0" value="38" required></label>
-        <label><span>Park</span><input name="park" data-admin-map-count type="number" min="0" value="37" required></label>
-      </div><p>Celkem: <output data-admin-map-total>161</output> / 161</p>
-      <button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
-      <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Další</button>
-    </fieldset>
-    <fieldset data-admin-wizard-panel="3" ${step === 3 ? "" : "hidden"}>
-      <legend>Přístup</legend><input type="hidden" name="joinPolicy" value="closed">
-      <div class="admin-kv-grid admin-wizard__policy">
-        ${kv$2("Kapacita", "Kontrolní 2–20 / plná 20")}
-        ${kv$2("Minimum ke spuštění", minimumCapacity)}
-        ${kv$2("Registrační okno", `${registrationMinutes$1} minut`)}
-      </div>
-      <p class="admin-notice">Kontrolní šablona je pro malý setup bez Očisty. Plnohodnotná šablona drží canonical kapacitu 20 a standardní Očistu. Server vznikne se zavřeným vstupem.</p>
-      <button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
-      <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Další</button>
-    </fieldset>
-    <fieldset data-admin-wizard-panel="4" ${step === 4 ? "" : "hidden"}>
-      <legend>Kontrola</legend><div class="admin-kv-grid" data-admin-create-review></div>
-      <p class="admin-notice">Server vznikne jako REQUESTED a joins zůstanou zavřené do dokončení provisioningu.</p>
-      <button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
-      <button class="admin-button admin-button--primary" type="submit">Create Server</button>
-    </fieldset>
-    <button class="admin-button" type="button" data-admin-create-cancel>Zrušit</button>
-    <p data-admin-create-error role="alert"></p>
-  </form>`;
-  const kv$2 = (label, value) => `<span><small>${escape$2(label)}</small><strong>${escape$2(value)}</strong></span>`;
-  const escape$2 = (value) => String(value).replace(/[&<>"']/gu, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+  <div class="admin-modal-backdrop" data-admin-create-backdrop>
+    <section class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="admin-create-title">
+      <header class="admin-modal__head"><div><span>Provisioning</span><h2 id="admin-create-title">Vytvořit nový server</h2>
+        <p>Bezpečný čtyřkrokový workflow s canonical Free pravidly.</p></div>
+        <button class="admin-button admin-button--ghost admin-button--close" type="button" data-admin-create-cancel aria-label="Zavřít dialog">×</button>
+      </header>
+      <form class="admin-wizard" data-admin-create-form>
+        <div class="admin-wizard__steps" aria-label="Kroky vytvoření serveru">
+          ${["Základ", "Mapa", "Přístup", "Kontrola"].map((label, index) => `<span class="${step === index + 1 ? "is-active" : ""}"><b>${index + 1}</b>${label}</span>`).join("")}
+        </div>
+        <fieldset data-admin-wizard-panel="1" ${step === 1 ? "" : "hidden"}>
+          <legend>Základ serveru</legend>
+          <label><span>Název</span><input name="displayName" minlength="3" maxlength="80" required></label>
+          <label><span>Mode</span><select name="mode"><option value="free">Free</option><option value="war" disabled>War (připravuje se)</option></select></label>
+          <label><span>Region</span><select name="region"><option value="eu-central">EU Central</option></select></label>
+          <label class="admin-template-selector"><span>Bezpečná Free šablona</span><select name="serverTemplate" data-admin-server-template>
+            <option value="control">Kontrolní test · 2–20 hráčů · bez Očisty</option>
+            <option value="full">Plnohodnotný server · 20 hráčů · canonical Očista</option>
+          </select><small>Šablona určuje serverová lifecycle pravidla. Browser neposílá raw balance ani nastavení Očisty.</small></label>
+          <label><span>Kapacita</span><input name="capacity" data-admin-server-capacity type="number" min="${minimumCapacity}" max="${maximumCapacity}" value="${minimumCapacity}" required></label>
+          <div class="admin-wizard__actions"><button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Pokračovat</button></div>
+        </fieldset>
+        <fieldset data-admin-wizard-panel="2" ${step === 2 ? "" : "hidden"}>
+          <legend>Složení mapy</legend><div class="admin-map-counts">
+            <label><span>Downtown</span><input value="8" disabled></label>
+            <label><span>Commercial</span><input name="commercial" data-admin-map-count type="number" min="0" value="40" required></label>
+            <label><span>Residential</span><input name="residential" data-admin-map-count type="number" min="0" value="38" required></label>
+            <label><span>Industrial</span><input name="industrial" data-admin-map-count type="number" min="0" value="38" required></label>
+            <label><span>Park</span><input name="park" data-admin-map-count type="number" min="0" value="37" required></label>
+          </div><p class="admin-wizard__total">Celkem <output data-admin-map-total>161</output> / 161 districtů</p>
+          <div class="admin-wizard__actions"><button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
+            <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Pokračovat</button></div>
+        </fieldset>
+        <fieldset data-admin-wizard-panel="3" ${step === 3 ? "" : "hidden"}>
+          <legend>Přístup a registrace</legend><input type="hidden" name="joinPolicy" value="closed">
+          <div class="admin-kv-grid admin-wizard__policy">
+            ${kv$1("Kapacita", "Kontrolní 2–20 / plná 20")}
+            ${kv$1("Minimum ke spuštění", minimumCapacity)}
+            ${kv$1("Registrační okno", `${registrationMinutes$1} minut`)}
+          </div>
+          <p class="admin-notice">Kontrolní šablona je pro malý setup bez Očisty. Plnohodnotná šablona drží canonical kapacitu 20 a standardní Očistu. Server vznikne se zavřeným vstupem.</p>
+          <div class="admin-wizard__actions"><button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
+            <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Pokračovat</button></div>
+        </fieldset>
+        <fieldset data-admin-wizard-panel="4" ${step === 4 ? "" : "hidden"}>
+          <legend>Kontrola před vytvořením</legend><div class="admin-kv-grid" data-admin-create-review></div>
+          <p class="admin-notice">Server vznikne jako REQUESTED a joins zůstanou zavřené do dokončení provisioningu.</p>
+          <div class="admin-wizard__actions"><button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
+            <button class="admin-button admin-button--primary" type="submit">Vytvořit server</button></div>
+        </fieldset>
+        <p class="admin-form-error" data-admin-create-error role="alert"></p>
+      </form>
+    </section>
+  </div>`;
+  const kv$1 = (label, value) => `<span><small>${escape$1(label)}</small><strong>${escape$1(value)}</strong></span>`;
+  const escape$1 = (value) => String(value).replace(/[&<>"']/gu, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
   const registrationMinutes = FREE_HOSTED_SERVER_LIFECYCLE_POLICY.registrationWindowMs / 6e4;
   const renderAdminRegistration = (server, session) => {
     const state = String(server.registrationState || "not_scheduled");
     const canSchedule = server.provisioningState === "ready" && server.status === "lobby" && (state === "not_scheduled" || state === "closed" || state === "closed_early");
     const canCancel = server.provisioningState === "ready" && server.status === "lobby" && state === "scheduled";
     const canClose = session.role === "owner" && state === "open";
-    return `<section class="admin-registration" aria-labelledby="admin-registration-${attr$1(server.serverInstanceId)}">
+    return `<section id="admin-registration" class="admin-registration admin-section-anchor" aria-labelledby="admin-registration-${attr(server.serverInstanceId)}">
     <div class="admin-registration__head">
-      <div><span>REGISTRACE HRÁČŮ</span><h5 id="admin-registration-${attr$1(server.serverInstanceId)}">${escape$1(stateLabel(state))}</h5></div>
-      <strong data-admin-registration-countdown data-registration-state="${attr$1(state)}"
-        data-registration-opens-at="${attr$1(server.registrationOpensAt ?? "")}" data-registration-closes-at="${attr$1(server.registrationClosesAt ?? "")}">
-        ${escape$1(countdown(server))}
+      <div><span>REGISTRACE HRÁČŮ</span><h5 id="admin-registration-${attr(server.serverInstanceId)}">${escape(stateLabel(state))}</h5></div>
+      <strong data-admin-registration-countdown data-registration-state="${attr(state)}"
+        data-registration-opens-at="${attr(server.registrationOpensAt ?? "")}" data-registration-closes-at="${attr(server.registrationClosesAt ?? "")}">
+        ${escape(countdown(server))}
       </strong>
     </div>
     <div class="admin-kv-grid">
-      ${kv$1("Otevření", timeWithZone(server.registrationOpensAt))}${kv$1("Automatické zavření", timeWithZone(server.registrationClosesAt))}
-      ${kv$1("Délka", `${server.registrationWindowMinutes ?? registrationMinutes} minut`)}
-      ${kv$1("Připravení hráči", `${numberOrDash(server.readyPlayers)} / ${numberOrDash(server.minimumReadyPlayersToStart)}`)}
+      ${kv("Otevření", timeWithZone(server.registrationOpensAt))}${kv("Automatické zavření", timeWithZone(server.registrationClosesAt))}
+      ${kv("Délka", `${server.registrationWindowMinutes ?? registrationMinutes} minut`)}
+      ${kv("Committed", numberOrDash(server.committedPlayers))}
+      ${kv("Reserved", numberOrDash(server.reservedSlots))}
+      ${kv("Kapacita", server.capacity)}
+      ${kv("Připravení hráči", `${numberOrDash(server.readyPlayers)} / ${numberOrDash(server.minimumReadyPlayersToStart)}`)}
     </div>
-    <label class="admin-registration__schedule"><span>Plánované otevření · ${escape$1(browserTimeZone())}</span>
-      <input type="datetime-local" data-admin-registration-opens-at ${canSchedule ? "" : "disabled"}>
+    <label class="admin-registration__schedule"><span>Plánované otevření · ${escape(browserTimeZone())}</span>
+      <input type="datetime-local" data-admin-registration-opens-at data-admin-preserve-input ${canSchedule ? "" : "disabled"}>
     </label>
     <div class="admin-registration__actions">
       ${button(server, "schedule-registration", "Naplánovat registraci", canSchedule)}
@@ -40400,14 +41402,14 @@
   const renderAdminStartReadiness = (server) => {
     const canStart = server.canStart === true;
     return `<section class="admin-start-readiness ${canStart ? "is-ready" : "is-blocked"}">
-    <span>PŘIPRAVENÍ HRÁČI <strong>${escape$1(numberOrDash(server.readyPlayers))} / ${escape$1(numberOrDash(server.minimumReadyPlayersToStart))}</strong></span>
+    <span>PŘIPRAVENÍ HRÁČI <strong>${escape(numberOrDash(server.readyPlayers))} / ${escape(numberOrDash(server.minimumReadyPlayersToStart))}</strong></span>
     <span>START SERVERU <strong>${canStart ? "PŘIPRAVENO" : "BLOKOVÁNO"}</strong></span>
-    ${canStart ? "" : `<p>${escape$1(server.startDisabledReason || "Čekám na autoritativní stav serveru.")}</p>`}
+    ${canStart ? "" : `<p>${escape(server.startDisabledReason || "Čekám na autoritativní stav serveru.")}</p>`}
   </section>`;
   };
   const button = (server, action2, label, enabled, dangerous = false) => `<button class="admin-button${dangerous ? " admin-button--danger" : ""}" type="button"
-    data-admin-registration-action="${attr$1(action2)}" data-admin-server-id="${attr$1(server.serverInstanceId)}"
-    ${enabled ? "" : 'disabled aria-disabled="true"'}>${escape$1(label)}</button>`;
+    data-admin-registration-action="${attr(action2)}" data-admin-server-id="${attr(server.serverInstanceId)}"
+    ${enabled ? "" : 'disabled aria-disabled="true"'}>${escape(label)}</button>`;
   const stateLabel = (state) => ({
     not_scheduled: "NENAPLÁNOVÁNO",
     scheduled: "NAPLÁNOVÁNO",
@@ -40423,14 +41425,436 @@
   const numberOrDash = (value) => Number.isFinite(value) ? Number(value) : "–";
   const browserTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "místní čas";
   const timeWithZone = (value) => value ? `${new Date(value).toLocaleString("cs-CZ")} · ${browserTimeZone()}` : "–";
-  const kv$1 = (label, value) => `<span><small>${escape$1(label)}</small><strong>${escape$1(value)}</strong></span>`;
-  const attr$1 = (value) => escape$1(value);
-  const escape$1 = (value) => String(value).replace(/[&<>"']/gu, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+  const kv = (label, value) => `<span><small>${escape(label)}</small><strong>${escape(value)}</strong></span>`;
+  const attr = (value) => escape(value);
+  const escape = (value) => String(value).replace(/[&<>"']/gu, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+  const renderAdminControlPlane = (input) => {
+    const { control } = input;
+    if (!control) {
+      return `<section id="admin-control-plane" class="admin-panel admin-section-anchor" role="status"><h3>Načítám control plane...</h3></section>`;
+    }
+    const frontendCompatible = Boolean(input.frontendBuildSha) && input.frontendBuildSha === control.apiBuildSha && control.buildCompatibility === "current" || input.localDevelopment && control.buildCompatibility === "current";
+    const accountPlatformReady = control.databaseAvailable && control.migrationsCurrent && control.sessionSecurity === "current" && control.originPolicy === "current" && frontendCompatible;
+    const gameHostingDeployed = control.writesEnabled && control.provisioningEnabled && control.workerStatus === "online" && Boolean(control.workerBuildSha);
+    const gameHostingDisabled = !control.writesEnabled && !control.provisioningEnabled;
+    const hostingLabel = gameHostingDeployed ? "DEPLOYED" : gameHostingDisabled ? "DISABLED" : "NEEDS ATTENTION";
+    const hostingTone = gameHostingDeployed ? "success" : gameHostingDisabled ? "neutral" : "danger";
+    const ready = !control.unavailableCode && frontendCompatible;
+    const canWrite = ready && input.session.role !== "viewer";
+    const selected = control.servers.find((entry) => entry.serverInstanceId === input.selectedInstanceId) ?? null;
+    return `<section id="admin-control-plane" class="admin-panel admin-control-plane admin-section-anchor">
+    <div class="admin-panel__head">
+      <div><span>Control plane</span><h3>Systém a bezpečné operace</h3>
+        <p>Stav platformy, provisioning a lifecycle vybraného serveru.</p></div>
+      <div class="admin-panel__actions">
+        ${badge(control.unavailableCode ?? (canWrite ? "OPERACE POVOLENY" : "POUZE ČTENÍ"), ready ? "success" : "warning")}
+        ${canWrite && !input.wizardOpen ? `<button class="admin-button admin-button--primary" type="button" data-admin-create-open>Nový server</button>` : ""}
+      </div>
+    </div>
+    <div class="admin-health-grid">
+      ${healthCard(
+      "Databáze",
+      control.databaseAvailable ? "AVAILABLE" : "UNAVAILABLE",
+      control.databaseAvailable ? "success" : "danger",
+      control.migrationsCurrent ? "Migrace jsou aktuální." : "Čekají databázové migrace."
+    )}
+      ${healthCard(
+      "Account platform",
+      accountPlatformReady ? "READY" : "BLOCKED",
+      accountPlatformReady ? "success" : "danger",
+      "Session security, origin policy a frontend/API build."
+    )}
+      ${healthCard(
+      "Game hosting",
+      hostingLabel,
+      hostingTone,
+      gameHostingDisabled ? "Hosting je konfigurací úmyslně vypnutý." : `Worker ${control.workerStatus}; provisioning ${control.provisioningEnabled ? "enabled" : "disabled"}.`
+    )}
+      ${healthCard(
+      "Worker",
+      control.workerStatus.toUpperCase(),
+      control.workerStatus === "online" ? "success" : control.workerStatus === "stale" ? "warning" : "danger",
+      "Hosted runtime heartbeat."
+    )}
+      ${healthCard(
+      "Build parity",
+      frontendCompatible ? "CURRENT" : "BLOCKED",
+      frontendCompatible ? "success" : "danger",
+      "Frontend, API a worker musí být kompatibilní."
+    )}
+      ${healthCard(
+      "Registrace",
+      control.registrationEnabled ? "ENABLED" : "DISABLED",
+      control.registrationEnabled ? "success" : "neutral",
+      "Serverová account registration policy."
+    )}
+    </div>
+    <details id="admin-builds" class="admin-disclosure admin-disclosure--technical admin-section-anchor">
+      <summary><span>Technické informace</span><small>SHA, schema a security kontrakty</small></summary>
+      <div class="admin-kv-grid">
+        ${keyValue("Account platform", accountPlatformReady ? "READY" : "BLOCKED")}
+        ${keyValue("Game hosting", hostingLabel)}
+        ${keyValue("Database", control.databaseAvailable ? "AVAILABLE" : "UNAVAILABLE")}
+        ${keyValue("Migrace", control.migrationsCurrent ? "CURRENT" : "PENDING")}
+        ${keyValue("Worker", control.workerStatus.toUpperCase())}
+        ${keyValue("Provisioning", control.provisioningEnabled ? "ENABLED" : "DISABLED")}
+        ${keyValue("Build parity", frontendCompatible ? "CURRENT" : "BLOCKED")}
+        ${keyValue("Session security", (control.sessionSecurity ?? "blocked").toUpperCase())}
+        ${keyValue("Origin policy", (control.originPolicy ?? "blocked").toUpperCase())}
+        ${keyValue("Registrace účtů", control.registrationEnabled ? "ENABLED" : "DISABLED")}
+        ${codeValue("Frontend SHA", input.frontendBuildSha ?? (input.localDevelopment ? "LOCAL DEV" : null))}
+        ${codeValue("API SHA", control.apiBuildSha)}
+        ${codeValue("Worker SHA", control.workerBuildSha)}
+        ${keyValue("Schema", control.schemaVersion ?? "NEZNÁMÉ")}
+      </div>
+      ${renderBuildCompatibility(input.frontendBuildSha, control.apiBuildSha, control.workerBuildSha, gameHostingDeployed, input.localDevelopment)}
+    </details>
+    ${selected && canWrite ? renderLifecycle(selected, input.session) : `<div class="admin-control-plane__empty"><strong>${input.session.role === "viewer" ? "Viewer režim" : "Vyberte server"}</strong>
+          <span>${input.session.role === "viewer" ? "Operace jsou záměrně uzamčené." : "Lifecycle akce se zobrazí pro vybranou instanci."}</span></div>`}
+    ${input.wizardOpen && canWrite ? renderAdminCreateWizard(input.wizardStep) : ""}
+  </section>`;
+  };
+  const renderAdminServers = (instances, selected, filters) => `
+  <section id="admin-servers" class="admin-panel admin-server-registry admin-section-anchor">
+    <div class="admin-panel__head"><div><span>Server registry</span><h3>Herní instance</h3>
+      <p>Vyberte server pro detail a bezpečné operace.</p></div>${badge(`${instances.length} INSTANCÍ`, "info")}</div>
+    ${renderServerFilters(instances, filters)}
+    ${instances.length === 0 ? `<p class="admin-copy">Žádné instance.</p>` : table(
+    ["Server", "Režim", "Status", "Worker", "Hráči", "Heartbeat", "Akce"],
+    instances.map((item) => `<tr data-admin-search-row data-admin-server-item
+        data-admin-server-status="${attribute(item.status)}" data-admin-server-mode="${attribute(item.mode)}"
+        data-admin-server-worker="${attribute(item.workerStatus)}" class="${item.serverInstanceId === selected ? "is-selected" : ""}">
+        <td><a class="admin-server-name-link" href="?instance=${encodeURIComponent(item.serverInstanceId)}">
+          <strong>${escapeHtml(item.displayName)}</strong><small title="${attribute(item.serverInstanceId)}">${escapeHtml(shortId(item.serverInstanceId))}</small></a></td>
+        <td>${escapeHtml(item.mode)}</td><td>${pill(item.status)}</td><td>${pill(item.workerStatus)}</td>
+        <td><strong>${item.playerCount} / ${item.capacity}</strong></td><td>${formatTime(item.lastHeartbeatAt)}</td>
+        <td><a class="admin-button admin-button--ghost admin-button--compact" href="?instance=${encodeURIComponent(item.serverInstanceId)}"
+          data-admin-instance="${attribute(item.serverInstanceId)}">Detail</a></td></tr>`).join("")
+  )}
+    <div class="admin-server-cards" aria-label="Herní instance">
+      ${instances.map((item) => `<article data-admin-server-item
+        data-admin-server-status="${attribute(item.status)}" data-admin-server-mode="${attribute(item.mode)}"
+        data-admin-server-worker="${attribute(item.workerStatus)}" class="admin-server-card${item.serverInstanceId === selected ? " is-selected" : ""}">
+        <div class="admin-server-card__head"><div><strong>${escapeHtml(item.displayName)}</strong>
+          <small title="${attribute(item.serverInstanceId)}">${escapeHtml(shortId(item.serverInstanceId))}</small></div>${pill(item.status)}</div>
+        <dl><div><dt>Režim</dt><dd>${escapeHtml(item.mode)}</dd></div><div><dt>Hráči</dt><dd>${item.playerCount} / ${item.capacity}</dd></div>
+          <div><dt>Worker</dt><dd>${pill(item.workerStatus)}</dd></div><div><dt>Heartbeat</dt><dd>${formatTime(item.lastHeartbeatAt)}</dd></div></dl>
+        <a class="admin-button admin-button--primary" href="?instance=${encodeURIComponent(item.serverInstanceId)}"
+          data-admin-mobile-instance="${attribute(item.serverInstanceId)}">Detail serveru</a>
+      </article>`).join("")}
+    </div>
+  </section>`;
+  const renderBuildCompatibility = (frontend, api, worker, gameHostingDeployed = true, localDevelopment = false) => {
+    if (!gameHostingDeployed) {
+      if (!frontend || !api) return `<p class="admin-notice">Build účtové platformy nelze potvrdit, protože frontend nebo API SHA chybí.</p>`;
+      return frontend === api ? `<p class="admin-copy">Frontend a API běží ze stejného buildu. Herní worker není nasazený.</p>` : `<p class="admin-notice">POZOR: Frontend a API neběží ze stejného SHA. Herní worker není nasazený.</p>`;
+    }
+    if (localDevelopment && !frontend) {
+      return `<p class="admin-copy">Lokální frontend běží na loopbacku; API a worker build parity je potvrzena serverem.</p>`;
+    }
+    const values = [frontend, api ?? null, worker ?? null];
+    if (values.some((value) => !value)) return `<p class="admin-notice">Kompatibilitu buildů nelze potvrdit, protože alespoň jedno SHA chybí.</p>`;
+    return new Set(values).size === 1 ? `<p class="admin-copy">Frontend, API a worker běží ze stejného buildu.</p>` : `<p class="admin-notice">POZOR: Frontend, API a worker neběží ze stejného SHA.</p>`;
+  };
+  const renderLifecycle = (server, session) => `
+  <div class="admin-lifecycle">
+    <div class="admin-lifecycle__head"><div><span>Vybraný server</span><h4>Lifecycle: ${escapeHtml(server.displayName)}</h4>
+      <small>${escapeHtml(server.serverInstanceId)} · version ${server.version}</small></div><div>${pill(server.status)} ${pill(server.provisioningState)}</div></div>
+    <div class="admin-lifecycle__summary">
+      ${keyValue("Hráči", `${server.committedPlayers ?? 0} / ${server.capacity}`)}
+      ${keyValue("Registrace", server.registrationState ?? "unknown")}
+      ${keyValue("Join policy", server.joinPolicy)}
+      ${keyValue("Worker", server.lastWorkerHeartbeatAt ? "HEARTBEAT" : "BEZ HEARTBEATU")}
+    </div>
+    ${renderAdminRegistration(server, session)}
+    ${renderAdminStartReadiness(server)}
+    <div class="admin-lifecycle__actions">
+      ${lifecycleButton(server, "start", "Start")}${lifecycleButton(server, "pause", "Pause")}
+      ${lifecycleButton(server, "resume", "Resume")}${lifecycleButton(server, "restart", "Safe restart")}
+      ${session.role === "owner" ? lifecycleButton(server, "stop", "Stop") : ""}
+    </div><p class="admin-copy admin-lifecycle__hint">Vyberte akci. Důvod a potvrzení zadáte v bezpečném dialogu pro tento server.</p>
+    <details class="admin-disclosure admin-disclosure--technical">
+      <summary><span>Serverová diagnostika</span><small>Lease, snapshot a canonical timing</small></summary>
+      <div class="admin-kv-grid">
+        ${keyValue("Šablona", server.serverTemplate === "full" ? "Plnohodnotný server" : "Kontrolní test")}
+        ${keyValue("Server version", server.version)}
+        ${keyValue("Committed players", server.committedPlayers ?? 0)}
+        ${keyValue("Reserved slots", server.reservedSlots ?? 0)}${keyValue("Capacity", server.capacity)}
+        ${keyValue("Join policy", server.joinPolicy)}${keyValue("Joinable", server.joinable ? "ANO" : "NE")}
+        ${keyValue("Registration state", server.registrationState ?? "unknown")}
+        ${keyValue("Schedule version", server.registrationScheduleVersion)}
+        ${keyValue("Tick rate", server.canonicalTickRateMs ? `${server.canonicalTickRateMs} ms` : "–")}
+        ${keyValue("Final Lockdown tick", server.effectiveFinalLockdownTrigger ?? server.canonicalFinalLockdownTrigger)}
+        ${keyValue("První eliminace tick", server.effectiveFirstEliminationTick ?? server.canonicalFirstEliminationTick)}
+        ${keyValue("Heartbeat", formatTime(server.lastWorkerHeartbeatAt))}
+        ${keyValue("Lease owner", server.runtimeLeaseOwnerId)}${keyValue("Lease expires", formatTime(server.runtimeLeaseExpiresAt))}
+        ${keyValue("Current snapshot", server.currentSnapshotId)}${keyValue("Last error", server.lastErrorCode)}
+        ${keyValue("Updated", formatTime(server.updatedAt))}
+      </div>
+    </details>
+  </div>`;
+  const healthCard = (label, value, tone, detail) => `
+  <article class="admin-health-card admin-health-card--${attribute(tone)}">
+    <span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><p>${escapeHtml(detail)}</p>
+  </article>`;
+  const lifecycleButton = (server, action2, label) => {
+    const reason = lifecycleUnavailableReason(server, action2);
+    const reasonId = `admin-lifecycle-reason-${action2}`;
+    const disabled = reason ? ` disabled aria-disabled="true" aria-describedby="${attribute(reasonId)}"` : "";
+    const tone = action2 === "stop" ? " admin-button--danger" : action2 === "start" || action2 === "resume" ? " admin-button--primary" : "";
+    return `<span class="admin-action-control${reason ? " is-disabled" : ""}"${reason ? ' tabindex="0"' : ""}>
+    <button class="admin-button${tone}" type="button"
+    data-admin-lifecycle="${attribute(action2)}" data-admin-server-id="${attribute(server.serverInstanceId)}"${disabled}>
+    ${escapeHtml(label)}</button>${reason ? `<small id="${attribute(reasonId)}">${escapeHtml(reason)}</small>` : ""}</span>`;
+  };
+  const renderServerFilters = (instances, filters) => `<div class="admin-server-filters" aria-label="Filtry serverů">
+  <label class="admin-server-filter-search"><span>Hledat server</span>
+    <input type="search" data-admin-search value="${attribute(filters.query)}" placeholder="Název nebo ID" autocomplete="off">
+  </label>
+  ${filterSelect("status", "Status", filters.status, unique(instances.map((item) => item.status)))}
+  ${filterSelect("mode", "Režim", filters.mode, unique(instances.map((item) => item.mode)))}
+  ${filterSelect("worker", "Worker", filters.worker, unique(instances.map((item) => item.workerStatus)))}
+  <button class="admin-button admin-button--ghost admin-button--compact" type="button" data-admin-filter-reset>Reset</button>
+  <span class="admin-server-filter-count">Zobrazeno <strong data-admin-server-visible-count>${instances.length}</strong> / ${instances.length}</span>
+</div>`;
+  const filterSelect = (key, label, selected, values) => `
+  <label><span>${escapeHtml(label)}</span><select data-admin-server-filter="${attribute(key)}">
+    <option value="all">Vše</option>${values.map((value) => `<option value="${attribute(value)}"${value === selected ? " selected" : ""}>${escapeHtml(statusLabel(value))}</option>`).join("")}
+  </select></label>`;
+  const unique = (values) => [...new Set(values)].sort((left, right) => left.localeCompare(right));
+  const shortId = (value) => value.length > 24 ? `${value.slice(0, 12)}…${value.slice(-8)}` : value;
+  const lifecycleUnavailableReason = (server, action2) => {
+    if (server.provisioningState !== "ready") return "Počkejte na dokončení provisioningu.";
+    if (action2 === "start") {
+      if (server.status !== "lobby") return "Spustit lze pouze server v lobby.";
+      return server.canStart === true ? null : server.startDisabledReason || "Čekám na autoritativní stav připravených hráčů.";
+    }
+    if (action2 === "pause") return server.status === "running" ? null : "Pozastavit lze pouze běžící server.";
+    if (action2 === "resume") return server.status === "paused" ? null : "Pokračovat lze pouze u pozastaveného serveru.";
+    if (action2 === "restart") return server.status === "running" ? null : "Restartovat lze pouze běžící server.";
+    if (action2 === "stop") return ["lobby", "running", "paused", "restarting"].includes(server.status) ? null : "Server už nelze zastavit.";
+    return "Akce není dostupná.";
+  };
+  const renderAdminInstanceDetail = (detail) => detail ? `
+  <section id="admin-instance-detail" class="admin-section-anchor admin-instance-hero">
+    <div class="admin-section__head">
+      <div><p>Vybraná instance</p><h2>${escapeHtml(detail.summary.displayName)}</h2>
+        <small>${escapeHtml(detail.serverInstanceId)} · ${escapeHtml(detail.summary.mode)} · ${escapeHtml(detail.summary.region)}</small></div>
+      ${badge(detail.summary.workerStatus.toUpperCase(), detail.summary.workerStatus === "live" ? "success" : "warning")}
+    </div>
+    <div class="admin-instance-hero__metrics">
+      ${keyValue("Lifecycle", detail.summary.status)}
+      ${keyValue("Worker", detail.summary.workerStatus)}
+      ${keyValue("Hráči", `${detail.players.length} / ${detail.summary.capacity}`)}
+      ${keyValue("Tick", detail.summary.currentTick)}
+      ${keyValue("State version", detail.summary.stateVersion)}
+      ${keyValue("Data k", formatTime(detail.freshness.dataAsOf))}
+    </div>
+    ${detail.runtimeAvailable ? "" : `<p class="admin-notice">Live runtime není dostupný. Zobrazená data pocházejí z durable snapshotu a mohou být zastaralá.</p>`}
+    ${detail.freshness.stale ? `<p class="admin-notice">Stale důvod: ${escapeHtml(detail.freshness.staleReason ?? "nezjištěno")}</p>` : ""}
+    <details class="admin-disclosure admin-disclosure--technical">
+      <summary><span>Technický stav instance</span><small>Freshness, snapshot, heartbeat a lease</small></summary>
+      <div class="admin-kv-grid">
+        ${keyValue("Join policy", detail.summary.joinPolicy)}${keyValue("Zdroj", detail.freshness.source)}
+        ${keyValue("Snapshot", formatTime(detail.summary.lastSnapshotAt))}${keyValue("Heartbeat", formatTime(detail.summary.lastHeartbeatAt))}
+        ${keyValue("Lease owner", detail.summary.leaseOwner)}${keyValue("Lease expires", formatTime(detail.summary.leaseExpiresAt))}
+      </div>
+    </details>
+  </section>
+  <div class="admin-detail-grid">
+    ${renderPlayers(detail)}
+    ${renderDistricts(detail)}
+    ${renderEconomy(detail)}
+    ${disclosureSection("production", "Gameplay", "Výroba", `<div class="admin-kv-grid">
+      ${keyValue("Buildings", detail.production.productionBuildingCount)}
+      ${keyValue("Ready", detail.production.readyToCollectCount)}
+      ${keyValue("Crafts", detail.production.activeCraftCount)}
+      ${keyValue("Storage full", detail.production.storageFullCount)}
+    </div>`)}
+    ${disclosureSection("police", "Gameplay", "Policie", `<div class="admin-kv-grid">
+      ${keyValue("Pressure", detail.police.heatPressure)}${keyValue("Max heat", detail.police.maxPlayerHeat)}
+      ${keyValue("Wanted", detail.police.wantedPlayerCount)}${keyValue("Raids", detail.police.pendingRaidCount)}
+    </div>`)}
+    ${renderLiveness(detail)}
+    ${renderAlliances(detail)}
+  </div>
+  <section class="admin-technical-stack" aria-labelledby="admin-technical-title">
+    <div class="admin-technical-stack__head"><span>Technická diagnostika</span><h2 id="admin-technical-title">Persistence, build a systémové události</h2>
+      <p>Méně časté provozní detaily jsou záměrně sbalené.</p></div>
+    ${renderSnapshots(detail)}
+    ${disclosureSection("commands", "Instance log", "Commands", table(
+    ["Type", "Command", "Actor", "Tick", "Received"],
+    detail.commands.map((row) => `<tr data-admin-search-row><td>${escapeHtml(row.commandType)}</td>
+        <td><code>${escapeHtml(row.commandId)}</code></td><td>${escapeHtml(row.actorId)}</td>
+        <td>${row.tickAtReceive}</td><td>${formatTime(row.receivedAt)}</td></tr>`).join("")
+  ))}
+    ${disclosureSection("events", "Instance log", "Events", table(
+    ["Type", "Event", "Command", "Tick", "Occurred"],
+    detail.events.map((row) => `<tr data-admin-search-row><td>${escapeHtml(row.eventType)}</td>
+        <td><code>${escapeHtml(row.eventId)}</code></td><td>${escapeHtml(row.causedByCommandId ?? "–")}</td>
+        <td>${row.tick}</td><td>${formatTime(row.occurredAt)}</td></tr>`).join("")
+  ))}
+    ${disclosureSection("diagnostics", "Instance log", "Diagnostika", table(
+    ["Level", "Category", "Code", "Command", "Occurred"],
+    detail.diagnostics.map((row) => `<tr data-admin-search-row><td>${pill(row.level)}</td>
+        <td>${escapeHtml(row.category)}</td><td>${escapeHtml(row.messageCode)}</td>
+        <td>${escapeHtml(row.commandId ?? "–")}</td><td>${formatTime(row.occurredAt)}</td></tr>`).join("")
+  ))}
+  </section>
+` : `<section class="admin-panel" role="status"><h3>Načítám detail instance...</h3></section>`;
+  const renderPlayers = (detail) => disclosureSection("players", "Gameplay", "Hráči", table(
+    ["Hráč", "Faction / stav", "Území", "Cash", "Populace", "Heat", "Poslední akce"],
+    detail.players.map((row) => `<tr data-admin-search-row>
+    <td><strong>${escapeHtml(row.displayName)}</strong><br><small>${escapeHtml(row.playerId)}</small></td>
+    <td>${escapeHtml(row.factionId)}<br>${pill(row.status)}</td>
+    <td>${row.ownedDistrictCount} districtů<br><small>home: ${escapeHtml(row.homeDistrictId ?? "–")}</small></td>
+    <td>${formatNumber(row.cash)} clean<br><small>${formatNumber(row.dirtyCash)} dirty</small></td>
+    <td>${formatNumber(row.population)}</td>
+    <td>${row.heat}<br><small>wanted ${row.wantedLevel}</small></td>
+    <td>${formatTime(row.lastActionAt)}</td>
+  </tr>`).join("")
+  ), true);
+  const renderDistricts = (detail) => disclosureSection("map", "Gameplay", "Mapa districtů", table(
+    ["District", "Zone / stav", "Owner", "Influence", "Heat", "Buildings"],
+    detail.districts.map((row) => `<tr data-admin-search-row>
+    <td><strong>${escapeHtml(row.name)}</strong><br><small>${escapeHtml(row.districtId)}</small></td>
+    <td>${escapeHtml(row.zone)}<br>${pill(row.status)}</td><td>${escapeHtml(row.ownerPlayerId ?? "–")}</td>
+    <td>${formatNumber(row.influence)}</td><td>${row.heat}</td><td>${row.buildingCount}</td>
+  </tr>`).join("")
+  ));
+  const renderEconomy = (detail) => disclosureSection("economy", "Gameplay", "Ekonomika", `
+  <div class="admin-kv-grid">
+    ${keyValue("Clean cash", formatNumber(detail.economy.totalCleanCash))}
+    ${keyValue("Dirty cash", formatNumber(detail.economy.totalDirtyCash))}
+    ${Object.entries(detail.economy.totalResources).sort(([left], [right]) => left.localeCompare(right)).map(([resource, value]) => keyValue(resource, formatNumber(value))).join("")}
+  </div>`);
+  const renderLiveness = (detail) => disclosureSection("liveness", "Gameplay", "Liveness", `
+  <div class="admin-kv-grid">
+    ${keyValue("Active", detail.liveness.activePlayers)}${keyValue("Playable", detail.liveness.playablePlayers)}
+    ${keyValue("Sealed", detail.liveness.temporarilySealedPlayers)}${keyValue("Encircled", detail.liveness.encircledPlayers)}
+    ${keyValue("Last stand", detail.liveness.lastStandPlayers)}
+    ${keyValue("Emergency recovery", detail.liveness.emergencyRecoveryEligiblePlayers)}
+    ${keyValue("Invalid softlocks", detail.liveness.invalidSoftlocks)}
+  </div>`);
+  const renderAlliances = (detail) => disclosureSection("alliances", "Gameplay", "Aliance", table(
+    ["Alliance ID", "Členové"],
+    detail.alliances.map((row) => `<tr data-admin-search-row><td><code>${escapeHtml(row.allianceId)}</code></td>
+    <td>${row.memberCount}</td></tr>`).join("")
+  ));
+  const renderSnapshots = (detail) => disclosureSection("snapshots", "Persistence", "Snapshoty a recovery", `
+  <div class="admin-kv-grid">
+    ${keyValue("Recovery head ID", detail.snapshot.snapshotId)}
+    ${keyValue("Recovery head tick", detail.snapshot.tick)}
+    ${keyValue("Recovery head root version", detail.snapshot.stateVersion)}
+    ${keyValue("Schema version", detail.snapshot.schemaVersion)}
+    ${keyValue("Recovery head updated", formatTime(detail.snapshot.createdAt))}
+    ${keyValue("Last checkpoint", formatTime(detail.snapshot.lastCheckpointAt))}
+    ${keyValue("Rolling checkpoints", detail.snapshot.rollingCheckpointCount ?? 0)}
+    ${keyValue("Lifecycle checkpoints", detail.snapshot.lifecycleCheckpointCount ?? 0)}
+    ${keyValue("Terminal checkpoints", detail.snapshot.terminalCheckpointCount ?? 0)}
+    ${keyValue("Last cleanup", formatTime(detail.snapshot.lastCleanupAt))}
+    ${keyValue("Cleanup status", detail.snapshot.lastCleanupStatus ?? "unavailable")}
+    ${keyValue("Storage health", detail.snapshot.storageHealth ?? "unavailable")}
+  </div>`);
+  const renderAdminOperationsAlerts = (input) => {
+    const alerts = resolveAlerts(input);
+    const critical = alerts.filter((entry) => entry.tone === "danger" || entry.tone === "warning").length;
+    return `<section id="admin-alerts" class="admin-panel admin-section-anchor${critical ? " admin-panel--critical" : ""}">
+    <div class="admin-panel__head"><div><span>Operations</span><h3>Výstrahy a provozní stav</h3></div>
+      ${badge(critical ? `${critical} VYŽADUJE POZORNOST` : "BEZ KRITICKÝCH VÝSTRAH", critical ? "warning" : "success")}
+    </div>
+    <div class="admin-alert-list">
+      ${alerts.map((entry) => `<article class="admin-alert admin-alert--${entry.tone}">
+        <strong>${escapeHtml(entry.title)}</strong><span>${escapeHtml(entry.detail)}</span>
+        <a class="admin-button admin-button--ghost" href="${entry.href}">Otevřít</a>
+      </article>`).join("")}
+    </div>
+  </section>`;
+  };
+  const resolveAlerts = (input) => {
+    var _a, _b, _c, _d, _e;
+    const alerts = [];
+    if (input.refreshError) alerts.push({
+      tone: "danger",
+      title: "Obnova dat selhala",
+      detail: `Zobrazuji poslední potvrzená data. Zkontrolujte API a zkuste ruční refresh. ${input.refreshError}`,
+      href: "#admin-overview"
+    });
+    if (!input.controlPlane) alerts.push({
+      tone: "warning",
+      title: "Control plane se nenačetl",
+      detail: "Lifecycle nelze ověřit. Zkontrolujte API a databázové připojení.",
+      href: "#admin-control-plane"
+    });
+    if ((_a = input.controlPlane) == null ? void 0 : _a.unavailableCode) alerts.push({
+      tone: "warning",
+      title: "Admin writes jsou blokované",
+      detail: `${input.controlPlane.unavailableCode}. Ověřte bezpečnostní preflight a environment flags.`,
+      href: "#admin-control-plane"
+    });
+    if (input.controlPlane && input.controlPlane.workerStatus !== "online") alerts.push({
+      tone: "danger",
+      title: "Hosted worker není online",
+      detail: `Worker hlásí ${input.controlPlane.workerStatus}. Zkontrolujte heartbeat a deployment workeru.`,
+      href: "#admin-control-plane"
+    });
+    if (input.controlPlane && input.controlPlane.buildCompatibility !== "current") alerts.push({
+      tone: "danger",
+      title: "Build parity není potvrzená",
+      detail: `Build parity: ${input.controlPlane.buildCompatibility ?? "missing"}. Nasaďte shodný release SHA.`,
+      href: "#admin-control-plane"
+    });
+    if (input.overview.counts.failed > 0) alerts.push({
+      tone: "danger",
+      title: "Instance s chybou",
+      detail: `${input.overview.counts.failed} instancí hlásí chybu. Vyberte server a otevřete diagnostiku.`,
+      href: "#admin-servers"
+    });
+    const unhealthyWorkers = input.overview.counts.stale + input.overview.counts.offline + input.overview.counts.noWorker;
+    if (unhealthyWorkers > 0) alerts.push({
+      tone: "warning",
+      title: "Instance bez čerstvého workeru",
+      detail: `${unhealthyWorkers} instancí je stale, offline nebo bez workeru. Ověřte heartbeat a lease.`,
+      href: "#admin-servers"
+    });
+    if ((_b = input.detail) == null ? void 0 : _b.freshness.stale) alerts.push({
+      tone: "warning",
+      title: "Vybraný detail je stale",
+      detail: input.detail.freshness.staleReason ?? "Důvod není dostupný.",
+      href: "#admin-snapshots"
+    });
+    if (((_c = input.detail) == null ? void 0 : _c.snapshot.storageHealth) && input.detail.snapshot.storageHealth !== "healthy") alerts.push({
+      tone: "danger",
+      title: "Snapshot storage není healthy",
+      detail: `Storage health: ${input.detail.snapshot.storageHealth}.`,
+      href: "#admin-snapshots"
+    });
+    if ((((_d = input.detail) == null ? void 0 : _d.liveness.invalidSoftlocks) ?? 0) > 0) alerts.push({
+      tone: "danger",
+      title: "Detekované invalid softlocky",
+      detail: `${input.detail.liveness.invalidSoftlocks} hráčů vyžaduje diagnostiku.`,
+      href: "#admin-liveness"
+    });
+    const diagnosticErrors = ((_e = input.detail) == null ? void 0 : _e.diagnostics.filter((entry) => entry.level === "error").length) ?? 0;
+    if (diagnosticErrors > 0) alerts.push({
+      tone: "danger",
+      title: "Runtime diagnostické chyby",
+      detail: `${diagnosticErrors} nedávných error záznamů.`,
+      href: "#admin-diagnostics"
+    });
+    if (alerts.length === 0) alerts.push({
+      tone: "success",
+      title: "Systém bez kritické výstrahy",
+      detail: "Databáze, worker, build parity a vybraný runtime nehlásí známý problém.",
+      href: "#admin-overview"
+    });
+    return alerts;
+  };
   const renderLogin = (message = "Přihlaste se do admin konzole.") => `
   <section class="admin-login" aria-labelledby="admin-login-title">
     <p class="admin-boot__eyebrow">Empire Streets</p>
     <h1 id="admin-login-title">Admin konzole</h1>
-    <p>${escape(message)}</p>
+    <p>${escapeHtml(message)}</p>
     <form data-admin-login>
       <label><span>Uživatelské jméno</span><input data-admin-username type="text" autocomplete="username" required></label>
       <label><span>Heslo</span><input data-admin-password type="password" autocomplete="current-password" required></label>
@@ -40439,183 +41863,140 @@
     </form>
   </section>`;
   const renderLoading = () => `
-  <section class="admin-login" role="status"><p class="admin-boot__eyebrow">Read-only monitoring</p><h1>Načítám admin konzoli...</h1></section>`;
+  <section class="admin-login admin-loading" role="status" aria-live="polite">
+    <p class="admin-boot__eyebrow">Empire Streets</p><h1>Načítám Control Center</h1>
+    <div class="admin-loading__skeleton" aria-hidden="true"><span></span><span></span><span></span></div>
+    <p>Ověřuji session a serverové read modely.</p>
+  </section>`;
   const renderUnavailable = (detail) => `
-  <section class="admin-login" role="alert"><p class="admin-boot__eyebrow">Read-only monitoring</p>
-    <h1>ADMIN SERVER NEDOSTUPNÝ</h1><p>${escape(detail)}</p>
-    <button class="admin-button admin-button--primary" type="button" data-admin-refresh>Obnovit</button>
+  <section class="admin-login" role="alert"><p class="admin-boot__eyebrow">Empire Streets</p>
+    <h1>Admin server nedostupný</h1><p>Control Center se právě nemůže bezpečně připojit.</p>
+    <button class="admin-button admin-button--primary" type="button" data-admin-refresh>${adminIcon("refresh")}<span data-admin-refresh-label>Obnovit</span></button>
+    <details class="admin-disclosure admin-disclosure--technical"><summary><span>Technický detail</span><small>Bez citlivých údajů</small></summary>
+      <p class="admin-copy">${escapeHtml(detail)}</p></details>
   </section>`;
   const renderDashboard = (input) => `
-  <aside class="admin-sidebar">
-    <div class="admin-brand"><span class="admin-brand__mark">ES</span><div><p>Empire Streets</p><strong>Admin</strong></div></div>
-    <nav class="admin-nav" aria-label="Sekce admin konzole">
-      ${nav("overview", "Overview")}${nav("servers", "Servery")}${nav("players", "Hráči")}${nav("map", "Mapa")}
-      ${nav("economy", "Ekonomika")}${nav("production", "Výroba")}${nav("police", "Police")}${nav("liveness", "Liveness")}
-      ${nav("snapshots", "Snapshoty")}${nav("commands", "Commands")}${nav("events", "Events")}${nav("diagnostics", "Diagnostics")}
-    </nav>
-  </aside>
+  ${renderSidebar(input)}
   <section class="admin-main">
-    <header class="admin-topbar">
-      <div class="admin-topbar__title"><p>Durable control plane</p><h1>Read-only admin</h1></div>
-      <div class="admin-topbar__controls">
-        <div class="admin-profile"><span>Operátor</span><strong>${escape(input.session.displayName)} · ${escape(input.session.role)}</strong></div>
-        <button class="admin-button" type="button" data-admin-refresh>Obnovit</button>
-        <button class="admin-button" type="button" data-admin-logout>Odhlásit</button>
-      </div>
-    </header>
+    ${renderTopbar(input)}
     <div class="admin-content">
-      ${renderOverview(input.overview)}
-      ${renderControlPlane(
-    input.controlPlane,
-    input.session,
-    input.wizardOpen,
-    input.wizardStep,
-    input.selectedInstanceId,
-    input.frontendBuildSha ?? null
-  )}
-      ${renderServers(input.overview.instances, input.selectedInstanceId)}
-      ${input.selectedInstanceId ? renderDetail(input.detail) : renderNoSelection()}
+      ${renderNotice(input.notice)}
+      ${renderAdminCommandCenter({
+    overview: input.overview,
+    controlPlane: input.controlPlane,
+    detail: input.detail,
+    selectedInstanceId: input.selectedInstanceId
+  })}
+      ${renderAdminOperationsAlerts({
+    overview: input.overview,
+    controlPlane: input.controlPlane,
+    detail: input.detail,
+    refreshError: input.refreshError
+  })}
+      <div class="admin-operations-workspace">
+        <div class="admin-operations-workspace__registry">
+          ${renderAdminServers(input.overview.instances, input.selectedInstanceId, input.serverFilters ?? {
+    query: "",
+    status: "all",
+    mode: "all",
+    worker: "all"
+  })}
+        </div>
+        <div class="admin-operations-workspace__control">
+          ${renderAdminControlPlane({
+    control: input.controlPlane,
+    session: input.session,
+    wizardOpen: input.wizardOpen,
+    wizardStep: input.wizardStep,
+    selectedInstanceId: input.selectedInstanceId,
+    frontendBuildSha: input.frontendBuildSha ?? null,
+    localDevelopment: input.localDevelopment === true
+  })}
+        </div>
+      </div>
+      ${input.selectedInstanceId ? renderAdminInstanceDetail(input.detail) : renderNoSelection()}
+      ${renderAdminAudit({ role: input.session.role, entries: input.auditEntries ?? null, error: input.auditError })}
     </div>
   </section>`;
-  const renderOverview = (overview) => `
-  <section id="admin-overview" class="admin-section-anchor">
-    <div class="admin-section__head"><div><p>Overview</p><h2>Autoritativní stav instancí</h2></div>${badge("DB AVAILABLE", "success")}</div>
-    <div class="admin-metrics">
-      ${metric("Známé servery", overview.counts.known)}${metric("Live", overview.counts.live)}${metric("Stale", overview.counts.stale)}
-      ${metric("Offline", overview.counts.offline)}${metric("No worker", overview.counts.noWorker)}${metric("Failed", overview.counts.failed)}
-      ${metric("Running", overview.counts.running)}${metric("Lobby", overview.counts.lobby)}${metric("Paused", overview.counts.paused)}
-      ${metric("Hráči", overview.counts.players)}
+  const renderSidebar = (input) => {
+    var _a, _b;
+    const control = input.controlPlane;
+    const healthy = (control == null ? void 0 : control.databaseAvailable) && control.workerStatus === "online" && !control.unavailableCode;
+    const hasDetail = Boolean(input.detail);
+    const selectedHosted = control == null ? void 0 : control.servers.find((server) => server.serverInstanceId === input.selectedInstanceId);
+    const mobileOpen = input.mobileNavOpen === true;
+    return `<aside class="admin-sidebar">
+    <div class="admin-brand">
+      <span class="admin-brand__mark">ES</span><div><p>Empire Streets</p><strong>Admin</strong></div>
     </div>
-    <p class="admin-copy">Data vygenerována ${time(overview.generatedAt)}. Stav LIVE určuje durable heartbeat, ne úspěch HTTP requestu.</p>
-  </section>`;
-  const renderControlPlane = (control, session, wizardOpen, wizardStep, selectedInstanceId, frontendBuildSha) => {
-    if (!control) return `<section class="admin-panel" role="status"><h3>Načítám control plane...</h3></section>`;
-    const frontendCompatible = Boolean(frontendBuildSha) && frontendBuildSha === control.apiBuildSha && control.buildCompatibility === "current";
-    const accountPlatformReady = control.databaseAvailable && control.migrationsCurrent && control.sessionSecurity === "current" && control.originPolicy === "current" && frontendCompatible;
-    const gameHostingDeployed = control.writesEnabled && control.provisioningEnabled && control.workerStatus === "online" && Boolean(control.workerBuildSha);
-    const ready = !control.unavailableCode && frontendCompatible && session.role !== "viewer";
-    const selected = control.servers.find((entry) => entry.serverInstanceId === selectedInstanceId) ?? null;
-    return `<section id="admin-control-plane" class="admin-panel admin-section-anchor">
-    <div class="admin-panel__head"><div><span>Hosted control plane</span><h3>Provisioning a lifecycle</h3></div>
-      ${badge(control.unavailableCode ?? "WRITES ENABLED", ready ? "success" : "warning")}</div>
-    <div class="admin-kv-grid">${kv("Account platform", accountPlatformReady ? "READY" : "BLOCKED")}
-      ${kv("Game hosting", gameHostingDeployed ? "DEPLOYED" : "NOT DEPLOYED")}
-      ${kv("Database", control.databaseAvailable ? "AVAILABLE" : "UNAVAILABLE")}
-      ${kv("Migrace", control.migrationsCurrent ? "CURRENT" : "PENDING")}${kv("Worker", control.workerStatus.toUpperCase())}
-      ${kv("Provisioning", control.provisioningEnabled ? "ENABLED" : "DISABLED")}
-      ${kv("Build parity", frontendCompatible ? "CURRENT" : "BLOCKED")}
-      ${kv("Session security", (control.sessionSecurity ?? "blocked").toUpperCase())}
-      ${kv("Origin policy", (control.originPolicy ?? "blocked").toUpperCase())}
-      ${kv("Registrace", control.registrationEnabled ? "ENABLED" : "DISABLED")}
-      ${kv("Frontend SHA", frontendBuildSha ?? "NEZNÁMÉ")}${kv("API SHA", control.apiBuildSha ?? "NEZNÁMÉ")}
-      ${kv("Worker SHA", control.workerBuildSha ?? "NEZNÁMÉ")}${kv("Schema", control.schemaVersion ?? "NEZNÁMÉ")}</div>
-    ${renderBuildCompatibility(frontendBuildSha, control.apiBuildSha, control.workerBuildSha, gameHostingDeployed)}
-    ${ready && !wizardOpen ? `<button class="admin-button admin-button--primary" type="button" data-admin-create-open>Vytvořit server</button>` : ""}
-    ${wizardOpen && ready ? renderAdminCreateWizard(wizardStep) : ""}
-    ${selected && ready ? renderLifecycle(selected, session) : ""}
-  </section>`;
+    <button class="admin-button admin-button--ghost admin-nav-toggle" type="button" data-admin-nav-toggle
+      aria-expanded="${mobileOpen}" aria-controls="admin-primary-nav">${adminIcon("menu")}<span>Navigace</span></button>
+    <div class="admin-brand__statusline" data-state="${healthy ? "healthy" : "warning"}"><span></span><div><strong>${healthy ? "SYSTEM ONLINE" : "VYŽADUJE KONTROLU"}</strong>
+      <small>${control ? `DB ${control.databaseAvailable ? "available" : "unavailable"} · worker ${control.workerStatus}` : "Načítám control plane"}</small></div>
+    </div>
+    <nav id="admin-primary-nav" class="admin-nav" data-open="${mobileOpen}" aria-label="Sekce admin konzole">
+      <div class="admin-nav__group"><span>Hlavní</span>
+        ${nav("overview", "Přehled", "overview")}${nav("servers", "Servery", "server")}
+        ${((_a = input.detail) == null ? void 0 : _a.players.length) ? nav("players", "Hráči", "players") : ""}
+      </div>
+      <details class="admin-nav__disclosure" open>
+        <summary>Provoz</summary>
+        ${control ? nav("control-plane", "Control plane", "control") : ""}
+        ${selectedHosted ? nav("registration", "Registrace", "registration") : ""}
+        ${hasDetail ? nav("instance-detail", "Herní stav", "game") : ""}
+      </details>
+      <details class="admin-nav__disclosure">
+        <summary>Systém</summary>
+        ${control ? nav("builds", "Buildy", "build") : ""}
+        ${((_b = input.detail) == null ? void 0 : _b.diagnostics.length) ? nav("diagnostics", "Diagnostika", "diagnostics") : ""}
+        ${input.detail ? nav("snapshots", "Snapshoty", "snapshot") : ""}
+        ${input.session.role === "owner" ? nav("audit", "Audit trail", "diagnostics") : ""}
+      </details>
+    </nav>
+    <div class="admin-sidebar-card"><span>Oprávnění</span><strong>${escapeHtml(roleLabel(input.session.role))}</strong>
+      <p>${escapeHtml(input.session.displayName)}<br>Session do ${formatTime(input.session.expiresAt)}</p></div>
+  </aside>`;
   };
-  const renderBuildCompatibility = (frontend, api, worker, gameHostingDeployed = true) => {
-    if (!gameHostingDeployed) {
-      if (!frontend || !api) {
-        return `<p class="admin-notice">Build účtové platformy nelze potvrdit, protože frontend nebo API SHA chybí.</p>`;
-      }
-      return frontend === api ? `<p class="admin-copy">Frontend a API běží ze stejného buildu. Herní worker není nasazený.</p>` : `<p class="admin-notice">POZOR: Frontend a API neběží ze stejného SHA. Herní worker není nasazený.</p>`;
-    }
-    const values = [frontend, api ?? null, worker ?? null];
-    if (values.some((value) => !value)) {
-      return `<p class="admin-notice">Kompatibilitu buildů nelze potvrdit, protože alespoň jedno SHA chybí.</p>`;
-    }
-    return new Set(values).size === 1 ? `<p class="admin-copy">Frontend, API a worker běží ze stejného buildu.</p>` : `<p class="admin-notice">POZOR: Frontend, API a worker neběží ze stejného SHA.</p>`;
+  const renderTopbar = (input) => {
+    const status = input.refreshStatus ?? "current";
+    const statusLabel2 = {
+      loading: "OBNOVUJI DATA",
+      current: "DATA AKTUÁLNÍ",
+      backoff: "OBNOVA OMEZENA",
+      paused: "POLLING POZASTAVEN"
+    }[status];
+    const environment = input.localDevelopment ? "LOCAL" : "HOSTED";
+    return `<header class="admin-topbar">
+    <div class="admin-topbar__title"><p>${environment} · Provozní přehled</p><h1>Empire Streets Control Center</h1></div>
+    <div class="admin-topbar__controls">
+      <div class="admin-refresh-state" data-admin-refresh-state data-state="${attribute(status)}" aria-live="polite">
+        <span>${statusLabel2}</span><small>${input.lastSuccessfulRefreshAt ? `naposledy ${formatTime(input.lastSuccessfulRefreshAt)}` : "čekám na první read model"}</small>
+      </div>
+      <div class="admin-profile"><span>${escapeHtml(environment)}</span><strong>${escapeHtml(input.session.displayName)}</strong><small>${escapeHtml(input.session.role)}</small></div>
+      <button class="admin-button admin-button--icon" type="button" data-admin-refresh aria-label="Ručně obnovit data"
+        ${status === "loading" ? 'disabled aria-busy="true"' : 'aria-busy="false"'}>
+        ${adminIcon("refresh")}<span data-admin-refresh-label>${status === "loading" ? "Obnovuji…" : "Obnovit"}</span>
+      </button>
+      <button class="admin-button admin-button--ghost admin-button--icon" type="button" data-admin-logout>
+        ${adminIcon("logout")}<span>Odhlásit</span>
+      </button>
+    </div>
+  </header>`;
   };
-  const renderLifecycle = (server, session) => `
-  <div class="admin-lifecycle"><h4>Lifecycle: ${escape(server.displayName)}</h4>
-    <p>${pill(server.status)} ${pill(server.provisioningState)} · version ${server.version}</p>
-    <div class="admin-kv-grid">${kv("Šablona", server.serverTemplate === "full" ? "Plnohodnotný server" : "Kontrolní test")}
-      ${kv("Committed players", server.committedPlayers ?? 0)}
-      ${kv("Reserved slots", server.reservedSlots ?? 0)}${kv("Capacity", server.capacity)}
-      ${kv("Join policy", server.joinPolicy)}${kv("Lease owner", server.runtimeLeaseOwnerId)}
-      ${kv("Last error", server.lastErrorCode)}</div>
-    ${renderAdminRegistration(server, session)}
-    ${renderAdminStartReadiness(server)}
-    <label><span>Důvod akce</span><input data-admin-action-reason minlength="3" maxlength="240" required></label>
-    <div class="admin-lifecycle__actions">
-      ${lifecycleButton(server, "start", "Start")}${lifecycleButton(server, "pause", "Pause")}
-      ${lifecycleButton(server, "resume", "Resume")}${lifecycleButton(server, "restart", "Safe restart")}
-      ${session.role === "owner" ? lifecycleButton(server, "stop", "Stop") : ""}
-    </div><p data-admin-action-error role="alert"></p>
-  </div>`;
-  const lifecycleButton = (server, action2, label) => {
-    const unavailableReason = lifecycleUnavailableReason(server, action2);
-    const disabled = unavailableReason ? ` disabled aria-disabled="true" title="${attr(unavailableReason)}"` : "";
-    return `<button class="admin-button" type="button" data-admin-lifecycle="${attr(action2)}" data-admin-server-id="${attr(server.serverInstanceId)}"${disabled}>${escape(label)}</button>`;
-  };
-  const lifecycleUnavailableReason = (server, action2) => {
-    if (server.provisioningState !== "ready") return "Počkejte na dokončení provisioningu.";
-    if (action2 === "start") {
-      if (server.status !== "lobby") return "Spustit lze pouze server v lobby.";
-      if (server.canStart !== true) return server.startDisabledReason || "Čekám na autoritativní stav připravených hráčů.";
-      return null;
-    }
-    if (action2 === "pause") return server.status === "running" ? null : "Pozastavit lze pouze běžící server.";
-    if (action2 === "resume") return server.status === "paused" ? null : "Pokračovat lze pouze u pozastaveného serveru.";
-    if (action2 === "restart") return server.status === "running" ? null : "Restartovat lze pouze běžící server.";
-    if (action2 === "stop") return ["lobby", "running", "paused", "restarting"].includes(server.status) ? null : "Server už nelze zastavit.";
-    return "Akce není dostupná.";
-  };
-  const renderServers = (instances, selected) => `
-  <section id="admin-servers" class="admin-panel admin-section-anchor">
-    <div class="admin-panel__head"><div><span>Servery</span><h3>Durable instance registry</h3></div>${badge(`${instances.length} INSTANCÍ`, "info")}</div>
-    ${instances.length === 0 ? `<p class="admin-copy">Žádné instance.</p>` : table(
-    ["Instance", "Mode / region", "Status", "Worker", "Hráči", "Snapshot", "Heartbeat"],
-    instances.map((item) => `<tr class="${item.serverInstanceId === selected ? "is-selected" : ""}">
-        <td><a href="?instance=${encodeURIComponent(item.serverInstanceId)}" data-admin-instance="${attr(item.serverInstanceId)}"><strong>${escape(item.displayName)}</strong><br><small>${escape(item.serverInstanceId)}</small></a></td>
-        <td>${escape(item.mode)} / ${escape(item.region)}</td><td>${pill(item.status)}</td><td>${pill(item.workerStatus)}</td>
-        <td>${item.playerCount} / ${item.capacity}</td><td>${time(item.lastSnapshotAt)}</td><td>${time(item.lastHeartbeatAt)}</td></tr>`).join("")
-  )}
-  </section>`;
+  const renderNotice = (notice) => notice ? `
+  <aside class="admin-action-notice admin-action-notice--${attribute(notice.tone)}" role="status">
+    <div><strong>${escapeHtml(notice.title)}</strong><span>${escapeHtml(notice.message)}</span></div>
+    <button class="admin-button admin-button--ghost" type="button" data-admin-notice-dismiss>Zavřít</button>
+  </aside>` : "";
   const renderNoSelection = () => `
-  <section class="admin-panel" role="status"><div class="admin-panel__head"><div><span>Detail</span><h3>Vyberte instanci</h3></div></div>
-    <p class="admin-copy">Bez explicitně vybrané instance se detailní data nenačítají.</p></section>`;
-  const renderDetail = (detail) => detail ? `
-  <section class="admin-section-anchor">
-    <div class="admin-section__head"><div><p>Instance detail</p><h2>${escape(detail.summary.displayName)}</h2><small>${escape(detail.serverInstanceId)}</small></div>
-      ${badge(detail.summary.workerStatus.toUpperCase(), detail.summary.workerStatus === "live" ? "success" : "warning")}</div>
-    <div class="admin-kv-grid">${kv("Mode", detail.summary.mode)}${kv("Region", detail.summary.region)}${kv("Status", detail.summary.status)}
-      ${kv("Join policy", detail.summary.joinPolicy)}${kv("Tick", detail.summary.currentTick)}${kv("State version", detail.summary.stateVersion)}
-      ${kv("Snapshot", time(detail.summary.lastSnapshotAt))}${kv("Heartbeat", time(detail.summary.lastHeartbeatAt))}${kv("Lease owner", detail.summary.leaseOwner)}</div>
-    ${detail.runtimeAvailable ? "" : `<p class="admin-notice">Live runtime není dostupný. Zobrazená data pocházejí z durable snapshotu a mohou být stale.</p>`}
-  </section>
-  ${section("players", "Hráči", table(["Hráč", "Stav", "Districty", "Cash", "Heat"], detail.players.map((row) => `<tr><td>${escape(row.displayName)}<br><small>${escape(row.playerId)}</small></td><td>${escape(row.status)}</td><td>${row.ownedDistrictCount}</td><td>${row.cash}</td><td>${row.heat}</td></tr>`).join("")))}
-  ${section("map", "Mapa", table(["District", "Zone", "Owner", "Heat", "Buildings"], detail.districts.map((row) => `<tr><td>${escape(row.name)}<br><small>${escape(row.districtId)}</small></td><td>${escape(row.zone)}</td><td>${escape(row.ownerPlayerId ?? "-")}</td><td>${row.heat}</td><td>${row.buildingCount}</td></tr>`).join("")))}
-  ${section("economy", "Ekonomika", `<div class="admin-kv-grid">${kv("Clean cash", detail.economy.totalCleanCash)}${kv("Dirty cash", detail.economy.totalDirtyCash)}${kv("Resources", Object.values(detail.economy.totalResources).reduce((sum, value) => sum + value, 0))}</div>`)}
-  ${section("production", "Výroba", `<div class="admin-kv-grid">${kv("Buildings", detail.production.productionBuildingCount)}${kv("Ready", detail.production.readyToCollectCount)}${kv("Crafts", detail.production.activeCraftCount)}${kv("Storage full", detail.production.storageFullCount)}</div>`)}
-  ${section("police", "Police", `<div class="admin-kv-grid">${kv("Pressure", detail.police.heatPressure)}${kv("Max heat", detail.police.maxPlayerHeat)}${kv("Wanted", detail.police.wantedPlayerCount)}${kv("Raids", detail.police.pendingRaidCount)}</div>`)}
-  ${section("liveness", "Liveness", `<div class="admin-kv-grid">${kv("Active", detail.liveness.activePlayers)}${kv("Playable", detail.liveness.playablePlayers)}${kv("Sealed", detail.liveness.temporarilySealedPlayers)}${kv("Softlocks", detail.liveness.invalidSoftlocks)}</div>`)}
-  ${section("snapshots", "Snapshot persistence", `<div class="admin-kv-grid">
-    ${kv("Recovery head tick", detail.snapshot.tick)}${kv("Recovery head root version", detail.snapshot.stateVersion)}
-    ${kv("Recovery head updated", time(detail.snapshot.createdAt))}${kv("Last checkpoint", time(detail.snapshot.lastCheckpointAt ?? null))}
-    ${kv("Rolling checkpoints", detail.snapshot.rollingCheckpointCount ?? 0)}
-    ${kv("Lifecycle checkpoints", detail.snapshot.lifecycleCheckpointCount ?? 0)}
-    ${kv("Terminal checkpoints", detail.snapshot.terminalCheckpointCount ?? 0)}
-    ${kv("Last cleanup", time(detail.snapshot.lastCleanupAt ?? null))}
-    ${kv("Cleanup status", detail.snapshot.lastCleanupStatus ?? "unavailable")}
-    ${kv("Storage health", detail.snapshot.storageHealth ?? "unavailable")}
-  </div>`)}
-  ${section("commands", "Commands", table(["Type", "Command", "Actor", "Tick", "Received"], detail.commands.map((row) => `<tr><td>${escape(row.commandType)}</td><td>${escape(row.commandId)}</td><td>${escape(row.actorId)}</td><td>${row.tickAtReceive}</td><td>${time(row.receivedAt)}</td></tr>`).join("")))}
-  ${section("events", "Events", table(["Type", "Event", "Command", "Tick", "Occurred"], detail.events.map((row) => `<tr><td>${escape(row.eventType)}</td><td>${escape(row.eventId)}</td><td>${escape(row.causedByCommandId ?? "-")}</td><td>${row.tick}</td><td>${time(row.occurredAt)}</td></tr>`).join("")))}
-  ${section("diagnostics", "Diagnostics", table(["Level", "Category", "Code", "Command", "Occurred"], detail.diagnostics.map((row) => `<tr><td>${pill(row.level)}</td><td>${escape(row.category)}</td><td>${escape(row.messageCode)}</td><td>${escape(row.commandId ?? "-")}</td><td>${time(row.occurredAt)}</td></tr>`).join("")))}
-` : `<section class="admin-panel" role="status"><h3>Načítám detail instance...</h3></section>`;
-  const nav = (id2, label) => `<a class="admin-nav__item" href="#admin-${id2}"><span class="admin-nav__dot"></span><strong>${escape(label)}</strong></a>`;
-  const section = (id2, title, body) => `<section id="admin-${id2}" class="admin-panel admin-section-anchor"><div class="admin-panel__head"><div><span>Instance</span><h3>${escape(title)}</h3></div></div>${body}</section>`;
-  const metric = (label, value) => `<article class="admin-metric"><span>${escape(label)}</span><strong>${value}</strong></article>`;
-  const kv = (label, value) => `<span><small>${escape(label)}</small><strong>${escape(value ?? "-")}</strong></span>`;
-  const badge = (label, tone) => `<span class="admin-badge admin-badge--${tone}">${escape(label)}</span>`;
-  const pill = (value) => `<span class="admin-table-status">${escape(value)}</span>`;
-  const table = (headers, rows) => `<div class="admin-table-wrap"><table class="admin-table"><thead><tr>${headers.map((head) => `<th>${escape(head)}</th>`).join("")}</tr></thead><tbody>${rows || `<tr><td colspan="${headers.length}">Žádná data.</td></tr>`}</tbody></table></div>`;
-  const time = (value) => value ? escape(new Date(value).toLocaleString("cs-CZ")) : "-";
-  const escape = (value) => String(value).replace(/[&<>"']/gu, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
-  const attr = escape;
+  <section class="admin-empty-state" role="status"><span aria-hidden="true">◇</span><div><h3>Vyberte instanci</h3>
+    <p>Detailní data se načtou až po explicitním výběru serveru.</p></div></section>`;
+  const nav = (id2, label, icon) => `<a class="admin-nav__item" href="#admin-${attribute(id2)}">${adminIcon(icon)}<strong>${escapeHtml(label)}</strong></a>`;
+  const roleLabel = (role) => ({
+    viewer: "Pouze čtení",
+    operator: "Operátor",
+    owner: "Owner"
+  })[role];
   const POLL_INTERVAL_MS = 1e4;
   const MAX_BACKOFF_MS = 8e4;
   const createAdminApp = (options = {}) => {
@@ -40626,61 +42007,51 @@
     let overview = null;
     let detail = null;
     let controlPlane = null;
-    let selectedInstanceId = selectedFromUrl();
-    let requestSequence = 0;
-    let activeRequest = null;
-    let timer = null;
-    let backoff = pollInterval;
+    let auditEntries = null;
+    let auditError = null;
+    let selectedInstanceId = selectedAdminInstanceFromUrl();
+    let refreshStatus = "loading";
+    let lastSuccessfulRefreshAt = null;
+    let refreshError = null;
+    let serverFilters = { ...DEFAULT_ADMIN_SERVER_FILTERS };
+    let mobileNavOpen = false;
+    let notice = null;
+    const actionReasons = /* @__PURE__ */ new Map();
+    let lifecycleSequence = 0;
     let wizardOpen = false;
     let wizardStep = 1;
     let createIdempotencyKey = null;
+    let mounted = false;
+    let pendingRender = false;
     const mount = async (mountTarget) => {
+      if (mounted) return;
+      const lifecycle2 = ++lifecycleSequence;
+      mounted = true;
       target = mountTarget ?? document.getElementById("admin-dashboard-root");
-      if (!target) return;
-      target.innerHTML = renderLoading();
-      document.addEventListener("visibilitychange", handleVisibility);
-      registration.start();
-      try {
-        session = await client.getSession();
-        await refresh();
-      } catch (error) {
-        if (!session) showLogin(initialLoginMessage(error));
-        else handleError(error);
-      }
-    };
-    const refresh = async () => {
-      if (!target || !session || document.hidden) return;
-      if (wizardOpen) {
-        schedule(pollInterval);
+      if (!target) {
+        mounted = false;
         return;
       }
-      const sequence = ++requestSequence;
-      activeRequest == null ? void 0 : activeRequest.abort();
-      activeRequest = new AbortController();
+      target.innerHTML = renderLoading();
+      document.addEventListener("visibilitychange", handleVisibility);
+      window.addEventListener("pagehide", destroy, { once: true });
       try {
-        const requestedInstanceId = selectedInstanceId;
-        const [nextOverview, nextDetail, nextControlPlane] = await Promise.all([
-          client.getOverview(activeRequest.signal),
-          requestedInstanceId ? client.getInstance(requestedInstanceId, activeRequest.signal) : Promise.resolve(null),
-          client.getControlPlane(activeRequest.signal)
-        ]);
-        if (sequence !== requestSequence || requestedInstanceId !== selectedInstanceId) return;
-        overview = nextOverview;
-        detail = nextDetail;
-        controlPlane = nextControlPlane;
-        registration.syncClock(controlPlane.generatedAt);
-        backoff = pollInterval;
-        render();
-        schedule(pollInterval);
+        const nextSession = await client.getSession();
+        if (!mounted || lifecycle2 !== lifecycleSequence) return;
+        session = nextSession;
+        registration.start();
+        await refresh();
       } catch (error) {
-        if (isAbort(error)) return;
-        backoff = Math.min(MAX_BACKOFF_MS, backoff * 2);
-        handleError(error);
-        if (session) schedule(backoff);
+        if (!mounted || lifecycle2 !== lifecycleSequence) return;
+        showLogin(initialAdminLoginMessage(error));
       }
     };
+    const refresh = async (includeAudit = false) => {
+      await refreshController.refresh(includeAudit);
+    };
     const render = () => {
-      if (!target || !session || !overview) return;
+      if (!mounted || !target || !session || !overview) return;
+      const focusSnapshot = captureAdminFocus(target);
       target.innerHTML = renderDashboard({
         session,
         overview,
@@ -40689,79 +42060,33 @@
         controlPlane,
         wizardOpen,
         wizardStep,
-        frontendBuildSha: readFrontendBuildSha()
+        frontendBuildSha: readAdminFrontendBuildSha(),
+        localDevelopment: isAdminLoopbackLocation(),
+        auditEntries,
+        auditError,
+        refreshStatus,
+        lastSuccessfulRefreshAt,
+        refreshError,
+        serverFilters,
+        mobileNavOpen,
+        notice
       });
-      bindActions();
+      pendingRender = false;
+      bindings.bind();
       registration.restoreDraft();
       registration.updateCountdowns();
+      applyAdminServerFilters(target, serverFilters);
+      restoreAdminFocus(target, focusSnapshot);
     };
-    const bindActions = () => {
-      var _a, _b;
-      target == null ? void 0 : target.querySelectorAll("[data-admin-instance]").forEach((link) => link.addEventListener("click", (event) => {
-        var _a2;
-        event.preventDefault();
-        const next = ((_a2 = link.dataset.adminInstance) == null ? void 0 : _a2.trim()) || null;
-        if (next === selectedInstanceId) return;
-        selectedInstanceId = next;
-        detail = null;
-        updateUrl(next);
-        render();
-        void refresh();
-      }));
-      (_a = target == null ? void 0 : target.querySelector("[data-admin-refresh]")) == null ? void 0 : _a.addEventListener("click", () => void refresh());
-      (_b = target == null ? void 0 : target.querySelector("[data-admin-logout]")) == null ? void 0 : _b.addEventListener("click", () => void logout());
-      creation.bind();
-      target == null ? void 0 : target.querySelectorAll("[data-admin-lifecycle]").forEach((button2) => button2.addEventListener("click", () => void submitLifecycle(button2)));
-      registration.bind();
+    const renderOrDefer = () => {
+      if (hasFocusedAdminInput(target) || (target == null ? void 0 : target.querySelector("[role=dialog]"))) pendingRender = true;
+      else render();
     };
-    const submitLifecycle = async (button2) => {
-      var _a;
-      const instanceId = button2.dataset.adminServerId;
-      const action2 = button2.dataset.adminLifecycle;
-      const hosted = controlPlane == null ? void 0 : controlPlane.servers.find((entry) => entry.serverInstanceId === instanceId);
-      const reason = ((_a = target == null ? void 0 : target.querySelector("[data-admin-action-reason]")) == null ? void 0 : _a.value.trim()) ?? "";
-      if (!instanceId || !action2 || !hosted) return;
-      if (reason.length < 3) {
-        const message = target == null ? void 0 : target.querySelector("[data-admin-action-error]");
-        if (message) message.textContent = "Uveďte důvod akce alespoň třemi znaky.";
-        return;
-      }
-      button2.disabled = true;
-      try {
-        await client.requestLifecycleAction(instanceId, { action: action2, expectedVersion: hosted.version, reason }, createKey());
-        await refresh();
-      } catch (error) {
-        const message = target == null ? void 0 : target.querySelector("[data-admin-action-error]");
-        if (message) message.textContent = error instanceof Error ? error.message : "Akci nebylo možné zařadit.";
-        button2.disabled = false;
-      }
-    };
-    const bindLogin = () => {
-      const form = target == null ? void 0 : target.querySelector("[data-admin-login]");
-      const usernameInput = target == null ? void 0 : target.querySelector("[data-admin-username]");
-      const passwordInput = target == null ? void 0 : target.querySelector("[data-admin-password]");
-      if (!form || !usernameInput || !passwordInput) return;
-      form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const username = usernameInput.value;
-        const password = passwordInput.value;
-        passwordInput.value = "";
-        try {
-          session = await client.login(username, password);
-          overview = null;
-          controlPlane = null;
-          detail = null;
-          target.innerHTML = renderLoading();
-          await refresh();
-        } catch (error) {
-          const message = target == null ? void 0 : target.querySelector("[data-admin-login-error]");
-          if (message) message.textContent = loginErrorMessage(error);
-        }
-      });
+    const flushPendingRender = () => {
+      if (pendingRender && !hasFocusedAdminInput(target)) render();
     };
     const logout = async () => {
-      activeRequest == null ? void 0 : activeRequest.abort();
-      clearSchedule();
+      refreshController.cancel();
       registration.stop();
       try {
         await client.logout();
@@ -40770,101 +42095,140 @@
       showLogin("Admin session byla ukončena.");
     };
     const showLogin = (message) => {
+      refreshController.cancel();
+      registration.stop();
       session = null;
       overview = null;
       detail = null;
       controlPlane = null;
+      auditEntries = null;
+      auditError = null;
       if (target) target.innerHTML = renderLogin(message);
-      bindLogin();
+      login.bind();
     };
     const handleError = (error) => {
       var _a;
       if (!target) return;
-      if (error instanceof AdminApiError && (error.status === 401 || error.code.includes("SESSION"))) {
-        showLogin(error.code === "ADMIN_SESSION_EXPIRED" ? "Admin session vypršela." : void 0);
+      if (isSessionError(error)) {
+        showLogin(error instanceof Error && "code" in error && error.code === "ADMIN_SESSION_EXPIRED" ? "Admin session vypršela." : void 0);
         return;
       }
-      target.innerHTML = renderUnavailable(error instanceof Error ? error.message : "Monitoring není dostupný.");
-      (_a = target.querySelector("[data-admin-refresh]")) == null ? void 0 : _a.addEventListener("click", () => void refresh());
+      refreshError = error instanceof Error ? error.message : "Monitoring není dostupný.";
+      refreshStatus = "backoff";
+      if (session && overview) renderOrDefer();
+      else {
+        target.innerHTML = renderUnavailable(refreshError);
+        (_a = target.querySelector("[data-admin-refresh]")) == null ? void 0 : _a.addEventListener("click", () => void refresh());
+      }
     };
     const handleVisibility = () => {
       if (document.hidden) {
-        activeRequest == null ? void 0 : activeRequest.abort();
-        clearSchedule();
         registration.stop();
-      } else {
+        refreshController.pause();
+      } else if (session) {
         registration.start();
-        if (session) void refresh();
+        void refresh();
       }
     };
-    const schedule = (delay) => {
-      clearSchedule();
-      timer = setTimeout(() => void refresh(), delay);
+    const setRefreshStatus = (status) => {
+      refreshStatus = status;
+      updateAdminRefreshUi(target, status);
     };
-    const clearSchedule = () => {
-      if (timer) clearTimeout(timer);
-      timer = null;
+    const destroy = () => {
+      if (!mounted) return;
+      mounted = false;
+      lifecycleSequence += 1;
+      refreshController.cancel();
+      registration.stop();
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("pagehide", destroy);
+      target = null;
     };
-    const registration = createAdminRegistrationController({
+    const { registration, lifecycle, creation } = createAdminAppControllers({
       client,
       target: () => target,
       selectedInstanceId: () => selectedInstanceId,
+      selectInstance: (instanceId) => {
+        selectedInstanceId = instanceId;
+        updateAdminInstanceUrl(instanceId);
+      },
       controlPlane: () => controlPlane,
-      refresh,
-      createKey
-    });
-    const creation = createAdminCreateController({
-      client,
-      target: () => target,
-      state: () => ({ wizardOpen, wizardStep, idempotencyKey: createIdempotencyKey }),
-      updateState: (next) => {
+      actionReasons,
+      wizardState: () => ({ wizardOpen, wizardStep, idempotencyKey: createIdempotencyKey }),
+      updateWizardState: (next) => {
         if (next.wizardOpen !== void 0) wizardOpen = next.wizardOpen;
         if (next.wizardStep !== void 0) wizardStep = next.wizardStep;
         if (next.idempotencyKey !== void 0) createIdempotencyKey = next.idempotencyKey;
       },
+      render,
+      refresh,
+      clearAudit: () => {
+        auditEntries = null;
+      },
+      setNotice: (next) => {
+        notice = next;
+      }
+    });
+    const login = createAdminLoginController({
+      client,
+      target: () => target,
+      onAuthenticated: async (authenticatedSession) => {
+        session = authenticatedSession;
+        overview = null;
+        controlPlane = null;
+        detail = null;
+        auditEntries = null;
+        if (target) target.innerHTML = renderLoading();
+        registration.start();
+        await refresh();
+      }
+    });
+    const refreshController = createAdminRefreshController({
+      client,
+      pollInterval,
+      maxBackoff: MAX_BACKOFF_MS,
+      context: () => ({ mounted, session, selectedInstanceId, wizardOpen, auditEntries, auditError }),
+      apply: (result) => {
+        overview = result.overview;
+        detail = result.detail;
+        controlPlane = result.controlPlane;
+        auditEntries = result.auditEntries;
+        auditError = result.auditError;
+        refreshError = null;
+        lastSuccessfulRefreshAt = result.refreshedAt;
+      },
+      syncClock: (generatedAt) => registration.syncClock(generatedAt),
+      render: renderOrDefer,
+      onStatus: setRefreshStatus,
+      onError: handleError
+    });
+    const bindings = createAdminDashboardBindings({
+      target: () => target,
+      selectedInstanceId: () => selectedInstanceId,
       selectInstance: (instanceId) => {
         selectedInstanceId = instanceId;
-        updateUrl(instanceId);
+        detail = null;
       },
       render,
       refresh,
-      createKey
+      logout,
+      dismissNotice: () => {
+        notice = null;
+        render();
+      },
+      serverFilters: () => serverFilters,
+      updateServerFilters: (next) => {
+        serverFilters = { ...serverFilters, ...next };
+      },
+      mobileNavOpen: () => mobileNavOpen,
+      setMobileNavOpen: (open) => {
+        mobileNavOpen = open;
+      },
+      flushPendingRender,
+      controllers: [creation, lifecycle, registration]
     });
-    return { mount, refresh };
+    return { mount, refresh: () => refresh(), destroy };
   };
-  const selectedFromUrl = () => typeof location === "undefined" ? null : new URL(location.href).searchParams.get("instance");
-  const updateUrl = (instanceId) => {
-    const url = new URL(location.href);
-    instanceId ? url.searchParams.set("instance", instanceId) : url.searchParams.delete("instance");
-    history.replaceState(null, "", url);
-  };
-  const isAbort = (error) => error instanceof DOMException && error.name === "AbortError";
-  const createKey = () => `admin-ui:${crypto.randomUUID()}`;
-  const readFrontendBuildSha = () => {
-    var _a;
-    const value = ((_a = document.querySelector('meta[name="empire-build-sha"]')) == null ? void 0 : _a.content.trim()) ?? "";
-    return value && value !== "__EMPIRE_BUILD_SHA__" && value !== "local" ? value : null;
-  };
-  const initialLoginMessage = (error) => {
-    if (error instanceof AdminApiError && (error.status === 401 || error.code.includes("SESSION"))) {
-      return error.code === "ADMIN_SESSION_EXPIRED" ? "Admin session vypršela." : void 0;
-    }
-    if (error instanceof AdminApiError && error.code === "ADMIN_CONFIGURATION_UNAVAILABLE") {
-      return "Admin API momentálně není připojené k databázi. Přihlášení můžeš zkusit, ale serverové připojení musí být nejdřív dostupné.";
-    }
-    return "Admin API momentálně neodpovídá. Přihlašovací formulář zůstává dostupný pro další pokus.";
-  };
-  const loginErrorMessage = (error) => {
-    if (error instanceof AdminApiError && error.code === "ADMIN_INVALID_RESPONSE") {
-      return "Admin API nevrátilo platná data. Nepoužívej VS Code Live Server; spusť `npm run dev:hosted-api` a `npm run dev:admin`.";
-    }
-    if (error instanceof AdminApiError && error.code === "ADMIN_CONFIGURATION_UNAVAILABLE") {
-      return "Admin server nemá nastavené databázové připojení. Zkontroluj produkční EMPIRE_DATABASE_URL.";
-    }
-    if (error instanceof AdminApiError && error.code === "ADMIN_DATABASE_UNAVAILABLE") {
-      return "Admin databáze je právě nedostupná. Zkus přihlášení znovu později.";
-    }
-    return error instanceof Error ? error.message : "Přihlášení selhalo.";
-  };
-  void createAdminApp().mount();
+  const app = createAdminApp();
+  void app.mount();
 })();

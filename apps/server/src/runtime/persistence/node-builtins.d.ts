@@ -1,6 +1,7 @@
 declare const process: {
   env: Record<string, string | undefined>;
   pid: number;
+  versions: { node: string };
   stdout: { write(message: string): void };
   exit(code?: number): never;
   once(event: "SIGTERM" | "SIGINT", listener: () => void): void;

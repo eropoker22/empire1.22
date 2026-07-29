@@ -9,9 +9,9 @@ The hosted control-plane implementation now closes the previously identified cod
 - snapshot persistence rejects stale root versions and divergent writes at the same root version;
 - provisioning and lifecycle workers use claim/version/expiry fencing, and successful lifecycle completion also requires the worker's live runtime lease;
 - production startup uses one exact migration filename/checksum contract;
-- the game page enables visibility-aware five-second polling with failure backoff.
+- the game page enables visibility-aware ten-second polling with failure backoff.
 
-This is not proof that the public deployment is ready. The actual Netlify Functions environment, target database migration state, production secrets, deployed JSON routes, and live hosted worker have not been verified on `empirestreets.cz`. Real-player registration and its final account-to-gameplay session boundary are intentionally deferred and must remain closed. War mode remains closed.
+This is not proof that the public deployment is ready. The actual Netlify Functions environment, target database migration state, production secrets, deployed JSON routes, and live hosted worker have not been verified on `empirestreets.cz`. The real-player registration and account-to-gameplay session boundary is implemented, but production registration must remain disabled until its deployment, legal, and rollback gates pass. War mode remains closed.
 
 ## Ownership boundaries
 
@@ -19,7 +19,7 @@ The target boundary is: Netlify serves static browser assets and short request/r
 
 PostgreSQL owns admin users and sessions, player accounts and sessions, server memberships, spawn reservations, setup/leave jobs and events, hosted instance metadata, idempotency records, provisioning jobs, lifecycle requests, snapshots, command persistence, worker heartbeats, and leases.
 
-The hosted runtime worker is an always-on Node 20 process. It claims jobs with database locking, provisions a canonical runtime, restores snapshots, owns per-instance leases, ticks running instances, persists snapshots, and writes heartbeats. Multiple workers may run, but only the valid lease owner may tick an instance.
+The hosted runtime worker is an always-on Node 24 LTS process. It claims jobs with database locking, provisions a canonical runtime, restores snapshots, owns per-instance leases, ticks running instances, persists snapshots, and writes heartbeats. Multiple workers may run, but only the valid lease owner may tick an instance.
 
 ## Local PostgreSQL
 
@@ -29,7 +29,7 @@ Start the development database:
 docker compose -f docker-compose.hosted-dev.yml config
 docker compose -f docker-compose.hosted-dev.yml up -d postgres
 docker compose -f docker-compose.hosted-dev.yml ps
-npm run db:migrate
+npm run db:migrate -- --controlled-snapshot-recovery
 npm run db:migrate:status
 ```
 
@@ -48,6 +48,8 @@ GAMEPLAY_SLICE_SESSION_SECRET=<UNIQUE_SECRET_AT_LEAST_32_CHARACTERS>
 GAMEPLAY_SLICE_SNAPSHOT_SECRET=<DIFFERENT_SECRET_AT_LEAST_32_CHARACTERS>
 EMPIRE_ALLOWED_ORIGINS=https://empirestreets.cz
 EMPIRE_ADMIN_FINGERPRINT_SECRET=<SECRET_AT_LEAST_32_CHARACTERS>
+EMPIRE_AUTH_THROTTLE_PEPPER=<DIFFERENT_SECRET_AT_LEAST_32_CHARACTERS>
+EMPIRE_ACCOUNT_TERMS_VERSION=<APPROVED_TERMS_VERSION>
 EMPIRE_ADMIN_WRITES_ENABLED=true
 EMPIRE_HOSTED_CONTROL_PLANE_ENABLED=true
 EMPIRE_SERVER_PROVISIONING_ENABLED=true
@@ -91,11 +93,19 @@ Apply every migration in filename order and verify checksums before starting the
 013_account_auth_throttle.sql
 014_hosted_match_results.sql
 015_account_age_requirement.sql
+016_free_mode_ten_second_tick.sql
+017_snapshot_recovery_heads_and_checkpoints.sql
+018_drop_redundant_snapshot_head_tick_index.sql
+019_drop_redundant_snapshot_head_root_version_index.sql
+020_hosted_player_job_incarnation_fencing.sql
+021_account_terms_acceptance.sql
 ```
 
 `npm run db:migrate:status` must report the complete current set. `PRODUCTION_MIGRATION_CONTRACT` is also enforced by API/worker readiness and requires the exact ordered filename/checksum set; missing, modified, extra, or unavailable history fails closed. A partially applied schema is a deployment failure, not a degraded mode.
 
 Migration `011` changes runtime lease authority. Drain every pre-`011` worker before applying it, then deploy only the matching API and worker builds; do not run old and new worker binaries together during this rollout.
+
+Migration `017` is intentionally controlled. Use `npm run db:migrate -- --controlled-snapshot-recovery` for a new or existing canonical database so the runner applies `001`–`016`, performs the bounded recovery-head preparation, and only then continues through `021`. Do not apply the SQL files manually or bypass migration history.
 
 ## Netlify routes and environment
 
@@ -158,7 +168,10 @@ npm run dev:admin -- --host 127.0.0.1 --port 5173
 
 Open `http://127.0.0.1:5173/admin.html`. The development API listens on `127.0.0.1:8787`, and Vite proxies `/api` to it. The worker health endpoint is `http://127.0.0.1:8080/health`.
 
-For a container deployment build `Dockerfile.hosted-worker`. The final image runs as the non-root `node` user, exposes `/health` on port 8080, handles `SIGTERM`, and contains no secrets.
+For a container deployment build `Dockerfile.hosted-worker`. Both build and runtime stages use
+`node:24-bookworm-slim`; the final image runs as the non-root `node` user, exposes `/health` on
+port 8080, handles `SIGTERM`, and contains no secrets. Provider-level runtime overrides must remain
+on Node 24 and must not replace the repository Docker contract with Node 20, 22, or 26.
 
 ## Enabling writes
 
@@ -230,7 +243,7 @@ docker compose -f docker-compose.hosted-dev.yml ps
 
 The API must report `ADMIN_DATABASE_UNAVAILABLE`, the worker health endpoint must return `503`, and both must recover after PostgreSQL becomes healthy. To verify process recovery, stop and restart `dev:hosted-api` and `dev:hosted-worker`; the admin account, hosted server, snapshots, registrations, and world seed must remain unchanged.
 
-For application rollback, stop or drain the new worker, deploy the previous request/function build, and retain every applied migration from `001` through `015` plus all durable data. Database migrations are additive; do not drop hosted or membership tables during an application rollback.
+For application rollback, stop or drain the new worker, deploy the previous request/function build, and retain every applied migration from `001` through `021` plus all durable data. Database migrations are additive; do not drop hosted, membership, recovery-head, checkpoint, or account-terms tables during an application rollback.
 
 ## Production readiness gate
 
@@ -242,11 +255,11 @@ Implemented locally and still requiring deployment acceptance:
 - worker tick and HTTP command serialization through one database-backed boundary, including rollback-safe publishing and snapshot CAS;
 - provisioning/lifecycle claim fencing, per-process runtime-lease incarnation fencing, and rolling-worker heartbeat fencing under retries and delayed workers;
 - exact production migration-contract rejection for missing, changed, extra, or unavailable history;
-- visibility-aware gameplay polling enabled at five seconds with bounded failure backoff.
+- visibility-aware gameplay polling enabled at ten seconds with bounded failure backoff.
 
 The remaining launch gate requires:
 
-- the real-player registration and account/gameplay-session entry boundary, intentionally deferred and disabled for now;
+- the real-player registration and account/gameplay-session entry boundary live-verified against the target PostgreSQL, while the production kill switch remains available;
 - the actual Netlify Functions environment, target PostgreSQL migration contract, deployed routes, and live worker heartbeat to pass strict verification;
 - polling verified between at least two independent deployed clients;
 - account and gameplay logout revocation verified together;

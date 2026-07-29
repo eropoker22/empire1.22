@@ -75,6 +75,7 @@ export const createDistrictAttackTargetViews = (
       );
 
       return {
+        sourceDistrictId: sourceDistrict.id,
         districtId: targetDistrict.id,
         name: targetDistrict.name,
         ownerPlayerId: targetDistrict.ownerPlayerId,

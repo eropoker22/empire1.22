@@ -16,6 +16,7 @@ import {
   ensureSharedCityMap,
   sharedCitySpawnDistrictIds
 } from "./gameplay-slice-shared-city-seed";
+import { removeDisabledDevBountyDemoTargets } from "./gameplay-slice-demo-target-cleanup";
 
 export interface GameplaySliceMembershipRequest {
   serverInstanceId: ServerInstanceId;
@@ -126,31 +127,39 @@ const DEV_BOUNTY_DEMO_TARGETS = [
 export const ensureLiveBountyTarget = (
   state: CoreGameState,
   request: GameplaySliceMembershipRequest
-): void => {
+): boolean => {
   if (state.root.phase !== PRODUCTION_GAME_LIFECYCLE_PHASES.live) {
-    return;
+    return false;
   }
   if (!isDevBountyDemoSeedEnabled()) {
-    return;
+    const removed = removeDisabledDevBountyDemoTargets(
+      state,
+      DEV_BOUNTY_DEMO_TARGETS.map((target) => target.playerId)
+    );
+    if (removed) state.root.version += 1;
+    return removed;
   }
 
+  let changed = false;
   for (const target of DEV_BOUNTY_DEMO_TARGETS) {
-    ensureDevBountyDemoTarget(state, request, target);
+    changed = ensureDevBountyDemoTarget(state, request, target) || changed;
   }
+  if (changed) state.root.version += 1;
+  return changed;
 };
 
 const ensureDevBountyDemoTarget = (
   state: CoreGameState,
   request: GameplaySliceMembershipRequest,
   target: (typeof DEV_BOUNTY_DEMO_TARGETS)[number]
-): void => {
+): boolean => {
   if (state.playersById[target.playerId]) {
-    return;
+    return false;
   }
 
   const targetDistrict = findAvailableDemoTargetDistrict(state);
   if (!targetDistrict) {
-    return;
+    return false;
   }
   const config = resolveModeConfig(request.mode);
   const targetPlayer: Player = {
@@ -192,6 +201,7 @@ const ensureDevBountyDemoTarget = (
       version: building.version + 1
     };
   }
+  return true;
 };
 
 const findAvailableDemoTargetDistrict = (state: CoreGameState) =>
@@ -215,8 +225,5 @@ const findAvailableDemoTargetDistrict = (state: CoreGameState) =>
 
 const isDevBountyDemoSeedEnabled = (): boolean => {
   const processEnv = typeof process === "undefined" ? undefined : process.env;
-  if (processEnv?.NODE_ENV === "production") {
-    return processEnv.EMPIRE_ENABLE_BOUNTY_DEMO_TARGETS === "1";
-  }
-  return processEnv?.EMPIRE_ENABLE_BOUNTY_DEMO_TARGETS !== "0";
+  return processEnv?.EMPIRE_ENABLE_BOUNTY_DEMO_TARGETS === "1";
 };

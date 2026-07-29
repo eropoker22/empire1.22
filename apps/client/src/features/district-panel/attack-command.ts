@@ -20,7 +20,8 @@ export const createAttackDistrictCommand = (
   input: CreateAttackDistrictCommandInput
 ): AttackDistrictCommand => {
   const district = input.slice.district;
-  const target = district?.attackTargets.find((entry) => entry.districtId === input.targetDistrictId);
+  const target = district?.targetActions?.attackTargets.find((entry) => entry.districtId === input.targetDistrictId)
+    ?? district?.attackTargets.find((entry) => entry.districtId === input.targetDistrictId);
   const corridor = input.slice.frontier?.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
 
   if (!district) {
@@ -38,7 +39,8 @@ export const createAttackDistrictCommand = (
     issuedAt: input.issuedAt,
     payload: {
       districtId: input.targetDistrictId,
-      sourceDistrictId: corridor?.sourceDistrictId ?? district.districtId,
+      sourceDistrictId: corridor?.sourceDistrictId ?? target?.sourceDistrictId
+        ?? (() => { throw new Error("Attack target is missing a source district."); })(),
       weapons: { ...input.weapons },
       ...(typeof expectedSourceVersion === "number" ? { expectedSourceVersion } : {}),
       ...(typeof expectedTargetVersion === "number" ? { expectedTargetVersion } : {}),

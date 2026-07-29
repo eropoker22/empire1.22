@@ -46,6 +46,8 @@ const createEntry = (
     rank,
     playerId: score.playerId,
     name: player.name,
+    gangName: stringMetadata(player.metadata?.gangName) || player.name,
+    avatarId: stringMetadata(player.metadata?.avatarId) || null,
     factionId: player.factionId,
     allianceTag: alliance?.status === "active" ? alliance.tag : null,
     controlledDistricts: score.controlledDistricts,
@@ -56,3 +58,7 @@ const createEntry = (
     isCurrentPlayer: score.playerId === currentPlayerId
   };
 };
+
+const stringMetadata = (value: unknown): string => (
+  typeof value === "string" ? value.trim() : ""
+);

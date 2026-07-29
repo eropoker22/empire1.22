@@ -6,18 +6,9 @@ import {
   loadLobbyOverview,
   loadMembership
 } from "./app/player-entry-client.js";
+import { getLivePlayerAvatarPreviews } from "./app/model/livePlayerAvatarCatalog.js";
 
 const COLORS = ["#22d3ee", "#3b82f6", "#8b5cf6", "#ec4899", "#ef4444", "#f97316", "#eab308", "#22c55e"];
-const AVATAR_PREVIEWS = Object.freeze({
-  mafian: ["../img/avatars/Mafia/2854d1df-0f7c-4fe4-aa85-7a70dfe299db.jpg"],
-  kartel: ["../img/avatars/Kartel/0f3d68b6-79b0-4bdd-9856-2491cd66cb78.jpg"],
-  kult: ["../img/avatars/kult/5f1bbe02-e437-43b6-b9ed-c453e34ca622.jpg"],
-  "tajna-organizace": ["../img/avatars/Tajnaorganizace/0099fc13-4774-459a-b1a9-ea507a6c0526.jpg"],
-  hackeri: ["../img/avatars/Hacker/379f566a-18b8-457e-83ee-ee9ee114cb7a.jpg"],
-  "motorkarsky-gang": ["../img/avatars/Motogang/grok_image_1773621173474.jpg"],
-  "soukroma-armada": ["../img/avatars/SoukromaArmada/17912d57-dfc8-49fc-9a90-44121c298975.jpg"],
-  korporace: ["../img/avatars/Korporat/094f576f-646f-4ec9-9786-63019d07cdfe.jpg"]
-});
 const state = { membership: null, factionId: null, avatarId: null, gangColor: null, busy: false };
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => void boot(), { once: true });
@@ -76,7 +67,7 @@ function renderFactionDetail() {
 function renderAvatars() {
   const grid = document.querySelector("#avatar-grid");
   if (!grid) return;
-  const avatars = state.factionId ? (AVATAR_PREVIEWS[state.factionId] || []) : [];
+  const avatars = state.factionId ? getLivePlayerAvatarPreviews(state.factionId) : [];
   if (!avatars.length) {
     grid.innerHTML = '<div class="avatar-track__hint">Nejdřív vyber frakci.</div>';
     return;

@@ -4,9 +4,6 @@ import type {
   RemoveDefenseCommand
 } from "@empire/shared-types";
 
-const DEFAULT_DEFENSE_ITEM_ID = "barricades";
-const DEFAULT_DEFENSE_AMOUNT = 1;
-
 export interface CreateDefenseCommandInput {
   commandId: string;
   slice: GameplaySliceView;
@@ -21,6 +18,9 @@ export const createPlaceDefenseCommand = (
   if (!district || !district.placeDefense) {
     throw new Error("Place defense command cannot be created from missing district/defense context.");
   }
+  if (!district.placeDefense.enabled || !district.placeDefense.preferredItemId) {
+    throw new Error("Place defense command cannot be created from a disabled defense projection.");
+  }
 
   return {
     id: input.commandId,
@@ -31,8 +31,8 @@ export const createPlaceDefenseCommand = (
     issuedAt: input.issuedAt,
     payload: {
       targetDistrictId: district.districtId,
-      defenseItemId: DEFAULT_DEFENSE_ITEM_ID,
-      amount: DEFAULT_DEFENSE_AMOUNT,
+      defenseItemId: district.placeDefense.preferredItemId,
+      amount: district.placeDefense.preferredAmount,
       expectedTargetVersion: district.placeDefense.expectedTargetVersion
     },
     clientRequestId: input.clientRequestId ?? null
@@ -46,6 +46,9 @@ export const createRemoveDefenseCommand = (
   if (!district || !district.removeDefense) {
     throw new Error("Remove defense command cannot be created from missing district/defense context.");
   }
+  if (!district.removeDefense.enabled || !district.removeDefense.preferredItemId) {
+    throw new Error("Remove defense command cannot be created from a disabled defense projection.");
+  }
 
   return {
     id: input.commandId,
@@ -56,8 +59,8 @@ export const createRemoveDefenseCommand = (
     issuedAt: input.issuedAt,
     payload: {
       targetDistrictId: district.districtId,
-      defenseItemId: DEFAULT_DEFENSE_ITEM_ID,
-      amount: DEFAULT_DEFENSE_AMOUNT,
+      defenseItemId: district.removeDefense.preferredItemId,
+      amount: district.removeDefense.preferredAmount,
       expectedTargetVersion: district.removeDefense.expectedTargetVersion
     },
     clientRequestId: input.clientRequestId ?? null

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyCommand,
   createDistrictPanelView,
+  createDistrictSummaryViews,
   createHeistAttackerTargetCooldownKey,
   createHeistGlobalCooldownKey,
   createRobCooldownKey,
@@ -9,7 +10,13 @@ import {
   type CoreGameState
 } from "@empire/game-core";
 import { resolveModeConfig } from "@empire/game-config";
-import { createAllianceFixture, createCombatStateFixture, createDistrictFixture } from "../../fixtures/game-state-fixtures";
+import {
+  createAllianceFixture,
+  createCombatStateFixture,
+  createDistrictFixture,
+  createFixedBuildingFixture,
+  seedSuccessfulSpyIntel
+} from "../../fixtures/game-state-fixtures";
 import {
   createHeistDistrictCommandFixture,
   createPlaceDefenseCommandFixture,
@@ -286,6 +293,273 @@ describe("authoritative basic action commands", () => {
     }));
   });
 
+  it("projects one opened-target action route and reveals foreign buildings only after successful spy intel", () => {
+    const state = createHeistState();
+    const foreignBuilding = createFixedBuildingFixture("casino", {
+      id: "building:district-2:casino:1",
+      districtId: "district:2",
+      ownerPlayerId: "player:2"
+    });
+    state.buildingsById[foreignBuilding.id] = foreignBuilding;
+    state.districtsById["district:2"] = {
+      ...state.districtsById["district:2"],
+      buildingIds: [foreignBuilding.id]
+    };
+    state.notificationsById = {};
+    const hiddenPanel = createDistrictPanelView(state, {
+      districtId: "district:2",
+      playerId: "player:1",
+      issuedAt: new Date(0).toISOString(),
+      ...minimalPanelConfig()
+    });
+    expect(hiddenPanel).toMatchObject({
+      intelKnown: false,
+      filledSlotCount: 0,
+      buildings: []
+    });
+    expect(hiddenPanel?.targetActions?.spyTargets).toEqual([
+      expect.objectContaining({
+        sourceDistrictId: "district:1",
+        districtId: "district:2"
+      })
+    ]);
+    expect(hiddenPanel?.targetActions?.spyTargets).toHaveLength(1);
+    expect(hiddenPanel?.targetActions?.attackTargets).toEqual([
+      expect.objectContaining({
+        districtId: "district:2",
+        enabled: false,
+        disabledCode: "SPY_REQUIRED"
+      })
+    ]);
+    expect(hiddenPanel?.targetActions?.heistTargets).toHaveLength(1);
+    expect(hiddenPanel?.targetActions?.robTargets).toEqual([]);
+    expect(hiddenPanel?.targetActions?.occupyTargets).toEqual([]);
+    expect(hiddenPanel?.trap).toBeNull();
+    expect(hiddenPanel?.placeDefense).toBeNull();
+    expect(hiddenPanel?.removeDefense).toBeNull();
+    expect(
+      createDistrictSummaryViews(state, "player:1")
+        .find((candidate) => candidate.districtId === "district:2")
+        ?.filledSlotCount
+    ).toBe(0);
+
+    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", "player:2");
+    const revealedPanel = createDistrictPanelView(state, {
+      districtId: "district:2",
+      playerId: "player:1",
+      issuedAt: new Date(0).toISOString(),
+      ...minimalPanelConfig()
+    });
+    expect(revealedPanel).toMatchObject({
+      intelKnown: true,
+      filledSlotCount: 1
+    });
+    expect(revealedPanel?.buildings.map((building) => building.buildingId)).toEqual([
+      foreignBuilding.id
+    ]);
+    expect(revealedPanel?.buildings[0]).toMatchObject({
+      stats: [],
+      specialActions: [],
+      actionCooldowns: {},
+      actions: [],
+      pharmacy: null,
+      drugLab: null,
+      factory: null,
+      armory: null
+    });
+    expect(revealedPanel?.targetActions?.spyTargets).toEqual([]);
+    expect(revealedPanel?.targetActions?.attackTargets).toEqual([
+      expect.objectContaining({
+        districtId: "district:2",
+        enabled: true
+      })
+    ]);
+    expect(
+      createDistrictSummaryViews(state, "player:1")
+        .find((candidate) => candidate.districtId === "district:2")
+        ?.filledSlotCount
+    ).toBe(1);
+  });
+
+  it("keeps neutral rob visible while disabled and swaps spy for occupy after valid intel", () => {
+    const state = createNeutralRobState();
+    state.notificationsById = {};
+    state.playersById["player:1"] = {
+      ...state.playersById["player:1"],
+      population: 0
+    };
+
+    const hiddenPanel = createDistrictPanelView(state, {
+      districtId: "district:2",
+      playerId: "player:1",
+      issuedAt: new Date(0).toISOString(),
+      ...minimalPanelConfig()
+    });
+
+    expect(hiddenPanel?.targetActions).toMatchObject({
+      attackTargets: [],
+      heistTargets: [],
+      occupyTargets: [],
+      robTargets: [
+        expect.objectContaining({
+          districtId: "district:2",
+          enabled: false,
+          disabledCode: "INSUFFICIENT_POPULATION"
+        })
+      ],
+      spyTargets: [
+        expect.objectContaining({
+          districtId: "district:2",
+          enabled: true
+        })
+      ]
+    });
+
+    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
+    const revealedPanel = createDistrictPanelView(state, {
+      districtId: "district:2",
+      playerId: "player:1",
+      issuedAt: new Date(0).toISOString(),
+      ...minimalPanelConfig()
+    });
+
+    expect(revealedPanel?.targetActions?.spyTargets).toEqual([]);
+    expect(revealedPanel?.targetActions?.robTargets).toHaveLength(1);
+    expect(revealedPanel?.targetActions?.occupyTargets).toEqual([
+      expect.objectContaining({
+        districtId: "district:2"
+      })
+    ]);
+  });
+
+  it("reveals building type after partial spy intel without granting occupy authorization", () => {
+    const state = createNeutralRobState();
+    const foreignBuilding = createFixedBuildingFixture("casino", {
+      id: "building:district-2:casino:partial",
+      districtId: "district:2",
+      ownerPlayerId: "player:neutral"
+    });
+    state.buildingsById[foreignBuilding.id] = foreignBuilding;
+    state.districtsById["district:2"] = {
+      ...state.districtsById["district:2"],
+      buildingIds: [foreignBuilding.id]
+    };
+    state.notificationsById = {};
+    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
+    const notification = Object.values(state.notificationsById)[0]!;
+    notification.payload = {
+      ...notification.payload,
+      result: "partial",
+      purpose: null,
+      authorizationScope: null,
+      authorizationExpiresAtTick: null,
+      revealedType: true,
+      revealedDefense: false
+    };
+
+    const panel = createDistrictPanelView(state, {
+      districtId: "district:2",
+      playerId: "player:1",
+      issuedAt: new Date(0).toISOString(),
+      ...minimalPanelConfig()
+    });
+
+    expect(panel).toMatchObject({
+      intelKnown: true,
+      filledSlotCount: 1
+    });
+    expect(panel?.targetActions?.spyTargets).toHaveLength(1);
+    expect(panel?.targetActions?.occupyTargets).toEqual([]);
+  });
+
+  it("hides remove defense until the player has a removable deployed item", () => {
+    const state = createHeistState();
+    const emptyPanel = createDistrictPanelView(state, {
+      districtId: "district:1",
+      playerId: "player:1",
+      issuedAt: new Date(0).toISOString(),
+      ...minimalPanelConfig()
+    });
+
+    expect(emptyPanel?.placeDefense).toMatchObject({
+      enabled: false,
+      disabledCode: "DEFENSE_ITEM_UNAVAILABLE",
+      preferredItemId: null
+    });
+    expect(emptyPanel?.removeDefense).toBeNull();
+
+    state.resourceStatesById["resource:1"].balances.vest = 1;
+    const inventoryPanel = createDistrictPanelView(state, {
+      districtId: "district:1",
+      playerId: "player:1",
+      issuedAt: new Date(0).toISOString(),
+      ...minimalPanelConfig()
+    });
+    expect(inventoryPanel?.placeDefense).toMatchObject({
+      enabled: true,
+      preferredItemId: "vest",
+      preferredAmount: 1
+    });
+
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      defenseLoadout: { vest: 1 }
+    };
+    const deployedPanel = createDistrictPanelView(state, {
+      districtId: "district:1",
+      playerId: "player:1",
+      issuedAt: new Date(0).toISOString(),
+      ...minimalPanelConfig()
+    });
+    expect(deployedPanel?.removeDefense).toMatchObject({
+      enabled: true,
+      preferredItemId: "vest",
+      preferredAmount: 1
+    });
+  });
+
+  it("selects an enabled source route when several owned districts border the same enemy", () => {
+    const state = createHeistState();
+    state.resourceStatesById["resource:1"].balances = {
+      ...state.resourceStatesById["resource:1"].balances,
+      "baseball-bat": 1,
+      pistol: 1,
+      grenade: 1,
+      smg: 1,
+      bazooka: 1
+    };
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      stabilizingUntilTick: state.root.tick + 10
+    };
+    state.districtsById["district:3"] = createDistrictFixture({
+      id: "district:3",
+      serverInstanceId: state.serverInstance.id,
+      ownerPlayerId: "player:1",
+      status: "claimed",
+      adjacentDistrictIds: ["district:2"]
+    });
+    state.districtsById["district:2"] = {
+      ...state.districtsById["district:2"],
+      adjacentDistrictIds: [...state.districtsById["district:2"].adjacentDistrictIds, "district:3"]
+    };
+    state.root.districtIds.push("district:3");
+
+    const panel = createDistrictPanelView(state, {
+      districtId: "district:2",
+      playerId: "player:1",
+      issuedAt: new Date(0).toISOString(),
+      ...minimalPanelConfig()
+    });
+
+    expect(panel?.targetActions?.attackTargets).toEqual([
+      expect.objectContaining({
+        sourceDistrictId: "district:3",
+        enabled: true
+      })
+    ]);
+  });
+
   it("disables rob targets when player has no population", () => {
     const state = createNeutralRobState();
     state.playersById["player:1"] = { ...state.playersById["player:1"], population: 0 };
@@ -409,6 +683,7 @@ const minimalPanelConfig = () => {
   const config = resolveModeConfig("free");
   return {
     buildCatalog: [],
+    config,
     productionCatalog: {},
     craftCatalog: {},
     buildingActionCatalog: {},

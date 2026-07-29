@@ -501,12 +501,17 @@ function bindGuest() {
     return;
   }
 
+  const localDemoEnabled = isExplicitLocalDemoEnabled();
   if (guestAccess instanceof HTMLElement) {
-    guestAccess.hidden = false;
-    guestAccess.setAttribute("aria-hidden", "false");
+    guestAccess.hidden = !localDemoEnabled;
+    guestAccess.setAttribute("aria-hidden", String(!localDemoEnabled));
+    guestAccess.querySelectorAll("input, button").forEach((control) => {
+      if (localDemoEnabled) control.removeAttribute("tabindex");
+      else control.setAttribute("tabindex", "-1");
+    });
   }
 
-  if (isExplicitLocalDemoEnabled()) {
+  if (localDemoEnabled) {
     guestUsernameInput.value ||= "DemoBoss";
     guestGangInput.value ||= "Neon Demo Crew";
     button.textContent = "SPUSTIT LOKÁLNÍ DEMO";

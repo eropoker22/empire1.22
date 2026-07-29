@@ -2,6 +2,7 @@ import {
   closeOverlay,
   openOverlay
 } from "../ui/legacyOverlayCoordinator.js";
+import { resolveDistrictBuildingChipKind } from "../ui/districtBuildingChipKind.js";
 import { getAssetPath } from "../../config.js";
 
 const BUILDINGS_POPUP_BACKGROUND_BY_DISTRICT_TYPE = Object.freeze({
@@ -23,46 +24,11 @@ const normalizeBuildingsDistrictType = (value) => {
   return normalizedValue;
 };
 
-const BUILDING_CHIP_ACTIVE_ACTION_NAMES = new Set([
-  "bytovy blok",
-  "centralni banka",
-  "energeticka stanice",
-  "herna",
-  "kasino",
-  "klinika",
-  "letiste",
-  "lobby club",
-  "lobby klub",
-  "magistrat",
-  "parlament",
-  "pasovaci tunel",
-  "poulicni dealeri",
-  "pristav",
-  "recyklacni centrum",
-  "restaurace",
-  "skola",
-  "smenarna",
-  "strip club",
-  "burza"
-]);
-const BUILDING_CHIP_PRODUCTION_NAMES = new Set(["drug lab", "lab", "lekarna", "tovarna", "zbrojovka"]);
-
 const normalizeBuildingChipName = (value) => String(value || "")
   .trim()
   .toLowerCase()
   .normalize("NFD")
   .replace(/[\u0300-\u036f]/g, "");
-
-const resolveBuildingChipKind = (buildingName) => {
-  const normalizedName = normalizeBuildingChipName(buildingName);
-  if (BUILDING_CHIP_PRODUCTION_NAMES.has(normalizedName)) {
-    return "Výroba";
-  }
-  if (BUILDING_CHIP_ACTIVE_ACTION_NAMES.has(normalizedName)) {
-    return "Spustit akci";
-  }
-  return "Pasivní bonus";
-};
 
 const isApartmentBlockBaseName = (buildingName) => normalizeBuildingChipName(buildingName) === "bytovy blok";
 const isClinicBaseName = (buildingName) => normalizeBuildingChipName(buildingName) === "klinika";
@@ -236,7 +202,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
         name: building.baseName || building.displayName,
         label: building.baseName || building.displayName,
         displayName: building.displayName,
-        kindLabel: resolveBuildingChipKind(building.baseName || building.displayName)
+        kindLabel: resolveDistrictBuildingChipKind(building.baseName || building.displayName)
       })),
       trap: {
         visible: trapControlState.buildingVisible,

@@ -1,4 +1,4 @@
-import "./require-node20.mjs";
+import "./require-supported-node.mjs";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { existsSync } from "node:fs";

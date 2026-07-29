@@ -2696,7 +2696,7 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
 }
 
 /* Final mobile building modal scroll guards. */
-@media (max-width: 720px), (hover: none) and (pointer: coarse) {
+@media (max-width: 720px), (max-width: 900px) and (hover: none) and (pointer: coarse) {
   .district-building-detail-shell[data-building-mechanics-type="apartment-block"] .district-building-detail-title .building-detail-title__badge,
   .district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-title .building-detail-title__badge,
   .district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-title .building-detail-title__badge,
@@ -3205,7 +3205,7 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popu
 }
 
 /* Mobile building cards must scroll as one sheet; nested scroll panes are unreliable on touch browsers. */
-@media (max-width: 720px), (hover: none) and (pointer: coarse) {
+@media (max-width: 720px), (max-width: 900px) and (hover: none) and (pointer: coarse) {
   html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content {
     display: flex !important;
     flex-direction: column !important;
@@ -5418,7 +5418,7 @@ html body .storage-popup-heading > .storage-popup-close::before {
 }
 
 /* Mobile overlays open from the top; the resource/top bars are hidden while cards are active. */
-@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+@media (max-width: 720px), (max-width: 900px) and (hover: none), (max-width: 900px) and (pointer: coarse), (max-width: 900px) and (any-hover: none), (max-width: 900px) and (any-pointer: coarse) {
   html.game-modal-scroll-locked {
     --mobile-overlay-card-top: max(env(safe-area-inset-top), 0px);
     --mobile-overlay-card-gap: 6px;
@@ -5505,7 +5505,7 @@ html body .storage-popup-heading > .storage-popup-close::before {
 }
 
 /* Hard guard: large mobile windows must open from the top of the phone viewport. */
-@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+@media (max-width: 720px), (max-width: 900px) and (hover: none), (max-width: 900px) and (pointer: coarse), (max-width: 900px) and (any-hover: none), (max-width: 900px) and (any-pointer: coarse) {
   html.game-modal-scroll-locked {
     --mobile-overlay-card-top: max(env(safe-area-inset-top), 0px);
     --mobile-overlay-card-gap: 6px;
@@ -5689,7 +5689,7 @@ html body .storage-popup-heading > .storage-popup-close::before {
 }
 
 /* Final hard override: mobile Buildings cards must receive taps, not just pan gestures. */
-@media (max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+@media (max-width: 720px), (max-width: 900px) and (hover: none) and (pointer: coarse), (max-width: 900px) and (any-hover: none), (max-width: 900px) and (any-pointer: coarse) {
   html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) {
     z-index: 12000 !important;
     pointer-events: auto !important;
@@ -6042,7 +6042,7 @@ html body.game-modal-scroll-locked #raid-result-modal:not(.hidden):not([hidden])
 }
 
 /* Mobile focused building details mirror the cleaned desktop single-panel layout. */
-@media (max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+@media (max-width: 720px), (max-width: 900px) and (hover: none) and (pointer: coarse), (max-width: 900px) and (any-hover: none), (max-width: 900px) and (any-pointer: coarse) {
   html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-tabs,
   html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-name,
   html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-meta,
@@ -6139,7 +6139,7 @@ html body.game-modal-scroll-locked #raid-result-modal:not(.hidden):not([hidden])
   }
 }
 
-@media (max-width: 420px), (hover: none) and (pointer: coarse) {
+@media (max-width: 420px) {
   .pharmacy-popup-card.building-detail-modal__content .pharmacy-slot__actions {
     grid-template-columns: minmax(78px, 1fr) repeat(2, minmax(46px, 0.78fr)) !important;
     gap: 4px !important;
@@ -6366,7 +6366,7 @@ html body .storage-popup-shell[data-storage-popup] .storage-popup-subtitle--with
 }
 
 /* Mobile overlay backdrop stability: keep the real page visible behind game cards. */
-@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+@media (max-width: 720px), (max-width: 900px) and (hover: none), (max-width: 900px) and (pointer: coarse), (max-width: 900px) and (any-hover: none), (max-width: 900px) and (any-pointer: coarse) {
   html body.game-modal-scroll-locked .modal:not(.hidden):not([hidden]) > .modal__backdrop,
   html body.game-modal-scroll-locked .district-popup-shell:not([hidden]) > .district-popup-backdrop,
   html body.game-modal-scroll-locked .attack-setup-popup-shell:not([hidden]) > .attack-setup-popup-backdrop,

@@ -18,6 +18,7 @@ interface AdminCreateControllerOptions {
   render: () => void;
   refresh: () => Promise<void>;
   createKey: () => string;
+  onCreated?: (instanceId: string, displayName: string) => void;
 }
 
 const canonicalCapacity = resolveModeConfig("free").balance.maxPlayersPerServer;
@@ -29,10 +30,17 @@ export const createAdminCreateController = (options: AdminCreateControllerOption
       options.updateState({ wizardOpen: true, wizardStep: 1,
         idempotencyKey: options.state().idempotencyKey ?? options.createKey() });
       options.render();
+      queueMicrotask(() => options.target()
+        ?.querySelector<HTMLInputElement>("[data-admin-create-form] input:not([type=hidden])")?.focus());
     });
-    target?.querySelector<HTMLElement>("[data-admin-create-cancel]")?.addEventListener("click", () => {
+    const close = (): void => {
       options.updateState({ wizardOpen: false, wizardStep: 1, idempotencyKey: null });
       options.render();
+      queueMicrotask(() => options.target()?.querySelector<HTMLElement>("[data-admin-create-open]")?.focus());
+    };
+    target?.querySelector<HTMLElement>("[data-admin-create-cancel]")?.addEventListener("click", close);
+    target?.querySelector<HTMLElement>("[data-admin-create-backdrop]")?.addEventListener("click", (event) => {
+      if (event.target === event.currentTarget) close();
     });
     target?.querySelectorAll<HTMLElement>("[data-admin-wizard-next]").forEach((button) => button.addEventListener("click", () => {
       const form = target.querySelector<HTMLFormElement>("[data-admin-create-form]");
@@ -47,8 +55,16 @@ export const createAdminCreateController = (options: AdminCreateControllerOption
     }));
     bindTemplatePolicy();
     bindMapTotal();
-    target?.querySelector<HTMLFormElement>("[data-admin-create-form]")
-      ?.addEventListener("submit", (event) => void submit(event));
+    const form = target?.querySelector<HTMLFormElement>("[data-admin-create-form]");
+    form?.addEventListener("submit", (event) => void submit(event));
+    target?.querySelector<HTMLElement>("[role=dialog]")?.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close();
+        return;
+      }
+      if (event.key === "Tab") trapDialogFocus(event);
+    });
   };
 
   const submit = async (event: SubmitEvent): Promise<void> => {
@@ -80,6 +96,8 @@ export const createAdminCreateController = (options: AdminCreateControllerOption
       const result = await options.client.createServer(payload, idempotencyKey);
       options.selectInstance(result.server.serverInstanceId);
       options.updateState({ wizardOpen: false, wizardStep: 1, idempotencyKey: null });
+      options.onCreated?.(result.server.serverInstanceId, result.server.displayName);
+      options.render();
       await options.refresh();
     } catch (error) {
       showError(form, error instanceof Error ? error.message : "Server nebylo možné vytvořit.");
@@ -125,7 +143,12 @@ export const createAdminCreateController = (options: AdminCreateControllerOption
       panel.hidden = Number(panel.dataset.adminWizardPanel) !== options.state().wizardStep;
     });
     const form = target?.querySelector<HTMLFormElement>("[data-admin-create-form]");
-    if (form) updateWizardReview(form);
+    if (form) {
+      updateWizardReview(form);
+      form.querySelector<HTMLElement>(`[data-admin-wizard-panel="${options.state().wizardStep}"] input:not([type=hidden]),
+        [data-admin-wizard-panel="${options.state().wizardStep}"] select,
+        [data-admin-wizard-panel="${options.state().wizardStep}"] button`)?.focus();
+    }
   };
 
   return { bind };
@@ -134,4 +157,21 @@ export const createAdminCreateController = (options: AdminCreateControllerOption
 const showError = (form: HTMLFormElement, text: string): void => {
   const message = form.querySelector<HTMLElement>("[data-admin-create-error]");
   if (message) message.textContent = text;
+};
+
+const trapDialogFocus = (event: KeyboardEvent): void => {
+  const dialog = event.currentTarget as HTMLElement;
+  const focusable = [...dialog.querySelectorAll<HTMLElement>(
+    "button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex='-1'])"
+  )].filter((element) => !element.closest("[hidden]"));
+  if (focusable.length === 0) return;
+  const first = focusable[0]!;
+  const last = focusable.at(-1)!;
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
 };

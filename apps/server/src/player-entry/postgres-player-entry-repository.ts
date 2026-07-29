@@ -27,6 +27,7 @@ import {
   validPlayerUsername
 } from "./player-entry-policy";
 import { createLobbyServerSummary, loadHostedSpawnSelection } from "./postgres-player-entry-registration";
+import { rotatePostgresMembershipJoinTicket } from "./postgres-player-entry-join-ticket";
 import { loadHostedMatchResultsForAccount, persistHostedMatchResult } from "./postgres-player-entry-results";
 import {
   claimPostgresMembershipJob,
@@ -56,6 +57,8 @@ export interface MembershipRecord {
   serverInstanceId: string;
   serverDisplayName: string;
   serverMode: "free" | "war";
+  accountDisplayName?: string;
+  gangName?: string;
   playerId: string;
   reservedSpawnDistrictId: string;
   status: ServerMembershipStatus;
@@ -385,6 +388,12 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
     return result.rows[0] ? mapMembership(result.rows[0]) : null;
   },
 
+  rotateMembershipJoinTicket: (
+    accountId: string,
+    membershipId: string,
+    ticket: Parameters<typeof rotatePostgresMembershipJoinTicket>[1]["ticket"]
+  ) => rotatePostgresMembershipJoinTicket(database, { accountId, membershipId, ticket }),
+
   getMembershipView: async (membershipId: string, now = new Date()) => {
     const result = await database.query<MembershipRow>(`${MEMBERSHIP_SELECT} WHERE membership.membership_id=$1`, [membershipId]);
     return result.rows[0] ? toMembershipView(mapMembership(result.rows[0]), now) : null;
@@ -513,6 +522,8 @@ const mapMembership = (row: MembershipRow): MembershipRecord => ({
   serverInstanceId: String(row.server_instance_id),
   serverDisplayName: String(row.display_name),
   serverMode: row.mode as "free" | "war",
+  accountDisplayName: nullable(row.account_display_name) ?? undefined,
+  gangName: nullable(row.account_gang_name) ?? undefined,
   playerId: String(row.player_id),
   reservedSpawnDistrictId: String(row.reserved_spawn_district_id),
   status: row.status as ServerMembershipStatus,
@@ -559,19 +570,22 @@ const isoOrNull = (value: unknown): string | null => value == null ? null : iso(
 
 interface AccountRow extends Record<string, unknown> { account_id: unknown; username: unknown; display_name: unknown; gang_name: unknown; status: unknown; password_hash: unknown; password_salt: unknown; password_algorithm: unknown; password_parameters: unknown }
 interface AccountSessionRow extends AccountRow { session_id: unknown; expires_at: unknown }
-interface MembershipRow extends Record<string, unknown> { membership_id: unknown; account_id: unknown; server_instance_id: unknown; display_name: unknown; mode: unknown; server_started_at: unknown; player_id: unknown; reserved_spawn_district_id: unknown; status: unknown; confirm_request_hash: unknown; setup_idempotency_key: unknown; setup_request_hash: unknown; faction_id: unknown; avatar_id: unknown; gang_color: unknown; joined_at: unknown; early_leave_deadline: unknown; setup_completed_at: unknown; early_leave_at: unknown; completed_at: unknown; final_rank: unknown; final_score: unknown; final_score_breakdown: unknown; starter_package_applied_at: unknown; join_ticket_id: unknown; version: unknown }
+interface MembershipRow extends Record<string, unknown> { membership_id: unknown; account_id: unknown; server_instance_id: unknown; display_name: unknown; mode: unknown; server_started_at: unknown; account_display_name: unknown; account_gang_name: unknown; player_id: unknown; reserved_spawn_district_id: unknown; status: unknown; confirm_request_hash: unknown; setup_idempotency_key: unknown; setup_request_hash: unknown; faction_id: unknown; avatar_id: unknown; gang_color: unknown; joined_at: unknown; early_leave_deadline: unknown; setup_completed_at: unknown; early_leave_at: unknown; completed_at: unknown; final_rank: unknown; final_score: unknown; final_score_breakdown: unknown; starter_package_applied_at: unknown; join_ticket_id: unknown; version: unknown }
 
 const ACCOUNT_SESSION_SELECT = `SELECT session.session_id,session.expires_at,account.account_id,account.username,account.display_name,
   account.gang_name,account.status,account.password_hash,account.password_salt,account.password_algorithm,account.password_parameters
   FROM empire_account_sessions session JOIN empire_accounts account ON account.account_id=session.account_id`;
 const MEMBERSHIP_SELECT = `SELECT membership.membership_id,membership.account_id,membership.server_instance_id,server.display_name,server.mode,
   server.last_started_at AS server_started_at,
+  account.display_name AS account_display_name,account.gang_name AS account_gang_name,
   membership.player_id,membership.reserved_spawn_district_id,membership.status,membership.confirm_request_hash,
   membership.setup_idempotency_key,membership.setup_request_hash,membership.faction_id,membership.avatar_id,membership.gang_color,
   membership.joined_at,membership.early_leave_deadline,membership.setup_completed_at,membership.early_leave_at,membership.completed_at,
   membership.final_rank,membership.final_score,membership.final_score_breakdown,
   membership.starter_package_applied_at,membership.join_ticket_id,membership.version
-  FROM empire_server_memberships membership JOIN empire_hosted_server_instances server ON server.server_instance_id=membership.server_instance_id`;
+  FROM empire_server_memberships membership
+  JOIN empire_hosted_server_instances server ON server.server_instance_id=membership.server_instance_id
+  JOIN empire_accounts account ON account.account_id=membership.account_id`;
 
 const resolveEarlyLeaveDeadline = (stored: unknown, serverStartedAt: unknown): string | null => {
   if (stored != null) return iso(stored);

@@ -12,7 +12,8 @@ export const createRobDistrictCommand = (
   input: CreateRobDistrictCommandInput
 ): RobDistrictCommand => {
   const district = input.slice.district;
-  const target = district?.robTargets?.find((entry) => entry.districtId === input.targetDistrictId);
+  const target = district?.targetActions?.robTargets.find((entry) => entry.districtId === input.targetDistrictId)
+    ?? district?.robTargets?.find((entry) => entry.districtId === input.targetDistrictId);
   const corridor = input.slice.frontier?.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
 
   if (!district) {
@@ -28,7 +29,8 @@ export const createRobDistrictCommand = (
     issuedAt: input.issuedAt,
     payload: {
       targetDistrictId: input.targetDistrictId,
-      sourceDistrictId: corridor?.sourceDistrictId ?? district.districtId,
+      sourceDistrictId: corridor?.sourceDistrictId ?? target?.sourceDistrictId
+        ?? (() => { throw new Error("Rob target is missing a source district."); })(),
       expectedConflictRevision: target?.expectedConflictRevision
         ?? (() => { throw new Error("Rob target is missing a conflict revision."); })(),
       ...(target?.expectedLootPoolRevision !== undefined

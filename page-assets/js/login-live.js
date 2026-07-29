@@ -76,14 +76,14 @@ function bindLocalDemoGuestAccess() {
   const guestUsernameInput = document.querySelector("#guest-username");
   const guestGangInput = document.querySelector("#guest-gang");
   if (!(guestAccess instanceof HTMLElement) || !(guestButton instanceof HTMLButtonElement)) return;
-  if (!isLocalDemoAccessAvailable()) {
-    guestAccess.hidden = true;
-    guestAccess.setAttribute("aria-hidden", "true");
-    guestAccess.querySelectorAll("input, button").forEach((control) => control.setAttribute("tabindex", "-1"));
-    return;
-  }
-  guestAccess.hidden = false;
-  guestAccess.setAttribute("aria-hidden", "false");
+  const localDemoAvailable = isLocalDemoAccessAvailable();
+  guestAccess.hidden = !localDemoAvailable;
+  guestAccess.setAttribute("aria-hidden", String(!localDemoAvailable));
+  guestAccess.querySelectorAll("input, button").forEach((control) => {
+    if (localDemoAvailable) control.removeAttribute("tabindex");
+    else control.setAttribute("tabindex", "-1");
+  });
+  if (!localDemoAvailable) return;
   guestButton.textContent = "SPUSTIT LOKÁLNÍ DEMO";
   guestButton.addEventListener("click", () => {
     const username = guestUsernameInput instanceof HTMLInputElement ? guestUsernameInput.value.trim() : "";

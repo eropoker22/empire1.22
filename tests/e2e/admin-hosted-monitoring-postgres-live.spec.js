@@ -16,7 +16,7 @@ test("dashboard renders hosted monitoring from durable postgres state", async ({
   await page.locator("[data-admin-username]").fill(username);
   await page.locator("[data-admin-password]").fill(password);
   await page.getByRole("button", { name: "Přihlásit" }).click();
-  await expect(page.getByRole("heading", { name: "Read-only admin" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Control Center" })).toBeVisible();
 
   const response = await page.evaluate(async () => {
     const result = await fetch("/api/admin/control-plane", { credentials: "same-origin", cache: "no-store" });

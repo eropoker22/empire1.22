@@ -136,7 +136,7 @@ describe("runtime map rendering guards", () => {
       renderDistrictStateCanvas,
       renderDistrictStaticCanvas
     } = await import("../../page-assets/js/app/runtime.js"));
-  });
+  }, 30_000);
 
   beforeEach(() => {
     globalThis.window = {

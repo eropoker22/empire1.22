@@ -22,6 +22,28 @@ export const hasSuccessfulSpyIntel = (
     return payload.targetDistrictId === targetDistrictId && payload.result === "success";
   });
 
+export const hasRevealedDistrictTypeIntel = (
+  state: CoreGameState,
+  playerId: string,
+  targetDistrictId: string
+): boolean =>
+  Object.values(state.notificationsById).some((notification) => {
+    if (notification.recipientId !== playerId || notification.category !== "report.spy") {
+      return false;
+    }
+
+    const payload = notification.payload;
+    if (payload.targetDistrictId !== targetDistrictId) {
+      return false;
+    }
+
+    return payload.revealedType === true
+      || (
+        payload.revealedType === undefined
+        && (payload.result === "success" || payload.result === "partial")
+      );
+  });
+
 export const hasValidAttackAuthorization = (
   state: CoreGameState,
   playerId: string,

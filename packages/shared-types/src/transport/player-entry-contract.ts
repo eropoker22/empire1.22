@@ -120,6 +120,24 @@ export interface SpawnDistrictOptionView {
   version: number;
 }
 
+export interface SpawnMapDistrictOwnerView {
+  playerId: string;
+  displayName: string;
+  gangName: string;
+  color: string;
+}
+
+export interface SpawnMapDistrictView {
+  districtId: string;
+  zone: string;
+  label: string;
+  status: string;
+  owner: SpawnMapDistrictOwnerView | null;
+  reserved: boolean;
+  spawnEligible: boolean;
+  version: number;
+}
+
 export interface SpawnDistrictSelectionView {
   serverInstanceId: string;
   membershipEligibility: "eligible" | "blocked";
@@ -140,6 +158,7 @@ export interface SpawnDistrictSelectionView {
   generatedAt: string;
   availabilityRevision: string;
   districts: SpawnDistrictOptionView[];
+  mapDistricts: SpawnMapDistrictView[];
 }
 
 export interface ConfirmSpawnDistrictRequest {

@@ -27,9 +27,11 @@ describe("server gameplay presentation UI controller", () => {
       dirtyMoneyLabel: expect.stringContaining("450"),
       influenceLabel: "72",
       allianceLabel: "Night",
+      gangLabel: "Night Runners",
       districtCountLabel: "1",
       heatLabel: "18",
-      protectionLabel: "Ochrana 25 %"
+      protectionLabel: "Ochrana 25 %",
+      avatarSrc: expect.stringContaining("/img/avatars/Hacker/")
     });
   });
 
@@ -178,6 +180,11 @@ function createReadModel() {
       instanceId: "instance:free:1",
       factionId: "hackeri",
       color: "#22d3ee",
+      profile: {
+        displayName: "Neon Erik",
+        gangName: "Night Runners",
+        avatarId: "hackeri:1"
+      },
       faction: { name: "Hackeři", uiTheme: { accent: "#22d3ee" } },
       alliance: { allianceName: "Night" },
       resourceBalances: { pistol: 3, "metal-parts": 8 },

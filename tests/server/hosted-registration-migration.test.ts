@@ -33,4 +33,15 @@ describe("hosted registration migration", () => {
     expect(sql).not.toContain("'running'");
     expect(sql).not.toContain("'paused'");
   });
+
+  it("moves existing hosted instances to the single-player start policy", async () => {
+    const sql = await readFile(new URL(
+      "../../apps/server/src/runtime/persistence/postgres/migrations/022_single_player_hosted_start.sql",
+      import.meta.url
+    ), "utf8");
+
+    expect(sql).toContain("SET minimum_ready_players_to_start = 1");
+    expect(sql).toContain("minimum_ready_players_to_start >= 1");
+    expect(sql).toContain("DROP CONSTRAINT IF EXISTS empire_hosted_registration_minimum_players_check");
+  });
 });

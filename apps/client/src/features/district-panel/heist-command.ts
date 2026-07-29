@@ -16,7 +16,8 @@ export const createHeistDistrictCommand = (
   input: CreateHeistDistrictCommandInput
 ): HeistDistrictCommand => {
   const district = input.slice.district;
-  const target = district?.heistTargets?.find((entry) => entry.districtId === input.targetDistrictId);
+  const target = district?.targetActions?.heistTargets.find((entry) => entry.districtId === input.targetDistrictId)
+    ?? district?.heistTargets?.find((entry) => entry.districtId === input.targetDistrictId);
   const styleFallback = { style: "balanced" as HeistDistrictStyle, defaultGangMembersSent: 1 };
   const style = target?.styles.find((entry) => entry.style === "balanced") ?? target?.styles[0] ?? styleFallback;
   const corridor = input.slice.frontier?.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
@@ -34,7 +35,8 @@ export const createHeistDistrictCommand = (
     issuedAt: input.issuedAt,
     payload: {
       targetDistrictId: input.targetDistrictId,
-      sourceDistrictId: corridor?.sourceDistrictId ?? district.districtId,
+      sourceDistrictId: corridor?.sourceDistrictId ?? target?.sourceDistrictId
+        ?? (() => { throw new Error("Heist target is missing a source district."); })(),
       style: style.style,
       gangMembersSent: style.defaultGangMembersSent,
       expectedConflictRevision: target?.expectedConflictRevision

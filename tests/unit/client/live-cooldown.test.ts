@@ -69,6 +69,7 @@ const createCooldownSlice = (): GameplaySliceView => ({
   reports: [],
   district: {
     districtId: "district:1",
+    intelKnown: true,
     conflictRevision: 1,
     name: "Owned District",
     zone: "downtown",

@@ -41,6 +41,7 @@ import { handleApiReadinessRequest } from "./api-readiness-netlify";
 import { rejectInvalidGameplayRequestSession } from "./gameplay-request-session-guard";
 import { validateSnapshotTokenForInstance } from "./snapshot-token-instance-guard";
 import { createHostedRuntimeRequestGuard } from "./hosted-runtime-request-guard";
+import { requiresHostedRuntimeAuthority } from "./hosted-runtime-authority-environment";
 import {
   parseGameplaySliceBoundaryBody,
   readGameplaySliceProcessEnvironment,
@@ -82,12 +83,13 @@ export const createGameplaySliceFunctionHandler = (
     sharedDatabase ?? undefined
   );
   const adminRepositories = adminResolution.accepted ? adminResolution.repositories : null;
+  const hostedAuthorityRequired = requiresHostedRuntimeAuthority(environment);
   const hostedRuntimeGuard = createHostedRuntimeRequestGuard({ server, repositories: adminRepositories, environment });
   const handleAdminRequest = createAdminGameplaySliceBoundary({ environment, repositories: adminRepositories ?? undefined });
   const handlePlayerEntryRequest = createPlayerEntryNetlifyBoundary({ environment,
     repository: sharedDatabase ? createPostgresPlayerEntryRepository(sharedDatabase) : undefined,
     gameplaySessionService: server.gameplaySessionService });
-  const allowImplicitInstanceCreation = environment.NODE_ENV === "production"
+  const allowImplicitInstanceCreation = hostedAuthorityRequired
     ? false
     : options.allowImplicitInstanceCreation ?? true;
   const snapshotTokenCodec = snapshotSecret.secret
@@ -130,7 +132,7 @@ export const createGameplaySliceFunctionHandler = (
       );
     }
     if (route === "health") return handleApiReadinessRequest(event.httpMethod, sharedDatabase, environment);
-    if (environment.NODE_ENV !== "production" && server.instanceManager.listInstances().length === 0) {
+    if (!hostedAuthorityRequired && server.instanceManager.listInstances().length === 0) {
       ensureDefaultLobbyServers(server);
     }
     if (!snapshotSecret.accepted || !snapshotTokenCodec) {
@@ -160,7 +162,7 @@ export const createGameplaySliceFunctionHandler = (
       );
     }
     if (route === "matchmaking-reserve") {
-      if (environment.NODE_ENV === "production" && environment.EMPIRE_LEGACY_MATCHMAKING_ENABLED !== "true") {
+      if (hostedAuthorityRequired && environment.EMPIRE_LEGACY_MATCHMAKING_ENABLED !== "true") {
         return createJsonResponse(410, createGameplaySliceRouteError(
           "MATCHMAKING_ENTRY_REPLACED",
           "Production player entry requires account session and lobby spawn confirmation."
@@ -184,7 +186,7 @@ export const createGameplaySliceFunctionHandler = (
       if (sessionError) return sessionError;
       const hostedRuntimeError = await hostedRuntimeGuard.prepare(request.serverInstanceId);
       if (hostedRuntimeError) return hostedRuntimeError;
-      const snapshotTokenError = environment.NODE_ENV === "production" ? null : await validateSnapshotTokenForInstance(
+      const snapshotTokenError = hostedAuthorityRequired ? null : await validateSnapshotTokenForInstance(
         snapshotTokenCodec!,
         request.snapshotToken,
         request.serverInstanceId
@@ -244,7 +246,7 @@ export const createGameplaySliceFunctionHandler = (
     if (sessionError) return sessionError;
     const hostedRuntimeError = await hostedRuntimeGuard.prepareSubmit(request.command.serverInstanceId);
     if (hostedRuntimeError) return hostedRuntimeError;
-    const snapshotTokenError = environment.NODE_ENV === "production" ? null : await validateSnapshotTokenForInstance(
+    const snapshotTokenError = hostedAuthorityRequired ? null : await validateSnapshotTokenForInstance(
       snapshotTokenCodec!,
       request.snapshotToken,
       request.command.serverInstanceId
@@ -278,7 +280,7 @@ export const createGameplaySliceFunctionHandler = (
     body: GameplaySliceResponse | GameplayCommandResultLookupResponse;
   }, instanceId: string): Promise<NetlifyFunctionResponse> {
     const runtime = server.instanceManager.getInstanceById(instanceId);
-    return Promise.resolve(environment.NODE_ENV === "production" ? null : runtime
+    return Promise.resolve(hostedAuthorityRequired ? null : runtime
       ? snapshotTokenCodec!.seal(createInstanceSnapshot(runtime))
       : ("snapshotToken" in response.body ? response.body.snapshotToken ?? null : null)
     ).then((snapshotToken) => createJsonResponse(response.status, {

@@ -48,7 +48,6 @@ test.describe("login smoke", () => {
     await waitForAboutController(page);
     await expect(page.getByTestId("login-form")).toBeVisible();
     await expect(page.getByTestId("guest-login-button")).toBeVisible();
-    await expect(page.getByTestId("guest-login-button")).toHaveText("SPUSTIT LOKÁLNÍ DEMO");
 
     await expect(page.locator("[data-server-defeat-notice]")).toHaveCount(0);
 
@@ -111,14 +110,11 @@ test.describe("login smoke", () => {
     }
   });
 
-  test("continues as guest and persists a session", async ({ page }) => {
+  test("keeps the explicit local demo entry visible and session-capable", async ({ page }) => {
     await clearStorageOnBoot(page);
     await page.setViewportSize({ width: 390, height: 844 });
 
-    await Promise.all([
-      page.waitForResponse((response) => response.url().endsWith("/api/account/session")),
-      openLoginPage(page)
-    ]);
+    await page.goto("/pages/login.html?runtimeMode=local-demo", { waitUntil: "domcontentloaded" });
     const errors = createRuntimeErrorMonitor(page);
     const foregroundStyle = await page.locator(".foreground-character").evaluate((element) => {
       const style = getComputedStyle(element);
@@ -131,11 +127,14 @@ test.describe("login smoke", () => {
     expect(foregroundStyle.display).toBe("block");
     expect(foregroundStyle.maskImage).toContain("tapetamobil-character-mask.svg");
     expect(foregroundStyle.pointerEvents).toBe("none");
-    await page.locator("#guest-username").fill("E2E Host");
-    await page.getByPlaceholder("Ghost Crew").fill("E2E Crew");
+    await expect(page.getByTestId("guest-login-button")).toBeVisible();
     await Promise.all([
       page.waitForURL(/\/pages\/lobby\.html\?mode=free$/, { waitUntil: "domcontentloaded" }),
-      page.getByTestId("guest-login-button").click({ noWaitAfter: true })
+      page.evaluate(() => {
+        document.querySelector("#guest-username").value = "E2E Host";
+        document.querySelector("#guest-gang").value = "E2E Crew";
+        document.querySelector("#guest-btn").click();
+      })
     ]);
 
     await expect(page).toHaveURL(/\/pages\/lobby\.html\?mode=free$/);

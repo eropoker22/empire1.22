@@ -39,21 +39,15 @@ If the selected driver is `postgres` and no database URL is configured, startup 
 
 ## Migration
 
-Apply the migration manually before enabling the Postgres driver:
-
-- `apps/server/src/runtime/persistence/postgres/migrations/001_initial_runtime_persistence.sql`
-- `apps/server/src/runtime/persistence/postgres/migrations/002_command_reservations.sql`
-- `apps/server/src/runtime/persistence/postgres/migrations/003_gameplay_identity_sessions.sql`
-- `apps/server/src/runtime/persistence/postgres/migrations/004_atomic_command_execution.sql`
-
-Example:
+Use the canonical migration runner before enabling the Postgres driver. It records exact checksums and performs the bounded preparation required by the controlled snapshot recovery migration:
 
 ```powershell
-psql $env:EMPIRE_DATABASE_URL -f apps/server/src/runtime/persistence/postgres/migrations/001_initial_runtime_persistence.sql
-psql $env:EMPIRE_DATABASE_URL -f apps/server/src/runtime/persistence/postgres/migrations/002_command_reservations.sql
-psql $env:EMPIRE_DATABASE_URL -f apps/server/src/runtime/persistence/postgres/migrations/003_gameplay_identity_sessions.sql
-psql $env:EMPIRE_DATABASE_URL -f apps/server/src/runtime/persistence/postgres/migrations/004_atomic_command_execution.sql
+npm run db:migrate:status
+npm run db:migrate -- --controlled-snapshot-recovery
+npm run db:migrate:status
 ```
+
+The final status must report every migration in `PRODUCTION_MIGRATION_CONTRACT` (currently `001` through `021`), no unknown migration, checksum parity, and `pending: 0`. Do not apply migration SQL files manually or rewrite migration history.
 
 The migration creates:
 
@@ -66,14 +60,16 @@ The migration creates:
 - `empire_player_registrations`
 - `empire_tick_locks`
 
-The second migration creates:
+Later migrations add:
 
 - `empire_command_reservations`
-
-The atomic command migration creates:
-
 - `empire_command_results`
 - `empire_runtime_outbox`
+- durable gameplay identity and account sessions
+- admin and hosted control-plane records
+- player memberships, jobs, throttling, and match results
+- one recovery head per instance plus bounded historical checkpoints
+- account age and terms-acceptance records
 
 Tables use `payload jsonb`, `created_at timestamptz`, `updated_at` where rows can change, instance-scoped indexes, append ordering indexes, `UNIQUE(server_instance_id, command_id)` for command idempotence, `UNIQUE(server_instance_id, snapshot_id)` for snapshot history, and `UNIQUE(server_instance_id)` for latest snapshots and tick locks.
 

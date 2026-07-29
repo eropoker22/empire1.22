@@ -1,10 +1,11 @@
 import type { DomainError } from "@empire/shared-types";
+import { requiresHostedRuntimeAuthority } from "./hosted-runtime-authority-environment";
 
 export const validateStateChangingOrigin = (
   headers: Record<string, string | string[] | undefined> | undefined,
   environment?: Record<string, string | undefined>
 ): DomainError | null => {
-  if (environment?.NODE_ENV !== "production") {
+  if (!requiresHostedRuntimeAuthority(environment)) {
     return null;
   }
 

@@ -20,8 +20,9 @@ test.afterEach(async ({ page }, testInfo) => {
 
 async function loginAsGuest(page, name = "Entry Host", gang = "Entry Crew") {
   await openLoginPage(page, { localDemo: true });
+  await expect(page.getByTestId("guest-login-button")).toBeVisible();
   await page.locator("#guest-username").fill(name);
-  await page.getByPlaceholder("Ghost Crew").fill(gang);
+  await page.locator("#guest-gang").fill(gang);
   await Promise.all([
     page.waitForURL(/\/pages\/lobby\.html\?mode=free$/),
     page.getByTestId("guest-login-button").click()

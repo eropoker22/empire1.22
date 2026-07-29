@@ -132,8 +132,9 @@ export const createPlayerEntryNetlifyBoundary = (options: {
         const at = new Date().toISOString();
         await options.gameplaySessionService.getOrCreateRegistration({ accountId: account.accountId,
           serverInstanceId: membership.serverInstanceId, nowIso: at });
-        const ticket = await options.gameplaySessionService.createJoinTicket({ accountId: account.accountId,
+        const ticket = options.gameplaySessionService.prepareJoinTicket({ accountId: account.accountId,
           serverInstanceId: membership.serverInstanceId, mode: membership.serverMode, factionId: membership.factionId, nowIso: at });
+        await repository.rotateMembershipJoinTicket(account.accountId, membership.membershipId, ticket);
         const view = await repository.getMembershipView(route.membershipId);
         if (!view) return error(404, "MEMBERSHIP_NOT_FOUND", "Membership nebyl nalezen.");
         return success(201, { ...view, joinTicket: ticket.ticketId });
@@ -148,7 +149,7 @@ export const createPlayerEntryNetlifyBoundary = (options: {
       const code = entryErrorCode(caught);
       const status = code === "PLAYER_ENTRY_UNAVAILABLE" ? 503 : code.includes("NOT_FOUND") ? 404
         : code.includes("CONFLICT") || code.includes("EXISTS") || code.includes("TAKEN")
-          || code.includes("STALE") || code.includes("RESERVED") ? 409
+          || code.includes("STALE") || code.includes("RESERVED") || code.includes("NOT_ACTIVE") ? 409
           : code.includes("FULL") ? 409 : code.includes("LOGIN") || code.includes("SESSION") ? 401 : 400;
       const message = code === "PLAYER_ENTRY_UNAVAILABLE"
         ? "Player entry operace se nezdařila."

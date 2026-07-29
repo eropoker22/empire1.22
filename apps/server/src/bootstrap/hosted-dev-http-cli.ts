@@ -4,7 +4,12 @@ import * as http from "node:http";
 const port = Number(process.env.EMPIRE_HOSTED_API_PORT ?? 8787);
 const host = "127.0.0.1";
 const { createGameplaySliceFunctionHandler } = await import("../netlify/gameplay-slice-function");
-const handler = createGameplaySliceFunctionHandler({ environment: process.env });
+const handler = createGameplaySliceFunctionHandler({
+  environment: {
+    ...process.env,
+    EMPIRE_HOSTED_RUNTIME_AUTHORITY_ENABLED: "true"
+  }
+});
 
 const server = http.createServer(async (request, response) => {
   try {

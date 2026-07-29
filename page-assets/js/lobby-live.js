@@ -7,21 +7,41 @@ import {
   loadSpawnDistricts,
   logoutAccount
 } from "./app/player-entry-client.js";
-import { isLocalDemoAccessAvailable } from "./app/local-demo-gate.js";
 import {
   createHostedRegistrationTicker,
   hostedRegistrationCtaLabel,
   hostedRegistrationDisabledCopy,
   resolveHostedRegistrationPresentation
 } from "./app/hosted-registration-ui.js";
+import { isLocalDemoAccessAvailable } from "./app/local-demo-gate.js";
+import {
+  describeLobbyMapDistrict,
+  findLobbyMapDistrict,
+  LOBBY_MAP_IMAGE_PATH,
+  renderLobbySpawnLegend,
+  renderLobbySpawnMap
+} from "./app/ui/lobbySpawnMapView.js";
 
 const POLL_MS = 15_000;
 const CANVAS_WIDTH = 1600;
 const CANVAS_HEIGHT = 980;
 const geometry = createDistrictGeometry(CANVAS_WIDTH, CANVAS_HEIGHT, 0, 48, 0);
-const state = { overview: null, mode: "free", selectedServerId: null, spawn: null, selectedDistrictId: null, busy: false };
+const mapImage = new Image();
+const state = {
+  overview: null,
+  mode: "free",
+  selectedServerId: null,
+  spawn: null,
+  selectedDistrictId: null,
+  hoveredDistrictId: null,
+  busy: false
+};
 const registrationRefreshes = new Set();
 const registrationTicker = createHostedRegistrationTicker({ onTick: updateRegistrationCountdowns });
+mapImage.src = LOBBY_MAP_IMAGE_PATH;
+mapImage.addEventListener("load", () => {
+  if (state.spawn) renderSpawnCanvas();
+});
 
 const initialize = () => {
   bindNavigation();
@@ -108,17 +128,22 @@ function renderActiveMembership(membership) {
   if (!card) return;
   card.hidden = !membership;
   if (!membership) return;
+  const setupRequired = membership.status === "setup_required" || membership.status === "finalizing_setup";
   text("[data-active-server-name]", membership.serverDisplayName);
   text("[data-active-server-mode]", membership.factionId || "SETUP");
   text("[data-active-server-status]", statusLabel(membership.status));
   text("[data-active-server-district]", membership.reservedSpawnDistrictId);
-  text("[data-active-server-note]", membership.status === "setup_required" || membership.status === "finalizing_setup"
-    ? "District i kapacita jsou potvrzené serverem. Dokonči serverovou identitu."
-    : "Návrat do lobby membership nemění.");
+  const note = document.querySelector("[data-active-server-note]");
+  if (note instanceof HTMLElement) {
+    note.hidden = !setupRequired;
+    note.textContent = setupRequired
+      ? "District i kapacita jsou potvrzené serverem. Dokonči serverovou identitu."
+      : "";
+  }
   const button = document.querySelector("[data-lobby-continue-active]");
   if (!(button instanceof HTMLButtonElement)) return;
   button.disabled = membership.status === "defeated" || membership.status === "leave_pending";
-  button.textContent = membership.status === "setup_required" || membership.status === "finalizing_setup"
+  button.textContent = setupRequired
     ? "DOKONČIT VSTUP" : membership.status === "active" ? "POKRAČOVAT VE HŘE" : "VÝSLEDKY";
   button.onclick = () => void continueMembership(membership);
 }
@@ -128,18 +153,19 @@ function renderServers() {
   if (!list) return;
   const blocking = state.overview.activeBlockingMembership;
   const servers = visibleServers();
+  list.classList.toggle("auth-servers--membership-active", Boolean(blocking));
   list.innerHTML = servers.length ? servers.map((server) => {
     const selected = server.serverInstanceId === state.selectedServerId;
     const presentation = registrationPresentation(server);
     const disabled = Boolean(blocking) || !presentation.locallyJoinable;
-    const cta = blocking ? "ROZEHRANÝ SERVER BLOKUJE VSTUP" : hostedRegistrationCtaLabel(server, registrationTicker.nowMs());
+    const cta = blocking ? "VSTUP BLOKOVÁN" : hostedRegistrationCtaLabel(server, registrationTicker.nowMs());
     const disabledTitle = blocking ? "Nejdřív dokonči rozehraný server." : hostedRegistrationDisabledCopy(server.disabledReason);
     return `<article class="auth-server-card live-server-card ${selected ? "is-selected" : ""} ${disabled ? "is-locked" : ""}"
       data-live-server="${escapeHtml(server.serverInstanceId)}" data-server-mode="${escapeHtml(server.mode)}">
       <button type="button" class="live-server-card__main" data-select-live-server="${escapeHtml(server.serverInstanceId)}">
         <span class="auth-server-card__meta">${escapeHtml(server.region)} · ${escapeHtml(server.mode.toUpperCase())}</span>
         <strong class="auth-server-card__label">${escapeHtml(server.displayName)}</strong>
-        <small class="auth-server-card__subtitle">${server.committedPlayers} hráčů + ${server.reservedSlots} rezervací / ${server.capacity}</small>
+        <small class="auth-server-card__subtitle">${server.committedPlayers}/${server.capacity} hráčů · ${server.reservedSlots} rezervací</small>
         <span class="auth-server-card__status" data-live-registration-status="${escapeHtml(server.serverInstanceId)}">${escapeHtml(presentation.statusLabel)}</span>
         <span class="auth-server-card__schedule" data-live-registration-schedule="${escapeHtml(server.serverInstanceId)}">${escapeHtml(presentation.scheduleLabel)}</span>
         <span class="auth-server-card__countdown" data-live-registration-countdown="${escapeHtml(server.serverInstanceId)}">${escapeHtml(presentation.countdownLabel)}</span>
@@ -193,9 +219,14 @@ function bindNavigation() {
   document.querySelector("[data-live-account-logout]")?.addEventListener("click", () => void performLogout());
   const demoAccess = document.querySelector("[data-local-demo-access]");
   const openDemo = document.querySelector("[data-open-local-demo]");
-  if (demoAccess instanceof HTMLElement && isLocalDemoAccessAvailable()) {
-    demoAccess.hidden = false;
-    openDemo?.addEventListener("click", () => location.assign("./login.html?runtimeMode=local-demo"));
+  const localDemoAvailable = isLocalDemoAccessAvailable();
+  if (!(demoAccess instanceof HTMLElement)) return;
+  demoAccess.hidden = !localDemoAvailable;
+  demoAccess.setAttribute("aria-hidden", String(!localDemoAvailable));
+  if (localDemoAvailable) {
+    openDemo?.addEventListener("click", () => {
+      location.assign(`./login.html?runtimeMode=local-demo&mode=${state.activeMode}`);
+    });
   }
 }
 
@@ -205,18 +236,33 @@ function bindModal() {
   const canvas = document.querySelector("[data-server-detail-map]");
   canvas?.addEventListener("click", (event) => {
     if (!state.spawn || state.busy) return;
-    const rect = canvas.getBoundingClientRect();
-    const district = getDistrictAtPoint(geometry, {
-      x: ((event.clientX - rect.left) / rect.width) * CANVAS_WIDTH,
-      y: ((event.clientY - rect.top) / rect.height) * CANVAS_HEIGHT
-    });
-    const canonicalId = district ? `district:${district.id}` : null;
+    const canonicalId = districtIdAtCanvasEvent(canvas, event);
     const option = state.spawn.districts.find((entry) => entry.districtId === canonicalId);
     if (!option?.available) return;
     state.selectedDistrictId = option.districtId;
-    text("[data-server-detail-hint]", `${option.label} · VYBRANÝ V NÁHLEDU`);
+    text("[data-server-detail-hint]", `${describeLobbyMapDistrict(state.spawn, option.districtId)} · VYBRANÝ`);
     renderSpawnCanvas();
     updateConfirmButton();
+  });
+  canvas?.addEventListener("mousemove", (event) => {
+    if (!state.spawn) return;
+    const districtId = districtIdAtCanvasEvent(canvas, event);
+    if (districtId === state.hoveredDistrictId) return;
+    state.hoveredDistrictId = districtId;
+    canvas.style.cursor = state.spawn.districts.some((entry) => entry.districtId === districtId && entry.available)
+      ? "pointer"
+      : "default";
+    text("[data-server-detail-hint]", districtId
+      ? describeLobbyMapDistrict(state.spawn, districtId)
+      : selectedDistrictHint());
+    renderSpawnCanvas();
+  });
+  canvas?.addEventListener("mouseleave", () => {
+    if (!state.hoveredDistrictId) return;
+    state.hoveredDistrictId = null;
+    canvas.style.cursor = "default";
+    text("[data-server-detail-hint]", selectedDistrictHint());
+    renderSpawnCanvas();
   });
 }
 
@@ -229,14 +275,21 @@ async function openSpawnModal(serverInstanceId) {
   setFlowMessage("Načítám aktuální spawn distrikty…");
   try {
     state.spawn = await loadSpawnDistricts(serverInstanceId);
+    state.hoveredDistrictId = null;
     const modal = document.querySelector("[data-server-detail-modal]");
     modal?.classList.remove("hidden");
     modal?.setAttribute("aria-hidden", "false");
     text("[data-server-detail-title]", server.displayName);
-    text("[data-server-detail-subtitle]", "Kliknutí pouze označí district. Rezervaci provede až POTVRDIT.");
+    const occupiedDistricts = (state.spawn.mapDistricts || []).filter((district) => district.owner).length;
+    text(
+      "[data-server-detail-subtitle]",
+      `Barva plochy ukazuje typ districtu, barevné hranice ukazují území jednotlivých hráčů. Obsazeno: ${occupiedDistricts}.`
+    );
+    text("[data-server-detail-mode]", server.mode.toUpperCase());
     text("[data-server-detail-capacity]", `${state.spawn.capacity.committedPlayers} + ${state.spawn.capacity.reservedSlots} / ${state.spawn.capacity.maximum}`);
     text("[data-server-detail-countdown]", registrationPresentation(server).countdownLabel);
     text("[data-server-detail-hint]", "Vyber jeden serverem povolený district");
+    renderLobbySpawnLegend(document.querySelector("[data-server-detail-type-counts]"), state.spawn, geometry);
     renderSpawnCanvas();
   } catch (error) {
     setFlowMessage(messageFor(error), true);
@@ -253,30 +306,19 @@ function closeSpawnModal() {
   modal?.setAttribute("aria-hidden", "true");
   state.spawn = null;
   state.selectedDistrictId = null;
+  state.hoveredDistrictId = null;
 }
 
 function renderSpawnCanvas() {
   const canvas = document.querySelector("[data-server-detail-map]");
-  if (!(canvas instanceof HTMLCanvasElement)) return;
-  canvas.width = CANVAS_WIDTH;
-  canvas.height = CANVAS_HEIGHT;
-  const context = canvas.getContext("2d");
-  if (!context) return;
-  context.fillStyle = "#050713";
-  context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-  const options = new Map((state.spawn?.districts || []).map((entry) => [entry.districtId, entry]));
-  for (const district of geometry.districts) {
-    const option = options.get(`district:${district.id}`);
-    const selected = option?.districtId === state.selectedDistrictId;
-    context.beginPath();
-    district.polygon.forEach((point, index) => index === 0 ? context.moveTo(point.x, point.y) : context.lineTo(point.x, point.y));
-    context.closePath();
-    context.fillStyle = selected ? "rgba(255,43,214,.52)" : option?.available ? "rgba(34,211,238,.26)" : "rgba(71,85,105,.12)";
-    context.strokeStyle = selected ? "#ff2bd6" : option?.available ? "#22d3ee" : "rgba(100,116,139,.25)";
-    context.lineWidth = selected ? 5 : option?.available ? 2 : 1;
-    context.fill();
-    context.stroke();
-  }
+  renderLobbySpawnMap({
+    canvas,
+    geometry,
+    spawn: state.spawn,
+    selectedDistrictId: state.selectedDistrictId,
+    hoveredDistrictId: state.hoveredDistrictId,
+    mapImage
+  });
 }
 
 async function commitSpawn() {
@@ -295,6 +337,8 @@ async function commitSpawn() {
     if (["SPAWN_ALREADY_RESERVED", "SPAWN_SELECTION_STALE", "SERVER_FULL"].includes(error?.code)) {
       state.spawn = await loadSpawnDistricts(state.spawn.serverInstanceId).catch(() => state.spawn);
       state.selectedDistrictId = null;
+      state.hoveredDistrictId = null;
+      renderLobbySpawnLegend(document.querySelector("[data-server-detail-type-counts]"), state.spawn, geometry);
       renderSpawnCanvas();
     }
     if (["SERVER_REGISTRATION_CLOSED", "SERVER_REGISTRATION_CLOSED_EARLY", "SERVER_REGISTRATION_NOT_OPEN"].includes(error?.code)) {
@@ -355,6 +399,23 @@ function statusLabel(status) { return ({ setup_required: "DOKONČIT VSTUP", fina
 function messageFor(error) { return ({ SPAWN_ALREADY_RESERVED: "Tento district mezitím získal jiný hráč. Vyber si jiný.", SERVER_FULL: "Server se mezitím zaplnil.", SERVER_REGISTRATION_NOT_OPEN: "Registrace na tento server ještě nezačala.", SERVER_REGISTRATION_CLOSED: "Registrační okno tohoto serveru už skončilo.", SERVER_REGISTRATION_CLOSED_EARLY: "Registrace na tento server byla nouzově ukončena.", ACTIVE_MEMBERSHIP_EXISTS: "Nejdřív musíš dokončit nebo opustit svůj současný server.", SERVER_OFFLINE: "Server teď není dostupný. Tvoje předchozí membershipy zůstávají zachované." })[error?.code] || (error instanceof Error ? error.message : "Operace se nezdařila."); }
 function text(selector, value) { const node = document.querySelector(selector); if (node) node.textContent = String(value ?? ""); }
 function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]); }
+
+function districtIdAtCanvasEvent(canvas, event) {
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+  const district = getDistrictAtPoint(geometry, {
+    x: ((event.clientX - rect.left) / rect.width) * CANVAS_WIDTH,
+    y: ((event.clientY - rect.top) / rect.height) * CANVAS_HEIGHT
+  });
+  return district ? `district:${district.id}` : null;
+}
+
+function selectedDistrictHint() {
+  if (!state.spawn || !state.selectedDistrictId) return "Vyber jeden serverem povolený district";
+  const district = findLobbyMapDistrict(state.spawn, state.selectedDistrictId);
+  const label = describeLobbyMapDistrict(state.spawn, state.selectedDistrictId);
+  return `${label}${district ? " · VYBRANÝ" : ""}`;
+}
 
 function registrationPresentation(server) {
   return resolveHostedRegistrationPresentation(server, registrationTicker.nowMs());

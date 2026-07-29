@@ -20,13 +20,13 @@ describe("production authority cutover guards", () => {
   it("injects and renders admin-only build diagnostics", () => {
     expect(read("admin.html")).toContain('meta name="empire-build-sha" content="__EMPIRE_BUILD_SHA__"');
     expect(read("scripts/build-netlify-client.mjs")).toContain('.replace("__EMPIRE_BUILD_SHA__", adminBuildSha)');
-    const adminView = read("apps/admin/src/app/read-only-admin-page.ts");
-    expect(adminView).toContain('kv("Frontend SHA"');
-    expect(adminView).toContain('kv("API SHA"');
-    expect(adminView).toContain('kv("Worker SHA"');
-    expect(adminView).toContain('kv("Schema"');
-    expect(adminView).toContain('kv("Account platform"');
-    expect(adminView).toContain('kv("Game hosting"');
+    const adminView = read("apps/admin/src/app/admin-control-plane-view.ts");
+    expect(adminView).toContain('keyValue("Frontend SHA"');
+    expect(adminView).toContain('keyValue("API SHA"');
+    expect(adminView).toContain('keyValue("Worker SHA"');
+    expect(adminView).toContain('keyValue("Schema"');
+    expect(adminView).toContain('keyValue("Account platform"');
+    expect(adminView).toContain('keyValue("Game hosting"');
     expect(read("page-assets/js/lobby-live.js")).toContain("Herní servery zatím nejsou spuštěné.");
   });
 

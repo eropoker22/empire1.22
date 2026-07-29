@@ -5,6 +5,7 @@
  */
 export interface AdminAppShell {
   mount(target?: HTMLElement | null): void | Promise<void>;
+  destroy?(): void;
 }
 
 export const createAdminAppShell = (shell: AdminAppShell): AdminAppShell => shell;

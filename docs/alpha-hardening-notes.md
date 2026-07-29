@@ -11,7 +11,7 @@
 
 - Apply `002_command_reservations.sql` in production and keep Postgres persistence enabled for public multiplayer submit.
 - Add stale pending command reservation recovery and full latest-snapshot/state serialization before high-traffic public launch.
-- Run the release gate under Node 20 and keep E2E smoke green.
+- Run the release gate under Node 24 LTS and keep E2E smoke green.
 
 ## Can Wait After Closed Alpha
 
@@ -28,7 +28,7 @@
 
 ## Required Commands Before Release
 
-Run with Node 20:
+Run with Node 24 LTS:
 
 ```powershell
 npm ci
@@ -46,22 +46,28 @@ npm run quality
 
 ## Node Version Requirement
 
-The repository requires Node 20. Local verification in the current hardening follow-up saw `node -v` return `v18.3.0`, with `.node-version` and `.nvmrc` both set to `20`. E2E smoke is not validly verified until Node 20 is active.
+The repository supports exactly Node 24 LTS. `.node-version`, `.nvmrc`, npm engines,
+Netlify, CI, Functions bundling, and the hosted-worker image must all select major 24.
 
 Use the repo version files when a version manager is available:
 
 ```powershell
-nvm install 20
-nvm use 20
-node -v
+nvm install 24
+nvm use 24
+node --version
+npm --version
 npm ci
 ```
 
-If `nvm` is unavailable, install Node 20 LTS or configure the local version manager in use, then rerun the release gate.
+On Windows, nvm-windows, fnm, or Volta can select Node 24. On Unix/macOS, run
+`nvm use` or `fnm use`. If no version manager is available, install Node 24 LTS
+through the normal local toolchain and rerun the release gate.
 
 ## E2E Smoke Status
 
-Not validly verified in the current local environment because only Node `v18.3.0` is available. Do not treat a Playwright run under Node 18 as a release signal for this repo.
+Historical note: an earlier hardening pass only had Node `v18.3.0` available, so its
+Playwright result was not a valid release signal. Current release evidence is valid only
+when `node --version` reports major 24.
 
 ## Quality/Coverage Status
 

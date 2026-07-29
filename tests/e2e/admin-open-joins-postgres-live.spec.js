@@ -19,14 +19,9 @@ test("owner opens joins through the live dashboard", async ({ page }) => {
   await expect(page.locator(".admin-lifecycle")).toContainText("lobby ready");
   const responsePromise = page.waitForResponse((response) =>
     new URL(response.url()).pathname.endsWith("/actions") && response.request().method() === "POST");
-  await page.evaluate(() => {
-    const reason = document.querySelector("[data-admin-action-reason]");
-    const button = document.querySelector('[data-admin-lifecycle="open-joins"]');
-    if (!(reason instanceof HTMLInputElement) || !(button instanceof HTMLButtonElement)) throw new Error("Open joins controls are missing.");
-    reason.value = "Live atomic join verification";
-    reason.dispatchEvent(new Event("input", { bubbles: true }));
-    button.click();
-  });
+  await page.locator('[data-admin-registration-action="open-registration-now"]').click();
+  await page.locator("[data-admin-registration-reason]").fill("Live atomic join verification");
+  await page.locator("[data-admin-registration-confirm]").click();
   expect((await responsePromise).status()).toBe(202);
   for (let attempt = 0; attempt < 12; attempt += 1) {
     await page.getByRole("button", { name: "Obnovit" }).click();

@@ -32,6 +32,11 @@ const ENVIRONMENT = {
   GAMEPLAY_SLICE_SESSION_SECRET: SESSION_SECRET,
   EMPIRE_ALLOWED_ORIGINS: ORIGIN
 };
+const LOCAL_HOSTED_ENVIRONMENT = {
+  ...ENVIRONMENT,
+  NODE_ENV: "development",
+  EMPIRE_HOSTED_RUNTIME_AUTHORITY_ENABLED: "true"
+};
 
 describe("hosted runtime cold Netlify function", () => {
   it("joins, loads, submits, and looks up a command through fresh process registries", async () => {
@@ -117,6 +122,57 @@ describe("hosted runtime cold Netlify function", () => {
     expect(retry.json.accepted).toBe(true);
   });
 
+  it("uses hosted authority on localhost without forcing Secure cookies over HTTP", async () => {
+    const fixture = await createFixture("lobby");
+    await fixture.seedSnapshot(9);
+    const rejectedBoundary = fixture.createBoundary(LOCAL_HOSTED_ENVIRONMENT);
+    const rejected = await readBody(rejectedBoundary.handler(postEvent(
+      "/api/gameplay-slice/join",
+      {
+        joinTicket: await fixture.createTicket(),
+        serverInstanceId: INSTANCE_ID,
+        preferredStartDistrictId: DISTRICT_ID,
+        factionId: "mafian"
+      },
+      { origin: "https://invalid.example" }
+    )));
+    expect(rejected.json.errors[0]?.code).toBe("CSRF_ORIGIN_INVALID");
+
+    const boundary = fixture.createBoundary(LOCAL_HOSTED_ENVIRONMENT);
+    const joined = await readBody(boundary.handler(postEvent("/api/gameplay-slice/join", {
+      joinTicket: await fixture.createTicket(),
+      serverInstanceId: INSTANCE_ID,
+      preferredStartDistrictId: DISTRICT_ID,
+      factionId: "mafian"
+    })));
+
+    expect(joined.json.accepted).toBe(true);
+    expect(joined.json.snapshotToken ?? null).toBeNull();
+    expect(joined.json.sessionToken ?? null).toBeNull();
+    expect(joined.headers["set-cookie"]).toContain("HttpOnly");
+    expect(joined.headers["set-cookie"]).not.toContain("Secure");
+    expect(boundary.server.instanceManager.getInstanceById(INSTANCE_ID)?.state.root.version).toBe(9);
+
+    const cookie = cookieHeader(joined.headers["set-cookie"]);
+    const bodySessionToken = cookie.slice(cookie.indexOf("=") + 1);
+    const bodyOnlyLoad = await readBody(boundary.handler(postEvent("/api/gameplay-slice/load", {
+      serverInstanceId: INSTANCE_ID,
+      districtId: DISTRICT_ID,
+      sessionToken: bodySessionToken
+    })));
+    expect(bodyOnlyLoad.json.errors[0]?.code).toBe("SESSION_REQUIRED");
+
+    const bodyOnlyLogout = await readBody(boundary.handler(postEvent("/api/gameplay-slice/logout", {
+      sessionToken: bodySessionToken
+    })));
+    expect(bodyOnlyLogout.json.accepted).toBe(true);
+    const cookieLoad = await readBody(boundary.handler(postEvent("/api/gameplay-slice/load", {
+      serverInstanceId: INSTANCE_ID,
+      districtId: DISTRICT_ID
+    }, { cookie })));
+    expect(cookieLoad.json.accepted).toBe(true);
+  });
+
   it.each(["lobby", "paused"] as const)("allows load but rejects submit while hosted status is %s", async (status) => {
     const fixture = await createFixture(status);
     await fixture.seedSnapshot(11);
@@ -178,6 +234,33 @@ describe("hosted runtime cold Netlify function", () => {
     expect(runtime.state.root.version).toBe(18);
     expect(runtime.state.root.tick).toBe(99);
     loadSpy.mockRestore();
+  });
+
+  it("restores the recovery head when an equal-version warm runtime diverges locally", async () => {
+    const fixture = await createFixture("lobby");
+    await fixture.seedSnapshot(21);
+    const boundary = fixture.createBoundary();
+    const loader = createHostedRuntimeLoader({ server: boundary.server, controlPlane: fixture.hosted });
+    expect((await loader.load(INSTANCE_ID)).accepted).toBe(true);
+    const runtime = boundary.server.instanceManager.getInstanceById(INSTANCE_ID)!;
+    const player = runtime.state.playersById[fixture.playerId]!;
+    expect(player.homeDistrictId).toBeNull();
+
+    runtime.state = {
+      ...runtime.state,
+      playersById: {
+        ...runtime.state.playersById,
+        [fixture.playerId]: {
+          ...player,
+          homeDistrictId: DISTRICT_ID
+        }
+      }
+    };
+    expect(runtime.state.root.version).toBe(21);
+
+    expect((await loader.load(INSTANCE_ID)).accepted).toBe(true);
+    expect(runtime.state.playersById[fixture.playerId]?.homeDistrictId).toBeNull();
+    expect(runtime.state.root.version).toBe(21);
   });
 });
 
@@ -242,24 +325,26 @@ const createFixture = async (status: HostedServerRecord["status"] = "running") =
       });
       return { ...boundary, cookie: `empire_gameplay_session=${token}` };
     },
-    createBoundary: () => createBoundary(persistence, sessions, repositories)
+    createBoundary: (environment = ENVIRONMENT) =>
+      createBoundary(persistence, sessions, repositories, environment)
   };
 };
 
 const createBoundary = (
   persistence: ReturnType<typeof createInMemoryRuntimePersistenceRepositories>,
   sessions: GameplaySessionService,
-  repositories: AdminDurableRepositories
+  repositories: AdminDurableRepositories,
+  environment = ENVIRONMENT
 ) => {
   const server = createServerApp({
     persistence,
-    environment: ENVIRONMENT,
+    environment,
     gameplaySessionService: sessions,
     accountIdentityProvider: fixedAccountProvider()
   });
   return {
     server,
-    handler: createGameplaySliceFunctionHandler({ environment: ENVIRONMENT, server, adminRepositories: repositories })
+    handler: createGameplaySliceFunctionHandler({ environment, server, adminRepositories: repositories })
   };
 };
 

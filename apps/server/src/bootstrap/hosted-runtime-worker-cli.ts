@@ -13,7 +13,9 @@ import {
 import { createPostgresPlayerEntryRepository } from "../player-entry/postgres-player-entry-repository";
 import { createHostedRuntimeWorkerRunLoop, shutdownHostedRuntimeWorker } from "./hosted-runtime-worker-run-loop";
 import { assertHostedRuntimeWorkerSchemaCurrent } from "./hosted-runtime-worker-preflight";
+import { assertSupportedNodeVersion } from "../../../../scripts/supported-node-policy.mjs";
 
+const nodeRuntime = assertSupportedNodeVersion(process.versions.node);
 const databaseUrl = String(process.env.EMPIRE_DATABASE_URL ?? "").trim();
 const workerId = String(process.env.EMPIRE_HOSTED_WORKER_ID ?? "").trim();
 const region = String(process.env.EMPIRE_HOSTED_WORKER_REGION ?? "eu-central").trim();
@@ -116,6 +118,10 @@ const healthServer = http.createServer((request, response) => {
   response.end(JSON.stringify({
     status: healthy && !shuttingDown ? "ok" : "unavailable",
     lastErrorCode,
+    runtime: {
+      nodeVersion: nodeRuntime.detectedVersion,
+      nodeMajor: nodeRuntime.detectedMajor
+    },
     snapshotPersistence: {
       maintenance: persistence.snapshotMaintenance.getHealth(),
       metrics: persistence.snapshotRepository.getMetrics()

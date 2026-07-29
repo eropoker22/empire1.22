@@ -21,8 +21,15 @@ export const createCraftItemCommand = (
   const district = input.slice.district;
   const slot = district?.slots.find((candidate) => candidate.buildingId === input.buildingId);
   const craftOption = slot?.craftOptions.find((candidate) => candidate.recipeId === input.recipeId && candidate.canCraft);
+  const building = district?.buildings.find((candidate) => candidate.buildingId === input.buildingId);
+  const productionLine = [
+    ...(building?.pharmacy?.lines ?? []),
+    ...(building?.drugLab?.lines ?? []),
+    ...(building?.factory?.productionLines ?? []),
+    ...(building?.armory?.productionLines ?? [])
+  ].find((candidate) => candidate.recipeId === input.recipeId && candidate.canStart);
 
-  if (!district || !slot || !craftOption) {
+  if (!district || (!craftOption && !productionLine)) {
     throw new Error("Craft commands can only be created from enabled craft options present in the current server-fed slice.");
   }
 
@@ -36,7 +43,7 @@ export const createCraftItemCommand = (
     payload: {
       districtId: district.districtId,
       buildingId: input.buildingId,
-      recipeId: craftOption.recipeId,
+      recipeId: craftOption?.recipeId ?? productionLine!.recipeId,
       quantity: input.quantity ?? 1
     },
     clientRequestId: input.clientRequestId ?? null

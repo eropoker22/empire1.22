@@ -5,6 +5,8 @@ export interface LeaderboardEntryView {
   rank: number;
   playerId: PlayerId;
   name: string;
+  gangName?: string;
+  avatarId?: string | null;
   factionId: PlayerFactionId;
   allianceTag: string | null;
   controlledDistricts: number;

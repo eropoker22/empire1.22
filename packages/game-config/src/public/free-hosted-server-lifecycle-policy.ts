@@ -1,5 +1,5 @@
 export interface FreeHostedServerLifecyclePolicy {
-  readonly version: 1;
+  readonly version: 2;
   readonly minimumReadyPlayersToStart: number;
   readonly registrationWindowMs: number;
   readonly allowJoinsWhileRunningDuringWindow: boolean;
@@ -16,8 +16,8 @@ export interface FreeHostedServerTemplatePolicy {
 }
 
 export const FREE_HOSTED_SERVER_LIFECYCLE_POLICY = Object.freeze({
-  version: 1,
-  minimumReadyPlayersToStart: 2,
+  version: 2,
+  minimumReadyPlayersToStart: 1,
   registrationWindowMs: 60 * 60 * 1000,
   allowJoinsWhileRunningDuringWindow: true,
   requireFreshWorkerForRegistration: true,

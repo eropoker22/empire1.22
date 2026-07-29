@@ -1,5 +1,6 @@
 import type {
   AdminApiResponse,
+  AdminAuditEntryView,
   AdminControlPlaneAvailabilityView,
   AdminCreateServerRequestView,
   AdminCreateServerResultView,
@@ -23,6 +24,7 @@ export interface AdminApiClient {
   getOverview(signal?: AbortSignal): Promise<AdminOverviewView>;
   getInstance(instanceId: string, signal?: AbortSignal): Promise<AdminInstanceDetailView>;
   getControlPlane(signal?: AbortSignal): Promise<AdminControlPlaneAvailabilityView>;
+  getAudit(signal?: AbortSignal): Promise<AdminAuditEntryView[]>;
   createServer(input: AdminCreateServerRequestView, idempotencyKey: string, signal?: AbortSignal): Promise<AdminCreateServerResultView>;
   requestLifecycleAction(instanceId: string, input: AdminLifecycleActionRequestView, idempotencyKey: string, signal?: AbortSignal): Promise<AdminLifecycleActionResultView>;
 }
@@ -49,6 +51,7 @@ export const createAdminApiClient = (basePath = "/api/admin"): AdminApiClient =>
     { signal }
   ),
   getControlPlane: (signal) => request<AdminControlPlaneAvailabilityView>(`${basePath}/control-plane`, { signal }),
+  getAudit: (signal) => request<AdminAuditEntryView[]>(`${basePath}/audit`, { signal }),
   createServer: (input, idempotencyKey, signal) => request<AdminCreateServerResultView>(`${basePath}/servers`, {
     method: "POST", headers: { "content-type": "application/json", "idempotency-key": idempotencyKey },
     body: JSON.stringify(input), signal

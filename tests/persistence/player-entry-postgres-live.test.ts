@@ -114,6 +114,10 @@ describe("player entry postgres live", () => {
       const serverA = await fixture.createServer(4);
       const account = await fixture.createAccount("identity");
       const projectionA = await fixture.entry.getSpawnSelection(account.accountId, serverA.serverInstanceId);
+      expect(projectionA.mapDistricts).toHaveLength(161);
+      expect(new Set(projectionA.mapDistricts.map((district) => district.zone))).toEqual(
+        new Set(["commercial", "industrial", "residential", "park", "downtown"])
+      );
       const districtA = projectionA.districts.find((entry) => entry.available)!;
       const membershipA = await fixture.entry.confirmSpawnDistrict(account.accountId, request(projectionA, districtA.districtId), key("interrupt"));
       expect((await fixture.entry.getOverview(account)).activeBlockingMembership).toMatchObject({
@@ -134,6 +138,47 @@ describe("player entry postgres live", () => {
       expect(await fixture.entry.getMembership(membershipA.membershipId)).toMatchObject({
         status: "active", factionId: "mafian", avatarId: "mafian:1", starterPackageAppliedAt: expect.any(String)
       });
+      const occupiedProjection = await fixture.entry.getSpawnSelection(account.accountId, serverA.serverInstanceId);
+      expect(occupiedProjection.mapDistricts.find((district) => district.districtId === districtA.districtId)).toMatchObject({
+        status: "claimed",
+        owner: {
+          playerId: membershipA.playerId,
+          displayName: `p_identity_${fixture.suffix.slice(0, 8)}`,
+          gangName: "Gang identity",
+          color: "#22d3ee"
+        }
+      });
+      const initialMembership = await fixture.entry.getMembership(membershipA.membershipId);
+      const initialTicketId = initialMembership?.joinTicketId;
+      expect(initialTicketId).toBeTruthy();
+      const firstJoin = await fixture.server.gameplaySessionService.consumeJoinTicket({
+        ticketId: initialTicketId!,
+        accountId: account.accountId,
+        serverInstanceId: serverA.serverInstanceId,
+        nowIso: new Date().toISOString()
+      });
+      expect(firstJoin.accepted).toBe(true);
+      const replacementTicket = fixture.server.gameplaySessionService.prepareJoinTicket({
+        accountId: account.accountId,
+        serverInstanceId: serverA.serverInstanceId,
+        mode: "free",
+        factionId: "mafian",
+        nowIso: new Date().toISOString()
+      });
+      await fixture.entry.rotateMembershipJoinTicket(
+        account.accountId,
+        membershipA.membershipId,
+        replacementTicket
+      );
+      expect(await fixture.entry.getMembership(membershipA.membershipId)).toMatchObject({
+        joinTicketId: replacementTicket.ticketId
+      });
+      await expect(fixture.server.gameplaySessionService.consumeJoinTicket({
+        ticketId: replacementTicket.ticketId,
+        accountId: account.accountId,
+        serverInstanceId: serverA.serverInstanceId,
+        nowIso: new Date().toISOString()
+      })).resolves.toMatchObject({ accepted: true });
       expect(Object.keys(fixture.server.instanceManager.getInstanceById(serverA.serverInstanceId)!.state.playersById)).toHaveLength(1);
       expect(await fixture.eventCount(membershipA.membershipId, "player-activated")).toBe(1);
 
@@ -232,7 +277,7 @@ const createFixture = async () => {
     runtimeMutationCommitter: createPostgresHostedRuntimeMutationCommitter(database, persistence.snapshotMetrics) });
   let serverIndex = 0;
   return {
-    database, admin, entry, server, worker,
+    database, admin, entry, server, worker, suffix,
     createAccount: async (label: string) => (await entry.registerAccount({ username: `p_${label}_${suffix.slice(0, 8)}`,
       password: "PlayerEntryFixturePassword", passwordConfirmation: "PlayerEntryFixturePassword",
       dateOfBirth: "1990-01-01", gangName: `Gang ${label}`,

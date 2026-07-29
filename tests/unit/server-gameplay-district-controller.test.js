@@ -40,15 +40,27 @@ describe("server gameplay district controller", () => {
     expect(document.querySelector("[data-district-popup]").parentElement).toBe(document.body);
     expect(document.querySelector("[data-district-popup-title]").textContent).toBe("Neon Quay");
     expect(document.querySelector("[data-district-popup-owner]").textContent).toBe("Player Two");
+    expect(document.querySelector("[data-district-popup-owner-avatar]").getAttribute("src")).toContain("/img/avatars/Hacker/");
     expect(document.querySelector("[data-district-popup-clean]").textContent).toBe("7");
     expect(document.querySelector("[data-district-popup-influence]").textContent).toBe("Obsazený");
-    expect(document.querySelectorAll("[data-district-building-name]")).toHaveLength(1);
+    expect(document.querySelectorAll("[data-district-building-display-name]")).toHaveLength(0);
+    expect(document.querySelector("[data-district-building-name]")).toBeNull();
+    expect(document.querySelector("[data-district-popup-buildings-meta]").textContent).toBe("Budovy nezjištěny");
+    expect(document.querySelectorAll("[data-district-action-id='spy']")).toHaveLength(1);
+    expect(document.querySelector("[data-district-popup]").dataset.overviewEnabled).toBe("false");
+    expect(document.querySelector("[data-district-popup-card]").dataset.overviewEnabled).toBe("false");
+    expect(document.querySelector("[data-district-popup-toggle]").getAttribute("aria-pressed")).toBe("false");
+
+    document.querySelector("[data-district-popup-toggle]").click();
+    expect(document.querySelector("[data-district-popup]").dataset.overviewEnabled).toBe("true");
+    expect(document.querySelector("[data-district-popup-card]").dataset.overviewEnabled).toBe("true");
+    expect(document.querySelector("[data-district-popup-toggle]").getAttribute("aria-pressed")).toBe("true");
 
     harness.controller.destroy();
   });
 
   it("routes building and gameplay actions through the sole scoped surface API", async () => {
-    const harness = createHarness();
+    const harness = createHarness({ ownedByCurrentPlayer: true });
     harness.controller.mount();
     harness.controller.handleDistrictSelected({
       districtId: "district:2",
@@ -73,6 +85,8 @@ describe("server gameplay district controller", () => {
     });
     expect(document.querySelector("[data-district-building-detail-popup]").hidden).toBe(false);
     expect(document.querySelector("[data-district-building-detail-title]").textContent).toBe("Neon Casino");
+    expect(document.querySelector("[data-district-popup-atmosphere-image]").getAttribute("src")).toContain("img/commercial/");
+    expect(document.querySelector("[data-district-popup-atmosphere-label]").textContent).toBe("Komerční sektor");
 
     document.querySelector("[data-district-building-detail-action-id='cashout']").click();
     await vi.waitFor(() => expect(harness.handleSurfaceAction).toHaveBeenCalledTimes(2));
@@ -83,12 +97,8 @@ describe("server gameplay district controller", () => {
       buildingActionId: "cashout"
     });
 
-    await Promise.resolve();
-    document.querySelector("[data-district-building-detail-close]").click();
-    resetOverlayCoordinator();
-    document.querySelector("[data-district-action-id='spy:district:3']").click();
-    await vi.waitFor(() => expect(harness.handleSurfaceAction).toHaveBeenCalledTimes(3));
-    expect(harness.handleSurfaceAction.mock.calls[2][0].dataset.spyTargetId).toBe("district:3");
+    expect(document.querySelector("[data-district-building-detail-action-id='craft:chemicals']")).toBeNull();
+    expect(harness.handleSurfaceAction).toHaveBeenCalledTimes(2);
     expect(harness.scopeContainedAtCall.every(Boolean)).toBe(true);
 
     expect(harness.controller.destroy()).toBe(true);
@@ -96,8 +106,66 @@ describe("server gameplay district controller", () => {
     expect(document.querySelector("[data-district-popup]").parentElement.id).toBe("game-root");
   });
 
-  it("opens a requested server building type through the presentation surface", async () => {
+  it("renders one action for the opened foreign target and dispatches it once", async () => {
     const harness = createHarness();
+    harness.controller.mount();
+    harness.controller.handleDistrictSelected({
+      districtId: "district:2",
+      response: {
+        accepted: true,
+        readModel: harness.readModel,
+        renderState: harness.renderState
+      }
+    });
+
+    const spyActions = document.querySelectorAll("[data-district-action-id='spy']");
+    expect(spyActions).toHaveLength(1);
+    expect(spyActions[0].dataset.districtActionTargetId).toBe("district:2");
+    spyActions[0].click();
+    await vi.waitFor(() => expect(harness.handleSurfaceAction).toHaveBeenCalledTimes(1));
+    expect(harness.handleSurfaceAction.mock.calls[0][0].dataset.spyTargetId).toBe("district:2");
+    harness.controller.destroy();
+  });
+
+  it("keeps a structurally valid rob action visible while the server temporarily disables it", () => {
+    const harness = createHarness({
+      targetActions: {
+        spyTargets: [],
+        occupyTargets: [],
+        robTargets: [{
+          sourceDistrictId: "district:1",
+          districtId: "district:2",
+          name: "Neon Quay",
+          enabled: false,
+          disabledReason: "K vykradení je potřeba alespoň 1 člen populace."
+        }],
+        heistTargets: [],
+        attackTargets: []
+      }
+    });
+    harness.controller.mount();
+    harness.controller.handleDistrictSelected({
+      districtId: "district:2",
+      response: {
+        accepted: true,
+        readModel: harness.readModel,
+        renderState: harness.renderState
+      }
+    });
+
+    const robAction = document.querySelector("[data-district-action-id='rob']");
+    expect(robAction).not.toBeNull();
+    expect(robAction.disabled).toBe(true);
+    expect(document.querySelector("[data-district-actions]").textContent).toContain(
+      "K vykradení je potřeba alespoň 1 člen populace."
+    );
+    expect(document.querySelector("[data-district-action-id='trap']")).toBeNull();
+    expect(document.querySelector("[data-district-action-key='remove-defense']")).toBeNull();
+    harness.controller.destroy();
+  });
+
+  it("opens a requested server building type through the presentation surface", async () => {
+    const harness = createHarness({ ownedByCurrentPlayer: true });
     harness.controller.mount();
     harness.controller.handleDistrictSelected({
       districtId: "district:2",
@@ -120,22 +188,47 @@ describe("server gameplay district controller", () => {
   });
 });
 
-function createHarness() {
+function createHarness({
+  ownedByCurrentPlayer = false,
+  intelKnown = ownedByCurrentPlayer,
+  targetActions = null
+} = {}) {
+  const ownerPlayerId = ownedByCurrentPlayer ? "player:1" : "player:2";
+  const resolvedTargetActions = targetActions ?? {
+    spyTargets: ownedByCurrentPlayer ? [] : [{
+      sourceDistrictId: "district:1",
+      districtId: "district:2",
+      name: "Neon Quay",
+      enabled: true,
+      disabledReason: null
+    }],
+    occupyTargets: [],
+    robTargets: [],
+    heistTargets: [],
+    attackTargets: []
+  };
   const readModel = {
     player: { playerId: "player:1" },
     leaderboard: {
       currentPlayer: { playerId: "player:1", name: "Current Player" },
-      entries: [{ playerId: "player:2", name: "Player Two", allianceTag: "NIGHT" }]
+      entries: [{
+        playerId: "player:2",
+        name: "Player Two",
+        factionId: "hackeri",
+        avatarId: "hackeri:1",
+        allianceTag: "NIGHT"
+      }]
     },
     district: {
       districtId: "district:2",
       name: "Neon Quay",
       zone: "commercial",
-      ownerPlayerId: "player:2",
-      isOwnedByPlayer: false,
+      ownerPlayerId,
+      isOwnedByPlayer: ownedByCurrentPlayer,
       status: "claimed",
       heat: 7,
-      influence: 42
+      influence: 42,
+      targetActions: resolvedTargetActions
     }
   };
   const building = {
@@ -158,7 +251,16 @@ function createHarness() {
       disabled: false,
       disabledReason: null
     }],
-    specialActions: []
+    specialActions: [],
+    productionLines: [{
+      recipeId: "chemicals",
+      label: "Chemikálie",
+      statusLabel: "Připraveno",
+      inputSummary: "360 čistých peněz",
+      durationLabel: "2 min",
+      canStart: true,
+      disabledReason: null
+    }]
   };
   const renderState = {
     districtPanel: {
@@ -169,11 +271,12 @@ function createHarness() {
       statusLabel: "obsazený",
       heatLabel: "7",
       influenceLabel: "42",
-      buildingSummary: "1 pevná budova",
+      buildingSummary: intelKnown ? "1 pevná budova" : "Budovy nezjištěny",
+      intelKnown,
       hasPendingCommand: false,
       trap: null,
-      spyTargets: [{
-        districtId: "district:3",
+      spyTargets: ownedByCurrentPlayer ? [] : [{
+        districtId: "district:2",
         label: "Old Yard",
         disabled: false,
         disabledReason: null
@@ -181,10 +284,15 @@ function createHarness() {
       occupyTargets: [],
       robTargets: [],
       heistTargets: [],
-      attackTargets: [],
+      attackTargets: [{
+        districtId: "district:4",
+        label: "Locked Yard",
+        disabled: true,
+        disabledReason: "Chybí oprávnění."
+      }],
       placeDefense: null,
       removeDefense: null,
-      buildings: [building],
+      buildings: intelKnown ? [building] : [],
       slots: []
     }
   };
@@ -223,7 +331,11 @@ function fixture() {
       <div data-district-popup-close></div>
       <div data-district-popup-card>
         <button data-district-popup-close>×</button>
-        <span data-district-popup-atmosphere-label></span>
+        <button data-district-popup-toggle aria-pressed="false">Přehled</button>
+        <button data-district-popup-atmosphere aria-expanded="false">
+          <img data-district-popup-atmosphere-image>
+          <span data-district-popup-atmosphere-label></span>
+        </button>
         <h3 data-district-popup-title></h3>
         <p data-district-popup-atmosphere-mood></p>
         <span data-district-popup-alliance></span>
@@ -248,6 +360,12 @@ function fixture() {
           <div data-district-actions></div>
         </section>
       </div>
+    </div>
+    <div data-district-atmosphere-window hidden>
+      <button data-district-atmosphere-close>×</button>
+      <img data-district-atmosphere-window-image>
+      <span data-district-atmosphere-window-label></span>
+      <p data-district-atmosphere-window-mood></p>
     </div>
   </main>`;
 }

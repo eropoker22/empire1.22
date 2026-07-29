@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { createDistrictGeometry } from "../../page-assets/js/app/district-geometry.js";
 
 const SERVER_ID = "instance:free:eu-central:alpha";
 const OPEN_AT = "2026-07-18T18:00:00.000Z";
@@ -13,8 +14,11 @@ test("production lobby refreshes scheduled registration at the inclusive open bo
   await expect(card.locator("[data-live-registration-status]")).toHaveText("REGISTRACE NAPLÁNOVÁNA");
   await expect(card.locator("[data-open-live-server]")).toBeDisabled();
 
+  const boundaryRefresh = page.waitForResponse((response) =>
+    response.url().includes("/api/lobby/overview") && response.ok());
   phase = "open";
   await page.clock.fastForward(1_000);
+  await boundaryRefresh;
   await expect(card.locator("[data-live-registration-status]")).toHaveText("REGISTRACE OTEVŘENA");
   await expect(card.locator("[data-open-live-server]")).toBeEnabled();
   await expect(card.locator("[data-live-registration-countdown]")).toContainText("Zbývá ");
@@ -42,6 +46,39 @@ test("setup_required membership can continue after registration closes", async (
   await expect(page.locator("[data-lobby-continue-active]")).toBeEnabled();
   await expect(page.locator("[data-lobby-continue-active]")).toHaveText("DOKONČIT VSTUP");
   await expect(page.locator(`[data-open-live-server="${SERVER_ID}"]`)).toBeDisabled();
+});
+
+test("production spawn map renders the city image, zone legend, and occupied player districts", async ({ page }) => {
+  await routeOverview(page, () => overview({ phase: "open" }));
+  await page.route("**/api/lobby/servers/*/spawn-districts", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ accepted: true, data: spawnSelection(), errors: [] })
+  }));
+  const mapImageLoaded = page.waitForResponse((response) =>
+    response.url().endsWith("/img/mapanoc.png") && response.ok());
+
+  await page.goto("/pages/lobby.html?runtimeMode=server-authoritative", { waitUntil: "domcontentloaded" });
+  await mapImageLoaded;
+  await page.locator(`[data-open-live-server="${SERVER_ID}"]`).click();
+
+  const modal = page.getByTestId("server-detail-modal");
+  await expect(modal).toHaveAttribute("aria-hidden", "false");
+  await expect(modal.locator("[data-server-detail-type-counts]")).toContainText("COMMERCIAL");
+  await expect(modal.locator("[data-server-detail-type-counts]")).toContainText("PARK");
+  await expect(modal.locator("[data-server-detail-subtitle]")).toContainText("Obsazeno: 1");
+  const canvas = page.getByTestId("server-detail-map");
+  await expect(canvas).toHaveAttribute("aria-label", /161 districtů, území hráčů: 1/u);
+
+  const district = createDistrictGeometry(1600, 980, 0, 48, 0).districts
+    .find((entry) => entry.id === 7);
+  expect(district).toBeTruthy();
+  const ownerMarkerPixel = await canvas.evaluate((node, point) => {
+    const data = node.getContext("2d").getImageData(point.x, point.y, 1, 1).data;
+    return Array.from(data);
+  }, { x: Math.round(district.centerX), y: Math.round(district.centerY) });
+  expect(ownerMarkerPixel[1]).toBeGreaterThan(ownerMarkerPixel[0]);
+  expect(ownerMarkerPixel[1]).toBeGreaterThan(ownerMarkerPixel[2]);
 });
 
 const routeOverview = (page, resolveOverview) => page.route("**/api/lobby/overview", (route) => route.fulfill({
@@ -112,4 +149,51 @@ const setupMembership = () => ({
   earlyLeaveRemainingMs: 420_000,
   earlyLeaveBlockedReason: null,
   joinTicket: null
+});
+
+const spawnSelection = () => ({
+  serverInstanceId: SERVER_ID,
+  membershipEligibility: "eligible",
+  capacity: { committedPlayers: 2, reservedSlots: 0, maximum: 20 },
+  serverStatus: "lobby",
+  joinPolicy: "open",
+  readyPlayers: 2,
+  minimumReadyPlayersToStart: 2,
+  registrationState: "open",
+  registrationOpensAt: OPEN_AT,
+  registrationClosesAt: CLOSE_AT,
+  registrationClosedAt: null,
+  registrationRemainingMs: 3_600_000,
+  registrationReasonCode: null,
+  canStart: true,
+  joinable: true,
+  disabledReason: null,
+  generatedAt: OPEN_AT,
+  availabilityRevision: "revision:e2e",
+  districts: [{
+    districtId: "district:7",
+    zone: "park",
+    label: "Neon Park",
+    available: false,
+    disabledReason: "OWNED",
+    buildingPreview: [],
+    neighboringDistrictCount: 3,
+    spawnCategory: "edge",
+    version: 2
+  }],
+  mapDistricts: [{
+    districtId: "district:7",
+    zone: "park",
+    label: "Neon Park",
+    status: "claimed",
+    owner: {
+      playerId: "player:e2e-owner",
+      displayName: "Owner",
+      gangName: "Neon Wolves",
+      color: "#12ab34"
+    },
+    reserved: true,
+    spawnEligible: true,
+    version: 2
+  }]
 });

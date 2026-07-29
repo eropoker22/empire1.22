@@ -1075,7 +1075,7 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
   }
 }
 
-@media (min-width: 721px) and (hover: hover) and (pointer: fine) {
+@media (min-width: 721px) {
   html body.game-body .district-building-detail-card.building-detail-modal__content {
     display: flex !important;
     flex-direction: column !important;
@@ -1403,7 +1403,7 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
   }
 }
 
-@media (max-width: 780px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+@media (max-width: 780px), (max-width: 900px) and (hover: none) and (pointer: coarse), (max-width: 900px) and (any-hover: none), (max-width: 900px) and (any-pointer: coarse) {
   html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__header {
     position: absolute !important;
     z-index: 9 !important;
@@ -2182,7 +2182,7 @@ html body.game-body .city-status-bar .city-status-pill:nth-child(4) .city-status
   }
 }
 
-@media (min-width: 781px) and (hover: hover) and (pointer: fine) {
+@media (min-width: 781px) {
   html body.game-body #game-rail-left.sidebar-shell.game-rail,
   html body.game-body #game-rail-right.sidebar-shell.game-rail {
     box-sizing: border-box !important;
@@ -2300,7 +2300,7 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
 }
 
 /* Final loaded override: desktop street news shows five compact rows, then scrolls. */
-@media (min-width: 721px) and (hover: hover) and (pointer: fine) {
+@media (min-width: 721px) {
   html body.game-body .building-action-status__feed {
     --street-news-row-height: 38px;
     --street-news-row-gap: 8px;
@@ -2468,7 +2468,7 @@ html body.game-body .building-action-status__item--cooldown .building-action-sta
   display: none !important;
 }
 
-@media (min-width: 721px) and (hover: hover) and (pointer: fine) {
+@media (min-width: 721px) {
   html body.game-body .building-action-status__item--cooldown {
     min-height: 38px !important;
     padding: 7px 10px 7px 14px !important;
@@ -3968,7 +3968,7 @@ html body.game-body #market-card .panel-action-button--feature::after {
   display: none !important;
 }
 
-@media (min-width: 721px) and (hover: hover) and (pointer: fine) {
+@media (min-width: 721px) {
   html body.game-body #game-left-nav.panel-action-stack > #city-events-card,
   html body.game-body #game-left-nav.panel-action-stack > #buildings-card,
   html body.game-body #game-left-nav.panel-action-stack > #market-card {
@@ -6747,7 +6747,11 @@ html body.game-body .market-popup-row__quantity::-webkit-outer-spin-button {
     #trap-confirm-modal:not(.hidden):not([hidden]) .district-action-confirm-popup-card,
     #spy-confirm-modal:not(.hidden):not([hidden]) .district-action-confirm-popup-card,
     #occupy-confirm-modal:not(.hidden):not([hidden]) .district-action-confirm-popup-card
-  ) :is(button:not(:disabled), input:not(:disabled), select:not(:disabled)) {
+  ) :is(
+    button:not(:disabled):not([data-district-popup-close]):not(.district-atmosphere-window__close):not(.attack-setup-popup-close):not(.modal__close),
+    input:not(:disabled),
+    select:not(:disabled)
+  ) {
     position: relative !important;
     z-index: 3 !important;
     pointer-events: auto !important;

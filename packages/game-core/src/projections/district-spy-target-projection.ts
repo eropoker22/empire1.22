@@ -45,6 +45,7 @@ export const createDistrictSpyTargetViews = (
       const operationState = getPlayerSpyOperationState(state, playerId);
 
       return {
+        sourceDistrictId: sourceDistrict.id,
         districtId: targetDistrict.id,
         name: targetDistrict.name,
         ownerPlayerId: targetDistrict.ownerPlayerId,

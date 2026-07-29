@@ -142,6 +142,52 @@ describe("hosted public server matchmaking", () => {
     expect(await listHostedPublicServerCandidates(repositories, now)).toEqual([]);
   });
 
+  it("keeps a stable lobby snapshot joinable but rejects a stale running snapshot", async () => {
+    const now = new Date();
+    const lobbyId = "hosted:free:stable-lobby";
+    const runningId = "hosted:free:stale-running";
+    const seed = createAdminReadOnlySeed();
+    const summaries = [lobbyId, runningId].map((serverInstanceId) => ({
+      ...seed.instances![0]!,
+      serverInstanceId,
+      displayName: serverInstanceId,
+      snapshotStale: true,
+      workerStatus: "live" as const,
+      lastHeartbeatAt: now.toISOString()
+    }));
+    const memory = createInMemoryAdminDurableRepositories({ instances: summaries });
+    const repositories: AdminDurableRepositories = {
+      ...memory,
+      kind: "postgres",
+      hosted: createInMemoryHostedControlPlaneRepository({ servers: [
+        hostedServer(lobbyId, now, { joinPolicy: "open" }),
+        hostedServer(runningId, now, { status: "running", joinPolicy: "open" })
+      ] })
+    };
+
+    const response = await createPublicServerListResponse(
+      createServerApp(),
+      { NODE_ENV: "production" },
+      repositories
+    );
+    const body = JSON.parse(response.body) as { servers: Array<{
+      serverInstanceId: string;
+      joinable: boolean;
+      disabledReason: string | null;
+    }> };
+
+    expect(body.servers).toContainEqual(expect.objectContaining({
+      serverInstanceId: lobbyId,
+      joinable: true,
+      disabledReason: null
+    }));
+    expect(body.servers).toContainEqual(expect.objectContaining({
+      serverInstanceId: runningId,
+      joinable: false,
+      disabledReason: "SERVER_START_SNAPSHOT_MISSING"
+    }));
+  });
+
   it("returns the registration reason instead of reserving a scheduled preferred server", async () => {
     const now = new Date();
     const id = "hosted:free:not-open";

@@ -83,6 +83,7 @@ const createGameplaySliceFixture = ({
   reports: [],
   district: {
     districtId: "district:1",
+    intelKnown: true,
     conflictRevision: 1,
     name: "Owned District",
     zone: "downtown",
@@ -96,6 +97,7 @@ const createGameplaySliceFixture = ({
     buildings: [],
     attackTargets: [
       {
+        sourceDistrictId: "district:1",
         districtId: "district:2",
         name: "Target District",
         ownerPlayerId: "player:2",
@@ -107,6 +109,7 @@ const createGameplaySliceFixture = ({
     ],
     spyTargets: [
       {
+        sourceDistrictId: "district:1",
         districtId: "district:2",
         name: "Target District",
         ownerPlayerId: "player:2",
@@ -223,6 +226,7 @@ describe("conflict command factories", () => {
     const slice = createGameplaySliceFixture();
     slice.district!.occupyTargets = [
       {
+        sourceDistrictId: "district:1",
         districtId: "district:3",
         name: "Neutral District",
         ownerPlayerId: null,
@@ -259,6 +263,7 @@ describe("conflict command factories", () => {
     const slice = createGameplaySliceFixture();
     slice.district!.occupyTargets = [
       {
+        sourceDistrictId: "district:1",
         districtId: "district:3",
         name: "Neutral District",
         ownerPlayerId: null,
@@ -295,6 +300,7 @@ describe("conflict command factories", () => {
   it("sends the server-projected pool revision without strict entity versions for a competitive rob", () => {
     const slice = createGameplaySliceFixture();
     slice.district!.robTargets = [{
+      sourceDistrictId: "district:1",
       districtId: "district:3",
       name: "Neutral District",
       ownerPlayerId: null,
@@ -327,17 +333,11 @@ describe("conflict command factories", () => {
     });
   });
 
-  it("builds the trap command when placement is disabled in server-fed slice", () => {
-    const command = createPlaceTrapCommand({
+  it("rejects the trap command when placement is disabled in the server-fed slice", () => {
+    expect(() => createPlaceTrapCommand({
       commandId: "command:trap:district:1",
       slice: createGameplaySliceFixture({ trapEnabled: false }),
       issuedAt: new Date(0).toISOString()
-    });
-
-    expect(command.type).toBe("place-trap");
-    expect(command.serverInstanceId).toBe("instance:1");
-    expect(command.payload).toEqual({
-      districtId: "district:1"
-    });
+    })).toThrow(/missing district\/trap context/u);
   });
 });

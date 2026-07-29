@@ -1,8 +1,12 @@
 import { Buffer } from "node:buffer";
+import {
+  evaluateSupportedNodeVersion,
+  SUPPORTED_NODE_MAJOR
+} from "./supported-node-policy.mjs";
 
 export const STAGING_MANIFEST_PATH = "artifacts/release-manifest.json";
 export const STAGING_ENVIRONMENT = "staging";
-export const STAGING_NODE_VERSION = "20";
+export const STAGING_NODE_VERSION = String(SUPPORTED_NODE_MAJOR);
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/u;
 const SECURE_SECRET_PATTERN = /^(?:[0-9a-f]{64,}|[A-Za-z0-9_-]{43,})$/u;
@@ -84,14 +88,14 @@ export const validateStagingEnvironment = (environment, options = {}) => {
     errorCode: "STAGING_SECRETS_REUSED"
   });
 
-  const nodeMajor = Number(String(options.nodeVersion ?? process.versions.node).split(".")[0]);
+  const nodeRuntime = evaluateSupportedNodeVersion(options.nodeVersion ?? process.versions.node);
   checks.push({
     name: "NODE_VERSION",
     component: "build",
     required: true,
     set: true,
-    passed: nodeMajor === 20,
-    safeFormat: "Node.js 20.x",
+    passed: nodeRuntime.supported,
+    safeFormat: `Node.js ${SUPPORTED_NODE_MAJOR}.x`,
     errorCode: "STAGING_NODE_VERSION_INVALID"
   });
 
@@ -118,9 +122,9 @@ export const validateCodeLevelReleaseEnvironment = (environment, options = {}) =
   if (environment.EMPIRE_RELEASE_ENVIRONMENT !== STAGING_ENVIRONMENT) {
     throw new Error("Code-level release manifest requires EMPIRE_RELEASE_ENVIRONMENT=staging.");
   }
-  const nodeMajor = Number(String(options.nodeVersion ?? process.versions.node).split(".")[0]);
-  if (nodeMajor !== 20) {
-    throw new Error("Code-level release manifest requires Node.js 20.");
+  const nodeRuntime = evaluateSupportedNodeVersion(options.nodeVersion ?? process.versions.node);
+  if (!nodeRuntime.supported) {
+    throw new Error(`Code-level release manifest requires Node.js ${SUPPORTED_NODE_MAJOR}.`);
   }
   return true;
 };
@@ -129,7 +133,9 @@ export const createReleaseManifest = ({
   gitSha,
   expectedSchemaVersion,
   createdAt = new Date().toISOString(),
-  verificationMode = "code-level"
+  verificationMode = "code-level",
+  nodeVersion = process.versions.node,
+  npmVersion
 }) => {
   if (!SHA_PATTERN.test(gitSha)) throw new Error("Release manifest requires an exact 40-character Git SHA.");
   if (!/^\d{3}_[a-z0-9_]+\.sql$/u.test(String(expectedSchemaVersion ?? ""))) {
@@ -138,15 +144,27 @@ export const createReleaseManifest = ({
   if (!["code-level", "staging-environment"].includes(verificationMode)) {
     throw new Error("Release manifest requires a known verification mode.");
   }
+  const nodeRuntime = evaluateSupportedNodeVersion(nodeVersion);
+  if (!nodeRuntime.supported || nodeRuntime.detectedVersion === null) {
+    throw new Error(`Release manifest requires Node.js ${SUPPORTED_NODE_MAJOR}.`);
+  }
+  const normalizedNpmVersion = String(npmVersion ?? "").trim();
+  if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/u.test(normalizedNpmVersion)) {
+    throw new Error("Release manifest requires an exact npm version.");
+  }
   return {
     gitSha,
     frontendBuildSha: gitSha,
     apiBuildSha: gitSha,
     workerBuildSha: gitSha,
     expectedSchemaVersion,
-    nodeVersion: STAGING_NODE_VERSION,
+    nodeVersion: nodeRuntime.detectedVersion,
+    nodeMajor: nodeRuntime.detectedMajor,
+    npmVersion: normalizedNpmVersion,
     createdAt,
+    buildTimestamp: createdAt,
     environment: STAGING_ENVIRONMENT,
+    targetEnvironment: STAGING_ENVIRONMENT,
     verificationMode
   };
 };

@@ -5,6 +5,7 @@ import {
   type HeistDistrictCommand
 } from "@empire/shared-types";
 import {
+  calculateDefensePlacementPoints,
   calculateContributorDefenseAmount,
   calculateDefenseCapacityUsage,
   calculateOwnerOwnedDefenseAmount,
@@ -91,6 +92,7 @@ export const createDistrictHeistTargetViews = (
         };
       };
       return {
+        sourceDistrictId: source.id,
         districtId: target.id,
         name: target.name,
         ownerPlayerId: target.ownerPlayerId,
@@ -164,21 +166,57 @@ export const createDistrictDefenseActionView = (
       ? ownerOwnedAmounts[itemId]
       : calculateContributorDefenseAmount(state, playerId, district.id, itemId)
   ]));
-  const capacityBlocked = action === "place_defense" && usedCapacityPoints >= maxCapacityPoints;
-  const disabledCode = capacityBlocked ? "DEFENSE_CAPACITY_EXCEEDED" : validation.reasonCode ?? null;
+  const player = state.playersById[playerId];
+  const playerBalances = state.resourceStatesById[player?.resourceStateId ?? ""]?.balances ?? {};
+  const availableInventoryAmounts = Object.fromEntries(DEFENSE_WEAPON_IDS.map((itemId) => [
+    itemId,
+    Math.max(0, Math.floor(Number(playerBalances[itemId] ?? 0)))
+  ]));
+  const preferredItemId = action === "place_defense"
+    ? DEFENSE_WEAPON_IDS.find((itemId) =>
+        availableInventoryAmounts[itemId] > 0
+        && usedCapacityPoints + calculateDefensePlacementPoints(
+          itemId,
+          1,
+          conflictConfig?.defenseCapacity
+        ) <= maxCapacityPoints
+      ) ?? null
+    : DEFENSE_WEAPON_IDS.find((itemId) => playerRemovableAmounts[itemId] > 0) ?? null;
+  const hasPlaceableInventory = DEFENSE_WEAPON_IDS.some((itemId) => availableInventoryAmounts[itemId] > 0);
+  const actionBlockedCode = action === "place_defense"
+    ? hasPlaceableInventory
+      ? "DEFENSE_CAPACITY_EXCEEDED"
+      : "DEFENSE_ITEM_UNAVAILABLE"
+    : "DEFENSE_NOT_OWNED";
+  const disabledCode = validation.reasonCode ?? (preferredItemId ? null : actionBlockedCode);
 
   return {
-    enabled: validation.allowed && !capacityBlocked,
+    enabled: validation.allowed && preferredItemId !== null,
     disabledCode,
     disabledReason: disabledCode ? formatActionReason(disabledCode) : null,
     expectedTargetVersion: district.version,
+    preferredItemId,
+    preferredAmount: 1,
     usedCapacityPoints,
     maxCapacityPoints,
+    availableInventoryAmounts,
     ownerOwnedAmounts,
     alliedContributionAmounts,
     playerRemovableAmounts
   };
 };
 
-const formatActionReason = (reasonCode: string | undefined): string | null =>
-  reasonCode ? reasonCode : null;
+const formatActionReason = (reasonCode: string | undefined): string | null => {
+  switch (reasonCode) {
+    case "DEFENSE_ITEM_UNAVAILABLE":
+      return "V inventáři nemáš žádnou obrannou položku.";
+    case "DEFENSE_CAPACITY_EXCEEDED":
+      return "Kapacita obrany districtu je plná.";
+    case "DEFENSE_NOT_OWNED":
+      return "V districtu nemáš žádnou vlastní obranu k odebrání.";
+    case "ALLIANCE_REQUIRED":
+      return "Obranu lze vložit jen do vlastního nebo aktivního aliančního districtu.";
+    default:
+      return reasonCode ?? null;
+  }
+};

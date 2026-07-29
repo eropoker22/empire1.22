@@ -65,7 +65,18 @@ New server gameplay must not trust request `playerId` or `accountId`. Gameplay l
 
 ## Local Development
 
-The repository requires Node 20 or newer (`.node-version`, `.nvmrc`).
+The repository supports exactly Node.js 24 LTS (`.node-version`, `.nvmrc`, and `engines.node`).
+Node 20, 22, 26, and unverified future major versions are rejected by the runtime guard.
+
+Verify the active toolchain before installing dependencies:
+
+```powershell
+node --version
+npm --version
+```
+
+On Windows, switch with nvm-windows, fnm, or Volta to major 24. On Unix/macOS,
+run `nvm use` or `fnm use` so the repository version files select Node 24.
 
 - `npm run dev:game` starts the game Vite server and local gameplay API middleware.
 - `npm run dev:admin` starts the static/admin Vite flow only.

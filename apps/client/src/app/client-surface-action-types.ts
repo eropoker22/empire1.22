@@ -37,8 +37,9 @@ export type ClientSurfaceAction =
       itemId?: string;
       amount?: number;
     }
-  | { kind: "collect"; buildingId: string }
-  | { kind: "craft"; buildingId: string; recipeId: string };
+  | { kind: "collect"; buildingId: string; resourceKey?: string }
+  | { kind: "craft"; buildingId: string; recipeId: string; quantity?: number }
+  | { kind: "cancel-production"; buildingId: string; recipeId: string };
 
 export interface CreateClientSurfaceActionRouterOptions {
   client: ClientAppShell;

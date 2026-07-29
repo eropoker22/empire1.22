@@ -62,6 +62,25 @@ describeWhenDatabaseConfigured("hosted control plane PostgreSQL live", () => {
         throw new Error(`Hosted live provisioning failed: ${record?.lastErrorCode ?? "UNKNOWN"}.`);
       }
       expect(record).toMatchObject({ status: "lobby", provisioningState: "ready", joinPolicy: "closed" });
+      const openRegistration = await service.requestAction({
+        session,
+        serverInstanceId,
+        payload: {
+          action: "open-registration-now",
+          expectedVersion: record.version,
+          reason: "Exercise active lobby recovery"
+        },
+        idempotencyKey: `live-open-registration-${suffix}`,
+        correlationId: `request:${suffix}:open-registration`
+      });
+      if (!openRegistration.accepted) {
+        throw new Error(`Hosted live registration open failed: ${openRegistration.errors[0]?.code ?? "unknown"}.`);
+      }
+      await workerA.runOnce();
+      expect(await repositories.hosted.getServer(serverInstanceId)).toMatchObject({
+        status: "lobby",
+        joinPolicy: "open"
+      });
       const runtimeA = appA.instanceManager.getInstanceById(serverInstanceId)!;
       const worldSeed = runtimeA.state.serverInstance.worldSeed;
       const districtIds = [...runtimeA.state.root.districtIds];

@@ -13,11 +13,13 @@ const runtimeSource = () => read("page-assets/js/app/runtime.js");
 const serverCommandAuthorityGuardSource = () => read("page-assets/js/app/runtime/serverCommandAuthorityGuard.js");
 
 describe("runtime refactor guard", () => {
-  it("keeps production and local-demo module paths explicitly separated", () => {
+  it("keeps the temporary production compatibility rollback explicit", () => {
     expect(gameHtml()).toMatch(/type="module" src="\.\.\/page-assets\/js\/app-entry\.js(?:\?[^"]*)?"/u);
     expect(gameHtml()).not.toContain('src="../page-assets/js/app/runtime.js"');
-    expect(appSource()).toContain('from "./app/presentation/serverAuthoritativePageController.js"');
-    expect(appSource()).not.toContain("runtime.js");
+    expect(appSource()).toContain('from "./app/runtime.js?v=legacy-production-compat-20260728"');
+    expect(appSource()).toContain("bootstrapPage");
+    expect(appSource()).toContain("mountLiveGameplayClient");
+    expect(appSource()).not.toContain("serverAuthoritativePageController.js");
     expect(appSource()).not.toContain("render-ui.js");
     expect(renderUiSource()).toContain('from "./runtime/localDemoLegacyBootstrap.js"');
     expect(localDemoAdapterSource()).toMatch(/from "\.\.\/runtime\.js"/u);

@@ -1,15 +1,10 @@
-import type {
-  DomainError,
-  GameplaySliceResponse,
-  JoinGameplaySliceRequest,
-  LoadGameplaySliceRequest,
-  LogoutGameplaySliceRequest
-} from "@empire/shared-types";
+import type { DomainError, GameplaySliceResponse, JoinGameplaySliceRequest, LoadGameplaySliceRequest, LogoutGameplaySliceRequest } from "@empire/shared-types";
 import type { ServerApp } from "../app";
 import { ensureGameplaySliceSessionResult } from "../bootstrap";
 import type { SnapshotTokenCodec } from "../runtime/persistence/services";
 import type { GameplaySessionTokenCodec } from "../transport/gameplay-session-token-codec";
 import { createJsonResponse, type NetlifyFunctionResponse } from "./netlify-json-response";
+import { requiresHostedRuntimeAuthority } from "./hosted-runtime-authority-environment";
 import {
   createGameplaySessionClearCookie,
   createGameplaySessionSetCookie,
@@ -99,7 +94,8 @@ const handleJoin = async (
     return createJsonResponse(200, createErrorResponseFromErrors(consumed.errors));
   }
   let runtime = options.server.instanceManager.getInstanceById(consumed.registration.serverInstanceId);
-  if (options.environment?.NODE_ENV === "production" && !runtime?.state.playersById[consumed.registration.playerId]) {
+  if (requiresHostedRuntimeAuthority(options.environment)
+    && !runtime?.state.playersById[consumed.registration.playerId]) {
     return createJsonResponse(200, createErrorResponse("server.player_not_ready", "Hosted player state is not ready."));
   }
   const loadRequest: LoadGameplaySliceRequest = {
@@ -145,7 +141,7 @@ const handleJoin = async (
       sessionToken
     }
   });
-  const bodySessionToken = options.environment?.NODE_ENV === "production" ? null : sessionToken;
+  const bodySessionToken = requiresHostedRuntimeAuthority(options.environment) ? null : sessionToken;
   const functionResponse = await options.toFunctionResponse({
     status: response.status,
     body: {
@@ -199,7 +195,7 @@ const handleLogout = async (
 const validateProductionSessionRuntime = (
   options: GameplaySessionNetlifyHandlersOptions
 ): DomainError | null => {
-  if (options.environment?.NODE_ENV !== "production") {
+  if (!requiresHostedRuntimeAuthority(options.environment)) {
     return null;
   }
   if (!options.server.gameplaySessionService.productionReady) {
@@ -244,6 +240,6 @@ const resolveRequestSessionToken = (
 ): string | null => {
   const cookieToken = String(readGameplaySessionCookie(headers) ?? "").trim();
   if (cookieToken) return cookieToken;
-  if (environment?.NODE_ENV === "production") return null;
+  if (requiresHostedRuntimeAuthority(environment)) return null;
   return String(bodySessionToken ?? "").trim() || null;
 };

@@ -5,7 +5,7 @@ export default defineConfig({
     external: ["pg"]
   },
   build: {
-    target: "node20",
+    target: "node24",
     outDir: "dist-worker",
     emptyOutDir: true,
     ssr: true,

@@ -22,7 +22,12 @@ describe("API readiness response", () => {
       code: null,
       database: "available",
       schema: "current",
-      buildSha: BUILD_SHA
+      buildSha: BUILD_SHA,
+      runtime: {
+        nodeVersion: process.versions.node,
+        nodeMajor: 24,
+        supported: true
+      }
     });
   });
 
@@ -75,6 +80,22 @@ describe("API readiness response", () => {
       schema: "current",
       buildSha: null
     });
+  });
+
+  it("fails closed and reports safe diagnostics on an unsupported Node runtime", async () => {
+    const database = createDatabase();
+    const response = await createApiReadinessResponse(database, { EMPIRE_BUILD_SHA: BUILD_SHA }, "20.20.2");
+    expect(response.statusCode).toBe(503);
+    expect(JSON.parse(response.body ?? "")).toMatchObject({
+      status: "unavailable",
+      code: "NODE_RUNTIME_UNSUPPORTED",
+      runtime: {
+        nodeVersion: "20.20.2",
+        nodeMajor: 20,
+        supported: false
+      }
+    });
+    expect(vi.mocked(database.query)).not.toHaveBeenCalled();
   });
 });
 

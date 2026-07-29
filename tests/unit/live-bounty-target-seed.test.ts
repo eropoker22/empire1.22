@@ -1,4 +1,11 @@
-import { describe, expect, it } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi
+} from "vitest";
 import { createBountyReadModel, createDistrictSummaryViews, createInitialState } from "@empire/game-core";
 import { PRODUCTION_GAME_LIFECYCLE_PHASES } from "@empire/shared-types";
 import { createServerApp } from "../../apps/server/src/app";
@@ -7,6 +14,57 @@ import { ensureGameplaySliceMembershipInState } from "../../apps/server/src/boot
 import { addPlayerToGameplaySliceState } from "../../apps/server/src/bootstrap/gameplay-slice-session-seed";
 
 describe("live bounty target seed", () => {
+  beforeEach(() => {
+    vi.stubEnv("EMPIRE_ENABLE_BOUNTY_DEMO_TARGETS", "1");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("keeps demo bounty targets disabled without explicit opt-in", () => {
+    vi.stubEnv("EMPIRE_ENABLE_BOUNTY_DEMO_TARGETS", "");
+    const state = createInitialState("instance:live-no-demo-bounty", "free");
+    state.root.phase = PRODUCTION_GAME_LIFECYCLE_PHASES.live;
+
+    addPlayerToGameplaySliceState(state, {
+      serverInstanceId: "instance:live-no-demo-bounty",
+      playerId: "player:current",
+      factionId: "mafian",
+      mode: "free"
+    });
+
+    expect(Object.values(state.playersById).some((player) => player.metadata?.systemBountyTarget === true)).toBe(false);
+  });
+
+  it("removes legacy demo targets and releases their districts when opt-in is disabled", () => {
+    const state = createInitialState("instance:live-remove-demo-bounty", "free");
+    state.root.phase = PRODUCTION_GAME_LIFECYCLE_PHASES.live;
+    addPlayerToGameplaySliceState(state, {
+      serverInstanceId: "instance:live-remove-demo-bounty",
+      playerId: "player:current",
+      factionId: "mafian",
+      mode: "free"
+    });
+    expect(Object.values(state.playersById).some((player) => player.metadata?.systemBountyTarget === true)).toBe(true);
+
+    vi.stubEnv("EMPIRE_ENABLE_BOUNTY_DEMO_TARGETS", "");
+    const result = ensureGameplaySliceMembershipInState(state, {
+      serverInstanceId: "instance:live-remove-demo-bounty",
+      playerId: "player:current",
+      factionId: "mafian",
+      mode: "free"
+    });
+
+    expect(result.accepted).toBe(true);
+    expect(result.stateChanged).toBe(true);
+    expect(Object.values(result.state.playersById).some((player) => player.metadata?.systemBountyTarget === true)).toBe(false);
+    expect(Object.values(result.state.districtsById).some((district) =>
+      district.ownerPlayerId?.includes("bounty-target")
+      || district.ownerPlayerId?.includes("demo-bounty")
+    )).toBe(false);
+  });
+
   it("adds an authoritative target player for bounty in live phase", () => {
     const state = createInitialState("instance:live-bounty", "free");
     state.root.phase = PRODUCTION_GAME_LIFECYCLE_PHASES.live;

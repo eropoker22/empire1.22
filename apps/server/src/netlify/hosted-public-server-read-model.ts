@@ -86,7 +86,8 @@ const createHostedPublicServerView = (
   }, now);
   const playerCount = Math.max(summary?.playerCount ?? 0, capacity.committedPlayers);
   const full = playerCount + capacity.reservedSlots >= hosted.capacity;
-  const snapshotReady = Boolean(hosted.currentSnapshotId) && summary?.snapshotStale !== true;
+  const snapshotReady = Boolean(hosted.currentSnapshotId)
+    && (hosted.status !== "running" || summary?.snapshotStale !== true);
   const workerFresh = isHostedWorkerFresh(hosted, summary, now);
   const playable = hosted.status === "lobby" || hosted.status === "running";
   const joinable = hosted.provisioningState === "ready"

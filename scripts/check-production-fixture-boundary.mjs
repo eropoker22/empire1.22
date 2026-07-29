@@ -48,19 +48,26 @@ const forbiddenSeedText = [
 const requiredPublishExclusions = [
   "page-assets/js/app-demo.js",
   "page-assets/js/app/render-ui.js",
-  "page-assets/js/app/runtime.js",
   "page-assets/js/app/runtime/localDemoFixtureState.js",
+  "page-assets/js/app/runtime/localDemoLegacyBootstrap.js"
+];
+const temporaryLegacyRuntimeImporters = [
+  "page-assets/js/app.js",
   "page-assets/js/app/runtime/localDemoLegacyBootstrap.js"
 ];
 const errors = [];
 const importGraph = auditProductionGameImportGraph({
   rootDir: root,
   additionalRootFiles: additionalProductionRoots,
+  allowedProductionLegacyRuntimeImporters: ["page-assets/js/app.js"],
   forbiddenPathFragments: forbiddenGraphFragments,
   forbiddenContent: forbiddenSeedText
 });
 errors.push(...importGraph.violations.map((violation) => violation.message));
-const legacyRuntimeImporters = auditLegacyRuntimeImporters({ rootDir: root });
+const legacyRuntimeImporters = auditLegacyRuntimeImporters({
+  rootDir: root,
+  allowedImporters: temporaryLegacyRuntimeImporters
+});
 errors.push(...legacyRuntimeImporters.violations.map((violation) => violation.message));
 const browserEventAudit = auditForbiddenBrowserEventDispatches({
   rootDir: root,

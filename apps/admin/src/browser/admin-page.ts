@@ -1,3 +1,4 @@
 import { createAdminApp } from "../app";
 
-void createAdminApp().mount();
+const app = createAdminApp();
+void app.mount();

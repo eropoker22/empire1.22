@@ -37,15 +37,16 @@ export const ensureGameplaySliceMembershipInState = (
 ): GameplaySliceMembershipResult => {
   if (state.playersById[request.playerId]) {
     const config = resolveModeConfig(request.mode);
-    const stateChanged = ensureSharedCityMap(state, request.serverInstanceId, {
+    const mapChanged = ensureSharedCityMap(state, request.serverInstanceId, {
       buildSlotLimit: config.balance.buildSlotLimit,
       productionBuildings: config.balance.productionBuildings ?? {},
       robbery: config.balance.conflict?.robbery
     });
-    if (stateChanged) {
+    if (mapChanged) {
       state.root.version += 1;
     }
-    ensureLiveBountyTarget(state, request);
+    const demoTargetsChanged = ensureLiveBountyTarget(state, request);
+    const stateChanged = mapChanged || demoTargetsChanged;
 
     return {
       accepted: true,

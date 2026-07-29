@@ -45,11 +45,14 @@ export const applyHostedMembershipActivation = (
   runtime.state.playersById[membership.playerId] = {
     ...player,
     accountId: membership.accountId,
+    name: membership.accountDisplayName || player.name,
     color: membership.gangColor as typeof player.color,
     metadata: {
       ...(player.metadata ?? {}),
       membershipId: membership.membershipId,
       avatarId: membership.avatarId,
+      displayName: membership.accountDisplayName || player.name,
+      gangName: membership.gangName || membership.accountDisplayName || player.name,
       setupComplete: true,
       starterPackageApplied: true
     }

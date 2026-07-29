@@ -445,6 +445,9 @@ test.describe("main game browser protection", () => {
     await expect(page.getByTestId("district-canvas")).toBeVisible();
     await expect(page.getByTestId("district-popup")).toBeHidden();
     await expect(page.getByTestId("district-actions")).toHaveCount(1);
+    await expect(page.locator("[data-operational-recovery]")).toHaveCount(1);
+    await expect(page.locator("[data-operational-recovery]")).toBeHidden();
+    await expect(page.locator("[data-operational-liveness]")).toHaveCount(0);
 
     await openDistrictPopup(page, { districtId: 27 });
     await expect(page.locator("[data-district-popup-title]")).not.toHaveText("");

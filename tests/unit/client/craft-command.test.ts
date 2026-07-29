@@ -64,6 +64,7 @@ const createGameplaySliceFixture = (canCraft = true): GameplaySliceView => ({
   reports: [],
   district: {
     districtId: "district:1",
+    intelKnown: true,
     conflictRevision: 1,
     name: "Starter District",
     zone: "downtown",
@@ -142,5 +143,53 @@ describe("createCraftItemCommand", () => {
         issuedAt: new Date(0).toISOString()
       })
     ).toThrow("Craft commands can only be created from enabled craft options present in the current server-fed slice.");
+  });
+
+  it("builds a pharmacy production command from a server-fed production line", () => {
+    const slice = createGameplaySliceFixture();
+    slice.district!.slots[0].craftOptions = [];
+    slice.district!.buildings = [{
+      buildingId: "building:pharmacy:1",
+      pharmacy: {
+        buildingId: "building:pharmacy:1",
+        lines: [{
+          recipeId: "chemicals",
+          resourceKey: "chemicals",
+          label: "Chemikálie",
+          producedAmount: 0,
+          producedCapacity: 12,
+          queuedAmount: 0,
+          queueCapacity: 15,
+          activeAmount: 0,
+          waitingAmount: 0,
+          unitCleanCashCost: 360,
+          baseUnitDurationTicks: 12,
+          effectiveUnitDurationTicks: 12,
+          remainingTicks: 0,
+          remainingMs: 0,
+          status: "ready",
+          canStart: true,
+          canCancelWaiting: false,
+          canCollect: false,
+          maxStartQuantity: 15,
+          disabledReason: null
+        }]
+      }
+    }] as NonNullable<GameplaySliceView["district"]>["buildings"];
+
+    const command = createCraftItemCommand({
+      commandId: "command:craft:chemicals",
+      slice,
+      buildingId: "building:pharmacy:1",
+      recipeId: "chemicals",
+      issuedAt: new Date(0).toISOString()
+    });
+
+    expect(command.payload).toMatchObject({
+      districtId: "district:1",
+      buildingId: "building:pharmacy:1",
+      recipeId: "chemicals",
+      quantity: 1
+    });
   });
 });

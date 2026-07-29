@@ -18,7 +18,8 @@ export const createOccupyDistrictCommand = (
   input: CreateOccupyDistrictCommandInput
 ): OccupyDistrictCommand => {
   const district = input.slice.district;
-  const target = district?.occupyTargets.find((entry) => entry.districtId === input.targetDistrictId);
+  const target = district?.targetActions?.occupyTargets.find((entry) => entry.districtId === input.targetDistrictId)
+    ?? district?.occupyTargets.find((entry) => entry.districtId === input.targetDistrictId);
   const corridor = input.slice.frontier?.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
 
   if (!district) {
@@ -34,7 +35,8 @@ export const createOccupyDistrictCommand = (
     issuedAt: input.issuedAt,
     payload: {
       districtId: input.targetDistrictId,
-      sourceDistrictId: corridor?.sourceDistrictId ?? district.districtId,
+      sourceDistrictId: corridor?.sourceDistrictId ?? target?.sourceDistrictId
+        ?? (() => { throw new Error("Occupy target is missing a source district."); })(),
       expectedConflictRevision: target?.expectedConflictRevision
         ?? (() => { throw new Error("Occupy target is missing a conflict revision."); })(),
       ...(input.encirclementConfirmationToken ? { encirclementConfirmationToken: input.encirclementConfirmationToken } : {}),

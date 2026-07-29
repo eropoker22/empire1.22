@@ -12,6 +12,9 @@ import { createDistrictOccupyTargetViews } from "./district-occupy-target-projec
 import { createDistrictSlotViews } from "./district-panel-slot-projection";
 import type { DistrictPanelProjectionInput } from "./district-panel-projection-types";
 import { createDistrictSpyTargetViews } from "./district-spy-target-projection";
+import { hasRevealedDistrictTypeIntel } from "../validation/spyIntel";
+import { createOpenedDistrictTargetActions } from "./district-target-action-projection";
+import { resolveDistrictRelation } from "../rules";
 
 export type { DistrictPanelProjectionInput } from "./district-panel-projection-types";
 
@@ -33,8 +36,10 @@ export const createDistrictPanelView = (
   const filledBuildings = district.buildingIds
     .map((buildingId) => state.buildingsById[buildingId])
     .filter((building) => building !== undefined && building.status !== "destroyed");
-  const filledSlotCount = filledBuildings.length;
   const isOwnedByPlayer = district.ownerPlayerId === input.playerId;
+  const intelKnown = isOwnedByPlayer || hasRevealedDistrictTypeIntel(state, input.playerId, district.id);
+  const visibleBuildings = intelKnown ? filledBuildings : [];
+  const filledSlotCount = visibleBuildings.length;
   const player = state.playersById[input.playerId];
   const playerBalances = player
     ? state.resourceStatesById[player.resourceStateId]?.balances ?? {}
@@ -45,10 +50,73 @@ export const createDistrictPanelView = (
   const spyTargets = createDistrictSpyTargetViews(state, input.playerId, district.id, issuedAt, input.conflictConfig);
   const robTargets = createDistrictRobTargetViews(state, input.playerId, district.id, input.conflictConfig, issuedAt);
   const heistTargets = createDistrictHeistTargetViews(state, input.playerId, district.id, input.conflictConfig, issuedAt);
-  const placeDefense = createDistrictDefenseActionView(state, input.playerId, district.id, "place_defense", input.conflictConfig);
-  const removeDefense = createDistrictDefenseActionView(state, input.playerId, district.id, "remove_defense", input.conflictConfig);
+  const targetActions = isOwnedByPlayer
+    ? {
+        attackTargets: [],
+        spyTargets: [],
+        occupyTargets: [],
+        robTargets: [],
+        heistTargets: []
+      }
+    : createOpenedDistrictTargetActions(state, {
+        playerId: input.playerId,
+        targetDistrictId: district.id,
+        issuedAt,
+        config: input.config,
+        conflictConfig: input.conflictConfig
+      });
+  const districtRelation = player
+    ? resolveDistrictRelation(state, player, district)
+    : "blocked";
+  const canManageDefense = districtRelation === "self" || districtRelation === "ally";
+  const placeDefense = canManageDefense
+    ? createDistrictDefenseActionView(state, input.playerId, district.id, "place_defense", input.conflictConfig)
+    : null;
+  const projectedRemoveDefense = canManageDefense
+    ? createDistrictDefenseActionView(state, input.playerId, district.id, "remove_defense", input.conflictConfig)
+    : null;
+  const removeDefense = projectedRemoveDefense?.preferredItemId
+    ? projectedRemoveDefense
+    : null;
   const trap = createTrapView(state, input.playerId, district.id);
   const isDestroyed = district.status === "destroyed";
+  const projectedBuildings = isDestroyed
+    ? []
+    : createDistrictPanelBuildingViews({
+        state,
+        buildings: visibleBuildings,
+        buildCatalog: input.buildCatalog,
+        actionCatalog: input.buildingActionCatalog,
+        config: input.config,
+        stripClubConfig: input.stripClubConfig,
+        restaurantConfig: input.restaurantConfig,
+        convenienceStoreConfig: input.convenienceStoreConfig,
+        shoppingMallConfig: input.shoppingMallConfig,
+        stockExchangeConfig: input.stockExchangeConfig,
+        centralBankConfig: input.centralBankConfig,
+        airportConfig: input.airportConfig,
+        cityHallConfig: input.cityHallConfig,
+        courthouseConfig: input.courthouseConfig,
+        lobbyClubConfig: input.lobbyClubConfig,
+        vipLoungeConfig: input.vipLoungeConfig,
+        powerStationConfig: input.powerStationConfig,
+        recruitmentCenterConfig: input.recruitmentCenterConfig,
+        fitnessClubConfig: input.fitnessClubConfig,
+        garageConfig: input.garageConfig,
+        carDealerConfig: input.carDealerConfig,
+        smugglingTunnelConfig: input.smugglingTunnelConfig,
+        streetDealersConfig: input.streetDealersConfig,
+        schoolConfig: input.schoolConfig,
+        recyclingCenterConfig: input.recyclingCenterConfig,
+        district,
+        playerId: input.playerId,
+        playerBalances,
+        tick: state.root.tick,
+        tickRateMs: input.tickRateMs
+      });
+  const buildings = isOwnedByPlayer
+    ? projectedBuildings
+    : projectedBuildings.map(createIntelOnlyBuildingView);
 
   return {
     districtId: district.id,
@@ -64,40 +132,17 @@ export const createDistrictPanelView = (
     stabilizingUntilTick: district.stabilizingUntilTick ?? null,
     slotCount: district.slotCount,
     filledSlotCount,
-    buildings: isDestroyed
-      ? []
-      : createDistrictPanelBuildingViews({
-      state,
-      buildings: filledBuildings,
-      buildCatalog: input.buildCatalog,
-      actionCatalog: input.buildingActionCatalog,
-      config: input.config,
-      stripClubConfig: input.stripClubConfig,
-      restaurantConfig: input.restaurantConfig,
-      convenienceStoreConfig: input.convenienceStoreConfig,
-      shoppingMallConfig: input.shoppingMallConfig,
-      stockExchangeConfig: input.stockExchangeConfig,
-      centralBankConfig: input.centralBankConfig,
-      airportConfig: input.airportConfig,
-      cityHallConfig: input.cityHallConfig,
-      courthouseConfig: input.courthouseConfig,
-      lobbyClubConfig: input.lobbyClubConfig,
-      vipLoungeConfig: input.vipLoungeConfig,
-      powerStationConfig: input.powerStationConfig,
-      recruitmentCenterConfig: input.recruitmentCenterConfig,
-      fitnessClubConfig: input.fitnessClubConfig,
-      garageConfig: input.garageConfig,
-      carDealerConfig: input.carDealerConfig,
-      smugglingTunnelConfig: input.smugglingTunnelConfig,
-      streetDealersConfig: input.streetDealersConfig,
-      schoolConfig: input.schoolConfig,
-      recyclingCenterConfig: input.recyclingCenterConfig,
-      district,
-      playerId: input.playerId,
-      playerBalances,
-      tick: state.root.tick,
-      tickRateMs: input.tickRateMs
-    }),
+    intelKnown,
+    buildings,
+    targetActions: isDestroyed
+      ? {
+          attackTargets: [],
+          spyTargets: [],
+          occupyTargets: [],
+          robTargets: [],
+          heistTargets: []
+        }
+      : targetActions,
     attackTargets: isDestroyed ? [] : attackTargets,
     spyTargets: isDestroyed ? [] : spyTargets,
     occupyTargets: isDestroyed ? [] : occupyTargets,
@@ -109,9 +154,26 @@ export const createDistrictPanelView = (
     capabilities: createDistrictCapabilitiesView(state, input.playerId, district.id),
     slots: isDestroyed
       ? []
-      : createDistrictSlotViews({ state, input, district, playerBalances, isOwnedByPlayer })
+      : isOwnedByPlayer
+        ? createDistrictSlotViews({ state, input, district, playerBalances, isOwnedByPlayer })
+        : []
   };
 };
+
+const createIntelOnlyBuildingView = (
+  building: DistrictPanelView["buildings"][number]
+): DistrictPanelView["buildings"][number] => ({
+  ...building,
+  stats: [],
+  specialActions: [],
+  actionCooldowns: {},
+  actions: [],
+  warehouseUpgradePreview: null,
+  pharmacy: null,
+  drugLab: null,
+  factory: null,
+  armory: null
+});
 
 const createTrapView = (
   state: CoreGameState,

@@ -147,9 +147,9 @@ const startDisabledReason = (server: HostedServerRecord, state: string, ready: n
   if (server.provisioningState !== "ready") return "Server ještě není připravený.";
   if (server.status !== "lobby") return "Server už není ve vstupní lobby.";
   if (!server.currentSnapshotId) return "Server nemá bezpečný runtime snapshot.";
-  if (!fresh) return "Server se právě nepodařilo bezpečně připojit k hernímu workeru.";
   if (state === "not_scheduled" || state === "scheduled") return "Registrace na tento server ještě nezačala.";
   if (state === "closed_early") return "Registrace byla nouzově ukončena.";
+  if (!fresh) return "Server se právě nepodařilo bezpečně připojit k hernímu workeru.";
   if (ready < server.minimumReadyPlayersToStart) return `Server potřebuje alespoň ${server.minimumReadyPlayersToStart} aktivní hráče.`;
   return "Server teď nelze bezpečně spustit.";
 };

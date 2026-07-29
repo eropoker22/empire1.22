@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
   "scripts": {
     "check": "node ../../scripts/run-local-bin.mjs typescript/bin/tsc -p ../../tsconfig.test.json --noEmit"
   }

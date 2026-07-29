@@ -26,12 +26,19 @@ test("read-only admin session and per-instance isolation", async ({ page }) => {
   await page.locator("[data-admin-username]").fill("test-viewer");
   await page.locator("[data-admin-password]").fill("TestPassword-Only-For-Fixtures");
   await page.getByRole("button", { name: "Přihlásit" }).click();
-  await expect(page.getByRole("heading", { name: "Read-only admin" })).toBeVisible();
-  await expect(page.getByText("Server A", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Control Center" })).toBeVisible();
+  await expect(page.locator('[data-admin-instance="server:A"]')).toBeVisible();
   await expect(page.locator('[data-admin-instance="server:B"]')).toBeVisible();
   await expect(page.locator("[data-admin-password]")).toHaveCount(0);
-  await expect(page.locator("button")).toHaveCount(2);
+  await expect(page.locator("[data-admin-create-open], [data-admin-lifecycle], [data-admin-registration-action]")).toHaveCount(0);
+  await expect(page.locator("#admin-audit")).toHaveCount(0);
   await expect(page.locator("body")).not.toContainText(/mock|draft only|static fallback/iu);
+
+  const search = page.locator("[data-admin-search]");
+  await search.fill("server b");
+  await expect(page.locator('[data-admin-instance="server:A"]').locator("xpath=ancestor::tr")).toBeHidden();
+  await expect(page.locator('[data-admin-instance="server:B"]').locator("xpath=ancestor::tr")).toBeVisible();
+  await search.fill("");
 
   await page.locator('[data-admin-instance="server:A"]').click();
   await expect(page).toHaveURL(/instance=server%3AA/u);
@@ -48,6 +55,24 @@ test("read-only admin session and per-instance isolation", async ({ page }) => {
   await expect(page.getByText("OFFLINE", { exact: true }).last()).toBeVisible();
   await expect(page.locator('[data-admin-instance="server:B"]')).toBeVisible();
   await expect(page.locator("body")).not.toContainText("server:A Player");
+
+  for (const width of [1440, 1280, 1024, 768, 430, 390, 360]) {
+    await page.setViewportSize({ width, height: width <= 430 ? 844 : 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator("[data-admin-search]")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Obnovit" })).toBeVisible();
+  await expect(page.locator('[data-admin-mobile-instance="server:B"]')).toBeVisible();
+  await expect(page.locator(".admin-server-registry > .admin-table-wrap")).toBeHidden();
+  const navToggle = page.locator("[data-admin-nav-toggle]");
+  await expect(navToggle).toHaveAttribute("aria-expanded", "false");
+  await navToggle.click();
+  await expect(navToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator("#admin-primary-nav")).toBeVisible();
+  await expect(page.locator("#admin-players .admin-table-wrap")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 
   sessionExpired = true;
   await page.getByRole("button", { name: "Obnovit" }).click();

@@ -118,10 +118,18 @@ var EmpireGameplaySliceClient = function(exports) {
     clientRequestId: input.clientRequestId ?? null
   });
   const createCraftItemCommand = (input) => {
+    var _a, _b, _c, _d;
     const district = input.slice.district;
     const slot = district == null ? void 0 : district.slots.find((candidate) => candidate.buildingId === input.buildingId);
     const craftOption = slot == null ? void 0 : slot.craftOptions.find((candidate) => candidate.recipeId === input.recipeId && candidate.canCraft);
-    if (!district || !slot || !craftOption) {
+    const building = district == null ? void 0 : district.buildings.find((candidate) => candidate.buildingId === input.buildingId);
+    const productionLine = [
+      ...((_a = building == null ? void 0 : building.pharmacy) == null ? void 0 : _a.lines) ?? [],
+      ...((_b = building == null ? void 0 : building.drugLab) == null ? void 0 : _b.lines) ?? [],
+      ...((_c = building == null ? void 0 : building.factory) == null ? void 0 : _c.productionLines) ?? [],
+      ...((_d = building == null ? void 0 : building.armory) == null ? void 0 : _d.productionLines) ?? []
+    ].find((candidate) => candidate.recipeId === input.recipeId && candidate.canStart);
+    if (!district || !craftOption && !productionLine) {
       throw new Error("Craft commands can only be created from enabled craft options present in the current server-fed slice.");
     }
     return {
@@ -134,7 +142,7 @@ var EmpireGameplaySliceClient = function(exports) {
       payload: {
         districtId: district.districtId,
         buildingId: input.buildingId,
-        recipeId: craftOption.recipeId,
+        recipeId: (craftOption == null ? void 0 : craftOption.recipeId) ?? productionLine.recipeId,
         quantity: input.quantity ?? 1
       },
       clientRequestId: input.clientRequestId ?? null
@@ -482,10 +490,10 @@ var EmpireGameplaySliceClient = function(exports) {
   };
   const renderPhaseEffectLine = (action) => action.phaseEffectLabel ? `<p class="district-panel__phase-effect-row"><span>Efekt fáze</span> ${escapeHtml(action.phaseEffectLabel)}</p>` : "";
   const createAttackDistrictCommand = (input) => {
-    var _a;
+    var _a, _b;
     const district = input.slice.district;
-    const target = district == null ? void 0 : district.attackTargets.find((entry) => entry.districtId === input.targetDistrictId);
-    const corridor = (_a = input.slice.frontier) == null ? void 0 : _a.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
+    const target = ((_a = district == null ? void 0 : district.targetActions) == null ? void 0 : _a.attackTargets.find((entry) => entry.districtId === input.targetDistrictId)) ?? (district == null ? void 0 : district.attackTargets.find((entry) => entry.districtId === input.targetDistrictId));
+    const corridor = (_b = input.slice.frontier) == null ? void 0 : _b.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
     if (!district) {
       throw new Error("Attack command cannot be created from missing district/target context.");
     }
@@ -500,7 +508,9 @@ var EmpireGameplaySliceClient = function(exports) {
       issuedAt: input.issuedAt,
       payload: {
         districtId: input.targetDistrictId,
-        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? district.districtId,
+        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? (target == null ? void 0 : target.sourceDistrictId) ?? (() => {
+          throw new Error("Attack target is missing a source district.");
+        })(),
         weapons: { ...input.weapons },
         ...typeof expectedSourceVersion === "number" ? { expectedSourceVersion } : {},
         ...typeof expectedTargetVersion === "number" ? { expectedTargetVersion } : {},
@@ -512,12 +522,13 @@ var EmpireGameplaySliceClient = function(exports) {
       clientRequestId: input.clientRequestId ?? null
     };
   };
-  const DEFAULT_DEFENSE_ITEM_ID = "barricades";
-  const DEFAULT_DEFENSE_AMOUNT = 1;
   const createPlaceDefenseCommand = (input) => {
     const district = input.slice.district;
     if (!district || !district.placeDefense) {
       throw new Error("Place defense command cannot be created from missing district/defense context.");
+    }
+    if (!district.placeDefense.enabled || !district.placeDefense.preferredItemId) {
+      throw new Error("Place defense command cannot be created from a disabled defense projection.");
     }
     return {
       id: input.commandId,
@@ -528,8 +539,8 @@ var EmpireGameplaySliceClient = function(exports) {
       issuedAt: input.issuedAt,
       payload: {
         targetDistrictId: district.districtId,
-        defenseItemId: DEFAULT_DEFENSE_ITEM_ID,
-        amount: DEFAULT_DEFENSE_AMOUNT,
+        defenseItemId: district.placeDefense.preferredItemId,
+        amount: district.placeDefense.preferredAmount,
         expectedTargetVersion: district.placeDefense.expectedTargetVersion
       },
       clientRequestId: input.clientRequestId ?? null
@@ -540,6 +551,9 @@ var EmpireGameplaySliceClient = function(exports) {
     if (!district || !district.removeDefense) {
       throw new Error("Remove defense command cannot be created from missing district/defense context.");
     }
+    if (!district.removeDefense.enabled || !district.removeDefense.preferredItemId) {
+      throw new Error("Remove defense command cannot be created from a disabled defense projection.");
+    }
     return {
       id: input.commandId,
       type: "remove-defense",
@@ -549,20 +563,20 @@ var EmpireGameplaySliceClient = function(exports) {
       issuedAt: input.issuedAt,
       payload: {
         targetDistrictId: district.districtId,
-        defenseItemId: DEFAULT_DEFENSE_ITEM_ID,
-        amount: DEFAULT_DEFENSE_AMOUNT,
+        defenseItemId: district.removeDefense.preferredItemId,
+        amount: district.removeDefense.preferredAmount,
         expectedTargetVersion: district.removeDefense.expectedTargetVersion
       },
       clientRequestId: input.clientRequestId ?? null
     };
   };
   const createHeistDistrictCommand = (input) => {
-    var _a, _b;
+    var _a, _b, _c;
     const district = input.slice.district;
-    const target = (_a = district == null ? void 0 : district.heistTargets) == null ? void 0 : _a.find((entry) => entry.districtId === input.targetDistrictId);
+    const target = ((_a = district == null ? void 0 : district.targetActions) == null ? void 0 : _a.heistTargets.find((entry) => entry.districtId === input.targetDistrictId)) ?? ((_b = district == null ? void 0 : district.heistTargets) == null ? void 0 : _b.find((entry) => entry.districtId === input.targetDistrictId));
     const styleFallback = { style: "balanced", defaultGangMembersSent: 1 };
     const style = (target == null ? void 0 : target.styles.find((entry) => entry.style === "balanced")) ?? (target == null ? void 0 : target.styles[0]) ?? styleFallback;
-    const corridor = (_b = input.slice.frontier) == null ? void 0 : _b.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
+    const corridor = (_c = input.slice.frontier) == null ? void 0 : _c.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
     if (!district) {
       throw new Error("Heist command cannot be created from missing district/target context.");
     }
@@ -575,7 +589,9 @@ var EmpireGameplaySliceClient = function(exports) {
       issuedAt: input.issuedAt,
       payload: {
         targetDistrictId: input.targetDistrictId,
-        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? district.districtId,
+        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? (target == null ? void 0 : target.sourceDistrictId) ?? (() => {
+          throw new Error("Heist target is missing a source district.");
+        })(),
         style: style.style,
         gangMembersSent: style.defaultGangMembersSent,
         expectedConflictRevision: (target == null ? void 0 : target.expectedConflictRevision) ?? (() => {
@@ -589,10 +605,10 @@ var EmpireGameplaySliceClient = function(exports) {
     };
   };
   const createOccupyDistrictCommand = (input) => {
-    var _a;
+    var _a, _b;
     const district = input.slice.district;
-    const target = district == null ? void 0 : district.occupyTargets.find((entry) => entry.districtId === input.targetDistrictId);
-    const corridor = (_a = input.slice.frontier) == null ? void 0 : _a.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
+    const target = ((_a = district == null ? void 0 : district.targetActions) == null ? void 0 : _a.occupyTargets.find((entry) => entry.districtId === input.targetDistrictId)) ?? (district == null ? void 0 : district.occupyTargets.find((entry) => entry.districtId === input.targetDistrictId));
+    const corridor = (_b = input.slice.frontier) == null ? void 0 : _b.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
     if (!district) {
       throw new Error("Occupy command cannot be created from missing district/target context.");
     }
@@ -605,7 +621,9 @@ var EmpireGameplaySliceClient = function(exports) {
       issuedAt: input.issuedAt,
       payload: {
         districtId: input.targetDistrictId,
-        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? district.districtId,
+        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? (target == null ? void 0 : target.sourceDistrictId) ?? (() => {
+          throw new Error("Occupy target is missing a source district.");
+        })(),
         expectedConflictRevision: (target == null ? void 0 : target.expectedConflictRevision) ?? (() => {
           throw new Error("Occupy target is missing a conflict revision.");
         })(),
@@ -616,10 +634,10 @@ var EmpireGameplaySliceClient = function(exports) {
     };
   };
   const createRobDistrictCommand = (input) => {
-    var _a, _b;
+    var _a, _b, _c;
     const district = input.slice.district;
-    const target = (_a = district == null ? void 0 : district.robTargets) == null ? void 0 : _a.find((entry) => entry.districtId === input.targetDistrictId);
-    const corridor = (_b = input.slice.frontier) == null ? void 0 : _b.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
+    const target = ((_a = district == null ? void 0 : district.targetActions) == null ? void 0 : _a.robTargets.find((entry) => entry.districtId === input.targetDistrictId)) ?? ((_b = district == null ? void 0 : district.robTargets) == null ? void 0 : _b.find((entry) => entry.districtId === input.targetDistrictId));
+    const corridor = (_c = input.slice.frontier) == null ? void 0 : _c.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
     if (!district) {
       throw new Error("Rob command cannot be created from missing district/target context.");
     }
@@ -632,7 +650,9 @@ var EmpireGameplaySliceClient = function(exports) {
       issuedAt: input.issuedAt,
       payload: {
         targetDistrictId: input.targetDistrictId,
-        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? district.districtId,
+        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? (target == null ? void 0 : target.sourceDistrictId) ?? (() => {
+          throw new Error("Rob target is missing a source district.");
+        })(),
         expectedConflictRevision: (target == null ? void 0 : target.expectedConflictRevision) ?? (() => {
           throw new Error("Rob target is missing a conflict revision.");
         })(),
@@ -664,10 +684,11 @@ var EmpireGameplaySliceClient = function(exports) {
     };
   };
   const createSpyDistrictCommand = (input) => {
-    var _a;
+    var _a, _b;
     const district = input.slice.district;
-    const corridor = (_a = input.slice.frontier) == null ? void 0 : _a.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
-    if (!district) {
+    const target = ((_a = district == null ? void 0 : district.targetActions) == null ? void 0 : _a.spyTargets.find((entry) => entry.districtId === input.targetDistrictId)) ?? (district == null ? void 0 : district.spyTargets.find((entry) => entry.districtId === input.targetDistrictId));
+    const corridor = (_b = input.slice.frontier) == null ? void 0 : _b.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
+    if (!district || !target) {
       throw new Error("Spy command cannot be created from missing district/target context.");
     }
     return {
@@ -679,16 +700,37 @@ var EmpireGameplaySliceClient = function(exports) {
       issuedAt: input.issuedAt,
       payload: {
         districtId: input.targetDistrictId,
-        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? district.districtId,
+        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? target.sourceDistrictId,
         ...corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {}
       },
       clientRequestId: input.clientRequestId ?? null
     };
   };
   const createPlaceTrapCommand = (input) => {
+    var _a;
     const district = input.slice.district;
-    if (!(district == null ? void 0 : district.trap)) {
+    if (!(district == null ? void 0 : district.isOwnedByPlayer) || !((_a = district.trap) == null ? void 0 : _a.enabled)) {
       throw new Error("Trap command cannot be created from missing district/trap context.");
+    }
+    const relocation = district.trap.relocationSource;
+    if (relocation == null ? void 0 : relocation.canRelocate) {
+      return {
+        id: input.commandId,
+        type: "relocate-trap",
+        mode: input.slice.mode.mode,
+        playerId: input.slice.player.playerId,
+        serverInstanceId: input.slice.player.instanceId,
+        issuedAt: input.issuedAt,
+        payload: {
+          trapId: relocation.trapId,
+          sourceDistrictId: relocation.districtId,
+          targetDistrictId: district.districtId,
+          expectedSourceVersion: relocation.expectedSourceVersion,
+          expectedTargetVersion: relocation.expectedTargetVersion,
+          expectedTrapVersion: relocation.expectedTrapVersion
+        },
+        clientRequestId: input.clientRequestId ?? null
+      };
     }
     return {
       id: input.commandId,
@@ -903,6 +945,114 @@ var EmpireGameplaySliceClient = function(exports) {
     ].join("") : "",
     "</section>"
   ].join("");
+  const createCancelProductionCommand = (input) => {
+    var _a, _b, _c, _d;
+    const district = input.slice.district;
+    const building = district == null ? void 0 : district.buildings.find((candidate) => candidate.buildingId === input.buildingId);
+    const lines = ((_a = building == null ? void 0 : building.pharmacy) == null ? void 0 : _a.lines) ?? ((_b = building == null ? void 0 : building.drugLab) == null ? void 0 : _b.lines) ?? ((_c = building == null ? void 0 : building.factory) == null ? void 0 : _c.productionLines) ?? ((_d = building == null ? void 0 : building.armory) == null ? void 0 : _d.productionLines) ?? [];
+    const line = lines.find(
+      (candidate) => candidate.recipeId === input.recipeId && candidate.canCancelWaiting
+    );
+    if (!district || !building || !line) {
+      throw new Error(
+        "Production cancellation commands can only be created from cancellable lines present in the current server-fed slice."
+      );
+    }
+    const command = {
+      id: input.commandId,
+      mode: input.slice.player.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        districtId: district.districtId,
+        buildingId: building.buildingId,
+        recipeId: line.recipeId
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
+    if (building.buildingTypeId === "pharmacy") {
+      return { ...command, type: "cancel-pharmacy-production" };
+    }
+    if (building.buildingTypeId === "drug_lab") {
+      return { ...command, type: "cancel-drug-lab-production" };
+    }
+    if (building.buildingTypeId === "factory" || building.buildingTypeId === "armory") {
+      return { ...command, type: "cancel-production-line" };
+    }
+    throw new Error("The selected building does not expose a cancellable production command.");
+  };
+  const canUseOwnedDistrictBuilding = (slice, buildingId) => {
+    const district = slice == null ? void 0 : slice.district;
+    if (!district) return false;
+    const ownsDistrict = district.isOwnedByPlayer || district.ownerPlayerId === slice.player.playerId;
+    return ownsDistrict && district.buildings.some((building) => building.buildingId === buildingId);
+  };
+  const createBuildingSurfaceCommand = ({
+    action,
+    slice,
+    districtId,
+    mode,
+    issuedAt,
+    createCommandId
+  }) => {
+    if (!canUseOwnedDistrictBuilding(slice, action.buildingId)) return null;
+    switch (action.kind) {
+      case "building-action":
+        return createRunBuildingActionCommand({
+          commandId: createCommandId("command:building-action"),
+          slice,
+          buildingId: action.buildingId,
+          actionId: action.actionId,
+          dealerSlotId: action.dealerSlotId,
+          targetCategory: readStringValue(action, "targetCategory"),
+          category: readStringValue(action, "category"),
+          mode: readStringValue(action, "mode"),
+          investmentCleanCash: readNumberValue(action, "investmentCleanCash"),
+          investment: readNumberValue(action, "investment"),
+          targetZone: readStringValue(action, "targetZone"),
+          itemId: action.itemId,
+          amount: action.amount,
+          issuedAt
+        });
+      case "collect":
+        return createCollectProductionCommand({
+          commandId: createCommandId("command:collect"),
+          serverInstanceId: slice.player.instanceId,
+          playerId: slice.player.playerId,
+          mode,
+          districtId,
+          buildingId: action.buildingId,
+          resourceKey: action.resourceKey,
+          issuedAt
+        });
+      case "craft":
+        return createCraftItemCommand({
+          commandId: createCommandId("command:craft"),
+          slice,
+          buildingId: action.buildingId,
+          recipeId: action.recipeId,
+          quantity: action.quantity,
+          issuedAt
+        });
+      case "cancel-production":
+        return createCancelProductionCommand({
+          commandId: createCommandId("command:cancel-production"),
+          slice,
+          buildingId: action.buildingId,
+          recipeId: action.recipeId,
+          issuedAt
+        });
+    }
+  };
+  const readStringValue = (action, key) => {
+    const value = action[key];
+    return typeof value === "string" && value.trim() ? value : void 0;
+  };
+  const readNumberValue = (action, key) => {
+    const value = action[key];
+    return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : void 0;
+  };
   const resolveClientSurfaceAction = (target) => {
     if (!target) {
       return null;
@@ -943,7 +1093,21 @@ var EmpireGameplaySliceClient = function(exports) {
     if (removeDefenseButton) return { kind: "remove-defense" };
     const collectButton = target.closest("button[data-collect-building-id]");
     if (collectButton == null ? void 0 : collectButton.dataset.collectBuildingId) {
-      return { kind: "collect", buildingId: collectButton.dataset.collectBuildingId };
+      return {
+        kind: "collect",
+        buildingId: collectButton.dataset.collectBuildingId,
+        ...collectButton.dataset.collectResourceKey ? { resourceKey: collectButton.dataset.collectResourceKey } : {}
+      };
+    }
+    const cancelProductionButton = target.closest(
+      "button[data-cancel-production-building-id][data-cancel-production-recipe-id]"
+    );
+    if ((cancelProductionButton == null ? void 0 : cancelProductionButton.dataset.cancelProductionBuildingId) && (cancelProductionButton == null ? void 0 : cancelProductionButton.dataset.cancelProductionRecipeId)) {
+      return {
+        kind: "cancel-production",
+        buildingId: cancelProductionButton.dataset.cancelProductionBuildingId,
+        recipeId: cancelProductionButton.dataset.cancelProductionRecipeId
+      };
     }
     const buildingAction = resolveBuildingAction(target);
     if (buildingAction) return buildingAction;
@@ -954,7 +1118,8 @@ var EmpireGameplaySliceClient = function(exports) {
       return {
         kind: "craft",
         buildingId: craftButton.dataset.craftBuildingId,
-        recipeId: craftButton.dataset.craftRecipeId
+        recipeId: craftButton.dataset.craftRecipeId,
+        ...toPositiveInteger(craftButton.dataset.craftQuantity) === void 0 ? {} : { quantity: toPositiveInteger(craftButton.dataset.craftQuantity) }
       };
     }
     const buildingCard = target.closest("article[data-building-id][data-building-type]");
@@ -1018,6 +1183,10 @@ var EmpireGameplaySliceClient = function(exports) {
   const toPositiveNumber = (value) => {
     const parsed = Number(value || "");
     return Number.isFinite(parsed) && parsed > 0 ? parsed : void 0;
+  };
+  const toPositiveInteger = (value) => {
+    const parsed = Number(value || "");
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : void 0;
   };
   const overlayStack = [];
   const LOCKED_BODY_DATA_ATTRIBUTE = "overlayScrollLocked";
@@ -1327,7 +1496,7 @@ var EmpireGameplaySliceClient = function(exports) {
   };
   const createClientSurfaceActionRouter = (options) => ({
     handleTarget: async (target) => {
-      var _a, _b;
+      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
       const action = resolveClientSurfaceAction(target);
       if (!action) {
         return null;
@@ -1352,6 +1521,8 @@ var EmpireGameplaySliceClient = function(exports) {
         );
       }
       if (action.kind === "open-building") {
+        const slice2 = options.client.getGameplaySlice();
+        if (!canUseOwnedDistrictBuilding(slice2, action.buildingId)) return null;
         return options.client.selectBuilding(action.buildingId);
       }
       const slice = options.client.getGameplaySlice();
@@ -1363,7 +1534,7 @@ var EmpireGameplaySliceClient = function(exports) {
       const mode = slice.mode.mode;
       switch (action.kind) {
         case "attack": {
-          const target2 = district.attackTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
+          const target2 = ((_a = district.targetActions) == null ? void 0 : _a.attackTargets.find((candidate) => candidate.districtId === action.targetDistrictId)) ?? district.attackTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
           const weapons = (target2 == null ? void 0 : target2.selectedLoadout) ?? {};
           const hasSelectedWeapon = Object.values(weapons).some((amount) => Number(amount) > 0);
           if (!(target2 == null ? void 0 : target2.enabled) || !hasSelectedWeapon) return null;
@@ -1380,7 +1551,7 @@ var EmpireGameplaySliceClient = function(exports) {
           );
         }
         case "rob": {
-          const target2 = (_a = district.robTargets) == null ? void 0 : _a.find((candidate) => candidate.districtId === action.targetDistrictId);
+          const target2 = ((_b = district.targetActions) == null ? void 0 : _b.robTargets.find((candidate) => candidate.districtId === action.targetDistrictId)) ?? ((_c = district.robTargets) == null ? void 0 : _c.find((candidate) => candidate.districtId === action.targetDistrictId));
           if (!(target2 == null ? void 0 : target2.enabled)) return null;
           return options.client.dispatch(
             createRobDistrictCommand({
@@ -1392,7 +1563,7 @@ var EmpireGameplaySliceClient = function(exports) {
           );
         }
         case "heist": {
-          const target2 = (_b = district.heistTargets) == null ? void 0 : _b.find((candidate) => candidate.districtId === action.targetDistrictId);
+          const target2 = ((_d = district.targetActions) == null ? void 0 : _d.heistTargets.find((candidate) => candidate.districtId === action.targetDistrictId)) ?? ((_e = district.heistTargets) == null ? void 0 : _e.find((candidate) => candidate.districtId === action.targetDistrictId));
           if (!(target2 == null ? void 0 : target2.enabled)) return null;
           return options.client.dispatch(
             createHeistDistrictCommand({
@@ -1404,7 +1575,7 @@ var EmpireGameplaySliceClient = function(exports) {
           );
         }
         case "spy": {
-          const target2 = district.spyTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
+          const target2 = ((_f = district.targetActions) == null ? void 0 : _f.spyTargets.find((candidate) => candidate.districtId === action.targetDistrictId)) ?? district.spyTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
           if (!(target2 == null ? void 0 : target2.enabled)) return null;
           return options.client.dispatch(
             createSpyDistrictCommand({
@@ -1416,7 +1587,7 @@ var EmpireGameplaySliceClient = function(exports) {
           );
         }
         case "occupy": {
-          const target2 = district.occupyTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
+          const target2 = ((_g = district.targetActions) == null ? void 0 : _g.occupyTargets.find((candidate) => candidate.districtId === action.targetDistrictId)) ?? district.occupyTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
           if (!(target2 == null ? void 0 : target2.enabled)) return null;
           return options.client.dispatch(
             createOccupyDistrictCommand({
@@ -1428,6 +1599,7 @@ var EmpireGameplaySliceClient = function(exports) {
           );
         }
         case "place-trap":
+          if (!district.isOwnedByPlayer || !((_h = district.trap) == null ? void 0 : _h.enabled)) return null;
           return options.client.dispatch(
             createPlaceTrapCommand({
               commandId: options.createCommandId("command:trap"),
@@ -1436,6 +1608,7 @@ var EmpireGameplaySliceClient = function(exports) {
             })
           );
         case "place-defense":
+          if (!((_i = district.placeDefense) == null ? void 0 : _i.enabled)) return null;
           return options.client.dispatch(
             createPlaceDefenseCommand({
               commandId: options.createCommandId("command:place-defense"),
@@ -1444,6 +1617,7 @@ var EmpireGameplaySliceClient = function(exports) {
             })
           );
         case "remove-defense":
+          if (!((_j = district.removeDefense) == null ? void 0 : _j.enabled)) return null;
           return options.client.dispatch(
             createRemoveDefenseCommand({
               commandId: options.createCommandId("command:remove-defense"),
@@ -1452,59 +1626,24 @@ var EmpireGameplaySliceClient = function(exports) {
             })
           );
         case "building-action":
-          return options.client.dispatch(
-            createRunBuildingActionCommand({
-              commandId: options.createCommandId("command:building-action"),
-              slice,
-              buildingId: action.buildingId,
-              actionId: action.actionId,
-              dealerSlotId: action.dealerSlotId,
-              targetCategory: readStringValue(action, "targetCategory"),
-              category: readStringValue(action, "category"),
-              mode: readStringValue(action, "mode"),
-              investmentCleanCash: readNumberValue(action, "investmentCleanCash"),
-              investment: readNumberValue(action, "investment"),
-              targetZone: readStringValue(action, "targetZone"),
-              itemId: action.itemId,
-              amount: action.amount,
-              issuedAt
-            })
-          );
         case "collect":
-          return options.client.dispatch(
-            createCollectProductionCommand({
-              commandId: options.createCommandId("command:collect"),
-              serverInstanceId: slice.player.instanceId,
-              playerId: slice.player.playerId,
-              mode,
-              districtId: district.districtId,
-              buildingId: action.buildingId,
-              issuedAt
-            })
-          );
         case "craft":
-          return options.client.dispatch(
-            createCraftItemCommand({
-              commandId: options.createCommandId("command:craft"),
-              slice,
-              buildingId: action.buildingId,
-              recipeId: action.recipeId,
-              issuedAt
-            })
-          );
+        case "cancel-production": {
+          const command = createBuildingSurfaceCommand({
+            action,
+            slice,
+            districtId: district.districtId,
+            mode,
+            issuedAt,
+            createCommandId: options.createCommandId
+          });
+          return command ? options.client.dispatch(command) : null;
+        }
         default:
           return null;
       }
     }
   });
-  const readStringValue = (action, key) => {
-    const value = action[key];
-    return typeof value === "string" && value.trim() ? value : void 0;
-  };
-  const readNumberValue = (action, key) => {
-    const value = action[key];
-    return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : void 0;
-  };
   const createInitialClientReadModel = () => ({
     playerView: null,
     gameSnapshot: null,
@@ -2036,7 +2175,157 @@ var EmpireGameplaySliceClient = function(exports) {
   };
   const formatResourceLabel$2 = (resourceKey) => RESOURCE_LABELS$2[resourceKey] ?? toTitleCase$3(resourceKey);
   const formatSigned$1 = (value) => value >= 0 ? `+${value}` : String(value);
+  const createDistrictPanelBuildingViewModels = (buildings, input) => buildings.map((building) => ({
+    buildingId: building.buildingId,
+    buildingTypeId: building.buildingTypeId,
+    label: building.displayName || building.label,
+    variantName: building.variantName,
+    typeLabel: building.label,
+    zoneLabel: toTitleCase$3(building.zone),
+    roleLabel: building.role,
+    info: building.info,
+    statusLabel: `${building.status} · level ${building.level}`,
+    summaryLabel: `${building.actions.filter((action) => action.enabled).length}/${building.actions.length} akcí připraveno`,
+    stats: building.stats.map((stat) => ({
+      label: stat.label,
+      value: stat.value
+    })),
+    phaseAvailability: building.phaseAvailability ?? "neutral",
+    phaseBadgeLabel: building.phaseBadgeLabel ?? null,
+    phaseTooltip: building.phaseTooltip ?? null,
+    passivePhaseBadgeLabel: building.passivePhaseBadgeLabel ?? null,
+    passivePhaseEffectLabel: building.passivePhaseEffectLabel ?? null,
+    passivePhaseTooltip: building.passivePhaseTooltip ?? null,
+    specialActions: building.specialActions.map((action) => {
+      const cooldown = createCooldownCountdown(action.cooldownRemainingTicks ?? 0, input.tickRateMs, input.nowMs);
+      const effectiveInputCost = action.effectiveInputCost ?? action.baseInputCost ?? {};
+      const effectiveOutputGain = action.effectiveOutputGain ?? action.baseOutputGain ?? {};
+      const effectiveHeatGain = action.effectiveHeatGain ?? action.heatGain;
+      const effectiveCooldownMs = action.effectiveCooldownMs ?? action.cooldownMs;
+      const effectiveDurationMs = action.effectiveDurationMs ?? action.durationMs;
+      return {
+        actionId: action.actionId,
+        label: action.label,
+        description: action.description,
+        effectSummary: action.effectSummary,
+        durationLabel: effectiveDurationMs > 0 ? formatDurationMs(effectiveDurationMs) : "Okamžitě",
+        cooldownLabel: cooldown.remainingMs > 0 ? `Čekání ${formatDurationMs(cooldown.remainingMs)}` : formatDurationMs(effectiveCooldownMs),
+        cooldownRemainingMs: cooldown.remainingMs,
+        cooldownEndsAtMs: cooldown.endsAtMs,
+        heatLabel: `+${effectiveHeatGain}`,
+        baseInputCost: { ...action.baseInputCost ?? action.effectiveInputCost ?? {} },
+        effectiveInputCost: { ...effectiveInputCost },
+        baseOutputGain: { ...action.baseOutputGain ?? action.effectiveOutputGain ?? {} },
+        effectiveOutputGain: { ...effectiveOutputGain },
+        baseHeatGain: action.baseHeatGain ?? action.heatGain,
+        effectiveHeatGain,
+        baseCooldownMs: action.baseCooldownMs ?? action.cooldownMs,
+        effectiveCooldownMs,
+        baseDurationMs: action.baseDurationMs ?? action.durationMs,
+        effectiveDurationMs,
+        inputSummary: formatResourceSummary(effectiveInputCost, "Zdarma"),
+        outputSummary: formatResourceSummary(effectiveOutputGain, "Bez výstupu"),
+        disabled: input.hasPendingCommand || !action.enabled,
+        disabledReason: input.hasPendingCommand ? "Akce se zpracovává." : action.disabledReason,
+        phaseAvailability: action.phaseAvailability ?? "neutral",
+        phaseBadgeLabel: action.phaseBadgeLabel ?? null,
+        phaseTooltip: action.phaseTooltip ?? null,
+        blockedReason: action.blockedReason ?? action.phaseBlockedReason ?? null,
+        preferredPhase: action.preferredPhase ?? null,
+        currentPhase: action.currentPhase ?? null,
+        phaseEffectSummary: action.phaseEffectSummary ?? [],
+        phaseEffectLabel: createPhaseEffectLabel({
+          phaseTooltip: action.phaseTooltip ?? null,
+          phaseEffectSummary: action.phaseEffectSummary ?? []
+        })
+      };
+    }),
+    actions: building.actions.map((action) => {
+      const cooldown = createCooldownCountdown(action.cooldownRemainingTicks ?? 0, input.tickRateMs, input.nowMs);
+      const effectiveInputCost = action.effectiveInputCost ?? action.inputCost;
+      const effectiveOutputGain = action.effectiveOutputGain ?? action.outputGain;
+      const effectiveHeatGain = action.effectiveHeatGain ?? action.heatGain;
+      const effectiveCooldownMs = action.effectiveCooldownMs ?? action.cooldownMs;
+      const effectiveDurationMs = action.effectiveDurationMs ?? action.durationMs;
+      return {
+        actionId: action.actionId,
+        label: action.label,
+        description: action.description,
+        statusLabel: toTitleCase$3(action.status),
+        inputSummary: formatResourceSummary(effectiveInputCost, "Zdarma"),
+        outputSummary: formatResourceSummary(effectiveOutputGain, "Bez výstupu"),
+        baseInputCost: { ...action.baseInputCost ?? action.inputCost },
+        effectiveInputCost: { ...effectiveInputCost },
+        baseOutputGain: { ...action.baseOutputGain ?? action.outputGain },
+        effectiveOutputGain: { ...effectiveOutputGain },
+        baseHeatGain: action.baseHeatGain ?? action.heatGain,
+        effectiveHeatGain,
+        baseCooldownMs: action.baseCooldownMs ?? action.cooldownMs,
+        effectiveCooldownMs,
+        baseDurationMs: action.baseDurationMs ?? action.durationMs,
+        effectiveDurationMs,
+        expectedEffectSummary: action.expectedEffectSummary,
+        riskSummary: action.riskSummary,
+        inputs: action.requiresInput.map((requiredInput) => ({
+          id: requiredInput.id,
+          type: requiredInput.type,
+          label: requiredInput.label,
+          required: requiredInput.required,
+          min: requiredInput.min,
+          max: requiredInput.max,
+          options: requiredInput.options ?? []
+        })),
+        cooldownLabel: cooldown.remainingMs > 0 ? `Čekání ${formatDurationMs(cooldown.remainingMs)}` : `${Math.ceil(effectiveCooldownMs / 1e3)}s čekání`,
+        cooldownRemainingMs: cooldown.remainingMs,
+        cooldownEndsAtMs: cooldown.endsAtMs,
+        heatLabel: `+${effectiveHeatGain}`,
+        influenceLabel: formatSigned$1(action.influenceChange),
+        disabled: input.hasPendingCommand || !action.enabled,
+        disabledReason: input.hasPendingCommand ? "Akce se zpracovává." : action.disabledReason,
+        phaseAvailability: action.phaseAvailability ?? "neutral",
+        phaseBadgeLabel: action.phaseBadgeLabel ?? null,
+        phaseTooltip: action.phaseTooltip ?? null,
+        blockedReason: action.blockedReason ?? action.phaseBlockedReason ?? null,
+        preferredPhase: action.preferredPhase ?? null,
+        currentPhase: action.currentPhase ?? null,
+        phaseEffectSummary: action.phaseEffectSummary ?? [],
+        phaseEffectLabel: createPhaseEffectLabel({
+          phaseTooltip: action.phaseTooltip ?? null,
+          phaseEffectSummary: action.phaseEffectSummary ?? []
+        })
+      };
+    }),
+    productionLines: createBuildingProductionLineViewModels(building, input.tickRateMs)
+  }));
+  const createBuildingProductionLineViewModels = (building, tickRateMs) => {
+    var _a, _b, _c, _d;
+    const lines = ((_a = building.pharmacy) == null ? void 0 : _a.lines) ?? ((_b = building.drugLab) == null ? void 0 : _b.lines) ?? ((_c = building.factory) == null ? void 0 : _c.productionLines) ?? ((_d = building.armory) == null ? void 0 : _d.productionLines) ?? [];
+    return lines.map((line) => ({
+      recipeId: line.recipeId,
+      label: line.label,
+      statusLabel: toTitleCase$3(line.status),
+      inputSummary: createProductionLineCostLabel(line),
+      durationLabel: line.remainingMs > 0 ? `Zbývá ${formatDurationMs(line.remainingMs)}` : formatDurationMs(Math.max(0, line.effectiveUnitDurationTicks * tickRateMs)),
+      canStart: line.canStart,
+      disabledReason: line.disabledReason
+    }));
+  };
+  const createProductionLineCostLabel = (line) => {
+    const costs = [
+      Number(line.unitCleanCashCost || 0) > 0 ? `${Number(line.unitCleanCashCost)} čistých peněz` : "",
+      formatResourceSummary(line.materialInputCosts ?? {}, "")
+    ].filter(Boolean);
+    return costs.length > 0 ? costs.join(" · ") : "Zdarma";
+  };
+  const createPhaseEffectLabel = (input) => {
+    if (input.phaseEffectSummary.length > 0) {
+      return input.phaseEffectSummary.join(", ");
+    }
+    const tooltip = String(input.phaseTooltip || "").trim();
+    return tooltip || null;
+  };
   const createDistrictPanelViewModel = (slice, uiState, options = {}) => {
+    var _a, _b;
     if (!(slice == null ? void 0 : slice.district) || uiState.selectedDistrictId !== slice.district.districtId) {
       return null;
     }
@@ -2048,6 +2337,7 @@ var EmpireGameplaySliceClient = function(exports) {
     const basicActions = createDistrictBasicActionViewModels(slice.district, hasPendingCommand);
     return {
       districtId: slice.district.districtId,
+      intelKnown: slice.district.intelKnown,
       selectedBuildingId,
       title: slice.district.name,
       ownershipLabel: slice.district.isOwnedByPlayer ? "Vlastní hráč" : slice.district.status === "destroyed" ? "Zničený distrikt" : slice.district.ownerPlayerId ? `Vlastní ${slice.district.ownerPlayerId}` : "Neobsazený distrikt",
@@ -2055,12 +2345,12 @@ var EmpireGameplaySliceClient = function(exports) {
       statusLabel: slice.district.status,
       heatLabel: formatHeatLabel$1(slice.district.heat),
       influenceLabel: String(slice.district.influence),
-      buildingSummary: slice.district.status === "destroyed" ? "0 pevných budov · zničeno" : `${slice.district.buildings.length} pevných budov`,
+      buildingSummary: !slice.district.intelKnown ? "Budovy nezjištěny" : slice.district.status === "destroyed" ? "0 pevných budov · zničeno" : `${slice.district.buildings.length} pevných budov`,
       attackSummary: slice.district.attackTargets.length > 0 ? `${slice.district.attackTargets.filter((target) => target.enabled).length}/${slice.district.attackTargets.length} tras útoku připraveno` : "Žádné sousední trasy útoku",
       hasPendingCommand,
       trap: slice.district.trap ? {
-        actionLabel: slice.district.trap.activeTrap ? "Past nastražena" : "Nastražit skrytou past",
-        activeLabel: slice.district.trap.activeTrap ? `${slice.district.trap.activeTrap.label} · tick ${slice.district.trap.activeTrap.placedAtTick}` : null,
+        actionLabel: slice.district.trap.activeTrap ? "Past nastražena" : ((_a = slice.district.trap.relocationSource) == null ? void 0 : _a.canRelocate) ? "Přesunout skrytou past" : "Nastražit skrytou past",
+        activeLabel: slice.district.trap.activeTrap ? `${slice.district.trap.activeTrap.label} · tick ${slice.district.trap.activeTrap.placedAtTick}` : ((_b = slice.district.trap.relocationSource) == null ? void 0 : _b.canRelocate) ? "Past je aktivní v jiném vlastním districtu." : null,
         disabled: hasPendingCommand || !slice.district.trap.enabled,
         disabledReason: hasPendingCommand ? "Akce se zpracovává." : slice.district.trap.disabledReason
       } : null,
@@ -2096,127 +2386,11 @@ var EmpireGameplaySliceClient = function(exports) {
         disabledReason: hasPendingCommand ? "Akce se zpracovává." : target.disabledReason,
         cooldownLabel: (target.cooldownRemainingTicks ?? 0) > 0 ? `${target.cooldownRemainingTicks} ticks` : null
       })),
-      buildings: slice.district.buildings.map((building) => ({
-        buildingId: building.buildingId,
-        buildingTypeId: building.buildingTypeId,
-        label: building.displayName || building.label,
-        variantName: building.variantName,
-        typeLabel: building.label,
-        zoneLabel: toTitleCase$3(building.zone),
-        roleLabel: building.role,
-        info: building.info,
-        statusLabel: `${building.status} · level ${building.level}`,
-        summaryLabel: `${building.actions.filter((action) => action.enabled).length}/${building.actions.length} akcí připraveno`,
-        stats: building.stats.map((stat) => ({
-          label: stat.label,
-          value: stat.value
-        })),
-        phaseAvailability: building.phaseAvailability ?? "neutral",
-        phaseBadgeLabel: building.phaseBadgeLabel ?? null,
-        phaseTooltip: building.phaseTooltip ?? null,
-        passivePhaseBadgeLabel: building.passivePhaseBadgeLabel ?? null,
-        passivePhaseEffectLabel: building.passivePhaseEffectLabel ?? null,
-        passivePhaseTooltip: building.passivePhaseTooltip ?? null,
-        specialActions: building.specialActions.map((action) => {
-          const cooldown = createCooldownCountdown(action.cooldownRemainingTicks ?? 0, tickRateMs, nowMs);
-          const effectiveInputCost = action.effectiveInputCost ?? action.baseInputCost ?? {};
-          const effectiveOutputGain = action.effectiveOutputGain ?? action.baseOutputGain ?? {};
-          const effectiveHeatGain = action.effectiveHeatGain ?? action.heatGain;
-          const effectiveCooldownMs = action.effectiveCooldownMs ?? action.cooldownMs;
-          const effectiveDurationMs = action.effectiveDurationMs ?? action.durationMs;
-          return {
-            actionId: action.actionId,
-            label: action.label,
-            description: action.description,
-            effectSummary: action.effectSummary,
-            durationLabel: effectiveDurationMs > 0 ? formatDurationMs(effectiveDurationMs) : "Okamžitě",
-            cooldownLabel: cooldown.remainingMs > 0 ? `Čekání ${formatDurationMs(cooldown.remainingMs)}` : formatDurationMs(effectiveCooldownMs),
-            cooldownRemainingMs: cooldown.remainingMs,
-            cooldownEndsAtMs: cooldown.endsAtMs,
-            heatLabel: `+${effectiveHeatGain}`,
-            baseInputCost: { ...action.baseInputCost ?? action.effectiveInputCost ?? {} },
-            effectiveInputCost: { ...effectiveInputCost },
-            baseOutputGain: { ...action.baseOutputGain ?? action.effectiveOutputGain ?? {} },
-            effectiveOutputGain: { ...effectiveOutputGain },
-            baseHeatGain: action.baseHeatGain ?? action.heatGain,
-            effectiveHeatGain,
-            baseCooldownMs: action.baseCooldownMs ?? action.cooldownMs,
-            effectiveCooldownMs,
-            baseDurationMs: action.baseDurationMs ?? action.durationMs,
-            effectiveDurationMs,
-            inputSummary: formatResourceSummary(effectiveInputCost, "Zdarma"),
-            outputSummary: formatResourceSummary(effectiveOutputGain, "Bez výstupu"),
-            disabled: hasPendingCommand || !action.enabled,
-            disabledReason: hasPendingCommand ? "Akce se zpracovává." : action.disabledReason,
-            phaseAvailability: action.phaseAvailability ?? "neutral",
-            phaseBadgeLabel: action.phaseBadgeLabel ?? null,
-            phaseTooltip: action.phaseTooltip ?? null,
-            blockedReason: action.blockedReason ?? action.phaseBlockedReason ?? null,
-            preferredPhase: action.preferredPhase ?? null,
-            currentPhase: action.currentPhase ?? null,
-            phaseEffectSummary: action.phaseEffectSummary ?? [],
-            phaseEffectLabel: createPhaseEffectLabel({
-              phaseTooltip: action.phaseTooltip ?? null,
-              phaseEffectSummary: action.phaseEffectSummary ?? []
-            })
-          };
-        }),
-        actions: building.actions.map((action) => {
-          const cooldown = createCooldownCountdown(action.cooldownRemainingTicks ?? 0, tickRateMs, nowMs);
-          const effectiveInputCost = action.effectiveInputCost ?? action.inputCost;
-          const effectiveOutputGain = action.effectiveOutputGain ?? action.outputGain;
-          const effectiveHeatGain = action.effectiveHeatGain ?? action.heatGain;
-          const effectiveCooldownMs = action.effectiveCooldownMs ?? action.cooldownMs;
-          const effectiveDurationMs = action.effectiveDurationMs ?? action.durationMs;
-          return {
-            actionId: action.actionId,
-            label: action.label,
-            description: action.description,
-            statusLabel: toTitleCase$3(action.status),
-            inputSummary: formatResourceSummary(effectiveInputCost, "Zdarma"),
-            outputSummary: formatResourceSummary(effectiveOutputGain, "Bez výstupu"),
-            baseInputCost: { ...action.baseInputCost ?? action.inputCost },
-            effectiveInputCost: { ...effectiveInputCost },
-            baseOutputGain: { ...action.baseOutputGain ?? action.outputGain },
-            effectiveOutputGain: { ...effectiveOutputGain },
-            baseHeatGain: action.baseHeatGain ?? action.heatGain,
-            effectiveHeatGain,
-            baseCooldownMs: action.baseCooldownMs ?? action.cooldownMs,
-            effectiveCooldownMs,
-            baseDurationMs: action.baseDurationMs ?? action.durationMs,
-            effectiveDurationMs,
-            expectedEffectSummary: action.expectedEffectSummary,
-            riskSummary: action.riskSummary,
-            inputs: action.requiresInput.map((input) => ({
-              id: input.id,
-              type: input.type,
-              label: input.label,
-              required: input.required,
-              min: input.min,
-              max: input.max,
-              options: input.options ?? []
-            })),
-            cooldownLabel: cooldown.remainingMs > 0 ? `Čekání ${formatDurationMs(cooldown.remainingMs)}` : `${Math.ceil(effectiveCooldownMs / 1e3)}s čekání`,
-            cooldownRemainingMs: cooldown.remainingMs,
-            cooldownEndsAtMs: cooldown.endsAtMs,
-            heatLabel: `+${effectiveHeatGain}`,
-            influenceLabel: formatSigned$1(action.influenceChange),
-            disabled: hasPendingCommand || !action.enabled,
-            disabledReason: hasPendingCommand ? "Akce se zpracovává." : action.disabledReason,
-            phaseAvailability: action.phaseAvailability ?? "neutral",
-            phaseBadgeLabel: action.phaseBadgeLabel ?? null,
-            phaseTooltip: action.phaseTooltip ?? null,
-            blockedReason: action.blockedReason ?? action.phaseBlockedReason ?? null,
-            preferredPhase: action.preferredPhase ?? null,
-            currentPhase: action.currentPhase ?? null,
-            phaseEffectSummary: action.phaseEffectSummary ?? [],
-            phaseEffectLabel: createPhaseEffectLabel({
-              phaseTooltip: action.phaseTooltip ?? null,
-              phaseEffectSummary: action.phaseEffectSummary ?? []
-            })
-          };
-        })
-      })),
+      buildings: createDistrictPanelBuildingViewModels(slice.district.buildings, {
+        hasPendingCommand,
+        nowMs,
+        tickRateMs
+      }),
       slots: slice.district.slots.map((slot) => ({
         slotIndex: slot.slotIndex,
         buildingTypeId: slot.buildingTypeId,
@@ -2254,16 +2428,6 @@ var EmpireGameplaySliceClient = function(exports) {
         buildOptions: []
       }))
     };
-  };
-  const createPhaseEffectLabel = (input) => {
-    if (input.phaseEffectSummary.length > 0) {
-      return input.phaseEffectSummary.join(", ");
-    }
-    const tooltip = String(input.phaseTooltip || "").trim();
-    if (tooltip) {
-      return tooltip;
-    }
-    return null;
   };
   const createMapDistrictViewModels = (districts, selectedDistrictId, attackTargets = []) => districts.map((district) => {
     const attackTarget = attackTargets.find((target) => target.districtId === district.districtId);

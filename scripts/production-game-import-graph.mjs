@@ -41,6 +41,10 @@ export function auditProductionGameImportGraph(options = {}) {
   const rootDir = resolve(options.rootDir ?? process.cwd());
   const gameHtmlPath = normalizeRelativePath(options.gameHtmlPath ?? DEFAULT_GAME_HTML_PATH);
   const legacyRuntimePath = normalizeRelativePath(options.legacyRuntimePath ?? DEFAULT_LEGACY_RUNTIME_PATH);
+  const allowedProductionLegacyRuntimeImporters = new Set(
+    (options.allowedProductionLegacyRuntimeImporters ?? [])
+      .map((filePath) => normalizeRelativePath(filePath).toLowerCase())
+  );
   const forbiddenPathFragments = (options.forbiddenPathFragments ?? []).map((fragment) =>
     normalizeRelativePath(fragment).toLowerCase()
   );
@@ -152,6 +156,15 @@ export function auditProductionGameImportGraph(options = {}) {
       }
 
       if (relativeImport.toLowerCase() === legacyRuntimePath.toLowerCase()) {
+        if (allowedProductionLegacyRuntimeImporters.has(relativeFile.toLowerCase())) {
+          skippedModeEdges.push({
+            from: relativeFile,
+            to: relativeImport,
+            reason: "temporary-legacy-runtime-compatibility",
+            chain: dependencyChain
+          });
+          continue;
+        }
         violations.push(createViolation(
           "legacy-runtime-production-import",
           `Legacy runtime je zakázaný v server-authoritative grafu: ${formatChain(dependencyChain)}`,

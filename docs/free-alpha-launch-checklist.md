@@ -10,13 +10,13 @@ The hosted runtime code now has local coverage for the previously blocking autho
 - hosted ticks and HTTP commands use the same per-instance atomic transaction boundary, while snapshot repositories reject stale or divergent equal-version writes;
 - provisioning and lifecycle completion are fenced by the current worker claim, claim version, expiry, and the required runtime lease;
 - production startup checks the exact migration filename/checksum contract and fails closed on missing, changed, extra, or unavailable migration history;
-- `pages/game.html` enables visibility-aware gameplay polling every five seconds, with retry backoff after failures.
+- `pages/game.html` enables visibility-aware gameplay polling every ten seconds, with retry backoff after failures.
 
 The public account, membership, and gameplay-session entry boundary is implemented. Do not admit real players until the Netlify Functions environment, target PostgreSQL migrations, production secrets, deployed route contracts, and live hosted worker heartbeat are proven on `empirestreets.cz`. Local tests are implementation evidence, not deployment evidence.
 
 ## A) Local Test
 
-- Use Node 20.
+- Use Node 24 LTS exactly; verify with `node --version` and `npm --version`.
 - Install dependencies with `npm ci` when lockfile state is clean; otherwise use `npm install` only for local repair.
 - Run `npm run lint`.
 - Run `npm run typecheck`.
@@ -32,7 +32,7 @@ The public account, membership, and gameplay-session entry boundary is implement
 
 ## B) Preview Deploy
 
-- Confirm Netlify uses Node 20.
+- Confirm Netlify build and Functions use Node 24 and no site-level override still selects Node 20.
 - Set preview environment variables through the Netlify UI, CLI, or API with Functions scope; do not rely on `[build.environment]` or values declared in `netlify.toml` for function runtime secrets.
 - Set preview secrets without exposing them in build or function logs.
 - Verify `/api/servers`.
@@ -61,6 +61,7 @@ The public account, membership, and gameplay-session entry boundary is implement
   - `EMPIRE_ADMIN_WRITES_ENABLED=true`, `EMPIRE_HOSTED_CONTROL_PLANE_ENABLED=true`, and `EMPIRE_SERVER_PROVISIONING_ENABLED=true` only when production admin writes are intentionally opened
   - `EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED=true` only when public account registration is intentionally opened
   - `EMPIRE_AUTH_THROTTLE_PEPPER` with at least 32 characters when account registration or login is enabled
+  - `EMPIRE_ACCOUNT_TERMS_VERSION` set to the approved current terms version before registration is enabled
   - `EMPIRE_LEGACY_MATCHMAKING_ENABLED` unset or false
   - read-only admin session configuration described in `docs/admin/read-only-authority-foundation.md`
 - Required hosted worker environment variables:
@@ -88,6 +89,13 @@ The public account, membership, and gameplay-session entry boundary is implement
   - `apps/server/src/runtime/persistence/postgres/migrations/013_account_auth_throttle.sql`
   - `apps/server/src/runtime/persistence/postgres/migrations/014_hosted_match_results.sql`
   - `apps/server/src/runtime/persistence/postgres/migrations/015_account_age_requirement.sql`
+  - `apps/server/src/runtime/persistence/postgres/migrations/016_free_mode_ten_second_tick.sql`
+  - `apps/server/src/runtime/persistence/postgres/migrations/017_snapshot_recovery_heads_and_checkpoints.sql`
+  - `apps/server/src/runtime/persistence/postgres/migrations/018_drop_redundant_snapshot_head_tick_index.sql`
+  - `apps/server/src/runtime/persistence/postgres/migrations/019_drop_redundant_snapshot_head_root_version_index.sql`
+  - `apps/server/src/runtime/persistence/postgres/migrations/020_hosted_player_job_incarnation_fencing.sql`
+  - `apps/server/src/runtime/persistence/postgres/migrations/021_account_terms_acceptance.sql`
+- Apply them with `npm run db:migrate -- --controlled-snapshot-recovery`; do not run the SQL files manually or skip the controlled migration `017` preparation.
 - Run `npm run db:migrate:status` and reject the deploy unless every migration filename and checksum is current.
 - Run strict hosted preflight with `EMPIRE_HOSTED_PREFLIGHT_STRICT=1`; a skipped database check is not a pass.
 - Verify production persistence is Postgres-backed.

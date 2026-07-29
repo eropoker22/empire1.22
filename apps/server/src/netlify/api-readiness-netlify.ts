@@ -1,5 +1,6 @@
 import { isProductionSchemaCurrent, type PostgresDatabase } from "../runtime/persistence/postgres";
 import { createJsonResponse, type NetlifyFunctionResponse } from "./netlify-json-response";
+import { evaluateSupportedNodeVersion } from "../../../../scripts/supported-node-policy.mjs";
 
 export const handleApiReadinessRequest = (
   method: string,
@@ -11,30 +12,34 @@ export const handleApiReadinessRequest = (
 
 export const createApiReadinessResponse = async (
   database: PostgresDatabase | null,
-  environment: Record<string, string | undefined>
+  environment: Record<string, string | undefined>,
+  runtimeVersion: string = process.versions.node
 ): Promise<NetlifyFunctionResponse> => {
   const buildSha = normalizeBuildSha(environment.EMPIRE_BUILD_SHA);
-  if (!database) return unavailable("DATABASE_UNAVAILABLE", buildSha, "unavailable");
+  const runtime = safeRuntimeMetadata(runtimeVersion);
+  if (!runtime.supported) return unavailable("NODE_RUNTIME_UNSUPPORTED", buildSha, "unavailable", "unavailable", runtime);
+  if (!database) return unavailable("DATABASE_UNAVAILABLE", buildSha, "unavailable", "unavailable", runtime);
   try {
     await database.query("SELECT 1 AS connected");
   } catch {
-    return unavailable("DATABASE_UNAVAILABLE", buildSha, "unavailable");
+    return unavailable("DATABASE_UNAVAILABLE", buildSha, "unavailable", "unavailable", runtime);
   }
   let schemaCurrent = false;
   try {
     schemaCurrent = await isProductionSchemaCurrent(database);
   } catch {
-    return unavailable("DATABASE_SCHEMA_UNAVAILABLE", buildSha, "available");
+    return unavailable("DATABASE_SCHEMA_UNAVAILABLE", buildSha, "available", "unavailable", runtime);
   }
-  if (!schemaCurrent) return unavailable("DATABASE_MIGRATIONS_PENDING", buildSha, "available");
-  if (!buildSha) return unavailable("BUILD_SHA_UNAVAILABLE", null, "available", "current");
+  if (!schemaCurrent) return unavailable("DATABASE_MIGRATIONS_PENDING", buildSha, "available", "unavailable", runtime);
+  if (!buildSha) return unavailable("BUILD_SHA_UNAVAILABLE", null, "available", "current", runtime);
   return readinessJson(200, {
     status: "ready",
     service: "empire-api",
     code: null,
     database: "available",
     schema: "current",
-    buildSha
+    buildSha,
+    runtime
   });
 };
 
@@ -42,14 +47,16 @@ const unavailable = (
   code: string,
   buildSha: string | null,
   database: "available" | "unavailable",
-  schema: "current" | "unavailable" = "unavailable"
+  schema: "current" | "unavailable" = "unavailable",
+  runtime: ReturnType<typeof safeRuntimeMetadata> = safeRuntimeMetadata(process.versions.node)
 ) => readinessJson(503, {
   status: "unavailable",
   service: "empire-api",
   code,
   database,
   schema,
-  buildSha
+  buildSha,
+  runtime
 });
 
 const readinessJson = (statusCode: number, body: Record<string, unknown>) => createJsonResponse(statusCode, body, {
@@ -59,4 +66,13 @@ const readinessJson = (statusCode: number, body: Record<string, unknown>) => cre
 const normalizeBuildSha = (value: string | undefined): string | null => {
   const normalized = String(value ?? "").trim();
   return /^[0-9a-f]{40}$/u.test(normalized) ? normalized : null;
+};
+
+const safeRuntimeMetadata = (value: string) => {
+  const result = evaluateSupportedNodeVersion(value);
+  return {
+    nodeVersion: result.detectedVersion,
+    nodeMajor: result.detectedMajor,
+    supported: result.supported
+  };
 };

@@ -65,7 +65,13 @@ test("new player completes authoritative lobby entry and returns without leaving
   await page.locator("[data-live-avatar]").first().click();
   await page.getByTestId("continue-to-game").click();
   await expect(page).toHaveURL(/\/pages\/game\.html/u, { timeout: 120_000 });
-  await expect(page.locator("#game-root")).toHaveAttribute("data-runtime-init", "ready", { timeout: 60_000 });
+  await expect(page.locator("#game-root")).toHaveAttribute(
+    "data-runtime-init",
+    "server-authoritative",
+    { timeout: 60_000 }
+  );
+  await expect(page.locator("#game-root")).toHaveAttribute("data-presentation-state", "ready");
+  await expect(page.locator("#game-root")).toHaveAttribute("data-presentation-connection", "ready");
 
   const activeBeforeReturn = await loadOverview(page);
   expect(activeBeforeReturn.activeBlockingMembership.status).toBe("active");
@@ -74,8 +80,20 @@ test("new player completes authoritative lobby entry and returns without leaving
   const playerId = activeBeforeReturn.activeBlockingMembership.playerId;
   const gameplay = await loadGameplay(page, serverInstanceId, option.districtId);
   expect(gameplay.accepted).toBe(true);
-  expect(gameplay.readModel.player).toMatchObject({ playerId, homeDistrictId: option.districtId });
+  expect(
+    gameplay.readModel.player,
+    JSON.stringify({
+      metadata: gameplay.metadata,
+      spawnSelectionStatus: gameplay.readModel.spawnSelection?.status ?? null
+    })
+  ).toMatchObject({ playerId, homeDistrictId: option.districtId });
   expect(gameplay.readModel.spawnSelection?.status).not.toBe("awaiting_spawn_selection");
+
+  const milestoneModal = page.locator("[data-server-milestone-modal]");
+  if (await milestoneModal.isVisible()) {
+    await milestoneModal.locator("[data-server-milestone-confirm]").click();
+    await expect(milestoneModal).toBeHidden();
+  }
 
   await page.locator("[data-nav-logout]").first().click();
   if (await page.locator("[data-game-lobby-modal]").isHidden()) {

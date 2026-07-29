@@ -1,22 +1,19 @@
 import type { GameModeId } from "@empire/shared-types";
 import {
   createAttackDistrictCommand,
-  createCollectProductionCommand,
-  createCraftItemCommand,
   createHeistDistrictCommand,
   createOccupyDistrictCommand,
   createPlaceDefenseCommand,
   createPlaceTrapCommand,
   createRemoveDefenseCommand,
   createRobDistrictCommand,
-  createRunBuildingActionCommand,
   createSelectSpawnDistrictCommand,
   createSpyDistrictCommand
 } from "../features";
-import {
-  resolveClientSurfaceAction
-} from "./client-surface-action-resolver";
+import { createBuildingSurfaceCommand } from "./client-surface-building-command";
+import { resolveClientSurfaceAction } from "./client-surface-action-resolver";
 import { isOverlayOpen } from "../modals";
+import { canUseOwnedDistrictBuilding } from "./client-surface-authority-guards";
 import type {
   ClientSurfaceAction,
   ClientSurfaceActionElement,
@@ -70,6 +67,8 @@ export const createClientSurfaceActionRouter = (
     }
 
     if (action.kind === "open-building") {
+      const slice = options.client.getGameplaySlice();
+      if (!canUseOwnedDistrictBuilding(slice, action.buildingId)) return null;
       return options.client.selectBuilding(action.buildingId);
     }
 
@@ -85,7 +84,8 @@ export const createClientSurfaceActionRouter = (
 
     switch (action.kind) {
       case "attack": {
-        const target = district.attackTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
+        const target = district.targetActions?.attackTargets.find((candidate) => candidate.districtId === action.targetDistrictId)
+          ?? district.attackTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
         const weapons = target?.selectedLoadout ?? {};
         const hasSelectedWeapon = Object.values(weapons).some((amount) => Number(amount) > 0);
         if (!target?.enabled || !hasSelectedWeapon) return null;
@@ -102,7 +102,8 @@ export const createClientSurfaceActionRouter = (
         );
       }
       case "rob": {
-        const target = district.robTargets?.find((candidate) => candidate.districtId === action.targetDistrictId);
+        const target = district.targetActions?.robTargets.find((candidate) => candidate.districtId === action.targetDistrictId)
+          ?? district.robTargets?.find((candidate) => candidate.districtId === action.targetDistrictId);
         if (!target?.enabled) return null;
         return options.client.dispatch(
           createRobDistrictCommand({
@@ -114,7 +115,8 @@ export const createClientSurfaceActionRouter = (
         );
       }
       case "heist": {
-        const target = district.heistTargets?.find((candidate) => candidate.districtId === action.targetDistrictId);
+        const target = district.targetActions?.heistTargets.find((candidate) => candidate.districtId === action.targetDistrictId)
+          ?? district.heistTargets?.find((candidate) => candidate.districtId === action.targetDistrictId);
         if (!target?.enabled) return null;
         return options.client.dispatch(
           createHeistDistrictCommand({
@@ -126,7 +128,8 @@ export const createClientSurfaceActionRouter = (
         );
       }
       case "spy": {
-        const target = district.spyTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
+        const target = district.targetActions?.spyTargets.find((candidate) => candidate.districtId === action.targetDistrictId)
+          ?? district.spyTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
         if (!target?.enabled) return null;
         return options.client.dispatch(
           createSpyDistrictCommand({
@@ -138,7 +141,8 @@ export const createClientSurfaceActionRouter = (
         );
       }
       case "occupy": {
-        const target = district.occupyTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
+        const target = district.targetActions?.occupyTargets.find((candidate) => candidate.districtId === action.targetDistrictId)
+          ?? district.occupyTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
         if (!target?.enabled) return null;
         return options.client.dispatch(
           createOccupyDistrictCommand({
@@ -150,6 +154,7 @@ export const createClientSurfaceActionRouter = (
         );
       }
       case "place-trap":
+        if (!district.isOwnedByPlayer || !district.trap?.enabled) return null;
         return options.client.dispatch(
           createPlaceTrapCommand({
             commandId: options.createCommandId("command:trap"),
@@ -158,6 +163,7 @@ export const createClientSurfaceActionRouter = (
           })
         );
       case "place-defense":
+        if (!district.placeDefense?.enabled) return null;
         return options.client.dispatch(
           createPlaceDefenseCommand({
             commandId: options.createCommandId("command:place-defense"),
@@ -166,6 +172,7 @@ export const createClientSurfaceActionRouter = (
           })
         );
       case "remove-defense":
+        if (!district.removeDefense?.enabled) return null;
         return options.client.dispatch(
           createRemoveDefenseCommand({
             commandId: options.createCommandId("command:remove-defense"),
@@ -174,64 +181,21 @@ export const createClientSurfaceActionRouter = (
           })
         );
       case "building-action":
-        return options.client.dispatch(
-          createRunBuildingActionCommand({
-            commandId: options.createCommandId("command:building-action"),
-            slice,
-            buildingId: action.buildingId,
-            actionId: action.actionId,
-            dealerSlotId: action.dealerSlotId,
-            targetCategory: readStringValue(action, "targetCategory"),
-            category: readStringValue(action, "category"),
-            mode: readStringValue(action, "mode"),
-            investmentCleanCash: readNumberValue(action, "investmentCleanCash"),
-            investment: readNumberValue(action, "investment"),
-            targetZone: readStringValue(action, "targetZone"),
-            itemId: action.itemId,
-            amount: action.amount,
-            issuedAt
-          })
-        );
       case "collect":
-        return options.client.dispatch(
-          createCollectProductionCommand({
-            commandId: options.createCommandId("command:collect"),
-            serverInstanceId: slice.player.instanceId,
-            playerId: slice.player.playerId,
-            mode,
-            districtId: district.districtId,
-            buildingId: action.buildingId,
-            issuedAt
-          })
-        );
       case "craft":
-        return options.client.dispatch(
-          createCraftItemCommand({
-            commandId: options.createCommandId("command:craft"),
-            slice,
-            buildingId: action.buildingId,
-            recipeId: action.recipeId,
-            issuedAt
-          })
-        );
+      case "cancel-production": {
+        const command = createBuildingSurfaceCommand({
+          action,
+          slice,
+          districtId: district.districtId,
+          mode,
+          issuedAt,
+          createCommandId: options.createCommandId
+        });
+        return command ? options.client.dispatch(command) : null;
+      }
       default:
         return null;
     }
   }
 });
-
-const readStringValue = (
-  action: Extract<ClientSurfaceAction, { kind: "building-action" }>,
-  key: "targetCategory" | "category" | "mode" | "targetZone"
-): string | undefined => {
-  const value = (action as unknown as Record<string, unknown>)[key];
-  return typeof value === "string" && value.trim() ? value : undefined;
-};
-
-const readNumberValue = (
-  action: Extract<ClientSurfaceAction, { kind: "building-action" }>,
-  key: "investmentCleanCash" | "investment"
-): number | undefined => {
-  const value = (action as unknown as Record<string, unknown>)[key];
-  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
-};

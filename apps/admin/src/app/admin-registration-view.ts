@@ -9,7 +9,7 @@ export const renderAdminRegistration = (server: AdminHostedServerView, session: 
     && (state === "not_scheduled" || state === "closed" || state === "closed_early");
   const canCancel = server.provisioningState === "ready" && server.status === "lobby" && state === "scheduled";
   const canClose = session.role === "owner" && state === "open";
-  return `<section class="admin-registration" aria-labelledby="admin-registration-${attr(server.serverInstanceId)}">
+  return `<section id="admin-registration" class="admin-registration admin-section-anchor" aria-labelledby="admin-registration-${attr(server.serverInstanceId)}">
     <div class="admin-registration__head">
       <div><span>REGISTRACE HRÁČŮ</span><h5 id="admin-registration-${attr(server.serverInstanceId)}">${escape(stateLabel(state))}</h5></div>
       <strong data-admin-registration-countdown data-registration-state="${attr(state)}"
@@ -20,10 +20,13 @@ export const renderAdminRegistration = (server: AdminHostedServerView, session: 
     <div class="admin-kv-grid">
       ${kv("Otevření", timeWithZone(server.registrationOpensAt))}${kv("Automatické zavření", timeWithZone(server.registrationClosesAt))}
       ${kv("Délka", `${server.registrationWindowMinutes ?? registrationMinutes} minut`)}
+      ${kv("Committed", numberOrDash(server.committedPlayers))}
+      ${kv("Reserved", numberOrDash(server.reservedSlots))}
+      ${kv("Kapacita", server.capacity)}
       ${kv("Připravení hráči", `${numberOrDash(server.readyPlayers)} / ${numberOrDash(server.minimumReadyPlayersToStart)}`)}
     </div>
     <label class="admin-registration__schedule"><span>Plánované otevření · ${escape(browserTimeZone())}</span>
-      <input type="datetime-local" data-admin-registration-opens-at ${canSchedule ? "" : "disabled"}>
+      <input type="datetime-local" data-admin-registration-opens-at data-admin-preserve-input ${canSchedule ? "" : "disabled"}>
     </label>
     <div class="admin-registration__actions">
       ${button(server, "schedule-registration", "Naplánovat registraci", canSchedule)}

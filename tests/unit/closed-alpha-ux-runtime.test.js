@@ -11,4 +11,12 @@ describe("closed alpha UX runtime", () => {
     expect(source).not.toContain("EKONOMIKA");
     expect(source).toContain("document.querySelectorAll(\"[data-street-news-filters]\").forEach");
   });
+
+  it("does not render gameplay recommendations above the map", () => {
+    expect(source).not.toContain("LIVENESS_LABELS");
+    expect(source).not.toContain("Vyšpehuj sousední");
+    expect(source).not.toContain("Prozkoumej nebo obsaď sousední");
+    expect(source).toContain("dataset.operationalRecovery");
+    expect(source).toContain("NOUZOVÁ OBNOVA");
+  });
 });

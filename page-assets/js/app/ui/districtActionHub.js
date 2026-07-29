@@ -34,9 +34,15 @@ export function renderDistrictActionButton(action = {}, callback = null, options
   const hasCallback = typeof callback === "function";
   button.type = "button";
   button.dataset.districtActionId = action.id || "";
+  if (action.key) {
+    button.dataset.districtActionKey = String(action.key);
+  }
+  if (action.targetDistrictId) {
+    button.dataset.districtActionTargetId = String(action.targetDistrictId);
+  }
   button.dataset.districtActionLabel = action.label || "";
   if (action.id) {
-    button.dataset.testid = `district-action-${action.id}`;
+    button.dataset.testid = `district-action-${action.key || action.id}`;
   }
   if (action.disabledTone) {
     button.dataset.districtActionDisabledTone = String(action.disabledTone);

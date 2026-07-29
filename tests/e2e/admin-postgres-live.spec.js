@@ -31,7 +31,7 @@ test("admin login uses the live PostgreSQL session repository", async ({ page, c
   await page.getByRole("button", { name: "Přihlásit" }).click();
   const loginResponse = await loginResponsePromise;
   expect(loginResponse.status()).toBe(200);
-  await expect(page.getByRole("heading", { name: "Read-only admin" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Control Center" })).toBeVisible();
 
   const cookie = (await context.cookies()).find((entry) => entry.name === "empire_admin_session");
   expect(cookie).toBeTruthy();
@@ -49,7 +49,7 @@ test("admin login uses the live PostgreSQL session repository", async ({ page, c
   expect(setCookie).not.toContain("Secure");
 
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Read-only admin" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Control Center" })).toBeVisible();
   const storage = await page.evaluate(() => ({
     local: Object.entries(localStorage),
     session: Object.entries(sessionStorage)
@@ -67,7 +67,7 @@ test("admin login uses the live PostgreSQL session repository", async ({ page, c
   await page.locator("[data-admin-username]").fill(username);
   await page.locator("[data-admin-password]").fill(password);
   await page.getByRole("button", { name: "Přihlásit" }).click();
-  await expect(page.getByRole("heading", { name: "Read-only admin" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Control Center" })).toBeVisible();
 
   await Promise.all(responseReads);
   const browserVisibleData = [...requestUrls, ...consoleMessages, ...responseBodies].join("\n");

@@ -35,9 +35,17 @@ if (!expectedSchemaVersion) throw new Error("No production migration was found."
 const manifest = createReleaseManifest({
   gitSha,
   expectedSchemaVersion,
+  npmVersion: detectNpmVersion(),
   verificationMode: codeLevel ? "code-level" : "staging-environment"
 });
 const output = new URL(`../${STAGING_MANIFEST_PATH}`, import.meta.url);
 await mkdir(new URL("./", output), { recursive: true });
 await writeFile(output, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 console.log(`Created ${STAGING_MANIFEST_PATH} for ${gitSha}.`);
+
+function detectNpmVersion() {
+  const userAgent = String(process.env.npm_config_user_agent ?? "");
+  const match = /(?:^|\s)npm\/([^\s]+)/u.exec(userAgent);
+  if (!match) throw new Error("Release manifest requires npm execution metadata.");
+  return match[1];
+}

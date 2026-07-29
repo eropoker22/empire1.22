@@ -66,6 +66,11 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
     factionId: player?.factionId ?? "mafian",
     homeDistrictId: player?.homeDistrictId ?? null,
     color: player?.color ?? DEFAULT_PLAYER_COLOR,
+    profile: player ? {
+      displayName: stringMetadata(player.metadata?.displayName) || player.name,
+      gangName: stringMetadata(player.metadata?.gangName) || player.name,
+      avatarId: stringMetadata(player.metadata?.avatarId) || null
+    } : null,
     serverTime: context?.clock?.nowIso() ?? new Date().toISOString(),
     resourceBalances,
     storage: player && context?.config.balance.warehouse
@@ -119,6 +124,10 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
     victoryState
   };
 };
+
+const stringMetadata = (value: unknown): string => (
+  typeof value === "string" ? value.trim() : ""
+);
 
 const createPlayerStorageView = (
   state: CoreGameState,

@@ -6,7 +6,6 @@ import {
 } from "./runtime/serverGameplaySource.js";
 import { GAMEPLAY_EXECUTION_MODES, getGameplayExecutionMode } from "./runtime/gameplayExecutionMode.js";
 import { bindSharedModal, closeSharedModal, openSharedModal } from "./ui/sharedModalStack.js";
-import { FREE_GAMEPLAY_TICK_MS } from "../../../packages/game-config/src/legacy-page/economy-config.js";
 
 const CONNECTION_LABELS = Object.freeze({
   connected: "PŘIPOJENO",
@@ -18,20 +17,6 @@ const CONNECTION_LABELS = Object.freeze({
   offline: "OFFLINE"
 });
 
-const LIVENESS_LABELS = Object.freeze({
-  playable: ["HRANICE OTEVŘENÁ", "Vyber dostupnou akci na mapě."],
-  open_frontier: ["HRANICE OTEVŘENÁ", "Prozkoumej nebo obsaď sousední neutral district."],
-  hostile_encircled: ["OBKLÍČEN NEPŘÁTELI", "Vyšpehuj sousední enemy district a připrav průlom."],
-  allied_encircled: ["OBKLÍČEN SPOJENCI", "Použij dostupný alianční koridor."],
-  mixed_encircled: ["SMÍŠENÉ OBKLÍČENÍ", "Použij přímý cíl nebo alianční koridor."],
-  temporarily_sealed: ["DOČASNĚ UZAVŘEN", "Další postup se odemkne po nejbližším cooldownu."],
-  economy_recovery: ["OBNOVA PROVOZU", "Použij dostupnou ekonomickou cestu obnovy."],
-  last_stand: ["POSLEDNÍ BAŠTA", "Poslední district je krátce chráněný před útokem."],
-  no_territory: ["PORAŽEN", "Nemáš žádný aktivní district."],
-  defeated: ["PORAŽEN", "Hra pokračuje v režimu výsledků a sledování."],
-  invalid_softlock: ["NOUZOVÝ STAV", "Server ověřuje jednorázovou cestu obnovy."]
-});
-
 let latestSlice = null;
 let connectionState = "reconnecting";
 let shownEncirclementToken = null;
@@ -40,11 +25,6 @@ let shownConnectionNotice = null;
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
 })[character]);
-
-const formatTicks = (ticks, tickRateMs = FREE_GAMEPLAY_TICK_MS) => {
-  const seconds = Math.max(0, Math.ceil(Number(ticks || 0) * tickRateMs / 1000));
-  return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
-};
 
 const ensureShell = () => {
   const root = document.querySelector("main[data-page='game']");
@@ -57,11 +37,11 @@ const ensureShell = () => {
   connection.setAttribute("aria-live", "polite");
   document.body.append(connection);
 
-  const liveness = document.createElement("section");
-  liveness.className = "operational-liveness-panel";
-  liveness.dataset.operationalLiveness = "true";
-  liveness.hidden = true;
-  root.prepend(liveness);
+  const recovery = document.createElement("section");
+  recovery.className = "operational-liveness-panel";
+  recovery.dataset.operationalRecovery = "true";
+  recovery.hidden = true;
+  root.prepend(recovery);
 
   const confirmation = document.createElement("div");
   confirmation.className = "operations-center-modal shared-confirmation-modal";
@@ -123,27 +103,31 @@ const renderConnection = () => {
   }
 };
 
-const renderLiveness = () => {
-  const element = document.querySelector("[data-operational-liveness]");
-  const view = latestSlice?.player?.operationalLiveness;
-  if (!element || !view) return;
-  const [title, fallback] = LIVENESS_LABELS[view.state] || LIVENESS_LABELS.invalid_softlock;
-  const next = view.nextProgressAtTick !== null
-    ? `${fallback} Další možnost za ${formatTicks(view.remainingTicks, latestSlice?.mode?.tickRateMs || FREE_GAMEPLAY_TICK_MS)}.`
-    : fallback;
-  const corridor = view.corridorAvailable && view.corridorTargets?.[0]
-    ? `<span>ALIANČNÍ KORIDOR → ${escapeHtml(view.corridorTargets[0])}</span>` : "";
-  const recovery = view.emergencyRecovery?.canClaim
-    ? `<button type="button" class="button operational-liveness-panel__recovery" data-emergency-recovery>Nouzová zakázka · $${view.emergencyRecovery.cleanCash} + ${view.emergencyRecovery.population} populace</button>` : "";
+const renderEmergencyRecovery = () => {
+  const element = document.querySelector("[data-operational-recovery]");
+  const recovery = latestSlice?.player?.operationalLiveness?.emergencyRecovery;
+  if (!element) return;
+  if (!recovery?.canClaim) {
+    element.hidden = true;
+    element.replaceChildren();
+    return;
+  }
   element.hidden = false;
-  element.dataset.state = view.state;
-  element.innerHTML = `<div><strong>${escapeHtml(title)}</strong><p>${escapeHtml(next)}</p></div>${corridor}${recovery}`;
+  element.dataset.state = "emergency-recovery";
+  element.innerHTML = `
+    <div>
+      <strong>NOUZOVÁ OBNOVA</strong>
+      <p>Server potvrdil, že nemáš dostupnou cestu pokračování.</p>
+    </div>
+    <button type="button" class="button operational-liveness-panel__recovery" data-emergency-recovery>
+      Obnovit provoz · $${escapeHtml(recovery.cleanCash)} + ${escapeHtml(recovery.population)} populace
+    </button>`;
   element.querySelector("[data-emergency-recovery]")?.addEventListener("click", async (event) => {
     const button = event.currentTarget;
     showConfirmation({
       kicker: "NOUZOVÁ ZAKÁZKA",
       title: "Jednorázová obnova provozu",
-      body: `Server znovu ověří softlock a při splnění podmínek připíše $${view.emergencyRecovery.cleanCash} a ${view.emergencyRecovery.population} populace.`,
+      body: `Server znovu ověří softlock a při splnění podmínek připíše $${recovery.cleanCash} a ${recovery.population} populace.`,
       trigger: button,
       onConfirm: async () => {
         const result = await submitServerEmergencyRecoveryCommand();
@@ -199,7 +183,7 @@ document.addEventListener("DOMContentLoaded", () => {
   ensureShell();
   latestSlice = getServerGameplaySliceReadModel();
   renderConnection();
-  renderLiveness();
+  renderEmergencyRecovery();
   renderEncirclementConfirmation();
 });
 
@@ -208,7 +192,7 @@ document.addEventListener("empire:gameplay-slice-rendered", (event) => {
   connectionState = "connected";
   ensureShell();
   renderConnection();
-  renderLiveness();
+  renderEmergencyRecovery();
   renderEncirclementConfirmation();
   void retryPendingServerGameplayCommands();
 });

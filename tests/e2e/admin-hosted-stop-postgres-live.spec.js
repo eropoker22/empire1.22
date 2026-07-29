@@ -20,14 +20,9 @@ test("owner safely stops the live hosted server through the dashboard", async ({
 
   const actionResponse = page.waitForResponse((response) =>
     new URL(response.url()).pathname.endsWith("/actions") && response.request().method() === "POST");
-  await page.evaluate(() => {
-    const reason = document.querySelector("[data-admin-action-reason]");
-    const button = document.querySelector('[data-admin-lifecycle="stop"]');
-    if (!(reason instanceof HTMLInputElement) || !(button instanceof HTMLButtonElement)) throw new Error("Stop controls are missing.");
-    reason.value = "Stop local hosted environment after live lifecycle verification";
-    reason.dispatchEvent(new Event("input", { bubbles: true }));
-    button.click();
-  });
+  await page.locator('[data-admin-lifecycle="stop"]').click();
+  await page.locator("[data-admin-action-reason]").fill("Stop local hosted environment after live lifecycle verification");
+  await page.locator("[data-admin-lifecycle-confirm]").click();
   expect((await actionResponse).status()).toBe(202);
 
   await expect.poll(async () => page.evaluate(async () => {

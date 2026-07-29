@@ -3,6 +3,7 @@ import { resolveModeConfig } from "@empire/game-config";
 import { handleSelectSpawnDistrict } from "@empire/game-core";
 import type { AdminCreateServerRequestView, AdminSessionView } from "@empire/shared-types";
 import { createHostedControlPlaneService, createHostedRuntimeWorker } from "../../apps/server/src/admin/hosted";
+import { createHostedAdminServerView } from "../../apps/server/src/admin/hosted/hosted-control-plane-policy";
 import type { InMemoryHostedControlPlaneRepository } from "../../apps/server/src/admin/hosted/in-memory-hosted-control-plane-repository";
 import { createInMemoryAdminDurableRepositories } from "../../apps/server/src/admin/read-only";
 import { createServerApp } from "../../apps/server/src/app";
@@ -91,7 +92,7 @@ describe("hosted server control plane", () => {
     expect(await repositories.hosted.getServer(control.data.server.serverInstanceId)).toMatchObject({
       serverTemplate: "control",
       capacity: 2,
-      minimumReadyPlayersToStart: 2,
+      minimumReadyPlayersToStart: 1,
       registrationWindowMinutes: 60,
       canonicalFirstEliminationTick: null,
       canonicalTickRateMs: null
@@ -130,6 +131,28 @@ describe("hosted server control plane", () => {
         total: 1,
         lifecycle: 1
       });
+  });
+
+  it("explains an unscheduled dormant lobby before reporting its inactive runtime lease", async () => {
+    const { repositories, service } = await setup();
+    const created = await service.createServer({ session: owner, payload: validRequest,
+      idempotencyKey: "test-dormant-registration-copy", correlationId: "request:dormant" });
+    if (!created.accepted) throw new Error("fixture create failed");
+    const worker = createHostedRuntimeWorker({ workerId: "worker:test", region: "eu-central", buildSha: "test",
+      controlPlane: repositories.hosted, server: createServerApp(), now: () => NOW });
+    await worker.runOnce();
+    const record = await repositories.hosted.getServer(created.data.server.serverInstanceId);
+    if (!record) throw new Error("fixture server missing");
+
+    const view = createHostedAdminServerView({
+      server: { ...record, runtimeLeaseOwnerId: null, runtimeLeaseExpiresAt: null, lastWorkerHeartbeatAt: null },
+      now: NOW,
+      committedPlayers: 0,
+      reservedSlots: 0,
+      readyPlayers: 0
+    });
+
+    expect(view.startDisabledReason).toBe("Registrace na tento server ještě nezačala.");
   });
 
   it("serializes concurrent start requests behind one active lifecycle operation", async () => {
@@ -203,13 +226,13 @@ describe("hosted server control plane", () => {
       before.state = spawned.nextState;
       readyMemberships.push({ membershipId, playerId, reservedSpawnDistrictId });
     }
-    let visibleReadyMemberships = readyMemberships.slice(0, 1);
+    let visibleReadyMemberships: typeof readyMemberships = [];
     const hostedRepository = repositories.hosted as InMemoryHostedControlPlaneRepository;
     hostedRepository.setReadyMembershipsForTests(id, visibleReadyMemberships);
     await app.instanceManager.saveInstanceSnapshot(id);
     await service.requestAction({ session: owner, serverInstanceId: id,
       payload: { action: "start", expectedVersion: record.version, reason: "Reject one player start" },
-      idempotencyKey: "test-action-start-one-01", correlationId: "request:one" });
+      idempotencyKey: "test-action-start-zero-01", correlationId: "request:zero" });
     await worker.runOnce();
     record = (await repositories.hosted.getServer(id))!;
     expect(record).toMatchObject({ status: "lobby", lastErrorCode: "SERVER_START_MINIMUM_PLAYERS_NOT_MET" });

@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError, type AdminApiClient } from "../../apps/admin/src/app/admin-monitoring-client";
 import { createAdminApp } from "../../apps/admin/src/app/create-admin-app";
-import { renderDashboard } from "../../apps/admin/src/app/read-only-admin-page";
+import { renderDashboard, renderUnavailable } from "../../apps/admin/src/app/read-only-admin-page";
 import { FREE_HOSTED_SERVER_LIFECYCLE_POLICY, resolveModeConfig } from "@empire/game-config";
 import type { AdminHostedServerView, AdminInstanceDetailView, AdminInstanceSummaryView, AdminOverviewView, AdminSessionView } from "@empire/shared-types";
 
@@ -28,6 +28,29 @@ describe("read-only admin app", () => {
     expect(client.getInstance).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain("Vyberte instanci");
     expect(location.search).toBe("");
+  });
+
+  it("prioritizes system health, server operations, and collapsible diagnostics", () => {
+    const server = hostedServer({ serverInstanceId: "server:A", status: "running", provisioningState: "ready" });
+    document.body.innerHTML = renderDashboard({
+      session: { ...session, role: "owner" },
+      overview: overview(),
+      selectedInstanceId: "server:A",
+      detail: detail("server:A"),
+      controlPlane: controlPlane(server),
+      wizardOpen: false,
+      wizardStep: 1,
+      frontendBuildSha: BUILD_SHA
+    });
+
+    expect(document.querySelector("[data-admin-system-health]")).not.toBeNull();
+    expect(document.querySelector("#admin-overview")?.textContent).toContain("Systém je připraven");
+    expect(document.querySelector(".admin-command-metrics")?.textContent).toContain("Běžící servery");
+    expect(document.querySelector(".admin-operations-workspace #admin-servers")).not.toBeNull();
+    expect(document.querySelector(".admin-operations-workspace #admin-control-plane")).not.toBeNull();
+    expect(document.querySelector("#admin-snapshots")).toBeInstanceOf(HTMLDetailsElement);
+    expect(document.querySelector("#admin-players")?.hasAttribute("open")).toBe(true);
+    expect(document.querySelector("#admin-commands")?.hasAttribute("open")).toBe(false);
   });
 
   it("requests only the explicitly selected instance", async () => {
@@ -102,6 +125,12 @@ describe("read-only admin app", () => {
     expect(document.querySelector("[data-admin-password]")).not.toBeNull();
     expect(document.body.textContent).toContain("Admin API momentálně není připojené k databázi");
     expect(document.body.textContent).not.toContain("ADMIN SERVER NEDOSTUPNÝ");
+  });
+
+  it("escapes unavailable diagnostics instead of rendering injected markup", () => {
+    document.body.innerHTML = renderUnavailable('<img src=x onerror="throw new Error(1)">');
+    expect(document.querySelector("img")).toBeNull();
+    expect(document.body.textContent).toContain("<img src=x");
   });
 
   it("explains missing production database configuration after a login attempt", async () => {
@@ -190,9 +219,31 @@ describe("read-only admin app", () => {
     });
 
     expect(document.body.textContent).toContain("Account platformREADY");
-    expect(document.body.textContent).toContain("Game hostingNOT DEPLOYED");
+    expect(document.body.textContent).toContain("Game hostingDISABLED");
     expect(document.body.textContent).toContain("Herní worker není nasazený.");
     expect(document.querySelector("[data-admin-create-open]")).toBeNull();
+  });
+
+  it("allows placeholder frontend SHA only on explicit loopback development", () => {
+    const server = hostedServer({ serverInstanceId: "server:local", status: "lobby", provisioningState: "ready" });
+    const input = {
+      session: { ...session, role: "owner" as const },
+      overview: overview(),
+      selectedInstanceId: "server:local",
+      detail: null,
+      controlPlane: controlPlane(server),
+      wizardOpen: false,
+      wizardStep: 1,
+      frontendBuildSha: null
+    };
+    document.body.innerHTML = renderDashboard({ ...input, localDevelopment: false });
+    expect(document.querySelector("[data-admin-create-open]")).toBeNull();
+    expect(document.querySelector(".admin-lifecycle")).toBeNull();
+
+    document.body.innerHTML = renderDashboard({ ...input, localDevelopment: true });
+    expect(document.querySelector("[data-admin-create-open]")).not.toBeNull();
+    expect(document.querySelector(".admin-lifecycle")).not.toBeNull();
+    expect(document.body.textContent).toContain("LOCAL DEV");
   });
 
   it("locks full template capacity without exposing raw elimination balance", async () => {
@@ -203,6 +254,9 @@ describe("read-only admin app", () => {
     client.createServer = vi.fn().mockResolvedValue({ replayed: false, server: hostedServer({ serverInstanceId: "server:full" }), provisioningJobId: "job:full" });
     await createAdminApp({ client, pollIntervalMs: 60_000 }).mount();
     document.querySelector<HTMLButtonElement>("[data-admin-create-open]")!.click();
+    await vi.waitFor(() => expect(document.activeElement)
+      .toBe(document.querySelector<HTMLInputElement>('[name="displayName"]')));
+    expect(document.querySelector("[role=dialog]")?.getAttribute("aria-modal")).toBe("true");
 
     const template = document.querySelector<HTMLSelectElement>("[data-admin-server-template]")!;
     const capacity = document.querySelector<HTMLInputElement>("[data-admin-server-capacity]")!;
@@ -227,6 +281,30 @@ describe("read-only admin app", () => {
     expect(payload).toMatchObject({ serverTemplate: "full", capacity: resolveModeConfig("free").balance.maxPlayersPerServer, joinPolicy: "closed" });
     expect(payload).not.toHaveProperty("eliminationInterval");
     expect(payload).not.toHaveProperty("finalLockdownTrigger");
+  });
+
+  it("closes the server wizard with Escape and restores trigger focus", async () => {
+    const owner = { ...session, role: "owner" as const };
+    const client = createClient();
+    client.getSession = vi.fn().mockResolvedValue(owner);
+    client.getControlPlane = vi.fn().mockResolvedValue({ ...controlPlane(hostedServer()), servers: [] });
+    await createAdminApp({ client, pollIntervalMs: 60_000 }).mount();
+
+    document.querySelector<HTMLButtonElement>("[data-admin-create-open]")!.click();
+    const dialog = document.querySelector<HTMLElement>("[role=dialog]")!;
+    const close = dialog.querySelector<HTMLButtonElement>("[data-admin-create-cancel]")!;
+    const last = [...dialog.querySelectorAll<HTMLElement>(
+      "button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex='-1'])"
+    )].filter((element) => !element.closest("[hidden]")).at(-1)!;
+    close.focus();
+    dialog.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true }));
+    expect(document.activeElement).toBe(last);
+    dialog.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+    expect(document.activeElement).toBe(close);
+    const form = document.querySelector<HTMLFormElement>("[data-admin-create-form]")!;
+    form.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await vi.waitFor(() => expect(document.querySelector("[role=dialog]")).toBeNull());
+    expect(document.activeElement).toBe(document.querySelector("[data-admin-create-open]"));
   });
 
   it("disables lifecycle controls until provisioning is ready", () => {
@@ -272,15 +350,237 @@ describe("read-only admin app", () => {
     const opensAt = document.querySelector<HTMLInputElement>("[data-admin-registration-opens-at]")!;
     opensAt.value = "2026-07-18T18:00";
     opensAt.dispatchEvent(new Event("input", { bubbles: true }));
-    const reason = document.querySelector<HTMLInputElement>("[data-admin-action-reason]")!;
-    reason.value = "První closed alpha test";
     document.querySelector<HTMLButtonElement>('[data-admin-registration-action="schedule-registration"]')!.click();
+    const dialog = document.querySelector<HTMLElement>("[data-admin-registration-dialog]")!;
+    const reason = dialog.querySelector<HTMLTextAreaElement>("[data-admin-registration-reason]")!;
+    dialog.querySelector<HTMLButtonElement>("[data-admin-registration-confirm]")!.click();
+    expect(document.activeElement).toBe(reason);
+    expect(client.requestLifecycleAction).not.toHaveBeenCalled();
+    reason.value = "První closed alpha test";
+    reason.dispatchEvent(new Event("input", { bubbles: true }));
+    dialog.querySelector<HTMLButtonElement>("[data-admin-registration-confirm]")!.click();
 
     await vi.waitFor(() => expect(client.requestLifecycleAction).toHaveBeenCalled());
     const payload = vi.mocked(client.requestLifecycleAction).mock.calls[0]![1];
     expect(payload).toMatchObject({ action: "schedule-registration", expectedVersion: server.version,
       reason: "První closed alpha test", registrationOpensAt: new Date("2026-07-18T18:00").toISOString() });
     expect(payload).not.toHaveProperty("registrationClosesAt");
+  });
+
+  it("loads owner audit once, renders it, and refreshes it only on explicit request", async () => {
+    const client = createClient();
+    client.getSession = vi.fn().mockResolvedValue({ ...session, role: "owner" });
+    client.getAudit = vi.fn().mockResolvedValue([{
+      id: "audit:1", adminSessionId: "session:viewer", actorId: "user:owner", role: "owner",
+      action: "server-started", targetInstanceId: "server:A", result: "success",
+      createdAt: "2026-07-16T10:00:00.000Z", correlationId: "request:audit"
+    }]);
+    const app = createAdminApp({ client, pollIntervalMs: 60_000 });
+    await app.mount();
+
+    expect(client.getAudit).toHaveBeenCalledTimes(1);
+    expect(document.querySelector("#admin-audit")?.textContent).toContain("server-started");
+    await app.refresh();
+    expect(client.getAudit).toHaveBeenCalledTimes(1);
+
+    document.querySelector<HTMLButtonElement>("[data-admin-audit-refresh]")!.click();
+    await vi.waitFor(() => expect(client.getAudit).toHaveBeenCalledTimes(2));
+    app.destroy();
+  });
+
+  it("never requests owner audit for a viewer", async () => {
+    const client = createClient();
+    const app = createAdminApp({ client, pollIntervalMs: 60_000 });
+    await app.mount();
+
+    expect(client.getAudit).not.toHaveBeenCalled();
+    expect(document.querySelector("#admin-audit")).toBeNull();
+    app.destroy();
+  });
+
+  it("renders alliance and operational player/district fields", () => {
+    const current = detail("server:A");
+    current.players = [{
+      serverInstanceId: "server:A", playerId: "player:1", displayName: "Neon Boss", factionId: "faction:red",
+      status: "active", homeDistrictId: "district:home", ownedDistrictCount: 3, cash: 1200, dirtyCash: 450,
+      population: 900, heat: 71, wantedLevel: 4, lastActionAt: "2026-07-16T10:00:00.000Z"
+    }];
+    current.districts = [{
+      serverInstanceId: "server:A", districtId: "district:home", name: "Neon Yard", zone: "industrial",
+      status: "contested", ownerPlayerId: "player:1", influence: 88, heat: 50, buildingCount: 4
+    }];
+    current.alliances = [{ serverInstanceId: "server:A", allianceId: "alliance:neon", memberCount: 6 }];
+    document.body.innerHTML = renderDashboard({
+      session, overview: overview(), selectedInstanceId: "server:A", detail: current,
+      controlPlane: null, wizardOpen: false, wizardStep: 1
+    });
+
+    expect(document.querySelector("#admin-players")?.textContent).toContain("450 dirty");
+    expect(document.querySelector("#admin-players")?.textContent).toContain("wanted 4");
+    expect(document.querySelector("#admin-map")?.textContent).toContain("Influence");
+    expect(document.querySelector("#admin-alliances")?.textContent).toContain("alliance:neon");
+  });
+
+  it("filters all operational tables without changing the underlying read model", async () => {
+    const client = createClient();
+    const filteredOverview = overview();
+    filteredOverview.instances[1] = { ...filteredOverview.instances[1]!, status: "paused" };
+    client.getOverview = vi.fn().mockResolvedValue(filteredOverview);
+    const app = createAdminApp({ client, pollIntervalMs: 60_000 });
+    await app.mount();
+    const search = document.querySelector<HTMLInputElement>("[data-admin-search]")!;
+    search.value = "server b";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+
+    const rowA = document.querySelector<HTMLTableRowElement>('[data-admin-instance="server:A"]')!.closest("tr")!;
+    const rowB = document.querySelector<HTMLTableRowElement>('[data-admin-instance="server:B"]')!.closest("tr")!;
+    expect(rowA.hidden).toBe(true);
+    expect(rowB.hidden).toBe(false);
+    expect(document.querySelector("[data-admin-server-visible-count]")?.textContent).toBe("1");
+
+    search.value = "";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    const status = document.querySelector<HTMLSelectElement>('[data-admin-server-filter="status"]')!;
+    status.value = "paused";
+    status.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(rowA.hidden).toBe(true);
+    expect(rowB.hidden).toBe(false);
+
+    await app.refresh();
+    const refreshedStatus = document.querySelector<HTMLSelectElement>('[data-admin-server-filter="status"]')!;
+    expect(refreshedStatus.value).toBe("paused");
+    expect(document.querySelector<HTMLTableRowElement>('[data-admin-instance="server:A"]')!.closest("tr")!.hidden).toBe(true);
+
+    document.querySelector<HTMLButtonElement>("[data-admin-filter-reset]")!.click();
+    expect(document.querySelector<HTMLInputElement>("[data-admin-search]")!.value).toBe("");
+    expect(refreshedStatus.value).toBe("all");
+    expect(document.querySelector<HTMLTableRowElement>('[data-admin-instance="server:A"]')!.closest("tr")!.hidden).toBe(false);
+    expect(document.querySelector<HTMLTableRowElement>('[data-admin-instance="server:B"]')!.closest("tr")!.hidden).toBe(false);
+    expect(client.getOverview).toHaveBeenCalledTimes(2);
+    app.destroy();
+  });
+
+  it("renders write controls according to the authenticated role", () => {
+    const server = hostedServer({ status: "running", provisioningState: "ready" });
+    const common = {
+      overview: overview(), selectedInstanceId: server.serverInstanceId, detail: null,
+      controlPlane: controlPlane(server), wizardOpen: false, wizardStep: 1, frontendBuildSha: BUILD_SHA
+    };
+
+    document.body.innerHTML = renderDashboard({ ...common, session });
+    expect(document.querySelector("[data-admin-create-open]")).toBeNull();
+    expect(document.querySelector("[data-admin-lifecycle]")).toBeNull();
+
+    document.body.innerHTML = renderDashboard({ ...common, session: { ...session, role: "operator" } });
+    expect(document.querySelector("[data-admin-create-open]")).not.toBeNull();
+    expect(document.querySelector('[data-admin-lifecycle="pause"]')).not.toBeNull();
+    expect(document.querySelector('[data-admin-lifecycle="stop"]')).toBeNull();
+
+    document.body.innerHTML = renderDashboard({ ...common, session: { ...session, role: "owner" } });
+    expect(document.querySelector('[data-admin-lifecycle="stop"]')).not.toBeNull();
+  });
+
+  it("keeps the last confirmed dashboard visible when a refresh fails", async () => {
+    const client = createClient();
+    const app = createAdminApp({ client, pollIntervalMs: 60_000 });
+    await app.mount();
+    client.getOverview = vi.fn().mockRejectedValue(new Error("database temporarily unavailable"));
+
+    await app.refresh();
+
+    expect(document.body.textContent).toContain("Server server:A");
+    expect(document.querySelector("#admin-alerts")?.textContent).toContain("Obnova dat selhala");
+    expect(document.querySelector("[data-admin-refresh-state]")?.getAttribute("data-state")).toBe("backoff");
+    app.destroy();
+  });
+
+  it("restores control focus after a polling render", async () => {
+    const client = createClient();
+    const app = createAdminApp({ client, pollIntervalMs: 60_000 });
+    await app.mount();
+    document.querySelector<HTMLButtonElement>("[data-admin-nav-toggle]")!.focus();
+
+    await app.refresh();
+
+    expect(document.activeElement).toBe(document.querySelector("[data-admin-nav-toggle]"));
+    app.destroy();
+  });
+
+  it("does not replace a focused lifecycle draft during polling", async () => {
+    history.replaceState(null, "", "/admin.html?instance=server%3Aregistration");
+    const server = hostedServer({ serverInstanceId: "server:registration", status: "running", provisioningState: "ready" });
+    const client = createClient();
+    client.getSession = vi.fn().mockResolvedValue({ ...session, role: "owner" });
+    client.getControlPlane = vi.fn().mockResolvedValue(controlPlane(server));
+    const app = createAdminApp({ client, pollIntervalMs: 60_000 });
+    await app.mount();
+    document.querySelector<HTMLButtonElement>('[data-admin-lifecycle="pause"]')!.click();
+    const reason = document.querySelector<HTMLTextAreaElement>("[data-admin-action-reason]")!;
+    reason.focus();
+    reason.value = "Bezpečný provozní důvod";
+    reason.dispatchEvent(new Event("input", { bubbles: true }));
+
+    await app.refresh();
+    expect(document.activeElement).toBe(reason);
+    expect(reason.value).toBe("Bezpečný provozní důvod");
+    expect(document.querySelector("[data-admin-lifecycle-dialog]")).not.toBeNull();
+    app.destroy();
+  });
+
+  it("requires a lifecycle reason and prevents duplicate submit", async () => {
+    history.replaceState(null, "", "/admin.html?instance=server%3Arunning");
+    const server = hostedServer({ serverInstanceId: "server:running", status: "running", provisioningState: "ready" });
+    const client = createClient();
+    client.getSession = vi.fn().mockResolvedValue({ ...session, role: "owner" });
+    client.getControlPlane = vi.fn().mockResolvedValue(controlPlane(server));
+    await createAdminApp({ client, pollIntervalMs: 60_000 }).mount();
+
+    document.querySelector<HTMLButtonElement>('[data-admin-lifecycle="pause"]')!.click();
+    const dialog = document.querySelector<HTMLElement>("[data-admin-lifecycle-dialog]")!;
+    const reason = dialog.querySelector<HTMLTextAreaElement>("[data-admin-action-reason]")!;
+    const confirm = dialog.querySelector<HTMLButtonElement>("[data-admin-lifecycle-confirm]")!;
+    confirm.click();
+    expect(client.requestLifecycleAction).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(reason);
+
+    reason.value = "Plánovaná provozní pauza";
+    reason.dispatchEvent(new Event("input", { bubbles: true }));
+    confirm.click();
+    confirm.click();
+    await vi.waitFor(() => expect(client.requestLifecycleAction).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(client.requestLifecycleAction).mock.calls[0]![1]).toMatchObject({
+      action: "pause",
+      expectedVersion: server.version,
+      reason: "Plánovaná provozní pauza"
+    });
+  });
+
+  it("exposes a real mobile navigation toggle without placeholder sections", async () => {
+    const client = createClient();
+    await createAdminApp({ client, pollIntervalMs: 60_000 }).mount();
+
+    const toggle = document.querySelector<HTMLButtonElement>("[data-admin-nav-toggle]")!;
+    const nav = document.querySelector<HTMLElement>("#admin-primary-nav")!;
+    expect(toggle.getAttribute("aria-controls")).toBe("admin-primary-nav");
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(nav.querySelector('[href="#admin-registration"]')).toBeNull();
+
+    toggle.click();
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(nav.dataset.open).toBe("true");
+  });
+
+  it("mounts idempotently and destroy removes the visibility refresh path", async () => {
+    const client = createClient();
+    const app = createAdminApp({ client, pollIntervalMs: 60_000 });
+    await Promise.all([app.mount(), app.mount()]);
+    expect(client.getSession).toHaveBeenCalledTimes(1);
+    const reads = vi.mocked(client.getOverview).mock.calls.length;
+
+    app.destroy();
+    document.dispatchEvent(new Event("visibilitychange"));
+    await Promise.resolve();
+    expect(client.getOverview).toHaveBeenCalledTimes(reads);
   });
 
 });
@@ -294,6 +594,7 @@ const createClient = (): AdminApiClient => ({
   getControlPlane: vi.fn().mockResolvedValue({ writesEnabled: false, provisioningEnabled: false,
     databaseAvailable: false, migrationsCurrent: false, workerStatus: "offline", unavailableCode: "ADMIN_WRITES_DISABLED",
     servers: [], generatedAt: "2026-07-16T10:00:00.000Z" }),
+  getAudit: vi.fn().mockResolvedValue([]),
   createServer: vi.fn(),
   requestLifecycleAction: vi.fn()
 });

@@ -1,4 +1,8 @@
-import type { GameplaySliceView, PlaceTrapCommand } from "@empire/shared-types";
+import type {
+  GameplaySliceView,
+  PlaceTrapCommand,
+  RelocateTrapCommand
+} from "@empire/shared-types";
 
 export interface CreatePlaceTrapCommandInput {
   commandId: string;
@@ -14,11 +18,31 @@ export interface CreatePlaceTrapCommandInput {
  */
 export const createPlaceTrapCommand = (
   input: CreatePlaceTrapCommandInput
-): PlaceTrapCommand => {
+): PlaceTrapCommand | RelocateTrapCommand => {
   const district = input.slice.district;
 
-  if (!district?.trap) {
+  if (!district?.isOwnedByPlayer || !district.trap?.enabled) {
     throw new Error("Trap command cannot be created from missing district/trap context.");
+  }
+  const relocation = district.trap.relocationSource;
+  if (relocation?.canRelocate) {
+    return {
+      id: input.commandId,
+      type: "relocate-trap",
+      mode: input.slice.mode.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        trapId: relocation.trapId,
+        sourceDistrictId: relocation.districtId,
+        targetDistrictId: district.districtId,
+        expectedSourceVersion: relocation.expectedSourceVersion,
+        expectedTargetVersion: relocation.expectedTargetVersion,
+        expectedTrapVersion: relocation.expectedTrapVersion
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
   }
 
   return {

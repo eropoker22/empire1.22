@@ -21,15 +21,21 @@ export const createHostedRuntimeLoader = (options: {
   controlPlane: Pick<HostedControlPlaneRepository, "getServer">;
 }): HostedRuntimeLoader => {
   const pendingLoads = new Map<string, Promise<HostedRuntimeLoadResult>>();
+  const appliedSnapshots = new Map<string, AppliedSnapshot>();
 
   return {
     load: (serverInstanceId, loadOptions = {}) => {
       const loadKey = `${serverInstanceId}:${loadOptions.requireRunning === true ? "running" : "read"}`;
       const pending = pendingLoads.get(loadKey);
       if (pending) return pending;
-      const load = loadHostedRuntime(options, serverInstanceId, loadOptions.requireRunning === true).finally(() => {
-        if (pendingLoads.get(loadKey) === load) pendingLoads.delete(loadKey);
-      });
+      const load = loadHostedRuntime(
+        options,
+        appliedSnapshots,
+        serverInstanceId,
+        loadOptions.requireRunning === true
+      ).finally(() => {
+          if (pendingLoads.get(loadKey) === load) pendingLoads.delete(loadKey);
+        });
       pendingLoads.set(loadKey, load);
       return load;
     }
@@ -38,6 +44,7 @@ export const createHostedRuntimeLoader = (options: {
 
 const loadHostedRuntime = async (
   options: { server: ServerApp; controlPlane: Pick<HostedControlPlaneRepository, "getServer"> },
+  appliedSnapshots: Map<string, AppliedSnapshot>,
   serverInstanceId: ServerInstanceId,
   requireRunning: boolean
 ): Promise<HostedRuntimeLoadResult> => {
@@ -72,9 +79,43 @@ const loadHostedRuntime = async (
       runtime = created.runtime;
     }
 
-    const snapshotIsNewer = snapshot!.integrity.rootVersion > runtime.state.root.version;
-    const appliedSnapshot = mustRestore || snapshotIsNewer ? snapshot! : null;
-    if (appliedSnapshot) restoreRuntimeFromSnapshot(runtime, appliedSnapshot);
+    const runtimeRootVersionBefore = runtime.state.root.version;
+    const runtimeTickBefore = runtime.state.root.tick;
+    const applied = appliedSnapshots.get(serverInstanceId);
+    const snapshotSignature = createSnapshotSignature(snapshot!);
+    const runtimeIsAhead = runtime.state.root.version > snapshot!.integrity.rootVersion
+      || runtime.state.root.version === snapshot!.integrity.rootVersion
+        && runtime.state.root.tick > snapshot!.tick;
+    const runtimeMatchesAppliedSnapshot = applied?.signature === snapshotSignature
+      && applied.state === runtime.state
+      && applied.rootVersion === runtime.state.root.version
+      && applied.tick === runtime.state.root.tick;
+    const appliedSnapshot = !runtimeIsAhead && (mustRestore || !runtimeMatchesAppliedSnapshot)
+      ? snapshot!
+      : null;
+    if (appliedSnapshot) {
+      restoreRuntimeFromSnapshot(runtime, appliedSnapshot);
+      appliedSnapshots.set(serverInstanceId, {
+        signature: snapshotSignature,
+        state: runtime.state,
+        rootVersion: runtime.state.root.version,
+        tick: runtime.state.root.tick
+      });
+    }
+    if (process.env.EMPIRE_RUNTIME_DEBUG === "1") {
+      console.info("[hosted-runtime-loader]", JSON.stringify({
+        serverInstanceId,
+        snapshotRootVersion: snapshot!.integrity.rootVersion,
+        snapshotTick: snapshot!.tick,
+        runtimeRootVersionBefore,
+        runtimeTickBefore,
+        runtimeRootVersionAfter: runtime.state.root.version,
+        runtimeTickAfter: runtime.state.root.tick,
+        applied: Boolean(appliedSnapshot),
+        runtimeIsAhead,
+        provenanceMatched: runtimeMatchesAppliedSnapshot
+      }));
+    }
     syncRuntimeMetadata(runtime, record!, appliedSnapshot);
     return { accepted: true, runtime, errors: [] };
   } catch (_error) {
@@ -152,3 +193,13 @@ const rejected = (error: DomainError): HostedRuntimeLoadResult => ({
   runtime: null,
   errors: [error]
 });
+
+interface AppliedSnapshot {
+  signature: string;
+  state: ServerInstanceRuntime["state"];
+  rootVersion: number;
+  tick: number;
+}
+
+const createSnapshotSignature = (snapshot: InstanceSnapshotDto): string =>
+  `${snapshot.snapshotId}:${snapshot.createdAt}:${snapshot.integrity.rootVersion}:${snapshot.tick}`;

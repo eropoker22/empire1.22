@@ -4975,6 +4975,100 @@ body.lobby-command-body {
   }
 }
 
+/* Compact hosted server browser shown below an already active membership. */
+.auth-servers.auth-servers--membership-active {
+  max-height: min(34vh, 318px);
+  padding: 2px 7px 2px 2px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(0, 196, 212, 0.58) rgba(2, 8, 16, 0.64);
+  scrollbar-width: thin;
+}
+
+.auth-servers--membership-active::-webkit-scrollbar {
+  width: 7px;
+}
+
+.auth-servers--membership-active::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(2, 8, 16, 0.64);
+}
+
+.auth-servers--membership-active::-webkit-scrollbar-thumb {
+  border: 1px solid rgba(0, 196, 212, 0.16);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(0, 196, 212, 0.72), rgba(197, 31, 168, 0.54));
+}
+
+.auth-servers--membership-active .live-server-card {
+  grid-template-columns: minmax(0, 1fr) minmax(116px, 132px);
+  min-height: 82px;
+}
+
+.auth-servers--membership-active .live-server-card__main {
+  gap: 3px 10px;
+  padding: 10px 12px;
+}
+
+.auth-servers--membership-active .auth-server-card__label {
+  font-size: 0.96rem;
+}
+
+.auth-servers--membership-active .auth-server-card__meta,
+.auth-servers--membership-active .auth-server-card__subtitle,
+.auth-servers--membership-active .auth-server-card__status,
+.auth-servers--membership-active .auth-server-card__countdown {
+  font-size: 0.66rem;
+  line-height: 1.16;
+}
+
+.auth-servers--membership-active .auth-server-card__schedule {
+  display: none;
+}
+
+.auth-servers--membership-active .live-server-card > .lobby-primary-cta {
+  min-width: 116px;
+  min-height: 82px;
+  padding: 8px;
+  font-size: 0.68rem;
+  line-height: 1.12;
+}
+
+@media (max-width: 760px) {
+  .auth-servers.auth-servers--membership-active {
+    max-height: min(38dvh, 292px);
+    padding-right: 5px;
+  }
+
+  .auth-servers--membership-active .live-server-card {
+    grid-template-columns: minmax(0, 1fr) 104px;
+    min-height: 76px;
+  }
+
+  .auth-servers--membership-active .live-server-card__main {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 9px 10px;
+  }
+
+  .auth-servers--membership-active .live-server-card__main .auth-server-card__status,
+  .auth-servers--membership-active .live-server-card__main .auth-server-card__countdown {
+    grid-column: 2;
+    justify-self: end;
+    text-align: right;
+  }
+
+  .auth-servers--membership-active .auth-server-card__subtitle {
+    grid-column: 1 / -1;
+  }
+
+  .auth-servers--membership-active .live-server-card > .lobby-primary-cta {
+    min-width: 104px;
+    min-height: 76px;
+    border-radius: 0;
+  }
+}
+
 body.servers-page .auth-server-card.live-server-card {
   grid-template-columns: minmax(0, 1fr) minmax(150px, 0.42fr);
   padding: 0;
@@ -4996,5 +5090,29 @@ body.servers-page .auth-server-card.live-server-card > .lobby-primary-cta {
   body.servers-page .auth-server-card.live-server-card > .lobby-primary-cta {
     min-height: 46px;
     border-width: 1px 0 0;
+  }
+}
+
+body.servers-page .auth-servers--membership-active .auth-server-card.live-server-card {
+  grid-template-columns: minmax(0, 1fr) minmax(116px, 132px);
+  min-height: 82px;
+}
+
+body.servers-page .auth-servers--membership-active .auth-server-card.live-server-card > .lobby-primary-cta {
+  min-width: 116px;
+  min-height: 82px;
+  border-width: 0 0 0 1px;
+}
+
+@media (max-width: 760px) {
+  body.servers-page .auth-servers--membership-active .auth-server-card.live-server-card {
+    grid-template-columns: minmax(0, 1fr) 104px;
+    min-height: 76px;
+  }
+
+  body.servers-page .auth-servers--membership-active .auth-server-card.live-server-card > .lobby-primary-cta {
+    min-width: 104px;
+    min-height: 76px;
+    border-width: 0 0 0 1px;
   }
 }

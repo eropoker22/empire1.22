@@ -172,6 +172,58 @@ describe("hosted runtime worker recovery", () => {
     }));
   });
 
+  it("restores an unchanged lobby runtime once instead of rehydrating it every worker cycle", async () => {
+    const baseRecord = server("instance:lobby-restore-once", {
+      status: "lobby",
+      joinPolicy: "open"
+    });
+    const app = createServerApp({ clock: clock(() => T0) });
+    const snapshot = await createSnapshot(app, baseRecord);
+    app.instanceManager.destroyInstance(baseRecord.serverInstanceId);
+    const record = withSnapshot(baseRecord, snapshot);
+    const controlPlane = createInMemoryHostedControlPlaneRepository({ servers: [record] });
+    const repository = app.instanceManager.getPersistenceRepositories().snapshotRepository;
+    const loadForRecovery = vi.spyOn(repository, "loadForRecovery");
+    const worker = hostedWorker(controlPlane, app, () => T0);
+
+    await worker.restoreKnownInstances();
+    await worker.runOnce();
+    await worker.runOnce();
+
+    expect(loadForRecovery).toHaveBeenCalledTimes(1);
+    expect(app.instanceManager.getInstanceById(record.serverInstanceId)?.state.root)
+      .toEqual(snapshot.state.root);
+  });
+
+  it("leaves dormant lobby runtimes cold until an action or player job needs them", async () => {
+    const baseRecord = server("instance:dormant-lobby", {
+      status: "lobby",
+      joinPolicy: "closed",
+      registrationScheduleVersion: 0,
+      registrationOpensAt: null,
+      registrationClosesAt: null,
+      registrationClosedAt: null
+    });
+    const app = createServerApp({ clock: clock(() => T0) });
+    const snapshot = await createSnapshot(app, baseRecord);
+    app.instanceManager.destroyInstance(baseRecord.serverInstanceId);
+    const record = withSnapshot(baseRecord, snapshot);
+    const controlPlane = createInMemoryHostedControlPlaneRepository({ servers: [record] });
+    const repository = app.instanceManager.getPersistenceRepositories().snapshotRepository;
+    const loadForRecovery = vi.spyOn(repository, "loadForRecovery");
+    const worker = hostedWorker(controlPlane, app, () => T0);
+
+    await worker.restoreKnownInstances();
+    await worker.runOnce();
+
+    expect(loadForRecovery).not.toHaveBeenCalled();
+    expect(app.instanceManager.getInstanceById(record.serverInstanceId)).toBeUndefined();
+    expect(await controlPlane.getServer(record.serverInstanceId)).toMatchObject({
+      runtimeLeaseOwnerId: null,
+      runtimeLeaseExpiresAt: null
+    });
+  });
+
   it("keeps a resolved server retryable until membership sync succeeds, then closes it", async () => {
     const record = server("instance:resolved", { joinPolicy: "open" });
     const app = createServerApp({ clock: clock(() => T0) });

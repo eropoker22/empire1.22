@@ -34,7 +34,8 @@ export function createPlayerProfileViewModel({
     cleanMoneyLabel: formatDistrictMoneyAmount(displaySnapshot.cleanMoney),
     dirtyMoneyLabel: formatDistrictMoneyAmount(displaySnapshot.dirtyMoney),
     influenceLabel: String(displaySnapshot.influence ?? 0),
-    gangLabel: registration?.identity ? `${registration.identity} Crew` : "Guest Crew",
+    gangLabel: registration?.gangName
+      || (registration?.identity ? `${registration.identity} Crew` : "Guest Crew"),
     allianceLabel: safeAllianceLabel,
     districtCountLabel: String(safeDistrictCount),
     heatLabel: String(gangState.heat ?? 0),

@@ -1,4 +1,4 @@
-# Read-only admin authority foundation
+# Admin authority and hosted control-plane boundary
 
 ## Authority model
 
@@ -22,7 +22,9 @@ Every instance summary includes `generatedAt`, `source`, `dataAsOf`, `lastSnapsh
 - `STALE`: heartbeat is between 30 and 120 seconds old.
 - `OFFLINE`: heartbeat is older than 120 seconds.
 - `NO WORKER`: no durable heartbeat exists.
-- `DATABASE UNAVAILABLE`: the durable repository could not answer; the UI displays `ADMIN SERVER NEDOSTUPNÝ`.
+- `DATABASE UNAVAILABLE`: the durable repository could not answer. Before the first successful read the UI displays
+  `ADMIN SERVER NEDOSTUPNÝ`; after a confirmed read it preserves the last known projection and marks refresh failure
+  explicitly instead of presenting stale data as current.
 
 A missing or stale snapshot is reported independently. Offline instances keep their durable metadata and live-only sections are marked unavailable or stale.
 
@@ -32,7 +34,11 @@ The closed-alpha login sends the bootstrap secret once to `POST /api/admin/sessi
 
 The server creates a short-lived session containing session ID, actor ID, display name, role, creation/expiry/revocation timestamps, and authentication method. Only a hash of the random session token is persisted. The token is returned in an `HttpOnly`, `SameSite=Strict`, `/api/admin` cookie, with `Secure` enabled in production. Logout revokes the durable session and expires the cookie.
 
-Roles are `viewer`, `operator`, and `owner`. All exposed HTTP operations are read-only. Viewer, operator, and owner can read overview, scoped instance detail, health, and safe logs. Owner can additionally read the access audit. Operator and owner have no write permission in this sprint.
+Roles are `viewer`, `operator`, and `owner`. Every role can read overview, scoped instance detail, health, and safe logs.
+Owner can additionally read the access audit. Viewer cannot enqueue hosted changes. Operator and owner may create a
+server and enqueue allowed lifecycle or registration actions. Stopping a server and emergency registration closure are
+owner-only. The server validates role, current instance version, idempotency key, action policy, and durable availability
+for every request.
 
 Production bootstrap requires explicit `EMPIRE_ADMIN_BOOTSTRAP_ENABLED=true` plus configured actor identity. Without that opt-in or a future production identity adapter, admin authentication fails closed.
 
@@ -48,19 +54,30 @@ The API returns typed allowlist models. Command summaries contain command ID/typ
 
 Raw command/event payloads, arbitrary JSON previews, diagnostic context, raw errors, stack traces, environment values, authorization headers, cookies, tokens, and secrets are never serialized to the browser.
 
-## Write-control gate
+## Hosted write boundary
 
-Admin writes remain prohibited. There are no lifecycle, join-policy, resource grant, player, district, gameplay, reset, or delete endpoints or buttons. The unsafe prototype admin command service and browser dispatcher were removed.
+The admin browser never mutates gameplay state and never imports game-core logic. Its only write-capable operations are
+typed hosted-control-plane requests:
 
-A separate write-control-plane sprint may start only after all of these gates are met:
+- create a durable hosted server record and provisioning job;
+- schedule, open, cancel, or close the server registration window;
+- start, pause, resume, safely restart, or stop the hosted instance.
 
-- the instance registry is durable;
-- per-instance projections and two-instance isolation are verified;
-- worker heartbeat is durable;
-- tick leases work across workers;
-- snapshot restore is verified;
-- admin identity and roles work with the intended production provider;
-- access audit and login rate limiting are durable;
-- live PostgreSQL repository and production-like smoke tests pass.
+Every action is enqueued with an idempotency key, expected durable server version, authenticated admin identity, and
+mandatory reason. The hosted worker owns completion; the HTTP request does not publish runtime state directly. Audit
+records cover requests, replays, worker completion, and failure.
 
-Passing this read-only foundation does not make a hosted server control plane ready for writes.
+There are intentionally no resource grants, player edits, district edits, gameplay result overrides, hard resets, raw
+snapshot downloads, or database delete controls in the browser. Those remain forbidden because they would bypass the
+server-authoritative gameplay and persistence boundaries.
+
+## Browser operations lifecycle
+
+The browser polls durable overview, selected-instance projection, and control-plane availability approximately every ten
+seconds. Polling is single-flight, aborts superseded reads, pauses while hidden, and uses bounded backoff after errors.
+Owner audit is loaded once and thereafter only by an explicit audit refresh or after a hosted action; it is not polled
+continuously because audit reads are themselves audited.
+
+The app mounts idempotently and removes requests, timers, countdowns, and visibility listeners on teardown. Periodic
+refresh does not replace a focused operator input. Search filters only rendered safe projections and never changes the
+underlying read model.

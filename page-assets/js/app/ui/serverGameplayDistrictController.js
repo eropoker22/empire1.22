@@ -1,18 +1,13 @@
 import { getDistrictPopupElements } from "./districtPopupElements.js";
 import { createServerGameplayDistrictView as createView } from "./serverGameplayDistrictView.js";
 import { createServerGameplayBuildingDetailController } from "./serverGameplayBuildingDetailController.js";
-import {
-  renderDistrictBuildingList,
-  renderDistrictFlags,
-  renderDistrictSummaryPanel
-} from "./districtPanel.js";
+import { renderDistrictBuildingList } from "./districtPanel.js";
 import { renderDistrictActionHub } from "./districtActionHub.js";
-import {
-  hideDistrictPopupModal,
-  showDistrictPopupModal
-} from "./districtPopupModalHelpers.js";
+import { bindServerGameplayDistrictEvents } from "./serverGameplayDistrictEventBindings.js";
+import { renderServerGameplayDistrictSummary } from "./serverGameplayDistrictSummaryRenderer.js";
+import { createServerGameplayDistrictSurfaceActionDispatcher } from "./serverGameplayDistrictSurfaceActionDispatcher.js";
+import { closeDistrictAtmosphereWindow, hideDistrictPopupModal, openDistrictAtmosphereWindow, showDistrictPopupModal } from "./districtPopupModalHelpers.js";
 
-const GAMEPLAY_SLICE_SCOPE_SELECTOR = "[data-gameplay-slice-client]";
 const BUILDING_CHIP_SELECTOR = "[data-district-building-name]";
 
 export function createServerGameplayDistrictController({
@@ -29,10 +24,11 @@ export function createServerGameplayDistrictController({
   let latestView = null;
   let latestFingerprint = "";
   let renderedFingerprint = "";
-  let pendingSurfaceAction = false;
+  let overviewEnabled = false;
   let buildingDetailController = null;
   let originalParent = null;
   let originalNextSibling = null;
+  let releasePopupEvents = null;
   const diagnostics = {
     updates: 0,
     renders: 0,
@@ -42,12 +38,6 @@ export function createServerGameplayDistrictController({
   };
 
   const isOpen = () => Boolean(elements.popup && !elements.popup.hidden);
-  const setText = (element, value) => {
-    const text = String(value ?? "");
-    if (!element || element.textContent === text) return 0;
-    element.textContent = text;
-    return 1;
-  };
   const stopContentEvent = (event) => event.stopPropagation();
   const guardCloseEvent = (event) => {
     event.preventDefault();
@@ -57,6 +47,10 @@ export function createServerGameplayDistrictController({
   const close = () => {
     if (!elements.popup || !isOpen()) return false;
     buildingDetailController?.close?.();
+    closeDistrictAtmosphereWindow({
+      trigger: elements.popupAtmosphereHero,
+      windowElement: elements.popupAtmosphereWindow
+    });
     hideDistrictPopupModal(elements.popup);
     diagnostics.closes += 1;
     return true;
@@ -68,7 +62,54 @@ export function createServerGameplayDistrictController({
   };
   const onKeydown = (event) => {
     if (buildingDetailController?.isOpen?.()) return;
-    if (event.key === "Escape" && isOpen()) close();
+    if (event.key !== "Escape") return;
+    if (elements.popupAtmosphereWindow && !elements.popupAtmosphereWindow.hidden) {
+      closeDistrictAtmosphereWindow({
+        trigger: elements.popupAtmosphereHero,
+        windowElement: elements.popupAtmosphereWindow
+      });
+      return;
+    }
+    if (isOpen()) close();
+  };
+  const onAtmosphereOpen = (event) => {
+    if (!elements.popupAtmosphereHero || !elements.popupAtmosphereWindow) return;
+    if (event?.type === "keydown" && event.key !== "Enter" && event.key !== " ") return;
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    openDistrictAtmosphereWindow({
+      trigger: elements.popupAtmosphereHero,
+      windowElement: elements.popupAtmosphereWindow
+    });
+  };
+  const onAtmosphereClose = (event) => {
+    guardCloseEvent(event);
+    closeDistrictAtmosphereWindow({
+      trigger: elements.popupAtmosphereHero,
+      windowElement: elements.popupAtmosphereWindow
+    });
+  };
+  const applyOverviewMode = () => {
+    const value = overviewEnabled ? "true" : "false";
+    if (elements.popup) elements.popup.dataset.overviewEnabled = value;
+    if (elements.popupCard) elements.popupCard.dataset.overviewEnabled = value;
+    if (elements.popupToggle) {
+      elements.popupToggle.textContent = "Přehled";
+      elements.popupToggle.setAttribute("aria-pressed", value);
+      elements.popupToggle.setAttribute(
+        "aria-label",
+        overviewEnabled ? "Zavřít přehled districtu" : "Otevřít přehled districtu"
+      );
+    }
+  };
+  const setOverviewEnabled = (enabled) => {
+    overviewEnabled = enabled === true;
+    applyOverviewMode();
+  };
+  const onOverviewToggle = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setOverviewEnabled(!overviewEnabled);
   };
 
   const moveToTopLayer = () => {
@@ -76,63 +117,18 @@ export function createServerGameplayDistrictController({
     if (body && elements.popup.parentElement !== body) body.append(elements.popup);
   };
 
-  const renderSummary = (view) => {
-    let writes = 0;
-    renderDistrictSummaryPanel({
-      title: elements.popupTitle,
-      type: elements.popupType,
-      owner: elements.popupOwner,
-      ownerMeta: elements.popupOwnerMeta,
-      ownerAvatar: elements.popupOwnerAvatar,
-      ownerAvatarFallback: elements.popupOwnerAvatarFallback,
-      card: elements.popupCard
-    }, view);
-    writes += 4;
-    writes += setText(elements.popupAtmosphereLabel, view.atmosphereLabel);
-    writes += setText(elements.popupAtmosphereMood, view.atmosphereMood);
-    writes += setText(elements.popupAlliance, view.allianceLabel);
-    if (elements.popupAlliance) elements.popupAlliance.hidden = !view.allianceLabel;
-    renderDistrictFlags(elements.popupFlags, view.flags);
-    writes += 1;
-    for (let index = 0; index < summaryRows.length; index += 1) {
-      const metric = view.metrics[index] || { label: "—", value: "—" };
-      writes += setText(summaryRows[index].label, metric.label);
-      writes += setText(summaryRows[index].value, metric.value);
-    }
-    return writes;
-  };
-
-  const dispatchSurfaceAction = async (surfaceDataset) => {
-    if (pendingSurfaceAction || !mounted || !surfaceDataset) return null;
-    const scope = documentRef?.querySelector?.(GAMEPLAY_SLICE_SCOPE_SELECTOR);
-    if (!scope || typeof source?.handleSurfaceAction !== "function") return null;
-    const isBuilding = Boolean(surfaceDataset.buildingId);
-    const proxy = documentRef.createElement(isBuilding ? "article" : "button");
-    for (const [key, value] of Object.entries(surfaceDataset)) {
-      if (value !== null && value !== undefined) proxy.dataset[key] = String(value);
-    }
-    if (surfaceDataset.buildingActionBuildingId && Number.isFinite(surfaceDataset.amount)) {
-      const amountInput = documentRef.createElement("input");
-      amountInput.dataset.buildingActionInput = "amount";
-      amountInput.value = String(surfaceDataset.amount);
-      proxy.append(amountInput);
-    }
-    scope.append(proxy);
-    pendingSurfaceAction = true;
-    if (elements.popup) elements.popup.dataset.surfaceActionState = "pending";
-    diagnostics.surfaceActions += 1;
-    try {
-      const response = await source.handleSurfaceAction(proxy);
+  const dispatchSurfaceAction = createServerGameplayDistrictSurfaceActionDispatcher({
+    documentRef,
+    getElements: () => elements,
+    isMounted: () => mounted,
+    onDispatch: () => { diagnostics.surfaceActions += 1; },
+    onResponse: (response) => {
       if (response?.readModel) latestReadModel = response.readModel;
       if (response?.renderState) latestRenderState = response.renderState;
       if (response && isOpen()) render(true);
-      if (elements.popup) elements.popup.dataset.surfaceActionState = response ? "ready" : "rejected";
-      return response;
-    } finally {
-      pendingSurfaceAction = false;
-      proxy.remove();
-    }
-  };
+    },
+    source
+  });
 
   const onBuildingClick = (event) => {
     const chip = event.target?.closest?.(BUILDING_CHIP_SELECTOR);
@@ -145,11 +141,12 @@ export function createServerGameplayDistrictController({
   };
 
   const openBuilding = async (building) => {
-    const response = await dispatchSurfaceAction({
+    if (!building || !buildingDetailController?.open?.(building.buildingId)) return false;
+    await dispatchSurfaceAction({
       buildingId: building.buildingId,
       buildingType: building.buildingTypeId
     });
-    return Boolean(response && buildingDetailController?.open?.(building.buildingId));
+    return true;
   };
   const openBuildingByType = async (buildingTypeId) => {
     const normalizedTypeId = String(buildingTypeId || "").trim().replace(/-/gu, "_");
@@ -170,15 +167,15 @@ export function createServerGameplayDistrictController({
     latestFingerprint = fingerprint;
     if (!force && fingerprint === renderedFingerprint) return 0;
 
-    let writes = renderSummary(view);
+    let writes = renderServerGameplayDistrictSummary({ elements, summaryRows, view });
     renderDistrictBuildingList({
       section: elements.popupBuildings,
       meta: elements.popupBuildingsMeta,
       list: elements.popupBuildingsList
     }, {
       buildings: view.buildings,
-      emptyText: view.buildings.length === 0 ? "District nemá dostupné budovy." : "",
-      interactive: true,
+      emptyText: view.buildings.length === 0 ? view.buildingEmptyText : "",
+      interactive: view.buildingsInteractive,
       metaText: view.buildingMetaText
     });
     writes += 1;
@@ -225,6 +222,7 @@ export function createServerGameplayDistrictController({
     }
     latestReadModel = readModel;
     latestRenderState = renderState;
+    setOverviewEnabled(false);
     if (!render(true)) return false;
     moveToTopLayer();
     showDistrictPopupModal(elements.popup);
@@ -252,24 +250,31 @@ export function createServerGameplayDistrictController({
       label: row.querySelector(".district-popup-summary-card__label"),
       value: row.querySelector(".district-popup-summary-card__value")
     }));
-    elements.popupCard.addEventListener("pointerdown", stopContentEvent);
-    elements.popupCard.addEventListener("pointerup", stopContentEvent);
-    elements.popupCard.addEventListener("click", stopContentEvent);
-    elements.popupBuildingsList?.addEventListener?.("click", onBuildingClick);
-    for (const element of closeElements) {
-      element.addEventListener("pointerdown", onClosePointer);
-      element.addEventListener("pointerup", onClosePointer);
-      element.addEventListener("click", onCloseClick);
-    }
-    documentRef?.addEventListener?.("keydown", onKeydown);
+    releasePopupEvents = bindServerGameplayDistrictEvents({
+      closeElements,
+      documentRef,
+      elements,
+      handlers: {
+        onAtmosphereClose,
+        onAtmosphereOpen,
+        onBuildingClick,
+        onCloseClick,
+        onClosePointer,
+        onKeydown,
+        onOverviewToggle,
+        stopContentEvent
+      }
+    });
     buildingDetailController = createServerGameplayBuildingDetailController({
       root,
       documentRef,
       dispatchSurfaceAction,
       getCurrentView: () => latestView,
+      getCurrentReadModel: () => latestReadModel,
       getCurrentRenderState: () => latestRenderState
     });
     buildingDetailController.mount();
+    setOverviewEnabled(false);
     mounted = true;
     return true;
   };
@@ -277,16 +282,8 @@ export function createServerGameplayDistrictController({
   const destroy = () => {
     if (!mounted) return false;
     if (isOpen()) close();
-    elements.popupCard?.removeEventListener?.("pointerdown", stopContentEvent);
-    elements.popupCard?.removeEventListener?.("pointerup", stopContentEvent);
-    elements.popupCard?.removeEventListener?.("click", stopContentEvent);
-    elements.popupBuildingsList?.removeEventListener?.("click", onBuildingClick);
-    for (const element of closeElements) {
-      element.removeEventListener("pointerdown", onClosePointer);
-      element.removeEventListener("pointerup", onClosePointer);
-      element.removeEventListener("click", onCloseClick);
-    }
-    documentRef?.removeEventListener?.("keydown", onKeydown);
+    releasePopupEvents?.();
+    releasePopupEvents = null;
     buildingDetailController?.destroy?.();
     if (originalParent && elements.popup?.parentNode !== originalParent) {
       originalParent.insertBefore(
@@ -302,6 +299,7 @@ export function createServerGameplayDistrictController({
     latestView = null;
     latestFingerprint = "";
     renderedFingerprint = "";
+    overviewEnabled = false;
     buildingDetailController = null;
     mounted = false;
     return true;

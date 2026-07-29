@@ -280,7 +280,7 @@ Implemented:
    - core success after state/event persistence: `markApplied`
 5. Tests now await submit/dispatch where needed.
 6. Targeted coverage exists for duplicate, invalid, conflict, in-flight, applied, rejected, and memory/file/postgres idempotence.
-7. Release gate must still be run under Node 20 before deploying.
+7. Release gate must be run under the repository's canonical Node 24 LTS runtime before deploying.
 
 This is intentionally larger than a local lifecycle-service patch because the safety property depends on awaiting a shared persistence write before gameplay mutation.
 

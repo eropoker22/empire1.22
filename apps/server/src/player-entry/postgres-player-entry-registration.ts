@@ -15,21 +15,19 @@ import {
   PLAYER_ENTRY_BLOCKING_STATUSES,
   type HostedPlayerEntryServerRow
 } from "./postgres-player-entry-server-query";
-
-interface SnapshotDistrict {
-  id: unknown;
-  name?: unknown;
-  zone?: unknown;
-  status?: unknown;
-  ownerPlayerId?: unknown;
-  lockdownUntilTick?: unknown;
-  buildingIds?: unknown[];
-  adjacentDistrictIds?: unknown[];
-  version?: unknown;
-}
+import {
+  createSpawnMapDistrictViews,
+  loadSpawnOwnerIdentities,
+  optionalString,
+  type SnapshotDistrict,
+  type SnapshotPlayer
+} from "./postgres-player-entry-spawn-map";
 
 interface SnapshotPayload {
-  state?: { districtsById?: Record<string, SnapshotDistrict> };
+  state?: {
+    districtsById?: Record<string, SnapshotDistrict>;
+    playersById?: Record<string, SnapshotPlayer>;
+  };
 }
 
 export const createLobbyServerSummary = async (
@@ -113,7 +111,18 @@ export const loadHostedSpawnSelection = async (
     [serverInstanceId, PLAYER_ENTRY_BLOCKING_STATUSES]
   );
   const reservedIds = new Set(reserved.rows.map((row) => String(row.district_id)));
-  const districts = Object.values(latest.payload.state.districtsById ?? {})
+  const snapshotDistricts = latest.payload.state.districtsById ?? {};
+  const ownerPlayerIds = [...new Set(Object.values(snapshotDistricts)
+    .map((district) => optionalString(district?.ownerPlayerId))
+    .filter((playerId): playerId is string => Boolean(playerId)))];
+  const ownerIdentities = await loadSpawnOwnerIdentities(database, serverInstanceId, ownerPlayerIds);
+  const mapDistricts = createSpawnMapDistrictViews(
+    snapshotDistricts,
+    latest.payload.state.playersById ?? {},
+    ownerIdentities,
+    reservedIds
+  );
+  const districts = Object.values(snapshotDistricts)
     .filter((district): district is SnapshotDistrict => Boolean(district && findSharedCitySpawnCandidate(String(district.id))?.enabled))
     .map((district) => {
       const reason = district.zone === "downtown" ? "DOWNTOWN"
@@ -163,7 +172,8 @@ export const loadHostedSpawnSelection = async (
     disabledReason: null,
     generatedAt: now.toISOString(),
     availabilityRevision,
-    districts
+    districts,
+    mapDistricts
   };
 };
 

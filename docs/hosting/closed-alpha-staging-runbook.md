@@ -19,8 +19,8 @@ The staging database must be a new database with credentials and durable records
 | --- | --- | --- | --- | --- |
 | Frontend | Yes, generated `client/` | Netlify publish contract exists | Not live-verified | Dedicated staging site and origin |
 | API/Functions | Yes, bundled Function | Netlify routes exist | Not live-verified | Staging Functions env and HTTP route checks |
-| PostgreSQL | Local Docker only | Repositories and migrations 001-015 exist | Not provisioned | Separate TLS staging database |
-| Worker | Node 20 bundle and Dockerfile | Always-on Docker contract exists | Not deployed | Approved provider and paid-plan decision |
+| PostgreSQL | Local Docker only | Repositories and migrations 001-021 exist | Not provisioned | Separate TLS staging database |
+| Worker | Node 24 LTS bundle and Dockerfile | Always-on Docker contract exists | Not deployed | Approved provider and paid-plan decision |
 | Admin | Durable auth/control plane exists | Owner bootstrap and diagnostics exist | Not live-verified | Owner bootstrap and live SHA parity |
 | DNS/TLS | Production redirects exist | Proposed `alpha` hostname | Not configured | Explicit DNS approval |
 | Backups | Commands documented below | Provider backup policy required | Not verified | Database and secure backup location |
@@ -30,7 +30,7 @@ The staging database must be a new database with credentials and durable records
 
 - Netlify serves static frontend files and the bundled `gameplay-slice` Function.
 - PostgreSQL stores accounts, sessions, control-plane records, memberships, commands, snapshots, leases and results.
-- The hosted worker is an always-on Node 20 Docker process. It must not run as a Netlify Function.
+- The hosted worker is an always-on Node 24 LTS Docker process. It must not run as a Netlify Function.
 - Frontend, Function and worker use one exact 40-character `EMPIRE_BUILD_SHA`.
 - Admin writes fail closed when the API or worker SHA is missing or when they differ. The browser also hides write
   controls unless its embedded frontend SHA matches the API and worker.
@@ -112,7 +112,8 @@ npm run verify:staging-env -- --allow-registration-enabled
 Requirements:
 
 - clean Git worktree;
-- Node 20 from `.node-version`;
+- Node 24 LTS from `.node-version`;
+- `node --version` reports major 24 and `npm --version` reports the release npm toolchain;
 - `npm ci` from `package-lock.json`;
 - no `.env.local` in the build context;
 - one exact `EMPIRE_BUILD_SHA` for every component.
@@ -180,11 +181,11 @@ Migration sequence:
 
 ```powershell
 npm run db:migrate:status
-npm run db:migrate
+npm run db:migrate -- --controlled-snapshot-recovery
 npm run db:migrate:status
 ```
 
-Expected: migrations `001` through `015`, checksum parity, no unknown migration and `pending: 0`.
+Expected: migrations `001` through `021`, checksum parity, no unknown migration and `pending: 0`.
 
 Concurrent migration drill, only against a new disposable staging-test database:
 

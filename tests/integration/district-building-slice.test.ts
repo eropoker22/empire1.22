@@ -10,7 +10,7 @@ import { createDistrictBuildingSliceSeed } from "../../tools/seed/src";
 import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
 
 describe("district building gameplay slice", () => {
-  it("loads fixed district buildings and rerenders after a building action command", async () => {
+  it("loads owned buildings, hides enemy buildings, and rerenders after a building action command", async () => {
     const server = createServerApp();
     const instanceId = "instance:vertical-slice";
     const playerId = "player:vertical-slice";
@@ -103,8 +103,8 @@ describe("district building gameplay slice", () => {
     expect(enemyDistrictRender.sidePanelHtml).toContain("Enemy District");
     expect(enemyDistrictRender.mapHtml).toContain(`data-selected-district-id="${enemyDistrictId}"`);
     expect(enemyDistrictRender.districtPanel?.attackTargets).toEqual([]);
-    expect(enemyDistrictRender.sidePanelHtml).toContain("Zbrojovka");
-    expect(enemyDistrictRender.districtPanel?.buildings[0]?.actions).toEqual([]);
+    expect(enemyDistrictRender.sidePanelHtml).not.toContain("Zbrojovka");
+    expect(enemyDistrictRender.districtPanel?.buildings).toEqual([]);
     expect(enemyDistrictRender.districtPanel?.ownershipLabel).toBe("Vlastní player:enemy");
 
     const homeDistrictRender = await client.selectDistrict(districtId);

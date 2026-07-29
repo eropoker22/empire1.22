@@ -19,11 +19,15 @@ test("owner creates, provisions and controls a hosted server", async ({ page }) 
     if (path === "/api/admin/session" && request.method() === "POST") { authenticated = true; return json(route, 200, success(session)); }
     if (path === "/api/admin/session" && request.method() === "GET") return authenticated ? json(route, 200, success(session)) : failure(route, 401, "ADMIN_SESSION_REQUIRED");
     if (!authenticated) return failure(route, 401, "ADMIN_SESSION_REQUIRED");
+    if (path === "/api/admin/audit") return json(route, 200, success([{
+      id: "audit:e2e", adminSessionId: session.adminSessionId, actorId: session.actorId, role: "owner",
+      action: "login-success", targetInstanceId: null, result: "success", createdAt: NOW, correlationId: "request:e2e"
+    }]));
     if (path === "/api/admin/servers" && request.method() === "POST") {
       expect(request.headers()["idempotency-key"]).toBeTruthy();
       const payload = request.postDataJSON();
       expect(payload.mapComposition).toEqual({ downtown: 8, commercial: 40, residential: 38, industrial: 38, park: 37 });
-      expect(payload).toMatchObject({ serverTemplate: "control", capacity: 2, joinPolicy: "closed" });
+      expect(payload).toMatchObject({ serverTemplate: "control", capacity: 1, joinPolicy: "closed" });
       expect(payload).not.toHaveProperty("eliminationInterval");
       expect(payload).not.toHaveProperty("finalLockdownTrigger");
       hosted = hostedServer("requested", "requested", 1);
@@ -64,38 +68,39 @@ test("owner creates, provisions and controls a hosted server", async ({ page }) 
   await page.locator("[data-admin-username]").fill("test-owner");
   await page.locator("[data-admin-password]").fill("TestPassword-Only-For-Fixtures");
   await page.getByRole("button", { name: "Přihlásit" }).click();
-  await page.getByRole("button", { name: "Vytvořit server" }).click();
+  await expect(page.locator("#admin-audit")).toContainText("login-success");
+  await page.locator("[data-admin-create-open]").click();
   await page.getByLabel("Název").fill("E2E Hosted");
-  await page.getByRole("button", { name: "Další" }).click();
+  await page.locator('[data-admin-wizard-panel]:not([hidden]) [data-admin-wizard-next]').click();
   await expect(page.locator("[data-admin-map-total]")).toHaveText("161");
-  await page.getByRole("button", { name: "Další" }).click();
+  await page.locator('[data-admin-wizard-panel]:not([hidden]) [data-admin-wizard-next]').click();
   await expect(page.locator('[name="joinPolicy"]')).toHaveValue("closed");
-  await page.getByRole("button", { name: "Další" }).click();
+  await page.locator('[data-admin-wizard-panel]:not([hidden]) [data-admin-wizard-next]').click();
   await expect(page.locator("[data-admin-create-review]")).toContainText("E2E Hosted");
-  await page.getByRole("button", { name: "Create Server" }).click();
+  await page.locator("[data-admin-create-form] [type=submit]").click();
   await expect(page).toHaveURL(/instance=instance%3Afree%3Aeu-central%3Ae2e/u);
   await expect(page.locator("#admin-control-plane")).toContainText(/provisioning|lobby/iu);
   await page.getByRole("button", { name: "Obnovit" }).click();
-  await expect(page.locator("#admin-control-plane")).toContainText("ready");
+  await expect(page.locator('#admin-control-plane [data-status-value="ready"]')).toBeVisible();
 
-  const reason = page.locator("[data-admin-action-reason]");
-  await expect(page.locator(".admin-start-readiness")).toContainText("0 / 2");
+  await expect(page.locator(".admin-start-readiness")).toContainText("0 / 1");
   await expect(page.getByRole("button", { name: "Start", exact: true })).toBeDisabled();
-  await reason.fill("E2E registration schedule");
   await page.locator("[data-admin-registration-opens-at]").fill("2026-07-16T10:00");
   await page.getByRole("button", { name: "Naplánovat registraci", exact: true }).click();
+  await page.locator("[data-admin-registration-reason]").fill("E2E registration schedule");
+  await page.locator("[data-admin-registration-confirm]").click();
   await expect(page.locator(".admin-registration")).toContainText("NAPLÁNOVÁNO");
 
   hosted = { ...hosted, registrationState: "open", registrationOpensAt: NOW,
-    registrationClosesAt: "2026-07-16T11:00:00.000Z", joinPolicy: "open", readyPlayers: 1,
-    canStart: false, startDisabledReason: "Server potřebuje alespoň 2 aktivní hráče.", version: hosted.version + 1 };
+    registrationClosesAt: "2026-07-16T11:00:00.000Z", joinPolicy: "open", readyPlayers: 0,
+    canStart: false, startDisabledReason: "Server potřebuje alespoň 1 aktivního hráče.", version: hosted.version + 1 };
   await page.getByRole("button", { name: "Obnovit" }).click();
-  await expect(page.locator(".admin-start-readiness")).toContainText("1 / 2");
+  await expect(page.locator(".admin-start-readiness")).toContainText("0 / 1");
   await expect(page.getByRole("button", { name: "Start", exact: true })).toBeDisabled();
 
-  hosted = { ...hosted, readyPlayers: 2, canStart: true, startDisabledReason: null, version: hosted.version + 1 };
+  hosted = { ...hosted, readyPlayers: 1, canStart: true, startDisabledReason: null, version: hosted.version + 1 };
   await page.getByRole("button", { name: "Obnovit" }).click();
-  await expect(page.locator(".admin-start-readiness")).toContainText("2 / 2");
+  await expect(page.locator(".admin-start-readiness")).toContainText("1 / 1");
   await expect(page.getByRole("button", { name: "Start", exact: true })).toBeEnabled();
 
   let expectedVersion = hosted.version;
@@ -103,15 +108,16 @@ test("owner creates, provisions and controls a hosted server", async ({ page }) 
     ["Start", "running"], ["Pause", "paused"], ["Resume", "running"],
     ["Safe restart", "running"], ["Stop", "stopped"]
   ]) {
-    await reason.fill(`E2E ${button}`);
     await page.getByRole("button", { name: button, exact: true }).click();
+    await page.locator("[data-admin-action-reason]").fill(`E2E ${button}`);
+    await page.locator("[data-admin-lifecycle-confirm]").click();
     expectedVersion += 1;
     await expect(page.locator(".admin-lifecycle")).toContainText(`version ${expectedVersion}`);
-    await expect(page.locator(".admin-lifecycle")).toContainText(expectedStatus);
+    await expect(page.locator(`.admin-lifecycle__head [data-status-value="${expectedStatus}"]`)).toBeVisible();
   }
   await page.reload();
-  await expect(page.locator(".admin-lifecycle")).toContainText("stopped");
-  await expect(page.locator("body")).not.toContainText(/reset|hard delete|grant money/iu);
+  await expect(page.locator('.admin-lifecycle__head [data-status-value="stopped"]')).toBeVisible();
+  await expect(page.locator("body")).not.toContainText(/hard delete|grant money|reset server/iu);
 });
 
 const NOW = "2026-07-16T10:00:00.000Z";
@@ -119,8 +125,8 @@ const session = { adminSessionId: "session:owner", adminUserId: "user:owner", ac
   displayName: "Test Owner", role: "owner", authenticationMethod: "password", createdAt: NOW,
   expiresAt: "2026-07-16T11:00:00.000Z", revokedAt: null, lastSeenAt: NOW };
 const hostedServer = (status, provisioningState, version) => ({ serverInstanceId: "instance:free:eu-central:e2e", mode: "free",
-  displayName: "E2E Hosted", serverTemplate: "control", region: "eu-central", capacity: 2, status, joinPolicy: "closed", provisioningState, version,
-  minimumReadyPlayersToStart: 2, registrationWindowMinutes: 60, registrationScheduleVersion: 0,
+  displayName: "E2E Hosted", serverTemplate: "control", region: "eu-central", capacity: 1, status, joinPolicy: "closed", provisioningState, version,
+  minimumReadyPlayersToStart: 1, registrationWindowMinutes: 60, registrationScheduleVersion: 0,
   registrationOpensAt: null, registrationClosesAt: null, registrationClosedAt: null, registrationBaselinePlayers: null,
   canonicalFinalLockdownTrigger: 8, canonicalFirstEliminationTick: 720, canonicalTickRateMs: 10_000,
   effectiveFinalLockdownTrigger: null, effectiveFirstEliminationTick: null, readyPlayers: 0,

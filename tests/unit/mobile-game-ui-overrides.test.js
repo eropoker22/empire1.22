@@ -5,6 +5,8 @@ const read = (path) => readFileSync(resolve(process.cwd(), path), "utf8").replac
 
 describe("mobile game UI overrides", () => {
   const css = read("page-assets/css/styles.css");
+  const buildingCss = read("page-assets/css/styles-building-modals.css");
+  const mobileFixes = read("page-assets/css/styles-mobile-fixes.css");
   const html = read("pages/game.html");
   const runtime = read("page-assets/js/app/runtime.js");
 
@@ -48,6 +50,26 @@ describe("mobile game UI overrides", () => {
     expect(css).toContain("#profile-gang-card.right-panel-card .profile-row--districts");
     expect(css).toContain("grid-column: 1 / -1 !important;");
     expect(css).toContain("grid-template-rows: auto minmax(18px, auto) !important;");
+  });
+
+  it("keeps district popup close controls out of the mobile action-button positioning rule", () => {
+    const mobileBlock = css.slice(css.lastIndexOf("@media (max-width: 720px)"));
+    const actionControls = mobileBlock.slice(mobileBlock.indexOf("/* Mobile action controls"));
+
+    expect(actionControls).toContain("button:not(:disabled):not([data-district-popup-close])");
+    expect(actionControls).toContain(":not(.district-atmosphere-window__close)");
+    expect(actionControls).toContain(":not(.attack-setup-popup-close)");
+    expect(actionControls).toContain(":not(.modal__close)");
+  });
+
+  it("does not classify a wide touch-capable desktop as the mobile Buildings layout", () => {
+    expect(css).toContain("@media (min-width: 721px) {\n  html body.game-body .district-building-detail-card.building-detail-modal__content");
+    expect(css).toContain("@media (max-width: 780px), (max-width: 900px) and (hover: none) and (pointer: coarse)");
+    expect(mobileFixes).toContain("@media (max-width: 720px), (max-width: 900px) and (hover: none) and (pointer: coarse)");
+    expect(mobileFixes).not.toMatch(
+      /@media \(max-width: 720px\), \(hover: none\) and \(pointer: coarse\) \{\s*html body #buildings-modal/u
+    );
+    expect(buildingCss).toContain("grid-template-columns: repeat(auto-fit, minmax(152px, 1fr));");
   });
 
   it("removes source and chance rows from occupation info windows", () => {

@@ -31,7 +31,7 @@ const validEnvironment = {
 
 describe("staging release contract", () => {
   it("accepts a closed, isolated production-like staging environment", () => {
-    const result = validateStagingEnvironment(validEnvironment, { nodeVersion: "20.19.0" });
+    const result = validateStagingEnvironment(validEnvironment, { nodeVersion: "24.18.0" });
     expect(result.passed).toBe(true);
     expect(result.checks.every((check) => !("value" in check))).toBe(true);
   });
@@ -57,7 +57,7 @@ describe("staging release contract", () => {
   });
 
   it("does not treat missing secrets as a distinct secret set", () => {
-    const result = validateStagingEnvironment({}, { nodeVersion: "20.19.0" });
+    const result = validateStagingEnvironment({}, { nodeVersion: "24.18.0" });
     expect(result.checks.find((check) => check.name === "STAGING_SECRETS_DISTINCT")).toMatchObject({
       set: false,
       passed: false
@@ -70,10 +70,10 @@ describe("staging release contract", () => {
       EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true",
       EMPIRE_AUTH_THROTTLE_PEPPER: secret("d")
     };
-    expect(validateStagingEnvironment(open, { allowRegistrationEnabled: true, nodeVersion: "20.19.0" }).passed).toBe(true);
+    expect(validateStagingEnvironment(open, { allowRegistrationEnabled: true, nodeVersion: "24.18.0" }).passed).toBe(true);
     const missing = validateStagingEnvironment(
       { ...open, EMPIRE_ACCOUNT_TERMS_VERSION: "" },
-      { allowRegistrationEnabled: true, nodeVersion: "20.19.0" }
+      { allowRegistrationEnabled: true, nodeVersion: "24.18.0" }
     );
     expect(missing.checks.find((check) => check.name === "EMPIRE_ACCOUNT_TERMS_VERSION")).toMatchObject({
       passed: false,
@@ -85,7 +85,7 @@ describe("staging release contract", () => {
     const result = validateStagingEnvironment({
       ...validEnvironment,
       EMPIRE_RELEASE_ENVIRONMENT: "production"
-    }, { nodeVersion: "20.19.0" });
+    }, { nodeVersion: "24.18.0" });
     expect(result.checks.find((check) => check.name === "EMPIRE_RELEASE_ENVIRONMENT")).toMatchObject({
       passed: false,
       errorCode: "STAGING_RELEASE_ENVIRONMENT_INVALID"
@@ -118,40 +118,50 @@ describe("staging release contract", () => {
   it("allows code-level manifest metadata without requiring hosting secrets", () => {
     expect(validateCodeLevelReleaseEnvironment({
       EMPIRE_RELEASE_ENVIRONMENT: "staging"
-    }, { nodeVersion: "20.19.0" })).toBe(true);
+    }, { nodeVersion: "24.18.0" })).toBe(true);
     expect(() => validateCodeLevelReleaseEnvironment({
       EMPIRE_RELEASE_ENVIRONMENT: "production"
-    }, { nodeVersion: "20.19.0" })).toThrow(/EMPIRE_RELEASE_ENVIRONMENT=staging/u);
+    }, { nodeVersion: "24.18.0" })).toThrow(/EMPIRE_RELEASE_ENVIRONMENT=staging/u);
     expect(() => validateCodeLevelReleaseEnvironment({
       EMPIRE_RELEASE_ENVIRONMENT: "staging"
-    }, { nodeVersion: "22.0.0" })).toThrow(/Node\.js 20/u);
+    }, { nodeVersion: "22.0.0" })).toThrow(/Node\.js 24/u);
   });
 
   it("creates one immutable SHA for frontend, API and worker", () => {
     expect(createReleaseManifest({
       gitSha: SHA,
       expectedSchemaVersion: "015_account_age_requirement.sql",
-      createdAt: "2026-07-23T12:00:00.000Z"
+      createdAt: "2026-07-23T12:00:00.000Z",
+      nodeVersion: "24.18.0",
+      npmVersion: "11.16.0"
     })).toEqual({
       gitSha: SHA,
       frontendBuildSha: SHA,
       apiBuildSha: SHA,
       workerBuildSha: SHA,
       expectedSchemaVersion: "015_account_age_requirement.sql",
-      nodeVersion: "20",
+      nodeVersion: "24.18.0",
+      nodeMajor: 24,
+      npmVersion: "11.16.0",
       createdAt: "2026-07-23T12:00:00.000Z",
+      buildTimestamp: "2026-07-23T12:00:00.000Z",
       environment: "staging",
+      targetEnvironment: "staging",
       verificationMode: "code-level"
     });
     expect(() => createReleaseManifest({
       gitSha: SHA,
       expectedSchemaVersion: "",
-      createdAt: "2026-07-23T12:00:00.000Z"
+      createdAt: "2026-07-23T12:00:00.000Z",
+      nodeVersion: "24.18.0",
+      npmVersion: "11.16.0"
     })).toThrow(/schema migration filename/u);
     expect(() => createReleaseManifest({
       gitSha: SHA,
       expectedSchemaVersion: "015_account_age_requirement.sql",
-      verificationMode: "live"
+      verificationMode: "live",
+      nodeVersion: "24.18.0",
+      npmVersion: "11.16.0"
     })).toThrow(/verification mode/u);
   });
 });
