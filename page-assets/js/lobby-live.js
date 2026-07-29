@@ -85,7 +85,7 @@ function render() {
   text("[data-lobby-user]", overview.account.username);
   text("[data-lobby-top-user]", overview.account.username);
   text("[data-lobby-user-meta]", overview.gangProfile.gangName);
-  text("[data-lobby-status-count]", `${overview.availableServers.reduce((sum, server) => sum + server.committedPlayers, 0)} aktivních hráčů`);
+  text("[data-lobby-status-count]", `${overview.availableServers.reduce((sum, server) => sum + server.committedPlayers, 0)} hráčů`);
   text("[data-lobby-refresh-countdown]", "LIVE / 15 s");
   renderGang(overview);
   renderActiveMembership(overview.activeBlockingMembership);
