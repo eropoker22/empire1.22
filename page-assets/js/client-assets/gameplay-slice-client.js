@@ -2802,7 +2802,7 @@ var EmpireGameplaySliceClient = function(exports) {
       return "";
     }
     return [
-      `<section class="spawn-selection-panel" data-feature="spawn-selection">`,
+      `<section class="spawn-selection-panel" data-feature="spawn-selection" data-ui-owner="server-slice">`,
       `<header><p>Lobby</p><h2>Vyber startovní district</h2></header>`,
       `<p>Každý hráč začíná s jedním districtem. Výběr je po potvrzení závazný.</p>`,
       `<div class="spawn-selection-panel__list">`,
@@ -3427,10 +3427,13 @@ var EmpireGameplaySliceClient = function(exports) {
       client,
       createCommandId: createBrowserCommandId
     });
+    const presentationMode = options.presentationMode || (options.root.dataset.gameplaySlicePresentationMode === "controller-only" ? "controller-only" : "full");
+    const ownsVisiblePresentation = presentationMode === "full";
+    options.root.dataset.gameplaySlicePresentationMode = presentationMode;
     const mounts = resolveMounts(options.root);
     const selectiveRenderer = createGameplaySliceSelectiveRenderer();
     let currentLoadRequest = request;
-    const districtSheetOverlay = createDistrictSheetOverlayController();
+    const districtSheetOverlay = ownsVisiblePresentation ? createDistrictSheetOverlayController() : null;
     let pointerOrigin = null;
     let lastPointerTapIsValid = true;
     let lastDistrictTap = { districtId: null, atMs: 0 };
@@ -3443,7 +3446,7 @@ var EmpireGameplaySliceClient = function(exports) {
         districtId: void 0
       };
     };
-    const overlayBackdrop = createOverlayBackdrop({
+    const overlayBackdrop = ownsVisiblePresentation ? createOverlayBackdrop({
       mount: options.root,
       onCloseTopOverlay: (type) => {
         var _a;
@@ -3451,18 +3454,18 @@ var EmpireGameplaySliceClient = function(exports) {
           return;
         }
         clearDistrictSheetFocus();
-        districtSheetOverlay.markClosedByBackdrop();
+        districtSheetOverlay == null ? void 0 : districtSheetOverlay.markClosedByBackdrop();
         render(((_a = client.clearDistrictSelection) == null ? void 0 : _a.call(client)) ?? client.getRenderState());
       }
-    });
+    }) : null;
     const closeDistrictSheetAfterLegacyClose = (reason) => {
       var _a;
-      if (!districtSheetOverlay.isOpen() && getTopOverlay() !== "district_sheet") {
+      if (!districtSheetOverlay || !districtSheetOverlay.isOpen() && getTopOverlay() !== "district_sheet") {
         return false;
       }
       clearDistrictSheetFocus();
       districtSheetOverlay.closeFromExternal(reason);
-      overlayBackdrop.sync();
+      overlayBackdrop == null ? void 0 : overlayBackdrop.sync();
       render(((_a = client.clearDistrictSelection) == null ? void 0 : _a.call(client)) ?? client.getRenderState());
       return true;
     };
@@ -3470,7 +3473,7 @@ var EmpireGameplaySliceClient = function(exports) {
       closeDistrictSheetAfterLegacyClose("legacy district popup closed");
     };
     const legacyDistrictPopup = document.querySelector(LEGACY_DISTRICT_POPUP_SELECTOR);
-    const legacyDistrictPopupObserver = typeof MutationObserver !== "undefined" && legacyDistrictPopup ? new MutationObserver(() => {
+    const legacyDistrictPopupObserver = ownsVisiblePresentation && typeof MutationObserver !== "undefined" && legacyDistrictPopup ? new MutationObserver(() => {
       const isHidden = legacyDistrictPopup.hidden || legacyDistrictPopup.getAttribute("aria-hidden") === "true" || legacyDistrictPopup.classList.contains("hidden");
       if (isHidden) {
         closeDistrictSheetAfterLegacyClose("legacy district popup hidden");
@@ -3482,7 +3485,7 @@ var EmpireGameplaySliceClient = function(exports) {
       markGameplaySliceUnavailableRuntime(options.root, endpoint, message);
       writeGameplaySliceDiagnostic(endpoint, message);
       options.root.dataset.gameplaySliceUnavailable = "true";
-      if (isGameplayDiagnosticsEnabled()) {
+      if (ownsVisiblePresentation && isGameplayDiagnosticsEnabled()) {
         options.root.hidden = false;
         mounts.status.innerHTML = renderGameplaySliceDiagnostic(endpoint, message);
         mounts.topBar.innerHTML = "";
@@ -3505,8 +3508,9 @@ var EmpireGameplaySliceClient = function(exports) {
       delete options.root.dataset.gameplaySliceUnavailable;
       setGameplayRuntimeMarker(options.root, "server-authoritative-ready");
       options.root.dataset.lastClientRenderReason = reason;
-      options.root.hidden = false;
-      if (((_a = gameplaySlice == null ? void 0 : gameplaySlice.spawnSelection) == null ? void 0 : _a.status) === "awaiting_spawn_selection" && !gameplaySlice.player.homeDistrictId) {
+      const spawnSelectionVisible = ((_a = gameplaySlice == null ? void 0 : gameplaySlice.spawnSelection) == null ? void 0 : _a.status) === "awaiting_spawn_selection" && !gameplaySlice.player.homeDistrictId;
+      options.root.hidden = !ownsVisiblePresentation && !spawnSelectionVisible;
+      if (spawnSelectionVisible) {
         options.root.dataset.spawnSelectionVisible = "true";
       } else {
         delete options.root.dataset.spawnSelectionVisible;
@@ -3533,10 +3537,16 @@ var EmpireGameplaySliceClient = function(exports) {
         }
       }));
       document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", { detail: state.connection }));
+      if (!ownsVisiblePresentation && !spawnSelectionVisible) {
+        Object.values(mounts).forEach((mount2) => {
+          if (mount2.childNodes.length > 0) mount2.replaceChildren();
+        });
+        return;
+      }
       selectiveRenderer.render(mounts, [renderGameplaySliceStatus(state), state.topBarHtml, state.mapHtml, state.sidePanelHtml], reason);
       refreshLiveCooldownLabels(options.root);
-      districtSheetOverlay.syncFromState(state);
-      overlayBackdrop.sync();
+      districtSheetOverlay == null ? void 0 : districtSheetOverlay.syncFromState(state);
+      overlayBackdrop == null ? void 0 : overlayBackdrop.sync();
     }
     const isInsideMobileSheet = (target) => target instanceof HTMLElement && Boolean(target.closest(MOBILE_SHEET_SELECTOR));
     const handlePointerDown = (event) => {
@@ -3605,7 +3615,7 @@ var EmpireGameplaySliceClient = function(exports) {
         const selectedAtMs = Date.now();
         const isRapidRepeat = action.districtId === lastDistrictTap.districtId && selectedAtMs - lastDistrictTap.atMs < DISTRICT_TAP_DEBOUNCE_MS;
         const isSameDistrictAsOpen = action.districtId === activeDistrictSheetId;
-        const isDistrictOpen = districtSheetOverlay.isOpen();
+        const isDistrictOpen = (districtSheetOverlay == null ? void 0 : districtSheetOverlay.isOpen()) === true;
         if (isDistrictOpen && isSameDistrictAsOpen) {
           return;
         }
@@ -3661,10 +3671,12 @@ var EmpireGameplaySliceClient = function(exports) {
       },
       onError: () => {
         recordGameplayPollError();
-        mounts.status.innerHTML = [
-          "<strong>Synchronizace se serverem zastarala</strong>",
-          "<span>Obnova ze serveru selhala. Zůstává poslední známý stav.</span>"
-        ].join("");
+        if (ownsVisiblePresentation) {
+          mounts.status.innerHTML = [
+            "<strong>Synchronizace se serverem zastarala</strong>",
+            "<span>Obnova ze serveru selhala. Zůstává poslední známý stav.</span>"
+          ].join("");
+        }
         document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", {
           detail: { status: "stale", lastErrorMessage: "Obnova ze serveru selhala.", staleData: true }
         }));
@@ -3672,15 +3684,17 @@ var EmpireGameplaySliceClient = function(exports) {
     });
     const visibilityRuntime = createGameplaySliceVisibilityRuntime({ root: options.root });
     visibilityRuntime.start();
-    legacyDistrictPopupObserver == null ? void 0 : legacyDistrictPopupObserver.observe(legacyDistrictPopup, {
-      attributeFilter: ["aria-hidden", "class", "hidden"],
-      attributes: true
-    });
-    document.addEventListener("empire:district-closed", handleLegacyDistrictClosed);
-    options.root.addEventListener("click", handleClick);
-    options.root.addEventListener("pointerdown", handlePointerDown);
-    options.root.addEventListener("pointerup", handlePointerUp);
-    options.root.addEventListener("pointercancel", handlePointerCancel);
+    if (ownsVisiblePresentation) {
+      legacyDistrictPopupObserver == null ? void 0 : legacyDistrictPopupObserver.observe(legacyDistrictPopup, {
+        attributeFilter: ["aria-hidden", "class", "hidden"],
+        attributes: true
+      });
+      document.addEventListener("empire:district-closed", handleLegacyDistrictClosed);
+      options.root.addEventListener("click", handleClick);
+      options.root.addEventListener("pointerdown", handlePointerDown);
+      options.root.addEventListener("pointerup", handlePointerUp);
+      options.root.addEventListener("pointercancel", handlePointerCancel);
+    }
     void client.load(request).then((state) => {
       recordGameplaySliceRefresh(client.getGameplaySlice());
       render(state, "server-slice-initial-load");
@@ -3724,14 +3738,16 @@ var EmpireGameplaySliceClient = function(exports) {
         poller.destroy();
         visibilityRuntime.destroy();
         legacyDistrictPopupObserver == null ? void 0 : legacyDistrictPopupObserver.disconnect();
-        document.removeEventListener("empire:district-closed", handleLegacyDistrictClosed);
-        options.root.removeEventListener("click", handleClick);
-        options.root.removeEventListener("pointerdown", handlePointerDown);
-        options.root.removeEventListener("pointerup", handlePointerUp);
-        options.root.removeEventListener("pointercancel", handlePointerCancel);
-        districtSheetOverlay.closeOnDestroy();
-        overlayBackdrop.sync();
-        overlayBackdrop.destroy();
+        if (ownsVisiblePresentation) {
+          document.removeEventListener("empire:district-closed", handleLegacyDistrictClosed);
+          options.root.removeEventListener("click", handleClick);
+          options.root.removeEventListener("pointerdown", handlePointerDown);
+          options.root.removeEventListener("pointerup", handlePointerUp);
+          options.root.removeEventListener("pointercancel", handlePointerCancel);
+        }
+        districtSheetOverlay == null ? void 0 : districtSheetOverlay.closeOnDestroy();
+        overlayBackdrop == null ? void 0 : overlayBackdrop.sync();
+        overlayBackdrop == null ? void 0 : overlayBackdrop.destroy();
         unregisterMountedPage();
         mountedGameplaySlicePagesByRoot.delete(options.root);
         window.removeEventListener("pagehide", handlePageHide);
