@@ -65,13 +65,16 @@ test("new player completes authoritative lobby entry and returns without leaving
   await page.locator("[data-live-avatar]").first().click();
   await page.getByTestId("continue-to-game").click();
   await expect(page).toHaveURL(/\/pages\/game\.html/u, { timeout: 120_000 });
-  await expect(page.locator("#game-root")).toHaveAttribute(
-    "data-runtime-init",
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-runtime-mode",
     "server-authoritative",
     { timeout: 60_000 }
   );
-  await expect(page.locator("#game-root")).toHaveAttribute("data-presentation-state", "ready");
-  await expect(page.locator("#game-root")).toHaveAttribute("data-presentation-connection", "ready");
+  await expect(page.locator("#game-root")).toHaveAttribute(
+    "data-runtime-init",
+    "ready",
+    { timeout: 60_000 }
+  );
 
   const activeBeforeReturn = await loadOverview(page);
   expect(activeBeforeReturn.activeBlockingMembership.status).toBe("active");

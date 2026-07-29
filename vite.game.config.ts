@@ -25,6 +25,18 @@ const gameplayApiPaths = [
   "/api/admin/"
 ];
 
+export const resolveHostedGameApiOrigin = (
+  environment: Record<string, string | undefined> = process.env
+): string | null => {
+  const value = String(environment.EMPIRE_VITE_HOSTED_API_ORIGIN ?? "").trim();
+  if (!value) return null;
+  const origin = new URL(value);
+  if (!["http:", "https:"].includes(origin.protocol) || origin.pathname !== "/" || origin.search || origin.hash) {
+    throw new Error("EMPIRE_VITE_HOSTED_API_ORIGIN must be an exact HTTP(S) origin.");
+  }
+  return origin.origin;
+};
+
 interface DevIncomingRequest {
   url?: string;
   method?: string;
@@ -129,10 +141,10 @@ const normalizeRequestHeaders = (
     ])
   );
 
+const hostedGameApiOrigin = resolveHostedGameApiOrigin();
+
 export default defineConfig({
-  plugins: [
-    createGameplayApiMiddleware()
-  ],
+  plugins: hostedGameApiOrigin ? [] : [createGameplayApiMiddleware()],
   resolve: {
     alias: [
       {
@@ -181,6 +193,15 @@ export default defineConfig({
     host: "127.0.0.1",
     port: 5174,
     strictPort: true,
+    ...(hostedGameApiOrigin ? {
+      proxy: {
+        "/api": {
+          target: hostedGameApiOrigin,
+          changeOrigin: false,
+          secure: false
+        }
+      }
+    } : {}),
     watch: {
       ignored: [...GAME_DEV_WATCH_IGNORED]
     }
