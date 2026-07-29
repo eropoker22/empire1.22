@@ -9,7 +9,11 @@ const ACTION_DEFINITIONS = Object.freeze([
 ]);
 
 const findTarget = (district, collection, districtId) => (
-  (Array.isArray(district?.[collection]) ? district[collection] : [])
+  (
+    Array.isArray(district?.targetActions?.[collection])
+      ? district.targetActions[collection]
+      : []
+  )
     .find((target) => String(target?.districtId || "") === districtId) || null
 );
 

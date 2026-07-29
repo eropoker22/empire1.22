@@ -189,16 +189,21 @@ describe("server district action presentation", () => {
       district: {
         districtId: "district:21",
         attackTargets: [
-          { districtId: "district:20", enabled: true, disabledReason: null },
-          { districtId: "district:21", enabled: false, disabledReason: "Ochrana cíle." }
+          { districtId: "district:20", enabled: true, disabledReason: null }
         ],
-        spyTargets: [
-          { districtId: "district:20", enabled: true, disabledReason: null },
-          { districtId: "district:21", enabled: true, disabledReason: null }
-        ],
-        occupyTargets: [],
-        robTargets: [],
-        heistTargets: [],
+        targetActions: {
+          attackTargets: [
+            { districtId: "district:21", enabled: false, disabledReason: "Ochrana cíle." }
+          ],
+          spyTargets: [
+            { districtId: "district:21", enabled: true, disabledReason: null }
+          ],
+          occupyTargets: [],
+          robTargets: [
+            { districtId: "district:21", enabled: true, disabledReason: null }
+          ],
+          heistTargets: []
+        },
         placeDefense: null,
         removeDefense: null,
         trap: null
@@ -207,10 +212,14 @@ describe("server district action presentation", () => {
 
     const actions = createServerDistrictActionPresentation(readModel, "district:21");
 
-    expect(actions.map((action) => action.id)).toEqual(["attack", "spy"]);
+    expect(actions.map((action) => action.id)).toEqual(["attack", "rob", "spy"]);
     expect(actions.find((action) => action.id === "attack")).toMatchObject({
       enabled: false,
       reason: "Ochrana cíle."
+    });
+    expect(actions.find((action) => action.id === "rob")).toMatchObject({
+      enabled: true,
+      label: "Vykrást district"
     });
     expect(actions.filter((action) => action.id === "spy")).toHaveLength(1);
   });
