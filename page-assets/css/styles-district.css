@@ -3532,3 +3532,34 @@
   color: #ffffff !important;
   text-shadow: 0 0 10px rgba(255, 255, 255, 0.62) !important;
 }
+.district-popup-card[data-server-loading="true"] {
+  min-height: min(430px, calc(100dvh - 48px));
+}
+
+.district-popup-card[data-server-loading="true"] > :not(.district-popup-close, .district-popup-server-loading),
+.district-popup-card[data-server-loading="error"] > :not(.district-popup-close, .district-popup-server-loading) {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.district-popup-server-loading {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: min(78%, 360px);
+  transform: translate(-50%, -50%);
+  padding: 18px 20px;
+  border: 1px solid rgba(49, 230, 255, 0.42);
+  border-radius: 14px;
+  background: rgba(3, 15, 26, 0.9);
+  color: #dffbff;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+  box-shadow: 0 0 24px rgba(0, 205, 255, 0.14);
+}
+
+.district-popup-card[data-server-loading="error"] .district-popup-server-loading {
+  border-color: rgba(255, 72, 92, 0.62);
+  color: #ffe1e5;
+  box-shadow: 0 0 24px rgba(255, 32, 72, 0.16);
+}

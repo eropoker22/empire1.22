@@ -829,8 +829,10 @@ import {
   submitServerCityEventCommand as submitCanonicalServerCityEventCommand,
   submitServerEmergencyRecoveryCommand as submitCanonicalServerEmergencyRecoveryCommand,
   submitServerGameplayCommand as submitCanonicalServerGameplayCommand,
+  selectServerDistrict,
   syncServerGameplaySliceResponse
 } from "./runtime/serverGameplaySource.js";
+import { createServerDistrictSelectionCoordinator } from "./runtime/serverDistrictSelectionCoordinator.js";
 import { createDistrictBuildingProfileRuntime } from "./runtime/districtBuildingProfileRuntime.js";
 import { createBuildingNetworkRuntime } from "./runtime/buildingNetworkRuntime.js";
 import { createDistrictActionPanelRuntime } from "./runtime/districtActionPanelRuntime.js";
@@ -10027,6 +10029,7 @@ function bindDistrictCanvas(root) {
     policeActionResultModalClose, policeActionResultModalOk, buildingActionState,
     buildingActionSummary, buildingActionMeta, gangMembersValue
   } = districtPopupElements;
+  const districtPopupServerLoading = root.querySelector("[data-district-popup-server-loading]");
 
   if (!mapShell.canRender) {
     return;
@@ -10154,6 +10157,7 @@ function bindDistrictCanvas(root) {
   let imageSet = null;
   let spyAnimationFrameId = null;
   let popupRefreshTimerId = null;
+  let serverDistrictSelectionCoordinator = null;
   let isDistrictPopupOverviewEnabled = false;
   let lastTooltipDistrictId = null;
   let tooltipSize = { width: 84, height: 52 };
@@ -10219,6 +10223,7 @@ function bindDistrictCanvas(root) {
   };
 
   const closePopup = () => {
+    serverDistrictSelectionCoordinator?.cancel?.();
     interactionState.selectedDistrictId = null;
     clearPendingAttackContext();
 
@@ -10315,7 +10320,7 @@ function bindDistrictCanvas(root) {
       popupSummary
     }
   });
-  const openDistrictBuildingDetail = (district, buildingName, options = {}) => {
+  const presentDistrictBuildingDetail = (district, buildingName, options = {}) => {
     const safeDistrict = district && geometry?.districts?.length
       ? geometry.districts.find((entry) => Number(entry.id) === Number(district.id)) || district
       : district;
@@ -10366,6 +10371,7 @@ function bindDistrictCanvas(root) {
     }
     return true;
   };
+  let openDistrictBuildingDetail = presentDistrictBuildingDetail;
 
   const isClinicStabilizationProtocolReady = ({ district, baseName, displayName } = {}) => {
     try {
@@ -11401,6 +11407,15 @@ function bindDistrictCanvas(root) {
     if (!popup || !popupTitle || !popupType || !popupOwner || !district) {
       return;
     }
+    if (popupCard instanceof HTMLElement) {
+      delete popupCard.dataset.serverLoading;
+      popupCard.removeAttribute("aria-busy");
+    }
+    if (districtPopupServerLoading instanceof HTMLElement) {
+      districtPopupServerLoading.hidden = true;
+      districtPopupServerLoading.textContent = "Načítám stav districtu…";
+      districtPopupServerLoading.removeAttribute("title");
+    }
 
     const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
     const isOccupying = isDistrictOccupationInProgress(district.id);
@@ -11637,6 +11652,105 @@ function bindDistrictCanvas(root) {
     });
 
     scheduleDistrictPopupRefresh();
+  };
+
+  const showServerDistrictLoading = ({ district, buildingName = "" } = {}) => {
+    if (!popup || !popupCard || !district) {
+      return false;
+    }
+    const districtId = Number(district.id || 0);
+    interactionState.selectedDistrictId = districtId || null;
+    popup.dataset.districtId = String(districtId || "");
+    popupCard.dataset.districtId = String(districtId || "");
+    popupCard.dataset.serverLoading = "true";
+    popupCard.setAttribute("aria-busy", "true");
+    if (districtPopupServerLoading instanceof HTMLElement) {
+      districtPopupServerLoading.hidden = false;
+      districtPopupServerLoading.textContent = buildingName
+        ? `Načítám stav budovy ${buildingName}…`
+        : "Načítám stav districtu…";
+    }
+    render("selection-change");
+    showDistrictPopupModal(popup);
+    syncMapInteractionVisualState({
+      hoveredDistrict: geometry?.districts?.find((entry) => entry.id === interactionState.hoveredDistrictId) || null,
+      focusedDistrict: district
+    });
+    return true;
+  };
+
+  const showServerDistrictLoadError = ({ district, buildingName = "", error } = {}) => {
+    if (!popup || !popupCard || !district) {
+      return false;
+    }
+    popup.dataset.districtId = String(district.id || "");
+    popupCard.dataset.districtId = String(district.id || "");
+    popupCard.dataset.serverLoading = "error";
+    popupCard.removeAttribute("aria-busy");
+    if (districtPopupServerLoading instanceof HTMLElement) {
+      districtPopupServerLoading.hidden = false;
+      districtPopupServerLoading.textContent = buildingName
+        ? `Budovu ${buildingName} se nepodařilo bezpečně načíst.`
+        : "District se nepodařilo bezpečně načíst.";
+      districtPopupServerLoading.title = String(error?.message || "");
+    }
+    showDistrictPopupModal(popup);
+    return true;
+  };
+
+  serverDistrictSelectionCoordinator = createServerDistrictSelectionCoordinator({
+    selectDistrict: selectServerDistrict,
+    getReadModel: getServerGameplaySliceReadModel,
+    onLoading: ({ district, buildingName }) => showServerDistrictLoading({ district, buildingName }),
+    onError: ({ district, buildingName, error }) => showServerDistrictLoadError({
+      district,
+      buildingName,
+      error
+    })
+  });
+
+  const openServerScopedDistrict = async (district, buildingRequest = null) => {
+    const result = await serverDistrictSelectionCoordinator.open({
+      district,
+      buildingId: buildingRequest?.buildingId,
+      buildingTypeId: buildingRequest?.buildingTypeId,
+      buildingName: buildingRequest?.buildingName
+    });
+    if (!result.accepted || result.stale) {
+      return false;
+    }
+
+    latestGameplaySliceReadModel = result.readModel;
+    syncInteractionDistrictAuthorityState();
+    interactionState.selectedDistrictId = Number(district.id);
+    render("server-district-selected");
+    openPopup(district);
+    if (!buildingRequest) {
+      return true;
+    }
+
+    return presentDistrictBuildingDetail(
+      district,
+      buildingRequest.buildingName,
+      {
+        ...buildingRequest.options,
+        serverBuildingId: result.building?.buildingId || "",
+        serverBuildingTypeId: result.building?.buildingTypeId || ""
+      }
+    );
+  };
+
+  openDistrictBuildingDetail = (district, buildingName, options = {}) => {
+    if (!isServerAuthoritativeGameplayRuntimeReady()) {
+      return presentDistrictBuildingDetail(district, buildingName, options);
+    }
+    void openServerScopedDistrict(district, {
+      buildingId: options.serverBuildingId || "",
+      buildingTypeId: options.serverBuildingTypeId || "",
+      buildingName,
+      options
+    });
+    return true;
   };
 
   const openPoliceRaidOnlyForDistrict = (district, policeAction = null) => {
@@ -12116,10 +12230,25 @@ function bindDistrictCanvas(root) {
         return openPoliceRaidOnlyForDistrict(district, activePoliceAction);
       }
 
+      if (isServerAuthoritativeGameplayRuntimeReady()) {
+        void openServerScopedDistrict(district);
+        return true;
+      }
+
       interactionState.selectedDistrictId = Number(district.id);
       render("district-open");
       openPopup(district);
       return true;
+    },
+    openDistrictAsync(districtId) {
+      const district = districtStateApi.getDistrictById(districtId);
+      if (!district) {
+        return Promise.resolve(false);
+      }
+      if (!isServerAuthoritativeGameplayRuntimeReady()) {
+        return Promise.resolve(districtStateApi.openDistrict(districtId));
+      }
+      return openServerScopedDistrict(district);
     },
     openBuildingDetail(districtIdOrBuildingName, buildingName = "", options = {}) {
       const firstArg = String(districtIdOrBuildingName || "").trim();
@@ -12528,9 +12657,13 @@ function bindDistrictCanvas(root) {
         return;
       }
 
-      interactionState.selectedDistrictId = district.id;
-      render("selection-change");
-      openPopup(district);
+      if (isServerAuthoritativeGameplayRuntimeReady()) {
+        void openServerScopedDistrict(district);
+      } else {
+        interactionState.selectedDistrictId = district.id;
+        render("selection-change");
+        openPopup(district);
+      }
     } else {
       interactionState.selectedDistrictId = null;
       render("selection-change");
@@ -12710,10 +12843,14 @@ function bindDistrictCanvas(root) {
       return false;
     }
 
-    interactionState.selectedDistrictId = district.id;
-    render("district-open");
     closeBuildingsPopup();
-    openPopup(district);
+    if (isServerAuthoritativeGameplayRuntimeReady()) {
+      void openServerScopedDistrict(district);
+    } else {
+      interactionState.selectedDistrictId = district.id;
+      render("district-open");
+      openPopup(district);
+    }
     return true;
   };
 
