@@ -834,7 +834,10 @@ import {
   selectServerDistrict,
   syncServerGameplaySliceResponse
 } from "./runtime/serverGameplaySource.js";
-import { createServerDistrictSelectionCoordinator } from "./runtime/serverDistrictSelectionCoordinator.js";
+import {
+  createServerDistrictSelectionCoordinator,
+  toCanonicalServerDistrictId
+} from "./runtime/serverDistrictSelectionCoordinator.js";
 import {
   LocalDemoBuildingPresentationAdapter,
   ServerBuildingPresentationAdapter
@@ -11884,7 +11887,7 @@ function bindDistrictCanvas(root) {
       readModel,
       getServerGameplayRenderState()
     );
-    const canonicalDistrictId = `district:${district.id}`;
+    const canonicalDistrictId = toCanonicalServerDistrictId(district);
     if (!serverView || String(serverView.districtId || "") !== canonicalDistrictId) {
       showServerDistrictLoadError({
         district,
@@ -12297,14 +12300,14 @@ function bindDistrictCanvas(root) {
     onLoading: ({ district, buildingId, buildingName }) => {
       showServerDistrictLoading({ district, buildingName });
       window.empireUiOwnershipDiagnostics?.recordSelection?.({
-        requestedDistrictId: `district:${district?.id || ""}`,
+        requestedDistrictId: toCanonicalServerDistrictId(district),
         requestedBuildingId: buildingId || "",
         status: "loading"
       });
     },
     onError: ({ district, buildingId, buildingName, error }) => {
       window.empireUiOwnershipDiagnostics?.recordSelection?.({
-        requestedDistrictId: `district:${district?.id || ""}`,
+        requestedDistrictId: toCanonicalServerDistrictId(district),
         requestedBuildingId: buildingId || "",
         status: "error"
       });
@@ -12327,6 +12330,20 @@ function bindDistrictCanvas(root) {
       return false;
     }
 
+    const confirmedLegacyDistrictId = Number(resolveLegacyDistrictId(result.canonicalDistrictId));
+    const confirmedDistrict = geometry?.districts?.find((entry) => (
+      String(entry?.canonicalId || "") === result.canonicalDistrictId
+      || Number(entry?.id) === confirmedLegacyDistrictId
+    )) || null;
+    if (!confirmedDistrict) {
+      showServerDistrictLoadError({
+        district,
+        buildingName: buildingRequest?.buildingName,
+        error: new Error("Potvrzený serverový district není v aktuální mapě dostupný.")
+      });
+      return false;
+    }
+
     latestGameplaySliceReadModel = result.readModel;
     window.empireUiOwnershipDiagnostics?.recordSelection?.({
       requestedDistrictId: result.canonicalDistrictId,
@@ -12334,15 +12351,15 @@ function bindDistrictCanvas(root) {
       status: "ready"
     });
     syncInteractionDistrictAuthorityState();
-    interactionState.selectedDistrictId = Number(district.id);
+    interactionState.selectedDistrictId = Number(confirmedDistrict.id);
     render("server-district-selected");
-    openPopup(district);
+    openPopup(confirmedDistrict);
     if (!buildingRequest) {
       return true;
     }
 
     return presentDistrictBuildingDetail(
-      district,
+      confirmedDistrict,
       buildingRequest.buildingName,
       {
         ...buildingRequest.options,

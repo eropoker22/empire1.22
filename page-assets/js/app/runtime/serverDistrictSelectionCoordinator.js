@@ -13,7 +13,13 @@ const BUILDING_TYPE_ALIASES = Object.freeze({
 });
 
 export function toCanonicalServerDistrictId(value) {
-  const normalized = String(value?.districtId ?? value?.id ?? value ?? "").trim();
+  const normalized = String(
+    value?.canonicalId
+    ?? value?.districtId
+    ?? value?.id
+    ?? value
+    ?? ""
+  ).trim();
   if (!normalized) return "";
   return normalized.startsWith("district:") ? normalized : `district:${normalized}`;
 }

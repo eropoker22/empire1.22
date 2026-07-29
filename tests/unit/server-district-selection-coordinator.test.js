@@ -14,6 +14,7 @@ describe("server district selection coordinator", () => {
   it("normalizes legacy map identifiers", () => {
     expect(toCanonicalServerDistrictId(21)).toBe("district:21");
     expect(toCanonicalServerDistrictId({ id: 66 })).toBe("district:66");
+    expect(toCanonicalServerDistrictId({ id: 1, canonicalId: "district:20" })).toBe("district:20");
     expect(toCanonicalServerDistrictId("district:68")).toBe("district:68");
   });
 
