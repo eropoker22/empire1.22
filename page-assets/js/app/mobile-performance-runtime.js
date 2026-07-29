@@ -3,6 +3,7 @@ import {
   detectMobilePerformanceMode
 } from "./performance/mobilePerformanceMode.js";
 import "./performance/runtimePerformanceDiagnostics.js";
+import "./dev/uiOwnershipDiagnostics.js";
 
 const PERFORMANCE_MEDIA_QUERIES = [
   "(max-width: 840px)",

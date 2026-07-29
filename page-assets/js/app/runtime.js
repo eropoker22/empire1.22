@@ -12294,12 +12294,26 @@ function bindDistrictCanvas(root) {
   serverDistrictSelectionCoordinator = createServerDistrictSelectionCoordinator({
     selectDistrict: selectServerDistrict,
     getReadModel: getServerGameplaySliceReadModel,
-    onLoading: ({ district, buildingName }) => showServerDistrictLoading({ district, buildingName }),
-    onError: ({ district, buildingName, error }) => showServerDistrictLoadError({
-      district,
-      buildingName,
-      error
-    })
+    onLoading: ({ district, buildingId, buildingName }) => {
+      showServerDistrictLoading({ district, buildingName });
+      window.empireUiOwnershipDiagnostics?.recordSelection?.({
+        requestedDistrictId: `district:${district?.id || ""}`,
+        requestedBuildingId: buildingId || "",
+        status: "loading"
+      });
+    },
+    onError: ({ district, buildingId, buildingName, error }) => {
+      window.empireUiOwnershipDiagnostics?.recordSelection?.({
+        requestedDistrictId: `district:${district?.id || ""}`,
+        requestedBuildingId: buildingId || "",
+        status: "error"
+      });
+      showServerDistrictLoadError({
+        district,
+        buildingName,
+        error
+      });
+    }
   });
 
   const openServerScopedDistrict = async (district, buildingRequest = null) => {
@@ -12314,6 +12328,11 @@ function bindDistrictCanvas(root) {
     }
 
     latestGameplaySliceReadModel = result.readModel;
+    window.empireUiOwnershipDiagnostics?.recordSelection?.({
+      requestedDistrictId: result.canonicalDistrictId,
+      requestedBuildingId: result.building?.buildingId || "",
+      status: "ready"
+    });
     syncInteractionDistrictAuthorityState();
     interactionState.selectedDistrictId = Number(district.id);
     render("server-district-selected");

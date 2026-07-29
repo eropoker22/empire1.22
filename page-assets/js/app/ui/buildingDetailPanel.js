@@ -180,6 +180,7 @@ export function ensureBuildingDetailPanel(root, callbacks = {}, options = {}) {
   if (!shell) return null;
   shell.dataset.districtBuildingDetailPopup = "true";
   shell.dataset.districtBuildingDetailKey = normalizedPopupKey;
+  shell.dataset.uiOwner = "legacy-shared";
   shell.hidden = true;
 
   const backdrop = createElement(root, "div", "district-building-detail-backdrop");

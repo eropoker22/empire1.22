@@ -71,7 +71,7 @@ const renderSpawnSelectionPanel = (
   }
 
   return [
-    `<section class="spawn-selection-panel" data-feature="spawn-selection">`,
+    `<section class="spawn-selection-panel" data-feature="spawn-selection" data-ui-owner="server-slice">`,
     `<header><p>Lobby</p><h2>Vyber startovní district</h2></header>`,
     `<p>Každý hráč začíná s jedním districtem. Výběr je po potvrzení závazný.</p>`,
     `<div class="spawn-selection-panel__list">`,
