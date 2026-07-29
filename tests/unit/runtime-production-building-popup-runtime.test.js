@@ -156,14 +156,11 @@ describe("production building popup runtime", () => {
     });
   });
 
-  it("blocks legacy local production callbacks when the server bridge owns production", () => {
-    const recipeCallbacks = {};
+  it("renders no legacy recipe callbacks while the server building is loading", () => {
     const persistProductionJob = vi.fn();
-    const setBuildingActionFeedback = vi.fn();
-    const renderRecipeCard = vi.fn((viewModel, callbacks) => {
-      Object.assign(recipeCallbacks, callbacks);
-      return { viewModel };
-    });
+    const renderRecipeCard = vi.fn();
+    const renderProductionPanelUi = vi.fn(() => true);
+    const syncCompletedProductionJobs = vi.fn();
     const runtime = createProductionBuildingPopupRuntime({
       allowLegacyLocalProduction: false,
       getInventoryAmount: () => 10,
@@ -174,10 +171,9 @@ describe("production building popup runtime", () => {
       getStoredProductionBuildingState: () => ({ level: 1 }),
       hasEnoughMaterials: () => true,
       persistProductionJob,
-      renderProductionPanelUi: vi.fn(() => true),
+      renderProductionPanelUi,
       renderRecipeCard,
-      setBuildingActionFeedback,
-      syncCompletedProductionJobs: vi.fn()
+      syncCompletedProductionJobs
     });
     const root = createRoot({
       '[data-production-panel="pharmacy"]': {}
@@ -190,14 +186,14 @@ describe("production building popup runtime", () => {
         output: { inventory: "materials", itemId: "chemicals", amount: 1 }
       }
     })).toBe(true);
-    recipeCallbacks.onStart({ batchCount: 1 });
 
+    expect(renderRecipeCard).not.toHaveBeenCalled();
     expect(persistProductionJob).not.toHaveBeenCalled();
-    expect(setBuildingActionFeedback).toHaveBeenCalledWith(
-      root,
-      "warning",
-      "Budova",
-      expect.stringContaining("nedostupná")
+    expect(syncCompletedProductionJobs).not.toHaveBeenCalled();
+    expect(renderProductionPanelUi).toHaveBeenCalledWith(
+      expect.objectContaining({ recipes: [] }),
+      {},
+      expect.anything()
     );
   });
 
@@ -328,7 +324,7 @@ describe("production building popup runtime", () => {
     ]));
   });
 
-  it("keeps production upgrade button clickable in server-owned mode to explain the route", async () => {
+  it("upgrades the exact server-owned production building without local state writes", async () => {
     const openButton = createElement();
     const popup = createElement();
     const closeButton = createElement();
@@ -341,6 +337,10 @@ describe("production building popup runtime", () => {
       open: vi.fn(() => Promise.resolve(true))
     };
     const createUpgradeConfirmationController = vi.fn(() => upgradeConfirmation);
+    const submitServerProductionBuildingUpgrade = vi.fn(async () => ({
+      accepted: true,
+      errors: []
+    }));
     popup.querySelector = vi.fn((selector) => ({
       "[data-production-building-level]": createElement(),
       "[data-production-building-header-level]": createElement(),
@@ -363,11 +363,19 @@ describe("production building popup runtime", () => {
       allowLegacyProductionUpgrade: false,
       createUpgradeConfirmationController,
       formatCurrency: (value) => `$${value}`,
+      getResolvedEconomyState: () => ({ cleanMoney: 0 }),
       getProductionBuildingEffectsLabel: () => "x1.00",
       getProductionBuildingMultiplier: () => 1,
       getProductionBuildingReadyCount: () => 0,
       getProductionBuildingUpgradeCost: () => 100,
+      getServerPharmacyReadModel: () => ({
+        districtId: "district:21",
+        buildingId: "building:district-21:pharmacy:2",
+        level: 3,
+        productionLines: []
+      }),
       getStoredProductionBuildingState: () => ({ level: 1 }),
+      isServerAuthoritativeGameplayRuntimeReady: () => true,
       renderProductionBuildingInfoPanel: vi.fn(),
       renderProductionPanelUi: vi.fn(() => true),
       selectors: {
@@ -386,6 +394,7 @@ describe("production building popup runtime", () => {
         upgradeCost: "[data-production-building-upgrade-cost]"
       },
       setBuildingActionFeedback,
+      submitServerProductionBuildingUpgrade,
       syncBuildingDetailTopbarVisibility: vi.fn(),
       syncCompletedProductionJobs: vi.fn()
     });
@@ -408,13 +417,15 @@ describe("production building popup runtime", () => {
     expect(upgradeButton.disabled).toBe(false);
 
     await upgradeButton.dispatch("click");
-    expect(upgradeConfirmation.open).not.toHaveBeenCalled();
-    expect(setBuildingActionFeedback).toHaveBeenCalledWith(
-      root,
-      "warning",
-      "Lékárna",
-      expect.stringContaining("konkrétní kartu budovy")
-    );
+    expect(upgradeConfirmation.open).toHaveBeenCalledWith(expect.objectContaining({
+      canConfirm: true,
+      costLabel: "Ověří server",
+      upgradeLabel: "L3 → L4"
+    }));
+    expect(submitServerProductionBuildingUpgrade).toHaveBeenCalledWith({
+      districtId: "district:21",
+      buildingId: "building:district-21:pharmacy:2"
+    });
   });
 
   it("shows owned pharmacy network count in the pharmacy overview level slot", async () => {
@@ -1057,13 +1068,9 @@ describe("production building popup runtime", () => {
   });
 
   it("does not restore legacy Drug Lab jobs when a server model is unavailable", () => {
-    const recipeCallbacks = {};
     const persistProductionJob = vi.fn();
-    const setBuildingActionFeedback = vi.fn();
-    const renderRecipeCard = vi.fn((viewModel, callbacks) => {
-      recipeCallbacks[viewModel.recipeId] = callbacks;
-      return { viewModel };
-    });
+    const renderRecipeCard = vi.fn();
+    const syncCompletedProductionJobs = vi.fn();
     const runtime = createProductionBuildingPopupRuntime({
       allowLegacyLocalProduction: false,
       getInventoryAmount: () => 0,
@@ -1078,8 +1085,7 @@ describe("production building popup runtime", () => {
       persistProductionJob,
       renderProductionPanelUi: vi.fn(() => true),
       renderRecipeCard,
-      setBuildingActionFeedback,
-      syncCompletedProductionJobs: vi.fn()
+      syncCompletedProductionJobs
     });
 
     const root = createRoot({
@@ -1093,15 +1099,9 @@ describe("production building popup runtime", () => {
       }
     });
 
-    recipeCallbacks["pulse-shot"].onStart({ batchCount: 1 });
-
+    expect(renderRecipeCard).not.toHaveBeenCalled();
     expect(persistProductionJob).not.toHaveBeenCalled();
-    expect(setBuildingActionFeedback).toHaveBeenCalledWith(
-      root,
-      "warning",
-      "Budova",
-      expect.stringContaining("nedostupná")
-    );
+    expect(syncCompletedProductionJobs).not.toHaveBeenCalled();
   });
 
   it("uses the canonical Armory queue cap and rejects an oversized start atomically", () => {

@@ -85,6 +85,7 @@ export function createFactoryPopupRuntime(deps = {}) {
     ) {
       return false;
     }
+    popup.dataset.uiOwner = "legacy-shared";
 
     const tabButtons = queryAll(popup, selectors.tab);
     const panels = queryAll(popup, selectors.panel);
@@ -98,7 +99,6 @@ export function createFactoryPopupRuntime(deps = {}) {
       host: popup,
       variant: "factory"
     });
-    let lastServerFactory = null;
     let localCompletionTimer = null;
 
     const clearLocalCompletionTimer = () => {
@@ -132,11 +132,7 @@ export function createFactoryPopupRuntime(deps = {}) {
       if (isLegacyLocalProductionEnabled()) {
         return null;
       }
-      const serverFactory = deps.getServerFactoryReadModel?.() || null;
-      if (serverFactory && Array.isArray(serverFactory.productionLines) && serverFactory.productionLines.length > 0) {
-        lastServerFactory = serverFactory;
-      }
-      return serverFactory || lastServerFactory;
+      return deps.getServerFactoryReadModel?.() || null;
     };
 
     const setActiveTab = (tabName = "stats") => {
@@ -153,7 +149,13 @@ export function createFactoryPopupRuntime(deps = {}) {
 
     const renderFactoryDashboard = () => {
       const serverFactory = getAuthoritativeFactory();
+      popup.dataset.executionMode = isLegacyLocalProductionEnabled()
+        ? "local-demo"
+        : "server-authoritative";
       if (serverFactory) {
+        popup.dataset.serverDistrictId = String(serverFactory.districtId || "");
+        popup.dataset.serverBuildingId = String(serverFactory.buildingId || "");
+        popup.dataset.serverBuildingTypeId = "factory";
         const productionLines = Array.isArray(serverFactory.productionLines) ? serverFactory.productionLines : [];
         const produced = Object.fromEntries((serverFactory.producedSummary || []).map((item) => [item.resourceKey, item]));
         const formatProduced = (item) => item ? String(item.currentAmount) + " / " + String(item.capacity) : "0 / 0";
@@ -161,7 +163,7 @@ export function createFactoryPopupRuntime(deps = {}) {
         if (headerLevelElement) headerLevelElement.textContent = "Lv " + String(serverFactory.level || 1);
         if (multiplierElement) multiplierElement.textContent = "×" + Number(serverFactory.network?.networkSpeedMultiplier || 1).toFixed(2);
         if (ownedCountElement) ownedCountElement.textContent = String(serverFactory.network?.activeFactoryCount || 0);
-        if (upgradeCostElement) upgradeCostElement.textContent = "SERVER";
+        if (upgradeCostElement) upgradeCostElement.textContent = "Ověří server";
         if (metalElement) metalElement.textContent = formatProduced(produced["metal-parts"]);
         if (techElement) techElement.textContent = formatProduced(produced["tech-core"]);
         if (combatElement) combatElement.textContent = formatProduced(produced["combat-module"]);
@@ -170,9 +172,11 @@ export function createFactoryPopupRuntime(deps = {}) {
           collectButton.title = collectButton.disabled ? "Není nic hotového k vyzvednutí" : "Vybrat hotové do skladu";
         }
         if (upgradeButton) {
-          upgradeButton.disabled = true;
-          upgradeButton.title = productionUpgradeMessage;
-          upgradeButton.setAttribute?.("aria-label", productionUpgradeMessage);
+          upgradeButton.disabled = Number(serverFactory.level || 1) >= Number(deps.FACTORY_CONFIG.maxLevel || 1);
+          upgradeButton.title = upgradeButton.disabled
+            ? "Maximální level"
+            : "Upgradovat Továrnu";
+          upgradeButton.setAttribute?.("aria-label", upgradeButton.title);
         }
         if (productionLines.length === 0) {
           deps.renderServerFactorySlotList?.(
@@ -215,6 +219,9 @@ export function createFactoryPopupRuntime(deps = {}) {
         return;
       }
       if (!isLegacyLocalProductionEnabled()) {
+        delete popup.dataset.serverDistrictId;
+        delete popup.dataset.serverBuildingId;
+        delete popup.dataset.serverBuildingTypeId;
         if (levelElement) levelElement.textContent = "—";
         if (headerLevelElement) headerLevelElement.textContent = "Lv —";
         if (multiplierElement) multiplierElement.textContent = "×—";
@@ -505,12 +512,15 @@ export function createFactoryPopupRuntime(deps = {}) {
     });
 
     upgradeButton.addEventListener("click", async () => {
-      if (!isLegacyLocalProductionUpgradeEnabled()) {
+      const serverFactory = getAuthoritativeFactory();
+      if (!serverFactory && !isLegacyLocalProductionUpgradeEnabled()) {
         deps.setBuildingActionFeedback?.(root, "warning", "Továrna", productionUpgradeMessage);
         renderFactoryDashboard();
         return;
       }
-      const factoryState = deps.getStoredFactoryState?.() || {};
+      const factoryState = serverFactory
+        ? { level: Math.max(1, Number(serverFactory.level || 1)) }
+        : deps.getStoredFactoryState?.() || {};
       if (factoryState.level >= deps.FACTORY_CONFIG.maxLevel) {
         return;
       }
@@ -522,7 +532,9 @@ export function createFactoryPopupRuntime(deps = {}) {
       const speedGainPct = Math.max(0, Math.round((Number(nextMultiplier || currentMultiplier || 1) - Number(currentMultiplier || 1)) * 100));
       const currentSpeedPct = Math.round((Number(currentMultiplier || 1) - 1) * 100);
       const nextSpeedPct = Math.round((Number(nextMultiplier || currentMultiplier || 1) - 1) * 100);
-      const hasEnoughMoney = Number(economyState.cleanMoney || 0) >= upgradeCost;
+      const hasEnoughMoney = serverFactory
+        ? true
+        : Number(economyState.cleanMoney || 0) >= upgradeCost;
       const confirmed = await upgradeConfirmation.open({
         benefits: [{
           icon: "x",
@@ -533,15 +545,48 @@ export function createFactoryPopupRuntime(deps = {}) {
         buildingLabel: "Továrna",
         canConfirm: hasEnoughMoney,
         confirmLabel: "Potvrdit upgrade",
-        costLabel: deps.formatCurrency?.(upgradeCost) || String(upgradeCost),
-        noteLabel: hasEnoughMoney
-          ? `Po potvrzení zaplatíš ${deps.formatCurrency?.(upgradeCost) || upgradeCost} clean cash.`
-          : `Chybí ${deps.formatCurrency?.(upgradeCost - Number(economyState.cleanMoney || 0)) || (upgradeCost - Number(economyState.cleanMoney || 0))} clean cash.`,
+        costLabel: serverFactory
+          ? "Ověří server"
+          : deps.formatCurrency?.(upgradeCost) || String(upgradeCost),
+        noteLabel: serverFactory
+          ? "Cena i výsledek se projeví až po potvrzené serverové odpovědi."
+          : hasEnoughMoney
+            ? `Po potvrzení zaplatíš ${deps.formatCurrency?.(upgradeCost) || upgradeCost} clean cash.`
+            : `Chybí ${deps.formatCurrency?.(upgradeCost - Number(economyState.cleanMoney || 0)) || (upgradeCost - Number(economyState.cleanMoney || 0))} clean cash.`,
         titleLabel: "Továrna",
         upgradeLabel: `L${factoryState.level} → L${nextLevel}`
       });
 
       if (!confirmed) {
+        return;
+      }
+
+      if (serverFactory) {
+        upgradeButton.disabled = true;
+        try {
+          const response = await deps.submitServerProductionBuildingUpgrade?.({
+            districtId: serverFactory.districtId,
+            buildingId: serverFactory.buildingId
+          });
+          const error = response?.errors?.[0];
+          deps.setBuildingActionFeedback?.(
+            root,
+            response?.accepted && !error ? "success" : "warning",
+            "Továrna",
+            error?.message || (response?.accepted
+              ? "Továrna byla serverem upgradovaná."
+              : "Server upgrade nepotvrdil.")
+          );
+        } catch {
+          deps.setBuildingActionFeedback?.(
+            root,
+            "warning",
+            "Továrna",
+            "Serverový upgrade se nepodařilo bezpečně odeslat."
+          );
+        } finally {
+          renderFactoryDashboard();
+        }
         return;
       }
 

@@ -300,16 +300,35 @@ describe("factory popup runtime", () => {
     );
   });
 
-  it("keeps factory upgrade button clickable in server-owned mode to explain the route", async () => {
+  it("upgrades the exact server-owned factory without local state writes", async () => {
     const open = createElement();
     const popup = createElement();
     const close = createElement();
     const collect = createElement();
     const upgrade = createElement();
     const setBuildingActionFeedback = vi.fn();
+    const submitServerProductionBuildingUpgrade = vi.fn(async () => ({
+      accepted: true,
+      errors: []
+    }));
     const runtime = createRuntime({
       allowLegacyProductionUpgrade: false,
+      createUpgradeConfirmationController: () => ({
+        close: vi.fn(),
+        isOpen: vi.fn(() => false),
+        open: vi.fn(async () => true)
+      }),
+      getServerFactoryReadModel: () => ({
+        districtId: "district:21",
+        buildingId: "building:district-21:factory:2",
+        level: 3,
+        network: { activeFactoryCount: 1, networkSpeedMultiplier: 1 },
+        producedSummary: [],
+        productionLines: []
+      }),
+      isServerAuthoritativeGameplayRuntimeReady: () => true,
       setBuildingActionFeedback,
+      submitServerProductionBuildingUpgrade,
       syncBuildingDetailTopbarVisibility: vi.fn()
     });
     const root = createRoot({
@@ -338,12 +357,10 @@ describe("factory popup runtime", () => {
     expect(upgrade.disabled).toBe(false);
 
     await upgrade.dispatch("click");
-    expect(setBuildingActionFeedback).toHaveBeenCalledWith(
-      root,
-      "warning",
-      "Továrna",
-      expect.stringContaining("konkrétní kartu budovy")
-    );
+    expect(submitServerProductionBuildingUpgrade).toHaveBeenCalledWith({
+      districtId: "district:21",
+      buildingId: "building:district-21:factory:2"
+    });
   });
 
   it("blocks legacy local factory collection when the server bridge owns production", async () => {

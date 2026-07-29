@@ -40,6 +40,18 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       ? production.lines
       : [];
 
+  const createServerLoadingCard = (mount, label) => {
+    const card = documentRef?.createElement?.("article");
+    if (!card) {
+      return null;
+    }
+    card.className = "production-recipe-card production-recipe-card--loading buildings-popup__empty";
+    card.setAttribute("role", "status");
+    card.setAttribute("aria-live", "polite");
+    card.textContent = `Načítám stav budovy ${label || ""}…`.replace(/\s+…/u, "…");
+    return card;
+  };
+
   const normalizeCount = (value, fallback = 0, minValue = 0) => {
     const normalized = Math.floor(Number(value));
     if (Number.isFinite(normalized)) {
@@ -603,6 +615,14 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         }))
       }, {}, { mount });
     }
+    if (shouldUseServerProduction()) {
+      const label = deps.PRODUCTION_BUILDING_CONFIG?.[panelName]?.label || "budovy";
+      const loadingCard = createServerLoadingCard(mount, label);
+      return deps.renderProductionPanelUi?.({
+        mount,
+        recipes: loadingCard ? [{ prebuiltCard: loadingCard }] : []
+      }, {}, { mount });
+    }
 
     deps.syncCompletedProductionJobs?.();
 
@@ -634,6 +654,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     if (!openButton || !popup || closeElements.length === 0) {
       return false;
     }
+    popup.dataset.uiOwner = "legacy-shared";
 
     const config = deps.PRODUCTION_BUILDING_CONFIG?.[buildingName];
     const levelElement = popup.querySelector(selectors.level);
@@ -686,10 +707,27 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         ? deps.getServerArmoryReadModel?.()
         : null;
       const serverProduction = serverPharmacy || serverDrugLab || serverArmory;
-      deps.syncCompletedProductionJobs?.();
+      const serverLoading = shouldUseServerProduction() && !serverProduction;
+      popup.dataset.executionMode = shouldUseServerProduction()
+        ? "server-authoritative"
+        : "local-demo";
+      if (serverProduction) {
+        popup.dataset.serverDistrictId = String(serverProduction.districtId || "");
+        popup.dataset.serverBuildingId = String(serverProduction.buildingId || "");
+        popup.dataset.serverBuildingTypeId = buildingName === "druglab" ? "drug_lab" : buildingName;
+      } else {
+        delete popup.dataset.serverDistrictId;
+        delete popup.dataset.serverBuildingId;
+        delete popup.dataset.serverBuildingTypeId;
+      }
+      if (isLegacyLocalProductionEnabled()) {
+        deps.syncCompletedProductionJobs?.();
+      }
       const state = serverProduction
         ? { level: serverProduction.level || 1 }
-        : deps.getStoredProductionBuildingState?.(buildingName) || {};
+        : serverLoading
+          ? { level: 1 }
+          : deps.getStoredProductionBuildingState?.(buildingName) || {};
       const multiplier = deps.getProductionBuildingMultiplier?.(buildingName, state.level) || 1;
       const nextMultiplier = state.level < maxLevel
         ? deps.getProductionBuildingMultiplier?.(buildingName, state.level + 1) || multiplier
@@ -704,33 +742,48 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         ? `+${speedGainPct}% rychlost · celkem ${formatProductionSpeedBonus(nextMultiplier || multiplier || 1)}`
         : "Maximální level";
 
-      if (levelElement) levelElement.textContent = String(ownedBuildingCount);
-      if (headerLevelElement) headerLevelElement.textContent = `Lv ${state.level}`;
-      if (multiplierElement) multiplierElement.textContent = formatProductionSpeedBonus(multiplier);
-      if (readyElement) readyElement.textContent = `${readyCount}/${Object.keys(recipes || {}).length}`;
-      if (upgradeCostElement) upgradeCostElement.textContent = state.level < maxLevel ? deps.formatCurrency?.(upgradeCost) : "MAX";
-      if (infoUpgradeCostElement) infoUpgradeCostElement.textContent = state.level < maxLevel ? deps.formatCurrency?.(upgradeCost) : "MAX";
+      if (levelElement) levelElement.textContent = serverLoading ? "—" : String(ownedBuildingCount);
+      if (headerLevelElement) headerLevelElement.textContent = serverLoading ? "Lv —" : `Lv ${state.level}`;
+      if (multiplierElement) multiplierElement.textContent = serverLoading ? "—" : formatProductionSpeedBonus(multiplier);
+      if (readyElement) readyElement.textContent = serverLoading ? "—" : `${readyCount}/${Object.keys(recipes || {}).length}`;
+      if (upgradeCostElement) upgradeCostElement.textContent = serverLoading
+        ? "—"
+        : state.level < maxLevel ? deps.formatCurrency?.(upgradeCost) : "MAX";
+      if (infoUpgradeCostElement) infoUpgradeCostElement.textContent = serverLoading
+        ? "—"
+        : state.level < maxLevel ? deps.formatCurrency?.(upgradeCost) : "MAX";
       if (infoUpgradeBenefitElement) {
-        infoUpgradeBenefitElement.textContent = upgradeBenefitLabel;
+        infoUpgradeBenefitElement.textContent = serverLoading ? "Načítám stav budovy…" : upgradeBenefitLabel;
       }
-      if (effectsElement) effectsElement.textContent = deps.getProductionBuildingEffectsLabel?.(buildingName, state.level);
+      if (effectsElement) effectsElement.textContent = serverLoading
+        ? "Načítám stav budovy…"
+        : deps.getProductionBuildingEffectsLabel?.(buildingName, state.level);
 
-      renderProductionBuildingInfo({
-        infoTextElement,
-        infoEffectsElement,
-        infoActionsElement,
-        buildingName,
-        recipes,
-        state,
-        readyCount,
-        upgradeCost,
-        maxLevel
-      });
+      if (serverLoading) {
+        if (infoTextElement) infoTextElement.textContent = "Načítám stav budovy…";
+        if (infoEffectsElement) infoEffectsElement.replaceChildren?.();
+        if (infoActionsElement) infoActionsElement.replaceChildren?.();
+      } else {
+        renderProductionBuildingInfo({
+          infoTextElement,
+          infoEffectsElement,
+          infoActionsElement,
+          buildingName,
+          recipes,
+          state,
+          readyCount,
+          upgradeCost,
+          maxLevel
+        });
+      }
 
       if (isButtonElement(collectButton, ButtonCtor)) {
-        collectButton.disabled = serverProduction ? readyCount <= 0 : !isLegacyLocalProductionEnabled() || readyCount <= 0;
+        collectButton.disabled = serverLoading
+          || (serverProduction ? readyCount <= 0 : !isLegacyLocalProductionEnabled() || readyCount <= 0);
         collectButton.textContent = "+";
-        const collectLabel = serverProduction
+        const collectLabel = serverLoading
+          ? "Načítám stav budovy…"
+          : serverProduction
           ? readyCount > 0 ? "Vybrat hotovou produkci do skladu" : "Není nic hotového k vyzvednutí"
           : !isLegacyLocalProductionEnabled()
           ? productionBridgeMessage
@@ -745,9 +798,15 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         const hasNextUpgrade = state.level < maxLevel;
         upgradeButton.hidden = !hasNextUpgrade;
         upgradeButton.style.display = hasNextUpgrade ? "" : "none";
-        upgradeButton.disabled = !hasNextUpgrade || (isLegacyLocalProductionUpgradeEnabled() && state.level >= maxLevel);
+        upgradeButton.disabled = serverLoading
+          || !hasNextUpgrade
+          || (isLegacyLocalProductionUpgradeEnabled() && state.level >= maxLevel);
         upgradeButton.textContent = "⇪";
-        const upgradeLabel = !isLegacyLocalProductionUpgradeEnabled()
+        const upgradeLabel = serverLoading
+          ? "Načítám stav budovy…"
+          : serverProduction
+          ? `Upgrade budovy (${deps.formatCurrency?.(upgradeCost)})`
+          : !isLegacyLocalProductionUpgradeEnabled()
           ? productionUpgradeMessage
           : !hasNextUpgrade
           ? "Max level"
@@ -881,12 +940,24 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
 
     if (isButtonElement(upgradeButton, ButtonCtor)) {
       upgradeButton.addEventListener("click", async () => {
-        if (!isLegacyLocalProductionUpgradeEnabled()) {
+        const serverPharmacy = buildingName === "pharmacy" && shouldUseServerProduction()
+          ? deps.getServerPharmacyReadModel?.()
+          : null;
+        const serverDrugLab = buildingName === "druglab" && shouldUseServerProduction()
+          ? deps.getServerDrugLabReadModel?.()
+          : null;
+        const serverArmory = buildingName === "armory" && shouldUseServerProduction()
+          ? deps.getServerArmoryReadModel?.()
+          : null;
+        const serverProduction = serverPharmacy || serverDrugLab || serverArmory;
+        if (!serverProduction && !isLegacyLocalProductionUpgradeEnabled()) {
           deps.setBuildingActionFeedback?.(root, "warning", config?.label || "Budova", productionUpgradeMessage);
           renderDashboard();
           return;
         }
-        const currentState = deps.getStoredProductionBuildingState?.(buildingName) || {};
+        const currentState = serverProduction
+          ? { level: Math.max(1, Number(serverProduction.level || 1)) }
+          : deps.getStoredProductionBuildingState?.(buildingName) || {};
 
         if (currentState.level >= maxLevel) {
           renderDashboard();
@@ -901,7 +972,9 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         const speedGainPct = Math.max(0, Math.round((Number(nextMultiplier || currentMultiplier || 1) - Number(currentMultiplier || 1)) * 100));
         const currentSpeedLabel = formatProductionSpeedBonus(currentMultiplier || 1);
         const nextSpeedLabel = formatProductionSpeedBonus(nextMultiplier || currentMultiplier || 1);
-        const hasEnoughMoney = Number(economyState.cleanMoney || 0) >= upgradeCost;
+        const hasEnoughMoney = serverProduction
+          ? true
+          : Number(economyState.cleanMoney || 0) >= upgradeCost;
         const confirmed = await upgradeConfirmation.open({
           benefits: [{
             icon: "x",
@@ -912,15 +985,48 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           buildingLabel: config?.label || "Budova",
           canConfirm: hasEnoughMoney,
           confirmLabel: "Potvrdit upgrade",
-          costLabel: deps.formatCurrency?.(upgradeCost) || String(upgradeCost),
-          noteLabel: hasEnoughMoney
-            ? `Po potvrzení zaplatíš ${deps.formatCurrency?.(upgradeCost) || upgradeCost} clean cash.`
-            : `Chybí ${deps.formatCurrency?.(upgradeCost - Number(economyState.cleanMoney || 0)) || (upgradeCost - Number(economyState.cleanMoney || 0))} clean cash.`,
+          costLabel: serverProduction
+            ? "Ověří server"
+            : deps.formatCurrency?.(upgradeCost) || String(upgradeCost),
+          noteLabel: serverProduction
+            ? "Cena i výsledek se projeví až po potvrzené serverové odpovědi."
+            : hasEnoughMoney
+              ? `Po potvrzení zaplatíš ${deps.formatCurrency?.(upgradeCost) || upgradeCost} clean cash.`
+              : `Chybí ${deps.formatCurrency?.(upgradeCost - Number(economyState.cleanMoney || 0)) || (upgradeCost - Number(economyState.cleanMoney || 0))} clean cash.`,
           titleLabel: config?.label || "Budova",
           upgradeLabel: `L${currentState.level} → L${nextLevel}`
         });
 
         if (!confirmed) {
+          return;
+        }
+
+        if (serverProduction) {
+          upgradeButton.disabled = true;
+          try {
+            const response = await deps.submitServerProductionBuildingUpgrade?.({
+              districtId: serverProduction.districtId,
+              buildingId: serverProduction.buildingId
+            });
+            const error = response?.errors?.[0];
+            deps.setBuildingActionFeedback?.(
+              root,
+              response?.accepted && !error ? "success" : "warning",
+              config?.label || "Budova",
+              error?.message || (response?.accepted
+                ? `${config?.label || "Budova"} byla serverem upgradovaná.`
+                : "Server upgrade nepotvrdil.")
+            );
+          } catch {
+            deps.setBuildingActionFeedback?.(
+              root,
+              "warning",
+              config?.label || "Budova",
+              "Serverový upgrade se nepodařilo bezpečně odeslat."
+            );
+          } finally {
+            renderDashboard();
+          }
           return;
         }
 
