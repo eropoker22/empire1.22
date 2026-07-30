@@ -21,9 +21,9 @@ describe("production authority cutover guards", () => {
     expect(read("admin.html")).toContain('meta name="empire-build-sha" content="__EMPIRE_BUILD_SHA__"');
     expect(read("scripts/build-netlify-client.mjs")).toContain('.replace("__EMPIRE_BUILD_SHA__", adminBuildSha)');
     const adminView = read("apps/admin/src/app/admin-control-plane-view.ts");
-    expect(adminView).toContain('keyValue("Frontend SHA"');
-    expect(adminView).toContain('keyValue("API SHA"');
-    expect(adminView).toContain('keyValue("Worker SHA"');
+    expect(adminView).toContain('codeValue("Frontend SHA"');
+    expect(adminView).toContain('codeValue("API SHA"');
+    expect(adminView).toContain('codeValue("Worker SHA"');
     expect(adminView).toContain('keyValue("Schema"');
     expect(adminView).toContain('keyValue("Account platform"');
     expect(adminView).toContain('keyValue("Game hosting"');

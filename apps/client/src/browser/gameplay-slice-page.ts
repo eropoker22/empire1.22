@@ -1,5 +1,5 @@
 import { createClientApp, createClientSurfaceActionRouter, resolveClientSurfaceAction, type ClientRenderState } from "../app";
-import { escapeHtml, refreshLiveCooldownLabels } from "../shared-ui";
+import { refreshLiveCooldownLabels } from "../shared-ui";
 import { createFetchClientTransport, createGameplaySlicePoller } from "../transport";
 import { createOverlayBackdrop } from "../modals/overlay-backdrop";
 import { getTopOverlay, isOverlayOpen, shouldSuppressMapInput } from "../modals/overlay-state";
@@ -25,7 +25,13 @@ import {
   markMissingGameplaySessionRuntime
 } from "./gameplay-slice-runtime-policy";
 import { createGameplaySliceSelectiveRenderer } from "./gameplay-slice-selective-renderer";
-import { GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS } from "./gameplay-slice-timing";
+import {
+  createBrowserCommandId,
+  parseGameplaySlicePollingIntervalMs,
+  renderGameplaySliceStatus,
+  resolveGameplaySliceMounts
+} from "./gameplay-slice-page-helpers";
+export { renderGameplaySliceStatus } from "./gameplay-slice-page-helpers";
 import {
   createMountedGameplaySlicePageExternalPort,
   installGameplaySlicePageApi,
@@ -68,7 +74,7 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       : "full");
   const ownsVisiblePresentation = presentationMode === "full";
   options.root.dataset.gameplaySlicePresentationMode = presentationMode;
-  const mounts = resolveMounts(options.root);
+  const mounts = resolveGameplaySliceMounts(options.root);
   const selectiveRenderer = createGameplaySliceSelectiveRenderer();
   let currentLoadRequest = request;
   const districtSheetOverlay = ownsVisiblePresentation
@@ -337,7 +343,7 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
   const poller = createGameplaySlicePoller<ClientRenderState>({
     load: (nextRequest) => client.load(nextRequest),
     getRequest: () => currentLoadRequest,
-    intervalMs: parsePollingIntervalMs(options.root.dataset.gameplaySlicePollingIntervalMs),
+    intervalMs: parseGameplaySlicePollingIntervalMs(options.root.dataset.gameplaySlicePollingIntervalMs),
     enabled: options.root.dataset.gameplaySlicePolling === "true",
     ...getGameplaySlicePollerPerformanceOptions(),
     onResponse: (state) => {
@@ -439,49 +445,6 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
   mountedGameplaySlicePagesByRoot.set(options.root, mountedPage);
   window.addEventListener("pagehide", handlePageHide, { once: true });
   return mountedPage;
-};
-
-const resolveMounts = (root: HTMLElement) => ({
-  status: getOrCreateMount(root, "status"), topBar: getOrCreateMount(root, "topbar"), map: getOrCreateMount(root, "map"), panel: getOrCreateMount(root, "panel")
-});
-
-const getOrCreateMount = (root: HTMLElement, role: string): HTMLElement => {
-  const existing = root.querySelector<HTMLElement>(`[data-gameplay-slice-${role}]`);
-
-  if (existing) {
-    return existing;
-  }
-
-  const mount = document.createElement("div");
-  mount.dataset[`gameplaySlice${role.charAt(0).toUpperCase()}${role.slice(1)}`] = "true";
-  root.append(mount);
-  return mount;
-};
-
-export const renderGameplaySliceStatus = (state: ClientRenderState): string => [
-  state.connection.status === "error"
-    ? ""
-    : `<strong>${escapeHtml(state.connection.status === "ready" ? "Server synchronizován" : state.connection.status)}</strong>`,
-  state.lastCommandStatus
-    ? `<span class="gameplay-slice-client__command-status">${state.lastCommandStatus.accepted ? "Akce přijata" : "Akce odmítnuta"}</span>`
-    : "",
-  state.connection.status !== "error" && state.lastCommandStatus?.accepted === false && state.connection.lastErrorMessage
-    ? `<span class="gameplay-slice-client__error">${escapeHtml(state.connection.lastErrorMessage)}</span>`
-    : "",
-  state.districtPanel
-    ? `<span>${escapeHtml(state.districtPanel.title)}</span>`
-    : ""
-].join("");
-
-const createBrowserCommandId = (prefix: string): string =>
-  `${prefix}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
-
-const parsePollingIntervalMs = (value: string | undefined): number => {
-  const intervalMs = Number.parseInt(String(value ?? ""), 10);
-
-  return Number.isFinite(intervalMs) && intervalMs > 0
-    ? intervalMs
-    : GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS;
 };
 
 installGameplaySlicePageApi(mountGameplaySlicePage);
