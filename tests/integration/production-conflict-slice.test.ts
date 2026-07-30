@@ -381,7 +381,7 @@ describe("production conflict gameplay slice", () => {
     expect(attacked.sidePanelHtml).toContain("Stav distriktu: zničený a nepoužitelný.");
     expect(attacked.mapHtml).toContain(`data-district-id="${targetDistrictId}"`);
     expect(attacked.mapHtml).toContain("data-destroyed=\"true\"");
-    expect(attacked.mapHtml).toContain("District zničen.");
+    expect(attacked.mapHtml).toContain("V piči, zničen.");
 
     const destroyedTargetRender = await attackerClient.selectDistrict(targetDistrictId);
 
@@ -389,7 +389,7 @@ describe("production conflict gameplay slice", () => {
     expect(destroyedTargetRender.districtPanel?.ownershipLabel).toBe("Zničený distrikt");
     expect(destroyedTargetRender.sidePanelHtml).toContain("data-feature=\"district-destroyed-notice\"");
     expect(destroyedTargetRender.sidePanelHtml).toContain("data-district-destroyed=\"true\"");
-    expect(destroyedTargetRender.sidePanelHtml).toContain("District zničen.");
+    expect(destroyedTargetRender.sidePanelHtml).toContain("V piči, zničen.");
     expect(destroyedTargetRender.sidePanelHtml).not.toContain("data-feature=\"district-panel\"");
     expect(destroyedTargetRender.sidePanelHtml).not.toContain("Cíle špehování");
     expect(destroyedTargetRender.sidePanelHtml).not.toContain("Cíle útoku");

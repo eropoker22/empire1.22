@@ -79,6 +79,13 @@ const hostedSuites = Object.freeze([
     playerCount: 3,
     identityPrefix: "HostedCore",
     specs: Object.freeze(["tests/e2e/live-hosted-multiplayer-core.spec.js"])
+  }),
+  Object.freeze({
+    name: "lifecycle-stop",
+    playerCount: 1,
+    identityPrefix: "HostedLifecycle",
+    lifecycleStop: true,
+    specs: Object.freeze(["tests/e2e/live-hosted-lifecycle-stop.spec.js"])
   })
 ]);
 const requestedSuiteNames = new Set(
@@ -246,6 +253,7 @@ try {
       delete environment.EMPIRE_HOSTED_BOOTSTRAP_NETWORK_IDENTIFIER;
       delete environment.EMPIRE_HOSTED_BOOTSTRAP_IDENTITIES_JSON;
       delete environment.EMPIRE_HOSTED_BUILDING_ACTION_PHASE;
+      delete environment.EMPIRE_ADMIN_HOSTED_LIVE_E2E;
       if (suite.buildingActionPhase) {
         const identitySuffix = randomBytes(6).toString("hex");
         environment.EMPIRE_HOSTED_BOOTSTRAP_USERNAME = `HostedAction${identitySuffix}`;
@@ -267,6 +275,9 @@ try {
             };
           })
         );
+      }
+      if (suite.lifecycleStop) {
+        environment.EMPIRE_ADMIN_HOSTED_LIVE_E2E = "1";
       }
       const server = await provisionDisposableHostedServer(admin, {
         displayNamePrefix: `Local Hosted ${suite.name}`,

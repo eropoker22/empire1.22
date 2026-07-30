@@ -72,6 +72,7 @@ describe("building detail view-model builder", () => {
     const streetDealerActions = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["poulicni dealeri"];
     const stripClubActions = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["strip club"];
     const smugglingTunnelActions = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["pasovaci tunel"];
+    const convenienceStoreActions = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.vecerka;
 
     expect(streetDealerActions.map((action) => action.cooldownMs)).toEqual([0]);
     expect(streetDealerActions.map((action) => action.heat || 0)).toEqual([0]);
@@ -89,7 +90,11 @@ describe("building detail view-model builder", () => {
       durationMs: 15 * 60 * 1000,
       cooldownMs: 30 * 60 * 1000
     });
-    expect(DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.vecerka).toEqual([]);
+    expect(convenienceStoreActions).toHaveLength(1);
+    expect(convenienceStoreActions[0]).toMatchObject({
+      convenienceStoreCollectPopulation: true,
+      cooldownMs: 0
+    });
   });
 
   it("shows strip club passive rumor cadence in mechanics", () => {
