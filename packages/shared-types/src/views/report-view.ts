@@ -96,6 +96,47 @@ export interface OccupyReport {
   eventId: EventId | null;
 }
 
+export interface HeistReport {
+  reportId: string;
+  reportType: "heist";
+  actionType: "heist-district";
+  playerId: PlayerId;
+  sourceDistrictId: DistrictId;
+  targetDistrictId: DistrictId;
+  targetOwnerPlayerId: PlayerId;
+  style: "stealth" | "balanced" | "all_in";
+  result: "clean_success" | "success" | "detected" | "failed" | "trap_triggered";
+  loot: Record<string, number>;
+  gangLosses: number;
+  heatGained: number;
+  successChance: number;
+  detectionChance: number;
+  attackerIdentified: boolean;
+  tick: number;
+  createdAt: string;
+  eventId: EventId | null;
+}
+
+export interface RobReport {
+  reportId: string;
+  reportType: "rob";
+  actionType: "rob-district";
+  playerId: PlayerId;
+  sourceDistrictId: DistrictId;
+  targetDistrictId: DistrictId;
+  result: "success" | "partial" | "failed" | "exhausted";
+  loot: Record<string, number>;
+  playerHeat: number;
+  districtHeat: number;
+  cooldownTicks: number;
+  poolChangedBeforeResolution: boolean;
+  expectedLootPoolRevision: number | null;
+  resolvedLootPoolRevision: number;
+  tick: number;
+  createdAt: string;
+  eventId: EventId | null;
+}
+
 export interface BuildingActionReport {
   reportId: string;
   reportType: "building-action";
@@ -149,4 +190,10 @@ export interface BuildingActionReport {
   eventId: EventId | null;
 }
 
-export type ConflictReportView = SpyReport | BattleReport | OccupyReport | BuildingActionReport;
+export type ConflictReportView =
+  | SpyReport
+  | BattleReport
+  | OccupyReport
+  | HeistReport
+  | RobReport
+  | BuildingActionReport;

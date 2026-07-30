@@ -35,6 +35,10 @@ describe("bounty server-authoritative core flow", () => {
       destroysDistrict: false,
       commandId: "command:attack:bounty-integration:capture"
     });
+    const claimedReadModel = createBountyReadModel(claimed.nextState, "player:3", {
+      nowTick: claimed.nextState.root.tick,
+      tickRateMs: config.tickRateMs
+    });
 
     expect(created.errors).toEqual([]);
     expect(created.nextState.resourceStatesById["resource:1"].balances.cash).toBe(5_000);
@@ -43,10 +47,24 @@ describe("bounty server-authoritative core flow", () => {
       targetDistrictId: "district:2",
       canCancel: true
     });
+    expect(readModel.recentBountyEvents).toContainEqual(expect.objectContaining({
+      bountyId: "bounty:command:bounty:integration",
+      type: "created",
+      createdAtTick: created.nextState.root.tick
+    }));
     expect(attackOnly.nextState.bountiesById?.["bounty:command:bounty:integration"].status).toBe("active");
     expect(attackOnly.nextState.resourceStatesById["resource:3"].balances.cash).toBe(1_000);
     expect(claimed.nextState.bountiesById?.["bounty:command:bounty:integration"].status).toBe("claimed");
     expect(claimed.nextState.resourceStatesById["resource:3"].balances.cash).toBe(6_000);
+    expect(claimedReadModel.activeBounties).toContainEqual(expect.objectContaining({
+      bountyId: "bounty:command:bounty:integration",
+      status: "claimed"
+    }));
+    expect(claimedReadModel.recentBountyEvents).toContainEqual(expect.objectContaining({
+      bountyId: "bounty:command:bounty:integration",
+      type: "claimed",
+      label: "Hunter vybral bounty na Defender."
+    }));
   });
 });
 

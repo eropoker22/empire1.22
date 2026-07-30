@@ -72,6 +72,13 @@ const hostedSuites = Object.freeze([
     scenario: "building-actions-night",
     buildingActionPhase: "night",
     specs: Object.freeze(["tests/e2e/live-hosted-building-actions.spec.js"])
+  }),
+  Object.freeze({
+    name: "multiplayer-core",
+    scenario: "multiplayer-core",
+    playerCount: 3,
+    identityPrefix: "HostedCore",
+    specs: Object.freeze(["tests/e2e/live-hosted-multiplayer-core.spec.js"])
   })
 ]);
 const requestedSuiteNames = new Set(
@@ -237,6 +244,7 @@ try {
       delete environment.EMPIRE_HOSTED_BOOTSTRAP_GANG_NAME;
       delete environment.EMPIRE_HOSTED_BOOTSTRAP_PASSWORD;
       delete environment.EMPIRE_HOSTED_BOOTSTRAP_NETWORK_IDENTIFIER;
+      delete environment.EMPIRE_HOSTED_BOOTSTRAP_IDENTITIES_JSON;
       delete environment.EMPIRE_HOSTED_BUILDING_ACTION_PHASE;
       if (suite.buildingActionPhase) {
         const identitySuffix = randomBytes(6).toString("hex");
@@ -245,6 +253,20 @@ try {
         environment.EMPIRE_HOSTED_BOOTSTRAP_PASSWORD = randomBytes(24).toString("base64url");
         environment.EMPIRE_HOSTED_BOOTSTRAP_NETWORK_IDENTIFIER = `2001:db8::${randomBytes(8).toString("hex")}`;
         environment.EMPIRE_HOSTED_BUILDING_ACTION_PHASE = suite.buildingActionPhase;
+      }
+      if (suite.playerCount) {
+        environment.EMPIRE_HOSTED_BOOTSTRAP_IDENTITIES_JSON = JSON.stringify(
+          Array.from({ length: suite.playerCount }, (_, index) => {
+            const identitySuffix = randomBytes(6).toString("hex");
+            const role = String.fromCharCode(65 + index);
+            return {
+              username: `${suite.identityPrefix}${role}${identitySuffix}`,
+              gangName: `${suite.identityPrefix} ${role} Crew ${identitySuffix}`,
+              password: randomBytes(24).toString("base64url"),
+              networkIdentifier: `2001:db8::${randomBytes(8).toString("hex")}`
+            };
+          })
+        );
       }
       const server = await provisionDisposableHostedServer(admin, {
         displayNamePrefix: `Local Hosted ${suite.name}`,

@@ -319,6 +319,13 @@ describe("server-authoritative bounty actions", () => {
       objectiveLabel: "Útok na hráče",
       canCancel: true
     }));
+    expect(view.recentBountyEvents).toEqual([
+      expect.objectContaining({
+        eventId: "bounty-event:created:bounty:command:bounty:create:1",
+        type: "created",
+        label: "Vypsáno bounty na Defender."
+      })
+    ]);
   });
 });
 

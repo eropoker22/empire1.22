@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyCommand,
+  createConflictReportViews,
   regenerateNeutralDistrictLootPool,
   resolveImmediateHeist,
   resolveNeutralRobbery,
@@ -126,6 +127,14 @@ describe("immediate deterministic heist", () => {
     expect(result.nextState.policeStatesById["police:1"]?.heat).toBeGreaterThan(0);
     expect(result.nextState.districtsById["district:2"].heistProtectedUntilTick)
       .toBe(context.config.balance.conflict!.heist!.victimProtectionTicks);
+    expect(createConflictReportViews(result.nextState, { playerId: "player:1", limit: 1 })[0])
+      .toMatchObject({
+        reportType: "heist",
+        actionType: "heist-district",
+        result: eventPayload.outcome,
+        loot,
+        targetOwnerPlayerId: "player:2"
+      });
   });
 
   it("consumes a triggered trap once and gives no loot", () => {
@@ -187,6 +196,14 @@ describe("finite neutral robbery", () => {
     expect(Number(result.nextState.resourceStatesById["resource:1"].balances.cash ?? 0) - beforeCash).toBe(loot.cash);
     expect(firstPool.cash - pool.cash).toBe(loot.cash);
     expect(result.nextState.policeStatesById["police:1"]?.heat).toBe(eventPayload.playerHeat);
+    expect(createConflictReportViews(result.nextState, { playerId: "player:1", limit: 1 })[0])
+      .toMatchObject({
+        reportType: "rob",
+        actionType: "rob-district",
+        result: "success",
+        loot,
+        playerHeat: eventPayload.playerHeat
+      });
   });
 
   it("rejects an exhausted pool without creating any gameplay mutation", () => {

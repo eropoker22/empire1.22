@@ -4,6 +4,11 @@ import type { ServerInstanceRuntime } from "../instance/server-instance-runtime"
 import type { CommandResultRecord, EventRecord, RuntimeOutboxRecord } from "../persistence";
 import type { CommandReservationRecord } from "../persistence/repositories";
 
+export const createCommandLogRecordId = (
+  serverInstanceId: string,
+  commandId: string
+): string => `cmd:${serverInstanceId}:${commandId}`;
+
 export const createAppliedCommandResult = (input: {
   runtime: ServerInstanceRuntime;
   command: GameCommand;
@@ -92,7 +97,7 @@ export const createEventRecord = (
   nextState: CoreGameState,
   recordedAt: string
 ): EventRecord => ({
-  id: `evt:${command.id}:${nextState.root.version}`,
+  id: `evt:${runtime.record.id}:${command.id}:${nextState.root.version}`,
   instanceId: runtime.record.id,
   event,
   causedByCommandId: command.id,

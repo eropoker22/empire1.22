@@ -28,6 +28,35 @@ const context = {
 };
 
 describe("conflict concurrency integrity", () => {
+  it("ignores unrelated district version bumps when conflict revisions are current", () => {
+    const attackState = createCombatStateFixture();
+    configureAttacker(attackState, "player:1", "district:1");
+    const attack = createAttackDistrictCommandFixture({
+      payload: {
+        weapons: { bazooka: 10 },
+        expectedSourceVersion: attackState.districtsById["district:1"].version,
+        expectedTargetVersion: attackState.districtsById["district:2"].version,
+        expectedConflictRevision: attackState.districtsById["district:2"].conflictRevision
+      }
+    });
+    attackState.districtsById["district:1"].version += 1;
+    attackState.districtsById["district:2"].version += 1;
+
+    const heistState = createCombatStateFixture();
+    const heist = createHeistDistrictCommandFixture({
+      payload: {
+        expectedSourceVersion: heistState.districtsById["district:1"].version,
+        expectedTargetVersion: heistState.districtsById["district:2"].version,
+        expectedConflictRevision: heistState.districtsById["district:2"].conflictRevision
+      }
+    });
+    heistState.districtsById["district:1"].version += 1;
+    heistState.districtsById["district:2"].version += 1;
+
+    expect(applyCommand(attackState, attack, context).errors).toEqual([]);
+    expect(applyCommand(heistState, heist, context).errors).toEqual([]);
+  });
+
   it("accepts one of three same-target attacks and leaves stale losers unchanged", () => {
     const state = createCombatStateFixture();
     state.playersById["player:2"] = { ...state.playersById["player:2"], lastStandUsedAtTick: 0 };

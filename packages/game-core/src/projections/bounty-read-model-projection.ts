@@ -2,6 +2,7 @@ import {
   BOUNTY_DURATION_OPTIONS_HOURS,
   BOUNTY_MIN_REWARD_CLEAN_CASH,
   type Bounty,
+  type BountyEventView,
   type BountyObjectiveType,
   type BountyReadModel
 } from "@empire/shared-types";
@@ -73,9 +74,58 @@ export const createBountyReadModel = (
       .sort((left, right) => right.createdAtTick - left.createdAtTick)
       .slice(0, 50)
       .map((bounty) => createBountyBoardEntryView(state, bounty, playerId, nowTick, tickRateMs)),
-    recentBountyEvents: []
+    recentBountyEvents: createRecentBountyEventViews(state)
   };
 };
+
+const createRecentBountyEventViews = (state: CoreGameState): BountyEventView[] =>
+  Object.values(state.bountiesById ?? {})
+    .flatMap((bounty) => {
+      const targetName = state.playersById[bounty.targetPlayerId]?.name ?? bounty.targetPlayerId;
+      const events: BountyEventView[] = [{
+        eventId: `bounty-event:created:${bounty.id}`,
+        bountyId: bounty.id,
+        type: "created",
+        label: `Vypsáno bounty na ${targetName}.`,
+        createdAtTick: bounty.createdAtTick
+      }];
+
+      if (bounty.status === "claimed") {
+        const claimantName = bounty.claimedByPlayerId
+          ? state.playersById[bounty.claimedByPlayerId]?.name ?? bounty.claimedByPlayerId
+          : "Neznámý hráč";
+        events.push({
+          eventId: `bounty-event:claimed:${bounty.id}`,
+          bountyId: bounty.id,
+          type: "claimed",
+          label: `${claimantName} vybral bounty na ${targetName}.`,
+          createdAtTick: bounty.claimedAtTick ?? bounty.createdAtTick
+        });
+      } else if (bounty.status === "cancelled") {
+        events.push({
+          eventId: `bounty-event:cancelled:${bounty.id}`,
+          bountyId: bounty.id,
+          type: "cancelled",
+          label: `Bounty na ${targetName} bylo zrušeno.`,
+          createdAtTick: bounty.cancelledAtTick ?? bounty.createdAtTick
+        });
+      } else if (bounty.status === "expired") {
+        events.push({
+          eventId: `bounty-event:expired:${bounty.id}`,
+          bountyId: bounty.id,
+          type: "expired",
+          label: `Bounty na ${targetName} vypršelo.`,
+          createdAtTick: bounty.expiresAtTick
+        });
+      }
+
+      return events;
+    })
+    .sort((left, right) =>
+      right.createdAtTick - left.createdAtTick
+      || left.eventId.localeCompare(right.eventId)
+    )
+    .slice(0, 50);
 
 const getBountyTargetCandidatePlayerIds = (state: CoreGameState): string[] => {
   const candidateIds = new Set(state.root.playerIds);

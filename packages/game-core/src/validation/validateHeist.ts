@@ -86,8 +86,6 @@ export const validateHeist = (
     originDistrictId,
     serverTime: command.issuedAt,
     action: "heist",
-    expectedTargetVersion: command.payload.expectedTargetVersion,
-    expectedOriginVersion: command.payload.expectedSourceVersion,
     routeDistrictId: command.payload.routeDistrictId,
     expectedRouteVersion: command.payload.expectedRouteVersion
   });

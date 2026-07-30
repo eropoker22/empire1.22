@@ -64,6 +64,26 @@ describe("server gameplay report controller", () => {
     });
   });
 
+  it("renders authoritative heist and robbery reports in the street feed", () => {
+    const entries = createServerReportFeedEntries([
+      createHeistReport(),
+      createRobReport()
+    ]);
+
+    expect(entries).toEqual([
+      expect.objectContaining({
+        title: "Heist · district:target",
+        tone: "warning",
+        summary: expect.stringContaining("útočník byl odhalen")
+      }),
+      expect.objectContaining({
+        title: "Vykradení · district:neutral",
+        tone: "warning",
+        summary: expect.stringContaining("uspělo částečně")
+      })
+    ]);
+  });
+
   it("contains no command, local persistence or gameplay scheduler path", () => {
     const source = readFileSync(resolve(
       process.cwd(),
@@ -203,6 +223,53 @@ function createSpyReport(overrides = {}) {
     tick: 24,
     createdAt: "2026-07-26T10:00:00.000Z",
     eventId: "event:2",
+    ...overrides
+  };
+}
+
+function createHeistReport(overrides = {}) {
+  return {
+    reportId: "heist:1",
+    reportType: "heist",
+    actionType: "heist-district",
+    playerId: "player:attacker",
+    sourceDistrictId: "district:source",
+    targetDistrictId: "district:target",
+    targetOwnerPlayerId: "player:defender",
+    style: "balanced",
+    result: "detected",
+    loot: { cash: 120 },
+    gangLosses: 2,
+    heatGained: 4,
+    successChance: 0.7,
+    detectionChance: 0.4,
+    attackerIdentified: true,
+    tick: 24,
+    createdAt: "2026-07-26T10:00:00.000Z",
+    eventId: null,
+    ...overrides
+  };
+}
+
+function createRobReport(overrides = {}) {
+  return {
+    reportId: "rob:1",
+    reportType: "rob",
+    actionType: "rob-district",
+    playerId: "player:attacker",
+    sourceDistrictId: "district:source",
+    targetDistrictId: "district:neutral",
+    result: "partial",
+    loot: { "dirty-cash": 80 },
+    playerHeat: 2,
+    districtHeat: 1,
+    cooldownTicks: 4,
+    poolChangedBeforeResolution: false,
+    expectedLootPoolRevision: 1,
+    resolvedLootPoolRevision: 1,
+    tick: 25,
+    createdAt: "2026-07-26T10:00:00.000Z",
+    eventId: null,
     ...overrides
   };
 }

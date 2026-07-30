@@ -1,4 +1,5 @@
 import { formatBuildingActionFeedCountdown } from "./eventFeedPanel.js";
+import { createServerOperationReportSummary } from "./serverGameplayOperationReportFormatting.js";
 import {
   formatNumber,
   formatNumberRecord,
@@ -148,6 +149,8 @@ function createReportTitle(report) {
   if (report.reportType === "spy") return `Špehování · ${report.targetDistrictId}`;
   if (report.reportType === "battle") return `Útok · ${report.targetDistrictId}`;
   if (report.reportType === "occupy") return `Obsazení · ${report.targetDistrictId}`;
+  if (report.reportType === "heist") return `Heist · ${report.targetDistrictId}`;
+  if (report.reportType === "rob") return `Vykradení · ${report.targetDistrictId}`;
   return `${toTitleCase(report.buildingActionId || "Akce budovy")} · ${report.districtId}`;
 }
 
@@ -164,6 +167,8 @@ function createReportSummary(report) {
       ? `District obsazen · vliv -${formatNumber(report.influenceCost)} · hledanost ${formatSigned(report.heatGained)}.`
       : `Obsazení selhalo · hledanost ${formatSigned(report.heatGained)}.`;
   }
+  const operationSummary = createServerOperationReportSummary(report);
+  if (operationSummary) return operationSummary;
   return String(
     report.message
     || report.messages?.[0]
@@ -186,8 +191,9 @@ function createSpySummary(report) {
 
 function resolveFeedTone(report) {
   if (report.reportType === "battle" && report.districtDestroyed) return "error";
-  if (report.result === "success") return "success";
+  if (report.result === "success" || report.result === "clean_success") return "success";
   if (report.result === "partial" || report.result === "blocked") return "warning";
+  if (report.reportType === "heist" && report.result === "detected") return "warning";
   return report.reportType === "building-action" ? "event" : "error";
 }
 

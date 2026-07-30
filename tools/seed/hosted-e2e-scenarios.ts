@@ -1,12 +1,14 @@
 import { resolveModeConfig } from "@empire/game-config";
 import type { InstanceSnapshotDto } from "../../apps/server/src/runtime/persistence";
+import { applyHostedMultiplayerCoreScenario } from "./hosted-multiplayer-core-scenario";
 import hostedBuildingActionMatrixJson from "./hosted-building-action-matrix.json";
 
 export const HOSTED_E2E_SCENARIOS = [
   "realistic-new-player",
   "city-events",
   "building-actions-day",
-  "building-actions-night"
+  "building-actions-night",
+  "multiplayer-core"
 ] as const;
 
 export type HostedE2eScenario = typeof HOSTED_E2E_SCENARIOS[number];
@@ -44,6 +46,9 @@ export const applyHostedE2eScenario = (
       scenario === "building-actions-night" ? "night" : "day",
       createdAt
     );
+  }
+  if (scenario === "multiplayer-core") {
+    applyHostedMultiplayerCoreScenario(snapshot, createdAt);
   }
   snapshot.state.root.version += 1;
   snapshot.tick = snapshot.state.root.tick;

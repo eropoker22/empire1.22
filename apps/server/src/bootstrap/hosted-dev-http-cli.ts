@@ -22,7 +22,8 @@ const server = http.createServer(async (request, response) => {
     });
     response.writeHead(result.statusCode, result.headers);
     response.end(result.body);
-  } catch (_error) {
+  } catch (error) {
+    console.error(`[hosted-api] request failed ${createSafeErrorDiagnostic(error)}.`);
     response.writeHead(500, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
     response.end(JSON.stringify({
       accepted: false,
@@ -52,3 +53,20 @@ async function readBody(request: http.IncomingMessage): Promise<string | null> {
     request.on("error", reject);
   });
 }
+
+const createSafeErrorDiagnostic = (error: unknown): string => {
+  const name = error instanceof Error ? error.name : "UnknownError";
+  const code = typeof error === "object" && error !== null && "code" in error
+    ? String(error.code).replace(/[^a-zA-Z0-9_.-]/g, "").slice(0, 64)
+    : "";
+  const applicationFrame = error instanceof Error
+    ? error.stack?.split(/\r?\n/).find((line) =>
+        line.includes("STREETS") && !line.includes("node_modules")
+      )?.trim().replace(/^at\s+/, "")
+    : undefined;
+  return [
+    `name=${name}`,
+    ...(code ? [`code=${code}`] : []),
+    ...(applicationFrame ? [`at=${applicationFrame}`] : [])
+  ].join(" ");
+};

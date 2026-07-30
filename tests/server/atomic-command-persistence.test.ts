@@ -87,6 +87,37 @@ describe("atomic command persistence", () => {
       .filter((record) => record.causedByCommandId === fixture.command.id)).toHaveLength(1);
   });
 
+  it("namespaces command and event record ids by server instance", async () => {
+    const first = await createFixture("record-id-first");
+    const second = await createFixture("record-id-second");
+    const sharedCommandId = "command:atomic:shared-record-id";
+
+    await first.server.instanceManager.dispatchCommand(first.instanceId, {
+      ...first.command,
+      id: sharedCommandId
+    });
+    await second.server.instanceManager.dispatchCommand(second.instanceId, {
+      ...second.command,
+      id: sharedCommandId
+    });
+
+    const firstCommandRecord = (await first.server.instanceManager.listCommandRecords(first.instanceId))
+      .find((record) => record.command.id === sharedCommandId);
+    const secondCommandRecord = (await second.server.instanceManager.listCommandRecords(second.instanceId))
+      .find((record) => record.command.id === sharedCommandId);
+    const firstEventRecord = (await first.server.instanceManager.listEventRecords(first.instanceId))
+      .find((record) => record.causedByCommandId === sharedCommandId);
+    const secondEventRecord = (await second.server.instanceManager.listEventRecords(second.instanceId))
+      .find((record) => record.causedByCommandId === sharedCommandId);
+
+    expect(firstCommandRecord?.id).toBe(`cmd:${first.instanceId}:${sharedCommandId}`);
+    expect(secondCommandRecord?.id).toBe(`cmd:${second.instanceId}:${sharedCommandId}`);
+    expect(firstEventRecord?.id).toContain(`evt:${first.instanceId}:${sharedCommandId}:`);
+    expect(secondEventRecord?.id).toContain(`evt:${second.instanceId}:${sharedCommandId}:`);
+    expect(firstCommandRecord?.id).not.toBe(secondCommandRecord?.id);
+    expect(firstEventRecord?.id).not.toBe(secondEventRecord?.id);
+  });
+
   it("persists processed command ids and the committed rate limit window in the recovery head", async () => {
     const fixture = await createFixture("recovery-head-runtime-state");
 

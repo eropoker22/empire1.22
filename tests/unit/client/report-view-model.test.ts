@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SpyReport } from "@empire/shared-types";
+import type { HeistReport, RobReport, SpyReport } from "@empire/shared-types";
 import { createReportViewModels } from "../../../apps/client/src/selectors/report-view-model";
 
 const createSpyReport = (overrides: Partial<SpyReport> = {}): SpyReport => ({
@@ -49,5 +49,60 @@ describe("report view models", () => {
     expect(view?.summary).toContain(expectedSummary);
     expect(view?.severity).toBe(severity);
     expect(view?.details).toContain(result === "success" ? "Obsazení odemčeno" : "Obsazení neodemčeno");
+  });
+
+  it("renders canonical heist and robbery outcomes from server report fields", () => {
+    const heist: HeistReport = {
+      reportId: "report:heist:1",
+      reportType: "heist",
+      actionType: "heist-district",
+      playerId: "player:1",
+      sourceDistrictId: "district:1",
+      targetDistrictId: "district:2",
+      targetOwnerPlayerId: "player:2",
+      style: "balanced",
+      result: "detected",
+      loot: { cash: 120 },
+      gangLosses: 3,
+      heatGained: 5,
+      successChance: 0.7,
+      detectionChance: 0.4,
+      attackerIdentified: true,
+      tick: 10,
+      createdAt: new Date(0).toISOString(),
+      eventId: null
+    };
+    const rob: RobReport = {
+      reportId: "report:rob:1",
+      reportType: "rob",
+      actionType: "rob-district",
+      playerId: "player:1",
+      sourceDistrictId: "district:1",
+      targetDistrictId: "district:3",
+      result: "partial",
+      loot: { "dirty-cash": 80 },
+      playerHeat: 2,
+      districtHeat: 1,
+      cooldownTicks: 4,
+      poolChangedBeforeResolution: false,
+      expectedLootPoolRevision: 1,
+      resolvedLootPoolRevision: 1,
+      tick: 11,
+      createdAt: new Date(0).toISOString(),
+      eventId: null
+    };
+
+    expect(createReportViewModels([heist, rob])).toEqual([
+      expect.objectContaining({
+        reportType: "heist",
+        title: "Heist detected v district:2",
+        summary: expect.stringContaining("120 Cash")
+      }),
+      expect.objectContaining({
+        reportType: "rob",
+        title: "Vykradení partial v district:3",
+        summary: expect.stringContaining("80 Dirty Cash")
+      })
+    ]);
   });
 });

@@ -24,38 +24,12 @@ export const createReportViewModels = (
   reports.map((report) => ({
     id: report.reportId,
     reportType: report.reportType,
-    title:
-      report.reportType === "spy"
-        ? `Špehování ${report.result} v ${report.targetDistrictId}`
-        : report.reportType === "occupy"
-          ? `Obsazení ${report.result} v ${report.targetDistrictId}`
-        : report.reportType === "building-action"
-          ? `${toTitleCase(report.buildingActionId)} v ${report.districtId}`
-        : report.districtDestroyed
-          ? `Katastrofa v distriktu ${report.targetDistrictId}`
-        : `Útok ${report.result} v ${report.targetDistrictId}`,
+    title: formatReportTitle(report),
     createdAt: `${report.tick}`,
     category: report.reportType,
-    summary:
-      report.reportType === "spy"
-        ? formatSpySummary(report)
-        : report.reportType === "occupy"
-          ? `Distrikt obsazen. Vliv -${report.influenceCost} · hledanost +${report.heatGained}.`
-        : report.reportType === "building-action"
-          ? formatBuildingActionSummary(report)
-        : report.districtDestroyed
-          ? "Katastrofa zničila distrikt. Kontrola, budovy, hledanost i vliv byly smazány."
-        : report.trapTriggered
-          ? "Během útoku se spustila past."
-          : report.districtCaptured
-            ? "Distrikt dobyt."
-            : "Distrikt udržel obránce.",
+    summary: formatReportSummary(report),
     result: report.result,
-    severity: report.reportType === "battle" && report.districtDestroyed
-      ? "critical"
-      : report.reportType === "spy" && report.result === "critical_failed"
-        ? "critical"
-        : "normal",
+    severity: formatReportSeverity(report),
     messages: report.reportType === "building-action"
       ? report.messages ?? []
       : report.reportType === "battle" && report.districtDestroyed
@@ -65,9 +39,50 @@ export const createReportViewModels = (
             "Pevné budovy: ztraceny.",
             "Všechny hlavní akce distriktu jsou vypnuté."
           ]
-        : [],
+      : [],
     details: formatReportDetails(report)
   }));
+
+const formatReportTitle = (report: ConflictReportView): string => {
+  if (report.reportType === "spy") return `Špehování ${report.result} v ${report.targetDistrictId}`;
+  if (report.reportType === "occupy") return `Obsazení ${report.result} v ${report.targetDistrictId}`;
+  if (report.reportType === "heist") return `Heist ${report.result} v ${report.targetDistrictId}`;
+  if (report.reportType === "rob") return `Vykradení ${report.result} v ${report.targetDistrictId}`;
+  if (report.reportType === "building-action") {
+    return `${toTitleCase(report.buildingActionId)} v ${report.districtId}`;
+  }
+  return report.districtDestroyed
+    ? `Katastrofa v distriktu ${report.targetDistrictId}`
+    : `Útok ${report.result} v ${report.targetDistrictId}`;
+};
+
+const formatReportSummary = (report: ConflictReportView): string => {
+  if (report.reportType === "spy") return formatSpySummary(report);
+  if (report.reportType === "occupy") {
+    return `Distrikt obsazen. Vliv -${report.influenceCost} · hledanost +${report.heatGained}.`;
+  }
+  if (report.reportType === "heist") {
+    return `Kořist ${formatNumberRecord(report.loot)} · ztráty gangu ${report.gangLosses} · hledanost +${report.heatGained}.`;
+  }
+  if (report.reportType === "rob") {
+    return `Kořist ${formatNumberRecord(report.loot)} · hledanost +${report.playerHeat}.`;
+  }
+  if (report.reportType === "building-action") return formatBuildingActionSummary(report);
+  if (report.districtDestroyed) {
+    return "Katastrofa zničila distrikt. Kontrola, budovy, hledanost i vliv byly smazány.";
+  }
+  if (report.trapTriggered) return "Během útoku se spustila past.";
+  return report.districtCaptured ? "Distrikt dobyt." : "Distrikt udržel obránce.";
+};
+
+const formatReportSeverity = (report: ConflictReportView): ReportViewModel["severity"] =>
+  report.reportType === "battle" && report.districtDestroyed
+    ? "critical"
+    : report.reportType === "spy" && report.result === "critical_failed"
+      ? "critical"
+      : report.reportType === "heist" && report.result === "trap_triggered"
+        ? "critical"
+        : "normal";
 
 const formatReportDetails = (report: ConflictReportView): string[] => {
   if (report.reportType === "spy") {
@@ -101,6 +116,28 @@ const formatReportDetails = (report: ConflictReportView): string[] => {
       `Ztráty obránce ${formatNumberRecord(report.defenderLosses)}`,
       `Hledanost +${report.heatGained}`,
       report.reportForAttacker || "Bez shrnutí pro útočníka"
+    ];
+  }
+
+  if (report.reportType === "heist") {
+    return [
+      `Zdroj ${report.sourceDistrictId}`,
+      `Cíl ${report.targetDistrictId}`,
+      `Styl ${toTitleCase(report.style)}`,
+      `Kořist ${formatNumberRecord(report.loot)}`,
+      `Ztráty gangu ${report.gangLosses}`,
+      `Hledanost +${report.heatGained}`
+    ];
+  }
+
+  if (report.reportType === "rob") {
+    return [
+      `Zdroj ${report.sourceDistrictId}`,
+      `Cíl ${report.targetDistrictId}`,
+      `Kořist ${formatNumberRecord(report.loot)}`,
+      `Hledanost hráče +${report.playerHeat}`,
+      `Hledanost districtu +${report.districtHeat}`,
+      `Cooldown ${report.cooldownTicks} ticků`
     ];
   }
 

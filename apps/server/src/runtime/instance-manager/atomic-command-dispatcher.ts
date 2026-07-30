@@ -19,7 +19,7 @@ import {
 } from "./instance-command-gates";
 import { withInstanceCommandLock } from "./instance-command-lock";
 import {
-  createAppliedCommandResult,
+  createAppliedCommandResult, createCommandLogRecordId,
   createEventRecord,
   createOutboxRecord,
   createRejectedCommandResult,
@@ -181,7 +181,7 @@ const dispatchAtomicInstanceCommandInBoundary = async (
   }
 
   await repositories.commandLogRepository.append({
-    id: `cmd:${command.id}`,
+    id: createCommandLogRecordId(runtime.record.id, command.id),
     instanceId: runtime.record.id,
     command: authoritativeCommand,
     receivedAt: reservedAt,

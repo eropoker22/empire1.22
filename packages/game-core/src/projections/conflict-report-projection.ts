@@ -1,10 +1,6 @@
-import type {
-  BattleReport,
-  ConflictReportView,
-  Notification,
-  SpyReport
-} from "@empire/shared-types";
+import type { BattleReport, ConflictReportView, Notification, SpyReport } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
+import { mapConflictOperationNotificationToReport } from "./conflict-operation-report-projection";
 
 export interface ConflictReportProjectionInput {
   playerId: string;
@@ -106,6 +102,9 @@ const mapNotificationToReport = (notification: Notification): ConflictReportView
       eventId: payload.eventId ? String(payload.eventId) : null
     } satisfies BattleReport;
   }
+
+  const operationReport = mapConflictOperationNotificationToReport(notification);
+  if (operationReport) return operationReport;
 
   if (notification.category === "report.occupy") {
     return {

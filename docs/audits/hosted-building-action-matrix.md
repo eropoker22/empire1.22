@@ -1,6 +1,6 @@
 # Hosted building action matrix
 
-Date: 2026-07-30  
+Date: 2026-07-30
 Branch: `hardening/local-hosted-full-playability`
 
 ## Result

@@ -8,7 +8,11 @@ import {
   createSharedCityDistrict,
   seedSharedCityDistrictBuildings
 } from "../../apps/server/src/bootstrap/gameplay-slice-shared-city-entities";
-import { createCoreStateFixture } from "../fixtures/game-state-fixtures";
+import {
+  createCoreStateFixture,
+  createPlayerFixture,
+  createResourceStateFixture
+} from "../fixtures/game-state-fixtures";
 import { applyHostedE2eScenario } from "../../tools/seed/hosted-e2e-scenarios";
 import hostedBuildingActionMatrix from "../../tools/seed/hosted-building-action-matrix.json";
 
@@ -160,6 +164,63 @@ describe("hosted E2E scenario seeding", () => {
       }
     }
   });
+
+  it("prepares three canonical players for cross-client P0 flows", () => {
+    const source = createMultiplayerSnapshot();
+    const original = structuredClone(source);
+    const seeded = applyHostedE2eScenario(
+      source,
+      "multiplayer-core",
+      "2026-07-29T22:00:00.000Z"
+    );
+    const [creator, target, hunter] = Object.values(seeded.state.playersById)
+      .sort((left, right) => left.name.localeCompare(right.name));
+
+    expect(source).toEqual(original);
+    expect(seeded.state.root.tick).toBe(20);
+    expect(seeded.state.serverInstance.currentTick).toBe(20);
+    expect(creator.homeDistrictId).toBe("district:1");
+    expect(target.homeDistrictId).toBe("district:2");
+    expect(hunter.homeDistrictId).toBe("district:25");
+    expect(seeded.state.districtsById["district:1"].ownerPlayerId).toBe(creator.id);
+    expect(seeded.state.districtsById["district:1"].influence).toBe(10_000);
+    expect(seeded.state.districtsById["district:2"].ownerPlayerId).toBe(target.id);
+    expect(seeded.state.districtsById["district:26"].ownerPlayerId).toBe(hunter.id);
+    expect(seeded.state.districtsById["district:6"]).toMatchObject({
+      ownerPlayerId: null,
+      status: "neutral"
+    });
+    expect(seeded.state.resourceStatesById[creator.resourceStateId].balances).toMatchObject({
+      cash: 1_000_000,
+      chemicals: 100,
+      population: 500
+    });
+    expect(seeded.state.resourceStatesById[hunter.resourceStateId].balances).toMatchObject({
+      cash: 1_000_000,
+      bazooka: 20,
+      population: 500
+    });
+    expect(Object.values(seeded.state.notificationsById)).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        recipientId: creator.id,
+        category: "report.spy",
+        payload: expect.objectContaining({
+          targetDistrictId: "district:6",
+          purpose: "occupy_empty_district",
+          result: "success"
+        })
+      }),
+      expect.objectContaining({
+        recipientId: hunter.id,
+        category: "report.spy",
+        payload: expect.objectContaining({
+          targetDistrictId: "district:2",
+          purpose: "attack_owned_district",
+          result: "success"
+        })
+      })
+    ]));
+  });
 });
 
 const createBuildingActionSnapshot = (): InstanceSnapshotDto => {
@@ -167,6 +228,67 @@ const createBuildingActionSnapshot = (): InstanceSnapshotDto => {
   const districtIds = Array.from(new Set(
     hostedBuildingActionMatrix.map((entry) => entry.districtId)
   ));
+  seedCanonicalDistricts(snapshot, districtIds);
+  return snapshot;
+};
+
+const createMultiplayerSnapshot = (): InstanceSnapshotDto => {
+  const snapshot = createSnapshot();
+  const firstPlayer = snapshot.state.playersById["player:1"];
+  firstPlayer.name = "HostedCoreA";
+  firstPlayer.homeDistrictId = "district:1";
+  const extraPlayers = [
+    createPlayerFixture({
+      id: "player:2",
+      accountId: "account:2",
+      serverInstanceId: snapshot.instanceId,
+      name: "HostedCoreB",
+      homeDistrictId: "district:2",
+      resourceStateId: "resource:2",
+      cooldownStateId: "cooldown:2",
+      effectStateId: "effect:2",
+      policeStateId: "police:2"
+    }),
+    createPlayerFixture({
+      id: "player:3",
+      accountId: "account:3",
+      serverInstanceId: snapshot.instanceId,
+      name: "HostedCoreC",
+      homeDistrictId: "district:3",
+      resourceStateId: "resource:3",
+      cooldownStateId: "cooldown:3",
+      effectStateId: "effect:3",
+      policeStateId: "police:3"
+    })
+  ];
+  for (const player of extraPlayers) {
+    snapshot.state.playersById[player.id] = player;
+    snapshot.state.resourceStatesById[player.resourceStateId] = createResourceStateFixture({
+      id: player.resourceStateId,
+      ownerType: "player",
+      ownerId: player.id
+    });
+    snapshot.state.root.playerIds.push(player.id);
+  }
+  seedCanonicalDistricts(snapshot, [
+    "district:1",
+    "district:2",
+    "district:3",
+    "district:4",
+    "district:5",
+    "district:6",
+    "district:24",
+    "district:25",
+    "district:26"
+  ]);
+  snapshot.integrity.entityCounts.players = 3;
+  return snapshot;
+};
+
+const seedCanonicalDistricts = (
+  snapshot: InstanceSnapshotDto,
+  districtIds: string[]
+): void => {
   for (const districtId of districtIds) {
     const manifestDistrict = empireStreetsCityMapDistrictsById.get(districtId);
     if (!manifestDistrict) throw new Error(`Missing canonical district ${districtId}.`);
@@ -186,5 +308,4 @@ const createBuildingActionSnapshot = (): InstanceSnapshotDto => {
   snapshot.state.root.districtIds = Object.keys(snapshot.state.districtsById);
   snapshot.integrity.entityCounts.districts = Object.keys(snapshot.state.districtsById).length;
   snapshot.integrity.entityCounts.buildings = Object.keys(snapshot.state.buildingsById).length;
-  return snapshot;
 };
