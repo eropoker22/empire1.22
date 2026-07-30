@@ -1,4 +1,5 @@
 import {
+  createPlayerSpyOperationState,
   type CoreGameState,
   createPlayerPoliceState,
   normalizeFactionId
@@ -6,7 +7,9 @@ import {
 import { resolveModeConfig } from "@empire/game-config";
 import {
   PRODUCTION_GAME_LIFECYCLE_PHASES,
+  ATTACK_WEAPON_IDS,
   type GameModeId,
+  type HostedStartingPlayerStateView,
   type Player,
   type PlayerFactionId,
   type ResourceState,
@@ -24,6 +27,7 @@ export interface GameplaySliceMembershipRequest {
   districtId?: string | null;
   factionId?: PlayerFactionId | string | null;
   mode: GameModeId;
+  startingPlayerState?: HostedStartingPlayerStateView;
 }
 
 /**
@@ -37,11 +41,8 @@ export const addPlayerToGameplaySliceState = (
 ): CoreGameState => {
   const config = resolveModeConfig(request.mode);
   const factionId = normalizeFactionId(request.factionId, config);
-  ensureSharedCityMap(state, request.serverInstanceId, {
-    buildSlotLimit: config.balance.buildSlotLimit,
-    productionBuildings: config.balance.productionBuildings ?? {},
-    robbery: config.balance.conflict?.robbery
-  });
+  ensureSharedCityMap(state, request.serverInstanceId, { buildSlotLimit: config.balance.buildSlotLimit,
+    productionBuildings: config.balance.productionBuildings ?? {}, robbery: config.balance.conflict?.robbery });
 
   const player = createPlayer(request, factionId);
 
@@ -50,8 +51,10 @@ export const addPlayerToGameplaySliceState = (
     player.resourceStateId,
     "player",
     player.id,
-    config.balance.startingResources
+    resolveStartingBalances(config.balance.startingResources, request.startingPlayerState)
   );
+  state.playerSpyOperationStatesByPlayerId ??= {};
+  state.playerSpyOperationStatesByPlayerId[player.id] = createPlayerSpyOperationState(player.id);
   state.policeStatesById[player.policeStateId] = createPlayerPoliceState(player, state.root.tick);
   appendUnique(state.root.playerIds, player.id);
 
@@ -74,7 +77,12 @@ const createPlayer = (
   status: "active",
   allianceId: null,
   homeDistrictId: null,
-  attackLoadout: { pistol: 2, smg: 1 },
+  attackLoadout: request.startingPlayerState
+    ? Object.fromEntries(ATTACK_WEAPON_IDS.map((weaponId) => [
+        weaponId,
+        request.startingPlayerState!.materials[weaponId] ?? 0
+      ]))
+    : { pistol: 2, smg: 1 },
   metadata: {
     spawnSelectionStatus: "awaiting_spawn_selection"
   },
@@ -93,6 +101,17 @@ const createResourceState = (
   ownerId: string,
   balances: Record<string, number>
 ): ResourceState => ({ id, ownerType, ownerId, balances: { ...balances }, incomeModifiers: {}, lastUpdatedTick: 0, version: 1 });
+
+const resolveStartingBalances = (
+  defaults: Record<string, number>,
+  startingPlayerState?: HostedStartingPlayerStateView
+): Record<string, number> => startingPlayerState ? {
+  ...defaults,
+  ...startingPlayerState.materials,
+  cash: startingPlayerState.cleanCash,
+  "dirty-cash": startingPlayerState.dirtyCash,
+  population: startingPlayerState.population
+} : { ...defaults };
 
 const appendUnique = <TValue>(target: TValue[], value: TValue): void => {
   if (!target.includes(value)) target.push(value);

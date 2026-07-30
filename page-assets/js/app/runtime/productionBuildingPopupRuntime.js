@@ -1057,12 +1057,39 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       });
     }
 
-    const openPopup = () => {
-      setActiveTab("stats");
-      renderDashboard();
-      openOverlay(popup, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
-      popup.hidden = false;
-      deps.syncBuildingDetailTopbarVisibility?.(root);
+    const openPopup = async () => {
+      const shouldPrepareServerBuilding = shouldUseServerProduction()
+        && typeof deps.prepareServerProductionBuilding === "function";
+      const wasDisabled = openButton.disabled;
+      if (shouldPrepareServerBuilding) {
+        openButton.disabled = true;
+        openButton.setAttribute?.("aria-busy", "true");
+      }
+      try {
+        if (shouldPrepareServerBuilding) {
+          const prepared = await deps.prepareServerProductionBuilding(buildingName);
+          if (prepared?.accepted !== true) {
+            deps.setBuildingActionFeedback?.(
+              root,
+              "warning",
+              config?.label || "Budova",
+              prepared?.errors?.[0]?.message || "Serverovou budovu se nepodařilo načíst."
+            );
+            return false;
+          }
+        }
+        setActiveTab("stats");
+        renderDashboard();
+        openOverlay(popup, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
+        popup.hidden = false;
+        deps.syncBuildingDetailTopbarVisibility?.(root);
+        return true;
+      } finally {
+        if (shouldPrepareServerBuilding) {
+          openButton.disabled = wasDisabled;
+          openButton.removeAttribute?.("aria-busy");
+        }
+      }
     };
 
     const closePopup = () => {

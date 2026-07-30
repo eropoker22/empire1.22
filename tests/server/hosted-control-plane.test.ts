@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveModeConfig } from "@empire/game-config";
+import {
+  copyFreeHostedStartingPlayerState,
+  resolveModeConfig
+} from "@empire/game-config";
 import { handleSelectSpawnDistrict } from "@empire/game-core";
 import type { AdminCreateServerRequestView, AdminSessionView } from "@empire/shared-types";
 import { createHostedControlPlaneService, createHostedRuntimeWorker } from "../../apps/server/src/admin/hosted";
@@ -103,6 +106,46 @@ describe("hosted server control plane", () => {
       .toBe("ADMIN_CAPACITY_INVALID");
   });
 
+  it("validates and snapshots the authoritative starting player state", async () => {
+    const { repositories, service } = await setup();
+    const startingPlayerState = copyFreeHostedStartingPlayerState();
+    startingPlayerState.cleanCash = 42_000;
+    startingPlayerState.dirtyCash = 7_500;
+    startingPlayerState.population = 125;
+    startingPlayerState.materials["stim-pack"] = 4;
+    startingPlayerState.materials["combat-module"] = 3;
+    startingPlayerState.materials.vest = 6;
+    const created = await service.createServer({
+      session: owner,
+      payload: { ...validRequest, startingPlayerState },
+      idempotencyKey: "test-create-starting-state",
+      correlationId: "starting-state"
+    });
+    expect(created.accepted).toBe(true);
+    if (!created.accepted) return;
+    await expect(repositories.hosted.getServer(created.data.server.serverInstanceId)).resolves.toMatchObject({
+      startingPlayerState
+    });
+
+    expect((await service.createServer({
+      session: owner,
+      payload: { ...validRequest, startingPlayerState: { ...startingPlayerState, spySlots: 3 } },
+      idempotencyKey: "test-create-starting-spies",
+      correlationId: "starting-spies"
+    })).errors[0]?.code).toBe("ADMIN_STARTING_STATE_INVALID");
+    const missingMaterial = {
+      ...startingPlayerState,
+      materials: { ...startingPlayerState.materials }
+    } as Record<string, unknown>;
+    delete (missingMaterial.materials as Record<string, unknown>).chemicals;
+    expect((await service.createServer({
+      session: owner,
+      payload: { ...validRequest, startingPlayerState: missingMaterial },
+      idempotencyKey: "test-create-starting-material",
+      correlationId: "starting-material"
+    })).errors[0]?.code).toBe("ADMIN_STARTING_STATE_INVALID");
+  });
+
   it("provisions exactly one initial snapshot and exposes durable lobby state", async () => {
     const { repositories, service } = await setup();
     const created = await service.createServer({ session: owner, payload: validRequest, idempotencyKey: "test-provision-server-001", correlationId: "request:1" });
@@ -175,6 +218,42 @@ describe("hosted server control plane", () => {
     expect(results.filter((result) => result.accepted)).toHaveLength(1);
     expect(results.find((result) => !result.accepted)?.errors[0]?.code)
       .toBe("SERVER_LIFECYCLE_OPERATION_ACTIVE");
+  });
+
+  it("archives a server idempotently and releases its ready memberships", async () => {
+    const { repositories, service } = await setup();
+    const created = await service.createServer({ session: owner, payload: validRequest,
+      idempotencyKey: "test-archive-server-create", correlationId: "request:archive:create" });
+    if (!created.accepted) throw new Error("fixture create failed");
+    const serverId = created.data.server.serverInstanceId;
+    const hosted = repositories.hosted as InMemoryHostedControlPlaneRepository;
+    hosted.setReadyMembershipsForTests(serverId, [{
+      membershipId: "membership:archive",
+      playerId: "player:archive",
+      reservedSpawnDistrictId: "district:archive"
+    }]);
+    const key = "test-archive-server-action";
+    const payload = {
+      action: "delete",
+      expectedVersion: created.data.server.version,
+      reason: "Odstranění nefunkční instance",
+      confirmationToken: "DELETE_SERVER"
+    };
+
+    const first = await service.requestAction({ session: owner, serverInstanceId: serverId, payload,
+      idempotencyKey: key, correlationId: "request:archive:first" });
+    const replay = await service.requestAction({ session: owner, serverInstanceId: serverId, payload,
+      idempotencyKey: key, correlationId: "request:archive:replay" });
+
+    expect(first).toMatchObject({ accepted: true, data: { action: "delete", status: "completed", replayed: false } });
+    expect(replay).toMatchObject({ accepted: true, data: { action: "delete", status: "completed", replayed: true } });
+    expect(await repositories.hosted.getServer(serverId)).toMatchObject({
+      status: "archived",
+      joinPolicy: "closed",
+      runtimeLeaseOwnerId: null,
+      runtimeLeaseExpiresAt: null
+    });
+    await expect(repositories.hosted.listReadyMemberships(serverId)).resolves.toEqual([]);
   });
 
   it("uses exclusive leases and restores the same state across lifecycle restart", async () => {

@@ -19,7 +19,6 @@ import { createDistrictPanelProjection } from "./district-panel-projection-servi
 import { createDistrictListProjection } from "./district-list-projection-service";
 import { createPlayerProjection } from "./player-projection-service";
 import { sharedCitySpawnPool } from "../../bootstrap/gameplay-slice-shared-city-seed";
-
 /**
  * Responsibility: Aggregates the minimal read model for the first migrated gameplay slice.
  * Belongs here: server-side composition of player and district projections.
@@ -55,6 +54,7 @@ export const createGameplaySliceProjection = (
     server: {
       serverInstanceId: runtime.record.id,
       mode: runtime.record.mode,
+      status: runtime.record.status,
       currentTick: runtime.state.root.tick,
       stateVersion: runtime.state.root.version,
       maxPlayersPerServer: runtime.config.balance.maxPlayersPerServer,

@@ -129,18 +129,36 @@
     query: "",
     status: "all",
     mode: "all",
-    worker: "all"
+    worker: "all",
+    visibility: "active"
   };
   const applyAdminServerFilters = (target, filters) => {
     const query = normalize(filters.query);
     let visibleCount = 0;
     target == null ? void 0 : target.querySelectorAll("[data-admin-server-item]").forEach((item) => {
-      const visible = (!query || normalize(item.textContent ?? "").includes(query)) && (filters.status === "all" || item.dataset.adminServerStatus === filters.status) && (filters.mode === "all" || item.dataset.adminServerMode === filters.mode) && (filters.worker === "all" || item.dataset.adminServerWorker === filters.worker);
+      const visible = (!query || normalize(item.textContent ?? "").includes(query)) && (filters.status === "all" || item.dataset.adminServerStatus === filters.status) && (filters.mode === "all" || item.dataset.adminServerMode === filters.mode) && (filters.worker === "all" || item.dataset.adminServerWorker === filters.worker) && item.dataset.adminServerVisibility === filters.visibility;
       item.hidden = !visible;
       if (visible && item.matches("tr")) visibleCount += 1;
     });
     const output = target == null ? void 0 : target.querySelector("[data-admin-server-visible-count]");
     if (output) output.textContent = String(visibleCount);
+  };
+  const captureAdminPageState = (target) => {
+    if (!target || typeof window === "undefined") return null;
+    return {
+      scrollX: window.scrollX,
+      scrollY: window.scrollY,
+      openDetailIndexes: [...target.querySelectorAll("details")].flatMap((detail, index) => detail.open ? [index] : [])
+    };
+  };
+  const restoreAdminPageState = (target, snapshot) => {
+    var _a;
+    if (!target || !snapshot || typeof window === "undefined") return;
+    const openIndexes = new Set(snapshot.openDetailIndexes);
+    target.querySelectorAll("details").forEach((detail, index) => {
+      detail.open = openIndexes.has(index);
+    });
+    (_a = window.scrollTo) == null ? void 0 : _a.call(window, { left: snapshot.scrollX, top: snapshot.scrollY, behavior: "auto" });
   };
   const normalize = (value) => value.normalize("NFD").replace(new RegExp("\\p{Diacritic}", "gu"), "").replace(/[^\p{Letter}\p{Number}]+/gu, " ").replace(/\s+/gu, " ").trim().toLocaleLowerCase("cs-CZ");
   const publicBuildingNameVariants = {
@@ -18734,6 +18752,87 @@
     allowJoinsWhileRunningDuringWindow: true,
     requireFreshWorkerForRegistration: true,
     allowSetupCompletionAfterWindow: true
+  });
+  const FREE_HOSTED_STARTING_MATERIAL_GROUPS = Object.freeze([
+    Object.freeze({
+      id: "pharmacy",
+      label: "Lékárna",
+      materials: Object.freeze([
+        Object.freeze({ id: "chemicals", label: "Chemicals" }),
+        Object.freeze({ id: "biomass", label: "Biomass" }),
+        Object.freeze({ id: "stim-pack", label: "Stim Pack" })
+      ])
+    }),
+    Object.freeze({
+      id: "drug-lab",
+      label: "Lab",
+      materials: Object.freeze([
+        Object.freeze({ id: "neon-dust", label: "Neon Dust" }),
+        Object.freeze({ id: "pulse-shot", label: "Pulse Shot" }),
+        Object.freeze({ id: "velvet-smoke", label: "Velvet Smoke" }),
+        Object.freeze({ id: "ghost-serum", label: "Ghost Serum" }),
+        Object.freeze({ id: "overdrive-x", label: "Overdrive X" })
+      ])
+    }),
+    Object.freeze({
+      id: "factory",
+      label: "Továrna",
+      materials: Object.freeze([
+        Object.freeze({ id: "metal-parts", label: "Metal Parts" }),
+        Object.freeze({ id: "tech-core", label: "Tech Core" }),
+        Object.freeze({ id: "combat-module", label: "Bojový modul" })
+      ])
+    }),
+    Object.freeze({
+      id: "armory",
+      label: "Zbrojovka",
+      materials: Object.freeze([
+        Object.freeze({ id: "baseball-bat", label: "Baseballová pálka" }),
+        Object.freeze({ id: "pistol", label: "Pistole" }),
+        Object.freeze({ id: "grenade", label: "Granát" }),
+        Object.freeze({ id: "smg", label: "SMG" }),
+        Object.freeze({ id: "bazooka", label: "Bazuka" }),
+        Object.freeze({ id: "vest", label: "Vesta" }),
+        Object.freeze({ id: "barricades", label: "Barikády" }),
+        Object.freeze({ id: "cameras", label: "Kamery" }),
+        Object.freeze({ id: "defense-tower", label: "Obranná věž" }),
+        Object.freeze({ id: "alarm", label: "Alarm" })
+      ])
+    })
+  ]);
+  const FREE_HOSTED_STARTING_MATERIAL_IDS = Object.freeze(
+    FREE_HOSTED_STARTING_MATERIAL_GROUPS.flatMap(
+      (group) => group.materials.map((material) => material.id)
+    )
+  );
+  const FREE_HOSTED_STARTING_PLAYER_STATE = Object.freeze({
+    cleanCash: 1500,
+    dirtyCash: 300,
+    population: 0,
+    spySlots: 2,
+    materials: Object.freeze({
+      chemicals: 10,
+      biomass: 6,
+      "stim-pack": 0,
+      "neon-dust": 0,
+      "pulse-shot": 0,
+      "velvet-smoke": 0,
+      "ghost-serum": 0,
+      "overdrive-x": 0,
+      "metal-parts": 8,
+      "tech-core": 2,
+      "combat-module": 0,
+      "baseball-bat": 0,
+      pistol: 2,
+      grenade: 0,
+      smg: 1,
+      bazooka: 0,
+      vest: 0,
+      barricades: 0,
+      cameras: 0,
+      "defense-tower": 0,
+      alarm: 0
+    })
   });
   const DEFAULT_PUBLIC_MAP_COMPOSITION = Object.freeze({
     downtown: 8,
@@ -40174,6 +40273,15 @@
       ["Minimum ke spuštění", FREE_HOSTED_SERVER_LIFECYCLE_POLICY.minimumReadyPlayersToStart],
       ["Registrační okno", `${FREE_HOSTED_SERVER_LIFECYCLE_POLICY.registrationWindowMs / 6e4} minut`],
       ["Vstup po vytvoření", "Uzavřený do naplánování registrace"],
+      ["Start clean / dirty", `${data.get("startingCleanCash")} / ${data.get("startingDirtyCash")}`],
+      ["Start populace", data.get("startingPopulation")],
+      ["Špehové", "2 vždy"],
+      ...FREE_HOSTED_STARTING_MATERIAL_GROUPS.map((group) => [
+        `Materiály · ${group.label}`,
+        group.materials.map(
+          (material) => `${material.label}: ${data.get(`startingMaterial:${material.id}`)}`
+        ).join(", ")
+      ]),
       ["Mapa", `8 / ${data.get("commercial")} / ${data.get("residential")} / ${data.get("industrial")} / ${data.get("park")}`]
     ];
     review.innerHTML = values.map(([label, value]) => `<span><small>${escapeHtml$1(label)}</small><strong>${escapeHtml$1(value ?? "-")}</strong></span>`).join("");
@@ -40215,7 +40323,7 @@
         const form2 = target.querySelector("[data-admin-create-form]");
         const state = options.state();
         if (!form2 || !validateWizardPanel(form2, state.wizardStep)) return;
-        options.updateState({ wizardStep: Math.min(4, state.wizardStep + 1) });
+        options.updateState({ wizardStep: Math.min(5, state.wizardStep + 1) });
         applyStep();
       }));
       target == null ? void 0 : target.querySelectorAll("[data-admin-wizard-back]").forEach((button2) => button2.addEventListener("click", () => {
@@ -40257,6 +40365,16 @@
           residential: Number(data.get("residential")),
           industrial: Number(data.get("industrial")),
           park: Number(data.get("park"))
+        },
+        startingPlayerState: {
+          cleanCash: Number(data.get("startingCleanCash")),
+          dirtyCash: Number(data.get("startingDirtyCash")),
+          population: Number(data.get("startingPopulation")),
+          spySlots: 2,
+          materials: Object.fromEntries(FREE_HOSTED_STARTING_MATERIAL_IDS.map((materialId) => [
+            materialId,
+            Number(data.get(`startingMaterial:${materialId}`))
+          ]))
         }
       };
       const submitButton = form.querySelector("[type=submit]");
@@ -40407,6 +40525,7 @@
       paused: "Pozastaven",
       restarting: "Restartuje se",
       stopped: "Zastaven",
+      archived: "Archivován",
       failed: "Chyba",
       crashed: "Havárie",
       online: "Online",
@@ -40464,6 +40583,13 @@
         </div>
         ${input.action === "stop" ? `<p class="admin-danger-copy"><strong>Zastavení přeruší běžící instanci.</strong>
           Existující serverová autorizace a durable stav zůstávají canonical autoritou.</p>` : ""}
+        ${input.action === "delete" ? `<p class="admin-danger-copy"><strong>Server bude archivován a zmizí z aktivních serverů.</strong>
+          Hráči se vrátí do lobby, jejich gameplay session budou zneplatněny a technická historie zůstane v záložce neaktivních serverů.</p>
+        <label><span>Potvrďte názvem serveru</span>
+          <input data-admin-delete-confirmation autocomplete="off"
+            placeholder="${attribute(input.server.displayName)}">
+          <small>Zadejte přesně: ${escapeHtml(input.server.displayName)}</small>
+        </label>` : ""}
         <label><span>Důvod akce</span>
           <textarea data-admin-action-reason minlength="3" maxlength="240" required
             placeholder="Povinný auditní důvod">${escapeHtml(input.reason)}</textarea>
@@ -40595,6 +40721,13 @@
       title: "Zastavit server",
       detail: "Destruktivní lifecycle akce dostupná pouze ownerovi.",
       tone: "danger"
+    },
+    delete: {
+      label: "Server archivován",
+      confirmLabel: "Smazat a vrátit hráče",
+      title: "Smazat server",
+      detail: "Owner-only archivace serveru s okamžitým návratem hráčů do lobby.",
+      tone: "danger"
     }
   };
   const actionPresentation = (action2) => ACTION_PRESENTATIONS[action2];
@@ -40659,7 +40792,7 @@
       });
     };
     const submit = async (dialog, button2) => {
-      var _a, _b, _c, _d;
+      var _a, _b, _c, _d, _e, _f;
       if (submitting) return;
       const instanceId = dialog.dataset.adminServerId;
       const action2 = dialog.dataset.adminLifecycleAction;
@@ -40673,6 +40806,14 @@
         (_c = dialog.querySelector("[data-admin-action-reason]")) == null ? void 0 : _c.focus();
         return;
       }
+      if (action2 === "delete") {
+        const confirmation = ((_d = dialog.querySelector("[data-admin-delete-confirmation]")) == null ? void 0 : _d.value.trim()) ?? "";
+        if (confirmation !== hosted.displayName) {
+          if (message) message.textContent = "Pro smazání zadejte přesný název serveru.";
+          (_e = dialog.querySelector("[data-admin-delete-confirmation]")) == null ? void 0 : _e.focus();
+          return;
+        }
+      }
       submitting = true;
       button2.disabled = true;
       button2.setAttribute("aria-busy", "true");
@@ -40680,12 +40821,17 @@
       try {
         const result = await options.client.requestLifecycleAction(
           instanceId,
-          { action: action2, expectedVersion: hosted.version, reason },
+          {
+            action: action2,
+            expectedVersion: hosted.version,
+            reason,
+            ...action2 === "delete" ? { confirmationToken: "DELETE_SERVER" } : {}
+          },
           options.createKey()
         );
         options.actionReasons.delete(instanceId);
         options.onAccepted(instanceId, action2, result);
-        (_d = dialog.closest("[data-admin-lifecycle-backdrop]")) == null ? void 0 : _d.remove();
+        (_f = dialog.closest("[data-admin-lifecycle-backdrop]")) == null ? void 0 : _f.remove();
         await options.refresh();
       } catch (error) {
         if (message) message.textContent = error instanceof Error ? error.message : "Akci nebylo možné zařadit.";
@@ -40714,7 +40860,7 @@
       first.focus();
     }
   };
-  const actionConfirmLabel = (action2) => action2 === "stop" ? "Zastavit server" : action2 === "restart" ? "Bezpečně restartovat" : action2 === "start" ? "Spustit server" : action2 === "resume" ? "Obnovit server" : action2 === "pause" ? "Pozastavit server" : adminActionLabel(action2);
+  const actionConfirmLabel = (action2) => action2 === "delete" ? "Smazat a vrátit hráče" : action2 === "stop" ? "Zastavit server" : action2 === "restart" ? "Bezpečně restartovat" : action2 === "start" ? "Spustit server" : action2 === "resume" ? "Obnovit server" : action2 === "pause" ? "Pozastavit server" : adminActionLabel(action2);
   const createAdminRegistrationController = (options) => {
     const drafts = /* @__PURE__ */ new Map();
     let timer = null;
@@ -40937,9 +41083,10 @@
       refresh: options.refresh,
       onAccepted: (_instanceId, action2, result) => {
         options.clearAudit();
+        if (action2 === "delete") options.onServerArchived();
         options.setNotice({
           tone: "success",
-          title: "Lifecycle požadavek přijat",
+          title: action2 === "delete" ? "Server archivován" : "Lifecycle požadavek přijat",
           message: `${adminActionLabel(action2)} · ${result.status} · ${result.actionRequestId}`
         });
       }
@@ -40964,6 +41111,8 @@
     });
     return { registration, lifecycle, creation };
   };
+  const ADMIN_POLL_INTERVAL_MS = 3e4;
+  const ADMIN_MAX_BACKOFF_MS = 8e4;
   const createAdminDashboardBindings = (options) => ({
     bind: () => {
       var _a, _b, _c, _d, _e, _f;
@@ -40997,6 +41146,17 @@
       target == null ? void 0 : target.querySelectorAll("[data-admin-server-filter]").forEach((select) => select.addEventListener("change", () => {
         const key = select.dataset.adminServerFilter;
         options.updateServerFilters({ [key]: select.value });
+        applyAdminServerFilters(target, options.serverFilters());
+      }));
+      target == null ? void 0 : target.querySelectorAll("[data-admin-server-scope]").forEach((button2) => button2.addEventListener("click", () => {
+        const visibility = button2.dataset.adminServerScope;
+        if (visibility !== "active" && visibility !== "inactive") return;
+        options.updateServerFilters({ visibility });
+        target.querySelectorAll("[data-admin-server-scope]").forEach((item) => {
+          const selected = item === button2;
+          item.classList.toggle("is-active", selected);
+          item.setAttribute("aria-selected", String(selected));
+        });
         applyAdminServerFilters(target, options.serverFilters());
       }));
       (_e = target == null ? void 0 : target.querySelector("[data-admin-filter-reset]")) == null ? void 0 : _e.addEventListener("click", () => {
@@ -41313,12 +41473,12 @@
   <div class="admin-modal-backdrop" data-admin-create-backdrop>
     <section class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="admin-create-title">
       <header class="admin-modal__head"><div><span>Provisioning</span><h2 id="admin-create-title">Vytvořit nový server</h2>
-        <p>Bezpečný čtyřkrokový workflow s canonical Free pravidly.</p></div>
+        <p>Bezpečný pětikrokový workflow s canonical Free pravidly.</p></div>
         <button class="admin-button admin-button--ghost admin-button--close" type="button" data-admin-create-cancel aria-label="Zavřít dialog">×</button>
       </header>
       <form class="admin-wizard" data-admin-create-form>
         <div class="admin-wizard__steps" aria-label="Kroky vytvoření serveru">
-          ${["Základ", "Mapa", "Přístup", "Kontrola"].map((label, index) => `<span class="${step === index + 1 ? "is-active" : ""}"><b>${index + 1}</b>${label}</span>`).join("")}
+          ${["Základ", "Mapa", "Start hráče", "Přístup", "Kontrola"].map((label, index) => `<span class="${step === index + 1 ? "is-active" : ""}"><b>${index + 1}</b>${label}</span>`).join("")}
         </div>
         <fieldset data-admin-wizard-panel="1" ${step === 1 ? "" : "hidden"}>
           <legend>Základ serveru</legend>
@@ -41344,6 +41504,30 @@
             <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Pokračovat</button></div>
         </fieldset>
         <fieldset data-admin-wizard-panel="3" ${step === 3 ? "" : "hidden"}>
+          <legend>Počáteční stav každého hráče</legend>
+          <div class="admin-starting-state">
+            ${numberField("Clean cash", "startingCleanCash", FREE_HOSTED_STARTING_PLAYER_STATE.cleanCash, 1e9)}
+            ${numberField("Dirty cash", "startingDirtyCash", FREE_HOSTED_STARTING_PLAYER_STATE.dirtyCash, 1e9)}
+            ${numberField("Populace", "startingPopulation", FREE_HOSTED_STARTING_PLAYER_STATE.population, 1e6)}
+            <label><span>Špehové</span><input value="2" type="number" disabled><small>Každý hráč má vždy přesně 2 špionážní sloty.</small></label>
+          </div>
+          <div class="admin-starting-materials">
+            ${FREE_HOSTED_STARTING_MATERIAL_GROUPS.map((group) => `
+              <section class="admin-starting-material-group">
+                <h3>${escape$1(group.label)}</h3>
+                <div>${group.materials.map((material) => numberField(
+    material.label,
+    `startingMaterial:${material.id}`,
+    FREE_HOSTED_STARTING_PLAYER_STATE.materials[material.id],
+    1e6
+  )).join("")}</div>
+              </section>`).join("")}
+          </div>
+          <p class="admin-notice">Hodnoty se uloží k serveru a worker je použije při autoritativním vytvoření každého nového hráče.</p>
+          <div class="admin-wizard__actions"><button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
+            <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Pokračovat</button></div>
+        </fieldset>
+        <fieldset data-admin-wizard-panel="4" ${step === 4 ? "" : "hidden"}>
           <legend>Přístup a registrace</legend><input type="hidden" name="joinPolicy" value="closed">
           <div class="admin-kv-grid admin-wizard__policy">
             ${kv$1("Kapacita", "Kontrolní 2–20 / plná 20")}
@@ -41354,7 +41538,7 @@
           <div class="admin-wizard__actions"><button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
             <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Pokračovat</button></div>
         </fieldset>
-        <fieldset data-admin-wizard-panel="4" ${step === 4 ? "" : "hidden"}>
+        <fieldset data-admin-wizard-panel="5" ${step === 5 ? "" : "hidden"}>
           <legend>Kontrola před vytvořením</legend><div class="admin-kv-grid" data-admin-create-review></div>
           <p class="admin-notice">Server vznikne jako REQUESTED a joins zůstanou zavřené do dokončení provisioningu.</p>
           <div class="admin-wizard__actions"><button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
@@ -41365,6 +41549,7 @@
     </section>
   </div>`;
   const kv$1 = (label, value) => `<span><small>${escape$1(label)}</small><strong>${escape$1(value)}</strong></span>`;
+  const numberField = (label, name, value, maximum) => `<label><span>${escape$1(label)}</span><input name="${escape$1(name)}" type="number" min="0" max="${maximum}" step="1" value="${value}" required></label>`;
   const escape$1 = (value) => String(value).replace(/[&<>"']/gu, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
   const registrationMinutes = FREE_HOSTED_SERVER_LIFECYCLE_POLICY.registrationWindowMs / 6e4;
   const renderAdminRegistration = (server, session) => {
@@ -41514,36 +41699,6 @@
     ${input.wizardOpen && canWrite ? renderAdminCreateWizard(input.wizardStep) : ""}
   </section>`;
   };
-  const renderAdminServers = (instances, selected, filters) => `
-  <section id="admin-servers" class="admin-panel admin-server-registry admin-section-anchor">
-    <div class="admin-panel__head"><div><span>Server registry</span><h3>Herní instance</h3>
-      <p>Vyberte server pro detail a bezpečné operace.</p></div>${badge(`${instances.length} INSTANCÍ`, "info")}</div>
-    ${renderServerFilters(instances, filters)}
-    ${instances.length === 0 ? `<p class="admin-copy">Žádné instance.</p>` : table(
-    ["Server", "Režim", "Status", "Worker", "Hráči", "Heartbeat", "Akce"],
-    instances.map((item) => `<tr data-admin-search-row data-admin-server-item
-        data-admin-server-status="${attribute(item.status)}" data-admin-server-mode="${attribute(item.mode)}"
-        data-admin-server-worker="${attribute(item.workerStatus)}" class="${item.serverInstanceId === selected ? "is-selected" : ""}">
-        <td><a class="admin-server-name-link" href="?instance=${encodeURIComponent(item.serverInstanceId)}">
-          <strong>${escapeHtml(item.displayName)}</strong><small title="${attribute(item.serverInstanceId)}">${escapeHtml(shortId(item.serverInstanceId))}</small></a></td>
-        <td>${escapeHtml(item.mode)}</td><td>${pill(item.status)}</td><td>${pill(item.workerStatus)}</td>
-        <td><strong>${item.playerCount} / ${item.capacity}</strong></td><td>${formatTime(item.lastHeartbeatAt)}</td>
-        <td><a class="admin-button admin-button--ghost admin-button--compact" href="?instance=${encodeURIComponent(item.serverInstanceId)}"
-          data-admin-instance="${attribute(item.serverInstanceId)}">Detail</a></td></tr>`).join("")
-  )}
-    <div class="admin-server-cards" aria-label="Herní instance">
-      ${instances.map((item) => `<article data-admin-server-item
-        data-admin-server-status="${attribute(item.status)}" data-admin-server-mode="${attribute(item.mode)}"
-        data-admin-server-worker="${attribute(item.workerStatus)}" class="admin-server-card${item.serverInstanceId === selected ? " is-selected" : ""}">
-        <div class="admin-server-card__head"><div><strong>${escapeHtml(item.displayName)}</strong>
-          <small title="${attribute(item.serverInstanceId)}">${escapeHtml(shortId(item.serverInstanceId))}</small></div>${pill(item.status)}</div>
-        <dl><div><dt>Režim</dt><dd>${escapeHtml(item.mode)}</dd></div><div><dt>Hráči</dt><dd>${item.playerCount} / ${item.capacity}</dd></div>
-          <div><dt>Worker</dt><dd>${pill(item.workerStatus)}</dd></div><div><dt>Heartbeat</dt><dd>${formatTime(item.lastHeartbeatAt)}</dd></div></dl>
-        <a class="admin-button admin-button--primary" href="?instance=${encodeURIComponent(item.serverInstanceId)}"
-          data-admin-mobile-instance="${attribute(item.serverInstanceId)}">Detail serveru</a>
-      </article>`).join("")}
-    </div>
-  </section>`;
   const renderBuildCompatibility = (frontend, api, worker, gameHostingDeployed = true, localDevelopment = false) => {
     if (!gameHostingDeployed) {
       if (!frontend || !api) return `<p class="admin-notice">Build účtové platformy nelze potvrdit, protože frontend nebo API SHA chybí.</p>`;
@@ -41571,7 +41726,7 @@
     <div class="admin-lifecycle__actions">
       ${lifecycleButton(server, "start", "Start")}${lifecycleButton(server, "pause", "Pause")}
       ${lifecycleButton(server, "resume", "Resume")}${lifecycleButton(server, "restart", "Safe restart")}
-      ${session.role === "owner" ? lifecycleButton(server, "stop", "Stop") : ""}
+      ${session.role === "owner" ? `${lifecycleButton(server, "stop", "Stop")}${lifecycleButton(server, "delete", "Smazat server")}` : ""}
     </div><p class="admin-copy admin-lifecycle__hint">Vyberte akci. Důvod a potvrzení zadáte v bezpečném dialogu pro tento server.</p>
     <details class="admin-disclosure admin-disclosure--technical">
       <summary><span>Serverová diagnostika</span><small>Lease, snapshot a canonical timing</small></summary>
@@ -41601,29 +41756,14 @@
     const reason = lifecycleUnavailableReason(server, action2);
     const reasonId = `admin-lifecycle-reason-${action2}`;
     const disabled = reason ? ` disabled aria-disabled="true" aria-describedby="${attribute(reasonId)}"` : "";
-    const tone = action2 === "stop" ? " admin-button--danger" : action2 === "start" || action2 === "resume" ? " admin-button--primary" : "";
+    const tone = action2 === "stop" || action2 === "delete" ? " admin-button--danger" : action2 === "start" || action2 === "resume" ? " admin-button--primary" : "";
     return `<span class="admin-action-control${reason ? " is-disabled" : ""}"${reason ? ' tabindex="0"' : ""}>
     <button class="admin-button${tone}" type="button"
     data-admin-lifecycle="${attribute(action2)}" data-admin-server-id="${attribute(server.serverInstanceId)}"${disabled}>
     ${escapeHtml(label)}</button>${reason ? `<small id="${attribute(reasonId)}">${escapeHtml(reason)}</small>` : ""}</span>`;
   };
-  const renderServerFilters = (instances, filters) => `<div class="admin-server-filters" aria-label="Filtry serverů">
-  <label class="admin-server-filter-search"><span>Hledat server</span>
-    <input type="search" data-admin-search value="${attribute(filters.query)}" placeholder="Název nebo ID" autocomplete="off">
-  </label>
-  ${filterSelect("status", "Status", filters.status, unique(instances.map((item) => item.status)))}
-  ${filterSelect("mode", "Režim", filters.mode, unique(instances.map((item) => item.mode)))}
-  ${filterSelect("worker", "Worker", filters.worker, unique(instances.map((item) => item.workerStatus)))}
-  <button class="admin-button admin-button--ghost admin-button--compact" type="button" data-admin-filter-reset>Reset</button>
-  <span class="admin-server-filter-count">Zobrazeno <strong data-admin-server-visible-count>${instances.length}</strong> / ${instances.length}</span>
-</div>`;
-  const filterSelect = (key, label, selected, values) => `
-  <label><span>${escapeHtml(label)}</span><select data-admin-server-filter="${attribute(key)}">
-    <option value="all">Vše</option>${values.map((value) => `<option value="${attribute(value)}"${value === selected ? " selected" : ""}>${escapeHtml(statusLabel(value))}</option>`).join("")}
-  </select></label>`;
-  const unique = (values) => [...new Set(values)].sort((left, right) => left.localeCompare(right));
-  const shortId = (value) => value.length > 24 ? `${value.slice(0, 12)}…${value.slice(-8)}` : value;
   const lifecycleUnavailableReason = (server, action2) => {
+    if (action2 === "delete") return server.status === "archived" ? "Server už je archivovaný." : null;
     if (server.provisioningState !== "ready") return "Počkejte na dokončení provisioningu.";
     if (action2 === "start") {
       if (server.status !== "lobby") return "Spustit lze pouze server v lobby.";
@@ -41850,6 +41990,67 @@
     });
     return alerts;
   };
+  const renderAdminServers = (instances, selected, filters) => {
+    const activeCount = instances.filter((item) => serverVisibility(item.status) === "active").length;
+    const inactiveCount = instances.length - activeCount;
+    return `
+  <section id="admin-servers" class="admin-panel admin-server-registry admin-section-anchor">
+    <div class="admin-panel__head"><div><span>Server registry</span><h3>Herní instance</h3>
+      <p>Vyberte server pro detail a bezpečné operace.</p></div>${badge(`${instances.length} INSTANCÍ`, "info")}</div>
+    <div class="admin-server-scope-tabs" role="tablist" aria-label="Dostupnost serverů">
+      ${serverScopeTab("active", "Aktivní", activeCount, filters.visibility)}
+      ${serverScopeTab("inactive", "Neaktivní a historie", inactiveCount, filters.visibility)}
+    </div>
+    ${renderServerFilters(instances, filters)}
+    ${instances.length === 0 ? `<p class="admin-copy">Žádné instance.</p>` : table(
+      ["Server", "Režim", "Status", "Worker", "Hráči", "Heartbeat", "Akce"],
+      instances.map((item) => `<tr data-admin-search-row data-admin-server-item
+        data-admin-server-status="${attribute(item.status)}" data-admin-server-mode="${attribute(item.mode)}"
+        data-admin-server-worker="${attribute(item.workerStatus)}"
+        data-admin-server-visibility="${serverVisibility(item.status)}" class="${item.serverInstanceId === selected ? "is-selected" : ""}">
+        <td><a class="admin-server-name-link" href="?instance=${encodeURIComponent(item.serverInstanceId)}">
+          <strong>${escapeHtml(item.displayName)}</strong><small title="${attribute(item.serverInstanceId)}">${escapeHtml(shortId(item.serverInstanceId))}</small></a></td>
+        <td>${escapeHtml(item.mode)}</td><td>${pill(item.status)}</td><td>${pill(item.workerStatus)}</td>
+        <td><strong>${item.playerCount} / ${item.capacity}</strong></td><td>${formatTime(item.lastHeartbeatAt)}</td>
+        <td><a class="admin-button admin-button--ghost admin-button--compact" href="?instance=${encodeURIComponent(item.serverInstanceId)}"
+          data-admin-instance="${attribute(item.serverInstanceId)}">Detail</a></td></tr>`).join("")
+    )}
+    <div class="admin-server-cards" aria-label="Herní instance">
+      ${instances.map((item) => `<article data-admin-server-item
+        data-admin-server-status="${attribute(item.status)}" data-admin-server-mode="${attribute(item.mode)}"
+        data-admin-server-worker="${attribute(item.workerStatus)}"
+        data-admin-server-visibility="${serverVisibility(item.status)}" class="admin-server-card${item.serverInstanceId === selected ? " is-selected" : ""}">
+        <div class="admin-server-card__head"><div><strong>${escapeHtml(item.displayName)}</strong>
+          <small title="${attribute(item.serverInstanceId)}">${escapeHtml(shortId(item.serverInstanceId))}</small></div>${pill(item.status)}</div>
+        <dl><div><dt>Režim</dt><dd>${escapeHtml(item.mode)}</dd></div><div><dt>Hráči</dt><dd>${item.playerCount} / ${item.capacity}</dd></div>
+          <div><dt>Worker</dt><dd>${pill(item.workerStatus)}</dd></div><div><dt>Heartbeat</dt><dd>${formatTime(item.lastHeartbeatAt)}</dd></div></dl>
+        <a class="admin-button admin-button--primary" href="?instance=${encodeURIComponent(item.serverInstanceId)}"
+          data-admin-mobile-instance="${attribute(item.serverInstanceId)}">Detail serveru</a>
+      </article>`).join("")}
+    </div>
+  </section>`;
+  };
+  const renderServerFilters = (instances, filters) => `<div class="admin-server-filters" aria-label="Filtry serverů">
+  <label class="admin-server-filter-search"><span>Hledat server</span>
+    <input type="search" data-admin-search value="${attribute(filters.query)}" placeholder="Název nebo ID" autocomplete="off">
+  </label>
+  ${filterSelect("status", "Status", filters.status, unique(instances.map((item) => item.status)))}
+  ${filterSelect("mode", "Režim", filters.mode, unique(instances.map((item) => item.mode)))}
+  ${filterSelect("worker", "Worker", filters.worker, unique(instances.map((item) => item.workerStatus)))}
+  <button class="admin-button admin-button--ghost admin-button--compact" type="button" data-admin-filter-reset>Reset</button>
+  <span class="admin-server-filter-count">Zobrazeno <strong data-admin-server-visible-count>${instances.length}</strong> / ${instances.length}</span>
+</div>`;
+  const filterSelect = (key, label, selected, values) => `
+  <label><span>${escapeHtml(label)}</span><select data-admin-server-filter="${attribute(key)}">
+    <option value="all">Vše</option>${values.map((value) => `<option value="${attribute(value)}"${value === selected ? " selected" : ""}>${escapeHtml(statusLabel(value))}</option>`).join("")}
+  </select></label>`;
+  const INACTIVE_SERVER_STATUSES = /* @__PURE__ */ new Set(["stopped", "failed", "crashed", "archived"]);
+  const serverVisibility = (status) => INACTIVE_SERVER_STATUSES.has(status.toLowerCase()) ? "inactive" : "active";
+  const serverScopeTab = (value, label, count, selected) => `<button class="admin-server-scope-tab${value === selected ? " is-active" : ""}" type="button"
+  role="tab" aria-selected="${value === selected}" data-admin-server-scope="${value}">
+  ${escapeHtml(label)} <strong>${count}</strong></button>`;
+  const unique = (values) => [...new Set(values)].sort((left, right) => left.localeCompare(right));
+  const shortId = (value) => value.length > 24 ? `${value.slice(0, 12)}…${value.slice(-8)}` : value;
   const renderLogin = (message = "Přihlaste se do admin konzole.") => `
   <section class="admin-login" aria-labelledby="admin-login-title">
     <p class="admin-boot__eyebrow">Empire Streets</p>
@@ -41899,7 +42100,8 @@
     query: "",
     status: "all",
     mode: "all",
-    worker: "all"
+    worker: "all",
+    visibility: "active"
   })}
         </div>
         <div class="admin-operations-workspace__control">
@@ -41997,11 +42199,9 @@
     operator: "Operátor",
     owner: "Owner"
   })[role];
-  const POLL_INTERVAL_MS = 1e4;
-  const MAX_BACKOFF_MS = 8e4;
   const createAdminApp = (options = {}) => {
     const client = options.client ?? createAdminApiClient();
-    const pollInterval = Math.max(1e3, options.pollIntervalMs ?? POLL_INTERVAL_MS);
+    const pollInterval = Math.max(1e3, options.pollIntervalMs ?? ADMIN_POLL_INTERVAL_MS);
     let target = null;
     let session = null;
     let overview = null;
@@ -42052,6 +42252,7 @@
     const render = () => {
       if (!mounted || !target || !session || !overview) return;
       const focusSnapshot = captureAdminFocus(target);
+      const pageStateSnapshot = captureAdminPageState(target);
       target.innerHTML = renderDashboard({
         session,
         overview,
@@ -42077,6 +42278,7 @@
       registration.updateCountdowns();
       applyAdminServerFilters(target, serverFilters);
       restoreAdminFocus(target, focusSnapshot);
+      restoreAdminPageState(target, pageStateSnapshot);
     };
     const renderOrDefer = () => {
       if (hasFocusedAdminInput(target) || (target == null ? void 0 : target.querySelector("[role=dialog]"))) pendingRender = true;
@@ -42167,6 +42369,12 @@
       },
       setNotice: (next) => {
         notice = next;
+      },
+      onServerArchived: () => {
+        selectedInstanceId = null;
+        detail = null;
+        updateAdminInstanceUrl(null);
+        serverFilters = { ...serverFilters, visibility: "active" };
       }
     });
     const login = createAdminLoginController({
@@ -42186,7 +42394,7 @@
     const refreshController = createAdminRefreshController({
       client,
       pollInterval,
-      maxBackoff: MAX_BACKOFF_MS,
+      maxBackoff: ADMIN_MAX_BACKOFF_MS,
       context: () => ({ mounted, session, selectedInstanceId, wizardOpen, auditEntries, auditError }),
       apply: (result) => {
         overview = result.overview;

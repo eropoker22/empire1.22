@@ -11,7 +11,8 @@ export type ServerMembershipStatus =
   | "leave_pending"
   | "left_early"
   | "defeated"
-  | "completed";
+  | "completed"
+  | "server_removed";
 
 export interface AccountSessionView {
   accountId: string;

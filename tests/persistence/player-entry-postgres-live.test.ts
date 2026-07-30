@@ -225,6 +225,61 @@ describe("player entry postgres live", () => {
       await fixture.close();
     }
   }, 90_000);
+
+  run("returns archived server members to lobby and removes the server from availability", async () => {
+    const fixture = await createFixture();
+    try {
+      const hosted = await fixture.createServer(4);
+      const account = await fixture.createAccount("archive-return");
+      const projection = await fixture.entry.getSpawnSelection(account.accountId, hosted.serverInstanceId);
+      const membership = await fixture.entry.confirmSpawnDistrict(
+        account.accountId,
+        request(projection, projection.districts.find((entry) => entry.available)!.districtId),
+        key("archive-return")
+      );
+      const actionRequestId = `hosted-archive:${crypto.randomUUID()}`;
+      const requestHash = crypto.createHash("sha256").update(hosted.serverInstanceId).digest("hex");
+      const archiveInput = {
+        serverInstanceId: hosted.serverInstanceId,
+        adminUserId: hosted.createdByAdminUserId,
+        expectedVersion: hosted.version,
+        actionRequestId,
+        idempotencyKey: key("archive-server"),
+        requestHash,
+        at: new Date().toISOString(),
+        audit: {
+          id: `audit:${actionRequestId}`,
+          adminSessionId: null,
+          actorId: hosted.createdByAdminUserId,
+          role: "owner" as const,
+          action: "server-archived" as const,
+          targetInstanceId: hosted.serverInstanceId,
+          result: "success" as const,
+          createdAt: new Date().toISOString(),
+          correlationId: `test:${actionRequestId}`
+        }
+      };
+
+      await expect(fixture.admin.hosted.archiveServerTransaction(archiveInput))
+        .resolves.toEqual({ kind: "created", actionRequestId });
+      await expect(fixture.admin.hosted.archiveServerTransaction(archiveInput))
+        .resolves.toEqual({ kind: "replayed", actionRequestId });
+
+      const overview = await fixture.entry.getOverview(account);
+      expect(overview.activeBlockingMembership).toBeNull();
+      expect(overview.availableServers.some((server) => server.serverInstanceId === hosted.serverInstanceId)).toBe(false);
+      expect(overview.memberships.find((entry) => entry.membershipId === membership.membershipId)?.status)
+        .toBe("server_removed");
+      await expect(fixture.admin.hosted.getServer(hosted.serverInstanceId)).resolves.toMatchObject({
+        status: "archived",
+        joinPolicy: "closed",
+        runtimeLeaseOwnerId: null,
+        runtimeLeaseExpiresAt: null
+      });
+    } finally {
+      await fixture.close();
+    }
+  }, 90_000);
 });
 
 const createFixture = async () => {

@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const initialReadModel = Object.freeze({
-  server: { stateVersion: 1 },
+  server: { stateVersion: 1, status: "running" },
   player: {
     playerId: "player:retry",
     instanceId: "instance:retry",
@@ -15,7 +15,7 @@ const initialReadModel = Object.freeze({
 
 const nextReadModel = Object.freeze({
   ...initialReadModel,
-  server: { stateVersion: 2 }
+  server: { stateVersion: 2, status: "running" }
 });
 
 const loadGameplayModules = async () => {

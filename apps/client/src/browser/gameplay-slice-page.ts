@@ -387,6 +387,9 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       poller.start();
     })
     .catch((error) => {
+      if (isGameplayDiagnosticsEnabled()) {
+        console.warn("[gameplay-slice] Initial load failed.", error);
+      }
       document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", {
         detail: { status: "error", lastErrorMessage: createSafeErrorMessage(error), staleData: true }
       }));

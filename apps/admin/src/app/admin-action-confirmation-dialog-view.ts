@@ -38,6 +38,13 @@ export const renderLifecycleConfirmationDialog = (input: {
         </div>
         ${input.action === "stop" ? `<p class="admin-danger-copy"><strong>Zastavení přeruší běžící instanci.</strong>
           Existující serverová autorizace a durable stav zůstávají canonical autoritou.</p>` : ""}
+        ${input.action === "delete" ? `<p class="admin-danger-copy"><strong>Server bude archivován a zmizí z aktivních serverů.</strong>
+          Hráči se vrátí do lobby, jejich gameplay session budou zneplatněny a technická historie zůstane v záložce neaktivních serverů.</p>
+        <label><span>Potvrďte názvem serveru</span>
+          <input data-admin-delete-confirmation autocomplete="off"
+            placeholder="${attribute(input.server.displayName)}">
+          <small>Zadejte přesně: ${escapeHtml(input.server.displayName)}</small>
+        </label>` : ""}
         <label><span>Důvod akce</span>
           <textarea data-admin-action-reason minlength="3" maxlength="240" required
             placeholder="Povinný auditní důvod">${escapeHtml(input.reason)}</textarea>
@@ -144,6 +151,10 @@ const ACTION_PRESENTATIONS: Record<HostedLifecycleAction, ActionPresentation> = 
   stop: {
     label: "Zastavení serveru", confirmLabel: "Zastavit server", title: "Zastavit server",
     detail: "Destruktivní lifecycle akce dostupná pouze ownerovi.", tone: "danger"
+  },
+  delete: {
+    label: "Server archivován", confirmLabel: "Smazat a vrátit hráče", title: "Smazat server",
+    detail: "Owner-only archivace serveru s okamžitým návratem hráčů do lobby.", tone: "danger"
   }
 };
 

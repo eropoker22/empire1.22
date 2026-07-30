@@ -76,6 +76,8 @@ export const resolveHostedLifecycleActionCompletion = (input: {
       return accepted({ ...next, status: "running", joinPolicy: registration.state === "open" ? "open" : "closed" }, []);
     case "stop":
       return accepted({ ...next, status: "stopped", joinPolicy: "closed", lastStoppedAt: authoritativeNow }, []);
+    case "delete":
+      return rejected("LIFECYCLE_STATE_INVALID");
   }
 };
 

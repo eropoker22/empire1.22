@@ -7,9 +7,10 @@ import type {
 } from "@empire/shared-types";
 import { renderAdminAudit } from "./admin-audit-view";
 import { renderAdminCommandCenter } from "./admin-command-center-view";
-import { renderAdminControlPlane, renderAdminServers } from "./admin-control-plane-view";
+import { renderAdminControlPlane } from "./admin-control-plane-view";
 import { renderAdminInstanceDetail } from "./admin-instance-detail-view";
 import { renderAdminOperationsAlerts } from "./admin-operations-alerts-view";
+import { renderAdminServers } from "./admin-server-registry-view";
 import {
   adminIcon,
   attribute,
@@ -93,7 +94,7 @@ export const renderDashboard = (input: {
       <div class="admin-operations-workspace">
         <div class="admin-operations-workspace__registry">
           ${renderAdminServers(input.overview.instances, input.selectedInstanceId, input.serverFilters ?? {
-            query: "", status: "all", mode: "all", worker: "all"
+            query: "", status: "all", mode: "all", worker: "all", visibility: "active"
           })}
         </div>
         <div class="admin-operations-workspace__control">

@@ -6,8 +6,10 @@ import { assertSupportedNodeVersion } from "./supported-node-policy.mjs";
 import { assertSafeLocalHostedTestDatabase } from "./local-hosted/database-safety.mjs";
 import {
   createRunDirectory,
+  delay,
   runManagedCommand,
   startManagedProcess,
+  stopProcessTree,
   stopManagedProcesses,
   waitForHttp
 } from "./local-hosted/process-supervisor.mjs";
@@ -18,6 +20,7 @@ import {
   stopDisposableHostedServer,
   stopStaleDisposableHostedServers
 } from "./local-hosted/admin-fixture-client.mjs";
+import { HOSTED_E2E_STARTING_PLAYER_STATE } from "./local-hosted/hosted-e2e-starting-player-state.mjs";
 
 process.loadEnvFile?.(".env.local");
 assertSupportedNodeVersion(process.versions.node);
@@ -59,6 +62,7 @@ const hostedSuites = Object.freeze([
   }),
   Object.freeze({
     name: "income",
+    restartWorkerBeforeSpec: true,
     specs: Object.freeze(["tests/e2e/live-hosted-income.spec.js"])
   }),
   Object.freeze({
@@ -146,7 +150,8 @@ const environment = {
   PLAYWRIGHT_SKIP_WEB_SERVER: "1",
   EMPIRE_HOSTED_UI_PARITY_E2E: "1",
   EMPIRE_CAPTURE_UI_PARITY_BASELINE: "1",
-  EMPIRE_UI_PARITY_ARTIFACT_ROOT: path.join(runDirectory, "ui-parity")
+  EMPIRE_UI_PARITY_ARTIFACT_ROOT: path.join(runDirectory, "ui-parity"),
+  EMPIRE_HOSTED_STARTING_PLAYER_STATE_JSON: JSON.stringify(HOSTED_E2E_STARTING_PLAYER_STATE)
 };
 
 const runNode = (name, args, timeoutMs) => runManagedCommand({
@@ -182,6 +187,18 @@ try {
     "vite-node/vite-node.mjs",
     "scripts/bootstrap-admin-user.ts"
   ], 300_000);
+  await runNode("browser-config", [
+    "scripts/run-local-bin.mjs",
+    "vite-node/vite-node.mjs",
+    "scripts/generate-browser-gameplay-config.ts"
+  ], 300_000);
+  await runNode("client-bundle", [
+    "scripts/run-local-bin.mjs",
+    "vite/bin/vite.js",
+    "build",
+    "--config",
+    "vite.client-page.config.ts"
+  ], 300_000);
 
   const api = startManagedProcess({
     name: "hosted-api",
@@ -194,7 +211,7 @@ try {
     logDirectory: runDirectory
   });
   processes.push(api);
-  const worker = startManagedProcess({
+  let worker = startManagedProcess({
     name: "hosted-worker",
     args: [
       "scripts/run-local-bin.mjs",
@@ -243,6 +260,7 @@ try {
       serverInstanceId: null,
       status: "provisioning",
       cleanup: "not-started",
+      workerRestart: suite.restartWorkerBeforeSpec ? "pending" : "not-requested",
       failure: null
     };
     suiteResults.push(result);
@@ -281,6 +299,7 @@ try {
       }
       const server = await provisionDisposableHostedServer(admin, {
         displayNamePrefix: `Local Hosted ${suite.name}`,
+        startingPlayerState: HOSTED_E2E_STARTING_PLAYER_STATE,
         onCreated: (created) => {
           result.serverInstanceId = created.serverInstanceId;
         }
@@ -313,6 +332,32 @@ try {
       }
       result.status = "starting-server";
       await startDisposableHostedServer(admin, server.serverInstanceId);
+      if (suite.restartWorkerBeforeSpec) {
+        result.status = "restarting-worker";
+        stopProcessTree(worker.child);
+        await Promise.race([worker.exited, delay(10_000)]);
+        await worker.saveLog();
+        worker = startManagedProcess({
+          name: `hosted-worker-${suite.name}-restart`,
+          args: [
+            "scripts/run-local-bin.mjs",
+            "vite-node/vite-node.mjs",
+            "apps/server/src/bootstrap/hosted-runtime-worker-cli.ts"
+          ],
+          environment,
+          logDirectory: runDirectory
+        });
+        processes.push(worker);
+        const workerHealthResponse = await waitForHttp(`${workerOrigin}/health`, {
+          processRef: worker,
+          timeoutMs: 180_000
+        });
+        const workerHealth = await workerHealthResponse.json();
+        if (workerHealth?.status !== "ok" || workerHealth?.heartbeat?.registered !== true) {
+          throw new Error("Restarted hosted worker did not register a healthy heartbeat.");
+        }
+        result.workerRestart = "passed";
+      }
       await runNode(`playwright-${suite.name}`, [
         "scripts/run-local-bin.mjs",
         "playwright/cli.js",

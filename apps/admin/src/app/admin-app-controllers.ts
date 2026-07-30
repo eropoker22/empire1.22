@@ -26,6 +26,7 @@ export const createAdminAppControllers = (options: {
   refresh: () => Promise<void>;
   clearAudit: () => void;
   setNotice: (notice: AdminDashboardNotice) => void;
+  onServerArchived: () => void;
 }) => {
   const registration = createAdminRegistrationController({
     client: options.client,
@@ -53,9 +54,10 @@ export const createAdminAppControllers = (options: {
     refresh: options.refresh,
     onAccepted: (_instanceId, action, result) => {
       options.clearAudit();
+      if (action === "delete") options.onServerArchived();
       options.setNotice({
         tone: "success",
-        title: "Lifecycle požadavek přijat",
+        title: action === "delete" ? "Server archivován" : "Lifecycle požadavek přijat",
         message: `${adminActionLabel(action)} · ${result.status} · ${result.actionRequestId}`
       });
     }

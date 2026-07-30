@@ -55,6 +55,18 @@ export const createAdminDashboardBindings = (options: {
         options.updateServerFilters({ [key]: select.value });
         applyAdminServerFilters(target, options.serverFilters());
       }));
+    target?.querySelectorAll<HTMLButtonElement>("[data-admin-server-scope]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const visibility = button.dataset.adminServerScope as AdminServerFilterState["visibility"];
+        if (visibility !== "active" && visibility !== "inactive") return;
+        options.updateServerFilters({ visibility });
+        target.querySelectorAll<HTMLButtonElement>("[data-admin-server-scope]").forEach((item) => {
+          const selected = item === button;
+          item.classList.toggle("is-active", selected);
+          item.setAttribute("aria-selected", String(selected));
+        });
+        applyAdminServerFilters(target, options.serverFilters());
+      }));
     target?.querySelector<HTMLButtonElement>("[data-admin-filter-reset]")?.addEventListener("click", () => {
       options.updateServerFilters(DEFAULT_ADMIN_SERVER_FILTERS);
       const filters = options.serverFilters();

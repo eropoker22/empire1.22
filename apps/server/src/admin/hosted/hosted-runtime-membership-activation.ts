@@ -22,7 +22,8 @@ export const applyHostedMembershipActivation = (
       serverInstanceId: membership.serverInstanceId,
       playerId: membership.playerId,
       factionId: membership.factionId,
-      mode: server.mode
+      mode: server.mode,
+      startingPlayerState: server.startingPlayerState
     });
     if (!ensured.accepted) throw hostedMutationError("MEMBERSHIP_PLAYER_RESTORE_FAILED");
     runtime.state = ensured.state;
@@ -37,7 +38,8 @@ export const applyHostedMembershipActivation = (
     serverInstanceId: membership.serverInstanceId,
     playerId: membership.playerId,
     factionId: membership.factionId,
-    mode: server.mode
+    mode: server.mode,
+    startingPlayerState: server.startingPlayerState
   });
   if (!created.accepted) throw hostedMutationError("MEMBERSHIP_PLAYER_CREATE_FAILED");
   runtime.state = created.state;

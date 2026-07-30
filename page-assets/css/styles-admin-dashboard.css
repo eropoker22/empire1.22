@@ -1119,6 +1119,40 @@ textarea:disabled {
   margin-top: 12px;
 }
 
+.admin-server-scope-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 8px;
+  padding: 4px;
+  border: 1px solid var(--admin-line);
+  border-radius: 10px;
+  background: rgba(2, 8, 14, 0.42);
+}
+
+.admin-server-scope-tab {
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--admin-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.admin-server-scope-tab strong {
+  margin-left: 5px;
+  color: var(--admin-subtle);
+}
+
+.admin-server-scope-tab.is-active {
+  border-color: rgba(69, 220, 239, 0.38);
+  color: var(--admin-text);
+  background: rgba(69, 220, 239, 0.08);
+}
+
 .admin-action-control {
   position: relative;
   display: inline-grid;
@@ -1660,7 +1694,7 @@ textarea:disabled {
 
 .admin-wizard__steps {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 6px;
   margin-bottom: 20px;
 }
@@ -1734,6 +1768,48 @@ textarea:disabled {
   display: grid;
   grid-column: 1 / -1;
   grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-starting-state,
+.admin-starting-materials {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 10px;
+}
+
+.admin-starting-state {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.admin-starting-state small {
+  color: var(--admin-subtle);
+  font-size: 0.67rem;
+  line-height: 1.35;
+}
+
+.admin-starting-materials {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-starting-material-group {
+  padding: 12px;
+  border: 1px solid var(--admin-line);
+  border-radius: 12px;
+  background: rgba(3, 8, 18, 0.42);
+}
+
+.admin-starting-material-group h3 {
+  margin: 0 0 10px;
+  color: var(--admin-cyan);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-starting-material-group > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -2205,6 +2281,12 @@ textarea:disabled {
 
   .admin-map-counts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-starting-state,
+  .admin-starting-materials,
+  .admin-starting-material-group > div {
+    grid-template-columns: 1fr;
   }
 
   .admin-map-counts label:first-child {

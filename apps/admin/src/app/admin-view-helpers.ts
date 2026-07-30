@@ -96,6 +96,7 @@ const resolveStatusPresentation = (value: string): { label: string; tone: string
     paused: "Pozastaven",
     restarting: "Restartuje se",
     stopped: "Zastaven",
+    archived: "Archivován",
     failed: "Chyba",
     crashed: "Havárie",
     online: "Online",

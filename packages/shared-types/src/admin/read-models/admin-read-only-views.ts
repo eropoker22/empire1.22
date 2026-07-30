@@ -222,6 +222,7 @@ export type AdminAuditAction =
   | "server-start-requested"
   | "server-start-rejected-minimum-players"
   | "server-started"
+  | "server-archived"
   | "effective-lockdown-trigger-frozen";
 
 export interface AdminAuditEntryView {

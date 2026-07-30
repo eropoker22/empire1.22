@@ -15,6 +15,8 @@ const session: AdminSessionView = {
 
 describe("read-only admin app", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
     document.head.innerHTML = `<meta name="empire-build-sha" content="${BUILD_SHA}">`;
     document.body.innerHTML = `<main id="admin-dashboard-root"></main>`;
     history.replaceState(null, "", "/admin.html");
@@ -186,6 +188,12 @@ describe("read-only admin app", () => {
     expect(document.body.textContent).toContain("Plnohodnotný server · 20 hráčů · canonical Očista");
     expect(document.body.textContent).toContain("Minimum ke spuštění");
     expect(document.body.textContent).toContain("60 minut");
+    expect(document.querySelector<HTMLInputElement>('[name="startingCleanCash"]')?.value).toBe("1500");
+    expect(document.querySelector<HTMLInputElement>('[name="startingDirtyCash"]')?.value).toBe("300");
+    expect(document.querySelector<HTMLInputElement>('[name="startingPopulation"]')?.value).toBe("0");
+    expect(document.querySelector<HTMLInputElement>('[name="startingMaterial:chemicals"]')?.value).toBe("10");
+    expect(document.querySelector<HTMLInputElement>('[name="startingMaterial:pistol"]')?.value).toBe("2");
+    expect(document.body.textContent).toContain("Každý hráč má vždy přesně 2 špionážní sloty.");
     expect(document.querySelector<HTMLInputElement>('[name="capacity"]')?.value)
       .toBe(String(FREE_HOSTED_SERVER_LIFECYCLE_POLICY.minimumReadyPlayersToStart));
   });
@@ -279,6 +287,20 @@ describe("read-only admin app", () => {
     await vi.waitFor(() => expect(client.createServer).toHaveBeenCalled());
     const payload = vi.mocked(client.createServer).mock.calls[0]![0];
     expect(payload).toMatchObject({ serverTemplate: "full", capacity: resolveModeConfig("free").balance.maxPlayersPerServer, joinPolicy: "closed" });
+    expect(payload.startingPlayerState).toMatchObject({
+      cleanCash: 1_500,
+      dirtyCash: 300,
+      population: 0,
+      spySlots: 2,
+      materials: {
+        chemicals: 10,
+        biomass: 6,
+        "metal-parts": 8,
+        "tech-core": 2,
+        pistol: 2,
+        smg: 1
+      }
+    });
     expect(payload).not.toHaveProperty("eliminationInterval");
     expect(payload).not.toHaveProperty("finalLockdownTrigger");
   });
@@ -322,7 +344,9 @@ describe("read-only admin app", () => {
 
     const actions = [...document.querySelectorAll<HTMLButtonElement>("[data-admin-lifecycle]")];
     expect(actions.length).toBeGreaterThan(0);
-    expect(actions.every((button) => button.disabled && button.getAttribute("aria-disabled") === "true")).toBe(true);
+    expect(actions.filter((button) => button.dataset.adminLifecycle !== "delete")
+      .every((button) => button.disabled && button.getAttribute("aria-disabled") === "true")).toBe(true);
+    expect(document.querySelector<HTMLButtonElement>('[data-admin-lifecycle="delete"]')?.disabled).toBe(false);
   });
 
   it("uses the authoritative ready count and canStart flag", () => {
@@ -460,6 +484,42 @@ describe("read-only admin app", () => {
     app.destroy();
   });
 
+  it("keeps inactive servers in a separate registry tab", async () => {
+    const client = createClient();
+    const filteredOverview = overview();
+    filteredOverview.instances[1] = { ...filteredOverview.instances[1]!, status: "failed", workerStatus: "offline" };
+    client.getOverview = vi.fn().mockResolvedValue(filteredOverview);
+    const app = createAdminApp({ client, pollIntervalMs: 60_000 });
+    await app.mount();
+
+    const activeRow = document.querySelector<HTMLTableRowElement>('[data-admin-instance="server:A"]')!.closest("tr")!;
+    const failedRow = document.querySelector<HTMLTableRowElement>('[data-admin-instance="server:B"]')!.closest("tr")!;
+    expect(activeRow.hidden).toBe(false);
+    expect(failedRow.hidden).toBe(true);
+
+    document.querySelector<HTMLButtonElement>('[data-admin-server-scope="inactive"]')!.click();
+    expect(activeRow.hidden).toBe(true);
+    expect(failedRow.hidden).toBe(false);
+    expect(document.querySelector('[data-admin-server-scope="inactive"]')?.getAttribute("aria-selected")).toBe("true");
+    app.destroy();
+  });
+
+  it("preserves open disclosures and page scroll across refresh renders", async () => {
+    const client = createClient();
+    const app = createAdminApp({ client, pollIntervalMs: 60_000 });
+    await app.mount();
+    const systemNav = document.querySelectorAll<HTMLDetailsElement>(".admin-nav__disclosure")[1]!;
+    systemNav.open = true;
+    Object.defineProperty(window, "scrollX", { configurable: true, value: 12 });
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 420 });
+
+    await app.refresh();
+
+    expect(document.querySelectorAll<HTMLDetailsElement>(".admin-nav__disclosure")[1]?.open).toBe(true);
+    expect(window.scrollTo).toHaveBeenLastCalledWith({ left: 12, top: 420, behavior: "auto" });
+    app.destroy();
+  });
+
   it("renders write controls according to the authenticated role", () => {
     const server = hostedServer({ status: "running", provisioningState: "ready" });
     const common = {
@@ -552,6 +612,40 @@ describe("read-only admin app", () => {
       action: "pause",
       expectedVersion: server.version,
       reason: "Plánovaná provozní pauza"
+    });
+  });
+
+  it("requires the exact server name before archive submit", async () => {
+    history.replaceState(null, "", "/admin.html?instance=server%3Arunning");
+    const server = hostedServer({ serverInstanceId: "server:running", displayName: "Server ke smazání",
+      status: "running", provisioningState: "ready" });
+    const client = createClient();
+    client.getSession = vi.fn().mockResolvedValue({ ...session, role: "owner" });
+    client.getControlPlane = vi.fn().mockResolvedValue(controlPlane(server));
+    client.requestLifecycleAction = vi.fn().mockResolvedValue({
+      replayed: false, actionRequestId: "hosted-archive:test", serverInstanceId: server.serverInstanceId,
+      action: "delete", status: "completed", expectedVersion: server.version
+    });
+    await createAdminApp({ client, pollIntervalMs: 60_000 }).mount();
+
+    document.querySelector<HTMLButtonElement>('[data-admin-lifecycle="delete"]')!.click();
+    const dialog = document.querySelector<HTMLElement>("[data-admin-lifecycle-dialog]")!;
+    const reason = dialog.querySelector<HTMLTextAreaElement>("[data-admin-action-reason]")!;
+    const confirmation = dialog.querySelector<HTMLInputElement>("[data-admin-delete-confirmation]")!;
+    reason.value = "Odstranění nefunkční instance";
+    confirmation.value = "špatně";
+    dialog.querySelector<HTMLButtonElement>("[data-admin-lifecycle-confirm]")!.click();
+    expect(client.requestLifecycleAction).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(confirmation);
+
+    confirmation.value = server.displayName;
+    dialog.querySelector<HTMLButtonElement>("[data-admin-lifecycle-confirm]")!.click();
+    await vi.waitFor(() => expect(client.requestLifecycleAction).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(client.requestLifecycleAction).mock.calls[0]![1]).toMatchObject({
+      action: "delete",
+      expectedVersion: server.version,
+      reason: "Odstranění nefunkční instance",
+      confirmationToken: "DELETE_SERVER"
     });
   });
 

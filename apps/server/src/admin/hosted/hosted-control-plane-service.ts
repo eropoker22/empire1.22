@@ -14,6 +14,13 @@ import {
   parseHostedActionRequest,
   parseHostedCreateRequest
 } from "./hosted-control-plane-policy";
+import { archiveHostedServer } from "./hosted-server-archive-service";
+import {
+  hasSecureHostedOriginPolicy,
+  hasSecureHostedSessions,
+  hostedEnvironmentEnabled,
+  safeHostedBuildSha
+} from "./hosted-control-plane-environment";
 
 const IDEMPOTENCY_PATTERN = /^[a-zA-Z0-9._:-]{16,200}$/u;
 
@@ -26,8 +33,9 @@ export const createHostedControlPlaneService = (options: {
   const now = options.now ?? (() => new Date());
 
   const availability = async (): Promise<AdminControlPlaneAvailabilityView> => {
-    const writesEnabled = enabled(options.environment.EMPIRE_ADMIN_WRITES_ENABLED) && enabled(options.environment.EMPIRE_HOSTED_CONTROL_PLANE_ENABLED);
-    const provisioningEnabled = enabled(options.environment.EMPIRE_SERVER_PROVISIONING_ENABLED);
+    const writesEnabled = hostedEnvironmentEnabled(options.environment.EMPIRE_ADMIN_WRITES_ENABLED)
+      && hostedEnvironmentEnabled(options.environment.EMPIRE_HOSTED_CONTROL_PLANE_ENABLED);
+    const provisioningEnabled = hostedEnvironmentEnabled(options.environment.EMPIRE_SERVER_PROVISIONING_ENABLED);
     const databaseAvailable = options.repositories.kind === "postgres" || options.allowInMemoryForTests === true;
     const migrationsCurrent = await options.repositories.hosted.isSchemaCurrent().catch(() => false) || options.allowInMemoryForTests === true;
     const generatedAt = now();
@@ -36,19 +44,19 @@ export const createHostedControlPlaneService = (options: {
       options.repositories.hosted.listServers().catch(() => [])
     ]) : [null, []];
     const workerStatus = worker ? "online" as const : "offline" as const;
-    const apiBuildSha = safeBuildSha(options.environment.EMPIRE_BUILD_SHA);
-    const workerBuildSha = safeBuildSha(worker?.buildSha);
+    const apiBuildSha = safeHostedBuildSha(options.environment.EMPIRE_BUILD_SHA);
+    const workerBuildSha = safeHostedBuildSha(worker?.buildSha);
     const buildCompatibility = !apiBuildSha || !workerBuildSha ? "missing" as const
       : apiBuildSha === workerBuildSha ? "current" as const
       : "mismatch" as const;
     const production = options.environment.NODE_ENV === "production";
     const sessionSecurity = !production ? "not-applicable" as const
-      : hasSecureSessions(options.environment) ? "current" as const
+      : hasSecureHostedSessions(options.environment) ? "current" as const
       : "blocked" as const;
     const originPolicy = !production ? "not-applicable" as const
-      : hasSecureOriginPolicy(options.environment.EMPIRE_ALLOWED_ORIGINS) ? "current" as const
+      : hasSecureHostedOriginPolicy(options.environment.EMPIRE_ALLOWED_ORIGINS) ? "current" as const
       : "blocked" as const;
-    const registrationEnabled = enabled(options.environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED);
+    const registrationEnabled = hostedEnvironmentEnabled(options.environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED);
     const unavailableCode = !writesEnabled ? "ADMIN_WRITES_DISABLED"
       : !provisioningEnabled ? "SERVER_PROVISIONING_DISABLED"
       : !databaseAvailable ? "DATABASE_UNAVAILABLE"
@@ -108,6 +116,7 @@ export const createHostedControlPlaneService = (options: {
         worldSeed: crypto.randomBytes(32).toString("base64url"),
         configVersion: 1,
         mapComposition: parsed.data.mapComposition,
+        startingPlayerState: parsed.data.startingPlayerState!,
         initialSnapshotId: null,
         currentSnapshotId: null,
         runtimeLeaseOwnerId: null,
@@ -149,7 +158,7 @@ export const createHostedControlPlaneService = (options: {
     }) => {
       const parsed = parseHostedActionRequest(input.payload);
       if (!parsed.accepted) return parsed;
-      if (input.session.role === "viewer" || (["stop", "close-registration-now"].includes(parsed.data.action)
+      if (input.session.role === "viewer" || (["stop", "delete", "close-registration-now"].includes(parsed.data.action)
         && input.session.role !== "owner")) {
         await appendFailureAudit(input.session, "forbidden-access", input.correlationId, input.serverInstanceId, "forbidden");
         return reject("ADMIN_FORBIDDEN", "Admin role does not permit this lifecycle action.");
@@ -158,6 +167,18 @@ export const createHostedControlPlaneService = (options: {
       if (gate.unavailableCode) return reject(gate.unavailableCode, "Admin writes are unavailable.");
       if (!IDEMPOTENCY_PATTERN.test(input.idempotencyKey)) return reject("IDEMPOTENCY_KEY_REQUIRED", "A valid Idempotency-Key is required.");
       const at = now().toISOString();
+      if (parsed.data.action === "delete") {
+        return archiveHostedServer({
+          repository: options.repositories.hosted,
+          session: input.session,
+          serverInstanceId: input.serverInstanceId,
+          action: parsed.data,
+          idempotencyKey: input.idempotencyKey,
+          requestHash: requestHash({ serverInstanceId: input.serverInstanceId, ...parsed.data }),
+          at,
+          audit: audit(input.session, "server-archived", input.correlationId, input.serverInstanceId, at)
+        });
+      }
       const request: HostedActionRequestRecord = {
         actionRequestId: `hosted-action:${crypto.randomUUID()}`,
         serverInstanceId: input.serverInstanceId,
@@ -212,34 +233,10 @@ const requestHash = (value: unknown): string => crypto.createHash("sha256").upda
 const stable = (value: unknown): string => JSON.stringify(sort(value));
 const sort = (value: unknown): unknown => Array.isArray(value) ? value.map(sort) : record(value)
   ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, sort(item)])) : value;
-const audit = (session: AdminSessionView, action: "create-server-request" | "lifecycle-request" | "server-start-requested", correlationId: string, target: string, at: string) => ({
+const audit = (session: AdminSessionView, action: "create-server-request" | "lifecycle-request" | "server-start-requested" | "server-archived", correlationId: string, target: string, at: string) => ({
   id: `admin-audit:${crypto.randomUUID()}`, adminSessionId: session.adminSessionId, actorId: session.actorId,
   role: session.role, action, targetInstanceId: target, result: "success" as const, createdAt: at, correlationId
 });
-const enabled = (value: string | undefined): boolean => String(value).trim().toLowerCase() === "true";
-const hasSecureSessions = (environment: Record<string, string | undefined>): boolean => {
-  const secrets = [
-    environment.GAMEPLAY_SLICE_SESSION_SECRET,
-    environment.GAMEPLAY_SLICE_SNAPSHOT_SECRET,
-    environment.EMPIRE_ADMIN_FINGERPRINT_SECRET
-  ].map((value) => String(value ?? "").trim());
-  return secrets.every((value) => value.length >= 32) && new Set(secrets).size === secrets.length;
-};
-const hasSecureOriginPolicy = (value: string | undefined): boolean => {
-  const origins = String(value ?? "").split(",").map((entry) => entry.trim()).filter(Boolean);
-  return origins.length > 0 && origins.every((entry) => {
-    try {
-      const parsed = new URL(entry);
-      return parsed.protocol === "https:" && parsed.origin === entry;
-    } catch {
-      return false;
-    }
-  });
-};
-const safeBuildSha = (value: string | undefined): string | null => {
-  const normalized = String(value ?? "").trim();
-  return normalized && !["local", "unknown"].includes(normalized.toLowerCase()) ? normalized : null;
-};
 const record = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const accept = <T>(data: T) => ({ accepted: true as const, data, errors: [] as [] });
 const reject = (code: string, message: string) => ({ accepted: false as const, data: null, errors: [{ code, message }] });

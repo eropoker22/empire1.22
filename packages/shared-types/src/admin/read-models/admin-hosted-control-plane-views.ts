@@ -14,7 +14,8 @@ export type HostedLifecycleAction =
   | "pause"
   | "resume"
   | "restart"
-  | "stop";
+  | "stop"
+  | "delete";
 
 export type HostedServerRegistrationStatus = "not_scheduled" | "scheduled" | "open" | "closed" | "closed_early";
 
@@ -47,6 +48,37 @@ export interface HostedMapCompositionView {
   park: number;
 }
 
+export type HostedStartingMaterialId =
+  | "chemicals"
+  | "biomass"
+  | "stim-pack"
+  | "neon-dust"
+  | "pulse-shot"
+  | "velvet-smoke"
+  | "ghost-serum"
+  | "overdrive-x"
+  | "metal-parts"
+  | "tech-core"
+  | "combat-module"
+  | "baseball-bat"
+  | "pistol"
+  | "grenade"
+  | "smg"
+  | "bazooka"
+  | "vest"
+  | "barricades"
+  | "cameras"
+  | "defense-tower"
+  | "alarm";
+
+export interface HostedStartingPlayerStateView {
+  cleanCash: number;
+  dirtyCash: number;
+  population: number;
+  spySlots: 2;
+  materials: Record<HostedStartingMaterialId, number>;
+}
+
 export interface AdminCreateServerRequestView {
   mode: "free" | "war";
   serverTemplate: HostedServerTemplate;
@@ -55,6 +87,7 @@ export interface AdminCreateServerRequestView {
   capacity: number;
   joinPolicy: HostedJoinPolicy;
   mapComposition: HostedMapCompositionView;
+  startingPlayerState?: HostedStartingPlayerStateView;
 }
 
 export interface AdminHostedServerView {
@@ -85,6 +118,7 @@ export interface AdminHostedServerView {
   runtimeLeaseExpiresAt: string | null;
   currentSnapshotId: string | null;
   lastErrorCode: string | null;
+  startingPlayerState?: HostedStartingPlayerStateView;
   committedPlayers?: number;
   reservedSlots?: number;
   readyPlayers?: number;

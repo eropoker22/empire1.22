@@ -196,7 +196,7 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
     const memberships = membershipRows.rows.map(mapMembership);
     const servers = await database.query<HostedPlayerEntryServerRow>(
       `SELECT ${HOSTED_PLAYER_ENTRY_SERVER_COLUMNS}
-       FROM empire_hosted_server_instances ORDER BY created_at DESC`
+       FROM empire_hosted_server_instances WHERE status <> 'archived' ORDER BY created_at DESC`
     );
     const availableServers = await Promise.all(servers.rows.map((server) =>
       createLobbyServerSummary(database, server, now, WORKER_FRESH_MS)));

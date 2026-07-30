@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createInitialState } from "@empire/game-core";
+import { copyFreeHostedStartingPlayerState } from "@empire/game-config";
 import { ensureGameplaySliceMembershipInState } from "../../apps/server/src/bootstrap/gameplay-slice-session-membership";
 import { SHARED_CITY_TOTAL_DISTRICT_COUNT } from "../../apps/server/src/bootstrap/gameplay-slice-shared-city-seed";
 
@@ -57,5 +58,42 @@ describe("gameplay slice session membership", () => {
     const repeatedJoin = ensureGameplaySliceMembershipInState(repairedJoin.state, request);
     expect(repeatedJoin.stateChanged).toBe(false);
     expect(repeatedJoin.state.root.version).toBe(versionBeforeRepair + 1);
+  });
+
+  it("applies server-owned cash, population, materials and exactly two spy slots", () => {
+    const state = createInitialState("instance:membership-starting-state", "free");
+    const startingPlayerState = copyFreeHostedStartingPlayerState();
+    startingPlayerState.cleanCash = 88_000;
+    startingPlayerState.dirtyCash = 12_000;
+    startingPlayerState.population = 250;
+    startingPlayerState.materials.chemicals = 33;
+    startingPlayerState.materials["stim-pack"] = 7;
+    startingPlayerState.materials.pistol = 5;
+    startingPlayerState.materials.smg = 0;
+
+    const joined = ensureGameplaySliceMembershipInState(state, {
+      serverInstanceId: "instance:membership-starting-state",
+      playerId: "player:membership-starting-state",
+      factionId: "mafian",
+      mode: "free",
+      startingPlayerState
+    });
+
+    expect(joined.accepted).toBe(true);
+    const player = joined.state.playersById["player:membership-starting-state"]!;
+    expect(joined.state.resourceStatesById[player.resourceStateId]?.balances).toMatchObject({
+      cash: 88_000,
+      "dirty-cash": 12_000,
+      population: 250,
+      chemicals: 33,
+      "stim-pack": 7,
+      pistol: 5,
+      smg: 0
+    });
+    expect(player.attackLoadout).toMatchObject({ pistol: 5, smg: 0 });
+    expect(joined.state.playerSpyOperationStatesByPlayerId?.[player.id]?.slots).toEqual([
+      { slotId: "spy-1", availableAtTick: 0, lastMissionId: null },
+      { slotId: "spy-2", availableAtTick: 0, lastMissionId: null }
+    ]);
   });
 });

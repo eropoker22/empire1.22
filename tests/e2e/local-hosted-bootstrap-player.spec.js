@@ -17,6 +17,9 @@ const suppliedIdentity = process.env.EMPIRE_HOSTED_BOOTSTRAP_USERNAME
 const suppliedIdentities = parseSuppliedIdentities(
   process.env.EMPIRE_HOSTED_BOOTSTRAP_IDENTITIES_JSON
 );
+const expectedStartingPlayerState = parseStartingPlayerState(
+  process.env.EMPIRE_HOSTED_STARTING_PLAYER_STATE_JSON
+);
 
 test.skip(
   !hostedEnabled || !serverInstanceId,
@@ -41,11 +44,23 @@ test("prepares canonical ready players for server start", async ({ browser, page
       const entry = await registerAndEnterHostedUiParityGame(targetPage, {
         serverInstanceId,
         identityPrefix: `LocalHostedBootstrap${index + 1}`,
-        identity: identities[index]
+        identity: identities[index],
+        waitForRunning: false
       });
       expect(entry.spawnDistrictId).toMatch(/^district:/u);
       expect(spawnDistrictIds.has(entry.spawnDistrictId)).toBe(false);
       spawnDistrictIds.add(entry.spawnDistrictId);
+      if (expectedStartingPlayerState) {
+        const balances = await targetPage.evaluate(() => (
+          window.EmpireGameplaySliceClient?.getCurrentReadModel?.()?.player?.resourceBalances || null
+        ));
+        expect(balances).toMatchObject({
+          cash: expectedStartingPlayerState.cleanCash,
+          "dirty-cash": expectedStartingPlayerState.dirtyCash,
+          population: expectedStartingPlayerState.population,
+          ...expectedStartingPlayerState.materials
+        });
+      }
       await expectHostedUiParityClean(targetPage, entry.diagnostics);
     } finally {
       await context?.close();
@@ -65,5 +80,18 @@ function parseSuppliedIdentities(value) {
       networkIdentifier: expect.any(String)
     });
   }
+  return parsed;
+}
+
+function parseStartingPlayerState(value) {
+  if (!value) return null;
+  const parsed = JSON.parse(value);
+  expect(parsed).toMatchObject({
+    cleanCash: expect.any(Number),
+    dirtyCash: expect.any(Number),
+    population: expect.any(Number),
+    spySlots: 2,
+    materials: expect.any(Object)
+  });
   return parsed;
 }

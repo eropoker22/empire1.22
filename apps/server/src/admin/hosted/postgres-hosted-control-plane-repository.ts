@@ -13,6 +13,7 @@ import { createPostgresHostedJoinRepository } from "./postgres-hosted-join-repos
 import { createPostgresHostedProvisioningRepository } from "./postgres-hosted-provisioning-repository";
 import { createPostgresHostedRegistrationRepository } from "./postgres-hosted-registration-repository";
 import { completePostgresHostedAction } from "./postgres-hosted-action-completion";
+import { archivePostgresHostedServer } from "./postgres-hosted-server-archive";
 
 export const createPostgresHostedControlPlaneRepository = (
   database: PostgresDatabase
@@ -54,7 +55,8 @@ export const createPostgresHostedControlPlaneRepository = (
        VALUES ($1,$2,1,$3,$4,$5::jsonb,$6::timestamptz,$6::timestamptz)`,
       [`server-instance:${input.server.serverInstanceId}`, input.server.serverInstanceId, input.server.mode,
         input.server.status, JSON.stringify({ displayName: input.server.displayName, region: input.server.region,
-          capacity: input.server.capacity, joinPolicy: input.server.joinPolicy }), input.server.createdAt]
+          capacity: input.server.capacity, joinPolicy: input.server.joinPolicy,
+          startingPlayerState: input.server.startingPlayerState }), input.server.createdAt]
     );
     await insertServer(client, input.server);
     await insertJob(client, input.job);
@@ -104,6 +106,7 @@ export const createPostgresHostedControlPlaneRepository = (
     await insertAudit(client, input.audit);
     return { kind: "created", request: input.request };
   }),
+  archiveServerTransaction: (input) => archivePostgresHostedServer(database, input),
   claimAction: async (workerId, workerIncarnationId, now, claimedUntil) => {
     const result = await database.query<ActionRow>(
       `WITH candidate AS (

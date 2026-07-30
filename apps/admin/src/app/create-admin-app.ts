@@ -1,35 +1,30 @@
-import type { AdminAuditEntryView, AdminControlPlaneAvailabilityView, AdminInstanceDetailView,
-  AdminOverviewView, AdminSessionView } from "@empire/shared-types";
+import type { AdminAuditEntryView, AdminControlPlaneAvailabilityView, AdminInstanceDetailView, AdminOverviewView, AdminSessionView } from "@empire/shared-types";
 import {
   applyAdminServerFilters,
+  captureAdminPageState,
   captureAdminFocus,
   DEFAULT_ADMIN_SERVER_FILTERS,
   hasFocusedAdminInput,
   isAdminLoopbackLocation,
   readAdminFrontendBuildSha,
   restoreAdminFocus,
+  restoreAdminPageState,
   selectedAdminInstanceFromUrl,
   updateAdminRefreshUi,
   updateAdminInstanceUrl,
   type AdminServerFilterState
 } from "./admin-app-dom";
 import { createAdminAppControllers } from "./admin-app-controllers";
+import { ADMIN_MAX_BACKOFF_MS, ADMIN_POLL_INTERVAL_MS, type AdminAppOptions } from "./admin-app-options";
 import { createAdminDashboardBindings } from "./admin-dashboard-bindings";
 import { initialAdminLoginMessage, isSessionError } from "./admin-login-error-messages";
 import { createAdminLoginController } from "./admin-login-controller";
-import { createAdminApiClient, type AdminApiClient } from "./admin-monitoring-client";
+import { createAdminApiClient } from "./admin-monitoring-client";
 import { createAdminRefreshController } from "./admin-refresh-controller";
-import { renderDashboard, renderLoading, renderLogin, renderUnavailable,
-  type AdminDashboardNotice, type AdminRefreshStatus } from "./read-only-admin-page";
-
-const POLL_INTERVAL_MS = 10_000;
-const MAX_BACKOFF_MS = 80_000;
-
-export interface AdminAppOptions { client?: AdminApiClient; pollIntervalMs?: number; }
-
+import { renderDashboard, renderLoading, renderLogin, renderUnavailable, type AdminDashboardNotice, type AdminRefreshStatus } from "./read-only-admin-page";
 export const createAdminApp = (options: AdminAppOptions = {}) => {
   const client = options.client ?? createAdminApiClient();
-  const pollInterval = Math.max(1_000, options.pollIntervalMs ?? POLL_INTERVAL_MS);
+  const pollInterval = Math.max(1_000, options.pollIntervalMs ?? ADMIN_POLL_INTERVAL_MS);
   let target: HTMLElement | null = null;
   let session: AdminSessionView | null = null;
   let overview: AdminOverviewView | null = null;
@@ -51,7 +46,6 @@ export const createAdminApp = (options: AdminAppOptions = {}) => {
   let createIdempotencyKey: string | null = null;
   let mounted = false;
   let pendingRender = false;
-
   const mount = async (mountTarget?: HTMLElement | null): Promise<void> => {
     if (mounted) return;
     const lifecycle = ++lifecycleSequence;
@@ -80,6 +74,7 @@ export const createAdminApp = (options: AdminAppOptions = {}) => {
   const render = (): void => {
     if (!mounted || !target || !session || !overview) return;
     const focusSnapshot = captureAdminFocus(target);
+    const pageStateSnapshot = captureAdminPageState(target);
     target.innerHTML = renderDashboard({
       session,
       overview,
@@ -105,6 +100,7 @@ export const createAdminApp = (options: AdminAppOptions = {}) => {
     registration.updateCountdowns();
     applyAdminServerFilters(target, serverFilters);
     restoreAdminFocus(target, focusSnapshot);
+    restoreAdminPageState(target, pageStateSnapshot);
   };
 
   const renderOrDefer = (): void => {
@@ -195,7 +191,11 @@ export const createAdminApp = (options: AdminAppOptions = {}) => {
     render,
     refresh,
     clearAudit: () => { auditEntries = null; },
-    setNotice: (next) => { notice = next; }
+    setNotice: (next) => { notice = next; },
+    onServerArchived: () => {
+      selectedInstanceId = null; detail = null;
+      updateAdminInstanceUrl(null); serverFilters = { ...serverFilters, visibility: "active" };
+    }
   });
   const login = createAdminLoginController({
     client,
@@ -214,7 +214,7 @@ export const createAdminApp = (options: AdminAppOptions = {}) => {
   const refreshController = createAdminRefreshController({
     client,
     pollInterval,
-    maxBackoff: MAX_BACKOFF_MS,
+    maxBackoff: ADMIN_MAX_BACKOFF_MS,
     context: () => ({ mounted, session, selectedInstanceId, wizardOpen, auditEntries, auditError }),
     apply: (result) => {
       overview = result.overview;

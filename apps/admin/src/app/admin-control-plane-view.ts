@@ -1,10 +1,8 @@
 import type {
   AdminControlPlaneAvailabilityView,
   AdminHostedServerView,
-  AdminInstanceSummaryView,
   AdminSessionView
 } from "@empire/shared-types";
-import type { AdminServerFilterState } from "./admin-app-dom";
 import { renderAdminCreateWizard } from "./admin-create-wizard-view";
 import { renderAdminRegistration, renderAdminStartReadiness } from "./admin-registration-view";
 import {
@@ -14,9 +12,7 @@ import {
   escapeHtml,
   formatTime,
   keyValue,
-  pill,
-  statusLabel,
-  table
+  pill
 } from "./admin-view-helpers";
 
 export const renderAdminControlPlane = (input: {
@@ -96,41 +92,6 @@ export const renderAdminControlPlane = (input: {
   </section>`;
 };
 
-export const renderAdminServers = (
-  instances: AdminInstanceSummaryView[],
-  selected: string | null,
-  filters: AdminServerFilterState
-): string => `
-  <section id="admin-servers" class="admin-panel admin-server-registry admin-section-anchor">
-    <div class="admin-panel__head"><div><span>Server registry</span><h3>Herní instance</h3>
-      <p>Vyberte server pro detail a bezpečné operace.</p></div>${badge(`${instances.length} INSTANCÍ`, "info")}</div>
-    ${renderServerFilters(instances, filters)}
-    ${instances.length === 0 ? `<p class="admin-copy">Žádné instance.</p>` : table(
-      ["Server", "Režim", "Status", "Worker", "Hráči", "Heartbeat", "Akce"],
-      instances.map((item) => `<tr data-admin-search-row data-admin-server-item
-        data-admin-server-status="${attribute(item.status)}" data-admin-server-mode="${attribute(item.mode)}"
-        data-admin-server-worker="${attribute(item.workerStatus)}" class="${item.serverInstanceId === selected ? "is-selected" : ""}">
-        <td><a class="admin-server-name-link" href="?instance=${encodeURIComponent(item.serverInstanceId)}">
-          <strong>${escapeHtml(item.displayName)}</strong><small title="${attribute(item.serverInstanceId)}">${escapeHtml(shortId(item.serverInstanceId))}</small></a></td>
-        <td>${escapeHtml(item.mode)}</td><td>${pill(item.status)}</td><td>${pill(item.workerStatus)}</td>
-        <td><strong>${item.playerCount} / ${item.capacity}</strong></td><td>${formatTime(item.lastHeartbeatAt)}</td>
-        <td><a class="admin-button admin-button--ghost admin-button--compact" href="?instance=${encodeURIComponent(item.serverInstanceId)}"
-          data-admin-instance="${attribute(item.serverInstanceId)}">Detail</a></td></tr>`).join("")
-    )}
-    <div class="admin-server-cards" aria-label="Herní instance">
-      ${instances.map((item) => `<article data-admin-server-item
-        data-admin-server-status="${attribute(item.status)}" data-admin-server-mode="${attribute(item.mode)}"
-        data-admin-server-worker="${attribute(item.workerStatus)}" class="admin-server-card${item.serverInstanceId === selected ? " is-selected" : ""}">
-        <div class="admin-server-card__head"><div><strong>${escapeHtml(item.displayName)}</strong>
-          <small title="${attribute(item.serverInstanceId)}">${escapeHtml(shortId(item.serverInstanceId))}</small></div>${pill(item.status)}</div>
-        <dl><div><dt>Režim</dt><dd>${escapeHtml(item.mode)}</dd></div><div><dt>Hráči</dt><dd>${item.playerCount} / ${item.capacity}</dd></div>
-          <div><dt>Worker</dt><dd>${pill(item.workerStatus)}</dd></div><div><dt>Heartbeat</dt><dd>${formatTime(item.lastHeartbeatAt)}</dd></div></dl>
-        <a class="admin-button admin-button--primary" href="?instance=${encodeURIComponent(item.serverInstanceId)}"
-          data-admin-mobile-instance="${attribute(item.serverInstanceId)}">Detail serveru</a>
-      </article>`).join("")}
-    </div>
-  </section>`;
-
 const renderBuildCompatibility = (
   frontend: string | null,
   api?: string | null,
@@ -169,7 +130,7 @@ const renderLifecycle = (server: AdminHostedServerView, session: AdminSessionVie
     <div class="admin-lifecycle__actions">
       ${lifecycleButton(server, "start", "Start")}${lifecycleButton(server, "pause", "Pause")}
       ${lifecycleButton(server, "resume", "Resume")}${lifecycleButton(server, "restart", "Safe restart")}
-      ${session.role === "owner" ? lifecycleButton(server, "stop", "Stop") : ""}
+      ${session.role === "owner" ? `${lifecycleButton(server, "stop", "Stop")}${lifecycleButton(server, "delete", "Smazat server")}` : ""}
     </div><p class="admin-copy admin-lifecycle__hint">Vyberte akci. Důvod a potvrzení zadáte v bezpečném dialogu pro tento server.</p>
     <details class="admin-disclosure admin-disclosure--technical">
       <summary><span>Serverová diagnostika</span><small>Lease, snapshot a canonical timing</small></summary>
@@ -201,7 +162,7 @@ const lifecycleButton = (server: AdminHostedServerView, action: string, label: s
   const reason = lifecycleUnavailableReason(server, action);
   const reasonId = `admin-lifecycle-reason-${action}`;
   const disabled = reason ? ` disabled aria-disabled="true" aria-describedby="${attribute(reasonId)}"` : "";
-  const tone = action === "stop" ? " admin-button--danger"
+  const tone = action === "stop" || action === "delete" ? " admin-button--danger"
     : action === "start" || action === "resume" ? " admin-button--primary" : "";
   return `<span class="admin-action-control${reason ? " is-disabled" : ""}"${reason ? " tabindex=\"0\"" : ""}>
     <button class="admin-button${tone}" type="button"
@@ -209,31 +170,8 @@ const lifecycleButton = (server: AdminHostedServerView, action: string, label: s
     ${escapeHtml(label)}</button>${reason ? `<small id="${attribute(reasonId)}">${escapeHtml(reason)}</small>` : ""}</span>`;
 };
 
-const renderServerFilters = (
-  instances: AdminInstanceSummaryView[],
-  filters: AdminServerFilterState
-): string => `<div class="admin-server-filters" aria-label="Filtry serverů">
-  <label class="admin-server-filter-search"><span>Hledat server</span>
-    <input type="search" data-admin-search value="${attribute(filters.query)}" placeholder="Název nebo ID" autocomplete="off">
-  </label>
-  ${filterSelect("status", "Status", filters.status, unique(instances.map((item) => item.status)))}
-  ${filterSelect("mode", "Režim", filters.mode, unique(instances.map((item) => item.mode)))}
-  ${filterSelect("worker", "Worker", filters.worker, unique(instances.map((item) => item.workerStatus)))}
-  <button class="admin-button admin-button--ghost admin-button--compact" type="button" data-admin-filter-reset>Reset</button>
-  <span class="admin-server-filter-count">Zobrazeno <strong data-admin-server-visible-count>${instances.length}</strong> / ${instances.length}</span>
-</div>`;
-
-const filterSelect = (key: string, label: string, selected: string, values: string[]): string => `
-  <label><span>${escapeHtml(label)}</span><select data-admin-server-filter="${attribute(key)}">
-    <option value="all">Vše</option>${values.map((value) =>
-      `<option value="${attribute(value)}"${value === selected ? " selected" : ""}>${escapeHtml(statusLabel(value))}</option>`).join("")}
-  </select></label>`;
-
-const unique = (values: string[]): string[] => [...new Set(values)].sort((left, right) => left.localeCompare(right));
-
-const shortId = (value: string): string => value.length > 24 ? `${value.slice(0, 12)}…${value.slice(-8)}` : value;
-
 const lifecycleUnavailableReason = (server: AdminHostedServerView, action: string): string | null => {
+  if (action === "delete") return server.status === "archived" ? "Server už je archivovaný." : null;
   if (server.provisioningState !== "ready") return "Počkejte na dokončení provisioningu.";
   if (action === "start") {
     if (server.status !== "lobby") return "Spustit lze pouze server v lobby.";

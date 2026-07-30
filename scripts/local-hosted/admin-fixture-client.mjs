@@ -45,6 +45,7 @@ export async function createLocalHostedAdminClient({
 export async function provisionDisposableHostedServer(admin, {
   displayNamePrefix = "Local Hosted E2E",
   capacity = 20,
+  startingPlayerState,
   onCreated
 } = {}) {
   const suffix = randomUUID().slice(0, 8);
@@ -67,7 +68,8 @@ export async function provisionDisposableHostedServer(admin, {
         residential: 38,
         industrial: 38,
         park: 37
-      }
+      },
+      ...(startingPlayerState ? { startingPlayerState } : {})
     })
   });
   const serverInstanceId = created.server.serverInstanceId;

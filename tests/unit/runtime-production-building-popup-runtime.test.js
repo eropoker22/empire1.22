@@ -1282,6 +1282,50 @@ describe("production building popup runtime", () => {
     expect(runtime.bindArmoryPopup(createRoot())).toBe(false);
   });
 
+  it("resolves a server production shortcut before opening its modal", async () => {
+    const openButton = createElement();
+    const popup = createElement();
+    const closeButton = createElement();
+    popup.hidden = true;
+    popup.querySelectorAll = vi.fn(() => []);
+    const prepareServerProductionBuilding = vi.fn().mockResolvedValue({
+      accepted: false,
+      errors: [{ message: "Na vlastněných districtech Lékárna není." }]
+    });
+    const setBuildingActionFeedback = vi.fn();
+    const runtime = createProductionBuildingPopupRuntime({
+      PRODUCTION_BUILDING_CONFIG: { pharmacy: { label: "Lékárna" } },
+      isServerAuthoritativeGameplayRuntimeReady: () => true,
+      prepareServerProductionBuilding,
+      setBuildingActionFeedback
+    });
+    const root = createRoot({
+      ".open": openButton,
+      ".popup": popup,
+      ".close": [closeButton]
+    });
+
+    expect(runtime.bindProductionBuildingPopup(root, {
+      buildingName: "pharmacy",
+      closeSelector: ".close",
+      openSelector: ".open",
+      popupSelector: ".popup",
+      recipes: {}
+    })).toBe(true);
+
+    await openButton.dispatch("click");
+
+    expect(prepareServerProductionBuilding).toHaveBeenCalledWith("pharmacy");
+    expect(setBuildingActionFeedback).toHaveBeenCalledWith(
+      root,
+      "warning",
+      "Lékárna",
+      "Na vlastněných districtech Lékárna není."
+    );
+    expect(popup.hidden).toBe(true);
+    expect(openButton.disabled).toBe(false);
+  });
+
   it("does not upgrade production building when confirmation is cancelled", async () => {
     const openButton = createElement();
     const popup = createElement();

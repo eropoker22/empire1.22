@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: empire_hosted_dev
       POSTGRES_USER: empire_dev
@@ -14,31 +15,6 @@ services:
       retries: 20
     volumes:
       - empire_hosted_postgres:/var/lib/postgresql/data
-
-  runtime-worker:
-    profiles: ["worker"]
-    build:
-      context: .
-      dockerfile: Dockerfile.hosted-worker
-      args:
-        EMPIRE_BUILD_SHA: ${EMPIRE_BUILD_SHA:-local-compose}
-    env_file:
-      - .env.local
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      NODE_ENV: development
-      EMPIRE_DATABASE_URL: postgresql://empire_dev@postgres:5432/empire_hosted_dev
-      EMPIRE_PERSISTENCE_DRIVER: postgres
-      GAMEPLAY_PERSISTENCE_DRIVER: postgres
-      EMPIRE_HOSTED_WORKER_ID: local-worker-1
-      EMPIRE_HOSTED_WORKER_REGION: eu-central
-      EMPIRE_BUILD_SHA: local-compose
-      PORT: "8080"
-    ports:
-      - "8080:8080"
-    stop_grace_period: 30s
 
 volumes:
   empire_hosted_postgres:

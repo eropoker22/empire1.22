@@ -90,13 +90,15 @@ export interface AdminServerFilterState {
   status: string;
   mode: string;
   worker: string;
+  visibility: "active" | "inactive";
 }
 
 export const DEFAULT_ADMIN_SERVER_FILTERS: AdminServerFilterState = {
   query: "",
   status: "all",
   mode: "all",
-  worker: "all"
+  worker: "all",
+  visibility: "active"
 };
 
 export const applyAdminServerFilters = (
@@ -109,12 +111,41 @@ export const applyAdminServerFilters = (
     const visible = (!query || normalize(item.textContent ?? "").includes(query))
       && (filters.status === "all" || item.dataset.adminServerStatus === filters.status)
       && (filters.mode === "all" || item.dataset.adminServerMode === filters.mode)
-      && (filters.worker === "all" || item.dataset.adminServerWorker === filters.worker);
+      && (filters.worker === "all" || item.dataset.adminServerWorker === filters.worker)
+      && item.dataset.adminServerVisibility === filters.visibility;
     item.hidden = !visible;
     if (visible && item.matches("tr")) visibleCount += 1;
   });
   const output = target?.querySelector<HTMLElement>("[data-admin-server-visible-count]");
   if (output) output.textContent = String(visibleCount);
+};
+
+export interface AdminPageStateSnapshot {
+  scrollX: number;
+  scrollY: number;
+  openDetailIndexes: number[];
+}
+
+export const captureAdminPageState = (target: HTMLElement | null): AdminPageStateSnapshot | null => {
+  if (!target || typeof window === "undefined") return null;
+  return {
+    scrollX: window.scrollX,
+    scrollY: window.scrollY,
+    openDetailIndexes: [...target.querySelectorAll<HTMLDetailsElement>("details")]
+      .flatMap((detail, index) => detail.open ? [index] : [])
+  };
+};
+
+export const restoreAdminPageState = (
+  target: HTMLElement | null,
+  snapshot: AdminPageStateSnapshot | null
+): void => {
+  if (!target || !snapshot || typeof window === "undefined") return;
+  const openIndexes = new Set(snapshot.openDetailIndexes);
+  target.querySelectorAll<HTMLDetailsElement>("details").forEach((detail, index) => {
+    detail.open = openIndexes.has(index);
+  });
+  window.scrollTo?.({ left: snapshot.scrollX, top: snapshot.scrollY, behavior: "auto" });
 };
 
 const normalize = (value: string): string => value

@@ -1,4 +1,8 @@
-import { FREE_HOSTED_SERVER_LIFECYCLE_POLICY, resolveModeConfig } from "@empire/game-config";
+import {
+  copyFreeHostedStartingPlayerState,
+  FREE_HOSTED_SERVER_LIFECYCLE_POLICY,
+  resolveModeConfig
+} from "@empire/game-config";
 import type { HostedControlPlaneRepository, HostedServerRecord, HostedProvisioningJobRecord, HostedActionRequestRecord, HostedWorkerHeartbeatRecord, HostedJoinReservationRecord, HostedJoinJobRecord, HostedReadyMembershipRecord } from "./hosted-control-plane-repository";
 import { createInMemoryHostedJoinRepository } from "./in-memory-hosted-join-repository";
 import { createInMemoryHostedLifecycleRepository } from "./in-memory-hosted-lifecycle-repository";
@@ -71,6 +75,34 @@ export const createInMemoryHostedControlPlaneRepository = (seed: {
       idempotency.set(key, { hash: input.requestHash, resourceId: input.request.actionRequestId, action: copy(input.request) });
       actions.set(input.request.actionRequestId, copy(input.request));
       return { kind: "created", request: copy(input.request) };
+    },
+    archiveServerTransaction: async (input) => {
+      const key = `${input.adminUserId}:archive:${input.serverInstanceId}:${input.idempotencyKey}`;
+      const existing = idempotency.get(key);
+      if (existing) {
+        if (existing.hash !== input.requestHash) return { kind: "conflict" };
+        return { kind: "replayed", actionRequestId: existing.resourceId };
+      }
+      const server = servers.get(input.serverInstanceId);
+      if (!server) return { kind: "not-found" };
+      if (server.version !== input.expectedVersion) return { kind: "stale-version" };
+      if ([...actions.values()].some((entry) => entry.serverInstanceId === input.serverInstanceId
+        && (entry.status === "requested" || entry.status === "processing"))) {
+        return { kind: "operation-active" };
+      }
+      idempotency.set(key, { hash: input.requestHash, resourceId: input.actionRequestId });
+      Object.assign(server, {
+        status: "archived",
+        joinPolicy: "closed",
+        runtimeLeaseOwnerId: null,
+        runtimeLeaseExpiresAt: null,
+        lastStoppedAt: input.at,
+        lastErrorCode: null,
+        updatedAt: input.at,
+        version: server.version + 1
+      });
+      readyMembershipsByServerId.delete(input.serverInstanceId);
+      return { kind: "created", actionRequestId: input.actionRequestId };
     },
     claimProvisioningJob: async (workerId, workerIncarnationId, now, until) => {
       if (!isCurrentWorker(workers.get(workerId), workerIncarnationId, now)) return null;
@@ -167,7 +199,8 @@ export const createInMemoryHostedControlPlaneRepository = (seed: {
 type HostedLifecycleKeys = "minimumReadyPlayersToStart" | "registrationWindowMinutes" | "registrationScheduleVersion"
   | "registrationOpensAt" | "registrationClosesAt" | "registrationClosedAt" | "registrationBaselinePlayers"
   | "canonicalFinalLockdownTrigger" | "canonicalFirstEliminationTick" | "canonicalTickRateMs"
-  | "effectiveFinalLockdownTrigger" | "effectiveFirstEliminationTick" | "serverTemplate";
+  | "effectiveFinalLockdownTrigger" | "effectiveFirstEliminationTick" | "serverTemplate"
+  | "startingPlayerState";
 type HostedServerSeed = Omit<HostedServerRecord, HostedLifecycleKeys>
   & Partial<Pick<HostedServerRecord, HostedLifecycleKeys>>;
 
@@ -177,6 +210,7 @@ const hydrateServerSeed = (entry: HostedServerSeed): HostedServerRecord => {
   return {
     ...entry,
     serverTemplate: entry.serverTemplate ?? "full",
+    startingPlayerState: entry.startingPlayerState ?? copyFreeHostedStartingPlayerState(),
     minimumReadyPlayersToStart: entry.minimumReadyPlayersToStart
       ?? FREE_HOSTED_SERVER_LIFECYCLE_POLICY.minimumReadyPlayersToStart,
     registrationWindowMinutes: entry.registrationWindowMinutes

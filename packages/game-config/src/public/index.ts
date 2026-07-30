@@ -16,6 +16,7 @@ export * from "./free-mode-arcade-config";
 export * from "./free-mode-apartment-block-config";
 export * from "./free-mode-exchange-office-config";
 export * from "./free-hosted-server-lifecycle-policy";
+export * from "./free-hosted-starting-player-state";
 export * from "./free-mode-fitness-club-config";
 export * from "./free-mode-garage-config";
 export * from "./free-mode-lobby-club-config";

@@ -91,6 +91,14 @@ export const createAdminLifecycleActionController = (options: Options) => {
       dialog.querySelector<HTMLTextAreaElement>("[data-admin-action-reason]")?.focus();
       return;
     }
+    if (action === "delete") {
+      const confirmation = dialog.querySelector<HTMLInputElement>("[data-admin-delete-confirmation]")?.value.trim() ?? "";
+      if (confirmation !== hosted.displayName) {
+        if (message) message.textContent = "Pro smazání zadejte přesný název serveru.";
+        dialog.querySelector<HTMLInputElement>("[data-admin-delete-confirmation]")?.focus();
+        return;
+      }
+    }
     submitting = true;
     button.disabled = true;
     button.setAttribute("aria-busy", "true");
@@ -98,7 +106,8 @@ export const createAdminLifecycleActionController = (options: Options) => {
     try {
       const result = await options.client.requestLifecycleAction(
         instanceId,
-        { action, expectedVersion: hosted.version, reason },
+        { action, expectedVersion: hosted.version, reason,
+          ...(action === "delete" ? { confirmationToken: "DELETE_SERVER" } : {}) },
         options.createKey()
       );
       options.actionReasons.delete(instanceId);
@@ -138,7 +147,8 @@ const trapFocus = (event: KeyboardEvent): void => {
 };
 
 const actionConfirmLabel = (action: HostedLifecycleAction): string =>
-  action === "stop" ? "Zastavit server"
+  action === "delete" ? "Smazat a vrátit hráče"
+    : action === "stop" ? "Zastavit server"
     : action === "restart" ? "Bezpečně restartovat"
       : action === "start" ? "Spustit server"
         : action === "resume" ? "Obnovit server"

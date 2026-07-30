@@ -67,11 +67,10 @@ export const bindGameAuthorityGate = (documentRef = document) => {
   documentRef.querySelector("[data-game-authority-retry]")?.addEventListener("click", () => location.reload());
 };
 
-const bindAuthorityEvents = (documentRef) => {
-  if (documentRef.documentElement.dataset.liveAuthorityEventsBound === "true") return;
-  documentRef.documentElement.dataset.liveAuthorityEventsBound = "true";
-  documentRef.addEventListener("empire:gameplay-slice-rendered", (event) => {
-    if (!event.detail?.gameplaySlice?.player?.playerId) return;
+export const applyLiveGameplayAuthorityState = (gameplaySlice, documentRef = document) => {
+  if (!gameplaySlice?.player?.playerId) return false;
+  const lifecycleStatus = String(gameplaySlice?.server?.status || "").trim().toLowerCase();
+  if (lifecycleStatus === "running") {
     documentRef.body?.classList.remove("game-body--booting");
     documentRef.body?.setAttribute("data-authority-state", "ready");
     setGameShellLocked(documentRef, false);
@@ -82,13 +81,76 @@ const bindAuthorityEvents = (documentRef) => {
       serverReady: true,
       gameplayReady: true
     }));
+    return true;
+  }
+
+  const waitingState = resolveWaitingAuthorityState(lifecycleStatus);
+  documentRef.body?.classList.add("game-body--booting");
+  documentRef.body?.setAttribute("data-authority-state", waitingState.authorityState);
+  setGameShellLocked(documentRef, true);
+  renderAuthorityGate(documentRef, waitingState);
+  publishClientAuthorityState(resolveClientAuthorityState({
+    accountReady: true,
+    membershipReady: true,
+    serverReady: Boolean(lifecycleStatus),
+    gameplayReady: false,
+    reasonCode: waitingState.reasonCode
+  }));
+  return true;
+};
+
+const bindAuthorityEvents = (documentRef) => {
+  if (documentRef.documentElement.dataset.liveAuthorityEventsBound === "true") return;
+  documentRef.documentElement.dataset.liveAuthorityEventsBound = "true";
+  documentRef.addEventListener("empire:gameplay-slice-rendered", (event) => {
+    applyLiveGameplayAuthorityState(event.detail?.gameplaySlice, documentRef);
   });
   documentRef.addEventListener("empire:gameplay-connection-state", (event) => {
-    if (event.detail?.status === "ready") return;
-    if (documentRef.body?.dataset.authorityState !== "ready") {
+    const connectionStatus = String(event.detail?.status || "").trim().toLowerCase();
+    if (connectionStatus === "ready" || connectionStatus === "connected") return;
+    if (connectionStatus === "error" || connectionStatus === "unavailable") {
       showLiveGameplayUnavailable(new Error(event.detail?.lastErrorMessage || "Spojení se serverem selhalo."), documentRef);
     }
   });
+};
+
+const resolveWaitingAuthorityState = (lifecycleStatus) => {
+  if (lifecycleStatus === "lobby" || lifecycleStatus === "created" || lifecycleStatus === "full") {
+    return {
+      authorityState: "waiting-for-start",
+      status: "SERVER ČEKÁ NA START",
+      message: "Jsi připojený do lobby. Herní akce budou dostupné, až vlastník server spustí.",
+      retryVisible: false,
+      reasonCode: "SERVER_WAITING_FOR_START"
+    };
+  }
+  if (lifecycleStatus === "paused" || lifecycleStatus === "pausing") {
+    return {
+      authorityState: "paused",
+      status: "SERVER JE POZASTAVENÝ",
+      message: "Herní akce jsou do obnovení serveru uzamčené.",
+      retryVisible: false,
+      reasonCode: "SERVER_PAUSED"
+    };
+  }
+  if (lifecycleStatus === "booting" || lifecycleStatus === "restarting") {
+    return {
+      authorityState: "starting",
+      status: "SERVER SE SPOUŠTÍ",
+      message: "Čekám na potvrzení běžící herní instance.",
+      retryVisible: false,
+      reasonCode: "SERVER_STARTING"
+    };
+  }
+  return {
+    authorityState: "unavailable",
+    status: lifecycleStatus ? "SERVER NENÍ SPUŠTĚNÝ" : "ČEKÁM NA STAV SERVERU",
+    message: lifecycleStatus
+      ? "Herní instance teď nepřijímá akce. Vrať se do lobby nebo obnov připojení."
+      : "Server zatím neposlal ověřený lifecycle stav.",
+    retryVisible: true,
+    reasonCode: lifecycleStatus ? "SERVER_NOT_RUNNING" : "SERVER_STATUS_PENDING"
+  };
 };
 
 const ensureClientScript = (documentRef) => new Promise((resolve, reject) => {

@@ -91,7 +91,11 @@ export function isServerGameplaySourceReady() {
   return canSubmitServerGameplayCommand({
     onboardingSandboxActive: getDocumentRef()?.documentElement?.dataset?.onboardingSandbox === "true",
     documentAvailable: Boolean(getDocumentRef()),
-    hasValidatedGameplaySlice: Boolean(model?.player?.playerId && model?.player?.instanceId),
+    hasValidatedGameplaySlice: Boolean(
+      model?.player?.playerId
+      && model?.player?.instanceId
+      && model?.server?.status === "running"
+    ),
     executionMode
   });
 }

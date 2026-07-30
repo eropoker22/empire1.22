@@ -90,6 +90,7 @@ describe("gameplay slice read model contract", () => {
           "selectedDistrictId": null,
           "serverInstanceId": "instance:free:read-model:fresh",
           "stateVersion": 4,
+          "status": "running",
         },
       }
     `);

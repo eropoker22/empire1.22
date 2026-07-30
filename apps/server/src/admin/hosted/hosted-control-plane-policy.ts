@@ -12,12 +12,22 @@ import type {
 import { validateServerMapComposition } from "../../bootstrap/gameplay-slice-shared-city-seed";
 import { HOSTED_WORKER_FRESH_MS, type HostedServerRecord } from "./hosted-control-plane-repository";
 import { resolveHostedServerRegistrationState } from "./hosted-server-registration-state";
+import { parseHostedStartingPlayerState } from "./hosted-starting-player-state-policy";
 
 const ALLOWED_REGIONS = new Set(["eu-central"]);
-const CREATE_KEYS = new Set(["mode", "serverTemplate", "displayName", "region", "capacity", "joinPolicy", "mapComposition"]);
+const CREATE_KEYS = new Set([
+  "mode",
+  "serverTemplate",
+  "displayName",
+  "region",
+  "capacity",
+  "joinPolicy",
+  "mapComposition",
+  "startingPlayerState"
+]);
 const ACTION_KEYS = new Set(["action", "expectedVersion", "reason", "registrationOpensAt", "confirmationToken"]);
 const ACTIONS = ["open-joins", "close-joins", "schedule-registration", "open-registration-now",
-  "cancel-registration", "close-registration-now", "start", "pause", "resume", "restart", "stop"] as const;
+  "cancel-registration", "close-registration-now", "start", "pause", "resume", "restart", "stop", "delete"] as const;
 
 export const createHostedLifecycleSnapshot = (mode: "free" | "war", serverTemplate: "control" | "full") => {
   const config = resolveModeConfig(mode);
@@ -111,8 +121,11 @@ export const parseHostedCreateRequest = (value: unknown, environment: Record<str
   if (!composition || validateServerMapComposition(composition as never).length) {
     return reject("ADMIN_MAP_INVALID", "Map composition is invalid.");
   }
+  const startingPlayerState = parseHostedStartingPlayerState(value.startingPlayerState);
+  if (!startingPlayerState.accepted) return startingPlayerState;
   return accept<AdminCreateServerRequestView>({ mode, serverTemplate, displayName, region, capacity, joinPolicy: "closed",
-    mapComposition: composition as AdminCreateServerRequestView["mapComposition"] });
+    mapComposition: composition as AdminCreateServerRequestView["mapComposition"],
+    startingPlayerState: startingPlayerState.data });
 };
 
 export const parseHostedActionRequest = (value: unknown) => {
@@ -136,7 +149,10 @@ export const parseHostedActionRequest = (value: unknown) => {
   if (action === "close-registration-now" && confirmationToken !== "CLOSE_REGISTRATION") {
     return reject("ADMIN_ACTION_CONFIRMATION_REQUIRED", "Nouzové uzavření registrace vyžaduje potvrzení.");
   }
-  if (action !== "close-registration-now" && confirmationToken !== undefined) {
+  if (action === "delete" && confirmationToken !== "DELETE_SERVER") {
+    return reject("ADMIN_ACTION_CONFIRMATION_REQUIRED", "Archivace serveru vyžaduje potvrzení.");
+  }
+  if (!["close-registration-now", "delete"].includes(action) && confirmationToken !== undefined) {
     return reject("ADMIN_ACTION_INVALID", "Lifecycle request is invalid.");
   }
   return accept<AdminLifecycleActionRequestView>({ action, expectedVersion, reason,

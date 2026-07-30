@@ -71,7 +71,8 @@ export const processHostedRuntimeJoinJob = async (
         serverInstanceId: reservation.serverInstanceId,
         playerId: registration.playerId,
         factionId: reservation.factionId,
-        mode: server.mode
+        mode: server.mode,
+        startingPlayerState: server.startingPlayerState
       });
       if (!membership.accepted) throw hostedMutationError("JOIN_MEMBERSHIP_REJECTED");
       stage.runtime.state = membership.state;

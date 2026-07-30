@@ -98,6 +98,8 @@ export const applyHostedLifecycleAction = async (input: {
     case "stop":
       applyHostedLifecycleTransition(runtime, request.action);
       return { nextStatus: "stopped", nextJoinPolicy: "closed", releaseLease: true };
+    case "delete":
+      throw safe("LIFECYCLE_STATE_INVALID");
   }
 };
 
@@ -110,6 +112,7 @@ export const applyHostedLifecycleTransition = (
   else if (action === "pause") lifecycle.pause(runtime);
   else if (action === "restart") lifecycle.restart(runtime);
   else if (action === "stop") lifecycle.stop(runtime);
+  else if (action === "delete") lifecycle.stop(runtime);
   else if (action === "open-registration-now" || action === "open-joins") openRuntimeForJoin(runtime);
   else closeRuntimeForJoin(runtime);
 };

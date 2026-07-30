@@ -4186,6 +4186,60 @@ body.lobby-command-body {
   .lobby-scan {
     opacity: 0.18 !important;
   }
+
+  .lobby-active-server-card {
+    gap: 6px;
+    padding: 9px 10px;
+  }
+
+  .lobby-active-server-card__copy {
+    gap: 3px;
+  }
+
+  .lobby-active-server-card__copy span {
+    font-size: 0.6rem;
+  }
+
+  .lobby-active-server-card__copy h2 {
+    font-size: 1rem;
+    line-height: 1;
+  }
+
+  .lobby-active-server-card__copy p {
+    font-size: 0.72rem;
+    line-height: 1.15;
+  }
+
+  .lobby-active-server-card__meta {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .lobby-active-server-card__meta span {
+    display: grid;
+    justify-content: stretch;
+    gap: 2px;
+    padding: 5px 6px;
+    font-size: 0.54rem;
+  }
+
+  .lobby-active-server-card__meta strong {
+    font-size: 0.7rem;
+  }
+
+  .lobby-active-server-card .lobby-primary-cta {
+    min-height: 40px;
+    font-size: 0.78rem;
+  }
+
+  .auth-mode-tabs {
+    padding: 2px;
+  }
+
+  .auth-mode-tab {
+    min-height: 34px;
+    font-size: 0.76rem;
+  }
 }
 
 .auth-mode-tab[data-server-mode-tab="war"] {

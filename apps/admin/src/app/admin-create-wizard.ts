@@ -1,4 +1,7 @@
-import { FREE_HOSTED_SERVER_LIFECYCLE_POLICY } from "@empire/game-config";
+import {
+  FREE_HOSTED_SERVER_LIFECYCLE_POLICY,
+  FREE_HOSTED_STARTING_MATERIAL_GROUPS
+} from "@empire/game-config";
 
 export const mapTotal = (form: HTMLFormElement): number => {
   const data = new FormData(form);
@@ -40,6 +43,15 @@ export const updateWizardReview = (form: HTMLFormElement): void => {
     ["Minimum ke spuštění", FREE_HOSTED_SERVER_LIFECYCLE_POLICY.minimumReadyPlayersToStart],
     ["Registrační okno", `${FREE_HOSTED_SERVER_LIFECYCLE_POLICY.registrationWindowMs / 60_000} minut`],
     ["Vstup po vytvoření", "Uzavřený do naplánování registrace"],
+    ["Start clean / dirty", `${data.get("startingCleanCash")} / ${data.get("startingDirtyCash")}`],
+    ["Start populace", data.get("startingPopulation")],
+    ["Špehové", "2 vždy"],
+    ...FREE_HOSTED_STARTING_MATERIAL_GROUPS.map((group) => [
+      `Materiály · ${group.label}`,
+      group.materials.map((material) =>
+        `${material.label}: ${data.get(`startingMaterial:${material.id}`)}`
+      ).join(", ")
+    ]),
     ["Mapa", `8 / ${data.get("commercial")} / ${data.get("residential")} / ${data.get("industrial")} / ${data.get("park")}`]
   ];
   review.innerHTML = values.map(([label, value]) =>

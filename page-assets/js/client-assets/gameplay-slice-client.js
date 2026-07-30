@@ -2523,12 +2523,12 @@ var EmpireGameplaySliceClient = function(exports) {
   const createReportViewModels = (reports) => reports.map((report) => ({
     id: report.reportId,
     reportType: report.reportType,
-    title: report.reportType === "spy" ? `Špehování ${report.result} v ${report.targetDistrictId}` : report.reportType === "occupy" ? `Obsazení ${report.result} v ${report.targetDistrictId}` : report.reportType === "building-action" ? `${toTitleCase(report.buildingActionId)} v ${report.districtId}` : report.districtDestroyed ? `Katastrofa v distriktu ${report.targetDistrictId}` : `Útok ${report.result} v ${report.targetDistrictId}`,
+    title: formatReportTitle(report),
     createdAt: `${report.tick}`,
     category: report.reportType,
-    summary: report.reportType === "spy" ? formatSpySummary(report) : report.reportType === "occupy" ? `Distrikt obsazen. Vliv -${report.influenceCost} · hledanost +${report.heatGained}.` : report.reportType === "building-action" ? formatBuildingActionSummary(report) : report.districtDestroyed ? "Katastrofa zničila distrikt. Kontrola, budovy, hledanost i vliv byly smazány." : report.trapTriggered ? "Během útoku se spustila past." : report.districtCaptured ? "Distrikt dobyt." : "Distrikt udržel obránce.",
+    summary: formatReportSummary(report),
     result: report.result,
-    severity: report.reportType === "battle" && report.districtDestroyed ? "critical" : report.reportType === "spy" && report.result === "critical_failed" ? "critical" : "normal",
+    severity: formatReportSeverity(report),
     messages: report.reportType === "building-action" ? report.messages ?? [] : report.reportType === "battle" && report.districtDestroyed ? [
       "Stav distriktu: zničený a nepoužitelný.",
       "Vlastník: nikdo.",
@@ -2537,6 +2537,35 @@ var EmpireGameplaySliceClient = function(exports) {
     ] : [],
     details: formatReportDetails(report)
   }));
+  const formatReportTitle = (report) => {
+    if (report.reportType === "spy") return `Špehování ${report.result} v ${report.targetDistrictId}`;
+    if (report.reportType === "occupy") return `Obsazení ${report.result} v ${report.targetDistrictId}`;
+    if (report.reportType === "heist") return `Heist ${report.result} v ${report.targetDistrictId}`;
+    if (report.reportType === "rob") return `Vykradení ${report.result} v ${report.targetDistrictId}`;
+    if (report.reportType === "building-action") {
+      return `${toTitleCase(report.buildingActionId)} v ${report.districtId}`;
+    }
+    return report.districtDestroyed ? `Katastrofa v distriktu ${report.targetDistrictId}` : `Útok ${report.result} v ${report.targetDistrictId}`;
+  };
+  const formatReportSummary = (report) => {
+    if (report.reportType === "spy") return formatSpySummary(report);
+    if (report.reportType === "occupy") {
+      return `Distrikt obsazen. Vliv -${report.influenceCost} · hledanost +${report.heatGained}.`;
+    }
+    if (report.reportType === "heist") {
+      return `Kořist ${formatNumberRecord(report.loot)} · ztráty gangu ${report.gangLosses} · hledanost +${report.heatGained}.`;
+    }
+    if (report.reportType === "rob") {
+      return `Kořist ${formatNumberRecord(report.loot)} · hledanost +${report.playerHeat}.`;
+    }
+    if (report.reportType === "building-action") return formatBuildingActionSummary(report);
+    if (report.districtDestroyed) {
+      return "Katastrofa zničila distrikt. Kontrola, budovy, hledanost i vliv byly smazány.";
+    }
+    if (report.trapTriggered) return "Během útoku se spustila past.";
+    return report.districtCaptured ? "Distrikt dobyt." : "Distrikt udržel obránce.";
+  };
+  const formatReportSeverity = (report) => report.reportType === "battle" && report.districtDestroyed ? "critical" : report.reportType === "spy" && report.result === "critical_failed" ? "critical" : report.reportType === "heist" && report.result === "trap_triggered" ? "critical" : "normal";
   const formatReportDetails = (report) => {
     if (report.reportType === "spy") {
       return [
@@ -2567,6 +2596,26 @@ var EmpireGameplaySliceClient = function(exports) {
         `Ztráty obránce ${formatNumberRecord(report.defenderLosses)}`,
         `Hledanost +${report.heatGained}`,
         report.reportForAttacker || "Bez shrnutí pro útočníka"
+      ];
+    }
+    if (report.reportType === "heist") {
+      return [
+        `Zdroj ${report.sourceDistrictId}`,
+        `Cíl ${report.targetDistrictId}`,
+        `Styl ${toTitleCase(report.style)}`,
+        `Kořist ${formatNumberRecord(report.loot)}`,
+        `Ztráty gangu ${report.gangLosses}`,
+        `Hledanost +${report.heatGained}`
+      ];
+    }
+    if (report.reportType === "rob") {
+      return [
+        `Zdroj ${report.sourceDistrictId}`,
+        `Cíl ${report.targetDistrictId}`,
+        `Kořist ${formatNumberRecord(report.loot)}`,
+        `Hledanost hráče +${report.playerHeat}`,
+        `Hledanost districtu +${report.districtHeat}`,
+        `Cooldown ${report.cooldownTicks} ticků`
       ];
     }
     return [
@@ -3402,6 +3451,34 @@ var EmpireGameplaySliceClient = function(exports) {
     };
   };
   const GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS = 1e4;
+  const resolveGameplaySliceMounts = (root) => ({
+    status: getOrCreateMount(root, "status"),
+    topBar: getOrCreateMount(root, "topbar"),
+    map: getOrCreateMount(root, "map"),
+    panel: getOrCreateMount(root, "panel")
+  });
+  const getOrCreateMount = (root, role) => {
+    const existing = root.querySelector(`[data-gameplay-slice-${role}]`);
+    if (existing) return existing;
+    const mount2 = document.createElement("div");
+    mount2.dataset[`gameplaySlice${role.charAt(0).toUpperCase()}${role.slice(1)}`] = "true";
+    root.append(mount2);
+    return mount2;
+  };
+  const renderGameplaySliceStatus = (state) => {
+    var _a;
+    return [
+      state.connection.status === "error" ? "" : `<strong>${escapeHtml(state.connection.status === "ready" ? "Server synchronizován" : state.connection.status)}</strong>`,
+      state.lastCommandStatus ? `<span class="gameplay-slice-client__command-status">${state.lastCommandStatus.accepted ? "Akce přijata" : "Akce odmítnuta"}</span>` : "",
+      state.connection.status !== "error" && ((_a = state.lastCommandStatus) == null ? void 0 : _a.accepted) === false && state.connection.lastErrorMessage ? `<span class="gameplay-slice-client__error">${escapeHtml(state.connection.lastErrorMessage)}</span>` : "",
+      state.districtPanel ? `<span>${escapeHtml(state.districtPanel.title)}</span>` : ""
+    ].join("");
+  };
+  const createBrowserCommandId = (prefix) => `${prefix}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
+  const parseGameplaySlicePollingIntervalMs = (value) => {
+    const intervalMs = Number.parseInt(String(value ?? ""), 10);
+    return Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS;
+  };
   const DEFAULT_ENDPOINT_BASE = "/api/gameplay-slice";
   const LEGACY_DISTRICT_POPUP_SELECTOR = "[data-testid='district-popup']";
   const MOBILE_SHEET_SELECTOR = ".mobile-sheet";
@@ -3430,7 +3507,7 @@ var EmpireGameplaySliceClient = function(exports) {
     const presentationMode = options.presentationMode || (options.root.dataset.gameplaySlicePresentationMode === "controller-only" ? "controller-only" : "full");
     const ownsVisiblePresentation = presentationMode === "full";
     options.root.dataset.gameplaySlicePresentationMode = presentationMode;
-    const mounts = resolveMounts(options.root);
+    const mounts = resolveGameplaySliceMounts(options.root);
     const selectiveRenderer = createGameplaySliceSelectiveRenderer();
     let currentLoadRequest = request;
     const districtSheetOverlay = ownsVisiblePresentation ? createDistrictSheetOverlayController() : null;
@@ -3660,7 +3737,7 @@ var EmpireGameplaySliceClient = function(exports) {
     const poller = createGameplaySlicePoller({
       load: (nextRequest) => client.load(nextRequest),
       getRequest: () => currentLoadRequest,
-      intervalMs: parsePollingIntervalMs(options.root.dataset.gameplaySlicePollingIntervalMs),
+      intervalMs: parseGameplaySlicePollingIntervalMs(options.root.dataset.gameplaySlicePollingIntervalMs),
       enabled: options.root.dataset.gameplaySlicePolling === "true",
       ...getGameplaySlicePollerPerformanceOptions(),
       onResponse: (state) => {
@@ -3700,6 +3777,9 @@ var EmpireGameplaySliceClient = function(exports) {
       render(state, "server-slice-initial-load");
       poller.start();
     }).catch((error) => {
+      if (isGameplayDiagnosticsEnabled()) {
+        console.warn("[gameplay-slice] Initial load failed.", error);
+      }
       document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", {
         detail: { status: "error", lastErrorMessage: createSafeErrorMessage(error), staleData: true }
       }));
@@ -3757,36 +3837,6 @@ var EmpireGameplaySliceClient = function(exports) {
     mountedGameplaySlicePagesByRoot.set(options.root, mountedPage);
     window.addEventListener("pagehide", handlePageHide, { once: true });
     return mountedPage;
-  };
-  const resolveMounts = (root) => ({
-    status: getOrCreateMount(root, "status"),
-    topBar: getOrCreateMount(root, "topbar"),
-    map: getOrCreateMount(root, "map"),
-    panel: getOrCreateMount(root, "panel")
-  });
-  const getOrCreateMount = (root, role) => {
-    const existing = root.querySelector(`[data-gameplay-slice-${role}]`);
-    if (existing) {
-      return existing;
-    }
-    const mount2 = document.createElement("div");
-    mount2.dataset[`gameplaySlice${role.charAt(0).toUpperCase()}${role.slice(1)}`] = "true";
-    root.append(mount2);
-    return mount2;
-  };
-  const renderGameplaySliceStatus = (state) => {
-    var _a;
-    return [
-      state.connection.status === "error" ? "" : `<strong>${escapeHtml(state.connection.status === "ready" ? "Server synchronizován" : state.connection.status)}</strong>`,
-      state.lastCommandStatus ? `<span class="gameplay-slice-client__command-status">${state.lastCommandStatus.accepted ? "Akce přijata" : "Akce odmítnuta"}</span>` : "",
-      state.connection.status !== "error" && ((_a = state.lastCommandStatus) == null ? void 0 : _a.accepted) === false && state.connection.lastErrorMessage ? `<span class="gameplay-slice-client__error">${escapeHtml(state.connection.lastErrorMessage)}</span>` : "",
-      state.districtPanel ? `<span>${escapeHtml(state.districtPanel.title)}</span>` : ""
-    ].join("");
-  };
-  const createBrowserCommandId = (prefix) => `${prefix}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
-  const parsePollingIntervalMs = (value) => {
-    const intervalMs = Number.parseInt(String(value ?? ""), 10);
-    return Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS;
   };
   installGameplaySlicePageApi(mountGameplaySlicePage);
   const mount = mountGameplaySlicePage;

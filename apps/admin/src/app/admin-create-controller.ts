@@ -1,4 +1,7 @@
-import { resolveModeConfig } from "@empire/game-config";
+import {
+  FREE_HOSTED_STARTING_MATERIAL_IDS,
+  resolveModeConfig
+} from "@empire/game-config";
 import type { AdminCreateServerRequestView } from "@empire/shared-types";
 import type { AdminApiClient } from "./admin-monitoring-client";
 import { mapTotal, updateWizardReview, validateWizardPanel } from "./admin-create-wizard";
@@ -46,7 +49,7 @@ export const createAdminCreateController = (options: AdminCreateControllerOption
       const form = target.querySelector<HTMLFormElement>("[data-admin-create-form]");
       const state = options.state();
       if (!form || !validateWizardPanel(form, state.wizardStep)) return;
-      options.updateState({ wizardStep: Math.min(4, state.wizardStep + 1) });
+      options.updateState({ wizardStep: Math.min(5, state.wizardStep + 1) });
       applyStep();
     }));
     target?.querySelectorAll<HTMLElement>("[data-admin-wizard-back]").forEach((button) => button.addEventListener("click", () => {
@@ -88,6 +91,16 @@ export const createAdminCreateController = (options: AdminCreateControllerOption
         residential: Number(data.get("residential")),
         industrial: Number(data.get("industrial")),
         park: Number(data.get("park"))
+      },
+      startingPlayerState: {
+        cleanCash: Number(data.get("startingCleanCash")),
+        dirtyCash: Number(data.get("startingDirtyCash")),
+        population: Number(data.get("startingPopulation")),
+        spySlots: 2,
+        materials: Object.fromEntries(FREE_HOSTED_STARTING_MATERIAL_IDS.map((materialId) => [
+          materialId,
+          Number(data.get(`startingMaterial:${materialId}`))
+        ])) as NonNullable<AdminCreateServerRequestView["startingPlayerState"]>["materials"]
       }
     };
     const submitButton = form.querySelector<HTMLButtonElement>("[type=submit]");

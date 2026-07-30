@@ -186,6 +186,25 @@ async function completeFactionSelection(page) {
 }
 
 export async function waitForLiveGame(page) {
+  await waitForHostedGameShell(page, "running");
+  await expect(page.locator("body")).toHaveAttribute("data-authority-state", "ready");
+  await expect(page.locator("#game-root")).toHaveAttribute("aria-busy", "false");
+  await dismissBlockingGameOverlays(page);
+  await dismissOnboardingGuide(page);
+  await page.evaluate(() => {
+    window.__EMPIRE_DEMO_GAMEPLAY_STORAGE_WRITES__ = [];
+  });
+}
+
+export async function waitForHostedLobbyGame(page) {
+  await waitForHostedGameShell(page, "lobby");
+  await expect(page.locator("body")).toHaveAttribute("data-authority-state", "waiting-for-start");
+  await expect(page.locator("#game-root")).toHaveAttribute("aria-busy", "true");
+  await expect(page.locator("[data-game-authority-gate]")).toHaveAttribute("aria-hidden", "false");
+  await expect(page.locator("[data-game-authority-status]")).toHaveText("SERVER ČEKÁ NA START");
+}
+
+async function waitForHostedGameShell(page, lifecycleStatus) {
   await expect(page).toHaveURL(/\/pages\/game\.html/u, { timeout: 120_000 });
   await expect(page.locator("html")).toHaveAttribute(
     "data-runtime-mode",
@@ -198,27 +217,23 @@ export async function waitForLiveGame(page) {
     { timeout: 60_000 }
   );
   await expect.poll(
-    () => page.evaluate(() => {
+    () => page.evaluate((expectedLifecycleStatus) => {
       const readModel = window.EmpireGameplaySliceClient?.getCurrentReadModel?.()
         || window.empireStreetsGameplaySliceReadModel
         || null;
       return Boolean(
         readModel?.server?.serverInstanceId
+        && readModel?.server?.status === expectedLifecycleStatus
         && readModel?.player?.playerId
         && readModel?.player?.instanceId
         && readModel?.district?.districtId
       );
-    }),
+    }, lifecycleStatus),
     {
       message: "Authoritative gameplay slice must be loaded before hosted UI interaction",
       timeout: 60_000
     }
   ).toBe(true);
-  await dismissBlockingGameOverlays(page);
-  await dismissOnboardingGuide(page);
-  await page.evaluate(() => {
-    window.__EMPIRE_DEMO_GAMEPLAY_STORAGE_WRITES__ = [];
-  });
 }
 
 export async function installHostedUiParityInstrumentation(page) {
@@ -308,7 +323,8 @@ export async function registerAndEnterHostedUiParityGame(page, {
   spawnDistrictId,
   spawnDistrictIds,
   identityPrefix = "Parity",
-  identity: suppliedIdentity = null
+  identity: suppliedIdentity = null,
+  waitForRunning = true
 } = {}) {
   expect(serverInstanceId, "EMPIRE_UI_PARITY_SERVER_ID is required").toBeTruthy();
   const requestedSpawnDistrictIds = spawnDistrictIds || [spawnDistrictId].filter(Boolean);
@@ -323,7 +339,11 @@ export async function registerAndEnterHostedUiParityGame(page, {
     requestedSpawnDistrictIds
   );
   await completeFactionSelection(page);
-  await waitForLiveGame(page);
+  if (waitForRunning) {
+    await waitForLiveGame(page);
+  } else {
+    await waitForHostedLobbyGame(page);
+  }
   return {
     diagnostics,
     identity,

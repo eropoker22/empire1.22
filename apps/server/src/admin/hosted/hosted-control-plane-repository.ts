@@ -118,6 +118,13 @@ export type HostedActionTransactionResult =
   | { kind: "not-ready" }
   | { kind: "not-found" };
 
+export type HostedArchiveTransactionResult =
+  | { kind: "created" | "replayed"; actionRequestId: string }
+  | { kind: "conflict" }
+  | { kind: "operation-active" }
+  | { kind: "stale-version" }
+  | { kind: "not-found" };
+
 export type HostedJoinReservationResult =
   | { kind: "created" | "replayed"; reservation: HostedJoinReservationRecord; job: HostedJoinJobRecord | null }
   | { kind: "conflict" | "server-full" | "not-joinable" | "stale-version" | "not-found" };
@@ -142,6 +149,16 @@ export interface HostedControlPlaneRepository {
     requestHash: string;
     audit: AdminAuditEntryView;
   }): Promise<HostedActionTransactionResult>;
+  archiveServerTransaction(input: {
+    serverInstanceId: string;
+    adminUserId: string;
+    expectedVersion: number;
+    actionRequestId: string;
+    idempotencyKey: string;
+    requestHash: string;
+    at: string;
+    audit: AdminAuditEntryView;
+  }): Promise<HostedArchiveTransactionResult>;
   claimProvisioningJob(workerId: string, workerIncarnationId: string, now: string, claimedUntil: string): Promise<HostedProvisioningJobRecord | null>;
   beginProvisioning(input: {
     jobId: string;

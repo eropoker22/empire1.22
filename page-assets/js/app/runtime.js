@@ -839,6 +839,11 @@ import {
   createServerDistrictSelectionCoordinator,
   toCanonicalServerDistrictId
 } from "./runtime/serverDistrictSelectionCoordinator.js";
+import { resolveServerSpyDistrictRoute } from "./runtime/serverDistrictActionRoute.js";
+import {
+  findServerBuildingByType,
+  getServerBuildingShortcutCandidateDistrictIds
+} from "./runtime/serverBuildingShortcutResolver.js";
 import {
   LocalDemoBuildingPresentationAdapter,
   ServerBuildingPresentationAdapter
@@ -996,6 +1001,7 @@ function hasValidatedServerGameplaySlice() {
   return Boolean(
     latestGameplaySliceReadModel?.player?.playerId
     && latestGameplaySliceReadModel?.player?.instanceId
+    && latestGameplaySliceReadModel?.server?.status === "running"
   );
 }
 
@@ -1037,6 +1043,7 @@ let eliminationDemoFixturePromise = null;
 const ELIMINATION_RESULT_POPUP_SELECTOR = "[data-elimination-result-popup]";
 let latestGameplaySliceReadModel = null;
 let activeServerBuildingPresentationTarget = null;
+const knownServerProductionDistrictByType = new Map();
 let onboardingSandboxSession = null;
 let onboardingSandboxTimerBaseline = null;
 
@@ -1629,6 +1636,86 @@ async function loadServerGameplaySliceForDistrict(districtId, { forceRefresh = f
 
   syncGameplaySliceResponse(response);
   return response;
+}
+
+async function prepareServerProductionBuilding(buildingTypeId) {
+  if (!isServerAuthoritativeGameplayRuntimeReady()) {
+    return {
+      accepted: false,
+      errors: [{ message: "Serverová hra ještě není spuštěná." }]
+    };
+  }
+
+  const initialSlice = latestGameplaySliceReadModel;
+  const initialDistrictId = String(initialSlice?.district?.districtId || "");
+  const normalizedTypeId = normalizeServerProductionBuildingType(buildingTypeId);
+  const candidates = getServerBuildingShortcutCandidateDistrictIds(
+    initialSlice,
+    normalizedTypeId,
+    knownServerProductionDistrictByType.get(normalizedTypeId)
+  );
+  let lastErrorMessage = "";
+
+  for (const districtId of candidates) {
+    let response = {
+      accepted: true,
+      readModel: latestGameplaySliceReadModel,
+      errors: []
+    };
+    if (String(latestGameplaySliceReadModel?.district?.districtId || "") !== districtId) {
+      try {
+        response = await loadServerGameplaySliceForDistrict(districtId);
+      } catch (_error) {
+        response = {
+          accepted: false,
+          readModel: null,
+          errors: [{ message: "Serverový district nejde načíst." }]
+        };
+      }
+    }
+    if (response?.accepted !== true) {
+      lastErrorMessage = response?.errors?.[0]?.message || lastErrorMessage;
+      continue;
+    }
+
+    const readModel = response.readModel || latestGameplaySliceReadModel;
+    const building = findServerBuildingByType(readModel, normalizedTypeId);
+    if (!building) continue;
+
+    knownServerProductionDistrictByType.set(normalizedTypeId, districtId);
+    setActiveServerBuildingPresentationTarget({
+      buildingId: building.buildingId,
+      buildingTypeId: normalizedTypeId,
+      districtId,
+      serverInstanceId: readModel?.server?.serverInstanceId
+    });
+    return {
+      accepted: true,
+      building,
+      districtId,
+      readModel,
+      errors: []
+    };
+  }
+
+  if (
+    initialDistrictId
+    && String(latestGameplaySliceReadModel?.district?.districtId || "") !== initialDistrictId
+  ) {
+    try {
+      await loadServerGameplaySliceForDistrict(initialDistrictId);
+    } catch (_error) {
+      lastErrorMessage ||= "Původní district se nepodařilo obnovit.";
+    }
+  }
+  setActiveServerBuildingPresentationTarget();
+  return {
+    accepted: false,
+    errors: [{
+      message: lastErrorMessage
+        || "Na vlastněných districtech tahle budova není dostupná."
+    }]
+  };
 }
 
 async function resolveServerBuildingActionTarget(context, definition) {
@@ -4968,6 +5055,7 @@ const {
   getServerDrugLabReadModel,
   getServerPharmacyReadModel,
   getServerTickRateMs,
+  prepareServerProductionBuilding,
   getOwnedArmoryCount: () => getOwnedSpecialProductionBuildingCount("zbrojovka"),
   getOwnedDrugLabCount: () => getOwnedSpecialProductionBuildingCount("drug lab"),
   getOwnedPharmacyCount: () => getOwnedSpecialProductionBuildingCount("lekarna"),
@@ -14148,16 +14236,20 @@ function bindDistrictCanvas(root) {
 
       if (isServerAuthoritativeGameplayRuntimeReady()) {
         const targetDistrictId = `district:${selectedDistrict.id}`;
-        const corridor = latestGameplaySliceReadModel?.frontier?.corridorTargets
-          ?.find((entry) => String(entry?.targetDistrictId) === targetDistrictId) || null;
-        const sourceDistrictId = corridor?.sourceDistrictId || `district:${getAdjacentOwnedDistrictIds(selectedDistrict)[0] || ""}`;
+        const route = resolveServerSpyDistrictRoute(
+          latestGameplaySliceReadModel,
+          targetDistrictId
+        );
+        if (!route) {
+          showWarning("Server neposlal platnou trasu pro špehování. Obnov district a zkus to znovu.");
+          return;
+        }
         spyConfirmButton.disabled = true;
         void submitServerDistrictActionCommand({
           type: "spy-district",
           payload: {
             districtId: targetDistrictId,
-            sourceDistrictId,
-            ...(corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {})
+            ...route
           },
           focusDistrictId: targetDistrictId
         }).then((response) => {
@@ -15623,6 +15715,7 @@ function destroyRuntime(root = getDefaultRuntimeRoot()) {
   onboardingSandboxSession = null;
   onboardingSandboxTimerBaseline = null;
   latestGameplaySliceReadModel = null;
+  knownServerProductionDistrictByType.clear();
   startPhaseResourceSimulationState = null;
   runtimeUiBoundRoots.delete(resolvedRoot);
   runtimeInitializedRoots.delete(resolvedRoot);

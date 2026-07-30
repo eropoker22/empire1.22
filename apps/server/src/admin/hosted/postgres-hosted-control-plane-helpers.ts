@@ -1,4 +1,5 @@
 import type { AdminAuditEntryView } from "@empire/shared-types";
+import { copyFreeHostedStartingPlayerState } from "@empire/game-config";
 import type { PostgresQueryable } from "../../runtime/persistence/postgres";
 import { HOSTED_WORKER_FRESH_MS, type HostedActionRequestRecord, type HostedActionTransactionResult, type HostedCreateTransactionResult, type HostedProvisioningJobRecord, type HostedServerRecord, type HostedWorkerHeartbeatRecord } from "./hosted-control-plane-repository";
 
@@ -44,7 +45,7 @@ export const insertServer = (db: PostgresQueryable, s: HostedServerRecord) => db
   `INSERT INTO empire_hosted_server_instances (${SERVER_INSERT_COLUMNS})
    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::timestamptz,$14::timestamptz,$15::timestamptz,
     $16,$17,$18,$19,$20,$21,$22,$23,$24::jsonb,$25,$26,$27,$28::timestamptz,$29::timestamptz,$30::timestamptz,
-    $31::timestamptz,$32::timestamptz,$33,$34,$35::timestamptz,$36::timestamptz,$37,$38)`,
+    $31::timestamptz,$32::timestamptz,$33,$34,$35::timestamptz,$36::timestamptz,$37,$38,$39::jsonb)`,
   [`hosted-server:${s.serverInstanceId}`,s.serverInstanceId,s.mode,s.displayName,s.region,s.capacity,s.status,s.joinPolicy,
     s.provisioningState,s.minimumReadyPlayersToStart,s.registrationWindowMinutes,s.registrationScheduleVersion,
     s.registrationOpensAt,s.registrationClosesAt,s.registrationClosedAt,s.registrationBaselinePlayers,
@@ -52,7 +53,8 @@ export const insertServer = (db: PostgresQueryable, s: HostedServerRecord) => db
     s.effectiveFirstEliminationTick,s.worldSeed,s.configVersion,JSON.stringify(s.mapComposition),s.initialSnapshotId,
     s.currentSnapshotId,s.runtimeLeaseOwnerId,
     s.runtimeLeaseExpiresAt,s.lastWorkerHeartbeatAt,s.lastStartedAt,s.lastPausedAt,s.lastStoppedAt,s.lastErrorCode,
-    s.createdByAdminUserId,s.createdAt,s.updatedAt,s.version,s.serverTemplate]
+    s.createdByAdminUserId,s.createdAt,s.updatedAt,s.version,s.serverTemplate,
+    JSON.stringify(s.startingPlayerState ?? copyFreeHostedStartingPlayerState())]
 );
 export const insertJob = (db: PostgresQueryable, j: HostedProvisioningJobRecord) => db.query(
   `INSERT INTO empire_hosted_server_provisioning_jobs
@@ -154,6 +156,9 @@ export const mapServer = (r: HostedServerRow): HostedServerRecord => ({
   canonicalFirstEliminationTick:numberOrNull(r.canonical_first_elimination_tick),canonicalTickRateMs:numberOrNull(r.canonical_tick_rate_ms),
   effectiveFinalLockdownTrigger:numberOrNull(r.effective_final_lockdown_trigger),effectiveFirstEliminationTick:numberOrNull(r.effective_first_elimination_tick),
   worldSeed:String(r.world_seed),configVersion:Number(r.config_version),mapComposition:json(r.map_composition) as HostedServerRecord["mapComposition"],
+  startingPlayerState:(r.starting_player_state
+    ? json(r.starting_player_state)
+    : copyFreeHostedStartingPlayerState()) as HostedServerRecord["startingPlayerState"],
   initialSnapshotId:nullable(r.initial_snapshot_id),currentSnapshotId:nullable(r.current_snapshot_id),runtimeLeaseOwnerId:nullable(r.runtime_lease_owner_id),
   runtimeLeaseExpiresAt:dateOrNull(r.runtime_lease_expires_at),lastWorkerHeartbeatAt:dateOrNull(r.last_worker_heartbeat_at),lastStartedAt:dateOrNull(r.last_started_at),
   lastPausedAt:dateOrNull(r.last_paused_at),lastStoppedAt:dateOrNull(r.last_stopped_at),lastErrorCode:nullable(r.last_error_code),
@@ -171,7 +176,7 @@ const asRecord = (value: unknown): Record<string, unknown> => {
   const parsed = typeof value === "string" ? JSON.parse(value) as unknown : value;
   return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
 };
-export const SERVER_COLUMNS = `server_instance_id,mode,display_name,region,capacity,status,join_policy,provisioning_state,minimum_ready_players_to_start,registration_window_minutes,registration_schedule_version,registration_opens_at,registration_closes_at,registration_closed_at,registration_baseline_players,canonical_final_lockdown_trigger,canonical_first_elimination_tick,canonical_tick_rate_ms,effective_final_lockdown_trigger,effective_first_elimination_tick,world_seed,config_version,map_composition,initial_snapshot_id,current_snapshot_id,runtime_lease_owner_id,runtime_lease_expires_at,last_worker_heartbeat_at,last_started_at,last_paused_at,last_stopped_at,last_error_code,created_by_admin_user_id,created_at,updated_at,version,server_template`;
+export const SERVER_COLUMNS = `server_instance_id,mode,display_name,region,capacity,status,join_policy,provisioning_state,minimum_ready_players_to_start,registration_window_minutes,registration_schedule_version,registration_opens_at,registration_closes_at,registration_closed_at,registration_baseline_players,canonical_final_lockdown_trigger,canonical_first_elimination_tick,canonical_tick_rate_ms,effective_final_lockdown_trigger,effective_first_elimination_tick,world_seed,config_version,map_composition,initial_snapshot_id,current_snapshot_id,runtime_lease_owner_id,runtime_lease_expires_at,last_worker_heartbeat_at,last_started_at,last_paused_at,last_stopped_at,last_error_code,created_by_admin_user_id,created_at,updated_at,version,server_template,starting_player_state`;
 export const SERVER_SELECT = `SELECT ${SERVER_COLUMNS} FROM empire_hosted_server_instances`;
 const SERVER_INSERT_COLUMNS = `id,${SERVER_COLUMNS}`;
 export const JOB_COLUMNS = `job_id,server_instance_id,attempt,status,available_at,claimed_by_worker_id,claimed_until,last_error_code,created_at,updated_at,version`;

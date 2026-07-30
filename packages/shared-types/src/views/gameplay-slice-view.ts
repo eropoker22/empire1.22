@@ -51,6 +51,7 @@ export interface GameplaySliceSpawnSelectionView {
 export interface GameplaySliceServerMetadataView {
   serverInstanceId: string;
   mode: string;
+  status?: GameplaySliceServerStatusView;
   currentTick: number;
   stateVersion: number;
   maxPlayersPerServer?: number;
@@ -60,6 +61,22 @@ export interface GameplaySliceServerMetadataView {
   mapManifestHash: string;
   generatedAt: string;
 }
+
+export type GameplaySliceServerStatusView =
+  | "created"
+  | "lobby"
+  | "booting"
+  | "running"
+  | "pausing"
+  | "paused"
+  | "full"
+  | "stopping"
+  | "stopped"
+  | "ended"
+  | "restarting"
+  | "destroying"
+  | "destroyed"
+  | "crashed";
 
 export interface GameplaySliceCommandHintsView {
   selectedDistrictId: string | null;

@@ -3,7 +3,8 @@ import * as http from "node:http";
 import {
   createHostedRuntimeWorker,
   createPostgresHostedControlPlaneRepository,
-  createPostgresHostedRuntimeMutationCommitter
+  createPostgresHostedRuntimeMutationCommitter,
+  HOSTED_WORKER_FRESH_MS
 } from "../admin/hosted";
 import { createServerApp } from "../app/server-app";
 import {
@@ -112,21 +113,53 @@ const runLoop = createHostedRuntimeWorkerRunLoop({
 });
 runLoop.start();
 
-const healthServer = http.createServer((request, response) => {
+const healthServer = http.createServer(async (request, response) => {
   if (request.url !== "/health") { response.writeHead(404).end(); return; }
-  response.writeHead(healthy && !shuttingDown ? 200 : 503, { "content-type": "application/json" });
-  response.end(JSON.stringify({
-    status: healthy && !shuttingDown ? "ok" : "unavailable",
-    lastErrorCode,
-    runtime: {
-      nodeVersion: nodeRuntime.detectedVersion,
-      nodeMajor: nodeRuntime.detectedMajor
-    },
-    snapshotPersistence: {
-      maintenance: persistence.snapshotMaintenance.getHealth(),
-      metrics: persistence.snapshotRepository.getMetrics()
-    }
-  }));
+  try {
+    const checkedAt = new Date();
+    const heartbeat = await controlPlane.getFreshWorkerHeartbeat(
+      new Date(checkedAt.getTime() - HOSTED_WORKER_FRESH_MS).toISOString()
+    );
+    const heartbeatCurrent = heartbeat?.workerId === workerId
+      && heartbeat.buildSha === buildSha
+      && heartbeat.status === "online";
+    const available = healthy && !shuttingDown && heartbeatCurrent;
+    response.writeHead(available ? 200 : 503, { "content-type": "application/json" });
+    response.end(JSON.stringify({
+      status: available ? "ok" : "unavailable",
+      database: "available",
+      lastErrorCode,
+      buildSha,
+      workerId,
+      heartbeat: {
+        registered: heartbeatCurrent,
+        lastAt: heartbeat?.lastHeartbeatAt ?? null,
+        ageMs: heartbeat ? Math.max(0, checkedAt.getTime() - Date.parse(heartbeat.lastHeartbeatAt)) : null
+      },
+      runtime: {
+        nodeVersion: nodeRuntime.detectedVersion,
+        nodeMajor: nodeRuntime.detectedMajor
+      },
+      snapshotPersistence: {
+        maintenance: persistence.snapshotMaintenance.getHealth(),
+        metrics: persistence.snapshotRepository.getMetrics()
+      }
+    }));
+  } catch (_error) {
+    response.writeHead(503, { "content-type": "application/json" });
+    response.end(JSON.stringify({
+      status: "unavailable",
+      database: "unavailable",
+      lastErrorCode: lastErrorCode ?? "WORKER_HEALTH_DATABASE_UNAVAILABLE",
+      buildSha,
+      workerId,
+      heartbeat: { registered: false, lastAt: null, ageMs: null },
+      runtime: {
+        nodeVersion: nodeRuntime.detectedVersion,
+        nodeMajor: nodeRuntime.detectedMajor
+      }
+    }));
+  }
 });
 healthServer.listen(port, "0.0.0.0");
 

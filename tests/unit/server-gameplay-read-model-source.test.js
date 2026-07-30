@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const SOURCE_MODULE = "../../page-assets/js/app/runtime/serverGameplayReadModelSource.js";
 
-const readModel = (stateVersion, cityEvents = null) => ({
-  server: { stateVersion },
+const readModel = (stateVersion, cityEvents = null, status = "running") => ({
+  server: { stateVersion, status },
   player: {
     playerId: "player:source",
     instanceId: "instance:source",
@@ -16,11 +16,13 @@ const readModel = (stateVersion, cityEvents = null) => ({
 describe("server gameplay read-model source", () => {
   beforeEach(() => {
     vi.resetModules();
+    document.documentElement.dataset.gameplayExecutionMode = "server-authoritative";
     delete window.empireStreetsGameplaySliceReadModel;
     delete window.EmpireGameplaySliceClient;
   });
 
   afterEach(() => {
+    delete document.documentElement.dataset.gameplayExecutionMode;
     delete window.empireStreetsGameplaySliceReadModel;
     delete window.EmpireGameplaySliceClient;
   });
@@ -48,5 +50,15 @@ describe("server gameplay read-model source", () => {
 
     expect(source.getServerGameplaySliceReadModel()).toBe(current);
     expect(window.empireStreetsGameplaySliceReadModel).toBe(current);
+  });
+
+  it("reports command readiness only for a running server lifecycle", async () => {
+    const source = await import(SOURCE_MODULE);
+
+    source.setServerGameplaySliceReadModel(readModel(1, null, "lobby"));
+    expect(source.isServerGameplaySourceReady()).toBe(false);
+
+    source.setServerGameplaySliceReadModel(readModel(1, null, "running"));
+    expect(source.isServerGameplaySourceReady()).toBe(true);
   });
 });
