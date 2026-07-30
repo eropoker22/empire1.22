@@ -197,13 +197,17 @@ export function showDistrictPopupModal(element) {
   return true;
 }
 
-export function hideDistrictPopupModal(element) {
+export function hideDistrictPopupModal(element, options = {}) {
   if (!element) {
     return false;
   }
 
   element.hidden = true;
-  closeOverlay(element, { restoreFocus: false });
+  if (options.suppressMapInput === false) {
+    closeOverlay(element, { restoreFocus: false, suppressMapInput: false });
+  } else {
+    closeOverlay(element, { restoreFocus: false });
+  }
   dispatchDistrictPopupClosed(element);
   return true;
 }

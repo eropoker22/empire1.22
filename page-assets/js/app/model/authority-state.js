@@ -19,6 +19,10 @@ import {
   createEmptyLocalPlayerBoostState,
   normalizeLocalPlayerBoostState
 } from "../runtime/localPlayerBoostState.js";
+import {
+  GAMEPLAY_EXECUTION_MODES,
+  getGameplayExecutionMode
+} from "../runtime/gameplayExecutionMode.js";
 
 // Browser preview-state bridge for the legacy static frontend.
 // Server-fed sessions take precedence; localStorage writes are ignored when server
@@ -462,7 +466,15 @@ function normalizePreviewRegistration(registration) {
 }
 
 export function hasServerAuthority() {
-  return Boolean(window.empireStreetsServerState?.session || window.empireStreetsServerSession);
+  const windowRef = typeof window === "undefined" ? null : window;
+  if (windowRef?.empireStreetsServerState?.session || windowRef?.empireStreetsServerSession) {
+    return true;
+  }
+
+  return getGameplayExecutionMode({
+    diagnosticsMode: windowRef?.empireStreetsRuntimeDiagnostics?.getSummary?.().runtimeMode,
+    windowRef
+  }) === GAMEPLAY_EXECUTION_MODES.serverAuthoritative;
 }
 
 export function getStoredPreviewSession() {

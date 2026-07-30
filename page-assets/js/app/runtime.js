@@ -676,6 +676,7 @@ import {
 } from "./runtime/buildingSpecialActionRegistry.js";
 import { createServerBuildingActionDefaultPayload } from "./runtime/buildingSpecialActionServerDefaults.js";
 import { submitServerBuildingActionCommandBridge } from "./runtime/buildingSpecialActionServerBridge.js";
+import { presentServerBuildingActionResponse } from "./runtime/serverBuildingActionResponse.js";
 import { createBuildingSpecialActionConfirmationController } from "./runtime/buildingSpecialActionConfirmation.js";
 import {
   formatGarageEffectiveCooldownLabel,
@@ -9508,30 +9509,18 @@ async function runDistrictBuildingActionFromContext(root, context, request, opti
         definition,
         actionInput: request
       });
-      if (!response?.accepted) {
-        const message = response?.errors?.map((error) => error?.message || error?.code).filter(Boolean).join(" · ")
-          || "Server akci odmítl.";
-        setBuildingActionFeedback(root, "warning", action, message, context.buildingName);
-        return false;
-      }
-
-      const reportSummary = response?.readModel?.reports?.[0]?.summary
-        || response?.readModel?.reports?.[0]?.description
-        || response?.readModel?.reports?.[0]?.title
-        || actionProfile?.summary
-        || definition.rewardSummary
-        || "Server akci přijal.";
-      setBuildingActionFeedback(
-        root,
-        "success",
+      return presentServerBuildingActionResponse({
+        response,
         action,
-        reportSummary,
-        context.district?.id ? `${context.buildingName} · District ${context.district.id}` : context.buildingName
-      );
-      if (options.shell) {
-        refreshDistrictBuildingDetailPopup(root, options.shell);
-      }
-      return true;
+        actionProfile,
+        definition,
+        context,
+        root,
+        shell: options.shell
+      }, {
+        setFeedback: setBuildingActionFeedback,
+        refreshBuildingDetail: refreshDistrictBuildingDetailPopup
+      });
     }
   }
 
@@ -10842,10 +10831,10 @@ function bindDistrictCanvas(root) {
         serverInstanceId
       });
     }
-    openButton.click();
     if (popup) {
-      hideDistrictPopupModal(popup);
+      hideDistrictPopupModal(popup, { suppressMapInput: false });
     }
+    openButton.click();
     return true;
   };
   let openDistrictBuildingDetail = presentDistrictBuildingDetail;
@@ -13362,8 +13351,12 @@ function bindDistrictCanvas(root) {
       if (!selectedDistrict) {
         return;
       }
-      const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
-      if (!currentPlayerOwnedDistrictIds.has(Number(selectedDistrict.id))) {
+      const serverAuthoritativePresentation = getCurrentGameplayExecutionMode()
+        === GAMEPLAY_EXECUTION_MODES.serverAuthoritative;
+      const currentPlayerOwnsSelectedDistrict = serverAuthoritativePresentation
+        ? chipButton.dataset.districtBuildingInteractive === "true"
+        : getCurrentPlayerOwnedDistrictIds(interactionState).has(Number(selectedDistrict.id));
+      if (!currentPlayerOwnsSelectedDistrict) {
         return;
       }
       if (chipButton.disabled || chipButton.dataset.districtBuildingInteractive === "false") {

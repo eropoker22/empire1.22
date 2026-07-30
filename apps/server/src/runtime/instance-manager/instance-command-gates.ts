@@ -8,14 +8,22 @@ import type { ServerInstanceRuntime } from "../instance/server-instance-runtime"
 const MAX_COMMANDS_PER_PLAYER_PER_TICK = 5;
 const ENTITY_REVALIDATED_CONFLICT_COMMAND_TYPES = new Set<GameCommand["type"]>([
   "attack-district",
+  "cancel-drug-lab-production",
+  "cancel-pharmacy-production",
+  "cancel-production-line",
+  "claim-city-event-reward",
+  "collect-production",
+  "craft-item",
   "heist-district",
   "occupy-district",
   "rob-district",
   "spy-district",
+  "start-city-event",
   "place-defense",
   "remove-defense",
   "place-trap",
-  "relocate-trap"
+  "relocate-trap",
+  "upgrade-building"
 ]);
 
 export const usesEntityConflictRevalidation = (command: GameCommand): boolean =>

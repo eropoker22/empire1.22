@@ -7,7 +7,7 @@ import {
 describe("server gameplay production building controller", () => {
   beforeEach(() => {
     resetOverlayCoordinator();
-    document.body.innerHTML = `<main id="game-root">
+    document.body.innerHTML = `<main id="game-root"></main>
       ${productionPopup("pharmacy", "pharmacy")}
       ${productionPopup("druglab", "druglab")}
       ${productionPopup("armory", "armory")}
@@ -23,8 +23,7 @@ describe("server gameplay production building controller", () => {
         <button data-factory-tab="info">Info</button>
         <section data-factory-panel="stats"><div data-factory-slot-list></div></section>
         <section data-factory-panel="info" hidden></section>
-      </div>
-    </main>`;
+      </div>`;
   });
 
   afterEach(() => {

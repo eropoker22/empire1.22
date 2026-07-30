@@ -156,7 +156,7 @@ export function createServerGameplayProductionBuildingController({
   const mount = () => {
     if (mounted) return false;
     for (const [type, config] of Object.entries(SERVER_PRODUCTION_POPUPS)) {
-      const popup = root?.querySelector?.(config.popup);
+      const popup = documentRef?.querySelector?.(config.popup);
       const mountElement = popup?.querySelector?.(config.panel);
       if (!popup || !mountElement) continue;
       const binding = {

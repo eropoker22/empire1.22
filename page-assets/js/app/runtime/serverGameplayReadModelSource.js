@@ -31,9 +31,15 @@ export function setServerGameplaySliceReadModel(model, options = {}) {
 }
 
 export function getServerGameplaySliceReadModel() {
-  const windowModel = getWindowRef()?.empireStreetsGameplaySliceReadModel;
-  if (windowModel && windowModel !== latestReadModel) {
-    setServerGameplaySliceReadModel(windowModel);
+  const windowRef = getWindowRef();
+  const candidates = [
+    windowRef?.empireStreetsGameplaySliceReadModel,
+    windowRef?.EmpireGameplaySliceClient?.getCurrentReadModel?.()
+  ];
+  for (const candidate of candidates) {
+    if (candidate && candidate !== latestReadModel) {
+      setServerGameplaySliceReadModel(candidate, { windowRef });
+    }
   }
   return latestReadModel;
 }
@@ -61,6 +67,7 @@ export function mountServerGameplaySource(documentRef = getDocumentRef()) {
   }
   mountedDocument = documentRef;
   mountedDocument.addEventListener("empire:gameplay-slice-rendered", handleGameplaySliceRendered);
+  getServerGameplaySliceReadModel();
   return true;
 }
 

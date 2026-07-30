@@ -1971,6 +1971,8 @@ describe("building detail, production and recipe UI modules", () => {
       ["Tech Core", "2×"]
     ]);
     expect(findMetricValue(card, "Ve frontě")).toBe("1/2 ks");
+    expect(card.querySelector("[data-factory-slot-toggle-state=\"stop\"]").attributes.get("aria-label"))
+      .toBe("Zrušit čekající výrobu Bojový modul");
     card.querySelector("[data-factory-slot-toggle-state=\"start\"]").click();
     card.querySelector("[data-factory-slot-toggle-state=\"stop\"]").click();
     expect(onStartSlot).toHaveBeenCalledWith(line, { batchCount: 1 });

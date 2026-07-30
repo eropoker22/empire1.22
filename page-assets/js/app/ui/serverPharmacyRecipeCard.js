@@ -54,6 +54,7 @@ export function renderServerPharmacyRecipeCard(viewModel = {}, callbacks = {}, o
   const head = createElement(options.mount, "div", "pharmacy-slot__head");
   const titleLine = createElement(options.mount, "div", "pharmacy-slot__title-line");
   const icon = createElement(options.mount, "span", "pharmacy-slot__icon " + (visual.iconToneClass || "pharmacy-slot__icon--cyan") + " " + (visual.iconGlyphClass || "pharmacy-slot__icon--flask"));
+  const titleWrap = createElement(options.mount, "div", "pharmacy-slot__title-wrap");
   const title = createElement(options.mount, "strong", "pharmacy-slot__title");
   const state = createElement(options.mount, "span", "pharmacy-slot__state");
   const metrics = createElement(options.mount, "div", "pharmacy-slot__metrics");
@@ -64,7 +65,7 @@ export function renderServerPharmacyRecipeCard(viewModel = {}, callbacks = {}, o
   const plus = createElement(options.mount, "button", "armory-slot__quantity-btn pharmacy-slot__quantity-btn");
   const start = createElement(options.mount, "button", "button pharmacy-slot__btn pharmacy-slot__btn--start");
   const cancel = createElement(options.mount, "button", "button pharmacy-slot__btn pharmacy-slot__btn--stop");
-  if (![head, titleLine, icon, title, state, metrics, actions, quantity, minus, value, plus, start, cancel].every(Boolean)) return card;
+  if (![head, titleLine, icon, titleWrap, title, state, metrics, actions, quantity, minus, value, plus, start, cancel].every(Boolean)) return card;
 
   let selected = 1;
   const maxStart = Math.max(0, Math.floor(Number(line.maxStartQuantity || 0)));
@@ -78,7 +79,8 @@ export function renderServerPharmacyRecipeCard(viewModel = {}, callbacks = {}, o
   icon.setAttribute("aria-hidden", "true");
   title.textContent = line.label || "";
   state.textContent = STATUS_LABELS[line.status] || "Připraveno";
-  titleLine.append(icon, title);
+  titleWrap.append(title);
+  titleLine.append(icon, titleWrap);
   head.append(titleLine, state);
   metrics.append(
     metric(options.mount, "Vyrobeno", String(line.producedAmount || 0) + "/" + String(line.producedCapacity || 0) + " ks"),
@@ -102,6 +104,7 @@ export function renderServerPharmacyRecipeCard(viewModel = {}, callbacks = {}, o
   start.addEventListener("click", () => callbacks.onStart?.({ ...viewModel, batchCount: selected }));
   cancel.type = "button";
   cancel.textContent = "Zrušit";
+  cancel.setAttribute("aria-label", "Zrušit čekající výrobu " + (line.label || ""));
   cancel.disabled = line.canCancelWaiting !== true;
   cancel.title = cancel.disabled
     ? "Není co zrušit: aktivní kus nelze zrušit."

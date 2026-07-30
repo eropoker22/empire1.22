@@ -36,10 +36,13 @@ describe("server pharmacy recipe card", () => {
     });
 
     expect(card.querySelectorAll(".pharmacy-slot__metric")).toHaveLength(4);
+    expect(card.querySelector(".pharmacy-slot__title-wrap").textContent).toBe("Chemicals");
     expect(card.textContent).toContain("Vyrobeno7/12 ks");
     expect(card.textContent).toContain("Ve frontě5/8 ks");
     expect(card.textContent).toContain("Cena$360 clean");
     expect(card.textContent).not.toContain("Ve skladu");
+    expect(card.querySelector(".pharmacy-slot__btn--stop").getAttribute("aria-label"))
+      .toBe("Zrušit čekající výrobu Chemicals");
     card.querySelector(".pharmacy-slot__btn--start").click();
     expect(start).toHaveBeenCalledWith(expect.objectContaining({ batchCount: 1 }));
   });

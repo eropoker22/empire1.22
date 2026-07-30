@@ -1,34 +1,63 @@
-import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { presentServerBuildingActionResponse } from "../../page-assets/js/app/runtime/serverBuildingActionResponse.js";
 
-const runtimeSource = readFileSync("page-assets/js/app/runtime.js", "utf8");
+describe("runtime server building action response", () => {
+  it("renders the authoritative report and refreshes the server projection after acceptance", () => {
+    const setFeedback = vi.fn();
+    const refreshBuildingDetail = vi.fn();
+    const root = {};
+    const shell = {};
 
-function getServerActionBranchSource() {
-  const branchStart = runtimeSource.indexOf('if (definition.handlerId === "server-run-building-action")');
-  const branchEnd = runtimeSource.indexOf("if (!hasLegacyBuildingSpecialActionHandler", branchStart);
-  expect(branchStart).toBeGreaterThan(-1);
-  expect(branchEnd).toBeGreaterThan(branchStart);
-  return runtimeSource.slice(branchStart, branchEnd);
-}
+    const accepted = presentServerBuildingActionResponse({
+      response: {
+        accepted: true,
+        readModel: {
+          reports: [{ summary: "Server potvrdil efekt i cooldown." }]
+        }
+      },
+      action: "Tržní tlak",
+      actionProfile: { summary: "Lokální fallback" },
+      definition: { rewardSummary: "Statický fallback" },
+      context: { buildingName: "Burza", district: { id: 79 } },
+      root,
+      shell
+    }, { setFeedback, refreshBuildingDetail });
 
-describe("runtime Downtown server building action branch", () => {
-  it("starts cooldown and writes street news only after accepted server response", () => {
-    const branch = getServerActionBranchSource();
-    const submitIndex = branch.indexOf("await submitServerBuildingActionCommand");
-    const acceptedGuardIndex = branch.indexOf("if (!response?.accepted)");
-    const cooldownIndex = branch.indexOf("updateDistrictBuildingDetailEntry");
-    const streetNewsIndex = branch.indexOf("appendBuildingActionResultEntry");
-
-    expect(submitIndex).toBeGreaterThan(-1);
-    expect(acceptedGuardIndex).toBeGreaterThan(submitIndex);
-    expect(cooldownIndex).toBeGreaterThan(acceptedGuardIndex);
-    expect(streetNewsIndex).toBeGreaterThan(acceptedGuardIndex);
+    expect(accepted).toBe(true);
+    expect(setFeedback).toHaveBeenCalledWith(
+      root,
+      "success",
+      "Tržní tlak",
+      "Server potvrdil efekt i cooldown.",
+      "Burza · District 79"
+    );
+    expect(refreshBuildingDetail).toHaveBeenCalledWith(root, shell);
   });
 
-  it("does not call the legacy special-action fallback inside the server branch", () => {
-    const branch = getServerActionBranchSource();
+  it("surfaces a rejection without refreshing or running a local success path", () => {
+    const setFeedback = vi.fn();
+    const refreshBuildingDetail = vi.fn();
+    const root = {};
 
-    expect(branch).not.toContain("applyDistrictBuildingSpecialAction(");
-    expect(branch).toContain('"Handler", value: "Server"');
+    const accepted = presentServerBuildingActionResponse({
+      response: {
+        accepted: false,
+        errors: [{ code: "building.cooldown", message: "Akce ještě čeká." }]
+      },
+      action: "Tržní tlak",
+      context: { buildingName: "Burza", district: { id: 79 } },
+      root,
+      shell: {}
+    }, { setFeedback, refreshBuildingDetail });
+
+    expect(accepted).toBe(false);
+    expect(setFeedback).toHaveBeenCalledWith(
+      root,
+      "warning",
+      "Tržní tlak",
+      "Akce ještě čeká.",
+      "Burza"
+    );
+    expect(refreshBuildingDetail).not.toHaveBeenCalled();
   });
 });

@@ -58,6 +58,8 @@ describe("server drug lab recipe card", () => {
     expect(card.textContent).toContain("Clean Cash2500/8400");
     expect(card.textContent).not.toContain("Použít");
     expect(card.textContent).not.toContain("Aktivovat");
+    expect(card.querySelectorAll(".drug-lab-mini-btn")[1].getAttribute("aria-label"))
+      .toBe("Zrušit čekající výrobu Ghost Serum");
     card.querySelector(".drug-lab-mini-btn").click();
     expect(start).toHaveBeenCalledWith(expect.objectContaining({ batchCount: 1 }));
   });

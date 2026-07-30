@@ -163,6 +163,7 @@ export function renderServerDrugLabRecipeCard(viewModel = {}, callbacks = {}, op
   start.addEventListener("click", () => callbacks.onStart?.({ ...viewModel, batchCount: selected }));
   cancel.type = "button";
   cancel.textContent = "Zrušit";
+  cancel.setAttribute("aria-label", "Zrušit čekající výrobu " + (line.label || ""));
   if (isArmory) cancel.dataset.armorySlotStop = "";
   cancel.disabled = line.canCancelWaiting !== true;
   cancel.title = cancel.disabled

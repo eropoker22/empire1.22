@@ -187,13 +187,28 @@ describe("runtime main UI flow smoke guard", () => {
 
     for (const source of [runtimeSource]) {
       const buildingsClickIndex = source.indexOf('popupBuildingsList.addEventListener("click"');
-      const ownershipGuardIndex = source.indexOf("const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);", buildingsClickIndex);
+      const ownershipGuardIndex = source.indexOf("const serverAuthoritativePresentation = getCurrentGameplayExecutionMode()", buildingsClickIndex);
       const openDetailIndex = source.indexOf("openDistrictBuildingDetail(selectedDistrict", buildingsClickIndex);
 
       expect(buildingsClickIndex).toBeGreaterThan(-1);
       expect(ownershipGuardIndex).toBeGreaterThan(buildingsClickIndex);
       expect(openDetailIndex).toBeGreaterThan(ownershipGuardIndex);
+      expect(source).toContain(
+        "=== GAMEPLAY_EXECUTION_MODES.serverAuthoritative"
+      );
+      expect(source).toContain(
+        '? chipButton.dataset.districtBuildingInteractive === "true"'
+      );
       expect(source).toContain('chipButton.dataset.districtBuildingInteractive === "false"');
+      const presentBuildingDetailIndex = source.indexOf("const presentDistrictBuildingDetail =");
+      const handoffCloseIndex = source.indexOf(
+        "hideDistrictPopupModal(popup, { suppressMapInput: false });",
+        presentBuildingDetailIndex
+      );
+      const buildingPopupClickIndex = source.indexOf("openButton.click();", handoffCloseIndex);
+      expect(presentBuildingDetailIndex).toBeGreaterThan(-1);
+      expect(handoffCloseIndex).toBeGreaterThan(presentBuildingDetailIndex);
+      expect(buildingPopupClickIndex).toBeGreaterThan(handoffCloseIndex);
     }
   });
 

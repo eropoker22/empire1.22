@@ -19,4 +19,13 @@ describe("closed alpha UX runtime", () => {
     expect(source).toContain("dataset.operationalRecovery");
     expect(source).toContain("NOUZOVÁ OBNOVA");
   });
+
+  it("dismisses stale connection notices after authoritative recovery", () => {
+    expect(source).toContain('modal?.dataset.sharedConfirmationKind === "connection"');
+    expect(source).toContain('closeSharedModal(modal, "connection-restored")');
+    expect(source).toContain("if (connectionState !== noticeState) return");
+    expect(source).toContain(
+      'if (detail.status === "ready" || detail.status === "connected") return "connected";'
+    );
+  });
 });

@@ -331,10 +331,7 @@ const postJson = async (url, payload) => {
 const submitThroughMountedClient = async (request) => {
   const clientApi = getWindowRef()?.EmpireGameplaySliceClient;
   if (typeof clientApi?.submitCommand !== "function") return null;
-  const activeModel = clientApi.getCurrentReadModel?.();
-  const activeFocusDistrictId = activeModel?.district?.districtId
-    || activeModel?.player?.homeDistrictId
-    || null;
+  const activeFocusDistrictId = clientApi.getCurrentRenderState?.()?.districtPanel?.districtId || null;
   if (request?.focusDistrictId && activeFocusDistrictId !== request.focusDistrictId) return null;
   const result = await clientApi.submitCommand(request.command);
   if (!result) return null;

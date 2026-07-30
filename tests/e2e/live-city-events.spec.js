@@ -16,6 +16,20 @@ const hostedEnabled = process.env.EMPIRE_HOSTED_UI_PARITY_E2E === "1";
 const serverInstanceId = process.env.EMPIRE_UI_PARITY_SERVER_ID || "";
 
 async function openAvailableServerOffer(page) {
+  await expect.poll(
+    () => page.evaluate(() => {
+      const readModel = window.EmpireGameplaySliceClient?.getCurrentReadModel?.()
+        || window.empireStreetsGameplaySliceReadModel
+        || null;
+      return readModel?.player?.cityEvents?.agents?.some((agent) => (
+        agent.offers?.some((offer) => offer.canStart === true)
+      )) === true;
+    }),
+    {
+      message: "A current server offer must arrive through authoritative polling",
+      timeout: 45_000
+    }
+  ).toBe(true);
   const agents = page.locator(".events-agent");
   for (let index = 0; index < await agents.count(); index += 1) {
     const agent = agents.nth(index);

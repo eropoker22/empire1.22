@@ -586,6 +586,10 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     pauseButton.type = "button";
     pauseButton.dataset.factorySlotToggleState = "stop";
     pauseButton.textContent = "Zrušit";
+    pauseButton.setAttribute(
+      "aria-label",
+      `Zrušit čekající výrobu ${serverLine?.label || slotView.title || slot.resourceKey || ""}`
+    );
     pauseButton.disabled = serverLine
       ? !serverLine.canCancelWaiting
       : Math.max(0, Math.floor(Number(slot.queuedAmount ?? slotView.queuedAmount ?? 0)))

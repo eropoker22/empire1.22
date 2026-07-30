@@ -122,4 +122,27 @@ describe("district popup modal helpers", () => {
     hideDistrictPopupModal(districtPopup);
     document.body.innerHTML = "";
   });
+
+  it("allows an intentional handoff from a district sheet to a building modal", () => {
+    const districtPopup = document.createElement("div");
+    const buildingModal = document.createElement("div");
+    const buildingTrigger = document.createElement("button");
+    districtPopup.setAttribute("data-district-popup", "");
+    buildingModal.hidden = true;
+    buildingTrigger.addEventListener("click", () => {
+      openOverlay(buildingModal, { skipFocus: true });
+    });
+    document.body.append(districtPopup, buildingModal, buildingTrigger);
+
+    showDistrictPopupModal(districtPopup);
+    hideDistrictPopupModal(districtPopup, { suppressMapInput: false });
+    buildingTrigger.click();
+
+    expect(buildingModal.hidden).toBe(false);
+    expect(getTopOverlay()?.element).toBe(buildingModal);
+
+    buildingModal.hidden = true;
+    closeOverlay(buildingModal, { restoreFocus: false, suppressMapInput: false });
+    document.body.innerHTML = "";
+  });
 });

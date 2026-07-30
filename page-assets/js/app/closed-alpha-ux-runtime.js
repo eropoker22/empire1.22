@@ -58,9 +58,19 @@ const ensureShell = () => {
   setupStreetNewsFilters();
 };
 
-const showConfirmation = ({ kicker = "POTVRZENÍ", title, body, confirmLabel = "Potvrdit", cancelVisible = true, trigger, onConfirm }) => {
+const showConfirmation = ({
+  kicker = "POTVRZENÍ",
+  title,
+  body,
+  confirmLabel = "Potvrdit",
+  cancelVisible = true,
+  trigger,
+  onConfirm,
+  kind = "action"
+}) => {
   const modal = document.querySelector("[data-shared-confirmation]");
   if (!modal) return;
+  modal.dataset.sharedConfirmationKind = kind;
   modal.querySelector("[data-shared-confirmation-kicker]").textContent = kicker;
   modal.querySelector("[data-shared-confirmation-title]").textContent = title;
   modal.querySelector("[data-shared-confirmation-body]").textContent = body;
@@ -88,18 +98,31 @@ const renderConnection = () => {
   element.dataset.connectionStatus = connectionState;
   element.textContent = CONNECTION_LABELS[connectionState] || CONNECTION_LABELS.server_unavailable;
   window.empireStreetsGameplayConnectionState = connectionState;
+  if (connectionState === "connected") {
+    const modal = document.querySelector("[data-shared-confirmation]");
+    if (modal?.dataset.sharedConfirmationKind === "connection") {
+      closeSharedModal(modal, "connection-restored");
+      delete modal.dataset.sharedConfirmationKind;
+    }
+    shownConnectionNotice = null;
+  }
   if (["session_expired", "server_unavailable"].includes(connectionState) && shownConnectionNotice !== connectionState) {
-    shownConnectionNotice = connectionState;
-    queueMicrotask(() => showConfirmation({
-      kicker: "PŘIPOJENÍ",
-      title: CONNECTION_LABELS[connectionState],
-      body: connectionState === "session_expired"
-        ? "Relace vypršela. Obnov přihlášení."
-        : "Server teď není dostupný. Herní akce zůstávají uzamčené.",
-      confirmLabel: "Zavřít",
-      cancelVisible: false,
-      onConfirm: () => {}
-    }));
+    const noticeState = connectionState;
+    shownConnectionNotice = noticeState;
+    queueMicrotask(() => {
+      if (connectionState !== noticeState) return;
+      showConfirmation({
+        kicker: "PŘIPOJENÍ",
+        title: CONNECTION_LABELS[noticeState],
+        body: noticeState === "session_expired"
+          ? "Relace vypršela. Obnov přihlášení."
+          : "Server teď není dostupný. Herní akce zůstávají uzamčené.",
+        confirmLabel: "Zavřít",
+        cancelVisible: false,
+        onConfirm: () => {},
+        kind: "connection"
+      });
+    });
   }
 };
 
@@ -172,7 +195,7 @@ const normalizeConnection = (detail = {}) => {
   const message = String(detail.lastErrorMessage || "").toLowerCase();
   if (/session|relace|401|unauthorized/.test(message)) return "session_expired";
   if (/conflict|version/.test(message)) return "conflict";
-  if (detail.status === "ready") return "connected";
+  if (detail.status === "ready" || detail.status === "connected") return "connected";
   if (detail.status === "loading" || detail.status === "idle") return "reconnecting";
   if (detail.status === "stale" || detail.staleData) return latestSlice ? "stale" : "server_unavailable";
   if (detail.status === "offline") return "offline";

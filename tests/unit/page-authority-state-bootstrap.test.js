@@ -127,6 +127,22 @@ describe("authority state bootstrap", () => {
     expect(restored.production.jobs["druglab:meth"]).toMatchObject(productionJob);
   });
 
+  it("does not persist preview state in server-authoritative mode without a legacy server session", async () => {
+    window.__EMPIRE_GAMEPLAY_EXECUTION_MODE__ = "server-authoritative";
+    const setItem = vi.spyOn(window.localStorage, "setItem");
+    const authorityState = await import("../../page-assets/js/app/model/authority-state.js");
+
+    authorityState.updateStoredPreviewSession((session) => ({
+      ...session,
+      economy: {
+        ...session.economy,
+        cleanMoney: 999999
+      }
+    }));
+
+    expect(setItem).not.toHaveBeenCalled();
+  });
+
   it("migrates legacy Factory slots and supplies to canonical jobs exactly once", async () => {
     window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
       inventory: {
