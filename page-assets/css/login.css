@@ -85,7 +85,6 @@ body.login-body::after {
   background:
     linear-gradient(180deg, rgba(2, 5, 11, 0.03), rgba(2, 4, 9, 0.18)),
     url("../../img/tapeta2.png") center / cover no-repeat,
-    url("../../img/loginmenu.png") center / cover no-repeat,
     radial-gradient(circle at 50% 35%, rgba(var(--cyan-rgb), 0.12), transparent 36%),
     linear-gradient(120deg, #02040a 0%, #07111f 54%, #02030a 100%);
 }

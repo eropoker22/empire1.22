@@ -9,7 +9,7 @@
   overflow-x: hidden;
   background:
     linear-gradient(180deg, rgba(4, 7, 14, 0.82), rgba(4, 7, 14, 0.94)),
-    url("../../img/loginmob.jpeg") center/cover fixed;
+    url("../../img/tapeta2.png") center/cover fixed;
 }
 
 .auth-body--war::before {
@@ -970,7 +970,7 @@ body.servers-page.auth-body--login {
   background:
     linear-gradient(120deg, rgba(2, 6, 12, 0.94), rgba(6, 12, 24, 0.72) 48%, rgba(2, 6, 12, 0.96)),
     linear-gradient(180deg, rgba(2, 6, 12, 0.28), rgba(2, 6, 12, 0.86)),
-    url("../../img/loginmob.jpeg") center / cover fixed;
+    url("../../img/tapeta2.png") center / cover fixed;
 }
 
 body.servers-page.auth-body--war::before {
