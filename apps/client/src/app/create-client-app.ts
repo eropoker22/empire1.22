@@ -47,11 +47,13 @@ export const createClientApp = ({ transport, onStateRecompute }: CreateClientApp
   return createClientAppShell({
     load: async (request) => {
       const operationSequence = responseCommitter.issueOperation();
-      store.setConnectionState({
-        status: "connecting",
-        lastErrorMessage: null,
-        staleData: false
-      });
+      if (!store.getReadModel().gameplaySlice) {
+        store.setConnectionState({
+          status: "connecting",
+          lastErrorMessage: null,
+          staleData: false
+        });
+      }
 
       try {
         const response = await transport.load(request);

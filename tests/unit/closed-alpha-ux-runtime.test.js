@@ -27,5 +27,8 @@ describe("closed alpha UX runtime", () => {
     expect(source).toContain(
       'if (detail.status === "ready" || detail.status === "connected") return "connected";'
     );
+    expect(source).toContain(
+      'if (["loading", "idle", "connecting", "reconnecting"].includes(detail.status)) return "reconnecting";'
+    );
   });
 });

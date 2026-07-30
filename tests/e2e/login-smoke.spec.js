@@ -124,8 +124,8 @@ test.describe("login smoke", () => {
         pointerEvents: style.pointerEvents
       };
     });
-    expect(foregroundStyle.display).toBe("block");
-    expect(foregroundStyle.maskImage).toContain("tapetamobil-character-mask.svg");
+    expect(foregroundStyle.display).toBe("none");
+    expect(foregroundStyle.maskImage).toBe("none");
     expect(foregroundStyle.pointerEvents).toBe("none");
     await expect(page.getByTestId("guest-login-button")).toBeVisible();
     await Promise.all([

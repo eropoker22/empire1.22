@@ -202,6 +202,7 @@ export async function waitForHostedLobbyGame(page) {
   await expect(page.locator("#game-root")).toHaveAttribute("aria-busy", "true");
   await expect(page.locator("[data-game-authority-gate]")).toHaveAttribute("aria-hidden", "false");
   await expect(page.locator("[data-game-authority-status]")).toHaveText("SERVER ČEKÁ NA START");
+  await dismissBlockingGameOverlays(page);
 }
 
 async function waitForHostedGameShell(page, lifecycleStatus) {

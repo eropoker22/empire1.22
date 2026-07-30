@@ -20,6 +20,10 @@ import {
   sharedCitySpawnDistrictIds
 } from "./gameplay-slice-shared-city-seed";
 import { removeDisabledDevBountyDemoTargets } from "./gameplay-slice-demo-target-cleanup";
+import {
+  resolveGameplaySliceStartingBalances,
+  resolveGameplaySliceStartingPopulation
+} from "./gameplay-slice-starting-state";
 
 export interface GameplaySliceMembershipRequest {
   serverInstanceId: ServerInstanceId;
@@ -44,14 +48,18 @@ export const addPlayerToGameplaySliceState = (
   ensureSharedCityMap(state, request.serverInstanceId, { buildSlotLimit: config.balance.buildSlotLimit,
     productionBuildings: config.balance.productionBuildings ?? {}, robbery: config.balance.conflict?.robbery });
 
-  const player = createPlayer(request, factionId);
+  const player = createPlayer(
+    request,
+    factionId,
+    resolveGameplaySliceStartingPopulation(config.balance.startingResources, request.startingPlayerState)
+  );
 
   state.playersById[player.id] = player;
   state.resourceStatesById[player.resourceStateId] = createResourceState(
     player.resourceStateId,
     "player",
     player.id,
-    resolveStartingBalances(config.balance.startingResources, request.startingPlayerState)
+    resolveGameplaySliceStartingBalances(config.balance.startingResources, request.startingPlayerState)
   );
   state.playerSpyOperationStatesByPlayerId ??= {};
   state.playerSpyOperationStatesByPlayerId[player.id] = createPlayerSpyOperationState(player.id);
@@ -66,7 +74,8 @@ export const addPlayerToGameplaySliceState = (
 
 const createPlayer = (
   request: GameplaySliceMembershipRequest,
-  factionId: PlayerFactionId
+  factionId: PlayerFactionId,
+  population: number
 ): Player => ({
   id: request.playerId,
   accountId: `account:${request.playerId}`,
@@ -77,6 +86,7 @@ const createPlayer = (
   status: "active",
   allianceId: null,
   homeDistrictId: null,
+  population,
   attackLoadout: request.startingPlayerState
     ? Object.fromEntries(ATTACK_WEAPON_IDS.map((weaponId) => [
         weaponId,
@@ -101,17 +111,6 @@ const createResourceState = (
   ownerId: string,
   balances: Record<string, number>
 ): ResourceState => ({ id, ownerType, ownerId, balances: { ...balances }, incomeModifiers: {}, lastUpdatedTick: 0, version: 1 });
-
-const resolveStartingBalances = (
-  defaults: Record<string, number>,
-  startingPlayerState?: HostedStartingPlayerStateView
-): Record<string, number> => startingPlayerState ? {
-  ...defaults,
-  ...startingPlayerState.materials,
-  cash: startingPlayerState.cleanCash,
-  "dirty-cash": startingPlayerState.dirtyCash,
-  population: startingPlayerState.population
-} : { ...defaults };
 
 const appendUnique = <TValue>(target: TValue[], value: TValue): void => {
   if (!target.includes(value)) target.push(value);
@@ -181,13 +180,14 @@ const ensureDevBountyDemoTarget = (
     return false;
   }
   const config = resolveModeConfig(request.mode);
+  const startingPopulation = resolveGameplaySliceStartingPopulation(config.balance.startingResources);
   const targetPlayer: Player = {
     ...createPlayer({
       ...request,
       playerId: target.playerId,
       districtId: targetDistrict.id,
       factionId: target.factionId
-    }, target.factionId),
+    }, target.factionId, startingPopulation),
     name: target.name,
     color: target.color,
     homeDistrictId: targetDistrict.id,
@@ -202,7 +202,7 @@ const ensureDevBountyDemoTarget = (
     targetPlayer.resourceStateId,
     "player",
     targetPlayer.id,
-    config.balance.startingResources
+    resolveGameplaySliceStartingBalances(config.balance.startingResources)
   );
   state.policeStatesById[targetPlayer.policeStateId] = createPlayerPoliceState(targetPlayer, state.root.tick);
   state.districtsById[targetDistrict.id] = {

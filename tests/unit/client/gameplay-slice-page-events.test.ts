@@ -140,6 +140,7 @@ const createRoot = (): HTMLElement => {
 
 describe("gameplay slice page event guard", () => {
   afterEach(() => {
+    vi.useRealTimers();
     while (isOverlayOpen()) {
       closeOverlay("test:cleanup");
     }
@@ -211,6 +212,54 @@ describe("gameplay slice page event guard", () => {
     expect(isOverlayOpen()).toBe(false);
 
     document.removeEventListener("empire:gameplay-slice-rendered", rendered);
+    mounted?.destroy();
+  });
+
+  it("polls the requested district while its selection response is pending", async () => {
+    vi.useFakeTimers();
+    const requests: LoadGameplaySliceRequest[] = [];
+    let resolveSelection!: (response: GameplaySliceResponse) => void;
+    const load = vi.fn(async (request: LoadGameplaySliceRequest) => {
+      requests.push({ ...request });
+      if (requests.length === 1) {
+        return createGameplaySliceResponse();
+      }
+      if (requests.length === 2) {
+        return new Promise<GameplaySliceResponse>((resolve) => {
+          resolveSelection = resolve;
+        });
+      }
+      return createGameplaySliceResponseForDistrict(request.districtId || "district:spawn:1");
+    });
+    const root = createRoot();
+    root.dataset.gameplaySlicePolling = "true";
+    root.dataset.gameplaySlicePollingIntervalMs = "10";
+    document.body.append(root);
+
+    const mounted = mountGameplaySlicePage({
+      root,
+      presentationMode: "controller-only",
+      transport: {
+        load,
+        send: async () => createGameplaySliceResponse()
+      }
+    });
+    await flushMicrotasks();
+
+    const selection = window.EmpireGameplaySliceClient?.selectDistrict("district:map:2");
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(10);
+    await flushMicrotasks();
+
+    expect(requests.slice(1).map((request) => request.districtId)).toEqual([
+      "district:map:2",
+      "district:map:2"
+    ]);
+
+    resolveSelection(createGameplaySliceResponseForDistrict("district:map:2"));
+    await selection;
+    expect(window.EmpireGameplaySliceClient?.getCurrentReadModel()?.district?.districtId)
+      .toBe("district:map:2");
     mounted?.destroy();
   });
 

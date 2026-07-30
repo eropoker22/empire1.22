@@ -180,6 +180,33 @@ describe("event rumor bridge", () => {
     expect(districtList.children).toHaveLength(1);
   });
 
+  it("reads authoritative city feed nested in the gameplay slice", () => {
+    const document = new FakeDocument();
+    const root = new FakeElement("main");
+    const bridge = createEventRumorBridge({
+      root,
+      documentRef: document,
+      getState: () => ({
+        gameplaySlice: {
+          cityFeed: {
+            currentPlayerFeed: [{
+              id: "city-feed:hosted",
+              sourceEventId: "hosted:1",
+              sourceType: "building_action",
+              category: "rumor",
+              districtId: "district:4",
+              createdAtTick: 12,
+              message: "Serverový drb"
+            }],
+            globalCityFeed: []
+          }
+        }
+      })
+    });
+
+    expect(bridge.getEvents().map((event) => event.id)).toContain("city-feed:hosted");
+  });
+
   it("preserves popup fallback gossip when the server feed has no district match", () => {
     const document = new FakeDocument();
     const root = new FakeElement("main");

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { canSubmitServerGameplayCommand } from "../../page-assets/js/app/runtime/serverCommandAuthorityGuard.js";
+import {
+  canReadServerGameplayProjection,
+  canSubmitServerGameplayCommand
+} from "../../page-assets/js/app/runtime/serverCommandAuthorityGuard.js";
 
 describe("server command authority guard", () => {
   it("prevents onboarding sandbox actions from changing a server snapshot", () => {
@@ -25,6 +28,34 @@ describe("server command authority guard", () => {
       hasValidatedGameplaySlice: true,
       executionMode: "server-authoritative"
     })).toBe(true);
+  });
+
+  it("keeps an authoritative lobby projection readable while commands remain locked", () => {
+    const options = {
+      onboardingSandboxActive: false,
+      documentAvailable: true,
+      hasValidatedGameplaySlice: true,
+      executionMode: "server-authoritative"
+    };
+
+    expect(canReadServerGameplayProjection(options)).toBe(true);
+    expect(canSubmitServerGameplayCommand({
+      ...options,
+      hasValidatedGameplaySlice: false
+    })).toBe(false);
+  });
+
+  it.each([
+    ["onboarding sandbox", { onboardingSandboxActive: true }],
+    ["missing slice", { hasValidatedGameplaySlice: false }],
+    ["local demo", { executionMode: "local-demo" }]
+  ])("does not expose a server projection for %s", (_label, override) => {
+    expect(canReadServerGameplayProjection({
+      onboardingSandboxActive: false,
+      hasValidatedGameplaySlice: true,
+      executionMode: "server-authoritative",
+      ...override
+    })).toBe(false);
   });
 
   it.each([

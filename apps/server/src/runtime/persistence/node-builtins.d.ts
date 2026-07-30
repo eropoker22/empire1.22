@@ -35,6 +35,17 @@ declare module "node:fs/promises" {
 }
 
 declare module "node:http" {
+  export interface AgentOptions {
+    keepAlive?: boolean;
+    maxSockets?: number;
+    maxFreeSockets?: number;
+  }
+  export class Agent {
+    constructor(options?: AgentOptions);
+    readonly keepAlive: boolean;
+    maxSockets: number;
+    maxFreeSockets: number;
+  }
   export interface IncomingMessage {
     url?: string;
     method?: string;
@@ -53,6 +64,20 @@ declare module "node:http" {
     close(callback: () => void): void;
   }
   export function createServer(handler: (request: IncomingMessage, response: ServerResponse) => void): Server;
+}
+
+declare module "node:https" {
+  export interface AgentOptions {
+    keepAlive?: boolean;
+    maxSockets?: number;
+    maxFreeSockets?: number;
+  }
+  export class Agent {
+    constructor(options?: AgentOptions);
+    readonly keepAlive: boolean;
+    maxSockets: number;
+    maxFreeSockets: number;
+  }
 }
 
 declare module "node:child_process" {

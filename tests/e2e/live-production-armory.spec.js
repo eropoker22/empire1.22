@@ -5,16 +5,18 @@ defineHostedProductionParityTest({
   identityPrefix: "LiveArmory",
   label: "Armory",
   spawnDistrictIds: [
-    "district:23",
+    "district:6",
+    "district:38",
+    "district:41",
+    "district:50",
+    "district:59",
+    "district:64",
     "district:68",
-    "district:73",
-    "district:89",
-    "district:94",
-    "district:134",
-    "district:139",
-    "district:153",
-    "district:155",
-    "district:161"
+    "district:70",
+    "district:75",
+    "district:77",
+    "district:84",
+    "district:109"
   ],
   surfaceName: "armory"
 });

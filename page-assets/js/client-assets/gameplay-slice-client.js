@@ -2028,9 +2028,10 @@ var EmpireGameplaySliceClient = function(exports) {
           commandId,
           responseErrors.length
         )) {
+          const currentRenderState = options.getRenderState();
           options.store.setConnectionState({ status: "ready", lastErrorMessage: null, staleData: false });
           markCommitted(operationSequence);
-          return options.getRenderState();
+          return currentRenderState.connection.status === "ready" && currentRenderState.connection.lastErrorMessage === null && currentRenderState.connection.staleData === false ? currentRenderState : options.recomputeRenderState("server-slice-connection-restored");
         }
         if (response.readModel) {
           const serverSelectedDistrictId = ((_a = response.readModel.district) == null ? void 0 : _a.districtId) ?? response.readModel.player.homeDistrictId ?? selectedDistrictId ?? null;
@@ -2914,11 +2915,13 @@ var EmpireGameplaySliceClient = function(exports) {
     return createClientAppShell({
       load: async (request) => {
         const operationSequence = responseCommitter.issueOperation();
-        store.setConnectionState({
-          status: "connecting",
-          lastErrorMessage: null,
-          staleData: false
-        });
+        if (!store.getReadModel().gameplaySlice) {
+          store.setConnectionState({
+            status: "connecting",
+            lastErrorMessage: null,
+            staleData: false
+          });
+        }
         try {
           const response = await transport.load(request);
           return responseCommitter.commitResponse(response, request.districtId, void 0, operationSequence);
@@ -3500,8 +3503,30 @@ var EmpireGameplaySliceClient = function(exports) {
       transport: options.transport ?? createFetchClientTransport({ endpointBase }),
       onStateRecompute: recordClientStateRecompute
     });
+    let currentLoadRequest = request;
+    const selectDistrictWithPollingFocus = (districtId) => {
+      currentLoadRequest = {
+        ...currentLoadRequest,
+        districtId
+      };
+      const selection = client.selectDistrict(districtId);
+      void selection.then(() => {
+        var _a, _b;
+        const confirmedDistrictId = (_b = (_a = client.getGameplaySlice()) == null ? void 0 : _a.district) == null ? void 0 : _b.districtId;
+        if (confirmedDistrictId && confirmedDistrictId !== districtId) {
+          currentLoadRequest = {
+            ...currentLoadRequest,
+            districtId: confirmedDistrictId
+          };
+        }
+      });
+      return selection;
+    };
     const router = createClientSurfaceActionRouter({
-      client,
+      client: {
+        ...client,
+        selectDistrict: selectDistrictWithPollingFocus
+      },
       createCommandId: createBrowserCommandId
     });
     const presentationMode = options.presentationMode || (options.root.dataset.gameplaySlicePresentationMode === "controller-only" ? "controller-only" : "full");
@@ -3509,7 +3534,6 @@ var EmpireGameplaySliceClient = function(exports) {
     options.root.dataset.gameplaySlicePresentationMode = presentationMode;
     const mounts = resolveGameplaySliceMounts(options.root);
     const selectiveRenderer = createGameplaySliceSelectiveRenderer();
-    let currentLoadRequest = request;
     const districtSheetOverlay = ownsVisiblePresentation ? createDistrictSheetOverlayController() : null;
     let pointerOrigin = null;
     let lastPointerTapIsValid = true;
@@ -3703,7 +3727,7 @@ var EmpireGameplaySliceClient = function(exports) {
         pendingDistrictSelection = { districtId: action.districtId };
         if (isDistrictOpen) {
           try {
-            const nextState2 = await client.selectDistrict(action.districtId);
+            const nextState2 = await selectDistrictWithPollingFocus(action.districtId);
             if (nextState2) {
               event.preventDefault();
               event.stopPropagation();
@@ -3804,7 +3828,7 @@ var EmpireGameplaySliceClient = function(exports) {
       getCurrentReadModel: () => client.getGameplaySlice(),
       getCurrentRenderState: () => client.getRenderState(),
       handleSurfaceAction: (target) => router.handleTarget(target),
-      selectDistrict: (districtId) => client.selectDistrict(districtId),
+      selectDistrict: selectDistrictWithPollingFocus,
       submitCommand: (command) => client.dispatch(command),
       applyState: (state, reason) => {
         recordGameplaySliceRefresh(client.getGameplaySlice());

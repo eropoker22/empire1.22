@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  createHostedGameApiProxyOptions,
   GAME_DEV_WATCH_IGNORED,
   resolveHostedGameApiOrigin
 } from "../../vite.game.config";
@@ -40,5 +41,19 @@ describe("game Vite hosted API proxy", () => {
     expect(() => resolveHostedGameApiOrigin({
       EMPIRE_VITE_HOSTED_API_ORIGIN: "file:///tmp/hosted-api"
     })).toThrow(/exact HTTP\(S\) origin/u);
+  });
+
+  it("reuses upstream sockets instead of exhausting Windows ephemeral ports", () => {
+    const proxy = createHostedGameApiProxyOptions("http://127.0.0.1:8787");
+    const agent = proxy.agent as {
+      keepAlive?: boolean;
+      maxSockets?: number;
+      maxFreeSockets?: number;
+    };
+
+    expect(proxy.target).toBe("http://127.0.0.1:8787");
+    expect(agent.keepAlive).toBe(true);
+    expect(agent.maxSockets).toBe(32);
+    expect(agent.maxFreeSockets).toBe(8);
   });
 });

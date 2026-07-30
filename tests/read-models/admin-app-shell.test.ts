@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError, type AdminApiClient } from "../../apps/admin/src/app/admin-monitoring-client";
 import { createAdminApp } from "../../apps/admin/src/app/create-admin-app";
 import { renderDashboard, renderUnavailable } from "../../apps/admin/src/app/read-only-admin-page";
-import { FREE_HOSTED_SERVER_LIFECYCLE_POLICY, resolveModeConfig } from "@empire/game-config";
+import {
+  FREE_HOSTED_SERVER_LIFECYCLE_POLICY,
+  FREE_HOSTED_STARTING_PLAYER_STATE,
+  resolveModeConfig
+} from "@empire/game-config";
 import type { AdminHostedServerView, AdminInstanceDetailView, AdminInstanceSummaryView, AdminOverviewView, AdminSessionView } from "@empire/shared-types";
 
 const BUILD_SHA = "admin-test-build";
@@ -360,6 +364,30 @@ describe("read-only admin app", () => {
     expect(document.body.textContent).toContain("2 / 2");
     expect(document.body.textContent).toContain("PŘIPRAVENO");
     expect(document.querySelector<HTMLButtonElement>('[data-admin-lifecycle="start"]')?.disabled).toBe(false);
+  });
+
+  it("renders the persisted starting state from the selected server projection", () => {
+    document.body.innerHTML = renderHosted(hostedServer({
+      startingPlayerState: {
+        cleanCash: 123_456,
+        dirtyCash: 23_456,
+        population: 345,
+        spySlots: 2,
+        materials: Object.fromEntries(
+          Object.keys(FREE_HOSTED_STARTING_PLAYER_STATE.materials)
+            .map((materialId, index) => [materialId, index * 11])
+        ) as typeof FREE_HOSTED_STARTING_PLAYER_STATE.materials
+      }
+    }));
+
+    const startingState = document.querySelector("[data-admin-starting-state]");
+    expect(startingState?.textContent).toContain("Starting state uložený na serveru");
+    expect(startingState?.textContent).toContain("Clean cash123456");
+    expect(startingState?.textContent).toContain("Dirty cash23456");
+    expect(startingState?.textContent).toContain("Populace345");
+    expect(startingState?.textContent).toContain("Špehové2");
+    expect(startingState?.textContent).toContain("Chemicals: 0");
+    expect(startingState?.textContent).toContain("Alarm: 220");
   });
 
   it("sends only registrationOpensAt when scheduling", async () => {
@@ -753,7 +781,9 @@ const hostedServer = (overrides: Partial<AdminHostedServerView> = {}): AdminHost
   readyPlayers: 0, registrationState: "not_scheduled", registrationRemainingMs: 0,
   registrationReasonCode: "SERVER_REGISTRATION_NOT_SCHEDULED", canStart: false,
   startDisabledReason: "Registrace na server ještě nezačala.", joinable: false,
-  disabledReason: "SERVER_REGISTRATION_NOT_SCHEDULED", ...overrides
+  disabledReason: "SERVER_REGISTRATION_NOT_SCHEDULED",
+  startingPlayerState: FREE_HOSTED_STARTING_PLAYER_STATE,
+  ...overrides
 });
 
 const controlPlane = (server: AdminHostedServerView) => ({

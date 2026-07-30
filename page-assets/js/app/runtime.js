@@ -839,7 +839,10 @@ import {
   createServerDistrictSelectionCoordinator,
   toCanonicalServerDistrictId
 } from "./runtime/serverDistrictSelectionCoordinator.js";
-import { resolveServerSpyDistrictRoute } from "./runtime/serverDistrictActionRoute.js";
+import {
+  resolveServerDistrictActionTarget,
+  resolveServerSpyDistrictRoute
+} from "./runtime/serverDistrictActionRoute.js";
 import {
   findServerBuildingByType,
   getServerBuildingShortcutCandidateDistrictIds
@@ -981,7 +984,10 @@ import {
   GAMEPLAY_EXECUTION_MODES,
   getGameplayExecutionMode
 } from "./runtime/gameplayExecutionMode.js";
-import { canSubmitServerGameplayCommand } from "./runtime/serverCommandAuthorityGuard.js";
+import {
+  canReadServerGameplayProjection,
+  canSubmitServerGameplayCommand
+} from "./runtime/serverCommandAuthorityGuard.js";
 // Legacy static-page preview runtime; browser-local only when no server authority is present.
 const BUILDING_ACTION_LOG_LIMIT = 30;
 const MONEY_STAT_COUNT_TICK_MS = 26;
@@ -997,25 +1003,41 @@ const attackMissionTimers = new Map();
 const occupyMissionTimers = new Map();
 const robberyMissionTimers = new Map();
 
-function hasValidatedServerGameplaySlice() {
+function hasValidatedServerGameplayProjection() {
+  const currentSlice = getServerGameplaySliceReadModel();
   return Boolean(
-    latestGameplaySliceReadModel?.player?.playerId
-    && latestGameplaySliceReadModel?.player?.instanceId
-    && latestGameplaySliceReadModel?.server?.status === "running"
+    currentSlice?.player?.playerId
+    && currentSlice?.player?.instanceId
   );
 }
 
-function isServerAuthoritativeGameplayRuntimeReady() {
-  const selectedMode = getGameplayExecutionMode({
+function getSelectedGameplayExecutionMode() {
+  return getGameplayExecutionMode({
     diagnosticsMode: getRuntimePerformanceDiagnostics()?.getSummary?.().runtimeMode,
     serverReady: false,
     windowRef: typeof window === "undefined" ? null : window
   });
+}
+
+function hasValidatedRunningServerGameplaySlice() {
+  return hasValidatedServerGameplayProjection()
+    && latestGameplaySliceReadModel?.server?.status === "running";
+}
+
+function hasServerAuthoritativeGameplayProjection() {
+  return canReadServerGameplayProjection({
+    onboardingSandboxActive: isOnboardingSandboxActive(),
+    hasValidatedGameplaySlice: hasValidatedServerGameplayProjection(),
+    executionMode: getSelectedGameplayExecutionMode()
+  });
+}
+
+function isServerAuthoritativeGameplayRuntimeReady() {
   return canSubmitServerGameplayCommand({
     onboardingSandboxActive: isOnboardingSandboxActive(),
     documentAvailable: typeof document !== "undefined",
-    hasValidatedGameplaySlice: hasValidatedServerGameplaySlice(),
-    executionMode: selectedMode
+    hasValidatedGameplaySlice: hasValidatedRunningServerGameplaySlice(),
+    executionMode: getSelectedGameplayExecutionMode()
   });
 }
 const spyMissionTimers = new Map();
@@ -1139,7 +1161,7 @@ function getServerMarketReadModel() {
 }
 
 function getServerPlayerView() {
-  return isServerAuthoritativeGameplayRuntimeReady()
+  return hasServerAuthoritativeGameplayProjection()
     ? latestGameplaySliceReadModel?.player || null
     : null;
 }
@@ -1428,7 +1450,11 @@ async function submitServerBuildingSurfaceAction(surfaceDataset = {}, inputValue
 }
 
 export function getServerGameplaySliceReadModel() {
-  return getCanonicalServerGameplaySliceReadModel() || latestGameplaySliceReadModel;
+  const currentSlice = getCanonicalServerGameplaySliceReadModel();
+  if (currentSlice) {
+    latestGameplaySliceReadModel = currentSlice;
+  }
+  return latestGameplaySliceReadModel;
 }
 
 function submitServerCityEventCommand({ action, id } = {}) {
@@ -2043,10 +2069,10 @@ function getFactorySupplyKeyForMaterial(itemId) {
 const {
   createWeaponInventoryFromFaction,
   getResolvedDrugInventory: getLegacyResolvedDrugInventory,
-  getResolvedEconomyState,
+  getResolvedEconomyState: getLegacyResolvedEconomyState,
   getResolvedMaterialInventory: getLegacyResolvedMaterialInventory,
   getResolvedProductionState,
-  getResolvedSpyIntel,
+  getResolvedSpyIntel: getLegacyResolvedSpyIntel,
   getResolvedSpyState: getLegacyResolvedSpyState,
   getSpyMissionExpiryTimestamp,
   getSpyMissionPhase,
@@ -2087,6 +2113,29 @@ const {
 });
 
 function getResolvedSpyState() {
+  if (hasServerAuthoritativeGameplayProjection()) {
+    const district = latestGameplaySliceReadModel?.district || null;
+    const targetCollections = [
+      district?.targetActions?.spyTargets,
+      district?.spyTargets
+    ];
+    const target = targetCollections
+      .flatMap((entries) => Array.isArray(entries) ? entries : [])
+      .find((entry) => Array.isArray(entry?.slots)) || null;
+    const currentTick = Math.max(0, Number(latestGameplaySliceReadModel?.server?.currentTick ?? 0));
+    const slots = Array.isArray(target?.slots) ? target.slots : [];
+    return {
+      available: slots.length > 0
+        ? slots.filter((slot) => slot?.available === true || Number(slot?.availableAtTick ?? 0) <= currentTick).length
+        : 0,
+      missions: slots
+        .filter((slot) => slot?.lastMissionId && Number(slot?.availableAtTick ?? 0) > currentTick)
+        .map((slot) => ({
+          id: String(slot.lastMissionId),
+          availableAtTick: Number(slot.availableAtTick)
+        }))
+    };
+  }
   const state = getLegacyResolvedSpyState();
   if (!isOnboardingSandboxActive()) {
     return state;
@@ -2099,8 +2148,32 @@ function getResolvedSpyState() {
   };
 }
 
-function getServerPlayerResourceBalances() {
+function getResolvedSpyIntel() {
   if (!isServerAuthoritativeGameplayRuntimeReady()) {
+    return getLegacyResolvedSpyIntel();
+  }
+  const district = latestGameplaySliceReadModel?.district || null;
+  const districtNumber = Number.parseInt(
+    String(district?.districtId || "").replace(/^district:/u, ""),
+    10
+  );
+  const hasDistrict = Number.isFinite(districtNumber) && districtNumber > 0;
+  const occupyTargets = Array.isArray(district?.targetActions?.occupyTargets)
+    ? district.targetActions.occupyTargets
+    : [];
+  return {
+    occupiableDistrictIds: hasDistrict && occupyTargets.some(
+      (target) => String(target?.districtId || "") === String(district?.districtId || "")
+    )
+      ? [districtNumber]
+      : [],
+    revealedTypeDistrictIds: hasDistrict && district?.intelKnown === true ? [districtNumber] : [],
+    revealedDefenseDistrictIds: hasDistrict && district?.intelKnown === true ? [districtNumber] : []
+  };
+}
+
+function getServerPlayerResourceBalances() {
+  if (!hasServerAuthoritativeGameplayProjection()) {
     return null;
   }
   const player = latestGameplaySliceReadModel?.player || null;
@@ -2108,8 +2181,28 @@ function getServerPlayerResourceBalances() {
   return balances && typeof balances === "object" ? balances : null;
 }
 
+function getResolvedEconomyState() {
+  const player = hasServerAuthoritativeGameplayProjection()
+    ? latestGameplaySliceReadModel?.player || null
+    : null;
+  if (player?.economy) {
+    return {
+      cleanMoney: Math.max(0, Number(player.economy.cleanCash ?? 0)),
+      dirtyMoney: Math.max(0, Number(player.economy.dirtyCash ?? 0))
+    };
+  }
+  const balances = getServerPlayerResourceBalances();
+  if (balances) {
+    return {
+      cleanMoney: Math.max(0, Number(balances.cash ?? 0)),
+      dirtyMoney: Math.max(0, Number(balances["dirty-cash"] ?? 0))
+    };
+  }
+  return getLegacyResolvedEconomyState();
+}
+
 function getServerStorageSummary() {
-  if (!isServerAuthoritativeGameplayRuntimeReady()) {
+  if (!hasServerAuthoritativeGameplayProjection()) {
     return null;
   }
   const summary = latestGameplaySliceReadModel?.player?.storage;
@@ -2754,6 +2847,26 @@ function setStoredGangState(payload) {
 }
 
 function getResolvedGangState() {
+  const serverPlayer = hasServerAuthoritativeGameplayProjection()
+    ? latestGameplaySliceReadModel?.player || null
+    : null;
+  if (serverPlayer?.economy) {
+    const police = latestGameplaySliceReadModel?.police || serverPlayer.police || null;
+    return {
+      members: clamp(
+        Number(serverPlayer.economy.gangMembers ?? serverPlayer.economy.population ?? 0),
+        0,
+        9999
+      ),
+      influence: Math.max(0, Number(serverPlayer.economy.influence ?? 0)),
+      heat: clamp(Number(police?.heat ?? police?.playerHeat ?? 0), 0, 9999),
+      policeRaidProtectionUntil: 0,
+      autoPoliceNextActionAt: 0,
+      heatJournal: [],
+      dirtyHeatReductionTimestamps: [],
+      lastHeatDecayAt: serverPlayer.serverTime || new Date().toISOString()
+    };
+  }
   const storedState = getStoredGangState();
   const parsedMembers = Number.parseInt(String(storedState?.members ?? DEFAULT_GANG_MEMBERS), 10);
   const members = clamp(Number.isFinite(parsedMembers) ? parsedMembers : DEFAULT_GANG_MEMBERS, 0, 9999);
@@ -6671,6 +6784,9 @@ function isStartPhaseResourceSimulationActive(phaseState = getResolvedPhaseState
   if (isOnboardingSandboxActive()) {
     return false;
   }
+  if (!shouldRunLocalGameplayRuntime()) {
+    return false;
+  }
   const gamePhase = normalizeRuntimeGamePhase(phaseState?.gamePhase);
   return gamePhase === "launch" || gamePhase === "live";
 }
@@ -6761,11 +6877,6 @@ function syncCurrentPlayerDistrictCountDisplays(root, districtCount) {
 }
 
 function createStoredResourceSnapshot() {
-  if (!shouldRunLocalGameplayRuntime()) {
-    setBuildingActionFeedback(root, "warning", `${context.buildingName}: upgrade nejde`, "Lokální upgrade je dostupný jen v development režimu.", `L${mechanics.level}`);
-    return;
-  }
-
   const economy = getResolvedEconomyState();
   const influence = getResolvedGangState().influence;
   return {
@@ -8414,9 +8525,20 @@ async function collectDistrictBuildingDetailOutput(root, shell) {
   }
 
   if (context.authorityMode === "server-authoritative") {
-    const result = await submitServerBuildingSurfaceAction({
-      collectBuildingId: context.serverBuildingId
-    });
+    const collectActionId = String(
+      context.serverPresentation?.viewModel?.collect?.actionId
+      || ""
+    ).trim();
+    const result = await submitServerBuildingSurfaceAction(
+      collectActionId
+        ? {
+            buildingActionBuildingId: context.serverBuildingId,
+            buildingActionId: collectActionId
+          }
+        : {
+            collectBuildingId: context.serverBuildingId
+          }
+    );
     if (!result.accepted) {
       setBuildingActionFeedback(
         root,
@@ -13235,6 +13357,12 @@ function bindDistrictCanvas(root) {
     if (nextSlice) {
       latestGameplaySliceReadModel = nextSlice;
     }
+    if (nextSlice && hasServerAuthoritativeGameplayProjection()) {
+      applyTopbarEconomy(root, { instant: true });
+      renderGangMembersState(root);
+      renderSpyResourceState(root, { instant: true });
+      document.dispatchEvent(new CustomEvent("empire:runtime-refresh"));
+    }
     const nextSurfaceFingerprint = JSON.stringify({
       district: nextSlice?.district || null,
       reports: Array.isArray(nextSlice?.reports) ? nextSlice.reports.slice(0, 1) : []
@@ -13664,82 +13792,36 @@ function bindDistrictCanvas(root) {
           showWarning("Serverový gameplay slice není dostupný. Akce nebyla provedena.");
           return;
         }
-        const player = latestGameplaySliceReadModel?.player || {};
-        const adjacentOwnedDistrictIds = getAdjacentOwnedDistrictIds(selectedDistrict);
-        const sourceDistrictId = adjacentOwnedDistrictIds.length
-          ? `district:${adjacentOwnedDistrictIds[0]}`
-          : latestGameplaySliceReadModel?.district?.districtId || player.homeDistrictId || "";
         const targetDistrictId = `district:${selectedDistrict.id}`;
+        const heistView = resolveServerDistrictActionTarget(
+          latestGameplaySliceReadModel,
+          "heist",
+          targetDistrictId
+        );
+        if (!heistView?.enabled) {
+          showWarning(heistView?.disabledReason || "Vykradení hráče teď server nepovoluje.");
+          return;
+        }
         const corridor = latestGameplaySliceReadModel?.frontier?.corridorTargets
           ?.find((entry) => String(entry?.targetDistrictId) === targetDistrictId) || null;
-        const routedSourceDistrictId = corridor?.sourceDistrictId || sourceDistrictId;
-        const routePayload = corridor ? {
-          routeDistrictId: corridor.routeDistrictId,
-          expectedRouteVersion: corridor.routeVersion
-        } : {};
-        const districtView = latestGameplaySliceReadModel?.district || {};
-        const findTargetView = (views) => Array.isArray(views)
-          ? views.find((view) => String(view?.districtId) === targetDistrictId) || null
-          : null;
-        const heistView = findTargetView(districtView.heistTargets);
-        const robView = findTargetView(districtView.robTargets);
         const balancedHeist = heistView?.styles?.find((entry) => entry.style === "balanced") || heistView?.styles?.[0];
-        const trapRelocation = districtView.trap?.relocationSource;
-        const actionRequest = actionId === "heist"
-            ? {
-                type: "heist-district",
-                payload: {
-                  targetDistrictId,
-                  sourceDistrictId: routedSourceDistrictId,
-                  ...routePayload,
-                  style: balancedHeist?.style || "balanced",
-                  gangMembersSent: balancedHeist?.defaultGangMembersSent || balancedHeist?.minMembers || 10,
-                  expectedTargetVersion: heistView?.expectedTargetVersion,
-                  expectedSourceVersion: heistView?.expectedSourceVersion,
-                  expectedConflictRevision: heistView?.expectedConflictRevision
-                }
-              }
-            : actionId === "occupy"
-              ? {
-                  type: "occupy-district",
-                  payload: {
-                    districtId: targetDistrictId,
-                    sourceDistrictId: routedSourceDistrictId,
-                    expectedConflictRevision: findTargetView(districtView.occupyTargets)?.expectedConflictRevision,
-                    ...routePayload
-                  }
-                }
-              : actionId === "rob"
-                ? {
-                    type: "rob-district",
-                    payload: {
-                      targetDistrictId,
-                      sourceDistrictId: routedSourceDistrictId,
-                      ...routePayload,
-                      expectedTargetVersion: robView?.expectedTargetVersion,
-                      expectedSourceVersion: robView?.expectedSourceVersion,
-                      expectedConflictRevision: robView?.expectedConflictRevision
-                    }
-                  }
-                : actionId === "spy"
-                  ? { type: "spy-district", payload: { districtId: targetDistrictId, sourceDistrictId: routedSourceDistrictId, ...routePayload } }
-                  : trapRelocation?.canRelocate
-                    ? {
-                        type: "relocate-trap",
-                        payload: {
-                          trapId: trapRelocation.trapId,
-                          sourceDistrictId: trapRelocation.districtId,
-                          targetDistrictId,
-                          expectedSourceVersion: trapRelocation.expectedSourceVersion,
-                          expectedTargetVersion: trapRelocation.expectedTargetVersion,
-                          expectedTrapVersion: trapRelocation.expectedTrapVersion
-                        }
-                      }
-                    : { type: "place-trap", payload: { districtId: targetDistrictId } };
         actionButton.disabled = true;
         actionButton.dataset.serverCommandPending = "true";
         void submitServerDistrictActionCommand({
-          ...actionRequest,
+          type: "heist-district",
+          payload: {
+            targetDistrictId,
+            sourceDistrictId: corridor?.sourceDistrictId || heistView.sourceDistrictId,
+            style: balancedHeist?.style || "balanced",
+            gangMembersSent: balancedHeist?.defaultGangMembersSent || balancedHeist?.minMembers || 10,
+            expectedTargetVersion: heistView.expectedTargetVersion,
+            expectedSourceVersion: heistView.expectedSourceVersion,
+            expectedConflictRevision: heistView.expectedConflictRevision,
+            ...(corridor ? {
+              routeDistrictId: corridor.routeDistrictId,
+              expectedRouteVersion: corridor.routeVersion
+            } : {})
+          },
           focusDistrictId: targetDistrictId
         }).then((response) => {
           if (response?.accepted) {
@@ -14047,8 +14129,10 @@ function bindDistrictCanvas(root) {
       if (isServerAuthoritativeGameplayRuntimeReady()) {
         const context = getPendingAttackContext() || getPreparedAttackContext(selectedDistrict);
         const targetDistrictId = `district:${selectedDistrict.id}`;
-        const attackView = latestGameplaySliceReadModel?.district?.attackTargets?.find(
-          (view) => String(view?.districtId) === targetDistrictId
+        const attackView = resolveServerDistrictActionTarget(
+          latestGameplaySliceReadModel,
+          "attack",
+          targetDistrictId
         );
         const corridor = latestGameplaySliceReadModel?.frontier?.corridorTargets
           ?.find((entry) => String(entry?.targetDistrictId) === targetDistrictId) || null;
@@ -14057,7 +14141,9 @@ function bindDistrictCanvas(root) {
           type: "attack-district",
           payload: {
             districtId: targetDistrictId,
-            sourceDistrictId: corridor?.sourceDistrictId || `district:${context?.sourceDistrictId || ""}`,
+            sourceDistrictId: corridor?.sourceDistrictId
+              || attackView?.sourceDistrictId
+              || `district:${context?.sourceDistrictId || ""}`,
             weapons: context?.attackLoadout || {},
             expectedSourceVersion: attackView?.expectedSourceVersion,
             expectedTargetVersion: attackView?.expectedTargetVersion,
@@ -14118,20 +14204,26 @@ function bindDistrictCanvas(root) {
       }
 
       if (isServerAuthoritativeGameplayRuntimeReady()) {
-        const sourceDistrictId = robberySourceSelect instanceof HTMLSelectElement ? robberySourceSelect.value : "";
         const targetDistrictId = `district:${selectedDistrict.id}`;
-        const robView = latestGameplaySliceReadModel?.district?.robTargets?.find(
-          (view) => String(view?.districtId) === targetDistrictId
+        const robView = resolveServerDistrictActionTarget(
+          latestGameplaySliceReadModel,
+          "rob",
+          targetDistrictId
         );
+        const corridor = latestGameplaySliceReadModel?.frontier?.corridorTargets
+          ?.find((entry) => String(entry?.targetDistrictId) === targetDistrictId) || null;
         robberyConfirmFinalButton.disabled = true;
         void submitServerDistrictActionCommand({
           type: "rob-district",
           payload: {
             targetDistrictId,
-            sourceDistrictId: `district:${sourceDistrictId}`,
-            expectedTargetVersion: robView?.expectedTargetVersion,
-            expectedSourceVersion: robView?.expectedSourceVersion,
-            expectedConflictRevision: robView?.expectedConflictRevision
+            sourceDistrictId: corridor?.sourceDistrictId || robView?.sourceDistrictId,
+            expectedConflictRevision: robView?.expectedConflictRevision,
+            expectedLootPoolRevision: robView?.expectedLootPoolRevision,
+            ...(corridor ? {
+              routeDistrictId: corridor.routeDistrictId,
+              expectedRouteVersion: corridor.routeVersion
+            } : {})
           },
           focusDistrictId: targetDistrictId
         }).then((response) => {
@@ -14289,10 +14381,12 @@ function bindDistrictCanvas(root) {
         const targetDistrictId = `district:${selectedDistrict.id}`;
         const corridor = latestGameplaySliceReadModel?.frontier?.corridorTargets
           ?.find((entry) => String(entry?.targetDistrictId) === targetDistrictId) || null;
-        const sourceDistrictId = corridor?.sourceDistrictId || `district:${getAdjacentOwnedDistrictIds(selectedDistrict)[0] || ""}`;
-        const occupyView = latestGameplaySliceReadModel?.district?.occupyTargets?.find(
-          (view) => String(view?.districtId) === targetDistrictId
+        const occupyView = resolveServerDistrictActionTarget(
+          latestGameplaySliceReadModel,
+          "occupy",
+          targetDistrictId
         );
+        const sourceDistrictId = corridor?.sourceDistrictId || occupyView?.sourceDistrictId || "";
         occupyConfirmButton.disabled = true;
         void submitServerDistrictActionCommand({
           type: "occupy-district",
@@ -15141,7 +15235,11 @@ function ensureStartDistrictRecovery() {
 }
 
 function bindFreeSessionOnboarding(root) {
-  if (!root || onboardingBridgesByRoot.has(root)) {
+  if (
+    !root
+    || onboardingBridgesByRoot.has(root)
+    || getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.localDemo
+  ) {
     return false;
   }
 

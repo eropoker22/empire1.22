@@ -4,6 +4,11 @@ import {
   resolveCarDealerSupportStats
 } from "../handlers/carDealerBuildingActions";
 import {
+  getOwnedArcadeCount,
+  resolveArcadeAuditRisk,
+  resolveArcadeNetworkMultipliers
+} from "../handlers/arcadeBuildingActions";
+import {
   getOwnedSmugglingTunnelCount,
   resolveDealerSupplyStats,
   resolveOpenChannelStats,
@@ -25,6 +30,40 @@ const formatMultiplierBonus = (value: number): string =>
   `${Number(value || 1) >= 1 ? "+" : ""}${formatNumber((Number(value || 1) - 1) * 100)} %`;
 
 export const createMarketBuildingStats = (input: BuildingStatsProjectionInput): BuildingStatView[] | null => {
+  const arcadeConfig = input.dayNightConfig?.balance.arcade;
+  if (input.building.buildingTypeId === "arcade" && arcadeConfig && input.building.ownerPlayerId) {
+    const ownedCount = getOwnedArcadeCount(input.state, input.building.ownerPlayerId, arcadeConfig);
+    const network = resolveArcadeNetworkMultipliers(ownedCount, arcadeConfig);
+    const player = input.state.playersById[input.building.ownerPlayerId];
+    const playerHeat = player
+      ? Math.max(
+          0,
+          Number(
+            input.state.policeStatesById[player.policeStateId]?.heat
+            ?? input.district.heat
+            ?? 0
+          )
+        )
+      : 0;
+    const auditRisk = resolveArcadeAuditRisk({
+      config: arcadeConfig,
+      state: input.state,
+      ownerPlayerId: input.building.ownerPlayerId,
+      playerHeat,
+      tick: input.tick,
+      tickRateMs: input.tickRateMs ?? input.dayNightConfig?.tickRateMs ?? 5_000
+    });
+    return [
+      { label: "Clean / min", value: `$${formatNumber(arcadeConfig.cleanCashPerMinute * network.incomeMultiplier)}` },
+      { label: "Dirty / min", value: `$${formatNumber(arcadeConfig.dirtyCashPerMinute * network.incomeMultiplier)}` },
+      { label: "Influence / min", value: formatNumber(arcadeConfig.influencePerMinute) },
+      { label: "Heat / min", value: formatNumber(arcadeConfig.heatPerMinute * network.heatMultiplier) },
+      { label: "Vlastněné herny", value: `${ownedCount}/${arcadeConfig.countOnMap}` },
+      { label: "Income", value: formatMultiplierBonus(network.incomeMultiplier) },
+      { label: "Kapacita praní", value: `$${formatNumber(arcadeConfig.launderingCapacity * network.launderingLimitMultiplier)}` },
+      { label: "Audit risk", value: `${formatNumber(auditRisk.riskPct)} %` }
+    ];
+  }
   if (input.building.buildingTypeId === "vip_lounge" && input.vipLoungeConfig && input.building.ownerPlayerId) {
     const stats = resolveVipLoungeRumorStats({
       state: input.state,

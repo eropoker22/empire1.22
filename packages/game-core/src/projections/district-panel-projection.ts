@@ -164,6 +164,7 @@ const createIntelOnlyBuildingView = (
   building: DistrictPanelView["buildings"][number]
 ): DistrictPanelView["buildings"][number] => ({
   ...building,
+  presentation: null,
   stats: [],
   specialActions: [],
   actionCooldowns: {},

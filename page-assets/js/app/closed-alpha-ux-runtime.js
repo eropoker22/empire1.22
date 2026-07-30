@@ -196,7 +196,7 @@ const normalizeConnection = (detail = {}) => {
   if (/session|relace|401|unauthorized/.test(message)) return "session_expired";
   if (/conflict|version/.test(message)) return "conflict";
   if (detail.status === "ready" || detail.status === "connected") return "connected";
-  if (detail.status === "loading" || detail.status === "idle") return "reconnecting";
+  if (["loading", "idle", "connecting", "reconnecting"].includes(detail.status)) return "reconnecting";
   if (detail.status === "stale" || detail.staleData) return latestSlice ? "stale" : "server_unavailable";
   if (detail.status === "offline") return "offline";
   return "server_unavailable";

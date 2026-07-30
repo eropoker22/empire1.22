@@ -36,6 +36,38 @@ describe("client optimistic concurrency", () => {
     ]);
   });
 
+  it("restores the rendered connection after unchanged district selection", async () => {
+    const view = createGameplaySliceView(7);
+    const recomputeReasons: string[] = [];
+    const client = createClientApp({
+      transport: {
+        load: async () => ({ accepted: true, readModel: view, errors: [] }),
+        send: async () => ({ accepted: true, readModel: view, errors: [] })
+      },
+      onStateRecompute: (reason) => recomputeReasons.push(reason)
+    });
+
+    await client.load({
+      serverInstanceId: "instance:client-concurrency",
+      playerId: "player:client-concurrency",
+      districtId: "district:client-concurrency"
+    });
+    const render = await client.selectDistrict("district:client-concurrency");
+
+    expect(render.connection).toEqual({
+      status: "ready",
+      lastErrorMessage: null,
+      staleData: false
+    });
+    expect(client.getRenderState().connection.status).toBe("ready");
+    expect(recomputeReasons).toEqual([
+      "initial-client-shell",
+      "server-slice-response",
+      "ui-select-district-pending",
+      "server-slice-connection-restored"
+    ]);
+  });
+
   it("sends expectedStateVersion and clears pending state after a stale response", async () => {
     const sent: SubmitGameplayCommandRequest[] = [];
     const view = createGameplaySliceView(7);
@@ -182,6 +214,10 @@ describe("client optimistic concurrency", () => {
 
     await client.load(request);
     const lateLoad = client.load(request);
+    await client.selectBuilding("building:client-concurrency");
+
+    expect(client.getRenderState().connection.status).toBe("ready");
+
     await client.dispatch(createCommand());
     resolveLateLoad({
       accepted: true,

@@ -24,4 +24,16 @@ describe("live gameplay bootstrap authority", () => {
     expect(bootstrapSource).not.toContain("registration?.identity");
     expect(entryClient).not.toContain('localStorage.setItem("empireStreets.session.v1"');
   });
+
+  it("does not mount the local-demo onboarding sandbox in hosted gameplay", () => {
+    const runtime = read("page-assets/js/app/runtime.js");
+    const onboardingBinder = runtime.slice(
+      runtime.indexOf("function bindFreeSessionOnboarding"),
+      runtime.indexOf("function getFreeSessionOnboardingProgress")
+    );
+
+    expect(onboardingBinder).toContain(
+      "getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.localDemo"
+    );
+  });
 });

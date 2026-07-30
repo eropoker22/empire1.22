@@ -7216,7 +7216,7 @@
   }
 
   .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-card.building-detail-modal__content {
-    width: min(640px, calc(100vw - 40px));
+    width: min(800px, calc(100vw - 40px));
   }
 
   .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-body {
@@ -7745,6 +7745,12 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(152px, 1fr));
   gap: 8px;
+}
+
+@media (min-width: 721px) {
+  .district-building-detail-actions[data-district-building-detail-action-count="2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 [data-district-building-detail-action-section] {

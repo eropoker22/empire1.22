@@ -31,7 +31,7 @@ import { getFactionPassiveModifiers } from "../factions/factionRules";
 import { applyGenericFixedBuildingLevelMultiplier } from "../buildings/buildingUpgradeRules";
 import { type FixedBuildingIncomeValues, toIncomeModifierInput } from "./fixedBuildingIncomeValues";
 
-export const resolveFixedBuildingIncomeConfig = (input: {
+export const resolveFixedBuildingIncomeConfigBeforeDayNight = (input: {
   state: CoreGameState;
   context: GameCoreContext;
   districtId: string;
@@ -251,15 +251,19 @@ export const resolveFixedBuildingIncomeConfig = (input: {
         ...toIncomeModifierInput(lobbyClubConfig)
       })
     : lobbyClubConfig;
-  return applyDayNightBuildingIncomeModifiers({
-    state,
-    context,
-    buildingTypeId: building.buildingTypeId,
-    ...applyGenericFixedBuildingLevelMultiplier({
-      building,
-      config,
-      ...toIncomeModifierInput(courthouseConfig)
-    })
+  return applyGenericFixedBuildingLevelMultiplier({
+    building,
+    config,
+    ...toIncomeModifierInput(courthouseConfig)
   });
 };
+
+export const resolveFixedBuildingIncomeConfig = (
+  input: Parameters<typeof resolveFixedBuildingIncomeConfigBeforeDayNight>[0]
+): FixedBuildingIncomeValues => applyDayNightBuildingIncomeModifiers({
+  state: input.state,
+  context: input.context,
+  buildingTypeId: input.building.buildingTypeId,
+  ...resolveFixedBuildingIncomeConfigBeforeDayNight(input)
+});
 

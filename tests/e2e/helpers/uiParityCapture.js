@@ -19,6 +19,10 @@ export const paritySurfaces = Object.freeze({
     selector: "[data-district-building-detail-popup]:not([hidden])",
     shell: "[data-district-building-detail-popup]:not([hidden])"
   }),
+  arcade: Object.freeze({
+    selector: "[data-district-building-detail-popup]:not([hidden])",
+    shell: "[data-district-building-detail-popup]:not([hidden])"
+  }),
   pharmacy: Object.freeze({
     selector: "[data-pharmacy-popup] [role='dialog']",
     shell: "[data-pharmacy-popup]"
@@ -45,8 +49,18 @@ export const paritySurfaces = Object.freeze({
   })
 });
 
-export async function openParityLocalDemo(page) {
-  await page.addInitScript(({ sessionKey, scopedSessionKey }) => {
+export async function openParityLocalDemo(page, {
+  ownedDistrictIds = [21, 66, 68],
+  startDistrictId = ownedDistrictIds[0] || 21,
+  mapPhase = "night"
+} = {}) {
+  await page.addInitScript(({
+    sessionKey,
+    scopedSessionKey,
+    ownedDistrictIds: configuredOwnedDistrictIds,
+    startDistrictId: configuredStartDistrictId,
+    mapPhase: configuredMapPhase
+  }) => {
     window.EmpireConfigOverrides = Object.freeze({
       ...(window.EmpireConfigOverrides || {}),
       localDemoEnabled: true
@@ -68,16 +82,20 @@ export async function openParityLocalDemo(page) {
         activeServerMode: "free",
         factionId: "mafian",
         selectedFaction: "mafian",
-        startDistrictId: 21,
-        preferredStartDistrictId: 21,
+        startDistrictId: configuredStartDistrictId,
+        preferredStartDistrictId: configuredStartDistrictId,
         factionLocked: true,
         hasCompletedServerEntry: true,
         serverRegistrationStatus: "faction_locked",
         lastLoginAt: now
       },
       world: {
-        ownedDistrictIds: [21, 66, 68],
-        phaseState: { gamePhase: "live", mapPhase: "night", cityMinutes: 1_334 }
+        ownedDistrictIds: configuredOwnedDistrictIds,
+        phaseState: {
+          gamePhase: "live",
+          mapPhase: configuredMapPhase,
+          cityMinutes: configuredMapPhase === "night" ? 1_334 : 720
+        }
       },
       inventory: {
         weapons: {},
@@ -118,7 +136,13 @@ export async function openParityLocalDemo(page) {
         version: "demo-v1-clean"
       })
     );
-  }, { sessionKey: SESSION_KEY, scopedSessionKey: SCOPED_SESSION_KEY });
+  }, {
+    sessionKey: SESSION_KEY,
+    scopedSessionKey: SCOPED_SESSION_KEY,
+    ownedDistrictIds,
+    startDistrictId,
+    mapPhase
+  });
   await page.goto("/pages/game.html?runtimeMode=local-demo&autoStartLocalDemo=1", { waitUntil: "load" });
   await page.waitForFunction(() => (
     window.EmpireRuntime
@@ -161,7 +185,8 @@ export async function openBuildingFromDistrict(page, buildingTypeOrLabel) {
     drug_lab: ["druglab", "drug_lab", "laboratoř", "lab"],
     factory: ["factory", "továrna"],
     pharmacy: ["pharmacy", "lékárna"],
-    restaurant: ["restaurant", "restaurace"]
+    restaurant: ["restaurant", "restaurace"],
+    arcade: ["arcade", "herna"]
   };
   const normalized = String(buildingTypeOrLabel).toLocaleLowerCase("cs");
   const expectedLabels = aliases[normalized] || [normalized];
@@ -199,6 +224,7 @@ export async function closeSurface(page, surfaceName) {
   const closeSelectors = {
     district: "[data-district-popup-close]",
     restaurant: "[data-district-building-detail-close]",
+    arcade: "[data-district-building-detail-close]",
     pharmacy: "[data-pharmacy-popup-close]",
     drugLab: "[data-druglab-popup-close]",
     factory: "[data-factory-popup-close]",
@@ -206,9 +232,16 @@ export async function closeSurface(page, surfaceName) {
     cityEvents: "#events-modal-close",
     cityEventDetail: "#event-detail-modal-close"
   };
-  const close = page.locator(closeSelectors[surfaceName]).last();
-  if (await close.isVisible().catch(() => false)) await close.click();
-  await expect(page.locator(paritySurfaces[surfaceName].shell)).toBeHidden();
+  const allShells = page.locator(paritySurfaces[surfaceName].shell);
+  const shell = page.locator(`${paritySurfaces[surfaceName].shell}:visible`).last();
+  if (!(await shell.isVisible().catch(() => false))) {
+    await expect(allShells).toBeHidden();
+    return;
+  }
+  const close = shell.locator(`${closeSelectors[surfaceName]}:visible`).last();
+  await expect(close).toBeVisible();
+  await close.click();
+  await expect(shell).toBeHidden();
 }
 
 export async function openCityEvents(page) {
@@ -294,6 +327,7 @@ export async function readParitySurfaceMetadata(page, surfaceName) {
       ...Array.from(shell?.classList || []),
       ...Array.from(targetElement?.classList || []),
       ...Array.from(shell?.querySelectorAll?.("*") || [])
+        .filter(isVisible)
         .flatMap((element) => Array.from(element.classList || []))
     ])).sort();
     return {
@@ -336,6 +370,9 @@ export async function captureParitySurface(page, {
   const directory = artifactDirectory(phase, mode, viewport.name);
   await fs.mkdir(directory, { recursive: true });
   const metadata = await readParitySurfaceMetadata(page, surfaceName);
+  const presentation = surfaceName === "restaurant" || surfaceName === "arcade"
+    ? await getBuildingPresentationSignature(page, surfaceName)
+    : null;
   const basePath = path.join(directory, surfaceName);
   const dynamicMasks = target.locator([
     "[data-production-progress]",
@@ -352,6 +389,7 @@ export async function captureParitySurface(page, {
   await fs.writeFile(`${basePath}.html`, metadata.html, "utf8");
   await fs.writeFile(`${basePath}.json`, `${JSON.stringify({
     ...metadata,
+    presentation,
     html: undefined
   }, null, 2)}\n`, "utf8");
   return metadata;
@@ -366,6 +404,75 @@ export async function getParitySurfaceSignature(page, surfaceName) {
     selectedBuildingId: metadata.selectedBuildingId,
     visibleModalCount: metadata.visibleModalCount
   };
+}
+
+export async function getBuildingPresentationSignature(page, surfaceName) {
+  const definition = paritySurfaces[surfaceName];
+  const target = page.locator(definition.selector).first();
+  await expect(target).toBeVisible();
+  return target.evaluate((targetElement) => {
+    const normalizeText = (value) => String(value || "").replace(/\s+/gu, " ").trim();
+    const visibleElements = (selector) => Array.from(targetElement.querySelectorAll(selector))
+      .filter((element) => {
+        if (!(element instanceof HTMLElement) || element.hidden) return false;
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return style.display !== "none"
+          && style.visibility !== "hidden"
+          && rect.width > 0
+          && rect.height > 0;
+      });
+    const actionGrid = targetElement.querySelector(".district-building-detail-actions");
+    const actionRows = visibleElements(
+      ".district-building-detail-actions .building-info-action-row"
+    );
+    const actionRects = actionRows.map((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        left: Math.round(rect.left),
+        top: Math.round(rect.top),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height)
+      };
+    });
+    const actionStyle = actionGrid instanceof HTMLElement
+      ? getComputedStyle(actionGrid)
+      : null;
+    return {
+      title: normalizeText(
+        targetElement.querySelector("[data-district-building-detail-title]")?.textContent
+        || targetElement.querySelector(".modal__title")?.textContent
+      ),
+      sectionHeadings: visibleElements(
+        "[data-district-building-detail-panel] h5"
+      ).map((element) => normalizeText(element.textContent)),
+      mechanics: visibleElements(
+        ".district-building-detail-mechanics .district-building-detail-mechanic-row"
+      ).map((element) => normalizeText(element.textContent)),
+      effects: visibleElements(
+        "[data-district-building-detail-effects-section] .district-building-detail-effect-cell"
+      ).map((element) => normalizeText(element.textContent)),
+      actions: actionRows.map((element) => ({
+        actionId: element.dataset.districtBuildingDetailActionId || "",
+        title: normalizeText(
+          element.querySelector(".building-info-action-row__title")?.textContent
+        ),
+        description: normalizeText(
+          element.querySelector(".building-info-action-row__desc")?.textContent
+        ),
+        phase: normalizeText(
+          element.querySelector(".building-info-action-row__phase")?.textContent
+        )
+      })),
+      actionGrid: {
+        display: actionStyle?.display || "",
+        gridTemplateColumns: actionStyle?.gridTemplateColumns || "",
+        columnCount: new Set(actionRects.map((rect) => rect.left)).size,
+        rowCount: new Set(actionRects.map((rect) => rect.top)).size,
+        rects: actionRects
+      }
+    };
+  });
 }
 
 export function normalizeParityClassNames(classNames = []) {

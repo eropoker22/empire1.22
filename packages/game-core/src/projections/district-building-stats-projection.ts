@@ -83,7 +83,7 @@ const appendPassivePhaseSummary = (
   stats: BuildingStatView[],
   input: BuildingStatsProjectionInput
 ): BuildingStatView[] => {
-  const base = input.definition?.stats;
+  const base = input.presentationPassiveStats ?? input.definition?.stats;
   const effective = input.effectivePassiveStats;
   const label = createPassivePhaseEffectLabel({
     baseStats: base,

@@ -39,9 +39,14 @@ export const createClientResponseCommitter = (options: {
         commandId,
         responseErrors.length
       )) {
+        const currentRenderState = options.getRenderState();
         options.store.setConnectionState({ status: "ready", lastErrorMessage: null, staleData: false });
         markCommitted(operationSequence);
-        return options.getRenderState();
+        return currentRenderState.connection.status === "ready"
+          && currentRenderState.connection.lastErrorMessage === null
+          && currentRenderState.connection.staleData === false
+          ? currentRenderState
+          : options.recomputeRenderState("server-slice-connection-restored");
       }
 
       if (response.readModel) {

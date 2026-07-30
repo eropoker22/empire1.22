@@ -5,17 +5,17 @@ defineHostedProductionParityTest({
   identityPrefix: "LivePharmacy",
   label: "Pharmacy",
   spawnDistrictIds: [
-    "district:21",
     "district:26",
+    "district:36",
     "district:42",
-    "district:51",
-    "district:93",
-    "district:95",
-    "district:113",
-    "district:120",
-    "district:136",
-    "district:138",
-    "district:140"
+    "district:46",
+    "district:67",
+    "district:78",
+    "district:83",
+    "district:87",
+    "district:92",
+    "district:98",
+    "district:127"
   ],
   surfaceName: "pharmacy"
 });

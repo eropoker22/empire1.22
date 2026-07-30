@@ -37,9 +37,12 @@ import type { AirportBalanceConfig, CarDealerBalanceConfig, CentralBankBalanceCo
 import type { ConvenienceStoreBalanceConfig } from "../contracts/game-mode-config";
 import { resolveDayNightBuildingRule } from "../rules/day-night/dayNightActionRules";
 import {
-  applyDayNightBuildingIncomeModifiers,
   resolveDayNightPassiveBuildingRule
 } from "../rules/day-night/dayNight";
+import {
+  resolveFixedBuildingIncomeConfig,
+  resolveFixedBuildingIncomeConfigBeforeDayNight
+} from "../rules/economy/fixedBuildingIncomeConfig";
 import { resolveEffectiveBuildingActionPreview } from "../rules/buildings/buildingActionCosts";
 import {
   createBaseBuildingActionPreview,
@@ -93,15 +96,22 @@ export const createDistrictPanelBuildingViews = (
     const passivePhaseRule = input.config
       ? resolveDayNightPassiveBuildingRule(input.state, { config: input.config }, building.buildingTypeId)
       : null;
-    const effectivePassiveStats = input.config && definition?.stats
-      ? applyDayNightBuildingIncomeModifiers({
+    const presentationPassiveStats = input.config && definition?.stats
+      ? resolveFixedBuildingIncomeConfigBeforeDayNight({
           state: input.state,
           context: { config: input.config },
-          buildingTypeId: building.buildingTypeId,
-          cleanPerHour: definition.stats.cleanPerHour,
-          dirtyPerHour: definition.stats.dirtyPerHour,
-          heatPerDay: definition.stats.heatPerDay,
-          influencePerDay: definition.stats.influencePerDay
+          districtId: input.district.id,
+          building,
+          config: definition.stats
+        })
+      : undefined;
+    const effectivePassiveStats = input.config && definition?.stats
+      ? resolveFixedBuildingIncomeConfig({
+          state: input.state,
+          context: { config: input.config },
+          districtId: input.district.id,
+          building,
+          config: definition.stats
         })
       : undefined;
     const passivePhaseEffectLabel = createPassivePhaseEffectLabel({
@@ -152,8 +162,12 @@ export const createDistrictPanelBuildingViews = (
       zone: definition?.zone ?? input.district.zone,
       role: definition?.role ?? "Pevná budova",
       info: definition?.info ?? "Pevná budova districtu.",
+      presentation: presentationPassiveStats
+        ? { passive: presentationPassiveStats }
+        : null,
       stats: createBuildingStats({
         definition,
+        presentationPassiveStats,
         effectivePassiveStats,
         state: input.state,
         district: input.district,
@@ -186,6 +200,7 @@ export const createDistrictPanelBuildingViews = (
       }),
       specialActions: createSpecialActionViews(definition, actions),
       level: building.level,
+      maxLevel: Math.max(1, Number(definition?.stats?.maxLevel ?? 1)),
       status: building.status,
       actionCooldowns: { ...(building.actionCooldowns ?? {}) },
       actions,

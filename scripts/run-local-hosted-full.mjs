@@ -33,6 +33,11 @@ const apiOrigin = `http://127.0.0.1:${apiPort}`;
 const workerOrigin = `http://127.0.0.1:${workerPort}`;
 const hostedSuites = Object.freeze([
   Object.freeze({
+    name: "manual-admin-player",
+    manualProvisioning: true,
+    specs: Object.freeze(["tests/e2e/manual-hosted-admin-player-flow.spec.js"])
+  }),
+  Object.freeze({
     name: "city-events",
     specs: Object.freeze(["tests/e2e/live-city-events.spec.js"])
   }),
@@ -85,6 +90,13 @@ const hostedSuites = Object.freeze([
     specs: Object.freeze(["tests/e2e/live-hosted-multiplayer-core.spec.js"])
   }),
   Object.freeze({
+    name: "multiplayer-visible-actions",
+    scenario: "multiplayer-core",
+    playerCount: 3,
+    identityPrefix: "HostedVisible",
+    specs: Object.freeze(["tests/e2e/manual-hosted-district-actions-ui.spec.js"])
+  }),
+  Object.freeze({
     name: "lifecycle-stop",
     playerCount: 1,
     identityPrefix: "HostedLifecycle",
@@ -92,6 +104,16 @@ const hostedSuites = Object.freeze([
     specs: Object.freeze(["tests/e2e/live-hosted-lifecycle-stop.spec.js"])
   })
 ]);
+const MANUAL_HOSTED_STARTING_PLAYER_STATE = Object.freeze({
+  cleanCash: 123_456,
+  dirtyCash: 23_456,
+  population: 345,
+  spySlots: 2,
+  materials: Object.freeze(Object.fromEntries(
+    Object.keys(HOSTED_E2E_STARTING_PLAYER_STATE.materials)
+      .map((materialId, index) => [materialId, index * 11])
+  ))
+});
 const requestedSuiteNames = new Set(
   process.argv
     .filter((argument) => argument.startsWith("--suite="))
@@ -199,6 +221,13 @@ try {
     "--config",
     "vite.client-page.config.ts"
   ], 300_000);
+  await runNode("admin-bundle", [
+    "scripts/run-local-bin.mjs",
+    "vite/bin/vite.js",
+    "build",
+    "--config",
+    "vite.admin-page.config.ts"
+  ], 300_000);
 
   const api = startManagedProcess({
     name: "hosted-api",
@@ -272,6 +301,44 @@ try {
       delete environment.EMPIRE_HOSTED_BOOTSTRAP_IDENTITIES_JSON;
       delete environment.EMPIRE_HOSTED_BUILDING_ACTION_PHASE;
       delete environment.EMPIRE_ADMIN_HOSTED_LIVE_E2E;
+      delete environment.EMPIRE_MANUAL_HOSTED_E2E;
+      delete environment.EMPIRE_MANUAL_HOSTED_DISPLAY_NAME;
+      delete environment.EMPIRE_MANUAL_HOSTED_STARTING_STATE_JSON;
+      delete environment.EMPIRE_UI_PARITY_SERVER_ID;
+      if (suite.manualProvisioning) {
+        const displaySuffix = randomBytes(4).toString("hex");
+        const manualDisplayName = `Local Hosted Manual ${displaySuffix}`;
+        environment.EMPIRE_MANUAL_HOSTED_E2E = "1";
+        environment.EMPIRE_ADMIN_HOSTED_LIVE_E2E = "1";
+        environment.EMPIRE_MANUAL_HOSTED_DISPLAY_NAME = manualDisplayName;
+        environment.EMPIRE_MANUAL_HOSTED_STARTING_STATE_JSON = JSON.stringify(
+          MANUAL_HOSTED_STARTING_PLAYER_STATE
+        );
+        result.status = "testing";
+        await runNode(`playwright-${suite.name}`, [
+          "scripts/run-local-bin.mjs",
+          "playwright/cli.js",
+          "test",
+          ...suite.specs
+        ], 1_800_000);
+        const controlPlane = await admin.request("/api/admin/control-plane");
+        const manualServer = controlPlane.servers.find((server) => (
+          server.displayName === manualDisplayName
+        ));
+        if (!manualServer) {
+          throw new Error(`Manual hosted server ${manualDisplayName} is missing after acceptance.`);
+        }
+        result.serverInstanceId = manualServer.serverInstanceId;
+        result.status = "passed";
+        if (manualServer.status === "archived") {
+          result.cleanup = "archived";
+        } else {
+          result.cleanup = "stopping";
+          await stopDisposableHostedServer(admin, manualServer.serverInstanceId);
+          result.cleanup = "stopped";
+        }
+        continue;
+      }
       if (suite.buildingActionPhase) {
         const identitySuffix = randomBytes(6).toString("hex");
         environment.EMPIRE_HOSTED_BOOTSTRAP_USERNAME = `HostedAction${identitySuffix}`;

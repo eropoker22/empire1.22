@@ -1,6 +1,8 @@
 import { webcrypto } from "node:crypto";
+import { Agent as HttpAgent } from "node:http";
+import { Agent as HttpsAgent } from "node:https";
 import { resolve } from "node:path";
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, type Plugin, type ProxyOptions } from "vite";
 import type { createGameplaySliceFunctionHandler } from "./apps/server/src/netlify/gameplay-slice-function";
 
 const fromRoot = (...segments: string[]): string => resolve(__dirname, ...segments);
@@ -36,6 +38,24 @@ export const resolveHostedGameApiOrigin = (
     throw new Error("EMPIRE_VITE_HOSTED_API_ORIGIN must be an exact HTTP(S) origin.");
   }
   return origin.origin;
+};
+
+export const createHostedGameApiProxyOptions = (origin: string): ProxyOptions => {
+  const target = new URL(origin);
+  const agentOptions = {
+    keepAlive: true,
+    maxSockets: 32,
+    maxFreeSockets: 8
+  };
+
+  return {
+    target: target.origin,
+    changeOrigin: false,
+    secure: false,
+    agent: target.protocol === "https:"
+      ? new HttpsAgent(agentOptions)
+      : new HttpAgent(agentOptions)
+  };
 };
 
 interface DevIncomingRequest {
@@ -196,11 +216,7 @@ export default defineConfig({
     strictPort: true,
     ...(hostedGameApiOrigin ? {
       proxy: {
-        "/api": {
-          target: hostedGameApiOrigin,
-          changeOrigin: false,
-          secure: false
-        }
+        "/api": createHostedGameApiProxyOptions(hostedGameApiOrigin)
       }
     } : {}),
     watch: {

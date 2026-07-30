@@ -78,7 +78,7 @@ async function submitAndReadResponse(page, button) {
   const responsePromise = page.waitForResponse((response) => (
     response.url().includes("/api/gameplay-slice/submit")
     && response.request().method() === "POST"
-  ));
+  ), { timeout: 30_000 });
   await button.click();
   const response = await responsePromise;
   return {

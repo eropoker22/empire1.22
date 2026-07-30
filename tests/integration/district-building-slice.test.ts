@@ -10,6 +10,51 @@ import { createDistrictBuildingSliceSeed } from "../../tools/seed/src";
 import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
 
 describe("district building gameplay slice", () => {
+  it("projects authoritative Arcade metrics required by the shared demo card", async () => {
+    const server = createServerApp();
+    const instanceId = "instance:arcade-presentation";
+    const playerId = "player:arcade-presentation";
+    const districtId = "district:arcade-presentation";
+    const runtime = server.instanceManager.createInstance(instanceId, "free");
+
+    runtime.state = createDistrictBuildingSliceSeed({
+      instanceId,
+      playerId,
+      districtId,
+      mode: "free",
+      homeDistrict: {
+        zone: "residential",
+        buildingSetKey: "res-early-2"
+      }
+    });
+    server.instanceManager.startInstance(instanceId);
+    const session = await createDevGameplaySession(server, {
+      serverInstanceId: instanceId,
+      playerId,
+      districtId
+    });
+
+    const response = await server.gameplaySliceTransport.load(session.loadRequest);
+    const arcade = response.readModel?.district?.buildings.find(
+      (building) => building.buildingTypeId === "arcade"
+    );
+    const stats = Object.fromEntries(
+      (arcade?.stats || []).map((entry) => [entry.label, entry.value])
+    );
+
+    expect(stats).toMatchObject({
+      "Vlastněné herny": "1/16",
+      "Kapacita praní": "$3800",
+      "Audit risk": "3 %"
+    });
+    expect(arcade?.presentation?.passive).toEqual({
+      cleanPerHour: 1_800,
+      dirtyPerHour: 1_200,
+      heatPerDay: 172.8,
+      influencePerDay: 80
+    });
+  });
+
   it("loads owned buildings, hides enemy buildings, and rerenders after a building action command", async () => {
     const server = createServerApp();
     const instanceId = "instance:vertical-slice";

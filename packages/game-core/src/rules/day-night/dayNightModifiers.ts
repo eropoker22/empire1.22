@@ -38,27 +38,20 @@ export const applyDayNightBuildingIncomeModifiers = (input: {
   influencePerDay: number;
 }) => {
   const modifiers = getDayNightModifiers(input.state, input.context);
+  const passiveRule = resolveDayNightPassiveBuildingRule(input.state, input.context, input.buildingTypeId);
+  if (passiveRule.hasModifiers) {
+    return applyDayNightPassiveBuildingRule(input);
+  }
   const economyType = resolveBuildingEconomyType(input.buildingTypeId);
   const cleanMultiplier = economyType === "illegal"
     ? modifiers.dirtyIncomeMultiplier
     : modifiers.legalIncomeMultiplier;
-  // Passive income order:
-  // 1. base building config
-  // 2. level/network/faction/alliance modifiers
-  // 3. global DEN/NOC legal/illegal modifier
-  // 4. per-building DEN/NOC passive rule
-  const globalResult = {
+  return {
     cleanPerHour: floorAmount(applyDayNightModifier(input.cleanPerHour, cleanMultiplier)),
     dirtyPerHour: floorAmount(applyDayNightModifier(input.dirtyPerHour, modifiers.dirtyIncomeMultiplier)),
     heatPerDay: floorAmount(applyDayNightModifier(input.heatPerDay, modifiers.heatGainMultiplier)),
     influencePerDay: input.influencePerDay
   };
-  return applyDayNightPassiveBuildingRule({
-    state: input.state,
-    context: input.context,
-    buildingTypeId: input.buildingTypeId,
-    ...globalResult
-  });
 };
 
 export const applyDayNightProductionMultiplier = (input: {
@@ -68,16 +61,19 @@ export const applyDayNightProductionMultiplier = (input: {
   amountPerTick: number;
 }): number => {
   const modifiers = getDayNightModifiers(input.state, input.context);
+  const passiveRule = resolveDayNightPassiveBuildingRule(input.state, input.context, input.buildingTypeId);
+  const passiveProductionMultiplier = Number(passiveRule.modifiers.passiveProductionMultiplier);
+  if (Number.isFinite(passiveProductionMultiplier)) {
+    return floorAmount(input.amountPerTick * safeMultiplier(passiveProductionMultiplier));
+  }
   const economyType = resolveBuildingEconomyType(input.buildingTypeId);
   const typeMultiplier = economyType === "illegal"
     ? modifiers.illegalProductionSpeedMultiplier
     : modifiers.legalProductionSpeedMultiplier;
-  const passiveRule = resolveDayNightPassiveBuildingRule(input.state, input.context, input.buildingTypeId);
   return floorAmount(
     input.amountPerTick
       * safeMultiplier(modifiers.productionSpeedMultiplier)
       * safeMultiplier(typeMultiplier)
-      * safeMultiplier(passiveRule.modifiers.passiveProductionMultiplier)
   );
 };
 

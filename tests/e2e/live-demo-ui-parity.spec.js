@@ -7,6 +7,7 @@ import {
   captureParitySurface,
   closeSurface,
   expectNoDuplicateVisibleUi,
+  getBuildingPresentationSignature,
   getParitySurfaceSignature,
   openBuildingFromDistrict,
   openCityEvents,
@@ -26,7 +27,10 @@ test.describe("live/demo UI parity baseline", () => {
   test.setTimeout(360_000);
 
   test("captures explicit local-demo reference surfaces", async ({ page }) => {
-    await openParityLocalDemo(page);
+    await openParityLocalDemo(page, {
+      ownedDistrictIds: [21, 24, 66, 68],
+      startDistrictId: 21
+    });
     for (const viewport of parityViewports) {
       await page.setViewportSize(viewport);
       await openDistrictById(page, "district:21");
@@ -45,6 +49,20 @@ test.describe("live/demo UI parity baseline", () => {
         surfaceName: "restaurant"
       });
       await closeSurface(page, "restaurant");
+      await closeSurface(page, "district");
+
+      await openDistrictById(page, "district:24");
+      await openBuildingFromDistrict(page, "arcade");
+      const arcadePresentation = await getBuildingPresentationSignature(page, "arcade");
+      await captureParitySurface(page, {
+        mode: "local-demo",
+        phase: "baseline",
+        viewport,
+        surfaceName: "arcade"
+      });
+      expect(arcadePresentation.actionGrid.columnCount).toBe(viewport.width >= 721 ? 2 : 1);
+      expect(arcadePresentation.actionGrid.rowCount).toBe(viewport.width >= 721 ? 1 : 2);
+      await closeSurface(page, "arcade");
       await closeSurface(page, "district");
 
       for (const type of ["pharmacy", "drugLab", "factory", "armory"]) {
@@ -84,14 +102,11 @@ test.describe("live/demo UI parity baseline", () => {
       const entry = await registerAndEnterHostedUiParityGame(page, {
         serverInstanceId,
         spawnDistrictIds: [
-          "district:21",
           "district:26",
           "district:42",
-          "district:95",
-          "district:113",
-          "district:136",
           "district:138",
-          "district:140"
+          "district:152",
+          "district:157"
         ],
         identityPrefix: "ParityCom"
       });
@@ -148,7 +163,15 @@ test.describe("live/demo UI parity baseline", () => {
     test("captures Drug Lab", async ({ page }) => {
       await registerAndEnterHostedUiParityGame(page, {
         serverInstanceId,
-        spawnDistrictIds: ["district:66", "district:137", "district:156", "district:158"],
+        spawnDistrictIds: [
+          "district:56",
+          "district:58",
+          "district:63",
+          "district:91",
+          "district:100",
+          "district:106",
+          "district:125"
+        ],
         identityPrefix: "ParityPark"
       });
       for (const viewport of parityViewports) {
@@ -207,8 +230,30 @@ test.describe("live/demo shared presentation parity", () => {
     const localPage = await localContext.newPage();
     const serverPage = await serverContext.newPage();
     try {
-      await openParityLocalDemo(localPage);
-      await openDistrictById(localPage, "district:21");
+      const entry = await registerAndEnterHostedUiParityGame(serverPage, {
+        serverInstanceId,
+        spawnDistrictIds: [
+          "district:26",
+          "district:42",
+          "district:138",
+          "district:152",
+          "district:157"
+        ],
+        identityPrefix: "ParityShared"
+      });
+      const hostedMapPhase = await serverPage.evaluate(() => {
+        const readModel = window.EmpireGameplaySliceClient?.getCurrentReadModel?.()
+          || window.empireStreetsGameplaySliceReadModel
+          || null;
+        return readModel?.player?.dayNight?.phaseId === "night" ? "night" : "day";
+      });
+      const sharedDistrictId = Number(String(entry.spawnDistrictId).replace(/^district:/u, ""));
+      await openParityLocalDemo(localPage, {
+        ownedDistrictIds: [sharedDistrictId],
+        startDistrictId: sharedDistrictId,
+        mapPhase: hostedMapPhase
+      });
+      await openDistrictById(localPage, entry.spawnDistrictId);
       const localDistrict = await getParitySurfaceSignature(localPage, "district");
       await captureParitySurface(localPage, {
         mode: "local-demo",
@@ -218,6 +263,10 @@ test.describe("live/demo shared presentation parity", () => {
       });
       await openBuildingFromDistrict(localPage, "restaurant");
       const localRestaurant = await getParitySurfaceSignature(localPage, "restaurant");
+      const localRestaurantPresentation = await getBuildingPresentationSignature(
+        localPage,
+        "restaurant"
+      );
       await closeSurface(localPage, "restaurant");
       await closeSurface(localPage, "district");
       await openProductionShortcut(localPage, "pharmacy");
@@ -225,20 +274,6 @@ test.describe("live/demo shared presentation parity", () => {
       const localPharmacy = await getParitySurfaceSignature(localPage, "pharmacy");
       await closeSurface(localPage, "pharmacy");
 
-      const entry = await registerAndEnterHostedUiParityGame(serverPage, {
-        serverInstanceId,
-        spawnDistrictIds: [
-          "district:21",
-          "district:26",
-          "district:42",
-          "district:95",
-          "district:113",
-          "district:136",
-          "district:138",
-          "district:140"
-        ],
-        identityPrefix: "ParityShared"
-      });
       await openDistrictById(serverPage, entry.spawnDistrictId);
       const serverDistrict = await getParitySurfaceSignature(serverPage, "district");
       await captureParitySurface(serverPage, {
@@ -249,6 +284,10 @@ test.describe("live/demo shared presentation parity", () => {
       });
       await openBuildingFromDistrict(serverPage, "restaurant");
       const serverRestaurant = await getParitySurfaceSignature(serverPage, "restaurant");
+      const serverRestaurantPresentation = await getBuildingPresentationSignature(
+        serverPage,
+        "restaurant"
+      );
       await closeSurface(serverPage, "restaurant");
       await openDistrictById(serverPage, entry.spawnDistrictId);
       await openBuildingFromDistrict(serverPage, "pharmacy");
@@ -268,8 +307,93 @@ test.describe("live/demo shared presentation parity", () => {
         expect(serverSignature.canonicalClassNames).toEqual(expect.arrayContaining(expectedClasses));
         expect(serverSignature.owner).toBe(localSignature.owner);
       }
+      expect(serverRestaurantPresentation.title).toBe(localRestaurantPresentation.title);
+      expect(serverRestaurantPresentation.sectionHeadings).toEqual(
+        localRestaurantPresentation.sectionHeadings
+      );
+      expect(serverRestaurantPresentation.mechanics).toEqual(localRestaurantPresentation.mechanics);
+      expect(serverRestaurantPresentation.effects).toEqual(localRestaurantPresentation.effects);
+      expect(serverRestaurantPresentation.actions).toEqual(localRestaurantPresentation.actions);
       await expectNoDuplicateVisibleUi(serverPage);
       await closeSurface(serverPage, "pharmacy");
+      await expectHostedUiParityClean(serverPage, entry.diagnostics);
+    } finally {
+      await localContext.close();
+      await serverContext.close();
+    }
+  });
+
+  test("Herna keeps demo action copy and responsive grid", async ({ browser }) => {
+    const localContext = await browser.newContext({ viewport: parityViewports[0] });
+    const serverContext = await browser.newContext({ viewport: parityViewports[0] });
+    const localPage = await localContext.newPage();
+    const serverPage = await serverContext.newPage();
+    try {
+      const entry = await registerAndEnterHostedUiParityGame(serverPage, {
+        serverInstanceId,
+        spawnDistrictIds: ["district:24"],
+        identityPrefix: "ParityArcade"
+      });
+      const hostedMapPhase = await serverPage.evaluate(() => {
+        const readModel = window.EmpireGameplaySliceClient?.getCurrentReadModel?.()
+          || window.empireStreetsGameplaySliceReadModel
+          || null;
+        return readModel?.player?.dayNight?.phaseId === "night" ? "night" : "day";
+      });
+      await openParityLocalDemo(localPage, {
+        ownedDistrictIds: [24],
+        startDistrictId: 24,
+        mapPhase: hostedMapPhase
+      });
+
+      for (const viewport of parityViewports) {
+        await localPage.setViewportSize(viewport);
+        await serverPage.setViewportSize(viewport);
+        await openDistrictById(localPage, "district:24");
+        await openBuildingFromDistrict(localPage, "arcade");
+        const localPresentation = await getBuildingPresentationSignature(localPage, "arcade");
+        await captureParitySurface(localPage, {
+          mode: "local-demo",
+          phase: "after",
+          viewport,
+          surfaceName: "arcade"
+        });
+
+        await openDistrictById(serverPage, entry.spawnDistrictId);
+        await openBuildingFromDistrict(serverPage, "arcade");
+        const serverPresentation = await getBuildingPresentationSignature(serverPage, "arcade");
+        await captureParitySurface(serverPage, {
+          mode: "server-authoritative",
+          phase: "after",
+          viewport,
+          surfaceName: "arcade"
+        });
+
+        expect(serverPresentation.title).toBe(localPresentation.title);
+        expect(serverPresentation.sectionHeadings).toEqual(localPresentation.sectionHeadings);
+        expect(serverPresentation.mechanics).toEqual(localPresentation.mechanics);
+        expect(serverPresentation.effects).toEqual(localPresentation.effects);
+        expect(serverPresentation.actions).toEqual(localPresentation.actions);
+        expect(serverPresentation.actionGrid.display).toBe(localPresentation.actionGrid.display);
+        expect(serverPresentation.actionGrid.gridTemplateColumns).toBe(
+          localPresentation.actionGrid.gridTemplateColumns
+        );
+        expect(serverPresentation.actionGrid.columnCount).toBe(
+          localPresentation.actionGrid.columnCount
+        );
+        expect(serverPresentation.actionGrid.rowCount).toBe(localPresentation.actionGrid.rowCount);
+        if (viewport.width >= 721) {
+          expect(serverPresentation.actionGrid.columnCount).toBe(2);
+          expect(serverPresentation.actionGrid.rowCount).toBe(1);
+        }
+
+        await closeSurface(localPage, "arcade");
+        await closeSurface(serverPage, "arcade");
+        await closeSurface(localPage, "district");
+        await closeSurface(serverPage, "district");
+      }
+
+      await expectNoDuplicateVisibleUi(serverPage);
       await expectHostedUiParityClean(serverPage, entry.diagnostics);
     } finally {
       await localContext.close();

@@ -91,10 +91,20 @@ function isStreetNewsRumorEvent(event = {}) {
 }
 
 function collectCoreFeed(state = {}) {
-  const cityFeed = safeObject(state.cityFeed || state.player?.cityFeed || state.snapshot?.cityFeed);
+  const gameplaySlice = safeObject(state.gameplaySlice);
+  const gameplayPlayer = safeObject(gameplaySlice.player);
+  const cityFeed = safeObject(
+    gameplaySlice.cityFeed
+    || gameplayPlayer.cityFeed
+    || state.cityFeed
+    || state.player?.cityFeed
+    || state.snapshot?.cityFeed
+  );
   return normalizeCityFeedEvents([
     ...asArray(cityFeed.currentPlayerFeed),
     ...asArray(cityFeed.globalCityFeed),
+    ...asArray(gameplaySlice.cityFeedEvents),
+    ...Object.values(safeObject(gameplaySlice.cityFeedEventsById)),
     ...asArray(state.cityFeedEvents),
     ...Object.values(safeObject(state.cityFeedEventsById))
   ]);

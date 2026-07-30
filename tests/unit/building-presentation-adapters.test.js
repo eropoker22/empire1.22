@@ -23,6 +23,83 @@ const localProfile = {
   ]
 };
 
+function createServerBuildingDetail({
+  baseName,
+  buildingTypeId,
+  displayName = baseName,
+  actions = [],
+  maxLevel = 1,
+  passive = null,
+  stats = []
+}) {
+  const serverBuilding = {
+    buildingId: `building:district-21:${buildingTypeId}:1`,
+    buildingTypeId,
+    label: baseName,
+    displayName,
+    level: 2,
+    maxLevel,
+    status: "active",
+    presentation: passive ? { passive } : null,
+    stats,
+    actions
+  };
+  const adapter = new ServerBuildingPresentationAdapter({
+    getReadModel: () => ({
+      server: {
+        serverInstanceId: "instance:free:test",
+        stateVersion: 7
+      },
+      mode: { tickRateMs: 10_000 },
+      player: { playerId: "player:1", dayNight: { phaseId: "day" } },
+      district: {
+        districtId: "district:21",
+        ownerPlayerId: "player:1",
+        isOwnedByPlayer: true,
+        intelKnown: true,
+        status: "claimed",
+        zone: "commercial",
+        buildings: [serverBuilding]
+      }
+    }),
+    resolveDistrictBuildingProfile: () => ({
+      districtId: 21,
+      districtLabel: "District 21",
+      typeKey: "commercial",
+      buildings: [{
+        baseName,
+        displayName,
+        imagePath: `../img/buildings/${buildingTypeId}.png`
+      }]
+    })
+  });
+
+  return adapter.getBuildingDetailPresentation(
+    { id: 21 },
+    { buildingId: serverBuilding.buildingId },
+    {
+      renderState: {
+        districtPanel: {
+          hasPendingCommand: false,
+          buildings: [{
+            buildingId: serverBuilding.buildingId,
+            buildingTypeId: serverBuilding.buildingTypeId,
+            label: serverBuilding.displayName,
+            stats,
+            specialActions: actions.map((action) => ({
+              actionId: action.actionId,
+              label: action.label,
+              disabled: true,
+              disabledReason: "Tato speciální akce ještě není napojená na command dispatcher."
+            }))
+          }],
+          slots: []
+        }
+      }
+    }
+  );
+}
+
 describe("shared building presentation adapters", () => {
   it("keeps local demo presentation unchanged", () => {
     const adapter = new LocalDemoBuildingPresentationAdapter({
@@ -83,15 +160,20 @@ describe("shared building presentation adapters", () => {
       buildingId: "building:district-21:restaurant:2",
       displayName: "Midnight Table",
       level: 4,
+      maxLevel: 5,
       actions: [{
-        actionId: "restaurant-host-informant-night",
-        label: "Hostit informátora",
-        description: "Získá nové informace.",
+        actionId: "restaurant_collect_revenue",
+        label: "Vybrat tržby",
+        description: "Vybere lokální tržby restaurace.",
         enabled: true,
         disabledReason: null,
-        expectedEffectSummary: ["Nový intel"],
-        riskSummary: [],
-        requiresInput: []
+        inputSummary: [],
+        outputSummary: ["Cash +869", "Dirty cash +550"],
+        riskSummary: ["Heat +5"],
+        requiresInput: [],
+        cooldownMs: 30 * 60 * 1000,
+        cooldownRemainingMs: 42_000,
+        phaseBadgeLabel: "Den"
       }]
     };
     const adapter = new ServerBuildingPresentationAdapter({
@@ -101,7 +183,7 @@ describe("shared building presentation adapters", () => {
           stateVersion: 7
         },
         mode: { tickRateMs: 10_000 },
-        player: { playerId: "player:1" },
+        player: { playerId: "player:1", dayNight: { phaseId: "day" } },
         district: {
           districtId: "district:21",
           ownerPlayerId: "player:1",
@@ -121,11 +203,19 @@ describe("shared building presentation adapters", () => {
       {
         renderState: {
           districtPanel: {
-            buildings: [{
-              ...requestedRestaurant,
+          buildings: [{
+              buildingId: requestedRestaurant.buildingId,
+              buildingTypeId: requestedRestaurant.buildingTypeId,
+              label: requestedRestaurant.displayName,
               info: "Serverový popis.",
               role: "Vliv",
-              stats: [{ label: "Vliv", value: "+2" }]
+              stats: [{ label: "Vliv", value: "+2" }],
+              specialActions: [{
+                actionId: "restaurant_collect_revenue",
+                label: "Vybrat tržby",
+                disabled: true,
+                disabledReason: "Tato speciální akce ještě není napojená na command dispatcher."
+              }]
             }],
             slots: []
           }
@@ -138,14 +228,127 @@ describe("shared building presentation adapters", () => {
       serverDistrictId: "district:21",
       buildingId: requestedRestaurant.buildingId,
       buildingTypeId: "restaurant",
-      displayName: "Midnight Table"
+      displayName: "Neon Bite"
     });
     expect(detail.viewModel).toMatchObject({
       backgroundImagePath: "../img/buildings/restaurant.png",
       levelLabel: "L4",
-      stats: [{ label: "Vliv", value: "+2" }]
+      mechanicsType: "restaurant",
+      meta: ""
     });
-    expect(detail.viewModel.actions).toHaveLength(1);
+    expect(detail.viewModel.intro).toBe(
+      "Restaurace generuje prachy a funguje jako místo pro schůzky všeho druhu."
+    );
+    expect(detail.viewModel.mechanics).toEqual([
+      {
+        label: "Denní provoz",
+        value: "Restaurace vydělává čisté peníze a přidává lokální vliv."
+      },
+      {
+        label: "Pouliční drby",
+        value: "Čím víc restaurací vlastníš, tím častěji se dozvíš, co se ve městě chystá."
+      },
+      {
+        label: "Síť restaurací",
+        value: "Více restaurací zvedá příjem, vliv a drby, ale taky trochu zvyšuje heat."
+      }
+    ]);
+    expect(JSON.stringify(detail.viewModel)).not.toContain("Tato speciální akce ještě není napojená");
+    expect(detail.viewModel.actions).toHaveLength(3);
+    expect(detail.viewModel.actions[0]).toMatchObject({
+      index: 0,
+      actionId: "restaurant_collect_revenue",
+      buildingTypeId: "restaurant",
+      title: "Vybrat tržby",
+      buttonCostLabel: "",
+      cooldownLabel: "Zbývá 42s",
+      cooldownRemainingMs: 42_000,
+      disabled: false,
+      disabledReason: "",
+      phaseLockLabel: "",
+      requiresInput: [],
+      serverAction: {
+        description: "Vybere lokální tržby restaurace.",
+        riskSummary: ["Heat +5"]
+      }
+    });
+    expect(detail.viewModel.actions[0].rewardSummary).toContain("Clean");
+    expect(detail.viewModel.actions.slice(1).every((action) => action.disabled)).toBe(true);
+  });
+
+  it.each([
+    ["Herna", "arcade", "arcade"],
+    ["Bytový blok", "apartment_block", "apartment-block"],
+    ["Autosalon", "car_dealer", "auto-salon"],
+    ["Obchodní centrum", "shopping_mall", "retail"],
+    ["Energetická stanice", "power_station", "power-plant"],
+    ["Pašerácký tunel", "smuggling_tunnel", "smuggling-tunnel"]
+  ])(
+    "derives %s mechanics from canonical server type %s",
+    (baseName, buildingTypeId, expectedMechanicsType) => {
+      const detail = createServerBuildingDetail({ baseName, buildingTypeId });
+
+      expect(detail.baseName).toBe(baseName);
+      expect(detail.buildingTypeId).toBe(buildingTypeId);
+      expect(detail.viewModel.mechanicsType).toBe(expectedMechanicsType);
+      expect(detail.viewModel.meta).toBe("");
+      expect(JSON.stringify(detail.viewModel)).not.toContain("Server ·");
+    }
+  );
+
+  it("uses numeric server presentation rates instead of rounded stat labels", () => {
+    const detail = createServerBuildingDetail({
+      baseName: "Herna",
+      buildingTypeId: "arcade",
+      passive: {
+        cleanPerHour: 1_800,
+        dirtyPerHour: 1_200,
+        heatPerDay: 172.8,
+        influencePerDay: 80
+      },
+      stats: [
+        { label: "Clean / min", value: "$30" },
+        { label: "Dirty / min", value: "$20" },
+        { label: "Heat / min", value: "0.1" },
+        { label: "Influence / min", value: "0.1" },
+        { label: "Vlastněné herny", value: "1/16" },
+        { label: "Kapacita praní", value: "$3800" },
+        { label: "Audit risk", value: "3 %" }
+      ]
+    });
+
+    expect(detail.viewModel.effects.map((effect) => effect.text)).toEqual(
+      expect.arrayContaining([
+        "Heat +172.8/den",
+        "Vliv +80/den"
+      ])
+    );
+  });
+
+  it("lets the authoritative action override a disabled presentation placeholder", () => {
+    const detail = createServerBuildingDetail({
+      baseName: "Restaurace",
+      buildingTypeId: "restaurant",
+      actions: [{
+        actionId: "restaurant_collect_revenue",
+        label: "Vybrat tržby",
+        description: "Vybere lokální tržby restaurace.",
+        enabled: true,
+        disabledReason: null,
+        outputGain: { cash: 869, "dirty-cash": 550 },
+        heatGain: 5,
+        cooldownMs: 30 * 60 * 1000
+      }]
+    });
+
+    expect(detail.viewModel.actions).toHaveLength(3);
+    expect(detail.viewModel.actions[0]).toMatchObject({
+      actionId: "restaurant_collect_revenue",
+      disabled: false,
+      disabledReason: ""
+    });
+    expect(detail.viewModel.actions[0].rewardSummary).toContain("Clean");
+    expect(JSON.stringify(detail.viewModel)).not.toContain("restaurant-host-informant-night");
   });
 
   it("does not borrow a local image from an unrelated positional building", () => {

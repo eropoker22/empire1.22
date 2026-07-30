@@ -31,6 +31,12 @@ export interface BuildingStatView {
 
 export interface BuildingStatsProjectionInput {
   definition: DistrictPanelBuildingCatalogEntry | undefined;
+  presentationPassiveStats?: {
+    cleanPerHour: number;
+    dirtyPerHour: number;
+    heatPerDay: number;
+    influencePerDay: number;
+  };
   effectivePassiveStats?: {
     cleanPerHour: number;
     dirtyPerHour: number;

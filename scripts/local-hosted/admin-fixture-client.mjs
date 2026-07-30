@@ -95,7 +95,7 @@ export async function provisionDisposableHostedServer(admin, {
 
 export async function stopDisposableHostedServer(admin, serverInstanceId) {
   const server = await findServer(admin, serverInstanceId);
-  if (!server || ["stopped", "failed"].includes(server.status)) return;
+  if (!server || ["stopped", "failed", "archived"].includes(server.status)) return;
   await requestAction(admin, server, "stop", "Local hosted E2E cleanup");
   await waitForServer(admin, serverInstanceId, (candidate) => candidate.status === "stopped");
 }

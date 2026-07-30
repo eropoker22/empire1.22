@@ -83,8 +83,7 @@ export const publicDistrictBuildingSetPools: Record<string, PublicDistrictBuildi
     set("industrial", "top", "ind-top-2", "Napájená kovárna", ["factory", "armory", "power_station"]),
     set("industrial", "top", "ind-top-3", "Šrotová slévárna", ["armory", "recycling_center", "warehouse"]),
     set("industrial", "top", "ind-top-4", "Critical recovery", ["power_station", "recycling_center", "warehouse"]),
-    set("industrial", "top", "ind-top-5", "Heavy recycle", ["armory", "recycling_center", "factory"]),
-    set("industrial", "top", "ind-top-6", "Cirkulární válečný průmysl", ["armory", "recycling_center", "factory"])
+    set("industrial", "top", "ind-top-5", "Heavy recycle", ["armory", "recycling_center", "factory"])
   ],
   downtown: [
     set("downtown", "mid", "down-mid-1", "Městské finance", ["central_bank", "city_hall"]),
@@ -114,10 +113,15 @@ const tierOrderByZone: Record<string, string[]> = {
   downtown: ["mid", "high", "core"]
 };
 
+const demoFixedDistrictIds = new Set(["40", "49", "60", "88"]);
+
 const normalizedLabelToTypeId = Object.fromEntries(
   publicBuildingDefinitions.flatMap((definition) => [
     [normalizeBuildingName(definition.label), definition.buildingTypeId],
     [normalizeBuildingName(definition.buildingTypeId), definition.buildingTypeId]
+  ]).concat([
+    ["lobby klub", "lobby_club"],
+    ["sklad", "warehouse"]
   ])
 );
 
@@ -145,12 +149,19 @@ export const resolveDistrictBuildingSet = (
   if (directSet) {
     return directSet;
   }
-  const fixedSet = fixedBuildingSetByDistrictId[normalizeDistrictIdKey(input.districtId)];
+  const districtIdKey = normalizeDistrictIdKey(input.districtId);
+  const remappedDistrictIdKey = String(remapDemoDistrictId(Number(districtIdKey) || 0));
+  const fixedSet = demoFixedDistrictIds.has(districtIdKey)
+    ? fixedBuildingSetByDistrictId[districtIdKey]
+    : demoFixedDistrictIds.has(remappedDistrictIdKey)
+      ? fixedBuildingSetByDistrictId[remappedDistrictIdKey]
+    : null;
   if (fixedSet && fixedSet.zone === zone) {
     return fixedSet;
   }
   const fixedDowntownSet = zone === "downtown"
-    ? downtownFixedBuildingSetByDistrictId[normalizeDistrictIdKey(input.districtId)]
+    ? downtownFixedBuildingSetByDistrictId[districtIdKey]
+      || downtownFixedBuildingSetByDistrictId[remappedDistrictIdKey]
     : null;
   if (fixedDowntownSet) {
     return fixedDowntownSet;
@@ -158,7 +169,7 @@ export const resolveDistrictBuildingSet = (
   const tier = resolveDistrictTier(zone, input.districtId, input.buildingTier);
   const tierPool = pool.filter((candidate) => candidate.tier === tier);
   const candidates = tierPool.length > 0 ? tierPool : pool;
-  return candidates[hashDistrictSeed(input.districtId) % candidates.length] ?? null;
+  return candidates[resolveDemoDistrictBuildingSeed(input.districtId) % candidates.length] ?? null;
 };
 
 export const resolveDistrictBuildingTypes = (input: ResolveDistrictBuildingTypesInput): string[] => {
@@ -175,10 +186,23 @@ const resolveDistrictTier = (zone: string, districtId: string, explicitTier?: st
   if (orderedTiers.includes(normalizedTier)) {
     return normalizedTier;
   }
-  const bucket = hashDistrictSeed(districtId) % 100;
-  if (bucket < 40) return orderedTiers[0] ?? "early";
-  if (bucket >= 75) return orderedTiers[2] ?? orderedTiers[0] ?? "top";
-  return orderedTiers[1] ?? orderedTiers[0] ?? "mid";
+  const { rowIndex, columnIndex } = resolveDemoDistrictGridPosition(districtId);
+  const rowDistance = Math.abs(rowIndex - 3) / 3;
+  const columnDistance = Math.abs(columnIndex - 11) / 11;
+  const coreWeight = Math.min(1, Math.max(0, 1 - (rowDistance * 0.55 + columnDistance * 0.45)));
+  if (zone === "downtown") {
+    if (coreWeight >= 0.86) return "core";
+    if (coreWeight >= 0.7) return "high";
+    return "mid";
+  }
+  if (zone === "residential") {
+    if (coreWeight >= 0.7) return "late";
+    if (coreWeight >= 0.42) return "mid";
+    return "early";
+  }
+  if (coreWeight >= 0.72) return "top";
+  if (coreWeight >= 0.42) return "mid";
+  return "early";
 };
 
 const normalizeZone = (zone: string | null | undefined): string => {
@@ -201,11 +225,41 @@ function normalizeDistrictIdKey(value: string): string {
   return match?.[0] ?? "";
 }
 
-const hashDistrictSeed = (seed: string): number => {
-  const text = String(seed || "");
-  let hash = 0;
-  for (let index = 0; index < text.length; index += 1) {
-    hash = (hash * 31 + text.charCodeAt(index)) >>> 0;
-  }
-  return hash;
-};
+function resolveDemoDistrictGridPosition(value: string): {
+  districtId: number;
+  rowIndex: number;
+  columnIndex: number;
+} {
+  const districtId = Math.max(1, Number(normalizeDistrictIdKey(value)) || 1);
+  const rawDistrictId = remapDemoDistrictId(districtId);
+  return {
+    districtId,
+    rowIndex: Math.floor((rawDistrictId - 1) / 23),
+    columnIndex: (rawDistrictId - 1) % 23
+  };
+}
+
+function remapDemoDistrictId(districtId: number): number {
+  const remapped = new Map([
+    [57, 104],
+    [104, 57],
+    [58, 103],
+    [103, 58],
+    [59, 105],
+    [105, 59],
+    [83, 102],
+    [102, 83]
+  ]);
+  return remapped.get(districtId) ?? districtId;
+}
+
+function resolveDemoDistrictBuildingSeed(value: string): number {
+  const { districtId, rowIndex, columnIndex } = resolveDemoDistrictGridPosition(value);
+  return hashDemoDistrictCell(rowIndex + districtId, columnIndex + districtId);
+}
+
+function hashDemoDistrictCell(rowIndex: number, columnIndex: number): number {
+  let value = (rowIndex + 1) * 374761393 + (columnIndex + 1) * 668265263;
+  value = (value ^ (value >> 13)) * 1274126177;
+  return (value ^ (value >> 16)) >>> 0;
+}

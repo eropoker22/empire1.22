@@ -3,6 +3,7 @@ import type {
   AdminHostedServerView,
   AdminSessionView
 } from "@empire/shared-types";
+import { FREE_HOSTED_STARTING_MATERIAL_GROUPS } from "@empire/game-config";
 import { renderAdminCreateWizard } from "./admin-create-wizard-view";
 import { renderAdminRegistration, renderAdminStartReadiness } from "./admin-registration-view";
 import {
@@ -127,6 +128,7 @@ const renderLifecycle = (server: AdminHostedServerView, session: AdminSessionVie
     </div>
     ${renderAdminRegistration(server, session)}
     ${renderAdminStartReadiness(server)}
+    ${renderStartingPlayerState(server)}
     <div class="admin-lifecycle__actions">
       ${lifecycleButton(server, "start", "Start")}${lifecycleButton(server, "pause", "Pause")}
       ${lifecycleButton(server, "resume", "Resume")}${lifecycleButton(server, "restart", "Safe restart")}
@@ -152,6 +154,31 @@ const renderLifecycle = (server: AdminHostedServerView, session: AdminSessionVie
       </div>
     </details>
   </div>`;
+
+const renderStartingPlayerState = (server: AdminHostedServerView): string => {
+  const startingState = server.startingPlayerState;
+  if (!startingState) {
+    return `<section class="admin-notice" data-admin-starting-state>
+      <strong>Starting state uložený na serveru není dostupný.</strong>
+      <span>Instance vznikla bez současného read-only kontraktu a vyžaduje compatibility kontrolu.</span>
+    </section>`;
+  }
+  return `<details class="admin-disclosure" data-admin-starting-state open>
+    <summary><span>Starting state uložený na serveru</span><small>Autoritativní hodnoty z databázové projekce</small></summary>
+    <div class="admin-kv-grid">
+      ${keyValue("Clean cash", startingState.cleanCash)}
+      ${keyValue("Dirty cash", startingState.dirtyCash)}
+      ${keyValue("Populace", startingState.population)}
+      ${keyValue("Špehové", startingState.spySlots)}
+      ${FREE_HOSTED_STARTING_MATERIAL_GROUPS.map((group) => keyValue(
+        `Materiály · ${group.label}`,
+        group.materials.map((material) => (
+          `${material.label}: ${startingState.materials[material.id]}`
+        )).join(", ")
+      )).join("")}
+    </div>
+  </details>`;
+};
 
 const healthCard = (label: string, value: string, tone: string, detail: string): string => `
   <article class="admin-health-card admin-health-card--${attribute(tone)}">

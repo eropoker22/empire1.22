@@ -64,9 +64,9 @@ describe("day night cycle", () => {
       heatPerDay: 10,
       influencePerDay: 0
     })).toMatchObject({
-      cleanPerHour: 45,
-      dirtyPerHour: 45,
-      heatPerDay: 11
+      cleanPerHour: 50,
+      dirtyPerHour: 50,
+      heatPerDay: 10
     });
 
     state.root.tick = 720;
@@ -173,7 +173,7 @@ describe("day night cycle", () => {
     )).toBe(true);
   });
 
-  it("applies day and night economy modifiers to clean and dirty income", () => {
+  it("uses building-specific phase profiles instead of compounding global city modifiers", () => {
     const state = createCoreStateFixture();
     const context = createContext("free");
 
@@ -187,9 +187,9 @@ describe("day night cycle", () => {
       heatPerDay: 10,
       influencePerDay: 0
     })).toMatchObject({
-      cleanPerHour: 132,
-      dirtyPerHour: 90,
-      heatPerDay: 11
+      cleanPerHour: 115,
+      dirtyPerHour: 100,
+      heatPerDay: 10
     });
 
     state.root.tick = 720;
@@ -202,9 +202,24 @@ describe("day night cycle", () => {
       heatPerDay: 10,
       influencePerDay: 0
     })).toMatchObject({
-      cleanPerHour: 125,
-      dirtyPerHour: 156,
-      heatPerDay: 9
+      cleanPerHour: 100,
+      dirtyPerHour: 125,
+      heatPerDay: 10
+    });
+
+    state.root.tick = 0;
+    expect(applyDayNightBuildingIncomeModifiers({
+      state,
+      context,
+      buildingTypeId: "apartment_block",
+      cleanPerHour: 100,
+      dirtyPerHour: 100,
+      heatPerDay: 10,
+      influencePerDay: 0
+    })).toMatchObject({
+      cleanPerHour: 115,
+      dirtyPerHour: 90,
+      heatPerDay: 11
     });
   });
 
@@ -222,9 +237,9 @@ describe("day night cycle", () => {
       heatPerDay: 10,
       influencePerDay: 0
     })).toMatchObject({
-      cleanPerHour: 135,
-      dirtyPerHour: 150,
-      heatPerDay: 9
+      cleanPerHour: 108,
+      dirtyPerHour: 120,
+      heatPerDay: 10
     });
     expect(resolveDayNightBuildingEconomyType("exchange")).toBe("illegal");
   });
@@ -345,9 +360,9 @@ describe("day night cycle", () => {
       influencePerDay: 0
     });
 
-    expect(day.dirtyPerHour).toBe(45);
-    expect(night.dirtyPerHour).toBe(156);
-    expect(day.dirtyPerHour).toBeLessThan(night.dirtyPerHour / 3);
+    expect(day.dirtyPerHour).toBe(50);
+    expect(night.dirtyPerHour).toBe(125);
+    expect(day.dirtyPerHour).toBeLessThan(night.dirtyPerHour / 2);
   });
 
   it("applies passive population and production modifiers to school and lab loops", () => {
@@ -392,6 +407,8 @@ describe("day night cycle", () => {
       amountPerTick: 100
     });
 
+    expect(drugLabDay).toBe(90);
+    expect(drugLabNight).toBe(120);
     expect(drugLabNight).toBeGreaterThan(drugLabDay);
   });
 

@@ -127,6 +127,15 @@ export interface DistrictPanelBuildingStatView {
   value: string;
 }
 
+export interface DistrictPanelBuildingPresentationView {
+  passive: {
+    cleanPerHour: number;
+    dirtyPerHour: number;
+    heatPerDay: number;
+    influencePerDay: number;
+  };
+}
+
 export interface DistrictPanelBuildingSpecialActionView {
   actionId: string;
   label: string;
@@ -168,9 +177,11 @@ export interface DistrictPanelBuildingView {
   zone: string;
   role: string;
   info: string;
+  presentation?: DistrictPanelBuildingPresentationView | null;
   stats: DistrictPanelBuildingStatView[];
   specialActions: DistrictPanelBuildingSpecialActionView[];
   level: number;
+  maxLevel?: number;
   status: BuildingStatus;
   actionCooldowns: Record<string, number>;
   actions: DistrictPanelBuildingActionView[];

@@ -64,8 +64,29 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     transport: options.transport ?? createFetchClientTransport({ endpointBase }),
     onStateRecompute: recordClientStateRecompute
   });
+  let currentLoadRequest = request;
+  const selectDistrictWithPollingFocus = (districtId: string): Promise<ClientRenderState> => {
+    currentLoadRequest = {
+      ...currentLoadRequest,
+      districtId
+    };
+    const selection = client.selectDistrict(districtId);
+    void selection.then(() => {
+      const confirmedDistrictId = client.getGameplaySlice()?.district?.districtId;
+      if (confirmedDistrictId && confirmedDistrictId !== districtId) {
+        currentLoadRequest = {
+          ...currentLoadRequest,
+          districtId: confirmedDistrictId
+        };
+      }
+    });
+    return selection;
+  };
   const router = createClientSurfaceActionRouter({
-    client,
+    client: {
+      ...client,
+      selectDistrict: selectDistrictWithPollingFocus
+    },
     createCommandId: createBrowserCommandId
   });
   const presentationMode = options.presentationMode
@@ -76,7 +97,6 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
   options.root.dataset.gameplaySlicePresentationMode = presentationMode;
   const mounts = resolveGameplaySliceMounts(options.root);
   const selectiveRenderer = createGameplaySliceSelectiveRenderer();
-  let currentLoadRequest = request;
   const districtSheetOverlay = ownsVisiblePresentation
     ? createDistrictSheetOverlayController()
     : null;
@@ -304,7 +324,7 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
 
       if (isDistrictOpen) {
         try {
-          const nextState = await client.selectDistrict(action.districtId);
+          const nextState = await selectDistrictWithPollingFocus(action.districtId);
           if (nextState) {
             event.preventDefault();
             event.stopPropagation();
@@ -415,7 +435,7 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     getCurrentReadModel: () => client.getGameplaySlice(),
     getCurrentRenderState: () => client.getRenderState(),
     handleSurfaceAction: (target) => router.handleTarget(target),
-    selectDistrict: (districtId) => client.selectDistrict(districtId),
+    selectDistrict: selectDistrictWithPollingFocus,
     submitCommand: (command) => client.dispatch(command),
     applyState: (state, reason) => {
       recordGameplaySliceRefresh(client.getGameplaySlice());
