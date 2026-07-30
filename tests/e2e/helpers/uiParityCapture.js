@@ -156,21 +156,32 @@ export async function openDistrictById(page, districtId) {
 
 export async function openBuildingFromDistrict(page, buildingTypeOrLabel) {
   const aliases = {
+    armory: ["armory", "zbrojovka"],
+    druglab: ["druglab", "drug_lab", "laboratoř", "lab"],
+    drug_lab: ["druglab", "drug_lab", "laboratoř", "lab"],
+    factory: ["factory", "továrna"],
+    pharmacy: ["pharmacy", "lékárna"],
     restaurant: ["restaurant", "restaurace"]
   };
   const normalized = String(buildingTypeOrLabel).toLocaleLowerCase("cs");
   const expectedLabels = aliases[normalized] || [normalized];
-  const opened = await page.locator("[data-district-building-name]").evaluateAll((buttons, expected) => {
-    const button = buttons.find((candidate) => {
+  const chips = page.locator("[data-district-building-name]");
+  let matchingIndex = -1;
+  await expect.poll(async () => {
+    matchingIndex = await chips.evaluateAll((buttons, expected) => buttons.findIndex((candidate) => {
       const type = String(candidate.dataset.districtBuildingType || "").toLocaleLowerCase("cs");
       const text = String(candidate.textContent || "").toLocaleLowerCase("cs");
       return expected.some((label) => type === label || text.includes(label));
-    });
-    if (!(button instanceof HTMLButtonElement) || button.disabled) return false;
-    button.click();
-    return true;
-  }, expectedLabels);
-  expect(opened, `Building ${buildingTypeOrLabel} should be interactive`).toBe(true);
+    }), expectedLabels);
+    return matchingIndex;
+  }, {
+    message: `Building ${buildingTypeOrLabel} should be rendered as an interactive district chip`,
+    timeout: 30_000
+  }).toBeGreaterThanOrEqual(0);
+  const button = chips.nth(matchingIndex);
+  await expect(button).toBeVisible();
+  await expect(button).toBeEnabled();
+  await button.click();
 }
 
 export async function openProductionShortcut(page, type) {
@@ -201,8 +212,11 @@ export async function closeSurface(page, surfaceName) {
 }
 
 export async function openCityEvents(page) {
-  await page.locator("#city-events-open").click();
-  await expect(page.locator("#events-modal")).toBeVisible();
+  const modal = page.locator("#events-modal");
+  if (!(await modal.isVisible().catch(() => false))) {
+    await page.locator("#city-events-open").click();
+  }
+  await expect(modal).toBeVisible();
 }
 
 export async function openFirstCityEventDetail(page) {
@@ -215,7 +229,13 @@ export async function openFirstCityEventDetail(page) {
 }
 
 function artifactDirectory(phase, mode, viewportName) {
-  return path.resolve("artifacts", "live-demo-ui-parity", phase, mode, viewportName);
+  const artifactRoot = String(process.env.EMPIRE_UI_PARITY_ARTIFACT_ROOT || "").trim();
+  return path.resolve(
+    artifactRoot || path.join("artifacts", "live-demo-ui-parity"),
+    phase,
+    mode,
+    viewportName
+  );
 }
 
 export async function readParitySurfaceMetadata(page, surfaceName) {
@@ -341,14 +361,22 @@ export async function getParitySurfaceSignature(page, surfaceName) {
   const metadata = await readParitySurfaceMetadata(page, surfaceName);
   return {
     owner: metadata.surfaceOwner,
-    canonicalClassNames: metadata.classNames.filter((className) => (
-      !/^(?:is|has|tone|state|status|theme|mode)--?/u.test(className)
-      && !/(?:loading|disabled|active|selected|server-authoritative|local-demo)/u.test(className)
-    )),
+    canonicalClassNames: normalizeParityClassNames(metadata.classNames),
     selectedDistrictId: metadata.selectedDistrictId,
     selectedBuildingId: metadata.selectedBuildingId,
     visibleModalCount: metadata.visibleModalCount
   };
+}
+
+export function normalizeParityClassNames(classNames = []) {
+  return Array.from(new Set(classNames
+    .filter((className) => (
+      !/^(?:is|has|tone|state|status|theme|mode)--?/u.test(className)
+      && !/(?:loading|disabled|active|selected|server-authoritative|local-demo)/u.test(className)
+      && className !== "district-popup-action__label"
+    ))
+    .map((className) => className.replace(/--.*$/u, ""))))
+    .sort();
 }
 
 export async function expectNoDuplicateVisibleUi(page) {

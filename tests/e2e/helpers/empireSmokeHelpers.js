@@ -496,8 +496,8 @@ export async function completeSpawnSelectionIfVisible(page) {
 }
 
 export async function waitForMapReady(page) {
-  await dismissOnboardingGuide(page);
   await dismissBlockingGameOverlays(page);
+  await dismissOnboardingGuide(page);
   await expect(page.getByTestId("game-page")).toBeVisible();
   await expect(page.getByTestId("district-canvas")).toBeVisible();
   await page.waitForFunction(() => (
@@ -511,6 +511,22 @@ export async function waitForMapReady(page) {
 
 export async function dismissOnboardingGuide(page) {
   const panel = page.locator("[data-onboarding-panel]");
+  const documentRoot = page.locator("html");
+  const sandboxActive = await documentRoot.getAttribute("data-onboarding-sandbox") === "true";
+  if (sandboxActive) {
+    const skipButton = page.locator("[data-onboarding-skip-action]").first();
+    await skipButton.waitFor({ state: "attached", timeout: 5_000 });
+    await skipButton.click({ force: true });
+    await expect(documentRoot).not.toHaveAttribute(
+      "data-onboarding-sandbox",
+      "true",
+      { timeout: 5_000 }
+    );
+    await expect(panel).toBeHidden({ timeout: 1_500 }).catch(async () => {
+      await forceHideOnboardingGuide(page);
+    });
+    return;
+  }
   if (await panel.isVisible({ timeout: 1000 }).catch(() => false)) {
     const dismissButton = page.getByRole("button", { name: /Už nezobrazovat|Přeskočit/ }).first();
     if (await dismissButton.isVisible({ timeout: 1000 }).catch(() => false)) {
@@ -657,8 +673,8 @@ async function getDistrictCanvasPosition(page, districtId) {
 }
 
 export async function clickDistrictById(page, districtId) {
-  await dismissOnboardingGuide(page);
   await dismissBlockingGameOverlays(page);
+  await dismissOnboardingGuide(page);
   const openedViaApi = await page.evaluate((id) => Boolean(window.empireStreetsDistrictState?.openDistrict?.(id)), districtId);
   if (!openedViaApi) {
     const position = await getDistrictCanvasPosition(page, districtId);

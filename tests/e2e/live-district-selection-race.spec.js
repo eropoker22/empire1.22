@@ -72,10 +72,10 @@ test.describe("hosted district selection race", () => {
       secondDistrictId.replace(/^district:/u, "")
     );
     const selectionSummary = await page.evaluate(() => (
-      window.empireUiOwnershipDiagnostics?.getSummary?.().selection || null
+      window.empireUiOwnershipDiagnostics?.getSummary?.() || null
     ));
     expect(selectionSummary?.requestedDistrictId).toBe(secondDistrictId);
-    expect(selectionSummary?.status).toBe("ready");
+    expect(selectionSummary?.requestStatus).toBe("ready");
 
     const firstBuilding = page.locator("[data-district-building-name]").first();
     const buildingType = await firstBuilding.getAttribute("data-district-building-type");

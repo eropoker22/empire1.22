@@ -9,6 +9,7 @@ const toWatchGlob = (...segments: string[]): string =>
 
 export const GAME_DEV_WATCH_IGNORED = Object.freeze([
   toWatchGlob(".cache"),
+  toWatchGlob(".tmp"),
   toWatchGlob("client"),
   toWatchGlob("dist-worker"),
   toWatchGlob("netlify", "functions"),

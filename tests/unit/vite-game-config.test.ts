@@ -16,6 +16,10 @@ describe("game Vite watcher", () => {
     expect(matchesIgnoredRoot(resolve("client/page-assets/js/app.js"))).toBe(true);
     expect(matchesIgnoredRoot(resolve("apps/client/src/browser/gameplay-slice-page.ts"))).toBe(false);
   });
+
+  it("ignores isolated local hosted artifacts", () => {
+    expect(matchesIgnoredRoot(resolve(".tmp/local-hosted-full/run/ui-parity/cityEvents.html"))).toBe(true);
+  });
 });
 
 describe("game Vite hosted API proxy", () => {
