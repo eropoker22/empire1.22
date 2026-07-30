@@ -9,6 +9,7 @@ import {
 const canvasWidth = 1600;
 const canvasHeight = 980;
 const geometry = createDistrictGeometry(canvasWidth, canvasHeight, 0, 48, 0);
+const accountUsernameMaxLength = 32;
 const DEMO_GAMEPLAY_STORAGE_PATTERNS = Object.freeze([
   /^empireStreets\.session(?:\.|$)/u,
   /^empireStreets\.production(?:\.|$)/u,
@@ -19,8 +20,9 @@ const DEMO_GAMEPLAY_STORAGE_PATTERNS = Object.freeze([
 
 function createIdentity(prefix = "Parity") {
   const suffix = randomBytes(6).toString("hex");
+  const usernamePrefix = String(prefix).slice(0, accountUsernameMaxLength - suffix.length);
   return {
-    username: `${prefix}${suffix}`,
+    username: `${usernamePrefix}${suffix}`,
     gangName: `${prefix} Crew ${suffix}`,
     password: randomBytes(24).toString("base64url"),
     networkIdentifier: `2001:db8::${randomBytes(8).toString("hex")}`
