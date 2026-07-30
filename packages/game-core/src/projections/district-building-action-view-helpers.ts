@@ -107,7 +107,11 @@ export const createRequiredInputViews = (input: {
 
   if (input.cityHallConfig && actionId === input.cityHallConfig.emergencyDecree.actionId) {
     return [
-      createSelectInput("mode", "Režim vyhlášky", Object.keys(input.cityHallConfig.emergencyDecree.modes)),
+      createSelectInput(
+        "mode",
+        "Režim vyhlášky",
+        Object.values(input.cityHallConfig.emergencyDecree.modes).map((mode) => mode.modeId)
+      ),
       {
         id: "targetZone",
         type: "text",

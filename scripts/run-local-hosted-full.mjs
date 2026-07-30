@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { assertSupportedNodeVersion } from "./supported-node-policy.mjs";
@@ -59,6 +60,18 @@ const hostedSuites = Object.freeze([
   Object.freeze({
     name: "income",
     specs: Object.freeze(["tests/e2e/live-hosted-income.spec.js"])
+  }),
+  Object.freeze({
+    name: "building-actions-day",
+    scenario: "building-actions-day",
+    buildingActionPhase: "day",
+    specs: Object.freeze(["tests/e2e/live-hosted-building-actions.spec.js"])
+  }),
+  Object.freeze({
+    name: "building-actions-night",
+    scenario: "building-actions-night",
+    buildingActionPhase: "night",
+    specs: Object.freeze(["tests/e2e/live-hosted-building-actions.spec.js"])
   })
 ]);
 const requestedSuiteNames = new Set(
@@ -220,6 +233,19 @@ try {
     };
     suiteResults.push(result);
     try {
+      delete environment.EMPIRE_HOSTED_BOOTSTRAP_USERNAME;
+      delete environment.EMPIRE_HOSTED_BOOTSTRAP_GANG_NAME;
+      delete environment.EMPIRE_HOSTED_BOOTSTRAP_PASSWORD;
+      delete environment.EMPIRE_HOSTED_BOOTSTRAP_NETWORK_IDENTIFIER;
+      delete environment.EMPIRE_HOSTED_BUILDING_ACTION_PHASE;
+      if (suite.buildingActionPhase) {
+        const identitySuffix = randomBytes(6).toString("hex");
+        environment.EMPIRE_HOSTED_BOOTSTRAP_USERNAME = `HostedAction${identitySuffix}`;
+        environment.EMPIRE_HOSTED_BOOTSTRAP_GANG_NAME = `Hosted Action Crew ${identitySuffix}`;
+        environment.EMPIRE_HOSTED_BOOTSTRAP_PASSWORD = randomBytes(24).toString("base64url");
+        environment.EMPIRE_HOSTED_BOOTSTRAP_NETWORK_IDENTIFIER = `2001:db8::${randomBytes(8).toString("hex")}`;
+        environment.EMPIRE_HOSTED_BUILDING_ACTION_PHASE = suite.buildingActionPhase;
+      }
       const server = await provisionDisposableHostedServer(admin, {
         displayNamePrefix: `Local Hosted ${suite.name}`,
         onCreated: (created) => {
@@ -241,14 +267,15 @@ try {
         "test",
         "tests/e2e/local-hosted-bootstrap-player.spec.js"
       ], 600_000);
-      if (suite.name === "city-events") {
+      const scenario = suite.scenario || (suite.name === "city-events" ? "city-events" : "");
+      if (scenario) {
         result.status = "seeding-scenario";
         await runFixtureNode(`seed-${suite.name}`, [
           "scripts/run-local-bin.mjs",
           "vite-node/vite-node.mjs",
           "tools/seed/hosted-e2e-scenario.mjs",
           `--server=${server.serverInstanceId}`,
-          "--scenario=city-events"
+          `--scenario=${scenario}`
         ], 120_000);
       }
       result.status = "starting-server";

@@ -108,7 +108,7 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   vecerka: Object.freeze({
     role: "Pouliční provoz",
     info: "Večerka generuje malé čisté peníze, drobné dirty cash, trochu vlivu a lokální pouliční drby. Zářivky bzučí, dveře pípají a kamera nad regálem vidí víc, než by měla.",
-    actions: Object.freeze([])
+    actions: Object.freeze(["Vybrat obyvatele"])
   }),
   "pasovaci tunel": Object.freeze({
     role: "Pašování",
@@ -251,7 +251,13 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
   "poulicni dealeri": Object.freeze([
     Object.freeze({ dealerLocalSale: true, cooldownMs: 0, summary: `Prodává jednu z ${STREET_DEALERS_CONFIG.sellableDrugs.length} povolených laboratorních látek; současně může běžet pouze jeden prodej.` })
   ]),
-  vecerka: Object.freeze([]),
+  vecerka: Object.freeze([
+    Object.freeze({
+      convenienceStoreCollectPopulation: true,
+      cooldownMs: 0,
+      summary: "Přesune obyvatele uložené ve Večerce do globální populace gangu."
+    })
+  ]),
   "pasovaci tunel": Object.freeze([
     Object.freeze({
       smugglingOpenChannel: true,

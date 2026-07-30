@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { resolveModeConfig } from "@empire/game-config";
+import {
+  empireStreetsCityMapDistrictsById,
+  getAllPublicBuildingDefinitions,
+  resolveDistrictBuildingTypes,
+  resolveModeConfig
+} from "@empire/game-config";
+import hostedBuildingActionMatrix from "../../tools/seed/hosted-building-action-matrix.json";
 import {
   createBuildingSpecialActionAuditRows,
   hasLegacyBuildingSpecialActionHandler,
@@ -58,6 +64,53 @@ describe("building special action registry", () => {
     expect(rows.every((row) => row.status === "implemented")).toBe(true);
     expect(rows.every((row) => row.hasRuntimeHandler)).toBe(true);
     expect(JSON.stringify(rows)).not.toContain("missing-handler");
+  });
+
+  it("maps every canonical visible building action to the server bridge", () => {
+    const definitions = getAllPublicBuildingDefinitions();
+    const visibleActions = definitions.flatMap((definition) =>
+      definition.specialActions.map((action) => ({
+        definition,
+        action
+      }))
+    );
+
+    expect(visibleActions).toHaveLength(39);
+    for (const { definition, action } of visibleActions) {
+      const browserDefinition = resolveBuildingSpecialActionDefinition({
+        buildingName: definition.label,
+        actionLabel: action.label,
+        actionProfile: {}
+      });
+      const label = `${definition.label} / ${action.label}`;
+
+      expect(browserDefinition.actionId, label).toBe(action.actionId);
+      expect(browserDefinition.buildingTypeId, label).toBe(definition.buildingTypeId);
+      expect(browserDefinition.handlerId, label).toBe("server-run-building-action");
+      expect(browserDefinition.status, label).toBe("implemented");
+      expect(freeBuildingActions[action.actionId]?.buildingType, label).toBe(definition.buildingTypeId);
+    }
+  });
+
+  it("keeps every canonical visible action in exactly one hosted phase scenario", () => {
+    const definitions = getAllPublicBuildingDefinitions();
+    const visibleActionIds = definitions.flatMap((definition) =>
+      definition.specialActions.map((action) => action.actionId)
+    ).sort();
+    const hostedActionIds = hostedBuildingActionMatrix.map((entry) => entry.actionId).sort();
+
+    expect(new Set(hostedActionIds).size).toBe(hostedActionIds.length);
+    expect(hostedActionIds).toEqual(visibleActionIds);
+    for (const entry of hostedBuildingActionMatrix) {
+      expect(["day", "night"], entry.actionId).toContain(entry.phase);
+      const district = empireStreetsCityMapDistrictsById.get(entry.districtId);
+      expect(district, `${entry.actionId} district`).toBeTruthy();
+      expect(resolveDistrictBuildingTypes({
+        districtId: entry.districtId,
+        zone: district.zone,
+        buildingSetKey: district.buildingSetKey
+      }), entry.actionId).toContain(entry.buildingTypeId);
+    }
   });
 
   it("keeps Restaurant detail card actions server-authoritative", () => {

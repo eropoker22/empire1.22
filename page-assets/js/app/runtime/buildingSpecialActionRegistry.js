@@ -60,6 +60,7 @@ const SERVER_ACTIONS = new Map([
   ["klinika::stabilizacni protokol", ["stabilization_protocol", "clinic"]],
   ["skola::vecerni kurz", ["evening_course", "school"]],
   ["bytovy blok::vybrat obyvatele", ["collect_population", "apartment_block"]],
+  ["vecerka::vybrat obyvatele", ["collect_convenience_store_population", "convenience_store"]],
   ["energeticka stanice::stabilizovat sit", ["backup_grid_switch", "power_station"]],
   ["energeticka stanice::napajet vyrobu", ["power_station_feed_production", "power_station"]],
   ["energeticka stanice::snizit heat", ["power_station_reduce_heat", "power_station"]],

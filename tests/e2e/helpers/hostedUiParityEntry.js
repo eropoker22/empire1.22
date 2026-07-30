@@ -305,12 +305,13 @@ export async function registerAndEnterHostedUiParityGame(page, {
   serverInstanceId,
   spawnDistrictId,
   spawnDistrictIds,
-  identityPrefix = "Parity"
+  identityPrefix = "Parity",
+  identity: suppliedIdentity = null
 } = {}) {
   expect(serverInstanceId, "EMPIRE_UI_PARITY_SERVER_ID is required").toBeTruthy();
   const requestedSpawnDistrictIds = spawnDistrictIds || [spawnDistrictId].filter(Boolean);
   const diagnostics = await installHostedUiParityInstrumentation(page);
-  const identity = createIdentity(identityPrefix);
+  const identity = suppliedIdentity || createIdentity(identityPrefix);
   await registerAccount(page, identity);
   const districts = await openServer(page, serverInstanceId);
   const selectedSpawnDistrictId = await selectSpawnDistrict(
@@ -326,5 +327,39 @@ export async function registerAndEnterHostedUiParityGame(page, {
     identity,
     serverInstanceId,
     spawnDistrictId: selectedSpawnDistrictId
+  };
+}
+
+export async function loginAndResumeHostedUiParityGame(page, {
+  username,
+  password,
+  networkIdentifier
+} = {}) {
+  expect(username, "Hosted resume requires a username").toBeTruthy();
+  expect(password, "Hosted resume requires a password").toBeTruthy();
+  const diagnostics = await installHostedUiParityInstrumentation(page);
+  if (networkIdentifier) {
+    await page.setExtraHTTPHeaders({
+      "x-forwarded-for": networkIdentifier
+    });
+  }
+  await page.goto("/pages/login.html");
+  await expect(page.locator("#login-username")).toBeEnabled({ timeout: 30_000 });
+  await page.locator("#login-username").fill(username);
+  await page.locator("#login-password").fill(password);
+  await page.getByTestId("login-form")
+    .getByRole("button", { name: "VSTOUPIT DO MĚSTA" })
+    .click();
+  await expect(page).toHaveURL(/\/pages\/lobby\.html/u, { timeout: 30_000 });
+  await expect(page.getByTestId("continue-active-server")).toBeVisible({ timeout: 30_000 });
+  await page.getByTestId("continue-active-server").click();
+  await waitForLiveGame(page);
+  return {
+    diagnostics,
+    identity: {
+      username,
+      password,
+      networkIdentifier
+    }
   };
 }
