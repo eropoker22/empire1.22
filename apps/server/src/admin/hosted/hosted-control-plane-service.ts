@@ -21,6 +21,7 @@ import {
   hostedEnvironmentEnabled,
   safeHostedBuildSha
 } from "./hosted-control-plane-environment";
+import { loadHostedAdminServerViews } from "./hosted-admin-server-view-loader";
 
 const IDEMPOTENCY_PATTERN = /^[a-zA-Z0-9._:-]{16,200}$/u;
 
@@ -67,14 +68,11 @@ export const createHostedControlPlaneService = (options: {
       : buildCompatibility === "missing" ? "BUILD_SHA_UNAVAILABLE"
       : buildCompatibility === "mismatch" ? "BUILD_SHA_MISMATCH"
       : null;
-    const serverViews = await Promise.all(servers.map(async (server) => {
-      const [capacity, ready] = await Promise.all([
-        options.repositories.hosted.getJoinCapacity(server.serverInstanceId, generatedAt.toISOString())
-          .catch(() => ({ committedPlayers: 0, reservedSlots: 0 })),
-        options.repositories.hosted.listReadyMemberships(server.serverInstanceId).catch(() => [])
-      ]);
-      return createHostedAdminServerView({ server, now: generatedAt, ...capacity, readyPlayers: ready.length });
-    }));
+    const serverViews = await loadHostedAdminServerViews(
+      options.repositories.hosted,
+      servers,
+      generatedAt
+    );
     return { writesEnabled, provisioningEnabled, databaseAvailable, migrationsCurrent, workerStatus, buildCompatibility,
       sessionSecurity, originPolicy, registrationEnabled, unavailableCode,
       apiBuildSha, workerBuildSha,
