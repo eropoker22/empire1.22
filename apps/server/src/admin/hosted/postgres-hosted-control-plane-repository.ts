@@ -14,6 +14,9 @@ import { createPostgresHostedProvisioningRepository } from "./postgres-hosted-pr
 import { createPostgresHostedRegistrationRepository } from "./postgres-hosted-registration-repository";
 import { completePostgresHostedAction } from "./postgres-hosted-action-completion";
 import { archivePostgresHostedServer } from "./postgres-hosted-server-archive";
+import {
+  loadPostgresHostedAdminServerStats
+} from "./postgres-hosted-admin-server-stats";
 
 export const createPostgresHostedControlPlaneRepository = (
   database: PostgresDatabase
@@ -31,6 +34,8 @@ export const createPostgresHostedControlPlaneRepository = (
     const result = await database.query<HostedServerRow>(`${SERVER_SELECT} WHERE server_instance_id=$1`, [id]);
     return result.rows[0] ? mapServer(result.rows[0]) : null;
   },
+  getAdminServerStats: (serverInstanceIds, at) =>
+    loadPostgresHostedAdminServerStats(database, serverInstanceIds, at),
   createServerTransaction: (input) => database.transaction(async (client) => {
     const reserved = await client.query(
       `INSERT INTO empire_hosted_server_idempotency

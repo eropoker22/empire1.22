@@ -9,23 +9,23 @@ import type {
 const GENERATED_AT = new Date("2026-07-31T10:00:00.000Z");
 
 describe("hosted admin server view loader", () => {
-  it("bounds PostgreSQL-shaped fan-out while preserving the last server counts", async () => {
-    let activeQueries = 0;
-    let maximumActiveQueries = 0;
+  it("loads every historical server through one bulk stats request", async () => {
     const servers = Array.from({ length: 120 }, (_, index) => server(index));
-    const repository = repositoryWithStats(async (serverInstanceId, kind) => {
-      activeQueries += 1;
-      maximumActiveQueries = Math.max(maximumActiveQueries, activeQueries);
-      await new Promise((resolve) => setTimeout(resolve, 2));
-      activeQueries -= 1;
-      const isLast = serverInstanceId === servers.at(-1)!.serverInstanceId;
-      return kind === "capacity"
-        ? { committedPlayers: isLast ? 4 : 0, reservedSlots: 0 }
-        : Array.from({ length: isLast ? 4 : 0 }, (_, index) => ({
-            membershipId: `membership:${index}`,
-            playerId: `player:${index}`,
-            reservedSpawnDistrictId: `district:${index}`
-          }));
+    let bulkCalls = 0;
+    const repository = repositoryWithStats(async (serverInstanceIds) => {
+      bulkCalls += 1;
+      expect(serverInstanceIds).toEqual(
+        servers.map((entry) => entry.serverInstanceId)
+      );
+      return serverInstanceIds.map((serverInstanceId) => {
+        const isLast = serverInstanceId === servers.at(-1)!.serverInstanceId;
+        return {
+          serverInstanceId,
+          committedPlayers: isLast ? 4 : 0,
+          reservedSlots: 0,
+          readyPlayers: isLast ? 4 : 0
+        };
+      });
     });
 
     const views = await loadHostedAdminServerViews(repository, servers, GENERATED_AT);
@@ -37,44 +37,39 @@ describe("hosted admin server view loader", () => {
       readyPlayers: 4,
       canStart: true
     });
-    expect(maximumActiveQueries).toBeGreaterThan(1);
-    expect(maximumActiveQueries).toBeLessThanOrEqual(4);
+    expect(bulkCalls).toBe(1);
   });
 
   it("fails closed instead of rendering database errors as zero players", async () => {
     const servers = [server(0)];
-    const repository = repositoryWithStats(async (_serverInstanceId, kind) => {
-      if (kind === "capacity") throw new Error("connection acquisition timeout");
-      return [];
+    const repository = repositoryWithStats(async () => {
+      throw new Error("connection acquisition timeout");
     });
 
     await expect(
       loadHostedAdminServerViews(repository, servers, GENERATED_AT)
     ).rejects.toThrow("connection acquisition timeout");
   });
+
+  it("fails closed when bulk stats omit a requested server", async () => {
+    const servers = [server(0), server(1)];
+    const repository = repositoryWithStats(async () => [{
+      serverInstanceId: servers[0]!.serverInstanceId,
+      committedPlayers: 0,
+      reservedSlots: 0,
+      readyPlayers: 0
+    }]);
+
+    await expect(
+      loadHostedAdminServerViews(repository, servers, GENERATED_AT)
+    ).rejects.toThrow(`Admin stats missing for hosted server ${servers[1]!.serverInstanceId}.`);
+  });
 });
 
-type StatsResult =
-  | { committedPlayers: number; reservedSlots: number }
-  | Array<{
-      membershipId: string;
-      playerId: string;
-      reservedSpawnDistrictId: string;
-    }>;
-
 const repositoryWithStats = (
-  load: (serverInstanceId: string, kind: "capacity" | "ready") => Promise<StatsResult>
-): Pick<HostedControlPlaneRepository, "getJoinCapacity" | "listReadyMemberships"> => ({
-  getJoinCapacity: async (serverInstanceId) => {
-    const result = await load(serverInstanceId, "capacity");
-    if (Array.isArray(result)) throw new Error("Expected capacity stats.");
-    return result;
-  },
-  listReadyMemberships: async (serverInstanceId) => {
-    const result = await load(serverInstanceId, "ready");
-    if (!Array.isArray(result)) throw new Error("Expected ready memberships.");
-    return result;
-  }
+  load: HostedControlPlaneRepository["getAdminServerStats"]
+): Pick<HostedControlPlaneRepository, "getAdminServerStats"> => ({
+  getAdminServerStats: load
 });
 
 const server = (index: number): HostedServerRecord => ({

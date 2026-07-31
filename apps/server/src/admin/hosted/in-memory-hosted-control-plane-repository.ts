@@ -42,6 +42,16 @@ export const createInMemoryHostedControlPlaneRepository = (seed: {
     isSchemaCurrent: async () => false,
     listServers: async () => [...servers.values()].map(copy),
     getServer: async (id) => servers.has(id) ? copy(servers.get(id)!) : null,
+    getAdminServerStats: async (serverInstanceIds, at) => serverInstanceIds.map((serverInstanceId) => ({
+      serverInstanceId,
+      committedPlayers: [...joinReservations.values()].filter((entry) =>
+        entry.serverInstanceId === serverInstanceId && entry.status === "committed").length,
+      reservedSlots: [...joinReservations.values()].filter((entry) =>
+        entry.serverInstanceId === serverInstanceId
+        && entry.status === "reserved"
+        && entry.expiresAt > at).length,
+      readyPlayers: (readyMembershipsByServerId.get(serverInstanceId) ?? []).length
+    })),
     listReadyMemberships: async (id) => (readyMembershipsByServerId.get(id) ?? []).map(copy),
     createServerTransaction: async (input) => {
       const key = `${input.adminUserId}:create:${input.idempotencyKey}`;

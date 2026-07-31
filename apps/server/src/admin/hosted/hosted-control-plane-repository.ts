@@ -101,6 +101,13 @@ export interface HostedReadyMembershipRecord {
   reservedSpawnDistrictId: string;
 }
 
+export interface HostedAdminServerStats {
+  serverInstanceId: string;
+  committedPlayers: number;
+  reservedSlots: number;
+  readyPlayers: number;
+}
+
 export type HostedRegistrationFreezeResult =
   | { kind: "frozen"; server: HostedServerRecord }
   | { kind: "already-frozen" | "not-due"; server: HostedServerRecord }
@@ -134,6 +141,10 @@ export interface HostedControlPlaneRepository {
   isSchemaCurrent(): Promise<boolean>;
   listServers(): Promise<HostedServerRecord[]>;
   getServer(serverInstanceId: string): Promise<HostedServerRecord | null>;
+  getAdminServerStats(
+    serverInstanceIds: string[],
+    at: string
+  ): Promise<HostedAdminServerStats[]>;
   listReadyMemberships(serverInstanceId: string): Promise<HostedReadyMembershipRecord[]>;
   createServerTransaction(input: {
     server: HostedServerRecord;
