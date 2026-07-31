@@ -428,7 +428,7 @@ describe("production building popup runtime", () => {
       allowLegacyProductionUpgrade: false,
       createUpgradeConfirmationController,
       formatCurrency: (value) => `$${value}`,
-      getResolvedEconomyState: () => ({ cleanMoney: 0 }),
+      getResolvedEconomyState: () => ({ cleanMoney: 1000 }),
       getProductionBuildingEffectsLabel: () => "x1.00",
       getProductionBuildingMultiplier: () => 1,
       getProductionBuildingReadyCount: () => 0,
@@ -484,7 +484,8 @@ describe("production building popup runtime", () => {
     await upgradeButton.dispatch("click");
     expect(upgradeConfirmation.open).toHaveBeenCalledWith(expect.objectContaining({
       canConfirm: true,
-      costLabel: "Ověří server",
+      costLabel: "$100",
+      noteLabel: "Po potvrzení zaplatíš $100 clean cash.",
       upgradeLabel: "L3 → L4"
     }));
     expect(submitServerProductionBuildingUpgrade).toHaveBeenCalledWith({

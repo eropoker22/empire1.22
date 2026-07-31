@@ -854,6 +854,7 @@ import {
   getServerBuildingShortcutCandidateDistrictIds
 } from "./runtime/serverBuildingShortcutResolver.js";
 import {
+  createServerBuildingActionExecutionPresentation,
   LocalDemoBuildingPresentationAdapter,
   ServerBuildingPresentationAdapter
 } from "./runtime/buildingPresentationAdapters.js";
@@ -1467,14 +1468,14 @@ async function submitServerBuildingSurfaceAction(surfaceDataset = {}, inputValue
   if (!isServerAuthoritativeGameplayRuntimeReady()) {
     return {
       accepted: false,
-      errors: [{ message: "Serverový herní stav ještě není načtený." }]
+      errors: [{ message: "Herní stav ještě není načtený." }]
     };
   }
   const scope = document.querySelector("[data-gameplay-slice-client]");
   if (!(scope instanceof HTMLElement)) {
     return {
       accepted: false,
-      errors: [{ message: "Serverový command controller není připojený." }]
+      errors: [{ message: "Ovládání herních akcí není připojené." }]
     };
   }
   const proxy = document.createElement("button");
@@ -1518,7 +1519,7 @@ async function submitServerBuildingSurfaceAction(surfaceDataset = {}, inputValue
   } catch (_error) {
     return {
       accepted: false,
-      errors: [{ message: "Serverovou akci se nepodařilo bezpečně odeslat." }]
+      errors: [{ message: "Akci se nepodařilo bezpečně odeslat." }]
     };
   } finally {
     proxy.remove();
@@ -8943,20 +8944,44 @@ async function confirmDistrictBuildingDetailUpgrade(root, shell) {
       String(context.serverPresentation?.viewModel?.levelLabel || "L1").replace(/[^\d]/gu, "")
       || 1
     ));
+    const mechanics = resolveDistrictBuildingDetailMechanics(context.district, context.buildingName, {
+      entryOverride: { level: currentLevel }
+    });
+    if (mechanics.mechanicsType === "garage" || !mechanics.nextLevel) {
+      setBuildingActionFeedback(
+        root,
+        "warning",
+        context.displayName || context.buildingName,
+        mechanics.mechanicsType === "garage"
+          ? "Garáž je pasivní budova bez upgradu."
+          : "Budova je na maximálním levelu.",
+        `L${mechanics.level}`
+      );
+      return;
+    }
+    const displayLabel = String(context.displayName || context.buildingName || "Budova").trim() || "Budova";
+    const resourceStatus = getDistrictBuildingUpgradeResourceStatus(mechanics);
+    const nextMechanics = resolveDistrictBuildingDetailMechanics(context.district, context.buildingName, {
+      entryOverride: { level: mechanics.nextLevel }
+    });
+    let warehouseUpgradePreview = null;
+    if (mechanics.mechanicsType === "warehouse") {
+      const target = await resolveServerBuildingUpgradeTarget(context, mechanics);
+      warehouseUpgradePreview = target.ok ? target.building?.warehouseUpgradePreview || null : null;
+    }
+    const confirmationViewModel = createBuildingUpgradeConfirmationViewModel({
+      buildingName: context.buildingName,
+      displayName: displayLabel,
+      currentMechanics: mechanics,
+      nextMechanics,
+      resourceStatus,
+      warehouseUpgradePreview
+    });
     const confirmation = getDistrictBuildingDetailUpgradeConfirmation(root, shell);
     const confirmed = await confirmation.open({
-      buildingLabel: context.displayName || context.buildingName,
-      titleLabel: context.displayName || context.buildingName,
-      upgradeLabel: `L${currentLevel} → L${currentLevel + 1}`,
-      costLabel: "Ověří server",
-      benefits: [{
-        icon: "+",
-        label: "Budova",
-        value: "Vyšší level",
-        detail: "Výsledek i cenu autoritativně ověří server."
-      }],
-      noteLabel: "Změna se projeví až po potvrzené serverové odpovědi.",
-      canConfirm: true
+      ...confirmationViewModel,
+      canConfirm: resourceStatus.canConfirm,
+      confirmLabel: resourceStatus.canConfirm ? "Potvrdit upgrade" : "Chybí zdroje"
     });
     if (!confirmed) {
       return;
@@ -8971,8 +8996,8 @@ async function confirmDistrictBuildingDetailUpgrade(root, shell) {
         "warning",
         context.displayName || context.buildingName,
         result.errors?.map((error) => error?.message || error?.code).filter(Boolean).join(" · ")
-          || "Server upgrade odmítl.",
-        context.serverDistrictId || ""
+          || "Upgrade se nepodařilo potvrdit.",
+        `District ${context.district?.id || String(context.serverDistrictId || "").replace(/^district:/u, "")}`
       );
       return;
     }
@@ -8980,8 +9005,8 @@ async function confirmDistrictBuildingDetailUpgrade(root, shell) {
       root,
       "success",
       context.displayName || context.buildingName,
-      result.readModel?.reports?.[0]?.summary || "Server upgrade potvrdil.",
-      context.serverDistrictId || ""
+      result.readModel?.reports?.[0]?.summary || "Budova byla upgradovaná.",
+      `District ${context.district?.id || String(context.serverDistrictId || "").replace(/^district:/u, "")}`
     );
     refreshServerGenericDistrictBuildingDetail(root, shell);
     return;
@@ -9619,46 +9644,32 @@ async function confirmAndRunDistrictBuildingDetailAction(root, shell, request) {
         root,
         "warning",
         context.displayName || context.buildingName,
-        "Server už tuto akci pro vybranou budovu nenabízí.",
-        context.serverDistrictId || ""
+        "Akce už pro vybranou budovu není dostupná.",
+        context.district?.id ? `District ${context.district.id}` : ""
       );
       return false;
     }
-    const requiredInputs = Array.isArray(action.requiresInput) ? action.requiresInput : [];
-    const disabledReason = action.disabledReason
-      || (requiredInputs.length > 0
-        ? "Tato serverová akce vyžaduje doplnění vstupu, který tento sdílený detail zatím nenabízí."
-        : "");
-    const controller = getDistrictBuildingSpecialActionConfirmation(root, shell);
-    const confirmed = await controller.open({
-      titleLabel: action.title,
-      buildingLabel: context.displayName || context.buildingName,
-      districtLabel: context.serverDistrictId || "",
-      description: action.serverAction?.description || "",
-      costSummary: action.buttonCostLabel || "Bez přímé ceny",
-      rewardSummary: action.rewardSummary || "Výsledek určí server.",
-      inputSummary: requiredInputs.map((input) => input?.label).filter(Boolean).join(" · "),
-      riskSummary: Array.isArray(action.serverAction?.riskSummary)
-        ? action.serverAction.riskSummary.join(" · ")
-        : "",
-      cooldownLabel: action.cooldownLabel || "",
-      disabledReason,
-      canConfirm: !disabledReason
+    const actionExecution = createServerBuildingActionExecutionPresentation({
+      action,
+      context,
+      request
     });
+    const controller = getDistrictBuildingSpecialActionConfirmation(root, shell);
+    const confirmed = await controller.open(actionExecution.confirmation);
     if (!confirmed) {
       return false;
     }
     const result = await submitServerBuildingSurfaceAction({
       buildingActionBuildingId: context.serverBuildingId,
       buildingActionId: action.actionId
-    });
+    }, actionExecution.inputValues);
     if (!result.accepted) {
       setBuildingActionFeedback(
         root,
         "warning",
         action.title,
         result.errors?.map((error) => error?.message || error?.code).filter(Boolean).join(" · ")
-          || "Server akci odmítl.",
+          || "Akci se nepodařilo potvrdit.",
         context.displayName || context.buildingName
       );
       return false;
@@ -9667,7 +9678,7 @@ async function confirmAndRunDistrictBuildingDetailAction(root, shell, request) {
       root,
       "success",
       action.title,
-      result.readModel?.reports?.[0]?.summary || "Server akci potvrdil.",
+      result.readModel?.reports?.[0]?.summary || "Akce byla potvrzená.",
       context.displayName || context.buildingName
     );
     refreshServerGenericDistrictBuildingDetail(root, shell);
@@ -9705,7 +9716,7 @@ async function confirmAndRunDistrictBuildingDetailAction(root, shell, request) {
       } else {
         const serverDisabledReason = formatServerBuildingActionDisabledReason(target.actionView);
         if (!target.actionView.enabled || serverDisabledReason) {
-          disabledReason = serverDisabledReason || "Server akci teď nepovoluje.";
+          disabledReason = serverDisabledReason || "Akce teď není dostupná.";
         }
       }
     }
@@ -10182,7 +10193,7 @@ function openServerGenericDistrictBuildingDetail(root, district, buildingRequest
       root,
       "warning",
       buildingRequest.displayName || buildingRequest.buildingName || "Budova",
-      "Server nevrátil přesný stav vybrané budovy.",
+      "Detail budovy teď není dostupný. Zkus to znovu.",
       district?.id ? `District ${district.id}` : ""
     );
     return false;
@@ -10196,8 +10207,24 @@ function openServerGenericDistrictBuildingDetail(root, district, buildingRequest
   const body = shell.querySelector(".district-building-detail-body");
   const previousScrollTop = body instanceof HTMLElement ? body.scrollTop : 0;
   const previousTab = shell.dataset.activeDistrictBuildingDetailTab || "";
+  const serverCurrentLevel = Math.max(1, Number(
+    String(presentation.viewModel.levelLabel || "L1").replace(/[^\d]/gu, "")
+    || 1
+  ));
+  const serverUpgradeMechanics = resolveDistrictBuildingDetailMechanics(
+    district,
+    presentation.baseName,
+    { entryOverride: { level: serverCurrentLevel } }
+  );
+  const canonicalUpgradeTitle = serverUpgradeMechanics.nextLevel
+    ? `Upgrade na L${serverUpgradeMechanics.nextLevel} za ${serverUpgradeMechanics.upgradeCostLabel}`
+    : presentation.viewModel.upgrade?.title || "";
   const viewModel = {
     ...presentation.viewModel,
+    upgrade: {
+      ...presentation.viewModel.upgrade,
+      title: canonicalUpgradeTitle
+    },
     backgroundImagePath: presentation.viewModel.backgroundImagePath
       || getDistrictBuildingDetailBackgroundPath(
         district,

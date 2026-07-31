@@ -169,11 +169,16 @@ export function createFactoryPopupRuntime(deps = {}) {
         const productionLines = Array.isArray(serverFactory.productionLines) ? serverFactory.productionLines : [];
         const produced = Object.fromEntries((serverFactory.producedSummary || []).map((item) => [item.resourceKey, item]));
         const formatProduced = (item) => item ? String(item.currentAmount) + " / " + String(item.capacity) : "0 / 0";
-        if (levelElement) levelElement.textContent = String(serverFactory.level || 1);
-        if (headerLevelElement) headerLevelElement.textContent = "Lv " + String(serverFactory.level || 1);
+        const serverFactoryLevel = Math.max(1, Number(serverFactory.level || 1));
+        const serverFactoryNextLevel = serverFactoryLevel + 1;
+        const serverFactoryUpgradeCost = deps.getFactoryUpgradeCost?.(serverFactoryNextLevel) || 0;
+        if (levelElement) levelElement.textContent = String(serverFactoryLevel);
+        if (headerLevelElement) headerLevelElement.textContent = "Lv " + String(serverFactoryLevel);
         if (multiplierElement) multiplierElement.textContent = "×" + Number(serverFactory.network?.networkSpeedMultiplier || 1).toFixed(2);
         if (ownedCountElement) ownedCountElement.textContent = String(serverFactory.network?.activeFactoryCount || 0);
-        if (upgradeCostElement) upgradeCostElement.textContent = "Ověří server";
+        if (upgradeCostElement) upgradeCostElement.textContent = serverFactoryLevel >= Number(deps.FACTORY_CONFIG.maxLevel || 1)
+          ? "MAX"
+          : deps.formatCurrency?.(serverFactoryUpgradeCost) || String(serverFactoryUpgradeCost);
         if (metalElement) metalElement.textContent = formatProduced(produced["metal-parts"]);
         if (techElement) techElement.textContent = formatProduced(produced["tech-core"]);
         if (combatElement) combatElement.textContent = formatProduced(produced["combat-module"]);
@@ -598,9 +603,7 @@ export function createFactoryPopupRuntime(deps = {}) {
       const speedGainPct = Math.max(0, Math.round((Number(nextMultiplier || currentMultiplier || 1) - Number(currentMultiplier || 1)) * 100));
       const currentSpeedPct = Math.round((Number(currentMultiplier || 1) - 1) * 100);
       const nextSpeedPct = Math.round((Number(nextMultiplier || currentMultiplier || 1) - 1) * 100);
-      const hasEnoughMoney = serverFactory
-        ? true
-        : Number(economyState.cleanMoney || 0) >= upgradeCost;
+      const hasEnoughMoney = Number(economyState.cleanMoney || 0) >= upgradeCost;
       const confirmed = await upgradeConfirmation.open({
         benefits: [{
           icon: "x",
@@ -611,14 +614,10 @@ export function createFactoryPopupRuntime(deps = {}) {
         buildingLabel: "Továrna",
         canConfirm: hasEnoughMoney,
         confirmLabel: "Potvrdit upgrade",
-        costLabel: serverFactory
-          ? "Ověří server"
-          : deps.formatCurrency?.(upgradeCost) || String(upgradeCost),
-        noteLabel: serverFactory
-          ? "Cena i výsledek se projeví až po potvrzené serverové odpovědi."
-          : hasEnoughMoney
-            ? `Po potvrzení zaplatíš ${deps.formatCurrency?.(upgradeCost) || upgradeCost} clean cash.`
-            : `Chybí ${deps.formatCurrency?.(upgradeCost - Number(economyState.cleanMoney || 0)) || (upgradeCost - Number(economyState.cleanMoney || 0))} clean cash.`,
+        costLabel: deps.formatCurrency?.(upgradeCost) || String(upgradeCost),
+        noteLabel: hasEnoughMoney
+          ? `Po potvrzení zaplatíš ${deps.formatCurrency?.(upgradeCost) || upgradeCost} clean cash.`
+          : `Chybí ${deps.formatCurrency?.(upgradeCost - Number(economyState.cleanMoney || 0)) || (upgradeCost - Number(economyState.cleanMoney || 0))} clean cash.`,
         titleLabel: "Továrna",
         upgradeLabel: `L${factoryState.level} → L${nextLevel}`
       });
@@ -640,15 +639,15 @@ export function createFactoryPopupRuntime(deps = {}) {
             response?.accepted && !error ? "success" : "warning",
             "Továrna",
             error?.message || (response?.accepted
-              ? "Továrna byla serverem upgradovaná."
-              : "Server upgrade nepotvrdil.")
+              ? "Továrna byla upgradovaná."
+              : "Upgrade se nepodařilo potvrdit.")
           );
         } catch {
           deps.setBuildingActionFeedback?.(
             root,
             "warning",
             "Továrna",
-            "Serverový upgrade se nepodařilo bezpečně odeslat."
+            "Upgrade se nepodařilo bezpečně odeslat."
           );
         } finally {
           renderFactoryDashboard();

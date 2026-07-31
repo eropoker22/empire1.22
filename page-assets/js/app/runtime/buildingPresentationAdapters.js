@@ -495,7 +495,7 @@ const createServerBuildingActionPresentation = ({
     || entry?.blockedReason
     || entry?.phaseBlockedReason
     || ""
-      : "Server nevrátil stav této akce."
+      : "Akce teď není dostupná."
   ).trim();
   const mechanicsType = resolveServerBuildingMechanicsType(buildingTypeId);
   const costSummary = resolveActionSummary(entry, "inputSummary", "")
@@ -532,6 +532,44 @@ const createServerBuildingActionPresentation = ({
     serverAction: {
       description: String(entry?.description || demoAction?.description || ""),
       riskSummary: Array.isArray(entry?.riskSummary) ? entry.riskSummary.slice() : []
+    }
+  };
+};
+
+const formatServerDistrictLabel = ({ district, serverDistrictId } = {}) => {
+  const localDistrictId = String(district?.id ?? "").trim();
+  const canonicalDistrictId = localDistrictId
+    || String(serverDistrictId || "").trim().replace(/^district:/u, "");
+  return canonicalDistrictId ? `District ${canonicalDistrictId}` : "";
+};
+
+export const createServerBuildingActionExecutionPresentation = ({
+  action,
+  context,
+  request
+} = {}) => {
+  const requiredInputs = Array.isArray(action?.requiresInput) ? action.requiresInput : [];
+  const disabledReason = String(action?.disabledReason || "").trim();
+  const inputValues = request?.inputs && typeof request.inputs === "object"
+    ? { ...request.inputs }
+    : {};
+
+  return {
+    inputValues,
+    confirmation: {
+      titleLabel: String(action?.title || "Akce"),
+      buildingLabel: String(context?.displayName || context?.buildingName || "Budova"),
+      districtLabel: formatServerDistrictLabel(context),
+      description: String(action?.serverAction?.description || ""),
+      costSummary: String(action?.buttonCostLabel || "Bez přímé ceny"),
+      rewardSummary: String(action?.rewardSummary || "Výsledek akce"),
+      inputSummary: requiredInputs.map((input) => input?.label).filter(Boolean).join(" · "),
+      riskSummary: Array.isArray(action?.serverAction?.riskSummary)
+        ? action.serverAction.riskSummary.join(" · ")
+        : "",
+      cooldownLabel: String(action?.cooldownLabel || ""),
+      disabledReason,
+      canConfirm: !disabledReason
     }
   };
 };
@@ -672,6 +710,9 @@ const createServerBuildingDetailView = ({
     entry?.actionId === "collect_population"
     || entry?.actionId === "collect_convenience_store_population"
   )) || null;
+  const canonicalUpgradeTitle = String(sharedViewModel.upgrade?.title || "")
+    .replace(/\s+za\s*$/u, "")
+    .trim();
 
   return {
     serverInstanceId: String(readModel?.server?.serverInstanceId || readModel?.player?.instanceId || ""),
@@ -704,7 +745,7 @@ const createServerBuildingDetailView = ({
         visible: isOwnedByPlayer && status !== "destroyed" && canUpgrade,
         disabled: !canUpgrade || level >= Number(building?.maxLevel || 1),
         title: canUpgrade
-          ? "Upgrade ověří a potvrdí server."
+          ? canonicalUpgradeTitle || `Upgrade na L${level + 1}`
           : "Budova nemá další level."
       }
     })

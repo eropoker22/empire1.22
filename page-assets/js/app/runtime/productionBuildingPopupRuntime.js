@@ -1038,9 +1038,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         const speedGainPct = Math.max(0, Math.round((Number(nextMultiplier || currentMultiplier || 1) - Number(currentMultiplier || 1)) * 100));
         const currentSpeedLabel = formatProductionSpeedBonus(currentMultiplier || 1);
         const nextSpeedLabel = formatProductionSpeedBonus(nextMultiplier || currentMultiplier || 1);
-        const hasEnoughMoney = serverProduction
-          ? true
-          : Number(economyState.cleanMoney || 0) >= upgradeCost;
+        const hasEnoughMoney = Number(economyState.cleanMoney || 0) >= upgradeCost;
         const confirmed = await upgradeConfirmation.open({
           benefits: [{
             icon: "x",
@@ -1051,14 +1049,10 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           buildingLabel: config?.label || "Budova",
           canConfirm: hasEnoughMoney,
           confirmLabel: "Potvrdit upgrade",
-          costLabel: serverProduction
-            ? "Ověří server"
-            : deps.formatCurrency?.(upgradeCost) || String(upgradeCost),
-          noteLabel: serverProduction
-            ? "Cena i výsledek se projeví až po potvrzené serverové odpovědi."
-            : hasEnoughMoney
-              ? `Po potvrzení zaplatíš ${deps.formatCurrency?.(upgradeCost) || upgradeCost} clean cash.`
-              : `Chybí ${deps.formatCurrency?.(upgradeCost - Number(economyState.cleanMoney || 0)) || (upgradeCost - Number(economyState.cleanMoney || 0))} clean cash.`,
+          costLabel: deps.formatCurrency?.(upgradeCost) || String(upgradeCost),
+          noteLabel: hasEnoughMoney
+            ? `Po potvrzení zaplatíš ${deps.formatCurrency?.(upgradeCost) || upgradeCost} clean cash.`
+            : `Chybí ${deps.formatCurrency?.(upgradeCost - Number(economyState.cleanMoney || 0)) || (upgradeCost - Number(economyState.cleanMoney || 0))} clean cash.`,
           titleLabel: config?.label || "Budova",
           upgradeLabel: `L${currentState.level} → L${nextLevel}`
         });
@@ -1080,15 +1074,15 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
               response?.accepted && !error ? "success" : "warning",
               config?.label || "Budova",
               error?.message || (response?.accepted
-                ? `${config?.label || "Budova"} byla serverem upgradovaná.`
-                : "Server upgrade nepotvrdil.")
+                ? `${config?.label || "Budova"} byla upgradovaná.`
+                : "Upgrade se nepodařilo potvrdit.")
             );
           } catch {
             deps.setBuildingActionFeedback?.(
               root,
               "warning",
               config?.label || "Budova",
-              "Serverový upgrade se nepodařilo bezpečně odeslat."
+              "Upgrade se nepodařilo bezpečně odeslat."
             );
           } finally {
             renderDashboard();

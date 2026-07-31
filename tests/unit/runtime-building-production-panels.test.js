@@ -897,6 +897,13 @@ describe("building detail, production and recipe UI modules", () => {
     expect(investment.max).toBe("5000");
     expect(targetZone.type).toBe("text");
 
+    investment.value = "";
+    for (const handler of investment.eventListeners.get("input") || []) handler({ target: investment });
+    expect(action.disabled).toBe(true);
+    expect(shell.querySelector(".building-action-inputs__status").textContent).toBe(
+      "Doplň všechna povinná pole."
+    );
+
     targetCategory.value = "electronics";
     investment.value = "2750";
     targetZone.value = "downtown";

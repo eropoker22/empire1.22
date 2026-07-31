@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createServerBuildingActionExecutionPresentation,
   LocalDemoBuildingPresentationAdapter,
   ServerBuildingPresentationAdapter
 } from "../../page-assets/js/app/runtime/buildingPresentationAdapters.js";
@@ -234,7 +235,10 @@ describe("shared building presentation adapters", () => {
       backgroundImagePath: "../img/buildings/restaurant.png",
       levelLabel: "L4",
       mechanicsType: "restaurant",
-      meta: ""
+      meta: "",
+      upgrade: {
+        title: "Upgrade na L5"
+      }
     });
     expect(detail.viewModel.intro).toBe(
       "Restaurace generuje prachy a funguje jako místo pro schůzky všeho druhu."
@@ -274,6 +278,52 @@ describe("shared building presentation adapters", () => {
     });
     expect(detail.viewModel.actions[0].rewardSummary).toContain("Clean");
     expect(detail.viewModel.actions.slice(1).every((action) => action.disabled)).toBe(true);
+    expect(detail.viewModel.actions[1].disabledReason).toBe("Akce teď není dostupná.");
+  });
+
+  it("keeps projected typed inputs enabled and prepares canonical confirmation copy", () => {
+    const execution = createServerBuildingActionExecutionPresentation({
+      action: {
+        actionId: "speculative_buy",
+        title: "Spekulativní nákup",
+        buttonCostLabel: "$2,750 clean",
+        rewardSummary: "Market tlak +1",
+        cooldownLabel: "30 min",
+        disabledReason: "",
+        requiresInput: [
+          { id: "targetCategory", label: "Kategorie marketu", required: true },
+          { id: "investmentCleanCash", label: "Investice", required: true }
+        ],
+        serverAction: {
+          description: "Nakoupí vybranou kategorii.",
+          riskSummary: ["Heat +2"]
+        }
+      },
+      context: {
+        district: { id: 79 },
+        serverDistrictId: "district:79",
+        displayName: "Burza"
+      },
+      request: {
+        inputs: {
+          targetCategory: "electronics",
+          investmentCleanCash: 2750
+        }
+      }
+    });
+
+    expect(execution.inputValues).toEqual({
+      targetCategory: "electronics",
+      investmentCleanCash: 2750
+    });
+    expect(execution.confirmation).toMatchObject({
+      buildingLabel: "Burza",
+      districtLabel: "District 79",
+      inputSummary: "Kategorie marketu · Investice",
+      rewardSummary: "Market tlak +1",
+      disabledReason: "",
+      canConfirm: true
+    });
   });
 
   it.each([

@@ -40,6 +40,14 @@ describe("runtime refactor guard", () => {
     expect(recipeSource).not.toContain("viewModel.serverLine");
   });
 
+  it("keeps hosted building inputs on the shared visible action path", () => {
+    const source = runtimeSource();
+
+    expect(source).toContain("createServerBuildingActionExecutionPresentation");
+    expect(source).toContain("}, actionExecution.inputValues);");
+    expect(source).not.toContain("tento sdílený detail zatím nenabízí");
+  });
+
   it("keeps dormant duplicate presentation paths removed", () => {
     const buildingDetailSource = serverGameplayBuildingDetailControllerSource();
     const removedPaths = [

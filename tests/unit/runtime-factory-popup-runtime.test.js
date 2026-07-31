@@ -101,6 +101,7 @@ describe("factory popup runtime", () => {
     const close = createElement();
     const collect = createElement();
     const upgrade = createElement();
+    const upgradeCost = createElement();
     const renderServerFactorySlotList = vi.fn();
     const refreshServerFactoryReadModel = vi.fn(() => Promise.resolve(null));
     const submitServerFactoryCommand = vi.fn(async () => ({ errors: [] }));
@@ -140,13 +141,14 @@ describe("factory popup runtime", () => {
       ".supply-metal": createElement(),
       ".supply-tech": createElement(),
       ".upgrade": upgrade,
-      ".upgrade-cost": createElement()
+      ".upgrade-cost": upgradeCost
     }, { ".close": [close] });
 
     expect(runtime.bindFactoryPopup(root)).toBe(true);
     await open.dispatch("click");
 
     expect(renderServerFactorySlotList).toHaveBeenCalled();
+    expect(upgradeCost.textContent).toBe("$100");
     expect(refreshServerFactoryReadModel).toHaveBeenCalledTimes(1);
     const callbacks = renderServerFactorySlotList.mock.calls[0][2];
     await callbacks.onStartSlot(serverFactory.productionLines[0], { batchCount: 2 });
@@ -408,17 +410,18 @@ describe("factory popup runtime", () => {
     const collect = createElement();
     const upgrade = createElement();
     const setBuildingActionFeedback = vi.fn();
+    const upgradeConfirmation = {
+      close: vi.fn(),
+      isOpen: vi.fn(() => false),
+      open: vi.fn(async () => true)
+    };
     const submitServerProductionBuildingUpgrade = vi.fn(async () => ({
       accepted: true,
       errors: []
     }));
     const runtime = createRuntime({
       allowLegacyProductionUpgrade: false,
-      createUpgradeConfirmationController: () => ({
-        close: vi.fn(),
-        isOpen: vi.fn(() => false),
-        open: vi.fn(async () => true)
-      }),
+      createUpgradeConfirmationController: () => upgradeConfirmation,
       getServerFactoryReadModel: () => ({
         districtId: "district:21",
         buildingId: "building:district-21:factory:2",
@@ -458,6 +461,12 @@ describe("factory popup runtime", () => {
     expect(upgrade.disabled).toBe(false);
 
     await upgrade.dispatch("click");
+    expect(upgradeConfirmation.open).toHaveBeenCalledWith(expect.objectContaining({
+      canConfirm: true,
+      costLabel: "$100",
+      noteLabel: "Po potvrzení zaplatíš $100 clean cash.",
+      upgradeLabel: "L3 → L4"
+    }));
     expect(submitServerProductionBuildingUpgrade).toHaveBeenCalledWith({
       districtId: "district:21",
       buildingId: "building:district-21:factory:2"

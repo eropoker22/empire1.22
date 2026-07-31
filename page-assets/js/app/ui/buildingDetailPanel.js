@@ -852,7 +852,7 @@ function createBuildingActionInputControls(scopeElement, actionButton, rowView =
     actionButton.disabled = defaultDisabled || hasInvalidInput;
     if (command) command.textContent = hasInvalidInput && !defaultDisabled ? "DOPLŇ VSTUP" : defaultCommandLabel;
     status.textContent = hasInvalidInput && !defaultDisabled
-      ? "Doplň všechna povinná pole podle serverového zadání."
+      ? "Doplň všechna povinná pole."
       : "";
     status.hidden = !status.textContent;
   };
