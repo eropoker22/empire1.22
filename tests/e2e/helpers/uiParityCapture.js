@@ -8,6 +8,156 @@ import {
 const SESSION_KEY = "empireStreets.session.v1";
 const SCOPED_SESSION_KEY = "empireStreets.session.free.instance-free-eu-central-public-1.v1";
 
+export const parityDynamicClassNames = Object.freeze([
+  "is-active",
+  "is-disabled",
+  "is-empty",
+  "is-loading",
+  "is-selected",
+  "local-demo",
+  "server-authoritative"
+]);
+
+export const parityComputedStyleProperties = Object.freeze([
+  "alignContent",
+  "alignItems",
+  "alignSelf",
+  "backgroundColor",
+  "backgroundImage",
+  "borderBottomColor",
+  "borderBottomLeftRadius",
+  "borderBottomRightRadius",
+  "borderBottomStyle",
+  "borderBottomWidth",
+  "borderLeftColor",
+  "borderLeftStyle",
+  "borderLeftWidth",
+  "borderRightColor",
+  "borderRightStyle",
+  "borderRightWidth",
+  "borderTopColor",
+  "borderTopLeftRadius",
+  "borderTopRightRadius",
+  "borderTopStyle",
+  "borderTopWidth",
+  "borderRadius",
+  "boxSizing",
+  "boxShadow",
+  "color",
+  "columnGap",
+  "cursor",
+  "display",
+  "flexDirection",
+  "flexGrow",
+  "flexShrink",
+  "flexWrap",
+  "fontFamily",
+  "fontSize",
+  "fontStyle",
+  "fontWeight",
+  "gap",
+  "gridAutoFlow",
+  "gridTemplateColumns",
+  "gridTemplateRows",
+  "height",
+  "justifyContent",
+  "justifyItems",
+  "letterSpacing",
+  "lineHeight",
+  "marginBottom",
+  "marginLeft",
+  "marginRight",
+  "marginTop",
+  "maxHeight",
+  "maxWidth",
+  "minHeight",
+  "minWidth",
+  "opacity",
+  "outlineColor",
+  "outlineOffset",
+  "outlineStyle",
+  "outlineWidth",
+  "overflow",
+  "overflowX",
+  "overflowY",
+  "paddingBottom",
+  "paddingLeft",
+  "paddingRight",
+  "paddingTop",
+  "position",
+  "pointerEvents",
+  "rowGap",
+  "textAlign",
+  "textDecorationLine",
+  "textOverflow",
+  "textTransform",
+  "visibility",
+  "whiteSpace",
+  "width",
+  "zIndex"
+]);
+
+export const gameChromeDynamicMaskSelector = [
+  "[data-topbar-clean-money]",
+  "[data-topbar-dirty-money]",
+  "[data-topbar-influence]",
+  "[data-topbar-spy-label]",
+  "[data-topbar-spy-value]",
+  "[data-city-clock]",
+  "[data-city-day-phase]",
+  "[data-city-game-phase]",
+  "[data-city-status]",
+  "[data-city-production]",
+  "[data-gang-stars]",
+  "[data-gang-members]",
+  "[data-gang-heat]",
+  "[data-gang-faction]",
+  "[data-gang-districts]",
+  "[data-gang-alliance]",
+  "#profile-gang-card .placeholder-title",
+  "[data-alliance-popup-open]",
+  "[data-global-chat-log]",
+  "[data-global-chat-status]",
+  "[data-building-action-state]",
+  "[data-building-action-summary]",
+  "[data-building-action-meta]",
+  "[data-building-action-empty]",
+  "[data-building-action-feed]",
+  "[data-boost-map-label]",
+  "[data-boost-map-time]",
+  "[data-production-progress]",
+  "[data-production-countdown]",
+  "[data-countdown]",
+  "time",
+  "[data-district-canvas]"
+].join(",");
+
+export const technicalBuildingTextPatterns = Object.freeze([
+  Object.freeze({ flags: "u", source: "\\bSERVER\\b" }),
+  Object.freeze({ flags: "iu", source: "\\braw\\s+projection\\b" }),
+  Object.freeze({ flags: "iu", source: "\\brevision\\b" }),
+  Object.freeze({ flags: "iu", source: "\\bstate\\s*version\\b" }),
+  Object.freeze({ flags: "iu", source: "\\binternal\\s+data\\b" }),
+  Object.freeze({ flags: "iu", source: "\\bdebug\\s+info\\b" }),
+  Object.freeze({ flags: "iu", source: "\\bprojection\\s+internals?\\b" }),
+  Object.freeze({ flags: "iu", source: "ověří\\s+server" }),
+  Object.freeze({
+    flags: "iu",
+    source: "serverov(?:á|ou|ý|é)\\s+(?:data|detail|odpově\\p{L}*|stav|upgrade)"
+  })
+]);
+
+export function findTechnicalBuildingText(textValues = []) {
+  const patterns = technicalBuildingTextPatterns.map(({ flags, source }) => (
+    new RegExp(source, flags)
+  ));
+  return Array.from(new Set(textValues
+    .map((value) => String(value || "").replace(/\s+/gu, " ").trim())
+    .filter(Boolean)
+    .filter((text) => patterns.some((pattern) => pattern.test(text)))))
+    .sort();
+}
+
 export const parityViewports = Object.freeze([
   Object.freeze({ name: "desktop-1440x900", width: 1440, height: 900 }),
   Object.freeze({ name: "mobile-390x844", width: 390, height: 844 }),
@@ -558,7 +708,8 @@ export async function getParityDomStructureSignature(page, surfaceName) {
   const definition = paritySurfaces[surfaceName];
   const target = page.locator(definition.selector).first();
   await expect(target).toBeVisible();
-  return target.evaluate((targetElement) => {
+  return target.evaluate((targetElement, config) => {
+    const dynamicClassNames = new Set(config.dynamicClassNames);
     const isVisible = (element) => {
       if (!(element instanceof HTMLElement) || element.hidden) return false;
       const style = getComputedStyle(element);
@@ -571,12 +722,7 @@ export async function getParityDomStructureSignature(page, surfaceName) {
     };
     const normalizeText = (value) => String(value || "").replace(/\s+/gu, " ").trim();
     const normalizeClasses = (element) => Array.from(element.classList || [])
-      .filter((className) => (
-        !/^(?:is|has|tone|state|status|theme|mode)--?/u.test(className)
-        && !/(?:loading|disabled|active|selected|server-authoritative|local-demo)/u.test(className)
-      ))
-      .map((className) => className.replace(/--.*$/u, ""))
-      .filter(Boolean)
+      .filter((className) => !dynamicClassNames.has(className))
       .sort();
     const targetRect = targetElement.getBoundingClientRect();
     const relativeRect = (element) => {
@@ -586,6 +732,50 @@ export async function getParityDomStructureSignature(page, surfaceName) {
         y: Math.round(rect.top - targetRect.top),
         width: Math.round(rect.width),
         height: Math.round(rect.height)
+      };
+    };
+    const elementPath = (element) => {
+      if (element === targetElement) return "surface";
+      const segments = [];
+      let current = element;
+      while (current instanceof Element && current !== targetElement) {
+        const parent = current.parentElement;
+        if (!parent) break;
+        const siblings = Array.from(parent.children)
+          .filter((candidate) => candidate.tagName === current.tagName);
+        segments.unshift(
+          `${current.tagName.toLowerCase()}:${Math.max(0, siblings.indexOf(current))}`
+        );
+        current = parent;
+      }
+      return segments.join("/");
+    };
+    const semanticDataset = (element) => Object.fromEntries(
+      config.semanticDatasetKeys
+        .filter((key) => Object.hasOwn(element.dataset || {}, key))
+        .map((key) => [key, String(element.dataset[key] || "")])
+    );
+    const computedStyleSignature = (element) => {
+      const style = getComputedStyle(element);
+      return Object.fromEntries(config.computedStyleProperties.map((property) => [
+        property,
+        String(style[property] || "")
+      ]));
+    };
+    const scrollSignature = (element) => {
+      const style = getComputedStyle(element);
+      return {
+        canScrollX: element.scrollWidth > element.clientWidth,
+        canScrollY: element.scrollHeight > element.clientHeight,
+        clientHeight: element.clientHeight,
+        clientWidth: element.clientWidth,
+        maxScrollLeft: Math.max(0, element.scrollWidth - element.clientWidth),
+        maxScrollTop: Math.max(0, element.scrollHeight - element.clientHeight),
+        overflow: style.overflow,
+        overflowX: style.overflowX,
+        overflowY: style.overflowY,
+        scrollLeft: Math.round(element.scrollLeft),
+        scrollTop: Math.round(element.scrollTop)
       };
     };
     const structuralKey = (element, index = 0) => {
@@ -601,6 +791,8 @@ export async function getParityDomStructureSignature(page, surfaceName) {
       const className = normalizeClasses(element)[0];
       return className || `${element.tagName.toLowerCase()}:${index}`;
     };
+    const visibleNodes = [targetElement, ...targetElement.querySelectorAll("*")]
+      .filter(isVisible);
     const activePanels = Array.from(targetElement.querySelectorAll([
       "[data-district-building-detail-panel]",
       "[data-production-building-panel]",
@@ -630,16 +822,42 @@ export async function getParityDomStructureSignature(page, surfaceName) {
         "[data-district-building-detail-actions]",
         ".building-detail-actions",
         "[data-production-panel]",
-        "[data-factory-slot-list]"
+        "[data-factory-slot-list]",
+        ".production-recipe-card",
+        ".building-info-action-row",
+        ".building-detail-modal__footer",
+        ".modal__footer",
+        "button",
+        "[role='button']",
+        "[role='tab']"
       ].join(","))
     ])).filter(isVisible);
+    const focusableElements = visibleNodes.filter((element) => (
+      element.matches?.("button, input, select, textarea, a[href], [role='button'], [role='tab'], [tabindex]")
+      && !element.matches?.("[disabled], [aria-disabled='true'], [tabindex='-1']")
+    ));
+    const activeElement = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const modalDebug = window.EmpireModalScrollLock?.debugState?.() || null;
+    const ownershipSummary = window.empireUiOwnershipDiagnostics?.getSummary?.() || null;
 
     return {
       classNames: Array.from(new Set(
-        [targetElement, ...targetElement.querySelectorAll("*")]
-          .filter(isVisible)
+        visibleNodes
           .flatMap((element) => normalizeClasses(element))
       )).sort(),
+      domTree: visibleNodes.map((element) => ({
+        ariaDisabled: element.getAttribute("aria-disabled"),
+        ariaExpanded: element.getAttribute("aria-expanded"),
+        ariaSelected: element.getAttribute("aria-selected"),
+        classes: normalizeClasses(element),
+        dataset: semanticDataset(element),
+        disabled: "disabled" in element ? Boolean(element.disabled) : false,
+        path: elementPath(element),
+        role: element.getAttribute("role"),
+        tag: element.tagName.toLowerCase()
+      })),
       sectionOrder: sections.map((section) => section.key),
       sections,
       counts: {
@@ -672,31 +890,302 @@ export async function getParityDomStructureSignature(page, surfaceName) {
         ].join(","))).filter(isVisible).length
       },
       layout: structuralElements.map((element, index) => {
-        const style = getComputedStyle(element);
         return {
           key: element === targetElement ? "surface" : structuralKey(element, index),
+          path: elementPath(element),
           tag: element.tagName.toLowerCase(),
           classes: normalizeClasses(element),
-          display: style.display,
-          position: style.position,
-          gridTemplateColumns: style.gridTemplateColumns,
-          flexDirection: style.flexDirection,
+          style: computedStyleSignature(element),
           rect: relativeRect(element)
         };
-      })
+      }),
+      controls: visibleNodes
+        .filter((element) => element.matches?.(
+          "button, input, select, textarea, a[href], [role='button'], [role='tab']"
+        ))
+        .map((element) => ({
+          ariaLabel: element.getAttribute("aria-label"),
+          ariaSelected: element.getAttribute("aria-selected"),
+          classes: normalizeClasses(element),
+          dataset: semanticDataset(element),
+          disabled: "disabled" in element ? Boolean(element.disabled) : false,
+          path: elementPath(element),
+          role: element.getAttribute("role"),
+          tabIndex: element.tabIndex,
+          tag: element.tagName.toLowerCase(),
+          text: normalizeText(element.textContent)
+        })),
+      focus: {
+        activeElement: activeElement && activeElement !== document.body
+          ? {
+              classes: normalizeClasses(activeElement),
+              dataset: semanticDataset(activeElement),
+              insideSurface: targetElement.contains(activeElement),
+              role: activeElement.getAttribute("role"),
+              tag: activeElement.tagName.toLowerCase()
+            }
+          : null,
+        focusableOrder: focusableElements.map((element) => ({
+          classes: normalizeClasses(element),
+          dataset: semanticDataset(element),
+          path: elementPath(element),
+          role: element.getAttribute("role"),
+          tabIndex: element.tabIndex,
+          tag: element.tagName.toLowerCase()
+        }))
+      },
+      scroll: {
+        body: scrollSignature(document.body),
+        html: scrollSignature(document.documentElement),
+        surface: scrollSignature(targetElement),
+        regions: structuralElements
+          .filter((element) => {
+            const style = getComputedStyle(element);
+            return element === targetElement
+              || element.scrollHeight > element.clientHeight
+              || element.scrollWidth > element.clientWidth
+              || !["visible", "clip"].includes(style.overflow)
+              || !["visible", "clip"].includes(style.overflowX)
+              || !["visible", "clip"].includes(style.overflowY);
+          })
+          .map((element) => ({
+            path: elementPath(element),
+            ...scrollSignature(element)
+          })),
+        windowX: Math.round(window.scrollX),
+        windowY: Math.round(window.scrollY)
+      },
+      modalScrollLock: {
+        bodyClassLocked: document.body.classList.contains("game-modal-scroll-locked"),
+        bodyDatasetLocked: document.body.dataset.overlayScrollLocked === "true",
+        bodyOverflow: getComputedStyle(document.body).overflow,
+        bridgeInstalled: Boolean(window.EmpireModalScrollLock),
+        bridgeLocked: Boolean(window.EmpireModalScrollLock?.isLocked?.(document)),
+        htmlClassLocked: document.documentElement.classList.contains("game-modal-scroll-locked"),
+        htmlOverflow: getComputedStyle(document.documentElement).overflow,
+        ownershipLocked: ownershipSummary?.bodyScrollLocked === true,
+        stack: Array.isArray(modalDebug?.stack)
+          ? modalDebug.stack.map((entry) => ({
+              owner: String(entry?.owner || ""),
+              type: String(entry?.type || "")
+            }))
+          : []
+      }
     };
+  }, {
+    computedStyleProperties: parityComputedStyleProperties,
+    dynamicClassNames: parityDynamicClassNames,
+    semanticDatasetKeys: [
+      "districtBuildingDetailActionId",
+      "districtBuildingDetailPanel",
+      "districtBuildingDetailTab",
+      "districtBuildingType",
+      "factoryPanel",
+      "factoryTab",
+      "productionAction",
+      "productionBuildingPanel",
+      "productionBuildingTab",
+      "productionPanel",
+      "recipeId"
+    ]
   });
 }
 
 export function normalizeParityClassNames(classNames = []) {
   return Array.from(new Set(classNames
-    .filter((className) => (
-      !/^(?:is|has|tone|state|status|theme|mode)--?/u.test(className)
-      && !/(?:loading|disabled|active|selected|server-authoritative|local-demo)/u.test(className)
-      && className !== "district-popup-action__label"
-    ))
-    .map((className) => className.replace(/--.*$/u, ""))))
+    .filter((className) => !parityDynamicClassNames.includes(className))))
     .sort();
+}
+
+export async function getVisibleTechnicalBuildingText(page, surfaceName) {
+  const definition = paritySurfaces[surfaceName];
+  const target = page.locator(definition.selector).first();
+  await expect(target).toBeVisible();
+  return target.evaluate((targetElement, patternDefinitions) => {
+    const normalizeText = (value) => String(value || "").replace(/\s+/gu, " ").trim();
+    const isVisible = (element) => {
+      if (!(element instanceof HTMLElement) || element.hidden) return false;
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none"
+        && style.visibility !== "hidden"
+        && Number(style.opacity || 1) > 0
+        && rect.width > 0
+        && rect.height > 0;
+    };
+    const technicalPatterns = patternDefinitions.map(({ flags, source }) => (
+      new RegExp(source, flags)
+    ));
+    return Array.from(new Set(
+      Array.from(targetElement.querySelectorAll("*"))
+        .filter(isVisible)
+        .filter((element) => element.children.length === 0)
+        .map((element) => normalizeText(element.textContent))
+        .filter(Boolean)
+        .filter((text) => technicalPatterns.some((pattern) => pattern.test(text)))
+    )).sort();
+  }, technicalBuildingTextPatterns);
+}
+
+export async function getGameChromeSignature(page) {
+  await expect(page.locator("#game-root")).toBeVisible();
+  return page.evaluate((config) => {
+    const dynamicClassNames = new Set(config.dynamicClassNames);
+    const dynamicTextSelector = config.dynamicTextSelector;
+    const surfaceDefinitions = [
+      ["body", "body"],
+      ["topbar", "#game-header"],
+      ["resourceBar", ".game-resource-strip"],
+      ["gameRoot", "#game-root"],
+      ["gameLayout", "#game-layout"],
+      ["leftRail", "#game-rail-left"],
+      ["leftActions", "#game-left-nav"],
+      ["buildingShortcuts", "#building-shortcut-grid"],
+      ["streetNews", ".building-action-status"],
+      ["mainRegion", "#game-main-region"],
+      ["mapStage", "#game-map-stage"],
+      ["mapHeader", ".map-stage-header"],
+      ["mapDesktopActions", ".map-stage-actions--desktop"],
+      ["mapMount", "#game-map-mount"],
+      ["mapViewport", "[data-map-viewport]"],
+      ["districtCanvas", "[data-district-canvas]"],
+      ["commandBar", "#game-command-bar-mount"],
+      ["mapMobileActions", ".map-stage-actions--mobile"],
+      ["rightRail", "#game-rail-right"],
+      ["gangPanel", "#profile-gang-card"],
+      ["allianceAction", "#alliance-chat-card"],
+      ["chatPanel", "#global-chat-card"],
+      ["mobileUtilities", ".game-mobile-utility-actions"]
+    ];
+    const isVisible = (element) => {
+      if (!(element instanceof HTMLElement) || element.hidden) return false;
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none"
+        && style.visibility !== "hidden"
+        && Number(style.opacity || 1) > 0
+        && rect.width > 0
+        && rect.height > 0;
+    };
+    const normalizeText = (value) => String(value || "").replace(/\s+/gu, " ").trim();
+    const normalizeClasses = (element) => Array.from(element.classList || [])
+      .filter((className) => !dynamicClassNames.has(className))
+      .sort();
+    const computedStyleSignature = (element) => {
+      const style = getComputedStyle(element);
+      return Object.fromEntries(config.computedStyleProperties.map((property) => [
+        property,
+        String(style[property] || "")
+      ]));
+    };
+    const viewportRect = (element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        bottom: Math.round(rect.bottom),
+        height: Math.round(rect.height),
+        left: Math.round(rect.left),
+        right: Math.round(rect.right),
+        top: Math.round(rect.top),
+        width: Math.round(rect.width)
+      };
+    };
+    const elementPath = (element) => {
+      const segments = [];
+      let current = element;
+      while (current instanceof Element && current !== document.body) {
+        const parent = current.parentElement;
+        if (!parent) break;
+        const siblings = Array.from(parent.children)
+          .filter((candidate) => candidate.tagName === current.tagName);
+        segments.unshift(
+          `${current.tagName.toLowerCase()}:${Math.max(0, siblings.indexOf(current))}`
+        );
+        current = parent;
+      }
+      return segments.join("/");
+    };
+    const surfaceSignature = ([key, selector]) => {
+      const element = document.querySelector(selector);
+      if (!(element instanceof HTMLElement)) {
+        return { key, present: false, selector, visible: false };
+      }
+      const visibleDescendants = [element, ...element.querySelectorAll("*")]
+        .filter(isVisible);
+      return {
+        childClassNames: Array.from(new Set(
+          visibleDescendants.flatMap((candidate) => normalizeClasses(candidate))
+        )).sort(),
+        classes: normalizeClasses(element),
+        key,
+        present: true,
+        rect: viewportRect(element),
+        selector,
+        style: computedStyleSignature(element),
+        visible: isVisible(element)
+      };
+    };
+    const visibleTextOutline = Array.from(document.body.querySelectorAll("*"))
+      .filter(isVisible)
+      .filter((element) => element.children.length === 0)
+      .filter((element) => !element.closest(dynamicTextSelector))
+      .map((element) => ({
+        classes: normalizeClasses(element),
+        path: elementPath(element),
+        role: element.getAttribute("role"),
+        tag: element.tagName.toLowerCase(),
+        text: normalizeText(element.textContent)
+      }))
+      .filter((entry) => entry.text);
+    const modalDebug = window.EmpireModalScrollLock?.debugState?.() || null;
+    const ownershipSummary = window.empireUiOwnershipDiagnostics?.getSummary?.() || null;
+    return {
+      modalScrollLock: {
+        bodyClassLocked: document.body.classList.contains("game-modal-scroll-locked"),
+        bodyDatasetLocked: document.body.dataset.overlayScrollLocked === "true",
+        bodyOverflow: getComputedStyle(document.body).overflow,
+        bridgeInstalled: Boolean(window.EmpireModalScrollLock),
+        bridgeLocked: Boolean(window.EmpireModalScrollLock?.isLocked?.(document)),
+        htmlClassLocked: document.documentElement.classList.contains("game-modal-scroll-locked"),
+        htmlOverflow: getComputedStyle(document.documentElement).overflow,
+        ownershipLocked: ownershipSummary?.bodyScrollLocked === true,
+        stack: Array.isArray(modalDebug?.stack)
+          ? modalDebug.stack.map((entry) => ({
+              owner: String(entry?.owner || ""),
+              type: String(entry?.type || "")
+            }))
+          : []
+      },
+      pageScroll: {
+        bodyCanScrollX: document.body.scrollWidth > document.body.clientWidth,
+        bodyCanScrollY: document.body.scrollHeight > document.body.clientHeight,
+        htmlCanScrollX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        htmlCanScrollY: document.documentElement.scrollHeight > document.documentElement.clientHeight,
+        windowX: Math.round(window.scrollX),
+        windowY: Math.round(window.scrollY)
+      },
+      surfaces: surfaceDefinitions.map(surfaceSignature),
+      textOutline: visibleTextOutline,
+      viewport: {
+        height: window.innerHeight,
+        width: window.innerWidth
+      }
+    };
+  }, {
+    computedStyleProperties: parityComputedStyleProperties,
+    dynamicClassNames: parityDynamicClassNames,
+    dynamicTextSelector: gameChromeDynamicMaskSelector
+  });
+}
+
+export async function captureGameChromeScreenshot(page, screenshotPath) {
+  const dynamicMasks = page.locator(gameChromeDynamicMaskSelector);
+  await page.screenshot({
+    path: screenshotPath,
+    animations: "disabled",
+    caret: "hide",
+    fullPage: false,
+    mask: await dynamicMasks.count() ? [dynamicMasks] : []
+  });
 }
 
 export async function expectNoDuplicateVisibleUi(page) {

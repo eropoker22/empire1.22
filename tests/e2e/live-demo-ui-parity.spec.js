@@ -4,9 +4,6 @@ import {
   publicBuildingDefinitions
 } from "../../packages/game-config/src/public/building-definitions.ts";
 import {
-  DISTRICT_BUILDING_DETAIL_PROFILES
-} from "../../page-assets/js/app/runtime/buildingDetailData.js";
-import {
   resolveBuildingPresentationDefinition
 } from "../../page-assets/js/app/runtime/buildingPresentationContract.js";
 import {
@@ -30,12 +27,15 @@ import {
 } from "./helpers/hostedUiParityEntry.js";
 import {
   captureParitySurface,
+  captureGameChromeScreenshot,
   closeSurface,
   expectNoDuplicateVisibleUi,
   getBuildingPresentationSignature,
+  getGameChromeSignature,
   getParityDomStructureSignature,
   getParitySurfaceSignature,
   getProductionPresentationSignature,
+  getVisibleTechnicalBuildingText,
   openBuildingFromDistrict,
   openCityEvents,
   openDistrictById,
@@ -196,23 +196,24 @@ const spawnReachableBuildingParityMatrix = Object.freeze([
   })
 ]);
 
-const usesTenViewportParity = (buildingTypeId) => (
-  productionBuildingTypeIds.has(buildingTypeId)
-  || (
-    DISTRICT_BUILDING_DETAIL_PROFILES[
-      String(resolveBuildingPresentationDefinition(buildingTypeId)?.baseName || "")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/gu, "")
-        .toLowerCase()
-    ]?.actions.length || 0
-  ) > 0
-);
-
 async function readDistrictBuildingTypeIds(page) {
   return page.locator("[data-district-building-name]").evaluateAll((chips) => chips
     .map((chip) => String(chip.dataset.districtBuildingType || "").trim())
     .filter(Boolean)
     .sort());
+}
+
+async function focusOpenBuildingSurface(shell) {
+  const focusTarget = shell.locator([
+    "button:visible:not([disabled])",
+    "a[href]:visible",
+    "input:visible:not([disabled])",
+    "[role='button']:visible:not([aria-disabled='true'])",
+    "[role='tab']:visible:not([aria-disabled='true'])"
+  ].join(",")).first();
+  await expect(focusTarget).toBeVisible();
+  await focusTarget.focus();
+  await expect(focusTarget).toBeFocused();
 }
 
 async function readOpenBuildingParity(page, buildingTypeId) {
@@ -224,16 +225,20 @@ async function readOpenBuildingParity(page, buildingTypeId) {
       timeout: 30_000
     });
     await selectProductionBuildingTab(page, surfaceName, "stats");
+    await focusOpenBuildingSurface(shell);
     return {
       surfaceName,
       presentation: await getProductionPresentationSignature(page, surfaceName),
-      structure: await getParityDomStructureSignature(page, surfaceName)
+      structure: await getParityDomStructureSignature(page, surfaceName),
+      technicalText: await getVisibleTechnicalBuildingText(page, surfaceName)
     };
   }
+  await focusOpenBuildingSurface(shell);
   return {
     surfaceName,
     presentation: await getBuildingPresentationSignature(page, surfaceName),
-    structure: await getParityDomStructureSignature(page, surfaceName)
+    structure: await getParityDomStructureSignature(page, surfaceName),
+    technicalText: await getVisibleTechnicalBuildingText(page, surfaceName)
   };
 }
 
@@ -294,6 +299,26 @@ async function attachOpenBuildingScreenshotPair({
   });
 }
 
+async function attachGameChromeScreenshotPair({
+  localPage,
+  serverPage,
+  testInfo,
+  viewportName
+}) {
+  for (const [mode, page] of [
+    ["local-demo", localPage],
+    ["hosted", serverPage]
+  ]) {
+    const attachmentName = `game-chrome--${mode}--${viewportName}.png`;
+    const screenshotPath = testInfo.outputPath(attachmentName);
+    await captureGameChromeScreenshot(page, screenshotPath);
+    await testInfo.attach(attachmentName, {
+      path: screenshotPath,
+      contentType: "image/png"
+    });
+  }
+}
+
 async function compareOpenBuildingParity(
   localPage,
   serverPage,
@@ -312,6 +337,14 @@ async function compareOpenBuildingParity(
   expect(serverStats.structure, `${buildingTypeId} structure and bounds`).toEqual(
     localStats.structure
   );
+  expect(
+    localStats.technicalText,
+    `${buildingTypeId} local-demo card must not expose technical server internals`
+  ).toEqual([]);
+  expect(
+    serverStats.technicalText,
+    `${buildingTypeId} hosted card must not expose SERVER, projection or revision internals`
+  ).toEqual([]);
 
   if (screenshotAttachment) {
     await attachOpenBuildingScreenshotPair({
@@ -340,6 +373,14 @@ async function compareOpenBuildingParity(
     ).toEqual(
       await getParityDomStructureSignature(localPage, localStats.surfaceName)
     );
+    expect(
+      await getVisibleTechnicalBuildingText(localPage, localStats.surfaceName),
+      `${buildingTypeId} local-demo info tab must not expose technical server internals`
+    ).toEqual([]);
+    expect(
+      await getVisibleTechnicalBuildingText(serverPage, serverStats.surfaceName),
+      `${buildingTypeId} hosted info tab must not expose SERVER, projection or revision internals`
+    ).toEqual([]);
     if (screenshotAttachment) {
       await attachOpenBuildingScreenshotPair({
         localPage,
@@ -363,7 +404,24 @@ test.describe("canonical building parity coverage contract", () => {
       spawnReachableBuildingParityMatrix.flatMap((entry) => entry.coveredBuildingTypeIds)
     );
 
+    expect(new Set(canonicalBuildingTypeIds).size).toBe(publicBuildingDefinitions.length);
     expect(plannedBuildingTypeIds).toEqual(spawnReachableBuildingTypeIds);
+    expect(sortedBuildingTypeIds([
+      ...plannedBuildingTypeIds,
+      ...nonSpawnBrowserGapTypeIds
+    ])).toEqual(sortedBuildingTypeIds(canonicalBuildingTypeIds));
+    expect(parityViewports.map(({ width, height }) => `${width}x${height}`)).toEqual([
+      "1440x900",
+      "390x844",
+      "320x568",
+      "360x800",
+      "430x932",
+      "768x1024",
+      "820x1180",
+      "1024x768",
+      "1366x768",
+      "1920x1080"
+    ]);
     expect(nonSpawnBrowserGapTypeIds).toEqual([
       "airport",
       "casino",
@@ -594,6 +652,101 @@ test.describe("live/demo shared presentation parity", () => {
   );
   test.setTimeout(360_000);
 
+  test("whole-game chrome keeps shared DOM, styles and bounds at all ten viewports", async ({
+    browser
+  }, testInfo) => {
+    testInfo.annotations.push(
+      {
+        type: "local-demo-state",
+        description: "Local demo presentation state is initialized through the browser localStorage helper."
+      },
+      {
+        type: "hosted-entry",
+        description: "Hosted player enters a pre-created local server through registration, lobby, spawn and faction browser UI."
+      },
+      {
+        type: "screenshot-contract",
+        description: "Screenshots mask authoritative values and map pixels as evidence; DOM, computed styles and bounds are asserted instead of false pixel equality."
+      }
+    );
+    const localContext = await browser.newContext({ viewport: parityViewports[0] });
+    const serverContext = await browser.newContext({ viewport: parityViewports[0] });
+    const localPage = await localContext.newPage();
+    const serverPage = await serverContext.newPage();
+    const coverage = [];
+    try {
+      const entry = await registerAndEnterHostedUiParityGame(serverPage, {
+        serverInstanceId,
+        spawnDistrictIds: [
+          "district:26",
+          "district:42",
+          "district:67",
+          "district:92",
+          "district:138",
+          "district:152",
+          "district:157"
+        ],
+        identityPrefix: "ParityChrome"
+      });
+      const hostedMapPhase = await serverPage.evaluate(() => {
+        const readModel = window.EmpireGameplaySliceClient?.getCurrentReadModel?.()
+          || window.empireStreetsGameplaySliceReadModel
+          || null;
+        return readModel?.player?.dayNight?.phaseId === "night" ? "night" : "day";
+      });
+      const sharedDistrictId = Number(String(entry.spawnDistrictId).replace(/^district:/u, ""));
+      await openParityLocalDemo(localPage, {
+        ownedDistrictIds: [sharedDistrictId],
+        startDistrictId: sharedDistrictId,
+        mapPhase: hostedMapPhase
+      });
+
+      for (const viewport of parityViewports) {
+        await localPage.setViewportSize(viewport);
+        await serverPage.setViewportSize(viewport);
+        await Promise.all([
+          localPage.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve()))),
+          serverPage.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve())))
+        ]);
+        const localSignature = await getGameChromeSignature(localPage);
+        const serverSignature = await getGameChromeSignature(serverPage);
+        expect(
+          serverSignature,
+          `${viewport.name} whole-game chrome DOM, computed styles, bounds and scroll behavior`
+        ).toEqual(localSignature);
+        await attachGameChromeScreenshotPair({
+          localPage,
+          serverPage,
+          testInfo,
+          viewportName: viewport.name
+        });
+        coverage.push({
+          assertion: "DOM_STYLE_BOUNDS_PASS",
+          screenshotClaim: "MASKED_EVIDENCE_ONLY",
+          viewport: viewport.name
+        });
+      }
+
+      expect(coverage).toHaveLength(parityViewports.length);
+      await testInfo.attach("whole-game-chrome-parity-coverage.json", {
+        body: Buffer.from(`${JSON.stringify({
+          authoritativeValueMasking: true,
+          comparisons: coverage.length,
+          localDemoState: "browser-localStorage-initialized",
+          pixelEqualityAsserted: false,
+          serverEntry: "browser-registration-lobby-spawn-faction",
+          coverage
+        }, null, 2)}\n`, "utf8"),
+        contentType: "application/json"
+      });
+      await expectNoDuplicateVisibleUi(serverPage);
+      await expectHostedUiParityClean(serverPage, entry.diagnostics);
+    } finally {
+      await localContext.close();
+      await serverContext.close();
+    }
+  });
+
   test("district, Restaurant and Pharmacy keep the shared visible structure", async ({ browser }) => {
     const localContext = await browser.newContext({ viewport: parityViewports[0] });
     const serverContext = await browser.newContext({ viewport: parityViewports[0] });
@@ -779,7 +932,7 @@ test.describe("live/demo spawn-reachable canonical building matrix", () => {
     !hostedEnabled || !serverInstanceId,
     "Hosted matrix needs the parity server."
   );
-  test.setTimeout(360_000);
+  test.setTimeout(1_200_000);
 
   for (const matrixEntry of spawnReachableBuildingParityMatrix) {
     test(`${matrixEntry.key} keeps canonical cards structurally identical`, async ({
@@ -789,6 +942,7 @@ test.describe("live/demo spawn-reachable canonical building matrix", () => {
       const serverContext = await browser.newContext({ viewport: parityViewports[0] });
       const localPage = await localContext.newPage();
       const serverPage = await serverContext.newPage();
+      const coverage = [];
       try {
         const entry = await registerAndEnterHostedUiParityGame(serverPage, {
           serverInstanceId,
@@ -808,16 +962,7 @@ test.describe("live/demo spawn-reachable canonical building matrix", () => {
           mapPhase: hostedMapPhase
         });
 
-        const responsiveBuildingTypeIds = matrixEntry.coveredBuildingTypeIds
-          .filter(usesTenViewportParity);
-        const viewports = responsiveBuildingTypeIds.length > 0
-          ? parityViewports
-          : parityViewports.slice(0, 1);
-
-        for (const [viewportIndex, viewport] of viewports.entries()) {
-          const buildingTypeIds = viewportIndex === 0
-            ? matrixEntry.coveredBuildingTypeIds
-            : responsiveBuildingTypeIds;
+        for (const viewport of parityViewports) {
           await localPage.setViewportSize(viewport);
           await serverPage.setViewportSize(viewport);
           await openDistrictById(localPage, entry.spawnDistrictId);
@@ -832,15 +977,20 @@ test.describe("live/demo spawn-reachable canonical building matrix", () => {
             `${entry.spawnDistrictId} authoritative building card registry`
           ).toEqual(sortedBuildingTypeIds(matrixEntry.expectedDistrictBuildingTypeIds));
 
-          for (const buildingTypeId of buildingTypeIds) {
+          for (const buildingTypeId of matrixEntry.coveredBuildingTypeIds) {
             await compareOpenBuildingParity(
               localPage,
               serverPage,
               buildingTypeId,
-              viewportIndex === 0
-                ? { testInfo, viewportName: viewport.name }
-                : null
+              { testInfo, viewportName: viewport.name }
             );
+            coverage.push({
+              buildingTypeId,
+              screenshotClaim: "EVIDENCE_ONLY",
+              screenshots: productionBuildingTypeIds.has(buildingTypeId) ? 4 : 2,
+              structure: "PASS",
+              viewport: viewport.name
+            });
           }
 
           await closeSurface(localPage, "district");
@@ -851,6 +1001,23 @@ test.describe("live/demo spawn-reachable canonical building matrix", () => {
           entry.diagnostics.submitRequests,
           `${matrixEntry.key} is an opening-only visible flow`
         ).toEqual([]);
+        expect(coverage).toHaveLength(
+          matrixEntry.coveredBuildingTypeIds.length * parityViewports.length
+        );
+        expect(new Set(coverage.map((entry) => (
+          `${entry.buildingTypeId}/${entry.viewport}`
+        ))).size).toBe(coverage.length);
+        await testInfo.attach(`${matrixEntry.key}-building-parity-coverage.json`, {
+          body: Buffer.from(`${JSON.stringify({
+            buildingTypeIds: matrixEntry.coveredBuildingTypeIds,
+            comparisons: coverage.length,
+            pixelEqualityAsserted: false,
+            screenshots: coverage.reduce((sum, entry) => sum + entry.screenshots, 0),
+            viewports: parityViewports.map((viewport) => viewport.name),
+            coverage
+          }, null, 2)}\n`, "utf8"),
+          contentType: "application/json"
+        });
         await expectNoDuplicateVisibleUi(serverPage);
         await expectHostedUiParityClean(serverPage, entry.diagnostics);
       } finally {
