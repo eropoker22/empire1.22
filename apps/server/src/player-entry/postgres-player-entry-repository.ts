@@ -38,6 +38,7 @@ import {
 } from "./postgres-player-entry-membership-jobs";
 import {
   HOSTED_PLAYER_ENTRY_SERVER_COLUMNS,
+  loadHostedServerPopulationStats,
   PLAYER_ENTRY_BLOCKING_STATUSES,
   readAuthoritativePostgresNow,
   type HostedPlayerEntryServerRow
@@ -198,8 +199,22 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
       `SELECT ${HOSTED_PLAYER_ENTRY_SERVER_COLUMNS}
        FROM empire_hosted_server_instances WHERE status <> 'archived' ORDER BY created_at DESC`
     );
-    const availableServers = await Promise.all(servers.rows.map((server) =>
-      createLobbyServerSummary(database, server, now, WORKER_FRESH_MS)));
+    const populationStats = await loadHostedServerPopulationStats(
+      database,
+      servers.rows.map((server) => String(server.server_instance_id)),
+      now.toISOString()
+    );
+    const populationStatsByServerId = new Map(
+      populationStats.map((entry) => [entry.serverInstanceId, entry])
+    );
+    const availableServers = servers.rows.map((server) => {
+      const serverInstanceId = String(server.server_instance_id);
+      const stats = populationStatsByServerId.get(serverInstanceId);
+      if (!stats) {
+        throw new Error(`Lobby stats missing for hosted server ${serverInstanceId}.`);
+      }
+      return createLobbyServerSummary(server, stats, now, WORKER_FRESH_MS);
+    });
     const views = memberships.map((membership) => toMembershipView(membership, now));
     return {
       account: accountView,

@@ -66,3 +66,117 @@ export const getHostedOccupancy = async (
     reservedSlots: Number(result.rows[0]?.reserved_slots ?? 0)
   };
 };
+
+export interface HostedServerPopulationStats {
+  serverInstanceId: string;
+  committedPlayers: number;
+  reservedSlots: number;
+  readyPlayers: number;
+}
+
+export const loadHostedServerPopulationStats = async (
+  database: PostgresQueryable,
+  serverInstanceIds: string[],
+  at: string
+): Promise<HostedServerPopulationStats[]> => {
+  if (serverInstanceIds.length === 0) return [];
+  const result = await database.query<HostedServerPopulationStatsRow>(
+    `WITH requested AS (
+       SELECT unnest($1::text[]) AS server_instance_id
+     ), occupied_identities AS (
+       SELECT membership.server_instance_id,membership.account_id AS identity
+       FROM empire_server_memberships membership
+       WHERE membership.server_instance_id=ANY($1::text[])
+         AND membership.status=ANY($3::text[])
+       UNION
+       SELECT registration.server_instance_id,registration.account_id AS identity
+       FROM empire_player_registrations registration
+       WHERE registration.server_instance_id=ANY($1::text[])
+         AND registration.status='active'
+         AND registration.account_id IS NOT NULL
+     ), committed AS (
+       SELECT server_instance_id,count(*)::int AS committed_players
+       FROM occupied_identities GROUP BY server_instance_id
+     ), reserved AS (
+       SELECT server_instance_id,count(*)::int AS reserved_slots
+       FROM empire_hosted_join_reservations
+       WHERE server_instance_id=ANY($1::text[])
+         AND status='reserved'
+         AND expires_at > $2::timestamptz
+       GROUP BY server_instance_id
+     ), ready AS (
+       SELECT membership.server_instance_id,count(*)::int AS ready_players
+       FROM empire_server_memberships membership
+       JOIN empire_accounts account
+         ON account.account_id=membership.account_id
+       JOIN empire_snapshot_latest snapshot
+         ON snapshot.server_instance_id=membership.server_instance_id
+       CROSS JOIN LATERAL (
+         SELECT jsonb_extract_path(snapshot.payload,'state') AS state
+         OFFSET 0
+       ) parsed
+       CROSS JOIN LATERAL (
+         SELECT
+           jsonb_extract_path(
+             parsed.state,'playersById',membership.player_id
+           ) AS player_state,
+           jsonb_extract_path_text(
+             parsed.state,'districtsById',
+             membership.reserved_spawn_district_id,'ownerPlayerId'
+           ) AS owner_player_id
+         OFFSET 0
+       ) projected
+       WHERE membership.server_instance_id=ANY($1::text[])
+         AND membership.status='active'
+         AND account.status='active'
+         AND membership.faction_id IS NOT NULL
+         AND membership.avatar_id IS NOT NULL
+         AND membership.gang_color IS NOT NULL
+         AND membership.setup_completed_at IS NOT NULL
+         AND membership.starter_package_applied_at IS NOT NULL
+         AND membership.join_ticket_id IS NOT NULL
+         AND projected.player_state->>'status'='active'
+         AND COALESCE(projected.player_state->>'accountId','') <> ''
+         AND projected.player_state->>'homeDistrictId'
+           = membership.reserved_spawn_district_id
+         AND projected.player_state->'metadata'->>'membershipId'
+           = membership.membership_id
+         AND projected.player_state->'metadata'->>'setupComplete'='true'
+         AND projected.player_state->'metadata'->>'starterPackageApplied'='true'
+         AND projected.owner_player_id=membership.player_id
+         AND EXISTS (
+           SELECT 1
+           FROM empire_hosted_join_reservations reservation
+           WHERE reservation.membership_id=membership.membership_id
+             AND reservation.server_instance_id=membership.server_instance_id
+             AND reservation.status='committed'
+             AND reservation.reserved_spawn_district_id
+               = membership.reserved_spawn_district_id
+         )
+       GROUP BY membership.server_instance_id
+     )
+     SELECT requested.server_instance_id,
+       COALESCE(committed.committed_players,0)::int AS committed_players,
+       COALESCE(reserved.reserved_slots,0)::int AS reserved_slots,
+       COALESCE(ready.ready_players,0)::int AS ready_players
+     FROM requested
+     LEFT JOIN committed USING (server_instance_id)
+     LEFT JOIN reserved USING (server_instance_id)
+     LEFT JOIN ready USING (server_instance_id)
+     ORDER BY requested.server_instance_id`,
+    [serverInstanceIds, at, PLAYER_ENTRY_BLOCKING_STATUSES]
+  );
+  return result.rows.map((row) => ({
+    serverInstanceId: String(row.server_instance_id),
+    committedPlayers: Number(row.committed_players),
+    reservedSlots: Number(row.reserved_slots),
+    readyPlayers: Number(row.ready_players)
+  }));
+};
+
+interface HostedServerPopulationStatsRow extends Record<string, unknown> {
+  server_instance_id: unknown;
+  committed_players: unknown;
+  reserved_slots: unknown;
+  ready_players: unknown;
+}

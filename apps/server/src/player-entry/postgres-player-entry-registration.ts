@@ -13,6 +13,7 @@ import {
   getHostedOccupancy,
   HOSTED_PLAYER_ENTRY_SERVER_COLUMNS,
   PLAYER_ENTRY_BLOCKING_STATUSES,
+  type HostedServerPopulationStats,
   type HostedPlayerEntryServerRow
 } from "./postgres-player-entry-server-query";
 import {
@@ -30,19 +31,17 @@ interface SnapshotPayload {
   };
 }
 
-export const createLobbyServerSummary = async (
-  database: PostgresQueryable,
+export const createLobbyServerSummary = (
   server: HostedPlayerEntryServerRow,
+  population: HostedServerPopulationStats,
   now: Date,
   workerFreshMs: number
-): Promise<LobbyServerSummaryView> => {
+): LobbyServerSummaryView => {
   const serverInstanceId = String(server.server_instance_id);
-  const occupancy = await getHostedOccupancy(database, serverInstanceId, now.toISOString());
-  const readyPlayers = (await listHostedReadyMemberships(database, serverInstanceId)).length;
   const registration = registrationFor(server, now);
   const workerFresh = isWorkerFresh(server, now, workerFreshMs);
   const playable = ["lobby", "running"].includes(String(server.status));
-  const full = occupancy.committedPlayers + occupancy.reservedSlots >= Number(server.capacity);
+  const full = population.committedPlayers + population.reservedSlots >= Number(server.capacity);
   const snapshotReady = Boolean(server.current_snapshot_id);
   const joinable = server.provisioning_state === "ready" && playable && snapshotReady && workerFresh
     && registration.canCreateMembership && !full;
@@ -55,8 +54,9 @@ export const createLobbyServerSummary = async (
     joinPolicy: String(server.join_policy),
     provisioningState: String(server.provisioning_state),
     capacity: Number(server.capacity),
-    ...occupancy,
-    readyPlayers,
+    committedPlayers: population.committedPlayers,
+    reservedSlots: population.reservedSlots,
+    readyPlayers: population.readyPlayers,
     minimumReadyPlayersToStart: Number(server.minimum_ready_players_to_start),
     registrationState: registration.state,
     registrationOpensAt: registration.opensAt,
@@ -64,7 +64,7 @@ export const createLobbyServerSummary = async (
     registrationClosedAt: registration.closedAt,
     registrationRemainingMs: registration.remainingMs,
     registrationReasonCode: registration.reasonCode,
-    canStart: canStart(server, registration.state, readyPlayers, workerFresh, snapshotReady),
+    canStart: canStart(server, registration.state, population.readyPlayers, workerFresh, snapshotReady),
     joinable,
     disabledReason: joinable ? null : disabledReason(server, registration.reasonCode, workerFresh, snapshotReady, full),
     startedAt: isoOrNull(server.last_started_at),
