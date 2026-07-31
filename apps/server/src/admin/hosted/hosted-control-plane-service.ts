@@ -33,17 +33,20 @@ export const createHostedControlPlaneService = (options: {
 }) => {
   const now = options.now ?? (() => new Date());
 
-  const availability = async (): Promise<AdminControlPlaneAvailabilityView> => {
+  const platformAvailability = async (): Promise<
+    Omit<AdminControlPlaneAvailabilityView, "servers">
+  > => {
     const writesEnabled = hostedEnvironmentEnabled(options.environment.EMPIRE_ADMIN_WRITES_ENABLED)
       && hostedEnvironmentEnabled(options.environment.EMPIRE_HOSTED_CONTROL_PLANE_ENABLED);
     const provisioningEnabled = hostedEnvironmentEnabled(options.environment.EMPIRE_SERVER_PROVISIONING_ENABLED);
     const databaseAvailable = options.repositories.kind === "postgres" || options.allowInMemoryForTests === true;
     const migrationsCurrent = await options.repositories.hosted.isSchemaCurrent().catch(() => false) || options.allowInMemoryForTests === true;
     const generatedAt = now();
-    const [worker, servers] = databaseAvailable ? await Promise.all([
-      options.repositories.hosted.getFreshWorkerHeartbeat(new Date(generatedAt.getTime() - HOSTED_WORKER_FRESH_MS).toISOString()).catch(() => null),
-      options.repositories.hosted.listServers().catch(() => [])
-    ]) : [null, []];
+    const worker = databaseAvailable
+      ? await options.repositories.hosted.getFreshWorkerHeartbeat(
+          new Date(generatedAt.getTime() - HOSTED_WORKER_FRESH_MS).toISOString()
+        ).catch(() => null)
+      : null;
     const workerStatus = worker ? "online" as const : "offline" as const;
     const apiBuildSha = safeHostedBuildSha(options.environment.EMPIRE_BUILD_SHA);
     const workerBuildSha = safeHostedBuildSha(worker?.buildSha);
@@ -68,16 +71,25 @@ export const createHostedControlPlaneService = (options: {
       : buildCompatibility === "missing" ? "BUILD_SHA_UNAVAILABLE"
       : buildCompatibility === "mismatch" ? "BUILD_SHA_MISMATCH"
       : null;
+    return { writesEnabled, provisioningEnabled, databaseAvailable, migrationsCurrent, workerStatus, buildCompatibility,
+      sessionSecurity, originPolicy, registrationEnabled, unavailableCode,
+      apiBuildSha, workerBuildSha,
+      schemaVersion: PRODUCTION_MIGRATION_CONTRACT.at(-1)?.[0] ?? null,
+      generatedAt: generatedAt.toISOString() };
+  };
+
+  const availability = async (): Promise<AdminControlPlaneAvailabilityView> => {
+    const platform = await platformAvailability();
+    const generatedAt = new Date(platform.generatedAt);
+    const servers = platform.databaseAvailable && platform.migrationsCurrent
+      ? await options.repositories.hosted.listServers()
+      : [];
     const serverViews = await loadHostedAdminServerViews(
       options.repositories.hosted,
       servers,
       generatedAt
     );
-    return { writesEnabled, provisioningEnabled, databaseAvailable, migrationsCurrent, workerStatus, buildCompatibility,
-      sessionSecurity, originPolicy, registrationEnabled, unavailableCode,
-      apiBuildSha, workerBuildSha,
-      schemaVersion: PRODUCTION_MIGRATION_CONTRACT.at(-1)?.[0] ?? null,
-      servers: serverViews, generatedAt: generatedAt.toISOString() };
+    return { ...platform, servers: serverViews };
   };
 
   return {
@@ -92,7 +104,7 @@ export const createHostedControlPlaneService = (options: {
         await appendFailureAudit(input.session, "forbidden-access", input.correlationId, null, "forbidden");
         return reject("ADMIN_FORBIDDEN", "Admin role does not permit server creation.");
       }
-      const gate = await availability();
+      const gate = await platformAvailability();
       if (gate.unavailableCode) return reject(gate.unavailableCode, "Admin writes are unavailable.");
       if (!IDEMPOTENCY_PATTERN.test(input.idempotencyKey)) return reject("IDEMPOTENCY_KEY_REQUIRED", "A valid Idempotency-Key is required.");
       const parsed = parseHostedCreateRequest(input.payload, options.environment);
@@ -161,7 +173,7 @@ export const createHostedControlPlaneService = (options: {
         await appendFailureAudit(input.session, "forbidden-access", input.correlationId, input.serverInstanceId, "forbidden");
         return reject("ADMIN_FORBIDDEN", "Admin role does not permit this lifecycle action.");
       }
-      const gate = await availability();
+      const gate = await platformAvailability();
       if (gate.unavailableCode) return reject(gate.unavailableCode, "Admin writes are unavailable.");
       if (!IDEMPOTENCY_PATTERN.test(input.idempotencyKey)) return reject("IDEMPOTENCY_KEY_REQUIRED", "A valid Idempotency-Key is required.");
       const at = now().toISOString();

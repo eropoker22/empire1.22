@@ -37,6 +37,69 @@ describe("hosted server control plane", () => {
     expect(await repositories.hosted.listServers()).toHaveLength(1);
   });
 
+  it("authorizes writes without loading every historical server read model", async () => {
+    const { repositories, service } = await setup();
+    let adminStatsCalls = 0;
+    let listServersCalls = 0;
+    const loadAdminStats = repositories.hosted.getAdminServerStats.bind(
+      repositories.hosted
+    );
+    const listServers = repositories.hosted.listServers.bind(repositories.hosted);
+    repositories.hosted.getAdminServerStats = async (...args) => {
+      adminStatsCalls += 1;
+      return loadAdminStats(...args);
+    };
+    repositories.hosted.listServers = async (...args) => {
+      listServersCalls += 1;
+      return listServers(...args);
+    };
+
+    const created = await service.createServer({
+      session: owner,
+      payload: validRequest,
+      idempotencyKey: "test-create-lightweight-write-gate",
+      correlationId: "request:lightweight-write-gate"
+    });
+
+    expect(created.accepted).toBe(true);
+    expect(adminStatsCalls).toBe(0);
+    expect(listServersCalls).toBe(0);
+    if (!created.accepted) return;
+
+    const worker = createHostedRuntimeWorker({
+      workerId: "worker:test",
+      region: "eu-central",
+      buildSha: "test",
+      controlPlane: repositories.hosted,
+      server: createServerApp(),
+      now: () => NOW
+    });
+    await worker.runOnce();
+    const server = await repositories.hosted.getServer(created.data.server.serverInstanceId);
+    if (!server) throw new Error("fixture server missing");
+    adminStatsCalls = 0;
+    listServersCalls = 0;
+
+    const action = await service.requestAction({
+      session: owner,
+      serverInstanceId: server.serverInstanceId,
+      payload: {
+        action: "open-registration-now",
+        expectedVersion: server.version,
+        reason: "Lightweight lifecycle write gate"
+      },
+      idempotencyKey: "test-action-lightweight-write-gate",
+      correlationId: "request:lightweight-action-gate"
+    });
+
+    expect(action.accepted).toBe(true);
+    expect(adminStatsCalls).toBe(0);
+    expect(listServersCalls).toBe(0);
+    await service.availability();
+    expect(adminStatsCalls).toBe(1);
+    expect(listServersCalls).toBe(1);
+  });
+
   it("fails closed for roles, flags, regions, capacity and non-canonical maps", async () => {
     const { service } = await setup();
     expect((await service.createServer({ session: session("viewer"), payload: validRequest, idempotencyKey: "test-create-viewer-0001", correlationId: "r" })).accepted).toBe(false);
