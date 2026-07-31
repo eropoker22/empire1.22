@@ -43,6 +43,7 @@ const STALE_CONFLICT_ERROR_CODES = new Set([
   "ALLIANCE_RELATION_CHANGED"
 ]);
 const serverCommandJournal = createServerCommandJournal();
+const submittingCommandIds = new Set();
 const resolvingCommandIds = new Set();
 const getWindowRef = () => typeof window === "undefined" ? null : window;
 const getDocumentRef = () => typeof document === "undefined" ? null : document;
@@ -138,8 +139,9 @@ export async function submitPreparedServerGameplayCommand(prepared) {
   if (!scope?.playerId || !scope?.serverInstanceId) {
     return { accepted: false, errors: [{ message: "Chybí scope pro ověření výsledku akce." }] };
   }
-  serverCommandJournal.beginSubmit(scope, commandId);
+  submittingCommandIds.add(commandId);
   try {
+    serverCommandJournal.beginSubmit(scope, commandId);
     const body = await submitThroughMountedClient(request)
       ?? await postJson(`${getGameplaySliceEndpointBase()}/submit`, request);
     if (!body || typeof body !== "object" || body.transportFailure === true) {
@@ -157,6 +159,8 @@ export async function submitPreparedServerGameplayCommand(prepared) {
     return normalizedBody;
   } catch (_error) {
     return markCommandAmbiguous(scope, commandId);
+  } finally {
+    submittingCommandIds.delete(commandId);
   }
 }
 
@@ -213,7 +217,7 @@ const markCommandAmbiguous = (scope, commandId) => {
 const resolvePendingCommand = async (scope, entry, retryGeneration) => {
   if (!isPendingServerGameplayCommandRetryGenerationCurrent(retryGeneration)) return null;
   const commandId = String(entry?.commandId || "");
-  if (!commandId || resolvingCommandIds.has(commandId)) return null;
+  if (!commandId || submittingCommandIds.has(commandId) || resolvingCommandIds.has(commandId)) return null;
   const request = entry?.request;
   if (
     !request?.command

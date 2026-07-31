@@ -109,4 +109,57 @@ describe("server gameplay command transport", () => {
     expect(mountedSubmit).toHaveBeenCalledTimes(1);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("does not retry a command while its mounted-client submission is still in flight", async () => {
+    let resolveSubmission;
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => ({
+        status: "not_found",
+        accepted: false,
+        errors: [],
+        readModel: initialReadModel
+      })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const modules = await loadGameplayModules();
+    modules.source.setServerGameplaySliceReadModel(initialReadModel);
+    const mountedSubmit = vi.fn(() => new Promise((resolve) => {
+      resolveSubmission = resolve;
+    }));
+    window.EmpireGameplaySliceClient = {
+      getCurrentReadModel: () => initialReadModel,
+      getCurrentRenderState: () => ({
+        districtPanel: { districtId: "district:home" }
+      }),
+      submitCommand: mountedSubmit
+    };
+
+    const submission = modules.transport.submitServerGameplayCommand({
+      type: "craft-item",
+      payload: {
+        districtId: "district:home",
+        buildingId: "building:drug-lab:1",
+        recipeId: "neon-dust",
+        quantity: 1
+      },
+      focusDistrictId: "district:home",
+      commandId: "command:craft-item:in-flight"
+    });
+    await vi.waitFor(() => expect(mountedSubmit).toHaveBeenCalledTimes(1));
+
+    await expect(modules.transport.retryPendingServerGameplayCommands()).resolves.toEqual([null]);
+    expect(mountedSubmit).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    resolveSubmission({
+      accepted: true,
+      errors: [],
+      readModel: nextReadModel,
+      transportFailure: false
+    });
+    await expect(submission).resolves.toMatchObject({
+      accepted: true,
+      readModel: nextReadModel
+    });
+  });
 });
