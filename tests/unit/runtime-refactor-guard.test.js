@@ -44,7 +44,11 @@ describe("runtime refactor guard", () => {
     const source = runtimeSource();
 
     expect(source).toContain("createServerBuildingActionExecutionPresentation");
-    expect(source).toContain("}, actionExecution.inputValues);");
+    expect(source).toContain("actionInput: actionExecution.inputValues");
+    expect(source).toContain("submitServerBuildingActionCommandBridge");
+    expect(source).toContain("submitCanonicalServerGameplayCommand");
+    expect(source).not.toContain("submitServerBuildingSurfaceAction");
+    expect(source).not.toContain("handleCanonicalServerGameplaySurfaceAction");
     expect(source).not.toContain("tento sdílený detail zatím nenabízí");
   });
 
@@ -105,8 +109,10 @@ describe("runtime refactor guard", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
     try {
-      const renderUi = await import("../../page-assets/js/app/render-ui.js");
-      const runtime = await import("../../page-assets/js/app/runtime.js");
+      const [renderUi, runtime] = await Promise.all([
+        import("../../page-assets/js/app/render-ui.js"),
+        import("../../page-assets/js/app/runtime.js")
+      ]);
       const requiredRenderUiExports = [
         "PAGE_ROOT_SELECTOR",
         "bootstrapPage",
