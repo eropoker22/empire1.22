@@ -1442,15 +1442,51 @@ var EmpireGameplaySliceClient = function(exports) {
       }))
     };
   };
-  if (typeof window !== "undefined") {
-    window.EmpireModalScrollLock = {
-      closeTop: closeTopModalOverlay,
-      debugState: getModalScrollLockDebugState,
-      isLocked: isModalScrollLocked,
-      lock: lockModalScroll,
-      unlock: unlockModalScroll
-    };
-  }
+  const MODAL_SCROLL_LOCK_BRIDGE = {
+    closeTop: closeTopModalOverlay,
+    debugState: getModalScrollLockDebugState,
+    isLocked: isModalScrollLocked,
+    lock: lockModalScroll,
+    unlock: unlockModalScroll
+  };
+  let modalScrollLockBridgeInstallCount = 0;
+  let previousModalScrollLockBridge;
+  const restorePreviousModalScrollLockBridge = () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (window.EmpireModalScrollLock === MODAL_SCROLL_LOCK_BRIDGE) {
+      if (previousModalScrollLockBridge) {
+        window.EmpireModalScrollLock = previousModalScrollLockBridge;
+      } else {
+        delete window.EmpireModalScrollLock;
+      }
+    }
+    previousModalScrollLockBridge = void 0;
+  };
+  const installModalScrollLockBridge = () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (modalScrollLockBridgeInstallCount === 0) {
+      previousModalScrollLockBridge = window.EmpireModalScrollLock;
+      window.EmpireModalScrollLock = MODAL_SCROLL_LOCK_BRIDGE;
+    }
+    modalScrollLockBridgeInstallCount += 1;
+  };
+  const uninstallModalScrollLockBridge = () => {
+    if (typeof window === "undefined" || modalScrollLockBridgeInstallCount === 0) {
+      return;
+    }
+    modalScrollLockBridgeInstallCount -= 1;
+    if (modalScrollLockBridgeInstallCount > 0) {
+      return;
+    }
+    if (overlayStack.some((entry) => entry.owner === MODAL_SCROLL_LOCK_OWNER)) {
+      unlockModalScroll();
+    }
+    restorePreviousModalScrollLockBridge();
+  };
   const OVERLAY_BACKDROP_ATTRIBUTE = "overlayBackdrop";
   const createOverlayBackdrop = (options = {}) => {
     const mount2 = options.mount ?? document.body;
@@ -1833,6 +1869,7 @@ var EmpireGameplaySliceClient = function(exports) {
     onAttempt,
     onSkipped,
     onSuccess,
+    getResponseError,
     onResponse,
     onError
   }) => {
@@ -1913,6 +1950,10 @@ var EmpireGameplaySliceClient = function(exports) {
       onAttempt == null ? void 0 : onAttempt();
       try {
         const response = await load(request);
+        const responseError = (getResponseError == null ? void 0 : getResponseError(response)) ?? null;
+        if (responseError !== null) {
+          throw responseError;
+        }
         await (onResponse == null ? void 0 : onResponse(response));
         onSuccess == null ? void 0 : onSuccess();
         resetErrorBackoff();
@@ -3764,6 +3805,7 @@ var EmpireGameplaySliceClient = function(exports) {
       intervalMs: parseGameplaySlicePollingIntervalMs(options.root.dataset.gameplaySlicePollingIntervalMs),
       enabled: options.root.dataset.gameplaySlicePolling === "true",
       ...getGameplaySlicePollerPerformanceOptions(),
+      getResponseError: (state) => state.connection.status === "error" ? new Error(state.connection.lastErrorMessage || "Gameplay slice polling failed.") : null,
       onResponse: (state) => {
         const observation = recordGameplaySliceRefresh(client.getGameplaySlice());
         if (observation.changed) {
@@ -3784,6 +3826,9 @@ var EmpireGameplaySliceClient = function(exports) {
       }
     });
     const visibilityRuntime = createGameplaySliceVisibilityRuntime({ root: options.root });
+    if (ownsVisiblePresentation) {
+      installModalScrollLockBridge();
+    }
     visibilityRuntime.start();
     if (ownsVisiblePresentation) {
       legacyDistrictPopupObserver == null ? void 0 : legacyDistrictPopupObserver.observe(legacyDistrictPopup, {
@@ -3852,6 +3897,9 @@ var EmpireGameplaySliceClient = function(exports) {
         districtSheetOverlay == null ? void 0 : districtSheetOverlay.closeOnDestroy();
         overlayBackdrop == null ? void 0 : overlayBackdrop.sync();
         overlayBackdrop == null ? void 0 : overlayBackdrop.destroy();
+        if (ownsVisiblePresentation) {
+          uninstallModalScrollLockBridge();
+        }
         unregisterMountedPage();
         mountedGameplaySlicePagesByRoot.delete(options.root);
         window.removeEventListener("pagehide", handlePageHide);

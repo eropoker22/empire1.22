@@ -37,6 +37,7 @@ export interface GameplaySlicePollerOptions<TResponse = GameplaySliceResponse> {
   onAttempt?(): void;
   onSkipped?(reason: "in-progress" | "destroyed" | "hidden" | "missing-request"): void;
   onSuccess?(): void;
+  getResponseError?(response: TResponse): unknown | null;
   onResponse?(response: TResponse): void | Promise<void>;
   onError?(error: unknown): void;
 }
@@ -64,6 +65,7 @@ export const createGameplaySlicePoller = <TResponse = GameplaySliceResponse>({
   onAttempt,
   onSkipped,
   onSuccess,
+  getResponseError,
   onResponse,
   onError
 }: GameplaySlicePollerOptions<TResponse>): GameplaySlicePoller<TResponse> => {
@@ -156,6 +158,10 @@ export const createGameplaySlicePoller = <TResponse = GameplaySliceResponse>({
 
     try {
       const response = await load(request);
+      const responseError = getResponseError?.(response) ?? null;
+      if (responseError !== null) {
+        throw responseError;
+      }
       await onResponse?.(response);
       onSuccess?.();
       resetErrorBackoff();

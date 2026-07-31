@@ -4,6 +4,7 @@ import { createOverlayBackdrop } from "../../../apps/client/src/modals/overlay-b
 import {
   closeOverlay,
   getTopOverlay,
+  installModalScrollLockBridge,
   isOverlayOpen,
   lockModalScroll,
   openOverlay,
@@ -42,6 +43,7 @@ const restoreBodyStyles = (styles: Record<string, string>): void => {
 
 describe("overlay backdrop", () => {
   beforeEach(() => {
+    installModalScrollLockBridge();
     vi.useFakeTimers();
     vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
     Object.defineProperty(window, "requestAnimationFrame", {

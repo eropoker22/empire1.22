@@ -356,10 +356,68 @@ export const getModalScrollLockDebugState = (): {
   };
 };
 
+const MODAL_SCROLL_LOCK_BRIDGE: ModalScrollLockBridge = {
+  closeTop: closeTopModalOverlay,
+  debugState: getModalScrollLockDebugState,
+  isLocked: isModalScrollLocked,
+  lock: lockModalScroll,
+  unlock: unlockModalScroll
+};
+let modalScrollLockBridgeInstallCount = 0;
+let previousModalScrollLockBridge: ModalScrollLockBridge | undefined;
+
+const restorePreviousModalScrollLockBridge = (): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (window.EmpireModalScrollLock === MODAL_SCROLL_LOCK_BRIDGE) {
+    if (previousModalScrollLockBridge) {
+      window.EmpireModalScrollLock = previousModalScrollLockBridge;
+    } else {
+      delete window.EmpireModalScrollLock;
+    }
+  }
+  previousModalScrollLockBridge = undefined;
+};
+
+export const installModalScrollLockBridge = (): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (modalScrollLockBridgeInstallCount === 0) {
+    previousModalScrollLockBridge = window.EmpireModalScrollLock;
+    window.EmpireModalScrollLock = MODAL_SCROLL_LOCK_BRIDGE;
+  }
+  modalScrollLockBridgeInstallCount += 1;
+};
+
+export const uninstallModalScrollLockBridge = (): void => {
+  if (typeof window === "undefined" || modalScrollLockBridgeInstallCount === 0) {
+    return;
+  }
+
+  modalScrollLockBridgeInstallCount -= 1;
+  if (modalScrollLockBridgeInstallCount > 0) {
+    return;
+  }
+
+  if (overlayStack.some((entry) => entry.owner === MODAL_SCROLL_LOCK_OWNER)) {
+    unlockModalScroll();
+  }
+  restorePreviousModalScrollLockBridge();
+};
+
 export const resetOverlayStateForTests = (): void => {
   unlockBodyScroll();
   overlayStack.splice(0, overlayStack.length);
   suppressMapInputUntil = 0;
+
+  if (typeof window !== "undefined") {
+    modalScrollLockBridgeInstallCount = 0;
+    restorePreviousModalScrollLockBridge();
+  }
 
   const body = getBody();
   if (!body) {
@@ -371,13 +429,3 @@ export const resetOverlayStateForTests = (): void => {
   lockedRootStyles = null;
   delete body.dataset[LOCKED_BODY_DATA_ATTRIBUTE];
 };
-
-if (typeof window !== "undefined") {
-  window.EmpireModalScrollLock = {
-    closeTop: closeTopModalOverlay,
-    debugState: getModalScrollLockDebugState,
-    isLocked: isModalScrollLocked,
-    lock: lockModalScroll,
-    unlock: unlockModalScroll
-  };
-}

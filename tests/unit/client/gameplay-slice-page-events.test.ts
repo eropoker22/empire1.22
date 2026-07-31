@@ -147,6 +147,7 @@ describe("gameplay slice page event guard", () => {
 
     resetOverlayStateForTests();
     document.body.innerHTML = "";
+    document.body.style.overflow = "";
     vi.restoreAllMocks();
   });
 
@@ -170,6 +171,8 @@ describe("gameplay slice page event guard", () => {
   });
 
   it("controller-only mode publishes server state without mounting a second visible surface", async () => {
+    Reflect.deleteProperty(window, "EmpireModalScrollLock");
+    document.body.style.overflow = "auto";
     const load = vi.fn(async (request: LoadGameplaySliceRequest) => (
       request.districtId
         ? createGameplaySliceResponseForDistrict(request.districtId)
@@ -199,6 +202,9 @@ describe("gameplay slice page event guard", () => {
     expect(root.querySelector("[data-gameplay-slice-map]")?.childElementCount ?? 0).toBe(0);
     expect(rendered).toHaveBeenCalledTimes(1);
     expect(isOverlayOpen()).toBe(false);
+    expect(window.EmpireModalScrollLock).toBeUndefined();
+    expect(document.body.dataset.overlayScrollLocked).toBeUndefined();
+    expect(document.body.style.overflow).toBe("auto");
 
     mapButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
     await flushMicrotasks();
@@ -213,6 +219,34 @@ describe("gameplay slice page event guard", () => {
 
     document.removeEventListener("empire:gameplay-slice-rendered", rendered);
     mounted?.destroy();
+    document.body.style.overflow = "";
+  });
+
+  it("full presentation owns the modal scroll lock bridge until destroy", async () => {
+    Reflect.deleteProperty(window, "EmpireModalScrollLock");
+    const root = createRoot();
+    document.body.append(root);
+
+    const mounted = mountGameplaySlicePage({
+      root,
+      presentationMode: "full",
+      transport: {
+        load: async () => createGameplaySliceResponse(),
+        send: async () => createGameplaySliceResponse()
+      }
+    });
+    await flushMicrotasks();
+
+    const bridge = window.EmpireModalScrollLock;
+    expect(bridge).toBeDefined();
+    expect(bridge?.lock(document)).toBe(true);
+    expect(document.body.dataset.overlayScrollLocked).toBe("true");
+
+    mounted?.destroy();
+
+    expect(window.EmpireModalScrollLock).toBeUndefined();
+    expect(document.body.dataset.overlayScrollLocked).toBeUndefined();
+    expect(isOverlayOpen()).toBe(false);
   });
 
   it("polls the requested district while its selection response is pending", async () => {
@@ -260,6 +294,58 @@ describe("gameplay slice page event guard", () => {
     await selection;
     expect(window.EmpireGameplaySliceClient?.getCurrentReadModel()?.district?.districtId)
       .toBe("district:map:2");
+    mounted?.destroy();
+  });
+
+  it("backs off resolved transport failures and resets after recovery", async () => {
+    vi.useFakeTimers();
+    let loadCount = 0;
+    const load = vi.fn(async () => {
+      loadCount += 1;
+      if (loadCount === 2) {
+        throw new Error("socket unavailable");
+      }
+      return createGameplaySliceResponse();
+    });
+    const connectionStatuses: string[] = [];
+    const handleConnectionState = (event: Event) => {
+      connectionStatuses.push((event as CustomEvent<{ status: string }>).detail.status);
+    };
+    document.addEventListener("empire:gameplay-connection-state", handleConnectionState);
+    const root = createRoot();
+    root.dataset.gameplaySlicePolling = "true";
+    root.dataset.gameplaySlicePollingIntervalMs = "10";
+    document.body.append(root);
+
+    const mounted = mountGameplaySlicePage({
+      root,
+      presentationMode: "controller-only",
+      transport: {
+        load,
+        send: async () => createGameplaySliceResponse()
+      }
+    });
+    await flushMicrotasks();
+
+    expect(load).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(10);
+    await flushMicrotasks();
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(connectionStatuses).toContain("stale");
+
+    await vi.advanceTimersByTimeAsync(10);
+    await flushMicrotasks();
+    expect(load).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(10);
+    await flushMicrotasks();
+    expect(load).toHaveBeenCalledTimes(3);
+
+    await vi.advanceTimersByTimeAsync(10);
+    await flushMicrotasks();
+    expect(load).toHaveBeenCalledTimes(4);
+
+    document.removeEventListener("empire:gameplay-connection-state", handleConnectionState);
     mounted?.destroy();
   });
 

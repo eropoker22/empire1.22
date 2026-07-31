@@ -310,6 +310,55 @@ describe("gameplay slice poller", () => {
     expect(timerDriver.clearedHandles).toHaveLength(2);
   });
 
+  it("backs off when a resolved response is classified as an error", async () => {
+    const timerDriver = new FakeTimerDriver();
+    const responseError = new Error("socket unavailable");
+    const onError = vi.fn();
+    const onResponse = vi.fn();
+    const onSuccess = vi.fn();
+    const poller = createGameplaySlicePoller({
+      load: async () => ({ status: "error" as const }),
+      getRequest: () => request,
+      intervalMs: 10_000,
+      timerDriver,
+      getResponseError: (nextResponse) => nextResponse.status === "error" ? responseError : null,
+      onError,
+      onResponse,
+      onSuccess
+    });
+
+    poller.start();
+    timerDriver.fire();
+    await flushMicrotasks();
+
+    expect(timerDriver.intervals.map((interval) => interval.intervalMs)).toEqual([10_000, 20_000]);
+    expect(onError).toHaveBeenCalledWith(responseError);
+    expect(onResponse).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it("resets resolved-response error backoff after a successful response", async () => {
+    const timerDriver = new FakeTimerDriver();
+    let hasError = true;
+    const poller = createGameplaySlicePoller({
+      load: async () => ({ hasError }),
+      getRequest: () => request,
+      intervalMs: 10_000,
+      timerDriver,
+      getResponseError: (nextResponse) => nextResponse.hasError ? new Error("offline") : null
+    });
+
+    poller.start();
+    timerDriver.fire();
+    await flushMicrotasks();
+    hasError = false;
+    timerDriver.fire(1);
+    await flushMicrotasks();
+
+    expect(timerDriver.intervals.map((interval) => interval.intervalMs)).toEqual([10_000, 20_000, 10_000]);
+    expect(poller.isRunning()).toBe(true);
+  });
+
   it("resets error backoff after a successful refresh", async () => {
     const timerDriver = new FakeTimerDriver();
     let shouldFail = true;

@@ -2,7 +2,13 @@ import { createClientApp, createClientSurfaceActionRouter, resolveClientSurfaceA
 import { refreshLiveCooldownLabels } from "../shared-ui";
 import { createFetchClientTransport, createGameplaySlicePoller } from "../transport";
 import { createOverlayBackdrop } from "../modals/overlay-backdrop";
-import { getTopOverlay, isOverlayOpen, shouldSuppressMapInput } from "../modals/overlay-state";
+import {
+  getTopOverlay,
+  installModalScrollLockBridge,
+  isOverlayOpen,
+  shouldSuppressMapInput,
+  uninstallModalScrollLockBridge
+} from "../modals/overlay-state";
 import { resolveGameplaySliceBootstrapRequest } from "./gameplay-slice-bootstrap";
 import { createDistrictSheetOverlayController } from "./gameplay-slice-overlays";
 import {
@@ -366,6 +372,9 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     intervalMs: parseGameplaySlicePollingIntervalMs(options.root.dataset.gameplaySlicePollingIntervalMs),
     enabled: options.root.dataset.gameplaySlicePolling === "true",
     ...getGameplaySlicePollerPerformanceOptions(),
+    getResponseError: (state) => state.connection.status === "error"
+      ? new Error(state.connection.lastErrorMessage || "Gameplay slice polling failed.")
+      : null,
     onResponse: (state) => {
       const observation = recordGameplaySliceRefresh(client.getGameplaySlice());
       if (observation.changed) {
@@ -387,6 +396,9 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
   });
 
   const visibilityRuntime = createGameplaySliceVisibilityRuntime({ root: options.root });
+  if (ownsVisiblePresentation) {
+    installModalScrollLockBridge();
+  }
   visibilityRuntime.start();
   if (ownsVisiblePresentation) {
     legacyDistrictPopupObserver?.observe(legacyDistrictPopup as HTMLElement, {
@@ -459,6 +471,9 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       districtSheetOverlay?.closeOnDestroy();
       overlayBackdrop?.sync();
       overlayBackdrop?.destroy();
+      if (ownsVisiblePresentation) {
+        uninstallModalScrollLockBridge();
+      }
       unregisterMountedPage();
       mountedGameplaySlicePagesByRoot.delete(options.root);
       window.removeEventListener("pagehide", handlePageHide);
