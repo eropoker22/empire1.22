@@ -1,6 +1,5 @@
 import { expect, test } from "@playwright/test";
 import {
-  SESSION_STORAGE_KEY,
   attachE2eDiagnostics,
   assertNoRuntimeErrors,
   clearStorageOnBoot,
@@ -47,7 +46,7 @@ test.describe("login smoke", () => {
     await openLoginPage(page, { serverAuthoritative: true });
     await waitForAboutController(page);
     await expect(page.getByTestId("login-form")).toBeVisible();
-    await expect(page.getByTestId("guest-login-button")).toBeVisible();
+    await expect(page.getByTestId("guest-login-button")).toHaveCount(0);
 
     await expect(page.locator("[data-server-defeat-notice]")).toHaveCount(0);
 
@@ -82,10 +81,14 @@ test.describe("login smoke", () => {
     await assertNoRuntimeErrors(errors);
   });
 
-  test("binds the same encyclopedia in explicit local-demo mode", async ({ page }) => {
+  test("ignores the local-demo query and keeps the live login", async ({ page }) => {
     await clearStorageOnBoot(page);
     await page.goto("/pages/login.html?runtimeMode=local-demo", { waitUntil: "domcontentloaded" });
     await waitForAboutController(page);
+    await expect(page.getByTestId("login-form")).toBeVisible();
+    await expect(page.getByTestId("guest-login-button")).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => window.empireClientAuthorityState?.executionMode))
+      .toBe("server-authoritative");
     await page.locator("[data-login-about-open]").click();
     await expect(page.getByRole("tab", { name: "Past", exact: true })).toHaveCount(1);
     await page.getByRole("tab", { name: "Bounty", exact: true }).focus();
@@ -110,44 +113,17 @@ test.describe("login smoke", () => {
     }
   });
 
-  test("keeps the explicit local demo entry visible and session-capable", async ({ page }) => {
+  test("does not expose local demo controls on mobile loopback", async ({ page }) => {
     await clearStorageOnBoot(page);
     await page.setViewportSize({ width: 390, height: 844 });
 
     await page.goto("/pages/login.html?runtimeMode=local-demo", { waitUntil: "domcontentloaded" });
     const errors = createRuntimeErrorMonitor(page);
-    const foregroundStyle = await page.locator(".foreground-character").evaluate((element) => {
-      const style = getComputedStyle(element);
-      return {
-        display: style.display,
-        maskImage: style.maskImage || style.webkitMaskImage,
-        pointerEvents: style.pointerEvents
-      };
-    });
-    expect(foregroundStyle.display).toBe("none");
-    expect(foregroundStyle.maskImage).toBe("none");
-    expect(foregroundStyle.pointerEvents).toBe("none");
-    await expect(page.getByTestId("guest-login-button")).toBeVisible();
-    await Promise.all([
-      page.waitForURL(/\/pages\/lobby\.html\?mode=free$/, { waitUntil: "domcontentloaded" }),
-      page.evaluate(() => {
-        document.querySelector("#guest-username").value = "E2E Host";
-        document.querySelector("#guest-gang").value = "E2E Crew";
-        document.querySelector("#guest-btn").click();
-      })
-    ]);
-
-    await expect(page).toHaveURL(/\/pages\/lobby\.html\?mode=free$/);
-    await expect(page.getByTestId("lobby-page")).toBeVisible();
-
-    const session = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)), SESSION_STORAGE_KEY);
-    expect(session.registration).toMatchObject({
-      identity: "E2E Host",
-      gangName: "E2E Crew",
-      isGuest: true,
-      loginKind: "guest",
-      serverMode: "free"
-    });
+    await expect(page.getByTestId("login-form")).toBeVisible();
+    await expect(page.getByTestId("guest-login-button")).toHaveCount(0);
+    await expect(page.locator("body")).not.toContainText(/lokální demo|local demo sandbox|otevřít demo/iu);
+    await expect.poll(() => page.evaluate(() => window.empireClientAuthorityState?.executionMode))
+      .toBe("server-authoritative");
 
     await assertNoRuntimeErrors(errors);
   });

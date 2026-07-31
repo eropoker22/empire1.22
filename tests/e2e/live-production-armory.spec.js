@@ -4,6 +4,8 @@ defineHostedProductionParityTest({
   buildingTypeId: "armory",
   identityPrefix: "LiveArmory",
   label: "Armory",
+  recipeId: "baseball-bat",
+  resourceKey: "baseball-bat",
   spawnDistrictIds: [
     "district:6",
     "district:38",

@@ -1,4 +1,26 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+import {
+  DISTRICT_BUILDING_DETAIL_PROFILES
+} from "../../page-assets/js/app/runtime/buildingDetailData.js";
+import {
+  resolveBuildingPresentationDefinition
+} from "../../page-assets/js/app/runtime/buildingPresentationContract.js";
+import {
+  createDistrictBuildingProfileRuntime
+} from "../../page-assets/js/app/runtime/districtBuildingProfileRuntime.js";
+import {
+  DISTRICT_BUILDING_PACKAGE_POOLS,
+  DISTRICT_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID,
+  DOWNTOWN_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID
+} from "../../page-assets/js/data/districtPools.js";
+import { DISTRICT_BUILDING_TYPE_META } from "../../page-assets/js/data/buildings.js";
+import {
+  DISTRICT_TYPE_GRID,
+  remapDistrictId,
+  remapDistrictType
+} from "../../page-assets/js/app/map/mapGeometry.js";
+import { clamp, hashCell } from "../../page-assets/js/app/runtime/utils.js";
 import {
   expectHostedUiParityClean,
   registerAndEnterHostedUiParityGame
@@ -8,19 +30,395 @@ import {
   closeSurface,
   expectNoDuplicateVisibleUi,
   getBuildingPresentationSignature,
+  getParityDomStructureSignature,
   getParitySurfaceSignature,
+  getProductionPresentationSignature,
   openBuildingFromDistrict,
   openCityEvents,
   openDistrictById,
   openFirstCityEventDetail,
   openParityLocalDemo,
   openProductionShortcut,
-  parityViewports
+  parityCaptureViewports,
+  paritySurfaces,
+  parityViewports,
+  resolveBuildingParitySurfaceName,
+  selectProductionBuildingTab
 } from "./helpers/uiParityCapture.js";
 
 const captureEnabled = process.env.EMPIRE_CAPTURE_UI_PARITY_BASELINE === "1";
 const hostedEnabled = process.env.EMPIRE_HOSTED_UI_PARITY_E2E === "1";
 const serverInstanceId = process.env.EMPIRE_UI_PARITY_SERVER_ID || "";
+const productionBuildingTypeIds = new Set(["pharmacy", "drug_lab", "factory", "armory"]);
+const sortedBuildingTypeIds = (values) => Array.from(new Set(values)).sort();
+const canonicalBuildingTypeIds = Object.freeze([
+  "central_bank",
+  "city_hall",
+  "lobby_club",
+  "stock_exchange",
+  "court",
+  "vip_lounge",
+  "airport",
+  "port",
+  "parliament",
+  "shopping_mall",
+  "restaurant",
+  "arcade",
+  "casino",
+  "car_dealer",
+  "fitness_club",
+  "exchange",
+  "apartment_block",
+  "recruitment_center",
+  "garage",
+  "clinic",
+  "school",
+  "factory",
+  "armory",
+  "warehouse",
+  "power_station",
+  "recycling_center",
+  "pharmacy",
+  "drug_lab",
+  "smuggling_tunnel",
+  "convenience_store",
+  "strip_club",
+  "street_dealers"
+]);
+const parityMapManifest = JSON.parse(readFileSync(
+  new URL("../../packages/game-config/src/maps/empire-streets-city-map.json", import.meta.url),
+  "utf8"
+));
+const parityDistrictProfileRuntime = createDistrictBuildingProfileRuntime({
+  clamp,
+  currentPlayerId: 1,
+  defaultDistrictType: "resident",
+  districtBuildingPackagePools: DISTRICT_BUILDING_PACKAGE_POOLS,
+  districtBuildingTypeMeta: DISTRICT_BUILDING_TYPE_META,
+  districtTypeGrid: DISTRICT_TYPE_GRID,
+  districtFixedPackagesByDistrictId: DISTRICT_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID,
+  downtownDistrictType: "downtown",
+  downtownFixedPackagesByDistrictId: DOWNTOWN_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID,
+  getCurrentPlayerOwnedDistrictIds: () => new Set(),
+  getEffectiveOwnedDistrictIds: () => new Set(),
+  getResolvedSpyIntel: () => ({ revealedTypeDistrictIds: [] }),
+  hashCell,
+  remapDistrictId,
+  remapDistrictType,
+  startPhaseOwnerByDistrictId: new Map(),
+  variantNamesByBaseName: {},
+  backgroundImagesByBaseName: {}
+});
+const parityDistrictById = new Map(
+  parityDistrictProfileRuntime.getDistrictResourceCatalog()
+    .map((district) => [Number(district.id), district])
+);
+const buildingTypeIdByLocalBaseName = new Map(
+  canonicalBuildingTypeIds.map((buildingTypeId) => [
+    resolveBuildingPresentationDefinition(buildingTypeId).baseName,
+    buildingTypeId
+  ])
+);
+const resolveParityDistrictBuildingTypeIds = (districtId) => {
+  const numericDistrictId = Number(String(districtId || "").match(/\d+/u)?.[0] || 0);
+  const district = parityDistrictById.get(numericDistrictId);
+  const profile = parityDistrictProfileRuntime.resolveDistrictBuildingProfile(district);
+  return (profile?.buildings || []).map((building) => (
+    buildingTypeIdByLocalBaseName.get(building.baseName)
+  )).filter(Boolean);
+};
+const spawnReachableBuildingTypeIds = sortedBuildingTypeIds(
+  parityMapManifest.districts
+    .filter((district) => district.isSpawnCandidate)
+    .flatMap((district) => resolveParityDistrictBuildingTypeIds(district.id))
+);
+const nonSpawnBrowserGapTypeIds = canonicalBuildingTypeIds
+  .filter((buildingTypeId) => !spawnReachableBuildingTypeIds.includes(buildingTypeId))
+  .sort();
+
+const spawnReachableBuildingParityMatrix = Object.freeze([
+  Object.freeze({
+    key: "park-night-cover",
+    districtIds: Object.freeze(["district:2", "district:20", "district:116"]),
+    expectedDistrictBuildingTypeIds: Object.freeze(["strip_club", "convenience_store"]),
+    coveredBuildingTypeIds: Object.freeze(["strip_club", "convenience_store"])
+  }),
+  Object.freeze({
+    key: "industrial-recycle",
+    districtIds: Object.freeze([
+      "district:3",
+      "district:73",
+      "district:114",
+      "district:139",
+      "district:149",
+      "district:155"
+    ]),
+    expectedDistrictBuildingTypeIds: Object.freeze(["factory", "recycling_center"]),
+    coveredBuildingTypeIds: Object.freeze(["factory", "recycling_center"])
+  }),
+  Object.freeze({
+    key: "residential-arcade-garage",
+    districtIds: Object.freeze(["district:4", "district:142", "district:154"]),
+    expectedDistrictBuildingTypeIds: Object.freeze(["apartment_block", "arcade", "garage"]),
+    coveredBuildingTypeIds: Object.freeze(["apartment_block", "arcade", "garage"])
+  }),
+  Object.freeze({
+    key: "industrial-power",
+    districtIds: Object.freeze(["district:23", "district:94", "district:144", "district:161"]),
+    expectedDistrictBuildingTypeIds: Object.freeze(["factory", "power_station"]),
+    coveredBuildingTypeIds: Object.freeze(["power_station"])
+  }),
+  Object.freeze({
+    key: "park-distribution",
+    districtIds: Object.freeze([
+      "district:27",
+      "district:45",
+      "district:47",
+      "district:118",
+      "district:156"
+    ]),
+    expectedDistrictBuildingTypeIds: Object.freeze(["street_dealers", "smuggling_tunnel"]),
+    coveredBuildingTypeIds: Object.freeze(["street_dealers", "smuggling_tunnel"])
+  }),
+  Object.freeze({
+    key: "industrial-armory-warehouse",
+    districtIds: Object.freeze(["district:50", "district:70"]),
+    expectedDistrictBuildingTypeIds: Object.freeze(["armory", "warehouse"]),
+    coveredBuildingTypeIds: Object.freeze(["armory", "warehouse"])
+  }),
+  Object.freeze({
+    key: "residential-recovery",
+    districtIds: Object.freeze(["district:65", "district:71"]),
+    expectedDistrictBuildingTypeIds: Object.freeze(["recruitment_center", "clinic"]),
+    coveredBuildingTypeIds: Object.freeze(["recruitment_center", "clinic"])
+  }),
+  Object.freeze({
+    key: "commercial-mall-pharmacy",
+    districtIds: Object.freeze(["district:67", "district:92"]),
+    expectedDistrictBuildingTypeIds: Object.freeze(["shopping_mall", "pharmacy", "restaurant"]),
+    coveredBuildingTypeIds: Object.freeze(["shopping_mall", "pharmacy", "restaurant"])
+  }),
+  Object.freeze({
+    key: "residential-school",
+    districtIds: Object.freeze(["district:90", "district:96"]),
+    expectedDistrictBuildingTypeIds: Object.freeze(["arcade", "school"]),
+    coveredBuildingTypeIds: Object.freeze(["school"])
+  }),
+  Object.freeze({
+    key: "park-drug-lab",
+    districtIds: Object.freeze(["district:91"]),
+    expectedDistrictBuildingTypeIds: Object.freeze(["drug_lab", "convenience_store"]),
+    coveredBuildingTypeIds: Object.freeze(["drug_lab"])
+  }),
+  Object.freeze({
+    key: "commercial-mobility-exchange",
+    districtIds: Object.freeze(["district:95"]),
+    expectedDistrictBuildingTypeIds: Object.freeze(["car_dealer", "exchange"]),
+    coveredBuildingTypeIds: Object.freeze(["car_dealer", "exchange"])
+  }),
+  Object.freeze({
+    key: "commercial-fitness",
+    districtIds: Object.freeze(["district:120", "district:140"]),
+    expectedDistrictBuildingTypeIds: Object.freeze(["restaurant", "fitness_club"]),
+    coveredBuildingTypeIds: Object.freeze(["fitness_club"])
+  })
+]);
+
+const usesTenViewportParity = (buildingTypeId) => (
+  productionBuildingTypeIds.has(buildingTypeId)
+  || (
+    DISTRICT_BUILDING_DETAIL_PROFILES[
+      String(resolveBuildingPresentationDefinition(buildingTypeId)?.baseName || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/gu, "")
+        .toLowerCase()
+    ]?.actions.length || 0
+  ) > 0
+);
+
+async function readDistrictBuildingTypeIds(page) {
+  return page.locator("[data-district-building-name]").evaluateAll((chips) => chips
+    .map((chip) => String(chip.dataset.districtBuildingType || "").trim())
+    .filter(Boolean)
+    .sort());
+}
+
+async function readOpenBuildingParity(page, buildingTypeId) {
+  const surfaceName = resolveBuildingParitySurfaceName(buildingTypeId);
+  const shell = page.locator(`${paritySurfaces[surfaceName].shell}:visible`).last();
+  await expect(shell).toBeVisible({ timeout: 30_000 });
+  if (productionBuildingTypeIds.has(buildingTypeId)) {
+    await expect(shell.locator(".production-recipe-card--loading")).toHaveCount(0, {
+      timeout: 30_000
+    });
+    await selectProductionBuildingTab(page, surfaceName, "stats");
+    return {
+      surfaceName,
+      presentation: await getProductionPresentationSignature(page, surfaceName),
+      structure: await getParityDomStructureSignature(page, surfaceName)
+    };
+  }
+  return {
+    surfaceName,
+    presentation: await getBuildingPresentationSignature(page, surfaceName),
+    structure: await getParityDomStructureSignature(page, surfaceName)
+  };
+}
+
+async function attachOpenBuildingScreenshot({
+  page,
+  testInfo,
+  surfaceName,
+  buildingTypeId,
+  mode,
+  viewportName,
+  panelName
+}) {
+  const attachmentName = [
+    "building",
+    buildingTypeId,
+    mode,
+    viewportName,
+    panelName
+  ].join("--") + ".png";
+  const screenshotPath = testInfo.outputPath(attachmentName);
+  await page.locator(`${paritySurfaces[surfaceName].shell}:visible`).last().screenshot({
+    path: screenshotPath,
+    animations: "disabled",
+    caret: "hide"
+  });
+  await testInfo.attach(attachmentName, {
+    path: screenshotPath,
+    contentType: "image/png"
+  });
+}
+
+async function attachOpenBuildingScreenshotPair({
+  localPage,
+  serverPage,
+  testInfo,
+  surfaceName,
+  buildingTypeId,
+  viewportName,
+  panelName
+}) {
+  await attachOpenBuildingScreenshot({
+    page: localPage,
+    testInfo,
+    surfaceName,
+    buildingTypeId,
+    mode: "local-demo",
+    viewportName,
+    panelName
+  });
+  await attachOpenBuildingScreenshot({
+    page: serverPage,
+    testInfo,
+    surfaceName,
+    buildingTypeId,
+    mode: "hosted",
+    viewportName,
+    panelName
+  });
+}
+
+async function compareOpenBuildingParity(
+  localPage,
+  serverPage,
+  buildingTypeId,
+  screenshotAttachment = null
+) {
+  await openBuildingFromDistrict(localPage, buildingTypeId);
+  await openBuildingFromDistrict(serverPage, buildingTypeId);
+  const localStats = await readOpenBuildingParity(localPage, buildingTypeId);
+  const serverStats = await readOpenBuildingParity(serverPage, buildingTypeId);
+
+  expect(serverStats.surfaceName, buildingTypeId).toBe(localStats.surfaceName);
+  expect(serverStats.presentation, `${buildingTypeId} presentation`).toEqual(
+    localStats.presentation
+  );
+  expect(serverStats.structure, `${buildingTypeId} structure and bounds`).toEqual(
+    localStats.structure
+  );
+
+  if (screenshotAttachment) {
+    await attachOpenBuildingScreenshotPair({
+      localPage,
+      serverPage,
+      testInfo: screenshotAttachment.testInfo,
+      surfaceName: localStats.surfaceName,
+      buildingTypeId,
+      viewportName: screenshotAttachment.viewportName,
+      panelName: productionBuildingTypeIds.has(buildingTypeId) ? "stats" : "detail"
+    });
+  }
+
+  if (productionBuildingTypeIds.has(buildingTypeId)) {
+    await selectProductionBuildingTab(localPage, localStats.surfaceName, "info");
+    await selectProductionBuildingTab(serverPage, serverStats.surfaceName, "info");
+    expect(
+      await getProductionPresentationSignature(serverPage, serverStats.surfaceName),
+      `${buildingTypeId} info presentation`
+    ).toEqual(
+      await getProductionPresentationSignature(localPage, localStats.surfaceName)
+    );
+    expect(
+      await getParityDomStructureSignature(serverPage, serverStats.surfaceName),
+      `${buildingTypeId} info structure and bounds`
+    ).toEqual(
+      await getParityDomStructureSignature(localPage, localStats.surfaceName)
+    );
+    if (screenshotAttachment) {
+      await attachOpenBuildingScreenshotPair({
+        localPage,
+        serverPage,
+        testInfo: screenshotAttachment.testInfo,
+        surfaceName: localStats.surfaceName,
+        buildingTypeId,
+        viewportName: screenshotAttachment.viewportName,
+        panelName: "info"
+      });
+    }
+  }
+
+  await closeSurface(localPage, localStats.surfaceName);
+  await closeSurface(serverPage, serverStats.surfaceName);
+}
+
+test.describe("canonical building parity coverage contract", () => {
+  test("declares every spawn-reachable public type and the honest browser gaps", () => {
+    const plannedBuildingTypeIds = sortedBuildingTypeIds(
+      spawnReachableBuildingParityMatrix.flatMap((entry) => entry.coveredBuildingTypeIds)
+    );
+
+    expect(plannedBuildingTypeIds).toEqual(spawnReachableBuildingTypeIds);
+    expect(nonSpawnBrowserGapTypeIds).toEqual([
+      "airport",
+      "casino",
+      "central_bank",
+      "city_hall",
+      "court",
+      "lobby_club",
+      "parliament",
+      "port",
+      "stock_exchange",
+      "vip_lounge"
+    ]);
+
+    for (const entry of spawnReachableBuildingParityMatrix) {
+      for (const districtId of entry.districtIds) {
+        const district = parityMapManifest.districts.find(
+          (candidate) => candidate.id === districtId
+        );
+        expect(district?.isSpawnCandidate, districtId).toBe(true);
+        expect(
+          sortedBuildingTypeIds(resolveParityDistrictBuildingTypeIds(districtId)),
+          districtId
+        ).toEqual(sortedBuildingTypeIds(entry.expectedDistrictBuildingTypeIds));
+      }
+    }
+  });
+});
 
 test.describe("live/demo UI parity baseline", () => {
   test.skip(!captureEnabled, "Set EMPIRE_CAPTURE_UI_PARITY_BASELINE=1 to create baseline artifacts.");
@@ -31,7 +429,7 @@ test.describe("live/demo UI parity baseline", () => {
       ownedDistrictIds: [21, 24, 66, 68],
       startDistrictId: 21
     });
-    for (const viewport of parityViewports) {
+    for (const viewport of parityCaptureViewports) {
       await page.setViewportSize(viewport);
       await openDistrictById(page, "district:21");
       await captureParitySurface(page, {
@@ -110,7 +508,7 @@ test.describe("live/demo UI parity baseline", () => {
         ],
         identityPrefix: "ParityCom"
       });
-      for (const viewport of parityViewports) {
+      for (const viewport of parityCaptureViewports) {
         await page.setViewportSize(viewport);
         await openDistrictById(page, entry.spawnDistrictId);
         await captureParitySurface(page, {
@@ -174,7 +572,7 @@ test.describe("live/demo UI parity baseline", () => {
         ],
         identityPrefix: "ParityPark"
       });
-      for (const viewport of parityViewports) {
+      for (const viewport of parityCaptureViewports) {
         await page.setViewportSize(viewport);
         await openProductionShortcut(page, "drugLab");
         await captureParitySurface(page, {
@@ -200,7 +598,7 @@ test.describe("live/demo UI parity baseline", () => {
         ],
         identityPrefix: "ParityInd"
       });
-      for (const viewport of parityViewports) {
+      for (const viewport of parityCaptureViewports) {
         await page.setViewportSize(viewport);
         for (const type of ["factory", "armory"]) {
           await openProductionShortcut(page, type);
@@ -382,10 +780,12 @@ test.describe("live/demo shared presentation parity", () => {
           localPresentation.actionGrid.columnCount
         );
         expect(serverPresentation.actionGrid.rowCount).toBe(localPresentation.actionGrid.rowCount);
-        if (viewport.width >= 721) {
-          expect(serverPresentation.actionGrid.columnCount).toBe(2);
-          expect(serverPresentation.actionGrid.rowCount).toBe(1);
-        }
+        const expectedColumns = viewport.width >= 721 ? 2 : 1;
+        const expectedRows = viewport.width >= 721 ? 1 : 2;
+        expect(localPresentation.actionGrid.columnCount).toBe(expectedColumns);
+        expect(localPresentation.actionGrid.rowCount).toBe(expectedRows);
+        expect(serverPresentation.actionGrid.columnCount).toBe(expectedColumns);
+        expect(serverPresentation.actionGrid.rowCount).toBe(expectedRows);
 
         await closeSurface(localPage, "arcade");
         await closeSurface(serverPage, "arcade");
@@ -400,4 +800,91 @@ test.describe("live/demo shared presentation parity", () => {
       await serverContext.close();
     }
   });
+});
+
+test.describe("live/demo spawn-reachable canonical building matrix", () => {
+  test.skip(
+    !hostedEnabled || !serverInstanceId,
+    "Hosted matrix needs the parity server."
+  );
+  test.setTimeout(360_000);
+
+  for (const matrixEntry of spawnReachableBuildingParityMatrix) {
+    test(`${matrixEntry.key} keeps canonical cards structurally identical`, async ({
+      browser
+    }, testInfo) => {
+      const localContext = await browser.newContext({ viewport: parityViewports[0] });
+      const serverContext = await browser.newContext({ viewport: parityViewports[0] });
+      const localPage = await localContext.newPage();
+      const serverPage = await serverContext.newPage();
+      try {
+        const entry = await registerAndEnterHostedUiParityGame(serverPage, {
+          serverInstanceId,
+          spawnDistrictIds: matrixEntry.districtIds,
+          identityPrefix: `ParityMatrix-${matrixEntry.key}`
+        });
+        const hostedMapPhase = await serverPage.evaluate(() => {
+          const readModel = window.EmpireGameplaySliceClient?.getCurrentReadModel?.()
+            || window.empireStreetsGameplaySliceReadModel
+            || null;
+          return readModel?.player?.dayNight?.phaseId === "night" ? "night" : "day";
+        });
+        const sharedDistrictId = Number(String(entry.spawnDistrictId).replace(/^district:/u, ""));
+        await openParityLocalDemo(localPage, {
+          ownedDistrictIds: [sharedDistrictId],
+          startDistrictId: sharedDistrictId,
+          mapPhase: hostedMapPhase
+        });
+
+        const responsiveBuildingTypeIds = matrixEntry.coveredBuildingTypeIds
+          .filter(usesTenViewportParity);
+        const viewports = responsiveBuildingTypeIds.length > 0
+          ? parityViewports
+          : parityViewports.slice(0, 1);
+
+        for (const [viewportIndex, viewport] of viewports.entries()) {
+          const buildingTypeIds = viewportIndex === 0
+            ? matrixEntry.coveredBuildingTypeIds
+            : responsiveBuildingTypeIds;
+          await localPage.setViewportSize(viewport);
+          await serverPage.setViewportSize(viewport);
+          await openDistrictById(localPage, entry.spawnDistrictId);
+          await openDistrictById(serverPage, entry.spawnDistrictId);
+
+          await expect(
+            localPage.locator("[data-district-building-name]"),
+            `${entry.spawnDistrictId} local building card count`
+          ).toHaveCount(matrixEntry.expectedDistrictBuildingTypeIds.length);
+          expect(
+            await readDistrictBuildingTypeIds(serverPage),
+            `${entry.spawnDistrictId} authoritative building card registry`
+          ).toEqual(sortedBuildingTypeIds(matrixEntry.expectedDistrictBuildingTypeIds));
+
+          for (const buildingTypeId of buildingTypeIds) {
+            await compareOpenBuildingParity(
+              localPage,
+              serverPage,
+              buildingTypeId,
+              viewportIndex === 0
+                ? { testInfo, viewportName: viewport.name }
+                : null
+            );
+          }
+
+          await closeSurface(localPage, "district");
+          await closeSurface(serverPage, "district");
+        }
+
+        expect(
+          entry.diagnostics.submitRequests,
+          `${matrixEntry.key} is an opening-only visible flow`
+        ).toEqual([]);
+        await expectNoDuplicateVisibleUi(serverPage);
+        await expectHostedUiParityClean(serverPage, entry.diagnostics);
+      } finally {
+        await localContext.close();
+        await serverContext.close();
+      }
+    });
+  }
 });

@@ -4,6 +4,8 @@ defineHostedProductionParityTest({
   buildingTypeId: "factory",
   identityPrefix: "LiveFactory",
   label: "Factory",
+  recipeId: "metal-parts",
+  resourceKey: "metal-parts",
   spawnDistrictIds: [
     "district:3",
     "district:25",

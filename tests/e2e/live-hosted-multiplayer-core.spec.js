@@ -10,14 +10,14 @@ const serverInstanceId = process.env.EMPIRE_UI_PARITY_SERVER_ID || "";
 const identities = parseIdentities(process.env.EMPIRE_HOSTED_BOOTSTRAP_IDENTITIES_JSON);
 let commandSequence = 0;
 
-test.describe("hosted multiplayer canonical core", () => {
+test.describe("hosted multiplayer direct-command integration", () => {
   test.skip(
     !hostedEnabled || !serverInstanceId || identities.length !== 3,
     "Hosted multiplayer coverage requires the guarded three-player harness."
   );
   test.setTimeout(900_000);
 
-  test("persists cross-client conflicts, bounty, market and alliance flows", async ({ browser }) => {
+  test("persists direct-submit conflicts, bounty, market and alliance flows", async ({ browser }) => {
     const clients = [];
     try {
       for (const identity of identities) {

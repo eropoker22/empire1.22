@@ -18,7 +18,7 @@ const matrix = JSON.parse(readFileSync(
 ));
 const phaseEntries = matrix.filter((entry) => entry.phase === phase);
 
-test.describe("hosted canonical building actions", () => {
+test.describe("hosted canonical building-action command coverage", () => {
   test.skip(
     !hostedEnabled
       || !serverInstanceId
@@ -29,7 +29,7 @@ test.describe("hosted canonical building actions", () => {
   );
   test.setTimeout(900_000);
 
-  test(`executes every ${phase || "selected"} visible action through server authority`, async ({ page }) => {
+  test(`submits every ${phase || "selected"} projected action directly to server authority`, async ({ page }) => {
     const entry = await loginAndResumeHostedUiParityGame(page, {
       username,
       password,

@@ -4,6 +4,8 @@ defineHostedProductionParityTest({
   buildingTypeId: "drug_lab",
   identityPrefix: "LiveDrugLab",
   label: "Drug Lab",
+  recipeId: "neon-dust",
+  resourceKey: "neon-dust",
   spawnDistrictIds: [
     "district:56",
     "district:58",

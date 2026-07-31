@@ -4,6 +4,8 @@ defineHostedProductionParityTest({
   buildingTypeId: "pharmacy",
   identityPrefix: "LivePharmacy",
   label: "Pharmacy",
+  recipeId: "chemicals",
+  resourceKey: "chemicals",
   spawnDistrictIds: [
     "district:26",
     "district:36",
