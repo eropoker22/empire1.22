@@ -420,6 +420,7 @@ export function createFactoryPopupRuntime(deps = {}) {
     };
 
     const openPopup = async () => {
+      if (isServerControllerOwner()) return false;
       const shouldPrepareServerBuilding = !isLegacyLocalProductionEnabled()
         && typeof deps.prepareServerProductionBuilding === "function";
       let preparedServerBuilding = null;

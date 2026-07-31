@@ -1071,6 +1071,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     }
 
     const openPopup = async () => {
+      if (isServerControllerOwner()) return false;
       const shouldPrepareServerBuilding = shouldUseServerProduction()
         && typeof deps.prepareServerProductionBuilding === "function";
       let preparedServerBuilding = null;

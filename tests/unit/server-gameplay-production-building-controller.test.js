@@ -5,6 +5,7 @@ import { createFactoryPopupRuntime } from "../../page-assets/js/app/runtime/fact
 import {
   createProductionBuildingPopupRuntime
 } from "../../page-assets/js/app/runtime/productionBuildingPopupRuntime.js";
+import { createServerGameplayBuildingShortcutController } from "../../page-assets/js/app/ui/serverGameplayBuildingShortcutController.js";
 import {
   createServerGameplayProductionBuildingController
 } from "../../page-assets/js/app/ui/serverGameplayProductionBuildingController.js";
@@ -12,7 +13,7 @@ import {
 describe("server gameplay production building controller", () => {
   beforeEach(() => {
     resetOverlayCoordinator();
-    document.body.innerHTML = `<main id="game-root" data-gameplay-slice-client></main>
+    document.body.innerHTML = `<main id="game-root" data-gameplay-slice-client>
       ${productionPopup("pharmacy", "pharmacy")}
       ${productionPopup("druglab", "druglab")}
       ${productionPopup("armory", "armory")}
@@ -29,7 +30,8 @@ describe("server gameplay production building controller", () => {
         <button data-factory-tab="info">Info</button>
         <section data-factory-panel="stats"><div data-factory-slot-list></div></section>
         <section data-factory-panel="info" hidden></section>
-      </div>`;
+      </div>
+    </main>`;
   });
 
   afterEach(() => {
@@ -104,19 +106,39 @@ describe("server gameplay production building controller", () => {
     });
     const legacyProductionSubmit = vi.fn(async () => ({ accepted: true, errors: [] }));
     const legacyFactorySubmit = vi.fn(async () => ({ accepted: true, errors: [] }));
+    const legacyRuntimes = bindLegacyHostedPopupRuntimes({
+      readModel,
+      legacyProductionSubmit,
+      legacyFactorySubmit
+    });
     const controller = createServerGameplayProductionBuildingController({
       root: document.querySelector("#game-root"),
       documentRef: document,
       dispatchSurfaceAction,
       getCurrentReadModel: () => readModel
     });
-
     expect(controller.mount()).toBe(true);
-    bindLegacyHostedPopupRuntimes({
-      readModel,
-      legacyProductionSubmit,
-      legacyFactorySubmit
+    const handleDistrictSelected = vi.fn(() => true);
+    const shortcutController = createServerGameplayBuildingShortcutController({
+      root: document.querySelector("#game-root"),
+      source: {
+        getCurrentReadModel: () => readModel,
+        getCurrentRenderState: () => ({ districtPanel: { districtId: readModel.district.districtId } }),
+        selectDistrict: vi.fn()
+      },
+      districtController: {
+        handleDistrictSelected,
+        openBuildingByType: (buildingTypeId) => {
+          const normalizedTypeId = buildingTypeId === "druglab" ? "drug_lab" : buildingTypeId;
+          const building = readModel.district.buildings.find(
+            (candidate) => candidate.buildingTypeId === normalizedTypeId
+          );
+          return controller.open(building?.buildingId);
+        }
+      }
     });
+    expect(shortcutController.mount()).toBe(true);
+    shortcutController.update(readModel);
 
     for (const scenario of [
       {
@@ -190,9 +212,14 @@ describe("server gameplay production building controller", () => {
       resetOverlayCoordinator();
     }
 
+    expect(shortcutController.getDiagnostics().opens).toBe(4);
+    expect(handleDistrictSelected).toHaveBeenCalledTimes(4);
+    expect(controller.getDiagnostics().opens).toBe(4);
+    expect(legacyRuntimes.prepareServerProductionBuilding).not.toHaveBeenCalled();
     expect(dispatchSurfaceAction).toHaveBeenCalledTimes(12);
     expect(legacyProductionSubmit).not.toHaveBeenCalled();
     expect(legacyFactorySubmit).not.toHaveBeenCalled();
+    expect(shortcutController.destroy()).toBe(true);
     expect(controller.destroy()).toBe(true);
   });
 
@@ -352,6 +379,7 @@ function bindLegacyHostedPopupRuntimes({
     submitServerFactoryCommand: legacyFactorySubmit
   });
   expect(factoryRuntime.bindFactoryPopup(document)).toBe(true);
+  return { prepareServerProductionBuilding };
 }
 
 function findEnabledButton(popup, label) {
