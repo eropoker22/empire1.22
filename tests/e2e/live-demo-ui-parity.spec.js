@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import {
+  publicBuildingDefinitions
+} from "../../packages/game-config/src/public/building-definitions.ts";
+import {
   DISTRICT_BUILDING_DETAIL_PROFILES
 } from "../../page-assets/js/app/runtime/buildingDetailData.js";
 import {
@@ -51,40 +54,9 @@ const hostedEnabled = process.env.EMPIRE_HOSTED_UI_PARITY_E2E === "1";
 const serverInstanceId = process.env.EMPIRE_UI_PARITY_SERVER_ID || "";
 const productionBuildingTypeIds = new Set(["pharmacy", "drug_lab", "factory", "armory"]);
 const sortedBuildingTypeIds = (values) => Array.from(new Set(values)).sort();
-const canonicalBuildingTypeIds = Object.freeze([
-  "central_bank",
-  "city_hall",
-  "lobby_club",
-  "stock_exchange",
-  "court",
-  "vip_lounge",
-  "airport",
-  "port",
-  "parliament",
-  "shopping_mall",
-  "restaurant",
-  "arcade",
-  "casino",
-  "car_dealer",
-  "fitness_club",
-  "exchange",
-  "apartment_block",
-  "recruitment_center",
-  "garage",
-  "clinic",
-  "school",
-  "factory",
-  "armory",
-  "warehouse",
-  "power_station",
-  "recycling_center",
-  "pharmacy",
-  "drug_lab",
-  "smuggling_tunnel",
-  "convenience_store",
-  "strip_club",
-  "street_dealers"
-]);
+const canonicalBuildingTypeIds = Object.freeze(
+  publicBuildingDefinitions.map((definition) => definition.buildingTypeId)
+);
 const parityMapManifest = JSON.parse(readFileSync(
   new URL("../../packages/game-config/src/maps/empire-streets-city-map.json", import.meta.url),
   "utf8"
