@@ -15,6 +15,7 @@ import {
 import {
   createAuthoritativeIncomeTickDelta
 } from "./helpers/authoritativeIncomeEvidence.js";
+import { waitForTerminalGameplaySubmit } from "./helpers/gameplaySubmitResponse.js";
 
 const manualEnabled = process.env.EMPIRE_MANUAL_HOSTED_E2E === "1";
 const adminUsername = String(process.env.EMPIRE_ADMIN_BOOTSTRAP_USERNAME || "").trim();
@@ -494,9 +495,9 @@ async function runRestaurantActionThroughVisibleUi(page, districtId) {
   const actionId = await actionButton.getAttribute(
     "data-district-building-detail-action-id"
   );
-  const responsePromise = page.waitForResponse((response) => (
-    new URL(response.url()).pathname === "/api/gameplay-slice/submit"
-    && response.request().method() === "POST"
+  const responsePromise = waitForTerminalGameplaySubmit(page, (request) => (
+    request?.command?.type === "run-building-action"
+      && request.command.payload?.actionId === actionId
   ));
   await actionButton.click();
   const confirmation = page.locator(
@@ -505,10 +506,9 @@ async function runRestaurantActionThroughVisibleUi(page, districtId) {
   );
   await expect(confirmation).toBeVisible();
   await confirmation.click();
-  const response = await responsePromise;
+  const submission = await responsePromise;
+  const { body: payload, request, response } = submission;
   expect(response.status()).toBe(200);
-  const request = response.request().postDataJSON();
-  const payload = await response.json();
   expect(request.command).toMatchObject({
     type: "run-building-action",
     payload: {
@@ -517,6 +517,17 @@ async function runRestaurantActionThroughVisibleUi(page, districtId) {
     }
   });
   expect(payload.accepted).toBe(true);
+  expect(submission.stateVersionConflicts.length, `${actionId} single OCC rebase`)
+    .toBeLessThanOrEqual(1);
+  if (submission.stateVersionConflicts.length === 1) {
+    const staleRequest = submission.stateVersionConflicts[0].request;
+    expect(request.command.id).not.toBe(staleRequest.command.id);
+    expect(request.command.type).toBe(staleRequest.command.type);
+    expect(request.command.payload).toEqual(staleRequest.command.payload);
+    expect(request.expectedStateVersion).toBeGreaterThan(
+      staleRequest.expectedStateVersion
+    );
+  }
   expect(payload.readModel.reports).toEqual(expect.arrayContaining([
     expect.objectContaining({
       reportType: "building-action",

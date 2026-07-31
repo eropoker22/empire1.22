@@ -4,6 +4,7 @@ import {
   loginAndResumeHostedUiParityGame,
   waitForLiveGame
 } from "./helpers/hostedUiParityEntry.js";
+import { waitForTerminalGameplaySubmit } from "./helpers/gameplaySubmitResponse.js";
 
 const hostedEnabled = process.env.EMPIRE_HOSTED_UI_PARITY_E2E === "1";
 const serverInstanceId = process.env.EMPIRE_UI_PARITY_SERVER_ID || "";
@@ -723,25 +724,18 @@ function visibleDistrictAction(page, districtId, actionId) {
 async function clickAndReadTypedSubmit(page, commandType, button) {
   await expect(button).toBeVisible();
   await expect(button).toBeEnabled();
-  const responsePromise = page.waitForResponse((response) => {
-    if (
-      new URL(response.url()).pathname !== "/api/gameplay-slice/submit"
-      || response.request().method() !== "POST"
-    ) {
-      return false;
-    }
-    try {
-      return response.request().postDataJSON()?.command?.type === commandType;
-    } catch {
-      return false;
-    }
-  }, { timeout: 30_000 });
+  const responsePromise = waitForTerminalGameplaySubmit(page, (request) => (
+    request?.command?.type === commandType
+  ));
   await button.click();
-  const response = await responsePromise;
+  const submission = await responsePromise;
+  const { body, request, response } = submission;
   expect(response.status(), `${commandType} response status`).toBe(200);
+  expect(submission.stateVersionConflicts.length, `${commandType} single OCC rebase`).toBeLessThanOrEqual(1);
   return {
-    request: response.request().postDataJSON(),
-    body: await response.json()
+    request,
+    body,
+    stateVersionConflicts: submission.stateVersionConflicts
   };
 }
 

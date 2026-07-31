@@ -11,6 +11,7 @@ import {
   openCityEvents,
   parityViewports
 } from "./helpers/uiParityCapture.js";
+import { waitForTerminalGameplaySubmit } from "./helpers/gameplaySubmitResponse.js";
 
 const hostedEnabled = process.env.EMPIRE_HOSTED_UI_PARITY_E2E === "1";
 const serverInstanceId = process.env.EMPIRE_UI_PARITY_SERVER_ID || "";
@@ -107,16 +108,17 @@ test.describe("hosted City Events parity", () => {
 
     const accept = page.locator("#event-detail-accept");
     await expect(accept).toBeEnabled();
-    const responsePromise = page.waitForResponse((response) => (
-      response.url().includes("/api/gameplay-slice/submit")
-      && response.request().method() === "POST"
+    const responsePromise = waitForTerminalGameplaySubmit(page, (request) => (
+      request?.command?.type === "start-city-event"
     ));
     await accept.click();
-    const response = await responsePromise;
-    const request = response.request().postDataJSON();
-    const body = await response.json();
+    const submission = await responsePromise;
+    const { body, request, response } = submission;
+    expect(response.status(), "start-city-event response status").toBe(200);
     expect(request?.command?.type).toBe("start-city-event");
     expect(body?.accepted).toBe(true);
+    expect(submission.stateVersionConflicts.length, "start-city-event single OCC rebase")
+      .toBeLessThanOrEqual(1);
     await expect(page.locator("#event-detail-modal")).toBeHidden();
     await expect(page.locator("#events-modal")).toBeVisible();
 

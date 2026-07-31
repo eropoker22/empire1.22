@@ -10,6 +10,7 @@ import {
   dismissBlockingGameOverlays,
   dismissOnboardingGuide
 } from "./helpers/empireSmokeHelpers.js";
+import { waitForTerminalGameplaySubmit } from "./helpers/gameplaySubmitResponse.js";
 
 const hostedEnabled = process.env.EMPIRE_HOSTED_UI_PARITY_E2E === "1";
 const serverInstanceId = process.env.EMPIRE_UI_PARITY_SERVER_ID || "";
@@ -494,21 +495,10 @@ async function clickVisibleBuildingAction(page, {
   inputValues,
   previousStateVersion
 }) {
-  const responsePromise = page.waitForResponse((response) => {
-    if (
-      new URL(response.url()).pathname !== "/api/gameplay-slice/submit"
-      || response.request().method() !== "POST"
-    ) {
-      return false;
-    }
-    try {
-      const body = response.request().postDataJSON();
-      return body?.command?.type === "run-building-action"
-        && body.command.payload?.actionId === actionId;
-    } catch {
-      return false;
-    }
-  }, { timeout: 30_000 });
+  const responsePromise = waitForTerminalGameplaySubmit(page, (request) => (
+    request?.command?.type === "run-building-action"
+      && request.command.payload?.actionId === actionId
+  ));
   const confirmation = page.locator(
     ".building-special-action-confirm:not([hidden])"
   );
@@ -534,10 +524,9 @@ async function clickVisibleBuildingAction(page, {
     await expect(confirmButton).toBeEnabled();
     await confirmButton.click();
   }
-  const response = await responsePromise;
+  const submission = await responsePromise;
+  const { body: payload, request, response } = submission;
   expect(response.status(), `${actionId} visible submit`).toBe(200);
-  const request = response.request().postDataJSON();
-  const payload = await response.json();
   expect(request.command).toMatchObject({
     playerId: payload.readModel.player.playerId,
     serverInstanceId,
@@ -552,6 +541,13 @@ async function clickVisibleBuildingAction(page, {
     expect(request.command.payload[inputId], `${actionId}.${inputId}`).toBe(value);
   }
   expect(payload.accepted, `${actionId} server acceptance`).toBe(true);
+  expect(submission.stateVersionConflicts.length, `${actionId} single OCC rebase`).toBeLessThanOrEqual(1);
+  if (submission.stateVersionConflicts.length === 1) {
+    const staleRequest = submission.stateVersionConflicts[0].request;
+    expect(request.command.id).not.toBe(staleRequest.command.id);
+    expect(request.command.type).toBe(staleRequest.command.type);
+    expect(request.command.payload).toEqual(staleRequest.command.payload);
+  }
   expect(payload.readModel.server.stateVersion).toBeGreaterThan(previousStateVersion);
   const report = payload.readModel.reports.find((candidate) => (
     candidate.reportType === "building-action"
