@@ -6,14 +6,22 @@ export const createHostedRuntimeWorkerRunLoop = (options: {
   let activeRun: Promise<void> | null = null;
   let timer: ReturnType<typeof setInterval> | null = null;
   let draining = false;
+  let rerunRequested = false;
 
   const runNow = (): Promise<void> => {
     if (draining) return Promise.resolve();
-    if (activeRun) return activeRun;
+    if (activeRun) {
+      rerunRequested = true;
+      return activeRun;
+    }
     const operation = Promise.resolve().then(options.runOnce);
     let tracked!: Promise<void>;
     tracked = operation.finally(() => {
-      if (activeRun === tracked) activeRun = null;
+      if (activeRun !== tracked) return;
+      activeRun = null;
+      if (!rerunRequested || draining) return;
+      rerunRequested = false;
+      void runNow().catch(() => undefined);
     });
     activeRun = tracked;
     return tracked;
@@ -28,6 +36,7 @@ export const createHostedRuntimeWorkerRunLoop = (options: {
   const drain = async (): Promise<void> => {
     if (!draining) {
       draining = true;
+      rerunRequested = false;
       options.requestDrain();
       if (timer) clearInterval(timer);
       timer = null;

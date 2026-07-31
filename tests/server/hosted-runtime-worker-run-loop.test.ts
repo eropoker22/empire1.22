@@ -5,6 +5,37 @@ import {
 } from "../../apps/server/src/bootstrap/hosted-runtime-worker-run-loop";
 
 describe("hosted runtime worker run loop", () => {
+  it("runs one trailing cycle when an interval fires during active work", async () => {
+    vi.useFakeTimers();
+    const firstRun = deferred<void>();
+    const secondRun = deferred<void>();
+    const runOnce = vi.fn()
+      .mockImplementationOnce(async () => { await firstRun.promise; })
+      .mockImplementationOnce(async () => { await secondRun.promise; });
+    const runLoop = createHostedRuntimeWorkerRunLoop({
+      runOnce,
+      requestDrain: vi.fn(),
+      intervalMs: 5_000
+    });
+
+    try {
+      runLoop.start();
+      await vi.waitFor(() => expect(runOnce).toHaveBeenCalledTimes(1));
+
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(runOnce).toHaveBeenCalledTimes(1);
+
+      firstRun.resolve();
+      await vi.waitFor(() => expect(runOnce).toHaveBeenCalledTimes(2));
+
+      secondRun.resolve();
+      await runLoop.drain();
+      expect(runOnce).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("requests drain immediately and waits for the active run before refusing later runs", async () => {
     const gate = deferred<void>();
     const runOnce = vi.fn(async () => { await gate.promise; });
