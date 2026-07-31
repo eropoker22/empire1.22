@@ -156,6 +156,105 @@ describe("Downtown building special action server bridge", () => {
     expect(response.errors[0].message).toBe("Chybí vliv.");
     expect(submitCommand).not.toHaveBeenCalled();
   });
+
+  it("preserves exact projected action inputs through the typed command payload allowlist", () => {
+    const definition = createDefinition("Burza", "Spekulativní nákup", 0);
+    const payload = createServerBuildingActionPayload(
+      {
+        districtId: "district:79",
+        buildingId: "building:district-79:stock_exchange:1"
+      },
+      definition,
+      getActionProfile("Burza", 0),
+      {
+        targetCategory: "electronics",
+        category: "materials",
+        mode: "pump",
+        targetDistrictId: "district:80",
+        targetZone: "downtown",
+        investmentCleanCash: 2750,
+        investment: 1250,
+        amount: 12,
+        revision: "must-not-cross"
+      }
+    );
+
+    expect(payload).toMatchObject({
+      districtId: "district:79",
+      buildingId: "building:district-79:stock_exchange:1",
+      actionId: "speculative_buy",
+      targetCategory: "electronics",
+      category: "materials",
+      mode: "pump",
+      targetDistrictId: "district:80",
+      targetZone: "downtown",
+      investmentCleanCash: 2750,
+      investment: 1250,
+      amount: 12
+    });
+    expect(payload).not.toHaveProperty("revision");
+  });
+
+  it("keeps the selected dealer slot aliases consistent", () => {
+    const definition = createDefinition("Pouliční dealeři", "Spustit prodej", 0);
+    const payload = createServerBuildingActionPayload(
+      {
+        districtId: "district:42",
+        buildingId: "building:district-42:street_dealers:1"
+      },
+      definition,
+      getActionProfile("Pouliční dealeři", 0),
+      {
+        dealerSlotId: "slot-2",
+        itemId: "pulse-shot",
+        amount: 20
+      }
+    );
+
+    expect(payload).toMatchObject({
+      dealerSlotId: "slot-2",
+      slotId: "slot-2",
+      itemId: "pulse-shot",
+      amount: 20
+    });
+  });
+
+  it("uses the exact projected physical building id when duplicate types exist", async () => {
+    const definition = createDefinition("Restaurace", "Vybrat tržby", 0);
+    const submitCommand = vi.fn(async () => ({ accepted: true, errors: [] }));
+    const readModel = createSlice({
+      buildingTypeId: "restaurant",
+      buildingId: "building:district-79:restaurant:1",
+      actionId: definition.actionId
+    });
+    readModel.district.buildings.unshift({
+      buildingId: "building:district-79:restaurant:other",
+      buildingTypeId: "restaurant",
+      actions: [{ actionId: definition.actionId, enabled: true }]
+    });
+
+    const response = await submitServerBuildingActionCommandBridge({
+      context: {
+        district: { id: 79 },
+        buildingName: "Restaurace",
+        serverBuildingId: "building:district-79:restaurant:1",
+        serverBuildingTypeId: "restaurant"
+      },
+      actionProfile: getActionProfile("Restaurace", 0),
+      definition
+    }, {
+      isReady: () => true,
+      getSlice: () => readModel,
+      loadSliceForDistrict: async () => ({ accepted: true, readModel }),
+      formatCooldown: (ms) => `${ms}ms`,
+      submitCommand
+    });
+
+    expect(response.accepted).toBe(true);
+    expect(submitCommand.mock.calls[0][0].payload.buildingId).toBe(
+      "building:district-79:restaurant:1"
+    );
+  });
 });
 
 function createDefinition(buildingName, actionLabel, actionIndex) {

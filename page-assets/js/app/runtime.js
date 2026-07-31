@@ -678,7 +678,9 @@ import {
   resolveBuildingSpecialActionDefinition
 } from "./runtime/buildingSpecialActionRegistry.js";
 import { createServerBuildingActionDefaultPayload } from "./runtime/buildingSpecialActionServerDefaults.js";
-import { submitServerBuildingActionCommandBridge } from "./runtime/buildingSpecialActionServerBridge.js";
+import {
+  submitServerBuildingActionCommandBridge
+} from "./runtime/buildingSpecialActionServerBridge.js";
 import { presentServerBuildingActionResponse } from "./runtime/serverBuildingActionResponse.js";
 import { createBuildingSpecialActionConfirmationController } from "./runtime/buildingSpecialActionConfirmation.js";
 import {
@@ -826,7 +828,6 @@ import { createServerGameplayCommandId } from "./runtime/serverCommandJournal.js
 import {
   getServerGameplaySliceReadModel as getCanonicalServerGameplaySliceReadModel,
   getCurrentRenderState as getServerGameplayRenderState,
-  handleServerGameplaySurfaceAction as handleCanonicalServerGameplaySurfaceAction,
   prepareServerGameplayCommand as prepareCanonicalServerGameplayCommand,
   retryPendingServerGameplayCommands as retryCanonicalServerGameplayCommands,
   submitPreparedServerGameplayCommand as submitCanonicalPreparedServerGameplayCommand,
@@ -1462,68 +1463,6 @@ function submitServerProductionBuildingUpgrade({ districtId, buildingId } = {}) 
     },
     focusDistrictId: canonicalDistrictId
   });
-}
-
-async function submitServerBuildingSurfaceAction(surfaceDataset = {}, inputValues = {}) {
-  if (!isServerAuthoritativeGameplayRuntimeReady()) {
-    return {
-      accepted: false,
-      errors: [{ message: "Herní stav ještě není načtený." }]
-    };
-  }
-  const scope = document.querySelector("[data-gameplay-slice-client]");
-  if (!(scope instanceof HTMLElement)) {
-    return {
-      accepted: false,
-      errors: [{ message: "Ovládání herních akcí není připojené." }]
-    };
-  }
-  const proxy = document.createElement("button");
-  proxy.type = "button";
-  for (const [key, value] of Object.entries(surfaceDataset || {})) {
-    if (value !== null && value !== undefined && String(value) !== "") {
-      proxy.dataset[key] = String(value);
-    }
-  }
-  for (const [key, value] of Object.entries(inputValues || {})) {
-    if (value === null || value === undefined || String(value) === "") {
-      continue;
-    }
-    const input = document.createElement("input");
-    input.dataset.buildingActionInput = key;
-    input.value = String(value);
-    if (key === "dealerSlotId") {
-      input.dataset.dealerSlotInput = "true";
-    } else if (key === "itemId") {
-      input.dataset.dealerItemInput = "true";
-    } else if (key === "amount") {
-      input.dataset.dealerAmountInput = "true";
-    }
-    proxy.append(input);
-  }
-  scope.append(proxy);
-  try {
-    const response = await handleCanonicalServerGameplaySurfaceAction(proxy);
-    if (response?.readModel) {
-      latestGameplaySliceReadModel = response.readModel;
-    }
-    const errors = Array.isArray(response?.renderState?.errors)
-      ? response.renderState.errors
-      : [];
-    return {
-      accepted: Boolean(response) && errors.length === 0,
-      errors,
-      readModel: response?.readModel || latestGameplaySliceReadModel,
-      renderState: response?.renderState || null
-    };
-  } catch (_error) {
-    return {
-      accepted: false,
-      errors: [{ message: "Akci se nepodařilo bezpečně odeslat." }]
-    };
-  } finally {
-    proxy.remove();
-  }
 }
 
 export function getServerGameplaySliceReadModel() {
@@ -8657,16 +8596,24 @@ async function collectDistrictBuildingDetailOutput(root, shell) {
       context.serverPresentation?.viewModel?.collect?.actionId
       || ""
     ).trim();
-    const result = await submitServerBuildingSurfaceAction(
-      collectActionId
-        ? {
-            buildingActionBuildingId: context.serverBuildingId,
-            buildingActionId: collectActionId
-          }
-        : {
-            collectBuildingId: context.serverBuildingId
-          }
-    );
+    const result = collectActionId
+      ? await submitServerBuildingActionCommand({
+          context,
+          actionProfile: {},
+          definition: {
+            actionId: collectActionId,
+            buildingTypeId: context.serverBuildingTypeId
+          },
+          actionInput: {}
+        })
+      : await submitCanonicalServerGameplayCommand({
+          type: "collect-production",
+          payload: {
+            districtId: context.serverDistrictId,
+            buildingId: context.serverBuildingId
+          },
+          focusDistrictId: context.serverDistrictId
+        });
     if (!result.accepted) {
       setBuildingActionFeedback(
         root,
@@ -9659,10 +9606,15 @@ async function confirmAndRunDistrictBuildingDetailAction(root, shell, request) {
     if (!confirmed) {
       return false;
     }
-    const result = await submitServerBuildingSurfaceAction({
-      buildingActionBuildingId: context.serverBuildingId,
-      buildingActionId: action.actionId
-    }, actionExecution.inputValues);
+    const result = await submitServerBuildingActionCommand({
+      context,
+      actionProfile: {},
+      definition: {
+        actionId: action.actionId,
+        buildingTypeId: action.buildingTypeId || context.serverBuildingTypeId
+      },
+      actionInput: actionExecution.inputValues
+    });
     if (!result.accepted) {
       setBuildingActionFeedback(
         root,

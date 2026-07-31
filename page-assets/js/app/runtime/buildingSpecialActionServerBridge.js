@@ -33,18 +33,34 @@ export function createServerBuildingActionPayload(target, definition, actionProf
     actionId: definition.actionId,
     ...createServerBuildingActionDefaultPayload(definition.actionId, actionProfile)
   };
-  if (definition.actionId === "start_drug_sale") {
-    const fallbackSlotId = String(actionPayload.dealerSlotId || actionPayload.slotId || "");
-    const fallbackItemId = String(actionPayload.itemId || "");
-    const fallbackAmount = Number(actionPayload.amount);
-    const requestedAmount = Number(actionInput.amount);
-    return {
-      ...actionPayload,
-      dealerSlotId: String(actionInput.dealerSlotId || actionInput.slotId || fallbackSlotId),
-      itemId: String(actionInput.itemId || fallbackItemId),
-      amount: Number.isInteger(requestedAmount) && requestedAmount > 0 ? requestedAmount : fallbackAmount
-    };
+
+  for (const key of [
+    "dealerSlotId",
+    "slotId",
+    "itemId",
+    "targetCategory",
+    "category",
+    "mode",
+    "targetDistrictId",
+    "targetZone"
+  ]) {
+    const value = String(actionInput?.[key] ?? "").trim();
+    if (value) actionPayload[key] = value;
   }
+
+  for (const key of ["amount", "investmentCleanCash", "investment"]) {
+    const value = Number(actionInput?.[key]);
+    if (Number.isFinite(value)) actionPayload[key] = value;
+  }
+
+  if (definition.actionId === "start_drug_sale") {
+    const slotId = String(actionPayload.dealerSlotId || actionPayload.slotId || "");
+    if (slotId) {
+      actionPayload.dealerSlotId = slotId;
+      actionPayload.slotId = slotId;
+    }
+  }
+
   return actionPayload;
 }
 
@@ -59,16 +75,26 @@ export function findServerBuildingActionTarget(readModel, context, definition) {
     return { ok: false, message: "Server nevrátil detail vybraného districtu." };
   }
 
-  const expectedType = normalizeServerBuildingTypeId(definition?.buildingTypeId);
-  const building = (district.buildings || []).find((candidate) =>
-    normalizeServerBuildingTypeId(candidate?.buildingTypeId) === expectedType
-      && Array.isArray(candidate?.actions)
-      && candidate.actions.some((action) => action?.actionId === definition.actionId)
-  ) || (district.buildings || []).find((candidate) =>
-    normalizeServerBuildingTypeId(candidate?.buildingTypeId) === expectedType
+  const expectedBuildingId = String(context?.serverBuildingId || "").trim();
+  const expectedType = normalizeServerBuildingTypeId(
+    context?.serverBuildingTypeId || definition?.buildingTypeId
   );
+  const building = expectedBuildingId
+    ? (district.buildings || []).find(
+        (candidate) => String(candidate?.buildingId || "") === expectedBuildingId
+      )
+    : (district.buildings || []).find((candidate) =>
+        normalizeServerBuildingTypeId(candidate?.buildingTypeId) === expectedType
+          && Array.isArray(candidate?.actions)
+          && candidate.actions.some((action) => action?.actionId === definition.actionId)
+      ) || (district.buildings || []).find((candidate) =>
+        normalizeServerBuildingTypeId(candidate?.buildingTypeId) === expectedType
+      );
 
-  if (!building?.buildingId) {
+  if (
+    !building?.buildingId
+    || (expectedType && normalizeServerBuildingTypeId(building.buildingTypeId) !== expectedType)
+  ) {
     return { ok: false, message: "Server v districtu nenašel odpovídající budovu." };
   }
 
