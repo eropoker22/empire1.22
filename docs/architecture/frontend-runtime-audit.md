@@ -24,19 +24,16 @@ The production dependency direction is:
 pages/game.html
   -> app-entry.js
     -> app.js
-      -> serverAuthoritativePageController
-        -> gameplayPresentationCoordinator
-          -> serverGameplayUiController
-          -> serverMapPresentationController
-        -> serverGameplaySource
-          -> mounted gameplay-slice client
-            -> /api/gameplay-slice/load
-            -> /api/gameplay-slice/submit
+      -> runtime.js
+      -> liveGameplayBootstrap
+        -> mounted gameplay-slice client
+          -> /api/gameplay-slice/load
+          -> /api/gameplay-slice/submit
 ```
 
-The page controller mounts once, subscribes once, and destroys its controllers
-and source listeners on `pagehide`. Presentation controllers receive a read
-model and command adapter; they do not calculate gameplay outcomes or persist an
+The shared runtime mounts once and the live bootstrap owns the validated
+gameplay-slice client lifecycle. Presentation receives a read model and typed
+command adapter; it does not calculate gameplay outcomes or persist an
 authoritative local state.
 
 The mounted gameplay-slice client derives player authority from the validated

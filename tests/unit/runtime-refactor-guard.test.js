@@ -40,9 +40,10 @@ describe("runtime refactor guard", () => {
     expect(recipeSource).not.toContain("viewModel.serverLine");
   });
 
-  it("keeps the dormant duplicate production renderer removed", () => {
+  it("keeps dormant duplicate presentation paths removed", () => {
     const buildingDetailSource = serverGameplayBuildingDetailControllerSource();
     const removedPaths = [
+      "page-assets/js/app/presentation/serverAuthoritativePageController.js",
       "page-assets/js/app/ui/serverGameplayProductionBuildingController.js",
       "page-assets/js/app/ui/serverGameplayProductionBuildingView.js",
       "page-assets/js/app/ui/serverPharmacyRecipeCard.js",
