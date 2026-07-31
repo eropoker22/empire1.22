@@ -187,6 +187,9 @@ const buildSha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }
 if (!/^[0-9a-f]{40}$/u.test(buildSha)) throw new Error("Local hosted gate requires an exact Git SHA.");
 
 const runDirectory = await createRunDirectory();
+const runtimeBundleDirectory = path.join(runDirectory, "runtime-bundle");
+const hostedApiBundlePath = path.join(runtimeBundleDirectory, "hosted-dev-http.mjs");
+const hostedWorkerBundlePath = path.join(runtimeBundleDirectory, "hosted-runtime-worker.mjs");
 let sourceBuildInputHash = null;
 const processes = [];
 let admin = null;
@@ -223,6 +226,7 @@ const environment = {
   EMPIRE_HOSTED_UI_PARITY_E2E: "1",
   EMPIRE_CAPTURE_UI_PARITY_BASELINE: "1",
   EMPIRE_UI_PARITY_ARTIFACT_ROOT: path.join(runDirectory, "ui-parity"),
+  EMPIRE_LOCAL_HOSTED_RUNTIME_OUT_DIR: runtimeBundleDirectory,
   EMPIRE_HOSTED_STARTING_PLAYER_STATE_JSON: JSON.stringify(HOSTED_E2E_STARTING_PLAYER_STATE)
 };
 
@@ -278,6 +282,13 @@ try {
     "--config",
     "vite.admin-page.config.ts"
   ], 300_000);
+  await runNode("hosted-runtime-bundle", [
+    "scripts/run-local-bin.mjs",
+    "vite/bin/vite.js",
+    "build",
+    "--config",
+    "vite.local-hosted-runtime.config.ts"
+  ], 300_000);
   sourceBuildInputHash = await hashSourceInputs([
     "apps/admin/src",
     "apps/client/src",
@@ -301,22 +312,14 @@ try {
 
   const api = startManagedProcess({
     name: "hosted-api",
-    args: [
-      "scripts/run-local-bin.mjs",
-      "vite-node/vite-node.mjs",
-      "apps/server/src/bootstrap/hosted-dev-http-cli.ts"
-    ],
+    args: [hostedApiBundlePath],
     environment,
     logDirectory: runDirectory
   });
   processes.push(api);
   let worker = startManagedProcess({
     name: "hosted-worker",
-    args: [
-      "scripts/run-local-bin.mjs",
-      "vite-node/vite-node.mjs",
-      "apps/server/src/bootstrap/hosted-runtime-worker-cli.ts"
-    ],
+    args: [hostedWorkerBundlePath],
     environment,
     logDirectory: runDirectory
   });
@@ -514,11 +517,7 @@ try {
         await worker.saveLog();
         worker = startManagedProcess({
           name: `hosted-worker-${suite.name}-restart`,
-          args: [
-            "scripts/run-local-bin.mjs",
-            "vite-node/vite-node.mjs",
-            "apps/server/src/bootstrap/hosted-runtime-worker-cli.ts"
-          ],
+          args: [hostedWorkerBundlePath],
           environment,
           logDirectory: runDirectory
         });

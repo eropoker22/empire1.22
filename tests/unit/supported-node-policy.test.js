@@ -43,6 +43,7 @@ describe("supported Node runtime policy", () => {
     expect(read("Dockerfile.release-validation")).not.toMatch(/FROM node:20/u);
     expect(read("vite.netlify-functions.config.ts")).toContain('target: "node24"');
     expect(read("vite.hosted-worker.config.ts")).toContain('target: "node24"');
+    expect(read("vite.local-hosted-runtime.config.ts")).toContain('target: "node24"');
     expect(read(".github/workflows/quality.yml")).toContain("node-version-file: .node-version");
     expect(read(".github/workflows/deep-checks.yml")).toContain("node-version-file: .node-version");
     expect(read("package.json")).not.toContain("require-node20.mjs");

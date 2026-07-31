@@ -3,6 +3,7 @@ node_modules/
 /netlify/functions/
 dist/
 /dist-worker/
+/dist-local-hosted-runtime/
 .turbo/
 .cache/
 coverage/
