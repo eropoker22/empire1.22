@@ -70,6 +70,9 @@ import {
   leaveActiveServerRegistration
 } from "./auth-flow.js";
 import {
+  createAuthoritativeDistrictEconomyPresentation
+} from "./runtime/authoritativeDistrictEconomyPresentation.js";
+import {
   LEGACY_STORAGE_KEYS,
   clearState as clearLegacyState,
   loadClinicRecoveryPool,
@@ -6859,101 +6862,10 @@ function getDistrictEconomySnapshot(district) {
 
   if (hasServerAuthoritativeGameplayProjection()) {
     const districtId = `district:${Number(district.id)}`;
-    const projectedDistrict = latestGameplaySliceReadModel?.district;
-    const projectedRates = latestGameplaySliceReadModel?.economyRates?.selectedDistrict;
-    if (
-      projectedDistrict?.districtId !== districtId
-      || projectedRates?.districtId !== districtId
-    ) {
-      return {
-        available: false,
-        baseCleanHourlyIncome: 0,
-        baseDirtyHourlyIncome: 0,
-        buildingCleanHourlyIncome: 0,
-        buildingDirtyHourlyIncome: 0,
-        cleanHourlyIncome: 0,
-        dirtyHourlyIncome: 0,
-        totalHourlyIncome: 0,
-        districtInfluencePerHour: 0,
-        buildingInfluencePerHour: 0,
-        totalInfluencePerHour: 0,
-        districtPopulationPerHour: 0,
-        populationLabel: "Bez dat",
-        populationSourceSummary: "",
-        passiveHeatPerDay: 0
-      };
-    }
-
-    const presentationTotals = (projectedDistrict.buildings || []).reduce(
-      (totals, building) => {
-        const passive = building?.status === "active"
-          ? building?.presentation?.passive
-          : null;
-        if (!passive) {
-          return totals;
-        }
-        return {
-          cleanPerHour: totals.cleanPerHour + Number(passive.cleanPerHour || 0),
-          dirtyPerHour: totals.dirtyPerHour + Number(passive.dirtyPerHour || 0),
-          heatPerDay: totals.heatPerDay + Number(passive.heatPerDay || 0),
-          influencePerHour: totals.influencePerHour
-            + Number(passive.influencePerDay || 0) / 24
-        };
-      },
-      {
-        cleanPerHour: 0,
-        dirtyPerHour: 0,
-        heatPerDay: 0,
-        influencePerHour: 0
-      }
+    return createAuthoritativeDistrictEconomyPresentation(
+      latestGameplaySliceReadModel,
+      districtId
     );
-    const passivePopulationSources = Array.isArray(
-      projectedRates.passivePopulationSources
-    )
-      ? projectedRates.passivePopulationSources
-      : [];
-    const hasPassivePopulationSource = passivePopulationSources.length > 0;
-    const playerPopulationPerHour = passivePopulationSources.reduce(
-      (total, source) => (
-        total
-        + (
-          source.target === "player-balance"
-            ? Number(source.amountPerHour || 0)
-            : 0
-        )
-      ),
-      0
-    );
-    const buildingStorageSourceCount = passivePopulationSources.filter(
-      (source) => source.target === "building-storage"
-    ).length;
-
-    return {
-      available: true,
-      baseCleanHourlyIncome: Number(projectedRates.cleanCashPerHour || 0),
-      baseDirtyHourlyIncome: Number(projectedRates.dirtyCashPerHour || 0),
-      buildingCleanHourlyIncome: 0,
-      buildingDirtyHourlyIncome: 0,
-      cleanHourlyIncome: Number(projectedRates.cleanCashPerHour || 0),
-      dirtyHourlyIncome: Number(projectedRates.dirtyCashPerHour || 0),
-      totalHourlyIncome: Math.max(
-        0,
-        Number(projectedRates.cleanCashPerHour || 0)
-          + Number(projectedRates.dirtyCashPerHour || 0)
-      ),
-      districtInfluencePerHour: Number(projectedRates.influencePerHour || 0),
-      buildingInfluencePerHour: 0,
-      totalInfluencePerHour: Number(projectedRates.influencePerHour || 0),
-      districtPopulationPerHour: 0,
-      populationLabel: hasPassivePopulationSource
-        ? playerPopulationPerHour > 0
-          ? String(playerPopulationPerHour)
-          : `0 topbar · ${buildingStorageSourceCount}× do zásoby`
-        : "0 · žádný zdroj",
-      populationSourceSummary:
-        projectedRates.passivePopulationSourceSummary || "",
-      passiveHeatPerDay: presentationTotals.heatPerDay
-    };
   }
 
   const districtType = DISTRICT_MINUTE_INCOME_RULES_EMPIRE2[district?.districtType]

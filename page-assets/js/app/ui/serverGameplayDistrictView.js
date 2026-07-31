@@ -1,6 +1,9 @@
 import { resolveDistrictBuildingChipKind } from "./districtBuildingChipKind.js";
 import { resolveMapAtmosphereMeta } from "../map/mapDataAdapter.js";
 import { resolveLivePlayerAvatarSrc } from "../model/livePlayerAvatarCatalog.js";
+import {
+  createAuthoritativeDistrictEconomyPresentation
+} from "../runtime/authoritativeDistrictEconomyPresentation.js";
 
 const toLabel = (value, fallback = "—") => {
   const normalized = String(value || "").trim();
@@ -191,6 +194,13 @@ export function createServerGameplayDistrictView(readModel, renderState) {
     currentPlayerOwnsDistrict
   );
   const atmosphereMeta = resolveAtmosphereMeta(district, panel.intelKnown === true);
+  const economy = createAuthoritativeDistrictEconomyPresentation(
+    readModel,
+    String(district.districtId)
+  );
+  const economyValue = (value) => district.status === "destroyed"
+    ? "0"
+    : economy.available ? String(value ?? 0) : "Bez dat";
 
   return {
     districtId: String(panel.districtId),
@@ -217,11 +227,25 @@ export function createServerGameplayDistrictView(readModel, renderState) {
       { label: `Hledanost ${panel.heatLabel}`, tone: Number(district.heat || 0) > 0 ? "warning" : "neutral" },
       { label: `Vliv ${panel.influenceLabel}`, tone: "info" }
     ],
+    summaryHidden: !currentPlayerOwnsDistrict,
+    populationSourceSummary: economy.populationSourceSummary,
     metrics: [
-      { label: "Hledanost", value: panel.heatLabel },
-      { label: "Vliv", value: panel.influenceLabel },
-      { label: "Stav", value: statusLabel },
-      { label: "Budovy", value: panel.buildingSummary }
+      {
+        label: "Clean / hod",
+        value: economyValue(economy.baseCleanHourlyIncome)
+      },
+      {
+        label: "Dirty / hod",
+        value: economyValue(economy.baseDirtyHourlyIncome)
+      },
+      {
+        label: "Vliv / hod",
+        value: economyValue(economy.districtInfluencePerHour)
+      },
+      {
+        label: "Populace / hod",
+        value: economyValue(economy.populationLabel)
+      }
     ],
     buildings: (panel.buildings || []).map((building) => ({
       buildingId: building.buildingId,

@@ -61,6 +61,17 @@ export function renderServerGameplayDistrictSummary({
   if (elements.popupAlliance) elements.popupAlliance.hidden = !view.allianceLabel;
   renderDistrictFlags(elements.popupFlags, view.flags);
   writes += 1;
+  if (elements.popupSummary) {
+    elements.popupSummary.hidden = view.summaryHidden === true;
+  }
+  if (elements.popupPopulation) {
+    const populationSourceSummary = String(
+      view.populationSourceSummary || ""
+    );
+    elements.popupPopulation.title = populationSourceSummary;
+    elements.popupPopulation.dataset.populationSourceSummary =
+      populationSourceSummary;
+  }
 
   for (let index = 0; index < summaryRows.length; index += 1) {
     const metric = view.metrics[index] || { label: "—", value: "—" };

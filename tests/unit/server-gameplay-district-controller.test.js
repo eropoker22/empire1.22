@@ -41,8 +41,9 @@ describe("server gameplay district controller", () => {
     expect(document.querySelector("[data-district-popup-title]").textContent).toBe("Neon Quay");
     expect(document.querySelector("[data-district-popup-owner]").textContent).toBe("Player Two");
     expect(document.querySelector("[data-district-popup-owner-avatar]").getAttribute("src")).toContain("/img/avatars/Hacker/");
-    expect(document.querySelector("[data-district-popup-clean]").textContent).toBe("7");
-    expect(document.querySelector("[data-district-popup-influence]").textContent).toBe("Obsazený");
+    expect(document.querySelector("[data-district-popup-summary]").hidden).toBe(true);
+    expect(document.querySelector("[data-district-popup-clean]").textContent).toBe("Bez dat");
+    expect(document.querySelector("[data-district-popup-influence]").textContent).toBe("Bez dat");
     expect(document.querySelectorAll("[data-district-building-display-name]")).toHaveLength(0);
     expect(document.querySelector("[data-district-building-name]")).toBeNull();
     expect(document.querySelector("[data-district-popup-buildings-meta]").textContent).toBe("Budovy nezjištěny");
@@ -98,6 +99,13 @@ describe("server gameplay district controller", () => {
     );
     expect(document.querySelector("[data-district-popup-atmosphere-image]").getAttribute("src")).toContain("img/commercial/");
     expect(document.querySelector("[data-district-popup-atmosphere-label]").textContent).toBe("Komerční sektor");
+    expect(document.querySelector("[data-district-popup-summary]").hidden).toBe(false);
+    expect(document.querySelector("[data-district-popup-clean]").textContent).toBe("120");
+    expect(document.querySelector("[data-district-popup-dirty]").textContent).toBe("45");
+    expect(document.querySelector("[data-district-popup-influence]").textContent).toBe("6");
+    expect(document.querySelector("[data-district-popup-population]").textContent).toBe("0 · žádný zdroj");
+    expect(document.querySelector("[data-district-popup-population]").dataset.populationSourceSummary)
+      .toBe("Pasivní populace: 0 / tick · žádný zdroj v districtu");
 
     document.querySelector("[data-district-building-detail-action-id='quiet_backroom']").click();
     await vi.waitFor(() => {
@@ -226,6 +234,17 @@ function createHarness({
   };
   const readModel = {
     player: { playerId: "player:1" },
+    economyRates: {
+      selectedDistrict: ownedByCurrentPlayer ? {
+        districtId: "district:2",
+        cleanCashPerHour: 120,
+        dirtyCashPerHour: 45,
+        influencePerHour: 6,
+        passivePopulationSources: [],
+        passivePopulationSourceSummary:
+          "Pasivní populace: 0 / tick · žádný zdroj v districtu"
+      } : null
+    },
     leaderboard: {
       currentPlayer: { playerId: "player:1", name: "Current Player" },
       entries: [{
