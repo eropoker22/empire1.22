@@ -5,9 +5,16 @@ import {
   waitForLiveGame
 } from "./helpers/hostedUiParityEntry.js";
 import {
+  exerciseHostedProductionLifecycleThroughVisibleUi
+} from "./helpers/hostedProductionParity.js";
+import {
+  closeSurface,
   openBuildingFromDistrict,
   openDistrictById
 } from "./helpers/uiParityCapture.js";
+import {
+  createAuthoritativeIncomeTickDelta
+} from "./helpers/authoritativeIncomeEvidence.js";
 
 const manualEnabled = process.env.EMPIRE_MANUAL_HOSTED_E2E === "1";
 const adminUsername = String(process.env.EMPIRE_ADMIN_BOOTSTRAP_USERNAME || "").trim();
@@ -16,6 +23,46 @@ const displayName = String(process.env.EMPIRE_MANUAL_HOSTED_DISPLAY_NAME || "").
 const startingPlayerState = parseStartingPlayerState(
   process.env.EMPIRE_MANUAL_HOSTED_STARTING_STATE_JSON
 );
+const manualBaseTestTimeoutMs = 900_000;
+const manualServerCapacity = 4;
+const manualProductionCases = Object.freeze([
+  Object.freeze({
+    buildingTypeId: "pharmacy",
+    clientIndex: 0,
+    districtId: "district:26",
+    label: "Pharmacy",
+    recipeId: "chemicals",
+    resourceKey: "chemicals",
+    surfaceName: "pharmacy"
+  }),
+  Object.freeze({
+    buildingTypeId: "factory",
+    clientIndex: 1,
+    districtId: "district:68",
+    label: "Factory",
+    recipeId: "metal-parts",
+    resourceKey: "metal-parts",
+    surfaceName: "factory"
+  }),
+  Object.freeze({
+    buildingTypeId: "drug_lab",
+    clientIndex: 2,
+    districtId: "district:91",
+    label: "Drug Lab",
+    recipeId: "neon-dust",
+    resourceKey: "neon-dust",
+    surfaceName: "drugLab"
+  }),
+  Object.freeze({
+    buildingTypeId: "armory",
+    clientIndex: 3,
+    districtId: "district:70",
+    label: "Armory",
+    recipeId: "baseball-bat",
+    resourceKey: "baseball-bat",
+    surfaceName: "armory"
+  })
+]);
 
 test.use({ trace: "on", video: "off" });
 test.skip(
@@ -26,7 +73,7 @@ test.skip(
     || !startingPlayerState,
   "Manual hosted flow requires the guarded local PostgreSQL/API/worker harness."
 );
-test.setTimeout(900_000);
+test.setTimeout(manualBaseTestTimeoutMs);
 
 test("owner creates a server and players prove exact hosted state through visible UI", async ({
   browser,
@@ -40,6 +87,8 @@ test("owner creates a server and players prove exact hosted state through visibl
     persistedStartingPlayerState: null,
     playerStartingStates: [],
     tickTrace: null,
+    productionCommands: [],
+    productionSubmitPosts: [],
     visibleCommand: null,
     finalStatus: null
   };
@@ -50,8 +99,8 @@ test("owner creates a server and players prove exact hosted state through visibl
     const serverInstanceId = created.response.server.serverInstanceId;
     safeTrace.serverInstanceId = serverInstanceId;
     safeTrace.createPayload = created.request.startingPlayerState;
-    expect(created.request.capacity).toBe(2);
-    expect(created.response.server.capacity).toBe(2);
+    expect(created.request.capacity).toBe(manualServerCapacity);
+    expect(created.response.server.capacity).toBe(manualServerCapacity);
     expect(created.request.startingPlayerState).toEqual(startingPlayerState);
     expect(created.response.server.startingPlayerState).toEqual(startingPlayerState);
 
@@ -70,6 +119,11 @@ test("owner creates a server and players prove exact hosted state through visibl
       .toContainText("Starting state uložený na serveru");
     await expect(adminPage.locator("[data-admin-starting-state]"))
       .toContainText(`Alarm: ${startingPlayerState.materials.alarm}`);
+    await attachScreenshot(
+      testInfo,
+      "manual-hosted-admin-starting-state.png",
+      adminPage
+    );
 
     await requestAdminAction(
       adminPage,
@@ -82,7 +136,7 @@ test("owner creates a server and players prove exact hosted state through visibl
       (server) => server.registrationState === "open" && server.joinPolicy === "open"
     );
 
-    for (const [index, spawnDistrictId] of ["district:26", "district:42"].entries()) {
+    for (const { clientIndex: index, districtId: spawnDistrictId } of manualProductionCases) {
       const context = await browser.newContext({
         baseURL: process.env.PLAYWRIGHT_E2E_BASE_URL
       });
@@ -99,8 +153,15 @@ test("owner creates a server and players prove exact hosted state through visibl
         spawnDistrictId: entry.spawnDistrictId,
         balances: playerStartingState.balances,
         economyPopulation: playerStartingState.economyPopulation,
-        spySlots: playerStartingState.spySlots
+        economyInfluence: playerStartingState.economyInfluence,
+        spySlots: playerStartingState.spySlots,
+        visibleTopbar: playerStartingState.visibleTopbar
       });
+      await attachScreenshot(
+        testInfo,
+        `manual-hosted-player-${index + 1}-starting-state.png`,
+        playerPage
+      );
       playerClients.push({
         context,
         page: playerPage,
@@ -112,7 +173,7 @@ test("owner creates a server and players prove exact hosted state through visibl
 
     await refreshAdmin(adminPage);
     await expect(adminPage.locator(".admin-start-readiness")).toContainText(
-      `2 / ${created.response.server.minimumReadyPlayersToStart}`
+      `${manualServerCapacity} / ${created.response.server.minimumReadyPlayersToStart}`
     );
     await expect(adminPage.locator(".admin-start-readiness"))
       .toContainText("START SERVERU PŘIPRAVENO");
@@ -128,22 +189,73 @@ test("owner creates a server and players prove exact hosted state through visibl
       await expectVisibleStorageMatchesAuthoritativeState(client.page);
     }
 
-    const beforeTick = await readTickState(playerClients[0].page);
-    await expect.poll(
-      async () => {
-        const current = await readTickState(playerClients[0].page);
-        return current.currentTick > beforeTick.currentTick
-          && current.stateVersion > beforeTick.stateVersion
-          && current.cash > beforeTick.cash;
-      },
-      {
-        message: "The admin-created server must advance its own tick and credit clean cash.",
-        timeout: 90_000,
-        intervals: [1_000, 2_000, 5_000]
-      }
-    ).toBe(true);
-    const afterTick = await readTickState(playerClients[0].page);
-    safeTrace.tickTrace = { before: beforeTick, after: afterTick };
+    safeTrace.tickTrace = await collectThreeSampleTickEvidence({
+      adminPage,
+      districtId: playerClients[0].spawnDistrictId,
+      playerPage: playerClients[0].page,
+      serverInstanceId
+    });
+    await attachScreenshot(
+      testInfo,
+      "manual-hosted-player-live-after-tick.png",
+      playerClients[0].page
+    );
+
+    for (const client of playerClients) {
+      client.productionSubmitCapture = captureGameplaySubmitPosts(client.page);
+    }
+    let previousProductionSetup = Promise.resolve(null);
+    const productionTasks = manualProductionCases.map((productionCase) => {
+      let releaseProductionSetup;
+      const productionSetup = new Promise((resolve) => {
+        releaseProductionSetup = resolve;
+      });
+      const waitForPreviousSetup = previousProductionSetup;
+      previousProductionSetup = productionSetup;
+      return (async () => {
+        const previousSetup = await waitForPreviousSetup;
+        if (previousSetup?.error) throw previousSetup.error;
+        const client = playerClients[productionCase.clientIndex];
+        expect(client.spawnDistrictId).toBe(productionCase.districtId);
+        if (previousSetup?.stateVersion) {
+          await waitForGameplayStateVersion(client.page, previousSetup.stateVersion);
+        }
+        try {
+          const result = await exerciseHostedProductionLifecycleThroughVisibleUi({
+            baseTestTimeoutMs: manualBaseTestTimeoutMs,
+            ...productionCase,
+            captureInfoScreenshotName:
+              `manual-hosted-${productionCase.surfaceName}-info.png`,
+            captureStartedScreenshotName:
+              `manual-hosted-${productionCase.surfaceName}-production-started.png`,
+            evidenceAttachmentName:
+              `manual-hosted-${productionCase.surfaceName}-production-lifecycle.json`,
+            expectedInitialPlayerOutput:
+              startingPlayerState.materials[productionCase.resourceKey],
+            expectedServerInstanceId: serverInstanceId,
+            onWorkerPollingStarted: (setup) => releaseProductionSetup({
+              stateVersion: setup.stateVersion,
+              timing: setup.timing
+            }),
+            page: client.page,
+            testInfo
+          });
+          await closeSurface(client.page, productionCase.surfaceName);
+          return {
+            clientIndex: productionCase.clientIndex,
+            ...result.evidence
+          };
+        } catch (error) {
+          releaseProductionSetup({ error });
+          throw error;
+        }
+      })();
+    });
+    safeTrace.productionCommands = await Promise.all(productionTasks);
+    safeTrace.productionSubmitPosts = assertExactProductionSubmitLifecycle(
+      playerClients,
+      safeTrace.productionCommands
+    );
 
     safeTrace.visibleCommand = await runRestaurantActionThroughVisibleUi(
       playerClients[0].page,
@@ -186,6 +298,9 @@ test("owner creates a server and players prove exact hosted state through visibl
       body: Buffer.from(JSON.stringify(safeTrace, null, 2)),
       contentType: "application/json"
     });
+    for (const client of playerClients) {
+      client.productionSubmitCapture?.stop();
+    }
     await Promise.allSettled(playerClients.map((client) => client.context.close()));
   }
 });
@@ -201,7 +316,7 @@ async function loginAdmin(page) {
 async function createServerThroughAdmin(page) {
   await page.locator("[data-admin-create-open]").click();
   await page.getByLabel("Název").fill(displayName);
-  await page.getByLabel("Kapacita").fill("2");
+  await page.getByLabel("Kapacita").fill(String(manualServerCapacity));
   await advanceWizard(page, 2);
   await expect(page.locator("[data-admin-map-total]")).toHaveText("161");
   await advanceWizard(page, 3);
@@ -267,6 +382,7 @@ async function expectExactStartingState(page) {
     return {
       balances: readModel?.player?.resourceBalances || {},
       economyPopulation: Number(readModel?.player?.economy?.population || 0),
+      economyInfluence: Number(readModel?.player?.economy?.influence || 0),
       spySlots: spySlots.map((slot) => ({
         slotId: slot.slotId,
         available: slot.available
@@ -287,8 +403,53 @@ async function expectExactStartingState(page) {
     .toHaveAttribute("data-money-target", String(startingPlayerState.cleanCash));
   await expect(page.locator("[data-topbar-dirty-money]"))
     .toHaveAttribute("data-money-target", String(startingPlayerState.dirtyCash));
+  await expect.poll(
+    async () => {
+      const visibleTopbar = await readVisibleTopbar(page);
+      return {
+        ...visibleTopbar,
+        influenceMatchesReadModel: visibleTopbar.influence === Math.floor(
+          snapshot.economyInfluence
+        )
+      };
+    },
+    {
+      message: "Visible topbar values must match the authoritative starting state.",
+      timeout: 15_000,
+      intervals: [100, 250, 500]
+    }
+  ).toEqual({
+    cleanCash: startingPlayerState.cleanCash,
+    dirtyCash: startingPlayerState.dirtyCash,
+    influence: Math.floor(snapshot.economyInfluence),
+    influenceMatchesReadModel: true
+  });
 
-  return snapshot;
+  return {
+    ...snapshot,
+    visibleTopbar: await readVisibleTopbar(page)
+  };
+}
+
+const readVisibleTopbar = (page) => page.evaluate(() => {
+  const numericText = (selector) => {
+    const text = document.querySelector(selector)?.textContent || "";
+    const normalized = text.replace(/\s+/gu, "").replace(",", ".");
+    const match = normalized.match(/-?\d+(?:\.\d+)?/u);
+    return match ? Number(match[0]) : null;
+  };
+  return {
+    cleanCash: numericText("[data-topbar-clean-money]"),
+    dirtyCash: numericText("[data-topbar-dirty-money]"),
+    influence: numericText("[data-topbar-influence]")
+  };
+});
+
+async function attachScreenshot(testInfo, name, page) {
+  await testInfo.attach(name, {
+    body: await page.screenshot({ animations: "disabled", fullPage: false }),
+    contentType: "image/png"
+  });
 }
 
 async function expectVisibleStorageMatchesAuthoritativeState(page) {
@@ -424,22 +585,549 @@ const readAdminServer = (page, serverInstanceId) => page.evaluate(
   serverInstanceId
 );
 
-const readTickState = (page) => page.evaluate(() => {
+async function collectThreeSampleTickEvidence({
+  adminPage,
+  districtId,
+  playerPage,
+  serverInstanceId
+}) {
+  const playerId = await playerPage.evaluate(() => (
+    window.EmpireGameplaySliceClient?.getCurrentReadModel?.()?.player?.playerId || null
+  ));
+  expect(playerId, "The live gameplay projection must expose its authoritative player ID.")
+    .toBeTruthy();
+
+  const initialDetail = await readAdminInstanceDetail(adminPage, serverInstanceId);
+  const canonicalTickRateMs = finiteNumberOrNull(
+    initialDetail.runtimeHealth?.expectedTickRateMs
+  );
+  expect(
+    canonicalTickRateMs,
+    "The admin runtime projection must expose the canonical tick rate."
+  ).toBeGreaterThan(0);
+  await openDistrictById(playerPage, districtId);
+  const visiblePopulationRate = playerPage.locator(
+    "[data-district-popup-population]"
+  );
+  await expect(visiblePopulationRate).toHaveText("0 · žádný zdroj");
+  await expect(visiblePopulationRate).toHaveAttribute(
+    "data-population-source-summary",
+    "Pasivní populace: 0 / tick · žádný zdroj v districtu"
+  );
+
+  const samples = [];
+  for (let sampleIndex = 0; sampleIndex < 3; sampleIndex += 1) {
+    const previousTick = samples.at(-1)?.currentTick ?? null;
+    let acceptedSample = null;
+    await expect.poll(
+      async () => {
+        const candidate = await readAlignedTickSample({
+          adminPage,
+          districtId,
+          playerId,
+          playerPage,
+          serverInstanceId
+        });
+        if (!isCompleteAlignedTickSample(candidate, previousTick)) {
+          return false;
+        }
+        acceptedSample = candidate;
+        return true;
+      },
+      {
+        message: `Hosted tick evidence sample ${sampleIndex + 1} must align across player and admin projections.`,
+        timeout: canonicalTickRateMs * 8,
+        intervals: canonicalTickPollIntervals(canonicalTickRateMs)
+      }
+    ).toBe(true);
+    assertAlignedTickSample(
+      acceptedSample,
+      canonicalTickRateMs,
+      districtId,
+      serverInstanceId
+    );
+    samples.push(acceptedSample);
+  }
+
+  const materialIds = Object.keys(startingPlayerState.materials);
+  const deltas = samples.slice(1).map((sample, index) => (
+    createAuthoritativeIncomeTickDelta(
+      samples[index],
+      sample,
+      materialIds
+    )
+  ));
+  for (const delta of deltas) {
+    expect(delta.tick).toBe(1);
+    expect(delta.stateVersion).toBeGreaterThan(0);
+    expect(delta.rateBasis).toMatchObject({
+      projectionBasis: "next-authoritative-economy-tick",
+      fromTick: delta.fromTick,
+      toTick: delta.fromTick + 1,
+      tickRateMs: canonicalTickRateMs,
+      stableAcrossGap: expect.any(Boolean)
+    });
+    expect(delta.expectedPerTick.cleanCash).toBeGreaterThan(0);
+    expect(delta.expectedPerTick.dirtyCash).toBeGreaterThanOrEqual(0);
+    expect(delta.expectedPerTick.population).toBe(0);
+    expect(delta.populationSourceEvidence.sources).toEqual([]);
+    expect(delta.populationSourceEvidence.summary)
+      .toBe("Pasivní populace: 0 / tick · žádný zdroj v districtu");
+    expect(delta.uiDisplayedPerHour.buildingCount).toBeGreaterThan(0);
+    expect(delta.exactUiRateMatch).toEqual({
+      cleanCash: true,
+      dirtyCash: true,
+      districtInfluence: true
+    });
+    expect(delta.exactNetMatch).toMatchObject({
+      cleanCash: true,
+      dirtyCash: true,
+      population: true,
+      districtHeat: true,
+      districtInfluence: true
+    });
+    expect(Object.values(delta.exactNetMatch.materials).every(Boolean)).toBe(true);
+    if (delta.rootTick !== null) {
+      expect(delta.rootTick).toBe(delta.tick);
+    }
+    if (delta.lastSnapshotAtMs !== null) {
+      expect(delta.lastSnapshotAtMs).toBeGreaterThanOrEqual(0);
+    }
+  }
+
+  return {
+    canonicalTickRateMs,
+    samples,
+    deltas
+  };
+}
+
+async function readAlignedTickSample({
+  adminPage,
+  districtId,
+  playerId,
+  playerPage,
+  serverInstanceId
+}) {
+  const [player, detail] = await Promise.all([
+    readPlayerTickProjection(playerPage),
+    readAdminInstanceDetail(adminPage, serverInstanceId)
+  ]);
+  const adminPlayer = detail.players.find((entry) => entry.playerId === playerId) || null;
+  const adminDistrict = detail.districts.find((entry) => entry.districtId === districtId)
+    || null;
+  const adminRootTick = firstFiniteNumber(
+    detail.rootTick,
+    detail.summary?.rootTick,
+    detail.snapshot?.rootTick,
+    detail.runtimeHealth?.rootTick
+  );
+  return {
+    observedAt: new Date().toISOString(),
+    currentTick: finiteNumberOrNull(detail.snapshot?.tick),
+    stateVersion: finiteNumberOrNull(detail.snapshot?.stateVersion),
+    rootTick: firstFiniteNumber(player.rootTick, adminRootTick),
+    player,
+    admin: {
+      serverInstanceId: detail.serverInstanceId || null,
+      expectedTickRateMs: finiteNumberOrNull(
+        detail.runtimeHealth?.expectedTickRateMs
+      ),
+      currentTick: finiteNumberOrNull(detail.summary?.currentTick),
+      rootTick: adminRootTick,
+      stateVersion: finiteNumberOrNull(detail.summary?.stateVersion),
+      player: adminPlayer ? {
+        cleanCash: finiteNumberOrNull(adminPlayer.cash),
+        dirtyCash: finiteNumberOrNull(adminPlayer.dirtyCash),
+        population: finiteNumberOrNull(adminPlayer.population)
+      } : null,
+      district: adminDistrict ? {
+        districtId: adminDistrict.districtId,
+        heat: finiteNumberOrNull(adminDistrict.heat),
+        influence: finiteNumberOrNull(adminDistrict.influence)
+      } : null,
+      lastSnapshot: {
+        snapshotId: detail.snapshot?.snapshotId || null,
+        createdAt: detail.snapshot?.createdAt || null,
+        lastSnapshotAt: detail.summary?.lastSnapshotAt || null,
+        tick: finiteNumberOrNull(detail.snapshot?.tick),
+        stateVersion: finiteNumberOrNull(detail.snapshot?.stateVersion)
+      }
+    }
+  };
+}
+
+const readAdminInstanceDetail = (page, serverInstanceId) => page.evaluate(
+  async (expectedServerInstanceId) => {
+    const response = await fetch(
+      `/api/admin/instances/${encodeURIComponent(expectedServerInstanceId)}`,
+      {
+        credentials: "same-origin",
+        cache: "no-store"
+      }
+    );
+    const payload = await response.json();
+    if (!response.ok || !payload.data) {
+      throw new Error("Live admin instance detail is unavailable.");
+    }
+    return payload.data;
+  },
+  serverInstanceId
+);
+
+const readPlayerTickProjection = (page) => page.evaluate(() => {
   const readModel = window.EmpireGameplaySliceClient?.getCurrentReadModel?.()
     || window.empireStreetsGameplaySliceReadModel
     || null;
+  const numberOrNull = (value) => {
+    if (value === null || value === undefined || value === "") {
+      return null;
+    }
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  };
+  const numericText = (selector) => {
+    const text = document.querySelector(selector)?.textContent || "";
+    const normalized = text.replace(/\s+/gu, "").replace(",", ".");
+    const match = normalized.match(/-?\d+(?:\.\d+)?/u);
+    return match ? Number(match[0]) : null;
+  };
+  const resourceBalances = Object.fromEntries(
+    Object.entries(readModel?.player?.resourceBalances || {}).map(
+      ([resourceKey, amount]) => [resourceKey, numberOrNull(amount)]
+    )
+  );
+  const buildingPresentationRates = (readModel?.district?.buildings || []).map(
+    (building) => ({
+      buildingId: building.buildingId || null,
+      buildingTypeId: building.buildingTypeId || null,
+      status: building.status || null,
+      passive: building.presentation?.passive || null
+    })
+  );
+  const visiblePopulationElement = document.querySelector(
+    "[data-district-popup-population]"
+  );
   return {
-    currentTick: Number(readModel?.server?.currentTick || 0),
-    stateVersion: Number(readModel?.server?.stateVersion || 0),
-    cash: Number(readModel?.player?.resourceBalances?.cash || 0),
-    dirtyCash: Number(readModel?.player?.resourceBalances?.["dirty-cash"] || 0),
-    population: Number(readModel?.player?.resourceBalances?.population || 0)
+    serverInstanceId: readModel?.server?.serverInstanceId || null,
+    currentTick: numberOrNull(readModel?.server?.currentTick),
+    stateVersion: numberOrNull(readModel?.server?.stateVersion),
+    rootTick: numberOrNull(
+      readModel?.server?.rootTick
+        ?? readModel?.root?.tick
+        ?? readModel?.rootTick
+        ?? readModel?.tick
+    ),
+    playerId: readModel?.player?.playerId || null,
+    resourceBalances,
+    cleanCash: numberOrNull(resourceBalances.cash),
+    dirtyCash: numberOrNull(
+      resourceBalances["dirty-cash"]
+    ),
+    population: numberOrNull(
+      resourceBalances.population
+    ),
+    economyPopulation: numberOrNull(readModel?.player?.economy?.population),
+    influence: numberOrNull(readModel?.player?.economy?.influence),
+    district: readModel?.district ? {
+      districtId: readModel.district.districtId || null,
+      heat: numberOrNull(readModel.district.heat),
+      influence: numberOrNull(readModel.district.influence)
+    } : null,
+    economyRates: readModel?.economyRates || null,
+    buildingPresentationRates,
+    visibleTopbar: {
+      cleanCash: numericText("[data-topbar-clean-money]"),
+      dirtyCash: numericText("[data-topbar-dirty-money]"),
+      influence: numericText("[data-topbar-influence]")
+    },
+    visiblePopulationRate: {
+      label: String(visiblePopulationElement?.textContent || "").trim(),
+      sourceSummary:
+        visiblePopulationElement?.getAttribute(
+          "data-population-source-summary"
+        ) || ""
+    },
+    visibleDistrictRates: {
+      cleanCash: numericText("[data-district-popup-clean]"),
+      dirtyCash: numericText("[data-district-popup-dirty]"),
+      influence: numericText("[data-district-popup-influence]")
+    }
   };
 });
+
+function isCompleteAlignedTickSample(sample, previousTick) {
+  const ticks = [
+    sample.currentTick,
+    sample.player.currentTick,
+    sample.admin.currentTick,
+    sample.admin.lastSnapshot.tick
+  ];
+  const stateVersions = [
+    sample.stateVersion,
+    sample.player.stateVersion,
+    sample.admin.stateVersion,
+    sample.admin.lastSnapshot.stateVersion
+  ];
+  return ticks.every(Number.isFinite)
+    && ticks.every((tick) => tick === ticks[0])
+    && stateVersions.every(Number.isFinite)
+    && stateVersions.every((stateVersion) => stateVersion === stateVersions[0])
+    && (previousTick === null || ticks[0] === previousTick + 1)
+    && Boolean(sample.admin.player)
+    && Boolean(sample.admin.district)
+    && [
+      sample.player.cleanCash,
+      sample.player.dirtyCash,
+      sample.player.population,
+      sample.player.economyPopulation,
+      sample.player.influence,
+      sample.player.district?.heat,
+      sample.player.district?.influence,
+      sample.admin.player?.cleanCash,
+      sample.admin.player?.dirtyCash,
+      sample.admin.player?.population,
+      sample.admin.district?.heat,
+      sample.admin.district?.influence
+    ].every(Number.isFinite)
+    && sample.player.serverInstanceId === sample.admin.serverInstanceId
+    && sample.player.district?.districtId === sample.admin.district?.districtId
+    && sample.player.visibleTopbar.cleanCash === Math.round(
+      sample.player.cleanCash
+    )
+    && sample.player.visibleTopbar.dirtyCash === Math.round(
+      sample.player.dirtyCash
+    )
+    && sample.player.visibleTopbar.influence === Math.floor(
+      sample.player.influence
+    )
+    && sample.player.visiblePopulationRate.label === "0 · žádný zdroj"
+    && sample.player.visiblePopulationRate.sourceSummary
+      === "Pasivní populace: 0 / tick · žádný zdroj v districtu"
+    && sample.player.visibleDistrictRates.cleanCash
+      === sample.player.economyRates.selectedDistrict.cleanCashPerHour
+    && sample.player.visibleDistrictRates.dirtyCash
+      === sample.player.economyRates.selectedDistrict.dirtyCashPerHour
+    && sample.player.visibleDistrictRates.influence
+      === sample.player.economyRates.selectedDistrict.influencePerHour
+    && isCompleteEconomyRateProjection(
+      sample.player.economyRates,
+      sample.currentTick,
+      sample.player.district?.districtId
+    );
+}
+
+function isCompleteEconomyRateProjection(rates, currentTick, districtId) {
+  const trackedResourceKeys = [
+    "cash",
+    "dirty-cash",
+    "population",
+    ...Object.keys(startingPlayerState.materials)
+  ];
+  return Boolean(rates)
+    && rates.basis === "next-authoritative-economy-tick"
+    && Number.isFinite(rates.tickRateMs)
+    && rates.tickRateMs > 0
+    && rates.fromTick === currentTick
+    && rates.toTick === currentTick + 1
+    && rates.selectedDistrict?.districtId === districtId
+    && trackedResourceKeys.every((resourceKey) => (
+      Number.isFinite(rates.playerBalancePerTick?.[resourceKey])
+      && Number.isFinite(rates.playerBalancePerHour?.[resourceKey])
+    ))
+    && [
+      rates.selectedDistrict?.heatPerTick,
+      rates.selectedDistrict?.influencePerTick,
+      rates.selectedDistrict?.heatPerHour,
+      rates.selectedDistrict?.influencePerHour,
+      rates.selectedDistrict?.cleanCashPerTick,
+      rates.selectedDistrict?.dirtyCashPerTick,
+      rates.selectedDistrict?.cleanCashPerHour,
+      rates.selectedDistrict?.dirtyCashPerHour
+    ].every(Number.isFinite)
+    && Array.isArray(rates.selectedDistrict?.passivePopulationSources)
+    && typeof rates.selectedDistrict?.passivePopulationSourceSummary === "string";
+}
+
+function assertAlignedTickSample(
+  sample,
+  canonicalTickRateMs,
+  districtId,
+  serverInstanceId
+) {
+  expect(sample.player.serverInstanceId).toBe(serverInstanceId);
+  expect(sample.admin.serverInstanceId).toBe(serverInstanceId);
+  expect(sample.admin.expectedTickRateMs).toBe(canonicalTickRateMs);
+  expect(sample.player.economyRates.tickRateMs).toBe(canonicalTickRateMs);
+  expect(sample.player.economyRates.fromTick).toBe(sample.currentTick);
+  expect(sample.player.economyRates.toTick).toBe(sample.currentTick + 1);
+  expect(sample.player.currentTick).toBe(sample.currentTick);
+  expect(sample.admin.currentTick).toBe(sample.currentTick);
+  expect(sample.admin.lastSnapshot.tick).toBe(sample.currentTick);
+  expect(sample.player.stateVersion).toBe(sample.stateVersion);
+  expect(sample.admin.stateVersion).toBe(sample.stateVersion);
+  expect(sample.admin.lastSnapshot.stateVersion).toBe(sample.stateVersion);
+  expect(sample.admin.player.cleanCash).toBe(sample.player.cleanCash);
+  expect(sample.admin.player.dirtyCash).toBe(sample.player.dirtyCash);
+  expect(sample.admin.player.population).toBe(sample.player.population);
+  expect(sample.player.economyPopulation).toBe(sample.player.population);
+  expect(sample.player.district.districtId).toBe(districtId);
+  expect(sample.admin.district.districtId).toBe(districtId);
+  expect(sample.admin.district.heat).toBe(sample.player.district.heat);
+  expect(sample.admin.district.influence).toBe(sample.player.district.influence);
+  expect(sample.player.visibleTopbar.cleanCash)
+    .toBe(Math.round(sample.player.cleanCash));
+  expect(sample.player.visibleTopbar.dirtyCash)
+    .toBe(Math.round(sample.player.dirtyCash));
+  expect(sample.player.visibleTopbar.influence)
+    .toBe(Math.floor(sample.player.influence));
+  expect(sample.player.visiblePopulationRate).toEqual({
+    label: "0 · žádný zdroj",
+    sourceSummary:
+      "Pasivní populace: 0 / tick · žádný zdroj v districtu"
+  });
+  expect(sample.player.visibleDistrictRates).toEqual({
+    cleanCash:
+      sample.player.economyRates.selectedDistrict.cleanCashPerHour,
+    dirtyCash:
+      sample.player.economyRates.selectedDistrict.dirtyCashPerHour,
+    influence:
+      sample.player.economyRates.selectedDistrict.influencePerHour
+  });
+  for (const rootTick of [
+    sample.rootTick,
+    sample.player.rootTick,
+    sample.admin.rootTick
+  ].filter(Number.isFinite)) {
+    expect(rootTick).toBe(sample.currentTick);
+  }
+  if (
+    sample.admin.lastSnapshot.createdAt
+    && sample.admin.lastSnapshot.lastSnapshotAt
+  ) {
+    expect(sample.admin.lastSnapshot.createdAt)
+      .toBe(sample.admin.lastSnapshot.lastSnapshotAt);
+  }
+}
+
+const canonicalTickPollIntervals = (canonicalTickRateMs) => [
+  Math.ceil(canonicalTickRateMs / 4),
+  Math.ceil(canonicalTickRateMs / 2),
+  canonicalTickRateMs
+];
+
+const firstFiniteNumber = (...values) => (
+  values.map(finiteNumberOrNull).find(Number.isFinite) ?? null
+);
+
+const finiteNumberOrNull = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+async function waitForGameplayStateVersion(page, minimumStateVersion) {
+  await expect.poll(
+    () => page.evaluate(() => Number(
+      window.EmpireGameplaySliceClient?.getCurrentReadModel?.()?.server?.stateVersion
+        ?? -1
+    )),
+    {
+      message: `Visible client must catch up to server state ${minimumStateVersion}.`,
+      timeout: 30_000,
+      intervals: [100, 250, 500, 1_000]
+    }
+  ).toBeGreaterThanOrEqual(minimumStateVersion);
+}
+
+function captureGameplaySubmitPosts(page) {
+  const posts = [];
+  const listener = (request) => {
+    if (
+      new URL(request.url()).pathname !== "/api/gameplay-slice/submit"
+      || request.method() !== "POST"
+    ) {
+      return;
+    }
+    let body = null;
+    try {
+      body = request.postDataJSON();
+    } catch {
+      body = null;
+    }
+    posts.push({
+      commandId: body?.command?.id || null,
+      commandType: body?.command?.type || null,
+      buildingId: body?.command?.payload?.buildingId || null,
+      districtId: body?.command?.payload?.districtId || null,
+      quantity: finiteNumberOrNull(body?.command?.payload?.quantity),
+      recipeId: body?.command?.payload?.recipeId || null,
+      resourceKey: body?.command?.payload?.resourceKey || null
+    });
+  };
+  page.on("request", listener);
+  return {
+    posts,
+    stop: () => page.off("request", listener)
+  };
+}
+
+function assertExactProductionSubmitLifecycle(clients, lifecycles) {
+  const posts = [];
+  for (const lifecycle of lifecycles) {
+    const expectedPosts = [
+      lifecycle.commands.initialStart,
+      lifecycle.commands.cancelWaiting,
+      lifecycle.commands.newStart,
+      lifecycle.commands.collect
+    ].map((summary) => ({
+      commandId: summary.command.commandId,
+      commandType: summary.command.type,
+      buildingId: summary.command.payload.buildingId || null,
+      districtId: summary.command.payload.districtId || null,
+      quantity: finiteNumberOrNull(summary.command.payload.quantity),
+      recipeId: summary.command.payload.recipeId || null,
+      resourceKey: summary.command.payload.resourceKey || null
+    }));
+    expect(
+      clients[lifecycle.clientIndex].productionSubmitCapture.posts,
+      `${lifecycle.identity.buildingTypeId} must emit only its four visible lifecycle submits`
+    ).toEqual(expectedPosts);
+    posts.push(...expectedPosts.map((post) => ({
+      clientIndex: lifecycle.clientIndex,
+      ...post
+    })));
+  }
+  expect(posts).toHaveLength(manualProductionCases.length * 4);
+  return posts;
+}
+
+const readTickState = async (page) => {
+  const state = await page.evaluate(() => {
+    const readModel = window.EmpireGameplaySliceClient?.getCurrentReadModel?.()
+      || window.empireStreetsGameplaySliceReadModel
+      || null;
+    return {
+      currentTick: Number(readModel?.server?.currentTick || 0),
+      stateVersion: Number(readModel?.server?.stateVersion || 0),
+      cash: Number(readModel?.player?.resourceBalances?.cash || 0),
+      dirtyCash: Number(readModel?.player?.resourceBalances?.["dirty-cash"] || 0),
+      population: Number(readModel?.player?.resourceBalances?.population || 0),
+      influence: Number(readModel?.player?.economy?.influence || 0)
+    };
+  });
+  return {
+    ...state,
+    visibleTopbar: await readVisibleTopbar(page)
+  };
+};
 
 function parseStartingPlayerState(value) {
   if (!value) return null;
   const parsed = JSON.parse(value);
+  const materialValues = Object.values(parsed?.materials || {});
   if (
     !Number.isFinite(parsed?.cleanCash)
     || !Number.isFinite(parsed?.dirtyCash)
@@ -447,8 +1135,13 @@ function parseStartingPlayerState(value) {
     || parsed?.spySlots !== 2
     || !parsed?.materials
     || Object.keys(parsed.materials).length !== 21
+    || !materialValues.every(Number.isFinite)
+    || new Set(materialValues).size !== materialValues.length
+    || !materialValues.includes(0)
   ) {
-    throw new Error("Manual hosted starting state must contain every canonical field.");
+    throw new Error(
+      "Manual hosted starting state must contain 21 distinct canonical material values including zero."
+    );
   }
   return parsed;
 }
