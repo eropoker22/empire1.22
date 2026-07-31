@@ -186,6 +186,13 @@ describe("Postgres admin monitoring repository", () => {
     const normalizedSql = calls[0]?.sql.replace(/\s+/gu, " ") ?? "";
     expect(normalizedSql).not.toMatch(/\bsl\.payload\s+AS\s+snapshot_payload\b/iu);
     expect(normalizedSql).not.toMatch(/(?:SELECT|,)\s*si\.payload\s*(?:AS\s+payload)?\s*(?:,|FROM)/iu);
+    expect(normalizedSql).toContain(
+      "WHEN hsi.server_instance_id IS NOT NULL THEN COALESCE(membership_players.player_count,0)"
+    );
+    expect(normalizedSql).toContain("WHERE starter_package_applied_at IS NOT NULL");
+    expect(normalizedSql).toContain(
+      "CASE WHEN hsi.server_instance_id IS NULL THEN jsonb_extract_path_text(sl.payload,'metadata','lastCrashAt') END"
+    );
   });
 
   it("loads one full snapshot and keeps runtime projection queries sequential", async () => {

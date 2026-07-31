@@ -13,6 +13,7 @@ import type { AdminRefreshStatus } from "./read-only-admin-page";
 interface Context {
   mounted: boolean;
   session: AdminSessionView | null;
+  overview: AdminOverviewView | null;
   selectedInstanceId: string | null;
   wizardOpen: boolean;
   auditEntries: AdminAuditEntryView[] | null;
@@ -41,6 +42,7 @@ export const createAdminRefreshController = (options: {
 }) => {
   let requestSequence = 0;
   let activeRequest: AbortController | null = null;
+  let activeRequestInstanceId: string | null | undefined;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let backoff = options.pollInterval;
   let refreshLoop: Promise<void> | null = null;
@@ -48,6 +50,10 @@ export const createAdminRefreshController = (options: {
   let auditRequested = false;
 
   const refresh = (includeAudit = false): Promise<void> => {
+    const requestedInstanceId = options.context().selectedInstanceId;
+    if (activeRequest && activeRequestInstanceId !== requestedInstanceId) {
+      activeRequest.abort();
+    }
     refreshRequested = true;
     auditRequested = auditRequested || includeAudit;
     refreshLoop ??= drainRefreshRequests().finally(() => {
@@ -73,10 +79,18 @@ export const createAdminRefreshController = (options: {
     const sequence = ++requestSequence;
     const request = new AbortController();
     activeRequest = request;
+    activeRequestInstanceId = context.selectedInstanceId;
     options.onStatus("loading");
     try {
       const requestedInstanceId = context.selectedInstanceId;
-      const overview = await options.client.getOverview(request.signal);
+      let overview = context.overview;
+      let overviewError: unknown = null;
+      try {
+        overview = await options.client.getOverview(request.signal);
+      } catch (error) {
+        if (!overview || isSessionError(error) || isAbortError(error)) throw error;
+        overviewError = error;
+      }
       const controlPlane = await options.client.getControlPlane(
         request.signal,
         requestedInstanceId
@@ -98,6 +112,7 @@ export const createAdminRefreshController = (options: {
         refreshedAt: new Date().toISOString()
       });
       options.syncClock(controlPlane.generatedAt);
+      if (overviewError) throw overviewError;
       backoff = options.pollInterval;
       options.onStatus("current");
       options.render();
@@ -109,7 +124,10 @@ export const createAdminRefreshController = (options: {
       options.onError(error);
       if (options.context().session) schedule(backoff);
     } finally {
-      if (activeRequest === request) activeRequest = null;
+      if (activeRequest === request) {
+        activeRequest = null;
+        activeRequestInstanceId = undefined;
+      }
     }
   };
 
@@ -139,6 +157,7 @@ export const createAdminRefreshController = (options: {
     auditRequested = false;
     activeRequest?.abort();
     activeRequest = null;
+    activeRequestInstanceId = undefined;
     clearSchedule();
   };
   const pause = (): void => {

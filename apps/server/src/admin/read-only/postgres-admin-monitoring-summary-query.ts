@@ -13,11 +13,14 @@ export const adminMonitoringInstanceSummaryQuery = (where: string): string => `
     sl.tick AS snapshot_tick,
     sl.root_version AS snapshot_state_version,
     CASE
+      WHEN hsi.server_instance_id IS NOT NULL
+      THEN COALESCE(membership_players.player_count,0)
       WHEN jsonb_typeof(jsonb_extract_path(sl.payload,'state','root','playerIds'))='array'
       THEN jsonb_array_length(jsonb_extract_path(sl.payload,'state','root','playerIds'))
       ELSE 0
     END AS snapshot_player_count,
-    jsonb_extract_path_text(sl.payload,'metadata','lastCrashAt') AS snapshot_last_crash_at,
+    CASE WHEN hsi.server_instance_id IS NULL
+      THEN jsonb_extract_path_text(sl.payload,'metadata','lastCrashAt') END AS snapshot_last_crash_at,
     CASE WHEN hsi.server_instance_id IS NULL
       THEN jsonb_extract_path_text(sl.payload,'lobby','displayName') END AS snapshot_lobby_display_name,
     CASE WHEN hsi.server_instance_id IS NULL
@@ -42,6 +45,12 @@ export const adminMonitoringInstanceSummaryQuery = (where: string): string => `
   FROM empire_server_instances si
   LEFT JOIN empire_snapshot_latest sl ON sl.server_instance_id = si.server_instance_id
   LEFT JOIN empire_hosted_server_instances hsi ON hsi.server_instance_id = si.server_instance_id
+  LEFT JOIN (
+    SELECT server_instance_id, count(*)::int AS player_count
+    FROM empire_server_memberships
+    WHERE starter_package_applied_at IS NOT NULL
+    GROUP BY server_instance_id
+  ) membership_players ON membership_players.server_instance_id = si.server_instance_id
   LEFT JOIN empire_hosted_instance_heartbeats ih ON ih.server_instance_id = si.server_instance_id
   LEFT JOIN empire_hosted_worker_heartbeats worker ON worker.worker_id = ih.worker_id
   ${where}

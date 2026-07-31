@@ -215,7 +215,7 @@ export const createAdminApp = (options: AdminAppOptions = {}) => {
     client,
     pollInterval,
     maxBackoff: ADMIN_MAX_BACKOFF_MS,
-    context: () => ({ mounted, session, selectedInstanceId, wizardOpen, auditEntries, auditError }),
+    context: () => ({ mounted, session, overview, selectedInstanceId, wizardOpen, auditEntries, auditError }),
     apply: (result) => {
       overview = result.overview;
       detail = result.detail;

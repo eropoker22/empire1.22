@@ -111,6 +111,117 @@ describe("admin refresh controller", () => {
     ]);
     controller.cancel();
   });
+
+  it("cancels an obsolete selected-instance wave before loading the next selection", async () => {
+    let selectedInstanceId = "server:A";
+    const firstDetail = deferred<AdminInstanceDetailView>();
+    const applied: string[] = [];
+    const client = createClient({
+      getOverview: vi.fn(async () => overview),
+      getControlPlane: vi.fn(async () => controlPlane),
+      getInstance: vi.fn(async (instanceId, signal) => (
+        instanceId === "server:A"
+          ? await rejectOnAbort(firstDetail.promise, signal)
+          : { ...detail, serverInstanceId: instanceId }
+      ))
+    });
+    const controller = createAdminRefreshController({
+      client,
+      pollInterval: 60_000,
+      maxBackoff: 240_000,
+      context: () => ({
+        mounted: true,
+        session,
+        overview,
+        selectedInstanceId,
+        wizardOpen: false,
+        auditEntries: [],
+        auditError: null
+      }),
+      apply: (result) => {
+        if (result.detail) applied.push(result.detail.serverInstanceId);
+      },
+      syncClock: () => undefined,
+      render: () => undefined,
+      onStatus: () => undefined,
+      onError: () => undefined
+    });
+
+    const firstRefresh = controller.refresh();
+    await vi.waitFor(() => expect(client.getInstance).toHaveBeenCalledWith(
+      "server:A",
+      expect.any(AbortSignal)
+    ));
+    selectedInstanceId = "server:B";
+    const nextRefresh = controller.refresh();
+    await Promise.all([firstRefresh, nextRefresh]);
+
+    expect(client.getInstance).toHaveBeenCalledWith(
+      "server:B",
+      expect.any(AbortSignal)
+    );
+    expect(applied).toEqual(["server:B"]);
+    controller.cancel();
+  });
+
+  it("keeps stale overview explicit while refreshing selected server reads", async () => {
+    const overviewError = new Error("overview temporarily unavailable");
+    const calls: string[] = [];
+    const applied: Array<{ overview: AdminOverviewView; detail: AdminInstanceDetailView | null }> = [];
+    const statuses: string[] = [];
+    const onError = vi.fn();
+    const client = createClient({
+      getOverview: vi.fn(async () => {
+        calls.push("overview");
+        throw overviewError;
+      }),
+      getControlPlane: vi.fn(async (_signal, instanceId) => {
+        calls.push(`control-plane:${instanceId}`);
+        return controlPlane;
+      }),
+      getInstance: vi.fn(async (instanceId) => {
+        calls.push(`detail:${instanceId}`);
+        return detail;
+      })
+    });
+    const controller = createAdminRefreshController({
+      client,
+      pollInterval: 60_000,
+      maxBackoff: 240_000,
+      context: () => ({
+        mounted: true,
+        session,
+        overview,
+        selectedInstanceId: "server:A",
+        wizardOpen: false,
+        auditEntries: [],
+        auditError: null
+      }),
+      apply: (result) => {
+        calls.push("apply");
+        applied.push(result);
+      },
+      syncClock: () => undefined,
+      render: () => undefined,
+      onStatus: (status) => statuses.push(status),
+      onError
+    });
+
+    await controller.refresh();
+
+    expect(calls).toEqual([
+      "overview",
+      "control-plane:server:A",
+      "detail:server:A",
+      "apply"
+    ]);
+    expect(applied).toEqual([
+      expect.objectContaining({ overview, detail })
+    ]);
+    expect(statuses).toEqual(["loading", "backoff"]);
+    expect(onError).toHaveBeenCalledWith(overviewError);
+    controller.cancel();
+  });
 });
 
 const createController = (
@@ -123,6 +234,7 @@ const createController = (
   context: () => ({
     mounted: true,
     session,
+    overview,
     selectedInstanceId: "server:A",
     wizardOpen: false,
     auditEntries: [],
@@ -155,3 +267,10 @@ const deferred = <T>() => {
   });
   return { promise, resolve };
 };
+
+const rejectOnAbort = <T>(promise: Promise<T>, signal: AbortSignal): Promise<T> => new Promise<T>((resolve, reject) => {
+  const abort = (): void => reject(new DOMException("Request aborted", "AbortError"));
+  if (signal.aborted) return abort();
+  signal.addEventListener("abort", abort, { once: true });
+  void promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
+});

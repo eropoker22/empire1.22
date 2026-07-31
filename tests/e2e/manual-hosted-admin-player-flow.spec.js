@@ -113,7 +113,7 @@ test("owner creates a server and players prove exact hosted state through visibl
     );
     safeTrace.persistedStartingPlayerState = readyServer.startingPlayerState;
     expect(readyServer.startingPlayerState).toEqual(startingPlayerState);
-    await refreshAdmin(adminPage);
+    await refreshAdmin(adminPage, serverInstanceId);
     await expect(adminPage.locator("[data-admin-starting-state]")).toBeVisible();
     await expect(adminPage.locator("[data-admin-starting-state]"))
       .toContainText("Starting state uložený na serveru");
@@ -186,7 +186,7 @@ test("owner creates a server and players prove exact hosted state through visibl
       (client) => client.serverInstanceId === serverInstanceId
     )).toBe(true);
 
-    await refreshAdmin(adminPage);
+    await refreshAdmin(adminPage, serverInstanceId);
     await expect(adminPage.locator(".admin-start-readiness")).toContainText(
       `${manualServerCapacity} / ${created.response.server.minimumReadyPlayersToStart}`
     );
@@ -287,7 +287,7 @@ test("owner creates a server and players prove exact hosted state through visibl
       await expectHostedUiParityClean(client.page, client.diagnostics);
     }
 
-    await refreshAdmin(adminPage);
+    await refreshAdmin(adminPage, serverInstanceId);
     await requestAdminAction(
       adminPage,
       "delete",
@@ -561,13 +561,29 @@ async function requestAdminAction(page, action, reason, confirmationText = "") {
   expect(response.status()).toBe(202);
 }
 
-async function refreshAdmin(page) {
-  const responsePromise = page.waitForResponse((response) => (
-    new URL(response.url()).pathname.startsWith("/api/admin/control-plane")
+async function refreshAdmin(page, serverInstanceId) {
+  const refreshButton = page.locator("[data-admin-refresh]");
+  await expect(refreshButton).toBeEnabled({ timeout: 30_000 });
+  const selectedControlPlanePath = `/api/admin/control-plane/instances/${encodeURIComponent(
+    serverInstanceId
+  )}`;
+  const selectedDetailPath = `/api/admin/instances/${encodeURIComponent(
+    serverInstanceId
+  )}`;
+  const selectedControlPlaneResponse = page.waitForResponse((response) => (
+    new URL(response.url()).pathname === selectedControlPlanePath
     && response.request().method() === "GET"
+    && response.ok()
   ), { timeout: 30_000 });
-  await page.locator("[data-admin-refresh]").click();
-  await responsePromise;
+  const selectedDetailResponse = page.waitForResponse((response) => (
+    new URL(response.url()).pathname === selectedDetailPath
+    && response.request().method() === "GET"
+    && response.ok()
+  ), { timeout: 30_000 });
+  await refreshButton.click();
+  await Promise.all([selectedControlPlaneResponse, selectedDetailResponse]);
+  await expect(page.locator("[data-admin-refresh-state]"))
+    .not.toHaveAttribute("data-state", "loading", { timeout: 30_000 });
 }
 
 async function waitForAdminServer(page, serverInstanceId, predicate) {

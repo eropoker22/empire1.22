@@ -41275,12 +41275,17 @@
   const createAdminRefreshController = (options) => {
     let requestSequence = 0;
     let activeRequest = null;
+    let activeRequestInstanceId;
     let timer = null;
     let backoff = options.pollInterval;
     let refreshLoop = null;
     let refreshRequested = false;
     let auditRequested = false;
     const refresh = (includeAudit = false) => {
+      const requestedInstanceId = options.context().selectedInstanceId;
+      if (activeRequest && activeRequestInstanceId !== requestedInstanceId) {
+        activeRequest.abort();
+      }
       refreshRequested = true;
       auditRequested = auditRequested || includeAudit;
       refreshLoop ?? (refreshLoop = drainRefreshRequests().finally(() => {
@@ -41310,10 +41315,18 @@
       const sequence = ++requestSequence;
       const request2 = new AbortController();
       activeRequest = request2;
+      activeRequestInstanceId = context.selectedInstanceId;
       options.onStatus("loading");
       try {
         const requestedInstanceId = context.selectedInstanceId;
-        const overview = await options.client.getOverview(request2.signal);
+        let overview = context.overview;
+        let overviewError = null;
+        try {
+          overview = await options.client.getOverview(request2.signal);
+        } catch (error) {
+          if (!overview || isSessionError(error) || isAbortError(error)) throw error;
+          overviewError = error;
+        }
         const controlPlane = await options.client.getControlPlane(
           request2.signal,
           requestedInstanceId
@@ -41333,6 +41346,7 @@
           refreshedAt: (/* @__PURE__ */ new Date()).toISOString()
         });
         options.syncClock(controlPlane.generatedAt);
+        if (overviewError) throw overviewError;
         backoff = options.pollInterval;
         options.onStatus("current");
         options.render();
@@ -41344,7 +41358,10 @@
         options.onError(error);
         if (options.context().session) schedule(backoff);
       } finally {
-        if (activeRequest === request2) activeRequest = null;
+        if (activeRequest === request2) {
+          activeRequest = null;
+          activeRequestInstanceId = void 0;
+        }
       }
     };
     const loadAudit = async (context, force, signal) => {
@@ -41373,6 +41390,7 @@
       auditRequested = false;
       activeRequest == null ? void 0 : activeRequest.abort();
       activeRequest = null;
+      activeRequestInstanceId = void 0;
       clearSchedule();
     };
     const pause = () => {
@@ -42578,7 +42596,7 @@
       client,
       pollInterval,
       maxBackoff: ADMIN_MAX_BACKOFF_MS,
-      context: () => ({ mounted, session, selectedInstanceId, wizardOpen, auditEntries, auditError }),
+      context: () => ({ mounted, session, overview, selectedInstanceId, wizardOpen, auditEntries, auditError }),
       apply: (result) => {
         overview = result.overview;
         detail = result.detail;

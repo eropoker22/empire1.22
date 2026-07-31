@@ -124,7 +124,9 @@ describe("read-only admin app", () => {
   it("does not let a late response from the previous selection overwrite the current detail", async () => {
     const pendingA = deferred<AdminInstanceDetailView>();
     const client = createClient();
-    client.getInstance = vi.fn((id: string) => id === "server:A" ? pendingA.promise : Promise.resolve(detail(id)));
+    client.getInstance = vi.fn((id: string, signal?: AbortSignal) => id === "server:A"
+      ? rejectOnAbort(pendingA.promise, signal)
+      : Promise.resolve(detail(id)));
     await createAdminApp({ client, pollIntervalMs: 60_000 }).mount();
     document.querySelector<HTMLElement>(`[data-admin-instance="server:A"]`)!.click();
     document.querySelector<HTMLElement>(`[data-admin-instance="server:B"]`)!.click();
@@ -875,6 +877,13 @@ const deferred = <T>() => {
   const promise = new Promise<T>((done) => { resolve = done; });
   return { promise, resolve };
 };
+
+const rejectOnAbort = <T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> => new Promise<T>((resolve, reject) => {
+  const abort = (): void => reject(new DOMException("Request aborted", "AbortError"));
+  if (signal?.aborted) return abort();
+  signal?.addEventListener("abort", abort, { once: true });
+  void promise.then(resolve, reject).finally(() => signal?.removeEventListener("abort", abort));
+});
 
 const hostedServer = (overrides: Partial<AdminHostedServerView> = {}): AdminHostedServerView => ({
   serverInstanceId: "server:ready", displayName: "Ready", mode: "free", serverTemplate: "full", region: "eu-central", capacity: 20,
