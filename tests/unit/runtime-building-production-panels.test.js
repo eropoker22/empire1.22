@@ -1521,40 +1521,50 @@ describe("building detail, production and recipe UI modules", () => {
     const document = setupDocument();
     const mount = document.createElement("div");
     const card = renderRecipeCard({
+      buildingId: "building:district-1:armory:1",
       buildingName: "armory",
       recipeId: "pistol",
-      tickRateMs: 4000,
+      recipe: {
+        name: "Pistole",
+        inputs: { "metal-parts": 3, "tech-core": 1 },
+        output: { inventory: "weapons", itemId: "pistol", amount: 1 },
+        durationMs: 300000
+      },
       visual: PRODUCTION_SLOT_VISUALS.armory.pistol,
-      serverLine: {
-        recipeId: "pistol",
-        category: "attack",
-        label: "Pistole",
+      armoryStrengthPreview: { label: "Síla útoku", basePower: 4, bonusLabel: "+0.4" },
+      job: {
+        status: "running",
+        isProducing: true,
         producedAmount: 2,
-        producedCapacity: 5,
-        playerStoredAmount: 7,
-        playerStoredCapacity: 24,
         queuedAmount: 3,
-        queueCapacity: 4,
         activeAmount: 1,
         waitingAmount: 2,
-        inputAvailability: [
-          { resourceKey: "metal-parts", label: "Metal Parts", requiredAmount: 3, availableAmount: 12 },
-          { resourceKey: "tech-core", label: "Tech Core", requiredAmount: 1, availableAmount: 4 }
-        ],
-        effectiveUnitDurationTicks: 75,
-        remainingMs: 120000,
-        status: "processing",
-        canStart: true,
-        canCancelWaiting: true,
-        maxStartQuantity: 2,
-        disabledReason: null
-      }
-    }, {}, { mount });
+        durationMs: 300000,
+        output: { inventory: "weapons", itemId: "pistol", amount: 1 }
+      },
+      slotState: { label: "Výroba", isActive: true },
+      outputInventoryAmount: 7,
+      outputInventoryCapacity: 24,
+      outputCap: 5,
+      queueCap: 4,
+      inputAmounts: { "metal-parts": 12, "tech-core": 4 },
+      canStart: true,
+      canCancelWaiting: true,
+      maxBatches: 2,
+      maxSelectableBatches: 2
+    }, {}, {
+      mount,
+      getResourceLabel: (resourceKey) => ({ "metal-parts": "Metal Parts", "tech-core": "Tech Core" })[resourceKey]
+    });
 
     expect(card.className).toContain("armory-slot--attack");
+    expect(card.querySelector(".armory-slot__head")).not.toBe(null);
+    expect(card.querySelector(".armory-slot__strength").children.map((child) => child.textContent).join(""))
+      .toBe("Síla útoku 4 (+0.4)");
     expect(findMetricValue(card, "Vyrobeno")).toBe("2/5 ks");
     expect(findMetricValue(card, "Ve skladu")).toBe("7/24 ks");
     expect(findMetricValue(card, "Ve frontě")).toBe("3/4 ks");
+    expect(card.querySelector(".drug-production-slot__metric--supplies").children[0].textContent).toBe("Materiál");
     expect(card.querySelectorAll(".armory-slot__material-value").map((item) => item.textContent)).toEqual(["3/12", "1/4"]);
     expect(card.querySelectorAll(".drug-production-slot__supply-pill")).toHaveLength(0);
     expect(card.querySelector(".drug-production-slot__state").textContent).toBe("Výroba");
@@ -1564,35 +1574,39 @@ describe("building detail, production and recipe UI modules", () => {
     const document = setupDocument();
     const mount = document.createElement("div");
     const card = renderRecipeCard({
+      buildingId: "building:district-1:armory:1",
       buildingName: "armory",
       recipeId: "smg",
-      tickRateMs: 4000,
+      recipe: {
+        name: "SMG",
+        inputs: { "metal-parts": 2, "combat-module": 1 },
+        output: { inventory: "weapons", itemId: "smg", amount: 1 },
+        durationMs: 480000
+      },
       visual: PRODUCTION_SLOT_VISUALS.armory.smg,
-      serverLine: {
-        recipeId: "smg",
-        category: "attack",
-        label: "SMG",
+      job: {
+        status: "ready",
         producedAmount: 0,
-        producedCapacity: 3,
-        playerStoredAmount: 0,
-        playerStoredCapacity: 8,
         queuedAmount: 0,
-        queueCapacity: 3,
         activeAmount: 0,
         waitingAmount: 0,
-        inputAvailability: [
-          { resourceKey: "metal-parts", label: "Metal Parts", requiredPerUnit: 2, playerStoredAmount: 8, hasEnough: true, requiredForSelectedQuantity: 2 },
-          { resourceKey: "combat-module", label: "Combat Module", requiredPerUnit: 1, playerStoredAmount: 3, hasEnough: true, requiredForSelectedQuantity: 1 }
-        ],
-        effectiveUnitDurationTicks: 120,
-        remainingMs: 0,
-        status: "ready",
-        canStart: true,
-        canCancelWaiting: false,
-        maxStartQuantity: 3,
-        disabledReason: null
-      }
-    }, {}, { mount });
+        durationMs: 480000,
+        output: { inventory: "weapons", itemId: "smg", amount: 1 }
+      },
+      slotState: { label: "Připraveno", isActive: false },
+      outputInventoryAmount: 0,
+      outputInventoryCapacity: 8,
+      outputCap: 3,
+      queueCap: 3,
+      inputAmounts: { "metal-parts": 8, "combat-module": 3 },
+      canStart: true,
+      canCancelWaiting: false,
+      maxBatches: 3,
+      maxSelectableBatches: 3
+    }, {}, {
+      mount,
+      getResourceLabel: (resourceKey) => ({ "metal-parts": "Metal Parts", "combat-module": "Combat Module" })[resourceKey]
+    });
 
     expect(card.querySelectorAll(".armory-slot__material-pill")).toHaveLength(2);
     expect(card.querySelectorAll(".armory-slot__material-name").map((item) => item.textContent)).toEqual(["Metal Parts", "Combat Module"]);
@@ -1723,6 +1737,59 @@ describe("building detail, production and recipe UI modules", () => {
     }));
   });
 
+  it("preserves canonical recipe quantity by physical building and recipe", () => {
+    const document = setupDocument();
+    const mount = document.createElement("div");
+    const onStart = vi.fn();
+    const render = (buildingId, recipeId = "chemicals") => renderRecipeCard({
+      buildingId,
+      buildingName: "pharmacy",
+      recipeId,
+      recipe: {
+        name: recipeId,
+        cleanMoneyCost: 100,
+        inputs: {},
+        output: { inventory: "materials", itemId: recipeId, amount: 1 },
+        durationMs: 1000
+      },
+      job: { status: "ready", queuedAmount: 0, producedAmount: 0 },
+      outputCap: 12,
+      queueCap: 8,
+      maxBatches: 4,
+      maxSelectableBatches: 4,
+      canStart: true,
+      canCancelWaiting: false
+    }, { onStart }, { mount });
+
+    const firstCard = render("building:district-1:pharmacy:1");
+    firstCard.querySelectorAll(".pharmacy-slot__quantity-btn")[1].click();
+    expect(firstCard.querySelector(".pharmacy-slot__quantity-value").textContent).toBe("2");
+
+    mount.replaceChildren();
+    expect(render("building:district-1:pharmacy:1").querySelector(".pharmacy-slot__quantity-value").textContent).toBe("2");
+
+    mount.replaceChildren();
+    const siblingRecipeCard = render("building:district-1:pharmacy:1", "biomass");
+    expect(siblingRecipeCard.querySelector(".pharmacy-slot__quantity-value").textContent).toBe("1");
+    siblingRecipeCard.querySelectorAll(".pharmacy-slot__quantity-btn")[1].click();
+    expect(siblingRecipeCard.querySelector(".pharmacy-slot__quantity-value").textContent).toBe("2");
+
+    mount.replaceChildren();
+    expect(render("building:district-2:pharmacy:1").querySelector(".pharmacy-slot__quantity-value").textContent).toBe("1");
+
+    mount.replaceChildren();
+    const restoredCard = render("building:district-1:pharmacy:1");
+    expect(restoredCard.querySelector(".pharmacy-slot__quantity-value").textContent).toBe("2");
+    restoredCard.querySelector(".pharmacy-slot__btn--start").click();
+    expect(onStart).toHaveBeenCalledWith(expect.objectContaining({ batchCount: 2 }));
+
+    mount.replaceChildren();
+    expect(render("building:district-1:pharmacy:1").querySelector(".pharmacy-slot__quantity-value").textContent).toBe("1");
+
+    mount.replaceChildren();
+    expect(render("building:district-1:pharmacy:1", "biomass").querySelector(".pharmacy-slot__quantity-value").textContent).toBe("2");
+  });
+
   it("enables Pharmacy cancel only when a running line has a waiting unit", () => {
     const document = setupDocument();
     const mount = document.createElement("div");
@@ -1754,6 +1821,44 @@ describe("building detail, production and recipe UI modules", () => {
     cancelButton.click();
 
     expect(onStop).toHaveBeenCalledOnce();
+  });
+
+  it("keeps authoritative Pharmacy cancellation disabled despite queued display state", () => {
+    const document = setupDocument();
+    const mount = document.createElement("div");
+    const card = renderRecipeCard({
+      buildingId: "building:district-1:pharmacy:1",
+      buildingName: "pharmacy",
+      recipeId: "chemicals",
+      recipe: {
+        name: "Chemicals",
+        cleanMoneyCost: 360,
+        inputs: {},
+        output: { inventory: "materials", itemId: "chemicals", amount: 1 },
+        durationMs: 1000
+      },
+      job: {
+        status: "running",
+        isProducing: true,
+        activeAmount: 1,
+        waitingAmount: 3,
+        queuedAmount: 4,
+        producedAmount: 13,
+        output: { inventory: "materials", itemId: "chemicals", amount: 1 }
+      },
+      slotState: { label: "Plná kapacita", isActive: true },
+      outputCap: 12,
+      queueCap: 8,
+      maxBatches: 0,
+      maxSelectableBatches: 0,
+      canStart: false,
+      canCancelWaiting: false
+    }, {}, { mount });
+
+    expect(findMetricValue(card, "Vyrobeno")).toBe("13/12 ks");
+    expect(card.querySelector(".pharmacy-slot__state").textContent).toBe("Plná kapacita");
+    expect(card.querySelector(".pharmacy-slot__btn--start").disabled).toBe(true);
+    expect(card.querySelector(".pharmacy-slot__btn--stop").disabled).toBe(true);
   });
 
   it("allows adding more quantity while recipe production is already running", () => {

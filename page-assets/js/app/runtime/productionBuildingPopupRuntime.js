@@ -44,6 +44,93 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       ? production.lines
       : [];
 
+  const serverProductionStatusLabels = Object.freeze({
+    ready: "Připraveno",
+    processing: "Výroba",
+    waiting: "Čeká",
+    full: "Plná kapacita",
+    over_capacity: "Překročená kapacita",
+    completed: "Hotovo"
+  });
+
+  const getServerProductionRecipe = (buildingName, recipes, line) => {
+    const configuredRecipe = recipes?.[line.recipeId] || {};
+    const inputAvailability = Array.isArray(line.inputAvailability) ? line.inputAvailability : [];
+    const inputs = Object.fromEntries(inputAvailability.map((input) => [
+      input.resourceKey,
+      Math.max(0, Number(input.requiredPerUnit ?? input.requiredAmount ?? 0))
+    ]));
+    const tickRateMs = Math.max(1, Number(deps.getServerTickRateMs?.() || FREE_GAMEPLAY_TICK_MS));
+    const effectiveDurationMs = Math.max(1000, Number(line.effectiveUnitDurationTicks || 0) * tickRateMs);
+    const outputInventory = configuredRecipe.output?.inventory
+      || (buildingName === "pharmacy" ? "materials" : buildingName === "armory" ? "weapons" : "drugs");
+    return {
+      ...configuredRecipe,
+      name: String(line.label || configuredRecipe.name || ""),
+      inputs,
+      cleanMoneyCost: Math.max(0, Number(line.unitCleanCashCost || 0)),
+      durationMs: effectiveDurationMs,
+      localOutputCap: Math.max(0, Number(line.producedCapacity || 0)),
+      queueCap: Math.max(0, Number(line.queueCapacity || 0)),
+      output: {
+        ...configuredRecipe.output,
+        inventory: outputInventory,
+        itemId: String(line.resourceKey || configuredRecipe.output?.itemId || line.recipeId || ""),
+        amount: 1
+      }
+    };
+  };
+
+  const getServerProductionRecipeViewModel = (root, buildingName, building, line, recipes) => {
+    const recipe = getServerProductionRecipe(buildingName, recipes, line);
+    const tickRateMs = Math.max(1, Number(deps.getServerTickRateMs?.() || FREE_GAMEPLAY_TICK_MS));
+    const effectiveDurationMs = Math.max(1000, Number(line.effectiveUnitDurationTicks || 0) * tickRateMs);
+    const isProducing = Number(line.activeAmount || 0) > 0 || line.status === "processing";
+    const remainingMs = Math.max(0, Number(line.remainingMs || 0));
+    const inputAmounts = Object.fromEntries((Array.isArray(line.inputAvailability) ? line.inputAvailability : []).map((input) => [
+      input.resourceKey,
+      Math.max(0, Number(input.playerStoredAmount ?? input.availableAmount ?? 0))
+    ]));
+    const maxStartQuantity = Math.max(0, Math.floor(Number(line.maxStartQuantity || 0)));
+    return {
+      root,
+      buildingId: String(building.buildingId || ""),
+      buildingName,
+      recipeId: String(line.recipeId || ""),
+      recipe,
+      job: {
+        status: isProducing ? "running" : "ready",
+        isProducing,
+        activeAmount: Math.max(0, Number(line.activeAmount || 0)),
+        waitingAmount: Math.max(0, Number(line.waitingAmount || 0)),
+        queuedAmount: Math.max(0, Number(line.queuedAmount || 0)),
+        producedAmount: Math.max(0, Number(line.producedAmount || 0)),
+        durationMs: effectiveDurationMs,
+        readyAtMs: isProducing ? Date.now() + remainingMs : null,
+        output: recipe.output
+      },
+      effectiveDurationMs,
+      slotState: {
+        label: serverProductionStatusLabels[line.status] || "Připraveno",
+        isActive: line.status !== "ready"
+      },
+      outputInventoryAmount: Math.max(0, Number(line.playerStoredAmount || 0)),
+      outputInventoryCapacity: Math.max(0, Number(line.playerStoredCapacity || 0)),
+      outputCap: Math.max(0, Number(line.producedCapacity || 0)),
+      queueCap: Math.max(0, Number(line.queueCapacity || 0)),
+      visual: deps.PRODUCTION_SLOT_VISUALS?.[buildingName]?.[line.recipeId] || null,
+      armoryStrengthPreview: buildingName === "armory"
+        ? deps.getArmoryRecipeStrengthPreview?.(line.recipeId, recipe) || null
+        : null,
+      inputAmounts,
+      canStart: line.canStart === true,
+      canCancelWaiting: line.canCancelWaiting === true,
+      maxBatches: maxStartQuantity,
+      maxSelectableBatches: maxStartQuantity,
+      allowStartWithMissingInputs: false
+    };
+  };
+
   const createServerLoadingCard = (mount, label) => {
     const card = documentRef?.createElement?.("article");
     if (!card) {
@@ -420,21 +507,8 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     return card;
   };
 
-  const createServerPharmacyCard = (root, pharmacy, line, rerender) => {
-    const recipe = {
-      name: line.label,
-      cleanMoneyCost: line.unitCleanCashCost,
-      output: { itemId: line.resourceKey, amount: 1 }
-    };
-    return deps.renderRecipeCard?.({
-      root,
-      buildingName: "pharmacy",
-      recipeId: line.recipeId,
-      recipe,
-      serverLine: line,
-      tickRateMs: deps.getServerTickRateMs?.() || FREE_GAMEPLAY_TICK_MS,
-      visual: deps.PRODUCTION_SLOT_VISUALS?.pharmacy?.[line.recipeId] || null
-    }, {
+  const createServerPharmacyCard = (root, pharmacy, line, recipes, rerender) => {
+    return deps.renderRecipeCard?.(getServerProductionRecipeViewModel(root, "pharmacy", pharmacy, line, recipes), {
       onStart: async ({ batchCount }) => {
         const response = await deps.submitServerPharmacyCommand?.({
           type: "craft-item",
@@ -464,26 +538,13 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       mount: root,
       formatCurrency: deps.formatCurrency,
       formatDurationLabel: deps.formatDurationLabel,
-      selectionScopeKey: pharmacy.buildingId
+      getResourceLabel: deps.getProductionResourceLabel,
+      normalizeResourceColorKey: deps.normalizeProductionResourceColorKey
     });
   };
 
-  const createServerDrugLabCard = (root, drugLab, line, rerender) => {
-    const recipe = {
-      name: line.label,
-      cleanMoneyCost: line.unitCleanCashCost,
-      output: { itemId: line.resourceKey, amount: 1 }
-    };
-    return deps.renderRecipeCard?.({
-      root,
-      buildingName: "druglab",
-      recipeId: line.recipeId,
-      recipe,
-      serverLine: line,
-      cleanCashAmount: drugLab.cleanCashAmount,
-      tickRateMs: deps.getServerTickRateMs?.() || FREE_GAMEPLAY_TICK_MS,
-      visual: deps.PRODUCTION_SLOT_VISUALS?.druglab?.[line.recipeId] || null
-    }, {
+  const createServerDrugLabCard = (root, drugLab, line, recipes, rerender) => {
+    return deps.renderRecipeCard?.(getServerProductionRecipeViewModel(root, "druglab", drugLab, line, recipes), {
       onStart: async ({ batchCount }) => {
         const response = await deps.submitServerDrugLabCommand?.({
           type: "craft-item",
@@ -513,25 +574,13 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       mount: root,
       formatCurrency: deps.formatCurrency,
       formatDurationLabel: deps.formatDurationLabel,
-      selectionScopeKey: drugLab.buildingId
+      getResourceLabel: deps.getProductionResourceLabel,
+      normalizeResourceColorKey: deps.normalizeProductionResourceColorKey
     });
   };
 
-  const createServerArmoryCard = (root, armory, line, rerender) => {
-    const recipe = {
-      name: line.label,
-      cleanMoneyCost: 0,
-      output: { itemId: line.resourceKey, amount: 1 }
-    };
-    return deps.renderRecipeCard?.({
-      root,
-      buildingName: "armory",
-      recipeId: line.recipeId,
-      recipe,
-      serverLine: line,
-      tickRateMs: deps.getServerTickRateMs?.() || FREE_GAMEPLAY_TICK_MS,
-      visual: deps.PRODUCTION_SLOT_VISUALS?.armory?.[line.recipeId] || null
-    }, {
+  const createServerArmoryCard = (root, armory, line, recipes, rerender) => {
+    return deps.renderRecipeCard?.(getServerProductionRecipeViewModel(root, "armory", armory, line, recipes), {
       onStart: async ({ batchCount }) => {
         const response = await deps.submitServerArmoryCommand?.({
           type: "craft-item",
@@ -561,7 +610,8 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       mount: root,
       formatCurrency: deps.formatCurrency,
       formatDurationLabel: deps.formatDurationLabel,
-      selectionScopeKey: armory.buildingId
+      getResourceLabel: deps.getProductionResourceLabel,
+      normalizeResourceColorKey: deps.normalizeProductionResourceColorKey
     });
   };
 
@@ -615,10 +665,10 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         mount,
         recipes: getServerLines(serverProduction).map((line) => ({
           prebuiltCard: serverArmory
-            ? createServerArmoryCard(root, serverArmory, line, safeRerender)
+            ? createServerArmoryCard(root, serverArmory, line, recipes, safeRerender)
             : serverDrugLab
-            ? createServerDrugLabCard(root, serverDrugLab, line, safeRerender)
-            : createServerPharmacyCard(root, serverPharmacy, line, safeRerender)
+            ? createServerDrugLabCard(root, serverDrugLab, line, recipes, safeRerender)
+            : createServerPharmacyCard(root, serverPharmacy, line, recipes, safeRerender)
         }))
       }, {}, { mount });
     }

@@ -10,6 +10,8 @@ const appSource = () => read("page-assets/js/app.js");
 const renderUiSource = () => read("page-assets/js/app/render-ui.js");
 const localDemoAdapterSource = () => read("page-assets/js/app/runtime/localDemoLegacyBootstrap.js");
 const runtimeSource = () => read("page-assets/js/app/runtime.js");
+const productionBuildingPopupRuntimeSource = () => read("page-assets/js/app/runtime/productionBuildingPopupRuntime.js");
+const recipePanelSource = () => read("page-assets/js/app/ui/recipePanel.js");
 const serverCommandAuthorityGuardSource = () => read("page-assets/js/app/runtime/serverCommandAuthorityGuard.js");
 
 describe("runtime refactor guard", () => {
@@ -23,6 +25,18 @@ describe("runtime refactor guard", () => {
     expect(appSource()).not.toContain("render-ui.js");
     expect(renderUiSource()).toContain('from "./runtime/localDemoLegacyBootstrap.js"');
     expect(localDemoAdapterSource()).toMatch(/from "\.\.\/runtime\.js"/u);
+  });
+
+  it("keeps active authoritative recipe cards on the canonical renderer", () => {
+    const productionSource = productionBuildingPopupRuntimeSource();
+    const recipeSource = recipePanelSource();
+
+    expect(productionSource).toContain("getServerProductionRecipeViewModel");
+    expect(productionSource).toContain("buildingId: String(building.buildingId");
+    expect(productionSource).not.toContain("serverLine: line");
+    expect(recipeSource).not.toContain("serverPharmacyRecipeCard.js");
+    expect(recipeSource).not.toContain("serverDrugLabRecipeCard.js");
+    expect(recipeSource).not.toContain("viewModel.serverLine");
   });
 
   it("does not introduce inline HTML event handlers for the game shell", () => {

@@ -297,6 +297,12 @@ function getArmorySlotRole(recipeId = "", recipe = {}) {
     : "attack";
 }
 
+function getRecipeQuantitySelectionKey(viewModel = {}, options = {}) {
+  const buildingId = String(viewModel.buildingId || options.selectionScopeKey || "").trim();
+  const recipeId = String(viewModel.recipeId || viewModel.recipe?.output?.itemId || "").trim();
+  return buildingId && recipeId ? `${buildingId}:${recipeId}` : "";
+}
+
 function createArmoryStrengthLabel(scopeElement, preview = null) {
   if (!preview || !preview.label || !Number.isFinite(Number(preview.basePower))) {
     return null;
@@ -328,14 +334,17 @@ function renderQuantityControl(viewModel = {}, callbacks = {}, options = {}) {
   const onQuantityRefresh = typeof options.onQuantityRefresh === "function" ? options.onQuantityRefresh : null;
   const extraClass = String(options.extraClass || "");
   const canTryStartWithoutInputs = Boolean(viewModel.allowStartWithMissingInputs);
+  const selectionKey = getRecipeQuantitySelectionKey(viewModel, options);
 
-  let selectedBatches = 1;
+  let selectedBatches = selectionKey
+    ? readProductionQuantitySelection(options.mount, selectionKey)
+    : 1;
   const control = createElement(options.mount, "div", `armory-slot__quantity${extraClass ? ` ${extraClass}` : ""}`);
   const minusButton = createElement(options.mount, "button", `armory-slot__quantity-btn${extraClass ? ` ${extraClass}-btn` : ""}`);
   const plusButton = createElement(options.mount, "button", `armory-slot__quantity-btn${extraClass ? ` ${extraClass}-btn` : ""}`);
   const quantityValue = createElement(options.mount, "strong", `armory-slot__quantity-value${extraClass ? ` ${extraClass}-value` : ""}`);
   if (!control || !minusButton || !plusButton || !quantityValue) {
-    return { control: null, getStartBatchCount: () => 1, refresh: () => {} };
+    return { control: null, clearSelection: () => false, getStartBatchCount: () => 1, refresh: () => {} };
   }
 
   minusButton.type = "button";
@@ -358,6 +367,9 @@ function renderQuantityControl(viewModel = {}, callbacks = {}, options = {}) {
     const outputAmount = useQuantityAsOutput ? 1 : Math.max(1, Number(recipe.output?.amount || 1));
     const canQueueMore = !job || job.status === "running" || job.status === "ready";
     selectedBatches = Math.max(1, Math.min(Math.max(1, selectedBatches), selectionLimit));
+    if (selectionKey) {
+      writeProductionQuantitySelection(options.mount, selectionKey, selectedBatches);
+    }
     const visibleBatches = canQueueMore ? selectedBatches : Math.max(1, Math.ceil(getQueuedOutputAmount(job, recipe, { useQuantityAsOutput }) / outputAmount));
     quantityValue.textContent = String(job && !canQueueMore && resetQuantityOnJob ? 0 : visibleBatches);
     minusButton.disabled = !canQueueMore || selectedBatches <= 1;
@@ -392,7 +404,14 @@ function renderQuantityControl(viewModel = {}, callbacks = {}, options = {}) {
     bindMetricCountdown(timeMetric, () => formatRecipeSlotTime(job, effectiveDurationMs, selectedBatches, options, viewModel.durationBonusLabel), options);
   }
 
-  return { control, getStartBatchCount: () => selectedBatches, refresh };
+  return {
+    control,
+    clearSelection: () => selectionKey
+      ? clearProductionQuantitySelection(options.mount, selectionKey)
+      : false,
+    getStartBatchCount: () => selectedBatches,
+    refresh
+  };
 }
 
 export function renderRecipeRequirements(recipe = {}, inventory = {}, options = {}) {
@@ -426,12 +445,6 @@ export function renderCraftButton(recipe = {}, callbacks = {}, options = {}) {
 }
 
 export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
-  if (viewModel.buildingName === "pharmacy" && viewModel.serverLine) {
-    return renderServerPharmacyRecipeCard(viewModel, callbacks, options);
-  }
-  if ((viewModel.buildingName === "druglab" || viewModel.buildingName === "armory") && viewModel.serverLine) {
-    return renderServerDrugLabRecipeCard(viewModel, callbacks, options);
-  }
   const recipe = viewModel.recipe || {};
   const job = viewModel.job || null;
   const buildingName = String(viewModel.buildingName || "");
@@ -449,6 +462,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
   }
 
   let getStartBatchCount = () => 1;
+  let clearQuantitySelection = () => false;
   let refreshQuantityControl = () => {};
   card.dataset.resourceColor = normalizeResourceColor(recipe.output?.itemId || recipeId, options);
 
@@ -480,6 +494,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     ]);
     const quantityControl = renderQuantityControl(viewModel, callbacks, { ...options, startButton, timeMetric, queueMetric, effectiveDurationMs, costMetric, resetQuantityOnJob: true, useQuantityAsOutput: true, extraClass: "pharmacy-slot__quantity" });
     getStartBatchCount = quantityControl.getStartBatchCount;
+    clearQuantitySelection = quantityControl.clearSelection;
     refreshQuantityControl = quantityControl.refresh;
     startButton.className = "button pharmacy-slot__btn pharmacy-slot__btn--start";
     collectButton.className = "button pharmacy-slot__btn pharmacy-slot__btn--stop";
@@ -558,6 +573,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
       }
     });
     getStartBatchCount = quantityControl.getStartBatchCount;
+    clearQuantitySelection = quantityControl.clearSelection;
     refreshQuantityControl = quantityControl.refresh;
     startButton.className = "button drug-lab-mini-btn";
     collectButton.className = "button drug-lab-mini-btn";
@@ -581,7 +597,9 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     : "Spustit výrobu.";
   startButton.addEventListener("click", () => {
     if (typeof callbacks.onStart === "function") {
-      callbacks.onStart({ ...viewModel, batchCount: Math.max(1, getStartBatchCount()) });
+      const batchCount = Math.max(1, getStartBatchCount());
+      clearQuantitySelection();
+      callbacks.onStart({ ...viewModel, batchCount });
     }
   });
   refreshQuantityControl();
@@ -594,7 +612,10 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     const waitingAmount = legacyReady
       ? 0
       : Math.max(0, Math.floor(Number(job?.queuedAmount ?? job?.quantity ?? 0)) - activeAmount);
-    collectButton.disabled = waitingAmount <= 0;
+    const canCancelWaiting = typeof viewModel.canCancelWaiting === "boolean"
+      ? viewModel.canCancelWaiting
+      : waitingAmount > 0;
+    collectButton.disabled = !canCancelWaiting;
     collectButton.title = collectButton.disabled
       ? "Není co zrušit: aktivní kus nelze zrušit."
       : "Zrušit čekající kusy a vrátit jejich náklady.";
@@ -641,6 +662,9 @@ if (typeof window !== "undefined") {
     renderCraftButton
   };
 }
-import { renderServerPharmacyRecipeCard } from "./serverPharmacyRecipeCard.js";
-import { renderServerDrugLabRecipeCard } from "./serverDrugLabRecipeCard.js";
 import { bindSharedCountdown, getSharedCountdownDiagnostics } from "./sharedCountdownTicker.js";
+import {
+  clearProductionQuantitySelection,
+  readProductionQuantitySelection,
+  writeProductionQuantitySelection
+} from "./productionQuantitySelection.js";

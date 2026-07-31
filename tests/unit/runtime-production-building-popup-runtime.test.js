@@ -199,9 +199,23 @@ describe("production building popup runtime", () => {
 
   it("renders Armory lines from the server model and submits generic production commands", async () => {
     let callbacks = {};
+    let renderedViewModel = null;
+    let renderedOptions = null;
     const submitServerArmoryCommand = vi.fn(async () => ({ errors: [] }));
-    const renderRecipeCard = vi.fn((_viewModel, nextCallbacks) => {
+    const getArmoryRecipeStrengthPreview = vi.fn(() => ({
+      label: "Síla útoku",
+      basePower: 4,
+      bonusPower: 0.4,
+      bonusLabel: "+0.4"
+    }));
+    const getProductionResourceLabel = vi.fn((resourceKey) => ({
+      "metal-parts": "Metal Parts",
+      "tech-core": "Tech Core"
+    })[resourceKey] || resourceKey);
+    const renderRecipeCard = vi.fn((viewModel, nextCallbacks, options) => {
       callbacks = nextCallbacks;
+      renderedViewModel = viewModel;
+      renderedOptions = options;
       return {};
     });
     const runtime = createProductionBuildingPopupRuntime({
@@ -215,14 +229,31 @@ describe("production building popup runtime", () => {
           category: "attack",
           resourceKey: "pistol",
           label: "Pistole",
+          producedAmount: 2,
+          producedCapacity: 5,
+          playerStoredAmount: 7,
+          playerStoredCapacity: 24,
+          queuedAmount: 3,
+          queueCapacity: 4,
+          activeAmount: 1,
+          waitingAmount: 2,
           unitCleanCashCost: 0,
-          inputAvailability: [],
+          inputAvailability: [
+            { resourceKey: "metal-parts", label: "Metal Parts", requiredAmount: 3, availableAmount: 12 },
+            { resourceKey: "tech-core", label: "Tech Core", requiredAmount: 1, availableAmount: 4 }
+          ],
+          effectiveUnitDurationTicks: 75,
+          remainingMs: 120000,
+          status: "processing",
           maxStartQuantity: 2,
           canStart: true,
           canCancelWaiting: true
         }]
       }),
+      getArmoryRecipeStrengthPreview,
+      getProductionResourceLabel,
       getServerTickRateMs: () => 4000,
+      normalizeProductionResourceColorKey: (resourceKey) => `color:${resourceKey}`,
       renderProductionPanelUi: vi.fn(() => true),
       renderRecipeCard,
       setBuildingActionFeedback: vi.fn(),
@@ -232,7 +263,41 @@ describe("production building popup runtime", () => {
       '[data-production-panel="armory"]': {}
     });
 
-    expect(runtime.renderProductionPanel(root, "armory", {})).toBe(true);
+    expect(runtime.renderProductionPanel(root, "armory", ARMORY_RECIPES)).toBe(true);
+    expect(renderedViewModel).toMatchObject({
+      buildingId: "building:armory:1",
+      buildingName: "armory",
+      recipeId: "pistol",
+      recipe: {
+        name: "Pistole",
+        inputs: { "metal-parts": 3, "tech-core": 1 },
+        cleanMoneyCost: 0,
+        durationMs: 300000,
+        output: { inventory: "weapons", itemId: "pistol", amount: 1 }
+      },
+      job: {
+        status: "running",
+        queuedAmount: 3,
+        producedAmount: 2
+      },
+      slotState: { label: "Výroba", isActive: true },
+      outputInventoryAmount: 7,
+      outputInventoryCapacity: 24,
+      outputCap: 5,
+      queueCap: 4,
+      inputAmounts: { "metal-parts": 12, "tech-core": 4 },
+      maxBatches: 2,
+      maxSelectableBatches: 2,
+      armoryStrengthPreview: { label: "Síla útoku", basePower: 4, bonusPower: 0.4, bonusLabel: "+0.4" }
+    });
+    expect(renderedViewModel).not.toHaveProperty("serverLine");
+    expect(getArmoryRecipeStrengthPreview).toHaveBeenCalledWith("pistol", expect.objectContaining({
+      inputs: { "metal-parts": 3, "tech-core": 1 }
+    }));
+    expect(renderedOptions).toMatchObject({
+      getResourceLabel: getProductionResourceLabel,
+      normalizeResourceColorKey: expect.any(Function)
+    });
     await callbacks.onStart({ batchCount: 2 });
     await callbacks.onStop();
 
@@ -979,9 +1044,11 @@ describe("production building popup runtime", () => {
 
   it("submits a selected Drug Lab batch through the server command", async () => {
     const recipeCallbacks = {};
+    let renderedViewModel = null;
     const submitServerDrugLabCommand = vi.fn(async () => ({ errors: [] }));
     const renderRecipeCard = vi.fn((viewModel, callbacks) => {
       Object.assign(recipeCallbacks, callbacks);
+      renderedViewModel = viewModel;
       return { viewModel };
     });
     const runtime = createProductionBuildingPopupRuntime({
@@ -995,7 +1062,18 @@ describe("production building popup runtime", () => {
           resourceKey: "neon-dust",
           label: "Neon Dust",
           unitCleanCashCost: 500,
-          inputAvailability: [],
+          producedAmount: 1,
+          producedCapacity: 10,
+          playerStoredAmount: 4,
+          playerStoredCapacity: 20,
+          queuedAmount: 1,
+          queueCapacity: 13,
+          activeAmount: 1,
+          waitingAmount: 0,
+          inputAvailability: [{ resourceKey: "chemicals", label: "Chemicals", requiredAmount: 2, availableAmount: 9 }],
+          effectiveUnitDurationTicks: 60,
+          remainingMs: 45000,
+          status: "processing",
           canStart: true,
           canCancelWaiting: false,
           maxStartQuantity: 2
@@ -1009,13 +1087,27 @@ describe("production building popup runtime", () => {
     const root = createRoot({
       '[data-production-panel="druglab"]': {}
     });
-    runtime.renderProductionPanel(root, "druglab", {
-      "neon-dust": {
-        durationMs: 1000,
+    runtime.renderProductionPanel(root, "druglab", DRUGLAB_RECIPES);
+
+    expect(renderedViewModel).toMatchObject({
+      buildingId: "building:drug-lab:1",
+      buildingName: "druglab",
+      recipeId: "neon-dust",
+      recipe: {
         inputs: { chemicals: 2 },
+        cleanMoneyCost: 500,
         output: { inventory: "drugs", itemId: "neon-dust", amount: 1 }
-      }
+      },
+      job: { status: "running", queuedAmount: 1, producedAmount: 1 },
+      outputInventoryAmount: 4,
+      outputInventoryCapacity: 20,
+      outputCap: 10,
+      queueCap: 13,
+      inputAmounts: { chemicals: 9 },
+      canCancelWaiting: false,
+      maxBatches: 2
     });
+    expect(renderedViewModel).not.toHaveProperty("serverLine");
 
     await recipeCallbacks.onStart({ batchCount: 2 });
 
