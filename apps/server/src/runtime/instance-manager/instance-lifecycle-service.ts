@@ -38,6 +38,7 @@ export class InstanceLifecycleService {
     runtime.record.startedAt = startedAt;
     runtime = synchronizeStartedServerInstance(runtime, startedAt);
     runtime = advanceLifecyclePersistenceVersion(runtime, "running");
+    runtime.scheduler.lastTickAtMs = null;
     runtime.scheduler.isRunning = true;
     void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "lifecycle", "Instance started.", {}, runtime.clock).catch(() => undefined);
     runtime.eventPublisher.publish({
@@ -51,6 +52,7 @@ export class InstanceLifecycleService {
   pause(runtime: ServerInstanceRuntime): ServerInstanceRuntime {
     runtime.record.status = "pausing";
     runtime.scheduler.isRunning = false;
+    runtime.scheduler.lastTickAtMs = null;
     runtime.eventPublisher.publish({
       type: "instance-status-changed",
       payload: { status: runtime.record.status },
@@ -72,6 +74,7 @@ export class InstanceLifecycleService {
     runtime.record.status = "stopped";
     runtime.record.stoppedAt = runtime.clock.nowIso();
     runtime.scheduler.isRunning = false;
+    runtime.scheduler.lastTickAtMs = null;
     runtime = advanceLifecyclePersistenceVersion(runtime, runtime.state.serverInstance.status);
     if (!runtime.atomicCommandTransaction) {
       void runtime.snapshotController.save(runtime).catch(() => undefined);
@@ -88,6 +91,7 @@ export class InstanceLifecycleService {
   restart(runtime: ServerInstanceRuntime): ServerInstanceRuntime {
     runtime.record.status = "restarting";
     runtime.scheduler.isRunning = false;
+    runtime.scheduler.lastTickAtMs = null;
     runtime.record.status = "running";
     runtime.scheduler.isRunning = true;
     runtime = advanceLifecyclePersistenceVersion(runtime, "running");
@@ -99,6 +103,7 @@ export class InstanceLifecycleService {
     runtime.record.status = "destroying";
     runtime.record.status = "destroyed";
     runtime.scheduler.isRunning = false;
+    runtime.scheduler.lastTickAtMs = null;
     void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "warn", "lifecycle", "Instance destroyed.", {}, runtime.clock).catch(() => undefined);
     runtime.eventPublisher.publish({
       type: "instance-status-changed",

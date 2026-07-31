@@ -3,7 +3,10 @@ import type { InstanceRuntimeEvent } from "@empire/shared-types";
 import type { ServerInstanceRuntime } from "../instance/server-instance-runtime";
 import { writeDiagnosticLog } from "../logging";
 import { systemClock, type Clock } from "./clock";
-import { isInstanceTickDue } from "./instance-scheduler";
+import {
+  isInstanceTickDue,
+  recordInstanceTickCompletedAt
+} from "./instance-scheduler";
 import {
   recordRuntimeTickCompleted,
   recordRuntimeTickSkipped,
@@ -59,7 +62,7 @@ export const runInstanceTick = (
     runtime.eventQueue.enqueue(tickEvent);
     runtime.eventPublisher.publish(tickEvent);
     runtime.runtimeHealth.lastTickCompletedAt = clock.nowIso();
-    runtime.scheduler.lastTickAtMs = tickNow.getTime();
+    recordInstanceTickCompletedAt(runtime.scheduler, tickNow);
     tickCompleted = true;
     void writeDiagnosticLog(
       runtime.replayLogWriter,

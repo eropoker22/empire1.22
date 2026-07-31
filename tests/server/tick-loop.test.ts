@@ -190,6 +190,29 @@ describe("server instance tick runner", () => {
     expect(warRuntime.state.root.tick).toBe(2);
   });
 
+  it("retains the canonical deadline after a jitter-delayed tick", () => {
+    const server = createServerApp();
+    const runtime = server.instanceManager.createInstance(
+      "instance:tick:jitter-debt",
+      "free"
+    );
+    server.instanceManager.startInstance(runtime.record.id);
+
+    for (const offsetMs of [0, 4_995, 9_990, 14_985, 19_980, 24_975]) {
+      runInstanceTick(
+        runtime,
+        createFixedClock(new Date(
+          Date.parse("2026-05-15T05:00:00.000Z") + offsetMs
+        ).toISOString())
+      );
+    }
+
+    expect(runtime.state.root.tick).toBe(3);
+    expect(runtime.scheduler.lastTickAtMs).toBe(
+      Date.parse("2026-05-15T05:00:20.000Z")
+    );
+  });
+
   it("records tick diagnostics only when server debug tools are enabled", () => {
     const server = createServerApp();
     const runtime = server.instanceManager.createInstance("instance:tick:metrics", "free");

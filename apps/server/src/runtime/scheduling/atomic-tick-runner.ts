@@ -14,7 +14,10 @@ import {
   restoreInstanceState
 } from "../persistence";
 import type { Clock } from "./clock";
-import { isInstanceTickDue } from "./instance-scheduler";
+import {
+  isInstanceTickDue,
+  recordInstanceTickCompletedAt
+} from "./instance-scheduler";
 import { runInstanceTick } from "./tick-runner";
 import {
   recordRuntimeSnapshotWrite,
@@ -110,7 +113,7 @@ export const runAtomicInstanceTickUnlocked = async (
     runtime.eventQueue.enqueue(tickEvent);
     runtime.eventPublisher.publish(tickEvent);
     runtime.runtimeHealth.lastTickCompletedAt = clock.nowIso();
-    runtime.scheduler.lastTickAtMs = tickNow.getTime();
+    recordInstanceTickCompletedAt(runtime.scheduler, tickNow);
     tickCompleted = true;
     void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "tick", "Tick completed.", {
       tick: runtime.state.root.tick

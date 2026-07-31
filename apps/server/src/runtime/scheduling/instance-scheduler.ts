@@ -22,3 +22,15 @@ export const isInstanceTickDue = (
   now: Date
 ): boolean => scheduler.lastTickAtMs === null
   || now.getTime() - scheduler.lastTickAtMs >= scheduler.tickRateMs;
+
+export const recordInstanceTickCompletedAt = (
+  scheduler: InstanceScheduler,
+  now: Date
+): void => {
+  const nowMs = now.getTime();
+  const previousTickAtMs = scheduler.lastTickAtMs;
+  const tickRateMs = Math.max(1, Math.floor(scheduler.tickRateMs));
+  scheduler.lastTickAtMs = previousTickAtMs === null || nowMs < previousTickAtMs
+    ? nowMs
+    : Math.min(nowMs, previousTickAtMs + tickRateMs);
+};
