@@ -19,8 +19,20 @@ export interface AdminMonitoringInstanceRow extends Record<string, unknown> {
   server_instance_id: string;
   mode: string;
   status: string;
-  payload: unknown;
-  snapshot_payload: unknown | null;
+  payload?: unknown;
+  snapshot_payload?: unknown | null;
+  instance_display_name?: unknown;
+  instance_region?: unknown;
+  instance_capacity?: unknown;
+  instance_join_policy?: unknown;
+  snapshot_tick?: unknown;
+  snapshot_state_version?: unknown;
+  snapshot_player_count?: unknown;
+  snapshot_last_crash_at?: unknown;
+  snapshot_lobby_display_name?: unknown;
+  snapshot_lobby_region?: unknown;
+  snapshot_lobby_capacity?: unknown;
+  snapshot_lobby_join_policy?: unknown;
   snapshot_created_at: Date | string | null;
   heartbeat_at: Date | string | null;
   lock_owner: string | null;
@@ -65,7 +77,7 @@ export const mapAdminMonitoringInstanceRow = (
   generatedAt: string
 ): AdminInstanceSummaryView => {
   const payload = record(row.payload);
-  const snapshot = row.snapshot_payload ? coerce<InstanceSnapshotDto>(row.snapshot_payload) : null;
+  const snapshot = snapshotFromAdminMonitoringRow(row);
   const lobby = snapshot?.lobby;
   const startingPlayerStateValid = parsePersistedHostedStartingPlayerState(
     row.hosted_starting_player_state
@@ -89,27 +101,46 @@ export const mapAdminMonitoringInstanceRow = (
     leaseExpiresAt: row.locked_until ? iso(row.locked_until) : null,
     generatedAt
   });
-  const source = snapshot ? "durable-snapshot" as const : "durable-control-plane" as const;
+  const source = snapshot || snapshotAt ? "durable-snapshot" as const : "durable-control-plane" as const;
   return {
     serverInstanceId: row.server_instance_id,
-    displayName: row.hosted_display_name || text(payload.displayName) || lobby?.displayName || row.server_instance_id,
+    displayName: row.hosted_display_name
+      || text(row.instance_display_name)
+      || text(payload.displayName)
+      || lobby?.displayName
+      || text(row.snapshot_lobby_display_name)
+      || row.server_instance_id,
     mode: row.mode,
-    region: row.hosted_region || text(payload.region) || lobby?.region || "unknown",
-    capacity: row.hosted_capacity ?? integer(payload.capacity ?? lobby?.capacity),
+    region: row.hosted_region
+      || text(row.instance_region)
+      || text(payload.region)
+      || lobby?.region
+      || text(row.snapshot_lobby_region)
+      || "unknown",
+    capacity: row.hosted_capacity
+      ?? integer(row.instance_capacity ?? payload.capacity ?? lobby?.capacity ?? row.snapshot_lobby_capacity),
     joinPolicy: startingPlayerStateValid
-      ? row.hosted_join_policy || text(payload.joinPolicy) || lobby?.joinPolicy || "unknown"
+      ? row.hosted_join_policy
+        || text(row.instance_join_policy)
+        || text(payload.joinPolicy)
+        || lobby?.joinPolicy
+        || text(row.snapshot_lobby_join_policy)
+        || "unknown"
       : "closed",
     status,
-    currentTick: snapshot?.tick ?? null,
-    stateVersion: snapshot?.integrity.rootVersion ?? null,
-    playerCount: snapshot?.state.root.playerIds.length ?? 0,
+    currentTick: snapshot?.tick ?? nullableNumber(row.snapshot_tick),
+    stateVersion: snapshot?.integrity.rootVersion ?? nullableNumber(row.snapshot_state_version),
+    playerCount: snapshot?.state.root.playerIds.length ?? integer(row.snapshot_player_count),
     workerStatus,
     lastHeartbeatAt: heartbeatAt,
     leaseOwner: row.lock_owner,
     leaseExpiresAt: row.locked_until ? iso(row.locked_until) : null,
     lastSnapshotAt: snapshotAt,
     snapshotStale,
-    lastErrorAt: row.last_error_at ? iso(row.last_error_at) : snapshot?.metadata.lastCrashAt ?? null,
+    lastErrorAt: row.last_error_at
+      ? iso(row.last_error_at)
+      : snapshot?.metadata.lastCrashAt
+        ?? optionalUnknownIso(row.snapshot_last_crash_at),
     freshness: {
       serverInstanceId: row.server_instance_id,
       generatedAt,
@@ -122,6 +153,12 @@ export const mapAdminMonitoringInstanceRow = (
     }
   };
 };
+
+export const snapshotFromAdminMonitoringRow = (
+  row: AdminMonitoringInstanceRow
+): InstanceSnapshotDto | null => (
+  row.snapshot_payload ? coerce<InstanceSnapshotDto>(row.snapshot_payload) : null
+);
 
 export const loadAdminRuntimeObservation = async (
   database: PostgresQueryable,
@@ -207,6 +244,8 @@ const runtimeStaleReason = (input: {
 const iso = (value: Date | string): string =>
   value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 const optionalIso = (value: Date | string | null | undefined): string | null => value ? iso(value) : null;
+const optionalUnknownIso = (value: unknown): string | null =>
+  value == null || value === "" ? null : iso(value as Date | string);
 const nullableNumber = (value: unknown): number | null => {
   if (value === null || value === undefined) return null;
   const parsed = Number(value);

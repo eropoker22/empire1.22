@@ -588,11 +588,17 @@ async function waitForAdminServer(page, serverInstanceId, predicate) {
 
 const readAdminServer = (page, serverInstanceId) => page.evaluate(
   async (expectedServerInstanceId) => {
-    const response = await fetch("/api/admin/control-plane", {
-      credentials: "same-origin",
-      cache: "no-store"
-    });
-    const payload = await response.json();
+    const response = await fetch(
+      `/api/admin/control-plane/instances/${encodeURIComponent(
+        expectedServerInstanceId
+      )}`,
+      {
+        credentials: "same-origin",
+        cache: "no-store"
+      }
+    );
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload?.data) return null;
     return payload.data.servers.find((server) => (
       server.serverInstanceId === expectedServerInstanceId
     )) || null;
@@ -633,6 +639,13 @@ async function collectThreeSampleTickEvidence({
   const samples = [];
   for (let sampleIndex = 0; sampleIndex < 3; sampleIndex += 1) {
     const previousTick = samples.at(-1)?.currentTick ?? null;
+    if (previousTick !== null) {
+      await waitForRenderedPlayerTick(
+        playerPage,
+        previousTick + 1,
+        canonicalTickRateMs
+      );
+    }
     let acceptedSample = null;
     await expect.poll(
       async () => {
@@ -651,8 +664,8 @@ async function collectThreeSampleTickEvidence({
       },
       {
         message: `Hosted tick evidence sample ${sampleIndex + 1} must align across player and admin projections.`,
-        timeout: canonicalTickRateMs * 8,
-        intervals: canonicalTickPollIntervals(canonicalTickRateMs)
+        timeout: canonicalTickRateMs * 2,
+        intervals: [100, 250, 500]
       }
     ).toBe(true);
     assertAlignedTickSample(
@@ -724,10 +737,23 @@ async function readAlignedTickSample({
   playerPage,
   serverInstanceId
 }) {
-  const [player, detail] = await Promise.all([
-    readPlayerTickProjection(playerPage),
-    readAdminInstanceDetail(adminPage, serverInstanceId)
-  ]);
+  const adminBeforeObservedAt = new Date().toISOString();
+  const adminBefore = await readAdminInstanceDetail(
+    adminPage,
+    serverInstanceId
+  );
+  const player = await readPlayerTickProjection(playerPage);
+  const adminAfterObservedAt = new Date().toISOString();
+  const adminAfter = await readAdminInstanceDetail(
+    adminPage,
+    serverInstanceId
+  );
+  const matchedAdminDetail = [
+    ["before", adminBefore],
+    ["after", adminAfter]
+  ].find(([, candidate]) => adminDetailMatchesPlayer(candidate, player));
+  const [matchedAdminObservation, detail] = matchedAdminDetail
+    || ["none", adminAfter];
   const adminPlayer = detail.players.find((entry) => entry.playerId === playerId) || null;
   const adminDistrict = detail.districts.find((entry) => entry.districtId === districtId)
     || null;
@@ -744,6 +770,11 @@ async function readAlignedTickSample({
     rootTick: firstFiniteNumber(player.rootTick, adminRootTick),
     player,
     admin: {
+      bracket: {
+        beforeObservedAt: adminBeforeObservedAt,
+        afterObservedAt: adminAfterObservedAt,
+        matchedObservation: matchedAdminObservation
+      },
       serverInstanceId: detail.serverInstanceId || null,
       expectedTickRateMs: finiteNumberOrNull(
         detail.runtimeHealth?.expectedTickRateMs
@@ -771,6 +802,12 @@ async function readAlignedTickSample({
     }
   };
 }
+
+const adminDetailMatchesPlayer = (detail, player) => (
+  finiteNumberOrNull(detail.snapshot?.tick) === player.currentTick
+  && finiteNumberOrNull(detail.snapshot?.stateVersion)
+    === player.stateVersion
+);
 
 const readAdminInstanceDetail = (page, serverInstanceId) => page.evaluate(
   async (expectedServerInstanceId) => {
@@ -1025,11 +1062,23 @@ function assertAlignedTickSample(
   }
 }
 
-const canonicalTickPollIntervals = (canonicalTickRateMs) => [
-  Math.ceil(canonicalTickRateMs / 4),
-  Math.ceil(canonicalTickRateMs / 2),
+async function waitForRenderedPlayerTick(
+  playerPage,
+  expectedTick,
   canonicalTickRateMs
-];
+) {
+  await expect.poll(
+    () => playerPage.evaluate(() => Number(
+      window.EmpireGameplaySliceClient?.getCurrentReadModel?.()?.server?.currentTick
+        ?? -1
+    )),
+    {
+      message: `Visible hosted client must render authoritative tick ${expectedTick}.`,
+      timeout: canonicalTickRateMs * 4,
+      intervals: [100, 250, 500, 1_000]
+    }
+  ).toBeGreaterThanOrEqual(expectedTick);
+}
 
 const firstFiniteNumber = (...values) => (
   values.map(finiteNumberOrNull).find(Number.isFinite) ?? null

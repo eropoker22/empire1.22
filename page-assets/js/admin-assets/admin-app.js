@@ -28,7 +28,10 @@
       `${basePath}/instances/${encodeURIComponent(instanceId)}`,
       { signal }
     ),
-    getControlPlane: (signal) => request(`${basePath}/control-plane`, { signal }),
+    getControlPlane: (signal, instanceId) => request(
+      instanceId ? `${basePath}/control-plane/instances/${encodeURIComponent(instanceId)}` : `${basePath}/control-plane`,
+      { signal }
+    ),
     getAudit: (signal) => request(`${basePath}/audit`, { signal }),
     createServer: (input, idempotencyKey, signal) => request(`${basePath}/servers`, {
       method: "POST",
@@ -41274,7 +41277,26 @@
     let activeRequest = null;
     let timer = null;
     let backoff = options.pollInterval;
-    const refresh = async (includeAudit = false) => {
+    let refreshLoop = null;
+    let refreshRequested = false;
+    let auditRequested = false;
+    const refresh = (includeAudit = false) => {
+      refreshRequested = true;
+      auditRequested = auditRequested || includeAudit;
+      refreshLoop ?? (refreshLoop = drainRefreshRequests().finally(() => {
+        refreshLoop = null;
+      }));
+      return refreshLoop;
+    };
+    const drainRefreshRequests = async () => {
+      while (refreshRequested) {
+        const includeAudit = auditRequested;
+        refreshRequested = false;
+        auditRequested = false;
+        await performRefresh(includeAudit);
+      }
+    };
+    const performRefresh = async (includeAudit) => {
       const context = options.context();
       if (!context.mounted || !context.session) return;
       if (document.hidden) {
@@ -41286,17 +41308,21 @@
         return;
       }
       const sequence = ++requestSequence;
-      activeRequest == null ? void 0 : activeRequest.abort();
-      activeRequest = new AbortController();
+      const request2 = new AbortController();
+      activeRequest = request2;
       options.onStatus("loading");
       try {
         const requestedInstanceId = context.selectedInstanceId;
-        const [overview, detail, controlPlane] = await Promise.all([
-          options.client.getOverview(activeRequest.signal),
-          requestedInstanceId ? options.client.getInstance(requestedInstanceId, activeRequest.signal) : Promise.resolve(null),
-          options.client.getControlPlane(activeRequest.signal)
-        ]);
-        const audit = await loadAudit(context, includeAudit, activeRequest.signal);
+        const overview = await options.client.getOverview(request2.signal);
+        const controlPlane = await options.client.getControlPlane(
+          request2.signal,
+          requestedInstanceId
+        );
+        const detail = requestedInstanceId ? await options.client.getInstance(
+          requestedInstanceId,
+          request2.signal
+        ) : null;
+        const audit = await loadAudit(context, includeAudit, request2.signal);
         if (sequence !== requestSequence || requestedInstanceId !== options.context().selectedInstanceId) return;
         options.apply({
           overview,
@@ -41317,6 +41343,8 @@
         options.onStatus("backoff");
         options.onError(error);
         if (options.context().session) schedule(backoff);
+      } finally {
+        if (activeRequest === request2) activeRequest = null;
       }
     };
     const loadAudit = async (context, force, signal) => {
@@ -41341,6 +41369,8 @@
     };
     const cancel = () => {
       requestSequence += 1;
+      refreshRequested = false;
+      auditRequested = false;
       activeRequest == null ? void 0 : activeRequest.abort();
       activeRequest = null;
       clearSchedule();

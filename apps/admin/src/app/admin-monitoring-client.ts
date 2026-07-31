@@ -23,7 +23,10 @@ export interface AdminApiClient {
   logout(signal?: AbortSignal): Promise<void>;
   getOverview(signal?: AbortSignal): Promise<AdminOverviewView>;
   getInstance(instanceId: string, signal?: AbortSignal): Promise<AdminInstanceDetailView>;
-  getControlPlane(signal?: AbortSignal): Promise<AdminControlPlaneAvailabilityView>;
+  getControlPlane(
+    signal?: AbortSignal,
+    instanceId?: string | null
+  ): Promise<AdminControlPlaneAvailabilityView>;
   getAudit(signal?: AbortSignal): Promise<AdminAuditEntryView[]>;
   createServer(input: AdminCreateServerRequestView, idempotencyKey: string, signal?: AbortSignal): Promise<AdminCreateServerResultView>;
   requestLifecycleAction(instanceId: string, input: AdminLifecycleActionRequestView, idempotencyKey: string, signal?: AbortSignal): Promise<AdminLifecycleActionResultView>;
@@ -50,7 +53,12 @@ export const createAdminApiClient = (basePath = "/api/admin"): AdminApiClient =>
     `${basePath}/instances/${encodeURIComponent(instanceId)}`,
     { signal }
   ),
-  getControlPlane: (signal) => request<AdminControlPlaneAvailabilityView>(`${basePath}/control-plane`, { signal }),
+  getControlPlane: (signal, instanceId) => request<AdminControlPlaneAvailabilityView>(
+    instanceId
+      ? `${basePath}/control-plane/instances/${encodeURIComponent(instanceId)}`
+      : `${basePath}/control-plane`,
+    { signal }
+  ),
   getAudit: (signal) => request<AdminAuditEntryView[]>(`${basePath}/audit`, { signal }),
   createServer: (input, idempotencyKey, signal) => request<AdminCreateServerResultView>(`${basePath}/servers`, {
     method: "POST", headers: { "content-type": "application/json", "idempotency-key": idempotencyKey },

@@ -43,24 +43,51 @@ export const createAdminRefreshController = (options: {
   let activeRequest: AbortController | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let backoff = options.pollInterval;
+  let refreshLoop: Promise<void> | null = null;
+  let refreshRequested = false;
+  let auditRequested = false;
 
-  const refresh = async (includeAudit = false): Promise<void> => {
+  const refresh = (includeAudit = false): Promise<void> => {
+    refreshRequested = true;
+    auditRequested = auditRequested || includeAudit;
+    refreshLoop ??= drainRefreshRequests().finally(() => {
+      refreshLoop = null;
+    });
+    return refreshLoop;
+  };
+
+  const drainRefreshRequests = async (): Promise<void> => {
+    while (refreshRequested) {
+      const includeAudit = auditRequested;
+      refreshRequested = false;
+      auditRequested = false;
+      await performRefresh(includeAudit);
+    }
+  };
+
+  const performRefresh = async (includeAudit: boolean): Promise<void> => {
     const context = options.context();
     if (!context.mounted || !context.session) return;
     if (document.hidden) { options.onStatus("paused"); return; }
     if (context.wizardOpen) { schedule(options.pollInterval); return; }
     const sequence = ++requestSequence;
-    activeRequest?.abort();
-    activeRequest = new AbortController();
+    const request = new AbortController();
+    activeRequest = request;
     options.onStatus("loading");
     try {
       const requestedInstanceId = context.selectedInstanceId;
-      const [overview, detail, controlPlane] = await Promise.all([
-        options.client.getOverview(activeRequest.signal),
-        requestedInstanceId ? options.client.getInstance(requestedInstanceId, activeRequest.signal) : Promise.resolve(null),
-        options.client.getControlPlane(activeRequest.signal)
-      ]);
-      const audit = await loadAudit(context, includeAudit, activeRequest.signal);
+      const overview = await options.client.getOverview(request.signal);
+      const controlPlane = await options.client.getControlPlane(
+        request.signal,
+        requestedInstanceId
+      );
+      const detail = requestedInstanceId
+        ? await options.client.getInstance(
+            requestedInstanceId,
+            request.signal
+          )
+        : null;
+      const audit = await loadAudit(context, includeAudit, request.signal);
       if (sequence !== requestSequence || requestedInstanceId !== options.context().selectedInstanceId) return;
       options.apply({
         overview,
@@ -81,6 +108,8 @@ export const createAdminRefreshController = (options: {
       options.onStatus("backoff");
       options.onError(error);
       if (options.context().session) schedule(backoff);
+    } finally {
+      if (activeRequest === request) activeRequest = null;
     }
   };
 
@@ -106,6 +135,8 @@ export const createAdminRefreshController = (options: {
   };
   const cancel = (): void => {
     requestSequence += 1;
+    refreshRequested = false;
+    auditRequested = false;
     activeRequest?.abort();
     activeRequest = null;
     clearSchedule();

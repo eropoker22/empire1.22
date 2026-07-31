@@ -118,6 +118,106 @@ describe("read-only admin Netlify boundary", () => {
     await expect(repositories.hosted.listServers()).resolves.toHaveLength(1);
   });
 
+  it("scopes control-plane reads and coalesces concurrent requests for the same instance", async () => {
+    const repositories = await createRepositories("owner");
+    const now = new Date("2026-07-16T10:00:00.000Z");
+    const environment = {
+      ...TEST_ENV,
+      EMPIRE_BUILD_SHA: "admin-scoped-read-test",
+      EMPIRE_ADMIN_WRITES_ENABLED: "true",
+      EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true",
+      EMPIRE_SERVER_PROVISIONING_ENABLED: "true"
+    };
+    await repositories.hosted.writeWorkerHeartbeat({
+      workerId: "worker:admin-scoped-read-test",
+      workerIncarnationId: "worker-incarnation:admin-scoped-read-test",
+      region: "eu-central",
+      buildSha: "admin-scoped-read-test",
+      startedAt: now.toISOString(),
+      lastHeartbeatAt: now.toISOString(),
+      status: "online"
+    });
+    const handler = createAdminReadOnlyNetlifyHandler({
+      repositories,
+      environment,
+      now: () => now,
+      allowInMemoryForTests: true
+    });
+    const login = await handler(request("POST", "/api/admin/session", {
+      username: TEST_USERNAME,
+      password: TEST_PASSWORD
+    }));
+    const createResponse = await json(handler(request(
+      "POST",
+      "/api/admin/servers",
+      {
+        mode: "free",
+        serverTemplate: "full",
+        displayName: "Scoped control-plane server",
+        region: "eu-central",
+        capacity: 20,
+        joinPolicy: "closed",
+        mapComposition: { downtown: 8, commercial: 40, residential: 38, industrial: 38, park: 37 }
+      },
+      {
+        ...cookie(login),
+        "idempotency-key": "admin-scoped-control-plane-create",
+        "x-request-id": "admin-scoped-control-plane-create"
+      }
+    )));
+    const serverInstanceId = createResponse.json.data.server.serverInstanceId as string;
+    const getServer = repositories.hosted.getServer.bind(repositories.hosted);
+    const getAdminServerStats = repositories.hosted.getAdminServerStats.bind(
+      repositories.hosted
+    );
+    const listServers = repositories.hosted.listServers.bind(repositories.hosted);
+    let releaseGetServer!: () => void;
+    let reportGetServerReached!: () => void;
+    const getServerRelease = new Promise<void>((resolve) => {
+      releaseGetServer = resolve;
+    });
+    const getServerReached = new Promise<void>((resolve) => {
+      reportGetServerReached = resolve;
+    });
+    let getServerCalls = 0;
+    let listServersCalls = 0;
+    const statsRequests: string[][] = [];
+    repositories.hosted.getServer = async (requestedServerInstanceId) => {
+      getServerCalls += 1;
+      reportGetServerReached();
+      await getServerRelease;
+      return getServer(requestedServerInstanceId);
+    };
+    repositories.hosted.getAdminServerStats = async (serverInstanceIds, at) => {
+      statsRequests.push([...serverInstanceIds]);
+      return getAdminServerStats(serverInstanceIds, at);
+    };
+    repositories.hosted.listServers = async (...args) => {
+      listServersCalls += 1;
+      return listServers(...args);
+    };
+
+    const path = `/api/admin/control-plane/instances/${encodeURIComponent(serverInstanceId)}`;
+    const first = handler(request("GET", path, null, cookie(login)));
+    await getServerReached;
+    const second = handler(request("GET", path, null, cookie(login)));
+    releaseGetServer();
+    const [firstResponse, secondResponse] = await Promise.all([
+      json(first),
+      json(second)
+    ]);
+
+    expect(firstResponse.statusCode).toBe(200);
+    expect(secondResponse.statusCode).toBe(200);
+    expect(firstResponse.json.data).toEqual(secondResponse.json.data);
+    expect(firstResponse.json.data.servers.map(
+      (server: { serverInstanceId: string }) => server.serverInstanceId
+    )).toEqual([serverInstanceId]);
+    expect(getServerCalls).toBe(1);
+    expect(statsRequests).toEqual([[serverInstanceId]]);
+    expect(listServersCalls).toBe(0);
+  });
+
   it("rate limits repeated failures durably and audits authentication/access/logout", async () => {
     const repositories = await createRepositories("viewer");
     const handler = createAdminReadOnlyNetlifyHandler({ repositories, environment: TEST_ENV });

@@ -1,5 +1,10 @@
 import * as crypto from "node:crypto";
-import type { AdminApiErrorView, AdminOverviewView, AdminSessionView } from "@empire/shared-types";
+import type {
+  AdminApiErrorView,
+  AdminControlPlaneAvailabilityView,
+  AdminOverviewView,
+  AdminSessionView
+} from "@empire/shared-types";
 import { createAdminSessionService, type AdminDurableRepositories } from "../admin/read-only";
 import { createHostedControlPlaneService } from "../admin/hosted";
 import { createJsonResponse, type NetlifyFunctionResponse } from "./netlify-json-response";
@@ -26,6 +31,24 @@ export const createAdminReadOnlyNetlifyHandler = (options: {
 }) => {
   const sessions = createAdminSessionService(options);
   const controlPlane = createHostedControlPlaneService(options);
+  const controlPlaneReads = new Map<
+    string,
+    Promise<AdminControlPlaneAvailabilityView>
+  >();
+  const readControlPlane = (
+    serverInstanceId: string | null
+  ): Promise<AdminControlPlaneAvailabilityView> => {
+    const key = serverInstanceId ?? "fleet";
+    const current = controlPlaneReads.get(key);
+    if (current) return current;
+    const pending = (
+      serverInstanceId
+        ? controlPlane.availabilityForInstance(serverInstanceId)
+        : controlPlane.availability()
+    ).finally(() => controlPlaneReads.delete(key));
+    controlPlaneReads.set(key, pending);
+    return pending;
+  };
   return async (request: AdminNetlifyRequest): Promise<NetlifyFunctionResponse> => {
     const method = request.httpMethod.toUpperCase();
     const route = resolveRoute(request.path);
@@ -67,7 +90,14 @@ export const createAdminReadOnlyNetlifyHandler = (options: {
       return createJsonResponse(200, success(authentication.session), { "cache-control": "no-store" });
     }
     if (route.kind === "control-plane" && method === "GET") {
-      return createJsonResponse(200, success(await controlPlane.availability()), { "cache-control": "no-store" });
+      return createJsonResponse(200, success(await readControlPlane(null)), { "cache-control": "no-store" });
+    }
+    if (route.kind === "control-plane-instance" && method === "GET") {
+      return createJsonResponse(
+        200,
+        success(await readControlPlane(route.serverInstanceId)),
+        { "cache-control": "no-store" }
+      );
     }
     if (route.kind === "servers" && method === "POST") {
       const stateChangeError = validateAdminStateChange(request, options.environment);
@@ -142,8 +172,12 @@ const createOverview = (instances: Awaited<ReturnType<AdminDurableRepositories["
   }
 });
 
-type Route = { kind: "session" | "overview" | "compat-monitoring" | "audit" | "control-plane" | "servers" }
-  | { kind: "instance" | "logs" | "server-action"; serverInstanceId: string };
+type Route = {
+  kind: "session" | "overview" | "compat-monitoring" | "audit" | "control-plane" | "servers"
+} | {
+  kind: "instance" | "logs" | "server-action" | "control-plane-instance";
+  serverInstanceId: string;
+};
 const resolveRoute = (path: string): Route | null => {
   const parts = split(path);
   if (parts[0] !== "api" || parts[1] !== "admin") return null;
@@ -152,6 +186,16 @@ const resolveRoute = (path: string): Route | null => {
   if (parts.length === 3 && parts[2] === "monitoring") return { kind: "compat-monitoring" };
   if (parts.length === 3 && parts[2] === "audit") return { kind: "audit" };
   if (parts.length === 3 && parts[2] === "control-plane") return { kind: "control-plane" };
+  if (
+    parts.length === 5
+    && parts[2] === "control-plane"
+    && parts[3] === "instances"
+  ) {
+    return {
+      kind: "control-plane-instance",
+      serverInstanceId: decodeURIComponent(parts[4]!)
+    };
+  }
   if (parts.length === 3 && parts[2] === "servers") return { kind: "servers" };
   if (parts.length === 5 && parts[2] === "servers" && parts[4] === "actions") return { kind: "server-action", serverInstanceId: decodeURIComponent(parts[3]!) };
   if (parts.length === 4 && parts[2] === "instances") return { kind: "instance", serverInstanceId: decodeURIComponent(parts[3]!) };

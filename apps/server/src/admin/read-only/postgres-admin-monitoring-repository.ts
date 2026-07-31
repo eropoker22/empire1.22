@@ -16,8 +16,10 @@ import {
   loadAdminRuntimeObservation,
   loadAdminSnapshot,
   mapAdminMonitoringInstanceRow,
+  snapshotFromAdminMonitoringRow,
   type AdminMonitoringInstanceRow
 } from "./postgres-admin-monitoring-data";
+import { adminMonitoringInstanceSummaryQuery } from "./postgres-admin-monitoring-summary-query";
 import {
   listCommandSummaries,
   listDiagnosticSummaries,
@@ -30,13 +32,15 @@ export const createPostgresAdminMonitoringRepository = (
 ): AdminInstanceMonitoringRepository => {
   const tickObservations = createAdminInstanceTickObservationCache();
   const listKnownInstances = async (): Promise<AdminInstanceSummaryView[]> => {
-    const result = await database.query<AdminMonitoringInstanceRow>(adminMonitoringInstanceQuery(""));
+    const result = await database.query<AdminMonitoringInstanceRow>(
+      adminMonitoringInstanceSummaryQuery("")
+    );
     const generatedAt = now().toISOString();
     return result.rows.map((row) => mapAdminMonitoringInstanceRow(row, generatedAt));
   };
   const getInstanceSummary = async (id: string): Promise<AdminInstanceSummaryView | null> => {
     const result = await database.query<AdminMonitoringInstanceRow>(
-      adminMonitoringInstanceQuery("WHERE si.server_instance_id = $1"),
+      adminMonitoringInstanceSummaryQuery("WHERE si.server_instance_id = $1"),
       [id]
     );
     return result.rows[0] ? mapAdminMonitoringInstanceRow(result.rows[0], now().toISOString()) : null;
@@ -50,20 +54,23 @@ export const createPostgresAdminMonitoringRepository = (
     listKnownInstances,
     getInstanceSummary,
     getInstanceRuntimeProjection: async (id) => {
-      const [summary, snapshot, snapshotStorage, observation, commands, events, diagnostics] = await Promise.all([
-        getInstanceSummary(id),
-        loadAdminSnapshot(database, id),
-        loadAdminSnapshotStorageMetadata(database, id),
-        loadAdminRuntimeObservation(database, id),
-        listCommands(id, 50),
-        listEvents(id, 50),
-        listDiagnostics(id, 50)
-      ]);
-      if (!summary) {
+      const instance = await database.query<AdminMonitoringInstanceRow>(
+        adminMonitoringInstanceQuery("WHERE si.server_instance_id = $1"),
+        [id]
+      );
+      const row = instance.rows[0];
+      if (!row) {
         tickObservations.clear(id);
         return null;
       }
       const generatedAt = now().toISOString();
+      const summary = mapAdminMonitoringInstanceRow(row, generatedAt);
+      const snapshot = snapshotFromAdminMonitoringRow(row);
+      const snapshotStorage = await loadAdminSnapshotStorageMetadata(database, id);
+      const observation = await loadAdminRuntimeObservation(database, id);
+      const commands = await listCommands(id, 50);
+      const events = await listEvents(id, 50);
+      const diagnostics = await listDiagnostics(id, 50);
       const tickProgress = tickObservations.observe({
         serverInstanceId: id,
         lifecycleStatus: summary.status,

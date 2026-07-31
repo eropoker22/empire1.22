@@ -102,6 +102,155 @@ describe("Postgres admin monitoring repository", () => {
     ]);
   });
 
+  it("maps 120 lean instance summaries without projecting full instance or snapshot payloads", async () => {
+    const calls: Array<{ sql: string; values: readonly unknown[] }> = [];
+    const snapshotCreatedAt = "2026-07-31T09:59:55.000Z";
+    const heartbeatAt = "2026-07-31T09:59:59.000Z";
+    const leaseExpiresAt = "2026-07-31T10:01:00.000Z";
+    const rows = Array.from({ length: 120 }, (_, index) => ({
+      server_instance_id: `server:lean:${index}`,
+      mode: "free",
+      status: "running",
+      instance_display_name: `Lean server ${index}`,
+      instance_region: `region-${index}`,
+      instance_capacity: String(20 + index),
+      instance_join_policy: index % 2 === 0 ? "open" : "closed",
+      snapshot_tick: String(1_000 + index),
+      snapshot_state_version: String(2_000 + index),
+      snapshot_player_count: String(index % 20),
+      snapshot_last_crash_at: `2026-07-30T10:${String(index % 60).padStart(2, "0")}:00.000Z`,
+      snapshot_created_at: snapshotCreatedAt,
+      heartbeat_at: heartbeatAt,
+      lock_owner: `worker:${index}`,
+      lease_incarnation_id: `worker-incarnation:${index}`,
+      locked_until: leaseExpiresAt,
+      heartbeat_worker_id: `worker:${index}`,
+      heartbeat_worker_incarnation_id: `worker-incarnation:${index}`,
+      last_error_at: null,
+      hosted_display_name: null,
+      hosted_region: null,
+      hosted_capacity: null,
+      hosted_join_policy: null,
+      hosted_status: "running",
+      hosted_starting_player_state: copyFreeHostedStartingPlayerState(),
+      canonical_tick_rate_ms: 10_000
+    }));
+    const database: PostgresQueryable = {
+      query: async <TRow extends Record<string, unknown>>(
+        sql: string,
+        values: readonly unknown[] = []
+      ) => {
+        calls.push({ sql, values });
+        return result<TRow>(rows);
+      }
+    };
+    const repository = createPostgresAdminMonitoringRepository(
+      database,
+      () => new Date("2026-07-31T10:00:00.000Z")
+    );
+
+    const summaries = await repository.listKnownInstances();
+
+    expect(summaries).toHaveLength(120);
+    expect(summaries[0]).toMatchObject({
+      serverInstanceId: "server:lean:0",
+      displayName: "Lean server 0",
+      region: "region-0",
+      capacity: 20,
+      joinPolicy: "open",
+      currentTick: 1_000,
+      stateVersion: 2_000,
+      playerCount: 0,
+      lastErrorAt: "2026-07-30T10:00:00.000Z",
+      freshness: {
+        source: "durable-snapshot",
+        dataAsOf: snapshotCreatedAt,
+        lastSnapshotAt: snapshotCreatedAt,
+        lastHeartbeatAt: heartbeatAt,
+        stale: false,
+        staleReason: null
+      }
+    });
+    expect(summaries[119]).toMatchObject({
+      serverInstanceId: "server:lean:119",
+      displayName: "Lean server 119",
+      region: "region-119",
+      capacity: 139,
+      joinPolicy: "closed",
+      currentTick: 1_119,
+      stateVersion: 2_119,
+      playerCount: 19,
+      lastErrorAt: "2026-07-30T10:59:00.000Z"
+    });
+    expect(calls).toHaveLength(1);
+    const normalizedSql = calls[0]?.sql.replace(/\s+/gu, " ") ?? "";
+    expect(normalizedSql).not.toMatch(/\bsl\.payload\s+AS\s+snapshot_payload\b/iu);
+    expect(normalizedSql).not.toMatch(/(?:SELECT|,)\s*si\.payload\s*(?:AS\s+payload)?\s*(?:,|FROM)/iu);
+  });
+
+  it("loads one full snapshot and keeps runtime projection queries sequential", async () => {
+    const calls: Array<{ sql: string; values: readonly unknown[] }> = [];
+    const baseDatabase = runningDatabase(() => ({
+      now: "2026-07-31T10:00:00.000Z",
+      tick: 30,
+      stateVersion: 300
+    }));
+    let activeQueries = 0;
+    let maxActiveQueries = 0;
+    const database: PostgresQueryable = {
+      query: async <TRow extends Record<string, unknown>>(
+        sql: string,
+        values: readonly unknown[] = []
+      ) => {
+        calls.push({ sql, values });
+        activeQueries += 1;
+        maxActiveQueries = Math.max(maxActiveQueries, activeQueries);
+        try {
+          await new Promise<void>((resolve) => setTimeout(resolve, 2));
+          return await baseDatabase.query<TRow>(sql, values);
+        } finally {
+          activeQueries -= 1;
+        }
+      }
+    };
+    const repository = createPostgresAdminMonitoringRepository(
+      database,
+      () => new Date("2026-07-31T10:00:00.000Z")
+    );
+
+    const detail = await repository.getInstanceRuntimeProjection("server:running");
+
+    expect(detail?.serverInstanceId).toBe("server:running");
+    expect(detail?.summary.currentTick).toBe(30);
+    expect(detail?.snapshot.tick).toBe(30);
+    expect(maxActiveQueries).toBe(1);
+    const fullSnapshotQueries = calls.filter(({ sql }) => (
+      /\bsl\.payload\s+AS\s+snapshot_payload\b/iu.test(sql)
+      || /SELECT\s+payload\s+FROM\s+empire_snapshot_latest/iu.test(sql)
+    ));
+    expect(fullSnapshotQueries).toHaveLength(1);
+  });
+
+  it("stops runtime projection reads after a missing instance", async () => {
+    const calls: Array<{ sql: string; values: readonly unknown[] }> = [];
+    const database: PostgresQueryable = {
+      query: async <TRow extends Record<string, unknown>>(
+        sql: string,
+        values: readonly unknown[] = []
+      ) => {
+        calls.push({ sql, values });
+        return result<TRow>([]);
+      }
+    };
+    const repository = createPostgresAdminMonitoringRepository(database);
+
+    await expect(repository.getInstanceRuntimeProjection("server:missing")).resolves.toBeNull();
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.values).toEqual(["server:missing"]);
+    expect(calls[0]?.sql).toContain("FROM empire_server_instances si");
+  });
+
   it("keeps tick health pending until a later repository observation proves progress", async () => {
     let now = new Date("2026-07-31T10:00:00.000Z");
     let tick = 10;

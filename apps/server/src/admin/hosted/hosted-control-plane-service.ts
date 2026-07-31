@@ -92,8 +92,25 @@ export const createHostedControlPlaneService = (options: {
     return { ...platform, servers: serverViews };
   };
 
+  const availabilityForInstance = async (
+    serverInstanceId: string
+  ): Promise<AdminControlPlaneAvailabilityView> => {
+    const platform = await platformAvailability();
+    const generatedAt = new Date(platform.generatedAt);
+    const server = platform.databaseAvailable && platform.migrationsCurrent
+      ? await options.repositories.hosted.getServer(serverInstanceId)
+      : null;
+    const serverViews = await loadHostedAdminServerViews(
+      options.repositories.hosted,
+      server ? [server] : [],
+      generatedAt
+    );
+    return { ...platform, servers: serverViews };
+  };
+
   return {
     availability,
+    availabilityForInstance,
     createServer: async (input: {
       session: AdminSessionView;
       payload: unknown;

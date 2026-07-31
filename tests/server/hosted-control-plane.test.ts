@@ -100,6 +100,67 @@ describe("hosted server control plane", () => {
     expect(listServersCalls).toBe(1);
   });
 
+  it("loads scoped availability without scanning or leaking other hosted servers", async () => {
+    const { repositories, service } = await setup();
+    const selected = await service.createServer({
+      session: owner,
+      payload: { ...validRequest, displayName: "Selected server" },
+      idempotencyKey: "test-scoped-availability-selected",
+      correlationId: "request:scoped:selected"
+    });
+    const other = await service.createServer({
+      session: owner,
+      payload: { ...validRequest, displayName: "Other server" },
+      idempotencyKey: "test-scoped-availability-other",
+      correlationId: "request:scoped:other"
+    });
+    if (!selected.accepted || !other.accepted) throw new Error("fixture create failed");
+
+    const getServer = repositories.hosted.getServer.bind(repositories.hosted);
+    const getAdminServerStats = repositories.hosted.getAdminServerStats.bind(
+      repositories.hosted
+    );
+    const listServers = repositories.hosted.listServers.bind(repositories.hosted);
+    const loadedServerIds: string[] = [];
+    const statsRequests: string[][] = [];
+    let listServersCalls = 0;
+    repositories.hosted.getServer = async (serverInstanceId) => {
+      loadedServerIds.push(serverInstanceId);
+      return getServer(serverInstanceId);
+    };
+    repositories.hosted.getAdminServerStats = async (serverInstanceIds, at) => {
+      statsRequests.push([...serverInstanceIds]);
+      return getAdminServerStats(serverInstanceIds, at);
+    };
+    repositories.hosted.listServers = async (...args) => {
+      listServersCalls += 1;
+      return listServers(...args);
+    };
+
+    const scoped = await service.availabilityForInstance(
+      selected.data.server.serverInstanceId
+    );
+
+    expect(scoped.servers.map((server) => server.serverInstanceId)).toEqual([
+      selected.data.server.serverInstanceId
+    ]);
+    expect(scoped.servers).not.toContainEqual(expect.objectContaining({
+      serverInstanceId: other.data.server.serverInstanceId
+    }));
+    expect(loadedServerIds).toEqual([selected.data.server.serverInstanceId]);
+    expect(statsRequests).toEqual([[selected.data.server.serverInstanceId]]);
+    expect(listServersCalls).toBe(0);
+
+    loadedServerIds.length = 0;
+    statsRequests.length = 0;
+    const missing = await service.availabilityForInstance("instance:missing");
+
+    expect(missing.servers).toEqual([]);
+    expect(loadedServerIds).toEqual(["instance:missing"]);
+    expect(statsRequests.flat()).toEqual([]);
+    expect(listServersCalls).toBe(0);
+  });
+
   it("fails closed for roles, flags, regions, capacity and non-canonical maps", async () => {
     const { service } = await setup();
     expect((await service.createServer({ session: session("viewer"), payload: validRequest, idempotencyKey: "test-create-viewer-0001", correlationId: "r" })).accepted).toBe(false);
