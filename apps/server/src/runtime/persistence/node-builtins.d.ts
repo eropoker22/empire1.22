@@ -60,6 +60,8 @@ declare module "node:http" {
     end(data?: string): void;
   }
   export interface Server {
+    keepAliveTimeout: number;
+    headersTimeout: number;
     listen(port: number, host: string, callback?: () => void): void;
     close(callback: () => void): void;
   }

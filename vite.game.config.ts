@@ -2,7 +2,8 @@ import { webcrypto } from "node:crypto";
 import { Agent as HttpAgent } from "node:http";
 import { Agent as HttpsAgent } from "node:https";
 import { resolve } from "node:path";
-import { defineConfig, type Plugin, type ProxyOptions } from "vite";
+import { defineConfig, type Plugin, type ProxyOptions, type ViteDevServer } from "vite";
+import { applyLocalHostedHttpTiming } from "./apps/server/src/bootstrap/local-hosted-http-timing";
 import type { createGameplaySliceFunctionHandler } from "./apps/server/src/netlify/gameplay-slice-function";
 
 const fromRoot = (...segments: string[]): string => resolve(__dirname, ...segments);
@@ -57,6 +58,15 @@ export const createHostedGameApiProxyOptions = (origin: string): ProxyOptions =>
       : new HttpAgent(agentOptions)
   };
 };
+
+export const createLocalHostedHttpTimingPlugin = () => ({
+  name: "empire-local-hosted-http-timing",
+  configureServer(server: ViteDevServer) {
+    if (server.httpServer) {
+      applyLocalHostedHttpTiming(server.httpServer);
+    }
+  }
+}) satisfies Plugin;
 
 interface DevIncomingRequest {
   url?: string;
@@ -165,7 +175,10 @@ const normalizeRequestHeaders = (
 const hostedGameApiOrigin = resolveHostedGameApiOrigin();
 
 export default defineConfig({
-  plugins: hostedGameApiOrigin ? [] : [createGameplayApiMiddleware()],
+  plugins: [
+    createLocalHostedHttpTimingPlugin(),
+    ...(hostedGameApiOrigin ? [] : [createGameplayApiMiddleware()])
+  ],
   resolve: {
     alias: [
       {

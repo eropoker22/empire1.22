@@ -1,5 +1,6 @@
 import "../../../../scripts/load-local-environment";
 import * as http from "node:http";
+import { applyLocalHostedHttpTiming } from "./local-hosted-http-timing";
 
 const port = Number(process.env.EMPIRE_HOSTED_API_PORT ?? 8787);
 const host = "127.0.0.1";
@@ -32,6 +33,7 @@ const server = http.createServer(async (request, response) => {
     }));
   }
 });
+applyLocalHostedHttpTiming(server);
 
 server.listen(port, host, () => {
   process.stdout.write(`Empire Streets hosted API listening on http://${host}:${port}.\n`);
