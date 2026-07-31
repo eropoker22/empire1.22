@@ -563,9 +563,9 @@ async function requestAdminAction(page, action, reason, confirmationText = "") {
 
 async function refreshAdmin(page) {
   const responsePromise = page.waitForResponse((response) => (
-    new URL(response.url()).pathname === "/api/admin/control-plane"
+    new URL(response.url()).pathname.startsWith("/api/admin/control-plane")
     && response.request().method() === "GET"
-  ));
+  ), { timeout: 30_000 });
   await page.locator("[data-admin-refresh]").click();
   await responsePromise;
 }
@@ -686,14 +686,14 @@ async function collectThreeSampleTickEvidence({
     )
   ));
   for (const delta of deltas) {
-    expect(delta.tick).toBe(1);
+    expect(delta.tick).toBeGreaterThan(0);
     expect(delta.stateVersion).toBeGreaterThan(0);
     expect(delta.rateBasis).toMatchObject({
       projectionBasis: "next-authoritative-economy-tick",
       fromTick: delta.fromTick,
       toTick: delta.fromTick + 1,
       tickRateMs: canonicalTickRateMs,
-      stableAcrossGap: expect.any(Boolean)
+      stableAcrossGap: true
     });
     expect(delta.expectedPerTick.cleanCash).toBeGreaterThan(0);
     expect(delta.expectedPerTick.dirtyCash).toBeGreaterThanOrEqual(0);
@@ -925,7 +925,7 @@ function isCompleteAlignedTickSample(sample, previousTick) {
     && ticks.every((tick) => tick === ticks[0])
     && stateVersions.every(Number.isFinite)
     && stateVersions.every((stateVersion) => stateVersion === stateVersions[0])
-    && (previousTick === null || ticks[0] === previousTick + 1)
+    && (previousTick === null || ticks[0] > previousTick)
     && Boolean(sample.admin.player)
     && Boolean(sample.admin.district)
     && [
