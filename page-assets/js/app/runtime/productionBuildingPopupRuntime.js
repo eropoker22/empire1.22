@@ -463,7 +463,8 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     }, {
       mount: root,
       formatCurrency: deps.formatCurrency,
-      formatDurationLabel: deps.formatDurationLabel
+      formatDurationLabel: deps.formatDurationLabel,
+      selectionScopeKey: pharmacy.buildingId
     });
   };
 
@@ -511,7 +512,8 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     }, {
       mount: root,
       formatCurrency: deps.formatCurrency,
-      formatDurationLabel: deps.formatDurationLabel
+      formatDurationLabel: deps.formatDurationLabel,
+      selectionScopeKey: drugLab.buildingId
     });
   };
 
@@ -558,7 +560,8 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     }, {
       mount: root,
       formatCurrency: deps.formatCurrency,
-      formatDurationLabel: deps.formatDurationLabel
+      formatDurationLabel: deps.formatDurationLabel,
+      selectionScopeKey: armory.buildingId
     });
   };
 

@@ -1,4 +1,9 @@
 import { FREE_GAMEPLAY_TICK_MS } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
+import {
+  clearProductionQuantitySelection,
+  readProductionQuantitySelection,
+  writeProductionQuantitySelection
+} from "./productionQuantitySelection.js";
 
 function createElement(scope, tag, className = "") {
   const documentRef = scope?.ownerDocument || (typeof document !== "undefined" ? document : null);
@@ -48,6 +53,7 @@ export function renderServerDrugLabRecipeCard(viewModel = {}, callbacks = {}, op
   const line = viewModel.serverLine || {};
   const visual = viewModel.visual || {};
   const isArmory = viewModel.buildingName === "armory";
+  const selectionKey = `${String(options.selectionScopeKey || viewModel.buildingName || "production")}:${String(line.recipeId || viewModel.recipeId || "recipe")}`;
   const armoryCategory = line.category === "defense" ? "defense" : "attack";
   const card = createElement(options.mount, "article");
   if (!card) return null;
@@ -79,7 +85,7 @@ export function renderServerDrugLabRecipeCard(viewModel = {}, callbacks = {}, op
   const cancel = createElement(options.mount, "button", "button drug-lab-mini-btn");
   if (![head, titleWrap, icon, titles, title, state, metrics, supplyMetric, supplyLabel, supplyRow, actions, quantity, minus, value, plus, start, cancel].every(Boolean)) return card;
 
-  let selected = 1;
+  let selected = readProductionQuantitySelection(options.mount, selectionKey);
   const maxStart = Math.max(0, Math.floor(Number(line.maxStartQuantity || 0)));
   const inputValues = [];
   const inputs = [
@@ -119,6 +125,7 @@ export function renderServerDrugLabRecipeCard(viewModel = {}, callbacks = {}, op
   }
   const refresh = () => {
     selected = Math.max(1, Math.min(selected, Math.max(1, maxStart)));
+    writeProductionQuantitySelection(options.mount, selectionKey, selected);
     value.textContent = String(selected);
     minus.disabled = selected <= 1 || maxStart <= 0;
     plus.disabled = selected >= maxStart || maxStart <= 0;
@@ -160,7 +167,10 @@ export function renderServerDrugLabRecipeCard(viewModel = {}, callbacks = {}, op
   start.textContent = "Spustit";
   if (isArmory) start.dataset.armorySlotStart = "";
   start.title = line.disabledReason || "";
-  start.addEventListener("click", () => callbacks.onStart?.({ ...viewModel, batchCount: selected }));
+  start.addEventListener("click", () => {
+    clearProductionQuantitySelection(options.mount, selectionKey);
+    callbacks.onStart?.({ ...viewModel, batchCount: selected });
+  });
   cancel.type = "button";
   cancel.textContent = "Zrušit";
   cancel.setAttribute("aria-label", "Zrušit čekající výrobu " + (line.label || ""));

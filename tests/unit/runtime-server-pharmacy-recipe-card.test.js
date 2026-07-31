@@ -67,4 +67,36 @@ describe("server pharmacy recipe card", () => {
     expect(card.querySelector(".pharmacy-slot__btn--start").disabled).toBe(true);
     expect(card.querySelector(".pharmacy-slot__btn--stop").disabled).toBe(true);
   });
+
+  it("preserves quantity across rerenders, isolates building scope and resets after Start", () => {
+    const dom = new JSDOM("<body></body>");
+    const mount = dom.window.document.body;
+    const start = vi.fn();
+    const render = (selectionScopeKey) => renderServerPharmacyRecipeCard({
+      buildingName: "pharmacy",
+      serverLine: createLine({ maxStartQuantity: 3 })
+    }, { onStart: start }, { mount, selectionScopeKey });
+
+    const firstCard = render("building:district-1:pharmacy:1");
+    firstCard.querySelectorAll(".pharmacy-slot__quantity-btn")[1].click();
+    expect(firstCard.querySelector(".pharmacy-slot__quantity-value").textContent).toBe("2");
+
+    mount.replaceChildren();
+    const rerenderedCard = render("building:district-1:pharmacy:1");
+    expect(rerenderedCard.querySelector(".pharmacy-slot__quantity-value").textContent).toBe("2");
+
+    mount.replaceChildren();
+    const otherBuildingCard = render("building:district-2:pharmacy:1");
+    expect(otherBuildingCard.querySelector(".pharmacy-slot__quantity-value").textContent).toBe("1");
+
+    mount.replaceChildren();
+    const originalBuildingCard = render("building:district-1:pharmacy:1");
+    expect(originalBuildingCard.querySelector(".pharmacy-slot__quantity-value").textContent).toBe("2");
+    originalBuildingCard.querySelector(".pharmacy-slot__btn--start").click();
+    expect(start).toHaveBeenCalledWith(expect.objectContaining({ batchCount: 2 }));
+
+    mount.replaceChildren();
+    const resetCard = render("building:district-1:pharmacy:1");
+    expect(resetCard.querySelector(".pharmacy-slot__quantity-value").textContent).toBe("1");
+  });
 });

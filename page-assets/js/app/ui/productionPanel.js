@@ -1,6 +1,22 @@
 import { renderRecipeCard, renderRecipeList } from "./recipePanel.js";
 import { bindSharedCountdown } from "./sharedCountdownTicker.js";
 import { FREE_GAMEPLAY_TICK_MS } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
+import {
+  clearProductionQuantitySelection,
+  readProductionQuantitySelection,
+  writeProductionQuantitySelection
+} from "./productionQuantitySelection.js";
+
+const getFactoryBatchSelectionKey = (slotView, serverLine, slot, options) => [
+  String(options?.selectionScopeKey || "factory"),
+  String(
+    serverLine?.recipeId
+    || slotView?.recipeId
+    || slot?.id
+    || slot?.resourceKey
+    || "factory-slot"
+  )
+].join(":");
 
 function getDocument(scopeElement = null) {
   return scopeElement?.ownerDocument || (typeof document !== "undefined" ? document : null);
@@ -432,6 +448,7 @@ export function renderFactoryBuildingInfo(infoPanel, viewModel = {}, options = {
 export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {}) {
   const serverLine = slotView.serverLine || null;
   const slot = slotView.slot || {};
+  const batchSelectionKey = getFactoryBatchSelectionKey(slotView, serverLine, slot, options);
   const card = createElement(options.mount, "article");
   if (!card) return null;
   card.dataset.resourceColor = slotView.resourceColor || slot.resourceKey || "";
@@ -509,7 +526,10 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     metrics.append(materialRequirements.element);
   }
 
-  let selectedBatches = 1;
+  let selectedBatches = Math.max(
+    1,
+    readProductionQuantitySelection(options.mount, batchSelectionKey)
+  );
   const updatePrice = () => {
     if (!priceValue) return;
     if (serverLine) {
@@ -552,6 +572,7 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
         serverLimit > 0 ? serverLimit : 1
       );
       selectedBatches = Math.max(1, Math.min(selectedBatches, selectionLimit));
+      writeProductionQuantitySelection(options.mount, batchSelectionKey, selectedBatches);
       quantityValue.textContent = String(selectedBatches);
       minusButton.disabled = selectedBatches <= 1 || Boolean(serverLine ? !serverLine.canStart : !slotView.canStart);
       plusButton.disabled = Boolean(serverLine ? !serverLine.canStart : !slotView.canStart)
@@ -581,6 +602,7 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
       ? (serverLine?.disabledReason || slotView.disabledReason || "Chybí vstupy, místo ve frontě nebo volná lokální kapacita.")
       : "Spustit výrobu.";
     startButton.addEventListener("click", () => {
+      clearProductionQuantitySelection(options.mount, batchSelectionKey);
       if (typeof callbacks.onStartSlot === "function") callbacks.onStartSlot(serverLine || slotView, { batchCount: selectedBatches });
     });
     pauseButton.type = "button";

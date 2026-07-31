@@ -193,7 +193,11 @@ export function createFactoryPopupRuntime(deps = {}) {
             slotList,
             createFactoryLoadingLines(),
             {},
-            { tickRateMs: deps.getServerTickRateMs?.() || FREE_GAMEPLAY_TICK_MS, formatDurationLabel: deps.formatDurationLabel }
+            {
+              tickRateMs: deps.getServerTickRateMs?.() || FREE_GAMEPLAY_TICK_MS,
+              formatDurationLabel: deps.formatDurationLabel,
+              selectionScopeKey: serverFactory.buildingId
+            }
           );
           return;
         }
@@ -225,7 +229,11 @@ export function createFactoryPopupRuntime(deps = {}) {
             deps.setBuildingActionFeedback?.(root, error ? "warning" : "success", "Továrna", error?.message || "Čekající výroba byla zrušena.");
             renderFactoryDashboard();
           }
-        }, { tickRateMs: deps.getServerTickRateMs?.() || FREE_GAMEPLAY_TICK_MS, formatDurationLabel: deps.formatDurationLabel });
+        }, {
+          tickRateMs: deps.getServerTickRateMs?.() || FREE_GAMEPLAY_TICK_MS,
+          formatDurationLabel: deps.formatDurationLabel,
+          selectionScopeKey: serverFactory.buildingId
+        });
         return;
       }
       if (!isLegacyLocalProductionEnabled()) {

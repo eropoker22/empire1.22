@@ -64,6 +64,39 @@ describe("server drug lab recipe card", () => {
     expect(start).toHaveBeenCalledWith(expect.objectContaining({ batchCount: 1 }));
   });
 
+  it("preserves quantity across rerenders, isolates building scope and resets after Start", () => {
+    const dom = new JSDOM("<body></body>");
+    const mount = dom.window.document.body;
+    const start = vi.fn();
+    const render = (selectionScopeKey) => renderServerDrugLabRecipeCard({
+      buildingName: "druglab",
+      serverLine: line({ maxStartQuantity: 3 }),
+      cleanCashAmount: 8400
+    }, { onStart: start }, { mount, selectionScopeKey });
+
+    const firstCard = render("building:district-1:drug-lab:1");
+    firstCard.querySelectorAll(".drug-production-slot__quantity-btn")[1].click();
+    expect(firstCard.querySelector(".drug-production-slot__quantity-value").textContent).toBe("2");
+
+    mount.replaceChildren();
+    const rerenderedCard = render("building:district-1:drug-lab:1");
+    expect(rerenderedCard.querySelector(".drug-production-slot__quantity-value").textContent).toBe("2");
+
+    mount.replaceChildren();
+    const otherBuildingCard = render("building:district-2:drug-lab:1");
+    expect(otherBuildingCard.querySelector(".drug-production-slot__quantity-value").textContent).toBe("1");
+
+    mount.replaceChildren();
+    const originalBuildingCard = render("building:district-1:drug-lab:1");
+    expect(originalBuildingCard.querySelector(".drug-production-slot__quantity-value").textContent).toBe("2");
+    originalBuildingCard.querySelector(".drug-lab-mini-btn").click();
+    expect(start).toHaveBeenCalledWith(expect.objectContaining({ batchCount: 2 }));
+
+    mount.replaceChildren();
+    const resetCard = render("building:district-1:drug-lab:1");
+    expect(resetCard.querySelector(".drug-production-slot__quantity-value").textContent).toBe("1");
+  });
+
   it("submits only the Lab server intent and its cancel command", async () => {
     const renderRecipeCard = vi.fn((_viewModel, callbacks) => ({ callbacks }));
     const submitServerDrugLabCommand = vi.fn(async () => ({ errors: [] }));

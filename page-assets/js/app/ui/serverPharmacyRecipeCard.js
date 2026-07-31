@@ -1,4 +1,9 @@
 import { FREE_GAMEPLAY_TICK_MS } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
+import {
+  clearProductionQuantitySelection,
+  readProductionQuantitySelection,
+  writeProductionQuantitySelection
+} from "./productionQuantitySelection.js";
 
 function createElement(scopeElement, tagName, className = "") {
   const documentRef = scopeElement?.ownerDocument || (typeof document !== "undefined" ? document : null);
@@ -45,6 +50,7 @@ const metric = (mount, label, value) => {
 export function renderServerPharmacyRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
   const line = viewModel.serverLine || {};
   const visual = viewModel.visual || {};
+  const selectionKey = `${String(options.selectionScopeKey || "pharmacy")}:${String(line.recipeId || viewModel.recipeId || "recipe")}`;
   const card = createElement(options.mount, "article");
   if (!card) return null;
   const isActive = line.status === "processing";
@@ -67,10 +73,11 @@ export function renderServerPharmacyRecipeCard(viewModel = {}, callbacks = {}, o
   const cancel = createElement(options.mount, "button", "button pharmacy-slot__btn pharmacy-slot__btn--stop");
   if (![head, titleLine, icon, titleWrap, title, state, metrics, actions, quantity, minus, value, plus, start, cancel].every(Boolean)) return card;
 
-  let selected = 1;
+  let selected = readProductionQuantitySelection(options.mount, selectionKey);
   const maxStart = Math.max(0, Math.floor(Number(line.maxStartQuantity || 0)));
   const refresh = () => {
     selected = Math.max(1, Math.min(selected, Math.max(1, maxStart)));
+    writeProductionQuantitySelection(options.mount, selectionKey, selected);
     value.textContent = String(selected);
     minus.disabled = selected <= 1 || maxStart <= 0;
     plus.disabled = selected >= maxStart || maxStart <= 0;
@@ -101,7 +108,10 @@ export function renderServerPharmacyRecipeCard(viewModel = {}, callbacks = {}, o
   start.textContent = "Spustit";
   start.disabled = !line.canStart;
   start.title = line.disabledReason || "";
-  start.addEventListener("click", () => callbacks.onStart?.({ ...viewModel, batchCount: selected }));
+  start.addEventListener("click", () => {
+    clearProductionQuantitySelection(options.mount, selectionKey);
+    callbacks.onStart?.({ ...viewModel, batchCount: selected });
+  });
   cancel.type = "button";
   cancel.textContent = "Zrušit";
   cancel.setAttribute("aria-label", "Zrušit čekající výrobu " + (line.label || ""));

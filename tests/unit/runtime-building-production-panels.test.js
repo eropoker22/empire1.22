@@ -2068,6 +2068,61 @@ describe("building detail, production and recipe UI modules", () => {
     expect(onPauseSlot).toHaveBeenCalledWith(line);
   });
 
+  it("preserves the selected Factory quantity across authoritative rerenders", () => {
+    const document = setupDocument();
+    const mount = document.createElement("div");
+    const onStartSlot = vi.fn();
+    const line = {
+      recipeId: "metal-parts",
+      resourceKey: "metal-parts",
+      label: "Metal Parts",
+      status: "ready",
+      producedAmount: 0,
+      producedCapacity: 10,
+      queuedAmount: 0,
+      queueCapacity: 8,
+      maxStartQuantity: 4,
+      canStart: true,
+      canCancelWaiting: false,
+      effectiveUnitDurationTicks: 24,
+      remainingMs: 0,
+      costDisplayRows: [{ resourceKey: "cash", amount: 360 }]
+    };
+
+    renderServerFactorySlotList(mount, [line], { onStartSlot }, {
+      selectionScopeKey: "building:factory:a"
+    });
+    const firstCard = mount.children[0];
+    firstCard.querySelectorAll(".factory-slot__quantity-btn")
+      .find((button) => button.textContent === "+")
+      .click();
+    expect(firstCard.querySelector(".factory-slot__quantity-value").textContent).toBe("2");
+
+    renderServerFactorySlotList(mount, [line], { onStartSlot }, {
+      selectionScopeKey: "building:factory:a"
+    });
+    const rerenderedCard = mount.children[0];
+    expect(rerenderedCard.querySelector(".factory-slot__quantity-value").textContent).toBe("2");
+
+    renderServerFactorySlotList(mount, [line], { onStartSlot }, {
+      selectionScopeKey: "building:factory:b"
+    });
+    expect(mount.children[0].querySelector(".factory-slot__quantity-value").textContent).toBe("1");
+
+    renderServerFactorySlotList(mount, [line], { onStartSlot }, {
+      selectionScopeKey: "building:factory:a"
+    });
+    const restoredCard = mount.children[0];
+    expect(restoredCard.querySelector(".factory-slot__quantity-value").textContent).toBe("2");
+    restoredCard.querySelector('[data-factory-slot-toggle-state="start"]').click();
+    expect(onStartSlot).toHaveBeenCalledWith(line, { batchCount: 2 });
+
+    renderServerFactorySlotList(mount, [line], { onStartSlot }, {
+      selectionScopeKey: "building:factory:a"
+    });
+    expect(mount.children[0].querySelector(".factory-slot__quantity-value").textContent).toBe("1");
+  });
+
   it("keeps Factory loading slots visible without exposing local production values", () => {
     const document = setupDocument();
     const mount = document.createElement("div");
