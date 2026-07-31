@@ -630,11 +630,11 @@ export async function exerciseHostedProductionLifecycleThroughVisibleUi({
       await expect(collect).toBeEnabled();
       const collectedResult = await submitAndReadResponse(page, collect);
       expect(collectedResult.request?.command?.type).toBe("collect-production");
-      expect(collectedResult.request?.command?.payload).toMatchObject({
-        districtId,
-        buildingId,
-        resourceKey
-      });
+      expect(collectedResult.request?.command?.payload).toEqual(
+        surfaceName === "factory"
+          ? { districtId, buildingId }
+          : { districtId, buildingId, resourceKey }
+      );
       expect(collectedResult.body?.accepted).toBe(true);
       const collected = toProductionSnapshot(
         collectedResult.body?.readModel,

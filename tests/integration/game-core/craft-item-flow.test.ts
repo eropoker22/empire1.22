@@ -42,6 +42,54 @@ describe("craft-item command flow", () => {
     expect(collected.nextState.resourceStatesById["resource:1"]?.balances["tech-core"]).toBe(1);
   });
 
+  it("collects every ready Factory output when the shared collect-all button omits resourceKey", () => {
+    const { state, building } = createCoreStateWithFixedBuildingFixture("factory", {
+      playerBalances: { "metal-parts": 4, "tech-core": 2 }
+    });
+    const buildingResourceStateId = `resource:${building.id}`;
+    const buildingResourceState = state.resourceStatesById[buildingResourceStateId] ?? {
+      id: buildingResourceStateId,
+      ownerType: "building" as const,
+      ownerId: building.id,
+      balances: {},
+      incomeModifiers: {},
+      lastUpdatedTick: state.root.tick,
+      version: 1
+    };
+    const prepared = {
+      ...state,
+      resourceStatesById: {
+        ...state.resourceStatesById,
+        [buildingResourceStateId]: {
+          ...buildingResourceState,
+          balances: {
+            ...buildingResourceState.balances,
+            "metal-parts": 2,
+            "tech-core": 1
+          }
+        }
+      }
+    };
+
+    const collected = applyCommand(prepared, createCollectProductionCommandFixture({
+      payload: { districtId: "district:1", buildingId: building.id }
+    }), context);
+
+    expect(collected.errors).toEqual([]);
+    expect(collected.nextState.resourceStatesById["resource:1"]?.balances).toMatchObject({
+      "metal-parts": 6,
+      "tech-core": 3
+    });
+    expect(collected.nextState.resourceStatesById[buildingResourceStateId]?.balances).toMatchObject({
+      "metal-parts": 0,
+      "tech-core": 0
+    });
+    expect(collected.events.map((event) => event.payload)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ resourceKey: "metal-parts", amount: 2 }),
+      expect.objectContaining({ resourceKey: "tech-core", amount: 1 })
+    ]));
+  });
+
   it.each([
     ["armory", "pistol", { "metal-parts": 3, "tech-core": 1 }, "pistol"],
     ["armory", "bazooka", { "metal-parts": 3, "combat-module": 2 }, "bazooka"],

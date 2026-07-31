@@ -154,6 +154,16 @@ describe("factory popup runtime", () => {
       type: "craft-item",
       payload: expect.objectContaining({ buildingId: "building:factory", quantity: 2 })
     }));
+
+    submitServerFactoryCommand.mockClear();
+    await collect.dispatch("click");
+    expect(submitServerFactoryCommand).toHaveBeenCalledWith({
+      type: "collect-production",
+      payload: {
+        districtId: "district:1",
+        buildingId: "building:factory"
+      }
+    });
   });
 
   it("prepares the exact server-owned Factory before opening the shared popup", async () => {
