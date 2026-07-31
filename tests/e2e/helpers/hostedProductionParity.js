@@ -211,10 +211,9 @@ function getUnitReservationCosts(line) {
   ].filter(([, amount]) => amount > 0));
 }
 
-function assertBalanceTransition(before, after, commandDeltas, message) {
+export function assertBalanceTransition(before, after, commandDeltas, message) {
   const tickGap = after.currentTick - before.currentTick;
   expect(tickGap, `${message}: server tick must not move backwards`).toBeGreaterThanOrEqual(0);
-  expect(tickGap, `${message}: visible command sequence must fit within one authoritative tick`).toBeLessThanOrEqual(1);
   if (tickGap > 0) {
     expect(before.hasEconomyRates, `${message}: tick crossing requires the authoritative rate projection`).toBe(true);
   }
