@@ -41426,10 +41426,24 @@
     </div>
   </details>`;
   };
+  const RUNTIME_REQUIRED_STATUSES = /* @__PURE__ */ new Set(["running", "restarting"]);
+  const requiresAdminInstanceRuntime = (status) => RUNTIME_REQUIRED_STATUSES.has(String(status || "unknown").trim().toLowerCase());
+  const resolveRuntimeWorkerCounts = (overview) => {
+    if (overview.runtimeWorkers) return overview.runtimeWorkers;
+    const instances = overview.instances.filter((entry) => requiresAdminInstanceRuntime(entry.status));
+    return {
+      expected: instances.length,
+      live: instances.filter((entry) => entry.workerStatus === "live").length,
+      stale: instances.filter((entry) => entry.workerStatus === "stale").length,
+      offline: instances.filter((entry) => entry.workerStatus === "offline").length,
+      noWorker: instances.filter((entry) => entry.workerStatus === "no-worker").length
+    };
+  };
   const renderAdminCommandCenter = (input) => {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
     const health = resolveHealth(input.controlPlane);
-    const attentionCount = input.overview.counts.failed + input.overview.counts.stale + input.overview.counts.offline + input.overview.counts.noWorker;
+    const runtimeWorkers = resolveRuntimeWorkerCounts(input.overview);
+    const attentionCount = input.overview.counts.failed + runtimeWorkers.stale + runtimeWorkers.offline + runtimeWorkers.noWorker;
     return `<section id="admin-overview" class="admin-command-center admin-section-anchor" aria-labelledby="admin-command-center-title">
     <div class="admin-command-center__primary">
       <div class="admin-command-center__status" data-tone="${health.tone}" data-admin-system-health>
@@ -41477,7 +41491,7 @@
       "Stav serverů",
       attentionCount,
       attentionCount ? "warning" : "success",
-      `stale ${input.overview.counts.stale} · offline ${input.overview.counts.offline} · failed ${input.overview.counts.failed}`
+      `stale ${runtimeWorkers.stale} · offline ${runtimeWorkers.offline} · failed ${input.overview.counts.failed}`
     )}
       ${metric(
       "Worker",
@@ -42151,20 +42165,22 @@
       detail: `${input.overview.counts.failed} instancí hlásí chybu. Vyberte server a otevřete diagnostiku.`,
       href: "#admin-servers"
     });
-    const unhealthyWorkers = input.overview.counts.stale + input.overview.counts.offline + input.overview.counts.noWorker;
+    const runtimeWorkers = resolveRuntimeWorkerCounts(input.overview);
+    const unhealthyWorkers = runtimeWorkers.stale + runtimeWorkers.offline + runtimeWorkers.noWorker;
     if (unhealthyWorkers > 0) alerts.push({
       tone: "warning",
       title: "Instance bez čerstvého workeru",
-      detail: `${unhealthyWorkers} instancí je stale, offline nebo bez workeru. Ověřte heartbeat a lease.`,
+      detail: `${unhealthyWorkers} běžících instancí je stale, offline nebo bez workeru. Ověřte heartbeat a lease.`,
       href: "#admin-servers"
     });
-    if ((_b = input.detail) == null ? void 0 : _b.freshness.stale) alerts.push({
+    const detailRuntimeExpected = input.detail ? requiresAdminInstanceRuntime(input.detail.summary.status) : false;
+    if (detailRuntimeExpected && ((_b = input.detail) == null ? void 0 : _b.freshness.stale)) alerts.push({
       tone: "warning",
       title: "Vybraný detail je stale",
       detail: input.detail.freshness.staleReason ?? "Důvod není dostupný.",
       href: "#admin-snapshots"
     });
-    if (((_c = input.detail) == null ? void 0 : _c.snapshot.storageHealth) && input.detail.snapshot.storageHealth !== "healthy") alerts.push({
+    if (detailRuntimeExpected && ((_c = input.detail) == null ? void 0 : _c.snapshot.storageHealth) && input.detail.snapshot.storageHealth !== "healthy") alerts.push({
       tone: "danger",
       title: "Snapshot storage není healthy",
       detail: `Storage health: ${input.detail.snapshot.storageHealth}.`,

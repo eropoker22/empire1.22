@@ -3,6 +3,10 @@ import type {
   AdminInstanceDetailView,
   AdminOverviewView
 } from "@empire/shared-types";
+import {
+  requiresAdminInstanceRuntime,
+  resolveRuntimeWorkerCounts
+} from "./admin-runtime-health-policy";
 import { badge, escapeHtml } from "./admin-view-helpers";
 
 interface Alert {
@@ -65,16 +69,20 @@ const resolveAlerts = (input: {
     tone: "danger", title: "Instance s chybou",
     detail: `${input.overview.counts.failed} instancí hlásí chybu. Vyberte server a otevřete diagnostiku.`, href: "#admin-servers"
   });
-  const unhealthyWorkers = input.overview.counts.stale + input.overview.counts.offline + input.overview.counts.noWorker;
+  const runtimeWorkers = resolveRuntimeWorkerCounts(input.overview);
+  const unhealthyWorkers = runtimeWorkers.stale + runtimeWorkers.offline + runtimeWorkers.noWorker;
   if (unhealthyWorkers > 0) alerts.push({
     tone: "warning", title: "Instance bez čerstvého workeru",
-    detail: `${unhealthyWorkers} instancí je stale, offline nebo bez workeru. Ověřte heartbeat a lease.`, href: "#admin-servers"
+    detail: `${unhealthyWorkers} běžících instancí je stale, offline nebo bez workeru. Ověřte heartbeat a lease.`, href: "#admin-servers"
   });
-  if (input.detail?.freshness.stale) alerts.push({
+  const detailRuntimeExpected = input.detail
+    ? requiresAdminInstanceRuntime(input.detail.summary.status)
+    : false;
+  if (detailRuntimeExpected && input.detail?.freshness.stale) alerts.push({
     tone: "warning", title: "Vybraný detail je stale",
     detail: input.detail.freshness.staleReason ?? "Důvod není dostupný.", href: "#admin-snapshots"
   });
-  if (input.detail?.snapshot.storageHealth && input.detail.snapshot.storageHealth !== "healthy") alerts.push({
+  if (detailRuntimeExpected && input.detail?.snapshot.storageHealth && input.detail.snapshot.storageHealth !== "healthy") alerts.push({
     tone: "danger", title: "Snapshot storage není healthy",
     detail: `Storage health: ${input.detail.snapshot.storageHealth}.`, href: "#admin-snapshots"
   });

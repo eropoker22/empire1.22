@@ -121,6 +121,122 @@ describe("read-only admin app", () => {
       .toContain("Recent server command acceptedPASS");
   });
 
+  it.each(["lobby", "paused", "stopped", "archived"])(
+    "does not raise runtime or storage alerts for an inactive %s server",
+    (status) => {
+      const inactiveSummary: AdminInstanceSummaryView = {
+        ...summary("server:A"),
+        status,
+        workerStatus: "offline",
+        snapshotStale: true,
+        freshness: {
+          ...summary("server:A").freshness,
+          stale: true,
+          staleReason: "historical-snapshot"
+        }
+      };
+      const inactiveDetail: AdminInstanceDetailView = {
+        ...detail("server:A"),
+        summary: inactiveSummary,
+        freshness: inactiveSummary.freshness,
+        snapshot: {
+          ...detail("server:A").snapshot,
+          stale: true,
+          storageHealth: "attention"
+        }
+      };
+      const inactiveOverview: AdminOverviewView = {
+        ...overview(),
+        instances: [inactiveSummary],
+        runtimeWorkers: { expected: 0, live: 0, stale: 0, offline: 0, noWorker: 0 },
+        counts: {
+          known: 1,
+          live: 0,
+          stale: 0,
+          offline: 1,
+          noWorker: 0,
+          failed: 0,
+          running: 0,
+          lobby: status === "lobby" ? 1 : 0,
+          paused: status === "paused" ? 1 : 0,
+          players: inactiveSummary.playerCount
+        }
+      };
+      document.body.innerHTML = renderDashboard({
+        session: { ...session, role: "owner" },
+        overview: inactiveOverview,
+        selectedInstanceId: inactiveSummary.serverInstanceId,
+        detail: inactiveDetail,
+        controlPlane: controlPlane(hostedServer()),
+        wizardOpen: false,
+        wizardStep: 1,
+        frontendBuildSha: BUILD_SHA
+      });
+
+      const operations = document.querySelector("#admin-alerts")?.textContent ?? "";
+      expect(operations).not.toContain("Instance bez čerstvého workeru");
+      expect(operations).not.toContain("Vybraný detail je stale");
+      expect(operations).not.toContain("Snapshot storage není healthy");
+      expect(document.querySelector(".admin-command-metrics")?.textContent).toMatch(/Stav serverů\s*0/u);
+    }
+  );
+
+  it("keeps worker, freshness, and storage alerts active for a running server", () => {
+    const runningSummary: AdminInstanceSummaryView = {
+      ...summary("server:A"),
+      workerStatus: "offline",
+      snapshotStale: true,
+      freshness: {
+        ...summary("server:A").freshness,
+        stale: true,
+        staleReason: "snapshot-stale"
+      }
+    };
+    const runningDetail: AdminInstanceDetailView = {
+      ...detail("server:A"),
+      summary: runningSummary,
+      freshness: runningSummary.freshness,
+      snapshot: {
+        ...detail("server:A").snapshot,
+        stale: true,
+        storageHealth: "attention"
+      }
+    };
+    const runningOverview: AdminOverviewView = {
+      ...overview(),
+      instances: [runningSummary],
+      runtimeWorkers: { expected: 1, live: 0, stale: 0, offline: 1, noWorker: 0 },
+      counts: {
+        known: 1,
+        live: 0,
+        stale: 0,
+        offline: 1,
+        noWorker: 0,
+        failed: 0,
+        running: 1,
+        lobby: 0,
+        paused: 0,
+        players: runningSummary.playerCount
+      }
+    };
+    document.body.innerHTML = renderDashboard({
+      session: { ...session, role: "owner" },
+      overview: runningOverview,
+      selectedInstanceId: runningSummary.serverInstanceId,
+      detail: runningDetail,
+      controlPlane: controlPlane(hostedServer({ status: "running" })),
+      wizardOpen: false,
+      wizardStep: 1,
+      frontendBuildSha: BUILD_SHA
+    });
+
+    const operations = document.querySelector("#admin-alerts")?.textContent ?? "";
+    expect(operations).toContain("Instance bez čerstvého workeru");
+    expect(operations).toContain("Vybraný detail je stale");
+    expect(operations).toContain("Snapshot storage není healthy");
+    expect(document.querySelector(".admin-command-metrics")?.textContent).toMatch(/Stav serverů\s*1/u);
+  });
+
   it("does not let a late response from the previous selection overwrite the current detail", async () => {
     const pendingA = deferred<AdminInstanceDetailView>();
     const client = createClient();
@@ -829,6 +945,7 @@ const summary = (id: string): AdminInstanceSummaryView => ({
 });
 const overview = (): AdminOverviewView => ({
   generatedAt: "2026-07-16T10:00:00.000Z", databaseStatus: "available", instances: [summary("server:A"), summary("server:B")],
+  runtimeWorkers: { expected: 2, live: 2, stale: 0, offline: 0, noWorker: 0 },
   counts: { known: 2, live: 2, stale: 0, offline: 0, noWorker: 0, failed: 0, running: 2, lobby: 0, paused: 0, players: 7 }
 });
 const detail = (id: string): AdminInstanceDetailView => ({

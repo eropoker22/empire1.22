@@ -5,7 +5,11 @@ import type {
   AdminOverviewView,
   AdminSessionView
 } from "@empire/shared-types";
-import { createAdminSessionService, type AdminDurableRepositories } from "../admin/read-only";
+import {
+  createAdminSessionService,
+  requiresActiveInstanceRuntime,
+  type AdminDurableRepositories
+} from "../admin/read-only";
 import { createHostedControlPlaneService } from "../admin/hosted";
 import { createJsonResponse, type NetlifyFunctionResponse } from "./netlify-json-response";
 import { validateStateChangingOrigin } from "./csrf-origin-guard";
@@ -154,23 +158,36 @@ export const createAdminReadOnlyNetlifyHandler = (options: {
   };
 };
 
-const createOverview = (instances: Awaited<ReturnType<AdminDurableRepositories["monitoring"]["listKnownInstances"]>>, now: Date): AdminOverviewView => ({
-  generatedAt: now.toISOString(),
-  databaseStatus: "available",
-  instances,
-  counts: {
-    known: instances.length,
-    live: instances.filter((entry) => entry.workerStatus === "live").length,
-    stale: instances.filter((entry) => entry.workerStatus === "stale").length,
-    offline: instances.filter((entry) => entry.workerStatus === "offline").length,
-    noWorker: instances.filter((entry) => entry.workerStatus === "no-worker").length,
-    failed: instances.filter((entry) => entry.status === "crashed" || Boolean(entry.lastErrorAt)).length,
-    running: instances.filter((entry) => entry.status === "running").length,
-    lobby: instances.filter((entry) => entry.status === "lobby").length,
-    paused: instances.filter((entry) => entry.status === "paused").length,
-    players: instances.reduce((sum, entry) => sum + entry.playerCount, 0)
-  }
-});
+const createOverview = (
+  instances: Awaited<ReturnType<AdminDurableRepositories["monitoring"]["listKnownInstances"]>>,
+  now: Date
+): AdminOverviewView => {
+  const runtimeInstances = instances.filter((entry) => requiresActiveInstanceRuntime(entry.status));
+  return {
+    generatedAt: now.toISOString(),
+    databaseStatus: "available",
+    instances,
+    runtimeWorkers: {
+      expected: runtimeInstances.length,
+      live: runtimeInstances.filter((entry) => entry.workerStatus === "live").length,
+      stale: runtimeInstances.filter((entry) => entry.workerStatus === "stale").length,
+      offline: runtimeInstances.filter((entry) => entry.workerStatus === "offline").length,
+      noWorker: runtimeInstances.filter((entry) => entry.workerStatus === "no-worker").length
+    },
+    counts: {
+      known: instances.length,
+      live: instances.filter((entry) => entry.workerStatus === "live").length,
+      stale: instances.filter((entry) => entry.workerStatus === "stale").length,
+      offline: instances.filter((entry) => entry.workerStatus === "offline").length,
+      noWorker: instances.filter((entry) => entry.workerStatus === "no-worker").length,
+      failed: instances.filter((entry) => entry.status === "crashed" || Boolean(entry.lastErrorAt)).length,
+      running: instances.filter((entry) => entry.status === "running").length,
+      lobby: instances.filter((entry) => entry.status === "lobby").length,
+      paused: instances.filter((entry) => entry.status === "paused").length,
+      players: instances.reduce((sum, entry) => sum + entry.playerCount, 0)
+    }
+  };
+};
 
 type Route = {
   kind: "session" | "overview" | "compat-monitoring" | "audit" | "control-plane" | "servers"

@@ -3,6 +3,7 @@ import type {
   AdminInstanceDetailView,
   AdminOverviewView
 } from "@empire/shared-types";
+import { resolveRuntimeWorkerCounts } from "./admin-runtime-health-policy";
 import { attribute, escapeHtml, formatNumber, formatTime } from "./admin-view-helpers";
 
 export const renderAdminCommandCenter = (input: {
@@ -12,10 +13,11 @@ export const renderAdminCommandCenter = (input: {
   selectedInstanceId: string | null;
 }): string => {
   const health = resolveHealth(input.controlPlane);
+  const runtimeWorkers = resolveRuntimeWorkerCounts(input.overview);
   const attentionCount = input.overview.counts.failed
-    + input.overview.counts.stale
-    + input.overview.counts.offline
-    + input.overview.counts.noWorker;
+    + runtimeWorkers.stale
+    + runtimeWorkers.offline
+    + runtimeWorkers.noWorker;
 
   return `<section id="admin-overview" class="admin-command-center admin-section-anchor" aria-labelledby="admin-command-center-title">
     <div class="admin-command-center__primary">
@@ -47,7 +49,7 @@ export const renderAdminCommandCenter = (input: {
       ${metric("Aktivní hráči", input.overview.counts.players, "neutral", "Napříč instancemi")}
       ${metric("Lobby", input.overview.counts.lobby, "gold", "Čekají na start")}
       ${metric("Stav serverů", attentionCount, attentionCount ? "warning" : "success",
-        `stale ${input.overview.counts.stale} · offline ${input.overview.counts.offline} · failed ${input.overview.counts.failed}`)}
+        `stale ${runtimeWorkers.stale} · offline ${runtimeWorkers.offline} · failed ${input.overview.counts.failed}`)}
       ${metric("Worker", input.controlPlane?.workerStatus ?? "Neznámý",
         input.controlPlane?.workerStatus === "online" ? "success" : "warning", "Hosted runtime")}
       ${metric("Registrace", input.controlPlane?.registrationEnabled ? "Zapnutá" : "Vypnutá",

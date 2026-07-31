@@ -55,6 +55,13 @@ export interface AdminOverviewView {
   generatedAt: string;
   databaseStatus: "available";
   instances: AdminInstanceSummaryView[];
+  runtimeWorkers: {
+    expected: number;
+    live: number;
+    stale: number;
+    offline: number;
+    noWorker: number;
+  };
   counts: {
     known: number;
     live: number;

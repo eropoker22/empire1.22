@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { AdminInstanceSummaryView } from "@empire/shared-types";
 import { createServerApp } from "../../apps/server/src/app";
 import {
   createInMemoryAdminDurableRepositories,
@@ -30,6 +31,63 @@ describe("read-only admin Netlify boundary", () => {
     const overview = await json(handler(request("GET", "/api/admin/overview", null, cookie(login))));
     expect(overview.statusCode).toBe(200);
     expect(overview.json.data.counts).toMatchObject({ known: 2, live: 1, offline: 1, players: 7 });
+    expect(overview.json.data.runtimeWorkers).toEqual({
+      expected: 1,
+      live: 1,
+      stale: 0,
+      offline: 0,
+      noWorker: 0
+    });
+  });
+
+  it("keeps historical worker counts while evaluating health only for runtime-required lifecycles", async () => {
+    const repositories = await createRepositories("viewer");
+    const template = (await repositories.monitoring.listKnownInstances())[0]!;
+    const lifecycleSummary = (
+      serverInstanceId: string,
+      status: string,
+      workerStatus: AdminInstanceSummaryView["workerStatus"]
+    ): AdminInstanceSummaryView => ({
+      ...template,
+      serverInstanceId,
+      displayName: serverInstanceId,
+      status,
+      workerStatus,
+      lastErrorAt: null,
+      freshness: {
+        ...template.freshness,
+        serverInstanceId
+      }
+    });
+    repositories.monitoring.listKnownInstances = async () => [
+      lifecycleSummary("server:running", "running", "no-worker"),
+      lifecycleSummary("server:paused", "paused", "stale"),
+      lifecycleSummary("server:stopped", "stopped", "offline"),
+      lifecycleSummary("server:archived", "archived", "no-worker")
+    ];
+    const handler = createAdminReadOnlyNetlifyHandler({ repositories, environment: TEST_ENV });
+    const login = await json(handler(request("POST", "/api/admin/session", {
+      username: TEST_USERNAME,
+      password: TEST_PASSWORD
+    })));
+
+    const overview = await json(handler(request("GET", "/api/admin/overview", null, cookie(login))));
+
+    expect(overview.statusCode).toBe(200);
+    expect(overview.json.data.counts).toMatchObject({
+      known: 4,
+      live: 0,
+      stale: 1,
+      offline: 1,
+      noWorker: 2
+    });
+    expect(overview.json.data.runtimeWorkers).toEqual({
+      expected: 1,
+      live: 0,
+      stale: 0,
+      offline: 0,
+      noWorker: 1
+    });
   });
 
   it("uses Secure cookies and validates Origin in production", async () => {
