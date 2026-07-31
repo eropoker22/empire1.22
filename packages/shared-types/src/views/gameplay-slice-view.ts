@@ -1,6 +1,7 @@
 import type { DistrictPanelView } from "./district-panel-view";
 import type { DistrictSummaryView } from "./district-summary-view";
 import type { GameplayModeView } from "./gameplay-mode-view";
+import type { GameplayEconomyRatesView } from "./gameplay-economy-rates-view";
 import type { AllianceBoardReadModel } from "./alliance-board-view";
 import type { BountyReadModel } from "./bounty-read-model-view";
 import type { MarketReadModel } from "./market-read-model-view";
@@ -25,6 +26,7 @@ import type {
 export interface GameplaySliceView {
   server: GameplaySliceServerMetadataView;
   mode: GameplayModeView;
+  economyRates?: GameplayEconomyRatesView;
   player: PlayerView;
   commandHints: GameplaySliceCommandHintsView;
   spawnSelection?: GameplaySliceSpawnSelectionView;

@@ -23,10 +23,30 @@ const productionPages = [
   "pages/game.html"
 ];
 const entrypoints = [
-  ["page-assets/js/login-entry.js", "login-live.js", "login.js"],
-  ["page-assets/js/lobby-entry.js", "lobby-live.js", "lobby.js"],
-  ["page-assets/js/faction-entry.js", "faction-live.js", "faction.js"],
-  ["page-assets/js/app-entry.js", "app.js", "app-demo.js"]
+  {
+    path: "page-assets/js/login-entry.js",
+    liveModule: "login-live.js",
+    forbiddenDemoModule: "login.js",
+    policy: "live-only"
+  },
+  {
+    path: "page-assets/js/lobby-entry.js",
+    liveModule: "lobby-live.js",
+    forbiddenDemoModule: "lobby.js",
+    policy: "live-only"
+  },
+  {
+    path: "page-assets/js/faction-entry.js",
+    liveModule: "faction-live.js",
+    forbiddenDemoModule: "faction.js",
+    policy: "live-only"
+  },
+  {
+    path: "page-assets/js/app-entry.js",
+    liveModule: "app.js",
+    demoModule: "app-demo.js",
+    policy: "e2e-local-demo"
+  }
 ];
 const forbiddenGraphFragments = [
   "/dev-fixtures/",
@@ -85,15 +105,28 @@ for (const excludedPath of requiredPublishExclusions) {
   }
 }
 
-for (const [entrypoint, liveModule, demoModule] of entrypoints) {
-  const source = readFileSync(resolve(root, entrypoint), "utf8");
-  if (!source.includes("resolveClientEntryExecutionMode") || !source.includes(liveModule) || !source.includes(demoModule)) {
-    errors.push(`${entrypoint}: entrypoint nemá explicitní authority volbu mezi live a demo modulem.`);
+for (const entrypoint of entrypoints) {
+  const source = readFileSync(resolve(root, entrypoint.path), "utf8");
+  if (!source.includes("resolveClientEntryExecutionMode") || !source.includes(entrypoint.liveModule)) {
+    errors.push(`${entrypoint.path}: entrypoint nemá explicitní live authority volbu.`);
   }
-  if (!source.includes("CLIENT_EXECUTION_MODES.localDemo")) {
-    errors.push(`${entrypoint}: demo import není chráněný explicitním local-demo režimem.`);
-  } else if (!isModuleImportGuardedByLocalDemoMode(entrypoint, source, demoModule)) {
-    errors.push(`${entrypoint}: demo import není strukturálně uvnitř CLIENT_EXECUTION_MODES.localDemo větve.`);
+  if (entrypoint.policy === "live-only") {
+    if (!source.includes("localDemoEnabled: false")) {
+      errors.push(`${entrypoint.path}: live-only entrypoint musí explicitně vypnout local demo.`);
+    }
+    if (source.includes(entrypoint.forbiddenDemoModule) || source.includes("CLIENT_EXECUTION_MODES.localDemo")) {
+      errors.push(`${entrypoint.path}: live-only entrypoint nesmí importovat ani větvit do local demo modulu.`);
+    }
+    continue;
+  }
+  if (!source.includes(entrypoint.demoModule) || !source.includes("CLIENT_EXECUTION_MODES.localDemo")) {
+    errors.push(`${entrypoint.path}: E2E demo import není chráněný explicitním local-demo režimem.`);
+  } else if (!isModuleImportGuardedByLocalDemoMode(
+    entrypoint.path,
+    source,
+    entrypoint.demoModule
+  )) {
+    errors.push(`${entrypoint.path}: demo import není strukturálně uvnitř CLIENT_EXECUTION_MODES.localDemo větve.`);
   }
 }
 

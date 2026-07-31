@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { copyFreeHostedStartingPlayerState } from "@empire/game-config";
 import type { HostedJoinJobRecord, HostedJoinReservationRecord } from "../../../apps/server/src/admin/hosted";
 import { createPostgresHostedControlPlaneRepository } from "../../../apps/server/src/admin/hosted";
 import { isPostgresHostedServerJoinableAt } from
@@ -130,7 +131,8 @@ const joinableServerRow = () => ({
   registration_opens_at: OPEN_AT,
   registration_closes_at: CLOSES_AT,
   registration_closed_at: null,
-  registration_window_minutes: 60
+  registration_window_minutes: 60,
+  starting_player_state: copyFreeHostedStartingPlayerState()
 });
 
 const reservationRow = (reservation: HostedJoinReservationRecord) => ({

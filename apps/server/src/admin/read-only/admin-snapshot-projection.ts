@@ -5,6 +5,7 @@ import type {
   AdminDiagnosticSummaryView,
   AdminEventSummaryView,
   AdminInstanceDetailView,
+  AdminInstanceRuntimeHealthView,
   AdminInstanceSummaryView
 } from "@empire/shared-types";
 import type { InstanceSnapshotDto } from "../../runtime/persistence/dto";
@@ -22,6 +23,7 @@ export const createAdminDetailFromSnapshot = (input: {
   diagnostics: AdminDiagnosticSummaryView[];
   generatedAt: string;
   snapshotStorage?: AdminSnapshotStorageMetadata;
+  runtimeHealth?: AdminInstanceRuntimeHealthView;
 }): AdminInstanceDetailView => {
   const { summary, snapshot, generatedAt } = input;
   const id = summary.serverInstanceId;
@@ -95,7 +97,10 @@ export const createAdminDetailFromSnapshot = (input: {
     generatedAt,
     summary,
     freshness: summary.freshness,
-    runtimeAvailable: summary.workerStatus === "live",
+    runtimeAvailable: input.runtimeHealth
+      ? input.runtimeHealth.runtimeActive.status === "pass"
+      : summary.workerStatus === "live",
+    ...(input.runtimeHealth ? { runtimeHealth: input.runtimeHealth } : {}),
     players,
     districts,
     economy: {

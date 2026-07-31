@@ -1,4 +1,9 @@
 import { describe, expect, it } from "vitest";
+import {
+  createPlayerMarketListing,
+  type MarketTransaction
+} from "@empire/game-core";
+import type { BuyPlayerMarketListingCommand } from "@empire/shared-types";
 import { createServerApp } from "../../apps/server/src/app";
 import { createAttackDistrictCommandFixture, createPlaceTrapCommandFixture } from "../fixtures/command-fixtures";
 import {
@@ -248,6 +253,100 @@ describe("gameplay slice optimistic concurrency", () => {
     await expect(server.instanceManager.listCommandRecords(instanceId)).resolves.toHaveLength(3);
     await expect(server.instanceManager.listEventRecords(instanceId)).resolves.toHaveLength(1);
   });
+
+  it("serializes two authenticated buyers of one listing without duplicate transfer", async () => {
+    const server = createServerApp();
+    const instanceId = "instance:free:concurrency:market-listing-race";
+    const buyers = [
+      { playerId: "player:2", focusDistrictId: "district:2" },
+      { playerId: "player:3", focusDistrictId: "district:3" }
+    ];
+    const sessions = await Promise.all(buyers.map(({ playerId }) =>
+      createDevGameplaySession(server, { serverInstanceId: instanceId, playerId })
+    ));
+    const runtime = server.instanceManager.getInstanceById(instanceId)!;
+    const state = createCombatStateFixture(instanceId);
+    state.root.version = 200;
+    state.resourceStatesById[state.playersById["player:1"].resourceStateId].balances = {
+      cash: 1_000,
+      chemicals: 10
+    };
+    state.playersById["player:2"] = {
+      ...state.playersById["player:2"],
+      resourceStateId: "resource:2"
+    };
+    state.resourceStatesById["resource:2"] = createResourceStateFixture({
+      id: "resource:2",
+      ownerType: "player",
+      ownerId: "player:2",
+      balances: { cash: 1_000, chemicals: 0 }
+    });
+    addMarketBuyer(state, "player:3", "district:3");
+    const listed = createPlayerMarketListing(
+      state,
+      state.playersById["player:1"],
+      "chemicals",
+      10,
+      10,
+      "cleanCash",
+      Date.now()
+    );
+    expect(listed.success, `${listed.reason}: ${listed.message}`).toBe(true);
+    expect(listed.listingId).toBeTruthy();
+    runtime.state = listed.nextState as typeof runtime.state;
+
+    const commands: BuyPlayerMarketListingCommand[] = buyers.map(
+      ({ playerId }, index) => ({
+        id: `command:transport:market-listing-race:${index + 1}`,
+        type: "buy-player-market-listing",
+        mode: "free",
+        playerId,
+        serverInstanceId: instanceId,
+        issuedAt: new Date(0).toISOString(),
+        payload: { listingId: listed.listingId! },
+        clientRequestId: null
+      })
+    );
+    const expectedStateVersion = runtime.state.root.version;
+    const responses = await Promise.all(commands.map((command, index) =>
+      server.gameplaySliceTransport.submit({
+        sessionToken: sessions[index]!.sessionToken,
+        expectedStateVersion,
+        focusDistrictId: buyers[index]!.focusDistrictId,
+        command
+      })
+    ));
+
+    expect(responses.filter((response) => response.accepted)).toHaveLength(1);
+    expect(responses.filter((response) => !response.accepted)).toHaveLength(1);
+    expect(responses.find((response) => !response.accepted)?.errors[0]?.code)
+      .toBe("market_listing_not_found");
+    const acceptedIndex = responses.findIndex((response) => response.accepted);
+    const acceptedPlayerId = commands[acceptedIndex]!.playerId;
+    const rejectedPlayerId = commands[acceptedIndex === 0 ? 1 : 0]!.playerId;
+    const balanceOf = (playerId: string, resourceId: string) =>
+      Number(runtime.state.resourceStatesById[
+        runtime.state.playersById[playerId].resourceStateId
+      ].balances[resourceId] ?? 0);
+    expect(balanceOf("player:1", "cash")).toBe(1_100);
+    expect(balanceOf("player:1", "chemicals")).toBe(0);
+    expect(balanceOf(acceptedPlayerId, "cash")).toBe(900);
+    expect(balanceOf(acceptedPlayerId, "chemicals")).toBe(10);
+    expect(balanceOf(rejectedPlayerId, "cash")).toBe(1_000);
+    expect(balanceOf(rejectedPlayerId, "chemicals")).toBe(0);
+    expect(runtime.state.market?.playerListings).toHaveLength(0);
+    const transactions = runtime.state.market?.transactions;
+    expect(Array.isArray(transactions)).toBe(true);
+    expect((transactions as MarketTransaction[]).filter((transaction) =>
+      transaction.marketType === "player"
+      && transaction.type === "buy"
+      && transaction.resourceId === "chemicals"
+      && transaction.amount === 10
+      && transaction.totalPrice === 100
+    )).toHaveLength(1);
+    await expect(server.instanceManager.listCommandRecords(instanceId)).resolves.toHaveLength(2);
+    await expect(server.instanceManager.listEventRecords(instanceId)).resolves.toHaveLength(1);
+  });
 });
 
 const configureAttacker = (state: ReturnType<typeof createCombatStateFixture>, playerId: string, sourceDistrictId: string) => {
@@ -313,4 +412,55 @@ const addAttacker = (
   state.root.playerIds.push(playerId);
   state.root.districtIds.push(sourceDistrictId);
   seedSuccessfulSpyIntel(state, playerId, sourceDistrictId, targetDistrictId, state.districtsById[targetDistrictId].ownerPlayerId);
+};
+
+const addMarketBuyer = (
+  state: ReturnType<typeof createCombatStateFixture>,
+  playerId: string,
+  districtId: string
+) => {
+  const suffix = playerId.split(":").at(-1)!;
+  const resourceStateId = `resource:${playerId}`;
+  const cooldownStateId = `cooldown:${playerId}`;
+  const policeStateId = `police:${playerId}`;
+  state.playersById[playerId] = createPlayerFixture({
+    id: playerId,
+    accountId: `account:${suffix}`,
+    serverInstanceId: state.serverInstance.id,
+    name: `Buyer ${suffix}`,
+    homeDistrictId: districtId,
+    resourceStateId,
+    cooldownStateId,
+    policeStateId
+  });
+  state.resourceStatesById[resourceStateId] = createResourceStateFixture({
+    id: resourceStateId,
+    ownerType: "player",
+    ownerId: playerId,
+    balances: { cash: 1_000, chemicals: 0 }
+  });
+  state.cooldownStatesById[cooldownStateId] = {
+    id: cooldownStateId,
+    ownerType: "player",
+    ownerId: playerId,
+    cooldowns: {},
+    version: 1
+  };
+  state.policeStatesById[policeStateId] = {
+    id: policeStateId,
+    ownerPlayerId: playerId,
+    heat: 0,
+    wantedLevel: 0,
+    lastDecayTick: 0,
+    activeFlags: [],
+    version: 1
+  };
+  state.districtsById[districtId] = createDistrictFixture({
+    id: districtId,
+    serverInstanceId: state.serverInstance.id,
+    ownerPlayerId: playerId,
+    adjacentDistrictIds: ["district:2"]
+  });
+  state.root.playerIds.push(playerId);
+  state.root.districtIds.push(districtId);
 };

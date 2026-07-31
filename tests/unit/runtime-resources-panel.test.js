@@ -311,6 +311,88 @@ describe("resources panel UI rendering", () => {
     expect(spyValue.textContent).toBe("7");
   });
 
+  it("converges a preview-sized cash delta within a bounded number of frames", () => {
+    const { root, cleanValue, dirtyValue } = createResourceFixture();
+    const intervals = new Set();
+    const timerApi = {
+      setInterval(callback) {
+        intervals.add(callback);
+        return callback;
+      },
+      clearInterval(callback) {
+        intervals.delete(callback);
+      },
+      setTimeout(callback) {
+        return callback;
+      },
+      clearTimeout() {}
+    };
+
+    updateTopbarResources({
+      cleanMoney: 25_000,
+      dirtyMoney: 300,
+      influence: 0
+    }, { root, instant: true, timerApi });
+    updateTopbarResources({
+      cleanMoney: 3_583.3,
+      dirtyMoney: 412.2,
+      influence: 1
+    }, { root, timerApi });
+
+    expect(cleanValue.dataset.moneyTarget).toBe("3583");
+    expect(cleanValue.textContent).not.toBe("$25000");
+    expect(dirtyValue.dataset.moneyTarget).toBe("412");
+
+    let renderedFrames = 1;
+    while (intervals.size > 0 && renderedFrames <= 60) {
+      for (const callback of [...intervals]) callback();
+      renderedFrames += 1;
+    }
+
+    expect(renderedFrames).toBeLessThanOrEqual(60);
+    expect(intervals.size).toBe(0);
+    expect(cleanValue.textContent).toBe("$3583");
+    expect(cleanValue.dataset.moneyDisplay).toBe("3583");
+    expect(dirtyValue.textContent).toBe("$412");
+  });
+
+  it("rounds money while flooring spendable authoritative influence", () => {
+    const { root, cleanValue, dirtyValue, spyValue } = createResourceFixture();
+
+    updateTopbarResources({
+      cleanMoney: 3_583.7,
+      dirtyMoney: 300.5,
+      influence: 0.6,
+      spyAvailable: 2,
+      maxSpies: 2
+    }, { root, instant: true });
+
+    expect(cleanValue.textContent).toBe("$3584");
+    expect(dirtyValue.textContent).toBe("$301");
+    expect(spyValue.textContent).toBe("0");
+    expect(spyValue.dataset.influenceValue).toBe("0");
+  });
+
+  it("removes preview values while authoritative resources are unavailable", () => {
+    const { root, cleanValue, dirtyValue, spyValue } = createResourceFixture();
+
+    updateTopbarResources({
+      cleanMoney: 25_000,
+      dirtyMoney: 300,
+      influence: 8,
+      spyAvailable: 2,
+      maxSpies: 2
+    }, { root, instant: true });
+    updateTopbarResources({ available: false }, { root });
+
+    expect(cleanValue.textContent).toBe("—");
+    expect(dirtyValue.textContent).toBe("—");
+    expect(spyValue.textContent).toBe("—");
+    expect(cleanValue.dataset.moneyTarget).toBeUndefined();
+    expect(dirtyValue.dataset.moneyDisplay).toBeUndefined();
+    expect(spyValue.dataset.influenceValue).toBeUndefined();
+  });
+
   it("binds topbar money controls to skip counters to the latest snapshot", () => {
     const { root, cleanPill, cleanValue, dirtyPill, dirtyValue } = createResourceFixture();
 
@@ -395,6 +477,28 @@ describe("resources panel UI rendering", () => {
     expect(value.textContent).toBe("121 / 120");
     expect(row.dataset.storageState).toBe("over");
     expect(row.title).toContain("překračuje");
+  });
+
+  it("keeps storage neutral when its authoritative summary is unavailable", () => {
+    const document = new FakeDocument();
+    const root = document.createElement("main");
+    const row = createElement(document, "p", { "data-storage-resource": "chemicals" });
+    const value = createElement(document, "span", { "data-storage-value": "" });
+    row.append(value);
+    root.append(row);
+    document.append(root);
+
+    renderStorageList({
+      summary: {
+        unavailable: true,
+        groups: []
+      },
+      materials: { chemicals: 99 }
+    }, { root });
+
+    expect(value.textContent).toBe("— / —");
+    expect(row.dataset.storageState).toBe("unavailable");
+    expect(row.title).toContain("Autoritativní stav");
   });
 
   it("keeps the runtime facade resource renderer working", () => {

@@ -1,4 +1,5 @@
 import type { AdminSnapshotStorageView } from "./admin-snapshot-storage-view";
+import type { AdminInstanceRuntimeHealthView } from "./admin-instance-runtime-health-view";
 
 export type AdminRole = "viewer" | "operator" | "owner";
 export type AdminWorkerStatus = "live" | "stale" | "offline" | "no-worker";
@@ -181,6 +182,7 @@ export interface AdminInstanceDetailView {
   summary: AdminInstanceSummaryView;
   freshness: AdminFreshnessView;
   runtimeAvailable: boolean;
+  runtimeHealth?: AdminInstanceRuntimeHealthView;
   players: AdminPlayerSummaryView[];
   districts: AdminDistrictSummaryView[];
   economy: AdminEconomySummaryView;

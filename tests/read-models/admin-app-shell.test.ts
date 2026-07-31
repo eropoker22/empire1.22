@@ -5,6 +5,7 @@ import { createAdminApp } from "../../apps/admin/src/app/create-admin-app";
 import { renderDashboard, renderUnavailable } from "../../apps/admin/src/app/read-only-admin-page";
 import {
   FREE_HOSTED_SERVER_LIFECYCLE_POLICY,
+  FREE_HOSTED_STARTING_MATERIAL_IDS,
   FREE_HOSTED_STARTING_PLAYER_STATE,
   resolveModeConfig
 } from "@empire/game-config";
@@ -87,6 +88,37 @@ describe("read-only admin app", () => {
     expect(document.querySelector("#admin-snapshots")?.textContent).toContain("Terminal checkpoints1");
     expect(document.querySelector("#admin-snapshots")?.textContent).toContain("Cleanup statussuccess");
     expect(document.querySelector("#admin-snapshots")?.textContent).toContain("Storage healthhealthy");
+  });
+
+  it("separates global worker health from selected server runtime evidence", () => {
+    const server = hostedServer({
+      serverInstanceId: "server:A",
+      status: "running",
+      provisioningState: "ready",
+      currentSnapshotId: "snapshot:lifecycle-marker"
+    });
+    document.body.innerHTML = renderDashboard({
+      session: { ...session, role: "owner" },
+      overview: overview(),
+      selectedInstanceId: "server:A",
+      detail: detail("server:A"),
+      controlPlane: controlPlane(server),
+      wizardOpen: false,
+      wizardStep: 1,
+      frontendBuildSha: BUILD_SHA
+    });
+
+    expect(document.querySelector("#admin-control-plane")?.textContent).toContain("Global workerONLINE");
+    expect(document.querySelector("#admin-control-plane")?.textContent)
+      .toContain("Lifecycle snapshot markersnapshot:lifecycle-marker");
+    expect(document.querySelector('[data-admin-runtime-check="runtime-active"]')?.textContent)
+      .toContain("Server runtime activePASS");
+    expect(document.querySelector('[data-admin-runtime-check="tick-advancing"]')?.textContent)
+      .toContain("Server tick advancingPASS");
+    expect(document.querySelector('[data-admin-runtime-check="snapshot-current"]')?.textContent)
+      .toContain("Server snapshot currentPASS");
+    expect(document.querySelector('[data-admin-runtime-check="commands-accepted"]')?.textContent)
+      .toContain("Recent server command acceptedPASS");
   });
 
   it("does not let a late response from the previous selection overwrite the current detail", async () => {
@@ -307,6 +339,68 @@ describe("read-only admin app", () => {
     });
     expect(payload).not.toHaveProperty("eliminationInterval");
     expect(payload).not.toHaveProperty("finalLockdownTrigger");
+  });
+
+  it("submits zero and every canonical starting material as exact numbers", async () => {
+    const owner = { ...session, role: "owner" as const };
+    const client = createClient();
+    client.getSession = vi.fn().mockResolvedValue(owner);
+    client.getControlPlane = vi.fn().mockResolvedValue({ ...controlPlane(hostedServer()), servers: [] });
+    client.createServer = vi.fn().mockResolvedValue({
+      replayed: false,
+      server: hostedServer({ serverInstanceId: "server:distinctive-start" }),
+      provisioningJobId: "job:distinctive-start"
+    });
+    await createAdminApp({ client, pollIntervalMs: 60_000 }).mount();
+    document.querySelector<HTMLButtonElement>("[data-admin-create-open]")!.click();
+
+    document.querySelector<HTMLInputElement>('[name="displayName"]')!.value = "Distinctive starting state";
+    document.querySelector<HTMLInputElement>('[name="startingCleanCash"]')!.value = "0";
+    document.querySelector<HTMLInputElement>('[name="startingDirtyCash"]')!.value = "23456";
+    document.querySelector<HTMLInputElement>('[name="startingPopulation"]')!.value = "345";
+    const expectedMaterials = Object.fromEntries(
+      FREE_HOSTED_STARTING_MATERIAL_IDS.map((materialId, index) => [materialId, index * 137])
+    );
+    for (const [materialId, amount] of Object.entries(expectedMaterials)) {
+      document.querySelector<HTMLInputElement>(`[name="startingMaterial:${materialId}"]`)!.value = String(amount);
+    }
+
+    document.querySelector<HTMLFormElement>("[data-admin-create-form]")!.requestSubmit();
+    await vi.waitFor(() => expect(client.createServer).toHaveBeenCalledTimes(1));
+    const startingPlayerState = vi.mocked(client.createServer).mock.calls[0]![0].startingPlayerState!;
+
+    expect(startingPlayerState).toEqual({
+      cleanCash: 0,
+      dirtyCash: 23_456,
+      population: 345,
+      spySlots: 2,
+      materials: expectedMaterials
+    });
+    expect(Object.keys(startingPlayerState.materials)).toEqual(FREE_HOSTED_STARTING_MATERIAL_IDS);
+    expect([
+      startingPlayerState.cleanCash,
+      startingPlayerState.dirtyCash,
+      startingPlayerState.population,
+      ...Object.values(startingPlayerState.materials)
+    ].every((value) => typeof value === "number" && Number.isSafeInteger(value))).toBe(true);
+  });
+
+  it("does not turn a missing starting material input into zero", async () => {
+    const owner = { ...session, role: "owner" as const };
+    const client = createClient();
+    client.getSession = vi.fn().mockResolvedValue(owner);
+    client.getControlPlane = vi.fn().mockResolvedValue({ ...controlPlane(hostedServer()), servers: [] });
+    await createAdminApp({ client, pollIntervalMs: 60_000 }).mount();
+    document.querySelector<HTMLButtonElement>("[data-admin-create-open]")!.click();
+
+    document.querySelector<HTMLInputElement>('[name="displayName"]')!.value = "Missing material input";
+    document.querySelector<HTMLInputElement>('[name="startingMaterial:chemicals"]')!.remove();
+    document.querySelector<HTMLFormElement>("[data-admin-create-form]")!.requestSubmit();
+    await Promise.resolve();
+
+    expect(client.createServer).not.toHaveBeenCalled();
+    expect(document.querySelector("[data-admin-create-error]")?.textContent)
+      .toBe("Počáteční stav hráče není kompletní nebo obsahuje neplatné číslo.");
   });
 
   it("closes the server wizard with Escape and restores trigger focus", async () => {
@@ -737,7 +831,21 @@ const overview = (): AdminOverviewView => ({
 });
 const detail = (id: string): AdminInstanceDetailView => ({
   serverInstanceId: id, generatedAt: "2026-07-16T10:00:00.000Z", summary: { ...summary(id), displayName: `Detail ${id}` },
-  freshness: summary(id).freshness, runtimeAvailable: true, players: [], districts: [],
+  freshness: summary(id).freshness, runtimeAvailable: true,
+  runtimeHealth: {
+    lifecycleStatus: "running",
+    expectedTickRateMs: 10_000,
+    freshnessThresholdMs: 30_000,
+    commandObservationWindowMs: 40_000,
+    instanceLastTick: 42,
+    instanceLastErrorCode: null,
+    lastAppliedCommandAt: "2026-07-16T10:00:00.000Z",
+    runtimeActive: { status: "pass", reasonCode: "instance-runtime-active", observedAt: "2026-07-16T10:00:00.000Z" },
+    tickAdvancing: { status: "pass", reasonCode: "tick-advance-two-sample", observedAt: "2026-07-16T10:00:00.000Z" },
+    snapshotCurrent: { status: "pass", reasonCode: "recovery-head-current", observedAt: "2026-07-16T10:00:00.000Z" },
+    commandsAccepted: { status: "pass", reasonCode: "recent-applied-command-observed", observedAt: "2026-07-16T10:00:00.000Z" }
+  },
+  players: [], districts: [],
   economy: { serverInstanceId: id, totalCleanCash: 0, totalDirtyCash: 0, totalResources: {} },
   production: { serverInstanceId: id, productionBuildingCount: 0, readyToCollectCount: 0, activeCraftCount: 0, storageFullCount: 0 },
   police: { serverInstanceId: id, heatPressure: "none", maxPlayerHeat: 0, wantedPlayerCount: 0, pendingRaidCount: 0 },

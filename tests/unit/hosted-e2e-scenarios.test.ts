@@ -15,6 +15,8 @@ import {
 } from "../fixtures/game-state-fixtures";
 import { applyHostedE2eScenario } from "../../tools/seed/hosted-e2e-scenarios";
 import hostedBuildingActionMatrix from "../../tools/seed/hosted-building-action-matrix.json";
+import hostedBuildingParityNonSpawnMatrix
+  from "../../tools/seed/hosted-building-parity-non-spawn-matrix.json";
 
 const createSnapshot = (): InstanceSnapshotDto => {
   const state = createCoreStateFixture();
@@ -165,6 +167,56 @@ describe("hosted E2E scenario seeding", () => {
     }
   });
 
+  it("prepares the guarded non-spawn building parity fixture from canonical map entities", () => {
+    const source = createNonSpawnBuildingParitySnapshot();
+    const original = structuredClone(source);
+    const seeded = applyHostedE2eScenario(
+      source,
+      "building-parity-non-spawn",
+      "2026-07-29T22:00:00.000Z"
+    );
+    const player = Object.values(seeded.state.playersById)[0];
+
+    expect(source).toEqual(original);
+    expect(seeded.state.root.tick).toBe(5);
+    expect(seeded.state.serverInstance.currentTick).toBe(5);
+    expect(
+      hostedBuildingParityNonSpawnMatrix
+        .flatMap((entry) => entry.coveredBuildingTypeIds)
+        .sort()
+    ).toEqual([
+      "airport",
+      "casino",
+      "central_bank",
+      "city_hall",
+      "court",
+      "lobby_club",
+      "parliament",
+      "port",
+      "stock_exchange",
+      "vip_lounge"
+    ]);
+
+    for (const entry of hostedBuildingParityNonSpawnMatrix) {
+      const district = seeded.state.districtsById[entry.districtId];
+      const buildings = district.buildingIds
+        .map((buildingId) => seeded.state.buildingsById[buildingId]);
+      expect(district.ownerPlayerId, entry.key).toBe(player.id);
+      expect(district.status, entry.key).toBe("claimed");
+      expect(
+        buildings.map((building) => building.buildingTypeId).sort(),
+        entry.key
+      ).toEqual([...entry.expectedDistrictBuildingTypeIds].sort());
+      for (const building of buildings) {
+        expect(building, entry.key).toMatchObject({
+          ownerPlayerId: player.id,
+          status: "active",
+          actionCooldowns: {}
+        });
+      }
+    }
+  });
+
   it("prepares three canonical players for cross-client P0 flows", () => {
     const source = createMultiplayerSnapshot();
     const original = structuredClone(source);
@@ -229,6 +281,15 @@ const createBuildingActionSnapshot = (): InstanceSnapshotDto => {
     hostedBuildingActionMatrix.map((entry) => entry.districtId)
   ));
   seedCanonicalDistricts(snapshot, districtIds);
+  return snapshot;
+};
+
+const createNonSpawnBuildingParitySnapshot = (): InstanceSnapshotDto => {
+  const snapshot = createSnapshot();
+  seedCanonicalDistricts(
+    snapshot,
+    hostedBuildingParityNonSpawnMatrix.map((entry) => entry.districtId)
+  );
   return snapshot;
 };
 

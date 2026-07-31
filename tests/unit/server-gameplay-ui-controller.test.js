@@ -71,6 +71,26 @@ describe("server gameplay presentation UI controller", () => {
     expect(source.listenerCount()).toBe(0);
   });
 
+  it("floors authoritative influence exactly like City Events and the profile", () => {
+    const readModel = createReadModel();
+    readModel.player.economy.influence = 0.6;
+    const source = createReadModelSource(readModel);
+    const controller = createServerGameplayUiController({
+      root: document.querySelector("#game-root"),
+      source,
+      documentRef: document,
+      windowRef: window
+    });
+
+    controller.mount();
+
+    expect(compactText("[data-topbar-influence]")).toBe("0");
+    expect(document.querySelector("[data-topbar-influence]").dataset.influenceValue).toBe("0");
+    document.querySelector("[data-player-profile-open]").click();
+    expect(compactText("[data-player-popup-influence]")).toBe("0");
+    controller.destroy();
+  });
+
   it("renders storage lazily and changes only authoritative row values", () => {
     const source = createReadModelSource(createReadModel());
     const controller = createServerGameplayUiController({

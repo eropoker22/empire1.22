@@ -59,8 +59,9 @@ export const renderAdminControlPlane = (input: {
         accountPlatformReady ? "success" : "danger", "Session security, origin policy a frontend/API build.")}
       ${healthCard("Game hosting", hostingLabel, hostingTone,
         gameHostingDisabled ? "Hosting je konfigurací úmyslně vypnutý." : `Worker ${control.workerStatus}; provisioning ${control.provisioningEnabled ? "enabled" : "disabled"}.`)}
-      ${healthCard("Worker", control.workerStatus.toUpperCase(),
-        control.workerStatus === "online" ? "success" : control.workerStatus === "stale" ? "warning" : "danger", "Hosted runtime heartbeat.")}
+      ${healthCard("Global worker", control.workerStatus.toUpperCase(),
+        control.workerStatus === "online" ? "success" : control.workerStatus === "stale" ? "warning" : "danger",
+        "Platform heartbeat; nenahrazuje health konkrétní instance.")}
       ${healthCard("Build parity", frontendCompatible ? "CURRENT" : "BLOCKED",
         frontendCompatible ? "success" : "danger", "Frontend, API a worker musí být kompatibilní.")}
       ${healthCard("Registrace", control.registrationEnabled ? "ENABLED" : "DISABLED",
@@ -73,7 +74,7 @@ export const renderAdminControlPlane = (input: {
         ${keyValue("Game hosting", hostingLabel)}
         ${keyValue("Database", control.databaseAvailable ? "AVAILABLE" : "UNAVAILABLE")}
         ${keyValue("Migrace", control.migrationsCurrent ? "CURRENT" : "PENDING")}
-        ${keyValue("Worker", control.workerStatus.toUpperCase())}
+        ${keyValue("Global worker", control.workerStatus.toUpperCase())}
         ${keyValue("Provisioning", control.provisioningEnabled ? "ENABLED" : "DISABLED")}
         ${keyValue("Build parity", frontendCompatible ? "CURRENT" : "BLOCKED")}
         ${keyValue("Session security", (control.sessionSecurity ?? "blocked").toUpperCase())}
@@ -124,7 +125,7 @@ const renderLifecycle = (server: AdminHostedServerView, session: AdminSessionVie
       ${keyValue("Hráči", `${server.committedPlayers ?? 0} / ${server.capacity}`)}
       ${keyValue("Registrace", server.registrationState ?? "unknown")}
       ${keyValue("Join policy", server.joinPolicy)}
-      ${keyValue("Worker", server.lastWorkerHeartbeatAt ? "HEARTBEAT" : "BEZ HEARTBEATU")}
+      ${keyValue("Instance heartbeat", server.lastWorkerHeartbeatAt ? "HEARTBEAT" : "BEZ HEARTBEATU")}
     </div>
     ${renderAdminRegistration(server, session)}
     ${renderAdminStartReadiness(server)}
@@ -135,7 +136,7 @@ const renderLifecycle = (server: AdminHostedServerView, session: AdminSessionVie
       ${session.role === "owner" ? `${lifecycleButton(server, "stop", "Stop")}${lifecycleButton(server, "delete", "Smazat server")}` : ""}
     </div><p class="admin-copy admin-lifecycle__hint">Vyberte akci. Důvod a potvrzení zadáte v bezpečném dialogu pro tento server.</p>
     <details class="admin-disclosure admin-disclosure--technical">
-      <summary><span>Serverová diagnostika</span><small>Lease, snapshot a canonical timing</small></summary>
+      <summary><span>Serverová diagnostika</span><small>Lease, lifecycle marker a canonical timing</small></summary>
       <div class="admin-kv-grid">
         ${keyValue("Šablona", server.serverTemplate === "full" ? "Plnohodnotný server" : "Kontrolní test")}
         ${keyValue("Server version", server.version)}
@@ -149,7 +150,7 @@ const renderLifecycle = (server: AdminHostedServerView, session: AdminSessionVie
         ${keyValue("První eliminace tick", server.effectiveFirstEliminationTick ?? server.canonicalFirstEliminationTick)}
         ${keyValue("Heartbeat", formatTime(server.lastWorkerHeartbeatAt))}
         ${keyValue("Lease owner", server.runtimeLeaseOwnerId)}${keyValue("Lease expires", formatTime(server.runtimeLeaseExpiresAt))}
-        ${keyValue("Current snapshot", server.currentSnapshotId)}${keyValue("Last error", server.lastErrorCode)}
+        ${keyValue("Lifecycle snapshot marker", server.currentSnapshotId)}${keyValue("Last error", server.lastErrorCode)}
         ${keyValue("Updated", formatTime(server.updatedAt))}
       </div>
     </details>

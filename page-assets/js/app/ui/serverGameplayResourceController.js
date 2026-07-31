@@ -25,7 +25,8 @@ const VALUE_CONFIG = Object.freeze([
     key: "influence",
     selector: TOPBAR_INFLUENCE_SELECTOR,
     format: (value) => formatDistrictMetricNumber(value, 0),
-    datasetKey: "influenceValue"
+    datasetKey: "influenceValue",
+    integerMode: "floor"
   }
 ]);
 
@@ -75,7 +76,7 @@ export function createServerGameplayResourceController({
     for (const config of VALUE_CONFIG) {
       const element = elements.get(config.key);
       if (!element) continue;
-      const value = normalizeMetric(economy[config.key]);
+      const value = normalizeMetric(economy[config.key], config.integerMode);
       const previousValue = previousValues.get(config.key);
       const text = config.format(value);
 
@@ -124,6 +125,7 @@ export function createServerGameplayResourceController({
   };
 }
 
-function normalizeMetric(value) {
-  return Math.max(0, Math.round(Number(value) || 0));
+function normalizeMetric(value, integerMode = "round") {
+  const normalized = Math.max(0, Number(value) || 0);
+  return integerMode === "floor" ? Math.floor(normalized) : Math.round(normalized);
 }

@@ -1,5 +1,8 @@
 import { initBuildingDetailPanel } from "./buildingDetailPanel.js";
+import { createServerGameplayBuildingActionController } from "./serverGameplayBuildingActionController.js";
 import { createServerGameplayProductionBuildingController } from "./serverGameplayProductionBuildingController.js";
+import { ServerBuildingPresentationAdapter } from "../runtime/buildingPresentationAdapters.js";
+import { pickBuildingDetailPresentationViewModel } from "../runtime/buildingPresentationContract.js";
 
 const PRODUCTION_BUILDING_TYPES = new Set(["pharmacy", "drug_lab", "factory", "armory"]);
 const normalizeBuildingType = (value) => String(value || "").trim().replace(/-/gu, "_");
@@ -16,7 +19,64 @@ export function createServerGameplayBuildingDetailController({
   let panel = null;
   let shell = null;
   let activeBuildingId = null;
+  let activeDetailView = null;
   let productionController = null;
+  let buildingActionController = null;
+  const createLocalPresentationProfile = () => {
+    const view = getCurrentView?.() || {};
+    const districtId = Number(String(view.districtId || "").match(/\d+/u)?.[0] || 0);
+    return {
+      districtId,
+      districtLabel: districtId ? `District ${districtId}` : "",
+      typeKey: String(view.districtType || ""),
+      typeLabel: String(view.districtType || ""),
+      typeShortLabel: String(view.districtType || ""),
+      setKey: "",
+      setTitle: "",
+      tier: "",
+      buildings: (view.buildings || []).map((building) => ({
+        baseName: String(building?.detail?.typeLabel || building?.displayName || building?.label || ""),
+        displayName: String(building?.displayName || building?.label || ""),
+        imagePath: building?.detail?.backgroundImagePath || null
+      }))
+    };
+  };
+  const getPresentationReadModel = () => {
+    const readModel = getCurrentReadModel?.() || null;
+    const view = getCurrentView?.() || null;
+    if (!readModel?.district || !view) return readModel;
+    const rawBuildings = Array.isArray(readModel.district.buildings)
+      ? readModel.district.buildings
+      : [];
+    const buildings = (view.buildings || []).map((building) => {
+      const rawBuilding = rawBuildings.find(
+        (entry) => String(entry?.buildingId || "") === String(building?.buildingId || "")
+      ) || {};
+      const detail = building?.detail || {};
+      const panelActions = [...(detail.actions || []), ...(detail.specialActions || [])].map(
+        (action) => ({
+          ...action,
+          enabled: action?.enabled ?? !action?.disabled
+        })
+      );
+      return {
+        ...detail,
+        ...rawBuilding,
+        buildingId: String(building?.buildingId || rawBuilding.buildingId || ""),
+        buildingTypeId: String(building?.buildingTypeId || rawBuilding.buildingTypeId || ""),
+        label: String(rawBuilding.label || detail.typeLabel || building?.displayName || ""),
+        displayName: String(rawBuilding.displayName || building?.displayName || ""),
+        actions: Array.isArray(rawBuilding.actions) && rawBuilding.actions.length > 0
+          ? rawBuilding.actions
+          : panelActions
+      };
+    });
+    return { ...readModel, district: { ...readModel.district, buildings } };
+  };
+  const presentationAdapter = new ServerBuildingPresentationAdapter({
+    getReadModel: getPresentationReadModel,
+    resolveDistrictBuildingProfile: createLocalPresentationProfile
+  });
 
   const getBuilding = (buildingId = activeBuildingId) => (
     getCurrentView?.()?.buildings?.find?.(
@@ -25,70 +85,42 @@ export function createServerGameplayBuildingDetailController({
   );
 
   const createDetailView = (building) => {
-    const detail = building?.detail || {};
-    const renderState = getCurrentRenderState?.();
-    const slot = renderState?.districtPanel?.slots?.find?.(
-      (entry) => String(entry?.buildingId) === String(building?.buildingId)
-    ) || null;
-    const actions = [
-      ...(detail.actions || []),
-      ...(detail.specialActions || [])
-    ].map((entry, index) => ({
-      index,
-      actionId: entry.actionId,
-      buildingTypeId: building.buildingTypeId,
-      title: entry.label,
-      buttonCostLabel: entry.inputSummary || entry.description || "",
-      rewardSummary: entry.outputSummary || entry.effectSummary || "",
-      cooldownLabel: entry.cooldownLabel || "",
-      cooldownRemainingMs: entry.cooldownRemainingMs || 0,
-      disabled: Boolean(entry.disabled),
-      disabledReason: entry.disabledReason || entry.blockedReason || "",
-      phaseLockLabel: entry.phaseBadgeLabel || ""
-    }));
-    return {
-      root: documentRef?.body || root,
-      districtId: getCurrentView?.()?.districtId || "",
-      buildingId: building.buildingId,
-      buildingTypeId: building.buildingTypeId,
-      mechanicsType: building.buildingTypeId,
-      districtType: getCurrentView?.()?.districtType || "",
-      title: building.label,
-      name: building.label,
-      levelLabel: detail.statusLabel || "",
-      meta: [detail.typeLabel, detail.zoneLabel, detail.statusLabel].filter(Boolean).join(" · "),
-      intro: detail.info || "",
-      stats: detail.stats || [],
-      mechanics: [
-        detail.roleLabel ? { label: "Role", value: detail.roleLabel } : null,
-        detail.statusLabel ? { label: "Stav", value: detail.statusLabel } : null,
-        detail.phaseBadgeLabel ? { label: "Fáze", value: detail.phaseBadgeLabel } : null
-      ].filter(Boolean),
-      effects: [
-        detail.passivePhaseEffectLabel,
-        detail.phaseTooltip,
-        ...(detail.specialActions || []).map((entry) => entry.effectSummary)
-      ].filter(Boolean),
-      actions,
-      collect: slot?.production ? {
-        visible: true,
-        enabled: slot.production.canCollect === true,
-        title: slot.production.collectDisabledReason || slot.production.storageLabel || ""
-      } : { visible: false, enabled: false, title: "" },
-      upgrade: { visible: false, disabled: true, title: "" },
-      showActionsInSinglePanel: true
-    };
+    const readModel = getPresentationReadModel();
+    const district = readModel?.district || null;
+    if (!district?.districtId) return null;
+    const presentation = presentationAdapter.getBuildingDetailPresentation(
+      {
+        id: Number(String(district.districtId).match(/\d+/u)?.[0] || 0),
+        canonicalId: district.districtId,
+        districtType: district.zone
+      },
+      { buildingId: building?.buildingId || "" },
+      { renderState: getCurrentRenderState?.() || null }
+    );
+    return presentation
+      ? pickBuildingDetailPresentationViewModel(presentation.viewModel, {
+          root: documentRef?.body || root
+        })
+      : null;
   };
 
-  const runAction = (payload = {}) => {
-    const actionId = String(payload.actionId || "");
-    return dispatchSurfaceAction?.({
-      buildingActionBuildingId: activeBuildingId,
-      buildingActionId: actionId,
-      dealerSlotId: payload.dealerSlotId || null,
-      dealerItemId: payload.itemId || null,
-      amount: Number.isFinite(payload.amount) ? payload.amount : null
+  const runAction = async (payload = {}) => {
+    const buildingId = activeBuildingId;
+    const result = await buildingActionController?.run?.({
+      shell,
+      buildingId,
+      detailView: activeDetailView,
+      isStillActive: () => Boolean(
+        activeBuildingId === buildingId
+        && activeDetailView?.actions?.some?.(
+          (action) => String(action?.actionId || "") === String(payload.actionId || "")
+            && action.disabled !== true
+            && !String(action.disabledReason || "").trim()
+        )
+      ),
+      payload
     });
+    return activeBuildingId === buildingId ? result : null;
   };
 
   const open = (buildingId) => {
@@ -100,25 +132,49 @@ export function createServerGameplayBuildingDetailController({
       && productionController?.open?.(building.buildingId)
     ) {
       activeBuildingId = null;
+      activeDetailView = null;
+      buildingActionController?.close?.();
       panel?.close?.();
       shell = null;
       return true;
     }
     productionController?.close?.();
     activeBuildingId = String(building.buildingId);
-    shell = panel.open(createDetailView(building), {
+    const detailView = createDetailView(building);
+    if (!detailView) {
+      activeBuildingId = null;
+      activeDetailView = null;
+      return false;
+    }
+    activeDetailView = detailView;
+    shell = panel.open(detailView, {
       onClose: () => {
+        buildingActionController?.close?.();
         activeBuildingId = null;
+        activeDetailView = null;
       },
       onCollect: () => {
-        if (activeBuildingId) {
-          void dispatchSurfaceAction?.({ collectBuildingId: activeBuildingId });
-        }
+        if (activeBuildingId) void dispatchSurfaceAction?.({ collectBuildingId: activeBuildingId });
       },
       onRunAction: (_shell, payload) => {
         if (activeBuildingId) void runAction(payload);
       }
     });
+    if (!shell) {
+      activeBuildingId = null;
+      activeDetailView = null;
+      return false;
+    }
+    const readModel = getCurrentReadModel?.() || null;
+    shell.dataset.uiOwner = "legacy-shared";
+    shell.dataset.executionMode = "server-authoritative";
+    shell.dataset.serverInstanceId = String(
+      readModel?.server?.serverInstanceId || readModel?.player?.instanceId || ""
+    );
+    shell.dataset.serverDistrictId = String(readModel?.district?.districtId || "");
+    shell.dataset.serverBuildingId = String(building.buildingId || "");
+    shell.dataset.serverBuildingTypeId = String(building.buildingTypeId || "");
+    shell.dataset.districtBuildingDetailDistrictId = String(readModel?.district?.districtId || "");
     return Boolean(shell);
   };
 
@@ -134,6 +190,10 @@ export function createServerGameplayBuildingDetailController({
       dispatchSurfaceAction,
       getCurrentReadModel
     });
+    buildingActionController = createServerGameplayBuildingActionController({
+      documentRef,
+      dispatchSurfaceAction
+    });
     productionController.mount();
     mounted = true;
     return true;
@@ -146,20 +206,25 @@ export function createServerGameplayBuildingDetailController({
 
   const close = () => {
     const productionClosed = productionController?.close?.() || false;
+    buildingActionController?.close?.();
     if (!shell || shell.hidden) return productionClosed;
     panel?.close?.();
     activeBuildingId = null;
+    activeDetailView = null;
     return true;
   };
 
   const destroy = () => {
     if (!mounted) return false;
     productionController?.destroy?.();
+    buildingActionController?.destroy?.();
     panel?.destroy?.();
     productionController = null;
+    buildingActionController = null;
     panel = null;
     shell = null;
     activeBuildingId = null;
+    activeDetailView = null;
     mounted = false;
     return true;
   };

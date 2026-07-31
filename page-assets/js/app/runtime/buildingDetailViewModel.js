@@ -54,6 +54,7 @@ import {
   isBuildingSpecialActionImplemented,
   resolveBuildingSpecialActionDefinition
 } from "./buildingSpecialActionRegistry.js";
+import { resolveBuildingDetailLayout } from "./buildingPresentationContract.js";
 
 function normalizeBuildingLookupKey(value) {
   return String(value || "")
@@ -1698,6 +1699,7 @@ export function createBuildingDetailViewModel({
     convenienceStoreIsFull: Boolean(mechanics.convenienceStoreIsFull),
     districtType,
     isDowntownBuilding,
+    layout: resolveBuildingDetailLayout(mechanics.mechanicsType),
     levelLabel: canUpgrade ? `L${mechanics.level}` : "",
     showLevel: canUpgrade,
     name: displayLabel,

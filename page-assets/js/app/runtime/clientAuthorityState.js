@@ -6,6 +6,19 @@ export const CLIENT_EXECUTION_MODES = Object.freeze({
   onboardingSandbox: "onboarding-sandbox"
 });
 
+export const isE2eLocalDemoEntryEnabled = (options = {}) => {
+  const windowRef = options.windowRef || globalThis.window;
+  const locationRef = options.locationRef || windowRef?.location || globalThis.location;
+  const configOverrides = options.configOverrides
+    || windowRef?.EmpireConfigOverrides
+    || globalThis.EmpireConfigOverrides;
+  const requestedMode = new URLSearchParams(String(locationRef?.search || "")).get("runtimeMode");
+  return windowRef?.__EMPIRE_E2E__ === true
+    && configOverrides?.localDemoEnabled === true
+    && requestedMode === CLIENT_EXECUTION_MODES.localDemo
+    && isLocalDemoAccessAvailable(locationRef);
+};
+
 export const resolveClientAuthorityState = (options = {}) => {
   const locationRef = options.locationRef || globalThis.location;
   const localDemoEnabled = options.localDemoEnabled ?? isExplicitLocalDemoEnabled({

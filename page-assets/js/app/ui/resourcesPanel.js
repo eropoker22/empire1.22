@@ -14,6 +14,7 @@ import {
 
 const MONEY_STAT_ANIMATION_MS = 1050;
 const MONEY_STAT_COUNT_DURATION_MS = 900;
+const MONEY_STAT_COUNT_FRAME_MS = 16;
 const TOPBAR_STAT_SWITCH_MS = 340;
 
 const moneyStatAnimationTimers = new Map();
@@ -79,6 +80,14 @@ function formatDefaultMetricNumber(value = 0, maximumFractionDigits = 1) {
 }
 
 function normalizeCount(value) {
+  return Math.max(0, Math.floor(Number(value) || 0));
+}
+
+function normalizeDisplayedMetric(value) {
+  return Math.max(0, Math.round(Number(value) || 0));
+}
+
+function normalizeDisplayedInfluence(value) {
   return Math.max(0, Math.floor(Number(value) || 0));
 }
 
@@ -153,11 +162,19 @@ function animateMoneyStatCounter(element, targetValue, options = {}) {
   const direction = safeTarget > currentValue ? 1 : -1;
   const totalSteps = Math.abs(safeTarget - currentValue);
   const maxDuration = Math.max(80, Number(options?.countDurationMs ?? MONEY_STAT_COUNT_DURATION_MS));
-  const intervalMs = Math.max(1, Number(options?.countIntervalMs ?? Math.floor(maxDuration / Math.max(1, totalSteps))));
+  const boundedStepCount = Math.min(
+    totalSteps,
+    Math.max(1, Math.ceil(maxDuration / MONEY_STAT_COUNT_FRAME_MS))
+  );
+  const stepSize = Math.max(1, Math.ceil(totalSteps / boundedStepCount));
+  const intervalMs = Math.max(
+    1,
+    Number(options?.countIntervalMs ?? Math.floor(maxDuration / boundedStepCount))
+  );
   let displayedValue = currentValue;
 
   const renderNextValue = () => {
-    displayedValue += direction;
+    displayedValue += direction * Math.min(stepSize, Math.abs(safeTarget - displayedValue));
     element.dataset.moneyDisplay = String(displayedValue);
     element.textContent = `${prefix}${displayedValue}${suffix}`;
 
@@ -210,11 +227,20 @@ export function updateTopbarResources(playerState = {}, options = {}) {
 
   const includeMoney = options.includeMoney !== false;
   const includeSpy = options.includeSpy !== false;
+  if (playerState.available === false) {
+    renderUnavailableTopbarResources({
+      ...options,
+      root,
+      includeMoney,
+      includeSpy
+    });
+    return;
+  }
   const instant = Boolean(options.instant);
   const animate = Boolean(options.animate);
-  const cleanMoney = normalizeCount(playerState.cleanMoney);
-  const dirtyMoney = normalizeCount(playerState.dirtyMoney);
-  const influence = normalizeCount(playerState.influence);
+  const cleanMoney = normalizeDisplayedMetric(playerState.cleanMoney);
+  const dirtyMoney = normalizeDisplayedMetric(playerState.dirtyMoney);
+  const influence = normalizeDisplayedInfluence(playerState.influence);
   const sourceMode = String(playerState.sourceMode || "stored");
   const isDistrictResourceMode = sourceMode === "district";
   const formatMoneyAmount = typeof options.formatMoneyAmount === "function"
@@ -372,11 +398,55 @@ export function renderResourcesPanel(playerState = {}, options = {}) {
   if (playerState.gangMembers !== undefined) {
     const gangMembers = safeQuery(root, GANG_MEMBERS_SELECTOR);
     if (gangMembers) {
-      gangMembers.textContent = String(normalizeCount(playerState.gangMembers));
+      gangMembers.textContent = playerState.available === false
+        ? "—"
+        : String(normalizeCount(playerState.gangMembers));
     }
   }
 
   updateTopbarResources(playerState, options);
+}
+
+export function renderUnavailableTopbarResources(options = {}) {
+  const root = options.root || getScope();
+  const scope = getScope(root);
+  if (!scope) {
+    return;
+  }
+
+  const clearValue = (element) => {
+    if (!element) return;
+    stopMoneyStatCounter(element, options);
+    const activeTimer = moneyStatAnimationTimers.get(element);
+    const { clearTimeout } = getTimerApi(options);
+    if (activeTimer && clearTimeout) clearTimeout(activeTimer);
+    moneyStatAnimationTimers.delete(element);
+    element.classList?.remove("is-money-up", "is-money-down");
+    delete element.dataset.moneyTarget;
+    delete element.dataset.moneyDisplay;
+    element.textContent = "—";
+  };
+
+  if (options.includeMoney !== false) {
+    clearValue(safeQuery(scope, TOPBAR_CLEAN_MONEY_SELECTOR));
+    clearValue(safeQuery(scope, TOPBAR_DIRTY_MONEY_SELECTOR));
+    lastRenderedCleanMoney = null;
+    lastRenderedDirtyMoney = null;
+  }
+
+  if (options.includeSpy !== false) {
+    const influenceValue = safeQuery(scope, TOPBAR_INFLUENCE_SELECTOR);
+    const spyValue = safeQuery(scope, TOPBAR_SPY_VALUE_SELECTOR);
+    clearValue(influenceValue);
+    if (spyValue !== influenceValue) clearValue(spyValue);
+    if (influenceValue?.dataset) delete influenceValue.dataset.influenceValue;
+    if (spyValue?.dataset) {
+      delete spyValue.dataset.influenceValue;
+      delete spyValue.dataset.spyValue;
+    }
+    lastRenderedInfluenceValue = null;
+    lastRenderedTopbarMode = null;
+  }
 }
 
 export function syncTopbarMoneyResource(root, kind, value, options = {}) {
@@ -387,7 +457,7 @@ export function syncTopbarMoneyResource(root, kind, value, options = {}) {
 
   const isDirty = kind === "dirty";
   const valueElement = safeQuery(scope, isDirty ? TOPBAR_DIRTY_MONEY_SELECTOR : TOPBAR_CLEAN_MONEY_SELECTOR);
-  const targetValue = normalizeCount(value);
+  const targetValue = normalizeDisplayedMetric(value);
 
   syncMoneyStatToCachedValue(valueElement, targetValue, options);
   if (isDirty) {
@@ -435,6 +505,10 @@ export function bindTopbarMoneySkipControls(root, options = {}) {
       event?.preventDefault?.();
       event?.stopPropagation?.();
       const displaySnapshot = getDisplaySnapshot() || {};
+      if (displaySnapshot.available === false) {
+        renderUnavailableTopbarResources({ ...options, root, includeSpy: false });
+        return;
+      }
       const targetValue = binding.kind === "dirty"
         ? displaySnapshot.dirtyMoney
         : displaySnapshot.cleanMoney;
@@ -509,6 +583,15 @@ export function renderStorageList(storageState = {}, options = {}) {
 function renderAuthoritativeStorageList(root, summary) {
   if (!summary || typeof summary !== "object" || !Array.isArray(summary.groups)) {
     return false;
+  }
+  if (summary.unavailable === true) {
+    for (const row of safeQueryAll(root, "[data-storage-resource]")) {
+      const value = row.querySelector?.("[data-storage-value]");
+      if (value) value.textContent = "— / —";
+      if (row.dataset) row.dataset.storageState = "unavailable";
+      row.title = "Autoritativní stav skladu zatím není dostupný.";
+    }
+    return true;
   }
 
   const itemsByKey = new Map();

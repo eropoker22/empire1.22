@@ -1,5 +1,6 @@
 import { resolveHostedServerRegistrationState } from "./hosted-server-registration-state";
 import { HOSTED_WORKER_FRESH_MS } from "./hosted-control-plane-repository";
+import { parsePersistedHostedStartingPlayerState } from "./hosted-starting-player-state-policy";
 
 export interface PostgresHostedJoinGateRow extends Record<string, unknown> {
   version: string | number;
@@ -14,12 +15,16 @@ export interface PostgresHostedJoinGateRow extends Record<string, unknown> {
   registration_closes_at: unknown;
   registration_closed_at: unknown;
   registration_window_minutes: string | number;
+  starting_player_state: unknown;
 }
 
 export const isPostgresHostedServerJoinableAt = (
   hosted: PostgresHostedJoinGateRow,
   now: Date
 ): boolean => {
+  if (!parsePersistedHostedStartingPlayerState(hosted.starting_player_state).accepted) {
+    return false;
+  }
   const registration = resolveHostedServerRegistrationState({
     registrationOpensAt: isoOrNull(hosted.registration_opens_at),
     registrationClosesAt: isoOrNull(hosted.registration_closes_at),

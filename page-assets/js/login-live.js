@@ -6,7 +6,6 @@ import {
 } from "./app/player-entry-client.js";
 import { bindLoginAboutModal, bindLoginInfoModals } from "./app/login-about-modal.js";
 import { bindLoginRegistrationModal } from "./app/login-registration-modal.js";
-import { isLocalDemoAccessAvailable } from "./app/local-demo-gate.js";
 import { STORAGE_KEYS } from "./config.js";
 
 const state = {
@@ -20,7 +19,6 @@ const initialize = () => {
   state.activeMode = resolveInitialMode();
   bindModeCards();
   updateModeCards();
-  bindLocalDemoGuestAccess();
   bindPasswordToggle();
   bindForms();
   bindLoginRegistrationModal({ onOpen: () => showRegistrationError("") });
@@ -67,30 +65,6 @@ function updateModeCards() {
     const isActive = normalizeMode(button.getAttribute("data-mode")) === state.activeMode;
     button.classList.toggle("is-active", isActive);
     button.setAttribute("aria-pressed", isActive ? "true" : "false");
-  });
-}
-
-function bindLocalDemoGuestAccess() {
-  const guestAccess = document.querySelector(".guest-access");
-  const guestButton = document.querySelector("#guest-btn");
-  const guestUsernameInput = document.querySelector("#guest-username");
-  const guestGangInput = document.querySelector("#guest-gang");
-  if (!(guestAccess instanceof HTMLElement) || !(guestButton instanceof HTMLButtonElement)) return;
-  const localDemoAvailable = isLocalDemoAccessAvailable();
-  guestAccess.hidden = !localDemoAvailable;
-  guestAccess.setAttribute("aria-hidden", String(!localDemoAvailable));
-  guestAccess.querySelectorAll("input, button").forEach((control) => {
-    if (localDemoAvailable) control.removeAttribute("tabindex");
-    else control.setAttribute("tabindex", "-1");
-  });
-  if (!localDemoAvailable) return;
-  guestButton.textContent = "SPUSTIT LOKÁLNÍ DEMO";
-  guestButton.addEventListener("click", () => {
-    const username = guestUsernameInput instanceof HTMLInputElement ? guestUsernameInput.value.trim() : "";
-    const gangName = guestGangInput instanceof HTMLInputElement ? guestGangInput.value.trim() : "";
-    if (username) window.localStorage.setItem(STORAGE_KEYS.guestUsername, username);
-    if (gangName) window.localStorage.setItem(STORAGE_KEYS.guestGangName, gangName);
-    location.assign(`./login.html?runtimeMode=local-demo&mode=${state.activeMode}&autoStartLocalDemo=1`);
   });
 }
 

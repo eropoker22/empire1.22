@@ -5,6 +5,10 @@ import type { ServerInstanceRuntime } from "../runtime/instance";
 import type { InstanceSnapshotDto } from "../runtime/persistence/dto";
 import { restoreRuntimeFromSnapshot } from "../runtime/persistence/services";
 import type { ServerMapComposition } from "./gameplay-slice-shared-city-seed";
+import {
+  writeSafeRuntimeLoadDiagnostic,
+  type HostedRuntimeLoadStage
+} from "./hosted-runtime-load-diagnostic";
 
 export type HostedRuntimeLoadResult =
   | { accepted: true; runtime: ServerInstanceRuntime; errors: [] }
@@ -21,6 +25,7 @@ export const createHostedRuntimeLoader = (options: {
   controlPlane: Pick<HostedControlPlaneRepository, "getServer">;
 }): HostedRuntimeLoader => {
   const pendingLoads = new Map<string, Promise<HostedRuntimeLoadResult>>();
+  const instanceLoadTails = new Map<string, Promise<void>>();
   const appliedSnapshots = new Map<string, AppliedSnapshot>();
 
   return {
@@ -28,15 +33,24 @@ export const createHostedRuntimeLoader = (options: {
       const loadKey = `${serverInstanceId}:${loadOptions.requireRunning === true ? "running" : "read"}`;
       const pending = pendingLoads.get(loadKey);
       if (pending) return pending;
-      const load = loadHostedRuntime(
+
+      const previousLoad = instanceLoadTails.get(serverInstanceId) ?? Promise.resolve();
+      const load = previousLoad.then(() => loadHostedRuntime(
         options,
         appliedSnapshots,
         serverInstanceId,
         loadOptions.requireRunning === true
-      ).finally(() => {
-          if (pendingLoads.get(loadKey) === load) pendingLoads.delete(loadKey);
-        });
+      )).finally(() => {
+        if (pendingLoads.get(loadKey) === load) pendingLoads.delete(loadKey);
+      });
+      const loadTail = load.then(() => undefined, () => undefined);
       pendingLoads.set(loadKey, load);
+      instanceLoadTails.set(serverInstanceId, loadTail);
+      void loadTail.then(() => {
+        if (instanceLoadTails.get(serverInstanceId) === loadTail) {
+          instanceLoadTails.delete(serverInstanceId);
+        }
+      });
       return load;
     }
   };
@@ -48,17 +62,20 @@ const loadHostedRuntime = async (
   serverInstanceId: ServerInstanceId,
   requireRunning: boolean
 ): Promise<HostedRuntimeLoadResult> => {
+  let stage: HostedRuntimeLoadStage = "server-record";
   try {
     const record = await options.controlPlane.getServer(serverInstanceId);
     const recordError = validateHostedRecord(record, serverInstanceId, requireRunning);
     if (recordError) return rejected(recordError);
 
+    stage = "recovery-snapshot";
     const recovery = await options.server.instanceManager.getPersistenceRepositories()
       .snapshotRepository.loadForRecovery(serverInstanceId);
     const snapshot = recovery.snapshot;
     const snapshotError = validateSnapshot(snapshot, record!);
     if (snapshotError) return rejected(snapshotError);
 
+    stage = "runtime-create";
     let runtime = options.server.instanceManager.getInstanceById(serverInstanceId);
     const mustRestore = !runtime;
     if (!runtime) {
@@ -94,6 +111,7 @@ const loadHostedRuntime = async (
       ? snapshot!
       : null;
     if (appliedSnapshot) {
+      stage = "runtime-restore";
       restoreRuntimeFromSnapshot(runtime, appliedSnapshot);
       appliedSnapshots.set(serverInstanceId, {
         signature: snapshotSignature,
@@ -116,9 +134,11 @@ const loadHostedRuntime = async (
         provenanceMatched: runtimeMatchesAppliedSnapshot
       }));
     }
+    stage = "runtime-metadata";
     syncRuntimeMetadata(runtime, record!, appliedSnapshot);
     return { accepted: true, runtime, errors: [] };
-  } catch (_error) {
+  } catch (error) {
+    writeSafeRuntimeLoadDiagnostic(error, serverInstanceId, requireRunning, stage);
     return rejected({
       code: "server.runtime_authority_unavailable",
       message: "Hosted server authority is temporarily unavailable."

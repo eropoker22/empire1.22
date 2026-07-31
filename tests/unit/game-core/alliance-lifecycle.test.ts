@@ -279,8 +279,125 @@ describe("alliance lifecycle", () => {
     expect(Object.values(chatted.nextState.allianceChatMessagesById ?? {})[0]).toMatchObject({
       allianceId,
       authorPlayerId: "player:2",
-      body: "Ready."
+      body: "Ready.",
+      visibility: "members"
     });
+    const memberBoard = createAllianceBoardReadModel(chatted.nextState, "player:3", context(BASE_TIME));
+    const outsider = createPlayerFixture({
+      id: "player:4",
+      accountId: "account:player:4",
+      name: "player:4",
+      resourceStateId: "resource:player:4",
+      cooldownStateId: "cooldown:player:4",
+      effectStateId: "effect:player:4",
+      policeStateId: "police:player:4"
+    }) as Player;
+    const outsiderState = {
+      ...chatted.nextState,
+      playersById: {
+        ...chatted.nextState.playersById,
+        [outsider.id]: outsider
+      },
+      root: {
+        ...chatted.nextState.root,
+        playerIds: [...chatted.nextState.root.playerIds, outsider.id]
+      }
+    };
+    const outsiderBoard = createAllianceBoardReadModel(outsiderState, outsider.id, context(BASE_TIME));
+    expect(memberBoard.activeAlliance?.chatMessages).toEqual(expect.arrayContaining([
+      expect.objectContaining({ body: "Ready." })
+    ]));
+    expect(outsiderBoard.publicAlliances[0]?.chatMessages).toEqual([]);
+    expect(outsiderBoard.publicAlliances[0]?.pendingInvites).toEqual([]);
+    expect(outsiderBoard.publicAlliances[0]?.defenseContributions).toEqual([]);
+  });
+
+  it("allows only one pending member invite per alliance and target", () => {
+    const { state } = createAllianceState(["player:1"]);
+    addUnalignedPlayer(state, "player:2");
+
+    const first = applyCommand(
+      state,
+      command("invite-alliance-member", "player:1", {
+        allianceId: "alliance:1",
+        targetPlayerId: "player:2"
+      }, "command:invite-first"),
+      context(BASE_TIME)
+    );
+    const duplicate = applyCommand(
+      first.nextState,
+      command("invite-alliance-member", "player:1", {
+        allianceId: "alliance:1",
+        targetPlayerId: "player:2"
+      }, "command:invite-duplicate"),
+      context(BASE_TIME)
+    );
+
+    expect(first.errors).toEqual([]);
+    expect(duplicate.errors[0]?.code).toBe("ALLIANCE_INVITE_ALREADY_PENDING");
+    expect(Object.values(duplicate.nextState.allianceInvitesById ?? {})
+      .filter((invite) => invite.status === "pending")).toHaveLength(1);
+  });
+
+  it("keeps pending invites retryable when the alliance fills before acceptance", () => {
+    const maxAllianceSize = resolveModeConfig("free").balance.maxAllianceSize;
+    const memberIds = Array.from(
+      { length: maxAllianceSize },
+      (_, index) => `player:${index + 1}`
+    );
+    const { state: fullState } = createAllianceState(memberIds);
+    addUnalignedPlayer(fullState, "player:target");
+    const blockedInvite = applyCommand(
+      fullState,
+      command("invite-alliance-member", "player:1", {
+        allianceId: "alliance:1",
+        targetPlayerId: "player:target"
+      }, "command:invite-full"),
+      context(BASE_TIME)
+    );
+    expect(blockedInvite.errors[0]?.code).toBe("ALLIANCE_FULL");
+    expect(Object.values(blockedInvite.nextState.allianceInvitesById ?? {}))
+      .toHaveLength(0);
+
+    const { state: nearCapacityState } = createAllianceState(
+      memberIds.slice(0, -1)
+    );
+    addUnalignedPlayer(nearCapacityState, "player:target");
+    addUnalignedPlayer(nearCapacityState, "player:filler");
+    const invited = applyCommand(
+      nearCapacityState,
+      command("invite-alliance-member", "player:1", {
+        allianceId: "alliance:1",
+        targetPlayerId: "player:target"
+      }, "command:invite-before-full"),
+      context(BASE_TIME)
+    );
+    const inviteId = Object.keys(invited.nextState.allianceInvitesById ?? {})[0];
+    const filled = applyCommand(
+      invited.nextState,
+      command("join-alliance", "player:filler", {
+        allianceId: "alliance:1"
+      }, "command:fill-final-slot"),
+      context(BASE_TIME)
+    );
+    const rejectedAcceptance = applyCommand(
+      filled.nextState,
+      command("respond-alliance-invite", "player:target", {
+        inviteId,
+        response: "accept"
+      }, "command:accept-after-full"),
+      context(BASE_TIME)
+    );
+
+    expect(invited.errors).toEqual([]);
+    expect(filled.errors).toEqual([]);
+    expect(rejectedAcceptance.errors[0]?.code).toBe("ALLIANCE_FULL");
+    expect(rejectedAcceptance.nextState.alliancesById["alliance:1"].memberIds)
+      .toHaveLength(maxAllianceSize);
+    expect(rejectedAcceptance.nextState.playersById["player:target"].allianceId)
+      .toBeNull();
+    expect(rejectedAcceptance.nextState.allianceInvitesById?.[inviteId].status)
+      .toBe("pending");
   });
 
   it("stores public alliance contact messages, contact invites, and map badge colors", () => {
@@ -338,7 +455,8 @@ describe("alliance lifecycle", () => {
     expect(Object.values(messaged.nextState.allianceChatMessagesById ?? {})[0]).toMatchObject({
       allianceId: targetAllianceId,
       authorPlayerId: "player:1",
-      body: "Jednáme o společném tlaku."
+      body: "Jednáme o společném tlaku.",
+      visibility: "public"
     });
     expect(invited.nextState.allianceInvitesById?.[inviteId]).toMatchObject({
       allianceId: actorAllianceId,
@@ -351,11 +469,7 @@ describe("alliance lifecycle", () => {
       allianceId: targetAllianceId,
       authorName: "player:1"
     });
-    expect(publicAlliance?.receivedInvites[0]).toMatchObject({
-      allianceId: actorAllianceId,
-      targetAllianceId,
-      kind: "alliance_contact"
-    });
+    expect(publicAlliance?.receivedInvites).toEqual([]);
     expect(board.allianceBadgesByPlayerId["player:1"]).toMatchObject({
       tag: "REAPER",
       emblemColor: "#34d399"
@@ -537,6 +651,23 @@ const grantAllianceCreateInfluence = (state: ReturnType<typeof createInitialStat
     influence
   });
   state.root.districtIds.push(districtId);
+};
+
+const addUnalignedPlayer = (
+  state: ReturnType<typeof createInitialState>,
+  playerId: string
+): void => {
+  state.playersById[playerId] = createPlayerFixture({
+    id: playerId,
+    accountId: `account:${playerId}`,
+    name: playerId,
+    allianceId: null,
+    resourceStateId: `resource:${playerId}`,
+    cooldownStateId: `cooldown:${playerId}`,
+    effectStateId: `effect:${playerId}`,
+    policeStateId: `police:${playerId}`
+  }) as Player;
+  state.root.playerIds.push(playerId);
 };
 
 const createMembership = (

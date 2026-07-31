@@ -8,6 +8,7 @@ const readText = (path) => readFileSync(resolve(root, path), "utf8").replace(/\r
 describe("alliance alpha UI", () => {
   const html = readText("pages/game.html");
   const runtime = readText("page-assets/js/app/alliance-runtime.js");
+  const allianceCreateViewModel = readText("page-assets/js/app/runtime/allianceCreateViewModel.js");
   const demoFixture = readText("page-assets/js/app/dev-fixtures/allianceDemoData.js");
   const iconRegistry = readText("page-assets/js/app/alliance-icons.js");
   const mapCanvasAnimations = readText("page-assets/js/app/map/mapCanvasAnimations.js");
@@ -130,7 +131,8 @@ describe("alliance alpha UI", () => {
     expect(html).toContain("Pro komunikaci se spojenci otevři alianci.");
     expect(runtime).toContain('const GLOBAL_CHAT_KEY = "empire:demo:global-chat:v1";');
     expect(runtime).toContain("getGameplayExecutionMode");
-    expect(runtime).toContain("const ALLIANCE_CREATE_REQUIRED_INFLUENCE = 40;");
+    expect(runtime).toContain("ALLIANCE_CREATE_REQUIRED_INFLUENCE");
+    expect(allianceCreateViewModel).toContain("export const ALLIANCE_CREATE_REQUIRED_INFLUENCE = 40;");
     expect(runtime).toContain("ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE");
     expect(runtime).toContain("Vytvořit alianci půjde až pokud má hráč");
     expect(runtime).toContain("getCurrentGamePhaseForAllianceDemo");

@@ -312,7 +312,7 @@ function withDevBountyTargets(readModel, localBounties = []) {
   return {
     ...base,
     minRewardCleanCash: Math.max(BOUNTY_MINIMUM_CASH, Number(base.minRewardCleanCash || 0)),
-    currentPlayerCleanCash: Math.max(25_000, Number(base.currentPlayerCleanCash || 0)),
+    currentPlayerCleanCash: Math.max(0, Number(base.currentPlayerCleanCash || 0)),
     durationOptionsHours: Array.isArray(base.durationOptionsHours) && base.durationOptionsHours.length
       ? base.durationOptionsHours
       : [1, 6, 12, 24],

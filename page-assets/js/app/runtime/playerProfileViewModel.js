@@ -20,6 +20,8 @@ export function createPlayerProfileViewModel({
   const safeDistrictCount = Math.max(0, Number(districtCount) || 0);
   const hasEmpireScore = empireScore !== null && empireScore !== undefined && Number.isFinite(Number(empireScore));
   const safeAllianceLabel = String(allianceLabel || "").trim() || "Žádná";
+  const resourcesAvailable = displaySnapshot.available !== false;
+  const gangResourcesAvailable = gangState.available !== false;
 
   return {
     avatarSrc: resolvedAvatarSrc ? assetResolver(resolvedAvatarSrc) : "",
@@ -31,14 +33,14 @@ export function createPlayerProfileViewModel({
     factionLabel: faction?.name || "-",
     serverLabel: registration?.serverLabel || registration?.serverId || "-",
     empireScoreLabel: hasEmpireScore ? formatDistrictMetricNumber(Math.max(0, Number(empireScore)), 0) : "—",
-    cleanMoneyLabel: formatDistrictMoneyAmount(displaySnapshot.cleanMoney),
-    dirtyMoneyLabel: formatDistrictMoneyAmount(displaySnapshot.dirtyMoney),
-    influenceLabel: String(displaySnapshot.influence ?? 0),
+    cleanMoneyLabel: resourcesAvailable ? formatDistrictMoneyAmount(displaySnapshot.cleanMoney) : "—",
+    dirtyMoneyLabel: resourcesAvailable ? formatDistrictMoneyAmount(displaySnapshot.dirtyMoney) : "—",
+    influenceLabel: resourcesAvailable ? String(Math.max(0, Math.floor(Number(displaySnapshot.influence) || 0))) : "—",
     gangLabel: registration?.gangName
       || (registration?.identity ? `${registration.identity} Crew` : "Guest Crew"),
     allianceLabel: safeAllianceLabel,
     districtCountLabel: String(safeDistrictCount),
-    heatLabel: String(gangState.heat ?? 0),
-    protectionLabel
+    heatLabel: gangResourcesAvailable ? String(gangState.heat ?? 0) : "—",
+    protectionLabel: gangResourcesAvailable ? protectionLabel : "—"
   };
 }

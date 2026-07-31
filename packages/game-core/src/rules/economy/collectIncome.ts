@@ -26,6 +26,86 @@ import { resolveActiveAlliancePenaltyStatModifiers } from "../alliances/alliance
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+export interface FixedBuildingPassivePressureRate {
+  heatPerTick: number;
+  influencePerTick: number;
+  nextHeat: number;
+  nextInfluence: number;
+}
+
+export const calculateFixedBuildingPassivePressureByDistrictId = (
+  state: CoreGameState,
+  context: GameCoreContext
+): Record<string, FixedBuildingPassivePressureRate> => {
+  if (!context.config.balance.fixedBuildings) {
+    return {};
+  }
+
+  const ticksPerDay = DAY_MS / Math.max(1, context.config.tickRateMs);
+  const ratesByDistrictId: Record<string, FixedBuildingPassivePressureRate> = {};
+
+  for (const district of Object.values(state.districtsById)) {
+    if (!district.ownerPlayerId || district.status === "destroyed") {
+      continue;
+    }
+
+    const activeBuildings = getActiveFixedBuildingConfigsForDistrict(state, district, context);
+    const modifiers = resolveActiveDistrictEffectModifiers(state, district.id);
+    const factionModifiers = getFactionPassiveModifiers(state, district.ownerPlayerId, context);
+    const penaltyModifiers = resolveActiveAlliancePenaltyStatModifiers(
+      state,
+      district.ownerPlayerId,
+      nowIsoFromContext(context)
+    );
+    const basePressure = activeBuildings.reduce(
+      (totals, { building, config }) => {
+        const resolvedConfig = resolveFixedBuildingIncomeConfig({
+          state,
+          context,
+          districtId: district.id,
+          building,
+          config
+        });
+        return {
+          heatPerDay: totals.heatPerDay + sanitizePerDay(resolvedConfig.heatPerDay),
+          influencePerDay: totals.influencePerDay + sanitizePerDay(resolvedConfig.influencePerDay)
+        };
+      },
+      { heatPerDay: 0, influencePerDay: 0 }
+    );
+    const heatPerDay = applyFactionHeatGain(
+      basePressure.heatPerDay * modifiers.heatMultiplier + modifiers.heatPerDay,
+      factionModifiers
+    );
+    const influencePerDay = applyFactionInfluenceGain(
+      (
+        basePressure.influencePerDay * modifiers.influenceMultiplier
+        + modifiers.influencePerDay
+      ) * penaltyModifiers.influenceGenerationMultiplier,
+      factionModifiers
+    );
+    const currentHeat = Number(district.heat || 0);
+    const currentInfluence = Number(district.influence || 0);
+    const nextHeat = Math.max(
+      0,
+      currentHeat + resolvePerTick(heatPerDay, ticksPerDay)
+    );
+    const nextInfluence = Math.max(
+      0,
+      currentInfluence + resolvePerTick(influencePerDay, ticksPerDay)
+    );
+
+    ratesByDistrictId[district.id] = {
+      heatPerTick: nextHeat - currentHeat,
+      influencePerTick: nextInfluence - currentInfluence,
+      nextHeat,
+      nextInfluence
+    };
+  }
+
+  return ratesByDistrictId;
+};
+
 /**
  * Responsibility: Applies periodic income collection to the authoritative state.
  * Belongs here: server-side economy transitions driven by ticks or commands.
@@ -137,66 +217,32 @@ const applyFixedBuildingPassivePressure = (
   state: CoreGameState,
   context: GameCoreContext
 ): { changed: boolean; districtsById: CoreGameState["districtsById"] } => {
-  if (!context.config.balance.fixedBuildings) {
-    return {
-      changed: false,
-      districtsById: state.districtsById
-    };
-  }
-
-  const ticksPerDay = DAY_MS / Math.max(1, context.config.tickRateMs);
+  const ratesByDistrictId = calculateFixedBuildingPassivePressureByDistrictId(
+    state,
+    context
+  );
   let changed = false;
   let nextDistrictsById = state.districtsById;
 
-  for (const district of Object.values(state.districtsById)) {
-    if (!district.ownerPlayerId || district.status === "destroyed") {
+  for (const [districtId, rate] of Object.entries(ratesByDistrictId)) {
+    const district = state.districtsById[districtId];
+    if (!district) {
       continue;
     }
 
-    const activeBuildings = getActiveFixedBuildingConfigsForDistrict(state, district, context);
-    const modifiers = resolveActiveDistrictEffectModifiers(state, district.id);
-    const factionModifiers = getFactionPassiveModifiers(state, district.ownerPlayerId, context);
-    const penaltyModifiers = resolveActiveAlliancePenaltyStatModifiers(state, district.ownerPlayerId, nowIsoFromContext(context));
-    const basePressure = activeBuildings.reduce(
-      (totals, { building, config }) => {
-        const resolvedConfig = resolveFixedBuildingIncomeConfig({
-          state,
-          context,
-          districtId: district.id,
-          building,
-          config
-        });
-        return {
-          heatPerDay: totals.heatPerDay + sanitizePerDay(resolvedConfig.heatPerDay),
-          influencePerDay: totals.influencePerDay + sanitizePerDay(resolvedConfig.influencePerDay)
-        };
-      },
-      { heatPerDay: 0, influencePerDay: 0 }
-    );
-    const heatPerDay = applyFactionHeatGain(
-      basePressure.heatPerDay * modifiers.heatMultiplier + modifiers.heatPerDay,
-      factionModifiers
-    );
-    const influencePerDay = applyFactionInfluenceGain(
-      (basePressure.influencePerDay * modifiers.influenceMultiplier + modifiers.influencePerDay) * penaltyModifiers.influenceGenerationMultiplier,
-      factionModifiers
-    );
-    const heatDelta = resolvePerTick(heatPerDay, ticksPerDay);
-    const influenceDelta = resolvePerTick(influencePerDay, ticksPerDay);
-
-    if (Math.abs(heatDelta) <= Number.EPSILON && Math.abs(influenceDelta) <= Number.EPSILON) {
+    if (
+      Math.abs(rate.heatPerTick) <= Number.EPSILON
+      && Math.abs(rate.influencePerTick) <= Number.EPSILON
+    ) {
       continue;
     }
-
-    const nextHeat = Math.max(0, Number(district.heat || 0) + heatDelta);
-    const nextInfluence = Math.max(0, Number(district.influence || 0) + influenceDelta);
 
     nextDistrictsById = {
       ...nextDistrictsById,
       [district.id]: {
         ...district,
-        heat: nextHeat,
-        influence: nextInfluence,
+        heat: rate.nextHeat,
+        influence: rate.nextInfluence,
         version: district.version + 1
       }
     };

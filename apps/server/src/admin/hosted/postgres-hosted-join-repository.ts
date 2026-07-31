@@ -44,7 +44,7 @@ export const createPostgresHostedJoinRepository = (database: PostgresDatabase): 
     const server = await client.query<PostgresHostedJoinGateRow>(
       `SELECT version,capacity,status,join_policy,provisioning_state,current_snapshot_id,runtime_lease_owner_id,
         runtime_lease_expires_at,last_worker_heartbeat_at,registration_opens_at,registration_closes_at,
-        registration_closed_at,registration_window_minutes
+        registration_closed_at,registration_window_minutes,starting_player_state
        FROM empire_hosted_server_instances WHERE server_instance_id=$1 FOR UPDATE`,
       [input.reservation.serverInstanceId]
     );

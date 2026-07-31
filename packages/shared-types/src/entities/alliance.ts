@@ -192,6 +192,7 @@ export interface AllianceChatMessage {
   allianceId: AllianceId;
   authorPlayerId: PlayerId;
   body: string;
+  visibility?: "members" | "public";
   createdAt: string;
   version: number;
 }

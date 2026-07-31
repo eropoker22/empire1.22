@@ -189,6 +189,15 @@ export function createDistrictPopupMetricsRuntime(deps = {}) {
       return;
     }
     const economySnapshot = deps.getDistrictEconomySnapshot(district);
+    const metricsUnavailable = economySnapshot.available === false;
+    const populationSourceSummary = String(
+      economySnapshot.populationSourceSummary || ""
+    );
+    if (elements.popupPopulation) {
+      elements.popupPopulation.title = populationSourceSummary;
+      elements.popupPopulation.dataset.populationSourceSummary =
+        populationSourceSummary;
+    }
 
     deps.renderDistrictMetricSummary({
       clean: elements.popupClean,
@@ -196,10 +205,30 @@ export function createDistrictPopupMetricsRuntime(deps = {}) {
       influence: elements.popupInfluence,
       population: elements.popupPopulation
     }, {
-      cleanLabel: isDestroyed ? "0" : String(economySnapshot.baseCleanHourlyIncome || 0),
-      dirtyLabel: isDestroyed ? "0" : String(economySnapshot.baseDirtyHourlyIncome || 0),
-      influenceLabel: isDestroyed ? "0" : String(economySnapshot.districtInfluencePerHour || 0),
-      populationLabel: isDestroyed ? "0" : String(economySnapshot.districtPopulationPerHour || 0)
+      cleanLabel: isDestroyed
+        ? "0"
+        : metricsUnavailable
+          ? "Bez dat"
+          : String(economySnapshot.baseCleanHourlyIncome || 0),
+      dirtyLabel: isDestroyed
+        ? "0"
+        : metricsUnavailable
+          ? "Bez dat"
+          : String(economySnapshot.baseDirtyHourlyIncome || 0),
+      influenceLabel: isDestroyed
+        ? "0"
+        : metricsUnavailable
+          ? "Bez dat"
+          : String(economySnapshot.districtInfluencePerHour || 0),
+      populationLabel: isDestroyed
+        ? "0"
+        : metricsUnavailable
+          ? "Bez dat"
+          : String(
+              economySnapshot.populationLabel
+              ?? economySnapshot.districtPopulationPerHour
+              ?? 0
+            )
     });
   };
 

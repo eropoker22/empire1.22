@@ -1,19 +1,36 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { expect } from "@playwright/test";
+import {
+  resolveBuildingPresentationDefinition
+} from "../../../page-assets/js/app/runtime/buildingPresentationContract.js";
 
 const SESSION_KEY = "empireStreets.session.v1";
 const SCOPED_SESSION_KEY = "empireStreets.session.free.instance-free-eu-central-public-1.v1";
 
 export const parityViewports = Object.freeze([
   Object.freeze({ name: "desktop-1440x900", width: 1440, height: 900 }),
-  Object.freeze({ name: "mobile-390x844", width: 390, height: 844 })
+  Object.freeze({ name: "mobile-390x844", width: 390, height: 844 }),
+  Object.freeze({ name: "mobile-320x568", width: 320, height: 568 }),
+  Object.freeze({ name: "mobile-360x800", width: 360, height: 800 }),
+  Object.freeze({ name: "mobile-430x932", width: 430, height: 932 }),
+  Object.freeze({ name: "tablet-768x1024", width: 768, height: 1024 }),
+  Object.freeze({ name: "tablet-820x1180", width: 820, height: 1180 }),
+  Object.freeze({ name: "desktop-1024x768", width: 1024, height: 768 }),
+  Object.freeze({ name: "desktop-1366x768", width: 1366, height: 768 }),
+  Object.freeze({ name: "desktop-1920x1080", width: 1920, height: 1080 })
 ]);
+
+export const parityCaptureViewports = Object.freeze(parityViewports.slice(0, 2));
 
 export const paritySurfaces = Object.freeze({
   district: Object.freeze({
     selector: "[data-district-popup-card]",
     shell: "[data-district-popup]"
+  }),
+  buildingDetail: Object.freeze({
+    selector: "[data-district-building-detail-popup]:not([hidden])",
+    shell: "[data-district-building-detail-popup]:not([hidden])"
   }),
   restaurant: Object.freeze({
     selector: "[data-district-building-detail-popup]:not([hidden])",
@@ -189,7 +206,11 @@ export async function openBuildingFromDistrict(page, buildingTypeOrLabel) {
     arcade: ["arcade", "herna"]
   };
   const normalized = String(buildingTypeOrLabel).toLocaleLowerCase("cs");
-  const expectedLabels = aliases[normalized] || [normalized];
+  const canonicalBaseName = resolveBuildingPresentationDefinition(normalized)?.baseName || "";
+  const expectedLabels = Array.from(new Set([
+    ...(aliases[normalized] || [normalized]),
+    canonicalBaseName.toLocaleLowerCase("cs")
+  ].filter(Boolean)));
   const chips = page.locator("[data-district-building-name]");
   let matchingIndex = -1;
   await expect.poll(async () => {
@@ -220,9 +241,31 @@ export async function openProductionShortcut(page, type) {
   await expect(page.locator(paritySurfaces[type].shell)).toBeVisible({ timeout: 30_000 });
 }
 
+export function resolveBuildingParitySurfaceName(buildingTypeId) {
+  const normalizedTypeId = String(buildingTypeId || "").trim().replace(/-/gu, "_");
+  return {
+    pharmacy: "pharmacy",
+    drug_lab: "drugLab",
+    factory: "factory",
+    armory: "armory"
+  }[normalizedTypeId] || "buildingDetail";
+}
+
+export async function selectProductionBuildingTab(page, surfaceName, tabName) {
+  const normalizedTabName = String(tabName || "stats").trim();
+  const selector = surfaceName === "factory"
+    ? `[data-factory-tab="${normalizedTabName}"]`
+    : `[data-production-building-tab$=":${normalizedTabName}"]`;
+  const tab = page.locator(`${paritySurfaces[surfaceName].shell}:visible`).locator(selector);
+  await expect(tab).toBeVisible();
+  await tab.click();
+  await expect(tab).toHaveAttribute("aria-selected", "true");
+}
+
 export async function closeSurface(page, surfaceName) {
   const closeSelectors = {
     district: "[data-district-popup-close]",
+    buildingDetail: "[data-district-building-detail-close]",
     restaurant: "[data-district-building-detail-close]",
     arcade: "[data-district-building-detail-close]",
     pharmacy: "[data-pharmacy-popup-close]",
@@ -370,7 +413,7 @@ export async function captureParitySurface(page, {
   const directory = artifactDirectory(phase, mode, viewport.name);
   await fs.mkdir(directory, { recursive: true });
   const metadata = await readParitySurfaceMetadata(page, surfaceName);
-  const presentation = surfaceName === "restaurant" || surfaceName === "arcade"
+  const presentation = ["buildingDetail", "restaurant", "arcade"].includes(surfaceName)
     ? await getBuildingPresentationSignature(page, surfaceName)
     : null;
   const basePath = path.join(directory, surfaceName);
@@ -471,6 +514,176 @@ export async function getBuildingPresentationSignature(page, surfaceName) {
         rowCount: new Set(actionRects.map((rect) => rect.top)).size,
         rects: actionRects
       }
+    };
+  });
+}
+
+export async function getProductionPresentationSignature(page, surfaceName) {
+  const definition = paritySurfaces[surfaceName];
+  const target = page.locator(definition.selector).first();
+  await expect(target).toBeVisible();
+  return target.evaluate((targetElement) => {
+    const normalizeText = (value) => String(value || "").replace(/\s+/gu, " ").trim();
+    const visibleElements = (selector) => Array.from(targetElement.querySelectorAll(selector))
+      .filter((element) => {
+        if (!(element instanceof HTMLElement) || element.hidden) return false;
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return style.display !== "none"
+          && style.visibility !== "hidden"
+          && rect.width > 0
+          && rect.height > 0;
+      });
+    return {
+      title: normalizeText(targetElement.querySelector(".modal__header h3")?.textContent),
+      tabs: visibleElements(
+        "[data-production-building-tab], [data-factory-tab]"
+      ).map((element) => ({
+        key: element.dataset.productionBuildingTab || element.dataset.factoryTab || "",
+        label: normalizeText(element.textContent),
+        selected: element.getAttribute("aria-selected") === "true"
+      })),
+      sectionHeadings: visibleElements(
+        "[data-production-building-panel] h5, [data-factory-panel] h5"
+      ).map((element) => normalizeText(element.textContent)),
+      recipeLabels: visibleElements([
+        ".pharmacy-slot__title",
+        ".drug-production-slot__title"
+      ].join(",")).map((element) => normalizeText(element.textContent))
+    };
+  });
+}
+
+export async function getParityDomStructureSignature(page, surfaceName) {
+  const definition = paritySurfaces[surfaceName];
+  const target = page.locator(definition.selector).first();
+  await expect(target).toBeVisible();
+  return target.evaluate((targetElement) => {
+    const isVisible = (element) => {
+      if (!(element instanceof HTMLElement) || element.hidden) return false;
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none"
+        && style.visibility !== "hidden"
+        && Number(style.opacity || 1) > 0
+        && rect.width > 0
+        && rect.height > 0;
+    };
+    const normalizeText = (value) => String(value || "").replace(/\s+/gu, " ").trim();
+    const normalizeClasses = (element) => Array.from(element.classList || [])
+      .filter((className) => (
+        !/^(?:is|has|tone|state|status|theme|mode)--?/u.test(className)
+        && !/(?:loading|disabled|active|selected|server-authoritative|local-demo)/u.test(className)
+      ))
+      .map((className) => className.replace(/--.*$/u, ""))
+      .filter(Boolean)
+      .sort();
+    const targetRect = targetElement.getBoundingClientRect();
+    const relativeRect = (element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        x: Math.round(rect.left - targetRect.left),
+        y: Math.round(rect.top - targetRect.top),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height)
+      };
+    };
+    const structuralKey = (element, index = 0) => {
+      const datasetKey = [
+        element.dataset.districtBuildingDetailPanel,
+        element.dataset.productionBuildingPanel,
+        element.dataset.factoryPanel,
+        element.dataset.productionPanel
+      ].find(Boolean);
+      if (datasetKey) return datasetKey;
+      const heading = normalizeText(element.querySelector?.(":scope > h5")?.textContent);
+      if (heading) return heading;
+      const className = normalizeClasses(element)[0];
+      return className || `${element.tagName.toLowerCase()}:${index}`;
+    };
+    const activePanels = Array.from(targetElement.querySelectorAll([
+      "[data-district-building-detail-panel]",
+      "[data-production-building-panel]",
+      "[data-factory-panel]"
+    ].join(","))).filter(isVisible);
+    const sections = activePanels.flatMap((panel) => Array.from(panel.children)
+      .filter(isVisible)
+      .map((element, index) => ({
+        key: structuralKey(element, index),
+        tag: element.tagName.toLowerCase(),
+        classes: normalizeClasses(element),
+        rect: relativeRect(element)
+      })));
+    const structuralElements = Array.from(new Set([
+      targetElement,
+      ...targetElement.querySelectorAll([
+        ".modal__header",
+        ".modal__body",
+        ".building-detail-tabs",
+        "[data-district-building-detail-panel]",
+        "[data-production-building-panel]",
+        "[data-factory-panel]",
+        ".building-tech-popup-overview-grid",
+        "[data-district-building-detail-stats]",
+        "[data-district-building-detail-mechanics]",
+        "[data-district-building-detail-effects]",
+        "[data-district-building-detail-actions]",
+        ".building-detail-actions",
+        "[data-production-panel]",
+        "[data-factory-slot-list]"
+      ].join(","))
+    ])).filter(isVisible);
+
+    return {
+      classNames: Array.from(new Set(
+        [targetElement, ...targetElement.querySelectorAll("*")]
+          .filter(isVisible)
+          .flatMap((element) => normalizeClasses(element))
+      )).sort(),
+      sectionOrder: sections.map((section) => section.key),
+      sections,
+      counts: {
+        visiblePanels: activePanels.length,
+        tabs: Array.from(targetElement.querySelectorAll(
+          "[data-district-building-detail-tab], [data-production-building-tab], [data-factory-tab]"
+        )).filter(isVisible).length,
+        stats: Array.from(targetElement.querySelectorAll(
+          ".district-building-detail-stat-row, .building-tech-popup-stat-card"
+        )).filter(isVisible).length,
+        mechanics: Array.from(targetElement.querySelectorAll(
+          ".district-building-detail-mechanic-row"
+        )).filter(isVisible).length,
+        effects: Array.from(targetElement.querySelectorAll(
+          ".district-building-detail-effect-cell"
+        )).filter(isVisible).length,
+        actions: Array.from(targetElement.querySelectorAll(
+          ".building-info-action-row"
+        )).filter(isVisible).length,
+        productionCards: Array.from(targetElement.querySelectorAll([
+          ".production-recipe-card",
+          ".pharmacy-slot",
+          ".drug-production-slot",
+          ".factory-slot",
+          ".armory-slot",
+          ".factory-slot-card",
+          ".production-craft-card",
+          "[data-production-panel] > article",
+          "[data-factory-slot-list] > article"
+        ].join(","))).filter(isVisible).length
+      },
+      layout: structuralElements.map((element, index) => {
+        const style = getComputedStyle(element);
+        return {
+          key: element === targetElement ? "surface" : structuralKey(element, index),
+          tag: element.tagName.toLowerCase(),
+          classes: normalizeClasses(element),
+          display: style.display,
+          position: style.position,
+          gridTemplateColumns: style.gridTemplateColumns,
+          flexDirection: style.flexDirection,
+          rect: relativeRect(element)
+        };
+      })
     };
   });
 }

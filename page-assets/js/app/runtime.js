@@ -840,7 +840,10 @@ import {
   toCanonicalServerDistrictId
 } from "./runtime/serverDistrictSelectionCoordinator.js";
 import {
+  resolveServerAttackDistrictRoute,
   resolveServerDistrictActionTarget,
+  resolveServerOccupyDistrictRoute,
+  resolveServerRobDistrictRoute,
   resolveServerSpyDistrictRoute
 } from "./runtime/serverDistrictActionRoute.js";
 import {
@@ -1132,6 +1135,76 @@ function getCurrentGameplayExecutionMode() {
 
 function isLocalDemoGameplayExecutionMode() {
   return getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.localDemo;
+}
+
+function resolveBuildingRuntimeExecutionMode({
+  executionMode,
+  serverReady
+} = {}) {
+  if (executionMode === GAMEPLAY_EXECUTION_MODES.localDemo) {
+    return GAMEPLAY_EXECUTION_MODES.localDemo;
+  }
+  if (
+    executionMode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative
+    && serverReady === true
+  ) {
+    return GAMEPLAY_EXECUTION_MODES.serverAuthoritative;
+  }
+  return GAMEPLAY_EXECUTION_MODES.unavailable;
+}
+
+function getBuildingRuntimeExecutionMode() {
+  return resolveBuildingRuntimeExecutionMode({
+    executionMode: getCurrentGameplayExecutionMode(),
+    serverReady: isServerAuthoritativeGameplayRuntimeReady()
+  });
+}
+
+function dispatchBuildingDetailOpenByAuthority({
+  executionMode,
+  serverReady,
+  openLocalDemo,
+  openServerAuthoritative,
+  onUnavailable
+} = {}) {
+  const resolvedMode = resolveBuildingRuntimeExecutionMode({
+    executionMode,
+    serverReady
+  });
+  if (resolvedMode === GAMEPLAY_EXECUTION_MODES.localDemo) {
+    return typeof openLocalDemo === "function" ? openLocalDemo() : false;
+  }
+  if (resolvedMode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    return typeof openServerAuthoritative === "function"
+      ? openServerAuthoritative()
+      : false;
+  }
+  onUnavailable?.();
+  return false;
+}
+
+function selectBuildingPresentationByAuthority({
+  executionMode,
+  serverReady,
+  district,
+  getLocalDemoPresentation,
+  getServerAuthoritativePresentation
+} = {}) {
+  const resolvedMode = resolveBuildingRuntimeExecutionMode({
+    executionMode,
+    serverReady
+  });
+  if (resolvedMode === GAMEPLAY_EXECUTION_MODES.localDemo) {
+    return typeof getLocalDemoPresentation === "function"
+      ? getLocalDemoPresentation(district)
+      : null;
+  }
+  if (resolvedMode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    return typeof getServerAuthoritativePresentation === "function"
+      ? getServerAuthoritativePresentation(district)
+      : null;
+  }
+  return null;
 }
 
 function shouldRunLocalGameplayRuntime() {
@@ -2188,17 +2261,29 @@ function getResolvedEconomyState() {
   if (player?.economy) {
     return {
       cleanMoney: Math.max(0, Number(player.economy.cleanCash ?? 0)),
-      dirtyMoney: Math.max(0, Number(player.economy.dirtyCash ?? 0))
+      dirtyMoney: Math.max(0, Number(player.economy.dirtyCash ?? 0)),
+      available: true
     };
   }
   const balances = getServerPlayerResourceBalances();
   if (balances) {
     return {
       cleanMoney: Math.max(0, Number(balances.cash ?? 0)),
-      dirtyMoney: Math.max(0, Number(balances["dirty-cash"] ?? 0))
+      dirtyMoney: Math.max(0, Number(balances["dirty-cash"] ?? 0)),
+      available: true
     };
   }
-  return getLegacyResolvedEconomyState();
+  if (getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    return {
+      cleanMoney: 0,
+      dirtyMoney: 0,
+      available: false
+    };
+  }
+  return {
+    ...getLegacyResolvedEconomyState(),
+    available: true
+  };
 }
 
 function getServerStorageSummary() {
@@ -2228,16 +2313,28 @@ function getResolvedMaterialInventory() {
   if (isLocalDemoGameplayExecutionMode()) {
     normalizeLocalDemoStorageInventory();
   }
-  return getServerInventoryGroup("materials", DEFAULT_MATERIAL_INVENTORY)
-    || getLegacyResolvedMaterialInventory();
+  const serverInventory = getServerInventoryGroup("materials", DEFAULT_MATERIAL_INVENTORY);
+  if (serverInventory) {
+    return serverInventory;
+  }
+  if (getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    return {};
+  }
+  return getLegacyResolvedMaterialInventory();
 }
 
 function getResolvedDrugInventory() {
   if (isLocalDemoGameplayExecutionMode()) {
     normalizeLocalDemoStorageInventory();
   }
-  return getServerInventoryGroup("drugs", DEFAULT_DRUG_INVENTORY)
-    || getLegacyResolvedDrugInventory();
+  const serverInventory = getServerInventoryGroup("drugs", DEFAULT_DRUG_INVENTORY);
+  if (serverInventory) {
+    return serverInventory;
+  }
+  if (getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    return {};
+  }
+  return getLegacyResolvedDrugInventory();
 }
 
 function getStoredMarketPriceState() {
@@ -2368,6 +2465,33 @@ function applyTopbarEconomy(root, { instant = false } = {}) {
     includeSpy: false,
     formatMoneyAmount: formatDistrictMoneyAmount
   });
+}
+
+function bindServerGameplayResourceReadModel(root) {
+  const syncResources = (eventOrReadModel) => {
+    const nextSlice = eventOrReadModel?.detail?.gameplaySlice || eventOrReadModel || null;
+    if (!nextSlice?.player?.playerId || !nextSlice?.player?.instanceId) {
+      return false;
+    }
+    latestGameplaySliceReadModel = nextSlice;
+    if (getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+      return false;
+    }
+    applyTopbarEconomy(root, { instant: true });
+    renderGangMembersState(root);
+    renderSpyResourceState(root, { instant: true });
+    root.ownerDocument?.dispatchEvent?.(new CustomEvent("empire:runtime-refresh", {
+      detail: {
+        gameplaySlice: nextSlice,
+        source: "server-gameplay-resource-read-model"
+      }
+    }));
+    return true;
+  };
+
+  root.ownerDocument?.addEventListener?.("empire:gameplay-slice-rendered", syncResources);
+  syncResources(getServerGameplaySliceReadModel());
+  return true;
 }
 
 function bindTopbarMoneySkipControls(root) {
@@ -2864,7 +2988,21 @@ function getResolvedGangState() {
       autoPoliceNextActionAt: 0,
       heatJournal: [],
       dirtyHeatReductionTimestamps: [],
-      lastHeatDecayAt: serverPlayer.serverTime || new Date().toISOString()
+      lastHeatDecayAt: serverPlayer.serverTime || new Date().toISOString(),
+      available: true
+    };
+  }
+  if (getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    return {
+      members: 0,
+      influence: 0,
+      heat: 0,
+      policeRaidProtectionUntil: 0,
+      autoPoliceNextActionAt: 0,
+      heatJournal: [],
+      dirtyHeatReductionTimestamps: [],
+      lastHeatDecayAt: new Date().toISOString(),
+      available: false
     };
   }
   const storedState = getStoredGangState();
@@ -2892,7 +3030,8 @@ function getResolvedGangState() {
     autoPoliceNextActionAt,
     heatJournal,
     dirtyHeatReductionTimestamps,
-    lastHeatDecayAt
+    lastHeatDecayAt,
+    available: true
   };
 }
 
@@ -3217,7 +3356,11 @@ function applyPoliceActionImpact(tier, options = {}) {
 }
 
 function renderGangMembersState(root) {
-  renderResourcesPanelUi({ gangMembers: getResolvedGangState().members }, {
+  const gangState = getResolvedGangState();
+  renderResourcesPanelUi({
+    gangMembers: gangState.members,
+    available: gangState.available !== false
+  }, {
     root,
     includeMoney: false,
     includeSpy: false
@@ -4788,6 +4931,9 @@ function getResolvedWeaponInventory() {
   if (serverInventory) {
     return serverInventory;
   }
+  if (getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    return {};
+  }
   const storedInventory = getStoredWeaponInventory();
 
   if (storedInventory) {
@@ -5397,8 +5543,13 @@ function createFactoryCapacityOptions(options = {}) {
 }
 
 function getGameplayStorageSummary() {
-  const serverSummary = isLocalDemoGameplayExecutionMode() ? null : getServerStorageSummary();
-  if (serverSummary) return serverSummary;
+  if (getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    return getServerStorageSummary() || {
+      unavailable: true,
+      warehouseSummary: null,
+      groups: []
+    };
+  }
   normalizeLocalDemoStorageInventory();
   const ownedWarehouseCount = getOwnedWarehouseCount();
   const network = getWarehouseNetworkMultipliers(ownedWarehouseCount);
@@ -6420,9 +6571,17 @@ const serverBuildingPresentationAdapter = new ServerBuildingPresentationAdapter(
 });
 
 function getSharedDistrictBuildingPresentation(district) {
-  return isServerAuthoritativeGameplayRuntimeReady()
-    ? serverBuildingPresentationAdapter.getDistrictPresentation(district)
-    : localDemoBuildingPresentationAdapter.getDistrictPresentation(district);
+  return selectBuildingPresentationByAuthority({
+    executionMode: getCurrentGameplayExecutionMode(),
+    serverReady: isServerAuthoritativeGameplayRuntimeReady(),
+    district,
+    getLocalDemoPresentation: (selectedDistrict) => (
+      localDemoBuildingPresentationAdapter.getDistrictPresentation(selectedDistrict)
+    ),
+    getServerAuthoritativePresentation: (selectedDistrict) => (
+      serverBuildingPresentationAdapter.getDistrictPresentation(selectedDistrict)
+    )
+  });
 }
 
 function resolveSharedDistrictBuildingProfile(district) {
@@ -6698,6 +6857,105 @@ function getDistrictEconomySnapshot(district) {
     };
   }
 
+  if (hasServerAuthoritativeGameplayProjection()) {
+    const districtId = `district:${Number(district.id)}`;
+    const projectedDistrict = latestGameplaySliceReadModel?.district;
+    const projectedRates = latestGameplaySliceReadModel?.economyRates?.selectedDistrict;
+    if (
+      projectedDistrict?.districtId !== districtId
+      || projectedRates?.districtId !== districtId
+    ) {
+      return {
+        available: false,
+        baseCleanHourlyIncome: 0,
+        baseDirtyHourlyIncome: 0,
+        buildingCleanHourlyIncome: 0,
+        buildingDirtyHourlyIncome: 0,
+        cleanHourlyIncome: 0,
+        dirtyHourlyIncome: 0,
+        totalHourlyIncome: 0,
+        districtInfluencePerHour: 0,
+        buildingInfluencePerHour: 0,
+        totalInfluencePerHour: 0,
+        districtPopulationPerHour: 0,
+        populationLabel: "Bez dat",
+        populationSourceSummary: "",
+        passiveHeatPerDay: 0
+      };
+    }
+
+    const presentationTotals = (projectedDistrict.buildings || []).reduce(
+      (totals, building) => {
+        const passive = building?.status === "active"
+          ? building?.presentation?.passive
+          : null;
+        if (!passive) {
+          return totals;
+        }
+        return {
+          cleanPerHour: totals.cleanPerHour + Number(passive.cleanPerHour || 0),
+          dirtyPerHour: totals.dirtyPerHour + Number(passive.dirtyPerHour || 0),
+          heatPerDay: totals.heatPerDay + Number(passive.heatPerDay || 0),
+          influencePerHour: totals.influencePerHour
+            + Number(passive.influencePerDay || 0) / 24
+        };
+      },
+      {
+        cleanPerHour: 0,
+        dirtyPerHour: 0,
+        heatPerDay: 0,
+        influencePerHour: 0
+      }
+    );
+    const passivePopulationSources = Array.isArray(
+      projectedRates.passivePopulationSources
+    )
+      ? projectedRates.passivePopulationSources
+      : [];
+    const hasPassivePopulationSource = passivePopulationSources.length > 0;
+    const playerPopulationPerHour = passivePopulationSources.reduce(
+      (total, source) => (
+        total
+        + (
+          source.target === "player-balance"
+            ? Number(source.amountPerHour || 0)
+            : 0
+        )
+      ),
+      0
+    );
+    const buildingStorageSourceCount = passivePopulationSources.filter(
+      (source) => source.target === "building-storage"
+    ).length;
+
+    return {
+      available: true,
+      baseCleanHourlyIncome: Number(projectedRates.cleanCashPerHour || 0),
+      baseDirtyHourlyIncome: Number(projectedRates.dirtyCashPerHour || 0),
+      buildingCleanHourlyIncome: 0,
+      buildingDirtyHourlyIncome: 0,
+      cleanHourlyIncome: Number(projectedRates.cleanCashPerHour || 0),
+      dirtyHourlyIncome: Number(projectedRates.dirtyCashPerHour || 0),
+      totalHourlyIncome: Math.max(
+        0,
+        Number(projectedRates.cleanCashPerHour || 0)
+          + Number(projectedRates.dirtyCashPerHour || 0)
+      ),
+      districtInfluencePerHour: Number(projectedRates.influencePerHour || 0),
+      buildingInfluencePerHour: 0,
+      totalInfluencePerHour: Number(projectedRates.influencePerHour || 0),
+      districtPopulationPerHour: 0,
+      populationLabel: hasPassivePopulationSource
+        ? playerPopulationPerHour > 0
+          ? String(playerPopulationPerHour)
+          : `0 topbar · ${buildingStorageSourceCount}× do zásoby`
+        : "0 · žádný zdroj",
+      populationSourceSummary:
+        projectedRates.passivePopulationSourceSummary || "",
+      passiveHeatPerDay: presentationTotals.heatPerDay
+    };
+  }
+
   const districtType = DISTRICT_MINUTE_INCOME_RULES_EMPIRE2[district?.districtType]
     ? district.districtType
     : "resident";
@@ -6878,11 +7136,11 @@ function syncCurrentPlayerDistrictCountDisplays(root, districtCount) {
 
 function createStoredResourceSnapshot() {
   const economy = getResolvedEconomyState();
-  const influence = getResolvedGangState().influence;
+  const gangState = getResolvedGangState();
   return {
     cleanMoney: economy.cleanMoney,
     dirtyMoney: economy.dirtyMoney,
-    influence,
+    influence: gangState.influence,
     heatPerDay: 0,
     heatPerMinute: 0,
     districtCount: 0,
@@ -6890,7 +7148,8 @@ function createStoredResourceSnapshot() {
     dirtyMoneyPerMinute: 0,
     influencePerMinute: 0,
     populationPerMinute: 0,
-    sourceMode: "stored"
+    sourceMode: "stored",
+    available: economy.available !== false && gangState.available !== false
   };
 }
 
@@ -6910,7 +7169,8 @@ function createStartPhaseDisplayedResourceSnapshot() {
     dirtyMoneyPerMinute: districtSnapshot.dirtyMoneyPerMinute,
     influencePerMinute: districtSnapshot.influencePerMinute,
     populationPerMinute: districtSnapshot.populationPerMinute,
-    sourceMode: "district"
+    sourceMode: "district",
+    available: true
   };
 }
 
@@ -10965,13 +11225,19 @@ function bindDistrictCanvas(root) {
     }
   });
   const presentDistrictBuildingDetail = (district, buildingName, options = {}) => {
+    const buildingExecutionMode = getBuildingRuntimeExecutionMode();
+    if (buildingExecutionMode === GAMEPLAY_EXECUTION_MODES.unavailable) {
+      showWarning("Serverová data budovy se načítají. Budova nebyla otevřena.");
+      return false;
+    }
     const safeDistrict = district && geometry?.districts?.length
       ? geometry.districts.find((entry) => Number(entry.id) === Number(district.id)) || district
       : district;
     const buildingLabel = String(buildingName || "Budova").trim() || "Budova";
     const popupTarget = resolveBuildingPopupTarget(buildingLabel, options.serverBuildingTypeId);
     const shouldOpenGenericDetail = shouldOpenGenericDistrictBuildingDetail(buildingLabel, options);
-    const serverAuthoritative = isServerAuthoritativeGameplayRuntimeReady();
+    const serverAuthoritative = buildingExecutionMode
+      === GAMEPLAY_EXECUTION_MODES.serverAuthoritative;
     const serverDistrictId = String(latestGameplaySliceReadModel?.district?.districtId || "");
     const serverBuildingId = String(options.serverBuildingId || "");
     const serverBuildingTypeId = String(options.serverBuildingTypeId || "");
@@ -12573,16 +12839,27 @@ function bindDistrictCanvas(root) {
   };
 
   openDistrictBuildingDetail = (district, buildingName, options = {}) => {
-    if (!isServerAuthoritativeGameplayRuntimeReady()) {
-      return presentDistrictBuildingDetail(district, buildingName, options);
-    }
-    void openServerScopedDistrict(district, {
-      buildingId: options.serverBuildingId || "",
-      buildingTypeId: options.serverBuildingTypeId || "",
-      buildingName,
-      options
+    return dispatchBuildingDetailOpenByAuthority({
+      executionMode: getCurrentGameplayExecutionMode(),
+      serverReady: isServerAuthoritativeGameplayRuntimeReady(),
+      openLocalDemo: () => presentDistrictBuildingDetail(
+        district,
+        buildingName,
+        options
+      ),
+      openServerAuthoritative: () => {
+        void openServerScopedDistrict(district, {
+          buildingId: options.serverBuildingId || "",
+          buildingTypeId: options.serverBuildingTypeId || "",
+          buildingName,
+          options
+        });
+        return true;
+      },
+      onUnavailable: () => {
+        showWarning("Serverová data budovy se načítají. Budova nebyla otevřena.");
+      }
     });
-    return true;
   };
 
   const openPoliceRaidOnlyForDistrict = (district, policeAction = null) => {
@@ -13357,12 +13634,6 @@ function bindDistrictCanvas(root) {
     if (nextSlice) {
       latestGameplaySliceReadModel = nextSlice;
     }
-    if (nextSlice && hasServerAuthoritativeGameplayProjection()) {
-      applyTopbarEconomy(root, { instant: true });
-      renderGangMembersState(root);
-      renderSpyResourceState(root, { instant: true });
-      document.dispatchEvent(new CustomEvent("empire:runtime-refresh"));
-    }
     const nextSurfaceFingerprint = JSON.stringify({
       district: nextSlice?.district || null,
       reports: Array.isArray(nextSlice?.reports) ? nextSlice.reports.slice(0, 1) : []
@@ -14134,21 +14405,21 @@ function bindDistrictCanvas(root) {
           "attack",
           targetDistrictId
         );
-        const corridor = latestGameplaySliceReadModel?.frontier?.corridorTargets
-          ?.find((entry) => String(entry?.targetDistrictId) === targetDistrictId) || null;
+        const route = resolveServerAttackDistrictRoute(
+          latestGameplaySliceReadModel,
+          targetDistrictId
+        );
+        if (!route) {
+          showWarning(attackView?.disabledReason || "Server neposlal platný cíl a trasu pro útok.");
+          return;
+        }
         attackConfirmFinalButton.disabled = true;
         void submitServerDistrictActionCommand({
           type: "attack-district",
           payload: {
             districtId: targetDistrictId,
-            sourceDistrictId: corridor?.sourceDistrictId
-              || attackView?.sourceDistrictId
-              || `district:${context?.sourceDistrictId || ""}`,
+            ...route,
             weapons: context?.attackLoadout || {},
-            expectedSourceVersion: attackView?.expectedSourceVersion,
-            expectedTargetVersion: attackView?.expectedTargetVersion,
-            expectedConflictRevision: attackView?.expectedConflictRevision,
-            ...(corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {})
           },
           focusDistrictId: targetDistrictId
         }).then((response) => {
@@ -14205,25 +14476,20 @@ function bindDistrictCanvas(root) {
 
       if (isServerAuthoritativeGameplayRuntimeReady()) {
         const targetDistrictId = `district:${selectedDistrict.id}`;
-        const robView = resolveServerDistrictActionTarget(
+        const route = resolveServerRobDistrictRoute(
           latestGameplaySliceReadModel,
-          "rob",
           targetDistrictId
         );
-        const corridor = latestGameplaySliceReadModel?.frontier?.corridorTargets
-          ?.find((entry) => String(entry?.targetDistrictId) === targetDistrictId) || null;
+        if (!route) {
+          showWarning("Server neposlal platnou trasu pro krádež. Obnov district a zkus to znovu.");
+          return;
+        }
         robberyConfirmFinalButton.disabled = true;
         void submitServerDistrictActionCommand({
           type: "rob-district",
           payload: {
             targetDistrictId,
-            sourceDistrictId: corridor?.sourceDistrictId || robView?.sourceDistrictId,
-            expectedConflictRevision: robView?.expectedConflictRevision,
-            expectedLootPoolRevision: robView?.expectedLootPoolRevision,
-            ...(corridor ? {
-              routeDistrictId: corridor.routeDistrictId,
-              expectedRouteVersion: corridor.routeVersion
-            } : {})
+            ...route
           },
           focusDistrictId: targetDistrictId
         }).then((response) => {
@@ -14379,22 +14645,25 @@ function bindDistrictCanvas(root) {
 
       if (isServerAuthoritativeGameplayRuntimeReady()) {
         const targetDistrictId = `district:${selectedDistrict.id}`;
-        const corridor = latestGameplaySliceReadModel?.frontier?.corridorTargets
-          ?.find((entry) => String(entry?.targetDistrictId) === targetDistrictId) || null;
         const occupyView = resolveServerDistrictActionTarget(
           latestGameplaySliceReadModel,
           "occupy",
           targetDistrictId
         );
-        const sourceDistrictId = corridor?.sourceDistrictId || occupyView?.sourceDistrictId || "";
+        const route = resolveServerOccupyDistrictRoute(
+          latestGameplaySliceReadModel,
+          targetDistrictId
+        );
+        if (!route) {
+          showWarning(occupyView?.disabledReason || "Server neposlal platný cíl a trasu pro obsazení.");
+          return;
+        }
         occupyConfirmButton.disabled = true;
         void submitServerDistrictActionCommand({
           type: "occupy-district",
           payload: {
             districtId: targetDistrictId,
-            sourceDistrictId,
-            expectedConflictRevision: occupyView?.expectedConflictRevision,
-            ...(corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {})
+            ...route
           },
           focusDistrictId: targetDistrictId
         }).then((response) => {
@@ -14812,6 +15081,7 @@ const {
   setStoredFactoryState,
   setStoredFactorySupplies,
   getServerFactoryReadModel,
+  prepareServerProductionBuilding,
   refreshServerFactoryReadModel: () => {
     const districtId = latestGameplaySliceReadModel?.district?.districtId
       || latestGameplaySliceReadModel?.player?.homeDistrictId
@@ -15671,6 +15941,7 @@ function bindUiEvents(root, context = null) {
   return captureLegacyRuntimeLifecycle(root, LEGACY_RUNTIME_LIFECYCLE_OWNER, () => {
     runtimeUiBoundRoots.add(root);
     bindTopbarMoneySkipControls(root);
+    bindServerGameplayResourceReadModel(root);
     bindFactionRegistration(root);
     bindRegisteredPlayerState(root);
     bindDistrictCanvas(root);
@@ -16121,6 +16392,7 @@ export {
   drawMapImage,
   drawRobberyDistrictAnimation,
   drawSpyDistrictAnimation,
+  dispatchBuildingDetailOpenByAuthority,
   destroyRuntime,
   formatCurrency,
   formatDurationLabel,
@@ -16189,6 +16461,7 @@ export {
   resolveBuildingPopupTarget,
   resolveDistrictBuildingCanonicalLookupKey,
   resolveDistrictBuildingDetailMechanicsType,
+  resolveBuildingRuntimeExecutionMode,
   loadImage,
   markMounts,
   openAttackPanel,
@@ -16257,5 +16530,6 @@ export {
   syncFactoryProduction,
   syncOwnedDistrictBuildingDetailProduction,
   syncRuntimePassiveProductionState,
-  scheduleStoredProductionJobs
+  scheduleStoredProductionJobs,
+  selectBuildingPresentationByAuthority
 };

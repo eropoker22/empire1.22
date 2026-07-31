@@ -1,6 +1,10 @@
 import { createBuildingUpgradeConfirmationController } from "./buildingUpgradeConfirmation.js";
 import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
 import { FREE_GAMEPLAY_TICK_MS } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
+import {
+  hasServerProductionPopupOwner,
+  openServerProductionPopup
+} from "../ui/serverProductionPopupOwnership.js";
 
 function queryAll(root, selector) {
   return selector ? Array.from(root?.querySelectorAll?.(selector) || []) : [];
@@ -100,6 +104,9 @@ export function createFactoryPopupRuntime(deps = {}) {
       variant: "factory"
     });
     let localCompletionTimer = null;
+    const isServerControllerOwner = () => (
+      !isLegacyLocalProductionEnabled() && hasServerProductionPopupOwner(popup)
+    );
 
     const clearLocalCompletionTimer = () => {
       if (localCompletionTimer === null) return;
@@ -148,6 +155,9 @@ export function createFactoryPopupRuntime(deps = {}) {
     };
 
     const renderFactoryDashboard = () => {
+      if (isServerControllerOwner()) {
+        return true;
+      }
       const serverFactory = getAuthoritativeFactory();
       popup.dataset.executionMode = isLegacyLocalProductionEnabled()
         ? "local-demo"
@@ -409,17 +419,60 @@ export function createFactoryPopupRuntime(deps = {}) {
         });
     };
 
-    const openPopup = () => {
-      setActiveTab("stats");
-      openOverlay(popup, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
-      popup.hidden = false;
-      renderFactoryDashboard();
-      deps.syncBuildingDetailTopbarVisibility?.(root);
-      refreshAuthoritativeFactory();
+    const openPopup = async () => {
+      const shouldPrepareServerBuilding = !isLegacyLocalProductionEnabled()
+        && typeof deps.prepareServerProductionBuilding === "function";
+      let preparedServerBuilding = null;
+      const wasDisabled = openButton.disabled;
+      if (shouldPrepareServerBuilding) {
+        openButton.disabled = true;
+        openButton.setAttribute?.("aria-busy", "true");
+      }
+      try {
+        if (shouldPrepareServerBuilding) {
+          preparedServerBuilding = await deps.prepareServerProductionBuilding("factory");
+          if (preparedServerBuilding?.accepted !== true) {
+            deps.setBuildingActionFeedback?.(
+              root,
+              "warning",
+              "Továrna",
+              preparedServerBuilding?.errors?.[0]?.message || "Serverovou Továrnu se nepodařilo načíst."
+            );
+            return false;
+          }
+        }
+        if (isServerControllerOwner()) {
+          const opened = openServerProductionPopup(
+            popup,
+            preparedServerBuilding?.building?.buildingId || popup.dataset.serverBuildingId
+          );
+          if (!opened) {
+            deps.setBuildingActionFeedback?.(
+              root,
+              "warning",
+              "Továrna",
+              "Serverový detail Továrny se nepodařilo bezpečně otevřít."
+            );
+          }
+          return opened;
+        }
+        setActiveTab("stats");
+        openOverlay(popup, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
+        popup.hidden = false;
+        renderFactoryDashboard();
+        deps.syncBuildingDetailTopbarVisibility?.(root);
+        refreshAuthoritativeFactory();
+        return true;
+      } finally {
+        if (shouldPrepareServerBuilding) {
+          openButton.disabled = wasDisabled;
+          openButton.removeAttribute?.("aria-busy");
+        }
+      }
     };
 
     documentRef?.addEventListener?.("empire:gameplay-slice-rendered", () => {
-      if (!isLegacyLocalProductionEnabled() && !popup.hidden) {
+      if (!isServerControllerOwner() && !isLegacyLocalProductionEnabled() && !popup.hidden) {
         renderFactoryDashboard();
       }
     });
@@ -431,6 +484,7 @@ export function createFactoryPopupRuntime(deps = {}) {
     });
 
     const closePopup = () => {
+      if (isServerControllerOwner()) return;
       clearLocalCompletionTimer();
       upgradeConfirmation.close?.();
       popup.hidden = true;
@@ -442,11 +496,13 @@ export function createFactoryPopupRuntime(deps = {}) {
 
     for (const button of tabButtons) {
       button.addEventListener("click", () => {
+        if (isServerControllerOwner()) return;
         setActiveTab(button.dataset.factoryTab || "stats");
       });
     }
 
     collectButton.addEventListener("click", () => {
+      if (isServerControllerOwner()) return;
       const serverFactory = getAuthoritativeFactory();
       if (serverFactory) {
         deps.submitServerFactoryCommand?.({
@@ -512,6 +568,7 @@ export function createFactoryPopupRuntime(deps = {}) {
     });
 
     upgradeButton.addEventListener("click", async () => {
+      if (isServerControllerOwner()) return;
       const serverFactory = getAuthoritativeFactory();
       if (!serverFactory && !isLegacyLocalProductionUpgradeEnabled()) {
         deps.setBuildingActionFeedback?.(root, "warning", "Továrna", productionUpgradeMessage);
@@ -614,7 +671,7 @@ export function createFactoryPopupRuntime(deps = {}) {
     }
 
     documentRef?.addEventListener?.("keydown", (event) => {
-      if (event.key === "Escape" && !popup.hidden) {
+      if (!isServerControllerOwner() && event.key === "Escape" && !popup.hidden) {
         if (upgradeConfirmation.isOpen?.()) {
           upgradeConfirmation.close?.();
           return;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CLIENT_EXECUTION_MODES,
+  isE2eLocalDemoEntryEnabled,
   resolveClientAuthorityState
 } from "../../page-assets/js/app/runtime/clientAuthorityState.js";
 
@@ -11,6 +12,35 @@ const storage = (enabled = false) => ({
 });
 
 describe("client authority state", () => {
+  it("opens the demo entry only for the explicit loopback E2E flag pair", () => {
+    const locationRef = { hostname: "127.0.0.1", search: "?runtimeMode=local-demo" };
+    expect(isE2eLocalDemoEntryEnabled({
+      windowRef: { __EMPIRE_E2E__: true },
+      locationRef,
+      configOverrides: { localDemoEnabled: true }
+    })).toBe(true);
+    expect(isE2eLocalDemoEntryEnabled({
+      windowRef: { __EMPIRE_E2E__: false },
+      locationRef,
+      configOverrides: { localDemoEnabled: true }
+    })).toBe(false);
+    expect(isE2eLocalDemoEntryEnabled({
+      windowRef: { __EMPIRE_E2E__: true },
+      locationRef,
+      configOverrides: { localDemoEnabled: false }
+    })).toBe(false);
+    expect(isE2eLocalDemoEntryEnabled({
+      windowRef: { __EMPIRE_E2E__: true },
+      locationRef: { hostname: "empirestreets.cz", search: "?runtimeMode=local-demo" },
+      configOverrides: { localDemoEnabled: true }
+    })).toBe(false);
+    expect(isE2eLocalDemoEntryEnabled({
+      windowRef: { __EMPIRE_E2E__: true },
+      locationRef: { hostname: "localhost", search: "" },
+      configOverrides: { localDemoEnabled: true }
+    })).toBe(false);
+  });
+
   it("fails closed to server authority on a public host", () => {
     const state = resolveClientAuthorityState({
       locationRef: { hostname: "empirestreets.cz", search: "?runtimeMode=local-demo" },

@@ -2,8 +2,14 @@ import { closeOverlay, openOverlay } from "./legacyOverlayCoordinator.js";
 import {
   normalizeServerProductionBuildingType,
   renderServerProductionBuilding,
+  renderServerProductionBuildingLoading,
   SERVER_PRODUCTION_POPUPS
 } from "./serverGameplayProductionBuildingView.js";
+import {
+  registerServerProductionPopupOwner,
+  syncServerProductionPopupIdentity,
+  unregisterServerProductionPopupOwner
+} from "./serverProductionPopupOwnership.js";
 
 export function createServerGameplayProductionBuildingController({
   root,
@@ -88,7 +94,13 @@ export function createServerGameplayProductionBuildingController({
     const binding = bindings.get(activeBuildingType);
     const building = getRawBuilding();
     const model = getProductionModel(building);
-    if (!binding || !building || !model) return 0;
+    if (!binding || !building) return 0;
+    syncServerProductionPopupIdentity(binding.popup, building, getCurrentReadModel?.() || null);
+    if (!model) {
+      renderServerProductionBuildingLoading({ binding, building });
+      diagnostics.renders += 1;
+      return 1;
+    }
     const lines = getLines(activeBuildingType, model);
     renderServerProductionBuilding({
       binding,
@@ -138,13 +150,14 @@ export function createServerGameplayProductionBuildingController({
     const building = getRawBuilding(buildingId);
     const type = normalizeServerProductionBuildingType(building?.buildingTypeId);
     const binding = bindings.get(type);
-    if (!building || !binding || !getProductionModel(building)) return false;
+    if (!building || !binding) return false;
     if (activeBuildingType && activeBuildingType !== type) close();
     activeBuildingId = String(building.buildingId);
     activeBuildingType = type;
     setActiveTab(binding, "stats");
     render();
     openOverlay(binding.popup, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
+    binding.popup.hidden = false;
     diagnostics.opens += 1;
     return true;
   };
@@ -168,8 +181,10 @@ export function createServerGameplayProductionBuildingController({
         collect: popup.querySelector(type === "factory"
           ? "[data-factory-collect]"
           : "[data-production-building-collect]"),
-        listeners: []
+        listeners: [],
+        commandOwner: { open }
       };
+      if (!registerServerProductionPopupOwner(popup, binding.commandOwner)) continue;
       for (const element of popup.querySelectorAll(config.close)) {
         const listener = (event) => {
           event.preventDefault();
@@ -209,6 +224,7 @@ export function createServerGameplayProductionBuildingController({
       for (const [element, eventName, listener] of binding.listeners) {
         element.removeEventListener(eventName, listener);
       }
+      unregisterServerProductionPopupOwner(binding.popup, binding.commandOwner);
     }
     bindings.clear();
     mounted = false;

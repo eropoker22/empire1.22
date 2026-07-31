@@ -156,6 +156,97 @@ describe("factory popup runtime", () => {
     }));
   });
 
+  it("prepares the exact server-owned Factory before opening the shared popup", async () => {
+    const open = createElement();
+    const popup = createElement();
+    popup.hidden = true;
+    const close = createElement();
+    const prepareServerProductionBuilding = vi.fn(async () => ({
+      accepted: true,
+      building: { buildingId: "building:district-68:factory:1" },
+      districtId: "district:68",
+      errors: []
+    }));
+    const runtime = createRuntime({
+      allowLegacyLocalProduction: false,
+      getServerFactoryReadModel: () => ({
+        districtId: "district:68",
+        buildingId: "building:district-68:factory:1",
+        level: 1,
+        network: { activeFactoryCount: 1, networkSpeedMultiplier: 1 },
+        producedSummary: [],
+        productionLines: []
+      }),
+      prepareServerProductionBuilding,
+      renderServerFactorySlotList: vi.fn(),
+      syncBuildingDetailTopbarVisibility: vi.fn()
+    });
+    const root = createRoot({
+      ".collect": createElement(),
+      ".header": createElement(),
+      ".level": createElement(),
+      ".multiplier": createElement(),
+      ".open": open,
+      ".owned": createElement(),
+      ".popup": popup,
+      ".slots": createElement(),
+      ".supply-combat": createElement(),
+      ".supply-metal": createElement(),
+      ".supply-tech": createElement(),
+      ".upgrade": createElement(),
+      ".upgrade-cost": createElement()
+    }, { ".close": [close] });
+
+    expect(runtime.bindFactoryPopup(root)).toBe(true);
+    await open.dispatch("click");
+
+    expect(prepareServerProductionBuilding).toHaveBeenCalledWith("factory");
+    expect(popup.hidden).toBe(false);
+    expect(open.disabled).toBe(false);
+  });
+
+  it("keeps Factory closed when the authoritative building cannot be resolved", async () => {
+    const open = createElement();
+    const popup = createElement();
+    popup.hidden = true;
+    const setBuildingActionFeedback = vi.fn();
+    const runtime = createRuntime({
+      allowLegacyLocalProduction: false,
+      prepareServerProductionBuilding: vi.fn(async () => ({
+        accepted: false,
+        errors: [{ message: "Továrna není na vlastněném districtu." }]
+      })),
+      setBuildingActionFeedback,
+      syncBuildingDetailTopbarVisibility: vi.fn()
+    });
+    const root = createRoot({
+      ".collect": createElement(),
+      ".header": createElement(),
+      ".level": createElement(),
+      ".multiplier": createElement(),
+      ".open": open,
+      ".owned": createElement(),
+      ".popup": popup,
+      ".slots": createElement(),
+      ".supply-combat": createElement(),
+      ".supply-metal": createElement(),
+      ".supply-tech": createElement(),
+      ".upgrade": createElement(),
+      ".upgrade-cost": createElement()
+    }, { ".close": [createElement()] });
+
+    expect(runtime.bindFactoryPopup(root)).toBe(true);
+    await open.dispatch("click");
+
+    expect(popup.hidden).toBe(true);
+    expect(setBuildingActionFeedback).toHaveBeenCalledWith(
+      root,
+      "warning",
+      "Továrna",
+      "Továrna není na vlastněném districtu."
+    );
+  });
+
   it("renders authoritative Factory slots when the gameplay slice arrives after the popup opens", async () => {
     const open = createElement();
     const popup = createElement();

@@ -30,8 +30,8 @@ import {
 
 const DEFAULT_MARKET_SERVER_ID = "preview-server";
 const DEFAULT_PREVIEW_ECONOMY = Object.freeze({
-  cleanMoney: 25000,
-  dirtyMoney: 300
+  cleanMoney: 0,
+  dirtyMoney: 0
 });
 const DEFAULT_PREVIEW_GANG = Object.freeze({
   influence: 0,

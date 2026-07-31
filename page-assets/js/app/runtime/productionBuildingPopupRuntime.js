@@ -7,6 +7,10 @@ import {
   queueLocalProduction
 } from "./localProductionLineState.js";
 import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
+import {
+  hasServerProductionPopupOwner,
+  openServerProductionPopup
+} from "../ui/serverProductionPopupOwnership.js";
 
 function isButtonElement(element, ButtonCtor) {
   if (!element) {
@@ -683,6 +687,9 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       host: popup,
       variant: "production"
     });
+    const isServerControllerOwner = () => (
+      shouldUseServerProduction() && hasServerProductionPopupOwner(popup)
+    );
 
     const setActiveTab = (tabName = "stats") => {
       for (const button of tabButtons) {
@@ -697,6 +704,9 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     };
 
     const renderDashboard = () => {
+      if (isServerControllerOwner()) {
+        return true;
+      }
       const serverPharmacy = buildingName === "pharmacy" && shouldUseServerProduction()
         ? deps.getServerPharmacyReadModel?.()
         : null;
@@ -819,7 +829,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     };
 
     documentRef?.addEventListener?.("empire:gameplay-slice-rendered", () => {
-      if (!isLegacyLocalProductionEnabled() && !popup.hidden) {
+      if (!isServerControllerOwner() && !isLegacyLocalProductionEnabled() && !popup.hidden) {
         renderDashboard();
       }
     });
@@ -832,6 +842,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
 
     for (const button of tabButtons) {
       button.addEventListener("click", () => {
+        if (isServerControllerOwner()) return;
         const tabName = String(button.dataset.productionBuildingTab || "").split(":")[1] || "stats";
         setActiveTab(tabName);
       });
@@ -839,6 +850,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
 
     if (isButtonElement(collectButton, ButtonCtor)) {
       collectButton.addEventListener("click", async () => {
+        if (isServerControllerOwner()) return;
         const serverPharmacy = buildingName === "pharmacy" && shouldUseServerProduction()
           ? deps.getServerPharmacyReadModel?.()
           : null;
@@ -940,6 +952,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
 
     if (isButtonElement(upgradeButton, ButtonCtor)) {
       upgradeButton.addEventListener("click", async () => {
+        if (isServerControllerOwner()) return;
         const serverPharmacy = buildingName === "pharmacy" && shouldUseServerProduction()
           ? deps.getServerPharmacyReadModel?.()
           : null;
@@ -1060,6 +1073,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     const openPopup = async () => {
       const shouldPrepareServerBuilding = shouldUseServerProduction()
         && typeof deps.prepareServerProductionBuilding === "function";
+      let preparedServerBuilding = null;
       const wasDisabled = openButton.disabled;
       if (shouldPrepareServerBuilding) {
         openButton.disabled = true;
@@ -1067,16 +1081,31 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       }
       try {
         if (shouldPrepareServerBuilding) {
-          const prepared = await deps.prepareServerProductionBuilding(buildingName);
-          if (prepared?.accepted !== true) {
+          preparedServerBuilding = await deps.prepareServerProductionBuilding(buildingName);
+          if (preparedServerBuilding?.accepted !== true) {
             deps.setBuildingActionFeedback?.(
               root,
               "warning",
               config?.label || "Budova",
-              prepared?.errors?.[0]?.message || "Serverovou budovu se nepodařilo načíst."
+              preparedServerBuilding?.errors?.[0]?.message || "Serverovou budovu se nepodařilo načíst."
             );
             return false;
           }
+        }
+        if (isServerControllerOwner()) {
+          const opened = openServerProductionPopup(
+            popup,
+            preparedServerBuilding?.building?.buildingId || popup.dataset.serverBuildingId
+          );
+          if (!opened) {
+            deps.setBuildingActionFeedback?.(
+              root,
+              "warning",
+              config?.label || "Budova",
+              "Serverový detail budovy se nepodařilo bezpečně otevřít."
+            );
+          }
+          return opened;
         }
         setActiveTab("stats");
         renderDashboard();
@@ -1093,6 +1122,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     };
 
     const closePopup = () => {
+      if (isServerControllerOwner()) return;
       upgradeConfirmation.close?.();
       popup.hidden = true;
       closeOverlay(popup, { restoreFocus: false });
@@ -1106,7 +1136,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     }
 
     documentRef?.addEventListener?.("keydown", (event) => {
-      if (event.key === "Escape" && !popup.hidden) {
+      if (!isServerControllerOwner() && event.key === "Escape" && !popup.hidden) {
         if (upgradeConfirmation.isOpen?.()) {
           upgradeConfirmation.close?.();
           return;

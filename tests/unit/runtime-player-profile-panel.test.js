@@ -114,6 +114,23 @@ describe("player profile panel renderer", () => {
     });
   });
 
+  it("floors spendable influence exactly like the topbar and City Events", () => {
+    expect(createPlayerProfileViewModel({
+      displaySnapshot: {
+        cleanMoney: 0,
+        dirtyMoney: 0,
+        influence: 0.9
+      }
+    }).influenceLabel).toBe("0");
+    expect(createPlayerProfileViewModel({
+      displaySnapshot: {
+        cleanMoney: 0,
+        dirtyMoney: 0,
+        influence: 1.9
+      }
+    }).influenceLabel).toBe("1");
+  });
+
   it("renders avatar background, accent and text fields", () => {
     const elements = createElements();
     elements.avatar.classList.add("is-empty");

@@ -58,13 +58,32 @@ const formatMultiplier = (lines = [], networkMultiplier = null) => {
   ).toFixed(2)}`;
 };
 
-const appendEmptyState = (mount) => {
+const appendEmptyState = (mount, text = "Server zatím neposlal výrobní linky.") => {
   const empty = mount?.ownerDocument?.createElement?.("p");
   if (!empty) return;
   empty.className = "buildings-popup__empty";
-  empty.textContent = "Server zatím neposlal výrobní linky.";
+  empty.textContent = text;
   mount.replaceChildren(empty);
 };
+
+export function renderServerProductionBuildingLoading({ binding, building } = {}) {
+  if (!binding?.mount) return false;
+  appendEmptyState(
+    binding.mount,
+    `Načítám serverový detail: ${building?.label || building?.displayName || "budova"}.`
+  );
+  if (binding.collect) {
+    binding.collect.disabled = true;
+    binding.collect.title = "Serverový detail budovy se načítá.";
+  }
+  const upgrade = binding.popup?.querySelector?.(
+    binding.type === "factory"
+      ? "[data-factory-upgrade]"
+      : "[data-production-building-upgrade]"
+  );
+  if (upgrade) upgrade.hidden = true;
+  return true;
+}
 
 const renderFactory = ({ binding, building, model, lines, tickRateMs, onStart, onCancel }) => {
   const summaries = new Map((model.producedSummary || []).map((item) => [item.resourceKey, item]));

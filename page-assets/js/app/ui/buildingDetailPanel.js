@@ -1,4 +1,8 @@
 import { closeOverlay, openOverlay } from "./legacyOverlayCoordinator.js";
+import {
+  BUILDING_DETAIL_LAYOUTS,
+  resolveBuildingDetailLayout
+} from "../runtime/buildingPresentationContract.js";
 
 function getDocument(scopeElement = null) {
   return scopeElement?.ownerDocument || (typeof document !== "undefined" ? document : null);
@@ -113,6 +117,26 @@ function resolveActionButtonInlineDescription(rowView = {}) {
   return disabledReason || fallback;
 }
 
+function collectBuildingActionInputValues(actionButton) {
+  const inputScope = actionButton?.closest?.("[data-building-action-inputs]");
+  if (!inputScope?.querySelectorAll) return {};
+  const values = {};
+  for (const input of inputScope.querySelectorAll("[data-building-action-input]")) {
+    const inputId = String(input?.dataset?.buildingActionInput || "").trim();
+    if (!inputId) continue;
+    const rawValue = input.value;
+    if (String(rawValue ?? "").trim() === "") continue;
+    const inputType = String(input?.dataset?.buildingActionInputType || input?.type || "").trim();
+    if (inputType === "number") {
+      const numberValue = Number(rawValue);
+      if (Number.isFinite(numberValue)) values[inputId] = numberValue;
+      continue;
+    }
+    values[inputId] = String(rawValue);
+  }
+  return values;
+}
+
 function resolveBuildingDetailBackgroundUrl(scopeElement, imagePath = "") {
   const value = String(imagePath || "").trim();
   if (!value) return "";
@@ -125,28 +149,6 @@ function resolveBuildingDetailBackgroundUrl(scopeElement, imagePath = "") {
     return value;
   }
 }
-
-const SINGLE_PANEL_BUILDING_DETAIL_TYPES = new Set([
-  "apartment-block",
-  "garage",
-  "recruitment-center",
-  "clinic",
-  "arcade",
-  "school",
-  "restaurant",
-  "fitness-club",
-  "exchange",
-  "auto-salon",
-  "retail",
-  "casino",
-  "warehouse",
-  "power-plant",
-  "recycling-center",
-  "street-dealers",
-  "convenience-store",
-  "smuggling-tunnel",
-  "strip-club"
-]);
 
 function appendEmptyMessage(parent, text) {
   const empty = createElement(parent, "div", "buildings-popup__empty");
@@ -321,9 +323,7 @@ export function ensureBuildingDetailPanel(root, callbacks = {}, options = {}) {
       const actionIndex = Number.parseInt(actionButton.dataset.districtBuildingDetailActionIndex || "", 10);
       if (Number.isFinite(actionIndex)) {
         const dealerControls = actionButton.closest("[data-dealer-sale-action]");
-        const dealerSlot = dealerControls?.querySelector?.("[data-dealer-sale-slot]");
-        const dealerItem = dealerControls?.querySelector?.("[data-dealer-sale-item]");
-        const dealerAmount = dealerControls?.querySelector?.("[data-dealer-sale-amount]");
+        const inputs = collectBuildingActionInputValues(actionButton);
         callbacks.onRunAction(shell, {
           shell,
           actionIndex,
@@ -332,10 +332,12 @@ export function ensureBuildingDetailPanel(root, callbacks = {}, options = {}) {
           districtId: shell.dataset.districtBuildingDetailDistrictId || "",
           buildingId: shell.dataset.districtBuildingDetailName || "",
           buildingName: shell.dataset.districtBuildingDetailDisplayName || "",
+          inputs,
+          ...inputs,
           ...(dealerControls ? {
-            dealerSlotId: dealerSlot?.value || "",
-            itemId: dealerItem?.value || "",
-            amount: Number(dealerAmount?.value)
+            dealerSlotId: inputs.dealerSlotId || "",
+            itemId: inputs.itemId || "",
+            amount: inputs.amount
           } : {})
         });
       }
@@ -764,9 +766,103 @@ export function renderBuildingActions(buildingViewModel = {}, callbacks = {}, op
         continue;
       }
     }
+    if (Array.isArray(rowView.requiresInput) && rowView.requiresInput.length > 0) {
+      const wrapper = createBuildingActionInputControls(mount, row, rowView);
+      if (wrapper) {
+        mount.append(wrapper);
+        continue;
+      }
+    }
     mount.append(row);
   }
   return true;
+}
+
+function createBuildingActionInputControls(scopeElement, actionButton, rowView = {}) {
+  const ownerDocument = scopeElement?.ownerDocument || globalThis.document;
+  const definitions = Array.isArray(rowView.requiresInput) ? rowView.requiresInput : [];
+  if (definitions.length === 0) return null;
+  const wrapper = createElement(scopeElement, "div", "building-action-inputs dealer-sale-action");
+  const controls = createElement(scopeElement, "div", "building-action-inputs__controls dealer-sale-action__controls");
+  const status = createElement(scopeElement, "p", "building-action-inputs__status dealer-sale-action__status");
+  if (!wrapper || !controls || !status) return null;
+  wrapper.dataset.buildingActionInputs = "true";
+  wrapper.dataset.buildingActionInputsActionId = String(rowView.actionId || "");
+
+  const controlEntries = [];
+  for (const definition of definitions) {
+    const inputId = String(definition?.id || "").trim();
+    const inputType = String(definition?.type || "").trim();
+    if (!inputId || !["number", "select", "text"].includes(inputType)) continue;
+    const field = createElement(scopeElement, "label", "building-action-inputs__field dealer-sale-action__field");
+    const caption = createElement(scopeElement, "span", "building-action-inputs__caption dealer-sale-action__caption");
+    const control = inputType === "select"
+      ? createElement(scopeElement, "select", "building-action-inputs__control dealer-sale-action__select")
+      : createElement(
+          scopeElement,
+          "input",
+          inputType === "number"
+            ? "building-action-inputs__control dealer-sale-action__amount"
+            : "building-action-inputs__control dealer-sale-action__select"
+        );
+    if (!field || !caption || !control) continue;
+    caption.textContent = String(definition.label || inputId);
+    control.dataset.buildingActionInput = inputId;
+    control.dataset.buildingActionInputType = inputType;
+    control.setAttribute("aria-label", String(definition.label || inputId));
+    control.required = definition.required === true;
+
+    if (inputType === "select") {
+      for (const optionView of Array.isArray(definition.options) ? definition.options : []) {
+        const option = ownerDocument.createElement("option");
+        option.value = String(optionView?.value ?? "");
+        option.textContent = String(optionView?.label || optionView?.value || "");
+        control.append(option);
+      }
+      if (control.children?.[0]) control.value = control.children[0].value;
+    } else {
+      control.type = inputType;
+      if (Number.isFinite(Number(definition.min))) {
+        control.min = String(Number(definition.min));
+        if (inputType === "number") control.value = control.min;
+      }
+      if (Number.isFinite(Number(definition.max))) {
+        control.max = String(Number(definition.max));
+      }
+    }
+
+    field.append(caption, control);
+    controls.append(field);
+    controlEntries.push({ control, definition });
+  }
+
+  const command = actionButton.querySelector(".building-info-action-row__button");
+  const defaultCommandLabel = command?.textContent || "";
+  const defaultDisabled = actionButton.dataset.districtBuildingDetailBaseDisabled === "true";
+  const sync = () => {
+    const hasInvalidInput = controlEntries.some(({ control, definition }) => {
+      const value = String(control.value ?? "");
+      if (definition.required === true && !value.trim()) return true;
+      if (!value.trim() || definition.type !== "number") return false;
+      const numberValue = Number(value);
+      if (!Number.isFinite(numberValue)) return true;
+      if (Number.isFinite(Number(definition.min)) && numberValue < Number(definition.min)) return true;
+      return Number.isFinite(Number(definition.max)) && numberValue > Number(definition.max);
+    });
+    actionButton.disabled = defaultDisabled || hasInvalidInput;
+    if (command) command.textContent = hasInvalidInput && !defaultDisabled ? "DOPLŇ VSTUP" : defaultCommandLabel;
+    status.textContent = hasInvalidInput && !defaultDisabled
+      ? "Doplň všechna povinná pole podle serverového zadání."
+      : "";
+    status.hidden = !status.textContent;
+  };
+  for (const { control } of controlEntries) {
+    control.addEventListener("change", sync);
+    control.addEventListener("input", sync);
+  }
+  wrapper.append(controls, status, actionButton);
+  sync();
+  return wrapper;
 }
 
 function createDealerSaleControls(scopeElement, actionButton, view) {
@@ -787,10 +883,18 @@ function createDealerSaleControls(scopeElement, actionButton, view) {
     return null;
   }
   wrapper.dataset.dealerSaleAction = "true";
+  wrapper.dataset.buildingActionInputs = "true";
+  wrapper.dataset.buildingActionInputsActionId = String(actionButton.dataset.districtBuildingDetailActionId || "");
   itemLabel.classList.add("dealer-sale-action__field--price");
   slotSelect.dataset.dealerSaleSlot = "true";
+  slotSelect.dataset.buildingActionInput = "dealerSlotId";
+  slotSelect.dataset.buildingActionInputType = "select";
   itemSelect.dataset.dealerSaleItem = "true";
+  itemSelect.dataset.buildingActionInput = "itemId";
+  itemSelect.dataset.buildingActionInputType = "text";
   amountInput.dataset.dealerSaleAmount = "true";
+  amountInput.dataset.buildingActionInput = "amount";
+  amountInput.dataset.buildingActionInputType = "number";
   slotCaption.textContent = "Prodávat";
   itemCaption.textContent = "Cena";
   amountCaption.textContent = "Ks";
@@ -941,7 +1045,10 @@ export function renderBuildingDetailPanel(buildingViewModel = {}, callbacks = {}
   const isDowntownBuilding = districtType === "downtown" || buildingViewModel.isDowntownBuilding === true;
   const card = shell.querySelector(".district-building-detail-card");
   const mechanicsType = syncBuildingDetailIdentityHooks(shell, card, rawMechanicsType);
-  const useSinglePanelLayout = SINGLE_PANEL_BUILDING_DETAIL_TYPES.has(mechanicsType);
+  const layout = buildingViewModel.layout || resolveBuildingDetailLayout(mechanicsType);
+  const useSinglePanelLayout = layout === BUILDING_DETAIL_LAYOUTS.singlePanel;
+  shell.dataset.buildingDetailLayout = layout;
+  if (card instanceof HTMLElement) card.dataset.buildingDetailLayout = layout;
   const convenienceStoreIsFull = mechanicsType === "convenience-store" && buildingViewModel.convenienceStoreIsFull === true;
   shell.classList.toggle("is-convenience-store-full", convenienceStoreIsFull);
   card?.classList?.toggle?.("is-convenience-store-full", convenienceStoreIsFull);

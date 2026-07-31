@@ -5,6 +5,11 @@ import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
 import { ALLIANCE_ICON_OPTIONS, getAllianceIconById, getAllianceIconByTag } from "./alliance-icons.js";
 import { GAMEPLAY_EXECUTION_MODES, getGameplayExecutionMode } from "./runtime/gameplayExecutionMode.js";
 import {
+  ALLIANCE_CREATE_REQUIRED_INFLUENCE,
+  createAllianceCreateEligibility
+} from "./runtime/allianceCreateViewModel.js";
+import { createAllianceInviteResponseEligibility } from "./runtime/allianceInviteViewModel.js";
+import {
   captureLegacyRuntimeLifecycle,
   destroyLegacyRuntimeLifecycle
 } from "./runtime/legacyRuntimeLifecycle.js";
@@ -15,7 +20,6 @@ const ALLIANCE_COLOR_PREVIEW_KEY = "empire:demo:alliance-color:v1";
 const ALLIANCE_RUNTIME_LIFECYCLE_OWNER = "alliance-runtime";
 const MAX_ALLIANCE_SIZE_FALLBACK = 4;
 const MAX_ALLIANCE_NAME_LENGTH = 32;
-const ALLIANCE_CREATE_REQUIRED_INFLUENCE = 40;
 const DEFAULT_ALLIANCE_EMBLEM_COLOR = "#f7c948";
 const getAllianceDemoData = () =>
   getLocalDemoGameplayBridge()?.getAllianceDemoData?.() || null;
@@ -193,6 +197,9 @@ const writeAllianceColorPreviewState = (state) => {
 
 const rememberAllianceColor = (alliance, color) => {
   const safeColor = normalizeAllianceColor(color);
+  if (!isDevOnlyAllianceDemoEnabled()) {
+    return safeColor;
+  }
   const state = readAllianceColorPreviewState();
   const allianceId = String(alliance?.allianceId || "").trim();
   const name = String(alliance?.name || "").trim().toLowerCase();
@@ -219,7 +226,10 @@ const getRememberedAllianceColor = (alliance) => {
 };
 
 const resolveAllianceEmblemColor = (alliance) => {
-  const sourceColor = alliance?.emblemColor || alliance?.color || alliance?.allianceColor || getRememberedAllianceColor(alliance);
+  const sourceColor = alliance?.emblemColor
+    || alliance?.color
+    || alliance?.allianceColor
+    || (isDevOnlyAllianceDemoEnabled() ? getRememberedAllianceColor(alliance) : "");
   const safeColor = normalizeAllianceColor(sourceColor, DEFAULT_ALLIANCE_EMBLEM_COLOR);
   if (alliance && sourceColor && !alliance.emblemColor) {
     alliance.emblemColor = safeColor;
@@ -324,18 +334,35 @@ const isOnboardingActiveForAllianceDemo = () => {
   return Boolean(String(document.documentElement?.dataset?.onboardingStep || document.body?.dataset?.onboardingStep || "").trim());
 };
 
-const getCurrentPlayerInfluenceForAllianceCreate = () => {
+const getDisplayedPlayerInfluenceForAllianceCreate = () => {
   if (typeof document === "undefined") return 0;
   const raw = document.querySelector("[data-topbar-influence]")?.textContent || "";
   const value = Number.parseInt(String(raw).replace(/[^\d-]/g, ""), 10);
   return Number.isFinite(value) ? Math.max(0, value) : 0;
 };
 
+const getAuthoritativePlayerInfluenceForAllianceCreate = () => {
+  if (typeof window === "undefined") return null;
+  const value = Number(window.empireStreetsGameplaySliceReadModel?.player?.economy?.influence);
+  return Number.isFinite(value) ? Math.max(0, value) : null;
+};
+
+const getCurrentPlayerInfluenceForAllianceCreate = () =>
+  getAuthoritativePlayerInfluenceForAllianceCreate()
+  ?? getDisplayedPlayerInfluenceForAllianceCreate();
+
 const hasRequiredInfluenceForAllianceCreate = () =>
-  getCurrentPlayerInfluenceForAllianceCreate() >= ALLIANCE_CREATE_REQUIRED_INFLUENCE;
+  getDisplayedPlayerInfluenceForAllianceCreate() >= ALLIANCE_CREATE_REQUIRED_INFLUENCE;
 
 const getAllianceCreateInfluenceRequirementMessage = () =>
   `Vytvořit alianci půjde až od ${ALLIANCE_CREATE_REQUIRED_INFLUENCE} vlivu. Teď máš ${getCurrentPlayerInfluenceForAllianceCreate()}.`;
+
+const getAllianceCreateEligibility = (board = latestAllianceBoard) =>
+  createAllianceCreateEligibility({
+    board,
+    localDemo: isDevOnlyAllianceDemoEnabled(),
+    localDemoInfluence: getDisplayedPlayerInfluenceForAllianceCreate()
+  });
 
 const createDevOnlyAllianceMembers = (currentPlayerId, readyDueAt) =>
   (getAllianceDemoData()?.members || []).map((member) => ({
@@ -1581,11 +1608,10 @@ const renderReadyBlock = (activeAlliance, { management = false, hideLabel = fals
 };
 
 const renderCreateAllianceCard = (board) => {
-  const hasInfluence = hasRequiredInfluenceForAllianceCreate();
-  const canCreate = board?.canCreateAlliance === true && hasInfluence;
-  const disabledReason = canCreate
+  const eligibility = getAllianceCreateEligibility(board);
+  const disabledReason = eligibility.canCreate
     ? ""
-    : getCreateDisabledReason(hasInfluence ? board?.createDisabledReason : "ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE");
+    : getCreateDisabledReason(eligibility.disabledReason);
   const maxMembers = Number(board?.maxAllianceSize || MAX_ALLIANCE_SIZE_FALLBACK);
   return `
     <section class="alliance-create-card">
@@ -1595,9 +1621,9 @@ const renderCreateAllianceCard = (board) => {
         </div>
       </div>
       <p class="alliance-create-card__copy">Zadej název, vyber znak i barvu a založ malou crew. Max ${escapeHtml(maxMembers)} hráči.</p>
-      ${hasInfluence ? "" : `<p class="alliance-create-card__copy alliance-create-card__copy--requirement">Vytvořit alianci půjde až pokud má hráč ${ALLIANCE_CREATE_REQUIRED_INFLUENCE} vliv.</p>`}
+      ${eligibility.showInfluenceRequirement ? `<p class="alliance-create-card__copy alliance-create-card__copy--requirement">Vytvořit alianci půjde až pokud má hráč ${ALLIANCE_CREATE_REQUIRED_INFLUENCE} vliv.</p>` : ""}
       ${disabledReason ? `<div class="alliance-inline-note" data-tone="warning">${escapeHtml(disabledReason)}</div>` : ""}
-      <button class="btn btn--primary alliance-create-card__cta" id="alliance-create-toggle-btn" ${canCreate ? "" : "disabled"}>Vytvořit alianci</button>
+      <button class="btn btn--primary alliance-create-card__cta" id="alliance-create-toggle-btn" ${eligibility.canCreate ? "" : "disabled"}>Vytvořit alianci</button>
     </section>
   `;
 };
@@ -1761,8 +1787,18 @@ const renderSentInvitesPanel = (activeAlliance) => {
 
 const renderInvitesPanel = (board) => {
   const activeAlliance = board?.activeAlliance || null;
-  const canConfirmIncomingInvites = isAllianceManager(activeAlliance);
-  const adminOnlyTitle = "Příchozí pozvánku může potvrdit pouze admin aliance.";
+  const incomingInvites = board?.incomingInvites || [];
+  const inviteEligibility = new Map(incomingInvites.map((invite) => [
+    invite.inviteId,
+    createAllianceInviteResponseEligibility({
+      invite,
+      currentPlayerId: board?.currentPlayerId,
+      activeAlliance
+    })
+  ]));
+  const hasBlockedIncomingInvite = incomingInvites.some((invite) => (
+    inviteEligibility.get(invite.inviteId)?.canRespond !== true
+  ));
   return `
     ${renderInvitePlayerPanel(activeAlliance)}
     <section class="alliance-section">
@@ -1771,20 +1807,25 @@ const renderInvitesPanel = (board) => {
           <strong>Příchozí pozvánky</strong>
         </div>
       </div>
-      ${canConfirmIncomingInvites ? "" : `<div class="alliance-inline-note" data-tone="warning">${escapeHtml(adminOnlyTitle)}</div>`}
+      ${hasBlockedIncomingInvite ? `<div class="alliance-inline-note" data-tone="warning">Některé kontaktní pozvánky může potvrdit pouze leader aliance.</div>` : ""}
       <div class="alliance-list">
-        ${board?.incomingInvites?.length ? board.incomingInvites.map((invite) => `
+        ${incomingInvites.length ? incomingInvites.map((invite) => {
+          const eligibility = inviteEligibility.get(invite.inviteId);
+          const canRespond = eligibility?.canRespond === true;
+          const buttonTitle = canRespond ? "Přijmout pozvánku" : eligibility?.disabledReason;
+          return `
           <article class="alliance-invite-card alliance-invite-card--incoming">
             <div class="alliance-invite-card__main">
               <strong>${escapeHtml(invite.allianceName)}</strong>
               <span>Od ${escapeHtml(invite.invitedByName)} · ${escapeHtml(formatRelativeTime(invite.createdAt))}</span>
             </div>
             <div class="alliance-request-item__actions alliance-invite-card__actions">
-              <button class="btn btn--primary" data-alliance-invite-accept="${escapeHtml(invite.inviteId)}" ${canConfirmIncomingInvites ? "" : "disabled"} title="${escapeHtml(canConfirmIncomingInvites ? "Přijmout pozvánku" : adminOnlyTitle)}">Přijmout</button>
-              <button class="btn btn--ghost" data-alliance-invite-reject="${escapeHtml(invite.inviteId)}" ${canConfirmIncomingInvites ? "" : "disabled"} title="${escapeHtml(canConfirmIncomingInvites ? "Odmítnout pozvánku" : adminOnlyTitle)}">Odmítnout</button>
+              <button class="btn btn--primary" data-alliance-invite-accept="${escapeHtml(invite.inviteId)}" ${canRespond ? "" : "disabled"} title="${escapeHtml(buttonTitle)}">Přijmout</button>
+              <button class="btn btn--ghost" data-alliance-invite-reject="${escapeHtml(invite.inviteId)}" ${canRespond ? "" : "disabled"} title="${escapeHtml(canRespond ? "Odmítnout pozvánku" : eligibility?.disabledReason)}">Odmítnout</button>
             </div>
           </article>
-        `).join("") : `<div class="alliance-empty-state alliance-empty-state--compact">Žádné pozvánky. Až tě někdo pozve, uvidíš to tady.</div>`}
+        `;
+        }).join("") : `<div class="alliance-empty-state alliance-empty-state--compact">Žádné pozvánky. Až tě někdo pozve, uvidíš to tady.</div>`}
       </div>
     </section>
     ${renderSentInvitesPanel(activeAlliance)}
@@ -1982,13 +2023,12 @@ const resetCreateForm = () => {
 
 const syncCreateModalState = () => {
   refreshDevOnlyCreateEligibility();
-  const hasInfluence = hasRequiredInfluenceForAllianceCreate();
-  const canCreate = latestAllianceBoard?.canCreateAlliance === true && hasInfluence;
+  const eligibility = getAllianceCreateEligibility();
   const name = String(qs("alliance-create-name")?.value || "").trim();
   const nameReason = name && name.length > MAX_ALLIANCE_NAME_LENGTH ? getCreateNameValidationMessage(name) : "";
-  const reason = canCreate
+  const reason = eligibility.canCreate
     ? nameReason
-    : getCreateDisabledReason(hasInfluence ? latestAllianceBoard?.createDisabledReason : "ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE");
+    : getCreateDisabledReason(eligibility.disabledReason);
   const button = qs("alliance-create-btn");
   const reasonEl = qs("alliance-create-disabled-reason");
   const input = qs("alliance-create-name");
@@ -1996,7 +2036,7 @@ const syncCreateModalState = () => {
     input.maxLength = MAX_ALLIANCE_NAME_LENGTH;
   }
   if (button) {
-    button.disabled = !canCreate || Boolean(nameReason);
+    button.disabled = !eligibility.canCreate || Boolean(nameReason);
     button.title = reason || "Vytvořit alianci";
     button.textContent = "Vytvořit";
     button.setAttribute("aria-label", "Vytvořit alianci");
@@ -2022,7 +2062,11 @@ const refreshCreateUiFromInfluence = () => {
 };
 
 const bindAllianceCreateInfluenceWatcher = () => {
-  if (allianceCreateInfluenceObserver || typeof MutationObserver !== "function") {
+  if (
+    !isDevOnlyAllianceDemoEnabled()
+    || allianceCreateInfluenceObserver
+    || typeof MutationObserver !== "function"
+  ) {
     return;
   }
   const influenceElement = document.querySelector("[data-topbar-influence]");
@@ -2384,13 +2428,9 @@ const mountAllianceRuntimeBindings = () => {
     const name = String(qs("alliance-create-name")?.value || "").trim();
     const tag = getSelectedIconOption().tag;
     const emblemColor = getSelectedAllianceColor();
-    if (!hasRequiredInfluenceForAllianceCreate()) {
-      notify(getCreateDisabledReason("ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE"));
-      syncCreateModalState();
-      return;
-    }
-    if (latestAllianceBoard?.canCreateAlliance !== true) {
-      notify(getCreateDisabledReason(latestAllianceBoard?.createDisabledReason));
+    const eligibility = getAllianceCreateEligibility();
+    if (!eligibility.canCreate) {
+      notify(getCreateDisabledReason(eligibility.disabledReason));
       syncCreateModalState();
       return;
     }

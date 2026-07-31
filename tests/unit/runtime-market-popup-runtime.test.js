@@ -50,6 +50,7 @@ function createRuntime(overrides = {}) {
     getMarketStockAmount: vi.fn(() => 5),
     getMarketStockLabel: vi.fn(() => "5/10"),
     getMarketStockPercent: vi.fn(() => 50),
+    getGameplayExecutionMode: vi.fn(() => "local-demo"),
     getResolvedEconomyState: vi.fn(() => ({ cleanMoney: 100 })),
     getResolvedGangState: vi.fn(() => ({ heat: 0 })),
     getResolvedMarketPriceState: vi.fn(() => ({ nextRefreshAt: new Date(Date.now() + 1000).toISOString() })),
@@ -83,6 +84,35 @@ function createRuntime(overrides = {}) {
 }
 
 describe("market popup runtime", () => {
+  it("leaves hosted market ownership to the server gameplay controller", () => {
+    const open = createElement();
+    const windowRef = {
+      clearTimeout: vi.fn(),
+      setTimeout: vi.fn(() => 7)
+    };
+    const runtime = createRuntime({
+      getGameplayExecutionMode: vi.fn(() => "server-authoritative"),
+      windowRef
+    });
+    const root = createRoot({
+      ".copy": createElement(),
+      ".dashboard": createElement(),
+      ".feedback": createElement(),
+      ".list": createElement(),
+      ".open": open,
+      ".popup": createElement(),
+      ".server": createElement(),
+      "[data-market-title]": createElement()
+    }, {
+      ".close": [createElement()],
+      ".tab": [createElement({ marketTab: "market" })]
+    });
+
+    expect(runtime.bindMarketPopup(root)).toBe(false);
+    expect(open.addEventListener).not.toHaveBeenCalled();
+    expect(windowRef.setTimeout).not.toHaveBeenCalled();
+  });
+
   it("handles missing market DOM without crashing", () => {
     expect(createRuntime().bindMarketPopup(createRoot())).toBe(false);
     expect(createRuntime().bindMarketPopup(null)).toBe(false);

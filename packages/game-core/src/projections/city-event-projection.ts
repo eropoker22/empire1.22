@@ -8,6 +8,7 @@ import {
   resolveCityMinuteOfDay,
   resolveNextCityTimeBoundaryTick
 } from "../rules/day-night/cityClock";
+import { calculatePlayerDisplayedInfluence } from "./player-resource-projection";
 
 const isAvailable = (opensAt: number, closesAt: number, minute: number): boolean =>
   opensAt < closesAt ? minute >= opensAt && minute < closesAt : minute >= opensAt || minute < closesAt;
@@ -27,9 +28,7 @@ export const createPlayerCityEventsView = (
   if (!config?.enabled || !player) return null;
   const playerState = getPlayerCityEventState(state, playerId);
   const minuteOfDay = resolveCityMinuteOfDay(state, context);
-  const currentInfluence = Object.values(state.districtsById)
-    .filter((district) => district.ownerPlayerId === playerId && district.status !== "destroyed")
-    .reduce((total, district) => total + Math.max(0, Number(district.influence || 0)), 0);
+  const currentInfluence = calculatePlayerDisplayedInfluence(state, playerId);
   const definitionById = new Map(config.definitions.map((definition) => [definition.id, definition]));
   const activeOffer = playerState.activeRun
     ? Object.values(playerState.offersByAgent).flat().find((offer) => offer.offerId === playerState.activeRun?.offerId)

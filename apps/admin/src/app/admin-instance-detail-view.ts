@@ -9,6 +9,10 @@ import {
   disclosureSection,
   table
 } from "./admin-view-helpers";
+import {
+  renderAdminInstanceRuntimeHealth,
+  shouldWarnAboutRuntime
+} from "./admin-instance-runtime-health-view";
 
 export const renderAdminInstanceDetail = (detail: AdminInstanceDetailView | null): string => detail ? `
   <section id="admin-instance-detail" class="admin-section-anchor admin-instance-hero">
@@ -25,7 +29,8 @@ export const renderAdminInstanceDetail = (detail: AdminInstanceDetailView | null
       ${keyValue("State version", detail.summary.stateVersion)}
       ${keyValue("Data k", formatTime(detail.freshness.dataAsOf))}
     </div>
-    ${detail.runtimeAvailable ? "" : `<p class="admin-notice">Live runtime není dostupný. Zobrazená data pocházejí z durable snapshotu a mohou být zastaralá.</p>`}
+    ${renderAdminInstanceRuntimeHealth(detail)}
+    ${shouldWarnAboutRuntime(detail) ? `<p class="admin-notice">Runtime této běžící instance není aktivní. Zobrazená data pocházejí z durable snapshotu a vyžadují kontrolu lease a heartbeat.</p>` : ""}
     ${detail.freshness.stale ? `<p class="admin-notice">Stale důvod: ${escapeHtml(detail.freshness.staleReason ?? "nezjištěno")}</p>` : ""}
     <details class="admin-disclosure admin-disclosure--technical">
       <summary><span>Technický stav instance</span><small>Freshness, snapshot, heartbeat a lease</small></summary>
@@ -33,6 +38,14 @@ export const renderAdminInstanceDetail = (detail: AdminInstanceDetailView | null
         ${keyValue("Join policy", detail.summary.joinPolicy)}${keyValue("Zdroj", detail.freshness.source)}
         ${keyValue("Snapshot", formatTime(detail.summary.lastSnapshotAt))}${keyValue("Heartbeat", formatTime(detail.summary.lastHeartbeatAt))}
         ${keyValue("Lease owner", detail.summary.leaseOwner)}${keyValue("Lease expires", formatTime(detail.summary.leaseExpiresAt))}
+        ${detail.runtimeHealth ? `
+          ${keyValue("Instance heartbeat tick", detail.runtimeHealth.instanceLastTick)}
+          ${keyValue("Expected tick rate", detail.runtimeHealth.expectedTickRateMs ? `${detail.runtimeHealth.expectedTickRateMs} ms` : "–")}
+          ${keyValue("Freshness threshold", detail.runtimeHealth.freshnessThresholdMs ? `${detail.runtimeHealth.freshnessThresholdMs} ms` : "–")}
+          ${keyValue("Command observation window", detail.runtimeHealth.commandObservationWindowMs ? `${detail.runtimeHealth.commandObservationWindowMs} ms` : "–")}
+          ${keyValue("Last applied command", formatTime(detail.runtimeHealth.lastAppliedCommandAt))}
+          ${keyValue("Instance runtime error", detail.runtimeHealth.instanceLastErrorCode ?? "žádná")}
+        ` : ""}
       </div>
     </details>
   </section>

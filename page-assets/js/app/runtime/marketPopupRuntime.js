@@ -1,5 +1,9 @@
 import { createMarketDataSourceSnapshot } from "./marketDataSource.js";
 import {
+  GAMEPLAY_EXECUTION_MODES,
+  getGameplayExecutionMode
+} from "./gameplayExecutionMode.js";
+import {
   createMarketItemAtmosphere,
   createMarketTabStateViewModel
 } from "./marketViewModel.js";
@@ -133,9 +137,13 @@ export function createMarketPopupRuntime(deps = {}) {
   const selectors = deps.selectors || {};
   const windowRef = deps.windowRef || (typeof window !== "undefined" ? window : null);
   const documentRef = deps.documentRef || (typeof document !== "undefined" ? document : null);
+  const resolveGameplayExecutionMode = deps.getGameplayExecutionMode || getGameplayExecutionMode;
   let marketPriceTimerId = null;
 
   const bindMarketPopup = (root) => {
+    if (resolveGameplayExecutionMode({ windowRef }) !== GAMEPLAY_EXECUTION_MODES.localDemo) {
+      return false;
+    }
     const openButton = root?.querySelector?.(selectors.open);
     const popup = root?.querySelector?.(selectors.popup);
     const closeElements = queryAll(root, selectors.close);

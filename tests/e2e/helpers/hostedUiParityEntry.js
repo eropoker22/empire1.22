@@ -51,13 +51,16 @@ async function registerAccount(page, identity) {
 async function openServer(page, serverInstanceId) {
   const spawnResponseObserver = observeSpawnDistrictResponse(page, serverInstanceId);
   try {
-    const opened = await page.locator("[data-open-live-server]").evaluateAll((buttons, expectedId) => {
-      const button = buttons.find((candidate) => candidate.dataset.openLiveServer === expectedId);
-      if (!(button instanceof HTMLButtonElement) || button.disabled) return false;
-      button.click();
-      return true;
-    }, serverInstanceId);
-    expect(opened, `Server ${serverInstanceId} must be available in the live lobby`).toBe(true);
+    const button = page.locator(`[data-open-live-server="${serverInstanceId}"]`);
+    await expect(
+      button,
+      `Server ${serverInstanceId} must be visible in the live lobby`
+    ).toBeVisible();
+    await expect(
+      button,
+      `Server ${serverInstanceId} must be enabled in the live lobby`
+    ).toBeEnabled();
+    await button.click();
     await expect(page.getByTestId("server-detail-modal")).toHaveAttribute("aria-hidden", "false");
     const spawnResponse = await spawnResponseObserver.response;
     expect(spawnResponse, "Opening a live server must load authoritative spawn districts").toBeTruthy();

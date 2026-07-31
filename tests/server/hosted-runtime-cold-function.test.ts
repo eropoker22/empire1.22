@@ -202,6 +202,88 @@ describe("hosted runtime cold Netlify function", () => {
     expect(submit.json.errors).toEqual([]);
   });
 
+  it("serializes read and submit hydration per instance and rechecks running status", async () => {
+    const fixture = await createFixture("running");
+    await fixture.seedSnapshot(13);
+    const boundary = fixture.createBoundary();
+    const loader = createHostedRuntimeLoader({ server: boundary.server, controlPlane: fixture.hosted });
+    let durableStatus: HostedServerRecord["status"] = "running";
+    const getServerSpy = vi.spyOn(fixture.hosted, "getServer")
+      .mockImplementation(async () => hostedRecord(durableStatus));
+    const originalLoadForRecovery = fixture.persistence.snapshotRepository.loadForRecovery.bind(
+      fixture.persistence.snapshotRepository
+    );
+    const firstRecoveryEntered = deferredSignal();
+    const releaseFirstRecovery = deferredSignal();
+    let recoveryCalls = 0;
+    let activeRecoveries = 0;
+    let maximumActiveRecoveries = 0;
+    const recoverySpy = vi.spyOn(fixture.persistence.snapshotRepository, "loadForRecovery")
+      .mockImplementation(async (serverInstanceId) => {
+        recoveryCalls += 1;
+        activeRecoveries += 1;
+        maximumActiveRecoveries = Math.max(maximumActiveRecoveries, activeRecoveries);
+        try {
+          if (recoveryCalls === 1) {
+            firstRecoveryEntered.resolve();
+            await releaseFirstRecovery.promise;
+          }
+          return await originalLoadForRecovery(serverInstanceId);
+        } finally {
+          activeRecoveries -= 1;
+        }
+      });
+
+    const readLoad = loader.load(INSTANCE_ID);
+    await firstRecoveryEntered.promise;
+    const submitLoad = loader.load(INSTANCE_ID, { requireRunning: true });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(recoveryCalls).toBe(1);
+    expect(maximumActiveRecoveries).toBe(1);
+
+    durableStatus = "paused";
+    releaseFirstRecovery.resolve();
+    expect((await readLoad).accepted).toBe(true);
+    expect(await submitLoad).toMatchObject({
+      accepted: false,
+      errors: [{
+        code: "server.instance_not_running",
+        details: { serverInstanceId: INSTANCE_ID, status: "paused" }
+      }]
+    });
+    expect(getServerSpy).toHaveBeenCalledTimes(2);
+    expect(recoveryCalls).toBe(1);
+
+    recoverySpy.mockRestore();
+    getServerSpy.mockRestore();
+  });
+
+  it("logs the failed authority stage and safe error code without exposing the caught message", async () => {
+    const fixture = await createFixture("running");
+    const boundary = fixture.createBoundary();
+    const loader = createHostedRuntimeLoader({ server: boundary.server, controlPlane: fixture.hosted });
+    vi.spyOn(fixture.hosted, "getServer").mockRejectedValueOnce(Object.assign(
+      new Error("postgres://user:secret@example.test/private"),
+      { code: "57P01 unsafe detail" }
+    ));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    expect(await loader.load(INSTANCE_ID)).toMatchObject({
+      accepted: false,
+      errors: [{ code: "server.runtime_authority_unavailable" }]
+    });
+    expect(consoleError).toHaveBeenCalledTimes(1);
+    const diagnostic = consoleError.mock.calls[0]?.join(" ") ?? "";
+    expect(diagnostic).toContain("\"stage\":\"server-record\"");
+    expect(diagnostic).toContain("\"errorCode\":\"57P01unsafedetail\"");
+    expect(diagnostic).not.toContain("secret");
+    expect(diagnostic).not.toContain("postgres://");
+
+    consoleError.mockRestore();
+  });
+
   it("never lets a delayed stale load overwrite a newer warm runtime", async () => {
     const fixture = await createFixture("running");
     await fixture.seedSnapshot(17);

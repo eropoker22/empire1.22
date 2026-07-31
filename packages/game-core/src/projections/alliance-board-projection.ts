@@ -1,6 +1,7 @@
 import type { AllianceBoardReadModel } from "@empire/shared-types";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreGameState } from "../entities";
+import { resolveAllianceChatVisibility } from "./alliance-chat-visibility";
 import {
   canJoinOrCreateAlliance,
   deriveAllianceMembershipStatus,
@@ -126,15 +127,18 @@ export const createAllianceBoardReadModel = (
         };
       }),
       pendingInvites: Object.values(inputState.allianceInvitesById ?? {})
-        .filter((invite) => invite.allianceId === alliance.id && invite.status === "pending" && (invite.kind ?? "member") === "member")
+        .filter((invite) => Boolean(currentMembership) && invite.allianceId === alliance.id
+          && invite.status === "pending" && (invite.kind ?? "member") === "member")
         .map((invite) => createInviteView(inputState, invite.id))
         .filter((view): view is NonNullable<typeof view> => Boolean(view)),
       receivedInvites: Object.values(inputState.allianceInvitesById ?? {})
-        .filter((invite) => invite.kind === "alliance_contact" && invite.targetAllianceId === alliance.id && invite.status === "pending")
+        .filter((invite) => isLeader && invite.kind === "alliance_contact"
+          && invite.targetAllianceId === alliance.id && invite.status === "pending")
         .map((invite) => createInviteView(inputState, invite.id))
         .filter((view): view is NonNullable<typeof view> => Boolean(view)),
       chatMessages: Object.values(inputState.allianceChatMessagesById ?? {})
         .filter((message) => message.allianceId === alliance.id)
+        .filter((message) => Boolean(currentMembership) || resolveAllianceChatVisibility(message) === "public")
         .sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt))
         .slice(-50)
         .map((message) => ({
@@ -146,7 +150,7 @@ export const createAllianceBoardReadModel = (
           createdAt: message.createdAt
         })),
       defenseContributions: Object.values(inputState.allianceDefenseContributionsById ?? {})
-        .filter((contribution) => contribution.allianceId === alliance.id)
+        .filter((contribution) => Boolean(currentMembership) && contribution.allianceId === alliance.id)
         .map((contribution) => ({
           contributionId: contribution.id,
           allianceId: contribution.allianceId,

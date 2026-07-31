@@ -479,27 +479,51 @@ function parseInfluenceAmount(value) {
   const normalized = String(value ?? "")
     .replace(/\s+/gu, "")
     .replace(/[^\d.-]/gu, "");
-  return Math.max(0, Math.floor(Number(normalized || 0) || 0));
+  return Math.max(0, Math.round(Number(normalized || 0) || 0));
+}
+
+export function resolveCityEventsPlayerInfluence({
+  executionMode,
+  readModel,
+  storedInfluence,
+  resolvedInfluence,
+  domInfluenceValues = []
+} = {}) {
+  if (executionMode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    const authoritativeInfluence = Number(readModel?.player?.economy?.influence);
+    return Number.isFinite(authoritativeInfluence)
+      ? Math.max(0, Math.floor(authoritativeInfluence))
+      : 0;
+  }
+  if (storedInfluence !== undefined && storedInfluence !== null) {
+    return parseInfluenceAmount(storedInfluence);
+  }
+  if (Number.isFinite(Number(resolvedInfluence))) {
+    return parseInfluenceAmount(resolvedInfluence);
+  }
+  return Math.max(...domInfluenceValues.map(parseInfluenceAmount), 0);
 }
 
 function getCurrentPlayerInfluenceValue(root) {
   const storedInfluence = getStoredPreviewSession()?.gang?.influence;
-  if (storedInfluence !== undefined && storedInfluence !== null) {
-    return parseInfluenceAmount(storedInfluence);
-  }
   const resolvedInfluence = getResolvedGangState?.().influence;
-  if (Number(resolvedInfluence || 0) > 0) {
-    return parseInfluenceAmount(resolvedInfluence);
-  }
   const influenceElement = root.querySelector("[data-topbar-influence]");
   const popupInfluence = root.querySelector("[data-player-popup-influence]");
   const spyValue = root.querySelector("[data-topbar-spy-value]");
-  return Math.max(
-    parseInfluenceAmount(influenceElement?.dataset.influenceValue),
-    parseInfluenceAmount(influenceElement?.textContent),
-    parseInfluenceAmount(spyValue?.dataset.influenceValue),
-    parseInfluenceAmount(popupInfluence?.textContent)
-  );
+  return resolveCityEventsPlayerInfluence({
+    executionMode: getGameplayExecutionMode({
+      windowRef: typeof window === "undefined" ? null : window
+    }),
+    readModel: getServerGameplaySliceReadModel(),
+    storedInfluence,
+    resolvedInfluence,
+    domInfluenceValues: [
+      influenceElement?.dataset.influenceValue,
+      influenceElement?.textContent,
+      spyValue?.dataset.influenceValue,
+      popupInfluence?.textContent
+    ]
+  });
 }
 
 function resolveAgentUnlockState(root, agent) {
@@ -795,7 +819,10 @@ export function initCityEventsRuntime() {
       const serverAgent = shouldRunServerCityEvents() ? getServerAgent(agentKey) : null;
       const unlockState = serverAgent ? {
         requiredInfluence: Math.max(0, Number(serverAgent.requiredInfluence || 0)),
-        currentInfluence: Math.max(0, Number(serverAgent.currentInfluence || 0)),
+        currentInfluence: resolveCityEventsPlayerInfluence({
+          executionMode: GAMEPLAY_EXECUTION_MODES.serverAuthoritative,
+          readModel: getServerGameplaySliceReadModel()
+        }),
         unlocked: Boolean(serverAgent.unlocked)
       } : resolveAgentUnlockState(root, agent);
       button.dataset.agentLocked = unlockState.unlocked ? "false" : "true";
@@ -892,7 +919,10 @@ export function initCityEventsRuntime() {
 
     const unlockState = serverAgent ? {
       requiredInfluence: Math.max(0, Number(serverAgent.requiredInfluence || 0)),
-      currentInfluence: Math.max(0, Number(serverAgent.currentInfluence || 0)),
+      currentInfluence: resolveCityEventsPlayerInfluence({
+        executionMode: GAMEPLAY_EXECUTION_MODES.serverAuthoritative,
+        readModel: getServerGameplaySliceReadModel()
+      }),
       unlocked: Boolean(serverAgent.unlocked)
     } : resolveAgentUnlockState(root, agent);
     if (!unlockState.unlocked) {

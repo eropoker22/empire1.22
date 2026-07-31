@@ -8,6 +8,7 @@ import type { ServerInstanceRuntime } from "../instance/server-instance-runtime"
 const MAX_COMMANDS_PER_PLAYER_PER_TICK = 5;
 const ENTITY_REVALIDATED_CONFLICT_COMMAND_TYPES = new Set<GameCommand["type"]>([
   "attack-district",
+  "buy-player-market-listing",
   "cancel-drug-lab-production",
   "cancel-pharmacy-production",
   "cancel-production-line",

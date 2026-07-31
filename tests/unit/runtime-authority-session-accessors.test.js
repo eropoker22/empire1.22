@@ -23,6 +23,30 @@ function createSession() {
 }
 
 describe("authority session accessors", () => {
+  it("never invents the removed 25,000 cash preview when no economy exists", () => {
+    let session = createSession();
+    const api = createAuthoritySessionAccessors({
+      clamp: (value, min, max) => Math.min(Math.max(value, min), max),
+      defaultDrugInventory: {},
+      defaultMaterialInventory: {},
+      defaultWeaponInventory: {},
+      getAuthoritySession: () => session,
+      maxSpies: 3,
+      updateStoredPreviewSession: (updater) => {
+        session = updater(session);
+      }
+    });
+
+    expect(api.getResolvedEconomyState()).toEqual({
+      cleanMoney: 0,
+      dirtyMoney: 0
+    });
+    expect(session.economy).toEqual({
+      cleanMoney: 0,
+      dirtyMoney: 0
+    });
+  });
+
   it("normalizes inventory, economy, and spy state through injected storage", () => {
     let session = createSession();
     const events = [];

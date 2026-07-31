@@ -15,6 +15,7 @@ import { CORE_EVENT_TYPES, createEvent } from "../events";
 import type { GameCoreContext } from "../engine/context";
 import { canJoinOrCreateAlliance } from "../rules/alliances/allianceLifecycle";
 import { addPlayerToAlliance } from "./allianceJoin";
+import { completeAllianceInviteAcceptance } from "./allianceInviteAcceptance";
 import {
   createInitialAllianceMembership,
   nowIsoFromContext,
@@ -217,19 +218,8 @@ const respondAllianceInvite = (
   if (response === "accepted" && isExternalJoinRequest) {
     const joined = addPlayerToAlliance(state, invite.invitedByPlayerId, targetAllianceId, context, `${command.id}:accept-public`);
     if (joined.errors.length) return joined;
-    const currentInvite = joined.nextState.allianceInvitesById?.[invite.id] ?? invite;
-    return {
-      nextState: {
-        ...joined.nextState,
-        allianceInvitesById: {
-          ...(joined.nextState.allianceInvitesById ?? {}),
-          [invite.id]: { ...currentInvite, status: response, respondedAt: nowIso, version: currentInvite.version + 1 }
-        },
-        root: { ...joined.nextState.root, version: joined.nextState.root.version + 1 }
-      },
-      events: [createEvent(CORE_EVENT_TYPES.allianceInviteResponded, { inviteId: invite.id, response }), ...joined.events],
-      errors: []
-    };
+    return completeAllianceInviteAcceptance(joined, invite, response, nowIso,
+      createEvent(CORE_EVENT_TYPES.allianceInviteResponded, { inviteId: invite.id, response }));
   }
   const inviteState: CoreGameState = {
     ...state,
@@ -256,11 +246,10 @@ const respondAllianceInvite = (
     };
   }
 
-  const joined = addPlayerToAlliance(inviteState, command.playerId, invite.allianceId, context, `${command.id}:accept`);
-  return {
-    ...joined,
-    events: [createEvent(CORE_EVENT_TYPES.allianceInviteResponded, { inviteId: invite.id, response }), ...joined.events]
-  };
+  const joined = addPlayerToAlliance(state, command.playerId, invite.allianceId, context, `${command.id}:accept`);
+  if (joined.errors.length) return joined;
+  return completeAllianceInviteAcceptance(joined, invite, response, nowIso,
+    createEvent(CORE_EVENT_TYPES.allianceInviteResponded, { inviteId: invite.id, response }));
 };
 
 const sendAllianceChatMessage = (
@@ -286,6 +275,7 @@ const sendAllianceChatMessage = (
     allianceId: alliance.id,
     authorPlayerId: command.playerId,
     body,
+    visibility: "members",
     createdAt: nowIso,
     version: 1
   };
@@ -330,6 +320,7 @@ const sendPublicAllianceMessage = (
     allianceId: targetAlliance.id,
     authorPlayerId: command.playerId,
     body,
+    visibility: "public",
     createdAt: nowIso,
     version: 1
   };

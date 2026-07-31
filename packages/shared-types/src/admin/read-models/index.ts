@@ -2,6 +2,7 @@ export * from "./alliance-population-summary";
 export * from "./admin-read-only-views";
 export * from "./admin-snapshot-storage-view";
 export * from "./admin-hosted-control-plane-views";
+export * from "./admin-instance-runtime-health-view";
 export * from "./command-volume-summary";
 export * from "./error-summary";
 export * from "./instance-diagnostics-summary";

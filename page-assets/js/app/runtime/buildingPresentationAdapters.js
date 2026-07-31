@@ -10,6 +10,10 @@ import {
 } from "./buildingDetailData.js";
 import { createBuildingDetailViewModel } from "./buildingDetailViewModel.js";
 import {
+  pickBuildingDetailPresentationViewModel,
+  resolveBuildingPresentationDefinition
+} from "./buildingPresentationContract.js";
+import {
   formatDistrictBuildingCooldown,
   formatDistrictBuildingMoney
 } from "./formatters.js";
@@ -22,11 +26,13 @@ const normalizeName = (value) => String(value || "")
   .trim();
 
 const findLocalPresentationBuilding = (localBuildings, serverBuilding) => {
+  const canonicalPresentation = resolveBuildingPresentationDefinition(serverBuilding?.buildingTypeId);
   const serverNames = [
     serverBuilding?.buildingTypeId,
     serverBuilding?.label,
     serverBuilding?.displayName,
-    serverBuilding?.variantName
+    serverBuilding?.variantName,
+    canonicalPresentation?.baseName
   ].map(normalizeName).filter(Boolean);
   return localBuildings.find((building) => {
     const localNames = [
@@ -38,17 +44,6 @@ const findLocalPresentationBuilding = (localBuildings, serverBuilding) => {
   }) || null;
 };
 
-const SERVER_BUILDING_MECHANICS_TYPE_ALIASES = Object.freeze({
-  arcade: "arcade",
-  "apartment-block": "apartment-block",
-  "auto-salon": "auto-salon",
-  "car-dealer": "auto-salon",
-  "power-plant": "power-plant",
-  "power-station": "power-plant",
-  retail: "retail",
-  "shopping-mall": "retail"
-});
-
 const normalizeServerBuildingTypeId = (value) => String(value || "")
   .normalize("NFD")
   .replace(/[\u0300-\u036f]/gu, "")
@@ -58,7 +53,7 @@ const normalizeServerBuildingTypeId = (value) => String(value || "")
 
 const resolveServerBuildingMechanicsType = (buildingTypeId) => {
   const normalizedTypeId = normalizeServerBuildingTypeId(buildingTypeId);
-  return SERVER_BUILDING_MECHANICS_TYPE_ALIASES[normalizedTypeId] || normalizedTypeId;
+  return resolveBuildingPresentationDefinition(buildingTypeId)?.mechanicsType || normalizedTypeId;
 };
 
 const SERVER_ACTION_BUTTON_COST_TYPES = new Set([
@@ -148,12 +143,15 @@ const resolveOwnedCount = (statMap) => {
   return null;
 };
 
-const resolveDemoDetailProfile = ({ baseName, localBuilding, building }) => {
+const resolveDemoDetailProfile = ({ baseName, localBuilding, building, panelBuilding }) => {
+  const canonicalPresentation = resolveBuildingPresentationDefinition(building?.buildingTypeId);
   const lookupKeys = [
     baseName,
     localBuilding?.baseName,
     building?.label,
-    building?.buildingTypeId
+    building?.buildingTypeId,
+    panelBuilding?.typeLabel,
+    canonicalPresentation?.baseName
   ].map(normalizeName).filter(Boolean);
   return lookupKeys
     .map((key) => DISTRICT_BUILDING_DETAIL_PROFILES[key])
@@ -585,22 +583,29 @@ const createServerBuildingDetailView = ({
   const slot = renderState?.districtPanel?.slots?.find?.(
     (entry) => String(entry?.buildingId || "") === String(building?.buildingId || "")
   ) || null;
+  const canonicalPresentation = resolveBuildingPresentationDefinition(building?.buildingTypeId);
   const displayName = String(
     localBuilding?.displayName
     || building?.displayName
+    || building?.variantName
+    || panelBuilding?.label
     || building?.label
     || localBuilding?.baseName
+    || canonicalPresentation?.baseName
     || "Budova"
   ).trim();
   const baseName = String(
     localBuilding?.baseName
+    || canonicalPresentation?.baseName
+    || panelBuilding?.typeLabel
     || building?.label
     || displayName
   ).trim();
   const demoDetailProfile = resolveDemoDetailProfile({
     baseName,
     localBuilding,
-    building
+    building,
+    panelBuilding
   });
   const status = String(building?.status || panelBuilding?.status || "").trim();
   const level = Math.max(1, Number(building?.level || panelBuilding?.level || 1));
@@ -675,8 +680,7 @@ const createServerBuildingDetailView = ({
     buildingTypeId: String(building?.buildingTypeId || ""),
     baseName,
     displayName,
-    viewModel: {
-      ...sharedViewModel,
+    viewModel: pickBuildingDetailPresentationViewModel(sharedViewModel, {
       districtId: String(district?.districtId || ""),
       buildingId: String(building?.buildingId || ""),
       buildingTypeId: String(building?.buildingTypeId || ""),
@@ -703,7 +707,7 @@ const createServerBuildingDetailView = ({
           ? "Upgrade ověří a potvrdí server."
           : "Budova nemá další level."
       }
-    }
+    })
   };
 };
 
@@ -805,14 +809,16 @@ export class ServerBuildingPresentationAdapter {
     if (!building) {
       return null;
     }
-    const localBuilding = presentation.profile?.buildings?.find?.(
-      (entry) => String(entry?.buildingId || "") === String(building.buildingId || "")
-    ) || null;
+    const localProfile = this.resolveDistrictBuildingProfile?.(district) || null;
+    const localBuilding = findLocalPresentationBuilding(
+      Array.isArray(localProfile?.buildings) ? localProfile.buildings : [],
+      building
+    );
     return createServerBuildingDetailView({
       building,
       district: presentation.readModel.district,
       localBuilding,
-      localProfile: presentation.profile,
+      localProfile: localProfile || presentation.profile,
       readModel: presentation.readModel,
       renderState
     });

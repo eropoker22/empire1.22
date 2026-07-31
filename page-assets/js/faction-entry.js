@@ -1,7 +1,4 @@
-import { CLIENT_EXECUTION_MODES, resolveClientEntryExecutionMode } from "./app/runtime/clientAuthorityState.js";
+import { resolveClientEntryExecutionMode } from "./app/runtime/clientAuthorityState.js";
 
-if (resolveClientEntryExecutionMode() === CLIENT_EXECUTION_MODES.localDemo) {
-  void import("./faction.js");
-} else {
-  void import("./faction-live.js");
-}
+resolveClientEntryExecutionMode({ localDemoEnabled: false });
+void import("./faction-live.js?v=20260731-live-only");

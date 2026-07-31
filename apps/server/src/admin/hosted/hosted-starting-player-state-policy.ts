@@ -50,6 +50,20 @@ export const parseHostedStartingPlayerState = (value: unknown) => {
   });
 };
 
+export const parsePersistedHostedStartingPlayerState = (value: unknown) => {
+  if (value == null) {
+    return reject("ADMIN_STARTING_STATE_INVALID", "Počáteční stav hráče není platný.");
+  }
+  if (typeof value !== "string") {
+    return parseHostedStartingPlayerState(value);
+  }
+  try {
+    return parseHostedStartingPlayerState(JSON.parse(value) as unknown);
+  } catch {
+    return reject("ADMIN_STARTING_STATE_INVALID", "Počáteční stav hráče není platný.");
+  }
+};
+
 const integerInRange = (value: unknown, minimum: number, maximum: number): boolean =>
   Number.isSafeInteger(value) && Number(value) >= minimum && Number(value) <= maximum;
 const record = (value: unknown): value is Record<string, unknown> =>

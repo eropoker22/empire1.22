@@ -1,4 +1,6 @@
 export * from "./admin-repositories";
+export * from "./admin-instance-runtime-health";
+export * from "./admin-instance-tick-observation";
 export * from "./admin-repository-environment";
 export * from "./admin-session-service";
 export * from "./admin-password";

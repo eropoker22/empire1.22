@@ -135,4 +135,32 @@ describe("auth registration runtime", () => {
     expect(identity.readOnly).toBe(true);
     expect(option.disabled).toBe(true);
   });
+
+  it("uses a neutral zero economy when no explicit preview seed is supplied", () => {
+    const form = createElement();
+    const identity = createElement();
+    const factionInput = createElement();
+    const option = createElement({ factionId: "mafian" });
+    const setStoredEconomyState = vi.fn();
+    const runtime = createRuntime({
+      DEFAULT_ECONOMY_STATE: undefined,
+      setStoredEconomyState
+    });
+    const root = createRoot({
+      ".faction": factionInput,
+      ".form": form,
+      ".identity": identity,
+      ".status": createElement()
+    }, {
+      ".option": [option]
+    });
+
+    expect(runtime.bindFactionRegistration(root)).toBe(true);
+    form.dispatch("submit");
+
+    expect(setStoredEconomyState).toHaveBeenCalledWith({
+      cleanMoney: 0,
+      dirtyMoney: 0
+    });
+  });
 });

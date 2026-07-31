@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   copyFreeHostedStartingPlayerState,
+  FREE_HOSTED_STARTING_MATERIAL_IDS,
   resolveModeConfig
 } from "@empire/game-config";
 import { handleSelectSpawnDistrict } from "@empire/game-core";
@@ -109,12 +110,16 @@ describe("hosted server control plane", () => {
   it("validates and snapshots the authoritative starting player state", async () => {
     const { repositories, service } = await setup();
     const startingPlayerState = copyFreeHostedStartingPlayerState();
-    startingPlayerState.cleanCash = 42_000;
+    const expectedMaterials = Object.fromEntries(
+      FREE_HOSTED_STARTING_MATERIAL_IDS.map((materialId, index) => [materialId, index * 137])
+    ) as typeof startingPlayerState.materials;
+    startingPlayerState.cleanCash = 0;
     startingPlayerState.dirtyCash = 7_500;
-    startingPlayerState.population = 125;
-    startingPlayerState.materials["stim-pack"] = 4;
-    startingPlayerState.materials["combat-module"] = 3;
-    startingPlayerState.materials.vest = 6;
+    startingPlayerState.population = 0;
+    startingPlayerState.materials = Object.fromEntries(
+      [...FREE_HOSTED_STARTING_MATERIAL_IDS].reverse()
+        .map((materialId) => [materialId, expectedMaterials[materialId]])
+    ) as typeof startingPlayerState.materials;
     const created = await service.createServer({
       session: owner,
       payload: { ...validRequest, startingPlayerState },
@@ -123,9 +128,17 @@ describe("hosted server control plane", () => {
     });
     expect(created.accepted).toBe(true);
     if (!created.accepted) return;
-    await expect(repositories.hosted.getServer(created.data.server.serverInstanceId)).resolves.toMatchObject({
-      startingPlayerState
+    const persisted = await repositories.hosted.getServer(created.data.server.serverInstanceId);
+    expect(persisted).toMatchObject({
+      startingPlayerState: {
+        cleanCash: 0,
+        dirtyCash: 7_500,
+        population: 0,
+        spySlots: 2,
+        materials: expectedMaterials
+      }
     });
+    expect(Object.keys(persisted!.startingPlayerState!.materials)).toEqual(FREE_HOSTED_STARTING_MATERIAL_IDS);
 
     expect((await service.createServer({
       session: owner,
@@ -143,6 +156,32 @@ describe("hosted server control plane", () => {
       payload: { ...validRequest, startingPlayerState: missingMaterial },
       idempotencyKey: "test-create-starting-material",
       correlationId: "starting-material"
+    })).errors[0]?.code).toBe("ADMIN_STARTING_STATE_INVALID");
+    expect((await service.createServer({
+      session: owner,
+      payload: {
+        ...validRequest,
+        startingPlayerState: {
+          ...startingPlayerState,
+          cleanCash: "0"
+        }
+      },
+      idempotencyKey: "test-create-starting-string",
+      correlationId: "starting-string"
+    })).errors[0]?.code).toBe("ADMIN_STARTING_STATE_INVALID");
+    const aliasedMaterial = {
+      ...startingPlayerState,
+      materials: {
+        ...startingPlayerState.materials,
+        metalParts: startingPlayerState.materials["metal-parts"]
+      }
+    } as Record<string, unknown>;
+    delete (aliasedMaterial.materials as Record<string, unknown>)["metal-parts"];
+    expect((await service.createServer({
+      session: owner,
+      payload: { ...validRequest, startingPlayerState: aliasedMaterial },
+      idempotencyKey: "test-create-starting-alias",
+      correlationId: "starting-alias"
     })).errors[0]?.code).toBe("ADMIN_STARTING_STATE_INVALID");
   });
 

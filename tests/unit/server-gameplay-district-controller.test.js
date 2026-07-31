@@ -84,17 +84,34 @@ describe("server gameplay district controller", () => {
       buildingType: "casino"
     });
     expect(document.querySelector("[data-district-building-detail-popup]").hidden).toBe(false);
-    expect(document.querySelector("[data-district-building-detail-title]").textContent).toBe("Neon Casino");
+    expect(document.querySelector("[data-district-building-detail-title]").textContent).toBe("Kasino");
+    expect(document.querySelector("[data-district-building-detail-popup]").dataset).toMatchObject({
+      buildingDetailLayout: "single-panel",
+      executionMode: "server-authoritative",
+      serverBuildingId: "building:casino:2",
+      serverBuildingTypeId: "casino",
+      serverDistrictId: "district:2",
+      uiOwner: "legacy-shared"
+    });
+    expect(document.querySelector("[data-district-building-detail-popup]").textContent).not.toContain(
+      "HOSTED RAW"
+    );
     expect(document.querySelector("[data-district-popup-atmosphere-image]").getAttribute("src")).toContain("img/commercial/");
     expect(document.querySelector("[data-district-popup-atmosphere-label]").textContent).toBe("Komerční sektor");
 
-    document.querySelector("[data-district-building-detail-action-id='cashout']").click();
+    document.querySelector("[data-district-building-detail-action-id='quiet_backroom']").click();
+    await vi.waitFor(() => {
+      expect(
+        document.querySelector(".building-special-action-confirm:not([hidden])")
+      ).not.toBeNull();
+    });
+    document.querySelector(".building-special-action-confirm__button--confirm").click();
     await vi.waitFor(() => expect(harness.handleSurfaceAction).toHaveBeenCalledTimes(2));
     const actionProxy = harness.handleSurfaceAction.mock.calls[1][0];
     expect(harness.scopeContainedAtCall[1]).toBe(true);
     expect(actionProxy.dataset).toMatchObject({
       buildingActionBuildingId: "building:casino:2",
-      buildingActionId: "cashout"
+      buildingActionId: "quiet_backroom"
     });
 
     expect(document.querySelector("[data-district-building-detail-action-id='craft:chemicals']")).toBeNull();
@@ -237,13 +254,13 @@ function createHarness({
     label: "Neon Casino",
     typeLabel: "Kasino",
     zoneLabel: "Komerční",
-    roleLabel: "Ekonomika",
-    info: "Serverem potvrzený detail.",
+    roleLabel: "HOSTED RAW ROLE",
+    info: "HOSTED RAW INFO",
     statusLabel: "Aktivní · level 2",
     stats: [{ label: "Výnos", value: "$120" }],
     actions: [{
-      actionId: "cashout",
-      label: "Vybrat zisk",
+      actionId: "quiet_backroom",
+      label: "Tichá herna",
       inputSummary: "Zdarma",
       outputSummary: "$120",
       cooldownLabel: "",

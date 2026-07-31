@@ -149,6 +149,10 @@ describe("gameplay slice read model contract", () => {
     const neutral = expectReadModel(neutralResponse);
     const enemy = expectReadModel(enemyResponse);
 
+    expect(own.economyRates?.selectedDistrict?.districtId)
+      .toBe("district:1");
+    expect(neutral.economyRates?.selectedDistrict).toBeNull();
+    expect(enemy.economyRates?.selectedDistrict).toBeNull();
     expect([
       summarizeSlice(own).district,
       summarizeSlice(neutral).district,
@@ -218,6 +222,27 @@ describe("gameplay slice read model contract", () => {
       buildingId: factory?.buildingId,
       districtId,
       productionLines: expect.any(Array)
+    });
+    expect(load.economyRates).toMatchObject({
+      basis: "next-authoritative-economy-tick",
+      tickRateMs: runtime.config.tickRateMs,
+      fromTick: load.server.currentTick,
+      toTick: load.server.currentTick + 1,
+      playerBalancePerTick: {
+        population: 0,
+        chemicals: 0,
+        "metal-parts": 0
+      },
+      selectedDistrict: {
+        districtId,
+        cleanCashPerTick: expect.any(Number),
+        dirtyCashPerTick: expect.any(Number),
+        cleanCashPerHour: expect.any(Number),
+        dirtyCashPerHour: expect.any(Number),
+        passivePopulationSources: [],
+        passivePopulationSourceSummary:
+          "Pasivní populace: 0 / tick · žádný zdroj v districtu"
+      }
     });
   });
 

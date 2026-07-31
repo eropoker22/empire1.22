@@ -1,4 +1,4 @@
-import { createAllianceBoardReadModel, createBountyReadModel, createCityFeedProjection, createConflictReportViews, createLeaderboardReadModel, createOnboardingReadModel, createPlayerFrontierSummaryView, createPoliceReadModel, getMarketViewModel } from "@empire/game-core";
+import { createAllianceBoardReadModel, createBountyReadModel, createCityFeedProjection, createConflictReportViews, createGameplayEconomyRatesView, createLeaderboardReadModel, createOnboardingReadModel, createPlayerFrontierSummaryView, createPoliceReadModel, getMarketViewModel } from "@empire/game-core";
 import {
   empireStreetsCityMapManifestHash,
   empireStreetsCityMapManifestId,
@@ -39,16 +39,13 @@ export const createGameplaySliceProjection = (
   };
   const basePlayer = createPlayerProjection(runtime, playerId);
   const selectedDistrictId = resolveSelectedDistrictId(runtime, playerId, districtId);
-  const police = createPoliceReadModel(runtime.state, playerId, { config: runtime.config, clock: runtime.clock }, {
-    ...(selectedDistrictId ? { selectedDistrictId } : {})
-  });
+  const police = createPoliceReadModel(runtime.state, playerId, { config: runtime.config, clock: runtime.clock },
+    { ...(selectedDistrictId ? { selectedDistrictId } : {}) });
   const player = {
     ...basePlayer,
     police
   };
-  const district = selectedDistrictId
-    ? createDistrictPanelProjection(runtime, playerId, selectedDistrictId)
-    : null;
+  const district = selectedDistrictId ? createDistrictPanelProjection(runtime, playerId, selectedDistrictId) : null;
 
   return {
     server: {
@@ -65,6 +62,9 @@ export const createGameplaySliceProjection = (
       generatedAt: runtime.clock.nowIso()
     },
     mode,
+    economyRates: createGameplayEconomyRatesView(runtime.state, playerId, district?.districtId ?? null, {
+      config: runtime.config, clock: runtime.clock
+    }),
     player,
     commandHints: createGameplaySliceCommandHints(district),
     spawnSelection: createSpawnSelectionView(runtime, playerId),

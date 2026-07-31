@@ -1,0 +1,44 @@
+[
+  {
+    "key": "casino",
+    "districtId": "district:83",
+    "expectedDistrictBuildingTypeIds": ["casino", "pharmacy", "restaurant"],
+    "coveredBuildingTypeIds": ["casino"]
+  },
+  {
+    "key": "court-vip-lounge",
+    "districtId": "district:79",
+    "expectedDistrictBuildingTypeIds": ["court", "vip_lounge"],
+    "coveredBuildingTypeIds": ["court", "vip_lounge"]
+  },
+  {
+    "key": "central-bank",
+    "districtId": "district:80",
+    "expectedDistrictBuildingTypeIds": ["central_bank"],
+    "coveredBuildingTypeIds": ["central_bank"]
+  },
+  {
+    "key": "stock-exchange",
+    "districtId": "district:82",
+    "expectedDistrictBuildingTypeIds": ["stock_exchange"],
+    "coveredBuildingTypeIds": ["stock_exchange"]
+  },
+  {
+    "key": "city-hall-parliament",
+    "districtId": "district:103",
+    "expectedDistrictBuildingTypeIds": ["city_hall", "parliament"],
+    "coveredBuildingTypeIds": ["city_hall", "parliament"]
+  },
+  {
+    "key": "airport-lobby-club",
+    "districtId": "district:104",
+    "expectedDistrictBuildingTypeIds": ["airport", "lobby_club"],
+    "coveredBuildingTypeIds": ["airport", "lobby_club"]
+  },
+  {
+    "key": "port",
+    "districtId": "district:105",
+    "expectedDistrictBuildingTypeIds": ["port", "vip_lounge"],
+    "coveredBuildingTypeIds": ["port"]
+  }
+]

@@ -13,6 +13,8 @@ class FakeElement {
     this.className = "";
     this.textContent = "";
     this.hidden = false;
+    this.dataset = {};
+    this.title = "";
   }
 
   append(...children) {
@@ -135,6 +137,36 @@ describe("district popup metrics runtime", () => {
     runtime.renderDistrictEconomySummary({ id: 2, districtType: "industrial" });
 
     expect(runtime.testElements.popupSummary.hidden).toBe(true);
+  });
+
+  it("renders the authoritative zero-population source state explicitly", () => {
+    const renderDistrictMetricSummary = vi.fn();
+    const runtime = createRuntime({
+      getDistrictEconomySnapshot: () => ({
+        available: true,
+        baseCleanHourlyIncome: 800,
+        baseDirtyHourlyIncome: 100,
+        districtInfluencePerHour: 3,
+        districtPopulationPerHour: 0,
+        populationLabel: "0 · žádný zdroj",
+        populationSourceSummary:
+          "Pasivní populace: 0 / tick · žádný zdroj v districtu"
+      }),
+      renderDistrictMetricSummary
+    });
+
+    runtime.renderDistrictEconomySummary({ id: 1, districtType: "industrial" });
+
+    expect(renderDistrictMetricSummary).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        populationLabel: "0 · žádný zdroj"
+      })
+    );
+    expect(runtime.testElements.popupPopulation.title)
+      .toBe("Pasivní populace: 0 / tick · žádný zdroj v districtu");
+    expect(runtime.testElements.popupPopulation.dataset.populationSourceSummary)
+      .toBe("Pasivní populace: 0 / tick · žádný zdroj v districtu");
   });
 
   it("renders passive district gossip in the popup card", () => {

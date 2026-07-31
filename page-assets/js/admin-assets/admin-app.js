@@ -40354,6 +40354,10 @@
       if (!form.reportValidity() || !idempotencyKey) return;
       if (mapTotal(form) !== 161) return showError(form, "Mapa musí obsahovat přesně 161 districtů.");
       const data = new FormData(form);
+      const startingPlayerState = readStartingPlayerStateFormData(data);
+      if (!startingPlayerState) {
+        return showError(form, "Počáteční stav hráče není kompletní nebo obsahuje neplatné číslo.");
+      }
       const serverTemplate = data.get("serverTemplate") === "full" ? "full" : "control";
       const payload = {
         displayName: String(data.get("displayName") ?? ""),
@@ -40369,16 +40373,7 @@
           industrial: Number(data.get("industrial")),
           park: Number(data.get("park"))
         },
-        startingPlayerState: {
-          cleanCash: Number(data.get("startingCleanCash")),
-          dirtyCash: Number(data.get("startingDirtyCash")),
-          population: Number(data.get("startingPopulation")),
-          spySlots: 2,
-          materials: Object.fromEntries(FREE_HOSTED_STARTING_MATERIAL_IDS.map((materialId) => [
-            materialId,
-            Number(data.get(`startingMaterial:${materialId}`))
-          ]))
-        }
+        startingPlayerState
       };
       const submitButton = form.querySelector("[type=submit]");
       if (submitButton) submitButton.disabled = true;
@@ -40441,6 +40436,31 @@
       }
     };
     return { bind };
+  };
+  const readStartingPlayerStateFormData = (data) => {
+    const cleanCash = readRequiredInteger(data, "startingCleanCash");
+    const dirtyCash = readRequiredInteger(data, "startingDirtyCash");
+    const population = readRequiredInteger(data, "startingPopulation");
+    if (cleanCash === null || dirtyCash === null || population === null) return null;
+    const materials = {};
+    for (const materialId of FREE_HOSTED_STARTING_MATERIAL_IDS) {
+      const amount = readRequiredInteger(data, `startingMaterial:${materialId}`);
+      if (amount === null) return null;
+      materials[materialId] = amount;
+    }
+    return {
+      cleanCash,
+      dirtyCash,
+      population,
+      spySlots: 2,
+      materials
+    };
+  };
+  const readRequiredInteger = (data, name) => {
+    const raw = data.get(name);
+    if (typeof raw !== "string" || raw.trim().length === 0) return null;
+    const value = Number(raw);
+    return Number.isSafeInteger(value) ? value : null;
   };
   const showError = (form, text) => {
     const message = form.querySelector("[data-admin-create-error]");
@@ -41659,10 +41679,10 @@
       gameHostingDisabled ? "Hosting je konfigurací úmyslně vypnutý." : `Worker ${control.workerStatus}; provisioning ${control.provisioningEnabled ? "enabled" : "disabled"}.`
     )}
       ${healthCard(
-      "Worker",
+      "Global worker",
       control.workerStatus.toUpperCase(),
       control.workerStatus === "online" ? "success" : control.workerStatus === "stale" ? "warning" : "danger",
-      "Hosted runtime heartbeat."
+      "Platform heartbeat; nenahrazuje health konkrétní instance."
     )}
       ${healthCard(
       "Build parity",
@@ -41684,7 +41704,7 @@
         ${keyValue("Game hosting", hostingLabel)}
         ${keyValue("Database", control.databaseAvailable ? "AVAILABLE" : "UNAVAILABLE")}
         ${keyValue("Migrace", control.migrationsCurrent ? "CURRENT" : "PENDING")}
-        ${keyValue("Worker", control.workerStatus.toUpperCase())}
+        ${keyValue("Global worker", control.workerStatus.toUpperCase())}
         ${keyValue("Provisioning", control.provisioningEnabled ? "ENABLED" : "DISABLED")}
         ${keyValue("Build parity", frontendCompatible ? "CURRENT" : "BLOCKED")}
         ${keyValue("Session security", (control.sessionSecurity ?? "blocked").toUpperCase())}
@@ -41722,7 +41742,7 @@
       ${keyValue("Hráči", `${server.committedPlayers ?? 0} / ${server.capacity}`)}
       ${keyValue("Registrace", server.registrationState ?? "unknown")}
       ${keyValue("Join policy", server.joinPolicy)}
-      ${keyValue("Worker", server.lastWorkerHeartbeatAt ? "HEARTBEAT" : "BEZ HEARTBEATU")}
+      ${keyValue("Instance heartbeat", server.lastWorkerHeartbeatAt ? "HEARTBEAT" : "BEZ HEARTBEATU")}
     </div>
     ${renderAdminRegistration(server, session)}
     ${renderAdminStartReadiness(server)}
@@ -41733,7 +41753,7 @@
       ${session.role === "owner" ? `${lifecycleButton(server, "stop", "Stop")}${lifecycleButton(server, "delete", "Smazat server")}` : ""}
     </div><p class="admin-copy admin-lifecycle__hint">Vyberte akci. Důvod a potvrzení zadáte v bezpečném dialogu pro tento server.</p>
     <details class="admin-disclosure admin-disclosure--technical">
-      <summary><span>Serverová diagnostika</span><small>Lease, snapshot a canonical timing</small></summary>
+      <summary><span>Serverová diagnostika</span><small>Lease, lifecycle marker a canonical timing</small></summary>
       <div class="admin-kv-grid">
         ${keyValue("Šablona", server.serverTemplate === "full" ? "Plnohodnotný server" : "Kontrolní test")}
         ${keyValue("Server version", server.version)}
@@ -41747,7 +41767,7 @@
         ${keyValue("První eliminace tick", server.effectiveFirstEliminationTick ?? server.canonicalFirstEliminationTick)}
         ${keyValue("Heartbeat", formatTime(server.lastWorkerHeartbeatAt))}
         ${keyValue("Lease owner", server.runtimeLeaseOwnerId)}${keyValue("Lease expires", formatTime(server.runtimeLeaseExpiresAt))}
-        ${keyValue("Current snapshot", server.currentSnapshotId)}${keyValue("Last error", server.lastErrorCode)}
+        ${keyValue("Lifecycle snapshot marker", server.currentSnapshotId)}${keyValue("Last error", server.lastErrorCode)}
         ${keyValue("Updated", formatTime(server.updatedAt))}
       </div>
     </details>
@@ -41801,6 +41821,104 @@
     if (action2 === "stop") return ["lobby", "running", "paused", "restarting"].includes(server.status) ? null : "Server už nelze zastavit.";
     return "Akce není dostupná.";
   };
+  const renderAdminInstanceRuntimeHealth = (detail) => {
+    const health = detail.runtimeHealth;
+    if (!health) {
+      return `<section class="admin-notice" data-admin-runtime-health>
+      Per-server runtime health read model není pro tuto instanci dostupný.
+    </section>`;
+    }
+    return `<section class="admin-health-grid" data-admin-runtime-health data-lifecycle="${attribute(health.lifecycleStatus)}">
+    ${runtimeHealthCard("Server runtime active", "runtime-active", health.runtimeActive, health)}
+    ${runtimeHealthCard("Server tick advancing", "tick-advancing", health.tickAdvancing, health)}
+    ${runtimeHealthCard("Server snapshot current", "snapshot-current", health.snapshotCurrent, health)}
+    ${runtimeHealthCard("Recent server command accepted", "commands-accepted", health.commandsAccepted, health)}
+  </section>`;
+  };
+  const shouldWarnAboutRuntime = (detail) => detail.runtimeHealth ? detail.runtimeHealth.runtimeActive.status === "fail" : ["running", "restarting"].includes(detail.summary.status.toLowerCase()) && !detail.runtimeAvailable;
+  const runtimeHealthCard = (label, key, check, health) => {
+    const presentation = runtimeCheckPresentation(check);
+    return `<article class="admin-health-card admin-health-card--${attribute(presentation.tone)}"
+      data-admin-runtime-check="${attribute(key)}" data-status="${attribute(check.status)}">
+    <span>${escapeHtml(label)}</span><strong>${escapeHtml(presentation.label)}</strong>
+    <p>${escapeHtml(runtimeCheckDetail(check, health))}</p>
+  </article>`;
+  };
+  const runtimeCheckPresentation = (check) => ({
+    pass: { label: "PASS", tone: "success" },
+    fail: { label: "FAIL", tone: "danger" },
+    pending: { label: "PENDING", tone: "warning" },
+    "not-applicable": { label: "N/A", tone: "neutral" }
+  })[check.status];
+  const runtimeCheckDetail = (check, health) => {
+    const detail = RUNTIME_REASON_LABELS[check.reasonCode] ?? check.reasonCode;
+    const threshold = ["recovery-head-current", "recovery-head-stale"].includes(check.reasonCode) ? ` Hranice ${health.freshnessThresholdMs ?? "–"} ms.` : "";
+    const commandWindow = [
+      "recent-applied-command-observed",
+      "applied-command-observation-stale"
+    ].includes(check.reasonCode) ? ` Pozorovací okno ${health.commandObservationWindowMs ?? "–"} ms.` : "";
+    const observed = check.observedAt ? ` Pozorováno ${formatTime(check.observedAt)}.` : "";
+    return `${detail}${threshold}${commandWindow}${observed}`;
+  };
+  const RUNTIME_REASON_LABELS = {
+    "instance-runtime-active": "Per-instance heartbeat je fresh a runtime lease je platný.",
+    "instance-runtime-error": "Instance heartbeat hlásí poslední runtime chybu.",
+    "instance-heartbeat-not-live": "Per-instance heartbeat není fresh; globální worker tento stav nenahrazuje.",
+    "runtime-lease-missing": "Běžící instance nemá vlastníka runtime lease.",
+    "runtime-lease-heartbeat-owner-mismatch": "Per-instance heartbeat nepatří aktuálnímu workeru a inkarnaci runtime lease.",
+    "runtime-lease-expired": "Runtime lease této instance vypršel.",
+    "tick-advance-two-sample": "Dvě procesní pozorování potvrzují růst snapshot ticku, root ticku a stateVersion.",
+    "tick-runtime-inactive": "Tick nelze potvrdit, protože runtime instance není aktivní.",
+    "tick-recovery-head-not-current": "Tick nelze potvrdit bez aktuálního recovery headu.",
+    "tick-observation-missing": "Chybí per-instance tick pozorování.",
+    "tick-observation-first-sample": "První vzorek je uložený; PASS vyžaduje další pozorování.",
+    "tick-observation-awaiting-next-sample": "Další časově odlišný vzorek zatím není dostupný.",
+    "tick-observation-window-open": "Pozorovací okno ještě běží a posun zatím nebyl prokázán.",
+    "tick-observation-gap-too-large": "Vzorky jsou příliš vzdálené; pro aktuální PASS je potřeba nový pár.",
+    "tick-observation-reset": "Tick nebo stateVersion se vrátily zpět; baseline byl bezpečně obnoven.",
+    "tick-observation-inconsistent": "Snapshot tick, root tick a stateVersion se neposunuly společně.",
+    "tick-not-advancing": "V celém pozorovacím okně se snapshot tick, root tick ani stateVersion neposunuly.",
+    "recovery-head-current": "Recovery head odpovídá běžícímu lifecycle.",
+    "recovery-head-stale": "Recovery head překročil lifecycle freshness hranici.",
+    "recovery-head-missing": "Durable recovery head není dostupný.",
+    "snapshot-awaiting-provisioning": "Snapshot vznikne během provisioningu.",
+    "snapshot-retained-lobby": "Lobby nemusí periodicky tickovat; uložený snapshot je platný.",
+    "snapshot-retained-paused": "Pozastavený server nemusí tickovat; uložený snapshot je platný.",
+    "terminal-checkpoint-present": "Stopped server má terminal checkpoint.",
+    "terminal-checkpoint-missing": "Stopped server nemá potvrzený terminal checkpoint.",
+    "snapshot-historical-archive": "Archivovaný server uchovává historická data bez freshness požadavku.",
+    "snapshot-last-known-after-failure": "Snapshot je poslední známý stav po selhání.",
+    "snapshot-lifecycle-unknown": "Snapshot nelze pro neznámý lifecycle klasifikovat.",
+    "recent-applied-command-observed": "Čerstvý durable command result potvrzuje nedávno aplikovaný gameplay příkaz.",
+    "applied-command-observation-stale": "Poslední aplikovaný příkaz je mimo čerstvé pozorovací okno; příjem příkazů proto není potvrzen.",
+    "commands-not-yet-observed": "Zatím nebyl pozorován aplikovaný gameplay příkaz.",
+    "commands-not-observed-since-start": "Od posledního startu nebyl pozorován aplikovaný příkaz.",
+    "commands-start-time-unavailable": "Chybí lifecycle čas posledního startu; starší příkaz nelze připsat aktuálnímu běhu.",
+    "commands-observation-time-invalid": "Čas command evidence nelze bezpečně porovnat s aktuálním pozorováním.",
+    "commands-runtime-inactive": "Příjem příkazů nelze potvrdit bez aktivního runtime.",
+    "commands-restarting": "Server se restartuje; příjem gameplay příkazů se v přechodovém stavu nepotvrzuje.",
+    "commands-lifecycle-unknown": "Lifecycle nepovoluje bezpečně potvrdit příjem gameplay příkazů.",
+    "commands-awaiting-provisioning": "Příkazy čekají na dokončení provisioningu.",
+    "commands-server-failed": "Server je ve failed lifecycle.",
+    "runtime-not-required-requested": "Runtime ještě není pro requested server vyžadován.",
+    "runtime-not-required-provisioning": "Runtime health se během provisioningu neposuzuje jako running.",
+    "runtime-not-required-lobby": "Lobby bez aktivní práce nemusí držet runtime lease.",
+    "runtime-not-required-paused": "Pozastavený server nemusí držet aktivní runtime.",
+    "runtime-not-required-stopped": "Stopped server nesmí běžet.",
+    "runtime-not-required-archived": "Archivovaný server nesmí běžet.",
+    "runtime-not-required-failed": "Failed server nemá aktivní runtime.",
+    "tick-not-required-requested": "Tick ještě není vyžadován.",
+    "tick-not-required-provisioning": "Tick se během provisioningu neposuzuje jako running.",
+    "tick-not-required-lobby": "Lobby nemusí periodicky tickovat.",
+    "tick-not-required-paused": "Pozastavený server se nesmí posouvat.",
+    "tick-not-required-stopped": "Stopped server se nesmí posouvat.",
+    "tick-not-required-archived": "Archivovaný server se nesmí posouvat.",
+    "tick-not-required-failed": "Failed server se neposuzuje jako běžící.",
+    "commands-not-accepted-paused": "Pozastavený server gameplay příkazy nepřijímá.",
+    "commands-not-accepted-lobby": "Lobby ještě nepřijímá gameplay příkazy.",
+    "commands-not-accepted-stopped": "Stopped server gameplay příkazy nepřijímá.",
+    "commands-not-accepted-archived": "Archivovaný server gameplay příkazy nepřijímá."
+  };
   const renderAdminInstanceDetail = (detail) => detail ? `
   <section id="admin-instance-detail" class="admin-section-anchor admin-instance-hero">
     <div class="admin-section__head">
@@ -41816,7 +41934,8 @@
       ${keyValue("State version", detail.summary.stateVersion)}
       ${keyValue("Data k", formatTime(detail.freshness.dataAsOf))}
     </div>
-    ${detail.runtimeAvailable ? "" : `<p class="admin-notice">Live runtime není dostupný. Zobrazená data pocházejí z durable snapshotu a mohou být zastaralá.</p>`}
+    ${renderAdminInstanceRuntimeHealth(detail)}
+    ${shouldWarnAboutRuntime(detail) ? `<p class="admin-notice">Runtime této běžící instance není aktivní. Zobrazená data pocházejí z durable snapshotu a vyžadují kontrolu lease a heartbeat.</p>` : ""}
     ${detail.freshness.stale ? `<p class="admin-notice">Stale důvod: ${escapeHtml(detail.freshness.staleReason ?? "nezjištěno")}</p>` : ""}
     <details class="admin-disclosure admin-disclosure--technical">
       <summary><span>Technický stav instance</span><small>Freshness, snapshot, heartbeat a lease</small></summary>
@@ -41824,6 +41943,14 @@
         ${keyValue("Join policy", detail.summary.joinPolicy)}${keyValue("Zdroj", detail.freshness.source)}
         ${keyValue("Snapshot", formatTime(detail.summary.lastSnapshotAt))}${keyValue("Heartbeat", formatTime(detail.summary.lastHeartbeatAt))}
         ${keyValue("Lease owner", detail.summary.leaseOwner)}${keyValue("Lease expires", formatTime(detail.summary.leaseExpiresAt))}
+        ${detail.runtimeHealth ? `
+          ${keyValue("Instance heartbeat tick", detail.runtimeHealth.instanceLastTick)}
+          ${keyValue("Expected tick rate", detail.runtimeHealth.expectedTickRateMs ? `${detail.runtimeHealth.expectedTickRateMs} ms` : "–")}
+          ${keyValue("Freshness threshold", detail.runtimeHealth.freshnessThresholdMs ? `${detail.runtimeHealth.freshnessThresholdMs} ms` : "–")}
+          ${keyValue("Command observation window", detail.runtimeHealth.commandObservationWindowMs ? `${detail.runtimeHealth.commandObservationWindowMs} ms` : "–")}
+          ${keyValue("Last applied command", formatTime(detail.runtimeHealth.lastAppliedCommandAt))}
+          ${keyValue("Instance runtime error", detail.runtimeHealth.instanceLastErrorCode ?? "žádná")}
+        ` : ""}
       </div>
     </details>
   </section>

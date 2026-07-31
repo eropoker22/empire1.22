@@ -1,7 +1,4 @@
-import { CLIENT_EXECUTION_MODES, resolveClientEntryExecutionMode } from "./app/runtime/clientAuthorityState.js";
+import { resolveClientEntryExecutionMode } from "./app/runtime/clientAuthorityState.js";
 
-if (resolveClientEntryExecutionMode() === CLIENT_EXECUTION_MODES.localDemo) {
-  void import("./login.js?v=20260726-defeat-preview-removed");
-} else {
-  void import("./login-live.js?v=20260726-defeat-preview-removed");
-}
+resolveClientEntryExecutionMode({ localDemoEnabled: false });
+void import("./login-live.js?v=20260731-live-only");

@@ -2,6 +2,7 @@ import type { AdminAuditEntryView } from "@empire/shared-types";
 import { copyFreeHostedStartingPlayerState } from "@empire/game-config";
 import type { PostgresQueryable } from "../../runtime/persistence/postgres";
 import { HOSTED_WORKER_FRESH_MS, type HostedActionRequestRecord, type HostedActionTransactionResult, type HostedCreateTransactionResult, type HostedProvisioningJobRecord, type HostedServerRecord, type HostedWorkerHeartbeatRecord } from "./hosted-control-plane-repository";
+import { parsePersistedHostedStartingPlayerState } from "./hosted-starting-player-state-policy";
 
 export interface HostedServerRow extends Record<string, unknown> { [key: string]: unknown }
 export interface ProvisioningRow extends Record<string, unknown> { [key: string]: unknown }
@@ -19,10 +20,17 @@ export const loadCreateReplay = async (client: PostgresQueryable, adminUserId: s
   const original = asRecord(idempotency.rows[0].response_payload);
   const mappedServer = mapServer(server.rows[0]);
   const mappedJob = mapJob(job.rows[0]);
-  return { kind: "replayed", server: { ...mappedServer,
+  const replayLifecycle = mappedServer.startingPlayerState ? {
     status: original.status as HostedServerRecord["status"] ?? mappedServer.status,
-    provisioningState: original.provisioningState as HostedServerRecord["provisioningState"] ?? mappedServer.provisioningState,
-    joinPolicy: original.joinPolicy as HostedServerRecord["joinPolicy"] ?? mappedServer.joinPolicy,
+    provisioningState: original.provisioningState as HostedServerRecord["provisioningState"]
+      ?? mappedServer.provisioningState,
+    joinPolicy: original.joinPolicy as HostedServerRecord["joinPolicy"] ?? mappedServer.joinPolicy
+  } : {
+    status: mappedServer.status,
+    provisioningState: mappedServer.provisioningState,
+    joinPolicy: mappedServer.joinPolicy
+  };
+  return { kind: "replayed", server: { ...mappedServer, ...replayLifecycle,
     version: Number(original.version ?? mappedServer.version), updatedAt: String(original.updatedAt ?? mappedServer.updatedAt) },
     job: { ...mappedJob, jobId: String(original.jobId ?? mappedJob.jobId) } };
 };
@@ -145,29 +153,41 @@ export const lockCurrentActionClaim = async (
   return (result.rowCount ?? 0) > 0;
 };
 
-export const mapServer = (r: HostedServerRow): HostedServerRecord => ({
-  serverInstanceId:String(r.server_instance_id),mode:r.mode as HostedServerRecord["mode"],displayName:String(r.display_name),region:String(r.region),capacity:Number(r.capacity),
-  serverTemplate:r.server_template as HostedServerRecord["serverTemplate"],
-  status:r.status as HostedServerRecord["status"],joinPolicy:r.join_policy as HostedServerRecord["joinPolicy"],provisioningState:r.provisioning_state as HostedServerRecord["provisioningState"],
-  minimumReadyPlayersToStart:Number(r.minimum_ready_players_to_start),registrationWindowMinutes:Number(r.registration_window_minutes),
-  registrationScheduleVersion:Number(r.registration_schedule_version),registrationOpensAt:dateOrNull(r.registration_opens_at),
-  registrationClosesAt:dateOrNull(r.registration_closes_at),registrationClosedAt:dateOrNull(r.registration_closed_at),
-  registrationBaselinePlayers:numberOrNull(r.registration_baseline_players),canonicalFinalLockdownTrigger:numberOrNull(r.canonical_final_lockdown_trigger),
-  canonicalFirstEliminationTick:numberOrNull(r.canonical_first_elimination_tick),canonicalTickRateMs:numberOrNull(r.canonical_tick_rate_ms),
-  effectiveFinalLockdownTrigger:numberOrNull(r.effective_final_lockdown_trigger),effectiveFirstEliminationTick:numberOrNull(r.effective_first_elimination_tick),
-  worldSeed:String(r.world_seed),configVersion:Number(r.config_version),mapComposition:json(r.map_composition) as HostedServerRecord["mapComposition"],
-  startingPlayerState:(r.starting_player_state
-    ? json(r.starting_player_state)
-    : copyFreeHostedStartingPlayerState()) as HostedServerRecord["startingPlayerState"],
-  initialSnapshotId:nullable(r.initial_snapshot_id),currentSnapshotId:nullable(r.current_snapshot_id),runtimeLeaseOwnerId:nullable(r.runtime_lease_owner_id),
-  runtimeLeaseExpiresAt:dateOrNull(r.runtime_lease_expires_at),lastWorkerHeartbeatAt:dateOrNull(r.last_worker_heartbeat_at),lastStartedAt:dateOrNull(r.last_started_at),
-  lastPausedAt:dateOrNull(r.last_paused_at),lastStoppedAt:dateOrNull(r.last_stopped_at),lastErrorCode:nullable(r.last_error_code),
-  createdByAdminUserId:String(r.created_by_admin_user_id),createdAt:date(r.created_at),updatedAt:date(r.updated_at),version:Number(r.version)
-});
+export const mapServer = (r: HostedServerRow): HostedServerRecord => {
+  const startingPlayerState = mapPersistedStartingPlayerState(r.starting_player_state);
+  const startingStateInvalid = !startingPlayerState.accepted;
+  return {
+    serverInstanceId:String(r.server_instance_id),mode:r.mode as HostedServerRecord["mode"],displayName:String(r.display_name),region:String(r.region),capacity:Number(r.capacity),
+    serverTemplate:r.server_template as HostedServerRecord["serverTemplate"],
+    status:startingStateInvalid ? "failed" : r.status as HostedServerRecord["status"],
+    joinPolicy:startingStateInvalid ? "closed" : r.join_policy as HostedServerRecord["joinPolicy"],
+    provisioningState:startingStateInvalid ? "failed" : r.provisioning_state as HostedServerRecord["provisioningState"],
+    minimumReadyPlayersToStart:Number(r.minimum_ready_players_to_start),registrationWindowMinutes:Number(r.registration_window_minutes),
+    registrationScheduleVersion:Number(r.registration_schedule_version),registrationOpensAt:dateOrNull(r.registration_opens_at),
+    registrationClosesAt:dateOrNull(r.registration_closes_at),registrationClosedAt:dateOrNull(r.registration_closed_at),
+    registrationBaselinePlayers:numberOrNull(r.registration_baseline_players),canonicalFinalLockdownTrigger:numberOrNull(r.canonical_final_lockdown_trigger),
+    canonicalFirstEliminationTick:numberOrNull(r.canonical_first_elimination_tick),canonicalTickRateMs:numberOrNull(r.canonical_tick_rate_ms),
+    effectiveFinalLockdownTrigger:numberOrNull(r.effective_final_lockdown_trigger),effectiveFirstEliminationTick:numberOrNull(r.effective_first_elimination_tick),
+    worldSeed:String(r.world_seed),configVersion:Number(r.config_version),mapComposition:json(r.map_composition) as HostedServerRecord["mapComposition"],
+    ...(startingPlayerState.accepted ? { startingPlayerState: startingPlayerState.data } : {}),
+    initialSnapshotId:nullable(r.initial_snapshot_id),currentSnapshotId:nullable(r.current_snapshot_id),runtimeLeaseOwnerId:nullable(r.runtime_lease_owner_id),
+    runtimeLeaseExpiresAt:dateOrNull(r.runtime_lease_expires_at),lastWorkerHeartbeatAt:dateOrNull(r.last_worker_heartbeat_at),lastStartedAt:dateOrNull(r.last_started_at),
+    lastPausedAt:dateOrNull(r.last_paused_at),lastStoppedAt:dateOrNull(r.last_stopped_at),
+    lastErrorCode:startingStateInvalid ? "HOSTED_STARTING_PLAYER_STATE_LEGACY_INVALID" : nullable(r.last_error_code),
+    createdByAdminUserId:String(r.created_by_admin_user_id),createdAt:date(r.created_at),updatedAt:date(r.updated_at),version:Number(r.version)
+  };
+};
 export const mapJob = (r: ProvisioningRow): HostedProvisioningJobRecord => ({jobId:String(r.job_id),serverInstanceId:String(r.server_instance_id),attempt:Number(r.attempt),status:r.status as HostedProvisioningJobRecord["status"],availableAt:date(r.available_at),claimedByWorkerId:nullable(r.claimed_by_worker_id),claimedUntil:dateOrNull(r.claimed_until),lastErrorCode:nullable(r.last_error_code),createdAt:date(r.created_at),updatedAt:date(r.updated_at),version:Number(r.version)});
 export const mapAction = (r: ActionRow): HostedActionRequestRecord => ({actionRequestId:String(r.action_request_id),serverInstanceId:String(r.server_instance_id),adminUserId:String(r.admin_user_id),action:r.action as HostedActionRequestRecord["action"],actionPayload:asRecord(r.action_payload) as HostedActionRequestRecord["actionPayload"],reason:String(r.reason),expectedVersion:Number(r.expected_version),status:r.status as HostedActionRequestRecord["status"],claimedByWorkerId:nullable(r.claimed_by_worker_id),claimedUntil:dateOrNull(r.claimed_until),lastErrorCode:nullable(r.last_error_code),createdAt:date(r.created_at),updatedAt:date(r.updated_at),version:Number(r.version)});
 export const mapWorker = (r: WorkerRow): HostedWorkerHeartbeatRecord => ({workerId:String(r.worker_id),workerIncarnationId:String(r.worker_incarnation_id),region:String(r.region),startedAt:date(r.started_at),lastHeartbeatAt:date(r.last_heartbeat_at),buildSha:String(r.build_sha),status:r.status as HostedWorkerHeartbeatRecord["status"]});
 const json = (v: unknown): unknown => typeof v === "string" ? JSON.parse(v) : v;
+const mapPersistedStartingPlayerState = (
+  value: unknown
+): { accepted: true; data: NonNullable<HostedServerRecord["startingPlayerState"]> }
+  | { accepted: false } => {
+  const parsed = parsePersistedHostedStartingPlayerState(value);
+  return parsed.accepted ? { accepted: true, data: parsed.data } : { accepted: false };
+};
 const nullable = (v: unknown): string | null => v == null ? null : String(v);
 const numberOrNull = (v: unknown): number | null => v == null ? null : Number(v);
 const date = (v: unknown): string => v instanceof Date ? v.toISOString() : new Date(String(v)).toISOString();

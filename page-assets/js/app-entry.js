@@ -1,8 +1,11 @@
-import { CLIENT_EXECUTION_MODES, resolveClientEntryExecutionMode } from "./app/runtime/clientAuthorityState.js";
-import { isExplicitGamePreviewEnabled } from "./app/local-demo-gate.js";
+import {
+  CLIENT_EXECUTION_MODES,
+  isE2eLocalDemoEntryEnabled,
+  resolveClientEntryExecutionMode
+} from "./app/runtime/clientAuthorityState.js";
 
 const executionMode = resolveClientEntryExecutionMode({
-  localDemoEnabled: isExplicitGamePreviewEnabled() ? true : undefined
+  localDemoEnabled: isE2eLocalDemoEntryEnabled()
 });
 window.__EMPIRE_GAMEPLAY_EXECUTION_MODE__ = executionMode;
 document.documentElement.dataset.gameplayExecutionMode = executionMode;
@@ -15,7 +18,7 @@ window.empireStreetsRuntimeDiagnostics?.setMode?.(executionMode, {
 });
 
 if (executionMode === CLIENT_EXECUTION_MODES.localDemo) {
-  void import("./app-demo.js?v=defeat-notice-20260726-v2");
+  void import("./app-demo.js?v=20260731-e2e-parity-only");
 } else {
-  void import("./app.js?v=defeat-notice-20260726-v2");
+  void import("./app.js?v=20260731-live-only");
 }

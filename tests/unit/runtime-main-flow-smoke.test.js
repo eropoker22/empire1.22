@@ -4,16 +4,34 @@ import { describe, expect, it, vi } from "vitest";
 
 const root = process.cwd();
 const read = (relativePath) => readFileSync(resolve(root, relativePath), "utf8");
+const [
+  runtime,
+  geometry,
+  buildingDisplayData,
+  notifications,
+  resourcesPanel,
+  battleReportPanel,
+  legacyStorage,
+  { GAMEPLAY_EXECUTION_MODES }
+] = await Promise.all([
+  import("../../page-assets/js/app/runtime.js"),
+  import("../../page-assets/js/app/map/mapGeometry.js"),
+  import("../../page-assets/js/app/runtime/buildingDisplayData.js"),
+  import("../../page-assets/js/app/ui/notifications.js"),
+  import("../../page-assets/js/app/ui/resourcesPanel.js"),
+  import("../../page-assets/js/app/ui/battleReportPanel.js"),
+  import("../../page-assets/js/app/persistence/legacyStorage.js"),
+  import("../../page-assets/js/app/runtime/gameplayExecutionMode.js")
+]);
 
 describe("runtime main UI flow smoke guard", () => {
-  it("keeps the boot path, critical anchors, and runtime facade wired together", async () => {
+  it("keeps the boot path, critical anchors, and runtime facade wired together", () => {
     const html = read("pages/game.html");
     const appSource = read("page-assets/js/app.js");
     const localDemoFacade = read("page-assets/js/app/render-ui.js");
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
     try {
-      const runtime = await import("../../page-assets/js/app/runtime.js");
       const requiredAnchors = [
         'id="game-root"',
         'data-page="game"',
@@ -78,29 +96,70 @@ describe("runtime main UI flow smoke guard", () => {
     }
   }, 10000);
 
-  it("keeps each extracted module importable for the core UI smoke path", async () => {
-    const [
-      geometry,
-      buildingDisplayData,
-      notifications,
-      resourcesPanel,
-      battleReportPanel,
-      legacyStorage
-    ] = await Promise.all([
-      import("../../page-assets/js/app/map/mapGeometry.js"),
-      import("../../page-assets/js/app/runtime/buildingDisplayData.js"),
-      import("../../page-assets/js/app/ui/notifications.js"),
-      import("../../page-assets/js/app/ui/resourcesPanel.js"),
-      import("../../page-assets/js/app/ui/battleReportPanel.js"),
-      import("../../page-assets/js/app/persistence/legacyStorage.js")
-    ]);
-
+  it("keeps each extracted module importable for the core UI smoke path", () => {
     expect(geometry.createDistrictGeometry(1600, 980).districts).toHaveLength(161);
     expect(buildingDisplayData.DISTRICT_BUILDING_VARIANT_NAMES_BY_BASE_NAME.Autosalon.length).toBeGreaterThan(0);
     expect(notifications.showToast).toBeTypeOf("function");
     expect(resourcesPanel.updateTopbarResources).toBeTypeOf("function");
     expect(battleReportPanel.renderBattleReport).toBeTypeOf("function");
     expect(legacyStorage.getStorageKey).toBeTypeOf("function");
+  });
+
+  it("fails closed instead of opening local building UI for a cold hosted slice", () => {
+    const {
+      dispatchBuildingDetailOpenByAuthority,
+      resolveBuildingRuntimeExecutionMode,
+      selectBuildingPresentationByAuthority
+    } = runtime;
+    const district = { id: 7 };
+    const getLocalDemoPresentation = vi.fn(() => ({ source: "local-demo" }));
+    const getServerAuthoritativePresentation = vi.fn(() => ({ source: "server-authoritative" }));
+    const openLocalDemo = vi.fn(() => true);
+    const openServerAuthoritative = vi.fn(() => true);
+    const onUnavailable = vi.fn();
+
+    expect(resolveBuildingRuntimeExecutionMode({
+      executionMode: GAMEPLAY_EXECUTION_MODES.serverAuthoritative,
+      serverReady: false
+    })).toBe(GAMEPLAY_EXECUTION_MODES.unavailable);
+    expect(selectBuildingPresentationByAuthority({
+      executionMode: GAMEPLAY_EXECUTION_MODES.serverAuthoritative,
+      serverReady: false,
+      district,
+      getLocalDemoPresentation,
+      getServerAuthoritativePresentation
+    })).toBeNull();
+    expect(dispatchBuildingDetailOpenByAuthority({
+      executionMode: GAMEPLAY_EXECUTION_MODES.serverAuthoritative,
+      serverReady: false,
+      openLocalDemo,
+      openServerAuthoritative,
+      onUnavailable
+    })).toBe(false);
+    expect(getLocalDemoPresentation).not.toHaveBeenCalled();
+    expect(getServerAuthoritativePresentation).not.toHaveBeenCalled();
+    expect(openLocalDemo).not.toHaveBeenCalled();
+    expect(openServerAuthoritative).not.toHaveBeenCalled();
+    expect(onUnavailable).toHaveBeenCalledOnce();
+
+    expect(selectBuildingPresentationByAuthority({
+      executionMode: GAMEPLAY_EXECUTION_MODES.localDemo,
+      serverReady: false,
+      district,
+      getLocalDemoPresentation,
+      getServerAuthoritativePresentation
+    })).toEqual({ source: "local-demo" });
+    expect(getLocalDemoPresentation).toHaveBeenCalledWith(district);
+
+    expect(dispatchBuildingDetailOpenByAuthority({
+      executionMode: GAMEPLAY_EXECUTION_MODES.serverAuthoritative,
+      serverReady: true,
+      openLocalDemo,
+      openServerAuthoritative,
+      onUnavailable
+    })).toBe(true);
+    expect(openServerAuthoritative).toHaveBeenCalledOnce();
+    expect(openLocalDemo).not.toHaveBeenCalled();
   });
 
   it("does not reset persisted local-demo state during normal runtime initialization", () => {
@@ -210,6 +269,32 @@ describe("runtime main UI flow smoke guard", () => {
       expect(handoffCloseIndex).toBeGreaterThan(presentBuildingDetailIndex);
       expect(buildingPopupClickIndex).toBeGreaterThan(handoffCloseIndex);
     }
+  });
+
+  it("guards every building detail presenter before any local renderer can run", () => {
+    const runtimeSource = read("page-assets/js/app/runtime.js");
+    const presenterStart = runtimeSource.indexOf(
+      "const presentDistrictBuildingDetail ="
+    );
+    const presenterEnd = runtimeSource.indexOf(
+      "let openDistrictBuildingDetail =",
+      presenterStart
+    );
+    const presenterSource = runtimeSource.slice(presenterStart, presenterEnd);
+    const unavailableGuardIndex = presenterSource.indexOf(
+      "buildingExecutionMode === GAMEPLAY_EXECUTION_MODES.unavailable"
+    );
+    const localRendererIndex = presenterSource.indexOf(
+      "openGenericDistrictBuildingDetail("
+    );
+
+    expect(presenterStart).toBeGreaterThan(-1);
+    expect(presenterEnd).toBeGreaterThan(presenterStart);
+    expect(unavailableGuardIndex).toBeGreaterThan(-1);
+    expect(localRendererIndex).toBeGreaterThan(unavailableGuardIndex);
+    expect(runtimeSource).not.toMatch(
+      /if \(!isServerAuthoritativeGameplayRuntimeReady\(\)\) \{\r?\n\s+return presentDistrictBuildingDetail/u
+    );
   });
 
   it("marks actionable mobile district popups for the raised phone position", () => {

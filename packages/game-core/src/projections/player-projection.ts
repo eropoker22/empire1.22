@@ -25,6 +25,7 @@ import { isFactoryOwnedBy } from "../handlers/factoryProductionShared";
 import { createPlayerBoostView } from "./player-boost-projection";
 import { createPlayerCityEventsView } from "./city-event-projection";
 import { resolvePlayerOperationalLiveness } from "../rules/liveness/playerOperationalLiveness";
+import { calculatePlayerProjectedInfluence } from "./player-resource-projection";
 
 /**
  * Responsibility: Builds a minimal player-facing projection from authoritative core state.
@@ -187,7 +188,7 @@ const createPlayerEconomyView = (
   return {
     cleanCash: amountOf(resources, "cash"),
     dirtyCash: amountOf(resources, "dirty-cash"),
-    influence: calculateOwnedDistrictInfluence(state, playerId),
+    influence: calculatePlayerProjectedInfluence(state, playerId),
     population,
     gangMembers,
     resources,
@@ -213,8 +214,3 @@ const pickBalances = (
   resourceIds: readonly string[]
 ): Record<string, number> =>
   Object.fromEntries(resourceIds.map((resourceId) => [resourceId, amountOf(balances, resourceId)]));
-
-const calculateOwnedDistrictInfluence = (state: CoreGameState, playerId: string): number =>
-  Object.values(state.districtsById)
-    .filter((district) => district.ownerPlayerId === playerId)
-    .reduce((total, district) => total + Math.max(0, Number(district.influence || 0)), 0);

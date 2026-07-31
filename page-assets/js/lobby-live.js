@@ -13,7 +13,6 @@ import {
   hostedRegistrationDisabledCopy,
   resolveHostedRegistrationPresentation
 } from "./app/hosted-registration-ui.js";
-import { isLocalDemoAccessAvailable } from "./app/local-demo-gate.js";
 import {
   describeLobbyMapDistrict,
   findLobbyMapDistrict,
@@ -217,17 +216,6 @@ function bindNavigation() {
     document.querySelectorAll("[data-lobby-nav-target]").forEach((item) => item.classList.toggle("is-active", item === button));
   }));
   document.querySelector("[data-live-account-logout]")?.addEventListener("click", () => void performLogout());
-  const demoAccess = document.querySelector("[data-local-demo-access]");
-  const openDemo = document.querySelector("[data-open-local-demo]");
-  const localDemoAvailable = isLocalDemoAccessAvailable();
-  if (!(demoAccess instanceof HTMLElement)) return;
-  demoAccess.hidden = !localDemoAvailable;
-  demoAccess.setAttribute("aria-hidden", String(!localDemoAvailable));
-  if (localDemoAvailable) {
-    openDemo?.addEventListener("click", () => {
-      location.assign(`./login.html?runtimeMode=local-demo&mode=${state.activeMode}`);
-    });
-  }
 }
 
 function bindModal() {

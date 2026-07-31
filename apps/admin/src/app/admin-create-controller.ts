@@ -2,7 +2,10 @@ import {
   FREE_HOSTED_STARTING_MATERIAL_IDS,
   resolveModeConfig
 } from "@empire/game-config";
-import type { AdminCreateServerRequestView } from "@empire/shared-types";
+import type {
+  AdminCreateServerRequestView,
+  HostedStartingPlayerStateView
+} from "@empire/shared-types";
 import type { AdminApiClient } from "./admin-monitoring-client";
 import { mapTotal, updateWizardReview, validateWizardPanel } from "./admin-create-wizard";
 
@@ -77,6 +80,10 @@ export const createAdminCreateController = (options: AdminCreateControllerOption
     if (!form.reportValidity() || !idempotencyKey) return;
     if (mapTotal(form) !== 161) return showError(form, "Mapa musí obsahovat přesně 161 districtů.");
     const data = new FormData(form);
+    const startingPlayerState = readStartingPlayerStateFormData(data);
+    if (!startingPlayerState) {
+      return showError(form, "Počáteční stav hráče není kompletní nebo obsahuje neplatné číslo.");
+    }
     const serverTemplate: AdminCreateServerRequestView["serverTemplate"] = data.get("serverTemplate") === "full" ? "full" : "control";
     const payload: AdminCreateServerRequestView = {
       displayName: String(data.get("displayName") ?? ""),
@@ -92,16 +99,7 @@ export const createAdminCreateController = (options: AdminCreateControllerOption
         industrial: Number(data.get("industrial")),
         park: Number(data.get("park"))
       },
-      startingPlayerState: {
-        cleanCash: Number(data.get("startingCleanCash")),
-        dirtyCash: Number(data.get("startingDirtyCash")),
-        population: Number(data.get("startingPopulation")),
-        spySlots: 2,
-        materials: Object.fromEntries(FREE_HOSTED_STARTING_MATERIAL_IDS.map((materialId) => [
-          materialId,
-          Number(data.get(`startingMaterial:${materialId}`))
-        ])) as NonNullable<AdminCreateServerRequestView["startingPlayerState"]>["materials"]
-      }
+      startingPlayerState
     };
     const submitButton = form.querySelector<HTMLButtonElement>("[type=submit]");
     if (submitButton) submitButton.disabled = true;
@@ -165,6 +163,37 @@ export const createAdminCreateController = (options: AdminCreateControllerOption
   };
 
   return { bind };
+};
+
+export const readStartingPlayerStateFormData = (
+  data: FormData
+): HostedStartingPlayerStateView | null => {
+  const cleanCash = readRequiredInteger(data, "startingCleanCash");
+  const dirtyCash = readRequiredInteger(data, "startingDirtyCash");
+  const population = readRequiredInteger(data, "startingPopulation");
+  if (cleanCash === null || dirtyCash === null || population === null) return null;
+
+  const materials = {} as HostedStartingPlayerStateView["materials"];
+  for (const materialId of FREE_HOSTED_STARTING_MATERIAL_IDS) {
+    const amount = readRequiredInteger(data, `startingMaterial:${materialId}`);
+    if (amount === null) return null;
+    materials[materialId] = amount;
+  }
+
+  return {
+    cleanCash,
+    dirtyCash,
+    population,
+    spySlots: 2,
+    materials
+  };
+};
+
+const readRequiredInteger = (data: FormData, name: string): number | null => {
+  const raw = data.get(name);
+  if (typeof raw !== "string" || raw.trim().length === 0) return null;
+  const value = Number(raw);
+  return Number.isSafeInteger(value) ? value : null;
 };
 
 const showError = (form: HTMLFormElement, text: string): void => {

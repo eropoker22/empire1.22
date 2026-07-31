@@ -1,5 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { resolveClientSurfaceAction } from "../../apps/client/src/app/client-surface-action-resolver";
+import { createFactoryPopupRuntime } from "../../page-assets/js/app/runtime/factoryPopupRuntime.js";
+import {
+  createProductionBuildingPopupRuntime
+} from "../../page-assets/js/app/runtime/productionBuildingPopupRuntime.js";
 import {
   createServerGameplayProductionBuildingController
 } from "../../page-assets/js/app/ui/serverGameplayProductionBuildingController.js";
@@ -7,10 +12,11 @@ import {
 describe("server gameplay production building controller", () => {
   beforeEach(() => {
     resetOverlayCoordinator();
-    document.body.innerHTML = `<main id="game-root"></main>
+    document.body.innerHTML = `<main id="game-root" data-gameplay-slice-client></main>
       ${productionPopup("pharmacy", "pharmacy")}
       ${productionPopup("druglab", "druglab")}
       ${productionPopup("armory", "armory")}
+      <button data-factory-popup-open>Továrna</button>
       <div data-factory-popup hidden>
         <button data-factory-popup-close>×</button>
         <button data-factory-collect>+</button>
@@ -54,18 +60,21 @@ describe("server gameplay production building controller", () => {
       craftRecipeId: "metal-parts",
       craftQuantity: 2
     }));
+    expect(dispatchSurfaceAction).toHaveBeenCalledTimes(1);
 
     document.querySelector("[data-factory-slot-toggle-state='stop']").click();
     await vi.waitFor(() => expect(dispatchSurfaceAction).toHaveBeenCalledWith({
       cancelProductionBuildingId: "building:factory:1",
       cancelProductionRecipeId: "metal-parts"
     }));
+    expect(dispatchSurfaceAction).toHaveBeenCalledTimes(2);
 
     document.querySelector("[data-factory-collect]").click();
     await vi.waitFor(() => expect(dispatchSurfaceAction).toHaveBeenCalledWith({
       collectBuildingId: "building:factory:1",
       collectResourceKey: "metal-parts"
     }));
+    expect(dispatchSurfaceAction).toHaveBeenCalledTimes(3);
 
     controller.close();
     expect(controller.open("building:pharmacy:1")).toBe(true);
@@ -80,10 +89,156 @@ describe("server gameplay production building controller", () => {
     expect(controller.destroy()).toBe(true);
     expect(controller.destroy()).toBe(false);
   });
+
+  it("maps each hosted visible production click to exactly one typed command", async () => {
+    const readModel = createReadModel();
+    const typedCommands = [];
+    const dispatchSurfaceAction = vi.fn(async (surfaceDataset) => {
+      const proxy = document.createElement("button");
+      for (const [key, value] of Object.entries(surfaceDataset || {})) {
+        proxy.dataset[key] = String(value);
+      }
+      const command = resolveClientSurfaceAction(proxy);
+      typedCommands.push(command);
+      return command;
+    });
+    const legacyProductionSubmit = vi.fn(async () => ({ accepted: true, errors: [] }));
+    const legacyFactorySubmit = vi.fn(async () => ({ accepted: true, errors: [] }));
+    const controller = createServerGameplayProductionBuildingController({
+      root: document.querySelector("#game-root"),
+      documentRef: document,
+      dispatchSurfaceAction,
+      getCurrentReadModel: () => readModel
+    });
+
+    expect(controller.mount()).toBe(true);
+    bindLegacyHostedPopupRuntimes({
+      readModel,
+      legacyProductionSubmit,
+      legacyFactorySubmit
+    });
+
+    for (const scenario of [
+      {
+        buildingName: "pharmacy",
+        buildingId: "building:pharmacy:1",
+        openSelector: "[data-pharmacy-popup-open]",
+        popupSelector: "[data-pharmacy-popup]",
+        recipeId: "chemicals",
+        resourceKey: "chemicals"
+      },
+      {
+        buildingName: "druglab",
+        buildingId: "building:drug_lab:1",
+        openSelector: "[data-druglab-popup-open]",
+        popupSelector: "[data-druglab-popup]",
+        recipeId: "neon-dust",
+        resourceKey: "neon-dust"
+      },
+      {
+        buildingName: "armory",
+        buildingId: "building:armory:1",
+        openSelector: "[data-armory-popup-open]",
+        popupSelector: "[data-armory-popup]",
+        recipeId: "pistol",
+        resourceKey: "pistol"
+      },
+      {
+        buildingName: "factory",
+        buildingId: "building:factory:1",
+        openSelector: "[data-factory-popup-open]",
+        popupSelector: "[data-factory-popup]",
+        recipeId: "metal-parts",
+        resourceKey: "metal-parts"
+      }
+    ]) {
+      document.querySelector(scenario.openSelector).click();
+      const popup = document.querySelector(scenario.popupSelector);
+      await vi.waitFor(() => expect(popup.hidden, scenario.buildingName).toBe(false));
+      expect(popup.dataset.productionCommandOwner).toBe("server-gameplay-production-controller");
+
+      findEnabledButton(popup, "Spustit").click();
+      await vi.waitFor(() => expect(typedCommands.at(-1)).toEqual({
+        kind: "craft",
+        buildingId: scenario.buildingId,
+        recipeId: scenario.recipeId,
+        quantity: 1
+      }));
+      const countAfterStart = typedCommands.length;
+
+      findEnabledButton(popup, "Zrušit").click();
+      await vi.waitFor(() => expect(typedCommands).toHaveLength(countAfterStart + 1));
+      expect(typedCommands.at(-1)).toEqual({
+        kind: "cancel-production",
+        buildingId: scenario.buildingId,
+        recipeId: scenario.recipeId
+      });
+      const countAfterCancel = typedCommands.length;
+
+      const collect = scenario.buildingName === "factory"
+        ? popup.querySelector("[data-factory-collect]")
+        : popup.querySelector("[data-production-building-collect]");
+      collect.click();
+      await vi.waitFor(() => expect(typedCommands).toHaveLength(countAfterCancel + 1));
+      expect(typedCommands.at(-1)).toEqual({
+        kind: "collect",
+        buildingId: scenario.buildingId,
+        resourceKey: scenario.resourceKey
+      });
+
+      expect(controller.close()).toBe(true);
+      resetOverlayCoordinator();
+    }
+
+    expect(dispatchSurfaceAction).toHaveBeenCalledTimes(12);
+    expect(legacyProductionSubmit).not.toHaveBeenCalled();
+    expect(legacyFactorySubmit).not.toHaveBeenCalled();
+    expect(controller.destroy()).toBe(true);
+  });
+
+  it("opens all production shells before the detailed server projection arrives", () => {
+    const readModel = createReadModel();
+    for (const building of readModel.district.buildings) {
+      delete building.factory;
+      delete building.pharmacy;
+      delete building.drugLab;
+      delete building.armory;
+    }
+    const controller = createServerGameplayProductionBuildingController({
+      root: document.querySelector("#game-root"),
+      documentRef: document,
+      dispatchSurfaceAction: vi.fn(),
+      getCurrentReadModel: () => readModel
+    });
+    controller.mount();
+
+    for (const [buildingId, popupSelector, typeId] of [
+      ["building:pharmacy:1", "[data-pharmacy-popup]", "pharmacy"],
+      ["building:drug_lab:1", "[data-druglab-popup]", "drug_lab"],
+      ["building:factory:1", "[data-factory-popup]", "factory"],
+      ["building:armory:1", "[data-armory-popup]", "armory"]
+    ]) {
+      expect(controller.open(buildingId)).toBe(true);
+      const popup = document.querySelector(popupSelector);
+      expect(popup.hidden).toBe(false);
+      expect(popup.textContent).toContain("Načítám serverový detail");
+      expect(popup.dataset).toMatchObject({
+        executionMode: "server-authoritative",
+        serverBuildingId: buildingId,
+        serverBuildingTypeId: typeId,
+        serverDistrictId: "district:1",
+        uiOwner: "legacy-shared"
+      });
+      expect(controller.close()).toBe(true);
+    }
+
+    controller.destroy();
+  });
 });
 
 function productionPopup(shellName, panelName) {
-  return `<div data-${shellName}-popup hidden>
+  return `<button data-${shellName}-popup-open>${shellName}</button>
+  <div data-${shellName}-popup hidden>
     <button data-${shellName}-popup-close>×</button>
     <button data-production-building-collect>+</button>
     <button data-production-building-upgrade>⇪</button>
@@ -104,6 +259,107 @@ function productionPopup(shellName, panelName) {
     </section>
     <section data-production-building-panel="${panelName}:info" hidden></section>
   </div>`;
+}
+
+function bindLegacyHostedPopupRuntimes({
+  readModel,
+  legacyProductionSubmit,
+  legacyFactorySubmit
+}) {
+  const getBuilding = (buildingTypeId) => readModel.district.buildings.find(
+    (building) => building.buildingTypeId === buildingTypeId
+  );
+  const prepareServerProductionBuilding = vi.fn(async (buildingName) => {
+    const buildingTypeId = buildingName === "druglab" ? "drug_lab" : buildingName;
+    return {
+      accepted: true,
+      building: getBuilding(buildingTypeId),
+      districtId: readModel.district.districtId,
+      readModel,
+      errors: []
+    };
+  });
+  const productionRuntime = createProductionBuildingPopupRuntime({
+    allowLegacyLocalProduction: false,
+    allowLegacyProductionUpgrade: false,
+    isServerAuthoritativeGameplayRuntimeReady: () => true,
+    documentRef: document,
+    HTMLButtonElement,
+    ARMORY_POPUP_CLOSE_SELECTOR: "[data-armory-popup-close]",
+    ARMORY_POPUP_OPEN_SELECTOR: "[data-armory-popup-open]",
+    ARMORY_POPUP_SELECTOR: "[data-armory-popup]",
+    ARMORY_RECIPES: {},
+    DRUGLAB_POPUP_CLOSE_SELECTOR: "[data-druglab-popup-close]",
+    DRUGLAB_POPUP_OPEN_SELECTOR: "[data-druglab-popup-open]",
+    DRUGLAB_POPUP_SELECTOR: "[data-druglab-popup]",
+    DRUGLAB_RECIPES: {},
+    PHARMACY_POPUP_CLOSE_SELECTOR: "[data-pharmacy-popup-close]",
+    PHARMACY_POPUP_OPEN_SELECTOR: "[data-pharmacy-popup-open]",
+    PHARMACY_POPUP_SELECTOR: "[data-pharmacy-popup]",
+    PHARMACY_RECIPES: {},
+    PRODUCTION_BUILDING_CONFIG: {
+      armory: { label: "Zbrojovka" },
+      druglab: { label: "Lab" },
+      pharmacy: { label: "Lékárna" }
+    },
+    getServerArmoryReadModel: () => getBuilding("armory").armory,
+    getServerDrugLabReadModel: () => getBuilding("drug_lab").drugLab,
+    getServerPharmacyReadModel: () => getBuilding("pharmacy").pharmacy,
+    prepareServerProductionBuilding,
+    selectors: {
+      collect: "[data-production-building-collect]",
+      headerLevel: "[data-production-building-header-level]",
+      infoActions: "[data-production-building-info-actions]",
+      infoEffects: "[data-production-building-info-effects]",
+      infoText: "[data-production-building-info-text]",
+      level: "[data-production-building-level]",
+      multiplier: "[data-production-building-multiplier]",
+      panel: "[data-production-building-panel]",
+      tab: "[data-production-building-tab]",
+      upgrade: "[data-production-building-upgrade]",
+      upgradeCost: "[data-production-building-upgrade-cost]"
+    },
+    submitServerArmoryCommand: legacyProductionSubmit,
+    submitServerDrugLabCommand: legacyProductionSubmit,
+    submitServerPharmacyCommand: legacyProductionSubmit
+  });
+  expect(productionRuntime.bindPharmacyPopup(document)).toBe(true);
+  expect(productionRuntime.bindDrugLabPopup(document)).toBe(true);
+  expect(productionRuntime.bindArmoryPopup(document)).toBe(true);
+
+  const factoryRuntime = createFactoryPopupRuntime({
+    allowLegacyLocalProduction: false,
+    allowLegacyProductionUpgrade: false,
+    isServerAuthoritativeGameplayRuntimeReady: () => true,
+    documentRef: document,
+    FACTORY_CONFIG: { maxLevel: 14 },
+    getServerFactoryReadModel: () => getBuilding("factory").factory,
+    prepareServerProductionBuilding,
+    selectors: {
+      close: "[data-factory-popup-close]",
+      collect: "[data-factory-collect]",
+      headerLevel: "[data-factory-header-level]",
+      multiplier: "[data-factory-multiplier]",
+      open: "[data-factory-popup-open]",
+      ownedCount: "[data-factory-owned-count]",
+      panel: "[data-factory-panel]",
+      popup: "[data-factory-popup]",
+      slotList: "[data-factory-slot-list]",
+      tab: "[data-factory-tab]",
+      upgrade: "[data-factory-upgrade]",
+      upgradeCost: "[data-factory-upgrade-cost]"
+    },
+    submitServerFactoryCommand: legacyFactorySubmit
+  });
+  expect(factoryRuntime.bindFactoryPopup(document)).toBe(true);
+}
+
+function findEnabledButton(popup, label) {
+  const button = Array.from(popup.querySelectorAll("button")).find(
+    (candidate) => candidate.textContent.trim() === label && !candidate.disabled
+  );
+  expect(button).toBeTruthy();
+  return button;
 }
 
 function createReadModel() {

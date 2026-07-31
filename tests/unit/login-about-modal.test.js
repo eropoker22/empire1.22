@@ -9,7 +9,6 @@ import { bindLoginAboutModal, bindLoginInfoModals } from "../../page-assets/js/a
 const pageSource = readFileSync(resolve(process.cwd(), "pages/login.html"), "utf8");
 const gamePageSource = readFileSync(resolve(process.cwd(), "pages/game.html"), "utf8");
 const liveSource = readFileSync(resolve(process.cwd(), "page-assets/js/login-live.js"), "utf8");
-const demoSource = readFileSync(resolve(process.cwd(), "page-assets/js/login.js"), "utf8");
 const entrySource = readFileSync(resolve(process.cwd(), "page-assets/js/login-entry.js"), "utf8");
 const aboutStyles = readFileSync(resolve(process.cwd(), "page-assets/css/styles-login-about.css"), "utf8");
 
@@ -39,13 +38,13 @@ describe("login about encyclopedia", () => {
     document.body.replaceChildren();
   });
 
-  it("keeps one shared controller in production and explicit local-demo flows", () => {
+  it("keeps the shared controller on the live-only login entrypoint", () => {
     expect(entrySource).toContain("resolveClientEntryExecutionMode");
-    expect(entrySource).toContain("CLIENT_EXECUTION_MODES.localDemo");
+    expect(entrySource).toContain("localDemoEnabled: false");
+    expect(entrySource).toContain('import("./login-live.js');
+    expect(entrySource).not.toContain('import("./login.js');
     expect(liveSource).toContain('from "./app/login-about-modal.js"');
-    expect(demoSource).toContain('from "./app/login-about-modal.js"');
     expect(liveSource).toContain("bindLoginAboutModal();");
-    expect(demoSource).toContain("bindLoginAboutModal();");
     expect(gamePageSource).toContain('data-login-about-open');
     expect(gamePageSource).toContain('data-login-about-overlay');
     expect(gamePageSource).toContain('src="../page-assets/js/app/game-about-modal-runtime.js"');

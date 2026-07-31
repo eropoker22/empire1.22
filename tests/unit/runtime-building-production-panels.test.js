@@ -834,6 +834,95 @@ describe("building detail, production and recipe UI modules", () => {
     });
   });
 
+  it("renders projected select, number and text inputs and submits exact typed values", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const onRunAction = vi.fn();
+    const shell = ensureBuildingDetailPanel(root, { onRunAction }, { popupKey: "79:stock-exchange" });
+
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "exchange",
+      title: "Burza",
+      name: "Burza",
+      stats: [],
+      mechanics: [],
+      collect: { visible: false, enabled: false, title: "" },
+      upgrade: { disabled: true, title: "" },
+      showActionsInSinglePanel: true,
+      actions: [{
+        index: 0,
+        actionId: "speculative_buy",
+        buildingTypeId: "stock_exchange",
+        title: "Spekulativní nákup",
+        disabled: false,
+        requiresInput: [
+          {
+            id: "targetCategory",
+            type: "select",
+            label: "Kategorie marketu",
+            required: true,
+            options: [
+              { value: "chemicals", label: "Chemicals" },
+              { value: "electronics", label: "Electronics" }
+            ]
+          },
+          {
+            id: "investmentCleanCash",
+            type: "number",
+            label: "Investice",
+            required: true,
+            min: 1,
+            max: 5000
+          },
+          {
+            id: "targetZone",
+            type: "text",
+            label: "Cílová zóna",
+            required: false
+          }
+        ]
+      }]
+    });
+
+    const action = shell.querySelector("[data-district-building-detail-action-id='speculative_buy']");
+    const targetCategory = shell.querySelector("[data-building-action-input='targetCategory']");
+    const investment = shell.querySelector("[data-building-action-input='investmentCleanCash']");
+    const targetZone = shell.querySelector("[data-building-action-input='targetZone']");
+    expect(action.closest("[data-building-action-inputs]").dataset.buildingActionInputsActionId).toBe("speculative_buy");
+    expect(targetCategory.tagName).toBe("SELECT");
+    expect(targetCategory.children.map((option) => option.value)).toEqual(["chemicals", "electronics"]);
+    expect(investment.type).toBe("number");
+    expect(investment.min).toBe("1");
+    expect(investment.max).toBe("5000");
+    expect(targetZone.type).toBe("text");
+
+    targetCategory.value = "electronics";
+    investment.value = "2750";
+    targetZone.value = "downtown";
+    for (const control of [targetCategory, investment, targetZone]) {
+      for (const handler of control.eventListeners.get("input") || []) handler({ target: control });
+    }
+    expect(action.disabled).toBe(false);
+
+    const modalBody = shell.querySelector(".district-building-detail-body");
+    for (const handler of modalBody.eventListeners.get("click") || []) handler({ target: action });
+
+    expect(onRunAction).toHaveBeenCalledTimes(1);
+    const [, payload] = onRunAction.mock.calls[0];
+    expect(payload.inputs).toEqual({
+      targetCategory: "electronics",
+      investmentCleanCash: 2750,
+      targetZone: "downtown"
+    });
+    expect(payload).toMatchObject({
+      actionId: "speculative_buy",
+      targetCategory: "electronics",
+      investmentCleanCash: 2750,
+      targetZone: "downtown"
+    });
+  });
+
   it("keeps the action command at the bottom while the cooldown remains specific", () => {
     const document = setupDocument();
     const root = document.createElement("div");

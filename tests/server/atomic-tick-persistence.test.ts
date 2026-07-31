@@ -9,8 +9,10 @@ import type {
 } from "../../apps/server/src/runtime/instance-manager/atomic-command-transaction";
 import { RuntimeLeaseFenceRejectedError } from
   "../../apps/server/src/runtime/instance-manager/atomic-command-transaction";
+import { createInstanceSnapshot } from "../../apps/server/src/runtime/persistence";
 import { createFixedClock } from "../../apps/server/src/runtime/scheduling";
 import {
+  createCraftItemCommandFixture,
   createPlaceTrapCommandFixture,
   createSelectSpawnDistrictCommandFixture
 } from "../fixtures/command-fixtures";
@@ -174,13 +176,111 @@ describe("atomic hosted tick persistence", () => {
       terminal: 0
     });
   });
+
+  it("persists tick income and completed Pharmacy production in the recovery head", async () => {
+    const fixture = await createFixture("production-income", "district:26");
+    fixture.runtime.atomicCommandTransaction = createSerializedBoundary(fixture.repositories);
+    const district = fixture.runtime.state.districtsById[fixture.districtId];
+    const pharmacy = district?.buildingIds
+      .map((buildingId) => fixture.runtime.state.buildingsById[buildingId])
+      .find((building) => building?.buildingTypeId === "pharmacy");
+    const player = fixture.runtime.state.playersById[fixture.playerId];
+    if (!district || !pharmacy || !player) {
+      throw new Error("Atomic tick production fixture requires a claimed Pharmacy district.");
+    }
+    const playerResources = fixture.runtime.state.resourceStatesById[player.resourceStateId];
+    if (!playerResources) {
+      throw new Error("Atomic tick production fixture requires player resources.");
+    }
+
+    fixture.runtime.state = {
+      ...fixture.runtime.state,
+      districtsById: {
+        ...fixture.runtime.state.districtsById,
+        [district.id]: {
+          ...district,
+          resourceModifiers: {
+            ...district.resourceModifiers,
+            cash: 5
+          },
+          stabilizingUntilTick: null,
+          version: district.version + 1
+        }
+      },
+      resourceStatesById: {
+        ...fixture.runtime.state.resourceStatesById,
+        [playerResources.id]: {
+          ...playerResources,
+          balances: {
+            ...playerResources.balances,
+            cash: 10_000
+          },
+          version: playerResources.version + 1
+        }
+      },
+      root: {
+        ...fixture.runtime.state.root,
+        version: fixture.runtime.state.root.version + 1
+      }
+    };
+    await fixture.repositories.snapshotRepository.saveRecoveryHead(
+      createInstanceSnapshot(fixture.runtime)
+    );
+
+    const crafted = await fixture.server.instanceManager.dispatchCommand(
+      fixture.instanceId,
+      createCraftItemCommandFixture({
+        id: `command:atomic-tick:${fixture.name}:craft`,
+        playerId: fixture.playerId,
+        serverInstanceId: fixture.instanceId,
+        payload: {
+          districtId: fixture.districtId,
+          buildingId: pharmacy.id,
+          recipeId: "chemicals",
+          quantity: 1
+        }
+      })
+    );
+    expect(crafted?.errors).toEqual([]);
+
+    const cashAfterCraft = Number(
+      fixture.runtime.state.resourceStatesById[player.resourceStateId]?.balances.cash ?? 0
+    );
+    const completionTick = fixture.runtime.state.buildingsById[pharmacy.id]
+      ?.productionLines?.chemicals?.activeCompletesAtTick;
+    expect(completionTick).toBeGreaterThan(fixture.runtime.state.root.tick);
+
+    while (
+      typeof completionTick === "number"
+      && fixture.runtime.state.root.tick < completionTick
+    ) {
+      fixture.runtime.scheduler.lastTickAtMs = null;
+      await fixture.server.instanceManager.tickInstanceDurably(fixture.instanceId);
+    }
+
+    const latest = await fixture.repositories.snapshotRepository.loadRecoveryHead(fixture.instanceId);
+    const persistedPharmacy = latest?.state.buildingsById[pharmacy.id];
+    const persistedOutput = latest?.state.resourceStatesById[`resource:${pharmacy.id}`];
+    const persistedPlayerResources = latest?.state.resourceStatesById[player.resourceStateId];
+
+    expect(latest?.state.root.tick).toBe(completionTick);
+    expect(persistedPharmacy?.productionLines?.chemicals).toMatchObject({
+      queuedAmount: 0,
+      activeCompletesAtTick: null
+    });
+    expect(persistedOutput?.balances.chemicals).toBe(1);
+    expect(Number(persistedPlayerResources?.balances.cash ?? 0)).toBeGreaterThan(cashAfterCraft);
+    expect(fixture.runtime.state).toEqual(latest?.state);
+  });
 });
 
-const createFixture = async (name: string) => {
+const createFixture = async (
+  name: string,
+  districtId = sharedCitySpawnDistrictIds[0] ?? "district:1"
+) => {
   const server = createServerApp();
   const instanceId = `instance:free:atomic-tick:${name}`;
   const playerId = `player:atomic-tick:${name}`;
-  const districtId = sharedCitySpawnDistrictIds[0] ?? "district:1";
   await ensureGameplaySliceSessionResult(server.instanceManager, {
     serverInstanceId: instanceId,
     playerId,
