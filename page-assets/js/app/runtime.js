@@ -1826,7 +1826,7 @@ async function resolveServerBuildingActionTarget(context, definition) {
     return { ok: false, message: "Chybí server district id pro spuštění akce." };
   }
 
-  const loadResponse = await loadServerGameplaySliceForDistrict(districtId);
+  const loadResponse = await loadServerGameplaySliceForDistrict(districtId, { forceRefresh: true });
   if (!loadResponse?.accepted && !loadResponse?.readModel) {
     return {
       ok: false,
@@ -1911,7 +1911,7 @@ async function resolveServerBuildingUpgradeTarget(context, mechanics = {}) {
     return { ok: false, message: "Chybí server district id pro upgrade." };
   }
 
-  const loadResponse = await loadServerGameplaySliceForDistrict(districtId);
+  const loadResponse = await loadServerGameplaySliceForDistrict(districtId, { forceRefresh: true });
   if (!loadResponse?.accepted && !loadResponse?.readModel) {
     return {
       ok: false,
@@ -1971,47 +1971,14 @@ async function submitServerBuildingUpgradeCommand({ context, mechanics } = {}) {
     };
   }
 
-  const slice = latestGameplaySliceReadModel || null;
-  const player = slice?.player || null;
-  if (!slice || !player?.playerId || !player?.instanceId) {
-    return {
-      accepted: false,
-      errors: [{ message: "Server slice kontext není připravený." }]
-    };
-  }
-
-  const request = {
-    command: {
-      id: createGameplaySliceCommandId("command:upgrade-building"),
-      type: "upgrade-building",
-      mode: player.mode || slice.mode?.mode || "free",
-      playerId: player.playerId,
-      serverInstanceId: player.instanceId,
-      issuedAt: new Date().toISOString(),
-      payload: {
-        districtId: target.districtId,
-        buildingId: target.buildingId
-      },
-      clientRequestId: null
+  return submitCanonicalServerGameplayCommand({
+    type: "upgrade-building",
+    payload: {
+      districtId: target.districtId,
+      buildingId: target.buildingId
     },
-    focusDistrictId: target.districtId,
-    expectedStateVersion: slice.server?.stateVersion ?? null
-  };
-  const snapshotToken = getGameplaySliceSnapshotToken(player.instanceId, player.playerId);
-  if (snapshotToken) {
-    request.snapshotToken = snapshotToken;
-  }
-
-  const response = await fetch(`${getGameplaySliceEndpointBase()}/submit`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json"
-    },
-    credentials: "same-origin",
-    body: JSON.stringify(request)
-  }).then((payload) => payload.json());
-  syncGameplaySliceResponse(response);
-  return response;
+    focusDistrictId: target.districtId
+  });
 }
 
 async function submitServerBuildingActionCommand({ context, actionProfile, definition, actionInput } = {}) {
@@ -2020,19 +1987,7 @@ async function submitServerBuildingActionCommand({ context, actionProfile, defin
     getSlice: () => latestGameplaySliceReadModel,
     loadSliceForDistrict: loadServerGameplaySliceForDistrict,
     formatCooldown: formatDistrictBuildingCooldown,
-    createCommandId: createGameplaySliceCommandId,
-    nowIso: () => new Date().toISOString(),
-    getSnapshotToken: getGameplaySliceSnapshotToken,
-    getEndpointBase: getGameplaySliceEndpointBase,
-    fetchJson: (url, request) => fetch(url, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json"
-      },
-      credentials: "same-origin",
-      body: JSON.stringify(request)
-    }).then((payload) => payload.json()),
-    syncResponse: syncGameplaySliceResponse
+    submitCommand: submitCanonicalServerGameplayCommand
   });
 }
 

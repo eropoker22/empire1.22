@@ -92,7 +92,7 @@ export async function resolveServerBuildingActionTarget(context, definition, dep
     return { ok: false, message: "Chybí server district id pro spuštění akce." };
   }
 
-  const loadResponse = await deps.loadSliceForDistrict?.(districtId);
+  const loadResponse = await deps.loadSliceForDistrict?.(districtId, { forceRefresh: true });
   if (!loadResponse?.accepted && !loadResponse?.readModel) {
     return {
       ok: false,
@@ -101,36 +101,6 @@ export async function resolveServerBuildingActionTarget(context, definition, dep
   }
 
   return findServerBuildingActionTarget(deps.getSlice?.() || loadResponse.readModel || null, context, definition);
-}
-
-export function createServerBuildingActionSubmitRequest({
-  slice,
-  target,
-  definition,
-  actionProfile = {},
-  actionInput = {},
-  commandId,
-  issuedAt = new Date().toISOString()
-} = {}) {
-  const player = slice?.player || null;
-  if (!slice || !player?.playerId || !player?.instanceId) {
-    return null;
-  }
-
-  return {
-    command: {
-      id: commandId,
-      type: "run-building-action",
-      mode: player.mode || slice.mode?.mode || "free",
-      playerId: player.playerId,
-      serverInstanceId: player.instanceId,
-      issuedAt,
-      payload: createServerBuildingActionPayload(target, definition, actionProfile, actionInput),
-      clientRequestId: null
-    },
-    focusDistrictId: target.districtId,
-    expectedStateVersion: slice.server?.stateVersion ?? null
-  };
 }
 
 export async function submitServerBuildingActionCommandBridge({ context, actionProfile, definition, actionInput } = {}, deps = {}) {
@@ -160,30 +130,15 @@ export async function submitServerBuildingActionCommandBridge({ context, actionP
     };
   }
 
-  const slice = deps.getSlice?.() || null;
-  const request = createServerBuildingActionSubmitRequest({
-    slice,
-    target,
-    definition,
-    actionProfile,
-    actionInput,
-    commandId: deps.createCommandId?.("command:building-action") || `command:building-action:${Date.now()}`,
-    issuedAt: deps.nowIso?.() || new Date().toISOString()
-  });
-  if (!request) {
+  if (typeof deps.submitCommand !== "function") {
     return {
       accepted: false,
-      errors: [{ message: "Server slice kontext není připravený." }]
+      errors: [{ message: "Serverový command transport není připojený." }]
     };
   }
-
-  const player = slice.player;
-  const snapshotToken = deps.getSnapshotToken?.(player.instanceId, player.playerId);
-  if (snapshotToken) {
-    request.snapshotToken = snapshotToken;
-  }
-
-  const response = await deps.fetchJson?.(`${deps.getEndpointBase?.() || "/api/gameplay-slice"}/submit`, request);
-  deps.syncResponse?.(response);
-  return response;
+  return deps.submitCommand({
+    type: "run-building-action",
+    payload: createServerBuildingActionPayload(target, definition, actionProfile, actionInput),
+    focusDistrictId: target.districtId
+  });
 }

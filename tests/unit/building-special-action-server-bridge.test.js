@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  createServerBuildingActionSubmitRequest,
+  createServerBuildingActionPayload,
   submitServerBuildingActionCommandBridge
 } from "../../page-assets/js/app/runtime/buildingSpecialActionServerBridge.js";
 import { resolveBuildingSpecialActionDefinition } from "../../page-assets/js/app/runtime/buildingSpecialActionRegistry.js";
@@ -33,7 +33,7 @@ describe("Downtown building special action server bridge", () => {
     buildingId
   ) => {
     const definition = createDefinition(buildingName, actionLabel, actionIndex);
-    const fetchJson = vi.fn(async (_url, request) => ({
+    const submitCommand = vi.fn(async () => ({
       accepted: true,
       readModel: createSlice({
         buildingTypeId,
@@ -44,7 +44,10 @@ describe("Downtown building special action server bridge", () => {
       }),
       errors: []
     }));
-    const syncResponse = vi.fn();
+    const loadSliceForDistrict = vi.fn(async () => ({
+      accepted: true,
+      readModel: createSlice({ buildingTypeId, buildingId, actionId: definition.actionId })
+    }));
 
     const response = await submitServerBuildingActionCommandBridge({
       context: { district: { id: 79 }, buildingName },
@@ -53,36 +56,24 @@ describe("Downtown building special action server bridge", () => {
     }, {
       isReady: () => true,
       getSlice: () => createSlice({ buildingTypeId, buildingId, actionId: definition.actionId }),
-      loadSliceForDistrict: async () => ({ accepted: true, readModel: createSlice({ buildingTypeId, buildingId, actionId: definition.actionId }) }),
+      loadSliceForDistrict,
       formatCooldown: (ms) => `${ms}ms`,
-      createCommandId: () => `command:${definition.actionId}`,
-      nowIso: () => "2026-06-29T18:00:00.000Z",
-      getSnapshotToken: () => "snapshot:1",
-      getEndpointBase: () => "/api/gameplay-slice",
-      fetchJson,
-      syncResponse
+      submitCommand
     });
 
     expect(response.accepted).toBe(true);
-    expect(fetchJson).toHaveBeenCalledTimes(1);
-    const [url, request] = fetchJson.mock.calls[0];
-    expect(url).toBe("/api/gameplay-slice/submit");
-    expect(request).toMatchObject({
+    expect(loadSliceForDistrict).toHaveBeenCalledWith("district:79", { forceRefresh: true });
+    expect(submitCommand).toHaveBeenCalledTimes(1);
+    const expectedPayload = createServerBuildingActionPayload(
+      { districtId: "district:79", buildingId },
+      definition,
+      getActionProfile(buildingName, actionIndex)
+    );
+    expect(submitCommand.mock.calls[0][0]).toEqual({
+      type: "run-building-action",
       focusDistrictId: "district:79",
-      snapshotToken: "snapshot:1",
-      command: {
-        id: `command:${definition.actionId}`,
-        type: "run-building-action",
-        playerId: "player:1",
-        serverInstanceId: "instance:1",
-        payload: {
-          districtId: "district:79",
-          buildingId,
-          actionId: definition.actionId
-        }
-      }
+      payload: expectedPayload
     });
-    expect(syncResponse).toHaveBeenCalledTimes(1);
   });
 
   it("adds visible default input summaries and matching command payload defaults", () => {
@@ -96,19 +87,16 @@ describe("Downtown building special action server bridge", () => {
 
     for (const [buildingName, actionLabel, actionIndex, expectedPayload, expectedSummaryParts] of defaults) {
       const definition = createDefinition(buildingName, actionLabel, actionIndex);
-      const request = createServerBuildingActionSubmitRequest({
-        slice: createSlice({ buildingTypeId: definition.buildingTypeId, buildingId: "building:target", actionId: definition.actionId }),
-        target: {
+      const payload = createServerBuildingActionPayload(
+        {
           districtId: "district:79",
           buildingId: "building:target"
         },
         definition,
-        actionProfile: getActionProfile(buildingName, actionIndex),
-        commandId: `command:${definition.actionId}`,
-        issuedAt: "2026-06-29T18:00:00.000Z"
-      });
+        getActionProfile(buildingName, actionIndex)
+      );
 
-      expect(request.command.payload).toMatchObject(expectedPayload);
+      expect(payload).toMatchObject(expectedPayload);
       for (const part of expectedSummaryParts) {
         expect(definition.inputSummary).toContain(part);
       }
@@ -125,24 +113,16 @@ describe("Downtown building special action server bridge", () => {
 
     for (const [buildingName, actionLabel, actionIndex, buildingTypeId, expectedDefaults] of actions) {
       const definition = createDefinition(buildingName, actionLabel, actionIndex);
-      const request = createServerBuildingActionSubmitRequest({
-        slice: createSlice({
-          buildingTypeId,
-          buildingId: `building:district-42:${buildingTypeId}:1`,
-          actionId: definition.actionId
-        }),
-        target: {
+      const payload = createServerBuildingActionPayload(
+        {
           districtId: "district:42",
           buildingId: `building:district-42:${buildingTypeId}:1`
         },
         definition,
-        actionProfile: getActionProfile(buildingName, actionIndex),
-        commandId: `command:${definition.actionId}`,
-        issuedAt: "2026-06-29T18:00:00.000Z"
-      });
+        getActionProfile(buildingName, actionIndex)
+      );
 
-      expect(request.command.type, `${buildingName} / ${actionLabel}`).toBe("run-building-action");
-      expect(request.command.payload, `${buildingName} / ${actionLabel}`).toMatchObject({
+      expect(payload, `${buildingName} / ${actionLabel}`).toMatchObject({
         districtId: "district:42",
         buildingId: `building:district-42:${buildingTypeId}:1`,
         actionId: definition.actionId,
@@ -153,7 +133,7 @@ describe("Downtown building special action server bridge", () => {
 
   it("does not submit disabled Downtown actions and surfaces the server disabled reason", async () => {
     const definition = createDefinition("Burza", "Tržní tlak", 1);
-    const fetchJson = vi.fn();
+    const submitCommand = vi.fn();
     const response = await submitServerBuildingActionCommandBridge({
       context: { district: { id: 79 }, buildingName: "Burza" },
       actionProfile: getActionProfile("Burza", 1),
@@ -169,12 +149,12 @@ describe("Downtown building special action server bridge", () => {
       }),
       loadSliceForDistrict: async () => ({ accepted: true, readModel: null }),
       formatCooldown: (ms) => `${ms}ms`,
-      fetchJson
+      submitCommand
     });
 
     expect(response.accepted).toBe(false);
     expect(response.errors[0].message).toBe("Chybí vliv.");
-    expect(fetchJson).not.toHaveBeenCalled();
+    expect(submitCommand).not.toHaveBeenCalled();
   });
 });
 

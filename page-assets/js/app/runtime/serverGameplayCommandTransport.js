@@ -119,13 +119,28 @@ export async function submitServerGameplayCommand({
   if (!slice || !player?.playerId || !player?.instanceId) {
     return { accepted: false, errors: [{ message: "Chybí serverový kontext pro herní akci." }] };
   }
-  return submitPreparedServerGameplayCommand(prepareServerGameplayCommand({
+  const firstPrepared = prepareServerGameplayCommand({
     type,
     payload,
     focusDistrictId,
     commandId,
     slice,
     player
+  });
+  const firstResponse = await submitPreparedServerGameplayCommand(firstPrepared);
+  if (!hasDurableStateVersionConflict(firstResponse)) return firstResponse;
+
+  const refreshedSlice = await refreshAuthoritativeGameplaySliceForCommand(firstPrepared.request, firstPrepared.scope);
+  if (!isMatchingCommandScope(refreshedSlice, firstPrepared.scope, firstPrepared.request.focusDistrictId)) {
+    return firstResponse;
+  }
+
+  return submitPreparedServerGameplayCommand(prepareServerGameplayCommand({
+    type: firstPrepared.request.command.type,
+    payload: firstPrepared.request.command.payload,
+    focusDistrictId: firstPrepared.request.focusDistrictId,
+    slice: refreshedSlice,
+    player: refreshedSlice.player
   }));
 }
 
@@ -288,6 +303,58 @@ const normalizeConflictCommandResponse = (response) => {
   }
   return { ...response, errors };
 };
+
+const hasDurableStateVersionConflict = (response) => {
+  const errors = Array.isArray(response?.errors) ? response.errors : [];
+  return response?.accepted === false
+    && response?.pending !== true
+    && response?.transportFailure !== true
+    && errors.length === 1
+    && String(errors[0]?.code || "") === "server.state_version_conflict";
+};
+
+const refreshAuthoritativeGameplaySliceForCommand = async (request, scope) => {
+  const focusDistrictId = String(request?.focusDistrictId || "").trim();
+  if (!focusDistrictId || !scope) return null;
+
+  const clientApi = getWindowRef()?.EmpireGameplaySliceClient;
+  const activeFocusDistrictId = clientApi?.getCurrentRenderState?.()?.districtPanel?.districtId || null;
+  if (activeFocusDistrictId === focusDistrictId && typeof clientApi?.selectDistrict === "function") {
+    try {
+      const renderState = await clientApi.selectDistrict(focusDistrictId);
+      if (!renderState || (renderState.connection?.status && renderState.connection.status !== "ready")) {
+        return null;
+      }
+      const readModel = clientApi.getCurrentReadModel?.() || getServerGameplaySliceReadModel();
+      if (readModel) setServerGameplaySliceReadModel(readModel);
+      return readModel;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  const loadRequest = {
+    serverInstanceId: scope.serverInstanceId,
+    playerId: scope.playerId,
+    districtId: focusDistrictId
+  };
+  const snapshotToken = getGameplaySliceSnapshotToken(scope.serverInstanceId, scope.playerId);
+  if (snapshotToken) loadRequest.snapshotToken = snapshotToken;
+  try {
+    const response = await postJson(`${getGameplaySliceEndpointBase()}/load`, loadRequest);
+    if (!response?.accepted || !response.readModel) return null;
+    syncServerGameplaySliceResponse(response);
+    return response.readModel;
+  } catch (_error) {
+    return null;
+  }
+};
+
+const isMatchingCommandScope = (slice, scope, focusDistrictId) => Boolean(
+  slice?.player?.playerId === scope?.playerId
+  && slice?.player?.instanceId === scope?.serverInstanceId
+  && slice?.district?.districtId === focusDistrictId
+);
 
 const getGameplaySliceEndpointBase = () => {
   const root = getDocumentRef()?.querySelector?.("[data-gameplay-slice-client]");
