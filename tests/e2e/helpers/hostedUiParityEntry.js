@@ -122,10 +122,26 @@ async function selectSpawnDistrict(page, serverInstanceId, initialDistricts, pre
     try {
       await page.getByTestId("confirm-server-district").click();
       const confirmResponse = await confirmResponsePromise;
-      if (confirmResponse.ok()) {
-        return option.districtId;
-      }
+      const confirmRequest = confirmResponse.request().postDataJSON();
+      expect(confirmRequest).toMatchObject({
+        serverInstanceId,
+        districtId: option.districtId
+      });
       const confirmPayload = await confirmResponse.json();
+      if (confirmResponse.ok()) {
+        expect(confirmPayload?.accepted).toBe(true);
+        expect(confirmPayload?.data).toMatchObject({
+          serverInstanceId,
+          reservedSpawnDistrictId: option.districtId
+        });
+        expect(confirmPayload.data.membershipId).toBeTruthy();
+        expect(confirmPayload.data.playerId).toBeTruthy();
+        return {
+          membershipId: confirmPayload.data.membershipId,
+          playerId: confirmPayload.data.playerId,
+          spawnDistrictId: option.districtId
+        };
+      }
       const errorCode = confirmPayload?.errors?.[0]?.code || "";
       expect(
         ["SPAWN_ALREADY_RESERVED", "SPAWN_SELECTION_STALE", "SERVER_FULL"],
@@ -179,8 +195,12 @@ const readSpawnDistrictResponse = async (response) => {
   return payload.data.districts;
 };
 
-async function completeFactionSelection(page) {
+async function completeFactionSelection(page, expectedMembershipId) {
   await expect(page).toHaveURL(/\/pages\/faction\.html\?membership=/u, { timeout: 30_000 });
+  const membershipId = new URL(page.url()).searchParams.get("membership");
+  expect(membershipId, "Faction setup must target the confirmed membership").toBe(
+    expectedMembershipId
+  );
   await expect(page.locator("[data-live-color]").first()).toBeVisible({ timeout: 30_000 });
   await page.locator('[data-faction-id="mafian"]').click();
   await page.locator("[data-live-color]").first().click();
@@ -188,8 +208,12 @@ async function completeFactionSelection(page) {
   await page.getByTestId("continue-to-game").click();
 }
 
-export async function waitForLiveGame(page) {
-  await waitForHostedGameShell(page, "running");
+export async function waitForLiveGame(page, expectedServerInstanceId = null) {
+  const identity = await waitForHostedGameShell(
+    page,
+    "running",
+    expectedServerInstanceId
+  );
   await expect(page.locator("body")).toHaveAttribute("data-authority-state", "ready");
   await expect(page.locator("#game-root")).toHaveAttribute("aria-busy", "false");
   await dismissBlockingGameOverlays(page);
@@ -197,18 +221,28 @@ export async function waitForLiveGame(page) {
   await page.evaluate(() => {
     window.__EMPIRE_DEMO_GAMEPLAY_STORAGE_WRITES__ = [];
   });
+  return identity;
 }
 
-export async function waitForHostedLobbyGame(page) {
-  await waitForHostedGameShell(page, "lobby");
+export async function waitForHostedLobbyGame(page, expectedServerInstanceId = null) {
+  const identity = await waitForHostedGameShell(
+    page,
+    "lobby",
+    expectedServerInstanceId
+  );
   await expect(page.locator("body")).toHaveAttribute("data-authority-state", "waiting-for-start");
   await expect(page.locator("#game-root")).toHaveAttribute("aria-busy", "true");
   await expect(page.locator("[data-game-authority-gate]")).toHaveAttribute("aria-hidden", "false");
   await expect(page.locator("[data-game-authority-status]")).toHaveText("SERVER ČEKÁ NA START");
   await dismissBlockingGameOverlays(page);
+  return identity;
 }
 
-async function waitForHostedGameShell(page, lifecycleStatus) {
+async function waitForHostedGameShell(
+  page,
+  lifecycleStatus,
+  expectedServerInstanceId
+) {
   await expect(page).toHaveURL(/\/pages\/game\.html/u, { timeout: 120_000 });
   await expect(page.locator("html")).toHaveAttribute(
     "data-runtime-mode",
@@ -221,7 +255,7 @@ async function waitForHostedGameShell(page, lifecycleStatus) {
     { timeout: 60_000 }
   );
   await expect.poll(
-    () => page.evaluate((expectedLifecycleStatus) => {
+    () => page.evaluate(({ expectedLifecycleStatus, expectedInstanceId }) => {
       const readModel = window.EmpireGameplaySliceClient?.getCurrentReadModel?.()
         || window.empireStreetsGameplaySliceReadModel
         || null;
@@ -231,13 +265,68 @@ async function waitForHostedGameShell(page, lifecycleStatus) {
         && readModel?.player?.playerId
         && readModel?.player?.instanceId
         && readModel?.district?.districtId
+        && (
+          !expectedInstanceId
+          || (
+            readModel.server.serverInstanceId === expectedInstanceId
+            && readModel.player.instanceId === expectedInstanceId
+          )
+        )
       );
-    }, lifecycleStatus),
+    }, {
+      expectedLifecycleStatus: lifecycleStatus,
+      expectedInstanceId: expectedServerInstanceId
+    }),
     {
-      message: "Authoritative gameplay slice must be loaded before hosted UI interaction",
+      message: expectedServerInstanceId
+        ? `Authoritative gameplay slice must target ${expectedServerInstanceId}`
+        : "Authoritative gameplay slice must be loaded before hosted UI interaction",
       timeout: 60_000
     }
   ).toBe(true);
+  const identity = await page.evaluate(() => {
+    const readModel = window.EmpireGameplaySliceClient?.getCurrentReadModel?.()
+      || window.empireStreetsGameplaySliceReadModel
+      || null;
+    return {
+      playerId: readModel?.player?.playerId || null,
+      playerInstanceId: readModel?.player?.instanceId || null,
+      serverInstanceId: readModel?.server?.serverInstanceId || null
+    };
+  });
+  if (expectedServerInstanceId) {
+    expect(identity.serverInstanceId).toBe(expectedServerInstanceId);
+    expect(identity.playerInstanceId).toBe(expectedServerInstanceId);
+  }
+  return identity;
+}
+
+async function readActiveMembershipIdentity(page) {
+  const result = await page.evaluate(async () => {
+    const response = await fetch("/api/lobby/overview", {
+      credentials: "same-origin",
+      cache: "no-store"
+    });
+    const payload = await response.json();
+    const membership = payload?.data?.activeBlockingMembership || null;
+    return {
+      accepted: payload?.accepted === true,
+      membership: membership
+        ? {
+          membershipId: membership.membershipId || null,
+          playerId: membership.playerId || null,
+          reservedSpawnDistrictId: membership.reservedSpawnDistrictId || null,
+          serverInstanceId: membership.serverInstanceId || null,
+          status: membership.status || null
+        }
+        : null,
+      status: response.status
+    };
+  });
+  expect(result.status).toBe(200);
+  expect(result.accepted).toBe(true);
+  expect(result.membership).toBeTruthy();
+  return result.membership;
 }
 
 export async function installHostedUiParityInstrumentation(page) {
@@ -336,23 +425,32 @@ export async function registerAndEnterHostedUiParityGame(page, {
   const identity = suppliedIdentity || createIdentity(identityPrefix);
   await registerAccount(page, identity);
   const districts = await openServer(page, serverInstanceId);
-  const selectedSpawnDistrictId = await selectSpawnDistrict(
+  const selection = await selectSpawnDistrict(
     page,
     serverInstanceId,
     districts,
     requestedSpawnDistrictIds
   );
-  await completeFactionSelection(page);
-  if (waitForRunning) {
-    await waitForLiveGame(page);
-  } else {
-    await waitForHostedLobbyGame(page);
-  }
+  await completeFactionSelection(page, selection.membershipId);
+  const gameIdentity = waitForRunning
+    ? await waitForLiveGame(page, serverInstanceId)
+    : await waitForHostedLobbyGame(page, serverInstanceId);
+  expect(gameIdentity.playerId).toBe(selection.playerId);
+  const membership = await readActiveMembershipIdentity(page);
+  expect(membership).toMatchObject({
+    membershipId: selection.membershipId,
+    playerId: selection.playerId,
+    reservedSpawnDistrictId: selection.spawnDistrictId,
+    serverInstanceId,
+    status: "active"
+  });
   return {
     diagnostics,
     identity,
-    serverInstanceId,
-    spawnDistrictId: selectedSpawnDistrictId
+    membershipId: membership.membershipId,
+    playerId: membership.playerId,
+    serverInstanceId: gameIdentity.serverInstanceId,
+    spawnDistrictId: selection.spawnDistrictId
   };
 }
 

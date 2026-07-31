@@ -140,7 +140,10 @@ test("owner creates a server and players prove exact hosted state through visibl
       const context = await browser.newContext({
         baseURL: process.env.PLAYWRIGHT_E2E_BASE_URL
       });
+      const client = { context, page: null };
+      playerClients.push(client);
       const playerPage = await context.newPage();
+      client.page = playerPage;
       playerPage.setDefaultTimeout(20_000);
       const entry = await registerAndEnterHostedUiParityGame(playerPage, {
         serverInstanceId,
@@ -148,8 +151,12 @@ test("owner creates a server and players prove exact hosted state through visibl
         identityPrefix: `ManualHosted${index + 1}`,
         waitForRunning: false
       });
+      expect(entry.serverInstanceId).toBe(serverInstanceId);
       const playerStartingState = await expectExactStartingState(playerPage);
       safeTrace.playerStartingStates.push({
+        membershipId: entry.membershipId,
+        playerId: entry.playerId,
+        serverInstanceId: entry.serverInstanceId,
         spawnDistrictId: entry.spawnDistrictId,
         balances: playerStartingState.balances,
         economyPopulation: playerStartingState.economyPopulation,
@@ -162,14 +169,22 @@ test("owner creates a server and players prove exact hosted state through visibl
         `manual-hosted-player-${index + 1}-starting-state.png`,
         playerPage
       );
-      playerClients.push({
-        context,
-        page: playerPage,
+      Object.assign(client, {
         diagnostics: entry.diagnostics,
         identity: entry.identity,
+        membershipId: entry.membershipId,
+        playerId: entry.playerId,
+        serverInstanceId: entry.serverInstanceId,
         spawnDistrictId: entry.spawnDistrictId
       });
     }
+    expect(new Set(playerClients.map((client) => client.membershipId)).size)
+      .toBe(manualServerCapacity);
+    expect(new Set(playerClients.map((client) => client.playerId)).size)
+      .toBe(manualServerCapacity);
+    expect(playerClients.every(
+      (client) => client.serverInstanceId === serverInstanceId
+    )).toBe(true);
 
     await refreshAdmin(adminPage);
     await expect(adminPage.locator(".admin-start-readiness")).toContainText(
@@ -185,7 +200,7 @@ test("owner creates a server and players prove exact hosted state through visibl
       (server) => server.status === "running"
     );
     for (const client of playerClients) {
-      await waitForLiveGame(client.page);
+      await waitForLiveGame(client.page, serverInstanceId);
       await expectVisibleStorageMatchesAuthoritativeState(client.page);
     }
 
@@ -262,7 +277,7 @@ test("owner creates a server and players prove exact hosted state through visibl
       playerClients[0].spawnDistrictId
     );
     await playerClients[0].page.reload({ waitUntil: "load" });
-    await waitForLiveGame(playerClients[0].page);
+    await waitForLiveGame(playerClients[0].page, serverInstanceId);
     const restored = await readTickState(playerClients[0].page);
     expect(restored.stateVersion).toBeGreaterThanOrEqual(
       safeTrace.visibleCommand.stateVersion
