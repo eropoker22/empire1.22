@@ -415,11 +415,18 @@ try {
         environment.EMPIRE_MANUAL_HOSTED_STARTING_STATE_JSON = JSON.stringify(
           MANUAL_HOSTED_STARTING_PLAYER_STATE
         );
+        const manualTraceDirectory = path.join(runDirectory, suite.name);
+        result.evidence.trace = "playwright-trace-on";
+        result.evidence.traceDirectory = path.relative(process.cwd(), manualTraceDirectory);
         result.status = "testing";
         await runNode(`playwright-${suite.name}`, [
           "scripts/run-local-bin.mjs",
           "playwright/cli.js",
           "test",
+          "--trace",
+          "on",
+          "--output",
+          manualTraceDirectory,
           ...suite.specs
         ], 1_800_000);
         const controlPlane = await admin.request("/api/admin/control-plane");

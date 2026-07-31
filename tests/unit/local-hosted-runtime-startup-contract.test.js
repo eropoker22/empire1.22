@@ -33,4 +33,17 @@ describe("local hosted runtime startup contract", () => {
     expect(runtimeStartup).not.toContain("vite-node/vite-node.mjs");
     expect(harness.match(/args: \[hostedWorkerBundlePath\]/gu)).toHaveLength(2);
   });
+
+  it("retains a Playwright trace for the real manual admin flow", () => {
+    const harness = read("scripts/run-local-hosted-full.mjs");
+    const manualBranchAt = harness.indexOf("if (suite.manualProvisioning)");
+    const fixtureBranchAt = harness.indexOf("if (suite.buildingActionPhase)", manualBranchAt);
+    const manualBranch = harness.slice(manualBranchAt, fixtureBranchAt);
+
+    expect(manualBranch).toContain('result.evidence.trace = "playwright-trace-on"');
+    expect(manualBranch).toContain('"--trace"');
+    expect(manualBranch).toContain('"on"');
+    expect(manualBranch).toContain('"--output"');
+    expect(manualBranch).toContain("manualTraceDirectory");
+  });
 });
