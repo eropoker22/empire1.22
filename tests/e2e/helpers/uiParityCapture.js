@@ -134,6 +134,8 @@ export const gameChromeDynamicMaskSelector = [
 
 export const technicalBuildingTextPatterns = Object.freeze([
   Object.freeze({ flags: "u", source: "\\bSERVER\\b" }),
+  Object.freeze({ flags: "iu", source: "\\bserver\\p{L}*\\b" }),
+  Object.freeze({ flags: "iu", source: "\\bdistrict:\\d+\\b" }),
   Object.freeze({ flags: "iu", source: "\\braw\\s+projection\\b" }),
   Object.freeze({ flags: "iu", source: "\\brevision\\b" }),
   Object.freeze({ flags: "iu", source: "\\bstate\\s*version\\b" }),
@@ -910,10 +912,12 @@ export async function getParityDomStructureSignature(page, surfaceName) {
           dataset: semanticDataset(element),
           disabled: "disabled" in element ? Boolean(element.disabled) : false,
           path: elementPath(element),
+          placeholder: element.getAttribute("placeholder"),
           role: element.getAttribute("role"),
           tabIndex: element.tabIndex,
           tag: element.tagName.toLowerCase(),
-          text: normalizeText(element.textContent)
+          text: normalizeText(element.textContent),
+          title: element.getAttribute("title")
         })),
       focus: {
         activeElement: activeElement && activeElement !== document.body
@@ -1016,14 +1020,28 @@ export async function getVisibleTechnicalBuildingText(page, surfaceName) {
     const technicalPatterns = patternDefinitions.map(({ flags, source }) => (
       new RegExp(source, flags)
     ));
-    return Array.from(new Set(
-      Array.from(targetElement.querySelectorAll("*"))
-        .filter(isVisible)
-        .filter((element) => element.children.length === 0)
-        .map((element) => normalizeText(element.textContent))
-        .filter(Boolean)
-        .filter((text) => technicalPatterns.some((pattern) => pattern.test(text)))
-    )).sort();
+    const roots = [
+      targetElement,
+      ...Array.from(document.querySelectorAll([
+        ".building-special-action-confirm:not([hidden])",
+        ".building-upgrade-confirm:not([hidden])"
+      ].join(","))).filter(isVisible)
+    ];
+    const textValues = [];
+    for (const root of roots) {
+      for (const element of [root, ...Array.from(root.querySelectorAll("*"))]) {
+        if (!isVisible(element)) continue;
+        if (element.children.length === 0) textValues.push(element.textContent);
+        for (const attribute of ["aria-label", "placeholder", "title"]) {
+          textValues.push(element.getAttribute(attribute));
+        }
+      }
+    }
+    return Array.from(new Set(textValues
+      .map(normalizeText)
+      .filter(Boolean)
+      .filter((text) => technicalPatterns.some((pattern) => pattern.test(text)))))
+      .sort();
   }, technicalBuildingTextPatterns);
 }
 

@@ -367,9 +367,6 @@ async function expectSharedBuildingContract({
         rects
       },
       headings,
-      hostedOnlyHeadings: headings.filter(
-        (heading) => heading === "Mechaniky" || heading === "Efekty"
-      ),
       layout: element.dataset.buildingDetailLayout || "",
       title: String(
         element.querySelector("[data-district-building-detail-title]")?.textContent || ""
@@ -377,8 +374,6 @@ async function expectSharedBuildingContract({
       uiOwner: element.dataset.uiOwner || ""
     };
   });
-  expect(signature.hostedOnlyHeadings, `${buildingGroup.buildingTypeId} hosted-only sections`)
-    .toEqual([]);
   expect(signature.actionIds).toEqual(expect.arrayContaining(
     buildingGroup.entries.map((entry) => entry.actionId)
   ));

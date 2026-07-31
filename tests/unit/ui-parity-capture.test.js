@@ -74,21 +74,29 @@ describe("UI parity class signature", () => {
   });
 
   it("rejects technical hosted labels without rejecting shared gameplay copy", () => {
-    expect(findTechnicalBuildingText([
+    const technicalText = findTechnicalBuildingText([
       "SERVER",
       "Raw projection",
       "Revision 42",
       "Ověří server",
       "Cena závisí na serverové odpovědi.",
+      "Výsledek určí server.",
+      "district:21",
       "Serverově sníží heat districtu.",
       "Mechaniky",
       "Efekty"
-    ])).toEqual([
+    ]);
+    expect(technicalText).toEqual(expect.arrayContaining([
       "Cena závisí na serverové odpovědi.",
       "Ověří server",
       "Raw projection",
       "Revision 42",
-      "SERVER"
-    ]);
+      "SERVER",
+      "Serverově sníží heat districtu.",
+      "Výsledek určí server.",
+      "district:21"
+    ]));
+    expect(technicalText).not.toContain("Mechaniky");
+    expect(technicalText).not.toContain("Efekty");
   });
 });
