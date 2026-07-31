@@ -1,11 +1,7 @@
 import { initBuildingDetailPanel } from "./buildingDetailPanel.js";
 import { createServerGameplayBuildingActionController } from "./serverGameplayBuildingActionController.js";
-import { createServerGameplayProductionBuildingController } from "./serverGameplayProductionBuildingController.js";
 import { ServerBuildingPresentationAdapter } from "../runtime/buildingPresentationAdapters.js";
 import { pickBuildingDetailPresentationViewModel } from "../runtime/buildingPresentationContract.js";
-
-const PRODUCTION_BUILDING_TYPES = new Set(["pharmacy", "drug_lab", "factory", "armory"]);
-const normalizeBuildingType = (value) => String(value || "").trim().replace(/-/gu, "_");
 
 export function createServerGameplayBuildingDetailController({
   root,
@@ -20,7 +16,6 @@ export function createServerGameplayBuildingDetailController({
   let shell = null;
   let activeBuildingId = null;
   let activeDetailView = null;
-  let productionController = null;
   let buildingActionController = null;
   const createLocalPresentationProfile = () => {
     const view = getCurrentView?.() || {};
@@ -127,18 +122,6 @@ export function createServerGameplayBuildingDetailController({
     if (!mounted) return false;
     const building = getBuilding(buildingId);
     if (!building) return false;
-    if (
-      PRODUCTION_BUILDING_TYPES.has(normalizeBuildingType(building.buildingTypeId))
-      && productionController?.open?.(building.buildingId)
-    ) {
-      activeBuildingId = null;
-      activeDetailView = null;
-      buildingActionController?.close?.();
-      panel?.close?.();
-      shell = null;
-      return true;
-    }
-    productionController?.close?.();
     activeBuildingId = String(building.buildingId);
     const detailView = createDetailView(building);
     if (!detailView) {
@@ -184,30 +167,19 @@ export function createServerGameplayBuildingDetailController({
       root: documentRef?.body || root,
       popupKey: "server-authoritative"
     });
-    productionController = createServerGameplayProductionBuildingController({
-      root,
-      documentRef,
-      dispatchSurfaceAction,
-      getCurrentReadModel
-    });
     buildingActionController = createServerGameplayBuildingActionController({
       documentRef,
       dispatchSurfaceAction
     });
-    productionController.mount();
     mounted = true;
     return true;
   };
 
-  const update = () => {
-    if (productionController?.isOpen?.()) return productionController.update();
-    return activeBuildingId ? open(activeBuildingId) : false;
-  };
+  const update = () => (activeBuildingId ? open(activeBuildingId) : false);
 
   const close = () => {
-    const productionClosed = productionController?.close?.() || false;
     buildingActionController?.close?.();
-    if (!shell || shell.hidden) return productionClosed;
+    if (!shell || shell.hidden) return false;
     panel?.close?.();
     activeBuildingId = null;
     activeDetailView = null;
@@ -216,10 +188,8 @@ export function createServerGameplayBuildingDetailController({
 
   const destroy = () => {
     if (!mounted) return false;
-    productionController?.destroy?.();
     buildingActionController?.destroy?.();
     panel?.destroy?.();
-    productionController = null;
     buildingActionController = null;
     panel = null;
     shell = null;
@@ -235,12 +205,11 @@ export function createServerGameplayBuildingDetailController({
     open,
     close,
     destroy,
-    isOpen: () => Boolean(shell && !shell.hidden) || Boolean(productionController?.isOpen?.()),
+    isOpen: () => Boolean(shell && !shell.hidden),
     getDiagnostics: () => ({
       mounted,
-      open: Boolean(shell && !shell.hidden) || Boolean(productionController?.isOpen?.()),
-      activeBuildingId,
-      production: productionController?.getDiagnostics?.() || null
+      open: Boolean(shell && !shell.hidden),
+      activeBuildingId
     })
   };
 }

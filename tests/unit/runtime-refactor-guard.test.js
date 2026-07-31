@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
@@ -12,6 +12,7 @@ const localDemoAdapterSource = () => read("page-assets/js/app/runtime/localDemoL
 const runtimeSource = () => read("page-assets/js/app/runtime.js");
 const productionBuildingPopupRuntimeSource = () => read("page-assets/js/app/runtime/productionBuildingPopupRuntime.js");
 const recipePanelSource = () => read("page-assets/js/app/ui/recipePanel.js");
+const serverGameplayBuildingDetailControllerSource = () => read("page-assets/js/app/ui/serverGameplayBuildingDetailController.js");
 const serverCommandAuthorityGuardSource = () => read("page-assets/js/app/runtime/serverCommandAuthorityGuard.js");
 
 describe("runtime refactor guard", () => {
@@ -37,6 +38,22 @@ describe("runtime refactor guard", () => {
     expect(recipeSource).not.toContain("serverPharmacyRecipeCard.js");
     expect(recipeSource).not.toContain("serverDrugLabRecipeCard.js");
     expect(recipeSource).not.toContain("viewModel.serverLine");
+  });
+
+  it("keeps the dormant duplicate production renderer removed", () => {
+    const buildingDetailSource = serverGameplayBuildingDetailControllerSource();
+    const removedPaths = [
+      "page-assets/js/app/ui/serverGameplayProductionBuildingController.js",
+      "page-assets/js/app/ui/serverGameplayProductionBuildingView.js",
+      "page-assets/js/app/ui/serverPharmacyRecipeCard.js",
+      "page-assets/js/app/ui/serverDrugLabRecipeCard.js"
+    ];
+
+    expect(buildingDetailSource).not.toContain("serverGameplayProductionBuildingController.js");
+    expect(buildingDetailSource).not.toContain("productionController");
+    for (const relativePath of removedPaths) {
+      expect(existsSync(resolve(root, relativePath)), relativePath).toBe(false);
+    }
   });
 
   it("does not introduce inline HTML event handlers for the game shell", () => {
