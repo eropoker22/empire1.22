@@ -1,7 +1,6 @@
 import { createBuildingUpgradeConfirmationController } from "./buildingUpgradeConfirmation.js";
 import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
 import { FREE_GAMEPLAY_TICK_MS } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
-import { registerProductionPopupOpener } from "./productionPopupOpenBridge.js";
 
 function queryAll(root, selector) {
   return selector ? Array.from(root?.querySelectorAll?.(selector) || []) : [];
@@ -51,6 +50,7 @@ export function createFactoryPopupRuntime(deps = {}) {
   ) && !isServerAuthoritativeProductionReady();
   const productionBridgeMessage = "Výroba Továrny je v tomto režimu nedostupná.";
   const productionUpgradeMessage = "Serverový upgrade Továrny se provádí přes konkrétní kartu budovy v districtu.";
+  const popupOpenersByRoot = new WeakMap();
 
   const getFactoryCollectableAmount = (factoryState) => (factoryState?.slots || []).reduce((total, slot) => (
     total + Math.max(0, Math.floor(Number(slot?.producedAmount || 0)))
@@ -434,7 +434,7 @@ export function createFactoryPopupRuntime(deps = {}) {
         });
     };
 
-    const openPopup = async () => {
+    const openPopup = async (request = null) => {
       const shouldPrepareServerBuilding = !isLegacyLocalProductionEnabled()
         && typeof deps.prepareServerProductionBuilding === "function";
       let preparedServerBuilding = null;
@@ -445,7 +445,11 @@ export function createFactoryPopupRuntime(deps = {}) {
       }
       try {
         if (shouldPrepareServerBuilding) {
-          preparedServerBuilding = await deps.prepareServerProductionBuilding("factory");
+          preparedServerBuilding = request?.serverTarget
+            ? await deps.prepareServerProductionBuilding("factory", {
+                serverTarget: request.serverTarget
+              })
+            : await deps.prepareServerProductionBuilding("factory");
           if (preparedServerBuilding?.accepted !== true) {
             deps.setBuildingActionFeedback?.(
               root,
@@ -491,7 +495,7 @@ export function createFactoryPopupRuntime(deps = {}) {
       deps.syncBuildingDetailTopbarVisibility?.(root);
     };
 
-    registerProductionPopupOpener(openButton, openPopup);
+    popupOpenersByRoot.set(root, openPopup);
     openButton.addEventListener("click", openPopup);
 
     for (const button of tabButtons) {
@@ -674,7 +678,21 @@ export function createFactoryPopupRuntime(deps = {}) {
     return true;
   };
 
+  const openFactoryPopup = (root, request = null) => {
+    const opener = popupOpenersByRoot.get(root);
+    return typeof opener === "function" ? opener(request) : null;
+  };
+
+  const clearFactoryPopupOpener = (root) => {
+    if (!root) {
+      return false;
+    }
+    return popupOpenersByRoot.delete(root);
+  };
+
   return {
-    bindFactoryPopup
+    bindFactoryPopup,
+    clearFactoryPopupOpener,
+    openFactoryPopup
   };
 }

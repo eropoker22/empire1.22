@@ -66,6 +66,10 @@ import {
   updateStoredPreviewSession as updatePersistedPreviewSession
 } from "./model/authority-state.js";
 import {
+  normalizeExistingStorageBuckets,
+  resolveLocalDemoStorageCapacityState
+} from "./runtime/localDemoStorageInventory.js";
+import {
   clearAccountIdentity,
   leaveActiveServerRegistration
 } from "./auth-flow.js";
@@ -857,6 +861,7 @@ import {
   resolveServerSpyDistrictRoute
 } from "./runtime/serverDistrictActionRoute.js";
 import {
+  findServerBuildingByExactTarget,
   findServerBuildingByType,
   getServerBuildingShortcutCandidateDistrictIds
 } from "./runtime/serverBuildingShortcutResolver.js";
@@ -891,8 +896,7 @@ import { createPhaseToggleRuntime } from "./runtime/phaseToggleRuntime.js";
 import { createProductionBuildingPopupRuntime } from "./runtime/productionBuildingPopupRuntime.js";
 import { createFactoryPopupRuntime } from "./runtime/factoryPopupRuntime.js";
 import {
-  observeProductionPopupOpening,
-  openProductionPopupFromTrigger
+  observeProductionPopupOpening
 } from "./runtime/productionPopupOpenBridge.js";
 import {
   advanceLocalProductionJob,
@@ -1692,7 +1696,7 @@ async function loadServerGameplaySliceForDistrict(districtId, { forceRefresh = f
   return response;
 }
 
-async function prepareServerProductionBuilding(buildingTypeId) {
+async function prepareServerProductionBuilding(buildingTypeId, options = {}) {
   if (!isServerAuthoritativeGameplayRuntimeReady()) {
     return {
       accepted: false,
@@ -1703,6 +1707,72 @@ async function prepareServerProductionBuilding(buildingTypeId) {
   const initialSlice = latestGameplaySliceReadModel;
   const initialDistrictId = String(initialSlice?.district?.districtId || "");
   const normalizedTypeId = normalizeServerProductionBuildingType(buildingTypeId);
+  const directTarget = options?.serverTarget || null;
+  if (directTarget) {
+    const targetDistrictId = String(directTarget.districtId || "").trim();
+    const targetBuildingId = String(directTarget.buildingId || "").trim();
+    const targetBuildingTypeId = normalizeServerProductionBuildingType(
+      directTarget.buildingTypeId || normalizedTypeId
+    );
+    if (
+      !targetDistrictId
+      || !targetBuildingId
+      || targetBuildingTypeId !== normalizedTypeId
+    ) {
+      return {
+        accepted: false,
+        errors: [{ message: "Přesná identita serverové výrobní budovy není platná." }]
+      };
+    }
+
+    let response = {
+      accepted: true,
+      readModel: latestGameplaySliceReadModel,
+      errors: []
+    };
+    if (String(latestGameplaySliceReadModel?.district?.districtId || "") !== targetDistrictId) {
+      try {
+        response = await loadServerGameplaySliceForDistrict(targetDistrictId);
+      } catch (_error) {
+        response = {
+          accepted: false,
+          readModel: null,
+          errors: [{ message: "Serverový district výrobní budovy nejde načíst." }]
+        };
+      }
+    }
+    if (response?.accepted !== true) {
+      return response;
+    }
+
+    const readModel = response.readModel || latestGameplaySliceReadModel;
+    const building = findServerBuildingByExactTarget(readModel, {
+      buildingId: targetBuildingId,
+      buildingTypeId: targetBuildingTypeId,
+      districtId: targetDistrictId
+    }, normalizedTypeId);
+    if (!building) {
+      return {
+        accepted: false,
+        errors: [{ message: "Kliknutá serverová výrobní budova už není v districtu dostupná." }]
+      };
+    }
+
+    knownServerProductionDistrictByType.set(normalizedTypeId, targetDistrictId);
+    setActiveServerBuildingPresentationTarget({
+      buildingId: targetBuildingId,
+      buildingTypeId: targetBuildingTypeId,
+      districtId: targetDistrictId,
+      serverInstanceId: readModel?.server?.serverInstanceId
+    });
+    return {
+      accepted: true,
+      building,
+      districtId: targetDistrictId,
+      readModel,
+      errors: []
+    };
+  }
   const candidates = getServerBuildingShortcutCandidateDistrictIds(
     initialSlice,
     normalizedTypeId,
@@ -5176,8 +5246,10 @@ const {
   bindDrugLabPopup,
   bindPharmacyPopup,
   bindProductionBuildingPopup,
+  clearProductionBuildingPopupOpeners,
   createProductionCard,
   getProductionSlotState,
+  openProductionBuildingPopup,
   renderProductionBuildingInfo,
   renderProductionPanel
 } = createProductionBuildingPopupRuntime({
@@ -5473,17 +5545,14 @@ function getGameplayStorageSummary() {
       baseCapacity: group.baseCapacity,
       currentCapacity,
       items: (group.resourceKeys || []).map((resourceKey) => {
-        const currentAmount = Math.max(0, Math.floor(Number(usage.byResource?.[resourceKey] || 0)));
-        const fillPercent = currentCapacity > 0 ? currentAmount / currentCapacity * 100 : 0;
+        const capacityState = resolveLocalDemoStorageCapacityState(
+          usage.byResource?.[resourceKey],
+          currentCapacity
+        );
         return {
           resourceKey,
           label: getProductionResourceLabel(resourceKey),
-          currentAmount,
-          maxAmount: currentCapacity,
-          fillPercent,
-          isNearCapacity: currentAmount >= currentCapacity * 0.8 && currentAmount < currentCapacity,
-          isFull: currentAmount === currentCapacity,
-          isOverCapacity: currentAmount > currentCapacity
+          ...capacityState
         };
       })
     };
@@ -5508,41 +5577,17 @@ function normalizeLocalDemoStorageInventory() {
   const capacityByResource = getWarehouseCapacityBreakdown().byResource || {};
   const session = getAuthoritySession();
   const inventory = session?.inventory || {};
-  const materials = { ...(inventory.materials || {}) };
-  const drugs = { ...(inventory.drugs || {}) };
-  const weapons = { ...(inventory.weapons || {}) };
-  let changed = false;
+  const normalizedInventory = normalizeExistingStorageBuckets({
+    resourceKeys: Object.keys(capacityByResource),
+    materials: inventory.materials,
+    drugs: inventory.drugs,
+    weapons: inventory.weapons,
+    isMaterialResource: (resourceKey) => Boolean(getFactorySupplyKeyForMaterial(resourceKey)),
+    isDrugResource: (resourceKey) => Object.prototype.hasOwnProperty.call(DEFAULT_DRUG_INVENTORY, resourceKey),
+    isWeaponResource: (resourceKey) => Object.prototype.hasOwnProperty.call(DEFAULT_WEAPON_INVENTORY, resourceKey)
+  });
 
-  const clampStoredAmount = (value, capacity) => Math.max(0, Math.min(
-    Math.floor(Number(value || 0)),
-    Math.max(0, Math.floor(Number(capacity || 0)))
-  ));
-  const setIfChanged = (target, key, nextValue) => {
-    const currentValue = Math.max(0, Math.floor(Number(target[key] || 0)));
-    if (currentValue !== nextValue) {
-      target[key] = nextValue;
-      changed = true;
-    }
-  };
-
-  for (const [resourceKey, capacity] of Object.entries(capacityByResource)) {
-    const factorySupplyKey = getFactorySupplyKeyForMaterial(resourceKey);
-    if (factorySupplyKey) {
-      setIfChanged(materials, resourceKey, clampStoredAmount(materials[resourceKey], capacity));
-      continue;
-    }
-    if (Object.prototype.hasOwnProperty.call(DEFAULT_DRUG_INVENTORY, resourceKey)) {
-      setIfChanged(drugs, resourceKey, clampStoredAmount(drugs[resourceKey], capacity));
-      continue;
-    }
-    if (Object.prototype.hasOwnProperty.call(DEFAULT_WEAPON_INVENTORY, resourceKey)) {
-      setIfChanged(weapons, resourceKey, clampStoredAmount(weapons[resourceKey], capacity));
-      continue;
-    }
-    setIfChanged(materials, resourceKey, clampStoredAmount(materials[resourceKey], capacity));
-  }
-
-  if (!changed) {
+  if (!normalizedInventory.changed) {
     return false;
   }
 
@@ -5550,9 +5595,9 @@ function normalizeLocalDemoStorageInventory() {
     ...currentSession,
     inventory: {
       ...(currentSession.inventory || {}),
-      materials,
-      drugs,
-      weapons,
+      materials: normalizedInventory.materials,
+      drugs: normalizedInventory.drugs,
+      weapons: normalizedInventory.weapons,
       factorySupplies: undefined
     }
   }));
@@ -11164,18 +11209,6 @@ function bindDistrictCanvas(root) {
       return opened;
     }
 
-    const openButton = root.querySelector(popupTarget.openSelector);
-    if (!(openButton instanceof HTMLButtonElement)) {
-      setBuildingActionFeedback(
-        root,
-        "warning",
-        popupTarget.label,
-        `Popup pro ${popupTarget.label} není momentálně dostupný.`,
-        safeDistrict?.id ? `District ${safeDistrict.id}` : ""
-      );
-      return false;
-    }
-
     closeOtherDistrictBuildingDetailPopups(root, null);
     if (serverAuthoritative) {
       setActiveServerBuildingPresentationTarget({
@@ -11196,8 +11229,22 @@ function bindDistrictCanvas(root) {
         showDistrictPopupModal(popup);
       }
     };
-    const opening = openProductionPopupFromTrigger(openButton);
+    root.dataset.productionPopupOpenStatus = "dispatching";
+    const openRequest = serverAuthoritative
+      ? {
+          serverTarget: {
+            buildingId: serverBuildingId,
+            buildingTypeId: serverBuildingTypeId,
+            districtId: serverDistrictId,
+            serverInstanceId
+          }
+        }
+      : null;
+    const opening = popupTarget.openerId === "factory"
+      ? openFactoryPopup(root, openRequest)
+      : openProductionBuildingPopup(root, popupTarget.openerId, openRequest);
     if (opening === null) {
+      root.dataset.productionPopupOpenStatus = "opener-unregistered";
       restoreDistrictPopup();
       setBuildingActionFeedback(
         root,
@@ -11209,8 +11256,15 @@ function bindDistrictCanvas(root) {
       return false;
     }
     observeProductionPopupOpening(opening, {
-      onDeclined: restoreDistrictPopup,
+      onOpened: () => {
+        root.dataset.productionPopupOpenStatus = "opened";
+      },
+      onDeclined: () => {
+        root.dataset.productionPopupOpenStatus = "authoritative-prepare-declined";
+        restoreDistrictPopup();
+      },
       onRejected: () => {
+        root.dataset.productionPopupOpenStatus = "authoritative-prepare-rejected";
         restoreDistrictPopup();
         setBuildingActionFeedback(
           root,
@@ -14942,7 +14996,9 @@ const {
   topbarInfluenceSelector: TOPBAR_INFLUENCE_SELECTOR
 });
 const {
-  bindFactoryPopup
+  bindFactoryPopup,
+  clearFactoryPopupOpener,
+  openFactoryPopup
 } = createFactoryPopupRuntime({
   allowLegacyLocalProduction: isLocalDemoGameplayExecutionMode,
   allowLegacyProductionUpgrade: isLocalDemoGameplayExecutionMode,
@@ -15965,6 +16021,8 @@ function destroyRuntime(root = getDefaultRuntimeRoot()) {
     || runtimeUiBoundRoots.has(resolvedRoot)
     || runtimeContextsByRoot.has(resolvedRoot);
   if (!wasMounted) return false;
+  clearProductionBuildingPopupOpeners(resolvedRoot);
+  clearFactoryPopupOpener(resolvedRoot);
   const context = runtimeContextsByRoot.get(resolvedRoot) || null;
   const windowRef = resolvedRoot.ownerDocument?.defaultView || (typeof window === "undefined" ? null : window);
   const actionPanel = buildingActionPanels.get(resolvedRoot);

@@ -13,8 +13,10 @@ import {
   resolveBuildingActionStatus
 } from "./district-building-action-view-helpers";
 import { getAirportMetadata } from "../handlers/airportBuildingActions";
+import { validateApartmentBlockAction } from "../handlers/apartmentBlockBuildingActions";
 import { getCentralBankMetadata } from "../handlers/centralBankBuildingActions";
 import { getCityHallMetadata } from "../handlers/cityHallBuildingActions";
+import { validateConvenienceStoreAction } from "../handlers/convenienceStoreBuildingActions";
 import { getLobbyClubMetadata } from "../handlers/lobbyClubBuildingActions";
 import { getPowerStationMetadata } from "../handlers/powerStationBuildingActions";
 import { resolveRecyclingCenterSalvageStats } from "../handlers/recyclingCenterBuildingActions";
@@ -431,6 +433,13 @@ const createBuildingActionViews = (input: {
         schoolConfig: input.schoolConfig,
         tick: input.tick
       });
+      const populationCollectDisabledReason = resolvePopulationCollectDisabledReason({
+        state: input.state,
+        building: input.building,
+        action,
+        config: input.config,
+        convenienceStoreConfig: input.convenienceStoreConfig
+      });
       const streetDealerDisabledReason = resolveStreetDealerDisabledReason({
         state: input.state,
         building: input.building,
@@ -465,6 +474,8 @@ const createBuildingActionViews = (input: {
                             ? centralBankDisabledReason
                             : lobbyClubDisabledReason
                               ? lobbyClubDisabledReason
+                              : populationCollectDisabledReason
+                                ? populationCollectDisabledReason
                               : schoolDisabledReason
                                 ? schoolDisabledReason
                                 : streetDealerDisabledReason
@@ -848,6 +859,46 @@ const resolveSchoolDisabledReason = (input: {
   }
   if (isEveningCourseActive(metadata, input.tick)) {
     return `Večerní kurz je aktivní ještě ${formatTickLabel(Math.max(0, Number(metadata.eveningCourseExpiresAtTick || 0) - input.tick))}.`;
+  }
+  return null;
+};
+
+const resolvePopulationCollectDisabledReason = (input: {
+  state: CoreGameState;
+  building: CoreGameState["buildingsById"][string];
+  action: BuildingActionBalanceConfig;
+  config?: ResolvedGameModeConfig;
+  convenienceStoreConfig?: ConvenienceStoreBalanceConfig;
+}): string | null => {
+  const apartmentConfig = input.config?.balance.apartmentBlock;
+  const apartmentError = validateApartmentBlockAction({
+    state: input.state,
+    building: input.building,
+    actionId: input.action.actionId,
+    apartmentConfig
+  });
+  if (apartmentError === "apartment_block_no_population") {
+    return "Bytový blok zatím nemá připravené obyvatele.";
+  }
+  if (apartmentError === "apartment_block_insufficient_population") {
+    const minimum = Math.max(1, Math.floor(Number(apartmentConfig?.collectPopulation.minCollectPopulation || 1)));
+    return `Bytový blok potřebuje alespoň ${minimum} lidí k výběru.`;
+  }
+
+  const convenienceError = validateConvenienceStoreAction({
+    building: input.building,
+    actionId: input.action.actionId,
+    config: input.convenienceStoreConfig
+  });
+  if (convenienceError === "convenience_store_no_population") {
+    return "Večerka zatím nemá připravené obyvatele.";
+  }
+  if (convenienceError === "convenience_store_insufficient_population") {
+    const minimum = Math.max(
+      1,
+      Math.floor(Number(input.convenienceStoreConfig?.collectPopulation.minCollectPopulation || 1))
+    );
+    return `Večerka potřebuje alespoň ${minimum} lidí k výběru.`;
   }
   return null;
 };

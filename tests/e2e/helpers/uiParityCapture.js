@@ -14,6 +14,7 @@ const SCOPED_SESSION_KEY = "empireStreets.session.free.instance-free-eu-central-
 const { PNG } = playwrightUtilsBundle;
 
 export const PARITY_PNG_CHANNEL_TOLERANCE = 6;
+export const PARITY_PNG_MAX_CAPTURE_ATTEMPTS = 2;
 export const PARITY_SCREENSHOT_RASTER_FRINGE_PX = 1;
 export const BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE = "population-buffer";
 export const buildingPopulationBufferDynamicValueSelector =
@@ -442,6 +443,45 @@ export function compareParityPngScreenshots(actualBuffer, expectedBuffer, {
     rawDifferentPixelCount,
     rawMaxChannelDelta,
     requestedIgnoreRegionCount: ignoreMask.requestedIgnoreRegionCount
+  };
+}
+
+export async function compareParityPngScreenshotAttempts(captureAttempt, {
+  channelTolerance = PARITY_PNG_CHANNEL_TOLERANCE,
+  maxAttempts = PARITY_PNG_MAX_CAPTURE_ATTEMPTS
+} = {}) {
+  if (typeof captureAttempt !== "function") {
+    throw new TypeError("Parity screenshot capture attempt must be a function");
+  }
+  if (
+    !Number.isInteger(maxAttempts)
+    || maxAttempts < 1
+    || maxAttempts > PARITY_PNG_MAX_CAPTURE_ATTEMPTS
+  ) {
+    throw new RangeError(`Parity PNG capture attempts must be from 1 to ${PARITY_PNG_MAX_CAPTURE_ATTEMPTS}`);
+  }
+
+  const attempts = [];
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const capture = await captureAttempt(attempt);
+    const comparison = compareParityPngScreenshots(
+      capture.actualBuffer,
+      capture.expectedBuffer,
+      {
+        channelTolerance,
+        ignoreRegions: capture.ignoreRegions ?? []
+      }
+    );
+    attempts.push({ attempt, comparison });
+    if (comparison.matches) {
+      return { attemptCount: attempt, attempts, comparison };
+    }
+  }
+
+  return {
+    attemptCount: attempts.length,
+    attempts,
+    comparison: attempts.at(-1).comparison
   };
 }
 
@@ -908,6 +948,12 @@ export async function openBuildingFromDistrict(page, buildingTypeOrLabel) {
       await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
     }
   } while (Date.now() < clickDeadline);
+  const productionHandoffStatus = await page.locator("#game-root").getAttribute(
+    "data-production-popup-open-status"
+  ).catch(() => null);
+  if (productionHandoffStatus) {
+    throw new Error(`${lastClickError?.message || lastClickError} Production handoff: ${productionHandoffStatus}.`);
+  }
   throw lastClickError;
 }
 

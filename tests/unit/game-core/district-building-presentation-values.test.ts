@@ -86,6 +86,100 @@ describe("district building presentation values", () => {
     ]));
   });
 
+  it("keeps school presentation rate before day-night while using effective fill time", () => {
+    const fixture = createCoreStateWithFixedBuildingFixture("school", {
+      buildingOverrides: {
+        metadata: {
+          school: {
+            storedStudents: 0,
+            lastCapacity: 20,
+            lastUpdatedTick: 0,
+            wasFull: false
+          }
+        }
+      }
+    });
+    const populationBuffer = createCivilPopulationBufferPresentation({
+      state: fixture.state,
+      building: fixture.building,
+      dayNightConfig: config,
+      schoolConfig: config.balance.school,
+      tick: 0,
+      tickRateMs: config.tickRateMs
+    });
+
+    expect(populationBuffer).toEqual({
+      storedAmount: 0,
+      capacity: 20,
+      productionPerMinute: 0.55,
+      timeToFullMs: 1_820_000
+    });
+  });
+
+  it("projects population collect actions as disabled until their canonical minimum", () => {
+    const apartmentFixture = createCoreStateWithFixedBuildingFixture("apartment_block", {
+      buildingOverrides: {
+        metadata: {
+          apartmentBlock: {
+            storedPopulation: 0,
+            lastUpdatedTick: 0
+          }
+        }
+      }
+    });
+    const [apartmentView] = createDistrictPanelBuildingViews({
+      state: apartmentFixture.state,
+      buildings: [apartmentFixture.building],
+      buildCatalog: getAllPublicBuildingDefinitions(),
+      actionCatalog: config.balance.buildingActions ?? {},
+      config,
+      district: apartmentFixture.state.districtsById[apartmentFixture.building.districtId],
+      playerId: "player:1",
+      playerBalances: {},
+      tick: 0,
+      tickRateMs: config.tickRateMs
+    });
+    const apartmentCollect = apartmentView.actions.find((action) => action.actionId === "collect_population");
+
+    expect(apartmentCollect).toMatchObject({
+      enabled: false,
+      disabledReason: "Bytový blok zatím nemá připravené obyvatele."
+    });
+
+    const convenienceFixture = createCoreStateWithFixedBuildingFixture("convenience_store", {
+      buildingOverrides: {
+        metadata: {
+          convenienceStore: {
+            storedPopulation: 0,
+            populationLastUpdatedTick: 0,
+            rumorEvents: []
+          }
+        }
+      }
+    });
+    const [convenienceView] = createDistrictPanelBuildingViews({
+      state: convenienceFixture.state,
+      buildings: [convenienceFixture.building],
+      buildCatalog: getAllPublicBuildingDefinitions(),
+      actionCatalog: config.balance.buildingActions ?? {},
+      config,
+      convenienceStoreConfig: config.balance.convenienceStore,
+      district: convenienceFixture.state.districtsById[convenienceFixture.building.districtId],
+      playerId: "player:1",
+      playerBalances: {},
+      tick: 0,
+      tickRateMs: config.tickRateMs
+    });
+    const convenienceCollect = convenienceView.actions.find(
+      (action) => action.actionId === "collect_convenience_store_population"
+    );
+
+    expect(convenienceCollect).toMatchObject({
+      enabled: false,
+      disabledReason: "Večerka zatím nemá připravené obyvatele."
+    });
+  });
+
   it("projects the actual recruitment camera bonus separately from its cap", () => {
     const fixture = createCoreStateWithFixedBuildingFixture("recruitment_center");
     const stats = createCivilBuildingStats({

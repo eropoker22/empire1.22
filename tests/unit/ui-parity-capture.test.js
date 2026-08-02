@@ -5,6 +5,7 @@ import {
   buildingPopulationBufferDynamicValueSelector,
   captureGameChromeScreenshot,
   captureIsolatedParityScreenshot,
+  compareParityPngScreenshotAttempts,
   compareParityPngScreenshots,
   createRoundedCornerCompositeIgnoreRegions,
   exerciseParitySurfaceScroll,
@@ -23,6 +24,7 @@ import {
   openDistrictById,
   openParityLocalDemo,
   PARITY_PNG_CHANNEL_TOLERANCE,
+  PARITY_PNG_MAX_CAPTURE_ATTEMPTS,
   parityComputedStyleProperties,
   parityDynamicDistrictIdentitySelector,
   parityDynamicClassNames,
@@ -164,6 +166,45 @@ describe("UI parity class signature", () => {
     expect(() => compareParityPngScreenshots(expected, expected, {
       channelTolerance: 6.5
     })).toThrow(/integer from 0 to 255/u);
+  });
+
+  it("allows one bounded recapture only when the final image has zero meaningful pixels", async () => {
+    const expected = createPngBuffer(1, 1, [20, 40, 60, 255]);
+    const oneMeaningfulPixel = createPngBuffer(1, 1, [27, 40, 60, 255]);
+    const captureAttempt = vi.fn()
+      .mockResolvedValueOnce({
+        actualBuffer: oneMeaningfulPixel,
+        expectedBuffer: expected
+      })
+      .mockResolvedValueOnce({
+        actualBuffer: expected,
+        expectedBuffer: expected
+      });
+
+    const recovered = await compareParityPngScreenshotAttempts(captureAttempt);
+
+    expect(PARITY_PNG_MAX_CAPTURE_ATTEMPTS).toBe(2);
+    expect(captureAttempt).toHaveBeenCalledTimes(2);
+    expect(recovered).toMatchObject({
+      attemptCount: 2,
+      attempts: [
+        { attempt: 1, comparison: { matches: false, meaningfulPixelCount: 1 } },
+        { attempt: 2, comparison: { matches: true, meaningfulPixelCount: 0 } }
+      ],
+      comparison: { matches: true, meaningfulPixelCount: 0 }
+    });
+
+    const persistentDifference = await compareParityPngScreenshotAttempts(async () => ({
+      actualBuffer: oneMeaningfulPixel,
+      expectedBuffer: expected
+    }));
+    expect(persistentDifference).toMatchObject({
+      attemptCount: 2,
+      comparison: { matches: false, meaningfulPixelCount: 1 }
+    });
+    await expect(compareParityPngScreenshotAttempts(captureAttempt, {
+      maxAttempts: PARITY_PNG_MAX_CAPTURE_ATTEMPTS + 1
+    })).rejects.toThrow(/capture attempts must be from 1 to 2/u);
   });
 
   it("rejects PNG dimension changes as meaningful differences", () => {

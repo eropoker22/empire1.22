@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  findServerBuildingByExactTarget,
   findServerBuildingByType,
   getServerBuildingShortcutCandidateDistrictIds
 } from "../../page-assets/js/app/runtime/serverBuildingShortcutResolver.js";
@@ -16,6 +17,32 @@ describe("server building shortcut resolver", () => {
     }, "druglab")).toMatchObject({
       buildingId: "building:drug-lab:1"
     });
+  });
+
+  it("keeps a district-chip opener pinned to its exact authoritative building", () => {
+    const readModel = {
+      district: {
+        districtId: "district:67",
+        buildings: [
+          { buildingId: "building:pharmacy:other", buildingTypeId: "pharmacy" },
+          { buildingId: "building:pharmacy:target", buildingTypeId: "pharmacy" }
+        ]
+      }
+    };
+    const target = {
+      districtId: "district:67",
+      buildingId: "building:pharmacy:target",
+      buildingTypeId: "pharmacy"
+    };
+
+    expect(findServerBuildingByExactTarget(readModel, target, "pharmacy")).toMatchObject({
+      buildingId: "building:pharmacy:target"
+    });
+    expect(findServerBuildingByExactTarget(readModel, {
+      ...target,
+      districtId: "district:68"
+    }, "pharmacy")).toBeNull();
+    expect(findServerBuildingByExactTarget(readModel, target, "armory")).toBeNull();
   });
 
   it("searches known, selected, hinted and remaining owned districts in order", () => {

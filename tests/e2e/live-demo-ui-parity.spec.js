@@ -36,6 +36,7 @@ import {
   captureGameChromeScreenshot,
   captureIsolatedParityScreenshot,
   closeSurface,
+  compareParityPngScreenshotAttempts,
   compareParityPngScreenshots,
   exerciseParitySurfaceScroll,
   expectNoDuplicateVisibleUi,
@@ -302,15 +303,18 @@ async function attachOpenBuildingScreenshot({
   buildingTypeId,
   mode,
   viewportName,
-  panelName
+  panelName,
+  captureAttempt = 1
 }) {
+  const recaptureSuffix = captureAttempt > 1 ? `recapture-${captureAttempt}` : "";
   const attachmentName = [
     "building",
     buildingTypeId,
     mode,
     viewportName,
-    panelName
-  ].join("--") + ".png";
+    panelName,
+    recaptureSuffix
+  ].filter(Boolean).join("--") + ".png";
   const screenshotPath = testInfo.outputPath(attachmentName);
   const surface = page.locator(`${paritySurfaces[surfaceName].selector}:visible`).last();
   const target = ["buildingDetail", "restaurant", "arcade"].includes(surfaceName)
@@ -355,36 +359,42 @@ async function attachOpenBuildingScreenshotPair({
   viewportName,
   panelName
 }) {
-  const [localCapture, serverCapture] = await Promise.all([
-    attachOpenBuildingScreenshot({
-      page: localPage,
-      testInfo,
-      surfaceName,
-      buildingTypeId,
-      mode: "local-demo",
-      viewportName,
-      panelName
-    }),
-    attachOpenBuildingScreenshot({
-      page: serverPage,
-      testInfo,
-      surfaceName,
-      buildingTypeId,
-      mode: "hosted",
-      viewportName,
-      panelName
-    })
-  ]);
-  const comparison = compareParityPngScreenshots(
-    serverCapture.screenshot,
-    localCapture.screenshot,
-    {
+  const attemptResult = await compareParityPngScreenshotAttempts(async (captureAttempt) => {
+    const [localCapture, serverCapture] = await Promise.all([
+      attachOpenBuildingScreenshot({
+        page: localPage,
+        testInfo,
+        surfaceName,
+        buildingTypeId,
+        mode: "local-demo",
+        viewportName,
+        panelName,
+        captureAttempt
+      }),
+      attachOpenBuildingScreenshot({
+        page: serverPage,
+        testInfo,
+        surfaceName,
+        buildingTypeId,
+        mode: "hosted",
+        viewportName,
+        panelName,
+        captureAttempt
+      })
+    ]);
+    return {
+      actualBuffer: serverCapture.screenshot,
+      expectedBuffer: localCapture.screenshot,
       ignoreRegions: [
         ...serverCapture.ignoreRegions,
         ...localCapture.ignoreRegions
       ]
-    }
-  );
+    };
+  });
+  const comparison = {
+    ...attemptResult.comparison,
+    captureAttemptCount: attemptResult.attemptCount
+  };
   await testInfo.attach([
     "building",
     buildingTypeId,
@@ -392,7 +402,10 @@ async function attachOpenBuildingScreenshotPair({
     panelName,
     "png-diff.json"
   ].join("--"), {
-    body: Buffer.from(`${JSON.stringify(comparison, null, 2)}\n`, "utf8"),
+    body: Buffer.from(`${JSON.stringify({
+      ...comparison,
+      captureAttempts: attemptResult.attempts
+    }, null, 2)}\n`, "utf8"),
     contentType: "application/json"
   });
   expect(

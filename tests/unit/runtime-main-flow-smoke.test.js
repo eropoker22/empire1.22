@@ -269,7 +269,7 @@ describe("runtime main UI flow smoke guard", () => {
         genericHandoffCloseIndex
       );
       const buildingPopupOpenIndex = source.indexOf(
-        "openProductionPopupFromTrigger(openButton)",
+        "openProductionBuildingPopup(root, popupTarget.openerId, openRequest)",
         productionHandoffCloseIndex
       );
       const buildingPopupObserveIndex = source.indexOf(
@@ -282,8 +282,9 @@ describe("runtime main UI flow smoke guard", () => {
       expect(buildingPopupOpenIndex).toBeGreaterThan(productionHandoffCloseIndex);
       expect(buildingPopupObserveIndex).toBeGreaterThan(buildingPopupOpenIndex);
       expect(source.slice(presentBuildingDetailIndex, buildingPopupOpenIndex)).not.toContain("openButton.click();");
+      expect(source.slice(presentBuildingDetailIndex, buildingPopupOpenIndex)).toContain("serverTarget:");
       expect(source.slice(buildingPopupOpenIndex, buildingPopupObserveIndex)).toContain("restoreDistrictPopup();");
-      expect(source.slice(buildingPopupObserveIndex)).toContain("onDeclined: restoreDistrictPopup");
+      expect(source.slice(buildingPopupObserveIndex)).toContain("onDeclined: () =>");
       expect(source.slice(buildingPopupObserveIndex)).toContain("onRejected: () =>");
       expect(source).toContain("if (!opened && popup && districtPopupHiddenForHandoff)");
       expect(source).toContain("showDistrictPopupModal(popup);");

@@ -201,16 +201,17 @@ export const createCivilPopulationBufferPresentation = (
         ).modifiers.passivePopulationMultiplier)
       : 1;
     const baseProductionPerMinute = schoolConfig.populationPerMinute
-      * network.populationProductionMultiplier
-      * (Number.isFinite(passivePopulationMultiplier) && passivePopulationMultiplier >= 0
-        ? passivePopulationMultiplier
-        : 1);
+      * network.populationProductionMultiplier;
     const productionPerMinute = input.dayNightConfig
       ? applyFactionPopulationGeneration(
           baseProductionPerMinute,
           getFactionPassiveModifiers(input.state, input.building.ownerPlayerId, { config: input.dayNightConfig })
         )
       : baseProductionPerMinute;
+    const effectiveProductionPerMinute = productionPerMinute
+      * (Number.isFinite(passivePopulationMultiplier) && passivePopulationMultiplier >= 0
+        ? passivePopulationMultiplier
+        : 1);
     return {
       storedAmount,
       capacity,
@@ -218,7 +219,7 @@ export const createCivilPopulationBufferPresentation = (
       timeToFullMs: resolvePopulationTimeToFullMs({
         storedAmount,
         capacity,
-        productionPerMinute,
+        productionPerMinute: effectiveProductionPerMinute,
         tickRateMs
       })
     };

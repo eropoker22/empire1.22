@@ -7,7 +7,6 @@ import {
   queueLocalProduction
 } from "./localProductionLineState.js";
 import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
-import { registerProductionPopupOpener } from "./productionPopupOpenBridge.js";
 
 function isButtonElement(element, ButtonCtor) {
   if (!element) {
@@ -45,6 +44,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
   ) && !isServerAuthoritativeProductionReady();
   const productionBridgeMessage = "Výroba je v tomto režimu nedostupná.";
   const productionUpgradeMessage = "Serverový upgrade se provádí přes konkrétní kartu budovy v districtu.";
+  const popupOpenersByRoot = new WeakMap();
   const baseOwnedCount = Math.max(1, Math.floor(Number(deps.baseOwnedProductionBuildingCount || 1)));
   const getServerLines = (production) => Array.isArray(production?.productionLines)
     ? production.productionLines
@@ -848,9 +848,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         collectButton.textContent = "+";
         const collectLabel = serverLoading
           ? "Načítám stav budovy…"
-          : serverProduction
-          ? readyCount > 0 ? "Vybrat hotovou produkci do skladu" : "Není nic hotového k vyzvednutí"
-          : !isLegacyLocalProductionEnabled()
+          : !serverProduction && !isLegacyLocalProductionEnabled()
           ? productionBridgeMessage
           : readyCount > 0
           ? `Vybrat hotové do skladu (${readyCount})`
@@ -1116,7 +1114,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       });
     }
 
-    const openPopup = async () => {
+    const openPopup = async (request = null) => {
       const shouldPrepareServerBuilding = shouldUseServerProduction()
         && typeof deps.prepareServerProductionBuilding === "function";
       let preparedServerBuilding = null;
@@ -1127,7 +1125,11 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       }
       try {
         if (shouldPrepareServerBuilding) {
-          preparedServerBuilding = await deps.prepareServerProductionBuilding(buildingName);
+          preparedServerBuilding = request?.serverTarget
+            ? await deps.prepareServerProductionBuilding(buildingName, {
+                serverTarget: request.serverTarget
+              })
+            : await deps.prepareServerProductionBuilding(buildingName);
           if (preparedServerBuilding?.accepted !== true) {
             deps.setBuildingActionFeedback?.(
               root,
@@ -1159,7 +1161,9 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       deps.syncBuildingDetailTopbarVisibility?.(root);
     };
 
-    registerProductionPopupOpener(openButton, openPopup);
+    const popupOpeners = popupOpenersByRoot.get(root) || new Map();
+    popupOpeners.set(buildingName, openPopup);
+    popupOpenersByRoot.set(root, popupOpeners);
     openButton.addEventListener("click", openPopup);
 
     for (const closeElement of closeElements) {
@@ -1203,15 +1207,29 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     recipes: deps.DRUGLAB_RECIPES
   });
 
+  const openProductionBuildingPopup = (root, buildingName, request = null) => {
+    const opener = popupOpenersByRoot.get(root)?.get(String(buildingName || "").trim());
+    return typeof opener === "function" ? opener(request) : null;
+  };
+
+  const clearProductionBuildingPopupOpeners = (root) => {
+    if (!root) {
+      return false;
+    }
+    return popupOpenersByRoot.delete(root);
+  };
+
   return {
     bindArmoryPopup,
     bindDrugLabPopup,
     bindPharmacyPopup,
     bindProductionBuildingPopup,
+    clearProductionBuildingPopupOpeners,
     createProductionCard,
     createServerArmoryCard,
     createServerPharmacyCard,
     getProductionSlotState,
+    openProductionBuildingPopup,
     renderProductionBuildingInfo,
     renderProductionPanel
   };

@@ -17,6 +17,24 @@ export function findServerBuildingByType(readModel, buildingTypeId) {
   ) || null;
 }
 
+export function findServerBuildingByExactTarget(readModel, target, buildingTypeId) {
+  const districtId = String(target?.districtId || "").trim();
+  const buildingId = String(target?.buildingId || "").trim();
+  const normalizedTypeId = normalizeBuildingTypeId(buildingTypeId || target?.buildingTypeId);
+  if (
+    !districtId
+    || !buildingId
+    || !normalizedTypeId
+    || String(readModel?.district?.districtId || "") !== districtId
+  ) {
+    return null;
+  }
+  return (readModel?.district?.buildings || []).find((building) => (
+    String(building?.buildingId || "").trim() === buildingId
+    && normalizeBuildingTypeId(building?.buildingTypeId) === normalizedTypeId
+  )) || null;
+}
+
 export function getServerBuildingShortcutCandidateDistrictIds(
   readModel,
   buildingTypeId,

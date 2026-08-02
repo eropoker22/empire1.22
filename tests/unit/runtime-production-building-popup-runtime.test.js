@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import { createProductionBuildingPopupRuntime } from "../../page-assets/js/app/runtime/productionBuildingPopupRuntime.js";
-import { openProductionPopupFromTrigger } from "../../page-assets/js/app/runtime/productionPopupOpenBridge.js";
 import {
   ARMORY_RECIPES,
   DRUGLAB_RECIPES,
@@ -69,7 +68,7 @@ describe("production building popup runtime", () => {
       recipes: {}
     })).toBe(true);
 
-    await expect(openProductionPopupFromTrigger(openButton)).resolves.toBe(true);
+    await expect(runtime.openProductionBuildingPopup(root, buildingName)).resolves.toBe(true);
     expect(popup.hidden).toBe(false);
     expect(popup.dataset.executionMode).toBe("local-demo");
   });
@@ -106,10 +105,80 @@ describe("production building popup runtime", () => {
     })).toBe(true);
 
     localDemo = true;
-    await expect(openProductionPopupFromTrigger(openButton)).resolves.toBe(true);
+    await expect(runtime.openProductionBuildingPopup(root, "pharmacy")).resolves.toBe(true);
 
     expect(prepareServerProductionBuilding).not.toHaveBeenCalled();
     expect(popup.dataset.executionMode).toBe("local-demo");
+  });
+
+  it("forwards the exact hosted district-chip target to production preparation", async () => {
+    const openButton = createElement();
+    const popup = createElement();
+    popup.hidden = true;
+    popup.querySelectorAll = vi.fn(() => []);
+    const prepareServerProductionBuilding = vi.fn(async () => ({
+      accepted: true,
+      building: { buildingId: "building:district-67:pharmacy:1" },
+      districtId: "district:67",
+      errors: []
+    }));
+    const runtime = createProductionBuildingPopupRuntime({
+      PRODUCTION_BUILDING_CONFIG: { pharmacy: { label: "Lékárna" } },
+      allowLegacyLocalProduction: false,
+      prepareServerProductionBuilding
+    });
+    const root = createRoot({
+      ".open": openButton,
+      ".popup": popup,
+      ".close": [createElement()]
+    });
+    const request = {
+      serverTarget: {
+        districtId: "district:67",
+        buildingId: "building:district-67:pharmacy:1",
+        buildingTypeId: "pharmacy"
+      }
+    };
+
+    expect(runtime.bindProductionBuildingPopup(root, {
+      buildingName: "pharmacy",
+      closeSelector: ".close",
+      openSelector: ".open",
+      popupSelector: ".popup",
+      recipes: {}
+    })).toBe(true);
+
+    await expect(runtime.openProductionBuildingPopup(root, "pharmacy", request)).resolves.toBe(true);
+    expect(prepareServerProductionBuilding).toHaveBeenCalledWith("pharmacy", request);
+    expect(popup.hidden).toBe(false);
+  });
+
+  it("keeps the direct opener scoped to the bound game root", async () => {
+    const runtime = createProductionBuildingPopupRuntime({
+      PRODUCTION_BUILDING_CONFIG: { pharmacy: { label: "Lékárna" } }
+    });
+    const popup = createElement();
+    popup.hidden = true;
+    popup.querySelectorAll = vi.fn(() => []);
+    const root = createRoot({
+      ".open": createElement(),
+      ".popup": popup,
+      ".close": [createElement()]
+    });
+    const unrelatedRoot = createRoot();
+
+    expect(runtime.bindProductionBuildingPopup(root, {
+      buildingName: "pharmacy",
+      closeSelector: ".close",
+      openSelector: ".open",
+      popupSelector: ".popup",
+      recipes: {}
+    })).toBe(true);
+
+    expect(runtime.openProductionBuildingPopup(unrelatedRoot, "pharmacy")).toBeNull();
+    await expect(runtime.openProductionBuildingPopup(root, "pharmacy")).resolves.toBe(true);
+    expect(runtime.clearProductionBuildingPopupOpeners(root)).toBe(true);
+    expect(runtime.openProductionBuildingPopup(root, "pharmacy")).toBeNull();
   });
 
   it("keeps all browser Armory queue caps synchronized with the canonical typed config", () => {

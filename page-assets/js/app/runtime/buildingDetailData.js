@@ -1,10 +1,4 @@
 import {
-  ARMORY_POPUP_OPEN_SELECTOR,
-  DRUGLAB_POPUP_OPEN_SELECTOR,
-  FACTORY_POPUP_OPEN_SELECTOR,
-  PHARMACY_POPUP_OPEN_SELECTOR
-} from "./constants.js";
-import {
   SMUGGLING_TUNNEL_CONFIG,
   STREET_DEALERS_CONFIG,
   STRIP_CLUB_CONFIG
@@ -15,22 +9,22 @@ export { SMUGGLING_TUNNEL_CONFIG };
 export const BUILDING_POPUP_TARGETS = Object.freeze([
   Object.freeze({
     label: "Lékárna",
-    openSelector: PHARMACY_POPUP_OPEN_SELECTOR,
+    openerId: "pharmacy",
     lookupKeys: Object.freeze(["lekarna", "pharmacy"])
   }),
   Object.freeze({
     label: "Drug lab",
-    openSelector: DRUGLAB_POPUP_OPEN_SELECTOR,
+    openerId: "druglab",
     lookupKeys: Object.freeze(["drug lab", "druglab", "lab"])
   }),
   Object.freeze({
     label: "Továrna",
-    openSelector: FACTORY_POPUP_OPEN_SELECTOR,
+    openerId: "factory",
     lookupKeys: Object.freeze(["tovarna", "factory"])
   }),
   Object.freeze({
     label: "Zbrojovka",
-    openSelector: ARMORY_POPUP_OPEN_SELECTOR,
+    openerId: "armory",
     lookupKeys: Object.freeze(["zbrojovka", "armory"])
   })
 ]);

@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import { createFactoryPopupRuntime } from "../../page-assets/js/app/runtime/factoryPopupRuntime.js";
-import { openProductionPopupFromTrigger } from "../../page-assets/js/app/runtime/productionPopupOpenBridge.js";
 
 function createElement(dataset = {}) {
   const listeners = new Map();
@@ -211,11 +210,64 @@ describe("factory popup runtime", () => {
     }, { ".close": [close] });
 
     expect(runtime.bindFactoryPopup(root)).toBe(true);
-    await expect(openProductionPopupFromTrigger(open)).resolves.toBe(true);
+    await expect(runtime.openFactoryPopup(root)).resolves.toBe(true);
 
     expect(prepareServerProductionBuilding).toHaveBeenCalledWith("factory");
     expect(popup.hidden).toBe(false);
     expect(open.disabled).toBe(false);
+  });
+
+  it("forwards the exact hosted district-chip target to Factory preparation", async () => {
+    const open = createElement();
+    const popup = createElement();
+    popup.hidden = true;
+    const prepareServerProductionBuilding = vi.fn(async () => ({
+      accepted: true,
+      building: { buildingId: "building:district-68:factory:1" },
+      districtId: "district:68",
+      errors: []
+    }));
+    const runtime = createRuntime({
+      allowLegacyLocalProduction: false,
+      getServerFactoryReadModel: () => ({
+        districtId: "district:68",
+        buildingId: "building:district-68:factory:1",
+        level: 1,
+        network: { activeFactoryCount: 1, networkSpeedMultiplier: 1 },
+        producedSummary: [],
+        productionLines: []
+      }),
+      prepareServerProductionBuilding,
+      renderServerFactorySlotList: vi.fn(),
+      syncBuildingDetailTopbarVisibility: vi.fn()
+    });
+    const root = createRoot({
+      ".collect": createElement(),
+      ".header": createElement(),
+      ".level": createElement(),
+      ".multiplier": createElement(),
+      ".open": open,
+      ".owned": createElement(),
+      ".popup": popup,
+      ".slots": createElement(),
+      ".supply-combat": createElement(),
+      ".supply-metal": createElement(),
+      ".supply-tech": createElement(),
+      ".upgrade": createElement(),
+      ".upgrade-cost": createElement()
+    }, { ".close": [createElement()] });
+    const request = {
+      serverTarget: {
+        districtId: "district:68",
+        buildingId: "building:district-68:factory:1",
+        buildingTypeId: "factory"
+      }
+    };
+
+    expect(runtime.bindFactoryPopup(root)).toBe(true);
+    await expect(runtime.openFactoryPopup(root, request)).resolves.toBe(true);
+    expect(prepareServerProductionBuilding).toHaveBeenCalledWith("factory", request);
+    expect(popup.hidden).toBe(false);
   });
 
   it("evaluates the Factory local production policy when the direct opener runs", async () => {
@@ -253,7 +305,7 @@ describe("factory popup runtime", () => {
     expect(runtime.bindFactoryPopup(root)).toBe(true);
 
     localDemo = true;
-    await expect(openProductionPopupFromTrigger(open)).resolves.toBe(true);
+    await expect(runtime.openFactoryPopup(root)).resolves.toBe(true);
 
     expect(prepareServerProductionBuilding).not.toHaveBeenCalled();
     expect(popup.hidden).toBe(false);

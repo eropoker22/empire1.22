@@ -601,6 +601,67 @@ describe("shared building presentation adapters", () => {
     );
   });
 
+  it("keeps zero population buffers disabled and school phase copy single-applied", () => {
+    const apartment = createServerBuildingDetail({
+      baseName: "Bytový blok",
+      buildingTypeId: "apartment_block",
+      populationBuffer: {
+        storedAmount: 0,
+        capacity: 50,
+        productionPerMinute: 2,
+        timeToFullMs: 1_500_000
+      },
+      actions: [{
+        actionId: "collect_population",
+        label: "Vybrat obyvatele",
+        enabled: false,
+        disabledReason: "Bytový blok zatím nemá připravené obyvatele."
+      }]
+    });
+    const convenience = createServerBuildingDetail({
+      baseName: "Večerka",
+      buildingTypeId: "convenience_store",
+      populationBuffer: {
+        storedAmount: 0,
+        capacity: 50,
+        productionPerMinute: 50 / 60,
+        timeToFullMs: 3_600_000
+      },
+      actions: [{
+        actionId: "collect_convenience_store_population",
+        label: "Vybrat obyvatele",
+        enabled: false,
+        disabledReason: "Večerka zatím nemá připravené obyvatele."
+      }]
+    });
+    const school = createServerBuildingDetail({
+      baseName: "Škola",
+      buildingTypeId: "school",
+      populationBuffer: {
+        storedAmount: 0,
+        capacity: 20,
+        productionPerMinute: 0.55,
+        timeToFullMs: 1_820_000
+      },
+      stats: [
+        { label: "Vlastněné školy", value: "1/6" },
+        { label: "Produkce populace", value: "+0 %" },
+        { label: "Kapacita", value: "+0 %" },
+        { label: "Income", value: "+0 %" }
+      ]
+    });
+
+    expect(apartment.viewModel.collect).toMatchObject({ visible: true, enabled: false });
+    expect(convenience.viewModel.collect).toMatchObject({ visible: true, enabled: false });
+    expect(school.viewModel.mechanics).toContainEqual(expect.objectContaining({
+      label: "Produkce",
+      value: "+0.55 populace/min"
+    }));
+    expect(school.viewModel.effects).toContainEqual(expect.objectContaining({
+      text: "DEN: populace 0.55/min -> 0.66/min"
+    }));
+  });
+
   it("maps recruitment and car dealer support from their canonical stat labels", () => {
     const recruitment = createServerBuildingDetail({
       baseName: "Rekrutační centrum",
