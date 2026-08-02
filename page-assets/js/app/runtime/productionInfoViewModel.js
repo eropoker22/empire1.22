@@ -112,7 +112,7 @@ export function createFactoryBuildingInfoViewModel({
   const recipeOrder = ["metal-parts", "tech-core", "combat-module"];
   const recipes = safeObject(config.recipes);
   const slotsByRecipeId = Object.fromEntries((Array.isArray(factoryState.slots) ? factoryState.slots : []).map((slot) => [
-    slot.recipeId || slot.serverLine?.recipeId || slot.id,
+    slot.recipeId || slot.id,
     slot
   ]));
   const products = recipeOrder.map((recipeId) => {

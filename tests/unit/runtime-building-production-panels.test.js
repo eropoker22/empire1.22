@@ -2258,28 +2258,27 @@ describe("building detail, production and recipe UI modules", () => {
       .toBe("Zrušit čekající výrobu Bojový modul");
     card.querySelector("[data-factory-slot-toggle-state=\"start\"]").click();
     card.querySelector("[data-factory-slot-toggle-state=\"stop\"]").click();
-    expect(onStartSlot).toHaveBeenCalledWith(line, { batchCount: 1 });
-    expect(onPauseSlot).toHaveBeenCalledWith(line);
+    const submittedSlot = onStartSlot.mock.calls[0][0];
+    expect(submittedSlot).toMatchObject({
+      recipeId: "combat-module",
+      status: "waiting",
+      canStart: true,
+      canCancelWaiting: true,
+      displayCost: { cleanCash: 2500, metalParts: 4, techCore: 2 },
+      inputAmounts: { metalParts: 12, techCore: 0 }
+    });
+    expect(submittedSlot).not.toHaveProperty("serverLine");
+    expect(onStartSlot).toHaveBeenCalledWith(submittedSlot, { batchCount: 1 });
+    expect(onPauseSlot).toHaveBeenCalledWith(submittedSlot);
   });
 
   it("uses demo-canonical Factory timing and capacity labels for adapted server lines", () => {
     const document = setupDocument();
     const mount = document.createElement("div");
     const createCard = ({ resourceKey, durationMs, secondaryLine, producedCapacity, queueCapacity }) => renderFactorySlotCard({
-      serverLine: {
-        recipeId: resourceKey,
-        resourceKey,
-        label: resourceKey,
-        status: "ready",
-        producedAmount: 0,
-        producedCapacity,
-        queuedAmount: 0,
-        queueCapacity,
-        maxStartQuantity: 1,
-        canStart: true,
-        canCancelWaiting: false,
-        costDisplayRows: []
-      },
+      recipeId: resourceKey,
+      status: "ready",
+      canCancelWaiting: false,
       slot: {
         resourceKey: resourceKey === "metal-parts" ? "metalParts" : "combatModule",
         producedAmount: 0,
@@ -2368,7 +2367,11 @@ describe("building detail, production and recipe UI modules", () => {
     const restoredCard = mount.children[0];
     expect(restoredCard.querySelector(".factory-slot__quantity-value").textContent).toBe("2");
     restoredCard.querySelector('[data-factory-slot-toggle-state="start"]').click();
-    expect(onStartSlot).toHaveBeenCalledWith(line, { batchCount: 2 });
+    expect(onStartSlot).toHaveBeenCalledWith(
+      expect.objectContaining({ recipeId: "metal-parts", canStart: true, maxStartQuantity: 4 }),
+      { batchCount: 2 }
+    );
+    expect(onStartSlot.mock.calls[0][0]).not.toHaveProperty("serverLine");
 
     renderServerFactorySlotList(mount, [line], { onStartSlot }, {
       selectionScopeKey: "building:factory:a"
@@ -2395,6 +2398,7 @@ describe("building detail, production and recipe UI modules", () => {
     }], {}, { mount });
 
     const card = mount.children[0];
+    expect(card.className).toContain("factory-slot--loading");
     expect(card.querySelector(".drug-production-slot__state").textContent).toBe("Načítání");
     expect(findMetricValue(card, "Čas")).toBe("—");
     expect(findMetricValue(card, "Cena")).toBe("—");

@@ -7,11 +7,10 @@ import {
   writeProductionQuantitySelection
 } from "./productionQuantitySelection.js";
 
-const getFactoryBatchSelectionKey = (slotView, serverLine, slot, options) => [
+const getFactoryBatchSelectionKey = (slotView, slot, options) => [
   String(options?.selectionScopeKey || "factory"),
   String(
-    serverLine?.recipeId
-    || slotView?.recipeId
+    slotView?.recipeId
     || slot?.id
     || slot?.resourceKey
     || "factory-slot"
@@ -136,20 +135,8 @@ function appendChildren(parent, children = []) {
   }
 }
 
-function getFactoryMaterialRequirements(slotView = {}, serverLine = null, batchCount = 1) {
+function getFactoryMaterialRequirements(slotView = {}, batchCount = 1) {
   const quantity = Math.max(1, Math.floor(Number(batchCount || 1)));
-  if (serverLine) {
-    return (serverLine.costDisplayRows || [])
-      .filter((row) => String(row?.resourceKey || "") !== "cash")
-      .map((row) => ({
-        key: String(row.resourceKey || ""),
-        label: String(row.label || row.resourceKey || "Materiál"),
-        required: Math.max(0, Math.floor(Number(row.amount || 0) * quantity)),
-        available: Number.isFinite(Number(row.availableAmount)) ? Math.max(0, Math.floor(Number(row.availableAmount))) : null
-      }))
-      .filter((row) => row.required > 0);
-  }
-
   const displayCost = slotView.displayCost || {};
   const inputAmounts = slotView.inputAmounts || {};
   return [
@@ -164,8 +151,8 @@ function getFactoryMaterialRequirements(slotView = {}, serverLine = null, batchC
     .filter((row) => row.required > 0);
 }
 
-function createFactoryMaterialRequirements(scopeElement, slotView = {}, serverLine = null) {
-  if (getFactoryMaterialRequirements(slotView, serverLine).length === 0) {
+function createFactoryMaterialRequirements(scopeElement, slotView = {}) {
+  if (getFactoryMaterialRequirements(slotView).length === 0) {
     return { element: null, refresh: () => {} };
   }
 
@@ -176,7 +163,7 @@ function createFactoryMaterialRequirements(scopeElement, slotView = {}, serverLi
 
   const refresh = (batchCount = 1) => {
     row.replaceChildren();
-    const requirements = getFactoryMaterialRequirements(slotView, serverLine, batchCount);
+    const requirements = getFactoryMaterialRequirements(slotView, batchCount);
     row.classList.toggle("drug-production-slot__supply-row--count-2", requirements.length === 2);
     for (const requirement of requirements) {
       const isMetalParts = requirement.key === "metalParts" || requirement.key === "metal-parts";
@@ -446,15 +433,15 @@ export function renderFactoryBuildingInfo(infoPanel, viewModel = {}, options = {
 }
 
 export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {}) {
-  const serverLine = slotView.serverLine || null;
   const slot = slotView.slot || {};
-  const batchSelectionKey = getFactoryBatchSelectionKey(slotView, serverLine, slot, options);
+  const batchSelectionKey = getFactoryBatchSelectionKey(slotView, slot, options);
   const card = createElement(options.mount, "article");
   if (!card) return null;
   card.dataset.resourceColor = slotView.resourceColor || slot.resourceKey || "";
-  card.className = slot.isProducing
+  const cardClassName = slot.isProducing
     ? "factory-slot drug-production-slot factory-slot--active drug-production-slot--active"
     : "factory-slot drug-production-slot";
+  card.className = slotView.loading ? `${cardClassName} factory-slot--loading` : cardClassName;
 
   const head = createElement(options.mount, "div", "factory-slot__head drug-production-slot__head");
   const titleWrap = createElement(options.mount, "div", "factory-slot__title-wrap drug-production-slot__title-wrap");
@@ -472,8 +459,8 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
   icon.setAttribute("aria-hidden", "true");
   eyebrow.textContent = slotView.typeLabel || "";
   title.textContent = slotView.title || slot.resourceKey || "";
-  status.textContent = serverLine
-    ? getFactoryServerStatusLabel(serverLine.status)
+  status.textContent = slotView.status
+    ? getFactoryStatusLabel(slotView.status)
     : slot.isProducing
       ? "Výroba"
       : Number(slot.producedAmount || 0) > Number(slot.slotCap || slotView.slotOutputCap || 0) && Number(slot.slotCap || slotView.slotOutputCap || 0) > 0
@@ -502,34 +489,26 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     return metricValue;
   };
 
-  const hasCanonicalDurationPresentation = Number(slotView.durationMs || 0) > 0
-    || Boolean(slotView.secondaryLine);
-  const hasAuthoritativeCountdown = serverLine
-    && (
-      serverLine.status === "processing"
-      || Number(serverLine.remainingMs || 0) > 0
-      || !hasCanonicalDurationPresentation
-    );
-  const timeValue = appendMetric("Čas", hasAuthoritativeCountdown
-    ? formatFactoryServerTime(serverLine, options)
-    : formatFactorySlotTime(slotView, options));
-  if (!serverLine && slot.isProducing) {
+  const timeValue = appendMetric("Čas", slotView.loading
+    ? "—"
+    : slotView.usesAuthoritativeCountdown
+      ? formatDuration(Number(slotView.remainingMs || 0) > 0 ? slotView.remainingMs : slotView.durationMs, options)
+      : formatFactorySlotTime(slotView, options));
+  if (!slotView.usesAuthoritativeCountdown && slot.isProducing) {
     bindFactoryMetricCountdown(timeValue, () => formatFactorySlotTime(slotView, options), options);
   }
-  const priceValue = appendMetric("Cena", serverLine
-    ? formatFactoryServerCleanCashCost(serverLine, 1)
-    : formatFactoryCleanCashCost(slotView, 1));
-  const producedAmount = Math.max(0, Math.floor(Number(serverLine?.producedAmount ?? slot.producedAmount ?? 0)));
-  const producedCapacity = Math.max(0, Math.floor(Number(serverLine?.producedCapacity ?? slotView.slotOutputCap ?? slot.slotCap ?? 0)));
-  appendMetric("Vyrobeno", serverLine?.loading
+  const priceValue = appendMetric("Cena", formatFactoryCleanCashCost(slotView, 1));
+  const producedAmount = Math.max(0, Math.floor(Number(slot.producedAmount ?? 0)));
+  const producedCapacity = Math.max(0, Math.floor(Number(slotView.slotOutputCap ?? slot.slotCap ?? 0)));
+  appendMetric("Vyrobeno", slotView.loading
     ? "—"
     : producedCapacity > 0 ? `${producedAmount}/${producedCapacity} ks` : `${producedAmount} ks`, true);
   const queuedAmount = Math.max(0, Math.floor(Number(slotView.queuedAmount || slot.queuedAmount || 0)));
   const queueCap = Math.max(0, Math.floor(Number(slotView.queueCap || slot.queueCap || slotView.slotStorageCap || slot.slotCap || 0)));
-  appendMetric("Ve frontě", serverLine?.loading
+  appendMetric("Ve frontě", slotView.loading
     ? "—"
     : queueCap > 0 ? `${queuedAmount}/${queueCap} ks` : `${queuedAmount} ks`, true);
-  const materialRequirements = createFactoryMaterialRequirements(options.mount, slotView, serverLine);
+  const materialRequirements = createFactoryMaterialRequirements(options.mount, slotView);
   if (materialRequirements.element) {
     metrics.append(materialRequirements.element);
   }
@@ -540,11 +519,6 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
   );
   const updatePrice = () => {
     if (!priceValue) return;
-    if (serverLine) {
-      priceValue.textContent = formatFactoryServerCleanCashCost(serverLine, selectedBatches);
-      materialRequirements.refresh(selectedBatches);
-      return;
-    }
     if (slotView.displayCost) {
       priceValue.textContent = formatFactoryCleanCashCost(slotView, selectedBatches);
       materialRequirements.refresh(selectedBatches);
@@ -572,9 +546,7 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     plusButton.setAttribute("aria-label", `Přidat výrobu ${slotView.title || slot.resourceKey || "slotu"}`);
     const refreshQuantity = () => {
       const queueSpace = queueCap > 0 ? Math.max(0, queueCap - queuedAmount) : Number.POSITIVE_INFINITY;
-      const serverLimit = serverLine
-        ? Math.max(0, Number(serverLine.maxStartQuantity || 0))
-        : Math.max(0, Number(slotView.maxStartQuantity ?? Number.POSITIVE_INFINITY));
+      const serverLimit = Math.max(0, Number(slotView.maxStartQuantity ?? Number.POSITIVE_INFINITY));
       const selectionLimit = Math.min(
         Number.isFinite(queueSpace) ? Math.max(1, queueSpace) : Number.POSITIVE_INFINITY,
         serverLimit > 0 ? serverLimit : 1
@@ -582,8 +554,8 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
       selectedBatches = Math.max(1, Math.min(selectedBatches, selectionLimit));
       writeProductionQuantitySelection(options.mount, batchSelectionKey, selectedBatches);
       quantityValue.textContent = String(selectedBatches);
-      minusButton.disabled = selectedBatches <= 1 || Boolean(serverLine ? !serverLine.canStart : !slotView.canStart);
-      plusButton.disabled = Boolean(serverLine ? !serverLine.canStart : !slotView.canStart)
+      minusButton.disabled = selectedBatches <= 1 || !slotView.canStart;
+      plusButton.disabled = !slotView.canStart
         || Number.isFinite(selectionLimit) && selectedBatches >= selectionLimit;
       updatePrice();
     };
@@ -605,30 +577,30 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     startButton.type = "button";
     startButton.dataset.factorySlotToggleState = "start";
     startButton.textContent = "Spustit";
-    startButton.disabled = serverLine ? !serverLine.canStart : !slotView.canStart;
+    startButton.disabled = !slotView.canStart;
     startButton.title = startButton.disabled
-      ? (serverLine?.disabledReason || slotView.disabledReason || "Chybí vstupy, místo ve frontě nebo volná lokální kapacita.")
+      ? (slotView.disabledReason || "Chybí vstupy, místo ve frontě nebo volná lokální kapacita.")
       : "Spustit výrobu.";
     startButton.addEventListener("click", () => {
       clearProductionQuantitySelection(options.mount, batchSelectionKey);
-      if (typeof callbacks.onStartSlot === "function") callbacks.onStartSlot(serverLine || slotView, { batchCount: selectedBatches });
+      if (typeof callbacks.onStartSlot === "function") callbacks.onStartSlot(slotView, { batchCount: selectedBatches });
     });
     pauseButton.type = "button";
     pauseButton.dataset.factorySlotToggleState = "stop";
     pauseButton.textContent = "Zrušit";
     pauseButton.setAttribute(
       "aria-label",
-      `Zrušit čekající výrobu ${serverLine?.label || slotView.title || slot.resourceKey || ""}`
+      `Zrušit čekající výrobu ${slotView.title || slot.resourceKey || ""}`
     );
-    pauseButton.disabled = serverLine
-      ? !serverLine.canCancelWaiting
+    pauseButton.disabled = typeof slotView.canCancelWaiting === "boolean"
+      ? !slotView.canCancelWaiting
       : Math.max(0, Math.floor(Number(slot.queuedAmount ?? slotView.queuedAmount ?? 0)))
         - (slot.isProducing ? 1 : 0) <= 0;
     pauseButton.title = pauseButton.disabled
       ? "Není co zrušit: aktivní kus nelze zrušit."
       : "Zrušit čekající kusy a vrátit jejich náklady.";
     pauseButton.addEventListener("click", () => {
-      if (typeof callbacks.onPauseSlot === "function") callbacks.onPauseSlot(serverLine || slotView);
+      if (typeof callbacks.onPauseSlot === "function") callbacks.onPauseSlot(slotView);
     });
     actions.append(quantityControl, startButton, pauseButton);
   }
@@ -653,8 +625,26 @@ export function renderServerFactorySlotList(mount, lines = [], callbacks = {}, o
   mount.replaceChildren();
   mount.classList?.add?.("factory-slot-grid");
   for (const line of Array.isArray(lines) ? lines : []) {
+    const displayCost = { cleanCash: 0, metalParts: 0, techCore: 0 };
+    const inputAmounts = { metalParts: 0, techCore: 0 };
+    for (const row of Array.isArray(line?.costDisplayRows) ? line.costDisplayRows : []) {
+      const resourceKey = String(row?.resourceKey || "");
+      if (resourceKey === "cash") {
+        displayCost.cleanCash = Math.max(0, Number(row.amount || 0));
+        continue;
+      }
+      const legacyResourceKey = getFactoryLegacyResourceKey(resourceKey);
+      if (legacyResourceKey !== "metalParts" && legacyResourceKey !== "techCore") continue;
+      displayCost[legacyResourceKey] = Math.max(0, Number(row.amount || 0));
+      inputAmounts[legacyResourceKey] = Math.max(0, Number(row.availableAmount ?? 0));
+    }
+    const durationMs = Math.max(0, Number(line?.effectiveUnitDurationTicks || 0) * Number(options.tickRateMs || FREE_GAMEPLAY_TICK_MS));
     const card = renderFactorySlotCard({
-      serverLine: line,
+      recipeId: line.recipeId,
+      status: line.status || "ready",
+      loading: line.loading === true,
+      remainingMs: Math.max(0, Number(line.remainingMs || 0)),
+      usesAuthoritativeCountdown: line.status === "processing" || Number(line.remainingMs || 0) > 0,
       slot: {
         resourceKey: getFactoryLegacyResourceKey(line.resourceKey),
         isProducing: line.status === "processing",
@@ -665,9 +655,16 @@ export function renderServerFactorySlotList(mount, lines = [], callbacks = {}, o
       },
       title: line.label,
       resourceColor: line.resourceKey,
+      durationMs,
       queuedAmount: line.queuedAmount,
       queueCap: line.queueCapacity,
       slotOutputCap: line.producedCapacity,
+      displayCost,
+      inputAmounts,
+      canStart: line.canStart === true,
+      canCancelWaiting: line.canCancelWaiting === true,
+      maxStartQuantity: Math.max(0, Number(line.maxStartQuantity || 0)),
+      disabledReason: line.disabledReason || null,
       ...getFactoryServerVisual(line.resourceKey)
     }, callbacks, { ...options, mount });
     if (card) mount.append(card);
@@ -675,27 +672,13 @@ export function renderServerFactorySlotList(mount, lines = [], callbacks = {}, o
   return true;
 }
 
-function formatFactoryServerTime(line, options) {
-  if (line.loading) return "—";
-  const duration = Number(line.remainingMs || 0) > 0
-    ? Number(line.remainingMs)
-    : Number(line.effectiveUnitDurationTicks || 0) * Number(options.tickRateMs || FREE_GAMEPLAY_TICK_MS);
-  return formatDuration(duration, options);
-}
-
 function formatFactoryCleanCashCost(slotView, quantity) {
+  if (slotView?.loading) return "—";
   const cleanCash = Math.max(0, Number(slotView?.displayCost?.cleanCash || 0) * Math.max(1, Number(quantity || 1)));
   return cleanCash > 0 ? `$${cleanCash} clean` : "bez ceny";
 }
 
-function formatFactoryServerCleanCashCost(line, quantity) {
-  if (line.loading) return "—";
-  const cashRow = (line.costDisplayRows || []).find((row) => String(row?.resourceKey || "") === "cash");
-  const amount = Math.max(0, Number(cashRow?.amount || 0) * Math.max(1, Number(quantity || 1)));
-  return amount > 0 ? "$" + amount + " clean" : "bez ceny";
-}
-
-function getFactoryServerStatusLabel(status) {
+function getFactoryStatusLabel(status) {
   return {
     loading: "Načítání",
     ready: "Připraveno",

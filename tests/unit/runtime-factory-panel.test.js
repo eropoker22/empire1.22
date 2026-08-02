@@ -198,8 +198,67 @@ describe("factory dashboard view model and panel", () => {
     expect(viewModel.slots.map((slot) => slot.secondaryLine)).toEqual(["", "", "10 min / kus"]);
     expect(viewModel.slots.map((slot) => slot.perHour)).toEqual([22.5, 11.25, 6]);
     expect(viewModel.slots[0]).toMatchObject({ slotOutputCap: 12, slotStorageCap: 17, queueCap: 17 });
-    expect(viewModel.slots.map((slot) => slot.serverLine)).toEqual(lines);
+    expect(viewModel.slots.map((slot) => slot.recipeId)).toEqual(["metal-parts", "tech-core", "combat-module"]);
+    expect(viewModel.slots.every((slot) => !("serverLine" in slot) && !("serverLine" in slot.slot))).toBe(true);
+    expect(viewModel.slots[2]).toMatchObject({
+      status: "ready",
+      canStart: true,
+      canCancelWaiting: false,
+      displayCost: { cleanCash: 2500, metalParts: 4, techCore: 2 },
+      inputAmounts: { metalParts: 200, techCore: 200 }
+    });
     expect(viewModel.slots.map((slot) => slot.maxStartQuantity)).toEqual([4, 4, 2]);
+  });
+
+  it("does not present the pre-compensated mode cooldown as a Factory speed bonus", () => {
+    const viewModel = buildServerFactoryDashboardViewModel({
+      serverFactory: {
+        buildingId: "building:factory:1",
+        level: 1,
+        effectiveProductionSpeedMultiplier: 1.25,
+        collectableAmount: 0,
+        canCollect: false,
+        collectDisabledReason: "Zatím není nic hotového k vyzvednutí.",
+        network: {
+          activeFactoryCount: 1,
+          networkSpeedMultiplier: 1,
+          levelSpeedMultiplier: 1,
+          effectiveSpeedMultiplier: 1
+        },
+        productionLines: [{
+          recipeId: "metal-parts",
+          resourceKey: "metal-parts",
+          producedAmount: 0,
+          producedCapacity: 10,
+          queuedAmount: 0,
+          queueCapacity: 13,
+          baseUnitDurationTicks: 30,
+          effectiveUnitDurationTicks: 24,
+          effectiveSpeedMultiplier: 1.25,
+          unitsPerHour: 15,
+          status: "ready",
+          canStart: true,
+          canCollect: false,
+          maxStartQuantity: 1,
+          costDisplayRows: [{ resourceKey: "cash", amount: 300, availableAmount: 1000 }]
+        }]
+      },
+      tickRateMs: 10_000,
+      config: FACTORY_CONFIG,
+      slotConfig: FACTORY_SLOT_CONFIG,
+      slotStorageCap: FACTORY_SLOT_STORAGE_CAP,
+      formatDurationLabel: (value) => `${value / 60_000} min`,
+      getFactoryUpgradeCost: () => 5000
+    });
+
+    expect(viewModel.multiplierLabel).toBe("+0%");
+    expect(viewModel.collectButton.title).toBe("Vybrat hotové do skladu");
+    expect(viewModel.slots[0]).toMatchObject({
+      recipeId: "metal-parts",
+      durationMs: 240_000,
+      durationBonusLabel: ""
+    });
+    expect(viewModel.slots[0]).not.toHaveProperty("serverLine");
   });
 
   it("keeps foreign Factory collection disabled with the authoritative ownership reason", () => {

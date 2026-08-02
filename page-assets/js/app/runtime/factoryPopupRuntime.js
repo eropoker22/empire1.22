@@ -213,13 +213,13 @@ export function createFactoryPopupRuntime(deps = {}) {
         }, dashboardViewModel, {
           renderFactoryBuildingInfo,
           renderFactorySlotList: deps.renderFactorySlotList,
-          onStartSlot: async (line, payload) => {
+          onStartSlot: async (slotView, payload) => {
             const response = await deps.submitServerFactoryCommand?.({
               type: "craft-item",
               payload: {
                 districtId: serverFactory.districtId,
                 buildingId: serverFactory.buildingId,
-                recipeId: line.recipeId,
+                recipeId: slotView.recipeId,
                 quantity: payload?.batchCount || 1
               }
             });
@@ -227,13 +227,13 @@ export function createFactoryPopupRuntime(deps = {}) {
             deps.setBuildingActionFeedback?.(root, error ? "warning" : "success", "Továrna", error?.message || "Výrobní linka byla aktualizována.");
             renderFactoryDashboard();
           },
-          onPauseSlot: async (line) => {
+          onPauseSlot: async (slotView) => {
             const response = await deps.submitServerFactoryCommand?.({
               type: "cancel-production-line",
               payload: {
                 districtId: serverFactory.districtId,
                 buildingId: serverFactory.buildingId,
-                recipeId: line.recipeId
+                recipeId: slotView.recipeId
               }
             });
             const error = response?.errors?.[0];
@@ -465,7 +465,9 @@ export function createFactoryPopupRuntime(deps = {}) {
         popup.hidden = false;
         renderFactoryDashboard();
         deps.syncBuildingDetailTopbarVisibility?.(root);
-        refreshAuthoritativeFactory();
+        if (!preparedServerBuilding) {
+          refreshAuthoritativeFactory();
+        }
         return true;
       } finally {
         if (shouldPrepareServerBuilding) {

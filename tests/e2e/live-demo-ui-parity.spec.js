@@ -278,7 +278,10 @@ async function readOpenBuildingParity(page, buildingTypeId) {
   const shell = page.locator(`${paritySurfaces[surfaceName].shell}:visible`).last();
   await expect(shell).toBeVisible({ timeout: 30_000 });
   if (productionBuildingTypeIds.has(buildingTypeId)) {
-    await expect(shell.locator(".production-recipe-card--loading")).toHaveCount(0, {
+    await expect(shell.locator([
+      ".production-recipe-card--loading",
+      ".factory-slot--loading"
+    ].join(","))).toHaveCount(0, {
       timeout: 30_000
     });
     await selectProductionBuildingTab(page, surfaceName, "stats");

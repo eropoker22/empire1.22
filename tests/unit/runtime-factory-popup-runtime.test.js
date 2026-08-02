@@ -59,7 +59,7 @@ function createRuntime(overrides = {}) {
     FACTORY_SLOT_STORAGE_CAP: 100,
     buildFactoryDashboardViewModel: vi.fn(() => ({ slots: [] })),
     buildServerFactoryDashboardViewModel: vi.fn(({ serverFactory }) => ({
-      slots: (serverFactory.productionLines || []).map((serverLine) => ({ serverLine }))
+      slots: (serverFactory.productionLines || []).map((line) => ({ recipeId: line.recipeId }))
     })),
     createFactoryBuildingInfoViewModel: vi.fn(() => ({ rows: [], actions: [] })),
     formatCurrency: (value) => `$${value}`,
@@ -162,7 +162,7 @@ describe("factory popup runtime", () => {
     expect(renderFactoryDashboardPanel).toHaveBeenCalled();
     expect(refreshServerFactoryReadModel).toHaveBeenCalledTimes(1);
     const callbacks = renderFactoryDashboardPanel.mock.calls[0][2];
-    await callbacks.onStartSlot(serverFactory.productionLines[0], { batchCount: 2 });
+    await callbacks.onStartSlot({ recipeId: "metal-parts" }, { batchCount: 2 });
     expect(submitServerFactoryCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: "craft-item",
       payload: expect.objectContaining({ buildingId: "building:factory", quantity: 2 })
@@ -266,6 +266,7 @@ describe("factory popup runtime", () => {
       districtId: "district:68",
       errors: []
     }));
+    const refreshServerFactoryReadModel = vi.fn(async () => null);
     const runtime = createRuntime({
       allowLegacyLocalProduction: false,
       getServerFactoryReadModel: () => ({
@@ -277,6 +278,7 @@ describe("factory popup runtime", () => {
         productionLines: []
       }),
       prepareServerProductionBuilding,
+      refreshServerFactoryReadModel,
       renderServerFactorySlotList: vi.fn(),
       syncBuildingDetailTopbarVisibility: vi.fn()
     });
@@ -300,6 +302,7 @@ describe("factory popup runtime", () => {
     await expect(runtime.openFactoryPopup(root)).resolves.toBe(true);
 
     expect(prepareServerProductionBuilding).toHaveBeenCalledWith("factory");
+    expect(refreshServerFactoryReadModel).not.toHaveBeenCalled();
     expect(popup.hidden).toBe(false);
     expect(open.disabled).toBe(false);
   });
@@ -518,7 +521,7 @@ describe("factory popup runtime", () => {
 
     expect(renderFactoryDashboardPanel).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ slots: [expect.objectContaining({ serverLine: serverFactory.productionLines[0] })] }),
+      expect.objectContaining({ slots: [expect.objectContaining({ recipeId: "metal-parts" })] }),
       expect.anything()
     );
   });
