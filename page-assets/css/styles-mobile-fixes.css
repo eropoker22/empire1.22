@@ -6058,7 +6058,7 @@ html body.game-modal-scroll-locked #raid-result-modal:not(.hidden):not([hidden])
   html body .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-card.building-detail-modal__content {
     background:
       linear-gradient(180deg, rgba(2, 6, 14, 0.04), rgba(2, 6, 14, 0.14) 64%, rgba(2, 6, 14, 0.24) 100%),
-      url("../../img/budovy/blok.png") center/cover,
+      url("../../img/budovy/residental/blok/blok1.png") center/cover,
       rgba(4, 8, 16, 0.94) !important;
   }
 
