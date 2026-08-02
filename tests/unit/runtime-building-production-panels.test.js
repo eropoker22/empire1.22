@@ -1347,6 +1347,124 @@ describe("building detail, production and recipe UI modules", () => {
     expect(mount.children[0].textContent).toBe("Bez produkce.");
   });
 
+  it("preserves equivalent production card nodes until their presentation or scope changes", () => {
+    const document = setupDocument();
+    const mount = document.createElement("div");
+    const createCard = (status) => {
+      const card = document.createElement("article");
+      card.className = "drug-production-slot";
+      const label = document.createElement("strong");
+      label.textContent = status;
+      card.append(label);
+      return card;
+    };
+
+    renderProductionPanel({
+      mount,
+      recipes: [{ prebuiltCard: createCard("Připraveno") }]
+    }, {}, { presentationScopeKey: "druglab:building:a" });
+    const firstCard = mount.children[0];
+
+    renderProductionPanel({
+      mount,
+      recipes: [{ prebuiltCard: createCard("Připraveno") }]
+    }, {}, { presentationScopeKey: "druglab:building:a" });
+    expect(mount.children[0]).toBe(firstCard);
+
+    renderProductionPanel({
+      mount,
+      recipes: [{ prebuiltCard: createCard("Připraveno") }]
+    }, {}, { presentationScopeKey: "druglab:building:b" });
+    const otherBuildingCard = mount.children[0];
+    expect(otherBuildingCard).not.toBe(firstCard);
+
+    renderProductionPanel({
+      mount,
+      recipes: [{ prebuiltCard: createCard("Výroba") }]
+    }, {}, { presentationScopeKey: "druglab:building:b" });
+    expect(mount.children[0]).not.toBe(otherBuildingCard);
+    expect(mount.children[0].textContent).toBe("");
+    expect(mount.children[0].children[0].textContent).toBe("Výroba");
+  });
+
+  it("uses the latest recipe callback when an equivalent production card stays mounted", () => {
+    const document = setupDocument();
+    const mount = document.createElement("div");
+    const firstOnStart = vi.fn();
+    const latestOnStart = vi.fn();
+    const createViewModel = (revision) => ({
+      districtId: "district-a",
+      buildingId: "building-a",
+      buildingName: "druglab",
+      recipeId: "pulse-shot",
+      revision,
+      recipe: {
+        name: "Pulse Shot",
+        inputs: {},
+        output: { inventory: "drugs", itemId: "pulse-shot", amount: 1 },
+        durationMs: 1000
+      },
+      inputAmounts: {},
+      maxBatches: 1,
+      canStart: true
+    });
+
+    const firstCard = renderRecipeCard(createViewModel(1), { onStart: firstOnStart }, { mount });
+    renderProductionPanel({ mount, recipes: [{ prebuiltCard: firstCard }] }, {}, {
+      presentationScopeKey: "druglab:district-a:building-a"
+    });
+    const mountedCard = mount.children[0];
+
+    const nextCard = renderRecipeCard(createViewModel(2), { onStart: latestOnStart }, { mount });
+    renderProductionPanel({ mount, recipes: [{ prebuiltCard: nextCard }] }, {}, {
+      presentationScopeKey: "druglab:district-a:building-a"
+    });
+
+    expect(mount.children[0]).toBe(mountedCard);
+    mountedCard.querySelector("[data-drug-lab-slot-start]").click();
+    expect(firstOnStart).not.toHaveBeenCalled();
+    expect(latestOnStart).toHaveBeenCalledWith(expect.objectContaining({ revision: 2, batchCount: 1 }));
+  });
+
+  it("replaces a visually equivalent recipe card when its quantity limit changes", () => {
+    const document = setupDocument();
+    const mount = document.createElement("div");
+    const createViewModel = (maxBatches) => ({
+      districtId: "district-a",
+      buildingId: "building-a",
+      buildingName: "druglab",
+      recipeId: "pulse-shot",
+      recipe: {
+        name: "Pulse Shot",
+        inputs: {},
+        output: { inventory: "drugs", itemId: "pulse-shot", amount: 1 },
+        durationMs: 1000
+      },
+      inputAmounts: {},
+      maxBatches,
+      maxSelectableBatches: maxBatches,
+      canStart: true
+    });
+
+    const firstCard = renderRecipeCard(createViewModel(4), {}, { mount });
+    renderProductionPanel({ mount, recipes: [{ prebuiltCard: firstCard }] }, {}, {
+      presentationScopeKey: "druglab:district-a:building-a"
+    });
+    const mountedCard = mount.children[0];
+
+    const nextCard = renderRecipeCard(createViewModel(2), {}, { mount });
+    renderProductionPanel({ mount, recipes: [{ prebuiltCard: nextCard }] }, {}, {
+      presentationScopeKey: "druglab:district-a:building-a"
+    });
+
+    expect(mount.children[0]).not.toBe(mountedCard);
+    const quantityButtons = mount.children[0].querySelectorAll(".drug-production-slot__quantity-btn");
+    quantityButtons[1].click();
+    quantityButtons[1].click();
+    expect(mount.children[0].querySelector(".armory-slot__quantity-value").textContent).toBe("2");
+    expect(quantityButtons[1].disabled).toBe(true);
+  });
+
   it("renders factory info like a compact production briefing", () => {
     const document = setupDocument();
     const infoPanel = document.createElement("div");

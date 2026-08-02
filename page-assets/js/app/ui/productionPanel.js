@@ -1,4 +1,4 @@
-import { renderRecipeCard, renderRecipeList } from "./recipePanel.js";
+import { getRecipeCardInteractionFingerprint, renderRecipeCard } from "./recipePanel.js";
 import { bindSharedCountdown } from "./sharedCountdownTicker.js";
 import { FREE_GAMEPLAY_TICK_MS } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
 import {
@@ -8,6 +8,7 @@ import {
 } from "./productionQuantitySelection.js";
 
 const factorySlotListStateByMount = new WeakMap();
+const productionPanelStateByMount = new WeakMap();
 
 const getFactoryBatchSelectionKey = (slotView, slot, options) => [
   String(options?.selectionScopeKey || "factory"),
@@ -33,7 +34,7 @@ function getComparableEntries(value) {
   return Object.entries(value || {}).map(([key, entryValue]) => [key, String(entryValue)]).sort();
 }
 
-function haveEquivalentFactorySlotNodes(currentNode, nextNode) {
+function haveEquivalentProductionNodes(currentNode, nextNode) {
   if (!currentNode || !nextNode) return currentNode === nextNode;
   if (typeof currentNode.isEqualNode === "function") {
     return currentNode.isEqualNode(nextNode);
@@ -55,7 +56,36 @@ function haveEquivalentFactorySlotNodes(currentNode, nextNode) {
   const currentChildren = Array.from(currentNode.children || []);
   const nextChildren = Array.from(nextNode.children || []);
   return currentChildren.length === nextChildren.length
-    && currentChildren.every((child, index) => haveEquivalentFactorySlotNodes(child, nextChildren[index]));
+    && currentChildren.every((child, index) => haveEquivalentProductionNodes(child, nextChildren[index]));
+}
+
+function getProductionInteractionKey(node) {
+  const recipeFingerprint = getRecipeCardInteractionFingerprint(node);
+  if (typeof recipeFingerprint === "string") return recipeFingerprint;
+  if (recipeFingerprint === null) return null;
+  return node?.querySelector?.("button") ? null : "static";
+}
+
+function replaceProductionChildrenIfChanged(mount, nextChildren, contextKey, stateByMount) {
+  const previousState = stateByMount.get(mount);
+  const currentChildren = Array.from(mount.children || []);
+  const interactionKeys = nextChildren.map(getProductionInteractionKey);
+  const interactionsAreStable = interactionKeys.every((key) => typeof key === "string");
+  const priorInteractionKeys = previousState?.interactionKeys || [];
+  const presentationIsUnchanged = interactionsAreStable
+    && previousState?.contextKey === contextKey
+    && priorInteractionKeys.length === interactionKeys.length
+    && priorInteractionKeys.every((key, index) => key === interactionKeys[index])
+    && currentChildren.length === nextChildren.length
+    && currentChildren.every((child, index) => haveEquivalentProductionNodes(child, nextChildren[index]));
+  stateByMount.set(mount, {
+    contextKey,
+    interactionKeys: interactionsAreStable ? interactionKeys : []
+  });
+  if (!presentationIsUnchanged) {
+    mount.replaceChildren(...nextChildren);
+  }
+  return true;
 }
 
 function getDocument(scopeElement = null) {
@@ -72,6 +102,13 @@ function createElement(scopeElement, tagName, className = "") {
     element.className = className;
   }
   return element;
+}
+
+function setTextContentIfChanged(element, value) {
+  const normalizedValue = String(value ?? "");
+  if (!element || element.textContent === normalizedValue) return false;
+  element.textContent = normalizedValue;
+  return true;
 }
 
 function formatMoney(value, options = {}) {
@@ -335,7 +372,7 @@ export function renderProductionBuildingInfo(viewModel = {}, callbacks = {}, opt
   const isCompactProductionInfo = isPharmacy || isDrugLab || isArmory;
 
   if (infoTextElement) {
-    infoTextElement.textContent = isCompactProductionInfo
+    setTextContentIfChanged(infoTextElement, isCompactProductionInfo
       ? (config.infoText || "Budova vyrábí materiály pro další produkci.")
       : [
           config.infoText || "",
@@ -344,11 +381,11 @@ export function renderProductionBuildingInfo(viewModel = {}, callbacks = {}, opt
             ? `Upgrade stojí ${formatMoney(upgradeCost, options)} a zvedne rychlost na ${formatProductionSpeedBonus(nextMultiplier || multiplier || 1)}.`
             : "Budova je na maximálním levelu.",
           `Hotovo k vyzvednutí: ${readyCount} receptů.`
-        ].filter(Boolean).join(" ");
+        ].filter(Boolean).join(" "));
   }
 
   if (infoEffectsElement) {
-    infoEffectsElement.textContent = isPharmacy
+    setTextContentIfChanged(infoEffectsElement, isPharmacy
       ? (effectsLabel || "Lékárna · základní produkční rychlost")
       : isDrugLab
         ? (effectsLabel || "Lab · základní produkční rychlost")
@@ -358,11 +395,13 @@ export function renderProductionBuildingInfo(viewModel = {}, callbacks = {}, opt
           effectsLabel || `${config.label || "Budova"} · základní produkční rychlost`,
           state.level < maxLevel ? `Další level: +10 % rychlost craftu.` : "Další upgrade už není dostupný.",
           "Vyzvednutí přesune hotové kusy do skladu hráče."
-        ].join(" · ");
+        ].join(" · "));
   }
 
   if (infoActionsElement) {
-    infoActionsElement.replaceChildren();
+    if (Array.from(infoActionsElement.children || []).length > 0) {
+      infoActionsElement.replaceChildren();
+    }
     if (isCompactProductionInfo) {
       return Boolean(buildingName || Object.keys(recipes || {}).length >= 0);
     }
@@ -679,7 +718,7 @@ export function renderFactorySlotList(mount, slots = [], callbacks = {}, options
     && previousBindingKeys.length === nextBindingKeys.length
     && previousBindingKeys.every((key, index) => key === nextBindingKeys[index])
     && currentCards.length === nextCards.length
-    && currentCards.every((card, index) => haveEquivalentFactorySlotNodes(card, nextCards[index]));
+    && currentCards.every((card, index) => haveEquivalentProductionNodes(card, nextCards[index]));
   if (!presentationIsUnchanged) {
     mount.replaceChildren(...nextCards);
   }
@@ -770,36 +809,24 @@ export function renderProductionPanel(productionViewModel = {}, callbacks = {}, 
   if (!mount) {
     return false;
   }
-  mount.replaceChildren();
+  const contextKey = String(options.presentationScopeKey || "production");
   const recipes = Array.isArray(productionViewModel.recipes) ? productionViewModel.recipes : [];
   if (recipes.length === 0) {
     const empty = createElement(mount, "div", options.emptyClassName || "buildings-popup__empty");
     if (empty) {
       empty.textContent = productionViewModel.emptyText || "Bez produkce.";
-      mount.append(empty);
+      return replaceProductionChildrenIfChanged(mount, [empty], contextKey, productionPanelStateByMount);
     }
-    return true;
+    return replaceProductionChildrenIfChanged(mount, [], contextKey, productionPanelStateByMount);
   }
-  if (recipes.some((recipe) => recipe?.prebuiltCard)) {
-    for (const recipe of recipes) {
-      if (recipe?.prebuiltCard) mount.append(recipe.prebuiltCard);
-    }
-    return true;
+  const nextCards = [];
+  const usesPrebuiltCards = recipes.some((recipe) => recipe?.prebuiltCard);
+  for (const recipe of recipes) {
+    if (usesPrebuiltCards && !recipe?.prebuiltCard) continue;
+    const card = recipe?.prebuiltCard || renderRecipeCard(recipe, callbacks, { ...options, mount });
+    if (card) nextCards.push(card);
   }
-  const fragment = renderRecipeList(recipes, callbacks, { ...options, mount });
-  if (fragment) {
-    mount.append(fragment);
-  } else {
-    for (const recipe of recipes) {
-      if (recipe?.prebuiltCard) {
-        mount.append(recipe.prebuiltCard);
-        continue;
-      }
-      const card = renderRecipeCard(recipe, callbacks, { ...options, mount });
-      if (card) mount.append(card);
-    }
-  }
-  return true;
+  return replaceProductionChildrenIfChanged(mount, nextCards, contextKey, productionPanelStateByMount);
 }
 
 if (typeof window !== "undefined") {

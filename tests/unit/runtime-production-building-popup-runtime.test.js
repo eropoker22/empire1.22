@@ -40,7 +40,155 @@ function createRoot(elements = {}) {
   };
 }
 
+function createEventTarget() {
+  const listeners = new Map();
+  return {
+    addEventListener: vi.fn((type, listener) => {
+      listeners.set(type, [...(listeners.get(type) || []), listener]);
+    }),
+    async dispatch(type) {
+      for (const listener of listeners.get(type) || []) {
+        await listener({ type });
+      }
+    }
+  };
+}
+
+function trackPropertyAssignments(element, propertyName) {
+  let currentValue = element[propertyName];
+  let assignmentCount = 0;
+  Object.defineProperty(element, propertyName, {
+    configurable: true,
+    get: () => currentValue,
+    set: (value) => {
+      assignmentCount += 1;
+      currentValue = value;
+    }
+  });
+  return () => assignmentCount;
+}
+
 describe("production building popup runtime", () => {
+  it("does not rewrite unchanged production header controls on authoritative polls", async () => {
+    const documentRef = createEventTarget();
+    const openButton = createElement();
+    const popup = createElement();
+    popup.hidden = true;
+    const collectButton = createElement();
+    const upgradeButton = createElement();
+    const collectAttributes = new Map();
+    const upgradeAttributes = new Map();
+    collectButton.getAttribute = (name) => collectAttributes.get(name) ?? null;
+    collectButton.setAttribute = vi.fn((name, value) => collectAttributes.set(name, String(value)));
+    upgradeButton.getAttribute = (name) => upgradeAttributes.get(name) ?? null;
+    upgradeButton.setAttribute = vi.fn((name, value) => upgradeAttributes.set(name, String(value)));
+    const collectWrites = {
+      disabled: trackPropertyAssignments(collectButton, "disabled"),
+      text: trackPropertyAssignments(collectButton, "textContent"),
+      title: trackPropertyAssignments(collectButton, "title")
+    };
+    const upgradeWrites = {
+      text: trackPropertyAssignments(upgradeButton, "textContent"),
+      title: trackPropertyAssignments(upgradeButton, "title")
+    };
+    let serverProduction = {
+      districtId: "district:1",
+      buildingId: "building:druglab:1",
+      level: 1,
+      productionLines: []
+    };
+    popup.querySelector = vi.fn((selector) => ({
+      "[data-production-building-level]": createElement(),
+      "[data-production-building-header-level]": createElement(),
+      "[data-production-building-multiplier]": createElement(),
+      "[data-production-building-ready]": createElement(),
+      "[data-production-building-upgrade-cost]": createElement(),
+      "[data-production-building-effects]": createElement(),
+      "[data-production-building-collect]": collectButton,
+      "[data-production-building-upgrade]": upgradeButton,
+      "[data-production-building-info-text]": createElement(),
+      "[data-production-building-info-effects]": createElement(),
+      "[data-production-building-info-actions]": createElement(),
+      "[data-production-building-info-upgrade-cost]": createElement(),
+      "[data-production-building-info-upgrade-benefit]": createElement()
+    }[selector] || null));
+    popup.querySelectorAll = vi.fn(() => []);
+    const runtime = createProductionBuildingPopupRuntime({
+      PRODUCTION_BUILDING_CONFIG: { druglab: { label: "Lab" } },
+      allowLegacyLocalProduction: false,
+      documentRef,
+      formatCurrency: (value) => `$${value}`,
+      getProductionBuildingEffectsLabel: () => "x1.00",
+      getProductionBuildingMultiplier: () => 1,
+      getProductionBuildingUpgradeCost: () => 4200,
+      getServerDrugLabReadModel: () => serverProduction,
+      renderProductionBuildingInfoPanel: vi.fn(),
+      renderProductionPanelUi: vi.fn(() => true),
+      selectors: {
+        collect: "[data-production-building-collect]",
+        effects: "[data-production-building-effects]",
+        headerLevel: "[data-production-building-header-level]",
+        infoActions: "[data-production-building-info-actions]",
+        infoEffects: "[data-production-building-info-effects]",
+        infoText: "[data-production-building-info-text]",
+        level: "[data-production-building-level]",
+        multiplier: "[data-production-building-multiplier]",
+        panel: "[data-production-building-panel]",
+        ready: "[data-production-building-ready]",
+        tab: "[data-production-building-tab]",
+        upgrade: "[data-production-building-upgrade]",
+        upgradeCost: "[data-production-building-upgrade-cost]"
+      },
+      syncBuildingDetailTopbarVisibility: vi.fn()
+    });
+    const root = createRoot({
+      ".open": openButton,
+      ".popup": popup,
+      ".close": [createElement()],
+      '[data-production-panel="druglab"]': {}
+    });
+
+    expect(runtime.bindProductionBuildingPopup(root, {
+      buildingName: "druglab",
+      closeSelector: ".close",
+      openSelector: ".open",
+      popupSelector: ".popup",
+      recipes: {}
+    })).toBe(true);
+    await openButton.dispatch("click");
+    const stableCounts = {
+      collectAria: collectButton.setAttribute.mock.calls.length,
+      collectDisabled: collectWrites.disabled(),
+      collectText: collectWrites.text(),
+      collectTitle: collectWrites.title(),
+      upgradeAria: upgradeButton.setAttribute.mock.calls.length,
+      upgradeText: upgradeWrites.text(),
+      upgradeTitle: upgradeWrites.title()
+    };
+
+    await documentRef.dispatch("empire:gameplay-slice-rendered");
+    await documentRef.dispatch("empire:gameplay-slice-rendered");
+    expect({
+      collectAria: collectButton.setAttribute.mock.calls.length,
+      collectDisabled: collectWrites.disabled(),
+      collectText: collectWrites.text(),
+      collectTitle: collectWrites.title(),
+      upgradeAria: upgradeButton.setAttribute.mock.calls.length,
+      upgradeText: upgradeWrites.text(),
+      upgradeTitle: upgradeWrites.title()
+    }).toEqual(stableCounts);
+
+    serverProduction = {
+      ...serverProduction,
+      productionLines: [{ canCollect: true }]
+    };
+    await documentRef.dispatch("empire:gameplay-slice-rendered");
+    expect(collectWrites.disabled()).toBe(stableCounts.collectDisabled + 1);
+    expect(collectWrites.text()).toBe(stableCounts.collectText);
+    expect(collectWrites.title()).toBe(stableCounts.collectTitle + 1);
+    expect(collectButton.disabled).toBe(false);
+  });
+
   it.each([
     ["pharmacy", "Lékárna"],
     ["druglab", "Lab"],

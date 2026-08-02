@@ -2,6 +2,95 @@ function getDocument(scopeElement = null) {
   return scopeElement?.ownerDocument || (typeof document !== "undefined" ? document : null);
 }
 
+const recipeCardBindingsByMount = new WeakMap();
+const recipeCardInteractionFingerprintByCard = new WeakMap();
+
+function getSortedNumericEntries(value = {}) {
+  return Object.entries(value || {})
+    .map(([key, amount]) => [String(key), Math.max(0, Number(amount || 0))])
+    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
+}
+
+function createRecipeCardInteractionFingerprint(viewModel = {}, options = {}) {
+  const recipe = viewModel.recipe || {};
+  const job = viewModel.job || null;
+  if (job?.status === "running" || job?.isProducing) {
+    return null;
+  }
+  return JSON.stringify({
+    identity: {
+      buildingName: String(viewModel.buildingName || ""),
+      districtId: String(viewModel.districtId || ""),
+      buildingId: String(viewModel.buildingId || ""),
+      recipeId: String(viewModel.recipeId || recipe.output?.itemId || ""),
+      selectionScopeKey: String(options.selectionScopeKey || "")
+    },
+    recipe: {
+      cleanMoneyCost: Math.max(0, Number(recipe.cleanMoneyCost || 0)),
+      durationMs: Math.max(0, Number(viewModel.effectiveDurationMs || recipe.durationMs || 0)),
+      inputs: getSortedNumericEntries(recipe.inputs),
+      output: {
+        amount: Math.max(0, Number(recipe.output?.amount || 0)),
+        inventory: String(recipe.output?.inventory || ""),
+        itemId: String(recipe.output?.itemId || "")
+      }
+    },
+    availability: {
+      allowStartWithMissingInputs: viewModel.allowStartWithMissingInputs === true,
+      canCancelWaiting: viewModel.canCancelWaiting === true,
+      canStart: viewModel.canStart !== false,
+      disabledReason: String(viewModel.disabledReason || ""),
+      inputAmounts: getSortedNumericEntries(viewModel.inputAmounts),
+      maxBatches: Math.max(0, Number(viewModel.maxBatches || 0)),
+      maxSelectableBatches: Math.max(0, Number(viewModel.maxSelectableBatches ?? viewModel.maxBatches ?? 0)),
+      outputCap: Math.max(0, Number(viewModel.outputCap || 0)),
+      outputInventoryAmount: Math.max(0, Number(viewModel.outputInventoryAmount || 0)),
+      outputInventoryCapacity: Math.max(0, Number(viewModel.outputInventoryCapacity || 0)),
+      queueCap: Math.max(0, Number(viewModel.queueCap || 0))
+    },
+    job: job
+      ? {
+          activeAmount: Math.max(0, Number(job.activeAmount || 0)),
+          producedAmount: Math.max(0, Number(job.producedAmount || 0)),
+          quantity: Math.max(0, Number(job.quantity || 0)),
+          queuedAmount: Math.max(0, Number(job.queuedAmount || 0)),
+          status: String(job.status || ""),
+          waitingAmount: Math.max(0, Number(job.waitingAmount || 0))
+        }
+      : null
+  });
+}
+
+export function getRecipeCardInteractionFingerprint(card) {
+  return recipeCardInteractionFingerprintByCard.get(card);
+}
+
+function getRecipeCardBindingKey(viewModel = {}) {
+  return [
+    String(viewModel.buildingName || "production"),
+    String(viewModel.districtId || "district"),
+    String(viewModel.buildingId || "building"),
+    String(viewModel.recipeId || viewModel.recipe?.output?.itemId || "recipe")
+  ].join(":");
+}
+
+function registerRecipeCardBinding(mount, bindingKey, viewModel, callbacks) {
+  if (!mount || !bindingKey) return;
+  let bindings = recipeCardBindingsByMount.get(mount);
+  if (!bindings) {
+    bindings = new Map();
+    recipeCardBindingsByMount.set(mount, bindings);
+  }
+  bindings.set(bindingKey, { callbacks, viewModel });
+}
+
+function resolveRecipeCardBinding(mount, bindingKey, viewModel, callbacks) {
+  return recipeCardBindingsByMount.get(mount)?.get(bindingKey) || {
+    callbacks,
+    viewModel
+  };
+}
+
 function createElement(scopeElement, tagName, className = "") {
   const scope = getDocument(scopeElement);
   if (!scope || typeof scope.createElement !== "function") {
@@ -461,6 +550,13 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     return card;
   }
 
+  const bindingKey = getRecipeCardBindingKey(viewModel);
+  registerRecipeCardBinding(options.mount, bindingKey, viewModel, callbacks);
+  recipeCardInteractionFingerprintByCard.set(
+    card,
+    createRecipeCardInteractionFingerprint(viewModel, options)
+  );
+
   let getStartBatchCount = () => 1;
   let clearQuantitySelection = () => false;
   let refreshQuantityControl = () => {};
@@ -596,10 +692,11 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     ? (viewModel.disabledReason || "Chybí vstupy, místo ve frontě nebo volná lokální kapacita.")
     : "Spustit výrobu.";
   startButton.addEventListener("click", () => {
-    if (typeof callbacks.onStart === "function") {
+    const binding = resolveRecipeCardBinding(options.mount, bindingKey, viewModel, callbacks);
+    if (typeof binding.callbacks?.onStart === "function") {
       const batchCount = Math.max(1, getStartBatchCount());
       clearQuantitySelection();
-      callbacks.onStart({ ...viewModel, batchCount });
+      binding.callbacks.onStart({ ...binding.viewModel, batchCount });
     }
   });
   refreshQuantityControl();
@@ -621,13 +718,15 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
       : "Zrušit čekající kusy a vrátit jejich náklady.";
     collectButton.setAttribute("aria-label", `Zrušit čekající výrobu ${recipe.name || ""}`);
     collectButton.addEventListener("click", () => {
-      if (typeof callbacks.onStop === "function") callbacks.onStop(viewModel);
+      const binding = resolveRecipeCardBinding(options.mount, bindingKey, viewModel, callbacks);
+      if (typeof binding.callbacks?.onStop === "function") binding.callbacks.onStop(binding.viewModel);
     });
   } else {
     collectButton.textContent = "Vybrat";
     collectButton.disabled = !job || job.status !== "ready";
     collectButton.addEventListener("click", () => {
-      if (typeof callbacks.onCollect === "function") callbacks.onCollect(viewModel);
+      const binding = resolveRecipeCardBinding(options.mount, bindingKey, viewModel, callbacks);
+      if (typeof binding.callbacks?.onCollect === "function") binding.callbacks.onCollect(binding.viewModel);
     });
   }
 

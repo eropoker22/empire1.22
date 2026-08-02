@@ -20,6 +20,27 @@ function queryAll(root, selector) {
   return selector ? Array.from(root?.querySelectorAll?.(selector) || []) : [];
 }
 
+function setElementPropertyIfChanged(element, propertyName, value) {
+  if (!element || element[propertyName] === value) return false;
+  element[propertyName] = value;
+  return true;
+}
+
+function setElementStylePropertyIfChanged(element, propertyName, value) {
+  if (!element?.style || element.style[propertyName] === value) return false;
+  element.style[propertyName] = value;
+  return true;
+}
+
+function setElementAttributeIfChanged(element, attributeName, value) {
+  const normalizedValue = String(value);
+  if (typeof element?.getAttribute === "function" && element.getAttribute(attributeName) === normalizedValue) {
+    return false;
+  }
+  element?.setAttribute?.(attributeName, normalizedValue);
+  return true;
+}
+
 function resolveBooleanPolicy(policy, defaultValue = true) {
   try {
     const value = typeof policy === "function" ? policy() : policy;
@@ -102,6 +123,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     const maxStartQuantity = Math.max(0, Math.floor(Number(line.maxStartQuantity || 0)));
     return {
       root,
+      districtId: String(building.districtId || ""),
       buildingId: String(building.buildingId || ""),
       buildingName,
       recipeId: String(line.recipeId || ""),
@@ -679,7 +701,10 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
             ? createServerDrugLabCard(root, serverDrugLab, line, recipes, safeRerender)
             : createServerPharmacyCard(root, serverPharmacy, line, recipes, safeRerender)
         }))
-      }, {}, { mount });
+      }, {}, {
+        mount,
+        presentationScopeKey: `${panelName}:${serverProduction.districtId || "district"}:${serverProduction.buildingId || "server"}`
+      });
     }
     if (shouldUseServerProduction()) {
       const label = deps.PRODUCTION_BUILDING_CONFIG?.[panelName]?.label || "budovy";
@@ -687,7 +712,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       return deps.renderProductionPanelUi?.({
         mount,
         recipes: loadingCard ? [{ prebuiltCard: loadingCard }] : []
-      }, {}, { mount });
+      }, {}, { mount, presentationScopeKey: `${panelName}:server-loading` });
     }
 
     deps.syncCompletedProductionJobs?.();
@@ -703,7 +728,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       recipes: Object.entries(recipes || {}).map(([recipeId, recipe]) => ({
         prebuiltCard: createProductionCard(root, panelName, recipeId, `${panelName}:${recipeId}`, recipe, safeRerender)
       }))
-    }, {}, { mount });
+    }, {}, { mount, presentationScopeKey: `${panelName}:local-demo` });
   };
 
   const bindProductionBuildingPopup = (root, {
@@ -808,25 +833,27 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         ? `+${speedGainPct}% rychlost · celkem ${formatProductionSpeedBonus(nextMultiplier || multiplier || 1)}`
         : "Maximální level";
 
-      if (levelElement) levelElement.textContent = serverLoading ? "—" : String(ownedBuildingCount);
-      if (headerLevelElement) headerLevelElement.textContent = serverLoading ? "Lv —" : `Lv ${state.level}`;
-      if (multiplierElement) multiplierElement.textContent = serverLoading ? "—" : formatProductionSpeedBonus(multiplier);
-      if (readyElement) readyElement.textContent = serverLoading ? "—" : `${readyCount}/${Object.keys(recipes || {}).length}`;
-      if (upgradeCostElement) upgradeCostElement.textContent = serverLoading
+      setElementPropertyIfChanged(levelElement, "textContent", serverLoading ? "—" : String(ownedBuildingCount));
+      setElementPropertyIfChanged(headerLevelElement, "textContent", serverLoading ? "Lv —" : `Lv ${state.level}`);
+      setElementPropertyIfChanged(multiplierElement, "textContent", serverLoading ? "—" : formatProductionSpeedBonus(multiplier));
+      setElementPropertyIfChanged(readyElement, "textContent", serverLoading ? "—" : `${readyCount}/${Object.keys(recipes || {}).length}`);
+      setElementPropertyIfChanged(upgradeCostElement, "textContent", serverLoading
         ? "—"
-        : state.level < maxLevel ? deps.formatCurrency?.(upgradeCost) : "MAX";
-      if (infoUpgradeCostElement) infoUpgradeCostElement.textContent = serverLoading
+        : state.level < maxLevel ? deps.formatCurrency?.(upgradeCost) : "MAX");
+      setElementPropertyIfChanged(infoUpgradeCostElement, "textContent", serverLoading
         ? "—"
-        : state.level < maxLevel ? deps.formatCurrency?.(upgradeCost) : "MAX";
-      if (infoUpgradeBenefitElement) {
-        infoUpgradeBenefitElement.textContent = serverLoading ? "Načítám stav budovy…" : upgradeBenefitLabel;
-      }
-      if (effectsElement) effectsElement.textContent = serverLoading
+        : state.level < maxLevel ? deps.formatCurrency?.(upgradeCost) : "MAX");
+      setElementPropertyIfChanged(
+        infoUpgradeBenefitElement,
+        "textContent",
+        serverLoading ? "Načítám stav budovy…" : upgradeBenefitLabel
+      );
+      setElementPropertyIfChanged(effectsElement, "textContent", serverLoading
         ? "Načítám stav budovy…"
-        : deps.getProductionBuildingEffectsLabel?.(buildingName, state.level);
+        : deps.getProductionBuildingEffectsLabel?.(buildingName, state.level));
 
       if (serverLoading) {
-        if (infoTextElement) infoTextElement.textContent = "Načítám stav budovy…";
+        setElementPropertyIfChanged(infoTextElement, "textContent", "Načítám stav budovy…");
         if (infoEffectsElement) infoEffectsElement.replaceChildren?.();
         if (infoActionsElement) infoActionsElement.replaceChildren?.();
       } else {
@@ -844,9 +871,8 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       }
 
       if (isButtonElement(collectButton, ButtonCtor)) {
-        collectButton.disabled = serverLoading
+        const collectDisabled = serverLoading
           || (serverProduction ? readyCount <= 0 : !isLegacyLocalProductionEnabled() || readyCount <= 0);
-        collectButton.textContent = "+";
         const collectLabel = serverLoading
           ? "Načítám stav budovy…"
           : !serverProduction && !isLegacyLocalProductionEnabled()
@@ -854,18 +880,17 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           : readyCount > 0
           ? `Vybrat hotové do skladu (${readyCount})`
           : "Vybrat hotové do skladu";
-        collectButton.title = collectLabel;
-        collectButton.setAttribute("aria-label", collectLabel);
+        setElementPropertyIfChanged(collectButton, "disabled", collectDisabled);
+        setElementPropertyIfChanged(collectButton, "textContent", "+");
+        setElementPropertyIfChanged(collectButton, "title", collectLabel);
+        setElementAttributeIfChanged(collectButton, "aria-label", collectLabel);
       }
 
       if (isButtonElement(upgradeButton, ButtonCtor)) {
         const hasNextUpgrade = state.level < maxLevel;
-        upgradeButton.hidden = !hasNextUpgrade;
-        upgradeButton.style.display = hasNextUpgrade ? "" : "none";
-        upgradeButton.disabled = serverLoading
+        const upgradeDisabled = serverLoading
           || !hasNextUpgrade
           || (isLegacyLocalProductionUpgradeEnabled() && state.level >= maxLevel);
-        upgradeButton.textContent = "⇪";
         const upgradeLabel = serverLoading
           ? "Načítám stav budovy…"
           : serverProduction
@@ -875,8 +900,12 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           : !hasNextUpgrade
           ? "Max level"
           : `Upgrade budovy (${deps.formatCurrency?.(upgradeCost)})`;
-        upgradeButton.title = upgradeLabel;
-        upgradeButton.setAttribute("aria-label", upgradeLabel);
+        setElementPropertyIfChanged(upgradeButton, "hidden", !hasNextUpgrade);
+        setElementStylePropertyIfChanged(upgradeButton, "display", hasNextUpgrade ? "" : "none");
+        setElementPropertyIfChanged(upgradeButton, "disabled", upgradeDisabled);
+        setElementPropertyIfChanged(upgradeButton, "textContent", "⇪");
+        setElementPropertyIfChanged(upgradeButton, "title", upgradeLabel);
+        setElementAttributeIfChanged(upgradeButton, "aria-label", upgradeLabel);
       }
 
       renderProductionPanel(root, buildingName, recipes, renderDashboard);
