@@ -7,6 +7,8 @@ import {
   writeProductionQuantitySelection
 } from "./productionQuantitySelection.js";
 
+const factorySlotListStateByMount = new WeakMap();
+
 const getFactoryBatchSelectionKey = (slotView, slot, options) => [
   String(options?.selectionScopeKey || "factory"),
   String(
@@ -16,6 +18,45 @@ const getFactoryBatchSelectionKey = (slotView, slot, options) => [
     || "factory-slot"
   )
 ].join(":");
+
+function resolveFactorySlotBinding(mount, bindingKey, slotView, callbacks) {
+  return factorySlotListStateByMount.get(mount)?.bindings?.get(bindingKey) || {
+    callbacks,
+    slotView
+  };
+}
+
+function getComparableEntries(value) {
+  if (value instanceof Map) {
+    return [...value.entries()].map(([key, entryValue]) => [String(key), String(entryValue)]).sort();
+  }
+  return Object.entries(value || {}).map(([key, entryValue]) => [key, String(entryValue)]).sort();
+}
+
+function haveEquivalentFactorySlotNodes(currentNode, nextNode) {
+  if (!currentNode || !nextNode) return currentNode === nextNode;
+  if (typeof currentNode.isEqualNode === "function") {
+    return currentNode.isEqualNode(nextNode);
+  }
+  if (
+    currentNode.tagName !== nextNode.tagName
+    || currentNode.className !== nextNode.className
+    || currentNode.textContent !== nextNode.textContent
+    || currentNode.hidden !== nextNode.hidden
+    || currentNode.disabled !== nextNode.disabled
+    || currentNode.type !== nextNode.type
+    || currentNode.title !== nextNode.title
+    || JSON.stringify(getComparableEntries(currentNode.dataset)) !== JSON.stringify(getComparableEntries(nextNode.dataset))
+    || JSON.stringify(getComparableEntries(currentNode.attributes)) !== JSON.stringify(getComparableEntries(nextNode.attributes))
+    || JSON.stringify(getComparableEntries(currentNode.style?.values)) !== JSON.stringify(getComparableEntries(nextNode.style?.values))
+  ) {
+    return false;
+  }
+  const currentChildren = Array.from(currentNode.children || []);
+  const nextChildren = Array.from(nextNode.children || []);
+  return currentChildren.length === nextChildren.length
+    && currentChildren.every((child, index) => haveEquivalentFactorySlotNodes(child, nextChildren[index]));
+}
 
 function getDocument(scopeElement = null) {
   return scopeElement?.ownerDocument || (typeof document !== "undefined" ? document : null);
@@ -583,7 +624,10 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
       : "Spustit výrobu.";
     startButton.addEventListener("click", () => {
       clearProductionQuantitySelection(options.mount, batchSelectionKey);
-      if (typeof callbacks.onStartSlot === "function") callbacks.onStartSlot(slotView, { batchCount: selectedBatches });
+      const binding = resolveFactorySlotBinding(options.mount, batchSelectionKey, slotView, callbacks);
+      if (typeof binding.callbacks?.onStartSlot === "function") {
+        binding.callbacks.onStartSlot(binding.slotView, { batchCount: selectedBatches });
+      }
     });
     pauseButton.type = "button";
     pauseButton.dataset.factorySlotToggleState = "stop";
@@ -600,7 +644,10 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
       ? "Není co zrušit: aktivní kus nelze zrušit."
       : "Zrušit čekající kusy a vrátit jejich náklady.";
     pauseButton.addEventListener("click", () => {
-      if (typeof callbacks.onPauseSlot === "function") callbacks.onPauseSlot(slotView);
+      const binding = resolveFactorySlotBinding(options.mount, batchSelectionKey, slotView, callbacks);
+      if (typeof binding.callbacks?.onPauseSlot === "function") {
+        binding.callbacks.onPauseSlot(binding.slotView);
+      }
     });
     actions.append(quantityControl, startButton, pauseButton);
   }
@@ -611,20 +658,37 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
 
 export function renderFactorySlotList(mount, slots = [], callbacks = {}, options = {}) {
   if (!mount) return false;
-  mount.replaceChildren();
+  const slotViews = Array.isArray(slots) ? slots : [];
+  const contextKey = String(options.selectionScopeKey || "factory");
+  const previousState = factorySlotListStateByMount.get(mount);
+  const bindings = new Map(slotViews.map((slotView) => {
+    const slot = slotView?.slot || {};
+    return [getFactoryBatchSelectionKey(slotView, slot, options), { callbacks, slotView }];
+  }));
+  factorySlotListStateByMount.set(mount, { bindings, contextKey });
   mount.classList?.add?.("factory-slot-grid");
-  for (const slotView of Array.isArray(slots) ? slots : []) {
+  const nextCards = [];
+  for (const slotView of slotViews) {
     const card = renderFactorySlotCard(slotView, callbacks, { ...options, mount });
-    if (card) mount.append(card);
+    if (card) nextCards.push(card);
+  }
+  const currentCards = Array.from(mount.children || []);
+  const previousBindingKeys = [...(previousState?.bindings?.keys?.() || [])];
+  const nextBindingKeys = [...bindings.keys()];
+  const presentationIsUnchanged = previousState?.contextKey === contextKey
+    && previousBindingKeys.length === nextBindingKeys.length
+    && previousBindingKeys.every((key, index) => key === nextBindingKeys[index])
+    && currentCards.length === nextCards.length
+    && currentCards.every((card, index) => haveEquivalentFactorySlotNodes(card, nextCards[index]));
+  if (!presentationIsUnchanged) {
+    mount.replaceChildren(...nextCards);
   }
   return true;
 }
 
 export function renderServerFactorySlotList(mount, lines = [], callbacks = {}, options = {}) {
   if (!mount) return false;
-  mount.replaceChildren();
-  mount.classList?.add?.("factory-slot-grid");
-  for (const line of Array.isArray(lines) ? lines : []) {
+  const slotViews = (Array.isArray(lines) ? lines : []).map((line) => {
     const displayCost = { cleanCash: 0, metalParts: 0, techCore: 0 };
     const inputAmounts = { metalParts: 0, techCore: 0 };
     for (const row of Array.isArray(line?.costDisplayRows) ? line.costDisplayRows : []) {
@@ -639,7 +703,7 @@ export function renderServerFactorySlotList(mount, lines = [], callbacks = {}, o
       inputAmounts[legacyResourceKey] = Math.max(0, Number(row.availableAmount ?? 0));
     }
     const durationMs = Math.max(0, Number(line?.effectiveUnitDurationTicks || 0) * Number(options.tickRateMs || FREE_GAMEPLAY_TICK_MS));
-    const card = renderFactorySlotCard({
+    return {
       recipeId: line.recipeId,
       status: line.status || "ready",
       loading: line.loading === true,
@@ -666,10 +730,9 @@ export function renderServerFactorySlotList(mount, lines = [], callbacks = {}, o
       maxStartQuantity: Math.max(0, Number(line.maxStartQuantity || 0)),
       disabledReason: line.disabledReason || null,
       ...getFactoryServerVisual(line.resourceKey)
-    }, callbacks, { ...options, mount });
-    if (card) mount.append(card);
-  }
-  return true;
+    };
+  });
+  return renderFactorySlotList(mount, slotViews, callbacks, options);
 }
 
 function formatFactoryCleanCashCost(slotView, quantity) {

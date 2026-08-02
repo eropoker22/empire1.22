@@ -2354,17 +2354,21 @@ describe("building detail, production and recipe UI modules", () => {
       selectionScopeKey: "building:factory:a"
     });
     const rerenderedCard = mount.children[0];
+    expect(rerenderedCard).toBe(firstCard);
     expect(rerenderedCard.querySelector(".factory-slot__quantity-value").textContent).toBe("2");
 
     renderServerFactorySlotList(mount, [line], { onStartSlot }, {
       selectionScopeKey: "building:factory:b"
     });
-    expect(mount.children[0].querySelector(".factory-slot__quantity-value").textContent).toBe("1");
+    const otherFactoryCard = mount.children[0];
+    expect(otherFactoryCard).not.toBe(rerenderedCard);
+    expect(otherFactoryCard.querySelector(".factory-slot__quantity-value").textContent).toBe("1");
 
     renderServerFactorySlotList(mount, [line], { onStartSlot }, {
       selectionScopeKey: "building:factory:a"
     });
     const restoredCard = mount.children[0];
+    expect(restoredCard).not.toBe(otherFactoryCard);
     expect(restoredCard.querySelector(".factory-slot__quantity-value").textContent).toBe("2");
     restoredCard.querySelector('[data-factory-slot-toggle-state="start"]').click();
     expect(onStartSlot).toHaveBeenCalledWith(
@@ -2376,6 +2380,7 @@ describe("building detail, production and recipe UI modules", () => {
     renderServerFactorySlotList(mount, [line], { onStartSlot }, {
       selectionScopeKey: "building:factory:a"
     });
+    expect(mount.children[0]).not.toBe(restoredCard);
     expect(mount.children[0].querySelector(".factory-slot__quantity-value").textContent).toBe("1");
   });
 
