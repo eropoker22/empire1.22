@@ -10,6 +10,7 @@ export type LocalHostedPostgresDatabaseFactory = (
 ) => PostgresDatabase;
 
 export const LOCAL_HOSTED_POSTGRES_POOL_OPTIONS: Readonly<PostgresDatabasePoolOptions> = Object.freeze({
+  min: 8,
   max: 12,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 5_000,
@@ -31,4 +32,14 @@ export const createLocalHostedPostgresDatabase = (
   return driver === "postgres" && databaseUrl
     ? factory(databaseUrl, LOCAL_HOSTED_POSTGRES_POOL_OPTIONS)
     : null;
+};
+
+export const prewarmLocalHostedPostgresDatabase = async (
+  database: PostgresDatabase | null
+): Promise<void> => {
+  if (!database) return;
+  await Promise.all(Array.from(
+    { length: LOCAL_HOSTED_POSTGRES_POOL_OPTIONS.min ?? 0 },
+    () => database.query("SELECT 1")
+  ));
 };

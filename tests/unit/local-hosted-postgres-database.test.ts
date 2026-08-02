@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS } from "../../apps/client/src/browser/gameplay-slice-timing";
 import {
   createLocalHostedPostgresDatabase,
-  LOCAL_HOSTED_POSTGRES_POOL_OPTIONS
+  LOCAL_HOSTED_POSTGRES_POOL_OPTIONS,
+  prewarmLocalHostedPostgresDatabase
 } from "../../apps/server/src/bootstrap/local-hosted-postgres-database";
 import type {
   PostgresDatabase,
@@ -14,7 +15,35 @@ describe("local hosted PostgreSQL lifecycle", () => {
     expect(LOCAL_HOSTED_POSTGRES_POOL_OPTIONS.idleTimeoutMillis)
       .toBeGreaterThan(GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS);
     expect(LOCAL_HOSTED_POSTGRES_POOL_OPTIONS.allowExitOnIdle).toBe(false);
+    expect(LOCAL_HOSTED_POSTGRES_POOL_OPTIONS.min).toBe(8);
     expect(LOCAL_HOSTED_POSTGRES_POOL_OPTIONS.max).toBe(12);
+  });
+
+  it("prewarms every retained local hosted connection before serving requests", async () => {
+    const database = createDatabaseStub();
+    const pendingQueries: Array<() => void> = [];
+    database.query = vi.fn(() => new Promise((resolve) => {
+      pendingQueries.push(() => resolve(undefined as never));
+    })) as PostgresDatabase["query"];
+
+    const prewarming = prewarmLocalHostedPostgresDatabase(database);
+
+    expect(database.query).toHaveBeenCalledTimes(8);
+    expect(database.query).toHaveBeenCalledWith("SELECT 1");
+    pendingQueries.forEach((resolve) => resolve());
+    await prewarming;
+  });
+
+  it("fails closed when a retained local hosted connection cannot be prewarmed", async () => {
+    const database = createDatabaseStub();
+    database.query = vi.fn().mockRejectedValue(new Error("Injected prewarm failure."));
+
+    await expect(prewarmLocalHostedPostgresDatabase(database))
+      .rejects.toThrow("Injected prewarm failure.");
+  });
+
+  it("does not prewarm PostgreSQL when local hosted persistence is disabled", async () => {
+    await expect(prewarmLocalHostedPostgresDatabase(null)).resolves.toBeUndefined();
   });
 
   it("uses the local long-lived pool policy without changing the Netlify policy", () => {

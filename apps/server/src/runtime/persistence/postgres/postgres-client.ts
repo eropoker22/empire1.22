@@ -15,6 +15,7 @@ export interface PostgresDatabase extends PostgresQueryable {
 }
 
 export interface PostgresDatabasePoolOptions {
+  min?: number;
   max?: number;
   idleTimeoutMillis?: number;
   connectionTimeoutMillis?: number;

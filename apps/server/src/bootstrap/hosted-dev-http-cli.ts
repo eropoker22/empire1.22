@@ -2,12 +2,16 @@ import "../../../../scripts/load-local-environment";
 import * as http from "node:http";
 import { createSafeHostedApiErrorDiagnostic } from "./hosted-api-error-diagnostic";
 import { applyLocalHostedHttpTiming } from "./local-hosted-http-timing";
-import { createLocalHostedPostgresDatabase } from "./local-hosted-postgres-database";
+import {
+  createLocalHostedPostgresDatabase,
+  prewarmLocalHostedPostgresDatabase
+} from "./local-hosted-postgres-database";
 
 const port = Number(process.env.EMPIRE_HOSTED_API_PORT ?? 8787);
 const host = "127.0.0.1";
 const { createGameplaySliceFunctionHandler } = await import("../netlify/gameplay-slice-function");
 const database = createLocalHostedPostgresDatabase(process.env);
+await prewarmLocalHostedPostgresDatabase(database);
 const handler = createGameplaySliceFunctionHandler({
   environment: {
     ...process.env,
