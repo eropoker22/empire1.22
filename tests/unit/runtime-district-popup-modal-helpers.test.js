@@ -123,6 +123,98 @@ describe("district popup modal helpers", () => {
     document.body.innerHTML = "";
   });
 
+  it("enables district building pointer input only after the entry animation settles", async () => {
+    const districtPopup = document.createElement("div");
+    const card = document.createElement("div");
+    let finishAnimation;
+    const finished = new Promise((resolve) => {
+      finishAnimation = resolve;
+    });
+    districtPopup.hidden = true;
+    districtPopup.setAttribute("data-district-popup", "");
+    card.setAttribute("data-district-popup-card", "");
+    card.getAnimations = vi.fn(() => [{
+      effect: {
+        getComputedTiming: () => ({ endTime: 320 })
+      },
+      finished,
+      playState: "running"
+    }]);
+    const requestAnimationFrame = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        callback();
+        return 1;
+      });
+    districtPopup.append(card);
+    document.body.append(districtPopup);
+
+    showDistrictPopupModal(districtPopup);
+
+    expect(districtPopup.dataset.districtPopupInteractionReady).toBe("entering");
+    expect(card.style.pointerEvents).toBe("none");
+    expect(card.getAnimations).toHaveBeenCalledWith({ subtree: true });
+
+    finishAnimation();
+    await finished;
+    await Promise.resolve();
+
+    expect(districtPopup.dataset.districtPopupInteractionReady).toBe("ready");
+    expect(card.style.pointerEvents).toBe("");
+
+    hideDistrictPopupModal(districtPopup, { suppressMapInput: false });
+    requestAnimationFrame.mockRestore();
+    document.body.innerHTML = "";
+  });
+
+  it("does not let a stale entry animation unlock a reopened district popup", async () => {
+    const districtPopup = document.createElement("div");
+    const card = document.createElement("div");
+    const animationResolvers = [];
+    const animationPromises = [0, 1].map(() => new Promise((resolve) => {
+      animationResolvers.push(resolve);
+    }));
+    let animationIndex = 0;
+    districtPopup.hidden = true;
+    districtPopup.setAttribute("data-district-popup", "");
+    card.setAttribute("data-district-popup-card", "");
+    card.getAnimations = vi.fn(() => [{
+      effect: {
+        getComputedTiming: () => ({ endTime: 320 })
+      },
+      finished: animationPromises[animationIndex++],
+      playState: "running"
+    }]);
+    const requestAnimationFrame = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        callback();
+        return 1;
+      });
+    districtPopup.append(card);
+    document.body.append(districtPopup);
+
+    showDistrictPopupModal(districtPopup);
+    hideDistrictPopupModal(districtPopup, { suppressMapInput: false });
+    showDistrictPopupModal(districtPopup);
+
+    animationResolvers[0]();
+    await animationPromises[0];
+    await Promise.resolve();
+    expect(districtPopup.dataset.districtPopupInteractionReady).toBe("entering");
+    expect(card.style.pointerEvents).toBe("none");
+
+    animationResolvers[1]();
+    await animationPromises[1];
+    await Promise.resolve();
+    expect(districtPopup.dataset.districtPopupInteractionReady).toBe("ready");
+    expect(card.style.pointerEvents).toBe("");
+
+    hideDistrictPopupModal(districtPopup, { suppressMapInput: false });
+    requestAnimationFrame.mockRestore();
+    document.body.innerHTML = "";
+  });
+
   it("allows an intentional handoff from a district sheet to a building modal", () => {
     const districtPopup = document.createElement("div");
     const buildingModal = document.createElement("div");

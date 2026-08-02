@@ -16,8 +16,10 @@ import {
 } from "./legacyOverlayCoordinator.js";
 
 const MAIN_DISTRICT_POPUP_SELECTOR = "[data-district-popup]";
+const MAIN_DISTRICT_POPUP_CARD_SELECTOR = "[data-district-popup-card]";
 const DISTRICT_OWNER_AVATAR_OPEN_SELECTOR = "[data-district-owner-avatar-open=\"true\"]";
 const MOBILE_DISTRICT_POPUP_SCROLL_MEDIA = "(max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse)";
+const districtPopupEntryGenerationByElement = new WeakMap();
 let lastDistrictOwnerAvatarTrigger = null;
 
 function isMainDistrictPopup(element) {
@@ -30,6 +32,67 @@ function shouldAllowMainDistrictBackgroundScroll(element) {
   }
   const view = element?.ownerDocument?.defaultView;
   return Boolean(view?.matchMedia?.(MOBILE_DISTRICT_POPUP_SCROLL_MEDIA).matches);
+}
+
+function resetDistrictPopupEntryInteraction(element) {
+  if (!isMainDistrictPopup(element)) {
+    return;
+  }
+  districtPopupEntryGenerationByElement.set(
+    element,
+    (districtPopupEntryGenerationByElement.get(element) || 0) + 1
+  );
+  delete element.dataset.districtPopupInteractionReady;
+  element.querySelector?.(MAIN_DISTRICT_POPUP_CARD_SELECTOR)?.style?.removeProperty?.("pointer-events");
+}
+
+function scheduleDistrictPopupEntryInteraction(element) {
+  if (!isMainDistrictPopup(element)) {
+    return;
+  }
+  const card = element.querySelector?.(MAIN_DISTRICT_POPUP_CARD_SELECTOR);
+  const view = element.ownerDocument?.defaultView;
+  if (!card || !view) {
+    return;
+  }
+
+  const generation = (districtPopupEntryGenerationByElement.get(element) || 0) + 1;
+  districtPopupEntryGenerationByElement.set(element, generation);
+  element.dataset.districtPopupInteractionReady = "entering";
+  card.style.pointerEvents = "none";
+
+  const complete = () => {
+    if (
+      element.hidden
+      || districtPopupEntryGenerationByElement.get(element) !== generation
+      || element.querySelector?.(MAIN_DISTRICT_POPUP_CARD_SELECTOR) !== card
+    ) {
+      return;
+    }
+    element.dataset.districtPopupInteractionReady = "ready";
+    card.style.removeProperty("pointer-events");
+  };
+  const waitForEntryAnimation = () => {
+    const animations = typeof card.getAnimations === "function"
+      ? card.getAnimations({ subtree: true }).filter((animation) => {
+          const endTime = animation.effect?.getComputedTiming?.().endTime;
+          return animation.playState !== "finished"
+            && Number.isFinite(endTime)
+            && endTime > 0;
+        })
+      : [];
+    if (animations.length === 0) {
+      complete();
+      return;
+    }
+    void Promise.allSettled(animations.map((animation) => animation.finished)).then(complete);
+  };
+
+  if (typeof view.requestAnimationFrame === "function") {
+    view.requestAnimationFrame(waitForEntryAnimation);
+  } else {
+    waitForEntryAnimation();
+  }
 }
 
 function bindMobileDistrictPopupBackgroundScroll(element) {
@@ -183,6 +246,7 @@ export function showDistrictPopupModal(element) {
     return false;
   }
 
+  const entering = isMainDistrictPopup(element) && element.hidden;
   delete element.dataset.districtPopupHandoff;
   bindMobileDistrictPopupBackgroundScroll(element);
   if (!isOverlayElementOpen(element)) {
@@ -195,6 +259,9 @@ export function showDistrictPopupModal(element) {
     });
   }
   element.hidden = false;
+  if (entering) {
+    scheduleDistrictPopupEntryInteraction(element);
+  }
   return true;
 }
 
@@ -203,6 +270,7 @@ export function hideDistrictPopupModal(element, options = {}) {
     return false;
   }
 
+  resetDistrictPopupEntryInteraction(element);
   if (options.preserveDistrictSelection === true) {
     element.dataset.districtPopupHandoff = "building-detail";
   } else {
