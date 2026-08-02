@@ -515,13 +515,13 @@ async function compareOpenBuildingParity(
   screenshotAttachment = null
 ) {
   const screenshotComparisons = [];
+  await openBuildingFromDistrict(serverPage, buildingTypeId);
   await syncParityLocalDemoPopulationBufferFromHosted(
     localPage,
     serverPage,
     buildingTypeId
   );
   await openBuildingFromDistrict(localPage, buildingTypeId);
-  await openBuildingFromDistrict(serverPage, buildingTypeId);
   const localStats = await readOpenBuildingParity(localPage, buildingTypeId);
   const serverStats = await readOpenBuildingParity(serverPage, buildingTypeId);
 

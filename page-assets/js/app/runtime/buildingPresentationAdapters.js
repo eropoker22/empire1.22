@@ -212,8 +212,9 @@ const createServerMechanicsInput = ({
   const localBufferCapacity = hasProjectedPopulationBuffer
     ? Math.max(0, Number(projectedPopulationBuffer.capacity))
     : statLocalBufferCapacity;
+  const localBufferUnit = mechanicsType === "school" ? " členů" : " obyvatel";
   const localBufferLabel = hasProjectedPopulationBuffer
-    ? `${localBufferAmount}/${localBufferCapacity}`
+    ? `${localBufferAmount}/${localBufferCapacity}${localBufferUnit}`
     : String(localBuffer);
   const count = Number.isFinite(ownedBuildingCount)
     ? ownedBuildingCount

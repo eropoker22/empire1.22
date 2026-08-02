@@ -14,6 +14,10 @@ import {
 import {
   LEGACY_STORAGE_KEYS
 } from "../../../page-assets/js/app/persistence/legacyStorage.js";
+import {
+  APARTMENT_BLOCK_MIN_COLLECT_POPULATION,
+  CONVENIENCE_STORE_MIN_COLLECT_POPULATION
+} from "../../../page-assets/js/app/runtime/buildingDetailData.js";
 
 const SESSION_KEY = "empireStreets.session.v1";
 const SCOPED_SESSION_KEY = "empireStreets.session.free.instance-free-eu-central-public-1.v1";
@@ -35,7 +39,10 @@ const PARITY_POPULATION_BUFFER_CONFIG = Object.freeze({
   apartment_block: Object.freeze({
     capacityField: "populationCapacity",
     collectActionId: "collect_population",
+    emptyDisabledReason: "Bytový blok zatím nemá připravené obyvatele.",
     fullNotifiedAtField: "populationFullNotifiedAt",
+    minimumCollectAmount: APARTMENT_BLOCK_MIN_COLLECT_POPULATION,
+    minimumDisabledReason: `Bytový blok potřebuje alespoň ${APARTMENT_BLOCK_MIN_COLLECT_POPULATION} lidí k výběru.`,
     storageEntryKey: "__shared:bytovy blok",
     storedField: "storedPopulation",
     updatedAtField: "populationLastUpdatedAt"
@@ -43,7 +50,10 @@ const PARITY_POPULATION_BUFFER_CONFIG = Object.freeze({
   convenience_store: Object.freeze({
     capacityField: "populationCapacity",
     collectActionId: "collect_convenience_store_population",
+    emptyDisabledReason: "Večerka zatím nemá připravené obyvatele.",
     fullNotifiedAtField: "populationFullNotifiedAt",
+    minimumCollectAmount: CONVENIENCE_STORE_MIN_COLLECT_POPULATION,
+    minimumDisabledReason: `Večerka potřebuje alespoň ${CONVENIENCE_STORE_MIN_COLLECT_POPULATION} lidí k výběru.`,
     storageEntryKey: "__shared:vecerka",
     storedField: "storedPopulation",
     updatedAtField: "populationLastUpdatedAt"
@@ -51,7 +61,10 @@ const PARITY_POPULATION_BUFFER_CONFIG = Object.freeze({
   school: Object.freeze({
     capacityField: "studentCapacity",
     collectActionId: "collect_school_population",
+    emptyDisabledReason: "Škola zatím nemá připravené členy k výběru.",
     fullNotifiedAtField: "studentFullNotifiedAt",
+    minimumCollectAmount: 1,
+    minimumDisabledReason: "Škola zatím nemá připravené členy k výběru.",
     storageEntryKey: "__shared:skola",
     storedField: "storedStudents",
     updatedAtField: "schoolLastUpdatedAt"
@@ -90,12 +103,26 @@ export function createParityPopulationBufferSyncFixture(
   ) {
     return null;
   }
+  const wholeAmount = Math.floor(storedAmount);
+  const expectedEnabled = wholeAmount >= config.minimumCollectAmount;
+  const expectedDisabledReason = expectedEnabled
+    ? ""
+    : wholeAmount <= 0
+      ? config.emptyDisabledReason
+      : config.minimumDisabledReason;
+  const actualDisabledReason = String(collectAction.disabledReason || "").trim();
+  if (
+    collectAction.enabled !== expectedEnabled
+    || actualDisabledReason !== expectedDisabledReason
+  ) {
+    return null;
+  }
 
   return {
     buildingTypeId: normalizedTypeId,
     collect: {
       actionId: config.collectActionId,
-      disabledReason: String(collectAction.disabledReason || "").trim(),
+      disabledReason: actualDisabledReason,
       enabled: collectAction.enabled === true
     },
     populationBuffer: {

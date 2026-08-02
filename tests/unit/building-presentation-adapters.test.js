@@ -694,7 +694,8 @@ describe("shared building presentation adapters", () => {
     expect(readySchool.viewModel.collect).toMatchObject({
       visible: true,
       enabled: true,
-      actionId: "collect_school_population"
+      actionId: "collect_school_population",
+      title: "Vybrat připravený výstup: 4/20 členů"
     });
     expect(readySchool.viewModel.actions.map((action) => action.actionId)).not.toContain("collect_school_population");
   });

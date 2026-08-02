@@ -86,7 +86,11 @@ describe("UI parity class signature", () => {
       fixture: createParityPopulationBufferSyncFixture(buildingTypeId, {
         actions: [{
           actionId,
-          disabledReason: index === 2 ? "" : "Čeká na minimum.",
+          disabledReason: index === 0
+            ? "Bytový blok zatím nemá připravené obyvatele."
+            : index === 1
+              ? "Večerka potřebuje alespoň 30 lidí k výběru."
+              : "",
           enabled: index === 2
         }],
         buildingTypeId,
@@ -110,7 +114,11 @@ describe("UI parity class signature", () => {
             ? "convenience_store"
             : "school",
         collect: {
-          disabledReason: index === 2 ? "" : "Čeká na minimum.",
+          disabledReason: index === 0
+            ? "Bytový blok zatím nemá připravené obyvatele."
+            : index === 1
+              ? "Večerka potřebuje alespoň 30 lidí k výběru."
+              : "",
           enabled: index === 2
         },
         storageEntryKey: entry.storageEntryKey
@@ -138,6 +146,14 @@ describe("UI parity class signature", () => {
     expect(createParityPopulationBufferSyncFixture("school", {
       ...school,
       presentation: null
+    })).toBeNull();
+    expect(createParityPopulationBufferSyncFixture("school", {
+      ...school,
+      actions: [{
+        actionId: "collect_school_population",
+        disabledReason: "Škola zatím nemá připravené členy k výběru.",
+        enabled: true
+      }]
     })).toBeNull();
   });
 
