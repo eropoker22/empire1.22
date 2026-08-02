@@ -92,6 +92,8 @@ export interface GameplaySessionService {
 
 export type CreateGameplayJoinTicketInput = Parameters<GameplaySessionService["createJoinTicket"]>[0];
 
+const GAMEPLAY_SESSION_TOUCH_INTERVAL_MS = 30_000;
+
 export interface GameplayIdentitySessionRepository {
   createJoinTicket(input: JoinTicketRecord): Promise<JoinTicketRecord>;
   consumeJoinTicket(input: {
@@ -210,6 +212,9 @@ export const createPersistentGameplaySessionService = (
       if (Date.parse(session.expiresAt) <= Date.parse(input.nowIso)) {
         return reject("SESSION_EXPIRED", "Gameplay session expired.");
       }
+      if (!isSessionTouchDue(session.lastSeenAt, input.nowIso)) {
+        return { accepted: true, session };
+      }
       const touched = await repository.touchSession(sessionId, input.nowIso);
       return touched
         ? { accepted: true, session: touched }
@@ -288,6 +293,9 @@ export const createInMemoryGameplaySessionService = (
       if (Date.parse(session.expiresAt) <= Date.parse(input.nowIso)) {
         return reject("SESSION_EXPIRED", "Gameplay session expired.");
       }
+      if (!isSessionTouchDue(session.lastSeenAt, input.nowIso)) {
+        return { accepted: true, session };
+      }
       session.lastSeenAt = input.nowIso;
       session.version += 1;
       return { accepted: true, session };
@@ -331,6 +339,14 @@ export const createInMemoryGameplaySessionService = (
     registrationIdByAccountServer.set(key, registration.id);
     return registration;
   }
+};
+
+const isSessionTouchDue = (lastSeenAt: string, nowIso: string): boolean => {
+  const lastSeenMs = Date.parse(lastSeenAt);
+  const nowMs = Date.parse(nowIso);
+  return !Number.isFinite(lastSeenMs)
+    || !Number.isFinite(nowMs)
+    || nowMs - lastSeenMs >= GAMEPLAY_SESSION_TOUCH_INTERVAL_MS;
 };
 
 const createServerPlayerId = (serverInstanceId: string, accountId: string): string =>

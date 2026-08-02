@@ -10,7 +10,7 @@ export type LocalHostedPostgresDatabaseFactory = (
 ) => PostgresDatabase;
 
 export const LOCAL_HOSTED_POSTGRES_POOL_OPTIONS: Readonly<PostgresDatabasePoolOptions> = Object.freeze({
-  max: 4,
+  max: 12,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 5_000,
   statementTimeoutMillis: 15_000,

@@ -14,7 +14,7 @@ describe("local hosted PostgreSQL lifecycle", () => {
     expect(LOCAL_HOSTED_POSTGRES_POOL_OPTIONS.idleTimeoutMillis)
       .toBeGreaterThan(GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS);
     expect(LOCAL_HOSTED_POSTGRES_POOL_OPTIONS.allowExitOnIdle).toBe(false);
-    expect(LOCAL_HOSTED_POSTGRES_POOL_OPTIONS.max).toBe(4);
+    expect(LOCAL_HOSTED_POSTGRES_POOL_OPTIONS.max).toBe(12);
   });
 
   it("uses the local long-lived pool policy without changing the Netlify policy", () => {

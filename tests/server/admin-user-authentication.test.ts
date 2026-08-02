@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createAdminSessionService,
   createInMemoryAdminDurableRepositories,
@@ -43,6 +43,33 @@ describe("durable admin user authentication", () => {
     const authentication = await service.authenticate(login.token, "request:2");
     expect(authentication.accepted).toBe(false);
     expect(authentication.errors[0]?.code).toBe("ADMIN_SESSION_REVOKED");
+  });
+
+  it("validates every request while persisting last-seen at a bounded cadence", async () => {
+    const repositories = createInMemoryAdminDurableRepositories({ users: [user(await hashAdminPassword(PASSWORD))] });
+    const touchSession = vi.spyOn(repositories.sessions, "touchSession");
+    const getUserById = vi.spyOn(repositories.users, "getById");
+    let currentTime = new Date("2026-07-16T10:10:00.000Z");
+    const service = createAdminSessionService({ repositories, environment: ENV, now: () => currentTime });
+    const login = await service.login({
+      username: "TestOwner",
+      password: PASSWORD,
+      fingerprint: "192.0.2.1",
+      correlationId: "request:touch-login"
+    });
+    expect(login.accepted).toBe(true);
+    if (!login.accepted) return;
+
+    await expect(service.authenticate(login.token, "request:touch-1")).resolves.toMatchObject({ accepted: true });
+    await expect(service.authenticate(login.token, "request:touch-2")).resolves.toMatchObject({ accepted: true });
+    expect(touchSession).not.toHaveBeenCalled();
+
+    currentTime = new Date("2026-07-16T10:10:31.000Z");
+    await expect(service.authenticate(login.token, "request:touch-3")).resolves.toMatchObject({ accepted: true });
+    await expect(service.authenticate(login.token, "request:touch-4")).resolves.toMatchObject({ accepted: true });
+    expect(getUserById).toHaveBeenCalledTimes(4);
+    expect(touchSession).toHaveBeenCalledTimes(1);
+    expect(touchSession).toHaveBeenCalledWith(expect.stringMatching(/^admin-session:/), currentTime.toISOString());
   });
 });
 

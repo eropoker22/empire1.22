@@ -556,6 +556,48 @@ describe("gameplay session security", () => {
       errors: [{ code: "SESSION_REVOKED" }]
     });
   });
+
+  it("validates persistent sessions on every request without writing last-seen on every poll", async () => {
+    const repository = createFakeGameplayIdentitySessionRepository();
+    const originalGetSessionById = repository.getSessionById.bind(repository);
+    const originalTouchSession = repository.touchSession.bind(repository);
+    let validationReadCount = 0;
+    let touchCount = 0;
+    repository.getSessionById = async (sessionId) => {
+      validationReadCount += 1;
+      return originalGetSessionById(sessionId);
+    };
+    repository.touchSession = async (sessionId, lastSeenAt) => {
+      touchCount += 1;
+      return originalTouchSession(sessionId, lastSeenAt);
+    };
+    const service = createPersistentGameplaySessionService(repository, { productionReady: true });
+    const registration = await service.getOrCreateRegistration({
+      accountId: "account:polling",
+      serverInstanceId,
+      nowIso: "2026-06-24T00:00:00.000Z"
+    });
+    const session = await service.createSession({
+      registration,
+      nowIso: "2026-06-24T00:00:00.000Z",
+      ttlMs: 120_000
+    });
+    const validateAt = (nowIso: string) => service.validateSession({
+      sessionId: session.sessionId,
+      accountId: registration.accountId,
+      serverInstanceId,
+      nowIso
+    });
+
+    await expect(validateAt("2026-06-24T00:00:01.000Z")).resolves.toMatchObject({ accepted: true });
+    await expect(validateAt("2026-06-24T00:00:29.999Z")).resolves.toMatchObject({ accepted: true });
+    expect(touchCount).toBe(0);
+
+    await expect(validateAt("2026-06-24T00:00:30.000Z")).resolves.toMatchObject({ accepted: true });
+    await expect(validateAt("2026-06-24T00:00:31.000Z")).resolves.toMatchObject({ accepted: true });
+    expect(validationReadCount).toBe(4);
+    expect(touchCount).toBe(1);
+  });
 });
 
 const createFakeGameplayIdentitySessionRepository = (): GameplayIdentitySessionRepository => {

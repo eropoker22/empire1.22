@@ -4,6 +4,7 @@ import type { AdminDurableRepositories, AdminStoredSession, AdminUserRecord } fr
 import { hashAdminPassword, normalizeAdminUsername, verifyAdminPassword } from "./admin-password";
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
+const SESSION_TOUCH_INTERVAL_MS = 30 * 1000;
 const FAILURE_WINDOW_MS = 5 * 60 * 1000;
 const MAX_FAILURES = 5;
 
@@ -82,23 +83,26 @@ export const createAdminSessionService = (options: {
       if (!token) return reject("ADMIN_SESSION_REQUIRED", "Admin session is required.");
       const session = await options.repositories.sessions.getSessionByTokenHash(hashToken(token));
       if (!session) return reject("ADMIN_SESSION_INVALID", "Admin session is invalid.");
+      const checkedAt = now();
       if (session.revokedAt) {
         await audit(session, "session-revoked", "failure", correlationId);
         return reject("ADMIN_SESSION_REVOKED", "Admin session is invalid.");
       }
-      if (Date.parse(session.expiresAt) <= now().getTime()) {
+      if (Date.parse(session.expiresAt) <= checkedAt.getTime()) {
         await audit(session, "session-expired", "failure", correlationId);
         return reject("ADMIN_SESSION_EXPIRED", "Admin session expired.");
       }
       const user = await options.repositories.users.getById(session.adminUserId);
       if (!user || user.status !== "active" || user.passwordVersion !== session.passwordVersion) {
-        await options.repositories.sessions.revokeSession(session.adminSessionId, now().toISOString());
+        await options.repositories.sessions.revokeSession(session.adminSessionId, checkedAt.toISOString());
         await audit(session, "session-revoked", "failure", correlationId);
         return reject("ADMIN_SESSION_REVOKED", "Admin session is invalid.");
       }
-      const lastSeenAt = now().toISOString();
-      session.lastSeenAt = lastSeenAt;
-      await options.repositories.sessions.touchSession(session.adminSessionId, lastSeenAt);
+      const lastSeenAt = checkedAt.toISOString();
+      if (isSessionTouchDue(session.lastSeenAt, lastSeenAt)) {
+        session.lastSeenAt = lastSeenAt;
+        await options.repositories.sessions.touchSession(session.adminSessionId, lastSeenAt);
+      }
       return { accepted: true as const, session: toView(session), storedSession: session, errors: [] as [] };
     },
     logout: async (session: AdminStoredSession, correlationId: string) => {
@@ -144,3 +148,10 @@ const reject = (code: string, message: string) => ({ accepted: false as const, s
 const hashToken = (value: string): string => crypto.createHash("sha256").update(value).digest("hex");
 const scopeHash = (value: string, secret: string): string => crypto.createHmac("sha256", secret).update(value).digest("base64url");
 const randomToken = (): string => crypto.randomBytes(32).toString("base64url");
+const isSessionTouchDue = (lastSeenAt: string, nowIso: string): boolean => {
+  const lastSeenMs = Date.parse(lastSeenAt);
+  const nowMs = Date.parse(nowIso);
+  return !Number.isFinite(lastSeenMs)
+    || !Number.isFinite(nowMs)
+    || nowMs - lastSeenMs >= SESSION_TOUCH_INTERVAL_MS;
+};
