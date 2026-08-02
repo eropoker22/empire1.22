@@ -10,6 +10,7 @@ import {
   getPlayerBoostViewModel,
   getResolvedGangState,
   renderSpyResourceState,
+  setE2eDistrictBuildingPopulationBuffer,
   setBuildingActionFeedback
 } from "../runtime.js";
 import { BOUNTY_DEMO_TARGETS } from "../dev-fixtures/bountyDemoData.js";
@@ -97,6 +98,7 @@ export function bootstrapLocalDemoLegacyPage({
       LAUNCH_PLAYER_AVATAR_BY_FACTION_ID[String(factionId || "")] || "",
     getStoredPreviewSession,
     renderSpyResourceState,
+    setE2eDistrictBuildingPopulationBuffer,
     setBuildingActionFeedback,
     updateStoredPreviewSession
   });

@@ -7825,6 +7825,55 @@ function updateDistrictBuildingDetailEntry(district, buildingName, updater) {
   return state[key];
 }
 
+export function setE2eDistrictBuildingPopulationBuffer({
+  buildingName,
+  capacity,
+  storedAmount,
+  updatedAt = Date.now()
+} = {}) {
+  if (
+    globalThis.window?.__EMPIRE_E2E__ !== true
+    || getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.localDemo
+  ) {
+    throw new Error("Population fixture bridge is available only in local-demo E2E mode.");
+  }
+  const mechanicsType = resolveDistrictBuildingDetailMechanicsType(buildingName);
+  if (!PASSIVE_DISTRICT_BUILDING_DETAIL_MECHANICS_TYPES.has(mechanicsType)) {
+    throw new Error(`Unsupported population fixture building: ${String(buildingName || "")}`);
+  }
+  const normalizedStoredAmount = Math.max(0, Number(storedAmount) || 0);
+  const normalizedCapacity = Math.max(1, Math.floor(Number(capacity) || 1));
+  const normalizedUpdatedAt = Math.max(0, Math.floor(Number(updatedAt) || 0));
+  const nextEntry = updateDistrictBuildingDetailEntry(null, buildingName, (entry) => ({
+    ...entry,
+    lastCollectedAt: normalizedUpdatedAt,
+    ...(mechanicsType === "school" ? {
+      schoolLastUpdatedAt: normalizedUpdatedAt,
+      storedStudents: normalizedStoredAmount,
+      studentCapacity: normalizedCapacity,
+      studentFullNotifiedAt: normalizedStoredAmount >= normalizedCapacity
+        ? normalizedUpdatedAt
+        : 0
+    } : {
+      populationLastUpdatedAt: normalizedUpdatedAt,
+      storedPopulation: normalizedStoredAmount,
+      populationCapacity: normalizedCapacity,
+      populationFullNotifiedAt: normalizedStoredAmount >= normalizedCapacity
+        ? normalizedUpdatedAt
+        : 0
+    })
+  }));
+  return {
+    capacity: mechanicsType === "school"
+      ? Number(nextEntry.studentCapacity || 0)
+      : Number(nextEntry.populationCapacity || 0),
+    mechanicsType,
+    storedAmount: mechanicsType === "school"
+      ? Number(nextEntry.storedStudents || 0)
+      : Number(nextEntry.storedPopulation || 0)
+  };
+}
+
 function resetOwnedApartmentBlockPopulationEntries(sourceDistrict, populationCapacity = APARTMENT_BLOCK_BASE_CAPACITY) {
   const now = Date.now();
   updateDistrictBuildingDetailEntry(sourceDistrict, "Bytový blok", (entry) => ({

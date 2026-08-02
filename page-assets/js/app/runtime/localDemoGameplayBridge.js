@@ -14,6 +14,7 @@ const OPTIONAL_CALLBACKS = Object.freeze([
   "getBountyDemoTargets",
   "getLaunchPlayerAvatarByFactionId",
   "getStoredPreviewSession",
+  "setE2eDistrictBuildingPopulationBuffer",
   "updateStoredPreviewSession"
 ]);
 

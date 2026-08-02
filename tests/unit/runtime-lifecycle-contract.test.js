@@ -17,6 +17,7 @@ describe("runtime lifecycle contract", () => {
     expect(runtimeSource).toContain("unregisterRuntimePublicHandlers({ windowRef });");
     expect(bootstrapSource).toContain("root?.dataset?.runtimeInit === \"server-authoritative\"");
     expect(bootstrapSource).toContain('root.dataset.gameplayAuthority = "local-demo";');
+    expect(bootstrapSource).toContain("setE2eDistrictBuildingPopulationBuffer");
     expect(bootstrapSource).toContain("destroyRuntime(root);");
     expect(bootstrapSource).toContain("delete root.dataset.gameplayAuthority;");
     expect(bootstrapSource).toContain("uninstallLocalDemoGameplayBridge();");

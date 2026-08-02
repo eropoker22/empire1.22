@@ -53,36 +53,23 @@ describe("UI parity class signature", () => {
       [
         "apartment_block",
         "collect_population",
-        "__shared:bytovy blok",
-        "storedPopulation",
-        "populationLastUpdatedAt",
-        "populationCapacity"
+        "apartment-block"
       ],
       [
         "convenience_store",
         "collect_convenience_store_population",
-        "__shared:vecerka",
-        "storedPopulation",
-        "populationLastUpdatedAt",
-        "populationCapacity"
+        "convenience-store"
       ],
       [
         "school",
         "collect_school_population",
-        "__shared:skola",
-        "storedStudents",
-        "schoolLastUpdatedAt",
-        "studentCapacity"
+        "school"
       ]
     ].map(([
       buildingTypeId,
       actionId,
-      storageEntryKey,
-      storedField,
-      updatedAtField,
-      capacityField
+      mechanicsType
     ], index) => ({
-      capacityField,
       fixture: createParityPopulationBufferSyncFixture(buildingTypeId, {
         actions: [{
           actionId,
@@ -101,9 +88,7 @@ describe("UI parity class signature", () => {
           }
         }
       }, 12_345),
-      storageEntryKey,
-      storedField,
-      updatedAtField
+      mechanicsType
     }));
 
     for (const [index, entry] of fixtures.entries()) {
@@ -121,12 +106,17 @@ describe("UI parity class signature", () => {
               : "",
           enabled: index === 2
         },
-        storageEntryKey: entry.storageEntryKey
+        updatedAt: 12_345
       });
-      expect(entry.fixture.storageEntry[entry.storedField]).toBe(index + 0.75);
-      expect(entry.fixture.storageEntry[entry.updatedAtField]).toBe(12_345);
-      expect(entry.fixture.storageEntry[entry.capacityField]).toBe(index === 2 ? 20 : 50);
-      expect(entry.fixture.storageEntry.lastCollectedAt).toBe(12_345);
+      expect(entry.fixture.populationBuffer).toEqual({
+        capacity: index === 2 ? 20 : 50,
+        storedAmount: index + 0.75
+      });
+      expect(entry.mechanicsType).toBe([
+        "apartment-block",
+        "convenience-store",
+        "school"
+      ][index]);
     }
   });
 
@@ -183,19 +173,16 @@ describe("UI parity class signature", () => {
     expect(fixture).toMatchObject({
       buildingTypeId: "school",
       collect: { actionId: "collect_school_population", enabled: true },
-      populationBuffer: { capacity: 20, storedAmount: 1.25 },
-      storageEntryKey: "__shared:skola"
+      populationBuffer: { capacity: 20, storedAmount: 1.25 }
     });
     expect(hostedPage.evaluate).toHaveBeenCalledOnce();
     expect(localPage.evaluate).toHaveBeenCalledOnce();
     expect(localPage.evaluate.mock.calls[0][1]).toMatchObject({
-      fixture: {
-        storageEntry: {
-          storedStudents: 1.25,
-          studentCapacity: 20
-        }
-      },
-      storageKey: "empireStreets.districtBuildingDetails.v1"
+      buildingTypeId: "school",
+      populationBuffer: {
+        capacity: 20,
+        storedAmount: 1.25
+      }
     });
 
     expect(await syncParityLocalDemoPopulationBufferFromHosted(

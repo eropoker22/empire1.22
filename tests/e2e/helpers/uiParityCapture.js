@@ -12,9 +12,6 @@ import {
   ARMORY_RECIPES
 } from "../../../packages/game-config/src/legacy-page/economy-config.js";
 import {
-  LEGACY_STORAGE_KEYS
-} from "../../../page-assets/js/app/persistence/legacyStorage.js";
-import {
   APARTMENT_BLOCK_MIN_COLLECT_POPULATION,
   CONVENIENCE_STORE_MIN_COLLECT_POPULATION
 } from "../../../page-assets/js/app/runtime/buildingDetailData.js";
@@ -37,37 +34,22 @@ const CSS_URL_VALUE_PATTERN_SOURCE = String.raw`url\(\s*(?:(["'])(.*?)\1|([^)]*)
 const PARITY_LOCAL_POPULATION_STATE_FREEZE_MS = 5 * 60 * 1000;
 const PARITY_POPULATION_BUFFER_CONFIG = Object.freeze({
   apartment_block: Object.freeze({
-    capacityField: "populationCapacity",
     collectActionId: "collect_population",
     emptyDisabledReason: "Bytový blok zatím nemá připravené obyvatele.",
-    fullNotifiedAtField: "populationFullNotifiedAt",
     minimumCollectAmount: APARTMENT_BLOCK_MIN_COLLECT_POPULATION,
     minimumDisabledReason: `Bytový blok potřebuje alespoň ${APARTMENT_BLOCK_MIN_COLLECT_POPULATION} lidí k výběru.`,
-    storageEntryKey: "__shared:bytovy blok",
-    storedField: "storedPopulation",
-    updatedAtField: "populationLastUpdatedAt"
   }),
   convenience_store: Object.freeze({
-    capacityField: "populationCapacity",
     collectActionId: "collect_convenience_store_population",
     emptyDisabledReason: "Večerka zatím nemá připravené obyvatele.",
-    fullNotifiedAtField: "populationFullNotifiedAt",
     minimumCollectAmount: CONVENIENCE_STORE_MIN_COLLECT_POPULATION,
     minimumDisabledReason: `Večerka potřebuje alespoň ${CONVENIENCE_STORE_MIN_COLLECT_POPULATION} lidí k výběru.`,
-    storageEntryKey: "__shared:vecerka",
-    storedField: "storedPopulation",
-    updatedAtField: "populationLastUpdatedAt"
   }),
   school: Object.freeze({
-    capacityField: "studentCapacity",
     collectActionId: "collect_school_population",
     emptyDisabledReason: "Škola zatím nemá připravené členy k výběru.",
-    fullNotifiedAtField: "studentFullNotifiedAt",
     minimumCollectAmount: 1,
-    minimumDisabledReason: "Škola zatím nemá připravené členy k výběru.",
-    storageEntryKey: "__shared:skola",
-    storedField: "storedStudents",
-    updatedAtField: "schoolLastUpdatedAt"
+    minimumDisabledReason: "Škola zatím nemá připravené členy k výběru."
   })
 });
 
@@ -129,14 +111,7 @@ export function createParityPopulationBufferSyncFixture(
       capacity,
       storedAmount
     },
-    storageEntry: {
-      [config.capacityField]: capacity,
-      [config.fullNotifiedAtField]: storedAmount >= capacity ? normalizedUpdatedAt : 0,
-      [config.storedField]: storedAmount,
-      [config.updatedAtField]: normalizedUpdatedAt,
-      lastCollectedAt: normalizedUpdatedAt
-    },
-    storageEntryKey: config.storageEntryKey
+    updatedAt: normalizedUpdatedAt
   };
 }
 
@@ -177,31 +152,35 @@ export async function syncParityLocalDemoPopulationBufferFromHosted(
     timeout: 30_000
   }).not.toBeNull();
 
-  await localPage.evaluate(({
-    fixture: populationFixture,
-    storageKey
-  }) => {
+  await localPage.evaluate((populationFixture) => {
     if (document.documentElement.dataset.runtimeMode !== "local-demo") {
       throw new Error("Population parity state can only be synchronized into local-demo.");
     }
-    const rawState = localStorage.getItem(storageKey);
-    let state = {};
-    if (rawState) {
-      const parsedState = JSON.parse(rawState);
-      if (!parsedState || typeof parsedState !== "object" || Array.isArray(parsedState)) {
-        throw new Error("Local-demo building detail state is not an object.");
-      }
-      state = parsedState;
+    const buildingChip = Array.from(document.querySelectorAll(
+      "[data-district-building-name][data-district-building-type]"
+    )).find((element) => (
+      element instanceof HTMLElement
+      && element.offsetParent !== null
+      && String(element.dataset.districtBuildingType || "") === populationFixture.buildingTypeId
+    ));
+    const buildingName = String(buildingChip?.dataset?.districtBuildingName || "").trim();
+    const bridge = window.empireLocalDemoGameplayBridge;
+    if (!buildingName || typeof bridge?.setE2eDistrictBuildingPopulationBuffer !== "function") {
+      throw new Error(`Local-demo population fixture bridge is unavailable: ${populationFixture.buildingTypeId}`);
     }
-    state[populationFixture.storageEntryKey] = {
-      ...(state[populationFixture.storageEntryKey] || {}),
-      ...populationFixture.storageEntry
-    };
-    localStorage.setItem(storageKey, JSON.stringify(state));
-  }, {
-    fixture,
-    storageKey: LEGACY_STORAGE_KEYS.districtBuildingDetails
-  });
+    const applied = bridge.setE2eDistrictBuildingPopulationBuffer({
+      buildingName,
+      capacity: populationFixture.populationBuffer.capacity,
+      storedAmount: populationFixture.populationBuffer.storedAmount,
+      updatedAt: populationFixture.updatedAt
+    });
+    if (
+      Number(applied?.storedAmount) !== populationFixture.populationBuffer.storedAmount
+      || Number(applied?.capacity) !== populationFixture.populationBuffer.capacity
+    ) {
+      throw new Error(`Local-demo population fixture did not apply: ${populationFixture.buildingTypeId}`);
+    }
+  }, fixture);
   return fixture;
 }
 
