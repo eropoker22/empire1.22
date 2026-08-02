@@ -11,6 +11,9 @@ import {
 import {
   ARMORY_RECIPES
 } from "../../../packages/game-config/src/legacy-page/economy-config.js";
+import {
+  LEGACY_STORAGE_KEYS
+} from "../../../page-assets/js/app/persistence/legacyStorage.js";
 
 const SESSION_KEY = "empireStreets.session.v1";
 const SCOPED_SESSION_KEY = "empireStreets.session.free.instance-free-eu-central-public-1.v1";
@@ -27,6 +30,153 @@ export const BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE = "population-buffer";
 export const buildingPopulationBufferDynamicValueSelector =
   `[data-building-dynamic-value="${BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE}"]`;
 const CSS_URL_VALUE_PATTERN_SOURCE = String.raw`url\(\s*(?:(["'])(.*?)\1|([^)]*))\s*\)`;
+const PARITY_LOCAL_POPULATION_STATE_FREEZE_MS = 5 * 60 * 1000;
+const PARITY_POPULATION_BUFFER_CONFIG = Object.freeze({
+  apartment_block: Object.freeze({
+    capacityField: "populationCapacity",
+    collectActionId: "collect_population",
+    fullNotifiedAtField: "populationFullNotifiedAt",
+    storageEntryKey: "__shared:bytovy blok",
+    storedField: "storedPopulation",
+    updatedAtField: "populationLastUpdatedAt"
+  }),
+  convenience_store: Object.freeze({
+    capacityField: "populationCapacity",
+    collectActionId: "collect_convenience_store_population",
+    fullNotifiedAtField: "populationFullNotifiedAt",
+    storageEntryKey: "__shared:vecerka",
+    storedField: "storedPopulation",
+    updatedAtField: "populationLastUpdatedAt"
+  }),
+  school: Object.freeze({
+    capacityField: "studentCapacity",
+    collectActionId: "collect_school_population",
+    fullNotifiedAtField: "studentFullNotifiedAt",
+    storageEntryKey: "__shared:skola",
+    storedField: "storedStudents",
+    updatedAtField: "schoolLastUpdatedAt"
+  })
+});
+
+const normalizeParityPopulationBuildingTypeId = (value) => String(value || "")
+  .trim()
+  .toLowerCase()
+  .replace(/-/gu, "_");
+
+export function createParityPopulationBufferSyncFixture(
+  buildingTypeId,
+  building,
+  updatedAt = Date.now()
+) {
+  const normalizedTypeId = normalizeParityPopulationBuildingTypeId(buildingTypeId);
+  const config = PARITY_POPULATION_BUFFER_CONFIG[normalizedTypeId];
+  if (!config || normalizeParityPopulationBuildingTypeId(building?.buildingTypeId) !== normalizedTypeId) {
+    return null;
+  }
+  const buffer = building?.presentation?.populationBuffer;
+  const storedAmount = Number(buffer?.storedAmount);
+  const capacity = Number(buffer?.capacity);
+  const normalizedUpdatedAt = Math.max(0, Math.floor(Number(updatedAt) || 0));
+  const collectAction = [
+    ...(Array.isArray(building?.actions) ? building.actions : []),
+    ...(Array.isArray(building?.specialActions) ? building.specialActions : [])
+  ].find((action) => String(action?.actionId || "") === config.collectActionId);
+  if (
+    !Number.isFinite(storedAmount)
+    || storedAmount < 0
+    || !Number.isFinite(capacity)
+    || capacity <= 0
+    || !collectAction
+  ) {
+    return null;
+  }
+
+  return {
+    buildingTypeId: normalizedTypeId,
+    collect: {
+      actionId: config.collectActionId,
+      disabledReason: String(collectAction.disabledReason || "").trim(),
+      enabled: collectAction.enabled === true
+    },
+    populationBuffer: {
+      capacity,
+      storedAmount
+    },
+    storageEntry: {
+      [config.capacityField]: capacity,
+      [config.fullNotifiedAtField]: storedAmount >= capacity ? normalizedUpdatedAt : 0,
+      [config.storedField]: storedAmount,
+      [config.updatedAtField]: normalizedUpdatedAt,
+      lastCollectedAt: normalizedUpdatedAt
+    },
+    storageEntryKey: config.storageEntryKey
+  };
+}
+
+export async function syncParityLocalDemoPopulationBufferFromHosted(
+  localPage,
+  hostedPage,
+  buildingTypeId
+) {
+  const normalizedTypeId = normalizeParityPopulationBuildingTypeId(buildingTypeId);
+  if (!PARITY_POPULATION_BUFFER_CONFIG[normalizedTypeId]) return null;
+
+  let fixture = null;
+  await expect.poll(async () => {
+    const hostedBuilding = await hostedPage.evaluate((targetBuildingTypeId) => {
+      const readModel = window.EmpireGameplaySliceClient?.getCurrentReadModel?.()
+        || window.empireStreetsGameplaySliceReadModel
+        || null;
+      const building = (readModel?.district?.buildings || []).find((entry) => (
+        String(entry?.buildingTypeId || "").trim().toLowerCase().replace(/-/gu, "_")
+          === targetBuildingTypeId
+      ));
+      if (!building) return null;
+      return {
+        actions: Array.isArray(building.actions) ? building.actions : [],
+        buildingTypeId: building.buildingTypeId,
+        presentation: building.presentation || null,
+        specialActions: Array.isArray(building.specialActions) ? building.specialActions : []
+      };
+    }, normalizedTypeId);
+    fixture = createParityPopulationBufferSyncFixture(
+      normalizedTypeId,
+      hostedBuilding,
+      Date.now() + PARITY_LOCAL_POPULATION_STATE_FREEZE_MS
+    );
+    return fixture;
+  }, {
+    message: `${normalizedTypeId} authoritative population buffer should be hydrated`,
+    timeout: 30_000
+  }).not.toBeNull();
+
+  await localPage.evaluate(({
+    fixture: populationFixture,
+    storageKey
+  }) => {
+    if (document.documentElement.dataset.runtimeMode !== "local-demo") {
+      throw new Error("Population parity state can only be synchronized into local-demo.");
+    }
+    const rawState = localStorage.getItem(storageKey);
+    let state = {};
+    if (rawState) {
+      const parsedState = JSON.parse(rawState);
+      if (!parsedState || typeof parsedState !== "object" || Array.isArray(parsedState)) {
+        throw new Error("Local-demo building detail state is not an object.");
+      }
+      state = parsedState;
+    }
+    state[populationFixture.storageEntryKey] = {
+      ...(state[populationFixture.storageEntryKey] || {}),
+      ...populationFixture.storageEntry
+    };
+    localStorage.setItem(storageKey, JSON.stringify(state));
+  }, {
+    fixture,
+    storageKey: LEGACY_STORAGE_KEYS.districtBuildingDetails
+  });
+  return fixture;
+}
 
 export function extractCssUrlValues(value) {
   return Array.from(

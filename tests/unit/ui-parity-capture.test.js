@@ -7,6 +7,7 @@ import {
   captureIsolatedParityScreenshot,
   compareParityPngScreenshotAttempts,
   compareParityPngScreenshots,
+  createParityPopulationBufferSyncFixture,
   createRoundedCornerCompositeIgnoreRegions,
   exerciseParitySurfaceScroll,
   expandParityRasterIgnoreRegions,
@@ -31,7 +32,8 @@ import {
   parityDynamicClassNames,
   parityViewports,
   readElementRelativeParityIgnoreRegions,
-  resolveEnclosingRasterBounds
+  resolveEnclosingRasterBounds,
+  syncParityLocalDemoPopulationBufferFromHosted
 } from "../e2e/helpers/uiParityCapture.js";
 import { ARMORY_RECIPES } from "../../packages/game-config/src/legacy-page/economy-config.js";
 
@@ -46,6 +48,149 @@ function createPngBuffer(width, height, rgbaValues) {
 }
 
 describe("UI parity class signature", () => {
+  it("maps hosted civil population buffers into the matching local-demo detail fields", () => {
+    const fixtures = [
+      [
+        "apartment_block",
+        "collect_population",
+        "__shared:bytovy blok",
+        "storedPopulation",
+        "populationLastUpdatedAt",
+        "populationCapacity"
+      ],
+      [
+        "convenience_store",
+        "collect_convenience_store_population",
+        "__shared:vecerka",
+        "storedPopulation",
+        "populationLastUpdatedAt",
+        "populationCapacity"
+      ],
+      [
+        "school",
+        "collect_school_population",
+        "__shared:skola",
+        "storedStudents",
+        "schoolLastUpdatedAt",
+        "studentCapacity"
+      ]
+    ].map(([
+      buildingTypeId,
+      actionId,
+      storageEntryKey,
+      storedField,
+      updatedAtField,
+      capacityField
+    ], index) => ({
+      capacityField,
+      fixture: createParityPopulationBufferSyncFixture(buildingTypeId, {
+        actions: [{
+          actionId,
+          disabledReason: index === 2 ? "" : "Čeká na minimum.",
+          enabled: index === 2
+        }],
+        buildingTypeId,
+        presentation: {
+          populationBuffer: {
+            capacity: index === 2 ? 20 : 50,
+            storedAmount: index + 0.75
+          }
+        }
+      }, 12_345),
+      storageEntryKey,
+      storedField,
+      updatedAtField
+    }));
+
+    for (const [index, entry] of fixtures.entries()) {
+      expect(entry.fixture).toMatchObject({
+        buildingTypeId: index === 0
+          ? "apartment_block"
+          : index === 1
+            ? "convenience_store"
+            : "school",
+        collect: {
+          disabledReason: index === 2 ? "" : "Čeká na minimum.",
+          enabled: index === 2
+        },
+        storageEntryKey: entry.storageEntryKey
+      });
+      expect(entry.fixture.storageEntry[entry.storedField]).toBe(index + 0.75);
+      expect(entry.fixture.storageEntry[entry.updatedAtField]).toBe(12_345);
+      expect(entry.fixture.storageEntry[entry.capacityField]).toBe(index === 2 ? 20 : 50);
+      expect(entry.fixture.storageEntry.lastCollectedAt).toBe(12_345);
+    }
+  });
+
+  it("rejects incomplete or mismatched population fixtures", () => {
+    const school = {
+      actions: [{ actionId: "collect_school_population", enabled: false }],
+      buildingTypeId: "school",
+      presentation: { populationBuffer: { capacity: 20, storedAmount: 0 } }
+    };
+
+    expect(createParityPopulationBufferSyncFixture("factory", school)).toBeNull();
+    expect(createParityPopulationBufferSyncFixture("apartment_block", school)).toBeNull();
+    expect(createParityPopulationBufferSyncFixture("school", {
+      ...school,
+      actions: []
+    })).toBeNull();
+    expect(createParityPopulationBufferSyncFixture("school", {
+      ...school,
+      presentation: null
+    })).toBeNull();
+  });
+
+  it("synchronizes only allowlisted population buildings through the test helper", async () => {
+    const hostedPage = {
+      evaluate: vi.fn().mockResolvedValue({
+        actions: [{
+          actionId: "collect_school_population",
+          disabledReason: "",
+          enabled: true
+        }],
+        buildingTypeId: "school",
+        presentation: {
+          populationBuffer: { capacity: 20, storedAmount: 1.25 }
+        },
+        specialActions: []
+      })
+    };
+    const localPage = { evaluate: vi.fn().mockResolvedValue(undefined) };
+
+    const fixture = await syncParityLocalDemoPopulationBufferFromHosted(
+      localPage,
+      hostedPage,
+      "school"
+    );
+
+    expect(fixture).toMatchObject({
+      buildingTypeId: "school",
+      collect: { actionId: "collect_school_population", enabled: true },
+      populationBuffer: { capacity: 20, storedAmount: 1.25 },
+      storageEntryKey: "__shared:skola"
+    });
+    expect(hostedPage.evaluate).toHaveBeenCalledOnce();
+    expect(localPage.evaluate).toHaveBeenCalledOnce();
+    expect(localPage.evaluate.mock.calls[0][1]).toMatchObject({
+      fixture: {
+        storageEntry: {
+          storedStudents: 1.25,
+          studentCapacity: 20
+        }
+      },
+      storageKey: "empireStreets.districtBuildingDetails.v1"
+    });
+
+    expect(await syncParityLocalDemoPopulationBufferFromHosted(
+      localPage,
+      hostedPage,
+      "factory"
+    )).toBeNull();
+    expect(hostedPage.evaluate).toHaveBeenCalledOnce();
+    expect(localPage.evaluate).toHaveBeenCalledOnce();
+  });
+
   it("derives every local-demo weapon seed from the canonical Armory registry", () => {
     expect(parityWeaponResourceKeys).toEqual(Array.from(new Set(
       Object.values(ARMORY_RECIPES).map((recipe) => recipe.output.itemId)

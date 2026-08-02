@@ -59,7 +59,8 @@ import {
   readVisibleDistrictBuildingTypeIds,
   resolveBuildingParitySurfaceName,
   selectProductionBuildingTab,
-  settleParityPage
+  settleParityPage,
+  syncParityLocalDemoPopulationBufferFromHosted
 } from "./helpers/uiParityCapture.js";
 
 const captureEnabled = process.env.EMPIRE_CAPTURE_UI_PARITY_BASELINE === "1";
@@ -514,6 +515,11 @@ async function compareOpenBuildingParity(
   screenshotAttachment = null
 ) {
   const screenshotComparisons = [];
+  await syncParityLocalDemoPopulationBufferFromHosted(
+    localPage,
+    serverPage,
+    buildingTypeId
+  );
   await openBuildingFromDistrict(localPage, buildingTypeId);
   await openBuildingFromDistrict(serverPage, buildingTypeId);
   const localStats = await readOpenBuildingParity(localPage, buildingTypeId);
