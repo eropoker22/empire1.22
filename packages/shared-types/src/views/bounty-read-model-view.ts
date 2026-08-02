@@ -12,6 +12,7 @@ export interface BountyReadModel {
 export interface BountyEligibleTargetView {
   playerId: string;
   name: string;
+  avatarId?: string | null;
   factionLabel: string | null;
   allianceId: string | null;
   isAlly: boolean;

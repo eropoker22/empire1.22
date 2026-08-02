@@ -158,6 +158,8 @@ describe("createCraftItemCommand", () => {
           label: "Chemikálie",
           producedAmount: 0,
           producedCapacity: 12,
+          playerStoredAmount: 0,
+          playerStoredCapacity: 60,
           queuedAmount: 0,
           queueCapacity: 15,
           activeAmount: 0,

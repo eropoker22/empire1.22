@@ -140,6 +140,8 @@ const createGameplaySliceFixture = (): GameplaySliceView => ({
             label: "Chemicals",
             producedAmount: 2,
             producedCapacity: 20,
+            playerStoredAmount: 7,
+            playerStoredCapacity: 60,
             queuedAmount: 2,
             queueCapacity: 8,
             activeAmount: 1,

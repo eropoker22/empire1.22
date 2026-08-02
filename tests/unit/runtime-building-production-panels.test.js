@@ -761,6 +761,87 @@ describe("building detail, production and recipe UI modules", () => {
     expect(shell.classList.contains("is-convenience-store-full")).toBe(false);
   });
 
+  it("marks only authoritative influence rates as dynamic presentation values", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "83:casino" });
+
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "casino",
+      title: "Kasino",
+      name: "Kasino",
+      stats: [],
+      mechanics: [],
+      effects: [
+        { text: "Heat +150/den", tone: "heat" },
+        { text: "Vliv +121/den", tone: "influence" }
+      ],
+      collect: { visible: false, enabled: false, title: "" },
+      upgrade: { disabled: true, title: "" },
+      actions: []
+    });
+
+    const effects = shell.querySelectorAll(".district-building-detail-effect-cell");
+    expect(effects[0].dataset.buildingDynamicEffect).toBeUndefined();
+    expect(effects[1].dataset.buildingDynamicEffect).toBe("influence");
+  });
+
+  it("marks only population-buffer value nodes as dynamic", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "62:school" });
+
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "school",
+      title: "Škola",
+      name: "Škola",
+      stats: [
+        {
+          label: "Populace",
+          value: "4/12",
+          dynamicValue: "population-buffer",
+          dynamicStaticCapacity: 12
+        },
+        { label: "Clean / min", value: "+$10" },
+        { label: "Do naplnění", value: "2 min", dynamicValue: "population-buffer" }
+      ],
+      mechanics: [
+        { label: "K výběru", value: "4/12", dynamicValue: "population-buffer" },
+        { label: "Produkce", value: "+0.25 populace/min" }
+      ],
+      effects: [{
+        dynamicValue: "population-buffer",
+        dynamicValuePrefix: "Naplnění za ",
+        text: "Naplnění za 2 min",
+        tone: "cooldown"
+      }],
+      collect: { visible: false, enabled: false, title: "" },
+      upgrade: { disabled: true, title: "" },
+      actions: []
+    });
+
+    const stats = shell.querySelector("[data-district-building-detail-stats]").children;
+    const mechanics = shell.querySelector("[data-district-building-detail-mechanics]").children;
+    expect(stats[0].dataset.buildingDynamicValue).toBeUndefined();
+    expect(stats[0].children[1].dataset.buildingDynamicValue).toBeUndefined();
+    expect(stats[0].children[1].children[0].dataset.buildingDynamicValue).toBe("population-buffer");
+    expect(stats[0].children[1].children[0].textContent).toBe("4");
+    expect(stats[0].children[1].children[1].dataset.buildingPopulationCapacity).toBe("12");
+    expect(stats[0].children[1].children[1].textContent).toBe("/12");
+    expect(stats[1].children[1].dataset.buildingDynamicValue).toBeUndefined();
+    expect(stats[2].children[1].children[0].dataset.buildingDynamicValue).toBe("population-buffer");
+    expect(mechanics[0].dataset.buildingDynamicValue).toBeUndefined();
+    expect(mechanics[0].children[1].children[0].dataset.buildingDynamicValue).toBe("population-buffer");
+    expect(mechanics[1].children[1].dataset.buildingDynamicValue).toBeUndefined();
+    const effectValue = shell.querySelector(".district-building-detail-effect-cell").children[0];
+    expect(effectValue.children[0].dataset.buildingStaticValue).toBe("population-buffer-prefix");
+    expect(effectValue.children[0].textContent).toBe("Naplnění za ");
+    expect(effectValue.children[1].dataset.buildingDynamicValue).toBe("population-buffer");
+    expect(effectValue.children[1].textContent).toBe("2 min");
+  });
+
   it("renders fixed Street Dealer slots and submits the slot-bound local sale intent", () => {
     const document = setupDocument();
     const root = document.createElement("div");
@@ -2149,9 +2230,9 @@ describe("building detail, production and recipe UI modules", () => {
       effectiveUnitDurationTicks: 180,
       remainingMs: 0,
       costDisplayRows: [
-        { resourceKey: "cash", amount: 2500 },
-        { resourceKey: "metal-parts", label: "Metal Parts", amount: 4 },
-        { resourceKey: "tech-core", label: "Tech Core", amount: 2 }
+        { resourceKey: "cash", amount: 2500, availableAmount: 5000 },
+        { resourceKey: "metal-parts", label: "Metal Parts", amount: 4, availableAmount: 12 },
+        { resourceKey: "tech-core", label: "Tech Core", amount: 2, availableAmount: 0 }
       ]
     };
 
@@ -2168,8 +2249,8 @@ describe("building detail, production and recipe UI modules", () => {
     expect(findMetricValue(card, "Cena")).toBe("$2500 clean");
     expect(findMetricValue(card, "Vyrobeno")).toBe("1/2 ks");
     expect(card.querySelectorAll(".factory-slot__material-pill").map((pill) => pill.children.map((child) => child.textContent))).toEqual([
-      ["Metal Parts", "4×"],
-      ["Tech Core", "2×"]
+      ["Metal Parts", "4/12"],
+      ["Tech Core", "2/0"]
     ]);
     expect(findMetricValue(card, "Ve frontě")).toBe("1/2 ks");
     expect(card.querySelector("[data-factory-slot-toggle-state=\"stop\"]").attributes.get("aria-label"))

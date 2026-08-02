@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { handleMarketCommand } from "../../../packages/game-core/src/handlers/marketCommands";
 import {
   applyMarketEvent,
   buyPlayerMarketListing,
@@ -8,10 +9,12 @@ import {
   createPlayerMarketListing,
   getInflationFactor,
   getMarketViewModel,
+  getNormalMarketRotation,
   getResourceTrend,
   getServerTotalMoney,
   initializeServerMarket,
   marketConfig,
+  normalMarketResourceIds,
   sellResource,
   tickMarket
 } from "../../../packages/game-core/src/rules/market";
@@ -43,6 +46,21 @@ const createMarketStateFixture = () => ({
   eventLog: [] as Array<Record<string, unknown>>,
   rumors: [] as Array<Record<string, unknown>>
 });
+
+const createMarketScheduleContext = () => ({
+  config: {
+    balance: {
+      dayNight: {
+        enabled: true,
+        defaultPhase: "day",
+        phases: {
+          day: { id: "day", durationTicks: 72 },
+          night: { id: "night", durationTicks: 72 }
+        }
+      }
+    }
+  }
+}) as any;
 
 describe("server market system", () => {
   it("initializes per-server market stock with config baselines", () => {
@@ -151,25 +169,213 @@ describe("server market system", () => {
   });
 
   it("selling resource increases normal stock and pays clean cash", () => {
-    const state = initializeServerMarket(createMarketStateFixture(), 1000);
-    const beforeStock = state.market.stock["metal-parts"];
+    const state = initializeServerMarket({
+      ...createMarketStateFixture(),
+      root: { tick: 36 }
+    }, 1000);
+    const context = createMarketScheduleContext();
+    const selectedOffer = getNormalMarketRotation(state, context)[0];
+    (state.playersById["player:1"].resources as Record<string, number>)[selectedOffer] = 20;
+    const beforeStock = state.market.stock[selectedOffer];
     const beforeCash = state.playersById["player:1"].cleanCash;
 
-    const sold = sellResource(state, state.playersById["player:1"], "metal-parts", 5, 1000);
+    const sold = sellResource(state, state.playersById["player:1"], selectedOffer, 5, 1000, context);
 
     expect(sold.success).toBe(true);
-    expect(sold.nextState?.market.stock["metal-parts"]).toBe(beforeStock + 5);
-    expect(sold.playerState?.resources["metal-parts"]).toBe(15);
+    expect(sold.nextState?.market.stock[selectedOffer]).toBe(beforeStock + 5);
+    expect(sold.playerState?.resources[selectedOffer]).toBe(15);
     expect(sold.playerState?.cleanCash).toBeGreaterThan(beforeCash);
   });
 
+  it("fails closed when a normal-market sale has no canonical rotation context", () => {
+    const state = initializeServerMarket(createMarketStateFixture(), 1_000);
+    const beforeCash = state.playersById["player:1"].cleanCash;
+    const beforeResource = state.playersById["player:1"].resources["metal-parts"];
+    const beforeStock = state.market.stock["metal-parts"];
+
+    const rejected = sellResource(
+      state,
+      state.playersById["player:1"],
+      "metal-parts",
+      1,
+      1_000
+    );
+
+    expect(rejected).toMatchObject({
+      success: false,
+      reason: "NORMAL_MARKET_ROTATION_CONTEXT_REQUIRED"
+    });
+    expect(rejected.nextState?.playersById["player:1"].cleanCash).toBe(beforeCash);
+    expect(rejected.nextState?.playersById["player:1"].resources["metal-parts"]).toBe(beforeResource);
+    expect(rejected.nextState?.market.stock["metal-parts"]).toBe(beforeStock);
+  });
+
+  it("rejects a normal-market sale above remaining stock capacity without a partial payout", () => {
+    const state = initializeServerMarket({
+      ...createMarketStateFixture(),
+      root: { tick: 36 }
+    }, 1_000);
+    const context = createMarketScheduleContext();
+    const selectedOffer = getNormalMarketRotation(state, context)[0];
+    const maxStock = marketConfig.resources[selectedOffer].normalMarketMaxStock;
+    state.market.stock[selectedOffer] = maxStock - 1;
+    (state.playersById["player:1"].resources as Record<string, number>)[selectedOffer] = 10;
+    const beforeCash = state.playersById["player:1"].cleanCash;
+
+    const rejected = sellResource(
+      state,
+      state.playersById["player:1"],
+      selectedOffer,
+      2,
+      1_000,
+      context
+    );
+
+    expect(rejected).toMatchObject({
+      success: false,
+      reason: "NORMAL_MARKET_STOCK_CAPACITY_EXCEEDED"
+    });
+    expect(rejected.nextState?.market.stock[selectedOffer]).toBe(maxStock - 1);
+    expect(rejected.nextState?.playersById["player:1"].resources[selectedOffer]).toBe(10);
+    expect(rejected.nextState?.playersById["player:1"].cleanCash).toBe(beforeCash);
+
+    const exactFit = sellResource(
+      state,
+      state.playersById["player:1"],
+      selectedOffer,
+      1,
+      1_000,
+      context
+    );
+    expect(exactFit.success).toBe(true);
+    expect(exactFit.nextState?.market.stock[selectedOffer]).toBe(maxStock);
+    expect(exactFit.playerState?.resources[selectedOffer]).toBe(9);
+    expect(exactFit.playerState?.cleanCash).toBeGreaterThan(beforeCash);
+  });
+
+  it("rejects normal-market sells for black-only and currently unavailable resources", () => {
+    const state = initializeServerMarket({
+      ...createMarketStateFixture(),
+      root: { tick: 36 }
+    }, 1_000);
+    const context = createMarketScheduleContext();
+    const offers = getNormalMarketRotation(state, context);
+    const unavailableResource = normalMarketResourceIds.find((resourceId) => !offers.includes(resourceId));
+    expect(unavailableResource).toBeTruthy();
+    state.playersById["player:1"].resources[unavailableResource!] = 5;
+    const beforeCash = state.playersById["player:1"].cleanCash;
+
+    const unavailable = sellResource(
+      state,
+      state.playersById["player:1"],
+      unavailableResource!,
+      1,
+      1_000,
+      context
+    );
+    const blackOnly = sellResource(
+      state,
+      state.playersById["player:1"],
+      "tech-core",
+      1,
+      1_000,
+      context
+    );
+
+    expect(unavailable).toMatchObject({
+      success: false,
+      reason: "NORMAL_MARKET_OFFER_UNAVAILABLE"
+    });
+    expect(blackOnly).toMatchObject({
+      success: false,
+      reason: "RESOURCE_NOT_IN_NORMAL_MARKET"
+    });
+    expect(unavailable.nextState?.playersById["player:1"].cleanCash).toBe(beforeCash);
+    expect(blackOnly.nextState?.playersById["player:1"].cleanCash).toBe(beforeCash);
+  });
+
+  it("passes the authoritative city rotation context through the sell command handler", () => {
+    const state = initializeServerMarket({
+      ...createMarketStateFixture(),
+      root: { tick: 36 },
+      resourceStatesById: {}
+    }, 1_000);
+    const context = {
+      ...createMarketScheduleContext(),
+      clock: { now: () => new Date(1_000) }
+    } as any;
+    const offers = getNormalMarketRotation(state, context);
+    const unavailableResource = normalMarketResourceIds.find((resourceId) => !offers.includes(resourceId));
+    expect(unavailableResource).toBeTruthy();
+    state.playersById["player:1"].resources[unavailableResource!] = 5;
+
+    const result = handleMarketCommand(state as any, {
+      id: "command:market-sell-unavailable",
+      playerId: "player:1",
+      type: "sell-market-resource",
+      payload: {
+        resourceId: unavailableResource,
+        amount: 1
+      }
+    } as any, context);
+
+    expect(result.events).toEqual([]);
+    expect(result.errors).toEqual([expect.objectContaining({
+      code: "market_normal_market_offer_unavailable"
+    })]);
+    const resultState = result.nextState as any;
+    expect(resultState.playersById["player:1"].cleanCash).toBe(state.playersById["player:1"].cleanCash);
+    expect(resultState.playersById["player:1"].resources[unavailableResource!]).toBe(5);
+  });
+
+  it("enforces remaining sell capacity through the authoritative command handler", () => {
+    const state = initializeServerMarket({
+      ...createMarketStateFixture(),
+      root: { tick: 36 },
+      resourceStatesById: {}
+    }, 1_000);
+    const context = {
+      ...createMarketScheduleContext(),
+      clock: { now: () => new Date(1_000) }
+    } as any;
+    const selectedOffer = getNormalMarketRotation(state, context)[0];
+    const maxStock = marketConfig.resources[selectedOffer].normalMarketMaxStock;
+    state.market.stock[selectedOffer] = maxStock - 1;
+    (state.playersById["player:1"].resources as Record<string, number>)[selectedOffer] = 10;
+    const beforeCash = state.playersById["player:1"].cleanCash;
+
+    const result = handleMarketCommand(state as any, {
+      id: "command:market-sell-over-capacity",
+      playerId: "player:1",
+      type: "sell-market-resource",
+      payload: {
+        resourceId: selectedOffer,
+        amount: 2
+      }
+    } as any, context);
+
+    expect(result.events).toEqual([]);
+    expect(result.errors).toEqual([expect.objectContaining({
+      code: "market_normal_market_stock_capacity_exceeded"
+    })]);
+    const resultState = result.nextState as any;
+    expect(resultState.market.stock[selectedOffer]).toBe(maxStock - 1);
+    expect(resultState.playersById["player:1"].resources[selectedOffer]).toBe(10);
+    expect(resultState.playersById["player:1"].cleanCash).toBe(beforeCash);
+  });
+
   it("rejects buys without money and sells without resource", () => {
-    const state = createMarketStateFixture();
+    const state = {
+      ...createMarketStateFixture(),
+      root: { tick: 36 }
+    };
+    const context = createMarketScheduleContext();
+    const selectedOffer = getNormalMarketRotation(state, context)[0];
     state.playersById["player:1"].cleanCash = 0;
-    state.playersById["player:1"].resources.biomass = 0;
+    (state.playersById["player:1"].resources as Record<string, number>)[selectedOffer] = 0;
 
     const buy = buyResource(state, state.playersById["player:1"], "biomass", 10, "normal", "cleanCash");
-    const sell = sellResource(state, state.playersById["player:1"], "biomass", 1);
+    const sell = sellResource(state, state.playersById["player:1"], selectedOffer, 1, 1_000, context);
 
     expect(buy.success).toBe(false);
     expect(buy.reason).toBe("NOT_ENOUGH_CASH");
@@ -256,6 +462,56 @@ describe("server market system", () => {
     expect(techCore.warnings).toContain("Stock dochází");
   });
 
+  it("redacts private transaction authority fields from another player's market view", () => {
+    const state = initializeServerMarket(createMarketStateFixture(), 1_000);
+    const bought = buyResource(
+      state,
+      state.playersById["player:2"],
+      "chemicals",
+      1,
+      "normal",
+      "cleanCash",
+      1_000
+    );
+    expect(bought.success).toBe(true);
+    expect(bought.nextState?.market.transactions[0]).toMatchObject({
+      playerId: "player:2",
+      auditTriggered: expect.any(Boolean)
+    });
+
+    const playerOneView = getMarketViewModel(
+      bought.nextState!,
+      bought.nextState!.playersById["player:1"],
+      1_000
+    );
+    const playerTwoView = getMarketViewModel(
+      bought.nextState!,
+      bought.nextState!.playersById["player:2"],
+      1_000
+    );
+    const projectedTransaction = playerOneView.recentTransactions[0];
+
+    expect(Object.keys(projectedTransaction).sort()).toEqual([
+      "amount",
+      "isOwn",
+      "marketType",
+      "paymentType",
+      "resourceId",
+      "timestamp",
+      "totalPrice",
+      "type",
+      "unitPrice"
+    ]);
+    expect(projectedTransaction).toMatchObject({
+      resourceId: "chemicals",
+      isOwn: false
+    });
+    expect(projectedTransaction).not.toHaveProperty("id");
+    expect(projectedTransaction).not.toHaveProperty("playerId");
+    expect(projectedTransaction).not.toHaveProperty("auditTriggered");
+    expect(playerTwoView.recentTransactions[0].isOwn).toBe(true);
+  });
+
   it("projects only canonical channel availability and the actual dirty-cash price", () => {
     const now = 1_000;
     const state = initializeServerMarket(createMarketStateFixture(), now);
@@ -284,6 +540,86 @@ describe("server market system", () => {
     );
     expect(rotatedBlackOffer.blackMarket.canBuyWithCleanCash).toBe(true);
     expect(rotatedBlackOffer.blackMarket.canBuyWithDirtyCash).toBe(true);
+  });
+
+  it("uses the canonical two-offer city schedule for authoritative normal market views and buys", () => {
+    const state = initializeServerMarket({
+      ...createMarketStateFixture(),
+      root: { tick: 36 }
+    }, 1_000);
+    state.playersById["player:1"].cleanCash = 1_000_000;
+    const context = createMarketScheduleContext();
+    const offers = getNormalMarketRotation(state, context);
+    const viewModel = getMarketViewModel(state, state.playersById["player:1"], 1_000, context);
+    const availableResources = viewModel.resources
+      .filter((resource: any) => resource.normalMarket.available)
+      .sort((left: any, right: any) => left.normalMarket.offerIndex - right.normalMarket.offerIndex)
+      .map((resource: any) => resource.id);
+
+    expect(marketConfig.normalMarket.offerCount).toBe(2);
+    expect(offers).toHaveLength(2);
+    expect(viewModel.normalMarket.offerResourceIds).toEqual(offers);
+    expect(viewModel.normalMarket.offerWindowId).toBe("0:day");
+    expect(viewModel.normalMarket.nextRefreshCityMinute).toBe(19 * 60);
+    expect(viewModel.normalMarket.nextRefreshCityTimeLabel).toBe("19:00");
+    expect(availableResources).toEqual(offers);
+
+    const selectedOffer = offers[0];
+    const unavailableResource = normalMarketResourceIds.find((resourceId) => !offers.includes(resourceId));
+    expect(unavailableResource).toBeTruthy();
+    expect(buyResource(
+      state,
+      state.playersById["player:1"],
+      selectedOffer,
+      1,
+      "normal",
+      "cleanCash",
+      1_000,
+      context
+    ).success).toBe(true);
+    expect(buyResource(
+      state,
+      state.playersById["player:1"],
+      unavailableResource!,
+      1,
+      "normal",
+      "cleanCash",
+      1_000,
+      context
+    )).toMatchObject({
+      success: false,
+      reason: "NORMAL_MARKET_OFFER_UNAVAILABLE"
+    });
+  });
+
+  it.each([
+    { tick: 29, offerWindowId: "0:evening", nextRefreshCityMinute: 11 * 60, nextRefreshCityTimeLabel: "11:00" },
+    { tick: 30, offerWindowId: "0:day", nextRefreshCityMinute: 19 * 60, nextRefreshCityTimeLabel: "19:00" },
+    { tick: 77, offerWindowId: "0:day", nextRefreshCityMinute: 19 * 60, nextRefreshCityTimeLabel: "19:00" },
+    { tick: 78, offerWindowId: "0:evening", nextRefreshCityMinute: 11 * 60, nextRefreshCityTimeLabel: "11:00" },
+    { tick: 174, offerWindowId: "1:day", nextRefreshCityMinute: 19 * 60, nextRefreshCityTimeLabel: "19:00" }
+  ])("projects the next city-market refresh at schedule boundary tick $tick", ({
+    tick,
+    offerWindowId,
+    nextRefreshCityMinute,
+    nextRefreshCityTimeLabel
+  }) => {
+    const state = initializeServerMarket({
+      ...createMarketStateFixture(),
+      root: { tick }
+    }, 1_000);
+    const viewModel = getMarketViewModel(
+      state,
+      state.playersById["player:1"],
+      1_000,
+      createMarketScheduleContext()
+    );
+
+    expect(viewModel.normalMarket).toMatchObject({
+      offerWindowId,
+      nextRefreshCityMinute,
+      nextRefreshCityTimeLabel
+    });
   });
 
   it("keeps market state isolated per server object", () => {

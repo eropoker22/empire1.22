@@ -7,6 +7,7 @@ import {
   PHARMACY_BUILDING_TYPE_ID,
   resolvePharmacyDurationTicks
 } from "../handlers/pharmacyProductionShared";
+import { getWarehouseCapacityForResource, resolveWarehouseStorageCapacity } from "../handlers/warehouseBuilding";
 
 export const createPharmacyProductionBuildingView = (input: {
   state: CoreGameState;
@@ -20,6 +21,9 @@ export const createPharmacyProductionBuildingView = (input: {
   const isOwner = input.building.ownerPlayerId === input.playerId && input.building.status === "active";
   const player = input.state.playersById[input.playerId];
   const balances = player ? input.state.resourceStatesById[player.resourceStateId]?.balances ?? {} : {};
+  const storage = player && input.config?.balance.warehouse
+    ? resolveWarehouseStorageCapacity(input.state, player.id, input.config.balance.warehouse)
+    : null;
   const lines = (Object.entries(pharmacy.recipes) as Array<[PharmacyRecipeId, typeof pharmacy.recipes[PharmacyRecipeId]]>).map(([recipeId, recipe]) => {
     const line = getPharmacyLine(input.building, recipeId);
     const producedAmount = getPharmacyProducedAmount(input.state, input.building, recipe.outputResourceKey);
@@ -54,6 +58,8 @@ export const createPharmacyProductionBuildingView = (input: {
       label: recipe.label,
       producedAmount,
       producedCapacity: recipe.localOutputCap,
+      playerStoredAmount: Math.max(0, Number(balances[recipe.outputResourceKey] ?? 0)),
+      playerStoredCapacity: storage ? getWarehouseCapacityForResource(storage, recipe.outputResourceKey) : 0,
       queuedAmount: line.queuedAmount,
       queueCapacity: recipe.queueCap,
       activeAmount: activeAmount as 0 | 1,

@@ -22,6 +22,7 @@ describe("City Events runtime authority", () => {
   it("labels the feature as local and does not reopen an already open detail overlay", () => {
     expect(source).toContain("Lokální zakázka");
     expect(source).toContain("MĚSTSKÝ ČAS · další úkoly");
+    expect(source).not.toContain("MĚSTSKÝ ČAS ${cityEvents.cityClock?.label");
     expect(source).toContain("if (wasHidden)");
     expect(source).not.toContain("Demo event");
   });

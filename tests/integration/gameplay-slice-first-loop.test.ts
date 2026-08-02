@@ -309,6 +309,18 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
       })
     );
 
+    const occupyStartedAtTick = runtime.state.root.tick;
+    const configuredCooldownTicks = runtime.config.balance.conflict?.occupyCooldownTicks ?? 0;
+    const carDealerConfig = runtime.config.balance.carDealer!;
+    const ownedActiveCarDealerCount = Object.values(runtime.state.buildingsById).filter((building) =>
+      building.ownerPlayerId === request.playerId
+      && building.status === "active"
+      && building.buildingTypeId === carDealerConfig.buildingTypeId
+    ).length;
+
+    expect(configuredCooldownTicks).toBe(72);
+    expect(ownedActiveCarDealerCount).toBe(1);
+
     const occupy = await server.gameplaySliceTransport.submit({
       sessionToken: initial.sessionToken,
       focusDistrictId: sourceDistrictId,
@@ -323,9 +335,18 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
       })
     });
     const occupyReadModel = occupy.readModel as GameplaySliceView;
+    const occupyReport = occupyReadModel.reports.find((report) => report.reportType === "occupy");
+
+    expect(occupyReport).toBeDefined();
+    if (!occupyReport || occupyReport.reportType !== "occupy") {
+      throw new Error("Expected authoritative occupy report.");
+    }
+    const effectiveCooldownTicks = occupyReport.cooldownTicks;
 
     expect(occupy.accepted).toBe(true);
     expect(occupy.errors).toEqual([]);
+    expect(effectiveCooldownTicks).toBe(71);
+    expect(effectiveCooldownTicks).toBeLessThan(configuredCooldownTicks);
     expect(runtime.state.districtsById[sourceDistrictId]?.influence).toBe(5);
     expect(runtime.state.districtsById[targetDistrictId]?.ownerPlayerId).toBe(request.playerId);
     expect(runtime.state.districtsById[targetDistrictId]?.heat).toBe(2);
@@ -333,12 +354,12 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
       runtime.state.cooldownStatesById[
         runtime.state.playersById[request.playerId]!.cooldownStateId
       ]?.cooldowns["occupy:global"]
-    ).toBe(runtime.config.balance.conflict?.occupyCooldownTicks);
+    ).toBe(occupyStartedAtTick + effectiveCooldownTicks);
     expect(runtime.state.districtsById[targetDistrictId]?.buildingIds.every((buildingId) =>
       runtime.state.buildingsById[buildingId]?.ownerPlayerId === request.playerId
     )).toBe(true);
     expect(occupyReadModel.district?.districtId).toBe(sourceDistrictId);
-    expect(occupyReadModel.reports[0]).toMatchObject({
+    expect(occupyReport).toMatchObject({
       reportType: "occupy",
       actionType: "occupy-district",
       sourceDistrictId,
@@ -347,8 +368,17 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
       influenceCost: 5,
       populationCost: 50,
       populationLost: 45,
-      populationRefunded: 5
+      populationRefunded: 5,
+      cooldownTicks: effectiveCooldownTicks,
+      tick: occupyStartedAtTick
     });
+    expect(occupyReadModel.district?.occupyTargets).toContainEqual(expect.objectContaining({
+      enabled: false,
+      disabledCode: "OCCUPY_SPY_REQUIRED",
+      cooldownRemainingTicks: effectiveCooldownTicks,
+      globalCooldownRemainingTicks: effectiveCooldownTicks,
+      sourceCooldownRemainingTicks: effectiveCooldownTicks
+    }));
     expect(occupyReadModel.cityFeed?.currentPlayerFeed.some((event) =>
       event.sourceType === "district_occupy" && event.districtId === targetDistrictId
     )).toBe(true);
@@ -559,6 +589,7 @@ const setPlayerPopulation = (
   const player = state.playersById[playerId];
   if (!player) return;
 
+  player.population = population;
   state.resourceStatesById[player.resourceStateId] = {
     ...state.resourceStatesById[player.resourceStateId],
     id: player.resourceStateId,

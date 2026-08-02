@@ -168,7 +168,8 @@ describe("live cooldown labels", () => {
     expect(html).toContain('data-live-cooldown="true"');
     expect(html).toContain('data-cooldown-ends-at-ms="16000"');
     expect(html).toContain("Čekání 15s");
-    expect(html).toContain("CD <span");
+    expect(html.match(/data-live-cooldown="true"/g)).toHaveLength(1);
+    expect(html).not.toContain("district-building-popup");
   });
 
   it("formats countdown text as wall-clock time between server refreshes", () => {

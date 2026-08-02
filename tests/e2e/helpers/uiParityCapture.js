@@ -1,12 +1,130 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { expect } from "@playwright/test";
+import playwrightUtilsBundle from "playwright-core/lib/utilsBundle";
 import {
   resolveBuildingPresentationDefinition
 } from "../../../page-assets/js/app/runtime/buildingPresentationContract.js";
+import {
+  HOSTED_E2E_STARTING_PLAYER_STATE
+} from "../../../scripts/local-hosted/hosted-e2e-starting-player-state.mjs";
 
 const SESSION_KEY = "empireStreets.session.v1";
 const SCOPED_SESSION_KEY = "empireStreets.session.free.instance-free-eu-central-public-1.v1";
+const { PNG } = playwrightUtilsBundle;
+
+export const PARITY_PNG_CHANNEL_TOLERANCE = 6;
+export const PARITY_SCREENSHOT_RASTER_FRINGE_PX = 1;
+export const BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE = "population-buffer";
+export const buildingPopulationBufferDynamicValueSelector =
+  `[data-building-dynamic-value="${BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE}"]`;
+const CSS_URL_VALUE_PATTERN_SOURCE = String.raw`url\(\s*(?:(["'])(.*?)\1|([^)]*))\s*\)`;
+
+export function extractCssUrlValues(value) {
+  return Array.from(
+    String(value || "").matchAll(new RegExp(CSS_URL_VALUE_PATTERN_SOURCE, "gu"))
+  ).map((match) => String(match[2] ?? match[3] ?? "").trim()).filter(Boolean);
+}
+
+export function resolveEnclosingRasterBounds(rect, scale = 1) {
+  const normalizedScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
+  const left = Math.floor((Number(rect?.left) || 0) * normalizedScale);
+  const top = Math.floor((Number(rect?.top) || 0) * normalizedScale);
+  const right = Math.ceil((Number(rect?.right) || 0) * normalizedScale);
+  const bottom = Math.ceil((Number(rect?.bottom) || 0) * normalizedScale);
+  return {
+    bottom,
+    height: Math.max(0, bottom - top),
+    left,
+    right,
+    top,
+    width: Math.max(0, right - left)
+  };
+}
+
+export function expandParityRasterIgnoreRegions(
+  regions,
+  fringePx = PARITY_SCREENSHOT_RASTER_FRINGE_PX
+) {
+  if (!Array.isArray(regions)) {
+    throw new TypeError("Parity PNG ignore regions must be an array");
+  }
+  if (!Number.isInteger(fringePx) || fringePx < 0) {
+    throw new RangeError("Parity screenshot raster fringe must be a non-negative integer");
+  }
+  return regions.map((region) => ({
+    height: region.height + (fringePx * 2),
+    width: region.width + (fringePx * 2),
+    x: region.x - fringePx,
+    y: region.y - fringePx
+  }));
+}
+
+export function createRoundedCornerCompositeIgnoreRegions({
+  height,
+  radii = {},
+  width
+}) {
+  const rasterHeight = Math.max(0, Math.round(Number(height) || 0));
+  const rasterWidth = Math.max(0, Math.round(Number(width) || 0));
+  const normalizedRadii = Object.fromEntries([
+    "bottomLeft",
+    "bottomRight",
+    "topLeft",
+    "topRight"
+  ].map((corner) => [corner, {
+    x: Math.max(0, Number(radii[corner]?.x) || 0),
+    y: Math.max(0, Number(radii[corner]?.y) || 0)
+  }]));
+  const positiveRatios = [
+    [rasterWidth, normalizedRadii.topLeft.x + normalizedRadii.topRight.x],
+    [rasterWidth, normalizedRadii.bottomLeft.x + normalizedRadii.bottomRight.x],
+    [rasterHeight, normalizedRadii.topLeft.y + normalizedRadii.bottomLeft.y],
+    [rasterHeight, normalizedRadii.topRight.y + normalizedRadii.bottomRight.y]
+  ].filter(([, sum]) => sum > 0).map(([limit, sum]) => limit / sum);
+  const radiusScale = Math.min(1, ...positiveRatios);
+  const regions = [];
+  const appendCorner = (radius, { bottom = false, right = false } = {}) => {
+    const radiusX = Math.min(rasterWidth, Math.max(0, Number(radius?.x) || 0));
+    const radiusY = Math.min(rasterHeight, Math.max(0, Number(radius?.y) || 0));
+    if (radiusX <= 0 || radiusY <= 0) return;
+    const rowCount = Math.min(rasterHeight, Math.ceil(radiusY));
+    for (let row = 0; row < rowCount; row += 1) {
+      const distanceFromCenter = Math.max(0, radiusY - (row + 0.5));
+      const normalizedDistance = Math.min(1, distanceFromCenter / radiusY);
+      const inset = radiusX * (1 - Math.sqrt(1 - (normalizedDistance ** 2)));
+      const outsideWidth = Math.min(
+        rasterWidth,
+        Math.ceil(inset) + PARITY_SCREENSHOT_RASTER_FRINGE_PX
+      );
+      if (outsideWidth <= 0) continue;
+      regions.push({
+        height: 1,
+        width: outsideWidth,
+        x: right ? rasterWidth - outsideWidth : 0,
+        y: bottom ? rasterHeight - 1 - row : row
+      });
+    }
+  };
+
+  appendCorner({
+    x: normalizedRadii.topLeft.x * radiusScale,
+    y: normalizedRadii.topLeft.y * radiusScale
+  });
+  appendCorner({
+    x: normalizedRadii.topRight.x * radiusScale,
+    y: normalizedRadii.topRight.y * radiusScale
+  }, { right: true });
+  appendCorner({
+    x: normalizedRadii.bottomLeft.x * radiusScale,
+    y: normalizedRadii.bottomLeft.y * radiusScale
+  }, { bottom: true });
+  appendCorner({
+    x: normalizedRadii.bottomRight.x * radiusScale,
+    y: normalizedRadii.bottomRight.y * radiusScale
+  }, { bottom: true, right: true });
+  return regions;
+}
 
 export const parityDynamicClassNames = Object.freeze([
   "is-active",
@@ -14,6 +132,9 @@ export const parityDynamicClassNames = Object.freeze([
   "is-empty",
   "is-loading",
   "is-selected",
+  "city-status-pill--critical",
+  "city-status-pill--danger",
+  "city-status-pill--final",
   "local-demo",
   "server-authoritative"
 ]);
@@ -22,6 +143,15 @@ export const parityComputedStyleProperties = Object.freeze([
   "alignContent",
   "alignItems",
   "alignSelf",
+  "animationDelay",
+  "animationDirection",
+  "animationDuration",
+  "animationFillMode",
+  "animationIterationCount",
+  "animationName",
+  "animationPlayState",
+  "animationTimingFunction",
+  "backdropFilter",
   "backgroundColor",
   "backgroundImage",
   "borderBottomColor",
@@ -51,6 +181,7 @@ export const parityComputedStyleProperties = Object.freeze([
   "flexGrow",
   "flexShrink",
   "flexWrap",
+  "filter",
   "fontFamily",
   "fontSize",
   "fontStyle",
@@ -72,6 +203,7 @@ export const parityComputedStyleProperties = Object.freeze([
   "maxWidth",
   "minHeight",
   "minWidth",
+  "mixBlendMode",
   "opacity",
   "outlineColor",
   "outlineOffset",
@@ -91,6 +223,11 @@ export const parityComputedStyleProperties = Object.freeze([
   "textDecorationLine",
   "textOverflow",
   "textTransform",
+  "transform",
+  "transitionDelay",
+  "transitionDuration",
+  "transitionProperty",
+  "transitionTimingFunction",
   "visibility",
   "whiteSpace",
   "width",
@@ -108,16 +245,17 @@ export const gameChromeDynamicMaskSelector = [
   "[data-city-game-phase]",
   "[data-city-status]",
   "[data-city-production]",
-  "[data-gang-stars]",
+  "[data-gang-star]",
   "[data-gang-members]",
   "[data-gang-heat]",
   "[data-gang-faction]",
   "[data-gang-districts]",
   "[data-gang-alliance]",
-  "#profile-gang-card .placeholder-title",
-  "[data-alliance-popup-open]",
-  "[data-global-chat-log]",
-  "[data-global-chat-status]",
+  "[data-global-chat-log] .server-chat-panel__author",
+  "[data-global-chat-log] .server-chat-panel__timestamp",
+  "[data-global-chat-log] .server-chat-panel__text",
+  "[data-global-chat-log] .alliance-empty-state",
+  "#global-chat-status",
   "[data-building-action-state]",
   "[data-building-action-summary]",
   "[data-building-action-meta]",
@@ -128,9 +266,184 @@ export const gameChromeDynamicMaskSelector = [
   "[data-production-progress]",
   "[data-production-countdown]",
   "[data-countdown]",
+  buildingPopulationBufferDynamicValueSelector,
   "time",
   "[data-district-canvas]"
 ].join(",");
+
+export const gameChromeScreenshotIgnoreSelector = [
+  "[data-topbar-clean-money]",
+  "[data-topbar-dirty-money]",
+  "[data-topbar-influence]",
+  "[data-topbar-spy-label]",
+  "[data-topbar-spy-value]",
+  "[data-boost-map-label]",
+  "[data-boost-map-time]",
+  "[data-map-viewport]",
+  "[data-city-clock]",
+  "[data-city-day-phase]",
+  "[data-city-game-phase]",
+  "[data-city-status]",
+  "[data-gang-star]",
+  "[data-gang-members]",
+  "[data-gang-heat]",
+  "[data-gang-faction]",
+  "[data-gang-districts]",
+  "[data-gang-alliance]",
+  "[data-global-chat-log] .server-chat-panel__author",
+  "[data-global-chat-log] .server-chat-panel__timestamp",
+  "[data-global-chat-log] .server-chat-panel__text",
+  "[data-global-chat-log] .alliance-empty-state",
+  "#global-chat-status",
+  buildingPopulationBufferDynamicValueSelector
+].join(",");
+
+export const parityDynamicDistrictIdentitySelector = [
+  ".district-popup-owner-avatar-wrap img",
+  "[data-district-popup-owner]",
+  "[data-district-popup-owner-meta]"
+].join(",");
+
+function createParityIgnoreMask(ignoreRegions, width, height) {
+  if (!Array.isArray(ignoreRegions)) {
+    throw new TypeError("Parity PNG ignore regions must be an array");
+  }
+  const mask = new Uint8Array(width * height);
+  let ignoreRegionCount = 0;
+  let ignoredPixelCount = 0;
+
+  for (const region of ignoreRegions) {
+    if (!region || typeof region !== "object") {
+      throw new TypeError("Each parity PNG ignore region must be an object");
+    }
+    const { x, y, width: regionWidth, height: regionHeight } = region;
+    if (![x, y, regionWidth, regionHeight].every(Number.isFinite)) {
+      throw new TypeError("Parity PNG ignore region coordinates must be finite numbers");
+    }
+    if (regionWidth < 0 || regionHeight < 0) {
+      throw new RangeError("Parity PNG ignore region dimensions must be non-negative");
+    }
+    const left = Math.max(0, Math.floor(x));
+    const top = Math.max(0, Math.floor(y));
+    const right = Math.min(width, Math.ceil(x + regionWidth));
+    const bottom = Math.min(height, Math.ceil(y + regionHeight));
+    if (right <= left || bottom <= top) continue;
+
+    ignoreRegionCount += 1;
+    for (let row = top; row < bottom; row += 1) {
+      const rowOffset = row * width;
+      for (let column = left; column < right; column += 1) {
+        const pixelIndex = rowOffset + column;
+        if (mask[pixelIndex]) continue;
+        mask[pixelIndex] = 1;
+        ignoredPixelCount += 1;
+      }
+    }
+  }
+
+  return {
+    ignoreRegionCount,
+    ignoredPixelCount,
+    mask,
+    requestedIgnoreRegionCount: ignoreRegions.length
+  };
+}
+
+export function compareParityPngScreenshots(actualBuffer, expectedBuffer, {
+  channelTolerance = PARITY_PNG_CHANNEL_TOLERANCE,
+  ignoreRegions = []
+} = {}) {
+  if (!Buffer.isBuffer(actualBuffer) || !Buffer.isBuffer(expectedBuffer)) {
+    throw new TypeError("Parity screenshots must be PNG buffers");
+  }
+  if (!Number.isInteger(channelTolerance) || channelTolerance < 0 || channelTolerance > 255) {
+    throw new RangeError("Parity PNG channel tolerance must be an integer from 0 to 255");
+  }
+  const actual = PNG.sync.read(actualBuffer);
+  const expected = PNG.sync.read(expectedBuffer);
+  const dimensionsEqual = actual.width === expected.width && actual.height === expected.height;
+  if (!dimensionsEqual) {
+    const pixelCount = Math.max(
+      actual.width * actual.height,
+      expected.width * expected.height
+    );
+    const ignoreMask = createParityIgnoreMask(
+      ignoreRegions,
+      actual.width,
+      actual.height
+    );
+    return {
+      actualHeight: actual.height,
+      actualWidth: actual.width,
+      channelTolerance,
+      comparedPixelCount: pixelCount - ignoreMask.ignoredPixelCount,
+      dimensionsEqual: false,
+      exact: false,
+      expectedHeight: expected.height,
+      expectedWidth: expected.width,
+      ignoredDifferentPixelCount: 0,
+      ignoredPixelCount: ignoreMask.ignoredPixelCount,
+      ignoreRegionCount: ignoreMask.ignoreRegionCount,
+      matches: false,
+      maxChannelDelta: 255,
+      meaningfulPixelCount: pixelCount - ignoreMask.ignoredPixelCount,
+      pixelCount,
+      rawDifferentPixelCount: pixelCount,
+      rawMaxChannelDelta: 255,
+      requestedIgnoreRegionCount: ignoreMask.requestedIgnoreRegionCount
+    };
+  }
+
+  const pixelCount = actual.width * actual.height;
+  const ignoreMask = createParityIgnoreMask(ignoreRegions, actual.width, actual.height);
+  let comparedDifferentPixelCount = 0;
+  let ignoredDifferentPixelCount = 0;
+  let maxChannelDelta = 0;
+  let meaningfulPixelCount = 0;
+  let rawDifferentPixelCount = 0;
+  let rawMaxChannelDelta = 0;
+  for (let offset = 0; offset < actual.data.length; offset += 4) {
+    const channelDeltas = [
+      Math.abs(actual.data[offset] - expected.data[offset]),
+      Math.abs(actual.data[offset + 1] - expected.data[offset + 1]),
+      Math.abs(actual.data[offset + 2] - expected.data[offset + 2]),
+      Math.abs(actual.data[offset + 3] - expected.data[offset + 3])
+    ];
+    const pixelChannelDelta = Math.max(...channelDeltas);
+    rawMaxChannelDelta = Math.max(rawMaxChannelDelta, pixelChannelDelta);
+    if (pixelChannelDelta > 0) rawDifferentPixelCount += 1;
+    const pixelIndex = offset / 4;
+    if (ignoreMask.mask[pixelIndex]) {
+      if (pixelChannelDelta > 0) ignoredDifferentPixelCount += 1;
+      continue;
+    }
+    maxChannelDelta = Math.max(maxChannelDelta, pixelChannelDelta);
+    if (pixelChannelDelta > 0) comparedDifferentPixelCount += 1;
+    if (pixelChannelDelta > channelTolerance) meaningfulPixelCount += 1;
+  }
+
+  return {
+    actualHeight: actual.height,
+    actualWidth: actual.width,
+    channelTolerance,
+    comparedDifferentPixelCount,
+    comparedPixelCount: pixelCount - ignoreMask.ignoredPixelCount,
+    dimensionsEqual: true,
+    exact: rawDifferentPixelCount === 0,
+    expectedHeight: expected.height,
+    expectedWidth: expected.width,
+    ignoredDifferentPixelCount,
+    ignoredPixelCount: ignoreMask.ignoredPixelCount,
+    ignoreRegionCount: ignoreMask.ignoreRegionCount,
+    matches: meaningfulPixelCount === 0,
+    maxChannelDelta,
+    meaningfulPixelCount,
+    pixelCount,
+    rawDifferentPixelCount,
+    rawMaxChannelDelta,
+    requestedIgnoreRegionCount: ignoreMask.requestedIgnoreRegionCount
+  };
+}
 
 export const technicalBuildingTextPatterns = Object.freeze([
   Object.freeze({ flags: "u", source: "\\bSERVER\\b" }),
@@ -221,14 +534,20 @@ export const paritySurfaces = Object.freeze({
 export async function openParityLocalDemo(page, {
   ownedDistrictIds = [21, 66, 68],
   startDistrictId = ownedDistrictIds[0] || 21,
-  mapPhase = "night"
+  mapPhase = "night",
+  marketCityDayIndex = 0,
+  marketCityMinutes = mapPhase === "night" ? 1_334 : 720,
+  startingPlayerState = HOSTED_E2E_STARTING_PLAYER_STATE
 } = {}) {
   await page.addInitScript(({
     sessionKey,
     scopedSessionKey,
     ownedDistrictIds: configuredOwnedDistrictIds,
     startDistrictId: configuredStartDistrictId,
-    mapPhase: configuredMapPhase
+    mapPhase: configuredMapPhase,
+    marketCityDayIndex: configuredMarketCityDayIndex,
+    marketCityMinutes: configuredMarketCityMinutes,
+    startingPlayerState: configuredStartingPlayerState
   }) => {
     window.EmpireConfigOverrides = Object.freeze({
       ...(window.EmpireConfigOverrides || {}),
@@ -241,6 +560,8 @@ export async function openParityLocalDemo(page, {
       registration: {
         identity: "UI Parity Demo",
         gangName: "UI Parity Demo",
+        gangColor: "#22d3ee",
+        avatar: "../img/avatars/Mafia/2854d1df-0f7c-4fe4-aa85-7a70dfe299db.jpg",
         isGuest: true,
         loginKind: "guest",
         serverId,
@@ -263,22 +584,49 @@ export async function openParityLocalDemo(page, {
         phaseState: {
           gamePhase: "live",
           mapPhase: configuredMapPhase,
-          cityMinutes: configuredMapPhase === "night" ? 1_334 : 720
+          cityDayIndex: configuredMarketCityDayIndex,
+          cityMinutes: configuredMarketCityMinutes
         }
       },
       inventory: {
-        weapons: {},
-        materials: { chemicals: 20, biomass: 20, "stim-pack": 0 },
-        drugs: { "neon-dust": 10, "pulse-shot": 10, "velvet-smoke": 10 },
-        factorySupplies: { metalParts: 40, techCore: 20, combatModule: 8 }
+        weapons: {
+          "baseball-bat": configuredStartingPlayerState.materials["baseball-bat"],
+          pistol: configuredStartingPlayerState.materials.pistol,
+          grenade: configuredStartingPlayerState.materials.grenade,
+          smg: configuredStartingPlayerState.materials.smg,
+          bazooka: configuredStartingPlayerState.materials.bazooka,
+          vest: configuredStartingPlayerState.materials.vest
+        },
+        materials: { ...configuredStartingPlayerState.materials },
+        drugs: {
+          "neon-dust": configuredStartingPlayerState.materials["neon-dust"],
+          "pulse-shot": configuredStartingPlayerState.materials["pulse-shot"],
+          "velvet-smoke": configuredStartingPlayerState.materials["velvet-smoke"],
+          "ghost-serum": configuredStartingPlayerState.materials["ghost-serum"],
+          "overdrive-x": configuredStartingPlayerState.materials["overdrive-x"]
+        },
+        factorySupplies: {
+          metalParts: configuredStartingPlayerState.materials["metal-parts"],
+          techCore: configuredStartingPlayerState.materials["tech-core"],
+          combatModule: configuredStartingPlayerState.materials["combat-module"]
+        }
       },
-      economy: { cleanMoney: 100_000, dirtyMoney: 10_000 },
-      gang: { members: 30, population: 30, heat: 0, influence: 500, lastHeatDecayAt: now },
+      economy: {
+        cleanMoney: configuredStartingPlayerState.cleanCash,
+        dirtyMoney: configuredStartingPlayerState.dirtyCash
+      },
+      gang: {
+        members: configuredStartingPlayerState.population,
+        population: configuredStartingPlayerState.population,
+        heat: 0,
+        influence: 0,
+        lastHeatDecayAt: now
+      },
       missions: {
         attackOrders: [],
         occupyOrders: [],
         robberyOrders: [],
-        spy: { available: 3, missions: [] }
+        spy: { available: configuredStartingPlayerState.spySlots, missions: [] }
       },
       production: {
         jobs: {},
@@ -310,7 +658,10 @@ export async function openParityLocalDemo(page, {
     scopedSessionKey: SCOPED_SESSION_KEY,
     ownedDistrictIds,
     startDistrictId,
-    mapPhase
+    mapPhase,
+    marketCityDayIndex,
+    marketCityMinutes,
+    startingPlayerState
   });
   await page.goto("/pages/game.html?runtimeMode=local-demo&autoStartLocalDemo=1", { waitUntil: "load" });
   await page.waitForFunction(() => (
@@ -318,6 +669,29 @@ export async function openParityLocalDemo(page, {
     && document.querySelector("#game-root")?.dataset?.runtimeInit === "ready"
     && document.documentElement?.dataset?.runtimeMode === "local-demo"
   ));
+  await page.evaluate(() => {
+    const bridge = window.empireLocalDemoGameplayBridge;
+    const marketState = window.EmpireMarketState;
+    const session = bridge?.getStoredPreviewSession?.();
+    const serverId = String(session?.registration?.serverId || "instance:free:eu-central:public-1");
+    const currentMarket = session?.marketByServerId?.[serverId]
+      || session?.market
+      || marketState?.createDefaultMarketPriceState?.(serverId);
+    if (!currentMarket || typeof bridge?.updateStoredPreviewSession !== "function") return;
+    const frozenMarket = {
+      ...currentMarket,
+      serverId,
+      nextRefreshAt: "9999-12-31T23:59:59.999Z"
+    };
+    bridge.updateStoredPreviewSession((currentSession) => ({
+      ...currentSession,
+      market: frozenMarket,
+      marketByServerId: {
+        ...(currentSession.marketByServerId || {}),
+        [serverId]: frozenMarket
+      }
+    }));
+  });
   const milestone = page.locator("[data-server-milestone-modal]");
   if (await milestone.isVisible()) {
     await milestone.locator("[data-server-milestone-confirm]").click();
@@ -325,26 +699,106 @@ export async function openParityLocalDemo(page, {
   }
 }
 
+export async function syncParityLocalDemoMarketFromHosted(localPage, hostedPage) {
+  const resources = await hostedPage.evaluate(() => {
+    const readModel = window.EmpireGameplaySliceClient?.getCurrentReadModel?.()
+      || window.empireStreetsGameplaySliceReadModel
+      || null;
+    return (readModel?.market?.resources || []).map((resource) => ({
+      id: String(resource?.id || ""),
+      normalMarket: {
+        price: Number(resource?.normalMarket?.price || 0),
+        stock: Number(resource?.normalMarket?.stock || 0)
+      },
+      trend: String(resource?.trend || "flat")
+    })).filter((resource) => resource.id);
+  });
+  await localPage.evaluate((hostedResources) => {
+    const bridge = window.empireLocalDemoGameplayBridge;
+    const marketState = window.EmpireMarketState;
+    const session = bridge?.getStoredPreviewSession?.();
+    const serverId = String(session?.registration?.serverId || "instance:free:eu-central:public-1");
+    const currentMarket = session?.marketByServerId?.[serverId]
+      || session?.market
+      || marketState?.createDefaultMarketPriceState?.(serverId);
+    if (!currentMarket || typeof bridge?.updateStoredPreviewSession !== "function") return;
+    const aliases = {
+      biomass: "biomass",
+      chemicals: "chemicals",
+      metalParts: "metal-parts",
+      techCore: "tech-core"
+    };
+    const items = { ...(currentMarket.items || {}) };
+    const stock = { ...(currentMarket.stock || {}) };
+    for (const resource of hostedResources) {
+      const itemId = aliases[resource.id] || resource.id;
+      for (const tabId of ["market", "black-market"]) {
+        const key = `${tabId}:${itemId}`;
+        const currentPrice = Math.max(1, Number(items[key]?.price || resource.normalMarket.price || 1));
+        const previousPrice = resource.trend === "up" || resource.trend === "spike"
+          ? Math.max(0, currentPrice - 1)
+          : resource.trend === "down"
+            ? currentPrice + 1
+            : currentPrice;
+        items[key] = { ...items[key], price: currentPrice, previousPrice };
+        if (Number.isFinite(resource.normalMarket.stock)) {
+          stock[key] = Math.max(0, Math.floor(resource.normalMarket.stock));
+        }
+      }
+    }
+    const frozenMarket = {
+      ...currentMarket,
+      serverId,
+      items,
+      stock,
+      nextRefreshAt: "9999-12-31T23:59:59.999Z"
+    };
+    bridge.updateStoredPreviewSession((currentSession) => ({
+      ...currentSession,
+      market: frozenMarket,
+      marketByServerId: {
+        ...(currentSession.marketByServerId || {}),
+        [serverId]: frozenMarket
+      }
+    }));
+  }, resources);
+  return resources;
+}
+
 export async function openDistrictById(page, districtId) {
   const canonicalDistrictId = String(districtId).startsWith("district:")
     ? String(districtId)
     : `district:${districtId}`;
   const numericDistrictId = Number(canonicalDistrictId.replace(/^district:/u, ""));
-  const selected = await page.evaluate(async (id) => {
+  const result = await page.evaluate(async ({ canonicalId, numericId }) => {
     const executionMode = document.documentElement.dataset.runtimeMode;
-    if (executionMode !== "server-authoritative") return true;
-    const renderState = await window.EmpireGameplaySliceClient?.selectDistrict?.(id);
+    const districtState = window.empireStreetsDistrictState;
+    const opened = typeof districtState?.openDistrictAsync === "function"
+      ? await districtState.openDistrictAsync(numericId)
+      : districtState?.openDistrict?.(numericId)
+        || window.EmpireRuntime?.selectDistrict?.(numericId)
+        || false;
     const readModel = window.EmpireGameplaySliceClient?.getCurrentReadModel?.();
-    return Boolean(renderState && readModel?.district?.districtId === id);
-  }, canonicalDistrictId);
-  expect(selected, `Server must return the requested district ${canonicalDistrictId}`).toBe(true);
-  const opened = await page.evaluate((id) => (
-    window.empireStreetsDistrictState?.openDistrict?.(id)
-    || window.EmpireRuntime?.selectDistrict?.(id)
-    || false
-  ), numericDistrictId);
-  expect(opened, `District ${districtId} should open through the shared map controller`).toBe(true);
-  await expect(page.locator("[data-district-popup-card]")).toBeVisible();
+    return {
+      opened: Boolean(opened),
+      selected: executionMode !== "server-authoritative"
+        || readModel?.district?.districtId === canonicalId
+    };
+  }, {
+    canonicalId: canonicalDistrictId,
+    numericId: numericDistrictId
+  });
+  expect(result.opened, `District ${districtId} should open through the shared map controller`).toBe(true);
+  expect(
+    result.selected,
+    `Server must return the requested district ${canonicalDistrictId}`
+  ).toBe(true);
+  const shell = page.locator(`${paritySurfaces.district.shell}:visible`).last();
+  await expect(shell).toBeVisible();
+  await expect(shell.locator("[data-district-popup-card]"))
+    .not.toHaveAttribute("data-server-loading", /^(?:true|error)$/u);
+  await expect(shell.locator("[data-district-popup-server-loading]")).toBeHidden();
+  await expect(shell.locator(".district-popup-body")).toBeVisible();
 }
 
 export async function openBuildingFromDistrict(page, buildingTypeOrLabel) {
@@ -358,28 +812,112 @@ export async function openBuildingFromDistrict(page, buildingTypeOrLabel) {
     arcade: ["arcade", "herna"]
   };
   const normalized = String(buildingTypeOrLabel).toLocaleLowerCase("cs");
-  const canonicalBaseName = resolveBuildingPresentationDefinition(normalized)?.baseName || "";
+  const presentationDefinition = resolveBuildingPresentationDefinition(normalized);
+  const canonicalBuildingTypeId = presentationDefinition?.buildingTypeId || normalized;
+  const canonicalBaseName = presentationDefinition?.baseName || "";
   const expectedLabels = Array.from(new Set([
     ...(aliases[normalized] || [normalized]),
     canonicalBaseName.toLocaleLowerCase("cs")
   ].filter(Boolean)));
-  const chips = page.locator("[data-district-building-name]");
-  let matchingIndex = -1;
-  await expect.poll(async () => {
-    matchingIndex = await chips.evaluateAll((buttons, expected) => buttons.findIndex((candidate) => {
+  const resolveVisiblePointerTarget = () => page.evaluate(({
+    buildingTypeId,
+    labels,
+    shellSelector
+  }) => {
+    const isVisible = (element) => {
+      if (!(element instanceof HTMLElement) || !element.isConnected || element.hidden) return false;
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none"
+        && style.visibility !== "hidden"
+        && style.pointerEvents !== "none"
+        && Number.parseFloat(style.opacity || "1") > 0
+        && rect.width > 0
+        && rect.height > 0;
+    };
+    const shell = Array.from(document.querySelectorAll(shellSelector))
+      .filter(isVisible)
+      .at(-1);
+    if (!shell) return null;
+    const visibleButtons = Array.from(
+      shell.querySelectorAll("[data-district-building-name]")
+    ).filter(isVisible);
+    const button = visibleButtons.find((candidate) => (
+      String(candidate.dataset.districtBuildingType || "").toLocaleLowerCase("cs") === buildingTypeId
+    )) || visibleButtons.find((candidate) => {
       const type = String(candidate.dataset.districtBuildingType || "").toLocaleLowerCase("cs");
       const text = String(candidate.textContent || "").toLocaleLowerCase("cs");
-      return expected.some((label) => type === label || text.includes(label));
-    }), expectedLabels);
-    return matchingIndex;
+      return labels.some((label) => type === label || text.includes(label));
+    });
+    if (!button || button.disabled || button.getAttribute("aria-disabled") === "true") return null;
+    button.scrollIntoView({ block: "nearest", inline: "nearest" });
+    const rect = button.getBoundingClientRect();
+    const point = {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2
+    };
+    if (
+      point.x < 0
+      || point.y < 0
+      || point.x >= document.documentElement.clientWidth
+      || point.y >= document.documentElement.clientHeight
+    ) {
+      return null;
+    }
+    const pointedButton = document.elementFromPoint(point.x, point.y)
+      ?.closest?.("[data-district-building-name]");
+    if (pointedButton !== button) return null;
+    return point;
   }, {
+    buildingTypeId: canonicalBuildingTypeId,
+    labels: expectedLabels,
+    shellSelector: paritySurfaces.district.shell
+  });
+  await expect.poll(async () => Boolean(await resolveVisiblePointerTarget()), {
     message: `Building ${buildingTypeOrLabel} should be rendered as an interactive district chip`,
     timeout: 30_000
-  }).toBeGreaterThanOrEqual(0);
-  const button = chips.nth(matchingIndex);
-  await expect(button).toBeVisible();
-  await expect(button).toBeEnabled();
-  await button.click();
+  }).toBe(true);
+  const clickDeadline = Date.now() + 5_000;
+  let lastClickError = null;
+  const openedBuildingSurface = page.locator([
+    paritySurfaces.buildingDetail.shell,
+    paritySurfaces.pharmacy.shell,
+    paritySurfaces.drugLab.shell,
+    paritySurfaces.factory.shell,
+    paritySurfaces.armory.shell
+  ].map((selector) => `${selector}:visible`).join(",")).first();
+  do {
+    try {
+      const point = await resolveVisiblePointerTarget();
+      if (!point) throw new Error(`Building ${buildingTypeOrLabel} chip has no visible pointer target.`);
+      const pointedBuildingType = await page.evaluate(({ x, y }) => (
+        document.elementFromPoint(x, y)
+          ?.closest?.("[data-district-building-name]")
+          ?.getAttribute?.("data-district-building-type")
+          || ""
+      ), point);
+      if (pointedBuildingType !== canonicalBuildingTypeId) {
+        throw new Error(`Building ${buildingTypeOrLabel} chip moved before pointer dispatch.`);
+      }
+      await page.mouse.click(point.x, point.y);
+      await expect(openedBuildingSurface).toBeVisible({ timeout: 1_000 });
+      return;
+    } catch (error) {
+      if (await openedBuildingSurface.isVisible().catch(() => false)) return;
+      lastClickError = error;
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+    }
+  } while (Date.now() < clickDeadline);
+  throw lastClickError;
+}
+
+export async function readVisibleDistrictBuildingTypeIds(page) {
+  const districtShell = page.locator(`${paritySurfaces.district.shell}:visible`).last();
+  await expect(districtShell).toBeVisible();
+  return districtShell.locator("[data-district-building-name]").evaluateAll((chips) => chips
+    .map((chip) => String(chip.dataset.districtBuildingType || "").trim())
+    .filter(Boolean)
+    .sort());
 }
 
 export async function openProductionShortcut(page, type) {
@@ -445,6 +983,13 @@ export async function openCityEvents(page) {
     await page.locator("#city-events-open").click();
   }
   await expect(modal).toBeVisible();
+  const runtimeMode = await page.locator("html").getAttribute("data-runtime-mode");
+  if (runtimeMode === "server-authoritative") {
+    await expect(
+      page.locator(".closed-alpha-connection"),
+      "City Events parity requires a recovered authoritative connection"
+    ).toBeHidden({ timeout: 35_000 });
+  }
 }
 
 export async function openFirstCityEventDetail(page) {
@@ -466,13 +1011,392 @@ function artifactDirectory(phase, mode, viewportName) {
   );
 }
 
+async function settleFiniteAnimations(locator) {
+  await locator.evaluate(async (element) => {
+    for (const animation of element.getAnimations({ subtree: true })) {
+      const endTime = Number(animation.effect?.getComputedTiming?.().endTime);
+      if (
+        Number.isFinite(endTime)
+        && endTime >= 0
+        && endTime <= 5_000
+        && animation.playState !== "finished"
+      ) {
+        try {
+          animation.finish();
+        } catch {}
+      }
+    }
+    await new Promise((resolve) => requestAnimationFrame(() => (
+      requestAnimationFrame(resolve)
+    )));
+  });
+}
+
+export async function settleParityPage(page, locator = page.locator("body")) {
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  });
+  await page.mouse.move(1, 1);
+  await settleFiniteAnimations(locator);
+}
+
+export async function readViewportParityIgnoreRegions(page, ignoreSelector) {
+  if (!ignoreSelector) return [];
+  if (typeof ignoreSelector !== "string") {
+    throw new TypeError("Parity screenshot ignore selector must be a string");
+  }
+  const regions = await page.evaluate((selector) => {
+    const isVisible = (element) => {
+      if (!(element instanceof Element) || element.hasAttribute("hidden")) return false;
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none"
+        && style.visibility !== "hidden"
+        && Number(style.opacity || 1) > 0
+        && rect.width > 0
+        && rect.height > 0;
+    };
+    const scale = window.devicePixelRatio || 1;
+    return Array.from(document.querySelectorAll(selector))
+      .filter(isVisible)
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          height: rect.height * scale,
+          width: rect.width * scale,
+          x: rect.left * scale,
+          y: rect.top * scale
+        };
+      });
+  }, ignoreSelector);
+  return expandParityRasterIgnoreRegions(regions);
+}
+
+export async function readViewportRoundedCompositeIgnoreRegions(page, selector) {
+  if (!selector) return [];
+  if (typeof selector !== "string") {
+    throw new TypeError("Parity rounded composite selector must be a string");
+  }
+  const roundedBoxes = await page.evaluate((roundedSelector) => {
+    const isVisible = (element) => {
+      if (!(element instanceof Element) || element.hasAttribute("hidden")) return false;
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none"
+        && style.visibility !== "hidden"
+        && Number(style.opacity || 1) > 0
+        && rect.width > 0
+        && rect.height > 0;
+    };
+    const resolveRadius = (value, widthBasis, heightBasis, scale) => {
+      const [horizontal = "0", vertical = horizontal] = String(value || "0")
+        .trim()
+        .split(/\s+/u);
+      const resolveLength = (token, basis) => {
+        const numericValue = Number.parseFloat(token);
+        if (!Number.isFinite(numericValue)) return 0;
+        return token.endsWith("%") ? (numericValue / 100) * basis : numericValue;
+      };
+      return {
+        x: resolveLength(horizontal, widthBasis) * scale,
+        y: resolveLength(vertical, heightBasis) * scale
+      };
+    };
+    const scale = window.devicePixelRatio || 1;
+    return Array.from(document.querySelectorAll(roundedSelector))
+      .filter(isVisible)
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return {
+          height: rect.height * scale,
+          radii: {
+            bottomLeft: resolveRadius(style.borderBottomLeftRadius, rect.width, rect.height, scale),
+            bottomRight: resolveRadius(style.borderBottomRightRadius, rect.width, rect.height, scale),
+            topLeft: resolveRadius(style.borderTopLeftRadius, rect.width, rect.height, scale),
+            topRight: resolveRadius(style.borderTopRightRadius, rect.width, rect.height, scale)
+          },
+          width: rect.width * scale,
+          x: rect.left * scale,
+          y: rect.top * scale
+        };
+      });
+  }, selector);
+  return roundedBoxes.flatMap(({ x, y, ...roundedBox }) => (
+    createRoundedCornerCompositeIgnoreRegions(roundedBox).map((region) => ({
+      ...region,
+      x: region.x + x,
+      y: region.y + y
+    }))
+  ));
+}
+
+export async function readElementRelativeParityIgnoreRegions(
+  target,
+  ignoreSelector,
+  roundedCompositeSelector = ""
+) {
+  if (typeof ignoreSelector !== "string" || typeof roundedCompositeSelector !== "string") {
+    throw new TypeError("Parity screenshot selectors must be strings");
+  }
+  const capture = await target.evaluate((targetElement, selectors) => {
+    const isVisible = (element) => {
+      if (!(element instanceof Element) || element.hasAttribute("hidden")) return false;
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none"
+        && style.visibility !== "hidden"
+        && Number(style.opacity || 1) > 0
+        && rect.width > 0
+        && rect.height > 0;
+    };
+    const resolveRadius = (value, widthBasis, heightBasis, scale) => {
+      const [horizontal = "0", vertical = horizontal] = String(value || "0")
+        .trim()
+        .split(/\s+/u);
+      const resolveLength = (token, basis) => {
+        const numericValue = Number.parseFloat(token);
+        if (!Number.isFinite(numericValue)) return 0;
+        return token.endsWith("%") ? (numericValue / 100) * basis : numericValue;
+      };
+      return {
+        x: resolveLength(horizontal, widthBasis) * scale,
+        y: resolveLength(vertical, heightBasis) * scale
+      };
+    };
+    const scale = window.devicePixelRatio || 1;
+    const targetRect = targetElement.getBoundingClientRect();
+    const resolveRasterBounds = (rect) => {
+      const left = Math.floor(rect.left * scale);
+      const top = Math.floor(rect.top * scale);
+      const right = Math.ceil(rect.right * scale);
+      const bottom = Math.ceil(rect.bottom * scale);
+      return {
+        height: Math.max(0, bottom - top),
+        left,
+        top,
+        width: Math.max(0, right - left)
+      };
+    };
+    const targetRasterBounds = resolveRasterBounds(targetRect);
+    const targetStyle = getComputedStyle(targetElement);
+    const dynamicRegions = Array.from(
+      selectors.ignore ? targetElement.ownerDocument.querySelectorAll(selectors.ignore) : []
+    )
+      .filter(isVisible)
+      .map((element) => element.getBoundingClientRect())
+      .map((rect) => ({
+        bottom: Math.min(rect.bottom, targetRect.bottom),
+        left: Math.max(rect.left, targetRect.left),
+        right: Math.min(rect.right, targetRect.right),
+        top: Math.max(rect.top, targetRect.top)
+      }))
+      .filter((rect) => rect.right > rect.left && rect.bottom > rect.top)
+      .map((rect) => {
+        return {
+          height: (rect.bottom - rect.top) * scale,
+          width: (rect.right - rect.left) * scale,
+          x: (rect.left - targetRect.left) * scale,
+          y: (rect.top - targetRect.top) * scale
+        };
+      });
+    const roundedBoxes = Array.from(
+      selectors.rounded ? targetElement.querySelectorAll(selectors.rounded) : []
+    )
+      .filter(isVisible)
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        const rasterBounds = resolveRasterBounds(rect);
+        const style = getComputedStyle(element);
+        return {
+          height: rasterBounds.height,
+          radii: {
+            bottomLeft: resolveRadius(style.borderBottomLeftRadius, rect.width, rect.height, scale),
+            bottomRight: resolveRadius(style.borderBottomRightRadius, rect.width, rect.height, scale),
+            topLeft: resolveRadius(style.borderTopLeftRadius, rect.width, rect.height, scale),
+            topRight: resolveRadius(style.borderTopRightRadius, rect.width, rect.height, scale)
+          },
+          width: rasterBounds.width,
+          x: rasterBounds.left - targetRasterBounds.left,
+          y: rasterBounds.top - targetRasterBounds.top
+        };
+      });
+    return {
+      dynamicRegions,
+      roundedBoxes,
+      roundedBox: {
+        height: targetRasterBounds.height,
+        radii: {
+          bottomLeft: resolveRadius(
+            targetStyle.borderBottomLeftRadius,
+            targetRect.width,
+            targetRect.height,
+            scale
+          ),
+          bottomRight: resolveRadius(
+            targetStyle.borderBottomRightRadius,
+            targetRect.width,
+            targetRect.height,
+            scale
+          ),
+          topLeft: resolveRadius(
+            targetStyle.borderTopLeftRadius,
+            targetRect.width,
+            targetRect.height,
+            scale
+          ),
+          topRight: resolveRadius(
+            targetStyle.borderTopRightRadius,
+            targetRect.width,
+            targetRect.height,
+            scale
+          )
+        },
+        width: targetRasterBounds.width
+      }
+    };
+  }, {
+    ignore: ignoreSelector,
+    rounded: roundedCompositeSelector
+  });
+  if (Array.isArray(capture)) {
+    return expandParityRasterIgnoreRegions(capture);
+  }
+  return [
+    ...expandParityRasterIgnoreRegions(capture.dynamicRegions || []),
+    ...createRoundedCornerCompositeIgnoreRegions(capture.roundedBox || {}),
+    ...(capture.roundedBoxes || []).flatMap(({ x, y, ...roundedBox }) => (
+      createRoundedCornerCompositeIgnoreRegions(roundedBox).map((region) => ({
+        ...region,
+        x: region.x + x,
+        y: region.y + y
+      }))
+    ))
+  ];
+}
+
+export async function captureIsolatedParityScreenshot(page, {
+  ignoreSelector = "",
+  path: screenshotPath,
+  roundedCompositeSelector = "",
+  stableBackdropShellSelector = "",
+  target
+}) {
+  await settleParityPage(page, target);
+  const ignoreRegions = await readElementRelativeParityIgnoreRegions(
+    target,
+    ignoreSelector,
+    roundedCompositeSelector
+  );
+  let stableBackdropState = null;
+  if (stableBackdropShellSelector) {
+    stableBackdropState = await target.evaluate((targetElement, shellSelector) => {
+      const shell = targetElement.closest(shellSelector);
+      if (!(shell instanceof HTMLElement)) {
+        throw new Error(`Parity screenshot shell not found: ${shellSelector}`);
+      }
+      const token = `parity-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      let branch = shell;
+      while (branch.parentElement) {
+        for (const sibling of branch.parentElement.children) {
+          if (sibling !== branch) {
+            sibling.setAttribute("data-parity-capture-hidden", token);
+            sibling.setAttribute(
+              "data-parity-capture-previous-opacity",
+              sibling.style.getPropertyValue("opacity")
+            );
+            sibling.setAttribute(
+              "data-parity-capture-previous-opacity-priority",
+              sibling.style.getPropertyPriority("opacity")
+            );
+            sibling.setAttribute(
+              "data-parity-capture-previous-pointer-events",
+              sibling.style.getPropertyValue("pointer-events")
+            );
+            sibling.setAttribute(
+              "data-parity-capture-previous-pointer-events-priority",
+              sibling.style.getPropertyPriority("pointer-events")
+            );
+            sibling.style.setProperty("opacity", "0", "important");
+            sibling.style.setProperty("pointer-events", "none", "important");
+          }
+        }
+        branch = branch.parentElement;
+      }
+      return { token };
+    }, stableBackdropShellSelector);
+  }
+  try {
+    const screenshot = await target.screenshot({
+      path: screenshotPath,
+      animations: "disabled",
+      caret: "hide",
+      scale: "device"
+    });
+    return { ignoreRegions, screenshot };
+  } finally {
+    if (stableBackdropShellSelector) {
+      await target.evaluate((targetElement, config) => {
+        const token = CSS.escape(config.state.token);
+        document
+          .querySelectorAll(`[data-parity-capture-hidden="${token}"]`)
+          .forEach((element) => {
+            const restoreProperty = (propertyName, valueAttribute, priorityAttribute) => {
+              const value = element.getAttribute(valueAttribute) || "";
+              const priority = element.getAttribute(priorityAttribute) || "";
+              if (value) element.style.setProperty(propertyName, value, priority);
+              else element.style.removeProperty(propertyName);
+              element.removeAttribute(valueAttribute);
+              element.removeAttribute(priorityAttribute);
+            };
+            restoreProperty(
+              "opacity",
+              "data-parity-capture-previous-opacity",
+              "data-parity-capture-previous-opacity-priority"
+            );
+            restoreProperty(
+              "pointer-events",
+              "data-parity-capture-previous-pointer-events",
+              "data-parity-capture-previous-pointer-events-priority"
+            );
+            element.removeAttribute("data-parity-capture-hidden");
+          });
+      }, {
+        shellSelector: stableBackdropShellSelector,
+        state: stableBackdropState
+      });
+    }
+  }
+}
+
+export async function captureViewportParityScreenshot(page, {
+  ignoreSelector = "",
+  roundedCompositeSelector = "",
+  path: screenshotPath
+}) {
+  await settleParityPage(page);
+  const ignoreRegions = [
+    ...await readViewportParityIgnoreRegions(page, ignoreSelector),
+    ...await readViewportRoundedCompositeIgnoreRegions(page, roundedCompositeSelector)
+  ];
+  const screenshot = await page.screenshot({
+    path: screenshotPath,
+    animations: "disabled",
+    caret: "hide",
+    fullPage: false,
+    scale: "device"
+  });
+  return { ignoreRegions, screenshot };
+}
+
 export async function readParitySurfaceMetadata(page, surfaceName) {
   const definition = paritySurfaces[surfaceName];
-  const target = page.locator(definition.selector).first();
+  const target = page.locator(`${definition.selector}:visible`).last();
   await expect(target).toBeVisible();
-  return page.evaluate(({ selector, shellSelector }) => {
-    const targetElement = document.querySelector(selector);
-    const shell = document.querySelector(shellSelector) || targetElement;
+  const shell = page.locator(`${definition.shell}:visible`).last();
+  await settleFiniteAnimations(shell);
+  return target.evaluate((targetElement, { dynamicContentSelector, shellSelector }) => {
+    const shell = targetElement.closest(shellSelector) || targetElement;
     const isVisible = (element) => {
       if (!(element instanceof HTMLElement) || element.hidden) return false;
       const style = getComputedStyle(element);
@@ -523,6 +1447,7 @@ export async function readParitySurfaceMetadata(page, surfaceName) {
       ...Array.from(targetElement?.classList || []),
       ...Array.from(shell?.querySelectorAll?.("*") || [])
         .filter(isVisible)
+        .filter((element) => !element.closest(dynamicContentSelector))
         .flatMap((element) => Array.from(element.classList || []))
     ])).sort();
     return {
@@ -550,7 +1475,10 @@ export async function readParitySurfaceMetadata(page, surfaceName) {
         || null,
       uiOwnership: window.empireUiOwnershipDiagnostics?.getSummary?.() || null
     };
-  }, { selector: definition.selector, shellSelector: definition.shell });
+  }, {
+    dynamicContentSelector: parityDynamicDistrictIdentitySelector,
+    shellSelector: definition.shell
+  });
 }
 
 export async function captureParitySurface(page, {
@@ -560,7 +1488,7 @@ export async function captureParitySurface(page, {
   surfaceName
 }) {
   const definition = paritySurfaces[surfaceName];
-  const target = page.locator(definition.selector).first();
+  const target = page.locator(`${definition.selector}:visible`).last();
   await expect(target).toBeVisible();
   const directory = artifactDirectory(phase, mode, viewport.name);
   await fs.mkdir(directory, { recursive: true });
@@ -569,22 +1497,27 @@ export async function captureParitySurface(page, {
     ? await getBuildingPresentationSignature(page, surfaceName)
     : null;
   const basePath = path.join(directory, surfaceName);
-  const dynamicMasks = target.locator([
+  const dynamicContentSelector = [
     "[data-production-progress]",
     "[data-production-countdown]",
     "[data-countdown]",
     "[data-city-events-countdown]",
+    buildingPopulationBufferDynamicValueSelector,
     "time"
-  ].join(","));
-  await target.screenshot({
+  ].join(",");
+  const screenshotTarget = ["buildingDetail", "restaurant", "arcade"].includes(surfaceName)
+    ? target.locator(".district-building-detail-card").first()
+    : target;
+  const screenshotCapture = await captureIsolatedParityScreenshot(page, {
+    ignoreSelector: dynamicContentSelector,
     path: `${basePath}.png`,
-    animations: "disabled",
-    mask: await dynamicMasks.count() ? [dynamicMasks] : []
+    target: screenshotTarget
   });
   await fs.writeFile(`${basePath}.html`, metadata.html, "utf8");
   await fs.writeFile(`${basePath}.json`, `${JSON.stringify({
     ...metadata,
     presentation,
+    screenshotIgnoreRegions: screenshotCapture.ignoreRegions,
     html: undefined
   }, null, 2)}\n`, "utf8");
   return metadata;
@@ -601,11 +1534,130 @@ export async function getParitySurfaceSignature(page, surfaceName) {
   };
 }
 
+export async function exerciseParitySurfaceScroll(page, surfaceName) {
+  const definition = paritySurfaces[surfaceName];
+  const target = page.locator(`${definition.selector}:visible`).last();
+  await expect(target).toBeVisible();
+  return target.evaluate(async (targetElement) => {
+    const isVisible = (element) => {
+      if (!(element instanceof HTMLElement) || element.hidden) return false;
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none"
+        && style.visibility !== "hidden"
+        && Number(style.opacity || 1) > 0
+        && rect.width > 0
+        && rect.height > 0;
+    };
+    const candidates = [targetElement, ...targetElement.querySelectorAll("*")]
+      .filter(isVisible)
+      .map((element) => ({
+        element,
+        overflowY: getComputedStyle(element).overflowY
+      }))
+      .filter(({ element, overflowY }) => (
+        element.scrollHeight > element.clientHeight + 1
+        && ["auto", "overlay", "scroll"].includes(overflowY)
+      ))
+      .sort((left, right) => (
+        (right.element.scrollHeight - right.element.clientHeight)
+          - (left.element.scrollHeight - left.element.clientHeight)
+      ));
+    const candidate = candidates[0];
+    const region = candidate?.element;
+    if (!(region instanceof HTMLElement)) {
+      return {
+        available: false,
+        maxScrollTop: 0,
+        moved: false,
+        movementPx: 0,
+        overflowY: null,
+        reachedBottom: false,
+        resetTop: true
+      };
+    }
+    const settle = () => new Promise((resolve) => requestAnimationFrame(() => (
+      requestAnimationFrame(() => resolve())
+    )));
+    region.scrollTo({ behavior: "instant", top: 0 });
+    await settle();
+    const topScrollTop = region.scrollTop;
+    let maxScrollTop = Math.max(0, region.scrollHeight - region.clientHeight);
+    let reachedBottom = false;
+    for (let attempt = 0; attempt < 3 && !reachedBottom; attempt += 1) {
+      region.scrollTo({ behavior: "instant", top: region.scrollHeight });
+      await settle();
+      maxScrollTop = Math.max(0, region.scrollHeight - region.clientHeight);
+      reachedBottom = Math.abs(region.scrollTop - maxScrollTop) <= 1;
+    }
+    const bottomScrollTop = region.scrollTop;
+    const movementPx = Math.abs(bottomScrollTop - topScrollTop);
+    const moved = movementPx > 1;
+    let resetTop = false;
+    for (let attempt = 0; attempt < 3 && !resetTop; attempt += 1) {
+      region.scrollTo({ behavior: "instant", top: 0 });
+      await settle();
+      resetTop = region.scrollTop === 0;
+    }
+    return {
+      available: true,
+      bottomScrollTop,
+      maxScrollTop,
+      moved,
+      movementPx,
+      overflowY: candidate.overflowY,
+      reachedBottom: reachedBottom && moved,
+      resetTop
+    };
+  });
+}
+
+export function normalizeBuildingPresentationDynamicValues(signature = {}) {
+  const normalizeText = (value) => String(value || "").replace(/\s+/gu, " ").trim();
+  const normalizeEntry = (entry) => {
+    if (typeof entry === "string") return entry;
+    if (entry?.dynamicValue !== BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE) {
+      return normalizeText(entry?.text);
+    }
+    const label = normalizeText(entry?.label);
+    const staticPrefix = normalizeText(entry?.staticPrefix);
+    const staticCapacity = String(entry?.staticCapacity ?? "").trim();
+    return [
+      label,
+      staticPrefix,
+      `<dynamic:${BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE}>`,
+      staticCapacity ? `/${staticCapacity}` : ""
+    ].filter(Boolean).join("");
+  };
+  const mechanics = Array.isArray(signature.mechanics)
+    ? signature.mechanics.map(normalizeEntry)
+    : signature.mechanics;
+  const effects = Array.isArray(signature.effects)
+    ? signature.effects.map(normalizeEntry)
+    : signature.effects;
+  const visibleCopy = Array.isArray(signature.visibleCopy)
+    ? signature.visibleCopy
+      .filter((entry) => (
+        typeof entry === "string"
+        || entry?.dynamicValue !== BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE
+      ))
+      .map((entry) => normalizeText(typeof entry === "string" ? entry : entry?.text))
+      .filter(Boolean)
+    : signature.visibleCopy;
+  return {
+    ...signature,
+    effects,
+    mechanics,
+    visibleCopy
+  };
+}
+
 export async function getBuildingPresentationSignature(page, surfaceName) {
   const definition = paritySurfaces[surfaceName];
-  const target = page.locator(definition.selector).first();
+  const target = page.locator(`${definition.selector}:visible`).last();
   await expect(target).toBeVisible();
-  return target.evaluate((targetElement) => {
+  await settleFiniteAnimations(page.locator(`${definition.shell}:visible`).last());
+  const signature = await target.evaluate(async (targetElement, config) => {
     const normalizeText = (value) => String(value || "").replace(/\s+/gu, " ").trim();
     const visibleElements = (selector) => Array.from(targetElement.querySelectorAll(selector))
       .filter((element) => {
@@ -633,6 +1685,43 @@ export async function getBuildingPresentationSignature(page, surfaceName) {
     const actionStyle = actionGrid instanceof HTMLElement
       ? getComputedStyle(actionGrid)
       : null;
+    const actionLayout = {
+      display: actionStyle?.display || "",
+      gridTemplateColumns: actionStyle?.gridTemplateColumns || ""
+    };
+    const backgroundElement = targetElement.querySelector(".district-building-detail-card")
+      || targetElement;
+    const backgroundStyle = getComputedStyle(backgroundElement);
+    const backgroundBeforeStyle = getComputedStyle(backgroundElement, "::before");
+    const backgroundAfterStyle = getComputedStyle(backgroundElement, "::after");
+    const customBackgroundImage = backgroundStyle
+      .getPropertyValue("--building-detail-background-image")
+      .trim();
+    const extractBrowserCssUrlValues = (value) => Array.from(
+      String(value || "").matchAll(new RegExp(config.cssUrlPatternSource, "gu"))
+    ).map((match) => String(match[2] ?? match[3] ?? "").trim()).filter(Boolean);
+    const backgroundImageUrls = [
+      customBackgroundImage,
+      backgroundStyle.backgroundImage,
+      backgroundBeforeStyle.backgroundImage,
+      backgroundAfterStyle.backgroundImage
+    ].flatMap(extractBrowserCssUrlValues);
+    const backgroundAssetUrl = backgroundImageUrls.at(-1) || "";
+    const backgroundAssetLoaded = backgroundAssetUrl
+      ? await new Promise((resolve) => {
+          const image = new Image();
+          image.addEventListener("load", () => resolve(image.naturalWidth > 0), { once: true });
+          image.addEventListener("error", () => resolve(false), { once: true });
+          image.src = backgroundAssetUrl;
+          if (image.complete) resolve(image.naturalWidth > 0);
+        })
+      : null;
+    const dynamicCopySelector = [
+      "[data-production-progress]",
+      "[data-production-countdown]",
+      "[data-countdown]",
+      "time"
+    ].join(",");
     return {
       title: normalizeText(
         targetElement.querySelector("[data-district-building-detail-title]")?.textContent
@@ -643,10 +1732,36 @@ export async function getBuildingPresentationSignature(page, surfaceName) {
       ).map((element) => normalizeText(element.textContent)),
       mechanics: visibleElements(
         ".district-building-detail-mechanics .district-building-detail-mechanic-row"
-      ).map((element) => normalizeText(element.textContent)),
+      ).map((element) => {
+        const valueElement = element.querySelector(config.dynamicValueSelector);
+        return {
+          dynamicValue: valueElement?.dataset.buildingDynamicValue || "",
+          label: normalizeText(element.querySelector(":scope > span")?.textContent),
+          staticCapacity: element.querySelector("[data-building-population-capacity]")
+            ?.dataset.buildingPopulationCapacity || "",
+          text: normalizeText(element.textContent)
+        };
+      }),
       effects: visibleElements(
         "[data-district-building-detail-effects-section] .district-building-detail-effect-cell"
-      ).map((element) => normalizeText(element.textContent)),
+      ).map((element) => {
+        const valueElement = element.querySelector(config.dynamicValueSelector);
+        return {
+          dynamicValue: valueElement?.dataset.buildingDynamicValue || "",
+          staticPrefix: Array.from(element.querySelectorAll("[data-building-static-value]"))
+            .map((item) => normalizeText(item.textContent))
+            .join(" "),
+          text: normalizeText(element.textContent)
+        };
+      }),
+      visibleCopy: visibleElements("*")
+        .filter((element) => element.children.length === 0)
+        .filter((element) => !element.closest(dynamicCopySelector))
+        .map((element) => ({
+          dynamicValue: element.dataset.buildingDynamicValue || "",
+          text: normalizeText(element.textContent)
+        }))
+        .filter((entry) => entry.text),
       actions: actionRows.map((element) => ({
         actionId: element.dataset.districtBuildingDetailActionId || "",
         title: normalizeText(
@@ -660,21 +1775,39 @@ export async function getBuildingPresentationSignature(page, surfaceName) {
         )
       })),
       actionGrid: {
-        display: actionStyle?.display || "",
-        gridTemplateColumns: actionStyle?.gridTemplateColumns || "",
+        display: actionLayout.display,
+        gridTemplateColumns: actionLayout.gridTemplateColumns,
         columnCount: new Set(actionRects.map((rect) => rect.left)).size,
         rowCount: new Set(actionRects.map((rect) => rect.top)).size,
         rects: actionRects
+      },
+      background: {
+        assetLoaded: backgroundAssetLoaded,
+        assetUrl: backgroundAssetUrl,
+        customImage: customBackgroundImage,
+        image: backgroundStyle.backgroundImage,
+        position: backgroundStyle.backgroundPosition,
+        size: backgroundStyle.backgroundSize,
+        beforeImage: backgroundBeforeStyle.backgroundImage,
+        beforePosition: backgroundBeforeStyle.backgroundPosition,
+        beforeSize: backgroundBeforeStyle.backgroundSize,
+        afterImage: backgroundAfterStyle.backgroundImage,
+        afterPosition: backgroundAfterStyle.backgroundPosition,
+        afterSize: backgroundAfterStyle.backgroundSize
       }
     };
+  }, {
+    cssUrlPatternSource: CSS_URL_VALUE_PATTERN_SOURCE,
+    dynamicValueSelector: buildingPopulationBufferDynamicValueSelector
   });
+  return normalizeBuildingPresentationDynamicValues(signature);
 }
 
 export async function getProductionPresentationSignature(page, surfaceName) {
   const definition = paritySurfaces[surfaceName];
   const target = page.locator(definition.selector).first();
   await expect(target).toBeVisible();
-  return target.evaluate((targetElement) => {
+  return target.evaluate(async (targetElement, cssUrlPatternSource) => {
     const normalizeText = (value) => String(value || "").replace(/\s+/gu, " ").trim();
     const visibleElements = (selector) => Array.from(targetElement.querySelectorAll(selector))
       .filter((element) => {
@@ -686,6 +1819,37 @@ export async function getProductionPresentationSignature(page, surfaceName) {
           && rect.width > 0
           && rect.height > 0;
       });
+    const backgroundStyle = getComputedStyle(targetElement);
+    const backgroundBeforeStyle = getComputedStyle(targetElement, "::before");
+    const backgroundAfterStyle = getComputedStyle(targetElement, "::after");
+    const customBackgroundImage = backgroundStyle
+      .getPropertyValue("--building-detail-background-image")
+      .trim();
+    const extractBrowserCssUrlValues = (value) => Array.from(
+      String(value || "").matchAll(new RegExp(cssUrlPatternSource, "gu"))
+    ).map((match) => String(match[2] ?? match[3] ?? "").trim()).filter(Boolean);
+    const backgroundImageUrls = [
+      customBackgroundImage,
+      backgroundStyle.backgroundImage,
+      backgroundBeforeStyle.backgroundImage,
+      backgroundAfterStyle.backgroundImage
+    ].flatMap(extractBrowserCssUrlValues);
+    const backgroundAssetUrl = backgroundImageUrls.at(-1) || "";
+    const backgroundAssetLoaded = backgroundAssetUrl
+      ? await new Promise((resolve) => {
+          const image = new Image();
+          image.addEventListener("load", () => resolve(image.naturalWidth > 0), { once: true });
+          image.addEventListener("error", () => resolve(false), { once: true });
+          image.src = backgroundAssetUrl;
+          if (image.complete) resolve(image.naturalWidth > 0);
+        })
+      : null;
+    const dynamicCopySelector = [
+      "[data-production-progress]",
+      "[data-production-countdown]",
+      "[data-countdown]",
+      "time"
+    ].join(",");
     return {
       title: normalizeText(targetElement.querySelector(".modal__header h3")?.textContent),
       tabs: visibleElements(
@@ -701,17 +1865,64 @@ export async function getProductionPresentationSignature(page, surfaceName) {
       recipeLabels: visibleElements([
         ".pharmacy-slot__title",
         ".drug-production-slot__title"
-      ].join(",")).map((element) => normalizeText(element.textContent))
+      ].join(",")).map((element) => normalizeText(element.textContent)),
+      visibleCopy: visibleElements("*")
+        .filter((element) => element.children.length === 0)
+        .filter((element) => !element.closest(dynamicCopySelector))
+        .map((element) => normalizeText(element.textContent))
+        .filter(Boolean),
+      background: {
+        assetLoaded: backgroundAssetLoaded,
+        assetUrl: backgroundAssetUrl,
+        customImage: customBackgroundImage,
+        image: backgroundStyle.backgroundImage,
+        position: backgroundStyle.backgroundPosition,
+        size: backgroundStyle.backgroundSize,
+        beforeImage: backgroundBeforeStyle.backgroundImage,
+        beforePosition: backgroundBeforeStyle.backgroundPosition,
+        beforeSize: backgroundBeforeStyle.backgroundSize,
+        afterImage: backgroundAfterStyle.backgroundImage,
+        afterPosition: backgroundAfterStyle.backgroundPosition,
+        afterSize: backgroundAfterStyle.backgroundSize
+      }
     };
-  });
+  }, CSS_URL_VALUE_PATTERN_SOURCE);
 }
 
-export async function getParityDomStructureSignature(page, surfaceName) {
+export function normalizeLockedModalDocumentScrollExtent(signature, {
+  modalSurfaceOpen = false
+} = {}) {
+  if (!modalSurfaceOpen || !signature?.scroll) {
+    return signature;
+  }
+
+  const normalizeDocumentScroll = (documentScroll) => (
+    documentScroll && typeof documentScroll === "object"
+      ? { ...documentScroll, maxScrollTop: 0 }
+      : documentScroll
+  );
+
+  return {
+    ...signature,
+    scroll: {
+      ...signature.scroll,
+      body: normalizeDocumentScroll(signature.scroll.body),
+      html: normalizeDocumentScroll(signature.scroll.html)
+    }
+  };
+}
+
+export async function getParityDomStructureSignature(page, surfaceName, {
+  additionalDynamicTextSelector = ""
+} = {}) {
   const definition = paritySurfaces[surfaceName];
-  const target = page.locator(definition.selector).first();
+  const target = page.locator(`${definition.selector}:visible`).last();
   await expect(target).toBeVisible();
-  return target.evaluate((targetElement, config) => {
+  await settleFiniteAnimations(page.locator(`${definition.shell}:visible`).last());
+  const signature = await target.evaluate((targetElement, config) => {
     const dynamicClassNames = new Set(config.dynamicClassNames);
+    const dynamicContentSelector = config.dynamicContentSelector;
+    const dynamicTextSelector = config.dynamicTextSelector;
     const isVisible = (element) => {
       if (!(element instanceof HTMLElement) || element.hidden) return false;
       const style = getComputedStyle(element);
@@ -744,10 +1955,16 @@ export async function getParityDomStructureSignature(page, surfaceName) {
         const parent = current.parentElement;
         if (!parent) break;
         const siblings = Array.from(parent.children)
-          .filter((candidate) => candidate.tagName === current.tagName);
-        segments.unshift(
-          `${current.tagName.toLowerCase()}:${Math.max(0, siblings.indexOf(current))}`
-        );
+          .filter((candidate) => candidate.tagName === current.tagName)
+          .filter(isVisible)
+          .filter((candidate) => !candidate.closest(dynamicContentSelector));
+        const siblingIndex = siblings.indexOf(current);
+        const rawSiblingIndex = Array.from(parent.children)
+          .filter((candidate) => candidate.tagName === current.tagName)
+          .indexOf(current);
+        segments.unshift(`${current.tagName.toLowerCase()}:${
+          siblingIndex >= 0 ? siblingIndex : `unmatched-${rawSiblingIndex}`
+        }`);
         current = parent;
       }
       return segments.join("/");
@@ -757,6 +1974,17 @@ export async function getParityDomStructureSignature(page, surfaceName) {
         .filter((key) => Object.hasOwn(element.dataset || {}, key))
         .map((key) => [key, String(element.dataset[key] || "")])
     );
+    const controlAttribute = (element, attributeName) => {
+      const value = element.getAttribute(attributeName);
+      if (
+        value
+        && element.matches?.(".district-popup-owner-avatar-wrap")
+        && ["aria-label", "title"].includes(attributeName)
+      ) {
+        return `dynamic-owner-${attributeName}`;
+      }
+      return value;
+    };
     const computedStyleSignature = (element) => {
       const style = getComputedStyle(element);
       return Object.fromEntries(config.computedStyleProperties.map((property) => [
@@ -766,19 +1994,34 @@ export async function getParityDomStructureSignature(page, surfaceName) {
     };
     const scrollSignature = (element) => {
       const style = getComputedStyle(element);
+      const scrollableOverflow = new Set(["auto", "overlay", "scroll"]);
+      const canScrollX = element.scrollWidth > element.clientWidth
+        && scrollableOverflow.has(style.overflowX);
+      const canScrollY = element.scrollHeight > element.clientHeight
+        && scrollableOverflow.has(style.overflowY);
       return {
-        canScrollX: element.scrollWidth > element.clientWidth,
-        canScrollY: element.scrollHeight > element.clientHeight,
+        canScrollX,
+        canScrollY,
         clientHeight: element.clientHeight,
         clientWidth: element.clientWidth,
-        maxScrollLeft: Math.max(0, element.scrollWidth - element.clientWidth),
-        maxScrollTop: Math.max(0, element.scrollHeight - element.clientHeight),
+        maxScrollLeft: canScrollX
+          ? Math.max(0, element.scrollWidth - element.clientWidth)
+          : 0,
+        maxScrollTop: canScrollY
+          ? Math.max(0, element.scrollHeight - element.clientHeight)
+          : 0,
         overflow: style.overflow,
         overflowX: style.overflowX,
         overflowY: style.overflowY,
         scrollLeft: Math.round(element.scrollLeft),
         scrollTop: Math.round(element.scrollTop)
       };
+    };
+    const documentScrollSignature = (element) => {
+      const signature = scrollSignature(element);
+      delete signature.clientHeight;
+      delete signature.clientWidth;
+      return signature;
     };
     const structuralKey = (element, index = 0) => {
       const datasetKey = [
@@ -794,7 +2037,10 @@ export async function getParityDomStructureSignature(page, surfaceName) {
       return className || `${element.tagName.toLowerCase()}:${index}`;
     };
     const visibleNodes = [targetElement, ...targetElement.querySelectorAll("*")]
-      .filter(isVisible);
+      .filter(isVisible)
+      .filter((element) => (
+        element === targetElement || !element.closest(dynamicContentSelector)
+      ));
     const activePanels = Array.from(targetElement.querySelectorAll([
       "[data-district-building-detail-panel]",
       "[data-production-building-panel]",
@@ -813,6 +2059,7 @@ export async function getParityDomStructureSignature(page, surfaceName) {
       ...targetElement.querySelectorAll([
         ".modal__header",
         ".modal__body",
+        ".district-building-detail-card",
         ".building-detail-tabs",
         "[data-district-building-detail-panel]",
         "[data-production-building-panel]",
@@ -833,7 +2080,9 @@ export async function getParityDomStructureSignature(page, surfaceName) {
         "[role='button']",
         "[role='tab']"
       ].join(","))
-    ])).filter(isVisible);
+    ])).filter(isVisible).filter((element) => (
+      element === targetElement || !element.closest(dynamicContentSelector)
+    ));
     const focusableElements = visibleNodes.filter((element) => (
       element.matches?.("button, input, select, textarea, a[href], [role='button'], [role='tab'], [tabindex]")
       && !element.matches?.("[disabled], [aria-disabled='true'], [tabindex='-1']")
@@ -841,6 +2090,11 @@ export async function getParityDomStructureSignature(page, surfaceName) {
     const activeElement = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
+    const surfaceShell = targetElement.closest(config.shellSelector) || targetElement;
+    const surfaceModalOpen = isVisible(surfaceShell) && Boolean(
+      surfaceShell.matches("[aria-modal='true'], [role='dialog']")
+      || surfaceShell.querySelector("[aria-modal='true'], [role='dialog']")
+    );
     const modalDebug = window.EmpireModalScrollLock?.debugState?.() || null;
     const ownershipSummary = window.empireUiOwnershipDiagnostics?.getSummary?.() || null;
 
@@ -858,7 +2112,10 @@ export async function getParityDomStructureSignature(page, surfaceName) {
         disabled: "disabled" in element ? Boolean(element.disabled) : false,
         path: elementPath(element),
         role: element.getAttribute("role"),
-        tag: element.tagName.toLowerCase()
+        tag: element.tagName.toLowerCase(),
+        text: element.children.length === 0 && !element.closest(dynamicTextSelector)
+          ? normalizeText(element.textContent)
+          : ""
       })),
       sectionOrder: sections.map((section) => section.key),
       sections,
@@ -906,7 +2163,7 @@ export async function getParityDomStructureSignature(page, surfaceName) {
           "button, input, select, textarea, a[href], [role='button'], [role='tab']"
         ))
         .map((element) => ({
-          ariaLabel: element.getAttribute("aria-label"),
+          ariaLabel: controlAttribute(element, "aria-label"),
           ariaSelected: element.getAttribute("aria-selected"),
           classes: normalizeClasses(element),
           dataset: semanticDataset(element),
@@ -917,7 +2174,7 @@ export async function getParityDomStructureSignature(page, surfaceName) {
           tabIndex: element.tabIndex,
           tag: element.tagName.toLowerCase(),
           text: normalizeText(element.textContent),
-          title: element.getAttribute("title")
+          title: controlAttribute(element, "title")
         })),
       focus: {
         activeElement: activeElement && activeElement !== document.body
@@ -939,8 +2196,8 @@ export async function getParityDomStructureSignature(page, surfaceName) {
         }))
       },
       scroll: {
-        body: scrollSignature(document.body),
-        html: scrollSignature(document.documentElement),
+        body: documentScrollSignature(document.body),
+        html: documentScrollSignature(document.documentElement),
         surface: scrollSignature(targetElement),
         regions: structuralElements
           .filter((element) => {
@@ -968,6 +2225,7 @@ export async function getParityDomStructureSignature(page, surfaceName) {
         htmlClassLocked: document.documentElement.classList.contains("game-modal-scroll-locked"),
         htmlOverflow: getComputedStyle(document.documentElement).overflow,
         ownershipLocked: ownershipSummary?.bodyScrollLocked === true,
+        surfaceModalOpen,
         stack: Array.isArray(modalDebug?.stack)
           ? modalDebug.stack.map((entry) => ({
               owner: String(entry?.owner || ""),
@@ -978,7 +2236,13 @@ export async function getParityDomStructureSignature(page, surfaceName) {
     };
   }, {
     computedStyleProperties: parityComputedStyleProperties,
+    dynamicContentSelector: parityDynamicDistrictIdentitySelector,
     dynamicClassNames: parityDynamicClassNames,
+    dynamicTextSelector: [
+      gameChromeDynamicMaskSelector,
+      additionalDynamicTextSelector
+    ].filter(Boolean).join(","),
+    shellSelector: definition.shell,
     semanticDatasetKeys: [
       "districtBuildingDetailActionId",
       "districtBuildingDetailPanel",
@@ -990,8 +2254,13 @@ export async function getParityDomStructureSignature(page, surfaceName) {
       "productionBuildingPanel",
       "productionBuildingTab",
       "productionPanel",
+      "buildingDynamicValue",
+      "buildingPopulationCapacity",
       "recipeId"
     ]
+  });
+  return normalizeLockedModalDocumentScrollExtent(signature, {
+    modalSurfaceOpen: signature.modalScrollLock.surfaceModalOpen
   });
 }
 
@@ -1047,11 +2316,13 @@ export async function getVisibleTechnicalBuildingText(page, surfaceName) {
 
 export async function getGameChromeSignature(page) {
   await expect(page.locator("#game-root")).toBeVisible();
+  await settleParityPage(page);
   return page.evaluate((config) => {
     const dynamicClassNames = new Set(config.dynamicClassNames);
     const dynamicTextSelector = config.dynamicTextSelector;
     const surfaceDefinitions = [
       ["body", "body"],
+      ["ambience", ".game-shell-ambience"],
       ["topbar", "#game-header"],
       ["resourceBar", ".game-resource-strip"],
       ["gameRoot", "#game-root"],
@@ -1114,7 +2385,8 @@ export async function getGameChromeSignature(page) {
         const parent = current.parentElement;
         if (!parent) break;
         const siblings = Array.from(parent.children)
-          .filter((candidate) => candidate.tagName === current.tagName);
+          .filter((candidate) => candidate.tagName === current.tagName)
+          .filter(isVisible);
         segments.unshift(
           `${current.tagName.toLowerCase()}:${Math.max(0, siblings.indexOf(current))}`
         );
@@ -1128,7 +2400,10 @@ export async function getGameChromeSignature(page) {
         return { key, present: false, selector, visible: false };
       }
       const visibleDescendants = [element, ...element.querySelectorAll("*")]
-        .filter(isVisible);
+        .filter(isVisible)
+        .filter((candidate) => (
+          candidate === element || !candidate.closest(dynamicTextSelector)
+        ));
       return {
         childClassNames: Array.from(new Set(
           visibleDescendants.flatMap((candidate) => normalizeClasses(candidate))
@@ -1156,6 +2431,14 @@ export async function getGameChromeSignature(page) {
       .filter((entry) => entry.text);
     const modalDebug = window.EmpireModalScrollLock?.debugState?.() || null;
     const ownershipSummary = window.empireUiOwnershipDiagnostics?.getSummary?.() || null;
+    const pageScrollHeight = Math.max(
+      document.body.scrollHeight,
+      document.documentElement.scrollHeight
+    );
+    const pageScrollWidth = Math.max(
+      document.body.scrollWidth,
+      document.documentElement.scrollWidth
+    );
     return {
       modalScrollLock: {
         bodyClassLocked: document.body.classList.contains("game-modal-scroll-locked"),
@@ -1178,6 +2461,10 @@ export async function getGameChromeSignature(page) {
         bodyCanScrollY: document.body.scrollHeight > document.body.clientHeight,
         htmlCanScrollX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
         htmlCanScrollY: document.documentElement.scrollHeight > document.documentElement.clientHeight,
+        maxPageScrollX: Math.max(0, pageScrollWidth - window.innerWidth),
+        maxPageScrollY: Math.max(0, pageScrollHeight - window.innerHeight),
+        pageScrollHeight,
+        pageScrollWidth,
         windowX: Math.round(window.scrollX),
         windowY: Math.round(window.scrollY)
       },
@@ -1196,13 +2483,13 @@ export async function getGameChromeSignature(page) {
 }
 
 export async function captureGameChromeScreenshot(page, screenshotPath) {
-  const dynamicMasks = page.locator(gameChromeDynamicMaskSelector);
-  await page.screenshot({
-    path: screenshotPath,
-    animations: "disabled",
-    caret: "hide",
-    fullPage: false,
-    mask: await dynamicMasks.count() ? [dynamicMasks] : []
+  return captureViewportParityScreenshot(page, {
+    ignoreSelector: gameChromeScreenshotIgnoreSelector,
+    roundedCompositeSelector: [
+      ".map-boost-btn",
+      "#profile-gang-card .profile-row--alliance"
+    ].join(","),
+    path: screenshotPath
   });
 }
 

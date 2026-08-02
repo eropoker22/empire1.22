@@ -45,3 +45,11 @@ export const resolveDistrictBuildingChipKind = (buildingName) => {
   }
   return "Pasivní bonus";
 };
+
+export const resolveDistrictBuildingPresentationKind = (building = {}) => resolveDistrictBuildingChipKind(
+  building?.baseName
+  || building?.label
+  || building?.displayName
+  || building?.buildingTypeId
+  || building?.serverBuilding?.role
+);

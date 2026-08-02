@@ -1,3 +1,5 @@
+import { formatCssUrlValue } from "../runtime/utils.js";
+
 function setText(element, value) {
   if (element) {
     element.textContent = String(value ?? "");
@@ -94,7 +96,7 @@ export function renderSelectedDistrictSummary(districtViewModel = null, options 
   if (elements.card) {
     const hasOwnerAvatar = Boolean(districtViewModel.ownerAvatarBackgroundUrl);
     const safeOwnerAvatarUrl = hasOwnerAvatar
-      ? `url("${String(districtViewModel.ownerAvatarBackgroundUrl).replace(/(["\\])/g, "\\$1")}")`
+      ? formatCssUrlValue(districtViewModel.ownerAvatarBackgroundUrl)
       : "none";
     elements.card.classList?.toggle?.("district-owner-bg-active", hasOwnerAvatar);
     elements.card.style?.setProperty?.("--district-owner-avatar-url", safeOwnerAvatarUrl);

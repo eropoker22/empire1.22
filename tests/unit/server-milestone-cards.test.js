@@ -13,7 +13,7 @@ import {
 const gameHtml = readFileSync(resolve(process.cwd(), "pages/game.html"), "utf8");
 const milestoneCss = readFileSync(resolve(process.cwd(), "page-assets/css/styles-server-milestone-cards.css"), "utf8");
 
-const mount = () => {
+const mount = (executionMode = "server-authoritative") => {
   const values = new Map();
   const storage = {
     getItem: (key) => values.get(key) || null,
@@ -35,7 +35,11 @@ const mount = () => {
         <button data-server-milestone-confirm></button>
       </section>
     </div>`;
-  return bindServerMilestoneCards(document, { autoWelcome: false, storage });
+  return bindServerMilestoneCards(document, {
+    autoWelcome: false,
+    storage,
+    getExecutionMode: () => executionMode
+  });
 };
 
 describe("server milestone cards", () => {
@@ -121,6 +125,24 @@ describe("server milestone cards", () => {
     expect(feedSnapshots).toHaveLength(4);
     expect(feedSnapshots.map((entry) => entry.id)).toEqual(SERVER_MILESTONE_IDS.map((id) => `server-milestone:${id}`));
     expect(feedSnapshots.every((entry) => entry.resultKind === "server-milestone" && entry.resultPayload.openable)).toBe(true);
+  });
+
+  it("never opens a server lifecycle milestone in local demo mode", () => {
+    const controller = mount("local-demo");
+    const modal = document.querySelector("[data-server-milestone-modal]");
+    const gameplaySlice = {
+      server: { serverInstanceId: "server:forged-demo" },
+      player: { instanceId: "server:forged-demo" }
+    };
+
+    expect(controller.handleGameplaySlice(gameplaySlice)).toBe(false);
+    expect(controller.open("welcome")).toBe(false);
+    document.dispatchEvent(new CustomEvent("empire:server-milestone-open", {
+      detail: { milestoneId: "welcome" }
+    }));
+
+    expect(modal.hidden).toBe(true);
+    expect(controller.getActiveId()).toBe("");
   });
 
   it("uses the canonical first-elimination countdown for the four-hour trigger", () => {

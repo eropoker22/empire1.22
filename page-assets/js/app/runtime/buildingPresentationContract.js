@@ -43,6 +43,13 @@ const BUILDING_PRESENTATION_DEFINITIONS = Object.freeze({
   street_dealers: Object.freeze({ baseName: "Pouliční dealeři", mechanicsType: "street-dealers" })
 });
 
+const BUILDING_PRESENTATION_TYPE_BY_BASE_NAME = new Map(
+  Object.entries(BUILDING_PRESENTATION_DEFINITIONS).map(([buildingTypeId, definition]) => [
+    normalizeBuildingTypeId(definition.baseName),
+    buildingTypeId
+  ]).reverse()
+);
+
 export const BUILDING_DETAIL_LAYOUTS = Object.freeze({
   singlePanel: "single-panel",
   tabbed: "tabbed"
@@ -118,18 +125,24 @@ const copyActions = (actions) => copyRows(actions).map((action) => ({
   requiresInput: copyRows(action?.requiresInput),
   serverAction: action?.serverAction ? {
     description: String(action.serverAction.description || ""),
+    requiredInputs: copyRows(action.serverAction.requiredInputs),
     riskSummary: Array.isArray(action.serverAction.riskSummary)
       ? action.serverAction.riskSummary.slice()
       : []
   } : null,
   dealerSale: action?.dealerSale ? {
     ...action.dealerSale,
-    slots: copyRows(action.dealerSale.slots)
+    slots: copyRows(action.dealerSale.slots),
+    items: copyRows(action.dealerSale.items)
   } : null
 }));
 
 export function resolveBuildingPresentationDefinition(buildingTypeId = "") {
   return BUILDING_PRESENTATION_DEFINITIONS[normalizeBuildingTypeId(buildingTypeId)] || null;
+}
+
+export function resolveBuildingPresentationTypeId(baseName = "") {
+  return BUILDING_PRESENTATION_TYPE_BY_BASE_NAME.get(normalizeBuildingTypeId(baseName)) || "";
 }
 
 export function resolveBuildingDetailLayout(mechanicsType = "") {

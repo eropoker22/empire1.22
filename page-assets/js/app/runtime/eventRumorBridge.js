@@ -133,8 +133,14 @@ export function createEventRumorBridge(deps = {}) {
   const streetNewsEventIds = new Set();
 
   const getState = () => safeObject(typeof deps.getState === "function" ? deps.getState() : {});
+  const isStreetNewsRumorPublicationPaused = () => (
+    root?.dataset?.streetNewsRumorPublication === "paused"
+  );
   const appendRumorStreetNews = (event) => {
-    if (typeof deps.appendBuildingActionResultEntry !== "function") return false;
+    if (
+      isStreetNewsRumorPublicationPaused()
+      || typeof deps.appendBuildingActionResultEntry !== "function"
+    ) return false;
 
     const normalized = normalizeCityFeedEvent(event);
     const entryId = normalized.sourceEventId || normalized.id;

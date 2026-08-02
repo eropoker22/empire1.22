@@ -330,9 +330,10 @@
 }
 
 @media (min-width: 781px) {
-  #events-modal,
-  #event-detail-modal {
-    inset: 72px 0 0 0;
+  #events-modal:not(.hidden),
+  #event-detail-modal:not(.hidden) {
+    inset: var(--desktop-topbar-offset, 72px) 0 0 0;
+    height: auto;
     padding-top: 0;
   }
 

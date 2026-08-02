@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildGangWantedStatusViewModel,
+  buildServerGangWantedStatusViewModel,
   createGangWantedStatusRuntime
 } from "../../page-assets/js/app/runtime/gangWantedStatusRuntime.js";
 
@@ -98,6 +99,59 @@ describe("gang wanted status runtime", () => {
     expect(viewModel.riseEntries).toHaveLength(1);
     expect(viewModel.fallEntries).toHaveLength(1);
     expect(viewModel.levels[0].effect).toBe("vyšší kontroly");
+  });
+
+  it("maps hosted wanted values only from the authoritative player read model", () => {
+    const viewModel = buildServerGangWantedStatusViewModel({
+      serverPlayer: {
+        economy: {
+          cleanCash: 12_345,
+          dirtyCash: 678,
+          influence: 44
+        },
+        police: {
+          heat: 82,
+          wantedLevel: 3,
+          wantedLevelLabel: "3 / 5",
+          riskTier: "high",
+          protection: {
+            raidConsequenceMultiplier: 0.75,
+            sources: ["Magistrát"]
+          }
+        }
+      },
+      heatTiers: [{ id: 3, label: "Tier 3", title: "Známý problém" }]
+    }, {
+      resolveHeatTier: () => ({
+        id: 3,
+        label: "Tier 3",
+        title: "Známý problém",
+        description: "Častější kontroly."
+      }),
+      resolvePoliceFeedback: ({ policeReadModel }) => ({
+        riskKey: policeReadModel.riskTier,
+        pendingRaid: null
+      })
+    });
+
+    expect(viewModel).toMatchObject({
+      available: true,
+      heat: 82,
+      heatLabel: "82",
+      levelId: 3,
+      levelLabel: "3 / 5",
+      title: "Známý problém",
+      protectionLabel: "Magistrát -25 % následky raidu",
+      auditRiskLabel: "—",
+      riseEmptyText: "—",
+      fallEmptyText: "—",
+      dirtyActionDisabled: true,
+      cleanActionDisabled: true,
+      influenceActionDisabled: true,
+      clearLogDisabled: true
+    });
+    expect(viewModel.riseEntries).toEqual([]);
+    expect(viewModel.fallEntries).toEqual([]);
   });
 
   it("binds wanted popup controls and delegates gameplay callbacks", () => {
@@ -290,5 +344,145 @@ describe("gang wanted status runtime", () => {
     expect(elements.popupLevelMobile.textContent).toBe("2 / 6");
     expect(elements.popupProtectionDesktop.textContent).toBe("Aktivní");
     expect(elements.popupProtectionMobile.textContent).toBe("Aktivní");
+  });
+
+  it("never reads or mutates local wanted state while hosted projection is active", () => {
+    const elements = {
+      heat: new FakeElement(),
+      stars: new FakeElement(),
+      popup: new FakeElement(),
+      popupHeat: new FakeElement(),
+      popupLevel: new FakeElement(),
+      popupTier: new FakeElement(),
+      popupDescription: new FakeElement(),
+      popupProtection: new FakeElement(),
+      popupAuditRisk: new FakeElement(),
+      popupLevels: new FakeElement(),
+      popupRiseList: new FakeElement(),
+      popupFallList: new FakeElement(),
+      popupFeedback: new FakeElement(),
+      dirty: new FakeElement(),
+      clean: new FakeElement(),
+      influence: new FakeElement(),
+      clear: new FakeElement(),
+      star: new FakeElement()
+    };
+    const root = new FakeRoot({
+      "[heat]": elements.heat,
+      "[stars]": elements.stars,
+      "[popup]": elements.popup,
+      "[popup-heat]": elements.popupHeat,
+      "[popup-level]": elements.popupLevel,
+      "[popup-tier]": elements.popupTier,
+      "[popup-description]": elements.popupDescription,
+      "[popup-protection]": elements.popupProtection,
+      "[popup-audit]": elements.popupAuditRisk,
+      "[popup-levels]": elements.popupLevels,
+      "[popup-rise]": elements.popupRiseList,
+      "[popup-fall]": elements.popupFallList,
+      "[popup-feedback]": elements.popupFeedback,
+      "[dirty]": elements.dirty,
+      "[clean]": elements.clean,
+      "[influence]": elements.influence,
+      "[clear]": elements.clear
+    }, {
+      "[star]": [elements.star],
+      "[close]": []
+    });
+    globalThis.document = { addEventListener: vi.fn() };
+    const getResolvedEconomyState = vi.fn(() => {
+      throw new Error("hosted must not read local economy");
+    });
+    const getResolvedDistrictPoliceActions = vi.fn(() => {
+      throw new Error("hosted must not read local police actions");
+    });
+    const syncGangHeatDecay = vi.fn(() => {
+      throw new Error("hosted must not run local heat decay");
+    });
+    const normalizeGangHeatJournal = vi.fn(() => {
+      throw new Error("hosted must not read local heat journal");
+    });
+    const renderWantedPanel = vi.fn();
+    const onDirtyAction = vi.fn();
+    const onClearLog = vi.fn();
+    const renderWantedFeedback = vi.fn();
+    const runtime = createGangWantedStatusRuntime({
+      cleanActionCost: 10_000,
+      dirtyActionCost: 2_500,
+      influenceActionCost: 50,
+      gangHeatTiers: [{ id: 2, label: "Tier 2", title: "Podezřelý" }],
+      getServerPlayerView: () => ({
+        economy: { cleanCash: 99_000, dirtyCash: 88_000, influence: 77 },
+        police: {
+          heat: 42,
+          wantedLevel: 2,
+          wantedLevelLabel: "2 / 5",
+          protection: { raidConsequenceMultiplier: 1, sources: [] }
+        }
+      }),
+      getResolvedDistrictPoliceActions,
+      getResolvedEconomyState,
+      isServerAuthoritativeMode: () => true,
+      normalizeGangHeatJournal,
+      onClearLog,
+      onDirtyAction,
+      renderHeatBadge: vi.fn(),
+      renderWantedFeedback,
+      renderWantedPanel,
+      resolveGangHeatTier: () => ({ id: 2, label: "Tier 2", title: "Podezřelý", description: "Policie sleduje provoz." }),
+      resolvePoliceHeatFeedback: () => ({ riskKey: "medium" }),
+      syncGangHeatDecay,
+      selectors: {
+        cleanAction: "[clean]",
+        clearLog: "[clear]",
+        dirtyAction: "[dirty]",
+        influenceAction: "[influence]",
+        gangHeat: "[heat]",
+        gangStar: "[star]",
+        gangStars: "[stars]",
+        popup: "[popup]",
+        popupAuditRisk: "[popup-audit]",
+        popupClose: "[close]",
+        popupDescription: "[popup-description]",
+        popupFeedback: "[popup-feedback]",
+        popupFallList: "[popup-fall]",
+        popupHeat: "[popup-heat]",
+        popupLevel: "[popup-level]",
+        popupLevels: "[popup-levels]",
+        popupProtection: "[popup-protection]",
+        popupRiseList: "[popup-rise]",
+        popupTier: "[popup-tier]"
+      }
+    });
+
+    expect(runtime.bindGangWantedStatus(root)).toBe(true);
+    expect(renderWantedPanel).toHaveBeenCalledWith(expect.objectContaining({
+      heat: 42,
+      heatLabel: "42",
+      levelLabel: "2 / 5",
+      protectionLabel: "Bez ochrany",
+      auditRiskLabel: "—",
+      riseEmptyText: "—",
+      fallEmptyText: "—",
+      dirtyActionDisabled: true,
+      cleanActionDisabled: true,
+      influenceActionDisabled: true,
+      clearLogDisabled: true
+    }), expect.any(Object));
+    expect(getResolvedEconomyState).not.toHaveBeenCalled();
+    expect(getResolvedDistrictPoliceActions).not.toHaveBeenCalled();
+    expect(syncGangHeatDecay).not.toHaveBeenCalled();
+    expect(normalizeGangHeatJournal).not.toHaveBeenCalled();
+
+    elements.dirty.dispatch("click");
+    elements.clear.dispatch("click");
+
+    expect(onDirtyAction).not.toHaveBeenCalled();
+    expect(onClearLog).not.toHaveBeenCalled();
+    expect(renderWantedFeedback).toHaveBeenCalledWith(
+      elements.popupFeedback,
+      "warning",
+      "Akce není v autoritativním serverovém modelu dostupná."
+    );
   });
 });

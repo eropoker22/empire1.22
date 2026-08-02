@@ -183,6 +183,7 @@ export function showDistrictPopupModal(element) {
     return false;
   }
 
+  delete element.dataset.districtPopupHandoff;
   bindMobileDistrictPopupBackgroundScroll(element);
   if (!isOverlayElementOpen(element)) {
     openOverlay(element, {
@@ -202,13 +203,20 @@ export function hideDistrictPopupModal(element, options = {}) {
     return false;
   }
 
+  if (options.preserveDistrictSelection === true) {
+    element.dataset.districtPopupHandoff = "building-detail";
+  } else {
+    delete element.dataset.districtPopupHandoff;
+  }
   element.hidden = true;
   if (options.suppressMapInput === false) {
     closeOverlay(element, { restoreFocus: false, suppressMapInput: false });
   } else {
     closeOverlay(element, { restoreFocus: false });
   }
-  dispatchDistrictPopupClosed(element);
+  if (options.preserveDistrictSelection !== true) {
+    dispatchDistrictPopupClosed(element);
+  }
   return true;
 }
 

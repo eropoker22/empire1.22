@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createServerBuildingActionExecutionPresentation,
   LocalDemoBuildingPresentationAdapter,
+  resolveSharedBuildingBackgroundImagePath,
   ServerBuildingPresentationAdapter
 } from "../../page-assets/js/app/runtime/buildingPresentationAdapters.js";
 import { createServerDistrictActionPresentation } from "../../page-assets/js/app/runtime/serverDistrictActionPresentation.js";
@@ -30,7 +31,11 @@ function createServerBuildingDetail({
   displayName = baseName,
   actions = [],
   maxLevel = 1,
+  ownedCount = null,
   passive = null,
+  populationBuffer = null,
+  playerState = {},
+  policeState = null,
   stats = []
 }) {
   const serverBuilding = {
@@ -41,7 +46,13 @@ function createServerBuildingDetail({
     level: 2,
     maxLevel,
     status: "active",
-    presentation: passive ? { passive } : null,
+    presentation: passive || ownedCount !== null || populationBuffer
+      ? {
+          ...(ownedCount !== null ? { ownedCount } : {}),
+          ...(passive ? { passive } : {}),
+          ...(populationBuffer ? { populationBuffer } : {})
+        }
+      : null,
     stats,
     actions
   };
@@ -52,7 +63,8 @@ function createServerBuildingDetail({
         stateVersion: 7
       },
       mode: { tickRateMs: 10_000 },
-      player: { playerId: "player:1", dayNight: { phaseId: "day" } },
+      player: { playerId: "player:1", dayNight: { phaseId: "day" }, ...playerState },
+      ...(policeState ? { police: policeState } : {}),
       district: {
         districtId: "district:21",
         ownerPlayerId: "player:1",
@@ -326,6 +338,55 @@ describe("shared building presentation adapters", () => {
     });
   });
 
+  it("keeps authoritative input requirements out of the shared card and applies demo defaults", () => {
+    const requiredInputs = [
+      {
+        id: "targetCategory",
+        type: "select",
+        label: "Kategorie marketu",
+        required: true,
+        options: [{ value: "materials", label: "Materials" }]
+      },
+      {
+        id: "investmentCleanCash",
+        type: "number",
+        label: "Investice",
+        required: true,
+        min: 1
+      }
+    ];
+    const detail = createServerBuildingDetail({
+      baseName: "Burza",
+      buildingTypeId: "stock_exchange",
+      actions: [{
+        actionId: "speculative_buy",
+        label: "Spekulativní nákup",
+        enabled: true,
+        requiresInput: requiredInputs
+      }]
+    });
+    const action = detail.viewModel.actions.find(
+      (candidate) => candidate.actionId === "speculative_buy"
+    );
+
+    expect(action.requiresInput).toEqual([]);
+    expect(action.serverAction.requiredInputs).toEqual(requiredInputs);
+
+    const execution = createServerBuildingActionExecutionPresentation({
+      action,
+      context: {
+        district: { id: 82 },
+        displayName: "Burza"
+      }
+    });
+    expect(execution.inputValues).toEqual({
+      targetCategory: "materials",
+      investmentCleanCash: 1000
+    });
+    expect(execution.confirmation.inputSummary).toContain("Kategorie: materials");
+    expect(execution.confirmation.inputSummary).toContain("Investice:");
+  });
+
   it.each([
     ["Herna", "arcade", "arcade"],
     ["Bytový blok", "apartment_block", "apartment-block"],
@@ -373,6 +434,262 @@ describe("shared building presentation adapters", () => {
         "Vliv +80/den"
       ])
     );
+  });
+
+  it("uses authoritative owned count instead of parsing visible stat labels", () => {
+    const detail = createServerBuildingDetail({
+      baseName: "Herna",
+      buildingTypeId: "arcade",
+      ownedCount: 2,
+      stats: [
+        { label: "Vlastněné herny", value: "9/16" },
+        { label: "Kapacita praní", value: "$3800" },
+        { label: "Audit risk", value: "3 %" }
+      ]
+    });
+
+    expect(detail.viewModel.countLabel).toBe("Počet: 2");
+    expect(detail.viewModel.stats).toContainEqual({
+      label: "Herny",
+      value: "2/16"
+    });
+  });
+
+  it("derives Casino audit risk from canonical authoritative police Heat", () => {
+    const detail = createServerBuildingDetail({
+      baseName: "Kasino",
+      buildingTypeId: "casino",
+      playerState: {
+        heat: 0,
+        policeHeat: 0,
+        police: { heat: 101 }
+      },
+      policeState: { heat: 180 }
+    });
+
+    expect(detail.viewModel.stats).toContainEqual({
+      label: "Audit risk",
+      value: "18 %"
+    });
+  });
+
+  it("preserves canonical zero Heat over stale legacy aliases", () => {
+    const detail = createServerBuildingDetail({
+      baseName: "Kasino",
+      buildingTypeId: "casino",
+      playerState: {
+        heat: 180,
+        policeHeat: 180,
+        police: { heat: 0 }
+      },
+      policeState: { heat: 180 }
+    });
+
+    expect(detail.viewModel.stats).toContainEqual({
+      label: "Audit risk",
+      value: "8 %"
+    });
+  });
+
+  it("maps canonical shopping mall discount labels without preserving projection signs", () => {
+    const detail = createServerBuildingDetail({
+      baseName: "Obchodní centrum",
+      buildingTypeId: "shopping_mall",
+      stats: [
+        { label: "Běžný market", value: "-2 %" },
+        { label: "Černý market", value: "-0.8 %" },
+        { label: "Market poplatek", value: "-5 %" }
+      ]
+    });
+
+    expect(detail.viewModel.stats).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "Market", value: "2% běžný / 0.8% černý" }),
+      expect.objectContaining({ label: "Poplatky", value: "5% nižší" })
+    ]));
+  });
+
+  it("keeps canonical power station action copy while applying authoritative costs", () => {
+    const detail = createServerBuildingDetail({
+      baseName: "Energetická stanice",
+      buildingTypeId: "power_station",
+      actions: [
+        {
+          actionId: "backup_grid_switch",
+          label: "Přepnutí na záložní síť",
+          enabled: true,
+          inputSummary: "3500 Cash",
+          effectiveInputCost: { cash: 3500 },
+          outputSummary: "Bez výstupu",
+          effectiveOutputGain: {},
+          cooldownMs: 60 * 60 * 1000
+        },
+        {
+          actionId: "power_station_feed_production",
+          label: "Napájet výrobu",
+          enabled: true,
+          inputSummary: "Zdarma",
+          effectiveInputCost: {},
+          outputSummary: "2000 Cash · 500 Dirty Cash",
+          effectiveOutputGain: { cash: 2000, "dirty-cash": 500 },
+          heatGain: 10,
+          cooldownMs: 60 * 60 * 1000
+        },
+        {
+          actionId: "power_station_reduce_heat",
+          label: "Snížit heat",
+          enabled: true,
+          inputSummary: "Zdarma",
+          effectiveInputCost: {},
+          outputSummary: "Bez výstupu",
+          effectiveOutputGain: {},
+          heatGain: -20,
+          cooldownMs: 60 * 60 * 1000
+        }
+      ]
+    });
+
+    expect(detail.viewModel.actions[0].buttonCostLabel).toBe("$3500 clean cash");
+    expect(detail.viewModel.actions[1].buttonCostLabel).toBe("");
+    expect(detail.viewModel.actions[1].rewardSummary).toContain("Clean +$2000");
+    expect(detail.viewModel.actions[1].rewardSummary).not.toContain("Zdarma");
+    expect(detail.viewModel.actions[2].buttonCostLabel).toBe("");
+    expect(detail.viewModel.actions[2].rewardSummary).toContain("Heat -20");
+  });
+
+  it("uses precise authoritative population buffers for apartment and convenience cards", () => {
+    const apartment = createServerBuildingDetail({
+      baseName: "Bytový blok",
+      buildingTypeId: "apartment_block",
+      populationBuffer: {
+        storedAmount: 14 / 30,
+        capacity: 50,
+        productionPerMinute: 2,
+        timeToFullMs: 1_490_000
+      },
+      stats: [
+        { label: "Vlastněné bloky", value: "1/29" },
+        { label: "Produkce bytů", value: "+0 %" },
+        { label: "Kapacita bytů", value: "+0 %" }
+      ]
+    });
+    const convenience = createServerBuildingDetail({
+      baseName: "Večerka",
+      buildingTypeId: "convenience_store",
+      populationBuffer: {
+        storedAmount: 0,
+        capacity: 50,
+        productionPerMinute: 50 / 60,
+        timeToFullMs: 3_600_000
+      },
+      stats: [{ label: "Vlastněné večerky", value: "1/17" }]
+    });
+
+    expect(apartment.viewModel.mechanics).toContainEqual(expect.objectContaining({
+      label: "Lokální zásobník",
+      value: "0/50",
+      tone: "collect-pending"
+    }));
+    expect(apartment.viewModel.effects.map((effect) => effect.text)).toEqual(
+      expect.arrayContaining(["Populace +2.00/min", "Naplnění za 24m 50s"])
+    );
+    expect(convenience.viewModel.mechanics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "Lokální zásobník", value: "0/50" }),
+      expect.objectContaining({ label: "Populace", value: "+50 obyv./hod" })
+    ]));
+    expect(convenience.viewModel.effects.map((effect) => effect.text)).toContain(
+      "Populace +0.83/min"
+    );
+  });
+
+  it("maps recruitment and car dealer support from their canonical stat labels", () => {
+    const recruitment = createServerBuildingDetail({
+      baseName: "Rekrutační centrum",
+      buildingTypeId: "recruitment_center",
+      stats: [
+        { label: "Produkce bytů", value: "+3 %" },
+        { label: "Kapacita bytů", value: "+4 %" },
+        { label: "Síla útočných zbraní", value: "+2 %" },
+        { label: "Síla obranných itemů", value: "+1.5 %" },
+        { label: "Kamery/alarmy", value: "+1.5 %" },
+        { label: "Cap kamer/alarmu", value: "max +50 %" }
+      ]
+    });
+    const carDealer = createServerBuildingDetail({
+      baseName: "Autosalon",
+      buildingTypeId: "car_dealer",
+      stats: [
+        { label: "Zkrácení čekání", value: "-1.5 %" },
+        { label: "Šance úniku", value: "+2 %" },
+        { label: "Cap garáž + autosalon", value: "-20 %" }
+      ]
+    });
+
+    expect(recruitment.viewModel.effects.map((effect) => effect.text)).toContain(
+      "Kamery/alarmy +1.5 %"
+    );
+    expect(carDealer.viewModel.mechanics.map((row) => `${row.label}${row.value}`)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("o 1.5%."),
+        expect.stringContaining("přidá +2%")
+      ])
+    );
+  });
+
+  it("preserves the authoritative street dealer sale view for shared controls", () => {
+    const dealerSale = {
+      phase: "day",
+      phaseStatusLabel: "DEN: heat +30 %, riziko +10 p. b.",
+      slotCount: 3,
+      slots: [{
+        slotId: "slot-1",
+        label: "Neon Dust",
+        itemId: "neon-dust",
+        itemLabel: "Neon Dust",
+        ownedAmount: 60,
+        unitSalePriceDirtyCash: 625,
+        minimumAmountPerSale: 10,
+        locked: false,
+        statusLabel: ""
+      }],
+      items: [{
+        itemId: "neon-dust",
+        label: "Neon Dust",
+        ownedAmount: 60,
+        unitSalePriceDirtyCash: 625,
+        minimumAmountPerSale: 10
+      }]
+    };
+    const detail = createServerBuildingDetail({
+      baseName: "Pouliční dealeři",
+      buildingTypeId: "street_dealers",
+      actions: [{
+        actionId: "start_drug_sale",
+        label: "Spustit prodej",
+        enabled: true,
+        disabledReason: null,
+        dealerSale
+      }]
+    });
+    const action = detail.viewModel.actions.find(
+      (candidate) => candidate.actionId === "start_drug_sale"
+    );
+
+    expect(action?.dealerSale).toEqual(dealerSale);
+    expect(action?.dealerSale?.slots[0]).toMatchObject({
+      ownedAmount: 60,
+      unitSalePriceDirtyCash: 625,
+      minimumAmountPerSale: 10
+    });
+  });
+
+  it("prefers the canonical shared background over an adapter fallback", () => {
+    expect(resolveSharedBuildingBackgroundImagePath({
+      canonicalBackgroundImagePath: "../img/dizajn/BUILDINGS/ARCADE/arcade-03.png",
+      presentationBackgroundImagePath: "../img/buildings/arcade.png"
+    })).toBe("../img/dizajn/BUILDINGS/ARCADE/arcade-03.png");
+    expect(resolveSharedBuildingBackgroundImagePath({
+      presentationBackgroundImagePath: "../img/buildings/unknown.png"
+    })).toBe("../img/buildings/unknown.png");
   });
 
   it("lets the authoritative action override a disabled presentation placeholder", () => {
@@ -475,5 +792,44 @@ describe("server district action presentation", () => {
       label: "Vykrást district"
     });
     expect(actions.filter((action) => action.id === "spy")).toHaveLength(1);
+  });
+
+  it("keeps hosted trap stacked while target actions match the demo button presentation", () => {
+    const actions = createServerDistrictActionPresentation({
+      district: {
+        districtId: "district:21",
+        targetActions: {
+          attackTargets: [],
+          spyTargets: [{
+            districtId: "district:21",
+            name: "District 21",
+            enabled: true,
+            disabledReason: null
+          }],
+          occupyTargets: [],
+          robTargets: [],
+          heistTargets: []
+        },
+        placeDefense: null,
+        removeDefense: null,
+        trap: {
+          enabled: true,
+          disabledReason: null,
+          activeTrap: null,
+          relocationCooldownRemainingTicks: 0,
+          relocationSource: null
+        }
+      }
+    }, "district:21");
+
+    expect(actions.find((action) => action.id === "trap")).toMatchObject({
+      stacked: true,
+      title: "Nastraž 1 past do svého districtu.",
+      trapState: "idle"
+    });
+    expect(actions.find((action) => action.id === "spy")).toMatchObject({
+      stacked: false,
+      subtitle: ""
+    });
   });
 });

@@ -1,33 +1,88 @@
 /* @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
+  GameCommand,
   GameplaySliceResponse,
   GameplaySliceView,
   LoadGameplaySliceRequest
 } from "@empire/shared-types";
-import { closeOverlay, isOverlayOpen, openOverlay, resetOverlayStateForTests } from "../../../apps/client/src/modals";
 import { mountGameplaySlicePage } from "../../../apps/client/src/browser/gameplay-slice-page";
 
-const createGameplaySliceResponse = (): GameplaySliceResponse => ({
-  accepted: true,
-  readModel: createGameplaySliceView(),
-  errors: []
-} as unknown as GameplaySliceResponse);
+const SERVER_INSTANCE_ID = "instance:free:eu-central:public-1";
+const PLAYER_ID = "player:test";
+const HOME_DISTRICT_ID = "district:spawn:1";
 
-const createGameplaySliceResponseForDistrict = (districtId: string): GameplaySliceResponse => ({
-  accepted: true,
-  readModel: createGameplaySliceViewWithDistrict(districtId),
-  errors: []
-} as unknown as GameplaySliceResponse);
-
-const createDistrictPanelFixture = (districtId: string): GameplaySliceView["district"] =>
-  ({
+const createGameplaySliceView = (districtId = HOME_DISTRICT_ID): GameplaySliceView => ({
+  server: {
+    serverInstanceId: SERVER_INSTANCE_ID,
+    mode: "free",
+    status: "running",
+    currentTick: 1,
+    stateVersion: 1,
+    selectedDistrictId: districtId,
+    generatedAt: "2025-01-01T00:00:00.000Z"
+  },
+  mode: {
+    mode: "free",
+    label: "Empire Streets Free",
+    matchStyle: "short",
+    tickRateMs: 10_000,
+    sessionKeyPrefix: "empire:free"
+  },
+  player: {
+    playerId: PLAYER_ID,
+    instanceId: SERVER_INSTANCE_ID,
+    mode: "free",
+    factionId: "mafian",
+    homeDistrictId: HOME_DISTRICT_ID,
+    color: "#ff6b35",
+    serverTime: "2025-01-01T00:00:00.000Z",
+    resourceBalances: {},
+    economy: {
+      cleanCash: 100,
+      dirtyCash: 20,
+      influence: 3,
+      population: 4,
+      gangMembers: 2,
+      resources: {},
+      materials: {},
+      drugs: {},
+      weapons: {}
+    },
+    notifications: [],
+    victoryState: null
+  },
+  commandHints: {
+    selectedDistrictId: districtId,
+    availableBuildingActionCount: 0,
+    availableSpyTargetCount: 0,
+    availableAttackTargetCount: 0,
+    availableOccupyTargetCount: 0,
+    cooldowns: [],
+    disabledReasons: []
+  },
+  districts: [],
+  reports: [{
+    reportId: "report:1",
+    reportType: "building-action",
+    result: "success",
+    tick: 1,
+    districtId,
+    buildingId: "building:1",
+    buildingActionId: "test-action",
+    outputGain: {},
+    inputCost: {},
+    heatGain: 0,
+    influenceChange: 0
+  }],
+  district: {
     districtId,
     name: `District ${districtId}`,
     zone: "downtown",
     status: "claimed",
-    ownerPlayerId: null,
-    isOwnedByPlayer: false,
+    ownerPlayerId: PLAYER_ID,
+    isOwnedByPlayer: true,
+    intelKnown: true,
     heat: 0,
     influence: 0,
     slotCount: 0,
@@ -35,94 +90,21 @@ const createDistrictPanelFixture = (districtId: string): GameplaySliceView["dist
     buildings: [],
     slots: [],
     attackTargets: [],
+    robTargets: [],
+    heistTargets: [],
     spyTargets: [],
     occupyTargets: [],
     trap: null
-  } as unknown as GameplaySliceView["district"]);
+  },
+  spawnSelection: null,
+  gamePhase: "free_day"
+} as unknown as GameplaySliceView);
 
-const createGameplaySliceViewWithDistrict = (districtId: string): GameplaySliceView =>
-  ({
-    ...createGameplaySliceView(),
-    district: createDistrictPanelFixture(districtId),
-    server: {
-      ...createGameplaySliceView().server,
-      selectedDistrictId: districtId
-    },
-    commandHints: {
-      ...createGameplaySliceView().commandHints,
-      selectedDistrictId: districtId
-    }
-  } as unknown as GameplaySliceView);
-
-const createGameplaySliceView = (): GameplaySliceView =>
-  ({
-    server: {
-      serverInstanceId: "instance:free:eu-central:public-1",
-      mode: "free",
-      currentTick: 1,
-      stateVersion: 1,
-      selectedDistrictId: "district:spawn:1",
-      generatedAt: "2025-01-01T00:00:00.000Z"
-    },
-    mode: {
-      mode: "free",
-      label: "Empire Streets Free",
-      matchStyle: "short",
-      tickRateMs: 10_000,
-      sessionKeyPrefix: "empire:free"
-    },
-    player: {
-      playerId: "player:test",
-      instanceId: "instance:free:eu-central:public-1",
-      mode: "free",
-      factionId: "mafian",
-      homeDistrictId: "district:spawn:1",
-      color: "#ff6b35",
-      serverTime: "2025-01-01T00:00:00.000Z",
-      resourceBalances: {},
-      economy: {
-        cleanCash: 0,
-        dirtyCash: 0,
-        influence: 0,
-        population: 0,
-        gangMembers: 0,
-        resources: {},
-        materials: {},
-        drugs: {},
-        weapons: {}
-      },
-      notifications: [],
-      victoryState: null
-    },
-    commandHints: {
-      selectedDistrictId: null,
-      availableBuildingActionCount: 0,
-      availableSpyTargetCount: 0,
-      availableAttackTargetCount: 0,
-      availableOccupyTargetCount: 0,
-      cooldowns: [],
-      disabledReasons: []
-    },
-    districts: [],
-    reports: [],
-    district: null,
-    spawnSelection: {
-      status: "awaiting_spawn_selection",
-      districts: [
-        {
-          districtId: "district:spawn:2",
-          districtName: "Neon Park",
-          districtType: "downtown",
-          buildingType: "pharmacy",
-          neighborCount: 4,
-          status: "available",
-          ownerPublicName: null
-        }
-      ],
-      selectedByPlayer: null
-    },
-    gamePhase: "free_day"
-  } as unknown as GameplaySliceView);
+const createGameplaySliceResponse = (districtId = HOME_DISTRICT_ID): GameplaySliceResponse => ({
+  accepted: true,
+  readModel: createGameplaySliceView(districtId),
+  errors: []
+} as unknown as GameplaySliceResponse);
 
 const flushMicrotasks = async (): Promise<void> => {
   await Promise.resolve();
@@ -130,123 +112,117 @@ const flushMicrotasks = async (): Promise<void> => {
 };
 
 const createRoot = (): HTMLElement => {
-  const root = document.createElement("div");
+  const root = document.createElement("section");
   root.dataset.gameplaySliceClient = "true";
-  root.dataset.serverInstanceId = "instance:free:eu-central:public-1";
-  root.dataset.playerId = "player:test";
+  root.dataset.serverInstanceId = SERVER_INSTANCE_ID;
+  root.dataset.playerId = PLAYER_ID;
+  root.dataset.districtId = HOME_DISTRICT_ID;
   root.dataset.factionId = "mafian";
+  root.append(document.createElement("div"));
   return root;
 };
 
-describe("gameplay slice page event guard", () => {
+describe("headless gameplay slice page", () => {
   afterEach(() => {
     vi.useRealTimers();
-    while (isOverlayOpen()) {
-      closeOverlay("test:cleanup");
-    }
-
-    resetOverlayStateForTests();
     document.body.innerHTML = "";
-    document.body.style.overflow = "";
+    delete document.body.dataset.cityPhase;
     vi.restoreAllMocks();
   });
 
-  it("repeated mount on the same root reuses one authority runtime", async () => {
+  it("reuses one hidden controller and publishes structured authoritative state", async () => {
     const load = vi.fn(async () => createGameplaySliceResponse());
-    const transport = {
-      load,
-      send: async () => createGameplaySliceResponse()
-    };
     const root = createRoot();
-    document.body.append(root);
-
-    const first = mountGameplaySlicePage({ root, transport });
-    const second = mountGameplaySlicePage({ root, transport });
-    await flushMicrotasks();
-
-    expect(second).toBe(first);
-    expect(load).toHaveBeenCalledTimes(1);
-
-    first?.destroy();
-  });
-
-  it("controller-only mode publishes server state without mounting a second visible surface", async () => {
-    Reflect.deleteProperty(window, "EmpireModalScrollLock");
-    document.body.style.overflow = "auto";
-    const load = vi.fn(async (request: LoadGameplaySliceRequest) => (
-      request.districtId
-        ? createGameplaySliceResponseForDistrict(request.districtId)
-        : createGameplaySliceResponse()
-    ));
-    const root = createRoot();
-    root.dataset.gameplaySlicePresentationMode = "controller-only";
-    const mapButton = document.createElement("button");
-    mapButton.dataset.districtId = "district:map:1";
-    root.append(mapButton);
     document.body.append(root);
     const rendered = vi.fn();
     document.addEventListener("empire:gameplay-slice-rendered", rendered);
 
-    const mounted = mountGameplaySlicePage({
-      root,
-      presentationMode: "controller-only",
-      transport: {
-        load,
-        send: async () => createGameplaySliceResponse()
-      }
-    });
-    await flushMicrotasks();
-
-    expect(root.hidden).toBe(true);
-    expect(root.dataset.gameplaySlicePresentationMode).toBe("controller-only");
-    expect(root.querySelector("[data-gameplay-slice-map]")?.childElementCount ?? 0).toBe(0);
-    expect(rendered).toHaveBeenCalledTimes(1);
-    expect(isOverlayOpen()).toBe(false);
-    expect(window.EmpireModalScrollLock).toBeUndefined();
-    expect(document.body.dataset.overlayScrollLocked).toBeUndefined();
-    expect(document.body.style.overflow).toBe("auto");
-
-    mapButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-    await flushMicrotasks();
-    expect(load).toHaveBeenCalledTimes(1);
-
-    await window.EmpireGameplaySliceClient?.selectDistrict("district:map:2");
-    await flushMicrotasks();
-    expect(load).toHaveBeenCalledTimes(2);
-    expect(root.hidden).toBe(true);
-    expect(rendered).toHaveBeenCalledTimes(2);
-    expect(isOverlayOpen()).toBe(false);
-
-    document.removeEventListener("empire:gameplay-slice-rendered", rendered);
-    mounted?.destroy();
-    document.body.style.overflow = "";
-  });
-
-  it("full presentation owns the modal scroll lock bridge until destroy", async () => {
-    Reflect.deleteProperty(window, "EmpireModalScrollLock");
-    const root = createRoot();
-    document.body.append(root);
-
-    const mounted = mountGameplaySlicePage({
+    const first = mountGameplaySlicePage({
       root,
       presentationMode: "full",
-      transport: {
-        load: async () => createGameplaySliceResponse(),
-        send: async () => createGameplaySliceResponse()
-      }
+      transport: { load, send: async () => createGameplaySliceResponse() }
+    });
+    const second = mountGameplaySlicePage({
+      root,
+      transport: { load, send: async () => createGameplaySliceResponse() }
     });
     await flushMicrotasks();
 
-    const bridge = window.EmpireModalScrollLock;
-    expect(bridge).toBeDefined();
-    expect(bridge?.lock(document)).toBe(true);
-    expect(document.body.dataset.overlayScrollLocked).toBe("true");
+    const state = window.EmpireGameplaySliceClient?.getCurrentRenderState();
+    expect(second).toBe(first);
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(root.hidden).toBe(true);
+    expect(root.childElementCount).toBe(0);
+    expect(root.dataset.gameplaySlicePresentationMode).toBe("controller-only");
+    expect(state).toMatchObject({
+      topBarHtml: "",
+      mapHtml: "",
+      sidePanelHtml: "",
+      player: { playerId: PLAYER_ID },
+      districtPanel: { districtId: HOME_DISTRICT_ID },
+      connection: { status: "ready" }
+    });
+    expect(state?.reports).toHaveLength(1);
+    expect(rendered).toHaveBeenCalledTimes(1);
 
+    document.removeEventListener("empire:gameplay-slice-rendered", rendered);
+    first?.destroy();
+  });
+
+  it("routes a shared visible district control through the headless selector", async () => {
+    const load = vi.fn(async (request: LoadGameplaySliceRequest) =>
+      createGameplaySliceResponse(request.districtId || HOME_DISTRICT_ID));
+    const root = createRoot();
+    const sharedButton = document.createElement("button");
+    sharedButton.dataset.districtId = "district:map:2";
+    document.body.append(root, sharedButton);
+    const mounted = mountGameplaySlicePage({
+      root,
+      transport: { load, send: async () => createGameplaySliceResponse() }
+    });
+    await flushMicrotasks();
+
+    const state = await window.EmpireGameplaySliceClient?.handleSurfaceAction(sharedButton);
+
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(state?.districtPanel?.districtId).toBe("district:map:2");
+    expect(window.EmpireGameplaySliceClient?.getCurrentReadModel()?.district?.districtId)
+      .toBe("district:map:2");
     mounted?.destroy();
+  });
 
-    expect(window.EmpireModalScrollLock).toBeUndefined();
-    expect(document.body.dataset.overlayScrollLocked).toBeUndefined();
-    expect(isOverlayOpen()).toBe(false);
+  it("submits typed commands and returns server-confirmed state", async () => {
+    const send = vi.fn(async () => createGameplaySliceResponse());
+    const root = createRoot();
+    document.body.append(root);
+    const mounted = mountGameplaySlicePage({
+      root,
+      transport: { load: async () => createGameplaySliceResponse(), send }
+    });
+    await flushMicrotasks();
+    const command = {
+      id: "command:trap:1",
+      type: "place-trap",
+      mode: "free",
+      playerId: PLAYER_ID,
+      serverInstanceId: SERVER_INSTANCE_ID,
+      issuedAt: "2025-01-01T00:00:00.000Z",
+      clientRequestId: null,
+      payload: { districtId: HOME_DISTRICT_ID }
+    } as GameCommand;
+
+    const result = await window.EmpireGameplaySliceClient?.submitCommand(command);
+
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({
+      command,
+      focusDistrictId: HOME_DISTRICT_ID
+    }));
+    expect(result).toMatchObject({
+      accepted: true,
+      transportFailure: false,
+      readModel: { player: { playerId: PLAYER_ID } }
+    });
+    mounted?.destroy();
   });
 
   it("polls the requested district while its selection response is pending", async () => {
@@ -255,28 +231,21 @@ describe("gameplay slice page event guard", () => {
     let resolveSelection!: (response: GameplaySliceResponse) => void;
     const load = vi.fn(async (request: LoadGameplaySliceRequest) => {
       requests.push({ ...request });
-      if (requests.length === 1) {
-        return createGameplaySliceResponse();
-      }
+      if (requests.length === 1) return createGameplaySliceResponse();
       if (requests.length === 2) {
         return new Promise<GameplaySliceResponse>((resolve) => {
           resolveSelection = resolve;
         });
       }
-      return createGameplaySliceResponseForDistrict(request.districtId || "district:spawn:1");
+      return createGameplaySliceResponse(request.districtId || HOME_DISTRICT_ID);
     });
     const root = createRoot();
     root.dataset.gameplaySlicePolling = "true";
     root.dataset.gameplaySlicePollingIntervalMs = "10";
     document.body.append(root);
-
     const mounted = mountGameplaySlicePage({
       root,
-      presentationMode: "controller-only",
-      transport: {
-        load,
-        send: async () => createGameplaySliceResponse()
-      }
+      transport: { load, send: async () => createGameplaySliceResponse() }
     });
     await flushMicrotasks();
 
@@ -289,517 +258,25 @@ describe("gameplay slice page event guard", () => {
       "district:map:2",
       "district:map:2"
     ]);
-
-    resolveSelection(createGameplaySliceResponseForDistrict("district:map:2"));
+    resolveSelection(createGameplaySliceResponse("district:map:2"));
     await selection;
-    expect(window.EmpireGameplaySliceClient?.getCurrentReadModel()?.district?.districtId)
-      .toBe("district:map:2");
     mounted?.destroy();
   });
 
-  it("backs off resolved transport failures and resets after recovery", async () => {
-    vi.useFakeTimers();
-    let loadCount = 0;
-    const load = vi.fn(async () => {
-      loadCount += 1;
-      if (loadCount === 2) {
-        throw new Error("socket unavailable");
-      }
-      return createGameplaySliceResponse();
-    });
-    const connectionStatuses: string[] = [];
-    const handleConnectionState = (event: Event) => {
-      connectionStatuses.push((event as CustomEvent<{ status: string }>).detail.status);
-    };
-    document.addEventListener("empire:gameplay-connection-state", handleConnectionState);
-    const root = createRoot();
-    root.dataset.gameplaySlicePolling = "true";
-    root.dataset.gameplaySlicePollingIntervalMs = "10";
-    document.body.append(root);
-
-    const mounted = mountGameplaySlicePage({
-      root,
-      presentationMode: "controller-only",
-      transport: {
-        load,
-        send: async () => createGameplaySliceResponse()
-      }
-    });
-    await flushMicrotasks();
-
-    expect(load).toHaveBeenCalledTimes(1);
-    await vi.advanceTimersByTimeAsync(10);
-    await flushMicrotasks();
-    expect(load).toHaveBeenCalledTimes(2);
-    expect(connectionStatuses).toContain("stale");
-
-    await vi.advanceTimersByTimeAsync(10);
-    await flushMicrotasks();
-    expect(load).toHaveBeenCalledTimes(2);
-
-    await vi.advanceTimersByTimeAsync(10);
-    await flushMicrotasks();
-    expect(load).toHaveBeenCalledTimes(3);
-
-    await vi.advanceTimersByTimeAsync(10);
-    await flushMicrotasks();
-    expect(load).toHaveBeenCalledTimes(4);
-
-    document.removeEventListener("empire:gameplay-connection-state", handleConnectionState);
-    mounted?.destroy();
-  });
-
-  it("pagehide cleans the mounted authority runtime before a later remount", async () => {
+  it("pagehide destroys the controller before a later remount", async () => {
     const load = vi.fn(async () => createGameplaySliceResponse());
-    const transport = {
-      load,
-      send: async () => createGameplaySliceResponse()
-    };
+    const transport = { load, send: async () => createGameplaySliceResponse() };
     const root = createRoot();
     document.body.append(root);
-
     const first = mountGameplaySlicePage({ root, transport });
     await flushMicrotasks();
-    window.dispatchEvent(new Event("pagehide"));
 
+    window.dispatchEvent(new Event("pagehide"));
     const second = mountGameplaySlicePage({ root, transport });
     await flushMicrotasks();
 
     expect(second).not.toBe(first);
     expect(load).toHaveBeenCalledTimes(2);
     second?.destroy();
-  });
-
-  it("tap uvnitř mobile sheet neprojde na mapu ani sheet neuzavře", async () => {
-    const load = vi.fn(async () => createGameplaySliceResponse());
-    const root = createRoot();
-    const sheet = document.createElement("aside");
-    sheet.className = "mobile-sheet";
-    const mapButton = document.createElement("button");
-    mapButton.dataset.districtId = "district:1";
-    root.append(sheet, mapButton);
-    document.body.append(root);
-
-    const mounted = mountGameplaySlicePage({
-      root,
-      transport: {
-        load,
-        send: async () => createGameplaySliceResponse()
-      }
-    });
-    openOverlay("district_sheet");
-    await flushMicrotasks();
-
-    const blankInside = document.createElement("div");
-    blankInside.dataset.role = "inside-sheet";
-    sheet.append(blankInside);
-    blankInside.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 1, clientX: 0, clientY: 0 }));
-    blankInside.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-
-    expect(isOverlayOpen()).toBe(true);
-    expect(load).toHaveBeenCalledTimes(1);
-    mounted?.destroy();
-  });
-
-  it("tap v mobilním sheetu na akční tlačítko funguje", async () => {
-    const load = vi.fn(async () => createGameplaySliceResponse());
-    const send = vi.fn(async () => createGameplaySliceResponse());
-    const root = createRoot();
-    const sheet = document.createElement("aside");
-    sheet.className = "mobile-sheet";
-    const actionButton = document.createElement("button");
-    actionButton.dataset.selectSpawnDistrictId = "district:spawn:2";
-    actionButton.textContent = "Vybrat";
-    sheet.append(actionButton);
-    root.append(sheet);
-    document.body.append(root);
-
-    const mounted = mountGameplaySlicePage({
-      root,
-      transport: {
-        load,
-        send
-      }
-    });
-    await flushMicrotasks();
-
-    actionButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-    await flushMicrotasks();
-
-    expect(send).toHaveBeenCalledTimes(1);
-    mounted?.destroy();
-  });
-
-  it("tap uvnitř sheetu nepustí event na map button pod ním", async () => {
-    const load = vi.fn(async () => createGameplaySliceResponse());
-    const root = createRoot();
-    const sheet = document.createElement("aside");
-    sheet.className = "mobile-sheet";
-    const mapButton = document.createElement("button");
-    mapButton.dataset.districtId = "district:map:1";
-
-    root.append(sheet, mapButton);
-    document.body.append(root);
-    const mount = mountGameplaySlicePage({
-      root,
-      transport: {
-        load,
-        send: async () => createGameplaySliceResponse()
-      }
-    });
-    openOverlay("district_sheet");
-    await flushMicrotasks();
-
-    mapButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-    expect(load).toHaveBeenCalledTimes(1);
-    expect(isOverlayOpen()).toBe(true);
-
-    mount?.destroy();
-  });
-
-  it("validní tap mapy otevře district", async () => {
-    const load = vi.fn(async () => createGameplaySliceResponse());
-    const root = createRoot();
-    const mapButton = document.createElement("button");
-    mapButton.dataset.districtId = "district:map:1";
-    root.append(mapButton);
-    document.body.append(root);
-
-    const mounted = mountGameplaySlicePage({
-      root,
-      transport: {
-        load,
-        send: async () => createGameplaySliceResponse()
-      }
-    });
-    await flushMicrotasks();
-
-    mapButton.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 1, clientX: 0, clientY: 0 }));
-    mapButton.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerId: 1, clientX: 2, clientY: 2 }));
-    mapButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-    await flushMicrotasks();
-
-    expect(load).toHaveBeenCalledTimes(2);
-    mounted?.destroy();
-  });
-
-  it("rychlý dvojitý tap otevře jen jeden district sheet", async () => {
-    const load = vi.fn(async (request: LoadGameplaySliceRequest) => {
-      if (typeof request.districtId === "string") {
-        return createGameplaySliceResponseForDistrict(request.districtId);
-      }
-
-      return createGameplaySliceResponse();
-    });
-    const root = createRoot();
-    const mapButton = document.createElement("button");
-    mapButton.dataset.districtId = "district:map:1";
-    root.append(mapButton);
-    document.body.append(root);
-
-    const mounted = mountGameplaySlicePage({
-      root,
-      transport: {
-        load,
-        send: async () => createGameplaySliceResponse()
-      }
-    });
-    await flushMicrotasks();
-
-    mapButton.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 1, clientX: 0, clientY: 0 }));
-    mapButton.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerId: 1, clientX: 2, clientY: 2 }));
-    mapButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-
-    mapButton.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 2, clientX: 0, clientY: 0 }));
-    mapButton.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerId: 2, clientX: 2, clientY: 2 }));
-    mapButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-    await flushMicrotasks();
-
-    expect(load).toHaveBeenCalledTimes(2);
-    expect(document.querySelectorAll('[data-feature="district-panel"]').length).toBe(1);
-    mounted?.destroy();
-  });
-
-  it("tap na mapě během otevřeného sheetu neotevře další district", async () => {
-    const load = vi.fn(async (request: LoadGameplaySliceRequest) => {
-      if (typeof request.districtId === "string") {
-        return createGameplaySliceResponseForDistrict(request.districtId);
-      }
-
-      return createGameplaySliceResponse();
-    });
-    const root = createRoot();
-    const mapButton = document.createElement("button");
-    mapButton.dataset.districtId = "district:map:1";
-    root.append(mapButton);
-    document.body.append(root);
-
-    const mounted = mountGameplaySlicePage({
-      root,
-      transport: {
-        load,
-        send: async () => createGameplaySliceResponse()
-      }
-    });
-    await flushMicrotasks();
-
-    mapButton.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 1, clientX: 0, clientY: 0 }));
-    mapButton.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerId: 1, clientX: 2, clientY: 2 }));
-    mapButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-    await flushMicrotasks();
-
-    mapButton.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 2, clientX: 0, clientY: 0 }));
-    mapButton.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerId: 2, clientX: 2, clientY: 2 }));
-    mapButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-    await flushMicrotasks();
-
-    expect(load).toHaveBeenCalledTimes(2);
-    expect(document.querySelectorAll('[data-feature="district-panel"]').length).toBe(1);
-    expect(isOverlayOpen()).toBe(true);
-    mounted?.destroy();
-  });
-
-  it("legacy district close event zavře slice district sheet a uvolní scroll lock", async () => {
-    const load = vi.fn(async (request: LoadGameplaySliceRequest) => {
-      if (typeof request.districtId === "string") {
-        return createGameplaySliceResponseForDistrict(request.districtId);
-      }
-
-      return createGameplaySliceResponse();
-    });
-    const root = createRoot();
-    const mapButton = document.createElement("button");
-    mapButton.dataset.districtId = "district:map:1";
-    root.append(mapButton);
-    document.body.append(root);
-
-    const mounted = mountGameplaySlicePage({
-      root,
-      transport: {
-        load,
-        send: async () => createGameplaySliceResponse()
-      }
-    });
-    await flushMicrotasks();
-
-    mapButton.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 1, clientX: 0, clientY: 0 }));
-    mapButton.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerId: 1, clientX: 2, clientY: 2 }));
-    mapButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-    await flushMicrotasks();
-
-    expect(isOverlayOpen()).toBe(true);
-    expect(document.body.dataset.overlayScrollLocked).toBe("true");
-
-    document.dispatchEvent(new CustomEvent("empire:district-closed", {
-      detail: {
-        source: "legacy-district-popup"
-      }
-    }));
-    await flushMicrotasks();
-
-    expect(isOverlayOpen()).toBe(false);
-    expect(document.body.dataset.overlayScrollLocked).toBeUndefined();
-    expect(load).toHaveBeenCalledTimes(2);
-    expect(document.querySelector('[data-feature="district-panel"]')).toBeNull();
-    mounted?.destroy();
-  });
-
-  it("legacy district close bridge zavře slice district sheet i bez DOM eventu", async () => {
-    const load = vi.fn(async (request: LoadGameplaySliceRequest) => {
-      if (typeof request.districtId === "string") {
-        return createGameplaySliceResponseForDistrict(request.districtId);
-      }
-
-      return createGameplaySliceResponse();
-    });
-    const root = createRoot();
-    const mapButton = document.createElement("button");
-    mapButton.dataset.districtId = "district:map:1";
-    root.append(mapButton);
-    document.body.append(root);
-
-    const mounted = mountGameplaySlicePage({
-      root,
-      transport: {
-        load,
-        send: async () => createGameplaySliceResponse()
-      }
-    });
-    await flushMicrotasks();
-
-    mapButton.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 1, clientX: 0, clientY: 0 }));
-    mapButton.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerId: 1, clientX: 2, clientY: 2 }));
-    mapButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-    await flushMicrotasks();
-
-    expect(isOverlayOpen()).toBe(true);
-    expect(window.EmpireGameplaySliceClient?.closeDistrictSheet("legacy district popup closed")).toBe(true);
-    await flushMicrotasks();
-
-    expect(isOverlayOpen()).toBe(false);
-    expect(document.body.dataset.overlayScrollLocked).toBeUndefined();
-    expect(load).toHaveBeenCalledTimes(2);
-    expect(document.querySelector('[data-feature="district-panel"]')).toBeNull();
-    mounted?.destroy();
-  });
-
-  it("hidden legacy district popup mutation zavře slice district sheet", async () => {
-    const load = vi.fn(async (request: LoadGameplaySliceRequest) => {
-      if (typeof request.districtId === "string") {
-        return createGameplaySliceResponseForDistrict(request.districtId);
-      }
-
-      return createGameplaySliceResponse();
-    });
-    const legacyPopup = document.createElement("div");
-    legacyPopup.dataset.testid = "district-popup";
-    const root = createRoot();
-    const mapButton = document.createElement("button");
-    mapButton.dataset.districtId = "district:map:1";
-    root.append(mapButton);
-    document.body.append(legacyPopup, root);
-
-    const mounted = mountGameplaySlicePage({
-      root,
-      transport: {
-        load,
-        send: async () => createGameplaySliceResponse()
-      }
-    });
-    await flushMicrotasks();
-
-    mapButton.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 1, clientX: 0, clientY: 0 }));
-    mapButton.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerId: 1, clientX: 2, clientY: 2 }));
-    mapButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-    await flushMicrotasks();
-
-    expect(isOverlayOpen()).toBe(true);
-    legacyPopup.hidden = true;
-    await flushMicrotasks();
-
-    expect(isOverlayOpen()).toBe(false);
-    expect(document.body.dataset.overlayScrollLocked).toBeUndefined();
-    mounted?.destroy();
-  });
-
-  it("tap na jiný district při otevřeném sheetu nepřepíše obsah přes overlay", async () => {
-    const load = vi.fn(async (request: LoadGameplaySliceRequest) => {
-      if (typeof request.districtId === "string") {
-        return createGameplaySliceResponseForDistrict(request.districtId);
-      }
-
-      return createGameplaySliceResponse();
-    });
-    const root = createRoot();
-    const mapButton = document.createElement("button");
-    mapButton.dataset.districtId = "district:map:1";
-    root.append(mapButton);
-    document.body.append(root);
-
-    const mounted = mountGameplaySlicePage({
-      root,
-      transport: {
-        load,
-        send: async () => createGameplaySliceResponse()
-      }
-    });
-    await flushMicrotasks();
-
-    mapButton.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 1, clientX: 0, clientY: 0 }));
-    mapButton.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerId: 1, clientX: 2, clientY: 2 }));
-    mapButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-    await flushMicrotasks();
-
-    mapButton.dataset.districtId = "district:map:2";
-    mapButton.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 2, clientX: 0, clientY: 0 }));
-    mapButton.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerId: 2, clientX: 2, clientY: 2 }));
-    mapButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-    await flushMicrotasks();
-
-    expect(load).toHaveBeenCalledTimes(2);
-    expect(document.querySelectorAll('[data-feature="district-panel"]').length).toBe(1);
-    const districtPanel = document.querySelector('[data-feature="district-panel"]') as HTMLElement | null;
-    expect(districtPanel?.dataset.districtId).toBe("district:map:1");
-    mounted?.destroy();
-  });
-
-  it("ghost click po zavření overlaye neotevře district pod ním", async () => {
-    const load = vi.fn(async () => createGameplaySliceResponse());
-    const root = createRoot();
-    const mapButton = document.createElement("button");
-    mapButton.dataset.districtId = "district:map:1";
-    root.append(mapButton);
-    document.body.append(root);
-
-    const mounted = mountGameplaySlicePage({
-      root,
-      transport: {
-        load,
-        send: async () => createGameplaySliceResponse()
-      }
-    });
-    await flushMicrotasks();
-
-    openOverlay("district_sheet");
-    closeOverlay("test close");
-    const ghostClick = new MouseEvent("click", { bubbles: true, cancelable: true });
-    mapButton.dispatchEvent(ghostClick);
-    await flushMicrotasks();
-
-    expect(ghostClick.defaultPrevented).toBe(true);
-    expect(load).toHaveBeenCalledTimes(1);
-    mounted?.destroy();
-  });
-
-  it("drag mapy neotevře district", async () => {
-    const load = vi.fn(async () => createGameplaySliceResponse());
-    const root = createRoot();
-    const mapButton = document.createElement("button");
-    mapButton.dataset.districtId = "district:map:1";
-    root.append(mapButton);
-    document.body.append(root);
-
-    const mounted = mountGameplaySlicePage({
-      root,
-      transport: {
-        load,
-        send: async () => createGameplaySliceResponse()
-      }
-    });
-    await flushMicrotasks();
-
-    mapButton.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 1, clientX: 0, clientY: 0 }));
-    mapButton.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerId: 1, clientX: 30, clientY: 0 }));
-    mapButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-    await flushMicrotasks();
-
-    expect(load).toHaveBeenCalledTimes(1);
-    mounted?.destroy();
-  });
-
-  it("pointercancel po pointerdown na mapě nic neotevře", async () => {
-    const load = vi.fn(async () => createGameplaySliceResponse());
-    const root = createRoot();
-    const mapButton = document.createElement("button");
-    mapButton.dataset.districtId = "district:map:1";
-    root.append(mapButton);
-    document.body.append(root);
-
-    const mounted = mountGameplaySlicePage({
-      root,
-      transport: {
-        load,
-        send: async () => createGameplaySliceResponse()
-      }
-    });
-    await flushMicrotasks();
-
-    mapButton.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 1, clientX: 0, clientY: 0 }));
-    mapButton.dispatchEvent(new PointerEvent("pointercancel", { bubbles: true, cancelable: true, pointerId: 1, clientX: 5, clientY: 5 }));
-    mapButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-    await flushMicrotasks();
-
-    expect(load).toHaveBeenCalledTimes(1);
-    mounted?.destroy();
   });
 });

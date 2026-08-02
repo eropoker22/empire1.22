@@ -3,6 +3,7 @@ import {
   openOverlay
 } from "../ui/legacyOverlayCoordinator.js";
 import { resolveDistrictBuildingChipKind } from "../ui/districtBuildingChipKind.js";
+import { resolveBuildingPresentationTypeId } from "./buildingPresentationContract.js";
 import { getAssetPath } from "../../config.js";
 
 const BUILDINGS_POPUP_BACKGROUND_BY_DISTRICT_TYPE = Object.freeze({
@@ -210,7 +211,8 @@ export function createBuildingsPopupRuntime(deps = {}) {
       interactive: isOwnedByCurrentPlayer,
       buildings: buildingProfile.buildings.map((building) => ({
         buildingId: building.buildingId || "",
-        buildingTypeId: building.buildingTypeId || "",
+        buildingTypeId: building.buildingTypeId
+          || resolveBuildingPresentationTypeId(building.baseName || building.displayName),
         name: building.baseName || building.displayName,
         label: building.baseName || building.displayName,
         displayName: building.displayName,

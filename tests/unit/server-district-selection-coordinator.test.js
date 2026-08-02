@@ -86,6 +86,64 @@ describe("server district selection coordinator", () => {
     expect(missing.accepted).toBe(false);
   });
 
+  it("opens an exact building from the current authoritative district without a redundant load", async () => {
+    const factory = {
+      buildingId: "building:district-21:factory:1",
+      buildingTypeId: "factory",
+      label: "Továrna"
+    };
+    const selectDistrict = vi.fn();
+    const onLoading = vi.fn();
+    const onReady = vi.fn();
+    const coordinator = createServerDistrictSelectionCoordinator({
+      getReadModel: () => readModel("district:21", [factory]),
+      selectDistrict,
+      onLoading,
+      onReady
+    });
+
+    const result = await coordinator.open({
+      district: { id: 21 },
+      buildingId: factory.buildingId
+    });
+
+    expect(result).toMatchObject({
+      accepted: true,
+      building: factory,
+      canonicalDistrictId: "district:21",
+      response: null,
+      stale: false
+    });
+    expect(selectDistrict).not.toHaveBeenCalled();
+    expect(onLoading).not.toHaveBeenCalled();
+    expect(onReady).toHaveBeenCalledOnce();
+  });
+
+  it("reopens the current authoritative district without a redundant load", async () => {
+    const selectDistrict = vi.fn();
+    const onLoading = vi.fn();
+    const onReady = vi.fn();
+    const coordinator = createServerDistrictSelectionCoordinator({
+      getReadModel: () => readModel("district:24"),
+      selectDistrict,
+      onLoading,
+      onReady
+    });
+
+    const result = await coordinator.open({ district: { id: 24 } });
+
+    expect(result).toMatchObject({
+      accepted: true,
+      building: null,
+      canonicalDistrictId: "district:24",
+      response: null,
+      stale: false
+    });
+    expect(selectDistrict).not.toHaveBeenCalled();
+    expect(onLoading).not.toHaveBeenCalled();
+    expect(onReady).toHaveBeenCalledOnce();
+  });
+
   it("maps shared Czech production labels without guessing a different district", () => {
     const buildings = [
       { buildingId: "p", buildingTypeId: "pharmacy", label: "Lékárna" },

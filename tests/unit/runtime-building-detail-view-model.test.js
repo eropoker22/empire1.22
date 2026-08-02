@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE,
   createBuildingDetailActionRows,
   createBuildingDetailMechanicRows,
   createBuildingDetailStatRows,
@@ -830,11 +831,108 @@ describe("building detail view-model builder", () => {
     const stats = createBuildingDetailStatRows({ buildingName: "Škola", mechanics: schoolMechanics });
     const mechanics = createBuildingDetailMechanicRows({ buildingName: "Škola", mechanics: schoolMechanics });
     expect(stats.some((row) => row.label === "Talent")).toBe(false);
+    expect(stats.find((row) => row.label === "Populace")?.dynamicValue).toBe(
+      BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE
+    );
+    expect(stats.find((row) => row.label === "Populace")?.dynamicStaticCapacity).toBe(12);
+    expect(stats.find((row) => row.label === "Do naplnění")?.dynamicValue).toBe(
+      BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE
+    );
     expect(mechanics.find((row) => row.label === "K výběru")?.value).toBe("4/12");
+    expect(mechanics.find((row) => row.label === "K výběru")?.dynamicValue).toBe(
+      BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE
+    );
+    expect(mechanics.find((row) => row.label === "K výběru")?.dynamicStaticCapacity).toBe(12);
+    expect(mechanics.find((row) => row.label === "Produkce")?.dynamicValue).toBeUndefined();
+    expect(mechanics.find((row) => row.label === "Síť škol")?.dynamicValue).toBeUndefined();
     expect(mechanics.find((row) => row.label === "Večerní kurz")?.value).toBe("zrychlí nábor členů v bytových blocích");
     expect(mechanics.some((row) => row.label === "Pravidla")).toBe(false);
     expect(JSON.stringify(mechanics)).not.toContain("žádný dirty cash");
     expect(JSON.stringify({ stats, mechanics })).not.toContain("talent");
+  });
+
+  it.each([
+    {
+      buildingName: "Bytový blok",
+      bufferLabel: "Obyvatelé",
+      mechanicLabel: "Lokální zásobník",
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "apartment-block",
+        apartmentWholePopulation: 7,
+        apartmentCapacity: 20,
+        apartmentPopulationPerMinute: 0.5
+      },
+      stableStatLabel: "Populace / min"
+    },
+    {
+      buildingName: "Večerka",
+      bufferLabel: "Obyvatelé",
+      mechanicLabel: "Lokální zásobník",
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "convenience-store",
+        convenienceStoreWholePopulation: 11,
+        convenienceStoreCapacity: 40,
+        convenienceStorePopulationPerMinute: 0.5
+      },
+      stableStatLabel: "Populace / hod"
+    }
+  ])("marks only the $buildingName population buffer as dynamic", ({
+    buildingName,
+    bufferLabel,
+    mechanicLabel,
+    mechanics,
+    stableStatLabel
+  }) => {
+    const stats = createBuildingDetailStatRows({ buildingName, mechanics });
+    const mechanicRows = createBuildingDetailMechanicRows({ buildingName, mechanics });
+
+    expect(stats.find((row) => row.label === bufferLabel)?.dynamicValue).toBe(
+      BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE
+    );
+    expect(stats.find((row) => row.label === bufferLabel)?.dynamicStaticCapacity).toBeGreaterThan(0);
+    expect(stats.find((row) => row.label === stableStatLabel)?.dynamicValue).toBeUndefined();
+    expect(mechanicRows.find((row) => row.label === mechanicLabel)?.dynamicValue).toBe(
+      BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE
+    );
+    expect(
+      mechanicRows.find((row) => row.label === mechanicLabel)?.dynamicStaticCapacity
+    ).toBeGreaterThan(0);
+    expect(
+      mechanicRows.filter((row) => row.label !== mechanicLabel)
+        .every((row) => row.dynamicValue === undefined)
+    ).toBe(true);
+  });
+
+  it("marks only the changing apartment fill-time value as dynamic", () => {
+    const model = createBuildingDetailViewModel({
+      buildingName: "Bytový blok",
+      displayName: "Bytový blok",
+      profile: { role: "Populace", actions: [] },
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "apartment-block",
+        apartmentWholePopulation: 7,
+        apartmentCapacity: 20,
+        apartmentPopulationPerMinute: 0.5,
+        apartmentIsFull: false,
+        apartmentTimeToFullMs: 120000,
+        ownedApartmentBlocks: 1,
+        apartmentNetwork: {
+          populationProductionMultiplier: 1,
+          capacityMultiplier: 1
+        }
+      }
+    });
+    const fillTime = model.effects.find((effect) => effect.text.startsWith("Naplnění za"));
+
+    expect(fillTime).toMatchObject({
+      dynamicValue: BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE,
+      dynamicValuePrefix: "Naplnění za ",
+      text: "Naplnění za 2m 00s",
+      tone: "cooldown"
+    });
   });
 
   it("shows current day school population production as real phase numbers", () => {

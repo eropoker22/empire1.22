@@ -1,5 +1,58 @@
 import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
 
+const UNAVAILABLE_VALUE_LABEL = "—";
+
+function safeObject(value) {
+  return value && typeof value === "object" ? value : {};
+}
+
+function finiteNumberOrNull(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function normalizeAuthoritativeHeatJournal(entries) {
+  return (Array.isArray(entries) ? entries : [])
+    .filter((entry) => entry && typeof entry === "object" && typeof entry.reason === "string")
+    .map((entry, index) => ({
+      id: String(entry.id || `server-heat-log-${index}`),
+      type: entry.type === "fall" ? "fall" : "rise",
+      amount: Math.max(0, finiteNumberOrNull(entry.amount) ?? 0),
+      reason: String(entry.reason || "").trim(),
+      createdAt: typeof entry.createdAt === "string" ? entry.createdAt : "",
+      deltaLabel: typeof entry.deltaLabel === "string" ? entry.deltaLabel : "",
+      timestampLabel: typeof entry.timestampLabel === "string" ? entry.timestampLabel : ""
+    }))
+    .filter((entry) => entry.reason)
+    .slice(0, 18);
+}
+
+function resolveAuthoritativeProtectionLabel(police = {}) {
+  if (!police.protection || typeof police.protection !== "object") {
+    return UNAVAILABLE_VALUE_LABEL;
+  }
+
+  const sources = Array.isArray(police.protection.sources)
+    ? police.protection.sources.map((source) => String(source || "").trim()).filter(Boolean)
+    : [];
+  if (sources.length === 0) {
+    return "Bez ochrany";
+  }
+
+  const multiplier = finiteNumberOrNull(police.protection.raidConsequenceMultiplier);
+  if (multiplier === null) {
+    return sources.join(", ");
+  }
+  const reductionPct = Math.round((1 - multiplier) * 100);
+  const consequenceLabel = reductionPct >= 0
+    ? `-${reductionPct} % následky raidu`
+    : `+${Math.abs(reductionPct)} % následky raidu`;
+  return `${sources.join(", ")} ${consequenceLabel}`;
+}
+
 export function buildGangWantedStatusViewModel({
   economyState = {},
   gangState = {},
@@ -13,20 +66,25 @@ export function buildGangWantedStatusViewModel({
   const now = typeof options.now === "function" ? options.now() : Date.now();
   return {
     heat: heatValue,
+    heatLabel: typeof options.heatLabel === "string" ? options.heatLabel : String(heatValue),
+    available: options.available !== false,
     levelId: heatLevel.id,
-    levelLabel: heatLevel.label,
+    levelLabel: typeof options.levelLabel === "string" ? options.levelLabel : heatLevel.label,
     title: heatLevel.title,
     description: heatLevel.description,
     riskKey: safePoliceFeedback.riskKey || safePoliceFeedback.riskTier || "",
     pendingRaid: safePoliceFeedback.pendingRaid || null,
     policeFeedback: safePoliceFeedback,
     activePoliceActionCount: Math.max(0, Number(safePoliceFeedback.activePoliceActionCount || 0) || 0),
-    protectionLabel: typeof options.formatProtectionLabel === "function"
-      ? options.formatProtectionLabel(gangState.policeRaidProtectionUntil)
-      : "",
+    protectionLabel: typeof options.protectionLabel === "string"
+      ? options.protectionLabel
+      : typeof options.formatProtectionLabel === "function"
+        ? options.formatProtectionLabel(gangState.policeRaidProtectionUntil)
+        : "",
     auditRiskPct: typeof options.resolveAuditRisk === "function"
       ? options.resolveAuditRisk(gangState.heatReductionAuditTimestamps, now)
       : Math.max(0, Number(gangState.auditRiskPct || 0) || 0),
+    auditRiskLabel: typeof options.auditRiskLabel === "string" ? options.auditRiskLabel : "",
     levels: (Array.isArray(heatTiers) ? heatTiers : []).map((tier) => ({
       id: tier.id,
       label: tier.label,
@@ -36,11 +94,84 @@ export function buildGangWantedStatusViewModel({
     })),
     riseEntries: (Array.isArray(journal) ? journal : []).filter((entry) => entry.type === "rise").slice(0, 6),
     fallEntries: (Array.isArray(journal) ? journal : []).filter((entry) => entry.type === "fall").slice(0, 6),
-    dirtyActionDisabled: Number(economyState.dirtyMoney || 0) < Number(options.dirtyActionCost || 0),
-    cleanActionDisabled: Number(economyState.cleanMoney || 0) < Number(options.cleanActionCost || 0),
-    influenceActionDisabled: Number(gangState.influence || 0) < Number(options.influenceActionCost || 0),
+    riseEmptyText: typeof options.riseEmptyText === "string" ? options.riseEmptyText : "",
+    fallEmptyText: typeof options.fallEmptyText === "string" ? options.fallEmptyText : "",
+    dirtyActionDisabled: typeof options.dirtyActionDisabled === "boolean"
+      ? options.dirtyActionDisabled
+      : Number(economyState.dirtyMoney || 0) < Number(options.dirtyActionCost || 0),
+    cleanActionDisabled: typeof options.cleanActionDisabled === "boolean"
+      ? options.cleanActionDisabled
+      : Number(economyState.cleanMoney || 0) < Number(options.cleanActionCost || 0),
+    influenceActionDisabled: typeof options.influenceActionDisabled === "boolean"
+      ? options.influenceActionDisabled
+      : Number(gangState.influence || 0) < Number(options.influenceActionCost || 0),
+    clearLogDisabled: Boolean(options.clearLogDisabled),
     now
   };
+}
+
+export function buildServerGangWantedStatusViewModel({
+  serverPlayer = null,
+  heatTiers = []
+} = {}, options = {}) {
+  const player = safeObject(serverPlayer);
+  const police = safeObject(player.police);
+  const economy = safeObject(player.economy);
+  const heat = finiteNumberOrNull(police.heat ?? police.playerHeat);
+  const authoritativeHeatAvailable = heat !== null;
+  const presentationTier = authoritativeHeatAvailable && typeof options.resolveHeatTier === "function"
+    ? safeObject(options.resolveHeatTier(heat))
+    : {};
+  const wantedLevel = finiteNumberOrNull(police.wantedLevel);
+  const levelLabel = String(police.wantedLevelLabel || police.wantedLabel || "").trim()
+    || (wantedLevel === null ? UNAVAILABLE_VALUE_LABEL : `${Math.max(0, wantedLevel)} / 5`);
+  const authoritativeJournalAvailable = Array.isArray(police.heatJournal);
+  const journal = authoritativeJournalAvailable
+    ? normalizeAuthoritativeHeatJournal(police.heatJournal)
+    : [];
+  const auditRiskPct = finiteNumberOrNull(police.auditRiskPct);
+  const policeFeedback = player.police && typeof options.resolvePoliceFeedback === "function"
+    ? safeObject(options.resolvePoliceFeedback({ policeReadModel: player.police }))
+    : {};
+
+  return buildGangWantedStatusViewModel({
+    economyState: {
+      cleanMoney: finiteNumberOrNull(economy.cleanCash),
+      dirtyMoney: finiteNumberOrNull(economy.dirtyCash)
+    },
+    gangState: {
+      heat: authoritativeHeatAvailable ? Math.max(0, heat) : 0,
+      influence: finiteNumberOrNull(economy.influence),
+      auditRiskPct: auditRiskPct ?? 0
+    },
+    heatLevel: {
+      id: authoritativeHeatAvailable ? presentationTier.id : 0,
+      label: levelLabel,
+      title: authoritativeHeatAvailable
+        ? String(presentationTier.title || UNAVAILABLE_VALUE_LABEL)
+        : UNAVAILABLE_VALUE_LABEL,
+      description: authoritativeHeatAvailable
+        ? String(presentationTier.description || UNAVAILABLE_VALUE_LABEL)
+        : UNAVAILABLE_VALUE_LABEL
+    },
+    heatTiers,
+    journal,
+    policeFeedback
+  }, {
+    ...options,
+    available: authoritativeHeatAvailable,
+    heatLabel: authoritativeHeatAvailable ? String(Math.max(0, heat)) : UNAVAILABLE_VALUE_LABEL,
+    levelLabel,
+    protectionLabel: resolveAuthoritativeProtectionLabel(police),
+    auditRiskLabel: auditRiskPct === null ? UNAVAILABLE_VALUE_LABEL : `${Math.max(0, auditRiskPct)} %`,
+    riseEmptyText: authoritativeJournalAvailable ? "" : UNAVAILABLE_VALUE_LABEL,
+    fallEmptyText: authoritativeJournalAvailable ? "" : UNAVAILABLE_VALUE_LABEL,
+    dirtyActionDisabled: true,
+    cleanActionDisabled: true,
+    influenceActionDisabled: true,
+    clearLogDisabled: true,
+    resolveAuditRisk: null
+  });
 }
 
 function resolveWantedElements(root, selectors = {}) {
@@ -109,10 +240,6 @@ function hasRequiredWantedElements(elements) {
   );
 }
 
-function safeObject(value) {
-  return value && typeof value === "object" ? value : {};
-}
-
 function resolveWantedPoliceFeedback(deps = {}, gangState = {}, heatLevel = {}) {
   const policeActions = safeObject(
     typeof deps.getResolvedDistrictPoliceActions === "function"
@@ -148,38 +275,44 @@ export function createGangWantedStatusRuntime(deps = {}) {
     };
 
     const syncWantedStatus = () => {
-      const serverPlayer = deps.getServerPlayerView?.() || null;
-      if (deps.isServerAuthoritativeMode?.() && !serverPlayer) {
-        elements.heatButton.textContent = "—";
-        elements.popupHeat.textContent = "—";
-        return null;
-      }
-
-      const localGangState = deps.syncGangHeatDecay();
-      const serverHeat = Number(serverPlayer?.police?.heat);
-      const gangState = Number.isFinite(serverHeat)
-        ? { ...localGangState, heat: Math.max(0, serverHeat) }
-        : localGangState;
-      const heatLevel = deps.resolveGangHeatTier(gangState.heat);
-      const economyState = deps.getResolvedEconomyState();
-      const journal = deps.normalizeGangHeatJournal(gangState.heatJournal);
-      const policeFeedback = resolveWantedPoliceFeedback(deps, gangState, heatLevel);
-      const wantedViewModel = buildGangWantedStatusViewModel({
-        economyState,
-        gangState,
-        heatLevel,
-        heatTiers: deps.gangHeatTiers,
-        journal,
-        policeFeedback
-      }, {
-        cleanActionCost: deps.cleanActionCost,
-        dirtyActionCost: deps.dirtyActionCost,
-        influenceActionCost: deps.influenceActionCost,
-        formatProtectionLabel: deps.formatGangHeatProtectionLabel,
-        getTierEffect: deps.getPoliceTierShortEffect,
-        resolveAuditRisk: deps.resolveGangHeatAuditRisk,
-        now: deps.now
-      });
+      const serverAuthoritative = Boolean(deps.isServerAuthoritativeMode?.());
+      const serverPlayer = serverAuthoritative ? deps.getServerPlayerView?.() || null : null;
+      const wantedViewModel = serverAuthoritative
+        ? buildServerGangWantedStatusViewModel({
+            serverPlayer,
+            heatTiers: deps.gangHeatTiers
+          }, {
+            cleanActionCost: deps.cleanActionCost,
+            dirtyActionCost: deps.dirtyActionCost,
+            influenceActionCost: deps.influenceActionCost,
+            getTierEffect: deps.getPoliceTierShortEffect,
+            now: deps.now,
+            resolveHeatTier: deps.resolveGangHeatTier,
+            resolvePoliceFeedback: deps.resolvePoliceHeatFeedback
+          })
+        : (() => {
+            const gangState = deps.syncGangHeatDecay();
+            const heatLevel = deps.resolveGangHeatTier(gangState.heat);
+            const economyState = deps.getResolvedEconomyState();
+            const journal = deps.normalizeGangHeatJournal(gangState.heatJournal);
+            const policeFeedback = resolveWantedPoliceFeedback(deps, gangState, heatLevel);
+            return buildGangWantedStatusViewModel({
+              economyState,
+              gangState,
+              heatLevel,
+              heatTiers: deps.gangHeatTiers,
+              journal,
+              policeFeedback
+            }, {
+              cleanActionCost: deps.cleanActionCost,
+              dirtyActionCost: deps.dirtyActionCost,
+              influenceActionCost: deps.influenceActionCost,
+              formatProtectionLabel: deps.formatGangHeatProtectionLabel,
+              getTierEffect: deps.getPoliceTierShortEffect,
+              resolveAuditRisk: deps.resolveGangHeatAuditRisk,
+              now: deps.now
+            });
+          })();
 
       deps.renderHeatBadge(wantedViewModel, {
         heatButton: elements.heatButton,
@@ -199,7 +332,8 @@ export function createGangWantedStatusRuntime(deps = {}) {
           popupFallList: elements.popupFallList,
           dirtyActionButton: elements.dirtyActionButton,
           cleanActionButton: elements.cleanActionButton,
-          influenceActionButton: elements.influenceActionButton
+          influenceActionButton: elements.influenceActionButton,
+          clearLogButton: elements.clearLogButton
         }
       });
       return wantedViewModel;
@@ -218,18 +352,20 @@ export function createGangWantedStatusRuntime(deps = {}) {
     };
 
     elements.heatButton.addEventListener("click", openPopup);
-    elements.dirtyActionButton?.addEventListener("click", () => {
-      deps.onDirtyAction?.({ renderFeedback, root, syncWantedStatus });
-    });
-    elements.cleanActionButton?.addEventListener("click", () => {
-      deps.onCleanAction?.({ renderFeedback, root, syncWantedStatus });
-    });
-    elements.influenceActionButton?.addEventListener("click", () => {
-      deps.onInfluenceAction?.({ renderFeedback, root, syncWantedStatus });
-    });
-    elements.clearLogButton?.addEventListener("click", () => {
-      deps.onClearLog?.({ renderFeedback, root, syncWantedStatus });
-    });
+    const runWantedAction = (callback) => {
+      if (deps.isServerAuthoritativeMode?.()) {
+        renderFeedback("warning", "Akce není v autoritativním serverovém modelu dostupná.");
+        syncWantedStatus();
+        return false;
+      }
+      callback?.({ renderFeedback, root, syncWantedStatus });
+      return true;
+    };
+
+    elements.dirtyActionButton?.addEventListener("click", () => runWantedAction(deps.onDirtyAction));
+    elements.cleanActionButton?.addEventListener("click", () => runWantedAction(deps.onCleanAction));
+    elements.influenceActionButton?.addEventListener("click", () => runWantedAction(deps.onInfluenceAction));
+    elements.clearLogButton?.addEventListener("click", () => runWantedAction(deps.onClearLog));
 
     for (const closeElement of elements.popupCloseElements) {
       closeElement.addEventListener("click", closePopup);

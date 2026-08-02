@@ -11,6 +11,7 @@ import {
   dismissOnboardingGuide
 } from "./helpers/empireSmokeHelpers.js";
 import { waitForTerminalGameplaySubmit } from "./helpers/gameplaySubmitResponse.js";
+import { createServerBuildingActionDefaultPayload } from "../../page-assets/js/app/runtime/buildingSpecialActionServerDefaults.js";
 
 const hostedEnabled = process.env.EMPIRE_HOSTED_UI_PARITY_E2E === "1";
 const serverInstanceId = process.env.EMPIRE_UI_PARITY_SERVER_ID || "";
@@ -69,8 +70,8 @@ test.describe("fixture-backed hosted canonical building-action visible UI covera
     let lastAccepted = null;
 
     for (const districtGroup of groupMatrixEntries(phaseEntries)) {
-      await openDistrictThroughMapClick(page, districtGroup.districtId);
       for (const buildingGroup of districtGroup.buildings) {
+        await openDistrictThroughMapClick(page, districtGroup.districtId);
         await openBuildingFromDistrict(page, buildingGroup.buildingTypeId);
         const shell = page.locator("[data-district-building-detail-popup]:not([hidden])").last();
         await expect(shell).toBeVisible({ timeout: 30_000 });
@@ -107,6 +108,7 @@ test.describe("fixture-backed hosted canonical building-action visible UI covera
           await expect(actionButton, `${matrixEntry.actionId} must be a visible action control`)
             .toBeVisible();
           const preparedInputs = await prepareVisibleActionInputs({
+            actionId: matrixEntry.actionId,
             actionButton,
             requiredInputs: projected.action.requiresInput || [],
             shell
@@ -135,6 +137,7 @@ test.describe("fixture-backed hosted canonical building-action visible UI covera
             actionId: matrixEntry.actionId,
             buildingId,
             districtId: districtGroup.districtId,
+            defaultedInputIds: preparedInputs.defaultedInputIds,
             inputValues: preparedInputs.values,
             previousStateVersion: projected.stateVersion
           });
@@ -148,6 +151,7 @@ test.describe("fixture-backed hosted canonical building-action visible UI covera
             buildingId,
             buildingTypeId: buildingGroup.buildingTypeId,
             confirmation: accepted.confirmation,
+            defaultedInputIds: preparedInputs.defaultedInputIds,
             districtId: districtGroup.districtId,
             inputValues: preparedInputs.values,
             reportId: accepted.reportId,
@@ -301,7 +305,7 @@ async function openDistrictThroughMapClick(page, districtId) {
   await expect(page.locator("[data-district-popup-card]")).toBeVisible({ timeout: 30_000 });
   await expect(page.locator("[data-district-popup]")).toHaveAttribute(
     "data-district-id",
-    districtId
+    String(numericDistrictId)
   );
   const trustedClicks = await page.evaluate(() => (
     window.__EMPIRE_VISIBLE_BUILDING_ACTION_MAP_CLICKS__ || []
@@ -420,10 +424,13 @@ async function readCurrentReadModel(page) {
 }
 
 async function prepareVisibleActionInputs({
+  actionId,
   actionButton,
   requiredInputs,
   shell
 }) {
+  const defaultValues = createServerBuildingActionDefaultPayload(actionId);
+  const defaultedInputIds = [];
   const values = {};
   const missingRequiredInputIds = [];
   const dealerWrapper = actionButton.locator("xpath=ancestor::*[@data-dealer-sale-action='true']");
@@ -437,6 +444,11 @@ async function prepareVisibleActionInputs({
     }
     const visible = await control.isVisible().catch(() => false);
     if (!visible) {
+      if (Object.prototype.hasOwnProperty.call(defaultValues, inputId)) {
+        values[inputId] = defaultValues[inputId];
+        defaultedInputIds.push(inputId);
+        continue;
+      }
       if (input?.required !== false) missingRequiredInputIds.push(inputId);
       continue;
     }
@@ -462,7 +474,7 @@ async function prepareVisibleActionInputs({
     const itemId = await dealerWrapper.locator("[data-dealer-sale-item]").inputValue();
     if (itemId) values.itemId = itemId;
   }
-  return { missingRequiredInputIds, values };
+  return { defaultedInputIds, missingRequiredInputIds, values };
 }
 
 async function waitForCommandWindow(page, commandCountsByTick) {
@@ -486,6 +498,7 @@ async function clickVisibleBuildingAction(page, {
   actionButton,
   actionId,
   buildingId,
+  defaultedInputIds,
   districtId,
   inputValues,
   previousStateVersion
@@ -512,6 +525,13 @@ async function clickVisibleBuildingAction(page, {
   ]);
   expect(firstOutcome, `${actionId} must open confirmation or submit`).not.toBe("timeout");
   if (firstOutcome === "visible-confirmed") {
+    if (defaultedInputIds.length > 0) {
+      const inputSummary = confirmation.locator(".building-special-action-confirm__stat")
+        .filter({ hasText: "Volba" })
+        .locator("strong");
+      await expect(inputSummary, `${actionId} canonical defaults must be visible before submit`)
+        .not.toHaveText("");
+    }
     const confirmButton = confirmation.locator(
       ".building-special-action-confirm__button--confirm"
     );

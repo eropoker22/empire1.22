@@ -1,3 +1,5 @@
+import { formatCssUrlValue } from "../runtime/utils.js";
+
 function getElementDocument(element) {
   return element?.ownerDocument || (typeof document !== "undefined" ? document : null);
 }
@@ -85,7 +87,7 @@ export function renderDistrictSummaryPanel(elements = {}, view = {}) {
   if (card) {
     const hasOwnerAvatar = Boolean(view.ownerAvatarBackgroundUrl);
     const safeOwnerAvatarUrl = hasOwnerAvatar
-      ? `url("${String(view.ownerAvatarBackgroundUrl).replace(/(["\\])/g, "\\$1")}")`
+      ? formatCssUrlValue(view.ownerAvatarBackgroundUrl)
       : "none";
     card.classList?.toggle?.("district-owner-bg-active", hasOwnerAvatar);
     card.style?.setProperty?.("--district-owner-avatar-url", safeOwnerAvatarUrl);
@@ -153,6 +155,30 @@ function resolveBuildingKindToken(kindLabel = "") {
     .replace(/^-+|-+$/g, "") || "unknown";
 }
 
+const districtBuildingListFingerprintByElement = new WeakMap();
+
+function createDistrictBuildingListFingerprint(view = {}) {
+  const buildings = Array.isArray(view.buildings) ? view.buildings : [];
+  return JSON.stringify({
+    buildings: buildings.map((building) => ({
+      buildingId: building?.buildingId || "",
+      buildingTypeId: building?.buildingTypeId || "",
+      displayName: building?.displayName || "",
+      kindLabel: building?.kindLabel || "",
+      label: building?.label || "",
+      name: building?.name || ""
+    })),
+    emptyText: view.emptyText || "",
+    interactive: view.interactive !== false,
+    trap: view.trap?.visible
+      ? {
+          label: view.trap.label || "",
+          meta: view.trap.meta || ""
+        }
+      : null
+  });
+}
+
 export function renderDistrictBuildingList(elements = {}, view = {}) {
   const { section, meta, list } = elements;
   if (!meta || !list) {
@@ -162,16 +188,30 @@ export function renderDistrictBuildingList(elements = {}, view = {}) {
   if (section) {
     section.hidden = false;
   }
-  list.replaceChildren();
   meta.textContent = view.metaText ?? "";
+
+  const buildings = Array.isArray(view.buildings) ? view.buildings : [];
+  const expectedChildCount = view.emptyText
+    ? 1
+    : buildings.length + (view.trap?.visible ? 1 : 0);
+  const fingerprint = createDistrictBuildingListFingerprint(view);
+  if (
+    districtBuildingListFingerprintByElement.get(list) === fingerprint
+    && list.children?.length === expectedChildCount
+  ) {
+    return true;
+  }
+
+  list.replaceChildren();
 
   if (view.emptyText) {
     appendBuildingEmptyMessage(list, view.emptyText);
+    districtBuildingListFingerprintByElement.set(list, fingerprint);
     return true;
   }
 
   const buildingsInteractive = view.interactive !== false;
-  for (const building of Array.isArray(view.buildings) ? view.buildings : []) {
+  for (const building of buildings) {
     const chipClassName = buildingsInteractive
       ? "button district-popup-buildings__chip district-popup-buildings__chip--button"
       : "district-popup-buildings__chip district-popup-buildings__chip--locked";
@@ -224,6 +264,7 @@ export function renderDistrictBuildingList(elements = {}, view = {}) {
     }
   }
 
+  districtBuildingListFingerprintByElement.set(list, fingerprint);
   return true;
 }
 

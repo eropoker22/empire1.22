@@ -48,8 +48,6 @@ test.describe("login smoke", () => {
     await expect(page.getByTestId("login-form")).toBeVisible();
     await expect(page.getByTestId("guest-login-button")).toHaveCount(0);
 
-    await expect(page.locator("[data-server-defeat-notice]")).toHaveCount(0);
-
     await page.locator("[data-login-registration-open]").click();
     await expect(page.getByTestId("register-form")).toBeVisible();
     await expect(page.locator("#register-terms")).toBeEnabled();

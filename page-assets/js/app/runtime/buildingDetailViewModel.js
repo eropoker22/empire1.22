@@ -56,6 +56,8 @@ import {
 } from "./buildingSpecialActionRegistry.js";
 import { resolveBuildingDetailLayout } from "./buildingPresentationContract.js";
 
+export const BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE = "population-buffer";
+
 function normalizeBuildingLookupKey(value) {
   return String(value || "")
     .normalize("NFD")
@@ -65,16 +67,35 @@ function normalizeBuildingLookupKey(value) {
     .trim();
 }
 
-function createStat(label, value) {
-  return { label, value };
+function createStat(label, value, dynamicValue = "", dynamicValueMetadata = {}) {
+  return {
+    label,
+    value,
+    ...(dynamicValue ? { dynamicValue, ...dynamicValueMetadata } : {})
+  };
 }
 
-function createMechanic(label, value) {
-  return { label, value };
+function createMechanic(label, value, dynamicValue = "", dynamicValueMetadata = {}) {
+  return {
+    label,
+    value,
+    ...(dynamicValue ? { dynamicValue, ...dynamicValueMetadata } : {})
+  };
 }
 
-function createMechanicWithTone(label, value, tone = "") {
-  return { label, value, tone };
+function createMechanicWithTone(
+  label,
+  value,
+  tone = "",
+  dynamicValue = "",
+  dynamicValueMetadata = {}
+) {
+  return {
+    label,
+    value,
+    tone,
+    ...(dynamicValue ? { dynamicValue, ...dynamicValueMetadata } : {})
+  };
 }
 
 function formatPercentShare(value = 0) {
@@ -905,6 +926,8 @@ function createEffectItemsWithOwnedCount(effectsLabel = "", mechanics = {}, opti
   }
   if (mechanics.mechanicsType === "apartment-block" && !mechanics.apartmentIsFull && Number(mechanics.apartmentTimeToFullMs || 0) > 0) {
     items.push({
+      dynamicValue: BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE,
+      dynamicValuePrefix: "Naplnění za ",
       text: `Naplnění za ${formatDistrictBuildingCooldown(mechanics.apartmentTimeToFullMs)}`,
       tone: "cooldown"
     });
@@ -1083,15 +1106,29 @@ export function createBuildingDetailStatRows({
     );
   } else if (mechanics.mechanicsType === "apartment-block") {
     statRows.splice(0, statRows.length,
-      createStat("Obyvatelé", `${mechanics.apartmentWholePopulation}/${mechanics.apartmentCapacity}`),
+      createStat(
+        "Obyvatelé",
+        `${mechanics.apartmentWholePopulation}/${mechanics.apartmentCapacity}`,
+        BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE,
+        { dynamicStaticCapacity: mechanics.apartmentCapacity }
+      ),
       createStat("Populace / min", `+${mechanics.apartmentPopulationPerMinute.toFixed(2)}`),
       createStat("Cash / dirty / heat", "0 / 0 / 0")
     );
   } else if (mechanics.mechanicsType === "school") {
     statRows.splice(0, statRows.length,
       createStat("Clean / min", `+${formatDistrictBuildingMoney(mechanics.cleanHourly / 60)}`),
-      createStat("Populace", `${mechanics.schoolWholeStudents}/${mechanics.schoolCapacity}`),
-      createStat("Do naplnění", mechanics.schoolIsFull ? "Plná kapacita" : formatDistrictBuildingCooldown(mechanics.schoolTimeToFullMs)),
+      createStat(
+        "Populace",
+        `${mechanics.schoolWholeStudents}/${mechanics.schoolCapacity}`,
+        BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE,
+        { dynamicStaticCapacity: mechanics.schoolCapacity }
+      ),
+      createStat(
+        "Do naplnění",
+        mechanics.schoolIsFull ? "Plná kapacita" : formatDistrictBuildingCooldown(mechanics.schoolTimeToFullMs),
+        mechanics.schoolIsFull ? "" : BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE
+      ),
       createStat("Školy", `${mechanics.ownedSchools}/${SCHOOL_CONFIG.countOnMap}`)
     );
   } else if (mechanics.mechanicsType === "exchange") {
@@ -1268,7 +1305,12 @@ export function createBuildingDetailStatRows({
     );
   } else if (mechanics.mechanicsType === "convenience-store" || buildingKey === "vecerka") {
     statRows.splice(0, statRows.length,
-      createStat("Obyvatelé", `${mechanics.convenienceStoreWholePopulation}/${mechanics.convenienceStoreCapacity}`),
+      createStat(
+        "Obyvatelé",
+        `${mechanics.convenienceStoreWholePopulation}/${mechanics.convenienceStoreCapacity}`,
+        BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE,
+        { dynamicStaticCapacity: mechanics.convenienceStoreCapacity }
+      ),
       createStat("Populace / hod", `+${Math.round(mechanics.convenienceStorePopulationPerMinute * 60)}`),
       createStat("Čisté / hod", `+${formatDistrictBuildingMoney(mechanics.cleanHourly)}`),
       createStat("Špinavé / hod", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly)}`),
@@ -1316,12 +1358,19 @@ export function createBuildingDetailMechanicRows({
       createMechanicWithTone(
         "Lokální zásobník",
         `${mechanics.apartmentWholePopulation}/${mechanics.apartmentCapacity}`,
-        collectablePopulation >= APARTMENT_BLOCK_MIN_COLLECT_POPULATION ? "collect-ready" : "collect-pending"
+        collectablePopulation >= APARTMENT_BLOCK_MIN_COLLECT_POPULATION ? "collect-ready" : "collect-pending",
+        BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE,
+        { dynamicStaticCapacity: mechanics.apartmentCapacity }
       )
     );
   } else if (mechanics.mechanicsType === "school") {
     mechanicRows.push(
-      createMechanic("K výběru", `${mechanics.schoolWholeStudents}/${mechanics.schoolCapacity}`),
+      createMechanic(
+        "K výběru",
+        `${mechanics.schoolWholeStudents}/${mechanics.schoolCapacity}`,
+        BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE,
+        { dynamicStaticCapacity: mechanics.schoolCapacity }
+      ),
       createMechanic("Produkce", `+${mechanics.schoolPopulationPerMinute.toFixed(2)} populace/min`),
       createMechanic("Síť škol", `kapacita ${formatMultiplierIncreasePercent(mechanics.schoolNetwork.studentCapacityMultiplier)} · income ${formatMultiplierIncreasePercent(mechanics.schoolNetwork.incomeMultiplier)}`),
       createMechanic("Večerní kurz", mechanics.schoolEveningCourseActive ? `bytové bloky zrychlené ${formatDistrictBuildingCooldown(mechanics.schoolEveningCourseRemainingMs)}` : "zrychlí nábor členů v bytových blocích")
@@ -1419,7 +1468,9 @@ export function createBuildingDetailMechanicRows({
       createMechanicWithTone(
         "Lokální zásobník",
         `${mechanics.convenienceStoreWholePopulation}/${mechanics.convenienceStoreCapacity}`,
-        collectablePopulation >= 30 ? "collect-ready" : "collect-pending"
+        collectablePopulation >= 30 ? "collect-ready" : "collect-pending",
+        BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE,
+        { dynamicStaticCapacity: mechanics.convenienceStoreCapacity }
       ),
       createMechanic("Populace", `+${Math.round(mechanics.convenienceStorePopulationPerMinute * 60)} obyv./hod`),
       createMechanic("Výběr", "Dostupný až od 30 obyvatel."),

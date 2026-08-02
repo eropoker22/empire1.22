@@ -284,6 +284,23 @@ describe("hosted runtime cold Netlify function", () => {
     consoleError.mockRestore();
   });
 
+  it("retries one transient statement timeout while reading the durable server record", async () => {
+    const fixture = await createFixture("running");
+    await fixture.seedSnapshot(16);
+    const boundary = fixture.createBoundary();
+    const getServerSpy = vi.spyOn(fixture.hosted, "getServer")
+      .mockRejectedValueOnce(Object.assign(new Error("canceling statement due to statement timeout"), {
+        code: "57014"
+      }))
+      .mockResolvedValueOnce(hostedRecord("running"));
+    const loader = createHostedRuntimeLoader({ server: boundary.server, controlPlane: fixture.hosted });
+
+    expect(await loader.load(INSTANCE_ID)).toMatchObject({ accepted: true, errors: [] });
+    expect(getServerSpy).toHaveBeenCalledTimes(2);
+
+    getServerSpy.mockRestore();
+  });
+
   it("never lets a delayed stale load overwrite a newer warm runtime", async () => {
     const fixture = await createFixture("running");
     await fixture.seedSnapshot(17);

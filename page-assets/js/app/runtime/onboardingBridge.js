@@ -529,7 +529,7 @@ export function createOnboardingBridge(deps = {}) {
 
   const init = () => {
     refreshReadModel();
-    if (shouldAutoStartOnboarding(progress, readModel)) {
+    if (deps.autoStart !== false && shouldAutoStartOnboarding(progress, readModel)) {
       if (typeof deps.onStart === "function") {
         deps.onStart(getContext());
       }

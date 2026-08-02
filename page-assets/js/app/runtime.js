@@ -146,6 +146,7 @@ import {
 } from "./map/mapLayerInvalidation.js";
 import {
   resolveMapDestroyedFillStyle,
+  resolveMapDistrictAtmosphereMeta,
   resolveMapDistrictOwnerLabel,
   resolveMapHiddenFillStyle,
   resolveMapLaunchUnownedFillStyle,
@@ -695,6 +696,7 @@ import {
 import { createBuildingUpgradeConfirmationViewModel } from "./runtime/buildingUpgradeBenefits.js";
 import {
   createLocalStreetDealerSaleView,
+  resolveLocalStreetDealerTunnelSupport,
   settleLocalStreetDealerSales,
   startLocalStreetDealerSale
 } from "./runtime/streetDealersLocalRuntime.js";
@@ -815,7 +817,11 @@ import {
 } from "./ui/pageContext.js";
 import { createBuildingDetailViewModel } from "./runtime/buildingDetailViewModel.js";
 import { createBuildingDetailInfoViewModel } from "./runtime/buildingDetailInfoViewModel.js";
-import { createPlayerProfileViewModel } from "./runtime/playerProfileViewModel.js";
+import {
+  createPlayerProfileViewModel,
+  resolvePlayerIdentityPresentation
+} from "./runtime/playerProfileViewModel.js";
+import { resolveLivePlayerAvatarSrc } from "./model/livePlayerAvatarCatalog.js";
 import {
   createLaunchPlayerColorMap,
   getFactionGlyph,
@@ -857,12 +863,13 @@ import {
 import {
   createServerBuildingActionExecutionPresentation,
   LocalDemoBuildingPresentationAdapter,
+  resolveSharedBuildingBackgroundImagePath,
   ServerBuildingPresentationAdapter
 } from "./runtime/buildingPresentationAdapters.js";
 import { createServerDistrictActionPresentation } from "./runtime/serverDistrictActionPresentation.js";
 import { createServerGameplayDistrictView } from "./ui/serverGameplayDistrictView.js";
 import { renderServerGameplayDistrictSummary } from "./ui/serverGameplayDistrictSummaryRenderer.js";
-import { resolveDistrictBuildingChipKind } from "./ui/districtBuildingChipKind.js";
+import { resolveDistrictBuildingPresentationKind } from "./ui/districtBuildingChipKind.js";
 import { createDistrictBuildingProfileRuntime } from "./runtime/districtBuildingProfileRuntime.js";
 import { createBuildingNetworkRuntime } from "./runtime/buildingNetworkRuntime.js";
 import { createDistrictActionPanelRuntime } from "./runtime/districtActionPanelRuntime.js";
@@ -883,6 +890,10 @@ import {
 import { createPhaseToggleRuntime } from "./runtime/phaseToggleRuntime.js";
 import { createProductionBuildingPopupRuntime } from "./runtime/productionBuildingPopupRuntime.js";
 import { createFactoryPopupRuntime } from "./runtime/factoryPopupRuntime.js";
+import {
+  observeProductionPopupOpening,
+  openProductionPopupFromTrigger
+} from "./runtime/productionPopupOpenBridge.js";
 import {
   advanceLocalProductionJob,
   collectLocalProduction,
@@ -961,6 +972,7 @@ import {
 } from "./runtime/productionInfoViewModel.js";
 import { normalizeActionResult } from "./runtime/actionResultOrchestrator.js";
 import { createOnboardingBridge } from "./runtime/onboardingBridge.js";
+import { resolveOnboardingRuntimePolicy } from "./runtime/onboardingRuntimePolicy.js";
 import { createPoliceHeatBridge, resolvePoliceHeatFeedback } from "./runtime/policeHeatBridge.js";
 import { createEventRumorBridge, createRumorStreetNewsPayload } from "./runtime/eventRumorBridge.js";
 import { renderRecipeCard } from "./ui/recipePanel.js";
@@ -5169,8 +5181,8 @@ const {
   renderProductionBuildingInfo,
   renderProductionPanel
 } = createProductionBuildingPopupRuntime({
-  allowLegacyLocalProduction: isLocalDemoGameplayExecutionMode(),
-  allowLegacyProductionUpgrade: isLocalDemoGameplayExecutionMode(),
+  allowLegacyLocalProduction: isLocalDemoGameplayExecutionMode,
+  allowLegacyProductionUpgrade: isLocalDemoGameplayExecutionMode,
   isServerAuthoritativeGameplayRuntimeReady,
   ARMORY_POPUP_CLOSE_SELECTOR,
   ARMORY_POPUP_OPEN_SELECTOR,
@@ -6921,6 +6933,29 @@ function getCurrentPlayerStartPhaseSourceSnapshot() {
 }
 
 function getCurrentPlayerDistrictSourceSnapshot() {
+  if (!isOnboardingSandboxActive()
+    && getSelectedGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    const readModel = getServerGameplaySliceReadModel();
+    const serverPlayer = readModel?.player || null;
+    const authoritativeCountCandidates = [
+      serverPlayer?.operationalLiveness?.ownedDistrictCount,
+      readModel?.leaderboard?.currentPlayer?.controlledDistricts
+    ];
+    for (const candidate of authoritativeCountCandidates) {
+      if (candidate !== null && candidate !== undefined && Number.isFinite(Number(candidate))) {
+        return { districtCount: Math.max(0, Math.floor(Number(candidate))) };
+      }
+    }
+
+    const playerId = String(serverPlayer?.playerId || "").trim();
+    const districtCount = Array.isArray(readModel?.districts)
+      ? readModel.districts.filter((district) => (
+          district?.isOwnedByPlayer === true
+          || (playerId && String(district?.ownerPlayerId || "") === playerId)
+        )).length
+      : 0;
+    return { districtCount };
+  }
   return getCurrentPlayerStartPhaseSourceSnapshot();
 }
 
@@ -7489,16 +7524,10 @@ function settleCompletedLocalStreetDealerSales(root, now = Date.now()) {
 }
 
 function getLocalStreetDealerTunnelSupport() {
-  const ownedTunnels = getOwnedSmugglingTunnelCount();
-  const supportPct = Math.min(
-    SMUGGLING_TUNNEL_CONFIG.dealerSupplyMaxBonusPct,
-    ownedTunnels * SMUGGLING_TUNNEL_CONFIG.dealerSupplyBonusPctPerTunnel
+  return resolveLocalStreetDealerTunnelSupport(
+    getOwnedSmugglingTunnelCount(),
+    SMUGGLING_TUNNEL_CONFIG
   );
-  return {
-    saleSpeedBonusPct: supportPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySaleSpeedSharePct / 100,
-    streetRiskReductionPct: supportPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplyStreetRiskReductionSharePct / 100,
-    saleHeatRiskBonusPct: supportPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySaleHeatRiskSharePct / 100
-  };
 }
 
 function getLocalStreetDealerOpenChannel(now = Date.now()) {
@@ -8029,6 +8058,9 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
   const garageSupport = getGarageSupportStats(ownedGarages);
   const ownedSmugglingTunnels = mechanicsType === "smuggling-tunnel" ? getOwnedSmugglingTunnelCount() : 0;
   const smugglingTunnelNetwork = mechanicsType === "smuggling-tunnel" ? getSmugglingTunnelNetworkMultipliers(ownedSmugglingTunnels) : null;
+  const streetDealerTunnelSupport = mechanicsType === "street-dealers"
+    ? getLocalStreetDealerTunnelSupport()
+    : null;
   const ownedPowerStations = isPowerStation ? getOwnedPowerStationCount() : 0;
   const powerStationNetwork = isPowerStation ? getPowerStationNetworkMultipliers(ownedPowerStations) : null;
   const ownedRecyclingCenters = isRecyclingCenter ? getOwnedRecyclingCenterCount() : 0;
@@ -8085,9 +8117,13 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
     ? 1 + (casinoUpgrade.incomeBonusPct / 100)
     : 1 + ((level - 1) * 0.14);
   const cleanHourly = mechanicsType === "smuggling-tunnel" ? 0 : Math.max(0, Math.round(Number(income.clean || 0) * 60 * multiplier));
+  const passiveDirtyHourly = Number(income.dirty || 0)
+    * 60
+    * (autoSalonNetwork ? autoSalonNetwork.dirtyIncomeMultiplier : multiplier)
+    * (1 + Number(streetDealerTunnelSupport?.passiveDirtyIncomeBonusPct || 0) / 100);
   const dirtyHourly = mechanicsType === "smuggling-tunnel"
     ? Math.max(0, Math.round(SMUGGLING_TUNNEL_CONFIG.dirtyCashPerMinute * 60 * (smugglingTunnelNetwork?.dirtyProductionMultiplier || 1) * (smugglingOpenChannelActive ? 1 + SMUGGLING_TUNNEL_CONFIG.openChannelTunnelDirtyProductionBonusPct / 100 : 1)))
-    : Math.max(0, Math.round(Number(income.dirty || 0) * 60 * (autoSalonNetwork ? autoSalonNetwork.dirtyIncomeMultiplier : multiplier)));
+    : Math.max(0, mechanicsType === "street-dealers" ? passiveDirtyHourly : Math.round(passiveDirtyHourly));
   const storedClean = Math.max(0, Math.floor(cleanHourly * elapsedHours));
   const storedDirty = Math.max(0, Math.floor(dirtyHourly * elapsedHours));
   const memberGain = Math.max(1, Math.floor((level + 1) * Math.max(0.5, elapsedHours)));
@@ -10177,12 +10213,14 @@ function openServerGenericDistrictBuildingDetail(root, district, buildingRequest
       ...presentation.viewModel.upgrade,
       title: canonicalUpgradeTitle
     },
-    backgroundImagePath: presentation.viewModel.backgroundImagePath
-      || getDistrictBuildingDetailBackgroundPath(
+    backgroundImagePath: resolveSharedBuildingBackgroundImagePath({
+      canonicalBackgroundImagePath: getDistrictBuildingDetailBackgroundPath(
         district,
         presentation.baseName,
         presentation.displayName
-      )
+      ),
+      presentationBackgroundImagePath: presentation.viewModel.backgroundImagePath
+    })
   };
 
   districtBuildingDetailContextByShell.set(shell, {
@@ -10274,26 +10312,11 @@ function isDistrictTypeKnownForCurrentPlayer(district, interactionState = {}) {
 }
 
 function getDistrictAtmosphereMeta(district, interactionState = {}) {
-  if (!district || !isDistrictTypeKnownForCurrentPlayer(district, interactionState)) {
-    return DISTRICT_ATMOSPHERE_META.unknown;
-  }
-
-  const meta = DISTRICT_ATMOSPHERE_META[district.districtType] || DISTRICT_ATMOSPHERE_META.unknown;
-  const imagePaths = Array.isArray(meta.imagePaths) ? meta.imagePaths : [];
-  if (!imagePaths.length) {
-    return meta;
-  }
-
-  let hash = 0;
-  const seed = `${meta.typeKey || "unknown"}:${district.id || 0}`;
-  for (let index = 0; index < seed.length; index += 1) {
-    hash = ((hash * 31) + seed.charCodeAt(index)) >>> 0;
-  }
-
-  return {
-    ...meta,
-    imagePath: imagePaths[hash % imagePaths.length]
-  };
+  return resolveMapDistrictAtmosphereMeta(
+    district?.districtType,
+    district?.id,
+    { hidden: !district || !isDistrictTypeKnownForCurrentPlayer(district, interactionState) }
+  );
 }
 
 function applyDistrictAtmosphere({
@@ -11114,22 +11137,31 @@ function bindDistrictCanvas(root) {
     }
 
     if (!popupTarget || shouldOpenGenericDetail) {
+      let districtPopupHiddenForHandoff = false;
       if (popup) {
-        hideDistrictPopupModal(popup);
+        districtPopupHiddenForHandoff = hideDistrictPopupModal(popup, serverAuthoritative
+          ? { preserveDistrictSelection: true }
+          : undefined);
       }
-      return serverAuthoritative
-        ? openServerGenericDistrictBuildingDetail(root, safeDistrict, {
-            buildingName: buildingLabel,
-            displayName: options.displayName || buildingLabel,
-            serverBuildingId,
-            serverBuildingTypeId
-          })
-        : (openGenericDistrictBuildingDetail(
-            root,
-            safeDistrict,
-            buildingLabel,
-            options.displayName || buildingLabel
-          ), true);
+      if (!serverAuthoritative) {
+        openGenericDistrictBuildingDetail(
+          root,
+          safeDistrict,
+          buildingLabel,
+          options.displayName || buildingLabel
+        );
+        return true;
+      }
+      const opened = openServerGenericDistrictBuildingDetail(root, safeDistrict, {
+        buildingName: buildingLabel,
+        displayName: options.displayName || buildingLabel,
+        serverBuildingId,
+        serverBuildingTypeId
+      });
+      if (!opened && popup && districtPopupHiddenForHandoff) {
+        showDistrictPopupModal(popup);
+      }
+      return opened;
     }
 
     const openButton = root.querySelector(popupTarget.openSelector);
@@ -11153,10 +11185,42 @@ function bindDistrictCanvas(root) {
         serverInstanceId
       });
     }
-    if (popup) {
-      hideDistrictPopupModal(popup, { suppressMapInput: false });
+    const districtPopupHiddenForHandoff = popup
+      ? hideDistrictPopupModal(popup, {
+        preserveDistrictSelection: true,
+        suppressMapInput: false
+      })
+      : false;
+    const restoreDistrictPopup = () => {
+      if (popup && districtPopupHiddenForHandoff && popup.hidden) {
+        showDistrictPopupModal(popup);
+      }
+    };
+    const opening = openProductionPopupFromTrigger(openButton);
+    if (opening === null) {
+      restoreDistrictPopup();
+      setBuildingActionFeedback(
+        root,
+        "warning",
+        popupTarget.label,
+        `Popup pro ${popupTarget.label} není momentálně dostupný.`,
+        safeDistrict?.id ? `District ${safeDistrict.id}` : ""
+      );
+      return false;
     }
-    openButton.click();
+    observeProductionPopupOpening(opening, {
+      onDeclined: restoreDistrictPopup,
+      onRejected: () => {
+        restoreDistrictPopup();
+        setBuildingActionFeedback(
+          root,
+          "warning",
+          popupTarget.label,
+          `Popup pro ${popupTarget.label} se nepodařilo bezpečně otevřít.`,
+          safeDistrict?.id ? `District ${safeDistrict.id}` : ""
+        );
+      }
+    });
     return true;
   };
   let openDistrictBuildingDetail = presentDistrictBuildingDetail;
@@ -12263,9 +12327,7 @@ function bindDistrictCanvas(root) {
         name: building.baseName || building.displayName,
         label: building.baseName || building.displayName,
         displayName: building.displayName,
-        kindLabel: resolveDistrictBuildingChipKind(
-          building.serverBuilding?.role || building.baseName || building.displayName
-        )
+        kindLabel: resolveDistrictBuildingPresentationKind(building)
       }))
     });
 
@@ -12276,7 +12338,7 @@ function bindDistrictCanvas(root) {
         ? "Pro tento district teď není dostupná žádná akce."
         : "",
       hidden: readModel?.district?.status === "destroyed",
-      headHidden: readModel?.district?.status === "destroyed"
+      headHidden: readModel?.district?.status === "destroyed" || actions.length > 0
     }, {
       onAction: () => {}
     }, {
@@ -14638,8 +14700,11 @@ const runtimePopupBinders = createRuntimePopupBinders({
   STORAGE_POPUP_CLOSE_SELECTOR, NAV_LOGOUT_SELECTOR, TOPBAR_SPY_PILL_SELECTOR, TOPBAR_SPY_VALUE_SELECTOR,
   CURRENT_PLAYER_ID, FACTION_CATALOG, normalizeMapVisibilityMode, getSettingsState, applySettingsState,
   getDisplayedResourceSnapshot, getStoredRegistration, getLaunchPlayerAvatar, getCurrentPlayerDistrictSourceSnapshot,
+  getServerPlayerView,
   syncCurrentPlayerDistrictCountDisplays, getResolvedGangState,
   getLaunchPlayerColor, createPlayerProfileViewModel, resolveRuntimeAssetUrl, formatGangHeatProtectionLabel,
+  resolvePlayerIdentityPresentation,
+  resolveServerPlayerAvatarSrc: resolveLivePlayerAvatarSrc,
   renderPlayerProfilePanel, renderStorageList, getResolvedWeaponInventory, getResolvedMaterialInventory,
   getResolvedDrugInventory, getStoredFactorySupplies, getServerStorageSummary: getGameplayStorageSummary, clearLegacyState, renderSpyResourceState,
   clearAccountIdentity, leaveActiveServerRegistration,
@@ -14861,22 +14926,26 @@ const {
   getDisplayedResourceSnapshot,
   getRegistrationAccentColor,
   getResolvedGangState,
+  getServerPlayerView,
   getStoredRegistration,
   normalizeRuntimeHexColor,
+  playerPopupAvatarSelector: PLAYER_POPUP_AVATAR_SELECTOR,
   playerPopupFactionSelector: PLAYER_POPUP_FACTION_SELECTOR,
   playerPopupGangSelector: PLAYER_POPUP_GANG_SELECTOR,
   playerPopupIdentitySelector: PLAYER_POPUP_IDENTITY_SELECTOR,
   playerPopupServerSelector: PLAYER_POPUP_SERVER_SELECTOR,
   renderGangMembersState,
   renderSpyResourceState,
+  resolvePlayerIdentityPresentation,
+  resolveServerPlayerAvatarSrc: resolveLivePlayerAvatarSrc,
   syncCurrentPlayerDistrictCountDisplays,
   topbarInfluenceSelector: TOPBAR_INFLUENCE_SELECTOR
 });
 const {
   bindFactoryPopup
 } = createFactoryPopupRuntime({
-  allowLegacyLocalProduction: isLocalDemoGameplayExecutionMode(),
-  allowLegacyProductionUpgrade: isLocalDemoGameplayExecutionMode(),
+  allowLegacyLocalProduction: isLocalDemoGameplayExecutionMode,
+  allowLegacyProductionUpgrade: isLocalDemoGameplayExecutionMode,
   isServerAuthoritativeGameplayRuntimeReady,
   FACTORY_CONFIG,
   FACTORY_SLOT_CONFIG,
@@ -15351,10 +15420,11 @@ function ensureStartDistrictRecovery() {
 }
 
 function bindFreeSessionOnboarding(root) {
+  const policy = resolveOnboardingRuntimePolicy(getSelectedGameplayExecutionMode());
   if (
     !root
     || onboardingBridgesByRoot.has(root)
-    || getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.localDemo
+    || !policy.bind
   ) {
     return false;
   }
@@ -15363,8 +15433,13 @@ function bindFreeSessionOnboarding(root) {
     root,
     documentRef: document,
     getContext: () => createFreeSessionUiContext(root),
-    onStart: () => startOnboardingSandbox(root),
-    onComplete: () => stopOnboardingSandbox(root)
+    autoStart: policy.autoStart,
+    ...(policy.useLocalSandbox
+      ? {
+          onStart: () => startOnboardingSandbox(root),
+          onComplete: () => stopOnboardingSandbox(root)
+        }
+      : {})
   });
   onboardingBridgesByRoot.set(root, bridge);
   bridge.init();
@@ -15437,11 +15512,13 @@ function bindEliminationPurgeWindow(root) {
       ? eliminationDemoViewModelFactory(options)
       : null,
     allowDemoFixtures,
-    onCountdownElapsed: (result) => {
-      const resolvedResult = handleEliminationCountdownResolved(root, result);
-      queueOrOpenResultModal(root, "elimination", resolvedResult);
-      return resolvedResult;
-    },
+    onCountdownElapsed: allowDemoFixtures
+      ? () => null
+      : (result) => {
+          const resolvedResult = handleEliminationCountdownResolved(root, result);
+          queueOrOpenResultModal(root, "elimination", resolvedResult);
+          return resolvedResult;
+        },
     openEliminationResultPopup: (result, trigger) => eliminationResultPopupsByRoot.get(root)?.open?.(result, trigger)
   });
   if (!panel) {
@@ -15459,14 +15536,18 @@ function bindEliminationCountdownWarningOverlay(root) {
     return false;
   }
 
-  const allowDemoFixtures = getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.localDemo;
+  if (getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    const warning = root.ownerDocument?.querySelector?.("[data-elimination-countdown-warning]");
+    if (warning) {
+      warning.hidden = true;
+      warning.classList?.remove?.("is-visible");
+    }
+    return false;
+  }
   const warning = bindEliminationCountdownWarning(root, {
     getGameplaySlice: () => latestGameplaySliceReadModel,
     getPlayerView: () => getEliminationPanelPlayerView(root),
-    getViewModel: (options) => allowDemoFixtures && typeof eliminationDemoViewModelFactory === "function"
-      ? eliminationDemoViewModelFactory(options)
-      : null,
-    allowDemoFixtures,
+    allowDemoFixtures: false,
     onCountdownElapsed: (result) => {
       const resolvedResult = handleEliminationCountdownResolved(root, result);
       queueOrOpenResultModal(root, "elimination", resolvedResult);
@@ -15477,9 +15558,6 @@ function bindEliminationCountdownWarningOverlay(root) {
     return false;
   }
   eliminationCountdownWarningsByRoot.set(root, warning);
-  if (allowDemoFixtures) {
-    void loadLocalEliminationDemoFixture().then(() => warning.render?.());
-  }
   return true;
 }
 

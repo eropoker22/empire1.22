@@ -32,12 +32,25 @@ import type {
   MarketPriceResult,
   MarketResourceId,
   MarketTransaction,
+  MarketTransactionView,
   MarketTrend,
   MarketType,
   PlayerMarketListing,
   ServerMarketState
 } from "./market-types";
+import type { GameCoreContext } from "../../engine/context";
 import { applyDayNightMarketVolatilityFactor } from "../day-night/dayNight";
+import {
+  resolveCityDayIndex,
+  resolveCityMinuteOfDay
+} from "../day-night/cityClock";
+
+type MarketScheduleContext = Pick<GameCoreContext, "config">;
+type NormalMarketOfferSchedule = {
+  offerWindowId: string;
+  nextRefreshCityMinute: number | null;
+  nextRefreshCityTimeLabel: string;
+};
 export {
   blackMarketResourceIds,
   marketConfig,
@@ -55,6 +68,7 @@ export type {
   MarketPriceResult,
   MarketResourceId,
   MarketTransaction,
+  MarketTransactionView,
   MarketTrend,
   MarketType,
   PlayerMarketListing,
@@ -144,7 +158,8 @@ export const buyResource = (
   amount: number,
   marketType: MarketType,
   paymentType: MarketPaymentType,
-  now = resolveMarketNow(serverState)
+  now = resolveMarketNow(serverState),
+  context?: MarketScheduleContext
 ): MarketActionResult => {
   const nextState = cloneServerState(serverState);
   const state = initializeServerMarket(nextState, now);
@@ -160,8 +175,8 @@ export const buyResource = (
   if (marketType !== "normal" && marketType !== "black") {
     return failMarketAction("INVALID_MARKET_TYPE", "Neznámý typ marketu.");
   }
-  if (marketType === "normal" && !(normalMarketResourceIds as readonly string[]).includes(resourceId)) {
-    return failMarketAction("RESOURCE_NOT_IN_NORMAL_MARKET", "Tahle položka není v nabídce normal marketu.", { nextState: state });
+  if (marketType === "normal" && !getNormalMarketRotation(state, context).includes(resourceId)) {
+    return failMarketAction("NORMAL_MARKET_OFFER_UNAVAILABLE", "Tahle nabídka už na normal marketu není.", { nextState: state });
   }
   if (marketType === "black" && !getBlackMarketRotation(state, now).includes(resourceId)) {
     return failMarketAction("BLACK_MARKET_OFFER_UNAVAILABLE", "Tahle nabídka už na black marketu není.", { nextState: state });
@@ -241,7 +256,8 @@ export const sellResource = (
   playerState: AnyRecord,
   resourceId: MarketResourceId,
   amount: number,
-  now = resolveMarketNow(serverState)
+  now = resolveMarketNow(serverState),
+  context?: MarketScheduleContext
 ): MarketActionResult => {
   const nextState = cloneServerState(serverState);
   const state = initializeServerMarket(nextState, now);
@@ -254,8 +270,31 @@ export const sellResource = (
   if (safeAmount <= 0) {
     return failMarketAction("INVALID_AMOUNT", "Množství musí být větší než nula.");
   }
+  if (!context) {
+    return failMarketAction(
+      "NORMAL_MARKET_ROTATION_CONTEXT_REQUIRED",
+      "Prodej vyžaduje autoritativní kontext aktuální nabídky normal marketu.",
+      { nextState: state }
+    );
+  }
+  if (!(normalMarketResourceIds as readonly string[]).includes(resourceId)) {
+    return failMarketAction("RESOURCE_NOT_IN_NORMAL_MARKET", "Tuhle položku normal market nevykupuje.", { nextState: state });
+  }
+  if (!getNormalMarketRotation(state, context).includes(resourceId)) {
+    return failMarketAction("NORMAL_MARKET_OFFER_UNAVAILABLE", "Tahle nabídka už na normal marketu není.", { nextState: state });
+  }
   if (getPlayerResourceAmount(state, player, resourceId) < safeAmount) {
     return failMarketAction("NOT_ENOUGH_RESOURCE", "Nemáš dost resource na prodej.", { nextState: state });
+  }
+
+  const currentStock = clampStock(state.market.stock[resourceId], resourceId, state.market.mode);
+  const remainingStockCapacity = Math.max(0, getMaxStock(resourceId, state.market.mode) - currentStock);
+  if (safeAmount > remainingStockCapacity) {
+    return failMarketAction(
+      "NORMAL_MARKET_STOCK_CAPACITY_EXCEEDED",
+      `Normal market přijme už jen ${remainingStockCapacity} ks resource.`,
+      { nextState: state }
+    );
   }
 
   const normalPrice = calculateMarketPrice(state, resourceId, "normal").finalPrice;
@@ -265,7 +304,7 @@ export const sellResource = (
 
   debitPlayerResource(state, player, resourceId, safeAmount);
   creditPlayerCash(state, player, "cleanCash", totalPrice);
-  state.market.stock[resourceId] = clampStock(state.market.stock[resourceId] + safeAmount, resourceId, state.market.mode);
+  state.market.stock[resourceId] = currentStock + safeAmount;
   addRollingVolume(state.market, resourceId, "sell", safeAmount, now);
   const risk = applyTransactionRisk(state, player, "normal", totalPrice, now);
   const transaction = appendMarketTransaction(state, {
@@ -537,7 +576,12 @@ export const tickMarket = (
   };
 };
 
-export const getMarketViewModel = (serverState: AnyRecord, playerState: AnyRecord, now = resolveMarketNow(serverState)): AnyRecord => {
+export const getMarketViewModel = (
+  serverState: AnyRecord,
+  playerState: AnyRecord,
+  now = resolveMarketNow(serverState),
+  context?: MarketScheduleContext
+): AnyRecord => {
   const state = initializeServerMarket(serverState, now);
   const player = resolvePlayerForRead(state, playerState);
   const totalMoneyInServer = getServerTotalMoney(state);
@@ -546,6 +590,10 @@ export const getMarketViewModel = (serverState: AnyRecord, playerState: AnyRecor
 
   const blackMarketRotation = getBlackMarketRotation(state, now);
   const blackMarketWindowMs = marketConfig.blackMarket.rotationSeconds * 1000;
+  const normalMarketRotation = getNormalMarketRotation(state, context);
+  const normalMarketOfferSet = new Set(normalMarketRotation);
+  const blackMarketOfferSet = new Set(blackMarketRotation);
+  const normalMarketSchedule = getNormalMarketOfferSchedule(state, context);
   return {
     mode: state.market.mode,
     inflation: {
@@ -583,9 +631,12 @@ export const getMarketViewModel = (serverState: AnyRecord, playerState: AnyRecor
           stock,
           maxStock,
           stockPercent,
-          available: (normalMarketResourceIds as readonly string[]).includes(resourceId),
-          canBuy: (normalMarketResourceIds as readonly string[]).includes(resourceId) && stock > 0 && hasPlayerCash(state, player, "cleanCash", normalPrice),
-          canSell: getPlayerResourceAmount(state, player, resourceId) > 0
+          available: normalMarketOfferSet.has(resourceId),
+          offerIndex: normalMarketRotation.indexOf(resourceId),
+          canBuy: normalMarketOfferSet.has(resourceId) && stock > 0 && hasPlayerCash(state, player, "cleanCash", normalPrice),
+          canSell: normalMarketOfferSet.has(resourceId)
+            && stock < maxStock
+            && getPlayerResourceAmount(state, player, resourceId) > 0
         },
         blackMarket: {
           basePrice: baseBlackPrice,
@@ -593,7 +644,8 @@ export const getMarketViewModel = (serverState: AnyRecord, playerState: AnyRecor
           shoppingMallDiscountPct: blackBonus.discountPct,
           shoppingMallDiscountAmount: Math.max(0, baseBlackPrice - blackPrice),
           marketFeeReductionPct: blackBonus.marketFeeReductionPct,
-          available: blackMarketRotation.includes(resourceId),
+          available: blackMarketOfferSet.has(resourceId),
+          offerIndex: blackMarketRotation.indexOf(resourceId),
           markup: roundRatio(calculateMarketPrice(state, resourceId, "black").factors.marketTypeFactor),
           dirtyCashPrice: blackDirtyCashPrice,
           heatRisk: getBlackMarketHeatForValue(blackDirtyCashPrice),
@@ -606,6 +658,12 @@ export const getMarketViewModel = (serverState: AnyRecord, playerState: AnyRecor
       };
     }),
     activeMarketEvents: state.market.activeMarketEvents.map((event) => ({ ...event })),
+    normalMarket: {
+      offerResourceIds: normalMarketRotation,
+      offerWindowId: normalMarketSchedule.offerWindowId,
+      nextRefreshCityMinute: normalMarketSchedule.nextRefreshCityMinute,
+      nextRefreshCityTimeLabel: normalMarketSchedule.nextRefreshCityTimeLabel
+    },
     blackMarket: {
       offerResourceIds: blackMarketRotation,
       refreshesAt: (Math.floor(now / blackMarketWindowMs) + 1) * blackMarketWindowMs,
@@ -629,7 +687,10 @@ export const getMarketViewModel = (serverState: AnyRecord, playerState: AnyRecor
       ownListingCount: getActivePlayerListingCount(state.market, getPlayerId(player), now),
       listingLimitPerSeller: marketConfig.playerMarket.listingLimitPerSeller
     },
-    recentTransactions: [...state.market.transactions].slice(-10).reverse(),
+    recentTransactions: [...state.market.transactions]
+      .slice(-10)
+      .reverse()
+      .map((transaction) => createMarketTransactionView(transaction, getPlayerId(player))),
     priceHistory: clonePriceHistory(state.market.priceHistory)
   };
 };
@@ -1728,6 +1789,86 @@ export const getBlackMarketRotation = (serverState: AnyRecord, now = resolveMark
   return [...blackMarketResourceIds]
     .sort((left, right) => stableHash(`${seed}:${left}`) - stableHash(`${seed}:${right}`))
     .slice(0, marketConfig.blackMarket.offerCount);
+};
+
+const createMarketTransactionView = (
+  transaction: MarketTransaction,
+  currentPlayerId: string
+): MarketTransactionView => ({
+  timestamp: transaction.timestamp,
+  resourceId: transaction.resourceId,
+  marketType: transaction.marketType,
+  type: transaction.type,
+  amount: transaction.amount,
+  unitPrice: transaction.unitPrice,
+  totalPrice: transaction.totalPrice,
+  paymentType: transaction.paymentType,
+  isOwn: transaction.playerId === currentPlayerId
+});
+
+export const getNormalMarketRotation = (
+  serverState: AnyRecord,
+  context?: MarketScheduleContext
+): MarketResourceId[] => {
+  if (!context) {
+    return [...normalMarketResourceIds];
+  }
+  const schedule = getNormalMarketOfferSchedule(serverState, context);
+  const random = createSeededMarketRandom(stableHash(`city-market:${schedule.offerWindowId}`));
+  const resources = [...normalMarketResourceIds];
+  for (let index = resources.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [resources[index], resources[swapIndex]] = [resources[swapIndex], resources[index]];
+  }
+  return resources.slice(0, marketConfig.normalMarket.offerCount);
+};
+
+const getNormalMarketOfferSchedule = (
+  serverState: AnyRecord,
+  context?: MarketScheduleContext
+): NormalMarketOfferSchedule => {
+  if (!context) {
+    return {
+      offerWindowId: "all",
+      nextRefreshCityMinute: null,
+      nextRefreshCityTimeLabel: "--:--"
+    };
+  }
+  const cityClockState = {
+    root: {
+      tick: safeInteger(serverState.root?.tick)
+    }
+  };
+  const cityMinutes = resolveCityMinuteOfDay(cityClockState, context);
+  const cityDayIndex = resolveCityDayIndex(cityClockState, context);
+  const [dayRefreshMinute, eveningRefreshMinute] = marketConfig.normalMarket.refreshCityMinutes;
+  const isEveningOffer = cityMinutes >= eveningRefreshMinute || cityMinutes < dayRefreshMinute;
+  const offerDayIndex = cityMinutes < dayRefreshMinute
+    ? Math.max(0, cityDayIndex - 1)
+    : cityDayIndex;
+  const nextRefreshCityMinute = cityMinutes < dayRefreshMinute
+    ? dayRefreshMinute
+    : cityMinutes < eveningRefreshMinute
+      ? eveningRefreshMinute
+      : dayRefreshMinute;
+  return {
+    offerWindowId: `${offerDayIndex}:${isEveningOffer ? "evening" : "day"}`,
+    nextRefreshCityMinute,
+    nextRefreshCityTimeLabel: formatCityMinute(nextRefreshCityMinute)
+  };
+};
+
+const formatCityMinute = (cityMinute: number): string => {
+  const normalizedMinute = ((safeInteger(cityMinute) % (24 * 60)) + (24 * 60)) % (24 * 60);
+  return `${String(Math.floor(normalizedMinute / 60)).padStart(2, "0")}:${String(normalizedMinute % 60).padStart(2, "0")}`;
+};
+
+const createSeededMarketRandom = (seed: number): (() => number) => {
+  let value = seed >>> 0;
+  return () => {
+    value = (value * 1664525 + 1013904223) >>> 0;
+    return value / 4294967296;
+  };
 };
 
 const deterministicMarketRoll = (serverState: AnyRecord): number => {

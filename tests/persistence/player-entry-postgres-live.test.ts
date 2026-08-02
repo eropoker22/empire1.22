@@ -72,7 +72,7 @@ describe("player entry postgres live", () => {
     }
   }, 60_000);
 
-  run("serializes same-district and last-slot races without partial memberships", async () => {
+  run("serializes same-district and last-slot races while accepting independent districts", async () => {
     const fixture = await createFixture();
     try {
       const sameDistrictServer = await fixture.createServer(4);
@@ -88,6 +88,24 @@ describe("player entry postgres live", () => {
       expect(sameDistrict.filter((result) => result.status === "rejected").map((result) =>
         result.status === "rejected" ? entryErrorCode(result.reason) : null)).toEqual(["SPAWN_ALREADY_RESERVED"]);
       expect(await fixture.count("empire_server_memberships", sameDistrictServer.serverInstanceId)).toBe(1);
+
+      const independent = await fixture.entry.getSpawnSelection(right.accountId, sameDistrictServer.serverInstanceId);
+      const independentDistricts = independent.districts.filter((entry) => entry.available).slice(0, 2);
+      const third = await fixture.createAccount("independent-third");
+      const independentResults = await Promise.allSettled([
+        fixture.entry.confirmSpawnDistrict(
+          right.accountId,
+          request(independent, independentDistricts[0]!.districtId),
+          key("independent-right")
+        ),
+        fixture.entry.confirmSpawnDistrict(
+          third.accountId,
+          request(independent, independentDistricts[1]!.districtId),
+          key("independent-third")
+        )
+      ]);
+      expect(independentResults.filter((result) => result.status === "fulfilled")).toHaveLength(2);
+      expect(await fixture.count("empire_server_memberships", sameDistrictServer.serverInstanceId)).toBe(3);
 
       const lastSlotServer = await fixture.createServer(1);
       const [first, second] = await Promise.all([fixture.createAccount("slot-a"), fixture.createAccount("slot-b")]);

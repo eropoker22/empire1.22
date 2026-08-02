@@ -587,17 +587,17 @@
   text-shadow: 0 0 8px rgba(148, 163, 184, 0.18);
 }
 
-.district-popup-buildings__chip-kind--passive {
+.district-popup-buildings__chip--kind-passive {
   color: rgba(226, 232, 240, 0.88);
   text-shadow: 0 0 8px rgba(203, 213, 225, 0.2);
 }
 
-.district-popup-buildings__chip-kind--action {
+.district-popup-buildings__chip--kind-action {
   color: rgba(250, 204, 21, 0.95);
   text-shadow: 0 0 9px rgba(250, 204, 21, 0.24);
 }
 
-.district-popup-buildings__chip-kind--production {
+.district-popup-buildings__chip--kind-production {
   color: rgba(103, 232, 249, 0.92);
   text-shadow: 0 0 9px rgba(34, 211, 238, 0.22);
 }

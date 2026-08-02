@@ -316,12 +316,15 @@ const appendLocalAllianceChatMessage = (activeAlliance, body) => {
   return nextMessages;
 };
 
-const isDevOnlyAllianceDemoEnabled = () => Boolean(getAllianceDemoData()) && getGameplayExecutionMode({
+const isLocalDemoAllianceMode = () => getGameplayExecutionMode({
   windowRef: typeof window === "undefined" ? null : window,
   diagnosticsMode: typeof window === "undefined"
     ? null
     : window.empireStreetsRuntimeDiagnostics?.getSummary?.().runtimeMode
 }) === GAMEPLAY_EXECUTION_MODES.localDemo;
+
+const isDevOnlyAllianceDemoEnabled = () => Boolean(getAllianceDemoData())
+  && isLocalDemoAllianceMode();
 
 const getCurrentGamePhaseForAllianceDemo = () => {
   if (typeof document === "undefined") return "live";
@@ -351,11 +354,14 @@ const getCurrentPlayerInfluenceForAllianceCreate = () =>
   getAuthoritativePlayerInfluenceForAllianceCreate()
   ?? getDisplayedPlayerInfluenceForAllianceCreate();
 
+const formatPlayerInfluenceForAllianceCreate = (value) =>
+  Math.floor(Math.max(0, Number(value) || 0));
+
 const hasRequiredInfluenceForAllianceCreate = () =>
   getDisplayedPlayerInfluenceForAllianceCreate() >= ALLIANCE_CREATE_REQUIRED_INFLUENCE;
 
 const getAllianceCreateInfluenceRequirementMessage = () =>
-  `Vytvořit alianci půjde až od ${ALLIANCE_CREATE_REQUIRED_INFLUENCE} vlivu. Teď máš ${getCurrentPlayerInfluenceForAllianceCreate()}.`;
+  `Vytvořit alianci půjde až od ${ALLIANCE_CREATE_REQUIRED_INFLUENCE} vlivu. Teď máš ${formatPlayerInfluenceForAllianceCreate(getCurrentPlayerInfluenceForAllianceCreate())}.`;
 
 const getAllianceCreateEligibility = (board = latestAllianceBoard) =>
   createAllianceCreateEligibility({
@@ -1928,8 +1934,9 @@ const renderAllianceState = () => {
   const allianceModal = qs("alliance-modal");
 
   if (!board && !isDevOnlyAllianceDemoEnabled()) {
-    document.querySelector("[data-gang-alliance]")?.replaceChildren(document.createTextNode("Načítám…"));
-    document.querySelector("[data-player-popup-alliance]")?.replaceChildren(document.createTextNode("Načítám…"));
+    const label = isLocalDemoAllianceMode() ? "žádná" : "Načítám…";
+    document.querySelector("[data-gang-alliance]")?.replaceChildren(document.createTextNode(label));
+    document.querySelector("[data-player-popup-alliance]")?.replaceChildren(document.createTextNode(label));
     document.querySelector("[data-alliance-launcher-name]")?.replaceChildren();
     return;
   }
@@ -1945,7 +1952,7 @@ const renderAllianceState = () => {
 
   if (activePanel) {
     if (selectedAllianceTab === "members") selectedAllianceTab = "overview";
-    allianceModal?.setAttribute("data-alliance-tab", activeAlliance ? selectedAllianceTab : "empty");
+    allianceModal?.setAttribute("data-alliance-tab", selectedAllianceTab);
     const panels = activeAlliance ? {
       overview: renderOverviewPanel(activeAlliance),
       chat: renderChatPanel(activeAlliance),
@@ -2675,7 +2682,17 @@ const mountAllianceRuntimeBindings = () => {
     rerenderAll();
     window.dispatchEvent(new CustomEvent("empire:alliance-state-changed"));
   });
-  document.addEventListener("empire:runtime-mode-changed", renderGlobalServerChat);
+  document.addEventListener("empire:local-demo-gameplay-bridge-ready", () => {
+    latestAllianceBoard = createDevOnlyAllianceBoard(latestAllianceBoard);
+    rerenderAll();
+    window.dispatchEvent(new CustomEvent("empire:alliance-state-changed"));
+  });
+  document.addEventListener("empire:runtime-mode-changed", () => {
+    latestAllianceBoard = createDevOnlyAllianceBoard(latestAllianceBoard);
+    renderGlobalServerChat();
+    renderAllianceState();
+    window.dispatchEvent(new CustomEvent("empire:alliance-state-changed"));
+  });
   document.addEventListener("empire:onboarding-alliance-reset", (event) => {
     latestAllianceBoard = createDevOnlyAllianceBoard(event?.detail?.allianceBoard || { activeAlliance: null });
     rerenderAll();

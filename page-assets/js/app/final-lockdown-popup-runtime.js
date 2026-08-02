@@ -1,4 +1,5 @@
 import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
+import { GAMEPLAY_EXECUTION_MODES, getGameplayExecutionMode } from "./runtime/gameplayExecutionMode.js";
 
 export const SERVER_MILESTONE_IDS = Object.freeze(["welcome", "first-purge", "lockdown", "winners"]);
 
@@ -208,6 +209,10 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
 
   const windowRef = documentRef.defaultView || window;
   const storage = options.storage || windowRef.localStorage;
+  const getExecutionMode = options.getExecutionMode
+    || (() => getGameplayExecutionMode({ windowRef }));
+  const isServerLifecycleMode = () =>
+    getExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative;
   const card = modal.querySelector(".server-milestone-card");
   const elements = {
     eyebrow: modal.querySelector("[data-server-milestone-eyebrow]"),
@@ -290,7 +295,7 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
   };
 
   const open = (id, payload = {}) => {
-    if (!modal.hidden || !render(id, payload)) return false;
+    if (!isServerLifecycleMode() || !modal.hidden || !render(id, payload)) return false;
     initialFocus = documentRef.activeElement;
     modal.hidden = false;
     openOverlay(modal, {
@@ -315,7 +320,7 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
   };
 
   const announce = (id, serverInstanceId, payload = {}) => {
-    if (!SERVER_MILESTONE_IDS.includes(id) || !serverInstanceId || !modal.hidden) return false;
+    if (!isServerLifecycleMode() || !SERVER_MILESTONE_IDS.includes(id) || !serverInstanceId || !modal.hidden) return false;
     if (hasAcknowledged(storage, serverInstanceId, id)) return false;
     payloads.set(id, payload);
     if (!open(id, payload)) return false;
@@ -325,6 +330,7 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
   };
 
   const handleGameplaySlice = (gameplaySlice = {}) => {
+    if (!isServerLifecycleMode()) return false;
     const serverInstanceId = String(gameplaySlice.server?.serverInstanceId || gameplaySlice.player?.instanceId || "");
     const firstPurgeDeadlineMs = resolveFirstPurgeDeadlineMs(gameplaySlice);
     const finalLockdownDeadlineMs = resolveFinalLockdownDeadlineMs(gameplaySlice);

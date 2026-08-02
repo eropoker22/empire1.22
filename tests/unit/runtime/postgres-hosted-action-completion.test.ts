@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { copyFreeHostedStartingPlayerState } from "@empire/game-config";
 import type { AdminAuditEntryView } from "@empire/shared-types";
 import type { PostgresDatabase, PostgresQueryable } from
   "../../../apps/server/src/runtime/persistence/postgres";
@@ -128,6 +129,7 @@ const serverRow = (hosted: HostedServerRecord): Record<string, unknown> => ({
   effective_final_lockdown_trigger: hosted.effectiveFinalLockdownTrigger,
   effective_first_elimination_tick: hosted.effectiveFirstEliminationTick,
   world_seed: hosted.worldSeed, config_version: hosted.configVersion, map_composition: hosted.mapComposition,
+  starting_player_state: hosted.startingPlayerState ?? copyFreeHostedStartingPlayerState(),
   initial_snapshot_id: hosted.initialSnapshotId, current_snapshot_id: hosted.currentSnapshotId,
   runtime_lease_owner_id: hosted.runtimeLeaseOwnerId, runtime_lease_expires_at: hosted.runtimeLeaseExpiresAt,
   last_worker_heartbeat_at: hosted.lastWorkerHeartbeatAt, last_started_at: hosted.lastStartedAt,

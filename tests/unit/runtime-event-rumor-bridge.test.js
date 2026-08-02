@@ -296,4 +296,37 @@ describe("event rumor bridge", () => {
       meta: "District 7 · Player 3"
     });
   });
+
+  it("pauses dynamic rumor publication for deterministic presentation capture", () => {
+    const document = new FakeDocument();
+    const root = new FakeElement("main");
+    const streetNewsEntries = [];
+    root.dataset.streetNewsRumorPublication = "paused";
+    const bridge = createEventRumorBridge({
+      root,
+      documentRef: document,
+      appendBuildingActionResultEntry: (...args) => streetNewsEntries.push(args),
+      getState: () => ({
+        cityFeed: {
+          currentPlayerFeed: [{
+            id: "city-feed:paused-rumor",
+            sourceEventId: "rumor:paused",
+            category: "rumor",
+            districtId: "district:7",
+            createdAtTick: 9,
+            message: "Dynamický drb během capture."
+          }]
+        }
+      })
+    });
+
+    bridge.init();
+    bridge.render();
+    expect(streetNewsEntries).toEqual([]);
+
+    delete root.dataset.streetNewsRumorPublication;
+    bridge.render();
+    expect(streetNewsEntries).toHaveLength(1);
+    expect(streetNewsEntries[0][3].id).toBe("rumor-street-news:rumor:paused");
+  });
 });

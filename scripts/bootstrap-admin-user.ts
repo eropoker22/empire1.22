@@ -1,5 +1,7 @@
 import "./load-local-environment";
 import * as crypto from "node:crypto";
+import { resolve, sep } from "node:path";
+import { pathToFileURL } from "node:url";
 import type { AdminRole } from "@empire/shared-types";
 import { hashAdminPassword, normalizeAdminUsername } from "../apps/server/src/admin/read-only/admin-password";
 import { createPostgresAdminAuditRepository, createPostgresAdminSessionRepository, createPostgresAdminUserRepository } from "../apps/server/src/admin/read-only/postgres-admin-security-repositories";
@@ -21,7 +23,10 @@ if (!(["viewer", "operator", "owner"] as string[]).includes(role)) throw new Err
 const database = createPostgresDatabase(databaseUrl);
 try {
   const migrationStatus = await getDatabaseMigrationStatus(database,
-    new URL("../apps/server/src/runtime/persistence/postgres/migrations/", import.meta.url));
+    pathToFileURL(`${resolve(
+      process.cwd(),
+      "apps/server/src/runtime/persistence/postgres/migrations"
+    )}${sep}`));
   if (!migrationStatus.current) throw new Error("Database migrations are not current. Run npm run db:migrate first.");
 
   const users = createPostgresAdminUserRepository(database);

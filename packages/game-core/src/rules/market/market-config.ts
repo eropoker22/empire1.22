@@ -142,6 +142,10 @@ export const marketConfig = Object.freeze({
     rotationSeconds: 30 * 60,
     offerCount: 2
   }),
+  normalMarket: Object.freeze({
+    offerCount: 2,
+    refreshCityMinutes: Object.freeze([11 * 60, 19 * 60])
+  }),
   shoppingMallBonus: Object.freeze({
     buildingTypeId: "shopping_mall",
     discountPctPerMall: 2,

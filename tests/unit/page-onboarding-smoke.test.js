@@ -68,7 +68,7 @@ describe("page onboarding smoke", () => {
   it("keeps the login to game page contract wired", () => {
     expect(page("login.html")).toContain('id="login-form"');
     expect(page("login.html")).toContain('id="register-form"');
-    expect(page("login.html")).toContain('id="guest-btn"');
+    expect(page("login.html")).not.toContain('id="guest-btn"');
     expect(page("login.html")).not.toContain('data-open-server-select');
     expect(page("login.html")).toContain("data-login-registration-open");
     expect(page("login.html")).toContain("data-login-registration-overlay");
@@ -112,7 +112,7 @@ describe("page onboarding smoke", () => {
     expect(page("game.html")).toContain('id="bounty-target-picker"');
     expect(page("game.html")).toContain('data-login-about-open');
     expect(page("game.html")).toContain('data-login-about-overlay');
-    expect(page("game.html")).toContain("styles-server-defeat-notice.css");
+    expect(page("game.html")).not.toContain("styles-server-defeat-notice.css");
     expect(page("game.html")).toContain('src="../page-assets/js/app/game-about-modal-runtime.js"');
     expect(page("game.html")).not.toContain('id="battle-royale-info-modal"');
     expect(page("game.html")).toContain('class="city-status-bar"');
@@ -282,17 +282,18 @@ describe("page onboarding smoke", () => {
     expect(cityStatusMobileCssSource).toContain("text-shadow:");
     expect(onboardingCssSource).toContain('.elimination-ai-panel__metric[data-ai-metric="heat"]');
     const gameplaySlicePageSource = readFileSync(resolve(root, "apps/client/src/browser/gameplay-slice-page.ts"), "utf8");
-    const gameplaySliceClientSource = readFileSync(resolve(root, "page-assets/js/client-assets/gameplay-slice-client.js"), "utf8");
-    const gameplaySliceCssSource = readFileSync(resolve(root, "page-assets/css/styles-gameplay-slice-client.css"), "utf8");
+    const gamePageSource = readFileSync(resolve(root, "pages/game.html"), "utf8");
     expect(gameplaySlicePageSource).toContain('options.root.dataset.gameplaySliceUnavailable = "true";');
-    expect(gameplaySlicePageSource).toContain("Object.values(mounts).forEach");
+    expect(gameplaySlicePageSource).toContain("createControllerClientApp");
+    expect(gameplaySlicePageSource).toContain("options.root.replaceChildren();");
+    expect(gameplaySlicePageSource).not.toContain("createGameplaySliceSelectiveRenderer");
+    expect(gameplaySlicePageSource).not.toContain("createDistrictSheetOverlayController");
     expect(gameplaySlicePageSource).not.toContain("<strong>Server sync unavailable</strong>");
-    expect(gameplaySliceClientSource).toContain('options.root.dataset.gameplaySliceUnavailable = "true";');
-    expect(gameplaySliceClientSource).not.toContain("<strong>Server sync unavailable</strong>");
-    expect(gameplaySliceCssSource).toContain('.gameplay-slice-client[data-gameplay-slice-unavailable="true"]');
-    expect(gameplaySliceCssSource).toContain("must not be visible inside game.html");
-    expect(gameplaySliceCssSource).toContain(".game-body .gameplay-slice-client");
-    expect(gameplaySliceCssSource).toContain("height: 0 !important;");
+    expect(gamePageSource).not.toContain("styles-gameplay-slice-client.css");
+    expect(gamePageSource).not.toContain("data-gameplay-slice-status");
+    expect(gamePageSource).not.toContain("data-gameplay-slice-topbar");
+    expect(gamePageSource).not.toContain("data-gameplay-slice-map");
+    expect(gamePageSource).not.toContain("data-gameplay-slice-panel");
     expect(readFileSync(resolve(root, "page-assets/js/app/game-about-modal-runtime.js"), "utf8")).toContain("initGameAboutModalRuntime");
     expect(readFileSync(resolve(root, "page-assets/css/styles-building-modals.css"), "utf8")).toMatch(
       /\.district-building-detail-stats \{\r?\n\s*display: none !important;/u,

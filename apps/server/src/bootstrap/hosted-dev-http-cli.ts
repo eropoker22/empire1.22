@@ -1,15 +1,19 @@
 import "../../../../scripts/load-local-environment";
 import * as http from "node:http";
+import { createSafeHostedApiErrorDiagnostic } from "./hosted-api-error-diagnostic";
 import { applyLocalHostedHttpTiming } from "./local-hosted-http-timing";
+import { createLocalHostedPostgresDatabase } from "./local-hosted-postgres-database";
 
 const port = Number(process.env.EMPIRE_HOSTED_API_PORT ?? 8787);
 const host = "127.0.0.1";
 const { createGameplaySliceFunctionHandler } = await import("../netlify/gameplay-slice-function");
+const database = createLocalHostedPostgresDatabase(process.env);
 const handler = createGameplaySliceFunctionHandler({
   environment: {
     ...process.env,
     EMPIRE_HOSTED_RUNTIME_AUTHORITY_ENABLED: "true"
-  }
+  },
+  database: database ?? undefined
 });
 
 const server = http.createServer(async (request, response) => {
@@ -24,7 +28,7 @@ const server = http.createServer(async (request, response) => {
     response.writeHead(result.statusCode, result.headers);
     response.end(result.body);
   } catch (error) {
-    console.error(`[hosted-api] request failed ${createSafeErrorDiagnostic(error)}.`);
+    console.error(`[hosted-api] request failed ${createSafeHostedApiErrorDiagnostic(error)}.`);
     response.writeHead(500, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
     response.end(JSON.stringify({
       accepted: false,
@@ -39,7 +43,13 @@ server.listen(port, host, () => {
   process.stdout.write(`Empire Streets hosted API listening on http://${host}:${port}.\n`);
 });
 
-const shutdown = () => server.close(() => process.exit(0));
+const shutdown = () => server.close(async () => {
+  try {
+    await database?.close();
+  } finally {
+    process.exit(0);
+  }
+});
 process.once("SIGTERM", shutdown);
 process.once("SIGINT", shutdown);
 
@@ -55,20 +65,3 @@ async function readBody(request: http.IncomingMessage): Promise<string | null> {
     request.on("error", reject);
   });
 }
-
-const createSafeErrorDiagnostic = (error: unknown): string => {
-  const name = error instanceof Error ? error.name : "UnknownError";
-  const code = typeof error === "object" && error !== null && "code" in error
-    ? String(error.code).replace(/[^a-zA-Z0-9_.-]/g, "").slice(0, 64)
-    : "";
-  const applicationFrame = error instanceof Error
-    ? error.stack?.split(/\r?\n/).find((line) =>
-        line.includes("STREETS") && !line.includes("node_modules")
-      )?.trim().replace(/^at\s+/, "")
-    : undefined;
-  return [
-    `name=${name}`,
-    ...(code ? [`code=${code}`] : []),
-    ...(applicationFrame ? [`at=${applicationFrame}`] : [])
-  ].join(" ");
-};

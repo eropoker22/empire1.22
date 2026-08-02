@@ -41,6 +41,13 @@ function createServerMarketCatalogPanelPayload({
     const marketView = isBlackMarket ? resource.blackMarket : resource.normalMarket;
     return marketView?.available === true
       && (isBlackMarket || allowedCityMarketOffers.size === 0 || allowedCityMarketOffers.has(String(resource.id || "")));
+  }).sort((left, right) => {
+    const leftMarket = isBlackMarket ? left?.blackMarket : left?.normalMarket;
+    const rightMarket = isBlackMarket ? right?.blackMarket : right?.normalMarket;
+    const leftIndex = Number(leftMarket?.offerIndex);
+    const rightIndex = Number(rightMarket?.offerIndex);
+    return (Number.isFinite(leftIndex) && leftIndex >= 0 ? leftIndex : Number.MAX_SAFE_INTEGER)
+      - (Number.isFinite(rightIndex) && rightIndex >= 0 ? rightIndex : Number.MAX_SAFE_INTEGER);
   });
   return {
     items: resources.map((resource = {}) => {
@@ -57,11 +64,16 @@ function createServerMarketCatalogPanelPayload({
       const sellPrice = Math.max(1, Math.floor(Number(normalMarket.sellPrice || 1)));
       const stock = Number(normalMarket.stock);
       const maxStock = Number(normalMarket.maxStock);
+      const safeStock = Number.isFinite(stock) ? Math.max(0, Math.floor(stock)) : 0;
+      const safeMaxStock = Number.isFinite(maxStock)
+        ? Math.max(0, Math.floor(maxStock))
+        : Number.POSITIVE_INFINITY;
       const stockPercent = Number(normalMarket.stockPercent);
       const amount = Math.max(0, Math.floor(Number(
         balances[resourceId] ?? balances[legacyItemId] ?? 0
       ) || 0));
-      const heatRisk = Math.max(0, Math.floor(Number(blackMarket.heatRisk || 0) || 0));
+      const blackMarketHeatRisk = Math.max(0, Math.floor(Number(blackMarket.heatRisk || 0) || 0));
+      const visibleHeatRisk = isBlackMarket ? blackMarketHeatRisk : 0;
       const cleanCash = Math.max(0, Number(playerView?.economy?.cleanCash || balances.cash || 0) || 0);
       const canBuyBlackClean = Boolean(blackMarket.canBuyWithCleanCash ?? cleanCash >= cleanBuyPrice);
       const trendDirection = resource.trend === "up" || resource.trend === "spike"
@@ -74,13 +86,12 @@ function createServerMarketCatalogPanelPayload({
           inventory: "materials",
           canSell: !isBlackMarket && Boolean(normalMarket.canSell),
           itemId: legacyItemId,
-          marketCategory: resource.category,
           resourceId
         },
         activeTab,
         trendDirection,
         stockPercent: Number.isFinite(stockPercent) ? stockPercent : 100,
-        heatRisk
+        heatRisk: visibleHeatRisk
       });
 
       return {
@@ -97,7 +108,8 @@ function createServerMarketCatalogPanelPayload({
         cleanBuyPrice,
         dirtyBuyPrice,
         sellPrice,
-        maxStock: Number.isFinite(maxStock) ? maxStock : Number.POSITIVE_INFINITY,
+        stock: safeStock,
+        maxStock: safeMaxStock,
         hasLimitedStock: !isBlackMarket,
         rowMode: isBlackMarket ? "black" : "normal",
         resourceColor: legacyItemId,
@@ -108,13 +120,13 @@ function createServerMarketCatalogPanelPayload({
         canBuyDirty: Boolean(blackMarket.canBuyWithDirtyCash),
         showCleanBuyAction: isBlackMarket,
         canSell: !isBlackMarket && Boolean(normalMarket.canSell),
-        heatRisk,
-        heatByValue: Array.isArray(serverMarket?.blackMarket?.heatByValue)
+        heatRisk: visibleHeatRisk,
+        heatByValue: isBlackMarket && Array.isArray(serverMarket?.blackMarket?.heatByValue)
           ? serverMarket.blackMarket.heatByValue
           : [],
-        metaLabel: `Máš ${amount} ks · ${isBlackMarket ? "kontakt dostupný" : `sklad ${Number.isFinite(stock) ? stock : 0}/${Number.isFinite(maxStock) ? maxStock : 0}`} · živá cena`,
+        metaLabel: `Máš ${amount} ks · ${isBlackMarket ? "kontakt dostupný" : `sklad ${safeStock}/${Number.isFinite(safeMaxStock) ? safeMaxStock : 0}`} · živá cena`,
         priceLabel: isBlackMarket
-          ? `Dirty ${formatPrice(dirtyBuyPrice)} · clean ${formatPrice(cleanBuyPrice)}${heatRisk ? ` · heat +${heatRisk}` : ""}`
+          ? `Dirty ${formatPrice(dirtyBuyPrice)} · clean ${formatPrice(cleanBuyPrice)}${visibleHeatRisk ? ` · heat +${visibleHeatRisk}` : ""}`
           : `Nákup ${formatPrice(buyPrice)} · výkup ${formatPrice(sellPrice)}`,
         trendDirection,
         trendLabel: resource.trend === "spike"
@@ -127,7 +139,7 @@ function createServerMarketCatalogPanelPayload({
         stockPercent: Number.isFinite(stockPercent) ? stockPercent : 100,
         stockLabel: isBlackMarket
           ? "Černý trh nemá veřejný sklad."
-          : `Stock ${Number.isFinite(stock) ? stock : 0}/${Number.isFinite(maxStock) ? maxStock : 0}`
+          : `Stock ${safeStock}/${Number.isFinite(safeMaxStock) ? safeMaxStock : 0}`
       };
     })
   };
@@ -141,7 +153,8 @@ export function createMarketPopupRuntime(deps = {}) {
   let marketPriceTimerId = null;
 
   const bindMarketPopup = (root) => {
-    if (resolveGameplayExecutionMode({ windowRef }) !== GAMEPLAY_EXECUTION_MODES.localDemo) {
+    const executionMode = resolveGameplayExecutionMode({ windowRef });
+    if (executionMode === GAMEPLAY_EXECUTION_MODES.unavailable) {
       return false;
     }
     const openButton = root?.querySelector?.(selectors.open);
@@ -160,6 +173,7 @@ export function createMarketPopupRuntime(deps = {}) {
     }
 
     let activeTab = "market";
+    let hideServerRecentTransactions = false;
 
     const stockAdapterOptions = {
       clamp: deps.clamp,
@@ -193,33 +207,49 @@ export function createMarketPopupRuntime(deps = {}) {
       return nextState;
     };
     const clearRecentTransactions = () => {
+      if (executionMode !== GAMEPLAY_EXECUTION_MODES.localDemo) {
+        hideServerRecentTransactions = true;
+        renderDashboard(deps.getServerMarketReadModel?.(), deps.getServerPlayerView?.());
+        return;
+      }
       const nextState = commitMarketState((currentState = {}) => ({
         ...currentState,
         transactions: []
       }));
       renderDashboard(nextState);
     };
-    const renderDashboard = (marketState) => {
+    const renderDashboard = (marketState, serverPlayerView = null) => {
       if (!dashboardElement) {
         return;
       }
 
+      const isLocalDemo = executionMode === GAMEPLAY_EXECUTION_MODES.localDemo;
+      const visibleMarketState = !isLocalDemo && hideServerRecentTransactions
+        ? { ...(marketState || {}), recentTransactions: [], transactions: [] }
+        : marketState;
+      const economy = isLocalDemo
+        ? deps.getResolvedEconomyState?.()
+        : {
+            cleanMoney: Math.max(0, Number(serverPlayerView?.economy?.cleanCash || 0) || 0),
+            dirtyMoney: Math.max(0, Number(serverPlayerView?.economy?.dirtyCash || 0) || 0)
+          };
+
       deps.renderMarketDashboard?.(dashboardElement, deps.createMarketDashboardViewModel?.(deps.createMarketDashboardAdapter?.({
         activeTab,
-        marketState,
+        marketState: visibleMarketState,
         marketTabConfig: deps.MARKET_TAB_CONFIG,
-        economy: deps.getResolvedEconomyState?.(),
-        gangState: deps.getResolvedGangState?.(),
-        serverScope: deps.getMarketServerScope?.(),
+        economy,
+        gangState: isLocalDemo ? deps.getResolvedGangState?.() : {},
+        serverScope: isLocalDemo ? deps.getMarketServerScope?.() : {},
         playerTabId: deps.MARKET_PLAYER_TAB_ID,
-        refreshAtCityTime: deps.getMarketRefreshCityTimeLabel?.(),
+        refreshAtCityTime: isLocalDemo
+          ? deps.getMarketRefreshCityTimeLabel?.()
+          : String(marketState?.normalMarket?.nextRefreshCityTimeLabel || "--:--"),
         normalizePlayerMarketListings: deps.normalizePlayerMarketListings,
         normalizeMarketTransactions: deps.normalizeMarketTransactions,
         getStockAmount,
         formatPrice: deps.formatMarketPrice
-      })), {
-        onClearRecentTransactions: clearRecentTransactions
-      });
+      })), { onClearRecentTransactions: clearRecentTransactions });
     };
     const renderPlayerMarketTab = (priceState, serverScope, tabState = {}, serverMarket = null, serverPlayerView = null) => {
       if (tabState.isAuthoritative && serverMarket?.playerMarket) {
@@ -281,18 +311,25 @@ export function createMarketPopupRuntime(deps = {}) {
     };
 
     const renderMarketTab = () => {
-      const priceState = deps.refreshMarketPricesIfNeeded?.(false);
+      const priceState = executionMode === GAMEPLAY_EXECUTION_MODES.localDemo
+        ? deps.refreshMarketPricesIfNeeded?.(false)
+        : null;
       const tabConfig = activeTab === "market"
-        ? deps.getCityMarketTabConfig?.() || deps.MARKET_TAB_CONFIG?.market || {}
+        ? executionMode === GAMEPLAY_EXECUTION_MODES.localDemo
+          ? deps.getCityMarketTabConfig?.() || deps.MARKET_TAB_CONFIG?.market || {}
+          : deps.MARKET_TAB_CONFIG?.market || {}
         : deps.MARKET_TAB_CONFIG?.[activeTab] || deps.MARKET_TAB_CONFIG?.market || {};
-      const serverScope = deps.getMarketServerScope?.();
+      const serverScope = executionMode === GAMEPLAY_EXECUTION_MODES.localDemo
+        ? deps.getMarketServerScope?.()
+        : null;
       const serverMarket = deps.getServerMarketReadModel?.();
       const serverPlayerView = deps.getServerPlayerView?.();
       const dataSource = createMarketDataSourceSnapshot({
         activeTab,
         playerTabId: deps.MARKET_PLAYER_TAB_ID,
         serverMarket,
-        localMarketState: priceState
+        localMarketState: priceState,
+        allowLocalFallback: executionMode === GAMEPLAY_EXECUTION_MODES.localDemo
       });
       const tabState = createMarketTabStateViewModel(dataSource);
       const paymentKey = tabConfig.payment || "cleanMoney";
@@ -315,7 +352,7 @@ export function createMarketPopupRuntime(deps = {}) {
         serverBadgeElement.hidden = true;
       }
 
-      renderDashboard(dataSource.marketState);
+      renderDashboard(dataSource.marketState, serverPlayerView);
 
       copyElement.textContent = deps.createMarketCopy?.(activeTab, tabConfig);
       listElement.replaceChildren();
@@ -344,7 +381,9 @@ export function createMarketPopupRuntime(deps = {}) {
               activeTab,
               serverMarket: dataSource.serverMarket,
               playerView: serverPlayerView,
-              cityMarketOfferIds: tabConfig.items?.map((item) => item.itemId),
+              cityMarketOfferIds: executionMode === GAMEPLAY_EXECUTION_MODES.localDemo
+                ? tabConfig.items?.map((item) => item.itemId)
+                : [],
               formatPrice: deps.formatMarketPrice
             })
           : deps.createMarketCatalogPanelPayload?.({
@@ -448,6 +487,14 @@ export function createMarketPopupRuntime(deps = {}) {
       }
     });
 
+    if (executionMode !== GAMEPLAY_EXECUTION_MODES.localDemo) {
+      documentRef?.addEventListener?.("empire:gameplay-slice-rendered", () => {
+        if (!popup.hidden) {
+          renderMarketTab();
+        }
+      });
+    }
+
     const scheduleMarketRefresh = () => {
       if (marketPriceTimerId !== null) {
         windowRef?.clearTimeout?.(marketPriceTimerId);
@@ -459,7 +506,7 @@ export function createMarketPopupRuntime(deps = {}) {
       const delay = Math.min(priceRefreshDelay, cityOfferRefreshDelay);
 
       marketPriceTimerId = windowRef?.setTimeout?.(() => {
-        deps.refreshMarketPricesIfNeeded?.(true);
+        deps.refreshMarketPricesIfNeeded?.(false);
         if (!popup.hidden) {
           renderMarketTab();
         }
@@ -467,7 +514,9 @@ export function createMarketPopupRuntime(deps = {}) {
       }, delay) ?? null;
     };
 
-    scheduleMarketRefresh();
+    if (executionMode === GAMEPLAY_EXECUTION_MODES.localDemo) {
+      scheduleMarketRefresh();
+    }
     return true;
   };
 
@@ -521,12 +570,25 @@ function createServerMarketCallbacks(deps = {}) {
         ? (resolveHeatRisk(buyTotal, item.heatByValue) || Math.max(0, Number(item.heatRisk || 0)))
         : 0;
       const buyDisabled = !item.canBuy;
-      const sellDisabled = isBlackMarket || !item.canSell || Number(item.amount || 0) < quantity;
+      const stock = Number(item.stock);
+      const maxStock = Number(item.maxStock);
+      const sellCapacity = Number.isFinite(stock) && Number.isFinite(maxStock)
+        ? Math.max(0, maxStock - stock)
+        : Number.POSITIVE_INFINITY;
+      const lacksInventory = Number(item.amount || 0) < quantity;
+      const exceedsCapacity = Number.isFinite(sellCapacity) && sellCapacity < quantity;
+      const sellDisabled = isBlackMarket || !item.canSell || lacksInventory || exceedsCapacity;
       return {
         buyDisabled,
         sellDisabled,
         buyTitle: buyDisabled ? "Tenhle obchod teď nejde uzavřít." : "Koupit z trhu.",
-        sellTitle: sellDisabled ? (isBlackMarket ? "Černý trh dnes výkup nedělá." : "Nemáš dost zboží na prodej.") : "Prodat do trhu.",
+        sellTitle: sellDisabled
+          ? isBlackMarket
+            ? "Černý trh dnes výkup nedělá."
+            : exceedsCapacity
+              ? "Trh je přesycený."
+              : "Nemáš dost zboží na prodej."
+          : "Prodat do trhu.",
         totalLabel: isBlackMarket && heatRisk
           ? `Celkem ${formatPrice(buyTotal)} · Heat +${heatRisk}`
           : `Celkem ${formatPrice(buyTotal)} · prodej ${formatPrice(sellTotal)}`

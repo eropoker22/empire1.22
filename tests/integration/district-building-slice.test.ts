@@ -53,6 +53,51 @@ describe("district building gameplay slice", () => {
       heatPerDay: 172.8,
       influencePerDay: 80
     });
+    expect(arcade?.presentation?.ownedCount).toBe(1);
+  });
+
+  it("projects canonical Casino laundering stats for its current level", async () => {
+    const server = createServerApp();
+    const instanceId = "instance:casino-presentation";
+    const playerId = "player:casino-presentation";
+    const districtId = "district:casino-presentation";
+    const runtime = server.instanceManager.createInstance(instanceId, "free");
+
+    runtime.state = createDistrictBuildingSliceSeed({
+      instanceId,
+      playerId,
+      districtId,
+      mode: "free",
+      homeDistrict: {
+        zone: "commercial",
+        buildingSetKey: "top-casino-1"
+      }
+    });
+    const casino = Object.values(runtime.state.buildingsById).find(
+      (building) => building.buildingTypeId === "casino"
+    );
+    if (!casino) throw new Error("Casino seed building is missing.");
+    casino.level = 3;
+    server.instanceManager.startInstance(instanceId);
+    const session = await createDevGameplaySession(server, {
+      serverInstanceId: instanceId,
+      playerId,
+      districtId
+    });
+
+    const response = await server.gameplaySliceTransport.load(session.loadRequest);
+    const projectedCasino = response.readModel?.district?.buildings.find(
+      (building) => building.buildingTypeId === "casino"
+    );
+    const stats = Object.fromEntries(
+      (projectedCasino?.stats || []).map((entry) => [entry.label, entry.value])
+    );
+
+    expect(stats).toMatchObject({
+      "Kapacita praní": "$20880",
+      "Poplatek": "7 %"
+    });
+    expect(projectedCasino?.presentation?.ownedCount).toBe(1);
   });
 
   it("loads owned buildings, hides enemy buildings, and rerenders after a building action command", async () => {
@@ -132,9 +177,9 @@ describe("district building gameplay slice", () => {
     expect(initialRender.sidePanelHtml).toContain("Pulse Pharmacy");
     expect(initialRender.sidePanelHtml).toContain("Lékárna");
     expect(initialRender.sidePanelHtml).toContain("Restaurace");
-    expect(initialRender.sidePanelHtml).toContain("district-building-popup");
-    expect(initialRender.sidePanelHtml).toContain("Speciální akce");
-    expect(initialRender.sidePanelHtml).toContain("Clean / h");
+    expect(initialRender.sidePanelHtml).not.toContain("district-building-popup");
+    expect(initialRender.sidePanelHtml).toContain("data-building-action-controls");
+    expect(initialRender.sidePanelHtml).toContain("data-building-action-building-id");
     expect(initialRender.sidePanelHtml).not.toContain("Empty slot 1");
     expect(initialRender.sidePanelHtml).not.toContain("data-build-actions");
     expect(initialRender.sidePanelHtml).not.toContain("<button class=\"district-panel__action-button\" data-building-type=");

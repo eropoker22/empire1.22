@@ -8,6 +8,52 @@ export interface SelectSpawnPolicy {
   isEnabledSpawnCandidate: (districtId: string) => boolean;
 }
 
+const asMetadataRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+
+export const createFreshSpawnBuildingMetadata = (
+  building: CoreGameState["buildingsById"][string],
+  tick: number
+): CoreGameState["buildingsById"][string]["metadata"] => {
+  const metadata = { ...(building.metadata ?? {}) };
+  if (building.buildingTypeId === "school") {
+    return {
+      ...metadata,
+      school: {
+        ...asMetadataRecord(metadata.school),
+        storedStudents: 0,
+        lastUpdatedTick: tick,
+        wasFull: false
+      }
+    };
+  }
+  if (building.buildingTypeId === "apartment_block") {
+    return {
+      ...metadata,
+      apartmentBlock: {
+        ...asMetadataRecord(metadata.apartmentBlock),
+        storedPopulation: 0,
+        lastUpdatedTick: tick,
+        wasFull: false
+      }
+    };
+  }
+  if (building.buildingTypeId === "convenience_store") {
+    return {
+      ...metadata,
+      convenienceStore: {
+        ...asMetadataRecord(metadata.convenienceStore),
+        storedPopulation: 0,
+        populationLastUpdatedTick: tick,
+        populationWasFull: false
+      }
+    };
+  }
+  return building.metadata;
+};
+
 export const handleSelectSpawnDistrict = (
   state: CoreGameState,
   command: SelectSpawnDistrictCommand,
@@ -58,6 +104,7 @@ export const handleSelectSpawnDistrict = (
     if (building) {
       updatedBuildingsById[buildingId] = {
         ...building,
+        metadata: createFreshSpawnBuildingMetadata(building, state.root.tick),
         ownerPlayerId: player.id,
         version: building.version + 1
       };

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createAuthoritativeIncomeTickDelta,
+  createAuthoritativeStoredPopulationTickDelta,
   floatingDeltaMatches
 } from "../e2e/helpers/authoritativeIncomeEvidence.js";
 
@@ -127,6 +128,42 @@ describe("authoritative hosted income evidence", () => {
 
     expect(delta.exactNetMatch.cleanCash).toBe(true);
     expect(delta.exactNetMatch.materials.chemicals).toBe(false);
+  });
+
+  it("proves canonical population storage growth across authoritative ticks", () => {
+    const previousSource = {
+      sourceId: "building:district:91:convenience_store:0:stored-population",
+      buildingId: "building:district:91:convenience_store:0",
+      buildingTypeId: "convenience_store",
+      target: "building-storage",
+      amountPerTick: 5 / 72,
+      storedAmount: 10,
+      capacity: 50
+    };
+    const currentSource = {
+      ...previousSource,
+      storedAmount: 10 + (5 / 72) * 3
+    };
+
+    const delta = createAuthoritativeStoredPopulationTickDelta(
+      previousSource,
+      currentSource,
+      3
+    );
+
+    expect(delta).toMatchObject({
+      sourceId: previousSource.sourceId,
+      buildingId: previousSource.buildingId,
+      buildingTypeId: "convenience_store",
+      target: "building-storage",
+      tickGap: 3,
+      amountPerTick: 5 / 72,
+      capacity: 50,
+      previousStoredAmount: 10,
+      exactStoredMatch: true
+    });
+    expect(delta.expectedStoredDelta).toBeCloseTo((5 / 72) * 3, 12);
+    expect(delta.actualStoredDelta).toBeCloseTo((5 / 72) * 3, 12);
   });
 });
 

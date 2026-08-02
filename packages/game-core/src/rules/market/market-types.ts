@@ -58,6 +58,18 @@ export interface MarketTransaction {
   auditTriggered?: boolean;
 }
 
+export interface MarketTransactionView {
+  timestamp: number;
+  resourceId: MarketResourceId;
+  marketType: MarketType | "player";
+  type: "buy" | "sell";
+  amount: number;
+  unitPrice: number;
+  totalPrice: number;
+  paymentType: MarketPaymentType;
+  isOwn: boolean;
+}
+
 export interface PlayerMarketListing {
   id: string;
   createdAt: number;

@@ -45,6 +45,7 @@ export interface CreateClientSurfaceActionRouterOptions {
   client: ClientAppShell;
   createCommandId(prefix: string): string;
   getIssuedAt?: () => string;
+  isDistrictSelectionBlocked?(): boolean;
 }
 
 export interface ClientSurfaceActionRouter {

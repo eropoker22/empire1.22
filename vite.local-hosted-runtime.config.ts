@@ -35,8 +35,12 @@ export default defineConfig({
     ssr: true,
     rollupOptions: {
       input: {
+        "database-migrations": fromRoot("scripts/database-migrations.ts"),
+        "bootstrap-admin-user": fromRoot("scripts/bootstrap-admin-user.ts"),
+        "generate-browser-gameplay-config": fromRoot("scripts/generate-browser-gameplay-config.ts"),
         "hosted-dev-http": fromRoot("apps/server/src/bootstrap/hosted-dev-http-cli.ts"),
-        "hosted-runtime-worker": fromRoot("apps/server/src/bootstrap/hosted-runtime-worker-cli.ts")
+        "hosted-runtime-worker": fromRoot("apps/server/src/bootstrap/hosted-runtime-worker-cli.ts"),
+        "hosted-e2e-scenario": fromRoot("tools/seed/hosted-e2e-scenario.mjs")
       },
       output: {
         entryFileNames: "[name].mjs",

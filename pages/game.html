@@ -7,23 +7,22 @@
     <title>Empire Streets | Game Shell</title>
     <link rel="stylesheet" href="../page-assets/css/styles.css?v=hosted-parity-20260730-1">
     <link rel="stylesheet" href="../page-assets/css/styles-game-admin-slice.css">
-    <link rel="stylesheet" href="../page-assets/css/styles-gameplay-slice-client.css?v=result-popup-center-20260528">
     <link rel="stylesheet" href="../page-assets/css/styles-closed-alpha-ux.css">
     <link rel="stylesheet" href="../page-assets/css/styles-game-lobby-modal.css?v=lobby-actions-20260717">
     <link rel="stylesheet" href="../page-assets/css/styles-server-milestone-cards.css?v=server-milestones-20260719">
-    <link rel="stylesheet" href="../page-assets/css/styles-server-defeat-notice.css?v=20260726-defeat-notice-v2">
     <link rel="stylesheet" href="../page-assets/css/styles-login-about.css">
     <link rel="stylesheet" href="../page-assets/css/styles-game-about.css">
   </head>
   <body class="game-body game-body--booting">
-    <section class="game-authority-gate" data-game-authority-gate role="status" aria-live="polite" aria-hidden="false">
-      <div class="game-authority-gate__card">
+    <section class="game-authority-gate modal lifecycle-modal lifecycle-modal--authority" data-game-authority-gate data-server-lifecycle-surface="authority" role="status" aria-live="polite" aria-hidden="false">
+      <div class="game-authority-gate__backdrop modal__backdrop lifecycle-modal__backdrop" aria-hidden="true"></div>
+      <div class="game-authority-gate__card modal__content lifecycle-modal__card">
         <span>EMPIRE STREETS // LIVE</span>
         <strong data-game-authority-status>PŘIPOJUJI SERVER</strong>
         <p data-game-authority-message>Ověřuji účet, členství a aktuální stav města.</p>
         <div class="game-authority-gate__actions">
-          <a href="./lobby.html">Zpět do lobby</a>
-          <button type="button" data-game-authority-retry hidden>Zkusit znovu</button>
+          <a class="button" href="./lobby.html">Zpět do lobby</a>
+          <button type="button" class="button" data-game-authority-retry hidden>Zkusit znovu</button>
         </div>
       </div>
     </section>
@@ -1644,7 +1643,7 @@
         <div id="events-modal-backdrop" class="modal__backdrop" data-shared-modal-close></div>
         <div class="modal__content modal__content--profile events-modal__content">
           <div class="modal__header">
-            <h3 id="events-modal-title">Pouliční zakázky <span id="events-refresh-countdown" class="events-modal__refresh-pill">MĚSTSKÝ ČAS · plánované nabídky</span></h3>
+            <h3 id="events-modal-title">Pouliční zakázky <span id="events-refresh-countdown" class="events-modal__refresh-pill" data-countdown>MĚSTSKÝ ČAS · plánované nabídky</span></h3>
             <button class="modal__close" id="events-modal-close" aria-label="Zavřít">✕</button>
           </div>
           <div class="modal__body events-modal__body">
@@ -2166,7 +2165,6 @@
         </section>
       </div>
       <section
-        class="gameplay-slice-client"
         data-gameplay-slice-client
         data-gameplay-slice-endpoint-base="/api/gameplay-slice"
         data-gameplay-slice-polling="true"
@@ -2174,35 +2172,30 @@
         data-ui-owner="server-slice"
         aria-label="Server-authoritative gameplay slice"
         hidden
-      >
-        <div class="gameplay-slice-client__status" data-gameplay-slice-status></div>
-        <div class="gameplay-slice-client__topbar" data-gameplay-slice-topbar></div>
-        <div class="gameplay-slice-client__map" data-gameplay-slice-map></div>
-        <div class="gameplay-slice-client__panel" data-gameplay-slice-panel></div>
-      </section>
+      ></section>
     </main>
-    <div class="elimination-ai-panel" data-elimination-ai-panel hidden>
-      <div class="elimination-ai-panel__backdrop" data-elimination-ai-panel-close></div>
-      <section class="elimination-ai-panel__card" role="dialog" aria-modal="true" aria-label="Očista" tabindex="-1">
-        <header class="elimination-ai-panel__header">
-          <button type="button" class="button elimination-ai-panel__close" data-elimination-ai-panel-close aria-label="Zavřít očistu">×</button>
+    <div class="elimination-ai-panel modal lifecycle-modal lifecycle-modal--elimination" data-elimination-ai-panel hidden data-server-lifecycle-surface="elimination">
+      <div class="elimination-ai-panel__backdrop modal__backdrop lifecycle-modal__backdrop" data-elimination-ai-panel-close></div>
+      <section class="elimination-ai-panel__card modal__content lifecycle-modal__card" role="dialog" aria-modal="true" aria-label="Očista" tabindex="-1">
+        <header class="elimination-ai-panel__header modal__header lifecycle-modal__header">
+          <button type="button" class="button modal__close lifecycle-modal__close elimination-ai-panel__close" data-elimination-ai-panel-close aria-label="Zavřít očistu">×</button>
         </header>
-        <div class="elimination-ai-panel__body" data-elimination-ai-panel-body></div>
+        <div class="elimination-ai-panel__body modal__body lifecycle-modal__body" data-elimination-ai-panel-body></div>
       </section>
     </div>
-    <div class="elimination-result-popup" data-elimination-result-popup hidden>
-      <div class="elimination-result-popup__backdrop" data-elimination-result-popup-close></div>
-      <section class="elimination-result-popup__card" role="dialog" aria-modal="true" aria-label="Výsledek očisty" tabindex="-1">
-        <button type="button" class="button elimination-result-popup__close" data-elimination-result-popup-close aria-label="Zavřít výsledek očisty">×</button>
-        <div class="elimination-result-popup__body" data-elimination-result-popup-body></div>
+    <div class="elimination-result-popup modal lifecycle-modal lifecycle-modal--elimination-result" data-elimination-result-popup data-server-lifecycle-surface="elimination-result" hidden>
+      <div class="elimination-result-popup__backdrop modal__backdrop lifecycle-modal__backdrop" data-elimination-result-popup-close></div>
+      <section class="elimination-result-popup__card modal__content lifecycle-modal__card" role="dialog" aria-modal="true" aria-label="Výsledek očisty" tabindex="-1">
+        <button type="button" class="button modal__close lifecycle-modal__close elimination-result-popup__close" data-elimination-result-popup-close aria-label="Zavřít výsledek očisty">×</button>
+        <div class="elimination-result-popup__body modal__body lifecycle-modal__body" data-elimination-result-popup-body></div>
       </section>
     </div>
-    <div class="server-milestone-modal" data-server-milestone-modal hidden>
-      <div class="server-milestone-modal__backdrop" data-server-milestone-close></div>
-      <section class="server-milestone-card" role="dialog" aria-modal="true" aria-labelledby="server-milestone-title" aria-describedby="server-milestone-lead" tabindex="-1">
+    <div class="server-milestone-modal modal lifecycle-modal lifecycle-modal--milestone" data-server-milestone-modal data-server-lifecycle-surface="milestone" hidden>
+      <div class="server-milestone-modal__backdrop modal__backdrop lifecycle-modal__backdrop" data-server-milestone-close></div>
+      <section class="server-milestone-card modal__content lifecycle-modal__card" role="dialog" aria-modal="true" aria-labelledby="server-milestone-title" aria-describedby="server-milestone-lead" tabindex="-1">
         <div class="server-milestone-card__scanlines" aria-hidden="true"></div>
-        <button type="button" class="button server-milestone-card__close" data-server-milestone-close aria-label="Zavřít serverové hlášení">×</button>
-        <div class="server-milestone-card__content">
+        <button type="button" class="button modal__close lifecycle-modal__close server-milestone-card__close" data-server-milestone-close aria-label="Zavřít serverové hlášení">×</button>
+        <div class="server-milestone-card__content modal__body lifecycle-modal__body">
           <div class="server-milestone-card__main">
             <span class="server-milestone-card__eyebrow" data-server-milestone-eyebrow>VÍTEJ NA SERVERU</span>
             <h2 id="server-milestone-title" data-server-milestone-title>Válka o město začíná</h2>
@@ -2221,9 +2214,9 @@
         </div>
       </section>
     </div>
-    <div class="elimination-countdown-warning" data-elimination-countdown-warning hidden aria-live="polite" aria-atomic="true">
-      <div class="elimination-countdown-warning__card">
-        <button type="button" class="button elimination-countdown-warning__close" data-elimination-countdown-warning-close aria-label="Zavřít odpočet očisty">×</button>
+    <div class="elimination-countdown-warning" data-elimination-countdown-warning data-server-lifecycle-surface="elimination-countdown" hidden aria-live="polite" aria-atomic="true">
+      <div class="elimination-countdown-warning__card lifecycle-status-card lifecycle-status-card--danger">
+        <button type="button" class="button modal__close lifecycle-status-card__close elimination-countdown-warning__close" data-elimination-countdown-warning-close aria-label="Zavřít odpočet očisty">×</button>
         <span class="elimination-countdown-warning__label">OČISTA ZA</span>
         <strong class="elimination-countdown-warning__time" data-elimination-countdown-warning-time>5min 00s</strong>
         <span class="elimination-countdown-warning__text">Nejslabší gang vypadne</span>

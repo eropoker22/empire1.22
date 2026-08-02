@@ -75,12 +75,17 @@ describe("live bounty target seed", () => {
       factionId: "mafian",
       mode: "free"
     });
+    state.playersById["player:live-bounty-target"]!.metadata = {
+      ...state.playersById["player:live-bounty-target"]!.metadata,
+      avatarId: "mafian:1"
+    };
 
     const view = createBountyReadModel(state, "player:current");
     const target = view.eligibleTargets.find((entry) => entry.playerId === "player:live-bounty-target");
 
     expect(target).toMatchObject({
       name: "LowKeyLad",
+      avatarId: "mafian:1",
       canTarget: true,
       activeDistrictCount: 1
     });

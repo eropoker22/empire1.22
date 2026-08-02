@@ -9,7 +9,7 @@ describe("leaderboard server authority", () => {
     expect(source).toContain("getServerLeaderboardView");
     expect(source).toContain("if (executionMode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative)");
     expect(source).toContain("if (executionMode !== GAMEPLAY_EXECUTION_MODES.localDemo) return []");
-    expect(source).toContain("DEMO POŘADÍ");
+    expect(source).not.toContain("DEMO POŘADÍ");
   });
 
   it("uses score and rank supplied by the server projection", () => {
@@ -19,6 +19,16 @@ describe("leaderboard server authority", () => {
     expect(source).not.toContain("MOCK_PLAYERS");
     expect(source).toContain('import("../dev-fixtures/leaderboardDemoData.js")');
     expect(source).toContain("Tato statistika se připravuje.");
+  });
+
+  it("keeps server capability differences out of the visible renderer schema", () => {
+    expect(source).toContain('const AUTHORITATIVE_LEADERBOARD_TABS = new Set(["overall", "influence", "districts", "alliance"]);');
+    expect(source).toContain('<span>Wanted</span>');
+    expect(source).toContain('["Clean", formatOptionalMoney(player.cleanMoney)]');
+    expect(source).toContain('["Aktivita", formatOptionalActivity(player.lastActiveMinutes)]');
+    expect(source).not.toContain('serverMode ? "Aktivní" : "Online / aktivní"');
+    expect(source).not.toContain('? "Stav" : "Wanted"');
+    expect(source).not.toContain("SERVER SNAPSHOT");
   });
 
   it("reuses leaderboard score for the player profile", () => {

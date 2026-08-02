@@ -39,6 +39,14 @@ describe("Postgres player-entry overview fleet stats", () => {
     expect(database.bulkQueries[0]?.params[0]).toEqual(
       servers.map((server) => String(server.server_instance_id))
     );
+    expect(database.bulkQueries[0]?.sql).not.toContain("empire_snapshot_latest");
+    expect(database.bulkQueries[0]?.sql).not.toContain("snapshot.payload");
+    expect(database.bulkQueries[0]?.sql).toContain("membership.status='active'");
+    expect(database.bulkQueries[0]?.sql).toContain("reservation.status='committed'");
+    expect(database.queries[1]?.sql).toContain(
+      "status IN ('requested','provisioning','lobby','running','restarting')"
+    );
+    expect(database.queries[1]?.sql).not.toContain("status <> 'archived'");
     expect(database.queries.filter(({ params }) =>
       typeof params[0] === "string"
       && servers.some((server) => server.server_instance_id === params[0])
@@ -95,7 +103,7 @@ const overviewDatabase = (options: {
     if (sql.includes("WHERE membership.account_id=$1 ORDER BY membership.joined_at DESC")) {
       return rows([]);
     }
-    if (sql.includes("FROM empire_hosted_server_instances WHERE status <> 'archived'")) {
+    if (sql.includes("FROM empire_hosted_server_instances") && sql.includes("status IN")) {
       return rows(options.servers);
     }
     if (isBulkPopulationQuery(sql, params)) {

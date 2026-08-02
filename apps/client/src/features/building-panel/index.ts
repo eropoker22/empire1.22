@@ -1,11 +1,9 @@
 export * from "./collect-command";
 export * from "./craft-command";
-export * from "./building-detail-popup";
 export * from "./run-building-action-command";
 
 import type { DistrictPanelBuildingViewModel, DistrictPanelSlotViewModel } from "../../selectors";
 import { escapeAttribute, escapeHtml } from "../../shared-ui";
-import { renderBuildingDetailPopup } from "./building-detail-popup";
 
 /**
  * Responsibility: Feature module boundary for building panel presentation.
@@ -104,8 +102,7 @@ export const renderBuildingSlot = (slot: DistrictPanelSlotViewModel): string => 
 };
 
 export const renderDistrictBuilding = (
-  building: DistrictPanelBuildingViewModel,
-  isOpen = false
+  building: DistrictPanelBuildingViewModel
 ): string =>
   [
     `<article class="district-panel__slot district-panel__slot--${toCssToken(building.buildingTypeId)}" data-building-id="${escapeAttribute(building.buildingId)}" data-building-type="${escapeAttribute(building.buildingTypeId)}">`,
@@ -120,10 +117,6 @@ export const renderDistrictBuilding = (
     `<span class="district-panel__slot-state">${escapeHtml(building.statusLabel)}</span>`,
     `</div>`,
     `<p class="district-panel__slot-summary">${escapeHtml(building.summaryLabel)}</p>`,
-    `<details class="district-building-popup-host" data-building-popup-target="${escapeAttribute(building.buildingId)}"${isOpen ? " open" : ""}>`,
-    `<summary class="district-panel__action-button district-panel__action-button--info">Statistiky / Info / Speciální akce</summary>`,
-    renderBuildingDetailPopup(building),
-    `</details>`,
     building.actions.length > 0
       ? building.actions
           .map((action) => {

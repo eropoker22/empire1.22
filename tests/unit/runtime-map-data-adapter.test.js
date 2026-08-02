@@ -7,6 +7,7 @@ import {
   normalizeMapOwner,
   normalizeMapZoneKey,
   resolveMapAtmosphereMeta,
+  resolveMapDistrictAtmosphereMeta,
   resolveMapDistrictOwnerLabel,
   resolveMapZoneFillStyle
 } from "../../page-assets/js/app/map/mapDataAdapter.js";
@@ -17,6 +18,14 @@ import {
 } from "../../page-assets/js/app/map/mapConstants.js";
 
 describe("map data adapter", () => {
+  it("resolves the same district atmosphere for demo and canonical server identities", () => {
+    const demo = resolveMapDistrictAtmosphereMeta("economy", 138);
+    const hosted = resolveMapDistrictAtmosphereMeta("commercial", "district:138");
+
+    expect(hosted.typeKey).toBe("economy");
+    expect(hosted.imagePath).toBe(demo.imagePath);
+  });
+
   it("normalizes a district without owner", () => {
     const viewModel = createMapDistrictViewModel({ id: 7, districtType: "economy" });
 

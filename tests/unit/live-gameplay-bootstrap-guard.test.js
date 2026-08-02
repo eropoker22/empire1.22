@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { GAMEPLAY_EXECUTION_MODES } from "../../page-assets/js/app/runtime/gameplayExecutionMode.js";
+import { resolveOnboardingRuntimePolicy } from "../../page-assets/js/app/runtime/onboardingRuntimePolicy.js";
 
 const read = (path) => readFileSync(resolve(process.cwd(), path), "utf8");
 
@@ -25,15 +27,21 @@ describe("live gameplay bootstrap authority", () => {
     expect(entryClient).not.toContain('localStorage.setItem("empireStreets.session.v1"');
   });
 
-  it("does not mount the local-demo onboarding sandbox in hosted gameplay", () => {
+  it("binds hosted onboarding presentation without enabling the local-demo sandbox", () => {
     const runtime = read("page-assets/js/app/runtime.js");
     const onboardingBinder = runtime.slice(
       runtime.indexOf("function bindFreeSessionOnboarding"),
       runtime.indexOf("function getFreeSessionOnboardingProgress")
     );
 
-    expect(onboardingBinder).toContain(
-      "getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.localDemo"
-    );
+    expect(resolveOnboardingRuntimePolicy(GAMEPLAY_EXECUTION_MODES.serverAuthoritative)).toEqual({
+      autoStart: false,
+      bind: true,
+      useLocalSandbox: false
+    });
+    expect(onboardingBinder).toContain("resolveOnboardingRuntimePolicy(getSelectedGameplayExecutionMode())");
+    expect(onboardingBinder).toContain("|| !policy.bind");
+    expect(onboardingBinder).toContain("autoStart: policy.autoStart");
+    expect(onboardingBinder).toContain("...(policy.useLocalSandbox");
   });
 });

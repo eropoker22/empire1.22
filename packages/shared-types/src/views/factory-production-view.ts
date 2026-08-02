@@ -19,7 +19,12 @@ export interface FactoryProductionLineView {
   waitingAmount: number;
   unitCleanCashCost: number;
   materialInputCosts: Record<string, number>;
-  costDisplayRows: Array<{ resourceKey: string; label: string; amount: number }>;
+  costDisplayRows: Array<{
+    resourceKey: string;
+    label: string;
+    amount: number;
+    availableAmount: number;
+  }>;
   baseUnitDurationTicks: number;
   effectiveUnitDurationTicks: number;
   remainingTicks: number;

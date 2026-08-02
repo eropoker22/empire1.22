@@ -256,18 +256,37 @@ function bindModal() {
 
 async function openSpawnModal(serverInstanceId) {
   const server = state.overview?.availableServers.find((entry) => entry.serverInstanceId === serverInstanceId);
-  if (!server || !registrationPresentation(server).locallyJoinable || state.overview.activeBlockingMembership) return;
+  if (
+    state.busy
+    || !server
+    || !registrationPresentation(server).locallyJoinable
+    || state.overview.activeBlockingMembership
+  ) return;
   state.busy = true;
   state.selectedServerId = serverInstanceId;
+  state.spawn = null;
   state.selectedDistrictId = null;
+  state.hoveredDistrictId = null;
+  updateConfirmButton();
   setFlowMessage("Načítám aktuální spawn distrikty…");
+  const modal = document.querySelector("[data-server-detail-modal]");
+  modal?.classList.remove("hidden");
+  modal?.setAttribute("aria-hidden", "false");
+  modal?.setAttribute("data-load-state", "loading");
+  text("[data-server-detail-title]", server.displayName);
+  text("[data-server-detail-subtitle]", "Načítám aktuální stav mapy a dostupné spawn distrikty.");
+  text("[data-server-detail-mode]", server.mode.toUpperCase());
+  text(
+    "[data-server-detail-capacity]",
+    `${server.committedPlayers} + ${server.reservedSlots} / ${server.capacity}`
+  );
+  text("[data-server-detail-countdown]", registrationPresentation(server).countdownLabel);
+  text("[data-server-detail-hint]", "Načítám aktuální spawn distrikty…");
+  document.querySelector("[data-server-detail-type-counts]")?.replaceChildren();
   try {
     state.spawn = await loadSpawnDistricts(serverInstanceId);
     state.hoveredDistrictId = null;
-    const modal = document.querySelector("[data-server-detail-modal]");
-    modal?.classList.remove("hidden");
-    modal?.setAttribute("aria-hidden", "false");
-    text("[data-server-detail-title]", server.displayName);
+    modal?.setAttribute("data-load-state", "ready");
     const occupiedDistricts = (state.spawn.mapDistricts || []).filter((district) => district.owner).length;
     text(
       "[data-server-detail-subtitle]",
@@ -280,7 +299,12 @@ async function openSpawnModal(serverInstanceId) {
     renderLobbySpawnLegend(document.querySelector("[data-server-detail-type-counts]"), state.spawn, geometry);
     renderSpawnCanvas();
   } catch (error) {
-    setFlowMessage(messageFor(error), true);
+    const message = messageFor(error);
+    state.spawn = null;
+    modal?.setAttribute("data-load-state", "error");
+    text("[data-server-detail-subtitle]", message);
+    text("[data-server-detail-hint]", message);
+    setFlowMessage(message, true);
   } finally {
     state.busy = false;
     updateConfirmButton();
@@ -292,9 +316,11 @@ function closeSpawnModal() {
   const modal = document.querySelector("[data-server-detail-modal]");
   modal?.classList.add("hidden");
   modal?.setAttribute("aria-hidden", "true");
+  modal?.setAttribute("data-load-state", "idle");
   state.spawn = null;
   state.selectedDistrictId = null;
   state.hoveredDistrictId = null;
+  updateConfirmButton();
 }
 
 function renderSpawnCanvas() {

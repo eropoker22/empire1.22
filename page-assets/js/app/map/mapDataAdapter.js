@@ -13,10 +13,16 @@ import {
   MAP_ZONE_FILL_STYLES
 } from "./mapConstants.js";
 
+const MAP_ZONE_ALIASES = Object.freeze({
+  commercial: "economy",
+  residential: "resident"
+});
+
 export function normalizeMapZoneKey(value, fallback = MAP_DEFAULT_DISTRICT_TYPE) {
   const normalized = String(value || "").trim().toLowerCase();
-  return Object.prototype.hasOwnProperty.call(DISTRICT_BUILDING_TYPE_META, normalized)
-    ? normalized
+  const canonical = MAP_ZONE_ALIASES[normalized] || normalized;
+  return Object.prototype.hasOwnProperty.call(DISTRICT_BUILDING_TYPE_META, canonical)
+    ? canonical
     : fallback;
 }
 
@@ -46,6 +52,28 @@ export function resolveMapAtmosphereMeta(zoneKey, options = {}) {
 
   const normalizedZoneKey = normalizeMapZoneKey(zoneKey, "");
   return DISTRICT_ATMOSPHERE_META[normalizedZoneKey] || DISTRICT_ATMOSPHERE_META[MAP_UNKNOWN_DISTRICT_TYPE];
+}
+
+export function resolveMapDistrictAtmosphereMeta(zoneKey, districtId, options = {}) {
+  const meta = resolveMapAtmosphereMeta(zoneKey, options);
+  const imagePaths = Array.isArray(meta.imagePaths) ? meta.imagePaths : [];
+  if (imagePaths.length === 0) {
+    return meta;
+  }
+
+  const normalizedDistrictId = String(districtId ?? "0")
+    .trim()
+    .replace(/^district:/u, "") || "0";
+  const seed = `${meta.typeKey || MAP_UNKNOWN_DISTRICT_TYPE}:${normalizedDistrictId}`;
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = ((hash * 31) + seed.charCodeAt(index)) >>> 0;
+  }
+
+  return {
+    ...meta,
+    imagePath: imagePaths[hash % imagePaths.length]
+  };
 }
 
 export function normalizeMapOwner(owner = null, options = {}) {

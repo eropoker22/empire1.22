@@ -22,7 +22,8 @@ import {
   BUILDING_DETAIL_VIEW_MODEL_KEYS,
   pickBuildingDetailPresentationViewModel,
   resolveBuildingDetailLayout,
-  resolveBuildingPresentationDefinition
+  resolveBuildingPresentationDefinition,
+  resolveBuildingPresentationTypeId
 } from "../../page-assets/js/app/runtime/buildingPresentationContract.js";
 
 const productionBuildingTypeIds = new Set(["pharmacy", "drug_lab", "factory", "armory"]);
@@ -149,6 +150,9 @@ describe("building presentation contract", () => {
       baseName: "Garage",
       mechanicsType: "garage"
     });
+    expect(resolveBuildingPresentationTypeId("Restaurace")).toBe("restaurant");
+    expect(resolveBuildingPresentationTypeId("Obchodní centrum")).toBe("shopping_mall");
+    expect(resolveBuildingPresentationTypeId("Autosalon")).toBe("car_dealer");
   });
 
   it("maps all 32 public types to the exact generated local profile identity", () => {
@@ -307,6 +311,7 @@ describe("building presentation contract", () => {
     expect(viewModel).not.toHaveProperty("debugPayload");
     expect(viewModel.actions[0].serverAction).toEqual({
       description: "Spustí automaty.",
+      requiredInputs: [],
       riskSummary: ["Heat +2"]
     });
     expect(viewModel.layout).toBe("single-panel");

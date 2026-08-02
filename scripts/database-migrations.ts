@@ -1,4 +1,6 @@
 import "./load-local-environment";
+import { resolve, sep } from "node:path";
+import { pathToFileURL } from "node:url";
 import { createPostgresDatabase } from "../apps/server/src/runtime/persistence/postgres";
 import { prepareSnapshotRecoveryMigrationControlled } from
   "../apps/server/src/runtime/persistence/postgres/controlled-snapshot-recovery-migration";
@@ -7,7 +9,10 @@ import { getDatabaseMigrationStatus, migrateDatabase } from "../apps/server/src/
 const databaseUrl = String(process.env.EMPIRE_DATABASE_URL ?? process.env.EMPIRE_TEST_DATABASE_URL ?? "").trim();
 if (!databaseUrl) throw new Error("Set EMPIRE_DATABASE_URL or EMPIRE_TEST_DATABASE_URL before running database migrations.");
 const database = createPostgresDatabase(databaseUrl);
-const migrations = new URL("../apps/server/src/runtime/persistence/postgres/migrations/", import.meta.url);
+const migrations = pathToFileURL(`${resolve(
+  process.cwd(),
+  "apps/server/src/runtime/persistence/postgres/migrations"
+)}${sep}`);
 
 try {
   const command = process.argv.includes("--status") ? "status" : "migrate";

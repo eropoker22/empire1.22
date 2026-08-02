@@ -59,13 +59,55 @@ function syncBuildingDetailIdentityHooks(shell, card, mechanicsType = "") {
   return token;
 }
 
+function renderBuildingDynamicValue(scopeElement, valueElement, row = {}) {
+  const rawValue = String(row.value ?? row.text ?? "");
+  valueElement.textContent = rawValue;
+  if (!row.dynamicValue) return;
+
+  const dynamicValue = createElement(scopeElement, "span");
+  if (!dynamicValue) return;
+  dynamicValue.dataset.buildingDynamicValue = String(row.dynamicValue);
+
+  const prefix = String(row.dynamicValuePrefix || "");
+  const hasStaticCapacity = row.dynamicStaticCapacity !== undefined
+    && row.dynamicStaticCapacity !== null;
+  const staticCapacity = hasStaticCapacity ? String(row.dynamicStaticCapacity) : "";
+  const separatorIndex = hasStaticCapacity ? rawValue.indexOf("/") : -1;
+  const dynamicText = prefix && rawValue.startsWith(prefix)
+    ? rawValue.slice(prefix.length)
+    : separatorIndex >= 0
+      ? rawValue.slice(0, separatorIndex)
+      : rawValue;
+  dynamicValue.textContent = dynamicText;
+
+  const children = [];
+  if (prefix) {
+    const prefixElement = createElement(scopeElement, "span");
+    if (prefixElement) {
+      prefixElement.dataset.buildingStaticValue = "population-buffer-prefix";
+      prefixElement.textContent = prefix;
+      children.push(prefixElement);
+    }
+  }
+  children.push(dynamicValue);
+  if (hasStaticCapacity) {
+    const capacityElement = createElement(scopeElement, "span");
+    if (capacityElement) {
+      capacityElement.dataset.buildingPopulationCapacity = staticCapacity;
+      capacityElement.textContent = `/${staticCapacity}`;
+      children.push(capacityElement);
+    }
+  }
+  valueElement.replaceChildren(...children);
+}
+
 function createStat(scopeElement, row = {}) {
   const stat = createElement(scopeElement, "div", "building-info-card__stat");
   const label = createElement(scopeElement, "span");
   const value = createElement(scopeElement, "strong");
   if (!stat || !label || !value) return null;
   label.textContent = row.label || "";
-  value.textContent = row.value || "";
+  renderBuildingDynamicValue(scopeElement, value, row);
   stat.append(label, value);
   return stat;
 }
@@ -76,7 +118,7 @@ function createMechanicRow(scopeElement, row = {}) {
   const value = createElement(scopeElement, "strong");
   if (!element || !label || !value) return null;
   label.textContent = row.label || "";
-  value.textContent = row.value || "";
+  renderBuildingDynamicValue(scopeElement, value, row);
   element.dataset.detailRowLabel = normalizeDetailRowLabel(row.label);
   if (row.tone) {
     element.dataset.mechanicTone = String(row.tone);
@@ -91,8 +133,13 @@ function createEffectCell(scopeElement, effect = "", effectIndex = 0) {
   if (!element || !text) return null;
   const value = typeof effect === "string" ? effect : effect?.text || "";
   const tone = typeof effect === "string" ? "" : String(effect?.tone || "").trim();
-  text.textContent = value || "";
+  renderBuildingDynamicValue(scopeElement, text, typeof effect === "string"
+    ? { text: value }
+    : effect);
   element.dataset.effectIndex = String(effectIndex);
+  if (/^Vliv\s+[+-]?[\d.,]+\/den$/u.test(String(value || "").trim())) {
+    element.dataset.buildingDynamicEffect = "influence";
+  }
   if (tone) {
     element.dataset.effectTone = tone;
   }

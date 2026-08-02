@@ -10,6 +10,7 @@ import {
   STREET_DEALERS_CONFIG,
   STRIP_CLUB_CONFIG
 } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
+import { POWER_STATION_CONFIG } from "./buildingDetailData.js";
 
 export const DISTRICT_MINUTE_INCOME_RULES_EMPIRE2 = Object.freeze({
   resident: Object.freeze({ clean: 500 / 60, dirty: 50 / 60, influence: 2 / 60, population: 0 }),
@@ -64,10 +65,12 @@ export const DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2 = Object.freeze({
   Herna: Object.freeze({ heat: 0.12 }),
   "Obchodní centrum": Object.freeze({ heat: 65 / (60 * 24) }),
   Kasino: Object.freeze({ heat: 150 / (60 * 24) }),
+  "Energetická stanice": Object.freeze({ heat: POWER_STATION_CONFIG.heatPerMinute }),
   Restaurace: Object.freeze({ heat: 0.04 }),
   "Směnárna": Object.freeze({ heat: 70 / 1440 }),
   "Pašovací tunel": Object.freeze({ heat: SMUGGLING_TUNNEL_CONFIG.heatPerMinute }),
   "Pouliční dealeři": Object.freeze({ heat: STREET_DEALERS_CONFIG.heatPerMinute }),
+  "Centrální banka": Object.freeze({ heat: 0.1 }),
   Burza: Object.freeze({ heat: 0.18 }),
   "Letiště": Object.freeze({ heat: 0.2 }),
   "Magistrát": Object.freeze({ heat: 0.12 }),
@@ -84,6 +87,7 @@ export const DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2 = Object.freeze({
   "Rekrutační centrum": Object.freeze({ heat: 0.07 }),
   "Škola": Object.freeze({ heat: 0 }),
   "Večerka": Object.freeze({ heat: CONVENIENCE_STORE_CONFIG.heatPerMinute }),
+  "Přístav": Object.freeze({ heat: 5 / (60 * 24) }),
   "Recyklační centrum": Object.freeze({ heat: 0.08 })
 });
 
@@ -97,6 +101,7 @@ export const DISTRICT_BUILDING_MINUTE_INFLUENCE_RULES_EMPIRE2 = Object.freeze({
   "Směnárna": Object.freeze({ influence: 60 / 1440 }),
   "Pašovací tunel": Object.freeze({ influence: 0 }),
   "Pouliční dealeři": Object.freeze({ influence: 0 }),
+  "Centrální banka": Object.freeze({ influence: 0.35 }),
   Burza: Object.freeze({ influence: 0.45 }),
   "Letiště": Object.freeze({ influence: 0.2 }),
   "Magistrát": Object.freeze({ influence: 0.85 }),
@@ -113,5 +118,6 @@ export const DISTRICT_BUILDING_MINUTE_INFLUENCE_RULES_EMPIRE2 = Object.freeze({
   "Rekrutační centrum": Object.freeze({ influence: 0 }),
   "Škola": Object.freeze({ influence: 0.05 }),
   "Večerka": Object.freeze({ influence: CONVENIENCE_STORE_CONFIG.influencePerMinute }),
+  "Přístav": Object.freeze({ influence: 26 / (60 * 24) }),
   "Recyklační centrum": Object.freeze({ influence: 0 })
 });

@@ -5,6 +5,20 @@ export function resolveLocalStreetDealerSlotCount(ownedCount, config) {
   return Array.isArray(config?.dealerSlots) ? config.dealerSlots.length : 0;
 }
 
+export function resolveLocalStreetDealerTunnelSupport(ownedTunnelCount, config = {}) {
+  const supportPct = Math.min(
+    Math.max(0, Number(config.dealerSupplyMaxBonusPct || 0)),
+    Math.max(0, Math.floor(Number(ownedTunnelCount || 0)))
+      * Math.max(0, Number(config.dealerSupplyBonusPctPerTunnel || 0))
+  );
+  return {
+    saleSpeedBonusPct: supportPct * Math.max(0, Number(config.dealerSupplySaleSpeedSharePct || 0)) / 100,
+    streetRiskReductionPct: supportPct * Math.max(0, Number(config.dealerSupplyStreetRiskReductionSharePct || 0)) / 100,
+    passiveDirtyIncomeBonusPct: supportPct * Math.max(0, Number(config.dealerSupplyPassiveDirtyIncomeSharePct || 0)) / 100,
+    saleHeatRiskBonusPct: supportPct * Math.max(0, Number(config.dealerSupplySaleHeatRiskSharePct || 0)) / 100
+  };
+}
+
 export function normalizeLocalStreetDealerSales(value) {
   const slots = Array.isArray(value?.slots) ? value.slots : [];
   return {

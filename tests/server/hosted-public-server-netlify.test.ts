@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createInMemoryGameplaySessionService } from "../../apps/server/src/auth";
 import {
   createInMemoryHostedControlPlaneRepository,
@@ -140,6 +140,48 @@ describe("hosted public server matchmaking", () => {
         joinable: false, disabledReason: "SERVER_REGISTRATION_CLOSED" })
     ]));
     expect(await listHostedPublicServerCandidates(repositories, now)).toEqual([]);
+  });
+
+  it("excludes terminal servers before loading public runtime summaries", async () => {
+    const now = new Date();
+    const runningId = "hosted:free:running";
+    const stoppedId = "hosted:free:stopped";
+    const seed = createAdminReadOnlySeed();
+    const memory = createInMemoryAdminDurableRepositories({ instances: [{
+      ...seed.instances![0]!,
+      serverInstanceId: runningId,
+      workerStatus: "live" as const,
+      lastHeartbeatAt: now.toISOString()
+    }] });
+    const hosted = createInMemoryHostedControlPlaneRepository({ servers: [
+      hostedServer(runningId, now, { status: "running", joinPolicy: "open" }),
+      hostedServer(stoppedId, now, { status: "stopped", joinPolicy: "closed" })
+    ] });
+    const listKnownInstances = vi.spyOn(memory.monitoring, "listKnownInstances");
+    const getInstanceSummary = vi.spyOn(memory.monitoring, "getInstanceSummary");
+    const getJoinCapacity = vi.spyOn(hosted, "getJoinCapacity");
+    const listReadyMemberships = vi.spyOn(hosted, "listReadyMemberships");
+    const repositories: AdminDurableRepositories = {
+      ...memory,
+      kind: "postgres",
+      hosted
+    };
+
+    const response = await createPublicServerListResponse(
+      createServerApp(),
+      { NODE_ENV: "production" },
+      repositories
+    );
+    const body = JSON.parse(response.body) as { servers: Array<{ serverInstanceId: string }> };
+
+    expect(body.servers.map((server) => server.serverInstanceId)).toEqual([runningId]);
+    expect(listKnownInstances).not.toHaveBeenCalled();
+    expect(getInstanceSummary).toHaveBeenCalledOnce();
+    expect(getInstanceSummary).toHaveBeenCalledWith(runningId);
+    expect(getJoinCapacity).toHaveBeenCalledOnce();
+    expect(getJoinCapacity).toHaveBeenCalledWith(runningId, expect.any(String));
+    expect(listReadyMemberships).toHaveBeenCalledOnce();
+    expect(listReadyMemberships).toHaveBeenCalledWith(runningId);
   });
 
   it("keeps a stable lobby snapshot joinable but rejects a stale running snapshot", async () => {

@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { PARK_DAY_NIGHT_ACTION_RULES, STREET_DEALERS_CONFIG } from "../../packages/game-config/src/legacy-page/economy-config.js";
+import { PARK_DAY_NIGHT_ACTION_RULES, SMUGGLING_TUNNEL_CONFIG, STREET_DEALERS_CONFIG } from "../../packages/game-config/src/legacy-page/economy-config.js";
 import {
   createLocalStreetDealerSaleView,
   resolveLocalStreetDealerSlotCount,
+  resolveLocalStreetDealerTunnelSupport,
   settleLocalStreetDealerSales,
   startLocalStreetDealerSale
 } from "../../page-assets/js/app/runtime/streetDealersLocalRuntime.js";
@@ -26,6 +27,18 @@ describe("local Street Dealers runtime", () => {
     ]);
     expect(view.slots.map((slot) => slot.label)).toEqual(["Neon Dust", "Pulse Shot", "Velvet Smoke"]);
     expect(view.slots.some((slot) => slot.statusLabel === "Volný")).toBe(false);
+  });
+
+  it("mirrors the authoritative tunnel support in passive dirty income", () => {
+    const support = resolveLocalStreetDealerTunnelSupport(1, SMUGGLING_TUNNEL_CONFIG);
+    const visibleDirtyPerHour = Math.floor(
+      STREET_DEALERS_CONFIG.dirtyCashPerMinute
+      * 60
+      * (1 + support.passiveDirtyIncomeBonusPct / 100)
+    );
+
+    expect(support.passiveDirtyIncomeBonusPct).toBe(1);
+    expect(visibleDirtyPerHour).toBe(2181);
   });
 
   it("requires at least ten fixed-slot units, debits once, and settles one sale", () => {

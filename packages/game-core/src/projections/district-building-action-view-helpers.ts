@@ -1,15 +1,24 @@
-import type { BuildingActionInputView, BuildingActionStatus } from "@empire/shared-types";
+import type {
+  BuildingActionInputView,
+  BuildingActionStatus,
+  DistrictPanelDealerSaleView
+} from "@empire/shared-types";
 import type {
   AirportBalanceConfig,
   BuildingActionBalanceConfig,
   CentralBankBalanceConfig,
   CityHallBalanceConfig,
+  DayNightActionRuleConfig,
   StockExchangeBalanceConfig,
   StreetDealersBalanceConfig
 } from "../contracts/game-mode-config";
 import { formatNumber, formatResourceLabel } from "./district-building-action-formatters";
 import type { CoreGameState } from "../entities";
-import { getOwnedStreetDealerCount, resolveStreetDealerSlotCount } from "../handlers/streetDealersBuildingActions";
+import {
+  getOwnedStreetDealerCount,
+  getStreetDealersPlayerMetadata,
+  resolveStreetDealerSlotCount
+} from "../handlers/streetDealersBuildingActions";
 
 export const resolveBuildingActionStatus = (input: {
   disabledReason: string | null;
@@ -124,6 +133,64 @@ export const createRequiredInputViews = (input: {
   return [];
 };
 
+export const createStreetDealerSaleView = (input: {
+  config?: StreetDealersBalanceConfig;
+  state: CoreGameState;
+  playerId: string;
+  playerBalances: Record<string, number>;
+  currentPhase: "day" | "night";
+  dayNightRule?: DayNightActionRuleConfig;
+  tick: number;
+  tickRateMs: number;
+}): DistrictPanelDealerSaleView | null => {
+  const config = input.config;
+  const player = input.state.playersById[input.playerId];
+  if (!config || !player) return null;
+
+  const ownedCount = getOwnedStreetDealerCount(input.state, input.playerId, config);
+  const slotCount = resolveStreetDealerSlotCount(ownedCount, config);
+  const metadata = getStreetDealersPlayerMetadata(player);
+  const activeSales = metadata.slots.filter(
+    (slot) => Boolean(slot.saleId) && Number(slot.completesAtTick || 0) > input.tick
+  );
+  const activeSalesBySlotId = new Map(activeSales.map((slot) => [slot.slotId, slot]));
+  const anySaleActive = activeSales.length > 0;
+  const items = config.sellableDrugs.map((drug) => ({
+    itemId: drug.itemId,
+    label: drug.label,
+    ownedAmount: resolvePlayerResourceAmount(input.playerBalances, drug.itemId, drug.aliases),
+    minimumAmountPerSale: Math.max(1, Number(drug.minimumAmountPerSale || 1)),
+    unitSalePriceDirtyCash: Math.max(0, Number(drug.unitSalePriceDirtyCash || 0))
+  }));
+  const itemsById = new Map(items.map((item) => [item.itemId, item]));
+
+  return {
+    phase: input.currentPhase === "day" ? "day" : "night",
+    phaseStatusLabel: createStreetDealerPhaseStatusLabel(input.currentPhase, input.dayNightRule),
+    slotCount,
+    slots: config.dealerSlots.slice(0, slotCount).map((slot) => {
+      const item = itemsById.get(slot.itemId);
+      const activeSale = activeSalesBySlotId.get(slot.slotId);
+      return {
+        slotId: slot.slotId,
+        label: item?.label || slot.itemId,
+        itemId: item?.itemId || slot.itemId,
+        itemLabel: item?.label || slot.itemId,
+        ownedAmount: item?.ownedAmount || 0,
+        unitSalePriceDirtyCash: item?.unitSalePriceDirtyCash || 0,
+        minimumAmountPerSale: item?.minimumAmountPerSale || 1,
+        locked: anySaleActive,
+        statusLabel: activeSale
+          ? `Prodej běží · ${formatRemainingDuration(
+              (Number(activeSale.completesAtTick || input.tick) - input.tick) * input.tickRateMs
+            )}`
+          : ""
+      };
+    }),
+    items
+  };
+};
+
 const createSelectInput = (
   id: string,
   label: string,
@@ -141,3 +208,52 @@ const createSelectInput = (
 
 const formatSigned = (value: number): string =>
   value >= 0 ? `+${formatNumber(value)}` : formatNumber(value);
+
+const resolvePlayerResourceAmount = (
+  balances: Record<string, number>,
+  itemId: string,
+  aliases: string[] = []
+): number => {
+  for (const key of [itemId, ...aliases]) {
+    const value = balances[key];
+    if (value !== undefined && Number.isFinite(Number(value))) {
+      return Math.max(0, Math.floor(Number(value)));
+    }
+  }
+  return 0;
+};
+
+const createStreetDealerPhaseStatusLabel = (
+  phase: "day" | "night",
+  rule?: DayNightActionRuleConfig
+): string => {
+  const phaseLabel = phase === "day" ? "DEN" : "NOC";
+  const appliesPenalty = Boolean(rule?.preferredPhase && rule.preferredPhase !== phase);
+  if (!appliesPenalty) return `${phaseLabel}: standardní výnos`;
+
+  const details = [
+    formatMultiplierDelta("výnos", rule?.rewardMultiplier),
+    formatMultiplierDelta("heat", rule?.heatMultiplier),
+    Number(rule?.detectionChanceModifierPct || 0) > 0
+      ? `riziko +${formatNumber(Number(rule?.detectionChanceModifierPct || 0))} p. b.`
+      : ""
+  ].filter(Boolean);
+  return details.length > 0 ? `${phaseLabel}: ${details.join(", ")}` : `${phaseLabel}: standardní výnos`;
+};
+
+const formatMultiplierDelta = (label: string, multiplier: number | undefined): string => {
+  const value = Number(multiplier);
+  if (!Number.isFinite(value) || Math.abs(value - 1) < 0.001) return "";
+  const percentage = (value - 1) * 100;
+  return `${label} ${percentage >= 0 ? "+" : ""}${formatCompactNumber(percentage)} %`;
+};
+
+const formatCompactNumber = (value: number): string =>
+  String(Number(Number(value || 0).toFixed(2)));
+
+const formatRemainingDuration = (remainingMs: number): string => {
+  const totalSeconds = Math.max(0, Math.ceil(Number(remainingMs || 0) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0 ? `${minutes}m ${String(seconds).padStart(2, "0")}s` : `${seconds}s`;
+};

@@ -28,14 +28,16 @@ const SELECTED_SERVER_STORAGE_KEY = STORAGE_KEYS.selectedServer;
 const PLAYER_STATE_STORAGE_KEY = "empirestreets.playerState";
 const DEFAULT_SERVER_ID = "server";
 const DEFAULT_CITY_MINUTES = 5 * 60 + 55;
-const LIVE_SUPPORTED_TABS = new Set(["overall", "influence", "districts", "alliance"]);
-const LIVE_UNAVAILABLE_COPY = "Leaderboard se právě nepodařilo načíst.";
-const LIVE_EMPTY_COPY = "Na tomto serveru zatím nejsou aktivní hráči.";
-const LIVE_PENDING_TAB_COPY = "Tato statistika se připravuje.";
+const AUTHORITATIVE_LEADERBOARD_TABS = new Set(["overall", "influence", "districts", "alliance"]);
+const AUTHORITATIVE_LEADERBOARD_FILTERS = new Set(["current", "free", "war", "alliance"]);
+const LEADERBOARD_UNAVAILABLE_COPY = "Leaderboard se právě nepodařilo načíst.";
+const LEADERBOARD_LOADING_COPY = "Načítám pořadí.";
+const LEADERBOARD_PENDING_TAB_COPY = "Tato statistika se připravuje.";
 
 let demoLeaderboardPlayers = [];
 let calculateDemoScore = null;
 let demoFixturePromise = null;
+let demoFixtureStatus = "idle";
 
 function focusWithoutScroll(element) {
   if (!(element instanceof HTMLElement) || typeof element.focus !== "function") {
@@ -93,6 +95,8 @@ const TAB_CONFIG = Object.freeze({
     empty: "Žádná aliance neodpovídá filtrům."
   }
 });
+const ALL_LEADERBOARD_TABS = new Set(Object.keys(TAB_CONFIG));
+const ALL_LEADERBOARD_FILTERS = new Set(["current", "free", "war", "alliance", "active"]);
 
 export const leaderboardState = {
   activeTab: "overall",
@@ -135,10 +139,12 @@ function loadLocalDemoFixture() {
     return Promise.resolve(false);
   }
   if (!demoFixturePromise) {
+    demoFixtureStatus = "loading";
     demoFixturePromise = import("../dev-fixtures/leaderboardDemoData.js")
       .then((fixture) => {
         demoLeaderboardPlayers = fixture.LEADERBOARD_DEMO_PLAYERS.map((player) => ({ ...player }));
         calculateDemoScore = fixture.calculateDemoEmpireScore;
+        demoFixtureStatus = "ready";
         if (leaderboardContext.popup) renderLeaderboard();
         return true;
       })
@@ -146,6 +152,8 @@ function loadLocalDemoFixture() {
         console.error("Local demo leaderboard fixture could not be loaded.", error);
         demoLeaderboardPlayers = [];
         calculateDemoScore = null;
+        demoFixtureStatus = "failed";
+        if (leaderboardContext.popup) renderLeaderboard();
         return false;
       });
   }
@@ -195,7 +203,7 @@ function mapServerLeaderboardEntry(entry) {
   return {
     id: String(entry?.playerId || ""),
     name: String(entry?.name || entry?.playerId || "-"),
-    gangName: String(entry?.name || entry?.playerId || "-"),
+    gangName: String(entry?.gangName || entry?.name || entry?.playerId || "-"),
     faction: String(entry?.factionId || "-"),
     alliance: String(entry?.allianceTag || ""),
     districts: normalizeNumber(entry?.controlledDistricts),
@@ -282,6 +290,55 @@ function getServerPhaseLabel(session = getAuthoritySession()) {
   const mapPhase = normalizeText(phaseState.mapPhase, "night").toUpperCase();
   const time = formatCityMinutes(phaseState.cityMinutes ?? DEFAULT_CITY_MINUTES);
   return `${gamePhase} / ${mapPhase} ${time}`;
+}
+
+function getAuthoritativePhaseLabel() {
+  const readModel = globalThis.window?.empireStreetsGameplaySliceReadModel || null;
+  if (!readModel) {
+    return "LIVE / —";
+  }
+  const dayNight = readModel.player?.dayNight || readModel.dayNight || null;
+  const phase = normalizeText(dayNight?.phaseId).toUpperCase();
+  const clock = normalizeText(dayNight?.gameClockLabel)
+    || (Number.isFinite(Number(dayNight?.gameHour)) && Number.isFinite(Number(dayNight?.gameMinute))
+      ? formatCityMinutes((Number(dayNight.gameHour) * 60) + Number(dayNight.gameMinute))
+      : "");
+  return `LIVE / ${phase || "—"}${clock ? ` ${clock}` : ""}`;
+}
+
+function getLeaderboardPhaseLabel(session = getAuthoritySession()) {
+  return getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative
+    ? getAuthoritativePhaseLabel()
+    : getServerPhaseLabel(session);
+}
+
+function getLeaderboardSourceState() {
+  const executionMode = getLeaderboardExecutionMode();
+  if (executionMode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    return {
+      authoritative: true,
+      available: Boolean(getServerLeaderboardView()),
+      pending: false,
+      availableTabs: AUTHORITATIVE_LEADERBOARD_TABS,
+      availableFilters: AUTHORITATIVE_LEADERBOARD_FILTERS
+    };
+  }
+  if (executionMode === GAMEPLAY_EXECUTION_MODES.localDemo) {
+    return {
+      authoritative: false,
+      available: demoFixtureStatus === "ready",
+      pending: demoFixtureStatus === "idle" || demoFixtureStatus === "loading",
+      availableTabs: ALL_LEADERBOARD_TABS,
+      availableFilters: ALL_LEADERBOARD_FILTERS
+    };
+  }
+  return {
+    authoritative: false,
+    available: false,
+    pending: false,
+    availableTabs: new Set(),
+    availableFilters: new Set()
+  };
 }
 
 function countOwnedBuildings(session) {
@@ -432,7 +489,9 @@ function filterPlayers(players, options = {}) {
     }
 
     if (modeFilter === "active") {
-      return normalizeNumber(player.lastActiveMinutes, 999) <= 20;
+      return player.lastActiveMinutes !== null
+        && player.lastActiveMinutes !== undefined
+        && normalizeNumber(player.lastActiveMinutes, 999) <= 20;
     }
 
     return true;
@@ -472,8 +531,9 @@ function rankPlayers(players) {
 
 export function getSortedLeaderboard(tab = leaderboardState.activeTab) {
   const players = filterPlayers(getLeaderboardPlayers());
-  if (getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
-    if (!LIVE_SUPPORTED_TABS.has(tab)) return [];
+  const sourceState = getLeaderboardSourceState();
+  if (sourceState.authoritative) {
+    if (!sourceState.availableTabs.has(tab)) return [];
     if (tab === "overall") return [...players].sort((left, right) => left.currentRank - right.currentRank);
   }
   return rankPlayers(sortPlayers(players, tab === "alliance" ? "overall" : tab));
@@ -492,6 +552,8 @@ export function getAllianceLeaderboard(players = getLeaderboardPlayers()) {
       totalInfluence: 0,
       totalWanted: 0,
       totalActivity: 0,
+      wantedValueCount: 0,
+      activityValueCount: 0,
       topPlayer: null
     };
 
@@ -499,8 +561,14 @@ export function getAllianceLeaderboard(players = getLeaderboardPlayers()) {
     current.totalEmpireScore += calculateEmpireScore(player) ?? 0;
     current.totalDistricts += normalizeNumber(player.districts);
     current.totalInfluence += normalizeNumber(player.influence);
-    current.totalWanted += player.wanted === null ? 0 : normalizeNumber(player.wanted);
-    current.totalActivity += player.lastActiveMinutes === null ? 0 : normalizeNumber(player.lastActiveMinutes);
+    if (player.wanted !== null && player.wanted !== undefined) {
+      current.totalWanted += normalizeNumber(player.wanted);
+      current.wantedValueCount += 1;
+    }
+    if (player.lastActiveMinutes !== null && player.lastActiveMinutes !== undefined) {
+      current.totalActivity += normalizeNumber(player.lastActiveMinutes);
+      current.activityValueCount += 1;
+    }
     current.topPlayer = !current.topPlayer || (calculateEmpireScore(player) ?? -1) > (calculateEmpireScore(current.topPlayer) ?? -1)
       ? player
       : current.topPlayer;
@@ -511,7 +579,10 @@ export function getAllianceLeaderboard(players = getLeaderboardPlayers()) {
   return Array.from(alliances.values())
     .map((alliance) => ({
       ...alliance,
-      averageActivity: alliance.members ? Math.round(alliance.totalActivity / alliance.members) : 0
+      totalWanted: alliance.wantedValueCount ? alliance.totalWanted : null,
+      averageActivity: alliance.activityValueCount
+        ? Math.round(alliance.totalActivity / alliance.activityValueCount)
+        : null
     }))
     .sort((left, right) => right.totalEmpireScore - left.totalEmpireScore || right.totalInfluence - left.totalInfluence)
     .map((alliance, index) => ({
@@ -549,6 +620,14 @@ function formatOptionalNumber(value) {
 
 function formatMoney(value) {
   return `$${formatNumber(value)}`;
+}
+
+function formatOptionalMoney(value) {
+  return value === null || value === undefined ? "—" : formatMoney(value);
+}
+
+function formatOptionalActivity(value) {
+  return value === null || value === undefined ? "—" : formatActivity(value);
 }
 
 function formatActivity(minutes) {
@@ -594,13 +673,8 @@ function getRankClass(rank) {
 }
 
 function getPlayerStatusText(player) {
-  if (getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
-    return player.status === "defeated"
-      ? "Tento gang byl v této válce poražen."
-      : "Aktivní gang v aktuálním serverovém pořadí.";
-  }
   if (player.status === "defeated") return "Hráč byl poražen.";
-  if (normalizeNumber(player.wanted) >= 600) {
+  if (player.wanted !== null && player.wanted !== undefined && normalizeNumber(player.wanted) >= 600) {
     return "Policie ho má na radaru.";
   }
 
@@ -608,11 +682,22 @@ function getPlayerStatusText(player) {
     return "Kontroluje velkou část města.";
   }
 
-  if ((normalizeNumber(player.successfulAttacks) + normalizeNumber(player.robberies)) >= 60) {
+  if (
+    player.successfulAttacks !== null
+    && player.successfulAttacks !== undefined
+    && player.robberies !== null
+    && player.robberies !== undefined
+    && (normalizeNumber(player.successfulAttacks) + normalizeNumber(player.robberies)) >= 60
+  ) {
     return "Agresivní hráč. Nečekej klid.";
   }
 
-  if (normalizeNumber(player.wanted) <= 100 && calculateEmpireScore(player) >= 52000) {
+  if (
+    player.wanted !== null
+    && player.wanted !== undefined
+    && normalizeNumber(player.wanted) <= 100
+    && calculateEmpireScore(player) >= 52000
+  ) {
     return "Tichý boss. Nebezpečný, protože nepřitahuje pozornost.";
   }
 
@@ -629,47 +714,59 @@ function createStat(label, value) {
 }
 
 function getRankSummary(players) {
-  const totalEmpireScore = players.reduce((sum, player) => sum + (calculateEmpireScore(player) ?? 0), 0);
-  const totalWanted = players.reduce((sum, player) => sum + normalizeNumber(player.wanted), 0);
-  const activePlayers = players.filter((player) => normalizeNumber(player.lastActiveMinutes, 999) <= 20).length;
+  const scores = players.map(calculateEmpireScore).filter((value) => value !== null && value !== undefined);
+  const wantedValues = players
+    .map((player) => player.wanted)
+    .filter((value) => value !== null && value !== undefined);
+  const activityValues = players
+    .map((player) => player.lastActiveMinutes)
+    .filter((value) => value !== null && value !== undefined);
 
   return {
     totalPlayers: players.length,
-    totalEmpireScore,
-    totalWanted,
-    activePlayers
+    totalEmpireScore: scores.length || players.length === 0
+      ? scores.reduce((sum, value) => sum + normalizeNumber(value), 0)
+      : null,
+    totalWanted: wantedValues.length || players.length === 0
+      ? wantedValues.reduce((sum, value) => sum + normalizeNumber(value), 0)
+      : null,
+    activePlayers: activityValues.length || players.length === 0
+      ? activityValues.filter((value) => normalizeNumber(value, 999) <= 20).length
+      : null
   };
 }
 
-function renderStats(players, alliances = []) {
+function renderStats(players, alliances = [], options = {}) {
   if (!leaderboardContext.statsElement) {
     return;
   }
 
+  const dataAvailable = options.dataAvailable !== false;
+
   if (leaderboardState.activeTab === "alliance") {
     const topAlliance = alliances[0];
+    const wantedValues = alliances
+      .map((alliance) => alliance.totalWanted)
+      .filter((value) => value !== null && value !== undefined);
     leaderboardContext.statsElement.innerHTML = [
-      createStat("Aliance", formatNumber(alliances.length)),
-      createStat("Top pakt", topAlliance?.alliance || "-"),
-      createStat("District tlak", formatNumber(alliances.reduce((sum, alliance) => sum + alliance.totalDistricts, 0))),
-      createStat("Tlak hledanosti", getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative
-        ? "—"
-        : formatNumber(alliances.reduce((sum, alliance) => sum + alliance.totalWanted, 0)))
+      createStat("Aliance", dataAvailable ? formatNumber(alliances.length) : "—"),
+      createStat("Top pakt", dataAvailable ? topAlliance?.alliance || "-" : "—"),
+      createStat("District tlak", dataAvailable
+        ? formatNumber(alliances.reduce((sum, alliance) => sum + alliance.totalDistricts, 0))
+        : "—"),
+      createStat("Tlak hledanosti", dataAvailable && (wantedValues.length || alliances.length === 0)
+        ? formatNumber(wantedValues.reduce((sum, value) => sum + normalizeNumber(value), 0))
+        : "—")
     ].join("");
     return;
   }
 
   const summary = getRankSummary(players);
-  const serverMode = getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative;
   leaderboardContext.statsElement.innerHTML = [
-    createStat("Hráči ve výpisu", formatNumber(summary.totalPlayers)),
-    createStat(serverMode ? "Aktivní" : "Online / aktivní", serverMode
-      ? formatNumber(players.filter((player) => player.status === "active").length)
-      : formatNumber(summary.activePlayers)),
-    createStat("Empire score", formatNumber(summary.totalEmpireScore)),
-    createStat(serverMode ? "Poražení" : "Police heat", serverMode
-      ? formatNumber(players.filter((player) => player.status === "defeated").length)
-      : formatNumber(summary.totalWanted))
+    createStat("Hráči ve výpisu", dataAvailable ? formatNumber(summary.totalPlayers) : "—"),
+    createStat("Online / aktivní", dataAvailable ? formatOptionalNumber(summary.activePlayers) : "—"),
+    createStat("Empire score", dataAvailable ? formatOptionalNumber(summary.totalEmpireScore) : "—"),
+    createStat("Police heat", dataAvailable ? formatOptionalNumber(summary.totalWanted) : "—")
   ].join("");
 }
 
@@ -694,9 +791,7 @@ function renderPlayerRow(player) {
       <span class="leaderboard-cell-muted">${escapeHtml(player.alliance)}</span>
       <span class="leaderboard-number-cell">${formatNumber(player.districts)}</span>
       <span class="leaderboard-number-cell">${formatNumber(player.influence)}</span>
-      <span>${getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative
-        ? `<span class="leaderboard-cell-muted">${player.status === "defeated" ? "Poražen" : "Aktivní"}</span>`
-        : `<span class="leaderboard-wanted ${wantedClass}">${formatNumber(player.wanted)}</span>`}</span>
+      <span><span class="leaderboard-wanted ${wantedClass}">${formatOptionalNumber(player.wanted)}</span></span>
       <span class="leaderboard-score-cell">${formatOptionalNumber(player.empireScore)}</span>
       <span class="leaderboard-actions">
         <button type="button" class="button leaderboard-row-action" data-leaderboard-action="view" data-player-id="${escapeHtml(player.id)}" aria-label="Detail hráče ${escapeHtml(player.name)}">Detail</button>
@@ -719,7 +814,7 @@ function renderPlayerTable(players) {
       <span>Aliance</span>
       <span>Distrikty</span>
       <span>Vliv</span>
-      <span>${getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative ? "Stav" : "Wanted"}</span>
+      <span>Wanted</span>
       <span>Empire score</span>
       <span>Akce</span>
     </div>
@@ -736,14 +831,14 @@ function renderAllianceRow(alliance) {
       <span class="leaderboard-rank-cell ${rankClass}">#${formatNumber(alliance.rank)}</span>
       <span class="leaderboard-player-cell">
         <strong>${escapeHtml(alliance.alliance)}</strong>
-        <span>avg aktivita ${formatNumber(alliance.averageActivity)} min</span>
+        <span>avg aktivita ${formatOptionalNumber(alliance.averageActivity)} min</span>
       </span>
       <span class="leaderboard-number-cell">${formatNumber(alliance.members)}</span>
       <span class="leaderboard-number-cell">${formatNumber(alliance.totalDistricts)}</span>
       <span class="leaderboard-number-cell">${formatNumber(alliance.totalInfluence)}</span>
       <span class="leaderboard-score-cell">${formatNumber(alliance.totalEmpireScore)}</span>
       <span class="leaderboard-cell-muted">${escapeHtml(alliance.topPlayer?.name || "-")}</span>
-      <span><span class="leaderboard-wanted ${wantedClass}">${getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative ? "—" : formatNumber(alliance.totalWanted)}</span></span>
+      <span><span class="leaderboard-wanted ${wantedClass}">${formatOptionalNumber(alliance.totalWanted)}</span></span>
       <span class="leaderboard-actions">
         <button type="button" class="button leaderboard-row-action" data-leaderboard-action="view-alliance" data-alliance="${escapeHtml(alliance.alliance)}">Profil</button>
       </span>
@@ -775,7 +870,7 @@ function renderAllianceTable(alliances) {
 function getCurrentServerRankedPlayers() {
   const players = getLeaderboardPlayers();
   const selectedServerId = leaderboardState.selectedServerId || getCurrentServerScope().serverId;
-  if (getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+  if (getLeaderboardSourceState().authoritative) {
     return players.filter((player) => player.serverId === selectedServerId)
       .sort((left, right) => left.currentRank - right.currentRank);
   }
@@ -794,9 +889,7 @@ export function renderMyRankPanel() {
   if (!currentPlayer) {
     mount.innerHTML = `
       <span class="leaderboard-panel-label">TVŮJ RANK</span>
-      <p>${getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative && !getServerLeaderboardView()
-        ? "Serverová data nejsou dostupná."
-        : "Mimo výpis."}</p>
+      <p>Mimo výpis.</p>
     `;
     return;
   }
@@ -820,9 +913,7 @@ export function renderPlayerDetail(playerId) {
   if (!player) {
     mount.innerHTML = `
       <div class="leaderboard-detail-empty">
-        <span>${getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative && !getServerLeaderboardView()
-          ? LIVE_UNAVAILABLE_COPY
-          : "Vyber hráče."}</span>
+        <span>Vyber hráče.</span>
       </div>
     `;
     return;
@@ -832,27 +923,21 @@ export function renderPlayerDetail(playerId) {
   const rankedPlayer = ranked.find((entry) => entry.id === player.id) || player;
   const score = calculateEmpireScore(player);
 
-  const stats = getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative ? [
+  const stats = [
     ["Rank", `#${rankedPlayer.currentRank}`],
     ["Empire score", formatOptionalNumber(score)],
     ["Distrikty", formatNumber(player.districts)],
     ["Vliv", formatNumber(player.influence)],
-    ["Stav", player.status === "defeated" ? "Poražen" : "Aktivní"]
-  ] : [
-    ["Rank", `#${rankedPlayer.currentRank}`],
-    ["Empire score", formatNumber(score)],
-    ["Distrikty", formatNumber(player.districts)],
-    ["Vliv", formatNumber(player.influence)],
-    ["Clean", formatMoney(player.cleanMoney)],
-    ["Dirty", formatMoney(player.dirtyMoney)],
-    ["Wanted", formatNumber(player.wanted)],
-    ["Útoky", formatNumber(player.successfulAttacks)],
-    ["Obrany", formatNumber(player.successfulDefenses)],
-    ["Robbery", formatNumber(player.robberies)],
-    ["Kills", formatNumber(player.unitsKilled)],
-    ["Ztráty", formatNumber(player.unitsLost)],
-    ["Budovy", formatNumber(player.buildingsOwned)],
-    ["Aktivita", formatActivity(player.lastActiveMinutes)]
+    ["Clean", formatOptionalMoney(player.cleanMoney)],
+    ["Dirty", formatOptionalMoney(player.dirtyMoney)],
+    ["Wanted", formatOptionalNumber(player.wanted)],
+    ["Útoky", formatOptionalNumber(player.successfulAttacks)],
+    ["Obrany", formatOptionalNumber(player.successfulDefenses)],
+    ["Robbery", formatOptionalNumber(player.robberies)],
+    ["Kills", formatOptionalNumber(player.unitsKilled)],
+    ["Ztráty", formatOptionalNumber(player.unitsLost)],
+    ["Budovy", formatOptionalNumber(player.buildingsOwned)],
+    ["Aktivita", formatOptionalActivity(player.lastActiveMinutes)]
   ];
 
   mount.innerHTML = `
@@ -888,28 +973,29 @@ function renderHeader() {
   }
 
   if (leaderboardContext.phaseElement) {
-    const serverView = getServerLeaderboardView();
-    leaderboardContext.phaseElement.textContent = getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative
-      ? (serverView ? `SERVER SNAPSHOT · ${new Date(serverView.generatedAt).toLocaleTimeString("cs-CZ")}` : "SERVER DATA NEDOSTUPNÁ")
-      : getServerPhaseLabel(session);
+    leaderboardContext.phaseElement.textContent = getLeaderboardPhaseLabel(session);
   }
 }
 
-function renderControls() {
-  const liveMode = getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative;
+function renderControls(sourceState = getLeaderboardSourceState()) {
   for (const tab of leaderboardContext.tabs) {
     const tabId = tab.dataset.leaderboardTab;
-    const isSupported = !liveMode || LIVE_SUPPORTED_TABS.has(tabId);
+    const isSupported = sourceState.availableTabs.has(tabId);
     const isActive = tabId === leaderboardState.activeTab;
     tab.disabled = !isSupported;
     tab.setAttribute("aria-disabled", isSupported ? "false" : "true");
-    tab.title = isSupported ? "" : LIVE_PENDING_TAB_COPY;
+    tab.title = isSupported ? "" : LEADERBOARD_PENDING_TAB_COPY;
     tab.classList.toggle("is-active", isActive);
     tab.setAttribute("aria-selected", isActive ? "true" : "false");
   }
 
   for (const filter of leaderboardContext.filters) {
+    const filterId = filter.dataset.leaderboardFilter;
+    const isSupported = sourceState.availableFilters.has(filterId);
     const isActive = filter.dataset.leaderboardFilter === leaderboardState.modeFilter;
+    filter.disabled = !isSupported;
+    filter.setAttribute("aria-disabled", isSupported ? "false" : "true");
+    filter.title = isSupported ? "" : LEADERBOARD_PENDING_TAB_COPY;
     filter.classList.toggle("is-active", isActive);
     filter.setAttribute("aria-pressed", isActive ? "true" : "false");
   }
@@ -920,30 +1006,24 @@ function renderControls() {
 }
 
 export function renderLeaderboard() {
-  const liveMode = getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative;
-  if (liveMode && !LIVE_SUPPORTED_TABS.has(leaderboardState.activeTab)) {
+  const sourceState = getLeaderboardSourceState();
+  if (!sourceState.availableTabs.has(leaderboardState.activeTab) && sourceState.availableTabs.has("overall")) {
     leaderboardState.activeTab = "overall";
   }
+  if (!sourceState.availableFilters.has(leaderboardState.modeFilter) && sourceState.availableFilters.has("current")) {
+    leaderboardState.modeFilter = "current";
+  }
   const config = TAB_CONFIG[leaderboardState.activeTab] || TAB_CONFIG.overall;
-  const serverView = liveMode ? getServerLeaderboardView() : null;
-  const liveUnavailable = liveMode && !serverView;
   const players = getSortedLeaderboard(leaderboardState.activeTab);
   const alliances = leaderboardState.activeTab === "alliance" ? getVisibleAllianceLeaderboard() : [];
-  const liveEmpty = liveMode && Boolean(serverView) && getLeaderboardPlayers().length === 0;
 
   renderHeader();
-  renderControls();
+  renderControls(sourceState);
   renderMyRankPanel();
-  if (leaderboardContext.statsElement && (liveUnavailable || liveEmpty)) {
-    leaderboardContext.statsElement.innerHTML = "";
-  } else {
-    renderStats(players, alliances);
-  }
+  renderStats(players, alliances, { dataAvailable: sourceState.available });
 
   if (leaderboardContext.tableTitleElement) {
-    leaderboardContext.tableTitleElement.textContent = getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.localDemo
-      ? `${config.title} · DEMO POŘADÍ`
-      : config.title;
+    leaderboardContext.tableTitleElement.textContent = config.title;
   }
 
   if (leaderboardContext.modeLabelElement) {
@@ -951,7 +1031,7 @@ export function renderLeaderboard() {
   }
 
   if (leaderboardContext.countElement) {
-    leaderboardContext.countElement.textContent = liveUnavailable
+    leaderboardContext.countElement.textContent = !sourceState.available
       ? "—"
       : leaderboardState.activeTab === "alliance"
       ? `${formatNumber(alliances.length)} aliancí`
@@ -959,15 +1039,13 @@ export function renderLeaderboard() {
   }
 
   if (leaderboardContext.listElement) {
-    leaderboardContext.listElement.innerHTML = liveUnavailable
-      ? `<div class="leaderboard-detail-empty">${escapeHtml(LIVE_UNAVAILABLE_COPY)}</div>`
-      : liveEmpty
-        ? `<div class="leaderboard-detail-empty">${escapeHtml(LIVE_EMPTY_COPY)}</div>`
-        : getLeaderboardExecutionMode() === GAMEPLAY_EXECUTION_MODES.localDemo && demoLeaderboardPlayers.length === 0
-          ? '<div class="leaderboard-detail-empty">Načítám lokální demo pořadí.</div>'
-          : leaderboardState.activeTab === "alliance"
-            ? renderAllianceTable(alliances)
-            : renderPlayerTable(players);
+    leaderboardContext.listElement.innerHTML = sourceState.pending
+      ? `<div class="leaderboard-detail-empty">${escapeHtml(LEADERBOARD_LOADING_COPY)}</div>`
+      : !sourceState.available
+        ? `<div class="leaderboard-detail-empty">${escapeHtml(LEADERBOARD_UNAVAILABLE_COPY)}</div>`
+        : leaderboardState.activeTab === "alliance"
+          ? renderAllianceTable(alliances)
+          : renderPlayerTable(players);
   }
 
   if (!leaderboardState.selectedPlayerId) {

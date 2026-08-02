@@ -1,6 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { freeModeArmoryConfig } from "../packages/game-config/src/modes/free/free-mode-armory-config";
 import { freeModeDrugLabConfig } from "../packages/game-config/src/modes/free/free-mode-drug-lab-config";
 import { freeModeFactoryConfig } from "../packages/game-config/src/modes/free/free-mode-factory-config";
@@ -25,7 +24,7 @@ import {
   playerMarketResourceIds
 } from "../packages/game-core/src/rules/market/market-config";
 
-const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const rootDir = resolve(process.cwd());
 const outputPath = resolve(
   rootDir,
   "packages/game-config/src/legacy-page/gameplay-config.generated.js"

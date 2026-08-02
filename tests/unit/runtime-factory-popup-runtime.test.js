@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createFactoryPopupRuntime } from "../../page-assets/js/app/runtime/factoryPopupRuntime.js";
+import { openProductionPopupFromTrigger } from "../../page-assets/js/app/runtime/productionPopupOpenBridge.js";
 
 function createElement(dataset = {}) {
   const listeners = new Map();
@@ -210,11 +211,53 @@ describe("factory popup runtime", () => {
     }, { ".close": [close] });
 
     expect(runtime.bindFactoryPopup(root)).toBe(true);
-    await open.dispatch("click");
+    await expect(openProductionPopupFromTrigger(open)).resolves.toBe(true);
 
     expect(prepareServerProductionBuilding).toHaveBeenCalledWith("factory");
     expect(popup.hidden).toBe(false);
     expect(open.disabled).toBe(false);
+  });
+
+  it("evaluates the Factory local production policy when the direct opener runs", async () => {
+    let localDemo = false;
+    const open = createElement();
+    const popup = createElement();
+    popup.hidden = true;
+    const prepareServerProductionBuilding = vi.fn(async () => ({
+      accepted: true,
+      building: { buildingId: "building:district-3:factory:1" },
+      districtId: "district:3",
+      errors: []
+    }));
+    const runtime = createRuntime({
+      allowLegacyLocalProduction: () => localDemo,
+      prepareServerProductionBuilding,
+      syncBuildingDetailTopbarVisibility: vi.fn()
+    });
+    const root = createRoot({
+      ".collect": createElement(),
+      ".header": createElement(),
+      ".level": createElement(),
+      ".multiplier": createElement(),
+      ".open": open,
+      ".owned": createElement(),
+      ".popup": popup,
+      ".slots": createElement(),
+      ".supply-combat": createElement(),
+      ".supply-metal": createElement(),
+      ".supply-tech": createElement(),
+      ".upgrade": createElement(),
+      ".upgrade-cost": createElement()
+    }, { ".close": [createElement()] });
+
+    expect(runtime.bindFactoryPopup(root)).toBe(true);
+
+    localDemo = true;
+    await expect(openProductionPopupFromTrigger(open)).resolves.toBe(true);
+
+    expect(prepareServerProductionBuilding).not.toHaveBeenCalled();
+    expect(popup.hidden).toBe(false);
+    expect(popup.dataset.executionMode).toBe("local-demo");
   });
 
   it("keeps Factory closed when the authoritative building cannot be resolved", async () => {

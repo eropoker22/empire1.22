@@ -260,14 +260,33 @@ describe("runtime main UI flow smoke guard", () => {
       );
       expect(source).toContain('chipButton.dataset.districtBuildingInteractive === "false"');
       const presentBuildingDetailIndex = source.indexOf("const presentDistrictBuildingDetail =");
-      const handoffCloseIndex = source.indexOf(
-        "hideDistrictPopupModal(popup, { suppressMapInput: false });",
+      const genericHandoffCloseIndex = source.indexOf(
+        "? { preserveDistrictSelection: true }",
         presentBuildingDetailIndex
       );
-      const buildingPopupClickIndex = source.indexOf("openButton.click();", handoffCloseIndex);
+      const productionHandoffCloseIndex = source.indexOf(
+        "suppressMapInput: false",
+        genericHandoffCloseIndex
+      );
+      const buildingPopupOpenIndex = source.indexOf(
+        "openProductionPopupFromTrigger(openButton)",
+        productionHandoffCloseIndex
+      );
+      const buildingPopupObserveIndex = source.indexOf(
+        "observeProductionPopupOpening(opening",
+        buildingPopupOpenIndex
+      );
       expect(presentBuildingDetailIndex).toBeGreaterThan(-1);
-      expect(handoffCloseIndex).toBeGreaterThan(presentBuildingDetailIndex);
-      expect(buildingPopupClickIndex).toBeGreaterThan(handoffCloseIndex);
+      expect(genericHandoffCloseIndex).toBeGreaterThan(presentBuildingDetailIndex);
+      expect(productionHandoffCloseIndex).toBeGreaterThan(genericHandoffCloseIndex);
+      expect(buildingPopupOpenIndex).toBeGreaterThan(productionHandoffCloseIndex);
+      expect(buildingPopupObserveIndex).toBeGreaterThan(buildingPopupOpenIndex);
+      expect(source.slice(presentBuildingDetailIndex, buildingPopupOpenIndex)).not.toContain("openButton.click();");
+      expect(source.slice(buildingPopupOpenIndex, buildingPopupObserveIndex)).toContain("restoreDistrictPopup();");
+      expect(source.slice(buildingPopupObserveIndex)).toContain("onDeclined: restoreDistrictPopup");
+      expect(source.slice(buildingPopupObserveIndex)).toContain("onRejected: () =>");
+      expect(source).toContain("if (!opened && popup && districtPopupHiddenForHandoff)");
+      expect(source).toContain("showDistrictPopupModal(popup);");
     }
   });
 

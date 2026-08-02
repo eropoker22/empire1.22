@@ -1,18 +1,17 @@
 import type { GameModeId } from "@empire/shared-types";
 import {
-  createAttackDistrictCommand,
-  createHeistDistrictCommand,
-  createOccupyDistrictCommand,
   createPlaceDefenseCommand,
-  createPlaceTrapCommand,
-  createRemoveDefenseCommand,
-  createRobDistrictCommand,
-  createSelectSpawnDistrictCommand,
-  createSpyDistrictCommand
-} from "../features";
+  createRemoveDefenseCommand
+} from "../features/district-panel/defense-command";
+import { createAttackDistrictCommand } from "../features/district-panel/attack-command";
+import { createHeistDistrictCommand } from "../features/district-panel/heist-command";
+import { createOccupyDistrictCommand } from "../features/district-panel/occupy-command";
+import { createRobDistrictCommand } from "../features/district-panel/rob-command";
+import { createSelectSpawnDistrictCommand } from "../features/district-panel/select-spawn-command";
+import { createSpyDistrictCommand } from "../features/district-panel/spy-command";
+import { createPlaceTrapCommand } from "../features/district-panel/trap-command";
 import { createBuildingSurfaceCommand } from "./client-surface-building-command";
 import { resolveClientSurfaceAction } from "./client-surface-action-resolver";
-import { isOverlayOpen } from "../modals";
 import { canUseOwnedDistrictBuilding } from "./client-surface-authority-guards";
 import type {
   ClientSurfaceAction,
@@ -34,7 +33,7 @@ export { resolveClientSurfaceAction } from "./client-surface-action-resolver";
  * Belongs here: client-side event-to-command wiring over server-fed state.
  * Does not belong here: gameplay resolution or legacy runtime integration.
  */
-export const createClientSurfaceActionRouter = (
+export const createControllerSurfaceActionRouter = (
   options: CreateClientSurfaceActionRouterOptions
 ): ClientSurfaceActionRouter => ({
   handleTarget: async (target) => {
@@ -45,7 +44,7 @@ export const createClientSurfaceActionRouter = (
     }
 
     if (action.kind === "select-district") {
-      if (isOverlayOpen()) {
+      if (options.isDistrictSelectionBlocked?.()) {
         return null;
       }
 

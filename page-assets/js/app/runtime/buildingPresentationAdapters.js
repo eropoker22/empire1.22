@@ -17,6 +17,7 @@ import {
   formatDistrictBuildingCooldown,
   formatDistrictBuildingMoney
 } from "./formatters.js";
+import { createServerBuildingActionDefaultPayload } from "./buildingSpecialActionServerDefaults.js";
 
 const normalizeName = (value) => String(value || "")
   .normalize("NFD")
@@ -133,16 +134,6 @@ const formatDisplayNumber = (value) => {
   return String(Number(numericValue.toFixed(2)));
 };
 
-const resolveOwnedCount = (statMap) => {
-  for (const [label, value] of statMap) {
-    if (label.startsWith("vlastnen") || label.includes("sit ")) {
-      const count = Number(String(value).match(/\d+/u)?.[0]);
-      if (Number.isFinite(count)) return Math.max(0, Math.floor(count));
-    }
-  }
-  return null;
-};
-
 const resolveDemoDetailProfile = ({ baseName, localBuilding, building, panelBuilding }) => {
   const canonicalPresentation = resolveBuildingPresentationDefinition(building?.buildingTypeId);
   const lookupKeys = [
@@ -162,6 +153,7 @@ const resolveDemoDetailProfile = ({ baseName, localBuilding, building, panelBuil
 const createServerMechanicsInput = ({
   building,
   mechanicsType,
+  ownedCount,
   passiveStats,
   stats
 }) => {
@@ -189,19 +181,40 @@ const createServerMechanicsInput = ({
     dailyLabels: ["Influence / day", "Vliv / den"],
     minuteLabels: ["Influence / min", "Vliv / min"]
   }));
-  const ownedBuildingCount = resolveOwnedCount(statMap);
+  const parsedOwnedCount = Number(ownedCount);
+  const ownedBuildingCount = ownedCount !== null
+    && ownedCount !== undefined
+    && Number.isFinite(parsedOwnedCount)
+    ? Math.max(0, Math.floor(parsedOwnedCount))
+    : null;
   const networkBonus = (label) => {
     const value = parseLastNumber(resolveStatValue(statMap, [label], "0"), 0);
     return 1 + value / 100;
   };
+  const projectedPopulationBuffer = building?.presentation?.populationBuffer;
+  const hasProjectedPopulationBuffer = projectedPopulationBuffer
+    && Number.isFinite(Number(projectedPopulationBuffer.storedAmount))
+    && Number.isFinite(Number(projectedPopulationBuffer.capacity))
+    && Number.isFinite(Number(projectedPopulationBuffer.productionPerMinute))
+    && Number.isFinite(Number(projectedPopulationBuffer.timeToFullMs));
   const localBuffer = resolveStatValue(statMap, [
     "Lokální zásobník",
     "Obyvatelé",
     "Populace"
   ], "0/0");
-  const [localBufferAmount, localBufferCapacity] = String(localBuffer)
+  const [statLocalBufferAmount, statLocalBufferCapacity] = String(localBuffer)
     .split("/")
     .map((value) => Math.max(0, parseLastNumber(value, 0)));
+  const preciseLocalBufferAmount = hasProjectedPopulationBuffer
+    ? Math.max(0, Number(projectedPopulationBuffer.storedAmount))
+    : statLocalBufferAmount;
+  const localBufferAmount = Math.floor(preciseLocalBufferAmount);
+  const localBufferCapacity = hasProjectedPopulationBuffer
+    ? Math.max(0, Number(projectedPopulationBuffer.capacity))
+    : statLocalBufferCapacity;
+  const localBufferLabel = hasProjectedPopulationBuffer
+    ? `${localBufferAmount}/${localBufferCapacity}`
+    : String(localBuffer);
   const count = Number.isFinite(ownedBuildingCount)
     ? ownedBuildingCount
     : mechanicsType === "arcade"
@@ -220,11 +233,16 @@ const createServerMechanicsInput = ({
   const hasManualCollect = mechanicsType === "apartment-block"
     || mechanicsType === "convenience-store"
     || mechanicsType === "school";
-  const populationPerMinute = parseFirstNumber(
-    resolveStatValue(statMap, ["Populace / min", "Population / min"], "0"),
-    0
-  );
+  const populationPerMinute = hasProjectedPopulationBuffer
+    ? Math.max(0, Number(projectedPopulationBuffer.productionPerMinute))
+    : parseFirstNumber(
+        resolveStatValue(statMap, ["Populace / min", "Population / min"], "0"),
+        0
+      );
   const isLocalBufferFull = localBufferCapacity > 0 && localBufferAmount >= localBufferCapacity;
+  const localBufferTimeToFullMs = hasProjectedPopulationBuffer
+    ? Math.max(0, Number(projectedPopulationBuffer.timeToFullMs))
+    : 0;
 
   return {
     mechanicsType,
@@ -257,7 +275,7 @@ const createServerMechanicsInput = ({
     ownedWarehouses: count,
     hasManualCollect,
     canCollect: populationAction?.enabled === true,
-    storedOutputLabel: localBuffer,
+    storedOutputLabel: localBufferLabel,
     effectsLabel: [
       cleanHourly > 0 ? `Clean cash +${formatDistrictBuildingMoney(cleanHourly)}/hod` : "",
       dirtyHourly > 0 ? `Dirty cash +${formatDistrictBuildingMoney(dirtyHourly)}/hod` : "",
@@ -282,7 +300,7 @@ const createServerMechanicsInput = ({
     apartmentCapacity: localBufferCapacity,
     apartmentPopulationPerMinute: populationPerMinute,
     apartmentIsFull: isLocalBufferFull,
-    apartmentTimeToFullMs: 0,
+    apartmentTimeToFullMs: localBufferTimeToFullMs,
     apartmentNetwork: {
       populationProductionMultiplier: networkBonus("Produkce bytů"),
       capacityMultiplier: networkBonus("Kapacita bytů")
@@ -295,7 +313,7 @@ const createServerMechanicsInput = ({
     schoolCapacity: localBufferCapacity,
     schoolPopulationPerMinute: populationPerMinute,
     schoolIsFull: isLocalBufferFull,
-    schoolTimeToFullMs: 0,
+    schoolTimeToFullMs: localBufferTimeToFullMs,
     schoolEveningCourseActive: false,
     schoolEveningCourseRemainingMs: 0,
     schoolNetwork: {
@@ -317,11 +335,20 @@ const createServerMechanicsInput = ({
       heatMultiplier: 1
     },
     shoppingMallMarketDiscount: {
-      discountPct: parseLastNumber(resolveStatValue(statMap, ["Market sleva"], "0"), 0),
-      feeReductionPct: parseLastNumber(resolveStatValue(statMap, ["Market fee"], "0"), 0)
+      discountPct: Math.abs(parseLastNumber(resolveStatValue(statMap, [
+        "Běžný market",
+        "Market sleva"
+      ], "0"), 0)),
+      feeReductionPct: Math.abs(parseLastNumber(resolveStatValue(statMap, [
+        "Market poplatek",
+        "Market fee"
+      ], "0"), 0))
     },
     shoppingMallBlackMarketDiscount: {
-      discountPct: parseLastNumber(resolveStatValue(statMap, ["Black market sleva"], "0"), 0)
+      discountPct: Math.abs(parseLastNumber(resolveStatValue(statMap, [
+        "Černý market",
+        "Black market sleva"
+      ], "0"), 0))
     },
     shoppingMallNetwork: {
       cleanIncomeMultiplier: networkBonus("Clean výnos"),
@@ -330,9 +357,12 @@ const createServerMechanicsInput = ({
       heatMultiplier: 1
     },
     autoSalonSupport: {
-      cooldownReductionPct: parseLastNumber(resolveStatValue(statMap, ["Cooldown"], "0"), 0),
-      escapeChanceBonusPct: parseLastNumber(resolveStatValue(statMap, ["Únik"], "0"), 0),
-      combinedGarageDealerMaxReductionPct: parseLastNumber(resolveStatValue(statMap, ["Strop čekání"], "0"), 0)
+      cooldownReductionPct: Math.abs(parseLastNumber(resolveStatValue(statMap, ["Zkrácení čekání", "Cooldown"], "0"), 0)),
+      escapeChanceBonusPct: parseLastNumber(resolveStatValue(statMap, ["Šance úniku", "Únik"], "0"), 0),
+      combinedGarageDealerMaxReductionPct: Math.abs(parseLastNumber(resolveStatValue(statMap, [
+        "Cap garáž + autosalon",
+        "Strop čekání"
+      ], "0"), 0))
     },
     autoSalonNetwork: {
       cleanIncomeMultiplier: networkBonus("Clean výnos"),
@@ -364,7 +394,7 @@ const createServerMechanicsInput = ({
       apartmentCapacityBonusPct: parseLastNumber(resolveStatValue(statMap, ["Kapacita bytů"], "0"), 0),
       attackWeaponStrengthBonusPct: parseLastNumber(resolveStatValue(statMap, ["Síla útočných zbraní"], "0"), 0),
       defenseItemStrengthBonusPct: parseLastNumber(resolveStatValue(statMap, ["Síla obranných itemů"], "0"), 0),
-      cameraStrengthBonusPct: parseLastNumber(resolveStatValue(statMap, ["Kamery", "Cap kamer/alarmu"], "0"), 0)
+      cameraStrengthBonusPct: parseLastNumber(resolveStatValue(statMap, ["Kamery/alarmy", "Kamery"], "0"), 0)
     },
     casinoLaunderingCapacity: parseLastNumber(resolveStatValue(statMap, ["Kapacita praní"], "0"), 0),
     casinoLaunderingFeePct: parseLastNumber(resolveStatValue(statMap, ["Poplatek"], "9"), 9),
@@ -395,7 +425,10 @@ const createServerMechanicsInput = ({
     convenienceStoreCapacity: localBufferCapacity,
     convenienceStorePopulationPerMinute: populationPerMinute,
     convenienceStoreIsFull: isLocalBufferFull,
-    convenienceStoreTimeToFullMs: 0,
+    convenienceStoreTimeToFullMs: localBufferTimeToFullMs,
+    streetDealerSaleView: building?.actions?.find?.(
+      (action) => String(action?.actionId || "") === "start_drug_sale"
+    )?.dealerSale || null,
     smugglingDealerSupplyBonusPct: 0,
     smugglingTunnelNetwork: {
       dirtyProductionMultiplier: networkBonus("Dirty tok"),
@@ -464,7 +497,38 @@ const mergeServerActionEntries = ({
   return Array.from(mergedById.values());
 };
 
-const formatRecord = (value) => Object.entries(value || {})
+const resolveActionCostRecord = (entry) => [
+  entry?.effectiveInputCost,
+  entry?.inputCost,
+  entry?.cost
+].find((value) => value && typeof value === "object" && !Array.isArray(value)) || null;
+
+const formatActionResourceAmount = (value) => {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return "0";
+  return Number.isInteger(amount)
+    ? String(amount)
+    : amount.toFixed(2).replace(/\.?0+$/u, "");
+};
+
+const formatActionCostRecord = (value) => Object.entries(value || {})
+  .filter(([, amount]) => Number(amount || 0) > 0)
+  .map(([key, amount]) => {
+    const normalizedKey = String(key || "").trim().toLowerCase();
+    if (normalizedKey === "cash" || normalizedKey === "clean-cash") {
+      return `${formatDistrictBuildingMoney(amount)} clean cash`;
+    }
+    if (normalizedKey === "dirty-cash" || normalizedKey === "dirty_cash") {
+      return `${formatDistrictBuildingMoney(amount)} dirty cash`;
+    }
+    if (normalizedKey === "influence") {
+      return `${formatActionResourceAmount(amount)} vliv`;
+    }
+    return `${key} x${formatActionResourceAmount(amount)}`;
+  })
+  .join(" + ");
+
+const formatActionOutputRecord = (value) => Object.entries(value || {})
   .filter(([, amount]) => Number(amount || 0) !== 0)
   .map(([key, amount]) => `${key} ${Number(amount) > 0 ? "+" : ""}${amount}`)
   .join(" · ");
@@ -498,11 +562,16 @@ const createServerBuildingActionPresentation = ({
       : "Akce teď není dostupná."
   ).trim();
   const mechanicsType = resolveServerBuildingMechanicsType(buildingTypeId);
-  const costSummary = resolveActionSummary(entry, "inputSummary", "")
-    || formatRecord(entry?.effectiveInputCost || entry?.inputCost || entry?.cost);
+  const actionCostRecord = resolveActionCostRecord(entry);
+  const projectedInputSummary = resolveActionSummary(entry, "inputSummary", "");
+  const costSummary = actionCostRecord
+    ? formatActionCostRecord(actionCostRecord)
+    : projectedInputSummary === "Zdarma"
+      ? ""
+      : projectedInputSummary;
   const serverRewardSummary = resolveActionSummary(entry, "outputSummary", "effectSummary")
     || resolveActionSummary(entry, "expectedEffectSummary", "reportText")
-    || formatRecord(entry?.effectiveOutputGain || entry?.outputGain);
+    || formatActionOutputRecord(entry?.effectiveOutputGain || entry?.outputGain);
   const effectiveCooldownMs = Math.max(
     0,
     Number(entry?.effectiveCooldownMs || entry?.cooldownMs || 0)
@@ -528,11 +597,13 @@ const createServerBuildingActionPresentation = ({
     disabled: !entry || entry?.disabled === true || entry?.enabled === false || Boolean(disabledReason),
     disabledReason,
     phaseLockLabel: String(demoAction?.phaseLockLabel || (entry?.phaseBlockedReason ? entry?.phaseBadgeLabel : "") || ""),
-    requiresInput: Array.isArray(entry?.requiresInput) ? entry.requiresInput.slice() : [],
+    requiresInput: Array.isArray(demoAction?.requiresInput) ? demoAction.requiresInput.slice() : [],
     serverAction: {
       description: String(entry?.description || demoAction?.description || ""),
+      requiredInputs: Array.isArray(entry?.requiresInput) ? entry.requiresInput.slice() : [],
       riskSummary: Array.isArray(entry?.riskSummary) ? entry.riskSummary.slice() : []
-    }
+    },
+    dealerSale: entry?.dealerSale || demoAction?.dealerSale || null
   };
 };
 
@@ -543,16 +614,54 @@ const formatServerDistrictLabel = ({ district, serverDistrictId } = {}) => {
   return canonicalDistrictId ? `District ${canonicalDistrictId}` : "";
 };
 
+export const resolveSharedBuildingBackgroundImagePath = ({
+  canonicalBackgroundImagePath,
+  presentationBackgroundImagePath
+} = {}) => {
+  const canonicalPath = String(canonicalBackgroundImagePath || "").trim();
+  if (canonicalPath) return canonicalPath;
+  const presentationPath = String(presentationBackgroundImagePath || "").trim();
+  return presentationPath || null;
+};
+
+const createServerRequiredInputDefaults = (actionId, requiredInputs) => {
+  const canonicalDefaults = createServerBuildingActionDefaultPayload(actionId);
+  const defaults = {};
+  for (const input of requiredInputs) {
+    const inputId = String(input?.id || "").trim();
+    if (!inputId) continue;
+    if (canonicalDefaults[inputId] !== undefined && canonicalDefaults[inputId] !== null) {
+      defaults[inputId] = canonicalDefaults[inputId];
+      continue;
+    }
+    if (input?.type === "select") {
+      const option = (Array.isArray(input.options) ? input.options : [])
+        .find((candidate) => !candidate?.disabled && String(candidate?.value ?? "").trim());
+      if (option) defaults[inputId] = String(option.value);
+      continue;
+    }
+    if (input?.type === "number" && Number.isFinite(Number(input?.min))) {
+      defaults[inputId] = Number(input.min);
+    }
+  }
+  return defaults;
+};
+
 export const createServerBuildingActionExecutionPresentation = ({
   action,
   context,
   request
 } = {}) => {
-  const requiredInputs = Array.isArray(action?.requiresInput) ? action.requiresInput : [];
+  const requiredInputs = Array.isArray(action?.serverAction?.requiredInputs)
+    ? action.serverAction.requiredInputs
+    : Array.isArray(action?.requiresInput)
+      ? action.requiresInput
+      : [];
   const disabledReason = String(action?.disabledReason || "").trim();
-  const inputValues = request?.inputs && typeof request.inputs === "object"
-    ? { ...request.inputs }
-    : {};
+  const inputValues = {
+    ...createServerRequiredInputDefaults(action?.actionId, requiredInputs),
+    ...(request?.inputs && typeof request.inputs === "object" ? request.inputs : {})
+  };
 
   return {
     inputValues,
@@ -563,7 +672,8 @@ export const createServerBuildingActionExecutionPresentation = ({
       description: String(action?.serverAction?.description || ""),
       costSummary: String(action?.buttonCostLabel || "Bez přímé ceny"),
       rewardSummary: String(action?.rewardSummary || "Výsledek akce"),
-      inputSummary: requiredInputs.map((input) => input?.label).filter(Boolean).join(" · "),
+      inputSummary: String(action?.inputSummary || "").trim()
+        || requiredInputs.map((input) => input?.label).filter(Boolean).join(" · "),
       riskSummary: Array.isArray(action?.serverAction?.riskSummary)
         ? action.serverAction.riskSummary.join(" · ")
         : "",
@@ -655,6 +765,9 @@ const createServerBuildingDetailView = ({
       actions: uniqueActions
     },
     mechanicsType,
+    ownedCount: building?.presentation?.ownedCount
+      ?? panelBuilding?.presentation?.ownedCount
+      ?? null,
     passiveStats: building?.presentation?.passive
       || panelBuilding?.presentation?.passive
       || null,
@@ -687,7 +800,13 @@ const createServerBuildingDetailView = ({
     },
     buildingBackgroundPath: localBuilding?.imagePath || null,
     economyState: createServerEconomyState(readModel),
-    playerHeat: Math.max(0, Number(readModel?.player?.heat ?? readModel?.player?.policeHeat ?? 0)),
+    playerHeat: Math.max(0, Number(
+      readModel?.player?.police?.heat
+      ?? readModel?.police?.heat
+      ?? readModel?.player?.heat
+      ?? readModel?.player?.policeHeat
+      ?? 0
+    )),
     actionProfiles,
     phaseState
   });

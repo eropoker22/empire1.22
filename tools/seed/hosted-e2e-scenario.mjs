@@ -30,16 +30,24 @@ const database = createPostgresDatabase(databaseUrl, {
   statementTimeoutMillis: 30_000
 });
 try {
+  logSeedCheckpoint("load-server:start");
   const controlPlane = createPostgresHostedControlPlaneRepository(database);
   const server = await controlPlane.getServer(serverInstanceId);
+  logSeedCheckpoint("load-server:done");
   if (!server || server.provisioningState !== "ready" || server.status !== "lobby") {
     throw new Error("Hosted E2E scenarios can seed only a ready lobby server.");
   }
   const snapshots = createPostgresSnapshotRepository(database);
+  logSeedCheckpoint("load-recovery-head:start");
   const current = await snapshots.loadRecoveryHead(serverInstanceId);
+  logSeedCheckpoint("load-recovery-head:done");
   if (!current) throw new Error("Hosted E2E scenario recovery head is missing.");
+  logSeedCheckpoint("apply-scenario:start");
   const seeded = applyHostedE2eScenario(current, scenarioName, new Date().toISOString());
+  logSeedCheckpoint("apply-scenario:done");
+  logSeedCheckpoint("save-recovery-head:start");
   const result = await snapshots.saveRecoveryHead(seeded);
+  logSeedCheckpoint("save-recovery-head:done");
   console.log(JSON.stringify({
     database: fixtureEnvironment.databaseName,
     result,
@@ -49,7 +57,13 @@ try {
     tick: seeded.tick
   }));
 } finally {
+  logSeedCheckpoint("database-close:start");
   await database.close();
+  logSeedCheckpoint("database-close:done");
+}
+
+function logSeedCheckpoint(step) {
+  console.error(`[hosted-e2e-scenario] step=${step}`);
 }
 
 function readArgument(name) {

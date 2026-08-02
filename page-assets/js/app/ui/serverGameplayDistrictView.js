@@ -1,5 +1,5 @@
 import { resolveDistrictBuildingChipKind } from "./districtBuildingChipKind.js";
-import { resolveMapAtmosphereMeta } from "../map/mapDataAdapter.js";
+import { resolveMapDistrictAtmosphereMeta } from "../map/mapDataAdapter.js";
 import { resolveLivePlayerAvatarSrc } from "../model/livePlayerAvatarCatalog.js";
 import {
   createAuthoritativeDistrictEconomyPresentation
@@ -20,21 +20,6 @@ const findOwner = (readModel, ownerPlayerId) => {
     ...(Array.isArray(readModel?.leaderboard?.entries) ? readModel.leaderboard.entries : [])
   ].filter(Boolean);
   return entries.find((entry) => String(entry?.playerId) === String(ownerPlayerId)) || null;
-};
-
-const resolveAtmosphereMeta = (district, intelKnown) => {
-  const zoneAliases = { commercial: "economy", residential: "resident" };
-  const zone = zoneAliases[district?.zone] || district?.zone;
-  const meta = resolveMapAtmosphereMeta(zone, { hidden: !intelKnown });
-  const imagePaths = Array.isArray(meta.imagePaths) ? meta.imagePaths : [];
-  if (imagePaths.length === 0) return meta;
-
-  const seed = `${meta.typeKey || "unknown"}:${district?.districtId || ""}`;
-  let hash = 0;
-  for (let index = 0; index < seed.length; index += 1) {
-    hash = ((hash * 31) + seed.charCodeAt(index)) >>> 0;
-  }
-  return { ...meta, imagePath: imagePaths[hash % imagePaths.length] };
 };
 
 const action = (id, label, disabled, disabledReason, surfaceDataset, options = {}) => ({
@@ -193,7 +178,11 @@ export function createServerGameplayDistrictView(readModel, renderState) {
     district.targetActions,
     currentPlayerOwnsDistrict
   );
-  const atmosphereMeta = resolveAtmosphereMeta(district, panel.intelKnown === true);
+  const atmosphereMeta = resolveMapDistrictAtmosphereMeta(
+    district.zone,
+    district.districtId,
+    { hidden: panel.intelKnown !== true }
+  );
   const economy = createAuthoritativeDistrictEconomyPresentation(
     readModel,
     String(district.districtId)
@@ -210,6 +199,7 @@ export function createServerGameplayDistrictView(readModel, renderState) {
     ownerLabel,
     ownerMeta: `${panel.ownershipLabel || "Vlastnictví neznámé"} · ${statusLabel}`,
     ownerAvatarSrc,
+    ownerAvatarBackgroundUrl: ownerAvatarSrc,
     ownerAvatarEmpty: !ownerAvatarSrc,
     ownerAvatarHidden: !district.ownerPlayerId,
     ownerFallback: "",
@@ -256,10 +246,12 @@ export function createServerGameplayDistrictView(readModel, renderState) {
       kindLabel: resolveDistrictBuildingChipKind(building.typeLabel || building.label),
       detail: building
     })),
-    buildingMetaText: panel.buildingSummary,
-    buildingEmptyText: panel.intelKnown === true
-      ? "District nemá dostupné budovy."
-      : "Budovy odhalíš úspěšnou špionáží.",
+    buildingMetaText: district.intelKnown === true ? "" : "Nezjištěno",
+    buildingEmptyText: district.status === "destroyed"
+      ? "V tomhle districtu po totálním zničení nezůstalo nic použitelného."
+      : district.intelKnown === true
+        ? "Tento distrikt teď nemá přiřazené žádné budovy."
+        : "Bez spy nebo vlastnictví zatím nevíš, jaké budovy jsou v tomto distriktu.",
     buildingsInteractive: currentPlayerOwnsDistrict,
     actions: availableActions,
     actionHidden: district.status === "destroyed" || availableActions.length === 0,

@@ -26,36 +26,44 @@ const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (character
   "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
 })[character]);
 
+const isServerLifecycleMode = () =>
+  getGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative;
+
 const ensureShell = () => {
+  if (!isServerLifecycleMode()) return false;
   const root = document.querySelector("main[data-page='game']");
-  if (!root || root.dataset.closedAlphaUxReady === "true") return;
+  if (!root || root.dataset.closedAlphaUxReady === "true") return false;
   root.dataset.closedAlphaUxReady = "true";
   const connection = document.createElement("div");
-  connection.className = "closed-alpha-connection";
+  connection.className = "closed-alpha-connection lifecycle-status-chip";
+  connection.dataset.serverLifecycleSurface = "connection";
   connection.dataset.connectionStatus = "reconnecting";
   connection.setAttribute("role", "status");
   connection.setAttribute("aria-live", "polite");
   document.body.append(connection);
 
   const recovery = document.createElement("section");
-  recovery.className = "operational-liveness-panel";
+  recovery.className = "operational-liveness-panel lifecycle-status-card";
+  recovery.dataset.serverLifecycleSurface = "recovery";
   recovery.dataset.operationalRecovery = "true";
   recovery.hidden = true;
-  root.prepend(recovery);
+  root.before(recovery);
 
   const confirmation = document.createElement("div");
-  confirmation.className = "operations-center-modal shared-confirmation-modal";
+  confirmation.className = "operations-center-modal shared-confirmation-modal modal lifecycle-modal lifecycle-modal--confirmation";
+  confirmation.dataset.serverLifecycleSurface = "confirmation";
   confirmation.dataset.sharedConfirmation = "true";
   confirmation.hidden = true;
   confirmation.innerHTML = `
-    <div class="operations-center-modal__backdrop" data-shared-modal-close></div>
-    <section class="operations-center-modal__card shared-confirmation-modal__card" role="dialog" aria-modal="false" aria-labelledby="shared-confirmation-title">
-      <header><div><span data-shared-confirmation-kicker>POTVRZENÍ</span><h2 id="shared-confirmation-title" data-shared-confirmation-title></h2></div><button type="button" class="button" data-shared-modal-close aria-label="Zavřít">×</button></header>
-      <div class="operations-center-modal__body shared-confirmation-modal__body"><p data-shared-confirmation-body></p><div class="shared-confirmation-modal__actions"><button type="button" class="button" data-shared-confirmation-cancel data-shared-modal-close>Zrušit</button><button type="button" class="button button--primary" data-shared-confirmation-submit>Potvrdit</button></div></div>
+    <div class="operations-center-modal__backdrop modal__backdrop lifecycle-modal__backdrop" data-shared-modal-close></div>
+    <section class="operations-center-modal__card shared-confirmation-modal__card modal__content lifecycle-modal__card" role="dialog" aria-modal="false" aria-labelledby="shared-confirmation-title">
+      <header class="modal__header lifecycle-modal__header"><div><span data-shared-confirmation-kicker>POTVRZENÍ</span><h2 id="shared-confirmation-title" data-shared-confirmation-title></h2></div><button type="button" class="button modal__close lifecycle-modal__close" data-shared-modal-close aria-label="Zavřít">×</button></header>
+      <div class="operations-center-modal__body shared-confirmation-modal__body modal__body lifecycle-modal__body"><p data-shared-confirmation-body></p><div class="shared-confirmation-modal__actions"><button type="button" class="button" data-shared-confirmation-cancel data-shared-modal-close>Zrušit</button><button type="button" class="button button--primary" data-shared-confirmation-submit>Potvrdit</button></div></div>
     </section>`;
   document.body.append(confirmation);
   bindSharedModal(confirmation);
   setupStreetNewsFilters();
+  return true;
 };
 
 const showConfirmation = ({
@@ -94,7 +102,7 @@ const renderConnection = () => {
   const element = document.querySelector(".closed-alpha-connection");
   if (!element) return;
   const mode = getGameplayExecutionMode();
-  element.hidden = mode !== GAMEPLAY_EXECUTION_MODES.serverAuthoritative;
+  element.hidden = mode !== GAMEPLAY_EXECUTION_MODES.serverAuthoritative || connectionState === "connected";
   element.dataset.connectionStatus = connectionState;
   element.textContent = CONNECTION_LABELS[connectionState] || CONNECTION_LABELS.server_unavailable;
   window.empireStreetsGameplayConnectionState = connectionState;

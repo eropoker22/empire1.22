@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createProductionBuildingPopupRuntime } from "../../page-assets/js/app/runtime/productionBuildingPopupRuntime.js";
+import { openProductionPopupFromTrigger } from "../../page-assets/js/app/runtime/productionPopupOpenBridge.js";
 import {
   ARMORY_RECIPES,
   DRUGLAB_RECIPES,
@@ -41,6 +42,76 @@ function createRoot(elements = {}) {
 }
 
 describe("production building popup runtime", () => {
+  it.each([
+    ["pharmacy", "Lékárna"],
+    ["druglab", "Lab"],
+    ["armory", "Zbrojovka"]
+  ])("opens %s through the shared direct handoff", async (buildingName, label) => {
+    const openButton = createElement();
+    const popup = createElement();
+    popup.hidden = true;
+    popup.querySelectorAll = vi.fn(() => []);
+    const closeButton = createElement();
+    const runtime = createProductionBuildingPopupRuntime({
+      PRODUCTION_BUILDING_CONFIG: { [buildingName]: { label } }
+    });
+    const root = createRoot({
+      ".open": openButton,
+      ".popup": popup,
+      ".close": [closeButton]
+    });
+
+    expect(runtime.bindProductionBuildingPopup(root, {
+      buildingName,
+      closeSelector: ".close",
+      openSelector: ".open",
+      popupSelector: ".popup",
+      recipes: {}
+    })).toBe(true);
+
+    await expect(openProductionPopupFromTrigger(openButton)).resolves.toBe(true);
+    expect(popup.hidden).toBe(false);
+    expect(popup.dataset.executionMode).toBe("local-demo");
+  });
+
+  it("evaluates the local production policy when the direct opener runs", async () => {
+    let localDemo = false;
+    const openButton = createElement();
+    const popup = createElement();
+    popup.hidden = true;
+    popup.querySelectorAll = vi.fn(() => []);
+    const prepareServerProductionBuilding = vi.fn(async () => ({
+      accepted: true,
+      building: { buildingId: "building:district-67:pharmacy:1" },
+      districtId: "district:67",
+      errors: []
+    }));
+    const runtime = createProductionBuildingPopupRuntime({
+      PRODUCTION_BUILDING_CONFIG: { pharmacy: { label: "Lékárna" } },
+      allowLegacyLocalProduction: () => localDemo,
+      prepareServerProductionBuilding
+    });
+    const root = createRoot({
+      ".open": openButton,
+      ".popup": popup,
+      ".close": [createElement()]
+    });
+
+    expect(runtime.bindProductionBuildingPopup(root, {
+      buildingName: "pharmacy",
+      closeSelector: ".close",
+      openSelector: ".open",
+      popupSelector: ".popup",
+      recipes: {}
+    })).toBe(true);
+
+    localDemo = true;
+    await expect(openProductionPopupFromTrigger(openButton)).resolves.toBe(true);
+
+    expect(prepareServerProductionBuilding).not.toHaveBeenCalled();
+    expect(popup.dataset.executionMode).toBe("local-demo");
+  });
+
   it("keeps all browser Armory queue caps synchronized with the canonical typed config", () => {
     expect(Object.fromEntries(
       Object.entries(ARMORY_RECIPES).map(([recipeId, recipe]) => [recipeId, recipe.queueCap])

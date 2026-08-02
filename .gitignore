@@ -20,6 +20,7 @@ vite-dev.out.log
 admin-vite.err.log
 admin-vite.out.log
 /artifacts/
+/.tmp/
 /debug.log
 /tmp-*.log
 /tmp-*.png

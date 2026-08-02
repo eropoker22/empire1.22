@@ -40,11 +40,34 @@ export function createServerDistrictActionPresentation(readModel, districtId) {
     }
     if (definition.id === "trap") {
       if (!district.trap) return [];
+      const activeTrap = district.trap.activeTrap || null;
+      const relocationSource = district.trap.relocationSource || null;
+      const relocationCooldownRemainingTicks = Math.max(
+        0,
+        Number(district.trap.relocationCooldownRemainingTicks || 0)
+      );
       return [{
         id: definition.id,
         enabled: district.trap.enabled === true,
-        label: district.trap.activeTrap ? "Past aktivní" : definition.label,
+        label: activeTrap ? "Past aktivní" : definition.label,
         reason: String(district.trap.disabledReason || ""),
+        stacked: true,
+        subtitle: activeTrap?.label
+          || (relocationSource ? "Past je aktivní v jiném vlastním districtu." : ""),
+        trapState: activeTrap
+          ? "active"
+          : relocationCooldownRemainingTicks > 0
+            ? "cooldown"
+            : relocationSource
+              ? "move"
+              : "idle",
+        title: activeTrap
+          ? "V tomto districtu je nastražená tvoje past."
+          : relocationSource?.canRelocate
+            ? `Máš jen 1 past. Přesuneš ji z District ${relocationSource.districtId} do tohoto districtu.`
+            : relocationSource
+              ? String(district.trap.disabledReason || "")
+              : "Nastraž 1 past do svého districtu.",
         visible: true
       }];
     }
@@ -56,6 +79,8 @@ export function createServerDistrictActionPresentation(readModel, districtId) {
       enabled: target.enabled === true,
       label: definition.label,
       reason: String(target.disabledReason || ""),
+      stacked: false,
+      subtitle: "",
       visible: true
     }];
   });

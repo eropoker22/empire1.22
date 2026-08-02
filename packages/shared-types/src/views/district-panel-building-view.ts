@@ -69,6 +69,32 @@ export interface BuildingActionInputOptionView {
   label: string;
 }
 
+export interface DistrictPanelDealerSaleSlotView {
+  slotId: string;
+  label: string;
+  itemId: string;
+  itemLabel: string;
+  ownedAmount: number;
+  unitSalePriceDirtyCash: number;
+  minimumAmountPerSale: number;
+  locked: boolean;
+  statusLabel: string;
+}
+
+export interface DistrictPanelDealerSaleView {
+  phase: "day" | "night";
+  phaseStatusLabel: string;
+  slotCount: number;
+  slots: DistrictPanelDealerSaleSlotView[];
+  items: Array<{
+    itemId: string;
+    label: string;
+    ownedAmount: number;
+    minimumAmountPerSale: number;
+    unitSalePriceDirtyCash: number;
+  }>;
+}
+
 export interface BuildingActionInputView {
   id: string;
   type: "number" | "select" | "text";
@@ -118,6 +144,7 @@ export interface BuildingActionView {
   preferredPhase?: "day" | "night" | null;
   currentPhase?: "day" | "night" | null;
   phaseEffectSummary?: string[];
+  dealerSale?: DistrictPanelDealerSaleView | null;
 }
 
 export type DistrictPanelBuildingActionView = BuildingActionView;
@@ -128,12 +155,19 @@ export interface DistrictPanelBuildingStatView {
 }
 
 export interface DistrictPanelBuildingPresentationView {
+  ownedCount: number;
   passive: {
     cleanPerHour: number;
     dirtyPerHour: number;
     heatPerDay: number;
     influencePerDay: number;
   };
+  populationBuffer?: {
+    storedAmount: number;
+    capacity: number;
+    productionPerMinute: number;
+    timeToFullMs: number;
+  } | null;
 }
 
 export interface DistrictPanelBuildingSpecialActionView {

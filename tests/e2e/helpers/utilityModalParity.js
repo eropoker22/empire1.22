@@ -1,0 +1,650 @@
+import { expect } from "@playwright/test";
+import {
+  captureIsolatedParityScreenshot,
+  parityComputedStyleProperties
+} from "./uiParityCapture.js";
+import {
+  createModalParityViewportBatches,
+  modalParityViewports,
+  validateModalParityViewportMatrix
+} from "./modalParityViewports.js";
+
+const AUTHORITATIVE_TEXT = "<authoritative>";
+const LEADERBOARD_EMPTY_QUERY = "__utility_parity_no_player__";
+
+export const utilityParityViewports = modalParityViewports;
+
+export const utilityParityViewportBatches = createModalParityViewportBatches("utility");
+
+export const utilityParitySurfaceNames = Object.freeze([
+  "profile",
+  "storage",
+  "wanted",
+  "settings",
+  "about",
+  "leaderboard",
+  "onboarding"
+]);
+
+export const utilityParitySurfaces = Object.freeze({
+  profile: Object.freeze({
+    closeSelector: ".player-popup-card [data-player-popup-close]",
+    dynamicLeafSelector: [
+      "[data-player-popup-avatar]",
+      "[data-player-popup-avatar-fallback]",
+      "[data-player-popup-name]",
+      "[data-player-popup-identity]",
+      "[data-player-popup-gang]",
+      "[data-player-popup-faction]",
+      "[data-player-popup-server]",
+      "[data-player-popup-empire-score]",
+      "[data-player-popup-influence]",
+      "[data-player-popup-heat]",
+      "[data-player-popup-protection]",
+      "[data-player-popup-alliance]",
+      "[data-player-popup-districts]",
+      "[data-player-popup-clean-money]",
+      "[data-player-popup-dirty-money]"
+    ].join(","),
+    requiredSectionSelectors: Object.freeze([
+      ".player-popup-header",
+      ".player-popup-body"
+    ]),
+    semanticDatasetKeys: Object.freeze([]),
+    shellSelector: "[data-player-popup]",
+    targetSelector: "[data-player-popup-card]",
+    triggerSelector: "[data-player-profile-open]"
+  }),
+  storage: Object.freeze({
+    closeSelector: ".storage-popup-card [data-storage-popup-close]",
+    dynamicLeafSelector: "[data-storage-value]",
+    requiredSectionSelectors: Object.freeze([
+      ".storage-popup-heading",
+      ".storage-popup-section--attack",
+      ".storage-popup-section--defense",
+      ".storage-popup-section--materials",
+      ".storage-popup-section--factory",
+      ".storage-popup-section--drugs"
+    ]),
+    semanticDatasetKeys: Object.freeze([
+      "storageResource",
+      "storageState",
+      "storageTone"
+    ]),
+    shellSelector: "[data-storage-popup]",
+    targetSelector: ".storage-popup-card",
+    triggerSelector: "[data-storage-popup-open]"
+  }),
+  wanted: Object.freeze({
+    closeSelector: ".wanted-popup-card [data-wanted-popup-close]",
+    dynamicLeafSelector: [
+      "[data-wanted-popup-heat]",
+      "[data-wanted-popup-level]",
+      "[data-wanted-popup-tier] .wanted-popup-title__text",
+      "[data-wanted-popup-description]",
+      "[data-wanted-popup-protection]",
+      "[data-wanted-popup-audit-risk]",
+      "[data-wanted-popup-rise-list] .wanted-popup-item > *",
+      "[data-wanted-popup-fall-list] .wanted-popup-item > *"
+    ].join(","),
+    requiredSectionSelectors: Object.freeze([
+      ".wanted-popup-header",
+      ".wanted-popup-top",
+      ".wanted-popup-levels",
+      ".wanted-popup-grid",
+      ".wanted-popup-panel:first-of-type",
+      ".wanted-popup-panel:last-of-type"
+    ]),
+    semanticDatasetKeys: Object.freeze([]),
+    shellSelector: "[data-wanted-popup]",
+    targetSelector: ".wanted-popup-card",
+    triggerSelector: "[data-gang-heat]"
+  }),
+  settings: Object.freeze({
+    closeSelector: "#settings-modal-close",
+    dynamicLeafSelector: "",
+    requiredSectionSelectors: Object.freeze([
+      ".modal__header",
+      ".settings-modal__body",
+      ".settings-modal__actions"
+    ]),
+    semanticDatasetKeys: Object.freeze([]),
+    shellSelector: "#settings-modal",
+    targetSelector: ".settings-modal__content",
+    triggerSelector: "[data-nav-settings]"
+  }),
+  about: Object.freeze({
+    closeSelector: ".login-about-dialog [data-login-about-close]",
+    dynamicLeafSelector: "",
+    requiredSectionSelectors: Object.freeze([
+      ".login-about-terminal-header",
+      ".login-about-hero-copy",
+      ".login-about-workspace",
+      ".login-about-terminal-footer"
+    ]),
+    semanticDatasetKeys: Object.freeze([
+      "loginAboutSection"
+    ]),
+    shellSelector: "[data-login-about-overlay]",
+    targetSelector: ".login-about-dialog",
+    triggerSelector: "[data-login-about-open]"
+  }),
+  leaderboard: Object.freeze({
+    closeSelector: ".leaderboard-popup-card > [data-leaderboard-popup-close]",
+    dynamicLeafSelector: [
+      "[data-leaderboard-server-badge]",
+      "[data-leaderboard-phase]",
+      "[data-leaderboard-my-rank] .leaderboard-my-rank__hero > strong",
+      "[data-leaderboard-stats] .leaderboard-popup-stat > strong",
+      "[data-leaderboard-count]"
+    ].join(","),
+    requiredSectionSelectors: Object.freeze([
+      ".leaderboard-terminal__header",
+      ".leaderboard-control-strip",
+      ".leaderboard-popup-tabs",
+      ".leaderboard-terminal__body",
+      ".leaderboard-my-rank",
+      ".leaderboard-board",
+      ".leaderboard-popup-stats",
+      ".leaderboard-popup-list"
+    ]),
+    semanticDatasetKeys: Object.freeze([
+      "leaderboardAction",
+      "leaderboardFilter",
+      "leaderboardTab"
+    ]),
+    shellSelector: "[data-leaderboard-popup]",
+    targetSelector: ".leaderboard-popup-card",
+    triggerSelector: "[data-leaderboard-popup-open]"
+  }),
+  onboarding: Object.freeze({
+    closeSelector: "[data-onboarding-skip-action]",
+    dynamicLeafSelector: "",
+    requiredSectionSelectors: Object.freeze([
+      ".empire-onboarding__header",
+      ".empire-onboarding__content",
+      ".empire-onboarding__actions"
+    ]),
+    semanticDatasetKeys: Object.freeze([
+      "onboardingPrimaryMode",
+      "onboardingScroll",
+      "onboardingStep"
+    ]),
+    shellSelector: "[data-onboarding-panel]",
+    targetSelector: "[data-onboarding-panel]",
+    triggerSelector: "[data-onboarding-launch]"
+  })
+});
+
+const forbiddenDynamicMaskSelectors = new Set([
+  "*",
+  "body",
+  "html",
+  "[data-leaderboard-list]",
+  "[data-leaderboard-my-rank]",
+  "[data-leaderboard-stats]"
+]);
+
+function splitSelectors(selectorList = "") {
+  return String(selectorList || "")
+    .split(",")
+    .map((selector) => selector.trim())
+    .filter(Boolean);
+}
+
+export function validateUtilityParityCoverage({
+  surfaceNames = utilityParitySurfaceNames,
+  surfaces = utilityParitySurfaces,
+  viewportBatches = utilityParityViewportBatches,
+  viewports = utilityParityViewports
+} = {}) {
+  const resolvedSurfaceNames = Array.from(surfaceNames);
+  const viewportContract = validateModalParityViewportMatrix({
+    batches: viewportBatches,
+    viewports
+  });
+
+  if (JSON.stringify(resolvedSurfaceNames) !== JSON.stringify(utilityParitySurfaceNames)) {
+    throw new Error("Utility parity surface order must cover the complete canonical list.");
+  }
+
+  for (const surfaceName of resolvedSurfaceNames) {
+    const definition = surfaces[surfaceName];
+    if (!definition) {
+      throw new Error(`Utility parity surface ${surfaceName} is missing.`);
+    }
+    for (const propertyName of [
+      "closeSelector",
+      "requiredSectionSelectors",
+      "semanticDatasetKeys",
+      "shellSelector",
+      "targetSelector",
+      "triggerSelector"
+    ]) {
+      if (!definition[propertyName]) {
+        throw new Error(`Utility parity surface ${surfaceName} lacks ${propertyName}.`);
+      }
+    }
+    if (!Array.isArray(definition.requiredSectionSelectors)
+      || definition.requiredSectionSelectors.length < 2) {
+      throw new Error(`Utility parity surface ${surfaceName} must guard multiple visible sections.`);
+    }
+    const dynamicSelectors = splitSelectors(definition.dynamicLeafSelector);
+    if (dynamicSelectors.some((selector) => (
+      forbiddenDynamicMaskSelectors.has(selector)
+      || selector === definition.shellSelector
+      || selector === definition.targetSelector
+    ))) {
+      throw new Error(`Utility parity surface ${surfaceName} masks a structural container.`);
+    }
+  }
+
+  return Object.freeze({
+    batchCount: viewportContract.batchCount,
+    comparisonCount: resolvedSurfaceNames.length * viewportContract.viewportNames.length,
+    surfaceNames: Object.freeze(resolvedSurfaceNames),
+    viewportNames: viewportContract.viewportNames
+  });
+}
+
+function resolveUtilityParitySurface(surfaceName) {
+  const definition = utilityParitySurfaces[surfaceName];
+  if (!definition) {
+    throw new Error(`Unknown utility parity surface: ${surfaceName}`);
+  }
+  return definition;
+}
+
+async function settleUtilitySurface(target) {
+  await target.evaluate(async (targetElement) => {
+    for (const animation of targetElement.getAnimations({ subtree: true })) {
+      try {
+        animation.finish();
+      } catch {}
+    }
+    const images = Array.from(targetElement.querySelectorAll("img"));
+    await Promise.all(images.map(async (image) => {
+      if (image.complete) return;
+      await new Promise((resolve) => {
+        image.addEventListener("load", resolve, { once: true });
+        image.addEventListener("error", resolve, { once: true });
+      });
+    }));
+    await new Promise((resolve) => requestAnimationFrame(() => (
+      requestAnimationFrame(resolve)
+    )));
+  });
+}
+
+async function assertRequiredUtilitySections(target, definition, surfaceName) {
+  for (const selector of definition.requiredSectionSelectors) {
+    await expect(
+      target.locator(selector).first(),
+      `${surfaceName} must keep required visible section ${selector}`
+    ).toBeVisible();
+  }
+}
+
+export async function openUtilityParitySurface(page, surfaceName) {
+  const definition = resolveUtilityParitySurface(surfaceName);
+  if (surfaceName === "onboarding") {
+    const settingsDefinition = resolveUtilityParitySurface("settings");
+    const settingsTrigger = page.locator(`${settingsDefinition.triggerSelector}:visible`).first();
+    await expect(settingsTrigger).toBeVisible();
+    await settingsTrigger.click();
+    await expect(page.locator(settingsDefinition.shellSelector)).toBeVisible();
+    const onboardingTrigger = page.locator(`${definition.triggerSelector}:visible`).first();
+    await expect(onboardingTrigger).toBeVisible();
+    await onboardingTrigger.click();
+    await expect(page.locator(settingsDefinition.shellSelector)).toBeHidden();
+  } else {
+    const trigger = page.locator(`${definition.triggerSelector}:visible`).first();
+    await expect(trigger, `${surfaceName} must open through its visible game.html trigger`).toBeVisible();
+    await trigger.click();
+  }
+
+  const shell = page.locator(`${definition.shellSelector}:visible`).last();
+  const target = page.locator(`${definition.targetSelector}:visible`).last();
+  await expect(shell, `${surfaceName} shell must become visible`).toBeVisible();
+  await expect(target, `${surfaceName} target must become visible`).toBeVisible();
+
+  if (surfaceName === "leaderboard") {
+    const search = target.locator("[data-leaderboard-search]");
+    await expect(search).toBeVisible();
+    await search.fill(LEADERBOARD_EMPTY_QUERY);
+    await expect(target.locator("[data-leaderboard-count]")).toHaveText("0 hráčů");
+    await expect(target.locator("[data-leaderboard-list] .leaderboard-detail-empty"))
+      .toHaveText("Žádný boss neodpovídá aktuálním filtrům.");
+  }
+
+  await assertRequiredUtilitySections(target, definition, surfaceName);
+  await settleUtilitySurface(target);
+  return target;
+}
+
+export async function closeUtilityParitySurface(page, surfaceName) {
+  const definition = resolveUtilityParitySurface(surfaceName);
+  const shell = page.locator(`${definition.shellSelector}:visible`).last();
+  if (!(await shell.isVisible().catch(() => false))) {
+    await expect(page.locator(definition.shellSelector)).toBeHidden();
+    return;
+  }
+  const closeButton = page.locator(`${definition.closeSelector}:visible`).last();
+  await expect(closeButton, `${surfaceName} must expose its visible close action`).toBeVisible();
+  await closeButton.click();
+  await expect(page.locator(definition.shellSelector)).toBeHidden();
+}
+
+export async function getUtilityParitySurfaceSignature(page, surfaceName) {
+  const definition = resolveUtilityParitySurface(surfaceName);
+  const target = page.locator(`${definition.targetSelector}:visible`).last();
+  await expect(target).toBeVisible();
+  return target.evaluate((targetElement, config) => {
+    const normalizeText = (value) => String(value || "").replace(/\s+/gu, " ").trim();
+    const isVisible = (element) => {
+      if (!(element instanceof Element) || element.hasAttribute("hidden")) return false;
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none"
+        && style.visibility !== "hidden"
+        && Number(style.opacity || 1) > 0
+        && rect.width > 0
+        && rect.height > 0;
+    };
+    const targetRect = targetElement.getBoundingClientRect();
+    const isAuthoritativeLeaf = (element) => Boolean(
+      config.dynamicLeafSelector
+      && (
+        element.matches?.(config.dynamicLeafSelector)
+        || element.closest?.(config.dynamicLeafSelector)
+      )
+    );
+    const classNames = (element) => Array.from(element.classList || []).sort();
+    const relativeRect = (element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        height: Math.round(rect.height),
+        width: Math.round(rect.width),
+        x: Math.round(rect.left - targetRect.left),
+        y: Math.round(rect.top - targetRect.top)
+      };
+    };
+    const elementPath = (element) => {
+      if (element === targetElement) return "surface";
+      const segments = [];
+      let current = element;
+      while (current instanceof Element && current !== targetElement) {
+        const parent = current.parentElement;
+        if (!parent) break;
+        const siblings = Array.from(parent.children)
+          .filter((candidate) => candidate.tagName === current.tagName)
+          .filter(isVisible);
+        segments.unshift(`${current.tagName.toLowerCase()}:${siblings.indexOf(current)}`);
+        current = parent;
+      }
+      return segments.join("/");
+    };
+    const computedStyle = (element) => {
+      const style = getComputedStyle(element);
+      return Object.fromEntries(config.computedStyleProperties.map((propertyName) => [
+        propertyName,
+        String(style[propertyName] || "")
+      ]));
+    };
+    const dataset = (element) => ({
+      keys: Object.keys(element.dataset || {}).sort(),
+      semanticValues: Object.fromEntries(config.semanticDatasetKeys
+        .filter((key) => Object.hasOwn(element.dataset || {}, key))
+        .map((key) => [key, String(element.dataset[key] || "")]))
+    });
+    const scrollSignature = (element) => {
+      const style = getComputedStyle(element);
+      const scrollableOverflow = new Set(["auto", "overlay", "scroll"]);
+      const canScrollX = element.scrollWidth > element.clientWidth
+        && scrollableOverflow.has(style.overflowX);
+      const canScrollY = element.scrollHeight > element.clientHeight
+        && scrollableOverflow.has(style.overflowY);
+      return {
+        canScrollX,
+        canScrollY,
+        clientHeight: element.clientHeight,
+        clientWidth: element.clientWidth,
+        maxScrollLeft: canScrollX ? Math.max(0, element.scrollWidth - element.clientWidth) : 0,
+        maxScrollTop: canScrollY ? Math.max(0, element.scrollHeight - element.clientHeight) : 0,
+        overflow: style.overflow,
+        overflowX: style.overflowX,
+        overflowY: style.overflowY,
+        scrollLeft: Math.round(element.scrollLeft),
+        scrollTop: Math.round(element.scrollTop)
+      };
+    };
+    const documentScrollSignature = (element, modalOpen) => {
+      const signature = scrollSignature(element);
+      delete signature.clientHeight;
+      delete signature.clientWidth;
+      if (modalOpen) signature.maxScrollTop = 0;
+      return signature;
+    };
+    const visibleNodes = [targetElement, ...targetElement.querySelectorAll("*")]
+      .filter(isVisible);
+    const structuralNodes = visibleNodes.filter((element) => !isAuthoritativeLeaf(element));
+    const focusableNodes = visibleNodes.filter((element) => (
+      element.matches?.("button, input, select, textarea, a[href], [role='button'], [role='tab'], [tabindex]")
+      && !element.matches?.("[disabled], [aria-disabled='true'], [tabindex='-1']")
+    ));
+    const sectionNodes = Array.from(new Set(config.requiredSectionSelectors.flatMap((selector) => (
+      Array.from(targetElement.querySelectorAll(selector)).filter(isVisible)
+    )))).sort((left, right) => (
+      left === right
+        ? 0
+        : left.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_FOLLOWING
+          ? -1
+          : 1
+    ));
+    const modalOpen = Boolean(
+      targetElement.matches("[role='dialog'], [aria-modal='true']")
+      || targetElement.querySelector("[role='dialog'], [aria-modal='true']")
+    );
+    const activeElement = document.activeElement instanceof Element
+      ? document.activeElement
+      : null;
+
+    return {
+      classNames: Array.from(new Set(visibleNodes.flatMap(classNames))).sort(),
+      controls: visibleNodes
+        .filter((element) => element.matches?.(
+          "button, input, select, textarea, a[href], [role='button'], [role='tab']"
+        ))
+        .map((element) => ({
+          ariaDisabled: element.getAttribute("aria-disabled"),
+          ariaExpanded: element.getAttribute("aria-expanded"),
+          ariaLabel: isAuthoritativeLeaf(element)
+            ? AUTHORITATIVE_TEXT
+            : element.getAttribute("aria-label"),
+          ariaSelected: element.getAttribute("aria-selected"),
+          checked: "checked" in element ? Boolean(element.checked) : null,
+          classes: classNames(element),
+          dataset: dataset(element),
+          disabled: "disabled" in element ? Boolean(element.disabled) : false,
+          path: elementPath(element),
+          placeholder: element.getAttribute("placeholder"),
+          role: element.getAttribute("role"),
+          tabIndex: element.tabIndex,
+          tag: element.tagName.toLowerCase(),
+          text: isAuthoritativeLeaf(element)
+            ? AUTHORITATIVE_TEXT
+            : normalizeText(element.textContent),
+          type: element.getAttribute("type"),
+          value: "value" in element ? String(element.value || "") : null
+        })),
+      domTree: visibleNodes.map((element) => ({
+        alt: isAuthoritativeLeaf(element) ? AUTHORITATIVE_TEXT : element.getAttribute("alt"),
+        ariaLabel: isAuthoritativeLeaf(element) ? AUTHORITATIVE_TEXT : element.getAttribute("aria-label"),
+        ariaSelected: element.getAttribute("aria-selected"),
+        classes: classNames(element),
+        dataset: dataset(element),
+        disabled: "disabled" in element ? Boolean(element.disabled) : false,
+        path: elementPath(element),
+        role: element.getAttribute("role"),
+        src: element.matches?.("img")
+          ? isAuthoritativeLeaf(element) ? AUTHORITATIVE_TEXT : element.getAttribute("src")
+          : null,
+        tag: element.tagName.toLowerCase(),
+        text: element.children.length === 0
+          ? isAuthoritativeLeaf(element) ? AUTHORITATIVE_TEXT : normalizeText(element.textContent)
+          : ""
+      })),
+      focus: {
+        activeElement: activeElement && activeElement !== document.body
+          ? {
+              classes: classNames(activeElement),
+              insideSurface: targetElement.contains(activeElement),
+              path: targetElement.contains(activeElement) ? elementPath(activeElement) : "outside-surface",
+              role: activeElement.getAttribute("role"),
+              tag: activeElement.tagName.toLowerCase()
+            }
+          : null,
+        focusableOrder: focusableNodes.map((element) => ({
+          classes: classNames(element),
+          path: elementPath(element),
+          role: element.getAttribute("role"),
+          tabIndex: element.tabIndex,
+          tag: element.tagName.toLowerCase()
+        }))
+      },
+      layout: structuralNodes.map((element) => ({
+        classes: classNames(element),
+        path: elementPath(element),
+        rect: relativeRect(element),
+        style: computedStyle(element),
+        tag: element.tagName.toLowerCase()
+      })),
+      scroll: {
+        body: documentScrollSignature(document.body, modalOpen),
+        html: documentScrollSignature(document.documentElement, modalOpen),
+        regions: structuralNodes
+          .filter((element) => {
+            const style = getComputedStyle(element);
+            return element === targetElement
+              || element.scrollHeight > element.clientHeight
+              || element.scrollWidth > element.clientWidth
+              || !["visible", "clip"].includes(style.overflow)
+              || !["visible", "clip"].includes(style.overflowX)
+              || !["visible", "clip"].includes(style.overflowY);
+          })
+          .map((element) => ({
+            path: elementPath(element),
+            ...scrollSignature(element)
+          })),
+        target: scrollSignature(targetElement),
+        windowX: Math.round(window.scrollX),
+        windowY: Math.round(window.scrollY)
+      },
+      sectionOrder: sectionNodes.map((element) => ({
+        classes: classNames(element),
+        path: elementPath(element),
+        tag: element.tagName.toLowerCase()
+      })),
+      target: {
+        classes: classNames(targetElement),
+        rect: relativeRect(targetElement),
+        role: targetElement.getAttribute("role")
+      },
+      visibleDialogCount: Array.from(document.querySelectorAll("[role='dialog']"))
+        .filter(isVisible)
+        .length
+    };
+  }, {
+    computedStyleProperties: parityComputedStyleProperties,
+    dynamicLeafSelector: definition.dynamicLeafSelector,
+    requiredSectionSelectors: definition.requiredSectionSelectors,
+    semanticDatasetKeys: definition.semanticDatasetKeys
+  });
+}
+
+export async function exerciseUtilityParitySurfaceScroll(page, surfaceName) {
+  const definition = resolveUtilityParitySurface(surfaceName);
+  const target = page.locator(`${definition.targetSelector}:visible`).last();
+  await expect(target).toBeVisible();
+  return target.evaluate(async (targetElement) => {
+    const isVisible = (element) => {
+      if (!(element instanceof HTMLElement) || element.hidden) return false;
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none"
+        && style.visibility !== "hidden"
+        && Number(style.opacity || 1) > 0
+        && rect.width > 0
+        && rect.height > 0;
+    };
+    const elementPath = (element) => {
+      if (element === targetElement) return "surface";
+      const segments = [];
+      let current = element;
+      while (current instanceof Element && current !== targetElement) {
+        const parent = current.parentElement;
+        if (!parent) break;
+        const siblings = Array.from(parent.children)
+          .filter((candidate) => candidate.tagName === current.tagName)
+          .filter(isVisible);
+        segments.unshift(`${current.tagName.toLowerCase()}:${siblings.indexOf(current)}`);
+        current = parent;
+      }
+      return segments.join("/");
+    };
+    const candidates = [targetElement, ...targetElement.querySelectorAll("*")]
+      .filter(isVisible)
+      .map((element) => ({ element, overflowY: getComputedStyle(element).overflowY }))
+      .filter(({ element, overflowY }) => (
+        element.scrollHeight > element.clientHeight + 1
+        && ["auto", "overlay", "scroll"].includes(overflowY)
+      ))
+      .sort((left, right) => (
+        (right.element.scrollHeight - right.element.clientHeight)
+        - (left.element.scrollHeight - left.element.clientHeight)
+      ));
+    const candidate = candidates[0];
+    if (!candidate) {
+      return {
+        available: false,
+        maxScrollTop: 0,
+        moved: false,
+        overflowY: null,
+        path: null,
+        reachedBottom: false,
+        resetTop: true
+      };
+    }
+    const region = candidate.element;
+    const maxScrollTop = Math.max(0, region.scrollHeight - region.clientHeight);
+    region.scrollTop = maxScrollTop;
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const reachedBottom = Math.abs(region.scrollTop - maxScrollTop) <= 1;
+    const moved = region.scrollTop > 0;
+    region.scrollTop = 0;
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    return {
+      available: true,
+      maxScrollTop,
+      moved,
+      overflowY: candidate.overflowY,
+      path: elementPath(region),
+      reachedBottom,
+      resetTop: region.scrollTop === 0
+    };
+  });
+}
+
+export async function captureUtilityParityScreenshot(page, {
+  path: screenshotPath,
+  surfaceName
+}) {
+  const definition = resolveUtilityParitySurface(surfaceName);
+  const target = page.locator(`${definition.targetSelector}:visible`).last();
+  await expect(target).toBeVisible();
+  return captureIsolatedParityScreenshot(page, {
+    ignoreSelector: definition.dynamicLeafSelector,
+    path: screenshotPath,
+    target
+  });
+}

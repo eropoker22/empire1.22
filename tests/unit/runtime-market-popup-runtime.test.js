@@ -84,14 +84,54 @@ function createRuntime(overrides = {}) {
 }
 
 describe("market popup runtime", () => {
-  it("leaves hosted market ownership to the server gameplay controller", () => {
+  it("rechecks the current local deadline instead of forcing a stale scheduled refresh", () => {
+    let scheduledRefresh = null;
+    const refreshMarketPricesIfNeeded = vi.fn(() => ({
+      nextRefreshAt: new Date(Date.now() + 60_000).toISOString()
+    }));
+    const windowRef = {
+      clearTimeout: vi.fn(),
+      setTimeout: vi.fn((callback) => {
+        scheduledRefresh = callback;
+        return 7;
+      })
+    };
+    const runtime = createRuntime({ refreshMarketPricesIfNeeded, windowRef });
+    const root = createRoot({
+      ".copy": createElement(),
+      ".dashboard": createElement(),
+      ".feedback": createElement(),
+      ".list": createElement(),
+      ".open": createElement(),
+      ".popup": createElement(),
+      ".server": createElement(),
+      "[data-market-title]": createElement()
+    }, {
+      ".close": [createElement()],
+      ".tab": [createElement({ marketTab: "market" })]
+    });
+
+    expect(runtime.bindMarketPopup(root)).toBe(true);
+    expect(scheduledRefresh).toBeTypeOf("function");
+    scheduledRefresh();
+
+    expect(refreshMarketPricesIfNeeded).toHaveBeenCalledWith(false);
+    expect(refreshMarketPricesIfNeeded).not.toHaveBeenCalledWith(true);
+  });
+
+  it("binds the shared market renderer in hosted mode without starting local timers", () => {
     const open = createElement();
+    const refreshMarketPricesIfNeeded = vi.fn(() => ({
+      nextRefreshAt: new Date(Date.now() + 1000).toISOString()
+    }));
     const windowRef = {
       clearTimeout: vi.fn(),
       setTimeout: vi.fn(() => 7)
     };
     const runtime = createRuntime({
       getGameplayExecutionMode: vi.fn(() => "server-authoritative"),
+      getServerMarketReadModel: vi.fn(() => ({ resources: [], playerMarket: { listings: [] } })),
+      refreshMarketPricesIfNeeded,
       windowRef
     });
     const root = createRoot({
@@ -108,8 +148,197 @@ describe("market popup runtime", () => {
       ".tab": [createElement({ marketTab: "market" })]
     });
 
-    expect(runtime.bindMarketPopup(root)).toBe(false);
-    expect(open.addEventListener).not.toHaveBeenCalled();
+    expect(runtime.bindMarketPopup(root)).toBe(true);
+    expect(open.addEventListener).toHaveBeenCalledWith("click", expect.any(Function));
+    open.dispatch("click");
+    expect(refreshMarketPricesIfNeeded).not.toHaveBeenCalled();
+    expect(windowRef.setTimeout).not.toHaveBeenCalled();
+  });
+
+  it("uses only authoritative offers, balances and refresh data in hosted mode", () => {
+    const open = createElement();
+    const renderMarketPanel = vi.fn();
+    const renderMarketDashboard = vi.fn();
+    const createMarketDashboardAdapter = vi.fn((payload) => payload);
+    const getCityMarketTabConfig = vi.fn(() => ({
+      items: [{ itemId: "chemicals" }],
+      payment: "cleanMoney"
+    }));
+    const getMarketRefreshCityTimeLabel = vi.fn(() => "11:00");
+    const getMarketServerScope = vi.fn(() => ({ serverId: "local-preview" }));
+    const getResolvedEconomyState = vi.fn(() => ({ cleanMoney: 25_000, dirtyMoney: 0 }));
+    const serverMarket = {
+      resources: [
+        {
+          id: "chemicals",
+          name: "Chemicals",
+          category: "material",
+          normalMarket: { available: true, offerIndex: 1, price: 450, sellPrice: 200, stock: 8, maxStock: 10, stockPercent: 80, canBuy: true, canSell: true },
+          blackMarket: { available: false, heatRisk: 10 }
+        },
+        {
+          id: "biomass",
+          name: "Biomass",
+          normalMarket: { available: true, offerIndex: 0, price: 500, sellPrice: 240, stock: 7, maxStock: 12, stockPercent: 58, canBuy: true, canSell: false },
+          blackMarket: { available: false }
+        }
+      ],
+      normalMarket: { nextRefreshCityTimeLabel: "19:00" },
+      blackMarket: {
+        refreshesAt: Date.UTC(2040, 0, 1, 4, 30),
+        heatByValue: [{ min: 1, heat: 10 }]
+      },
+      playerMarket: { listings: [] }
+    };
+    const runtime = createRuntime({
+      createMarketDashboardAdapter,
+      getCityMarketTabConfig,
+      getGameplayExecutionMode: vi.fn(() => "server-authoritative"),
+      getMarketRefreshCityTimeLabel,
+      getMarketServerScope,
+      getResolvedEconomyState,
+      getServerMarketReadModel: vi.fn(() => serverMarket),
+      getServerPlayerView: vi.fn(() => ({
+        economy: { cleanCash: 4_321, dirtyCash: 876 },
+        resourceBalances: { chemicals: 5 }
+      })),
+      renderMarketDashboard,
+      renderMarketPanel
+    });
+    const root = createRoot({
+      ".copy": createElement(),
+      ".dashboard": createElement(),
+      ".feedback": createElement(),
+      ".list": createElement(),
+      ".open": open,
+      ".popup": createElement(),
+      ".server": createElement(),
+      "[data-market-title]": createElement()
+    }, {
+      ".close": [createElement()],
+      ".tab": [createElement({ marketTab: "market" })]
+    });
+
+    expect(runtime.bindMarketPopup(root)).toBe(true);
+    open.dispatch("click");
+
+    expect(getCityMarketTabConfig).not.toHaveBeenCalled();
+    expect(getMarketRefreshCityTimeLabel).not.toHaveBeenCalled();
+    expect(getMarketServerScope).not.toHaveBeenCalled();
+    expect(getResolvedEconomyState).not.toHaveBeenCalled();
+    expect(createMarketDashboardAdapter).toHaveBeenCalledWith(expect.objectContaining({
+      economy: { cleanMoney: 4_321, dirtyMoney: 876 },
+      marketState: serverMarket,
+      refreshAtCityTime: "19:00",
+      serverScope: {}
+    }));
+    const [, viewModel, callbacks] = renderMarketPanel.mock.calls[0];
+    expect(viewModel.items.map((item) => item.resourceId))
+      .toEqual(["biomass", "chemicals"]);
+    const chemicals = viewModel.items.find((item) => item.resourceId === "chemicals");
+    expect(chemicals).toMatchObject({
+      stock: 8,
+      maxStock: 10,
+      heatRisk: 0,
+      heatByValue: [],
+      marketCategoryLabel: "drug_material",
+      marketMetadata: expect.objectContaining({ marketCategory: "drug_material" })
+    });
+    expect(chemicals.badges).not.toContainEqual(expect.objectContaining({ tone: "risk" }));
+    expect(callbacks.getTradeState(chemicals, 2)).toMatchObject({
+      sellDisabled: false,
+      sellTitle: "Prodat do trhu."
+    });
+    expect(callbacks.getTradeState(chemicals, 3)).toMatchObject({
+      sellDisabled: true,
+      sellTitle: "Trh je přesycený."
+    });
+    expect(renderMarketDashboard.mock.calls[0]?.[2]).toEqual({
+      onClearRecentTransactions: expect.any(Function)
+    });
+  });
+
+  it("rerenders an open hosted popup from the gameplay slice and falls back to the canonical city refresh label", () => {
+    const documentRef = createElement();
+    const open = createElement();
+    const popup = createElement();
+    const renderMarketDashboard = vi.fn();
+    const renderMarketPanel = vi.fn();
+    const windowRef = {
+      clearTimeout: vi.fn(),
+      setTimeout: vi.fn(() => 7)
+    };
+    let serverMarket = {
+      resources: [{
+        id: "chemicals",
+        name: "Chemicals",
+        normalMarket: {
+          available: true,
+          price: 450,
+          sellPrice: 200,
+          stock: 8,
+          maxStock: 10,
+          stockPercent: 80,
+          canBuy: true,
+          canSell: true
+        },
+        blackMarket: { available: false }
+      }],
+      normalMarket: { nextRefreshCityTimeLabel: "17:00" },
+      blackMarket: { refreshesAt: Date.UTC(2040, 0, 1, 23, 45) },
+      playerMarket: { listings: [] }
+    };
+    const runtime = createRuntime({
+      documentRef,
+      getGameplayExecutionMode: vi.fn(() => "server-authoritative"),
+      getServerMarketReadModel: vi.fn(() => serverMarket),
+      getServerPlayerView: vi.fn(() => ({
+        economy: { cleanCash: 1_000, dirtyCash: 0 },
+        resourceBalances: { chemicals: 1 }
+      })),
+      renderMarketDashboard,
+      renderMarketPanel,
+      windowRef
+    });
+    const root = createRoot({
+      ".copy": createElement(),
+      ".dashboard": createElement(),
+      ".feedback": createElement(),
+      ".list": createElement(),
+      ".open": open,
+      ".popup": popup,
+      ".server": createElement(),
+      "[data-market-title]": createElement()
+    }, {
+      ".close": [createElement()],
+      ".tab": [createElement({ marketTab: "market" })]
+    });
+
+    expect(runtime.bindMarketPopup(root)).toBe(true);
+    expect(documentRef.addEventListener).toHaveBeenCalledWith(
+      "empire:gameplay-slice-rendered",
+      expect.any(Function)
+    );
+    documentRef.dispatch("empire:gameplay-slice-rendered");
+    expect(renderMarketPanel).not.toHaveBeenCalled();
+
+    open.dispatch("click");
+    expect(renderMarketDashboard.mock.calls.at(-1)?.[1]?.refreshAtCityTime).toBe("17:00");
+    expect(renderMarketPanel.mock.calls.at(-1)?.[1]?.items[0]?.stock).toBe(8);
+
+    serverMarket = {
+      ...serverMarket,
+      resources: [{
+        ...serverMarket.resources[0],
+        normalMarket: { ...serverMarket.resources[0].normalMarket, stock: 9, stockPercent: 90 }
+      }],
+      normalMarket: {}
+    };
+    documentRef.dispatch("empire:gameplay-slice-rendered");
+
+    expect(renderMarketPanel).toHaveBeenCalledTimes(2);
+    expect(renderMarketPanel.mock.calls.at(-1)?.[1]?.items[0]?.stock).toBe(9);
+    expect(renderMarketDashboard.mock.calls.at(-1)?.[1]?.refreshAtCityTime).toBe("--:--");
     expect(windowRef.setTimeout).not.toHaveBeenCalled();
   });
 
@@ -222,6 +451,7 @@ describe("market popup runtime", () => {
     const playerTab = createElement({ marketTab: "player-market" });
     const renderPlayerMarketPanel = vi.fn();
     const runtime = createRuntime({
+      getGameplayExecutionMode: vi.fn(() => "server-authoritative"),
       getServerMarketReadModel: vi.fn(() => ({
         resources: [{ id: "chemicals", name: "Chemicals", normalMarket: { price: 450 } }],
         playerMarket: { listings: [], ownListingCount: 0, listingLimitPerSeller: 5 }

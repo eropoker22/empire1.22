@@ -6,6 +6,9 @@ import {
   renderDistrictMetricSummary,
   renderDistrictSummaryPanel
 } from "../../page-assets/js/app/ui/districtPanel.js";
+import {
+  resolveDistrictBuildingPresentationKind
+} from "../../page-assets/js/app/ui/districtBuildingChipKind.js";
 
 class FakeClassList {
   constructor() {
@@ -103,7 +106,19 @@ function createElement(document, tagName = "div") {
 }
 
 describe("district panel rendering", () => {
+  it("uses the shared building identity instead of hosted role copy for chip kinds", () => {
+    expect(resolveDistrictBuildingPresentationKind({
+      baseName: "Restaurace",
+      serverBuilding: { role: "Lokální cashflow" }
+    })).toBe("Spustit akci");
+    expect(resolveDistrictBuildingPresentationKind({
+      baseName: "Lékárna",
+      serverBuilding: { role: "Chemická podpora" }
+    })).toBe("Výroba");
+  });
+
   it("renders owned, foreign, and unowned district summaries", () => {
+    globalThis.window = { location: { href: "https://example.test/pages/game.html" } };
     const document = new FakeDocument();
     const ownerAvatarWrap = createElement(document, "div");
     const ownerAvatar = createElement(document, "img");
@@ -140,6 +155,8 @@ describe("district panel rendering", () => {
     expect(ownerAvatarWrap.dataset.districtOwnerAvatarSrc).toBe("../img/avatar.png");
     expect(ownerAvatarWrap.tabIndex).toBe(0);
     expect(elements.card.classList.contains("district-owner-bg-active")).toBe(true);
+    expect(elements.card.style.values.get("--district-owner-avatar-url"))
+      .toBe('url("https://example.test/img/avatar.png")');
 
     renderDistrictSummaryPanel(elements, {
       title: "District 8",
@@ -184,6 +201,7 @@ describe("district panel rendering", () => {
     expect(ownerAvatarWrap.classList.contains("is-owner-hidden")).toBe(true);
     expect(elements.ownerAvatarFallback.hidden).toBe(true);
     expect(elements.ownerAvatarFallback.textContent).toBe("");
+    delete globalThis.window;
   });
 
   it("renders district metrics and flags safely", () => {
@@ -251,6 +269,17 @@ describe("district panel rendering", () => {
     expect(list.children[2].classList.contains("district-popup-buildings__chip--trap")).toBe(true);
     expect(list.children[2].dataset.districtBuildingTrap).toBe("active");
     expect(list.children[2].children[1].textContent).toBe("59:59");
+
+    const stableBuildingChip = list.children[0];
+    renderDistrictBuildingList({ section, meta, list }, {
+      metaText: "",
+      buildings: [
+        { name: "Autosalon", label: "Autosalon", displayName: "Neon Cars" },
+        { name: "Lékárna", displayName: "Noční Lékárna", kindLabel: "Výroba" }
+      ],
+      trap: { visible: true, label: "Toxická past", meta: "59:59" }
+    });
+    expect(list.children[0]).toBe(stableBuildingChip);
 
     renderDistrictBuildingList({ section, meta, list }, {
       metaText: "",

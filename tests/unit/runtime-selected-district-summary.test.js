@@ -75,6 +75,7 @@ const createElements = () => {
 
 describe("selected district summary UI", () => {
   it("renders selected district summary and avatar background", () => {
+    globalThis.window = { location: { href: "https://example.test/pages/game.html" } };
     const elements = createElements();
     expect(renderSelectedDistrictSummary({
       title: "District 4",
@@ -99,6 +100,8 @@ describe("selected district summary UI", () => {
     expect(elements.ownerAvatarWrap.dataset.districtOwnerAvatarName).toBe("TY");
     expect(elements.ownerAvatarWrap.tabIndex).toBe(0);
     expect(elements.card.classList.contains("district-owner-bg-active")).toBe(true);
+    expect(elements.card.style.values.get("--district-owner-avatar-url"))
+      .toBe('url("https://example.test/avatar.png")');
 
     renderSelectedDistrictSummary({
       title: "District 5",
@@ -124,6 +127,7 @@ describe("selected district summary UI", () => {
     expect(elements.ownerAvatarWrap.classList.contains("is-owner-hidden")).toBe(false);
     expect(elements.ownerAvatarFallback.hidden).toBe(true);
     expect(elements.ownerAvatarFallback.textContent).toBe("");
+    delete globalThis.window;
   });
 
   it("renders no-district state and handles null view model", () => {

@@ -14,6 +14,16 @@ function eventElement() {
   };
 }
 
+function eventTarget() {
+  const listeners = new Map();
+  return {
+    addEventListener: vi.fn((name, listener) => listeners.set(name, listener)),
+    dispatch(name) {
+      listeners.get(name)?.();
+    }
+  };
+}
+
 describe("runtime UI binder factories", () => {
   it("binds building action status as UI-only shell", () => {
     const clearButton = eventElement();
@@ -84,5 +94,90 @@ describe("runtime UI binder factories", () => {
 
     expect(profileCard.style.setProperty).toHaveBeenCalledWith("--gang-profile-player-color", "#f97316");
     expect(root.style.setProperty).toHaveBeenCalledWith("--gang-profile-player-color", "#f97316");
+  });
+
+  it("hydrates faction and authoritative district count when the server player arrives later", () => {
+    const documentTarget = eventTarget();
+    const windowTarget = eventTarget();
+    const gangFaction = { textContent: "—" };
+    const playerAvatar = {
+      classList: { remove: vi.fn() },
+      src: "local-avatar.png"
+    };
+    const playerFaction = { textContent: "—" };
+    const playerName = { textContent: "Host" };
+    const topbarInfluence = { dataset: {} };
+    const scopeElements = new Map([
+      ["[data-player-popup-name]", playerName],
+      ["[data-player-popup-avatar]", playerAvatar],
+      ["[data-player-popup-faction]", playerFaction],
+      ["[data-topbar-influence]", topbarInfluence]
+    ]);
+    const scope = {
+      ...documentTarget,
+      defaultView: windowTarget,
+      querySelector: vi.fn((selector) => scopeElements.get(selector) || null)
+    };
+    const root = {
+      ownerDocument: scope,
+      querySelector: vi.fn((selector) => selector === "[data-gang-faction]" ? gangFaction : null),
+      style: { setProperty: vi.fn() }
+    };
+    let serverPlayer = null;
+    const getCurrentPlayerDistrictSourceSnapshot = vi.fn(() => ({ districtCount: 0 }));
+    const syncCurrentPlayerDistrictCountDisplays = vi.fn();
+    const runtime = createRegisteredPlayerStateRuntime({
+      applyTopbarEconomy: vi.fn(),
+      factionCatalog: {
+        hackeri: { name: "Hackeři" },
+        mafian: { name: "Mafián" }
+      },
+      gangHeatSelector: "[data-gang-heat]",
+      getCurrentPlayerDistrictSourceSnapshot,
+      getDisplayedResourceSnapshot: () => ({ influence: 1 }),
+      getRegistrationAccentColor: () => "#67e8f9",
+      getResolvedGangState: () => ({ heat: 0 }),
+      getServerPlayerView: () => serverPlayer,
+      getStoredRegistration: () => ({
+        avatar: "local-avatar.png",
+        factionId: "hackeri",
+        gangColor: "#f97316",
+        identity: "Local hráč"
+      }),
+      normalizeRuntimeHexColor: (value) => String(value || "").trim().toLowerCase(),
+      playerPopupAvatarSelector: "[data-player-popup-avatar]",
+      playerPopupFactionSelector: "[data-player-popup-faction]",
+      playerPopupGangSelector: "[data-player-popup-gang]",
+      playerPopupIdentitySelector: "[data-player-popup-identity]",
+      playerPopupServerSelector: "[data-player-popup-server]",
+      renderGangMembersState: vi.fn(),
+      renderSpyResourceState: vi.fn(),
+      resolveServerPlayerAvatarSrc: () => "server-avatar.jpg",
+      syncCurrentPlayerDistrictCountDisplays,
+      topbarInfluenceSelector: "[data-topbar-influence]"
+    });
+
+    runtime.bindRegisteredPlayerState(root);
+
+    expect(scope.addEventListener).toHaveBeenCalledWith("empire:runtime-refresh", expect.any(Function));
+    getCurrentPlayerDistrictSourceSnapshot.mockClear();
+    syncCurrentPlayerDistrictCountDisplays.mockClear();
+    serverPlayer = {
+      factionId: "mafian",
+      instanceId: "instance:free:1",
+      color: "#22d3ee",
+      profile: { avatarId: "mafian:1", displayName: "Hosted hráč", gangName: "Hosted crew" },
+      operationalLiveness: { ownedDistrictCount: 1 }
+    };
+
+    scope.dispatch("empire:runtime-refresh");
+
+    expect(gangFaction.textContent).toBe("Mafián");
+    expect(playerFaction.textContent).toBe("Mafián");
+    expect(playerName.textContent).toBe("Hosted hráč");
+    expect(playerAvatar.src).toBe("server-avatar.jpg");
+    expect(root.style.setProperty).toHaveBeenLastCalledWith("--gang-profile-player-color", "#22d3ee");
+    expect(syncCurrentPlayerDistrictCountDisplays).toHaveBeenCalledWith(root, 1);
+    expect(getCurrentPlayerDistrictSourceSnapshot).not.toHaveBeenCalled();
   });
 });

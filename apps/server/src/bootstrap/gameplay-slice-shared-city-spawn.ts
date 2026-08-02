@@ -1,4 +1,7 @@
-import type { CoreGameState } from "@empire/game-core";
+import {
+  createFreshSpawnBuildingMetadata,
+  type CoreGameState
+} from "@empire/game-core";
 import type { DistrictId } from "@empire/shared-types";
 import {
   enabledSharedCitySpawnDistrictIds,
@@ -41,6 +44,7 @@ export const claimNextSharedCitySpawnDistrict = (
     const building = state.buildingsById[buildingId];
     if (building) {
       building.ownerPlayerId = playerId;
+      building.metadata = createFreshSpawnBuildingMetadata(building, state.root.tick);
     }
   }
 

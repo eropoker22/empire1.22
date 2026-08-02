@@ -172,7 +172,7 @@ export const renderDistrictPanel = (panel: DistrictPanelViewModel): string =>
     `<div class="district-panel__slot-list">`,
     panel.buildings.length > 0
       ? panel.buildings
-          .map((building) => renderDistrictBuilding(building, building.buildingId === panel.selectedBuildingId))
+          .map((building) => renderDistrictBuilding(building))
           .join("")
       : `<p class="district-panel__empty-copy">Tento distrikt nemá v projekci žádné pevné budovy.</p>`,
     `</div>`,

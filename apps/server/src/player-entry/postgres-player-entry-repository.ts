@@ -197,7 +197,9 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
     const memberships = membershipRows.rows.map(mapMembership);
     const servers = await database.query<HostedPlayerEntryServerRow>(
       `SELECT ${HOSTED_PLAYER_ENTRY_SERVER_COLUMNS}
-       FROM empire_hosted_server_instances WHERE status <> 'archived' ORDER BY created_at DESC`
+       FROM empire_hosted_server_instances
+       WHERE status IN ('requested','provisioning','lobby','running','restarting')
+       ORDER BY created_at DESC`
     );
     const populationStats = await loadHostedServerPopulationStats(
       database,
@@ -262,7 +264,6 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
       if (selection.capacity.committedPlayers + selection.capacity.reservedSlots >= selection.capacity.maximum) throw entryError("SERVER_FULL", "Server se mezitím zaplnil.");
       const district = selection.districts.find((entry) => entry.districtId === request.districtId);
       if (!district?.available) throw entryError("SPAWN_ALREADY_RESERVED", "Tento district mezitím získal jiný hráč. Vyber si jiný.");
-      if (selection.availabilityRevision !== request.expectedAvailabilityRevision) throw entryError("SPAWN_SELECTION_STALE", "Nabídka districtů se změnila. Načti ji znovu.");
       const membershipId = `membership:${crypto.randomUUID()}`;
       const playerId = createServerPlayerId(request.serverInstanceId, accountId);
       const joinedAt = now.toISOString();

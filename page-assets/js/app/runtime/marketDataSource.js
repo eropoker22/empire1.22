@@ -82,7 +82,8 @@ export function createMarketDataSourceSnapshot({
   activeTab = "market",
   playerTabId = "player-market",
   serverMarket = null,
-  localMarketState = null
+  localMarketState = null,
+  allowLocalFallback = true
 } = {}) {
   const isPlayerBazaar = activeTab === playerTabId;
   const hasServerMarket = isObject(serverMarket);
@@ -100,6 +101,19 @@ export function createMarketDataSourceSnapshot({
         ? (Array.isArray(serverMarket?.playerMarket?.listings) ? "ready" : "empty")
         : (hasServerResources(serverMarket) ? "ready" : "empty"),
       useServerMarket: true
+    });
+  }
+
+  if (!allowLocalFallback) {
+    return createSnapshot({
+      activeTab,
+      isPlayerBazaar,
+      marketState: {},
+      serverMarket,
+      localMarketState: null,
+      source: MARKET_DATA_SOURCE.UNAVAILABLE,
+      status: "unavailable",
+      useServerMarket: false
     });
   }
 

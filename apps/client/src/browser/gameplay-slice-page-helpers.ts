@@ -1,6 +1,9 @@
 import type { ClientRenderState } from "../app";
 import { escapeHtml } from "../shared-ui";
-import { GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS } from "./gameplay-slice-timing";
+export {
+  createBrowserCommandId,
+  parseGameplaySlicePollingIntervalMs
+} from "./gameplay-slice-controller-helpers";
 
 export const resolveGameplaySliceMounts = (root: HTMLElement) => ({
   status: getOrCreateMount(root, "status"),
@@ -33,13 +36,3 @@ export const renderGameplaySliceStatus = (state: ClientRenderState): string => [
     ? `<span>${escapeHtml(state.districtPanel.title)}</span>`
     : ""
 ].join("");
-
-export const createBrowserCommandId = (prefix: string): string =>
-  `${prefix}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
-
-export const parseGameplaySlicePollingIntervalMs = (value: string | undefined): number => {
-  const intervalMs = Number.parseInt(String(value ?? ""), 10);
-  return Number.isFinite(intervalMs) && intervalMs > 0
-    ? intervalMs
-    : GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS;
-};

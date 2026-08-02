@@ -20,7 +20,20 @@ describe("closed alpha UX runtime", () => {
     expect(source).toContain("NOUZOVÁ OBNOVA");
   });
 
+  it("mounts connection and recovery lifecycle surfaces only for server authority", () => {
+    expect(source).toContain("const isServerLifecycleMode = () =>");
+    expect(source).toContain("if (!isServerLifecycleMode()) return false;");
+    expect(source).toContain('connection.className = "closed-alpha-connection lifecycle-status-chip";');
+    expect(source).toContain('recovery.className = "operational-liveness-panel lifecycle-status-card";');
+    expect(source).toContain("root.before(recovery);");
+    expect(source).not.toContain("root.prepend(recovery);");
+    expect(source).toContain("modal__content lifecycle-modal__card");
+  });
+
   it("dismisses stale connection notices after authoritative recovery", () => {
+    expect(source).toContain(
+      'mode !== GAMEPLAY_EXECUTION_MODES.serverAuthoritative || connectionState === "connected"'
+    );
     expect(source).toContain('modal?.dataset.sharedConfirmationKind === "connection"');
     expect(source).toContain('closeSharedModal(modal, "connection-restored")');
     expect(source).toContain("if (connectionState !== noticeState) return");

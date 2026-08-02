@@ -42,6 +42,9 @@ describe("mobile game UI overrides", () => {
     expect(css).toContain(".market-popup-dashboard__chip[data-market-dashboard-tone=\"stock\"] strong");
     expect(css).toContain("color: #facc15 !important;");
     expect(css).toContain("-webkit-text-fill-color: #ffffff !important;");
+    expect(mobileFixes).toContain("grid-template-columns: minmax(0, 1fr) 82px !important;");
+    expect(mobileFixes).toContain("width: 82px !important;");
+    expect(mobileFixes).toContain("text-overflow: ellipsis !important;");
   });
 
   it("lays out the mobile gang profile as three compact stats and two full rows", () => {

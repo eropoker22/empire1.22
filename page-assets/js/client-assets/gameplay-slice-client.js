@@ -13,7 +13,9 @@ var EmpireGameplaySliceClient = function(exports) {
       getCurrentReadModel: options.getCurrentReadModel,
       getCurrentRenderState: options.getCurrentRenderState,
       handleSurfaceActionFromExternal: (target) => {
-        if (!options.root.contains(target)) return Promise.resolve(null);
+        if (!options.allowExternalSurfaceActions && !options.root.contains(target)) {
+          return Promise.resolve(null);
+        }
         return applyExternalState(
           () => options.handleSurfaceAction(target),
           "external:surface-action"
@@ -85,2077 +87,6 @@ var EmpireGameplaySliceClient = function(exports) {
       mount: mountPage,
       autoMount: () => Array.from(document.querySelectorAll("[data-gameplay-slice-client]")).map((root) => mountPage({ root })).filter((mount2) => mount2 !== null)
     };
-  };
-  const createClientAppShell = (shell) => shell;
-  const createInitialClientRenderState = () => ({
-    topBarHtml: "",
-    mapHtml: "",
-    sidePanelHtml: "",
-    player: null,
-    mapDistricts: [],
-    districtPanel: null,
-    reports: [],
-    errors: [],
-    connection: {
-      status: "idle",
-      lastErrorMessage: null,
-      staleData: false
-    },
-    lastCommandStatus: null
-  });
-  const createCollectProductionCommand = (input) => ({
-    id: input.commandId,
-    type: "collect-production",
-    mode: input.mode,
-    playerId: input.playerId,
-    serverInstanceId: input.serverInstanceId,
-    issuedAt: input.issuedAt,
-    payload: {
-      districtId: input.districtId,
-      buildingId: input.buildingId,
-      ...input.resourceKey === void 0 ? {} : { resourceKey: input.resourceKey }
-    },
-    clientRequestId: input.clientRequestId ?? null
-  });
-  const createCraftItemCommand = (input) => {
-    var _a, _b, _c, _d;
-    const district = input.slice.district;
-    const slot = district == null ? void 0 : district.slots.find((candidate) => candidate.buildingId === input.buildingId);
-    const craftOption = slot == null ? void 0 : slot.craftOptions.find((candidate) => candidate.recipeId === input.recipeId && candidate.canCraft);
-    const building = district == null ? void 0 : district.buildings.find((candidate) => candidate.buildingId === input.buildingId);
-    const productionLine = [
-      ...((_a = building == null ? void 0 : building.pharmacy) == null ? void 0 : _a.lines) ?? [],
-      ...((_b = building == null ? void 0 : building.drugLab) == null ? void 0 : _b.lines) ?? [],
-      ...((_c = building == null ? void 0 : building.factory) == null ? void 0 : _c.productionLines) ?? [],
-      ...((_d = building == null ? void 0 : building.armory) == null ? void 0 : _d.productionLines) ?? []
-    ].find((candidate) => candidate.recipeId === input.recipeId && candidate.canStart);
-    if (!district || !craftOption && !productionLine) {
-      throw new Error("Craft commands can only be created from enabled craft options present in the current server-fed slice.");
-    }
-    return {
-      id: input.commandId,
-      type: "craft-item",
-      mode: input.slice.player.mode,
-      playerId: input.slice.player.playerId,
-      serverInstanceId: input.slice.player.instanceId,
-      issuedAt: input.issuedAt,
-      payload: {
-        districtId: district.districtId,
-        buildingId: input.buildingId,
-        recipeId: (craftOption == null ? void 0 : craftOption.recipeId) ?? productionLine.recipeId,
-        quantity: input.quantity ?? 1
-      },
-      clientRequestId: input.clientRequestId ?? null
-    };
-  };
-  const htmlEscapeMap = {
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  };
-  const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => htmlEscapeMap[character] ?? character);
-  const escapeAttribute = (value) => escapeHtml(value);
-  const formatLiveCooldownDuration = (remainingMs) => {
-    const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1e3));
-    if (totalSeconds < 60) {
-      return `${totalSeconds}s`;
-    }
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    if (minutes < 60) {
-      return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
-    }
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
-  };
-  const formatLiveCooldownLabel = ({
-    endsAtMs,
-    nowMs,
-    prefix = "Čekání ",
-    readyLabel = "Připraveno"
-  }) => {
-    const remainingMs = Math.max(0, endsAtMs - nowMs);
-    return remainingMs > 0 ? `${prefix}${formatLiveCooldownDuration(remainingMs)}` : readyLabel;
-  };
-  const refreshLiveCooldownLabels = (root, nowMs = Date.now()) => {
-    const nodes = root.querySelectorAll("[data-live-cooldown]");
-    nodes.forEach((node) => {
-      const endsAtMs = Number(node.dataset.cooldownEndsAtMs || 0);
-      node.textContent = formatLiveCooldownLabel({
-        endsAtMs,
-        nowMs,
-        prefix: node.dataset.cooldownPrefix ?? "Čekání ",
-        readyLabel: node.dataset.cooldownReadyLabel ?? "Připraveno"
-      });
-      node.dataset.cooldownState = endsAtMs > nowMs ? "cooling" : "ready";
-    });
-    return nodes.length;
-  };
-  const renderBuildingDetailPopup = (building) => {
-    const zoneKey = toCssToken$1(building.zoneLabel);
-    return [
-      `<section class="district-building-popup district-building-popup--${zoneKey}" role="dialog" aria-label="${escapeAttribute(`Detail budovy ${building.label}`)}" data-building-zone="${escapeAttribute(zoneKey)}" data-building-popup-id="${escapeAttribute(building.buildingId)}">`,
-      `<header class="district-building-popup__header">`,
-      `<div>`,
-      `<p class="district-building-popup__eyebrow">${escapeHtml(building.zoneLabel)} · ${escapeHtml(building.roleLabel)}</p>`,
-      `<h5 class="district-building-popup__title">${escapeHtml(building.label)}</h5>`,
-      `<p class="district-building-popup__type">${escapeHtml(building.typeLabel)}</p>`,
-      `</div>`,
-      `<span class="district-building-popup__badge">${escapeHtml(building.statusLabel)}</span>`,
-      `</header>`,
-      `<div class="district-building-popup__info-card">`,
-      `<span class="district-building-popup__section-label">Info</span>`,
-      `<p class="district-building-popup__info">${escapeHtml(building.info)}</p>`,
-      building.phaseTooltip || building.phaseBadgeLabel ? [
-        `<p class="district-building-popup__phase-effect">`,
-        `<span class="district-building-popup__section-label">Efekt</span>`,
-        renderPhaseBadge$1(building),
-        building.phaseTooltip ? `<span>${escapeHtml(building.phaseTooltip)}</span>` : "",
-        `</p>`
-      ].join("") : "",
-      building.passivePhaseEffectLabel || building.passivePhaseBadgeLabel ? [
-        `<p class="district-building-popup__phase-effect">`,
-        `<span class="district-building-popup__section-label">Efekt fáze</span>`,
-        building.passivePhaseBadgeLabel ? `<span class="district-panel__phase-badge" title="${escapeAttribute(building.passivePhaseTooltip || building.passivePhaseBadgeLabel)}">${escapeHtml(building.passivePhaseBadgeLabel)}</span>` : "",
-        building.passivePhaseEffectLabel ? `<span>${escapeHtml(building.passivePhaseEffectLabel)}</span>` : "",
-        `</p>`
-      ].join("") : "",
-      `</div>`,
-      `<p class="district-building-popup__section-label">Statistiky</p>`,
-      `<div class="district-building-popup__stats">`,
-      building.stats.map((stat) => [
-        `<span class="district-building-popup__stat">`,
-        `<span class="district-building-popup__stat-label">${escapeHtml(stat.label)}</span>`,
-        `<strong class="district-building-popup__stat-value">${escapeHtml(stat.value)}</strong>`,
-        `</span>`
-      ].join("")).join(""),
-      `</div>`,
-      `<div class="district-building-popup__actions">`,
-      `<div class="district-building-popup__actions-head">`,
-      `<p class="district-building-popup__section-label">Speciální akce</p>`,
-      `<span class="district-building-popup__count">${escapeHtml(building.specialActions.length)}</span>`,
-      `</div>`,
-      building.specialActions.length > 0 ? [
-        `<div class="district-building-popup__action-grid">`,
-        building.specialActions.map((action) => renderSpecialAction(building, action)).join(""),
-        `</div>`
-      ].join("") : `<p class="district-panel__empty-copy">Tahle budova nemá v katalogu speciální akce.</p>`,
-      `</div>`,
-      `</section>`
-    ].join("");
-  };
-  const renderSpecialAction = (building, action) => {
-    const disabledAttribute = action.disabled ? " disabled" : "";
-    const reasonAttribute = action.disabledReason ? ` data-disabled-reason="${escapeAttribute(action.disabledReason)}"` : "";
-    return [
-      `<article class="district-building-popup__action${action.disabled ? " is-disabled" : ""}" data-special-action-id="${escapeAttribute(action.actionId)}">`,
-      `<span class="district-building-popup__action-light" aria-hidden="true"></span>`,
-      `<div class="district-building-popup__action-copy">`,
-      `<div class="district-building-popup__action-state-row">`,
-      `<span class="district-building-popup__action-state">${action.disabled ? "Blokováno" : "Připraveno"}</span>`,
-      renderPhaseBadge$1(action),
-      `</div>`,
-      `<strong>${escapeHtml(action.label)}</strong>`,
-      `<span>${escapeHtml(action.description)}</span>`,
-      renderPhaseEffectLine$1(action),
-      `<div class="district-building-popup__action-metrics">`,
-      `<small>${escapeHtml(action.effectSummary)}</small>`,
-      `<small>Cena teď ${escapeHtml(action.inputSummary)}</small>`,
-      `<small>Zisk teď ${escapeHtml(action.outputSummary)}</small>`,
-      `<small>CD ${renderLiveCooldown$1(action)}</small>`,
-      `<small>${escapeHtml(action.durationLabel)}</small>`,
-      `<small>Heat teď ${escapeHtml(action.heatLabel)}</small>`,
-      `</div>`,
-      `</div>`,
-      `<button class="district-panel__action-button district-panel__action-button--craft district-building-popup__run-button" data-building-action-building-id="${escapeAttribute(building.buildingId)}" data-building-action-id="${escapeAttribute(action.actionId)}"${disabledAttribute}${reasonAttribute}>Spustit</button>`,
-      action.disabledReason ? `<p class="district-panel__action-reason">${escapeHtml(action.disabledReason)}</p>` : "",
-      `</article>`
-    ].join("");
-  };
-  const toCssToken$1 = (value) => String(value || "building").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "building";
-  const renderLiveCooldown$1 = (action) => action.cooldownEndsAtMs && action.cooldownRemainingMs > 0 ? [
-    `<span data-live-cooldown="true"`,
-    ` data-cooldown-ends-at-ms="${escapeAttribute(action.cooldownEndsAtMs)}"`,
-    ` data-cooldown-prefix=""`,
-    ` data-cooldown-ready-label="Připraveno po synchronizaci">`,
-    escapeHtml(action.cooldownLabel.replace(/^(?:Cooldown|Čekání)\s+/u, "")),
-    `</span>`
-  ].join("") : escapeHtml(action.cooldownLabel);
-  const renderPhaseBadge$1 = (action) => {
-    if (!action.phaseBadgeLabel) return "";
-    const availability = toCssToken$1(action.phaseAvailability || "neutral");
-    const tooltip = action.phaseTooltip || action.phaseBadgeLabel;
-    return `<span class="district-panel__phase-badge district-panel__phase-badge--${escapeAttribute(availability)}" title="${escapeAttribute(tooltip)}">${escapeHtml(action.phaseBadgeLabel)}</span>`;
-  };
-  const renderPhaseEffectLine$1 = (action) => action.phaseEffectLabel ? `<p class="district-building-popup__phase-effect district-building-popup__phase-effect--action"><span class="district-building-popup__section-label">Efekt fáze</span><span>${escapeHtml(action.phaseEffectLabel)}</span></p>` : "";
-  const createRunBuildingActionCommand = (input) => {
-    const district = input.slice.district;
-    const building = district == null ? void 0 : district.buildings.find((candidate) => candidate.buildingId === input.buildingId);
-    const action = building == null ? void 0 : building.actions.find((candidate) => candidate.actionId === input.actionId && candidate.enabled);
-    if (!district || !building || !action) {
-      throw new Error("Building action commands can only be created from enabled actions present in the current server-fed slice.");
-    }
-    return {
-      id: input.commandId,
-      type: "run-building-action",
-      mode: input.slice.player.mode,
-      playerId: input.slice.player.playerId,
-      serverInstanceId: input.slice.player.instanceId,
-      issuedAt: input.issuedAt,
-      payload: {
-        districtId: district.districtId,
-        buildingId: building.buildingId,
-        actionId: action.actionId,
-        ...input.dealerSlotId ? { dealerSlotId: input.dealerSlotId } : {},
-        ...input.targetCategory ? { targetCategory: input.targetCategory } : {},
-        ...input.category ? { category: input.category } : {},
-        ...input.mode ? { mode: input.mode } : {},
-        ...input.investmentCleanCash !== void 0 ? { investmentCleanCash: input.investmentCleanCash } : {},
-        ...input.investment !== void 0 ? { investment: input.investment } : {},
-        ...input.targetZone ? { targetZone: input.targetZone } : {},
-        ...input.itemId ? { itemId: input.itemId } : {},
-        ...input.amount !== void 0 ? { amount: input.amount } : {}
-      },
-      clientRequestId: input.clientRequestId ?? null
-    };
-  };
-  const renderBuildingSlot = (slot) => {
-    const buildingType = toCssToken(slot.buildingTypeId || "empty");
-    const hasProduction = Boolean(slot.production);
-    const hasCraft = slot.craftOptions.length > 0;
-    return [
-      `<section class="district-panel__slot district-panel__slot--${buildingType}" data-slot-index="${escapeAttribute(slot.slotIndex)}" data-slot-status="${escapeAttribute(slot.statusLabel)}" data-slot-building-type="${escapeAttribute(buildingType)}" data-has-production="${escapeAttribute(hasProduction)}" data-has-craft="${escapeAttribute(hasCraft)}">`,
-      `<div class="district-panel__slot-head">`,
-      `<div class="district-panel__slot-heading">`,
-      `<span class="district-panel__slot-icon" aria-hidden="true">${getBuildingIcon(slot.buildingTypeId)}</span>`,
-      `<div>`,
-      `<p class="district-panel__slot-index">Slot ${escapeHtml(slot.slotIndex + 1)}</p>`,
-      `<h4 class="district-panel__slot-title">${escapeHtml(slot.title)}</h4>`,
-      `</div>`,
-      `</div>`,
-      `<span class="district-panel__slot-state">${escapeHtml(slot.statusLabel)}</span>`,
-      `</div>`,
-      `<p class="district-panel__slot-summary">${escapeHtml(slot.summaryLabel)}</p>`,
-      slot.production ? [
-        `<div class="district-panel__production district-panel__production--storage">`,
-        `<div class="district-panel__production-head">`,
-        `<strong class="district-panel__production-title">${escapeHtml(slot.production.resourceLabel)}</strong>`,
-        `<span class="district-panel__production-rate">${escapeHtml(slot.production.rateLabel)}</span>`,
-        `</div>`,
-        `<div class="district-panel__production-bar" style="--production-fill:${escapeAttribute(toPercentCssValue(slot.production.storagePercent))}%">`,
-        `<span class="district-panel__production-bar-fill"></span>`,
-        `</div>`,
-        `<div class="district-panel__production-metrics">`,
-        `<span class="district-panel__production-metric">${escapeHtml(slot.production.storageLabel)}</span>`,
-        `<span class="district-panel__production-metric">${escapeHtml(slot.production.playerStockLabel)}</span>`,
-        `</div>`,
-        `<div class="district-panel__action-row">`,
-        `<button class="district-panel__action-button district-panel__action-button--collect" data-collect-building-id="${escapeAttribute(slot.production.buildingId)}"${slot.production.canCollect ? "" : " disabled"}${slot.production.collectDisabledReason ? ` data-disabled-reason="${escapeAttribute(slot.production.collectDisabledReason)}"` : ""}>Vybrat ${escapeHtml(slot.production.resourceLabel)}</button>`,
-        slot.production.collectDisabledReason ? `<p class="district-panel__action-reason">${escapeHtml(slot.production.collectDisabledReason)}</p>` : "",
-        `</div>`,
-        `</div>`
-      ].join("") : "",
-      slot.craftOptions.length > 0 ? [
-        `<div class="district-panel__production district-panel__production--craft">`,
-        `<div class="district-panel__production-head">`,
-        `<strong class="district-panel__production-title">Zpracování</strong>`,
-        `<span class="district-panel__production-rate">${escapeHtml(slot.craftOptions.length)} receptů</span>`,
-        `</div>`,
-        slot.processing ? [
-          `<div class="district-panel__production-metrics">`,
-          `<span class="district-panel__production-metric">Zpracovává se ${escapeHtml(slot.processing.label)}</span>`,
-          `<span class="district-panel__production-metric">${escapeHtml(slot.processing.progressLabel)}</span>`,
-          `<span class="district-panel__production-metric">${escapeHtml(slot.processing.completionLabel)}</span>`,
-          `</div>`,
-          `<div class="district-panel__production-metrics">`,
-          `<span class="district-panel__production-metric">${escapeHtml(slot.processing.outputLabel)}</span>`,
-          `</div>`
-        ].join("") : "",
-        slot.craftOptions.map(
-          (option) => [
-            `<article class="district-panel__craft-option" data-craft-option="${escapeAttribute(option.recipeId)}">`,
-            `<div class="district-panel__production-metrics">`,
-            `<span class="district-panel__production-metric">Cena ${escapeHtml(option.inputSummary)}</span>`,
-            `<span class="district-panel__production-metric">+${escapeHtml(option.outputAmount)} ${escapeHtml(option.outputResourceLabel)}</span>`,
-            `<span class="district-panel__production-metric">${escapeHtml(option.playerStockLabel)}</span>`,
-            `</div>`,
-            `<div class="district-panel__action-row">`,
-            `<button class="district-panel__action-button district-panel__action-button--craft" data-craft-building-id="${escapeAttribute(option.buildingId)}" data-craft-recipe-id="${escapeAttribute(option.recipeId)}"${option.canCraft ? "" : " disabled"}${option.disabledReason ? ` data-disabled-reason="${escapeAttribute(option.disabledReason)}"` : ""}>Zpracovat ${escapeHtml(option.label)}</button>`,
-            option.disabledReason ? `<p class="district-panel__action-reason">${escapeHtml(option.disabledReason)}</p>` : "",
-            `</div>`,
-            `</article>`
-          ].join("")
-        ).join(""),
-        `</div>`
-      ].join("") : "",
-      slot.production || slot.craftOptions.length > 0 ? "" : `<p class="district-panel__empty-copy">Pevné budovy pro tento distrikt určuje mapa.</p>`,
-      "</section>"
-    ].join("");
-  };
-  const renderDistrictBuilding = (building, isOpen = false) => [
-    `<article class="district-panel__slot district-panel__slot--${toCssToken(building.buildingTypeId)}" data-building-id="${escapeAttribute(building.buildingId)}" data-building-type="${escapeAttribute(building.buildingTypeId)}">`,
-    `<div class="district-panel__slot-head">`,
-    `<div class="district-panel__slot-heading">`,
-    `<span class="district-panel__slot-icon" aria-hidden="true">${getBuildingIcon(building.buildingTypeId)}</span>`,
-    `<div>`,
-    `<p class="district-panel__slot-index">${escapeHtml(building.typeLabel)}</p>`,
-    `<h4 class="district-panel__slot-title">${escapeHtml(building.label)}</h4>`,
-    `</div>`,
-    `</div>`,
-    `<span class="district-panel__slot-state">${escapeHtml(building.statusLabel)}</span>`,
-    `</div>`,
-    `<p class="district-panel__slot-summary">${escapeHtml(building.summaryLabel)}</p>`,
-    `<details class="district-building-popup-host" data-building-popup-target="${escapeAttribute(building.buildingId)}"${isOpen ? " open" : ""}>`,
-    `<summary class="district-panel__action-button district-panel__action-button--info">Statistiky / Info / Speciální akce</summary>`,
-    renderBuildingDetailPopup(building),
-    `</details>`,
-    building.actions.length > 0 ? building.actions.map((action) => {
-      const disabledAttribute = action.disabled ? " disabled" : "";
-      const reasonAttribute = action.disabledReason ? ` data-disabled-reason="${escapeAttribute(action.disabledReason)}"` : "";
-      return [
-        `<div class="district-panel__production" data-building-action-controls="${escapeAttribute(action.actionId)}">`,
-        `<div class="district-panel__production-head">`,
-        `<div class="district-panel__production-title-row">`,
-        `<strong class="district-panel__production-title">${escapeHtml(action.label)}</strong>`,
-        renderPhaseBadge(action),
-        `</div>`,
-        `<span class="district-panel__production-rate">${escapeHtml(action.statusLabel)} · ${renderLiveCooldown(action)}</span>`,
-        `</div>`,
-        `<p class="district-panel__slot-summary">${escapeHtml(action.description)}</p>`,
-        action.expectedEffectSummary.length > 0 ? `<p class="district-panel__slot-summary">${action.expectedEffectSummary.map(escapeHtml).join(" · ")}</p>` : "",
-        renderPhaseEffectLine(action),
-        `<div class="district-panel__production-metrics">`,
-        `<span class="district-panel__production-metric">Cena teď ${escapeHtml(action.inputSummary)}</span>`,
-        `<span class="district-panel__production-metric">Zisk teď ${escapeHtml(action.outputSummary)}</span>`,
-        `<span class="district-panel__production-metric">Heat teď ${escapeHtml(action.heatLabel)}</span>`,
-        `<span class="district-panel__production-metric">Vliv ${escapeHtml(action.influenceLabel)}</span>`,
-        `</div>`,
-        action.riskSummary.length > 0 ? `<div class="district-panel__production-metrics">${action.riskSummary.map((entry) => `<span class="district-panel__production-metric">${escapeHtml(entry)}</span>`).join("")}</div>` : "",
-        `<div class="district-panel__action-row">`,
-        renderBuildingActionInputs(action),
-        `<button class="district-panel__action-button district-panel__action-button--craft" data-building-action-building-id="${escapeAttribute(building.buildingId)}" data-building-action-id="${escapeAttribute(action.actionId)}"${disabledAttribute}${reasonAttribute}>${escapeHtml(action.label)}</button>`,
-        action.disabledReason ? `<p class="district-panel__action-reason">${escapeHtml(action.disabledReason)}</p>` : "",
-        `</div>`,
-        `</div>`
-      ].join("");
-    }).join("") : `<p class="district-panel__empty-copy">Pro tuto pevnou budovu nejsou dostupné serverové akce.</p>`,
-    `</article>`
-  ].join("");
-  const getBuildingIcon = (buildingTypeId) => {
-    switch (buildingTypeId) {
-      case "pharmacy":
-        return "+";
-      case "drug_lab":
-        return "◆";
-      case "factory":
-        return "▦";
-      case "armory":
-        return "✶";
-      case "warehouse":
-        return "▣";
-      default:
-        return "•";
-    }
-  };
-  const renderBuildingActionInputs = (action) => action.inputs.map((input) => {
-    const dataAttribute = `data-building-action-input="${escapeAttribute(input.id)}"`;
-    const dealerAttribute = input.id === "dealerSlotId" ? " data-dealer-slot-input" : input.id === "itemId" ? " data-dealer-item-input" : input.id === "amount" ? " data-dealer-amount-input" : "";
-    if (input.type === "select") {
-      return [
-        `<select class="district-panel__action-select" ${dataAttribute}${dealerAttribute} aria-label="${escapeAttribute(input.label)}">`,
-        input.options.map((option) => `<option value="${escapeAttribute(option.value)}">${escapeHtml(option.label)}</option>`).join(""),
-        `</select>`
-      ].join("");
-    }
-    return `<input class="district-panel__action-input" ${dataAttribute}${dealerAttribute} aria-label="${escapeAttribute(input.label)}" type="${escapeAttribute(input.type)}"${input.min !== void 0 ? ` min="${escapeAttribute(input.min)}"` : ""}${input.max !== void 0 ? ` max="${escapeAttribute(input.max)}"` : ""}${input.required ? " required" : ""}${input.type === "number" ? ' value="1"' : ""}>`;
-  }).join("");
-  const toCssToken = (value) => String(value || "building").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "building";
-  const toPercentCssValue = (value) => Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
-  const renderLiveCooldown = (action) => action.cooldownEndsAtMs && action.cooldownRemainingMs > 0 ? [
-    `<span data-live-cooldown="true"`,
-    ` data-cooldown-ends-at-ms="${escapeAttribute(action.cooldownEndsAtMs)}"`,
-    ` data-cooldown-prefix="Čekání "`,
-    ` data-cooldown-ready-label="Připraveno po synchronizaci">`,
-    escapeHtml(action.cooldownLabel),
-    `</span>`
-  ].join("") : escapeHtml(action.cooldownLabel);
-  const renderPhaseBadge = (action) => {
-    if (!action.phaseBadgeLabel) return "";
-    const availability = toCssToken(action.phaseAvailability || "neutral");
-    const tooltip = action.phaseTooltip || action.phaseBadgeLabel;
-    return `<span class="district-panel__phase-badge district-panel__phase-badge--${escapeAttribute(availability)}" title="${escapeAttribute(tooltip)}">${escapeHtml(action.phaseBadgeLabel)}</span>`;
-  };
-  const renderPhaseEffectLine = (action) => action.phaseEffectLabel ? `<p class="district-panel__phase-effect-row"><span>Efekt fáze</span> ${escapeHtml(action.phaseEffectLabel)}</p>` : "";
-  const createAttackDistrictCommand = (input) => {
-    var _a, _b;
-    const district = input.slice.district;
-    const target = ((_a = district == null ? void 0 : district.targetActions) == null ? void 0 : _a.attackTargets.find((entry) => entry.districtId === input.targetDistrictId)) ?? (district == null ? void 0 : district.attackTargets.find((entry) => entry.districtId === input.targetDistrictId));
-    const corridor = (_b = input.slice.frontier) == null ? void 0 : _b.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
-    if (!district) {
-      throw new Error("Attack command cannot be created from missing district/target context.");
-    }
-    const expectedSourceVersion = input.expectedSourceVersion ?? (target == null ? void 0 : target.expectedSourceVersion);
-    const expectedTargetVersion = input.expectedTargetVersion ?? (target == null ? void 0 : target.expectedTargetVersion);
-    return {
-      id: input.commandId,
-      type: "attack-district",
-      mode: input.slice.mode.mode,
-      playerId: input.slice.player.playerId,
-      serverInstanceId: input.slice.player.instanceId,
-      issuedAt: input.issuedAt,
-      payload: {
-        districtId: input.targetDistrictId,
-        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? (target == null ? void 0 : target.sourceDistrictId) ?? (() => {
-          throw new Error("Attack target is missing a source district.");
-        })(),
-        weapons: { ...input.weapons },
-        ...typeof expectedSourceVersion === "number" ? { expectedSourceVersion } : {},
-        ...typeof expectedTargetVersion === "number" ? { expectedTargetVersion } : {},
-        expectedConflictRevision: (target == null ? void 0 : target.expectedConflictRevision) ?? (() => {
-          throw new Error("Attack target is missing a conflict revision.");
-        })(),
-        ...corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {}
-      },
-      clientRequestId: input.clientRequestId ?? null
-    };
-  };
-  const createPlaceDefenseCommand = (input) => {
-    const district = input.slice.district;
-    if (!district || !district.placeDefense) {
-      throw new Error("Place defense command cannot be created from missing district/defense context.");
-    }
-    if (!district.placeDefense.enabled || !district.placeDefense.preferredItemId) {
-      throw new Error("Place defense command cannot be created from a disabled defense projection.");
-    }
-    return {
-      id: input.commandId,
-      type: "place-defense",
-      mode: input.slice.mode.mode,
-      playerId: input.slice.player.playerId,
-      serverInstanceId: input.slice.player.instanceId,
-      issuedAt: input.issuedAt,
-      payload: {
-        targetDistrictId: district.districtId,
-        defenseItemId: district.placeDefense.preferredItemId,
-        amount: district.placeDefense.preferredAmount,
-        expectedTargetVersion: district.placeDefense.expectedTargetVersion
-      },
-      clientRequestId: input.clientRequestId ?? null
-    };
-  };
-  const createRemoveDefenseCommand = (input) => {
-    const district = input.slice.district;
-    if (!district || !district.removeDefense) {
-      throw new Error("Remove defense command cannot be created from missing district/defense context.");
-    }
-    if (!district.removeDefense.enabled || !district.removeDefense.preferredItemId) {
-      throw new Error("Remove defense command cannot be created from a disabled defense projection.");
-    }
-    return {
-      id: input.commandId,
-      type: "remove-defense",
-      mode: input.slice.mode.mode,
-      playerId: input.slice.player.playerId,
-      serverInstanceId: input.slice.player.instanceId,
-      issuedAt: input.issuedAt,
-      payload: {
-        targetDistrictId: district.districtId,
-        defenseItemId: district.removeDefense.preferredItemId,
-        amount: district.removeDefense.preferredAmount,
-        expectedTargetVersion: district.removeDefense.expectedTargetVersion
-      },
-      clientRequestId: input.clientRequestId ?? null
-    };
-  };
-  const createHeistDistrictCommand = (input) => {
-    var _a, _b, _c;
-    const district = input.slice.district;
-    const target = ((_a = district == null ? void 0 : district.targetActions) == null ? void 0 : _a.heistTargets.find((entry) => entry.districtId === input.targetDistrictId)) ?? ((_b = district == null ? void 0 : district.heistTargets) == null ? void 0 : _b.find((entry) => entry.districtId === input.targetDistrictId));
-    const styleFallback = { style: "balanced", defaultGangMembersSent: 1 };
-    const style = (target == null ? void 0 : target.styles.find((entry) => entry.style === "balanced")) ?? (target == null ? void 0 : target.styles[0]) ?? styleFallback;
-    const corridor = (_c = input.slice.frontier) == null ? void 0 : _c.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
-    if (!district) {
-      throw new Error("Heist command cannot be created from missing district/target context.");
-    }
-    return {
-      id: input.commandId,
-      type: "heist-district",
-      mode: input.slice.mode.mode,
-      playerId: input.slice.player.playerId,
-      serverInstanceId: input.slice.player.instanceId,
-      issuedAt: input.issuedAt,
-      payload: {
-        targetDistrictId: input.targetDistrictId,
-        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? (target == null ? void 0 : target.sourceDistrictId) ?? (() => {
-          throw new Error("Heist target is missing a source district.");
-        })(),
-        style: style.style,
-        gangMembersSent: style.defaultGangMembersSent,
-        expectedConflictRevision: (target == null ? void 0 : target.expectedConflictRevision) ?? (() => {
-          throw new Error("Heist target is missing a conflict revision.");
-        })(),
-        ...(target == null ? void 0 : target.expectedTargetVersion) !== void 0 ? { expectedTargetVersion: target.expectedTargetVersion } : {},
-        ...(target == null ? void 0 : target.expectedSourceVersion) !== void 0 ? { expectedSourceVersion: target.expectedSourceVersion } : {},
-        ...corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {}
-      },
-      clientRequestId: input.clientRequestId ?? null
-    };
-  };
-  const createOccupyDistrictCommand = (input) => {
-    var _a, _b;
-    const district = input.slice.district;
-    const target = ((_a = district == null ? void 0 : district.targetActions) == null ? void 0 : _a.occupyTargets.find((entry) => entry.districtId === input.targetDistrictId)) ?? (district == null ? void 0 : district.occupyTargets.find((entry) => entry.districtId === input.targetDistrictId));
-    const corridor = (_b = input.slice.frontier) == null ? void 0 : _b.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
-    if (!district) {
-      throw new Error("Occupy command cannot be created from missing district/target context.");
-    }
-    return {
-      id: input.commandId,
-      type: "occupy-district",
-      mode: input.slice.mode.mode,
-      playerId: input.slice.player.playerId,
-      serverInstanceId: input.slice.player.instanceId,
-      issuedAt: input.issuedAt,
-      payload: {
-        districtId: input.targetDistrictId,
-        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? (target == null ? void 0 : target.sourceDistrictId) ?? (() => {
-          throw new Error("Occupy target is missing a source district.");
-        })(),
-        expectedConflictRevision: (target == null ? void 0 : target.expectedConflictRevision) ?? (() => {
-          throw new Error("Occupy target is missing a conflict revision.");
-        })(),
-        ...input.encirclementConfirmationToken ? { encirclementConfirmationToken: input.encirclementConfirmationToken } : {},
-        ...corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {}
-      },
-      clientRequestId: input.clientRequestId ?? null
-    };
-  };
-  const createRobDistrictCommand = (input) => {
-    var _a, _b, _c;
-    const district = input.slice.district;
-    const target = ((_a = district == null ? void 0 : district.targetActions) == null ? void 0 : _a.robTargets.find((entry) => entry.districtId === input.targetDistrictId)) ?? ((_b = district == null ? void 0 : district.robTargets) == null ? void 0 : _b.find((entry) => entry.districtId === input.targetDistrictId));
-    const corridor = (_c = input.slice.frontier) == null ? void 0 : _c.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
-    if (!district) {
-      throw new Error("Rob command cannot be created from missing district/target context.");
-    }
-    return {
-      id: input.commandId,
-      type: "rob-district",
-      mode: input.slice.mode.mode,
-      playerId: input.slice.player.playerId,
-      serverInstanceId: input.slice.player.instanceId,
-      issuedAt: input.issuedAt,
-      payload: {
-        targetDistrictId: input.targetDistrictId,
-        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? (target == null ? void 0 : target.sourceDistrictId) ?? (() => {
-          throw new Error("Rob target is missing a source district.");
-        })(),
-        expectedConflictRevision: (target == null ? void 0 : target.expectedConflictRevision) ?? (() => {
-          throw new Error("Rob target is missing a conflict revision.");
-        })(),
-        ...(target == null ? void 0 : target.expectedLootPoolRevision) !== void 0 ? { expectedLootPoolRevision: target.expectedLootPoolRevision } : {},
-        ...corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {}
-      },
-      clientRequestId: input.clientRequestId ?? null
-    };
-  };
-  const createSelectSpawnDistrictCommand = (input) => {
-    var _a;
-    const spawnDistrict = (_a = input.slice.spawnSelection) == null ? void 0 : _a.districts.find(
-      (district) => district.districtId === input.districtId
-    );
-    if (!spawnDistrict || spawnDistrict.status !== "available") {
-      throw new Error("Spawn selection commands can only be created from available server-fed spawn districts.");
-    }
-    return {
-      id: input.commandId,
-      type: "select-spawn-district",
-      mode: input.slice.mode.mode,
-      playerId: input.slice.player.playerId,
-      serverInstanceId: input.slice.player.instanceId,
-      issuedAt: input.issuedAt,
-      payload: {
-        districtId: input.districtId
-      },
-      clientRequestId: input.clientRequestId ?? null
-    };
-  };
-  const createSpyDistrictCommand = (input) => {
-    var _a, _b;
-    const district = input.slice.district;
-    const target = ((_a = district == null ? void 0 : district.targetActions) == null ? void 0 : _a.spyTargets.find((entry) => entry.districtId === input.targetDistrictId)) ?? (district == null ? void 0 : district.spyTargets.find((entry) => entry.districtId === input.targetDistrictId));
-    const corridor = (_b = input.slice.frontier) == null ? void 0 : _b.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
-    if (!district || !target) {
-      throw new Error("Spy command cannot be created from missing district/target context.");
-    }
-    return {
-      id: input.commandId,
-      type: "spy-district",
-      mode: input.slice.mode.mode,
-      playerId: input.slice.player.playerId,
-      serverInstanceId: input.slice.player.instanceId,
-      issuedAt: input.issuedAt,
-      payload: {
-        districtId: input.targetDistrictId,
-        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? target.sourceDistrictId,
-        ...corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {}
-      },
-      clientRequestId: input.clientRequestId ?? null
-    };
-  };
-  const createPlaceTrapCommand = (input) => {
-    var _a;
-    const district = input.slice.district;
-    if (!(district == null ? void 0 : district.isOwnedByPlayer) || !((_a = district.trap) == null ? void 0 : _a.enabled)) {
-      throw new Error("Trap command cannot be created from missing district/trap context.");
-    }
-    const relocation = district.trap.relocationSource;
-    if (relocation == null ? void 0 : relocation.canRelocate) {
-      return {
-        id: input.commandId,
-        type: "relocate-trap",
-        mode: input.slice.mode.mode,
-        playerId: input.slice.player.playerId,
-        serverInstanceId: input.slice.player.instanceId,
-        issuedAt: input.issuedAt,
-        payload: {
-          trapId: relocation.trapId,
-          sourceDistrictId: relocation.districtId,
-          targetDistrictId: district.districtId,
-          expectedSourceVersion: relocation.expectedSourceVersion,
-          expectedTargetVersion: relocation.expectedTargetVersion,
-          expectedTrapVersion: relocation.expectedTrapVersion
-        },
-        clientRequestId: input.clientRequestId ?? null
-      };
-    }
-    return {
-      id: input.commandId,
-      type: "place-trap",
-      mode: input.slice.mode.mode,
-      playerId: input.slice.player.playerId,
-      serverInstanceId: input.slice.player.instanceId,
-      issuedAt: input.issuedAt,
-      payload: {
-        districtId: district.districtId
-      },
-      clientRequestId: input.clientRequestId ?? null
-    };
-  };
-  const renderBasicDistrictActionSections = (panel) => [
-    renderTargetSection({
-      attribute: "data-rob-targets",
-      title: "Cíle loupeže",
-      copy: "Vykradení neutrálního souseda potvrzuje server.",
-      emptyCopy: "Z tohoto distriktu není dostupný neutrální cíl loupeže.",
-      targetAttribute: "data-rob-target-id",
-      buttonModifier: "rob",
-      targets: panel.robTargets,
-      renderMeta: (target) => target.statusLabel
-    }),
-    renderTargetSection({
-      attribute: "data-heist-targets",
-      title: "Cíle heistu",
-      copy: "Okamžitý alpha heist krade zdroje bez převzetí území. Výsledek počítá server.",
-      emptyCopy: "Z tohoto distriktu není dostupný nepřátelský cíl heistu.",
-      targetAttribute: "data-heist-target-id",
-      buttonModifier: "heist",
-      targets: panel.heistTargets,
-      renderMeta: (target) => `${target.ownerLabel} · ${target.statusLabel}`
-    }),
-    renderDefenseSection(panel.placeDefense, panel.removeDefense)
-  ].join("");
-  const renderTargetSection = (input) => [
-    `<section class="district-panel__section" ${input.attribute}="true">`,
-    `<div class="district-panel__section-head">`,
-    `<div>`,
-    `<h3 class="district-panel__section-title">${escapeHtml(input.title)}</h3>`,
-    `<p class="district-panel__section-copy">${escapeHtml(input.copy)}</p>`,
-    `</div>`,
-    `<span class="district-panel__section-meta">${escapeHtml(input.targets.length)} celkem</span>`,
-    `</div>`,
-    input.targets.length > 0 ? input.targets.map((target) => renderTargetRow(input, target)).join("") : `<p class="district-panel__empty-copy">${escapeHtml(input.emptyCopy)}</p>`,
-    `</section>`
-  ].join("");
-  const renderTargetRow = (input, target) => {
-    const disabledAttribute = target.disabled ? " disabled" : "";
-    const reasonAttribute = target.disabledReason ? ` data-disabled-reason="${escapeAttribute(target.disabledReason)}"` : "";
-    return [
-      `<div class="district-panel__action-row">`,
-      `<button class="district-panel__action-button district-panel__action-button--${escapeAttribute(input.buttonModifier)}" ${input.targetAttribute}="${escapeAttribute(target.districtId)}"${disabledAttribute}${reasonAttribute}>`,
-      `<span class="district-panel__action-title">${escapeHtml(target.label)}</span>`,
-      `<span class="district-panel__action-meta">${escapeHtml(input.renderMeta(target))}</span>`,
-      target.cooldownLabel ? `<span class="district-panel__action-meta">${escapeHtml(`Čekání ${target.cooldownLabel}`)}</span>` : "",
-      `</button>`,
-      target.disabledReason ? `<p class="district-panel__action-reason">${escapeHtml(target.disabledReason)}</p>` : "",
-      `</div>`
-    ].join("");
-  };
-  const renderDefenseSection = (placeDefense, removeDefense) => placeDefense || removeDefense ? [
-    `<section class="district-panel__section" data-defense-actions="true">`,
-    `<div class="district-panel__section-head">`,
-    `<div>`,
-    `<h3 class="district-panel__section-title">Obrana</h3>`,
-    `<p class="district-panel__section-copy">Obranu ve vlastním distriktu mění jen serverový command.</p>`,
-    `</div>`,
-    `</div>`,
-    placeDefense ? renderDefenseButton("data-place-defense", placeDefense) : "",
-    removeDefense ? renderDefenseButton("data-remove-defense", removeDefense) : "",
-    `</section>`
-  ].join("") : "";
-  const renderDefenseButton = (attribute, action) => [
-    `<div class="district-panel__action-row">`,
-    `<button class="district-panel__action-button district-panel__action-button--defense" ${attribute}="true"${action.disabled ? " disabled" : ""}>${escapeHtml(action.actionLabel)}</button>`,
-    action.disabledReason ? `<p class="district-panel__action-reason">${escapeHtml(action.disabledReason)}</p>` : "",
-    `</div>`
-  ].join("");
-  const districtPanelFeature = "district-panel";
-  const renderDistrictPanel = (panel) => panel.statusLabel === "destroyed" ? [
-    `<section class="district-destroyed-notice" data-feature="district-destroyed-notice" data-district-id="${escapeAttribute(panel.districtId)}" data-district-destroyed="true" role="status" aria-label="Zničený distrikt">`,
-    `<p>V piči, zničen.</p>`,
-    `</section>`
-  ].join("") : [
-    `<section class="district-panel" data-feature="${districtPanelFeature}" data-district-id="${escapeAttribute(panel.districtId)}">`,
-    `<header class="district-panel__header">`,
-    `<p class="district-panel__eyebrow">Panel distriktu</p>`,
-    `<h2 class="district-panel__title">${escapeHtml(panel.title)}</h2>`,
-    `<div class="district-panel__badges">`,
-    `<span class="district-panel__badge district-panel__badge--owner">${escapeHtml(panel.ownershipLabel)}</span>`,
-    `<span class="district-panel__badge district-panel__badge--status">${escapeHtml(panel.statusLabel)}</span>`,
-    panel.hasPendingCommand ? `<span class="district-panel__badge district-panel__badge--pending">Akce se zpracovává</span>` : "",
-    `</div>`,
-    `</header>`,
-    `<section class="district-panel__summary-grid" aria-label="Přehled distriktu">`,
-    `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Vlastnictví</span><strong class="district-panel__summary-value">${escapeHtml(panel.ownershipLabel)}</strong></article>`,
-    `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Zóna</span><strong class="district-panel__summary-value">${escapeHtml(panel.zoneLabel)}</strong></article>`,
-    `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Hledanost</span><strong class="district-panel__summary-value">${escapeHtml(panel.heatLabel)}</strong></article>`,
-    `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Vliv</span><strong class="district-panel__summary-value">${escapeHtml(panel.influenceLabel)}</strong></article>`,
-    `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Budovy</span><strong class="district-panel__summary-value">${escapeHtml(panel.buildingSummary)}</strong></article>`,
-    `</section>`,
-    panel.trap ? [
-      `<section class="district-panel__section" data-trap-action="true">`,
-      `<div class="district-panel__section-head">`,
-      `<div>`,
-      `<h3 class="district-panel__section-title">Past</h3>`,
-      `<p class="district-panel__section-copy">Nastraž jednu skrytou past ve vlastním distriktu. Nepřátelé ji zjistí jen přes reporty.</p>`,
-      `</div>`,
-      `<span class="district-panel__section-meta">${panel.trap.activeLabel ? "Nastraženo" : "Připraveno"}</span>`,
-      `</div>`,
-      `<div class="district-panel__action-row">`,
-      `<button class="district-panel__action-button district-panel__action-button--trap" data-place-trap="true"${panel.trap.disabled ? " disabled" : ""}${panel.trap.disabledReason ? ` data-disabled-reason="${escapeAttribute(panel.trap.disabledReason)}"` : ""}>${escapeHtml(panel.trap.actionLabel)}</button>`,
-      panel.trap.disabledReason ? `<p class="district-panel__action-reason">${escapeHtml(panel.trap.disabledReason)}</p>` : panel.trap.activeLabel ? `<p class="district-panel__action-reason">${escapeHtml(panel.trap.activeLabel)}</p>` : "",
-      `</div>`,
-      `</section>`
-    ].join("") : "",
-    `<section class="district-panel__section" data-spy-targets="true">`,
-    `<div class="district-panel__section-head">`,
-    `<div>`,
-    `<h3 class="district-panel__section-title">Cíle špehování</h3>`,
-    `<p class="district-panel__section-copy">Vyšli průzkum z tohoto distriktu. Reporty potvrzuje server.</p>`,
-    `</div>`,
-    `<span class="district-panel__section-meta">${escapeHtml(panel.spyTargets.length)} celkem</span>`,
-    `</div>`,
-    panel.spyTargets.length > 0 ? panel.spyTargets.map((target) => {
-      const disabledAttribute = target.disabled ? " disabled" : "";
-      const reasonAttribute = target.disabledReason ? ` data-disabled-reason="${escapeAttribute(target.disabledReason)}"` : "";
-      return [
-        `<div class="district-panel__action-row">`,
-        `<button class="district-panel__action-button district-panel__action-button--spy" data-spy-target-id="${escapeAttribute(target.districtId)}"${disabledAttribute}${reasonAttribute}>`,
-        `<span class="district-panel__action-title">${escapeHtml(target.label)}</span>`,
-        `<span class="district-panel__action-meta">${escapeHtml(target.ownerLabel)} · ${escapeHtml(target.statusLabel)}</span>`,
-        `</button>`,
-        target.disabledReason ? `<p class="district-panel__action-reason">${escapeHtml(target.disabledReason)}</p>` : "",
-        `</div>`
-      ].join("");
-    }).join("") : `<p class="district-panel__empty-copy">Z tohoto distriktu není dostupný cíl špehování.</p>`,
-    `</section>`,
-    `<section class="district-panel__section" data-occupy-targets="true">`,
-    `<div class="district-panel__section-head">`,
-    `<div>`,
-    `<h3 class="district-panel__section-title">Cíle obsazení</h3>`,
-    `<p class="district-panel__section-copy">Neutrální sousedy obsazuj až po serverem potvrzeném průzkumu.</p>`,
-    `</div>`,
-    `<span class="district-panel__section-meta">${escapeHtml(panel.occupyTargets.length)} celkem</span>`,
-    `</div>`,
-    panel.occupyTargets.length > 0 ? panel.occupyTargets.map((target) => {
-      const disabledAttribute = target.disabled ? " disabled" : "";
-      const reasonAttribute = target.disabledReason ? ` data-disabled-reason="${escapeAttribute(target.disabledReason)}"` : "";
-      return [
-        `<div class="district-panel__action-row">`,
-        `<button class="district-panel__action-button district-panel__action-button--occupy" data-occupy-target-id="${escapeAttribute(target.districtId)}"${disabledAttribute}${reasonAttribute}>`,
-        `<span class="district-panel__action-title">${escapeHtml(target.label)}</span>`,
-        `<span class="district-panel__action-meta">${escapeHtml(target.statusLabel)} · cena ${escapeHtml(target.influenceCostLabel)} · hledanost ${escapeHtml(target.heatGainLabel)}</span>`,
-        `</button>`,
-        target.disabledReason ? `<p class="district-panel__action-reason">${escapeHtml(target.disabledReason)}</p>` : "",
-        `</div>`
-      ].join("");
-    }).join("") : `<p class="district-panel__empty-copy">Z tohoto distriktu není dostupný neutrální cíl obsazení.</p>`,
-    `</section>`,
-    renderBasicDistrictActionSections(panel),
-    `<section class="district-panel__section" data-attack-targets="true">`,
-    `<div class="district-panel__section-head">`,
-    `<div>`,
-    `<h3 class="district-panel__section-title">Cíle útoku</h3>`,
-    `<p class="district-panel__section-copy">Vyber sousední distrikt pro útok.</p>`,
-    `</div>`,
-    `<span class="district-panel__section-meta">${escapeHtml(panel.attackTargets.length)} celkem</span>`,
-    `</div>`,
-    panel.attackTargets.length > 0 ? panel.attackTargets.map((target) => {
-      const disabledAttribute = target.disabled ? " disabled" : "";
-      const reasonAttribute = target.disabledReason ? ` data-disabled-reason="${escapeAttribute(target.disabledReason)}"` : "";
-      return [
-        `<div class="district-panel__action-row">`,
-        `<button class="district-panel__action-button district-panel__action-button--attack" data-attack-target-id="${escapeAttribute(target.districtId)}"${disabledAttribute}${reasonAttribute}>`,
-        `<span class="district-panel__action-title">${escapeHtml(target.label)}</span>`,
-        `<span class="district-panel__action-meta">${escapeHtml(target.ownerLabel)} · ${escapeHtml(target.statusLabel)}${target.cooldownLabel ? ` · čekání ${escapeHtml(target.cooldownLabel)}` : ""}</span>`,
-        `</button>`,
-        target.disabledReason ? `<p class="district-panel__action-reason">${escapeHtml(target.disabledReason)}</p>` : "",
-        `</div>`
-      ].join("");
-    }).join("") : `<p class="district-panel__empty-copy">Z tohoto distriktu není dostupný cíl útoku.</p>`,
-    `</section>`,
-    `<section class="district-panel__section">`,
-    `<div class="district-panel__section-head">`,
-    `<div>`,
-    `<h3 class="district-panel__section-title">Budovy distriktu</h3>`,
-    `<p class="district-panel__section-copy">Budovy jsou pevně dané mapou distriktu. Akce z budov potvrzuje server.</p>`,
-    `</div>`,
-    `<span class="district-panel__section-meta">${escapeHtml(panel.buildings.length)} pevně daných</span>`,
-    `</div>`,
-    `<div class="district-panel__slot-list">`,
-    panel.buildings.length > 0 ? panel.buildings.map((building) => renderDistrictBuilding(building, building.buildingId === panel.selectedBuildingId)).join("") : `<p class="district-panel__empty-copy">Tento distrikt nemá v projekci žádné pevné budovy.</p>`,
-    `</div>`,
-    `</section>`,
-    panel.slots.some((slot) => slot.production || slot.craftOptions.length > 0) ? [
-      `<section class="district-panel__section" data-production-slots="true">`,
-      `<div class="district-panel__section-head">`,
-      `<div>`,
-      `<h3 class="district-panel__section-title">Produkční sloty</h3>`,
-      `<p class="district-panel__section-copy">Pevné produkční budovy tady ukazují sklady, zpracování a recepty.</p>`,
-      `</div>`,
-      `<span class="district-panel__section-meta">${escapeHtml(panel.slots.filter((slot) => slot.production || slot.craftOptions.length > 0).length)} aktivních</span>`,
-      `</div>`,
-      `<div class="district-panel__slot-list district-panel__slot-list--production">`,
-      panel.slots.filter((slot) => slot.production || slot.craftOptions.length > 0).map((slot) => renderBuildingSlot(slot)).join(""),
-      `</div>`,
-      `</section>`
-    ].join("") : "",
-    "</section>"
-  ].join("");
-  const createCancelProductionCommand = (input) => {
-    var _a, _b, _c, _d;
-    const district = input.slice.district;
-    const building = district == null ? void 0 : district.buildings.find((candidate) => candidate.buildingId === input.buildingId);
-    const lines = ((_a = building == null ? void 0 : building.pharmacy) == null ? void 0 : _a.lines) ?? ((_b = building == null ? void 0 : building.drugLab) == null ? void 0 : _b.lines) ?? ((_c = building == null ? void 0 : building.factory) == null ? void 0 : _c.productionLines) ?? ((_d = building == null ? void 0 : building.armory) == null ? void 0 : _d.productionLines) ?? [];
-    const line = lines.find(
-      (candidate) => candidate.recipeId === input.recipeId && candidate.canCancelWaiting
-    );
-    if (!district || !building || !line) {
-      throw new Error(
-        "Production cancellation commands can only be created from cancellable lines present in the current server-fed slice."
-      );
-    }
-    const command = {
-      id: input.commandId,
-      mode: input.slice.player.mode,
-      playerId: input.slice.player.playerId,
-      serverInstanceId: input.slice.player.instanceId,
-      issuedAt: input.issuedAt,
-      payload: {
-        districtId: district.districtId,
-        buildingId: building.buildingId,
-        recipeId: line.recipeId
-      },
-      clientRequestId: input.clientRequestId ?? null
-    };
-    if (building.buildingTypeId === "pharmacy") {
-      return { ...command, type: "cancel-pharmacy-production" };
-    }
-    if (building.buildingTypeId === "drug_lab") {
-      return { ...command, type: "cancel-drug-lab-production" };
-    }
-    if (building.buildingTypeId === "factory" || building.buildingTypeId === "armory") {
-      return { ...command, type: "cancel-production-line" };
-    }
-    throw new Error("The selected building does not expose a cancellable production command.");
-  };
-  const canUseOwnedDistrictBuilding = (slice, buildingId) => {
-    const district = slice == null ? void 0 : slice.district;
-    if (!district) return false;
-    const ownsDistrict = district.isOwnedByPlayer || district.ownerPlayerId === slice.player.playerId;
-    return ownsDistrict && district.buildings.some((building) => building.buildingId === buildingId);
-  };
-  const createBuildingSurfaceCommand = ({
-    action,
-    slice,
-    districtId,
-    mode,
-    issuedAt,
-    createCommandId
-  }) => {
-    if (!canUseOwnedDistrictBuilding(slice, action.buildingId)) return null;
-    switch (action.kind) {
-      case "building-action":
-        return createRunBuildingActionCommand({
-          commandId: createCommandId("command:building-action"),
-          slice,
-          buildingId: action.buildingId,
-          actionId: action.actionId,
-          dealerSlotId: action.dealerSlotId,
-          targetCategory: readStringValue(action, "targetCategory"),
-          category: readStringValue(action, "category"),
-          mode: readStringValue(action, "mode"),
-          investmentCleanCash: readNumberValue(action, "investmentCleanCash"),
-          investment: readNumberValue(action, "investment"),
-          targetZone: readStringValue(action, "targetZone"),
-          itemId: action.itemId,
-          amount: action.amount,
-          issuedAt
-        });
-      case "collect":
-        return createCollectProductionCommand({
-          commandId: createCommandId("command:collect"),
-          serverInstanceId: slice.player.instanceId,
-          playerId: slice.player.playerId,
-          mode,
-          districtId,
-          buildingId: action.buildingId,
-          resourceKey: action.resourceKey,
-          issuedAt
-        });
-      case "craft":
-        return createCraftItemCommand({
-          commandId: createCommandId("command:craft"),
-          slice,
-          buildingId: action.buildingId,
-          recipeId: action.recipeId,
-          quantity: action.quantity,
-          issuedAt
-        });
-      case "cancel-production":
-        return createCancelProductionCommand({
-          commandId: createCommandId("command:cancel-production"),
-          slice,
-          buildingId: action.buildingId,
-          recipeId: action.recipeId,
-          issuedAt
-        });
-    }
-  };
-  const readStringValue = (action, key) => {
-    const value = action[key];
-    return typeof value === "string" && value.trim() ? value : void 0;
-  };
-  const readNumberValue = (action, key) => {
-    const value = action[key];
-    return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : void 0;
-  };
-  const resolveClientSurfaceAction = (target) => {
-    if (!target) {
-      return null;
-    }
-    const districtButton = target.closest("button[data-district-id]");
-    if (districtButton == null ? void 0 : districtButton.dataset.districtId) {
-      return { kind: "select-district", districtId: districtButton.dataset.districtId };
-    }
-    const spawnButton = target.closest("button[data-select-spawn-district-id]");
-    if (spawnButton == null ? void 0 : spawnButton.dataset.selectSpawnDistrictId) {
-      return { kind: "select-spawn", districtId: spawnButton.dataset.selectSpawnDistrictId };
-    }
-    const attackButton = target.closest("button[data-attack-target-id]");
-    if (attackButton == null ? void 0 : attackButton.dataset.attackTargetId) {
-      return { kind: "attack", targetDistrictId: attackButton.dataset.attackTargetId };
-    }
-    const robButton = target.closest("button[data-rob-target-id]");
-    if (robButton == null ? void 0 : robButton.dataset.robTargetId) {
-      return { kind: "rob", targetDistrictId: robButton.dataset.robTargetId };
-    }
-    const heistButton = target.closest("button[data-heist-target-id]");
-    if (heistButton == null ? void 0 : heistButton.dataset.heistTargetId) {
-      return { kind: "heist", targetDistrictId: heistButton.dataset.heistTargetId };
-    }
-    const spyButton = target.closest("button[data-spy-target-id]");
-    if (spyButton == null ? void 0 : spyButton.dataset.spyTargetId) {
-      return { kind: "spy", targetDistrictId: spyButton.dataset.spyTargetId };
-    }
-    const occupyButton = target.closest("button[data-occupy-target-id]");
-    if (occupyButton == null ? void 0 : occupyButton.dataset.occupyTargetId) {
-      return { kind: "occupy", targetDistrictId: occupyButton.dataset.occupyTargetId };
-    }
-    const trapButton = target.closest("button[data-place-trap]");
-    if (trapButton) return { kind: "place-trap" };
-    const placeDefenseButton = target.closest("button[data-place-defense]");
-    if (placeDefenseButton) return { kind: "place-defense" };
-    const removeDefenseButton = target.closest("button[data-remove-defense]");
-    if (removeDefenseButton) return { kind: "remove-defense" };
-    const collectButton = target.closest("button[data-collect-building-id]");
-    if (collectButton == null ? void 0 : collectButton.dataset.collectBuildingId) {
-      return {
-        kind: "collect",
-        buildingId: collectButton.dataset.collectBuildingId,
-        ...collectButton.dataset.collectResourceKey ? { resourceKey: collectButton.dataset.collectResourceKey } : {}
-      };
-    }
-    const cancelProductionButton = target.closest(
-      "button[data-cancel-production-building-id][data-cancel-production-recipe-id]"
-    );
-    if ((cancelProductionButton == null ? void 0 : cancelProductionButton.dataset.cancelProductionBuildingId) && (cancelProductionButton == null ? void 0 : cancelProductionButton.dataset.cancelProductionRecipeId)) {
-      return {
-        kind: "cancel-production",
-        buildingId: cancelProductionButton.dataset.cancelProductionBuildingId,
-        recipeId: cancelProductionButton.dataset.cancelProductionRecipeId
-      };
-    }
-    const buildingAction = resolveBuildingAction(target);
-    if (buildingAction) return buildingAction;
-    const craftButton = target.closest(
-      "button[data-craft-building-id][data-craft-recipe-id]"
-    );
-    if ((craftButton == null ? void 0 : craftButton.dataset.craftBuildingId) && (craftButton == null ? void 0 : craftButton.dataset.craftRecipeId)) {
-      return {
-        kind: "craft",
-        buildingId: craftButton.dataset.craftBuildingId,
-        recipeId: craftButton.dataset.craftRecipeId,
-        ...toPositiveInteger(craftButton.dataset.craftQuantity) === void 0 ? {} : { quantity: toPositiveInteger(craftButton.dataset.craftQuantity) }
-      };
-    }
-    const buildingCard = target.closest("article[data-building-id][data-building-type]");
-    return (buildingCard == null ? void 0 : buildingCard.dataset.buildingId) ? { kind: "open-building", buildingId: buildingCard.dataset.buildingId } : null;
-  };
-  const resolveBuildingAction = (target) => {
-    var _a, _b, _c;
-    const button = target.closest(
-      "button[data-building-action-building-id][data-building-action-id]"
-    );
-    if (!(button == null ? void 0 : button.dataset.buildingActionBuildingId) || !(button == null ? void 0 : button.dataset.buildingActionId)) {
-      return null;
-    }
-    const card = button.closest("article[data-building-id][data-building-type]");
-    const controls = button.closest("[data-building-action-controls]");
-    const inputScope = controls ?? card;
-    const slotInput = (_a = inputScope == null ? void 0 : inputScope.querySelector) == null ? void 0 : _a.call(inputScope, "select[data-dealer-slot-input]");
-    const itemInput = (_b = inputScope == null ? void 0 : inputScope.querySelector) == null ? void 0 : _b.call(inputScope, "select[data-dealer-item-input]");
-    const amountInput = (_c = inputScope == null ? void 0 : inputScope.querySelector) == null ? void 0 : _c.call(inputScope, "input[data-dealer-amount-input]");
-    const inputValues = collectBuildingActionInputValues(inputScope);
-    const amount = Number((amountInput == null ? void 0 : amountInput.value) || (amountInput == null ? void 0 : amountInput.dataset.value) || (amountInput == null ? void 0 : amountInput.dataset.dealerAmountValue) || "");
-    return {
-      kind: "building-action",
-      buildingId: button.dataset.buildingActionBuildingId,
-      actionId: button.dataset.buildingActionId,
-      dealerSlotId: button.dataset.dealerSlotId || (slotInput == null ? void 0 : slotInput.value) || (slotInput == null ? void 0 : slotInput.dataset.value),
-      itemId: button.dataset.dealerItemId || (itemInput == null ? void 0 : itemInput.value) || (itemInput == null ? void 0 : itemInput.dataset.value),
-      amount: Number.isFinite(amount) && amount > 0 ? amount : readNumberInput(inputValues, "amount"),
-      ...inputValues
-    };
-  };
-  const collectBuildingActionInputValues = (buildingCard) => {
-    const inputIds = [
-      "targetCategory",
-      "category",
-      "mode",
-      "investmentCleanCash",
-      "investment",
-      "targetZone",
-      "amount"
-    ];
-    return Object.fromEntries(inputIds.map((inputId) => {
-      const element = findBuildingActionInput(buildingCard, inputId);
-      const value = (element == null ? void 0 : element.value) || (element == null ? void 0 : element.dataset.value);
-      const parsed = ["amount", "investment", "investmentCleanCash"].includes(inputId) ? toPositiveNumber(value) : value;
-      return [inputId, parsed || void 0];
-    }));
-  };
-  const findBuildingActionInput = (buildingCard, inputId) => {
-    var _a;
-    const inputs = (_a = buildingCard == null ? void 0 : buildingCard.querySelectorAll) == null ? void 0 : _a.call(buildingCard, "[data-building-action-input]");
-    if (!inputs) {
-      return null;
-    }
-    return Array.from(inputs).find((element) => element.dataset.buildingActionInput === inputId) ?? null;
-  };
-  const readNumberInput = (values, key) => {
-    const value = values[key];
-    return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : void 0;
-  };
-  const toPositiveNumber = (value) => {
-    const parsed = Number(value || "");
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : void 0;
-  };
-  const toPositiveInteger = (value) => {
-    const parsed = Number(value || "");
-    return Number.isInteger(parsed) && parsed > 0 ? parsed : void 0;
-  };
-  const overlayStack = [];
-  const LOCKED_BODY_DATA_ATTRIBUTE = "overlayScrollLocked";
-  const LOCKED_BODY_CLASS = "game-modal-scroll-locked";
-  const LOCKED_SCROLL_Y_CSS_VAR = "--modal-scroll-lock-y";
-  const LOCKED_TOPBAR_RESERVE_CSS_VAR = "--modal-topbar-reserve";
-  const DEFAULT_GHOST_CLICK_SUPPRESSION_MS = 250;
-  const MODAL_SCROLL_LOCK_OWNER = Symbol("modal-scroll-lock-compat");
-  const MOBILE_SCROLL_LOCK_MEDIA = "(max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse)";
-  let suppressMapInputUntil = 0;
-  let lockedPageScroll = null;
-  let lockedBodyStyles = null;
-  let lockedRootStyles = null;
-  const getBody = () => {
-    if (typeof document === "undefined") {
-      return null;
-    }
-    return document.body;
-  };
-  const getScrollPosition = () => {
-    if (typeof window === "undefined" || typeof document === "undefined") {
-      return { x: 0, y: 0 };
-    }
-    return {
-      x: Math.max(0, Math.floor(window.scrollX || window.pageXOffset || document.documentElement.scrollLeft || document.body.scrollLeft || 0)),
-      y: Math.max(0, Math.floor(window.scrollY || window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0))
-    };
-  };
-  const restorePageScroll = (scrollPosition) => {
-    if (typeof window === "undefined" || typeof document === "undefined") {
-      return;
-    }
-    const scrollX = Math.max(0, Math.floor(scrollPosition.x || 0));
-    const scrollY = Math.max(0, Math.floor(scrollPosition.y || 0));
-    document.documentElement.scrollLeft = scrollX;
-    document.documentElement.scrollTop = scrollY;
-    document.body.scrollLeft = scrollX;
-    document.body.scrollTop = scrollY;
-    try {
-      window.scrollTo({ top: scrollY, left: scrollX, behavior: "auto" });
-    } catch {
-      window.scrollTo(scrollX, scrollY);
-    }
-    if (Math.abs(getScrollPosition().y - scrollY) > 1) {
-      try {
-        window.scrollTo(scrollX, scrollY);
-      } catch {
-      }
-    }
-  };
-  const schedulePageScrollRestore = (scrollPosition) => {
-    var _a, _b;
-    const restore = () => restorePageScroll(scrollPosition);
-    restore();
-    (_a = window.requestAnimationFrame) == null ? void 0 : _a.call(window, restore);
-    (_b = window.setTimeout) == null ? void 0 : _b.call(window, restore, 80);
-  };
-  const shouldUseViewportWidthLock = () => {
-    var _a;
-    if (typeof window === "undefined") {
-      return false;
-    }
-    return Boolean((_a = window.matchMedia) == null ? void 0 : _a.call(window, MOBILE_SCROLL_LOCK_MEDIA).matches);
-  };
-  const getCurrentLayoutLockWidth = (body, root) => {
-    var _a, _b;
-    return Math.max(
-      0,
-      Math.ceil(
-        ((_a = body.getBoundingClientRect) == null ? void 0 : _a.call(body).width) || body.offsetWidth || root.clientWidth || ((_b = window.visualViewport) == null ? void 0 : _b.width) || window.innerWidth || 0
-      )
-    );
-  };
-  const getCurrentTopbarReserveHeight = () => {
-    var _a;
-    if (typeof document === "undefined") {
-      return 0;
-    }
-    const topbar = document.getElementById("game-header") || document.querySelector(".game-topbar");
-    const rectHeight = Math.ceil(((_a = topbar == null ? void 0 : topbar.getBoundingClientRect) == null ? void 0 : _a.call(topbar).height) || 0);
-    return Math.max(0, rectHeight || (topbar == null ? void 0 : topbar.offsetHeight) || 0);
-  };
-  const lockBodyScroll = () => {
-    const body = getBody();
-    if (!body || typeof window === "undefined") {
-      return;
-    }
-    if (body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] === "true") {
-      return;
-    }
-    const root = document.documentElement;
-    const scrollPosition = getScrollPosition();
-    const isViewportWidthScrollLock = shouldUseViewportWidthLock();
-    const lockedLayoutWidth = isViewportWidthScrollLock ? getCurrentLayoutLockWidth(body, root) : 0;
-    lockedPageScroll = scrollPosition;
-    lockedBodyStyles = {
-      left: body.style.left,
-      overflow: body.style.overflow,
-      overscrollBehavior: body.style.overscrollBehavior,
-      paddingRight: body.style.paddingRight,
-      position: body.style.position,
-      right: body.style.right,
-      top: body.style.top,
-      width: body.style.width
-    };
-    lockedRootStyles = {
-      overflow: root.style.overflow,
-      overscrollBehavior: root.style.overscrollBehavior,
-      scrollbarGutter: root.style.getPropertyValue("scrollbar-gutter"),
-      scrollLockY: root.style.getPropertyValue(LOCKED_SCROLL_Y_CSS_VAR),
-      topbarReserve: root.style.getPropertyValue(LOCKED_TOPBAR_RESERVE_CSS_VAR)
-    };
-    root.classList.add(LOCKED_BODY_CLASS);
-    body.classList.add(LOCKED_BODY_CLASS);
-    root.style.setProperty(LOCKED_SCROLL_Y_CSS_VAR, `${scrollPosition.y}px`);
-    root.style.overscrollBehavior = "none";
-    if (!isViewportWidthScrollLock) {
-      root.style.setProperty("scrollbar-gutter", "stable");
-      root.style.setProperty(LOCKED_TOPBAR_RESERVE_CSS_VAR, `${getCurrentTopbarReserveHeight() || 52}px`);
-    }
-    if (isViewportWidthScrollLock) {
-      root.style.overflow = "hidden";
-      body.style.position = "fixed";
-      body.style.top = `-${scrollPosition.y}px`;
-      body.style.left = `-${scrollPosition.x}px`;
-      body.style.right = "0";
-      body.style.width = lockedLayoutWidth > 0 ? `${lockedLayoutWidth}px` : "100%";
-    }
-    if (isViewportWidthScrollLock) {
-      body.style.overflow = "hidden";
-      body.style.overscrollBehavior = "none";
-    }
-    body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "true";
-  };
-  const unlockBodyScroll = () => {
-    const body = getBody();
-    if (!body || typeof window === "undefined") {
-      return;
-    }
-    if (body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] !== "true") {
-      return;
-    }
-    const root = document.documentElement;
-    const scrollPosition = lockedPageScroll ?? getScrollPosition();
-    if (lockedRootStyles) {
-      root.style.overflow = lockedRootStyles.overflow;
-      root.style.overscrollBehavior = lockedRootStyles.overscrollBehavior;
-      if (lockedRootStyles.scrollbarGutter) {
-        root.style.setProperty("scrollbar-gutter", lockedRootStyles.scrollbarGutter);
-      } else {
-        root.style.removeProperty("scrollbar-gutter");
-      }
-      if (lockedRootStyles.scrollLockY) {
-        root.style.setProperty(LOCKED_SCROLL_Y_CSS_VAR, lockedRootStyles.scrollLockY);
-      } else {
-        root.style.removeProperty(LOCKED_SCROLL_Y_CSS_VAR);
-      }
-      if (lockedRootStyles.topbarReserve) {
-        root.style.setProperty(LOCKED_TOPBAR_RESERVE_CSS_VAR, lockedRootStyles.topbarReserve);
-      } else {
-        root.style.removeProperty(LOCKED_TOPBAR_RESERVE_CSS_VAR);
-      }
-    }
-    if (lockedBodyStyles) {
-      Object.assign(body.style, lockedBodyStyles);
-    }
-    root.classList.remove(LOCKED_BODY_CLASS);
-    body.classList.remove(LOCKED_BODY_CLASS);
-    body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "";
-    delete body.dataset[LOCKED_BODY_DATA_ATTRIBUTE];
-    lockedPageScroll = null;
-    lockedBodyStyles = null;
-    lockedRootStyles = null;
-    schedulePageScrollRestore(scrollPosition);
-  };
-  const now = () => {
-    var _a;
-    return typeof window !== "undefined" && ((_a = window.performance) == null ? void 0 : _a.now) ? window.performance.now() : Date.now();
-  };
-  const suppressMapInputFor = (ms = DEFAULT_GHOST_CLICK_SUPPRESSION_MS) => {
-    suppressMapInputUntil = Math.max(suppressMapInputUntil, now() + ms);
-  };
-  const shouldSuppressMapInput = (event) => {
-    const suppressed = isOverlayOpen() || now() < suppressMapInputUntil;
-    if (suppressed) {
-      event == null ? void 0 : event.preventDefault();
-      event == null ? void 0 : event.stopPropagation();
-      event == null ? void 0 : event.stopImmediatePropagation();
-    }
-    return suppressed;
-  };
-  const hasScrollLockingOverlay = () => overlayStack.some((entry) => entry.lockScroll);
-  const openOverlayEntry = (type, owner, options = {}) => {
-    const entry = {
-      lockScroll: options.lockScroll !== false,
-      type,
-      owner
-    };
-    if (entry.lockScroll && !hasScrollLockingOverlay()) {
-      lockBodyScroll();
-    }
-    overlayStack.push(entry);
-  };
-  const findOverlayEntryIndexByOwner = (owner) => {
-    var _a;
-    for (let index = overlayStack.length - 1; index >= 0; index -= 1) {
-      if (((_a = overlayStack[index]) == null ? void 0 : _a.owner) === owner) {
-        return index;
-      }
-    }
-    return -1;
-  };
-  const closeOverlayEntry = (_reason, owner) => {
-    const closeIndex = owner ? findOverlayEntryIndexByOwner(owner) : overlayStack.length - 1;
-    const hadEntry = closeIndex >= 0;
-    const [entry] = hadEntry ? overlayStack.splice(closeIndex, 1) : [null];
-    suppressMapInputFor();
-    if ((entry == null ? void 0 : entry.lockScroll) && !hasScrollLockingOverlay()) {
-      unlockBodyScroll();
-    }
-    return hadEntry;
-  };
-  const openOverlay = (type, options = {}) => {
-    openOverlayEntry(type, void 0, options);
-  };
-  const closeOverlay = (_reason) => {
-    closeOverlayEntry();
-  };
-  const closeTopModalOverlay = (reason = "modal scroll lock top overlay closed") => closeOverlayEntry();
-  const isOverlayOpen = () => overlayStack.length > 0;
-  const getTopOverlay = () => {
-    var _a;
-    return ((_a = overlayStack.at(-1)) == null ? void 0 : _a.type) ?? null;
-  };
-  const lockModalScroll = (_owner) => {
-    if (overlayStack.some((entry) => entry.owner === MODAL_SCROLL_LOCK_OWNER)) {
-      return true;
-    }
-    openOverlayEntry("generic", MODAL_SCROLL_LOCK_OWNER);
-    return true;
-  };
-  const unlockModalScroll = (_owner) => closeOverlayEntry("modal scroll lock released", MODAL_SCROLL_LOCK_OWNER);
-  const isModalScrollLocked = (_owner) => hasScrollLockingOverlay();
-  const getModalScrollLockDebugState = () => {
-    const body = getBody();
-    return {
-      bodyLocked: (body == null ? void 0 : body.dataset[LOCKED_BODY_DATA_ATTRIBUTE]) === "true",
-      bodyPosition: (body == null ? void 0 : body.style.position) || "",
-      bodyTop: (body == null ? void 0 : body.style.top) || "",
-      stack: overlayStack.map((entry) => ({
-        type: entry.type,
-        owner: entry.owner === MODAL_SCROLL_LOCK_OWNER ? "modal-scroll-lock-compat" : ""
-      }))
-    };
-  };
-  const MODAL_SCROLL_LOCK_BRIDGE = {
-    closeTop: closeTopModalOverlay,
-    debugState: getModalScrollLockDebugState,
-    isLocked: isModalScrollLocked,
-    lock: lockModalScroll,
-    unlock: unlockModalScroll
-  };
-  let modalScrollLockBridgeInstallCount = 0;
-  let previousModalScrollLockBridge;
-  const restorePreviousModalScrollLockBridge = () => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    if (window.EmpireModalScrollLock === MODAL_SCROLL_LOCK_BRIDGE) {
-      if (previousModalScrollLockBridge) {
-        window.EmpireModalScrollLock = previousModalScrollLockBridge;
-      } else {
-        delete window.EmpireModalScrollLock;
-      }
-    }
-    previousModalScrollLockBridge = void 0;
-  };
-  const installModalScrollLockBridge = () => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    if (modalScrollLockBridgeInstallCount === 0) {
-      previousModalScrollLockBridge = window.EmpireModalScrollLock;
-      window.EmpireModalScrollLock = MODAL_SCROLL_LOCK_BRIDGE;
-    }
-    modalScrollLockBridgeInstallCount += 1;
-  };
-  const uninstallModalScrollLockBridge = () => {
-    if (typeof window === "undefined" || modalScrollLockBridgeInstallCount === 0) {
-      return;
-    }
-    modalScrollLockBridgeInstallCount -= 1;
-    if (modalScrollLockBridgeInstallCount > 0) {
-      return;
-    }
-    if (overlayStack.some((entry) => entry.owner === MODAL_SCROLL_LOCK_OWNER)) {
-      unlockModalScroll();
-    }
-    restorePreviousModalScrollLockBridge();
-  };
-  const OVERLAY_BACKDROP_ATTRIBUTE = "overlayBackdrop";
-  const createOverlayBackdrop = (options = {}) => {
-    const mount2 = options.mount ?? document.body;
-    const backdrop = document.createElement("div");
-    backdrop.className = "gameplay-slice-backdrop overlay-root backdrop";
-    backdrop.dataset[OVERLAY_BACKDROP_ATTRIBUTE] = "true";
-    const handlePointerInteraction = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-    };
-    const handleClick = (event) => {
-      var _a;
-      handlePointerInteraction(event);
-      if (isOverlayOpen()) {
-        const topOverlay = getTopOverlay();
-        closeOverlay();
-        if (topOverlay) {
-          (_a = options.onCloseTopOverlay) == null ? void 0 : _a.call(options, topOverlay);
-        }
-        sync();
-      }
-    };
-    backdrop.addEventListener("pointerdown", handlePointerInteraction);
-    backdrop.addEventListener("pointerup", handlePointerInteraction);
-    backdrop.addEventListener("click", handleClick);
-    const sync = () => {
-      backdrop.hidden = !isOverlayOpen();
-    };
-    sync();
-    mount2.appendChild(backdrop);
-    return {
-      element: backdrop,
-      sync,
-      destroy: () => {
-        backdrop.removeEventListener("pointerdown", handlePointerInteraction);
-        backdrop.removeEventListener("pointerup", handlePointerInteraction);
-        backdrop.removeEventListener("click", handleClick);
-        backdrop.remove();
-        backdrop.hidden = true;
-      }
-    };
-  };
-  const createClientSurfaceActionRouter = (options) => ({
-    handleTarget: async (target) => {
-      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
-      const action = resolveClientSurfaceAction(target);
-      if (!action) {
-        return null;
-      }
-      if (action.kind === "select-district") {
-        if (isOverlayOpen()) {
-          return null;
-        }
-        return options.client.selectDistrict(action.districtId);
-      }
-      if (action.kind === "select-spawn") {
-        const slice2 = options.client.getGameplaySlice();
-        if (!slice2) return null;
-        const issuedAt2 = (options.getIssuedAt ?? (() => (/* @__PURE__ */ new Date()).toISOString()))();
-        return options.client.dispatch(
-          createSelectSpawnDistrictCommand({
-            commandId: options.createCommandId("command:select-spawn"),
-            slice: slice2,
-            districtId: action.districtId,
-            issuedAt: issuedAt2
-          })
-        );
-      }
-      if (action.kind === "open-building") {
-        const slice2 = options.client.getGameplaySlice();
-        if (!canUseOwnedDistrictBuilding(slice2, action.buildingId)) return null;
-        return options.client.selectBuilding(action.buildingId);
-      }
-      const slice = options.client.getGameplaySlice();
-      const district = slice == null ? void 0 : slice.district;
-      if (!slice || !district) {
-        return null;
-      }
-      const issuedAt = (options.getIssuedAt ?? (() => (/* @__PURE__ */ new Date()).toISOString()))();
-      const mode = slice.mode.mode;
-      switch (action.kind) {
-        case "attack": {
-          const target2 = ((_a = district.targetActions) == null ? void 0 : _a.attackTargets.find((candidate) => candidate.districtId === action.targetDistrictId)) ?? district.attackTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
-          const weapons = (target2 == null ? void 0 : target2.selectedLoadout) ?? {};
-          const hasSelectedWeapon = Object.values(weapons).some((amount) => Number(amount) > 0);
-          if (!(target2 == null ? void 0 : target2.enabled) || !hasSelectedWeapon) return null;
-          return options.client.dispatch(
-            createAttackDistrictCommand({
-              commandId: options.createCommandId("command:attack"),
-              slice,
-              targetDistrictId: action.targetDistrictId,
-              issuedAt,
-              weapons,
-              expectedSourceVersion: target2.expectedSourceVersion,
-              expectedTargetVersion: target2.expectedTargetVersion
-            })
-          );
-        }
-        case "rob": {
-          const target2 = ((_b = district.targetActions) == null ? void 0 : _b.robTargets.find((candidate) => candidate.districtId === action.targetDistrictId)) ?? ((_c = district.robTargets) == null ? void 0 : _c.find((candidate) => candidate.districtId === action.targetDistrictId));
-          if (!(target2 == null ? void 0 : target2.enabled)) return null;
-          return options.client.dispatch(
-            createRobDistrictCommand({
-              commandId: options.createCommandId("command:rob"),
-              slice,
-              targetDistrictId: action.targetDistrictId,
-              issuedAt
-            })
-          );
-        }
-        case "heist": {
-          const target2 = ((_d = district.targetActions) == null ? void 0 : _d.heistTargets.find((candidate) => candidate.districtId === action.targetDistrictId)) ?? ((_e = district.heistTargets) == null ? void 0 : _e.find((candidate) => candidate.districtId === action.targetDistrictId));
-          if (!(target2 == null ? void 0 : target2.enabled)) return null;
-          return options.client.dispatch(
-            createHeistDistrictCommand({
-              commandId: options.createCommandId("command:heist"),
-              slice,
-              targetDistrictId: action.targetDistrictId,
-              issuedAt
-            })
-          );
-        }
-        case "spy": {
-          const target2 = ((_f = district.targetActions) == null ? void 0 : _f.spyTargets.find((candidate) => candidate.districtId === action.targetDistrictId)) ?? district.spyTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
-          if (!(target2 == null ? void 0 : target2.enabled)) return null;
-          return options.client.dispatch(
-            createSpyDistrictCommand({
-              commandId: options.createCommandId("command:spy"),
-              slice,
-              targetDistrictId: action.targetDistrictId,
-              issuedAt
-            })
-          );
-        }
-        case "occupy": {
-          const target2 = ((_g = district.targetActions) == null ? void 0 : _g.occupyTargets.find((candidate) => candidate.districtId === action.targetDistrictId)) ?? district.occupyTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
-          if (!(target2 == null ? void 0 : target2.enabled)) return null;
-          return options.client.dispatch(
-            createOccupyDistrictCommand({
-              commandId: options.createCommandId("command:occupy"),
-              slice,
-              targetDistrictId: action.targetDistrictId,
-              issuedAt
-            })
-          );
-        }
-        case "place-trap":
-          if (!district.isOwnedByPlayer || !((_h = district.trap) == null ? void 0 : _h.enabled)) return null;
-          return options.client.dispatch(
-            createPlaceTrapCommand({
-              commandId: options.createCommandId("command:trap"),
-              slice,
-              issuedAt
-            })
-          );
-        case "place-defense":
-          if (!((_i = district.placeDefense) == null ? void 0 : _i.enabled)) return null;
-          return options.client.dispatch(
-            createPlaceDefenseCommand({
-              commandId: options.createCommandId("command:place-defense"),
-              slice,
-              issuedAt
-            })
-          );
-        case "remove-defense":
-          if (!((_j = district.removeDefense) == null ? void 0 : _j.enabled)) return null;
-          return options.client.dispatch(
-            createRemoveDefenseCommand({
-              commandId: options.createCommandId("command:remove-defense"),
-              slice,
-              issuedAt
-            })
-          );
-        case "building-action":
-        case "collect":
-        case "craft":
-        case "cancel-production": {
-          const command = createBuildingSurfaceCommand({
-            action,
-            slice,
-            districtId: district.districtId,
-            mode,
-            issuedAt,
-            createCommandId: options.createCommandId
-          });
-          return command ? options.client.dispatch(command) : null;
-        }
-        default:
-          return null;
-      }
-    }
-  });
-  const createInitialClientReadModel = () => ({
-    playerView: null,
-    gameSnapshot: null,
-    gameplaySlice: null,
-    gameplaySliceMetadata: null,
-    lastErrors: [],
-    connection: {
-      status: "idle",
-      lastErrorMessage: null,
-      staleData: false
-    }
-  });
-  const createClientStore = (initialUiState) => {
-    let readModel = createInitialClientReadModel();
-    let uiState = initialUiState;
-    return {
-      getReadModel: () => readModel,
-      getUiState: () => uiState,
-      setServerView: (view) => {
-        readModel = {
-          ...readModel,
-          playerView: view
-        };
-      },
-      setGameSnapshot: (snapshot) => {
-        readModel = {
-          ...readModel,
-          gameSnapshot: snapshot
-        };
-      },
-      setGameplaySlice: (view) => {
-        readModel = {
-          ...readModel,
-          gameplaySlice: view,
-          playerView: view.player
-        };
-      },
-      setGameplaySliceMetadata: (metadata) => {
-        readModel = {
-          ...readModel,
-          gameplaySliceMetadata: metadata
-        };
-      },
-      setErrors: (errors) => {
-        readModel = {
-          ...readModel,
-          lastErrors: errors
-        };
-      },
-      setConnectionState: (connection) => {
-        readModel = {
-          ...readModel,
-          connection
-        };
-      },
-      patchUiState: (patch) => {
-        uiState = {
-          ...uiState,
-          ...patch
-        };
-      }
-    };
-  };
-  const createInitialClientUiState = () => ({
-    selectedDistrictId: null,
-    selectedBuildingId: null,
-    activeSidePanel: null,
-    activeModal: null,
-    isMapFocused: false,
-    pendingCommandIds: [],
-    lastCommandStatus: null
-  });
-  const createCommandDispatcher = (transport) => ({
-    dispatch: (request) => transport.send(request)
-  });
-  const createFetchClientTransport = (options) => {
-    const fetchJson = options.fetchImpl ?? globalThis.fetch;
-    const endpointBase = options.endpointBase.replace(/\/+$/u, "");
-    const storage = options.storage ?? resolveBrowserStorage();
-    let consumedJoinTicket = null;
-    const post = async (route, request) => {
-      if (!fetchJson) {
-        throw new Error("Fetch transport is unavailable in this runtime.");
-      }
-      const requestWithTokens = attachStoredGameplaySliceTokens(route, request, storage);
-      const requestJoinTicket = readJoinTicket(requestWithTokens);
-      const shouldStripConsumedJoinTicket = Boolean(
-        consumedJoinTicket && requestJoinTicket === consumedJoinTicket
-      );
-      const requestForEndpoint = shouldStripConsumedJoinTicket ? omitJoinTicket(requestWithTokens) : requestWithTokens;
-      const endpointRoute = resolveEndpointRoute(route, requestForEndpoint);
-      const endpoint = `${endpointBase}/${endpointRoute}`;
-      const response = await fetchJson(endpoint, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json"
-        },
-        credentials: "same-origin",
-        body: JSON.stringify(requestForEndpoint)
-      });
-      if (!response.ok) {
-        throw new Error(`Gameplay slice request failed: POST ${endpoint} returned HTTP ${response.status}.`);
-      }
-      const payload = await response.json();
-      persistGameplaySliceTokens(requestForEndpoint, payload, storage);
-      if (endpointRoute === "join" && payload.accepted && requestJoinTicket) {
-        consumedJoinTicket = requestJoinTicket;
-      }
-      return payload;
-    };
-    return {
-      load: (request) => post("load", request),
-      send: (request) => post("submit", request)
-    };
-  };
-  const attachStoredGameplaySliceTokens = (route, request, storage) => {
-    const snapshotKey = createGameplaySliceTokenStorageKey("snapshot", request);
-    const snapshotToken = snapshotKey ? readToken(storage, snapshotKey) : null;
-    return snapshotToken ? {
-      ...request,
-      snapshotToken
-    } : request;
-  };
-  const resolveEndpointRoute = (route, request) => {
-    if (route !== "load") {
-      return route;
-    }
-    const record = request;
-    return String(record.joinTicket ?? "").trim() ? "join" : "load";
-  };
-  const readJoinTicket = (request) => {
-    const ticket = String((request == null ? void 0 : request.joinTicket) ?? "").trim();
-    return ticket || null;
-  };
-  const omitJoinTicket = (request) => {
-    const { joinTicket: _joinTicket, ...rest } = request;
-    return rest;
-  };
-  const persistGameplaySliceTokens = (request, response, storage) => {
-    const snapshotKey = createGameplaySliceTokenStorageKey("snapshot", request);
-    const snapshotToken = String(response.snapshotToken ?? "").trim();
-    if (snapshotKey && snapshotToken) {
-      writeToken(storage, snapshotKey, snapshotToken);
-    }
-  };
-  const readToken = (storage, key) => {
-    try {
-      return (storage == null ? void 0 : storage.getItem(key)) ?? null;
-    } catch (_error) {
-      return null;
-    }
-  };
-  const writeToken = (storage, key, token) => {
-    try {
-      storage == null ? void 0 : storage.setItem(key, token);
-    } catch (_error) {
-    }
-  };
-  const createGameplaySliceTokenStorageKey = (kind, request) => {
-    var _a, _b;
-    const record = request;
-    const serverInstanceId = String(record.serverInstanceId ?? ((_a = record.command) == null ? void 0 : _a.serverInstanceId) ?? "").trim();
-    const playerId = String(record.playerId ?? ((_b = record.command) == null ? void 0 : _b.playerId) ?? "").trim();
-    return serverInstanceId && playerId ? `empire:gameplay-slice:${kind}:${serverInstanceId}:${playerId}` : null;
-  };
-  const resolveBrowserStorage = () => {
-    try {
-      return globalThis.sessionStorage ?? null;
-    } catch (_error) {
-      return null;
-    }
-  };
-  const browserTimerDriver = {
-    setInterval: (callback, intervalMs) => globalThis.setInterval(callback, intervalMs),
-    clearInterval: (handle) => globalThis.clearInterval(handle)
-  };
-  const createGameplaySlicePoller = ({
-    load,
-    getRequest,
-    intervalMs,
-    enabled = true,
-    timerDriver = browserTimerDriver,
-    visibilityDocument = typeof document === "undefined" ? null : document,
-    intervalMultiplier = 1,
-    maxErrorIntervalMultiplier = 4,
-    onRunningChange,
-    onAttempt,
-    onSkipped,
-    onSuccess,
-    getResponseError,
-    onResponse,
-    onError
-  }) => {
-    var _a;
-    const baseIntervalMs = Math.max(1, Math.floor(intervalMs * Math.max(1, intervalMultiplier)));
-    const maxBackoffMultiplier = Math.max(1, Math.floor(maxErrorIntervalMultiplier));
-    let intervalHandle = null;
-    let currentIntervalMs = baseIntervalMs;
-    let consecutiveErrors = 0;
-    let refreshInProgress = false;
-    let pollingEnabled = enabled;
-    let destroyed = false;
-    const isPausedForVisibility = () => Boolean(visibilityDocument == null ? void 0 : visibilityDocument.hidden);
-    const stop = () => {
-      if (intervalHandle === null) {
-        return;
-      }
-      timerDriver.clearInterval(intervalHandle);
-      intervalHandle = null;
-      onRunningChange == null ? void 0 : onRunningChange(-1);
-    };
-    const startInterval = () => {
-      if (!pollingEnabled || destroyed || intervalHandle !== null || isPausedForVisibility()) {
-        return;
-      }
-      intervalHandle = timerDriver.setInterval(() => {
-        if (isPausedForVisibility()) {
-          stop();
-          return;
-        }
-        void refreshOnce();
-      }, currentIntervalMs);
-      onRunningChange == null ? void 0 : onRunningChange(1);
-    };
-    const restartWithInterval = (nextIntervalMs) => {
-      const wasRunning = intervalHandle !== null;
-      stop();
-      currentIntervalMs = Math.max(1, Math.floor(nextIntervalMs));
-      if (wasRunning) {
-        startInterval();
-      }
-    };
-    const syncErrorBackoff = () => {
-      const multiplier = Math.min(maxBackoffMultiplier, 2 ** consecutiveErrors);
-      const nextIntervalMs = baseIntervalMs * multiplier;
-      if (nextIntervalMs !== currentIntervalMs) {
-        restartWithInterval(nextIntervalMs);
-      }
-    };
-    const resetErrorBackoff = () => {
-      if (consecutiveErrors === 0 && currentIntervalMs === baseIntervalMs) {
-        return;
-      }
-      consecutiveErrors = 0;
-      if (currentIntervalMs !== baseIntervalMs) {
-        restartWithInterval(baseIntervalMs);
-      }
-    };
-    const refreshOnce = async () => {
-      if (refreshInProgress) {
-        onSkipped == null ? void 0 : onSkipped("in-progress");
-        return null;
-      }
-      if (destroyed) {
-        onSkipped == null ? void 0 : onSkipped("destroyed");
-        return null;
-      }
-      if (isPausedForVisibility()) {
-        onSkipped == null ? void 0 : onSkipped("hidden");
-        return null;
-      }
-      const request = getRequest();
-      if (!request) {
-        onSkipped == null ? void 0 : onSkipped("missing-request");
-        return null;
-      }
-      refreshInProgress = true;
-      onAttempt == null ? void 0 : onAttempt();
-      try {
-        const response = await load(request);
-        const responseError = (getResponseError == null ? void 0 : getResponseError(response)) ?? null;
-        if (responseError !== null) {
-          throw responseError;
-        }
-        await (onResponse == null ? void 0 : onResponse(response));
-        onSuccess == null ? void 0 : onSuccess();
-        resetErrorBackoff();
-        return response;
-      } catch (error) {
-        consecutiveErrors += 1;
-        onError == null ? void 0 : onError(error);
-        syncErrorBackoff();
-        return null;
-      } finally {
-        refreshInProgress = false;
-      }
-    };
-    const handleVisibilityChange = () => {
-      if (isPausedForVisibility()) {
-        stop();
-        return;
-      }
-      if (!pollingEnabled || destroyed) {
-        return;
-      }
-      void refreshOnce();
-      startInterval();
-    };
-    (_a = visibilityDocument == null ? void 0 : visibilityDocument.addEventListener) == null ? void 0 : _a.call(visibilityDocument, "visibilitychange", handleVisibilityChange);
-    return {
-      start: () => {
-        if (!pollingEnabled || intervalHandle !== null) {
-          return;
-        }
-        startInterval();
-      },
-      stop,
-      destroy: () => {
-        var _a2;
-        if (destroyed) {
-          return;
-        }
-        destroyed = true;
-        stop();
-        (_a2 = visibilityDocument == null ? void 0 : visibilityDocument.removeEventListener) == null ? void 0 : _a2.call(visibilityDocument, "visibilitychange", handleVisibilityChange);
-      },
-      isRunning: () => intervalHandle !== null,
-      isEnabled: () => pollingEnabled,
-      setEnabled: (nextEnabled) => {
-        pollingEnabled = nextEnabled;
-        if (!pollingEnabled) {
-          stop();
-        } else {
-          startInterval();
-        }
-      },
-      refreshOnce
-    };
-  };
-  const empireCityMapManifestHash = "fnv1a32:a3aa0021";
-  const getMapManifestMismatch = (response) => {
-    var _a, _b, _c;
-    const serverHash = ((_a = response.readModel) == null ? void 0 : _a.server.mapManifestHash) ?? null;
-    if (!serverHash || serverHash === empireCityMapManifestHash) {
-      return null;
-    }
-    return {
-      code: "client.map_manifest_mismatch",
-      message: "Client map manifest does not match the server map manifest.",
-      details: {
-        clientMapManifestHash: empireCityMapManifestHash,
-        serverMapManifestHash: serverHash,
-        mapManifestId: ((_b = response.readModel) == null ? void 0 : _b.server.mapManifestId) ?? null,
-        mapManifestVersion: ((_c = response.readModel) == null ? void 0 : _c.server.mapManifestVersion) ?? null
-      }
-    };
-  };
-  const hasCurrentMapManifestMismatch = (slice) => {
-    const serverHash = (slice == null ? void 0 : slice.server.mapManifestHash) ?? null;
-    return Boolean(serverHash && serverHash !== empireCityMapManifestHash);
-  };
-  const createServerSliceRenderFingerprint = (readModel, selectedDistrictId) => {
-    var _a, _b;
-    return readModel ? JSON.stringify({
-      instanceId: readModel.server.serverInstanceId,
-      playerId: readModel.player.playerId,
-      stateVersion: readModel.server.stateVersion,
-      currentTick: readModel.server.currentTick,
-      selectedDistrictId: ((_a = readModel.district) == null ? void 0 : _a.districtId) ?? readModel.server.selectedDistrictId ?? selectedDistrictId ?? "",
-      spawnStatus: ((_b = readModel.spawnSelection) == null ? void 0 : _b.status) || ""
-    }) : "";
-  };
-  const canReuseServerSliceRender = (nextFingerprint, previousFingerprint, commandId, errorCount) => Boolean(
-    nextFingerprint && nextFingerprint === previousFingerprint && !commandId && errorCount === 0
-  );
-  const spawnSelectionFeature = "spawn-selection";
-  const createClientResponseCommitter = (options) => {
-    let lastCommittedSliceFingerprint = "";
-    let nextOperationSequence = 0;
-    let lastCommittedOperationSequence = 0;
-    const canCommit = (operationSequence) => operationSequence >= lastCommittedOperationSequence;
-    const markCommitted = (operationSequence) => {
-      lastCommittedOperationSequence = Math.max(lastCommittedOperationSequence, operationSequence);
-    };
-    return {
-      issueOperation: () => ++nextOperationSequence,
-      commitResponse: (response, selectedDistrictId, commandId, operationSequence) => {
-        var _a, _b, _c;
-        if (!canCommit(operationSequence)) return options.getRenderState();
-        const hasAuthoritativeReadModel = Boolean(response.readModel);
-        const mapManifestMismatch = getMapManifestMismatch(response);
-        const responseErrors = mapManifestMismatch ? [...response.errors, mapManifestMismatch] : response.errors;
-        const nextSliceFingerprint = createServerSliceRenderFingerprint(response.readModel, selectedDistrictId);
-        if (canReuseServerSliceRender(
-          nextSliceFingerprint,
-          lastCommittedSliceFingerprint,
-          commandId,
-          responseErrors.length
-        )) {
-          const currentRenderState = options.getRenderState();
-          options.store.setConnectionState({ status: "ready", lastErrorMessage: null, staleData: false });
-          markCommitted(operationSequence);
-          return currentRenderState.connection.status === "ready" && currentRenderState.connection.lastErrorMessage === null && currentRenderState.connection.staleData === false ? currentRenderState : options.recomputeRenderState("server-slice-connection-restored");
-        }
-        if (response.readModel) {
-          const serverSelectedDistrictId = ((_a = response.readModel.district) == null ? void 0 : _a.districtId) ?? response.readModel.player.homeDistrictId ?? selectedDistrictId ?? null;
-          options.store.setGameplaySlice(response.readModel);
-          options.store.patchUiState({
-            selectedDistrictId: serverSelectedDistrictId,
-            activeSidePanel: ((_b = response.readModel.spawnSelection) == null ? void 0 : _b.status) === "awaiting_spawn_selection" ? spawnSelectionFeature : districtPanelFeature
-          });
-        }
-        if (commandId) {
-          options.store.patchUiState({
-            lastCommandStatus: { commandId, accepted: response.accepted }
-          });
-        }
-        options.store.setGameplaySliceMetadata(response.metadata ?? (response.readModel ? {
-          serverTick: response.readModel.server.currentTick,
-          stateVersion: response.readModel.server.stateVersion
-        } : null));
-        options.store.setErrors(responseErrors);
-        options.store.setConnectionState({
-          status: hasAuthoritativeReadModel && !mapManifestMismatch ? "ready" : "error",
-          lastErrorMessage: ((_c = responseErrors[0]) == null ? void 0 : _c.message) ?? (hasAuthoritativeReadModel ? null : "Gameplay slice response did not include an authoritative read model."),
-          staleData: responseErrors.length > 0 || !hasAuthoritativeReadModel
-        });
-        if (nextSliceFingerprint) lastCommittedSliceFingerprint = nextSliceFingerprint;
-        markCommitted(operationSequence);
-        return options.recomputeRenderState(commandId ? "server-command-response" : "server-slice-response");
-      },
-      commitTransportFailure: (message, commandId, operationSequence) => {
-        if (!canCommit(operationSequence)) return options.getRenderState();
-        const errors = [{ code: "client.transport_error", message }];
-        options.store.setErrors(errors);
-        options.store.setConnectionState({
-          status: "error",
-          lastErrorMessage: message,
-          staleData: true
-        });
-        if (commandId) {
-          options.store.patchUiState({
-            lastCommandStatus: { commandId, accepted: false }
-          });
-        }
-        markCommitted(operationSequence);
-        return options.recomputeRenderState("transport-failure");
-      }
-    };
-  };
-  const DAY_MAP_IMAGE_PATH = "../img/mapaden2.png";
-  const renderMap = ({ districts, selectedDistrictId, phaseId }) => {
-    const normalizedPhase = phaseId === "day" ? "day" : "night";
-    const dayVisual = normalizedPhase === "day" ? `<span class="map-day-visual" data-map-day-image="${escapeAttribute(DAY_MAP_IMAGE_PATH)}" style="--map-day-image:url('${escapeAttribute(DAY_MAP_IMAGE_PATH)}')" aria-hidden="true"></span>` : "";
-    return [
-      `<section data-map-surface="district-list" data-map-phase="${escapeAttribute(normalizedPhase)}" data-selected-district-id="${escapeAttribute(selectedDistrictId ?? "")}">`,
-      dayVisual,
-      districts.map(
-        (district) => {
-          const ownerColor = toSafeCssColorValue(district.ownerColor);
-          const ownerColorAttribute = ownerColor ? ` data-owner-color="${escapeAttribute(ownerColor)}" style="--map-owner-color:${escapeAttribute(ownerColor)}"` : "";
-          return district.isDestroyed ? [
-            `<button class="map-district map-district--destroyed" data-district-id="${escapeAttribute(district.districtId)}" data-selected="${escapeAttribute(district.isSelected)}" data-owned="${escapeAttribute(district.isOwnedByPlayer)}" data-destroyed="true" data-attack-target="${escapeAttribute(district.isAttackTarget)}" data-attack-enabled="false">`,
-            `<span class="map-district__ruin-cracks" aria-hidden="true"></span>`,
-            `<strong>${escapeHtml(district.label)}</strong>`,
-            `<span>V piči, zničen.</span>`,
-            `</button>`
-          ].join("") : [
-            `<button class="map-district" data-district-id="${escapeAttribute(district.districtId)}" data-selected="${escapeAttribute(district.isSelected)}" data-owned="${escapeAttribute(district.isOwnedByPlayer)}" data-destroyed="false" data-attack-target="${escapeAttribute(district.isAttackTarget)}" data-attack-enabled="${escapeAttribute(district.attackEnabled)}"${ownerColorAttribute}>`,
-            `<strong>${escapeHtml(district.label)}</strong>`,
-            `<span>${escapeHtml(district.ownerLabel)}</span>`,
-            `<span>Zóna: ${escapeHtml(district.zoneLabel)}</span>`,
-            `<span>Budovy: ${escapeHtml(district.buildingSummary)}</span>`,
-            `<span>Hledanost: ${escapeHtml(district.heatLabel)} · Vliv: ${escapeHtml(district.influenceLabel)}</span>`,
-            district.isAttackTarget ? `<span>${escapeHtml(district.attackEnabled ? "Útok připraven" : district.attackDisabledReason ?? "Útok není dostupný")}</span>` : "",
-            district.isContested ? "<span>Sporný district</span>" : "",
-            "</button>"
-          ].join("");
-        }
-      ).join(""),
-      "</section>"
-    ].join("");
-  };
-  const toSafeCssColorValue = (value) => {
-    const normalized = String(value ?? "").trim();
-    return /^[#a-zA-Z0-9(),.%\s-]+$/u.test(normalized) ? normalized : "";
   };
   const createDistrictBasicActionViewModels = (district, hasPendingCommand) => ({
     robTargets: (district.robTargets ?? []).map((target) => ({
@@ -2712,227 +643,229 @@ var EmpireGameplaySliceClient = function(exports) {
   };
   const formatResourceLabel = (resourceKey) => RESOURCE_LABELS[resourceKey] ?? toTitleCase(resourceKey);
   const toTitleCase = (value) => value.replaceAll("_", "-").split("-").filter(Boolean).map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(" ");
-  const renderReportLayer = (reports, options = {}) => {
-    const commandStatusHtml = renderCommandReportStatus(reports, options);
-    return reports.length > 0 || commandStatusHtml ? [
-      `<section class="reports-panel" data-feature="reports-panel">`,
-      renderCatastropheAlert(reports),
-      `<div class="district-panel__section-head">`,
-      `<div>`,
-      `<h3 class="district-panel__section-title">Poslední reporty</h3>`,
-      `<p class="district-panel__section-copy">Serverové výsledky špehování, obsazení, útoků a akcí budov pro aktuálního hráče.</p>`,
-      `</div>`,
-      `<span class="district-panel__section-meta">${escapeHtml(reports.length)} nových</span>`,
-      `</div>`,
-      commandStatusHtml,
-      reports.map((report, index) => {
-        var _a;
-        return renderReportCard(report, {
-          highlighted: Boolean(((_a = options.lastCommandStatus) == null ? void 0 : _a.accepted) && index === 0)
-        });
-      }).join(""),
-      `</section>`
-    ].join("") : "";
-  };
-  const renderReportCard = (report, {
-    highlighted
-  }) => [
-    `<article class="district-panel__slot" data-report-id="${escapeAttribute(report.id)}" data-report-category="${escapeAttribute(report.category)}" data-report-type="${escapeAttribute(report.reportType)}" data-report-severity="${escapeAttribute(report.severity)}" data-report-highlight="${highlighted ? "latest-command" : "none"}">`,
-    `<div class="district-panel__slot-head">`,
-    `<div>`,
-    `<p class="district-panel__slot-index">${escapeHtml(report.category)}</p>`,
-    `<h4 class="district-panel__slot-title">${escapeHtml(report.title)}</h4>`,
-    `</div>`,
-    `<span class="district-panel__slot-state">${escapeHtml(report.result)}</span>`,
-    `</div>`,
-    `<p class="district-panel__slot-summary">${escapeHtml(report.summary)}</p>`,
-    report.details.length > 0 ? `<div class="reports-panel__detail-list">${report.details.map((detail) => `<span class="reports-panel__detail">${escapeHtml(detail)}</span>`).join("")}</div>` : "",
-    `<p class="district-panel__empty-copy">Tick ${escapeHtml(report.createdAt)}</p>`,
-    `</article>`
-  ].join("");
-  const renderCommandReportStatus = (reports, options) => {
-    var _a, _b;
-    const status = options.lastCommandStatus;
-    if (!status) {
-      return "";
-    }
-    if (!status.accepted) {
-      const message = ((_b = (_a = options.errors) == null ? void 0 : _a[0]) == null ? void 0 : _b.message) ?? "Server akci odmítl. Zkontroluj vybraný cíl, zdroje nebo synchronizaci a zkus to znovu.";
-      return [
-        `<article class="district-panel__slot" data-report-command-status="rejected">`,
-        `<div class="district-panel__slot-head">`,
-        `<div>`,
-        `<p class="district-panel__slot-index">akce</p>`,
-        `<h4 class="district-panel__slot-title">Akce odmítnuta</h4>`,
-        `</div>`,
-        `<span class="district-panel__slot-state">odmítnuto</span>`,
-        `</div>`,
-        `<p class="district-panel__slot-summary">${escapeHtml(message)}</p>`,
-        `</article>`
-      ].join("");
-    }
-    if (reports.length > 0) {
-      return "";
-    }
-    return [
-      `<article class="district-panel__slot" data-report-command-status="accepted-without-report">`,
-      `<div class="district-panel__slot-head">`,
-      `<div>`,
-      `<p class="district-panel__slot-index">akce</p>`,
-      `<h4 class="district-panel__slot-title">Akce přijata</h4>`,
-      `</div>`,
-      `<span class="district-panel__slot-state">přijato</span>`,
-      `</div>`,
-      `<p class="district-panel__slot-summary">Server akci přijal, ale nevydal nový hráčský report. Výsledek ověř ve feedu a ve stavu vybraného distriktu.</p>`,
-      `</article>`
-    ].join("");
-  };
-  const renderCatastropheAlert = (reports) => {
-    const catastropheReport = reports.find((report) => report.severity === "critical");
-    if (!catastropheReport) {
-      return "";
-    }
-    return [
-      `<section class="reports-panel__catastrophe-window" data-catastrophe-alert="true" role="dialog" aria-label="Report katastrofy distriktu">`,
-      `<div class="district-panel__section-head">`,
-      `<div>`,
-      `<h3 class="district-panel__section-title">${escapeHtml(catastropheReport.title)}</h3>`,
-      `<p class="district-panel__section-copy">${escapeHtml(catastropheReport.summary)}</p>`,
-      `</div>`,
-      `<span class="district-panel__section-meta">${escapeHtml(catastropheReport.result)}</span>`,
-      `</div>`,
-      `<div class="district-panel__slot-list">`,
-      catastropheReport.messages.map((message) => `<p class="district-panel__action-reason">${escapeHtml(message)}</p>`).join(""),
-      `</div>`,
-      `</section>`
-    ].join("");
-  };
-  const renderSidePanelShell = ({ activePanel, contentHtml }) => activePanel ? `<aside class="side-panel-shell mobile-sheet" data-panel="${escapeAttribute(activePanel)}"><div class="mobile-sheet__body">${contentHtml}</div></aside>` : '<aside class="side-panel-shell" data-panel="none"></aside>';
-  const renderTopBarShell = ({ player }) => {
-    var _a;
-    return player ? `<header data-mode="${escapeAttribute(player.modeLabel)}" data-city-phase="${escapeAttribute(((_a = player.dayNight) == null ? void 0 : _a.uiThemeHint) ?? "day")}">Režim: ${escapeHtml(player.modeLabel)} · Hráč: ${escapeHtml(player.playerId)}${renderHomeDistrict(player)} · Zdroje: ${escapeHtml(player.resourceSummary)} · Hlášení: ${escapeHtml(player.notificationCount)}${renderPoliceBadge(player)}${renderDayNightBadge(player)}</header>` : "";
-  };
-  const renderHomeDistrict = (player) => player.homeDistrictId ? ` · Domovský district: ${escapeHtml(player.homeDistrictId)}` : "";
-  const renderPoliceBadge = (player) => {
-    const police = player.police;
-    if (!police) return "";
-    const pending = police.pendingRaidLabel ? ` · Čeká: ${escapeHtml(police.pendingRaidLabel)}` : "";
-    return ` · <span class="police-badge" data-raid-status="${escapeAttribute(police.raidConsequenceStatus)}" title="${escapeAttribute(`Hledanost distriktu ${police.selectedDistrictHeatLabel} · Ochrana ${police.protectionLabel}`)}">Hledanost ${escapeHtml(police.heatLabel)} · Úroveň ${escapeHtml(police.wantedLevelLabel)}${pending}</span>`;
-  };
-  const renderDayNightBadge = (player) => {
-    const dayNight = player.dayNight;
-    if (!dayNight) return "";
-    const summary = dayNight.effectSummary.slice(0, 2).join(", ");
-    const recommendations = (dayNight.recommendations ?? []).slice(0, 4).join(" · ");
-    const nextPhaseLabel = dayNight.phaseId === "night" ? "dne" : "noci";
-    const clockLabel = dayNight.gameClockLabel ?? "--:--";
-    const remainingLabel = formatDayNightRemaining(dayNight);
-    const title = [
-      summary,
-      recommendations ? `Teď se vyplatí: ${recommendations}` : ""
-    ].filter(Boolean).join(" | ");
-    return ` · <span class="day-night-badge" data-city-phase="${escapeAttribute(dayNight.uiThemeHint)}" title="${escapeAttribute(title)}">${escapeHtml(dayNight.label)} · ${escapeHtml(clockLabel)} · do ${escapeHtml(nextPhaseLabel)} ${escapeHtml(remainingLabel)}</span>`;
-  };
-  const formatDayNightRemaining = (dayNight) => {
-    const phaseTicks = Math.max(1, Math.floor(Number(dayNight.endsAtTick - dayNight.startedAtTick) || 1));
-    const realPhaseDurationMs = Math.max(0, Number(dayNight.realPhaseDurationMs ?? 0));
-    const remainingMs = realPhaseDurationMs > 0 ? Math.round(Math.max(0, Number(dayNight.remainingTicks || 0)) / phaseTicks * realPhaseDurationMs) : 0;
-    const totalMinutes = Math.max(0, Math.ceil(remainingMs / 6e4));
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    if (hours <= 0) return `${minutes}m`;
-    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-  };
-  const renderClientShell = (store) => {
-    var _a, _b, _c, _d, _e, _f, _g;
+  const projectClientControllerState = (store) => {
+    var _a, _b, _c, _d, _e;
     const readModel = store.getReadModel();
     const uiState = store.getUiState();
     const player = createPlayerViewModel(
       readModel.playerView,
       (_a = readModel.gameplaySlice) == null ? void 0 : _a.mode.label
     );
-    const mapDistricts = createMapDistrictViewModels(
-      ((_b = readModel.gameplaySlice) == null ? void 0 : _b.districts) ?? [],
-      uiState.selectedDistrictId,
-      ((_d = (_c = readModel.gameplaySlice) == null ? void 0 : _c.district) == null ? void 0 : _d.attackTargets) ?? []
-    );
-    const districtPanel = createDistrictPanelViewModel(readModel.gameplaySlice, uiState);
-    const reports = createReportViewModels(((_e = readModel.gameplaySlice) == null ? void 0 : _e.reports) ?? []);
-    const sidePanelContent = [
-      renderSpawnSelectionPanel(readModel.gameplaySlice),
-      districtPanel ? renderDistrictPanel(districtPanel) : "",
-      renderReportLayer(reports, {
-        errors: readModel.lastErrors,
-        lastCommandStatus: uiState.lastCommandStatus
-      })
-    ].join("");
     return {
-      topBarHtml: renderTopBarShell({
-        player
-      }),
-      mapHtml: renderMap({
-        districts: mapDistricts,
-        selectedDistrictId: uiState.selectedDistrictId,
-        phaseId: ((_f = player == null ? void 0 : player.dayNight) == null ? void 0 : _f.phaseId) ?? ((_g = player == null ? void 0 : player.dayNight) == null ? void 0 : _g.uiThemeHint) ?? null
-      }),
-      sidePanelHtml: renderSidePanelShell({
-        activePanel: uiState.activeSidePanel,
-        contentHtml: sidePanelContent
-      }),
+      topBarHtml: "",
+      mapHtml: "",
+      sidePanelHtml: "",
       player,
-      mapDistricts,
-      districtPanel,
-      reports,
+      mapDistricts: createMapDistrictViewModels(
+        ((_b = readModel.gameplaySlice) == null ? void 0 : _b.districts) ?? [],
+        uiState.selectedDistrictId,
+        ((_d = (_c = readModel.gameplaySlice) == null ? void 0 : _c.district) == null ? void 0 : _d.attackTargets) ?? []
+      ),
+      districtPanel: createDistrictPanelViewModel(readModel.gameplaySlice, uiState),
+      reports: createReportViewModels(((_e = readModel.gameplaySlice) == null ? void 0 : _e.reports) ?? []),
       errors: readModel.lastErrors,
       connection: readModel.connection,
       lastCommandStatus: uiState.lastCommandStatus
     };
   };
-  const renderSpawnSelectionPanel = (slice) => {
-    if (!(slice == null ? void 0 : slice.spawnSelection) || slice.spawnSelection.status !== "awaiting_spawn_selection") {
-      return "";
+  const empireCityMapManifestHash = "fnv1a32:a3aa0021";
+  const getMapManifestMismatch = (response) => {
+    var _a, _b, _c;
+    const serverHash = ((_a = response.readModel) == null ? void 0 : _a.server.mapManifestHash) ?? null;
+    if (!serverHash || serverHash === empireCityMapManifestHash) {
+      return null;
     }
-    return [
-      `<section class="spawn-selection-panel" data-feature="spawn-selection" data-ui-owner="server-slice">`,
-      `<header><p>Lobby</p><h2>Vyber startovní district</h2></header>`,
-      `<p>Každý hráč začíná s jedním districtem. Výběr je po potvrzení závazný.</p>`,
-      `<div class="spawn-selection-panel__list">`,
-      ...slice.spawnSelection.districts.map((district) => [
-        `<article class="spawn-selection-panel__item" data-spawn-status="${escapeAttribute(district.status)}">`,
-        `<h3>${escapeHtml(district.districtName)}</h3>`,
-        `<p>Typ: ${escapeHtml(district.districtType)} · Budova: ${escapeHtml(district.buildingType ?? "Neznámá")} · Sousedé: ${district.neighborCount}</p>`,
-        `<p>Spawn zóna: ${escapeHtml((district.spawnZones ?? []).join(", ") || "-")}</p>`,
-        district.ownerPublicName ? `<p>Obsazeno: ${escapeHtml(district.ownerPublicName)}</p>` : "",
-        district.status === "available" ? `<button type="button" data-select-spawn-district-id="${escapeAttribute(district.districtId)}">POTVRDIT A ZABRAT</button>` : `<button type="button" disabled>${escapeHtml(formatSpawnStatus(district.status))}</button>`,
-        `</article>`
-      ].join("")),
-      `</div>`,
-      `</section>`
-    ].join("");
+    return {
+      code: "client.map_manifest_mismatch",
+      message: "Client map manifest does not match the server map manifest.",
+      details: {
+        clientMapManifestHash: empireCityMapManifestHash,
+        serverMapManifestHash: serverHash,
+        mapManifestId: ((_b = response.readModel) == null ? void 0 : _b.server.mapManifestId) ?? null,
+        mapManifestVersion: ((_c = response.readModel) == null ? void 0 : _c.server.mapManifestVersion) ?? null
+      }
+    };
   };
-  const formatSpawnStatus = (status) => {
-    switch (status) {
-      case "occupied":
-        return "Obsazeno";
-      case "locked":
-        return "Zamčeno";
-      case "disabled":
-        return "Nedostupné";
-      case "selected_by_me":
-        return "Vybráno";
-      case "reserved_by_other":
-        return "Právě vybírá jiný hráč";
-      default:
-        return "Nedostupné";
+  const hasCurrentMapManifestMismatch = (slice) => {
+    const serverHash = (slice == null ? void 0 : slice.server.mapManifestHash) ?? null;
+    return Boolean(serverHash && serverHash !== empireCityMapManifestHash);
+  };
+  const createServerSliceRenderFingerprint = (readModel, selectedDistrictId) => {
+    var _a, _b;
+    return readModel ? JSON.stringify({
+      instanceId: readModel.server.serverInstanceId,
+      playerId: readModel.player.playerId,
+      stateVersion: readModel.server.stateVersion,
+      currentTick: readModel.server.currentTick,
+      selectedDistrictId: ((_a = readModel.district) == null ? void 0 : _a.districtId) ?? readModel.server.selectedDistrictId ?? selectedDistrictId ?? "",
+      spawnStatus: ((_b = readModel.spawnSelection) == null ? void 0 : _b.status) || ""
+    }) : "";
+  };
+  const canReuseServerSliceRender = (nextFingerprint, previousFingerprint, commandId, errorCount) => Boolean(
+    nextFingerprint && nextFingerprint === previousFingerprint && !commandId && errorCount === 0
+  );
+  const spawnSelectionFeature = "spawn-selection";
+  const createClientResponseCommitter = (options) => {
+    let lastCommittedSliceFingerprint = "";
+    let nextOperationSequence = 0;
+    let lastCommittedOperationSequence = 0;
+    const canCommit = (operationSequence) => operationSequence >= lastCommittedOperationSequence;
+    const markCommitted = (operationSequence) => {
+      lastCommittedOperationSequence = Math.max(lastCommittedOperationSequence, operationSequence);
+    };
+    return {
+      issueOperation: () => ++nextOperationSequence,
+      commitResponse: (response, selectedDistrictId, commandId, operationSequence) => {
+        var _a, _b, _c;
+        if (!canCommit(operationSequence)) return options.getRenderState();
+        const hasAuthoritativeReadModel = Boolean(response.readModel);
+        const mapManifestMismatch = getMapManifestMismatch(response);
+        const responseErrors = mapManifestMismatch ? [...response.errors, mapManifestMismatch] : response.errors;
+        const nextSliceFingerprint = createServerSliceRenderFingerprint(response.readModel, selectedDistrictId);
+        if (canReuseServerSliceRender(
+          nextSliceFingerprint,
+          lastCommittedSliceFingerprint,
+          commandId,
+          responseErrors.length
+        )) {
+          const currentRenderState = options.getRenderState();
+          options.store.setConnectionState({ status: "ready", lastErrorMessage: null, staleData: false });
+          markCommitted(operationSequence);
+          return currentRenderState.connection.status === "ready" && currentRenderState.connection.lastErrorMessage === null && currentRenderState.connection.staleData === false ? currentRenderState : options.recomputeRenderState("server-slice-connection-restored");
+        }
+        if (response.readModel) {
+          const serverSelectedDistrictId = ((_a = response.readModel.district) == null ? void 0 : _a.districtId) ?? response.readModel.player.homeDistrictId ?? selectedDistrictId ?? null;
+          options.store.setGameplaySlice(response.readModel);
+          options.store.patchUiState({
+            selectedDistrictId: serverSelectedDistrictId,
+            activeSidePanel: ((_b = response.readModel.spawnSelection) == null ? void 0 : _b.status) === "awaiting_spawn_selection" ? spawnSelectionFeature : "district-panel"
+          });
+        }
+        if (commandId) {
+          options.store.patchUiState({
+            lastCommandStatus: { commandId, accepted: response.accepted }
+          });
+        }
+        options.store.setGameplaySliceMetadata(response.metadata ?? (response.readModel ? {
+          serverTick: response.readModel.server.currentTick,
+          stateVersion: response.readModel.server.stateVersion
+        } : null));
+        options.store.setErrors(responseErrors);
+        options.store.setConnectionState({
+          status: hasAuthoritativeReadModel && !mapManifestMismatch ? "ready" : "error",
+          lastErrorMessage: ((_c = responseErrors[0]) == null ? void 0 : _c.message) ?? (hasAuthoritativeReadModel ? null : "Gameplay slice response did not include an authoritative read model."),
+          staleData: responseErrors.length > 0 || !hasAuthoritativeReadModel
+        });
+        if (nextSliceFingerprint) lastCommittedSliceFingerprint = nextSliceFingerprint;
+        markCommitted(operationSequence);
+        return options.recomputeRenderState(commandId ? "server-command-response" : "server-slice-response");
+      },
+      commitTransportFailure: (message, commandId, operationSequence) => {
+        if (!canCommit(operationSequence)) return options.getRenderState();
+        const errors = [{ code: "client.transport_error", message }];
+        options.store.setErrors(errors);
+        options.store.setConnectionState({
+          status: "error",
+          lastErrorMessage: message,
+          staleData: true
+        });
+        if (commandId) {
+          options.store.patchUiState({
+            lastCommandStatus: { commandId, accepted: false }
+          });
+        }
+        markCommitted(operationSequence);
+        return options.recomputeRenderState("transport-failure");
+      }
+    };
+  };
+  const createClientAppShell = (shell) => shell;
+  const createInitialClientReadModel = () => ({
+    playerView: null,
+    gameSnapshot: null,
+    gameplaySlice: null,
+    gameplaySliceMetadata: null,
+    lastErrors: [],
+    connection: {
+      status: "idle",
+      lastErrorMessage: null,
+      staleData: false
     }
+  });
+  const createClientStore = (initialUiState) => {
+    let readModel = createInitialClientReadModel();
+    let uiState = initialUiState;
+    return {
+      getReadModel: () => readModel,
+      getUiState: () => uiState,
+      setServerView: (view) => {
+        readModel = {
+          ...readModel,
+          playerView: view
+        };
+      },
+      setGameSnapshot: (snapshot) => {
+        readModel = {
+          ...readModel,
+          gameSnapshot: snapshot
+        };
+      },
+      setGameplaySlice: (view) => {
+        readModel = {
+          ...readModel,
+          gameplaySlice: view,
+          playerView: view.player
+        };
+      },
+      setGameplaySliceMetadata: (metadata) => {
+        readModel = {
+          ...readModel,
+          gameplaySliceMetadata: metadata
+        };
+      },
+      setErrors: (errors) => {
+        readModel = {
+          ...readModel,
+          lastErrors: errors
+        };
+      },
+      setConnectionState: (connection) => {
+        readModel = {
+          ...readModel,
+          connection
+        };
+      },
+      patchUiState: (patch) => {
+        uiState = {
+          ...uiState,
+          ...patch
+        };
+      }
+    };
   };
-  const createClientApp = ({ transport, onStateRecompute }) => {
+  const createInitialClientUiState = () => ({
+    selectedDistrictId: null,
+    selectedBuildingId: null,
+    activeSidePanel: null,
+    activeModal: null,
+    isMapFocused: false,
+    pendingCommandIds: [],
+    lastCommandStatus: null
+  });
+  const createCommandDispatcher = (transport) => ({
+    dispatch: (request) => transport.send(request)
+  });
+  const createClientAppCore = ({
+    transport,
+    projectRenderState,
+    onStateRecompute
+  }) => {
     const store = createClientStore(createInitialClientUiState());
     const dispatcher = createCommandDispatcher(transport);
-    let renderState = createInitialClientRenderState();
+    let renderState = projectRenderState(store);
     const recomputeRenderState = (reason) => {
       onStateRecompute == null ? void 0 : onStateRecompute(reason);
-      renderState = renderClientShell(store);
+      renderState = projectRenderState(store);
       return renderState;
     };
     const responseCommitter = createClientResponseCommitter({
@@ -3052,12 +985,12 @@ var EmpireGameplaySliceClient = function(exports) {
             pendingCommandIds: store.getUiState().pendingCommandIds.filter((pendingCommandId) => pendingCommandId !== command.id)
           });
           return responseCommitter.commitResponse(response, uiState.selectedDistrictId, command.id, operationSequence);
-        } catch (_error) {
+        } catch (error) {
           store.patchUiState({
             pendingCommandIds: store.getUiState().pendingCommandIds.filter((pendingCommandId) => pendingCommandId !== command.id)
           });
           return responseCommitter.commitTransportFailure(
-            createTransportFailureMessage("Unable to submit gameplay command to server.", _error),
+            createTransportFailureMessage("Unable to submit gameplay command to server.", error),
             command.id,
             operationSequence
           );
@@ -3070,6 +1003,993 @@ var EmpireGameplaySliceClient = function(exports) {
   const createTransportFailureMessage = (fallback, error) => {
     const detail = error instanceof Error ? error.message.trim() : "";
     return detail ? `${fallback} ${detail}` : fallback;
+  };
+  const createControllerClientApp = ({
+    transport,
+    onStateRecompute
+  }) => createClientAppCore({
+    transport,
+    projectRenderState: projectClientControllerState,
+    onStateRecompute
+  });
+  const createPlaceDefenseCommand = (input) => {
+    const district = input.slice.district;
+    if (!district || !district.placeDefense) {
+      throw new Error("Place defense command cannot be created from missing district/defense context.");
+    }
+    if (!district.placeDefense.enabled || !district.placeDefense.preferredItemId) {
+      throw new Error("Place defense command cannot be created from a disabled defense projection.");
+    }
+    return {
+      id: input.commandId,
+      type: "place-defense",
+      mode: input.slice.mode.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        targetDistrictId: district.districtId,
+        defenseItemId: district.placeDefense.preferredItemId,
+        amount: district.placeDefense.preferredAmount,
+        expectedTargetVersion: district.placeDefense.expectedTargetVersion
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
+  };
+  const createRemoveDefenseCommand = (input) => {
+    const district = input.slice.district;
+    if (!district || !district.removeDefense) {
+      throw new Error("Remove defense command cannot be created from missing district/defense context.");
+    }
+    if (!district.removeDefense.enabled || !district.removeDefense.preferredItemId) {
+      throw new Error("Remove defense command cannot be created from a disabled defense projection.");
+    }
+    return {
+      id: input.commandId,
+      type: "remove-defense",
+      mode: input.slice.mode.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        targetDistrictId: district.districtId,
+        defenseItemId: district.removeDefense.preferredItemId,
+        amount: district.removeDefense.preferredAmount,
+        expectedTargetVersion: district.removeDefense.expectedTargetVersion
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
+  };
+  const createAttackDistrictCommand = (input) => {
+    var _a, _b;
+    const district = input.slice.district;
+    const target = ((_a = district == null ? void 0 : district.targetActions) == null ? void 0 : _a.attackTargets.find((entry) => entry.districtId === input.targetDistrictId)) ?? (district == null ? void 0 : district.attackTargets.find((entry) => entry.districtId === input.targetDistrictId));
+    const corridor = (_b = input.slice.frontier) == null ? void 0 : _b.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
+    if (!district) {
+      throw new Error("Attack command cannot be created from missing district/target context.");
+    }
+    const expectedSourceVersion = input.expectedSourceVersion ?? (target == null ? void 0 : target.expectedSourceVersion);
+    const expectedTargetVersion = input.expectedTargetVersion ?? (target == null ? void 0 : target.expectedTargetVersion);
+    return {
+      id: input.commandId,
+      type: "attack-district",
+      mode: input.slice.mode.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        districtId: input.targetDistrictId,
+        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? (target == null ? void 0 : target.sourceDistrictId) ?? (() => {
+          throw new Error("Attack target is missing a source district.");
+        })(),
+        weapons: { ...input.weapons },
+        ...typeof expectedSourceVersion === "number" ? { expectedSourceVersion } : {},
+        ...typeof expectedTargetVersion === "number" ? { expectedTargetVersion } : {},
+        expectedConflictRevision: (target == null ? void 0 : target.expectedConflictRevision) ?? (() => {
+          throw new Error("Attack target is missing a conflict revision.");
+        })(),
+        ...corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {}
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
+  };
+  const createHeistDistrictCommand = (input) => {
+    var _a, _b, _c;
+    const district = input.slice.district;
+    const target = ((_a = district == null ? void 0 : district.targetActions) == null ? void 0 : _a.heistTargets.find((entry) => entry.districtId === input.targetDistrictId)) ?? ((_b = district == null ? void 0 : district.heistTargets) == null ? void 0 : _b.find((entry) => entry.districtId === input.targetDistrictId));
+    const styleFallback = { style: "balanced", defaultGangMembersSent: 1 };
+    const style = (target == null ? void 0 : target.styles.find((entry) => entry.style === "balanced")) ?? (target == null ? void 0 : target.styles[0]) ?? styleFallback;
+    const corridor = (_c = input.slice.frontier) == null ? void 0 : _c.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
+    if (!district) {
+      throw new Error("Heist command cannot be created from missing district/target context.");
+    }
+    return {
+      id: input.commandId,
+      type: "heist-district",
+      mode: input.slice.mode.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        targetDistrictId: input.targetDistrictId,
+        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? (target == null ? void 0 : target.sourceDistrictId) ?? (() => {
+          throw new Error("Heist target is missing a source district.");
+        })(),
+        style: style.style,
+        gangMembersSent: style.defaultGangMembersSent,
+        expectedConflictRevision: (target == null ? void 0 : target.expectedConflictRevision) ?? (() => {
+          throw new Error("Heist target is missing a conflict revision.");
+        })(),
+        ...(target == null ? void 0 : target.expectedTargetVersion) !== void 0 ? { expectedTargetVersion: target.expectedTargetVersion } : {},
+        ...(target == null ? void 0 : target.expectedSourceVersion) !== void 0 ? { expectedSourceVersion: target.expectedSourceVersion } : {},
+        ...corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {}
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
+  };
+  const createOccupyDistrictCommand = (input) => {
+    var _a, _b;
+    const district = input.slice.district;
+    const target = ((_a = district == null ? void 0 : district.targetActions) == null ? void 0 : _a.occupyTargets.find((entry) => entry.districtId === input.targetDistrictId)) ?? (district == null ? void 0 : district.occupyTargets.find((entry) => entry.districtId === input.targetDistrictId));
+    const corridor = (_b = input.slice.frontier) == null ? void 0 : _b.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
+    if (!district) {
+      throw new Error("Occupy command cannot be created from missing district/target context.");
+    }
+    return {
+      id: input.commandId,
+      type: "occupy-district",
+      mode: input.slice.mode.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        districtId: input.targetDistrictId,
+        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? (target == null ? void 0 : target.sourceDistrictId) ?? (() => {
+          throw new Error("Occupy target is missing a source district.");
+        })(),
+        expectedConflictRevision: (target == null ? void 0 : target.expectedConflictRevision) ?? (() => {
+          throw new Error("Occupy target is missing a conflict revision.");
+        })(),
+        ...input.encirclementConfirmationToken ? { encirclementConfirmationToken: input.encirclementConfirmationToken } : {},
+        ...corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {}
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
+  };
+  const createRobDistrictCommand = (input) => {
+    var _a, _b, _c;
+    const district = input.slice.district;
+    const target = ((_a = district == null ? void 0 : district.targetActions) == null ? void 0 : _a.robTargets.find((entry) => entry.districtId === input.targetDistrictId)) ?? ((_b = district == null ? void 0 : district.robTargets) == null ? void 0 : _b.find((entry) => entry.districtId === input.targetDistrictId));
+    const corridor = (_c = input.slice.frontier) == null ? void 0 : _c.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
+    if (!district) {
+      throw new Error("Rob command cannot be created from missing district/target context.");
+    }
+    return {
+      id: input.commandId,
+      type: "rob-district",
+      mode: input.slice.mode.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        targetDistrictId: input.targetDistrictId,
+        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? (target == null ? void 0 : target.sourceDistrictId) ?? (() => {
+          throw new Error("Rob target is missing a source district.");
+        })(),
+        expectedConflictRevision: (target == null ? void 0 : target.expectedConflictRevision) ?? (() => {
+          throw new Error("Rob target is missing a conflict revision.");
+        })(),
+        ...(target == null ? void 0 : target.expectedLootPoolRevision) !== void 0 ? { expectedLootPoolRevision: target.expectedLootPoolRevision } : {},
+        ...corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {}
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
+  };
+  const createSelectSpawnDistrictCommand = (input) => {
+    var _a;
+    const spawnDistrict = (_a = input.slice.spawnSelection) == null ? void 0 : _a.districts.find(
+      (district) => district.districtId === input.districtId
+    );
+    if (!spawnDistrict || spawnDistrict.status !== "available") {
+      throw new Error("Spawn selection commands can only be created from available server-fed spawn districts.");
+    }
+    return {
+      id: input.commandId,
+      type: "select-spawn-district",
+      mode: input.slice.mode.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        districtId: input.districtId
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
+  };
+  const createSpyDistrictCommand = (input) => {
+    var _a, _b;
+    const district = input.slice.district;
+    const target = ((_a = district == null ? void 0 : district.targetActions) == null ? void 0 : _a.spyTargets.find((entry) => entry.districtId === input.targetDistrictId)) ?? (district == null ? void 0 : district.spyTargets.find((entry) => entry.districtId === input.targetDistrictId));
+    const corridor = (_b = input.slice.frontier) == null ? void 0 : _b.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
+    if (!district || !target) {
+      throw new Error("Spy command cannot be created from missing district/target context.");
+    }
+    return {
+      id: input.commandId,
+      type: "spy-district",
+      mode: input.slice.mode.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        districtId: input.targetDistrictId,
+        sourceDistrictId: (corridor == null ? void 0 : corridor.sourceDistrictId) ?? target.sourceDistrictId,
+        ...corridor ? { routeDistrictId: corridor.routeDistrictId, expectedRouteVersion: corridor.routeVersion } : {}
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
+  };
+  const createPlaceTrapCommand = (input) => {
+    var _a;
+    const district = input.slice.district;
+    if (!(district == null ? void 0 : district.isOwnedByPlayer) || !((_a = district.trap) == null ? void 0 : _a.enabled)) {
+      throw new Error("Trap command cannot be created from missing district/trap context.");
+    }
+    const relocation = district.trap.relocationSource;
+    if (relocation == null ? void 0 : relocation.canRelocate) {
+      return {
+        id: input.commandId,
+        type: "relocate-trap",
+        mode: input.slice.mode.mode,
+        playerId: input.slice.player.playerId,
+        serverInstanceId: input.slice.player.instanceId,
+        issuedAt: input.issuedAt,
+        payload: {
+          trapId: relocation.trapId,
+          sourceDistrictId: relocation.districtId,
+          targetDistrictId: district.districtId,
+          expectedSourceVersion: relocation.expectedSourceVersion,
+          expectedTargetVersion: relocation.expectedTargetVersion,
+          expectedTrapVersion: relocation.expectedTrapVersion
+        },
+        clientRequestId: input.clientRequestId ?? null
+      };
+    }
+    return {
+      id: input.commandId,
+      type: "place-trap",
+      mode: input.slice.mode.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        districtId: district.districtId
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
+  };
+  const createCollectProductionCommand = (input) => ({
+    id: input.commandId,
+    type: "collect-production",
+    mode: input.mode,
+    playerId: input.playerId,
+    serverInstanceId: input.serverInstanceId,
+    issuedAt: input.issuedAt,
+    payload: {
+      districtId: input.districtId,
+      buildingId: input.buildingId,
+      ...input.resourceKey === void 0 ? {} : { resourceKey: input.resourceKey }
+    },
+    clientRequestId: input.clientRequestId ?? null
+  });
+  const createCraftItemCommand = (input) => {
+    var _a, _b, _c, _d;
+    const district = input.slice.district;
+    const slot = district == null ? void 0 : district.slots.find((candidate) => candidate.buildingId === input.buildingId);
+    const craftOption = slot == null ? void 0 : slot.craftOptions.find((candidate) => candidate.recipeId === input.recipeId && candidate.canCraft);
+    const building = district == null ? void 0 : district.buildings.find((candidate) => candidate.buildingId === input.buildingId);
+    const productionLine = [
+      ...((_a = building == null ? void 0 : building.pharmacy) == null ? void 0 : _a.lines) ?? [],
+      ...((_b = building == null ? void 0 : building.drugLab) == null ? void 0 : _b.lines) ?? [],
+      ...((_c = building == null ? void 0 : building.factory) == null ? void 0 : _c.productionLines) ?? [],
+      ...((_d = building == null ? void 0 : building.armory) == null ? void 0 : _d.productionLines) ?? []
+    ].find((candidate) => candidate.recipeId === input.recipeId && candidate.canStart);
+    if (!district || !craftOption && !productionLine) {
+      throw new Error("Craft commands can only be created from enabled craft options present in the current server-fed slice.");
+    }
+    return {
+      id: input.commandId,
+      type: "craft-item",
+      mode: input.slice.player.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        districtId: district.districtId,
+        buildingId: input.buildingId,
+        recipeId: (craftOption == null ? void 0 : craftOption.recipeId) ?? productionLine.recipeId,
+        quantity: input.quantity ?? 1
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
+  };
+  const createRunBuildingActionCommand = (input) => {
+    const district = input.slice.district;
+    const building = district == null ? void 0 : district.buildings.find((candidate) => candidate.buildingId === input.buildingId);
+    const action = building == null ? void 0 : building.actions.find((candidate) => candidate.actionId === input.actionId && candidate.enabled);
+    if (!district || !building || !action) {
+      throw new Error("Building action commands can only be created from enabled actions present in the current server-fed slice.");
+    }
+    return {
+      id: input.commandId,
+      type: "run-building-action",
+      mode: input.slice.player.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        districtId: district.districtId,
+        buildingId: building.buildingId,
+        actionId: action.actionId,
+        ...input.dealerSlotId ? { dealerSlotId: input.dealerSlotId } : {},
+        ...input.targetCategory ? { targetCategory: input.targetCategory } : {},
+        ...input.category ? { category: input.category } : {},
+        ...input.mode ? { mode: input.mode } : {},
+        ...input.investmentCleanCash !== void 0 ? { investmentCleanCash: input.investmentCleanCash } : {},
+        ...input.investment !== void 0 ? { investment: input.investment } : {},
+        ...input.targetZone ? { targetZone: input.targetZone } : {},
+        ...input.itemId ? { itemId: input.itemId } : {},
+        ...input.amount !== void 0 ? { amount: input.amount } : {}
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
+  };
+  const createCancelProductionCommand = (input) => {
+    var _a, _b, _c, _d;
+    const district = input.slice.district;
+    const building = district == null ? void 0 : district.buildings.find((candidate) => candidate.buildingId === input.buildingId);
+    const lines = ((_a = building == null ? void 0 : building.pharmacy) == null ? void 0 : _a.lines) ?? ((_b = building == null ? void 0 : building.drugLab) == null ? void 0 : _b.lines) ?? ((_c = building == null ? void 0 : building.factory) == null ? void 0 : _c.productionLines) ?? ((_d = building == null ? void 0 : building.armory) == null ? void 0 : _d.productionLines) ?? [];
+    const line = lines.find(
+      (candidate) => candidate.recipeId === input.recipeId && candidate.canCancelWaiting
+    );
+    if (!district || !building || !line) {
+      throw new Error(
+        "Production cancellation commands can only be created from cancellable lines present in the current server-fed slice."
+      );
+    }
+    const command = {
+      id: input.commandId,
+      mode: input.slice.player.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        districtId: district.districtId,
+        buildingId: building.buildingId,
+        recipeId: line.recipeId
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
+    if (building.buildingTypeId === "pharmacy") {
+      return { ...command, type: "cancel-pharmacy-production" };
+    }
+    if (building.buildingTypeId === "drug_lab") {
+      return { ...command, type: "cancel-drug-lab-production" };
+    }
+    if (building.buildingTypeId === "factory" || building.buildingTypeId === "armory") {
+      return { ...command, type: "cancel-production-line" };
+    }
+    throw new Error("The selected building does not expose a cancellable production command.");
+  };
+  const canUseOwnedDistrictBuilding = (slice, buildingId) => {
+    const district = slice == null ? void 0 : slice.district;
+    if (!district) return false;
+    const ownsDistrict = district.isOwnedByPlayer || district.ownerPlayerId === slice.player.playerId;
+    return ownsDistrict && district.buildings.some((building) => building.buildingId === buildingId);
+  };
+  const createBuildingSurfaceCommand = ({
+    action,
+    slice,
+    districtId,
+    mode,
+    issuedAt,
+    createCommandId
+  }) => {
+    if (!canUseOwnedDistrictBuilding(slice, action.buildingId)) return null;
+    switch (action.kind) {
+      case "building-action":
+        return createRunBuildingActionCommand({
+          commandId: createCommandId("command:building-action"),
+          slice,
+          buildingId: action.buildingId,
+          actionId: action.actionId,
+          dealerSlotId: action.dealerSlotId,
+          targetCategory: readStringValue(action, "targetCategory"),
+          category: readStringValue(action, "category"),
+          mode: readStringValue(action, "mode"),
+          investmentCleanCash: readNumberValue(action, "investmentCleanCash"),
+          investment: readNumberValue(action, "investment"),
+          targetZone: readStringValue(action, "targetZone"),
+          itemId: action.itemId,
+          amount: action.amount,
+          issuedAt
+        });
+      case "collect":
+        return createCollectProductionCommand({
+          commandId: createCommandId("command:collect"),
+          serverInstanceId: slice.player.instanceId,
+          playerId: slice.player.playerId,
+          mode,
+          districtId,
+          buildingId: action.buildingId,
+          resourceKey: action.resourceKey,
+          issuedAt
+        });
+      case "craft":
+        return createCraftItemCommand({
+          commandId: createCommandId("command:craft"),
+          slice,
+          buildingId: action.buildingId,
+          recipeId: action.recipeId,
+          quantity: action.quantity,
+          issuedAt
+        });
+      case "cancel-production":
+        return createCancelProductionCommand({
+          commandId: createCommandId("command:cancel-production"),
+          slice,
+          buildingId: action.buildingId,
+          recipeId: action.recipeId,
+          issuedAt
+        });
+    }
+  };
+  const readStringValue = (action, key) => {
+    const value = action[key];
+    return typeof value === "string" && value.trim() ? value : void 0;
+  };
+  const readNumberValue = (action, key) => {
+    const value = action[key];
+    return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : void 0;
+  };
+  const resolveClientSurfaceAction = (target) => {
+    if (!target) {
+      return null;
+    }
+    const districtButton = target.closest("button[data-district-id]");
+    if (districtButton == null ? void 0 : districtButton.dataset.districtId) {
+      return { kind: "select-district", districtId: districtButton.dataset.districtId };
+    }
+    const spawnButton = target.closest("button[data-select-spawn-district-id]");
+    if (spawnButton == null ? void 0 : spawnButton.dataset.selectSpawnDistrictId) {
+      return { kind: "select-spawn", districtId: spawnButton.dataset.selectSpawnDistrictId };
+    }
+    const attackButton = target.closest("button[data-attack-target-id]");
+    if (attackButton == null ? void 0 : attackButton.dataset.attackTargetId) {
+      return { kind: "attack", targetDistrictId: attackButton.dataset.attackTargetId };
+    }
+    const robButton = target.closest("button[data-rob-target-id]");
+    if (robButton == null ? void 0 : robButton.dataset.robTargetId) {
+      return { kind: "rob", targetDistrictId: robButton.dataset.robTargetId };
+    }
+    const heistButton = target.closest("button[data-heist-target-id]");
+    if (heistButton == null ? void 0 : heistButton.dataset.heistTargetId) {
+      return { kind: "heist", targetDistrictId: heistButton.dataset.heistTargetId };
+    }
+    const spyButton = target.closest("button[data-spy-target-id]");
+    if (spyButton == null ? void 0 : spyButton.dataset.spyTargetId) {
+      return { kind: "spy", targetDistrictId: spyButton.dataset.spyTargetId };
+    }
+    const occupyButton = target.closest("button[data-occupy-target-id]");
+    if (occupyButton == null ? void 0 : occupyButton.dataset.occupyTargetId) {
+      return { kind: "occupy", targetDistrictId: occupyButton.dataset.occupyTargetId };
+    }
+    const trapButton = target.closest("button[data-place-trap]");
+    if (trapButton) return { kind: "place-trap" };
+    const placeDefenseButton = target.closest("button[data-place-defense]");
+    if (placeDefenseButton) return { kind: "place-defense" };
+    const removeDefenseButton = target.closest("button[data-remove-defense]");
+    if (removeDefenseButton) return { kind: "remove-defense" };
+    const collectButton = target.closest("button[data-collect-building-id]");
+    if (collectButton == null ? void 0 : collectButton.dataset.collectBuildingId) {
+      return {
+        kind: "collect",
+        buildingId: collectButton.dataset.collectBuildingId,
+        ...collectButton.dataset.collectResourceKey ? { resourceKey: collectButton.dataset.collectResourceKey } : {}
+      };
+    }
+    const cancelProductionButton = target.closest(
+      "button[data-cancel-production-building-id][data-cancel-production-recipe-id]"
+    );
+    if ((cancelProductionButton == null ? void 0 : cancelProductionButton.dataset.cancelProductionBuildingId) && (cancelProductionButton == null ? void 0 : cancelProductionButton.dataset.cancelProductionRecipeId)) {
+      return {
+        kind: "cancel-production",
+        buildingId: cancelProductionButton.dataset.cancelProductionBuildingId,
+        recipeId: cancelProductionButton.dataset.cancelProductionRecipeId
+      };
+    }
+    const buildingAction = resolveBuildingAction(target);
+    if (buildingAction) return buildingAction;
+    const craftButton = target.closest(
+      "button[data-craft-building-id][data-craft-recipe-id]"
+    );
+    if ((craftButton == null ? void 0 : craftButton.dataset.craftBuildingId) && (craftButton == null ? void 0 : craftButton.dataset.craftRecipeId)) {
+      return {
+        kind: "craft",
+        buildingId: craftButton.dataset.craftBuildingId,
+        recipeId: craftButton.dataset.craftRecipeId,
+        ...toPositiveInteger(craftButton.dataset.craftQuantity) === void 0 ? {} : { quantity: toPositiveInteger(craftButton.dataset.craftQuantity) }
+      };
+    }
+    const buildingCard = target.closest("article[data-building-id][data-building-type]");
+    return (buildingCard == null ? void 0 : buildingCard.dataset.buildingId) ? { kind: "open-building", buildingId: buildingCard.dataset.buildingId } : null;
+  };
+  const resolveBuildingAction = (target) => {
+    var _a, _b, _c;
+    const button = target.closest(
+      "button[data-building-action-building-id][data-building-action-id]"
+    );
+    if (!(button == null ? void 0 : button.dataset.buildingActionBuildingId) || !(button == null ? void 0 : button.dataset.buildingActionId)) {
+      return null;
+    }
+    const card = button.closest("article[data-building-id][data-building-type]");
+    const controls = button.closest("[data-building-action-controls]");
+    const inputScope = controls ?? card;
+    const slotInput = (_a = inputScope == null ? void 0 : inputScope.querySelector) == null ? void 0 : _a.call(inputScope, "select[data-dealer-slot-input]");
+    const itemInput = (_b = inputScope == null ? void 0 : inputScope.querySelector) == null ? void 0 : _b.call(inputScope, "select[data-dealer-item-input]");
+    const amountInput = (_c = inputScope == null ? void 0 : inputScope.querySelector) == null ? void 0 : _c.call(inputScope, "input[data-dealer-amount-input]");
+    const inputValues = collectBuildingActionInputValues(inputScope);
+    const amount = Number((amountInput == null ? void 0 : amountInput.value) || (amountInput == null ? void 0 : amountInput.dataset.value) || (amountInput == null ? void 0 : amountInput.dataset.dealerAmountValue) || "");
+    return {
+      kind: "building-action",
+      buildingId: button.dataset.buildingActionBuildingId,
+      actionId: button.dataset.buildingActionId,
+      dealerSlotId: button.dataset.dealerSlotId || (slotInput == null ? void 0 : slotInput.value) || (slotInput == null ? void 0 : slotInput.dataset.value),
+      itemId: button.dataset.dealerItemId || (itemInput == null ? void 0 : itemInput.value) || (itemInput == null ? void 0 : itemInput.dataset.value),
+      amount: Number.isFinite(amount) && amount > 0 ? amount : readNumberInput(inputValues, "amount"),
+      ...inputValues
+    };
+  };
+  const collectBuildingActionInputValues = (buildingCard) => {
+    const inputIds = [
+      "targetCategory",
+      "category",
+      "mode",
+      "investmentCleanCash",
+      "investment",
+      "targetZone",
+      "amount"
+    ];
+    return Object.fromEntries(inputIds.map((inputId) => {
+      const element = findBuildingActionInput(buildingCard, inputId);
+      const value = (element == null ? void 0 : element.value) || (element == null ? void 0 : element.dataset.value);
+      const parsed = ["amount", "investment", "investmentCleanCash"].includes(inputId) ? toPositiveNumber(value) : value;
+      return [inputId, parsed || void 0];
+    }));
+  };
+  const findBuildingActionInput = (buildingCard, inputId) => {
+    var _a;
+    const inputs = (_a = buildingCard == null ? void 0 : buildingCard.querySelectorAll) == null ? void 0 : _a.call(buildingCard, "[data-building-action-input]");
+    if (!inputs) {
+      return null;
+    }
+    return Array.from(inputs).find((element) => element.dataset.buildingActionInput === inputId) ?? null;
+  };
+  const readNumberInput = (values, key) => {
+    const value = values[key];
+    return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : void 0;
+  };
+  const toPositiveNumber = (value) => {
+    const parsed = Number(value || "");
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : void 0;
+  };
+  const toPositiveInteger = (value) => {
+    const parsed = Number(value || "");
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : void 0;
+  };
+  const createControllerSurfaceActionRouter = (options) => ({
+    handleTarget: async (target) => {
+      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
+      const action = resolveClientSurfaceAction(target);
+      if (!action) {
+        return null;
+      }
+      if (action.kind === "select-district") {
+        if ((_a = options.isDistrictSelectionBlocked) == null ? void 0 : _a.call(options)) {
+          return null;
+        }
+        return options.client.selectDistrict(action.districtId);
+      }
+      if (action.kind === "select-spawn") {
+        const slice2 = options.client.getGameplaySlice();
+        if (!slice2) return null;
+        const issuedAt2 = (options.getIssuedAt ?? (() => (/* @__PURE__ */ new Date()).toISOString()))();
+        return options.client.dispatch(
+          createSelectSpawnDistrictCommand({
+            commandId: options.createCommandId("command:select-spawn"),
+            slice: slice2,
+            districtId: action.districtId,
+            issuedAt: issuedAt2
+          })
+        );
+      }
+      if (action.kind === "open-building") {
+        const slice2 = options.client.getGameplaySlice();
+        if (!canUseOwnedDistrictBuilding(slice2, action.buildingId)) return null;
+        return options.client.selectBuilding(action.buildingId);
+      }
+      const slice = options.client.getGameplaySlice();
+      const district = slice == null ? void 0 : slice.district;
+      if (!slice || !district) {
+        return null;
+      }
+      const issuedAt = (options.getIssuedAt ?? (() => (/* @__PURE__ */ new Date()).toISOString()))();
+      const mode = slice.mode.mode;
+      switch (action.kind) {
+        case "attack": {
+          const target2 = ((_b = district.targetActions) == null ? void 0 : _b.attackTargets.find((candidate) => candidate.districtId === action.targetDistrictId)) ?? district.attackTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
+          const weapons = (target2 == null ? void 0 : target2.selectedLoadout) ?? {};
+          const hasSelectedWeapon = Object.values(weapons).some((amount) => Number(amount) > 0);
+          if (!(target2 == null ? void 0 : target2.enabled) || !hasSelectedWeapon) return null;
+          return options.client.dispatch(
+            createAttackDistrictCommand({
+              commandId: options.createCommandId("command:attack"),
+              slice,
+              targetDistrictId: action.targetDistrictId,
+              issuedAt,
+              weapons,
+              expectedSourceVersion: target2.expectedSourceVersion,
+              expectedTargetVersion: target2.expectedTargetVersion
+            })
+          );
+        }
+        case "rob": {
+          const target2 = ((_c = district.targetActions) == null ? void 0 : _c.robTargets.find((candidate) => candidate.districtId === action.targetDistrictId)) ?? ((_d = district.robTargets) == null ? void 0 : _d.find((candidate) => candidate.districtId === action.targetDistrictId));
+          if (!(target2 == null ? void 0 : target2.enabled)) return null;
+          return options.client.dispatch(
+            createRobDistrictCommand({
+              commandId: options.createCommandId("command:rob"),
+              slice,
+              targetDistrictId: action.targetDistrictId,
+              issuedAt
+            })
+          );
+        }
+        case "heist": {
+          const target2 = ((_e = district.targetActions) == null ? void 0 : _e.heistTargets.find((candidate) => candidate.districtId === action.targetDistrictId)) ?? ((_f = district.heistTargets) == null ? void 0 : _f.find((candidate) => candidate.districtId === action.targetDistrictId));
+          if (!(target2 == null ? void 0 : target2.enabled)) return null;
+          return options.client.dispatch(
+            createHeistDistrictCommand({
+              commandId: options.createCommandId("command:heist"),
+              slice,
+              targetDistrictId: action.targetDistrictId,
+              issuedAt
+            })
+          );
+        }
+        case "spy": {
+          const target2 = ((_g = district.targetActions) == null ? void 0 : _g.spyTargets.find((candidate) => candidate.districtId === action.targetDistrictId)) ?? district.spyTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
+          if (!(target2 == null ? void 0 : target2.enabled)) return null;
+          return options.client.dispatch(
+            createSpyDistrictCommand({
+              commandId: options.createCommandId("command:spy"),
+              slice,
+              targetDistrictId: action.targetDistrictId,
+              issuedAt
+            })
+          );
+        }
+        case "occupy": {
+          const target2 = ((_h = district.targetActions) == null ? void 0 : _h.occupyTargets.find((candidate) => candidate.districtId === action.targetDistrictId)) ?? district.occupyTargets.find((candidate) => candidate.districtId === action.targetDistrictId);
+          if (!(target2 == null ? void 0 : target2.enabled)) return null;
+          return options.client.dispatch(
+            createOccupyDistrictCommand({
+              commandId: options.createCommandId("command:occupy"),
+              slice,
+              targetDistrictId: action.targetDistrictId,
+              issuedAt
+            })
+          );
+        }
+        case "place-trap":
+          if (!district.isOwnedByPlayer || !((_i = district.trap) == null ? void 0 : _i.enabled)) return null;
+          return options.client.dispatch(
+            createPlaceTrapCommand({
+              commandId: options.createCommandId("command:trap"),
+              slice,
+              issuedAt
+            })
+          );
+        case "place-defense":
+          if (!((_j = district.placeDefense) == null ? void 0 : _j.enabled)) return null;
+          return options.client.dispatch(
+            createPlaceDefenseCommand({
+              commandId: options.createCommandId("command:place-defense"),
+              slice,
+              issuedAt
+            })
+          );
+        case "remove-defense":
+          if (!((_k = district.removeDefense) == null ? void 0 : _k.enabled)) return null;
+          return options.client.dispatch(
+            createRemoveDefenseCommand({
+              commandId: options.createCommandId("command:remove-defense"),
+              slice,
+              issuedAt
+            })
+          );
+        case "building-action":
+        case "collect":
+        case "craft":
+        case "cancel-production": {
+          const command = createBuildingSurfaceCommand({
+            action,
+            slice,
+            districtId: district.districtId,
+            mode,
+            issuedAt,
+            createCommandId: options.createCommandId
+          });
+          return command ? options.client.dispatch(command) : null;
+        }
+        default:
+          return null;
+      }
+    }
+  });
+  const createFetchClientTransport = (options) => {
+    const fetchJson = options.fetchImpl ?? globalThis.fetch;
+    const endpointBase = options.endpointBase.replace(/\/+$/u, "");
+    const storage = options.storage ?? resolveBrowserStorage();
+    let consumedJoinTicket = null;
+    const post = async (route, request) => {
+      if (!fetchJson) {
+        throw new Error("Fetch transport is unavailable in this runtime.");
+      }
+      const requestWithTokens = attachStoredGameplaySliceTokens(route, request, storage);
+      const requestJoinTicket = readJoinTicket(requestWithTokens);
+      const shouldStripConsumedJoinTicket = Boolean(
+        consumedJoinTicket && requestJoinTicket === consumedJoinTicket
+      );
+      const requestForEndpoint = shouldStripConsumedJoinTicket ? omitJoinTicket(requestWithTokens) : requestWithTokens;
+      const endpointRoute = resolveEndpointRoute(route, requestForEndpoint);
+      const endpoint = `${endpointBase}/${endpointRoute}`;
+      const response = await fetchJson(endpoint, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        credentials: "same-origin",
+        body: JSON.stringify(requestForEndpoint)
+      });
+      if (!response.ok) {
+        throw new Error(`Gameplay slice request failed: POST ${endpoint} returned HTTP ${response.status}.`);
+      }
+      const payload = await response.json();
+      persistGameplaySliceTokens(requestForEndpoint, payload, storage);
+      if (endpointRoute === "join" && payload.accepted && requestJoinTicket) {
+        consumedJoinTicket = requestJoinTicket;
+      }
+      return payload;
+    };
+    return {
+      load: (request) => post("load", request),
+      send: (request) => post("submit", request)
+    };
+  };
+  const attachStoredGameplaySliceTokens = (route, request, storage) => {
+    const snapshotKey = createGameplaySliceTokenStorageKey("snapshot", request);
+    const snapshotToken = snapshotKey ? readToken(storage, snapshotKey) : null;
+    return snapshotToken ? {
+      ...request,
+      snapshotToken
+    } : request;
+  };
+  const resolveEndpointRoute = (route, request) => {
+    if (route !== "load") {
+      return route;
+    }
+    const record = request;
+    return String(record.joinTicket ?? "").trim() ? "join" : "load";
+  };
+  const readJoinTicket = (request) => {
+    const ticket = String((request == null ? void 0 : request.joinTicket) ?? "").trim();
+    return ticket || null;
+  };
+  const omitJoinTicket = (request) => {
+    const { joinTicket: _joinTicket, ...rest } = request;
+    return rest;
+  };
+  const persistGameplaySliceTokens = (request, response, storage) => {
+    const snapshotKey = createGameplaySliceTokenStorageKey("snapshot", request);
+    const snapshotToken = String(response.snapshotToken ?? "").trim();
+    if (snapshotKey && snapshotToken) {
+      writeToken(storage, snapshotKey, snapshotToken);
+    }
+  };
+  const readToken = (storage, key) => {
+    try {
+      return (storage == null ? void 0 : storage.getItem(key)) ?? null;
+    } catch (_error) {
+      return null;
+    }
+  };
+  const writeToken = (storage, key, token) => {
+    try {
+      storage == null ? void 0 : storage.setItem(key, token);
+    } catch (_error) {
+    }
+  };
+  const createGameplaySliceTokenStorageKey = (kind, request) => {
+    var _a, _b;
+    const record = request;
+    const serverInstanceId = String(record.serverInstanceId ?? ((_a = record.command) == null ? void 0 : _a.serverInstanceId) ?? "").trim();
+    const playerId = String(record.playerId ?? ((_b = record.command) == null ? void 0 : _b.playerId) ?? "").trim();
+    return serverInstanceId && playerId ? `empire:gameplay-slice:${kind}:${serverInstanceId}:${playerId}` : null;
+  };
+  const resolveBrowserStorage = () => {
+    try {
+      return globalThis.sessionStorage ?? null;
+    } catch (_error) {
+      return null;
+    }
+  };
+  const browserTimerDriver = {
+    setInterval: (callback, intervalMs) => globalThis.setInterval(callback, intervalMs),
+    clearInterval: (handle) => globalThis.clearInterval(handle)
+  };
+  const createGameplaySlicePoller = ({
+    load,
+    getRequest,
+    intervalMs,
+    enabled = true,
+    timerDriver = browserTimerDriver,
+    visibilityDocument = typeof document === "undefined" ? null : document,
+    intervalMultiplier = 1,
+    maxErrorIntervalMultiplier = 4,
+    onRunningChange,
+    onAttempt,
+    onSkipped,
+    onSuccess,
+    getResponseError,
+    onResponse,
+    onError
+  }) => {
+    var _a;
+    const baseIntervalMs = Math.max(1, Math.floor(intervalMs * Math.max(1, intervalMultiplier)));
+    const maxBackoffMultiplier = Math.max(1, Math.floor(maxErrorIntervalMultiplier));
+    let intervalHandle = null;
+    let currentIntervalMs = baseIntervalMs;
+    let consecutiveErrors = 0;
+    let refreshInProgress = false;
+    let pollingEnabled = enabled;
+    let destroyed = false;
+    const isPausedForVisibility = () => Boolean(visibilityDocument == null ? void 0 : visibilityDocument.hidden);
+    const stop = () => {
+      if (intervalHandle === null) {
+        return;
+      }
+      timerDriver.clearInterval(intervalHandle);
+      intervalHandle = null;
+      onRunningChange == null ? void 0 : onRunningChange(-1);
+    };
+    const startInterval = () => {
+      if (!pollingEnabled || destroyed || intervalHandle !== null || isPausedForVisibility()) {
+        return;
+      }
+      intervalHandle = timerDriver.setInterval(() => {
+        if (isPausedForVisibility()) {
+          stop();
+          return;
+        }
+        void refreshOnce();
+      }, currentIntervalMs);
+      onRunningChange == null ? void 0 : onRunningChange(1);
+    };
+    const restartWithInterval = (nextIntervalMs) => {
+      const wasRunning = intervalHandle !== null;
+      stop();
+      currentIntervalMs = Math.max(1, Math.floor(nextIntervalMs));
+      if (wasRunning) {
+        startInterval();
+      }
+    };
+    const syncErrorBackoff = () => {
+      const multiplier = Math.min(maxBackoffMultiplier, 2 ** consecutiveErrors);
+      const nextIntervalMs = baseIntervalMs * multiplier;
+      if (nextIntervalMs !== currentIntervalMs) {
+        restartWithInterval(nextIntervalMs);
+      }
+    };
+    const resetErrorBackoff = () => {
+      if (consecutiveErrors === 0 && currentIntervalMs === baseIntervalMs) {
+        return;
+      }
+      consecutiveErrors = 0;
+      if (currentIntervalMs !== baseIntervalMs) {
+        restartWithInterval(baseIntervalMs);
+      }
+    };
+    const refreshOnce = async () => {
+      if (refreshInProgress) {
+        onSkipped == null ? void 0 : onSkipped("in-progress");
+        return null;
+      }
+      if (destroyed) {
+        onSkipped == null ? void 0 : onSkipped("destroyed");
+        return null;
+      }
+      if (isPausedForVisibility()) {
+        onSkipped == null ? void 0 : onSkipped("hidden");
+        return null;
+      }
+      const request = getRequest();
+      if (!request) {
+        onSkipped == null ? void 0 : onSkipped("missing-request");
+        return null;
+      }
+      refreshInProgress = true;
+      onAttempt == null ? void 0 : onAttempt();
+      try {
+        const response = await load(request);
+        const responseError = (getResponseError == null ? void 0 : getResponseError(response)) ?? null;
+        if (responseError !== null) {
+          throw responseError;
+        }
+        await (onResponse == null ? void 0 : onResponse(response));
+        onSuccess == null ? void 0 : onSuccess();
+        resetErrorBackoff();
+        return response;
+      } catch (error) {
+        consecutiveErrors += 1;
+        onError == null ? void 0 : onError(error);
+        syncErrorBackoff();
+        return null;
+      } finally {
+        refreshInProgress = false;
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (isPausedForVisibility()) {
+        stop();
+        return;
+      }
+      if (!pollingEnabled || destroyed) {
+        return;
+      }
+      void refreshOnce();
+      startInterval();
+    };
+    (_a = visibilityDocument == null ? void 0 : visibilityDocument.addEventListener) == null ? void 0 : _a.call(visibilityDocument, "visibilitychange", handleVisibilityChange);
+    return {
+      start: () => {
+        if (!pollingEnabled || intervalHandle !== null) {
+          return;
+        }
+        startInterval();
+      },
+      stop,
+      destroy: () => {
+        var _a2;
+        if (destroyed) {
+          return;
+        }
+        destroyed = true;
+        stop();
+        (_a2 = visibilityDocument == null ? void 0 : visibilityDocument.removeEventListener) == null ? void 0 : _a2.call(visibilityDocument, "visibilitychange", handleVisibilityChange);
+      },
+      isRunning: () => intervalHandle !== null,
+      isEnabled: () => pollingEnabled,
+      setEnabled: (nextEnabled) => {
+        pollingEnabled = nextEnabled;
+        if (!pollingEnabled) {
+          stop();
+        } else {
+          startInterval();
+        }
+      },
+      refreshOnce
+    };
   };
   const resolveGameplaySliceBootstrapRequest = (dataset, _storage = null) => createExplicitRequest(dataset);
   const createExplicitRequest = (dataset) => {
@@ -3112,47 +2032,11 @@ var EmpireGameplaySliceClient = function(exports) {
     const normalized = String(value ?? "").trim().toLowerCase();
     return normalized.length > 0 ? normalized : null;
   };
-  const MOBILE_DISTRICT_SHEET_SCROLL_MEDIA = "(max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse)";
-  const shouldLockDistrictSheetScroll = () => {
-    var _a;
-    return !(typeof window !== "undefined" && ((_a = window.matchMedia) == null ? void 0 : _a.call(window, MOBILE_DISTRICT_SHEET_SCROLL_MEDIA).matches));
-  };
-  const createDistrictSheetOverlayController = () => {
-    let isDistrictSheetOpen = false;
-    const syncFromState = (state) => {
-      var _a;
-      const shouldShowDistrictSheet = Boolean((_a = state.districtPanel) == null ? void 0 : _a.districtId);
-      if (shouldShowDistrictSheet && !isDistrictSheetOpen) {
-        openOverlay("district_sheet", { lockScroll: shouldLockDistrictSheetScroll() });
-        isDistrictSheetOpen = true;
-        return;
-      }
-      if (!shouldShowDistrictSheet && isDistrictSheetOpen && getTopOverlay() === "district_sheet") {
-        closeOverlay();
-        isDistrictSheetOpen = false;
-      }
-    };
-    const closeOnDestroy = () => {
-      if (isDistrictSheetOpen && getTopOverlay() === "district_sheet") {
-        closeOverlay();
-      }
-      isDistrictSheetOpen = false;
-    };
-    const closeFromExternal = (reason) => {
-      if (getTopOverlay() === "district_sheet") {
-        closeOverlay();
-      }
-      isDistrictSheetOpen = false;
-    };
-    return {
-      syncFromState,
-      closeFromExternal,
-      closeOnDestroy,
-      isOpen: () => isDistrictSheetOpen,
-      markClosedByBackdrop: () => {
-        isDistrictSheetOpen = false;
-      }
-    };
+  const GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS = 1e4;
+  const createBrowserCommandId = (prefix) => `${prefix}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
+  const parseGameplaySlicePollingIntervalMs = (value) => {
+    const intervalMs = Number.parseInt(String(value ?? ""), 10);
+    return Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS;
   };
   const getPerformanceMetrics = () => {
     var _a;
@@ -3260,38 +2144,6 @@ var EmpireGameplaySliceClient = function(exports) {
       metrics.gameplayPollSkippedCount = (metrics.gameplayPollSkippedCount ?? 0) + 1;
     }
   });
-  const createGameplaySliceVisibilityRuntime = ({ root }) => {
-    let cooldownTimerId = null;
-    const stopCooldownTimer = () => {
-      if (cooldownTimerId === null) return;
-      window.clearInterval(cooldownTimerId);
-      cooldownTimerId = null;
-      trackIntervalMetric("gameplay-slice-cooldowns", -1);
-    };
-    const startCooldownTimer = () => {
-      if (cooldownTimerId !== null || document.hidden) return;
-      cooldownTimerId = window.setInterval(() => refreshLiveCooldownLabels(root), 1e3);
-      trackIntervalMetric("gameplay-slice-cooldowns", 1);
-    };
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        stopCooldownTimer();
-        return;
-      }
-      refreshLiveCooldownLabels(root);
-      startCooldownTimer();
-    };
-    return {
-      start() {
-        startCooldownTimer();
-        document.addEventListener("visibilitychange", handleVisibilityChange);
-      },
-      destroy() {
-        stopCooldownTimer();
-        document.removeEventListener("visibilitychange", handleVisibilityChange);
-      }
-    };
-  };
   const setGameplayRuntimeMarker = (root, marker, details = {}) => {
     var _a, _b, _c, _d;
     root.dataset.gameplayRuntime = marker;
@@ -3428,12 +2280,6 @@ var EmpireGameplaySliceClient = function(exports) {
       error: sanitizeDiagnosticText(message, 240)
     });
   };
-  const renderGameplaySliceDiagnostic = (endpoint, message) => [
-    `<strong>Server-authoritative gameplay slice unavailable</strong>`,
-    `<span>Gameplay remains unavailable until the live server reconnects.</span>`,
-    `<span data-gameplay-slice-diagnostic-endpoint>${escapeHtml(endpoint)}</span>`,
-    `<span data-gameplay-slice-diagnostic-error>${escapeHtml(sanitizeDiagnosticText(message, 240))}</span>`
-  ].join("");
   const createSafeErrorMessage = (error) => error instanceof Error && error.message.trim() ? error.message.trim() : "Unknown gameplay slice error.";
   const sanitizeDiagnosticText = (value, maxLength) => String(value || "").replace(/(snapshotToken|sessionToken|token)["':=\s]+[^,}\s]+/giu, "$1=<redacted>").replace(/[A-Za-z0-9_-]{32,}\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}/gu, "<redacted-token>").slice(0, maxLength);
   const applyDevelopmentRuntimeOverride = (root) => {
@@ -3475,59 +2321,7 @@ var EmpireGameplaySliceClient = function(exports) {
     });
     return allowLegacyFallback;
   };
-  const createGameplaySliceSelectiveRenderer = () => {
-    let hasRendered = false;
-    return {
-      render(mounts, html, reason) {
-        var _a, _b, _c, _d;
-        const updatedMountCount = [mounts.status, mounts.topBar, mounts.map, mounts.panel].filter((mount2, index) => {
-          if (mount2.innerHTML === html[index]) return false;
-          mount2.innerHTML = html[index];
-          return true;
-        }).length;
-        if (!hasRendered) {
-          (_b = (_a = window.empireStreetsRuntimeDiagnostics) == null ? void 0 : _a.recordFullUiRender) == null ? void 0 : _b.call(_a, reason);
-          hasRendered = true;
-        } else if (updatedMountCount > 0) {
-          (_d = (_c = window.empireStreetsRuntimeDiagnostics) == null ? void 0 : _c.recordSelectiveUiUpdate) == null ? void 0 : _d.call(_c, reason, updatedMountCount);
-        }
-      }
-    };
-  };
-  const GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS = 1e4;
-  const resolveGameplaySliceMounts = (root) => ({
-    status: getOrCreateMount(root, "status"),
-    topBar: getOrCreateMount(root, "topbar"),
-    map: getOrCreateMount(root, "map"),
-    panel: getOrCreateMount(root, "panel")
-  });
-  const getOrCreateMount = (root, role) => {
-    const existing = root.querySelector(`[data-gameplay-slice-${role}]`);
-    if (existing) return existing;
-    const mount2 = document.createElement("div");
-    mount2.dataset[`gameplaySlice${role.charAt(0).toUpperCase()}${role.slice(1)}`] = "true";
-    root.append(mount2);
-    return mount2;
-  };
-  const renderGameplaySliceStatus = (state) => {
-    var _a;
-    return [
-      state.connection.status === "error" ? "" : `<strong>${escapeHtml(state.connection.status === "ready" ? "Server synchronizován" : state.connection.status)}</strong>`,
-      state.lastCommandStatus ? `<span class="gameplay-slice-client__command-status">${state.lastCommandStatus.accepted ? "Akce přijata" : "Akce odmítnuta"}</span>` : "",
-      state.connection.status !== "error" && ((_a = state.lastCommandStatus) == null ? void 0 : _a.accepted) === false && state.connection.lastErrorMessage ? `<span class="gameplay-slice-client__error">${escapeHtml(state.connection.lastErrorMessage)}</span>` : "",
-      state.districtPanel ? `<span>${escapeHtml(state.districtPanel.title)}</span>` : ""
-    ].join("");
-  };
-  const createBrowserCommandId = (prefix) => `${prefix}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
-  const parseGameplaySlicePollingIntervalMs = (value) => {
-    const intervalMs = Number.parseInt(String(value ?? ""), 10);
-    return Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS;
-  };
   const DEFAULT_ENDPOINT_BASE = "/api/gameplay-slice";
-  const LEGACY_DISTRICT_POPUP_SELECTOR = "[data-testid='district-popup']";
-  const MOBILE_SHEET_SELECTOR = ".mobile-sheet";
-  const MAP_TAP_PIXEL_THRESHOLD = 10;
-  const DISTRICT_TAP_DEBOUNCE_MS = 350;
   const mountedGameplaySlicePagesByRoot = /* @__PURE__ */ new WeakMap();
   const mountGameplaySlicePage = (options) => {
     const existingMount = mountedGameplaySlicePagesByRoot.get(options.root);
@@ -3539,12 +2333,16 @@ var EmpireGameplaySliceClient = function(exports) {
       return null;
     }
     const endpointBase = options.root.dataset.gameplaySliceEndpointBase || DEFAULT_ENDPOINT_BASE;
+    options.root.dataset.gameplaySlicePresentationMode = "controller-only";
+    options.root.hidden = true;
+    options.root.replaceChildren();
     setGameplayRuntimeMarker(options.root, "initializing", { endpoint: `${endpointBase}/load` });
-    const client = createClientApp({
+    const client = createControllerClientApp({
       transport: options.transport ?? createFetchClientTransport({ endpointBase }),
       onStateRecompute: recordClientStateRecompute
     });
     let currentLoadRequest = request;
+    let lastPublishedConnectionKey = "";
     const selectDistrictWithPollingFocus = (districtId) => {
       currentLoadRequest = {
         ...currentLoadRequest,
@@ -3563,85 +2361,30 @@ var EmpireGameplaySliceClient = function(exports) {
       });
       return selection;
     };
-    const router = createClientSurfaceActionRouter({
+    const router = createControllerSurfaceActionRouter({
       client: {
         ...client,
         selectDistrict: selectDistrictWithPollingFocus
       },
       createCommandId: createBrowserCommandId
     });
-    const presentationMode = options.presentationMode || (options.root.dataset.gameplaySlicePresentationMode === "controller-only" ? "controller-only" : "full");
-    const ownsVisiblePresentation = presentationMode === "full";
-    options.root.dataset.gameplaySlicePresentationMode = presentationMode;
-    const mounts = resolveGameplaySliceMounts(options.root);
-    const selectiveRenderer = createGameplaySliceSelectiveRenderer();
-    const districtSheetOverlay = ownsVisiblePresentation ? createDistrictSheetOverlayController() : null;
-    let pointerOrigin = null;
-    let lastPointerTapIsValid = true;
-    let lastDistrictTap = { districtId: null, atMs: 0 };
-    let pendingDistrictSelection = { districtId: null };
-    let activeDistrictSheetId = null;
-    const clearDistrictSheetFocus = () => {
-      activeDistrictSheetId = null;
-      currentLoadRequest = {
-        ...currentLoadRequest,
-        districtId: void 0
-      };
+    const publishConnectionState = (state) => {
+      lastPublishedConnectionKey = JSON.stringify(state.connection);
+      document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", {
+        detail: state.connection
+      }));
     };
-    const overlayBackdrop = ownsVisiblePresentation ? createOverlayBackdrop({
-      mount: options.root,
-      onCloseTopOverlay: (type) => {
-        var _a;
-        if (type !== "district_sheet") {
-          return;
-        }
-        clearDistrictSheetFocus();
-        districtSheetOverlay == null ? void 0 : districtSheetOverlay.markClosedByBackdrop();
-        render(((_a = client.clearDistrictSelection) == null ? void 0 : _a.call(client)) ?? client.getRenderState());
-      }
-    }) : null;
-    const closeDistrictSheetAfterLegacyClose = (reason) => {
-      var _a;
-      if (!districtSheetOverlay || !districtSheetOverlay.isOpen() && getTopOverlay() !== "district_sheet") {
-        return false;
-      }
-      clearDistrictSheetFocus();
-      districtSheetOverlay.closeFromExternal(reason);
-      overlayBackdrop == null ? void 0 : overlayBackdrop.sync();
-      render(((_a = client.clearDistrictSelection) == null ? void 0 : _a.call(client)) ?? client.getRenderState());
-      return true;
-    };
-    const handleLegacyDistrictClosed = () => {
-      closeDistrictSheetAfterLegacyClose("legacy district popup closed");
-    };
-    const legacyDistrictPopup = document.querySelector(LEGACY_DISTRICT_POPUP_SELECTOR);
-    const legacyDistrictPopupObserver = ownsVisiblePresentation && typeof MutationObserver !== "undefined" && legacyDistrictPopup ? new MutationObserver(() => {
-      const isHidden = legacyDistrictPopup.hidden || legacyDistrictPopup.getAttribute("aria-hidden") === "true" || legacyDistrictPopup.classList.contains("hidden");
-      if (isHidden) {
-        closeDistrictSheetAfterLegacyClose("legacy district popup hidden");
-      }
-    }) : null;
-    const hideUnavailableGameplaySlice = (state = null) => {
-      const message = (state == null ? void 0 : state.connection.lastErrorMessage) || "Gameplay slice did not return an authoritative read model.";
+    const hideUnavailableGameplaySlice = (state) => {
+      const message = state.connection.lastErrorMessage || "Gameplay slice did not return an authoritative read model.";
       const endpoint = `${endpointBase}/load`;
       markGameplaySliceUnavailableRuntime(options.root, endpoint, message);
       writeGameplaySliceDiagnostic(endpoint, message);
       options.root.dataset.gameplaySliceUnavailable = "true";
-      if (ownsVisiblePresentation && isGameplayDiagnosticsEnabled()) {
-        options.root.hidden = false;
-        mounts.status.innerHTML = renderGameplaySliceDiagnostic(endpoint, message);
-        mounts.topBar.innerHTML = "";
-        mounts.map.innerHTML = "";
-        mounts.panel.innerHTML = "";
-      } else {
-        options.root.hidden = true;
-        Object.values(mounts).forEach((mount2) => {
-          mount2.innerHTML = "";
-        });
-      }
+      options.root.hidden = true;
+      publishConnectionState(state);
     };
-    function render(state, reason = "ui-interaction") {
-      var _a, _b, _c, _d;
+    const publish = (state, reason = "controller-update") => {
+      var _a, _b;
       const gameplaySlice = client.getGameplaySlice();
       if (!gameplaySlice && state.connection.status === "error") {
         hideUnavailableGameplaySlice(state);
@@ -3650,23 +2393,8 @@ var EmpireGameplaySliceClient = function(exports) {
       delete options.root.dataset.gameplaySliceUnavailable;
       setGameplayRuntimeMarker(options.root, "server-authoritative-ready");
       options.root.dataset.lastClientRenderReason = reason;
-      const spawnSelectionVisible = ((_a = gameplaySlice == null ? void 0 : gameplaySlice.spawnSelection) == null ? void 0 : _a.status) === "awaiting_spawn_selection" && !gameplaySlice.player.homeDistrictId;
-      options.root.hidden = !ownsVisiblePresentation && !spawnSelectionVisible;
-      if (spawnSelectionVisible) {
-        options.root.dataset.spawnSelectionVisible = "true";
-      } else {
-        delete options.root.dataset.spawnSelectionVisible;
-      }
-      if ((_b = state.districtPanel) == null ? void 0 : _b.districtId) {
-        activeDistrictSheetId = state.districtPanel.districtId;
-        currentLoadRequest = {
-          ...currentLoadRequest,
-          districtId: state.districtPanel.districtId
-        };
-      } else {
-        activeDistrictSheetId = null;
-      }
-      const phase = (_d = (_c = state.player) == null ? void 0 : _c.dayNight) == null ? void 0 : _d.uiThemeHint;
+      options.root.hidden = true;
+      const phase = (_b = (_a = state.player) == null ? void 0 : _a.dayNight) == null ? void 0 : _b.uiThemeHint;
       if (phase) {
         document.body.dataset.cityPhase = phase;
       }
@@ -3678,126 +2406,7 @@ var EmpireGameplaySliceClient = function(exports) {
           renderState: state
         }
       }));
-      document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", { detail: state.connection }));
-      if (!ownsVisiblePresentation && !spawnSelectionVisible) {
-        Object.values(mounts).forEach((mount2) => {
-          if (mount2.childNodes.length > 0) mount2.replaceChildren();
-        });
-        return;
-      }
-      selectiveRenderer.render(mounts, [renderGameplaySliceStatus(state), state.topBarHtml, state.mapHtml, state.sidePanelHtml], reason);
-      refreshLiveCooldownLabels(options.root);
-      districtSheetOverlay == null ? void 0 : districtSheetOverlay.syncFromState(state);
-      overlayBackdrop == null ? void 0 : overlayBackdrop.sync();
-    }
-    const isInsideMobileSheet = (target) => target instanceof HTMLElement && Boolean(target.closest(MOBILE_SHEET_SELECTOR));
-    const handlePointerDown = (event) => {
-      const target = event.target;
-      if (!(event instanceof PointerEvent) || !(target instanceof HTMLElement)) {
-        return;
-      }
-      if (isInsideMobileSheet(target)) {
-        event.stopPropagation();
-      } else if (shouldSuppressMapInput(event)) {
-        return;
-      }
-      pointerOrigin = {
-        pointerId: event.pointerId,
-        x: event.clientX,
-        y: event.clientY,
-        atMs: Date.now()
-      };
-      lastPointerTapIsValid = true;
-    };
-    const handlePointerUp = (event) => {
-      if (!(event instanceof PointerEvent) || !pointerOrigin || event.pointerId !== pointerOrigin.pointerId) {
-        return;
-      }
-      const target = event.target;
-      if (target instanceof HTMLElement && !isInsideMobileSheet(target) && shouldSuppressMapInput(event)) {
-        pointerOrigin = null;
-        lastPointerTapIsValid = false;
-        return;
-      }
-      const dx = event.clientX - pointerOrigin.x;
-      const dy = event.clientY - pointerOrigin.y;
-      lastPointerTapIsValid = Math.hypot(dx, dy) <= MAP_TAP_PIXEL_THRESHOLD;
-      pointerOrigin = null;
-    };
-    const handlePointerCancel = (event) => {
-      if (!(event instanceof PointerEvent) || !pointerOrigin || event.pointerId !== pointerOrigin.pointerId) {
-        return;
-      }
-      lastPointerTapIsValid = false;
-      pointerOrigin = null;
-    };
-    const handleClick = async (event) => {
-      const target = event.target;
-      const canUsePointerTapForDistrictSelection = lastPointerTapIsValid;
-      lastPointerTapIsValid = true;
-      const insideSheet = isInsideMobileSheet(target);
-      if (!(target instanceof HTMLElement)) {
-        return;
-      }
-      if (insideSheet) {
-        event.stopPropagation();
-      }
-      const action = resolveClientSurfaceAction(target);
-      if ((action == null ? void 0 : action.kind) === "select-district") {
-        if (!insideSheet && shouldSuppressMapInput(event)) {
-          return;
-        }
-        if (!canUsePointerTapForDistrictSelection) {
-          return;
-        }
-        const topOverlay = getTopOverlay();
-        if (isOverlayOpen() && topOverlay !== "district_sheet") {
-          return;
-        }
-        const selectedAtMs = Date.now();
-        const isRapidRepeat = action.districtId === lastDistrictTap.districtId && selectedAtMs - lastDistrictTap.atMs < DISTRICT_TAP_DEBOUNCE_MS;
-        const isSameDistrictAsOpen = action.districtId === activeDistrictSheetId;
-        const isDistrictOpen = (districtSheetOverlay == null ? void 0 : districtSheetOverlay.isOpen()) === true;
-        if (isDistrictOpen && isSameDistrictAsOpen) {
-          return;
-        }
-        if (!isDistrictOpen && (isRapidRepeat || pendingDistrictSelection.districtId !== null)) {
-          return;
-        }
-        lastDistrictTap = { districtId: action.districtId, atMs: selectedAtMs };
-        pendingDistrictSelection = { districtId: action.districtId };
-        if (isDistrictOpen) {
-          try {
-            const nextState2 = await selectDistrictWithPollingFocus(action.districtId);
-            if (nextState2) {
-              event.preventDefault();
-              event.stopPropagation();
-              recordGameplaySliceRefresh(client.getGameplaySlice());
-              render(nextState2, "ui:select-district");
-            }
-          } finally {
-            pendingDistrictSelection = { districtId: null };
-          }
-          return;
-        }
-      }
-      if ((action == null ? void 0 : action.kind) === "select-district" && isOverlayOpen()) {
-        return;
-      }
-      let nextState = null;
-      try {
-        nextState = await router.handleTarget(target);
-      } finally {
-        if ((action == null ? void 0 : action.kind) === "select-district") {
-          pendingDistrictSelection = { districtId: null };
-        }
-      }
-      if (nextState) {
-        event.preventDefault();
-        event.stopPropagation();
-        recordGameplaySliceRefresh(client.getGameplaySlice());
-        render(nextState, `ui:${(action == null ? void 0 : action.kind) || "command"}`);
-      }
+      publishConnectionState(state);
     };
     const poller = createGameplaySlicePoller({
       load: (nextRequest) => client.load(nextRequest),
@@ -3808,68 +2417,48 @@ var EmpireGameplaySliceClient = function(exports) {
       getResponseError: (state) => state.connection.status === "error" ? new Error(state.connection.lastErrorMessage || "Gameplay slice polling failed.") : null,
       onResponse: (state) => {
         const observation = recordGameplaySliceRefresh(client.getGameplaySlice());
-        if (observation.changed) {
-          render(state, "server-slice-change");
+        const connectionKey = JSON.stringify(state.connection);
+        if (observation.changed || connectionKey !== lastPublishedConnectionKey) {
+          publish(state, "server-slice-change");
         }
       },
       onError: () => {
         recordGameplayPollError();
-        if (ownsVisiblePresentation) {
-          mounts.status.innerHTML = [
-            "<strong>Synchronizace se serverem zastarala</strong>",
-            "<span>Obnova ze serveru selhala. Zůstává poslední známý stav.</span>"
-          ].join("");
-        }
         document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", {
-          detail: { status: "stale", lastErrorMessage: "Obnova ze serveru selhala.", staleData: true }
+          detail: {
+            status: "stale",
+            lastErrorMessage: "Obnova ze serveru selhala.",
+            staleData: true
+          }
         }));
       }
     });
-    const visibilityRuntime = createGameplaySliceVisibilityRuntime({ root: options.root });
-    if (ownsVisiblePresentation) {
-      installModalScrollLockBridge();
-    }
-    visibilityRuntime.start();
-    if (ownsVisiblePresentation) {
-      legacyDistrictPopupObserver == null ? void 0 : legacyDistrictPopupObserver.observe(legacyDistrictPopup, {
-        attributeFilter: ["aria-hidden", "class", "hidden"],
-        attributes: true
-      });
-      document.addEventListener("empire:district-closed", handleLegacyDistrictClosed);
-      options.root.addEventListener("click", handleClick);
-      options.root.addEventListener("pointerdown", handlePointerDown);
-      options.root.addEventListener("pointerup", handlePointerUp);
-      options.root.addEventListener("pointercancel", handlePointerCancel);
-    }
     void client.load(request).then((state) => {
       recordGameplaySliceRefresh(client.getGameplaySlice());
-      render(state, "server-slice-initial-load");
+      publish(state, "server-slice-initial-load");
       poller.start();
     }).catch((error) => {
-      if (isGameplayDiagnosticsEnabled()) {
-        console.warn("[gameplay-slice] Initial load failed.", error);
-      }
-      document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", {
-        detail: { status: "error", lastErrorMessage: createSafeErrorMessage(error), staleData: true }
-      }));
-      hideUnavailableGameplaySlice({
+      const message = createSafeErrorMessage(error);
+      const state = {
         ...client.getRenderState(),
         connection: {
           status: "error",
-          lastErrorMessage: createSafeErrorMessage(error),
+          lastErrorMessage: message,
           staleData: true
         }
-      });
+      };
+      hideUnavailableGameplaySlice(state);
     });
     let destroyed = false;
+    let unregisterMountedPage = () => {
+    };
     const handlePageHide = () => {
       mountedPage.destroy();
     };
-    let unregisterMountedPage = () => {
-    };
     const mountedPage = createMountedGameplaySlicePageExternalPort({
       root: options.root,
-      closeDistrictSheet: (reason = "external district popup close") => closeDistrictSheetAfterLegacyClose(reason),
+      allowExternalSurfaceActions: true,
+      closeDistrictSheet: () => false,
       getCurrentReadModel: () => client.getGameplaySlice(),
       getCurrentRenderState: () => client.getRenderState(),
       handleSurfaceAction: (target) => router.handleTarget(target),
@@ -3877,29 +2466,12 @@ var EmpireGameplaySliceClient = function(exports) {
       submitCommand: (command) => client.dispatch(command),
       applyState: (state, reason) => {
         recordGameplaySliceRefresh(client.getGameplaySlice());
-        render(state, reason);
+        publish(state, reason);
       },
       destroy: () => {
-        if (destroyed) {
-          return;
-        }
+        if (destroyed) return;
         destroyed = true;
         poller.destroy();
-        visibilityRuntime.destroy();
-        legacyDistrictPopupObserver == null ? void 0 : legacyDistrictPopupObserver.disconnect();
-        if (ownsVisiblePresentation) {
-          document.removeEventListener("empire:district-closed", handleLegacyDistrictClosed);
-          options.root.removeEventListener("click", handleClick);
-          options.root.removeEventListener("pointerdown", handlePointerDown);
-          options.root.removeEventListener("pointerup", handlePointerUp);
-          options.root.removeEventListener("pointercancel", handlePointerCancel);
-        }
-        districtSheetOverlay == null ? void 0 : districtSheetOverlay.closeOnDestroy();
-        overlayBackdrop == null ? void 0 : overlayBackdrop.sync();
-        overlayBackdrop == null ? void 0 : overlayBackdrop.destroy();
-        if (ownsVisiblePresentation) {
-          uninstallModalScrollLockBridge();
-        }
         unregisterMountedPage();
         mountedGameplaySlicePagesByRoot.delete(options.root);
         window.removeEventListener("pagehide", handlePageHide);
@@ -3931,7 +2503,6 @@ var EmpireGameplaySliceClient = function(exports) {
   exports.mount = mount;
   exports.mountGameplaySlicePage = mountGameplaySlicePage;
   exports.registerMountedGameplaySlicePage = registerMountedGameplaySlicePage;
-  exports.renderGameplaySliceStatus = renderGameplaySliceStatus;
   exports.selectDistrict = selectDistrict;
   exports.selectGameplaySliceDistrict = selectGameplaySliceDistrict;
   exports.setGameplayRuntimeMarker = setGameplayRuntimeMarker;

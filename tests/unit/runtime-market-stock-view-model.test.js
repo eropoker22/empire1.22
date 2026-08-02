@@ -58,6 +58,32 @@ describe("market stock view model adapters", () => {
     })).toBe("2 nabídek");
   });
 
+  it("builds dashboard stock summaries from authoritative server projections", () => {
+    const marketState = {
+      resources: [
+        { normalMarket: { available: true, stock: 8 } },
+        { normalMarket: { available: true, stock: 7 } },
+        { normalMarket: { available: false, stock: 999 } }
+      ],
+      playerMarket: { listings: [{ id: "a" }, { id: "b" }, { id: "c" }] }
+    };
+
+    expect(getMarketDashboardStockSummary({
+      activeTab: "market",
+      marketState,
+      getStockAmount: () => {
+        throw new Error("local stock must not be read");
+      }
+    })).toBe("15 ks");
+    expect(getMarketDashboardStockSummary({
+      activeTab: "player-market",
+      marketState,
+      normalizePlayerMarketListings: () => {
+        throw new Error("local listings must not be read");
+      }
+    })).toBe("3 nabídek");
+  });
+
   it("builds dashboard adapter input for existing market dashboard view-model", () => {
     const adapter = createMarketDashboardAdapter({
       activeTab: "market",

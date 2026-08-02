@@ -42,11 +42,13 @@ export const listHostedPublicServers = async (
     throw new Error("Hosted public server reads require PostgreSQL.");
   }
 
-  const [hostedServers, summaries] = await Promise.all([
-    repositories.hosted.listServers(),
-    repositories.monitoring.listKnownInstances()
-  ]);
-  const summaryById = new Map(summaries.map((entry) => [entry.serverInstanceId, entry]));
+  const hostedServers = (await repositories.hosted.listServers()).filter((hosted) => (
+    hosted.status !== "stopped" && hosted.status !== "archived"
+  ));
+  const summaryById = new Map(await Promise.all(hostedServers.map(async (hosted) => [
+    hosted.serverInstanceId,
+    await repositories.monitoring.getInstanceSummary(hosted.serverInstanceId)
+  ] as const)));
   return Promise.all(hostedServers.map(async (hosted) => {
     const summary = summaryById.get(hosted.serverInstanceId) ?? null;
     const [capacity, readyMemberships] = await Promise.all([

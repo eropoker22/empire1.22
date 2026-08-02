@@ -313,6 +313,9 @@ describe("server-authoritative bounty actions", () => {
       canTarget: true,
       activeDistrictCount: 1
     }));
+    expect(view.eligibleTargets).not.toContainEqual(expect.objectContaining({
+      playerId: "player:1"
+    }));
     expect(view.activeBounties).toContainEqual(expect.objectContaining({
       bountyId: "bounty:command:bounty:create:1",
       targetPlayerName: "Defender",

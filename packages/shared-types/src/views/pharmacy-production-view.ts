@@ -6,6 +6,8 @@ export interface PharmacyProductionLineView {
   label: string;
   producedAmount: number;
   producedCapacity: number;
+  playerStoredAmount: number;
+  playerStoredCapacity: number;
   queuedAmount: number;
   queueCapacity: number;
   activeAmount: 0 | 1;

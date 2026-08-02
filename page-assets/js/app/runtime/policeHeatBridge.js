@@ -8,6 +8,55 @@ function asArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function finiteNumberOrNull(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function nonNegativeNumberOrNull(...values) {
+  for (const value of values) {
+    const number = finiteNumberOrNull(value);
+    if (number !== null) {
+      return Math.max(0, number);
+    }
+  }
+  return null;
+}
+
+function unavailablePoliceFeedback() {
+  return {
+    available: false,
+    heat: null,
+    playerHeat: null,
+    ownedDistrictHeat: null,
+    wantedLevel: null,
+    wantedLabel: "—",
+    riskKey: "unavailable",
+    statusLabel: "—",
+    riskMessage: "—",
+    lastMessage: "—",
+    entries: [],
+    aggregatePressure: null,
+    raidPressure: null,
+    raidPressureExplanation: "—",
+    heatBreakdown: [],
+    playerHeatPressure: null,
+    districtHeatPressure: null,
+    hottestDistrictId: null,
+    hottestDistrictHeat: null,
+    pendingRaid: null,
+    previewConsequences: null,
+    lastPoliceEvent: null,
+    recommendedAction: "—",
+    hasCoreReadModel: false,
+    hasRealPoliceEvent: false,
+    fallbackBlocked: true
+  };
+}
+
 function riskFromHeat(heat = 0, wantedLevel = 0) {
   const safeHeat = Math.max(0, Number(heat || 0));
   const safeWanted = Math.max(0, Number(wantedLevel || 0));
@@ -100,34 +149,37 @@ function normalizePoliceEntries(policeActions = {}, lastMessage = "") {
 export function resolvePoliceHeatFeedback(input = {}) {
   const coreModel = normalizePoliceReadModel(input);
   if (coreModel) {
-    const riskKey = String(coreModel.riskTier || "low");
-    const copy = riskCopy(riskKey);
+    const riskKey = String(coreModel.riskTier || "").trim().toLowerCase();
+    const copy = riskKey ? riskCopy(riskKey) : null;
     const pendingRaid = coreModel.pendingRaid && typeof coreModel.pendingRaid === "object"
       ? coreModel.pendingRaid
       : null;
     const lastEvent = coreModel.lastPoliceEvent && typeof coreModel.lastPoliceEvent === "object"
       ? coreModel.lastPoliceEvent
       : null;
-    const lastMessage = String(lastEvent?.message || coreModel.recommendedAction || copy.message || "").trim();
+    const wantedLevel = nonNegativeNumberOrNull(coreModel.wantedLevel);
+    const lastMessage = String(lastEvent?.message || coreModel.recommendedAction || copy?.message || "—").trim();
     return {
-      heat: Math.max(0, Number(coreModel.heat || 0) || 0),
-      playerHeat: Math.max(0, Number(coreModel.playerHeat ?? coreModel.heat ?? 0) || 0),
-      ownedDistrictHeat: Math.max(0, Number(coreModel.ownedDistrictHeat ?? coreModel.districtHeat ?? coreModel.districtHeatPressure ?? 0) || 0),
-      wantedLevel: Math.max(0, Number(coreModel.wantedLevel || 0) || 0),
-      wantedLabel: String(coreModel.wantedLabel || `${coreModel.wantedLevel || 0} / 5`),
-      riskKey,
-      statusLabel: copy.statusLabel,
-      riskMessage: String(coreModel.recommendedAction || copy.message),
+      available: true,
+      heat: nonNegativeNumberOrNull(coreModel.heat, coreModel.playerHeat),
+      playerHeat: nonNegativeNumberOrNull(coreModel.playerHeat, coreModel.heat),
+      ownedDistrictHeat: nonNegativeNumberOrNull(coreModel.ownedDistrictHeat, coreModel.districtHeat, coreModel.districtHeatPressure),
+      wantedLevel,
+      wantedLabel: String(coreModel.wantedLevelLabel || coreModel.wantedLabel || "").trim()
+        || (wantedLevel === null ? "—" : `${wantedLevel} / 5`),
+      riskKey: riskKey || "unavailable",
+      statusLabel: copy?.statusLabel || "—",
+      riskMessage: String(coreModel.recommendedAction || copy?.message || "—"),
       lastMessage,
       entries: normalizeCorePoliceEntries(coreModel),
-      aggregatePressure: Math.max(0, Number(coreModel.aggregatePressure || 0) || 0),
-      raidPressure: Math.max(0, Number(coreModel.raidPressure ?? coreModel.aggregatePressure ?? 0) || 0),
+      aggregatePressure: nonNegativeNumberOrNull(coreModel.aggregatePressure),
+      raidPressure: nonNegativeNumberOrNull(coreModel.raidPressure, coreModel.aggregatePressure),
       raidPressureExplanation: String(coreModel.raidPressureExplanation || "Tlak raidu je celkový tlak policie. Heat districtů může přitáhnout raid i bez vysoké hledanosti."),
       heatBreakdown: asArray(coreModel.heatBreakdown),
-      playerHeatPressure: Math.max(0, Number(coreModel.playerHeatPressure || 0) || 0),
-      districtHeatPressure: Math.max(0, Number(coreModel.districtHeatPressure || 0) || 0),
+      playerHeatPressure: nonNegativeNumberOrNull(coreModel.playerHeatPressure),
+      districtHeatPressure: nonNegativeNumberOrNull(coreModel.districtHeatPressure),
       hottestDistrictId: coreModel.hottestDistrictId || null,
-      hottestDistrictHeat: Math.max(0, Number(coreModel.hottestDistrictHeat || 0) || 0),
+      hottestDistrictHeat: nonNegativeNumberOrNull(coreModel.hottestDistrictHeat),
       pendingRaid,
       previewConsequences: pendingRaid?.previewConsequences || null,
       lastPoliceEvent: lastEvent,
@@ -135,6 +187,10 @@ export function resolvePoliceHeatFeedback(input = {}) {
       hasCoreReadModel: true,
       hasRealPoliceEvent: asArray(coreModel.policeFeed).length > 0 || Boolean(pendingRaid)
     };
+  }
+
+  if (String(input.executionMode || input.gameplayExecutionMode || "").trim().toLowerCase() === "server-authoritative") {
+    return unavailablePoliceFeedback();
   }
 
   // Legacy fallback: old browser runtime can still render heat when the core PoliceReadModel is absent.
@@ -149,6 +205,7 @@ export function resolvePoliceHeatFeedback(input = {}) {
   const entries = normalizePoliceEntries(input.policeActions, fallbackLastMessage);
 
   return {
+    available: true,
     heat,
     wantedLevel,
     wantedLabel: `${wantedLevel} / 6`,

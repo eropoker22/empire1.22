@@ -13,6 +13,7 @@ import {
   getBountyRemainingMs,
   withBountyCountdownSnapshot
 } from "./bounty-view-helpers.js";
+import { resolveLivePlayerAvatarSrc } from "./model/livePlayerAvatarCatalog.js";
 
 const PAGE_SELECTOR = 'main[data-page="game"]';
 const BOUNTY_STORAGE_KEY = "empireStreets.bounty.v1";
@@ -75,6 +76,16 @@ function formatMoney(amount) {
 
 function formatRewardValue(amount) {
   return `${Math.max(0, Math.floor(Number(amount || 0))).toLocaleString("cs-CZ")} $`;
+}
+
+export function createBountyEscrowPresentation(activeTotal) {
+  const safeActiveTotal = Math.max(0, Number(activeTotal || 0));
+  return {
+    stateLabel: "ESCROW",
+    summary: safeActiveTotal > 0
+      ? `${formatMoney(safeActiveTotal)} je připraveno v aktivních bounty.`
+      : "Vypsaná bounty se po potvrzení zamkne v escrow."
+  };
 }
 
 function formatDurationMs(ms) {
@@ -145,7 +156,7 @@ function getBountyTargetInitials(label) {
   return cleanLabel.slice(0, 2).toUpperCase();
 }
 
-function resolveBountyAvatarSrc(entry, targets = []) {
+export function resolveBountyAvatarSrc(entry, targets = []) {
   const directAvatar = String(entry?.avatarSrc || entry?.targetAvatarSrc || entry?.targetPlayerAvatarSrc || entry?.targetPlayerAvatarUrl || "").trim();
   if (directAvatar) {
     return directAvatar;
@@ -155,7 +166,12 @@ function resolveBountyAvatarSrc(entry, targets = []) {
   const target = targets.find((candidate) => {
     return String(candidate?.playerId || "") === targetId || String(candidate?.name || "") === targetName;
   });
-  return String(target?.avatarSrc || target?.avatarUrl || "").trim();
+  const targetAvatar = String(target?.avatarSrc || target?.avatarUrl || "").trim();
+  if (targetAvatar) {
+    return targetAvatar;
+  }
+  const avatarOwner = String(entry?.avatarId || "").trim() ? entry : target;
+  return resolveLivePlayerAvatarSrc(avatarOwner?.avatarId, avatarOwner?.factionId || avatarOwner?.factionLabel);
 }
 
 function closeBountyAvatarLightbox(options = {}) {
@@ -289,11 +305,27 @@ function isDevOnlyBountyFallbackEnabled() {
     && Boolean(getActiveLocalDemoGameplayBridge());
 }
 
+export function resolveBountyPlayerCleanCash({
+  authoritativeCleanCash = 0,
+  localDemoSession = null,
+  useLocalDemoSession = false
+} = {}) {
+  const localDemoCleanCash = localDemoSession?.economy?.cleanMoney;
+  const rawValue = useLocalDemoSession
+    && localDemoCleanCash !== null
+    && localDemoCleanCash !== undefined
+    ? localDemoCleanCash
+    : authoritativeCleanCash;
+  const numericValue = Number(rawValue);
+  return Number.isFinite(numericValue) ? Math.max(0, Math.floor(numericValue)) : 0;
+}
+
 function withDevBountyTargets(readModel, localBounties = []) {
   const base = readModel || createEmptyBountyReadModel();
   const targets = Array.isArray(base.eligibleTargets) ? base.eligibleTargets : [];
   const receivedAtMs = Date.now();
-  if (!isDevOnlyBountyFallbackEnabled()) {
+  const isDevOnlyFallback = isDevOnlyBountyFallbackEnabled();
+  if (!isDevOnlyFallback) {
     return {
       ...base,
       activeBounties: (Array.isArray(base.activeBounties) ? base.activeBounties : [])
@@ -312,7 +344,11 @@ function withDevBountyTargets(readModel, localBounties = []) {
   return {
     ...base,
     minRewardCleanCash: Math.max(BOUNTY_MINIMUM_CASH, Number(base.minRewardCleanCash || 0)),
-    currentPlayerCleanCash: Math.max(0, Number(base.currentPlayerCleanCash || 0)),
+    currentPlayerCleanCash: resolveBountyPlayerCleanCash({
+      authoritativeCleanCash: base.currentPlayerCleanCash,
+      localDemoSession: getActiveLocalDemoGameplayBridge()?.getStoredPreviewSession?.() ?? null,
+      useLocalDemoSession: true
+    }),
     durationOptionsHours: Array.isArray(base.durationOptionsHours) && base.durationOptionsHours.length
       ? base.durationOptionsHours
       : [1, 6, 12, 24],
@@ -718,7 +754,7 @@ export function initBountyRuntime() {
       targetAvatarWrap.classList.toggle("is-clickable", Boolean(avatarSrc));
       targetAvatarWrap.tabIndex = avatarSrc ? 0 : -1;
       targetAvatarWrap.setAttribute("aria-disabled", avatarSrc ? "false" : "true");
-      targetAvatarWrap.setAttribute("aria-label", avatarSrc ? `Zvětšit avatar cíle ${target.name}` : "Avatar bounty cíle není dostupný");
+      targetAvatarWrap.setAttribute("aria-label", avatarSrc ? "Zvětšit avatar bounty cíle" : "Avatar bounty cíle není dostupný");
       targetAvatarWrap.title = avatarSrc ? `Zvětšit avatar: ${target.name}` : "";
       targetAvatarWrap.dataset.bountyAvatarSrc = avatarSrc;
       targetAvatarWrap.dataset.bountyAvatarName = target.name;
@@ -871,14 +907,11 @@ export function initBountyRuntime() {
       badge.textContent = String(liveCount);
     }
     if (huntState && huntFill && huntLabel) {
-      huntState.textContent = getBountyReadModel().isDevOnlyFallback ? "DEV UI DEMO" : "SERVER ESCROW";
+      const escrowPresentation = createBountyEscrowPresentation(activeTotal);
+      huntState.textContent = escrowPresentation.stateLabel;
       huntState.dataset.mode = activeTotal >= 10_000 ? "active" : "charging";
       huntFill.style.width = `${Math.max(0, Math.min(100, Math.round((activeTotal / 10_000) * 100)))}%`;
-      huntLabel.textContent = activeTotal > 0
-        ? `${formatMoney(activeTotal)} je připraveno v aktivních bounty.`
-        : (getBountyReadModel().isDevOnlyFallback
-            ? "Dev režim ukazuje lokální bounty bez server escrow."
-            : "Vypsaná bounty se po potvrzení zamkne serverově v escrow.");
+      huntLabel.textContent = escrowPresentation.summary;
     }
   };
 

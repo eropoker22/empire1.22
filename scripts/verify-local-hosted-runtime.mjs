@@ -4,6 +4,8 @@ import { readFile, readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Pool } from "pg";
+import { toBase64Url } from "../apps/server/src/transport/gameplay-session-token-encoding.ts";
+import { signGameplaySessionTokenPart } from "../apps/server/src/transport/gameplay-session-token-signing.ts";
 import { BROWSER_GAMEPLAY_CONFIG } from "../packages/game-config/src/legacy-page/gameplay-config.generated.js";
 import { createLocalHostedAdminClient } from "./local-hosted/admin-fixture-client.mjs";
 import {
@@ -26,6 +28,8 @@ if (!Number.isSafeInteger(generatedFreeTickRateMs) || generatedFreeTickRateMs <=
 export const CANONICAL_FREE_TICK_RATE_MS = generatedFreeTickRateMs;
 
 const RUNNING_STATUS = "running";
+const GAMEPLAY_SESSION_COOKIE_NAME = "empire_gameplay_session";
+const GAMEPLAY_SESSION_TOKEN_VERSION = "v1";
 const PRE_SNAPSHOT_STATUSES = new Set(["requested", "provisioning"]);
 const INSTANCE_RESULT_LABELS = [
   "Server status",
@@ -37,6 +41,7 @@ const INSTANCE_RESULT_LABELS = [
   "Snapshot freshness",
   "Gameplay load/submit"
 ];
+const REQUIRED_INSTANCE_PASS_LABELS = new Set(INSTANCE_RESULT_LABELS);
 
 export const parseInstanceArgument = (argv) => {
   let instanceId = null;
@@ -55,6 +60,26 @@ export const parseInstanceArgument = (argv) => {
   }
   return instanceId;
 };
+
+export const listRunningHostedInstanceIds = async (pool) => {
+  const result = await pool.query(
+    `SELECT server_instance_id
+     FROM empire_hosted_server_instances
+     WHERE status='running'
+     ORDER BY server_instance_id ASC`
+  );
+  const instanceIds = result.rows.map((row) => {
+    const serverInstanceId = stringOrNull(row.server_instance_id);
+    if (!serverInstanceId) {
+      throw new Error("running hosted server has an invalid serverInstanceId");
+    }
+    return serverInstanceId;
+  });
+  return Array.from(new Set(instanceIds));
+};
+
+export const resolveVerificationInstanceIds = async (pool, requestedInstanceId) =>
+  requestedInstanceId ? [requestedInstanceId] : listRunningHostedInstanceIds(pool);
 
 export const resolveInstanceTickRateMs = (
   value,
@@ -109,6 +134,9 @@ export const evaluateRecoveryHead = (observation) => {
   compareCounters(mismatches, "snapshot tick/root tick", observation.snapshotTick, observation.rootTick);
   compareCounters(mismatches, "root version/integrity version", observation.rootVersion, observation.integrityRootVersion);
   compareCounters(mismatches, "root version/state version", observation.rootVersion, observation.stateVersion);
+  if (observation.currentSnapshotId !== observation.snapshotId) {
+    mismatches.push("current snapshot/recovery head id");
+  }
   if (observation.snapshotServerInstanceId !== observation.serverInstanceId) {
     mismatches.push("snapshot serverInstanceId");
   }
@@ -153,6 +181,208 @@ export const evaluateSnapshotFreshness = ({
     : { outcome: "FAIL", message: `age=${ageMs}ms exceeds ${maximumAgeMs}ms` };
 };
 
+export const evaluateGameplayLoadSubmitVerification = ({
+  activeGameplaySessions = 0,
+  loadAttempted = false,
+  loadValidated = false,
+  submitAttempted = false,
+  submitValidated = false,
+  failureMessage = "",
+  unavailableMessage = ""
+} = {}) => {
+  if (failureMessage) {
+    return {
+      label: "Gameplay load/submit",
+      outcome: "FAIL",
+      failed: true,
+      message: failureMessage,
+      fix: "Zkontroluj gameplay session, API auth guard a durable command replay."
+    };
+  }
+  const invalidEvidence = [];
+  if (loadValidated && !loadAttempted) invalidEvidence.push("load validation lacks an attempted request");
+  if (submitValidated && !submitAttempted) invalidEvidence.push("submit validation lacks an attempted request");
+  if (loadAttempted && !loadValidated) invalidEvidence.push("authenticated load was not validated");
+  if (submitAttempted && !submitValidated) invalidEvidence.push("authenticated submit was not validated");
+  if (invalidEvidence.length > 0) {
+    return {
+      label: "Gameplay load/submit",
+      outcome: "FAIL",
+      failed: true,
+      message: invalidEvidence.join("; "),
+      fix: "Proveď load i submit s validovanou gameplay session a ověř authoritative response."
+    };
+  }
+  if (loadAttempted && loadValidated && submitAttempted && submitValidated) {
+    return {
+      label: "Gameplay load/submit",
+      outcome: "PASS",
+      failed: false,
+      message: "authenticated gameplay load and idempotent applied-command replay were executed and validated"
+    };
+  }
+
+  const sessionCount = Math.max(0, Number(activeGameplaySessions || 0));
+  const sessionMessage = sessionCount > 0
+    ? `${sessionCount} active durable session(s) exist, but no validated raw session token is available to this verifier`
+    : "no validated active gameplay session is available";
+  const missingChecks = [
+    loadAttempted && loadValidated ? null : "load",
+    submitAttempted && submitValidated ? null : "submit"
+  ].filter(Boolean);
+  return unavailableResult(
+    "Gameplay load/submit",
+    unavailableMessage
+      || `${sessionMessage}; authenticated ${missingChecks.join("/")} was not attempted and validated`
+  );
+};
+
+export const createGameplaySessionProbeToken = ({ session, secret }) => {
+  const normalizedSecret = String(secret ?? "").trim();
+  if (normalizedSecret.length < 32) {
+    throw new Error("local gameplay session signing secret is unavailable or too short");
+  }
+  const payload = {
+    sessionId: requireProbeText(session?.sessionId, "session id"),
+    accountId: requireProbeText(session?.accountId, "account id"),
+    serverInstanceId: requireProbeText(session?.serverInstanceId, "server instance id"),
+    playerId: requireProbeText(session?.playerId, "player id"),
+    factionId: stringOrNull(session?.factionId),
+    issuedAt: requireProbeDate(session?.issuedAt, "session issuedAt"),
+    expiresAt: requireProbeDate(session?.expiresAt, "session expiresAt"),
+    version: requireProbeVersion(session?.version)
+  };
+  const payloadPart = toBase64Url(JSON.stringify(payload));
+  const signature = signGameplaySessionTokenPart(
+    GAMEPLAY_SESSION_TOKEN_VERSION,
+    payloadPart,
+    normalizedSecret
+  );
+  return `${GAMEPLAY_SESSION_TOKEN_VERSION}.${payloadPart}.${signature}`;
+};
+
+export const verifyAuthenticatedGameplayLoadSubmit = async ({
+  pool,
+  serverInstanceId,
+  sessionSecret,
+  apiOrigin = LOCAL_HOSTED_API_ORIGIN,
+  browserOrigin = LOCAL_HOSTED_FRONTEND_ORIGIN,
+  fetchImpl = fetch
+}) => {
+  let candidate;
+  try {
+    candidate = await readGameplayProbeCandidate(pool, serverInstanceId);
+  } catch (_error) {
+    return emptyGameplayProbeEvidence({
+      failureMessage: "eligible gameplay session could not be read for authenticated verification"
+    });
+  }
+  if (!candidate) {
+    return emptyGameplayProbeEvidence({
+      unavailableMessage: "no active gameplay session with an active hosted membership is available for authenticated verification"
+    });
+  }
+
+  let sessionToken;
+  try {
+    sessionToken = createGameplaySessionProbeToken({
+      session: candidate,
+      secret: sessionSecret
+    });
+  } catch (error) {
+    return emptyGameplayProbeEvidence({
+      failureMessage: error instanceof Error
+        ? error.message
+        : "local gameplay session token could not be created"
+    });
+  }
+
+  const cookie = `${GAMEPLAY_SESSION_COOKIE_NAME}=${sessionToken}`;
+  const evidence = emptyGameplayProbeEvidence();
+  evidence.loadAttempted = true;
+  let loadResponse;
+  try {
+    loadResponse = await postGameplayProbeJson(fetchImpl, `${apiOrigin}/api/gameplay-slice/load`, {
+      serverInstanceId: candidate.serverInstanceId,
+      districtId: candidate.focusDistrictId
+    }, { browserOrigin, cookie });
+  } catch (_error) {
+    return {
+      ...evidence,
+      failureMessage: "authenticated gameplay load request failed"
+    };
+  }
+  if (!isValidatedGameplayResponse(loadResponse, candidate)) {
+    return {
+      ...evidence,
+      failureMessage: "authenticated gameplay load was rejected or returned the wrong session identity"
+    };
+  }
+  evidence.loadValidated = true;
+
+  if (!candidate.replayCommand) {
+    return {
+      ...evidence,
+      unavailableMessage: "authenticated load passed, but no previously applied command is available for a mutation-free submit replay"
+    };
+  }
+  if (
+    candidate.replayCommand.id !== candidate.replayCommandId
+    || candidate.replayCommand.playerId !== candidate.playerId
+    || candidate.replayCommand.serverInstanceId !== candidate.serverInstanceId
+  ) {
+    return {
+      ...evidence,
+      failureMessage: "durable replay command identity does not match the validated gameplay session"
+    };
+  }
+
+  evidence.submitAttempted = true;
+  let submitResponse;
+  try {
+    submitResponse = await postGameplayProbeJson(fetchImpl, `${apiOrigin}/api/gameplay-slice/submit`, {
+      command: candidate.replayCommand,
+      focusDistrictId: candidate.focusDistrictId
+    }, { browserOrigin, cookie });
+  } catch (_error) {
+    return {
+      ...evidence,
+      failureMessage: "authenticated gameplay submit replay request failed"
+    };
+  }
+  if (
+    !isValidatedGameplayResponse(submitResponse, candidate)
+    || submitResponse.commandResult?.commandId !== candidate.replayCommandId
+    || submitResponse.commandResult?.status !== "applied"
+  ) {
+    return {
+      ...evidence,
+      failureMessage: "authenticated gameplay submit did not validate the durable applied-command replay"
+    };
+  }
+  evidence.submitValidated = true;
+  return evidence;
+};
+
+export const isLocalHostedVerificationReady = (results = [], instanceResults = []) => {
+  if (!results.every((result) => result?.passed === true)) return false;
+  if (!instanceResults.every((result) => result?.failed !== true)) return false;
+  if (instanceResults.length === 0) return true;
+  const groupedResults = new Map();
+  for (const result of instanceResults) {
+    const groupKey = stringOrNull(result?.serverInstanceId) ?? "single-instance";
+    const group = groupedResults.get(groupKey) ?? [];
+    group.push(result);
+    groupedResults.set(groupKey, group);
+  }
+  return Array.from(groupedResults.values()).every((group) =>
+    Array.from(REQUIRED_INSTANCE_PASS_LABELS).every((label) => {
+      const outcome = group.find((result) => result?.label === label)?.outcome;
+      return label === "Server status" ? outcome === "RUNNING" : outcome === "PASS";
+    })
+  );
+};
+
 async function main() {
   let requestedInstanceId;
   try {
@@ -177,6 +407,8 @@ async function main() {
 
   const results = [];
   let instanceResults = [];
+  let verificationInstanceIds = [];
+  let runningInstanceDiscoveryComplete = requestedInstanceId !== null;
   let apiHealth = null;
   let workerHealth = null;
   let workerHeartbeat = null;
@@ -368,8 +600,18 @@ async function main() {
       }
     });
 
-    if (requestedInstanceId) {
-      instanceResults = await verifyInstance(pool, requestedInstanceId);
+    await check("Running Instances", async () => {
+      verificationInstanceIds = await resolveVerificationInstanceIds(pool, requestedInstanceId);
+      runningInstanceDiscoveryComplete = true;
+    });
+    for (const serverInstanceId of verificationInstanceIds) {
+      const verified = await verifyInstance(pool, serverInstanceId, {
+        sessionSecret: environment.GAMEPLAY_SLICE_SESSION_SECRET
+      });
+      instanceResults.push(...verified.map((result) => ({
+        ...result,
+        serverInstanceId
+      })));
     }
   } finally {
     await pool.end().catch(() => undefined);
@@ -382,21 +624,28 @@ async function main() {
       console.log(`Fix: ${result.fix}`);
     }
   }
-  if (requestedInstanceId) {
-    console.log(`Instance ${requestedInstanceId}`);
-    for (const result of instanceResults) {
+  if (!requestedInstanceId) {
+    const runningInstanceSummary = !runningInstanceDiscoveryComplete
+      ? "UNAVAILABLE"
+      : verificationInstanceIds.length === 0
+        ? "0 (global-only readiness; no running hosted instance exists)"
+        : `${verificationInstanceIds.length} (per-instance verification required)`;
+    console.log(`${"Running instances".padEnd(20, ".")} ${runningInstanceSummary}`);
+  }
+  for (const serverInstanceId of verificationInstanceIds) {
+    console.log(`Instance ${serverInstanceId}`);
+    for (const result of instanceResults.filter((entry) => entry.serverInstanceId === serverInstanceId)) {
       console.log(`${result.label.padEnd(24, ".")} ${result.outcome}`);
       if (result.message) console.log(`  ${result.message}`);
       if (result.failed && result.fix) console.log(`  Fix: ${result.fix}`);
     }
   }
-  const passed = results.every((result) => result.passed)
-    && instanceResults.every((result) => result.failed !== true);
+  const passed = isLocalHostedVerificationReady(results, instanceResults);
   console.log(`Local Hosted ${".".repeat(7)} ${passed ? "READY" : "NOT READY"}`);
   if (!passed) process.exitCode = 1;
 }
 
-async function verifyInstance(pool, serverInstanceId) {
+async function verifyInstance(pool, serverInstanceId, options = {}) {
   let initial;
   try {
     initial = await readInstanceObservation(pool, serverInstanceId);
@@ -471,15 +720,81 @@ async function verifyInstance(pool, serverInstanceId) {
     fix: "Zkontroluj worker tick loop a recovery-head persistence."
   });
 
-  const activeSessionCount = latest.activeGameplaySessions ?? 0;
-  const sessionMessage = activeSessionCount > 0
-    ? `${activeSessionCount} active durable session(s) exist, but no validated raw session token is available to this verifier`
-    : "no validated active gameplay session is available";
-  results.push(unavailableResult(
-    "Gameplay load/submit",
-    `${sessionMessage}; authenticated load/submit was not attempted`
-  ));
+  const gameplayEvidence = await verifyAuthenticatedGameplayLoadSubmit({
+    pool,
+    serverInstanceId,
+    sessionSecret: options.sessionSecret
+  });
+  results.push(evaluateGameplayLoadSubmitVerification({
+    activeGameplaySessions: latest.activeGameplaySessions ?? 0,
+    ...gameplayEvidence
+  }));
   return results;
+}
+
+async function readGameplayProbeCandidate(pool, serverInstanceId) {
+  const result = await pool.query(
+    `SELECT
+       session.session_id,
+       session.account_id,
+       session.player_id,
+       session.server_instance_id,
+       session.created_at,
+       session.expires_at,
+       session.version,
+       membership.faction_id,
+       membership.reserved_spawn_district_id,
+       replay.command_id AS replay_command_id,
+       replay.command_payload AS replay_command
+     FROM empire_gameplay_sessions session
+     JOIN empire_player_registrations registration
+       ON registration.id=session.registration_id
+      AND registration.status='active'
+     JOIN empire_server_memberships membership
+       ON membership.server_instance_id=session.server_instance_id
+      AND membership.account_id=session.account_id
+      AND membership.player_id=session.player_id
+      AND membership.status='active'
+     LEFT JOIN LATERAL (
+       SELECT
+         command_result.command_id,
+         reservation.payload AS command_payload
+       FROM empire_command_results command_result
+       JOIN empire_command_reservations reservation
+         ON reservation.server_instance_id=command_result.server_instance_id
+        AND reservation.command_id=command_result.command_id
+        AND reservation.actor_id=command_result.player_id
+        AND reservation.payload_hash=command_result.payload_hash
+        AND reservation.status='applied'
+       WHERE command_result.server_instance_id=session.server_instance_id
+         AND command_result.player_id=session.player_id
+         AND command_result.status='applied'
+       ORDER BY command_result.applied_at DESC NULLS LAST, command_result.created_at DESC
+       LIMIT 1
+     ) replay ON TRUE
+     WHERE session.server_instance_id=$1
+       AND session.revoked_at IS NULL
+       AND session.expires_at > clock_timestamp()
+     ORDER BY (replay.command_id IS NOT NULL) DESC, session.last_seen_at DESC
+     LIMIT 1`,
+    [serverInstanceId]
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  const replayCommand = isRecord(row.replay_command) ? row.replay_command : null;
+  return {
+    sessionId: stringOrNull(row.session_id),
+    accountId: stringOrNull(row.account_id),
+    playerId: stringOrNull(row.player_id),
+    serverInstanceId: stringOrNull(row.server_instance_id),
+    issuedAt: dateOrNull(row.created_at),
+    expiresAt: dateOrNull(row.expires_at),
+    version: numberOrNull(row.version),
+    factionId: stringOrNull(row.faction_id),
+    focusDistrictId: stringOrNull(row.reserved_spawn_district_id),
+    replayCommandId: stringOrNull(row.replay_command_id),
+    replayCommand
+  };
 }
 
 async function pollForInstanceAdvancement(pool, serverInstanceId, initial, policy) {
@@ -751,6 +1066,65 @@ function ageMs(value, nowMs) {
 
 function formatCounter(value) {
   return isCounter(value) ? String(value) : "missing";
+}
+
+function emptyGameplayProbeEvidence(overrides = {}) {
+  return {
+    loadAttempted: false,
+    loadValidated: false,
+    submitAttempted: false,
+    submitValidated: false,
+    failureMessage: "",
+    unavailableMessage: "",
+    ...overrides
+  };
+}
+
+async function postGameplayProbeJson(fetchImpl, url, body, { browserOrigin, cookie }) {
+  const response = await fetchImpl(url, {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      "content-type": "application/json",
+      cookie,
+      origin: browserOrigin
+    },
+    body: JSON.stringify(body)
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || !isRecord(payload)) {
+    throw new Error(`gameplay probe returned HTTP ${response.status}`);
+  }
+  return payload;
+}
+
+function isValidatedGameplayResponse(response, candidate) {
+  return response?.accepted === true
+    && response.sessionToken == null
+    && response.readModel?.server?.serverInstanceId === candidate.serverInstanceId
+    && response.readModel?.player?.playerId === candidate.playerId;
+}
+
+function requireProbeText(value, label) {
+  const text = stringOrNull(value);
+  if (!text) throw new Error(`${label} is missing from the durable gameplay session`);
+  return text;
+}
+
+function requireProbeDate(value, label) {
+  const date = dateOrNull(value);
+  if (!date) throw new Error(`${label} is invalid in the durable gameplay session`);
+  return date;
+}
+
+function requireProbeVersion(value) {
+  const version = numberOrNull(value);
+  if (version === null) throw new Error("session version is invalid in the durable gameplay session");
+  return version;
+}
+
+function isRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function sleep(durationMs) {

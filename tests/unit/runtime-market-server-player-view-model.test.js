@@ -20,6 +20,26 @@ describe("server player market view model", () => {
     expect(snapshot.serverMarket).toBe(serverMarket);
   });
 
+  it("fails closed instead of exposing the player bazaar preview without hosted data", () => {
+    const snapshot = createMarketDataSourceSnapshot({
+      activeTab: "player-market",
+      playerTabId: "player-market",
+      serverMarket: null,
+      localMarketState: { playerListings: [{ id: "local-preview" }] },
+      allowLocalFallback: false
+    });
+
+    expect(snapshot).toMatchObject({
+      isAuthoritative: false,
+      isFallback: false,
+      isPreview: false,
+      source: "unavailable",
+      status: "unavailable",
+      useServerMarket: false
+    });
+    expect(snapshot.localMarketState).toBeNull();
+  });
+
   it("projects owned inventory and server escrow listings without local mutation", () => {
     const viewModel = createServerPlayerMarketPanelPayload({
       serverMarket: {

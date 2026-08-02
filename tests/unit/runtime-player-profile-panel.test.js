@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { createPlayerProfileViewModel } from "../../page-assets/js/app/runtime/playerProfileViewModel.js";
+import {
+  createPlayerProfileViewModel,
+  resolvePlayerIdentityPresentation
+} from "../../page-assets/js/app/runtime/playerProfileViewModel.js";
 import { renderPlayerProfilePanel } from "../../page-assets/js/app/ui/playerProfilePanel.js";
 
 class FakeClassList {
@@ -69,6 +72,41 @@ const createElements = () => ({
 });
 
 describe("player profile panel renderer", () => {
+  it("prefers authoritative server identity presentation over stored registration", () => {
+    const presentation = resolvePlayerIdentityPresentation({
+      factionCatalog: {
+        hackeri: { name: "Hackeři" },
+        mafian: { name: "Mafián" }
+      },
+      registration: {
+        avatar: "local-avatar.png",
+        factionId: "hackeri",
+        gangColor: "#f97316",
+        gangName: "Local Crew",
+        identity: "Local hráč"
+      },
+      resolveServerAvatarSrc: (avatarId, factionId) => `${factionId}/${avatarId}.jpg`,
+      serverPlayer: {
+        color: "#22d3ee",
+        factionId: "mafian",
+        profile: {
+          avatarId: "mafian:1",
+          displayName: "Hosted hráč",
+          gangName: "Hosted Crew"
+        }
+      }
+    });
+
+    expect(presentation).toMatchObject({
+      accentColor: "#22d3ee",
+      avatarSrc: "mafian/mafian:1.jpg",
+      displayName: "Hosted hráč",
+      faction: { name: "Mafián" },
+      factionId: "mafian",
+      gangName: "Hosted Crew"
+    });
+  });
+
   it("builds player profile view-model labels from read-only state", () => {
     const model = createPlayerProfileViewModel({
       registration: {

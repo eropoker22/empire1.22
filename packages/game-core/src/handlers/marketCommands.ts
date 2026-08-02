@@ -75,9 +75,9 @@ export const handleMarketCommand = (
   }
 
   const result = command.type === "buy-market-resource"
-    ? buyResource(marketState, player, command.payload.resourceId, command.payload.amount, command.payload.marketType as MarketType, command.payload.paymentType as MarketPaymentType, now)
+    ? buyResource(marketState, player, command.payload.resourceId, command.payload.amount, command.payload.marketType as MarketType, command.payload.paymentType as MarketPaymentType, now, context)
     : command.type === "sell-market-resource"
-      ? sellResource(marketState, player, command.payload.resourceId, command.payload.amount, now)
+      ? sellResource(marketState, player, command.payload.resourceId, command.payload.amount, now, context)
       : command.type === "create-player-market-listing"
         ? createPlayerMarketListing(marketState, player, command.payload.resourceId, command.payload.amount, command.payload.unitPrice, command.payload.paymentType, now)
         : command.type === "buy-player-market-listing"

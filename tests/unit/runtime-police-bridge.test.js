@@ -171,6 +171,61 @@ describe("runtime police heat bridge", () => {
     });
   });
 
+  it("blocks the legacy zero-value fallback when hosted police state is unavailable", () => {
+    const feedback = resolvePoliceHeatFeedback({
+      executionMode: "server-authoritative",
+      policeReadModel: null,
+      gangState: {
+        heat: 999
+      },
+      policeActions: {
+        local: { districtId: 7 }
+      }
+    });
+
+    expect(feedback).toMatchObject({
+      available: false,
+      heat: null,
+      playerHeat: null,
+      ownedDistrictHeat: null,
+      wantedLevel: null,
+      wantedLabel: "—",
+      riskKey: "unavailable",
+      aggregatePressure: null,
+      fallbackBlocked: true,
+      hasCoreReadModel: false,
+      hasRealPoliceEvent: false
+    });
+  });
+
+  it("renders unavailable hosted police slots without invented zero or low-risk values", () => {
+    const documentRef = new FakeDocument();
+    const root = new FakeElement("main");
+    const wantedFeed = new FakeElement("section");
+    wantedFeed.ownerDocument = documentRef;
+    root.querySelector = (selector) => selector === "[data-wanted-popup-police-feed]" ? wantedFeed : null;
+
+    const bridge = createPoliceHeatBridge({
+      root,
+      documentRef,
+      getState: () => ({
+        executionMode: "server-authoritative",
+        policeReadModel: null
+      })
+    });
+
+    bridge.init();
+    const text = collectText(wantedFeed);
+
+    expect(wantedFeed.dataset.policeRisk).toBe("unavailable");
+    expect(text).toContain("Hledanost: —");
+    expect(text).toContain("Heat hráče: —");
+    expect(text).toContain("Heat districtů: —");
+    expect(text).toContain("Tlak raidu: —");
+    expect(text).not.toContain("Hledanost: 0 / 5");
+    expect(text).not.toContain("Nízký dohled");
+  });
+
   it("renders police feedback inside the wanted popup card instead of the right rail", () => {
     const documentRef = new FakeDocument();
     const root = new FakeElement("main");

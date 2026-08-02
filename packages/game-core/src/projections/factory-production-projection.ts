@@ -80,8 +80,18 @@ export const createFactoryProductionBuildingView = (input: {
       unitCleanCashCost: recipe.cleanCashCostPerUnit,
       materialInputCosts: { ...recipe.inputCosts },
       costDisplayRows: [
-        { resourceKey: "cash", label: "Clean Cash", amount: recipe.cleanCashCostPerUnit },
-        ...Object.entries(recipe.inputCosts).map(([resourceKey, amount]) => ({ resourceKey, label: RESOURCE_LABELS[resourceKey] ?? resourceKey, amount }))
+        {
+          resourceKey: "cash",
+          label: "Clean Cash",
+          amount: recipe.cleanCashCostPerUnit,
+          availableAmount: cleanCash
+        },
+        ...Object.entries(recipe.inputCosts).map(([resourceKey, amount]) => ({
+          resourceKey,
+          label: RESOURCE_LABELS[resourceKey] ?? resourceKey,
+          amount,
+          availableAmount: Math.max(0, Number(balances[resourceKey] ?? 0))
+        }))
       ],
       baseUnitDurationTicks: recipe.durationTicksPerUnit,
       effectiveUnitDurationTicks: resolveFactoryDurationTicks(input.state, input.building, recipe, { config: input.config! }),

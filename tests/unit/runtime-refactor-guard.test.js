@@ -1,6 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { relative, resolve } from "node:path";
+import { describe, expect, it } from "vitest";
 
 const root = process.cwd();
 const read = (relativePath) => readFileSync(resolve(root, relativePath), "utf8");
@@ -10,10 +11,28 @@ const appSource = () => read("page-assets/js/app.js");
 const renderUiSource = () => read("page-assets/js/app/render-ui.js");
 const localDemoAdapterSource = () => read("page-assets/js/app/runtime/localDemoLegacyBootstrap.js");
 const runtimeSource = () => read("page-assets/js/app/runtime.js");
+const factoryPopupRuntimeSource = () => read("page-assets/js/app/runtime/factoryPopupRuntime.js");
 const productionBuildingPopupRuntimeSource = () => read("page-assets/js/app/runtime/productionBuildingPopupRuntime.js");
 const recipePanelSource = () => read("page-assets/js/app/ui/recipePanel.js");
-const serverGameplayBuildingDetailControllerSource = () => read("page-assets/js/app/ui/serverGameplayBuildingDetailController.js");
 const serverCommandAuthorityGuardSource = () => read("page-assets/js/app/runtime/serverCommandAuthorityGuard.js");
+
+const collectSourceFiles = (relativeDirectory) => {
+  const files = [];
+  const visit = (directory) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const entryPath = resolve(directory, entry.name);
+      if (entry.isDirectory()) {
+        visit(entryPath);
+      } else if (/\.(?:html|js|mjs|ts|tsx)$/u.test(entry.name)) {
+        files.push(entryPath);
+      }
+    }
+  };
+
+  const directory = resolve(root, relativeDirectory);
+  if (existsSync(directory)) visit(directory);
+  return files;
+};
 
 describe("runtime refactor guard", () => {
   it("keeps the temporary production compatibility rollback explicit", () => {
@@ -53,20 +72,75 @@ describe("runtime refactor guard", () => {
   });
 
   it("keeps dormant duplicate presentation paths removed", () => {
-    const buildingDetailSource = serverGameplayBuildingDetailControllerSource();
+    const factorySource = factoryPopupRuntimeSource();
+    const productionSource = productionBuildingPopupRuntimeSource();
     const removedPaths = [
+      "apps/client/src/features/building-panel/building-detail-popup.ts",
       "page-assets/js/app/presentation/serverAuthoritativePageController.js",
+      "page-assets/css/styles-server-defeat-notice.css",
+      "page-assets/js/app/ui/serverDefeatNoticeController.js",
+      "page-assets/js/app/ui/serverDefeatNoticeViewModel.js",
+      "page-assets/js/app/ui/serverGameplayBuildingActionController.js",
+      "page-assets/js/app/ui/serverGameplayBuildingDetailController.js",
+      "page-assets/js/app/ui/serverGameplayBuildingShortcutController.js",
+      "page-assets/js/app/ui/serverGameplayDistrictController.js",
+      "page-assets/js/app/ui/serverGameplayDistrictEventBindings.js",
+      "page-assets/js/app/ui/serverGameplayDistrictSurfaceActionDispatcher.js",
+      "page-assets/js/app/ui/serverGameplayLeaderboardController.js",
+      "page-assets/js/app/ui/serverGameplayLeaderboardElements.js",
+      "page-assets/js/app/ui/serverGameplayLeaderboardView.js",
+      "page-assets/js/app/ui/serverGameplayLeaderboardViewModel.js",
+      "page-assets/js/app/ui/serverGameplayLobbyController.js",
+      "page-assets/js/app/ui/serverGameplayLobbySession.js",
+      "page-assets/js/app/ui/serverGameplayMarketCallbacks.js",
+      "page-assets/js/app/ui/serverGameplayMarketController.js",
+      "page-assets/js/app/ui/serverGameplayMarketViewModel.js",
+      "page-assets/js/app/ui/serverGameplayOperationReportFormatting.js",
+      "page-assets/js/app/ui/serverGameplayPoliceRaidController.js",
+      "page-assets/js/app/ui/serverGameplayProfileController.js",
       "page-assets/js/app/ui/serverGameplayProductionBuildingController.js",
       "page-assets/js/app/ui/serverGameplayProductionBuildingView.js",
+      "page-assets/js/app/ui/serverGameplayReportController.js",
+      "page-assets/js/app/ui/serverGameplayReportFormatting.js",
+      "page-assets/js/app/ui/serverGameplayReportViewModel.js",
+      "page-assets/js/app/ui/serverGameplayResourceController.js",
+      "page-assets/js/app/ui/serverGameplaySettingsController.js",
+      "page-assets/js/app/ui/serverGameplayStatusController.js",
+      "page-assets/js/app/ui/serverGameplayStatusViewModel.js",
+      "page-assets/js/app/ui/serverGameplayStorageController.js",
+      "page-assets/js/app/ui/serverGameplayUiController.js",
+      "page-assets/js/app/ui/serverGameplayWantedPoliceController.js",
+      "page-assets/js/app/ui/serverGameplayWantedPoliceElements.js",
+      "page-assets/js/app/ui/serverGameplayWantedPoliceViewModel.js",
       "page-assets/js/app/ui/serverPharmacyRecipeCard.js",
-      "page-assets/js/app/ui/serverDrugLabRecipeCard.js"
+      "page-assets/js/app/ui/serverDrugLabRecipeCard.js",
+      "page-assets/js/app/ui/serverProductionPopupOwnership.js"
     ];
 
-    expect(buildingDetailSource).not.toContain("serverGameplayProductionBuildingController.js");
-    expect(buildingDetailSource).not.toContain("productionController");
+    expect(factorySource).not.toContain("serverProductionPopupOwnership.js");
+    expect(factorySource).not.toContain("isServerControllerOwner");
+    expect(productionSource).not.toContain("serverProductionPopupOwnership.js");
+    expect(productionSource).not.toContain("isServerControllerOwner");
     for (const relativePath of removedPaths) {
       expect(existsSync(resolve(root, relativePath)), relativePath).toBe(false);
     }
+
+    const sourceFiles = [
+      "apps/client/src",
+      "netlify",
+      "page-assets/js",
+      "pages",
+      "scripts"
+    ].flatMap(collectSourceFiles);
+    const removedFileNames = removedPaths.map((relativePath) => relativePath.split("/").at(-1));
+    const danglingReferences = sourceFiles.flatMap((sourceFile) => {
+      const source = readFileSync(sourceFile, "utf8");
+      return removedFileNames
+        .filter((fileName) => source.includes(fileName))
+        .map((fileName) => `${relative(root, sourceFile).replaceAll("\\", "/")} -> ${fileName}`);
+    });
+
+    expect(danglingReferences).toEqual([]);
   });
 
   it("does not introduce inline HTML event handlers for the game shell", () => {
@@ -105,61 +179,70 @@ describe("runtime refactor guard", () => {
     }
   });
 
-  it("imports the explicit local-demo facade without critical console errors", async () => {
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  it("imports the explicit local-demo facade without critical console errors", () => {
+    const probe = spawnSync(process.execPath, [
+      "--input-type=module",
+      "--eval",
+      `
+        const renderUi = await import("./page-assets/js/app/render-ui.js");
+        const runtime = await import("./page-assets/js/app/runtime.js");
+        process.stdout.write(JSON.stringify({
+          renderUi: Object.keys(renderUi),
+          runtime: Object.keys(runtime)
+        }));
+      `
+    ], {
+      cwd: root,
+      encoding: "utf8",
+      timeout: 8_000
+    });
+    const requiredRenderUiExports = [
+      "PAGE_ROOT_SELECTOR",
+      "bootstrapPage",
+      "bindDistrictCanvas",
+      "bindPlayerProfilePopup",
+      "bindBuildingActionStatus",
+      "bindStoragePopup",
+      "bindMarketPopup",
+      "bindGangWantedStatus",
+      "bindSpyMissions",
+      "bindAttackOrders",
+      "bindArmoryPopup",
+      "bindDrugLabPopup",
+      "bindFactoryPopup",
+      "bindPharmacyPopup",
+      "showSpyToast",
+      "showAttackToast",
+      "showRobberyToast"
+    ];
+    const requiredRuntimeExports = [
+      ...requiredRenderUiExports,
+      "bindRobberyOrders",
+      "clearNotifications",
+      "completeAttackOrder",
+      "completeRobberyOrder",
+      "completeSpyMission",
+      "renderBattleReport",
+      "renderResourcesPanel",
+      "renderStorageList",
+      "showError",
+      "showSuccess",
+      "showToast",
+      "showWarning",
+      "updateTopbarResources"
+    ];
 
-    try {
-      const [renderUi, runtime] = await Promise.all([
-        import("../../page-assets/js/app/render-ui.js"),
-        import("../../page-assets/js/app/runtime.js")
-      ]);
-      const requiredRenderUiExports = [
-        "PAGE_ROOT_SELECTOR",
-        "bootstrapPage",
-        "bindDistrictCanvas",
-        "bindPlayerProfilePopup",
-        "bindBuildingActionStatus",
-        "bindStoragePopup",
-        "bindMarketPopup",
-        "bindGangWantedStatus",
-        "bindSpyMissions",
-        "bindAttackOrders",
-        "bindArmoryPopup",
-        "bindDrugLabPopup",
-        "bindFactoryPopup",
-        "bindPharmacyPopup",
-        "showSpyToast",
-        "showAttackToast",
-        "showRobberyToast"
-      ];
-      const requiredRuntimeExports = [
-        ...requiredRenderUiExports,
-        "bindRobberyOrders",
-        "clearNotifications",
-        "completeAttackOrder",
-        "completeRobberyOrder",
-        "completeSpyMission",
-        "renderBattleReport",
-        "renderResourcesPanel",
-        "renderStorageList",
-        "showError",
-        "showSuccess",
-        "showToast",
-        "showWarning",
-        "updateTopbarResources"
-      ];
-
-      for (const exportName of requiredRenderUiExports) {
-        expect(renderUi[exportName]).toBeDefined();
-      }
-      for (const exportName of requiredRuntimeExports) {
-        expect(runtime[exportName]).toBeDefined();
-      }
-      expect(consoleError).not.toHaveBeenCalled();
-    } finally {
-      consoleError.mockRestore();
+    expect(probe.error).toBeUndefined();
+    expect(probe.status).toBe(0);
+    expect(probe.stderr).toBe("");
+    const moduleExports = JSON.parse(probe.stdout);
+    for (const exportName of requiredRenderUiExports) {
+      expect(moduleExports.renderUi).toContain(exportName);
     }
-  }, 10000);
+    for (const exportName of requiredRuntimeExports) {
+      expect(moduleExports.runtime).toContain(exportName);
+    }
+  });
 
   it("keeps profile popup and building panel binding contracts in runtime", () => {
     const source = runtimeSource();

@@ -281,15 +281,25 @@ describe("faction core foundation", () => {
       ...context.config,
       balance: {
         ...context.config.balance,
-        productionMultiplier: 1,
+        dayNight: {
+          ...context.config.balance.dayNight!,
+          enabled: false
+        },
         productionBuildings: {
           factory: { resourceKey: "tech-core", resourceLabel: "Tech Core", amountPerTick: 10, storageCap: 50 }
         }
       }
     };
+    const baselineState = structuredClone(state);
+    baselineState.playersById["player:1"] = {
+      ...baselineState.playersById["player:1"],
+      factionId: "mafian"
+    };
 
+    const baselineNextState = completeProduction(baselineState, { config });
     const nextState = completeProduction(state, { config });
 
+    expect(baselineNextState.resourceStatesById[`resource:${building.id}`].balances["tech-core"]).toBe(12);
     expect(nextState.resourceStatesById[`resource:${building.id}`].balances["tech-core"]).toBe(13);
   });
 

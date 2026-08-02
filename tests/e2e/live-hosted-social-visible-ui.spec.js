@@ -229,8 +229,7 @@ test.describe("hosted bounty, market and alliance through visible UI", () => {
           ({ playerId }) => playerId === acceptedBuys[0].playerId
         )?.chemicalsBefore + 10
       );
-      expect(findMatchingPlayerMarketTransactions(creatorAfterRace, {
-        buyerPlayerIds: [targetPlayerId, hunterPlayerId],
+      expect(findMatchingSafePlayerMarketTransactions(creatorAfterRace, {
         resourceId: "chemicals",
         amount: 10,
         totalPrice: 100
@@ -784,19 +783,24 @@ function findListing(readModel, listingId) {
   ) || null;
 }
 
-function findMatchingPlayerMarketTransactions(readModel, {
-  buyerPlayerIds,
+function findMatchingSafePlayerMarketTransactions(readModel, {
   resourceId,
   amount,
   totalPrice
 }) {
-  return (readModel?.market?.recentTransactions || []).filter((entry) => (
-    buyerPlayerIds.includes(entry.playerId)
-    && entry.marketType === "player"
+  const recentTransactions = readModel?.market?.recentTransactions || [];
+  for (const entry of recentTransactions) {
+    expect(entry).not.toHaveProperty("id");
+    expect(entry).not.toHaveProperty("playerId");
+    expect(entry).not.toHaveProperty("auditTriggered");
+  }
+  return recentTransactions.filter((entry) => (
+    entry.marketType === "player"
     && entry.type === "buy"
     && entry.resourceId === resourceId
     && entry.amount === amount
     && entry.totalPrice === totalPrice
+    && entry.isOwn === false
   ));
 }
 

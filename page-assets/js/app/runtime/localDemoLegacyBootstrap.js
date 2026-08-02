@@ -26,7 +26,7 @@ import {
   installLocalDemoGameplayBridge,
   uninstallLocalDemoGameplayBridge
 } from "./localDemoGameplayBridge.js";
-import { ALLIANCE_DEMO_DATA } from "./localDemoFixtureState.js";
+import { getAllianceDemoFixtureData } from "./localDemoFixtureState.js";
 import { LAUNCH_PLAYER_AVATAR_BY_FACTION_ID } from "./legacyScenarioState.js";
 
 let activeRuntime = null;
@@ -91,7 +91,7 @@ export function bootstrapLocalDemoLegacyPage({
     applyTopbarEconomy,
     getPlayerBoostViewModel,
     getResolvedGangState,
-    getAllianceDemoData: () => ALLIANCE_DEMO_DATA,
+    getAllianceDemoData: getAllianceDemoFixtureData,
     getBountyDemoTargets: () => BOUNTY_DEMO_TARGETS,
     getLaunchPlayerAvatarByFactionId: (factionId) =>
       LAUNCH_PLAYER_AVATAR_BY_FACTION_ID[String(factionId || "")] || "",

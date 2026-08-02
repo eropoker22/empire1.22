@@ -22,8 +22,6 @@ describe("mobile action modal CSS", () => {
   const clientDistrictCss = readText("client/page-assets/css/styles-district.css");
   const mobileRuntime = readText("page-assets/js/app/mobile-layout-runtime.js");
   const overlayState = readText("apps/client/src/modals/overlay-state.ts");
-  const gameplaySliceClient = readText("page-assets/js/client-assets/gameplay-slice-client.js");
-  const clientGameplaySliceClient = readText("client/page-assets/js/client-assets/gameplay-slice-client.js");
   const modalScrollLock = readText("page-assets/js/app/ui/modalScrollLock.js");
   const clientModalScrollLock = readText("client/page-assets/js/app/ui/modalScrollLock.js");
   const legacyOverlayCoordinator = readText("page-assets/js/app/ui/legacyOverlayCoordinator.js");
@@ -269,7 +267,7 @@ describe("mobile action modal CSS", () => {
       expect(resourcePillRuleEnd).toBeGreaterThan(resourcePillRuleStart);
       expect(guard.slice(resourcePillRuleStart, resourcePillRuleEnd)).not.toContain("display:");
     }
-    for (const source of [overlayState, gameplaySliceClient, clientGameplaySliceClient]) {
+    for (const source of [overlayState]) {
       expect(source).toContain('const LOCKED_SCROLL_Y_CSS_VAR = "--modal-scroll-lock-y";');
       expect(source).toContain('const LOCKED_TOPBAR_RESERVE_CSS_VAR = "--modal-topbar-reserve";');
       expect(source).toContain("scrollLockY:");
@@ -542,11 +540,11 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("width: auto;");
       expect(stylesheet).toContain("min-width: 96px;");
       expect(stylesheet).toContain("border-color: rgba(34, 197, 94, 0.56);");
-      expect(stylesheet).toContain(".district-popup-buildings__chip-kind--passive");
+      expect(stylesheet).toContain(".district-popup-buildings__chip--kind-passive");
       expect(stylesheet).toContain("color: rgba(226, 232, 240, 0.88);");
-      expect(stylesheet).toContain(".district-popup-buildings__chip-kind--action");
+      expect(stylesheet).toContain(".district-popup-buildings__chip--kind-action");
       expect(stylesheet).toContain("color: rgba(250, 204, 21, 0.95);");
-      expect(stylesheet).toContain(".district-popup-buildings__chip-kind--production");
+      expect(stylesheet).toContain(".district-popup-buildings__chip--kind-production");
       expect(stylesheet).toContain("font-size: 0.34rem;");
       expect(stylesheet).toContain("letter-spacing: 0;");
       expect(stylesheet).toContain(".district-popup-buildings__trap-meta");
@@ -846,6 +844,9 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("transform: translate(-50%, -50%);");
       expect(stylesheet).toContain("max-height: min(84vh, 760px);");
     }
+    expect(cityEventsCss).toContain("#events-modal:not(.hidden),\n  #event-detail-modal:not(.hidden) {");
+    expect(cityEventsCss).toContain("inset: var(--desktop-topbar-offset, 72px) 0 0 0;");
+    expect(cityEventsCss).toContain("height: auto;");
   });
 
   it("keeps the mobile page visually stable while popup cards are open", () => {
@@ -1132,7 +1133,7 @@ describe("mobile action modal CSS", () => {
   });
 
   it("restores page scroll after closing every mobile overlay coordinator", () => {
-    for (const source of [overlayState, gameplaySliceClient, clientGameplaySliceClient]) {
+    for (const source of [overlayState]) {
       expect(source).toContain("const getScrollPosition");
       expect(source).toContain("const restorePageScroll");
       expect(source).toContain("const schedulePageScrollRestore");

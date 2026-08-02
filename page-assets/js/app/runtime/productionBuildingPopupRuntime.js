@@ -7,10 +7,7 @@ import {
   queueLocalProduction
 } from "./localProductionLineState.js";
 import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
-import {
-  hasServerProductionPopupOwner,
-  openServerProductionPopup
-} from "../ui/serverProductionPopupOwnership.js";
+import { registerProductionPopupOpener } from "./productionPopupOpenBridge.js";
 
 function isButtonElement(element, ButtonCtor) {
   if (!element) {
@@ -24,17 +21,28 @@ function queryAll(root, selector) {
   return selector ? Array.from(root?.querySelectorAll?.(selector) || []) : [];
 }
 
+function resolveBooleanPolicy(policy, defaultValue = true) {
+  try {
+    const value = typeof policy === "function" ? policy() : policy;
+    return value === undefined ? defaultValue : value === true;
+  } catch {
+    return false;
+  }
+}
+
 export function createProductionBuildingPopupRuntime(deps = {}) {
   const selectors = deps.selectors || {};
   const ButtonCtor = deps.HTMLButtonElement || (typeof HTMLButtonElement !== "undefined" ? HTMLButtonElement : null);
   const documentRef = deps.documentRef || (typeof document !== "undefined" ? document : null);
   const maxLevel = Number(deps.maxLevel || 14);
-  const allowLegacyLocalProduction = deps.allowLegacyLocalProduction !== false;
   const isServerAuthoritativeProductionReady = () => deps.isServerAuthoritativeGameplayRuntimeReady?.() === true;
-  const isLegacyLocalProductionEnabled = () => allowLegacyLocalProduction && !isServerAuthoritativeProductionReady();
+  const isLegacyLocalProductionEnabled = () => resolveBooleanPolicy(
+    deps.allowLegacyLocalProduction
+  ) && !isServerAuthoritativeProductionReady();
   const shouldUseServerProduction = () => !isLegacyLocalProductionEnabled();
-  const allowLegacyProductionUpgrade = deps.allowLegacyProductionUpgrade !== false;
-  const isLegacyLocalProductionUpgradeEnabled = () => allowLegacyProductionUpgrade && !isServerAuthoritativeProductionReady();
+  const isLegacyLocalProductionUpgradeEnabled = () => resolveBooleanPolicy(
+    deps.allowLegacyProductionUpgrade
+  ) && !isServerAuthoritativeProductionReady();
   const productionBridgeMessage = "Výroba je v tomto režimu nedostupná.";
   const productionUpgradeMessage = "Serverový upgrade se provádí přes konkrétní kartu budovy v districtu.";
   const baseOwnedCount = Math.max(1, Math.floor(Number(deps.baseOwnedProductionBuildingCount || 1)));
@@ -740,9 +748,6 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       host: popup,
       variant: "production"
     });
-    const isServerControllerOwner = () => (
-      shouldUseServerProduction() && hasServerProductionPopupOwner(popup)
-    );
 
     const setActiveTab = (tabName = "stats") => {
       for (const button of tabButtons) {
@@ -757,9 +762,6 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     };
 
     const renderDashboard = () => {
-      if (isServerControllerOwner()) {
-        return true;
-      }
       const serverPharmacy = buildingName === "pharmacy" && shouldUseServerProduction()
         ? deps.getServerPharmacyReadModel?.()
         : null;
@@ -882,7 +884,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     };
 
     documentRef?.addEventListener?.("empire:gameplay-slice-rendered", () => {
-      if (!isServerControllerOwner() && !isLegacyLocalProductionEnabled() && !popup.hidden) {
+      if (!isLegacyLocalProductionEnabled() && !popup.hidden) {
         renderDashboard();
       }
     });
@@ -895,7 +897,6 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
 
     for (const button of tabButtons) {
       button.addEventListener("click", () => {
-        if (isServerControllerOwner()) return;
         const tabName = String(button.dataset.productionBuildingTab || "").split(":")[1] || "stats";
         setActiveTab(tabName);
       });
@@ -903,7 +904,6 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
 
     if (isButtonElement(collectButton, ButtonCtor)) {
       collectButton.addEventListener("click", async () => {
-        if (isServerControllerOwner()) return;
         const serverPharmacy = buildingName === "pharmacy" && shouldUseServerProduction()
           ? deps.getServerPharmacyReadModel?.()
           : null;
@@ -1005,7 +1005,6 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
 
     if (isButtonElement(upgradeButton, ButtonCtor)) {
       upgradeButton.addEventListener("click", async () => {
-        if (isServerControllerOwner()) return;
         const serverPharmacy = buildingName === "pharmacy" && shouldUseServerProduction()
           ? deps.getServerPharmacyReadModel?.()
           : null;
@@ -1118,7 +1117,6 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     }
 
     const openPopup = async () => {
-      if (isServerControllerOwner()) return false;
       const shouldPrepareServerBuilding = shouldUseServerProduction()
         && typeof deps.prepareServerProductionBuilding === "function";
       let preparedServerBuilding = null;
@@ -1140,21 +1138,6 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
             return false;
           }
         }
-        if (isServerControllerOwner()) {
-          const opened = openServerProductionPopup(
-            popup,
-            preparedServerBuilding?.building?.buildingId || popup.dataset.serverBuildingId
-          );
-          if (!opened) {
-            deps.setBuildingActionFeedback?.(
-              root,
-              "warning",
-              config?.label || "Budova",
-              "Serverový detail budovy se nepodařilo bezpečně otevřít."
-            );
-          }
-          return opened;
-        }
         setActiveTab("stats");
         renderDashboard();
         openOverlay(popup, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
@@ -1170,13 +1153,13 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     };
 
     const closePopup = () => {
-      if (isServerControllerOwner()) return;
       upgradeConfirmation.close?.();
       popup.hidden = true;
       closeOverlay(popup, { restoreFocus: false });
       deps.syncBuildingDetailTopbarVisibility?.(root);
     };
 
+    registerProductionPopupOpener(openButton, openPopup);
     openButton.addEventListener("click", openPopup);
 
     for (const closeElement of closeElements) {
@@ -1184,7 +1167,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     }
 
     documentRef?.addEventListener?.("keydown", (event) => {
-      if (!isServerControllerOwner() && event.key === "Escape" && !popup.hidden) {
+      if (event.key === "Escape" && !popup.hidden) {
         if (upgradeConfirmation.isOpen?.()) {
           upgradeConfirmation.close?.();
           return;

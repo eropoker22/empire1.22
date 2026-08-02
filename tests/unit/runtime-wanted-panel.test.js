@@ -106,7 +106,8 @@ describe("wanted panel UI module", () => {
       popupFallList: new FakeElement(),
       dirtyActionButton: new FakeElement("button"),
       cleanActionButton: new FakeElement("button"),
-      influenceActionButton: new FakeElement("button")
+      influenceActionButton: new FakeElement("button"),
+      clearLogButton: new FakeElement("button")
     };
 
     const viewModel = {
@@ -125,7 +126,8 @@ describe("wanted panel UI module", () => {
       fallEntries: [],
       dirtyActionDisabled: true,
       cleanActionDisabled: false,
-      influenceActionDisabled: true
+      influenceActionDisabled: true,
+      clearLogDisabled: false
     };
 
     renderHeatBadge(viewModel, { heatButton, starContainer, stars });
@@ -150,6 +152,65 @@ describe("wanted panel UI module", () => {
     expect(mounts.dirtyActionButton.disabled).toBe(true);
     expect(mounts.cleanActionButton.disabled).toBe(false);
     expect(mounts.influenceActionButton.disabled).toBe(true);
+    expect(mounts.clearLogButton.disabled).toBe(false);
+  });
+
+  it("keeps the demo layout but renders hosted unavailable values neutrally", () => {
+    setupDocument();
+    const heatButton = new FakeElement("button");
+    const starContainer = new FakeElement("div");
+    const stars = [new FakeElement("span"), new FakeElement("span")];
+    const mounts = {
+      popupHeat: new FakeElement(),
+      popupLevel: new FakeElement(),
+      popupTier: new FakeElement(),
+      popupDescription: new FakeElement(),
+      popupProtection: new FakeElement(),
+      popupAuditRisk: new FakeElement(),
+      popupLevels: new FakeElement(),
+      popupRiseList: new FakeElement(),
+      popupFallList: new FakeElement(),
+      dirtyActionButton: new FakeElement("button"),
+      cleanActionButton: new FakeElement("button"),
+      influenceActionButton: new FakeElement("button"),
+      clearLogButton: new FakeElement("button")
+    };
+    const viewModel = {
+      available: false,
+      heat: 0,
+      heatLabel: "—",
+      levelId: 0,
+      levelLabel: "—",
+      title: "—",
+      description: "—",
+      protectionLabel: "—",
+      auditRiskLabel: "—",
+      levels: [],
+      riseEntries: [],
+      fallEntries: [],
+      riseEmptyText: "—",
+      fallEmptyText: "—",
+      dirtyActionDisabled: true,
+      cleanActionDisabled: true,
+      influenceActionDisabled: true,
+      clearLogDisabled: true
+    };
+
+    renderHeatBadge(viewModel, { heatButton, starContainer, stars });
+    renderWantedPanel(viewModel, { mounts });
+
+    expect(heatButton.textContent).toBe("—");
+    expect(stars.every((star) => !star.classList.contains("is-active"))).toBe(true);
+    expect(mounts.popupHeat.textContent).toBe("—");
+    expect(mounts.popupLevel.textContent).toBe("—");
+    expect(mounts.popupProtection.textContent).toBe("—");
+    expect(mounts.popupAuditRisk.textContent).toBe("—");
+    expect(mounts.popupRiseList.children[0].textContent).toBe("—");
+    expect(mounts.popupFallList.children[0].textContent).toBe("—");
+    expect(mounts.dirtyActionButton.disabled).toBe(true);
+    expect(mounts.cleanActionButton.disabled).toBe(true);
+    expect(mounts.influenceActionButton.disabled).toBe(true);
+    expect(mounts.clearLogButton.disabled).toBe(true);
   });
 
   it("marks gang profile stars neon when police action threatens the player", () => {

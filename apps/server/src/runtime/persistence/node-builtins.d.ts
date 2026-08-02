@@ -17,6 +17,28 @@ declare class Buffer extends Uint8Array {
   toString(encoding?: string): string;
 }
 
+declare module "node:events" {
+  export class EventEmitter {
+    on(event: string, listener: (...args: unknown[]) => void): this;
+    once(event: string, listener: (...args: unknown[]) => void): this;
+    removeListener(event: string, listener: (...args: unknown[]) => void): this;
+    emit(event: string, ...args: unknown[]): boolean;
+  }
+}
+
+declare module "node:net" {
+  export interface Socket {
+    timeout?: number;
+    setKeepAlive(enable?: boolean, initialDelay?: number): this;
+    setTimeout(timeout: number): this;
+    ref(): this;
+    unref(): this;
+    on(event: string, listener: (...args: unknown[]) => void): this;
+    once(event: string, listener: (...args: unknown[]) => void): this;
+    removeListener(event: string, listener: (...args: unknown[]) => void): this;
+  }
+}
+
 declare module "node:fs" {
   export const promises: {
     mkdir(path: string, options?: { recursive?: boolean }): Promise<void>;
@@ -45,6 +67,11 @@ declare module "node:http" {
     readonly keepAlive: boolean;
     maxSockets: number;
     maxFreeSockets: number;
+    keepSocketAlive(socket: import("node:net").Socket): boolean;
+    reuseSocket(socket: import("node:net").Socket, request: ClientRequest): void;
+  }
+  export interface ClientRequest {
+    reusedSocket?: boolean;
   }
   export interface IncomingMessage {
     url?: string;
@@ -79,6 +106,8 @@ declare module "node:https" {
     readonly keepAlive: boolean;
     maxSockets: number;
     maxFreeSockets: number;
+    keepSocketAlive(socket: import("node:net").Socket): boolean;
+    reuseSocket(socket: import("node:net").Socket, request: import("node:http").ClientRequest): void;
   }
 }
 

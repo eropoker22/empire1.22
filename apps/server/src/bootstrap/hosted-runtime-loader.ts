@@ -64,7 +64,7 @@ const loadHostedRuntime = async (
 ): Promise<HostedRuntimeLoadResult> => {
   let stage: HostedRuntimeLoadStage = "server-record";
   try {
-    const record = await options.controlPlane.getServer(serverInstanceId);
+    const record = await loadHostedServerRecord(options.controlPlane, serverInstanceId);
     const recordError = validateHostedRecord(record, serverInstanceId, requireRunning);
     if (recordError) return rejected(recordError);
 
@@ -144,6 +144,23 @@ const loadHostedRuntime = async (
       message: "Hosted server authority is temporarily unavailable."
     });
   }
+};
+
+const loadHostedServerRecord = async (
+  controlPlane: Pick<HostedControlPlaneRepository, "getServer">,
+  serverInstanceId: ServerInstanceId
+): Promise<HostedServerRecord | null> => {
+  try {
+    return await controlPlane.getServer(serverInstanceId);
+  } catch (error) {
+    if (!isPostgresStatementTimeout(error)) throw error;
+    return controlPlane.getServer(serverInstanceId);
+  }
+};
+
+const isPostgresStatementTimeout = (error: unknown): boolean => {
+  if (typeof error !== "object" || error === null || !("code" in error)) return false;
+  return String(error.code) === "57014";
 };
 
 const validateHostedRecord = (

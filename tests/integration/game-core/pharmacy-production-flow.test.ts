@@ -137,7 +137,7 @@ describe("pharmacy production", () => {
 
   it("projects server-authored local amounts, queue limits, durations, and disabled states", () => {
     const { state, building } = createCoreStateWithFixedBuildingFixture("pharmacy", {
-      playerBalances: { cash: 360 },
+      playerBalances: { cash: 360, chemicals: 0 },
       productionResourceKey: "chemicals",
       productionStoredAmount: 12
     });
@@ -154,6 +154,8 @@ describe("pharmacy production", () => {
     expect(chemicals).toMatchObject({
       producedAmount: 12,
       producedCapacity: 12,
+      playerStoredAmount: 0,
+      playerStoredCapacity: 60,
       queueCapacity: 15,
       status: "full",
       canStart: false,

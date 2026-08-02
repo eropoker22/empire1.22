@@ -109,23 +109,6 @@ export const loadHostedServerPopulationStats = async (
        FROM empire_server_memberships membership
        JOIN empire_accounts account
          ON account.account_id=membership.account_id
-       JOIN empire_snapshot_latest snapshot
-         ON snapshot.server_instance_id=membership.server_instance_id
-       CROSS JOIN LATERAL (
-         SELECT jsonb_extract_path(snapshot.payload,'state') AS state
-         OFFSET 0
-       ) parsed
-       CROSS JOIN LATERAL (
-         SELECT
-           jsonb_extract_path(
-             parsed.state,'playersById',membership.player_id
-           ) AS player_state,
-           jsonb_extract_path_text(
-             parsed.state,'districtsById',
-             membership.reserved_spawn_district_id,'ownerPlayerId'
-           ) AS owner_player_id
-         OFFSET 0
-       ) projected
        WHERE membership.server_instance_id=ANY($1::text[])
          AND membership.status='active'
          AND account.status='active'
@@ -135,15 +118,6 @@ export const loadHostedServerPopulationStats = async (
          AND membership.setup_completed_at IS NOT NULL
          AND membership.starter_package_applied_at IS NOT NULL
          AND membership.join_ticket_id IS NOT NULL
-         AND projected.player_state->>'status'='active'
-         AND COALESCE(projected.player_state->>'accountId','') <> ''
-         AND projected.player_state->>'homeDistrictId'
-           = membership.reserved_spawn_district_id
-         AND projected.player_state->'metadata'->>'membershipId'
-           = membership.membership_id
-         AND projected.player_state->'metadata'->>'setupComplete'='true'
-         AND projected.player_state->'metadata'->>'starterPackageApplied'='true'
-         AND projected.owner_player_id=membership.player_id
          AND EXISTS (
            SELECT 1
            FROM empire_hosted_join_reservations reservation

@@ -21,6 +21,10 @@ import {
   stopStaleDisposableHostedServers
 } from "./local-hosted/admin-fixture-client.mjs";
 import { HOSTED_E2E_STARTING_PLAYER_STATE } from "./local-hosted/hosted-e2e-starting-player-state.mjs";
+import {
+  parseUiParityDebugBuildingTypes,
+  UI_PARITY_DEBUG_BUILDING_TYPES_ENV
+} from "../tests/e2e/helpers/uiParityDebugBuildingFilter.js";
 
 process.loadEnvFile?.(".env.local");
 assertSupportedNodeVersion(process.versions.node);
@@ -34,78 +38,115 @@ const workerOrigin = `http://127.0.0.1:${workerPort}`;
 const hostedSuites = Object.freeze([
   Object.freeze({
     name: "manual-admin-player",
+    gameplayInteraction: "visible-browser-ui",
     manualProvisioning: true,
     specs: Object.freeze(["tests/e2e/manual-hosted-admin-player-flow.spec.js"])
   }),
   Object.freeze({
     name: "city-events",
+    gameplayInteraction: "visible-browser-ui",
     specs: Object.freeze(["tests/e2e/live-city-events.spec.js"])
   }),
   Object.freeze({
     name: "ui-parity",
-    specs: Object.freeze(["tests/e2e/live-demo-ui-parity.spec.js"])
+    gameplayInteraction: "visible-browser-opening-and-observation",
+    playwrightGroups: Object.freeze([
+      Object.freeze({
+        name: "shared-surfaces",
+        grep: "canonical building parity coverage contract|live/demo shared presentation parity"
+      }),
+      Object.freeze({
+        name: "spawn-building-matrix",
+        grep: "live/demo spawn-reachable canonical building matrix"
+      }),
+      Object.freeze({
+        name: "utility-modals",
+        grep: "live/demo utility modal parity"
+      })
+    ]),
+    specs: Object.freeze([
+      "tests/e2e/live-demo-ui-parity.spec.js",
+      "tests/e2e/live-demo-utility-modal-parity.spec.js"
+    ])
+  }),
+  Object.freeze({
+    name: "ui-parity-social",
+    gameplayInteraction: "visible-browser-opening-and-observation",
+    specs: Object.freeze(["tests/e2e/live-demo-social-modal-parity.spec.js"])
   }),
   Object.freeze({
     name: "district-selection-race",
+    gameplayInteraction: "browser-runtime-api-and-visible-opening-observation",
     specs: Object.freeze(["tests/e2e/live-district-selection-race.spec.js"])
   }),
   Object.freeze({
     name: "production-pharmacy",
+    gameplayInteraction: "visible-browser-ui",
     startingPlayerState: createProductionStartingPlayerState("chemicals"),
     specs: Object.freeze(["tests/e2e/live-production-pharmacy.spec.js"])
   }),
   Object.freeze({
     name: "production-drug-lab",
+    gameplayInteraction: "visible-browser-ui",
     startingPlayerState: createProductionStartingPlayerState("neon-dust"),
     specs: Object.freeze(["tests/e2e/live-production-drug-lab.spec.js"])
   }),
   Object.freeze({
     name: "production-factory",
+    gameplayInteraction: "visible-browser-ui",
     startingPlayerState: createProductionStartingPlayerState("metal-parts"),
     specs: Object.freeze(["tests/e2e/live-production-factory.spec.js"])
   }),
   Object.freeze({
     name: "production-armory",
+    gameplayInteraction: "visible-browser-ui",
     startingPlayerState: createProductionStartingPlayerState("baseball-bat"),
     specs: Object.freeze(["tests/e2e/live-production-armory.spec.js"])
   }),
   Object.freeze({
     name: "income",
+    gameplayInteraction: "browser-authoritative-state-observation",
     restartWorkerBeforeSpec: true,
     specs: Object.freeze(["tests/e2e/live-hosted-income.spec.js"])
   }),
   Object.freeze({
     name: "building-actions-day",
+    gameplayInteraction: "direct-authoritative-api",
     scenario: "building-actions-day",
     buildingActionPhase: "day",
     specs: Object.freeze(["tests/e2e/live-hosted-building-actions.spec.js"])
   }),
   Object.freeze({
     name: "building-actions-night",
+    gameplayInteraction: "direct-authoritative-api",
     scenario: "building-actions-night",
     buildingActionPhase: "night",
     specs: Object.freeze(["tests/e2e/live-hosted-building-actions.spec.js"])
   }),
   Object.freeze({
     name: "building-actions-visible-ui-day",
+    gameplayInteraction: "visible-browser-ui",
     scenario: "building-actions-day",
     buildingActionPhase: "day",
     specs: Object.freeze(["tests/e2e/live-hosted-building-actions-visible-ui.spec.js"])
   }),
   Object.freeze({
     name: "building-actions-visible-ui-night",
+    gameplayInteraction: "visible-browser-ui",
     scenario: "building-actions-night",
     buildingActionPhase: "night",
     specs: Object.freeze(["tests/e2e/live-hosted-building-actions-visible-ui.spec.js"])
   }),
   Object.freeze({
     name: "ui-parity-non-spawn",
+    gameplayInteraction: "visible-browser-opening-and-observation",
     scenario: "building-parity-non-spawn",
     bootstrapIdentityPrefix: "HostedNonSpawnParity",
     specs: Object.freeze(["tests/e2e/live-hosted-non-spawn-building-parity.spec.js"])
   }),
   Object.freeze({
     name: "multiplayer-core",
+    gameplayInteraction: "direct-authoritative-api",
     scenario: "multiplayer-core",
     playerCount: 3,
     identityPrefix: "HostedCore",
@@ -113,13 +154,18 @@ const hostedSuites = Object.freeze([
   }),
   Object.freeze({
     name: "multiplayer-visible-actions",
+    gameplayInteraction: "mixed-visible-browser-ui-and-parity-observation",
     scenario: "multiplayer-core",
     playerCount: 3,
     identityPrefix: "HostedVisible",
-    specs: Object.freeze(["tests/e2e/manual-hosted-district-actions-ui.spec.js"])
+    specs: Object.freeze([
+      "tests/e2e/manual-hosted-district-actions-ui.spec.js",
+      "tests/e2e/live-demo-district-action-overlay-parity.spec.js"
+    ])
   }),
   Object.freeze({
     name: "social-visible-ui",
+    gameplayInteraction: "visible-browser-ui",
     scenario: "multiplayer-core",
     playerCount: 3,
     identityPrefix: "HostedSocial",
@@ -127,6 +173,7 @@ const hostedSuites = Object.freeze([
   }),
   Object.freeze({
     name: "lifecycle-stop",
+    gameplayInteraction: "mixed-visible-admin-ui-and-direct-authoritative-api",
     playerCount: 1,
     identityPrefix: "HostedLifecycle",
     lifecycleStop: true,
@@ -176,6 +223,22 @@ if (selectedSuites.length === 0 || selectedSuites.length !== requestedSuiteNames
   const available = hostedSuites.map((suite) => suite.name).join(", ");
   throw new Error(`Unknown local hosted suite. Available suites: ${available}.`);
 }
+const uiParityDebugBuildingTypeIds = parseUiParityDebugBuildingTypes(
+  process.env[UI_PARITY_DEBUG_BUILDING_TYPES_ENV]
+);
+if (
+  uiParityDebugBuildingTypeIds.length > 0
+  && (selectedSuites.length !== 1 || selectedSuites[0]?.name !== "ui-parity")
+) {
+  throw new Error(
+    `${UI_PARITY_DEBUG_BUILDING_TYPES_ENV} is debug-only and requires --suite=ui-parity as the only suite.`
+  );
+}
+if (uiParityDebugBuildingTypeIds.length > 0) {
+  console.warn(
+    `[local-hosted] DEBUG-ONLY building parity filter: ${uiParityDebugBuildingTypeIds.join(", ")}. This is not a comprehensive parity gate.`
+  );
+}
 const runtimeDatabaseUrl = String(process.env.EMPIRE_DATABASE_URL || "");
 const testDatabaseUrl = String(process.env.EMPIRE_TEST_DATABASE_URL || "");
 const databaseSummary = assertSafeLocalHostedTestDatabase({
@@ -187,9 +250,19 @@ const buildSha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }
 if (!/^[0-9a-f]{40}$/u.test(buildSha)) throw new Error("Local hosted gate requires an exact Git SHA.");
 
 const runDirectory = await createRunDirectory();
+const browserArtifactRoot = String(
+  process.env.EMPIRE_LOCAL_HOSTED_BROWSER_ARTIFACT_ROOT || ""
+).trim();
+const browserArtifactRunDirectory = browserArtifactRoot
+  ? await createRunDirectory(browserArtifactRoot)
+  : runDirectory;
 const runtimeBundleDirectory = path.join(runDirectory, "runtime-bundle");
 const hostedApiBundlePath = path.join(runtimeBundleDirectory, "hosted-dev-http.mjs");
 const hostedWorkerBundlePath = path.join(runtimeBundleDirectory, "hosted-runtime-worker.mjs");
+const hostedE2eScenarioBundlePath = path.join(runtimeBundleDirectory, "hosted-e2e-scenario.mjs");
+const databaseMigrationsBundlePath = path.join(runtimeBundleDirectory, "database-migrations.mjs");
+const adminBootstrapBundlePath = path.join(runtimeBundleDirectory, "bootstrap-admin-user.mjs");
+const browserConfigBundlePath = path.join(runtimeBundleDirectory, "generate-browser-gameplay-config.mjs");
 let sourceBuildInputHash = null;
 const processes = [];
 let admin = null;
@@ -225,7 +298,7 @@ const environment = {
   PLAYWRIGHT_SKIP_WEB_SERVER: "1",
   EMPIRE_HOSTED_UI_PARITY_E2E: "1",
   EMPIRE_CAPTURE_UI_PARITY_BASELINE: "1",
-  EMPIRE_UI_PARITY_ARTIFACT_ROOT: path.join(runDirectory, "ui-parity"),
+  EMPIRE_UI_PARITY_ARTIFACT_ROOT: path.join(browserArtifactRunDirectory, "ui-parity"),
   EMPIRE_LOCAL_HOSTED_RUNTIME_OUT_DIR: runtimeBundleDirectory,
   EMPIRE_HOSTED_STARTING_PLAYER_STATE_JSON: JSON.stringify(HOSTED_E2E_STARTING_PLAYER_STATE)
 };
@@ -248,26 +321,34 @@ const runFixtureNode = (name, args, timeoutMs) => runManagedCommand({
   logDirectory: runDirectory,
   timeoutMs
 });
+const retainPlaywrightArtifacts = (result, phase) => {
+  const outputDirectory = path.join(browserArtifactRunDirectory, "playwright", result.name, phase);
+  result.evidence.playwrightArtifactDirectories.push(
+    path.relative(process.cwd(), outputDirectory)
+  );
+  return outputDirectory;
+};
 
 try {
   console.log("[local-hosted] Safe isolated test database: yes.");
   console.log(`[local-hosted] Database host: loopback; database marker: ${databaseSummary.databaseName.includes("e2e") ? "e2e" : "test"}.`);
+  await runNode("hosted-runtime-bundle", [
+    "scripts/run-local-bin.mjs",
+    "vite/bin/vite.js",
+    "build",
+    "--config",
+    "vite.local-hosted-runtime.config.ts"
+  ], 300_000);
   await runNode("migrations", [
-    "scripts/run-local-bin.mjs",
-    "vite-node/vite-node.mjs",
-    "scripts/database-migrations.ts",
+    databaseMigrationsBundlePath,
     "--controlled-snapshot-recovery"
-  ], 600_000);
+  ], 120_000);
   await runNode("admin-bootstrap", [
-    "scripts/run-local-bin.mjs",
-    "vite-node/vite-node.mjs",
-    "scripts/bootstrap-admin-user.ts"
-  ], 300_000);
+    adminBootstrapBundlePath
+  ], 120_000);
   await runNode("browser-config", [
-    "scripts/run-local-bin.mjs",
-    "vite-node/vite-node.mjs",
-    "scripts/generate-browser-gameplay-config.ts"
-  ], 300_000);
+    browserConfigBundlePath
+  ], 120_000);
   await runNode("client-bundle", [
     "scripts/run-local-bin.mjs",
     "vite/bin/vite.js",
@@ -281,13 +362,6 @@ try {
     "build",
     "--config",
     "vite.admin-page.config.ts"
-  ], 300_000);
-  await runNode("hosted-runtime-bundle", [
-    "scripts/run-local-bin.mjs",
-    "vite/bin/vite.js",
-    "build",
-    "--config",
-    "vite.local-hosted-runtime.config.ts"
   ], 300_000);
   sourceBuildInputHash = await hashSourceInputs([
     "apps/admin/src",
@@ -379,8 +453,13 @@ try {
         scenarioSetup: suite.scenario
           ? "direct-authoritative-scenario-seed"
           : "none",
-        gameplayInteraction: "visible-browser-ui",
-        qualifiesAsManualAdminFlow: suite.manualProvisioning === true
+        gameplayInteraction: suite.gameplayInteraction,
+        qualifiesAsManualAdminFlow: suite.manualProvisioning === true,
+        ...(suite.name === "ui-parity" ? {
+          comprehensiveParityGate: uiParityDebugBuildingTypeIds.length === 0,
+          debugBuildingTypeIds: uiParityDebugBuildingTypeIds
+        } : {}),
+        playwrightArtifactDirectories: []
       },
       serverInstanceId: null,
       status: "provisioning",
@@ -401,6 +480,7 @@ try {
       delete environment.EMPIRE_MANUAL_HOSTED_DISPLAY_NAME;
       delete environment.EMPIRE_MANUAL_HOSTED_STARTING_STATE_JSON;
       delete environment.EMPIRE_UI_PARITY_SERVER_ID;
+      delete environment.PLAYWRIGHT_WORKERS;
       const suiteStartingPlayerState = suite.startingPlayerState
         || HOSTED_E2E_STARTING_PLAYER_STATE;
       environment.EMPIRE_HOSTED_STARTING_PLAYER_STATE_JSON = JSON.stringify(
@@ -415,7 +495,7 @@ try {
         environment.EMPIRE_MANUAL_HOSTED_STARTING_STATE_JSON = JSON.stringify(
           MANUAL_HOSTED_STARTING_PLAYER_STATE
         );
-        const manualTraceDirectory = path.join(runDirectory, suite.name);
+        const manualTraceDirectory = retainPlaywrightArtifacts(result, "acceptance");
         result.evidence.trace = "playwright-trace-on";
         result.evidence.traceDirectory = path.relative(process.cwd(), manualTraceDirectory);
         result.status = "testing";
@@ -498,19 +578,20 @@ try {
         "utf8"
       );
       result.status = "bootstrapping-player";
+      const bootstrapArtifactDirectory = retainPlaywrightArtifacts(result, "bootstrap");
       await runNode(`playwright-${suite.name}-bootstrap`, [
         "scripts/run-local-bin.mjs",
         "playwright/cli.js",
         "test",
+        "--output",
+        bootstrapArtifactDirectory,
         "tests/e2e/local-hosted-bootstrap-player.spec.js"
       ], 600_000);
       const scenario = suite.scenario || (suite.name === "city-events" ? "city-events" : "");
       if (scenario) {
         result.status = "seeding-scenario";
         await runFixtureNode(`seed-${suite.name}`, [
-          "scripts/run-local-bin.mjs",
-          "vite-node/vite-node.mjs",
-          "tools/seed/hosted-e2e-scenario.mjs",
+          hostedE2eScenarioBundlePath,
           `--server=${server.serverInstanceId}`,
           `--scenario=${scenario}`
         ], 120_000);
@@ -539,12 +620,23 @@ try {
         }
         result.workerRestart = "passed";
       }
-      await runNode(`playwright-${suite.name}`, [
-        "scripts/run-local-bin.mjs",
-        "playwright/cli.js",
-        "test",
-        ...suite.specs
-      ], 1_800_000);
+      const configuredPlaywrightGroups = suite.playwrightGroups || [{ name: "all", grep: "" }];
+      const playwrightGroups = suite.name === "ui-parity"
+        && uiParityDebugBuildingTypeIds.length > 0
+        ? configuredPlaywrightGroups.filter((group) => group.name === "spawn-building-matrix")
+        : configuredPlaywrightGroups;
+      for (const group of playwrightGroups) {
+        const groupArtifactDirectory = retainPlaywrightArtifacts(result, group.name);
+        await runNode(`playwright-${suite.name}-${group.name}`, [
+          "scripts/run-local-bin.mjs",
+          "playwright/cli.js",
+          "test",
+          "--output",
+          groupArtifactDirectory,
+          ...suite.specs,
+          ...(group.grep ? [`--grep=${group.grep}`] : [])
+        ], 1_800_000);
+      }
       result.status = "passed";
       result.cleanup = "stopping";
       await stopDisposableHostedServer(admin, server.serverInstanceId);
@@ -572,6 +664,10 @@ try {
       host: "loopback",
       marker: databaseSummary.databaseName.includes("e2e") ? "e2e" : "test"
     },
+    artifactDirectories: {
+      browser: browserArtifactRunDirectory,
+      logs: runDirectory
+    },
     assetManifest,
     staleServerCleanup,
     serverInstanceId: suiteResults.find((result) => result.status === "failed")?.serverInstanceId
@@ -585,6 +681,9 @@ try {
 }
 
 console.log(`[local-hosted] Artifacts: ${runDirectory}`);
+if (browserArtifactRunDirectory !== runDirectory) {
+  console.log(`[local-hosted] Browser artifacts: ${browserArtifactRunDirectory}`);
+}
 process.exitCode = succeeded ? 0 : 1;
 
 async function captureAssetManifest({

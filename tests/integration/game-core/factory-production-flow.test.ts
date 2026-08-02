@@ -200,7 +200,16 @@ describe("factory production", () => {
     expect(view.network).toMatchObject({ activeFactoryCount: 1, networkSpeedMultiplier: 1 });
     expect(view.producedSummary).toContainEqual(expect.objectContaining({ resourceKey: "tech-core", currentAmount: 5, capacity: 5, isFull: true }));
     expect(view.productionLines.find((line) => line.recipeId === "metal-parts")).toMatchObject({ maxStartQuantity: 6, queueCapacity: 13 });
-    expect(view.productionLines.find((line) => line.recipeId === "tech-core")).toMatchObject({ status: "full", canStart: false });
+    expect(view.productionLines.find((line) => line.recipeId === "tech-core")).toMatchObject({
+      status: "full",
+      canStart: false,
+      costDisplayRows: [
+        { resourceKey: "cash", label: "Clean Cash", amount: 900, availableAmount: 1800 },
+        { resourceKey: "metal-parts", label: "Metal Parts", amount: 4, availableAmount: 8 }
+      ]
+    });
+    expect(view.productionLines.find((line) => line.recipeId === "combat-module")?.costDisplayRows)
+      .toContainEqual({ resourceKey: "tech-core", label: "Tech Core", amount: 2, availableAmount: 0 });
   });
 
   it("migrates one legacy Factory processing job exactly once", () => {

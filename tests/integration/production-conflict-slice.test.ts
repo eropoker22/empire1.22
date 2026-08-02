@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GameplaySliceView } from "@empire/shared-types";
 import { createClientApp } from "../../apps/client/src/app";
-import { renderGameplaySliceStatus } from "../../apps/client/src/browser/gameplay-slice-page";
+import { renderGameplaySliceStatus } from "../../apps/client/src/browser/gameplay-slice-page-helpers";
 import {
   createAttackDistrictCommand,
   createPlaceTrapCommand,

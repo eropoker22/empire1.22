@@ -1,13 +1,19 @@
 import { createBuildingUpgradeConfirmationController } from "./buildingUpgradeConfirmation.js";
 import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
 import { FREE_GAMEPLAY_TICK_MS } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
-import {
-  hasServerProductionPopupOwner,
-  openServerProductionPopup
-} from "../ui/serverProductionPopupOwnership.js";
+import { registerProductionPopupOpener } from "./productionPopupOpenBridge.js";
 
 function queryAll(root, selector) {
   return selector ? Array.from(root?.querySelectorAll?.(selector) || []) : [];
+}
+
+function resolveBooleanPolicy(policy, defaultValue = true) {
+  try {
+    const value = typeof policy === "function" ? policy() : policy;
+    return value === undefined ? defaultValue : value === true;
+  } catch {
+    return false;
+  }
 }
 
 const FACTORY_LOADING_SLOT_SPECS = Object.freeze([
@@ -36,11 +42,13 @@ const createFactoryLoadingLines = () => FACTORY_LOADING_SLOT_SPECS.map((line) =>
 export function createFactoryPopupRuntime(deps = {}) {
   const selectors = deps.selectors || {};
   const documentRef = deps.documentRef || (typeof document !== "undefined" ? document : null);
-  const allowLegacyLocalProduction = deps.allowLegacyLocalProduction !== false;
   const isServerAuthoritativeProductionReady = () => deps.isServerAuthoritativeGameplayRuntimeReady?.() === true;
-  const isLegacyLocalProductionEnabled = () => allowLegacyLocalProduction && !isServerAuthoritativeProductionReady();
-  const allowLegacyProductionUpgrade = deps.allowLegacyProductionUpgrade !== false;
-  const isLegacyLocalProductionUpgradeEnabled = () => allowLegacyProductionUpgrade && !isServerAuthoritativeProductionReady();
+  const isLegacyLocalProductionEnabled = () => resolveBooleanPolicy(
+    deps.allowLegacyLocalProduction
+  ) && !isServerAuthoritativeProductionReady();
+  const isLegacyLocalProductionUpgradeEnabled = () => resolveBooleanPolicy(
+    deps.allowLegacyProductionUpgrade
+  ) && !isServerAuthoritativeProductionReady();
   const productionBridgeMessage = "Výroba Továrny je v tomto režimu nedostupná.";
   const productionUpgradeMessage = "Serverový upgrade Továrny se provádí přes konkrétní kartu budovy v districtu.";
 
@@ -104,9 +112,6 @@ export function createFactoryPopupRuntime(deps = {}) {
       variant: "factory"
     });
     let localCompletionTimer = null;
-    const isServerControllerOwner = () => (
-      !isLegacyLocalProductionEnabled() && hasServerProductionPopupOwner(popup)
-    );
 
     const clearLocalCompletionTimer = () => {
       if (localCompletionTimer === null) return;
@@ -155,9 +160,6 @@ export function createFactoryPopupRuntime(deps = {}) {
     };
 
     const renderFactoryDashboard = () => {
-      if (isServerControllerOwner()) {
-        return true;
-      }
       const serverFactory = getAuthoritativeFactory();
       popup.dataset.executionMode = isLegacyLocalProductionEnabled()
         ? "local-demo"
@@ -433,7 +435,6 @@ export function createFactoryPopupRuntime(deps = {}) {
     };
 
     const openPopup = async () => {
-      if (isServerControllerOwner()) return false;
       const shouldPrepareServerBuilding = !isLegacyLocalProductionEnabled()
         && typeof deps.prepareServerProductionBuilding === "function";
       let preparedServerBuilding = null;
@@ -455,21 +456,6 @@ export function createFactoryPopupRuntime(deps = {}) {
             return false;
           }
         }
-        if (isServerControllerOwner()) {
-          const opened = openServerProductionPopup(
-            popup,
-            preparedServerBuilding?.building?.buildingId || popup.dataset.serverBuildingId
-          );
-          if (!opened) {
-            deps.setBuildingActionFeedback?.(
-              root,
-              "warning",
-              "Továrna",
-              "Serverový detail Továrny se nepodařilo bezpečně otevřít."
-            );
-          }
-          return opened;
-        }
         setActiveTab("stats");
         openOverlay(popup, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
         popup.hidden = false;
@@ -486,7 +472,7 @@ export function createFactoryPopupRuntime(deps = {}) {
     };
 
     documentRef?.addEventListener?.("empire:gameplay-slice-rendered", () => {
-      if (!isServerControllerOwner() && !isLegacyLocalProductionEnabled() && !popup.hidden) {
+      if (!isLegacyLocalProductionEnabled() && !popup.hidden) {
         renderFactoryDashboard();
       }
     });
@@ -498,7 +484,6 @@ export function createFactoryPopupRuntime(deps = {}) {
     });
 
     const closePopup = () => {
-      if (isServerControllerOwner()) return;
       clearLocalCompletionTimer();
       upgradeConfirmation.close?.();
       popup.hidden = true;
@@ -506,17 +491,16 @@ export function createFactoryPopupRuntime(deps = {}) {
       deps.syncBuildingDetailTopbarVisibility?.(root);
     };
 
+    registerProductionPopupOpener(openButton, openPopup);
     openButton.addEventListener("click", openPopup);
 
     for (const button of tabButtons) {
       button.addEventListener("click", () => {
-        if (isServerControllerOwner()) return;
         setActiveTab(button.dataset.factoryTab || "stats");
       });
     }
 
     collectButton.addEventListener("click", () => {
-      if (isServerControllerOwner()) return;
       const serverFactory = getAuthoritativeFactory();
       if (serverFactory) {
         deps.submitServerFactoryCommand?.({
@@ -582,7 +566,6 @@ export function createFactoryPopupRuntime(deps = {}) {
     });
 
     upgradeButton.addEventListener("click", async () => {
-      if (isServerControllerOwner()) return;
       const serverFactory = getAuthoritativeFactory();
       if (!serverFactory && !isLegacyLocalProductionUpgradeEnabled()) {
         deps.setBuildingActionFeedback?.(root, "warning", "Továrna", productionUpgradeMessage);
@@ -679,7 +662,7 @@ export function createFactoryPopupRuntime(deps = {}) {
     }
 
     documentRef?.addEventListener?.("keydown", (event) => {
-      if (!isServerControllerOwner() && event.key === "Escape" && !popup.hidden) {
+      if (event.key === "Escape" && !popup.hidden) {
         if (upgradeConfirmation.isOpen?.()) {
           upgradeConfirmation.close?.();
           return;

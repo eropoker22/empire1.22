@@ -70,7 +70,7 @@ export const createSupportBuildingStats = (input: BuildingStatsProjectionInput):
     return [
       { label: "Clean / min", value: `$${formatNumber(input.schoolConfig.cleanCashPerMinute * network.incomeMultiplier * (eveningActive ? input.schoolConfig.eveningCourse.cleanIncomeMultiplier : 1))}` },
       { label: "Influence / min", value: formatNumber(input.schoolConfig.influencePerMinute) },
-      { label: "Populace / min", value: formatNumber(productionPerMinute) },
+      { label: "Populace / min", value: String(Number(productionPerMinute.toFixed(2))) },
       { label: "Populace", value: `${formatNumber(Math.floor(stored))} / ${formatNumber(capacity)}` },
       { label: "Do naplnění", value: stored >= capacity ? "Plná kapacita" : formatTickLabel(timeToFullTicks) },
       { label: "Vlastněné školy", value: `${ownedCount}/${input.schoolConfig.countOnMap}` },

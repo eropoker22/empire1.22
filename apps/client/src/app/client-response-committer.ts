@@ -1,5 +1,4 @@
 import type { DomainError, GameplaySliceResponse } from "@empire/shared-types";
-import { districtPanelFeature } from "../features";
 import type { ClientStore } from "../state";
 import type { ClientRenderState } from "./client-render-state";
 import { getMapManifestMismatch } from "./map-manifest-guard";
@@ -59,7 +58,7 @@ export const createClientResponseCommitter = (options: {
           selectedDistrictId: serverSelectedDistrictId,
           activeSidePanel: response.readModel.spawnSelection?.status === "awaiting_spawn_selection"
             ? spawnSelectionFeature
-            : districtPanelFeature
+            : "district-panel"
         });
       }
       if (commandId) {

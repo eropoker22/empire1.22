@@ -145,4 +145,29 @@ describe("district popup modal helpers", () => {
     closeOverlay(buildingModal, { restoreFocus: false, suppressMapInput: false });
     document.body.innerHTML = "";
   });
+
+  it("preserves the authoritative district selection during a building handoff", () => {
+    const districtPopup = document.createElement("div");
+    districtPopup.setAttribute("data-district-popup", "");
+    const closed = vi.fn();
+    document.addEventListener("empire:district-closed", closed);
+    document.body.append(districtPopup);
+
+    showDistrictPopupModal(districtPopup);
+    hideDistrictPopupModal(districtPopup, {
+      preserveDistrictSelection: true,
+      suppressMapInput: false
+    });
+
+    expect(districtPopup.hidden).toBe(true);
+    expect(districtPopup.dataset.districtPopupHandoff).toBe("building-detail");
+    expect(closed).not.toHaveBeenCalled();
+
+    showDistrictPopupModal(districtPopup);
+    expect(districtPopup.dataset.districtPopupHandoff).toBeUndefined();
+
+    document.removeEventListener("empire:district-closed", closed);
+    hideDistrictPopupModal(districtPopup, { suppressMapInput: false });
+    document.body.innerHTML = "";
+  });
 });

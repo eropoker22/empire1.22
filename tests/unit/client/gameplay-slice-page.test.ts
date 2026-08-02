@@ -3,9 +3,9 @@ import type { GameplaySliceView } from "@empire/shared-types";
 import { createClientApp } from "../../../apps/client/src/app";
 import { createInitialClientRenderState } from "../../../apps/client/src/app/client-render-state";
 import {
-  renderGameplaySliceStatus,
   setGameplayRuntimeMarker
 } from "../../../apps/client/src/browser/gameplay-slice-page";
+import { renderGameplaySliceStatus } from "../../../apps/client/src/browser/gameplay-slice-page-helpers";
 import { persistServerConfirmedGameplaySliceFocus } from "../../../apps/client/src/browser/gameplay-slice-focus-cache";
 import { renderTopBarShell } from "../../../apps/client/src/ui/top-bar/top-bar-shell";
 

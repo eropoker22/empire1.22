@@ -31,6 +31,7 @@ export interface MountedGameplaySlicePageExternalPort extends MountedGameplaySli
 
 interface MountedGameplaySlicePageExternalPortOptions {
   root: HTMLElement;
+  allowExternalSurfaceActions?: boolean;
   closeDistrictSheet(reason?: string): boolean;
   getCurrentReadModel(): GameplaySliceView | null;
   getCurrentRenderState(): ClientRenderState;
@@ -79,7 +80,9 @@ export const createMountedGameplaySlicePageExternalPort = (
     getCurrentReadModel: options.getCurrentReadModel,
     getCurrentRenderState: options.getCurrentRenderState,
     handleSurfaceActionFromExternal: (target) => {
-      if (!options.root.contains(target)) return Promise.resolve(null);
+      if (!options.allowExternalSurfaceActions && !options.root.contains(target)) {
+        return Promise.resolve(null);
+      }
       return applyExternalState(
         () => options.handleSurfaceAction(target),
         "external:surface-action"

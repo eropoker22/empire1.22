@@ -1,9 +1,7 @@
 import type { GameCommand, GameModeId, GameplaySliceView } from "@empire/shared-types";
-import {
-  createCollectProductionCommand,
-  createCraftItemCommand,
-  createRunBuildingActionCommand
-} from "../features/building-panel";
+import { createCollectProductionCommand } from "../features/building-panel/collect-command";
+import { createCraftItemCommand } from "../features/building-panel/craft-command";
+import { createRunBuildingActionCommand } from "../features/building-panel/run-building-action-command";
 import { createCancelProductionCommand } from "../features/building-panel/cancel-production-command";
 import { canUseOwnedDistrictBuilding } from "./client-surface-authority-guards";
 import type {

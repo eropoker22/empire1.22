@@ -55,6 +55,8 @@ export const applyHostedBuildingParityNonSpawnScenario = (
     district.ownerPlayerId = player.id;
     district.controllerAllianceId = null;
     district.status = "claimed";
+    district.heat = 0;
+    district.influence = 10_000;
     district.version += 1;
     for (const building of buildings) {
       building.ownerPlayerId = player.id;

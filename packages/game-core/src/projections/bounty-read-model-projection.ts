@@ -36,8 +36,8 @@ export const createBountyReadModel = (
     eligibleTargets: getBountyTargetCandidatePlayerIds(state)
       .map((candidatePlayerId) => state.playersById[candidatePlayerId])
       .filter((candidate) => candidate !== undefined)
+      .filter((candidate) => candidate.id !== playerId)
       .map((candidate) => {
-        const isSelf = candidate.id === playerId;
         const isAlly = Boolean(player?.allianceId && candidate.allianceId && player.allianceId === candidate.allianceId);
         const districts = state.root.districtIds
           .map((districtId) => state.districtsById[districtId])
@@ -51,7 +51,6 @@ export const createBountyReadModel = (
             status: district.status
           }));
         const disabledReason = resolveTargetDisabledReason({
-          isSelf,
           isAlly,
           playerStatus: candidate.status,
           activeDistrictCount: districts.length
@@ -60,10 +59,11 @@ export const createBountyReadModel = (
         return {
           playerId: candidate.id,
           name: candidate.name,
+          avatarId: stringMetadata(candidate.metadata?.avatarId) || null,
           factionLabel: candidate.factionId ?? null,
           allianceId: candidate.allianceId ?? null,
           isAlly,
-          isSelf,
+          isSelf: false,
           activeDistrictCount: districts.length,
           districts,
           canTarget: disabledReason === null,
@@ -139,20 +139,19 @@ const getBountyTargetCandidatePlayerIds = (state: CoreGameState): string[] => {
   return [...candidateIds];
 };
 
+const stringMetadata = (value: unknown): string => (
+  typeof value === "string" ? value.trim() : ""
+);
+
 const resolveTargetDisabledReason = ({
-  isSelf,
   isAlly,
   playerStatus,
   activeDistrictCount
 }: {
-  isSelf: boolean;
   isAlly: boolean;
   playerStatus: string;
   activeDistrictCount: number;
 }): string | null => {
-  if (isSelf) {
-    return "Nemůžeš vypsat bounty sám na sebe.";
-  }
   if (isAlly) {
     return "Bounty na spojence není povolená.";
   }

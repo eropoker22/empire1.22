@@ -51,6 +51,10 @@ describe("district building data", () => {
     }
   });
 
+  it("keeps the local demo power station heat aligned with canonical gameplay", () => {
+    expect(Number(DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2["Energetická stanice"].heat)).toBe(0.08);
+  });
+
   it("keeps commercial district fallback values aligned in runtime and client copies", () => {
     for (const rules of [
       {
@@ -81,6 +85,24 @@ describe("district building data", () => {
       expect(Number(rules.income["Směnárna"].dirty || 0)).toBe(95);
       expect(Math.round(Number(rules.heat["Směnárna"].heat || 0) * 1440)).toBe(70);
       expect(Math.round(Number(rules.influence["Směnárna"].influence || 0) * 1440)).toBe(60);
+    }
+  });
+
+  it("keeps downtown Central Bank and Port passives aligned in runtime and client copies", () => {
+    for (const rules of [
+      {
+        heat: DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2,
+        influence: DISTRICT_BUILDING_MINUTE_INFLUENCE_RULES_EMPIRE2
+      },
+      {
+        heat: CLIENT_DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2,
+        influence: CLIENT_DISTRICT_BUILDING_MINUTE_INFLUENCE_RULES_EMPIRE2
+      }
+    ]) {
+      expect(Number(rules.heat["Centrální banka"].heat)).toBe(0.1);
+      expect(Number(rules.influence["Centrální banka"].influence)).toBe(0.35);
+      expect(Math.round(Number(rules.heat["Přístav"].heat) * 60 * 24)).toBe(5);
+      expect(Math.round(Number(rules.influence["Přístav"].influence) * 60 * 24)).toBe(26);
     }
   });
 

@@ -5,7 +5,7 @@ import { bindLoginRegistrationModal } from "../../page-assets/js/app/login-regis
 
 const mount = () => {
   document.body.innerHTML = `
-    <button type="button" data-login-registration-open>Založit gang</button>
+    <button type="button" data-login-registration-open disabled>Založit gang</button>
     <div data-login-registration-overlay hidden aria-hidden="true">
       <button type="button" data-login-registration-close>Backdrop</button>
       <section role="dialog" tabindex="-1">
@@ -31,6 +31,8 @@ describe("login registration modal", () => {
     const onOpen = vi.fn();
     const { opener, overlay } = mount();
     bindLoginRegistrationModal({ onOpen });
+
+    expect(opener.disabled).toBe(false);
 
     opener.focus();
     opener.click();

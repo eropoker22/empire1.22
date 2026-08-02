@@ -81,13 +81,43 @@ export function createServerDistrictSelectionCoordinator({
       return { accepted: false, error, stale: false };
     }
 
+    const requestedBuilding = {
+      buildingId: String(buildingId || "").trim(),
+      buildingTypeId: String(buildingTypeId || "").trim(),
+      buildingName: String(buildingName || "").trim()
+    };
+    const requiresBuilding = Boolean(
+      requestedBuilding.buildingId
+      || requestedBuilding.buildingTypeId
+      || requestedBuilding.buildingName
+    );
+    const currentReadModel = getReadModel() || null;
+    const currentDistrictMatches = String(
+      currentReadModel?.district?.districtId || ""
+    ) === canonicalDistrictId;
+    const currentBuilding = requiresBuilding
+      && currentDistrictMatches
+      ? resolveServerDistrictBuilding(currentReadModel, requestedBuilding)
+      : null;
+    if (currentDistrictMatches && (!requiresBuilding || currentBuilding)) {
+      const result = {
+        accepted: true,
+        building: currentBuilding,
+        canonicalDistrictId,
+        district,
+        readModel: currentReadModel,
+        response: null,
+        stale: false
+      };
+      onReady(result);
+      return result;
+    }
+
     const generation = ++requestGeneration;
     activeRequest = {
       generation,
       canonicalDistrictId,
-      buildingId: String(buildingId || "").trim(),
-      buildingTypeId: String(buildingTypeId || "").trim(),
-      buildingName: String(buildingName || "").trim()
+      ...requestedBuilding
     };
     onLoading({ ...activeRequest, district });
 
@@ -116,7 +146,6 @@ export function createServerDistrictSelectionCoordinator({
       return { accepted: false, error, readModel, response, stale: false };
     }
 
-    const requiresBuilding = Boolean(activeRequest.buildingId || activeRequest.buildingTypeId || activeRequest.buildingName);
     const building = requiresBuilding
       ? resolveServerDistrictBuilding(readModel, activeRequest)
       : null;

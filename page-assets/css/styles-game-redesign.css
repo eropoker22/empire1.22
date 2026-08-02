@@ -3126,6 +3126,19 @@ body.game-body--booting .game-logo-slot {
   }
 }
 
+@media (min-width: 721px) and (max-width: 900px) {
+  .game-layout--shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 3.01fr) minmax(0, 1.945fr);
+  }
+
+  #game-rail-left,
+  #game-main-region,
+  #game-rail-right {
+    min-width: 0;
+  }
+}
+
 .building-tech-popup-card {
   position: relative;
   width: min(780px, calc(100vw - 28px));

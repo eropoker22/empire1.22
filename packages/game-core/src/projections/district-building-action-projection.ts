@@ -3,11 +3,13 @@ import type { BuildingActionBalanceConfig, ResolvedGameModeConfig } from "../con
 import type { CoreGameState } from "../entities/game-state";
 import type { DistrictPanelBuildingCatalogEntry } from "./district-building-catalog-types";
 import { createBuildingStats, createPassivePhaseEffectLabel } from "./district-building-stats-projection";
+import { createCivilPopulationBufferPresentation } from "./district-building-civil-stats";
 import { formatInputSummary, formatResourceLabel, formatTickLabel } from "./district-building-action-formatters";
 import {
   createExpectedEffectSummary,
   createRequiredInputViews,
   createRiskSummary,
+  createStreetDealerSaleView,
   resolveBuildingActionStatus
 } from "./district-building-action-view-helpers";
 import { getAirportMetadata } from "../handlers/airportBuildingActions";
@@ -152,6 +154,24 @@ export const createDistrictPanelBuildingViews = (
 
     const baseLabel = definition?.label ?? formatResourceLabel(building.buildingTypeId);
     const variantName = normalizeBuildingDisplayName(building.displayName) ?? resolveCatalogVariantName(definition, building.id);
+    const ownedCount = building.ownerPlayerId
+      ? Object.values(input.state.buildingsById).filter((candidate) =>
+          candidate.ownerPlayerId === building.ownerPlayerId
+          && candidate.buildingTypeId === building.buildingTypeId
+          && candidate.status === "active"
+        ).length
+      : 0;
+    const populationBuffer = createCivilPopulationBufferPresentation({
+      state: input.state,
+      building,
+      dayNightConfig: input.config,
+      convenienceStoreConfig: input.convenienceStoreConfig,
+      powerStationConfig: input.powerStationConfig,
+      recruitmentCenterConfig: input.recruitmentCenterConfig,
+      schoolConfig: input.schoolConfig,
+      tick: input.tick,
+      tickRateMs: input.tickRateMs
+    });
 
     return {
       buildingId: building.id,
@@ -163,7 +183,7 @@ export const createDistrictPanelBuildingViews = (
       role: definition?.role ?? "Pevná budova",
       info: definition?.info ?? "Pevná budova districtu.",
       presentation: presentationPassiveStats
-        ? { passive: presentationPassiveStats }
+        ? { ownedCount, passive: presentationPassiveStats, populationBuffer }
         : null,
       stats: createBuildingStats({
         definition,
@@ -507,7 +527,19 @@ const createBuildingActionViews = (input: {
         blockedReason: effectivePreview.blockedReason,
         preferredPhase: effectivePreview.preferredPhase,
         currentPhase: effectivePreview.currentPhase,
-        phaseEffectSummary: [...effectivePreview.phaseEffectSummary]
+        phaseEffectSummary: [...effectivePreview.phaseEffectSummary],
+        dealerSale: action.actionId === input.streetDealersConfig?.startDrugSale.actionId
+          ? createStreetDealerSaleView({
+              config: input.streetDealersConfig,
+              state: input.state,
+              playerId: input.playerId,
+              playerBalances: input.playerBalances,
+              currentPhase: effectivePreview.currentPhase,
+              dayNightRule: input.config?.balance.dayNight?.actionRules?.[action.actionId],
+              tick: input.tick,
+              tickRateMs: input.tickRateMs ?? input.config?.tickRateMs ?? 5_000
+            })
+          : null
       };
     });
 

@@ -13,7 +13,9 @@ import {
   openDistrictById
 } from "./helpers/uiParityCapture.js";
 import {
-  createAuthoritativeIncomeTickDelta
+  createAuthoritativeIncomeTickDelta,
+  createAuthoritativeStoredPopulationTickDelta,
+  floatingDeltaMatches
 } from "./helpers/authoritativeIncomeEvidence.js";
 import { waitForTerminalGameplaySubmit } from "./helpers/gameplaySubmitResponse.js";
 
@@ -88,6 +90,7 @@ test("owner creates a server and players prove exact hosted state through visibl
     persistedStartingPlayerState: null,
     playerStartingStates: [],
     tickTrace: null,
+    populationStorageTrace: null,
     productionCommands: [],
     productionSubmitPosts: [],
     visibleCommand: null,
@@ -209,6 +212,11 @@ test("owner creates a server and players prove exact hosted state through visibl
       adminPage,
       districtId: playerClients[0].spawnDistrictId,
       playerPage: playerClients[0].page,
+      serverInstanceId
+    });
+    safeTrace.populationStorageTrace = await collectPositivePopulationTickEvidence({
+      adminPage,
+      playerClients,
       serverInstanceId
     });
     await attachScreenshot(
@@ -757,6 +765,157 @@ async function collectThreeSampleTickEvidence({
   };
 }
 
+async function collectPositivePopulationTickEvidence({
+  adminPage,
+  playerClients,
+  serverInstanceId
+}) {
+  const candidates = [];
+  for (const client of playerClients) {
+    await openDistrictById(client.page, client.spawnDistrictId);
+    const sourceProjection = await client.page.evaluate(() => {
+      const readModel = window.EmpireGameplaySliceClient?.getCurrentReadModel?.()
+        || window.empireStreetsGameplaySliceReadModel
+        || null;
+      const sources = readModel?.economyRates?.selectedDistrict
+        ?.passivePopulationSources || [];
+      const positiveSources = sources.filter((source) => (
+        source?.target === "building-storage"
+        && Number(source?.amountPerTick) > 0
+      ));
+      return {
+        districtId: readModel?.district?.districtId || null,
+        sources: positiveSources
+      };
+    });
+    if (sourceProjection.sources.length > 0) {
+      candidates.push({
+        client,
+        districtId: sourceProjection.districtId,
+        sources: sourceProjection.sources
+      });
+    }
+  }
+
+  expect(
+    candidates,
+    "The four manual spawn districts must expose one canonical positive population producer."
+  ).toHaveLength(1);
+  const candidate = candidates[0];
+  expect(candidate.districtId).toBe(candidate.client.spawnDistrictId);
+  expect(candidate.sources).toHaveLength(1);
+  expect(candidate.sources[0]).toMatchObject({
+    buildingTypeId: "convenience_store",
+    districtId: candidate.districtId,
+    target: "building-storage",
+    playerBalanceAmountPerTick: 0,
+    status: "producing"
+  });
+  expect(candidate.sources[0].amountPerTick).toBeGreaterThan(0);
+
+  const playerId = candidate.client.playerId;
+  const initialDetail = await readAdminInstanceDetail(adminPage, serverInstanceId);
+  const canonicalTickRateMs = finiteNumberOrNull(
+    initialDetail.runtimeHealth?.expectedTickRateMs
+  );
+  expect(
+    canonicalTickRateMs,
+    "The positive population trace requires the canonical tick rate."
+  ).toBeGreaterThan(0);
+
+  const samples = [];
+  for (let sampleIndex = 0; sampleIndex < 3; sampleIndex += 1) {
+    const previousTick = samples.at(-1)?.currentTick ?? null;
+    if (previousTick !== null) {
+      await waitForRenderedPlayerTick(
+        candidate.client.page,
+        previousTick + 1,
+        canonicalTickRateMs
+      );
+    }
+    let acceptedSample = null;
+    await expect.poll(
+      async () => {
+        const sample = await readAlignedTickSample({
+          adminPage,
+          districtId: candidate.districtId,
+          playerId,
+          playerPage: candidate.client.page,
+          serverInstanceId
+        });
+        if (!isCompletePositivePopulationSample(
+          sample,
+          previousTick,
+          candidate.districtId
+        )) {
+          return false;
+        }
+        acceptedSample = sample;
+        return true;
+      },
+      {
+        message: `Positive population sample ${sampleIndex + 1} must align across gameplay, UI, and admin projections.`,
+        timeout: canonicalTickRateMs * 2,
+        intervals: [100, 250, 500]
+      }
+    ).toBe(true);
+    assertPositivePopulationSample(
+      acceptedSample,
+      canonicalTickRateMs,
+      candidate.districtId,
+      serverInstanceId
+    );
+    samples.push(acceptedSample);
+  }
+
+  const deltas = samples.slice(1).map((current, index) => {
+    const previous = samples[index];
+    const previousSource = findPositivePopulationSource(previous);
+    const currentSource = findPositivePopulationSource(current);
+    const storage = createAuthoritativeStoredPopulationTickDelta(
+      previousSource,
+      currentSource,
+      current.currentTick - previous.currentTick
+    );
+    const expectedPlayerBalanceDelta = Number(
+      previous.player.economyRates.playerBalancePerTick.population
+    ) * storage.tickGap;
+    const actualPlayerBalanceDelta = current.player.population
+      - previous.player.population;
+    return {
+      fromTick: previous.currentTick,
+      toTick: current.currentTick,
+      stateVersionDelta: current.stateVersion - previous.stateVersion,
+      storage,
+      expectedPlayerBalanceDelta,
+      actualPlayerBalanceDelta,
+      exactPlayerBalanceMatch: floatingDeltaMatches(
+        actualPlayerBalanceDelta,
+        expectedPlayerBalanceDelta
+      )
+    };
+  });
+  for (const delta of deltas) {
+    expect(delta.stateVersionDelta).toBeGreaterThan(0);
+    expect(delta.storage.amountPerTick).toBeGreaterThan(0);
+    expect(delta.storage.expectedStoredDelta).toBeGreaterThan(0);
+    expect(delta.storage.exactStoredMatch).toBe(true);
+    expect(delta.expectedPlayerBalanceDelta).toBe(0);
+    expect(delta.actualPlayerBalanceDelta).toBe(0);
+    expect(delta.exactPlayerBalanceMatch).toBe(true);
+  }
+
+  return {
+    canonicalTickRateMs,
+    districtId: candidate.districtId,
+    playerId,
+    buildingId: candidate.sources[0].buildingId,
+    buildingTypeId: candidate.sources[0].buildingTypeId,
+    samples,
+    deltas
+  };
+}
+
 async function readAlignedTickSample({
   adminPage,
   districtId,
@@ -934,6 +1093,174 @@ const readPlayerTickProjection = (page) => page.evaluate(() => {
     }
   };
 });
+
+function isCompletePositivePopulationSample(sample, previousTick, districtId) {
+  const ticks = [
+    sample.currentTick,
+    sample.player.currentTick,
+    sample.admin.currentTick,
+    sample.admin.lastSnapshot.tick
+  ];
+  const stateVersions = [
+    sample.stateVersion,
+    sample.player.stateVersion,
+    sample.admin.stateVersion,
+    sample.admin.lastSnapshot.stateVersion
+  ];
+  const sources = findPositivePopulationSources(sample);
+  const source = sources[0] || null;
+  const expectedPopulationLabel = `0 topbar · ${sources.length}× do zásoby`;
+  return ticks.every(Number.isFinite)
+    && ticks.every((tick) => tick === ticks[0])
+    && stateVersions.every(Number.isFinite)
+    && stateVersions.every((stateVersion) => stateVersion === stateVersions[0])
+    && (previousTick === null || ticks[0] > previousTick)
+    && Boolean(sample.admin.player)
+    && Boolean(sample.admin.district)
+    && sources.length === 1
+    && source?.buildingTypeId === "convenience_store"
+    && source?.districtId === districtId
+    && source?.target === "building-storage"
+    && source?.status === "producing"
+    && source?.playerBalanceAmountPerTick === 0
+    && Number(source?.amountPerTick) > 0
+    && Number(source?.amountPerHour) > 0
+    && Number(source?.storedAmount) >= 0
+    && Number(source?.capacity) > Number(source?.storedAmount)
+    && sample.player.buildingPresentationRates.some((building) => (
+      building.buildingId === source.buildingId
+      && building.buildingTypeId === source.buildingTypeId
+      && building.status === "active"
+    ))
+    && [
+      sample.player.cleanCash,
+      sample.player.dirtyCash,
+      sample.player.population,
+      sample.player.economyPopulation,
+      sample.player.influence,
+      sample.player.district?.heat,
+      sample.player.district?.influence,
+      sample.admin.player?.cleanCash,
+      sample.admin.player?.dirtyCash,
+      sample.admin.player?.population,
+      sample.admin.district?.heat,
+      sample.admin.district?.influence
+    ].every(Number.isFinite)
+    && sample.player.serverInstanceId === sample.admin.serverInstanceId
+    && sample.player.district?.districtId === districtId
+    && sample.admin.district?.districtId === districtId
+    && sample.admin.player.population === sample.player.population
+    && sample.player.economyPopulation === sample.player.population
+    && sample.player.economyRates.playerBalancePerTick.population === 0
+    && sample.player.economyRates.playerBalancePerHour.population === 0
+    && sample.player.visibleTopbar.cleanCash === Math.round(
+      sample.player.cleanCash
+    )
+    && sample.player.visibleTopbar.dirtyCash === Math.round(
+      sample.player.dirtyCash
+    )
+    && sample.player.visibleTopbar.influence === Math.floor(
+      sample.player.influence
+    )
+    && sample.player.visiblePopulationRate.label === expectedPopulationLabel
+    && sample.player.visiblePopulationRate.sourceSummary
+      === sample.player.economyRates.selectedDistrict
+        .passivePopulationSourceSummary
+    && sample.player.visiblePopulationRate.sourceSummary.includes(
+      "convenience_store:"
+    )
+    && sample.player.visiblePopulationRate.sourceSummary.includes(
+      "topbar +0; produkce aktivní"
+    )
+    && sample.player.visibleDistrictRates.cleanCash
+      === sample.player.economyRates.selectedDistrict.cleanCashPerHour
+    && sample.player.visibleDistrictRates.dirtyCash
+      === sample.player.economyRates.selectedDistrict.dirtyCashPerHour
+    && sample.player.visibleDistrictRates.influence
+      === sample.player.economyRates.selectedDistrict.influencePerHour
+    && isCompleteEconomyRateProjection(
+      sample.player.economyRates,
+      sample.currentTick,
+      districtId
+    );
+}
+
+function assertPositivePopulationSample(
+  sample,
+  canonicalTickRateMs,
+  districtId,
+  serverInstanceId
+) {
+  const sources = findPositivePopulationSources(sample);
+  expect(sources).toHaveLength(1);
+  const source = sources[0];
+  expect(sample.player.serverInstanceId).toBe(serverInstanceId);
+  expect(sample.admin.serverInstanceId).toBe(serverInstanceId);
+  expect(sample.admin.expectedTickRateMs).toBe(canonicalTickRateMs);
+  expect(sample.player.economyRates.tickRateMs).toBe(canonicalTickRateMs);
+  expect(sample.player.economyRates.fromTick).toBe(sample.currentTick);
+  expect(sample.player.economyRates.toTick).toBe(sample.currentTick + 1);
+  expect(sample.player.currentTick).toBe(sample.currentTick);
+  expect(sample.admin.currentTick).toBe(sample.currentTick);
+  expect(sample.admin.lastSnapshot.tick).toBe(sample.currentTick);
+  expect(sample.player.stateVersion).toBe(sample.stateVersion);
+  expect(sample.admin.stateVersion).toBe(sample.stateVersion);
+  expect(sample.admin.lastSnapshot.stateVersion).toBe(sample.stateVersion);
+  expect(sample.admin.player.population).toBe(sample.player.population);
+  expect(sample.player.economyPopulation).toBe(sample.player.population);
+  expect(sample.player.district.districtId).toBe(districtId);
+  expect(sample.admin.district.districtId).toBe(districtId);
+  expect(sample.player.economyRates.playerBalancePerTick.population).toBe(0);
+  expect(sample.player.economyRates.playerBalancePerHour.population).toBe(0);
+  expect(source).toMatchObject({
+    buildingTypeId: "convenience_store",
+    districtId,
+    target: "building-storage",
+    playerBalanceAmountPerTick: 0,
+    status: "producing",
+    isFull: false
+  });
+  expect(source.amountPerTick).toBeGreaterThan(0);
+  expect(source.amountPerHour).toBeGreaterThan(0);
+  expect(source.storedAmount).toBeGreaterThanOrEqual(0);
+  expect(source.capacity).toBeGreaterThan(source.storedAmount);
+  expect(sample.player.buildingPresentationRates).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        buildingId: source.buildingId,
+        buildingTypeId: "convenience_store",
+        status: "active"
+      })
+    ])
+  );
+  expect(sample.player.visiblePopulationRate).toEqual({
+    label: "0 topbar · 1× do zásoby",
+    sourceSummary:
+      sample.player.economyRates.selectedDistrict.passivePopulationSourceSummary
+  });
+  expect(sample.player.visiblePopulationRate.sourceSummary)
+    .toContain("convenience_store:");
+  expect(sample.player.visiblePopulationRate.sourceSummary)
+    .toContain("topbar +0; produkce aktivní");
+  for (const rootTick of [
+    sample.rootTick,
+    sample.player.rootTick,
+    sample.admin.rootTick
+  ].filter(Number.isFinite)) {
+    expect(rootTick).toBe(sample.currentTick);
+  }
+}
+
+const findPositivePopulationSources = (sample) => (
+  sample?.player?.economyRates?.selectedDistrict?.passivePopulationSources || []
+).filter((source) => (
+  source?.target === "building-storage"
+  && Number(source?.amountPerTick) > 0
+));
+
+const findPositivePopulationSource = (sample) => (
+  findPositivePopulationSources(sample)[0] || null
+);
 
 function isCompleteAlignedTickSample(sample, previousTick) {
   const ticks = [

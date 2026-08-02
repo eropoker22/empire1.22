@@ -23,6 +23,7 @@ import {
   getVipLoungeMetadata,
   resolveVipLoungeRumorStats
 } from "../handlers/vipLoungeBuildingActions";
+import { resolveCasinoLaunderingStats } from "../handlers/casinoBuildingActions";
 import { formatCategoryList, formatNumber, formatTickLabel } from "./district-building-action-formatters";
 import type { BuildingStatsProjectionInput, BuildingStatView } from "./district-building-stats-types";
 
@@ -30,6 +31,14 @@ const formatMultiplierBonus = (value: number): string =>
   `${Number(value || 1) >= 1 ? "+" : ""}${formatNumber((Number(value || 1) - 1) * 100)} %`;
 
 export const createMarketBuildingStats = (input: BuildingStatsProjectionInput): BuildingStatView[] | null => {
+  const casinoConfig = input.dayNightConfig?.balance.casino;
+  if (input.building.buildingTypeId === "casino" && casinoConfig) {
+    const laundering = resolveCasinoLaunderingStats(casinoConfig, input.building.level);
+    return [
+      { label: "Kapacita praní", value: `$${formatNumber(laundering.capacity)}` },
+      { label: "Poplatek", value: `${formatNumber(laundering.feePct)} %` }
+    ];
+  }
   const arcadeConfig = input.dayNightConfig?.balance.arcade;
   if (input.building.buildingTypeId === "arcade" && arcadeConfig && input.building.ownerPlayerId) {
     const ownedCount = getOwnedArcadeCount(input.state, input.building.ownerPlayerId, arcadeConfig);

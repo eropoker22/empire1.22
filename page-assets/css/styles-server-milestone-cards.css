@@ -6,6 +6,7 @@
   --milestone-accent: #28e6ff;
   --milestone-accent-rgb: 40, 230, 255;
   --milestone-accent-deep: #07334a;
+  --lifecycle-accent-rgb: var(--milestone-accent-rgb);
   position: fixed;
   z-index: 2147483500;
   inset: 0;
@@ -37,11 +38,9 @@
   position: absolute;
   z-index: -2;
   inset: 0;
-  background:
-    radial-gradient(circle at 50% 36%, rgba(var(--milestone-accent-rgb), 0.08), transparent 32%),
-    rgba(0, 3, 8, 0.7);
-  backdrop-filter: blur(7px) saturate(0.78);
-  -webkit-backdrop-filter: blur(7px) saturate(0.78);
+  background: var(--lifecycle-backdrop);
+  backdrop-filter: blur(8px) saturate(125%);
+  -webkit-backdrop-filter: blur(8px) saturate(125%);
 }
 
 .server-milestone-card {
@@ -49,16 +48,10 @@
   width: min(680px, 100%);
   max-height: min(670px, calc(100dvh - clamp(24px, 4.8vw, 64px)));
   overflow: auto;
-  border: 1px solid rgba(var(--milestone-accent-rgb), 0.58);
-  border-radius: 18px;
-  background:
-    linear-gradient(135deg, rgba(var(--milestone-accent-rgb), 0.075), transparent 28%),
-    linear-gradient(160deg, rgba(3, 8, 15, 0.74), rgba(0, 2, 7, 0.68));
-  box-shadow:
-    0 28px 86px rgba(0, 0, 0, 0.68),
-    0 0 32px rgba(var(--milestone-accent-rgb), 0.16),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.035),
-    inset 0 0 50px rgba(var(--milestone-accent-rgb), 0.04);
+  border: 1px solid var(--lifecycle-card-border);
+  border-radius: 20px;
+  background: var(--lifecycle-card-background);
+  box-shadow: var(--lifecycle-card-shadow);
   color: #effaff;
   scrollbar-color: rgba(var(--milestone-accent-rgb), 0.55) rgba(0, 0, 0, 0.2);
 }
@@ -114,24 +107,26 @@
   top: 18px;
   right: 18px;
   display: grid;
-  width: 20px;
-  height: 20px;
+  width: 34px;
+  height: 34px;
   place-items: center;
-  border: 0;
+  border: 1px solid rgba(var(--lifecycle-accent-rgb), 0.42);
+  border-radius: 10px;
   padding: 0;
-  background: transparent;
+  background: rgba(8, 22, 38, 0.92);
   box-shadow: none;
   color: var(--milestone-accent);
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1;
-  text-shadow: 0 0 9px rgba(var(--milestone-accent-rgb), 1);
+  text-shadow: none;
 }
 
 .server-milestone-card__close:hover,
 .server-milestone-card__close:focus-visible {
   color: #fff;
-  box-shadow: none;
-  text-shadow: 0 0 14px rgba(var(--milestone-accent-rgb), 1);
+  border-color: rgba(var(--lifecycle-accent-rgb), 0.72);
+  box-shadow: 0 0 18px rgba(var(--lifecycle-accent-rgb), 0.18);
+  text-shadow: none;
 }
 
 .server-milestone-card__content {
@@ -390,7 +385,7 @@
 
   .server-milestone-card {
     max-height: calc(100dvh - max(16px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
-    border-radius: 18px;
+    border-radius: 20px;
   }
 
   .server-milestone-card__content {

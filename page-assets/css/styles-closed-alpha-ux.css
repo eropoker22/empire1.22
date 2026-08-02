@@ -1,3 +1,76 @@
+.lifecycle-modal {
+  --lifecycle-accent-rgb: 34, 211, 238;
+  --lifecycle-card-border: rgba(var(--lifecycle-accent-rgb), .34);
+  --lifecycle-card-background:
+    radial-gradient(circle at 100% 0%, rgba(var(--lifecycle-accent-rgb), .12), transparent 40%),
+    linear-gradient(180deg, rgba(8, 18, 32, .98), rgba(3, 8, 18, .98));
+  --lifecycle-card-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, .04),
+    0 24px 62px rgba(0, 0, 0, .54),
+    0 0 34px rgba(var(--lifecycle-accent-rgb), .16);
+  --lifecycle-backdrop:
+    radial-gradient(circle at 50% 16%, rgba(var(--lifecycle-accent-rgb), .16), transparent 34%),
+    rgba(1, 5, 12, .76);
+  --lifecycle-header-border: rgba(var(--lifecycle-accent-rgb), .16);
+  --lifecycle-muted-text: rgba(225, 233, 238, .78);
+}
+
+.lifecycle-modal[hidden] { display: none; }
+
+.lifecycle-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--lifecycle-backdrop);
+  backdrop-filter: blur(8px) saturate(125%);
+  -webkit-backdrop-filter: blur(8px) saturate(125%);
+}
+
+.lifecycle-modal__card {
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  border: 1px solid var(--lifecycle-card-border);
+  border-radius: 20px;
+  background: var(--lifecycle-card-background);
+  box-shadow: var(--lifecycle-card-shadow);
+  color: #edfaff;
+}
+
+.lifecycle-modal__header {
+  border-bottom: 1px solid var(--lifecycle-header-border);
+}
+
+.lifecycle-modal__body { color: var(--lifecycle-muted-text); }
+
+.lifecycle-modal__close {
+  display: grid;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+  place-items: center;
+  padding: 0;
+  border-color: rgba(var(--lifecycle-accent-rgb), .42);
+  border-radius: 10px;
+  background: rgba(8, 22, 38, .92);
+  color: #dffbff;
+}
+
+.lifecycle-modal--confirmation { --lifecycle-accent-rgb: 82, 203, 162; }
+.lifecycle-modal--elimination,
+.lifecycle-modal--elimination-result { --lifecycle-accent-rgb: 239, 68, 68; }
+
+.lifecycle-status-chip,
+.lifecycle-status-card {
+  --lifecycle-status-rgb: 47, 158, 115;
+  border: 1px solid rgba(var(--lifecycle-status-rgb), .58);
+  background: rgba(8, 18, 24, .96);
+  box-shadow: inset 0 0 18px rgba(var(--lifecycle-status-rgb), .06), 0 12px 34px rgba(0, 0, 0, .32);
+  color: rgb(143, 240, 200);
+}
+
+.lifecycle-status-card--danger { --lifecycle-status-rgb: 239, 68, 68; }
+
 .game-authority-gate {
   display: none;
   position: fixed;
@@ -5,7 +78,6 @@
   z-index: 2600;
   place-items: center;
   padding: 20px;
-  background: radial-gradient(circle at 50% 38%, rgba(21, 117, 143, .14), transparent 38%), rgba(1, 4, 9, .94);
   color: #f3f7f7;
 }
 
@@ -13,13 +85,15 @@ body.game-body--booting .game-authority-gate { display: grid; }
 body.game-body--booting #game-header,
 body.game-body--booting #game-root { visibility: hidden; }
 
+html[data-gameplay-execution-mode="local-demo"] body.game-body--booting .game-authority-gate { display: none; }
+html[data-gameplay-execution-mode="local-demo"] body.game-body--booting #game-header,
+html[data-gameplay-execution-mode="local-demo"] body.game-body--booting #game-root { visibility: visible; }
+
+.game-authority-gate__backdrop { background: var(--lifecycle-backdrop); }
+
 .game-authority-gate__card {
   width: min(460px, 100%);
   padding: 28px;
-  border: 1px solid rgba(84, 223, 245, .48);
-  border-radius: 18px;
-  background: linear-gradient(145deg, rgba(4, 11, 20, .94), rgba(1, 4, 9, .88));
-  box-shadow: inset 0 0 32px rgba(84, 223, 245, .07), 0 24px 70px rgba(0, 0, 0, .62), 0 0 24px rgba(84, 223, 245, .12);
   text-align: center;
 }
 
@@ -28,29 +102,28 @@ body.game-body--booting #game-root { visibility: hidden; }
 .game-authority-gate__card > p { margin: 12px 0 0; color: rgba(225, 233, 238, .78); line-height: 1.55; }
 .game-authority-gate__actions { display: flex; justify-content: center; gap: 10px; margin-top: 20px; }
 .game-authority-gate__actions a,
-.game-authority-gate__actions button { min-height: 44px; padding: 11px 16px; border: 1px solid rgba(84, 223, 245, .4); border-radius: 10px; background: rgba(5, 15, 25, .9); color: #e8fbff; font: 750 11px/1 system-ui, sans-serif; text-decoration: none; }
+.game-authority-gate__actions button { min-height: 44px; padding: 11px 16px; color: #e8fbff; font: 750 11px/1 system-ui, sans-serif; text-decoration: none; }
 
 .closed-alpha-connection {
+  --lifecycle-status-rgb: 47, 158, 115;
   position: fixed;
   top: 8px;
   left: 50%;
   z-index: 1200;
   transform: translateX(-50%);
   padding: 6px 10px;
-  border: 1px solid #2f9e73;
   border-radius: 4px;
-  background: #0b1512;
-  color: #8ff0c8;
   font: 700 11px/1.2 system-ui, sans-serif;
 }
 
 .closed-alpha-connection[data-connection-status="reconnecting"],
-.closed-alpha-connection[data-connection-status="stale"] { border-color: #d49a3a; color: #ffd27a; }
+.closed-alpha-connection[data-connection-status="stale"] { --lifecycle-status-rgb: 212, 154, 58; color: #ffd27a; }
 .closed-alpha-connection[data-connection-status="session_expired"],
 .closed-alpha-connection[data-connection-status="server_unavailable"],
-.closed-alpha-connection[data-connection-status="offline"] { border-color: #d65151; color: #ff9b9b; }
+.closed-alpha-connection[data-connection-status="offline"] { --lifecycle-status-rgb: 214, 81, 81; color: #ff9b9b; }
 
 .operational-liveness-panel {
+  --lifecycle-status-rgb: 59, 185, 140;
   position: relative;
   z-index: 3;
   display: flex;
@@ -59,8 +132,7 @@ body.game-body--booting #game-root { visibility: hidden; }
   width: min(1180px, calc(100% - 24px));
   margin: 8px auto;
   padding: 10px 12px;
-  border-left: 3px solid #3bb98c;
-  background: #101916;
+  border-left-width: 3px;
   color: #e7f7f1;
 }
 .operational-liveness-panel[hidden] { display: none; }
@@ -80,22 +152,19 @@ body.game-body--booting #game-root { visibility: hidden; }
 .operations-center-modal[hidden] { display: none; }
 .operations-center-modal__backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, .78); }
 .operations-center-modal__card {
+  --lifecycle-accent-rgb: 82, 203, 162;
   position: relative;
   width: min(620px, 100%);
   max-height: min(720px, calc(100vh - 32px));
   overflow: auto;
-  border: 1px solid #33433e;
-  border-radius: 6px;
-  background: #111714;
-  color: #edf5f2;
 }
-.operations-center-modal__card header { display: flex; justify-content: space-between; align-items: center; padding: 16px; border-bottom: 1px solid #29342f; }
+.operations-center-modal__card header { display: flex; justify-content: space-between; align-items: center; padding: 16px; }
 .operations-center-modal__card header span { color: #78d8b9; font-size: 10px; font-weight: 700; }
 .operations-center-modal__card h2 { margin: 3px 0 0; font-size: 20px; }
 .operations-center-modal__card header button { width: 44px; height: 44px; font-size: 24px; }
-.operations-center-modal__body { display: grid; gap: 1px; background: #29342f; }
+.operations-center-modal__body { display: grid; gap: 1px; }
 .shared-confirmation-modal__card { max-width: 520px; }
-.shared-confirmation-modal__body { gap: 16px; padding: 18px; background: #131c18; }
+.shared-confirmation-modal__body { gap: 16px; padding: 18px; }
 .shared-confirmation-modal__body p { margin: 0; color: #c6d4cf; line-height: 1.55; }
 .shared-confirmation-modal__actions { display: flex; justify-content: flex-end; gap: 10px; }
 .shared-confirmation-modal__actions .button { min-height: 44px; }
@@ -104,6 +173,33 @@ body.game-body--booting #game-root { visibility: hidden; }
 .street-news-filters .is-active { border-color: #52cba2; color: #8ff0c8; }
 
 .shared-modal-open { overflow: hidden; }
+
+html body .elimination-result-popup.lifecycle-modal .elimination-result-popup__backdrop.lifecycle-modal__backdrop {
+  background: var(--lifecycle-backdrop);
+}
+
+html body .elimination-result-popup.lifecycle-modal .elimination-result-popup__card.lifecycle-modal__card {
+  border: 1px solid var(--lifecycle-card-border);
+  border-radius: 20px;
+  background: var(--lifecycle-card-background);
+  box-shadow: var(--lifecycle-card-shadow);
+}
+
+html body.game-body .elimination-ai-panel.lifecycle-modal.is-open .elimination-ai-panel__card.lifecycle-modal__card::before,
+html body.game-body .elimination-ai-panel.lifecycle-modal.is-open .elimination-ai-panel__card.lifecycle-modal__card::after,
+html body .elimination-result-popup.lifecycle-modal .elimination-result-popup__card.lifecycle-modal__card::before,
+html body .elimination-result-popup.lifecycle-modal .elimination-result-popup__card.lifecycle-modal__card::after {
+  content: none;
+}
+
+html body .elimination-countdown-warning__card.lifecycle-status-card {
+  --lifecycle-status-rgb: 239, 68, 68;
+  border: 1px solid rgba(var(--lifecycle-status-rgb), .58);
+  background: rgba(36, 10, 18, .96);
+  box-shadow: inset 0 0 18px rgba(var(--lifecycle-status-rgb), .12), 0 16px 42px rgba(0, 0, 0, .38);
+  backdrop-filter: blur(12px) saturate(125%);
+  -webkit-backdrop-filter: blur(12px) saturate(125%);
+}
 
 @media (max-width: 640px) {
   .closed-alpha-connection { top: 4px; max-width: calc(100vw - 16px); white-space: nowrap; }

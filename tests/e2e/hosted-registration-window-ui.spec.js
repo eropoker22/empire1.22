@@ -81,6 +81,35 @@ test("production spawn map renders the city image, zone legend, and occupied pla
   expect(ownerMarkerPixel[1]).toBeGreaterThan(ownerMarkerPixel[2]);
 });
 
+test("production lobby opens the spawn modal while a cold spawn response is still loading", async ({ page }) => {
+  await routeOverview(page, () => overview({ phase: "open" }));
+  let releaseSpawnResponse;
+  const spawnResponseGate = new Promise((resolve) => {
+    releaseSpawnResponse = resolve;
+  });
+  await page.route("**/api/lobby/servers/*/spawn-districts", async (route) => {
+    await spawnResponseGate;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ accepted: true, data: spawnSelection(), errors: [] })
+    });
+  });
+
+  await page.goto("/pages/lobby.html?runtimeMode=server-authoritative", { waitUntil: "domcontentloaded" });
+  await page.locator(`[data-open-live-server="${SERVER_ID}"]`).click();
+
+  const modal = page.getByTestId("server-detail-modal");
+  await expect(modal).toHaveAttribute("aria-hidden", "false");
+  await expect(modal).toHaveAttribute("data-load-state", "loading");
+  await expect(modal.locator("[data-server-detail-hint]")).toHaveText("Načítám aktuální spawn distrikty…");
+  await expect(page.getByTestId("confirm-server-district")).toBeDisabled();
+
+  releaseSpawnResponse();
+  await expect(modal).toHaveAttribute("data-load-state", "ready");
+  await expect(modal.locator("[data-server-detail-type-counts]")).toContainText("COMMERCIAL");
+});
+
 const routeOverview = (page, resolveOverview) => page.route("**/api/lobby/overview", (route) => route.fulfill({
   status: 200,
   contentType: "application/json",

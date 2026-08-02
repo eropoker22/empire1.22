@@ -751,6 +751,33 @@ describe("Empire onboarding flow", () => {
     expect(onStart).toHaveBeenCalledTimes(2);
   });
 
+  it("allows hosted Settings to launch the shared panel without auto-starting a local sandbox", () => {
+    const { document, root } = createOnboardingDom();
+    const launchButton = document.createElement("button");
+    launchButton.setAttribute("data-onboarding-launch", "");
+    root.append(launchButton);
+    const bridge = createOnboardingBridge({
+      autoStart: false,
+      documentRef: document,
+      root,
+      storage: createMemoryStorage(),
+      getContext: () => ({
+        gameplaySlice: { player: { playerId: "player:hosted" } },
+        mode: "server-authoritative",
+        registration: { identity: "Hosted Operator" },
+        world: { ownedDistrictIds: [27] }
+      })
+    });
+
+    bridge.init();
+
+    expect(document.querySelector("[data-free-onboarding-panel]")).toBeNull();
+
+    launchButton.click();
+
+    expect(document.querySelector("[data-free-onboarding-panel]")).not.toBeNull();
+  });
+
   it("keeps the welcome CTA callback scoped to the first step", () => {
     const { document, root } = createOnboardingDom();
     const onWelcomeStart = vi.fn();

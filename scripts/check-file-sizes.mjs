@@ -81,10 +81,7 @@ const sourceFileBudgets = [
 const sourceFileBudgetByPath = new Map(sourceFileBudgets);
 const browserPresentationBudgets = new Map([
   ["page-assets/js/app/map/serverMapPresentationController.js", 275],
-  ["page-assets/js/app/runtime/serverGameplayCommandTransport.js", 350],
-  ["page-assets/js/app/ui/serverGameplayDistrictController.js", 325],
-  ["page-assets/js/app/ui/serverGameplayLeaderboardController.js", 280],
-  ["page-assets/js/app/ui/serverGameplayLobbyController.js", 265]
+  ["page-assets/js/app/runtime/serverGameplayCommandTransport.js", 350]
 ]);
 const generatedSourceHeadersByPath = new Map([
   [

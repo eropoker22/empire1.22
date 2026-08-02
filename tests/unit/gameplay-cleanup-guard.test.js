@@ -118,6 +118,10 @@ describe("current gameplay cleanup guard", () => {
     expect(boostRuntime).toContain('data-cost-count="${costCount}"');
     expect(boostStyles).toContain('.boost-card__costs[data-cost-count="3"]');
     expect(boostStyles).toContain(".boost-card.is-missing-resources .boost-card__activate:disabled");
+    expect(boostStyles).toContain("grid-template-rows: auto minmax(0, 1fr)");
+    expect(boostStyles).toContain("transform: translateX(-50%)");
+    expect(read("page-assets/css/styles.css")).toContain("mobile-modal-positioned-top-pop-in");
+    expect(read("page-assets/css/styles.css")).not.toContain("mobile-modal-positioned-center-pop-in");
     expect(runtime).toContain("sourceKind: \"player-boost\"");
     expect(runtime).toContain("{ syncPreview: false, forceLog: true }");
     expect(page).toContain("Otevřít strategické boosty");

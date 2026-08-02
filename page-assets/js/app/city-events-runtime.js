@@ -313,6 +313,66 @@ function hashCityEventSeed(value) {
   return result >>> 0;
 }
 
+export function resolveCityEventNextRefreshLabel(agentKey, rawCityMinutes) {
+  const canonicalAgentKey = agentKey === "nira" ? "nyra" : agentKey;
+  const refreshTimes = CITY_EVENT_CONFIG.agents?.[canonicalAgentKey]?.refreshTimes;
+  return resolveNextCityEventTimeLabel(refreshTimes, rawCityMinutes);
+}
+
+function resolveNextCityEventTimeLabel(refreshTimes, rawCityMinutes) {
+  if (!Array.isArray(refreshTimes) || refreshTimes.length === 0) return "-";
+  const cityMinutes = ((Math.floor(Number(rawCityMinutes || 0)) % (24 * 60)) + (24 * 60)) % (24 * 60);
+  const next = refreshTimes.map((time) => {
+    const hour = Math.max(0, Math.min(23, Math.floor(Number(time?.hour || 0))));
+    const minute = Math.max(0, Math.min(59, Math.floor(Number(time?.minute || 0))));
+    const target = hour * 60 + minute;
+    return {
+      hour,
+      minute,
+      distance: (target - cityMinutes + (24 * 60)) % (24 * 60) || (24 * 60)
+    };
+  }).sort((left, right) => left.distance - right.distance)[0];
+  return `${String(next.hour).padStart(2, "0")}:${String(next.minute).padStart(2, "0")}`;
+}
+
+function resolveServerCityEventRefreshTimes(scheduleLabel) {
+  const withoutAvailabilityWindow = String(scheduleLabel || "")
+    .replace(/\b\d{1,2}:\d{2}\s*[\u2013\u2014-]\s*\d{1,2}:\d{2}\b/gu, " ");
+  const refreshSection = withoutAvailabilityWindow.match(
+    /(?:nov[eé]\s+nab[ií]dky|intel\s+pulse)(.*)$/iu
+  )?.[1] || withoutAvailabilityWindow;
+  const seen = new Set();
+  return Array.from(refreshSection.matchAll(/\b(\d{1,2}):(\d{2})\b/gu))
+    .map((match) => ({ hour: Number(match[1]), minute: Number(match[2]) }))
+    .filter(({ hour, minute }) => hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59)
+    .filter(({ hour, minute }) => {
+      const key = `${hour}:${minute}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+export function resolveServerCityEventSchedule(agentKey, serverAgent, rawCityMinutes) {
+  const scheduleLabel = String(serverAgent?.scheduleLabel || "").trim();
+  const rawNextRefreshAtTick = serverAgent?.nextRefreshAtTick;
+  const numericNextRefreshAtTick = Number(rawNextRefreshAtTick);
+  const nextRefreshAtTick = rawNextRefreshAtTick !== null
+    && rawNextRefreshAtTick !== undefined
+    && String(rawNextRefreshAtTick).trim() !== ""
+    && Number.isFinite(numericNextRefreshAtTick)
+    && numericNextRefreshAtTick >= 0
+    ? Math.floor(numericNextRefreshAtTick)
+    : null;
+  const authoritativeRefreshTimes = resolveServerCityEventRefreshTimes(scheduleLabel);
+  return {
+    nextBoundaryLabel: authoritativeRefreshTimes.length > 0
+      ? resolveNextCityEventTimeLabel(authoritativeRefreshTimes, rawCityMinutes)
+      : resolveCityEventNextRefreshLabel(agentKey, rawCityMinutes),
+    nextRefreshAtTick
+  };
+}
+
 function resolveLocalScheduleWindow(agentKey) {
   const canonicalAgentKey = agentKey === "nira" ? "nyra" : agentKey;
   const schedule = CITY_EVENT_CONFIG.agents?.[canonicalAgentKey];
@@ -332,16 +392,12 @@ function resolveLocalScheduleWindow(agentKey) {
   const shiftedBoundaryMinute = (current.targetMinute - cityDayStartMinute + (24 * 60)) % (24 * 60);
   const boundaryDayIndex = Math.max(0, cityDayIndex - (shiftedBoundaryMinute > shiftedCityMinute ? 1 : 0));
   const available = current.distance < LOCAL_CITY_EVENT_VISIBLE_MINUTES;
-  const next = refreshTimes.map((time) => {
-    const target = time.hour * 60 + time.minute;
-    return { ...time, distance: (target - cityMinutes + (24 * 60)) % (24 * 60) || (24 * 60) };
-  }).sort((left, right) => left.distance - right.distance)[0];
   return {
     available,
     boundaryHour: current.hour,
     cityDayIndex: boundaryDayIndex,
     windowId: `${canonicalAgentKey}:day-${boundaryDayIndex}:${String(current.hour).padStart(2, "0")}${String(current.minute).padStart(2, "0")}`,
-    nextBoundaryLabel: next ? `${String(next.hour).padStart(2, "0")}:${String(next.minute).padStart(2, "0")}` : "-"
+    nextBoundaryLabel: resolveCityEventNextRefreshLabel(agentKey, cityMinutes)
   };
 }
 
@@ -941,7 +997,11 @@ export function initCityEventsRuntime() {
 
     const schedule = serverAgent ? {
       available: Boolean(serverAgent.availableNow),
-      nextBoundaryLabel: serverAgent.scheduleLabel || "po obnovení serveru"
+      ...resolveServerCityEventSchedule(
+        agentKey,
+        serverAgent,
+        getServerCityEventsView()?.cityClock?.minuteOfDay
+      )
     } : resolveLocalScheduleWindow(agentKey);
     if (!schedule.available) {
       tasklist.innerHTML = `
@@ -1160,12 +1220,23 @@ export function initCityEventsRuntime() {
     if (!eventsRefreshCountdown) return;
     if (shouldRunServerCityEvents()) {
       const cityEvents = getServerCityEventsView();
-      const agent = getServerAgent(selectedAgentKey || "victor");
+      const agentKey = selectedAgentKey || "victor";
+      const schedule = resolveServerCityEventSchedule(
+        agentKey,
+        getServerAgent(agentKey),
+        cityEvents?.cityClock?.minuteOfDay
+      );
+      if (schedule.nextRefreshAtTick === null) {
+        delete eventsRefreshCountdown.dataset.nextRefreshAtTick;
+      } else {
+        eventsRefreshCountdown.dataset.nextRefreshAtTick = String(schedule.nextRefreshAtTick);
+      }
       eventsRefreshCountdown.textContent = cityEvents
-        ? `MĚSTSKÝ ČAS ${cityEvents.cityClock?.label || "--:--"} · ${agent?.scheduleLabel || "serverové nabídky"}`
+        ? `MĚSTSKÝ ČAS · další úkoly ${schedule.nextBoundaryLabel}`
         : "SERVEROVÉ NABÍDKY NEDOSTUPNÉ";
       return;
     }
+    delete eventsRefreshCountdown.dataset.nextRefreshAtTick;
     const schedule = resolveLocalScheduleWindow(selectedAgentKey || "victor");
     const nextText = `MĚSTSKÝ ČAS · další úkoly ${schedule.nextBoundaryLabel}`;
     if (eventsRefreshCountdown.textContent !== nextText) {

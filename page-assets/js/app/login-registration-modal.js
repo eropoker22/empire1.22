@@ -28,6 +28,7 @@ export const bindLoginRegistrationModal = ({ root = document, onOpen } = {}) => 
 
   root.querySelectorAll("[data-login-registration-open]").forEach((trigger) => {
     trigger.addEventListener("click", () => open(trigger));
+    if (trigger instanceof HTMLButtonElement) trigger.disabled = false;
   });
   overlay.querySelectorAll("[data-login-registration-close]").forEach((trigger) => trigger.addEventListener("click", close));
   overlay.addEventListener("keydown", (event) => {

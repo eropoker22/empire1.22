@@ -71,12 +71,25 @@ export function getMarketDashboardStockSummary({
   normalizePlayerMarketListings = (listings) => safeArray(listings),
   getStockAmount = getMarketStockAmount
 } = {}) {
+  const state = safeObject(marketState);
+
   if (activeTab === playerTabId) {
-    return `${normalizePlayerMarketListings(safeObject(marketState).playerListings, serverId).length} nabídek`;
+    if (Array.isArray(state.playerMarket?.listings)) {
+      return `${state.playerMarket.listings.length} nabídek`;
+    }
+
+    return `${normalizePlayerMarketListings(state.playerListings, serverId).length} nabídek`;
   }
 
   if (activeTab === "black-market") {
     return "neomezeně";
+  }
+
+  if (Array.isArray(state.resources)) {
+    const stock = state.resources
+      .filter((resource) => resource?.normalMarket?.available === true)
+      .reduce((total, resource) => total + Math.max(0, safeFloor(resource.normalMarket.stock)), 0);
+    return `${stock} ks`;
   }
 
   const items = safeArray(tabConfig.items);

@@ -122,6 +122,45 @@ export function createAuthoritativeIncomeTickDelta(
   };
 }
 
+export function createAuthoritativeStoredPopulationTickDelta(
+  previousSource,
+  currentSource,
+  tickGap
+) {
+  const normalizedTickGap = Math.max(0, Number(tickGap) || 0);
+  const previousStoredAmount = numberOrZero(previousSource?.storedAmount);
+  const amountPerTick = numberOrZero(previousSource?.amountPerTick);
+  const capacity = Math.max(
+    previousStoredAmount,
+    numberOrZero(previousSource?.capacity),
+    numberOrZero(currentSource?.capacity)
+  );
+  const expectedStoredAmount = Math.min(
+    capacity,
+    previousStoredAmount + amountPerTick * normalizedTickGap
+  );
+  const actualStoredAmount = numberOrZero(currentSource?.storedAmount);
+
+  return {
+    sourceId: previousSource?.sourceId ?? null,
+    buildingId: previousSource?.buildingId ?? null,
+    buildingTypeId: previousSource?.buildingTypeId ?? null,
+    target: previousSource?.target ?? null,
+    tickGap: normalizedTickGap,
+    amountPerTick,
+    capacity,
+    previousStoredAmount,
+    expectedStoredAmount,
+    actualStoredAmount,
+    expectedStoredDelta: expectedStoredAmount - previousStoredAmount,
+    actualStoredDelta: actualStoredAmount - previousStoredAmount,
+    exactStoredMatch: floatingDeltaMatches(
+      actualStoredAmount,
+      expectedStoredAmount
+    )
+  };
+}
+
 export function createUiDisplayedPerHour(buildingPresentationRates = []) {
   const activeRates = buildingPresentationRates.filter((entry) => (
     entry?.status === "active" && entry?.passive

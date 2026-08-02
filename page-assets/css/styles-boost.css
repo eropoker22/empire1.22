@@ -1014,11 +1014,20 @@
 
 @media (max-width: 600px) {
   #boost-modal:not(.hidden):not([hidden]) { padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom)); }
-  #boost-modal:not(.hidden):not([hidden]) > .modal__content.boost-modal__content { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); }
+  #boost-modal:not(.hidden):not([hidden]) > .modal__content.boost-modal__content {
+    top: max(8px, env(safe-area-inset-top));
+    bottom: auto;
+    display: grid;
+    width: calc(100vw - 16px);
+    height: calc(100dvh - max(8px, env(safe-area-inset-top)) - max(8px, env(safe-area-inset-bottom)));
+    max-height: calc(100dvh - max(8px, env(safe-area-inset-top)) - max(8px, env(safe-area-inset-bottom)));
+    grid-template-rows: auto minmax(0, 1fr);
+    transform: translateX(-50%);
+  }
   .boost-modal__header { padding: 14px 48px 13px 14px; }
   .boost-modal__header #boost-modal-close { top: 10px; right: 10px; }
   .boost-modal__header p { font-size: 0.72rem; }
-  .boost-modal__body { max-height: calc(100dvh - 104px); padding: 10px; }
+  .boost-modal__body { height: auto; max-height: none; padding: 10px; }
   .boost-modal__grid { grid-template-columns: minmax(0, 1fr); }
   .boost-modal__active-panel { grid-template-columns: minmax(0, 1fr) auto; }
   .boost-card { min-height: auto; }

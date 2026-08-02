@@ -107,8 +107,12 @@ export function renderHeatBadge(heatViewModel = {}, options = {}) {
   const heatButton = options.heatButton || null;
   const starContainer = options.starContainer || null;
   const stars = Array.isArray(options.stars) ? options.stars : [];
-  const heatValue = Number(heatViewModel.heat ?? 0);
-  const levelId = Math.max(0, Number(heatViewModel.levelId || 0));
+  const available = heatViewModel.available !== false;
+  const heatValue = available ? Number(heatViewModel.heat ?? 0) : 0;
+  const heatLabel = available
+    ? String(heatViewModel.heatLabel ?? heatValue)
+    : String(heatViewModel.heatLabel || "—");
+  const levelId = available ? Math.max(0, Number(heatViewModel.levelId || 0)) : 0;
   const title = String(heatViewModel.title || "");
   const label = String(heatViewModel.label || "");
   const policeThreat = resolveHeatBadgePoliceThreat(heatViewModel);
@@ -121,9 +125,9 @@ export function renderHeatBadge(heatViewModel = {}, options = {}) {
 
   starContainer?.classList?.toggle?.("is-police-threat", policeThreat);
   starContainer?.setAttribute?.("data-police-threat", policeThreat ? "true" : "false");
-  starContainer?.setAttribute?.("aria-label", `Heat ${heatValue} · ${title}${policeThreat ? " · Hrozí policejní akce" : ""}`);
+  starContainer?.setAttribute?.("aria-label", `Heat ${heatLabel} · ${title}${policeThreat ? " · Hrozí policejní akce" : ""}`);
   if (heatButton) {
-    heatButton.textContent = String(heatValue);
+    heatButton.textContent = heatLabel;
     heatButton.title = `${label} • ${title}${policeThreat ? " • Hrozí policejní akce" : ""}`;
   }
 }
@@ -256,7 +260,7 @@ export function renderWantedPanel(wantedViewModel = {}, options = {}) {
   }
 
   const heat = Number(wantedViewModel.heat ?? 0);
-  if (mounts.popupHeat) mounts.popupHeat.textContent = String(heat);
+  if (mounts.popupHeat) mounts.popupHeat.textContent = String(wantedViewModel.heatLabel ?? heat);
   if (mounts.popupLevel) {
     mounts.popupLevel.textContent = String(
       wantedViewModel.levelLabel || `${wantedViewModel.levelId || 0} / 6`
@@ -274,11 +278,11 @@ export function renderWantedPanel(wantedViewModel = {}, options = {}) {
 
   renderWantedLevels(mounts.popupLevels, wantedViewModel.levels);
   renderHeatJournalList(mounts.popupRiseList, wantedViewModel.riseEntries, {
-    emptyText: "Zatím bez nových důvodů růstu.",
+    emptyText: wantedViewModel.riseEmptyText || "Zatím bez nových důvodů růstu.",
     now: wantedViewModel.now
   });
   renderHeatJournalList(mounts.popupFallList, wantedViewModel.fallEntries, {
-    emptyText: "Zatím bez nových důvodů poklesu.",
+    emptyText: wantedViewModel.fallEmptyText || "Zatím bez nových důvodů poklesu.",
     now: wantedViewModel.now
   });
 
@@ -290,6 +294,9 @@ export function renderWantedPanel(wantedViewModel = {}, options = {}) {
   }
   if (mounts.influenceActionButton && "disabled" in mounts.influenceActionButton) {
     mounts.influenceActionButton.disabled = Boolean(wantedViewModel.influenceActionDisabled);
+  }
+  if (mounts.clearLogButton && "disabled" in mounts.clearLogButton) {
+    mounts.clearLogButton.disabled = Boolean(wantedViewModel.clearLogDisabled);
   }
 
   return true;

@@ -144,6 +144,17 @@ export const applyCasinoIncomeModifiers = (input: {
   };
 };
 
+export const resolveCasinoLaunderingStats = (
+  config: CasinoBalanceConfig,
+  level: number
+): { capacity: number; feePct: number } => {
+  const upgrade = getCasinoUpgrade(config, level);
+  return {
+    capacity: Math.floor(config.launderingCapacity * (1 + upgrade.launderingLimitBonusPct / 100)),
+    feePct: Math.max(0, config.quietBackroom.feePct - (upgrade.feeReductionPct ?? 0))
+  };
+};
+
 export const resolveCasinoAction = (input: {
   state: CoreGameState;
   building: CoreGameState["buildingsById"][string];
@@ -346,9 +357,8 @@ const resolveQuietBackroom = (input: Parameters<typeof resolveCasinoAction>[0]):
   const metadata = cleanupCasinoMetadata(getCasinoMetadata(input.building), input.state.root.tick);
   const dirtyCash = Math.max(0, Math.floor(Number(input.balances["dirty-cash"] || 0)));
   const upgrade = getCasinoUpgrade(config, input.building.level);
-  const capacity = Math.floor(config.launderingCapacity * (1 + upgrade.launderingLimitBonusPct / 100));
+  const { capacity, feePct } = resolveCasinoLaunderingStats(config, input.building.level);
   const amount = Math.min(Math.floor(dirtyCash * config.quietBackroom.dirtyCashSharePct / 100), config.quietBackroom.maxDirtyCashPerAction, capacity);
-  const feePct = Math.max(0, config.quietBackroom.feePct - (upgrade.feeReductionPct ?? 0));
   const fee = Math.floor(amount * feePct / 100);
   const cleanGain = Math.max(0, amount - fee);
   const heatGain = reduceCasinoActionHeat(config.quietBackroom.heatGain, upgrade);

@@ -28,13 +28,21 @@ function setStat(element, label, value, description = "") {
   }
 }
 
+function formatAvailableNumber(value) {
+  if (value === null || value === undefined || value === "") {
+    return "—";
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? String(number) : "—";
+}
+
 function formatRemainingMs(value) {
   const seconds = Math.max(0, Math.ceil(Number(value || 0) / 1000));
   const minutes = Math.floor(seconds / 60);
   return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-function renderFeedRows(list, entries = []) {
+function renderFeedRows(list, entries = [], options = {}) {
   const ownerDocument = getOwnerDocument(list);
   list?.replaceChildren?.();
 
@@ -42,7 +50,7 @@ function renderFeedRows(list, entries = []) {
   if (!safeEntries.length) {
     const empty = createElement(ownerDocument, "li", "police-feed-panel__empty");
     if (empty) {
-      empty.textContent = "Zatím bez policejního eventu. Sleduj heat po rizikových akcích.";
+      empty.textContent = String(options.emptyText || "Zatím bez policejního eventu. Sleduj heat po rizikových akcích.");
       list.append(empty);
     }
     return;
@@ -68,8 +76,9 @@ export function renderPoliceFeedPanel(mount, viewModel = {}, callbacks = {}, opt
   }
 
   const ownerDocument = getOwnerDocument(mount);
+  const available = viewModel.available !== false;
   mount.classList?.add?.("police-feed-panel");
-  mount.dataset.policeRisk = safeText(viewModel.riskKey, "low");
+  mount.dataset.policeRisk = safeText(viewModel.riskKey, available ? "low" : "unavailable");
   mount.replaceChildren?.();
 
   const header = createElement(ownerDocument, "div", "police-feed-panel__header");
@@ -98,16 +107,21 @@ export function renderPoliceFeedPanel(mount, viewModel = {}, callbacks = {}, opt
 
   eyebrow.textContent = "POLICIE";
   title.textContent = "Policejní tlak";
-  status.textContent = safeText(viewModel.statusLabel, "Nízký");
-  setStat(wanted, "Hledanost", safeText(viewModel.wantedLabel, "0 / 5"), "Osobní policejní stopa hráče. Není to jediné policejní riziko.");
-  setStat(heat, "Heat hráče", Number(viewModel.playerHeat ?? viewModel.heat ?? 0), "Heat přímo na hráči.");
-  setStat(districtPressure, "Heat districtů", Number(viewModel.ownedDistrictHeat ?? viewModel.districtHeatPressure ?? 0), "Heat z vlastněných districtů.");
-  setStat(pressure, "Tlak raidu", Number(viewModel.raidPressure ?? viewModel.aggregatePressure ?? viewModel.heat ?? 0), "Celkový tlak policie, který rozhoduje o varování a raidu.");
-  setStat(playerPressure, "Tlak hráče", Number(viewModel.playerHeatPressure || viewModel.heat || 0), "Příspěvek heat hráče do tlaku raidu.");
-  setStat(hottestDistrict, "Nejhorší district", `${safeText(viewModel.hottestDistrictId, "-")} ${Number(viewModel.hottestDistrictHeat || 0)}`, "Nejhorkější vlastněný district.");
-  risk.textContent = safeText(viewModel.riskMessage, "Nízký dohled. Policie zatím jen sbírá šum z ulice.");
-  explanation.textContent = safeText(viewModel.raidPressureExplanation, "Heat districtů může přitáhnout raid i bez vysoké hledanosti.");
-  latest.textContent = safeText(viewModel.lastMessage, "Poslední zpráva: bez aktivního hlášení.");
+  status.textContent = safeText(viewModel.statusLabel, available ? "Nízký" : "—");
+  setStat(wanted, "Hledanost", safeText(viewModel.wantedLabel, available ? "0 / 5" : "—"), "Osobní policejní stopa hráče. Není to jediné policejní riziko.");
+  setStat(heat, "Heat hráče", formatAvailableNumber(viewModel.playerHeat ?? viewModel.heat), "Heat přímo na hráči.");
+  setStat(districtPressure, "Heat districtů", formatAvailableNumber(viewModel.ownedDistrictHeat ?? viewModel.districtHeatPressure), "Heat z vlastněných districtů.");
+  setStat(pressure, "Tlak raidu", formatAvailableNumber(viewModel.raidPressure ?? viewModel.aggregatePressure ?? viewModel.heat), "Celkový tlak policie, který rozhoduje o varování a raidu.");
+  setStat(playerPressure, "Tlak hráče", formatAvailableNumber(viewModel.playerHeatPressure ?? viewModel.heat), "Příspěvek heat hráče do tlaku raidu.");
+  const hottestDistrictLabel = viewModel.hottestDistrictId || (
+    viewModel.hottestDistrictHeat !== null && viewModel.hottestDistrictHeat !== undefined
+  )
+    ? `${safeText(viewModel.hottestDistrictId, "-")} ${formatAvailableNumber(viewModel.hottestDistrictHeat)}`
+    : "—";
+  setStat(hottestDistrict, "Nejhorší district", hottestDistrictLabel, "Nejhorkější vlastněný district.");
+  risk.textContent = safeText(viewModel.riskMessage, available ? "Nízký dohled. Policie zatím jen sbírá šum z ulice." : "—");
+  explanation.textContent = safeText(viewModel.raidPressureExplanation, available ? "Heat districtů může přitáhnout raid i bez vysoké hledanosti." : "—");
+  latest.textContent = safeText(viewModel.lastMessage, available ? "Poslední zpráva: bez aktivního hlášení." : "—");
   const preview = viewModel.previewConsequences && typeof viewModel.previewConsequences === "object"
     ? viewModel.previewConsequences
     : null;
@@ -116,7 +130,7 @@ export function renderPoliceFeedPanel(mount, viewModel = {}, callbacks = {}, opt
     : null;
   pending.textContent = viewModel.pendingRaid
     ? `AKTUÁLNÍ ODHAD ZÁSAHU · ${safeText(viewModel.pendingRaid.severity, "vysoká")} · dirty cash ${Number(preview?.seizedDirtyCash || 0)} · heat -${Number(preview?.heatReducedBy || 0)}${mitigation ? ` · Soud -${Number(mitigation.reductionPct || 0)} %` : ""}`
-    : safeText(viewModel.recommendedAction, "");
+    : safeText(viewModel.recommendedAction, available ? "" : "—");
   if (viewModel.pendingRaid?.expiresAtMs) {
     const unbindCountdown = bindSharedCountdown(
       pendingCountdown,
@@ -134,7 +148,7 @@ export function renderPoliceFeedPanel(mount, viewModel = {}, callbacks = {}, opt
   titleWrap.append(eyebrow, title);
   header.append(titleWrap, status);
   grid.append(wanted, heat, districtPressure, pressure, playerPressure, hottestDistrict);
-  renderFeedRows(list, viewModel.entries);
+  renderFeedRows(list, viewModel.entries, { emptyText: available ? "" : "—" });
   mount.append(header, grid, risk, explanation, latest, pending, pendingCountdown, acknowledge, list);
 
   if (options.focusAfterRender && typeof mount.focus === "function") {

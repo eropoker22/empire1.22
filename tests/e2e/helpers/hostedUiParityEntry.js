@@ -34,9 +34,11 @@ async function registerAccount(page, identity) {
     "x-forwarded-for": identity.networkIdentifier
   });
   await page.goto("/pages/login.html");
-  await expect(page.locator("#register-username")).toBeEnabled({ timeout: 30_000 });
-  await page.locator("[data-login-registration-open]").click();
+  const registrationOpen = page.locator("[data-login-registration-open]");
+  await expect(registrationOpen).toBeEnabled({ timeout: 30_000 });
+  await registrationOpen.click();
   await expect(page.locator("[data-login-registration-overlay]")).toBeVisible();
+  await expect(page.locator("#register-username")).toBeEnabled({ timeout: 30_000 });
   await page.locator("#register-username").fill(identity.username);
   await page.locator("#register-gang").fill(identity.gangName);
   await page.locator("#register-birth-date").fill("1990-01-01");
@@ -61,10 +63,13 @@ async function openServer(page, serverInstanceId) {
       `Server ${serverInstanceId} must be enabled in the live lobby`
     ).toBeEnabled();
     await button.click();
-    await expect(page.getByTestId("server-detail-modal")).toHaveAttribute("aria-hidden", "false");
+    const modal = page.getByTestId("server-detail-modal");
+    await expect(modal).toHaveAttribute("aria-hidden", "false");
     const spawnResponse = await spawnResponseObserver.response;
     expect(spawnResponse, "Opening a live server must load authoritative spawn districts").toBeTruthy();
-    return readSpawnDistrictResponse(spawnResponse);
+    const districts = await readSpawnDistrictResponse(spawnResponse);
+    await expect(modal).toHaveAttribute("data-load-state", "ready");
+    return districts;
   } finally {
     spawnResponseObserver.dispose();
   }
@@ -407,11 +412,25 @@ export async function registerAndEnterHostedUiParityGame(page, {
   spawnDistrictIds,
   identityPrefix = "Parity",
   identity: suppliedIdentity = null,
+  acknowledgedServerMilestoneIds = [],
   waitForRunning = true
 } = {}) {
   expect(serverInstanceId, "EMPIRE_UI_PARITY_SERVER_ID is required").toBeTruthy();
   const requestedSpawnDistrictIds = spawnDistrictIds || [spawnDistrictId].filter(Boolean);
   const diagnostics = await installHostedUiParityInstrumentation(page);
+  if (acknowledgedServerMilestoneIds.length > 0) {
+    await page.addInitScript(({ instanceId, milestoneIds }) => {
+      for (const milestoneId of milestoneIds) {
+        localStorage.setItem(
+          `empire:server-milestone:seen:${encodeURIComponent(instanceId)}:${milestoneId}`,
+          "1"
+        );
+      }
+    }, {
+      instanceId: serverInstanceId,
+      milestoneIds: acknowledgedServerMilestoneIds
+    });
+  }
   const identity = suppliedIdentity || createIdentity(identityPrefix);
   await registerAccount(page, identity);
   const districts = await openServer(page, serverInstanceId);

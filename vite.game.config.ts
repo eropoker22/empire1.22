@@ -1,8 +1,10 @@
 import { webcrypto } from "node:crypto";
-import { Agent as HttpAgent } from "node:http";
+import { Agent as HttpAgent, type ClientRequest } from "node:http";
 import { Agent as HttpsAgent } from "node:https";
+import type { Socket } from "node:net";
 import { resolve } from "node:path";
 import { defineConfig, type Plugin, type ProxyOptions, type ViteDevServer } from "vite";
+import { GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS } from "./apps/client/src/browser/gameplay-slice-timing";
 import { applyLocalHostedHttpTiming } from "./apps/server/src/bootstrap/local-hosted-http-timing";
 import type { createGameplaySliceFunctionHandler } from "./apps/server/src/netlify/gameplay-slice-function";
 
@@ -20,6 +22,14 @@ export const GAME_DEV_WATCH_IGNORED = Object.freeze([
   toWatchGlob("test-results")
 ]);
 
+export const GAME_DEV_FS_DENY = Object.freeze([
+  ".env",
+  ".env.*",
+  "*.{crt,pem}",
+  "**/.git/**",
+  "**/.tmp/**"
+]);
+
 const gameplayApiPaths = [
   "/api/gameplay-slice/",
   "/api/servers",
@@ -28,6 +38,59 @@ const gameplayApiPaths = [
   "/api/lobby/",
   "/api/admin/"
 ];
+
+const HOSTED_PROXY_KEEP_ALIVE_TIMEOUT_BUFFER_MS = 6_000;
+const HOSTED_PROXY_FREE_SOCKET_TIMEOUT_MS = Math.max(
+  1_000,
+  Math.floor(GAMEPLAY_SLICE_STABLE_POLL_INTERVAL_MS / 2)
+);
+
+type HostedProxySocket = Socket & {
+  _httpMessage?: {
+    res?: {
+      headers?: Record<string, string | string[] | undefined>;
+    };
+  };
+};
+
+const resolveHostedProxyFreeSocketTimeout = (socket: Socket): number => {
+  const keepAliveValue = (socket as HostedProxySocket)._httpMessage?.res?.headers?.["keep-alive"];
+  const keepAliveHeader = Array.isArray(keepAliveValue) ? keepAliveValue[0] : keepAliveValue;
+  const timeoutMatch = /^timeout=(\d+)/iu.exec(keepAliveHeader ?? "");
+  if (!timeoutMatch) return HOSTED_PROXY_FREE_SOCKET_TIMEOUT_MS;
+
+  const upstreamTimeoutMs = Number.parseInt(timeoutMatch[1], 10) * 1_000;
+  return Math.min(
+    HOSTED_PROXY_FREE_SOCKET_TIMEOUT_MS,
+    Math.max(1, upstreamTimeoutMs - HOSTED_PROXY_KEEP_ALIVE_TIMEOUT_BUFFER_MS)
+  );
+};
+
+class HostedHttpAgent extends HttpAgent {
+  override keepSocketAlive(socket: Socket): boolean {
+    if (!super.keepSocketAlive(socket)) return false;
+    socket.setTimeout(resolveHostedProxyFreeSocketTimeout(socket));
+    return true;
+  }
+
+  override reuseSocket(socket: Socket, request: ClientRequest): void {
+    super.reuseSocket(socket, request);
+    socket.setTimeout(0);
+  }
+}
+
+class HostedHttpsAgent extends HttpsAgent {
+  override keepSocketAlive(socket: Socket): boolean {
+    if (!super.keepSocketAlive(socket)) return false;
+    socket.setTimeout(resolveHostedProxyFreeSocketTimeout(socket));
+    return true;
+  }
+
+  override reuseSocket(socket: Socket, request: ClientRequest): void {
+    super.reuseSocket(socket, request);
+    socket.setTimeout(0);
+  }
+}
 
 export const resolveHostedGameApiOrigin = (
   environment: Record<string, string | undefined> = process.env
@@ -44,6 +107,7 @@ export const resolveHostedGameApiOrigin = (
 export const createHostedGameApiProxyOptions = (origin: string): ProxyOptions => {
   const target = new URL(origin);
   const agentOptions = {
+    agentKeepAliveTimeoutBuffer: HOSTED_PROXY_KEEP_ALIVE_TIMEOUT_BUFFER_MS,
     keepAlive: true,
     maxSockets: 32,
     maxFreeSockets: 8
@@ -54,8 +118,8 @@ export const createHostedGameApiProxyOptions = (origin: string): ProxyOptions =>
     changeOrigin: false,
     secure: false,
     agent: target.protocol === "https:"
-      ? new HttpsAgent(agentOptions)
-      : new HttpAgent(agentOptions)
+      ? new HostedHttpsAgent(agentOptions)
+      : new HostedHttpAgent(agentOptions)
   };
 };
 
@@ -227,6 +291,9 @@ export default defineConfig({
     host: "127.0.0.1",
     port: 5174,
     strictPort: true,
+    fs: {
+      deny: [...GAME_DEV_FS_DENY]
+    },
     ...(hostedGameApiOrigin ? {
       proxy: {
         "/api": createHostedGameApiProxyOptions(hostedGameApiOrigin)

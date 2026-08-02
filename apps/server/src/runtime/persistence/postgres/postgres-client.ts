@@ -22,6 +22,24 @@ export interface PostgresDatabasePoolOptions {
   allowExitOnIdle?: boolean;
 }
 
+export const isPostgresConnectionEstablishmentTimeout = (error: unknown): boolean => (
+  error instanceof Error
+  && error.message === "Connection terminated due to connection timeout"
+);
+
+export const retryPostgresConnectionEstablishment = async <TResult>(
+  operation: () => Promise<TResult>
+): Promise<TResult> => {
+  try {
+    return await operation();
+  } catch (error) {
+    if (!isPostgresConnectionEstablishmentTimeout(error)) {
+      throw error;
+    }
+    return operation();
+  }
+};
+
 export const createPostgresDatabase = (
   databaseUrl: string,
   poolOptions: PostgresDatabasePoolOptions = {}
@@ -46,11 +64,13 @@ export const createPostgresDatabase = (
   return {
     query: async (sql, params) => {
       const pool = await getPool();
-      return pool.query(sql, params as unknown[]);
+      return retryPostgresConnectionEstablishment(
+        () => pool.query(sql, params as unknown[])
+      );
     },
     transaction: async (callback) => {
       const pool = await getPool();
-      const client = await pool.connect();
+      const client = await retryPostgresConnectionEstablishment(() => pool.connect());
       return withPostgresTransactionClient(client, callback);
     },
     close: async () => {
