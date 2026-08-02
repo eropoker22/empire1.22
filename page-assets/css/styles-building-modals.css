@@ -6482,6 +6482,19 @@
     0 0 22px rgba(34, 211, 238, 0.12);
 }
 
+.district-building-detail-effect-cell strong[data-building-dynamic-layout="prefixed"] {
+  display: inline-grid;
+  grid-template-columns: max-content 9ch;
+  align-items: baseline;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.district-building-detail-effect-cell strong[data-building-dynamic-layout="prefixed"] > [data-building-dynamic-value] {
+  min-width: 9ch;
+  text-align: left;
+}
+
 .district-building-detail-effect-cell[data-effect-tone="dirty"] {
   border-color: rgba(148, 163, 184, 0.24);
   background:

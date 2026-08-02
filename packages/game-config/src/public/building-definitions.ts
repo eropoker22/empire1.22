@@ -42,6 +42,7 @@ export interface PublicBuildingDefinition {
     maxLevel: number;
   };
   specialActions: PublicBuildingActionConfig[];
+  headerActions: PublicBuildingActionConfig[];
 }
 
 const second = 1000;
@@ -96,7 +97,8 @@ const building = (
   role: string,
   info: string,
   stats: PublicBuildingDefinition["stats"],
-  specialActions: PublicBuildingActionConfig[]
+  specialActions: PublicBuildingActionConfig[],
+  headerActions: PublicBuildingActionConfig[] = []
 ): PublicBuildingDefinition => ({
   buildingTypeId,
   label,
@@ -105,7 +107,8 @@ const building = (
   role,
   info,
   stats,
-  specialActions
+  specialActions,
+  headerActions
 });
 
 export const publicBuildingDefinitions: PublicBuildingDefinition[] = [
@@ -181,6 +184,8 @@ export const publicBuildingDefinitions: PublicBuildingDefinition[] = [
   ]),
   building("school", "Škola", "residential", "Populace / vzdělání / městský život", "Škola generuje malé peníze a trochu obyvatel. Není to kasárna. Je to místo, kde město vyrábí chytřejší lidi. Rozbité lavice, studené chodby a tabule popsané věcmi, které se v učebnicích neučí.", perMinuteStat(18, 0, 0, 0.05 * 60 * 24, 1), [
     action({ actionId: "evening_course", label: "Večerní kurz", description: "Na 20 minut zrychlí nábor členů v bytových blocích. Nestackuje se.", effectSummary: "Cena 1000 clean cash, +60 % nábor členů na 20 minut", cooldownMs: 35 * minute, durationMs: 20 * minute, inputCost: out("cash", 1000), effectModifiers: {} })
+  ], [
+    action({ actionId: "collect_school_population", label: "Vybrat obyvatele", description: "Přesune celé obyvatele uložené ve Škole do globální populace hráče a členů gangu.", effectSummary: "+obyvatelé, +gang members, bez heatu a bez peněz", cooldownMs: 0 })
   ]),
 
   building("factory", "Továrna", "industrial", "Výroba", "Tři nezávislé linky vyrábějí Metal Parts, Tech Core a Combat Module po jednom kusu. Combat Module je strategická průmyslová komponenta pro high-tier výzbroj a pokročilé boost protokoly.", stat(0, 0, 3, 10, 14), []),
@@ -218,6 +223,12 @@ export const getAllPublicBuildingDefinitions = (): PublicBuildingDefinition[] =>
     ...definition,
     nameVariants: [...definition.nameVariants],
     stats: { ...definition.stats },
+    headerActions: definition.headerActions.map((buildingAction) => ({
+      ...buildingAction,
+      inputCost: { ...buildingAction.inputCost },
+      outputGain: { ...buildingAction.outputGain },
+      effectModifiers: buildingAction.effectModifiers ? { ...buildingAction.effectModifiers } : undefined
+    })),
     specialActions: definition.specialActions.map((buildingAction) => ({
       ...buildingAction,
       inputCost: { ...buildingAction.inputCost },

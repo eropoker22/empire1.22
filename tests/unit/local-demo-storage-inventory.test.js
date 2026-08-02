@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ARMORY_RECIPES,
   STREET_DEALERS_CONFIG,
   WAREHOUSE_STORAGE_CONFIG
 } from "../../packages/game-config/src/legacy-page/economy-config.js";
@@ -66,5 +67,19 @@ describe("local demo storage inventory", () => {
     expect(normalized.changed).toBe(false);
     expect(normalized.materials["neon-dust"]).toBe(200);
     expect(normalized.drugs["neon-dust"]).toBe(10);
+  });
+
+  it("preserves configured Armory stock in the weapons bucket", () => {
+    const weaponIds = Object.values(ARMORY_RECIPES).map((recipe) => recipe.output.itemId);
+    const normalized = normalizeExistingStorageBuckets({
+      resourceKeys: weaponIds,
+      materials: Object.fromEntries(weaponIds.map((resourceKey) => [resourceKey, 0])),
+      drugs: {},
+      weapons: Object.fromEntries(weaponIds.map((resourceKey) => [resourceKey, 200])),
+      isWeaponResource: (resourceKey) => weaponIds.includes(resourceKey)
+    });
+
+    expect(normalized.changed).toBe(false);
+    expect(Object.values(normalized.weapons)).toEqual(Array(weaponIds.length).fill(200));
   });
 });

@@ -128,6 +128,29 @@ describe("production info view models", () => {
     expect(viewModel.rows[5].value).toBe("2500$ clean + Metal Parts x4 + Tech Core x2 · 900s");
   });
 
+  it("uses authoritative Factory slot duration in the visible product info", () => {
+    const viewModel = createFactoryBuildingInfoViewModel({
+      factoryState: {
+        level: 1,
+        slots: [{ recipeId: "metal-parts", effectiveDurationMs: 160_000 }]
+      },
+      config: {
+        maxLevel: 14,
+        recipes: {
+          "metal-parts": {
+            name: "Metal Parts",
+            inputs: {},
+            cleanMoneyCost: 300,
+            durationMs: 240_000
+          }
+        }
+      },
+      formatDurationLabel
+    });
+
+    expect(viewModel.products.find((product) => product.id === "metal-parts")?.durationLabel).toBe("160s");
+  });
+
   it("handles missing config without crashing", () => {
     expect(getProductionBuildingEffectsLabel("unknown", 1)).toBe("Budova · základní produkční rychlost");
     expect(createProductionBuildingInfoViewModel().recipeLines).toEqual([]);

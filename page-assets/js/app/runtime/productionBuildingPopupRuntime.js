@@ -133,6 +133,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       inputAmounts,
       canStart: line.canStart === true,
       canCancelWaiting: line.canCancelWaiting === true,
+      disabledReason: line.disabledReason || null,
       maxBatches: maxStartQuantity,
       maxSelectableBatches: maxStartQuantity,
       allowStartWithMissingInputs: false
@@ -798,7 +799,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         ? deps.getProductionBuildingMultiplier?.(buildingName, state.level + 1) || multiplier
         : multiplier;
       const readyCount = serverProduction
-        ? getServerLines(serverProduction).filter((line) => Number(line.producedAmount || 0) > 0).length
+        ? getServerLines(serverProduction).filter((line) => line.canCollect === true).length
         : deps.getProductionBuildingReadyCount?.(buildingName, recipes) || 0;
       const upgradeCost = state.level < maxLevel ? deps.getProductionBuildingUpgradeCost?.(buildingName, state.level + 1) || 0 : 0;
       const ownedBuildingCount = getOwnedProductionBuildingCount(buildingName, state.level);

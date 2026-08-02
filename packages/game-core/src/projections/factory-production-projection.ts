@@ -34,6 +34,10 @@ export const createFactoryProductionBuildingView = (input: {
   const activeFactoryCount = resolveActiveFactoryCount(input.state, input.playerId);
   const networkSpeedMultiplier = resolveFactoryNetworkSpeedMultiplier(activeFactoryCount, factory);
   const levelSpeedMultiplier = resolveProductionBuildingLevelMultiplier(input.building, { config: input.config! });
+  const tickRateMs = Math.max(1, Number(input.tickRateMs || input.config?.tickRateMs || 5000));
+  const ownershipDisabledReason = isOwner
+    ? null
+    : input.building.status !== "active" ? "Továrna musí být aktivní." : "Továrna patří jinému hráči.";
   const productionLines = (Object.entries(factory.recipes) as Array<[FactoryRecipeId, typeof factory.recipes[FactoryRecipeId]]>).map(([recipeId, recipe]) => {
     const line = getFactoryLine(input.building, recipeId);
     const producedAmount = getFactoryProducedAmount(input.state, input.building, recipe.outputResourceKey);
@@ -62,17 +66,21 @@ export const createFactoryProductionBuildingView = (input: {
               ? "completed"
               : "ready";
     const disabledReason = !isOwner
-      ? input.building.status !== "active" ? "Továrna musí být aktivní." : "Továrna patří jinému hráči."
+      ? ownershipDisabledReason
       : localFull ? "Lokální zásoba Továrny je plná."
       : queueSpace <= 0 ? "Fronta této výrobní linky je plná."
       : cleanCash < recipe.cleanCashCostPerUnit ? "Na spuštění výroby nemáš dost clean cash."
       : missingInputs ? "Na spuštění výroby nemáš dost materiálových vstupů."
       : null;
     const remainingTicks = activeAmount ? Math.max(0, line.activeCompletesAtTick! - input.state.root.tick) : 0;
+    const effectiveUnitDurationTicks = resolveFactoryDurationTicks(input.state, input.building, recipe, { config: input.config! });
+    const canCollect = isOwner && producedAmount > 0;
     return {
       recipeId,
       resourceKey: recipe.outputResourceKey,
       label: recipe.label,
+      producedAmount,
+      producedCapacity: recipe.localOutputCap,
       queuedAmount: line.queuedAmount,
       queueCapacity: recipe.queueCap,
       activeAmount: activeAmount as 0 | 1,
@@ -94,22 +102,38 @@ export const createFactoryProductionBuildingView = (input: {
         }))
       ],
       baseUnitDurationTicks: recipe.durationTicksPerUnit,
-      effectiveUnitDurationTicks: resolveFactoryDurationTicks(input.state, input.building, recipe, { config: input.config! }),
+      effectiveUnitDurationTicks,
+      effectiveSpeedMultiplier: recipe.durationTicksPerUnit / effectiveUnitDurationTicks,
+      unitsPerHour: 60 * 60 * 1000 / (effectiveUnitDurationTicks * tickRateMs),
       remainingTicks,
-      remainingMs: remainingTicks * Math.max(1, Number(input.tickRateMs || input.config?.tickRateMs || 5000)),
+      remainingMs: remainingTicks * tickRateMs,
       status,
       canStart: maxStartQuantity > 0,
       canCancelWaiting: waitingAmount > 0,
-      canCollect: isOwner && producedAmount > 0,
+      canCollect,
+      collectDisabledReason: canCollect
+        ? null
+        : ownershipDisabledReason || "Na této lince není nic hotového k vyzvednutí.",
       maxStartQuantity,
       disabledReason
     } satisfies FactoryProductionLineView;
   });
+  const collectableAmount = productionLines.reduce((total, line) => (
+    total + (line.canCollect ? line.producedAmount : 0)
+  ), 0);
+  const canCollect = productionLines.some((line) => line.canCollect);
   return {
     buildingId: input.building.id,
     districtId: input.building.districtId,
     buildingTypeId: FACTORY_BUILDING_TYPE_ID,
     level: input.building.level,
+    effectiveProductionSpeedMultiplier: productionLines[0]?.effectiveSpeedMultiplier
+      ?? networkSpeedMultiplier * levelSpeedMultiplier,
+    collectableAmount,
+    canCollect,
+    collectDisabledReason: canCollect
+      ? null
+      : ownershipDisabledReason || "Zatím není nic hotového k vyzvednutí.",
     network: {
       activeFactoryCount,
       networkSpeedMultiplier,

@@ -91,6 +91,16 @@ describe("run-building-action command flow", () => {
           influenceChange: action.influenceChange
         });
       }
+      for (const action of definition.headerActions) {
+        expect(buildingActions[action.actionId]).toMatchObject({
+          actionId: action.actionId,
+          buildingType: definition.buildingTypeId,
+          inputCost: action.inputCost,
+          outputGain: action.outputGain,
+          heatGain: action.heatGain,
+          influenceChange: action.influenceChange
+        });
+      }
     }
   });
 
@@ -1932,8 +1942,13 @@ describe("run-building-action command flow", () => {
     expect(metadata.wasFull).toBe(true);
   });
 
-  it("rejects removed school population collection action", () => {
+  it("collects school population authoritatively and preserves it across a serialized state round trip", () => {
     const { state, building } = createStateWithFixedBuilding("school", {
+      playerBalances: {
+        cash: 1_000,
+        "dirty-cash": 250,
+        "gang-members": 3
+      },
       metadata: {
         school: {
           storedStudents: 4.8,
@@ -1947,10 +1962,7 @@ describe("run-building-action command flow", () => {
       ...state.playersById["player:1"],
       population: 11
     };
-    state.serverInstance = {
-      ...state.serverInstance,
-      worldSeed: "school-seed-11"
-    };
+    state.root.tick = 12;
 
     const result = applyCommand(
       state,
@@ -1958,21 +1970,34 @@ describe("run-building-action command flow", () => {
         payload: {
           districtId: "district:1",
           buildingId: building.id,
-          actionId: "collect_students"
+          actionId: "collect_school_population"
         }
       }),
       context
     );
+    const restoredState = JSON.parse(JSON.stringify(result.nextState)) as typeof result.nextState;
+    const report = createConflictReportViews(restoredState, { playerId: "player:1", limit: 1 })[0];
 
-    expect(result.errors.map((error) => error.code)).toContain("building_action_not_found");
-    expect(result.nextState.playersById["player:1"].population).toBe(11);
-    expect(result.nextState.resourceStatesById["resource:1"].balances["gang-members"]).toBeUndefined();
-    expect(result.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(250);
-    expect(result.nextState.districtsById["district:1"].heat).toBe(0);
-    expect(result.nextState.districtsById["district:1"].influence).toBe(0);
-    expect(result.nextState.buildingsById[building.id].metadata?.school).toMatchObject({
-      storedStudents: 4.8,
+    expect(result.errors).toEqual([]);
+    expect(restoredState.playersById["player:1"].population).toBe(15);
+    expect(restoredState.resourceStatesById["resource:1"].balances["gang-members"]).toBe(7);
+    expect(restoredState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(250);
+    expect(restoredState.districtsById["district:1"].heat).toBe(0);
+    expect(restoredState.districtsById["district:1"].influence).toBe(0);
+    expect(restoredState.buildingsById[building.id].metadata?.school).toMatchObject({
+      lastUpdatedTick: 12,
       wasFull: false
+    });
+    expect(Number((restoredState.buildingsById[building.id].metadata?.school as { storedStudents?: number }).storedStudents)).toBeCloseTo(0.8, 8);
+    expect(report).toMatchObject({
+      reportType: "building-action",
+      buildingActionId: "collect_school_population",
+      schoolResult: {
+        type: "collect_population",
+        collectedPopulation: 4,
+        remainingStoredStudents: expect.closeTo(0.8, 8)
+      },
+      heatGain: 0
     });
   });
 

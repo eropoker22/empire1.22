@@ -648,11 +648,24 @@ describe("shared building presentation adapters", () => {
         { label: "Produkce populace", value: "+0 %" },
         { label: "Kapacita", value: "+0 %" },
         { label: "Income", value: "+0 %" }
-      ]
+      ],
+      actions: [{
+        actionId: "collect_school_population",
+        label: "Vybrat obyvatele",
+        enabled: false,
+        disabledReason: "Škola zatím nemá připravené členy k výběru."
+      }]
     });
 
     expect(apartment.viewModel.collect).toMatchObject({ visible: true, enabled: false });
     expect(convenience.viewModel.collect).toMatchObject({ visible: true, enabled: false });
+    expect(school.viewModel.collect).toMatchObject({
+      visible: true,
+      enabled: false,
+      actionId: "collect_school_population",
+      title: "Škola zatím nemá připravené členy k výběru."
+    });
+    expect(school.viewModel.actions.map((action) => action.actionId)).not.toContain("collect_school_population");
     expect(school.viewModel.mechanics).toContainEqual(expect.objectContaining({
       label: "Produkce",
       value: "+0.55 populace/min"
@@ -660,6 +673,30 @@ describe("shared building presentation adapters", () => {
     expect(school.viewModel.effects).toContainEqual(expect.objectContaining({
       text: "DEN: populace 0.55/min -> 0.66/min"
     }));
+
+    const readySchool = createServerBuildingDetail({
+      baseName: "Škola",
+      buildingTypeId: "school",
+      populationBuffer: {
+        storedAmount: 4.8,
+        capacity: 20,
+        productionPerMinute: 0.55,
+        timeToFullMs: 1_380_000
+      },
+      actions: [{
+        actionId: "collect_school_population",
+        label: "Vybrat obyvatele",
+        enabled: true,
+        disabledReason: null
+      }]
+    });
+
+    expect(readySchool.viewModel.collect).toMatchObject({
+      visible: true,
+      enabled: true,
+      actionId: "collect_school_population"
+    });
+    expect(readySchool.viewModel.actions.map((action) => action.actionId)).not.toContain("collect_school_population");
   });
 
   it("maps recruitment and car dealer support from their canonical stat labels", () => {

@@ -237,6 +237,37 @@ export const resolveSchoolAction = (input: {
   tickRateMs: number;
 }): SchoolActionResolution | null => {
   const metadata = getSchoolMetadata(input.building, input.state.root.tick);
+  if (input.actionId === input.config.collectPopulation.actionId) {
+    const collected = Math.max(0, Math.floor(metadata.storedStudents));
+    const remaining = Math.max(0, metadata.storedStudents - collected);
+    const nextMetadata: SchoolMetadata = {
+      ...metadata,
+      storedStudents: remaining,
+      lastUpdatedTick: input.state.root.tick,
+      wasFull: false
+    };
+
+    return {
+      balances: {
+        ...input.balances,
+        "gang-members": Math.max(0, Number(input.balances["gang-members"] || 0) + collected)
+      },
+      buildingMetadata: withSchoolMetadata(input.building, nextMetadata),
+      heatGain: 0,
+      influenceChange: 0,
+      inputCost: {},
+      outputGain: {
+        population: collected,
+        "gang-members": collected
+      },
+      reportText: `Vybral jsi ${collected} nových členů gangu ze Školy.`,
+      schoolResult: {
+        type: "collect_population",
+        collectedPopulation: collected,
+        remainingStoredStudents: remaining
+      }
+    };
+  }
   if (input.actionId !== input.config.eveningCourse.actionId) {
     return null;
   }
@@ -277,6 +308,12 @@ export const validateSchoolAction = (input: {
   const config = input.config;
   if (!config || input.building.buildingTypeId !== config.buildingTypeId) return null;
   const metadata = getSchoolMetadata(input.building, input.state.root.tick);
+  if (input.actionId === config.collectPopulation.actionId) {
+    const storedStudents = Math.floor(metadata.storedStudents);
+    const minimum = Math.max(1, Math.floor(Number(config.collectPopulation.minCollectPopulation || 1)));
+    if (storedStudents <= 0) return "school_no_population";
+    return storedStudents < minimum ? "school_insufficient_population" : null;
+  }
   if (input.actionId !== config.eveningCourse.actionId) return null;
   if (isEveningCourseActive(metadata, input.state.root.tick)) return "school_evening_course_active";
   if (Math.max(0, Number(input.balances.cash || 0)) < config.eveningCourse.costCleanCash) {

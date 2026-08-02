@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
-import { FACTORY_CONFIG } from "../../packages/game-config/src/legacy-page/economy-config.js";
-import { buildFactoryDashboardViewModel } from "../../page-assets/js/app/runtime/factoryViewModel.js";
+import {
+  FACTORY_CONFIG,
+  FACTORY_SLOT_CONFIG,
+  FACTORY_SLOT_STORAGE_CAP
+} from "../../packages/game-config/src/legacy-page/economy-config.js";
+import {
+  buildFactoryDashboardViewModel,
+  buildServerFactoryDashboardViewModel
+} from "../../page-assets/js/app/runtime/factoryViewModel.js";
 import { renderFactoryDashboardPanel } from "../../page-assets/js/app/ui/factoryPanel.js";
 
 class FakeElement {
@@ -96,6 +103,150 @@ describe("factory dashboard view model and panel", () => {
       queueCap: 13,
       queuedAmount: 5
     });
+  });
+
+  it("adapts authoritative Factory data into the same canonical presentation as the demo", () => {
+    const lines = [
+      {
+        recipeId: "metal-parts",
+        resourceKey: "metal-parts",
+        label: "Metal Parts",
+        producedAmount: 0,
+        producedCapacity: 12,
+        queuedAmount: 0,
+        queueCapacity: 17,
+        baseUnitDurationTicks: 48,
+        effectiveUnitDurationTicks: 32,
+        effectiveSpeedMultiplier: 1.5,
+        unitsPerHour: 22.5,
+        status: "ready",
+        canStart: true,
+        maxStartQuantity: 4,
+        costDisplayRows: [{ resourceKey: "cash", amount: 300, availableAmount: 100000 }]
+      },
+      {
+        recipeId: "tech-core",
+        resourceKey: "tech-core",
+        label: "Tech Core",
+        producedAmount: 0,
+        producedCapacity: 5,
+        queuedAmount: 0,
+        queueCapacity: 8,
+        baseUnitDurationTicks: 96,
+        effectiveUnitDurationTicks: 64,
+        effectiveSpeedMultiplier: 1.5,
+        unitsPerHour: 11.25,
+        status: "ready",
+        canStart: true,
+        maxStartQuantity: 4,
+        costDisplayRows: [
+          { resourceKey: "cash", amount: 900, availableAmount: 100000 },
+          { resourceKey: "metal-parts", amount: 4, availableAmount: 200 }
+        ]
+      },
+      {
+        recipeId: "combat-module",
+        resourceKey: "combat-module",
+        label: "Bojový modul",
+        producedAmount: 0,
+        producedCapacity: 2,
+        queuedAmount: 0,
+        queueCapacity: 5,
+        baseUnitDurationTicks: 180,
+        effectiveUnitDurationTicks: 120,
+        effectiveSpeedMultiplier: 1.5,
+        unitsPerHour: 6,
+        status: "ready",
+        canStart: true,
+        maxStartQuantity: 2,
+        costDisplayRows: [
+          { resourceKey: "cash", amount: 2500, availableAmount: 100000 },
+          { resourceKey: "metal-parts", amount: 4, availableAmount: 200 },
+          { resourceKey: "tech-core", amount: 2, availableAmount: 200 }
+        ]
+      }
+    ];
+    const viewModel = buildServerFactoryDashboardViewModel({
+      serverFactory: {
+        buildingId: "building:factory:1",
+        level: 1,
+        effectiveProductionSpeedMultiplier: 1.5,
+        collectableAmount: 0,
+        canCollect: false,
+        collectDisabledReason: "Zatím není nic hotového k vyzvednutí.",
+        network: {
+          activeFactoryCount: 1,
+          networkSpeedMultiplier: 1,
+          levelSpeedMultiplier: 1,
+          effectiveSpeedMultiplier: 1
+        },
+        productionLines: lines
+      },
+      tickRateMs: 5000,
+      config: FACTORY_CONFIG,
+      slotConfig: FACTORY_SLOT_CONFIG,
+      slotStorageCap: FACTORY_SLOT_STORAGE_CAP,
+      formatCurrency: (value) => `$${value}`,
+      formatDurationLabel: (value) => `${value / 60_000} min`,
+      getFactoryUpgradeCost: () => 5000
+    });
+
+    expect(viewModel.multiplierLabel).toBe("+50%");
+    expect(viewModel.resources).toEqual({ metalParts: "0/12", techCore: "0/5", combatModule: "0/2" });
+    expect(viewModel.slots.map((slot) => slot.durationMs)).toEqual([160000, 320000, 600000]);
+    expect(viewModel.slots.map((slot) => slot.durationBonusLabel)).toEqual(["−33 %", "−33 %", "−33 %"]);
+    expect(viewModel.slots.map((slot) => slot.secondaryLine)).toEqual(["", "", "10 min / kus"]);
+    expect(viewModel.slots.map((slot) => slot.perHour)).toEqual([22.5, 11.25, 6]);
+    expect(viewModel.slots[0]).toMatchObject({ slotOutputCap: 12, slotStorageCap: 17, queueCap: 17 });
+    expect(viewModel.slots.map((slot) => slot.serverLine)).toEqual(lines);
+    expect(viewModel.slots.map((slot) => slot.maxStartQuantity)).toEqual([4, 4, 2]);
+  });
+
+  it("keeps foreign Factory collection disabled with the authoritative ownership reason", () => {
+    const ownershipReason = "Továrna patří jinému hráči.";
+    const viewModel = buildServerFactoryDashboardViewModel({
+      serverFactory: {
+        buildingId: "building:factory:foreign",
+        level: 1,
+        effectiveProductionSpeedMultiplier: 1,
+        collectableAmount: 0,
+        canCollect: false,
+        collectDisabledReason: ownershipReason,
+        network: { activeFactoryCount: 0, effectiveSpeedMultiplier: 1 },
+        productionLines: [{
+          recipeId: "metal-parts",
+          resourceKey: "metal-parts",
+          label: "Metal Parts",
+          producedAmount: 4,
+          producedCapacity: 12,
+          queuedAmount: 0,
+          queueCapacity: 17,
+          baseUnitDurationTicks: 48,
+          effectiveUnitDurationTicks: 48,
+          effectiveSpeedMultiplier: 1,
+          unitsPerHour: 15,
+          status: "completed",
+          canStart: false,
+          canCollect: false,
+          maxStartQuantity: 0,
+          collectDisabledReason: ownershipReason,
+          disabledReason: ownershipReason,
+          costDisplayRows: []
+        }]
+      },
+      tickRateMs: 5000,
+      config: FACTORY_CONFIG,
+      slotConfig: FACTORY_SLOT_CONFIG,
+      slotStorageCap: FACTORY_SLOT_STORAGE_CAP
+    });
+    const collectButton = new FakeElement();
+
+    expect(viewModel.collectableAmount).toBe(0);
+    expect(viewModel.collectButton).toEqual({ disabled: true, text: "+", title: ownershipReason });
+    expect(renderFactoryDashboardPanel({ collectButton }, viewModel)).toBe(true);
+    expect(collectButton.disabled).toBe(true);
+    expect(collectButton.title).toBe(ownershipReason);
+    expect(collectButton.attributes.get("aria-label")).toBe(ownershipReason);
   });
 
   it("renders dashboard elements and forwards callbacks", () => {

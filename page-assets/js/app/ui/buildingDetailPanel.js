@@ -82,6 +82,7 @@ function renderBuildingDynamicValue(scopeElement, valueElement, row = {}) {
 
   const children = [];
   if (prefix) {
+    valueElement.dataset.buildingDynamicLayout = "prefixed";
     const prefixElement = createElement(scopeElement, "span");
     if (prefixElement) {
       prefixElement.dataset.buildingStaticValue = "population-buffer-prefix";

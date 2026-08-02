@@ -836,6 +836,7 @@ describe("building detail, production and recipe UI modules", () => {
     expect(mechanics[0].children[1].children[0].dataset.buildingDynamicValue).toBe("population-buffer");
     expect(mechanics[1].children[1].dataset.buildingDynamicValue).toBeUndefined();
     const effectValue = shell.querySelector(".district-building-detail-effect-cell").children[0];
+    expect(effectValue.dataset.buildingDynamicLayout).toBe("prefixed");
     expect(effectValue.children[0].dataset.buildingStaticValue).toBe("population-buffer-prefix");
     expect(effectValue.children[0].textContent).toBe("Naplnění za ");
     expect(effectValue.children[1].dataset.buildingDynamicValue).toBe("population-buffer");
@@ -1631,8 +1632,8 @@ describe("building detail, production and recipe UI modules", () => {
         output: { inventory: "weapons", itemId: "pistol", amount: 1 }
       },
       slotState: { label: "Výroba", isActive: true },
-      outputInventoryAmount: 7,
-      outputInventoryCapacity: 24,
+      outputInventoryAmount: 200,
+      outputInventoryCapacity: 90,
       outputCap: 5,
       queueCap: 4,
       inputAmounts: { "metal-parts": 12, "tech-core": 4 },
@@ -1650,7 +1651,7 @@ describe("building detail, production and recipe UI modules", () => {
     expect(card.querySelector(".armory-slot__strength").children.map((child) => child.textContent).join(""))
       .toBe("Síla útoku 4 (+0.4)");
     expect(findMetricValue(card, "Vyrobeno")).toBe("2/5 ks");
-    expect(findMetricValue(card, "Ve skladu")).toBe("7/24 ks");
+    expect(findMetricValue(card, "Ve skladu")).toBe("200/90 ks");
     expect(findMetricValue(card, "Ve frontě")).toBe("3/4 ks");
     expect(card.querySelector(".drug-production-slot__metric--supplies").children[0].textContent).toBe("Materiál");
     expect(card.querySelectorAll(".armory-slot__material-value").map((item) => item.textContent)).toEqual(["3/12", "1/4"]);
@@ -2259,6 +2260,65 @@ describe("building detail, production and recipe UI modules", () => {
     card.querySelector("[data-factory-slot-toggle-state=\"stop\"]").click();
     expect(onStartSlot).toHaveBeenCalledWith(line, { batchCount: 1 });
     expect(onPauseSlot).toHaveBeenCalledWith(line);
+  });
+
+  it("uses demo-canonical Factory timing and capacity labels for adapted server lines", () => {
+    const document = setupDocument();
+    const mount = document.createElement("div");
+    const createCard = ({ resourceKey, durationMs, secondaryLine, producedCapacity, queueCapacity }) => renderFactorySlotCard({
+      serverLine: {
+        recipeId: resourceKey,
+        resourceKey,
+        label: resourceKey,
+        status: "ready",
+        producedAmount: 0,
+        producedCapacity,
+        queuedAmount: 0,
+        queueCapacity,
+        maxStartQuantity: 1,
+        canStart: true,
+        canCancelWaiting: false,
+        costDisplayRows: []
+      },
+      slot: {
+        resourceKey: resourceKey === "metal-parts" ? "metalParts" : "combatModule",
+        producedAmount: 0,
+        queuedAmount: 0,
+        slotCap: producedCapacity,
+        queueCap: queueCapacity
+      },
+      title: resourceKey,
+      durationMs,
+      secondaryLine,
+      displayCost: { cleanCash: 0, metalParts: 0, techCore: 0 },
+      inputAmounts: {},
+      queueCap: queueCapacity,
+      slotStorageCap: queueCapacity,
+      slotOutputCap: producedCapacity,
+      canStart: true,
+      maxStartQuantity: 1
+    }, {}, { mount });
+
+    const metalCard = createCard({
+      resourceKey: "metal-parts",
+      durationMs: 240000,
+      secondaryLine: "",
+      producedCapacity: 12,
+      queueCapacity: 17
+    });
+    const combatCard = createCard({
+      resourceKey: "combat-module",
+      durationMs: 900000,
+      secondaryLine: "15 min / kus",
+      producedCapacity: 2,
+      queueCapacity: 5
+    });
+
+    expect(findMetricValue(metalCard, "Čas")).toBe("4m 00s");
+    expect(findMetricValue(metalCard, "Vyrobeno")).toBe("0/12 ks");
+    expect(findMetricValue(metalCard, "Ve frontě")).toBe("0/17 ks");
+    expect(findMetricValue(combatCard, "Čas")).toBe("15 min / kus");
+    expect(findMetricValue(combatCard, "Vyrobeno")).toBe("0/2 ks");
   });
 
   it("preserves the selected Factory quantity across authoritative rerenders", () => {

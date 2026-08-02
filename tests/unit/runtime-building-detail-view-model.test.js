@@ -1613,6 +1613,76 @@ describe("building detail view-model builder", () => {
     expect(model.actions).toEqual([]);
   });
 
+  it("uses canonical convenience-store collect availability and disabled copy", () => {
+    const createConvenienceStoreModel = ({ storedPopulation, canCollect }) => createBuildingDetailViewModel({
+      buildingName: "Večerka",
+      profile: { role: "Pouliční provoz", actions: ["Vybrat obyvatele"] },
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "convenience-store",
+        convenienceStoreWholePopulation: storedPopulation,
+        convenienceStoreCapacity: 50,
+        convenienceStorePopulationPerMinute: 50 / 60,
+        canCollect
+      },
+      actionProfiles: DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.vecerka
+    });
+
+    const empty = createConvenienceStoreModel({ storedPopulation: 0, canCollect: true });
+    const ready = createConvenienceStoreModel({ storedPopulation: 30, canCollect: true });
+
+    expect(empty.collect).toMatchObject({
+      visible: true,
+      enabled: false,
+      title: "Večerka zatím nemá připravené obyvatele."
+    });
+    expect(empty.actions[0]).toMatchObject({
+      actionId: "collect_convenience_store_population",
+      disabled: true,
+      disabledReason: "Večerka zatím nemá připravené obyvatele.",
+      description: "Večerka zatím nemá připravené obyvatele."
+    });
+    expect(ready.collect.enabled).toBe(true);
+    expect(ready.actions[0]).toMatchObject({
+      actionId: "collect_convenience_store_population",
+      disabled: false,
+      disabledReason: ""
+    });
+  });
+
+  it("derives school collect readiness from whole students without overriding authoritative denial", () => {
+    const createSchoolModel = ({ storedStudents, canCollect }) => createBuildingDetailViewModel({
+      buildingName: "Škola",
+      profile: { role: "Vzdělání", actions: [] },
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "school",
+        schoolWholeStudents: storedStudents,
+        schoolCapacity: 12,
+        schoolPopulationPerMinute: 0.25,
+        schoolIsFull: false,
+        schoolNetwork: {
+          incomeMultiplier: 1,
+          populationProductionMultiplier: 1,
+          studentCapacityMultiplier: 1
+        },
+        canCollect
+      }
+    });
+
+    expect(createSchoolModel({ storedStudents: 0, canCollect: true }).collect).toEqual({
+      visible: true,
+      enabled: false,
+      title: "Škola zatím nemá připravené členy k výběru."
+    });
+    expect(createSchoolModel({ storedStudents: 4, canCollect: false }).collect).toEqual({
+      visible: true,
+      enabled: false,
+      title: "Výběr teď není dostupný."
+    });
+    expect(createSchoolModel({ storedStudents: 4, canCollect: true }).collect.enabled).toBe(true);
+  });
+
   it("colors apartment block local storage mechanic below ten as pending and ten as ready", () => {
     const createApartmentModel = (apartmentWholePopulation) => createBuildingDetailViewModel({
       buildingName: "Bytový blok",

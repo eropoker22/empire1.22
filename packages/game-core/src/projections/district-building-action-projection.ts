@@ -35,7 +35,8 @@ import {
 } from "../handlers/streetDealersBuildingActions";
 import {
   getSchoolMetadata,
-  isEveningCourseActive
+  isEveningCourseActive,
+  validateSchoolAction
 } from "../handlers/schoolBuildingActions";
 import type { AirportBalanceConfig, CarDealerBalanceConfig, CentralBankBalanceConfig, CityHallBalanceConfig, CourthouseBalanceConfig, FitnessClubBalanceConfig, GarageBalanceConfig, LobbyClubBalanceConfig, PowerStationBalanceConfig, RecruitmentCenterBalanceConfig, RecyclingCenterBalanceConfig, RestaurantBalanceConfig, SchoolBalanceConfig, ShoppingMallBalanceConfig, SmugglingTunnelBalanceConfig, StockExchangeBalanceConfig, StreetDealersBalanceConfig, StripClubBalanceConfig, VipLoungeBalanceConfig } from "../contracts/game-mode-config";
 import type { ConvenienceStoreBalanceConfig } from "../contracts/game-mode-config";
@@ -854,6 +855,23 @@ const resolveSchoolDisabledReason = (input: {
   const config = input.schoolConfig;
   if (!config || input.building.buildingTypeId !== config.buildingTypeId) return null;
   const metadata = getSchoolMetadata(input.building, input.tick);
+  if (input.action.actionId === config.collectPopulation.actionId) {
+    const error = validateSchoolAction({
+      state: input.state,
+      building: input.building,
+      actionId: input.action.actionId,
+      balances: {},
+      config
+    });
+    if (error === "school_no_population") {
+      return "Škola zatím nemá připravené členy k výběru.";
+    }
+    if (error === "school_insufficient_population") {
+      const minimum = Math.max(1, Math.floor(Number(config.collectPopulation.minCollectPopulation || 1)));
+      return `Škola potřebuje alespoň ${minimum} lidí k výběru.`;
+    }
+    return null;
+  }
   if (input.action.actionId !== config.eveningCourse.actionId) {
     return null;
   }

@@ -33,6 +33,11 @@ export const freeModeSchoolConfig: SchoolBalanceConfig = {
     eveningCourseTalentChanceBonusPct: 0,
     betterTalentChanceBonusPct: 0
   },
+  collectPopulation: {
+    actionId: "collect_school_population",
+    cooldownMinutes: 0,
+    minCollectPopulation: 1
+  },
   eveningCourse: {
     actionId: "evening_course",
     cooldownMinutes: 35,

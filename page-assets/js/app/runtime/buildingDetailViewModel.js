@@ -9,6 +9,7 @@ import {
   ARCADE_NETWORK_CONFIG,
   AUTO_SALON_SUPPORT_CONFIG,
   CLINIC_COUNT_ON_MAP,
+  CONVENIENCE_STORE_MIN_COLLECT_POPULATION,
   DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS,
   EXCHANGE_OFFICE_NETWORK_CONFIG,
   FITNESS_CLUB_SUPPORT_CONFIG,
@@ -57,6 +58,54 @@ import {
 import { resolveBuildingDetailLayout } from "./buildingPresentationContract.js";
 
 export const BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE = "population-buffer";
+
+const POPULATION_COLLECT_ACTION_IDS = new Set([
+  "collect_population",
+  "collect_convenience_store_population",
+  "collect_school_population"
+]);
+
+function resolveCanonicalPopulationCollectAvailability(mechanics = {}) {
+  const mechanicsType = String(mechanics.mechanicsType || "");
+  const authoritativeEnabled = mechanics.canCollect === true;
+  let storedAmount = 0;
+  let minimumAmount = 1;
+  let emptyReason = "";
+  let minimumReason = "";
+
+  if (mechanicsType === "apartment-block") {
+    storedAmount = Math.max(0, Math.floor(Number(mechanics.apartmentWholePopulation || 0)));
+    minimumAmount = APARTMENT_BLOCK_MIN_COLLECT_POPULATION;
+    emptyReason = "Bytový blok zatím nemá připravené obyvatele.";
+    minimumReason = `Bytový blok potřebuje alespoň ${minimumAmount} lidí k výběru.`;
+  } else if (mechanicsType === "convenience-store") {
+    storedAmount = Math.max(0, Math.floor(Number(mechanics.convenienceStoreWholePopulation || 0)));
+    minimumAmount = CONVENIENCE_STORE_MIN_COLLECT_POPULATION;
+    emptyReason = "Večerka zatím nemá připravené obyvatele.";
+    minimumReason = `Večerka potřebuje alespoň ${minimumAmount} lidí k výběru.`;
+  } else if (mechanicsType === "school") {
+    storedAmount = Math.max(0, Math.floor(Number(mechanics.schoolWholeStudents || 0)));
+    emptyReason = "Škola zatím nemá připravené členy k výběru.";
+    minimumReason = emptyReason;
+  } else {
+    return null;
+  }
+
+  const meetsMinimum = storedAmount >= minimumAmount;
+  const enabled = authoritativeEnabled && meetsMinimum;
+  return {
+    enabled,
+    disabledReason: enabled
+      ? ""
+      : storedAmount <= 0
+        ? emptyReason
+        : !meetsMinimum
+          ? minimumReason
+          : "Výběr teď není dostupný.",
+    minimumAmount,
+    storedAmount
+  };
+}
 
 function normalizeBuildingLookupKey(value) {
   return String(value || "")
@@ -1587,7 +1636,14 @@ export function createBuildingDetailActionRows({
     const phaseLockLabel = phaseDisabledReason && phaseLockRule
       ? phaseLockRule.allowedPhase === "night" ? "Jen v noci" : "Jen ve dne"
       : "";
+    const populationCollectAvailability = POPULATION_COLLECT_ACTION_IDS.has(actionDefinition.actionId)
+      ? resolveCanonicalPopulationCollectAvailability(mechanics)
+      : null;
+    const populationCollectDisabledReason = populationCollectAvailability && !populationCollectAvailability.enabled
+      ? populationCollectAvailability.disabledReason
+      : "";
     const casinoDisabledReason = actionDefinition.disabledReason
+      || populationCollectDisabledReason
       || phaseDisabledReason
       || (cooldownRemaining > 0 ? `Akce čeká ${formatDistrictBuildingCooldown(cooldownRemaining)}.` : "")
       || (hasMissingCleanCash && actionProfile?.cleanCost
@@ -1607,8 +1663,6 @@ export function createBuildingDetailActionRows({
         ? `Potřebuješ ${formatDistrictBuildingMoney(actionProfile.minimumDirty)} dirty cash.`
       : actionProfile?.casinoBribedInspector && Number(economyState.cleanMoney || 0) < Number(actionProfile.cleanCost || 0)
         ? `Potřebuješ ${formatDistrictBuildingMoney(actionProfile.cleanCost)} clean cash.`
-      : actionProfile?.apartmentCollectPopulation && Number(mechanics.apartmentWholePopulation || 0) < APARTMENT_BLOCK_MIN_COLLECT_POPULATION
-        ? `Bytový blok potřebuje alespoň ${APARTMENT_BLOCK_MIN_COLLECT_POPULATION} lidí k výběru.`
       : actionProfile?.smugglingOpenChannel && Number(economyState.cleanMoney || 0) < SMUGGLING_TUNNEL_CONFIG.openChannelCleanCost
         ? `Potřebuješ ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.openChannelCleanCost)} clean cash.`
       : actionProfile?.smugglingOpenChannel && mechanics.smugglingOpenChannelActive
@@ -1718,15 +1772,16 @@ export function createBuildingDetailViewModel({
     ? focusedLabel
     : String(displayName || buildingName || "Budova").trim() || "Budova";
   const showManualCollect = Boolean(mechanics.hasManualCollect);
+  const populationCollectAvailability = resolveCanonicalPopulationCollectAvailability(mechanics);
+  const collectEnabled = populationCollectAvailability
+    ? populationCollectAvailability.enabled
+    : mechanics.canCollect === true;
   const hideUpgrade = isGarage;
   const collectTitle = showManualCollect
-    ? (mechanics.canCollect
+    ? (collectEnabled
         ? `Vybrat připravený výstup: ${mechanics.storedOutputLabel}`
-        : mechanics.mechanicsType === "school"
-          ? "Škola zatím nemá připravené členy k výběru."
-          : mechanics.mechanicsType === "apartment-block"
-            ? `Bytový blok potřebuje alespoň ${APARTMENT_BLOCK_MIN_COLLECT_POPULATION} lidí k výběru.`
-          : "Populace zatím není připravená k vybrání.")
+        : populationCollectAvailability?.disabledReason
+          || "Populace zatím není připravená k vybrání.")
     : "";
   const metaText = isFocusedBuilding
     ? ""
@@ -1757,7 +1812,7 @@ export function createBuildingDetailViewModel({
     meta: metaText,
     collect: {
       visible: showManualCollect,
-      enabled: Boolean(mechanics.canCollect),
+      enabled: collectEnabled,
       title: collectTitle
     },
     upgrade: {

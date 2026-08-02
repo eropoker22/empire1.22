@@ -111,13 +111,20 @@ export function createFactoryBuildingInfoViewModel({
   };
   const recipeOrder = ["metal-parts", "tech-core", "combat-module"];
   const recipes = safeObject(config.recipes);
+  const slotsByRecipeId = Object.fromEntries((Array.isArray(factoryState.slots) ? factoryState.slots : []).map((slot) => [
+    slot.recipeId || slot.serverLine?.recipeId || slot.id,
+    slot
+  ]));
   const products = recipeOrder.map((recipeId) => {
     const recipe = safeObject(recipes[recipeId]);
+    const projectedDurationMs = Number(slotsByRecipeId[recipeId]?.effectiveDurationMs);
     return {
       id: recipeId,
       title: recipe.name || getResourceLabel(recipeId),
       description: recipeDescriptions[recipeId],
-      durationLabel: recipe.durationMs ? formatDurationLabel(recipe.durationMs) : "Načítám",
+      durationLabel: Number.isFinite(projectedDurationMs) && projectedDurationMs > 0
+        ? formatDurationLabel(projectedDurationMs)
+        : recipe.durationMs ? formatDurationLabel(recipe.durationMs) : "Načítám",
       costLabel: recipe.name ? formatProductionRecipeInputList(recipe, { formatCurrency, getResourceLabel }) : "Načítám"
     };
   });

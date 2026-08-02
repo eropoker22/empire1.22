@@ -13,6 +13,8 @@ export interface FactoryProductionLineView {
   recipeId: "metal-parts" | "tech-core" | "combat-module";
   resourceKey: string;
   label: string;
+  producedAmount: number;
+  producedCapacity: number;
   queuedAmount: number;
   queueCapacity: number;
   activeAmount: 0 | 1;
@@ -27,12 +29,15 @@ export interface FactoryProductionLineView {
   }>;
   baseUnitDurationTicks: number;
   effectiveUnitDurationTicks: number;
+  effectiveSpeedMultiplier: number;
+  unitsPerHour: number;
   remainingTicks: number;
   remainingMs: number;
   status: FactoryProductionStatus;
   canStart: boolean;
   canCancelWaiting: boolean;
   canCollect: boolean;
+  collectDisabledReason: string | null;
   maxStartQuantity: number;
   disabledReason: string | null;
 }
@@ -42,6 +47,10 @@ export interface FactoryProductionBuildingView {
   districtId: string;
   buildingTypeId: "factory";
   level: number;
+  effectiveProductionSpeedMultiplier: number;
+  collectableAmount: number;
+  canCollect: boolean;
+  collectDisabledReason: string | null;
   network: {
     activeFactoryCount: number;
     networkSpeedMultiplier: number;

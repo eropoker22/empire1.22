@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createFactoryPopupRuntime } from "../../page-assets/js/app/runtime/factoryPopupRuntime.js";
+import { buildServerFactoryDashboardViewModel } from "../../page-assets/js/app/runtime/factoryViewModel.js";
+import { renderFactoryDashboardPanel } from "../../page-assets/js/app/ui/factoryPanel.js";
 
 function createElement(dataset = {}) {
   const listeners = new Map();
@@ -8,6 +10,7 @@ function createElement(dataset = {}) {
     dataset,
     disabled: false,
     hidden: false,
+    style: {},
     textContent: "",
     title: "",
     addEventListener: vi.fn((type, listener) => {
@@ -55,6 +58,9 @@ function createRuntime(overrides = {}) {
     FACTORY_SLOT_CONFIG: [],
     FACTORY_SLOT_STORAGE_CAP: 100,
     buildFactoryDashboardViewModel: vi.fn(() => ({ slots: [] })),
+    buildServerFactoryDashboardViewModel: vi.fn(({ serverFactory }) => ({
+      slots: (serverFactory.productionLines || []).map((serverLine) => ({ serverLine }))
+    })),
     createFactoryBuildingInfoViewModel: vi.fn(() => ({ rows: [], actions: [] })),
     formatCurrency: (value) => `$${value}`,
     formatDurationLabel: () => "1s",
@@ -102,7 +108,8 @@ describe("factory popup runtime", () => {
     const collect = createElement();
     const upgrade = createElement();
     const upgradeCost = createElement();
-    const renderServerFactorySlotList = vi.fn();
+    const buildServerFactoryDashboardViewModel = vi.fn(() => ({ slots: [] }));
+    const renderFactoryDashboardPanel = vi.fn();
     const refreshServerFactoryReadModel = vi.fn(() => Promise.resolve(null));
     const submitServerFactoryCommand = vi.fn(async () => ({ errors: [] }));
     const serverFactory = {
@@ -123,7 +130,8 @@ describe("factory popup runtime", () => {
       getServerFactoryReadModel: () => serverFactory,
       getServerTickRateMs: () => 5000,
       refreshServerFactoryReadModel,
-      renderServerFactorySlotList,
+      buildServerFactoryDashboardViewModel,
+      renderFactoryDashboardPanel,
       setBuildingActionFeedback: vi.fn(),
       submitServerFactoryCommand,
       syncBuildingDetailTopbarVisibility: vi.fn()
@@ -147,10 +155,13 @@ describe("factory popup runtime", () => {
     expect(runtime.bindFactoryPopup(root)).toBe(true);
     await open.dispatch("click");
 
-    expect(renderServerFactorySlotList).toHaveBeenCalled();
-    expect(upgradeCost.textContent).toBe("$100");
+    expect(buildServerFactoryDashboardViewModel).toHaveBeenCalledWith(expect.objectContaining({
+      serverFactory,
+      tickRateMs: 5000
+    }));
+    expect(renderFactoryDashboardPanel).toHaveBeenCalled();
     expect(refreshServerFactoryReadModel).toHaveBeenCalledTimes(1);
-    const callbacks = renderServerFactorySlotList.mock.calls[0][2];
+    const callbacks = renderFactoryDashboardPanel.mock.calls[0][2];
     await callbacks.onStartSlot(serverFactory.productionLines[0], { batchCount: 2 });
     expect(submitServerFactoryCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: "craft-item",
@@ -166,6 +177,82 @@ describe("factory popup runtime", () => {
         buildingId: "building:factory"
       }
     });
+  });
+
+  it("keeps a foreign authoritative Factory collect button disabled with its ownership reason", async () => {
+    const ownershipReason = "Továrna patří jinému hráči.";
+    const open = createElement();
+    const popup = createElement();
+    const collect = createElement();
+    const submitServerFactoryCommand = vi.fn(async () => ({ errors: [] }));
+    const setBuildingActionFeedback = vi.fn();
+    const serverFactory = {
+      districtId: "district:foreign",
+      buildingId: "building:factory:foreign",
+      level: 1,
+      effectiveProductionSpeedMultiplier: 1,
+      collectableAmount: 0,
+      canCollect: false,
+      collectDisabledReason: ownershipReason,
+      network: { activeFactoryCount: 0, effectiveSpeedMultiplier: 1 },
+      productionLines: [{
+        recipeId: "metal-parts",
+        resourceKey: "metal-parts",
+        label: "Metal Parts",
+        producedAmount: 4,
+        producedCapacity: 12,
+        queuedAmount: 0,
+        queueCapacity: 17,
+        baseUnitDurationTicks: 48,
+        effectiveUnitDurationTicks: 48,
+        effectiveSpeedMultiplier: 1,
+        unitsPerHour: 15,
+        status: "completed",
+        canStart: false,
+        canCollect: false,
+        maxStartQuantity: 0,
+        collectDisabledReason: ownershipReason,
+        disabledReason: ownershipReason,
+        costDisplayRows: []
+      }]
+    };
+    const runtime = createRuntime({
+      allowLegacyLocalProduction: false,
+      getServerFactoryReadModel: () => serverFactory,
+      buildServerFactoryDashboardViewModel,
+      renderFactoryDashboardPanel,
+      setBuildingActionFeedback,
+      submitServerFactoryCommand,
+      syncBuildingDetailTopbarVisibility: vi.fn()
+    });
+    const root = createRoot({
+      ".collect": collect,
+      ".combat": createElement(),
+      ".header": createElement(),
+      ".level": createElement(),
+      ".metal": createElement(),
+      ".multiplier": createElement(),
+      ".open": open,
+      ".owned": createElement(),
+      ".popup": popup,
+      ".slots": createElement(),
+      ".supply-combat": createElement(),
+      ".supply-metal": createElement(),
+      ".supply-tech": createElement(),
+      ".tech": createElement(),
+      ".upgrade": createElement(),
+      ".upgrade-cost": createElement()
+    }, { ".close": [createElement()] });
+
+    expect(runtime.bindFactoryPopup(root)).toBe(true);
+    await open.dispatch("click");
+
+    expect(collect.disabled).toBe(true);
+    expect(collect.title).toBe(ownershipReason);
+    expect(collect.setAttribute).toHaveBeenCalledWith("aria-label", ownershipReason);
+    await collect.dispatch("click");
+    expect(submitServerFactoryCommand).not.toHaveBeenCalled();
+    expect(setBuildingActionFeedback).toHaveBeenCalledWith(root, "warning", "Továrna", ownershipReason);
   });
 
   it("prepares the exact server-owned Factory before opening the shared popup", async () => {
@@ -362,11 +449,13 @@ describe("factory popup runtime", () => {
     const upgrade = createElement();
     const documentRef = createEventTarget();
     const renderServerFactorySlotList = vi.fn();
+    const renderFactoryDashboardPanel = vi.fn();
     let serverFactory = null;
     const runtime = createRuntime({
       allowLegacyLocalProduction: false,
       documentRef,
       getServerFactoryReadModel: () => serverFactory,
+      renderFactoryDashboardPanel,
       renderServerFactorySlotList,
       syncBuildingDetailTopbarVisibility: vi.fn()
     });
@@ -427,10 +516,9 @@ describe("factory popup runtime", () => {
     };
     await documentRef.dispatch("empire:gameplay-slice-rendered");
 
-    expect(renderServerFactorySlotList).toHaveBeenCalledWith(
+    expect(renderFactoryDashboardPanel).toHaveBeenCalledWith(
       expect.anything(),
-      serverFactory.productionLines,
-      expect.anything(),
+      expect.objectContaining({ slots: [expect.objectContaining({ serverLine: serverFactory.productionLines[0] })] }),
       expect.anything()
     );
   });

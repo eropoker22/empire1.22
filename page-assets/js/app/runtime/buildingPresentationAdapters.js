@@ -228,6 +228,8 @@ const createServerMechanicsInput = ({
   const populationAction = actionById.get(
     mechanicsType === "convenience-store"
       ? "collect_convenience_store_population"
+      : mechanicsType === "school"
+        ? "collect_school_population"
       : "collect_population"
   );
   const hasManualCollect = mechanicsType === "apartment-block"
@@ -828,6 +830,7 @@ const createServerBuildingDetailView = ({
   const collectAction = uniqueActions.find((entry) => (
     entry?.actionId === "collect_population"
     || entry?.actionId === "collect_convenience_store_population"
+    || entry?.actionId === "collect_school_population"
   )) || null;
   const canonicalUpgradeTitle = String(sharedViewModel.upgrade?.title || "")
     .replace(/\s+za\s*$/u, "")

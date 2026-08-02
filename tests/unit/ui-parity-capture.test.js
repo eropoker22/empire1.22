@@ -23,6 +23,7 @@ import {
   openBuildingFromDistrict,
   openDistrictById,
   openParityLocalDemo,
+  parityWeaponResourceKeys,
   PARITY_PNG_CHANNEL_TOLERANCE,
   PARITY_PNG_MAX_CAPTURE_ATTEMPTS,
   parityComputedStyleProperties,
@@ -32,6 +33,7 @@ import {
   readElementRelativeParityIgnoreRegions,
   resolveEnclosingRasterBounds
 } from "../e2e/helpers/uiParityCapture.js";
+import { ARMORY_RECIPES } from "../../packages/game-config/src/legacy-page/economy-config.js";
 
 const { PNG } = playwrightUtilsBundle;
 
@@ -44,6 +46,18 @@ function createPngBuffer(width, height, rgbaValues) {
 }
 
 describe("UI parity class signature", () => {
+  it("derives every local-demo weapon seed from the canonical Armory registry", () => {
+    expect(parityWeaponResourceKeys).toEqual(Array.from(new Set(
+      Object.values(ARMORY_RECIPES).map((recipe) => recipe.output.itemId)
+    )));
+    expect(parityWeaponResourceKeys).toEqual(expect.arrayContaining([
+      "barricades",
+      "cameras",
+      "defense-tower",
+      "alarm"
+    ]));
+  });
+
   it("removes only explicitly allowlisted runtime state classes", () => {
     expect(normalizeParityClassNames([
       "district-popup-action",
@@ -168,10 +182,14 @@ describe("UI parity class signature", () => {
     })).toThrow(/integer from 0 to 255/u);
   });
 
-  it("allows one bounded recapture only when the final image has zero meaningful pixels", async () => {
+  it("allows two bounded recaptures only when the final image has zero meaningful pixels", async () => {
     const expected = createPngBuffer(1, 1, [20, 40, 60, 255]);
     const oneMeaningfulPixel = createPngBuffer(1, 1, [27, 40, 60, 255]);
     const captureAttempt = vi.fn()
+      .mockResolvedValueOnce({
+        actualBuffer: oneMeaningfulPixel,
+        expectedBuffer: expected
+      })
       .mockResolvedValueOnce({
         actualBuffer: oneMeaningfulPixel,
         expectedBuffer: expected
@@ -183,13 +201,14 @@ describe("UI parity class signature", () => {
 
     const recovered = await compareParityPngScreenshotAttempts(captureAttempt);
 
-    expect(PARITY_PNG_MAX_CAPTURE_ATTEMPTS).toBe(2);
-    expect(captureAttempt).toHaveBeenCalledTimes(2);
+    expect(PARITY_PNG_MAX_CAPTURE_ATTEMPTS).toBe(3);
+    expect(captureAttempt).toHaveBeenCalledTimes(3);
     expect(recovered).toMatchObject({
-      attemptCount: 2,
+      attemptCount: 3,
       attempts: [
         { attempt: 1, comparison: { matches: false, meaningfulPixelCount: 1 } },
-        { attempt: 2, comparison: { matches: true, meaningfulPixelCount: 0 } }
+        { attempt: 2, comparison: { matches: false, meaningfulPixelCount: 1 } },
+        { attempt: 3, comparison: { matches: true, meaningfulPixelCount: 0 } }
       ],
       comparison: { matches: true, meaningfulPixelCount: 0 }
     });
@@ -199,12 +218,12 @@ describe("UI parity class signature", () => {
       expectedBuffer: expected
     }));
     expect(persistentDifference).toMatchObject({
-      attemptCount: 2,
+      attemptCount: 3,
       comparison: { matches: false, meaningfulPixelCount: 1 }
     });
     await expect(compareParityPngScreenshotAttempts(captureAttempt, {
       maxAttempts: PARITY_PNG_MAX_CAPTURE_ATTEMPTS + 1
-    })).rejects.toThrow(/capture attempts must be from 1 to 2/u);
+    })).rejects.toThrow(/capture attempts must be from 1 to 3/u);
   });
 
   it("rejects PNG dimension changes as meaningful differences", () => {

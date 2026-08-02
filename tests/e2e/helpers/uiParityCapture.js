@@ -8,13 +8,20 @@ import {
 import {
   HOSTED_E2E_STARTING_PLAYER_STATE
 } from "../../../scripts/local-hosted/hosted-e2e-starting-player-state.mjs";
+import {
+  ARMORY_RECIPES
+} from "../../../packages/game-config/src/legacy-page/economy-config.js";
 
 const SESSION_KEY = "empireStreets.session.v1";
 const SCOPED_SESSION_KEY = "empireStreets.session.free.instance-free-eu-central-public-1.v1";
 const { PNG } = playwrightUtilsBundle;
 
+export const parityWeaponResourceKeys = Object.freeze(Array.from(new Set(
+  Object.values(ARMORY_RECIPES).map((recipe) => recipe.output.itemId)
+)));
+
 export const PARITY_PNG_CHANNEL_TOLERANCE = 6;
-export const PARITY_PNG_MAX_CAPTURE_ATTEMPTS = 2;
+export const PARITY_PNG_MAX_CAPTURE_ATTEMPTS = 3;
 export const PARITY_SCREENSHOT_RASTER_FRINGE_PX = 1;
 export const BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE = "population-buffer";
 export const buildingPopulationBufferDynamicValueSelector =
@@ -587,7 +594,8 @@ export async function openParityLocalDemo(page, {
     mapPhase: configuredMapPhase,
     marketCityDayIndex: configuredMarketCityDayIndex,
     marketCityMinutes: configuredMarketCityMinutes,
-    startingPlayerState: configuredStartingPlayerState
+    startingPlayerState: configuredStartingPlayerState,
+    weaponResourceKeys: configuredWeaponResourceKeys
   }) => {
     window.EmpireConfigOverrides = Object.freeze({
       ...(window.EmpireConfigOverrides || {}),
@@ -629,14 +637,10 @@ export async function openParityLocalDemo(page, {
         }
       },
       inventory: {
-        weapons: {
-          "baseball-bat": configuredStartingPlayerState.materials["baseball-bat"],
-          pistol: configuredStartingPlayerState.materials.pistol,
-          grenade: configuredStartingPlayerState.materials.grenade,
-          smg: configuredStartingPlayerState.materials.smg,
-          bazooka: configuredStartingPlayerState.materials.bazooka,
-          vest: configuredStartingPlayerState.materials.vest
-        },
+        weapons: Object.fromEntries(configuredWeaponResourceKeys.map((resourceKey) => [
+          resourceKey,
+          configuredStartingPlayerState.materials[resourceKey]
+        ])),
         materials: { ...configuredStartingPlayerState.materials },
         drugs: {
           "neon-dust": configuredStartingPlayerState.materials["neon-dust"],
@@ -701,7 +705,8 @@ export async function openParityLocalDemo(page, {
     mapPhase,
     marketCityDayIndex,
     marketCityMinutes,
-    startingPlayerState
+    startingPlayerState,
+    weaponResourceKeys: parityWeaponResourceKeys
   });
   await page.goto("/pages/game.html?runtimeMode=local-demo&autoStartLocalDemo=1", { waitUntil: "load" });
   await page.waitForFunction(() => (

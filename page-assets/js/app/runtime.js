@@ -968,7 +968,10 @@ import {
   renderProductionPanel as renderProductionPanelUi
 } from "./ui/productionPanel.js";
 import { renderFactoryDashboardPanel } from "./ui/factoryPanel.js";
-import { buildFactoryDashboardViewModel } from "./runtime/factoryViewModel.js";
+import {
+  buildFactoryDashboardViewModel,
+  buildServerFactoryDashboardViewModel
+} from "./runtime/factoryViewModel.js";
 import {
   createFactoryBuildingInfoViewModel,
   createProductionBuildingInfoViewModel,
@@ -15010,6 +15013,7 @@ const {
   applyTopbarEconomy,
   createFactoryBuildingInfoViewModel,
   buildFactoryDashboardViewModel,
+  buildServerFactoryDashboardViewModel,
   collectFactoryOutputsToSupplies,
   createStorageCollectResultPayload,
   documentRef: typeof document === "undefined" ? null : document,

@@ -60,6 +60,11 @@ export interface SchoolBalanceConfig {
     eveningCourseTalentChanceBonusPct: number;
     betterTalentChanceBonusPct: number;
   };
+  collectPopulation: {
+    actionId: "collect_school_population";
+    cooldownMinutes: 0;
+    minCollectPopulation: 1;
+  };
   eveningCourse: {
     actionId: "evening_course";
     cooldownMinutes: number;

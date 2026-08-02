@@ -69,6 +69,71 @@ describe("residential building actions", () => {
     });
   });
 
+  it("rejects school collection when no whole student is stored", () => {
+    const { state, building } = createSchoolState({
+      cash: 1_000,
+      metadata: {
+        school: {
+          storedStudents: 0.9,
+          lastUpdatedTick: 0,
+          lastCapacity: 20,
+          wasFull: false
+        }
+      }
+    });
+
+    const result = applyCommand(state, createBuildingActionCommand(building.id, "collect_school_population"), context);
+
+    expect(result.errors).toMatchObject([{ code: "school_no_population" }]);
+    expect(result.nextState).toBe(state);
+    expect(result.nextState.buildingsById[building.id].actionCooldowns?.collect_school_population).toBeUndefined();
+  });
+
+  it("collects only whole school students and preserves the fractional remainder", () => {
+    const { state, building } = createSchoolState({
+      cash: 1_000,
+      metadata: {
+        school: {
+          storedStudents: 4.8,
+          lastUpdatedTick: 0,
+          lastCapacity: 20,
+          wasFull: true,
+          eveningCourseExpiresAtTick: 50
+        }
+      }
+    });
+    state.root.tick = 12;
+    state.playersById["player:1"] = { ...state.playersById["player:1"], population: 11 };
+    state.resourceStatesById["resource:1"] = {
+      ...state.resourceStatesById["resource:1"],
+      balances: {
+        ...state.resourceStatesById["resource:1"].balances,
+        "gang-members": 3
+      }
+    };
+
+    const result = applyCommand(state, createBuildingActionCommand(building.id, "collect_school_population"), context);
+
+    expect(result.errors).toEqual([]);
+    expect(result.nextState.playersById["player:1"].population).toBe(15);
+    expect(result.nextState.resourceStatesById["resource:1"].balances["gang-members"]).toBe(7);
+    expect(result.nextState.buildingsById[building.id].metadata?.school).toMatchObject({
+      lastUpdatedTick: 12,
+      lastCapacity: 20,
+      wasFull: false,
+      eveningCourseExpiresAtTick: 50
+    });
+    expect(Number((result.nextState.buildingsById[building.id].metadata?.school as { storedStudents?: number }).storedStudents)).toBeCloseTo(0.8, 8);
+    expect(result.events.find((event) => event.type === "building-action-resolved")?.payload).toMatchObject({
+      actionId: "collect_school_population",
+      outputGain: {
+        population: 4,
+        "gang-members": 4
+      },
+      reportText: "Vybral jsi 4 nových členů gangu ze Školy."
+    });
+  });
+
   it("produces fifty people per hour and adds five per hour for each extra Večerka", () => {
     const oneStore = createConvenienceStoreState(0);
     oneStore.state.root.tick = ticksPerMinute * 30;

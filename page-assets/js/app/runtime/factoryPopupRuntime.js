@@ -169,32 +169,6 @@ export function createFactoryPopupRuntime(deps = {}) {
         popup.dataset.serverBuildingId = String(serverFactory.buildingId || "");
         popup.dataset.serverBuildingTypeId = "factory";
         const productionLines = Array.isArray(serverFactory.productionLines) ? serverFactory.productionLines : [];
-        const produced = Object.fromEntries((serverFactory.producedSummary || []).map((item) => [item.resourceKey, item]));
-        const formatProduced = (item) => item ? String(item.currentAmount) + " / " + String(item.capacity) : "0 / 0";
-        const serverFactoryLevel = Math.max(1, Number(serverFactory.level || 1));
-        const serverFactoryNextLevel = serverFactoryLevel + 1;
-        const serverFactoryUpgradeCost = deps.getFactoryUpgradeCost?.(serverFactoryNextLevel) || 0;
-        if (levelElement) levelElement.textContent = String(serverFactoryLevel);
-        if (headerLevelElement) headerLevelElement.textContent = "Lv " + String(serverFactoryLevel);
-        if (multiplierElement) multiplierElement.textContent = "×" + Number(serverFactory.network?.networkSpeedMultiplier || 1).toFixed(2);
-        if (ownedCountElement) ownedCountElement.textContent = String(serverFactory.network?.activeFactoryCount || 0);
-        if (upgradeCostElement) upgradeCostElement.textContent = serverFactoryLevel >= Number(deps.FACTORY_CONFIG.maxLevel || 1)
-          ? "MAX"
-          : deps.formatCurrency?.(serverFactoryUpgradeCost) || String(serverFactoryUpgradeCost);
-        if (metalElement) metalElement.textContent = formatProduced(produced["metal-parts"]);
-        if (techElement) techElement.textContent = formatProduced(produced["tech-core"]);
-        if (combatElement) combatElement.textContent = formatProduced(produced["combat-module"]);
-        if (collectButton) {
-          collectButton.disabled = !(serverFactory.productionLines || []).some((line) => line.canCollect);
-          collectButton.title = collectButton.disabled ? "Není nic hotového k vyzvednutí" : "Vybrat hotové do skladu";
-        }
-        if (upgradeButton) {
-          upgradeButton.disabled = Number(serverFactory.level || 1) >= Number(deps.FACTORY_CONFIG.maxLevel || 1);
-          upgradeButton.title = upgradeButton.disabled
-            ? "Maximální level"
-            : "Upgradovat Továrnu";
-          upgradeButton.setAttribute?.("aria-label", upgradeButton.title);
-        }
         if (productionLines.length === 0) {
           deps.renderServerFactorySlotList?.(
             slotList,
@@ -208,7 +182,37 @@ export function createFactoryPopupRuntime(deps = {}) {
           );
           return;
         }
-        deps.renderServerFactorySlotList?.(slotList, productionLines, {
+        const dashboardViewModel = deps.buildServerFactoryDashboardViewModel?.({
+          serverFactory,
+          tickRateMs: deps.getServerTickRateMs?.() || FREE_GAMEPLAY_TICK_MS,
+          config: deps.FACTORY_CONFIG,
+          slotConfig: deps.FACTORY_SLOT_CONFIG,
+          slotStorageCap: deps.FACTORY_SLOT_STORAGE_CAP,
+          formatCurrency: deps.formatCurrency,
+          formatDurationLabel: deps.formatDurationLabel,
+          getFactoryUpgradeCost: deps.getFactoryUpgradeCost,
+          normalizeResourceColorKey: deps.normalizeProductionResourceColorKey
+        }) || {};
+        deps.renderFactoryDashboardPanel?.({
+          level: levelElement,
+          headerLevel: headerLevelElement,
+          multiplier: multiplierElement,
+          ownedCount: ownedCountElement,
+          upgradeCost: upgradeCostElement,
+          metal: metalElement,
+          tech: techElement,
+          combat: combatElement,
+          supplyMetal: supplyMetalElement,
+          supplyTech: supplyTechElement,
+          supplyCombat: supplyCombatElement,
+          effectsLabel: effectsLabelElement,
+          upgradeButton,
+          collectButton,
+          infoPanel,
+          slotList
+        }, dashboardViewModel, {
+          renderFactoryBuildingInfo,
+          renderFactorySlotList: deps.renderFactorySlotList,
           onStartSlot: async (line, payload) => {
             const response = await deps.submitServerFactoryCommand?.({
               type: "craft-item",
@@ -236,10 +240,6 @@ export function createFactoryPopupRuntime(deps = {}) {
             deps.setBuildingActionFeedback?.(root, error ? "warning" : "success", "Továrna", error?.message || "Čekající výroba byla zrušena.");
             renderFactoryDashboard();
           }
-        }, {
-          tickRateMs: deps.getServerTickRateMs?.() || FREE_GAMEPLAY_TICK_MS,
-          formatDurationLabel: deps.formatDurationLabel,
-          selectionScopeKey: serverFactory.buildingId
         });
         return;
       }
@@ -507,6 +507,19 @@ export function createFactoryPopupRuntime(deps = {}) {
     collectButton.addEventListener("click", () => {
       const serverFactory = getAuthoritativeFactory();
       if (serverFactory) {
+        const canCollect = typeof serverFactory.canCollect === "boolean"
+          ? serverFactory.canCollect
+          : serverFactory.productionLines?.some((line) => line.canCollect === true) === true;
+        if (!canCollect) {
+          deps.setBuildingActionFeedback?.(
+            root,
+            "warning",
+            "Továrna",
+            serverFactory.collectDisabledReason || "Zatím není nic hotového k vyzvednutí."
+          );
+          renderFactoryDashboard();
+          return;
+        }
         deps.submitServerFactoryCommand?.({
           type: "collect-production",
           payload: { districtId: serverFactory.districtId, buildingId: serverFactory.buildingId }

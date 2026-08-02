@@ -502,7 +502,15 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     return metricValue;
   };
 
-  const timeValue = appendMetric("Čas", serverLine
+  const hasCanonicalDurationPresentation = Number(slotView.durationMs || 0) > 0
+    || Boolean(slotView.secondaryLine);
+  const hasAuthoritativeCountdown = serverLine
+    && (
+      serverLine.status === "processing"
+      || Number(serverLine.remainingMs || 0) > 0
+      || !hasCanonicalDurationPresentation
+    );
+  const timeValue = appendMetric("Čas", hasAuthoritativeCountdown
     ? formatFactoryServerTime(serverLine, options)
     : formatFactorySlotTime(slotView, options));
   if (!serverLine && slot.isProducing) {

@@ -225,7 +225,7 @@
     maxLevel
   });
   const perMinuteStat = (cleanPerMinute, dirtyPerMinute, heatPerDay = 0, influencePerDay = 0, maxLevel = 5) => stat(cleanPerMinute * 60, dirtyPerMinute * 60, heatPerDay, influencePerDay, maxLevel);
-  const building = (buildingTypeId, label, zone, role, info, stats, specialActions) => ({
+  const building = (buildingTypeId, label, zone, role, info, stats, specialActions, headerActions = []) => ({
     buildingTypeId,
     label,
     nameVariants: publicBuildingNameVariants[buildingTypeId] ?? [],
@@ -233,7 +233,8 @@
     role,
     info,
     stats,
-    specialActions
+    specialActions,
+    headerActions
   });
   const publicBuildingDefinitions = [
     building("central_bank", "Centrální banka", "downtown", "Ultra vzácná / finance / rezervy / stabilita marketu", "Centrální banka netiskne chaos. Drží ho pod zámkem. Kdo ovládá rezervy, nemusí vyhrávat každou přestřelku. Stačí, když přežije každou krizi.", perMinuteStat(160, 0, 0.1 * 60 * 24, 0.35 * 60 * 24, 1), [
@@ -307,6 +308,8 @@
     ]),
     building("school", "Škola", "residential", "Populace / vzdělání / městský život", "Škola generuje malé peníze a trochu obyvatel. Není to kasárna. Je to místo, kde město vyrábí chytřejší lidi. Rozbité lavice, studené chodby a tabule popsané věcmi, které se v učebnicích neučí.", perMinuteStat(18, 0, 0, 0.05 * 60 * 24, 1), [
       action({ actionId: "evening_course", label: "Večerní kurz", description: "Na 20 minut zrychlí nábor členů v bytových blocích. Nestackuje se.", effectSummary: "Cena 1000 clean cash, +60 % nábor členů na 20 minut", cooldownMs: 35 * minute, durationMs: 20 * minute, inputCost: out("cash", 1e3), effectModifiers: {} })
+    ], [
+      action({ actionId: "collect_school_population", label: "Vybrat obyvatele", description: "Přesune celé obyvatele uložené ve Škole do globální populace hráče a členů gangu.", effectSummary: "+obyvatelé, +gang members, bez heatu a bez peněz", cooldownMs: 0 })
     ]),
     building("factory", "Továrna", "industrial", "Výroba", "Tři nezávislé linky vyrábějí Metal Parts, Tech Core a Combat Module po jednom kusu. Combat Module je strategická průmyslová komponenta pro high-tier výzbroj a pokročilé boost protokoly.", stat(0, 0, 3, 10, 14), []),
     building("armory", "Zbrojovka", "industrial", "Výzbroj", "Nezávislé linky vyrábějí útočné i obranné vybavení z Metal Parts, Tech Core a Combat Module. Každý cyklus vytvoří jeden kus.", stat(0, 0, 4, 18, 14), []),
@@ -340,6 +343,12 @@
     ...definition,
     nameVariants: [...definition.nameVariants],
     stats: { ...definition.stats },
+    headerActions: definition.headerActions.map((buildingAction) => ({
+      ...buildingAction,
+      inputCost: { ...buildingAction.inputCost },
+      outputGain: { ...buildingAction.outputGain },
+      effectModifiers: buildingAction.effectModifiers ? { ...buildingAction.effectModifiers } : void 0
+    })),
     specialActions: definition.specialActions.map((buildingAction) => ({
       ...buildingAction,
       inputCost: { ...buildingAction.inputCost },
@@ -349,7 +358,7 @@
   }));
   const baseBuildingActionsConfig = Object.fromEntries(
     getAllPublicBuildingDefinitions().flatMap(
-      (definition) => definition.specialActions.map((action2) => [
+      (definition) => [...definition.specialActions, ...definition.headerActions].map((action2) => [
         action2.actionId,
         {
           actionId: action2.actionId,
@@ -2094,6 +2103,11 @@
       eveningCourseTalentChanceBonusPct: 0,
       betterTalentChanceBonusPct: 0
     },
+    collectPopulation: {
+      actionId: "collect_school_population",
+      cooldownMinutes: 0,
+      minCollectPopulation: 1
+    },
     eveningCourse: {
       actionId: "evening_course",
       cooldownMinutes: 35,
@@ -2225,6 +2239,21 @@
       requiredOwner: true,
       allowedIfContested: false,
       reportText: "Vybere obyvatele z lokálního zásobníku Večerky."
+    },
+    collect_school_population: {
+      actionId: "collect_school_population",
+      buildingType: "school",
+      label: "Vybrat obyvatele",
+      description: "Přesune celé obyvatele uložené ve Škole do globální populace hráče.",
+      durationMs: 0,
+      cooldownMs: freeModeSchoolConfig.collectPopulation.cooldownMinutes * 60 * 1e3,
+      inputCost: {},
+      outputGain: {},
+      heatGain: 0,
+      influenceChange: 0,
+      requiredOwner: true,
+      allowedIfContested: false,
+      reportText: "Vybere celé obyvatele z lokálního zásobníku Školy."
     },
     evening_course: {
       actionId: "evening_course",

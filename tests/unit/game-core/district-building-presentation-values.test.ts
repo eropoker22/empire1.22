@@ -178,6 +178,60 @@ describe("district building presentation values", () => {
       enabled: false,
       disabledReason: "Večerka zatím nemá připravené obyvatele."
     });
+
+    const schoolFixture = createCoreStateWithFixedBuildingFixture("school", {
+      buildingOverrides: {
+        metadata: {
+          school: {
+            storedStudents: 0,
+            lastUpdatedTick: 0,
+            lastCapacity: 20,
+            wasFull: false
+          }
+        }
+      }
+    });
+    const createSchoolView = () => createDistrictPanelBuildingViews({
+      state: schoolFixture.state,
+      buildings: [schoolFixture.state.buildingsById[schoolFixture.building.id]],
+      buildCatalog: getAllPublicBuildingDefinitions(),
+      actionCatalog: config.balance.buildingActions ?? {},
+      config,
+      schoolConfig: config.balance.school,
+      district: schoolFixture.state.districtsById[schoolFixture.building.districtId],
+      playerId: "player:1",
+      playerBalances: { cash: 1_000 },
+      tick: 0,
+      tickRateMs: config.tickRateMs
+    })[0];
+    const emptySchoolCollect = createSchoolView().actions.find(
+      (action) => action.actionId === "collect_school_population"
+    );
+
+    expect(emptySchoolCollect).toMatchObject({
+      enabled: false,
+      disabledReason: "Škola zatím nemá připravené členy k výběru."
+    });
+
+    schoolFixture.state.buildingsById[schoolFixture.building.id] = {
+      ...schoolFixture.state.buildingsById[schoolFixture.building.id],
+      metadata: {
+        school: {
+          storedStudents: 1.25,
+          lastUpdatedTick: 0,
+          lastCapacity: 20,
+          wasFull: false
+        }
+      }
+    };
+    const readySchoolCollect = createSchoolView().actions.find(
+      (action) => action.actionId === "collect_school_population"
+    );
+
+    expect(readySchoolCollect).toMatchObject({
+      enabled: true,
+      disabledReason: null
+    });
   });
 
   it("projects the actual recruitment camera bonus separately from its cap", () => {

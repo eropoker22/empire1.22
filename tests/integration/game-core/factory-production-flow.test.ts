@@ -199,7 +199,15 @@ describe("factory production", () => {
     })!;
     expect(view.network).toMatchObject({ activeFactoryCount: 1, networkSpeedMultiplier: 1 });
     expect(view.producedSummary).toContainEqual(expect.objectContaining({ resourceKey: "tech-core", currentAmount: 5, capacity: 5, isFull: true }));
-    expect(view.productionLines.find((line) => line.recipeId === "metal-parts")).toMatchObject({ maxStartQuantity: 6, queueCapacity: 13 });
+    expect(view.productionLines.find((line) => line.recipeId === "metal-parts")).toMatchObject({
+      producedAmount: 0,
+      producedCapacity: 10,
+      maxStartQuantity: 6,
+      queueCapacity: 13
+    });
+    const metalLine = view.productionLines.find((line) => line.recipeId === "metal-parts")!;
+    expect(metalLine.unitsPerHour).toBeCloseTo(60 * 60 * 1000 / (metalLine.effectiveUnitDurationTicks * context.config.tickRateMs));
+    expect(metalLine.effectiveSpeedMultiplier).toBeCloseTo(metalLine.baseUnitDurationTicks / metalLine.effectiveUnitDurationTicks);
     expect(view.productionLines.find((line) => line.recipeId === "tech-core")).toMatchObject({
       status: "full",
       canStart: false,
@@ -210,6 +218,104 @@ describe("factory production", () => {
     });
     expect(view.productionLines.find((line) => line.recipeId === "combat-module")?.costDisplayRows)
       .toContainEqual({ resourceKey: "tech-core", label: "Tech Core", amount: 2, availableAmount: 0 });
+  });
+
+  it("projects authoritative Factory timing through district stabilization", () => {
+    const { state, building } = createCoreStateWithFixedBuildingFixture("factory");
+    const stabilizedState = {
+      ...state,
+      districtsById: {
+        ...state.districtsById,
+        [building.districtId]: {
+          ...state.districtsById[building.districtId]!,
+          stabilizingUntilTick: state.root.tick + 10
+        }
+      }
+    };
+    const view = createFactoryProductionBuildingView({
+      state: stabilizedState,
+      building,
+      playerId: "player:1",
+      config: context.config,
+      tickRateMs: context.config.tickRateMs
+    })!;
+    const metalLine = view.productionLines.find((line) => line.recipeId === "metal-parts")!;
+
+    expect(metalLine.effectiveUnitDurationTicks).toBeGreaterThan(metalLine.baseUnitDurationTicks);
+    expect(metalLine.unitsPerHour).toBeCloseTo(60 * 60 * 1000 / (metalLine.effectiveUnitDurationTicks * context.config.tickRateMs));
+    expect(view.effectiveProductionSpeedMultiplier).toBeCloseTo(metalLine.baseUnitDurationTicks / metalLine.effectiveUnitDurationTicks);
+    expect(view.effectiveProductionSpeedMultiplier).toBeLessThan(1);
+  });
+
+  it("projects Industrial Overdrive into Factory multiplier and per-hour rates", () => {
+    const { state, building } = createCoreStateWithFixedBuildingFixture("factory");
+    const baselineView = createFactoryProductionBuildingView({
+      state,
+      building,
+      playerId: "player:1",
+      config: context.config,
+      tickRateMs: context.config.tickRateMs
+    })!;
+    const boostedState = {
+      ...state,
+      playerBoostStatesByPlayerId: {
+        ...state.playerBoostStatesByPlayerId,
+        "player:1": {
+          version: 1,
+          active: {
+            boostId: "industrial-overdrive" as const,
+            activatedAtTick: state.root.tick,
+            expiresAtTick: state.root.tick + 100,
+            status: "timed" as const,
+            effectSnapshot: { productionSpeedMultiplier: 1.25 }
+          },
+          cooldownUntilTickByBoostId: {}
+        }
+      }
+    };
+    const boostedView = createFactoryProductionBuildingView({
+      state: boostedState,
+      building,
+      playerId: "player:1",
+      config: context.config,
+      tickRateMs: context.config.tickRateMs
+    })!;
+    const baselineMetal = baselineView.productionLines.find((line) => line.recipeId === "metal-parts")!;
+    const boostedMetal = boostedView.productionLines.find((line) => line.recipeId === "metal-parts")!;
+
+    expect(boostedView.effectiveProductionSpeedMultiplier).toBeGreaterThan(baselineView.effectiveProductionSpeedMultiplier);
+    expect(boostedMetal.effectiveUnitDurationTicks).toBeLessThan(baselineMetal.effectiveUnitDurationTicks);
+    expect(boostedMetal.unitsPerHour).toBeGreaterThan(baselineMetal.unitsPerHour);
+  });
+
+  it("projects Factory collection authority and ownership reason", () => {
+    const { state, building } = createCoreStateWithFixedBuildingFixture("factory", {
+      productionResourceKey: "metal-parts",
+      productionStoredAmount: 3
+    });
+    const ownedView = createFactoryProductionBuildingView({
+      state,
+      building,
+      playerId: "player:1",
+      config: context.config
+    })!;
+    const foreignView = createFactoryProductionBuildingView({
+      state,
+      building,
+      playerId: "player:other",
+      config: context.config
+    })!;
+
+    expect(ownedView).toMatchObject({ canCollect: true, collectableAmount: 3, collectDisabledReason: null });
+    expect(foreignView).toMatchObject({
+      canCollect: false,
+      collectableAmount: 0,
+      collectDisabledReason: "Továrna patří jinému hráči."
+    });
+    expect(foreignView.productionLines.find((line) => line.recipeId === "metal-parts")).toMatchObject({
+      canCollect: false,
+      collectDisabledReason: "Továrna patří jinému hráči."
+    });
   });
 
   it("migrates one legacy Factory processing job exactly once", () => {

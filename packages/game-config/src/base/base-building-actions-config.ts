@@ -4,7 +4,7 @@ import { getAllPublicBuildingDefinitions } from "../public/building-definitions"
 export const baseBuildingActionsConfig: NonNullable<BalanceConfig["buildingActions"]> =
   Object.fromEntries(
     getAllPublicBuildingDefinitions().flatMap((definition) =>
-      definition.specialActions.map((action) => [
+      [...definition.specialActions, ...definition.headerActions].map((action) => [
         action.actionId,
         {
           actionId: action.actionId,

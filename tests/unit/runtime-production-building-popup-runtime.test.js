@@ -387,7 +387,8 @@ describe("production building popup runtime", () => {
           status: "processing",
           maxStartQuantity: 2,
           canStart: true,
-          canCancelWaiting: true
+          canCancelWaiting: true,
+          disabledReason: "Serverová autorita dočasně blokuje start."
         }]
       }),
       getArmoryRecipeStrengthPreview,
@@ -428,6 +429,7 @@ describe("production building popup runtime", () => {
       inputAmounts: { "metal-parts": 12, "tech-core": 4 },
       maxBatches: 2,
       maxSelectableBatches: 2,
+      disabledReason: "Serverová autorita dočasně blokuje start.",
       armoryStrengthPreview: { label: "Síla útoku", basePower: 4, bonusPower: 0.4, bonusLabel: "+0.4" }
     });
     expect(renderedViewModel).not.toHaveProperty("serverLine");
@@ -448,6 +450,62 @@ describe("production building popup runtime", () => {
     expect(submitServerArmoryCommand).toHaveBeenNthCalledWith(2, {
       type: "cancel-production-line",
       payload: { districtId: "district:1", buildingId: "building:armory:1", recipeId: "pistol" }
+    });
+  });
+
+  it("maps the complete Pharmacy server stat schema into the shared recipe renderer", () => {
+    let renderedViewModel = null;
+    const runtime = createProductionBuildingPopupRuntime({
+      allowLegacyLocalProduction: false,
+      getServerPharmacyReadModel: () => ({
+        districtId: "district:1",
+        buildingId: "building:pharmacy:1",
+        lines: [{
+          recipeId: "chemicals",
+          resourceKey: "chemicals",
+          label: "Chemicals",
+          producedAmount: 2,
+          producedCapacity: 12,
+          playerStoredAmount: 200,
+          playerStoredCapacity: 90,
+          queuedAmount: 1,
+          queueCapacity: 8,
+          activeAmount: 1,
+          waitingAmount: 0,
+          unitCleanCashCost: 360,
+          effectiveUnitDurationTicks: 12,
+          remainingMs: 30000,
+          status: "processing",
+          canStart: false,
+          canCancelWaiting: false,
+          maxStartQuantity: 0,
+          disabledReason: "Lokální zásoba Lékárny je plná."
+        }]
+      }),
+      getServerTickRateMs: () => 5000,
+      renderProductionPanelUi: vi.fn(() => true),
+      renderRecipeCard: vi.fn((viewModel) => {
+        renderedViewModel = viewModel;
+        return { viewModel };
+      })
+    });
+
+    expect(runtime.renderProductionPanel(createRoot({
+      '[data-production-panel="pharmacy"]': {}
+    }), "pharmacy", PHARMACY_RECIPES)).toBe(true);
+    expect(renderedViewModel).toMatchObject({
+      buildingId: "building:pharmacy:1",
+      buildingName: "pharmacy",
+      recipeId: "chemicals",
+      job: { status: "running", producedAmount: 2, queuedAmount: 1 },
+      effectiveDurationMs: 60000,
+      outputInventoryAmount: 200,
+      outputInventoryCapacity: 90,
+      outputCap: 12,
+      queueCap: 8,
+      canStart: false,
+      canCancelWaiting: false,
+      disabledReason: "Lokální zásoba Lékárny je plná."
     });
   });
 
@@ -1217,7 +1275,8 @@ describe("production building popup runtime", () => {
           status: "processing",
           canStart: true,
           canCancelWaiting: false,
-          maxStartQuantity: 2
+          maxStartQuantity: 2,
+          disabledReason: "Serverový Lab je dočasně blokovaný."
         }]
       }),
       renderProductionPanelUi: vi.fn(() => true),
@@ -1246,6 +1305,7 @@ describe("production building popup runtime", () => {
       queueCap: 13,
       inputAmounts: { chemicals: 9 },
       canCancelWaiting: false,
+      disabledReason: "Serverový Lab je dočasně blokovaný.",
       maxBatches: 2
     });
     expect(renderedViewModel).not.toHaveProperty("serverLine");

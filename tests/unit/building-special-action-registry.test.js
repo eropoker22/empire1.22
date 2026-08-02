@@ -90,6 +90,20 @@ describe("building special action registry", () => {
       expect(browserDefinition.status, label).toBe("implemented");
       expect(freeBuildingActions[action.actionId]?.buildingType, label).toBe(definition.buildingTypeId);
     }
+
+    const school = definitions.find((definition) => definition.buildingTypeId === "school");
+    expect(school?.headerActions).toEqual([
+      expect.objectContaining({
+        actionId: "collect_school_population",
+        label: "Vybrat obyvatele"
+      })
+    ]);
+    expect(visibleActions.map(({ action }) => action.actionId)).not.toContain("collect_school_population");
+    expect(hostedBuildingActionMatrix.map((entry) => entry.actionId)).not.toContain("collect_school_population");
+    expect(freeBuildingActions.collect_school_population).toMatchObject({
+      actionId: "collect_school_population",
+      buildingType: "school"
+    });
   });
 
   it("keeps every canonical visible action in exactly one hosted phase scenario", () => {
