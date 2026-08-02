@@ -113,6 +113,49 @@ describe("hosted lifecycle claim fencing", () => {
       at: T2, audit: audit("live-lease") })).toBe(true);
   });
 
+  it("keeps a current PostgreSQL runtime lease without rewriting the server row", async () => {
+    const queryMock = vi.fn(async (sql: string, _params?: readonly unknown[]) =>
+      sql.includes("SELECT instance.server_instance_id") ? pgResult(1) : pgResult(0));
+    const query = queryMock as unknown as PostgresQueryable["query"];
+    const repository = createPostgresHostedControlPlaneRepository({
+      query,
+      transaction: async (callback: (client: PostgresQueryable) => Promise<unknown>) => callback({ query }),
+      close: async () => undefined
+    } as PostgresDatabase);
+
+    expect(await repository.acquireRuntimeLease({ serverInstanceId: "instance:fence", workerId: "worker:owner",
+      workerIncarnationId: "worker-incarnation:owner", now: T0, expiresAt: T4 })).toBe(true);
+    expect(queryMock).toHaveBeenCalledTimes(1);
+    const [statement, params] = queryMock.mock.calls[0] ?? [];
+    expect(String(statement).replace(/\s+/g, " ")).toContain(
+      "runtime_lease_expires_at > clock_timestamp() + ($5::int * interval '1 millisecond')"
+    );
+    expect(String(statement).replace(/\s+/g, " ")).toContain(
+      "worker.worker_incarnation_id=$3 AND worker.status='online'"
+    );
+    expect(params).toEqual(["instance:fence", "worker:owner", "worker-incarnation:owner", T4, 10_000, 30_000]);
+  });
+
+  it("renews a PostgreSQL runtime lease when its safe reserve is exhausted", async () => {
+    const queryMock = vi.fn(async (sql: string, _params?: readonly unknown[]) =>
+      sql.includes("SELECT instance.server_instance_id") ? pgResult(0) : pgResult(1));
+    const query = queryMock as unknown as PostgresQueryable["query"];
+    const repository = createPostgresHostedControlPlaneRepository({
+      query,
+      transaction: async (callback: (client: PostgresQueryable) => Promise<unknown>) => callback({ query }),
+      close: async () => undefined
+    } as PostgresDatabase);
+
+    expect(await repository.acquireRuntimeLease({ serverInstanceId: "instance:fence", workerId: "worker:owner",
+      workerIncarnationId: "worker-incarnation:owner", now: T0, expiresAt: T4 })).toBe(true);
+    expect(queryMock).toHaveBeenCalledTimes(2);
+    const statements = queryMock.mock.calls.map(([sql]) => String(sql).replace(/\s+/g, " "));
+    expect(statements[1]).toContain("UPDATE empire_hosted_server_instances SET runtime_lease_owner_id=$2");
+    expect(statements[1]).toContain(
+      "runtime_lease_expires_at IS NULL OR runtime_lease_expires_at <= clock_timestamp()"
+    );
+  });
+
   it("locks the PostgreSQL claim row and fences completion by lease owner and expiry", async () => {
     const hosted = server({ runtimeLeaseOwnerId: "worker:owner", runtimeLeaseExpiresAt: T4,
       lastWorkerHeartbeatAt: T2 });

@@ -195,6 +195,53 @@ describe("hosted runtime worker recovery", () => {
       .toEqual(snapshot.state.root);
   });
 
+  it.each([
+    {
+      name: "before the registration deadline",
+      registrationClosesAt: new Date(T0.getTime() + 30 * 60_000).toISOString(),
+      registrationClosedAt: null
+    },
+    {
+      name: "after registration is already frozen",
+      registrationClosesAt: new Date(T0.getTime() - 30 * 60_000).toISOString(),
+      registrationClosedAt: new Date(T0.getTime() - 30 * 60_000).toISOString()
+    }
+  ])("does not lock registration lifecycle $name", async ({ registrationClosesAt, registrationClosedAt }) => {
+    const record = server(`instance:registration-freeze-skip:${registrationClosedAt ?? "future"}`, {
+      registrationClosesAt,
+      registrationClosedAt
+    });
+    const app = createServerApp({ clock: clock(() => T0) });
+    const snapshot = await createSnapshot(app, record);
+    const base = createInMemoryHostedControlPlaneRepository({ servers: [withSnapshot(record, snapshot)] });
+    const freezeRegistrationLifecycle = vi.fn(base.freezeRegistrationLifecycle);
+    const controlPlane: HostedControlPlaneRepository = { ...base, freezeRegistrationLifecycle };
+
+    await hostedWorker(controlPlane, app, () => T0).runOnce();
+
+    expect(freezeRegistrationLifecycle).not.toHaveBeenCalled();
+  });
+
+  it("freezes registration once its deadline is due", async () => {
+    const record = server("instance:registration-freeze-due", {
+      registrationClosesAt: T0.toISOString(),
+      registrationClosedAt: null
+    });
+    const app = createServerApp({ clock: clock(() => T0) });
+    const snapshot = await createSnapshot(app, record);
+    const base = createInMemoryHostedControlPlaneRepository({ servers: [withSnapshot(record, snapshot)] });
+    const freezeRegistrationLifecycle = vi.fn(base.freezeRegistrationLifecycle);
+    const controlPlane: HostedControlPlaneRepository = { ...base, freezeRegistrationLifecycle };
+
+    await hostedWorker(controlPlane, app, () => T0).runOnce();
+
+    expect(freezeRegistrationLifecycle).toHaveBeenCalledOnce();
+    expect(await controlPlane.getServer(record.serverInstanceId)).toMatchObject({
+      registrationClosedAt: T0.toISOString(),
+      joinPolicy: "closed"
+    });
+  });
+
   it("leaves dormant lobby runtimes cold until an action or player job needs them", async () => {
     const baseRecord = server("instance:dormant-lobby", {
       status: "lobby",

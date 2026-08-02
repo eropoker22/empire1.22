@@ -259,13 +259,16 @@ export const createHostedRuntimeWorker = (options: HostedRuntimeWorkerOptions) =
       try {
         const owned = await lease.acquire(record.serverInstanceId, at.toISOString(), leaseExpiresAt);
         if (!owned) continue;
-        const frozen = await options.controlPlane.freezeRegistrationLifecycle({ serverInstanceId: record.serverInstanceId,
-          workerId: options.workerId, workerIncarnationId: lease.workerIncarnationId, expectedVersion: record.version,
-          at: at.toISOString(), closedAudit: workerAudit("registration-closed-automatically", record.serverInstanceId, at.toISOString()),
-          triggerAudit: workerAudit("effective-lockdown-trigger-frozen", record.serverInstanceId, at.toISOString()) });
-        if (frozen.kind === "conflict" || frozen.kind === "not-found") throw safe("RUNTIME_REGISTRATION_FREEZE_CONFLICT");
-        if (!frozen.server) throw safe("RUNTIME_REGISTRATION_FREEZE_CONFLICT");
-        const effectiveRecord = frozen.server;
+        let effectiveRecord = record;
+        if (isRegistrationFreezeDue(record, at)) {
+          const frozen = await options.controlPlane.freezeRegistrationLifecycle({ serverInstanceId: record.serverInstanceId,
+            workerId: options.workerId, workerIncarnationId: lease.workerIncarnationId, expectedVersion: record.version,
+            at: at.toISOString(), closedAudit: workerAudit("registration-closed-automatically", record.serverInstanceId, at.toISOString()),
+            triggerAudit: workerAudit("effective-lockdown-trigger-frozen", record.serverInstanceId, at.toISOString()) });
+          if (frozen.kind === "conflict" || frozen.kind === "not-found") throw safe("RUNTIME_REGISTRATION_FREEZE_CONFLICT");
+          if (!frozen.server) throw safe("RUNTIME_REGISTRATION_FREEZE_CONFLICT");
+          effectiveRecord = frozen.server;
+        }
         await withInstanceCommandLock(effectiveRecord.serverInstanceId, async () => {
           const runtime = await ensureRuntime(effectiveRecord, effectiveRecord.status === "running");
           if (effectiveRecord.status === "running") await options.server.instanceManager.tickInstanceDurably(
@@ -374,6 +377,11 @@ const requiresPeriodicRuntimeWork = (record: HostedServerRecord): boolean =>
   || (record.status === "lobby" || record.status === "paused")
     && record.registrationClosesAt !== null
     && record.registrationClosedAt === null;
+
+const isRegistrationFreezeDue = (record: HostedServerRecord, at: Date): boolean =>
+  record.registrationClosedAt === null
+  && record.registrationClosesAt !== null
+  && Date.parse(record.registrationClosesAt) <= at.getTime();
 
 const completeInMemoryProvisioningMutation = async (
   options: HostedRuntimeWorkerOptions,

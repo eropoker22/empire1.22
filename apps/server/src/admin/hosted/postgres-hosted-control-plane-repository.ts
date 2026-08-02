@@ -18,6 +18,8 @@ import {
   loadPostgresHostedAdminServerStats
 } from "./postgres-hosted-admin-server-stats";
 
+const RUNTIME_LEASE_RENEWAL_WINDOW_MS = 10_000;
+
 export const createPostgresHostedControlPlaneRepository = (
   database: PostgresDatabase
 ): HostedControlPlaneRepository => ({
@@ -187,6 +189,18 @@ export const createPostgresHostedControlPlaneRepository = (
     return result.rows[0] ? mapWorker(result.rows[0]) : null;
   },
   acquireRuntimeLease: async (input) => {
+    const current = await database.query(
+      `SELECT instance.server_instance_id FROM empire_hosted_server_instances instance
+       WHERE instance.server_instance_id=$1 AND instance.runtime_lease_owner_id=$2
+         AND instance.runtime_lease_incarnation_id=$3 AND $4::timestamptz > clock_timestamp()
+         AND instance.runtime_lease_expires_at > clock_timestamp() + ($5::int * interval '1 millisecond')
+         AND EXISTS (SELECT 1 FROM empire_hosted_worker_heartbeats worker
+           WHERE worker.worker_id=$2 AND worker.worker_incarnation_id=$3 AND worker.status='online'
+             AND worker.last_heartbeat_at > clock_timestamp() - ($6::int * interval '1 millisecond'))`,
+      [input.serverInstanceId, input.workerId, input.workerIncarnationId, input.expiresAt,
+        RUNTIME_LEASE_RENEWAL_WINDOW_MS, HOSTED_WORKER_FRESH_MS]
+    );
+    if ((current.rowCount ?? 0) === 1) return true;
     const result = await database.query(
       `UPDATE empire_hosted_server_instances SET runtime_lease_owner_id=$2,runtime_lease_incarnation_id=$3,
        runtime_lease_expires_at=$5::timestamptz,last_worker_heartbeat_at=$4::timestamptz,updated_at=$4::timestamptz
