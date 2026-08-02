@@ -1,5 +1,6 @@
 import type { AdminDurableRepositories } from "../admin/read-only";
 import { resolveAdminDurableRepositories } from "../admin/read-only";
+import { createSafeHostedApiErrorDiagnostic } from "../bootstrap/hosted-api-error-diagnostic";
 import { createAdminReadOnlyNetlifyHandler, isAdminApiPath } from "./admin-read-only-netlify";
 import { createJsonResponse, type NetlifyFunctionResponse } from "./netlify-json-response";
 
@@ -21,7 +22,8 @@ export const createAdminGameplaySliceBoundary = (options: {
     if (!handler) return unavailable("ADMIN_CONFIGURATION_UNAVAILABLE", "Admin durable repository is unavailable.");
     try {
       return await handler({ httpMethod: event.httpMethod, path: event.path, body: parseBody(event.body), headers: event.headers });
-    } catch (_error) {
+    } catch (error) {
+      console.error(`[hosted-admin-api] request failed ${createSafeHostedApiErrorDiagnostic(error)}.`);
       return unavailable("ADMIN_DATABASE_UNAVAILABLE", "Admin server is unavailable.");
     }
   };
