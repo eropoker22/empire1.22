@@ -521,9 +521,9 @@ async function compareOpenBuildingParity(
     serverPage,
     buildingTypeId
   );
+  const serverStats = await readOpenBuildingParity(serverPage, buildingTypeId);
   await openBuildingFromDistrict(localPage, buildingTypeId);
   const localStats = await readOpenBuildingParity(localPage, buildingTypeId);
-  const serverStats = await readOpenBuildingParity(serverPage, buildingTypeId);
 
   expect(serverStats.surfaceName, buildingTypeId).toBe(localStats.surfaceName);
   expect(serverStats.presentation, `${buildingTypeId} presentation`).toEqual(

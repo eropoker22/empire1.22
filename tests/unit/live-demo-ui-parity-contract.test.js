@@ -92,4 +92,16 @@ describe("live/demo UI parity source contract", () => {
       'configuredPlaywrightGroups.filter((group) => group.name === "spawn-building-matrix")'
     );
   });
+
+  it("captures the hydrated hosted population card before local-demo opening can cross a worker tick", () => {
+    const serverOpen = paritySpec.indexOf("await openBuildingFromDistrict(serverPage, buildingTypeId);");
+    const populationSync = paritySpec.indexOf("await syncParityLocalDemoPopulationBufferFromHosted(");
+    const serverRead = paritySpec.indexOf("const serverStats = await readOpenBuildingParity(serverPage, buildingTypeId);");
+    const localOpen = paritySpec.indexOf("await openBuildingFromDistrict(localPage, buildingTypeId);");
+
+    expect(serverOpen).toBeGreaterThan(-1);
+    expect(populationSync).toBeGreaterThan(serverOpen);
+    expect(serverRead).toBeGreaterThan(populationSync);
+    expect(localOpen).toBeGreaterThan(serverRead);
+  });
 });
