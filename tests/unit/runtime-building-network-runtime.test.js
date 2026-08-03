@@ -145,8 +145,10 @@ describe("building network runtime", () => {
 
       expect(runtime.getOwnedCityHallCount()).toBe(1);
       expect(runtime.getCityHallInfluenceGenerationMultiplier()).toBe(1.1);
+      expect(runtime.getCityHallAdjustedDailyInfluence(1_036.8)).toBe(1_140.48);
       expect(inactiveRuntime.getOwnedCityHallCount()).toBe(0);
       expect(inactiveRuntime.getCityHallInfluenceGenerationMultiplier()).toBe(1);
+      expect(inactiveRuntime.getCityHallAdjustedDailyInfluence(1_036.8)).toBe(1_036.8);
     }
   });
 

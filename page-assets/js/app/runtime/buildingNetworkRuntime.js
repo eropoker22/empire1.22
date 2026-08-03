@@ -123,6 +123,13 @@ export function createBuildingNetworkRuntime(deps = {}) {
     );
     return ownedCount > 0 ? 1 + influenceGenerationBonusPct / 100 : 1;
   };
+  const getCityHallAdjustedDailyInfluence = (dailyInfluence, count = getOwnedCityHallCount()) => (
+    Math.round(
+      Math.max(0, Number(dailyInfluence || 0))
+        * getCityHallInfluenceGenerationMultiplier(count)
+        * 100
+    ) / 100
+  );
 
   const getOwnedAutoSalonCount = () => countOwnedBuildingByBaseName("autosalon");
   const getAutoSalonNetworkMultipliers = (count = getOwnedAutoSalonCount()) => {
@@ -424,6 +431,7 @@ export function createBuildingNetworkRuntime(deps = {}) {
     getAutoSalonSupportStats,
     getClinicNetworkMultipliers,
     getClinicRecoveryRatePct,
+    getCityHallAdjustedDailyInfluence,
     getCityHallInfluenceGenerationMultiplier,
     getExchangeOfficeNetworkMultipliers,
     getFitnessClubNetworkMultipliers,

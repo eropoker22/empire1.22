@@ -340,7 +340,7 @@ describe("runtime main UI flow smoke guard", () => {
         "getCityHallInfluenceGenerationMultiplier()"
       );
       expect(runtimeSource.slice(detailStart, detailEnd)).toContain(
-        "getCityHallInfluenceGenerationMultiplier()"
+        "getCityHallAdjustedDailyInfluence("
       );
       expect(runtimeSource.slice(presenterStart, presenterEnd)).not.toContain(
         "data-district-building-detail-info"

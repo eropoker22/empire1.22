@@ -6553,6 +6553,7 @@ const {
   getAutoSalonSupportStats,
   getClinicNetworkMultipliers,
   getClinicRecoveryRatePct,
+  getCityHallAdjustedDailyInfluence,
   getCityHallInfluenceGenerationMultiplier,
   getExchangeOfficeNetworkMultipliers,
   getFitnessClubNetworkMultipliers,
@@ -8312,7 +8313,9 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
     ? Math.ceil((schoolCapacity - schoolStoredStudents) / schoolPopulationPerMinute * 60000)
     : 0;
   const dailyHeat = Math.round(Number(heatRule.heat || 0) * (smugglingTunnelNetwork?.heatMultiplier || powerStationNetwork?.heatMultiplier || recyclingCenterNetwork?.heatMultiplier || garageNetwork?.heatMultiplier || fitnessClubNetwork?.heatMultiplier || recruitmentCenterNetwork?.heatMultiplier || restaurantNetwork?.heatMultiplier || autoSalonNetwork?.heatMultiplier || clinicNetwork?.heatMultiplier || warehouseNetwork?.heatMultiplier || arcadeNetwork?.heatMultiplier || exchangeNetwork?.heatMultiplier || 1) * 1440 * 10) / 10;
-  const dailyInfluence = Math.round(Number(influenceRule.influence || 0) * (restaurantNetwork?.influenceMultiplier || 1) * getCityHallInfluenceGenerationMultiplier() * 1440 * 10) / 10;
+  const dailyInfluence = getCityHallAdjustedDailyInfluence(
+    Number(influenceRule.influence || 0) * (restaurantNetwork?.influenceMultiplier || 1) * 1440
+  );
   const activeEffectsForLabel = [
     ...(entry.activeEffects || []),
     ...(streetDealerOpenChannelEffect && !(entry.activeEffects || []).some((effect) => String(effect?.label || "") === streetDealerOpenChannelEffect.label)
