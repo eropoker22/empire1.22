@@ -142,6 +142,10 @@ test.describe("hosted bounty, market and alliance through visible UI", () => {
         reloadHostedGame(target.page),
         reloadHostedGame(hunter.page)
       ]);
+      await Promise.all([
+        closeBountyPanel(target.page),
+        closeBountyPanel(hunter.page)
+      ]);
       const targetMarketBefore = await getRenderedReadModel(target.page);
       const hunterMarketBefore = await getRenderedReadModel(hunter.page);
       const buyerStates = [

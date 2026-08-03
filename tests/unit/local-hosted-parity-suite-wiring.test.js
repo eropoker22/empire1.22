@@ -17,6 +17,10 @@ const socialConcurrencySpecSource = readFileSync(
   new URL("../e2e/live-hosted-social-concurrency-privacy.spec.js", import.meta.url),
   "utf8"
 );
+const socialVisibleUiSpecSource = readFileSync(
+  new URL("../e2e/live-hosted-social-visible-ui.spec.js", import.meta.url),
+  "utf8"
+);
 
 function getHostedSuiteSource(name) {
   const marker = `name: "${name}"`;
@@ -126,6 +130,12 @@ describe("local-hosted presentation parity suite wiring", () => {
     expect(suiteSource).toContain("playerCount: 5");
     expect(suiteSource).toContain(
       "tests/e2e/live-hosted-social-concurrency-privacy.spec.js"
+    );
+  });
+
+  it("closes refresh-restored bounty windows before the visible market race", () => {
+    expect(socialVisibleUiSpecSource).toMatch(
+      /reloadHostedGame\(target\.page\),\s*reloadHostedGame\(hunter\.page\)[\s\S]*?closeBountyPanel\(target\.page\),\s*closeBountyPanel\(hunter\.page\)[\s\S]*?openPlayerMarket\(client\.page\)/u
     );
   });
 
