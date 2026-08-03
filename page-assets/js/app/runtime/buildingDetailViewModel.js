@@ -59,14 +59,31 @@ import { resolveBuildingDetailLayout } from "./buildingPresentationContract.js";
 
 export const BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE = "population-buffer";
 
-const POPULATION_COLLECT_ACTION_IDS = new Set([
-  "collect_population",
-  "collect_convenience_store_population",
-  "collect_school_population"
-]);
+const POPULATION_COLLECT_ACTION_BY_MECHANICS_TYPE = Object.freeze({
+  "apartment-block": Object.freeze({
+    actionId: "collect_population",
+    buildingTypeId: "apartment_block"
+  }),
+  "convenience-store": Object.freeze({
+    actionId: "collect_convenience_store_population",
+    buildingTypeId: "convenience_store"
+  }),
+  school: Object.freeze({
+    actionId: "collect_school_population",
+    buildingTypeId: "school"
+  })
+});
+
+const POPULATION_COLLECT_ACTION_IDS = new Set(
+  Object.values(POPULATION_COLLECT_ACTION_BY_MECHANICS_TYPE).map(({ actionId }) => actionId)
+);
 
 function resolveCanonicalPopulationCollectAvailability(mechanics = {}) {
   const mechanicsType = String(mechanics.mechanicsType || "");
+  const collectAction = POPULATION_COLLECT_ACTION_BY_MECHANICS_TYPE[mechanicsType] || null;
+  if (!collectAction) {
+    return null;
+  }
   const authoritativeEnabled = mechanics.canCollect === true;
   let storedAmount = 0;
   let minimumAmount = 1;
@@ -87,13 +104,12 @@ function resolveCanonicalPopulationCollectAvailability(mechanics = {}) {
     storedAmount = Math.max(0, Math.floor(Number(mechanics.schoolWholeStudents || 0)));
     emptyReason = "Škola zatím nemá připravené členy k výběru.";
     minimumReason = emptyReason;
-  } else {
-    return null;
   }
 
   const meetsMinimum = storedAmount >= minimumAmount;
   const enabled = authoritativeEnabled && meetsMinimum;
   return {
+    ...collectAction,
     enabled,
     disabledReason: enabled
       ? ""
@@ -1794,6 +1810,12 @@ export function createBuildingDetailViewModel({
   const badge = FOCUSED_BUILDING_DETAIL_BADGES[mechanics.mechanicsType] || (isDowntownBuilding ? "" : profile.role);
   const suppressSinglePanelActions = SUPPRESS_SINGLE_PANEL_ACTIONS.has(mechanics.mechanicsType);
   const canUpgrade = hasBuildingUpgradeCapability(mechanics);
+  const actionRows = suppressSinglePanelActions
+    ? []
+    : createBuildingDetailActionRows({ buildingName, profile, mechanics, detailEntry, economyState, actionProfiles, phaseState, now });
+  const actions = showManualCollect && populationCollectAvailability
+    ? actionRows.filter(({ actionId }) => actionId !== populationCollectAvailability.actionId)
+    : actionRows;
 
   return {
     title: displayLabel,
@@ -1813,7 +1835,13 @@ export function createBuildingDetailViewModel({
     collect: {
       visible: showManualCollect,
       enabled: collectEnabled,
-      title: collectTitle
+      title: collectTitle,
+      ...(showManualCollect && populationCollectAvailability
+        ? {
+            actionId: populationCollectAvailability.actionId,
+            buildingTypeId: populationCollectAvailability.buildingTypeId
+          }
+        : {})
     },
     upgrade: {
       visible: !hideUpgrade && canUpgrade,
@@ -1834,8 +1862,6 @@ export function createBuildingDetailViewModel({
     }),
     intro: profile.info || "",
     showActionsInSinglePanel: !suppressSinglePanelActions,
-    actions: suppressSinglePanelActions
-      ? []
-      : createBuildingDetailActionRows({ buildingName, profile, mechanics, detailEntry, economyState, actionProfiles, phaseState, now })
+    actions
   };
 }

@@ -157,4 +157,19 @@ describe("district action overlay parity coverage", () => {
     expect(specSource).not.toContain("data-attack-confirm-button");
     expect(specSource).not.toContain("data-occupy-confirm-button");
   });
+
+  it("waits for hosted district selection and visible authoritative hydration", async () => {
+    const helperSource = await readFile(
+      "tests/e2e/helpers/districtActionOverlayParity.js",
+      "utf8"
+    );
+
+    expect(helperSource).toMatch(
+      /expect\.poll[\s\S]*timeout: 30_000[\s\S]*\.toBe\(canonicalDistrictId\)/u
+    );
+    expect(helperSource).toContain(
+      "Hosted district ${canonicalDistrictId} must finish authoritative selection"
+    );
+    expect(helperSource).toContain('"data-server-district-id"');
+  });
 });

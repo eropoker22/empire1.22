@@ -525,9 +525,18 @@ async function clickDistrictFromVisibleMap(page, districtId, authority) {
   await expect(popup).toBeVisible();
   await expect(popup).toHaveAttribute("data-district-id", String(numericDistrictId));
   if (authority === "hosted") {
+    const canonicalDistrictId = `district:${numericDistrictId}`;
     await expect.poll(() => page.evaluate(() => (
       window.EmpireGameplaySliceClient?.getCurrentReadModel?.()?.district?.districtId || null
-    ))).toBe(`district:${numericDistrictId}`);
+    )), {
+      message: `Hosted district ${canonicalDistrictId} must finish authoritative selection`,
+      timeout: 30_000
+    }).toBe(canonicalDistrictId);
+    await expect(popup).toHaveAttribute(
+      "data-server-district-id",
+      canonicalDistrictId,
+      { timeout: 30_000 }
+    );
   }
 }
 

@@ -214,14 +214,16 @@ function createBountyBoardRowMarkup(entry, targets = [], remainingLabelOverride 
       <td data-label="DISTRICT">${escapeHtml(districtLabel)}</td>
       <td data-label="ODMĚNA"><span class="bounty-board__reward-value">${escapeHtml(formatRewardValue(entry?.rewardCleanCash))}</span></td>
       <td data-label="STATUS / VYPSAL">
-        <span class="bounty-board__status-stack">
-          <span class="bounty-board__status-chip" data-bounty-status-chip="${escapeHtml(status)}">${escapeHtml(statusLabel)}</span>
-          <span class="bounty-board__creator-line">
-            <span>${isAnonymousCreator ? '<span class="bounty-board__creator-mask" aria-hidden="true">◓</span>' : ""}${escapeHtml(creatorLabel)}</span>
-            ${remainingLabel ? `<small data-bounty-remaining>${escapeHtml(remainingLabel)}</small>` : ""}
+        <span class="bounty-board__status-cell">
+          <span class="bounty-board__status-stack">
+            <span class="bounty-board__status-chip" data-bounty-status-chip="${escapeHtml(status)}">${escapeHtml(statusLabel)}</span>
+            <span class="bounty-board__creator-line">
+              <span>${isAnonymousCreator ? '<span class="bounty-board__creator-mask" aria-hidden="true">◓</span>' : ""}${escapeHtml(creatorLabel)}</span>
+              ${remainingLabel ? `<small data-bounty-remaining>${escapeHtml(remainingLabel)}</small>` : ""}
+            </span>
           </span>
+          <button type="button" class="bounty-board__row-action" data-bounty-cancel="${escapeHtml(entry?.bountyId)}"${canCancel ? "" : " disabled"}>${canCancel ? "Zrušit" : "Mapa"}</button>
         </span>
-        <button type="button" class="bounty-board__row-action" data-bounty-cancel="${escapeHtml(entry?.bountyId)}"${canCancel ? "" : " disabled"}>${canCancel ? "Zrušit" : "Mapa"}</button>
       </td>
     </tr>
   `;

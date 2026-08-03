@@ -5,6 +5,9 @@ import {
   renderBuildingDetailPanel
 } from "../../page-assets/js/app/ui/buildingDetailPanel.js";
 import {
+  renderBuildingDetailPanel as renderClientBuildingDetailPanel
+} from "../../client/page-assets/js/app/ui/buildingDetailPanel.js";
+import {
   renderCollectProductionButton,
   renderFactoryBuildingInfo,
   renderProductionBuildingInfo,
@@ -25,6 +28,11 @@ const originalDocument = globalThis.document;
 const originalWindow = globalThis.window;
 const originalHTMLElement = globalThis.HTMLElement;
 const originalHTMLButtonElement = globalThis.HTMLButtonElement;
+
+const buildingDetailPanelRenderers = [
+  ["source", renderBuildingDetailPanel],
+  ["client", renderClientBuildingDetailPanel]
+];
 
 class FakeClassList {
   constructor() {
@@ -222,12 +230,12 @@ afterEach(() => {
 });
 
 describe("building detail, production and recipe UI modules", () => {
-  it("renders building detail with a mock building and without building data", () => {
+  it.each(buildingDetailPanelRenderers)("renders building detail with canonical collect identity using the %s renderer", (_implementation, renderPanel) => {
     const document = setupDocument();
     const root = document.createElement("div");
     const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:factory" });
 
-    renderBuildingDetailPanel({
+    renderPanel({
       shell,
       title: "Továrna",
       badge: "Výroba",
@@ -256,7 +264,7 @@ describe("building detail, production and recipe UI modules", () => {
     expect(readyCollectButton.dataset.districtBuildingDetailActionId).toBe("collect_population");
     expect(readyCollectButton.dataset.districtBuildingDetailBuildingTypeId).toBe("apartment_block");
 
-    renderBuildingDetailPanel({
+    renderPanel({
       shell,
       title: "Továrna",
       collect: { visible: true, enabled: false, title: "Zatím není co vybrat" },
@@ -272,8 +280,29 @@ describe("building detail, production and recipe UI modules", () => {
     expect(emptyCollectButton.dataset.districtBuildingDetailActionId).toBeUndefined();
     expect(emptyCollectButton.dataset.districtBuildingDetailBuildingTypeId).toBeUndefined();
 
-    expect(() => renderBuildingDetailPanel(null)).not.toThrow();
-    expect(() => renderBuildingDetailPanel({ shell, stats: [], mechanics: [], actions: [] })).not.toThrow();
+    renderPanel({
+      shell,
+      title: "Bytový blok",
+      collect: {
+        visible: true,
+        enabled: false,
+        title: "Bytový blok potřebuje alespoň 10 lidí k výběru.",
+        actionId: "collect_population",
+        buildingTypeId: "apartment_block"
+      },
+      upgrade: { disabled: true, title: "" },
+      stats: [],
+      mechanics: [],
+      actions: []
+    });
+
+    const pendingCollectButton = shell.querySelector("[data-district-building-detail-collect]");
+    expect(pendingCollectButton.disabled).toBe(true);
+    expect(pendingCollectButton.dataset.districtBuildingDetailActionId).toBe("collect_population");
+    expect(pendingCollectButton.dataset.districtBuildingDetailBuildingTypeId).toBe("apartment_block");
+
+    expect(() => renderPanel(null)).not.toThrow();
+    expect(() => renderPanel({ shell, stats: [], mechanics: [], actions: [] })).not.toThrow();
   });
 
   it("keeps generic building collect and upgrade controls in the top-right header tools", () => {

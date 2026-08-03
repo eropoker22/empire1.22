@@ -50,6 +50,9 @@ describe("social modal parity coverage contract", () => {
       expect(definition.requiredSectionSelectors.length).toBeGreaterThanOrEqual(4);
     }
     expect(socialModalParitySurfaces.market.triggerSelector).toBe("[data-market-popup-open]");
+    expect(socialModalParitySurfaces.market.roundedCompositeSelector).toBe(
+      ".market-popup-tab.is-active"
+    );
     expect(socialModalParitySurfaces.alliance.triggerSelector).toBe("[data-alliance-popup-open]");
     expect(socialModalParitySurfaces.bounty.triggerSelector).toBe("[data-bounty-open-trigger]");
     expect(socialModalParitySurfaces.boost.triggerSelector).toBe("[data-boost-open-trigger]");
@@ -154,6 +157,9 @@ describe("social modal parity coverage contract", () => {
       "utf8"
     );
     expect(helperSource).toContain("stableBackdropShellSelector: definition.shellSelector");
+    expect(helperSource).toContain(
+      'roundedCompositeSelector: definition.roundedCompositeSelector || ""'
+    );
     expect(helperSource).not.toContain("mask: definition.shellSelector");
     expect(helperSource).not.toContain("mask: definition.targetSelector");
   });

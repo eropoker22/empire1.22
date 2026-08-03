@@ -83,4 +83,22 @@ describe("bounty demo and hosted presentation parity", () => {
     expect(first).toContain("data-bounty-remaining");
     expect(first).toContain("data-bounty-cancel=\"bounty:stable\"");
   });
+
+  it("keeps the bounty cancel control inside a dedicated status-cell column", () => {
+    const css = readFileSync(resolve("page-assets/css/styles-bounty.css"), "utf8");
+    const row = createBountyBoardRenderSignature([{
+      bountyId: "bounty:cancel-layout",
+      targetPlayerId: "player:target",
+      targetPlayerName: "Target",
+      objectiveType: "attack-player",
+      rewardCleanCash: 5_000,
+      status: "active",
+      canCancel: true,
+      createdByPlayerName: "Creator"
+    }]);
+
+    expect(row).toMatch(/<td data-label="STATUS \/ VYPSAL">\s*<span class="bounty-board__status-cell">[\s\S]*?<button[^>]+data-bounty-cancel="bounty:cancel-layout"/u);
+    expect(css).toMatch(/\.bounty-board__status-cell \{[\s\S]*?display: grid;[\s\S]*?grid-template-columns: minmax\(0, 1fr\) auto;[\s\S]*?\}/u);
+    expect(css).toMatch(/\.bounty-board__row-action \{[\s\S]*?width: 52px;[\s\S]*?margin-left: 0;[\s\S]*?\}/u);
+  });
 });

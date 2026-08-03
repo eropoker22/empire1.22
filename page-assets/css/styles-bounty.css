@@ -1384,6 +1384,15 @@
   white-space: nowrap;
 }
 
+.bounty-board__status-cell {
+  display: grid;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
 .bounty-board__reward-value {
   color: #f7c948;
   font-size: 0.82rem;
@@ -1393,9 +1402,7 @@
 }
 
 .bounty-board__status-stack {
-  display: inline-grid;
-  max-width: calc(100% - 56px);
-  vertical-align: middle;
+  max-width: 100%;
 }
 
 .bounty-board__creator-mask {
@@ -1469,9 +1476,10 @@
 }
 
 .bounty-board__row-action {
+  width: 52px;
   min-height: 26px;
   max-width: 52px;
-  margin-left: 8px;
+  margin-left: 0;
   padding: 3px 8px;
   overflow: hidden;
   color: #f7c948;

@@ -279,7 +279,7 @@ describe("building presentation contract", () => {
         detail.viewModel.collect?.actionId
       ].filter(Boolean)));
       expect(visibleActionIds, definition.buildingTypeId).toEqual(
-        definition.specialActions.map((action) => action.actionId)
+        [...definition.specialActions, ...definition.headerActions].map((action) => action.actionId)
       );
     }
   });

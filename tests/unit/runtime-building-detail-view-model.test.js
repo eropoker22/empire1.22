@@ -7,6 +7,9 @@ import {
   createBuildingDetailViewModel
 } from "../../page-assets/js/app/runtime/buildingDetailViewModel.js";
 import {
+  createBuildingDetailViewModel as createClientBuildingDetailViewModel
+} from "../../client/page-assets/js/app/runtime/buildingDetailViewModel.js";
+import {
   createBuildingDetailInfoRows,
   createBuildingDetailInfoViewModel
 } from "../../page-assets/js/app/runtime/buildingDetailInfoViewModel.js";
@@ -30,6 +33,11 @@ const baseMechanics = {
   actionCooldowns: {},
   effectsLabel: "Žádné aktivní mechaniky."
 };
+
+const buildingDetailViewModelImplementations = [
+  ["source", createBuildingDetailViewModel],
+  ["client", createClientBuildingDetailViewModel]
+];
 
 describe("building detail view-model builder", () => {
   it("keeps restaurant special action durations and cooldowns aligned with server config", () => {
@@ -1585,8 +1593,8 @@ describe("building detail view-model builder", () => {
     expect(rows.map((row) => row.label)).toEqual(["Lokální zásobník"]);
   });
 
-  it("uses the collect button instead of special action rows for apartment blocks", () => {
-    const model = createBuildingDetailViewModel({
+  it.each(buildingDetailViewModelImplementations)("uses the collect button instead of special action rows for apartment blocks in %s", (_implementation, createViewModel) => {
+    const model = createViewModel({
       buildingName: "Bytový blok",
       profile: { role: "Členové gangu", actions: ["Vybrat obyvatele"] },
       mechanics: {
@@ -1607,14 +1615,18 @@ describe("building detail view-model builder", () => {
       actionProfiles: [{ apartmentCollectPopulation: true }]
     });
 
-    expect(model.collect.visible).toBe(true);
-    expect(model.collect.enabled).toBe(false);
+    expect(model.collect).toMatchObject({
+      visible: true,
+      enabled: false,
+      actionId: "collect_population",
+      buildingTypeId: "apartment_block"
+    });
     expect(model.collect.title).toContain("alespoň 10 lidí");
     expect(model.actions).toEqual([]);
   });
 
-  it("uses canonical convenience-store collect availability and disabled copy", () => {
-    const createConvenienceStoreModel = ({ storedPopulation, canCollect }) => createBuildingDetailViewModel({
+  it.each(buildingDetailViewModelImplementations)("uses canonical convenience-store collect availability and removes its duplicate action row in %s", (_implementation, createViewModel) => {
+    const createConvenienceStoreModel = ({ storedPopulation, canCollect }) => createViewModel({
       buildingName: "Večerka",
       profile: { role: "Pouliční provoz", actions: ["Vybrat obyvatele"] },
       mechanics: {
@@ -1634,24 +1646,22 @@ describe("building detail view-model builder", () => {
     expect(empty.collect).toMatchObject({
       visible: true,
       enabled: false,
+      actionId: "collect_convenience_store_population",
+      buildingTypeId: "convenience_store",
       title: "Večerka zatím nemá připravené obyvatele."
     });
-    expect(empty.actions[0]).toMatchObject({
+    expect(empty.actions).toEqual([]);
+    expect(ready.collect).toMatchObject({
+      visible: true,
+      enabled: true,
       actionId: "collect_convenience_store_population",
-      disabled: true,
-      disabledReason: "Večerka zatím nemá připravené obyvatele.",
-      description: "Večerka zatím nemá připravené obyvatele."
+      buildingTypeId: "convenience_store"
     });
-    expect(ready.collect.enabled).toBe(true);
-    expect(ready.actions[0]).toMatchObject({
-      actionId: "collect_convenience_store_population",
-      disabled: false,
-      disabledReason: ""
-    });
+    expect(ready.actions).toEqual([]);
   });
 
-  it("derives school collect readiness from whole students without overriding authoritative denial", () => {
-    const createSchoolModel = ({ storedStudents, canCollect }) => createBuildingDetailViewModel({
+  it.each(buildingDetailViewModelImplementations)("derives school collect readiness from whole students without overriding authoritative denial in %s", (_implementation, createViewModel) => {
+    const createSchoolModel = ({ storedStudents, canCollect }) => createViewModel({
       buildingName: "Škola",
       profile: { role: "Vzdělání", actions: [] },
       mechanics: {
@@ -1673,14 +1683,23 @@ describe("building detail view-model builder", () => {
     expect(createSchoolModel({ storedStudents: 0, canCollect: true }).collect).toEqual({
       visible: true,
       enabled: false,
-      title: "Škola zatím nemá připravené členy k výběru."
+      title: "Škola zatím nemá připravené členy k výběru.",
+      actionId: "collect_school_population",
+      buildingTypeId: "school"
     });
     expect(createSchoolModel({ storedStudents: 4, canCollect: false }).collect).toEqual({
       visible: true,
       enabled: false,
-      title: "Výběr teď není dostupný."
+      title: "Výběr teď není dostupný.",
+      actionId: "collect_school_population",
+      buildingTypeId: "school"
     });
-    expect(createSchoolModel({ storedStudents: 4, canCollect: true }).collect.enabled).toBe(true);
+    expect(createSchoolModel({ storedStudents: 4, canCollect: true }).collect).toMatchObject({
+      visible: true,
+      enabled: true,
+      actionId: "collect_school_population",
+      buildingTypeId: "school"
+    });
   });
 
   it("colors apartment block local storage mechanic below ten as pending and ten as ready", () => {

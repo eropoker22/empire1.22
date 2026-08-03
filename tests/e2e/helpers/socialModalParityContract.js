@@ -46,6 +46,7 @@ export const socialModalParitySurfaces = Object.freeze({
       "[data-market-copy]",
       "[data-market-list]"
     ]),
+    roundedCompositeSelector: ".market-popup-tab.is-active",
     semanticDatasetKeys: Object.freeze([
       "marketCategory",
       "marketFactTone",
@@ -622,6 +623,7 @@ export async function captureSocialModalParityScreenshot(page, {
   return captureIsolatedParityScreenshot(page, {
     ignoreSelector: definition.dynamicLeafSelector,
     path: screenshotPath,
+    roundedCompositeSelector: definition.roundedCompositeSelector || "",
     stableBackdropShellSelector: definition.shellSelector,
     target
   });
