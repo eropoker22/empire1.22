@@ -137,6 +137,10 @@ describe("district action overlay parity coverage", () => {
       readFile("tests/e2e/live-demo-district-action-overlay-parity.spec.js", "utf8")
     ]);
 
+    expect(helperSource).toContain("window.empireStreetsMapNavigation?.resetZoom?.()");
+    expect(helperSource).toContain("window.requestAnimationFrame(resolve)");
+    expect(helperSource).toContain('document.querySelector("[data-map-viewport]")');
+    expect(helperSource).toContain("point.insideViewport");
     expect(helperSource).toContain("page.mouse.click(point.x, point.y)");
     expect(helperSource).toContain("[data-district-action-id=\"");
     expect(helperSource).not.toContain("/api/gameplay-slice/submit");

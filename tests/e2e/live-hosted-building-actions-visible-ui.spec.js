@@ -148,6 +148,7 @@ test.describe("fixture-backed hosted canonical building-action visible UI covera
           expect(accepted.tick).toBeGreaterThanOrEqual(commandWindow.tick);
           coverage.executed.push({
             actionId: matrixEntry.actionId,
+            attemptCommandIds: accepted.attemptCommandIds,
             buildingId,
             buildingTypeId: buildingGroup.buildingTypeId,
             confirmation: accepted.confirmation,
@@ -176,11 +177,14 @@ test.describe("fixture-backed hosted canonical building-action visible UI covera
       ...coverage.executed.map((result) => result.actionId),
       ...gapActionIds
     ]).size).toBe(phaseEntries.length);
-    expect(
-      entry.diagnostics.submitRequests.filter(
-        (request) => request?.command?.type === "run-building-action"
-      )
-    ).toHaveLength(coverage.executed.length);
+    const observedCommandIds = entry.diagnostics.submitRequests
+      .filter((request) => request?.command?.type === "run-building-action")
+      .map((request) => String(request.command.id || ""))
+      .sort();
+    const expectedCommandIds = coverage.executed
+      .flatMap((result) => result.attemptCommandIds)
+      .sort();
+    expect(observedCommandIds).toEqual(expectedCommandIds);
     expect(lastAccepted).toBeTruthy();
 
     if (coverage.gaps.length > 0) {
@@ -346,12 +350,15 @@ async function expectSharedBuildingContract({
     const grid = Array.from(
       element.querySelectorAll("[data-district-building-detail-actions]")
     ).find(isVisible);
-    const actions = grid
+    const gridActions = grid
       ? Array.from(grid.querySelectorAll("[data-district-building-detail-action-id]"))
         .filter(isVisible)
       : [];
+    const actions = Array.from(
+      element.querySelectorAll("[data-district-building-detail-action-id]")
+    ).filter(isVisible);
     const style = grid instanceof HTMLElement ? getComputedStyle(grid) : null;
-    const rects = actions.map((action) => {
+    const rects = gridActions.map((action) => {
       const rect = action.getBoundingClientRect();
       return {
         height: Math.round(rect.height),
@@ -587,6 +594,9 @@ async function clickVisibleBuildingAction(page, {
     }
   ).toBeGreaterThanOrEqual(payload.readModel.server.stateVersion);
   return {
+    attemptCommandIds: submission.attempts.map(
+      (attempt) => String(attempt.request?.command?.id || "")
+    ).filter(Boolean),
     confirmation: firstOutcome,
     reportId: report.reportId,
     stateVersion: payload.readModel.server.stateVersion,

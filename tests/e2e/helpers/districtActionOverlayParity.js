@@ -464,20 +464,62 @@ async function clickDistrictFromVisibleMap(page, districtId, authority) {
   const canvasHost = page.locator("[data-map-canvas]");
   await expect(canvasHost).toBeVisible();
   await canvasHost.scrollIntoViewIfNeeded();
+  const resetResult = await page.evaluate(async () => {
+    const didReset = window.empireStreetsMapNavigation?.resetZoom?.();
+    await new Promise((resolve) => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(resolve);
+      });
+    });
+    return {
+      didReset,
+      state: window.empireStreetsMapNavigation?.getState?.() || null
+    };
+  });
+  expect(resetResult, "Visible map navigation must reset before the trusted district click").toMatchObject({
+    didReset: true,
+    state: { scale: 1, x: 0, y: 0 }
+  });
   const point = await page.evaluate((requestedDistrictId) => {
     const district = window.empireStreetsDistrictState?.getDistrictById?.(requestedDistrictId);
     const canvas = document.querySelector("[data-district-canvas]");
     const host = document.querySelector("[data-map-canvas]");
-    if (!district || !(canvas instanceof HTMLCanvasElement) || !(host instanceof HTMLElement)) {
+    const viewport = document.querySelector("[data-map-viewport]");
+    if (
+      !district
+      || !(canvas instanceof HTMLCanvasElement)
+      || !(host instanceof HTMLElement)
+      || !(viewport instanceof HTMLElement)
+    ) {
       return null;
     }
-    const rect = host.getBoundingClientRect();
+    const hostRect = host.getBoundingClientRect();
+    const viewportRect = viewport.getBoundingClientRect();
+    const viewportInset = 4;
+    const x = hostRect.left + (Number(district.centerX) / canvas.width) * hostRect.width;
+    const y = hostRect.top + (Number(district.centerY) / canvas.height) * hostRect.height;
     return {
-      x: rect.left + (Number(district.centerX) / canvas.width) * rect.width,
-      y: rect.top + (Number(district.centerY) / canvas.height) * rect.height
+      x,
+      y,
+      insideViewport: (
+        x >= viewportRect.left + viewportInset
+        && x <= viewportRect.right - viewportInset
+        && y >= viewportRect.top + viewportInset
+        && y <= viewportRect.bottom - viewportInset
+      ),
+      viewport: {
+        bottom: viewportRect.bottom,
+        left: viewportRect.left,
+        right: viewportRect.right,
+        top: viewportRect.top
+      }
     };
   }, numericDistrictId);
   expect(point, `District ${districtId} must expose a visible canvas point`).toBeTruthy();
+  expect(
+    point.insideViewport,
+    `District ${districtId} point ${JSON.stringify(point)} must be inside the visible map viewport`
+  ).toBe(true);
   await page.mouse.click(point.x, point.y);
   const popup = page.locator("[data-district-popup]:visible").last();
   await expect(popup).toBeVisible();

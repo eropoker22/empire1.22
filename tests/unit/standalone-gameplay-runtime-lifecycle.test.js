@@ -88,7 +88,18 @@ describe("standalone gameplay runtime lifecycle", () => {
           canTarget: true,
           districts: [{ districtId: "district-1", name: "District 1", zone: "Downtown" }]
         }],
-        activeBounties: [],
+        activeBounties: [{
+          bountyId: "bounty:stable",
+          targetPlayerId: "target-1",
+          targetPlayerName: "Target",
+          objectiveType: "attack-player",
+          rewardCleanCash: 5_000,
+          status: "active",
+          canCancel: true,
+          createdByPlayerName: "Creator",
+          remainingMs: 60_000,
+          countdownCapturedAt: Date.now()
+        }],
         recentBountyEvents: []
       }
     };
@@ -144,6 +155,25 @@ describe("standalone gameplay runtime lifecycle", () => {
     openButton.click();
     expect(modal.hidden).toBe(false);
     expect(setIntervalSpy).toHaveBeenCalledTimes(initialIntervalCalls + 1);
+    const stableCancelButton = document.querySelector('[data-bounty-cancel="bounty:stable"]');
+    const stableRemainingLabel = document.querySelector("[data-bounty-remaining]");
+    expect(stableCancelButton).toBeInstanceOf(HTMLButtonElement);
+    expect(stableRemainingLabel).toBeInstanceOf(HTMLElement);
+    window.empireStreetsGameplaySliceReadModel = {
+      bounty: {
+        ...window.empireStreetsGameplaySliceReadModel.bounty,
+        activeBounties: [{
+          ...window.empireStreetsGameplaySliceReadModel.bounty.activeBounties[0],
+          remainingMs: 59_000,
+          countdownCapturedAt: Date.now()
+        }]
+      }
+    };
+    document.dispatchEvent(new CustomEvent("empire:gameplay-slice-rendered", {
+      detail: { gameplaySlice: window.empireStreetsGameplaySliceReadModel }
+    }));
+    expect(document.querySelector('[data-bounty-cancel="bounty:stable"]')).toBe(stableCancelButton);
+    expect(document.querySelector("[data-bounty-remaining]")).toBe(stableRemainingLabel);
 
     window.dispatchEvent(new Event("pagehide"));
     expect(modal.hidden).toBe(true);

@@ -131,6 +131,8 @@ describe("social modal parity coverage contract", () => {
     expect(specSource).toContain("setViewportSize(viewport)");
     expect(specSource).toContain("cityClock.minuteOfDay");
     expect(specSource).toContain("cityClock.dayIndex");
+    expect(specSource).toContain("readModel?.bounty?.eligibleTargets");
+    expect(specSource).toContain("bountyDemoTargets: hostedPresentationState.bountyDemoTargets");
     expect(specSource.match(/await registerAndEnterHostedUiParityGame\(/gu) || []).toHaveLength(2);
   });
 

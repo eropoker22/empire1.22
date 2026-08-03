@@ -114,6 +114,16 @@ export function createBuildingNetworkRuntime(deps = {}) {
     };
   };
 
+  const getOwnedCityHallCount = () => countOwnedBuildingByBaseName("magistrat");
+  const getCityHallInfluenceGenerationMultiplier = (count = getOwnedCityHallCount()) => {
+    const ownedCount = Math.max(0, Math.floor(Number(count || 0)));
+    const influenceGenerationBonusPct = Math.max(
+      0,
+      Number(deps.cityHallConfig?.cityAuthority?.influenceGenerationBonusPct || 0)
+    );
+    return ownedCount > 0 ? 1 + influenceGenerationBonusPct / 100 : 1;
+  };
+
   const getOwnedAutoSalonCount = () => countOwnedBuildingByBaseName("autosalon");
   const getAutoSalonNetworkMultipliers = (count = getOwnedAutoSalonCount()) => {
     const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
@@ -414,6 +424,7 @@ export function createBuildingNetworkRuntime(deps = {}) {
     getAutoSalonSupportStats,
     getClinicNetworkMultipliers,
     getClinicRecoveryRatePct,
+    getCityHallInfluenceGenerationMultiplier,
     getExchangeOfficeNetworkMultipliers,
     getFitnessClubNetworkMultipliers,
     getFitnessClubSupportStats,
@@ -423,6 +434,7 @@ export function createBuildingNetworkRuntime(deps = {}) {
     getOwnedArcadeCount,
     getOwnedAutoSalonCount,
     getOwnedClinicCount,
+    getOwnedCityHallCount,
     getOwnedExchangeOfficeCount,
     getOwnedFitnessClubCount,
     getOwnedGarageCount,

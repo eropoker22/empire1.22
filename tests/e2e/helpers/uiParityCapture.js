@@ -27,6 +27,7 @@ export const parityWeaponResourceKeys = Object.freeze(Array.from(new Set(
 export const PARITY_PNG_CHANNEL_TOLERANCE = 6;
 export const PARITY_PNG_MAX_CAPTURE_ATTEMPTS = 3;
 export const PARITY_SCREENSHOT_RASTER_FRINGE_PX = 1;
+export const PARITY_ROUNDED_COMPOSITE_RASTER_FRINGE_PX = 2;
 export const BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE = "population-buffer";
 export const buildingPopulationBufferDynamicValueSelector =
   `[data-building-dynamic-value="${BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE}"]`;
@@ -352,7 +353,7 @@ export function createRoundedCornerCompositeIgnoreRegions({
       const inset = radiusX * (1 - Math.sqrt(1 - (normalizedDistance ** 2)));
       const outsideWidth = Math.min(
         rasterWidth,
-        Math.ceil(inset) + PARITY_SCREENSHOT_RASTER_FRINGE_PX
+        Math.ceil(inset) + PARITY_ROUNDED_COMPOSITE_RASTER_FRINGE_PX
       );
       if (outsideWidth <= 0) continue;
       regions.push({
@@ -828,6 +829,7 @@ export const paritySurfaces = Object.freeze({
 });
 
 export async function openParityLocalDemo(page, {
+  bountyDemoTargets,
   ownedDistrictIds = [21, 66, 68],
   startDistrictId = ownedDistrictIds[0] || 21,
   mapPhase = "night",
@@ -843,6 +845,7 @@ export async function openParityLocalDemo(page, {
     mapPhase: configuredMapPhase,
     marketCityDayIndex: configuredMarketCityDayIndex,
     marketCityMinutes: configuredMarketCityMinutes,
+    bountyDemoTargets: configuredBountyDemoTargets,
     startingPlayerState: configuredStartingPlayerState,
     weaponResourceKeys: configuredWeaponResourceKeys
   }) => {
@@ -854,6 +857,7 @@ export async function openParityLocalDemo(page, {
     const now = new Date().toISOString();
     const serverId = "instance:free:eu-central:public-1";
     const session = {
+      bountyDemoTargets: configuredBountyDemoTargets,
       registration: {
         identity: "UI Parity Demo",
         gangName: "UI Parity Demo",
@@ -954,6 +958,7 @@ export async function openParityLocalDemo(page, {
     mapPhase,
     marketCityDayIndex,
     marketCityMinutes,
+    bountyDemoTargets,
     startingPlayerState,
     weaponResourceKeys: parityWeaponResourceKeys
   });

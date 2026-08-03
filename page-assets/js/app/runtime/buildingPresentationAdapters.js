@@ -949,6 +949,15 @@ const createServerBuildingDetailView = ({
     || entry?.actionId === "collect_convenience_store_population"
     || entry?.actionId === "collect_school_population"
   )) || null;
+  const collectActionPresentation = collectAction
+    ? createServerBuildingActionPresentation({
+        demoAction: null,
+        entry: collectAction,
+        index: uniqueActions.indexOf(collectAction),
+        buildingTypeId: building?.buildingTypeId,
+        tickRateMs
+      })
+    : null;
   const canonicalUpgradeTitle = String(sharedViewModel.upgrade?.title || "")
     .replace(/\s+za\s*$/u, "")
     .trim();
@@ -968,6 +977,8 @@ const createServerBuildingDetailView = ({
       collect: collectAction ? {
         ...sharedViewModel.collect,
         actionId: String(collectAction.actionId || ""),
+        action: collectActionPresentation,
+        buildingTypeId: String(building?.buildingTypeId || ""),
         enabled: collectAction.enabled === true,
         title: String(collectAction.disabledReason || sharedViewModel.collect?.title || "")
       } : slot?.production ? {

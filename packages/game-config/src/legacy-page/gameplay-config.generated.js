@@ -1,5 +1,5 @@
 // GENERATED FILE. Run `npm run generate:browser-config`; do not edit balance values here.
-// Sources: free-mode-pharmacy-config.ts, free-mode-drug-lab-config.ts, free-mode-factory-config.ts, free-mode-armory-config.ts, free-mode-player-boost-config.ts, free-mode-city-event-config.ts, free-mode-warehouse-config.ts, free-mode-attack-weapons-config.ts, free-mode-street-dealers-config.ts, free-mode-smuggling-tunnel-config.ts, free-mode-convenience-store-config.ts, free-mode-strip-club-config.ts, day-night-action-rules.ts, market-config.ts.
+// Sources: free-mode-pharmacy-config.ts, free-mode-drug-lab-config.ts, free-mode-factory-config.ts, free-mode-armory-config.ts, free-mode-player-boost-config.ts, free-mode-city-event-config.ts, free-mode-city-hall-config.ts, free-mode-warehouse-config.ts, free-mode-attack-weapons-config.ts, free-mode-street-dealers-config.ts, free-mode-smuggling-tunnel-config.ts, free-mode-convenience-store-config.ts, free-mode-strip-club-config.ts, day-night-action-rules.ts, market-config.ts.
 export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
   "generatedFrom": [
     "free-mode-pharmacy-config.ts",
@@ -8,6 +8,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
     "free-mode-armory-config.ts",
     "free-mode-player-boost-config.ts",
     "free-mode-city-event-config.ts",
+    "free-mode-city-hall-config.ts",
     "free-mode-warehouse-config.ts",
     "free-mode-attack-weapons-config.ts",
     "free-mode-street-dealers-config.ts",
@@ -6477,6 +6478,12 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       }
     ]
   },
+  "cityHall": {
+    "buildingTypeId": "city_hall",
+    "cityAuthority": {
+      "influenceGenerationBonusPct": 10
+    }
+  },
   "factoryRecipes": {
     "metal-parts": {
       "name": "Metal Parts",
@@ -7326,6 +7333,7 @@ export const DRUGLAB_RECIPES = BROWSER_GAMEPLAY_CONFIG.drugLabRecipes;
 export const ARMORY_RECIPES = BROWSER_GAMEPLAY_CONFIG.armoryRecipes;
 export const PLAYER_BOOST_CONFIG = BROWSER_GAMEPLAY_CONFIG.playerBoosts;
 export const CITY_EVENT_CONFIG = BROWSER_GAMEPLAY_CONFIG.cityEvents;
+export const CITY_HALL_CONFIG = BROWSER_GAMEPLAY_CONFIG.cityHall;
 export const FACTORY_RECIPES = BROWSER_GAMEPLAY_CONFIG.factoryRecipes;
 export const FACTORY_CONFIG = BROWSER_GAMEPLAY_CONFIG.factory;
 export const FACTORY_SLOT_STORAGE_CAPS = BROWSER_GAMEPLAY_CONFIG.factorySlotStorageCaps;

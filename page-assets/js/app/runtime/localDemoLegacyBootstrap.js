@@ -13,7 +13,7 @@ import {
   setE2eDistrictBuildingPopulationBuffer,
   setBuildingActionFeedback
 } from "../runtime.js";
-import { BOUNTY_DEMO_TARGETS } from "../dev-fixtures/bountyDemoData.js";
+import { resolveBountyDemoTargets } from "../dev-fixtures/bountyDemoData.js";
 import {
   getStoredPreviewSession,
   updateStoredPreviewSession
@@ -93,7 +93,7 @@ export function bootstrapLocalDemoLegacyPage({
     getPlayerBoostViewModel,
     getResolvedGangState,
     getAllianceDemoData: getAllianceDemoFixtureData,
-    getBountyDemoTargets: () => BOUNTY_DEMO_TARGETS,
+    getBountyDemoTargets: () => resolveBountyDemoTargets(getStoredPreviewSession()),
     getLaunchPlayerAvatarByFactionId: (factionId) =>
       LAUNCH_PLAYER_AVATAR_BY_FACTION_ID[String(factionId || "")] || "",
     getStoredPreviewSession,

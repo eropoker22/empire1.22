@@ -61,6 +61,17 @@ describe("current gameplay cleanup guard", () => {
     });
   });
 
+  it("derives the browser City Hall authority multiplier from typed balance", () => {
+    const cityHall = resolveModeConfig("free").balance.cityHall;
+
+    expect(BROWSER_GAMEPLAY_CONFIG.cityHall).toEqual({
+      buildingTypeId: cityHall?.buildingTypeId,
+      cityAuthority: {
+        influenceGenerationBonusPct: cityHall?.cityAuthority.influenceGenerationBonusPct
+      }
+    });
+  });
+
   it("keeps strategic Lab items as components and removes their dead direct-use adapter", () => {
     const recipes = resolveModeConfig("free").balance.drugLab?.recipes;
     expect(recipes?.["ghost-serum"]).toMatchObject({ itemRole: "boost-component", directlyUsable: false });

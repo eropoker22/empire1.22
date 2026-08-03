@@ -60,16 +60,19 @@ test("admin stop fails player gameplay closed without demo fallback", async ({ b
     expect((await stopResponse).status()).toBe(202);
 
     await expect.poll(
-      () => readHostedStatus(adminPage),
+      () => readHostedState(adminPage),
       { timeout: 60_000, intervals: [500, 1_000, 2_000] }
-    ).toBe("stopped");
+    ).toMatchObject({
+      status: "stopped",
+      joinPolicy: "closed"
+    });
     await expect.poll(
       () => readPublicServerState(adminPage, serverInstanceId),
       { timeout: 30_000, intervals: [500, 1_000, 2_000] }
-    ).toMatchObject({
-      status: "stopped",
-      joinPolicy: "closed",
-      joinable: false
+    ).toEqual({
+      httpStatus: 200,
+      accepted: true,
+      server: null
     });
 
     const load = await postGameplayRequest(playerPage, "load", {
@@ -134,19 +137,27 @@ test("admin stop fails player gameplay closed without demo fallback", async ({ b
   }
 });
 
-const readHostedStatus = (page) => page.evaluate(async (id) => {
+const readHostedState = (page) => page.evaluate(async (id) => {
   const response = await fetch("/api/admin/control-plane", {
     credentials: "same-origin",
     cache: "no-store"
   });
   const payload = await response.json();
-  return payload.data.servers.find((server) => server.serverInstanceId === id)?.status ?? null;
+  const server = payload.data.servers.find((entry) => entry.serverInstanceId === id);
+  return server ? {
+    status: server.status,
+    joinPolicy: server.joinPolicy
+  } : null;
 }, serverInstanceId);
 
 const readPublicServerState = (page, id) => page.evaluate(async (expectedId) => {
   const response = await fetch("/api/servers", { cache: "no-store" });
   const payload = await response.json();
-  return payload.servers.find((server) => server.serverInstanceId === expectedId) ?? null;
+  return {
+    httpStatus: response.status,
+    accepted: payload.accepted,
+    server: payload.servers.find((entry) => entry.serverInstanceId === expectedId) ?? null
+  };
 }, id);
 
 const postGameplayRequest = (page, route, body) => page.evaluate(async ({ routeName, requestBody }) => {

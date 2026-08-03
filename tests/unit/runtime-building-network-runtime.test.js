@@ -33,6 +33,10 @@ function createRuntime(overrides = {}, runtimeFactory = createBuildingNetworkRun
     clinicBaseRecoveryRatePct: 10,
     clinicMaxRecoveryRatePct: 30,
     clinicRecoveryRatePctPerExtra: 5,
+    cityHallConfig: {
+      buildingTypeId: "city_hall",
+      cityAuthority: { influenceGenerationBonusPct: 10 }
+    },
     currentPlayerId: 1,
     exchangeOfficeNetworkConfig: { maxIncomeMultiplier: 2, incomeBonusPctPerExtraExchange: 10, maxLaunderingLimitMultiplier: 2, launderingLimitBonusPctPerExtraExchange: 10, maxHeatMultiplier: 2, heatBonusPctPerExtraExchange: 10 },
     fitnessClubSupportConfig: { maxIncomeMultiplier: 2, incomeBonusPctPerExtraClub: 10, maxHeatMultiplier: 2, heatBonusPctPerExtraClub: 10, maxAttackStrengthBonusPct: 40, attackStrengthBonusPctPerClub: 5, maxDefenseStrengthBonusPct: 40, defenseStrengthBonusPctPerClub: 5, combinedRecruitmentFitnessAttackCapPct: 20, combinedRecruitmentFitnessDefenseCapPct: 20 },
@@ -116,6 +120,34 @@ describe("building network runtime", () => {
     expect(runtime.getOwnedShoppingMallCountForMarket()).toBe(1);
     expect(runtime.getAutoSalonNetworkMultipliers(2).cleanIncomeMultiplier).toBe(1.1);
     expect(runtime.getAutoSalonSupportStats(2).mobilityBonusPct).toBe(10);
+  });
+
+  it("applies City Hall authority influence only for an active owned City Hall in both runtime bundles", () => {
+    for (const runtimeFactory of [createBuildingNetworkRuntime, createClientBuildingNetworkRuntime]) {
+      const runtime = createRuntime({
+        resolveDistrictBuildingProfile: (district) => ({
+          buildings: {
+            1: [{ baseName: "magistrat" }],
+            2: [],
+            3: []
+          }[district.id] || []
+        })
+      }, runtimeFactory);
+      const inactiveRuntime = createRuntime({
+        resolveDistrictBuildingProfile: (district) => ({
+          buildings: {
+            1: [{ baseName: "magistrat", status: "inactive" }],
+            2: [],
+            3: []
+          }[district.id] || []
+        })
+      }, runtimeFactory);
+
+      expect(runtime.getOwnedCityHallCount()).toBe(1);
+      expect(runtime.getCityHallInfluenceGenerationMultiplier()).toBe(1.1);
+      expect(inactiveRuntime.getOwnedCityHallCount()).toBe(0);
+      expect(inactiveRuntime.getCityHallInfluenceGenerationMultiplier()).toBe(1);
+    }
   });
 
   it("applies the canonical power-station weight to clinic recovery in both runtime bundles", () => {

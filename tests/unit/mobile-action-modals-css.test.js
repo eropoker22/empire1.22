@@ -482,6 +482,16 @@ describe("mobile action modal CSS", () => {
     expect(runtimeSource).toContain("resetOwnedApartmentBlockPopulationEntries(context.district, mechanics.apartmentCapacity);");
 
     const collectFunctionIndex = runtimeSource.indexOf("function collectDistrictBuildingDetailOutput");
+    const collectFunction = runtimeSource.slice(
+      collectFunctionIndex,
+      runtimeSource.indexOf("async function upgradeDistrictBuildingDetail", collectFunctionIndex)
+    );
+    expect(collectFunction).toContain("createServerBuildingActionExecutionPresentation");
+    expect(collectFunction).toContain("collectView.action?.actionId === collectActionId");
+    expect(collectFunction).toContain("getDistrictBuildingSpecialActionConfirmation");
+    expect(collectFunction).toContain("await controller.open(actionExecution.confirmation)");
+    expect(collectFunction.indexOf("await controller.open(actionExecution.confirmation)"))
+      .toBeLessThan(collectFunction.indexOf("await submitServerBuildingActionCommand"));
     const apartmentCollectBlock = runtimeSource.slice(
       runtimeSource.indexOf("if (mechanics.mechanicsType === \"apartment-block\")", collectFunctionIndex),
       runtimeSource.indexOf("if (mechanics.mechanicsType === \"school\")", collectFunctionIndex)

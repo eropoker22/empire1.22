@@ -55,3 +55,9 @@ export const BOUNTY_DEMO_TARGETS = Object.freeze([
     ]
   }
 ]);
+
+export function resolveBountyDemoTargets(session) {
+  return Array.isArray(session?.bountyDemoTargets)
+    ? session.bountyDemoTargets
+    : BOUNTY_DEMO_TARGETS;
+}

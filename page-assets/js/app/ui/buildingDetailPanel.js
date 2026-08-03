@@ -615,7 +615,6 @@ function syncInlineBuildingIntro(statsPanel, introText = "") {
     if (!intro) return;
   }
   intro.dataset.districtBuildingDetailInlineInfo = "true";
-  intro.dataset.districtBuildingDetailInfo = "true";
   intro.textContent = text;
   moveElementToStart(statsPanel, intro);
 }
@@ -1171,6 +1170,20 @@ export function renderBuildingDetailPanel(buildingViewModel = {}, callbacks = {}
     collectButton.disabled = showManualCollect && !collect.enabled;
     collectButton.classList.toggle("is-empty", showManualCollect && !collect.enabled);
     collectButton.title = showManualCollect ? (collect.title || "") : "";
+    const collectActionId = showManualCollect ? String(collect.actionId || "").trim() : "";
+    const collectBuildingTypeId = collectActionId
+      ? String(collect.buildingTypeId || buildingViewModel.buildingTypeId || "").trim()
+      : "";
+    if (collectActionId) {
+      collectButton.dataset.districtBuildingDetailActionId = collectActionId;
+    } else {
+      delete collectButton.dataset.districtBuildingDetailActionId;
+    }
+    if (collectBuildingTypeId) {
+      collectButton.dataset.districtBuildingDetailBuildingTypeId = collectBuildingTypeId;
+    } else {
+      delete collectButton.dataset.districtBuildingDetailBuildingTypeId;
+    }
   }
 
   const upgradeButton = shell.querySelector("[data-district-building-detail-upgrade]");

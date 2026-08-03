@@ -28,6 +28,8 @@ import {
   parityWeaponResourceKeys,
   PARITY_PNG_CHANNEL_TOLERANCE,
   PARITY_PNG_MAX_CAPTURE_ATTEMPTS,
+  PARITY_ROUNDED_COMPOSITE_RASTER_FRINGE_PX,
+  PARITY_SCREENSHOT_RASTER_FRINGE_PX,
   parityComputedStyleProperties,
   parityDynamicDistrictIdentitySelector,
   parityDynamicClassNames,
@@ -802,7 +804,9 @@ describe("UI parity class signature", () => {
     });
   });
 
-  it("limits raster exclusions to text paint and one rounded antialias pixel", () => {
+  it("keeps text paint at one raster pixel and rounded composites at two", () => {
+    expect(PARITY_SCREENSHOT_RASTER_FRINGE_PX).toBe(1);
+    expect(PARITY_ROUNDED_COMPOSITE_RASTER_FRINGE_PX).toBe(2);
     expect(expandParityRasterIgnoreRegions([
       { height: 6.25, width: 5.5, x: 10.25, y: 20.5 }
     ])).toEqual([
@@ -817,9 +821,9 @@ describe("UI parity class signature", () => {
       width: 728
     });
     expect(roundedExterior).toHaveLength(22);
-    expect(roundedExterior).toContainEqual({ height: 1, width: 2, x: 0, y: 575 });
-    expect(roundedExterior).toContainEqual({ height: 1, width: 19, x: 0, y: 593 });
-    expect(Math.max(...roundedExterior.map((region) => region.width))).toBe(19);
+    expect(roundedExterior).toContainEqual({ height: 1, width: 3, x: 0, y: 575 });
+    expect(roundedExterior).toContainEqual({ height: 1, width: 20, x: 0, y: 593 });
+    expect(Math.max(...roundedExterior.map((region) => region.width))).toBe(20);
 
     const pillExterior = createRoundedCornerCompositeIgnoreRegions({
       height: 18,
@@ -832,7 +836,28 @@ describe("UI parity class signature", () => {
       width: 58
     });
     expect(pillExterior).toHaveLength(36);
-    expect(Math.max(...pillExterior.map((region) => region.width))).toBeLessThanOrEqual(8);
+    expect(Math.max(...pillExterior.map((region) => region.width))).toBeLessThanOrEqual(9);
+  });
+
+  it("covers pharmacy quantity antialias pixels without masking inward content", () => {
+    const regions = createRoundedCornerCompositeIgnoreRegions({
+      height: 33,
+      radii: {
+        bottomRight: { x: 12, y: 12 }
+      },
+      width: 46
+    });
+    const masksPoint = (x, y) => regions.some((region) => (
+      x >= region.x
+      && x < region.x + region.width
+      && y >= region.y
+      && y < region.y + region.height
+    ));
+
+    expect(masksPoint(43, 25)).toBe(true);
+    expect(masksPoint(42, 26)).toBe(true);
+    expect(masksPoint(42, 25)).toBe(false);
+    expect(masksPoint(41, 26)).toBe(false);
   });
 
   it("limits descendant composite masking to rounded-corner fringe", async () => {
@@ -855,10 +880,10 @@ describe("UI parity class signature", () => {
       "",
       ".district-modal-hero--district"
     )).resolves.toEqual([
-      { height: 1, width: 4, x: 10, y: 20 },
-      { height: 1, width: 2, x: 10, y: 21 },
-      { height: 1, width: 2, x: 10, y: 22 },
-      { height: 1, width: 2, x: 10, y: 23 }
+      { height: 1, width: 5, x: 10, y: 20 },
+      { height: 1, width: 3, x: 10, y: 21 },
+      { height: 1, width: 3, x: 10, y: 22 },
+      { height: 1, width: 3, x: 10, y: 23 }
     ]);
     expect(target.evaluate.mock.calls[0][1]).toEqual({
       ignore: "",
@@ -923,10 +948,10 @@ describe("UI parity class signature", () => {
     await expect(captureGameChromeScreenshot(page, "chrome.png")).resolves.toEqual({
       ignoreRegions: [
         { height: 52, width: 62, x: 69, y: 79 },
-        { height: 1, width: 4, x: 5, y: 6 },
-        { height: 1, width: 2, x: 5, y: 7 },
-        { height: 1, width: 2, x: 5, y: 8 },
-        { height: 1, width: 2, x: 5, y: 9 }
+        { height: 1, width: 5, x: 5, y: 6 },
+        { height: 1, width: 3, x: 5, y: 7 },
+        { height: 1, width: 3, x: 5, y: 8 },
+        { height: 1, width: 3, x: 5, y: 9 }
       ],
       screenshot
     });
@@ -1209,6 +1234,7 @@ describe("UI parity class signature", () => {
   it("aligns the demo identity color and waits for hosted district hydration", () => {
     expect(openParityLocalDemo.toString()).toContain('gangColor: "#22d3ee"');
     expect(openParityLocalDemo.toString()).toContain("2854d1df-0f7c-4fe4-aa85-7a70dfe299db.jpg");
+    expect(openParityLocalDemo.toString()).toContain("bountyDemoTargets: configuredBountyDemoTargets");
     expect(openDistrictById.toString()).toContain("openDistrictAsync");
     expect(openDistrictById.toString()).not.toContain("selectDistrict?.(id)");
     expect(openDistrictById.toString()).toContain("data-server-loading");

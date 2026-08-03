@@ -114,6 +114,9 @@ test.describe("live/demo social modal parity", () => {
       const [dayIndexPart, offerPhase] = offerWindowId.split(":");
       const cityClock = readModel?.player?.cityEvents?.cityClock || {};
       return {
+        bountyDemoTargets: Array.isArray(readModel?.bounty?.eligibleTargets)
+          ? readModel.bounty.eligibleTargets
+          : [],
         mapPhase: readModel?.player?.dayNight?.phaseId === "night" ? "night" : "day",
         marketCityDayIndex: Math.max(
           0,
@@ -128,6 +131,7 @@ test.describe("live/demo social modal parity", () => {
     });
     const sharedDistrictId = Number(String(hostedEntry.spawnDistrictId).replace(/^district:/u, ""));
     await openParityLocalDemo(localPage, {
+      bountyDemoTargets: hostedPresentationState.bountyDemoTargets,
       mapPhase: hostedPresentationState.mapPhase,
       marketCityDayIndex: hostedPresentationState.marketCityDayIndex,
       marketCityMinutes: hostedPresentationState.marketCityMinutes,

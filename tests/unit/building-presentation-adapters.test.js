@@ -662,8 +662,32 @@ describe("shared building presentation adapters", () => {
       }]
     });
 
-    expect(apartment.viewModel.collect).toMatchObject({ visible: true, enabled: false });
-    expect(convenience.viewModel.collect).toMatchObject({ visible: true, enabled: false });
+    expect(apartment.viewModel.collect).toMatchObject({
+      visible: true,
+      enabled: false,
+      actionId: "collect_population",
+      buildingTypeId: "apartment_block",
+      action: {
+        actionId: "collect_population",
+        buildingTypeId: "apartment_block",
+        disabledReason: "Bytový blok zatím nemá připravené obyvatele.",
+        serverAction: {
+          description: "",
+          requiredInputs: [],
+          riskSummary: []
+        }
+      }
+    });
+    expect(convenience.viewModel.collect).toMatchObject({
+      visible: true,
+      enabled: false,
+      actionId: "collect_convenience_store_population",
+      buildingTypeId: "convenience_store",
+      action: {
+        actionId: "collect_convenience_store_population",
+        buildingTypeId: "convenience_store"
+      }
+    });
     expect(school.viewModel.collect).toMatchObject({
       visible: true,
       enabled: false,
@@ -700,6 +724,12 @@ describe("shared building presentation adapters", () => {
       visible: true,
       enabled: true,
       actionId: "collect_school_population",
+      action: {
+        actionId: "collect_school_population",
+        buildingTypeId: "school",
+        disabled: false,
+        disabledReason: ""
+      },
       title: "Vybrat připravený výstup: 4/20 členů"
     });
     expect(readySchool.viewModel.actions.map((action) => action.actionId)).not.toContain("collect_school_population");

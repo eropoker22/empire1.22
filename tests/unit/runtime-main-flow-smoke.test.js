@@ -317,6 +317,51 @@ describe("runtime main UI flow smoke guard", () => {
     );
   });
 
+  it("keeps local building cards on the shared renderer with City Hall authority parity", () => {
+    for (const sourcePath of [
+      "page-assets/js/app/runtime.js",
+      "client/page-assets/js/app/runtime.js"
+    ]) {
+      const runtimeSource = read(sourcePath);
+      const economyStart = runtimeSource.indexOf("function getDistrictEconomySnapshot(");
+      const economyEnd = runtimeSource.indexOf("function getCurrentPlayerStartPhaseSourceSnapshot(", economyStart);
+      const detailStart = runtimeSource.indexOf("function resolveDistrictBuildingDetailMechanics(");
+      const detailEnd = runtimeSource.indexOf("const RUNTIME_PASSIVE_PRODUCTION_SYNC_INTERVAL_MS", detailStart);
+      const presenterStart = runtimeSource.indexOf("function openGenericDistrictBuildingDetail(");
+      const presenterEnd = runtimeSource.indexOf("function getServerDistrictBuildingDetailPopupKey(", presenterStart);
+
+      expect(economyStart, sourcePath).toBeGreaterThan(-1);
+      expect(economyEnd, sourcePath).toBeGreaterThan(economyStart);
+      expect(detailStart, sourcePath).toBeGreaterThan(-1);
+      expect(detailEnd, sourcePath).toBeGreaterThan(detailStart);
+      expect(presenterStart, sourcePath).toBeGreaterThan(-1);
+      expect(presenterEnd, sourcePath).toBeGreaterThan(presenterStart);
+      expect(runtimeSource.slice(economyStart, economyEnd)).toContain(
+        "getCityHallInfluenceGenerationMultiplier()"
+      );
+      expect(runtimeSource.slice(detailStart, detailEnd)).toContain(
+        "getCityHallInfluenceGenerationMultiplier()"
+      );
+      expect(runtimeSource.slice(presenterStart, presenterEnd)).not.toContain(
+        "data-district-building-detail-info"
+      );
+      expect(runtimeSource.slice(presenterStart, presenterEnd)).not.toContain(
+        "renderDistrictBuildingInfoSection"
+      );
+      expect(runtimeSource).not.toContain("function renderDistrictBuildingInfoSection(");
+      expect(runtimeSource).not.toContain("createBuildingDetailInfoViewModel");
+    }
+
+    for (const sourcePath of [
+      "page-assets/js/app/ui/buildingDetailPanel.js",
+      "client/page-assets/js/app/ui/buildingDetailPanel.js"
+    ]) {
+      const panelSource = read(sourcePath);
+      expect(panelSource).toContain('intro.dataset.districtBuildingDetailInlineInfo = "true";');
+      expect(panelSource).not.toContain('intro.dataset.districtBuildingDetailInfo = "true";');
+    }
+  });
+
   it("marks actionable mobile district popups for the raised phone position", () => {
     const runtimeSource = read("page-assets/js/app/runtime.js");
     const mobileCssSource = read("page-assets/css/styles-mobile-fixes.css");

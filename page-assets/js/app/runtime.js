@@ -19,6 +19,7 @@ import {
   FACTORY_SLOT_CONFIG,
   FACTORY_SLOT_STORAGE_CAP,
   FACTORY_SLOT_STORAGE_CAPS,
+  CITY_HALL_CONFIG,
   FREE_GAMEPLAY_TICK_MS,
   getMarketPriceKey,
   MARKET_PRICE_REFRESH_MS,
@@ -794,7 +795,6 @@ import {
 import {
   ensureBuildingDetailPanel,
   renderBuildingDetailPanel,
-  renderBuildingDetailInfoSection as renderBuildingDetailInfoSectionPanel,
   syncBuildingDetailTabs as syncBuildingDetailPanelTabs
 } from "./ui/buildingDetailPanel.js";
 import { getDistrictPopupElements } from "./ui/districtPopupElements.js";
@@ -820,7 +820,6 @@ import {
   markMounts as markMountsUi
 } from "./ui/pageContext.js";
 import { createBuildingDetailViewModel } from "./runtime/buildingDetailViewModel.js";
-import { createBuildingDetailInfoViewModel } from "./runtime/buildingDetailInfoViewModel.js";
 import {
   createPlayerProfileViewModel,
   resolvePlayerIdentityPresentation
@@ -6554,6 +6553,7 @@ const {
   getAutoSalonSupportStats,
   getClinicNetworkMultipliers,
   getClinicRecoveryRatePct,
+  getCityHallInfluenceGenerationMultiplier,
   getExchangeOfficeNetworkMultipliers,
   getFitnessClubNetworkMultipliers,
   getFitnessClubSupportStats,
@@ -6594,6 +6594,7 @@ const {
   clinicBaseRecoveryRatePct: CLINIC_BASE_RECOVERY_RATE_PCT,
   clinicMaxRecoveryRatePct: CLINIC_MAX_RECOVERY_RATE_PCT,
   clinicRecoveryRatePctPerExtra: CLINIC_RECOVERY_RATE_PCT_PER_EXTRA,
+  cityHallConfig: CITY_HALL_CONFIG,
   currentPlayerId: CURRENT_PLAYER_ID,
   exchangeOfficeNetworkConfig: EXCHANGE_OFFICE_NETWORK_CONFIG,
   fitnessClubSupportConfig: FITNESS_CLUB_SUPPORT_CONFIG,
@@ -6843,6 +6844,7 @@ function getDistrictEconomySnapshot(district) {
   let buildingDirtyPerMinute = 0;
   let buildingHeatPerMinute = 0;
   let buildingInfluencePerMinute = 0;
+  const cityHallInfluenceGenerationMultiplier = getCityHallInfluenceGenerationMultiplier();
 
   for (const building of buildingProfile?.buildings || []) {
     const buildingName = String(building?.baseName || building?.displayName || "").trim();
@@ -6882,7 +6884,7 @@ function getDistrictEconomySnapshot(district) {
 
     const influenceRule = DISTRICT_BUILDING_MINUTE_INFLUENCE_RULES_EMPIRE2[buildingName];
     if (influenceRule || influencePerMinute > 0) {
-      buildingInfluencePerMinute += influencePerMinute;
+      buildingInfluencePerMinute += influencePerMinute * cityHallInfluenceGenerationMultiplier;
     }
   }
 
@@ -7926,25 +7928,6 @@ function resolveDistrictBuildingDetailMechanicsType(buildingName) {
   return DISTRICT_BUILDING_DETAIL_MECHANICS_TYPES[lookupKey] || "district-asset";
 }
 
-function renderDistrictBuildingInfoSection(infoElement, {
-  profile,
-  mechanics,
-  buildingName,
-  entry
-}) {
-  const viewModel = createBuildingDetailInfoViewModel({
-    profile,
-    mechanics,
-    buildingName,
-    entry,
-    playerHeat: getResolvedGangState().heat,
-    actionProfiles: (Array.isArray(profile.actions) ? profile.actions : []).map((_, actionIndex) => getDistrictBuildingSpecialActionProfile(buildingName, actionIndex)),
-    now: Date.now()
-  });
-
-  renderBuildingDetailInfoSectionPanel(infoElement, viewModel);
-}
-
 function formatNetworkBonusPercent(multiplier = 1) {
   const value = Number(multiplier);
   if (!Number.isFinite(value)) {
@@ -8329,7 +8312,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
     ? Math.ceil((schoolCapacity - schoolStoredStudents) / schoolPopulationPerMinute * 60000)
     : 0;
   const dailyHeat = Math.round(Number(heatRule.heat || 0) * (smugglingTunnelNetwork?.heatMultiplier || powerStationNetwork?.heatMultiplier || recyclingCenterNetwork?.heatMultiplier || garageNetwork?.heatMultiplier || fitnessClubNetwork?.heatMultiplier || recruitmentCenterNetwork?.heatMultiplier || restaurantNetwork?.heatMultiplier || autoSalonNetwork?.heatMultiplier || clinicNetwork?.heatMultiplier || warehouseNetwork?.heatMultiplier || arcadeNetwork?.heatMultiplier || exchangeNetwork?.heatMultiplier || 1) * 1440 * 10) / 10;
-  const dailyInfluence = Math.round(Number(influenceRule.influence || 0) * (restaurantNetwork?.influenceMultiplier || 1) * 1440 * 10) / 10;
+  const dailyInfluence = Math.round(Number(influenceRule.influence || 0) * (restaurantNetwork?.influenceMultiplier || 1) * getCityHallInfluenceGenerationMultiplier() * 1440 * 10) / 10;
   const activeEffectsForLabel = [
     ...(entry.activeEffects || []),
     ...(streetDealerOpenChannelEffect && !(entry.activeEffects || []).some((effect) => String(effect?.label || "") === streetDealerOpenChannelEffect.label)
@@ -8739,17 +8722,40 @@ async function collectDistrictBuildingDetailOutput(root, shell) {
   }
 
   if (context.authorityMode === "server-authoritative") {
-    const collectActionId = String(
-      context.serverPresentation?.viewModel?.collect?.actionId
-      || ""
-    ).trim();
+    const collectView = context.serverPresentation?.viewModel?.collect || {};
+    const collectActionId = String(collectView.actionId || "").trim();
+    const collectAction = collectActionId && collectView.action?.actionId === collectActionId
+      ? collectView.action
+      : null;
+    if (collectActionId && !collectAction) {
+      setBuildingActionFeedback(
+        root,
+        "warning",
+        context.displayName || context.buildingName,
+        "Akce výběru už pro vybranou budovu není dostupná.",
+        context.serverDistrictId || ""
+      );
+      return;
+    }
+    if (collectAction) {
+      const actionExecution = createServerBuildingActionExecutionPresentation({
+        action: collectAction,
+        context,
+        request: {}
+      });
+      const controller = getDistrictBuildingSpecialActionConfirmation(root, shell);
+      const confirmed = await controller.open(actionExecution.confirmation);
+      if (!confirmed) {
+        return;
+      }
+    }
     const result = collectActionId
       ? await submitServerBuildingActionCommand({
           context,
           actionProfile: {},
           definition: {
             actionId: collectActionId,
-            buildingTypeId: context.serverBuildingTypeId
+            buildingTypeId: collectAction?.buildingTypeId || collectView.buildingTypeId || context.serverBuildingTypeId
           },
           actionInput: {}
         })
@@ -10187,9 +10193,6 @@ function openGenericDistrictBuildingDetail(root, district, buildingName, display
   shell.dataset.buildingMechanicsType = mechanics.mechanicsType;
   closeOtherDistrictBuildingDetailPopups(root, shell);
 
-  const info = shell.querySelector("[data-district-building-detail-info-section]")
-    || shell.querySelector("[data-district-building-detail-info]");
-
   if (mechanics.mechanicsType === "apartment-block") {
     updateDistrictBuildingDetailEntry(district, buildingName, (entry) => ({
       ...entry,
@@ -10238,15 +10241,6 @@ function openGenericDistrictBuildingDetail(root, district, buildingName, display
       studentFullNotifiedAt: Date.now()
     }));
     setBuildingActionFeedback(root, "warning", displayLabel, "Škola má naplněnou lokální populační kapacitu.", "Plná kapacita");
-  }
-
-  if (info) {
-    renderDistrictBuildingInfoSection(info, {
-      profile,
-      mechanics,
-      buildingName,
-      entry: detailEntry
-    });
   }
 
   const now = Date.now();

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  createBountyBoardRenderSignature,
   createBountyEscrowPresentation,
   resolveBountyAvatarSrc,
   resolveBountyPlayerCleanCash
@@ -51,5 +52,35 @@ describe("bounty demo and hosted presentation parity", () => {
       avatarId: "mafian:1",
       factionLabel: "mafian"
     })).toBe("../img/avatars/Mafia/2854d1df-0f7c-4fe4-aa85-7a70dfe299db.jpg");
+  });
+
+  it("keeps bounty rows stable while only their countdown changes", () => {
+    const baseEntry = {
+      bountyId: "bounty:stable",
+      targetPlayerId: "player:target",
+      targetPlayerName: "Target",
+      objectiveType: "attack-player",
+      rewardCleanCash: 5_000,
+      status: "active",
+      canCancel: true,
+      createdByPlayerName: "Creator",
+      remainingMs: 60_000,
+      countdownSnapshotAt: 1_000
+    };
+    const first = createBountyBoardRenderSignature([baseEntry]);
+    const ticked = createBountyBoardRenderSignature([{
+      ...baseEntry,
+      remainingMs: 59_000,
+      countdownSnapshotAt: 2_000
+    }]);
+    const changed = createBountyBoardRenderSignature([{
+      ...baseEntry,
+      rewardCleanCash: 10_000
+    }]);
+
+    expect(ticked).toBe(first);
+    expect(changed).not.toBe(first);
+    expect(first).toContain("data-bounty-remaining");
+    expect(first).toContain("data-bounty-cancel=\"bounty:stable\"");
   });
 });

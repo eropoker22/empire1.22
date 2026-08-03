@@ -236,7 +236,14 @@ describe("building detail, production and recipe UI modules", () => {
       meta: "District 1",
       stats: [{ label: "Čisté / hod", value: "$120" }],
       mechanics: [{ label: "Výstup", value: "Metal Parts" }],
-      collect: { visible: true, enabled: true, title: "Vybrat připravený výstup" },
+      buildingTypeId: "apartment_block",
+      collect: {
+        visible: true,
+        enabled: true,
+        title: "Vybrat připravený výstup",
+        actionId: "collect_population",
+        buildingTypeId: "apartment_block"
+      },
       upgrade: { disabled: false, title: "Upgrade na L4" },
       actions: []
     });
@@ -244,7 +251,10 @@ describe("building detail, production and recipe UI modules", () => {
     expect(shell.hidden).toBe(false);
     expect(shell.querySelector("[data-district-building-detail-title]").textContent).toBe("Továrna");
     expect(shell.querySelector("[data-district-building-detail-stats]").children[0].children[0].textContent).toBe("Čisté / hod");
-    expect(shell.querySelector("[data-district-building-detail-collect]").classList.contains("is-empty")).toBe(false);
+    const readyCollectButton = shell.querySelector("[data-district-building-detail-collect]");
+    expect(readyCollectButton.classList.contains("is-empty")).toBe(false);
+    expect(readyCollectButton.dataset.districtBuildingDetailActionId).toBe("collect_population");
+    expect(readyCollectButton.dataset.districtBuildingDetailBuildingTypeId).toBe("apartment_block");
 
     renderBuildingDetailPanel({
       shell,
@@ -259,6 +269,8 @@ describe("building detail, production and recipe UI modules", () => {
     const emptyCollectButton = shell.querySelector("[data-district-building-detail-collect]");
     expect(emptyCollectButton.disabled).toBe(true);
     expect(emptyCollectButton.classList.contains("is-empty")).toBe(true);
+    expect(emptyCollectButton.dataset.districtBuildingDetailActionId).toBeUndefined();
+    expect(emptyCollectButton.dataset.districtBuildingDetailBuildingTypeId).toBeUndefined();
 
     expect(() => renderBuildingDetailPanel(null)).not.toThrow();
     expect(() => renderBuildingDetailPanel({ shell, stats: [], mechanics: [], actions: [] })).not.toThrow();

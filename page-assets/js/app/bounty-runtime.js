@@ -174,6 +174,65 @@ export function resolveBountyAvatarSrc(entry, targets = []) {
   return resolveLivePlayerAvatarSrc(avatarOwner?.avatarId, avatarOwner?.factionId || avatarOwner?.factionLabel);
 }
 
+const BOUNTY_REMAINING_SIGNATURE_PLACEHOLDER = "__remaining__";
+
+function createBountyBoardRowMarkup(entry, targets = [], remainingLabelOverride = null) {
+  const canCancel = Boolean(entry?.canCancel);
+  const displayType = getBountyDisplayType(entry);
+  const objectiveLabel = getBountyDisplayLabel(entry);
+  const objectiveIcon = formatObjectiveIcon(entry);
+  const targetLabel = entry?.targetPlayerName || entry?.targetDistrictName || entry?.targetPlayerId || "Neznámý cíl";
+  const targetAvatarSrc = resolveBountyAvatarSrc(entry, targets);
+  const targetMeta = entry?.targetDistrictName && entry?.targetPlayerName ? entry.targetDistrictName : "Bounty cíl";
+  const districtLabel = displayType === "attack-district" || displayType === "destroy-selected-district"
+    ? getBountyDistrictLabel(entry)
+    : "—";
+  const status = String(entry?.status || "active");
+  const statusLabel = formatBountyStatus(status);
+  const creatorLabel = formatBountyCreator(entry);
+  const isAnonymousCreator = creatorLabel === "Anonymní";
+  const remainingLabel = status === "active"
+    ? remainingLabelOverride ?? formatBountyRemainingLabel(entry)
+    : "";
+  return `
+    <tr data-bounty-row="${escapeHtml(entry?.bountyId)}" data-bounty-status="${escapeHtml(status)}">
+      <td data-label="CÍL">
+        <span class="bounty-board__target-cell">
+          <span class="bounty-board__target-mini-avatar" aria-hidden="true">${targetAvatarSrc ? `<img src="${escapeHtml(targetAvatarSrc)}" alt="">` : escapeHtml(getBountyTargetInitials(targetLabel))}</span>
+          <span class="bounty-board__target-mini-copy">
+            <strong>${escapeHtml(targetLabel)}</strong>
+            <small>${escapeHtml(targetMeta)}</small>
+          </span>
+        </span>
+      </td>
+      <td data-label="TYP">
+        <span class="bounty-board__type-cell">
+          <span class="bounty-board__type-icon" aria-hidden="true">${escapeHtml(objectiveIcon)}</span>
+          <span>${escapeHtml(objectiveLabel)}</span>
+        </span>
+      </td>
+      <td data-label="DISTRICT">${escapeHtml(districtLabel)}</td>
+      <td data-label="ODMĚNA"><span class="bounty-board__reward-value">${escapeHtml(formatRewardValue(entry?.rewardCleanCash))}</span></td>
+      <td data-label="STATUS / VYPSAL">
+        <span class="bounty-board__status-stack">
+          <span class="bounty-board__status-chip" data-bounty-status-chip="${escapeHtml(status)}">${escapeHtml(statusLabel)}</span>
+          <span class="bounty-board__creator-line">
+            <span>${isAnonymousCreator ? '<span class="bounty-board__creator-mask" aria-hidden="true">◓</span>' : ""}${escapeHtml(creatorLabel)}</span>
+            ${remainingLabel ? `<small data-bounty-remaining>${escapeHtml(remainingLabel)}</small>` : ""}
+          </span>
+        </span>
+        <button type="button" class="bounty-board__row-action" data-bounty-cancel="${escapeHtml(entry?.bountyId)}"${canCancel ? "" : " disabled"}>${canCancel ? "Zrušit" : "Mapa"}</button>
+      </td>
+    </tr>
+  `;
+}
+
+export function createBountyBoardRenderSignature(entries = [], targets = []) {
+  return (Array.isArray(entries) ? entries : []).map((entry) => (
+    createBountyBoardRowMarkup(entry, targets, BOUNTY_REMAINING_SIGNATURE_PLACEHOLDER)
+  )).join("");
+}
+
 function closeBountyAvatarLightbox(options = {}) {
   const restoreFocus = options?.restoreFocus !== false;
   const suppressMapInput = options?.suppressMapInput !== false;
@@ -520,7 +579,8 @@ export function initBountyRuntime() {
     isTargetPickerOpen: false,
     isDistrictPickerOpen: false,
     pendingTargetPlayerId: null,
-    activeTab: "create"
+    activeTab: "create",
+    boardRenderSignature: null
   };
 
   const syncFromGlobalReadModel = () => {
@@ -847,54 +907,24 @@ export function initBountyRuntime() {
       boardLoading.hidden = !uiState.isBoardLoading;
     }
 
-    boardBody.innerHTML = activeEntries.map((entry) => {
-      const canCancel = Boolean(entry.canCancel);
-      const displayType = getBountyDisplayType(entry);
-      const objectiveLabel = getBountyDisplayLabel(entry);
-      const objectiveIcon = formatObjectiveIcon(entry);
-      const targetLabel = entry.targetPlayerName || entry.targetDistrictName || entry.targetPlayerId || "Neznámý cíl";
-      const targetAvatarSrc = resolveBountyAvatarSrc(entry, targets);
-      const targetMeta = entry.targetDistrictName && entry.targetPlayerName ? entry.targetDistrictName : "Bounty cíl";
-      const districtLabel = displayType === "attack-district" || displayType === "destroy-selected-district"
-        ? getBountyDistrictLabel(entry)
-        : "—";
-      const status = String(entry.status || "active");
-      const statusLabel = formatBountyStatus(status);
-      const creatorLabel = formatBountyCreator(entry);
-      const isAnonymousCreator = creatorLabel === "Anonymní";
-      const remainingLabel = status === "active" ? formatBountyRemainingLabel(entry) : "";
-      return `
-        <tr data-bounty-row="${escapeHtml(entry.bountyId)}" data-bounty-status="${escapeHtml(status)}">
-          <td data-label="CÍL">
-            <span class="bounty-board__target-cell">
-              <span class="bounty-board__target-mini-avatar" aria-hidden="true">${targetAvatarSrc ? `<img src="${escapeHtml(targetAvatarSrc)}" alt="">` : escapeHtml(getBountyTargetInitials(targetLabel))}</span>
-              <span class="bounty-board__target-mini-copy">
-                <strong>${escapeHtml(targetLabel)}</strong>
-                <small>${escapeHtml(targetMeta)}</small>
-              </span>
-            </span>
-          </td>
-          <td data-label="TYP">
-            <span class="bounty-board__type-cell">
-              <span class="bounty-board__type-icon" aria-hidden="true">${escapeHtml(objectiveIcon)}</span>
-              <span>${escapeHtml(objectiveLabel)}</span>
-            </span>
-          </td>
-          <td data-label="DISTRICT">${escapeHtml(districtLabel)}</td>
-          <td data-label="ODMĚNA"><span class="bounty-board__reward-value">${escapeHtml(formatRewardValue(entry.rewardCleanCash))}</span></td>
-          <td data-label="STATUS / VYPSAL">
-            <span class="bounty-board__status-stack">
-              <span class="bounty-board__status-chip" data-bounty-status-chip="${escapeHtml(status)}">${escapeHtml(statusLabel)}</span>
-              <span class="bounty-board__creator-line">
-                <span>${isAnonymousCreator ? '<span class="bounty-board__creator-mask" aria-hidden="true">◓</span>' : ""}${escapeHtml(creatorLabel)}</span>
-                ${remainingLabel ? `<small>${escapeHtml(remainingLabel)}</small>` : ""}
-              </span>
-            </span>
-            <button type="button" class="bounty-board__row-action" data-bounty-cancel="${escapeHtml(entry.bountyId)}"${canCancel ? "" : " disabled"}>${canCancel ? "Zrušit" : "Mapa"}</button>
-          </td>
-        </tr>
-      `;
-    }).join("");
+    const boardRenderSignature = createBountyBoardRenderSignature(activeEntries, targets);
+    if (uiState.boardRenderSignature !== boardRenderSignature) {
+      boardBody.innerHTML = activeEntries.map(
+        (entry) => createBountyBoardRowMarkup(entry, targets)
+      ).join("");
+      uiState.boardRenderSignature = boardRenderSignature;
+    } else {
+      const rows = Array.from(boardBody.querySelectorAll("[data-bounty-row]"));
+      for (const entry of activeEntries) {
+        const row = rows.find(
+          (candidate) => String(candidate.dataset.bountyRow || "") === String(entry.bountyId || "")
+        );
+        const remaining = row?.querySelector?.("[data-bounty-remaining]") || null;
+        if (remaining) {
+          remaining.textContent = formatBountyRemainingLabel(entry);
+        }
+      }
+    }
 
     boardEmpty.hidden = activeEntries.length > 0;
     if (escrowValue) {

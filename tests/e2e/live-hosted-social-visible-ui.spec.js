@@ -731,11 +731,19 @@ function visibleDistrictAction(page, districtId, actionId) {
 async function clickAndReadTypedSubmit(page, commandType, button) {
   await expect(button).toBeVisible();
   await expect(button).toBeEnabled();
+  const abortController = new AbortController();
   const responsePromise = waitForTerminalGameplaySubmit(page, (request) => (
     request?.command?.type === commandType
-  ));
-  await button.click();
-  const submission = await responsePromise;
+  ), { signal: abortController.signal });
+  let submission;
+  try {
+    await button.click();
+    submission = await responsePromise;
+  } catch (error) {
+    abortController.abort(error);
+    await responsePromise.catch(() => {});
+    throw error;
+  }
   const { body, request, response } = submission;
   expect(response.status(), `${commandType} response status`).toBe(200);
   expect(submission.stateVersionConflicts.length, `${commandType} single OCC rebase`).toBeLessThanOrEqual(1);

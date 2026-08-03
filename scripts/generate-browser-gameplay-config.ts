@@ -11,6 +11,7 @@ import {
   FREE_MODE_TICK_RATE_MS
 } from "../packages/game-config/src/modes/free/free-mode-timing";
 import { freeModeAttackWeaponsConfig } from "../packages/game-config/src/public/free-mode-attack-weapons-config";
+import { freeModeCityHallConfig } from "../packages/game-config/src/public/free-mode-city-hall-config";
 import { freeModeWarehouseConfig } from "../packages/game-config/src/public/free-mode-warehouse-config";
 import { freeModeStreetDealersConfig } from "../packages/game-config/src/public/free-mode-street-dealers-config";
 import { freeModeSmugglingTunnelConfig } from "../packages/game-config/src/public/free-mode-smuggling-tunnel-config";
@@ -118,6 +119,7 @@ const generated = {
     "free-mode-armory-config.ts",
     "free-mode-player-boost-config.ts",
     "free-mode-city-event-config.ts",
+    "free-mode-city-hall-config.ts",
     "free-mode-warehouse-config.ts",
     "free-mode-attack-weapons-config.ts",
     "free-mode-street-dealers-config.ts",
@@ -146,6 +148,12 @@ const generated = {
       durationMs: definition.durationMinutes * 60_000,
       durationTicks: Math.ceil(definition.durationMinutes * 60_000 / FREE_MODE_TICK_RATE_MS)
     }))
+  },
+  cityHall: {
+    buildingTypeId: freeModeCityHallConfig.buildingTypeId,
+    cityAuthority: {
+      influenceGenerationBonusPct: freeModeCityHallConfig.cityAuthority.influenceGenerationBonusPct
+    }
   },
   factoryRecipes,
   factory: {
@@ -212,6 +220,7 @@ const serialized = [
   "export const ARMORY_RECIPES = BROWSER_GAMEPLAY_CONFIG.armoryRecipes;",
   "export const PLAYER_BOOST_CONFIG = BROWSER_GAMEPLAY_CONFIG.playerBoosts;",
   "export const CITY_EVENT_CONFIG = BROWSER_GAMEPLAY_CONFIG.cityEvents;",
+  "export const CITY_HALL_CONFIG = BROWSER_GAMEPLAY_CONFIG.cityHall;",
   "export const FACTORY_RECIPES = BROWSER_GAMEPLAY_CONFIG.factoryRecipes;",
   "export const FACTORY_CONFIG = BROWSER_GAMEPLAY_CONFIG.factory;",
   "export const FACTORY_SLOT_STORAGE_CAPS = BROWSER_GAMEPLAY_CONFIG.factorySlotStorageCaps;",
