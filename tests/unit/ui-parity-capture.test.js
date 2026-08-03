@@ -256,6 +256,47 @@ describe("UI parity class signature", () => {
     expect(localPage.evaluate.mock.calls[0][1].populationBuffer.storedAmount).toBe(1);
   });
 
+  it("accepts the informational tooltip on an enabled population collect button", async () => {
+    const hostedBuilding = {
+      actions: [{
+        actionId: "collect_population",
+        disabledReason: "",
+        enabled: true
+      }],
+      buildingTypeId: "apartment_block",
+      presentation: {
+        populationBuffer: { capacity: 50, storedAmount: 10.333 }
+      },
+      specialActions: []
+    };
+    const hostedPage = { evaluate: vi.fn().mockResolvedValue(hostedBuilding) };
+    const localPage = { evaluate: vi.fn().mockResolvedValue(undefined) };
+    const hostedSignature = {
+      presentation: {
+        collectAction: {
+          disabled: false,
+          disabledReason: "Vybrat připravený výstup: 10/50 obyvatel"
+        }
+      }
+    };
+    const captureHostedSnapshot = vi.fn().mockResolvedValue(hostedSignature);
+
+    await expect(captureStableHostedPopulationParitySnapshot(
+      localPage,
+      hostedPage,
+      "apartment_block",
+      captureHostedSnapshot
+    )).resolves.toMatchObject({
+      hostedSnapshot: hostedSignature,
+      populationFixture: {
+        collect: { disabledReason: "", enabled: true },
+        populationBuffer: { capacity: 50, storedAmount: 10 }
+      },
+      snapshotAttempts: 1
+    });
+    expect(captureHostedSnapshot).toHaveBeenCalledOnce();
+  });
+
   it("fails closed when the real header collect button disagrees with stale action-row copy", async () => {
     const hostedBuilding = {
       actions: [{

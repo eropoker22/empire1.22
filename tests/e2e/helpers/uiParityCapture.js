@@ -137,9 +137,13 @@ function parityPopulationSnapshotMatchesRenderedCollectAction(hostedSnapshot, fi
     : presentation?.actions?.find((action) => (
         String(action?.actionId || "") === fixture.collect?.actionId
       ));
+  const expectedDisabled = fixture.collect?.enabled !== true;
   return Boolean(renderedAction)
-    && renderedAction.disabled === (fixture.collect?.enabled !== true)
-    && String(renderedAction.disabledReason || "") === String(fixture.collect?.disabledReason || "");
+    && renderedAction.disabled === expectedDisabled
+    && (
+      !expectedDisabled
+      || String(renderedAction.disabledReason || "") === String(fixture.collect?.disabledReason || "")
+    );
 }
 
 async function readParityHostedPopulationBufferFixture(hostedPage, buildingTypeId) {

@@ -341,9 +341,11 @@ async function attachOpenBuildingScreenshot({
   const screenshotCapture = await captureIsolatedParityScreenshot(page, {
     ignoreSelector: dynamicSelectors.join(","),
     path: screenshotPath,
-    roundedCompositeSelector: surfaceName === "district"
-      ? ".district-modal-hero--district"
-      : "",
+    roundedCompositeSelector: [
+      surfaceName === "district" ? ".district-modal-hero--district" : "",
+      surfaceName === "pharmacy" ? ".pharmacy-slot__quantity-btn" : "",
+      surfaceName === "pharmacy" ? ".pharmacy-slot__quantity-value" : ""
+    ].filter(Boolean).join(","),
     stableBackdropShellSelector: paritySurfaces[surfaceName].shell,
     target
   });

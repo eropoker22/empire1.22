@@ -10,19 +10,23 @@ export async function createLocalHostedAdminClient({
   if (!username || !password) {
     throw new Error("Local hosted admin bootstrap credentials are required.");
   }
-  const login = await fetch(`${apiOrigin}/api/admin/session`, {
-    method: "POST",
-    headers: { "content-type": "application/json", origin: browserOrigin },
-    body: JSON.stringify({ username, password })
-  });
-  const loginPayload = await safeJson(login);
-  if (!login.ok || loginPayload?.accepted !== true) {
-    throw new Error(`Local hosted admin login failed (${login.status}).`);
-  }
-  const cookie = login.headers.get("set-cookie")?.split(";", 1)[0] || "";
-  if (!cookie) throw new Error("Local hosted admin login did not create a session cookie.");
+  const login = async () => {
+    const response = await fetch(`${apiOrigin}/api/admin/session`, {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: browserOrigin },
+      body: JSON.stringify({ username, password })
+    });
+    const payload = await safeJson(response);
+    if (!response.ok || payload?.accepted !== true) {
+      throw new Error(`Local hosted admin login failed (${response.status}).`);
+    }
+    const sessionCookie = response.headers.get("set-cookie")?.split(";", 1)[0] || "";
+    if (!sessionCookie) throw new Error("Local hosted admin login did not create a session cookie.");
+    return sessionCookie;
+  };
+  let cookie = await login();
 
-  const request = async (pathname, init = {}) => {
+  const requestOnce = async (pathname, init) => {
     const response = await fetch(`${apiOrigin}${pathname}`, {
       ...init,
       headers: {
@@ -33,11 +37,22 @@ export async function createLocalHostedAdminClient({
       }
     });
     const payload = await safeJson(response);
-    if (!response.ok || payload?.accepted !== true) {
-      const code = payload?.errors?.[0]?.code || "UNKNOWN";
-      throw new Error(`${pathname} failed (${response.status}, ${code}).`);
+    return { response, payload };
+  };
+  const request = async (pathname, init = {}) => {
+    let attempt = await requestOnce(pathname, init);
+    if (
+      attempt.response.status === 401
+      && attempt.payload?.errors?.[0]?.code === "ADMIN_SESSION_EXPIRED"
+    ) {
+      cookie = await login();
+      attempt = await requestOnce(pathname, init);
     }
-    return payload.data;
+    if (!attempt.response.ok || attempt.payload?.accepted !== true) {
+      const code = attempt.payload?.errors?.[0]?.code || "UNKNOWN";
+      throw new Error(`${pathname} failed (${attempt.response.status}, ${code}).`);
+    }
+    return attempt.payload.data;
   };
   return Object.freeze({ request });
 }
