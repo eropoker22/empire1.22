@@ -51,7 +51,7 @@ test.describe("hosted bounty, market and alliance through visible UI", () => {
       );
 
       await reloadHostedGame(target.page);
-      await openBountyPanel(target.page);
+      await openBountyPanel(target.page, "active");
       const anonymousRow = target.page.locator(
         `[data-bounty-row="${claimBountyId}"]`
       );
@@ -403,7 +403,7 @@ async function createBountyThroughVisibleUi(page, {
   rewardCleanCash,
   isAnonymous
 }) {
-  await openBountyPanel(page);
+  await openBountyPanel(page, "create");
   const targetToggle = page.locator("[data-bounty-target-toggle]");
   await expect(targetToggle).toBeVisible();
   await targetToggle.click();
@@ -459,13 +459,21 @@ async function cancelBountyThroughVisibleUi(page, bountyId) {
   return result;
 }
 
-async function openBountyPanel(page) {
+async function openBountyPanel(page, tab = null) {
   const modal = page.locator("#bounty-modal");
-  if (await modal.isVisible().catch(() => false)) return;
-  const trigger = page.locator("[data-bounty-open-trigger]:visible").first();
-  await expect(trigger).toBeVisible();
-  await trigger.click();
+  if (!await modal.isVisible().catch(() => false)) {
+    const trigger = page.locator("[data-bounty-open-trigger]:visible").first();
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+  }
   await expect(modal).toBeVisible();
+  if (tab) {
+    const tabButton = modal.locator(`[data-bounty-tab="${tab}"]`);
+    await expect(tabButton).toBeVisible();
+    await tabButton.click();
+    await expect(tabButton).toHaveAttribute("aria-selected", "true");
+    await expect(modal).toHaveAttribute("data-bounty-tab", tab);
+  }
 }
 
 async function closeBountyPanel(page) {
@@ -610,7 +618,7 @@ async function openAlliancePanel(page) {
 
 async function openAllianceTab(page, tabId) {
   await openAlliancePanel(page);
-  const tab = page.locator(`[data-alliance-tab="${tabId}"]`);
+  const tab = page.locator(`button[data-alliance-tab="${tabId}"]`);
   await expect(tab).toBeVisible();
   await tab.click();
   await expect(page.locator("#alliance-modal"))

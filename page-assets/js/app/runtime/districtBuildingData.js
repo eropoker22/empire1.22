@@ -55,8 +55,7 @@ export const DISTRICT_BUILDING_MINUTE_INCOME_RULES_EMPIRE2 = Object.freeze({
   "VIP salonek": Object.freeze({ clean: 105, dirty: 30 }),
   Parlament: Object.freeze({ clean: 22, dirty: 3 }),
   "Přístav": Object.freeze({ clean: 26, dirty: 8.5 }),
-  Soud: Object.freeze({ clean: 105, dirty: 0, heat: 0.08, influence: 0.72 }),
-  "VIP salonek": Object.freeze({ clean: 8, dirty: 22 })
+  Soud: Object.freeze({ clean: 105, dirty: 0, heat: 0.08, influence: 0.72 })
 });
 
 export const DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2 = Object.freeze({
@@ -79,6 +78,7 @@ export const DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2 = Object.freeze({
   Soud: Object.freeze({ heat: 0.08 }),
   "VIP Salonek": Object.freeze({ heat: 0.13 }),
   "VIP salonek": Object.freeze({ heat: 0.13 }),
+  Parlament: Object.freeze({ heat: 3 / (60 * 24) }),
   "Strip club": Object.freeze({ heat: STRIP_CLUB_CONFIG.heatPerMinute }),
   Sklad: Object.freeze({ heat: 0.06 }),
   Skladiště: Object.freeze({ heat: 0.06 }),
@@ -110,6 +110,7 @@ export const DISTRICT_BUILDING_MINUTE_INFLUENCE_RULES_EMPIRE2 = Object.freeze({
   Soud: Object.freeze({ influence: 0.72 }),
   "VIP Salonek": Object.freeze({ influence: 0.48 }),
   "VIP salonek": Object.freeze({ influence: 0.48 }),
+  Parlament: Object.freeze({ influence: 40 / (60 * 24) }),
   "Strip club": Object.freeze({ influence: STRIP_CLUB_CONFIG.influencePerMinute }),
   Sklad: Object.freeze({ influence: 0 }),
   Skladiště: Object.freeze({ influence: 0 }),

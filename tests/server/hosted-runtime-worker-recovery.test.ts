@@ -172,6 +172,37 @@ describe("hosted runtime worker recovery", () => {
     }));
   });
 
+  it("refreshes the runtime lease after recovery work before a fenced tick", async () => {
+    const record = server("instance:tick-lease-refresh");
+    const current = { value: T0 };
+    const app = createServerApp({ clock: clock(() => current.value) });
+    const snapshot = await createSnapshot(app, record);
+    const controlPlane = createInMemoryHostedControlPlaneRepository({
+      servers: [withSnapshot(record, snapshot)]
+    });
+    const recovery = app.instanceManager.getPersistenceRepositories().snapshotRepository;
+    const loadForRecovery = recovery.loadForRecovery.bind(recovery);
+    vi.spyOn(recovery, "loadForRecovery").mockImplementation(async (instanceId) => {
+      const result = await loadForRecovery(instanceId);
+      current.value = new Date(T0.getTime() + 19_000);
+      return result;
+    });
+    const acquireRuntimeLease = vi.spyOn(controlPlane, "acquireRuntimeLease");
+
+    await hostedWorker(controlPlane, app, () => current.value).runOnce();
+
+    expect(acquireRuntimeLease).toHaveBeenCalledTimes(2);
+    expect(acquireRuntimeLease.mock.calls[0]?.[0]).toMatchObject({
+      now: T0.toISOString(),
+      expiresAt: new Date(T0.getTime() + 20_000).toISOString()
+    });
+    expect(acquireRuntimeLease.mock.calls[1]?.[0]).toMatchObject({
+      now: new Date(T0.getTime() + 19_000).toISOString(),
+      expiresAt: new Date(T0.getTime() + 39_000).toISOString()
+    });
+    expect(app.instanceManager.getInstanceById(record.serverInstanceId)?.state.root.tick).toBe(1);
+  });
+
   it("restores an unchanged lobby runtime once instead of rehydrating it every worker cycle", async () => {
     const baseRecord = server("instance:lobby-restore-once", {
       status: "lobby",

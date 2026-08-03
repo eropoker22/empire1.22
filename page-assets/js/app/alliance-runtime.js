@@ -8,7 +8,10 @@ import {
   ALLIANCE_CREATE_REQUIRED_INFLUENCE,
   createAllianceCreateEligibility
 } from "./runtime/allianceCreateViewModel.js";
-import { createAllianceInviteResponseEligibility } from "./runtime/allianceInviteViewModel.js";
+import {
+  createAllianceInviteResponseEligibility,
+  resolveAllianceInviteDraftTargetPlayerId
+} from "./runtime/allianceInviteViewModel.js";
 import {
   captureLegacyRuntimeLifecycle,
   destroyLegacyRuntimeLifecycle
@@ -34,6 +37,8 @@ let pendingKickVoteTarget = null;
 let pendingPublicAllianceAction = null;
 let pendingAllianceExitMode = "leave";
 let pendingAllianceCommand = false;
+let allianceInviteSelection = null;
+let allianceChatDraft = null;
 let lastAllianceMemberAvatarTrigger = null;
 let allianceCountdownTimer = null;
 let allianceCreateInfluenceObserver = null;
@@ -833,6 +838,28 @@ const getInviteDisabledReason = (activeAlliance, targets = []) => {
   if (!targets.length) return "Nejsou žádní dostupní hráči k pozvání.";
   if (!targets.some((target) => target.canInvite)) return "Dostupní hráči už jsou v alianci nebo je nejde pozvat.";
   return "Pozvánky nejsou dostupné.";
+};
+
+const getSelectedAllianceInviteTargetPlayerId = (activeAlliance, targets = []) => {
+  const targetPlayerId = resolveAllianceInviteDraftTargetPlayerId({
+    draft: allianceInviteSelection,
+    allianceId: activeAlliance?.allianceId,
+    canInvite: Boolean(activeAlliance?.canInvite || activeAlliance?.isDevOnlyDemo),
+    inviteTargets: targets
+  });
+  if (!targetPlayerId) {
+    allianceInviteSelection = null;
+  }
+  return targetPlayerId;
+};
+
+const getAllianceChatDraftBody = (activeAlliance) => {
+  const allianceId = String(activeAlliance?.allianceId || "");
+  if (!allianceId || allianceChatDraft?.allianceId !== allianceId) {
+    allianceChatDraft = null;
+    return "";
+  }
+  return String(allianceChatDraft.body || "");
 };
 
 const getJoinDisabledReason = (alliance) =>
@@ -1715,6 +1742,7 @@ const renderMembersPanel = (activeAlliance, { management = false } = {}) => {
 
 const renderChatPanel = (activeAlliance) => {
   const disabledReason = getAllianceChatDisabledReason(activeAlliance);
+  const chatDraftBody = getAllianceChatDraftBody(activeAlliance);
   return `
     <section class="alliance-section alliance-section--chat alliance-chat-card">
       <div class="alliance-chat server-chat-panel alliance-chat--modal">
@@ -1727,7 +1755,7 @@ const renderChatPanel = (activeAlliance) => {
         ${disabledReason ? `<div class="alliance-inline-note" data-tone="warning">${escapeHtml(disabledReason)}</div>` : ""}
         <div class="alliance-chat__log" data-alliance-chat-log></div>
         <div class="server-chat-panel__composer alliance-chat__input alliance-chat__input--modal alliance-active-card__chat-compose">
-          <input class="server-chat-panel__input" type="text" maxlength="240" placeholder="Napiš zprávu do aliančního chatu..." data-alliance-chat-input ${disabledReason ? "disabled" : ""}>
+          <input class="server-chat-panel__input" type="text" maxlength="240" placeholder="Napiš zprávu do aliančního chatu..." data-alliance-chat-input value="${escapeHtml(chatDraftBody)}" ${disabledReason ? "disabled" : ""}>
           <button type="button" class="btn btn--primary server-chat-panel__send server-chat-panel__send--arrow" data-alliance-chat-send aria-label="Odeslat zprávu" title="Odeslat" ${disabledReason ? "disabled" : ""}>
             <span aria-hidden="true">→</span>
           </button>
@@ -1740,6 +1768,7 @@ const renderChatPanel = (activeAlliance) => {
 const renderInvitePlayerPanel = (activeAlliance) => {
   if (!activeAlliance) return "";
   const inviteTargets = getInviteTargetsForSelect(activeAlliance);
+  const selectedTargetPlayerId = getSelectedAllianceInviteTargetPlayerId(activeAlliance, inviteTargets);
   const freeSlots = Math.max(0, getAllianceMaxMembers(activeAlliance) - Number(activeAlliance.memberCount || 0));
   const canInviteFromManagement = Boolean(activeAlliance.canInvite || activeAlliance.isDevOnlyDemo);
   const inviteDisabledReason = canInviteFromManagement ? "" : getInviteDisabledReason(activeAlliance, inviteTargets);
@@ -1756,7 +1785,7 @@ const renderInvitePlayerPanel = (activeAlliance) => {
         <select id="alliance-management-invite-name" ${canInviteFromManagement ? "" : "disabled"}>
           <option value="">Vyber hráče</option>
           ${inviteTargets.map((target) => `
-            <option value="${escapeHtml(target.playerId)}" ${target.canInvite ? "" : "disabled"}>
+            <option value="${escapeHtml(target.playerId)}" ${target.canInvite ? "" : "disabled"} ${target.playerId === selectedTargetPlayerId ? "selected" : ""}>
               ${escapeHtml(target.name)}${target.disabledReason ? ` · ${escapeHtml(target.disabledReason)}` : ""}
             </option>
           `).join("")}
@@ -2018,6 +2047,8 @@ const closeAllAllianceModals = () => {
   lastAllianceMemberAvatarTrigger = null;
   pendingKickVoteTarget = null;
   pendingPublicAllianceAction = null;
+  allianceInviteSelection = null;
+  allianceChatDraft = null;
 };
 
 const resetCreateForm = () => {
@@ -2495,7 +2526,14 @@ const mountAllianceRuntimeBindings = () => {
       return;
     }
     if (target.hasAttribute("data-alliance-tab")) {
-      selectedAllianceTab = target.getAttribute("data-alliance-tab") || "overview";
+      const nextAllianceTab = target.getAttribute("data-alliance-tab") || "overview";
+      if (selectedAllianceTab === "invites" && nextAllianceTab !== "invites") {
+        allianceInviteSelection = null;
+      }
+      if (selectedAllianceTab === "chat" && nextAllianceTab !== "chat") {
+        allianceChatDraft = null;
+      }
+      selectedAllianceTab = nextAllianceTab;
       renderAllianceState();
       return;
     }
@@ -2556,10 +2594,14 @@ const mountAllianceRuntimeBindings = () => {
         renderAllianceState();
         return;
       }
-      await runAllianceCommand("invite-alliance-member", {
+      const invited = await runAllianceCommand("invite-alliance-member", {
         allianceId: activeAlliance.allianceId,
         targetPlayerId
       }, "Pozvánka byla odeslána.");
+      if (invited) {
+        allianceInviteSelection = null;
+        renderAllianceState();
+      }
       return;
     }
     if (target.id === "alliance-ready-btn" || target.id === "alliance-management-ready-btn") {
@@ -2582,6 +2624,7 @@ const mountAllianceRuntimeBindings = () => {
       }
       if (activeAlliance?.isDevOnlyDemo) {
         const nextMessages = appendLocalAllianceChatMessage(activeAlliance, body);
+        allianceChatDraft = null;
         if (input instanceof HTMLInputElement) input.value = "";
         renderChat(nextMessages, activeAlliance);
         notify("Zpráva přidána do aliančního chatu.");
@@ -2589,7 +2632,8 @@ const mountAllianceRuntimeBindings = () => {
       }
       const ok = await runAllianceCommand("send-alliance-chat-message", { allianceId: activeAlliance.allianceId, body }, "Zpráva odeslána.");
       if (ok) {
-        if (input instanceof HTMLInputElement) input.value = "";
+        allianceChatDraft = null;
+        renderAllianceState();
       }
       return;
     }
@@ -2659,6 +2703,25 @@ const mountAllianceRuntimeBindings = () => {
       event.preventDefault();
       qs("alliance-chat-send")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     }
+  });
+
+  document.addEventListener("change", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLSelectElement) || target.id !== "alliance-management-invite-name") return;
+    const allianceId = String(latestAllianceBoard?.activeAlliance?.allianceId || "");
+    const targetPlayerId = String(target.value || "").trim();
+    allianceInviteSelection = allianceId && targetPlayerId
+      ? { allianceId, targetPlayerId }
+      : null;
+  });
+
+  document.addEventListener("input", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || !target.hasAttribute("data-alliance-chat-input")) return;
+    const allianceId = String(latestAllianceBoard?.activeAlliance?.allianceId || "");
+    allianceChatDraft = allianceId
+      ? { allianceId, body: target.value }
+      : null;
   });
 
   qs("alliance-chat-send")?.addEventListener("click", () => {
@@ -2758,6 +2821,8 @@ export function destroyAllianceRuntime() {
   pendingPublicAllianceAction = null;
   pendingAllianceExitMode = "leave";
   pendingAllianceCommand = false;
+  allianceInviteSelection = null;
+  allianceChatDraft = null;
   lastAllianceMemberAvatarTrigger = null;
   latestAllianceBoard = null;
   selectedAllianceTab = "overview";

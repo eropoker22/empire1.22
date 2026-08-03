@@ -542,6 +542,7 @@ export const POWER_STATION_CONFIG = Object.freeze({
   heatPerMinute: 0.08,
   infrastructureBonusPctPerStation: 4,
   maxInfrastructureBonusPct: 28,
+  clinicRecoveryRateInfrastructureWeight: 0.5,
   incomeBonusPctPerExtraStation: 4,
   heatBonusPctPerExtraStation: 3,
   maxIncomeMultiplier: 1.24,

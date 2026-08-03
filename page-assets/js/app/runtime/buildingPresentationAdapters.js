@@ -96,6 +96,61 @@ const parseFirstNumber = (value, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const resolveProjectedNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return value !== null && value !== undefined && Number.isFinite(parsed)
+    ? Math.max(0, parsed)
+    : fallback;
+};
+
+const resolveProjectedMultiplier = (value, fallback = 1) => {
+  const parsed = Number(value);
+  return value !== null && value !== undefined && Number.isFinite(parsed) && parsed > 0
+    ? parsed
+    : fallback;
+};
+
+export const createWarehouseStorageCompatibilityView = (storage) => {
+  if (!storage?.warehouseSummary || !Array.isArray(storage.groups)) {
+    return { capacity: null, usage: null, warnings: [] };
+  }
+  const groups = {};
+  const byResource = {};
+  const usageByResource = {};
+  let hasNearCapacityItem = false;
+  let hasFullItem = false;
+  for (const group of storage.groups) {
+    const groupId = String(group?.id || "");
+    if (groupId) {
+      groups[groupId] = resolveProjectedNumber(group?.currentCapacity, 0);
+    }
+    for (const item of Array.isArray(group?.items) ? group.items : []) {
+      const resourceKey = String(item?.resourceKey || "");
+      if (!resourceKey) continue;
+      byResource[resourceKey] = resolveProjectedNumber(item?.maxAmount, 0);
+      usageByResource[resourceKey] = resolveProjectedNumber(item?.currentAmount, 0);
+      hasNearCapacityItem = hasNearCapacityItem || item?.isNearCapacity === true;
+      hasFullItem = hasFullItem || item?.isFull === true || item?.isOverCapacity === true;
+    }
+  }
+  const capacity = {
+    groups,
+    byResource,
+    bulk: resolveProjectedNumber(groups.bulk, 0),
+    tactical: resolveProjectedNumber(groups.tactical, 0),
+    strategic: resolveProjectedNumber(groups.strategic, 0)
+  };
+  return {
+    capacity,
+    usage: { byResource: usageByResource, capacity },
+    warnings: [
+      hasNearCapacityItem && !hasFullItem ? "Některá položka v globálním SKLADU se blíží maximu." : "",
+      hasFullItem ? "Některá položka v globálním SKLADU je plná." : "",
+      hasNearCapacityItem || hasFullItem ? "Získej další Skladiště nebo spotřebuj konkrétní položku." : ""
+    ].filter(Boolean)
+  };
+};
+
 const resolveStatValue = (statMap, labels = [], fallback = "") => {
   for (const label of labels) {
     const value = statMap.get(normalizeStatLabel(label));
@@ -152,12 +207,24 @@ const resolveDemoDetailProfile = ({ baseName, localBuilding, building, panelBuil
 
 const createServerMechanicsInput = ({
   building,
+  mechanicsPresentation,
   mechanicsType,
   ownedCount,
   passiveStats,
+  storageSummary,
   stats
 }) => {
   const statMap = createStatMap(stats);
+  const projectedClinic = mechanicsPresentation?.clinic;
+  const projectedExchange = mechanicsPresentation?.exchange;
+  const projectedWarehouse = mechanicsPresentation?.warehouse;
+  const serverStorageSummary = mechanicsType === "warehouse"
+    && projectedWarehouse
+    && storageSummary?.warehouseSummary
+    && Array.isArray(storageSummary?.groups)
+    ? storageSummary
+    : null;
+  const warehouseStorage = createWarehouseStorageCompatibilityView(serverStorageSummary);
   const resolvePassiveStat = (key, fallback) => {
     const value = passiveStats?.[key];
     const parsed = Number(value);
@@ -187,10 +254,26 @@ const createServerMechanicsInput = ({
     && Number.isFinite(parsedOwnedCount)
     ? Math.max(0, Math.floor(parsedOwnedCount))
     : null;
-  const networkBonus = (label) => {
-    const value = parseLastNumber(resolveStatValue(statMap, [label], "0"), 0);
+  const authoritativeOwnedBuildingCount = mechanicsType === "warehouse"
+    && Number.isFinite(Number(serverStorageSummary?.warehouseSummary?.ownedWarehouseCount))
+    ? Math.max(0, Math.floor(Number(serverStorageSummary.warehouseSummary.ownedWarehouseCount)))
+    : ownedBuildingCount;
+  const networkBonus = (...labels) => {
+    const value = parseLastNumber(resolveStatValue(statMap, labels, "0"), 0);
     return 1 + value / 100;
   };
+  const recyclingSalvageRatePct = Math.max(0, parseLastNumber(
+    resolveStatValue(statMap, ["Návrat itemů"], "0"),
+    0
+  ));
+  const smugglingDealerSupplyBonusPct = Math.max(0, parseLastNumber(
+    resolveStatValue(statMap, ["Podpora Pouličních dealerů"], "0"),
+    0
+  ));
+  const garageCooldownReductionPct = Math.abs(parseLastNumber(
+    resolveStatValue(statMap, ["Zkrácení čekání", "Cooldowny"], "0"),
+    0
+  ));
   const projectedPopulationBuffer = building?.presentation?.populationBuffer;
   const hasProjectedPopulationBuffer = projectedPopulationBuffer
     && Number.isFinite(Number(projectedPopulationBuffer.storedAmount))
@@ -216,8 +299,8 @@ const createServerMechanicsInput = ({
   const localBufferLabel = hasProjectedPopulationBuffer
     ? `${localBufferAmount}/${localBufferCapacity}${localBufferUnit}`
     : String(localBuffer);
-  const count = Number.isFinite(ownedBuildingCount)
-    ? ownedBuildingCount
+  const count = Number.isFinite(authoritativeOwnedBuildingCount)
+    ? authoritativeOwnedBuildingCount
     : mechanicsType === "arcade"
       ? 1
       : 0;
@@ -259,7 +342,7 @@ const createServerMechanicsInput = ({
     dirtyHourly,
     dailyHeat,
     dailyInfluence,
-    ownedBuildingCount,
+    ownedBuildingCount: authoritativeOwnedBuildingCount,
     ownedApartmentBlocks: count,
     ownedArcades: count,
     ownedAutoSalons: count,
@@ -275,7 +358,7 @@ const createServerMechanicsInput = ({
     ownedSchools: count,
     ownedShoppingMalls: count,
     ownedSmugglingTunnels: count,
-    ownedWarehouses: count,
+    ownedWarehouses: serverStorageSummary?.warehouseSummary?.ownedWarehouseCount ?? count,
     hasManualCollect,
     canCollect: populationAction?.enabled === true,
     storedOutputLabel: localBufferLabel,
@@ -285,6 +368,8 @@ const createServerMechanicsInput = ({
       mechanicsType === "apartment-block" ? `Populace +${populationPerMinute.toFixed(2)}/min` : "",
       mechanicsType === "convenience-store" ? `Populace +${populationPerMinute.toFixed(2)}/min` : "",
       mechanicsType === "school" ? `Populace +${populationPerMinute.toFixed(2)}/min` : "",
+      mechanicsType === "smuggling-tunnel" ? `Pouliční dealeři +${smugglingDealerSupplyBonusPct}% z pašovacích tunelů` : "",
+      mechanicsType === "garage" ? `Cooldowny -${garageCooldownReductionPct}%` : "",
       mechanicsType === "apartment-block" && isLocalBufferFull
         ? "Plná kapacita · Bytový blok je plný. Obyvatelé čekají na vybrání."
         : "",
@@ -294,6 +379,7 @@ const createServerMechanicsInput = ({
       mechanicsType === "school" && isLocalBufferFull
         ? "Plná kapacita · Škola má naplněnou lokální populační kapacitu."
         : "",
+      ...warehouseStorage.warnings,
       dailyHeat > 0 ? `Heat +${formatDisplayNumber(dailyHeat)}/den` : "",
       dailyInfluence > 0 ? `Vliv +${formatDisplayNumber(dailyInfluence)}/den` : ""
     ].filter(Boolean).join(" · ") || "Žádné aktivní mechaniky.",
@@ -324,14 +410,25 @@ const createServerMechanicsInput = ({
       studentCapacityMultiplier: networkBonus("Kapacita"),
       incomeMultiplier: networkBonus("Income")
     },
-    clinicRecoveryPool: { totalFreshAmount: 0, fresh: [] },
-    clinicRecoveryRatePct: 0,
+    clinicRecoveryPool: projectedClinic?.recoveryPool
+      ? {
+          totalFreshAmount: resolveProjectedNumber(projectedClinic.recoveryPool.totalFreshAmount, 0),
+          fresh: Array.isArray(projectedClinic.recoveryPool.fresh) ? projectedClinic.recoveryPool.fresh : []
+        }
+      : {
+          totalFreshAmount: parseLastNumber(resolveStatValue(statMap, ["Recovery pool"], "0"), 0),
+          fresh: []
+        },
+    clinicRecoveryRatePct: resolveProjectedNumber(
+      projectedClinic?.recoveryRatePct,
+      parseLastNumber(resolveStatValue(statMap, ["Recovery rate"], "0"), 0)
+    ),
     clinicNetwork: {
-      incomeMultiplier: networkBonus("Income"),
-      heatMultiplier: 1
+      incomeMultiplier: resolveProjectedMultiplier(projectedClinic?.network?.incomeMultiplier, networkBonus("Income")),
+      heatMultiplier: resolveProjectedMultiplier(projectedClinic?.network?.heatMultiplier, networkBonus("Heat sítě"))
     },
     garageSupport: {
-      cooldownReductionPct: parseLastNumber(resolveStatValue(statMap, ["Cooldowny"], "0"), 0)
+      cooldownReductionPct: garageCooldownReductionPct
     },
     garageNetwork: {
       incomeMultiplier: networkBonus("Income"),
@@ -383,10 +480,10 @@ const createServerMechanicsInput = ({
       heatMultiplier: 1
     },
     fitnessClubSupport: {
-      attackStrengthBonusPct: parseLastNumber(resolveStatValue(statMap, ["Útok"], "0"), 0),
-      defenseStrengthBonusPct: parseLastNumber(resolveStatValue(statMap, ["Obrana"], "0"), 0),
-      combinedRecruitmentFitnessAttackCapPct: 0,
-      combinedRecruitmentFitnessDefenseCapPct: 0
+      attackStrengthBonusPct: parseLastNumber(resolveStatValue(statMap, ["Síla útoku", "Útok"], "0"), 0),
+      defenseStrengthBonusPct: parseLastNumber(resolveStatValue(statMap, ["Síla obrany", "Obrana"], "0"), 0),
+      combinedRecruitmentFitnessAttackCapPct: parseLastNumber(resolveStatValue(statMap, ["Cap útoku"], "0"), 0),
+      combinedRecruitmentFitnessDefenseCapPct: parseLastNumber(resolveStatValue(statMap, ["Cap obrany"], "0"), 0)
     },
     recruitmentCenterNetwork: {
       incomeMultiplier: networkBonus("Income"),
@@ -401,12 +498,19 @@ const createServerMechanicsInput = ({
     },
     casinoLaunderingCapacity: parseLastNumber(resolveStatValue(statMap, ["Kapacita praní"], "0"), 0),
     casinoLaunderingFeePct: parseLastNumber(resolveStatValue(statMap, ["Poplatek"], "9"), 9),
-    exchangeLaunderingCapacity: parseLastNumber(resolveStatValue(statMap, ["Kapacita praní"], "0"), 0),
-    exchangeAuditRisk: resolveStatValue(statMap, ["Audit risk"], "0 %"),
+    exchangeLaunderingCapacity: resolveProjectedNumber(
+      projectedExchange?.launderingCapacity,
+      parseLastNumber(resolveStatValue(statMap, ["Kapacita praní"], "0"), 0)
+    ),
+    exchangeAuditRisk: projectedExchange?.auditRiskPct !== null
+      && projectedExchange?.auditRiskPct !== undefined
+      && Number.isFinite(Number(projectedExchange.auditRiskPct))
+      ? `${resolveProjectedNumber(projectedExchange.auditRiskPct, 0)} %`
+      : resolveStatValue(statMap, ["Audit risk"], "0 %"),
     exchangeNetwork: {
-      incomeMultiplier: networkBonus("Income"),
-      launderingLimitMultiplier: 1,
-      heatMultiplier: 1
+      incomeMultiplier: resolveProjectedMultiplier(projectedExchange?.network?.incomeMultiplier, networkBonus("Income")),
+      launderingLimitMultiplier: resolveProjectedMultiplier(projectedExchange?.network?.launderingLimitMultiplier, networkBonus("Limit praní")),
+      heatMultiplier: resolveProjectedMultiplier(projectedExchange?.network?.heatMultiplier, networkBonus("Heat sítě"))
     },
     powerStationNetwork: {
       infrastructureBonusPct: parseLastNumber(resolveStatValue(statMap, ["Infrastruktura"], "0"), 0),
@@ -418,9 +522,9 @@ const createServerMechanicsInput = ({
     powerStationBackupActive: false,
     powerStationBackupRemainingMs: 0,
     recyclingSalvagePool: { totalFreshAmount: 0, fresh: [] },
-    recyclingSalvageRatePct: 0,
+    recyclingSalvageRatePct,
     recyclingCenterNetwork: {
-      incomeMultiplier: networkBonus("Income"),
+      incomeMultiplier: networkBonus("Síťový income", "Income"),
       heatMultiplier: 1
     },
     convenienceStoreWholePopulation: localBufferAmount,
@@ -432,10 +536,10 @@ const createServerMechanicsInput = ({
     streetDealerSaleView: building?.actions?.find?.(
       (action) => String(action?.actionId || "") === "start_drug_sale"
     )?.dealerSale || null,
-    smugglingDealerSupplyBonusPct: 0,
+    smugglingDealerSupplyBonusPct,
     smugglingTunnelNetwork: {
-      dirtyProductionMultiplier: networkBonus("Dirty tok"),
-      heatMultiplier: 1
+      dirtyProductionMultiplier: networkBonus("Dirty bonus sítě", "Dirty tok"),
+      heatMultiplier: networkBonus("Heat bonus sítě")
     },
     smugglingOpenChannelActive: false,
     smugglingOpenChannelRemainingMs: 0,
@@ -457,15 +561,18 @@ const createServerMechanicsInput = ({
       ["Audit risk"],
       mechanicsType === "arcade" ? `${ARCADE_BASE_AUDIT_RISK_PCT} %` : "0 %"
     ),
-    serverStorageSummary: null,
+    serverStorageSummary,
     warehouseNetwork: {
-      incomeMultiplier: networkBonus("Income"),
-      storageCapacityMultiplier: networkBonus("Kapacita"),
-      heatMultiplier: 1
+      incomeMultiplier: resolveProjectedMultiplier(projectedWarehouse?.network?.incomeMultiplier, networkBonus("Income")),
+      storageCapacityMultiplier: resolveProjectedMultiplier(
+        serverStorageSummary?.warehouseSummary?.totalCapacityMultiplier,
+        resolveProjectedMultiplier(projectedWarehouse?.network?.storageCapacityMultiplier, networkBonus("Kapacita"))
+      ),
+      heatMultiplier: resolveProjectedMultiplier(projectedWarehouse?.network?.heatMultiplier, networkBonus("Heat sítě"))
     },
-    warehouseCapacity: null,
-    warehouseUsage: null,
-    warehouseWarnings: []
+    warehouseCapacity: warehouseStorage.capacity,
+    warehouseUsage: warehouseStorage.usage,
+    warehouseWarnings: warehouseStorage.warnings
   };
 };
 
@@ -556,7 +663,8 @@ const createServerBuildingActionPresentation = ({
     0,
     Number(entry?.cooldownRemainingMs || 0) || cooldownTicks * Math.max(1, Number(tickRateMs || 1))
   );
-  const disabledReason = String(
+  const mechanicsType = resolveServerBuildingMechanicsType(buildingTypeId);
+  const projectedDisabledReason = String(
     entry
       ? entry?.disabledReason
     || entry?.blockedReason
@@ -564,7 +672,11 @@ const createServerBuildingActionPresentation = ({
     || ""
       : "Akce teď není dostupná."
   ).trim();
-  const mechanicsType = resolveServerBuildingMechanicsType(buildingTypeId);
+  const disabledReason = mechanicsType === "recycling-center"
+    && String(entry?.actionId || demoAction?.actionId || "") === "extract_losses"
+    && normalizeName(projectedDisabledReason) === "nemas zadne itemove ztraty k vytezeni"
+    ? "Nemáš žádné ztráty k vytěžení."
+    : projectedDisabledReason;
   const actionCostRecord = resolveActionCostRecord(entry);
   const projectedInputSummary = resolveActionSummary(entry, "inputSummary", "");
   const costSummary = actionCostRecord
@@ -767,6 +879,9 @@ const createServerBuildingDetailView = ({
       ...building,
       actions: uniqueActions
     },
+    mechanicsPresentation: building?.presentation?.mechanics
+      || panelBuilding?.presentation?.mechanics
+      || null,
     mechanicsType,
     ownedCount: building?.presentation?.ownedCount
       ?? panelBuilding?.presentation?.ownedCount
@@ -774,6 +889,7 @@ const createServerBuildingDetailView = ({
     passiveStats: building?.presentation?.passive
       || panelBuilding?.presentation?.passive
       || null,
+    storageSummary: readModel?.player?.storage || null,
     stats: serverStats
   });
   const actionProfiles = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES[normalizeName(baseName)] || [];

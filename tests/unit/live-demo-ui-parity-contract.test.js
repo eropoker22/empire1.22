@@ -89,19 +89,26 @@ describe("live/demo UI parity source contract", () => {
       "This is not a comprehensive parity gate."
     );
     expect(localHostedRunner).toContain(
-      'configuredPlaywrightGroups.filter((group) => group.name === "spawn-building-matrix")'
+      'name: "spawn-building-matrix-debug"'
+    );
+    expect(localHostedRunner).toContain(
+      'grep: "live/demo spawn-reachable canonical building matrix"'
     );
   });
 
-  it("captures the hydrated hosted population card before local-demo opening can cross a worker tick", () => {
+  it("rechecks the hosted population snapshot before local-demo opening", () => {
     const serverOpen = paritySpec.indexOf("await openBuildingFromDistrict(serverPage, buildingTypeId);");
-    const populationSync = paritySpec.indexOf("await syncParityLocalDemoPopulationBufferFromHosted(");
-    const serverRead = paritySpec.indexOf("const serverStats = await readOpenBuildingParity(serverPage, buildingTypeId);");
+    const stableCapture = paritySpec.indexOf("await captureStableHostedPopulationParitySnapshot(");
+    const serverRead = paritySpec.indexOf("() => readOpenBuildingParity(serverPage, buildingTypeId)");
+    const stableRead = paritySpec.indexOf("const serverStats = stablePopulationCapture.hostedSnapshot;");
     const localOpen = paritySpec.indexOf("await openBuildingFromDistrict(localPage, buildingTypeId);");
 
     expect(serverOpen).toBeGreaterThan(-1);
-    expect(populationSync).toBeGreaterThan(serverOpen);
-    expect(serverRead).toBeGreaterThan(populationSync);
-    expect(localOpen).toBeGreaterThan(serverRead);
+    expect(stableCapture).toBeGreaterThan(serverOpen);
+    expect(serverRead).toBeGreaterThan(stableCapture);
+    expect(stableRead).toBeGreaterThan(serverRead);
+    expect(localOpen).toBeGreaterThan(stableRead);
+    expect(parityCapture).toContain("PARITY_POPULATION_SNAPSHOT_MAX_ATTEMPTS = 3");
+    expect(parityCapture).toContain("parityPopulationBufferSnapshotsMatch(");
   });
 });

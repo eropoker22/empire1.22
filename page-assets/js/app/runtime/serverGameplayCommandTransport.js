@@ -130,7 +130,13 @@ export async function submitServerGameplayCommand({
   const firstResponse = await submitPreparedServerGameplayCommand(firstPrepared);
   if (!hasDurableStateVersionConflict(firstResponse)) return firstResponse;
 
-  const refreshedSlice = await refreshAuthoritativeGameplaySliceForCommand(firstPrepared.request, firstPrepared.scope);
+  const refreshedSlice = isMatchingCommandScope(
+    firstResponse?.readModel,
+    firstPrepared.scope,
+    firstPrepared.request.focusDistrictId
+  )
+    ? firstResponse.readModel
+    : await refreshAuthoritativeGameplaySliceForCommand(firstPrepared.request, firstPrepared.scope);
   if (!isMatchingCommandScope(refreshedSlice, firstPrepared.scope, firstPrepared.request.focusDistrictId)) {
     return firstResponse;
   }
@@ -353,6 +359,9 @@ const refreshAuthoritativeGameplaySliceForCommand = async (request, scope) => {
 const isMatchingCommandScope = (slice, scope, focusDistrictId) => Boolean(
   slice?.player?.playerId === scope?.playerId
   && slice?.player?.instanceId === scope?.serverInstanceId
+  && slice?.server?.serverInstanceId === scope?.serverInstanceId
+  && Number.isSafeInteger(slice?.server?.stateVersion)
+  && slice.server.stateVersion >= 0
   && slice?.district?.districtId === focusDistrictId
 );
 

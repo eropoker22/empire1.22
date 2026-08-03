@@ -1,4 +1,4 @@
-import type { DistrictPanelBuildingView } from "@empire/shared-types";
+import type { DistrictPanelBuildingPresentationView, DistrictPanelBuildingView } from "@empire/shared-types";
 import type { BuildingActionBalanceConfig, ResolvedGameModeConfig } from "../contracts/game-mode-config";
 import type { CoreGameState } from "../entities/game-state";
 import type { DistrictPanelBuildingCatalogEntry } from "./district-building-catalog-types";
@@ -23,7 +23,24 @@ import { resolveRecyclingCenterSalvageStats } from "../handlers/recyclingCenterB
 import { getStripClubMetadata } from "../handlers/stripClubBuildingActions";
 import { getStockExchangeMetadata } from "../handlers/stockExchangeBuildingActions";
 import { resolveOpenChannelStats } from "../handlers/smugglingTunnelBuildingActions";
-import { resolveWarehouseUpgradeCapacityPreview } from "../handlers/warehouseBuilding";
+import {
+  getOwnedWarehouseCount,
+  resolveWarehouseNetworkMultipliers,
+  resolveWarehouseStorageCapacity,
+  resolveWarehouseUpgradeCapacityPreview
+} from "../handlers/warehouseBuilding";
+import {
+  getOwnedClinicCount,
+  resolveClinicNetworkMultipliers,
+  resolveClinicRecoveryPoolView,
+  resolveClinicRecoveryRatePctForPlayer,
+  validateClinicAction
+} from "../handlers/clinicBuildingActions";
+import {
+  getOwnedExchangeOfficeCount,
+  resolveExchangeOfficeAuditRisk,
+  resolveExchangeOfficeNetworkMultipliers
+} from "../handlers/exchangeOfficeBuildingActions";
 import { createPharmacyProductionBuildingView } from "./pharmacy-production-projection";
 import { createDrugLabProductionBuildingView } from "./drug-lab-production-projection";
 import { createFactoryProductionBuildingView } from "./factory-production-projection";
@@ -87,6 +104,79 @@ export interface CreateDistrictPanelBuildingViewsInput {
   tick: number;
   tickRateMs?: number;
 }
+
+const createBuildingMechanicsPresentation = (
+  input: CreateDistrictPanelBuildingViewsInput,
+  building: CoreGameState["buildingsById"][string]
+): DistrictPanelBuildingPresentationView["mechanics"] => {
+  const ownerPlayerId = building.ownerPlayerId;
+  if (!ownerPlayerId || ownerPlayerId !== input.playerId) return null;
+  const tickRateMs = input.tickRateMs ?? input.config?.tickRateMs ?? 5_000;
+  const clinicConfig = input.config?.balance.clinic;
+  if (building.buildingTypeId === clinicConfig?.buildingTypeId) {
+    const ownedCount = getOwnedClinicCount(input.state, ownerPlayerId, clinicConfig);
+    return {
+      clinic: {
+        recoveryRatePct: resolveClinicRecoveryRatePctForPlayer(
+          input.state,
+          ownerPlayerId,
+          clinicConfig,
+          input.powerStationConfig ?? input.config?.balance.powerStation
+        ),
+        recoveryPool: resolveClinicRecoveryPoolView({
+          state: input.state,
+          playerId: ownerPlayerId,
+          config: clinicConfig,
+          tickRateMs
+        }),
+        network: resolveClinicNetworkMultipliers(ownedCount, clinicConfig)
+      }
+    };
+  }
+  const exchangeConfig = input.config?.balance.exchangeOffice;
+  if (building.buildingTypeId === exchangeConfig?.buildingTypeId) {
+    const ownedCount = getOwnedExchangeOfficeCount(input.state, ownerPlayerId, exchangeConfig);
+    const network = resolveExchangeOfficeNetworkMultipliers(ownedCount, exchangeConfig);
+    const player = input.state.playersById[ownerPlayerId];
+    const playerHeat = Math.max(0, Number(
+      input.state.policeStatesById[player?.policeStateId || ""]?.heat
+      ?? input.district.heat
+      ?? 0
+    ));
+    const auditRisk = resolveExchangeOfficeAuditRisk({
+      config: exchangeConfig,
+      state: input.state,
+      ownerPlayerId,
+      playerHeat,
+      tick: input.tick,
+      tickRateMs
+    });
+    return {
+      exchange: {
+        launderingCapacity: Math.floor(exchangeConfig.launderingCapacity * network.launderingLimitMultiplier),
+        auditRiskPct: auditRisk.riskPct,
+        network
+      }
+    };
+  }
+  const warehouseConfig = input.config?.balance.warehouse;
+  if (building.buildingTypeId === warehouseConfig?.buildingTypeId) {
+    const network = resolveWarehouseNetworkMultipliers(
+      getOwnedWarehouseCount(input.state, ownerPlayerId, warehouseConfig),
+      warehouseConfig
+    );
+    const storage = resolveWarehouseStorageCapacity(input.state, ownerPlayerId, warehouseConfig);
+    return {
+      warehouse: {
+        network: {
+          ...network,
+          storageCapacityMultiplier: storage.warehouseSummary.totalCapacityMultiplier
+        }
+      }
+    };
+  }
+  return null;
+};
 
 export const createDistrictPanelBuildingViews = (
   input: CreateDistrictPanelBuildingViewsInput
@@ -164,6 +254,7 @@ export const createDistrictPanelBuildingViews = (
           && candidate.status === "active"
         ).length
       : 0;
+    const mechanicsPresentation = createBuildingMechanicsPresentation(input, building);
     const populationBuffer = createCivilPopulationBufferPresentation({
       state: input.state,
       building,
@@ -186,7 +277,7 @@ export const createDistrictPanelBuildingViews = (
       role: definition?.role ?? "Pevná budova",
       info: definition?.info ?? "Pevná budova districtu.",
       presentation: presentationPassiveStats
-        ? { ownedCount, passive: presentationPassiveStats, populationBuffer }
+        ? { ownedCount, passive: presentationPassiveStats, populationBuffer, mechanics: mechanicsPresentation }
         : null,
       stats: createBuildingStats({
         definition,
@@ -370,6 +461,14 @@ const createBuildingActionViews = (input: {
         powerStationConfig: input.powerStationConfig,
         tick: input.tick
       });
+      const clinicDisabledReason = resolveClinicDisabledReason({
+        state: input.state,
+        building: input.building,
+        action,
+        config: input.config,
+        playerBalances: input.playerBalances,
+        tickRateMs: input.tickRateMs ?? input.config?.tickRateMs ?? 5_000
+      });
       const recyclingCenterDisabledReason = resolveRecyclingCenterDisabledReason({
         state: input.state,
         building: input.building,
@@ -461,8 +560,10 @@ const createBuildingActionViews = (input: {
               ? stripClubDisabledReason
               : powerStationDisabledReason
                 ? powerStationDisabledReason
-                : recyclingCenterDisabledReason
-                  ? recyclingCenterDisabledReason
+                : clinicDisabledReason
+                  ? clinicDisabledReason
+                  : recyclingCenterDisabledReason
+                    ? recyclingCenterDisabledReason
                   : smugglingTunnelDisabledReason
                     ? smugglingTunnelDisabledReason
                     : stockExchangeDisabledReason
@@ -879,6 +980,28 @@ const resolveSchoolDisabledReason = (input: {
     return `Večerní kurz je aktivní ještě ${formatTickLabel(Math.max(0, Number(metadata.eveningCourseExpiresAtTick || 0) - input.tick))}.`;
   }
   return null;
+};
+
+const resolveClinicDisabledReason = (input: {
+  state: CoreGameState;
+  building: CoreGameState["buildingsById"][string];
+  action: BuildingActionBalanceConfig;
+  config?: ResolvedGameModeConfig;
+  playerBalances: Record<string, number>;
+  tickRateMs: number;
+}): string | null => {
+  const clinicConfig = input.config?.balance.clinic;
+  const ownerPlayerId = input.building.ownerPlayerId;
+  if (!clinicConfig || !ownerPlayerId || input.building.buildingTypeId !== clinicConfig.buildingTypeId) return null;
+  const errorCode = validateClinicAction({
+    state: input.state,
+    playerId: ownerPlayerId,
+    actionId: input.action.actionId,
+    balances: input.playerBalances,
+    clinicConfig,
+    tickRateMs: input.tickRateMs
+  });
+  return errorCode === "clinic_recovery_pool_empty" ? "Žádné ztráty k léčbě." : null;
 };
 
 const resolvePopulationCollectDisabledReason = (input: {

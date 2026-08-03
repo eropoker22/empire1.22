@@ -154,6 +154,9 @@ describe("alliance alpha UI", () => {
     expect(runtime).toContain('management: renderManagementPanel(activeAlliance)');
     expect(runtime).toContain('openAllianceManagementTab');
     expect(runtime).toContain('id="alliance-management-invite-name"');
+    expect(runtime).toContain("resolveAllianceInviteDraftTargetPlayerId");
+    expect(runtime).toContain("allianceInviteSelection");
+    expect(runtime).toContain("allianceChatDraft");
     expect(runtime).toContain("alliance-management-ready-btn");
     expect(runtime).toContain("renderKickVoteAvailabilityNote(activeAlliance)");
     expect(runtime).toContain("data-alliance-leave-open");

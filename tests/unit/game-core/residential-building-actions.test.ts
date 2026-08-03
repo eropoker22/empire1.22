@@ -234,6 +234,25 @@ describe("residential building actions", () => {
     expect(result.nextState.buildingsById[building.id].actionCooldowns?.stabilization_protocol).toBeUndefined();
   });
 
+  it("rejects clinic stabilization when only a fractional recovery residue remains", () => {
+    const { state, building } = createClinicState({
+      cash: 2_000,
+      recoveryPool: [{
+        id: "recovery:test:fractional-population",
+        itemType: "population",
+        amount: 0.75,
+        source: "attack",
+        lostAtTick: 0,
+        lostAt: new Date(0).toISOString()
+      }]
+    });
+    const result = applyCommand(state, createBuildingActionCommand(building.id, "stabilization_protocol"), context);
+
+    expect(result.errors).toMatchObject([{ code: "clinic_recovery_pool_empty" }]);
+    expect(result.nextState).toBe(state);
+    expect(result.nextState.buildingsById[building.id].actionCooldowns?.stabilization_protocol).toBeUndefined();
+  });
+
   it("runs clinic stabilization when recovery pool exists and starts cooldown only after success", () => {
     const { state, building } = createClinicState({
       cash: 2_000,

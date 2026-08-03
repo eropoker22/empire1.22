@@ -168,6 +168,42 @@ export interface DistrictPanelBuildingPresentationView {
     productionPerMinute: number;
     timeToFullMs: number;
   } | null;
+  mechanics?: DistrictPanelBuildingMechanicsPresentationView | null;
+}
+
+export interface DistrictPanelBuildingMechanicsPresentationView {
+  clinic?: {
+    recoveryRatePct: number;
+    recoveryPool: {
+      totalFreshAmount: number;
+      fresh: Array<{
+        id: string;
+        itemType: string;
+        amount: number;
+        source: string;
+      }>;
+    };
+    network: {
+      incomeMultiplier: number;
+      heatMultiplier: number;
+    };
+  };
+  exchange?: {
+    launderingCapacity: number;
+    auditRiskPct: number;
+    network: {
+      incomeMultiplier: number;
+      launderingLimitMultiplier: number;
+      heatMultiplier: number;
+    };
+  };
+  warehouse?: {
+    network: {
+      incomeMultiplier: number;
+      storageCapacityMultiplier: number;
+      heatMultiplier: number;
+    };
+  };
 }
 
 export interface DistrictPanelBuildingSpecialActionView {

@@ -20,3 +20,20 @@ export function createAllianceInviteResponseEligibility({
         : "Kontaktní pozvánku může potvrdit pouze leader aliance."
   };
 }
+
+export function resolveAllianceInviteDraftTargetPlayerId({
+  draft = null,
+  allianceId = "",
+  canInvite = false,
+  inviteTargets = []
+} = {}) {
+  const normalizedAllianceId = String(allianceId || "");
+  const targetPlayerId = String(draft?.targetPlayerId || "");
+  if (!canInvite || !normalizedAllianceId || draft?.allianceId !== normalizedAllianceId || !targetPlayerId) {
+    return "";
+  }
+  const selectedTarget = inviteTargets.find((target) => (
+    String(target?.playerId || "") === targetPlayerId && target?.canInvite !== false
+  ));
+  return selectedTarget ? targetPlayerId : "";
+}

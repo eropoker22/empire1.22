@@ -11,8 +11,11 @@ describe("instance command conflict gates", () => {
     "cancel-production-line",
     "collect-production",
     "craft-item",
+    "invite-alliance-member",
     "start-city-event",
     "claim-city-event-reward",
+    "respond-alliance-invite",
+    "send-alliance-chat-message",
     "upgrade-building"
   ] as const)("revalidates %s against its current entity state", (type) => {
     expect(usesEntityConflictRevalidation(commandOfType(type))).toBe(true);

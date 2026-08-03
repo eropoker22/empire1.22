@@ -133,6 +133,7 @@ describe("local hosted runtime startup contract", () => {
       "multiplayer-core": "direct-authoritative-api",
       "multiplayer-visible-actions": "mixed-visible-browser-ui-and-parity-observation",
       "social-visible-ui": "visible-browser-ui",
+      "social-concurrency-privacy": "mixed-visible-browser-ui-and-direct-authoritative-api",
       "lifecycle-stop": "mixed-visible-admin-ui-and-direct-authoritative-api"
     });
     expect(harness).toContain("gameplayInteraction: suite.gameplayInteraction");

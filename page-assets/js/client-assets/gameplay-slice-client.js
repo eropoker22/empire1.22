@@ -2337,8 +2337,20 @@ var EmpireGameplaySliceClient = function(exports) {
     options.root.hidden = true;
     options.root.replaceChildren();
     setGameplayRuntimeMarker(options.root, "initializing", { endpoint: `${endpointBase}/load` });
+    const transport = options.transport ?? createFetchClientTransport({ endpointBase });
+    let activeCommandRequestCount = 0;
     const client = createControllerClientApp({
-      transport: options.transport ?? createFetchClientTransport({ endpointBase }),
+      transport: {
+        load: (loadRequest) => transport.load(loadRequest),
+        send: async (submitRequest) => {
+          activeCommandRequestCount += 1;
+          try {
+            return await transport.send(submitRequest);
+          } finally {
+            activeCommandRequestCount -= 1;
+          }
+        }
+      },
       onStateRecompute: recordClientStateRecompute
     });
     let currentLoadRequest = request;
@@ -2410,7 +2422,7 @@ var EmpireGameplaySliceClient = function(exports) {
     };
     const poller = createGameplaySlicePoller({
       load: (nextRequest) => client.load(nextRequest),
-      getRequest: () => currentLoadRequest,
+      getRequest: () => activeCommandRequestCount > 0 ? null : currentLoadRequest,
       intervalMs: parseGameplaySlicePollingIntervalMs(options.root.dataset.gameplaySlicePollingIntervalMs),
       enabled: options.root.dataset.gameplaySlicePolling === "true",
       ...getGameplaySlicePollerPerformanceOptions(),
@@ -2424,12 +2436,14 @@ var EmpireGameplaySliceClient = function(exports) {
       },
       onError: () => {
         recordGameplayPollError();
+        const staleConnection = {
+          status: "stale",
+          lastErrorMessage: "Obnova ze serveru selhala.",
+          staleData: true
+        };
+        lastPublishedConnectionKey = JSON.stringify(staleConnection);
         document.dispatchEvent(new CustomEvent("empire:gameplay-connection-state", {
-          detail: {
-            status: "stale",
-            lastErrorMessage: "Obnova ze serveru selhala.",
-            staleData: true
-          }
+          detail: staleConnection
         }));
       }
     });

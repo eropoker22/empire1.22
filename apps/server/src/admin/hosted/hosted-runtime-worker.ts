@@ -255,7 +255,7 @@ export const createHostedRuntimeWorker = (options: HostedRuntimeWorkerOptions) =
     for (const record of records.filter((entry) =>
       entry.provisioningState === "ready" && requiresPeriodicRuntimeWork(entry))) {
       const at = now();
-      const leaseExpiresAt = new Date(at.getTime() + RUNTIME_LEASE_MS).toISOString();
+      let leaseExpiresAt = new Date(at.getTime() + RUNTIME_LEASE_MS).toISOString();
       try {
         const owned = await lease.acquire(record.serverInstanceId, at.toISOString(), leaseExpiresAt);
         if (!owned) continue;
@@ -271,18 +271,27 @@ export const createHostedRuntimeWorker = (options: HostedRuntimeWorkerOptions) =
         }
         await withInstanceCommandLock(effectiveRecord.serverInstanceId, async () => {
           const runtime = await ensureRuntime(effectiveRecord, effectiveRecord.status === "running");
-          if (effectiveRecord.status === "running") await options.server.instanceManager.tickInstanceDurably(
-            effectiveRecord.serverInstanceId,
-            lease.tickFence(effectiveRecord.serverInstanceId),
-            { lockAlreadyHeld: true }
-          );
+          if (effectiveRecord.status === "running") {
+            const tickLeaseAt = now();
+            leaseExpiresAt = new Date(tickLeaseAt.getTime() + RUNTIME_LEASE_MS).toISOString();
+            if (!await lease.acquire(
+              effectiveRecord.serverInstanceId,
+              tickLeaseAt.toISOString(),
+              leaseExpiresAt
+            )) throw safe("RUNTIME_LEASE_UNAVAILABLE");
+            await options.server.instanceManager.tickInstanceDurably(
+              effectiveRecord.serverInstanceId,
+              lease.tickFence(effectiveRecord.serverInstanceId),
+              { lockAlreadyHeld: true }
+            );
+          }
           const snapshot = await options.server.instanceManager.getPersistenceRepositories()
             .snapshotRepository.loadRecoveryHead(effectiveRecord.serverInstanceId);
           if (!snapshot) throw safe("RUNTIME_SNAPSHOT_MISSING");
           if (runtime.record.status === "crashed") throw safe("RUNTIME_TICK_FAILED");
           await lease.writeInstanceHeartbeat({ serverInstanceId: record.serverInstanceId,
             leaseExpiresAt, lastTick: runtime.state.root.tick, lastSnapshotAt: snapshot.createdAt,
-            lastErrorCode: null, at: at.toISOString() });
+            lastErrorCode: null, at: now().toISOString() });
           const defeatedPlayerIds = Object.values(runtime.state.playersById)
             .filter((player) => player.status === "defeated").map((player) => player.id);
           const resolved = runtime.state.root.phase === "resolved";

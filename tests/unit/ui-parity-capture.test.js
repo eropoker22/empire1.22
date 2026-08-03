@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE,
   buildingPopulationBufferDynamicValueSelector,
+  captureStableHostedPopulationParitySnapshot,
   captureGameChromeScreenshot,
   captureIsolatedParityScreenshot,
   compareParityPngScreenshotAttempts,
@@ -110,7 +111,7 @@ describe("UI parity class signature", () => {
       });
       expect(entry.fixture.populationBuffer).toEqual({
         capacity: index === 2 ? 20 : 50,
-        storedAmount: index + 0.75
+        storedAmount: index
       });
       expect(entry.mechanicsType).toBe([
         "apartment-block",
@@ -173,7 +174,7 @@ describe("UI parity class signature", () => {
     expect(fixture).toMatchObject({
       buildingTypeId: "school",
       collect: { actionId: "collect_school_population", enabled: true },
-      populationBuffer: { capacity: 20, storedAmount: 1.25 }
+      populationBuffer: { capacity: 20, storedAmount: 1 }
     });
     expect(hostedPage.evaluate).toHaveBeenCalledOnce();
     expect(localPage.evaluate).toHaveBeenCalledOnce();
@@ -181,7 +182,7 @@ describe("UI parity class signature", () => {
       buildingTypeId: "school",
       populationBuffer: {
         capacity: 20,
-        storedAmount: 1.25
+        storedAmount: 1
       }
     });
 
@@ -192,6 +193,326 @@ describe("UI parity class signature", () => {
     )).toBeNull();
     expect(hostedPage.evaluate).toHaveBeenCalledOnce();
     expect(localPage.evaluate).toHaveBeenCalledOnce();
+  });
+
+  it("stabilizes fractional population drift within the same visible whole amount", async () => {
+    const createHostedBuilding = (storedAmount) => ({
+      actions: [{
+        actionId: "collect_population",
+        disabledReason: "Bytový blok potřebuje alespoň 10 lidí k výběru.",
+        enabled: false
+      }],
+      buildingTypeId: "apartment_block",
+      presentation: {
+        populationBuffer: { capacity: 50, storedAmount }
+      },
+      specialActions: []
+    });
+    const hostedPage = {
+      evaluate: vi.fn()
+        .mockResolvedValueOnce(createHostedBuilding(1.1))
+        .mockResolvedValueOnce(createHostedBuilding(1.9))
+    };
+    const localPage = { evaluate: vi.fn().mockResolvedValue(undefined) };
+    const hostedSignature = {
+      presentation: {
+        collectAction: {
+          disabled: true,
+          disabledReason: "Bytový blok potřebuje alespoň 10 lidí k výběru."
+        },
+        actions: [{
+          actionId: "collect_population",
+          disabled: true,
+          disabledReason: "Bytový blok potřebuje alespoň 10 lidí k výběru."
+        }]
+      },
+      structure: { controls: [{ title: "preserved structural content" }] }
+    };
+    const captureHostedSnapshot = vi.fn().mockResolvedValue(hostedSignature);
+
+    const result = await captureStableHostedPopulationParitySnapshot(
+      localPage,
+      hostedPage,
+      "apartment_block",
+      captureHostedSnapshot
+    );
+
+    expect(result).toEqual({
+      hostedSnapshot: hostedSignature,
+      populationFixture: {
+        buildingTypeId: "apartment_block",
+        collect: {
+          actionId: "collect_population",
+          disabledReason: "Bytový blok potřebuje alespoň 10 lidí k výběru.",
+          enabled: false
+        },
+        populationBuffer: { capacity: 50, storedAmount: 1 },
+        updatedAt: expect.any(Number)
+      },
+      snapshotAttempts: 1
+    });
+    expect(captureHostedSnapshot).toHaveBeenCalledOnce();
+    expect(localPage.evaluate).toHaveBeenCalledOnce();
+    expect(localPage.evaluate.mock.calls[0][1].populationBuffer.storedAmount).toBe(1);
+  });
+
+  it("fails closed when the real header collect button disagrees with stale action-row copy", async () => {
+    const hostedBuilding = {
+      actions: [{
+        actionId: "collect_population",
+        disabledReason: "Bytový blok potřebuje alespoň 10 lidí k výběru.",
+        enabled: false
+      }],
+      buildingTypeId: "apartment_block",
+      presentation: {
+        populationBuffer: { capacity: 50, storedAmount: 1 }
+      },
+      specialActions: []
+    };
+    const hostedPage = { evaluate: vi.fn().mockResolvedValue(hostedBuilding) };
+    const localPage = { evaluate: vi.fn().mockResolvedValue(undefined) };
+    const captureHostedSnapshot = vi.fn().mockResolvedValue({
+      presentation: {
+        collectAction: {
+          disabled: true,
+          disabledReason: "Bytový blok zatím nemá připravené obyvatele."
+        },
+        actions: [{
+          actionId: "collect_population",
+          disabled: true,
+          disabledReason: "Bytový blok potřebuje alespoň 10 lidí k výběru."
+        }]
+      }
+    });
+
+    await expect(captureStableHostedPopulationParitySnapshot(
+      localPage,
+      hostedPage,
+      "apartment_block",
+      captureHostedSnapshot
+    )).rejects.toThrow(
+      "apartment_block rendered collect state did not match the authoritative population snapshot during 3 parity captures."
+    );
+    expect(captureHostedSnapshot).toHaveBeenCalledTimes(3);
+  });
+
+  it("recaptures a hosted signature when population advances after local sync", async () => {
+    const createHostedBuilding = (storedAmount) => ({
+      actions: [{
+        actionId: "collect_population",
+        disabledReason: Math.floor(storedAmount) <= 0
+          ? "Bytový blok zatím nemá připravené obyvatele."
+          : "Bytový blok potřebuje alespoň 10 lidí k výběru.",
+        enabled: false
+      }],
+      buildingTypeId: "apartment_block",
+      presentation: {
+        populationBuffer: { capacity: 50, storedAmount }
+      },
+      specialActions: []
+    });
+    const hostedPage = {
+      evaluate: vi.fn()
+        .mockResolvedValueOnce(createHostedBuilding(0.75))
+        .mockResolvedValueOnce(createHostedBuilding(1.25))
+        .mockResolvedValueOnce(createHostedBuilding(1.75))
+    };
+    const localPage = { evaluate: vi.fn().mockResolvedValue(undefined) };
+    const firstSignature = {
+      presentation: {
+        actions: [{
+          actionId: "collect_population",
+          disabled: true,
+          disabledReason: "Bytový blok zatím nemá připravené obyvatele."
+        }]
+      },
+      structure: { controls: [{ title: "empty" }] }
+    };
+    const stableSignature = {
+      presentation: {
+        actions: [{
+          actionId: "collect_population",
+          disabled: true,
+          disabledReason: "Bytový blok potřebuje alespoň 10 lidí k výběru."
+        }]
+      },
+      structure: { controls: [{ title: "minimum" }] }
+    };
+    const captureHostedSnapshot = vi.fn()
+      .mockResolvedValueOnce(firstSignature)
+      .mockResolvedValueOnce(stableSignature);
+
+    const result = await captureStableHostedPopulationParitySnapshot(
+      localPage,
+      hostedPage,
+      "apartment_block",
+      captureHostedSnapshot
+    );
+
+    expect(result).toMatchObject({
+      hostedSnapshot: stableSignature,
+      populationFixture: {
+        buildingTypeId: "apartment_block",
+        collect: {
+          disabledReason: "Bytový blok potřebuje alespoň 10 lidí k výběru."
+        },
+        populationBuffer: { capacity: 50, storedAmount: 1 }
+      },
+      snapshotAttempts: 2
+    });
+    expect(captureHostedSnapshot).toHaveBeenCalledTimes(2);
+    expect(localPage.evaluate).toHaveBeenCalledTimes(2);
+    expect(localPage.evaluate.mock.calls.map((call) => (
+      call[1].populationBuffer.storedAmount
+    ))).toEqual([0, 1]);
+  });
+
+  it("fails closed when the visible population amount keeps crossing thresholds", async () => {
+    const createHostedBuilding = (storedAmount) => {
+      const enabled = Math.floor(storedAmount) >= 10;
+      return {
+        actions: [{
+          actionId: "collect_population",
+          disabledReason: enabled ? "" : "Bytový blok potřebuje alespoň 10 lidí k výběru.",
+          enabled
+        }],
+        buildingTypeId: "apartment_block",
+        presentation: {
+          populationBuffer: { capacity: 50, storedAmount }
+        },
+        specialActions: []
+      };
+    };
+    const hostedPage = {
+      evaluate: vi.fn()
+        .mockResolvedValueOnce(createHostedBuilding(9.1))
+        .mockResolvedValueOnce(createHostedBuilding(10.1))
+        .mockResolvedValueOnce(createHostedBuilding(11.1))
+        .mockResolvedValueOnce(createHostedBuilding(12.1))
+    };
+    const localPage = { evaluate: vi.fn().mockResolvedValue(undefined) };
+    const captureHostedSnapshot = vi.fn()
+      .mockResolvedValueOnce({
+        presentation: {
+          actions: [{
+            actionId: "collect_population",
+            disabled: true,
+            disabledReason: "Bytový blok potřebuje alespoň 10 lidí k výběru."
+          }]
+        }
+      })
+      .mockResolvedValue({
+        presentation: {
+          actions: [{
+            actionId: "collect_population",
+            disabled: false,
+            disabledReason: ""
+          }]
+        }
+      });
+
+    await expect(captureStableHostedPopulationParitySnapshot(
+      localPage,
+      hostedPage,
+      "apartment_block",
+      captureHostedSnapshot
+    )).rejects.toThrow(
+      "apartment_block authoritative population snapshot changed during 3 parity captures."
+    );
+
+    expect(captureHostedSnapshot).toHaveBeenCalledTimes(3);
+    expect(localPage.evaluate.mock.calls.map((call) => (
+      call[1].populationBuffer.storedAmount
+    ))).toEqual([9, 10, 11]);
+  });
+
+  it("recaptures when the rendered collect state lags behind a stable read model", async () => {
+    const hostedBuilding = {
+      actions: [{
+        actionId: "collect_population",
+        disabledReason: "Bytový blok potřebuje alespoň 10 lidí k výběru.",
+        enabled: false
+      }],
+      buildingTypeId: "apartment_block",
+      presentation: {
+        populationBuffer: { capacity: 50, storedAmount: 1 }
+      },
+      specialActions: []
+    };
+    const hostedPage = { evaluate: vi.fn().mockResolvedValue(hostedBuilding) };
+    const localPage = { evaluate: vi.fn().mockResolvedValue(undefined) };
+    const staleSignature = {
+      presentation: {
+        actions: [{
+          actionId: "collect_population",
+          disabled: true,
+          disabledReason: "Bytový blok zatím nemá připravené obyvatele."
+        }]
+      }
+    };
+    const stableSignature = {
+      presentation: {
+        actions: [{
+          actionId: "collect_population",
+          disabled: true,
+          disabledReason: "Bytový blok potřebuje alespoň 10 lidí k výběru."
+        }]
+      }
+    };
+    const captureHostedSnapshot = vi.fn()
+      .mockResolvedValueOnce(staleSignature)
+      .mockResolvedValueOnce(stableSignature);
+
+    const result = await captureStableHostedPopulationParitySnapshot(
+      localPage,
+      hostedPage,
+      "apartment_block",
+      captureHostedSnapshot
+    );
+
+    expect(result.hostedSnapshot).toBe(stableSignature);
+    expect(result.snapshotAttempts).toBe(2);
+    expect(captureHostedSnapshot).toHaveBeenCalledTimes(2);
+    expect(localPage.evaluate).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns a stable hosted signature without normalizing structural content", async () => {
+    const hostedBuilding = {
+      actions: [{
+        actionId: "collect_population",
+        disabledReason: "Bytový blok zatím nemá připravené obyvatele.",
+        enabled: false
+      }],
+      buildingTypeId: "apartment_block",
+      presentation: {
+        populationBuffer: { capacity: 50, storedAmount: 0 }
+      },
+      specialActions: []
+    };
+    const hostedPage = {
+      evaluate: vi.fn().mockResolvedValue(hostedBuilding)
+    };
+    const localPage = { evaluate: vi.fn().mockResolvedValue(undefined) };
+    const structuralSignature = {
+      presentation: {
+        actions: [{
+          actionId: "collect_population",
+          disabled: true,
+          disabledReason: "Bytový blok zatím nemá připravené obyvatele."
+        }]
+      },
+      structure: { controls: [{ title: "genuine structural difference" }] }
+    };
+
+    const result = await captureStableHostedPopulationParitySnapshot(
+      localPage,
+      hostedPage,
+      "apartment_block",
+      vi.fn().mockResolvedValue(structuralSignature)
+    );
+
+    expect(result.hostedSnapshot).toBe(structuralSignature);
+    expect(result.snapshotAttempts).toBe(1);
   });
 
   it("derives every local-demo weapon seed from the canonical Armory registry", () => {

@@ -273,6 +273,45 @@ describe("hosted E2E scenario seeding", () => {
       })
     ]));
   });
+
+  it("prepares five canonical players for guarded social races", () => {
+    const source = createSocialConcurrencySnapshot();
+    const original = structuredClone(source);
+    const seeded = applyHostedE2eScenario(
+      source,
+      "social-concurrency-privacy",
+      "2026-07-29T22:00:00.000Z"
+    );
+    const [creator, target, hunterA, hunterB, hunterC] = Object.values(seeded.state.playersById)
+      .sort((left, right) => left.name.localeCompare(right.name));
+
+    expect(source).toEqual(original);
+    expect(seeded.state.root.tick).toBe(20);
+    expect(seeded.state.root.playerIds).toHaveLength(5);
+    expect(seeded.state.districtsById["district:2"].ownerPlayerId).toBe(target.id);
+    expect(seeded.state.districtsById["district:4"].ownerPlayerId).toBe(target.id);
+    expect(seeded.state.districtsById["district:25"].ownerPlayerId).toBe(hunterA.id);
+    expect(seeded.state.districtsById["district:26"].ownerPlayerId).toBe(hunterB.id);
+    expect(seeded.state.districtsById["district:24"].ownerPlayerId).toBe(hunterC.id);
+    expect(seeded.state.resourceStatesById[creator.resourceStateId].balances.chemicals)
+      .toBe(100);
+    expect(seeded.state.resourceStatesById[hunterA.resourceStateId].balances.bazooka)
+      .toBe(20);
+    expect(seeded.state.resourceStatesById[hunterB.resourceStateId].balances.bazooka)
+      .toBe(20);
+    expect(seeded.state.resourceStatesById[hunterC.resourceStateId].balances.cash)
+      .toBe(1_000_000);
+    expect(Object.values(seeded.state.notificationsById)).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        recipientId: hunterA.id,
+        payload: expect.objectContaining({ targetDistrictId: "district:2" })
+      }),
+      expect.objectContaining({
+        recipientId: hunterB.id,
+        payload: expect.objectContaining({ targetDistrictId: "district:2" })
+      })
+    ]));
+  });
 });
 
 const createBuildingActionSnapshot = (): InstanceSnapshotDto => {
@@ -343,6 +382,32 @@ const createMultiplayerSnapshot = (): InstanceSnapshotDto => {
     "district:26"
   ]);
   snapshot.integrity.entityCounts.players = 3;
+  return snapshot;
+};
+
+const createSocialConcurrencySnapshot = (): InstanceSnapshotDto => {
+  const snapshot = createMultiplayerSnapshot();
+  for (const [index, name] of [[4, "HostedCoreD"], [5, "HostedCoreE"]] as const) {
+    const player = createPlayerFixture({
+      id: `player:${index}`,
+      accountId: `account:${index}`,
+      serverInstanceId: snapshot.instanceId,
+      name,
+      homeDistrictId: `district:${index}`,
+      resourceStateId: `resource:${index}`,
+      cooldownStateId: `cooldown:${index}`,
+      effectStateId: `effect:${index}`,
+      policeStateId: `police:${index}`
+    });
+    snapshot.state.playersById[player.id] = player;
+    snapshot.state.resourceStatesById[player.resourceStateId] = createResourceStateFixture({
+      id: player.resourceStateId,
+      ownerType: "player",
+      ownerId: player.id
+    });
+    snapshot.state.root.playerIds.push(player.id);
+  }
+  snapshot.integrity.entityCounts.players = 5;
   return snapshot;
 };
 

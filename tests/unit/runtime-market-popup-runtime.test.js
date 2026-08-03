@@ -445,12 +445,14 @@ describe("market popup runtime", () => {
   });
 
   it("uses the authoritative player bazaar projection when the server provides it", () => {
+    const documentRef = createElement();
     const open = createElement();
     const popup = createElement();
     const close = createElement();
     const playerTab = createElement({ marketTab: "player-market" });
     const renderPlayerMarketPanel = vi.fn();
     const runtime = createRuntime({
+      documentRef,
       getGameplayExecutionMode: vi.fn(() => "server-authoritative"),
       getServerMarketReadModel: vi.fn(() => ({
         resources: [{ id: "chemicals", name: "Chemicals", normalMarket: { price: 450 } }],
@@ -475,13 +477,31 @@ describe("market popup runtime", () => {
     });
 
     runtime.bindMarketPopup(root);
+    open.dispatch("click");
     playerTab.dispatch("click");
 
     expect(renderPlayerMarketPanel).toHaveBeenLastCalledWith(
       expect.anything(),
       expect.objectContaining({ isAuthoritative: true, isPreview: false }),
-      expect.objectContaining({ onCreateListing: expect.any(Function) })
+      expect.objectContaining({
+        onCreateListing: expect.any(Function),
+        onFormStateChange: expect.any(Function)
+      })
     );
+
+    const formState = {
+      itemValue: "materials|chemicals",
+      requestedAmount: 10,
+      unitPrice: 25,
+      currency: "cleanMoney"
+    };
+    renderPlayerMarketPanel.mock.calls.at(-1)[2].onFormStateChange(formState);
+    documentRef.dispatch("empire:gameplay-slice-rendered");
+    expect(renderPlayerMarketPanel.mock.calls.at(-1)[1].formState).toEqual(formState);
+
+    close.dispatch("click");
+    open.dispatch("click");
+    expect(renderPlayerMarketPanel.mock.calls.at(-1)[1].formState).toBeNull();
   });
 
   it("recalculates black-market Heat from the selected quantity", () => {

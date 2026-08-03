@@ -25,6 +25,23 @@ import {
 const hostedEnabled = process.env.EMPIRE_HOSTED_UI_PARITY_E2E === "1";
 const serverInstanceId = process.env.EMPIRE_UI_PARITY_SERVER_ID || "";
 const coverageContract = validateSocialModalParityCoverage();
+const selectedViewportBatchKeys = new Set(
+  String(process.env.EMPIRE_UI_PARITY_SOCIAL_BATCH_KEYS || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+);
+const unknownViewportBatchKeys = [...selectedViewportBatchKeys].filter((key) => (
+  !socialModalParityViewportBatches.some((batch) => batch.key === key)
+));
+if (unknownViewportBatchKeys.length > 0) {
+  throw new Error(
+    `Unknown social parity viewport batch keys: ${unknownViewportBatchKeys.join(", ")}.`
+  );
+}
+const selectedViewportBatches = selectedViewportBatchKeys.size > 0
+  ? socialModalParityViewportBatches.filter((batch) => selectedViewportBatchKeys.has(batch.key))
+  : socialModalParityViewportBatches;
 
 test.describe("live/demo social modal parity", () => {
   test.describe.configure({ mode: "serial" });
@@ -126,7 +143,7 @@ test.describe("live/demo social modal parity", () => {
     ].filter(Boolean));
   });
 
-  for (const viewportBatch of socialModalParityViewportBatches) {
+  for (const viewportBatch of selectedViewportBatches) {
     for (const surfaceName of socialModalParitySurfaceNames) {
       test(`${viewportBatch.key} ${surfaceName} keeps demo DOM, styles, bounds, focus, scroll and pixels`, async ({}, testInfo) => {
         testInfo.annotations.push(
@@ -245,7 +262,7 @@ test.describe("live/demo social modal parity", () => {
   }
 
   test("social modal parity coverage guard is complete", async ({}, testInfo) => {
-    const expectedComparisons = socialModalParityViewportBatches.flatMap(({ viewports }) => (
+    const expectedComparisons = selectedViewportBatches.flatMap(({ viewports }) => (
       socialModalParitySurfaceNames.flatMap((surfaceName) => (
         viewports.map((viewport) => `${viewport.name}:${surfaceName}`)
       ))
@@ -266,8 +283,9 @@ test.describe("live/demo social modal parity", () => {
         hostedEntry: "two-real-accounts-registration-lobby-visible-spawn-faction-game",
         localDemoAuthority: true,
         meaningfulPixelTolerance: 0,
+        selectedViewportBatchKeys: selectedViewportBatches.map(({ key }) => key),
         surfaceNames: socialModalParitySurfaceNames,
-        viewportBatches: socialModalParityViewportBatches
+        viewportBatches: selectedViewportBatches
       }, null, 2)}\n`, "utf8"),
       contentType: "application/json"
     });

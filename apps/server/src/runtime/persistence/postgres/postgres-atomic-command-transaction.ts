@@ -45,7 +45,7 @@ export const createPostgresAtomicCommandTransaction = (
         snapshotRepository: createPostgresSnapshotRepositoryForTransaction(client, snapshotMetrics)
       });
       if (options?.runtimeLeaseFence) {
-        await assertCurrentPostgresRuntimeLease(client, instanceId, options.runtimeLeaseFence, false);
+        await assertPostgresRuntimeLeaseOwner(client, instanceId, options.runtimeLeaseFence);
       }
       return result;
     })
@@ -82,6 +82,22 @@ export const assertCurrentPostgresRuntimeLease = async (
        AND runtime_lease_incarnation_id=$3
        AND runtime_lease_expires_at > clock_timestamp()
      ${lock ? "FOR UPDATE" : ""}`,
+    [instanceId, fence.workerId, fence.workerIncarnationId]
+  );
+  if ((result.rowCount ?? 0) !== 1) throw new RuntimeLeaseFenceRejectedError(instanceId);
+};
+
+const assertPostgresRuntimeLeaseOwner = async (
+  client: PostgresQueryable,
+  instanceId: string,
+  fence: RuntimeLeaseFence
+): Promise<void> => {
+  const result = await client.query(
+    `SELECT server_instance_id
+     FROM empire_hosted_server_instances
+     WHERE server_instance_id=$1
+       AND runtime_lease_owner_id=$2
+       AND runtime_lease_incarnation_id=$3`,
     [instanceId, fence.workerId, fence.workerIncarnationId]
   );
   if ((result.rowCount ?? 0) !== 1) throw new RuntimeLeaseFenceRejectedError(instanceId);

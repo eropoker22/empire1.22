@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const initialReadModel = Object.freeze({
-  server: { stateVersion: 1, status: "running" },
+  server: { serverInstanceId: "instance:transport", stateVersion: 1, status: "running" },
   player: {
     playerId: "player:transport",
     instanceId: "instance:transport",
@@ -15,17 +15,17 @@ const initialReadModel = Object.freeze({
 
 const nextReadModel = Object.freeze({
   ...initialReadModel,
-  server: { stateVersion: 2, status: "running" }
+  server: { serverInstanceId: "instance:transport", stateVersion: 2, status: "running" }
 });
 
 const refreshedReadModel = Object.freeze({
   ...initialReadModel,
-  server: { stateVersion: 3, status: "running" }
+  server: { serverInstanceId: "instance:transport", stateVersion: 3, status: "running" }
 });
 
 const appliedReadModel = Object.freeze({
   ...initialReadModel,
-  server: { stateVersion: 4, status: "running" }
+  server: { serverInstanceId: "instance:transport", stateVersion: 4, status: "running" }
 });
 
 const loadGameplayModules = async () => {
@@ -120,7 +120,7 @@ describe("server gameplay command transport", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("reloads the mounted authoritative slice and retries one state-version conflict with a new command id", async () => {
+  it("reuses the mounted conflict slice and retries with a new command id", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const modules = await loadGameplayModules();
@@ -174,8 +174,7 @@ describe("server gameplay command transport", () => {
     });
 
     expect(response).toMatchObject({ accepted: true, readModel: appliedReadModel });
-    expect(selectDistrict).toHaveBeenCalledTimes(1);
-    expect(selectDistrict).toHaveBeenCalledWith("district:home");
+    expect(selectDistrict).not.toHaveBeenCalled();
     expect(mountedSubmit).toHaveBeenCalledTimes(2);
     expect(mountedSubmit.mock.calls[0][0]).toMatchObject({
       id: "command:building-action:stale",
@@ -190,7 +189,7 @@ describe("server gameplay command transport", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("performs one direct authoritative load before rebasing the exact typed intent", async () => {
+  it("rebases the exact typed intent from the authoritative conflict slice", async () => {
     const payload = {
       allianceId: "alliance:1",
       targetPlayerId: "player:target",
@@ -200,9 +199,6 @@ describe("server gameplay command transport", () => {
     const fetchMock = vi.fn(async (url, options) => {
       const request = JSON.parse(options.body);
       requests.push({ url, request });
-      if (url.endsWith("/load")) {
-        return { json: async () => ({ accepted: true, errors: [], readModel: refreshedReadModel }) };
-      }
       if (requests.filter((entry) => entry.url.endsWith("/submit")).length === 1) {
         return {
           json: async () => ({
@@ -233,19 +229,60 @@ describe("server gameplay command transport", () => {
     expect(response.accepted).toBe(true);
     expect(requests.map((entry) => entry.url)).toEqual([
       "/api/gameplay-slice/submit",
+      "/api/gameplay-slice/submit"
+    ]);
+    expect(requests[0].request.expectedStateVersion).toBe(1);
+    expect(requests[1].request.expectedStateVersion).toBe(2);
+    expect(requests[1].request.command.id).not.toBe(requests[0].request.command.id);
+    expect(requests[1].request.command.type).toBe(requests[0].request.command.type);
+    expect(requests[1].request.command.payload).toEqual(payload);
+  });
+
+  it.each([
+    ["no slice", null],
+    ["another player", { ...nextReadModel, player: { ...nextReadModel.player, playerId: "player:other" } }],
+    ["another player instance", { ...nextReadModel, player: { ...nextReadModel.player, instanceId: "instance:other" } }],
+    ["another server instance", { ...nextReadModel, server: { ...nextReadModel.server, serverInstanceId: "instance:other" } }],
+    ["another district", { ...nextReadModel, district: { districtId: "district:other" } }],
+    ["missing state version", { ...nextReadModel, server: { serverInstanceId: "instance:transport", status: "running" } }],
+    ["invalid state version", { ...nextReadModel, server: { ...nextReadModel.server, stateVersion: Number.NaN } }]
+  ])("falls back to one authoritative load for %s in the conflict response", async (_caseName, conflictReadModel) => {
+    const requests = [];
+    const fetchMock = vi.fn(async (url, options) => {
+      const request = JSON.parse(options.body);
+      requests.push({ url, request });
+      if (url.endsWith("/load")) {
+        return { json: async () => ({ accepted: true, errors: [], readModel: refreshedReadModel }) };
+      }
+      if (requests.filter((entry) => entry.url.endsWith("/submit")).length === 1) {
+        return {
+          json: async () => ({
+            accepted: false,
+            errors: [{ code: "server.state_version_conflict", message: "stale" }],
+            readModel: conflictReadModel
+          })
+        };
+      }
+      return { json: async () => ({ accepted: true, errors: [], readModel: appliedReadModel }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const modules = await loadGameplayModules();
+    modules.source.setServerGameplaySliceReadModel(initialReadModel);
+
+    const response = await modules.transport.submitServerGameplayCommand({
+      type: "start-alliance-kick-vote",
+      payload: { allianceId: "alliance:1", targetPlayerId: "player:target" },
+      focusDistrictId: "district:home",
+      commandId: "command:alliance:load-fallback"
+    });
+
+    expect(response.accepted).toBe(true);
+    expect(requests.map((entry) => entry.url)).toEqual([
+      "/api/gameplay-slice/submit",
       "/api/gameplay-slice/load",
       "/api/gameplay-slice/submit"
     ]);
-    expect(requests[1].request).toEqual({
-      serverInstanceId: "instance:transport",
-      playerId: "player:transport",
-      districtId: "district:home"
-    });
-    expect(requests[0].request.expectedStateVersion).toBe(1);
     expect(requests[2].request.expectedStateVersion).toBe(3);
-    expect(requests[2].request.command.id).not.toBe(requests[0].request.command.id);
-    expect(requests[2].request.command.type).toBe(requests[0].request.command.type);
-    expect(requests[2].request.command.payload).toEqual(payload);
   });
 
   it("never retries a semantic or mixed conflict", async () => {
@@ -289,7 +326,10 @@ describe("server gameplay command transport", () => {
         json: async () => ({
           accepted: false,
           errors: [{ code: "server.state_version_conflict", message: "stale again" }],
-          readModel: { ...initialReadModel, server: { stateVersion, status: "running" } }
+          readModel: {
+            ...initialReadModel,
+            server: { serverInstanceId: "instance:transport", stateVersion, status: "running" }
+          }
         })
       };
     });
@@ -306,7 +346,7 @@ describe("server gameplay command transport", () => {
     expect(response.accepted).toBe(false);
     expect(response.errors[0].code).toBe("server.state_version_conflict");
     expect(requests.filter((entry) => entry.url.endsWith("/submit"))).toHaveLength(2);
-    expect(requests.filter((entry) => entry.url.endsWith("/load"))).toHaveLength(1);
+    expect(requests.filter((entry) => entry.url.endsWith("/load"))).toHaveLength(0);
   });
 
   it("does not retry a command while its mounted-client submission is still in flight", async () => {

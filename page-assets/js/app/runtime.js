@@ -866,6 +866,7 @@ import {
   getServerBuildingShortcutCandidateDistrictIds
 } from "./runtime/serverBuildingShortcutResolver.js";
 import {
+  createWarehouseStorageCompatibilityView,
   createServerBuildingActionExecutionPresentation,
   LocalDemoBuildingPresentationAdapter,
   resolveSharedBuildingBackgroundImagePath,
@@ -6598,8 +6599,14 @@ const {
   fitnessClubSupportConfig: FITNESS_CLUB_SUPPORT_CONFIG,
   garageSupportConfig: GARAGE_SUPPORT_CONFIG,
   getCurrentPlayerOwnedDistrictIds,
+  getCurrentTime: () => Date.now(),
   getDistrictResourceCatalog,
   getBuildingLevel: (district, building) => getDistrictBuildingDetailEntry(district, building?.baseName || "Skladiště").level,
+  getPowerStationBackupGridExpiresAt: () => (
+    isLocalDemoGameplayExecutionMode()
+      ? getDistrictBuildingDetailEntry(null, "Energetická stanice").backupGridSwitchExpiresAt
+      : 0
+  ),
   getResolvedWorldState,
   getStoredDrugInventory,
   getStoredFactorySupplies,
@@ -7717,6 +7724,7 @@ function mergeLegacyDistrictBuildingDetailEntries(entries = []) {
     for (const field of [
       "level",
       "lastCollectedAt",
+      "backupGridSwitchExpiresAt",
       "schoolEveningCourseExpiresAt",
       "openChannelExpiresAt",
       "populationFullNotifiedAt",
@@ -7809,6 +7817,9 @@ function getDistrictBuildingDetailEntry(district, buildingName) {
       : 0,
     schoolEveningCourseExpiresAt: Number.isFinite(Number(entry.schoolEveningCourseExpiresAt))
       ? Number(entry.schoolEveningCourseExpiresAt)
+      : 0,
+    backupGridSwitchExpiresAt: Number.isFinite(Number(entry.backupGridSwitchExpiresAt))
+      ? Number(entry.backupGridSwitchExpiresAt)
       : 0,
     openChannelExpiresAt: Number.isFinite(Number(entry.openChannelExpiresAt))
       ? Number(entry.openChannelExpiresAt)
@@ -8118,14 +8129,17 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
     ? serverStorageSummary?.warehouseSummary?.ownedWarehouseCount ?? getOwnedWarehouseCount()
     : 0;
   const warehouseNetwork = mechanicsType === "warehouse" ? getWarehouseNetworkMultipliers(ownedWarehouses) : null;
-  const warehouseCapacity = mechanicsType === "warehouse" && !serverStorageSummary
-    ? getWarehouseCapacityBreakdown(ownedWarehouses)
+  const warehouseStorage = mechanicsType === "warehouse" && serverStorageSummary
+    ? createWarehouseStorageCompatibilityView(serverStorageSummary)
     : null;
-  const warehouseUsage = mechanicsType === "warehouse" && !serverStorageSummary
-    ? getWarehouseStorageUsage(warehouseCapacity)
+  const warehouseCapacity = mechanicsType === "warehouse"
+    ? warehouseStorage?.capacity ?? getWarehouseCapacityBreakdown(ownedWarehouses)
     : null;
-  const warehouseWarnings = mechanicsType === "warehouse" && !serverStorageSummary
-    ? getWarehouseCapacityWarnings(warehouseUsage)
+  const warehouseUsage = mechanicsType === "warehouse"
+    ? warehouseStorage?.usage ?? getWarehouseStorageUsage(warehouseCapacity)
+    : null;
+  const warehouseWarnings = mechanicsType === "warehouse"
+    ? warehouseStorage?.warnings ?? getWarehouseCapacityWarnings(warehouseUsage)
     : [];
   const ownedClinics = mechanicsType === "clinic" ? getOwnedClinicCount() : 0;
   const clinicNetwork = mechanicsType === "clinic" ? getClinicNetworkMultipliers(ownedClinics) : null;
@@ -9966,9 +9980,14 @@ async function runDistrictBuildingActionFromContext(root, context, request, opti
     const fallbackSummary = definition.rewardSummary && definition.rewardSummary !== "Efekt podle akce"
       ? definition.rewardSummary
       : "Akce je v této fázi hry potvrzená lokálně. Finální serverový efekt se napojí v posledním kroku.";
-    const actionCooldownUntil = Date.now() + actionCooldownMs;
+    const actionStartedAt = Date.now();
+    const actionCooldownUntil = actionStartedAt + actionCooldownMs;
+    const backupGridSwitchExpiresAt = definition.actionId === "backup_grid_switch"
+      ? actionStartedAt + Math.max(0, Number(actionProfile?.durationMs || POWER_STATION_CONFIG.backupGridSwitch.durationMs || 0))
+      : 0;
     updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
       ...entry,
+      ...(backupGridSwitchExpiresAt > actionStartedAt ? { backupGridSwitchExpiresAt } : {}),
       actionCooldowns: {
         ...(entry.actionCooldowns || {}),
         [definition.actionId]: actionCooldownUntil

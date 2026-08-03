@@ -32,6 +32,7 @@ export const buildingPopulationBufferDynamicValueSelector =
   `[data-building-dynamic-value="${BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE}"]`;
 const CSS_URL_VALUE_PATTERN_SOURCE = String.raw`url\(\s*(?:(["'])(.*?)\1|([^)]*))\s*\)`;
 const PARITY_LOCAL_POPULATION_STATE_FREEZE_MS = 5 * 60 * 1000;
+const PARITY_POPULATION_SNAPSHOT_MAX_ATTEMPTS = 3;
 const PARITY_POPULATION_BUFFER_CONFIG = Object.freeze({
   apartment_block: Object.freeze({
     collectActionId: "collect_population",
@@ -109,49 +110,66 @@ export function createParityPopulationBufferSyncFixture(
     },
     populationBuffer: {
       capacity,
-      storedAmount
+      storedAmount: wholeAmount
     },
     updatedAt: normalizedUpdatedAt
   };
 }
 
-export async function syncParityLocalDemoPopulationBufferFromHosted(
-  localPage,
-  hostedPage,
-  buildingTypeId
-) {
+function parityPopulationBufferSnapshotsMatch(first, second) {
+  if (!first || !second) return first === second;
+  return first.buildingTypeId === second.buildingTypeId
+    && first.collect?.actionId === second.collect?.actionId
+    && first.collect?.disabledReason === second.collect?.disabledReason
+    && first.collect?.enabled === second.collect?.enabled
+    && first.populationBuffer?.capacity === second.populationBuffer?.capacity
+    && first.populationBuffer?.storedAmount === second.populationBuffer?.storedAmount;
+}
+
+function parityPopulationSnapshotMatchesRenderedCollectAction(hostedSnapshot, fixture) {
+  if (!fixture) return true;
+  const presentation = hostedSnapshot?.presentation;
+  const renderedAction = Object.prototype.hasOwnProperty.call(
+    presentation || {},
+    "collectAction"
+  )
+    ? presentation.collectAction
+    : presentation?.actions?.find((action) => (
+        String(action?.actionId || "") === fixture.collect?.actionId
+      ));
+  return Boolean(renderedAction)
+    && renderedAction.disabled === (fixture.collect?.enabled !== true)
+    && String(renderedAction.disabledReason || "") === String(fixture.collect?.disabledReason || "");
+}
+
+async function readParityHostedPopulationBufferFixture(hostedPage, buildingTypeId) {
   const normalizedTypeId = normalizeParityPopulationBuildingTypeId(buildingTypeId);
   if (!PARITY_POPULATION_BUFFER_CONFIG[normalizedTypeId]) return null;
+  const hostedBuilding = await hostedPage.evaluate((targetBuildingTypeId) => {
+    const readModel = window.EmpireGameplaySliceClient?.getCurrentReadModel?.()
+      || window.empireStreetsGameplaySliceReadModel
+      || null;
+    const building = (readModel?.district?.buildings || []).find((entry) => (
+      String(entry?.buildingTypeId || "").trim().toLowerCase().replace(/-/gu, "_")
+        === targetBuildingTypeId
+    ));
+    if (!building) return null;
+    return {
+      actions: Array.isArray(building.actions) ? building.actions : [],
+      buildingTypeId: building.buildingTypeId,
+      presentation: building.presentation || null,
+      specialActions: Array.isArray(building.specialActions) ? building.specialActions : []
+    };
+  }, normalizedTypeId);
+  return createParityPopulationBufferSyncFixture(
+    normalizedTypeId,
+    hostedBuilding,
+    Date.now() + PARITY_LOCAL_POPULATION_STATE_FREEZE_MS
+  );
+}
 
-  let fixture = null;
-  await expect.poll(async () => {
-    const hostedBuilding = await hostedPage.evaluate((targetBuildingTypeId) => {
-      const readModel = window.EmpireGameplaySliceClient?.getCurrentReadModel?.()
-        || window.empireStreetsGameplaySliceReadModel
-        || null;
-      const building = (readModel?.district?.buildings || []).find((entry) => (
-        String(entry?.buildingTypeId || "").trim().toLowerCase().replace(/-/gu, "_")
-          === targetBuildingTypeId
-      ));
-      if (!building) return null;
-      return {
-        actions: Array.isArray(building.actions) ? building.actions : [],
-        buildingTypeId: building.buildingTypeId,
-        presentation: building.presentation || null,
-        specialActions: Array.isArray(building.specialActions) ? building.specialActions : []
-      };
-    }, normalizedTypeId);
-    fixture = createParityPopulationBufferSyncFixture(
-      normalizedTypeId,
-      hostedBuilding,
-      Date.now() + PARITY_LOCAL_POPULATION_STATE_FREEZE_MS
-    );
-    return fixture;
-  }, {
-    message: `${normalizedTypeId} authoritative population buffer should be hydrated`,
-    timeout: 30_000
-  }).not.toBeNull();
-
+async function applyParityLocalDemoPopulationBufferFixture(localPage, fixture) {
+  if (!fixture) return null;
   await localPage.evaluate((populationFixture) => {
     if (document.documentElement.dataset.runtimeMode !== "local-demo") {
       throw new Error("Population parity state can only be synchronized into local-demo.");
@@ -182,6 +200,77 @@ export async function syncParityLocalDemoPopulationBufferFromHosted(
     }
   }, fixture);
   return fixture;
+}
+
+export async function syncParityLocalDemoPopulationBufferFromHosted(
+  localPage,
+  hostedPage,
+  buildingTypeId
+) {
+  const normalizedTypeId = normalizeParityPopulationBuildingTypeId(buildingTypeId);
+  if (!PARITY_POPULATION_BUFFER_CONFIG[normalizedTypeId]) return null;
+
+  let fixture = null;
+  await expect.poll(async () => {
+    fixture = await readParityHostedPopulationBufferFixture(hostedPage, normalizedTypeId);
+    return fixture;
+  }, {
+    message: `${normalizedTypeId} authoritative population buffer should be hydrated`,
+    timeout: 30_000
+  }).not.toBeNull();
+
+  return applyParityLocalDemoPopulationBufferFixture(localPage, fixture);
+}
+
+export async function captureStableHostedPopulationParitySnapshot(
+  localPage,
+  hostedPage,
+  buildingTypeId,
+  captureHostedSnapshot
+) {
+  if (typeof captureHostedSnapshot !== "function") {
+    throw new TypeError("Hosted population parity capture must be a function");
+  }
+  let populationFixture = await syncParityLocalDemoPopulationBufferFromHosted(
+    localPage,
+    hostedPage,
+    buildingTypeId
+  );
+
+  for (let attempt = 1; attempt <= PARITY_POPULATION_SNAPSHOT_MAX_ATTEMPTS; attempt += 1) {
+    const hostedSnapshot = await captureHostedSnapshot();
+    if (!populationFixture) {
+      return { hostedSnapshot, populationFixture: null, snapshotAttempts: attempt };
+    }
+    const postCaptureFixture = await readParityHostedPopulationBufferFixture(
+      hostedPage,
+      buildingTypeId
+    );
+    if (!postCaptureFixture) {
+      throw new Error(`${buildingTypeId} authoritative population snapshot disappeared during parity capture.`);
+    }
+    const readModelStable = parityPopulationBufferSnapshotsMatch(populationFixture, postCaptureFixture);
+    const renderedCollectStable = parityPopulationSnapshotMatchesRenderedCollectAction(
+      hostedSnapshot,
+      populationFixture
+    );
+    if (readModelStable && renderedCollectStable) {
+      return { hostedSnapshot, populationFixture, snapshotAttempts: attempt };
+    }
+    if (attempt === PARITY_POPULATION_SNAPSHOT_MAX_ATTEMPTS) {
+      throw new Error(readModelStable
+        ? `${buildingTypeId} rendered collect state did not match the authoritative population snapshot during ${attempt} parity captures.`
+        : `${buildingTypeId} authoritative population snapshot changed during ${attempt} parity captures.`);
+    }
+    if (readModelStable) {
+      continue;
+    }
+    populationFixture = await applyParityLocalDemoPopulationBufferFixture(
+      localPage,
+      postCaptureFixture
+    );
+  }
+  throw new Error(`${buildingTypeId} authoritative population snapshot capture did not complete.`);
 }
 
 export function extractCssUrlValues(value) {
@@ -1880,6 +1969,9 @@ export async function getBuildingPresentationSignature(page, surfaceName) {
     const actionRows = visibleElements(
       ".district-building-detail-actions .building-info-action-row"
     );
+    const collectActionElement = visibleElements(
+      "[data-district-building-detail-collect]"
+    ).at(-1);
     const actionRects = actionRows.map((element) => {
       const rect = element.getBoundingClientRect();
       return {
@@ -1971,6 +2063,8 @@ export async function getBuildingPresentationSignature(page, surfaceName) {
         .filter((entry) => entry.text),
       actions: actionRows.map((element) => ({
         actionId: element.dataset.districtBuildingDetailActionId || "",
+        disabled: element instanceof HTMLButtonElement ? element.disabled : false,
+        disabledReason: normalizeText(element.getAttribute("title")),
         title: normalizeText(
           element.querySelector(".building-info-action-row__title")?.textContent
         ),
@@ -1981,6 +2075,12 @@ export async function getBuildingPresentationSignature(page, surfaceName) {
           element.querySelector(".building-info-action-row__phase")?.textContent
         )
       })),
+      collectAction: collectActionElement instanceof HTMLButtonElement
+        ? {
+            disabled: collectActionElement.disabled,
+            disabledReason: normalizeText(collectActionElement.getAttribute("title"))
+          }
+        : null,
       actionGrid: {
         display: actionLayout.display,
         gridTemplateColumns: actionLayout.gridTemplateColumns,

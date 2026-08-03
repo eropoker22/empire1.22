@@ -124,6 +124,10 @@ describe("social modal parity coverage contract", () => {
     expect(specSource).toContain("toBe(0)");
     expect(specSource).toContain('test.describe.configure({ mode: "serial" })');
     expect(specSource).toContain("socialModalParityViewportBatches");
+    expect(specSource).toContain("EMPIRE_UI_PARITY_SOCIAL_BATCH_KEYS");
+    expect(specSource).toContain("Unknown social parity viewport batch keys");
+    expect(specSource).toContain("for (const viewportBatch of selectedViewportBatches)");
+    expect(specSource).toContain("const expectedComparisons = selectedViewportBatches.flatMap");
     expect(specSource).toContain("setViewportSize(viewport)");
     expect(specSource).toContain("cityClock.minuteOfDay");
     expect(specSource).toContain("cityClock.dayIndex");

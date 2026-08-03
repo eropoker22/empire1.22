@@ -48,13 +48,31 @@ function createRuntime(overrides = {}, runtimeFactory = createBuildingNetworkRun
       heatBonusPctPerExtraGarage: 10
     },
     getCurrentPlayerOwnedDistrictIds: () => new Set([1, 2]),
+    getCurrentTime: () => 1_000,
     getDistrictResourceCatalog: () => [{ id: 1 }, { id: 2 }, { id: 3 }],
+    getPowerStationBackupGridExpiresAt: () => 0,
     getResolvedWorldState: () => ({ ownedDistrictIds: [1, 2], phase: "live" }),
     getStoredDrugInventory: () => ({ "neon-dust": 3 }),
     getStoredFactorySupplies: () => ({ metalParts: 2, techCore: 1, combatModule: 4 }),
     getStoredMaterialInventory: () => ({ chemicals: 3, biomass: 4, "metal-parts": 5, "tech-core": 6, "combat-module": 7, "stim-pack": 1 }),
     getStoredWeaponInventory: () => ({ pistol: 2 }),
     normalizeBuildingLookupKey: (value) => String(value || "").toLowerCase(),
+    powerStationConfig: {
+      infrastructureBonusPctPerStation: 4,
+      maxInfrastructureBonusPct: 28,
+      clinicRecoveryRateInfrastructureWeight: 0.5,
+      maxIncomeMultiplier: 2,
+      incomeBonusPctPerExtraStation: 10,
+      maxHeatMultiplier: 2,
+      heatBonusPctPerExtraStation: 10,
+      cameraStrengthBonusPctPerStation: 5,
+      alarmStrengthBonusPctPerStation: 5,
+      maxCameraStrengthBonusPct: 35,
+      maxAlarmStrengthBonusPct: 35,
+      backupGridSwitch: {
+        temporaryInfrastructureBonusPct: 12
+      }
+    },
     recruitmentCenterSupportConfig: {
       maxIncomeMultiplier: 2,
       incomeBonusPctPerExtraCenter: 10,
@@ -98,6 +116,57 @@ describe("building network runtime", () => {
     expect(runtime.getOwnedShoppingMallCountForMarket()).toBe(1);
     expect(runtime.getAutoSalonNetworkMultipliers(2).cleanIncomeMultiplier).toBe(1.1);
     expect(runtime.getAutoSalonSupportStats(2).mobilityBonusPct).toBe(10);
+  });
+
+  it("applies the canonical power-station weight to clinic recovery in both runtime bundles", () => {
+    for (const runtimeFactory of [createBuildingNetworkRuntime, createClientBuildingNetworkRuntime]) {
+      const runtime = createRuntime({
+        resolveDistrictBuildingProfile: (district) => ({
+          buildings: {
+            1: [{ baseName: "klinika" }, { baseName: "energeticka stanice" }],
+            2: [],
+            3: []
+          }[district.id] || []
+        })
+      }, runtimeFactory);
+
+      expect(runtime.getPowerStationNetworkMultipliers().infrastructureBonusPct).toBe(4);
+      expect(runtime.getClinicRecoveryRatePct()).toBeCloseTo(10.2, 8);
+    }
+  });
+
+  it("adds an active Backup Grid to the weighted clinic recovery bonus in both runtime bundles", () => {
+    for (const runtimeFactory of [createBuildingNetworkRuntime, createClientBuildingNetworkRuntime]) {
+      const runtime = createRuntime({
+        getPowerStationBackupGridExpiresAt: () => 1_001,
+        resolveDistrictBuildingProfile: (district) => ({
+          buildings: {
+            1: [{ baseName: "klinika" }, { baseName: "energeticka stanice" }],
+            2: [],
+            3: []
+          }[district.id] || []
+        })
+      }, runtimeFactory);
+
+      expect(runtime.getPowerStationInfrastructureBonusPct()).toBe(16);
+      expect(runtime.getClinicRecoveryRatePct()).toBeCloseTo(10.8, 8);
+    }
+  });
+
+  it("does not activate Backup Grid without an active owned Power Station", () => {
+    const runtime = createRuntime({
+      getPowerStationBackupGridExpiresAt: () => 1_001,
+      resolveDistrictBuildingProfile: (district) => ({
+        buildings: {
+          1: [{ baseName: "klinika" }, { baseName: "energeticka stanice", status: "inactive" }],
+          2: [],
+          3: []
+        }[district.id] || []
+      })
+    });
+
+    expect(runtime.getPowerStationInfrastructureBonusPct()).toBe(0);
+    expect(runtime.getClinicRecoveryRatePct()).toBe(10);
   });
 
   it("counts every owned garage occurrence when resolving cooldown reduction", () => {

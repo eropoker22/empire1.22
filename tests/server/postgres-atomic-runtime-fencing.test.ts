@@ -68,8 +68,46 @@ describe("postgres atomic runtime fencing", () => {
     ]);
   });
 
-  it("rolls back a tick when its lease expires before the final fence check", async () => {
-    const fixture = database({ leaseChecks: [true, false] });
+  it("does not recheck lease expiry after locking a tick to the current owner", async () => {
+    const fixture = database({ leaseChecks: [true], leaseOwnerChecks: [true] });
+    const boundary = createPostgresAtomicCommandTransaction(fixture.database);
+
+    await boundary.run("instance:fenced-tick", async () => {
+      fixture.order.push("callback");
+    }, { runtimeLeaseFence: {
+      workerId: "worker:stable",
+      workerIncarnationId: "worker-incarnation:old"
+    } });
+
+    expect(fixture.order).toEqual([
+      "lease-lock",
+      "core-row-upsert",
+      "core-row-lock",
+      "callback",
+      "lease-owner-final-check"
+    ]);
+    expect(fixture.leaseQueries[0]).toContain("runtime_lease_expires_at > clock_timestamp()");
+    expect(fixture.leaseQueries[0]).toContain("FOR UPDATE");
+    expect(fixture.leaseQueries[1]).not.toContain("runtime_lease_expires_at");
+    expect(fixture.leaseQueries[1]).not.toContain("FOR UPDATE");
+  });
+
+  it("rejects a tick before its callback when the lease is already expired", async () => {
+    const fixture = database({ leaseChecks: [false] });
+    const boundary = createPostgresAtomicCommandTransaction(fixture.database);
+
+    await expect(boundary.run("instance:fenced-tick", async () => {
+      fixture.order.push("callback");
+    }, { runtimeLeaseFence: {
+      workerId: "worker:stable",
+      workerIncarnationId: "worker-incarnation:old"
+    } })).rejects.toBeInstanceOf(RuntimeLeaseFenceRejectedError);
+
+    expect(fixture.order).toEqual(["lease-lock"]);
+  });
+
+  it("rolls back a tick when the final owner fence no longer matches", async () => {
+    const fixture = database({ leaseChecks: [true], leaseOwnerChecks: [false] });
     const boundary = createPostgresAtomicCommandTransaction(fixture.database);
 
     await expect(boundary.run("instance:fenced-tick", async () => {
@@ -84,7 +122,7 @@ describe("postgres atomic runtime fencing", () => {
       "core-row-upsert",
       "core-row-lock",
       "callback",
-      "lease-final-check"
+      "lease-owner-final-check"
     ]);
   });
 });
@@ -93,16 +131,21 @@ const database = (options: {
   hostedStatus?: "running" | "paused" | null;
   hostedProvisioningState?: "ready" | "provisioning";
   leaseChecks?: boolean[];
+  leaseOwnerChecks?: boolean[];
 }) => {
   const order: string[] = [];
+  const leaseQueries: string[] = [];
   const leaseChecks = [...(options.leaseChecks ?? [])];
+  const leaseOwnerChecks = [...(options.leaseOwnerChecks ?? [])];
   const client: PostgresQueryable = {
     query: async (sql) => {
       const normalized = sql.replace(/\s+/gu, " ").trim();
       if (normalized.includes("FROM empire_hosted_server_instances") &&
         normalized.includes("runtime_lease_incarnation_id")) {
-        const current = leaseChecks.shift() ?? false;
-        order.push(normalized.includes("FOR UPDATE") ? "lease-lock" : "lease-final-check");
+        leaseQueries.push(normalized);
+        const locksLease = normalized.includes("FOR UPDATE");
+        const current = (locksLease ? leaseChecks : leaseOwnerChecks).shift() ?? false;
+        order.push(locksLease ? "lease-lock" : "lease-owner-final-check");
         return result(current ? [{ server_instance_id: "instance:fenced-tick" }] : []);
       }
       if (normalized.includes("FROM empire_hosted_server_instances")) {
@@ -126,7 +169,7 @@ const database = (options: {
     transaction: async (callback) => callback(client),
     close: async () => undefined
   };
-  return { database: postgres, order };
+  return { database: postgres, leaseQueries, order };
 };
 
 const result = (rows: Array<Record<string, unknown>>) => ({

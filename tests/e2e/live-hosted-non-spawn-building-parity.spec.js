@@ -41,6 +41,12 @@ const selectedMatrixKeys = new Set(
     .map((value) => value.trim())
     .filter(Boolean)
 );
+const unknownMatrixKeys = [...selectedMatrixKeys].filter((key) => (
+  !matrix.some((entry) => entry.key === key)
+));
+if (unknownMatrixKeys.length > 0) {
+  throw new Error(`Unknown non-spawn parity matrix keys: ${unknownMatrixKeys.join(", ")}.`);
+}
 const selectedMatrix = selectedMatrixKeys.size > 0
   ? matrix.filter((entry) => selectedMatrixKeys.has(entry.key))
   : matrix;

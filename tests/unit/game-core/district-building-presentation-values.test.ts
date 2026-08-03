@@ -3,6 +3,7 @@ import { getAllPublicBuildingDefinitions, resolveModeConfig } from "@empire/game
 import { dayNightActionRules } from "../../../packages/game-config/src/public/day-night-action-rules";
 import { createStreetDealerSaleView } from "../../../packages/game-core/src/projections/district-building-action-view-helpers";
 import { createDistrictPanelBuildingViews } from "../../../packages/game-core/src/projections/district-building-action-projection";
+import { resolvePlayerStorageCapacitySummary } from "../../../packages/game-core/src/handlers/warehouseBuilding";
 import {
   createCivilBuildingStats,
   createCivilPopulationBufferPresentation
@@ -254,6 +255,146 @@ describe("district building presentation values", () => {
       { label: "Kamery/alarmy", value: "+1.5 %" },
       { label: "Cap kamer/alarmu", value: "max +50 %" }
     ]));
+  });
+
+  it("projects canonical spawn mechanics for garage, fitness, clinic, exchange and warehouse", () => {
+    const project = (buildingTypeId: string, level = 1) => {
+      const fixture = createCoreStateWithFixedBuildingFixture(buildingTypeId, {
+        buildingOverrides: { level }
+      });
+      if (buildingTypeId === "clinic") {
+        fixture.state.playersById["player:1"] = {
+          ...fixture.state.playersById["player:1"],
+          recoveryPool: [{
+            id: "recovery:1",
+            itemType: "population",
+            amount: 7,
+            lostAtTick: fixture.state.root.tick,
+            lostAt: new Date(0).toISOString(),
+            source: "attack"
+          }]
+        };
+      }
+      const [view] = createDistrictPanelBuildingViews({
+        state: fixture.state,
+        buildings: [fixture.building],
+        buildCatalog: getAllPublicBuildingDefinitions(),
+        actionCatalog: config.balance.buildingActions ?? {},
+        config,
+        fitnessClubConfig: config.balance.fitnessClub,
+        garageConfig: config.balance.garage,
+        powerStationConfig: config.balance.powerStation,
+        district: fixture.state.districtsById[fixture.building.districtId],
+        playerId: "player:1",
+        playerBalances: fixture.state.resourceStatesById["resource:1"].balances,
+        tick: fixture.state.root.tick,
+        tickRateMs: config.tickRateMs
+      });
+      return view;
+    };
+
+    expect(project("garage").stats).toContainEqual({ label: "Zkrácení čekání", value: "-2 %" });
+    expect(project("fitness_club").stats).toEqual(expect.arrayContaining([
+      { label: "Síla útoku", value: "+3 %" },
+      { label: "Síla obrany", value: "+2 %" },
+      { label: "Cap útoku", value: "+24 %" },
+      { label: "Cap obrany", value: "+18 %" }
+    ]));
+    expect(project("clinic").presentation?.mechanics?.clinic).toEqual({
+      recoveryRatePct: 15,
+      recoveryPool: {
+        totalFreshAmount: 7,
+        fresh: [{ id: "recovery:1", itemType: "population", amount: 7, source: "attack" }]
+      },
+      network: { incomeMultiplier: 1, heatMultiplier: 1 }
+    });
+    expect(project("exchange").presentation?.mechanics?.exchange).toEqual({
+      launderingCapacity: 6_000,
+      auditRiskPct: 4,
+      network: { incomeMultiplier: 1, launderingLimitMultiplier: 1, heatMultiplier: 1 }
+    });
+    const warehouseNetwork = project("warehouse", 2).presentation?.mechanics?.warehouse?.network;
+    expect(warehouseNetwork).toMatchObject({ incomeMultiplier: 1, heatMultiplier: 1 });
+    expect(warehouseNetwork?.storageCapacityMultiplier).toBeCloseTo(1.68, 8);
+
+    const warehouseFixture = createCoreStateWithFixedBuildingFixture("warehouse", {
+      playerBalances: { smg: 200 }
+    });
+    const warehouseStorage = resolvePlayerStorageCapacitySummary(
+      warehouseFixture.state,
+      "player:1",
+      config.balance.warehouse!
+    );
+    expect(warehouseStorage.groups
+      .flatMap((group) => group.items)
+      .find((item) => item.resourceKey === "smg"))
+      .toMatchObject({ currentAmount: 200, maxAmount: 12, isFull: false, isOverCapacity: true });
+  });
+
+  it("omits fractional clinic residue and keeps stabilization unavailable", () => {
+    const fixture = createCoreStateWithFixedBuildingFixture("clinic", {
+      playerBalances: { cash: 5_000 }
+    });
+    fixture.state.playersById["player:1"] = {
+      ...fixture.state.playersById["player:1"],
+      recoveryPool: [{
+        id: "recovery:fractional",
+        itemType: "population",
+        amount: 0.75,
+        lostAtTick: fixture.state.root.tick,
+        lostAt: new Date(0).toISOString(),
+        source: "attack"
+      }]
+    };
+    const [view] = createDistrictPanelBuildingViews({
+      state: fixture.state,
+      buildings: [fixture.building],
+      buildCatalog: getAllPublicBuildingDefinitions(),
+      actionCatalog: config.balance.buildingActions ?? {},
+      config,
+      powerStationConfig: config.balance.powerStation,
+      district: fixture.state.districtsById[fixture.building.districtId],
+      playerId: "player:1",
+      playerBalances: fixture.state.resourceStatesById["resource:1"].balances,
+      tick: fixture.state.root.tick,
+      tickRateMs: config.tickRateMs
+    });
+
+    expect(view.presentation?.mechanics?.clinic?.recoveryPool).toEqual({
+      totalFreshAmount: 0,
+      fresh: []
+    });
+    expect(view.actions.find((action) => action.actionId === "stabilization_protocol")).toMatchObject({
+      status: "blocked",
+      enabled: false,
+      disabledReason: "Žádné ztráty k léčbě."
+    });
+  });
+
+  it("omits private typed mechanics for buildings owned by another player", () => {
+    const project = (buildingTypeId: "clinic" | "exchange" | "warehouse") => {
+      const fixture = createCoreStateWithFixedBuildingFixture(buildingTypeId, {
+        buildingOverrides: { ownerPlayerId: "player:2" }
+      });
+      const [view] = createDistrictPanelBuildingViews({
+        state: fixture.state,
+        buildings: [fixture.building],
+        buildCatalog: getAllPublicBuildingDefinitions(),
+        actionCatalog: config.balance.buildingActions ?? {},
+        config,
+        powerStationConfig: config.balance.powerStation,
+        district: fixture.state.districtsById[fixture.building.districtId],
+        playerId: "player:1",
+        playerBalances: fixture.state.resourceStatesById["resource:1"].balances,
+        tick: fixture.state.root.tick,
+        tickRateMs: config.tickRateMs
+      });
+      return view;
+    };
+
+    expect(project("clinic").presentation?.mechanics).toBeNull();
+    expect(project("exchange").presentation?.mechanics).toBeNull();
+    expect(project("warehouse").presentation?.mechanics).toBeNull();
   });
 
   it("projects authoritative street dealer slots, inventory and daytime risk copy", () => {

@@ -20,6 +20,9 @@ export interface ClinicActionResolution {
 const CLINIC_RECOVERABLE_ITEMS = new Set(["population"]);
 const RARE_ITEMS = new Set<string>();
 
+const resolveWholeRecoveryAmount = (entry: Pick<PlayerRecoveryPoolEntry, "amount">): number =>
+  Math.max(0, Math.floor(Number(entry.amount || 0)));
+
 export const getOwnedClinicCount = (state: CoreGameState, playerId: string, config: ClinicBalanceConfig): number =>
   Object.values(state.buildingsById).filter((building) =>
     building.buildingTypeId === config.buildingTypeId
@@ -57,6 +60,35 @@ export const resolveClinicNetworkMultipliers = (
   return {
     incomeMultiplier: Math.min(config.network.maxIncomeMultiplier, 1 + extra * config.network.incomeBonusPctPerExtraClinic / 100),
     heatMultiplier: Math.min(config.network.maxHeatMultiplier, 1 + extra * config.network.heatBonusPctPerExtraClinic / 100)
+  };
+};
+
+export const resolveClinicRecoveryPoolView = (input: {
+  state: CoreGameState;
+  playerId: string;
+  config: ClinicBalanceConfig;
+  tickRateMs: number;
+}): {
+  totalFreshAmount: number;
+  fresh: Array<{ id: string; itemType: string; amount: number; source: string }>;
+} => {
+  const ttlTicks = Math.ceil(input.config.recovery.poolTtlMinutes * 60000 / Math.max(1, input.tickRateMs));
+  const ttlMs = input.config.recovery.poolTtlMinutes * 60000;
+  const fresh = (input.state.playersById[input.playerId]?.recoveryPool ?? [])
+    .filter((entry) => (
+      isRecoveryEntryFresh(entry, input.state.root.tick, ttlTicks, ttlMs)
+      && isClinicRecoverableItem(entry.itemType)
+    ))
+    .map((entry) => ({
+      id: entry.id,
+      itemType: normalizeClinicRecoverableItem(entry.itemType),
+      amount: resolveWholeRecoveryAmount(entry),
+      source: String(entry.source || "loss")
+    }))
+    .filter((entry) => entry.amount > 0);
+  return {
+    totalFreshAmount: fresh.reduce((total, entry) => total + entry.amount, 0),
+    fresh
   };
 };
 
@@ -152,7 +184,10 @@ export const resolveClinicAction = (input: {
   const pool = player.recoveryPool ?? [];
   const fresh = pool.filter((entry) => isRecoveryEntryFresh(entry, nowTick, ttlTicks, ttlMs));
   const expired = pool.filter((entry) => !fresh.includes(entry));
-  const recoverableFresh = fresh.filter((entry) => isClinicRecoverableItem(entry.itemType));
+  const recoverableFresh = fresh.filter((entry) => (
+    isClinicRecoverableItem(entry.itemType)
+    && resolveWholeRecoveryAmount(entry) > 0
+  ));
   const recyclingFresh = fresh.filter((entry) => !isClinicRecoverableItem(entry.itemType));
   const baseRate = resolveClinicRecoveryRatePctForPlayer(input.state, input.playerId, input.clinicConfig, input.powerStationConfig) / 100;
   const nextBalances: Record<string, number> = {
@@ -233,7 +268,7 @@ export const validateClinicAction = (input: {
   const hasFresh = (player?.recoveryPool ?? []).some((entry) =>
     isRecoveryEntryFresh(entry, input.state.root.tick, ttlTicks, ttlMs)
     && isClinicRecoverableItem(entry.itemType)
-    && Number(entry.amount || 0) > 0
+    && resolveWholeRecoveryAmount(entry) > 0
   );
   return hasFresh ? null : "clinic_recovery_pool_empty";
 };

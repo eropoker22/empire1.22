@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { createAllianceInviteResponseEligibility } from "../../page-assets/js/app/runtime/allianceInviteViewModel.js";
+import {
+  createAllianceInviteResponseEligibility,
+  resolveAllianceInviteDraftTargetPlayerId
+} from "../../page-assets/js/app/runtime/allianceInviteViewModel.js";
 
 describe("alliance invite response eligibility", () => {
   it("lets the validated target player answer a direct member invite", () => {
@@ -49,5 +52,35 @@ describe("alliance invite response eligibility", () => {
       currentPlayerId: "player:2",
       activeAlliance: { currentPlayerRole: "leader" }
     }).canRespond).toBe(true);
+  });
+});
+
+describe("alliance invite draft target", () => {
+  const draft = { allianceId: "alliance:1", targetPlayerId: "player:2" };
+  const inviteTargets = [
+    { playerId: "player:2", canInvite: true },
+    { playerId: "player:3", canInvite: false }
+  ];
+
+  it("preserves an eligible target across an authoritative rerender", () => {
+    expect(resolveAllianceInviteDraftTargetPlayerId({
+      draft,
+      allianceId: "alliance:1",
+      canInvite: true,
+      inviteTargets
+    })).toBe("player:2");
+  });
+
+  it.each([
+    ["another alliance", { allianceId: "alliance:other", canInvite: true, inviteTargets }],
+    ["lost permission", { allianceId: "alliance:1", canInvite: false, inviteTargets }],
+    ["missing target", { allianceId: "alliance:1", canInvite: true, inviteTargets: [] }],
+    ["disabled target", {
+      allianceId: "alliance:1",
+      canInvite: true,
+      inviteTargets: [{ playerId: "player:2", canInvite: false }]
+    }]
+  ])("clears the draft for %s", (_caseName, input) => {
+    expect(resolveAllianceInviteDraftTargetPlayerId({ draft, ...input })).toBe("");
   });
 });

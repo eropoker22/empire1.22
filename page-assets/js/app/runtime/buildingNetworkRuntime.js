@@ -355,7 +355,16 @@ export function createBuildingNetworkRuntime(deps = {}) {
   };
   const getClinicRecoveryRatePct = (count = getOwnedClinicCount()) => {
     const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
-    return Math.min(deps.clinicMaxRecoveryRatePct, deps.clinicBaseRecoveryRatePct + extra * deps.clinicRecoveryRatePctPerExtra);
+    const baseRate = deps.clinicBaseRecoveryRatePct + extra * deps.clinicRecoveryRatePctPerExtra;
+    const infrastructureBonusPct = getPowerStationInfrastructureBonusPct();
+    const infrastructureWeight = Math.max(
+      0,
+      Number(deps.powerStationConfig?.clinicRecoveryRateInfrastructureWeight || 0)
+    );
+    return Math.min(
+      deps.clinicMaxRecoveryRatePct,
+      baseRate * (1 + infrastructureBonusPct * infrastructureWeight / 100)
+    );
   };
 
   const getOwnedPowerStationCount = () => countOwnedBuildingByBaseName("energeticka stanice");
@@ -370,6 +379,20 @@ export function createBuildingNetworkRuntime(deps = {}) {
       cameraStrengthBonusPct: Math.min(config.maxCameraStrengthBonusPct, safeCount * config.cameraStrengthBonusPctPerStation),
       alarmStrengthBonusPct: Math.min(config.maxAlarmStrengthBonusPct, safeCount * config.alarmStrengthBonusPctPerStation)
     };
+  };
+  const getPowerStationInfrastructureBonusPct = (count = getOwnedPowerStationCount()) => {
+    const ownedCount = Math.max(0, Math.floor(Number(count || 0)));
+    const baseBonusPct = getPowerStationNetworkMultipliers(ownedCount).infrastructureBonusPct;
+    const currentTime = Number(deps.getCurrentTime?.() ?? Date.now());
+    const backupGridExpiresAt = Number(deps.getPowerStationBackupGridExpiresAt?.() || 0);
+    const temporaryBonusPct = Math.max(
+      0,
+      Number(deps.powerStationConfig?.backupGridSwitch?.temporaryInfrastructureBonusPct || 0)
+    );
+    return Math.max(
+      0,
+      baseBonusPct + (ownedCount > 0 && backupGridExpiresAt > currentTime ? temporaryBonusPct : 0)
+    );
   };
 
   const getOwnedRecyclingCenterCount = () => countOwnedBuildingByBaseName("recyklacni centrum");
@@ -411,6 +434,7 @@ export function createBuildingNetworkRuntime(deps = {}) {
     getOwnedShoppingMallCountForMarket,
     getOwnedSmugglingTunnelCount,
     getOwnedWarehouseCount,
+    getPowerStationInfrastructureBonusPct,
     getPowerStationNetworkMultipliers,
     getRecyclingCenterNetworkMultipliers,
     getRecruitmentCenterNetworkMultipliers,

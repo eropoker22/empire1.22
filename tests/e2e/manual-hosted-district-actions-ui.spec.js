@@ -47,6 +47,8 @@ test.describe("manual hosted district actions through visible UI", () => {
       expect(occupy.request.command.payload.sourceDistrictId).toBe(occupy.projection.sourceDistrictId);
 
       await assertPersistedReport(creator.page, "district:6", "occupy-district");
+      await assertPersistedReport(creator.page, "district:25", "spy-district");
+      await assertPersistedReport(creator.page, "district:24", "rob-district");
       await assertPersistedReport(target.page, "district:4", "heist-district");
       await assertPersistedReport(hunter.page, "district:2", "attack-district");
 

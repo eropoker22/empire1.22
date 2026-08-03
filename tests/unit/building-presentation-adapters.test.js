@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createServerBuildingActionExecutionPresentation,
+  createWarehouseStorageCompatibilityView,
   LocalDemoBuildingPresentationAdapter,
   resolveSharedBuildingBackgroundImagePath,
   ServerBuildingPresentationAdapter
@@ -30,10 +31,13 @@ function createServerBuildingDetail({
   buildingTypeId,
   displayName = baseName,
   actions = [],
+  mechanics = null,
   maxLevel = 1,
   ownedCount = null,
   passive = null,
   populationBuffer = null,
+  districtOwnerPlayerId = "player:1",
+  isOwnedByPlayer = true,
   playerState = {},
   policeState = null,
   stats = []
@@ -46,11 +50,12 @@ function createServerBuildingDetail({
     level: 2,
     maxLevel,
     status: "active",
-    presentation: passive || ownedCount !== null || populationBuffer
+    presentation: passive || ownedCount !== null || populationBuffer || mechanics
       ? {
           ...(ownedCount !== null ? { ownedCount } : {}),
           ...(passive ? { passive } : {}),
-          ...(populationBuffer ? { populationBuffer } : {})
+          ...(populationBuffer ? { populationBuffer } : {}),
+          ...(mechanics ? { mechanics } : {})
         }
       : null,
     stats,
@@ -67,8 +72,8 @@ function createServerBuildingDetail({
       ...(policeState ? { police: policeState } : {}),
       district: {
         districtId: "district:21",
-        ownerPlayerId: "player:1",
-        isOwnedByPlayer: true,
+        ownerPlayerId: districtOwnerPlayerId,
+        isOwnedByPlayer,
         intelKnown: true,
         status: "claimed",
         zone: "commercial",
@@ -731,6 +736,298 @@ describe("shared building presentation adapters", () => {
         expect.stringContaining("o 1.5%."),
         expect.stringContaining("přidá +2%")
       ])
+    );
+  });
+
+  it("maps recycling and smuggling support from authoritative stat labels", () => {
+    const recyclingCenter = createServerBuildingDetail({
+      baseName: "Recyklační centrum",
+      buildingTypeId: "recycling_center",
+      ownedCount: 1,
+      playerState: { economy: { cleanCash: 5_000 } },
+      stats: [
+        { label: "Návrat itemů", value: "12 %" },
+        { label: "Síťový income", value: "+4 %" }
+      ],
+      actions: [{
+        actionId: "extract_losses",
+        label: "Vytěžit ztráty",
+        enabled: false,
+        disabledReason: "Nemáš žádné itemové ztráty k vytěžení.",
+        effectiveInputCost: { cash: 900 },
+        cooldownMs: 16 * 60 * 1000
+      }]
+    });
+    const smugglingTunnel = createServerBuildingDetail({
+      baseName: "Pašovací tunel",
+      buildingTypeId: "smuggling_tunnel",
+      ownedCount: 1,
+      stats: [
+        { label: "Podpora Pouličních dealerů", value: "+4 %" },
+        { label: "Dirty bonus sítě", value: "+5 %" },
+        { label: "Heat bonus sítě", value: "+3 %" }
+      ]
+    });
+
+    expect(recyclingCenter.viewModel.mechanics).toContainEqual(expect.objectContaining({
+      label: "Vytěžit ztráty",
+      value: "Vrátí 12 % čerstvých itemových ztrát."
+    }));
+    expect(recyclingCenter.viewModel.mechanics).toContainEqual(expect.objectContaining({
+      label: "Síť center",
+      value: "Více center zvedá clean +4 % a heat +0 %."
+    }));
+    expect(recyclingCenter.viewModel.actions[0].disabledReason).toBe(
+      "Nemáš žádné ztráty k vytěžení."
+    );
+    expect(smugglingTunnel.viewModel.effects.map((effect) => effect.text)).toContain(
+      "Pouliční dealeři +4% z pašovacích tunelů"
+    );
+    expect(smugglingTunnel.viewModel.mechanics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        label: "Pouliční dealeři",
+        value: "Prodej z Labu: rychlost +1.4% · cena zůstává pevná."
+      }),
+      expect.objectContaining({
+        label: "Pouliční riziko",
+        value: "Riziko při prodeji -1.6% · heat z prodeje +0.8%."
+      })
+    ]));
+    expect(smugglingTunnel.viewModel.stats).toContainEqual({
+      label: "Síť",
+      value: "dirty tok +5 % · heat +3 %"
+    });
+  });
+
+  it("maps garage and fitness values from their canonical projection labels", () => {
+    const garage = createServerBuildingDetail({
+      baseName: "Garáž",
+      buildingTypeId: "garage",
+      ownedCount: 1,
+      stats: [{ label: "Zkrácení čekání", value: "-2 %" }]
+    });
+    const fitnessClub = createServerBuildingDetail({
+      baseName: "Fitness club",
+      buildingTypeId: "fitness_club",
+      ownedCount: 1,
+      stats: [
+        { label: "Síla útoku", value: "+3 %" },
+        { label: "Síla obrany", value: "+2 %" },
+        { label: "Cap útoku", value: "+24 %" },
+        { label: "Cap obrany", value: "+18 %" }
+      ]
+    });
+
+    expect(garage.viewModel.stats).toContainEqual({ label: "Cooldowny", value: "-2%" });
+    expect(garage.viewModel.effects.map((effect) => effect.text)).toContain("Cooldowny -2%");
+    expect(fitnessClub.viewModel.stats).toEqual(expect.arrayContaining([
+      { label: "Útok", value: "+3%" },
+      { label: "Obrana", value: "+2%" },
+      { label: "Cap s rekrutací", value: "+24% / +18%" }
+    ]));
+  });
+
+  it("derives local and hosted warehouse warnings from the same storage summary", () => {
+    const warehouseStorage = createWarehouseStorageCompatibilityView({
+      warehouseSummary: {
+        ownedWarehouseCount: 1,
+        highestWarehouseLevel: 1,
+        warehouseCountMultiplier: 1.5,
+        warehouseLevelMultiplier: 1,
+        totalCapacityMultiplier: 1.5
+      },
+      groups: [{
+        id: "strategic",
+        label: "Strategické zásoby",
+        baseCapacity: 8,
+        currentCapacity: 12,
+        items: [{
+          resourceKey: "smg",
+          label: "Samopal",
+          currentAmount: 200,
+          maxAmount: 12,
+          fillPercent: 1_666.67,
+          isNearCapacity: false,
+          isFull: false,
+          isOverCapacity: true
+        }]
+      }]
+    });
+
+    expect(warehouseStorage.capacity?.strategic).toBe(12);
+    expect(warehouseStorage.usage?.byResource.smg).toBe(200);
+    expect(warehouseStorage.warnings).toEqual([
+      "Některá položka v globálním SKLADU je plná.",
+      "Získej další Skladiště nebo spotřebuj konkrétní položku."
+    ]);
+  });
+
+  it("uses typed clinic and exchange mechanics while preserving explicit zero values", () => {
+    const clinic = createServerBuildingDetail({
+      baseName: "Klinika",
+      buildingTypeId: "clinic",
+      ownedCount: 1,
+      mechanics: {
+        clinic: {
+          recoveryRatePct: 15,
+          recoveryPool: {
+            totalFreshAmount: 7,
+            fresh: [{ id: "recovery:1", itemType: "population", amount: 7, source: "attack" }]
+          },
+          network: { incomeMultiplier: 1, heatMultiplier: 1 }
+        }
+      }
+    });
+    const emptyClinic = createServerBuildingDetail({
+      baseName: "Klinika",
+      buildingTypeId: "clinic",
+      ownedCount: 1,
+      playerState: { economy: { cleanCash: 5_000 } },
+      actions: [{
+        actionId: "stabilization_protocol",
+        label: "Stabilizační protokol",
+        enabled: false,
+        disabledReason: "Žádné ztráty k léčbě.",
+        effectiveInputCost: { cash: 1_200 },
+        cooldownMs: 18 * 60 * 1_000
+      }],
+      mechanics: {
+        clinic: {
+          recoveryRatePct: 0,
+          recoveryPool: { totalFreshAmount: 0, fresh: [] },
+          network: { incomeMultiplier: 1, heatMultiplier: 1 }
+        }
+      }
+    });
+    const exchange = createServerBuildingDetail({
+      baseName: "Směnárna",
+      buildingTypeId: "exchange",
+      ownedCount: 1,
+      mechanics: {
+        exchange: {
+          launderingCapacity: 6_000,
+          auditRiskPct: 4,
+          network: { incomeMultiplier: 1, launderingLimitMultiplier: 1, heatMultiplier: 1 }
+        }
+      }
+    });
+
+    expect(clinic.viewModel.stats).toEqual(expect.arrayContaining([
+      { label: "Recovery rate", value: "15 %" },
+      { label: "Recovery pool", value: "7 položek" }
+    ]));
+    expect(emptyClinic.viewModel.stats).toEqual(expect.arrayContaining([
+      { label: "Recovery rate", value: "0 %" },
+      { label: "Recovery pool", value: "0 položek" }
+    ]));
+    expect(emptyClinic.viewModel.actions[0]).toMatchObject({
+      disabled: true,
+      disabledReason: "Žádné ztráty k léčbě.",
+      description: "Žádné ztráty k léčbě."
+    });
+    expect(exchange.viewModel.stats).toEqual(expect.arrayContaining([
+      { label: "Kapacita praní", value: "$6000" },
+      { label: "Audit risk", value: "4 %" }
+    ]));
+  });
+
+  it("maps authoritative player storage into the shared warehouse summary", () => {
+    const storage = {
+      warehouseSummary: {
+        ownedWarehouseCount: 2,
+        highestWarehouseLevel: 2,
+        warehouseCountMultiplier: 1.6,
+        warehouseLevelMultiplier: 1.12,
+        totalCapacityMultiplier: 1.792
+      },
+      groups: [{
+        id: "bulk",
+        label: "Hromadné zásoby",
+        baseCapacity: 60,
+        currentCapacity: 108,
+        items: [{
+          resourceKey: "chemicals",
+          label: "Chemicals",
+          currentAmount: 0,
+          maxAmount: 108,
+          fillPercent: 0,
+          isNearCapacity: false,
+          isFull: false,
+          isOverCapacity: false
+        }]
+      }],
+      pendingDeliveries: []
+    };
+    const warehouse = createServerBuildingDetail({
+      baseName: "Skladiště",
+      buildingTypeId: "warehouse",
+      ownedCount: 9,
+      playerState: { storage },
+      mechanics: {
+        warehouse: {
+          network: { incomeMultiplier: 1.04, storageCapacityMultiplier: 1.6, heatMultiplier: 1.03 }
+        }
+      }
+    });
+
+    expect(warehouse.viewModel.countLabel).toBe("Počet: 2");
+    expect(warehouse.viewModel.stats).toEqual(expect.arrayContaining([
+      { label: "Síť skladišť", value: "2" },
+      { label: "Celkový násobitel", value: "x1.79" },
+      { label: "Hromadné zásoby", value: "108 ks na položku" }
+    ]));
+    expect(warehouse.viewModel.effects.map((effect) => effect.text)).toContain(
+      "Síť skladišť zvyšuje Income +4 %, kapacitu +79 % i Heat +3 %."
+    );
+    expect(warehouse.viewModel.effects.map((effect) => effect.text)).not.toContain(
+      "Některá položka v globálním SKLADU je plná."
+    );
+  });
+
+  it("does not mix viewer storage into a foreign warehouse without projected mechanics", () => {
+    const viewerStorage = {
+      warehouseSummary: {
+        ownedWarehouseCount: 7,
+        highestWarehouseLevel: 4,
+        warehouseCountMultiplier: 1.9,
+        warehouseLevelMultiplier: 1.4,
+        totalCapacityMultiplier: 2.66
+      },
+      groups: [{
+        id: "bulk",
+        label: "Hromadné zásoby",
+        baseCapacity: 60,
+        currentCapacity: 160,
+        items: [{
+          resourceKey: "chemicals",
+          label: "Chemicals",
+          currentAmount: 160,
+          maxAmount: 160,
+          fillPercent: 100,
+          isNearCapacity: true,
+          isFull: true,
+          isOverCapacity: false
+        }]
+      }],
+      pendingDeliveries: []
+    };
+    const warehouse = createServerBuildingDetail({
+      baseName: "Skladiště",
+      buildingTypeId: "warehouse",
+      districtOwnerPlayerId: "player:2",
+      isOwnedByPlayer: false,
+      ownedCount: 3,
+      playerState: { storage: viewerStorage }
+    });
+
+    expect(warehouse.viewModel.stats).not.toContainEqual({ label: "Síť skladišť", value: "7" });
+    expect(warehouse.viewModel.stats).not.toContainEqual({ label: "Celkový násobitel", value: "x2.66" });
+    expect(warehouse.viewModel.stats).not.toContainEqual({
+      label: "Hromadné zásoby",
+      value: "160 ks na položku"
+    });
+    expect(warehouse.viewModel.effects.map((effect) => effect.text)).not.toContain(
+      "Některá položka v globálním SKLADU je plná."
     );
   });
 

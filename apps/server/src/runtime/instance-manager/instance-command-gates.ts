@@ -16,6 +16,7 @@ const ENTITY_REVALIDATED_CONFLICT_COMMAND_TYPES = new Set<GameCommand["type"]>([
   "collect-production",
   "craft-item",
   "heist-district",
+  "invite-alliance-member",
   "occupy-district",
   "rob-district",
   "spy-district",
@@ -24,6 +25,8 @@ const ENTITY_REVALIDATED_CONFLICT_COMMAND_TYPES = new Set<GameCommand["type"]>([
   "remove-defense",
   "place-trap",
   "relocate-trap",
+  "respond-alliance-invite",
+  "send-alliance-chat-message",
   "upgrade-building"
 ]);
 

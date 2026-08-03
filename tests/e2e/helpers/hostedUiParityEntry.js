@@ -33,7 +33,7 @@ async function registerAccount(page, identity) {
   await page.setExtraHTTPHeaders({
     "x-forwarded-for": identity.networkIdentifier
   });
-  await page.goto("/pages/login.html");
+  await page.goto("/pages/login.html", { waitUntil: "domcontentloaded" });
   const registrationOpen = page.locator("[data-login-registration-open]");
   await expect(registrationOpen).toBeEnabled({ timeout: 30_000 });
   await registrationOpen.click();
@@ -475,7 +475,7 @@ export async function loginAndResumeHostedUiParityGame(page, {
       "x-forwarded-for": networkIdentifier
     });
   }
-  await page.goto("/pages/login.html");
+  await page.goto("/pages/login.html", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#login-username")).toBeEnabled({ timeout: 30_000 });
   await page.locator("#login-username").fill(username);
   await page.locator("#login-password").fill(password);

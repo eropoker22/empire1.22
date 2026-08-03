@@ -32,6 +32,7 @@ import {
 } from "./helpers/uiParityDebugBuildingFilter.js";
 import {
   buildingPopulationBufferDynamicValueSelector,
+  captureStableHostedPopulationParitySnapshot,
   captureParitySurface,
   captureGameChromeScreenshot,
   captureIsolatedParityScreenshot,
@@ -59,8 +60,7 @@ import {
   readVisibleDistrictBuildingTypeIds,
   resolveBuildingParitySurfaceName,
   selectProductionBuildingTab,
-  settleParityPage,
-  syncParityLocalDemoPopulationBufferFromHosted
+  settleParityPage
 } from "./helpers/uiParityCapture.js";
 
 const captureEnabled = process.env.EMPIRE_CAPTURE_UI_PARITY_BASELINE === "1";
@@ -519,12 +519,13 @@ async function compareOpenBuildingParity(
 ) {
   const screenshotComparisons = [];
   await openBuildingFromDistrict(serverPage, buildingTypeId);
-  await syncParityLocalDemoPopulationBufferFromHosted(
+  const stablePopulationCapture = await captureStableHostedPopulationParitySnapshot(
     localPage,
     serverPage,
-    buildingTypeId
+    buildingTypeId,
+    () => readOpenBuildingParity(serverPage, buildingTypeId)
   );
-  const serverStats = await readOpenBuildingParity(serverPage, buildingTypeId);
+  const serverStats = stablePopulationCapture.hostedSnapshot;
   await openBuildingFromDistrict(localPage, buildingTypeId);
   const localStats = await readOpenBuildingParity(localPage, buildingTypeId);
 

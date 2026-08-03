@@ -225,6 +225,95 @@ describe("headless gameplay slice page", () => {
     mounted?.destroy();
   });
 
+  it("keeps polling from hiding an in-flight command response", async () => {
+    vi.useFakeTimers();
+    const load = vi.fn(async () => createGameplaySliceResponse());
+    let resolveSend!: (response: GameplaySliceResponse) => void;
+    const send = vi.fn(() => new Promise<GameplaySliceResponse>((resolve) => {
+      resolveSend = resolve;
+    }));
+    const root = createRoot();
+    root.dataset.gameplaySlicePolling = "true";
+    root.dataset.gameplaySlicePollingIntervalMs = "10";
+    document.body.append(root);
+    const mounted = mountGameplaySlicePage({ root, transport: { load, send } });
+    await flushMicrotasks();
+    const command = {
+      id: "command:trap:poll-race",
+      type: "place-trap",
+      mode: "free",
+      playerId: PLAYER_ID,
+      serverInstanceId: SERVER_INSTANCE_ID,
+      issuedAt: "2025-01-01T00:00:00.000Z",
+      clientRequestId: null,
+      payload: { districtId: HOME_DISTRICT_ID }
+    } as GameCommand;
+
+    const resultPromise = window.EmpireGameplaySliceClient?.submitCommand(command);
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(10);
+    await flushMicrotasks();
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(load).toHaveBeenCalledTimes(1);
+
+    resolveSend({
+      accepted: false,
+      readModel: createGameplaySliceView(),
+      errors: [{
+        code: "server.state_version_conflict",
+        message: "Command expectedStateVersion does not match the current server state version."
+      }]
+    });
+    const result = await resultPromise;
+
+    expect(result).toMatchObject({
+      accepted: false,
+      transportFailure: false,
+      errors: [{ code: "server.state_version_conflict" }]
+    });
+
+    await vi.advanceTimersByTimeAsync(10);
+    await flushMicrotasks();
+    expect(load).toHaveBeenCalledTimes(2);
+    mounted?.destroy();
+  });
+
+  it("publishes recovery after a failed poll and an unchanged successful response", async () => {
+    vi.useFakeTimers();
+    let loadCalls = 0;
+    const load = vi.fn(async () => {
+      loadCalls += 1;
+      if (loadCalls === 2) throw new Error("temporary poll failure");
+      return createGameplaySliceResponse();
+    });
+    const connectionStatuses: string[] = [];
+    const handleConnectionState = (event: Event) => {
+      connectionStatuses.push(String((event as CustomEvent).detail?.status || ""));
+    };
+    document.addEventListener("empire:gameplay-connection-state", handleConnectionState);
+    const root = createRoot();
+    root.dataset.gameplaySlicePolling = "true";
+    root.dataset.gameplaySlicePollingIntervalMs = "10";
+    document.body.append(root);
+    const mounted = mountGameplaySlicePage({
+      root,
+      transport: { load, send: async () => createGameplaySliceResponse() }
+    });
+    await flushMicrotasks();
+
+    await vi.advanceTimersByTimeAsync(10);
+    await flushMicrotasks();
+    expect(connectionStatuses).toEqual(["ready", "stale"]);
+
+    await vi.advanceTimersByTimeAsync(20);
+    await flushMicrotasks();
+    expect(connectionStatuses).toEqual(["ready", "stale", "ready"]);
+
+    document.removeEventListener("empire:gameplay-connection-state", handleConnectionState);
+    mounted?.destroy();
+  });
+
   it("polls the requested district while its selection response is pending", async () => {
     vi.useFakeTimers();
     const requests: LoadGameplaySliceRequest[] = [];

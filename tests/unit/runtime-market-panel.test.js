@@ -360,6 +360,45 @@ describe("market panel renderer", () => {
     expect(onBuyListing).toHaveBeenCalledWith(expect.objectContaining({ id: "listing-1" }));
   });
 
+  it("restores a player market sell draft after an authoritative rerender", () => {
+    const container = createContainer();
+    const onCreateListing = vi.fn();
+    let formState = null;
+    const viewModel = {
+      sellableItems: [{ inventory: "materials", itemId: "chemicals", name: "Chemicals", amount: 20 }],
+      ownListingCount: 0,
+      ownListingLimit: 4,
+      listings: []
+    };
+    const callbacks = {
+      getSuggestedUnitPrice: () => 125,
+      onCreateListing,
+      onFormStateChange: (nextFormState) => {
+        formState = nextFormState;
+      }
+    };
+
+    renderPlayerMarketPanel(container, viewModel, callbacks);
+    const inputs = findAllByClass(container, "market-player-input");
+    inputs[1].value = "10";
+    inputs[1].dispatch("input");
+    inputs[2].value = "15";
+    inputs[2].dispatch("input");
+    inputs[3].value = "dirtyMoney";
+    inputs[3].dispatch("change");
+
+    container.replaceChildren();
+    renderPlayerMarketPanel(container, { ...viewModel, formState }, callbacks);
+    findByClass(container, "market-player-sell-button").dispatch("click");
+
+    expect(onCreateListing).toHaveBeenCalledWith(expect.objectContaining({
+      requestedAmount: 10,
+      unitPrice: 15,
+      currency: "dirtyMoney"
+    }));
+    expect(formState).toBeNull();
+  });
+
   it("opens, closes, and renders feedback without crashing", () => {
     const popup = createContainer();
     const feedback = createContainer();

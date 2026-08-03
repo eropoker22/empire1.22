@@ -106,6 +106,31 @@ describe("district building data", () => {
     }
   });
 
+  it("keeps non-spawn VIP Lounge and Parliament passives aligned in runtime and client copies", () => {
+    for (const rules of [
+      {
+        income: DISTRICT_BUILDING_MINUTE_INCOME_RULES_EMPIRE2,
+        heat: DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2,
+        influence: DISTRICT_BUILDING_MINUTE_INFLUENCE_RULES_EMPIRE2
+      },
+      {
+        income: CLIENT_DISTRICT_BUILDING_MINUTE_INCOME_RULES_EMPIRE2,
+        heat: CLIENT_DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2,
+        influence: CLIENT_DISTRICT_BUILDING_MINUTE_INFLUENCE_RULES_EMPIRE2
+      }
+    ]) {
+      expect(Number(rules.income["VIP salonek"].clean)).toBe(105);
+      expect(Number(rules.income["VIP salonek"].dirty)).toBe(30);
+      expect(Number(rules.heat["VIP salonek"].heat)).toBe(0.13);
+      expect(Number(rules.influence["VIP salonek"].influence)).toBe(0.48);
+
+      expect(Number(rules.income.Parlament.clean)).toBe(22);
+      expect(Number(rules.income.Parlament.dirty)).toBe(3);
+      expect(Number(rules.heat.Parlament.heat) * 60 * 24).toBeCloseTo(3, 10);
+      expect(Number(rules.influence.Parlament.influence) * 60 * 24).toBeCloseTo(40, 10);
+    }
+  });
+
   it("keeps park fallback values aligned in runtime and client copies except drug lab", () => {
     for (const rules of [
       {

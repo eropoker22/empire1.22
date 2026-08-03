@@ -174,6 +174,7 @@ export function createMarketPopupRuntime(deps = {}) {
 
     let activeTab = "market";
     let hideServerRecentTransactions = false;
+    let playerMarketFormState = null;
 
     const stockAdapterOptions = {
       clamp: deps.clamp,
@@ -258,11 +259,21 @@ export function createMarketPopupRuntime(deps = {}) {
           playerView: serverPlayerView,
           formatPrice: deps.formatMarketPrice
         });
-        deps.renderPlayerMarketPanel?.(listElement, playerMarketViewModel, createServerPlayerMarketCallbacks({
-          submitServerMarketCommand: deps.submitServerMarketCommand,
-          setMarketFeedback,
-          refreshMarketTab: renderMarketTab
-        }));
+        deps.renderPlayerMarketPanel?.(listElement, {
+          ...playerMarketViewModel,
+          formState: playerMarketFormState
+        }, {
+          ...createServerPlayerMarketCallbacks({
+            submitServerMarketCommand: deps.submitServerMarketCommand,
+            setMarketFeedback,
+            refreshMarketTab: renderMarketTab
+          }),
+          onFormStateChange: (nextFormState) => {
+            playerMarketFormState = nextFormState && typeof nextFormState === "object"
+              ? nextFormState
+              : null;
+          }
+        });
         return;
       }
       const { viewModel: playerMarketViewModel } = deps.createPlayerMarketPanelPayload?.({
@@ -280,34 +291,44 @@ export function createMarketPopupRuntime(deps = {}) {
         formatPrice: deps.formatMarketPrice
       }) || { viewModel: {} };
 
-      deps.renderPlayerMarketPanel?.(listElement, playerMarketViewModel, deps.createPlayerMarketCallbacks?.({
-        root,
-        priceState,
-        playerMarketViewModel,
-        serverScope,
-        sellerId: deps.MARKET_PLAYER_SELLER_ID,
-        playerTabId: deps.MARKET_PLAYER_TAB_ID,
-        ownListingLimit: deps.MARKET_PLAYER_OWN_LISTING_LIMIT,
-        listingLimit: deps.MARKET_PLAYER_LISTING_LIMIT,
-        listingTtlMs: deps.MARKET_PLAYER_LISTING_TTL_MS,
-        getSuggestedPlayerMarketUnitPrice: deps.getSuggestedPlayerMarketUnitPrice,
-        setMarketFeedback,
-        setInventoryAmount: deps.setInventoryAmount,
-        getInventoryAmount: deps.getInventoryAmount,
-        getCurrentPlayerIdentityLabel: deps.getCurrentPlayerIdentityLabel,
-        commitMarketState,
-        normalizePlayerMarketListings: deps.normalizePlayerMarketListings,
-        normalizeMarketTransactions: deps.normalizeMarketTransactions,
-        createTransaction: deps.createMarketTransaction,
-        formatMarketPrice: deps.formatMarketPrice,
-        applyTopbarEconomy: deps.applyTopbarEconomy,
-        refreshMarketTab: renderMarketTab,
-        getResolvedEconomyState: deps.getResolvedEconomyState,
-        setStoredEconomyState: deps.setStoredEconomyState,
-        resolveBlackMarketHeatRisk,
-        addGangHeat: deps.addGangHeat,
-        getListingTotal: deps.getMarketListingTotal
-      }));
+      deps.renderPlayerMarketPanel?.(listElement, {
+        ...playerMarketViewModel,
+        formState: playerMarketFormState
+      }, {
+        ...deps.createPlayerMarketCallbacks?.({
+          root,
+          priceState,
+          playerMarketViewModel,
+          serverScope,
+          sellerId: deps.MARKET_PLAYER_SELLER_ID,
+          playerTabId: deps.MARKET_PLAYER_TAB_ID,
+          ownListingLimit: deps.MARKET_PLAYER_OWN_LISTING_LIMIT,
+          listingLimit: deps.MARKET_PLAYER_LISTING_LIMIT,
+          listingTtlMs: deps.MARKET_PLAYER_LISTING_TTL_MS,
+          getSuggestedPlayerMarketUnitPrice: deps.getSuggestedPlayerMarketUnitPrice,
+          setMarketFeedback,
+          setInventoryAmount: deps.setInventoryAmount,
+          getInventoryAmount: deps.getInventoryAmount,
+          getCurrentPlayerIdentityLabel: deps.getCurrentPlayerIdentityLabel,
+          commitMarketState,
+          normalizePlayerMarketListings: deps.normalizePlayerMarketListings,
+          normalizeMarketTransactions: deps.normalizeMarketTransactions,
+          createTransaction: deps.createMarketTransaction,
+          formatMarketPrice: deps.formatMarketPrice,
+          applyTopbarEconomy: deps.applyTopbarEconomy,
+          refreshMarketTab: renderMarketTab,
+          getResolvedEconomyState: deps.getResolvedEconomyState,
+          setStoredEconomyState: deps.setStoredEconomyState,
+          resolveBlackMarketHeatRisk,
+          addGangHeat: deps.addGangHeat,
+          getListingTotal: deps.getMarketListingTotal
+        }),
+        onFormStateChange: (nextFormState) => {
+          playerMarketFormState = nextFormState && typeof nextFormState === "object"
+            ? nextFormState
+            : null;
+        }
+      });
     };
 
     const renderMarketTab = () => {
@@ -460,6 +481,7 @@ export function createMarketPopupRuntime(deps = {}) {
     };
 
     const closePopup = () => {
+      playerMarketFormState = null;
       deps.closeMarketPanel?.(popup);
     };
 
@@ -471,6 +493,9 @@ export function createMarketPopupRuntime(deps = {}) {
           return;
         }
 
+        if (activeTab === deps.MARKET_PLAYER_TAB_ID && tab.dataset.marketTab !== activeTab) {
+          playerMarketFormState = null;
+        }
         activeTab = tab.dataset.marketTab;
         setMarketFeedback("", "");
         renderMarketTab();

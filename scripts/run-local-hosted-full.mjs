@@ -56,8 +56,16 @@ const hostedSuites = Object.freeze([
         grep: "canonical building parity coverage contract|live/demo shared presentation parity"
       }),
       Object.freeze({
-        name: "spawn-building-matrix",
-        grep: "live/demo spawn-reachable canonical building matrix"
+        name: "spawn-building-matrix-a",
+        grep: "commercial-mall-pharmacy|residential-arcade-garage|park-distribution"
+      }),
+      Object.freeze({
+        name: "spawn-building-matrix-b",
+        grep: "industrial-recycle|industrial-armory-warehouse|residential-recovery|industrial-power"
+      }),
+      Object.freeze({
+        name: "spawn-building-matrix-c",
+        grep: "park-night-cover|park-drug-lab|commercial-mobility-exchange|residential-school|commercial-fitness"
       }),
       Object.freeze({
         name: "utility-modals",
@@ -72,6 +80,26 @@ const hostedSuites = Object.freeze([
   Object.freeze({
     name: "ui-parity-social",
     gameplayInteraction: "visible-browser-opening-and-observation",
+    playwrightGroups: Object.freeze([
+      Object.freeze({
+        name: "social-batches-a",
+        environment: Object.freeze({
+          EMPIRE_UI_PARITY_SOCIAL_BATCH_KEYS: "social-01,social-02"
+        })
+      }),
+      Object.freeze({
+        name: "social-batches-b",
+        environment: Object.freeze({
+          EMPIRE_UI_PARITY_SOCIAL_BATCH_KEYS: "social-03,social-04"
+        })
+      }),
+      Object.freeze({
+        name: "social-batches-c",
+        environment: Object.freeze({
+          EMPIRE_UI_PARITY_SOCIAL_BATCH_KEYS: "social-05"
+        })
+      })
+    ]),
     specs: Object.freeze(["tests/e2e/live-demo-social-modal-parity.spec.js"])
   }),
   Object.freeze({
@@ -142,6 +170,20 @@ const hostedSuites = Object.freeze([
     gameplayInteraction: "visible-browser-opening-and-observation",
     scenario: "building-parity-non-spawn",
     bootstrapIdentityPrefix: "HostedNonSpawnParity",
+    playwrightGroups: Object.freeze([
+      Object.freeze({
+        name: "non-spawn-matrix-a",
+        environment: Object.freeze({
+          EMPIRE_UI_PARITY_NON_SPAWN_KEYS: "casino,court-vip-lounge,central-bank,stock-exchange"
+        })
+      }),
+      Object.freeze({
+        name: "non-spawn-matrix-b",
+        environment: Object.freeze({
+          EMPIRE_UI_PARITY_NON_SPAWN_KEYS: "city-hall-parliament,airport-lobby-club,port"
+        })
+      })
+    ]),
     specs: Object.freeze(["tests/e2e/live-hosted-non-spawn-building-parity.spec.js"])
   }),
   Object.freeze({
@@ -170,6 +212,14 @@ const hostedSuites = Object.freeze([
     playerCount: 3,
     identityPrefix: "HostedSocial",
     specs: Object.freeze(["tests/e2e/live-hosted-social-visible-ui.spec.js"])
+  }),
+  Object.freeze({
+    name: "social-concurrency-privacy",
+    gameplayInteraction: "mixed-visible-browser-ui-and-direct-authoritative-api",
+    scenario: "social-concurrency-privacy",
+    playerCount: 5,
+    identityPrefix: "HostedSocialRace",
+    specs: Object.freeze(["tests/e2e/live-hosted-social-concurrency-privacy.spec.js"])
   }),
   Object.freeze({
     name: "lifecycle-stop",
@@ -303,10 +353,13 @@ const environment = {
   EMPIRE_HOSTED_STARTING_PLAYER_STATE_JSON: JSON.stringify(HOSTED_E2E_STARTING_PLAYER_STATE)
 };
 
-const runNode = (name, args, timeoutMs) => runManagedCommand({
+const runNode = (name, args, timeoutMs, environmentOverrides = {}) => runManagedCommand({
   name,
   args,
-  environment,
+  environment: {
+    ...environment,
+    ...environmentOverrides
+  },
   logDirectory: runDirectory,
   timeoutMs
 });
@@ -623,7 +676,10 @@ try {
       const configuredPlaywrightGroups = suite.playwrightGroups || [{ name: "all", grep: "" }];
       const playwrightGroups = suite.name === "ui-parity"
         && uiParityDebugBuildingTypeIds.length > 0
-        ? configuredPlaywrightGroups.filter((group) => group.name === "spawn-building-matrix")
+        ? [{
+            name: "spawn-building-matrix-debug",
+            grep: "live/demo spawn-reachable canonical building matrix"
+          }]
         : configuredPlaywrightGroups;
       for (const group of playwrightGroups) {
         const groupArtifactDirectory = retainPlaywrightArtifacts(result, group.name);
@@ -635,7 +691,7 @@ try {
           groupArtifactDirectory,
           ...suite.specs,
           ...(group.grep ? [`--grep=${group.grep}`] : [])
-        ], 1_800_000);
+        ], 1_800_000, group.environment || {});
       }
       result.status = "passed";
       result.cleanup = "stopping";

@@ -8,6 +8,13 @@ const roleDistricts = Object.freeze({
   hunter: Object.freeze(["district:4", "district:25", "district:26"]),
   neutral: Object.freeze(["district:6", "district:24"])
 });
+const concurrencyRoleDistricts = Object.freeze({
+  creator: Object.freeze(["district:5", "district:6"]),
+  target: Object.freeze(["district:2", "district:4"]),
+  hunterA: Object.freeze(["district:1", "district:25"]),
+  hunterB: Object.freeze(["district:3", "district:26"]),
+  hunterC: Object.freeze(["district:24"])
+});
 
 export const applyHostedMultiplayerCoreScenario = (
   snapshot: InstanceSnapshotDto,
@@ -61,6 +68,63 @@ export const applyHostedMultiplayerCoreScenario = (
     targetOwnerPlayerId: target.id,
     createdAt
   });
+};
+
+export const applyHostedSocialConcurrencyPrivacyScenario = (
+  snapshot: InstanceSnapshotDto,
+  createdAt: string
+): void => {
+  const players = Object.values(snapshot.state.playersById)
+    .filter((player) => player.status === "active" && Boolean(player.homeDistrictId))
+    .sort((left, right) => left.name.localeCompare(right.name));
+  if (players.length !== 5) {
+    throw new Error("Hosted social concurrency scenario requires exactly five ready active players.");
+  }
+  const [creator, target, hunterA, hunterB, hunterC] = players;
+
+  resetSocialScenarioState(snapshot);
+  preparePlayer(snapshot, creator, concurrencyRoleDistricts.creator[0], { chemicals: 100 });
+  preparePlayer(snapshot, target, concurrencyRoleDistricts.target[0], {});
+  preparePlayer(snapshot, hunterA, concurrencyRoleDistricts.hunterA[1], { bazooka: 20 });
+  preparePlayer(snapshot, hunterB, concurrencyRoleDistricts.hunterB[1], { bazooka: 20 });
+  preparePlayer(snapshot, hunterC, concurrencyRoleDistricts.hunterC[0], {});
+  hunterA.attackLoadout = { bazooka: 20 };
+  hunterB.attackLoadout = { bazooka: 20 };
+
+  claimDistricts(snapshot, concurrencyRoleDistricts.creator, creator.id);
+  claimDistricts(snapshot, concurrencyRoleDistricts.target, target.id);
+  claimDistricts(snapshot, concurrencyRoleDistricts.hunterA, hunterA.id);
+  claimDistricts(snapshot, concurrencyRoleDistricts.hunterB, hunterB.id);
+  claimDistricts(snapshot, concurrencyRoleDistricts.hunterC, hunterC.id);
+
+  seedSuccessfulSpyIntel(snapshot, {
+    playerId: hunterA.id,
+    sourceDistrictId: "district:25",
+    targetDistrictId: "district:2",
+    targetOwnerPlayerId: target.id,
+    createdAt
+  });
+  seedSuccessfulSpyIntel(snapshot, {
+    playerId: hunterB.id,
+    sourceDistrictId: "district:26",
+    targetDistrictId: "district:2",
+    targetOwnerPlayerId: target.id,
+    createdAt
+  });
+};
+
+const resetSocialScenarioState = (snapshot: InstanceSnapshotDto): void => {
+  snapshot.state.root.tick = scenarioTick;
+  snapshot.state.serverInstance.currentTick = scenarioTick;
+  snapshot.runtime.commandRateLimitWindow = {
+    tick: scenarioTick,
+    commandCountsByPlayerId: {}
+  };
+  snapshot.state.bountiesById = {};
+  snapshot.state.alliancesById = {};
+  snapshot.state.allianceInvitesById = {};
+  snapshot.state.allianceChatMessagesById = {};
+  snapshot.state.root.allianceIds = [];
 };
 
 const preparePlayer = (
