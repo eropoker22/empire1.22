@@ -13,6 +13,22 @@ import {
   createPlayerFixture,
   createResourceStateFixture
 } from "../fixtures/game-state-fixtures";
+import {
+  applyCasinoAuditChecks,
+  validateCasinoAction
+} from "../../packages/game-core/src/handlers/casinoBuildingActions";
+import {
+  applyCentralBankPassiveInterestAndOversight,
+  validateCentralBankAction
+} from "../../packages/game-core/src/handlers/centralBankBuildingActions";
+import {
+  applyCityHallCorruptionScandals,
+  validateCityHallAction
+} from "../../packages/game-core/src/handlers/cityHallBuildingActions";
+import {
+  applyLobbyClubScandalChecks,
+  validateLobbyClubAction
+} from "../../packages/game-core/src/handlers/lobbyClubBuildingActions";
 import { applyHostedE2eScenario } from "../../tools/seed/hosted-e2e-scenarios";
 import hostedBuildingActionMatrix from "../../tools/seed/hosted-building-action-matrix.json";
 import hostedBuildingParityNonSpawnMatrix
@@ -169,6 +185,68 @@ describe("hosted E2E scenario seeding", () => {
 
   it("prepares the guarded non-spawn building parity fixture from canonical map entities", () => {
     const source = createNonSpawnBuildingParitySnapshot();
+    const sourceBuildings = Object.values(source.state.buildingsById);
+    const sourceCasino = sourceBuildings.find((building) => building.buildingTypeId === "casino");
+    const sourceCentralBank = sourceBuildings.find((building) => building.buildingTypeId === "central_bank");
+    const sourceCityHall = sourceBuildings.find((building) => building.buildingTypeId === "city_hall");
+    const sourceLobbyClub = sourceBuildings.find((building) => building.buildingTypeId === "lobby_club");
+    if (!sourceCasino || !sourceCentralBank || !sourceCityHall || !sourceLobbyClub) {
+      throw new Error("Non-spawn parity passive-risk fixture buildings are missing.");
+    }
+    sourceCasino.metadata = {
+      ...(sourceCasino.metadata ?? {}),
+      casino: {
+        launderedEvents: [{ tick: 1, amount: 1_000 }],
+        auditRiskBonuses: [{ expiresAtTick: 999, riskPct: 100, source: "stale" }],
+        vipNightExpiresAtTick: 999,
+        bribedInspectorExpiresAtTick: 999,
+        incomePenaltyExpiresAtTick: 999,
+        incomePenaltyPct: 100,
+        launderingBlockedUntilTick: 999,
+        vipBlockedUntilTick: 999,
+        lastAuditCheckTick: 1,
+        auditLog: [{ tick: 1, consequence: "stale" }]
+      }
+    };
+    sourceCentralBank.metadata = {
+      ...(sourceCentralBank.metadata ?? {}),
+      centralBank: {
+        frozenAccountsExpiresAtTick: 999,
+        interestDisabledUntilTick: 999,
+        liquidityBlockedUntilTick: 999,
+        feeReductionDisabledUntilTick: 999,
+        lastInterestTick: 1,
+        lastOversightTick: 1,
+        riskEvents: [{ actionId: "liquidity_injection", riskPct: 100, expiresAtTick: 999, tick: 1 }],
+        currencyInterventions: [{ id: "stale" }],
+        oversightEvents: [{ type: "stale", tick: 1, label: "Stale", riskPct: 100 }],
+        interestEvents: [{ tick: 1, amount: 1, cleanCashBefore: 1, interestPct: 1 }]
+      }
+    };
+    sourceCityHall.metadata = {
+      ...(sourceCityHall.metadata ?? {}),
+      cityHall: {
+        cityContractBlockedUntilTick: 999,
+        lastScandalCheckTick: 1,
+        riskEvents: [{ actionId: "city_contract", riskPct: 100, expiresAtTick: 999, tick: 1 }],
+        scandalEvents: [{ type: "frozen_contract", tick: 1, label: "Zmrazená zakázka", riskPct: 100 }]
+      }
+    };
+    sourceLobbyClub.metadata = {
+      ...(sourceLobbyClub.metadata ?? {}),
+      lobbyClub: {
+        backroomPressureExpiresAtTick: 999,
+        mediaScreenExpiresAtTick: 999,
+        riskReductionExpiresAtTick: 999,
+        nextInfluenceDiscountPct: 100,
+        nextInfluenceDiscountExpiresAtTick: 999,
+        incomePenaltyUntilTick: 999,
+        influenceCostReductionDisabledUntilTick: 999,
+        lastScandalCheckTick: 1,
+        riskEvents: [{ actionId: "backroom_pressure", riskPct: 100, expiresAtTick: 999, tick: 1 }],
+        scandalEvents: [{ type: "stale", tick: 1, label: "Stale", riskPct: 100 }]
+      }
+    };
     const original = structuredClone(source);
     const seeded = applyHostedE2eScenario(
       source,
@@ -180,6 +258,158 @@ describe("hosted E2E scenario seeding", () => {
     expect(source).toEqual(original);
     expect(seeded.state.root.tick).toBe(5);
     expect(seeded.state.serverInstance.currentTick).toBe(5);
+    const seededBuildings = Object.values(seeded.state.buildingsById);
+    const seededCasino = seededBuildings.find((building) => building.buildingTypeId === "casino");
+    const seededCentralBank = seededBuildings.find((building) => building.buildingTypeId === "central_bank");
+    const seededCityHall = seededBuildings.find((building) => building.buildingTypeId === "city_hall");
+    const seededLobbyClub = seededBuildings.find((building) => building.buildingTypeId === "lobby_club");
+    expect(seededCasino?.metadata?.casino).toEqual({
+      launderedEvents: [],
+      auditRiskBonuses: [],
+      lastAuditCheckTick: 1_000_000_000,
+      auditLog: []
+    });
+    expect(seededCentralBank?.metadata?.centralBank).toEqual({
+      lastInterestTick: 5,
+      lastOversightTick: 1_000_000_000,
+      riskEvents: [],
+      currencyInterventions: [],
+      oversightEvents: [],
+      interestEvents: []
+    });
+    expect(seededCityHall?.metadata?.cityHall).toEqual({
+      officialCoverByDistrictId: {},
+      lastScandalCheckTick: 1_000_000_000,
+      riskEvents: [],
+      scandalEvents: []
+    });
+    expect(seededLobbyClub?.metadata?.lobbyClub).toEqual({
+      lastScandalCheckTick: 1_000_000_000,
+      riskEvents: [],
+      scandalEvents: []
+    });
+    const modeConfig = resolveModeConfig("free");
+    const lateParityState = structuredClone(seeded.state);
+    lateParityState.root.tick = 122;
+    lateParityState.serverInstance.currentTick = 122;
+    expect(applyCasinoAuditChecks(
+      lateParityState,
+      modeConfig.balance.casino!,
+      modeConfig.tickRateMs
+    )).toBe(lateParityState);
+    const postCentralBankState = applyCentralBankPassiveInterestAndOversight(
+      lateParityState,
+      modeConfig.balance.centralBank!,
+      modeConfig.tickRateMs,
+      modeConfig.balance.lobbyClub
+    );
+    expect(postCentralBankState).not.toBe(lateParityState);
+    expect(
+      seededCentralBank
+        ? postCentralBankState.buildingsById[seededCentralBank.id]?.metadata?.centralBank
+        : undefined
+    ).toMatchObject({
+      lastInterestTick: 122,
+      lastOversightTick: 1_000_000_000,
+      riskEvents: [],
+      currencyInterventions: [],
+      oversightEvents: [],
+      interestEvents: [expect.objectContaining({ tick: 122 })]
+    });
+    const postScandalCheckState = applyCityHallCorruptionScandals(
+      lateParityState,
+      modeConfig.balance.cityHall!,
+      modeConfig.tickRateMs,
+      modeConfig.balance.lobbyClub
+    );
+    expect(postScandalCheckState).toBe(lateParityState);
+    expect(applyLobbyClubScandalChecks(
+      lateParityState,
+      modeConfig.balance.lobbyClub!,
+      modeConfig.tickRateMs
+    )).toBe(lateParityState);
+    const stableCasino = seededCasino
+      ? lateParityState.buildingsById[seededCasino.id]
+      : undefined;
+    const stableCentralBank = seededCentralBank
+      ? lateParityState.buildingsById[seededCentralBank.id]
+      : undefined;
+    const stableCityHall = seededCityHall
+      ? postScandalCheckState.buildingsById[seededCityHall.id]
+      : undefined;
+    const stableLobbyClub = seededLobbyClub
+      ? lateParityState.buildingsById[seededLobbyClub.id]
+      : undefined;
+    expect(stableCasino).toBeDefined();
+    expect(validateCasinoAction({
+      state: lateParityState,
+      building: stableCasino!,
+      actionId: modeConfig.balance.casino!.quietBackroom.actionId,
+      balances: { "dirty-cash": 1_000_000 },
+      casinoConfig: modeConfig.balance.casino
+    })).toBeNull();
+    expect(validateCasinoAction({
+      state: lateParityState,
+      building: stableCasino!,
+      actionId: modeConfig.balance.casino!.vipNight.actionId,
+      balances: {},
+      casinoConfig: modeConfig.balance.casino
+    })).toBeNull();
+    const centralBankDistrict = stableCentralBank
+      ? lateParityState.districtsById[stableCentralBank.districtId]
+      : undefined;
+    expect(centralBankDistrict).toBeDefined();
+    expect(validateCentralBankAction({
+      state: lateParityState,
+      building: stableCentralBank!,
+      actionId: modeConfig.balance.centralBank!.liquidityInjection.actionId,
+      balances: {},
+      districtInfluence: centralBankDistrict!.influence,
+      config: modeConfig.balance.centralBank,
+      payload: {
+        districtId: centralBankDistrict!.id,
+        buildingId: stableCentralBank!.id,
+        actionId: modeConfig.balance.centralBank!.liquidityInjection.actionId
+      }
+    })).toBeNull();
+    const cityHallDistrict = stableCityHall
+      ? postScandalCheckState.districtsById[stableCityHall.districtId]
+      : undefined;
+    expect(cityHallDistrict).toBeDefined();
+    expect(validateCityHallAction({
+      state: postScandalCheckState,
+      building: stableCityHall!,
+      district: cityHallDistrict!,
+      actionId: "city_contract",
+      balances: {},
+      districtInfluence: cityHallDistrict!.influence,
+      config: modeConfig.balance.cityHall,
+      payload: {
+        districtId: cityHallDistrict!.id,
+        buildingId: stableCityHall!.id,
+        actionId: "city_contract"
+      }
+    })).toBeNull();
+    const lobbyClubDistrict = stableLobbyClub
+      ? lateParityState.districtsById[stableLobbyClub.districtId]
+      : undefined;
+    expect(lobbyClubDistrict).toBeDefined();
+    expect(validateLobbyClubAction({
+      state: lateParityState,
+      building: stableLobbyClub!,
+      actionId: modeConfig.balance.lobbyClub!.backroomPressure.actionId,
+      balances: { cash: 1_000_000 },
+      districtInfluence: lobbyClubDistrict!.influence,
+      config: modeConfig.balance.lobbyClub
+    })).toBeNull();
+    expect(validateLobbyClubAction({
+      state: lateParityState,
+      building: stableLobbyClub!,
+      actionId: modeConfig.balance.lobbyClub!.mediaScreen.actionId,
+      balances: { cash: 1_000_000 },
+      districtInfluence: lobbyClubDistrict!.influence,
+      config: modeConfig.balance.lobbyClub
+    })).toBeNull();
     expect(
       hostedBuildingParityNonSpawnMatrix
         .flatMap((entry) => entry.coveredBuildingTypeIds)

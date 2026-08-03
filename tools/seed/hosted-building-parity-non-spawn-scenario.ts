@@ -10,6 +10,7 @@ interface HostedBuildingParityMatrixEntry {
 
 const hostedBuildingParityNonSpawnMatrix =
   hostedBuildingParityNonSpawnMatrixJson as HostedBuildingParityMatrixEntry[];
+const STATIC_PARITY_GUARD_TICK = 1_000_000_000;
 
 export const applyHostedBuildingParityNonSpawnScenario = (
   snapshot: InstanceSnapshotDto
@@ -62,6 +63,48 @@ export const applyHostedBuildingParityNonSpawnScenario = (
       building.ownerPlayerId = player.id;
       building.status = "active";
       building.actionCooldowns = {};
+      if (building.buildingTypeId === "casino") {
+        building.metadata = {
+          ...(building.metadata ?? {}),
+          casino: {
+            launderedEvents: [],
+            auditRiskBonuses: [],
+            lastAuditCheckTick: STATIC_PARITY_GUARD_TICK,
+            auditLog: []
+          }
+        };
+      } else if (building.buildingTypeId === "central_bank") {
+        building.metadata = {
+          ...(building.metadata ?? {}),
+          centralBank: {
+            lastInterestTick: scenarioTick,
+            lastOversightTick: STATIC_PARITY_GUARD_TICK,
+            riskEvents: [],
+            currencyInterventions: [],
+            oversightEvents: [],
+            interestEvents: []
+          }
+        };
+      } else if (building.buildingTypeId === "city_hall") {
+        building.metadata = {
+          ...(building.metadata ?? {}),
+          cityHall: {
+            officialCoverByDistrictId: {},
+            lastScandalCheckTick: STATIC_PARITY_GUARD_TICK,
+            riskEvents: [],
+            scandalEvents: []
+          }
+        };
+      } else if (building.buildingTypeId === "lobby_club") {
+        building.metadata = {
+          ...(building.metadata ?? {}),
+          lobbyClub: {
+            lastScandalCheckTick: STATIC_PARITY_GUARD_TICK,
+            riskEvents: [],
+            scandalEvents: []
+          }
+        };
+      }
       building.version += 1;
     }
 
