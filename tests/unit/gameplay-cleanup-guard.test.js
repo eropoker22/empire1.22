@@ -72,6 +72,19 @@ describe("current gameplay cleanup guard", () => {
     });
   });
 
+  it("derives the browser VIP lounge network from typed balance", () => {
+    const vipLounge = resolveModeConfig("free").balance.vipLounge;
+
+    expect(BROWSER_GAMEPLAY_CONFIG.vipLounge).toEqual(vipLounge);
+    expect(BROWSER_GAMEPLAY_CONFIG.vipLounge.network.tiers[1]).toMatchObject({
+      minOwned: 2,
+      maxOwned: 2,
+      incomeMultiplier: 1.08,
+      influenceMultiplier: 1.1,
+      heatMultiplier: 1.06
+    });
+  });
+
   it("keeps strategic Lab items as components and removes their dead direct-use adapter", () => {
     const recipes = resolveModeConfig("free").balance.drugLab?.recipes;
     expect(recipes?.["ghost-serum"]).toMatchObject({ itemRole: "boost-component", directlyUsable: false });

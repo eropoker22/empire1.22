@@ -98,6 +98,15 @@ function createRuntime(overrides = {}, runtimeFactory = createBuildingNetworkRun
     shoppingMallNetworkConfig: { maxCleanIncomeMultiplier: 2, cleanIncomeBonusPctPerExtraMall: 10, maxDirtyIncomeMultiplier: 2, dirtyIncomeBonusPctPerExtraMall: 10, maxInfluenceMultiplier: 2, influenceBonusPctPerExtraMall: 10, maxHeatMultiplier: 2, heatBonusPctPerExtraMall: 10 },
     smugglingTunnelConfig: { maxDirtyProductionMultiplier: 2, dirtyProductionBonusPctPerExtraTunnel: 10, maxHeatMultiplier: 2, heatBonusPctPerExtraTunnel: 10 },
     startPhaseOwnerByDistrictId: new Map([[1, 1], [2, 1], [3, 2]]),
+    vipLoungeConfig: {
+      network: {
+        tiers: [
+          { minOwned: 1, maxOwned: 1, incomeMultiplier: 1, influenceMultiplier: 1, heatMultiplier: 1, rumorIntervalMinutes: 6, truthChancePct: 68, districtHintChancePct: 35, buildingHintChancePct: 18, reliabilityLabelChancePct: 25 },
+          { minOwned: 2, maxOwned: 2, incomeMultiplier: 1.08, influenceMultiplier: 1.1, heatMultiplier: 1.06, rumorIntervalMinutes: 5, truthChancePct: 78, districtHintChancePct: 45, buildingHintChancePct: 26, reliabilityLabelChancePct: 40 },
+          { minOwned: 3, maxOwned: null, incomeMultiplier: 1.16, influenceMultiplier: 1.2, heatMultiplier: 1.12, rumorIntervalMinutes: 4, truthChancePct: 86, districtHintChancePct: 55, buildingHintChancePct: 34, reliabilityLabelChancePct: 55 }
+        ]
+      }
+    },
     warehouseNetworkConfig: { maxIncomeMultiplier: 2, incomeBonusPctPerExtraWarehouse: 10, maxHeatMultiplier: 2, heatBonusPctPerExtraWarehouse: 10 },
     warehouseStorageConfig: {
       groups: {
@@ -352,6 +361,59 @@ describe("building network runtime", () => {
         dirtyIncomeMultiplier: 1.1,
         influenceMultiplier: 1.1,
         heatMultiplier: 1.1
+      });
+    }
+  });
+
+  it("resolves the canonical VIP lounge tier from active owned buildings in both runtime bundles", () => {
+    for (const runtimeFactory of [createBuildingNetworkRuntime, createClientBuildingNetworkRuntime]) {
+      const createVipRuntime = (secondStatus) => createRuntime({
+        resolveDistrictBuildingProfile: (district) => ({
+          buildings: {
+            1: [{ baseName: "VIP salonek", status: "active" }, { baseName: "magistrat", status: "active" }],
+            2: [{ baseName: "vip salonek", status: secondStatus }],
+            3: [{ baseName: "VIP salonek", status: "active" }]
+          }[district.id] || []
+        })
+      }, runtimeFactory);
+
+      const tierTwoRuntime = createVipRuntime("active");
+      expect(tierTwoRuntime.getOwnedVipLoungeCount()).toBe(2);
+      const tierTwo = tierTwoRuntime.resolveVipLoungeNetworkTier();
+      expect(tierTwo).toEqual({
+        minOwned: 2,
+        maxOwned: 2,
+        incomeMultiplier: 1.08,
+        influenceMultiplier: 1.1,
+        heatMultiplier: 1.06,
+        rumorIntervalMinutes: 5,
+        truthChancePct: 78,
+        districtHintChancePct: 45,
+        buildingHintChancePct: 26,
+        reliabilityLabelChancePct: 40
+      });
+      expect(tierTwoRuntime.resolveDailyBuildingHeat(0.13, 1.06, 2)).toBe(198.43);
+      expect(tierTwoRuntime.resolveDailyBuildingHeat(0.13, 1.06)).toBe(198.4);
+      expect(tierTwoRuntime.getOwnedCityHallCount()).toBe(1);
+      expect(tierTwoRuntime.getCityHallAdjustedDailyInfluence(0.48 * tierTwo.influenceMultiplier * 1440)).toBe(836.35);
+      expect(tierTwoRuntime.resolveVipLoungeNetworkTier(3)).toMatchObject({
+        minOwned: 3,
+        maxOwned: null,
+        incomeMultiplier: 1.16,
+        influenceMultiplier: 1.2,
+        heatMultiplier: 1.12
+      });
+
+      const inactiveRuntime = createVipRuntime("inactive");
+      expect(inactiveRuntime.getOwnedVipLoungeCount()).toBe(1);
+      expect(inactiveRuntime.isActiveBuilding({})).toBe(true);
+      expect(inactiveRuntime.isActiveBuilding({ status: "inactive" })).toBe(false);
+      expect(inactiveRuntime.resolveVipLoungeNetworkTier()).toMatchObject({
+        minOwned: 1,
+        maxOwned: 1,
+        incomeMultiplier: 1,
+        influenceMultiplier: 1,
+        heatMultiplier: 1
       });
     }
   });

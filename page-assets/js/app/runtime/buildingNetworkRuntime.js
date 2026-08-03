@@ -114,6 +114,20 @@ export function createBuildingNetworkRuntime(deps = {}) {
     };
   };
 
+  const getOwnedVipLoungeCount = () => countOwnedBuildingByBaseName("vip salonek");
+  const resolveVipLoungeNetworkTier = (count = getOwnedVipLoungeCount()) => {
+    const safeCount = Math.max(0, Math.floor(Number(count || 0)));
+    const tiers = deps.vipLoungeConfig.network.tiers;
+    return tiers.find((tier) => (
+      safeCount >= tier.minOwned && (tier.maxOwned === null || safeCount <= tier.maxOwned)
+    )) ?? tiers[0];
+  };
+
+  const resolveDailyBuildingHeat = (heatPerMinute, heatMultiplier = 1, decimalPlaces = 1) => {
+    const roundingFactor = 10 ** Math.max(0, Math.floor(Number(decimalPlaces || 0)));
+    return Math.round(Number(heatPerMinute || 0) * Number(heatMultiplier || 1) * 1440 * roundingFactor) / roundingFactor;
+  };
+
   const getOwnedCityHallCount = () => countOwnedBuildingByBaseName("magistrat");
   const getCityHallInfluenceGenerationMultiplier = (count = getOwnedCityHallCount()) => {
     const ownedCount = Math.max(0, Math.floor(Number(count || 0)));
@@ -453,6 +467,7 @@ export function createBuildingNetworkRuntime(deps = {}) {
     getOwnedSchoolCount,
     getOwnedShoppingMallCountForMarket,
     getOwnedSmugglingTunnelCount,
+    getOwnedVipLoungeCount,
     getOwnedWarehouseCount,
     getPowerStationInfrastructureBonusPct,
     getPowerStationNetworkMultipliers,
@@ -460,6 +475,8 @@ export function createBuildingNetworkRuntime(deps = {}) {
     getRecruitmentCenterNetworkMultipliers,
     getRecruitmentCenterSupportStats,
     getRestaurantNetworkMultipliers,
+    resolveDailyBuildingHeat,
+    resolveVipLoungeNetworkTier,
     getSchoolNetworkMultipliers,
     getShoppingMallMarketDiscountForTab,
     getShoppingMallNetworkMultipliers,
@@ -467,7 +484,8 @@ export function createBuildingNetworkRuntime(deps = {}) {
     getWarehouseCapacityBreakdown,
     getWarehouseCapacityWarnings,
     getWarehouseNetworkMultipliers,
-    getWarehouseStorageUsage
+    getWarehouseStorageUsage,
+    isActiveBuilding
   };
 }
 

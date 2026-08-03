@@ -317,7 +317,7 @@ describe("runtime main UI flow smoke guard", () => {
     );
   });
 
-  it("keeps local building cards on the shared renderer with City Hall authority parity", () => {
+  it("keeps local building cards on the shared renderer with VIP lounge and City Hall parity", () => {
     for (const sourcePath of [
       "page-assets/js/app/runtime.js",
       "client/page-assets/js/app/runtime.js"
@@ -339,8 +339,38 @@ describe("runtime main UI flow smoke guard", () => {
       expect(runtimeSource.slice(economyStart, economyEnd)).toContain(
         "getCityHallInfluenceGenerationMultiplier()"
       );
+      expect(runtimeSource.slice(economyStart, economyEnd)).toContain(
+        "const vipLoungeNetwork = resolveVipLoungeNetworkTier();"
+      );
+      expect(runtimeSource.slice(economyStart, economyEnd)).toContain(
+        "if (!isActiveBuilding(building))"
+      );
+      expect(runtimeSource.slice(economyStart, economyEnd)).toContain(
+        "vipLoungeTier?.incomeMultiplier"
+      );
+      expect(runtimeSource.slice(economyStart, economyEnd)).toContain(
+        "vipLoungeTier?.heatMultiplier"
+      );
+      expect(runtimeSource.slice(economyStart, economyEnd)).toContain(
+        "vipLoungeTier?.influenceMultiplier"
+      );
       expect(runtimeSource.slice(detailStart, detailEnd)).toContain(
         "getCityHallAdjustedDailyInfluence("
+      );
+      expect(runtimeSource.slice(detailStart, detailEnd)).toContain(
+        "const vipLoungeNetwork = mechanicsType === \"vip-lounge\" ? resolveVipLoungeNetworkTier(ownedVipLounges) : null;"
+      );
+      expect(runtimeSource.slice(detailStart, detailEnd)).toContain(
+        "vipLoungeNetwork?.heatMultiplier"
+      );
+      expect(runtimeSource.slice(detailStart, detailEnd)).toContain(
+        "mechanicsType === \"vip-lounge\" ? 2 : 1"
+      );
+      expect(runtimeSource.slice(detailStart, detailEnd)).toContain(
+        "vipLoungeNetwork?.influenceMultiplier"
+      );
+      expect(runtimeSource.slice(detailStart, detailEnd)).toContain(
+        "multiplier: mechanicsType === \"vip-lounge\" ? 1 : multiplier"
       );
       expect(runtimeSource.slice(presenterStart, presenterEnd)).not.toContain(
         "data-district-building-detail-info"

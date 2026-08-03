@@ -1,5 +1,5 @@
 // GENERATED FILE. Run `npm run generate:browser-config`; do not edit balance values here.
-// Sources: free-mode-pharmacy-config.ts, free-mode-drug-lab-config.ts, free-mode-factory-config.ts, free-mode-armory-config.ts, free-mode-player-boost-config.ts, free-mode-city-event-config.ts, free-mode-city-hall-config.ts, free-mode-warehouse-config.ts, free-mode-attack-weapons-config.ts, free-mode-street-dealers-config.ts, free-mode-smuggling-tunnel-config.ts, free-mode-convenience-store-config.ts, free-mode-strip-club-config.ts, day-night-action-rules.ts, market-config.ts.
+// Sources: free-mode-pharmacy-config.ts, free-mode-drug-lab-config.ts, free-mode-factory-config.ts, free-mode-armory-config.ts, free-mode-player-boost-config.ts, free-mode-city-event-config.ts, free-mode-city-hall-config.ts, free-mode-warehouse-config.ts, free-mode-attack-weapons-config.ts, free-mode-street-dealers-config.ts, free-mode-smuggling-tunnel-config.ts, free-mode-convenience-store-config.ts, free-mode-strip-club-config.ts, free-mode-vip-lounge-config.ts, day-night-action-rules.ts, market-config.ts.
 export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
   "generatedFrom": [
     "free-mode-pharmacy-config.ts",
@@ -15,6 +15,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
     "free-mode-smuggling-tunnel-config.ts",
     "free-mode-convenience-store-config.ts",
     "free-mode-strip-club-config.ts",
+    "free-mode-vip-lounge-config.ts",
     "day-night-action-rules.ts",
     "market-config.ts"
   ],
@@ -6484,6 +6485,89 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "influenceGenerationBonusPct": 10
     }
   },
+  "vipLounge": {
+    "id": "vip_lounge",
+    "buildingTypeId": "vip_lounge",
+    "countOnMap": 2,
+    "category": [
+      "rare",
+      "elite_rumors",
+      "high_truth_intel",
+      "influence"
+    ],
+    "cleanCashPerMinute": 105,
+    "dirtyCashPerMinute": 30,
+    "influencePerMinute": 0.48,
+    "populationPerMinute": 0,
+    "heatPerMinute": 0.13,
+    "noIntelPower": true,
+    "noEliteContacts": true,
+    "noPopulationProduction": true,
+    "noLaundering": true,
+    "noAuditRisk": true,
+    "passiveRumor": {
+      "baseChancePct": 32,
+      "reliabilityLabels": [
+        "nízká spolehlivost",
+        "střední spolehlivost",
+        "vysoká spolehlivost"
+      ],
+      "rumorTypes": [
+        "political_pressure",
+        "financial_deal",
+        "police_warning",
+        "planned_attack",
+        "revenge_plan",
+        "casino_money",
+        "smuggling_route",
+        "drug_distribution",
+        "hidden_weakness",
+        "weak_defense",
+        "storage_hint",
+        "fake"
+      ]
+    },
+    "network": {
+      "tiers": [
+        {
+          "minOwned": 1,
+          "maxOwned": 1,
+          "incomeMultiplier": 1,
+          "influenceMultiplier": 1,
+          "heatMultiplier": 1,
+          "rumorIntervalMinutes": 6,
+          "truthChancePct": 68,
+          "districtHintChancePct": 35,
+          "buildingHintChancePct": 18,
+          "reliabilityLabelChancePct": 25
+        },
+        {
+          "minOwned": 2,
+          "maxOwned": 2,
+          "incomeMultiplier": 1.08,
+          "influenceMultiplier": 1.1,
+          "heatMultiplier": 1.06,
+          "rumorIntervalMinutes": 5,
+          "truthChancePct": 78,
+          "districtHintChancePct": 45,
+          "buildingHintChancePct": 26,
+          "reliabilityLabelChancePct": 40
+        },
+        {
+          "minOwned": 3,
+          "maxOwned": null,
+          "incomeMultiplier": 1.16,
+          "influenceMultiplier": 1.2,
+          "heatMultiplier": 1.12,
+          "rumorIntervalMinutes": 4,
+          "truthChancePct": 86,
+          "districtHintChancePct": 55,
+          "buildingHintChancePct": 34,
+          "reliabilityLabelChancePct": 55
+        }
+      ]
+    }
+  },
   "factoryRecipes": {
     "metal-parts": {
       "name": "Metal Parts",
@@ -7334,6 +7418,7 @@ export const ARMORY_RECIPES = BROWSER_GAMEPLAY_CONFIG.armoryRecipes;
 export const PLAYER_BOOST_CONFIG = BROWSER_GAMEPLAY_CONFIG.playerBoosts;
 export const CITY_EVENT_CONFIG = BROWSER_GAMEPLAY_CONFIG.cityEvents;
 export const CITY_HALL_CONFIG = BROWSER_GAMEPLAY_CONFIG.cityHall;
+export const VIP_LOUNGE_CONFIG = BROWSER_GAMEPLAY_CONFIG.vipLounge;
 export const FACTORY_RECIPES = BROWSER_GAMEPLAY_CONFIG.factoryRecipes;
 export const FACTORY_CONFIG = BROWSER_GAMEPLAY_CONFIG.factory;
 export const FACTORY_SLOT_STORAGE_CAPS = BROWSER_GAMEPLAY_CONFIG.factorySlotStorageCaps;

@@ -20,6 +20,7 @@ import {
   FACTORY_SLOT_STORAGE_CAP,
   FACTORY_SLOT_STORAGE_CAPS,
   CITY_HALL_CONFIG,
+  VIP_LOUNGE_CONFIG,
   FREE_GAMEPLAY_TICK_MS,
   getMarketPriceKey,
   MARKET_PRICE_REFRESH_MS,
@@ -6578,8 +6579,11 @@ const {
   getOwnedSchoolCount,
   getOwnedShoppingMallCountForMarket,
   getOwnedSmugglingTunnelCount,
+  getOwnedVipLoungeCount,
   getOwnedWarehouseCount,
   getRestaurantNetworkMultipliers,
+  resolveDailyBuildingHeat,
+  resolveVipLoungeNetworkTier,
   getSchoolNetworkMultipliers,
   getShoppingMallMarketDiscountForTab,
   getShoppingMallNetworkMultipliers,
@@ -6587,7 +6591,8 @@ const {
   getWarehouseCapacityBreakdown,
   getWarehouseCapacityWarnings,
   getWarehouseNetworkMultipliers,
-  getWarehouseStorageUsage
+  getWarehouseStorageUsage,
+  isActiveBuilding
 } = createBuildingNetworkRuntime({
   apartmentBlockNetworkConfig: APARTMENT_BLOCK_NETWORK_CONFIG,
   arcadeNetworkConfig: ARCADE_NETWORK_CONFIG,
@@ -6625,6 +6630,7 @@ const {
   shoppingMallNetworkConfig: SHOPPING_MALL_NETWORK_CONFIG,
   smugglingTunnelConfig: SMUGGLING_TUNNEL_CONFIG,
   startPhaseOwnerByDistrictId: START_PHASE_OWNER_BY_DISTRICT_ID,
+  vipLoungeConfig: VIP_LOUNGE_CONFIG,
   warehouseNetworkConfig: WAREHOUSE_NETWORK_CONFIG,
   warehouseStorageConfig: WAREHOUSE_STORAGE_CONFIG
 });
@@ -6846,18 +6852,23 @@ function getDistrictEconomySnapshot(district) {
   let buildingHeatPerMinute = 0;
   let buildingInfluencePerMinute = 0;
   const cityHallInfluenceGenerationMultiplier = getCityHallInfluenceGenerationMultiplier();
+  const vipLoungeNetwork = resolveVipLoungeNetworkTier();
 
   for (const building of buildingProfile?.buildings || []) {
     const buildingName = String(building?.baseName || building?.displayName || "").trim();
     if (!buildingName) {
       continue;
     }
+    if (!isActiveBuilding(building)) {
+      continue;
+    }
 
     const incomeRule = DISTRICT_BUILDING_MINUTE_INCOME_RULES_EMPIRE2[buildingName];
-    let cleanPerMinute = Number(incomeRule?.clean || 0);
-    let dirtyPerMinute = Number(incomeRule?.dirty || 0);
-    let heatPerMinute = Number(DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2[buildingName]?.heat || 0);
-    let influencePerMinute = Number(DISTRICT_BUILDING_MINUTE_INFLUENCE_RULES_EMPIRE2[buildingName]?.influence || 0);
+    const vipLoungeTier = normalizeBuildingLookupKey(buildingName) === "vip salonek" ? vipLoungeNetwork : null;
+    let cleanPerMinute = Number(incomeRule?.clean || 0) * (vipLoungeTier?.incomeMultiplier || 1);
+    let dirtyPerMinute = Number(incomeRule?.dirty || 0) * (vipLoungeTier?.incomeMultiplier || 1);
+    let heatPerMinute = Number(DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2[buildingName]?.heat || 0) * (vipLoungeTier?.heatMultiplier || 1);
+    let influencePerMinute = Number(DISTRICT_BUILDING_MINUTE_INFLUENCE_RULES_EMPIRE2[buildingName]?.influence || 0) * (vipLoungeTier?.influenceMultiplier || 1);
     const activeEffects = getActiveDistrictBuildingEffects(district, buildingName);
 
     for (const effect of activeEffects) {
@@ -8148,6 +8159,8 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
   const recruitmentCenterSupport = isRecruitmentCenter ? getRecruitmentCenterSupportStats(ownedRecruitmentCenters) : null;
   const ownedRestaurants = isRestaurant ? getOwnedRestaurantCount() : 0;
   const restaurantNetwork = isRestaurant ? getRestaurantNetworkMultipliers(ownedRestaurants) : null;
+  const ownedVipLounges = mechanicsType === "vip-lounge" ? getOwnedVipLoungeCount() : 0;
+  const vipLoungeNetwork = mechanicsType === "vip-lounge" ? resolveVipLoungeNetworkTier(ownedVipLounges) : null;
   const ownedGarages = getOwnedGarageCount();
   const garageNetwork = isGarage ? getGarageNetworkMultipliers(ownedGarages) : null;
   const garageSupport = getGarageSupportStats(ownedGarages);
@@ -8184,7 +8197,9 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
         : ownedSmugglingTunnels >= 1
           ? "Nízká podpora"
           : "Bez podpory";
-  const multiplier = arcadeNetwork
+  const multiplier = vipLoungeNetwork
+    ? vipLoungeNetwork.incomeMultiplier
+    : arcadeNetwork
     ? arcadeNetwork.incomeMultiplier
     : exchangeNetwork
     ? exchangeNetwork.incomeMultiplier
@@ -8312,9 +8327,13 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
   const schoolTimeToFullMs = mechanicsType === "school" && !schoolIsFull && schoolPopulationPerMinute > 0
     ? Math.ceil((schoolCapacity - schoolStoredStudents) / schoolPopulationPerMinute * 60000)
     : 0;
-  const dailyHeat = Math.round(Number(heatRule.heat || 0) * (smugglingTunnelNetwork?.heatMultiplier || powerStationNetwork?.heatMultiplier || recyclingCenterNetwork?.heatMultiplier || garageNetwork?.heatMultiplier || fitnessClubNetwork?.heatMultiplier || recruitmentCenterNetwork?.heatMultiplier || restaurantNetwork?.heatMultiplier || autoSalonNetwork?.heatMultiplier || clinicNetwork?.heatMultiplier || warehouseNetwork?.heatMultiplier || arcadeNetwork?.heatMultiplier || exchangeNetwork?.heatMultiplier || 1) * 1440 * 10) / 10;
+  const dailyHeat = resolveDailyBuildingHeat(
+    heatRule.heat,
+    vipLoungeNetwork?.heatMultiplier || smugglingTunnelNetwork?.heatMultiplier || powerStationNetwork?.heatMultiplier || recyclingCenterNetwork?.heatMultiplier || garageNetwork?.heatMultiplier || fitnessClubNetwork?.heatMultiplier || recruitmentCenterNetwork?.heatMultiplier || restaurantNetwork?.heatMultiplier || autoSalonNetwork?.heatMultiplier || clinicNetwork?.heatMultiplier || warehouseNetwork?.heatMultiplier || arcadeNetwork?.heatMultiplier || exchangeNetwork?.heatMultiplier || 1,
+    mechanicsType === "vip-lounge" ? 2 : 1
+  );
   const dailyInfluence = getCityHallAdjustedDailyInfluence(
-    Number(influenceRule.influence || 0) * (restaurantNetwork?.influenceMultiplier || 1) * 1440
+    Number(influenceRule.influence || 0) * (vipLoungeNetwork?.influenceMultiplier || restaurantNetwork?.influenceMultiplier || 1) * 1440
   );
   const activeEffectsForLabel = [
     ...(entry.activeEffects || []),
@@ -8363,7 +8382,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
       exchangeNetwork,
       fitnessClubNetwork,
       garageNetwork,
-      multiplier,
+      multiplier: mechanicsType === "vip-lounge" ? 1 : multiplier,
       restaurantNetwork,
       schoolNetwork,
       shoppingMallNetwork,
@@ -8451,6 +8470,8 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
     recruitmentCenterSupport,
     ownedRestaurants,
     restaurantNetwork,
+    ownedVipLounges,
+    vipLoungeNetwork,
     ownedGarages,
     garageNetwork,
     garageSupport,

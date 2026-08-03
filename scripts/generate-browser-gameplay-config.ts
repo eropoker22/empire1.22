@@ -17,6 +17,7 @@ import { freeModeStreetDealersConfig } from "../packages/game-config/src/public/
 import { freeModeSmugglingTunnelConfig } from "../packages/game-config/src/public/free-mode-smuggling-tunnel-config";
 import { freeModeConvenienceStoreConfig } from "../packages/game-config/src/public/free-mode-convenience-store-config";
 import { freeModeStripClubConfig } from "../packages/game-config/src/public/free-mode-strip-club-config";
+import { freeModeVipLoungeConfig } from "../packages/game-config/src/public/free-mode-vip-lounge-config";
 import { dayNightActionRules } from "../packages/game-config/src/public/day-night-action-rules";
 import {
   blackMarketResourceIds,
@@ -126,6 +127,7 @@ const generated = {
     "free-mode-smuggling-tunnel-config.ts",
     "free-mode-convenience-store-config.ts",
     "free-mode-strip-club-config.ts",
+    "free-mode-vip-lounge-config.ts",
     "day-night-action-rules.ts",
     "market-config.ts"
   ],
@@ -155,6 +157,7 @@ const generated = {
       influenceGenerationBonusPct: freeModeCityHallConfig.cityAuthority.influenceGenerationBonusPct
     }
   },
+  vipLounge: freeModeVipLoungeConfig,
   factoryRecipes,
   factory: {
     maxLevel: freeModeFactoryConfig.upgrade.maxLevel,
@@ -221,6 +224,7 @@ const serialized = [
   "export const PLAYER_BOOST_CONFIG = BROWSER_GAMEPLAY_CONFIG.playerBoosts;",
   "export const CITY_EVENT_CONFIG = BROWSER_GAMEPLAY_CONFIG.cityEvents;",
   "export const CITY_HALL_CONFIG = BROWSER_GAMEPLAY_CONFIG.cityHall;",
+  "export const VIP_LOUNGE_CONFIG = BROWSER_GAMEPLAY_CONFIG.vipLounge;",
   "export const FACTORY_RECIPES = BROWSER_GAMEPLAY_CONFIG.factoryRecipes;",
   "export const FACTORY_CONFIG = BROWSER_GAMEPLAY_CONFIG.factory;",
   "export const FACTORY_SLOT_STORAGE_CAPS = BROWSER_GAMEPLAY_CONFIG.factorySlotStorageCaps;",
