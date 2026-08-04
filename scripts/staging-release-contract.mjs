@@ -11,6 +11,7 @@ export const STAGING_NODE_VERSION = String(SUPPORTED_NODE_MAJOR);
 const SHA_PATTERN = /^[0-9a-f]{40}$/u;
 const SECURE_SECRET_PATTERN = /^(?:[0-9a-f]{64,}|[A-Za-z0-9_-]{43,})$/u;
 const TERMS_VERSION_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,99}$/u;
+const STAGING_ORIGIN = "https://staging.empirestreets.cz";
 const PRODUCTION_HOSTNAMES = new Set(["empirestreets.cz", "www.empirestreets.cz"]);
 const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
@@ -22,6 +23,7 @@ export const validateStagingEnvironment = (environment, options = {}) => {
   const publicOrigin = parseExactOrigin(environment.EMPIRE_PUBLIC_ORIGIN);
   const allowedOrigins = parseAllowedOrigins(environment.EMPIRE_ALLOWED_ORIGINS);
   const databaseUrl = parseDatabaseUrl(environment.EMPIRE_DATABASE_URL);
+  const gameplayDatabaseUrl = parseDatabaseUrl(environment.GAMEPLAY_DATABASE_URL);
   const registrationEnabled = environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED === "true";
   const allowRegistrationEnabled = options.allowRegistrationEnabled === true;
 
@@ -29,62 +31,96 @@ export const validateStagingEnvironment = (environment, options = {}) => {
     STAGING_ENVIRONMENT, "STAGING_RELEASE_ENVIRONMENT_INVALID");
   add("NODE_ENV", "API + worker", true, environment.NODE_ENV === "production", "production", "STAGING_NODE_ENV_INVALID");
   add("EMPIRE_PUBLIC_ORIGIN", "frontend + API", true,
-    Boolean(publicOrigin) && publicOrigin.protocol === "https:" && !PRODUCTION_HOSTNAMES.has(publicOrigin.hostname)
-      && !LOOPBACK_HOSTNAMES.has(publicOrigin.hostname),
-    "exact staging HTTPS origin", "STAGING_PUBLIC_ORIGIN_INVALID");
+    publicOrigin?.origin === STAGING_ORIGIN && !PRODUCTION_HOSTNAMES.has(publicOrigin.hostname),
+    STAGING_ORIGIN, "STAGING_PUBLIC_ORIGIN_INVALID");
   add("EMPIRE_ALLOWED_ORIGINS", "API", true,
-    allowedOrigins.length > 0 && allowedOrigins.every((origin) => origin.protocol === "https:"
-      && !LOOPBACK_HOSTNAMES.has(origin.hostname)) && Boolean(publicOrigin)
-      && allowedOrigins.some((origin) => origin.origin === publicOrigin.origin),
-    "comma-separated exact HTTPS origins, no wildcard", "STAGING_ALLOWED_ORIGINS_INVALID");
+    allowedOrigins.length === 1 && allowedOrigins[0]?.origin === STAGING_ORIGIN
+      && publicOrigin?.origin === STAGING_ORIGIN,
+    `exactly ${STAGING_ORIGIN}`, "STAGING_ALLOWED_ORIGINS_INVALID");
   add("EMPIRE_DATABASE_URL", "API + worker", true,
-    Boolean(databaseUrl) && !LOOPBACK_HOSTNAMES.has(databaseUrl.hostname)
-      && ["require", "verify-ca", "verify-full"].includes(databaseUrl.searchParams.get("sslmode") ?? ""),
+    isTlsDatabaseUrl(databaseUrl),
     "postgresql://...?...&sslmode=require or stronger", "STAGING_DATABASE_URL_INVALID");
+  add("GAMEPLAY_DATABASE_URL", "API + worker", true,
+    isTlsDatabaseUrl(gameplayDatabaseUrl),
+    "postgresql://...?...&sslmode=require or stronger", "STAGING_GAMEPLAY_DATABASE_URL_INVALID");
+  checks.push({
+    name: "STAGING_DATABASE_TARGET_MATCH",
+    component: "API + worker",
+    required: true,
+    set: Boolean(databaseUrl && gameplayDatabaseUrl),
+    passed: Boolean(databaseUrl && gameplayDatabaseUrl
+      && databaseTargetIdentity(databaseUrl) === databaseTargetIdentity(gameplayDatabaseUrl)),
+    safeFormat: "both URLs use the same provider hostname, port and database",
+    errorCode: "STAGING_DATABASE_TARGET_MISMATCH"
+  });
   add("EMPIRE_PERSISTENCE_DRIVER", "API + worker", true,
     environment.EMPIRE_PERSISTENCE_DRIVER === "postgres", "postgres", "STAGING_RUNTIME_PERSISTENCE_INVALID");
   add("GAMEPLAY_PERSISTENCE_DRIVER", "API + worker", true,
     environment.GAMEPLAY_PERSISTENCE_DRIVER === "postgres", "postgres", "STAGING_GAMEPLAY_PERSISTENCE_INVALID");
   add("EMPIRE_BUILD_SHA", "frontend + API + worker", true, SHA_PATTERN.test(String(environment.EMPIRE_BUILD_SHA ?? "")),
     "40 lowercase hexadecimal Git SHA", "STAGING_BUILD_SHA_INVALID");
+  if (isSet(options.gitSha)) {
+    checks.push({
+      name: "STAGING_BUILD_SHA_MATCHES_HEAD",
+      component: "build",
+      required: true,
+      set: true,
+      passed: SHA_PATTERN.test(String(options.gitSha)) && environment.EMPIRE_BUILD_SHA === options.gitSha,
+      safeFormat: "EMPIRE_BUILD_SHA equals checkout HEAD",
+      errorCode: "STAGING_BUILD_SHA_MISMATCH"
+    });
+  }
   add("EMPIRE_HOSTED_WORKER_ID", "worker", true,
     isSet(environment.EMPIRE_HOSTED_WORKER_ID) && environment.EMPIRE_HOSTED_WORKER_ID !== "worker:local",
     "stable staging-specific worker ID", "STAGING_WORKER_ID_INVALID");
   add("EMPIRE_HOSTED_WORKER_REGION", "worker", true, isSet(environment.EMPIRE_HOSTED_WORKER_REGION),
     "provider region near PostgreSQL", "STAGING_WORKER_REGION_MISSING");
+  add("EMPIRE_RUNTIME_REGION", "API + worker", true, isSet(environment.EMPIRE_RUNTIME_REGION),
+    "explicit provider runtime region", "STAGING_RUNTIME_REGION_MISSING");
+  add("EMPIRE_TICK_WORKER_OWNER_ID", "worker", true,
+    isSet(environment.EMPIRE_TICK_WORKER_OWNER_ID) && environment.EMPIRE_TICK_WORKER_OWNER_ID !== "worker:local",
+    "stable staging-specific lease owner ID", "STAGING_TICK_OWNER_ID_INVALID");
   add("GAMEPLAY_SLICE_SESSION_SECRET", "API + worker", true, isSecureSecret(environment.GAMEPLAY_SLICE_SESSION_SECRET),
     "64 hex or 43+ base64url characters", "STAGING_GAMEPLAY_SESSION_SECRET_WEAK");
   add("GAMEPLAY_SLICE_SNAPSHOT_SECRET", "API + worker", true, isSecureSecret(environment.GAMEPLAY_SLICE_SNAPSHOT_SECRET),
     "64 hex or 43+ base64url characters", "STAGING_SNAPSHOT_SECRET_WEAK");
   add("EMPIRE_ADMIN_FINGERPRINT_SECRET", "API", true, isSecureSecret(environment.EMPIRE_ADMIN_FINGERPRINT_SECRET),
     "64 hex or 43+ base64url characters", "STAGING_ADMIN_FINGERPRINT_SECRET_WEAK");
-  add("EMPIRE_AUTH_THROTTLE_PEPPER", "API", registrationEnabled,
-    !registrationEnabled || isSecureSecret(environment.EMPIRE_AUTH_THROTTLE_PEPPER),
+  add("EMPIRE_ADMIN_SESSION_SECRET", "API", true, isSecureSecret(environment.EMPIRE_ADMIN_SESSION_SECRET),
+    "64 hex or 43+ base64url characters", "STAGING_ADMIN_SESSION_SECRET_WEAK");
+  add("EMPIRE_AUTH_THROTTLE_PEPPER", "API", true,
+    isSecureSecret(environment.EMPIRE_AUTH_THROTTLE_PEPPER),
     "64 hex or 43+ base64url characters", "STAGING_AUTH_THROTTLE_PEPPER_WEAK");
-  add("EMPIRE_ACCOUNT_TERMS_VERSION", "API", registrationEnabled,
-    !registrationEnabled || TERMS_VERSION_PATTERN.test(String(environment.EMPIRE_ACCOUNT_TERMS_VERSION ?? "")),
+  add("EMPIRE_ACCOUNT_TERMS_VERSION", "API", true,
+    TERMS_VERSION_PATTERN.test(String(environment.EMPIRE_ACCOUNT_TERMS_VERSION ?? "")),
     "explicit internal staging terms version", "STAGING_ACCOUNT_TERMS_VERSION_INVALID");
   add("EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED", "API", true,
     environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED === "false" || (allowRegistrationEnabled && registrationEnabled),
     allowRegistrationEnabled ? "false, or true after green preflight" : "false before green preflight",
     "STAGING_REGISTRATION_MUST_BE_CLOSED");
   for (const flag of ["EMPIRE_ADMIN_WRITES_ENABLED", "EMPIRE_HOSTED_CONTROL_PLANE_ENABLED", "EMPIRE_SERVER_PROVISIONING_ENABLED"]) {
-    add(flag, "API", true, ["true", "false"].includes(environment[flag]), "explicit true or false", "STAGING_FLAG_MISSING");
+    add(flag, "API", true, environment[flag] === "true", "true", "STAGING_REQUIRED_CAPABILITY_DISABLED");
   }
+  add("EMPIRE_LEGACY_MATCHMAKING_ENABLED", "API", true, environment.EMPIRE_LEGACY_MATCHMAKING_ENABLED === "false",
+    "false", "STAGING_LEGACY_MATCHMAKING_ENABLED");
+  add("EMPIRE_HOSTED_PREFLIGHT_STRICT", "release", true,
+    ["1", "true"].includes(String(environment.EMPIRE_HOSTED_PREFLIGHT_STRICT ?? "").toLowerCase()),
+    "true", "STAGING_PREFLIGHT_NOT_STRICT");
 
   const secrets = [
     environment.GAMEPLAY_SLICE_SESSION_SECRET,
     environment.GAMEPLAY_SLICE_SNAPSHOT_SECRET,
     environment.EMPIRE_ADMIN_FINGERPRINT_SECRET,
-    registrationEnabled ? environment.EMPIRE_AUTH_THROTTLE_PEPPER : undefined
+    environment.EMPIRE_ADMIN_SESSION_SECRET,
+    environment.EMPIRE_AUTH_THROTTLE_PEPPER
   ].filter(isSet);
   checks.push({
     name: "STAGING_SECRETS_DISTINCT",
     component: "API + worker",
     required: true,
-    set: secrets.length >= 3,
-    passed: secrets.length >= 3 && new Set(secrets).size === secrets.length,
-    safeFormat: "all session, snapshot, admin and throttle secrets differ",
+    set: secrets.length === 5,
+    passed: secrets.length === 5 && new Set(secrets).size === secrets.length,
+    safeFormat: "all five session, snapshot, admin and throttle secrets differ",
     errorCode: "STAGING_SECRETS_REUSED"
   });
 
@@ -188,6 +224,9 @@ const parseDatabaseUrl = (value) => {
     return null;
   }
 };
+const isTlsDatabaseUrl = (value) => Boolean(value) && !LOOPBACK_HOSTNAMES.has(value.hostname)
+  && ["require", "verify-ca", "verify-full"].includes(value.searchParams.get("sslmode") ?? "");
+const databaseTargetIdentity = (value) => `${value.hostname.toLowerCase()}:${value.port || "5432"}${value.pathname}`;
 const isSecureSecret = (value) => {
   const normalized = String(value ?? "");
   return Buffer.byteLength(normalized, "utf8") >= 32 && SECURE_SECRET_PATTERN.test(normalized);

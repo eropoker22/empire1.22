@@ -11,22 +11,29 @@ const secret = (character) => character.repeat(64);
 const validEnvironment = {
   EMPIRE_RELEASE_ENVIRONMENT: "staging",
   NODE_ENV: "production",
-  EMPIRE_PUBLIC_ORIGIN: "https://alpha.empirestreets.cz",
-  EMPIRE_ALLOWED_ORIGINS: "https://alpha.empirestreets.cz",
+  EMPIRE_PUBLIC_ORIGIN: "https://staging.empirestreets.cz",
+  EMPIRE_ALLOWED_ORIGINS: "https://staging.empirestreets.cz",
   EMPIRE_DATABASE_URL: "postgresql://runtime@example.internal/empire_staging?sslmode=verify-full",
+  GAMEPLAY_DATABASE_URL: "postgresql://gameplay@example.internal/empire_staging?sslmode=verify-full",
   EMPIRE_PERSISTENCE_DRIVER: "postgres",
   GAMEPLAY_PERSISTENCE_DRIVER: "postgres",
   EMPIRE_BUILD_SHA: SHA,
   EMPIRE_HOSTED_WORKER_ID: "worker:staging:eu-central",
   EMPIRE_HOSTED_WORKER_REGION: "eu-central",
+  EMPIRE_RUNTIME_REGION: "eu-central",
+  EMPIRE_TICK_WORKER_OWNER_ID: "worker:staging:eu-central",
   GAMEPLAY_SLICE_SESSION_SECRET: secret("a"),
   GAMEPLAY_SLICE_SNAPSHOT_SECRET: secret("b"),
   EMPIRE_ADMIN_FINGERPRINT_SECRET: secret("c"),
+  EMPIRE_ADMIN_SESSION_SECRET: secret("d"),
+  EMPIRE_AUTH_THROTTLE_PEPPER: secret("e"),
   EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "false",
   EMPIRE_ACCOUNT_TERMS_VERSION: "closed-alpha-internal-v1",
-  EMPIRE_ADMIN_WRITES_ENABLED: "false",
+  EMPIRE_ADMIN_WRITES_ENABLED: "true",
   EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true",
-  EMPIRE_SERVER_PROVISIONING_ENABLED: "false"
+  EMPIRE_SERVER_PROVISIONING_ENABLED: "true",
+  EMPIRE_LEGACY_MATCHMAKING_ENABLED: "false",
+  EMPIRE_HOSTED_PREFLIGHT_STRICT: "true"
 };
 
 describe("staging release contract", () => {
@@ -50,6 +57,7 @@ describe("staging release contract", () => {
       "STAGING_PUBLIC_ORIGIN_INVALID",
       "STAGING_ALLOWED_ORIGINS_INVALID",
       "STAGING_DATABASE_URL_INVALID",
+      "STAGING_DATABASE_TARGET_MISMATCH",
       "STAGING_REGISTRATION_MUST_BE_CLOSED",
       "STAGING_SECRETS_REUSED",
       "STAGING_NODE_VERSION_INVALID"
@@ -64,11 +72,22 @@ describe("staging release contract", () => {
     });
   });
 
+  it("rejects a weak admin session secret even when the other secrets are valid", () => {
+    const result = validateStagingEnvironment({
+      ...validEnvironment,
+      EMPIRE_ADMIN_SESSION_SECRET: "too-short"
+    }, { nodeVersion: "24.18.0" });
+    expect(result.checks.find((check) => check.name === "EMPIRE_ADMIN_SESSION_SECRET")).toMatchObject({
+      passed: false,
+      errorCode: "STAGING_ADMIN_SESSION_SECRET_WEAK"
+    });
+  });
+
   it("requires an explicit terms version before staging registration opens", () => {
     const open = {
       ...validEnvironment,
       EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true",
-      EMPIRE_AUTH_THROTTLE_PEPPER: secret("d")
+      EMPIRE_AUTH_THROTTLE_PEPPER: secret("e")
     };
     expect(validateStagingEnvironment(open, { allowRegistrationEnabled: true, nodeVersion: "24.18.0" }).passed).toBe(true);
     const missing = validateStagingEnvironment(
@@ -78,6 +97,29 @@ describe("staging release contract", () => {
     expect(missing.checks.find((check) => check.name === "EMPIRE_ACCOUNT_TERMS_VERSION")).toMatchObject({
       passed: false,
       errorCode: "STAGING_ACCOUNT_TERMS_VERSION_INVALID"
+    });
+  });
+
+  it("requires both database variables to identify the same TLS target", () => {
+    const result = validateStagingEnvironment({
+      ...validEnvironment,
+      GAMEPLAY_DATABASE_URL: "postgresql://gameplay@other.internal/other_staging?sslmode=require"
+    }, { nodeVersion: "24.18.0" });
+    expect(result.checks.find((check) => check.name === "STAGING_DATABASE_TARGET_MATCH")).toMatchObject({
+      passed: false,
+      errorCode: "STAGING_DATABASE_TARGET_MISMATCH"
+    });
+  });
+
+  it("requires the configured build SHA to equal checkout HEAD when supplied", () => {
+    expect(validateStagingEnvironment(validEnvironment, { gitSha: SHA, nodeVersion: "24.18.0" }).passed).toBe(true);
+    const result = validateStagingEnvironment(validEnvironment, {
+      gitSha: "a".repeat(40),
+      nodeVersion: "24.18.0"
+    });
+    expect(result.checks.find((check) => check.name === "STAGING_BUILD_SHA_MATCHES_HEAD")).toMatchObject({
+      passed: false,
+      errorCode: "STAGING_BUILD_SHA_MISMATCH"
     });
   });
 

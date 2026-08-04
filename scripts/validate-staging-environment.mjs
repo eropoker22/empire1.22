@@ -1,8 +1,10 @@
 import { validateStagingEnvironment } from "./staging-release-contract.mjs";
+import { execFileSync } from "node:child_process";
 
 const allowRegistrationEnabled = process.argv.includes("--allow-registration-enabled");
 const json = process.argv.includes("--json");
-const result = validateStagingEnvironment(process.env, { allowRegistrationEnabled });
+const gitSha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+const result = validateStagingEnvironment(process.env, { allowRegistrationEnabled, gitSha });
 
 if (json) {
   console.log(JSON.stringify(result, null, 2));
