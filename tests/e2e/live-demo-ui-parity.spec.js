@@ -344,7 +344,8 @@ async function attachOpenBuildingScreenshot({
     roundedCompositeSelector: [
       surfaceName === "district" ? ".district-modal-hero--district" : "",
       surfaceName === "pharmacy" ? ".pharmacy-slot__quantity-btn" : "",
-      surfaceName === "pharmacy" ? ".pharmacy-slot__quantity-value" : ""
+      surfaceName === "pharmacy" ? ".pharmacy-slot__quantity-value" : "",
+      surfaceName === "pharmacy" ? ".pharmacy-slot__btn" : ""
     ].filter(Boolean).join(","),
     stableBackdropShellSelector: paritySurfaces[surfaceName].shell,
     target

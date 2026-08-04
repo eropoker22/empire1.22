@@ -66,6 +66,21 @@ describe("legacy overlay coordinator priority layers", () => {
     expect(getTopOverlay()?.element).toBe(actionOverlay);
   });
 
+  it("focuses the real close control instead of a backdrop close target", () => {
+    const trigger = document.createElement("button");
+    const backdrop = document.createElement("div");
+    const closeButton = document.createElement("button");
+    backdrop.setAttribute("data-spy-confirm-close", "");
+    closeButton.setAttribute("data-spy-confirm-close", "");
+    actionOverlay.append(backdrop, closeButton);
+    document.body.append(trigger);
+    trigger.focus();
+
+    openOverlay(actionOverlay);
+
+    expect(document.activeElement).toBe(closeButton);
+  });
+
   it("moves storage from the game shell to the document layer before opening it", () => {
     const root = document.createElement("main");
     const openButton = document.createElement("button");

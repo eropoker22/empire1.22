@@ -29,6 +29,9 @@ describe("live/demo UI parity source contract", () => {
       'surfaceName === "pharmacy" ? ".pharmacy-slot__quantity-value" : ""'
     );
     expect(paritySpec).toContain(
+      'surfaceName === "pharmacy" ? ".pharmacy-slot__btn" : ""'
+    );
+    expect(paritySpec).toContain(
       "stableBackdropShellSelector: paritySurfaces.cityEvents.shell"
     );
     expect(paritySpec).toContain("screenshotEntries.push([mode, screenshotCapture, screenshotPath])");

@@ -170,10 +170,14 @@ function resolveFocusTarget(element, preferredFocus) {
     return preferredFocus;
   }
 
-  const closeButton = element?.querySelector?.(
+  const closeButton = Array.from(element?.querySelectorAll?.(
     "[aria-label*='Zavřít'], [data-district-popup-close], [data-attack-setup-close], [data-attack-confirm-close], [data-robbery-setup-close], [data-robbery-confirm-close], [data-defense-setup-close], [data-trap-confirm-close], [data-spy-confirm-close], [data-occupy-confirm-close], .modal__close"
-  );
-  if (isHtmlElement(closeButton)) {
+  ) || []).find((candidate) => (
+    isHtmlElement(candidate)
+    && candidate.matches?.(FOCUSABLE_SELECTOR)
+    && isElementVisible(candidate)
+  ));
+  if (closeButton) {
     return closeButton;
   }
 
