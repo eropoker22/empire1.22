@@ -1224,6 +1224,8 @@ export function renderBuildingDetailPanel(buildingViewModel = {}, callbacks = {}
   const actionSection = shell.querySelector("[data-district-building-detail-action-section]");
   const displayActions = useSinglePanelLayout && buildingViewModel.showActionsInSinglePanel !== true ? [] : buildingViewModel.actions || [];
   const hasSpecialActions = Array.isArray(displayActions) && displayActions.length > 0;
+  shell.classList.toggle("has-building-special-actions", hasSpecialActions);
+  card?.classList?.toggle?.("has-building-special-actions", hasSpecialActions);
   if (actionSection instanceof HTMLElement) {
     actionSection.hidden = !hasSpecialActions;
     actionSection.style.display = hasSpecialActions ? "" : "none";

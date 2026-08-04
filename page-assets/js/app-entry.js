@@ -20,5 +20,5 @@ window.empireStreetsRuntimeDiagnostics?.setMode?.(executionMode, {
 if (executionMode === CLIENT_EXECUTION_MODES.localDemo) {
   void import("./app-demo.js?v=20260731-e2e-parity-only");
 } else {
-  void import("./app.js?v=20260731-live-only");
+  void import("./app.js?v=ui-refresh-20260805-2");
 }

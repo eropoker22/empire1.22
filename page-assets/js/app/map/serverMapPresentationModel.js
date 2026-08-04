@@ -19,6 +19,7 @@ const createEmptyEffectState = () => ({
   activeAttackDistrictIds: new Set(),
   activeAttackMarkersByDistrictId: new Map(),
   activeOccupyDistrictIds: new Set(),
+  activeOccupyMarkersByDistrictId: new Map(),
   activeOccupyCountdownByDistrictId: new Map(),
   activeRobberyDistrictIds: new Set(),
   activeRobberyMarkersByDistrictId: new Map(),
@@ -74,6 +75,8 @@ const addEffect = (state, effect, now) => {
   const marker = {
     seed: Number(effect?.seed || districtId),
     source: effect?.source || effect?.status || type,
+    playerId: String(effect?.playerId || effect?.attackerPlayerId || ""),
+    playerColor: String(effect?.playerColor || ""),
     startedAt: normalizeTimestamp(effect?.startedAt || effect?.createdAt, now),
     expiresAt: normalizeTimestamp(effect?.expiresAt || effect?.resolveAt, Number.POSITIVE_INFINITY)
   };
@@ -89,6 +92,7 @@ const addEffect = (state, effect, now) => {
     state.activeAttackMarkersByDistrictId.set(districtId, marker);
   } else if (type === "occupy") {
     state.activeOccupyDistrictIds.add(districtId);
+    state.activeOccupyMarkersByDistrictId.set(districtId, marker);
     state.activeOccupyCountdownByDistrictId.set(
       districtId,
       Number.isFinite(marker.expiresAt) ? Math.max(0, Math.ceil((marker.expiresAt - now) / 1000)) : 0
@@ -101,20 +105,31 @@ const addEffect = (state, effect, now) => {
   }
 };
 
-const createEffectState = (gameplaySlice, now) => {
+const createEffectState = (gameplaySlice, now, currentPlayerId) => {
   const state = createEmptyEffectState();
   const declaredEffects = [
     ...(Array.isArray(gameplaySlice?.mapEffects) ? gameplaySlice.mapEffects : []),
     ...(Array.isArray(gameplaySlice?.activeMapEffects) ? gameplaySlice.activeMapEffects : [])
   ];
-  declaredEffects.forEach((effect) => addEffect(state, effect, now));
+  declaredEffects.forEach((effect) => {
+    const type = EFFECT_TYPES[String(effect?.type || effect?.kind || effect?.actionType || "")
+      .toLowerCase()
+      .replace(/-district$/u, "")
+      .replace(/^police-raid$/u, "police")];
+    const effectPlayerId = String(effect?.playerId || effect?.attackerPlayerId || "");
+    if ((type === "spy" || type === "robbery") && effectPlayerId !== currentPlayerId) return;
+    addEffect(state, effect, now);
+  });
 
   const activeRaid = gameplaySlice?.player?.police?.activeRaid || gameplaySlice?.police?.activeRaid;
   if (activeRaid?.districtId) addEffect(state, { ...activeRaid, type: "police" }, now);
 
   for (const report of Array.isArray(gameplaySlice?.reports) ? gameplaySlice.reports : []) {
     if (!report?.expiresAt && !report?.resolveAt) continue;
-    addEffect(state, report, now);
+    addEffect(state, {
+      ...report,
+      playerId: report?.playerId || report?.attackerPlayerId || currentPlayerId
+    }, now);
   }
   return state;
 };
@@ -131,6 +146,7 @@ export function createServerMapPresentationModel(gameplaySlice = null, options =
   const ownerColorByPlayerId = new Map();
   const occupiedDistrictIds = new Set();
   const ownedDistrictIds = new Set();
+  const revealedDistrictIds = new Set();
   const destroyedDistrictIds = new Set();
 
   for (const district of districts) {
@@ -150,6 +166,9 @@ export function createServerMapPresentationModel(gameplaySlice = null, options =
     }
     if (district.isOwnedByPlayer || district.ownerPlayerId === currentPlayerId) {
       ownedDistrictIds.add(districtId);
+    }
+    if (district.intelKnown === true) {
+      revealedDistrictIds.add(districtId);
     }
   }
 
@@ -182,7 +201,8 @@ export function createServerMapPresentationModel(gameplaySlice = null, options =
     ownerColorByPlayerId,
     occupiedDistrictIds,
     ownedDistrictIds,
+    revealedDistrictIds,
     destroyedDistrictIds,
-    effects: createEffectState(gameplaySlice, now)
+    effects: createEffectState(gameplaySlice, now, currentPlayerId)
   };
 }

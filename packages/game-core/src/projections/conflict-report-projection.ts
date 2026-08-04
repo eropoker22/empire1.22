@@ -20,9 +20,15 @@ export const createConflictReportViews = (
     .reverse()
     .map((notificationId) => state.notificationsById[notificationId])
     .filter((notification): notification is Notification => notification?.recipientId === input.playerId)
+    .filter((notification) => isReportResolved(notification, state.root.tick))
     .map(mapNotificationToReport)
     .filter((report): report is ConflictReportView => report !== null)
     .slice(0, input.limit);
+
+const isReportResolved = (notification: Notification, currentTick: number): boolean => {
+  const resolveAtTick = notification.payload.resolveAtTick;
+  return typeof resolveAtTick !== "number" || resolveAtTick <= currentTick;
+};
 
 const mapNotificationToReport = (notification: Notification): ConflictReportView | null => {
   const payload = notification.payload as Record<string, unknown>;

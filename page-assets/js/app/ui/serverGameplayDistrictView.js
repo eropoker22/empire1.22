@@ -13,6 +13,14 @@ const toLabel = (value, fallback = "—") => {
     .replace(/^./u, (character) => character.toUpperCase());
 };
 
+const formatUiMetricValue = (value) => {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return String(value ?? 0);
+  }
+  return String(Number(numericValue.toFixed(2)));
+};
+
 const findOwner = (readModel, ownerPlayerId) => {
   if (!ownerPlayerId) return null;
   const entries = [
@@ -22,17 +30,47 @@ const findOwner = (readModel, ownerPlayerId) => {
   return entries.find((entry) => String(entry?.playerId) === String(ownerPlayerId)) || null;
 };
 
-const action = (id, label, disabled, disabledReason, surfaceDataset, options = {}) => ({
-  id,
-  key: options.key || id,
-  label,
-  enabled: !disabled,
-  reason: disabledReason || "",
-  surfaceDataset,
-  stacked: options.stacked === true,
-  subtitle: options.subtitle || "",
-  targetDistrictId: options.targetDistrictId || "",
-  title: disabledReason || options.title || ""
+const formatDisabledActionInfo = (id, disabledCode, disabledReason) => {
+  if (
+    id === "spy"
+    && (
+      disabledCode === "SPY_SLOT_LIMIT_REACHED"
+      || /aktivní nebo blokované špehy|špionážní sloty/iu.test(disabledReason)
+    )
+  ) {
+    return "Chybí volný špeh";
+  }
+  return String(disabledReason || "Akce teď není dostupná.").trim();
+};
+
+const action = (id, label, disabled, disabledReason, surfaceDataset, options = {}) => {
+  const reason = String(disabledReason || "").trim();
+  const inlineDisabledReason = disabled && options.inlineDisabledReason === true
+    ? formatDisabledActionInfo(id, options.disabledCode, reason)
+    : "";
+
+  return {
+    id,
+    key: options.key || id,
+    label,
+    enabled: !disabled,
+    reason: inlineDisabledReason ? "" : reason,
+    surfaceDataset,
+    stacked: options.stacked === true || Boolean(inlineDisabledReason),
+    subtitle: inlineDisabledReason || options.subtitle || "",
+    disabledTone: inlineDisabledReason ? "unavailable" : (options.disabledTone || ""),
+    targetDistrictId: options.targetDistrictId || "",
+    title: reason || options.title || ""
+  };
+};
+
+const targetActionOptions = (target, key) => ({
+  key,
+  stacked: true,
+  subtitle: target.label || target.name || "",
+  targetDistrictId: target.districtId,
+  inlineDisabledReason: true,
+  disabledCode: target.disabledCode || ""
 });
 
 const createTargetActions = (targetActions = {}) => [
@@ -42,12 +80,7 @@ const createTargetActions = (targetActions = {}) => [
     !target.enabled,
     target.disabledReason,
     { spyTargetId: target.districtId },
-    {
-      key: `spy:${target.districtId}`,
-      stacked: true,
-      subtitle: target.label,
-      targetDistrictId: target.districtId
-    }
+    targetActionOptions(target, `spy:${target.districtId}`)
   )),
   ...(targetActions.occupyTargets || []).map((target) => action(
     "occupy",
@@ -55,12 +88,7 @@ const createTargetActions = (targetActions = {}) => [
     !target.enabled,
     target.disabledReason,
     { occupyTargetId: target.districtId },
-    {
-      key: `occupy:${target.districtId}`,
-      stacked: true,
-      subtitle: target.label,
-      targetDistrictId: target.districtId
-    }
+    targetActionOptions(target, `occupy:${target.districtId}`)
   )),
   ...(targetActions.robTargets || []).map((target) => action(
     "rob",
@@ -68,12 +96,7 @@ const createTargetActions = (targetActions = {}) => [
     !target.enabled,
     target.disabledReason,
     { robTargetId: target.districtId },
-    {
-      key: `rob:${target.districtId}`,
-      stacked: true,
-      subtitle: target.label,
-      targetDistrictId: target.districtId
-    }
+    targetActionOptions(target, `rob:${target.districtId}`)
   )),
   ...(targetActions.heistTargets || []).map((target) => action(
     "heist",
@@ -81,12 +104,7 @@ const createTargetActions = (targetActions = {}) => [
     !target.enabled,
     target.disabledReason,
     { heistTargetId: target.districtId },
-    {
-      key: `heist:${target.districtId}`,
-      stacked: true,
-      subtitle: target.label,
-      targetDistrictId: target.districtId
-    }
+    targetActionOptions(target, `heist:${target.districtId}`)
   )),
   ...(targetActions.attackTargets || []).map((target) => action(
     "attack",
@@ -94,12 +112,7 @@ const createTargetActions = (targetActions = {}) => [
     !target.enabled,
     target.disabledReason,
     { attackTargetId: target.districtId },
-    {
-      key: `attack:${target.districtId}`,
-      stacked: true,
-      subtitle: target.label,
-      targetDistrictId: target.districtId
-    }
+    targetActionOptions(target, `attack:${target.districtId}`)
   ))
 ];
 
@@ -187,9 +200,11 @@ export function createServerGameplayDistrictView(readModel, renderState) {
     readModel,
     String(district.districtId)
   );
+  const showDowntownLockdownMessage = district.intelKnown !== true
+    && String(district.zone || "").trim().toLowerCase() === "downtown";
   const economyValue = (value) => district.status === "destroyed"
     ? "0"
-    : economy.available ? String(value ?? 0) : "Bez dat";
+    : economy.available ? formatUiMetricValue(value) : "Bez dat";
 
   return {
     districtId: String(panel.districtId),
@@ -251,7 +266,8 @@ export function createServerGameplayDistrictView(readModel, renderState) {
       ? "V tomhle districtu po totálním zničení nezůstalo nic použitelného."
       : district.intelKnown === true
         ? "Tento distrikt teď nemá přiřazené žádné budovy."
-        : "Bez spy nebo vlastnictví zatím nevíš, jaké budovy jsou v tomto distriktu.",
+        : showDowntownLockdownMessage ? "Odemkne se až v lockdownu" : "",
+    buildingEmptyTone: showDowntownLockdownMessage ? "lockdown" : "",
     buildingsInteractive: currentPlayerOwnsDistrict,
     actions: availableActions,
     actionHidden: district.status === "destroyed" || availableActions.length === 0,

@@ -287,10 +287,9 @@ async function openSpawnModal(serverInstanceId) {
     state.spawn = await loadSpawnDistricts(serverInstanceId);
     state.hoveredDistrictId = null;
     modal?.setAttribute("data-load-state", "ready");
-    const occupiedDistricts = (state.spawn.mapDistricts || []).filter((district) => district.owner).length;
     text(
       "[data-server-detail-subtitle]",
-      `Barva plochy ukazuje typ districtu, barevné hranice ukazují území jednotlivých hráčů. Obsazeno: ${occupiedDistricts}.`
+      "Růžově je downtown, barevně jsou zvýrazněné volitelné distrikty. Ostatní distrikty jsou šedé."
     );
     text("[data-server-detail-mode]", server.mode.toUpperCase());
     text("[data-server-detail-capacity]", `${state.spawn.capacity.committedPlayers} + ${state.spawn.capacity.reservedSlots} / ${state.spawn.capacity.maximum}`);

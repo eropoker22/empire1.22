@@ -5,19 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <meta name="empire-gameplay-execution-mode" content="server-authoritative">
     <title>Empire Streets | Game Shell</title>
-    <link rel="stylesheet" href="../page-assets/css/styles.css?v=hosted-parity-20260730-1">
+    <link rel="stylesheet" href="../page-assets/css/styles.css?v=ui-refresh-20260805-3">
     <link rel="stylesheet" href="../page-assets/css/styles-game-admin-slice.css">
-    <link rel="stylesheet" href="../page-assets/css/styles-closed-alpha-ux.css">
+    <link rel="stylesheet" href="../page-assets/css/styles-closed-alpha-ux.css?v=authority-mobile-dark-20260804-1">
     <link rel="stylesheet" href="../page-assets/css/styles-game-lobby-modal.css?v=lobby-actions-20260717">
     <link rel="stylesheet" href="../page-assets/css/styles-server-milestone-cards.css?v=server-milestones-20260719">
     <link rel="stylesheet" href="../page-assets/css/styles-login-about.css">
-    <link rel="stylesheet" href="../page-assets/css/styles-game-about.css">
+    <link rel="stylesheet" href="../page-assets/css/styles-game-about.css?v=mobile-hide-topbar-20260804-1">
   </head>
   <body class="game-body game-body--booting">
     <section class="game-authority-gate modal lifecycle-modal lifecycle-modal--authority" data-game-authority-gate data-server-lifecycle-surface="authority" role="status" aria-live="polite" aria-hidden="false">
       <div class="game-authority-gate__backdrop modal__backdrop lifecycle-modal__backdrop" aria-hidden="true"></div>
       <div class="game-authority-gate__card modal__content lifecycle-modal__card">
-        <span>EMPIRE STREETS // LIVE</span>
         <strong data-game-authority-status>PŘIPOJUJI SERVER</strong>
         <p data-game-authority-message>Ověřuji účet, členství a aktuální stav města.</p>
         <div class="game-authority-gate__actions">
@@ -182,11 +181,9 @@
                 <button type="button" class="button map-phase-button" data-game-phase-toggle hidden aria-hidden="true" disabled>Fáze hry: LIVE</button>
                 <button type="button" class="button city-events-target-btn map-bounty-shortcut map-bounty-shortcut--phase" data-bounty-open-trigger aria-label="Otevřít bounty panel" title="Bounty">
                   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <circle cx="12" cy="12" r="7"></circle>
-                    <circle cx="12" cy="12" r="3.2"></circle>
-                    <path d="M5.5 5.5L12 12"></path>
-                    <path d="M5.5 5.5H9.2"></path>
-                    <path d="M5.5 5.5V9.2"></path>
+                    <circle cx="12" cy="12" r="7.25"></circle>
+                    <circle cx="12" cy="12" r="2.75"></circle>
+                    <path d="M12 1.75V5M12 19V22.25M1.75 12H5M19 12H22.25"></path>
                   </svg>
                 </button>
                 <button type="button" class="button map-phase-button" data-border-toggle>HRANY</button>
@@ -1553,7 +1550,6 @@
         <div class="market-popup-card" role="dialog" aria-modal="true" aria-labelledby="market-popup-title" tabindex="-1">
           <div class="market-popup-heading">
             <div class="market-popup-heading__copy">
-              <span class="market-popup-eyebrow">TRŽNÍ TERMINÁL</span>
               <h3 class="market-popup-title" id="market-popup-title" data-market-title data-mobile-title="Market">Městský market</h3>
             </div>
             <button type="button" class="button market-popup-close" data-market-popup-close aria-label="Zavřít market">✕</button>
@@ -2229,16 +2225,16 @@
     <script type="module" src="../page-assets/js/data/districtImages.js"></script>
     <script type="module" src="../page-assets/js/data/buildings.js"></script>
     <script type="module" src="../page-assets/js/app/mobile-performance-runtime.js"></script>
-    <script type="module" src="../page-assets/js/app-entry.js?v=20260731-live-only"></script>
+    <script type="module" src="../page-assets/js/app-entry.js?v=ui-refresh-20260805-2"></script>
     <script type="module" src="../page-assets/js/app/final-lockdown-popup-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/city-events-runtime.js"></script>
-    <script type="module" src="../page-assets/js/app/alliance-runtime.js"></script>
+    <script type="module" src="../page-assets/js/app/alliance-runtime.js?v=alliance-copy-20260804-1"></script>
     <script type="module" src="../page-assets/js/app/bounty-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/faction-actions-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/game-about-modal-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/boost-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/game-window-restore-runtime.js"></script>
-    <script type="module" src="../page-assets/js/app/mobile-layout-runtime.js"></script>
+    <script type="module" src="../page-assets/js/app/mobile-layout-runtime.js?v=mobile-overlay-guard-20260804-2"></script>
     <script type="module" src="../page-assets/js/app/game-admin-slice-launcher.js"></script>
     <script type="module" src="../page-assets/js/app/closed-alpha-ux-runtime.js"></script>
   </body>

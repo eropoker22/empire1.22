@@ -2,6 +2,32 @@ function getDistrictId(district) {
   return Number(district?.id || 0);
 }
 
+function safeText(value) {
+  return String(value ?? "").trim();
+}
+
+function getEventDistrictId(event = {}) {
+  const payload = event?.payload && typeof event.payload === "object" ? event.payload : {};
+  return safeText(
+    event?.districtId
+    || event?.targetDistrictId
+    || payload.districtId
+    || payload.targetDistrictId
+  );
+}
+
+function getEventText(event = {}) {
+  const payload = event?.payload && typeof event.payload === "object" ? event.payload : {};
+  return safeText(
+    event?.message
+    || event?.summary
+    || event?.text
+    || payload.message
+    || payload.summary
+    || payload.rumor
+  );
+}
+
 function getFallbackTypeLabel(district, interactionState = {}, options = {}) {
   const districtId = Number(district?.id || 0);
   const ownedDistrictIds = interactionState?.ownedDistrictIds instanceof Set
@@ -33,7 +59,56 @@ function getLaunchOwnerLabel(launchOwnerId, options = {}) {
       : `Hráč ${ownerId}`;
 }
 
+function getServerTooltipGossipEntries(district, cityFeed, gossipEvents = null, limit = 2) {
+  if ((!cityFeed || typeof cityFeed !== "object") && !Array.isArray(gossipEvents)) {
+    return null;
+  }
+
+  const districtId = getDistrictId(district);
+  const canonicalDistrictId = `district:${districtId}`;
+  const seen = new Set();
+  const events = [
+    ...(Array.isArray(gossipEvents) ? gossipEvents : []),
+    ...(Array.isArray(cityFeed?.currentPlayerFeed) ? cityFeed.currentPlayerFeed : []),
+    ...(Array.isArray(cityFeed?.globalCityFeed) ? cityFeed.globalCityFeed : []),
+    ...(Array.isArray(cityFeed?.selectedDistrictFeed) ? cityFeed.selectedDistrictFeed : [])
+  ];
+
+  return events
+    .filter((event) => {
+      const eventDistrictId = getEventDistrictId(event);
+      if (eventDistrictId !== String(districtId) && eventDistrictId !== canonicalDistrictId) {
+        return false;
+      }
+      const eventText = getEventText(event);
+      const eventId = String(event?.sourceEventId || event?.id || `${eventDistrictId}:${eventText}`);
+      if (seen.has(eventId)) {
+        return false;
+      }
+      seen.add(eventId);
+      return Boolean(eventText);
+    })
+    .sort((left, right) => (
+      Number(right?.priority || 0) - Number(left?.priority || 0)
+      || Number(right?.createdAtTick || 0) - Number(left?.createdAtTick || 0)
+    ))
+    .slice(0, Math.max(1, Number(limit) || 2))
+    .map((event) => ({
+      text: getEventText(event),
+      intelLevel: event?.truthiness === "confirmed"
+        || event?.intelType === "confirmed_event"
+        || event?.confidence === "confirmed"
+        ? "verified"
+        : "rumor"
+    }));
+}
+
 function getTooltipGossipEntries(district, options = {}) {
+  const serverEntries = getServerTooltipGossipEntries(district, options.cityFeed, options.gossipEvents, 2);
+  if (Array.isArray(serverEntries)) {
+    return serverEntries;
+  }
+
   const isGossipEnabled = typeof options.isDistrictGossipDevOnlyMode === "function"
     ? options.isDistrictGossipDevOnlyMode()
     : Boolean(options.gossipEnabled);
@@ -42,6 +117,20 @@ function getTooltipGossipEntries(district, options = {}) {
   }
   const entries = options.ensureDistrictPassiveGossip(district);
   return Array.isArray(entries) ? entries.slice(0, 2) : [];
+}
+
+export function getMapTooltipContentKey(viewModel = null) {
+  if (!viewModel) {
+    return "";
+  }
+  return JSON.stringify([
+    viewModel.idLabel || viewModel.id || "",
+    viewModel.typeLabel || "",
+    Boolean(viewModel.destroyed),
+    ...(Array.isArray(viewModel.gossipEntries)
+      ? viewModel.gossipEntries.map((entry) => `${entry?.intelLevel || "rumor"}:${entry?.text || ""}`)
+      : [])
+  ]);
 }
 
 export function buildMapTooltipViewModel(district = null, interactionState = {}, options = {}) {

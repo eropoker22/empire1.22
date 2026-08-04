@@ -31,7 +31,7 @@ export const applyHostedMembershipActivation = (
       || existingPlayer.metadata?.membershipId !== membership.membershipId) {
       throw hostedMutationError("MEMBERSHIP_ACTIVATION_CONFLICT");
     }
-    return ensured.stateChanged;
+    return syncHostedMembershipPlayerIdentity(runtime, membership) || ensured.stateChanged;
   }
 
   const created = ensureGameplaySliceMembershipInState(runtime.state, {
@@ -43,22 +43,7 @@ export const applyHostedMembershipActivation = (
   });
   if (!created.accepted) throw hostedMutationError("MEMBERSHIP_PLAYER_CREATE_FAILED");
   runtime.state = created.state;
-  const player = runtime.state.playersById[membership.playerId]!;
-  runtime.state.playersById[membership.playerId] = {
-    ...player,
-    accountId: membership.accountId,
-    name: membership.accountDisplayName || player.name,
-    color: membership.gangColor as typeof player.color,
-    metadata: {
-      ...(player.metadata ?? {}),
-      membershipId: membership.membershipId,
-      avatarId: membership.avatarId,
-      displayName: membership.accountDisplayName || player.name,
-      gangName: membership.gangName || membership.accountDisplayName || player.name,
-      setupComplete: true,
-      starterPackageApplied: true
-    }
-  };
+  syncHostedMembershipPlayerIdentity(runtime, membership);
   const spawn = handleSelectSpawnDistrict(runtime.state, {
     id: `command:membership-activation:${membership.membershipId}`,
     type: "select-spawn-district",
@@ -78,5 +63,49 @@ export const applyHostedMembershipActivation = (
   });
   if (spawn.errors.length > 0) throw hostedMutationError("MEMBERSHIP_SPAWN_CLAIM_FAILED");
   runtime.state = spawn.nextState;
+  return true;
+};
+
+const syncHostedMembershipPlayerIdentity = (
+  runtime: ServerInstanceRuntime,
+  membership: HostedMembershipRecord
+): boolean => {
+  const player = runtime.state.playersById[membership.playerId];
+  if (!player) throw hostedMutationError("MEMBERSHIP_PLAYER_MISSING");
+
+  const name = membership.accountDisplayName || player.name;
+  const gangName = membership.gangName || name;
+  const color = membership.gangColor as typeof player.color;
+  const changed = player.accountId !== membership.accountId
+    || player.name !== name
+    || player.color !== color
+    || player.metadata?.membershipId !== membership.membershipId
+    || player.metadata?.avatarId !== membership.avatarId
+    || player.metadata?.displayName !== name
+    || player.metadata?.gangName !== gangName
+    || player.metadata?.setupComplete !== true
+    || player.metadata?.starterPackageApplied !== true;
+  if (!changed) return false;
+
+  runtime.state.playersById[membership.playerId] = {
+    ...player,
+    accountId: membership.accountId,
+    name,
+    color,
+    version: player.version + 1,
+    metadata: {
+      ...(player.metadata ?? {}),
+      membershipId: membership.membershipId,
+      avatarId: membership.avatarId,
+      displayName: name,
+      gangName,
+      setupComplete: true,
+      starterPackageApplied: true
+    }
+  };
+  runtime.state.root = {
+    ...runtime.state.root,
+    version: runtime.state.root.version + 1
+  };
   return true;
 };

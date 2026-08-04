@@ -735,9 +735,10 @@ function drawTrapDistrictAnimation(context, district, animationProgress) {
   context.restore();
 }
 
-function drawOccupyDistrictAnimation(context, district, animationProgress) {
+function drawOccupyDistrictAnimation(context, district, marker, animationProgress) {
   context.save();
-  const playerColor = getLaunchPlayerColor(currentPlayerId);
+  const playerColor = String(marker?.playerColor || "").trim()
+    || getLaunchPlayerColor(marker?.playerId || currentPlayerId);
   const pulse = 0.5 + Math.sin(animationProgress * Math.PI * 4) * 0.5;
   const alpha = 0.18 + pulse * 0.28;
 
@@ -917,6 +918,81 @@ function drawReducedMapActivityMarker(context, district, _type, color) {
   context.shadowBlur = 6 + pulse * 8;
   context.shadowColor = markerColor;
   context.stroke();
+  context.restore();
+}
+
+function getAggregatedActivityAnchor(district) {
+  const polygon = Array.isArray(district?.polygon) ? district.polygon : [];
+  const bounds = getPolygonBounds(polygon);
+  const allianceAnchor = getAllianceBadgeAnchor(district);
+  const candidates = [
+    { x: bounds.minX + bounds.width * 0.72, y: bounds.minY + bounds.height * 0.28 },
+    { x: bounds.minX + bounds.width * 0.76, y: bounds.minY + bounds.height * 0.72 },
+    { x: bounds.minX + bounds.width * 0.68, y: bounds.minY + bounds.height * 0.5 }
+  ];
+  const minimumDistance = Math.max(22, Number(allianceAnchor?.size || 18) * 1.45);
+  return candidates.find((candidate) => (
+    isPointInsidePolygon(candidate, polygon)
+    && Math.hypot(candidate.x - allianceAnchor.x, candidate.y - allianceAnchor.y) >= minimumDistance
+  )) || {
+    x: Number(district?.centerX || 0) + Math.min(18, bounds.width * 0.2),
+    y: Number(district?.centerY || 0) + Math.min(14, bounds.height * 0.16)
+  };
+}
+
+function drawAggregatedMapActivityMarker(context, district, type, color) {
+  if (!district || !Array.isArray(district.polygon) || district.polygon.length < 3) return;
+  const markerColor = String(color || reducedActivityFallbackColor).trim() || reducedActivityFallbackColor;
+  const bounds = getPolygonBounds(district.polygon);
+  const anchor = getAggregatedActivityAnchor(district);
+  const radius = clamp(Math.min(bounds.width, bounds.height) * 0.15, 8, 12);
+
+  context.save();
+  context.translate(anchor.x, anchor.y);
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.strokeStyle = markerColor;
+  context.fillStyle = "rgba(4, 8, 16, 0.9)";
+  context.lineWidth = Math.max(1.2, radius * 0.14);
+  context.shadowBlur = 16;
+  context.shadowColor = markerColor;
+  context.beginPath();
+  context.arc(0, 0, radius, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+
+  context.shadowBlur = 11;
+  if (type === "attack") {
+    context.save();
+    context.rotate(-Math.PI / 4);
+    context.beginPath();
+    context.moveTo(0, -radius * 0.7);
+    context.lineTo(radius * 0.16, radius * 0.28);
+    context.lineTo(0, radius * 0.48);
+    context.lineTo(-radius * 0.16, radius * 0.28);
+    context.closePath();
+    context.stroke();
+    context.beginPath();
+    context.moveTo(-radius * 0.36, radius * 0.28);
+    context.lineTo(radius * 0.36, radius * 0.28);
+    context.moveTo(0, radius * 0.44);
+    context.lineTo(0, radius * 0.72);
+    context.stroke();
+    context.restore();
+  } else {
+    for (let index = 0; index < 8; index += 1) {
+      const angle = (Math.PI * 2 * index) / 8;
+      context.beginPath();
+      context.moveTo(0, 0);
+      context.lineTo(Math.cos(angle) * radius * 0.72, Math.sin(angle) * radius * 0.72);
+      context.stroke();
+    }
+    for (const webRadius of [0.3, 0.52, 0.72]) {
+      context.beginPath();
+      context.arc(0, 0, radius * webRadius, 0, Math.PI * 2);
+      context.stroke();
+    }
+  }
   context.restore();
 }
 
@@ -1239,6 +1315,7 @@ function drawBountyDistrictHighlight(context, district, isNight = true) {
     drawAttackDistrictAnimation,
     drawBountyDistrictBadge,
     drawBountyDistrictHighlight,
+    drawAggregatedMapActivityMarker,
     drawCurrentPlayerFactionBadge,
     drawOccupyCountdownLabel,
     drawOccupyDistrictAnimation,

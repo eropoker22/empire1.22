@@ -761,32 +761,40 @@
 
 .bounty-board__field--district-inline {
   display: grid;
-  align-items: center;
+  align-items: stretch;
   width: 100%;
   min-width: 150px;
   max-width: none;
-  padding: 4px 5px 4px 8px;
+  padding: 0;
   margin: 0;
-  background:
-    linear-gradient(135deg, rgba(220, 38, 38, 0.09), rgba(245, 158, 11, 0.06)),
-    rgba(5, 10, 18, 0.32);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  border-radius: 11px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 10px 22px rgba(0, 0, 0, 0.16);
-  backdrop-filter: blur(14px) saturate(128%);
-  -webkit-backdrop-filter: blur(14px) saturate(128%);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   grid-template-columns: minmax(0, 1fr);
   gap: 5px;
 }
 
 .bounty-board__field--district-inline > span {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 18px;
+  padding: 2px 7px;
   color: #f7c66f;
   font-size: 0.58rem;
   font-weight: 900;
+  line-height: 1;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.68), rgba(7, 9, 15, 0.86));
+  border: 1px solid rgba(180, 83, 9, 0.58);
+  border-radius: 999px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 14px rgba(180, 83, 9, 0.2);
 }
 
 .bounty-board__field--district-inline .bounty-board__input {
@@ -801,9 +809,9 @@
 }
 
 .bounty-board__district-current {
-  min-height: 34px;
-  padding-top: 6px;
-  padding-bottom: 6px;
+  min-height: 42px;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .bounty-board__resource-row {

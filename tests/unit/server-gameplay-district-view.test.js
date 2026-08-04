@@ -6,7 +6,8 @@ import {
 function createFixture({
   buildingSummary = "2 pevných budov",
   intelKnown = true,
-  status = "claimed"
+  status = "claimed",
+  zone = "commercial"
 } = {}) {
   const building = {
     buildingId: "building:district-21:pharmacy:1",
@@ -32,7 +33,7 @@ function createFixture({
       district: {
         districtId: "district:21",
         name: "District 21",
-        zone: "commercial",
+        zone,
         status,
         ownerPlayerId: "player:1",
         isOwnedByPlayer: true,
@@ -87,7 +88,7 @@ describe("server gameplay district presentation", () => {
     ]);
   });
 
-  it("uses the exact demo copy when building intel is hidden", () => {
+  it("does not show the lockdown message for hidden non-downtown intel", () => {
     const fixture = createFixture({
       buildingSummary: "Budovy nezjištěny",
       intelKnown: false
@@ -95,9 +96,20 @@ describe("server gameplay district presentation", () => {
     const view = createServerGameplayDistrictView(fixture.readModel, fixture.renderState);
 
     expect(view?.buildingMetaText).toBe("Nezjištěno");
-    expect(view?.buildingEmptyText).toBe(
-      "Bez spy nebo vlastnictví zatím nevíš, jaké budovy jsou v tomto distriktu."
-    );
+    expect(view?.buildingEmptyText).toBe("");
+    expect(view?.buildingEmptyTone).toBe("");
+  });
+
+  it("shows the lockdown message only for hidden downtown intel", () => {
+    const fixture = createFixture({
+      buildingSummary: "Budovy nezjištěny",
+      intelKnown: false,
+      zone: "downtown"
+    });
+    const view = createServerGameplayDistrictView(fixture.readModel, fixture.renderState);
+
+    expect(view?.buildingEmptyText).toBe("Odemkne se až v lockdownu");
+    expect(view?.buildingEmptyTone).toBe("lockdown");
   });
 
   it("uses the exact demo destroyed-district copy", () => {

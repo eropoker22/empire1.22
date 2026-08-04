@@ -27,6 +27,7 @@ export const createDistrictSummaryViews = (
           ? null
           : state.playersById[district.ownerPlayerId]?.color ?? null,
         isOwnedByPlayer: district.status === "destroyed" ? false : district.ownerPlayerId === playerId,
+        intelKnown,
         status: district.status,
         adjacentDistrictIds: district.adjacentDistrictIds,
         heat: district.status === "destroyed" ? 0 : district.heat,

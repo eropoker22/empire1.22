@@ -27,7 +27,7 @@ describe("live gameplay bootstrap authority", () => {
     expect(entryClient).not.toContain('localStorage.setItem("empireStreets.session.v1"');
   });
 
-  it("binds hosted onboarding presentation without enabling the local-demo sandbox", () => {
+  it("binds hosted onboarding presentation inside the isolated onboarding sandbox", () => {
     const runtime = read("page-assets/js/app/runtime.js");
     const onboardingBinder = runtime.slice(
       runtime.indexOf("function bindFreeSessionOnboarding"),
@@ -37,11 +37,12 @@ describe("live gameplay bootstrap authority", () => {
     expect(resolveOnboardingRuntimePolicy(GAMEPLAY_EXECUTION_MODES.serverAuthoritative)).toEqual({
       autoStart: false,
       bind: true,
-      useLocalSandbox: false
+      useLocalSandbox: true
     });
     expect(onboardingBinder).toContain("resolveOnboardingRuntimePolicy(getSelectedGameplayExecutionMode())");
     expect(onboardingBinder).toContain("|| !policy.bind");
     expect(onboardingBinder).toContain("autoStart: policy.autoStart");
     expect(onboardingBinder).toContain("...(policy.useLocalSandbox");
+    expect(onboardingBinder).toContain("onStepEnter: (stepId) => enterOnboardingSandboxStep(stepId, root)");
   });
 });

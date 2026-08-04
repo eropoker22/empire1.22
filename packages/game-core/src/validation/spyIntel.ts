@@ -19,6 +19,7 @@ export const hasSuccessfulSpyIntel = (
     }
 
     const payload = notification.payload;
+    if (!isSpyReportResolved(state, payload)) return false;
     return payload.targetDistrictId === targetDistrictId && payload.result === "success";
   });
 
@@ -33,6 +34,7 @@ export const hasRevealedDistrictTypeIntel = (
     }
 
     const payload = notification.payload;
+    if (!isSpyReportResolved(state, payload)) return false;
     if (payload.targetDistrictId !== targetDistrictId) {
       return false;
     }
@@ -61,6 +63,7 @@ export const hasValidAttackAuthorization = (
     }
 
     const payload = notification.payload;
+    if (!isSpyReportResolved(state, payload)) return false;
     if (
       payload.targetDistrictId !== targetDistrictId
       || payload.result !== "success"
@@ -110,6 +113,7 @@ export const validateOccupyEmptyDistrictAuthorization = (
     }
 
     const payload = notification.payload;
+    if (!isSpyReportResolved(state, payload)) return false;
     return payload.targetDistrictId === targetDistrictId
       && payload.result === "success"
       && payload.purpose === "occupy_empty_district";
@@ -117,16 +121,6 @@ export const validateOccupyEmptyDistrictAuthorization = (
 
   if (matchingReports.length === 0) {
     return "OCCUPY_SPY_REQUIRED";
-  }
-
-  const hasNonExpired = matchingReports.some((notification) => {
-    const payload = notification.payload;
-    return typeof payload.authorizationExpiresAtTick === "number"
-      && payload.authorizationExpiresAtTick > state.root.tick;
-  });
-
-  if (!hasNonExpired) {
-    return "OCCUPY_SPY_AUTH_EXPIRED";
   }
 
   const hasCurrentTargetSecurity = matchingReports.some((notification) => {
@@ -138,3 +132,8 @@ export const validateOccupyEmptyDistrictAuthorization = (
 
   return hasCurrentTargetSecurity ? true : "OCCUPY_SPY_AUTH_INVALIDATED";
 };
+
+const isSpyReportResolved = (
+  state: CoreGameState,
+  payload: CoreGameState["notificationsById"][string]["payload"]
+): boolean => typeof payload.resolveAtTick !== "number" || payload.resolveAtTick <= state.root.tick;

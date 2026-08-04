@@ -51,6 +51,7 @@ export const createDistrictSpyTargetViews = (
         ownerPlayerId: targetDistrict.ownerPlayerId,
         status: targetDistrict.status,
         enabled: errors.length === 0,
+        disabledCode: errors[0]?.code ?? null,
         disabledReason: errors[0]?.message ?? null,
         targetSecurityRevision: targetDistrict.securityRevision,
         authorizationTtlTicks: Math.max(0, Number(conflictConfig?.spyAuthorizationTtlTicks ?? 0)),

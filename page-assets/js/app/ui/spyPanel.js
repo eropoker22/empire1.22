@@ -70,6 +70,12 @@ function bindButtonCallback(button, callbackKey, callback, payloadResolver) {
   });
 }
 
+function setSpyConfirmOpenState(popup, open) {
+  const documentRef = popup?.ownerDocument;
+  documentRef?.documentElement?.classList.toggle("game-spy-confirm-open", Boolean(open));
+  documentRef?.body?.classList.toggle("game-spy-confirm-open", Boolean(open));
+}
+
 export function renderSpyPanel(spyViewModel = {}, callbacks = {}, options = {}) {
   const elements = options.elements || {};
 
@@ -97,6 +103,7 @@ export function openSpyPanel(targetDistrict = null, options = {}) {
 
   openOverlay(popup, { type: "modal", ariaModal: true });
   popup.hidden = false;
+  setSpyConfirmOpenState(popup, true);
   return true;
 }
 
@@ -107,6 +114,7 @@ export function closeSpyPanel(options = {}) {
   }
 
   popup.hidden = true;
+  setSpyConfirmOpenState(popup, false);
   closeOverlay(popup, { restoreFocus: false });
   return true;
 }

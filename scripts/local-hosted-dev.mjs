@@ -21,6 +21,7 @@ import { resolveSupportedNodeExecutable } from "./local-hosted/supported-node-ru
 
 const command = process.argv[2] || "start";
 const commandArgs = process.argv.slice(3);
+const skipVerification = commandArgs.includes("--skip-verify");
 const require = createRequire(import.meta.url);
 const runtimeBundleDirectory = path.resolve("dist-local-hosted-runtime");
 
@@ -125,7 +126,9 @@ async function start() {
       waitForHttp(`${LOCAL_HOSTED_FRONTEND_ORIGIN}/pages/login.html`, services[2]),
       waitForHttp(`${LOCAL_HOSTED_FRONTEND_ORIGIN}/admin.html`, services[2])
     ]);
-    runNode(["scripts/verify-local-hosted-runtime.mjs"]);
+    if (!skipVerification) {
+      runNode(["scripts/verify-local-hosted-runtime.mjs"]);
+    }
     console.log("[local-hosted] READY");
     console.log(`[local-hosted] Hra: ${frontendAccess.origin}/pages/login.html`);
     console.log(`[local-hosted] Admin: ${frontendAccess.origin}/admin.html`);

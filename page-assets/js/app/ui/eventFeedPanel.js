@@ -393,6 +393,7 @@ export function createBuildingActionFeedItemElement(documentRef, entry, options 
   const isOpenable = isBuildingActionEntryOpenable(entry);
   const isDismissible = entry.dismissible !== false && entry.persistent !== true;
   const isCompactCooldown = entry.compact === true || entry.sourceKind === "cooldown";
+  const isRumorInbox = entry.sourceKind === "rumor-inbox";
 
   if (!isDismissible) {
     item.classList.add("building-action-status__item--persistent");
@@ -401,6 +402,10 @@ export function createBuildingActionFeedItemElement(documentRef, entry, options 
 
   if (isCompactCooldown) {
     item.classList.add("building-action-status__item--cooldown");
+  }
+
+  if (isRumorInbox) {
+    item.classList.add("building-action-status__item--rumor-inbox");
   }
 
   if (entry.resultKind) {
@@ -456,6 +461,14 @@ export function createBuildingActionFeedItemElement(documentRef, entry, options 
   title.textContent = entry.title;
   head.append(title);
 
+  if (isRumorInbox) {
+    const count = ownerDocument.createElement("span");
+    count.className = "building-action-status__rumor-count";
+    count.textContent = String(Math.max(0, Number(entry.resultPayload?.rumorCount || 0)));
+    count.setAttribute("aria-label", `${count.textContent} drbů`);
+    head.append(count);
+  }
+
   if (isCompactCooldown && entry.summary) {
     const inlineSummary = ownerDocument.createElement("span");
     inlineSummary.className = "building-action-status__item-inline-summary";
@@ -483,6 +496,13 @@ export function createBuildingActionFeedItemElement(documentRef, entry, options 
 
   const controls = ownerDocument.createElement("div");
   controls.className = "building-action-status__item-controls";
+
+  if (isRumorInbox) {
+    const openLabel = ownerDocument.createElement("span");
+    openLabel.className = "building-action-status__rumor-open";
+    openLabel.textContent = "OTEVŘÍT ↗";
+    controls.append(openLabel);
+  }
 
   if (isDismissible) {
     const removeButton = ownerDocument.createElement("button");

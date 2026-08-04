@@ -121,7 +121,10 @@ export const createCityFeedEventsFromCoreEvent = (
         districtId,
         messageKey: "police_warning",
         rumorCategory: "espionage",
-        payload: { publicSummary: "spy_activity" }
+        payload: {
+          publicSummary: "spy_activity",
+          resolveAtTick: numericValue(payload.resolveAtTick)
+        }
       })];
     case "police-warning-issued":
     case "police-raid-triggered":

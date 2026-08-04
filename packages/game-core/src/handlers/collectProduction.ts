@@ -1,8 +1,8 @@
-import type { CollectProductionCommand, ResourceState } from "@empire/shared-types";
+import type { CollectProductionCommand, Notification, ResourceState } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import type { CoreEvent } from "../events";
 import type { CoreError } from "../errors";
-import { createEvent, CORE_EVENT_TYPES } from "../events";
+import { createEvent, createNotification, CORE_EVENT_TYPES } from "../events";
 import type { GameCoreContext } from "../engine/context";
 import { validateCollect } from "../validation";
 import { composeEntityId } from "../utils";
@@ -28,38 +28,40 @@ export const handleCollectProduction = (
 ): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
   const targetBuilding = state.buildingsById[command.payload.buildingId];
   if (targetBuilding?.buildingTypeId === "pharmacy") {
-    return collectPharmacyProduction(state, {
+    return attachProductionCollectionReport(collectPharmacyProduction(state, {
       ...command,
       payload: {
         ...command.payload,
         recipeId: command.payload.resourceKey || ""
       }
-    }, context);
+    }, context), command, targetBuilding.buildingTypeId);
   }
   if (targetBuilding?.buildingTypeId === "drug_lab") {
-    return collectDrugLabProduction(state, {
+    return attachProductionCollectionReport(collectDrugLabProduction(state, {
       ...command,
       payload: {
         ...command.payload,
         recipeId: command.payload.resourceKey || ""
       }
-    }, context);
+    }, context), command, targetBuilding.buildingTypeId);
   }
   if (targetBuilding?.buildingTypeId === "factory") {
-    return command.payload.resourceKey
+    const result = command.payload.resourceKey
       ? collectFactoryProduction(state, {
           ...command,
           payload: { ...command.payload, recipeId: command.payload.resourceKey }
         }, context)
       : collectAllFactoryProduction(state, command, context);
+    return attachProductionCollectionReport(result, command, targetBuilding.buildingTypeId);
   }
   if (targetBuilding?.buildingTypeId === "armory") {
-    return command.payload.resourceKey
+    const result = command.payload.resourceKey
       ? collectArmoryProduction(state, {
           ...command,
           payload: { ...command.payload, recipeId: command.payload.resourceKey }
         }, context)
       : collectAllArmoryProduction(state, command, context);
+    return attachProductionCollectionReport(result, command, targetBuilding.buildingTypeId);
   }
   const errors = validateCollect(state, command, context);
 
@@ -146,7 +148,7 @@ export const handleCollectProduction = (
     version: playerResourceState.version + (storedPlayerResourceState ? 1 : 0)
   };
 
-  return {
+  return attachProductionCollectionReport({
     nextState: {
       ...state,
       resourceStatesById: {
@@ -165,8 +167,104 @@ export const handleCollectProduction = (
       })
     ],
     errors: []
+  }, command, building.buildingTypeId);
+};
+
+const attachProductionCollectionReport = (
+  result: { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] },
+  command: CollectProductionCommand,
+  buildingTypeId: string
+): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
+  if (result.errors.length > 0) {
+    return result;
+  }
+
+  const collectedResources = result.events
+    .filter((event) => event.type === CORE_EVENT_TYPES.productionCollected)
+    .map((event) => event.payload as { resourceKey?: unknown; amount?: unknown })
+    .reduce<Record<string, number>>((resources, payload) => {
+      const resourceKey = String(payload.resourceKey || "").trim();
+      const amount = Math.max(0, Number(payload.amount || 0));
+      if (resourceKey && amount > 0) {
+        resources[resourceKey] = Number(resources[resourceKey] || 0) + amount;
+      }
+      return resources;
+    }, {});
+
+  if (Object.keys(collectedResources).length === 0) {
+    return result;
+  }
+
+  const notification = createProductionCollectionNotification({
+    command,
+    buildingTypeId,
+    collectedResources,
+    tick: result.nextState.root.tick
+  });
+  const notificationAlreadyStored = Boolean(result.nextState.notificationsById[notification.id]);
+
+  return {
+    ...result,
+    nextState: {
+      ...result.nextState,
+      notificationsById: {
+        ...result.nextState.notificationsById,
+        [notification.id]: notification
+      },
+      root: notificationAlreadyStored
+        ? result.nextState.root
+        : {
+            ...result.nextState.root,
+            notificationIds: [...result.nextState.root.notificationIds, notification.id],
+            version: result.nextState.root.version + 1
+          }
+    }
   };
 };
+
+const createProductionCollectionNotification = ({
+  command,
+  buildingTypeId,
+  collectedResources,
+  tick
+}: {
+  command: CollectProductionCommand;
+  buildingTypeId: string;
+  collectedResources: Record<string, number>;
+  tick: number;
+}): Notification => createNotification({
+  id: composeEntityId("notification", `${command.id}:production-collection-report`),
+  recipientType: "player",
+  recipientId: command.playerId,
+  category: "report.building-action",
+  title: "Výběr produkce",
+  bodyKey: "report.building-action",
+  payload: {
+    reportId: composeEntityId("report", `${command.id}:production-collection`),
+    reportType: "building-action",
+    actionType: "collect-production",
+    playerId: command.playerId,
+    districtId: command.payload.districtId,
+    buildingId: command.payload.buildingId,
+    buildingTypeId,
+    buildingType: buildingTypeId,
+    buildingActionId: "collect-production",
+    actionId: "collect-production",
+    result: "success",
+    success: true,
+    inputCost: {},
+    outputGain: collectedResources,
+    resourceDelta: collectedResources,
+    producedItems: collectedResources,
+    consumedItems: {},
+    message: "Hotová produkce byla přesunuta do skladu.",
+    tick,
+    createdAt: new Date(0).toISOString(),
+    eventId: command.id
+  },
+  createdAt: new Date(0).toISOString(),
+  readAt: null
+});
 
 const createPlayerResourceState = (
   player: CoreGameState["playersById"][string],

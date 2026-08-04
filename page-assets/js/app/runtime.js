@@ -121,7 +121,7 @@ import {
 import { bindLeaderboardPopup } from "./features/leaderboard.js";
 import { bindMapNavigation } from "./map-navigation.js";
 import { createMapCanvasAnimationRenderers } from "./map/mapCanvasAnimations.js";
-import { createDistrictCanvasRenderer } from "./map/districtCanvasRenderer.js";
+import { createDistrictCanvasRenderer } from "./map/districtCanvasRenderer.js?v=spy-intel-border-20260805-1";
 import {
   DISTRICT_ATMOSPHERE_META,
   DISTRICT_BUILDING_TYPE_META,
@@ -149,7 +149,7 @@ import {
   createGameplaySliceMapFingerprints,
   diffGameplaySliceMapLayers,
   resolveMapRenderLayers
-} from "./map/mapLayerInvalidation.js";
+} from "./map/mapLayerInvalidation.js?v=spy-intel-border-20260805-1";
 import {
   resolveMapDestroyedFillStyle,
   resolveMapDistrictAtmosphereMeta,
@@ -221,8 +221,9 @@ import {
   hideDistrictTooltip,
   renderDistrictTooltip
 } from "./map/mapTooltip.js";
-import { buildMapTooltipViewModel } from "./map/mapTooltipViewModel.js";
+import { buildMapTooltipViewModel, getMapTooltipContentKey } from "./map/mapTooltipViewModel.js";
 import { buildMapMissionMarkersViewModel } from "./map/mapMissionMarkersViewModel.js";
+import { createServerMapPresentationModel } from "./map/serverMapPresentationModel.js";
 import {
   applyMobilePerformanceMode,
   detectMobilePerformanceMode,
@@ -763,18 +764,18 @@ import {
   openSpyPanel,
   renderSpyPanel,
   renderSpyWarningPanel
-} from "./ui/spyPanel.js";
+} from "./ui/spyPanel.js?v=spy-mobile-topbar-20260804-2";
 import { bindOverflowTextTooltips } from "./ui/overflowTextTooltips.js";
 import {
   renderDistrictBuildingList,
   renderDistrictFlags,
   renderDistrictMetricSummary
-} from "./ui/districtPanel.js";
+} from "./ui/districtPanel.js?v=mobile-action-count-20260804-1";
 import {
   createDistrictActionConfirmationPanelElements,
   resolveOccupyPopulationCostForOwnedCount
 } from "./ui/districtActionConfirmationPanel.js";
-import { renderDistrictActionHub } from "./ui/districtActionHub.js";
+import { renderDistrictActionHub } from "./ui/districtActionHub.js?v=mobile-action-count-20260804-1";
 import { renderSelectedDistrictSummary } from "./ui/selectedDistrictSummary.js";
 import {
   closeMarketPanel,
@@ -787,7 +788,7 @@ import {
   renderPlayerMarketPanel,
   setMarketFeedback as renderMarketFeedback,
   syncMarketTabs
-} from "./ui/marketPanel.js";
+} from "./ui/marketPanel.js?v=black-market-dollar-20260804-1";
 import {
   renderBuildingActionRows,
   renderBuildingsPopupDetail as renderBuildingsPopupDetailPanel,
@@ -814,7 +815,7 @@ import {
   closeOverlay,
   isOverlayOpen,
   shouldSuppressMapInput
-} from "./ui/legacyOverlayCoordinator.js";
+} from "./ui/legacyOverlayCoordinator.js?v=close-fallback-20260805-1";
 import {
   collectMounts as collectMountsUi,
   createPageContext as createPageContextUi,
@@ -873,7 +874,7 @@ import {
   ServerBuildingPresentationAdapter
 } from "./runtime/buildingPresentationAdapters.js";
 import { createServerDistrictActionPresentation } from "./runtime/serverDistrictActionPresentation.js";
-import { createServerGameplayDistrictView } from "./ui/serverGameplayDistrictView.js";
+import { createServerGameplayDistrictView } from "./ui/serverGameplayDistrictView.js?v=district-disabled-actions-20260804-1";
 import { renderServerGameplayDistrictSummary } from "./ui/serverGameplayDistrictSummaryRenderer.js";
 import { resolveDistrictBuildingPresentationKind } from "./ui/districtBuildingChipKind.js";
 import { createDistrictBuildingProfileRuntime } from "./runtime/districtBuildingProfileRuntime.js";
@@ -984,6 +985,7 @@ import { resolveOnboardingRuntimePolicy } from "./runtime/onboardingRuntimePolic
 import { createPoliceHeatBridge, resolvePoliceHeatFeedback } from "./runtime/policeHeatBridge.js";
 import { createEventRumorBridge, createRumorStreetNewsPayload } from "./runtime/eventRumorBridge.js";
 import { renderRecipeCard } from "./ui/recipePanel.js";
+import { openRumorInboxModal } from "./ui/rumorInboxModal.js";
 import {
   getActionDescription,
   getActionDisabledReason,
@@ -1676,28 +1678,7 @@ async function loadServerGameplaySliceForDistrict(districtId, { forceRefresh = f
   if (!forceRefresh && slice?.district?.districtId === districtId) {
     return { accepted: true, readModel: slice, errors: [] };
   }
-
-  const request = {
-    serverInstanceId: player.instanceId,
-    playerId: player.playerId,
-    districtId
-  };
-  const snapshotToken = getGameplaySliceSnapshotToken(player.instanceId, player.playerId);
-  if (snapshotToken) {
-    request.snapshotToken = snapshotToken;
-  }
-
-  const response = await fetch(`${getGameplaySliceEndpointBase()}/load`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json"
-    },
-    credentials: "same-origin",
-    body: JSON.stringify(request)
-  }).then((payload) => payload.json());
-
-  syncGameplaySliceResponse(response);
-  return response;
+  return selectServerDistrict(districtId);
 }
 
 async function prepareServerProductionBuilding(buildingTypeId, options = {}) {
@@ -2089,6 +2070,7 @@ function getLaunchPlayerRuntime() {
       avatarByFactionId: LAUNCH_PLAYER_AVATAR_BY_FACTION_ID,
       startPhaseOwnerByDistrictId: START_PHASE_OWNER_BY_DISTRICT_ID,
       getStoredRegistration,
+      getServerPlayerColor: () => latestGameplaySliceReadModel?.player?.color,
       getWorldState: getResolvedWorldState,
       getLegacyAvatar: () => loadTextStorage(LEGACY_STORAGE_KEYS.avatar, ""),
       normalizeRuntimeHexColor,
@@ -2102,7 +2084,8 @@ function getLaunchPlayerRuntime() {
 }
 
 function getCurrentPlayerGangColor() {
-  return getLaunchPlayerRuntime().getCurrentPlayerGangColor();
+  return resolveServerAuthoritativePlayerColor(CURRENT_PLAYER_ID)
+    || getLaunchPlayerRuntime().getCurrentPlayerGangColor();
 }
 
 function getCurrentPlayerFactionGlyph() {
@@ -3898,12 +3881,7 @@ function createServerConflictReportPresentation(report = {}) {
           { label: "Navazující akce", value: authorizationLabel },
           { label: "Odhalená obrana", value: formatServerReportRecord(report.detectedDefense) },
           { label: "Past", value: report.trapDetected ? "Odhalena" : "Neodhalena" },
-          { label: "Heat", value: `+${Math.max(0, Number(report.heatGained || 0))}` },
-          ...(report.authorizationExpiresAtTick !== null
-            && report.authorizationExpiresAtTick !== undefined
-            && Number.isFinite(Number(report.authorizationExpiresAtTick))
-            ? [{ label: "Oprávnění platí do", value: `Tick ${Number(report.authorizationExpiresAtTick)}` }]
-            : [])
+          { label: "Heat", value: `+${Math.max(0, Number(report.heatGained || 0))}` }
         ]
       }
     };
@@ -3977,9 +3955,34 @@ function createServerConflictReportPresentation(report = {}) {
 
   if (report.reportType === "building-action") {
     const buildingLabel = String(report.buildingType || report.buildingTypeId || "Budova").replace(/_/g, " ");
+    const actionId = String(report.buildingActionId || report.actionId || "").trim();
+    if (actionId === "collect-production") {
+      const buildingLabels = {
+        pharmacy: "Lékárna",
+        drug_lab: "Lab",
+        factory: "Továrna",
+        armory: "Zbrojovka"
+      };
+      return {
+        kind: "police",
+        modalKind: "police",
+        payload: createStorageCollectResultPayload({
+          buildingLabel: buildingLabels[report.buildingTypeId] || buildingLabels[report.buildingType] || buildingLabel,
+          items: Object.entries(report.outputGain || report.producedItems || {})
+            .map(([resourceKey, amount]) => ({
+              label: getProductionResourceLabel(resourceKey),
+              amount: Math.max(0, Number(amount || 0))
+            }))
+            .filter((item) => item.amount > 0),
+          meta: "Serverový sklad",
+          districtLabel: targetLabel,
+          hideBadge: report.buildingTypeId === "pharmacy"
+        })
+      };
+    }
     return {
-      kind: "building-action",
-      modalKind: null,
+      kind: "police",
+      modalKind: "police",
       payload: {
         tone: "is-success",
         title: `${buildingLabel}: Hotovo`,
@@ -4099,6 +4102,15 @@ function openCurrentBuildingActionResultModal(root) {
 }
 
 function openStreetNewsResult(root, kind, payload = {}) {
+  if (kind === "rumor-inbox") {
+    openRumorInboxModal({
+      documentRef: root?.ownerDocument || document,
+      rumors: payload?.rumors,
+      onOpenRumor: (entry) => openStreetNewsResult(root, entry?.resultKind, entry?.resultPayload)
+    });
+    return;
+  }
+
   if (kind === "server-milestone") {
     root?.ownerDocument?.dispatchEvent?.(new CustomEvent("empire:server-milestone-open", {
       detail: {
@@ -4418,6 +4430,71 @@ function collectMissionCooldownStreetNewsEntries(now) {
   return entries;
 }
 
+function collectServerRobberyCooldownStreetNewsEntries(now) {
+  if (!isServerAuthoritativeGameplayRuntimeReady()) {
+    return [];
+  }
+
+  const readModel = getServerGameplaySliceReadModel();
+  const mapEffects = Array.isArray(readModel?.mapEffects) ? readModel.mapEffects : [];
+  const cooldowns = Array.isArray(readModel?.commandHints?.cooldowns)
+    ? readModel.commandHints.cooldowns
+    : [];
+  const tickRateMs = Math.max(1, Number(readModel?.mode?.tickRateMs || FREE_GAMEPLAY_TICK_MS));
+  const generatedAt = parseStreetNewsCooldownTimestamp(readModel?.server?.generatedAt) || now;
+  const entries = [];
+  const trackedTargetDistrictIds = new Set();
+
+  for (const effect of mapEffects) {
+    if (String(effect?.type || "") !== "robbery") {
+      continue;
+    }
+
+    const targetDistrictId = effect?.districtId;
+    const expiresAt = parseStreetNewsCooldownTimestamp(effect?.expiresAt);
+    if (!expiresAt || expiresAt <= now) {
+      continue;
+    }
+
+    trackedTargetDistrictIds.add(String(targetDistrictId || ""));
+    appendStreetNewsCooldownEntry(entries, {
+      id: `cooldown:server-robbery:${String(effect?.effectId || targetDistrictId || expiresAt)}`,
+      title: "Vykrást district",
+      summary: formatStreetNewsCooldownDistrict(targetDistrictId),
+      meta: `Čekání ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
+      expiresAt,
+      resultKind: "raid"
+    }, now);
+  }
+
+  for (const cooldown of cooldowns) {
+    if (String(cooldown?.commandType || "") !== "rob-district") {
+      continue;
+    }
+
+    const remainingTicks = Math.max(0, Number(cooldown?.remainingTicks || 0));
+    if (remainingTicks <= 0) {
+      continue;
+    }
+
+    const targetDistrictId = cooldown?.targetId;
+    if (trackedTargetDistrictIds.has(String(targetDistrictId || ""))) {
+      continue;
+    }
+    const expiresAt = generatedAt + (remainingTicks * tickRateMs);
+    appendStreetNewsCooldownEntry(entries, {
+      id: `cooldown:server-robbery:${String(targetDistrictId || expiresAt)}`,
+      title: "Vykrást district",
+      summary: formatStreetNewsCooldownDistrict(targetDistrictId),
+      meta: `Čekání ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
+      expiresAt,
+      resultKind: "raid"
+    }, now);
+  }
+
+  return entries;
+}
+
 function collectTrapCooldownStreetNewsEntries(now) {
   const entries = [];
   const worldState = readStreetNewsCooldownObject(getResolvedWorldState);
@@ -4538,6 +4615,7 @@ function collectAlliancePenaltyStreetNewsEntries(now) {
 function createActiveCooldownStreetNewsEntries(now = Date.now()) {
   return [
     ...collectMissionCooldownStreetNewsEntries(now),
+    ...collectServerRobberyCooldownStreetNewsEntries(now),
     ...collectTrapCooldownStreetNewsEntries(now),
     ...collectBuildingCooldownStreetNewsEntries(now),
     ...collectAlliancePenaltyStreetNewsEntries(now)
@@ -4559,7 +4637,38 @@ function renderBuildingActionFeed(root, { syncPreview = false, previewSnapshot =
   }
 
   const cooldownEntries = createActiveCooldownStreetNewsEntries();
-  const visibleEntries = [...cooldownEntries, ...panel.entries];
+  const rumorEntries = panel.entries.filter((entry) => (
+    entry.sourceKind === "rumor"
+    || entry.category === "rumor"
+    || String(entry.id || "").startsWith("rumor-street-news:")
+    || (entry.title === "Drb z ulice" && entry.resultPayload?.badge === "Drb")
+  ));
+  const standardEntries = panel.entries.filter((entry) => !rumorEntries.includes(entry));
+  const rumorInboxEntry = rumorEntries.length > 0
+    ? createBuildingActionEntry({
+        id: "street-news-rumor-inbox",
+        timestampMs: Math.max(...rumorEntries.map((entry) => Number(entry.timestampMs || 0))),
+        tone: "event",
+        title: "Drby z ulice",
+        summary: `${rumorEntries.length} zachycených drbů`,
+        meta: "Otevřít neonovou uliční schránku",
+        sourceKind: "rumor-inbox",
+        category: "rumor-inbox",
+        persistent: true,
+        resultKind: "rumor-inbox",
+        resultPayload: {
+          openable: true,
+          tone: "is-player-alert",
+          rumorCount: rumorEntries.length,
+          rumors: rumorEntries
+        }
+      })
+    : null;
+  const visibleEntries = [
+    ...cooldownEntries,
+    ...(rumorInboxEntry ? [rumorInboxEntry] : []),
+    ...standardEntries
+  ];
 
   panel.feedElement.replaceChildren(
     ...visibleEntries
@@ -4579,7 +4688,14 @@ function renderBuildingActionFeed(root, { syncPreview = false, previewSnapshot =
   panel.clearButton.setAttribute("aria-disabled", hasDismissibleEntries ? "false" : "true");
 
   if (syncPreview) {
-    const snapshot = previewSnapshot || panel.entries[0] || cooldownEntries[0] || BUILDING_ACTION_EMPTY_SNAPSHOT;
+    const requestedSnapshot = previewSnapshot || panel.entries[0] || cooldownEntries[0] || BUILDING_ACTION_EMPTY_SNAPSHOT;
+    const snapshot = rumorInboxEntry && (
+      requestedSnapshot?.sourceKind === "rumor"
+      || requestedSnapshot?.category === "rumor"
+      || String(requestedSnapshot?.id || "").startsWith("rumor-street-news:")
+    )
+      ? rumorInboxEntry
+      : requestedSnapshot;
     syncBuildingActionSource(root, snapshot);
   }
 }
@@ -6526,8 +6642,26 @@ subscribeLegacyScenarioData(() => {
   nextOwners.forEach((ownerId, districtId) => START_PHASE_OWNER_BY_DISTRICT_ID.set(districtId, ownerId));
 });
 
+function resolveServerAuthoritativePlayerColor(ownerId) {
+  const gameplaySlice = latestGameplaySliceReadModel;
+  if (!gameplaySlice || typeof gameplaySlice !== "object") return null;
+  const ownerKey = String(ownerId ?? "");
+  const currentPlayerId = String(gameplaySlice?.player?.playerId || "");
+  if (ownerKey === currentPlayerId || ownerKey === String(CURRENT_PLAYER_ID)) {
+    const playerColor = normalizeRuntimeHexColor(gameplaySlice?.player?.color);
+    if (playerColor) return playerColor;
+  }
+  for (const district of Array.isArray(gameplaySlice?.districts) ? gameplaySlice.districts : []) {
+    if (String(district?.ownerPlayerId || "") !== ownerKey) continue;
+    const ownerColor = normalizeRuntimeHexColor(district?.ownerColor);
+    if (ownerColor) return ownerColor;
+  }
+  return null;
+}
+
 function getLaunchPlayerColor(ownerId) {
-  return getLaunchPlayerRuntime().getLaunchPlayerColor(ownerId);
+  return resolveServerAuthoritativePlayerColor(ownerId)
+    || getLaunchPlayerRuntime().getLaunchPlayerColor(ownerId);
 }
 
 function getLaunchPlayerName(ownerId) {
@@ -10889,6 +11023,11 @@ function getDistrictFillStyle(district, isNight, interactionState = {}) {
   const isLaunchPhase = gamePhase === "launch";
   const launchOwnerByDistrictId = interactionState.launchOwnerByDistrictId || START_PHASE_OWNER_BY_DISTRICT_ID;
   const launchOwnerId = isLaunchPhase ? launchOwnerByDistrictId.get(districtId) : null;
+  const districtOwnerId = interactionState.districtOwnerById?.[districtId] ?? null;
+
+  if (districtOwnerId) {
+    return applyHexAlpha(getLaunchPlayerColor(districtOwnerId), MAP_OWNER_FILL_ALPHA);
+  }
 
   if (districtType === MAP_DOWNTOWN_DISTRICT_TYPE && !ownedDistrictIds.has(districtId) && !launchOwnerId) {
     return resolveMapZoneFillStyle(districtType, isNight);
@@ -11007,6 +11146,7 @@ const {
   drawAttackDistrictAnimation,
   drawBountyDistrictBadge,
   drawBountyDistrictHighlight,
+  drawAggregatedMapActivityMarker,
   drawCurrentPlayerFactionBadge,
   drawOccupyDistrictAnimation,
   drawPoliceDistrictAnimation,
@@ -11035,6 +11175,7 @@ const districtCanvasRenderer = createDistrictCanvasRenderer({
   drawCurrentPlayerFactionBadge,
   drawBountyDistrictHighlight,
   drawBountyDistrictBadge,
+  drawAggregatedMapActivityMarker,
   drawReducedMapActivityMarker,
   drawSpyDistrictAnimation,
   drawPoliceDistrictAnimation,
@@ -11251,7 +11392,7 @@ function bindDistrictCanvas(root) {
   let popupRefreshTimerId = null;
   let serverDistrictSelectionCoordinator = null;
   let isDistrictPopupOverviewEnabled = false;
-  let lastTooltipDistrictId = null;
+  let lastTooltipContentKey = "";
   let tooltipSize = { width: 84, height: 52 };
   let lastMissionAnimationAt = 0;
   let lastMissionMarkerSyncAt = 0;
@@ -11277,6 +11418,15 @@ function bindDistrictCanvas(root) {
         .map((district) => Number(resolveLegacyDistrictId(district?.districtId)))
         .filter(Boolean))
       : new Set(worldState.ownedDistrictIds || []);
+    interactionState.revealedDistrictIds = serverDistricts
+      ? new Set(serverDistricts
+        .filter((district) => district?.intelKnown === true || district?.isOwnedByPlayer === true)
+        .map((district) => Number(resolveLegacyDistrictId(district?.districtId)))
+        .filter(Boolean))
+      : new Set([
+          ...(interactionState.revealedDistrictIds || []),
+          ...(worldState.ownedDistrictIds || [])
+        ]);
     interactionState.destroyedDistrictIds = serverDistricts
       ? new Set(serverDistricts
         .filter((district) => district?.status === "destroyed")
@@ -11305,7 +11455,7 @@ function bindDistrictCanvas(root) {
 
   const hideTooltip = () => {
     hideDistrictTooltip({ tooltip, gossip: tooltipGossip });
-    lastTooltipDistrictId = null;
+    lastTooltipContentKey = "";
   };
 
   const hasActiveDistrictModal = () => hasActiveDistrictPopupModal(districtPopupElements);
@@ -11862,6 +12012,15 @@ function bindDistrictCanvas(root) {
     getRobberyCooldownView: () => getRobberyActionCooldownView(),
     occupyCooldownMs: OCCUPY_COOLDOWN_MS,
     getOccupyCooldownView: () => getOccupyActionCooldownView(),
+    getAuthoritativeOccupyTarget: (district) => (
+      isServerAuthoritativeGameplayRuntimeReady()
+        ? resolveServerDistrictActionTarget(
+            latestGameplaySliceReadModel,
+            "occupy",
+            `district:${Number(district?.id || 0)}`
+          )
+        : null
+    ),
     spyCooldownMs: SPY_COOLDOWN_MS,
     validateAttackSelection,
     elements: createDistrictActionConfirmationPanelElements(districtPopupElements)
@@ -12666,6 +12825,7 @@ function bindDistrictCanvas(root) {
       metaText: serverView.buildingMetaText,
       interactive: presentation?.isOwnedByPlayer === true,
       emptyText: profileBuildings.length === 0 ? serverView.buildingEmptyText : "",
+      emptyTone: profileBuildings.length === 0 ? serverView.buildingEmptyTone : "",
       buildings: profileBuildings.map((building) => ({
         buildingId: building.buildingId,
         buildingTypeId: building.buildingTypeId,
@@ -12682,7 +12842,7 @@ function bindDistrictCanvas(root) {
       emptyText: actions.length === 0
         ? "Pro tento district teď není dostupná žádná akce."
         : "",
-      hidden: readModel?.district?.status === "destroyed",
+      hidden: readModel?.district?.status === "destroyed" || actions.length === 0,
       headHidden: readModel?.district?.status === "destroyed" || actions.length > 0
     }, {
       onAction: () => {}
@@ -12981,12 +13141,19 @@ function bindDistrictCanvas(root) {
     popup.dataset.districtId = String(districtId || "");
     popupCard.dataset.districtId = String(districtId || "");
     popupCard.dataset.serverLoading = "true";
+    popupCard.dataset.districtType = "loading";
+    popupCard.dataset.atmosphereState = "loading";
     popupCard.setAttribute("aria-busy", "true");
     if (districtPopupServerLoading instanceof HTMLElement) {
       districtPopupServerLoading.hidden = false;
+      districtPopupServerLoading.dataset.loadingState = "loading";
+      districtPopupServerLoading.dataset.loadingTarget = buildingName
+        ? `${buildingName} · District ${districtId}`
+        : `District ${districtId}`;
       districtPopupServerLoading.textContent = buildingName
-        ? `Načítám stav budovy ${buildingName}…`
-        : "Načítám stav districtu…";
+        ? "Načítám budovu"
+        : "Načítám nový district";
+      districtPopupServerLoading.removeAttribute("title");
     }
     render("selection-change");
     showDistrictPopupModal(popup);
@@ -13004,12 +13171,16 @@ function bindDistrictCanvas(root) {
     popup.dataset.districtId = String(district.id || "");
     popupCard.dataset.districtId = String(district.id || "");
     popupCard.dataset.serverLoading = "error";
+    popupCard.dataset.districtType = "loading";
+    popupCard.dataset.atmosphereState = "loading";
     popupCard.removeAttribute("aria-busy");
     if (districtPopupServerLoading instanceof HTMLElement) {
       districtPopupServerLoading.hidden = false;
+      districtPopupServerLoading.dataset.loadingState = "error";
+      districtPopupServerLoading.dataset.loadingTarget = `District ${Number(district.id || 0)}`;
       districtPopupServerLoading.textContent = buildingName
-        ? `Budovu ${buildingName} se nepodařilo bezpečně načíst.`
-        : "District se nepodařilo bezpečně načíst.";
+        ? `Budovu ${buildingName} se nepodařilo načíst`
+        : "District se nepodařilo načíst";
       districtPopupServerLoading.title = String(error?.message || "");
     }
     showDistrictPopupModal(popup);
@@ -13201,15 +13372,23 @@ function bindDistrictCanvas(root) {
     }
 
     const viewportRect = viewport.getBoundingClientRect();
-    const shouldRenderContent = district.id !== lastTooltipDistrictId;
-    const tooltipResult = renderDistrictTooltip(buildMapTooltipViewModel(district, interactionState, {
+    const tooltipViewModel = buildMapTooltipViewModel(district, interactionState, {
       currentPlayerId: CURRENT_PLAYER_ID,
       getDistrictAtmosphereMeta,
       getLaunchPlayerName,
       isDistrictGossipDevOnlyMode,
       ensureDistrictPassiveGossip,
+      cityFeed: isServerAuthoritativeGameplayRuntimeReady()
+        ? latestGameplaySliceReadModel?.cityFeed
+        : null,
+      gossipEvents: isServerAuthoritativeGameplayRuntimeReady()
+        ? eventRumorBridgesByRoot.get(root)?.getEvents?.() || []
+        : null,
       spyIntel: getResolvedSpyIntel()
-    }), {
+    });
+    const tooltipContentKey = getMapTooltipContentKey(tooltipViewModel);
+    const shouldRenderContent = tooltipContentKey !== lastTooltipContentKey;
+    const tooltipResult = renderDistrictTooltip(tooltipViewModel, {
       pointerX: event.clientX - viewportRect.left,
       pointerY: event.clientY - viewportRect.top
     }, {
@@ -13224,7 +13403,7 @@ function bindDistrictCanvas(root) {
     });
 
     if (shouldRenderContent) {
-      lastTooltipDistrictId = district.id;
+      lastTooltipContentKey = tooltipContentKey;
       tooltipSize = tooltipResult.tooltipSize || tooltipSize;
     }
   };
@@ -13335,7 +13514,7 @@ function bindDistrictCanvas(root) {
   };
 
   const syncMapMissionMarkers = (now = Date.now()) => {
-    Object.assign(interactionState, buildMapMissionMarkersViewModel({
+    const nextMarkers = buildMapMissionMarkersViewModel({
       spyMissions: getResolvedSpyState().missions,
       policeActions: getResolvedDistrictPoliceActions(),
       attackOrders: getStoredAttackOrders(),
@@ -13347,7 +13526,25 @@ function bindDistrictCanvas(root) {
       robberyCooldownMs: ROBBERY_COOLDOWN_MS,
       isSpyMissionActiveOnMap,
       getSpyMissionExpiryTimestamp
-    }));
+    });
+    if (isServerAuthoritativeGameplayRuntimeReady()) {
+      const serverEffects = createServerMapPresentationModel(
+        latestGameplaySliceReadModel,
+        { now }
+      )?.effects;
+      if (serverEffects) {
+        nextMarkers.activeSpyDistrictIds = serverEffects.activeSpyDistrictIds;
+        nextMarkers.activeSpyMarkersByDistrictId = serverEffects.activeSpyMarkersByDistrictId;
+        nextMarkers.activeRobberyDistrictIds = serverEffects.activeRobberyDistrictIds;
+        nextMarkers.activeRobberyMarkersByDistrictId = serverEffects.activeRobberyMarkersByDistrictId;
+        nextMarkers.activeAttackDistrictIds = serverEffects.activeAttackDistrictIds;
+        nextMarkers.activeAttackMarkersByDistrictId = serverEffects.activeAttackMarkersByDistrictId;
+        nextMarkers.activeOccupyDistrictIds = serverEffects.activeOccupyDistrictIds;
+        nextMarkers.activeOccupyMarkersByDistrictId = serverEffects.activeOccupyMarkersByDistrictId;
+        nextMarkers.activeOccupyCountdownByDistrictId = serverEffects.activeOccupyCountdownByDistrictId;
+      }
+    }
+    Object.assign(interactionState, nextMarkers);
     lastMissionMarkerSyncAt = Number(now) || Date.now();
   };
 
@@ -13358,6 +13555,15 @@ function bindDistrictCanvas(root) {
     || interactionState.activeOccupyDistrictIds.size > 0
     || interactionState.activeRobberyDistrictIds.size > 0
     || interactionState.activeTrapDistrictIds.size > 0
+  );
+
+  const hasAnimatedMapMissions = () => (
+    interactionState.activeSpyDistrictIds.size > 0
+    || interactionState.activePoliceDistrictIds.size > 0
+    || interactionState.activeRobberyDistrictIds.size > 0
+    || interactionState.activeTrapDistrictIds.size > 0
+    || (interactionState.activeAttackDistrictIds.size > 0 && interactionState.activeAttackDistrictIds.size <= 5)
+    || (interactionState.activeOccupyDistrictIds.size > 0 && interactionState.activeOccupyDistrictIds.size <= 5)
   );
 
   const renderMapEffects = () => {
@@ -13503,7 +13709,8 @@ function bindDistrictCanvas(root) {
         return;
       }
 
-      if (time - lastMissionAnimationAt < getMapEffectsFrameIntervalMs()) {
+      const frameIntervalMs = hasAnimatedMapMissions() ? getMapEffectsFrameIntervalMs() : 1000;
+      if (time - lastMissionAnimationAt < frameIntervalMs) {
         spyAnimationFrameId = window.requestAnimationFrame(animate);
         return;
       }
@@ -13587,6 +13794,10 @@ function bindDistrictCanvas(root) {
 
       interactionState.selectedDistrictId = Number(district.id);
       render("selection-change");
+      return true;
+    },
+    closeDistrict() {
+      closePopup();
       return true;
     },
     openDistrict(districtId) {
@@ -15530,12 +15741,21 @@ function stopOnboardingSandbox(root = getDefaultRuntimeRoot()) {
   if (!isOnboardingSandboxActive()) {
     return false;
   }
+  const restoredDistrictId = Number.parseInt(String(
+    latestGameplaySliceReadModel?.player?.homeDistrictId
+      || latestGameplaySliceReadModel?.district?.districtId
+      || ""
+  ).replace("district:", ""), 10) || 0;
   clearOnboardingSandboxTimers();
   onboardingSandboxSession = null;
   delete document.documentElement.dataset.onboardingSandbox;
   document.body?.removeAttribute?.("data-onboarding-sandbox");
+  window.empireStreetsDistrictState?.closeDistrict?.();
   window.dispatchEvent(new CustomEvent("empire:alliance-state-changed"));
   refreshOnboardingRuntime(root);
+  if (restoredDistrictId) {
+    window.empireStreetsDistrictState?.selectDistrict?.(restoredDistrictId);
+  }
   return true;
 }
 
@@ -15656,8 +15876,7 @@ function getOnboardingDistrictActionHint(district, documentRef = document) {
   if (activeStepId === "attack-order" && districtId === ONBOARDING_ATTACK_TARGET_DISTRICT_ID) {
     return {
       actionId: "trap",
-      label: "Přesunout past",
-      requiredTrapState: "move"
+      label: "Vložit past"
     };
   }
   return null;
@@ -15691,12 +15910,33 @@ function applyOnboardingDistrictActionHint(district, elements = {}, documentRef 
       if (isTrapHint) {
         delete button.dataset.onboardingTrapMoveHint;
       }
-      if (button.getAttribute?.("aria-label") === "Špehovat" || button.getAttribute?.("aria-label") === "Přesunout past") {
+      if (["Špehovat", "Přesunout past", "Vložit past"].includes(button.getAttribute?.("aria-label"))) {
         button.removeAttribute("aria-label");
       }
     }
   }
   return changed;
+}
+
+function enterOnboardingSandboxStep(stepId, root = getDefaultRuntimeRoot()) {
+  if (!isOnboardingSandboxActive()) {
+    return false;
+  }
+
+  const districtStateApi = window.empireStreetsDistrictState || null;
+  if (stepId === "spy") {
+    resetOnboardingSpyTargetState(root);
+    districtStateApi?.closeDistrict?.();
+    districtStateApi?.setOwnedDistricts?.([ONBOARDING_ATTACK_TARGET_DISTRICT_ID]);
+    return true;
+  }
+  if (stepId === "attack-order") {
+    resetOnboardingTrapTargetState(root);
+    districtStateApi?.closeDistrict?.();
+    districtStateApi?.setOwnedDistricts?.([ONBOARDING_ATTACK_TARGET_DISTRICT_ID]);
+    return true;
+  }
+  return false;
 }
 
 function isOnboardingActionConfirmTopLayerTarget(actionId, district, documentRef = document) {
@@ -15797,7 +16037,8 @@ function bindFreeSessionOnboarding(root) {
     ...(policy.useLocalSandbox
       ? {
           onStart: () => startOnboardingSandbox(root),
-          onComplete: () => stopOnboardingSandbox(root)
+          onComplete: () => stopOnboardingSandbox(root),
+          onStepEnter: (stepId) => enterOnboardingSandboxStep(stepId, root)
         }
       : {})
   });

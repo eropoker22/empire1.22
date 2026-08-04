@@ -5170,3 +5170,99 @@ body.servers-page .auth-servers--membership-active .auth-server-card.live-server
     border-width: 0 0 0 1px;
   }
 }
+
+/* Desktop hosted server slot: compact, aligned and quick to scan. */
+@media (min-width: 761px) {
+  body.servers-page .auth-server-card.live-server-card {
+    grid-template-columns: minmax(0, 1fr) minmax(118px, 136px);
+    min-height: 86px;
+  }
+
+  body.servers-page .auth-server-card.live-server-card .live-server-card__main {
+    grid-template-columns: minmax(0, 1fr) minmax(132px, auto);
+    grid-template-rows: repeat(3, auto);
+    align-content: center;
+    gap: 2px 14px;
+    min-width: 0;
+    padding: 10px 13px 10px 15px;
+  }
+
+  body.servers-page .auth-server-card.live-server-card .auth-server-card__meta {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: end;
+    font-size: 0.62rem;
+    line-height: 1.1;
+  }
+
+  body.servers-page .auth-server-card.live-server-card .auth-server-card__label {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: center;
+    font-size: clamp(0.9rem, 1vw, 1.04rem);
+    line-height: 1.08;
+  }
+
+  body.servers-page .auth-server-card.live-server-card .auth-server-card__subtitle {
+    grid-column: 1;
+    grid-row: 3;
+    align-self: start;
+    font-size: 0.64rem;
+    line-height: 1.12;
+  }
+
+  body.servers-page .auth-server-card.live-server-card .auth-server-card__status {
+    grid-column: 2;
+    grid-row: 1;
+    min-height: 21px;
+    padding: 0 7px;
+    font-size: 0.61rem;
+    line-height: 1;
+  }
+
+  body.servers-page .auth-server-card.live-server-card .auth-server-card__status::before {
+    width: 5px;
+    height: 5px;
+  }
+
+  body.servers-page .auth-server-card.live-server-card .auth-server-card__schedule {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+    font-size: 0.62rem;
+    line-height: 1.1;
+  }
+
+  body.servers-page .auth-server-card.live-server-card .auth-server-card__countdown {
+    grid-column: 2;
+    grid-row: 3;
+    align-self: start;
+    min-height: 0;
+    font-size: 0.62rem;
+    line-height: 1.1;
+  }
+
+  body.servers-page .auth-server-card.live-server-card > .lobby-primary-cta {
+    min-width: 118px;
+    min-height: 86px;
+    padding: 8px 9px;
+    font-size: 0.66rem;
+    line-height: 1.12;
+    letter-spacing: 0.035em;
+  }
+
+  body.servers-page .auth-servers--membership-active .auth-server-card.live-server-card {
+    grid-template-columns: minmax(0, 1fr) minmax(108px, 122px);
+    min-height: 78px;
+  }
+
+  body.servers-page .auth-servers--membership-active .auth-server-card.live-server-card .live-server-card__main {
+    padding: 8px 11px 8px 13px;
+  }
+
+  body.servers-page .auth-servers--membership-active .auth-server-card.live-server-card > .lobby-primary-cta {
+    min-width: 108px;
+    min-height: 78px;
+    font-size: 0.62rem;
+  }
+}

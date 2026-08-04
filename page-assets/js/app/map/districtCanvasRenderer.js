@@ -47,6 +47,7 @@ export function createDistrictCanvasRenderer(deps = {}) {
     drawCurrentPlayerFactionBadge = noopDrawAnimation,
     drawBountyDistrictHighlight = noopDrawAnimation,
     drawBountyDistrictBadge = noopDrawAnimation,
+    drawAggregatedMapActivityMarker = noopDrawAnimation,
     drawReducedMapActivityMarker = noopDrawAnimation,
     drawSpyDistrictAnimation = noopDrawAnimation,
     drawPoliceDistrictAnimation = noopDrawAnimation,
@@ -292,6 +293,38 @@ function drawDestroyedDistrictOverlay(context, district, isNight, reducedMapEffe
 
 }
 
+function drawRevealedDistrictNeonBorder(
+  context,
+  district,
+  borderColor,
+  isNight,
+  reducedMapEffects,
+  borderScale = 1
+) {
+  const useDarkBorder = borderColor === "black" || borderColor === "red";
+  const glowColor = useDarkBorder
+    ? (isNight ? "rgba(190, 226, 255, 0.58)" : "rgba(206, 235, 255, 0.5)")
+    : (isNight ? "rgba(255, 255, 255, 0.68)" : "rgba(245, 252, 255, 0.6)");
+  const coreColor = useDarkBorder
+    ? "rgba(3, 7, 12, 0.96)"
+    : "rgba(248, 252, 255, 0.96)";
+
+  context.save();
+  context.lineJoin = "round";
+  context.lineCap = "round";
+  drawDistrictPolygon(context, district.polygon);
+  context.shadowColor = glowColor;
+  context.shadowBlur = reducedMapEffects ? 4 : 11;
+  context.strokeStyle = glowColor;
+  context.lineWidth = (reducedMapEffects ? 2.1 : 3.2) * borderScale;
+  context.stroke();
+  context.shadowBlur = reducedMapEffects ? 2 : 5;
+  context.strokeStyle = coreColor;
+  context.lineWidth = (reducedMapEffects ? 1.1 : 1.45) * borderScale;
+  context.stroke();
+  context.restore();
+}
+
 function renderDistrictActivityEffects(context, geometry, interactionState = {}, options = {}) {
   const reducedMapEffects = Boolean(options.reducedMapEffects ?? interactionState.reducedMapEffects);
   const activeSpyDistrictIds = interactionState.activeSpyDistrictIds || new Set();
@@ -301,13 +334,26 @@ function renderDistrictActivityEffects(context, geometry, interactionState = {},
   const activeAttackDistrictIds = interactionState.activeAttackDistrictIds || new Set();
   const activeAttackMarkersByDistrictId = interactionState.activeAttackMarkersByDistrictId || new Map();
   const activeOccupyDistrictIds = interactionState.activeOccupyDistrictIds || new Set();
+  const activeOccupyMarkersByDistrictId = interactionState.activeOccupyMarkersByDistrictId || new Map();
   const activeOccupyCountdownByDistrictId = interactionState.activeOccupyCountdownByDistrictId || new Map();
   const activeRobberyDistrictIds = interactionState.activeRobberyDistrictIds || new Set();
   const activeRobberyMarkersByDistrictId = interactionState.activeRobberyMarkersByDistrictId || new Map();
   const activeTrapDistrictIds = interactionState.activeTrapDistrictIds || new Set();
   const animationTick = interactionState.animationTick ?? 0;
+  const useAggregatedAttackMarkers = activeAttackDistrictIds.size > 5;
+  const useAggregatedOccupyMarkers = activeOccupyDistrictIds.size > 5;
 
   for (const district of geometry?.districts || []) {
+    const occupyMarker = activeOccupyMarkersByDistrictId.get(district.id);
+    const occupyColor = String(occupyMarker?.playerColor || "").trim()
+      || getLaunchPlayerColor(occupyMarker?.playerId || currentPlayerId);
+    if (useAggregatedAttackMarkers && activeAttackDistrictIds.has(district.id)) {
+      drawAggregatedMapActivityMarker(context, district, "attack", "#ff334f");
+    }
+    if (useAggregatedOccupyMarkers && activeOccupyDistrictIds.has(district.id)) {
+      drawAggregatedMapActivityMarker(context, district, "occupy", occupyColor);
+    }
+
     if (reducedMapEffects) {
       if (activeSpyDistrictIds.has(district.id)) {
         drawReducedMapActivityMarker(context, district, "spy", reducedActivityColors.spy);
@@ -315,11 +361,11 @@ function renderDistrictActivityEffects(context, geometry, interactionState = {},
       if (activePoliceDistrictIds.has(district.id)) {
         drawReducedMapActivityMarker(context, district, "police", reducedActivityColors.police);
       }
-      if (activeAttackDistrictIds.has(district.id)) {
+      if (!useAggregatedAttackMarkers && activeAttackDistrictIds.has(district.id)) {
         drawReducedMapActivityMarker(context, district, "attack", reducedActivityColors.attack);
       }
-      if (activeOccupyDistrictIds.has(district.id)) {
-        drawReducedMapActivityMarker(context, district, "occupy", getLaunchPlayerColor(currentPlayerId));
+      if (!useAggregatedOccupyMarkers && activeOccupyDistrictIds.has(district.id)) {
+        drawReducedMapActivityMarker(context, district, "occupy", occupyColor);
       }
       if (activeRobberyDistrictIds.has(district.id)) {
         drawReducedMapActivityMarker(context, district, "robbery", reducedActivityColors.robbery);
@@ -336,11 +382,11 @@ function renderDistrictActivityEffects(context, geometry, interactionState = {},
     if (activePoliceDistrictIds.has(district.id)) {
       drawPoliceDistrictAnimation(context, district, activePoliceMarkersByDistrictId.get(district.id), animationTick);
     }
-    if (activeAttackDistrictIds.has(district.id)) {
+    if (!useAggregatedAttackMarkers && activeAttackDistrictIds.has(district.id)) {
       drawAttackDistrictAnimation(context, district, activeAttackMarkersByDistrictId.get(district.id), animationTick);
     }
-    if (activeOccupyDistrictIds.has(district.id)) {
-      drawOccupyDistrictAnimation(context, district, animationTick / 1600);
+    if (!useAggregatedOccupyMarkers && activeOccupyDistrictIds.has(district.id)) {
+      drawOccupyDistrictAnimation(context, district, occupyMarker, animationTick / 1600);
     }
     if (activeRobberyDistrictIds.has(district.id)) {
       drawRobberyDistrictAnimation(context, district, activeRobberyMarkersByDistrictId.get(district.id), animationTick);
@@ -460,6 +506,8 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
     const isSelected = renderSelectionLayer && district.id === selectedDistrictId;
     const isOwned = effectiveOwnedDistrictIds.has(district.id);
     const isOwnedByCurrentPlayer = currentPlayerOwnedDistrictIds.has(district.id);
+    const isRevealedBySpy = interactionState.revealedDistrictIds?.has?.(district.id) === true
+      && !isOwnedByCurrentPlayer;
     const isDestroyed = interactionState.destroyedDistrictIds?.has?.(district.id) === true;
     const isDowntownDistrict = String(district.districtType || "").trim().toLowerCase() === "downtown";
     const rawLaunchOwnerId = launchOwnerByDistrictId.get(district.id) ?? null;
@@ -473,6 +521,9 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
         ?? null;
     const shouldShowLaunchOwnerMarker = showAllianceSymbols && mapVisibilityMode === "all" && Boolean(launchOwnerId);
     const launchOwnerColor = launchOwnerId ? getLaunchPlayerColor(launchOwnerId) : null;
+    const districtOwnerColor = districtOwnerId !== null && districtOwnerId !== undefined
+      ? getLaunchPlayerColor(districtOwnerId)
+      : null;
     const currentPlayerColor = getLaunchPlayerColor(currentPlayerId);
     const fillStyle = getDistrictFillStyle(district, isNight, interactionState);
 
@@ -516,6 +567,8 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
             ? currentPlayerColor
           : launchOwnerColor
             ? launchOwnerColor
+          : districtOwnerColor
+            ? districtOwnerColor
           : isDowntownDistrict
             ? "rgba(255, 71, 194, 0.96)"
           : borderColor === "black" || borderColor === "red"
@@ -523,8 +576,19 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
           : isNight
             ? "rgba(242, 248, 255, 0.96)"
             : "rgba(245, 250, 255, 0.92)";
-      context.lineWidth = (isSelected ? 2.8 : isOwnedByCurrentPlayer || launchOwnerColor ? 1.8 : 1.2) * borderScale;
+      context.lineWidth = (isSelected ? 2.8 : isOwnedByCurrentPlayer || launchOwnerColor || districtOwnerColor ? 1.8 : 1.2) * borderScale;
       context.stroke();
+    }
+
+    if (renderStateLayer && isRevealedBySpy && !isDestroyed) {
+      drawRevealedDistrictNeonBorder(
+        context,
+        district,
+        borderColor,
+        isNight,
+        reducedMapEffects,
+        borderScale
+      );
     }
 
     if (renderStateLayer && !launchOwnerId && isOwnedByCurrentPlayer) {

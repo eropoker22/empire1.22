@@ -14,6 +14,7 @@ export const createGameplaySliceMapFingerprints = (gameplaySlice = null) => {
         districtId: district?.districtId || "",
         ownerPlayerId: district?.ownerPlayerId || "",
         ownerColor: district?.ownerColor || "",
+        intelKnown: district?.intelKnown === true,
         name: district?.name || "",
         zone: district?.zone || "",
         status: district?.status || "",

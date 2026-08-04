@@ -40,6 +40,13 @@ const ZONE_PRESENTATION = Object.freeze({
   })
 });
 
+const MUTED_DISTRICT_PRESENTATION = Object.freeze({
+  fill: "rgba(91, 101, 116, 0.34)",
+  stroke: "rgba(181, 190, 202, 0.42)",
+  glow: "rgba(148, 163, 184, 0.34)",
+  text: "#e2e8f0"
+});
+
 export const normalizeLobbyDistrictZone = (zone) => {
   const normalized = String(zone || "").trim().toLowerCase();
   if (normalized === "commercial") return "economy";
@@ -156,38 +163,42 @@ const drawMapBackground = (context, image, width, height) => {
 };
 
 const drawDistrict = (context, district, state) => {
-  const presentation = ZONE_PRESENTATION[district.zone];
+  const zonePresentation = ZONE_PRESENTATION[district.zone];
+  const isDowntown = district.zone === "downtown";
+  const isSelectable = district.available;
+  const isHighlighted = isDowntown || isSelectable;
+  const presentation = isHighlighted ? zonePresentation : MUTED_DISTRICT_PRESENTATION;
   const ownerColor = normalizeOwnerColor(district.owner?.color);
   drawPolygon(context, district.geometry.polygon);
   context.fillStyle = state.selected
     ? "rgba(255, 43, 214, 0.46)"
-    : ownerColor
-      ? colorWithAlpha(ownerColor, 0.42)
-      : district.reserved
-        ? "rgba(251, 146, 60, 0.28)"
-        : presentation.fill;
+    : isSelectable
+      ? colorWithAlpha(zonePresentation.stroke, 0.36)
+      : presentation.fill;
   context.fill();
 
   drawPolygon(context, district.geometry.polygon);
   context.strokeStyle = state.selected
     ? "#ff2bd6"
     : state.hovered
-      ? presentation.text
-      : ownerColor
-        ? ownerColor
-        : district.reserved
-          ? "#fb923c"
-          : district.available
-            ? "rgba(245, 250, 255, 0.86)"
-            : presentation.stroke;
-  context.lineWidth = state.selected ? 5 : state.hovered ? 3.5 : ownerColor ? 2.5 : district.available ? 2 : 1.1;
-  context.shadowBlur = state.selected || state.hovered ? 18 : ownerColor ? 8 : 0;
-  context.shadowColor = state.selected ? "rgba(255, 43, 214, 0.72)" : state.hovered ? presentation.glow : ownerColor || "transparent";
+      ? zonePresentation.text
+      : isSelectable
+        ? "rgba(245, 250, 255, 0.9)"
+        : presentation.stroke;
+  context.lineWidth = state.selected ? 5 : state.hovered ? 3.5 : isSelectable ? 2.4 : isDowntown ? 1.6 : 1;
+  context.shadowBlur = state.selected || state.hovered ? 18 : isSelectable || isDowntown ? 7 : 0;
+  context.shadowColor = state.selected
+    ? "rgba(255, 43, 214, 0.72)"
+    : state.hovered
+      ? zonePresentation.glow
+      : isHighlighted
+        ? zonePresentation.glow
+        : "transparent";
   context.stroke();
   context.shadowBlur = 0;
 
-  if (ownerColor) drawOwnerMarker(context, district.geometry, ownerColor);
-  if (state.selected || state.hovered) drawDistrictLabel(context, district, presentation, state.selected);
+  if (ownerColor && isDowntown) drawOwnerMarker(context, district.geometry, ownerColor);
+  if (state.selected || state.hovered) drawDistrictLabel(context, district, zonePresentation, state.selected);
 };
 
 const drawPolygon = (context, polygon) => {
@@ -226,8 +237,13 @@ const drawDistrictLabel = (context, district, presentation, selected) => {
 const normalizeOwnerColor = (value) => /^#[0-9a-f]{6}$/iu.test(String(value || "")) ? String(value) : null;
 
 const colorWithAlpha = (color, alpha) => {
-  const red = Number.parseInt(color.slice(1, 3), 16);
-  const green = Number.parseInt(color.slice(3, 5), 16);
-  const blue = Number.parseInt(color.slice(5, 7), 16);
+  const rgbaMatch = String(color || "").match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/iu);
+  if (rgbaMatch) {
+    return `rgba(${rgbaMatch[1]}, ${rgbaMatch[2]}, ${rgbaMatch[3]}, ${alpha})`;
+  }
+  const normalized = String(color || "");
+  const red = Number.parseInt(normalized.slice(1, 3), 16);
+  const green = Number.parseInt(normalized.slice(3, 5), 16);
+  const blue = Number.parseInt(normalized.slice(5, 7), 16);
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 };

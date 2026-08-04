@@ -117,6 +117,9 @@ export const handleSpyDistrict = (
     ? spyCooldownTicks
     : Math.max(1, Math.ceil(spyCooldownTicks * boostSnapshot.spyDurationMultiplier));
   const slotAvailableAtTick = state.root.tick + boostedSpyCooldownTicks;
+  const resolveAt = new Date(
+    Date.parse(command.issuedAt) + boostedSpyCooldownTicks * context.config.tickRateMs
+  ).toISOString();
   const blockedUntilTick = isBlockedSpyOutcome(reportResult.result) ? slotAvailableAtTick : null;
   const report = createSpyReportNotification({
     command,
@@ -128,6 +131,8 @@ export const handleSpyDistrict = (
     reportResult,
     blockedUntilTick,
     tick: state.root.tick,
+    resolveAtTick: slotAvailableAtTick,
+    resolveAt,
     eventId: reportEventId,
     boostSnapshot,
     authorizationTtlTicks: context.config.balance.conflict?.spyAuthorizationTtlTicks ?? 120
@@ -200,6 +205,7 @@ export const handleSpyDistrict = (
         trapDetected: reportResult.trapDetected,
         occupyUnlocked: reportResult.occupyUnlocked,
         blockedUntilTick,
+        resolveAtTick: slotAvailableAtTick,
         boostId: boostSnapshot.boostId
       }),
       createEvent(CORE_EVENT_TYPES.notificationCreated, {

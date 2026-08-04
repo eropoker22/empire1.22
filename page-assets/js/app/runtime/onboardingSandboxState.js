@@ -1,5 +1,6 @@
 export const ONBOARDING_SANDBOX_MODE = "onboarding";
 export const ONBOARDING_HOME_DISTRICT_ID = 1;
+export const ONBOARDING_PLAYER_ID = 1;
 export const ONBOARDING_SPY_CAPACITY = 1;
 
 function safeObject(value) {
@@ -90,8 +91,12 @@ export function createOnboardingSandboxSession(sourceSession = {}, defaults = {}
         gamePhase: "live"
       },
       destroyedDistrictIds: [],
-      districtOwnerById: {},
-      ownerByDistrictId: {},
+      districtOwnerById: {
+        [ONBOARDING_HOME_DISTRICT_ID]: ONBOARDING_PLAYER_ID
+      },
+      ownerByDistrictId: {
+        [ONBOARDING_HOME_DISTRICT_ID]: ONBOARDING_PLAYER_ID
+      },
       districtDefenseById: {},
       districtDefenseLoadoutById: {},
       districtDefenseResidentsById: {},

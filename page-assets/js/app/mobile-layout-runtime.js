@@ -24,6 +24,9 @@ const MOBILE_OVERLAY_SELECTOR = [
   ".game-admin-slice-overlay"
 ].join(",");
 const MOBILE_SCROLL_THROUGH_OVERLAY_SELECTOR = ".district-popup-shell[data-district-popup]";
+const MOBILE_SPY_CONFIRM_OPEN_CLASS = "game-spy-confirm-open";
+const MOBILE_CLOSE_GUARD_CLASS = "game-mobile-close-guard";
+const MOBILE_CLOSE_GUARD_MS = 460;
 const MOBILE_CLOSE_CONTROL_SELECTOR = [
   ".modal__close",
   ".district-popup-close",
@@ -97,12 +100,13 @@ function initMobileTopbarState(windowObj = window, documentObj = document) {
       return;
     }
 
-    const topbarOffset = Math.ceil(topbar.getBoundingClientRect().height + MOBILE_TOPBAR_GAP);
+    const topbarHeight = Math.ceil(topbar.getBoundingClientRect().height);
+    const topbarOffset = topbarHeight + MOBILE_TOPBAR_GAP;
     root.style.setProperty(
       "--mobile-topbar-offset",
       `${topbarOffset}px`
     );
-    root.style.setProperty("--mobile-overlay-top-offset", `${topbarOffset}px`);
+    root.style.setProperty("--mobile-overlay-top-offset", `${topbarHeight}px`);
     root.style.removeProperty("--desktop-topbar-offset");
   };
 
@@ -297,6 +301,8 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
   const applyLock = () => {
     frameId = null;
     if (!media.matches) {
+      root.classList.remove(MOBILE_SPY_CONFIRM_OPEN_CLASS);
+      documentObj.body.classList.remove(MOBILE_SPY_CONFIRM_OPEN_CLASS);
       if (!isModalScrollLocked(documentObj)) {
         root.classList.remove("game-modal-scroll-locked");
         documentObj.body.classList.remove("game-modal-scroll-locked");
@@ -306,6 +312,9 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
 
     const openOverlays = Array.from(documentObj.querySelectorAll(MOBILE_OVERLAY_SELECTOR)).filter(isOpenOverlay);
     const hasOpenOverlay = openOverlays.some((element) => !isScrollThroughOverlay(element));
+    const hasOpenSpyConfirm = openOverlays.some((element) => element.id === "spy-confirm-modal");
+    root.classList.toggle(MOBILE_SPY_CONFIRM_OPEN_CLASS, hasOpenSpyConfirm);
+    documentObj.body.classList.toggle(MOBILE_SPY_CONFIRM_OPEN_CLASS, hasOpenSpyConfirm);
     if (isModalScrollLocked(documentObj)) {
       root.classList.add("game-modal-scroll-locked");
       documentObj.body.classList.add("game-modal-scroll-locked");
@@ -358,8 +367,25 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
 function initMobileCloseTapAssist(windowObj = window, documentObj = document) {
   const media = windowObj.matchMedia(MOBILE_MEDIA);
   let activeControl = null;
+  let closeGuardTimer = null;
+  let dispatchingAssistedClick = false;
+  let suppressClickUntil = 0;
   let startX = 0;
   let startY = 0;
+
+  const getNow = () => windowObj.performance?.now?.() ?? Date.now();
+
+  const activateCloseGuard = () => {
+    const body = documentObj.body;
+    body.classList.add(MOBILE_CLOSE_GUARD_CLASS);
+    if (closeGuardTimer !== null) {
+      windowObj.clearTimeout(closeGuardTimer);
+    }
+    closeGuardTimer = windowObj.setTimeout(() => {
+      closeGuardTimer = null;
+      body.classList.remove(MOBILE_CLOSE_GUARD_CLASS);
+    }, MOBILE_CLOSE_GUARD_MS);
+  };
 
   const getCloseControl = (target) => {
     if (!media.matches || !(target instanceof windowObj.Element)) {
@@ -403,8 +429,24 @@ function initMobileCloseTapAssist(windowObj = window, documentObj = document) {
     }
 
     event.preventDefault();
-    event.stopPropagation();
-    control.click();
+    event.stopImmediatePropagation();
+    activateCloseGuard();
+    dispatchingAssistedClick = true;
+    try {
+      control.click();
+    } finally {
+      dispatchingAssistedClick = false;
+      suppressClickUntil = getNow() + MOBILE_CLOSE_GUARD_MS;
+    }
+  }, true);
+
+  documentObj.addEventListener("click", (event) => {
+    if (dispatchingAssistedClick || getNow() > suppressClickUntil) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
   }, true);
 
   documentObj.addEventListener("pointercancel", () => {

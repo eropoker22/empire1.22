@@ -2,7 +2,7 @@ const EFFECT_GROUPS = Object.freeze([
   ["activeSpyDistrictIds", "activeSpyMarkersByDistrictId"],
   ["activePoliceDistrictIds", "activePoliceMarkersByDistrictId"],
   ["activeAttackDistrictIds", "activeAttackMarkersByDistrictId"],
-  ["activeOccupyDistrictIds", "activeOccupyCountdownByDistrictId"],
+  ["activeOccupyDistrictIds", "activeOccupyMarkersByDistrictId"],
   ["activeRobberyDistrictIds", "activeRobberyMarkersByDistrictId"],
   ["activeTrapDistrictIds", null]
 ]);
@@ -22,6 +22,7 @@ const createEmptyEffects = () => ({
   activeAttackDistrictIds: new Set(),
   activeAttackMarkersByDistrictId: new Map(),
   activeOccupyDistrictIds: new Set(),
+  activeOccupyMarkersByDistrictId: new Map(),
   activeOccupyCountdownByDistrictId: new Map(),
   activeRobberyDistrictIds: new Set(),
   activeRobberyMarkersByDistrictId: new Map(),
@@ -63,7 +64,10 @@ export const syncServerMapInteractionState = (state, model, settings = {}) => {
   state.gamePhase = model.gamePhase;
   state.occupiedDistrictIds = new Set(model.occupiedDistrictIds);
   state.ownedDistrictIds = new Set(model.ownedDistrictIds);
-  state.revealedDistrictIds = new Set(model.ownedDistrictIds);
+  state.revealedDistrictIds = new Set([
+    ...model.ownedDistrictIds,
+    ...(model.revealedDistrictIds || [])
+  ]);
   state.destroyedDistrictIds = new Set(model.destroyedDistrictIds);
   state.districtOwnerById = { ...model.districtOwnerById };
   state.launchOwnerByDistrictId = new Map(

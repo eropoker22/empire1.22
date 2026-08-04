@@ -125,6 +125,8 @@ export function renderDistrictTooltip(viewModel = null, position = {}, options =
   }
 
   const isDestroyed = Boolean(viewModel.destroyed);
+  const gossipEntries = Array.isArray(viewModel.gossipEntries) ? viewModel.gossipEntries : [];
+  const hasGossip = !isDestroyed && gossipEntries.length > 0;
   if (tooltip.classList?.toggle) {
     tooltip.classList.toggle("district-hover-tooltip--destroyed", isDestroyed);
   } else if (isDestroyed) {
@@ -132,14 +134,14 @@ export function renderDistrictTooltip(viewModel = null, position = {}, options =
   }
   typeElement.hidden = isDestroyed;
   if (options.gossip) {
-    options.gossip.hidden = isDestroyed;
+    options.gossip.hidden = !hasGossip;
   }
 
   if (options.renderContent !== false) {
     valueElement.textContent = String(viewModel.idLabel || viewModel.id || "");
     typeElement.textContent = String(viewModel.typeLabel || "");
-    if (options.gossip && !isDestroyed) {
-      renderDistrictTooltipGossip(options.gossip, viewModel.gossipEntries || [], options);
+    if (options.gossip && hasGossip) {
+      renderDistrictTooltipGossip(options.gossip, gossipEntries, options);
     } else {
       options.gossip?.replaceChildren?.();
     }

@@ -10,6 +10,7 @@ import {
   type DistrictId,
   type DistrictPanelView,
   type GameplayModeView,
+  type GameplayMapEffectView,
   type GameplaySliceCommandHintsView,
   type GameplaySliceSpawnSelectionView,
   type GameplaySliceView
@@ -94,11 +95,99 @@ export const createGameplaySliceProjection = (
     }),
     districts: createDistrictListProjection(runtime, playerId),
     district,
+    mapEffects: [
+      ...createPendingConflictMapEffects(runtime, playerId),
+      ...createPublicConflictMapEffects(runtime)
+    ],
     reports: createConflictReportViews(runtime.state, {
       playerId,
       limit: runtime.config.balance.conflict?.reportsLimit ?? 6
     })
   };
+};
+
+const createPendingConflictMapEffects = (
+  runtime: ServerInstanceRuntime,
+  playerId: string
+): GameplayMapEffectView[] => {
+  const nowMs = runtime.clock.now().getTime();
+  return runtime.state.root.notificationIds.flatMap((notificationId) => {
+    const notification = runtime.state.notificationsById[notificationId];
+    if (!notification || notification.recipientId !== playerId) return [];
+
+    const type = notification.category === "report.spy"
+      ? "spy"
+      : notification.category === "report.rob"
+        ? "robbery"
+        : null;
+    const payload = notification.payload;
+    const expiresAtTick = Number(payload.resolveAtTick);
+    if (!type || !Number.isFinite(expiresAtTick) || expiresAtTick <= runtime.state.root.tick) return [];
+
+    const startedAtTick = Number.isFinite(Number(payload.issuedAtTick))
+      ? Number(payload.issuedAtTick)
+      : Number(payload.tick ?? runtime.state.root.tick);
+    const remainingTicks = expiresAtTick - runtime.state.root.tick;
+    const expiresAt = new Date(nowMs + remainingTicks * runtime.config.tickRateMs).toISOString();
+
+    return [{
+      effectId: notification.id,
+      type,
+      source: "server-pending-operation",
+      playerId,
+      districtId: String(payload.targetDistrictId || ""),
+      startedAt: String(payload.createdAt || notification.createdAt),
+      expiresAt,
+      startedAtTick,
+      expiresAtTick
+    } satisfies GameplayMapEffectView];
+  });
+};
+
+const createPublicConflictMapEffects = (
+  runtime: ServerInstanceRuntime
+): GameplayMapEffectView[] => {
+  const currentTick = runtime.state.root.tick;
+  const tickRateMs = runtime.config.tickRateMs;
+  const nowMs = runtime.clock.now().getTime();
+  const cityFeedEvents = Object.values(runtime.state.cityFeedEventsById ?? {});
+
+  return Object.values(runtime.state.districtsById).flatMap((district) => {
+    const operationLocks = district.operationLocks ?? {};
+    return (["attack", "occupy"] as const).flatMap((type) => {
+      const expiresAtTick = Number(operationLocks[type] ?? 0);
+      if (expiresAtTick <= currentTick) return [];
+
+      const sourceType = type === "attack" ? "attack" : "district_occupy";
+      const sourceEvent = cityFeedEvents
+        .filter((event) => (
+          event.sourceType === sourceType
+          && event.districtId === district.id
+          && event.createdAtTick <= currentTick
+        ))
+        .sort((left, right) => right.createdAtTick - left.createdAtTick)[0];
+      const playerId = String(
+        sourceEvent?.playerId
+        || (type === "occupy" ? district.ownerPlayerId : "")
+        || ""
+      );
+      const startedAtTick = Math.max(0, Number(sourceEvent?.createdAtTick ?? currentTick));
+      const playerColor = playerId ? runtime.state.playersById[playerId]?.color : undefined;
+
+      return [{
+        effectId: `public-operation:${type}:${district.id}:${startedAtTick}`,
+        type,
+        source: "server-public-operation",
+        playerId,
+        ...(playerColor ? { playerColor } : {}),
+        districtId: district.id,
+        startedAt: new Date(nowMs - Math.max(0, currentTick - startedAtTick) * tickRateMs).toISOString(),
+        expiresAt: new Date(nowMs + Math.max(0, expiresAtTick - currentTick) * tickRateMs).toISOString(),
+        startedAtTick,
+        expiresAtTick
+      } satisfies GameplayMapEffectView];
+    });
+  });
 };
 
 const createSpawnSelectionView = (

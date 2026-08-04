@@ -426,11 +426,14 @@ export function renderPlayerMarketPanel(listElement, viewModel = {}, callbacks =
   listingsCount.textContent = `${listings.length} aktivní`;
   appendChildren(listingsHeader, listingsTitle, listingsCount);
   appendChildren(listingsWrap, listingsHeader);
+  const listingsBody = createElement(ownerDocument, "div", "market-player-listings__body");
+  listingsBody.dataset.marketListingsScrollable = String(listings.length > 2);
+  appendChildren(listingsWrap, listingsBody);
 
   if (listings.length <= 0) {
     const empty = createElement(ownerDocument, "p", "market-player-empty");
     empty.textContent = emptyMessage;
-    appendChildren(listingsWrap, empty);
+    appendChildren(listingsBody, empty);
   } else {
     for (const listing of listings) {
       const isOwn = Boolean(listing.isOwn);
@@ -480,7 +483,7 @@ export function renderPlayerMarketPanel(listElement, viewModel = {}, callbacks =
 
       appendChildren(footer, totalLabel, action);
       appendChildren(card, head, meta, footer);
-      appendChildren(listingsWrap, card);
+      appendChildren(listingsBody, card);
     }
   }
 
@@ -509,6 +512,15 @@ function createMarketFact(ownerDocument, label, value, tone = "neutral") {
   return fact;
 }
 
+function setBlackMarketBuyLabel(ownerDocument, button, paymentLabel) {
+  const currencySymbol = createElement(ownerDocument, "span", "market-popup-row__currency-symbol");
+  currencySymbol.textContent = "$";
+  currencySymbol.setAttribute("aria-hidden", "true");
+  const label = createElement(ownerDocument, "span", "market-popup-row__payment-label");
+  label.textContent = paymentLabel;
+  replaceChildrenSafe(button, currencySymbol, label);
+}
+
 function createMarketItemRow(ownerDocument, item, callbacks = {}) {
   const row = createElement(ownerDocument, "div", "market-popup-row");
   const marketMetadata = item.marketMetadata && typeof item.marketMetadata === "object" ? item.marketMetadata : {};
@@ -523,24 +535,11 @@ function createMarketItemRow(ownerDocument, item, callbacks = {}) {
   const info = createElement(ownerDocument, "div", "market-popup-row__info");
   const name = createElement(ownerDocument, "strong", "market-popup-row__name");
   name.textContent = item.name;
-  const meta = createElement(ownerDocument, "span", "market-popup-row__meta");
-  meta.textContent = item.dealerLine || item.metaLabel;
   const price = createElement(ownerDocument, "span", "market-popup-row__price");
   price.textContent = item.priceLabel;
   const trend = createElement(ownerDocument, "span", "market-popup-row__trend");
   setDatasetValue(trend, "marketTrend", item.trendDirection || "flat");
   trend.textContent = item.trendLabel || "• beze změny";
-  const stockBar = createElement(ownerDocument, "span", "market-popup-row__stock");
-  stockBar.style?.setProperty?.("--market-stock", `${Number.isFinite(item.stockPercent) ? item.stockPercent : 100}%`);
-  stockBar.setAttribute("aria-label", item.stockLabel || "Stock bez limitu");
-  const badgeWrap = createElement(ownerDocument, "div", "market-popup-row__badges");
-  const badges = Array.isArray(item.badges) ? item.badges : [];
-  for (const badge of badges) {
-    const badgeElement = createElement(ownerDocument, "span", "market-popup-row__badge");
-    setDatasetValue(badgeElement, "marketBadgeTone", badge.tone || "neutral");
-    badgeElement.textContent = badge.label || "";
-    badgeWrap.appendChild(badgeElement);
-  }
   const facts = createElement(ownerDocument, "div", "market-popup-row__facts");
   const isBlackMarket = item.rowMode === "black";
   appendChildren(
@@ -550,7 +549,7 @@ function createMarketItemRow(ownerDocument, item, callbacks = {}) {
     createMarketFact(ownerDocument, isBlackMarket ? "Dirty" : "Nákup", formatMarketPrice(item.buyPrice), isBlackMarket ? "danger" : "buy"),
     createMarketFact(ownerDocument, isBlackMarket ? "Clean" : "Výkup", formatMarketPrice(isBlackMarket ? item.cleanBuyPrice : item.sellPrice), isBlackMarket ? "clean" : "sell")
   );
-  appendChildren(info, name, meta, price, trend, ...(badges.length > 0 ? [badgeWrap] : []), facts, stockBar);
+  appendChildren(info, name, price, trend, facts);
 
   const trade = createElement(ownerDocument, "div", "market-popup-row__trade");
   const quantityWrap = createElement(ownerDocument, "div", "market-popup-row__quantity-wrap");
@@ -585,8 +584,12 @@ function createMarketItemRow(ownerDocument, item, callbacks = {}) {
     ? createElement(ownerDocument, "button", "button market-popup-row__buy market-popup-row__buy--clean")
     : null;
   if (cleanBuyAction) {
+    actions.dataset.marketDualBuy = "true";
+    setBlackMarketBuyLabel(ownerDocument, buyAction, "Dirty");
+    buyAction.setAttribute("aria-label", `Koupit ${item.name} za dirty cash`);
     cleanBuyAction.type = "button";
-    cleanBuyAction.textContent = "Koupit clean";
+    setBlackMarketBuyLabel(ownerDocument, cleanBuyAction, "Clean");
+    cleanBuyAction.setAttribute("aria-label", `Koupit ${item.name} za clean cash`);
   }
   const sellAction = createElement(ownerDocument, "button", "button market-popup-row__sell");
   sellAction.type = "button";

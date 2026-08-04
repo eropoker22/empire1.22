@@ -154,7 +154,9 @@ export function createEventRumorBridge(deps = {}) {
       title: payload.title,
       summary: payload.summary,
       meta: payload.meta,
-      timestampMs: normalized.timestampMs
+      timestampMs: normalized.timestampMs,
+      sourceKind: "rumor",
+      category: "rumor"
     }, {
       syncPreview: true,
       forceLog: true,

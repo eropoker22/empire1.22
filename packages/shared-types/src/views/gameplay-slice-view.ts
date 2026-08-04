@@ -42,7 +42,21 @@ export interface GameplaySliceView {
   cityFeed?: CityFeedProjectionView | null;
   districts: DistrictSummaryView[];
   district: DistrictPanelView | null;
+  mapEffects: GameplayMapEffectView[];
   reports: ConflictReportView[];
+}
+
+export interface GameplayMapEffectView {
+  effectId: string;
+  type: "spy" | "robbery" | "attack" | "occupy";
+  source: "server-pending-operation" | "server-public-operation";
+  playerId: string;
+  playerColor?: string;
+  districtId: string;
+  startedAt: string;
+  expiresAt: string;
+  startedAtTick: number;
+  expiresAtTick: number;
 }
 
 export interface GameplaySliceSpawnSelectionView {

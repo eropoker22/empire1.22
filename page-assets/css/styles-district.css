@@ -29,8 +29,12 @@
   }
 
   .district-popup-shell {
-    inset: 56px 0 0 0;
+    inset: 0;
     z-index: 29;
+  }
+
+  .district-popup-card {
+    top: calc(50% + 28px);
   }
 }
 
@@ -450,6 +454,17 @@
 
 .district-popup-owner-avatar-wrap.is-owner-hidden {
   display: none;
+}
+
+.district-popup-buildings__empty--lockdown {
+  color: #ff5ad9;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.035em;
+  text-shadow:
+    0 0 7px rgba(255, 90, 217, 0.86),
+    0 0 16px rgba(255, 49, 190, 0.62),
+    0 0 26px rgba(203, 47, 255, 0.34);
 }
 
 .district-popup-owner-card:has(.district-popup-owner-avatar-wrap.is-owner-hidden) {
@@ -1007,6 +1022,31 @@
 }
 
 .district-popup-action[data-district-action-id="spy"][data-district-action-disabled-tone="no-spies"] .district-popup-action__sub {
+  color: #f87171;
+  font-weight: 900;
+  text-shadow: 0 0 8px rgba(248, 113, 113, 0.32);
+}
+
+.district-popup-action[data-district-action-disabled-tone="unavailable"]:disabled {
+  --district-action-rgb: 148, 163, 184;
+  border-color: rgba(148, 163, 184, 0.3);
+  background:
+    linear-gradient(135deg, rgba(71, 85, 105, 0.54), rgba(15, 23, 42, 0.76)),
+    rgba(15, 23, 42, 0.68);
+  color: rgba(226, 232, 240, 0.76);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 18px rgba(2, 6, 23, 0.18);
+  filter: saturate(0.42);
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.district-popup-action[data-district-action-disabled-tone="unavailable"]:disabled::before {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent 62%);
+}
+
+.district-popup-action[data-district-action-disabled-tone="unavailable"] .district-popup-action__sub {
   color: #f87171;
   font-weight: 900;
   text-shadow: 0 0 8px rgba(248, 113, 113, 0.32);
@@ -3534,12 +3574,15 @@
 }
 .district-popup-card[data-server-loading="true"] {
   min-height: min(430px, calc(100dvh - 48px));
+  --district-accent-rgb: 49, 230, 255;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(49, 230, 255, 0.12), transparent 34%),
+    linear-gradient(145deg, rgba(7, 19, 31, 0.98), rgba(2, 9, 17, 0.99)) !important;
 }
 
 .district-popup-card[data-server-loading="true"] > :not(.district-popup-close, .district-popup-server-loading),
 .district-popup-card[data-server-loading="error"] > :not(.district-popup-close, .district-popup-server-loading) {
-  visibility: hidden;
-  pointer-events: none;
+  display: none !important;
 }
 
 .district-popup-server-loading {
@@ -3547,19 +3590,76 @@
   inset: 50% auto auto 50%;
   width: min(78%, 360px);
   transform: translate(-50%, -50%);
-  padding: 18px 20px;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 24px 22px;
   border: 1px solid rgba(49, 230, 255, 0.42);
   border-radius: 14px;
-  background: rgba(3, 15, 26, 0.9);
+  background:
+    linear-gradient(145deg, rgba(11, 34, 50, 0.96), rgba(3, 15, 26, 0.98));
   color: #dffbff;
   font-weight: 700;
   line-height: 1.4;
   text-align: center;
-  box-shadow: 0 0 24px rgba(0, 205, 255, 0.14);
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.36),
+    0 0 28px rgba(0, 205, 255, 0.16),
+    inset 0 0 28px rgba(49, 230, 255, 0.04);
+}
+
+.district-popup-server-loading[hidden] {
+  display: none !important;
+}
+
+.district-popup-server-loading::before {
+  content: "";
+  width: 30px;
+  height: 30px;
+  border: 3px solid rgba(223, 251, 255, 0.2);
+  border-top-color: #31e6ff;
+  border-radius: 50%;
+  animation: district-popup-server-loading-spin 760ms linear infinite;
+  filter: drop-shadow(0 0 8px rgba(49, 230, 255, 0.5));
+}
+
+.district-popup-server-loading::after {
+  content: attr(data-loading-target);
+  color: rgba(223, 251, 255, 0.7);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@keyframes district-popup-server-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .district-popup-card[data-server-loading="error"] .district-popup-server-loading {
   border-color: rgba(255, 72, 92, 0.62);
   color: #ffe1e5;
   box-shadow: 0 0 24px rgba(255, 32, 72, 0.16);
+}
+
+.district-popup-card[data-server-loading="error"] .district-popup-server-loading::before {
+  content: "!";
+  display: grid;
+  place-items: center;
+  border-color: rgba(255, 72, 92, 0.52);
+  color: #ffe1e5;
+  animation: none;
+  filter: drop-shadow(0 0 8px rgba(255, 72, 92, 0.42));
+}
+
+.district-popup-card[data-server-loading="error"] .district-popup-server-loading::after {
+  color: rgba(255, 225, 229, 0.7);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .district-popup-server-loading::before {
+    animation-duration: 1.8s;
+  }
 }

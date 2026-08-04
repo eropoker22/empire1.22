@@ -1654,7 +1654,6 @@ const renderCreateAllianceCard = (board) => {
         </div>
       </div>
       <p class="alliance-create-card__copy">Zadej název, vyber znak i barvu a založ malou crew. Max ${escapeHtml(maxMembers)} hráči.</p>
-      ${eligibility.showInfluenceRequirement ? `<p class="alliance-create-card__copy alliance-create-card__copy--requirement">Vytvořit alianci půjde až pokud má hráč ${ALLIANCE_CREATE_REQUIRED_INFLUENCE} vliv.</p>` : ""}
       ${disabledReason ? `<div class="alliance-inline-note" data-tone="warning">${escapeHtml(disabledReason)}</div>` : ""}
       <button class="btn btn--primary alliance-create-card__cta" id="alliance-create-toggle-btn" ${eligibility.canCreate ? "" : "disabled"}>Vytvořit alianci</button>
     </section>

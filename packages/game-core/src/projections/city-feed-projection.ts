@@ -23,6 +23,7 @@ export const createCityFeedProjection = (
   const limit = Math.max(1, Math.floor(Number(options.limit || CITY_FEED_DEFAULT_LIMIT)));
   const events = Object.values(state.cityFeedEventsById ?? {})
     .filter((event): event is CityFeedEvent => Boolean(event?.id && event.message))
+    .filter((event) => isCityFeedEventResolved(event, state.root.tick))
     .filter((event) => event.expiresAtTick === undefined || event.expiresAtTick > state.root.tick)
     .map((event) => ({
       ...event,
@@ -60,6 +61,11 @@ export const isCityFeedEventVisible = (
     default:
       return false;
   }
+};
+
+const isCityFeedEventResolved = (event: CityFeedEvent, currentTick: number): boolean => {
+  const resolveAtTick = event.payload?.resolveAtTick;
+  return typeof resolveAtTick !== "number" || resolveAtTick <= currentTick;
 };
 
 const safeText = (value: unknown): string => String(value ?? "").trim();

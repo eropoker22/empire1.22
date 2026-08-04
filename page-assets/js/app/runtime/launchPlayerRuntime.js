@@ -10,6 +10,8 @@ export function createLaunchPlayerRuntime(deps = {}) {
   const startPhaseOwnerByDistrictId = deps.startPhaseOwnerByDistrictId;
 
   const getCurrentPlayerGangColor = () => {
+    const serverColor = deps.normalizeRuntimeHexColor?.(deps.getServerPlayerColor?.());
+    if (serverColor) return serverColor;
     const registration = deps.getStoredRegistration?.();
     return deps.normalizeRuntimeHexColor?.(registration?.gangColor)
       || deps.getRegistrationAccentColor?.(registration?.factionId || "mafian");

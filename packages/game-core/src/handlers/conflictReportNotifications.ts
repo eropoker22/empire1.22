@@ -20,6 +20,8 @@ export const createSpyReportNotification = (input: {
   reportResult: ReturnType<typeof resolveSpy>;
   blockedUntilTick: number | null;
   tick: number;
+  resolveAtTick: number;
+  resolveAt: string;
   eventId: string;
   boostSnapshot: ReturnType<typeof resolvePlayerSpyBoostEffects>;
   authorizationTtlTicks: number;
@@ -43,8 +45,10 @@ export const createSpyReportNotification = (input: {
     blockedUntilTick: input.blockedUntilTick,
     authorizationScope: input.reportResult.result === "success" ? input.purpose : null,
     issuedAtTick: input.tick,
+    resolveAtTick: input.resolveAtTick,
+    resolveAt: input.resolveAt,
     authorizationExpiresAtTick: input.reportResult.result === "success"
-      ? input.tick + input.authorizationTtlTicks : null,
+      ? input.resolveAtTick + input.authorizationTtlTicks : null,
     tick: input.tick, createdAt: input.command.issuedAt, eventId: input.eventId
   },
   createdAt: input.command.issuedAt,
@@ -95,6 +99,8 @@ export const createRobReportNotification = (input: {
   poolChangedBeforeResolution: boolean;
   resolvedLootPoolRevision: number;
   tick: number;
+  resolveAtTick: number;
+  resolveAt: string;
 }): Notification => createNotification({
   id: composeEntityId("notification", `${input.command.id}:rob-report`),
   recipientType: "player",
@@ -111,6 +117,9 @@ export const createRobReportNotification = (input: {
     poolChangedBeforeResolution: input.poolChangedBeforeResolution,
     expectedLootPoolRevision: input.command.payload.expectedLootPoolRevision ?? null,
     resolvedLootPoolRevision: input.resolvedLootPoolRevision,
+    issuedAtTick: input.tick,
+    resolveAtTick: input.resolveAtTick,
+    resolveAt: input.resolveAt,
     tick: input.tick, createdAt: input.command.issuedAt
   },
   createdAt: input.command.issuedAt,

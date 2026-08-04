@@ -1,7 +1,7 @@
 import { MAP_HOVER_STROKE_STYLE } from "./mapConstants.js";
 import { getDistrictAtPoint } from "./mapGeometry.js";
 import { hideDistrictTooltip, renderDistrictTooltip } from "./mapTooltip.js";
-import { buildMapTooltipViewModel } from "./mapTooltipViewModel.js";
+import { buildMapTooltipViewModel, getMapTooltipContentKey } from "./mapTooltipViewModel.js";
 import { clamp } from "../runtime/utils.js";
 import { shouldSuppressMapInput } from "../ui/legacyOverlayCoordinator.js";
 
@@ -23,7 +23,7 @@ export function createServerMapInteractionController(options = {}) {
   let visible = true;
   let hoverFrameId = null;
   let pendingHoverEvent = null;
-  let lastTooltipDistrictId = null;
+  let lastTooltipContentKey = "";
   let tooltipSize = { width: 84, height: 52 };
   const gesture = {
     pointerId: null,
@@ -63,6 +63,7 @@ export function createServerMapInteractionController(options = {}) {
 
   const hideTooltip = () => {
     hideDistrictTooltip({ tooltip: shell.tooltip, gossip: shell.tooltipGossip });
+    lastTooltipContentKey = "";
   };
 
   const renderTooltip = (event, district) => {
@@ -72,15 +73,17 @@ export function createServerMapInteractionController(options = {}) {
     }
     const viewportRect = shell.viewport.getBoundingClientRect();
     const model = options.getModel?.();
-    const result = renderDistrictTooltip(buildMapTooltipViewModel(
+    const tooltipViewModel = buildMapTooltipViewModel(
       district,
       interactionState,
       {
         currentPlayerId: model?.currentPlayerId,
         getLaunchPlayerName: (ownerId) => String(ownerId),
-        gossipEnabled: false
+        cityFeed: model?.gameplaySlice?.cityFeed
       }
-    ), {
+    );
+    const tooltipContentKey = getMapTooltipContentKey(tooltipViewModel);
+    const result = renderDistrictTooltip(tooltipViewModel, {
       pointerX: event.clientX - viewportRect.left,
       pointerY: event.clientY - viewportRect.top
     }, {
@@ -90,10 +93,10 @@ export function createServerMapInteractionController(options = {}) {
       gossip: shell.tooltipGossip,
       viewportRect,
       tooltipSize,
-      renderContent: district.id !== lastTooltipDistrictId,
+      renderContent: tooltipContentKey !== lastTooltipContentKey,
       clamp
     });
-    lastTooltipDistrictId = district.id;
+    lastTooltipContentKey = tooltipContentKey;
     tooltipSize = result.tooltipSize || tooltipSize;
   };
 

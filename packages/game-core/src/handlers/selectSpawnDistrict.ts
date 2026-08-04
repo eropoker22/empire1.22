@@ -3,6 +3,7 @@ import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreEvent } from "../events";
 import type { CoreError } from "../errors";
+import { ensureStarterDistrictProductionBuildings } from "../state/starterDistrictProductionBuildings";
 
 export interface SelectSpawnPolicy {
   isEnabledSpawnCandidate: (districtId: string) => boolean;
@@ -111,6 +112,18 @@ export const handleSelectSpawnDistrict = (
     }
   }
 
+  const claimedDistrict = {
+    ...district,
+    ownerPlayerId: player.id,
+    status: "claimed" as const,
+    version: district.version + 1
+  };
+  const starterBuildings = ensureStarterDistrictProductionBuildings({
+    district: claimedDistrict,
+    buildingsById: updatedBuildingsById,
+    ownerPlayerId: player.id
+  });
+
   return {
     nextState: {
       ...state,
@@ -129,14 +142,9 @@ export const handleSelectSpawnDistrict = (
       },
       districtsById: {
         ...state.districtsById,
-        [district.id]: {
-          ...district,
-          ownerPlayerId: player.id,
-          status: "claimed",
-          version: district.version + 1
-        }
+        [district.id]: starterBuildings.district
       },
-      buildingsById: updatedBuildingsById,
+      buildingsById: starterBuildings.buildingsById,
       root: {
         ...state.root,
         version: state.root.version + 1

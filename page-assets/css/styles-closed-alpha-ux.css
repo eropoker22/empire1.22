@@ -98,11 +98,46 @@ html[data-gameplay-execution-mode="local-demo"] body.game-body--booting #game-ro
 }
 
 .game-authority-gate__card > span { color: #54dff5; font: 700 10px/1.2 "Orbitron", system-ui, sans-serif; letter-spacing: .18em; }
-.game-authority-gate__card > strong { display: block; margin-top: 12px; font: 800 20px/1.2 "Orbitron", system-ui, sans-serif; }
+.game-authority-gate__card > strong { display: block; margin-top: 0; font: 800 20px/1.2 "Orbitron", system-ui, sans-serif; }
 .game-authority-gate__card > p { margin: 12px 0 0; color: rgba(225, 233, 238, .78); line-height: 1.55; }
 .game-authority-gate__actions { display: flex; justify-content: center; gap: 10px; margin-top: 20px; }
 .game-authority-gate__actions a,
 .game-authority-gate__actions button { min-height: 44px; padding: 11px 16px; color: #e8fbff; font: 750 11px/1 system-ui, sans-serif; text-decoration: none; }
+
+@media (max-width: 720px) {
+  html body.game-body--booting .game-authority-gate,
+  html body.game-body--booting.game-modal-scroll-locked .game-authority-gate {
+    --authority-gate-mobile-inset: max(12px, env(safe-area-inset-top), env(safe-area-inset-bottom));
+    position: fixed !important;
+    inset: 0 !important;
+    display: grid !important;
+    width: 100vw !important;
+    height: var(--mobile-locked-vh, 100svh) !important;
+    min-height: var(--mobile-locked-vh, 100svh) !important;
+    padding: var(--authority-gate-mobile-inset) 12px !important;
+    place-items: center !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  html body.game-body--booting .game-authority-gate > .game-authority-gate__card.modal__content,
+  html body.game-body--booting.game-modal-scroll-locked .game-authority-gate > .game-authority-gate__card.modal__content {
+    position: relative !important;
+    inset: auto !important;
+    align-self: center !important;
+    justify-self: center !important;
+    width: min(460px, calc(100vw - 24px)) !important;
+    height: auto !important;
+    max-height: calc(var(--mobile-locked-vh, 100svh) - var(--authority-gate-mobile-inset) - var(--authority-gate-mobile-inset)) !important;
+    margin: auto !important;
+    transform: none !important;
+    background:
+      radial-gradient(circle at 100% 0%, rgba(var(--lifecycle-accent-rgb), .09), transparent 38%),
+      linear-gradient(180deg, rgba(4, 12, 23, .995), rgba(0, 4, 11, .995)) !important;
+  }
+}
 
 .closed-alpha-connection {
   --lifecycle-status-rgb: 47, 158, 115;

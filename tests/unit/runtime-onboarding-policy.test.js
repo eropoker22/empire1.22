@@ -15,11 +15,11 @@ describe("runtime onboarding policy", () => {
     });
   });
 
-  it("binds hosted onboarding without enabling local gameplay authority or auto-start fallback", () => {
+  it("binds hosted onboarding in an isolated sandbox without auto-start fallback", () => {
     expect(resolveOnboardingRuntimePolicy(GAMEPLAY_EXECUTION_MODES.serverAuthoritative)).toEqual({
       autoStart: false,
       bind: true,
-      useLocalSandbox: false
+      useLocalSandbox: true
     });
   });
 

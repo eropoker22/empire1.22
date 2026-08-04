@@ -1038,8 +1038,14 @@ const findScoutReportForDistrict = (
     ...arrayValues(gameState.reports),
     ...arrayValues(gameState.conflictReports)
   ];
+  const currentTick = Number(gameState.root?.tick ?? 0);
 
-  return candidates.find((candidate) => isMatchingScoutReport(candidate, playerId, targetDistrictId)) ?? null;
+  return candidates.find((candidate) => isMatchingScoutReport(
+    candidate,
+    playerId,
+    targetDistrictId,
+    currentTick
+  )) ?? null;
 };
 
 const recordValues = (record: unknown): AnyRecord[] => (
@@ -1054,7 +1060,12 @@ const arrayValues = (value: unknown): AnyRecord[] => (
     : []
 );
 
-const isMatchingScoutReport = (candidate: AnyRecord, playerId: string, targetDistrictId: string): boolean => {
+const isMatchingScoutReport = (
+  candidate: AnyRecord,
+  playerId: string,
+  targetDistrictId: string,
+  currentTick: number
+): boolean => {
   const payload = candidate.payload && typeof candidate.payload === "object" ? candidate.payload : candidate;
   const category = String(candidate.category || payload.category || "").trim();
   const reportType = String(payload.reportType || "").trim();
@@ -1064,11 +1075,14 @@ const isMatchingScoutReport = (candidate: AnyRecord, playerId: string, targetDis
   const reportPlayerId = String(payload.playerId || candidate.playerId || candidate.recipientId || "").trim();
   const result = String(payload.result || candidate.result || "").trim();
   const isUsefulReport = result === "success" || result === "partial" || result === "succeeded" || result === "ok" || result === "";
+  const resolveAtTick = Number(payload.resolveAtTick ?? candidate.resolveAtTick);
+  const isResolved = !Number.isFinite(resolveAtTick) || resolveAtTick <= currentTick;
 
   return isSpyReport
     && reportTargetId === targetDistrictId
     && (!reportPlayerId || reportPlayerId === playerId)
-    && isUsefulReport;
+    && isUsefulReport
+    && isResolved;
 };
 
 const buildHeistRiskPreview = ({

@@ -19,6 +19,14 @@ body.game-body .login-about-overlay--encyclopedia .login-about-encyclopedia::aft
 body.game-body .login-about-overlay--encyclopedia .login-about-close { position: relative; z-index: 3; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid rgba(var(--about-accent-rgb), .64); border-radius: 8px; color: var(--about-accent); background: rgba(0, 3, 9, .45); box-shadow: 0 0 15px rgba(var(--about-accent-rgb), .25); cursor: pointer; }
 
 @media (max-width: 720px) {
+  html body.game-body.login-modal-open > #game-header,
+  html body.game-body.login-modal-open > .game-topbar {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
   body.game-body .login-about-overlay--encyclopedia { align-items: stretch; padding: 0 6px; }
   body.game-body .login-about-overlay--encyclopedia .login-about-encyclopedia { width: calc(100vw - 12px); height: 100dvh; min-height: 100dvh; max-height: 100dvh; border-radius: 0; grid-template-rows: auto auto auto minmax(0, 1fr); }
   body.game-body .login-about-overlay--encyclopedia .login-about-terminal-header .login-about-close { width: 29px; height: 29px; border-radius: 7px; }

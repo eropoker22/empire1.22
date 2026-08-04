@@ -16,6 +16,15 @@ const clearCanvas = (canvas) => {
   canvas?.getContext?.("2d")?.clearRect?.(0, 0, canvas.width || 0, canvas.height || 0);
 };
 
+const hasAnimatedEffectEntries = (state) => (
+  (state?.activeSpyDistrictIds?.size || 0) > 0
+  || (state?.activePoliceDistrictIds?.size || 0) > 0
+  || (state?.activeRobberyDistrictIds?.size || 0) > 0
+  || (state?.activeTrapDistrictIds?.size || 0) > 0
+  || ((state?.activeAttackDistrictIds?.size || 0) > 0 && state.activeAttackDistrictIds.size <= 5)
+  || ((state?.activeOccupyDistrictIds?.size || 0) > 0 && state.activeOccupyDistrictIds.size <= 5)
+);
+
 export function createServerMapLayerRenderer(options = {}) {
   const {
     shell,
@@ -206,7 +215,9 @@ export function createServerMapLayerRenderer(options = {}) {
         stopEffects();
         return;
       }
-      const targetFps = getPerformanceMode().active ? 20 : 60;
+      const targetFps = hasAnimatedEffectEntries(interactionState)
+        ? getPerformanceMode().active ? 20 : 60
+        : 1;
       if (!lastEffectFrameAt || time - lastEffectFrameAt >= 1000 / targetFps) {
         lastEffectFrameAt = time;
         interactionState.animationTick = Date.now();

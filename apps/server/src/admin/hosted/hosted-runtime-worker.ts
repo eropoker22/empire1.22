@@ -383,9 +383,10 @@ const requireDurableMutationCommitter = (
 
 const requiresPeriodicRuntimeWork = (record: HostedServerRecord): boolean =>
   record.status === "running"
-  || (record.status === "lobby" || record.status === "paused")
+  || record.status === "lobby"
+  || (record.status === "paused"
     && record.registrationClosesAt !== null
-    && record.registrationClosedAt === null;
+    && record.registrationClosedAt === null);
 
 const isRegistrationFreezeDue = (record: HostedServerRecord, at: Date): boolean =>
   record.registrationClosedAt === null

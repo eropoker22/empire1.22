@@ -95,6 +95,7 @@ export function createServerMapCanvasComposition(options = {}) {
     drawCurrentPlayerFactionBadge: animationRenderers.drawCurrentPlayerFactionBadge,
     drawBountyDistrictHighlight: animationRenderers.drawBountyDistrictHighlight,
     drawBountyDistrictBadge: animationRenderers.drawBountyDistrictBadge,
+    drawAggregatedMapActivityMarker: animationRenderers.drawAggregatedMapActivityMarker,
     drawReducedMapActivityMarker: animationRenderers.drawReducedMapActivityMarker,
     drawSpyDistrictAnimation: animationRenderers.drawSpyDistrictAnimation,
     drawPoliceDistrictAnimation: animationRenderers.drawPoliceDistrictAnimation,

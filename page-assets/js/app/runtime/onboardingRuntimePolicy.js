@@ -9,7 +9,7 @@ const ONBOARDING_RUNTIME_POLICIES = Object.freeze({
   [GAMEPLAY_EXECUTION_MODES.serverAuthoritative]: Object.freeze({
     autoStart: false,
     bind: true,
-    useLocalSandbox: false
+    useLocalSandbox: true
   }),
   [GAMEPLAY_EXECUTION_MODES.unavailable]: Object.freeze({
     autoStart: false,

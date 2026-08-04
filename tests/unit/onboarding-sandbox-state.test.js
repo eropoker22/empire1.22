@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ONBOARDING_HOME_DISTRICT_ID,
+  ONBOARDING_PLAYER_ID,
   ONBOARDING_SANDBOX_MODE,
   ONBOARDING_SPY_CAPACITY,
   createOnboardingSandboxSession
@@ -39,12 +40,13 @@ describe("onboarding sandbox state", () => {
 
     expect(ONBOARDING_SANDBOX_MODE).toBe("onboarding");
     expect(ONBOARDING_HOME_DISTRICT_ID).toBe(1);
+    expect(ONBOARDING_PLAYER_ID).toBe(1);
     expect(ONBOARDING_SPY_CAPACITY).toBe(1);
     expect(sandbox.registration.startDistrictId).toBe(1);
     expect(sandbox.world).toMatchObject({
       ownedDistrictIds: [1],
       destroyedDistrictIds: [],
-      districtOwnerById: {},
+      districtOwnerById: { 1: 1 },
       districtDefenseById: {},
       phaseState: { gamePhase: "live" }
     });

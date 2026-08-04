@@ -1,0 +1,132 @@
+import { closeOverlay, openOverlay } from "./legacyOverlayCoordinator.js";
+
+const controllersByDocument = new WeakMap();
+
+function createElement(documentRef, tagName, className = "", text = "") {
+  const element = documentRef.createElement(tagName);
+  if (className) element.className = className;
+  if (text) element.textContent = text;
+  return element;
+}
+
+function getRumorDistrictLabel(entry = {}) {
+  const row = Array.isArray(entry?.resultPayload?.rows)
+    ? entry.resultPayload.rows.find((item) => String(item?.label || "").trim().toLowerCase() === "district")
+    : null;
+  return String(row?.value || "Ulice bez adresy").trim();
+}
+
+function getRumorText(entry = {}) {
+  const row = Array.isArray(entry?.resultPayload?.rows)
+    ? entry.resultPayload.rows.find((item) => String(item?.label || "").trim().toLowerCase() === "drb")
+    : null;
+  return String(row?.value || entry?.summary || "Město zachytilo nový signál.").trim();
+}
+
+function createRumorInboxController(documentRef) {
+  const shell = createElement(documentRef, "section", "rumor-inbox-shell");
+  shell.hidden = true;
+  shell.dataset.rumorInbox = "true";
+  shell.dataset.uiOwner = "legacy-shared";
+
+  const backdrop = createElement(documentRef, "button", "rumor-inbox-backdrop");
+  backdrop.type = "button";
+  backdrop.setAttribute("aria-label", "Zavřít drby z ulice");
+
+  const card = createElement(documentRef, "div", "rumor-inbox-card");
+  card.setAttribute("role", "document");
+
+  const header = createElement(documentRef, "header", "rumor-inbox-header");
+  const headerCopy = createElement(documentRef, "div", "rumor-inbox-header__copy");
+  const eyebrow = createElement(documentRef, "span", "rumor-inbox-eyebrow", "NEON STREET WIRE");
+  const titleRow = createElement(documentRef, "div", "rumor-inbox-title-row");
+  const title = createElement(documentRef, "h3", "rumor-inbox-title", "Drby z ulice");
+  const count = createElement(documentRef, "strong", "rumor-inbox-count", "0");
+  count.dataset.rumorInboxCount = "true";
+  titleRow.append(title, count);
+  const subtitle = createElement(documentRef, "p", "rumor-inbox-subtitle", "Zachycené signály, šeptanda a špína z města.");
+  headerCopy.append(eyebrow, titleRow, subtitle);
+
+  const closeButton = createElement(documentRef, "button", "rumor-inbox-close", "×");
+  closeButton.type = "button";
+  closeButton.setAttribute("aria-label", "Zavřít drby z ulice");
+  header.append(headerCopy, closeButton);
+
+  const signalBar = createElement(documentRef, "div", "rumor-inbox-signal-bar");
+  signalBar.setAttribute("aria-hidden", "true");
+  signalBar.append(
+    createElement(documentRef, "span"),
+    createElement(documentRef, "span"),
+    createElement(documentRef, "span"),
+    createElement(documentRef, "span"),
+    createElement(documentRef, "span")
+  );
+
+  const list = createElement(documentRef, "div", "rumor-inbox-list");
+  list.dataset.rumorInboxList = "true";
+  const empty = createElement(documentRef, "p", "rumor-inbox-empty", "Ulice jsou zatím podezřele tiché.");
+  empty.hidden = true;
+  card.append(header, signalBar, list, empty);
+  shell.append(backdrop, card);
+  documentRef.body.append(shell);
+
+  const close = () => {
+    shell.hidden = true;
+    closeOverlay(shell);
+  };
+
+  backdrop.addEventListener("click", close);
+  closeButton.addEventListener("click", close);
+  shell.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") close();
+  });
+
+  return {
+    open(rumors = [], onOpenRumor = () => {}) {
+      const entries = Array.isArray(rumors) ? rumors : [];
+      count.textContent = String(entries.length);
+      list.dataset.rumorScrollable = String(entries.length > 8);
+      list.replaceChildren(...entries.map((entry, index) => {
+        const button = createElement(documentRef, "button", "rumor-inbox-message");
+        button.type = "button";
+        button.dataset.rumorMessageId = String(entry?.id || index);
+        button.setAttribute("aria-label", `Otevřít drb ${index + 1}`);
+
+        const messageHead = createElement(documentRef, "span", "rumor-inbox-message__head");
+        const ordinal = createElement(documentRef, "strong", "rumor-inbox-message__number", String(entries.length - index).padStart(2, "0"));
+        const district = createElement(documentRef, "span", "rumor-inbox-message__district", getRumorDistrictLabel(entry));
+        const time = createElement(documentRef, "time", "rumor-inbox-message__time", String(entry?.timeLabel || "TEĎ"));
+        messageHead.append(ordinal, district, time);
+
+        const text = createElement(documentRef, "span", "rumor-inbox-message__text", getRumorText(entry));
+        const openLabel = createElement(documentRef, "span", "rumor-inbox-message__open", "ROZBALIT SIGNÁL ↗");
+        button.append(messageHead, text, openLabel);
+        button.addEventListener("click", () => {
+          close();
+          onOpenRumor(entry);
+        });
+        return button;
+      }));
+      empty.hidden = entries.length > 0;
+      list.hidden = entries.length === 0;
+      openOverlay(shell, {
+        type: "rumor-inbox",
+        alwaysOnTop: true,
+        focusTarget: closeButton,
+        restoreFocusOnClose: true
+      });
+      return true;
+    }
+  };
+}
+
+export function openRumorInboxModal({ documentRef, rumors, onOpenRumor } = {}) {
+  const ownerDocument = documentRef || (typeof document !== "undefined" ? document : null);
+  if (!ownerDocument?.body) return false;
+  let controller = controllersByDocument.get(ownerDocument);
+  if (!controller) {
+    controller = createRumorInboxController(ownerDocument);
+    controllersByDocument.set(ownerDocument, controller);
+  }
+  return controller.open(rumors, onOpenRumor);
+}

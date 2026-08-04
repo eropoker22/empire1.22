@@ -1124,24 +1124,32 @@ body.game-body[data-onboarding-step="bounty-boost-guide"] .map-stage-actions--mo
   z-index: calc(var(--onboarding-z-backdrop) + 14) !important;
 }
 
-html[data-onboarding-step="bounty-boost-guide"] body.game-body [data-bounty-open-trigger].is-onboarding-focus-target,
-body.game-body[data-onboarding-step="bounty-boost-guide"] [data-bounty-open-trigger].is-onboarding-focus-target {
+html[data-onboarding-step="bounty-boost-guide"] body.game-body [data-bounty-open-trigger]:not([hidden]),
+body.game-body[data-onboarding-step="bounty-boost-guide"] [data-bounty-open-trigger]:not([hidden]) {
+  --onboarding-toolbar-action-glow: rgba(255, 52, 75, 0.72);
+  position: relative !important;
+  z-index: calc(var(--onboarding-z-backdrop) + 16) !important;
   opacity: 1 !important;
   filter: brightness(1.18) saturate(1.2) !important;
   outline: 1px solid rgba(245, 204, 102, 0.7);
   outline-offset: 3px;
+  animation: onboardingToolbarActionPulse 1.2s ease-in-out infinite;
   box-shadow:
     inset 0 0 0 1px rgba(255, 223, 150, 0.12),
     0 0 18px rgba(255, 52, 75, 0.52),
     0 0 30px rgba(245, 204, 102, 0.26) !important;
 }
 
-html[data-onboarding-step="bounty-boost-guide"] body.game-body [data-boost-open-trigger].is-onboarding-focus-target,
-body.game-body[data-onboarding-step="bounty-boost-guide"] [data-boost-open-trigger].is-onboarding-focus-target {
+html[data-onboarding-step="bounty-boost-guide"] body.game-body [data-boost-open-trigger]:not([hidden]),
+body.game-body[data-onboarding-step="bounty-boost-guide"] [data-boost-open-trigger]:not([hidden]) {
+  --onboarding-toolbar-action-glow: rgba(84, 223, 245, 0.72);
+  position: relative !important;
+  z-index: calc(var(--onboarding-z-backdrop) + 16) !important;
   opacity: 1 !important;
   filter: brightness(1.18) saturate(1.16) !important;
   outline: 1px solid rgba(245, 204, 102, 0.68);
   outline-offset: 3px;
+  animation: onboardingToolbarActionPulse 1.2s ease-in-out infinite;
   box-shadow:
     inset 0 0 0 1px rgba(245, 204, 102, 0.14),
     0 0 18px rgba(84, 223, 245, 0.5),
@@ -2059,6 +2067,23 @@ html[data-onboarding-map-mode="zoom-out"] .map-canvas-shell {
   }
 }
 
+@keyframes onboardingToolbarActionPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    outline-offset: 2px;
+    text-shadow: 0 0 8px var(--onboarding-toolbar-action-glow);
+  }
+
+  50% {
+    transform: scale(1.045);
+    outline-offset: 5px;
+    text-shadow:
+      0 0 12px var(--onboarding-toolbar-action-glow),
+      0 0 20px rgba(245, 204, 102, 0.46);
+  }
+}
+
 @keyframes onboardingTargetPulse {
   0%,
   100% {
@@ -2302,7 +2327,9 @@ html[data-onboarding-map-mode="zoom-out"] .map-canvas-shell {
   .empire-onboarding-map-highlight__glow,
   .empire-onboarding-map-highlight__line,
   .empire-onboarding-target-label,
-  .empire-onboarding__fallback::before {
+  .empire-onboarding__fallback::before,
+  html[data-onboarding-step="bounty-boost-guide"] body.game-body [data-bounty-open-trigger],
+  html[data-onboarding-step="bounty-boost-guide"] body.game-body [data-boost-open-trigger] {
     animation: none !important;
     scroll-behavior: auto !important;
     transition: none !important;

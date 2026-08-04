@@ -125,6 +125,8 @@ export function renderDistrictActionHub(actionViewModel = {}, callbacks = {}, op
   }
 
   clearDistrictActionHub({ mount });
+  const actions = Array.isArray(actionViewModel.actions) ? actionViewModel.actions : [];
+  mount.dataset.districtActionCount = String(actions.length);
 
   const statusMessage = actionViewModel.policeMessage || actionViewModel.statusMessage || "";
   if (statusMessage) {
@@ -146,7 +148,6 @@ export function renderDistrictActionHub(actionViewModel = {}, callbacks = {}, op
     }
   }
 
-  const actions = Array.isArray(actionViewModel.actions) ? actionViewModel.actions : [];
   for (const action of actions) {
     const actionRow = createElement(mount, "div", "district-popup-action-row");
     const callback = callbacks[action.id] || callbacks.onAction || null;

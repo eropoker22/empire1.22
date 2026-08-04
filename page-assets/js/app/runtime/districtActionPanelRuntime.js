@@ -112,6 +112,9 @@ export function createDistrictActionPanelRuntime(deps = {}) {
   const getOccupyCooldownView = typeof deps.getOccupyCooldownView === "function"
     ? deps.getOccupyCooldownView
     : () => ({ effectiveCooldownMs: deps.occupyCooldownMs, label: "" });
+  const getAuthoritativeOccupyTarget = typeof deps.getAuthoritativeOccupyTarget === "function"
+    ? deps.getAuthoritativeOccupyTarget
+    : () => null;
 
   const getAvailableAttackPopulation = () => {
     const rawValue = elements.gangMembersValue?.textContent || "0";
@@ -543,10 +546,15 @@ export function createDistrictActionPanelRuntime(deps = {}) {
 
     const interactionState = getInteractionState();
     const atmosphereMeta = getDistrictAtmosphereMeta(district, interactionState);
-    const adjacentOwnedDistrictIds = getAdjacentOwnedDistrictIds(district);
+    const authoritativeTarget = getAuthoritativeOccupyTarget(district);
+    const authoritativeSourceDistrictId = String(authoritativeTarget?.sourceDistrictId || "").replace(/^district:/u, "");
+    const adjacentOwnedDistrictIds = authoritativeSourceDistrictId
+      ? [Number(authoritativeSourceDistrictId) || authoritativeSourceDistrictId]
+      : getAdjacentOwnedDistrictIds(district);
     const ownedDistrictCount = getCurrentPlayerOwnedDistrictIds(interactionState).size;
     const spyIntel = deps.getResolvedSpyIntel();
-    const canOccupyAfterSpy = spyIntel.occupiableDistrictIds.includes(Number(district.id));
+    const canOccupyAfterSpy = Boolean(authoritativeTarget)
+      || spyIntel.occupiableDistrictIds.includes(Number(district.id));
     const cooldownView = getOccupyCooldownView();
 
     renderPreparedOccupyConfirmationPanel({
@@ -557,6 +565,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       availablePopulation: getAvailableAttackPopulation(),
       occupyCooldownMs: cooldownView.effectiveCooldownMs || deps.occupyCooldownMs,
       occupyCooldownLabel: cooldownView.label || "",
+      authoritativeTarget,
       atmosphereMeta
     }, elements);
   };

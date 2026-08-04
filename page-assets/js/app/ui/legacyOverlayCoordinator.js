@@ -12,6 +12,7 @@ const FOCUSABLE_SELECTOR = [
 ].join(",");
 
 const coordinatorState = globalThis[COORDINATOR_STATE_KEY] || {
+  closeFallbackDocuments: new WeakSet(),
   interactionShieldDocuments: new WeakSet(),
   overlayStack: [],
   overlayZIndexRestore: new WeakMap(),
@@ -24,6 +25,40 @@ coordinatorState.suppressionStartedAt = Number(coordinatorState.suppressionStart
 const overlayStack = coordinatorState.overlayStack;
 const overlayZIndexRestore = coordinatorState.overlayZIndexRestore;
 const interactionShieldDocuments = coordinatorState.interactionShieldDocuments;
+const closeFallbackDocuments = coordinatorState.closeFallbackDocuments || new WeakSet();
+coordinatorState.closeFallbackDocuments = closeFallbackDocuments;
+
+const FALLBACK_OVERLAY_SELECTOR = [
+  ".modal",
+  ".district-popup-shell",
+  ".attack-setup-popup-shell",
+  ".robbery-setup-popup-shell",
+  ".defense-setup-popup-shell",
+  ".buildings-popup-shell",
+  ".wanted-popup-shell",
+  ".player-popup-shell",
+  ".alliance-popup-shell",
+  ".armory-popup-shell",
+  ".pharmacy-popup-shell",
+  ".druglab-popup-shell",
+  ".factory-popup-shell",
+  ".market-popup-shell",
+  ".leaderboard-popup-shell",
+  ".storage-popup-shell",
+  ".district-building-detail-shell",
+  ".leaderboard-player-detail-shell",
+  ".avatar-lightbox",
+  ".login-about-modal",
+  ".game-lobby-modal",
+  ".game-admin-slice-overlay",
+  ".elimination-ai-panel",
+  ".elimination-result-popup",
+  ".server-milestone-modal",
+  ".elimination-countdown-warning",
+  ".district-atmosphere-window",
+  ".wanted-popup-police-window",
+  ".police-raid-impact-detail"
+].join(",");
 
 function getElementView(element) {
   return element?.ownerDocument?.defaultView || (typeof window !== "undefined" ? window : null);
@@ -51,6 +86,16 @@ function isOnboardingInteractionTarget(target) {
   return Boolean(element?.closest?.("[data-onboarding-panel], .is-onboarding-focus-target"));
 }
 
+function isVisibleTopbarInteractionTarget(target) {
+  const element = target?.nodeType === 1 ? target : target?.parentElement;
+  const topbar = element?.closest?.("#game-header, .game-topbar");
+  if (!topbar || !isElementVisible(topbar)) {
+    return false;
+  }
+  const view = getElementView(topbar);
+  return view?.getComputedStyle?.(topbar)?.pointerEvents !== "none";
+}
+
 function findOpenedOverlayAncestor(target) {
   let element = target?.nodeType === 1 ? target : target?.parentElement;
   while (element) {
@@ -63,7 +108,10 @@ function findOpenedOverlayAncestor(target) {
 }
 
 function blockBackgroundInteraction(event) {
-  if (isOnboardingInteractionTarget(event?.target)) {
+  if (
+    isOnboardingInteractionTarget(event?.target)
+    || isVisibleTopbarInteractionTarget(event?.target)
+  ) {
     return;
   }
 
@@ -109,6 +157,121 @@ function ensureInteractionShield(ownerDocument) {
   ownerDocument.addEventListener("touchstart", blockBackgroundInteraction, { capture: true, passive: false });
   ownerDocument.addEventListener("touchend", blockBackgroundInteraction, { capture: true, passive: false });
   ownerDocument.addEventListener("click", blockBackgroundInteraction, true);
+}
+
+function isCloseControl(element) {
+  if (!isElementLike(element)) {
+    return false;
+  }
+  const attributes = Array.from(element.attributes || []);
+  const hasCloseDataAttribute = attributes.some((attribute) => (
+    /^data-(?:.+-)?(?:close|dismiss)$/u.test(attribute.name)
+    || attribute.name === "data-close-modal"
+  ));
+  const ariaLabel = String(element.getAttribute?.("aria-label") || "").toLowerCase();
+  const identity = `${element.id || ""} ${element.className || ""}`.toLowerCase();
+  return hasCloseDataAttribute
+    || ariaLabel.includes("zavřít")
+    || ariaLabel.includes("close")
+    || /(?:^|[\s_-])close(?:$|[\s_-])/u.test(identity);
+}
+
+function resolveCloseControl(target) {
+  let element = target?.nodeType === 1 ? target : target?.parentElement;
+  while (element) {
+    if (isCloseControl(element)) {
+      return element;
+    }
+    if (element.matches?.(FALLBACK_OVERLAY_SELECTOR)) {
+      break;
+    }
+    element = element.parentElement;
+  }
+  return null;
+}
+
+function hasDirectBackdrop(element) {
+  return Array.from(element?.children || []).some((child) => (
+    String(child.className || "").toLowerCase().includes("backdrop")
+  ));
+}
+
+function resolveFallbackOverlay(closeControl) {
+  let element = closeControl?.parentElement || null;
+  let dialogFallback = null;
+  while (element) {
+    if (!dialogFallback && element.getAttribute?.("role") === "dialog") {
+      dialogFallback = element;
+    }
+    if (element.matches?.(FALLBACK_OVERLAY_SELECTOR) || hasDirectBackdrop(element)) {
+      return element;
+    }
+    element = element.parentElement;
+  }
+  return dialogFallback;
+}
+
+function hideFallbackOverlay(element) {
+  if (!isHtmlElement(element)) {
+    return false;
+  }
+  if (typeof element.close === "function" && element.tagName === "DIALOG") {
+    try {
+      element.close();
+    } catch {
+      // Continue with the attribute fallback below.
+    }
+  }
+  element.hidden = true;
+  element.classList.add("hidden");
+  element.setAttribute("aria-hidden", "true");
+  closeOverlay(element, { restoreFocus: true });
+  const ownerDocument = element.ownerDocument;
+  const EventConstructor = ownerDocument?.defaultView?.CustomEvent;
+  if (typeof EventConstructor === "function") {
+    element.dispatchEvent(new EventConstructor("empire:overlay-fallback-closed", {
+      bubbles: true,
+      detail: { overlay: element }
+    }));
+  }
+
+  const hasVisibleOverlay = Array.from(ownerDocument?.querySelectorAll?.(FALLBACK_OVERLAY_SELECTOR) || [])
+    .some((candidate) => candidate !== element && isElementVisible(candidate));
+  if (!hasVisibleOverlay) {
+    unlockBodyScroll(element);
+    ownerDocument?.body?.classList.remove("game-modal-scroll-locked", "game-spy-confirm-open");
+    ownerDocument?.documentElement?.classList.remove("game-spy-confirm-open");
+  }
+  return true;
+}
+
+function handleCloseControlFallback(event) {
+  const closeControl = resolveCloseControl(event?.target);
+  if (!closeControl) {
+    return;
+  }
+  const overlay = resolveFallbackOverlay(closeControl);
+  if (!overlay) {
+    return;
+  }
+
+  suppressMapInput(DEFAULT_GHOST_CLICK_SUPPRESSION_MS);
+  queueMicrotask(() => {
+    if (!isElementVisible(overlay)) {
+      return;
+    }
+    hideFallbackOverlay(overlay);
+  });
+}
+
+export function bindCloseControlFallback(ownerDocument = document) {
+  if (!ownerDocument?.addEventListener || closeFallbackDocuments.has(ownerDocument)) {
+    return false;
+  }
+  ensureInteractionShield(ownerDocument);
+  closeFallbackDocuments.add(ownerDocument);
+  ownerDocument.addEventListener("click", handleCloseControlFallback, true);
+  return true;
 }
 
 function lockBodyScroll(element) {
@@ -452,7 +615,9 @@ export function isTopOverlayElement(element) {
 }
 
 if (typeof window !== "undefined") {
+  bindCloseControlFallback(window.document);
   window.EmpireLegacyOverlay = {
+    bindCloseControlFallback,
     closeOverlay,
     closeTopOverlay,
     getTopOverlay,

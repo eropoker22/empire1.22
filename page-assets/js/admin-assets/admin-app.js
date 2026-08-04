@@ -42356,7 +42356,7 @@
   })}
       <div class="admin-operations-workspace">
         <div class="admin-operations-workspace__registry">
-          ${renderAdminServers(input.overview.instances, input.selectedInstanceId, input.serverFilters ?? {
+          ${input.wizardOpen ? "" : renderAdminServers(input.overview.instances, input.selectedInstanceId, input.serverFilters ?? {
     query: "",
     status: "all",
     mode: "all",

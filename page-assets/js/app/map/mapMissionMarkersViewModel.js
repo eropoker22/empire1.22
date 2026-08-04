@@ -94,6 +94,21 @@ export function buildOccupyOrderMarkers(orders = [], options = {}) {
     districtIds: new Set(
       safeOrders.map((order) => getMissionDistrictId(order?.targetDistrictId)).filter(Boolean)
     ),
+    markersByDistrictId: new Map(
+      safeOrders
+        .map((order) => {
+          const districtId = getMissionDistrictId(order?.targetDistrictId);
+          if (!districtId) return null;
+          return [districtId, {
+            seed: districtId,
+            playerId: String(order?.playerId || order?.attackerPlayerId || ""),
+            playerColor: String(order?.playerColor || ""),
+            startedAt: new Date(order.createdAt || now).getTime(),
+            expiresAt: new Date(order.resolveAt || order.createdAt || now).getTime()
+          }];
+        })
+        .filter(Boolean)
+    ),
     countdownByDistrictId: new Map(
       safeOrders.map((order) => ([
         getMissionDistrictId(order?.targetDistrictId),
@@ -175,6 +190,7 @@ export function buildMapMissionMarkersViewModel({
     activeAttackDistrictIds: attack.districtIds,
     activeAttackMarkersByDistrictId: attack.markersByDistrictId,
     activeOccupyDistrictIds: occupy.districtIds,
+    activeOccupyMarkersByDistrictId: occupy.markersByDistrictId,
     activeOccupyCountdownByDistrictId: occupy.countdownByDistrictId,
     activeRobberyDistrictIds: robbery.districtIds,
     activeRobberyMarkersByDistrictId: robbery.markersByDistrictId,

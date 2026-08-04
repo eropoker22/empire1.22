@@ -306,6 +306,9 @@ export default defineConfig({
     host: "127.0.0.1",
     port: 5174,
     strictPort: true,
+    headers: {
+      "Cache-Control": "no-store, max-age=0"
+    },
     fs: {
       deny: [...GAME_DEV_FS_DENY]
     },

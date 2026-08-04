@@ -3,7 +3,7 @@ import {
   bootstrapPage,
   destroyRuntime,
   PAGE_ROOT_SELECTOR
-} from "./app/runtime.js?v=legacy-production-compat-20260728";
+} from "./app/runtime.js?v=ui-refresh-20260805-2";
 import { loadLobbyOverview } from "./app/player-entry-client.js";
 import {
   bindGameAuthorityGate,

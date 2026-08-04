@@ -124,10 +124,13 @@ export function renderDistrictFlags(flagsMount, flags = []) {
   return true;
 }
 
-function appendBuildingEmptyMessage(listElement, text) {
+function appendBuildingEmptyMessage(listElement, text, tone = "") {
   const empty = createElement(listElement, "div", "district-popup-buildings__empty");
   if (!empty) {
     return;
+  }
+  if (tone === "lockdown") {
+    empty.classList.add("district-popup-buildings__empty--lockdown");
   }
   empty.textContent = text;
   listElement.append(empty);
@@ -169,6 +172,7 @@ function createDistrictBuildingListFingerprint(view = {}) {
       name: building?.name || ""
     })),
     emptyText: view.emptyText || "",
+    emptyTone: view.emptyTone || "",
     interactive: view.interactive !== false,
     trap: view.trap?.visible
       ? {
@@ -205,7 +209,7 @@ export function renderDistrictBuildingList(elements = {}, view = {}) {
   list.replaceChildren();
 
   if (view.emptyText) {
-    appendBuildingEmptyMessage(list, view.emptyText);
+    appendBuildingEmptyMessage(list, view.emptyText, view.emptyTone);
     districtBuildingListFingerprintByElement.set(list, fingerprint);
     return true;
   }
@@ -325,6 +329,8 @@ export function renderDistrictActionPanel(elements = {}, view = {}) {
   }
 
   mount.replaceChildren();
+  const actions = Array.isArray(view.actions) ? view.actions : [];
+  mount.dataset.districtActionCount = String(actions.length);
 
   const statusMessage = view.policeMessage || view.statusMessage || "";
   if (statusMessage) {
@@ -348,7 +354,7 @@ export function renderDistrictActionPanel(elements = {}, view = {}) {
     }
   }
 
-  for (const action of Array.isArray(view.actions) ? view.actions : []) {
+  for (const action of actions) {
     const actionRow = createElement(mount, "div", "district-popup-action-row");
     const button = createDistrictActionButton(mount, action);
     if (!actionRow || !button) {

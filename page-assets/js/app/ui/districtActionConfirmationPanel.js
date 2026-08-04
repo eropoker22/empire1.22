@@ -510,28 +510,44 @@ export function createOccupyConfirmationViewModel({
   availablePopulation = 0,
   occupyCooldownMs = 12 * 60 * 1000,
   occupyCooldownLabel = "",
+  authoritativeTarget = null,
   atmosphereMeta = {}
 } = {}) {
-  const hasSourceDistrict = adjacentOwnedDistrictIds.length > 0;
-  const populationCost = resolveOccupyPopulationCostForOwnedCount(ownedDistrictCount);
+  const hasAuthoritativeTarget = authoritativeTarget && typeof authoritativeTarget === "object";
+  const sourceDistrictId = hasAuthoritativeTarget
+    ? String(authoritativeTarget.sourceDistrictId || "").replace(/^district:/u, "")
+    : adjacentOwnedDistrictIds[0];
+  const hasSourceDistrict = Boolean(sourceDistrictId);
+  const populationCost = hasAuthoritativeTarget
+    ? Math.max(0, Number(authoritativeTarget.cost?.population || 0))
+    : resolveOccupyPopulationCostForOwnedCount(ownedDistrictCount);
+  const influenceCost = hasAuthoritativeTarget
+    ? Math.max(0, Number(authoritativeTarget.cost?.influence || 0))
+    : 0;
   const hasEnoughPopulation = Math.max(0, Math.floor(Number(availablePopulation) || 0)) >= populationCost;
   const durationLabel = occupyCooldownLabel || formatActionDuration(occupyCooldownMs);
+  const authoritativeEnabled = hasAuthoritativeTarget ? authoritativeTarget.enabled === true : null;
+  const authoritativeReason = String(authoritativeTarget?.disabledReason || "").trim();
 
   return {
     targetDistrictId: district?.id,
-    sourceLabel: hasSourceDistrict ? `District ${adjacentOwnedDistrictIds[0]}` : "Žádný soused",
+    sourceLabel: hasSourceDistrict ? `District ${sourceDistrictId}` : "Žádný soused",
     conditionLabel: canOccupyAfterSpy ? "Špehování potvrzeno" : "Chybí špehování",
-    costLabel: `${populationCost} populace`,
+    costLabel: hasAuthoritativeTarget
+      ? `${populationCost} populace · ${influenceCost} vlivu`
+      : `${populationCost} populace`,
     populationCost,
     durationLabel,
-    note: !hasSourceDistrict
+    note: authoritativeReason || (!hasSourceDistrict
       ? "Obsazení vyžaduje sousední vlastní district."
       : !canOccupyAfterSpy
         ? "Nejdřív musí proběhnout úspěšné špehování. Teprve pak lze district obsadit."
         : !hasEnoughPopulation
           ? ""
-          : `Po potvrzení se spustí ${durationLabel} obsazování. District bliká tvojí barvou a po doběhnutí přejde pod tebe.`,
-    canConfirm: hasSourceDistrict && canOccupyAfterSpy && hasEnoughPopulation,
+          : `Po potvrzení se spustí ${durationLabel} obsazování. District bliká tvojí barvou a po doběhnutí přejde pod tebe.`),
+    canConfirm: hasAuthoritativeTarget
+      ? authoritativeEnabled
+      : hasSourceDistrict && canOccupyAfterSpy && hasEnoughPopulation,
     confirmLabel: "Spustit obsazení",
     atmosphereMeta
   };
