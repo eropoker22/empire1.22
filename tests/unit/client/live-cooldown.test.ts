@@ -66,6 +66,7 @@ const createCooldownSlice = (): GameplaySliceView => ({
     }]
   },
   districts: [],
+  mapEffects: [],
   reports: [],
   district: {
     districtId: "district:1",

@@ -80,6 +80,7 @@ const createGameplaySliceFixture = ({
     ]
   },
   districts: [],
+  mapEffects: [],
   reports: [],
   district: {
     districtId: "district:1",

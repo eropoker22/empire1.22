@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GameplaySliceView } from "@empire/shared-types";
+import { createNotification } from "@empire/game-core";
 import { createServerApp } from "../../apps/server/src/app";
 import { createFixedClock } from "../../apps/server/src/runtime/scheduling/clock";
 import { createDistrictBuildingSliceSeed } from "../../tools/seed/src";
@@ -244,6 +245,82 @@ describe("gameplay slice read model contract", () => {
           "Pasivní populace: 0 / tick · žádný zdroj v districtu"
       }
     });
+  });
+
+  it("keeps a pending robbery effect private and removes it at its resolve tick", async () => {
+    const server = createServerApp({
+      clock: createFixedClock("2026-05-21T00:00:00.000Z")
+    });
+    const instanceId = "instance:read-model:robbery-effect";
+    const runtime = server.instanceManager.createInstance(instanceId, "free");
+    runtime.state = createCombatStateFixture(instanceId);
+    const notification = createNotification({
+      id: "notification:pending-robbery",
+      recipientType: "player",
+      recipientId: "player:1",
+      category: "report.rob",
+      title: "Vykradení",
+      bodyKey: "report.rob",
+      payload: {
+        reportId: "report:pending-robbery",
+        reportType: "rob",
+        actionType: "rob-district",
+        playerId: "player:1",
+        targetDistrictId: "district:2",
+        sourceDistrictId: "district:1",
+        result: "success",
+        loot: {},
+        issuedAtTick: 0,
+        resolveAtTick: 5,
+        tick: 0,
+        createdAt: new Date(0).toISOString()
+      },
+      createdAt: new Date(0).toISOString(),
+      readAt: null
+    });
+    runtime.state.notificationsById[notification.id] = notification;
+    runtime.state.root.notificationIds.push(notification.id);
+    server.instanceManager.startInstance(instanceId);
+
+    const attackerSession = await createDevGameplaySession(server, {
+      serverInstanceId: instanceId,
+      playerId: "player:1",
+      districtId: "district:1"
+    });
+    const defenderSession = await createDevGameplaySession(server, {
+      serverInstanceId: instanceId,
+      playerId: "player:2",
+      districtId: "district:2"
+    });
+    const attacker = expectReadModel(await server.gameplaySliceTransport.load(attackerSession.loadRequest));
+    const defender = expectReadModel(await server.gameplaySliceTransport.load(defenderSession.loadRequest));
+
+    expect(attacker.reports).not.toContainEqual(expect.objectContaining({
+      reportId: "report:pending-robbery"
+    }));
+    expect(attacker.mapEffects).toContainEqual(expect.objectContaining({
+      effectId: notification.id,
+      type: "robbery",
+      source: "server-pending-operation",
+      playerId: "player:1",
+      districtId: "district:2",
+      expiresAtTick: 5
+    }));
+    expect(defender.mapEffects).not.toContainEqual(expect.objectContaining({
+      effectId: notification.id
+    }));
+
+    runtime.state.root = {
+      ...runtime.state.root,
+      tick: 5,
+      version: runtime.state.root.version + 1
+    };
+    const resolved = expectReadModel(await server.gameplaySliceTransport.load(attackerSession.loadRequest));
+    expect(resolved.mapEffects).not.toContainEqual(expect.objectContaining({ effectId: notification.id }));
+    expect(resolved.reports).toContainEqual(expect.objectContaining({
+      reportId: "report:pending-robbery",
+      reportType: "rob"
+    }));
   });
 
   it("projects reports and city feed after spy and attack events", async () => {

@@ -201,7 +201,7 @@ const attachProductionCollectionReport = (
     collectedResources,
     tick: result.nextState.root.tick
   });
-  const notificationAlreadyStored = Boolean(result.nextState.notificationsById[notification.id]);
+  const notificationAlreadyListed = result.nextState.root.notificationIds.includes(notification.id);
 
   return {
     ...result,
@@ -211,7 +211,7 @@ const attachProductionCollectionReport = (
         ...result.nextState.notificationsById,
         [notification.id]: notification
       },
-      root: notificationAlreadyStored
+      root: notificationAlreadyListed
         ? result.nextState.root
         : {
             ...result.nextState.root,

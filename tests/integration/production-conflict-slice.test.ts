@@ -9,13 +9,14 @@ import {
 } from "../../apps/client/src/features";
 import { createInMemoryClientTransport } from "../../apps/client/src/transport";
 import { createServerApp } from "../../apps/server/src/app";
-import { applyCommand } from "../../packages/game-core/src/engine";
+import { applyCommand, runTick } from "../../packages/game-core/src/engine";
 import {
   createPlaceTrapCommandFixture as createCorePlaceTrapCommandFixture,
   createSpyDistrictCommandFixture as createCoreSpyDistrictCommandFixture
 } from "../fixtures/command-fixtures";
 import { createCombatStateFixture } from "../fixtures/game-state-fixtures";
 import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
+import { deterministicUnitInterval } from "../../packages/game-core/src/utils/math";
 
 describe("production conflict gameplay slice", () => {
   it("keeps trap state hidden from enemies, reveals it via spy report, and renders reports from server-fed data", async () => {
@@ -31,6 +32,7 @@ describe("production conflict gameplay slice", () => {
     expect(worldSeed, "Expected at least one deterministic trap reveal seed.").toBeTruthy();
     runtime.state = createCombatStateFixture(instanceId);
     runtime.state.serverInstance.worldSeed = worldSeed!;
+    runtime.state.notificationsById = {};
     server.instanceManager.startInstance(instanceId);
 
     const attackerClient = createClientApp({
@@ -93,32 +95,51 @@ describe("production conflict gameplay slice", () => {
     );
 
     expect(spied.errors).toEqual([]);
-    expect(
-      (await server.gameplaySliceTransport.load({
-        ...attackerSession.loadRequest,
-        districtId: sourceDistrictId
-      })).readModel?.reports[0]
-    ).toMatchObject({
+    expect(spied.reports).toEqual([]);
+    const pendingSpyView = (await server.gameplaySliceTransport.load({
+      ...attackerSession.loadRequest,
+      districtId: sourceDistrictId
+    })).readModel as GameplaySliceView;
+    const pendingSpyEffect = pendingSpyView.mapEffects.find((effect) => effect.type === "spy");
+
+    expect(pendingSpyView.reports).toEqual([]);
+    expect(pendingSpyEffect).toMatchObject({
+      type: "spy",
+      source: "server-pending-operation",
+      playerId: attackerId,
+      districtId: targetDistrictId
+    });
+    expect((await server.gameplaySliceTransport.load(defenderSession.loadRequest)).readModel?.mapEffects)
+      .not.toContainEqual(expect.objectContaining({ type: "spy", playerId: attackerId }));
+
+    await advanceInstanceToEffectResolution(server, instanceId, pendingSpyEffect!);
+    const resolvedSpy = await attackerClient.load(attackerSession.loadRequest);
+    const resolvedSpyView = (await server.gameplaySliceTransport.load({
+      ...attackerSession.loadRequest,
+      districtId: sourceDistrictId
+    })).readModel as GameplaySliceView;
+
+    expect(resolvedSpyView.mapEffects).not.toContainEqual(expect.objectContaining({ type: "spy" }));
+    expect(resolvedSpyView.reports[0]).toMatchObject({
       reportType: "spy",
       targetDistrictId,
       trapDetected: true
     });
-    expect(spied.reports[0]).toMatchObject({
+    expect(resolvedSpy.reports[0]).toMatchObject({
       category: "spy",
       result: "success"
     });
-    expect(spied.districtPanel?.attackTargets).toContainEqual(expect.objectContaining({
+    expect(resolvedSpy.districtPanel?.attackTargets).toContainEqual(expect.objectContaining({
       districtId: targetDistrictId,
       ownerLabel: "Vlastník player:2",
       disabled: false
     }));
-    expect(spied.districtPanel?.occupyTargets.some((target) => target.districtId === targetDistrictId)).toBe(false);
-    expect(spied.sidePanelHtml).toContain("Poslední reporty");
-    expect(spied.sidePanelHtml).toContain("Špehování success v district:2");
-    expect(spied.sidePanelHtml).toContain("data-attack-target-id=\"district:2\"");
-    expect(spied.sidePanelHtml).not.toContain("data-occupy-target-id=\"district:2\"");
-    expect(spied.sidePanelHtml).toContain("data-report-highlight=\"latest-command\"");
-    expect(spied.sidePanelHtml).toContain("Past odhalena");
+    expect(resolvedSpy.districtPanel?.occupyTargets.some((target) => target.districtId === targetDistrictId)).toBe(false);
+    expect(resolvedSpy.sidePanelHtml).toContain("Poslední reporty");
+    expect(resolvedSpy.sidePanelHtml).toContain("Špehování success v district:2");
+    expect(resolvedSpy.sidePanelHtml).toContain("data-attack-target-id=\"district:2\"");
+    expect(resolvedSpy.sidePanelHtml).not.toContain("data-occupy-target-id=\"district:2\"");
+    expect(resolvedSpy.sidePanelHtml).toContain("Past odhalena");
 
     const attacked = await attackerClient.dispatch(
       createAttackDistrictCommand({
@@ -141,6 +162,14 @@ describe("production conflict gameplay slice", () => {
       targetDistrictId,
       trapTriggered: true
     });
+    expect(afterAttackReadModel.mapEffects).toContainEqual(expect.objectContaining({
+      type: "attack",
+      source: "server-public-operation",
+      playerId: attackerId,
+      districtId: targetDistrictId
+    }));
+    expect((await server.gameplaySliceTransport.load(defenderSession.loadRequest)).readModel?.mapEffects)
+      .toContainEqual(expect.objectContaining({ type: "attack", playerId: attackerId }));
     expect(afterAttackReadModel.commandHints.cooldowns).toContainEqual(expect.objectContaining({
       commandType: "attack-district",
       targetId: targetDistrictId,
@@ -190,7 +219,13 @@ describe("production conflict gameplay slice", () => {
     );
 
     expect(spied.errors).toEqual([]);
-    expect(spied.reports[0]).toMatchObject({
+    expect(spied.reports).toEqual([]);
+    const pendingSpyView = (await server.gameplaySliceTransport.load(attackerSession.loadRequest)).readModel as GameplaySliceView;
+    const pendingSpyEffect = pendingSpyView.mapEffects.find((effect) => effect.type === "spy");
+    expect(pendingSpyEffect).toBeTruthy();
+    await advanceInstanceToEffectResolution(server, instanceId, pendingSpyEffect!);
+    const resolvedSpy = await attackerClient.load(attackerSession.loadRequest);
+    expect(resolvedSpy.reports[0]).toMatchObject({
       category: "spy",
       result: "success"
     });
@@ -236,7 +271,7 @@ describe("production conflict gameplay slice", () => {
     expect(renderGameplaySliceStatus(attacked)).toContain("Akce přijata");
   });
 
-  it("shows a server rejection when an old spy command duplicates active intel", async () => {
+  it("shows a server rejection while the first spy operation is still pending", async () => {
     const server = createServerApp();
     const instanceId = "instance:production-conflict-cooldown";
     const attackerId = "player:1";
@@ -277,10 +312,10 @@ describe("production conflict gameplay slice", () => {
     );
 
     expect(firstSpy.errors).toEqual([]);
-    expect(firstSpy.reports[0]).toMatchObject({
-      category: "spy",
-      result: "success"
-    });
+    expect(firstSpy.reports).toEqual([]);
+    const pendingSpyView = (await server.gameplaySliceTransport.load(attackerSession.loadRequest)).readModel as GameplaySliceView;
+    const pendingSpyEffect = pendingSpyView.mapEffects.find((effect) => effect.type === "spy");
+    expect(pendingSpyEffect).toBeTruthy();
 
     const rejectedSpy = await attackerClient.dispatch(
       createSpyDistrictCommand({
@@ -292,23 +327,27 @@ describe("production conflict gameplay slice", () => {
     );
 
     expect(rejectedSpy.errors[0]).toMatchObject({
-      code: "SPY_INTEL_ALREADY_ACTIVE"
+      code: "spy_cooldown_active"
     });
     expect(rejectedSpy.connection).toMatchObject({
       status: "ready",
       staleData: true,
-      lastErrorMessage: expect.stringContaining("stále platné informace")
+      lastErrorMessage: expect.stringContaining("čeká ještě")
     });
     expect(rejectedSpy.lastCommandStatus).toEqual({
       commandId: "command:spy:cooldown:2",
       accepted: false
     });
     expect(renderGameplaySliceStatus(rejectedSpy)).toContain("Akce odmítnuta");
-    expect(renderGameplaySliceStatus(rejectedSpy)).toContain("stále platné informace");
+    expect(renderGameplaySliceStatus(rejectedSpy)).toContain("čeká ještě");
     expect(rejectedSpy.sidePanelHtml).toContain("Poslední reporty");
     expect(rejectedSpy.sidePanelHtml).toContain("Akce odmítnuta");
     expect(rejectedSpy.sidePanelHtml).not.toContain("data-report-command-status=\"accepted-without-report\"");
-    expect(rejectedSpy.sidePanelHtml).toContain("Špehování success v district:2");
+    expect(rejectedSpy.sidePanelHtml).not.toContain("Špehování success v district:2");
+
+    await advanceInstanceToEffectResolution(server, instanceId, pendingSpyEffect!);
+    const resolvedSpy = await attackerClient.load(attackerSession.loadRequest);
+    expect(resolvedSpy.sidePanelHtml).toContain("Špehování success v district:2");
   });
 
   it("renders a catastrophe report window and destroyed district state after a catastrophic attack", async () => {
@@ -356,9 +395,21 @@ describe("production conflict gameplay slice", () => {
     );
 
     expect(spied.errors).toEqual([]);
-    expect(spied.reports[0]).toMatchObject({
+    expect(spied.reports).toEqual([]);
+    const pendingSpyView = (await server.gameplaySliceTransport.load(attackerSession.loadRequest)).readModel as GameplaySliceView;
+    const pendingSpyEffect = pendingSpyView.mapEffects.find((effect) => effect.type === "spy");
+    expect(pendingSpyEffect).toBeTruthy();
+    await advanceInstanceToEffectResolution(server, instanceId, pendingSpyEffect!);
+    const resolvedSpy = await attackerClient.load(attackerSession.loadRequest);
+    expect(resolvedSpy.reports[0]).toMatchObject({
       category: "spy",
       result: "success"
+    });
+    runtime.state.serverInstance.worldSeed = findCatastropheSeed({
+      commandId: "command:attack:catastrophe:district:2",
+      playerId: attackerId,
+      targetDistrictId,
+      tick: runtime.state.root.tick
     });
 
     const attacked = await attackerClient.dispatch(
@@ -407,6 +458,19 @@ describe("production conflict gameplay slice", () => {
     });
   });
 });
+
+const advanceInstanceToEffectResolution = (
+  server: ReturnType<typeof createServerApp>,
+  instanceId: string,
+  effect: GameplaySliceView["mapEffects"][number]
+): Promise<void> => {
+  const runtime = server.instanceManager.getInstanceById(instanceId);
+  if (!runtime) throw new Error(`Missing runtime ${instanceId}.`);
+  while (runtime.state.root.tick < effect.expiresAtTick) {
+    runtime.state = runTick(runtime.state, { config: runtime.config }).nextState;
+  }
+  return Promise.resolve();
+};
 
 const seedSearchContext = {
   config: {
@@ -478,3 +542,18 @@ const findSpyOutcomeSeed = (outcome: "success" | "partial" | "failed" | "critica
     const result = applyCommand(state, createCoreSpyDistrictCommandFixture(), seedSearchContext);
     return result.nextState.notificationsById["notification:command:spy:1:spy-report"]?.payload.result === outcome;
   });
+
+const findCatastropheSeed = (input: {
+  commandId: string;
+  playerId: string;
+  targetDistrictId: string;
+  tick: number;
+}): string => {
+  const seed = Array.from({ length: 500 }, (_, index) => `production-catastrophe-${index}`).find((worldSeed) => (
+    deterministicUnitInterval(
+      `${worldSeed}:attack:catastrophe:${input.commandId}:${input.playerId}:${input.targetDistrictId}:${input.tick}`
+    ) < 0.18
+  ));
+  if (!seed) throw new Error("Expected at least one deterministic catastrophe seed.");
+  return seed;
+};

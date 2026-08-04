@@ -61,6 +61,7 @@ const createGameplaySliceFixture = (): GameplaySliceView => ({
     disabledReasons: []
   },
   districts: [],
+  mapEffects: [],
   reports: [],
   district: {
     districtId: "district:1",

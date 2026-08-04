@@ -11,7 +11,7 @@ import {
   resolvePlayerOperationalLiveness
 } from "@empire/game-core";
 import { resolveModeConfig } from "@empire/game-config";
-import { createCoreStateFixture } from "../fixtures/game-state-fixtures";
+import { createCoreStateFixture, createFixedBuildingFixture } from "../fixtures/game-state-fixtures";
 import { createNullSnapshotRepository } from "../../apps/server/src/runtime/persistence/repositories";
 
 describe("instance snapshot mapping", () => {
@@ -215,5 +215,32 @@ describe("instance snapshot mapping", () => {
     });
     expect(Object.keys(restored.encirclementConfirmationTokensById ?? {})).toEqual(["encirclement-confirmation:1"]);
     expect(restored.playerCityEventStatesByPlayerId?.["player:1"]?.pendingRewards).toHaveLength(1);
+  });
+
+  it("restores starter production buildings idempotently and relinks an existing legacy building", () => {
+    const runtime = createServerInstanceRuntime("instance:starter-restore", "free");
+    runtime.state = createCoreStateFixture(runtime.record.id);
+    const legacyPharmacy = createFixedBuildingFixture("pharmacy", {
+      id: "building:legacy:pharmacy",
+      serverInstanceId: runtime.record.id,
+      districtId: "district:1",
+      ownerPlayerId: "player:1"
+    });
+    runtime.state.buildingsById[legacyPharmacy.id] = legacyPharmacy;
+
+    const serialized = JSON.parse(JSON.stringify(createInstanceSnapshot(runtime)));
+    const first = restoreInstanceState(serialized);
+    const firstBuildingIds = first.districtsById["district:1"].buildingIds;
+    const starterTypes = firstBuildingIds.map((buildingId) => first.buildingsById[buildingId]?.buildingTypeId);
+
+    expect(starterTypes).toEqual(expect.arrayContaining(["pharmacy", "drug_lab", "factory", "armory"]));
+    expect(starterTypes.filter((buildingTypeId) => buildingTypeId === "pharmacy")).toHaveLength(1);
+    expect(firstBuildingIds).toContain(legacyPharmacy.id);
+    expect(first.districtsById["district:1"].slotCount).toBeGreaterThanOrEqual(4);
+
+    const second = restoreInstanceState({ ...serialized, state: first });
+    expect(second.districtsById["district:1"].buildingIds).toEqual(firstBuildingIds);
+    expect(Object.keys(second.buildingsById)).toEqual(Object.keys(first.buildingsById));
+    expect(second.root.version).toBe(first.root.version);
   });
 });

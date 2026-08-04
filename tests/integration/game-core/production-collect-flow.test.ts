@@ -58,6 +58,20 @@ describe("production collect command flow", () => {
     expect(collected.nextState.resourceStatesById["resource:1"]?.balances[resourceKey]).toBe(1);
     expect(collected.events).toHaveLength(1);
     expect(collected.events[0]?.type).toBe("production-collected");
+    const reportIds = collected.nextState.root.notificationIds.filter((notificationId) => (
+      collected.nextState.notificationsById[notificationId]?.payload.eventId === collectCommand.id
+    ));
+    expect(reportIds).toHaveLength(1);
+
+    collected.nextState.resourceStatesById[buildingResourceStateId] = {
+      ...collected.nextState.resourceStatesById[buildingResourceStateId],
+      balances: { [resourceKey]: 1 }
+    };
+    const replayed = applyCommand(collected.nextState, collectCommand, context);
+    expect(replayed.errors).toEqual([]);
+    expect(replayed.nextState.root.notificationIds.filter((notificationId) => (
+      replayed.nextState.notificationsById[notificationId]?.payload.eventId === collectCommand.id
+    ))).toEqual(reportIds);
   });
 
   it("collects only available capacity and leaves the remainder in the production building", () => {

@@ -29,6 +29,17 @@ export const ensureStarterDistrictProductionBuildings = (input: {
   const nextBuildingIds = [...input.district.buildingIds];
   const nextBuildingsById = { ...input.buildingsById };
   for (const buildingTypeId of missingTypes) {
+    const existingBuilding = Object.values(input.buildingsById).find((building) => (
+      building.districtId === input.district.id
+      && building.ownerPlayerId === input.ownerPlayerId
+      && building.buildingTypeId === buildingTypeId
+      && building.status !== "destroyed"
+      && !nextBuildingIds.includes(building.id)
+    ));
+    if (existingBuilding) {
+      nextBuildingIds.push(existingBuilding.id);
+      continue;
+    }
     const buildingId = createStarterBuildingId(input.district.id, buildingTypeId, nextBuildingsById);
     nextBuildingIds.push(buildingId);
     nextBuildingsById[buildingId] = createStarterBuilding(
