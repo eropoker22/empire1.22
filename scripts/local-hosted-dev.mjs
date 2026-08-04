@@ -13,7 +13,8 @@ import {
   LOCAL_HOSTED_PID_FILE,
   LOCAL_HOSTED_POSTGRES_CONTAINER,
   LOCAL_HOSTED_RUNTIME_DIRECTORY,
-  LOCAL_HOSTED_WORKER_ORIGIN
+  LOCAL_HOSTED_WORKER_ORIGIN,
+  resolveLocalHostedFrontendAccess
 } from "./local-hosted/local-hosted-config.mjs";
 import { resetLocalHostedTestData } from "./local-hosted/local-hosted-reset.mjs";
 import { resolveSupportedNodeExecutable } from "./local-hosted/supported-node-runtime.mjs";
@@ -21,10 +22,12 @@ import { resolveSupportedNodeExecutable } from "./local-hosted/supported-node-ru
 const command = process.argv[2] || "start";
 const commandArgs = process.argv.slice(3);
 const require = createRequire(import.meta.url);
+const runtimeBundleDirectory = path.resolve("dist-local-hosted-runtime");
 
 await loadLocalEnvironment();
 const buildSha = git(["rev-parse", "HEAD"]);
 const nodeRuntime = resolveSupportedNodeExecutable();
+const frontendAccess = resolveLocalHostedFrontendAccess(process.env);
 const environment = createLocalHostedEnvironment(process.env, buildSha);
 
 try {
@@ -58,20 +61,14 @@ async function start() {
   console.log(`[local-hosted] Node runtime: ${nodeRuntime.version}.`);
   console.log(`[local-hosted] Database: 127.0.0.1/${LOCAL_HOSTED_DATABASE_NAME}.`);
   runNode([
-    "scripts/run-local-bin.mjs",
-    "vite-node/vite-node.mjs",
-    "scripts/database-migrations.ts"
+    resolveModule("vite/bin/vite.js"),
+    "build",
+    "--config",
+    "vite.local-hosted-runtime.config.ts"
   ]);
-  runNode([
-    "scripts/run-local-bin.mjs",
-    "vite-node/vite-node.mjs",
-    "scripts/bootstrap-admin-user.ts"
-  ]);
-  runNode([
-    "scripts/run-local-bin.mjs",
-    "vite-node/vite-node.mjs",
-    "scripts/generate-browser-gameplay-config.ts"
-  ]);
+  runNode([runtimeBundle("database-migrations.mjs")]);
+  runNode([runtimeBundle("bootstrap-admin-user.mjs")]);
+  runNode([runtimeBundle("generate-browser-gameplay-config.mjs")]);
   runNode([
     resolveModule("vite/bin/vite.js"),
     "build",
@@ -87,20 +84,14 @@ async function start() {
 
   await mkdir(LOCAL_HOSTED_RUNTIME_DIRECTORY, { recursive: true });
   const services = [
-    startService("api", [
-      resolveModule("vite-node/vite-node.mjs"),
-      "apps/server/src/bootstrap/hosted-dev-http-cli.ts"
-    ]),
-    startService("worker", [
-      resolveModule("vite-node/vite-node.mjs"),
-      "apps/server/src/bootstrap/hosted-runtime-worker-cli.ts"
-    ]),
+    startService("api", [runtimeBundle("hosted-dev-http.mjs")]),
+    startService("worker", [runtimeBundle("hosted-runtime-worker.mjs")]),
     startService("frontend", [
       resolveModule("vite/bin/vite.js"),
       "--config",
       "vite.game.config.ts",
       "--host",
-      "127.0.0.1",
+      frontendAccess.host,
       "--port",
       "5173",
       "--strictPort"
@@ -136,8 +127,8 @@ async function start() {
     ]);
     runNode(["scripts/verify-local-hosted-runtime.mjs"]);
     console.log("[local-hosted] READY");
-    console.log(`[local-hosted] Hra: ${LOCAL_HOSTED_FRONTEND_ORIGIN}/pages/login.html`);
-    console.log(`[local-hosted] Admin: ${LOCAL_HOSTED_FRONTEND_ORIGIN}/admin.html`);
+    console.log(`[local-hosted] Hra: ${frontendAccess.origin}/pages/login.html`);
+    console.log(`[local-hosted] Admin: ${frontendAccess.origin}/admin.html`);
     console.log("[local-hosted] Ukončení: Ctrl+C nebo npm run dev:local-hosted:stop");
     await Promise.race(services.map(async (service) => {
       const result = await service.exited;
@@ -275,6 +266,10 @@ function runNode(args) {
     windowsHide: true,
     stdio: "inherit"
   });
+}
+
+function runtimeBundle(fileName) {
+  return path.join(runtimeBundleDirectory, fileName);
 }
 
 function resolveModule(specifier) {

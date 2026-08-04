@@ -113,15 +113,19 @@ export function renderPoliceActionResultPanel(root, payload = {}, options = {}) 
   }
   const renderRows = () => {
     const isCityEvent = String(payload.liveRowsKind || "") === "city_event";
+    const isStreetRumor = payload.title === "Drb z ulice" || payload.badge === "Drb";
     const remainingMs = isCityEvent ? Math.max(0, Number(payload.endsAt || 0) - Date.now()) : null;
     if (remainingMs !== null && cityEventRowsRendered) {
       updateLiveCityEventRows(elements.details, remainingMs, formatDuration);
       return;
     }
 
-    const fallbackRows = Array.isArray(payload.rows) && payload.rows.length > 0
+    const rawFallbackRows = Array.isArray(payload.rows) && payload.rows.length > 0
       ? payload.rows
       : (Array.isArray(payload.items) ? payload.items : (payload.rows || []));
+    const fallbackRows = isStreetRumor
+      ? rawFallbackRows.filter((row) => !["District", "Hráč", "Drb"].includes(String(row?.label || "")))
+      : rawFallbackRows;
     const resolvedRows = remainingMs === null
       ? (typeof payload.getRows === "function" ? payload.getRows() : fallbackRows)
       : getCityEventRows(payload, remainingMs, formatDuration);

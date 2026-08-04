@@ -132,6 +132,20 @@ export const createLocalHostedHttpTimingPlugin = () => ({
   }
 }) satisfies Plugin;
 
+export const createLocalHostedAdminBuildShaPlugin = (
+  environment: Record<string, string | undefined> = process.env
+) => {
+  const buildSha = String(environment.EMPIRE_BUILD_SHA ?? "").trim();
+
+  return {
+    name: "empire-local-hosted-admin-build-sha",
+    transformIndexHtml(html, context) {
+      if (context.path !== "/admin.html" || !buildSha) return html;
+      return html.replaceAll("__EMPIRE_BUILD_SHA__", buildSha);
+    }
+  } satisfies Plugin;
+};
+
 interface DevIncomingRequest {
   url?: string;
   method?: string;
@@ -241,6 +255,7 @@ const hostedGameApiOrigin = resolveHostedGameApiOrigin();
 export default defineConfig({
   plugins: [
     createLocalHostedHttpTimingPlugin(),
+    createLocalHostedAdminBuildShaPlugin(),
     ...(hostedGameApiOrigin ? [] : [createGameplayApiMiddleware()])
   ],
   resolve: {

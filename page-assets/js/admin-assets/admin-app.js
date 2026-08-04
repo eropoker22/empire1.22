@@ -82,7 +82,24 @@
     const hostname = typeof location === "undefined" ? "" : location.hostname.toLowerCase();
     return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname === "[::1]";
   };
-  const createAdminIdempotencyKey = () => `admin-ui:${crypto.randomUUID()}`;
+  const createAdminIdempotencyKey = () => {
+    var _a, _b;
+    if (typeof ((_a = globalThis.crypto) == null ? void 0 : _a.randomUUID) === "function") {
+      return `admin-ui:${globalThis.crypto.randomUUID()}`;
+    }
+    const bytes = new Uint8Array(16);
+    if (typeof ((_b = globalThis.crypto) == null ? void 0 : _b.getRandomValues) === "function") {
+      globalThis.crypto.getRandomValues(bytes);
+    } else {
+      for (let index = 0; index < bytes.length; index += 1) {
+        bytes[index] = Math.floor(Math.random() * 256);
+      }
+    }
+    bytes[6] = bytes[6] & 15 | 64;
+    bytes[8] = bytes[8] & 63 | 128;
+    const value = [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    return `admin-ui:${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`;
+  };
   const isAbortError = (error) => error instanceof DOMException && error.name === "AbortError";
   const hasFocusedAdminInput = (target) => {
     const active = document.activeElement;
@@ -40328,7 +40345,7 @@
   const canonicalCapacity = resolveModeConfig("free").balance.maxPlayersPerServer;
   const createAdminCreateController = (options) => {
     const bind = () => {
-      var _a, _b, _c, _d;
+      var _a, _b, _c;
       const target = options.target();
       (_a = target == null ? void 0 : target.querySelector("[data-admin-create-open]")) == null ? void 0 : _a.addEventListener("click", () => {
         options.updateState({
@@ -40351,9 +40368,6 @@
         });
       };
       (_b = target == null ? void 0 : target.querySelector("[data-admin-create-cancel]")) == null ? void 0 : _b.addEventListener("click", close);
-      (_c = target == null ? void 0 : target.querySelector("[data-admin-create-backdrop]")) == null ? void 0 : _c.addEventListener("click", (event) => {
-        if (event.target === event.currentTarget) close();
-      });
       target == null ? void 0 : target.querySelectorAll("[data-admin-wizard-next]").forEach((button2) => button2.addEventListener("click", () => {
         const form2 = target.querySelector("[data-admin-create-form]");
         const state = options.state();
@@ -40369,7 +40383,7 @@
       bindMapTotal();
       const form = target == null ? void 0 : target.querySelector("[data-admin-create-form]");
       form == null ? void 0 : form.addEventListener("submit", (event) => void submit(event));
-      (_d = target == null ? void 0 : target.querySelector("[role=dialog]")) == null ? void 0 : _d.addEventListener("keydown", (event) => {
+      (_c = target == null ? void 0 : target.querySelector("[role=dialog]")) == null ? void 0 : _c.addEventListener("keydown", (event) => {
         if (event.key === "Escape") {
           event.preventDefault();
           close();
@@ -42325,7 +42339,7 @@
   const renderDashboard = (input) => `
   ${renderSidebar(input)}
   <section class="admin-main">
-    ${renderTopbar(input)}
+    ${input.wizardOpen ? "" : renderTopbar(input)}
     <div class="admin-content">
       ${renderNotice(input.notice)}
       ${renderAdminCommandCenter({

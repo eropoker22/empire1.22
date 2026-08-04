@@ -76,7 +76,7 @@ export const renderDashboard = (input: {
 }): string => `
   ${renderSidebar(input)}
   <section class="admin-main">
-    ${renderTopbar(input)}
+    ${input.wizardOpen ? "" : renderTopbar(input)}
     <div class="admin-content">
       ${renderNotice(input.notice)}
       ${renderAdminCommandCenter({

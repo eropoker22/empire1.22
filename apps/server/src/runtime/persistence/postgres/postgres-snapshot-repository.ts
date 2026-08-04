@@ -64,7 +64,10 @@ const createPostgresSnapshotRepositoryForQueryable = (
         await ensureSnapshotInstanceRow(client, snapshot);
         const current = await loadRecoveryHeadFrom(client, snapshot.instanceId, true);
         const decision = classifySnapshotWrite(current, snapshot);
-        if (decision === "idempotent") return decision;
+        if (decision === "idempotent") {
+          await syncHostedSnapshotPointer(client, snapshot.instanceId);
+          return decision;
+        }
         const upsert = await client.query(
           `
             INSERT INTO empire_snapshot_latest (
@@ -96,8 +99,10 @@ const createPostgresSnapshotRepositoryForQueryable = (
         );
         if ((upsert.rowCount ?? upsert.rows.length) !== 1) {
           await assertRejectedRecoveryHeadIsIdempotent(client, snapshot);
+          await syncHostedSnapshotPointer(client, snapshot.instanceId);
           return "idempotent";
         }
+        await syncHostedSnapshotPointer(client, snapshot.instanceId);
         return current ? "updated" : "created";
       });
       metrics.lastDatabaseSaveDurationMs = Math.max(0, performance.now() - databaseStartedAt);
@@ -228,4 +233,21 @@ const createPostgresSnapshotRepositoryForQueryable = (
     save: async (snapshot) => { await saveRecoveryHead(snapshot); },
     loadLatest: loadRecoveryHead
   };
+};
+
+const syncHostedSnapshotPointer = async (
+  client: PostgresQueryable,
+  serverInstanceId: ServerInstanceId
+): Promise<void> => {
+  await client.query(
+    `UPDATE empire_hosted_server_instances hosted
+     SET current_snapshot_id=head.snapshot_id
+     FROM empire_snapshot_latest head
+     WHERE hosted.server_instance_id=$1
+       AND head.server_instance_id=hosted.server_instance_id
+       AND hosted.provisioning_state='ready'
+       AND hosted.status IN ('lobby','running')
+       AND hosted.current_snapshot_id IS DISTINCT FROM head.snapshot_id`,
+    [serverInstanceId]
+  );
 };

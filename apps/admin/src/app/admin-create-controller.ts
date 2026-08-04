@@ -45,9 +45,6 @@ export const createAdminCreateController = (options: AdminCreateControllerOption
       queueMicrotask(() => options.target()?.querySelector<HTMLElement>("[data-admin-create-open]")?.focus());
     };
     target?.querySelector<HTMLElement>("[data-admin-create-cancel]")?.addEventListener("click", close);
-    target?.querySelector<HTMLElement>("[data-admin-create-backdrop]")?.addEventListener("click", (event) => {
-      if (event.target === event.currentTarget) close();
-    });
     target?.querySelectorAll<HTMLElement>("[data-admin-wizard-next]").forEach((button) => button.addEventListener("click", () => {
       const form = target.querySelector<HTMLFormElement>("[data-admin-create-form]");
       const state = options.state();

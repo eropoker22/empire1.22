@@ -13,28 +13,62 @@ export const LOCAL_HOSTED_RUNTIME_DIRECTORY = path.resolve(".tmp/local-hosted-de
 export const LOCAL_HOSTED_PID_FILE = path.join(LOCAL_HOSTED_RUNTIME_DIRECTORY, "pids.json");
 export const LOCAL_HOSTED_BACKUP_DIRECTORY = path.resolve(".tmp/local-hosted-backups");
 
-export const createLocalHostedEnvironment = (baseEnvironment, buildSha) => ({
-  ...baseEnvironment,
-  NODE_ENV: "development",
-  EMPIRE_DATABASE_URL: LOCAL_HOSTED_DATABASE_URL,
-  GAMEPLAY_DATABASE_URL: LOCAL_HOSTED_DATABASE_URL,
-  EMPIRE_PERSISTENCE_DRIVER: "postgres",
-  GAMEPLAY_PERSISTENCE_DRIVER: "postgres",
-  EMPIRE_BUILD_SHA: buildSha,
-  EMPIRE_PUBLIC_ORIGIN: LOCAL_HOSTED_FRONTEND_ORIGIN,
-  EMPIRE_ALLOWED_ORIGINS: LOCAL_HOSTED_FRONTEND_ORIGIN,
-  EMPIRE_VITE_HOSTED_API_ORIGIN: LOCAL_HOSTED_API_ORIGIN,
-  EMPIRE_HOSTED_API_PORT: "8787",
-  PORT: "8080",
-  EMPIRE_HOSTED_WORKER_ID: LOCAL_HOSTED_WORKER_ID,
-  EMPIRE_HOSTED_WORKER_REGION: "eu-central",
-  EMPIRE_RUNTIME_REGION: "eu-central",
-  EMPIRE_TICK_WORKER_OWNER_ID: LOCAL_HOSTED_WORKER_ID,
-  EMPIRE_ADMIN_WRITES_ENABLED: "true",
-  EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true",
-  EMPIRE_SERVER_PROVISIONING_ENABLED: "true",
-  EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true",
-  EMPIRE_LEGACY_MATCHMAKING_ENABLED: "false",
-  EMPIRE_HOSTED_PREFLIGHT_STRICT: "false",
-  EMPIRE_RELEASE_ENVIRONMENT: "local-hosted"
-});
+export const resolveLocalHostedFrontendAccess = (baseEnvironment = {}) => {
+  const host = String(baseEnvironment.EMPIRE_LOCAL_HOSTED_FRONTEND_HOST ?? "127.0.0.1").trim()
+    || "127.0.0.1";
+  const configuredOrigin = String(
+    baseEnvironment.EMPIRE_LOCAL_HOSTED_FRONTEND_ORIGIN ?? ""
+  ).trim();
+  const origin = configuredOrigin
+    ? normalizeExactHttpOrigin(configuredOrigin)
+    : LOCAL_HOSTED_FRONTEND_ORIGIN;
+
+  return {
+    host,
+    origin,
+    allowedOrigins: [...new Set([LOCAL_HOSTED_FRONTEND_ORIGIN, origin])].join(",")
+  };
+};
+
+export const createLocalHostedEnvironment = (baseEnvironment, buildSha) => {
+  const frontendAccess = resolveLocalHostedFrontendAccess(baseEnvironment);
+
+  return {
+    ...baseEnvironment,
+    NODE_ENV: "development",
+    EMPIRE_DATABASE_URL: LOCAL_HOSTED_DATABASE_URL,
+    GAMEPLAY_DATABASE_URL: LOCAL_HOSTED_DATABASE_URL,
+    EMPIRE_PERSISTENCE_DRIVER: "postgres",
+    GAMEPLAY_PERSISTENCE_DRIVER: "postgres",
+    EMPIRE_BUILD_SHA: buildSha,
+    EMPIRE_PUBLIC_ORIGIN: frontendAccess.origin,
+    EMPIRE_ALLOWED_ORIGINS: frontendAccess.allowedOrigins,
+    EMPIRE_VITE_HOSTED_API_ORIGIN: LOCAL_HOSTED_API_ORIGIN,
+    EMPIRE_HOSTED_API_PORT: "8787",
+    PORT: "8080",
+    EMPIRE_HOSTED_WORKER_ID: LOCAL_HOSTED_WORKER_ID,
+    EMPIRE_HOSTED_WORKER_REGION: "eu-central",
+    EMPIRE_RUNTIME_REGION: "eu-central",
+    EMPIRE_TICK_WORKER_OWNER_ID: LOCAL_HOSTED_WORKER_ID,
+    EMPIRE_ADMIN_WRITES_ENABLED: "true",
+    EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true",
+    EMPIRE_SERVER_PROVISIONING_ENABLED: "true",
+    EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true",
+    EMPIRE_LEGACY_MATCHMAKING_ENABLED: "false",
+    EMPIRE_HOSTED_PREFLIGHT_STRICT: "false",
+    EMPIRE_RELEASE_ENVIRONMENT: "local-hosted"
+  };
+};
+
+const normalizeExactHttpOrigin = (candidate) => {
+  const parsed = new URL(candidate);
+  if (
+    !["http:", "https:"].includes(parsed.protocol)
+    || parsed.pathname !== "/"
+    || parsed.search
+    || parsed.hash
+  ) {
+    throw new Error("EMPIRE_LOCAL_HOSTED_FRONTEND_ORIGIN must be an exact HTTP(S) origin.");
+  }
+  return parsed.origin;
+};

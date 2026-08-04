@@ -17,7 +17,24 @@ export const isAdminLoopbackLocation = (): boolean => {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname === "[::1]";
 };
 
-export const createAdminIdempotencyKey = (): string => `admin-ui:${crypto.randomUUID()}`;
+export const createAdminIdempotencyKey = (): string => {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return `admin-ui:${globalThis.crypto.randomUUID()}`;
+  }
+
+  const bytes = new Uint8Array(16);
+  if (typeof globalThis.crypto?.getRandomValues === "function") {
+    globalThis.crypto.getRandomValues(bytes);
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) {
+      bytes[index] = Math.floor(Math.random() * 256);
+    }
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const value = [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `admin-ui:${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`;
+};
 
 export const isAbortError = (error: unknown): boolean =>
   error instanceof DOMException && error.name === "AbortError";

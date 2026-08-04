@@ -2180,17 +2180,36 @@ function getResolvedSpyState() {
       .flatMap((entries) => Array.isArray(entries) ? entries : [])
       .find((entry) => Array.isArray(entry?.slots)) || null;
     const currentTick = Math.max(0, Number(latestGameplaySliceReadModel?.server?.currentTick ?? 0));
+    const tickRateMs = Math.max(1, Number(latestGameplaySliceReadModel?.mode?.tickRateMs || FREE_GAMEPLAY_TICK_MS));
     const slots = Array.isArray(target?.slots) ? target.slots : [];
+    const activeSlots = slots.filter(
+      (slot) => slot?.lastMissionId && Number(slot?.availableAtTick ?? 0) > currentTick
+    );
+    const spyReports = (Array.isArray(latestGameplaySliceReadModel?.reports)
+      ? latestGameplaySliceReadModel.reports
+      : [])
+      .filter((report) => report?.reportType === "spy")
+      .sort((left, right) => Number(right?.tick || 0) - Number(left?.tick || 0));
+    const normalizeDistrictId = (value) => Number.parseInt(String(value || "").replace("district:", ""), 10) || 0;
+    const now = Date.now();
     return {
       available: slots.length > 0
         ? slots.filter((slot) => slot?.available === true || Number(slot?.availableAtTick ?? 0) <= currentTick).length
         : 0,
-      missions: slots
-        .filter((slot) => slot?.lastMissionId && Number(slot?.availableAtTick ?? 0) > currentTick)
-        .map((slot) => ({
-          id: String(slot.lastMissionId),
-          availableAtTick: Number(slot.availableAtTick)
-        }))
+      missions: activeSlots
+        .map((slot, index) => {
+          const report = spyReports[index] || null;
+          const remainingTicks = Math.max(0, Number(slot.availableAtTick || 0) - currentTick);
+          return {
+            id: String(slot.lastMissionId),
+            sourceDistrictId: normalizeDistrictId(report?.sourceDistrictId || target?.sourceDistrictId),
+            targetDistrictId: normalizeDistrictId(report?.targetDistrictId || target?.districtId),
+            createdAt: String(report?.createdAt || new Date(now).toISOString()),
+            returnAt: new Date(now + (remainingTicks * tickRateMs)).toISOString(),
+            availableAtTick: Number(slot.availableAtTick)
+          };
+        })
+        .filter((mission) => mission.targetDistrictId > 0)
     };
   }
   const state = getLegacyResolvedSpyState();
@@ -3827,6 +3846,189 @@ function persistStreetNewsEntries(entries) {
     ...session,
     streetNewsFeed: persistedEntries
   }));
+}
+
+function formatServerReportDistrict(value) {
+  const districtId = Number.parseInt(String(value || "").replace("district:", ""), 10) || 0;
+  return districtId > 0 ? `District ${districtId}` : "Neznámý district";
+}
+
+function formatServerReportRecord(record = {}) {
+  const entries = Object.entries(record || {})
+    .map(([key, value]) => [String(key || "").replace(/_/g, " "), Number(value || 0)])
+    .filter(([, value]) => value !== 0);
+  return entries.length > 0
+    ? entries.map(([key, value]) => `${key}: ${value > 0 ? "+" : ""}${value}`).join(" · ")
+    : "Žádné";
+}
+
+function createServerConflictReportPresentation(report = {}) {
+  const targetDistrictId = report.targetDistrictId || report.districtId || "";
+  const targetLabel = formatServerReportDistrict(targetDistrictId);
+
+  if (report.reportType === "spy") {
+    const outcome = {
+      success: { label: "Úspěch", tone: "is-success" },
+      partial: { label: "Částečný úspěch", tone: "is-medium-fail" },
+      critical_failed: { label: "Kritický neúspěch", tone: "is-major-fail" },
+      failed: { label: "Neúspěch", tone: "is-major-fail" }
+    }[report.result] || { label: "Neúspěch", tone: "is-major-fail" };
+    const authorizationLabel = report.occupyUnlocked
+      ? "Obsazení odemčeno"
+      : report.authorizationScope === "attack_owned_district"
+        ? "Útok odemčen"
+        : "Bez nové akce";
+    const summary = report.result === "success"
+      ? `Špeh dokončil průzkum ${targetLabel}. ${authorizationLabel}.`
+      : report.result === "partial"
+        ? `Špeh se vrátil z ${targetLabel} jen s částečnými informacemi.`
+        : `Špehování v ${targetLabel} selhalo.`;
+    return {
+      kind: "spy",
+      modalKind: "spy",
+      payload: {
+        tone: outcome.tone,
+        title: `Špehování: ${outcome.label}`,
+        summary,
+        sourceDistrictId: report.sourceDistrictId,
+        targetDistrictId,
+        rows: [
+          { label: "Cíl", value: targetLabel },
+          { label: "Výsledek", value: outcome.label },
+          { label: "Navazující akce", value: authorizationLabel },
+          { label: "Odhalená obrana", value: formatServerReportRecord(report.detectedDefense) },
+          { label: "Past", value: report.trapDetected ? "Odhalena" : "Neodhalena" },
+          { label: "Heat", value: `+${Math.max(0, Number(report.heatGained || 0))}` },
+          ...(report.authorizationExpiresAtTick !== null
+            && report.authorizationExpiresAtTick !== undefined
+            && Number.isFinite(Number(report.authorizationExpiresAtTick))
+            ? [{ label: "Oprávnění platí do", value: `Tick ${Number(report.authorizationExpiresAtTick)}` }]
+            : [])
+        ]
+      }
+    };
+  }
+
+  if (report.reportType === "occupy") {
+    const succeeded = report.result === "success" && report.districtCaptured !== false;
+    return {
+      kind: "occupy",
+      modalKind: "occupy",
+      payload: {
+        tone: succeeded ? "is-success" : "is-major-fail",
+        title: succeeded ? "Obsazení: Úspěch" : "Obsazení: Neúspěch",
+        summary: succeeded
+          ? `${targetLabel} připadl tvému gangu.`
+          : `${targetLabel} se nepodařilo obsadit.`,
+        sourceDistrictId: report.sourceDistrictId,
+        targetDistrictId,
+        rows: [
+          { label: "Cíl", value: targetLabel },
+          { label: "Cena vlivu", value: String(Math.max(0, Number(report.influenceCost || 0))) },
+          { label: "Cena populace", value: String(Math.max(0, Number(report.populationCost || 0))) },
+          { label: "Vráceno", value: String(Math.max(0, Number(report.populationRefunded || 0))) },
+          { label: "Ztraceno", value: String(Math.max(0, Number(report.populationLost || 0))) },
+          { label: "Heat", value: `+${Math.max(0, Number(report.heatGained || 0))}` }
+        ]
+      }
+    };
+  }
+
+  if (report.reportType === "rob" || report.reportType === "heist") {
+    const succeeded = ["success", "clean_success", "partial"].includes(String(report.result || ""));
+    const actionLabel = report.reportType === "heist" ? "Loupež" : "Vykrást district";
+    return {
+      kind: "raid",
+      modalKind: null,
+      payload: {
+        tone: succeeded ? "is-clean-success" : "is-alert",
+        title: `${actionLabel}: ${succeeded ? "Úspěch" : "Neúspěch"}`,
+        summary: `${actionLabel} v ${targetLabel} bylo vyhodnoceno serverem.`,
+        targetDistrictId,
+        rows: [
+          { label: "Cíl", value: targetLabel },
+          { label: "Výsledek", value: String(report.result || "-") },
+          { label: "Loot", value: formatServerReportRecord(report.loot) },
+          { label: "Heat", value: `+${Math.max(0, Number(report.heatGained || report.playerHeat || 0))}` }
+        ]
+      }
+    };
+  }
+
+  if (report.reportType === "battle") {
+    const succeeded = report.result === "success";
+    return {
+      kind: "attack",
+      modalKind: null,
+      payload: {
+        tone: succeeded ? "is-success" : "is-major-fail",
+        title: succeeded ? "Útok: Úspěch" : "Útok: Neúspěch",
+        summary: String(report.reportForAttacker || `Útok na ${targetLabel} byl vyhodnocen serverem.`),
+        targetDistrictId,
+        rows: [
+          { label: "Cíl", value: targetLabel },
+          { label: "Výsledek", value: String(report.outcomeTier || report.result || "-") },
+          { label: "Ztráty útočníka", value: formatServerReportRecord(report.attackerLosses) },
+          { label: "Heat", value: `+${Math.max(0, Number(report.heatGained || 0))}` }
+        ]
+      }
+    };
+  }
+
+  if (report.reportType === "building-action") {
+    const buildingLabel = String(report.buildingType || report.buildingTypeId || "Budova").replace(/_/g, " ");
+    return {
+      kind: "building-action",
+      modalKind: null,
+      payload: {
+        tone: "is-success",
+        title: `${buildingLabel}: Hotovo`,
+        summary: String(report.message || `Akce budovy v ${targetLabel} byla dokončena.`),
+        districtId: report.districtId,
+        rows: [
+          { label: "District", value: targetLabel },
+          { label: "Spotřebováno", value: formatServerReportRecord(report.inputCost || report.consumedItems) },
+          { label: "Získáno", value: formatServerReportRecord(report.outputGain || report.producedItems) },
+          { label: "Heat", value: `+${Number(report.heatDelta || report.heatGain || 0)}` }
+        ]
+      }
+    };
+  }
+
+  return null;
+}
+
+function syncServerConflictReports(root, reports, seenReportIds, { announce = false } = {}) {
+  const orderedReports = Array.isArray(reports) ? [...reports].reverse() : [];
+  for (const report of orderedReports) {
+    const reportId = String(report?.reportId || "").trim();
+    if (!reportId || seenReportIds.has(reportId)) {
+      continue;
+    }
+    seenReportIds.add(reportId);
+    const presentation = createServerConflictReportPresentation(report);
+    if (!presentation) {
+      continue;
+    }
+    const timestampMs = new Date(report.createdAt || Date.now()).getTime();
+    appendBuildingActionResultEntry(root, presentation.kind, presentation.payload, {
+      id: `server-report:${reportId}`,
+      timestampMs: Number.isFinite(timestampMs) ? timestampMs : Date.now(),
+      tone: presentation.payload.tone,
+      title: presentation.payload.title,
+      summary: presentation.payload.summary,
+      meta: `${formatServerReportDistrict(report.sourceDistrictId)} → ${formatServerReportDistrict(report.targetDistrictId || report.districtId)}`,
+      sourceKind: "server-report",
+      category: String(report.reportType || "server-report")
+    }, {
+      refresh: false,
+      syncPreview: true,
+      forceLog: true
+    });
+    if (announce && presentation.modalKind) {
+      queueOrOpenResultModal(root, presentation.modalKind, presentation.payload);
+    }
+  }
 }
 
 function syncBuildingActionSource(root, snapshot) {
@@ -13266,6 +13468,13 @@ function bindDistrictCanvas(root) {
   let lastWorldMapFingerprint = createWorldMapFingerprint();
   let lastServerMapFingerprints = null;
   let lastServerVisibleSurfaceFingerprint = "";
+  const seenServerConflictReportIds = new Set();
+  let serverConflictReportsHydrated = false;
+  const initialServerReports = getServerGameplaySliceReadModel()?.reports;
+  if (Array.isArray(initialServerReports)) {
+    syncServerConflictReports(root, initialServerReports, seenServerConflictReportIds);
+    serverConflictReportsHydrated = true;
+  }
 
   const ensureMissionAnimationLoop = () => {
     const hasActiveMissions = hasActiveMapMissions();
@@ -13685,6 +13894,10 @@ function bindDistrictCanvas(root) {
     if (nextSlice) {
       latestGameplaySliceReadModel = nextSlice;
     }
+    syncServerConflictReports(root, nextSlice?.reports, seenServerConflictReportIds, {
+      announce: serverConflictReportsHydrated
+    });
+    serverConflictReportsHydrated = true;
     const nextSurfaceFingerprint = JSON.stringify({
       district: nextSlice?.district || null,
       reports: Array.isArray(nextSlice?.reports) ? nextSlice.reports.slice(0, 1) : []
@@ -14663,6 +14876,7 @@ function bindDistrictCanvas(root) {
           focusDistrictId: targetDistrictId
         }).then((response) => {
           if (response?.accepted) {
+            showSpyToast(root);
             closeSpyConfirmPopup();
             closePopup();
           } else {
