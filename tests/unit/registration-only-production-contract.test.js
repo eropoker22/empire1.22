@@ -7,17 +7,20 @@ import {
 const SHA = "82ab0778704c755170048d9509036eb3f03909da";
 const secret = (character) => character.repeat(64);
 const validEnvironment = {
+  EMPIRE_RELEASE_ENVIRONMENT: "production",
   NODE_ENV: "production",
   EMPIRE_PUBLIC_ORIGIN: PRODUCTION_REGISTRATION_ORIGIN,
   EMPIRE_ALLOWED_ORIGINS: PRODUCTION_REGISTRATION_ORIGIN,
   EMPIRE_DATABASE_URL: "postgresql://runtime@ep-example-pooler.eu-central-1.aws.neon.tech/empire?sslmode=require",
+  GAMEPLAY_DATABASE_URL: "postgresql://gameplay@ep-example-pooler.eu-central-1.aws.neon.tech/empire?sslmode=require",
   EMPIRE_PERSISTENCE_DRIVER: "postgres",
   GAMEPLAY_PERSISTENCE_DRIVER: "postgres",
   EMPIRE_BUILD_SHA: SHA,
   GAMEPLAY_SLICE_SESSION_SECRET: secret("a"),
   GAMEPLAY_SLICE_SNAPSHOT_SECRET: secret("b"),
   EMPIRE_ADMIN_FINGERPRINT_SECRET: secret("c"),
-  EMPIRE_AUTH_THROTTLE_PEPPER: secret("d"),
+  EMPIRE_ADMIN_SESSION_SECRET: secret("d"),
+  EMPIRE_AUTH_THROTTLE_PEPPER: secret("e"),
   EMPIRE_ADMIN_WRITES_ENABLED: "false",
   EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "false",
   EMPIRE_SERVER_PROVISIONING_ENABLED: "false",
@@ -72,12 +75,14 @@ describe("registration-only production contract", () => {
       ...validEnvironment,
       EMPIRE_BUILD_SHA: "unknown",
       GAMEPLAY_SLICE_SESSION_SECRET: "short",
+      EMPIRE_ADMIN_SESSION_SECRET: "short",
       EMPIRE_AUTH_THROTTLE_PEPPER: ""
     });
     expect(result.passed).toBe(false);
     expect(result.checks.filter((check) => !check.passed).map((check) => check.errorCode)).toEqual(expect.arrayContaining([
       "REGISTRATION_ONLY_BUILD_SHA_INVALID",
       "REGISTRATION_ONLY_SESSION_SECRET_WEAK",
+      "REGISTRATION_ONLY_ADMIN_SESSION_SECRET_WEAK",
       "REGISTRATION_ONLY_THROTTLE_SECRET_WEAK",
       "REGISTRATION_ONLY_SECRETS_REUSED"
     ]));

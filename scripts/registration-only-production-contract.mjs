@@ -1,5 +1,6 @@
 export const PRODUCTION_REGISTRATION_ORIGIN = "https://empirestreets.cz";
 const TERMS_VERSION_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,99}$/u;
+const SECURE_SECRET_PATTERN = /^(?:[0-9a-f]{64,}|[A-Za-z0-9_-]{43,})$/u;
 
 export const validateRegistrationOnlyProductionEnvironment = (
   environment,
@@ -11,14 +12,18 @@ export const validateRegistrationOnlyProductionEnvironment = (
   };
 
   const databaseUrl = String(environment.EMPIRE_DATABASE_URL ?? "").trim();
+  const gameplayDatabaseUrl = String(environment.GAMEPLAY_DATABASE_URL ?? "").trim();
   const allowedOrigins = parseAllowedOrigins(environment.EMPIRE_ALLOWED_ORIGINS);
   const secrets = [
     environment.GAMEPLAY_SLICE_SESSION_SECRET,
     environment.GAMEPLAY_SLICE_SNAPSHOT_SECRET,
     environment.EMPIRE_ADMIN_FINGERPRINT_SECRET,
+    environment.EMPIRE_ADMIN_SESSION_SECRET,
     environment.EMPIRE_AUTH_THROTTLE_PEPPER
   ].map((value) => String(value ?? "").trim());
 
+  add("EMPIRE_RELEASE_ENVIRONMENT", "build", true, environment.EMPIRE_RELEASE_ENVIRONMENT === "production",
+    "production", "REGISTRATION_ONLY_RELEASE_ENVIRONMENT_INVALID");
   add("NODE_ENV", "API", true, environment.NODE_ENV === "production",
     "production", "REGISTRATION_ONLY_NODE_ENV_INVALID");
   add("EMPIRE_PUBLIC_ORIGIN", "frontend + API", true,
@@ -29,6 +34,18 @@ export const validateRegistrationOnlyProductionEnvironment = (
     "one exact HTTPS production origin", "REGISTRATION_ONLY_ALLOWED_ORIGINS_INVALID");
   add("EMPIRE_DATABASE_URL", "API", true, isNeonPooledTlsPostgresUrl(databaseUrl),
     "pooled Neon PostgreSQL URL with sslmode=require or stronger", "REGISTRATION_ONLY_DATABASE_URL_INVALID");
+  add("GAMEPLAY_DATABASE_URL", "API", true, isNeonPooledTlsPostgresUrl(gameplayDatabaseUrl),
+    "pooled Neon PostgreSQL URL with sslmode=require or stronger", "REGISTRATION_ONLY_GAMEPLAY_DATABASE_URL_INVALID");
+  checks.push({
+    name: "REGISTRATION_ONLY_DATABASE_TARGET_MATCH",
+    component: "API",
+    required: true,
+    set: Boolean(databaseUrl && gameplayDatabaseUrl),
+    passed: Boolean(databaseUrl && gameplayDatabaseUrl
+      && databaseTargetIdentity(databaseUrl) === databaseTargetIdentity(gameplayDatabaseUrl)),
+    safeFormat: "both URLs use the same pooled provider target",
+    errorCode: "REGISTRATION_ONLY_DATABASE_TARGET_MISMATCH"
+  });
   add("EMPIRE_PERSISTENCE_DRIVER", "API", true, environment.EMPIRE_PERSISTENCE_DRIVER === "postgres",
     "postgres", "REGISTRATION_ONLY_RUNTIME_DRIVER_INVALID");
   add("GAMEPLAY_PERSISTENCE_DRIVER", "API", true, environment.GAMEPLAY_PERSISTENCE_DRIVER === "postgres",
@@ -36,20 +53,22 @@ export const validateRegistrationOnlyProductionEnvironment = (
   add("EMPIRE_BUILD_SHA", "frontend + API", true, /^[0-9a-f]{40}$/u.test(String(environment.EMPIRE_BUILD_SHA ?? "")),
     "exact 40-character Git SHA", "REGISTRATION_ONLY_BUILD_SHA_INVALID");
   add("GAMEPLAY_SLICE_SESSION_SECRET", "API", true, isSecureSecret(secrets[0]),
-    "at least 32 random characters", "REGISTRATION_ONLY_SESSION_SECRET_WEAK");
+    "64 hex or 43+ base64url characters", "REGISTRATION_ONLY_SESSION_SECRET_WEAK");
   add("GAMEPLAY_SLICE_SNAPSHOT_SECRET", "API", true, isSecureSecret(secrets[1]),
-    "at least 32 random characters", "REGISTRATION_ONLY_SNAPSHOT_SECRET_WEAK");
+    "64 hex or 43+ base64url characters", "REGISTRATION_ONLY_SNAPSHOT_SECRET_WEAK");
   add("EMPIRE_ADMIN_FINGERPRINT_SECRET", "API", true, isSecureSecret(secrets[2]),
-    "at least 32 random characters", "REGISTRATION_ONLY_ADMIN_SECRET_WEAK");
-  add("EMPIRE_AUTH_THROTTLE_PEPPER", "API", true, isSecureSecret(secrets[3]),
-    "at least 32 random characters", "REGISTRATION_ONLY_THROTTLE_SECRET_WEAK");
+    "64 hex or 43+ base64url characters", "REGISTRATION_ONLY_ADMIN_SECRET_WEAK");
+  add("EMPIRE_ADMIN_SESSION_SECRET", "API", true, isSecureSecret(secrets[3]),
+    "64 hex or 43+ base64url characters", "REGISTRATION_ONLY_ADMIN_SESSION_SECRET_WEAK");
+  add("EMPIRE_AUTH_THROTTLE_PEPPER", "API", true, isSecureSecret(secrets[4]),
+    "64 hex or 43+ base64url characters", "REGISTRATION_ONLY_THROTTLE_SECRET_WEAK");
   checks.push({
     name: "REGISTRATION_ONLY_SECRETS_DISTINCT",
     component: "API",
     required: true,
     set: secrets.every(Boolean),
     passed: secrets.every(Boolean) && new Set(secrets).size === secrets.length,
-    safeFormat: "four distinct secrets",
+    safeFormat: "five distinct secrets",
     errorCode: "REGISTRATION_ONLY_SECRETS_REUSED"
   });
   add("EMPIRE_ADMIN_WRITES_ENABLED", "admin API", true, environment.EMPIRE_ADMIN_WRITES_ENABLED === "false",
@@ -92,5 +111,13 @@ export const isNeonPooledTlsPostgresUrl = (candidate) => {
   }
 };
 
-const isSecureSecret = (value) => typeof value === "string" && value.trim().length >= 32;
+const isSecureSecret = (value) => typeof value === "string" && SECURE_SECRET_PATTERN.test(value.trim());
+const databaseTargetIdentity = (value) => {
+  try {
+    const parsed = new URL(value);
+    return `${parsed.hostname.toLowerCase()}:${parsed.port || "5432"}${parsed.pathname}`;
+  } catch {
+    return null;
+  }
+};
 const isSet = (value) => String(value ?? "").trim().length > 0;
