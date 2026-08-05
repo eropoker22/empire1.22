@@ -36,7 +36,7 @@ Public releases fail closed: no wildcard origin, no loopback URL, no staging hos
 | `EMPIRE_HOSTED_WORKER_REGION` | Persistent worker | Yes | Yes | No | No | Yes | Explicit EU provider region | No | Change only during worker region migration |
 | `EMPIRE_LEGACY_MATCHMAKING_ENABLED` | Netlify API | Yes | Yes | No | Builds and Functions | No | false | No | N/A |
 | `EMPIRE_PERSISTENCE_DRIVER` | Netlify API and worker | Yes | Yes | No | Builds and Functions | Yes | postgres | No | N/A |
-| `EMPIRE_PRODUCTION_DATABASE_TARGET_HASH` | Protected production release job | No | Yes | No | Release job only | No | SHA-256 of the normalized direct production hostname, port and database name | No | Update only after a verified production database replacement |
+| `EMPIRE_PRODUCTION_DATABASE_TARGET_HASH` | Protected production release job | No | Yes | No | Release job only | Yes in production | SHA-256 of the normalized direct production hostname, port and database name | No | Update only after a verified production database replacement |
 | `EMPIRE_PRODUCTION_REMOTE_SMOKE` | Guarded production browser smoke | No | Release job | No | Release job only | No | Exact 1 only inside the protected production job | No | Unset outside the smoke process |
 | `EMPIRE_PRODUCTION_SMOKE_ACCOUNT_BOOTSTRAP_CONFIRMED` | One-time production smoke account bootstrap | No | One-time | No | Release job only | No | Exact production-smoke-account approval | No | Unset immediately after bootstrap |
 | `EMPIRE_PRODUCTION_SMOKE_ACCOUNT_EVIDENCE_PATH` | One-time production smoke account bootstrap | No | One-time | No | Release job only | No | Repository-relative JSON path below artifacts/release/production | Yes | New evidence file per release |

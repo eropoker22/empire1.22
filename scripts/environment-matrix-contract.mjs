@@ -199,7 +199,7 @@ const PUBLIC_RELEASE_ROWS = [
     netlifyScope: "Release job only", workerScope: "No", safeFormat: "SHA-256 of hostname, port and database name", rotation: "Update only after verified staging database replacement"
   }),
   runtime("EMPIRE_PRODUCTION_DATABASE_TARGET_HASH", "Protected production release job", {
-    stagingRequired: "No", productionRequired: "Yes", netlifyScope: "Release job only", workerScope: "No",
+    stagingRequired: "No", productionRequired: "Yes", netlifyScope: "Release job only", workerScope: "Yes in production",
     safeFormat: "SHA-256 of the normalized direct production hostname, port and database name",
     rotation: "Update only after a verified production database replacement"
   }),

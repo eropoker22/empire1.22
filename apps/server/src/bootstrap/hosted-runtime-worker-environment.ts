@@ -1,3 +1,5 @@
+import * as crypto from "node:crypto";
+
 const PUBLIC_RELEASE_ENVIRONMENTS = new Set(["staging", "production"]);
 const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 const EU_REGION_CODES = new Set(["ams", "arn", "cdg", "fra", "lhr", "mad", "waw"]);
@@ -56,6 +58,14 @@ export const resolveHostedRuntimeWorkerEnvironment = (
     if (releaseEnvironment === "production" && empireTarget.toLowerCase().includes("staging")) {
       throw new Error("HOSTED_WORKER_PRODUCTION_DATABASE_LOOKS_LIKE_STAGING");
     }
+    if (releaseEnvironment === "production") {
+      const expectedTargetHash = String(environment.EMPIRE_PRODUCTION_DATABASE_TARGET_HASH ?? "").trim();
+      if (!/^[0-9a-f]{64}$/u.test(expectedTargetHash)
+        || safeTargetHash(empireTarget) !== expectedTargetHash
+        || safeTargetHash(gameplayTarget) !== expectedTargetHash) {
+        throw new Error("HOSTED_WORKER_PRODUCTION_DATABASE_TARGET_MISMATCH");
+      }
+    }
   } else if (sessionSecret.length < 32 || snapshotSecret.length < 32 || sessionSecret === snapshotSecret) {
     throw new Error("HOSTED_WORKER_SECRETS_INVALID");
   }
@@ -92,3 +102,4 @@ const isStablePublicIdentifier = (value: string): boolean => /^[a-z0-9._:-]{3,12
   && !value.includes("local") && !value.includes("localhost");
 const isEuRegion = (value: string): boolean => EU_REGION_CODES.has(value.toLowerCase())
   || /^(?:eu|europe)[a-z0-9._:-]*$/iu.test(value);
+const safeTargetHash = (value: string): string => crypto.createHash("sha256").update(value).digest("hex");

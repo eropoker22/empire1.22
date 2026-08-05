@@ -1,3 +1,4 @@
+import * as crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { resolveHostedRuntimeWorkerEnvironment } from
   "../../apps/server/src/bootstrap/hosted-runtime-worker-environment";
@@ -6,6 +7,9 @@ const secret = (character: string): string => character.repeat(64);
 const credential = ["worker", "fixture-password"].join(":");
 const directUrl = (endpoint = "ep-release", database = "empire"): string =>
   `postgresql://${credential}@${endpoint}.eu-central-1.aws.neon.tech/${database}?sslmode=verify-full`;
+const targetHash = (endpoint = "ep-production", database = "empire"): string => crypto.createHash("sha256")
+  .update(`${endpoint}.eu-central-1.aws.neon.tech:5432/${database}`)
+  .digest("hex");
 const validPublicEnvironment = {
   NODE_ENV: "production",
   EMPIRE_RELEASE_ENVIRONMENT: "staging",
@@ -49,6 +53,27 @@ describe("hosted runtime worker environment", () => {
       ...validPublicEnvironment,
       ...override
     })).toThrow(code);
+  });
+
+  it("pins a production worker to the protected direct database target", () => {
+    const production = {
+      ...validPublicEnvironment,
+      EMPIRE_RELEASE_ENVIRONMENT: "production",
+      EMPIRE_DATABASE_URL: directUrl("ep-production"),
+      GAMEPLAY_DATABASE_URL: directUrl("ep-production"),
+      EMPIRE_HOSTED_WORKER_ID: "worker:production:fra:01",
+      EMPIRE_TICK_WORKER_OWNER_ID: "worker:production:fra:01",
+      EMPIRE_PRODUCTION_DATABASE_TARGET_HASH: targetHash()
+    };
+    expect(resolveHostedRuntimeWorkerEnvironment(production).releaseEnvironment).toBe("production");
+    expect(() => resolveHostedRuntimeWorkerEnvironment({
+      ...production,
+      EMPIRE_PRODUCTION_DATABASE_TARGET_HASH: "a".repeat(64)
+    })).toThrow("HOSTED_WORKER_PRODUCTION_DATABASE_TARGET_MISMATCH");
+    expect(() => resolveHostedRuntimeWorkerEnvironment({
+      ...production,
+      EMPIRE_PRODUCTION_DATABASE_TARGET_HASH: ""
+    })).toThrow("HOSTED_WORKER_PRODUCTION_DATABASE_TARGET_MISMATCH");
   });
 
   it("preserves the explicit local development worker contract", () => {
