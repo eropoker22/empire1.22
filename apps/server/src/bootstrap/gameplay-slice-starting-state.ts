@@ -24,3 +24,10 @@ export const resolveGameplaySliceStartingPopulation = (
   const population = startingPlayerState?.population ?? defaults.population ?? 0;
   return Number.isFinite(population) ? Math.max(0, population) : 0;
 };
+
+export const resolveGameplaySliceStartingInfluence = (
+  startingPlayerState?: HostedStartingPlayerStateView
+): number => {
+  const influence = startingPlayerState?.influence ?? 0;
+  return Number.isSafeInteger(influence) ? Math.max(0, influence) : 0;
+};

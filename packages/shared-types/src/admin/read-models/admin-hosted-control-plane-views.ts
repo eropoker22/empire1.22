@@ -75,6 +75,7 @@ export interface HostedStartingPlayerStateView {
   cleanCash: number;
   dirtyCash: number;
   population: number;
+  influence: number;
   spySlots: 2;
   materials: Record<HostedStartingMaterialId, number>;
 }

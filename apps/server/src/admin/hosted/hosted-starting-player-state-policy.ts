@@ -1,6 +1,7 @@
 import {
   copyFreeHostedStartingPlayerState,
-  FREE_HOSTED_STARTING_MATERIAL_IDS
+  FREE_HOSTED_STARTING_MATERIAL_IDS,
+  FREE_HOSTED_STARTING_PLAYER_STATE
 } from "@empire/game-config";
 import type {
   AdminApiErrorView,
@@ -8,10 +9,11 @@ import type {
   HostedStartingPlayerStateView
 } from "@empire/shared-types";
 
-const STATE_KEYS = new Set(["cleanCash", "dirtyCash", "population", "spySlots", "materials"]);
+const STATE_KEYS = new Set(["cleanCash", "dirtyCash", "population", "influence", "spySlots", "materials"]);
 const MATERIAL_KEYS = new Set<string>(FREE_HOSTED_STARTING_MATERIAL_IDS);
 const MAX_CASH = 1_000_000_000;
 const MAX_POPULATION = 1_000_000;
+const MAX_INFLUENCE = 1_000_000;
 const MAX_MATERIAL_AMOUNT = 1_000_000;
 
 export const parseHostedStartingPlayerState = (value: unknown) => {
@@ -22,9 +24,13 @@ export const parseHostedStartingPlayerState = (value: unknown) => {
     return reject("ADMIN_STARTING_STATE_INVALID", "Počáteční stav hráče není platný.");
   }
   const materialInput = value.materials;
+  const influence = value.influence === undefined
+    ? FREE_HOSTED_STARTING_PLAYER_STATE.influence
+    : value.influence;
   if (!integerInRange(value.cleanCash, 0, MAX_CASH)
     || !integerInRange(value.dirtyCash, 0, MAX_CASH)
     || !integerInRange(value.population, 0, MAX_POPULATION)
+    || !integerInRange(influence, 0, MAX_INFLUENCE)
     || value.spySlots !== 2
     || !record(materialInput)
     || Object.keys(materialInput).length !== MATERIAL_KEYS.size
@@ -42,6 +48,7 @@ export const parseHostedStartingPlayerState = (value: unknown) => {
     cleanCash: Number(value.cleanCash),
     dirtyCash: Number(value.dirtyCash),
     population: Number(value.population),
+    influence: Number(influence),
     spySlots: 2,
     materials: Object.fromEntries(Object.entries(materials).map(([key, amount]) => [
       key,

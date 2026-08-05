@@ -2559,7 +2559,7 @@ describe("run-building-action command flow", () => {
     expect(context.config.balance.stripClub?.noAuditRisk).toBe(true);
   });
 
-  it("generates one Strip Club passive rumor per owned club every thirty minutes", () => {
+  it("generates one Strip Club passive rumor per owned club every two hours", () => {
     const { state, building } = createStateWithFixedBuilding("strip_club", {
       id: "building:district-1:strip_club:1",
       metadata: {
@@ -2587,13 +2587,13 @@ describe("run-building-action command flow", () => {
       ownerPlayerId: "player:1"
     });
     state.root.districtIds.push("district:2");
-    state.root.tick = ticksForMs(30 * 60 * 1000);
+    state.root.tick = ticksForMs(120 * 60 * 1000);
 
     const result = collectIncome(state, context);
     const firstMetadata = result.buildingsById[building.id].metadata?.stripClub as { rumorEvents?: unknown[] } | undefined;
     const secondMetadata = result.buildingsById[secondClub.id].metadata?.stripClub as { rumorEvents?: unknown[] } | undefined;
 
-    expect(context.config.balance.stripClub?.passiveRumorIntervalMinutes).toBe(30);
+    expect(context.config.balance.stripClub?.passiveRumorIntervalMinutes).toBe(120);
     expect(context.config.balance.stripClub?.baseRumorChancePct).toBe(100);
     expect(firstMetadata?.rumorEvents).toHaveLength(1);
     expect(secondMetadata?.rumorEvents).toHaveLength(1);

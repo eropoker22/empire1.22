@@ -170,6 +170,7 @@ const renderStartingPlayerState = (server: AdminHostedServerView): string => {
       ${keyValue("Clean cash", startingState.cleanCash)}
       ${keyValue("Dirty cash", startingState.dirtyCash)}
       ${keyValue("Populace", startingState.population)}
+      ${keyValue("Vliv", startingState.influence)}
       ${keyValue("Špehové", startingState.spySlots)}
       ${FREE_HOSTED_STARTING_MATERIAL_GROUPS.map((group) => keyValue(
         `Materiály · ${group.label}`,

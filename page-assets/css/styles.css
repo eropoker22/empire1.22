@@ -7950,3 +7950,79 @@ html body.game-body button:is(
 ):not([class*="backdrop"])::after {
   pointer-events: none !important;
 }
+
+/* Final mobile overlay isolation: background shortcuts never bleed through active cards. */
+html body.game-body #bounty-modal:not(.hidden):not([hidden]),
+html body.game-body #boost-modal:not(.hidden):not([hidden]) {
+  z-index: 24000 !important;
+  isolation: isolate !important;
+}
+
+html body.game-body #bounty-confirm-modal:not(.hidden):not([hidden]),
+html body.game-body #boost-confirmation-modal:not(.hidden):not([hidden]) {
+  z-index: 24010 !important;
+  isolation: isolate !important;
+}
+
+html body.game-body :is(
+  .elimination-ai-panel__close,
+  .elimination-result-popup__close,
+  .elimination-countdown-warning__close
+)::before,
+html body.game-body :is(
+  .elimination-ai-panel__close,
+  .elimination-result-popup__close,
+  .elimination-countdown-warning__close
+)::after {
+  content: none !important;
+  display: none !important;
+}
+
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body.game-modal-scroll-locked #building-shortcut-grid {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  html body.game-body :is(
+    #bounty-modal,
+    #bounty-confirm-modal,
+    #boost-modal,
+    #boost-confirmation-modal
+  ):not(.hidden):not([hidden]) > .modal__backdrop {
+    background-color: rgba(0, 3, 9, 0.86) !important;
+  }
+
+  html body.game-body :is(
+    #bounty-modal .modal__close,
+    #bounty-confirm-modal .modal__close,
+    #boost-modal .modal__close,
+    #boost-confirmation-modal .modal__close,
+    .rumor-inbox-close,
+    .elimination-ai-panel__close,
+    .elimination-result-popup__close,
+    .elimination-countdown-warning__close
+  ) {
+    width: 42px !important;
+    min-width: 42px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    padding: 0 !important;
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
+  html body.game-body :is(
+    .elimination-ai-panel__close,
+    .elimination-result-popup__close,
+    .elimination-countdown-warning__close
+  ) {
+    display: grid !important;
+    place-items: center !important;
+    color: #ffffff !important;
+    font-size: 20px !important;
+    line-height: 1 !important;
+  }
+}

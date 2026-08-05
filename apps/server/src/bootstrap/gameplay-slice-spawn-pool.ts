@@ -15,7 +15,7 @@ export const sharedCitySpawnPool: SpawnCandidate[] = empireStreetsCityMapManifes
   .map((district): SpawnCandidate => ({
     districtId: district.id as DistrictId,
     zones: [...(district.spawnZones ?? [])],
-    enabled: district.zone !== "downtown",
+    enabled: district.zone !== "downtown" && district.zone !== "industrial",
     notes: district.notes
   }));
 

@@ -121,4 +121,20 @@ describe("server gameplay district presentation", () => {
       "V tomhle districtu po totálním zničení nezůstalo nic použitelného."
     );
   });
+
+  it("does not expose the internal ownership status line for another player's district", () => {
+    const fixture = createFixture();
+    fixture.readModel.district.ownerPlayerId = "player:foreign";
+    fixture.readModel.district.isOwnedByPlayer = false;
+    fixture.readModel.leaderboard.entries = [{
+      playerId: "player:foreign",
+      name: "Cizí hráč"
+    }];
+    fixture.renderState.districtPanel.ownershipLabel = "Vlastní player:foreign";
+
+    const view = createServerGameplayDistrictView(fixture.readModel, fixture.renderState);
+
+    expect(view?.ownerLabel).toBe("Cizí hráč");
+    expect(view?.ownerMeta).toBe("");
+  });
 });

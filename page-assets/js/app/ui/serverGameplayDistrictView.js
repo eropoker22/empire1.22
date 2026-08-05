@@ -212,7 +212,9 @@ export function createServerGameplayDistrictView(readModel, renderState) {
     title: panel.title || district.name || "District",
     typeLabel: panel.zoneLabel || toLabel(district.zone, "District"),
     ownerLabel,
-    ownerMeta: `${panel.ownershipLabel || "Vlastnictví neznámé"} · ${statusLabel}`,
+    ownerMeta: district.ownerPlayerId && !currentPlayerOwnsDistrict
+      ? ""
+      : `${panel.ownershipLabel || "Vlastnictví neznámé"} · ${statusLabel}`,
     ownerAvatarSrc,
     ownerAvatarBackgroundUrl: ownerAvatarSrc,
     ownerAvatarEmpty: !ownerAvatarSrc,

@@ -1482,7 +1482,7 @@ export function createBuildingDetailMechanicRows({
     const network = mechanics.restaurantNetwork || {};
     mechanicRows.push(
       createMechanic("Denní provoz", `Restaurace vydělává čisté peníze a přidává lokální vliv.`),
-      createMechanic("Pouliční drby", `Čím víc restaurací vlastníš, tím častěji se dozvíš, co se ve městě chystá.`),
+      createMechanic("Pouliční drby", `Každých 40 minut může Restaurace zachytit městský drb.`),
       createMechanic("Síť restaurací", `Více restaurací zvedá příjem, vliv a drby, ale taky trochu zvyšuje heat.`)
     );
   } else if (mechanics.mechanicsType === "casino") {
@@ -1539,12 +1539,12 @@ export function createBuildingDetailMechanicRows({
       ),
       createMechanic("Populace", `+${Math.round(mechanics.convenienceStorePopulationPerMinute * 60)} obyv./hod`),
       createMechanic("Výběr", "Dostupný až od 30 obyvatel."),
-      createMechanic("Drby", "Každých 10 minut můžeš dostat městkej drb."),
+      createMechanic("Drby", "Každých 40 minut můžeš dostat městský drb."),
       createMechanic("Síť večerek", "Každá další Večerka přidá +5 obyvatel za hodinu každé Večerce.")
     );
   } else if (mechanics.mechanicsType === "strip-club" || buildingKey === "strip club") {
     mechanicRows.push(
-      createMechanic("Pouliční drby", "Každý aktivní Strip Club vytváří jeden drb každých 30 minut."),
+      createMechanic("Pouliční drby", "Každý aktivní Strip Club může vytvořit jeden drb každých 120 minut."),
       createMechanic("Síť clubů", "Více aktivních clubů zvedá cashflow, vliv, drby i heat.")
     );
   } else if (mechanics.mechanicsType === "smuggling-tunnel") {

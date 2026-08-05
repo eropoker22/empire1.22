@@ -65,6 +65,9 @@ export function renderDistrictSummaryPanel(elements = {}, view = {}) {
   setText(type, view.typeLabel || "District");
   setText(owner, view.ownerLabel || "Neznámý vlastník");
   setText(ownerMeta, view.ownerMeta || "");
+  if (ownerMeta) {
+    ownerMeta.hidden = !String(view.ownerMeta || "").trim();
+  }
 
   if (ownerAvatar) {
     ownerAvatar.src = view.ownerAvatarSrc || "";

@@ -87,6 +87,23 @@ describe("police action result panel", () => {
     expect(renderImpact).toHaveBeenCalledTimes(1);
   });
 
+  it("styles building special actions separately from police results", () => {
+    const nodes = Object.fromEntries(Object.values(selectors).map((selector) => [selector, new FakeElement()]));
+
+    const result = renderPoliceActionResultPanel(new FakeRoot(nodes), {
+      title: "Restaurace: Hotovo",
+      summary: "Akce byla dokončena.",
+      actionId: "restaurant_local_network",
+      buildingTypeId: "restaurant",
+      rows: []
+    }, { selectors });
+
+    expect(result.ok).toBe(true);
+    expect(nodes["#content"].classList.contains("is-building-action-result")).toBe(true);
+    expect(nodes["#badge"].textContent).toBe("Speciální akce");
+    expect(nodes["#badge"].textContent).not.toBe("Policejní zásah");
+  });
+
   it("renders live city event rows", () => {
     const nodes = Object.fromEntries(Object.values(selectors).map((selector) => [selector, new FakeElement()]));
     const result = renderPoliceActionResultPanel(new FakeRoot(nodes), {

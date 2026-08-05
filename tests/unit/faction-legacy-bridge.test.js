@@ -6,8 +6,19 @@ import {
   FACTION_DEFINITIONS,
   LEGACY_FACTION_ID_MAP
 } from "../../packages/game-config/src/public/faction-definitions.ts";
+import { PLAYER_COLOR_OPTIONS as SHARED_PLAYER_COLOR_OPTIONS } from "../../packages/shared-types/src/entities/player-color.ts";
+import { PLAYER_COLOR_OPTIONS as BROWSER_PLAYER_COLOR_OPTIONS } from "../../page-assets/js/app/model/playerColorOptions.js";
+import { PLAYER_GANG_COLORS, isPlayerGangColor } from "../../apps/server/src/player-entry/player-entry-policy.ts";
 
 describe("legacy faction compatibility bridge", () => {
+  it("offers all thirty authoritative gang colors in hosted faction setup", () => {
+    expect(BROWSER_PLAYER_COLOR_OPTIONS).toHaveLength(30);
+    expect(BROWSER_PLAYER_COLOR_OPTIONS).toEqual(SHARED_PLAYER_COLOR_OPTIONS);
+    expect(new Set(BROWSER_PLAYER_COLOR_OPTIONS.map(({ value }) => value)).size).toBe(30);
+    expect(PLAYER_GANG_COLORS).toEqual(SHARED_PLAYER_COLOR_OPTIONS.map(({ value }) => value));
+    expect(BROWSER_PLAYER_COLOR_OPTIONS.every(({ value }) => isPlayerGangColor(value.toUpperCase()))).toBe(true);
+  });
+
   it("does not expose legacy faction starting resources or weapon presets", () => {
     for (const faction of Object.values(FACTION_CATALOG)) {
       expect(faction.startingPackage).toBeUndefined();

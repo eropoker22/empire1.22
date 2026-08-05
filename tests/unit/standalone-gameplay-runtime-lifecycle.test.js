@@ -194,5 +194,7 @@ describe("standalone gameplay runtime lifecycle", () => {
     openButton.click();
     expect(modal.hidden).toBe(false);
     expect(setIntervalSpy).toHaveBeenCalledTimes(initialIntervalCalls + 3);
+    document.getElementById("bounty-modal-close").click();
+    expect(modal.hidden).toBe(true);
   });
 });

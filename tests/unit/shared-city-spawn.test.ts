@@ -18,7 +18,7 @@ describe("shared city spawn", () => {
         "player:1": {
           id: "player:1",
           homeDistrictId: null,
-          metadata: {},
+          metadata: { startingInfluence: 37 },
           version: 1
         }
       },
@@ -96,6 +96,7 @@ describe("shared city spawn", () => {
     });
     expect(result.errors).toEqual([]);
     expect(result.nextState.districtsById[districtId].ownerPlayerId).toBe("player:1");
+    expect(result.nextState.districtsById[districtId].influence).toBe(37);
     expect(result.nextState.buildingsById[schoolId]).toMatchObject({
       ownerPlayerId: "player:1",
       metadata: {

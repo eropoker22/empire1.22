@@ -149,6 +149,45 @@
   }
 }
 
+/* Building actions reuse the result shell, but must never look like a police raid. */
+html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-building-action-result {
+  --building-action-accent: 34, 211, 238;
+  --building-action-secondary: 217, 70, 239;
+  border-color: rgba(var(--building-action-accent), 0.58) !important;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(var(--building-action-accent), 0.2), transparent 38%),
+    radial-gradient(circle at 92% 92%, rgba(var(--building-action-secondary), 0.16), transparent 42%),
+    linear-gradient(145deg, rgba(8, 28, 40, 0.88), rgba(13, 10, 31, 0.92)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 0 32px rgba(var(--building-action-accent), 0.07),
+    0 0 24px rgba(var(--building-action-accent), 0.24),
+    0 0 46px rgba(var(--building-action-secondary), 0.12),
+    0 20px 52px rgba(2, 6, 23, 0.5) !important;
+}
+
+html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-building-action-result .modal__header h3 {
+  color: #ecfeff !important;
+  text-shadow:
+    0 0 10px rgba(var(--building-action-accent), 0.8),
+    0 0 22px rgba(var(--building-action-secondary), 0.34) !important;
+}
+
+html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-building-action-result .police-action-result-modal__badge {
+  border-color: rgba(var(--building-action-accent), 0.7) !important;
+  background: linear-gradient(90deg, rgba(var(--building-action-accent), 0.18), rgba(var(--building-action-secondary), 0.16)) !important;
+  color: #a5f3fc !important;
+  box-shadow:
+    inset 0 0 14px rgba(var(--building-action-accent), 0.12),
+    0 0 16px rgba(var(--building-action-accent), 0.2) !important;
+  text-shadow: 0 0 10px rgba(var(--building-action-accent), 0.72) !important;
+}
+
+html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-building-action-result .modal__row {
+  border-color: rgba(var(--building-action-accent), 0.22) !important;
+  background: linear-gradient(135deg, rgba(8, 47, 73, 0.4), rgba(30, 12, 50, 0.34)) !important;
+}
+
 .rumor-inbox-shell {
   position: fixed;
   inset: 0;
@@ -510,6 +549,209 @@
   .rumor-inbox-card,
   .rumor-inbox-signal-bar span {
     animation: none;
+  }
+}
+
+/* Final street-rumor inbox: compact, readable and consistent across viewports. */
+.rumor-inbox-shell {
+  z-index: 24500;
+  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+}
+
+.rumor-inbox-backdrop {
+  background:
+    radial-gradient(circle at 50% 8%, rgba(45, 212, 191, 0.12), transparent 34%),
+    rgba(1, 5, 12, 0.82);
+  backdrop-filter: blur(10px) saturate(112%);
+  -webkit-backdrop-filter: blur(10px) saturate(112%);
+}
+
+.rumor-inbox-card {
+  --rumor-neon: 45, 212, 191;
+  --rumor-pink: 244, 114, 182;
+  width: min(700px, calc(100vw - 24px));
+  max-height: min(88dvh, 860px);
+  grid-template-rows: auto 10px minmax(0, 1fr);
+  border: 1px solid rgba(var(--rumor-neon), 0.42);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(var(--rumor-neon), 0.11), transparent 32%),
+    radial-gradient(circle at 100% 0%, rgba(var(--rumor-pink), 0.08), transparent 30%),
+    linear-gradient(160deg, rgba(9, 20, 29, 0.985), rgba(3, 9, 17, 0.995));
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.62),
+    0 0 32px rgba(var(--rumor-neon), 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.rumor-inbox-card::before {
+  inset: 0 18px auto;
+  width: auto;
+  height: 2px;
+  border-radius: 0 0 999px 999px;
+  background: linear-gradient(90deg, transparent, rgb(var(--rumor-neon)), rgb(var(--rumor-pink)), transparent);
+  box-shadow: 0 0 16px rgba(var(--rumor-neon), 0.5);
+}
+
+.rumor-inbox-card::after {
+  content: none;
+  display: none;
+}
+
+.rumor-inbox-header {
+  gap: 16px;
+  align-items: center;
+  padding: 20px 20px 15px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.rumor-inbox-header__copy {
+  gap: 6px;
+}
+
+.rumor-inbox-eyebrow {
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+}
+
+.rumor-inbox-title {
+  font-size: clamp(1.22rem, 3vw, 1.65rem);
+  letter-spacing: 0.025em;
+  text-transform: none;
+  text-shadow: 0 0 14px rgba(var(--rumor-neon), 0.24);
+}
+
+.rumor-inbox-count {
+  min-width: 32px;
+  min-height: 26px;
+  border-radius: 999px;
+  background: rgba(var(--rumor-pink), 0.12);
+}
+
+.rumor-inbox-subtitle {
+  color: rgba(216, 232, 239, 0.68);
+  font-size: 0.72rem;
+}
+
+.rumor-inbox-close {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(8, 20, 28, 0.94);
+  font-size: 1.25rem;
+}
+
+.rumor-inbox-signal-bar {
+  height: 10px;
+  gap: 3px;
+  padding: 2px 20px;
+  border-bottom: 0;
+  background: rgba(var(--rumor-neon), 0.018);
+}
+
+.rumor-inbox-signal-bar span {
+  width: 2px;
+}
+
+.rumor-inbox-list,
+.rumor-inbox-list[data-rumor-scrollable="true"] {
+  max-height: min(72dvh, 710px);
+  gap: 8px;
+  padding: 12px 14px 16px;
+  scrollbar-gutter: stable;
+}
+
+.rumor-inbox-message {
+  gap: 8px;
+  padding: 13px 14px;
+  border-color: rgba(148, 163, 184, 0.14);
+  border-radius: 13px;
+  background:
+    linear-gradient(100deg, rgba(var(--rumor-neon), 0.065), transparent 42%),
+    rgba(8, 18, 27, 0.9);
+  box-shadow: inset 3px 0 0 rgba(var(--rumor-neon), 0.48);
+}
+
+.rumor-inbox-message::after {
+  width: 42px;
+  opacity: 0.65;
+}
+
+.rumor-inbox-message:hover,
+.rumor-inbox-message:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(var(--rumor-neon), 0.46);
+}
+
+.rumor-inbox-message__number,
+.rumor-inbox-message__district {
+  font-size: 0.62rem;
+}
+
+.rumor-inbox-message__time {
+  font-size: 0.56rem;
+}
+
+.rumor-inbox-message__text {
+  color: rgba(240, 249, 250, 0.94);
+  font-size: 0.78rem;
+  line-height: 1.48;
+}
+
+.rumor-inbox-message__open {
+  color: rgba(var(--rumor-neon), 0.72);
+  font-size: 0.52rem;
+  letter-spacing: 0.1em;
+}
+
+@media (max-width: 720px) {
+  .rumor-inbox-shell {
+    place-items: center;
+    padding: max(7px, env(safe-area-inset-top)) 7px max(7px, env(safe-area-inset-bottom));
+  }
+
+  .rumor-inbox-card {
+    width: min(100%, 620px);
+    max-height: calc(100dvh - max(7px, env(safe-area-inset-top)) - max(7px, env(safe-area-inset-bottom)));
+    border-radius: 17px;
+  }
+
+  .rumor-inbox-header {
+    gap: 10px;
+    padding: 15px 12px 12px 14px;
+  }
+
+  .rumor-inbox-title-row {
+    gap: 7px;
+  }
+
+  .rumor-inbox-title {
+    font-size: clamp(1.05rem, 5.4vw, 1.3rem);
+  }
+
+  .rumor-inbox-subtitle {
+    max-width: 34ch;
+    font-size: 0.66rem;
+  }
+
+  .rumor-inbox-list,
+  .rumor-inbox-list[data-rumor-scrollable="true"] {
+    max-height: none;
+    padding: 9px 8px 11px;
+    gap: 7px;
+  }
+
+  .rumor-inbox-message {
+    padding: 11px 10px;
+    border-radius: 11px;
+  }
+
+  .rumor-inbox-message__head {
+    gap: 6px;
+  }
+
+  .rumor-inbox-message__text {
+    font-size: 0.74rem;
   }
 }
 

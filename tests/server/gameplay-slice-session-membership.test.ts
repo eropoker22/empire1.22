@@ -75,6 +75,7 @@ describe("gameplay slice session membership", () => {
     startingPlayerState.cleanCash = 88_000;
     startingPlayerState.dirtyCash = 12_000;
     startingPlayerState.population = 250;
+    startingPlayerState.influence = 37;
     startingPlayerState.materials.chemicals = 33;
     startingPlayerState.materials["stim-pack"] = 7;
     startingPlayerState.materials.pistol = 5;
@@ -100,6 +101,7 @@ describe("gameplay slice session membership", () => {
     });
     expect(joined.state.resourceStatesById[player.resourceStateId]?.balances.population).toBeUndefined();
     expect(player.population).toBe(250);
+    expect(player.metadata?.startingInfluence).toBe(37);
     expect(createPlayerView(joined.state, player.id, context)).toMatchObject({
       resourceBalances: {
         population: 250

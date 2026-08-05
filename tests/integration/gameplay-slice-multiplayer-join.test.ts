@@ -100,6 +100,32 @@ describe("gameplay slice multiplayer join bootstrap", () => {
     expect(getClaimedSpawnDistrictIds(runtime.state)).toEqual([]);
   });
 
+  it("rejects industrial districts as a starting spawn", async () => {
+    const server = createServerApp();
+    const request = createLoadRequest(1);
+    await ensureGameplaySliceSessionResult(server.instanceManager, request);
+    const industrialDistrictId = empireStreetsCityMapManifest.districts.find((district) => (
+      district.isSpawnCandidate && district.zone === "industrial"
+    ))!.id;
+
+    const readModel = (await loadGameplaySlice(server, request)).readModel as GameplaySliceView;
+    const response = await submitSelectSpawn(server, request, industrialDistrictId);
+    const runtime = server.instanceManager.getInstanceById(request.serverInstanceId)!;
+
+    expect(readModel.spawnSelection?.districts.find((district) => (
+      district.districtId === industrialDistrictId
+    ))).toMatchObject({
+      districtType: "industrial",
+      status: "disabled"
+    });
+    expect(response.accepted).toBe(false);
+    expect(response.errors).toEqual([
+      expect.objectContaining({ code: "SPAWN_NOT_ALLOWED" })
+    ]);
+    expect(runtime.state.playersById[request.playerId]?.homeDistrictId).toBeNull();
+    expect(runtime.state.districtsById[industrialDistrictId]?.ownerPlayerId).toBeNull();
+  });
+
   it("rejects an occupied requested spawn for a second player", async () => {
     const server = createServerApp();
     const firstRequest = createLoadRequest(1);

@@ -38,7 +38,7 @@ function createRumorInboxController(documentRef) {
 
   const header = createElement(documentRef, "header", "rumor-inbox-header");
   const headerCopy = createElement(documentRef, "div", "rumor-inbox-header__copy");
-  const eyebrow = createElement(documentRef, "span", "rumor-inbox-eyebrow", "NEON STREET WIRE");
+  const eyebrow = createElement(documentRef, "span", "rumor-inbox-eyebrow", "ULIČNÍ SÍŤ");
   const titleRow = createElement(documentRef, "div", "rumor-inbox-title-row");
   const title = createElement(documentRef, "h3", "rumor-inbox-title", "Drby z ulice");
   const count = createElement(documentRef, "strong", "rumor-inbox-count", "0");
@@ -99,7 +99,7 @@ function createRumorInboxController(documentRef) {
         messageHead.append(ordinal, district, time);
 
         const text = createElement(documentRef, "span", "rumor-inbox-message__text", getRumorText(entry));
-        const openLabel = createElement(documentRef, "span", "rumor-inbox-message__open", "ROZBALIT SIGNÁL ↗");
+        const openLabel = createElement(documentRef, "span", "rumor-inbox-message__open", "OTEVŘÍT DRB ↗");
         button.append(messageHead, text, openLabel);
         button.addEventListener("click", () => {
           close();

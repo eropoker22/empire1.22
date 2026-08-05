@@ -34,6 +34,7 @@ describe("hosted starting player state policy", () => {
         [...FREE_HOSTED_STARTING_MATERIAL_IDS].reverse().map((materialId) => [materialId, 0])
       ),
       spySlots: 2,
+      influence: 0,
       population: 0,
       dirtyCash: 0,
       cleanCash: 0
@@ -48,12 +49,30 @@ describe("hosted starting player state policy", () => {
     if (!parsed.accepted) throw new Error("Expected the persisted state to be accepted.");
     expect(Object.keys(parsed.data.materials)).toEqual(FREE_HOSTED_STARTING_MATERIAL_IDS);
   });
+
+  it("normalizes a legacy persisted state without influence", () => {
+    const legacy = zeroStartingPlayerState() as Record<string, unknown>;
+    delete legacy.influence;
+
+    expect(parsePersistedHostedStartingPlayerState(JSON.stringify(legacy))).toMatchObject({
+      accepted: true,
+      data: { influence: 0 }
+    });
+  });
+
+  it.each([-1, 1.5, "10", null])("rejects invalid starting influence %s", (influence) => {
+    expect(parseHostedStartingPlayerState({
+      ...zeroStartingPlayerState(),
+      influence
+    }).accepted).toBe(false);
+  });
 });
 
 const zeroStartingPlayerState = () => ({
   cleanCash: 0,
   dirtyCash: 0,
   population: 0,
+  influence: 0,
   spySlots: 2,
   materials: Object.fromEntries(
     FREE_HOSTED_STARTING_MATERIAL_IDS.map((materialId) => [materialId, 0])

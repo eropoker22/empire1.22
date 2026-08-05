@@ -317,7 +317,7 @@ describe("shared building presentation adapters", () => {
       },
       {
         label: "Pouliční drby",
-        value: "Čím víc restaurací vlastníš, tím častěji se dozvíš, co se ve městě chystá."
+        value: "Každých 40 minut může Restaurace zachytit městský drb."
       },
       {
         label: "Síť restaurací",

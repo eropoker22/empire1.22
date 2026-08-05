@@ -14,6 +14,15 @@ const asMetadataRecord = (value: unknown): Record<string, unknown> =>
     ? value as Record<string, unknown>
     : {};
 
+export const resolvePlayerStartingDistrictInfluence = (
+  player: CoreGameState["playersById"][string] | undefined
+): number => {
+  const influence = player?.metadata?.startingInfluence;
+  return Number.isSafeInteger(influence) && Number(influence) >= 0
+    ? Number(influence)
+    : 0;
+};
+
 export const createFreshSpawnBuildingMetadata = (
   building: CoreGameState["buildingsById"][string],
   tick: number
@@ -116,6 +125,7 @@ export const handleSelectSpawnDistrict = (
     ...district,
     ownerPlayerId: player.id,
     status: "claimed" as const,
+    influence: resolvePlayerStartingDistrictInfluence(player),
     version: district.version + 1
   };
   const starterBuildings = ensureStarterDistrictProductionBuildings({

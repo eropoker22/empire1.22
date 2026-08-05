@@ -345,6 +345,7 @@ describe("read-only admin app", () => {
     expect(document.querySelector<HTMLInputElement>('[name="startingCleanCash"]')?.value).toBe("1500");
     expect(document.querySelector<HTMLInputElement>('[name="startingDirtyCash"]')?.value).toBe("300");
     expect(document.querySelector<HTMLInputElement>('[name="startingPopulation"]')?.value).toBe("0");
+    expect(document.querySelector<HTMLInputElement>('[name="startingInfluence"]')?.value).toBe("0");
     expect(document.querySelector<HTMLInputElement>('[name="startingMaterial:chemicals"]')?.value).toBe("10");
     expect(document.querySelector<HTMLInputElement>('[name="startingMaterial:pistol"]')?.value).toBe("2");
     expect(document.body.textContent).toContain("Každý hráč má vždy přesně 2 špionážní sloty.");
@@ -445,6 +446,7 @@ describe("read-only admin app", () => {
       cleanCash: 1_500,
       dirtyCash: 300,
       population: 0,
+      influence: 0,
       spySlots: 2,
       materials: {
         chemicals: 10,
@@ -476,6 +478,7 @@ describe("read-only admin app", () => {
     document.querySelector<HTMLInputElement>('[name="startingCleanCash"]')!.value = "0";
     document.querySelector<HTMLInputElement>('[name="startingDirtyCash"]')!.value = "23456";
     document.querySelector<HTMLInputElement>('[name="startingPopulation"]')!.value = "345";
+    document.querySelector<HTMLInputElement>('[name="startingInfluence"]')!.value = "456";
     const expectedMaterials = Object.fromEntries(
       FREE_HOSTED_STARTING_MATERIAL_IDS.map((materialId, index) => [materialId, index * 137])
     );
@@ -491,6 +494,7 @@ describe("read-only admin app", () => {
       cleanCash: 0,
       dirtyCash: 23_456,
       population: 345,
+      influence: 456,
       spySlots: 2,
       materials: expectedMaterials
     });
@@ -499,6 +503,7 @@ describe("read-only admin app", () => {
       startingPlayerState.cleanCash,
       startingPlayerState.dirtyCash,
       startingPlayerState.population,
+      startingPlayerState.influence,
       ...Object.values(startingPlayerState.materials)
     ].every((value) => typeof value === "number" && Number.isSafeInteger(value))).toBe(true);
   });
@@ -584,6 +589,7 @@ describe("read-only admin app", () => {
         cleanCash: 123_456,
         dirtyCash: 23_456,
         population: 345,
+        influence: 456,
         spySlots: 2,
         materials: Object.fromEntries(
           Object.keys(FREE_HOSTED_STARTING_PLAYER_STATE.materials)
@@ -597,6 +603,7 @@ describe("read-only admin app", () => {
     expect(startingState?.textContent).toContain("Clean cash123456");
     expect(startingState?.textContent).toContain("Dirty cash23456");
     expect(startingState?.textContent).toContain("Populace345");
+    expect(startingState?.textContent).toContain("Vliv456");
     expect(startingState?.textContent).toContain("Špehové2");
     expect(startingState?.textContent).toContain("Chemicals: 0");
     expect(startingState?.textContent).toContain("Alarm: 220");

@@ -45,6 +45,7 @@ export const updateWizardReview = (form: HTMLFormElement): void => {
     ["Vstup po vytvoření", "Uzavřený do naplánování registrace"],
     ["Start clean / dirty", `${data.get("startingCleanCash")} / ${data.get("startingDirtyCash")}`],
     ["Start populace", data.get("startingPopulation")],
+    ["Start vliv", data.get("startingInfluence")],
     ["Špehové", "2 vždy"],
     ...FREE_HOSTED_STARTING_MATERIAL_GROUPS.map((group) => [
       `Materiály · ${group.label}`,

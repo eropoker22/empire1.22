@@ -61,6 +61,7 @@ export const FREE_HOSTED_STARTING_PLAYER_STATE: HostedStartingPlayerStateView = 
   cleanCash: 1_500,
   dirtyCash: 300,
   population: 0,
+  influence: 0,
   spySlots: 2,
   materials: Object.freeze({
     chemicals: 10,

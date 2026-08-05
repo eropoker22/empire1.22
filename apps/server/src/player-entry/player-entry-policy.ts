@@ -1,4 +1,5 @@
 import * as crypto from "node:crypto";
+import { PLAYER_COLOR_OPTIONS } from "@empire/shared-types";
 
 export const PLAYER_ENTRY_POLICY = Object.freeze({
   allowRejoinAfterEarlyLeave: false,
@@ -9,9 +10,7 @@ export const PLAYER_FACTIONS = [
   "mafian", "kartel", "kult", "tajna-organizace", "hackeri", "motorkarsky-gang", "soukroma-armada", "korporace"
 ] as const;
 
-export const PLAYER_GANG_COLORS = [
-  "#22d3ee", "#3b82f6", "#8b5cf6", "#ec4899", "#ef4444", "#f97316", "#eab308", "#22c55e"
-] as const;
+export const PLAYER_GANG_COLORS = PLAYER_COLOR_OPTIONS.map(({ value }) => value);
 
 const AVATAR_COUNTS: Record<string, number> = {
   mafian: 9,

@@ -7,8 +7,8 @@ import {
   loadMembership
 } from "./app/player-entry-client.js";
 import { getLivePlayerAvatarPreviews } from "./app/model/livePlayerAvatarCatalog.js";
+import { PLAYER_COLOR_OPTIONS } from "./app/model/playerColorOptions.js";
 
-const COLORS = ["#22d3ee", "#3b82f6", "#8b5cf6", "#ec4899", "#ef4444", "#f97316", "#eab308", "#22c55e"];
 const state = { membership: null, factionId: null, avatarId: null, gangColor: null, busy: false };
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => void boot(), { once: true });
@@ -130,7 +130,7 @@ function bindAvatarControls() {
 function renderColors() {
   const grid = document.querySelector("#gang-color-grid");
   if (!grid) return;
-  grid.innerHTML = COLORS.map((color) => `<button class="gang-color-swatch" type="button" data-live-color="${color}" style="--swatch:${color}" aria-label="${color}"></button>`).join("");
+  grid.innerHTML = PLAYER_COLOR_OPTIONS.map(({ name, value }) => `<button class="gang-color-swatch" type="button" data-live-color="${value}" style="--swatch:${value}" aria-label="${name}"></button>`).join("");
   grid.querySelectorAll("[data-live-color]").forEach((button) => button.addEventListener("click", () => {
     if (state.busy) return;
     state.gangColor = button.dataset.liveColor;

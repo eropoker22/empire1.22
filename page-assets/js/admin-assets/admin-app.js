@@ -1022,6 +1022,7 @@
       attackHeatGain: 6,
       occupyHeatGain: 2,
       occupyInfluenceCost: 5,
+      occupyRepeatInfluenceCost: 10,
       occupyPopulationRefundPct: 10,
       spyBaseSuccessChance: 0.72,
       spyTrapRevealChance: 0.22,
@@ -2553,7 +2554,7 @@
     heatPerMinute: 85 / 1440,
     noLaundering: true,
     noAuditRisk: true,
-    passiveRumorIntervalMinutes: 30,
+    passiveRumorIntervalMinutes: 120,
     baseRumorChancePct: 100,
     baseTruthChancePct: 55,
     truthChancePctPerExtraClub: 3,
@@ -2839,7 +2840,7 @@
       cooldownMinutes: 0,
       minCollectPopulation: 30
     },
-    passiveRumorIntervalMinutes: 10,
+    passiveRumorIntervalMinutes: 40,
     maxRumorChecksPerPlayerPerInterval: 1,
     baseRumorChancePct: 11,
     truthChanceByOwnedCount: [
@@ -3060,7 +3061,7 @@
     noSpecialActions: false,
     noLaundering: true,
     noAuditRisk: true,
-    passiveRumorIntervalMinutes: 10,
+    passiveRumorIntervalMinutes: 40,
     baseRumorChancePct: 9,
     truthChanceByOwnedCount: [
       { minOwned: 1, maxOwned: 2, truthChancePct: 45 },
@@ -3329,7 +3330,7 @@
           incomeMultiplier: 1,
           influenceMultiplier: 1,
           heatMultiplier: 1,
-          rumorIntervalMinutes: 6,
+          rumorIntervalMinutes: 24,
           truthChancePct: 68,
           districtHintChancePct: 35,
           buildingHintChancePct: 18,
@@ -3341,7 +3342,7 @@
           incomeMultiplier: 1.08,
           influenceMultiplier: 1.1,
           heatMultiplier: 1.06,
-          rumorIntervalMinutes: 5,
+          rumorIntervalMinutes: 20,
           truthChancePct: 78,
           districtHintChancePct: 45,
           buildingHintChancePct: 26,
@@ -3353,7 +3354,7 @@
           incomeMultiplier: 1.16,
           influenceMultiplier: 1.2,
           heatMultiplier: 1.12,
-          rumorIntervalMinutes: 4,
+          rumorIntervalMinutes: 16,
           truthChancePct: 86,
           districtHintChancePct: 55,
           buildingHintChancePct: 34,
@@ -18743,6 +18744,9 @@
       if ((config.balance.conflict.occupyInfluenceCost ?? 0) < 0) {
         throw new Error("Conflict config requires a non-negative occupyInfluenceCost.");
       }
+      if ((config.balance.conflict.occupyRepeatInfluenceCost ?? 0) < 0) {
+        throw new Error("Conflict config requires a non-negative occupyRepeatInfluenceCost.");
+      }
       if ((config.balance.conflict.occupyPopulationRefundPct ?? 0) < 0 || (config.balance.conflict.occupyPopulationRefundPct ?? 0) > 100) {
         throw new Error("Conflict config requires occupyPopulationRefundPct between 0 and 100.");
       }
@@ -18861,6 +18865,7 @@
     cleanCash: 1500,
     dirtyCash: 300,
     population: 0,
+    influence: 0,
     spySlots: 2,
     materials: Object.freeze({
       chemicals: 10,
@@ -40327,6 +40332,7 @@
       ["Vstup po vytvoření", "Uzavřený do naplánování registrace"],
       ["Start clean / dirty", `${data.get("startingCleanCash")} / ${data.get("startingDirtyCash")}`],
       ["Start populace", data.get("startingPopulation")],
+      ["Start vliv", data.get("startingInfluence")],
       ["Špehové", "2 vždy"],
       ...FREE_HOSTED_STARTING_MATERIAL_GROUPS.map((group) => [
         `Materiály · ${group.label}`,
@@ -40487,7 +40493,8 @@
     const cleanCash = readRequiredInteger(data, "startingCleanCash");
     const dirtyCash = readRequiredInteger(data, "startingDirtyCash");
     const population = readRequiredInteger(data, "startingPopulation");
-    if (cleanCash === null || dirtyCash === null || population === null) return null;
+    const influence = readRequiredInteger(data, "startingInfluence");
+    if (cleanCash === null || dirtyCash === null || population === null || influence === null) return null;
     const materials = {};
     for (const materialId of FREE_HOSTED_STARTING_MATERIAL_IDS) {
       const amount = readRequiredInteger(data, `startingMaterial:${materialId}`);
@@ -40498,6 +40505,7 @@
       cleanCash,
       dirtyCash,
       population,
+      influence,
       spySlots: 2,
       materials
     };
@@ -41637,6 +41645,7 @@
             ${numberField("Clean cash", "startingCleanCash", FREE_HOSTED_STARTING_PLAYER_STATE.cleanCash, 1e9)}
             ${numberField("Dirty cash", "startingDirtyCash", FREE_HOSTED_STARTING_PLAYER_STATE.dirtyCash, 1e9)}
             ${numberField("Populace", "startingPopulation", FREE_HOSTED_STARTING_PLAYER_STATE.population, 1e6)}
+            ${numberField("Vliv", "startingInfluence", FREE_HOSTED_STARTING_PLAYER_STATE.influence, 1e6)}
             <label><span>Špehové</span><input value="2" type="number" disabled><small>Každý hráč má vždy přesně 2 špionážní sloty.</small></label>
           </div>
           <div class="admin-starting-materials">
@@ -41891,6 +41900,7 @@
       ${keyValue("Clean cash", startingState.cleanCash)}
       ${keyValue("Dirty cash", startingState.dirtyCash)}
       ${keyValue("Populace", startingState.population)}
+      ${keyValue("Vliv", startingState.influence)}
       ${keyValue("Špehové", startingState.spySlots)}
       ${FREE_HOSTED_STARTING_MATERIAL_GROUPS.map((group) => keyValue(
       `Materiály · ${group.label}`,

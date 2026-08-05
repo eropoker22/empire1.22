@@ -5,7 +5,7 @@ import { validateConvenienceStoreConfig } from "@empire/game-core";
 describe("Convenience Store config", () => {
   it("validates the canonical rumor cadence and one player-level check per interval", () => {
     expect(() => validateConvenienceStoreConfig(freeModeConvenienceStoreConfig)).not.toThrow();
-    expect(freeModeConvenienceStoreConfig.passiveRumorIntervalMinutes).toBe(10);
+    expect(freeModeConvenienceStoreConfig.passiveRumorIntervalMinutes).toBe(40);
     expect(freeModeConvenienceStoreConfig.maxRumorChecksPerPlayerPerInterval).toBe(1);
   });
 

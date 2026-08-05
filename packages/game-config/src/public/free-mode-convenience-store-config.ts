@@ -19,7 +19,7 @@ export const freeModeConvenienceStoreConfig: ConvenienceStoreBalanceConfig = {
     cooldownMinutes: 0,
     minCollectPopulation: 30
   },
-  passiveRumorIntervalMinutes: 10,
+  passiveRumorIntervalMinutes: 40,
   maxRumorChecksPerPlayerPerInterval: 1,
   baseRumorChancePct: 11,
   truthChanceByOwnedCount: [

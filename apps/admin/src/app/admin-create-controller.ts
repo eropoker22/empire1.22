@@ -168,7 +168,8 @@ export const readStartingPlayerStateFormData = (
   const cleanCash = readRequiredInteger(data, "startingCleanCash");
   const dirtyCash = readRequiredInteger(data, "startingDirtyCash");
   const population = readRequiredInteger(data, "startingPopulation");
-  if (cleanCash === null || dirtyCash === null || population === null) return null;
+  const influence = readRequiredInteger(data, "startingInfluence");
+  if (cleanCash === null || dirtyCash === null || population === null || influence === null) return null;
 
   const materials = {} as HostedStartingPlayerStateView["materials"];
   for (const materialId of FREE_HOSTED_STARTING_MATERIAL_IDS) {
@@ -181,6 +182,7 @@ export const readStartingPlayerStateFormData = (
     cleanCash,
     dirtyCash,
     population,
+    influence,
     spySlots: 2,
     materials
   };

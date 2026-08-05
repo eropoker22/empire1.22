@@ -22,6 +22,7 @@ import {
 import { removeDisabledDevBountyDemoTargets } from "./gameplay-slice-demo-target-cleanup";
 import {
   resolveGameplaySliceStartingBalances,
+  resolveGameplaySliceStartingInfluence,
   resolveGameplaySliceStartingPopulation
 } from "./gameplay-slice-starting-state";
 
@@ -94,7 +95,8 @@ const createPlayer = (
       ]))
     : { pistol: 2, smg: 1 },
   metadata: {
-    spawnSelectionStatus: "awaiting_spawn_selection"
+    spawnSelectionStatus: "awaiting_spawn_selection",
+    startingInfluence: resolveGameplaySliceStartingInfluence(request.startingPlayerState)
   },
   resourceStateId: `resource:${request.playerId}`,
   cooldownStateId: `cooldown:${request.playerId}`,

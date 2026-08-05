@@ -47,6 +47,7 @@ describe("player entry spawn map projection", () => {
     expect(projection[0]).toMatchObject({
       zone: "commercial",
       reserved: true,
+      spawnEligible: true,
       owner: null,
       version: 3
     });
@@ -64,5 +65,6 @@ describe("player entry spawn map projection", () => {
       displayName: "Runtime Two",
       color: "#ef4444"
     });
+    expect(projection[1]?.spawnEligible).toBe(false);
   });
 });

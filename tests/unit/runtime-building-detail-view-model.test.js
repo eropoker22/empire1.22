@@ -113,8 +113,34 @@ describe("building detail view-model builder", () => {
     });
 
     expect(mechanics.some((row) =>
-      row.label === "Pouliční drby" && row.value === "Každý aktivní Strip Club vytváří jeden drb každých 30 minut."
+      row.label === "Pouliční drby" && row.value === "Každý aktivní Strip Club může vytvořit jeden drb každých 120 minut."
     )).toBe(true);
+  });
+
+  it("shows the extended passive rumor cadence for restaurants and convenience stores", () => {
+    const restaurantMechanics = createBuildingDetailMechanicRows({
+      buildingName: "Restaurace",
+      mechanics: { ...baseMechanics, mechanicsType: "restaurant" }
+    });
+    const convenienceStoreMechanics = createBuildingDetailMechanicRows({
+      buildingName: "Večerka",
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "convenience-store",
+        convenienceStoreWholePopulation: 0,
+        convenienceStoreCapacity: 50,
+        convenienceStorePopulationPerMinute: 50 / 60
+      }
+    });
+
+    expect(restaurantMechanics).toContainEqual(expect.objectContaining({
+      label: "Pouliční drby",
+      value: "Každých 40 minut může Restaurace zachytit městský drb."
+    }));
+    expect(convenienceStoreMechanics).toContainEqual(expect.objectContaining({
+      label: "Drby",
+      value: "Každých 40 minut můžeš dostat městský drb."
+    }));
   });
 
   it("renders park building cards with current stat labels and network copy except drug lab", () => {
@@ -1022,7 +1048,7 @@ describe("building detail view-model builder", () => {
 
     expect(mechanics).toEqual([
       { label: "Denní provoz", value: "Restaurace vydělává čisté peníze a přidává lokální vliv." },
-      { label: "Pouliční drby", value: "Čím víc restaurací vlastníš, tím častěji se dozvíš, co se ve městě chystá." },
+      { label: "Pouliční drby", value: "Každých 40 minut může Restaurace zachytit městský drb." },
       { label: "Síť restaurací", value: "Více restaurací zvedá příjem, vliv a drby, ale taky trochu zvyšuje heat." }
     ]);
     expect(JSON.stringify(mechanics)).not.toContain("Vybrat tržby");

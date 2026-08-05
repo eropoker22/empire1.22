@@ -50,6 +50,7 @@ export const renderAdminCreateWizard = (step: number): string => `
             ${numberField("Clean cash", "startingCleanCash", FREE_HOSTED_STARTING_PLAYER_STATE.cleanCash, 1_000_000_000)}
             ${numberField("Dirty cash", "startingDirtyCash", FREE_HOSTED_STARTING_PLAYER_STATE.dirtyCash, 1_000_000_000)}
             ${numberField("Populace", "startingPopulation", FREE_HOSTED_STARTING_PLAYER_STATE.population, 1_000_000)}
+            ${numberField("Vliv", "startingInfluence", FREE_HOSTED_STARTING_PLAYER_STATE.influence, 1_000_000)}
             <label><span>Špehové</span><input value="2" type="number" disabled><small>Každý hráč má vždy přesně 2 špionážní sloty.</small></label>
           </div>
           <div class="admin-starting-materials">

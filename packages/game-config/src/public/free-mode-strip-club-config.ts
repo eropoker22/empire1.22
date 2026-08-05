@@ -11,7 +11,7 @@ export const freeModeStripClubConfig: StripClubBalanceConfig = {
   heatPerMinute: 85 / 1_440,
   noLaundering: true,
   noAuditRisk: true,
-  passiveRumorIntervalMinutes: 30,
+  passiveRumorIntervalMinutes: 120,
   baseRumorChancePct: 100,
   baseTruthChancePct: 55,
   truthChancePctPerExtraClub: 3,

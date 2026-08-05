@@ -1,5 +1,6 @@
 import {
   createFreshSpawnBuildingMetadata,
+  resolvePlayerStartingDistrictInfluence,
   type CoreGameState
 } from "@empire/game-core";
 import type { DistrictId } from "@empire/shared-types";
@@ -40,6 +41,7 @@ export const claimNextSharedCitySpawnDistrict = (
 
   spawnDistrict.ownerPlayerId = playerId;
   spawnDistrict.status = "claimed";
+  spawnDistrict.influence = resolvePlayerStartingDistrictInfluence(state.playersById[playerId]);
   for (const buildingId of spawnDistrict.buildingIds) {
     const building = state.buildingsById[buildingId];
     if (building) {

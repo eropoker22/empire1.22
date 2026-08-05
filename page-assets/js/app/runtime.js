@@ -3987,10 +3987,13 @@ function createServerConflictReportPresentation(report = {}) {
       kind: "police",
       modalKind: "police",
       payload: {
-        tone: "is-success",
+        tone: "is-success is-building-action-result",
         title: `${buildingLabel}: Hotovo`,
+        badge: "Speciální akce",
         summary: String(report.message || `Akce budovy v ${targetLabel} byla dokončena.`),
         districtId: report.districtId,
+        actionId,
+        buildingTypeId: String(report.buildingTypeId || report.buildingType || "").trim(),
         rows: [
           { label: "District", value: targetLabel },
           { label: "Spotřebováno", value: formatServerReportRecord(report.inputCost || report.consumedItems) },

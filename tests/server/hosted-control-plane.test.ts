@@ -294,6 +294,7 @@ describe("hosted server control plane", () => {
     startingPlayerState.cleanCash = 0;
     startingPlayerState.dirtyCash = 7_500;
     startingPlayerState.population = 0;
+    startingPlayerState.influence = 75;
     startingPlayerState.materials = Object.fromEntries(
       [...FREE_HOSTED_STARTING_MATERIAL_IDS].reverse()
         .map((materialId) => [materialId, expectedMaterials[materialId]])
@@ -312,6 +313,7 @@ describe("hosted server control plane", () => {
         cleanCash: 0,
         dirtyCash: 7_500,
         population: 0,
+        influence: 75,
         spySlots: 2,
         materials: expectedMaterials
       }

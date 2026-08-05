@@ -4467,3 +4467,39 @@ html:has(body.auth-body--faction) .matrix-canvas {
     gap: 4px;
   }
 }
+
+/* Phone color palette: keep every server-supported color visible in a stable 4 x 2 grid. */
+@media (max-width: 640px) {
+  .auth-body--faction .gang-color-card {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    padding: 14px !important;
+    overflow: visible !important;
+  }
+
+  .auth-body--faction .gang-color-card .muted {
+    margin: 5px 0 0 !important;
+  }
+
+  .auth-body--faction .gang-color-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-auto-rows: auto !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 12px 0 0 !important;
+    gap: 10px !important;
+    overflow: visible !important;
+  }
+
+  .auth-body--faction .gang-color-swatch {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 48px !important;
+    aspect-ratio: 1 / 1 !important;
+  }
+}

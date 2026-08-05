@@ -12,7 +12,7 @@ export const freeModeRestaurantConfig: RestaurantBalanceConfig = {
   noSpecialActions: false,
   noLaundering: true,
   noAuditRisk: true,
-  passiveRumorIntervalMinutes: 10,
+  passiveRumorIntervalMinutes: 40,
   baseRumorChancePct: 9,
   truthChanceByOwnedCount: [
     { minOwned: 1, maxOwned: 2, truthChancePct: 45 },

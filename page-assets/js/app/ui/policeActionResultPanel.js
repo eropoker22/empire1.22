@@ -15,7 +15,8 @@ const POLICE_ACTION_RESULT_TONE_CLASSES = Object.freeze([
   "is-specialty-total",
   "is-district-raid-warning",
   "is-district-attack-warning",
-  "is-owned-district-raid-alert"
+  "is-owned-district-raid-alert",
+  "is-building-action-result"
 ]);
 
 function query(root, selector) {
@@ -61,8 +62,13 @@ export function renderPoliceActionResultPanel(root, payload = {}, options = {}) 
     ? options.formatDurationLabel
     : (value) => `${value}ms`;
   let cityEventRowsRendered = false;
+  const isBuildingActionResult = Boolean(payload.actionId || payload.buildingTypeId)
+    || String(payload.tone || "").includes("is-building-action-result");
 
   elements.content.classList.remove(...(options.toneClasses || POLICE_ACTION_RESULT_TONE_CLASSES));
+  if (isBuildingActionResult) {
+    elements.content.classList.add("is-building-action-result");
+  }
   for (const token of String(payload.tone || "").split(/\s+/).map((entry) => entry.trim()).filter(Boolean)) {
     elements.content.classList.add(token);
   }
@@ -70,8 +76,8 @@ export function renderPoliceActionResultPanel(root, payload = {}, options = {}) 
   const hidesBadge = Boolean(payload.hideBadge) || String(payload.tone || "").includes("is-owned-district-raid-alert");
   const hidesSummary = Boolean(payload.hideSummary);
   const actions = elements.content.querySelector?.(".attack-result-modal__actions") || null;
-  elements.title.textContent = payload.title || "Policejní akce";
-  elements.badge.textContent = hidesBadge ? "" : (payload.badge || "Policejní zásah");
+  elements.title.textContent = payload.title || (isBuildingActionResult ? "Výsledek speciální akce" : "Policejní akce");
+  elements.badge.textContent = hidesBadge ? "" : (payload.badge || (isBuildingActionResult ? "Speciální akce" : "Policejní zásah"));
   elements.badge.hidden = hidesBadge;
   if (hidesBadge) {
     elements.badge.setAttribute("aria-hidden", "true");

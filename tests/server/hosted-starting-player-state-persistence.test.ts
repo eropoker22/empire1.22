@@ -164,6 +164,7 @@ const distinctiveStartingPlayerState = (): HostedStartingPlayerStateView => ({
   cleanCash: 0,
   dirtyCash: 23_456,
   population: 345,
+  influence: 456,
   spySlots: 2,
   materials: Object.fromEntries(
     FREE_HOSTED_STARTING_MATERIAL_IDS.map((materialId, index) => [materialId, index * 137])

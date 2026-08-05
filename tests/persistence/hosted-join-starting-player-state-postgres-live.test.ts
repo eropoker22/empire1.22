@@ -251,6 +251,7 @@ const zeroStartingPlayerState = (): HostedStartingPlayerStateView => ({
   cleanCash: 0,
   dirtyCash: 0,
   population: 0,
+  influence: 0,
   spySlots: 2,
   materials: Object.fromEntries(
     FREE_HOSTED_STARTING_MATERIAL_IDS.map((materialId) => [materialId, 0])
