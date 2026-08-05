@@ -94,4 +94,18 @@ describe("mobile game UI overrides", () => {
     expect(occupyResult).not.toContain('label: "Šance"');
     expect(html).not.toContain("data-occupy-confirm-source");
   });
+
+  it("keeps restaurant special actions visible on desktop", () => {
+    expect(css).toContain('data-building-mechanics-type="restaurant"] .district-building-detail-card.building-detail-modal__content');
+    expect(css).toContain("max-height: min(92vh, 920px) !important;");
+    expect(css).toContain("overflow-y: auto !important;");
+    expect(css).toContain("margin-top: 24px !important;");
+  });
+
+  it("adds the current player's active occupation to Street News", () => {
+    expect(runtime).toContain("function collectServerOccupyCooldownStreetNewsEntries(now)");
+    expect(runtime).toContain('if (String(effect?.type || "") !== "occupy" || String(effect?.playerId || "") !== playerId)');
+    expect(runtime).toContain('title: "Obsazení"');
+    expect(runtime).toContain("...collectServerOccupyCooldownStreetNewsEntries(now)");
+  });
 });

@@ -78,3 +78,23 @@ describe("alliance command transport payload validation", () => {
     })).accepted).toBe(false);
   });
 });
+
+describe("city chat command transport payload validation", () => {
+  it("accepts only the message body and rejects forged author fields", () => {
+    expect(validateSubmitGameplayCommandRequest(createSubmitRequest("send-city-chat-message", {
+      body: "Zdravím město."
+    })).accepted).toBe(true);
+
+    const forged = validateSubmitGameplayCommandRequest(createSubmitRequest("send-city-chat-message", {
+      body: "Jsem někdo jiný.",
+      authorPlayerId: "player:2",
+      createdAt: new Date().toISOString()
+    }));
+
+    expect(forged.accepted).toBe(false);
+    expect(forged.errors.map((error) => error.details?.field)).toEqual([
+      "command.payload.authorPlayerId",
+      "command.payload.createdAt"
+    ]);
+  });
+});

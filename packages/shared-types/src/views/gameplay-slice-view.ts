@@ -10,6 +10,7 @@ import type { PlayerView } from "./player-view";
 import type { PoliceReadModel } from "./police-read-model-view";
 import type { ConflictReportView } from "./report-view";
 import type { CityFeedProjectionView } from "./city-feed-view";
+import type { CityChatReadModel } from "./city-chat-view";
 import type { DayNightReadModel } from "./day-night-read-model-view";
 import type { EliminationReadModel } from "./elimination-read-model-view";
 import type { OnboardingReadModel } from "./onboarding-read-model-view";
@@ -40,8 +41,10 @@ export interface GameplaySliceView {
   leaderboard?: LeaderboardReadModel | null;
   bounty?: BountyReadModel | null;
   cityFeed?: CityFeedProjectionView | null;
+  cityChat?: CityChatReadModel | null;
   districts: DistrictSummaryView[];
   district: DistrictPanelView | null;
+  ownedDistricts?: DistrictPanelView[];
   mapEffects: GameplayMapEffectView[];
   reports: ConflictReportView[];
 }

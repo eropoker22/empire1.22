@@ -109,6 +109,7 @@ export const baseBalanceConfig: BalanceConfig = {
     attackHeatGain: 6,
     occupyHeatGain: 2,
     occupyInfluenceCost: 5,
+    occupyRepeatInfluenceCost: 10,
     occupyPopulationRefundPct: 10,
     spyBaseSuccessChance: 0.72,
     spyTrapRevealChance: 0.22,

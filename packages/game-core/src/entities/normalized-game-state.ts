@@ -11,6 +11,7 @@ import type {
   BuildingId,
   Bounty,
   CityFeedEvent,
+  CityChatMessage,
   CooldownState,
   District,
   DistrictId,
@@ -30,6 +31,7 @@ import type {
   PlayerCityEventState,
   PlayerId,
   PlayerSpyOperationState,
+  PendingOccupyOperation,
   PoliceState,
   ResourceState,
   ServerInstance,
@@ -52,6 +54,7 @@ export interface NormalizedGameState {
   playerBoostStatesByPlayerId?: Record<PlayerId, PlayerBoostState>;
   playerCityEventStatesByPlayerId?: Record<PlayerId, PlayerCityEventState>;
   playerSpyOperationStatesByPlayerId?: Record<PlayerId, PlayerSpyOperationState>;
+  pendingOccupyOperationsById?: Record<string, PendingOccupyOperation>;
   alliancesById: Record<AllianceId, Alliance>;
   allianceInvitesById?: Record<string, AllianceInvite>;
   allianceChatMessagesById?: Record<string, AllianceChatMessage>;
@@ -68,6 +71,7 @@ export interface NormalizedGameState {
   effectStatesById: Record<string, EffectState>;
   policeStatesById: Record<string, PoliceState>;
   cityFeedEventsById: Record<string, CityFeedEvent>;
+  cityChatMessagesById?: Record<string, CityChatMessage>;
   eventsById: Record<EventId, EventState>;
   trapsById: Record<TrapId, DistrictTrap>;
   encirclementConfirmationTokensById?: Record<string, EncirclementConfirmationToken>;

@@ -6,6 +6,7 @@ import type { BountyCommand } from "./bounty-command";
 import type { BuildStructureCommand } from "./build-structure-command";
 import type { CollectProductionCommand } from "./collect-production-command";
 import type { CityEventCommand } from "./city-event-command";
+import type { SendCityChatMessageCommand } from "./city-chat-command";
 import type { CancelPharmacyProductionCommand } from "./cancel-pharmacy-production-command";
 import type { CancelDrugLabProductionCommand } from "./cancel-drug-lab-production-command";
 import type { CancelProductionLineCommand } from "./cancel-production-line-command";
@@ -41,6 +42,7 @@ export type GameCommand =
   | CancelPharmacyProductionCommand
   | CollectProductionCommand
   | CityEventCommand
+  | SendCityChatMessageCommand
   | ClaimEmergencyRecoveryCommand
   | CraftItemCommand
   | HeistDistrictCommand

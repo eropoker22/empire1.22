@@ -125,11 +125,13 @@ describe("alliance alpha UI", () => {
     expect(runtime).not.toContain("Zadej nazev aliance.");
   });
 
-  it("keeps the temporary local chat behind the explicit demo runtime", () => {
+  it("uses authoritative city chat on servers and keeps local storage only for demo runtime", () => {
     expect(html).toContain("Městský chat");
-    expect(html).toContain("Globální chat se připravuje.");
-    expect(html).toContain("Pro komunikaci se spojenci otevři alianci.");
+    expect(html).toContain("Načítám městský chat ze serveru…");
+    expect(html).toContain("Zprávy uvidí všichni hráči na tomto serveru.");
     expect(runtime).toContain('const GLOBAL_CHAT_KEY = "empire:demo:global-chat:v1";');
+    expect(runtime).toContain("submitServerCityChatCommand");
+    expect(runtime).toContain("gameplaySlice?.cityChat");
     expect(runtime).toContain("getGameplayExecutionMode");
     expect(runtime).toContain("ALLIANCE_CREATE_REQUIRED_INFLUENCE");
     expect(allianceCreateViewModel).toContain("export const ALLIANCE_CREATE_REQUIRED_INFLUENCE = 40;");

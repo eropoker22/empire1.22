@@ -82,6 +82,7 @@ export interface ConflictBalanceConfig {
   attackHeatGain?: number;
   occupyHeatGain?: number;
   occupyInfluenceCost?: number;
+  occupyRepeatInfluenceCost?: number;
   occupyPopulationRefundPct?: number;
   spyBaseSuccessChance: number;
   spyTrapRevealChance: number;

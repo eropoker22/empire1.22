@@ -54,6 +54,10 @@ export const validateGameCommandPayload = (
     case "claim-emergency-recovery":
       rejectUnknownPayloadFields(errors, payload, []);
       break;
+    case "send-city-chat-message":
+      rejectUnknownPayloadFields(errors, payload, ["body"]);
+      requireStringField(errors, "submit", payload, "body", "command.payload.body");
+      break;
     case "acknowledge-pending-raid":
       rejectUnknownPayloadFields(errors, payload, ["raidId"]);
       requireStringField(errors, "submit", payload, "raidId", "command.payload.raidId");
@@ -188,7 +192,7 @@ const validateBuildingPayload = (errors: DomainError[], payload: Record<string, 
 };
 
 const hasPayloadSchema = (type: string): boolean =>
-  ["activate-player-boost", "start-city-event", "claim-city-event-reward", "claim-emergency-recovery", "attack-district", "acknowledge-pending-raid", "build-structure", "occupy-district", "spy-district", "place-trap", "relocate-trap", "select-spawn-district", "collect-production", "craft-item", "cancel-pharmacy-production", "cancel-drug-lab-production", "cancel-production-line", "run-building-action", "upgrade-building"].includes(type)
+  ["activate-player-boost", "start-city-event", "claim-city-event-reward", "claim-emergency-recovery", "send-city-chat-message", "attack-district", "acknowledge-pending-raid", "build-structure", "occupy-district", "spy-district", "place-trap", "relocate-trap", "select-spawn-district", "collect-production", "craft-item", "cancel-pharmacy-production", "cancel-drug-lab-production", "cancel-production-line", "run-building-action", "upgrade-building"].includes(type)
   || isBasicActionCommandType(type) || isAllianceCommandType(type) || isMarketCommandType(type) || isBountyCommandType(type);
 
 const validateRunBuildingActionOptionalPayload = (

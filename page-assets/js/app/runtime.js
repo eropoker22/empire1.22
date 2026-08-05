@@ -4498,6 +4498,35 @@ function collectServerRobberyCooldownStreetNewsEntries(now) {
   return entries;
 }
 
+function collectServerOccupyCooldownStreetNewsEntries(now) {
+  if (!isServerAuthoritativeGameplayRuntimeReady()) {
+    return [];
+  }
+
+  const readModel = getServerGameplaySliceReadModel();
+  const playerId = String(readModel?.player?.playerId || "");
+  const mapEffects = Array.isArray(readModel?.mapEffects) ? readModel.mapEffects : [];
+  const entries = [];
+  for (const effect of mapEffects) {
+    if (String(effect?.type || "") !== "occupy" || String(effect?.playerId || "") !== playerId) {
+      continue;
+    }
+    const expiresAt = parseStreetNewsCooldownTimestamp(effect?.expiresAt);
+    if (!expiresAt || expiresAt <= now) {
+      continue;
+    }
+    const targetDistrictId = effect?.districtId;
+    appendStreetNewsCooldownEntry(entries, {
+      id: `cooldown:server-occupy:${String(effect?.effectId || targetDistrictId || expiresAt)}`,
+      title: "Obsazení",
+      summary: `${formatStreetNewsCooldownDistrict(targetDistrictId)} je obsazován`,
+      meta: `Čekání ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
+      expiresAt
+    }, now);
+  }
+  return entries;
+}
+
 function collectTrapCooldownStreetNewsEntries(now) {
   const entries = [];
   const worldState = readStreetNewsCooldownObject(getResolvedWorldState);
@@ -4619,6 +4648,7 @@ function createActiveCooldownStreetNewsEntries(now = Date.now()) {
   return [
     ...collectMissionCooldownStreetNewsEntries(now),
     ...collectServerRobberyCooldownStreetNewsEntries(now),
+    ...collectServerOccupyCooldownStreetNewsEntries(now),
     ...collectTrapCooldownStreetNewsEntries(now),
     ...collectBuildingCooldownStreetNewsEntries(now),
     ...collectAlliancePenaltyStreetNewsEntries(now)

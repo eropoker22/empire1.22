@@ -22,6 +22,7 @@ export const CORE_EVENT_TYPES = {
   allianceInviteCreated: "alliance-invite-created",
   allianceInviteResponded: "alliance-invite-responded",
   allianceChatMessageSent: "alliance-chat-message-sent",
+  cityChatMessageSent: "city-chat-message-sent",
   bountyCancelled: "bounty-cancelled",
   bountyClaimed: "bounty-claimed",
   bountyCreated: "bounty-created",

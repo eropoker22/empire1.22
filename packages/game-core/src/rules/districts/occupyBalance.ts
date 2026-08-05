@@ -41,15 +41,15 @@ export const resolveOccupyInfluenceCost = (
   playerId: string,
   config?: ConflictBalanceConfig
 ): number => {
-  const nextOwnedDistrictCount = countActiveOwnedDistricts(state, playerId) + 1;
-  const overextension = config?.occupyOverextension;
-  if (nextOwnedDistrictCount <= 2) {
-    return Math.max(0, Number(config?.occupyInfluenceCost ?? DEFAULT_OCCUPY_BALANCE.influenceCost));
-  }
-  if (nextOwnedDistrictCount === 3) return Math.max(0, Number(overextension?.thirdDistrictInfluenceCost ?? 550));
-  const fourthCost = Math.max(0, Number(overextension?.fourthDistrictInfluenceCost ?? 1050));
-  return fourthCost + Math.max(0, nextOwnedDistrictCount - 4)
-    * Math.max(0, Number(overextension?.additionalDistrictInfluenceCost ?? 250));
+  const player = state.playersById[playerId];
+  const storedAttemptCount = Number(player?.metadata?.occupyAttemptCount);
+  const inferredAttemptCount = Math.max(0, countActiveOwnedDistricts(state, playerId) - 1);
+  const attemptCount = Number.isSafeInteger(storedAttemptCount) && storedAttemptCount >= 0
+    ? storedAttemptCount
+    : inferredAttemptCount;
+  return attemptCount === 0
+    ? Math.max(0, Number(config?.occupyInfluenceCost ?? DEFAULT_OCCUPY_BALANCE.influenceCost))
+    : Math.max(0, Number(config?.occupyRepeatInfluenceCost ?? 10));
 };
 
 export const resolveOccupyPopulationCost = (

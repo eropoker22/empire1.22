@@ -30,6 +30,7 @@ export {
 export {
   activateServerPlayerBoost,
   submitServerAllianceCommand,
+  submitServerCityChatCommand,
   submitServerBountyCommand,
   submitServerCityEventCommand,
   submitServerEmergencyRecoveryCommand

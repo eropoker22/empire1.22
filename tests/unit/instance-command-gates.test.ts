@@ -16,6 +16,7 @@ describe("instance command conflict gates", () => {
     "claim-city-event-reward",
     "respond-alliance-invite",
     "send-alliance-chat-message",
+    "send-city-chat-message",
     "upgrade-building"
   ] as const)("revalidates %s against its current entity state", (type) => {
     expect(usesEntityConflictRevalidation(commandOfType(type))).toBe(true);

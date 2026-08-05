@@ -212,6 +212,10 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
       throw new Error("Conflict config requires a non-negative occupyInfluenceCost.");
     }
 
+    if ((config.balance.conflict.occupyRepeatInfluenceCost ?? 0) < 0) {
+      throw new Error("Conflict config requires a non-negative occupyRepeatInfluenceCost.");
+    }
+
     if ((config.balance.conflict.occupyPopulationRefundPct ?? 0) < 0 || (config.balance.conflict.occupyPopulationRefundPct ?? 0) > 100) {
       throw new Error("Conflict config requires occupyPopulationRefundPct between 0 and 100.");
     }

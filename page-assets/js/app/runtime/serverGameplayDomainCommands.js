@@ -82,6 +82,29 @@ export function submitServerAllianceCommand({ type = "", payload = {} } = {}) {
   });
 }
 
+export function submitServerCityChatCommand({ body = "" } = {}) {
+  if (!isServerGameplaySourceReady()) {
+    return Promise.resolve({
+      accepted: false,
+      errors: [{ message: "Server-authoritative gameplay runtime není připravený." }]
+    });
+  }
+  const slice = getServerGameplaySliceReadModel();
+  const focusDistrictId = slice?.district?.districtId || slice?.player?.homeDistrictId || null;
+  if (!slice?.player || !focusDistrictId) {
+    return Promise.resolve({
+      accepted: false,
+      errors: [{ message: "Městský chat nejde odeslat bez server slice kontextu." }]
+    });
+  }
+  return submitServerGameplayCommand({
+    type: "send-city-chat-message",
+    payload: { body },
+    focusDistrictId,
+    commandId: createServerGameplayCommandId("command:city-chat:send")
+  });
+}
+
 export async function activateServerPlayerBoost(boostId) {
   const response = await submitServerGameplayCommand({
     type: "activate-player-boost",

@@ -1,4 +1,4 @@
-import { submitServerAllianceCommand } from "./runtime/serverGameplaySource.js";
+import { submitServerAllianceCommand, submitServerCityChatCommand } from "./runtime/serverGameplaySource.js";
 import { getLocalDemoGameplayBridge } from "./runtime/localDemoGameplayBridge.js";
 import { STORAGE_KEYS } from "../config.js";
 import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
@@ -30,6 +30,7 @@ const getLaunchPlayerAvatar = (factionId) =>
   getLocalDemoGameplayBridge()?.getLaunchPlayerAvatarByFactionId?.(factionId) || "";
 
 let latestAllianceBoard = null;
+let latestCityChat = null;
 let selectedIconKey = "reaper";
 let selectedAllianceColor = DEFAULT_ALLIANCE_EMBLEM_COLOR;
 let selectedAllianceTab = "overview";
@@ -37,6 +38,7 @@ let pendingKickVoteTarget = null;
 let pendingPublicAllianceAction = null;
 let pendingAllianceExitMode = "leave";
 let pendingAllianceCommand = false;
+let pendingCityChatCommand = false;
 let allianceInviteSelection = null;
 let allianceChatDraft = null;
 let lastAllianceMemberAvatarTrigger = null;
@@ -120,6 +122,10 @@ const PLAYER_FACING_ERROR_COPY = {
   ALLIANCE_INVITE_NOT_OWNED: "Tahle pozvánka nepatří tobě.",
   ALLIANCE_CHAT_NOT_ALLOWED: "Alianční chat je jen pro členy aliance.",
   ALLIANCE_CHAT_EMPTY: "Napiš zprávu do aliančního chatu.",
+  CITY_CHAT_NOT_ALLOWED: "Městský chat je dostupný jen aktivním hráčům.",
+  CITY_CHAT_EMPTY: "Napiš zprávu do městského chatu.",
+  CITY_CHAT_TOO_LONG: "Zpráva do městského chatu je příliš dlouhá.",
+  CITY_CHAT_RATE_LIMITED: "Další zprávu můžeš poslat za dvě sekundy.",
   PUBLIC_ALLIANCE_CONTACT_NOT_ALLOWED: "Veřejnou alianci může kontaktovat jen aktivní člen aliance.",
   PUBLIC_ALLIANCE_CONTACT_SELF: "Vyber jinou alianci.",
   PLAYER_ALREADY_IN_ALLIANCE: "Už jsi v alianci.",
@@ -1552,15 +1558,29 @@ const renderChat = (messages = [], activeAlliance = latestAllianceBoard?.activeA
 const renderGlobalServerChat = () => {
   const log = document.querySelector("[data-global-chat-log]");
   if (!log) return;
-  const enabled = isDevOnlyAllianceDemoEnabled();
+  const isDemo = isDevOnlyAllianceDemoEnabled();
+  const enabled = isDemo || Boolean(latestCityChat?.canSend);
   const input = qs("alliance-chat-input");
   const send = qs("alliance-chat-send");
   if (input instanceof HTMLInputElement) input.disabled = !enabled;
   if (send instanceof HTMLButtonElement) send.disabled = !enabled;
-  if (!enabled) {
-    log.innerHTML = '<div class="alliance-empty-state alliance-empty-state--compact">Globální chat se připravuje. Pro komunikaci se spojenci otevři alianci.</div>';
+  if (!isDemo) {
+    const messages = Array.isArray(latestCityChat?.messages) ? latestCityChat.messages : [];
+    log.innerHTML = messages.length ? messages.map((message) => {
+      const isOwn = message.authorPlayerId === latestCityChat?.currentPlayerId;
+      const color = normalizeChatColor(message.authorColor, "#facc15");
+      const sentAt = formatChatTimestamp(message.createdAt);
+      return `
+        <div class="alliance-chat__item server-chat-panel__message ${isOwn ? "alliance-chat__item--own" : ""}">
+          <strong class="server-chat-panel__author" style="--chat-author-color: ${escapeHtml(color)}" title="${escapeHtml(message.authorName || "Hráč")}">${escapeHtml(isOwn ? "Ty" : message.authorGangName || message.authorName || "Hráč")}</strong>
+          <time class="server-chat-panel__timestamp" datetime="${escapeHtml(sentAt.iso)}">${escapeHtml(sentAt.label)}</time>
+          <span class="server-chat-panel__text">${escapeHtml(message.body)}</span>
+        </div>
+      `;
+    }).join("") : `<div class="alliance-empty-state alliance-empty-state--compact">${escapeHtml(latestCityChat ? "Městský chat je prázdný." : "Načítám městský chat ze serveru…")}</div>`;
     const status = qs("global-chat-status");
-    if (status) status.textContent = "Městský chat zatím není dostupný.";
+    if (status) status.textContent = latestCityChat?.disabledReason || "Zprávy uvidí všichni hráči na tomto serveru.";
+    log.scrollTop = log.scrollHeight;
     return;
   }
   let messages = [];
@@ -1583,6 +1603,7 @@ const renderGlobalServerChat = () => {
   }).join("") : '<div class="alliance-empty-state alliance-empty-state--compact">Městský chat je prázdný.</div>';
   const status = qs("global-chat-status");
   if (status) status.textContent = "Lokální ukázka: zprávy zůstávají jen v tomto prohlížeči.";
+  log.scrollTop = log.scrollHeight;
 };
 
 const saveGlobalMessage = (text) => {
@@ -2723,24 +2744,53 @@ const mountAllianceRuntimeBindings = () => {
       : null;
   });
 
-  qs("alliance-chat-send")?.addEventListener("click", () => {
-    if (!isDevOnlyAllianceDemoEnabled()) {
-      notify("Demo chat je v serverovém režimu vypnutý.");
-      return;
-    }
+  qs("alliance-chat-send")?.addEventListener("click", async () => {
     const input = qs("alliance-chat-input");
     const text = String(input?.value || "").trim();
     if (!text) {
-      notify("Napiš zprávu do demo chatu.");
+      const status = qs("global-chat-status");
+      if (status) status.textContent = "Napiš zprávu do městského chatu.";
       return;
     }
-    saveGlobalMessage(text);
-    if (input instanceof HTMLInputElement) input.value = "";
-    renderGlobalServerChat();
+    if (isDevOnlyAllianceDemoEnabled()) {
+      saveGlobalMessage(text);
+      if (input instanceof HTMLInputElement) input.value = "";
+      renderGlobalServerChat();
+      return;
+    }
+    if (!latestCityChat?.canSend || pendingCityChatCommand) {
+      const status = qs("global-chat-status");
+      if (status) status.textContent = pendingCityChatCommand
+        ? "Počkej, zpráva se odesílá."
+        : latestCityChat?.disabledReason || "Městský chat čeká na server.";
+      return;
+    }
+    pendingCityChatCommand = true;
+    if (input instanceof HTMLInputElement) input.disabled = true;
+    const send = qs("alliance-chat-send");
+    if (send instanceof HTMLButtonElement) send.disabled = true;
+    try {
+      const response = await submitServerCityChatCommand({ body: text });
+      if (!response?.accepted) {
+        const status = qs("global-chat-status");
+        if (status) status.textContent = commandMessage(response, "Zprávu se nepodařilo odeslat.");
+        return;
+      }
+      latestCityChat = response.readModel?.cityChat || latestCityChat;
+      if (input instanceof HTMLInputElement) input.value = "";
+      renderGlobalServerChat();
+    } catch (_error) {
+      const status = qs("global-chat-status");
+      if (status) status.textContent = "Městský chat se teď nedovolal serveru. Zkus to znovu.";
+    } finally {
+      pendingCityChatCommand = false;
+      renderGlobalServerChat();
+    }
   });
 
   document.addEventListener("empire:gameplay-slice-rendered", (event) => {
     latestAllianceBoard = createDevOnlyAllianceBoard(event?.detail?.gameplaySlice?.allianceBoard || null);
+    latestCityChat = event?.detail?.gameplaySlice?.cityChat || null;
     rerenderAll();
     window.dispatchEvent(new CustomEvent("empire:alliance-state-changed"));
   });
@@ -2820,10 +2870,12 @@ export function destroyAllianceRuntime() {
   pendingPublicAllianceAction = null;
   pendingAllianceExitMode = "leave";
   pendingAllianceCommand = false;
+  pendingCityChatCommand = false;
   allianceInviteSelection = null;
   allianceChatDraft = null;
   lastAllianceMemberAvatarTrigger = null;
   latestAllianceBoard = null;
+  latestCityChat = null;
   selectedAllianceTab = "overview";
   document.body?.classList.remove("alliance-command-pending", "alliance-modal-open");
   if (window.empireStreetsAllianceState) {

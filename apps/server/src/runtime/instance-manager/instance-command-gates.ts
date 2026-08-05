@@ -27,6 +27,7 @@ const ENTITY_REVALIDATED_CONFLICT_COMMAND_TYPES = new Set<GameCommand["type"]>([
   "relocate-trap",
   "respond-alliance-invite",
   "send-alliance-chat-message",
+  "send-city-chat-message",
   "upgrade-building"
 ]);
 

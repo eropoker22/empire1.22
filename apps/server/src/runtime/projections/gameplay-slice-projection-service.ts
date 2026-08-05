@@ -1,4 +1,4 @@
-import { createAllianceBoardReadModel, createBountyReadModel, createCityFeedProjection, createConflictReportViews, createGameplayEconomyRatesView, createLeaderboardReadModel, createOnboardingReadModel, createPlayerFrontierSummaryView, createPoliceReadModel, getMarketViewModel } from "@empire/game-core";
+import { createAllianceBoardReadModel, createBountyReadModel, createCityChatReadModel, createCityFeedProjection, createConflictReportViews, createGameplayEconomyRatesView, createLeaderboardReadModel, createOnboardingReadModel, createPlayerFrontierSummaryView, createPoliceReadModel, getMarketViewModel } from "@empire/game-core";
 import {
   empireStreetsCityMapManifestHash,
   empireStreetsCityMapManifestId,
@@ -47,6 +47,13 @@ export const createGameplaySliceProjection = (
     police
   };
   const district = selectedDistrictId ? createDistrictPanelProjection(runtime, playerId, selectedDistrictId) : null;
+  const ownedDistricts = Object.values(runtime.state.districtsById)
+    .filter((candidate) => candidate.ownerPlayerId === playerId)
+    .sort((left, right) => left.id.localeCompare(right.id))
+    .flatMap((candidate) => {
+      const panel = createDistrictPanelProjection(runtime, playerId, candidate.id);
+      return panel ? [panel] : [];
+    });
 
   return {
     server: {
@@ -93,8 +100,10 @@ export const createGameplaySliceProjection = (
       allianceId: runtime.state.playersById[playerId]?.allianceId ?? null,
       limit: 50
     }),
+    cityChat: createCityChatReadModel(runtime.state, playerId),
     districts: createDistrictListProjection(runtime, playerId),
     district,
+    ownedDistricts,
     mapEffects: [
       ...createPendingConflictMapEffects(runtime, playerId),
       ...createPublicConflictMapEffects(runtime)
@@ -159,6 +168,11 @@ const createPublicConflictMapEffects = (
       if (expiresAtTick <= currentTick) return [];
 
       const sourceType = type === "attack" ? "attack" : "district_occupy";
+      const pendingOccupy = type === "occupy"
+        ? Object.values(runtime.state.pendingOccupyOperationsById ?? {})
+          .filter((operation) => operation.targetDistrictId === district.id && operation.resolveAtTick > currentTick)
+          .sort((left, right) => right.issuedAtTick - left.issuedAtTick)[0]
+        : null;
       const sourceEvent = cityFeedEvents
         .filter((event) => (
           event.sourceType === sourceType
@@ -167,11 +181,12 @@ const createPublicConflictMapEffects = (
         ))
         .sort((left, right) => right.createdAtTick - left.createdAtTick)[0];
       const playerId = String(
-        sourceEvent?.playerId
+        pendingOccupy?.playerId
+        || sourceEvent?.playerId
         || (type === "occupy" ? district.ownerPlayerId : "")
         || ""
       );
-      const startedAtTick = Math.max(0, Number(sourceEvent?.createdAtTick ?? currentTick));
+      const startedAtTick = Math.max(0, Number(pendingOccupy?.issuedAtTick ?? sourceEvent?.createdAtTick ?? currentTick));
       const playerColor = playerId ? runtime.state.playersById[playerId]?.color : undefined;
 
       return [{

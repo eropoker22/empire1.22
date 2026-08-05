@@ -307,16 +307,12 @@
               <div id="alliance-chat-log" class="alliance-chat__log server-chat-panel__feed" data-global-chat-log>
                 <div class="alliance-chat__item server-chat-panel__message">
                   <span class="server-chat-panel__author">System:</span>
-                  <span class="server-chat-panel__text">Globální chat se připravuje. Chat aliance je dostupný uvnitř aliance.</span>
-                </div>
-                <div class="alliance-chat__item server-chat-panel__message">
-                  <span class="server-chat-panel__author">Info:</span>
-                  <span class="server-chat-panel__text">Alianční chat najdeš uvnitř aliance a ukládá ho serverový stav.</span>
+                  <span class="server-chat-panel__text">Načítám městský chat ze serveru…</span>
                 </div>
               </div>
               <div class="alliance-chat__input server-chat-panel__composer">
-                <input id="alliance-chat-input" type="text" class="server-chat-panel__input" placeholder="Napiš zprávu do městského chatu..." aria-label="Zpráva do městského chatu" data-global-chat-input>
-                <div class="server-chat-panel__status" id="global-chat-status">Pro komunikaci se spojenci otevři alianci.</div>
+                <input id="alliance-chat-input" type="text" class="server-chat-panel__input" maxlength="240" placeholder="Napiš zprávu do městského chatu..." aria-label="Zpráva do městského chatu" data-global-chat-input>
+                <div class="server-chat-panel__status" id="global-chat-status">Zprávy uvidí všichni hráči na tomto serveru.</div>
               </div>
             </section>
           </div>

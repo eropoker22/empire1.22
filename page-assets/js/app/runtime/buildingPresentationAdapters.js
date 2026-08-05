@@ -1028,8 +1028,9 @@ export class ServerBuildingPresentationAdapter {
   getDistrictPresentation(district) {
     const canonicalDistrictId = toCanonicalServerDistrictId(district);
     const readModel = this.getReadModel?.() || null;
-    const serverDistrict = readModel?.district || null;
-    if (!canonicalDistrictId || String(serverDistrict?.districtId || "") !== canonicalDistrictId) {
+    const serverDistrict = [readModel?.district, ...(readModel?.ownedDistricts || [])]
+      .find((candidate) => String(candidate?.districtId || "") === canonicalDistrictId) || null;
+    if (!canonicalDistrictId || !serverDistrict) {
       return {
         canonicalDistrictId,
         destroyed: false,
@@ -1040,6 +1041,7 @@ export class ServerBuildingPresentationAdapter {
       };
     }
 
+    const scopedReadModel = { ...readModel, district: serverDistrict };
     const localProfile = this.resolveDistrictBuildingProfile?.(district) || null;
     const localBuildings = Array.isArray(localProfile?.buildings) ? localProfile.buildings : [];
     const serverBuildings = Array.isArray(serverDistrict.buildings) ? serverDistrict.buildings : [];
@@ -1080,7 +1082,7 @@ export class ServerBuildingPresentationAdapter {
       isOwnedByPlayer: serverDistrict.isOwnedByPlayer === true
         || String(serverDistrict.ownerPlayerId || "") === String(readModel?.player?.playerId || ""),
       profile,
-      readModel
+      readModel: scopedReadModel
     };
   }
 

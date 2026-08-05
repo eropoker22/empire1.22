@@ -804,8 +804,14 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
 }
 
 @media (min-width: 721px) {
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card.building-detail-modal__content {
+    max-height: min(92vh, 920px) !important;
+    overflow-y: auto !important;
+  }
+
   html body.game-body .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card [data-district-building-detail-action-section] {
-    margin-top: 82px !important;
+    margin-top: 24px !important;
+    padding-bottom: 10px !important;
   }
 
   html body.game-body .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card [data-district-building-detail-action-section] > h5 {

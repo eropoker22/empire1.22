@@ -101,9 +101,10 @@ describe("current gameplay cleanup guard", () => {
     const browserAdapter = read("packages/game-config/src/legacy-page/economy-config.js");
 
     expect(page).toContain('name="empire-gameplay-execution-mode" content="server-authoritative"');
-    expect(page).toContain("Globální chat se připravuje.");
+    expect(page).toContain("Načítám městský chat ze serveru…");
     expect(page).toContain("Strategické boosty");
     expect(chatRuntime).toContain('empire:demo:global-chat:v1');
+    expect(chatRuntime).toContain("submitServerCityChatCommand");
     expect(browserAdapter).toContain('from "./gameplay-config.generated.js"');
     expect(browserAdapter).not.toContain('"baseball-bat": {');
   });

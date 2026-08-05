@@ -164,6 +164,56 @@ describe("shared building presentation adapters", () => {
     });
   });
 
+  it("maps an owned district even when another district is currently selected", () => {
+    const adapter = new ServerBuildingPresentationAdapter({
+      getReadModel: () => ({
+        player: { playerId: "player:1" },
+        district: {
+          districtId: "district:21",
+          ownerPlayerId: "player:1",
+          isOwnedByPlayer: true,
+          intelKnown: true,
+          status: "claimed",
+          zone: "commercial",
+          buildings: []
+        },
+        ownedDistricts: [{
+          districtId: "district:22",
+          ownerPlayerId: "player:1",
+          isOwnedByPlayer: true,
+          intelKnown: true,
+          status: "claimed",
+          zone: "industrial",
+          buildings: [{
+            buildingId: "building:district-22:factory:1",
+            buildingTypeId: "factory",
+            label: "Továrna",
+            displayName: "Továrna",
+            level: 1,
+            status: "active"
+          }]
+        }]
+      }),
+      resolveDistrictBuildingProfile: (district) => ({
+        districtId: district.id,
+        districtLabel: `District ${district.id}`,
+        typeKey: district.id === 22 ? "industrial" : "commercial",
+        buildings: [{ baseName: "Továrna", displayName: "Továrna" }]
+      })
+    });
+
+    const presentation = adapter.getDistrictPresentation({ id: 22 });
+
+    expect(presentation.isOwnedByPlayer).toBe(true);
+    expect(presentation.readModel.district.districtId).toBe("district:22");
+    expect(presentation.profile.buildings).toEqual([
+      expect.objectContaining({
+        buildingId: "building:district-22:factory:1",
+        buildingTypeId: "factory"
+      })
+    ]);
+  });
+
   it("creates the shared detail view for the exact physical server building", () => {
     const firstRestaurant = {
       buildingId: "building:district-21:restaurant:1",
