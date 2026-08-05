@@ -19,6 +19,7 @@ import {
 import { ONBOARDING_SANDBOX_MODE } from "./onboardingSandboxState.js";
 
 export const STORAGE_PREFIX = "empire:onboarding:v2";
+export const ONBOARDING_STATE_EVENT = "empire:onboarding-state-change";
 const LEGACY_STORAGE_PREFIXES = Object.freeze([
   "empire:onboarding:v1",
   "empire:onboarding:demo-v1"
@@ -296,6 +297,8 @@ export function createOnboardingBridge(deps = {}) {
   let eventsBound = false;
   let legacyStoragePruned = false;
   let lastEnteredStepId = "";
+  let lastPublishedState = "";
+  let started = false;
   const boundEvents = [];
 
   const getContext = () => ({
@@ -319,6 +322,26 @@ export function createOnboardingBridge(deps = {}) {
   };
 
   const persist = () => writeStoredProgress(progress, storage, storageKey);
+
+  const publishState = () => {
+    const normalized = normalizeOnboardingProgress(progress);
+    const status = normalized.completed ? "completed" : "pending";
+    const signature = `${status}:${JSON.stringify(serializeOnboardingProgress(normalized))}`;
+    if (signature === lastPublishedState) {
+      return false;
+    }
+    lastPublishedState = signature;
+    if (documentRef?.documentElement?.dataset) {
+      documentRef.documentElement.dataset.onboardingStatus = status;
+    }
+    const CustomEventCtor = documentRef?.defaultView?.CustomEvent;
+    if (documentRef?.dispatchEvent && typeof CustomEventCtor === "function") {
+      documentRef.dispatchEvent(new CustomEventCtor(ONBOARDING_STATE_EVENT, {
+        detail: { progress: normalized, status }
+      }));
+    }
+    return true;
+  };
 
   const syncStepEnter = () => {
     const currentStepId = normalizeOnboardingProgress(progress).currentStepId;
@@ -358,6 +381,7 @@ export function createOnboardingBridge(deps = {}) {
     progress = updateOnboardingProgress(getContext(), eventOrState);
     persist();
     render();
+    publishState();
     return progress;
   };
 
@@ -369,6 +393,7 @@ export function createOnboardingBridge(deps = {}) {
       deps.onComplete(getContext());
     }
     render();
+    publishState();
     return progress;
   };
 
@@ -388,6 +413,7 @@ export function createOnboardingBridge(deps = {}) {
       deps.onComplete(getContext());
     }
     render();
+    publishState();
     return progress;
   };
 
@@ -395,7 +421,23 @@ export function createOnboardingBridge(deps = {}) {
     progress = moveOnboardingProgress(progress, -1);
     persist();
     render();
+    publishState();
     return progress;
+  };
+
+  const start = () => {
+    refreshReadModel();
+    if (started || !shouldAutoStartOnboarding(progress, readModel)) {
+      publishState();
+      return false;
+    }
+    started = true;
+    if (typeof deps.onStart === "function") {
+      deps.onStart(getContext());
+    }
+    render();
+    publishState();
+    return true;
   };
 
   const restart = () => {
@@ -408,11 +450,13 @@ export function createOnboardingBridge(deps = {}) {
       version: ONBOARDING_VERSION
     });
     persist();
+    started = true;
     if (typeof deps.onStart === "function") {
       deps.onStart(getContext());
     }
     showPanel();
     render();
+    publishState();
     return progress;
   };
 
@@ -529,13 +573,11 @@ export function createOnboardingBridge(deps = {}) {
 
   const init = () => {
     refreshReadModel();
-    if (deps.autoStart !== false && shouldAutoStartOnboarding(progress, readModel)) {
-      if (typeof deps.onStart === "function") {
-        deps.onStart(getContext());
-      }
-      render();
+    if (deps.autoStart !== false) {
+      start();
     }
     bindEvents();
+    publishState();
     return progress;
   };
 
@@ -550,6 +592,7 @@ export function createOnboardingBridge(deps = {}) {
     destroy,
     render,
     restart,
+    start,
     skip,
     update
   };

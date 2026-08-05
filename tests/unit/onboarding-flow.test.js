@@ -915,6 +915,8 @@ describe("Empire onboarding flow", () => {
   it("runs the completion callback when onboarding is skipped", () => {
     const { document, root } = createOnboardingDom();
     const onComplete = vi.fn();
+    const states = [];
+    document.addEventListener("empire:onboarding-state-change", (event) => states.push(event.detail));
     const bridge = createOnboardingBridge({
       documentRef: document,
       root,
@@ -940,6 +942,7 @@ describe("Empire onboarding flow", () => {
       mode: "onboarding",
       progress: expect.objectContaining({ completed: true, skipped: true })
     }));
+    expect(states.map((state) => state.status)).toEqual(["pending", "completed"]);
   });
 
   it("finds the first owned district in the onboarding read model", () => {

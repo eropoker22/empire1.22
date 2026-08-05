@@ -5,6 +5,7 @@ export const SERVER_MILESTONE_IDS = Object.freeze(["welcome", "first-purge", "lo
 
 const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
 const ACKNOWLEDGEMENT_KEY_PREFIX = "empire:server-milestone:seen";
+const ONBOARDING_STATE_EVENT = "empire:onboarding-state-change";
 const FOCUSABLE_SELECTOR = [
   "button:not([disabled])",
   "[href]",
@@ -230,6 +231,8 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
   const payloads = new Map();
   let activeId = "";
   let initialFocus = null;
+  let latestGameplaySlice = null;
+  let onboardingStatus = String(documentRef.documentElement?.dataset?.onboardingStatus || "pending");
   let countdownDeadlineMs = null;
   let countdownStatKey = "";
   let countdownTimer = null;
@@ -331,6 +334,10 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
 
   const handleGameplaySlice = (gameplaySlice = {}) => {
     if (!isServerLifecycleMode()) return false;
+    latestGameplaySlice = gameplaySlice;
+    if (onboardingStatus !== "completed") return false;
+    const lifecycleStatus = String(gameplaySlice.server?.status || "").trim().toLowerCase();
+    if (lifecycleStatus !== "running" && lifecycleStatus !== "ended") return false;
     const serverInstanceId = String(gameplaySlice.server?.serverInstanceId || gameplaySlice.player?.instanceId || "");
     const firstPurgeDeadlineMs = resolveFirstPurgeDeadlineMs(gameplaySlice);
     const finalLockdownDeadlineMs = resolveFinalLockdownDeadlineMs(gameplaySlice);
@@ -341,7 +348,7 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
       startCountdown("final-lockdown-countdown", finalLockdownDeadlineMs);
     }
     if (!serverInstanceId || !modal.hidden) return false;
-    if (announce("welcome", serverInstanceId)) return true;
+    if (lifecycleStatus === "running" && announce("welcome", serverInstanceId)) return true;
     if (shouldOpenFirstPurgeCard(gameplaySlice)
       && announce("first-purge", serverInstanceId, {
         firstPurgeDeadlineMs,
@@ -406,6 +413,12 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
   });
   documentRef.addEventListener("empire:gameplay-slice-rendered", (event) => {
     handleGameplaySlice(event?.detail?.gameplaySlice || {});
+  });
+  documentRef.addEventListener(ONBOARDING_STATE_EVENT, (event) => {
+    onboardingStatus = String(event?.detail?.status || (event?.detail?.progress?.completed ? "completed" : "pending"));
+    if (onboardingStatus === "completed" && latestGameplaySlice) {
+      handleGameplaySlice(latestGameplaySlice);
+    }
   });
 
   if (options.autoWelcome !== false) {

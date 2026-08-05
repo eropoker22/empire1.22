@@ -26,7 +26,7 @@ test("server lifecycle signals open four standalone milestone cards", async ({ p
   }, slice);
 
   if (await modal.isVisible()) await confirmMilestone();
-  await dispatchSlice({ server: { serverInstanceId: "e2e:milestones" }, mode: { tickRateMs: 5000 }, player: { instanceId: "e2e:milestones" } });
+  await dispatchSlice({ server: { serverInstanceId: "e2e:milestones", status: "running" }, mode: { tickRateMs: 5000 }, player: { instanceId: "e2e:milestones" } });
 
   await expect(modal).toBeVisible();
   await expect(modal).toHaveAttribute("data-server-milestone", "welcome");
@@ -35,7 +35,7 @@ test("server lifecycle signals open four standalone milestone cards", async ({ p
   await confirmMilestone();
   await expect(modal).toBeHidden();
   await dispatchSlice({
-    server: { serverInstanceId: "e2e:milestones" },
+    server: { serverInstanceId: "e2e:milestones", status: "running" },
     mode: { tickRateMs: 5000 },
     elimination: { enabled: true, eliminationsStopped: false, firstEliminationTick: 2880, nextEliminationTick: 2880, ticksUntilNextElimination: 2880, activePlayersRemaining: 20 },
     player: { instanceId: "e2e:milestones" }
@@ -48,7 +48,7 @@ test("server lifecycle signals open four standalone milestone cards", async ({ p
   await confirmMilestone();
   await expect(modal).toBeHidden();
   await dispatchSlice({
-    server: { serverInstanceId: "e2e:milestones", currentTick: 400 },
+    server: { serverInstanceId: "e2e:milestones", status: "running", currentTick: 400 },
     mode: { tickRateMs: 5000 },
     elimination: { activePlayersRemaining: 8 },
     player: {
@@ -71,7 +71,7 @@ test("server lifecycle signals open four standalone milestone cards", async ({ p
   await confirmMilestone();
   await expect(modal).toBeHidden();
   await dispatchSlice({
-    server: { serverInstanceId: "e2e:milestones" },
+    server: { serverInstanceId: "e2e:milestones", status: "ended" },
     player: {
       instanceId: "e2e:milestones",
       finalLockdown: {

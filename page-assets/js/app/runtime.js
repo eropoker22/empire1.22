@@ -981,7 +981,10 @@ import {
 } from "./runtime/productionInfoViewModel.js";
 import { normalizeActionResult } from "./runtime/actionResultOrchestrator.js";
 import { createOnboardingBridge } from "./runtime/onboardingBridge.js";
-import { resolveOnboardingRuntimePolicy } from "./runtime/onboardingRuntimePolicy.js";
+import {
+  canAutoStartOnboarding,
+  resolveOnboardingRuntimePolicy
+} from "./runtime/onboardingRuntimePolicy.js";
 import { createPoliceHeatBridge, resolvePoliceHeatFeedback } from "./runtime/policeHeatBridge.js";
 import { createEventRumorBridge, createRumorStreetNewsPayload } from "./runtime/eventRumorBridge.js";
 import { renderRecipeCard } from "./ui/recipePanel.js";
@@ -16020,7 +16023,8 @@ function ensureStartDistrictRecovery() {
 }
 
 function bindFreeSessionOnboarding(root) {
-  const policy = resolveOnboardingRuntimePolicy(getSelectedGameplayExecutionMode());
+  const executionMode = getSelectedGameplayExecutionMode();
+  const policy = resolveOnboardingRuntimePolicy(executionMode);
   if (
     !root
     || onboardingBridgesByRoot.has(root)
@@ -16029,11 +16033,16 @@ function bindFreeSessionOnboarding(root) {
     return false;
   }
 
+  const canStartPresentation = () => canAutoStartOnboarding(executionMode, {
+    authorityState: String(document.body?.dataset?.authorityState || ""),
+    bodyBooting: document.body?.classList?.contains?.("game-body--booting") === true,
+    overlayOpen: isOverlayOpen()
+  });
   const bridge = createOnboardingBridge({
     root,
     documentRef: document,
     getContext: () => createFreeSessionUiContext(root),
-    autoStart: policy.autoStart,
+    autoStart: policy.autoStart && canStartPresentation(),
     ...(policy.useLocalSandbox
       ? {
           onStart: () => startOnboardingSandbox(root),
@@ -16044,6 +16053,28 @@ function bindFreeSessionOnboarding(root) {
   });
   onboardingBridgesByRoot.set(root, bridge);
   bridge.init();
+  if (policy.autoStart && executionMode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    let retryTimer = null;
+    const tryStart = () => {
+      retryTimer = null;
+      if (bridge.getProgress?.()?.completed) {
+        return;
+      }
+      if (canStartPresentation()) {
+        bridge.start?.();
+        return;
+      }
+      if (document.body?.dataset?.authorityState === "ready") {
+        retryTimer = window.setTimeout(tryStart, 150);
+      }
+    };
+    document.addEventListener("empire:gameplay-slice-rendered", () => {
+      if (retryTimer !== null) {
+        window.clearTimeout(retryTimer);
+      }
+      retryTimer = window.setTimeout(tryStart, 0);
+    });
+  }
   return true;
 }
 

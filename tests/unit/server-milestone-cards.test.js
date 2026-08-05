@@ -13,12 +13,13 @@ import {
 const gameHtml = readFileSync(resolve(process.cwd(), "pages/game.html"), "utf8");
 const milestoneCss = readFileSync(resolve(process.cwd(), "page-assets/css/styles-server-milestone-cards.css"), "utf8");
 
-const mount = (executionMode = "server-authoritative") => {
+const mount = (executionMode = "server-authoritative", onboardingStatus = "completed") => {
   const values = new Map();
   const storage = {
     getItem: (key) => values.get(key) || null,
     setItem: (key, value) => values.set(key, String(value))
   };
+  document.documentElement.dataset.onboardingStatus = onboardingStatus;
   document.body.innerHTML = `
     <main id="game-root" data-runtime-init="ready"></main>
     <div data-server-milestone-modal hidden>
@@ -45,6 +46,7 @@ const mount = (executionMode = "server-authoritative") => {
 describe("server milestone cards", () => {
   afterEach(() => {
     vi.useRealTimers();
+    delete document.documentElement.dataset.onboardingStatus;
     document.body.replaceChildren();
   });
 
@@ -64,7 +66,7 @@ describe("server milestone cards", () => {
     const confirm = document.querySelector("[data-server-milestone-confirm]");
 
     controller.handleGameplaySlice({
-      server: { serverInstanceId: "server:1", generatedAt: "2026-07-21T12:00:00.000Z" },
+      server: { serverInstanceId: "server:1", status: "running", generatedAt: "2026-07-21T12:00:00.000Z" },
       mode: { tickRateMs: 5000 },
       player: { instanceId: "server:1" }
     });
@@ -77,7 +79,7 @@ describe("server milestone cards", () => {
     confirm.click();
     expect(modal.hidden).toBe(true);
     controller.handleGameplaySlice({
-      server: { serverInstanceId: "server:1" },
+      server: { serverInstanceId: "server:1", status: "running" },
       mode: { tickRateMs: 5000 },
       elimination: {
         enabled: true,
@@ -96,7 +98,7 @@ describe("server milestone cards", () => {
 
     confirm.click();
     controller.handleGameplaySlice({
-      server: { serverInstanceId: "server:1", generatedAt: "2026-07-21T12:00:00.000Z" },
+      server: { serverInstanceId: "server:1", status: "running", generatedAt: "2026-07-21T12:00:00.000Z" },
       mode: { tickRateMs: 5000 },
       elimination: { activePlayersRemaining: 8 },
       player: {
@@ -112,7 +114,7 @@ describe("server milestone cards", () => {
     confirm.click();
     const ranking = [1, 2, 3].map((rank) => ({ rank, playerName: `Gang ${rank}`, score: 1000 - rank }));
     controller.handleGameplaySlice({
-      server: { serverInstanceId: "server:1" },
+      server: { serverInstanceId: "server:1", status: "ended" },
       player: {
         instanceId: "server:1",
         finalLockdown: { enabled: true, active: false, status: "resolved", leaderboardTop3: ranking }
@@ -143,6 +145,42 @@ describe("server milestone cards", () => {
 
     expect(modal.hidden).toBe(true);
     expect(controller.getActiveId()).toBe("");
+  });
+
+  it("defers the server welcome card until onboarding is completed or skipped", () => {
+    const controller = mount("server-authoritative", "pending");
+    const modal = document.querySelector("[data-server-milestone-modal]");
+    const gameplaySlice = {
+      server: { serverInstanceId: "server:onboarding-order", status: "running" },
+      player: { instanceId: "server:onboarding-order" }
+    };
+
+    expect(controller.handleGameplaySlice(gameplaySlice)).toBe(false);
+    expect(modal.hidden).toBe(true);
+
+    document.dispatchEvent(new CustomEvent("empire:onboarding-state-change", {
+      detail: { status: "completed", progress: { completed: true, skipped: true } }
+    }));
+
+    expect(modal.hidden).toBe(false);
+    expect(modal.dataset.serverMilestone).toBe("welcome");
+  });
+
+  it("does not show the welcome card before the admin starts the server", () => {
+    const controller = mount();
+    const modal = document.querySelector("[data-server-milestone-modal]");
+
+    expect(controller.handleGameplaySlice({
+      server: { serverInstanceId: "server:waiting", status: "lobby" },
+      player: { instanceId: "server:waiting" }
+    })).toBe(false);
+    expect(modal.hidden).toBe(true);
+
+    expect(controller.handleGameplaySlice({
+      server: { serverInstanceId: "server:waiting", status: "running" },
+      player: { instanceId: "server:waiting" }
+    })).toBe(true);
+    expect(modal.dataset.serverMilestone).toBe("welcome");
   });
 
   it("uses the canonical first-elimination countdown for the four-hour trigger", () => {
@@ -176,6 +214,7 @@ describe("server milestone cards", () => {
     const purgeSlice = {
       server: {
         serverInstanceId: "server:countdowns",
+        status: "running",
         currentTick: 100,
         generatedAt: "2026-07-21T12:00:00.000Z"
       },
@@ -199,6 +238,7 @@ describe("server milestone cards", () => {
     controller.handleGameplaySlice({
       server: {
         serverInstanceId: "server:countdowns",
+        status: "running",
         currentTick: 100,
         generatedAt: "2026-07-21T12:00:00.000Z"
       },

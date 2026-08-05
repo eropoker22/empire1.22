@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { GAMEPLAY_EXECUTION_MODES } from "../../page-assets/js/app/runtime/gameplayExecutionMode.js";
-import { resolveOnboardingRuntimePolicy } from "../../page-assets/js/app/runtime/onboardingRuntimePolicy.js";
+import {
+  canAutoStartOnboarding,
+  resolveOnboardingRuntimePolicy
+} from "../../page-assets/js/app/runtime/onboardingRuntimePolicy.js";
 
 const read = (path) => readFileSync(resolve(process.cwd(), path), "utf8");
 
@@ -35,14 +38,32 @@ describe("live gameplay bootstrap authority", () => {
     );
 
     expect(resolveOnboardingRuntimePolicy(GAMEPLAY_EXECUTION_MODES.serverAuthoritative)).toEqual({
-      autoStart: false,
+      autoStart: true,
       bind: true,
       useLocalSandbox: true
     });
-    expect(onboardingBinder).toContain("resolveOnboardingRuntimePolicy(getSelectedGameplayExecutionMode())");
+    expect(onboardingBinder).toContain("resolveOnboardingRuntimePolicy(executionMode)");
     expect(onboardingBinder).toContain("|| !policy.bind");
     expect(onboardingBinder).toContain("autoStart: policy.autoStart");
     expect(onboardingBinder).toContain("...(policy.useLocalSandbox");
     expect(onboardingBinder).toContain("onStepEnter: (stepId) => enterOnboardingSandboxStep(stepId, root)");
+  });
+
+  it("waits until the hosted game is visible and no dark overlay is open", () => {
+    expect(canAutoStartOnboarding(GAMEPLAY_EXECUTION_MODES.serverAuthoritative, {
+      authorityState: "booting",
+      bodyBooting: true,
+      overlayOpen: false
+    })).toBe(false);
+    expect(canAutoStartOnboarding(GAMEPLAY_EXECUTION_MODES.serverAuthoritative, {
+      authorityState: "ready",
+      bodyBooting: false,
+      overlayOpen: true
+    })).toBe(false);
+    expect(canAutoStartOnboarding(GAMEPLAY_EXECUTION_MODES.serverAuthoritative, {
+      authorityState: "ready",
+      bodyBooting: false,
+      overlayOpen: false
+    })).toBe(true);
   });
 });
