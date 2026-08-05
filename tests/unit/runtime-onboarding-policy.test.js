@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { GAMEPLAY_EXECUTION_MODES } from "../../page-assets/js/app/runtime/gameplayExecutionMode.js";
-import { resolveOnboardingRuntimePolicy } from "../../page-assets/js/app/runtime/onboardingRuntimePolicy.js";
+import {
+  canAutoStartOnboarding,
+  resolveOnboardingRuntimePolicy
+} from "../../page-assets/js/app/runtime/onboardingRuntimePolicy.js";
 
 const root = process.cwd();
 
@@ -15,12 +18,21 @@ describe("runtime onboarding policy", () => {
     });
   });
 
-  it("binds hosted onboarding in an isolated sandbox without auto-start fallback", () => {
+  it("binds hosted onboarding in an isolated sandbox with safe auto-start", () => {
     expect(resolveOnboardingRuntimePolicy(GAMEPLAY_EXECUTION_MODES.serverAuthoritative)).toEqual({
-      autoStart: false,
+      autoStart: true,
       bind: true,
       useLocalSandbox: true
     });
+  });
+
+  it("auto-starts hosted onboarding only after authority is ready without a blocking overlay", () => {
+    const executionMode = GAMEPLAY_EXECUTION_MODES.serverAuthoritative;
+
+    expect(canAutoStartOnboarding(executionMode, { authorityState: "ready" })).toBe(true);
+    expect(canAutoStartOnboarding(executionMode, { authorityState: "connecting" })).toBe(false);
+    expect(canAutoStartOnboarding(executionMode, { authorityState: "ready", bodyBooting: true })).toBe(false);
+    expect(canAutoStartOnboarding(executionMode, { authorityState: "ready", overlayOpen: true })).toBe(false);
   });
 
   it("fails closed when no gameplay presentation mode is selected", () => {
