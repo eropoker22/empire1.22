@@ -14,6 +14,29 @@ function createElement(scopeElement, tagName, className = "") {
   return element;
 }
 
+const INLINE_DISABLED_ACTION_IDS = new Set(["occupy", "rob"]);
+
+function resolveDistrictActionPresentation(action = {}) {
+  const actionId = String(action.id || "");
+  if (action.enabled !== false || !INLINE_DISABLED_ACTION_IDS.has(actionId)) {
+    return action;
+  }
+
+  const inlineReason = String(
+    action.reason
+    || action.title
+    || action.subtitle
+    || "Akce teď není dostupná."
+  ).trim();
+  return {
+    ...action,
+    stacked: true,
+    subtitle: inlineReason,
+    disabledTone: "unavailable",
+    reason: ""
+  };
+}
+
 export function renderDistrictActionDisabledReason(reason = "", options = {}) {
   const mount = options.mount || options.container || null;
   const reasonElement = createElement(mount, "p", "district-popup-action-reason");
@@ -31,66 +54,67 @@ export function renderDistrictActionButton(action = {}, callback = null, options
     return null;
   }
 
+  const presentation = resolveDistrictActionPresentation(action);
   const hasCallback = typeof callback === "function";
   button.type = "button";
-  button.dataset.districtActionId = action.id || "";
-  if (action.key) {
-    button.dataset.districtActionKey = String(action.key);
+  button.dataset.districtActionId = presentation.id || "";
+  if (presentation.key) {
+    button.dataset.districtActionKey = String(presentation.key);
   }
-  if (action.targetDistrictId) {
-    button.dataset.districtActionTargetId = String(action.targetDistrictId);
+  if (presentation.targetDistrictId) {
+    button.dataset.districtActionTargetId = String(presentation.targetDistrictId);
   }
-  button.dataset.districtActionLabel = action.label || "";
-  if (action.id) {
-    button.dataset.testid = `district-action-${action.key || action.id}`;
+  button.dataset.districtActionLabel = presentation.label || "";
+  if (presentation.id) {
+    button.dataset.testid = `district-action-${presentation.key || presentation.id}`;
   }
-  if (action.disabledTone) {
-    button.dataset.districtActionDisabledTone = String(action.disabledTone);
+  if (presentation.disabledTone) {
+    button.dataset.districtActionDisabledTone = String(presentation.disabledTone);
   }
-  if (action.countdownLabel) {
+  if (presentation.countdownLabel) {
     button.dataset.districtActionCountdown = "true";
-    if (action.countdownEndsAt) {
-      button.dataset.districtActionCountdownEndsAt = String(action.countdownEndsAt);
+    if (presentation.countdownEndsAt) {
+      button.dataset.districtActionCountdownEndsAt = String(presentation.countdownEndsAt);
     }
   }
-  button.disabled = Boolean(action.countdownLabel) || !action.enabled || !hasCallback;
+  button.disabled = Boolean(presentation.countdownLabel) || !presentation.enabled || !hasCallback;
 
-  if (action.stacked || action.countdownLabel) {
-    if (action.stacked) {
+  if (presentation.stacked || presentation.countdownLabel) {
+    if (presentation.stacked) {
       button.classList.add("district-popup-action--stacked");
     }
-    if (action.countdownLabel) {
+    if (presentation.countdownLabel) {
       button.classList.add("district-popup-action--countdown");
     }
-    if (action.trapState) {
-      button.dataset.districtTrapState = action.trapState;
+    if (presentation.trapState) {
+      button.dataset.districtTrapState = presentation.trapState;
     }
 
     const label = createElement(mount, "span", "district-popup-action__label");
     if (label) {
-      label.textContent = action.label || "";
+      label.textContent = presentation.label || "";
       button.append(label);
     }
 
-    if (action.subtitle || action.countdownLabel) {
+    if (presentation.subtitle || presentation.countdownLabel) {
       const subtitle = createElement(
         mount,
         "span",
-        action.countdownLabel
+        presentation.countdownLabel
           ? "district-popup-action__sub district-popup-action__countdown"
           : "district-popup-action__sub"
       );
       if (subtitle) {
-        subtitle.textContent = action.countdownLabel || action.subtitle;
+        subtitle.textContent = presentation.countdownLabel || presentation.subtitle;
         button.append(subtitle);
       }
     }
   } else {
-    button.textContent = action.label || "";
+    button.textContent = presentation.label || "";
   }
 
-  if (action.title) {
-    button.title = action.title;
+  if (presentation.title) {
+    button.title = presentation.title;
   }
 
   button.addEventListener?.("click", () => {
@@ -149,17 +173,18 @@ export function renderDistrictActionHub(actionViewModel = {}, callbacks = {}, op
   }
 
   for (const action of actions) {
+    const presentation = resolveDistrictActionPresentation(action);
     const actionRow = createElement(mount, "div", "district-popup-action-row");
-    const callback = callbacks[action.id] || callbacks.onAction || null;
-    const button = renderDistrictActionButton(action, callback, { mount });
+    const callback = callbacks[presentation.id] || callbacks.onAction || null;
+    const button = renderDistrictActionButton(presentation, callback, { mount });
     if (!actionRow || !button) {
       continue;
     }
 
     actionRow.append(button);
 
-    if (action.reason) {
-      const reason = renderDistrictActionDisabledReason(action.reason, { mount });
+    if (presentation.reason) {
+      const reason = renderDistrictActionDisabledReason(presentation.reason, { mount });
       if (reason) {
         actionRow.append(reason);
       }

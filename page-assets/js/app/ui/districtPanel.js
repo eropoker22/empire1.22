@@ -277,40 +277,53 @@ function createDistrictActionButton(mount, action) {
   if (!button) {
     return null;
   }
+  const inlineDisabledReason = action.enabled === false && ["occupy", "rob"].includes(String(action.id || ""))
+    ? String(action.reason || action.title || action.subtitle || "Akce teď není dostupná.").trim()
+    : "";
+  const presentation = inlineDisabledReason
+    ? {
+        ...action,
+        stacked: true,
+        subtitle: inlineDisabledReason,
+        disabledTone: "unavailable"
+      }
+    : action;
   button.type = "button";
-  button.dataset.districtActionId = action.id || "";
-  button.dataset.districtActionLabel = action.label || "";
-  if (action.disabledTone) {
-    button.dataset.districtActionDisabledTone = String(action.disabledTone);
+  button.dataset.districtActionId = presentation.id || "";
+  button.dataset.districtActionLabel = presentation.label || "";
+  if (presentation.disabledTone) {
+    button.dataset.districtActionDisabledTone = String(presentation.disabledTone);
   }
-  button.disabled = !action.enabled;
+  button.disabled = !presentation.enabled;
 
-  if (action.stacked) {
+  if (presentation.stacked) {
     button.classList.add("district-popup-action--stacked");
-    if (action.trapState) {
-      button.dataset.districtTrapState = action.trapState;
+    if (presentation.trapState) {
+      button.dataset.districtTrapState = presentation.trapState;
     }
 
     const label = createElement(mount, "span", "district-popup-action__label");
     if (label) {
-      label.textContent = action.label || "";
+      label.textContent = presentation.label || "";
       button.append(label);
     }
 
-    if (action.subtitle) {
+    if (presentation.subtitle) {
       const subtitle = createElement(mount, "span", "district-popup-action__sub");
       if (subtitle) {
-        subtitle.textContent = action.subtitle;
+        subtitle.textContent = presentation.subtitle;
         button.append(subtitle);
       }
     }
   } else {
-    button.textContent = action.label || "";
+    button.textContent = presentation.label || "";
   }
 
-  if (action.title) {
-    button.title = action.title;
+  if (presentation.title) {
+    button.title = presentation.title;
   }
+
+  button.dataset.districtActionReasonInline = inlineDisabledReason ? "true" : "false";
 
   return button;
 }
@@ -363,7 +376,7 @@ export function renderDistrictActionPanel(elements = {}, view = {}) {
 
     actionRow.append(button);
 
-    if (action.reason) {
+    if (action.reason && button.dataset.districtActionReasonInline !== "true") {
       const reason = createElement(mount, "p", "district-popup-action-reason");
       if (reason) {
         reason.textContent = action.reason;

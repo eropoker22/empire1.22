@@ -364,4 +364,25 @@ describe("district panel rendering", () => {
     expect(mount.children[0].children[0].textContent).toBe("Downtown je uzavřený.");
     expect(mount.children[1].children[0].dataset.districtActionId).toBe("rob");
   });
+
+  it("keeps disabled robbery and occupation reasons inside grey buttons", () => {
+    const document = new FakeDocument();
+    const section = createElement(document);
+    const head = createElement(document);
+    const mount = createElement(document);
+
+    renderDistrictActionPanel({ section, head, mount }, {
+      actions: [
+        { id: "rob", label: "Vykrást district", enabled: false, reason: "Chybí volný člen gangu." },
+        { id: "occupy", label: "Obsadit", enabled: false, reason: "Chybí úspěšné špehování." }
+      ]
+    });
+
+    expect(mount.children).toHaveLength(2);
+    for (const row of mount.children) {
+      expect(row.children).toHaveLength(1);
+      expect(row.children[0].dataset.districtActionDisabledTone).toBe("unavailable");
+      expect(row.children[0].children[1].textContent).toBeTruthy();
+    }
+  });
 });

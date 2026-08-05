@@ -98,12 +98,16 @@ function formatMoneyPerHour(value) {
   return `${formatDistrictBuildingMoney(Math.round(Number(value || 0)))}/hod`;
 }
 
-function formatDecimal(value, fractionDigits = 2) {
+function formatDecimal(value, fractionDigits = 1) {
   const numberValue = Number(value);
   if (!Number.isFinite(numberValue)) {
     return "";
   }
-  return numberValue.toFixed(fractionDigits);
+  const roundedValue = Number(numberValue.toFixed(fractionDigits));
+  if (roundedValue === 0 && numberValue !== 0) {
+    return numberValue > 0 ? "<0.1" : "-<0.1";
+  }
+  return String(roundedValue);
 }
 
 function formatInteger(value) {

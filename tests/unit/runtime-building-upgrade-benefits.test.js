@@ -173,7 +173,26 @@ describe("building upgrade confirmation benefits", () => {
     });
 
     expect(benefits.map((benefit) => benefit.label)).toEqual(["Populace / min", "Kapacita populace", "Bonus levelu"]);
-    expect(benefits.find((benefit) => benefit.label === "Populace / min")?.value).toBe("+0.04");
+    expect(benefits.find((benefit) => benefit.label === "Populace / min")?.value).toBe("+<0.1");
+  });
+
+  it("limits upgrade benefit decimals to one place", () => {
+    const { benefits } = resolveBuildingUpgradeBenefits({
+      currentMechanics: {
+        mechanicsType: "apartment-block",
+        level: 1,
+        apartmentPopulationPerMinute: 12.111111111
+      },
+      nextMechanics: {
+        mechanicsType: "apartment-block",
+        level: 2,
+        apartmentPopulationPerMinute: 13.777777777
+      }
+    });
+    const populationBenefit = benefits.find((benefit) => benefit.label === "Populace / min");
+
+    expect(populationBenefit?.value).toBe("+1.7");
+    expect(populationBenefit?.detail).toBe("12.1 → 13.8");
   });
 
   it("returns concrete clinic recovery and income benefits when supplied", () => {

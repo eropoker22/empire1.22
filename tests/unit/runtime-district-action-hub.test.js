@@ -142,6 +142,43 @@ describe("district action hub", () => {
     expect(callback).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["rob", "Vykrást district", "Chybí volný člen gangu."],
+    ["occupy", "Obsadit", "Nejdřív musíš district úspěšně špehovat."]
+  ])("renders disabled %s action grey with its reason inside the button", (id, label, reason) => {
+    const document = new FakeDocument();
+    const mount = createElement(document);
+    const button = renderDistrictActionButton({
+      id,
+      label,
+      enabled: false,
+      reason
+    }, vi.fn(), { mount });
+
+    expect(button.disabled).toBe(true);
+    expect(button.dataset.districtActionDisabledTone).toBe("unavailable");
+    expect(button.classList.contains("district-popup-action--stacked")).toBe(true);
+    expect(button.children[0].textContent).toBe(label);
+    expect(button.children[1].textContent).toBe(reason);
+  });
+
+  it("does not repeat an inline unavailable reason below the action button", () => {
+    const document = new FakeDocument();
+    const mount = createElement(document);
+
+    renderDistrictActionHub({
+      actions: [{
+        id: "occupy",
+        label: "Obsadit",
+        enabled: false,
+        reason: "Chybí sousední vlastněný district."
+      }]
+    }, { onAction: vi.fn() }, { mount });
+
+    expect(mount.children[0].children).toHaveLength(1);
+    expect(mount.children[0].children[0].children[1].textContent).toBe("Chybí sousední vlastněný district.");
+  });
+
   it("renders action countdowns under the button label and keeps the action locked", () => {
     const document = new FakeDocument();
     const mount = createElement(document);

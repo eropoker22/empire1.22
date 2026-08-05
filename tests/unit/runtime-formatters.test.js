@@ -13,6 +13,7 @@ import {
 describe("runtime formatters", () => {
   it("keeps legacy currency output stable", () => {
     expect(formatCurrency(1200)).toBe("$1200");
+    expect(formatCurrency(12.3456789)).toBe("$12.3");
     expect(formatDistrictMoneyAmount(1234.4)).toBe("$1 234");
     expect(formatDistrictBuildingMoney(1234.9)).toBe("$1234");
   });

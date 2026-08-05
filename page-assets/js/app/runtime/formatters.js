@@ -1,5 +1,9 @@
 export function formatCurrency(value) {
-  return `$${value}`;
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return "$0";
+  }
+  return `$${Number(numericValue.toFixed(1))}`;
 }
 
 export function formatDistrictMetricNumber(value = 0, maximumFractionDigits = 1) {

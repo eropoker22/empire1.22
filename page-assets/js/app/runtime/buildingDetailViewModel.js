@@ -1854,7 +1854,7 @@ export function createBuildingDetailViewModel({
     },
     stats: createBuildingDetailStatRows({ buildingName, mechanics, detailEntry, buildingProfile, playerHeat, now }),
     mechanics: createBuildingDetailMechanicRows({ buildingName, mechanics }),
-    hideMechanicsSection: mechanics.mechanicsType === "recruitment-center" || mechanics.mechanicsType === "warehouse",
+    hideMechanicsSection: ["recruitment-center", "street-dealers", "warehouse"].includes(mechanics.mechanicsType),
     effectsLabel: mechanics.effectsLabel || "Žádné aktivní mechaniky.",
     effects: createEffectItemsWithOwnedCount(mechanics.effectsLabel || "Žádné aktivní mechaniky.", mechanics, {
       buildingName,

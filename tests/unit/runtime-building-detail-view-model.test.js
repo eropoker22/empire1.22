@@ -271,6 +271,18 @@ describe("building detail view-model builder", () => {
     expect(model.hideMechanicsSection).toBe(true);
   });
 
+  it("hides Street Dealer mechanics so the sale action stays visible", () => {
+    const model = createBuildingDetailViewModel({
+      buildingName: "Pouliční dealeři",
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "street-dealers"
+      }
+    });
+
+    expect(model.hideMechanicsSection).toBe(true);
+  });
+
   it("omits warehouse material mechanics regardless of current usage", () => {
     const mechanics = createBuildingDetailMechanicRows({
       buildingName: "Skladiště",
