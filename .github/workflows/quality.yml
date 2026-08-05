@@ -9,23 +9,27 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  quality:
-    name: Lint, typecheck, tests, build, E2E smoke
+  static:
+    name: Lint, typecheck and builds
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .node-version
           cache: npm
 
-      - name: Install dependencies
+      - name: Install exact dependencies
         run: npm ci
 
       - name: Lint
@@ -34,10 +38,7 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Test
-        run: npm test
-
-      - name: Build admin page
+      - name: Build admin page and Netlify Functions
         run: npm run build:admin:page
 
       - name: Build hosted worker bundle
@@ -47,8 +48,72 @@ jobs:
         if: github.event_name == 'push'
         run: docker build --build-arg EMPIRE_BUILD_SHA=${{ github.sha }} --tag empire-hosted-worker:${{ github.sha }} --file Dockerfile.hosted-worker .
 
+  tests:
+    name: ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Unit tests
+            command: test:unit
+          - label: Integration tests
+            command: test:integration
+          - label: Server tests
+            command: test:server
+          - label: Persistence tests
+            command: test:persistence
+          - label: Read-model tests
+            command: test:read-models
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Run ${{ matrix.label }}
+        run: npm run ${{ matrix.command }}
+
+  e2e-smoke:
+    name: E2E smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
       - name: E2E smoke
         run: npm run test:e2e:smoke
+
+      - name: Upload Playwright evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: quality-e2e-smoke-${{ github.sha }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            playwright-report/**
+            test-results/**

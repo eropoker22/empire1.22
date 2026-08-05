@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const staging = readFileSync(".github/workflows/deploy-staging.yml", "utf8");
 const hosted = readFileSync(".github/workflows/hosted-acceptance.yml", "utf8");
+const quality = readFileSync(".github/workflows/quality.yml", "utf8");
 const fly = readFileSync("fly.hosted-worker.toml", "utf8");
 
 describe("public release workflows", () => {
@@ -88,5 +89,28 @@ describe("public release workflows", () => {
     expect(workerSecretStep).not.toContain("EMPIRE_ADMIN_FINGERPRINT_SECRET");
     expect(workerSecretStep).not.toContain("EMPIRE_ADMIN_SESSION_SECRET");
     expect(workerSecretStep).not.toContain("EMPIRE_AUTH_THROTTLE_PEPPER");
+  });
+
+  it("keeps the PR workflow explicit, parallel and pinned", () => {
+    for (const command of [
+      "test:unit",
+      "test:integration",
+      "test:server",
+      "test:persistence",
+      "test:read-models",
+      "test:e2e:smoke",
+      "build:admin:page",
+      "build:hosted-worker",
+      "lint",
+      "typecheck"
+    ]) {
+      expect(quality).toContain(command);
+    }
+    expect(quality).toContain("strategy:");
+    expect(quality).toContain("fail-fast: false");
+    expect(quality).not.toMatch(/uses:\s+[^\s]+@v\d/u);
+    expect(quality.indexOf("Install Playwright Chromium")).toBeLessThan(
+      quality.indexOf("run: npm run test:e2e:smoke")
+    );
   });
 });
