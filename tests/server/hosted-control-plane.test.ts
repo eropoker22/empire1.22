@@ -208,6 +208,27 @@ describe("hosted server control plane", () => {
       registrationEnabled: false,
       unavailableCode: "SESSION_SECURITY_INVALID"
     });
+
+    const secure = createHostedControlPlaneService({
+      repositories,
+      environment: {
+        ...FLAGS,
+        NODE_ENV: "production",
+        GAMEPLAY_SLICE_SESSION_SECRET: "a".repeat(64),
+        GAMEPLAY_SLICE_SNAPSHOT_SECRET: "b".repeat(64),
+        EMPIRE_ADMIN_FINGERPRINT_SECRET: "c".repeat(64),
+        EMPIRE_ADMIN_SESSION_SECRET: "d".repeat(64),
+        EMPIRE_AUTH_THROTTLE_PEPPER: "e".repeat(64),
+        EMPIRE_ALLOWED_ORIGINS: "https://empirestreets.cz"
+      },
+      now: () => NOW,
+      allowInMemoryForTests: true
+    });
+    expect(await secure.availability()).toMatchObject({
+      sessionSecurity: "current",
+      originPolicy: "current",
+      unavailableCode: null
+    });
   });
 
   it("snapshots the explicit control/full template without exposing elimination balance", async () => {

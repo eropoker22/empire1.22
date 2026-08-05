@@ -9,7 +9,11 @@ import {
 } from "../../apps/server/src/admin/read-only";
 
 const PASSWORD = "TestPassword-Only-For-Fixtures";
-const ENV = { NODE_ENV: "test", EMPIRE_ADMIN_FINGERPRINT_SECRET: "test-fingerprint-secret-at-least-32-characters" };
+const ENV = {
+  NODE_ENV: "test",
+  EMPIRE_ADMIN_FINGERPRINT_SECRET: "test-fingerprint-secret-at-least-32-characters",
+  EMPIRE_ADMIN_SESSION_SECRET: "test-admin-session-secret-at-least-32-characters"
+};
 
 describe("durable admin user authentication", () => {
   it("uses salted scrypt hashes and timing-safe verification", async () => {
@@ -43,6 +47,63 @@ describe("durable admin user authentication", () => {
     const authentication = await service.authenticate(login.token, "request:2");
     expect(authentication.accepted).toBe(false);
     expect(authentication.errors[0]?.code).toBe("ADMIN_SESSION_REVOKED");
+  });
+
+  it("scopes stored session token hashes to the configured admin session secret", async () => {
+    const repositories = createInMemoryAdminDurableRepositories({ users: [user(await hashAdminPassword(PASSWORD))] });
+    const service = createAdminSessionService({ repositories, environment: ENV });
+    const login = await service.login({
+      username: "TestOwner",
+      password: PASSWORD,
+      fingerprint: "192.0.2.1",
+      correlationId: "request:hmac-login"
+    });
+    expect(login.accepted).toBe(true);
+    if (!login.accepted) return;
+
+    const rotated = createAdminSessionService({
+      repositories,
+      environment: { ...ENV, EMPIRE_ADMIN_SESSION_SECRET: "rotated-admin-session-secret-at-least-43-characters" }
+    });
+    await expect(rotated.authenticate(login.token, "request:hmac-rotated")).resolves.toMatchObject({
+      accepted: false,
+      errors: [expect.objectContaining({ code: "ADMIN_SESSION_INVALID" })]
+    });
+  });
+
+  it("fails closed in production unless all five release secrets are secure and distinct", async () => {
+    const repositories = createInMemoryAdminDurableRepositories({ users: [user(await hashAdminPassword(PASSWORD))] });
+    const incomplete = createAdminSessionService({
+      repositories,
+      environment: {
+        NODE_ENV: "production",
+        EMPIRE_ADMIN_FINGERPRINT_SECRET: "a".repeat(64),
+        EMPIRE_ADMIN_SESSION_SECRET: "b".repeat(64)
+      }
+    });
+    expect(incomplete.configurationReady).toBe(false);
+    await expect(incomplete.login({
+      username: "TestOwner",
+      password: PASSWORD,
+      fingerprint: "192.0.2.1",
+      correlationId: "request:production-incomplete"
+    })).resolves.toMatchObject({
+      accepted: false,
+      errors: [expect.objectContaining({ code: "ADMIN_AUTH_CONFIGURATION_UNAVAILABLE" })]
+    });
+
+    const complete = createAdminSessionService({
+      repositories,
+      environment: {
+        NODE_ENV: "production",
+        EMPIRE_ADMIN_FINGERPRINT_SECRET: "a".repeat(64),
+        EMPIRE_ADMIN_SESSION_SECRET: "b".repeat(64),
+        GAMEPLAY_SLICE_SESSION_SECRET: "c".repeat(64),
+        GAMEPLAY_SLICE_SNAPSHOT_SECRET: "d".repeat(64),
+        EMPIRE_AUTH_THROTTLE_PEPPER: "e".repeat(64)
+      }
+    });
+    expect(complete.configurationReady).toBe(true);
   });
 
   it("validates every request while persisting last-seen at a bounded cadence", async () => {

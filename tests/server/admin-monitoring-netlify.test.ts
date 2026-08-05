@@ -12,7 +12,11 @@ import { createGameplaySliceFunctionHandler } from "../../apps/server/src/netlif
 import { ensureDefaultLobbyServers } from "../../apps/server/src/netlify/gameplay-slice-function-default-servers";
 import { createAdminReadOnlySeed } from "../fixtures/admin-read-only-fixture";
 
-const TEST_ENV = { NODE_ENV: "test", EMPIRE_ADMIN_FINGERPRINT_SECRET: "test-fingerprint-secret-at-least-32-characters" };
+const TEST_ENV = {
+  NODE_ENV: "test",
+  EMPIRE_ADMIN_FINGERPRINT_SECRET: "test-fingerprint-secret-at-least-32-characters",
+  EMPIRE_ADMIN_SESSION_SECRET: "test-admin-session-secret-at-least-32-characters"
+};
 const TEST_USERNAME = "test-viewer";
 const TEST_PASSWORD = "TestPassword-Only-For-Fixtures";
 
@@ -92,7 +96,15 @@ describe("read-only admin Netlify boundary", () => {
 
   it("uses Secure cookies and validates Origin in production", async () => {
     const repositories = await createRepositories("owner");
-    const environment = { NODE_ENV: "production", EMPIRE_ADMIN_FINGERPRINT_SECRET: "production-fingerprint-secret-at-least-32", EMPIRE_ALLOWED_ORIGINS: "https://empire.test" };
+    const environment = {
+      NODE_ENV: "production",
+      EMPIRE_ADMIN_FINGERPRINT_SECRET: "a".repeat(64),
+      EMPIRE_ADMIN_SESSION_SECRET: "b".repeat(64),
+      GAMEPLAY_SLICE_SESSION_SECRET: "c".repeat(64),
+      GAMEPLAY_SLICE_SNAPSHOT_SECRET: "d".repeat(64),
+      EMPIRE_AUTH_THROTTLE_PEPPER: "e".repeat(64),
+      EMPIRE_ALLOWED_ORIGINS: "https://empire.test"
+    };
     const handler = createAdminReadOnlyNetlifyHandler({ repositories, environment });
     expect((await handler(request("POST", "/api/admin/session", { username: TEST_USERNAME, password: TEST_PASSWORD }))).statusCode).toBe(403);
     const login = await handler(request("POST", "/api/admin/session", { username: TEST_USERNAME, password: TEST_PASSWORD }, { origin: "https://empire.test" }));

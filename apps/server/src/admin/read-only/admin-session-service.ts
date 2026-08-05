@@ -7,6 +7,7 @@ const SESSION_TTL_MS = 30 * 60 * 1000;
 const SESSION_TOUCH_INTERVAL_MS = 30 * 1000;
 const FAILURE_WINDOW_MS = 5 * 60 * 1000;
 const MAX_FAILURES = 5;
+const SECURE_SECRET_PATTERN = /^(?:[0-9a-f]{64,}|[A-Za-z0-9_-]{43,})$/u;
 
 export const createAdminSessionService = (options: {
   repositories: AdminDurableRepositories;
@@ -14,22 +15,22 @@ export const createAdminSessionService = (options: {
   now?: () => Date;
 }) => {
   const now = options.now ?? (() => new Date());
-  const fingerprintSecret = resolveFingerprintSecret(options.environment);
+  const security = resolveAdminSessionSecurity(options.environment);
   const unavailableUser = createUnavailableUser();
 
   return {
-    configurationReady: fingerprintSecret !== null,
+    configurationReady: security !== null,
     login: async (input: { username: string; password: string; fingerprint: string; correlationId: string }) => {
       const createdAt = now().toISOString();
-      if (!fingerprintSecret) {
+      if (!security) {
         await audit(null, "login-failure", "failure", input.correlationId);
         return reject("ADMIN_AUTH_CONFIGURATION_UNAVAILABLE", "Přihlášení se nezdařilo.");
       }
 
       const normalizedUsername = normalizeAdminUsername(input.username);
-      const fingerprintHash = scopeHash(input.fingerprint, fingerprintSecret);
-      const usernameHash = scopeHash(normalizedUsername || "invalid", fingerprintSecret);
-      const combinationHash = scopeHash(`${normalizedUsername}\u0000${input.fingerprint}`, fingerprintSecret);
+      const fingerprintHash = scopeHash(input.fingerprint, security.fingerprintSecret);
+      const usernameHash = scopeHash(normalizedUsername || "invalid", security.fingerprintSecret);
+      const combinationHash = scopeHash(`${normalizedUsername}\u0000${input.fingerprint}`, security.fingerprintSecret);
       const actorHash = usernameHash;
       const since = new Date(now().getTime() - FAILURE_WINDOW_MS).toISOString();
       const counts = await Promise.all([fingerprintHash, usernameHash, combinationHash]
@@ -60,7 +61,7 @@ export const createAdminSessionService = (options: {
       const token = randomToken();
       const session: AdminStoredSession = {
         adminSessionId: `admin-session:${randomToken()}`,
-        tokenHash: hashToken(token),
+        tokenHash: hashToken(token, security.sessionSecret),
         adminUserId: storedUser.adminUserId,
         actorId: storedUser.adminUserId,
         username: storedUser.username,
@@ -81,7 +82,8 @@ export const createAdminSessionService = (options: {
     },
     authenticate: async (token: string | null, correlationId: string) => {
       if (!token) return reject("ADMIN_SESSION_REQUIRED", "Admin session is required.");
-      const session = await options.repositories.sessions.getSessionByTokenHash(hashToken(token));
+      if (!security) return reject("ADMIN_AUTH_CONFIGURATION_UNAVAILABLE", "Admin session is invalid.");
+      const session = await options.repositories.sessions.getSessionByTokenHash(hashToken(token, security.sessionSecret));
       if (!session) return reject("ADMIN_SESSION_INVALID", "Admin session is invalid.");
       const checkedAt = now();
       if (session.revokedAt) {
@@ -138,14 +140,43 @@ const createUnavailableUser = async (): Promise<AdminUserRecord> => {
     createdAt: now, updatedAt: now, lastLoginAt: null, passwordChangedAt: now, version: 1
   };
 };
-const resolveFingerprintSecret = (environment: Record<string, string | undefined>): string | null => {
-  const configured = String(environment.EMPIRE_ADMIN_FINGERPRINT_SECRET ?? "").trim();
-  if (configured.length >= 32) return configured;
-  return environment.NODE_ENV === "production" ? null : "local-admin-fingerprint-key-not-for-production";
+const resolveAdminSessionSecurity = (environment: Record<string, string | undefined>): {
+  fingerprintSecret: string;
+  sessionSecret: string;
+} | null => {
+  const production = environment.NODE_ENV === "production";
+  const fingerprintSecret = resolveSecret(
+    environment.EMPIRE_ADMIN_FINGERPRINT_SECRET,
+    production,
+    "local-admin-fingerprint-secret-not-for-production-0001"
+  );
+  const sessionSecret = resolveSecret(
+    environment.EMPIRE_ADMIN_SESSION_SECRET,
+    production,
+    "local-admin-session-secret-not-for-production-0000002"
+  );
+  if (!fingerprintSecret || !sessionSecret || fingerprintSecret === sessionSecret) return null;
+  if (production) {
+    const productionSecrets = [
+      fingerprintSecret,
+      sessionSecret,
+      environment.GAMEPLAY_SLICE_SESSION_SECRET,
+      environment.GAMEPLAY_SLICE_SNAPSHOT_SECRET,
+      environment.EMPIRE_AUTH_THROTTLE_PEPPER
+    ].map((value) => String(value ?? "").trim());
+    if (!productionSecrets.every(isSecureSecret) || new Set(productionSecrets).size !== productionSecrets.length) return null;
+  }
+  return { fingerprintSecret, sessionSecret };
 };
+const resolveSecret = (value: string | undefined, production: boolean, fallback: string): string | null => {
+  const configured = String(value ?? "").trim();
+  if (configured) return isSecureSecret(configured) ? configured : null;
+  return production ? null : fallback;
+};
+const isSecureSecret = (value: string): boolean => SECURE_SECRET_PATTERN.test(value);
 const toView = ({ tokenHash: _tokenHash, passwordVersion: _passwordVersion, ...session }: AdminStoredSession): AdminSessionView => session;
 const reject = (code: string, message: string) => ({ accepted: false as const, session: null, errors: [{ code, message } satisfies AdminApiErrorView] });
-const hashToken = (value: string): string => crypto.createHash("sha256").update(value).digest("hex");
+const hashToken = (value: string, secret: string): string => crypto.createHmac("sha256", secret).update(value).digest("hex");
 const scopeHash = (value: string, secret: string): string => crypto.createHmac("sha256", secret).update(value).digest("base64url");
 const randomToken = (): string => crypto.randomBytes(32).toString("base64url");
 const isSessionTouchDue = (lastSeenAt: string, nowIso: string): boolean => {

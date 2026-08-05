@@ -5,9 +5,12 @@ export const hasSecureHostedSessions = (environment: Record<string, string | und
   const secrets = [
     environment.GAMEPLAY_SLICE_SESSION_SECRET,
     environment.GAMEPLAY_SLICE_SNAPSHOT_SECRET,
-    environment.EMPIRE_ADMIN_FINGERPRINT_SECRET
+    environment.EMPIRE_ADMIN_FINGERPRINT_SECRET,
+    environment.EMPIRE_ADMIN_SESSION_SECRET,
+    environment.EMPIRE_AUTH_THROTTLE_PEPPER
   ].map((value) => String(value ?? "").trim());
-  return secrets.every((value) => value.length >= 32) && new Set(secrets).size === secrets.length;
+  return secrets.every((value) => /^(?:[0-9a-f]{64,}|[A-Za-z0-9_-]{43,})$/u.test(value))
+    && new Set(secrets).size === secrets.length;
 };
 
 export const hasSecureHostedOriginPolicy = (value: string | undefined): boolean => {

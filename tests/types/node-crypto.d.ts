@@ -5,7 +5,7 @@ declare module "node:crypto" {
     key: string
   ): {
     update(data: string): {
-      digest(encoding: "base64url"): string;
+      digest(encoding: "base64url" | "hex"): string;
     };
   };
   export function createHash(
