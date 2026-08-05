@@ -28,7 +28,17 @@ try {
     [password]
   );
   if (Number(auditLeak.rows[0]?.count ?? 0) !== 0) throw new Error("Live admin password appears in audit metadata.");
-  process.stdout.write("Bootstrap admin Erik22 created and verified.\n");
+  const activeOwners = await database.query<{ count: string | number }>(
+    "SELECT count(*) AS count FROM empire_admin_users WHERE role='owner' AND status='active'"
+  );
+  if (Number(activeOwners.rows[0]?.count ?? 0) !== 1) throw new Error("Live admin owner count is invalid.");
+  const bootstrapAudit = await database.query<{ count: string | number }>(
+    `SELECT count(*) AS count FROM empire_admin_access_audit
+     WHERE actor_id=$1 AND action IN ('admin-user-bootstrap','admin-password-rotated') AND result='success'`,
+    [user.adminUserId]
+  );
+  if (Number(bootstrapAudit.rows[0]?.count ?? 0) < 1) throw new Error("Live admin bootstrap audit is missing.");
+  process.stdout.write("Production admin owner verified.\n");
 } finally {
   await database.close();
 }

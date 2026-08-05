@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   createEnvironmentMatrix,
@@ -58,5 +59,19 @@ describe("release environment matrix", () => {
     expect(markdown).toContain("| Variable | Component | Staging required | Production required | Secret | Netlify scope | Worker scope | Safe format | Default allowed | Rotation instructions |");
     expect(markdown).toContain("must all differ");
     expect(markdown).toContain("Deploy previews receive none of these secrets");
+  });
+
+  it("classifies every protected variable and secret alias used by release workflows", () => {
+    const matrix = createEnvironmentMatrix(inventoryEnvironmentReads());
+    const classified = new Set([...matrix.publicRows, ...matrix.providerRows].map(({ variable }) => variable));
+    const workflows = [
+      ".github/workflows/deploy-staging.yml",
+      ".github/workflows/staging-remote-acceptance.yml",
+      ".github/workflows/staging-rollback-rehearsal.yml",
+      ".github/workflows/deploy-production.yml"
+    ].map((path) => readFileSync(path, "utf8")).join("\n");
+    const aliases = [...workflows.matchAll(/\$\{\{\s*(?:vars|secrets)\.([A-Z][A-Z0-9_]*)/gu)]
+      .map((match) => match[1]);
+    expect([...new Set(aliases)].filter((variable) => !classified.has(variable))).toEqual([]);
   });
 });

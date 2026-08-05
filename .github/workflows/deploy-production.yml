@@ -1,0 +1,936 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Exact 40-character SHA approved after remote staging acceptance
+        required: true
+        type: string
+      staging_remote_run_id:
+        description: Successful Staging Remote Acceptance workflow run ID for this SHA
+        required: true
+        type: string
+      rollback_rehearsal_run_id:
+        description: Successful Staging Rollback Rehearsal workflow run ID for this SHA
+        required: true
+        type: string
+      netlify_observability_evidence_id:
+        description: Approved manual Netlify logs and credit review evidence ID
+        required: true
+        type: string
+      initial_cutover:
+        description: Explicitly authorize the first production cutover with no previous Empire worker release
+        required: true
+        default: false
+        type: boolean
+      previous_production_sha:
+        description: Exact currently deployed production SHA for an upgrade; empty only for initial cutover
+        required: false
+        type: string
+      initial_rollback_deploy_id:
+        description: Exact approved pre-cutover Netlify deploy ID; required only for initial cutover
+        required: false
+        type: string
+      initialize_database:
+        description: Authorize one-time migration history initialization on an empty production database
+        required: true
+        default: false
+        type: boolean
+      bootstrap_admin:
+        description: Authorize one-time production owner bootstrap and immediate rotation
+        required: true
+        default: false
+        type: boolean
+      bootstrap_smoke_account:
+        description: Authorize one-time controlled production smoke account bootstrap
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: empire-production-release
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Verify staging, rollback and observability evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      release_sha: ${{ steps.release.outputs.sha }}
+      staging_remote_run_id: ${{ steps.release.outputs.staging_run_id }}
+      rollback_rehearsal_run_id: ${{ steps.release.outputs.rollback_run_id }}
+      observability_evidence_id: ${{ steps.release.outputs.observability_id }}
+      initial_cutover: ${{ steps.release.outputs.initial_cutover }}
+      previous_production_sha: ${{ steps.release.outputs.previous_production_sha }}
+      initial_rollback_deploy_id: ${{ steps.release.outputs.initial_rollback_deploy_id }}
+
+    steps:
+      - name: Resolve immutable approved release
+        id: release
+        env:
+          RELEASE_SHA: ${{ inputs.sha }}
+          STAGING_RUN_ID: ${{ inputs.staging_remote_run_id }}
+          ROLLBACK_RUN_ID: ${{ inputs.rollback_rehearsal_run_id }}
+          OBSERVABILITY_ID: ${{ inputs.netlify_observability_evidence_id }}
+          INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
+          PREVIOUS_PRODUCTION_SHA: ${{ inputs.previous_production_sha }}
+          INITIAL_ROLLBACK_DEPLOY_ID: ${{ inputs.initial_rollback_deploy_id }}
+          INITIALIZE_DATABASE: ${{ inputs.initialize_database }}
+          BOOTSTRAP_ADMIN: ${{ inputs.bootstrap_admin }}
+          BOOTSTRAP_SMOKE_ACCOUNT: ${{ inputs.bootstrap_smoke_account }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$STAGING_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$ROLLBACK_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$OBSERVABILITY_ID" =~ ^[A-Za-z0-9._:-]{3,200}$ ]]
+          if [[ "$INITIAL_CUTOVER" == "true" ]]; then
+            [[ -z "$PREVIOUS_PRODUCTION_SHA" ]]
+            [[ "$INITIAL_ROLLBACK_DEPLOY_ID" =~ ^[A-Za-z0-9-]{8,100}$ ]]
+            [[ "$INITIALIZE_DATABASE" == "true" ]]
+            [[ "$BOOTSTRAP_ADMIN" == "true" ]]
+            [[ "$BOOTSTRAP_SMOKE_ACCOUNT" == "true" ]]
+          else
+            [[ "$INITIAL_CUTOVER" == "false" ]]
+            [[ "$PREVIOUS_PRODUCTION_SHA" =~ ^[0-9a-f]{40}$ ]]
+            [[ "$PREVIOUS_PRODUCTION_SHA" != "$RELEASE_SHA" ]]
+            [[ -z "$INITIAL_ROLLBACK_DEPLOY_ID" ]]
+            [[ "$INITIALIZE_DATABASE" == "false" ]]
+          fi
+          echo "sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "staging_run_id=$STAGING_RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "rollback_run_id=$ROLLBACK_RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "observability_id=$OBSERVABILITY_ID" >> "$GITHUB_OUTPUT"
+          echo "initial_cutover=$INITIAL_CUTOVER" >> "$GITHUB_OUTPUT"
+          echo "previous_production_sha=$PREVIOUS_PRODUCTION_SHA" >> "$GITHUB_OUTPUT"
+          echo "initial_rollback_deploy_id=$INITIAL_ROLLBACK_DEPLOY_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Verify successful remote staging acceptance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+          STAGING_RUN_ID: ${{ steps.release.outputs.staging_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p gate-evidence/staging
+          run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${STAGING_RUN_ID}")"
+          jq -e --arg sha "$RELEASE_SHA" '
+            .name == "Staging Remote Acceptance" and
+            .path == ".github/workflows/staging-remote-acceptance.yml" and
+            .status == "completed" and
+            .conclusion == "success" and
+            .head_sha == $sha
+          ' <<< "$run_json" >/dev/null
+          gh run download "$STAGING_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "staging-remote-final-${RELEASE_SHA}" --dir gate-evidence/staging
+          mapfile -t summaries < <(find gate-evidence/staging -type f -name summary.json)
+          [[ "${#summaries[@]}" == "1" ]]
+          jq -e --arg sha "$RELEASE_SHA" '
+            .status == "automated-pass" and .environment == "staging" and
+            .buildSha == $sha and .registrationClosed == true and
+            .manualNetlifyObservabilityReview == "required-before-production"
+          ' "${summaries[0]}" >/dev/null
+
+      - name: Verify successful staging rollback rehearsal
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+          ROLLBACK_RUN_ID: ${{ steps.release.outputs.rollback_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p gate-evidence/rollback
+          run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${ROLLBACK_RUN_ID}")"
+          jq -e --arg sha "$RELEASE_SHA" '
+            .name == "Staging Rollback Rehearsal" and
+            .path == ".github/workflows/staging-rollback-rehearsal.yml" and
+            .status == "completed" and
+            .conclusion == "success" and
+            .head_sha == $sha
+          ' <<< "$run_json" >/dev/null
+          gh run download "$ROLLBACK_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "staging-rollback-final-${RELEASE_SHA}" --dir gate-evidence/rollback
+          mapfile -t summaries < <(find gate-evidence/rollback -type f -name summary.json)
+          [[ "${#summaries[@]}" == "1" ]]
+          jq -e --arg sha "$RELEASE_SHA" '
+            .status == "pass" and .environment == "staging" and .buildSha == $sha and
+            .rollbackRehearsed == true and .registrationClosed == true and
+            .schemaCompatibleWithPrevious == true and .candidateRestored == true and
+            .candidateAssetParityVerified == true and .databaseRestored == false and
+            .activeWorkerReplicas == 1
+          ' "${summaries[0]}" >/dev/null
+
+      - name: Record safe gate evidence
+        env:
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+          STAGING_RUN_ID: ${{ steps.release.outputs.staging_run_id }}
+          ROLLBACK_RUN_ID: ${{ steps.release.outputs.rollback_run_id }}
+          OBSERVABILITY_ID: ${{ steps.release.outputs.observability_id }}
+          INITIAL_CUTOVER: ${{ steps.release.outputs.initial_cutover }}
+          PREVIOUS_PRODUCTION_SHA: ${{ steps.release.outputs.previous_production_sha }}
+          INITIAL_ROLLBACK_DEPLOY_ID: ${{ steps.release.outputs.initial_rollback_deploy_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          observability_hash="$(printf '%s' "$OBSERVABILITY_ID" | sha256sum | cut -c1-16)"
+          rollback_deploy_hash="$(printf '%s' "$INITIAL_ROLLBACK_DEPLOY_ID" | sha256sum | cut -c1-16)"
+          jq -n --arg sha "$RELEASE_SHA" --arg staging "$STAGING_RUN_ID" \
+            --arg rollback "$ROLLBACK_RUN_ID" --arg observabilityHash "$observability_hash" \
+            --argjson initialCutover "$INITIAL_CUTOVER" --arg previousProductionSha "$PREVIOUS_PRODUCTION_SHA" \
+            --arg initialRollbackDeployHash "$rollback_deploy_hash" '
+            {environment:"production",buildSha:$sha,stagingRemoteRunId:$staging,
+             rollbackRehearsalRunId:$rollback,netlifyObservabilityEvidenceHash:$observabilityHash,
+             initialCutover:$initialCutover,
+             previousProductionSha:(if $previousProductionSha == "" then null else $previousProductionSha end),
+             initialRollbackDeployHash:(if $initialCutover then $initialRollbackDeployHash else null end)}
+          ' > gate-evidence/summary.json
+
+      - name: Upload production gate evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: production-gate-${{ steps.release.outputs.sha }}
+          if-no-files-found: error
+          retention-days: 90
+          path: gate-evidence/**
+
+  deploy:
+    name: Backup, migrate and deploy production closed
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment: production
+    env:
+      RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
+      PRODUCTION_ORIGIN: https://empirestreets.cz
+      NETLIFY_SITE_ID: ${{ vars.NETLIFY_PRODUCTION_SITE_ID }}
+      NETLIFY_DISABLE_UPDATE_CHECK: "true"
+      NEON_PROJECT_ID: ${{ vars.NEON_PRODUCTION_PROJECT_ID }}
+      NEON_BRANCH_ID: ${{ vars.NEON_PRODUCTION_ROOT_BRANCH_ID }}
+      FLY_PRODUCTION_APP: ${{ vars.FLY_PRODUCTION_APP }}
+      EMPIRE_RELEASE_ENVIRONMENT: production
+      EMPIRE_DATABASE_TARGET_ENVIRONMENT: production
+      EMPIRE_PRODUCTION_DATABASE_TARGET_HASH: ${{ vars.EMPIRE_PRODUCTION_DATABASE_TARGET_HASH }}
+      EMPIRE_PERSISTENCE_DRIVER: postgres
+      GAMEPLAY_PERSISTENCE_DRIVER: postgres
+      EMPIRE_ADMIN_BOOTSTRAP_ROLE: owner
+      EMPIRE_ADMIN_WRITES_ENABLED: "true"
+      EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true"
+      EMPIRE_SERVER_PROVISIONING_ENABLED: "true"
+      EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "false"
+      EMPIRE_LEGACY_MATCHMAKING_ENABLED: "false"
+      EMPIRE_WAR_HOSTING_ENABLED: "false"
+      EMPIRE_PUBLIC_ORIGIN: https://empirestreets.cz
+      EMPIRE_ALLOWED_ORIGINS: https://empirestreets.cz
+      EMPIRE_BUILD_SHA: ${{ needs.gate.outputs.release_sha }}
+      EMPIRE_HOSTED_WORKER_ID: worker:production:fra:01
+      EMPIRE_HOSTED_WORKER_REGION: fra
+      EMPIRE_RUNTIME_REGION: fra
+      EMPIRE_TICK_WORKER_OWNER_ID: worker:production:fra:01
+      EMPIRE_HOSTED_PREFLIGHT_STRICT: "true"
+      EMPIRE_ACCOUNT_TERMS_VERSION: ${{ vars.PRODUCTION_ACCOUNT_TERMS_VERSION }}
+      EMPIRE_INITIAL_CUTOVER: ${{ needs.gate.outputs.initial_cutover }}
+      EMPIRE_PREVIOUS_PRODUCTION_SHA: ${{ needs.gate.outputs.previous_production_sha }}
+      EMPIRE_INITIAL_ROLLBACK_DEPLOY_ID: ${{ needs.gate.outputs.initial_rollback_deploy_id }}
+
+    steps:
+      - name: Checkout exact approved SHA
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Verify exact clean checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$RELEASE_SHA" ]]
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Install pinned Netlify CLI
+        run: npm install --global netlify-cli@26.2.0
+
+      - name: Setup pinned Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+
+      - name: Install Playwright Chromium
+        run: node scripts/run-local-bin.mjs playwright/cli.js install chromium
+
+      - name: Validate required production inputs
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          PRODUCTION_DATABASE_URL_DIRECT: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          PRODUCTION_DATABASE_URL_POOLED: ${{ secrets.PRODUCTION_DATABASE_URL_POOLED }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          GAMEPLAY_SLICE_SESSION_SECRET: ${{ secrets.PRODUCTION_GAMEPLAY_SESSION_SECRET }}
+          GAMEPLAY_SLICE_SNAPSHOT_SECRET: ${{ secrets.PRODUCTION_GAMEPLAY_SNAPSHOT_SECRET }}
+          EMPIRE_ADMIN_FINGERPRINT_SECRET: ${{ secrets.PRODUCTION_ADMIN_FINGERPRINT_SECRET }}
+          EMPIRE_ADMIN_SESSION_SECRET: ${{ secrets.PRODUCTION_ADMIN_SESSION_SECRET }}
+          EMPIRE_AUTH_THROTTLE_PEPPER: ${{ secrets.PRODUCTION_AUTH_THROTTLE_PEPPER }}
+          PRODUCTION_ADMIN_USERNAME: ${{ vars.PRODUCTION_ADMIN_USERNAME }}
+          PRODUCTION_ADMIN_DISPLAY_NAME: ${{ vars.PRODUCTION_ADMIN_DISPLAY_NAME }}
+          PRODUCTION_ADMIN_INITIAL_PASSWORD: ${{ secrets.PRODUCTION_ADMIN_INITIAL_PASSWORD }}
+          PRODUCTION_ADMIN_PASSWORD: ${{ secrets.PRODUCTION_ADMIN_PASSWORD }}
+          PRODUCTION_SMOKE_ACCOUNT_USERNAME: ${{ vars.PRODUCTION_SMOKE_ACCOUNT_USERNAME }}
+          PRODUCTION_SMOKE_ACCOUNT_GANG_NAME: ${{ vars.PRODUCTION_SMOKE_ACCOUNT_GANG_NAME }}
+          PRODUCTION_SMOKE_ACCOUNT_PASSWORD: ${{ secrets.PRODUCTION_SMOKE_ACCOUNT_PASSWORD }}
+          BOOTSTRAP_ADMIN: ${{ inputs.bootstrap_admin }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID NEON_API_KEY NEON_PROJECT_ID NEON_BRANCH_ID PRODUCTION_DATABASE_URL_DIRECT PRODUCTION_DATABASE_URL_POOLED FLY_API_TOKEN FLY_PRODUCTION_APP GAMEPLAY_SLICE_SESSION_SECRET GAMEPLAY_SLICE_SNAPSHOT_SECRET EMPIRE_ADMIN_FINGERPRINT_SECRET EMPIRE_ADMIN_SESSION_SECRET EMPIRE_AUTH_THROTTLE_PEPPER PRODUCTION_ADMIN_USERNAME PRODUCTION_ADMIN_DISPLAY_NAME PRODUCTION_ADMIN_PASSWORD PRODUCTION_SMOKE_ACCOUNT_USERNAME PRODUCTION_SMOKE_ACCOUNT_GANG_NAME PRODUCTION_SMOKE_ACCOUNT_PASSWORD EMPIRE_ACCOUNT_TERMS_VERSION EMPIRE_PRODUCTION_DATABASE_TARGET_HASH)
+          for name in "${required[@]}"; do
+            [[ -n "${!name:-}" ]] || { echo "Missing required production credential or variable: $name"; exit 1; }
+            [[ "${!name}" != *$'\n'* && "${!name}" != *$'\r'* ]] || { echo "Invalid line break in production input: $name"; exit 1; }
+          done
+          if [[ "$BOOTSTRAP_ADMIN" == "true" ]]; then
+            [[ -n "$PRODUCTION_ADMIN_INITIAL_PASSWORD" ]]
+            [[ "$PRODUCTION_ADMIN_INITIAL_PASSWORD" != "$PRODUCTION_ADMIN_PASSWORD" ]]
+          fi
+          [[ "$NEON_PROJECT_ID" =~ ^[a-z0-9-]{1,60}$ ]]
+          [[ "$NEON_BRANCH_ID" =~ ^[a-z0-9-]{1,60}$ ]]
+          [[ "$FLY_PRODUCTION_APP" =~ ^[a-z0-9-]{3,63}$ ]]
+          [[ "$EMPIRE_PRODUCTION_DATABASE_TARGET_HASH" =~ ^[0-9a-f]{64}$ ]]
+
+      - name: Verify direct and pooled database target parity
+        env:
+          EMPIRE_RELEASE_DATABASE_URL_DIRECT: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          GAMEPLAY_RELEASE_DATABASE_URL_DIRECT: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          EMPIRE_RELEASE_DATABASE_URL_POOLED: ${{ secrets.PRODUCTION_DATABASE_URL_POOLED }}
+          GAMEPLAY_RELEASE_DATABASE_URL_POOLED: ${{ secrets.PRODUCTION_DATABASE_URL_POOLED }}
+        run: npm run verify:database-endpoints
+
+      - name: Validate production environments and create manifest
+        env:
+          NODE_ENV: production
+          PRODUCTION_DATABASE_URL_DIRECT: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          PRODUCTION_DATABASE_URL_POOLED: ${{ secrets.PRODUCTION_DATABASE_URL_POOLED }}
+          GAMEPLAY_SLICE_SESSION_SECRET: ${{ secrets.PRODUCTION_GAMEPLAY_SESSION_SECRET }}
+          GAMEPLAY_SLICE_SNAPSHOT_SECRET: ${{ secrets.PRODUCTION_GAMEPLAY_SNAPSHOT_SECRET }}
+          EMPIRE_ADMIN_FINGERPRINT_SECRET: ${{ secrets.PRODUCTION_ADMIN_FINGERPRINT_SECRET }}
+          EMPIRE_ADMIN_SESSION_SECRET: ${{ secrets.PRODUCTION_ADMIN_SESSION_SECRET }}
+          EMPIRE_AUTH_THROTTLE_PEPPER: ${{ secrets.PRODUCTION_AUTH_THROTTLE_PEPPER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          common=(
+            "GAMEPLAY_SLICE_SESSION_SECRET=$GAMEPLAY_SLICE_SESSION_SECRET"
+            "GAMEPLAY_SLICE_SNAPSHOT_SECRET=$GAMEPLAY_SLICE_SNAPSHOT_SECRET"
+            "EMPIRE_ADMIN_FINGERPRINT_SECRET=$EMPIRE_ADMIN_FINGERPRINT_SECRET"
+            "EMPIRE_ADMIN_SESSION_SECRET=$EMPIRE_ADMIN_SESSION_SECRET"
+            "EMPIRE_AUTH_THROTTLE_PEPPER=$EMPIRE_AUTH_THROTTLE_PEPPER"
+          )
+          env "${common[@]}" EMPIRE_DATABASE_URL="$PRODUCTION_DATABASE_URL_POOLED" GAMEPLAY_DATABASE_URL="$PRODUCTION_DATABASE_URL_POOLED" \
+            npm run verify:production-env -- --component=netlify
+          env "${common[@]}" EMPIRE_DATABASE_URL="$PRODUCTION_DATABASE_URL_DIRECT" GAMEPLAY_DATABASE_URL="$PRODUCTION_DATABASE_URL_DIRECT" \
+            npm run verify:production-env -- --component=migration
+          env "${common[@]}" EMPIRE_DATABASE_URL="$PRODUCTION_DATABASE_URL_DIRECT" GAMEPLAY_DATABASE_URL="$PRODUCTION_DATABASE_URL_DIRECT" \
+            npm run verify:production-env -- --component=worker
+          env "${common[@]}" EMPIRE_DATABASE_URL="$PRODUCTION_DATABASE_URL_POOLED" GAMEPLAY_DATABASE_URL="$PRODUCTION_DATABASE_URL_POOLED" \
+            npm run release:production:manifest
+
+      - name: Capture rollback pointers
+        id: rollback_pointers
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/release/production
+          site="$RUNNER_TEMP/netlify-production-site.json"
+          deploy="$RUNNER_TEMP/netlify-production-deploy.json"
+          machines="$RUNNER_TEMP/fly-production-machines.json"
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
+            "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}" -o "$site"
+          previous_deploy="$(jq -er '.published_deploy.id' "$site")"
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
+            "https://api.netlify.com/api/v1/deploys/${previous_deploy}" -o "$deploy"
+          jq -e '.state == "ready"' "$deploy" >/dev/null
+          flyctl machines list --app "$FLY_PRODUCTION_APP" --json > "$machines"
+          [[ "$previous_deploy" =~ ^[A-Za-z0-9-]{8,100}$ ]]
+          if [[ "$EMPIRE_INITIAL_CUTOVER" == "true" ]]; then
+            [[ "$previous_deploy" == "$EMPIRE_INITIAL_ROLLBACK_DEPLOY_ID" ]]
+            jq -e '[.[] | select(.state != "destroyed" and .state != "destroying")] | length == 0' "$machines" >/dev/null
+            rollback_mode="initial-cutover-shutdown"
+            previous_sha=""
+            previous_image=""
+          else
+            [[ "$EMPIRE_INITIAL_CUTOVER" == "false" ]]
+            previous_sha="$EMPIRE_PREVIOUS_PRODUCTION_SHA"
+            git merge-base --is-ancestor "$previous_sha" "$RELEASE_SHA"
+            jq -e --arg sha "$previous_sha" '.commit_ref == $sha' "$deploy" >/dev/null
+            jq -e '[.[] | select(.state != "destroyed" and .state != "destroying")] | length == 1' "$machines" >/dev/null
+            previous_image="registry.fly.io/${FLY_PRODUCTION_APP}:${previous_sha}"
+            flyctl auth docker
+            docker manifest inspect "$previous_image" >/dev/null
+            EMPIRE_ROLLBACK_COMPATIBILITY_EVIDENCE_PATH=artifacts/release/production/rollback-compatibility.json \
+              npm run verify:rollback-compatibility -- --previous-sha="$previous_sha"
+            expected_schema="$(jq -er '.expectedSchemaVersion' artifacts/release-manifest.json)"
+            api="$RUNNER_TEMP/production-previous-api.json"
+            worker="$RUNNER_TEMP/production-previous-worker.json"
+            policy="$RUNNER_TEMP/production-previous-policy.json"
+            html="$RUNNER_TEMP/production-previous-admin.html"
+            curl --fail --silent --show-error --header 'Cache-Control: no-cache' \
+              "$PRODUCTION_ORIGIN/api/health?pre-upgrade-sha=${previous_sha}" -o "$api"
+            curl --fail --silent --show-error "https://${FLY_PRODUCTION_APP}.fly.dev/health" -o "$worker"
+            curl --fail --silent --show-error "$PRODUCTION_ORIGIN/api/account/registration-policy" -o "$policy"
+            curl --fail --silent --show-error --header 'Cache-Control: no-cache' \
+              "$PRODUCTION_ORIGIN/admin.html?pre-upgrade-sha=${previous_sha}" -o "$html"
+            jq -e --arg sha "$previous_sha" --arg schema "$expected_schema" '
+              .status == "ready" and .apiBuildSha == $sha and .environment == "production" and
+              .region == "fra" and .schemaVersion == $schema and .expectedSchemaVersion == $schema
+            ' "$api" >/dev/null
+            jq -e --arg sha "$previous_sha" --arg schema "$expected_schema" '
+              .status == "ok" and .buildSha == $sha and .environment == "production" and
+              .region == "fra" and .schemaVersion == $schema and .expectedSchemaVersion == $schema and
+              .heartbeat.registered == true
+            ' "$worker" >/dev/null
+            jq -e '.accepted == true and .data.registrationEnabled == false and .data.mode == "closed"' "$policy" >/dev/null
+            grep -Eiq "empire-build-sha.{0,200}${previous_sha}|${previous_sha}.{0,200}empire-build-sha" "$html"
+            rollback_mode="same-schema-code-rollback"
+            rm -f "$api" "$worker" "$policy" "$html"
+          fi
+          [[ -z "$previous_image" || ("$previous_image" != *$'\n'* && "$previous_image" != *$'\r'*) ]]
+          echo "rollback_mode=$rollback_mode" >> "$GITHUB_OUTPUT"
+          echo "netlify_deploy_id=$previous_deploy" >> "$GITHUB_OUTPUT"
+          echo "fly_image=$previous_image" >> "$GITHUB_OUTPUT"
+          echo "previous_sha=$previous_sha" >> "$GITHUB_OUTPUT"
+          jq -n --arg mode "$rollback_mode" --arg deployId "$previous_deploy" \
+            --arg flyImage "$previous_image" --arg sha "$RELEASE_SHA" --arg previousSha "$previous_sha" '
+            {capturedForSha:$sha,rollbackMode:$mode,
+             previousProductionSha:(if $previousSha == "" then null else $previousSha end),
+             previousNetlifyDeployId:$deployId,
+             previousFlyImage:(if $flyImage == "" then null else $flyImage end),
+             registrationClosed:true,databaseRestorePlanned:false}
+          ' > artifacts/release/production/rollback-pointers.json
+          rm -f "$site" "$deploy" "$machines"
+
+      - name: Create Neon pre-migration snapshot
+        id: backup
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          snapshot_name="empire-production-pre-${RELEASE_SHA:0:12}-$(date -u +%Y%m%dT%H%M%SZ)"
+          response="$RUNNER_TEMP/neon-production-snapshot.json"
+          curl --fail --silent --show-error --request POST \
+            --url "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches/${NEON_BRANCH_ID}/snapshot?name=${snapshot_name}" \
+            --header "authorization: Bearer ${NEON_API_KEY}" --output "$response"
+          snapshot_id="$(jq -er '.snapshot.id' "$response")"
+          echo "::add-mask::$snapshot_id"
+          snapshot_hash="$(printf '%s' "$snapshot_id" | sha256sum | cut -c1-16)"
+          jq -n --arg name "$snapshot_name" --arg snapshotIdHash "$snapshot_hash" --arg sha "$RELEASE_SHA" \
+            '{environment:"production",name:$name,snapshotIdHash:$snapshotIdHash,sha:$sha}' \
+            > artifacts/release/production/database-backup.json
+          echo "snapshot_id_hash=$snapshot_hash" >> "$GITHUB_OUTPUT"
+          rm -f "$response"
+
+      - name: Initialize empty production migration history
+        if: inputs.initialize_database
+        env:
+          EMPIRE_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          GAMEPLAY_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          EMPIRE_DATABASE_BACKUP_CONFIRMED: "true"
+          EMPIRE_DATABASE_BACKUP_ID: ${{ steps.backup.outputs.snapshot_id_hash }}
+          EMPIRE_DATABASE_INITIALIZATION_CONFIRMED: "true"
+        run: npm run db:migrate:initialize-release-history
+
+      - name: Record pending production migrations
+        env:
+          EMPIRE_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          GAMEPLAY_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          EMPIRE_DATABASE_BACKUP_CONFIRMED: "true"
+          EMPIRE_DATABASE_BACKUP_ID: ${{ steps.backup.outputs.snapshot_id_hash }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run db:migrate:status -- --release --status-allow-pending 2>&1 | tee artifacts/release/production/migrations-pending.log
+
+      - name: Apply production migrations exactly once
+        env:
+          EMPIRE_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          GAMEPLAY_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          EMPIRE_DATABASE_BACKUP_CONFIRMED: "true"
+          EMPIRE_DATABASE_BACKUP_ID: ${{ steps.backup.outputs.snapshot_id_hash }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run db:migrate -- --release 2>&1 | tee artifacts/release/production/migrations-apply.log
+
+      - name: Verify current production schema
+        env:
+          EMPIRE_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          GAMEPLAY_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          EMPIRE_DATABASE_BACKUP_CONFIRMED: "true"
+          EMPIRE_DATABASE_BACKUP_ID: ${{ steps.backup.outputs.snapshot_id_hash }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run db:migrate:status -- --release 2>&1 | tee artifacts/release/production/migrations-current.log
+
+      - name: Verify transaction-pooled production API connection
+        env:
+          EMPIRE_RELEASE_DATABASE_URL_DIRECT: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          GAMEPLAY_RELEASE_DATABASE_URL_DIRECT: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          EMPIRE_RELEASE_DATABASE_URL_POOLED: ${{ secrets.PRODUCTION_DATABASE_URL_POOLED }}
+          GAMEPLAY_RELEASE_DATABASE_URL_POOLED: ${{ secrets.PRODUCTION_DATABASE_URL_POOLED }}
+        run: npm run verify:database-pooling
+
+      - name: Build frontend, API and immutable worker image
+        env:
+          NODE_ENV: production
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build:admin:page
+          npm run release:asset-manifest
+          docker build --build-arg "EMPIRE_BUILD_SHA=${RELEASE_SHA}" \
+            --tag "registry.fly.io/${FLY_PRODUCTION_APP}:${RELEASE_SHA}" \
+            --file Dockerfile.hosted-worker .
+
+      - name: Configure exact Netlify production environment
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          EMPIRE_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_POOLED }}
+          GAMEPLAY_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_POOLED }}
+          GAMEPLAY_SLICE_SESSION_SECRET: ${{ secrets.PRODUCTION_GAMEPLAY_SESSION_SECRET }}
+          GAMEPLAY_SLICE_SNAPSHOT_SECRET: ${{ secrets.PRODUCTION_GAMEPLAY_SNAPSHOT_SECRET }}
+          EMPIRE_ADMIN_FINGERPRINT_SECRET: ${{ secrets.PRODUCTION_ADMIN_FINGERPRINT_SECRET }}
+          EMPIRE_ADMIN_SESSION_SECRET: ${{ secrets.PRODUCTION_ADMIN_SESSION_SECRET }}
+          EMPIRE_AUTH_THROTTLE_PEPPER: ${{ secrets.PRODUCTION_AUTH_THROTTLE_PEPPER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          set_function() { netlify env:set "$1" "$2" --force --scope functions --context production >/dev/null; }
+          set_function_secret() { netlify env:set "$1" "$2" --force --secret --scope functions --context production >/dev/null; }
+          set_build_function() { netlify env:set "$1" "$2" --force --scope builds functions --context production >/dev/null; }
+          set_build_function NODE_ENV production
+          set_build_function EMPIRE_RELEASE_ENVIRONMENT production
+          set_build_function EMPIRE_PUBLIC_ORIGIN "$PRODUCTION_ORIGIN"
+          set_build_function EMPIRE_ALLOWED_ORIGINS "$PRODUCTION_ORIGIN"
+          set_build_function EMPIRE_BUILD_SHA "$RELEASE_SHA"
+          set_function_secret EMPIRE_DATABASE_URL "$EMPIRE_DATABASE_URL"
+          set_function_secret GAMEPLAY_DATABASE_URL "$GAMEPLAY_DATABASE_URL"
+          set_function EMPIRE_PERSISTENCE_DRIVER postgres
+          set_function GAMEPLAY_PERSISTENCE_DRIVER postgres
+          set_function_secret GAMEPLAY_SLICE_SESSION_SECRET "$GAMEPLAY_SLICE_SESSION_SECRET"
+          set_function_secret GAMEPLAY_SLICE_SNAPSHOT_SECRET "$GAMEPLAY_SLICE_SNAPSHOT_SECRET"
+          set_function_secret EMPIRE_ADMIN_FINGERPRINT_SECRET "$EMPIRE_ADMIN_FINGERPRINT_SECRET"
+          set_function_secret EMPIRE_ADMIN_SESSION_SECRET "$EMPIRE_ADMIN_SESSION_SECRET"
+          set_function_secret EMPIRE_AUTH_THROTTLE_PEPPER "$EMPIRE_AUTH_THROTTLE_PEPPER"
+          set_function EMPIRE_ADMIN_WRITES_ENABLED true
+          set_function EMPIRE_HOSTED_CONTROL_PLANE_ENABLED true
+          set_function EMPIRE_SERVER_PROVISIONING_ENABLED true
+          set_function EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false
+          set_function EMPIRE_ACCOUNT_TERMS_VERSION "$EMPIRE_ACCOUNT_TERMS_VERSION"
+          set_function EMPIRE_LEGACY_MATCHMAKING_ENABLED false
+          set_function EMPIRE_WAR_HOSTING_ENABLED false
+          set_function EMPIRE_HOSTED_WORKER_ID "$EMPIRE_HOSTED_WORKER_ID"
+          set_function EMPIRE_HOSTED_WORKER_REGION "$EMPIRE_HOSTED_WORKER_REGION"
+          set_function EMPIRE_RUNTIME_REGION "$EMPIRE_RUNTIME_REGION"
+          set_function EMPIRE_TICK_WORKER_OWNER_ID "$EMPIRE_TICK_WORKER_OWNER_ID"
+          set_function EMPIRE_HOSTED_PREFLIGHT_STRICT true
+          netlify env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT --force --context production >/dev/null
+          netlify env:unset EMPIRE_ADMIN_BOOTSTRAP_PASSWORD --force --context production >/dev/null
+
+      - name: Deploy Netlify production with registration closed
+        id: netlify_deploy
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          netlify deploy --prod --dir=client --functions=netlify/functions --skip-functions-cache \
+            --message "production closed ${RELEASE_SHA}" --json \
+            > artifacts/release/production/netlify-deploy.json
+
+      - name: Push immutable production worker image
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          flyctl auth docker
+          docker push "registry.fly.io/${FLY_PRODUCTION_APP}:${RELEASE_SHA}"
+          docker manifest inspect "registry.fly.io/${FLY_PRODUCTION_APP}:${RELEASE_SHA}" >/dev/null
+
+      - name: Stage production worker-only secrets
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          EMPIRE_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          GAMEPLAY_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          GAMEPLAY_SLICE_SESSION_SECRET: ${{ secrets.PRODUCTION_GAMEPLAY_SESSION_SECRET }}
+          GAMEPLAY_SLICE_SNAPSHOT_SECRET: ${{ secrets.PRODUCTION_GAMEPLAY_SNAPSHOT_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          worker_env="$RUNNER_TEMP/fly-production-worker.env"
+          {
+            printf 'EMPIRE_RELEASE_ENVIRONMENT=production\n'
+            printf 'EMPIRE_DATABASE_URL=%s\n' "$EMPIRE_DATABASE_URL"
+            printf 'GAMEPLAY_DATABASE_URL=%s\n' "$GAMEPLAY_DATABASE_URL"
+            printf 'GAMEPLAY_SLICE_SESSION_SECRET=%s\n' "$GAMEPLAY_SLICE_SESSION_SECRET"
+            printf 'GAMEPLAY_SLICE_SNAPSHOT_SECRET=%s\n' "$GAMEPLAY_SLICE_SNAPSHOT_SECRET"
+            printf 'EMPIRE_PUBLIC_ORIGIN=%s\n' "$PRODUCTION_ORIGIN"
+            printf 'EMPIRE_ALLOWED_ORIGINS=%s\n' "$PRODUCTION_ORIGIN"
+            printf 'EMPIRE_HOSTED_WORKER_ID=%s\n' "$EMPIRE_HOSTED_WORKER_ID"
+            printf 'EMPIRE_HOSTED_WORKER_REGION=%s\n' "$EMPIRE_HOSTED_WORKER_REGION"
+            printf 'EMPIRE_RUNTIME_REGION=%s\n' "$EMPIRE_RUNTIME_REGION"
+            printf 'EMPIRE_TICK_WORKER_OWNER_ID=%s\n' "$EMPIRE_TICK_WORKER_OWNER_ID"
+            printf 'EMPIRE_PRODUCTION_DATABASE_TARGET_HASH=%s\n' "$EMPIRE_PRODUCTION_DATABASE_TARGET_HASH"
+            printf 'EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED=false\n'
+            printf 'EMPIRE_LEGACY_MATCHMAKING_ENABLED=false\n'
+            printf 'EMPIRE_HOSTED_PREFLIGHT_STRICT=true\n'
+          } > "$worker_env"
+          flyctl secrets import --stage --app "$FLY_PRODUCTION_APP" < "$worker_env"
+          rm -f "$worker_env"
+
+      - name: Deploy exactly one persistent production worker
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          flyctl deploy --app "$FLY_PRODUCTION_APP" --config fly.hosted-worker.toml \
+            --image "registry.fly.io/${FLY_PRODUCTION_APP}:${RELEASE_SHA}" \
+            --ha=false --strategy immediate --yes
+          flyctl scale count 1 --app "$FLY_PRODUCTION_APP" --yes
+          flyctl checks list --app "$FLY_PRODUCTION_APP"
+
+      - name: Wait for production API and worker health
+        shell: bash
+        run: |
+          set -euo pipefail
+          api_health="$RUNNER_TEMP/production-api-health.json"
+          worker_health="$RUNNER_TEMP/production-worker-health.json"
+          expected_schema="$(jq -er '.expectedSchemaVersion' artifacts/release-manifest.json)"
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error "$PRODUCTION_ORIGIN/api/health" -o "$api_health" \
+              && jq -e --arg sha "$RELEASE_SHA" --arg schema "$expected_schema" \
+                '.status == "ready" and .apiBuildSha == $sha and .environment == "production" and .region == "fra" and .schemaVersion == $schema and .expectedSchemaVersion == $schema' \
+                "$api_health" >/dev/null; then break; fi
+            [[ "$attempt" != "30" ]] || exit 1
+            sleep 10
+          done
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error "https://${FLY_PRODUCTION_APP}.fly.dev/health" -o "$worker_health" \
+              && jq -e --arg sha "$RELEASE_SHA" --arg schema "$expected_schema" \
+                '.status == "ok" and .buildSha == $sha and .environment == "production" and .region == "fra" and .schemaVersion == $schema and .expectedSchemaVersion == $schema and .heartbeat.registered == true' \
+                "$worker_health" >/dev/null; then break; fi
+            [[ "$attempt" != "30" ]] || exit 1
+            sleep 10
+          done
+          curl --fail --silent --show-error "$PRODUCTION_ORIGIN/api/servers" >/dev/null
+          jq '{status,service,code,database,schema,schemaVersion,expectedSchemaVersion,buildSha,apiBuildSha,environment,region,runtime}' \
+            "$api_health" > artifacts/release/production/api-health.json
+          jq '{status,database,lastErrorCode,buildSha,environment,region,schemaVersion,expectedSchemaVersion,workerId,heartbeat,runtime}' \
+            "$worker_health" > artifacts/release/production/worker-health.json
+          rm -f "$api_health" "$worker_health"
+
+      - name: Verify remote production SHA and asset parity
+        env:
+          EMPIRE_HOSTED_WORKER_ORIGIN: https://${{ vars.FLY_PRODUCTION_APP }}.fly.dev
+          EMPIRE_REMOTE_RELEASE_EVIDENCE_PATH: artifacts/release/production/remote-release-health.json
+        run: npm run verify:remote-release
+
+      - name: Bootstrap, rotate and re-run the production owner bootstrap
+        if: inputs.bootstrap_admin
+        env:
+          EMPIRE_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          EMPIRE_ADMIN_BOOTSTRAP_USERNAME: ${{ vars.PRODUCTION_ADMIN_USERNAME }}
+          EMPIRE_ADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.PRODUCTION_ADMIN_INITIAL_PASSWORD }}
+          EMPIRE_ADMIN_NEW_PASSWORD: ${{ secrets.PRODUCTION_ADMIN_PASSWORD }}
+          EMPIRE_ADMIN_BOOTSTRAP_DISPLAY_NAME: ${{ vars.PRODUCTION_ADMIN_DISPLAY_NAME }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "$EMPIRE_ADMIN_BOOTSTRAP_PASSWORD" ]]
+          [[ "$EMPIRE_ADMIN_BOOTSTRAP_PASSWORD" != "$EMPIRE_ADMIN_NEW_PASSWORD" ]]
+          npm run admin:bootstrap-user
+          npm run verify:admin-user-live
+          npm run admin:rotate-password
+          EMPIRE_ADMIN_BOOTSTRAP_PASSWORD="$EMPIRE_ADMIN_NEW_PASSWORD" npm run verify:admin-user-live
+          EMPIRE_ADMIN_BOOTSTRAP_PASSWORD="$EMPIRE_ADMIN_NEW_PASSWORD" npm run admin:bootstrap-user
+          EMPIRE_ADMIN_BOOTSTRAP_PASSWORD="$EMPIRE_ADMIN_NEW_PASSWORD" npm run verify:admin-user-live
+
+      - name: Bootstrap controlled production smoke account
+        if: inputs.bootstrap_smoke_account
+        env:
+          NODE_ENV: production
+          EMPIRE_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          GAMEPLAY_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_DIRECT }}
+          EMPIRE_DATABASE_BACKUP_CONFIRMED: "true"
+          EMPIRE_DATABASE_BACKUP_ID: ${{ steps.backup.outputs.snapshot_id_hash }}
+          EMPIRE_PRODUCTION_SMOKE_ACCOUNT_BOOTSTRAP_CONFIRMED: production-smoke-account
+          EMPIRE_PRODUCTION_SMOKE_ACCOUNT_USERNAME: ${{ vars.PRODUCTION_SMOKE_ACCOUNT_USERNAME }}
+          EMPIRE_PRODUCTION_SMOKE_ACCOUNT_GANG_NAME: ${{ vars.PRODUCTION_SMOKE_ACCOUNT_GANG_NAME }}
+          EMPIRE_PRODUCTION_SMOKE_ACCOUNT_PASSWORD: ${{ secrets.PRODUCTION_SMOKE_ACCOUNT_PASSWORD }}
+          EMPIRE_PRODUCTION_SMOKE_ACCOUNT_EVIDENCE_PATH: artifacts/release/production/smoke-account.json
+        run: npm run admin:bootstrap-production-smoke-account
+
+      - name: Verify remote production admin control plane and logout
+        env:
+          PRODUCTION_ADMIN_USERNAME: ${{ vars.PRODUCTION_ADMIN_USERNAME }}
+          PRODUCTION_ADMIN_PASSWORD: ${{ secrets.PRODUCTION_ADMIN_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          login_body="$RUNNER_TEMP/production-admin-login.json"
+          cookie_jar="$RUNNER_TEMP/production-admin-cookies.txt"
+          control="$RUNNER_TEMP/production-admin-control-plane.json"
+          cleanup() { rm -f "$login_body" "$cookie_jar" "$control"; }
+          trap cleanup EXIT
+          jq -n --arg username "$PRODUCTION_ADMIN_USERNAME" --arg password "$PRODUCTION_ADMIN_PASSWORD" \
+            '{username:$username,password:$password}' > "$login_body"
+          curl --fail --silent --show-error --cookie-jar "$cookie_jar" \
+            --header "Origin: ${PRODUCTION_ORIGIN}" --header "Content-Type: application/json" \
+            --data-binary "@$login_body" "$PRODUCTION_ORIGIN/api/admin/session" >/dev/null
+          curl --fail --silent --show-error --cookie "$cookie_jar" \
+            "$PRODUCTION_ORIGIN/api/admin/control-plane" -o "$control"
+          jq -e --arg sha "$RELEASE_SHA" '
+            .data.apiBuildSha == $sha and .data.workerBuildSha == $sha and
+            .data.migrationsCurrent == true and .data.workerStatus == "online" and
+            .data.buildCompatibility == "current" and .data.sessionSecurity == "current" and
+            .data.originPolicy == "current" and .data.registrationEnabled == false
+          ' "$control" >/dev/null
+          curl --fail --silent --show-error --request DELETE --cookie "$cookie_jar" \
+            --header "Origin: ${PRODUCTION_ORIGIN}" "$PRODUCTION_ORIGIN/api/admin/session" >/dev/null
+          jq '{ok,data:{workerStatus:.data.workerStatus,buildCompatibility:.data.buildCompatibility,
+            sessionSecurity:.data.sessionSecurity,originPolicy:.data.originPolicy,
+            registrationEnabled:.data.registrationEnabled,apiBuildSha:.data.apiBuildSha,
+            workerBuildSha:.data.workerBuildSha,schemaVersion:.data.schemaVersion}}' \
+            "$control" > artifacts/release/production/admin-control-plane.json
+
+      - name: Run guarded production browser smoke
+        env:
+          NODE_ENV: production
+          EMPIRE_HOSTED_WORKER_ORIGIN: https://${{ vars.FLY_PRODUCTION_APP }}.fly.dev
+          EMPIRE_PRODUCTION_REMOTE_SMOKE: "1"
+          EMPIRE_PRODUCTION_SMOKE_ARTIFACT_ROOT: artifacts/release/production/smoke
+          PRODUCTION_ADMIN_USERNAME: ${{ vars.PRODUCTION_ADMIN_USERNAME }}
+          PRODUCTION_ADMIN_PASSWORD: ${{ secrets.PRODUCTION_ADMIN_PASSWORD }}
+          PRODUCTION_SMOKE_ACCOUNT_USERNAME: ${{ vars.PRODUCTION_SMOKE_ACCOUNT_USERNAME }}
+          PRODUCTION_SMOKE_ACCOUNT_PASSWORD: ${{ secrets.PRODUCTION_SMOKE_ACCOUNT_PASSWORD }}
+        run: npm run test:remote-production:smoke
+
+      - name: Force final closed registration and redeploy the same SHA
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false \
+            --force --scope functions --context production >/dev/null
+          netlify env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT \
+            --force --context production >/dev/null
+          netlify deploy --prod --dir=client --functions=netlify/functions --skip-functions-cache \
+            --message "production final closed ${RELEASE_SHA}" --json \
+            > artifacts/release/production/netlify-final-closed.json
+
+      - name: Verify final production registration, domain and SHA parity
+        env:
+          EMPIRE_HOSTED_WORKER_ORIGIN: https://${{ vars.FLY_PRODUCTION_APP }}.fly.dev
+          EMPIRE_REMOTE_RELEASE_EVIDENCE_PATH: artifacts/release/production/final-release-health.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          policy="$RUNNER_TEMP/production-registration-policy.json"
+          www_headers="$RUNNER_TEMP/production-www-headers.txt"
+          http_headers="$RUNNER_TEMP/production-http-headers.txt"
+          curl --fail --silent --show-error --header 'Cache-Control: no-cache' \
+            "$PRODUCTION_ORIGIN/api/account/registration-policy?release-sha=${RELEASE_SHA}" -o "$policy"
+          jq -e '.accepted == true and .data.registrationEnabled == false and .data.mode == "closed"' "$policy" >/dev/null
+          npm run verify:remote-release
+          curl --silent --show-error --head --proto '=https' https://www.empirestreets.cz/ -o "$www_headers"
+          tr -d '\r' < "$www_headers" | grep -Eiq '^location: https://empirestreets\.cz/?$'
+          curl --silent --show-error --head --proto '=http' http://empirestreets.cz/ -o "$http_headers"
+          tr -d '\r' < "$http_headers" | grep -Eiq '^location: https://empirestreets\.cz/?$'
+          jq -n --arg sha "$RELEASE_SHA" \
+            '{domain:"empirestreets.cz",https:true,httpRedirect:true,wwwRedirect:true,
+              registrationClosed:true,buildSha:$sha}' \
+            > artifacts/release/production/domain-and-registration.json
+          rm -f "$policy" "$www_headers" "$http_headers"
+
+      - name: Roll back code automatically without restoring the database
+        if: failure() && steps.rollback_pointers.outcome == 'success'
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          ROLLBACK_MODE: ${{ steps.rollback_pointers.outputs.rollback_mode }}
+          PREVIOUS_NETLIFY_DEPLOY_ID: ${{ steps.rollback_pointers.outputs.netlify_deploy_id }}
+          PREVIOUS_FLY_IMAGE: ${{ steps.rollback_pointers.outputs.fly_image }}
+          PREVIOUS_PRODUCTION_SHA: ${{ steps.rollback_pointers.outputs.previous_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false \
+            --force --scope functions --context production >/dev/null
+          if [[ "$ROLLBACK_MODE" == "same-schema-code-rollback" ]]; then
+            netlify env:set EMPIRE_BUILD_SHA "$PREVIOUS_PRODUCTION_SHA" \
+              --force --scope builds functions --context production >/dev/null
+          else
+            [[ "$ROLLBACK_MODE" == "initial-cutover-shutdown" ]]
+          fi
+          curl --fail --silent --show-error --request POST \
+            --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
+            "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}/deploys/${PREVIOUS_NETLIFY_DEPLOY_ID}/restore" >/dev/null
+          if [[ "$ROLLBACK_MODE" == "initial-cutover-shutdown" ]]; then
+            flyctl scale count 0 --app "$FLY_PRODUCTION_APP" --yes
+            site="$RUNNER_TEMP/production-rollback-site.json"
+            curl --fail --silent --show-error --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
+              "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}" -o "$site"
+            jq -e --arg deployId "$PREVIOUS_NETLIFY_DEPLOY_ID" '.published_deploy.id == $deployId' "$site" >/dev/null
+            flyctl machines list --app "$FLY_PRODUCTION_APP" --json \
+              | jq -e '[.[] | select(.state != "destroyed" and .state != "destroying")] | length == 0' >/dev/null
+            jq -n --arg deployId "$PREVIOUS_NETLIFY_DEPLOY_ID" '
+              {status:"initial-cutover-rollback-complete",rollbackMode:"initial-cutover-shutdown",
+               registrationConfiguredClosed:true,databaseRestored:false,workerReplicas:0,
+               netlifyDeployId:$deployId}
+            ' > artifacts/release/production/automatic-rollback.json
+            rm -f "$site"
+          else
+            flyctl deploy --app "$FLY_PRODUCTION_APP" --config fly.hosted-worker.toml \
+              --image "$PREVIOUS_FLY_IMAGE" --ha=false --strategy immediate --yes
+            flyctl scale count 1 --app "$FLY_PRODUCTION_APP" --yes
+            expected_schema="$(jq -er '.expectedSchemaVersion' artifacts/release-manifest.json)"
+            api="$RUNNER_TEMP/production-rollback-api.json"
+            worker="$RUNNER_TEMP/production-rollback-worker.json"
+            policy="$RUNNER_TEMP/production-rollback-policy.json"
+            html="$RUNNER_TEMP/production-rollback-admin.html"
+            assets="$RUNNER_TEMP/production-rollback-assets.json"
+            for attempt in {1..30}; do
+              if curl --fail --silent --show-error "$PRODUCTION_ORIGIN/api/health" -o "$api" \
+                && jq -e --arg sha "$PREVIOUS_PRODUCTION_SHA" --arg schema "$expected_schema" '
+                  .status == "ready" and .apiBuildSha == $sha and .environment == "production" and
+                  .schemaVersion == $schema and .expectedSchemaVersion == $schema
+                ' "$api" >/dev/null; then break; fi
+              [[ "$attempt" != "30" ]] || exit 1
+              sleep 10
+            done
+            for attempt in {1..30}; do
+              if curl --fail --silent --show-error "https://${FLY_PRODUCTION_APP}.fly.dev/health" -o "$worker" \
+                && jq -e --arg sha "$PREVIOUS_PRODUCTION_SHA" --arg schema "$expected_schema" '
+                  .status == "ok" and .buildSha == $sha and .environment == "production" and
+                  .schemaVersion == $schema and .expectedSchemaVersion == $schema and .heartbeat.registered == true
+                ' "$worker" >/dev/null; then break; fi
+              [[ "$attempt" != "30" ]] || exit 1
+              sleep 10
+            done
+            curl --fail --silent --show-error "$PRODUCTION_ORIGIN/api/account/registration-policy" -o "$policy"
+            jq -e '.accepted == true and .data.registrationEnabled == false and .data.mode == "closed"' "$policy" >/dev/null
+            curl --fail --silent --show-error --header 'Cache-Control: no-cache' \
+              "$PRODUCTION_ORIGIN/admin.html?rollback-sha=${PREVIOUS_PRODUCTION_SHA}" -o "$html"
+            grep -Eiq "empire-build-sha.{0,200}${PREVIOUS_PRODUCTION_SHA}|${PREVIOUS_PRODUCTION_SHA}.{0,200}empire-build-sha" "$html"
+            curl --fail --silent --show-error --header 'Cache-Control: no-cache' \
+              "$PRODUCTION_ORIGIN/release-asset-manifest.json?rollback-sha=${PREVIOUS_PRODUCTION_SHA}" -o "$assets"
+            jq -e --arg sha "$PREVIOUS_PRODUCTION_SHA" --arg schema "$expected_schema" '
+              .buildSha == $sha and .schemaVersion == $schema and (.files | length > 0)
+            ' "$assets" >/dev/null
+            jq -n --arg deployId "$PREVIOUS_NETLIFY_DEPLOY_ID" --arg flyImage "$PREVIOUS_FLY_IMAGE" \
+              --arg previousSha "$PREVIOUS_PRODUCTION_SHA" '
+              {status:"code-rollback-complete",rollbackMode:"same-schema-code-rollback",
+               previousProductionSha:$previousSha,registrationClosed:true,databaseRestored:false,
+               workerReplicas:1,netlifyDeployId:$deployId,flyImage:$flyImage}
+            ' > artifacts/release/production/automatic-rollback.json
+            rm -f "$api" "$worker" "$policy" "$html" "$assets"
+          fi
+
+      - name: Upload production release evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: production-release-${{ env.RELEASE_SHA }}
+          if-no-files-found: warn
+          retention-days: 90
+          path: |
+            artifacts/release-manifest.json
+            artifacts/release-asset-manifest.json
+            artifacts/release/production/**
+
+      - name: Remove transient credential files
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/fly-production-worker.env" \
+            "$RUNNER_TEMP/production-admin-login.json" "$RUNNER_TEMP/production-admin-cookies.txt" \
+            "$RUNNER_TEMP/production-admin-control-plane.json" "$RUNNER_TEMP/neon-production-snapshot.json" \
+            "$RUNNER_TEMP/production-registration-policy.json" "$RUNNER_TEMP/production-rollback-policy.json" \
+            "$RUNNER_TEMP/netlify-production-site.json" "$RUNNER_TEMP/netlify-production-deploy.json" \
+            "$RUNNER_TEMP/fly-production-machines.json" "$RUNNER_TEMP/production-previous-api.json" \
+            "$RUNNER_TEMP/production-previous-worker.json" "$RUNNER_TEMP/production-previous-policy.json" \
+            "$RUNNER_TEMP/production-previous-admin.html" "$RUNNER_TEMP/production-rollback-api.json" \
+            "$RUNNER_TEMP/production-rollback-worker.json" "$RUNNER_TEMP/production-rollback-site.json" \
+            "$RUNNER_TEMP/production-rollback-admin.html" "$RUNNER_TEMP/production-rollback-assets.json"
+
+  verdict:
+    name: Record closed production deployment verdict
+    if: always()
+    needs:
+      - gate
+      - deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Record honest post-deploy status
+        env:
+          RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          STAGING_RUN_ID: ${{ needs.gate.outputs.staging_remote_run_id }}
+          ROLLBACK_RUN_ID: ${{ needs.gate.outputs.rollback_rehearsal_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          mkdir -p artifacts/release/production/final
+          status="no-go"
+          deployed=false
+          registration_closed=null
+          public_registration_enabled=null
+          if [[ "$DEPLOY_RESULT" == "success" ]]; then
+            status="post-deploy-pass-registration-closed"
+            deployed=true
+            registration_closed=true
+            public_registration_enabled=false
+          fi
+          jq -n --arg status "$status" --arg sha "$RELEASE_SHA" --arg staging "$STAGING_RUN_ID" \
+            --arg rollback "$ROLLBACK_RUN_ID" --argjson deployed "$deployed" \
+            --argjson registrationClosed "$registration_closed" \
+            --argjson publicRegistrationEnabled "$public_registration_enabled" '
+            {status:$status,environment:"production",buildSha:$sha,deployed:$deployed,
+             registrationClosed:$registrationClosed,publicRegistrationEnabled:$publicRegistrationEnabled,
+             productionGo:false,
+             operatorFinalReportRequired:true,stagingRemoteRunId:$staging,
+             rollbackRehearsalRunId:$rollback}
+          ' > artifacts/release/production/final/summary.json
+
+      - name: Upload closed production verdict
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: production-final-${{ needs.gate.outputs.release_sha }}
+          if-no-files-found: error
+          retention-days: 90
+          path: artifacts/release/production/final/summary.json

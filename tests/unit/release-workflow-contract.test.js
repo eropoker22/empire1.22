@@ -5,6 +5,8 @@ const staging = readFileSync(".github/workflows/deploy-staging.yml", "utf8");
 const hosted = readFileSync(".github/workflows/hosted-acceptance.yml", "utf8");
 const quality = readFileSync(".github/workflows/quality.yml", "utf8");
 const remote = readFileSync(".github/workflows/staging-remote-acceptance.yml", "utf8");
+const rollback = readFileSync(".github/workflows/staging-rollback-rehearsal.yml", "utf8");
+const production = readFileSync(".github/workflows/deploy-production.yml", "utf8");
 const fly = readFileSync("fly.hosted-worker.toml", "utf8");
 
 describe("public release workflows", () => {
@@ -173,5 +175,174 @@ describe("public release workflows", () => {
     expect(remote.indexOf("Install Playwright Chromium")).toBeLessThan(remote.indexOf("Run public remote suite"));
     expect(remote.indexOf("Install pinned Netlify CLI")).toBeLessThan(remote.indexOf("Open a maximum 23-hour registration window"));
     expect(remote).not.toContain("--context deploy-preview");
+  });
+
+  it("gates production on exact remote staging and rollback rehearsal artifacts", () => {
+    expect(production).toContain("name: Deploy Production");
+    expect(production).toContain("workflow_dispatch:");
+    expect(production).not.toContain("workflow_run:");
+    expect(production).toContain('.name == "Staging Remote Acceptance"');
+    expect(production).toContain('.path == ".github/workflows/staging-remote-acceptance.yml"');
+    expect(production).toContain('staging-remote-final-${RELEASE_SHA}');
+    expect(production).toContain('.name == "Staging Rollback Rehearsal"');
+    expect(production).toContain('staging-rollback-final-${RELEASE_SHA}');
+    expect(production).toContain("schemaCompatibleWithPrevious == true");
+    expect(production).toContain("netlify_observability_evidence_id");
+    expect(production).toContain("environment: production");
+  });
+
+  it("keeps the production deploy ordered, immutable and registration closed", () => {
+    const order = [
+      "Validate production environments and create manifest",
+      "Capture rollback pointers",
+      "Create Neon pre-migration snapshot",
+      "Record pending production migrations",
+      "Apply production migrations exactly once",
+      "Verify current production schema",
+      "Build frontend, API and immutable worker image",
+      "Deploy Netlify production with registration closed",
+      "Deploy exactly one persistent production worker",
+      "Wait for production API and worker health",
+      "Verify remote production SHA and asset parity",
+      "Run guarded production browser smoke",
+      "Force final closed registration and redeploy the same SHA",
+      "Verify final production registration, domain and SHA parity"
+    ].map((label) => production.indexOf(label));
+    expect(order.every((index) => index >= 0)).toBe(true);
+    expect(order).toEqual([...order].sort((left, right) => left - right));
+    expect(production).toContain("npm run release:production:manifest");
+    expect(production).toContain("npm run verify:production-env -- --component=netlify");
+    expect(production).toContain("npm run verify:production-env -- --component=worker");
+    expect(production).toContain("npm run verify:database-pooling");
+    expect(production).toContain("npm run verify:remote-release");
+    expect(production).toContain("npm run test:remote-production:smoke");
+    expect(production).toContain("EMPIRE_PRODUCTION_DATABASE_TARGET_HASH");
+    expect(production).toContain('EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "false"');
+    expect(production).toContain('EMPIRE_WAR_HOSTING_ENABLED: "false"');
+    expect(production).not.toMatch(/EMPIRE_WAR_HOSTING_ENABLED true/u);
+    expect(production).not.toMatch(/env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true/u);
+    expect(production).not.toContain("--context deploy-preview");
+    expect(production).toContain('registry.fly.io/${FLY_PRODUCTION_APP}:${RELEASE_SHA}');
+    expect(production).toContain("--ha=false");
+    expect(production).toContain("flyctl scale count 1");
+  });
+
+  it("separates initial production cutover rollback from same-schema upgrades", () => {
+    expect(production).toContain("initial_cutover:");
+    expect(production).toContain("previous_production_sha:");
+    expect(production).toContain("initial_rollback_deploy_id:");
+    expect(production).toContain('[[ "$INITIALIZE_DATABASE" == "true" ]]');
+    expect(production).toContain('[[ "$BOOTSTRAP_ADMIN" == "true" ]]');
+    expect(production).toContain('[[ "$BOOTSTRAP_SMOKE_ACCOUNT" == "true" ]]');
+    expect(production).toContain("initial-cutover-shutdown");
+    expect(production).toContain("same-schema-code-rollback");
+    expect(production).toContain("npm run verify:rollback-compatibility");
+    expect(production).toContain('flyctl scale count 0 --app "$FLY_PRODUCTION_APP" --yes');
+    expect(production).toContain('flyctl machines list --app "$FLY_PRODUCTION_APP" --json');
+  });
+
+  it("keeps production provider credentials step-scoped and tools pinned", () => {
+    const deployJob = production.slice(production.indexOf("  deploy:"), production.indexOf("  verdict:"));
+    const jobEnvironment = deployJob.match(/\n    env:\n([\s\S]*?)\n    steps:/u)?.[1] ?? "";
+    expect(jobEnvironment).not.toMatch(/\$\{\{\s*secrets\./u);
+    const toolIndexes = [
+      production.indexOf("Install exact dependencies"),
+      production.indexOf("Install pinned Netlify CLI"),
+      production.indexOf("Setup pinned Fly CLI"),
+      production.indexOf("Install Playwright Chromium")
+    ];
+    expect(Math.max(...toolIndexes)).toBeLessThan(production.indexOf("Validate required production inputs"));
+    expect(production).not.toContain('>> "$GITHUB_ENV"');
+    expect(production).not.toMatch(/uses:\s+[^\s]+@v\d/u);
+    expect(production).not.toContain("NETLIFY_AUTH_TOKEN=");
+    expect(production).not.toContain("FLY_API_TOKEN=");
+  });
+
+  it("gives the production worker no API or admin-only secrets", () => {
+    const workerSecrets = production.slice(
+      production.indexOf("Stage production worker-only secrets"),
+      production.indexOf("Deploy exactly one persistent production worker")
+    );
+    expect(workerSecrets).toContain("GAMEPLAY_SLICE_SESSION_SECRET");
+    expect(workerSecrets).toContain("GAMEPLAY_SLICE_SNAPSHOT_SECRET");
+    expect(workerSecrets).toContain("EMPIRE_PRODUCTION_DATABASE_TARGET_HASH");
+    expect(workerSecrets).not.toContain("EMPIRE_ADMIN_FINGERPRINT_SECRET");
+    expect(workerSecrets).not.toContain("EMPIRE_ADMIN_SESSION_SECRET");
+    expect(workerSecrets).not.toContain("EMPIRE_AUTH_THROTTLE_PEPPER");
+  });
+
+  it("rolls back code or shuts down initial cutover while retaining the production database", () => {
+    const rollback = production.slice(
+      production.indexOf("Roll back code automatically without restoring the database"),
+      production.indexOf("Upload production release evidence")
+    );
+    expect(rollback).toContain("/deploys/${PREVIOUS_NETLIFY_DEPLOY_ID}/restore");
+    expect(rollback).toContain('--image "$PREVIOUS_FLY_IMAGE"');
+    expect(rollback).toContain("databaseRestored:false");
+    expect(rollback).toContain("workerReplicas:0");
+    expect(rollback).toContain("workerReplicas:1");
+    expect(rollback).not.toContain("NEON_API_KEY");
+    expect(rollback).not.toContain("snapshot");
+    expect(rollback).toContain("EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false");
+  });
+
+  it("rehearses rollback only after exact closed remote staging acceptance", () => {
+    expect(rollback).toContain("name: Staging Rollback Rehearsal");
+    expect(rollback).toContain("workflow_dispatch:");
+    expect(rollback).toContain('.name == "Deploy Staging"');
+    expect(rollback).toContain('.path == ".github/workflows/deploy-staging.yml"');
+    expect(rollback).toContain('.name == "Staging Remote Acceptance"');
+    expect(rollback).toContain('.path == ".github/workflows/staging-remote-acceptance.yml"');
+    expect(rollback).toContain('.registrationClosed == true');
+    expect(rollback).toContain("group: empire-staging-release");
+    expect(rollback).toContain("environment: staging");
+  });
+
+  it("requires schema-identical code rollback and never touches the staging database", () => {
+    const compatibility = rollback.indexOf("Verify code-only rollback schema compatibility");
+    const capture = rollback.indexOf("Capture candidate and previous deployment pointers");
+    expect(compatibility).toBeGreaterThan(0);
+    expect(compatibility).toBeLessThan(capture);
+    expect(rollback).toContain("npm run verify:rollback-compatibility");
+    expect(rollback).toContain("schemaCompatibleWithPrevious:true");
+    expect(rollback).toContain("databaseRestored:false");
+    expect(rollback).not.toContain("DATABASE_URL");
+    expect(rollback).not.toContain("NEON_API_KEY");
+    expect(rollback).not.toMatch(/db:migrate|snapshot/u);
+  });
+
+  it("always restores the candidate and keeps one worker with registration closed", () => {
+    const order = [
+      "Restore previous staging code with registration closed",
+      "Verify previous staging release is healthy and closed",
+      "Restore exact staging candidate",
+      "Verify exact candidate was restored",
+      "Verify restored candidate frontend and asset parity",
+      "Record successful rollback rehearsal"
+    ].map((label) => rollback.indexOf(label));
+    expect(order.every((index) => index >= 0)).toBe(true);
+    expect(order).toEqual([...order].sort((left, right) => left - right));
+    expect(rollback).toContain("if: always() && steps.capture.outcome == 'success'");
+    expect(rollback.match(/flyctl scale count 1/gu)).toHaveLength(2);
+    expect(rollback).not.toMatch(/flyctl scale count [2-9]/u);
+    expect(rollback.match(/EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false/gu)).toHaveLength(2);
+    expect(rollback).not.toMatch(/EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true/u);
+    expect(rollback).toContain("candidateRestored:true");
+    expect(rollback).toContain("candidateAssetParityVerified:true");
+    expect(rollback).toContain("npm run verify:remote-release");
+  });
+
+  it("keeps rollback provider credentials step-scoped and actions pinned", () => {
+    const rehearseJob = rollback.slice(rollback.indexOf("  rehearse:"), rollback.indexOf("  verdict:"));
+    const jobEnvironment = rehearseJob.match(/\n    env:\n([\s\S]*?)\n    steps:/u)?.[1] ?? "";
+    expect(jobEnvironment).not.toMatch(/\$\{\{\s*secrets\./u);
+    expect(rollback.indexOf("Install pinned Netlify CLI"))
+      .toBeLessThan(rollback.indexOf("Validate required staging rollback inputs"));
+    expect(rollback.indexOf("Setup pinned Fly CLI"))
+      .toBeLessThan(rollback.indexOf("Validate required staging rollback inputs"));
+    expect(rollback).not.toContain('>> "$GITHUB_ENV"');
+    expect(rollback).not.toMatch(/uses:\s+[^\s]+@v\d/u);
+    expect(rollback).not.toContain("NETLIFY_AUTH_TOKEN=");
+    expect(rollback).not.toContain("FLY_API_TOKEN=");
   });
 });
