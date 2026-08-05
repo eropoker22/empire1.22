@@ -307,8 +307,9 @@ const simulateScenario = (scenario: ScenarioDefinition): ScenarioMetrics => {
   const metrics = createEmptyMetrics(scenario.name);
 
   for (let tick = 0; tick < SESSION_TICKS; tick += 1) {
-    if (tick < ACTIVE_SESSION_TICKS && tick % TICKS_PER_MINUTE === 0) {
-      const minute = tick / TICKS_PER_MINUTE;
+    const nextTick = tick + 1;
+    if (nextTick <= ACTIVE_SESSION_TICKS && nextTick % TICKS_PER_MINUTE === 0) {
+      const minute = nextTick / TICKS_PER_MINUTE;
       applyPassiveMinute(state, scenario);
       scenario.applyMinute?.(state, minute);
     }
@@ -415,6 +416,9 @@ const scenarios: ScenarioDefinition[] = [
         addPlayerHeat(state, 10);
         addHeatToOwnedDistrict(state, 9, minute / 5);
         addResources(state, { "dirty-cash": 1200, chemicals: 4, "metal-parts": 5 });
+      }
+      if (minute === 155) {
+        addDistrictHeat(state, "district:1", 40);
       }
       if ([15, 30, 45, 60, 75, 90].includes(minute)) {
         claimNextDistrict(state);
