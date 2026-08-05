@@ -4,6 +4,10 @@ import { describe, expect, it } from "vitest";
 const config = readFileSync("netlify.toml", "utf8");
 
 describe("public release cache policy", () => {
+  it("keeps deployed release bytes identical to the verified build", () => {
+    expect(config).toMatch(/\[build\.processing\]\s+skip_processing = true/u);
+  });
+
   it.each([
     "/*.html",
     "/pages/*",
