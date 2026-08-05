@@ -52,6 +52,7 @@ import {
   createGameplaySliceRouteError,
   isGameplaySliceStateChangingRoute
 } from "./gameplay-slice-function-routing";
+import { withPublicRequestDiagnostics } from "./public-request-diagnostic";
 
 export interface GameplaySliceFunctionHandlerOptions {
   cryptoProvider?: SnapshotTokenCryptoProvider;
@@ -113,7 +114,7 @@ export const createGameplaySliceFunctionHandler = (
         toFunctionResponse
       })
     : null;
-  return async (event: GameplaySliceFunctionEvent): Promise<NetlifyFunctionResponse> => {
+  const handle = async (event: GameplaySliceFunctionEvent): Promise<NetlifyFunctionResponse> => {
     const adminResponse = await handleAdminRequest(event);
     if (adminResponse) return adminResponse;
     const playerEntryResponse = await handlePlayerEntryRequest({
@@ -275,6 +276,7 @@ export const createGameplaySliceFunctionHandler = (
       body: request
     }), request.command.serverInstanceId);
   };
+  return environment.NODE_ENV === "production" ? withPublicRequestDiagnostics(handle, { environment, sessionTokenCodec }) : handle;
   function toFunctionResponse(response: {
     status: number;
     body: GameplaySliceResponse | GameplayCommandResultLookupResponse;

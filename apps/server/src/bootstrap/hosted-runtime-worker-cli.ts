@@ -15,6 +15,7 @@ import { createPostgresPlayerEntryRepository } from "../player-entry/postgres-pl
 import { createHostedRuntimeWorkerRunLoop, shutdownHostedRuntimeWorker } from "./hosted-runtime-worker-run-loop";
 import { assertHostedRuntimeWorkerSchemaCurrent } from "./hosted-runtime-worker-preflight";
 import { resolveHostedRuntimeWorkerEnvironment } from "./hosted-runtime-worker-environment";
+import { writeHostedWorkerDiagnostic } from "./hosted-worker-diagnostic";
 import { assertSupportedNodeVersion } from "../../../../scripts/supported-node-policy.mjs";
 
 const nodeRuntime = assertSupportedNodeVersion(process.versions.node);
@@ -81,6 +82,10 @@ let lastErrorCode: string | null = null;
 
 await worker.heartbeat();
 await worker.restoreKnownInstances();
+writeHostedWorkerDiagnostic({
+  level: "info", event: "worker_started", buildSha, workerId,
+  environment: releaseEnvironment, region, schemaVersion: workerSchema.schemaVersion
+});
 
 const runLoop = createHostedRuntimeWorkerRunLoop({
   requestDrain: worker.requestDrain,
@@ -90,6 +95,11 @@ const runLoop = createHostedRuntimeWorkerRunLoop({
     catch (error) {
       healthy = false;
       lastErrorCode = safeErrorCode(error);
+      writeHostedWorkerDiagnostic({
+        level: "error", event: "worker_run_failed", errorCode: lastErrorCode,
+        buildSha, workerId, environment: releaseEnvironment, region,
+        schemaVersion: workerSchema.schemaVersion
+      });
       await worker.heartbeat("failed").catch(() => undefined);
     }
   }
@@ -160,11 +170,19 @@ healthServer.listen(port, "0.0.0.0");
 const shutdown = async () => {
   if (shuttingDown) return;
   shuttingDown = true;
+  writeHostedWorkerDiagnostic({
+    level: "info", event: "worker_shutdown_started", buildSha, workerId,
+    environment: releaseEnvironment, region, schemaVersion: workerSchema.schemaVersion
+  });
   await shutdownHostedRuntimeWorker({
     drain: runLoop.drain,
     closeHealthServer: () => new Promise<void>((resolve) => healthServer.close(() => resolve())),
     stopWorker: worker.stop,
     closePersistence: persistence.close
+  });
+  writeHostedWorkerDiagnostic({
+    level: "info", event: "worker_stopped", buildSha, workerId,
+    environment: releaseEnvironment, region, schemaVersion: workerSchema.schemaVersion
   });
   process.exit(0);
 };
