@@ -563,6 +563,10 @@ class FakePostgresDatabase implements PostgresDatabase {
       return result(current ? [{ payload: current.payload }] : []);
     }
 
+    if (compactSql.startsWith("UPDATE empire_hosted_server_instances hosted SET current_snapshot_id=head.snapshot_id")) {
+      return result([]);
+    }
+
     if (compactSql.startsWith("SELECT lock_owner, locked_until FROM empire_tick_locks")) {
       const current = this.tickLocks.get(String(params[0]));
       return result(current ? [{
