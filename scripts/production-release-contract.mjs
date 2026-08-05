@@ -4,12 +4,17 @@ import {
   SUPPORTED_NODE_MAJOR
 } from "./supported-node-policy.mjs";
 import { validatePublicRegistrationWindow } from "./registration-window-contract.mjs";
+import {
+  releaseDatabaseTargetHash,
+  releaseDatabaseTargetIdentity
+} from "./release-database-target-hash.mjs";
 
 export const PRODUCTION_ENVIRONMENT = "production";
 export const PRODUCTION_ORIGIN = "https://empirestreets.cz";
 export const PRODUCTION_COMPONENTS = new Set(["netlify", "worker", "migration"]);
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/u;
+const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
 const SECURE_SECRET_PATTERN = /^(?:[0-9a-f]{64,}|[A-Za-z0-9_-]{43,})$/u;
 const TERMS_VERSION_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,99}$/u;
 const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
@@ -24,6 +29,7 @@ export const validateProductionEnvironment = (environment, options = {}) => {
   const expectedConnectionMode = component === "netlify" ? "pooled" : "direct";
   const databaseUrl = parseDatabaseUrl(environment.EMPIRE_DATABASE_URL);
   const gameplayDatabaseUrl = parseDatabaseUrl(environment.GAMEPLAY_DATABASE_URL);
+  const expectedDatabaseTargetHash = String(environment.EMPIRE_PRODUCTION_DATABASE_TARGET_HASH ?? "").trim();
   const publicOrigin = parseExactOrigin(environment.EMPIRE_PUBLIC_ORIGIN);
   const allowedOrigins = parseAllowedOrigins(environment.EMPIRE_ALLOWED_ORIGINS);
   const registrationEnabled = environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED === "true";
@@ -66,10 +72,17 @@ export const validateProductionEnvironment = (environment, options = {}) => {
     required: true,
     set: Boolean(databaseUrl && gameplayDatabaseUrl),
     passed: Boolean(databaseUrl && gameplayDatabaseUrl
-      && databaseTargetIdentity(databaseUrl) === databaseTargetIdentity(gameplayDatabaseUrl)),
+      && releaseDatabaseTargetIdentity(databaseUrl) === releaseDatabaseTargetIdentity(gameplayDatabaseUrl)),
     safeFormat: "both URLs use the same provider hostname, port and database",
     errorCode: "PRODUCTION_DATABASE_TARGET_MISMATCH"
   });
+  add("EMPIRE_PRODUCTION_DATABASE_TARGET_HASH", "release", true,
+    SHA256_PATTERN.test(expectedDatabaseTargetHash)
+      && Boolean(databaseUrl && gameplayDatabaseUrl)
+      && releaseDatabaseTargetHash(databaseUrl) === expectedDatabaseTargetHash
+      && releaseDatabaseTargetHash(gameplayDatabaseUrl) === expectedDatabaseTargetHash,
+    "protected SHA-256 of normalized production hostname, port and database",
+    "PRODUCTION_DATABASE_TARGET_HASH_MISMATCH");
   add("EMPIRE_PERSISTENCE_DRIVER", "API + worker", true,
     environment.EMPIRE_PERSISTENCE_DRIVER === "postgres", "postgres", "PRODUCTION_RUNTIME_PERSISTENCE_INVALID");
   add("GAMEPLAY_PERSISTENCE_DRIVER", "API + worker", true,
@@ -189,7 +202,6 @@ const isProductionNeonUrl = (value, mode) => {
   const pooled = hostname.split(".")[0]?.endsWith("-pooler") === true;
   return mode === "pooled" ? pooled : !pooled;
 };
-const databaseTargetIdentity = (value) => `${value.hostname.toLowerCase()}:${value.port || "5432"}${value.pathname}`;
 const isSecureSecret = (value) => {
   const normalized = String(value ?? "");
   return Buffer.byteLength(normalized, "utf8") >= 32 && SECURE_SECRET_PATTERN.test(normalized);

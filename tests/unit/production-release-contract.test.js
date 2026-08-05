@@ -3,10 +3,14 @@ import {
   PRODUCTION_ORIGIN,
   validateProductionEnvironment
 } from "../../scripts/production-release-contract.mjs";
+import { releaseDatabaseTargetHash } from "../../scripts/release-database-target-hash.mjs";
 
 const SHA = "82ab0778704c755170048d9509036eb3f03909da";
 const secret = (character) => character.repeat(64);
 const now = new Date("2026-08-05T10:00:00.000Z");
+const productionTargetHash = releaseDatabaseTargetHash(
+  "postgresql://runtime@ep-production.eu-central-1.aws.neon.tech/empire?sslmode=verify-full"
+);
 const validEnvironment = {
   EMPIRE_RELEASE_ENVIRONMENT: "production",
   NODE_ENV: "production",
@@ -14,6 +18,7 @@ const validEnvironment = {
   EMPIRE_ALLOWED_ORIGINS: PRODUCTION_ORIGIN,
   EMPIRE_DATABASE_URL: "postgresql://runtime@ep-production-pooler.eu-central-1.aws.neon.tech/empire?sslmode=verify-full",
   GAMEPLAY_DATABASE_URL: "postgresql://gameplay@ep-production-pooler.eu-central-1.aws.neon.tech/empire?sslmode=verify-full",
+  EMPIRE_PRODUCTION_DATABASE_TARGET_HASH: productionTargetHash,
   EMPIRE_PERSISTENCE_DRIVER: "postgres",
   GAMEPLAY_PERSISTENCE_DRIVER: "postgres",
   EMPIRE_BUILD_SHA: SHA,
@@ -103,6 +108,19 @@ describe("production release contract", () => {
       "PRODUCTION_SECRETS_REUSED",
       "PRODUCTION_BOOTSTRAP_PASSWORD_PRESENT"
     ]));
+  });
+
+  it("rejects a missing or mismatched protected production database hash", () => {
+    for (const targetHash of ["", "a".repeat(64)]) {
+      const check = validateProductionEnvironment({
+        ...validEnvironment,
+        EMPIRE_PRODUCTION_DATABASE_TARGET_HASH: targetHash
+      }, options).checks.find((entry) => entry.name === "EMPIRE_PRODUCTION_DATABASE_TARGET_HASH");
+      expect(check).toMatchObject({
+        passed: false,
+        errorCode: "PRODUCTION_DATABASE_TARGET_HASH_MISMATCH"
+      });
+    }
   });
 
   it("allows registration only after an explicit post-gate override", () => {

@@ -4,6 +4,7 @@ import {
   assertReleaseMigrationHistoryExists,
   validateReleaseDatabaseEnvironment
 } from "../../scripts/release-database-guard";
+import { releaseDatabaseTargetHash } from "../../scripts/release-database-target-hash.mjs";
 
 const validEnvironment = {
   EMPIRE_RELEASE_ENVIRONMENT: "staging",
@@ -46,6 +47,27 @@ describe("release database guard", () => {
       EMPIRE_DATABASE_URL: "postgresql://release@ep-staging.eu-central-1.aws.neon.tech/empire?sslmode=require",
       GAMEPLAY_DATABASE_URL: "postgresql://gameplay@ep-staging.eu-central-1.aws.neon.tech/empire?sslmode=require"
     })).toThrow("RELEASE_PRODUCTION_DATABASE_LOOKS_LIKE_STAGING");
+  });
+
+  it("requires the exact protected target hash for production migrations", () => {
+    const direct = "postgresql://release@ep-production.eu-central-1.aws.neon.tech/empire?sslmode=require";
+    const production = {
+      ...validEnvironment,
+      EMPIRE_RELEASE_ENVIRONMENT: "production",
+      EMPIRE_DATABASE_TARGET_ENVIRONMENT: "production",
+      EMPIRE_DATABASE_URL: direct,
+      GAMEPLAY_DATABASE_URL: direct.replace("release@", "gameplay@"),
+      EMPIRE_PRODUCTION_DATABASE_TARGET_HASH: releaseDatabaseTargetHash(direct)
+    };
+    expect(validateReleaseDatabaseEnvironment(production).environment).toBe("production");
+    expect(() => validateReleaseDatabaseEnvironment({
+      ...production,
+      EMPIRE_PRODUCTION_DATABASE_TARGET_HASH: "a".repeat(64)
+    })).toThrow("RELEASE_PRODUCTION_DATABASE_TARGET_HASH_MISMATCH");
+    expect(() => validateReleaseDatabaseEnvironment({
+      ...production,
+      EMPIRE_PRODUCTION_DATABASE_TARGET_HASH: ""
+    })).toThrow("RELEASE_PRODUCTION_DATABASE_TARGET_HASH_INVALID");
   });
 
   it("requires existing migration history on every normal release command", () => {

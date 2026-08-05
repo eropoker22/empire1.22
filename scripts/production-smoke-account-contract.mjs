@@ -1,4 +1,8 @@
 import { createHash } from "node:crypto";
+import {
+  releaseDatabaseTargetHash,
+  releaseDatabaseTargetIdentity
+} from "./release-database-target-hash.mjs";
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/u;
 const USERNAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{2,31}$/u;
@@ -21,7 +25,7 @@ export const validateProductionSmokeAccountEnvironment = (environment) => {
   const database = productionDirectDatabase(environment.EMPIRE_DATABASE_URL);
   const gameplayDatabase = productionDirectDatabase(environment.GAMEPLAY_DATABASE_URL);
   requireValue(database.identity === gameplayDatabase.identity, "PRODUCTION_SMOKE_ACCOUNT_DATABASE_MISMATCH");
-  const databaseTargetHash = createHash("sha256").update(database.identity).digest("hex");
+  const databaseTargetHash = releaseDatabaseTargetHash(database.url);
   const expectedDatabaseTargetHash = String(environment.EMPIRE_PRODUCTION_DATABASE_TARGET_HASH ?? "").trim();
   requireValue(SHA256_PATTERN.test(expectedDatabaseTargetHash), "PRODUCTION_SMOKE_ACCOUNT_TARGET_HASH_INVALID");
   requireValue(databaseTargetHash === expectedDatabaseTargetHash, "PRODUCTION_SMOKE_ACCOUNT_TARGET_MISMATCH");
@@ -67,7 +71,7 @@ const productionDirectDatabase = (value) => {
     && !databaseName.includes("staging")
     && ["require", "verify-ca", "verify-full"].includes(parsed.searchParams.get("sslmode") ?? ""),
   "PRODUCTION_SMOKE_ACCOUNT_DATABASE_INVALID");
-  return { identity: `${hostname}:${parsed.port || "5432"}${parsed.pathname}` };
+  return { identity: releaseDatabaseTargetIdentity(parsed), url: parsed };
 };
 
 const requireValue = (condition, code) => {

@@ -1,11 +1,9 @@
-import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { validateProductionSmokeAccountEnvironment } from "../../scripts/production-smoke-account-contract.mjs";
+import { releaseDatabaseTargetHash } from "../../scripts/release-database-target-hash.mjs";
 
 const direct = "postgresql://release@ep-production.eu-central-1.aws.neon.tech/empire?sslmode=verify-full";
-const targetHash = createHash("sha256")
-  .update("ep-production.eu-central-1.aws.neon.tech:5432/empire")
-  .digest("hex");
+const targetHash = releaseDatabaseTargetHash(direct);
 const valid = {
   NODE_ENV: "production",
   EMPIRE_RELEASE_ENVIRONMENT: "production",
