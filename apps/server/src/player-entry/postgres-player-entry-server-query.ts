@@ -46,6 +46,25 @@ export const readAuthoritativePostgresNow = async (
   return new Date(result.rows[0]!.authoritative_now);
 };
 
+export const loadOnlinePlayerCount = async (
+  database: PostgresQueryable,
+  now: Date,
+  presenceWindowMs: number
+): Promise<number> => {
+  const presentSince = new Date(now.getTime() - presenceWindowMs).toISOString();
+  const result = await database.query<{ online_players: string | number }>(
+    `SELECT count(*)::int AS online_players FROM (
+       SELECT account_id FROM empire_account_sessions
+       WHERE revoked_at IS NULL AND expires_at > $1::timestamptz AND last_seen_at >= $2::timestamptz
+       UNION
+       SELECT account_id FROM empire_gameplay_sessions
+       WHERE revoked_at IS NULL AND expires_at > $1::timestamptz AND last_seen_at >= $2::timestamptz
+     ) online_accounts`,
+    [now.toISOString(), presentSince]
+  );
+  return Math.max(0, Number(result.rows[0]?.online_players ?? 0));
+};
+
 export const getHostedOccupancy = async (
   database: PostgresQueryable,
   serverInstanceId: string,

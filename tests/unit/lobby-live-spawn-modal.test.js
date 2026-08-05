@@ -35,4 +35,11 @@ describe("live lobby spawn modal cold-start contract", () => {
     expect(source).toContain("Number(amount) > 0");
     expect(source).toContain("STARTING_MATERIAL_LABELS[materialId]");
   });
+
+  it("uses the authoritative online presence count instead of server memberships", () => {
+    const source = readFileSync(resolve(root, "page-assets/js/lobby-live.js"), "utf8");
+
+    expect(source).toContain("formatOnlinePlayerCount(overview.onlinePlayerCount)");
+    expect(source).not.toContain("availableServers.reduce((sum, server) => sum + server.committedPlayers");
+  });
 });

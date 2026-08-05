@@ -33,8 +33,9 @@ describe("Postgres player-entry overview fleet stats", () => {
     );
     expect(overview.availableServers[0]).toMatchObject(expectedStats(servers[0]!.server_instance_id));
     expect(overview.availableServers.at(-1)).toMatchObject(expectedStats(servers.at(-1)!.server_instance_id));
+    expect(overview.onlinePlayerCount).toBe(7);
 
-    expect(database.queries).toHaveLength(3);
+    expect(database.queries).toHaveLength(4);
     expect(database.bulkQueries).toHaveLength(1);
     expect(database.bulkQueries[0]?.params[0]).toEqual(
       servers.map((server) => String(server.server_instance_id))
@@ -47,6 +48,12 @@ describe("Postgres player-entry overview fleet stats", () => {
       "status IN ('requested','provisioning','lobby','running','restarting')"
     );
     expect(database.queries[1]?.sql).not.toContain("status <> 'archived'");
+    expect(database.queries[3]?.sql).toContain("empire_account_sessions");
+    expect(database.queries[3]?.sql).toContain("empire_gameplay_sessions");
+    expect(database.queries[3]?.params).toEqual([
+      NOW.toISOString(),
+      new Date(NOW.getTime() - 60_000).toISOString()
+    ]);
     expect(database.queries.filter(({ params }) =>
       typeof params[0] === "string"
       && servers.some((server) => server.server_instance_id === params[0])
@@ -114,6 +121,9 @@ const overviewDatabase = (options: {
         .filter((serverInstanceId) => serverInstanceId !== options.missingServerId)
         .map((serverInstanceId) => postgresStats(serverInstanceId))
         .reverse());
+    }
+    if (sql.includes("AS online_players")) {
+      return rows([{ online_players: 7 }]);
     }
     throw new Error(`Unexpected non-bulk player-entry overview query: ${normalizeSql(sql).slice(0, 160)}`);
   };

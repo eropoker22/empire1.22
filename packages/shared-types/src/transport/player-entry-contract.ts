@@ -95,6 +95,7 @@ export interface LobbyServerSummaryView {
 
 export interface LobbyOverviewView {
   account: AccountSessionView;
+  onlinePlayerCount: number;
   gangProfile: {
     gangName: string;
     displayName: string;

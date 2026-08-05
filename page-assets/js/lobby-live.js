@@ -107,7 +107,7 @@ function render() {
   text("[data-lobby-user]", overview.account.username);
   text("[data-lobby-top-user]", overview.account.username);
   text("[data-lobby-user-meta]", overview.gangProfile.gangName);
-  text("[data-lobby-status-count]", `${overview.availableServers.reduce((sum, server) => sum + server.committedPlayers, 0)} hráčů`);
+  text("[data-lobby-status-count]", formatOnlinePlayerCount(overview.onlinePlayerCount));
   text("[data-lobby-refresh-countdown]", "LIVE / 15 s");
   renderGang(overview);
   renderActiveMembership(overview.activeBlockingMembership);
@@ -455,6 +455,11 @@ function setFlowMessage(message, error = false) {
   node.dataset.state = error ? "error" : "info";
 }
 function statusLabel(status) { return ({ setup_required: "DOKONČIT VSTUP", finalizing_setup: "AKTIVACE PROBÍHÁ", active: "AKTIVNÍ", leave_pending: "ODCHOD PROBÍHÁ", defeated: "PORAŽEN", completed: "DOKONČENO", left_early: "OPUŠTĚNO" })[status] || String(status).toUpperCase(); }
+function formatOnlinePlayerCount(value) {
+  const count = Math.max(0, Math.floor(Number(value) || 0));
+  const label = count === 1 ? "hráč" : count >= 2 && count <= 4 ? "hráči" : "hráčů";
+  return `${count} ${label}`;
+}
 function messageFor(error) { return ({ SPAWN_ALREADY_RESERVED: "Tento district mezitím získal jiný hráč. Vyber si jiný.", SERVER_FULL: "Server se mezitím zaplnil.", SERVER_REGISTRATION_NOT_OPEN: "Registrace na tento server ještě nezačala.", SERVER_REGISTRATION_CLOSED: "Registrační okno tohoto serveru už skončilo.", SERVER_REGISTRATION_CLOSED_EARLY: "Registrace na tento server byla nouzově ukončena.", ACTIVE_MEMBERSHIP_EXISTS: "Nejdřív musíš dokončit nebo opustit svůj současný server.", SERVER_OFFLINE: "Server teď není dostupný. Tvoje předchozí membershipy zůstávají zachované." })[error?.code] || (error instanceof Error ? error.message : "Operace se nezdařila."); }
 function text(selector, value) { const node = document.querySelector(selector); if (node) node.textContent = String(value ?? ""); }
 function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]); }

@@ -39,6 +39,7 @@ import {
 import {
   HOSTED_PLAYER_ENTRY_SERVER_COLUMNS,
   loadHostedServerPopulationStats,
+  loadOnlinePlayerCount,
   PLAYER_ENTRY_BLOCKING_STATUSES,
   readAuthoritativePostgresNow,
   type HostedPlayerEntryServerRow
@@ -46,6 +47,7 @@ import {
 
 const BLOCKING_STATUSES: ServerMembershipStatus[] = [...PLAYER_ENTRY_BLOCKING_STATUSES];
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const ONLINE_PRESENCE_WINDOW_MS = 60_000;
 const WORKER_FRESH_MS = 30_000;
 
 export interface AuthenticatedAccount extends AccountSessionView {
@@ -206,6 +208,7 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
       servers.rows.map((server) => String(server.server_instance_id)),
       now.toISOString()
     );
+    const onlinePlayerCount = await loadOnlinePlayerCount(database, now, ONLINE_PRESENCE_WINDOW_MS);
     const populationStatsByServerId = new Map(
       populationStats.map((entry) => [entry.serverInstanceId, entry])
     );
@@ -220,6 +223,7 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
     const views = memberships.map((membership) => toMembershipView(membership, now));
     return {
       account: accountView,
+      onlinePlayerCount,
       gangProfile: { gangName: accountView.gangName, displayName: accountView.displayName, username: accountView.username },
       activeBlockingMembership: views.find((entry) => BLOCKING_STATUSES.includes(entry.status)) ?? null,
       memberships: views,
