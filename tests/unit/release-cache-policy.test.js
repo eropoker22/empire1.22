@@ -5,7 +5,7 @@ const config = readFileSync("netlify.toml", "utf8");
 
 describe("public release cache policy", () => {
   it("keeps deployed release bytes identical to the verified build", () => {
-    expect(config).toMatch(/\[build\.processing\]\s+skip_processing = true/u);
+    expect(config).toMatch(/\[build\.processing\.html\]\s+pretty_urls = false/u);
   });
 
   it.each([

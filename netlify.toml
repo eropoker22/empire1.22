@@ -5,8 +5,8 @@
 [build.environment]
   NODE_VERSION = "24"
 
-[build.processing]
-  skip_processing = true
+[build.processing.html]
+  pretty_urls = false
 
 [functions]
   directory = "netlify/functions"
