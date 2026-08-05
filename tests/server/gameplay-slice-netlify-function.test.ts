@@ -167,7 +167,7 @@ describe("gameplay slice Netlify function", () => {
         max: 4,
         idleTimeoutMillis: 10_000,
         connectionTimeoutMillis: 5_000,
-        statementTimeoutMillis: 15_000,
+        queryTimeoutMillis: 15_000,
         allowExitOnIdle: true
       }
     );
