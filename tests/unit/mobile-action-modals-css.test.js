@@ -1001,7 +1001,9 @@ describe("mobile action modal CSS", () => {
     expect(mobileRuntime).toContain("const hasOpenOverlay = openOverlays.some((element) => !isScrollThroughOverlay(element));");
     expect(mobileRuntime).toContain('".elimination-ai-panel",');
     expect(mobileRuntime).toContain('".elimination-result-popup",');
-    expect(mobileRuntime).toContain('root.style.setProperty("--mobile-overlay-top-offset", `${topbarOffset}px`);');
+    expect(mobileRuntime).toContain('root.style.setProperty("--mobile-overlay-top-offset", `${topbarHeight}px`);');
+    expect(mobileRuntime).toContain('root.classList.toggle(MOBILE_SPY_CONFIRM_OPEN_CLASS, hasOpenSpyConfirm);');
+    expect(mobileRuntime).toContain('documentObj.body.classList.toggle(MOBILE_SPY_CONFIRM_OPEN_CLASS, hasOpenSpyConfirm);');
     expect(mobileRuntime).toContain('import { isModalScrollLocked } from "./ui/modalScrollLock.js";');
     expect(mobileRuntime).toContain("if (isModalScrollLocked(documentObj)) {");
     expect(mobileRuntime).toContain('root.classList.add("game-modal-scroll-locked");');

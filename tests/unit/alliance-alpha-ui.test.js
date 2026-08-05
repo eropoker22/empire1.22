@@ -135,7 +135,9 @@ describe("alliance alpha UI", () => {
     expect(allianceCreateViewModel).toContain("export const ALLIANCE_CREATE_REQUIRED_INFLUENCE = 40;");
     expect(runtime).toContain("ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE");
     expect(runtime).toContain("formatPlayerInfluenceForAllianceCreate(getCurrentPlayerInfluenceForAllianceCreate())");
-    expect(runtime).toContain("Vytvořit alianci půjde až pokud má hráč");
+    expect(runtime).toContain("Vytvořit alianci půjde až od");
+    expect(runtime).toContain("Teď máš ${formatPlayerInfluenceForAllianceCreate(getCurrentPlayerInfluenceForAllianceCreate())}.");
+    expect(runtime).not.toContain("Vytvořit alianci půjde až pokud má hráč");
     expect(runtime).toContain("getCurrentGamePhaseForAllianceDemo");
     expect(runtime).toContain("empire:local-demo-gameplay-bridge-ready");
     expect(runtime).toContain('const label = isLocalDemoAllianceMode() ? "žádná" : "Načítám…";');

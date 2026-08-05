@@ -57,6 +57,6 @@ describe("server lifecycle presentation primitives", () => {
     expect(runtimeSource).toContain(
       "if (getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {"
     );
-    expect(runtimeSource).toContain("onCountdownElapsed: allowDemoFixtures\n      ? () => null");
+    expect(runtimeSource).toMatch(/onCountdownElapsed:\s*allowDemoFixtures\s*\?\s*\(\) => null/u);
   });
 });

@@ -252,7 +252,7 @@ describe("page onboarding smoke", () => {
     expect(gameRedesignSource).toContain("#profile-gang-card.right-panel-card .gang-profile-row.profile-row");
     expect(gameRedesignSource).toContain("#profile-gang-card.right-panel-card .profile-row--wanted");
     expect(gameRedesignSource).toContain(".map-phase-info-button");
-    expect(gameHtml).toContain('href="../page-assets/css/styles-game-about.css"');
+    expect(gameHtml).toMatch(/href="\.\.\/page-assets\/css\/styles-game-about\.css(?:\?[^"]*)?"/u);
     const cityStatusMobileCssSource = readFileSync(resolve(root, "page-assets/css/styles-mobile-fixes.css"), "utf8");
     expect(cityStatusMobileCssSource).toContain("#game-command-bar-mount .city-status-pill:nth-child(3)");
     expect(cityStatusMobileCssSource).toContain("grid-template-columns: repeat(4, minmax(0, 1fr)) !important;");
@@ -300,8 +300,9 @@ describe("page onboarding smoke", () => {
     );
     const districtCssSource = readFileSync(resolve(root, "page-assets/css/styles-district.css"), "utf8");
     expect(districtCssSource).toMatch(
-      /\.district-popup-shell \{\r?\n\s*inset: 56px 0 0 0;\r?\n\s*z-index: 29;/u,
+      /\.district-popup-shell \{\r?\n\s*inset: 0;\r?\n\s*z-index: 29;/u,
     );
+    expect(districtCssSource).toMatch(/\.district-popup-card \{\r?\n\s*top: calc\(50% \+ 28px\);/u);
     const popupsCssSource = readFileSync(resolve(root, "page-assets/css/styles-popups.css"), "utf8");
     expect(popupsCssSource).toMatch(
       /\.market-popup-shell,\r?\n\s*\.leaderboard-popup-shell \{\r?\n\s*inset: 56px 0 0 0;\r?\n\s*z-index: 29;/u,

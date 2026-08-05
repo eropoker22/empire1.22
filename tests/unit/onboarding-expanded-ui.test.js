@@ -14,10 +14,11 @@ describe("expanded onboarding UI", () => {
     expect(onboardingCss).toContain("#alliance-chat-card.is-onboarding-focus-target");
     expect(onboardingCss).toContain("#alliance-btn.is-onboarding-focus-target");
     expect(onboardingCss).toContain('html[data-onboarding-step="bounty-boost-guide"]');
-    expect(onboardingCss).toContain("[data-bounty-open-trigger].is-onboarding-focus-target");
-    expect(onboardingCss).toContain("[data-boost-open-trigger].is-onboarding-focus-target");
-    expect(onboardingCss).toMatch(/\[data-bounty-open-trigger\]\.is-onboarding-focus-target[\s\S]*rgba\(255, 52, 75, 0\.52\)/u);
-    expect(onboardingCss).toMatch(/\[data-boost-open-trigger\]\.is-onboarding-focus-target[\s\S]*rgba\(84, 223, 245, 0\.5\)/u);
+    expect(onboardingCss).toContain("[data-bounty-open-trigger]:not([hidden])");
+    expect(onboardingCss).toContain("[data-boost-open-trigger]:not([hidden])");
+    expect(onboardingCss).toMatch(/\[data-bounty-open-trigger\]:not\(\[hidden\]\)[\s\S]*rgba\(255, 52, 75, 0\.52\)/u);
+    expect(onboardingCss).toMatch(/\[data-boost-open-trigger\]:not\(\[hidden\]\)[\s\S]*rgba\(84, 223, 245, 0\.5\)/u);
+    expect(onboardingCss).toContain("animation: onboardingToolbarActionPulse 1.2s ease-in-out infinite;");
   });
 
   it("keeps the onboarding panel black-gold, glassy and reduced-motion safe", () => {

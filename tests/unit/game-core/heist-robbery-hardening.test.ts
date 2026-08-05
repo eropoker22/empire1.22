@@ -196,6 +196,12 @@ describe("finite neutral robbery", () => {
     expect(Number(result.nextState.resourceStatesById["resource:1"].balances.cash ?? 0) - beforeCash).toBe(loot.cash);
     expect(firstPool.cash - pool.cash).toBe(loot.cash);
     expect(result.nextState.policeStatesById["police:1"]?.heat).toBe(eventPayload.playerHeat);
+    const reportNotificationId = result.nextState.root.notificationIds.at(-1)!;
+    const reportNotification = result.nextState.notificationsById[reportNotificationId];
+    expect(reportNotification?.category).toBe("report.rob");
+    expect(createConflictReportViews(result.nextState, { playerId: "player:1", limit: 10 }))
+      .not.toContainEqual(expect.objectContaining({ reportType: "rob" }));
+    result.nextState.root.tick = Number(reportNotification?.payload.resolveAtTick);
     expect(createConflictReportViews(result.nextState, { playerId: "player:1", limit: 1 })[0])
       .toMatchObject({
         reportType: "rob",

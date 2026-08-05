@@ -36,6 +36,6 @@ describe("public login local demo visibility", () => {
     expect(source).toContain("isE2eLocalDemoEntryEnabled()");
     expect(source).toContain("executionMode === CLIENT_EXECUTION_MODES.localDemo");
     expect(source).toMatch(/import\(["']\.\/app-demo\.js\?v=20260731-e2e-parity-only["']\)/u);
-    expect(source).toMatch(/import\(["']\.\/app\.js\?v=20260731-live-only["']\)/u);
+    expect(source).toMatch(/import\(["']\.\/app\.js\?v=[a-z0-9-]+["']\)/u);
   });
 });

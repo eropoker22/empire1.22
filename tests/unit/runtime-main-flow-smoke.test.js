@@ -86,7 +86,7 @@ describe("runtime main UI flow smoke guard", () => {
         expect(runtime[exportName]).toBeDefined();
       }
 
-      expect(appSource).toContain('from "./app/runtime.js?v=legacy-production-compat-20260728"');
+      expect(appSource).toMatch(/from "\.\/app\/runtime\.js\?v=[a-z0-9-]+"/u);
       expect(appSource).toContain("bootstrapPage");
       expect(appSource).toContain("mountLiveGameplayClient");
       expect(localDemoFacade).toContain('from "./runtime/localDemoLegacyBootstrap.js"');

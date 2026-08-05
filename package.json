@@ -62,7 +62,7 @@
     "pretypecheck": "node scripts/require-supported-node.mjs",
     "prelint": "node scripts/require-supported-node.mjs",
     "pretest": "node scripts/require-supported-node.mjs",
-    "pretest:unit": "node scripts/require-supported-node.mjs",
+    "pretest:unit": "node scripts/require-supported-node.mjs && node scripts/build-netlify-client.mjs",
     "pretest:integration": "node scripts/require-supported-node.mjs",
     "pretest:server": "node scripts/require-supported-node.mjs",
     "pretest:persistence": "node scripts/require-supported-node.mjs",

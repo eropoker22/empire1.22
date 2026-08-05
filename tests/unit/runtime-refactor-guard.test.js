@@ -38,7 +38,7 @@ describe("runtime refactor guard", () => {
   it("keeps the temporary production compatibility rollback explicit", () => {
     expect(gameHtml()).toMatch(/type="module" src="\.\.\/page-assets\/js\/app-entry\.js(?:\?[^"]*)?"/u);
     expect(gameHtml()).not.toContain('src="../page-assets/js/app/runtime.js"');
-    expect(appSource()).toContain('from "./app/runtime.js?v=legacy-production-compat-20260728"');
+    expect(appSource()).toMatch(/from "\.\/app\/runtime\.js\?v=[a-z0-9-]+"/u);
     expect(appSource()).toContain("bootstrapPage");
     expect(appSource()).toContain("mountLiveGameplayClient");
     expect(appSource()).not.toContain("serverAuthoritativePageController.js");

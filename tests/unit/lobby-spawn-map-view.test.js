@@ -54,7 +54,7 @@ describe("live lobby spawn map view", () => {
     document.body.innerHTML = '<canvas data-map></canvas><div data-legend></div>';
   });
 
-  it("renders the real map image and an owner-colored authoritative district", () => {
+  it("renders the real map image and mutes occupied non-selectable districts", () => {
     const canvas = document.querySelector("[data-map]");
     const fills = [];
     const context = createContext(fills);
@@ -70,9 +70,46 @@ describe("live lobby spawn map view", () => {
     });
 
     expect(context.drawImage).toHaveBeenCalledOnce();
-    expect(fills).toContain("rgba(18, 171, 52, 0.42)");
-    expect(context.arc).toHaveBeenCalledOnce();
+    expect(fills).toContain("rgba(91, 101, 116, 0.34)");
+    expect(fills).not.toContain("rgba(18, 171, 52, 0.42)");
+    expect(context.arc).not.toHaveBeenCalled();
     expect(canvas.getAttribute("aria-label")).toContain("území hráčů: 1");
+  });
+
+  it("keeps a selectable district visibly highlighted", () => {
+    const canvas = document.querySelector("[data-map]");
+    const fills = [];
+    const context = createContext(fills);
+    canvas.getContext = vi.fn(() => context);
+
+    renderLobbySpawnMap({
+      canvas,
+      geometry,
+      spawn: {
+        districts: [{
+          districtId: "district:7",
+          zone: "park",
+          label: "Neon Park",
+          available: true,
+          disabledReason: null
+        }],
+        mapDistricts: [{
+          districtId: "district:7",
+          zone: "park",
+          label: "Neon Park",
+          status: "neutral",
+          owner: null,
+          reserved: false,
+          spawnEligible: true,
+          version: 2
+        }]
+      },
+      selectedDistrictId: null,
+      hoveredDistrictId: null,
+      mapImage: { complete: true, naturalWidth: 1600, naturalHeight: 980 }
+    });
+
+    expect(fills).toContain("rgba(144, 255, 184, 0.36)");
   });
 
   it("renders canonical zone counts and explains occupied districts", () => {
