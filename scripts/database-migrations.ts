@@ -5,6 +5,10 @@ import { createPostgresDatabase } from "../apps/server/src/runtime/persistence/p
 import { prepareSnapshotRecoveryMigrationControlled } from
   "../apps/server/src/runtime/persistence/postgres/controlled-snapshot-recovery-migration";
 import { getDatabaseMigrationStatus, migrateDatabase } from "../apps/server/src/runtime/persistence/postgres/migration-runner";
+import {
+  assertReleaseMigrationHistoryExists,
+  validateReleaseDatabaseEnvironment
+} from "./release-database-guard";
 
 const databaseUrl = String(process.env.EMPIRE_DATABASE_URL ?? process.env.EMPIRE_TEST_DATABASE_URL ?? "").trim();
 if (!databaseUrl) throw new Error("Set EMPIRE_DATABASE_URL or EMPIRE_TEST_DATABASE_URL before running database migrations.");
@@ -16,6 +20,22 @@ const migrations = pathToFileURL(`${resolve(
 
 try {
   const command = process.argv.includes("--status") ? "status" : "migrate";
+  const allowPendingStatus = command === "status" && process.argv.includes("--status-allow-pending");
+  const releaseGuard = process.argv.includes("--release")
+    ? validateReleaseDatabaseEnvironment(process.env)
+    : null;
+  if (process.argv.includes("--status-allow-pending") && command !== "status") {
+    throw new Error("--status-allow-pending is valid only with --status.");
+  }
+  if (releaseGuard) {
+    const history = await database.query<{ exists: boolean }>(
+      "SELECT to_regclass('public.empire_schema_migrations') IS NOT NULL AS exists"
+    );
+    assertReleaseMigrationHistoryExists(Boolean(history.rows[0]?.exists));
+    console.log(`Release database: environment=${releaseGuard.environment}; mode=${releaseGuard.connectionMode};`
+      + ` providerHash=${releaseGuard.providerHostnameHash}; databaseHash=${releaseGuard.databaseNameHash};`
+      + ` sslmode=${releaseGuard.sslMode}; backupHash=${releaseGuard.backupIdHash}.`);
+  }
   const controlledSnapshotRecovery =
     command === "migrate" && process.argv.includes("--controlled-snapshot-recovery");
   const prepareLegacyImport =
@@ -48,7 +68,8 @@ try {
       : await migrateDatabase(database, migrations);
     console.log(`Database migrations: ${status.current ? "current" : "pending"}.`);
     console.log(`Applied: ${status.applied.length}; pending: ${status.pending.length}.`);
-    if (!status.current) process.exitCode = 1;
+    for (const filename of status.pending) console.log(`Pending migration: ${filename}.`);
+    if (!status.current && !allowPendingStatus) process.exitCode = 1;
   }
 } finally {
   await database.close();
