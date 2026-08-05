@@ -27,18 +27,42 @@ export const PRODUCTION_MIGRATION_CONTRACT = [
   ["024_hosted_starting_player_state.sql", "2decfcd75ffcbc3097cd7f07784b1145b91c1c006bb6153ae697bbd687485e42"]
 ] as const;
 
+export interface ProductionSchemaStatus {
+  current: boolean;
+  appliedVersion: string | null;
+  expectedVersion: string;
+  appliedCount: number;
+  expectedCount: number;
+}
+
+export const getProductionSchemaStatus = async (
+  database: PostgresQueryable
+): Promise<ProductionSchemaStatus> => {
+  const result = await database.query<{ filename: string; checksum: string }>(
+    "SELECT filename, checksum FROM empire_schema_migrations ORDER BY filename"
+  );
+  const expectedVersion = PRODUCTION_MIGRATION_CONTRACT.at(-1)![0];
+  const appliedFilename = String(result.rows.at(-1)?.filename ?? "");
+  const appliedVersion = /^\d{3}_[a-z0-9_]+\.sql$/u.test(appliedFilename) ? appliedFilename : null;
+  const current = result.rows.length === PRODUCTION_MIGRATION_CONTRACT.length
+    && PRODUCTION_MIGRATION_CONTRACT.every(([filename, checksum], index) => {
+      const row = result.rows[index];
+      return row?.filename === filename && row.checksum === checksum;
+    });
+  return {
+    current,
+    appliedVersion,
+    expectedVersion,
+    appliedCount: result.rows.length,
+    expectedCount: PRODUCTION_MIGRATION_CONTRACT.length
+  };
+};
+
 export const isProductionSchemaCurrent = async (
   database: PostgresQueryable
 ): Promise<boolean> => {
   try {
-    const result = await database.query<{ filename: string; checksum: string }>(
-      "SELECT filename, checksum FROM empire_schema_migrations ORDER BY filename"
-    );
-    if (result.rows.length !== PRODUCTION_MIGRATION_CONTRACT.length) return false;
-    return PRODUCTION_MIGRATION_CONTRACT.every(([filename, checksum], index) => {
-      const row = result.rows[index];
-      return row?.filename === filename && row.checksum === checksum;
-    });
+    return (await getProductionSchemaStatus(database)).current;
   } catch (_error) {
     return false;
   }

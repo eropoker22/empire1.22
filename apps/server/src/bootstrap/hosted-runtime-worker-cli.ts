@@ -29,12 +29,10 @@ const database = createPostgresDatabase(databaseUrl, {
 });
 const controlPlane = createPostgresHostedControlPlaneRepository(database);
 const playerEntry = createPostgresPlayerEntryRepository(database);
-try {
-  await assertHostedRuntimeWorkerSchemaCurrent(database);
-} catch (error) {
+const workerSchema = await assertHostedRuntimeWorkerSchemaCurrent(database).catch(async (error) => {
   await database.close();
   throw error;
-}
+});
 
 const persistence = createPostgresRuntimePersistenceRepositories({
   databaseUrl,
@@ -109,7 +107,10 @@ const healthServer = http.createServer(async (request, response) => {
       && heartbeat.buildSha === buildSha
       && heartbeat.status === "online";
     const available = healthy && !shuttingDown && heartbeatCurrent;
-    response.writeHead(available ? 200 : 503, { "content-type": "application/json" });
+    response.writeHead(available ? 200 : 503, {
+      "content-type": "application/json",
+      "cache-control": "no-store"
+    });
     response.end(JSON.stringify({
       status: available ? "ok" : "unavailable",
       database: "available",
@@ -118,6 +119,8 @@ const healthServer = http.createServer(async (request, response) => {
       workerId,
       environment: releaseEnvironment,
       region,
+      schemaVersion: workerSchema.schemaVersion,
+      expectedSchemaVersion: workerSchema.expectedSchemaVersion,
       heartbeat: {
         registered: heartbeatCurrent,
         lastAt: heartbeat?.lastHeartbeatAt ?? null,
@@ -133,7 +136,7 @@ const healthServer = http.createServer(async (request, response) => {
       }
     }));
   } catch (_error) {
-    response.writeHead(503, { "content-type": "application/json" });
+    response.writeHead(503, { "content-type": "application/json", "cache-control": "no-store" });
     response.end(JSON.stringify({
       status: "unavailable",
       database: "unavailable",
@@ -142,6 +145,8 @@ const healthServer = http.createServer(async (request, response) => {
       workerId,
       environment: releaseEnvironment,
       region,
+      schemaVersion: workerSchema.schemaVersion,
+      expectedSchemaVersion: workerSchema.expectedSchemaVersion,
       heartbeat: { registered: false, lastAt: null, ageMs: null },
       runtime: {
         nodeVersion: nodeRuntime.detectedVersion,

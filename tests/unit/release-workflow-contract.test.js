@@ -37,6 +37,7 @@ describe("public release workflows", () => {
     expect(staging).toContain("npm run db:migrate:initialize-release-history");
     expect(staging).toContain("npm run verify:database-endpoints");
     expect(staging).toContain("npm run verify:database-pooling");
+    expect(staging).toContain(".schemaVersion == $schema");
     expect(staging).toContain("inputs.bootstrap_admin");
     expect(staging).toContain("set_function_secret EMPIRE_ADMIN_SESSION_SECRET");
     expect(staging).toContain("--secret --scope functions --context production");

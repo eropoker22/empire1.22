@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import {
+  getProductionSchemaStatus,
   isProductionSchemaCurrent,
   PRODUCTION_MIGRATION_CONTRACT
 } from "../../apps/server/src/runtime/persistence/postgres/production-migration-contract";
@@ -34,6 +35,17 @@ describe("production migration contract", () => {
       ...PRODUCTION_MIGRATION_CONTRACT,
       ["011_unknown.sql", "unknown"]
     ]))).toBe(false);
+  });
+
+  it("reports safe applied and expected migration versions", async () => {
+    const pending = PRODUCTION_MIGRATION_CONTRACT.slice(0, -1);
+    await expect(getProductionSchemaStatus(database(pending))).resolves.toEqual({
+      current: false,
+      appliedVersion: pending.at(-1)![0],
+      expectedVersion: PRODUCTION_MIGRATION_CONTRACT.at(-1)![0],
+      appliedCount: pending.length,
+      expectedCount: PRODUCTION_MIGRATION_CONTRACT.length
+    });
   });
 
   it("fails closed when migration history is unavailable", async () => {

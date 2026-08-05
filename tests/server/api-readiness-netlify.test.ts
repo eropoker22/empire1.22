@@ -22,7 +22,12 @@ describe("API readiness response", () => {
       code: null,
       database: "available",
       schema: "current",
+      schemaVersion: PRODUCTION_MIGRATION_CONTRACT.at(-1)![0],
+      expectedSchemaVersion: PRODUCTION_MIGRATION_CONTRACT.at(-1)![0],
       buildSha: BUILD_SHA,
+      apiBuildSha: BUILD_SHA,
+      environment: "local",
+      region: null,
       runtime: {
         nodeVersion: process.versions.node,
         nodeMajor: 24,
@@ -48,7 +53,7 @@ describe("API readiness response", () => {
     expect(response.statusCode).toBe(503);
     expect(response.body).not.toContain("secret");
     expect(JSON.parse(response.body ?? "")).toMatchObject({
-      code: "DATABASE_MIGRATIONS_PENDING",
+      code: "DATABASE_SCHEMA_UNAVAILABLE",
       database: "available",
       schema: "unavailable"
     });
@@ -94,6 +99,21 @@ describe("API readiness response", () => {
         nodeMajor: 20,
         supported: false
       }
+    });
+    expect(vi.mocked(database.query)).not.toHaveBeenCalled();
+  });
+
+  it("fails closed in production without an explicit public release environment", async () => {
+    const database = createDatabase();
+    const response = await createApiReadinessResponse(database, {
+      NODE_ENV: "production",
+      EMPIRE_BUILD_SHA: BUILD_SHA
+    });
+    expect(response.statusCode).toBe(503);
+    expect(JSON.parse(response.body ?? "")).toMatchObject({
+      code: "RELEASE_ENVIRONMENT_UNAVAILABLE",
+      apiBuildSha: BUILD_SHA,
+      environment: "local"
     });
     expect(vi.mocked(database.query)).not.toHaveBeenCalled();
   });

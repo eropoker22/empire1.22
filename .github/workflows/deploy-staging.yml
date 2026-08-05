@@ -395,21 +395,26 @@ jobs:
           set -euo pipefail
           api_health="$RUNNER_TEMP/api-health.json"
           worker_health="$RUNNER_TEMP/worker-health.json"
+          expected_schema="$(jq -er '.expectedSchemaVersion' artifacts/release-manifest.json)"
           for attempt in {1..30}; do
             if curl --fail --silent --show-error "$STAGING_ORIGIN/api/health" -o "$api_health" \
-              && jq -e --arg sha "$RELEASE_SHA" '.status == "ready" and .buildSha == $sha' "$api_health" >/dev/null; then break; fi
+              && jq -e --arg sha "$RELEASE_SHA" --arg schema "$expected_schema" \
+                '.status == "ready" and .apiBuildSha == $sha and .environment == "staging" and .region == "fra" and .schemaVersion == $schema and .expectedSchemaVersion == $schema' \
+                "$api_health" >/dev/null; then break; fi
             [[ "$attempt" != "30" ]] || exit 1
             sleep 10
           done
           for attempt in {1..30}; do
             if curl --fail --silent --show-error "https://${FLY_STAGING_APP}.fly.dev/health" -o "$worker_health" \
-              && jq -e --arg sha "$RELEASE_SHA" '.status == "ok" and .buildSha == $sha and .heartbeat.registered == true' "$worker_health" >/dev/null; then break; fi
+              && jq -e --arg sha "$RELEASE_SHA" --arg schema "$expected_schema" \
+                '.status == "ok" and .buildSha == $sha and .environment == "staging" and .region == "fra" and .schemaVersion == $schema and .expectedSchemaVersion == $schema and .heartbeat.registered == true' \
+                "$worker_health" >/dev/null; then break; fi
             [[ "$attempt" != "30" ]] || exit 1
             sleep 10
           done
           curl --fail --silent --show-error "$STAGING_ORIGIN/api/servers" >/dev/null
-          jq '{status,service,code,database,schema,buildSha,runtime}' "$api_health" > artifacts/release/staging/api-health.json
-          jq '{status,database,lastErrorCode,buildSha,workerId,heartbeat,runtime}' "$worker_health" > artifacts/release/staging/worker-health.json
+          jq '{status,service,code,database,schema,schemaVersion,expectedSchemaVersion,buildSha,apiBuildSha,environment,region,runtime}' "$api_health" > artifacts/release/staging/api-health.json
+          jq '{status,database,lastErrorCode,buildSha,environment,region,schemaVersion,expectedSchemaVersion,workerId,heartbeat,runtime}' "$worker_health" > artifacts/release/staging/worker-health.json
           rm -f "$api_health" "$worker_health"
 
       - name: Bootstrap, rotate and verify the owner account
