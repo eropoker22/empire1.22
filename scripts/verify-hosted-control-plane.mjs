@@ -1,6 +1,7 @@
 import { access, readFile, readdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { probeRollbackOnlyTickLease } from "./hosted-preflight-tick-probe.mjs";
+import { validatePublicRegistrationWindow } from "./registration-window-contract.mjs";
 
 const checks = [];
 const failures = [];
@@ -59,6 +60,12 @@ if (strict) {
   if (registrationEnabled) {
     check(String(process.env.EMPIRE_AUTH_THROTTLE_PEPPER ?? "").trim().length >= 32,
       "public account registration has durable auth throttling");
+    if (["staging", "production"].includes(process.env.EMPIRE_RELEASE_ENVIRONMENT ?? "")) {
+      check(validatePublicRegistrationWindow({
+        enabled: true,
+        expiresAt: process.env.EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT
+      }).valid, "public account registration has a valid maximum 24-hour window");
+    }
   } else {
     check(true, "public account registration is safely disabled");
   }

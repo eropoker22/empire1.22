@@ -6,6 +6,7 @@ import {
 
 const SHA = "82ab0778704c755170048d9509036eb3f03909da";
 const secret = (character) => character.repeat(64);
+const now = new Date("2026-08-05T10:00:00.000Z");
 const validEnvironment = {
   EMPIRE_RELEASE_ENVIRONMENT: "production",
   NODE_ENV: "production",
@@ -37,12 +38,16 @@ describe("registration-only production contract", () => {
   });
 
   it("accepts the registration flag only when the operator explicitly expects it", () => {
-    const environment = { ...validEnvironment, EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true" };
+    const environment = {
+      ...validEnvironment,
+      EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true",
+      EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: "2026-08-05T12:00:00.000Z"
+    };
     expect(validateRegistrationOnlyProductionEnvironment(environment).passed).toBe(false);
-    expect(validateRegistrationOnlyProductionEnvironment(environment, { registrationEnabled: true }).passed).toBe(true);
+    expect(validateRegistrationOnlyProductionEnvironment(environment, { registrationEnabled: true, now }).passed).toBe(true);
     expect(validateRegistrationOnlyProductionEnvironment(
       { ...environment, EMPIRE_ACCOUNT_TERMS_VERSION: "" },
-      { registrationEnabled: true }
+      { registrationEnabled: true, now }
     ).checks.find((check) => check.name === "EMPIRE_ACCOUNT_TERMS_VERSION")).toMatchObject({
       passed: false,
       errorCode: "REGISTRATION_ONLY_TERMS_VERSION_INVALID"

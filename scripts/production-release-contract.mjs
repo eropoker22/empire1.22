@@ -3,6 +3,7 @@ import {
   evaluateSupportedNodeVersion,
   SUPPORTED_NODE_MAJOR
 } from "./supported-node-policy.mjs";
+import { validatePublicRegistrationWindow } from "./registration-window-contract.mjs";
 
 export const PRODUCTION_ENVIRONMENT = "production";
 export const PRODUCTION_ORIGIN = "https://empirestreets.cz";
@@ -27,6 +28,11 @@ export const validateProductionEnvironment = (environment, options = {}) => {
   const allowedOrigins = parseAllowedOrigins(environment.EMPIRE_ALLOWED_ORIGINS);
   const registrationEnabled = environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED === "true";
   const allowRegistrationEnabled = options.allowRegistrationEnabled === true;
+  const registrationWindow = validatePublicRegistrationWindow({
+    enabled: registrationEnabled,
+    expiresAt: environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT,
+    now: options.now
+  });
 
   checks.push({
     name: "PRODUCTION_COMPONENT",
@@ -118,6 +124,9 @@ export const validateProductionEnvironment = (environment, options = {}) => {
     environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED === "false" || (allowRegistrationEnabled && registrationEnabled),
     allowRegistrationEnabled ? "false, or explicitly approved true" : "false during deploy",
     "PRODUCTION_REGISTRATION_MUST_BE_CLOSED");
+  add("EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT", "API", registrationEnabled,
+    !registrationEnabled || registrationWindow.valid,
+    "future ISO timestamp no more than 24 hours away", "PRODUCTION_REGISTRATION_WINDOW_INVALID");
   add("EMPIRE_ACCOUNT_TERMS_VERSION", "API", true,
     TERMS_VERSION_PATTERN.test(String(environment.EMPIRE_ACCOUNT_TERMS_VERSION ?? "")),
     "explicit approved terms version", "PRODUCTION_ACCOUNT_TERMS_VERSION_INVALID");

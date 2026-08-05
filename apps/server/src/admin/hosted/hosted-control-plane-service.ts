@@ -7,6 +7,7 @@ import type {
 } from "@empire/shared-types";
 import type { AdminDurableRepositories } from "../read-only";
 import { PRODUCTION_MIGRATION_CONTRACT } from "../../runtime/persistence/postgres";
+import { isPublicRegistrationWindowOpen } from "../../player-entry/account-registration-policy";
 import { HOSTED_WORKER_FRESH_MS, type HostedActionRequestRecord, type HostedServerRecord } from "./hosted-control-plane-repository";
 import {
   createHostedAdminServerView,
@@ -60,7 +61,7 @@ export const createHostedControlPlaneService = (options: {
     const originPolicy = !production ? "not-applicable" as const
       : hasSecureHostedOriginPolicy(options.environment.EMPIRE_ALLOWED_ORIGINS) ? "current" as const
       : "blocked" as const;
-    const registrationEnabled = hostedEnvironmentEnabled(options.environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED);
+    const registrationEnabled = isPublicRegistrationWindowOpen(options.environment, generatedAt);
     const unavailableCode = !writesEnabled ? "ADMIN_WRITES_DISABLED"
       : !provisioningEnabled ? "SERVER_PROVISIONING_DISABLED"
       : !databaseAvailable ? "DATABASE_UNAVAILABLE"

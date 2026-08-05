@@ -229,6 +229,39 @@ describe("hosted server control plane", () => {
       originPolicy: "current",
       unavailableCode: null
     });
+
+    const publicRegistrationEnvironment = {
+      ...FLAGS,
+      NODE_ENV: "production",
+      EMPIRE_RELEASE_ENVIRONMENT: "staging",
+      EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true",
+      GAMEPLAY_SLICE_SESSION_SECRET: "a".repeat(64),
+      GAMEPLAY_SLICE_SNAPSHOT_SECRET: "b".repeat(64),
+      EMPIRE_ADMIN_FINGERPRINT_SECRET: "c".repeat(64),
+      EMPIRE_ADMIN_SESSION_SECRET: "d".repeat(64),
+      EMPIRE_AUTH_THROTTLE_PEPPER: "e".repeat(64),
+      EMPIRE_ALLOWED_ORIGINS: "https://staging.empirestreets.cz"
+    };
+    const open = createHostedControlPlaneService({
+      repositories,
+      environment: {
+        ...publicRegistrationEnvironment,
+        EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: "2026-07-16T11:00:00.000Z"
+      },
+      now: () => NOW,
+      allowInMemoryForTests: true
+    });
+    expect((await open.availability()).registrationEnabled).toBe(true);
+    const expired = createHostedControlPlaneService({
+      repositories,
+      environment: {
+        ...publicRegistrationEnvironment,
+        EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: "2026-07-16T09:59:59.000Z"
+      },
+      now: () => NOW,
+      allowInMemoryForTests: true
+    });
+    expect((await expired.availability()).registrationEnabled).toBe(false);
   });
 
   it("snapshots the explicit control/full template without exposing elimination balance", async () => {

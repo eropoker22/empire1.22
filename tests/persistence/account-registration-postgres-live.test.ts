@@ -15,9 +15,11 @@ const ORIGIN = "https://registration.staging.test";
 const TERMS_VERSION = "closed-alpha-internal-v1";
 const environment = {
   NODE_ENV: "production",
+  EMPIRE_RELEASE_ENVIRONMENT: "staging",
   EMPIRE_ALLOWED_ORIGINS: ORIGIN,
   EMPIRE_PERSISTENCE_DRIVER: "postgres",
   EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true",
+  EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: new Date(Date.now() + 60 * 60 * 1_000).toISOString(),
   EMPIRE_ACCOUNT_TERMS_VERSION: TERMS_VERSION,
   EMPIRE_AUTH_THROTTLE_PEPPER: "a".repeat(64)
 };

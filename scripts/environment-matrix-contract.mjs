@@ -110,6 +110,10 @@ const PUBLIC_RELEASE_ROWS = [
   runtime("EMPIRE_HOSTED_CONTROL_PLANE_ENABLED", "Netlify API", { workerScope: "No", safeFormat: "true for approved hosted control plane", rotation: "Disable during incident containment" }),
   runtime("EMPIRE_SERVER_PROVISIONING_ENABLED", "Netlify API", { workerScope: "No", safeFormat: "true only for approved release", rotation: "Disable before rollback or incident response" }),
   runtime("EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED", "Netlify API", { workerScope: "No", safeFormat: "false during deploy; true only after explicit gate", rotation: "Set false before deploy or incident response" }),
+  runtime("EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT", "Netlify API", {
+    stagingRequired: "Only while registration is true", productionRequired: "Only while registration is true",
+    workerScope: "No", safeFormat: "Future ISO timestamp no more than 24 hours away", rotation: "Unset whenever registration is closed"
+  }),
   runtime("EMPIRE_ACCOUNT_TERMS_VERSION", "Netlify API", { workerScope: "No", safeFormat: "Approved immutable terms version", rotation: "Bump only with approved terms change" }),
   runtime("EMPIRE_LEGACY_MATCHMAKING_ENABLED", "Netlify API", { workerScope: "No", safeFormat: "false", rotation: "N/A" }),
   runtime("EMPIRE_WAR_HOSTING_ENABLED", "Netlify API", { workerScope: "No", safeFormat: "false for closed alpha", defaultAllowed: "Yes; false", rotation: "Keep false until a separately approved release" }),

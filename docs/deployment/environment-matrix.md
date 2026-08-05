@@ -2,7 +2,7 @@
 
 Generated: generated from tracked source
 
-The inventory found **116 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 20 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
+The inventory found **117 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 20 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
 
 Public releases fail closed: no wildcard origin, no loopback URL, no staging hostname in production, no implicit database or secret default, and no provider credential in a runtime scope.
 
@@ -23,6 +23,7 @@ Public releases fail closed: no wildcard origin, no loopback URL, no staging hos
 | `EMPIRE_AUTH_THROTTLE_PEPPER` | Netlify API | Yes | Yes | Yes | Functions only | No | 64 hex or 43+ base64url characters; unique | No | Rotate during a controlled API deploy |
 | `EMPIRE_BUILD_SHA` | Frontend, Netlify API, worker, release job | Yes | Yes | No | Builds and Functions | Yes | Exact 40-character lowercase checkout SHA | No | Automatic on every immutable deploy |
 | `EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED` | Netlify API | Yes | Yes | No | Builds and Functions | No | false during deploy; true only after explicit gate | No | Set false before deploy or incident response |
+| `EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT` | Netlify API | Only while registration is true | Only while registration is true | No | Builds and Functions | No | Future ISO timestamp no more than 24 hours away | No | Unset whenever registration is closed |
 | `EMPIRE_DATABASE_BACKUP_CONFIRMED` | Migration release guard | Yes | Yes | No | Release job only | No | true only after a fresh provider snapshot | No | Reset after each release |
 | `EMPIRE_DATABASE_BACKUP_ID` | Migration release guard | Yes | Yes | No | Release job only | No | Non-secret snapshot identifier hash | No | Use a new hash for every release |
 | `EMPIRE_DATABASE_INITIALIZATION_CONFIRMED` | One-time empty-database initializer | Only for first empty database | Only for first empty database | No | Release job only | No | true only with explicit dispatch approval | No | Unset immediately after initialization |

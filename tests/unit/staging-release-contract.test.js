@@ -8,6 +8,7 @@ import {
 
 const SHA = "854a5336e6f816343baf9bdec81a4bd3690a82de";
 const secret = (character) => character.repeat(64);
+const now = new Date("2026-08-05T10:00:00.000Z");
 const validEnvironment = {
   EMPIRE_RELEASE_ENVIRONMENT: "staging",
   NODE_ENV: "production",
@@ -87,17 +88,30 @@ describe("staging release contract", () => {
     const open = {
       ...validEnvironment,
       EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true",
+      EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: "2026-08-05T12:00:00.000Z",
       EMPIRE_AUTH_THROTTLE_PEPPER: secret("e")
     };
-    expect(validateStagingEnvironment(open, { allowRegistrationEnabled: true, nodeVersion: "24.18.0" }).passed).toBe(true);
+    expect(validateStagingEnvironment(open, { allowRegistrationEnabled: true, nodeVersion: "24.18.0", now }).passed).toBe(true);
     const missing = validateStagingEnvironment(
       { ...open, EMPIRE_ACCOUNT_TERMS_VERSION: "" },
-      { allowRegistrationEnabled: true, nodeVersion: "24.18.0" }
+      { allowRegistrationEnabled: true, nodeVersion: "24.18.0", now }
     );
     expect(missing.checks.find((check) => check.name === "EMPIRE_ACCOUNT_TERMS_VERSION")).toMatchObject({
       passed: false,
       errorCode: "STAGING_ACCOUNT_TERMS_VERSION_INVALID"
     });
+    const expired = validateStagingEnvironment({
+      ...open,
+      EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: "2026-08-05T09:00:00.000Z"
+    }, { allowRegistrationEnabled: true, nodeVersion: "24.18.0", now });
+    expect(expired.checks.find((check) => check.name === "EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT")).toMatchObject({
+      passed: false,
+      errorCode: "STAGING_REGISTRATION_WINDOW_INVALID"
+    });
+    expect(validateStagingEnvironment({
+      ...open,
+      EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: "Wed, 05 Aug 2026 12:00:00 GMT"
+    }, { allowRegistrationEnabled: true, nodeVersion: "24.18.0", now }).passed).toBe(false);
   });
 
   it("requires both database variables to identify the same TLS target", () => {

@@ -6,6 +6,7 @@ import {
   assertGameplayAuthorityMatrix,
   getGameplayAuthorityMatrix
 } from "../page-assets/js/app/runtime/gameplayExecutionMode.js";
+import { validatePublicRegistrationWindow } from "./registration-window-contract.mjs";
 
 const root = new URL("../", import.meta.url);
 const failures = [];
@@ -57,6 +58,12 @@ if (strict) {
   if (registrationEnabled) {
     check(String(env.EMPIRE_AUTH_THROTTLE_PEPPER ?? "").trim().length >= 32,
       "public account registration has durable auth throttling");
+    if (["staging", "production"].includes(env.EMPIRE_RELEASE_ENVIRONMENT)) {
+      check(validatePublicRegistrationWindow({
+        enabled: true,
+        expiresAt: env.EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT
+      }).valid, "public account registration has a valid maximum 24-hour window");
+    }
   } else {
     check(true, "public account registration is safely disabled");
   }

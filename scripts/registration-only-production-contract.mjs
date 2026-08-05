@@ -1,10 +1,12 @@
+import { validatePublicRegistrationWindow } from "./registration-window-contract.mjs";
+
 export const PRODUCTION_REGISTRATION_ORIGIN = "https://empirestreets.cz";
 const TERMS_VERSION_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,99}$/u;
 const SECURE_SECRET_PATTERN = /^(?:[0-9a-f]{64,}|[A-Za-z0-9_-]{43,})$/u;
 
 export const validateRegistrationOnlyProductionEnvironment = (
   environment,
-  { registrationEnabled = false } = {}
+  { registrationEnabled = false, now } = {}
 ) => {
   const checks = [];
   const add = (name, component, required, passed, safeFormat, errorCode) => {
@@ -85,6 +87,13 @@ export const validateRegistrationOnlyProductionEnvironment = (
   add("EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED", "account API", true,
     environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED === String(registrationEnabled),
     String(registrationEnabled), "REGISTRATION_ONLY_REGISTRATION_FLAG_MISMATCH");
+  add("EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT", "account API", registrationEnabled,
+    !registrationEnabled || validatePublicRegistrationWindow({
+      enabled: true,
+      expiresAt: environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT,
+      now
+    }).valid,
+    "future ISO timestamp no more than 24 hours away", "REGISTRATION_ONLY_REGISTRATION_WINDOW_INVALID");
   add("EMPIRE_ACCOUNT_TERMS_VERSION", "account API", registrationEnabled,
     !registrationEnabled || TERMS_VERSION_PATTERN.test(String(environment.EMPIRE_ACCOUNT_TERMS_VERSION ?? "")),
     "explicit approved terms version", "REGISTRATION_ONLY_TERMS_VERSION_INVALID");

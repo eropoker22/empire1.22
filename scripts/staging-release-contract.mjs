@@ -3,6 +3,7 @@ import {
   evaluateSupportedNodeVersion,
   SUPPORTED_NODE_MAJOR
 } from "./supported-node-policy.mjs";
+import { validatePublicRegistrationWindow } from "./registration-window-contract.mjs";
 
 export const STAGING_MANIFEST_PATH = "artifacts/release-manifest.json";
 export const STAGING_ENVIRONMENT = "staging";
@@ -26,6 +27,11 @@ export const validateStagingEnvironment = (environment, options = {}) => {
   const gameplayDatabaseUrl = parseDatabaseUrl(environment.GAMEPLAY_DATABASE_URL);
   const registrationEnabled = environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED === "true";
   const allowRegistrationEnabled = options.allowRegistrationEnabled === true;
+  const registrationWindow = validatePublicRegistrationWindow({
+    enabled: registrationEnabled,
+    expiresAt: environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT,
+    now: options.now
+  });
 
   add("EMPIRE_RELEASE_ENVIRONMENT", "build", true, environment.EMPIRE_RELEASE_ENVIRONMENT === STAGING_ENVIRONMENT,
     STAGING_ENVIRONMENT, "STAGING_RELEASE_ENVIRONMENT_INVALID");
@@ -98,6 +104,9 @@ export const validateStagingEnvironment = (environment, options = {}) => {
     environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED === "false" || (allowRegistrationEnabled && registrationEnabled),
     allowRegistrationEnabled ? "false, or true after green preflight" : "false before green preflight",
     "STAGING_REGISTRATION_MUST_BE_CLOSED");
+  add("EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT", "API", registrationEnabled,
+    !registrationEnabled || registrationWindow.valid,
+    "future ISO timestamp no more than 24 hours away", "STAGING_REGISTRATION_WINDOW_INVALID");
   for (const flag of ["EMPIRE_ADMIN_WRITES_ENABLED", "EMPIRE_HOSTED_CONTROL_PLANE_ENABLED", "EMPIRE_SERVER_PROVISIONING_ENABLED"]) {
     add(flag, "API", true, environment[flag] === "true", "true", "STAGING_REQUIRED_CAPABILITY_DISABLED");
   }

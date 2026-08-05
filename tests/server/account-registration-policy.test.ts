@@ -7,15 +7,18 @@ import type { PostgresPlayerEntryRepository } from "../../apps/server/src/player
 
 const environment = {
   NODE_ENV: "production",
+  EMPIRE_RELEASE_ENVIRONMENT: "staging",
   EMPIRE_ALLOWED_ORIGINS: "https://empire.test",
   EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true",
+  EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: "2026-08-05T12:00:00.000Z",
   EMPIRE_ACCOUNT_TERMS_VERSION: "closed-alpha-internal-v1"
 };
 const ready = { persistenceReady: true, authSecurityReady: true };
+const now = new Date("2026-08-05T10:00:00.000Z");
 
 describe("account registration policy", () => {
   it("opens public registration only with persistence, auth security, terms and the registration flag", () => {
-    expect(resolveAccountRegistrationPolicy(environment, ready)).toEqual({
+    expect(resolveAccountRegistrationPolicy(environment, ready, now)).toEqual({
       registrationEnabled: true,
       mode: "open",
       passwordMinimumLength: 12,
@@ -25,18 +28,33 @@ describe("account registration policy", () => {
     });
     expect(resolveAccountRegistrationPolicy(
       { ...environment, EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "false" },
-      ready
+      ready,
+      now
     ).registrationEnabled).toBe(false);
-    expect(resolveAccountRegistrationPolicy(environment, { ...ready, persistenceReady: false }).registrationEnabled).toBe(false);
-    expect(resolveAccountRegistrationPolicy(environment, { ...ready, authSecurityReady: false }).registrationEnabled).toBe(false);
+    expect(resolveAccountRegistrationPolicy(environment, { ...ready, persistenceReady: false }, now).registrationEnabled).toBe(false);
+    expect(resolveAccountRegistrationPolicy(environment, { ...ready, authSecurityReady: false }, now).registrationEnabled).toBe(false);
     expect(resolveAccountRegistrationPolicy(
       { ...environment, EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: undefined },
-      ready
+      ready,
+      now
     ).registrationEnabled).toBe(false);
     expect(resolveAccountRegistrationPolicy(
       { ...environment, EMPIRE_ACCOUNT_TERMS_VERSION: undefined },
-      ready
+      ready,
+      now
     )).toMatchObject({ registrationEnabled: false, termsVersion: null });
+    expect(resolveAccountRegistrationPolicy({
+      ...environment,
+      EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: "2026-08-05T09:59:59.000Z"
+    }, ready, now).registrationEnabled).toBe(false);
+    expect(resolveAccountRegistrationPolicy({
+      ...environment,
+      EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: "2026-08-07T10:00:00.000Z"
+    }, ready, now).registrationEnabled).toBe(false);
+    expect(resolveAccountRegistrationPolicy({
+      ...environment,
+      EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: "Wed, 05 Aug 2026 12:00:00 GMT"
+    }, ready, now).registrationEnabled).toBe(false);
   });
 
   it("serves only the public registration fields", async () => {
@@ -93,7 +111,10 @@ describe("account registration policy", () => {
 });
 
 const createHandler = (repository = createRepository()) => createPlayerEntryNetlifyBoundary({
-  environment,
+  environment: {
+    ...environment,
+    EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: new Date(Date.now() + 60 * 60 * 1_000).toISOString()
+  },
   repository,
   authThrottle: { consume: async () => ({ allowed: true, retryAfterSeconds: 0, reason: null }) } satisfies AuthThrottleService,
   gameplaySessionService: createInMemoryGameplaySessionService({ productionReady: true })

@@ -6,6 +6,7 @@ import {
 
 const SHA = "82ab0778704c755170048d9509036eb3f03909da";
 const secret = (character) => character.repeat(64);
+const now = new Date("2026-08-05T10:00:00.000Z");
 const validEnvironment = {
   EMPIRE_RELEASE_ENVIRONMENT: "production",
   NODE_ENV: "production",
@@ -34,7 +35,7 @@ const validEnvironment = {
   EMPIRE_HOSTED_PREFLIGHT_STRICT: "true",
   EMPIRE_ADMIN_BOOTSTRAP_PASSWORD: ""
 };
-const options = { component: "netlify", gitSha: SHA, nodeVersion: "24.18.0" };
+const options = { component: "netlify", gitSha: SHA, nodeVersion: "24.18.0", now };
 
 describe("production release contract", () => {
   it("accepts an exact closed production Netlify environment", () => {
@@ -105,8 +106,20 @@ describe("production release contract", () => {
   });
 
   it("allows registration only after an explicit post-gate override", () => {
-    const open = { ...validEnvironment, EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true" };
+    const open = {
+      ...validEnvironment,
+      EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true",
+      EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: "2026-08-05T12:00:00.000Z"
+    };
     expect(validateProductionEnvironment(open, options).passed).toBe(false);
     expect(validateProductionEnvironment(open, { ...options, allowRegistrationEnabled: true }).passed).toBe(true);
+    expect(validateProductionEnvironment({
+      ...open,
+      EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: "2026-08-06T11:00:00.000Z"
+    }, { ...options, allowRegistrationEnabled: true }).checks
+      .find((check) => check.name === "EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT")).toMatchObject({
+        passed: false,
+        errorCode: "PRODUCTION_REGISTRATION_WINDOW_INVALID"
+      });
   });
 });
