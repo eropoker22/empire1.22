@@ -11,7 +11,10 @@ import {
 import { delay } from "./local-hosted/process-supervisor.mjs";
 import { REMOTE_MANUAL_STARTING_PLAYER_STATE } from "./remote-staging-acceptance-suites.mjs";
 import { assertSafeRemoteStagingFixtureEnvironment } from "./remote-staging-fixture-safety.mjs";
-import { summarizeDatabaseTelemetry } from "./remote-staging-load-metrics.mjs";
+import {
+  summarizeDatabaseTelemetry,
+  summarizeFlyTelemetry
+} from "./remote-staging-load-metrics.mjs";
 import { assertSupportedNodeVersion } from "./supported-node-policy.mjs";
 
 const { Pool } = pg;
@@ -23,16 +26,24 @@ if (releaseSha !== checkoutSha) throw new Error("REMOTE_LOAD_BUILD_SHA_MISMATCH"
 if (execFileSync("git", ["status", "--porcelain", "--untracked-files=all"], { cwd: root, encoding: "utf8" }).trim()) {
   throw new Error("REMOTE_LOAD_WORKTREE_DIRTY");
 }
+const flyApp = identifier(process.env.FLY_STAGING_APP, "REMOTE_LOAD_FLY_APP_REQUIRED");
 const publicOrigin = exactOrigin(process.env.EMPIRE_PUBLIC_ORIGIN, "https://staging.empirestreets.cz");
 const workerOrigin = exactOrigin(
   process.env.EMPIRE_HOSTED_WORKER_ORIGIN,
-  `https://${required(process.env.FLY_STAGING_APP, "REMOTE_LOAD_FLY_APP_REQUIRED")}.fly.dev`
+  `https://${flyApp}.fly.dev`
 );
 if (process.env.NODE_ENV !== "production" || process.env.EMPIRE_RELEASE_ENVIRONMENT !== "staging") {
   throw new Error("REMOTE_LOAD_ENVIRONMENT_INVALID");
 }
 const durationMinutes = integerInRange(process.env.EMPIRE_REMOTE_LOAD_SOAK_MINUTES, 60, 360, "REMOTE_LOAD_DURATION_INVALID");
 const maximumDbConnections = integerInRange(process.env.EMPIRE_REMOTE_MAX_DB_CONNECTIONS, 1, 10_000, "REMOTE_LOAD_DB_THRESHOLD_INVALID");
+const flyThresholds = {
+  maxMemoryBytes: integerInRange(process.env.EMPIRE_REMOTE_MAX_WORKER_MEMORY_BYTES, 1, Number.MAX_SAFE_INTEGER, "REMOTE_LOAD_MEMORY_THRESHOLD_INVALID"),
+  maxCpuPct: numberInRange(process.env.EMPIRE_REMOTE_MAX_WORKER_CPU_PCT, 0.01, 100, "REMOTE_LOAD_CPU_THRESHOLD_INVALID"),
+  maxThrottleIncrease: numberInRange(process.env.EMPIRE_REMOTE_MAX_WORKER_THROTTLE_INCREASE, 0, Number.MAX_SAFE_INTEGER, "REMOTE_LOAD_THROTTLE_THRESHOLD_INVALID")
+};
+const flyOrgSlug = identifier(process.env.FLY_ORG_SLUG, "REMOTE_LOAD_FLY_ORG_REQUIRED");
+const flyMetricsAuthorization = metricsAuthorization(process.env.FLY_METRICS_TOKEN);
 const databaseUrl = required(process.env.EMPIRE_DATABASE_URL, "REMOTE_LOAD_DATABASE_URL_REQUIRED");
 assertSafeRemoteStagingFixtureEnvironment({
   ...process.env,
@@ -58,6 +69,7 @@ const evidence = {
   serverInstanceHash: null,
   browser: null,
   database: null,
+  fly: null,
   cleanup: "not-started"
 };
 let admin = null;
@@ -97,7 +109,9 @@ try {
   });
   evidence.browser = loadResult.playwright;
   evidence.database = loadResult.database;
+  evidence.fly = loadResult.fly;
   if (!loadResult.database.passed) throw new Error(loadResult.database.violations[0]);
+  if (!loadResult.fly.passed) throw new Error(loadResult.fly.violations[0]);
   evidence.status = "passed";
 } catch (error) {
   evidence.status = "failed";
@@ -172,16 +186,23 @@ async function runLoadPlaywrightWithDatabaseTelemetry({ identities, serverInstan
     application_name: "empire_remote_staging_load_telemetry"
   });
   const databaseSamples = [];
+  const flySamples = [];
   try {
     while (!exited) {
-      databaseSamples.push(await sampleDatabase(pool));
-      await Promise.race([exitPromise, delay(30_000)]);
+      const [databaseSample, flySample] = await Promise.all([
+        captureTelemetrySample("REMOTE_LOAD_DB_TELEMETRY_ERROR", () => sampleDatabase(pool)),
+        captureTelemetrySample("REMOTE_LOAD_FLY_TELEMETRY_ERROR", sampleFlyMetrics)
+      ]);
+      databaseSamples.push(databaseSample);
+      flySamples.push(flySample);
+      await Promise.race([exitPromise, delay(60_000)]);
     }
     await exitPromise;
   } finally {
     await pool.end();
   }
   const database = summarizeDatabaseTelemetry(databaseSamples, maximumDbConnections);
+  const fly = summarizeFlyTelemetry(flySamples, flyThresholds);
   writeFileSync(path.join(artifactDirectory, "load-soak-database.json"), `${JSON.stringify({
     checkedAt: new Date().toISOString(),
     environment: "staging",
@@ -189,12 +210,19 @@ async function runLoadPlaywrightWithDatabaseTelemetry({ identities, serverInstan
     summary: database,
     samples: databaseSamples
   }, null, 2)}\n`, "utf8");
+  writeFileSync(path.join(artifactDirectory, "load-soak-fly.json"), `${JSON.stringify({
+    checkedAt: new Date().toISOString(),
+    environment: "staging",
+    buildSha: releaseSha,
+    summary: fly,
+    samples: flySamples
+  }, null, 2)}\n`, "utf8");
   if (exitCode !== 0) throw new Error(`REMOTE_LOAD_PLAYWRIGHT_FAILED:${exitCode}`);
   const playwright = JSON.parse(readFileSync(summaryPath, "utf8"));
   if (playwright.status !== "passed" || playwright.counts?.skipped !== 0 || playwright.counts?.retries !== 0) {
     throw new Error("REMOTE_LOAD_PLAYWRIGHT_NOT_PASSED");
   }
-  return { playwright, database };
+  return { playwright, database, fly };
 }
 
 async function sampleDatabase(pool) {
@@ -214,6 +242,53 @@ async function sampleDatabase(pool) {
     statementTimeout: String(timeout.rows[0]?.statement_timeout || ""),
     probeDurationMs: Math.max(0, performance.now() - started)
   };
+}
+
+async function sampleFlyMetrics() {
+  const started = performance.now();
+  const selector = `{app="${flyApp}"}`;
+  const [memoryUsedBytes, cpuUsedPct, cpuThrottleIncrease, appConcurrency] = await Promise.all([
+    queryFlyMetric(`max(fly_instance_memory_mem_total${selector} - fly_instance_memory_mem_available${selector})`),
+    queryFlyMetric(`100 * (1 - sum(rate(fly_instance_cpu{app="${flyApp}",mode="idle"}[2m])) / sum(rate(fly_instance_cpu${selector}[2m])))`),
+    queryFlyMetric(`sum(increase(fly_instance_cpu_throttle${selector}[2m]))`),
+    queryFlyMetric(`max(fly_app_concurrency${selector})`)
+  ]);
+  return {
+    checkedAt: new Date().toISOString(),
+    memoryUsedBytes,
+    cpuUsedPct,
+    cpuThrottleIncrease,
+    appConcurrency,
+    queryDurationMs: Math.max(0, performance.now() - started)
+  };
+}
+
+async function queryFlyMetric(query) {
+  const endpoint = new URL(`https://api.fly.io/prometheus/${flyOrgSlug}/api/v1/query`);
+  endpoint.searchParams.set("query", query);
+  const response = await fetch(endpoint, {
+    headers: { authorization: flyMetricsAuthorization, accept: "application/json" },
+    signal: AbortSignal.timeout(15_000)
+  });
+  if (!response.ok) throw new Error(`REMOTE_LOAD_FLY_METRICS_HTTP_${response.status}`);
+  const payload = await response.json();
+  if (payload?.status !== "success") throw new Error("REMOTE_LOAD_FLY_METRICS_INVALID");
+  const values = (payload?.data?.result || [])
+    .map((entry) => Number(entry?.value?.[1]))
+    .filter(Number.isFinite);
+  return values.length ? Math.max(...values) : null;
+}
+
+async function captureTelemetrySample(errorCode, sampler) {
+  try {
+    return await sampler();
+  } catch (error) {
+    return {
+      checkedAt: new Date().toISOString(),
+      errorCode,
+      providerErrorCode: safeErrorCode(error)
+    };
+  }
 }
 
 async function runReleasePlaywright({ name, specs, environment, timeoutMs }) {
@@ -341,6 +416,21 @@ function integerInRange(value, minimum, maximum, code) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < minimum || parsed > maximum) throw new Error(code);
   return parsed;
+}
+function numberInRange(value, minimum, maximum, code) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < minimum || parsed > maximum) throw new Error(code);
+  return parsed;
+}
+function identifier(value, code) {
+  const normalized = required(value, code);
+  if (!/^[a-z0-9-]{1,63}$/u.test(normalized)) throw new Error(code);
+  return normalized;
+}
+function metricsAuthorization(value) {
+  const token = required(value, "REMOTE_LOAD_FLY_METRICS_TOKEN_REQUIRED");
+  if (token.startsWith("Bearer ") || token.startsWith("FlyV1 ")) return token;
+  return `Bearer ${token}`;
 }
 function safeHash(value) {
   return createHash("sha256").update(String(value)).digest("hex").slice(0, 16);

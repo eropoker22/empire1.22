@@ -149,6 +149,18 @@ const PUBLIC_RELEASE_ROWS = [
     stagingRequired: "Only for load soak", productionRequired: "No",
     netlifyScope: "Release job only", workerScope: "No", safeFormat: "Approved positive connection threshold", rotation: "Update only after reviewed provider or pool capacity change"
   }),
+  runtime("EMPIRE_REMOTE_MAX_WORKER_MEMORY_BYTES", "Protected remote staging load job", {
+    stagingRequired: "Only for load soak", productionRequired: "No",
+    netlifyScope: "Release job only", workerScope: "No", safeFormat: "Approved positive byte threshold below the worker memory limit", rotation: "Update only after reviewed worker sizing"
+  }),
+  runtime("EMPIRE_REMOTE_MAX_WORKER_CPU_PCT", "Protected remote staging load job", {
+    stagingRequired: "Only for load soak", productionRequired: "No",
+    netlifyScope: "Release job only", workerScope: "No", safeFormat: "Approved percentage greater than 0 and at most 100", rotation: "Update only after reviewed worker sizing"
+  }),
+  runtime("EMPIRE_REMOTE_MAX_WORKER_THROTTLE_INCREASE", "Protected remote staging load job", {
+    stagingRequired: "Only for load soak", productionRequired: "No",
+    netlifyScope: "Release job only", workerScope: "No", safeFormat: "Maximum Fly throttle counter increase in centiseconds per two-minute sample", rotation: "Update only after reviewed CPU quota"
+  }),
   runtime("EMPIRE_STAGING_DATABASE_TARGET_HASH", "Protected remote staging acceptance job", {
     stagingRequired: "Yes for controlled scenario setup", productionRequired: "No",
     netlifyScope: "Release job only", workerScope: "No", safeFormat: "SHA-256 of hostname, port and database name", rotation: "Update only after verified staging database replacement"
@@ -235,6 +247,8 @@ const PROVIDER_ROWS = [
   ["PRODUCTION_DATABASE_URL_DIRECT", "Protected GitHub production environment", "Yes", "Direct TLS URL for production", "Rotate production database role"],
   ["PRODUCTION_DATABASE_URL_POOLED", "Protected GitHub production environment", "Yes", "Pooled TLS URL for the same production target", "Rotate production Netlify database role"],
   ["FLY_API_TOKEN", "GitHub worker deploy job", "Yes", "App-scoped Fly deploy token", "Rotate in Fly; update protected GitHub environment secret"],
+  ["FLY_METRICS_TOKEN", "Protected GitHub staging load job", "Yes", "Read-only Fly org metrics token; FlyV1 or Bearer authorization value", "Rotate in Fly; update protected GitHub environment secret"],
+  ["FLY_ORG_SLUG", "Protected GitHub staging load job", "No", "Exact lowercase Fly organization slug", "Change only when moving the worker app to another organization"],
   ["FLY_STAGING_APP", "GitHub staging deploy job", "No", "Dedicated staging Fly app name", "Change only when replacing staging worker app"],
   ["FLY_PRODUCTION_APP", "GitHub production deploy job", "No", "Dedicated production Fly app name", "Change only when replacing production worker app"],
   ["STAGING_ADMIN_INITIAL_PASSWORD", "One-time protected staging bootstrap", "Yes", "Strong generated temporary password", "Delete immediately after verified rotation"],
@@ -245,7 +259,7 @@ const PROVIDER_ROWS = [
   variable,
   component,
   stagingRequired: variable.includes("PRODUCTION") ? "No" : "Yes",
-  productionRequired: variable.includes("STAGING") ? "No" : "Yes",
+  productionRequired: variable.includes("STAGING") || variable === "FLY_METRICS_TOKEN" || variable === "FLY_ORG_SLUG" ? "No" : "Yes",
   secret,
   netlifyScope: "Never injected into site runtime",
   workerScope: "Never injected unless explicitly mapped to a runtime variable",

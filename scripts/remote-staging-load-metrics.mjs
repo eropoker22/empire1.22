@@ -63,8 +63,10 @@ export const summarizeDatabaseTelemetry = (samples, maximumAllowedConnections) =
   const activeCounts = numbers(samples.map((sample) => sample.activeConnectionCount));
   const queryDurations = numbers(samples.map((sample) => sample.probeDurationMs));
   const maximumObserved = connectionCounts.length ? Math.max(...connectionCounts) : 0;
+  const errorSamples = samples.filter((sample) => sample.errorCode);
   const violations = [];
   if (samples.length === 0) violations.push("REMOTE_LOAD_DB_TELEMETRY_MISSING");
+  if (errorSamples.length > 0) violations.push("REMOTE_LOAD_DB_TELEMETRY_ERROR");
   if (!Number.isInteger(maximumAllowedConnections) || maximumAllowedConnections <= 0) {
     violations.push("REMOTE_LOAD_DB_CONNECTION_THRESHOLD_INVALID");
   } else if (maximumObserved > maximumAllowedConnections) {
@@ -74,10 +76,51 @@ export const summarizeDatabaseTelemetry = (samples, maximumAllowedConnections) =
     passed: violations.length === 0,
     violations,
     sampleCount: samples.length,
+    errorSampleCount: errorSamples.length,
     maximumAllowedConnections,
     maximumObservedConnections: maximumObserved,
     maximumObservedActiveConnections: activeCounts.length ? Math.max(...activeCounts) : 0,
     probeLatency: durationSummary(queryDurations)
+  });
+};
+
+export const summarizeFlyTelemetry = (samples, thresholds) => {
+  const memory = numbers(samples.map((sample) => sample.memoryUsedBytes));
+  const cpu = numbers(samples.map((sample) => sample.cpuUsedPct));
+  const throttle = numbers(samples.map((sample) => sample.cpuThrottleIncrease));
+  const concurrency = numbers(samples.map((sample) => sample.appConcurrency));
+  const queryDurations = numbers(samples.map((sample) => sample.queryDurationMs));
+  const errorSamples = samples.filter((sample) => sample.errorCode);
+  const violations = [];
+  if (samples.length === 0 || memory.length === 0 || cpu.length === 0 || throttle.length === 0) {
+    violations.push("REMOTE_LOAD_FLY_TELEMETRY_MISSING");
+  }
+  if (errorSamples.length > 0) violations.push("REMOTE_LOAD_FLY_TELEMETRY_ERROR");
+  if (!positive(thresholds?.maxMemoryBytes) || !positive(thresholds?.maxCpuPct)
+    || !nonNegative(thresholds?.maxThrottleIncrease)) {
+    violations.push("REMOTE_LOAD_FLY_THRESHOLD_INVALID");
+  } else {
+    if (memory.length && Math.max(...memory) > thresholds.maxMemoryBytes) {
+      violations.push("REMOTE_LOAD_WORKER_MEMORY_HIGH");
+    }
+    if (cpu.length && percentile(cpu, 0.95) > thresholds.maxCpuPct) {
+      violations.push("REMOTE_LOAD_WORKER_CPU_HIGH");
+    }
+    if (throttle.length && Math.max(...throttle) > thresholds.maxThrottleIncrease) {
+      violations.push("REMOTE_LOAD_WORKER_THROTTLED");
+    }
+  }
+  return Object.freeze({
+    passed: violations.length === 0,
+    violations,
+    sampleCount: samples.length,
+    errorSampleCount: errorSamples.length,
+    thresholds,
+    memoryUsedBytes: durationSummary(memory),
+    cpuUsedPct: durationSummary(cpu),
+    cpuThrottleIncrease: durationSummary(throttle),
+    appConcurrency: durationSummary(concurrency),
+    queryLatency: durationSummary(queryDurations)
   });
 };
 
@@ -94,4 +137,9 @@ const percentile = (values, percentileValue) => {
   const ordered = [...values].sort((left, right) => left - right);
   return ordered[Math.min(ordered.length - 1, Math.max(0, Math.ceil(ordered.length * percentileValue) - 1))];
 };
-const numbers = (values = []) => values.map(Number).filter(Number.isFinite);
+const numbers = (values = []) => values
+  .filter((value) => value !== null && value !== undefined && value !== "")
+  .map(Number)
+  .filter(Number.isFinite);
+const positive = (value) => Number.isFinite(Number(value)) && Number(value) > 0;
+const nonNegative = (value) => Number.isFinite(Number(value)) && Number(value) >= 0;

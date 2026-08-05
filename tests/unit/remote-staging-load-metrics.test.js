@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   summarizeDatabaseTelemetry,
+  summarizeFlyTelemetry,
   summarizeRemoteLoadSamples
 } from "../../scripts/remote-staging-load-metrics.mjs";
 
@@ -55,6 +56,47 @@ describe("remote staging load metrics", () => {
     expect(summarizeDatabaseTelemetry(samples, 8)).toMatchObject({
       passed: false,
       violations: ["REMOTE_LOAD_DB_CONNECTION_SATURATION"]
+    });
+  });
+
+  it("enforces Fly memory, CPU and throttling thresholds", () => {
+    const samples = [
+      { memoryUsedBytes: 100, cpuUsedPct: 20, cpuThrottleIncrease: 0, appConcurrency: 2, queryDurationMs: 30 },
+      { memoryUsedBytes: 200, cpuUsedPct: 30, cpuThrottleIncrease: 1, appConcurrency: 5, queryDurationMs: 40 }
+    ];
+    expect(summarizeFlyTelemetry(samples, {
+      maxMemoryBytes: 300,
+      maxCpuPct: 80,
+      maxThrottleIncrease: 5
+    })).toMatchObject({ passed: true, cpuThrottleIncrease: { max: 1 } });
+    expect(summarizeFlyTelemetry(samples, {
+      maxMemoryBytes: 150,
+      maxCpuPct: 25,
+      maxThrottleIncrease: 0
+    }).violations).toEqual(expect.arrayContaining([
+      "REMOTE_LOAD_WORKER_MEMORY_HIGH",
+      "REMOTE_LOAD_WORKER_CPU_HIGH",
+      "REMOTE_LOAD_WORKER_THROTTLED"
+    ]));
+  });
+
+  it("fails closed for missing or errored provider telemetry", () => {
+    expect(summarizeFlyTelemetry([{
+      memoryUsedBytes: null,
+      cpuUsedPct: null,
+      cpuThrottleIncrease: null,
+      errorCode: "REMOTE_LOAD_FLY_TELEMETRY_ERROR"
+    }], {
+      maxMemoryBytes: 300,
+      maxCpuPct: 80,
+      maxThrottleIncrease: 5
+    })).toMatchObject({
+      passed: false,
+      errorSampleCount: 1,
+      violations: expect.arrayContaining([
+        "REMOTE_LOAD_FLY_TELEMETRY_MISSING",
+        "REMOTE_LOAD_FLY_TELEMETRY_ERROR"
+      ])
     });
   });
 });

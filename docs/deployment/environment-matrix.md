@@ -2,7 +2,7 @@
 
 Generated: generated from tracked source
 
-The inventory found **111 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 20 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
+The inventory found **116 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 20 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
 
 Public releases fail closed: no wildcard origin, no loopback URL, no staging hostname in production, no implicit database or secret default, and no provider credential in a runtime scope.
 
@@ -43,6 +43,9 @@ Public releases fail closed: no wildcard origin, no loopback URL, no staging hos
 | `EMPIRE_REMOTE_LOAD_REPORT_PATH` | Protected remote staging load job | Only for load soak | No | No | Release job only | No | Repository-relative artifact path | Yes | New path per release |
 | `EMPIRE_REMOTE_LOAD_SOAK_MINUTES` | Protected remote staging load job | Only for load soak | No | No | Release job only | No | Integer 60-360 | No | Set per approved staging run |
 | `EMPIRE_REMOTE_MAX_DB_CONNECTIONS` | Protected remote staging load job | Only for load soak | No | No | Release job only | No | Approved positive connection threshold | No | Update only after reviewed provider or pool capacity change |
+| `EMPIRE_REMOTE_MAX_WORKER_CPU_PCT` | Protected remote staging load job | Only for load soak | No | No | Release job only | No | Approved percentage greater than 0 and at most 100 | No | Update only after reviewed worker sizing |
+| `EMPIRE_REMOTE_MAX_WORKER_MEMORY_BYTES` | Protected remote staging load job | Only for load soak | No | No | Release job only | No | Approved positive byte threshold below the worker memory limit | No | Update only after reviewed worker sizing |
+| `EMPIRE_REMOTE_MAX_WORKER_THROTTLE_INCREASE` | Protected remote staging load job | Only for load soak | No | No | Release job only | No | Maximum Fly throttle counter increase in centiseconds per two-minute sample | No | Update only after reviewed CPU quota |
 | `EMPIRE_REMOTE_RELEASE_EVIDENCE_PATH` | Remote release verifier | Yes | Yes | No | Release job only | No | Repository-relative artifact path | Yes | New path per environment or release |
 | `EMPIRE_REMOTE_STAGING_FIXTURE_APPROVED` | Protected remote staging acceptance job | Only for controlled scenario setup | Forbidden | No | Release job only | No | Exact staging-only-fixture-write approval | No | Unset after each scenario setup |
 | `EMPIRE_REMOTE_STAGING_LOAD_SOAK` | Protected remote staging load job | Only for load soak | Forbidden | No | Release job only | No | 1 in the guarded Playwright child only | No | Unset after each load run |
@@ -67,6 +70,8 @@ Provider credentials exist only in protected GitHub environments and release ste
 | Variable | Component | Staging required | Production required | Secret | Netlify scope | Worker scope | Safe format | Default allowed | Rotation instructions |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `FLY_API_TOKEN` | GitHub worker deploy job | Yes | Yes | Yes | Never injected into site runtime | Never injected unless explicitly mapped to a runtime variable | App-scoped Fly deploy token | No | Rotate in Fly; update protected GitHub environment secret |
+| `FLY_METRICS_TOKEN` | Protected GitHub staging load job | Yes | No | Yes | Never injected into site runtime | Never injected unless explicitly mapped to a runtime variable | Read-only Fly org metrics token; FlyV1 or Bearer authorization value | No | Rotate in Fly; update protected GitHub environment secret |
+| `FLY_ORG_SLUG` | Protected GitHub staging load job | Yes | No | No | Never injected into site runtime | Never injected unless explicitly mapped to a runtime variable | Exact lowercase Fly organization slug | No | Change only when moving the worker app to another organization |
 | `FLY_PRODUCTION_APP` | GitHub production deploy job | No | Yes | No | Never injected into site runtime | Never injected unless explicitly mapped to a runtime variable | Dedicated production Fly app name | No | Change only when replacing production worker app |
 | `FLY_STAGING_APP` | GitHub staging deploy job | Yes | No | No | Never injected into site runtime | Never injected unless explicitly mapped to a runtime variable | Dedicated staging Fly app name | No | Change only when replacing staging worker app |
 | `NEON_API_KEY` | GitHub backup release step | Yes | Yes | Yes | Never injected into site runtime | Never injected unless explicitly mapped to a runtime variable | Least-privilege Neon API key | No | Rotate in Neon; update protected GitHub environment secret |
