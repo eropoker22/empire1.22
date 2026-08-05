@@ -2,7 +2,7 @@
 
 Generated: generated from tracked source
 
-The inventory found **123 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 20 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
+The inventory found **130 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 21 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
 
 Public releases fail closed: no wildcard origin, no loopback URL, no staging hostname in production, no implicit database or secret default, and no provider credential in a runtime scope.
 
@@ -37,11 +37,13 @@ Public releases fail closed: no wildcard origin, no loopback URL, no staging hos
 | `EMPIRE_LEGACY_MATCHMAKING_ENABLED` | Netlify API | Yes | Yes | No | Builds and Functions | No | false | No | N/A |
 | `EMPIRE_PERSISTENCE_DRIVER` | Netlify API and worker | Yes | Yes | No | Builds and Functions | Yes | postgres | No | N/A |
 | `EMPIRE_PRODUCTION_DATABASE_TARGET_HASH` | Protected production release job | No | Yes | No | Release job only | No | SHA-256 of the normalized direct production hostname, port and database name | No | Update only after a verified production database replacement |
+| `EMPIRE_PRODUCTION_REMOTE_SMOKE` | Guarded production browser smoke | No | Release job | No | Release job only | No | Exact 1 only inside the protected production job | No | Unset outside the smoke process |
 | `EMPIRE_PRODUCTION_SMOKE_ACCOUNT_BOOTSTRAP_CONFIRMED` | One-time production smoke account bootstrap | No | One-time | No | Release job only | No | Exact production-smoke-account approval | No | Unset immediately after bootstrap |
 | `EMPIRE_PRODUCTION_SMOKE_ACCOUNT_EVIDENCE_PATH` | One-time production smoke account bootstrap | No | One-time | No | Release job only | No | Repository-relative JSON path below artifacts/release/production | Yes | New evidence file per release |
 | `EMPIRE_PRODUCTION_SMOKE_ACCOUNT_GANG_NAME` | One-time production smoke account bootstrap | No | One-time | No | Release job only | No | Dedicated synthetic control gang name | No | Update only through an approved account profile change |
 | `EMPIRE_PRODUCTION_SMOKE_ACCOUNT_PASSWORD` | One-time production smoke account bootstrap | No | One-time | Yes | Release job only | No | Strong password-manager value of at least 20 characters | No | Rotate after cutover and update the protected production secret |
 | `EMPIRE_PRODUCTION_SMOKE_ACCOUNT_USERNAME` | One-time production smoke account bootstrap | No | One-time | No | Release job only | No | Dedicated synthetic control account username | No | Retain as the controlled smoke identity |
+| `EMPIRE_PRODUCTION_SMOKE_ARTIFACT_ROOT` | Guarded production browser smoke | No | Release job | No | Release job only | No | Repository-relative path below artifacts/release/production/smoke | Yes | New isolated artifact directory per release |
 | `EMPIRE_PUBLIC_ORIGIN` | Frontend and Netlify API | Yes | Yes | No | Builds and Functions | No | Exact HTTPS origin for the environment | No | Change only with DNS and TLS cutover |
 | `EMPIRE_RELEASE_DATABASE_URL_DIRECT` | Release validator and migration job | Yes | Yes | Yes | Release job only | No | Direct Neon PostgreSQL URL with TLS | No | Rotate the release database role |
 | `EMPIRE_RELEASE_DATABASE_URL_POOLED` | Release validator and pooling smoke | Yes | Yes | Yes | Release job only | No | Transaction-pooled Neon URL with TLS | No | Rotate the Netlify database role |
@@ -91,6 +93,7 @@ Provider credentials exist only in protected GitHub environments and release ste
 | `NETLIFY_STAGING_SITE_ID` | GitHub staging deploy job | Yes | No | No | Never injected into site runtime | Never injected unless explicitly mapped to a runtime variable | Isolated staging site ID | No | Change only when replacing staging site |
 | `PRODUCTION_ADMIN_INITIAL_PASSWORD` | One-time protected production bootstrap | No | Yes | Yes | Never injected into site runtime | Never injected unless explicitly mapped to a runtime variable | Strong generated temporary password | No | Delete immediately after verified rotation |
 | `PRODUCTION_ADMIN_PASSWORD` | Protected production login verification | No | Yes | Yes | Never injected into site runtime | Never injected unless explicitly mapped to a runtime variable | Rotated owner password | No | Rotate in password manager and protected GitHub environment |
+| `PRODUCTION_ADMIN_USERNAME` | Protected production admin verification | No | Yes | No | Never injected into site runtime | Never injected unless explicitly mapped to a runtime variable | Dedicated production owner username | No | Change only through an audited owner transition |
 | `PRODUCTION_DATABASE_URL_DIRECT` | Protected GitHub production environment | No | Yes | Yes | Never injected into site runtime | Never injected unless explicitly mapped to a runtime variable | Direct TLS URL for production | No | Rotate production database role |
 | `PRODUCTION_DATABASE_URL_POOLED` | Protected GitHub production environment | No | Yes | Yes | Never injected into site runtime | Never injected unless explicitly mapped to a runtime variable | Pooled TLS URL for the same production target | No | Rotate production Netlify database role |
 | `PRODUCTION_SMOKE_ACCOUNT_GANG_NAME` | Protected production smoke job | No | Yes | No | Never injected into site runtime | Never injected unless explicitly mapped to a runtime variable | Dedicated synthetic control gang name | No | Change only with an approved smoke account replacement |

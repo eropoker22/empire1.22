@@ -61,14 +61,16 @@ export async function provisionDisposableHostedServer(admin, {
   displayNamePrefix = "Local Hosted E2E",
   capacity = 20,
   startingPlayerState,
-  onCreated
+  onCreated,
+  idempotencyPrefix = "local-hosted",
+  registrationReason = "Fresh local hosted E2E registration"
 } = {}) {
   const suffix = randomUUID().slice(0, 8);
   const created = await admin.request("/api/admin/servers", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "idempotency-key": `local-hosted-create-${suffix}`
+      "idempotency-key": `${idempotencyPrefix}-create-${suffix}`
     },
     body: JSON.stringify({
       mode: "free",
@@ -97,7 +99,7 @@ export async function provisionDisposableHostedServer(admin, {
     && Boolean(server.currentSnapshotId)
     && controlPlane.workerStatus === "online"
   ));
-  await requestAction(admin, ready, "open-registration-now", "Fresh local hosted E2E registration");
+  await requestAction(admin, ready, "open-registration-now", registrationReason, idempotencyPrefix);
   const open = await waitForServer(admin, serverInstanceId, (server) => (
     server.registrationState === "open" && server.joinPolicy === "open"
   ));
@@ -148,18 +150,21 @@ export async function stopStaleDisposableHostedServers(admin) {
   });
 }
 
-export async function startDisposableHostedServer(admin, serverInstanceId) {
+export async function startDisposableHostedServer(admin, serverInstanceId, {
+  idempotencyPrefix = "local-hosted",
+  reason = "Local hosted E2E canonical start"
+} = {}) {
   const ready = await waitForServer(admin, serverInstanceId, (server) => server.canStart === true);
-  await requestAction(admin, ready, "start", "Local hosted E2E canonical start");
+  await requestAction(admin, ready, "start", reason, idempotencyPrefix);
   return waitForServer(admin, serverInstanceId, (server) => server.status === "running");
 }
 
-async function requestAction(admin, server, action, reason) {
+async function requestAction(admin, server, action, reason, idempotencyPrefix = "local-hosted") {
   return admin.request(`/api/admin/servers/${encodeURIComponent(server.serverInstanceId)}/actions`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "idempotency-key": `local-hosted-${action}-${randomUUID()}`
+      "idempotency-key": `${idempotencyPrefix}-${action}-${randomUUID()}`
     },
     body: JSON.stringify({
       action,

@@ -50,6 +50,25 @@ async function registerAccount(page, identity) {
   await expect(page.locator("[data-live-gang-user]")).toHaveText(identity.username, { timeout: 30_000 });
 }
 
+async function loginAccount(page, { username, password, networkIdentifier } = {}) {
+  expect(username, "Hosted login requires a username").toBeTruthy();
+  expect(password, "Hosted login requires a password").toBeTruthy();
+  if (networkIdentifier) {
+    await page.setExtraHTTPHeaders({
+      "x-forwarded-for": networkIdentifier
+    });
+  }
+  await page.goto("/pages/login.html", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#login-username")).toBeEnabled({ timeout: 30_000 });
+  await page.locator("#login-username").fill(username);
+  await page.locator("#login-password").fill(password);
+  await page.getByTestId("login-form")
+    .getByRole("button", { name: "VSTOUPIT DO MĚSTA" })
+    .click();
+  await expect(page).toHaveURL(/\/pages\/lobby\.html/u, { timeout: 30_000 });
+  await expect(page.locator("[data-live-gang-user]")).toHaveText(username, { timeout: 30_000 });
+}
+
 async function openServer(page, serverInstanceId) {
   const spawnResponseObserver = observeSpawnDistrictResponse(page, serverInstanceId);
   try {
@@ -462,6 +481,45 @@ export async function registerAndEnterHostedUiParityGame(page, {
   };
 }
 
+export async function loginAndEnterHostedUiParityGame(page, {
+  serverInstanceId,
+  spawnDistrictId,
+  spawnDistrictIds,
+  identity,
+  waitForRunning = false
+} = {}) {
+  expect(serverInstanceId, "Production hosted entry requires a server instance").toBeTruthy();
+  const requestedSpawnDistrictIds = spawnDistrictIds || [spawnDistrictId].filter(Boolean);
+  const diagnostics = await installHostedUiParityInstrumentation(page);
+  await loginAccount(page, identity);
+  const districts = await openServer(page, serverInstanceId);
+  const selection = await selectSpawnDistrict(
+    page,
+    serverInstanceId,
+    districts,
+    requestedSpawnDistrictIds
+  );
+  const membershipId = await completeFactionSelection(page);
+  const gameIdentity = waitForRunning
+    ? await waitForLiveGame(page, serverInstanceId)
+    : await waitForHostedLobbyGame(page, serverInstanceId);
+  const membership = await readActiveMembershipIdentity(page);
+  expect(membership).toMatchObject({
+    membershipId,
+    reservedSpawnDistrictId: selection.spawnDistrictId,
+    serverInstanceId,
+    status: "active"
+  });
+  expect(gameIdentity.playerId).toBe(membership.playerId);
+  return {
+    diagnostics,
+    membershipId: membership.membershipId,
+    playerId: membership.playerId,
+    serverInstanceId: gameIdentity.serverInstanceId,
+    spawnDistrictId: selection.spawnDistrictId
+  };
+}
+
 export async function loginAndResumeHostedUiParityGame(page, {
   username,
   password,
@@ -470,19 +528,7 @@ export async function loginAndResumeHostedUiParityGame(page, {
   expect(username, "Hosted resume requires a username").toBeTruthy();
   expect(password, "Hosted resume requires a password").toBeTruthy();
   const diagnostics = await installHostedUiParityInstrumentation(page);
-  if (networkIdentifier) {
-    await page.setExtraHTTPHeaders({
-      "x-forwarded-for": networkIdentifier
-    });
-  }
-  await page.goto("/pages/login.html", { waitUntil: "domcontentloaded" });
-  await expect(page.locator("#login-username")).toBeEnabled({ timeout: 30_000 });
-  await page.locator("#login-username").fill(username);
-  await page.locator("#login-password").fill(password);
-  await page.getByTestId("login-form")
-    .getByRole("button", { name: "VSTOUPIT DO MĚSTA" })
-    .click();
-  await expect(page).toHaveURL(/\/pages\/lobby\.html/u, { timeout: 30_000 });
+  await loginAccount(page, { username, password, networkIdentifier });
   await expect(page.getByTestId("continue-active-server")).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("continue-active-server").click();
   await waitForLiveGame(page);

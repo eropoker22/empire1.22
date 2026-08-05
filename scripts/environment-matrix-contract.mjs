@@ -126,6 +126,15 @@ const PUBLIC_RELEASE_ROWS = [
     stagingRequired: "No", productionRequired: "One-time", netlifyScope: "Release job only", workerScope: "No",
     safeFormat: "Repository-relative JSON path below artifacts/release/production", defaultAllowed: "Yes", rotation: "New evidence file per release"
   }),
+  runtime("EMPIRE_PRODUCTION_REMOTE_SMOKE", "Guarded production browser smoke", {
+    stagingRequired: "No", productionRequired: "Release job", netlifyScope: "Release job only", workerScope: "No",
+    safeFormat: "Exact 1 only inside the protected production job", rotation: "Unset outside the smoke process"
+  }),
+  runtime("EMPIRE_PRODUCTION_SMOKE_ARTIFACT_ROOT", "Guarded production browser smoke", {
+    stagingRequired: "No", productionRequired: "Release job", netlifyScope: "Release job only", workerScope: "No",
+    safeFormat: "Repository-relative path below artifacts/release/production/smoke", defaultAllowed: "Yes",
+    rotation: "New isolated artifact directory per release"
+  }),
   runtime("EMPIRE_ADMIN_WRITES_ENABLED", "Netlify API", { workerScope: "No", safeFormat: "true for approved hosted control plane", rotation: "Disable during incident containment" }),
   runtime("EMPIRE_HOSTED_CONTROL_PLANE_ENABLED", "Netlify API", { workerScope: "No", safeFormat: "true for approved hosted control plane", rotation: "Disable during incident containment" }),
   runtime("EMPIRE_SERVER_PROVISIONING_ENABLED", "Netlify API", { workerScope: "No", safeFormat: "true only for approved release", rotation: "Disable before rollback or incident response" }),
@@ -284,6 +293,7 @@ const PROVIDER_ROWS = [
   ["PRODUCTION_ADMIN_INITIAL_PASSWORD", "One-time protected production bootstrap", "Yes", "Strong generated temporary password", "Delete immediately after verified rotation"],
   ["STAGING_ADMIN_PASSWORD", "Protected staging login verification", "Yes", "Rotated owner password", "Rotate in password manager and protected GitHub environment"],
   ["PRODUCTION_ADMIN_PASSWORD", "Protected production login verification", "Yes", "Rotated owner password", "Rotate in password manager and protected GitHub environment"],
+  ["PRODUCTION_ADMIN_USERNAME", "Protected production admin verification", "No", "Dedicated production owner username", "Change only through an audited owner transition"],
   ["PRODUCTION_SMOKE_ACCOUNT_USERNAME", "Protected production smoke job", "No", "Dedicated synthetic control account username", "Retain or replace through the guarded bootstrap job"],
   ["PRODUCTION_SMOKE_ACCOUNT_GANG_NAME", "Protected production smoke job", "No", "Dedicated synthetic control gang name", "Change only with an approved smoke account replacement"],
   ["PRODUCTION_SMOKE_ACCOUNT_PASSWORD", "Protected production smoke job", "Yes", "Strong password-manager value", "Rotate after cutover and update the protected GitHub environment secret"]
