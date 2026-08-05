@@ -2,7 +2,7 @@
 
 Generated: generated from tracked source
 
-The inventory found **106 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 19 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
+The inventory found **111 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 20 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
 
 Public releases fail closed: no wildcard origin, no loopback URL, no staging hostname in production, no implicit database or secret default, and no provider credential in a runtime scope.
 
@@ -39,8 +39,13 @@ Public releases fail closed: no wildcard origin, no loopback URL, no staging hos
 | `EMPIRE_RELEASE_DATABASE_URL_DIRECT` | Release validator and migration job | Yes | Yes | Yes | Release job only | No | Direct Neon PostgreSQL URL with TLS | No | Rotate the release database role |
 | `EMPIRE_RELEASE_DATABASE_URL_POOLED` | Release validator and pooling smoke | Yes | Yes | Yes | Release job only | No | Transaction-pooled Neon URL with TLS | No | Rotate the Netlify database role |
 | `EMPIRE_RELEASE_ENVIRONMENT` | Netlify API, worker, migration, build | Yes | Yes | No | Builds and Functions | Yes | staging or production | No | N/A |
+| `EMPIRE_REMOTE_LOAD_POLL_INTERVAL_MS` | Protected remote staging load job | Only for load soak | No | No | Release job only | No | Integer at least 10000 | Yes; 30000 | Tune only with a documented load plan |
+| `EMPIRE_REMOTE_LOAD_REPORT_PATH` | Protected remote staging load job | Only for load soak | No | No | Release job only | No | Repository-relative artifact path | Yes | New path per release |
+| `EMPIRE_REMOTE_LOAD_SOAK_MINUTES` | Protected remote staging load job | Only for load soak | No | No | Release job only | No | Integer 60-360 | No | Set per approved staging run |
+| `EMPIRE_REMOTE_MAX_DB_CONNECTIONS` | Protected remote staging load job | Only for load soak | No | No | Release job only | No | Approved positive connection threshold | No | Update only after reviewed provider or pool capacity change |
 | `EMPIRE_REMOTE_RELEASE_EVIDENCE_PATH` | Remote release verifier | Yes | Yes | No | Release job only | No | Repository-relative artifact path | Yes | New path per environment or release |
 | `EMPIRE_REMOTE_STAGING_FIXTURE_APPROVED` | Protected remote staging acceptance job | Only for controlled scenario setup | Forbidden | No | Release job only | No | Exact staging-only-fixture-write approval | No | Unset after each scenario setup |
+| `EMPIRE_REMOTE_STAGING_LOAD_SOAK` | Protected remote staging load job | Only for load soak | Forbidden | No | Release job only | No | 1 in the guarded Playwright child only | No | Unset after each load run |
 | `EMPIRE_RUNTIME_REGION` | Netlify API and worker | Yes | Yes | No | Builds and Functions | Yes | Explicit EU runtime region | No | Change only with an approved region cutover |
 | `EMPIRE_SERVER_PROVISIONING_ENABLED` | Netlify API | Yes | Yes | No | Builds and Functions | No | true only for approved release | No | Disable before rollback or incident response |
 | `EMPIRE_STAGING_DATABASE_TARGET_HASH` | Protected remote staging acceptance job | Yes for controlled scenario setup | No | No | Release job only | No | SHA-256 of hostname, port and database name | No | Update only after verified staging database replacement |

@@ -129,6 +129,26 @@ const PUBLIC_RELEASE_ROWS = [
     stagingRequired: "Only for controlled scenario setup", productionRequired: "Forbidden",
     netlifyScope: "Release job only", workerScope: "No", safeFormat: "Exact staging-only-fixture-write approval", rotation: "Unset after each scenario setup"
   }),
+  runtime("EMPIRE_REMOTE_STAGING_LOAD_SOAK", "Protected remote staging load job", {
+    stagingRequired: "Only for load soak", productionRequired: "Forbidden",
+    netlifyScope: "Release job only", workerScope: "No", safeFormat: "1 in the guarded Playwright child only", rotation: "Unset after each load run"
+  }),
+  runtime("EMPIRE_REMOTE_LOAD_SOAK_MINUTES", "Protected remote staging load job", {
+    stagingRequired: "Only for load soak", productionRequired: "No",
+    netlifyScope: "Release job only", workerScope: "No", safeFormat: "Integer 60-360", rotation: "Set per approved staging run"
+  }),
+  runtime("EMPIRE_REMOTE_LOAD_POLL_INTERVAL_MS", "Protected remote staging load job", {
+    stagingRequired: "Only for load soak", productionRequired: "No",
+    netlifyScope: "Release job only", workerScope: "No", safeFormat: "Integer at least 10000", defaultAllowed: "Yes; 30000", rotation: "Tune only with a documented load plan"
+  }),
+  runtime("EMPIRE_REMOTE_LOAD_REPORT_PATH", "Protected remote staging load job", {
+    stagingRequired: "Only for load soak", productionRequired: "No",
+    netlifyScope: "Release job only", workerScope: "No", safeFormat: "Repository-relative artifact path", defaultAllowed: "Yes", rotation: "New path per release"
+  }),
+  runtime("EMPIRE_REMOTE_MAX_DB_CONNECTIONS", "Protected remote staging load job", {
+    stagingRequired: "Only for load soak", productionRequired: "No",
+    netlifyScope: "Release job only", workerScope: "No", safeFormat: "Approved positive connection threshold", rotation: "Update only after reviewed provider or pool capacity change"
+  }),
   runtime("EMPIRE_STAGING_DATABASE_TARGET_HASH", "Protected remote staging acceptance job", {
     stagingRequired: "Yes for controlled scenario setup", productionRequired: "No",
     netlifyScope: "Release job only", workerScope: "No", safeFormat: "SHA-256 of hostname, port and database name", rotation: "Update only after verified staging database replacement"
