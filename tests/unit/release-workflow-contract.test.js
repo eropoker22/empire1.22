@@ -27,7 +27,8 @@ describe("public release workflows", () => {
       "Build frontend, API and worker image",
       "Deploy Netlify staging site",
       "Deploy exactly one persistent worker",
-      "Wait for API and worker health"
+      "Wait for API and worker health",
+      "Verify remote SHA and asset parity"
     ].map((label) => staging.indexOf(label));
     expect(order.every((index) => index >= 0)).toBe(true);
     expect(order).toEqual([...order].sort((left, right) => left - right));
@@ -37,6 +38,8 @@ describe("public release workflows", () => {
     expect(staging).toContain("npm run db:migrate:initialize-release-history");
     expect(staging).toContain("npm run verify:database-endpoints");
     expect(staging).toContain("npm run verify:database-pooling");
+    expect(staging).toContain("npm run release:asset-manifest");
+    expect(staging).toContain("npm run verify:remote-release");
     expect(staging).toContain(".schemaVersion == $schema");
     expect(staging).toContain("inputs.bootstrap_admin");
     expect(staging).toContain("set_function_secret EMPIRE_ADMIN_SESSION_SECRET");

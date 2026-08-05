@@ -279,6 +279,7 @@ jobs:
         run: |
           set -euo pipefail
           npm run build:admin:page
+          npm run release:asset-manifest
           docker build \
             --build-arg "EMPIRE_BUILD_SHA=${RELEASE_SHA}" \
             --tag "registry.fly.io/${FLY_STAGING_APP}:${RELEASE_SHA}" \
@@ -417,6 +418,12 @@ jobs:
           jq '{status,database,lastErrorCode,buildSha,environment,region,schemaVersion,expectedSchemaVersion,workerId,heartbeat,runtime}' "$worker_health" > artifacts/release/staging/worker-health.json
           rm -f "$api_health" "$worker_health"
 
+      - name: Verify remote SHA and asset parity
+        env:
+          EMPIRE_HOSTED_WORKER_ORIGIN: https://${{ vars.FLY_STAGING_APP }}.fly.dev
+          EMPIRE_REMOTE_RELEASE_EVIDENCE_PATH: artifacts/release/staging/remote-release-health.json
+        run: npm run verify:remote-release
+
       - name: Bootstrap, rotate and verify the owner account
         if: github.event_name == 'workflow_dispatch' && inputs.bootstrap_admin
         env:
@@ -493,6 +500,7 @@ jobs:
           retention-days: 30
           path: |
             artifacts/release-manifest.json
+            artifacts/release-asset-manifest.json
             artifacts/release/staging/**
 
       - name: Remove transient credential files
