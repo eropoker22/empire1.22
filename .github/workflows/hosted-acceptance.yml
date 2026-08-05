@@ -1,0 +1,139 @@
+name: Hosted Acceptance
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 1 * * *"
+  push:
+    tags:
+      - "rc-*"
+      - "v*-rc.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hosted-acceptance-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  hosted-acceptance:
+    name: ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - label: manual-admin-player
+            suite: manual-admin-player
+            timeout: 50
+          - label: ui-parity
+            suite: ui-parity
+            timeout: 120
+          - label: ui-parity-social
+            suite: ui-parity-social
+            timeout: 90
+          - label: production-pharmacy
+            suite: production-pharmacy
+            timeout: 50
+          - label: production-drug-lab
+            suite: production-drug-lab
+            timeout: 50
+          - label: production-factory
+            suite: production-factory
+            timeout: 50
+          - label: production-armory
+            suite: production-armory
+            timeout: 50
+          - label: income
+            suite: income
+            timeout: 50
+          - label: building-actions-day
+            suite: building-actions-day
+            timeout: 50
+          - label: building-actions-night
+            suite: building-actions-night
+            timeout: 50
+          - label: non-spawn-parity
+            suite: ui-parity-non-spawn
+            timeout: 90
+          - label: multiplayer-actions
+            suite: multiplayer-visible-actions
+            timeout: 60
+          - label: City-Events
+            suite: city-events
+            timeout: 50
+          - label: social-visible-UI
+            suite: social-visible-ui
+            timeout: 60
+          - label: social-concurrency-privacy
+            suite: social-concurrency-privacy
+            timeout: 60
+          - label: lifecycle-stop
+            suite: lifecycle-stop
+            timeout: 50
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: empire
+          POSTGRES_DB: empire_e2e
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U empire -d empire_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      EMPIRE_ADMIN_BOOTSTRAP_USERNAME: ci-release-owner
+      EMPIRE_ADMIN_BOOTSTRAP_ROLE: owner
+      EMPIRE_ADMIN_BOOTSTRAP_DISPLAY_NAME: CI Release Owner
+      EMPIRE_ACCOUNT_TERMS_VERSION: ci-hosted-acceptance-v1
+      EMPIRE_LOCAL_HOSTED_BROWSER_ARTIFACT_ROOT: artifacts/hosted-acceptance/${{ matrix.suite }}
+
+    steps:
+      - name: Checkout exact SHA
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Verify checkout SHA
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+
+      - name: Generate ephemeral CI secrets
+        run: node scripts/write-ci-hosted-environment.mjs
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run hosted suite
+        run: npm run test:local-hosted:full -- --suite=${{ matrix.suite }}
+
+      - name: Verify clean hosted evidence
+        if: success()
+        run: node scripts/verify-local-hosted-summary.mjs --root=.tmp/local-hosted-full --sha=${{ github.sha }} --suite=${{ matrix.suite }}
+
+      - name: Upload hosted evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hosted-${{ matrix.suite }}-${{ github.sha }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            .tmp/local-hosted-full/**
+            artifacts/hosted-acceptance/${{ matrix.suite }}/**

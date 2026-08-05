@@ -374,6 +374,25 @@ const runFixtureNode = (name, args, timeoutMs) => runManagedCommand({
   logDirectory: runDirectory,
   timeoutMs
 });
+const runReleasePlaywright = async ({ name, args, timeoutMs, result, phase, environmentOverrides = {} }) => {
+  const summaryPath = path.join(runDirectory, `${name}-release-summary.json`);
+  await runNode(name, [
+    ...args,
+    "--forbid-only",
+    "--fail-on-flaky-tests",
+    "--retries=0",
+    "--reporter=./scripts/playwright-release-reporter.mjs"
+  ], timeoutMs, {
+    ...environmentOverrides,
+    EMPIRE_PLAYWRIGHT_RELEASE_SUMMARY: summaryPath
+  });
+  const summary = JSON.parse(await readFile(summaryPath, "utf8"));
+  result.evidence.playwrightRuns.push({
+    phase,
+    summaryPath: path.relative(process.cwd(), summaryPath),
+    ...summary
+  });
+};
 const retainPlaywrightArtifacts = (result, phase) => {
   const outputDirectory = path.join(browserArtifactRunDirectory, "playwright", result.name, phase);
   result.evidence.playwrightArtifactDirectories.push(
@@ -512,7 +531,8 @@ try {
           comprehensiveParityGate: uiParityDebugBuildingTypeIds.length === 0,
           debugBuildingTypeIds: uiParityDebugBuildingTypeIds
         } : {}),
-        playwrightArtifactDirectories: []
+        playwrightArtifactDirectories: [],
+        playwrightRuns: []
       },
       serverInstanceId: null,
       status: "provisioning",
@@ -552,16 +572,22 @@ try {
         result.evidence.trace = "playwright-trace-on";
         result.evidence.traceDirectory = path.relative(process.cwd(), manualTraceDirectory);
         result.status = "testing";
-        await runNode(`playwright-${suite.name}`, [
-          "scripts/run-local-bin.mjs",
-          "playwright/cli.js",
-          "test",
-          "--trace",
-          "on",
-          "--output",
-          manualTraceDirectory,
-          ...suite.specs
-        ], 1_800_000);
+        await runReleasePlaywright({
+          name: `playwright-${suite.name}`,
+          args: [
+            "scripts/run-local-bin.mjs",
+            "playwright/cli.js",
+            "test",
+            "--trace",
+            "on",
+            "--output",
+            manualTraceDirectory,
+            ...suite.specs
+          ],
+          timeoutMs: 1_800_000,
+          result,
+          phase: "acceptance"
+        });
         const controlPlane = await admin.request("/api/admin/control-plane");
         const manualServer = controlPlane.servers.find((server) => (
           server.displayName === manualDisplayName
@@ -632,14 +658,20 @@ try {
       );
       result.status = "bootstrapping-player";
       const bootstrapArtifactDirectory = retainPlaywrightArtifacts(result, "bootstrap");
-      await runNode(`playwright-${suite.name}-bootstrap`, [
-        "scripts/run-local-bin.mjs",
-        "playwright/cli.js",
-        "test",
-        "--output",
-        bootstrapArtifactDirectory,
-        "tests/e2e/local-hosted-bootstrap-player.spec.js"
-      ], 600_000);
+      await runReleasePlaywright({
+        name: `playwright-${suite.name}-bootstrap`,
+        args: [
+          "scripts/run-local-bin.mjs",
+          "playwright/cli.js",
+          "test",
+          "--output",
+          bootstrapArtifactDirectory,
+          "tests/e2e/local-hosted-bootstrap-player.spec.js"
+        ],
+        timeoutMs: 600_000,
+        result,
+        phase: "bootstrap"
+      });
       const scenario = suite.scenario || (suite.name === "city-events" ? "city-events" : "");
       if (scenario) {
         result.status = "seeding-scenario";
@@ -683,15 +715,22 @@ try {
         : configuredPlaywrightGroups;
       for (const group of playwrightGroups) {
         const groupArtifactDirectory = retainPlaywrightArtifacts(result, group.name);
-        await runNode(`playwright-${suite.name}-${group.name}`, [
-          "scripts/run-local-bin.mjs",
-          "playwright/cli.js",
-          "test",
-          "--output",
-          groupArtifactDirectory,
-          ...suite.specs,
-          ...(group.grep ? [`--grep=${group.grep}`] : [])
-        ], 1_800_000, group.environment || {});
+        await runReleasePlaywright({
+          name: `playwright-${suite.name}-${group.name}`,
+          args: [
+            "scripts/run-local-bin.mjs",
+            "playwright/cli.js",
+            "test",
+            "--output",
+            groupArtifactDirectory,
+            ...suite.specs,
+            ...(group.grep ? [`--grep=${group.grep}`] : [])
+          ],
+          timeoutMs: 1_800_000,
+          result,
+          phase: group.name,
+          environmentOverrides: group.environment || {}
+        });
       }
       result.status = "passed";
       result.cleanup = "stopping";
