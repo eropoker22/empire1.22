@@ -37,6 +37,7 @@ const validEnvironment = {
   EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true",
   EMPIRE_SERVER_PROVISIONING_ENABLED: "true",
   EMPIRE_LEGACY_MATCHMAKING_ENABLED: "false",
+  EMPIRE_WAR_HOSTING_ENABLED: "false",
   EMPIRE_HOSTED_PREFLIGHT_STRICT: "true",
   EMPIRE_ADMIN_BOOTSTRAP_PASSWORD: ""
 };
@@ -93,6 +94,17 @@ describe("production release contract", () => {
       "PRODUCTION_BUILD_SHA_MISMATCH",
       "PRODUCTION_REGISTRATION_MUST_BE_CLOSED"
     ]));
+  });
+
+  it("requires War hosting to remain explicitly disabled", () => {
+    const result = validateProductionEnvironment({
+      ...validEnvironment,
+      EMPIRE_WAR_HOSTING_ENABLED: "true"
+    }, options);
+    expect(result.checks.find((check) => check.name === "EMPIRE_WAR_HOSTING_ENABLED")).toMatchObject({
+      passed: false,
+      errorCode: "PRODUCTION_WAR_HOSTING_ENABLED"
+    });
   });
 
   it("rejects missing or reused secrets and retained bootstrap credentials", () => {

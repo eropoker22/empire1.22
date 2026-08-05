@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "policy": "A code-only rollback is permitted only when candidate and previous releases contain identical migration filenames and checksums.",
+  "migrations": [
+    {
+      "filename": "001_initial_runtime_persistence.sql",
+      "classification": "requires-maintenance-window",
+      "reason": "Creates the initial runtime schema and indexes."
+    },
+    {
+      "filename": "002_command_reservations.sql",
+      "classification": "backward-compatible",
+      "reason": "Adds an isolated reservation table and indexes."
+    },
+    {
+      "filename": "003_gameplay_identity_sessions.sql",
+      "classification": "requires-maintenance-window",
+      "reason": "Backfills constrained identity columns and creates unique indexes."
+    },
+    {
+      "filename": "004_atomic_command_execution.sql",
+      "classification": "backward-compatible",
+      "reason": "Adds isolated command result and outbox tables."
+    },
+    {
+      "filename": "005_gameplay_identity_session_invariants.sql",
+      "classification": "requires-maintenance-window",
+      "reason": "Adds NOT NULL and uniqueness invariants to identity data."
+    },
+    {
+      "filename": "006_admin_read_only_control_plane.sql",
+      "classification": "backward-compatible",
+      "reason": "Adds isolated admin session, audit, and throttle tables."
+    },
+    {
+      "filename": "007_hosted_server_control_plane.sql",
+      "classification": "backward-compatible",
+      "reason": "Adds hosted control-plane tables and nullable admin session metadata."
+    },
+    {
+      "filename": "008_hosted_join_reservations.sql",
+      "classification": "backward-compatible",
+      "reason": "Adds isolated hosted join reservation and job tables."
+    },
+    {
+      "filename": "009_player_entry_control_plane.sql",
+      "classification": "requires-maintenance-window",
+      "reason": "Adds account and membership tables plus uniqueness and foreign-key invariants."
+    },
+    {
+      "filename": "010_runtime_instance_foreign_keys.sql",
+      "classification": "requires-maintenance-window",
+      "reason": "Replaces runtime foreign keys and can take relation locks."
+    },
+    {
+      "filename": "011_hosted_runtime_lease_incarnation.sql",
+      "classification": "requires-maintenance-window",
+      "reason": "Backfills lease incarnation data and adds NOT NULL and CHECK invariants."
+    },
+    {
+      "filename": "012_hosted_server_registration_lifecycle.sql",
+      "classification": "requires-maintenance-window",
+      "reason": "Backfills hosted server rows and rewrites multiple constraints."
+    },
+    {
+      "filename": "013_account_auth_throttle.sql",
+      "classification": "backward-compatible",
+      "reason": "Adds an isolated authentication throttle table."
+    },
+    {
+      "filename": "014_hosted_match_results.sql",
+      "classification": "backward-compatible",
+      "reason": "Adds nullable result columns and an isolated result table."
+    },
+    {
+      "filename": "015_account_age_requirement.sql",
+      "classification": "backward-compatible",
+      "reason": "Adds a nullable date-of-birth column."
+    },
+    {
+      "filename": "016_free_mode_ten_second_tick.sql",
+      "classification": "forward-only",
+      "reason": "Rewrites pending free-server timing data and increments persisted versions."
+    },
+    {
+      "filename": "017_snapshot_recovery_heads_and_checkpoints.sql",
+      "classification": "requires-maintenance-window",
+      "reason": "Backfills snapshot heads and checkpoints and has a controlled rollout path."
+    },
+    {
+      "filename": "018_drop_redundant_snapshot_head_tick_index.sql",
+      "classification": "backward-compatible",
+      "reason": "Drops an index that is redundant with the primary key."
+    },
+    {
+      "filename": "019_drop_redundant_snapshot_head_root_version_index.sql",
+      "classification": "backward-compatible",
+      "reason": "Drops a redundant lookup index without changing stored data."
+    },
+    {
+      "filename": "020_hosted_player_job_incarnation_fencing.sql",
+      "classification": "backward-compatible",
+      "reason": "Adds nullable fencing columns and backfills active job ownership."
+    },
+    {
+      "filename": "021_account_terms_acceptance.sql",
+      "classification": "backward-compatible",
+      "reason": "Adds an isolated account terms acceptance table."
+    },
+    {
+      "filename": "022_single_player_hosted_start.sql",
+      "classification": "forward-only",
+      "reason": "Rewrites persisted minimum-player values and relaxes their constraint."
+    },
+    {
+      "filename": "023_archived_server_memberships.sql",
+      "classification": "forward-only",
+      "reason": "Allows a new persisted membership status unknown to older application code."
+    },
+    {
+      "filename": "024_hosted_starting_player_state.sql",
+      "classification": "backward-compatible",
+      "reason": "Adds a defaulted starting-state column that older code can ignore."
+    }
+  ]
+}

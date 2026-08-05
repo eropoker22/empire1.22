@@ -148,6 +148,8 @@ export const validateProductionEnvironment = (environment, options = {}) => {
   }
   add("EMPIRE_LEGACY_MATCHMAKING_ENABLED", "API", true,
     environment.EMPIRE_LEGACY_MATCHMAKING_ENABLED === "false", "false", "PRODUCTION_LEGACY_MATCHMAKING_ENABLED");
+  add("EMPIRE_WAR_HOSTING_ENABLED", "API", true,
+    environment.EMPIRE_WAR_HOSTING_ENABLED === "false", "false", "PRODUCTION_WAR_HOSTING_ENABLED");
   add("EMPIRE_HOSTED_PREFLIGHT_STRICT", "release", true,
     ["1", "true"].includes(String(environment.EMPIRE_HOSTED_PREFLIGHT_STRICT ?? "").toLowerCase()),
     "true", "PRODUCTION_PREFLIGHT_NOT_STRICT");

@@ -119,6 +119,7 @@ jobs:
       EMPIRE_SERVER_PROVISIONING_ENABLED: "true"
       EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "false"
       EMPIRE_LEGACY_MATCHMAKING_ENABLED: "false"
+      EMPIRE_WAR_HOSTING_ENABLED: "false"
       EMPIRE_PUBLIC_ORIGIN: https://staging.empirestreets.cz
       EMPIRE_ALLOWED_ORIGINS: https://staging.empirestreets.cz
       EMPIRE_BUILD_SHA: ${{ needs.gate.outputs.release_sha }}
@@ -322,6 +323,7 @@ jobs:
           set_function EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false
           set_function EMPIRE_ACCOUNT_TERMS_VERSION "$EMPIRE_ACCOUNT_TERMS_VERSION"
           set_function EMPIRE_LEGACY_MATCHMAKING_ENABLED false
+          set_function EMPIRE_WAR_HOSTING_ENABLED false
           set_function EMPIRE_HOSTED_WORKER_ID "$EMPIRE_HOSTED_WORKER_ID"
           set_function EMPIRE_HOSTED_WORKER_REGION "$EMPIRE_HOSTED_WORKER_REGION"
           set_function EMPIRE_RUNTIME_REGION "$EMPIRE_RUNTIME_REGION"

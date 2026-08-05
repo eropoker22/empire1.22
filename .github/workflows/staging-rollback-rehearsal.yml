@@ -1,0 +1,475 @@
+name: Staging Rollback Rehearsal
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Exact deployed staging candidate SHA
+        required: true
+        type: string
+      previous_sha:
+        description: Exact earlier staging SHA to restore temporarily
+        required: true
+        type: string
+      deploy_run_id:
+        description: Successful Deploy Staging workflow run ID for the candidate SHA
+        required: true
+        type: string
+      remote_acceptance_run_id:
+        description: Successful Staging Remote Acceptance run ID with registration closed
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: empire-staging-release
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Verify immutable closed staging candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      release_sha: ${{ steps.release.outputs.sha }}
+      previous_sha: ${{ steps.release.outputs.previous_sha }}
+      deploy_run_id: ${{ steps.release.outputs.deploy_run_id }}
+
+    steps:
+      - name: Resolve exact rollback pair
+        id: release
+        env:
+          RELEASE_SHA: ${{ inputs.sha }}
+          PREVIOUS_SHA: ${{ inputs.previous_sha }}
+          DEPLOY_RUN_ID: ${{ inputs.deploy_run_id }}
+          REMOTE_RUN_ID: ${{ inputs.remote_acceptance_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$PREVIOUS_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$RELEASE_SHA" != "$PREVIOUS_SHA" ]]
+          [[ "$DEPLOY_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$REMOTE_RUN_ID" =~ ^[0-9]+$ ]]
+          echo "sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "previous_sha=$PREVIOUS_SHA" >> "$GITHUB_OUTPUT"
+          echo "deploy_run_id=$DEPLOY_RUN_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Verify successful staging deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+          DEPLOY_RUN_ID: ${{ inputs.deploy_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${DEPLOY_RUN_ID}")"
+          jq -e --arg sha "$RELEASE_SHA" '
+            .name == "Deploy Staging" and .path == ".github/workflows/deploy-staging.yml" and
+            .status == "completed" and .conclusion == "success" and .head_sha == $sha
+          ' <<< "$run_json" >/dev/null
+          mkdir -p gate-evidence/deploy
+          gh run download "$DEPLOY_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "staging-release-${RELEASE_SHA}" --dir gate-evidence/deploy
+          mapfile -t manifests < <(find gate-evidence/deploy -type f -name release-manifest.json)
+          [[ "${#manifests[@]}" == "1" ]]
+          jq -e --arg sha "$RELEASE_SHA" '
+            .environment == "staging" and .buildSha == $sha and
+            (.expectedSchemaVersion | test("^[0-9]{3}_[a-z0-9_]+\\.sql$"))
+          ' "${manifests[0]}" >/dev/null
+
+      - name: Verify successful closed remote acceptance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+          REMOTE_RUN_ID: ${{ inputs.remote_acceptance_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${REMOTE_RUN_ID}")"
+          jq -e --arg sha "$RELEASE_SHA" '
+            .name == "Staging Remote Acceptance" and
+            .path == ".github/workflows/staging-remote-acceptance.yml" and
+            .status == "completed" and .conclusion == "success" and .head_sha == $sha
+          ' <<< "$run_json" >/dev/null
+          mkdir -p gate-evidence/acceptance
+          gh run download "$REMOTE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "staging-remote-final-${RELEASE_SHA}" --dir gate-evidence/acceptance
+          mapfile -t summaries < <(find gate-evidence/acceptance -type f -name summary.json)
+          [[ "${#summaries[@]}" == "1" ]]
+          jq -e --arg sha "$RELEASE_SHA" '
+            .status == "automated-pass" and .environment == "staging" and
+            .buildSha == $sha and .registrationClosed == true
+          ' "${summaries[0]}" >/dev/null
+
+      - name: Upload rollback gate evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: staging-rollback-gate-${{ steps.release.outputs.sha }}
+          if-no-files-found: error
+          retention-days: 30
+          path: gate-evidence/**
+
+  rehearse:
+    name: Restore previous code and return to candidate
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: staging
+    env:
+      RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
+      PREVIOUS_SHA: ${{ needs.gate.outputs.previous_sha }}
+      DEPLOY_RUN_ID: ${{ needs.gate.outputs.deploy_run_id }}
+      STAGING_ORIGIN: https://staging.empirestreets.cz
+      NETLIFY_SITE_ID: ${{ vars.NETLIFY_STAGING_SITE_ID }}
+      NETLIFY_DISABLE_UPDATE_CHECK: "true"
+      FLY_STAGING_APP: ${{ vars.FLY_STAGING_APP }}
+      EMPIRE_BUILD_SHA: ${{ needs.gate.outputs.release_sha }}
+
+    steps:
+      - name: Checkout exact candidate with rollback history
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          fetch-depth: 0
+
+      - name: Setup Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Verify exact clean candidate and ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$RELEASE_SHA" ]]
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+          git merge-base --is-ancestor "$PREVIOUS_SHA" "$RELEASE_SHA"
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Install pinned Netlify CLI
+        run: npm install --global netlify-cli@26.2.0
+
+      - name: Setup pinned Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+
+      - name: Validate required staging rollback inputs
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID FLY_API_TOKEN FLY_STAGING_APP)
+          for name in "${required[@]}"; do
+            [[ -n "${!name:-}" ]]
+            [[ "${!name}" != *$'\n'* && "${!name}" != *$'\r'* ]]
+          done
+          [[ "$NETLIFY_SITE_ID" =~ ^[A-Za-z0-9-]{8,100}$ ]]
+          [[ "$FLY_STAGING_APP" =~ ^[a-z0-9-]{3,63}$ ]]
+
+      - name: Download exact candidate release manifests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/release/staging-rollback/deploy
+          gh run download "$DEPLOY_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "staging-release-${RELEASE_SHA}" --dir artifacts/release/staging-rollback/deploy
+          mapfile -t release_manifests < <(find artifacts/release/staging-rollback/deploy -type f -name release-manifest.json)
+          mapfile -t asset_manifests < <(find artifacts/release/staging-rollback/deploy -type f -name release-asset-manifest.json)
+          [[ "${#release_manifests[@]}" == "1" && "${#asset_manifests[@]}" == "1" ]]
+          cp "${release_manifests[0]}" artifacts/release-manifest.json
+          cp "${asset_manifests[0]}" artifacts/release-asset-manifest.json
+          jq -e --arg sha "$RELEASE_SHA" '.buildSha == $sha' artifacts/release-manifest.json >/dev/null
+          jq -e --arg sha "$RELEASE_SHA" '.buildSha == $sha' artifacts/release-asset-manifest.json >/dev/null
+
+      - name: Verify code-only rollback schema compatibility
+        env:
+          EMPIRE_ROLLBACK_COMPATIBILITY_EVIDENCE_PATH: artifacts/release/staging-rollback/compatibility.json
+        run: npm run verify:rollback-compatibility -- --previous-sha="$PREVIOUS_SHA"
+
+      - name: Capture candidate and previous deployment pointers
+        id: capture
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/release/staging-rollback
+          site="$RUNNER_TEMP/staging-rollback-site.json"
+          deploys="$RUNNER_TEMP/staging-rollback-deploys.json"
+          current_deploy="$RUNNER_TEMP/staging-current-deploy.json"
+          api="$RUNNER_TEMP/staging-current-api.json"
+          worker="$RUNNER_TEMP/staging-current-worker.json"
+          policy="$RUNNER_TEMP/staging-current-policy.json"
+          curl --fail --silent --show-error --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
+            "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}" -o "$site"
+          candidate_deploy_id="$(jq -er '.published_deploy.id' "$site")"
+          curl --fail --silent --show-error --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
+            "https://api.netlify.com/api/v1/deploys/${candidate_deploy_id}" -o "$current_deploy"
+          jq -e --arg sha "$RELEASE_SHA" '.state == "ready" and .commit_ref == $sha' "$current_deploy" >/dev/null
+          curl --fail --silent --show-error --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
+            "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}/deploys?per_page=100" -o "$deploys"
+          previous_deploy_id="$(jq -er --arg sha "$PREVIOUS_SHA" '
+            [.[] | select(.state == "ready" and .commit_ref == $sha)] |
+            sort_by(.published_at // .created_at) | last | .id
+          ' "$deploys")"
+          [[ "$candidate_deploy_id" =~ ^[A-Za-z0-9-]{8,100}$ ]]
+          [[ "$previous_deploy_id" =~ ^[A-Za-z0-9-]{8,100}$ ]]
+          [[ "$candidate_deploy_id" != "$previous_deploy_id" ]]
+          flyctl auth docker
+          candidate_image="registry.fly.io/${FLY_STAGING_APP}:${RELEASE_SHA}"
+          previous_image="registry.fly.io/${FLY_STAGING_APP}:${PREVIOUS_SHA}"
+          docker manifest inspect "$candidate_image" >/dev/null
+          docker manifest inspect "$previous_image" >/dev/null
+          flyctl machines list --app "$FLY_STAGING_APP" --json \
+            | jq -e '[.[] | select(.state != "destroyed" and .state != "destroying")] | length == 1' >/dev/null
+          curl --fail --silent --show-error "$STAGING_ORIGIN/api/health" -o "$api"
+          curl --fail --silent --show-error "https://${FLY_STAGING_APP}.fly.dev/health" -o "$worker"
+          curl --fail --silent --show-error "$STAGING_ORIGIN/api/account/registration-policy" -o "$policy"
+          expected_schema="$(jq -er '.expectedSchemaVersion' artifacts/release-manifest.json)"
+          jq -e --arg sha "$RELEASE_SHA" --arg schema "$expected_schema" '
+            .status == "ready" and .apiBuildSha == $sha and .environment == "staging" and
+            .schemaVersion == $schema and .expectedSchemaVersion == $schema
+          ' "$api" >/dev/null
+          jq -e --arg sha "$RELEASE_SHA" --arg schema "$expected_schema" '
+            .status == "ok" and .buildSha == $sha and .environment == "staging" and
+            .schemaVersion == $schema and .expectedSchemaVersion == $schema and .heartbeat.registered == true
+          ' "$worker" >/dev/null
+          jq -e '.accepted == true and .data.registrationEnabled == false and .data.mode == "closed"' "$policy" >/dev/null
+          echo "candidate_deploy_id=$candidate_deploy_id" >> "$GITHUB_OUTPUT"
+          echo "previous_deploy_id=$previous_deploy_id" >> "$GITHUB_OUTPUT"
+          echo "candidate_image=$candidate_image" >> "$GITHUB_OUTPUT"
+          echo "previous_image=$previous_image" >> "$GITHUB_OUTPUT"
+          jq -n --arg candidateDeployId "$candidate_deploy_id" --arg previousDeployId "$previous_deploy_id" \
+            --arg candidateImage "$candidate_image" --arg previousImage "$previous_image" \
+            --arg candidateSha "$RELEASE_SHA" --arg previousSha "$PREVIOUS_SHA" '
+            {candidateSha:$candidateSha,previousSha:$previousSha,candidateNetlifyDeployId:$candidateDeployId,
+             previousNetlifyDeployId:$previousDeployId,candidateFlyImage:$candidateImage,
+             previousFlyImage:$previousImage,registrationClosed:true,activeWorkerReplicas:1}
+          ' > artifacts/release/staging-rollback/pointers.json
+          rm -f "$site" "$deploys" "$current_deploy" "$api" "$worker" "$policy"
+
+      - name: Restore previous staging code with registration closed
+        id: rollback
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          PREVIOUS_NETLIFY_DEPLOY_ID: ${{ steps.capture.outputs.previous_deploy_id }}
+          PREVIOUS_FLY_IMAGE: ${{ steps.capture.outputs.previous_image }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          netlify env:set EMPIRE_BUILD_SHA "$PREVIOUS_SHA" --force --scope builds functions --context production >/dev/null
+          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false \
+            --force --scope functions --context production >/dev/null
+          curl --fail --silent --show-error --request POST \
+            --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
+            "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}/deploys/${PREVIOUS_NETLIFY_DEPLOY_ID}/restore" >/dev/null
+          flyctl deploy --app "$FLY_STAGING_APP" --config fly.hosted-worker.toml \
+            --image "$PREVIOUS_FLY_IMAGE" --ha=false --strategy immediate --yes
+          flyctl scale count 1 --app "$FLY_STAGING_APP" --yes
+
+      - name: Verify previous staging release is healthy and closed
+        id: previous_health
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="$RUNNER_TEMP/staging-previous-api.json"
+          worker="$RUNNER_TEMP/staging-previous-worker.json"
+          html="$RUNNER_TEMP/staging-previous-admin.html"
+          assets="$RUNNER_TEMP/staging-previous-assets.json"
+          policy="$RUNNER_TEMP/staging-previous-policy.json"
+          expected_schema="$(jq -er '.expectedSchemaVersion' artifacts/release-manifest.json)"
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error --header 'Cache-Control: no-cache' \
+              "$STAGING_ORIGIN/api/health?rollback-sha=${PREVIOUS_SHA}" -o "$api" \
+              && jq -e --arg sha "$PREVIOUS_SHA" --arg schema "$expected_schema" '
+                .status == "ready" and .apiBuildSha == $sha and .environment == "staging" and
+                .region == "fra" and .schemaVersion == $schema and .expectedSchemaVersion == $schema
+              ' "$api" >/dev/null; then break; fi
+            [[ "$attempt" != "30" ]] || exit 1
+            sleep 10
+          done
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error "https://${FLY_STAGING_APP}.fly.dev/health" -o "$worker" \
+              && jq -e --arg sha "$PREVIOUS_SHA" --arg schema "$expected_schema" '
+                .status == "ok" and .buildSha == $sha and .environment == "staging" and
+                .region == "fra" and .schemaVersion == $schema and .expectedSchemaVersion == $schema and
+                .heartbeat.registered == true
+              ' "$worker" >/dev/null; then break; fi
+            [[ "$attempt" != "30" ]] || exit 1
+            sleep 10
+          done
+          curl --fail --silent --show-error --header 'Cache-Control: no-cache' \
+            "$STAGING_ORIGIN/admin.html?rollback-sha=${PREVIOUS_SHA}" -o "$html"
+          grep -Eiq "empire-build-sha.{0,200}${PREVIOUS_SHA}|${PREVIOUS_SHA}.{0,200}empire-build-sha" "$html"
+          curl --fail --silent --show-error --header 'Cache-Control: no-cache' \
+            "$STAGING_ORIGIN/release-asset-manifest.json?rollback-sha=${PREVIOUS_SHA}" -o "$assets"
+          jq -e --arg sha "$PREVIOUS_SHA" --arg schema "$expected_schema" '
+            .buildSha == $sha and .schemaVersion == $schema and (.files | length > 0)
+          ' "$assets" >/dev/null
+          curl --fail --silent --show-error "$STAGING_ORIGIN/api/account/registration-policy" -o "$policy"
+          jq -e '.accepted == true and .data.registrationEnabled == false and .data.mode == "closed"' "$policy" >/dev/null
+          curl --fail --silent --show-error "$STAGING_ORIGIN/api/servers" >/dev/null
+          jq -n --arg sha "$PREVIOUS_SHA" --arg schema "$expected_schema" \
+            '{status:"pass",buildSha:$sha,schemaVersion:$schema,registrationClosed:true,
+              apiHealthy:true,workerHealthy:true,frontendShaVerified:true}' \
+            > artifacts/release/staging-rollback/previous-health.json
+          rm -f "$api" "$worker" "$html" "$assets" "$policy"
+
+      - name: Restore exact staging candidate
+        id: restore
+        if: always() && steps.capture.outcome == 'success'
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          CANDIDATE_NETLIFY_DEPLOY_ID: ${{ steps.capture.outputs.candidate_deploy_id }}
+          CANDIDATE_FLY_IMAGE: ${{ steps.capture.outputs.candidate_image }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          netlify env:set EMPIRE_BUILD_SHA "$RELEASE_SHA" --force --scope builds functions --context production >/dev/null
+          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false \
+            --force --scope functions --context production >/dev/null
+          curl --fail --silent --show-error --request POST \
+            --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
+            "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}/deploys/${CANDIDATE_NETLIFY_DEPLOY_ID}/restore" >/dev/null
+          flyctl deploy --app "$FLY_STAGING_APP" --config fly.hosted-worker.toml \
+            --image "$CANDIDATE_FLY_IMAGE" --ha=false --strategy immediate --yes
+          flyctl scale count 1 --app "$FLY_STAGING_APP" --yes
+
+      - name: Verify exact candidate was restored
+        id: candidate_health
+        if: always() && steps.restore.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="$RUNNER_TEMP/staging-restored-api.json"
+          worker="$RUNNER_TEMP/staging-restored-worker.json"
+          policy="$RUNNER_TEMP/staging-restored-policy.json"
+          expected_schema="$(jq -er '.expectedSchemaVersion' artifacts/release-manifest.json)"
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error --header 'Cache-Control: no-cache' \
+              "$STAGING_ORIGIN/api/health?restore-sha=${RELEASE_SHA}" -o "$api" \
+              && jq -e --arg sha "$RELEASE_SHA" --arg schema "$expected_schema" '
+                .status == "ready" and .apiBuildSha == $sha and .environment == "staging" and
+                .region == "fra" and .schemaVersion == $schema and .expectedSchemaVersion == $schema
+              ' "$api" >/dev/null; then break; fi
+            [[ "$attempt" != "30" ]] || exit 1
+            sleep 10
+          done
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error "https://${FLY_STAGING_APP}.fly.dev/health" -o "$worker" \
+              && jq -e --arg sha "$RELEASE_SHA" --arg schema "$expected_schema" '
+                .status == "ok" and .buildSha == $sha and .environment == "staging" and
+                .region == "fra" and .schemaVersion == $schema and .expectedSchemaVersion == $schema and
+                .heartbeat.registered == true
+              ' "$worker" >/dev/null; then break; fi
+            [[ "$attempt" != "30" ]] || exit 1
+            sleep 10
+          done
+          curl --fail --silent --show-error "$STAGING_ORIGIN/api/account/registration-policy" -o "$policy"
+          jq -e '.accepted == true and .data.registrationEnabled == false and .data.mode == "closed"' "$policy" >/dev/null
+          flyctl machines list --app "$FLY_STAGING_APP" --json \
+            | jq -e '[.[] | select(.state != "destroyed" and .state != "destroying")] | length == 1' >/dev/null
+          jq -n --arg sha "$RELEASE_SHA" --arg schema "$expected_schema" \
+            '{status:"pass",buildSha:$sha,schemaVersion:$schema,registrationClosed:true,
+              apiHealthy:true,workerHealthy:true,activeWorkerReplicas:1}' \
+            > artifacts/release/staging-rollback/candidate-restored-health.json
+          rm -f "$api" "$worker" "$policy"
+
+      - name: Verify restored candidate frontend and asset parity
+        if: always() && steps.candidate_health.outcome == 'success'
+        env:
+          EMPIRE_PUBLIC_ORIGIN: https://staging.empirestreets.cz
+          EMPIRE_HOSTED_WORKER_ORIGIN: https://${{ vars.FLY_STAGING_APP }}.fly.dev
+          EMPIRE_RELEASE_ENVIRONMENT: staging
+          EMPIRE_RUNTIME_REGION: fra
+          EMPIRE_REMOTE_RELEASE_EVIDENCE_PATH: artifacts/release/staging-rollback/candidate-remote-release.json
+        run: npm run verify:remote-release
+
+      - name: Record successful rollback rehearsal
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -n --arg sha "$RELEASE_SHA" --arg previousSha "$PREVIOUS_SHA" '
+            {status:"pass",environment:"staging",buildSha:$sha,previousSha:$previousSha,
+             rollbackRehearsed:true,registrationClosed:true,schemaCompatibleWithPrevious:true,
+             candidateRestored:true,candidateAssetParityVerified:true,
+             databaseRestored:false,activeWorkerReplicas:1}
+          ' > artifacts/release/staging-rollback/summary.json
+
+      - name: Upload staging rollback evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: staging-rollback-evidence-${{ env.RELEASE_SHA }}
+          if-no-files-found: warn
+          retention-days: 30
+          path: artifacts/release/staging-rollback/**
+
+      - name: Remove transient rollback files
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP"/staging-{rollback,current,previous,restored}-*.json "$RUNNER_TEMP"/staging-previous-admin.html
+
+  verdict:
+    name: Publish successful rehearsal gate
+    needs: [gate, rehearse]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Require successful rollback and candidate restoration
+        env:
+          GATE_RESULT: ${{ needs.gate.result }}
+          REHEARSE_RESULT: ${{ needs.rehearse.result }}
+          RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
+          PREVIOUS_SHA: ${{ needs.gate.outputs.previous_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GATE_RESULT" == "success" && "$REHEARSE_RESULT" == "success" ]]
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ && "$PREVIOUS_SHA" =~ ^[0-9a-f]{40}$ ]]
+
+      - name: Download successful rollback evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: staging-rollback-evidence-${{ needs.gate.outputs.release_sha }}
+          path: final-evidence
+
+      - name: Verify final rollback evidence
+        env:
+          RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
+          PREVIOUS_SHA: ${{ needs.gate.outputs.previous_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t summaries < <(find final-evidence -type f -name summary.json)
+          [[ "${#summaries[@]}" == "1" ]]
+          jq -e --arg sha "$RELEASE_SHA" --arg previousSha "$PREVIOUS_SHA" '
+            .status == "pass" and .environment == "staging" and .buildSha == $sha and
+            .previousSha == $previousSha and .rollbackRehearsed == true and
+            .registrationClosed == true and .schemaCompatibleWithPrevious == true and
+            .candidateRestored == true and .candidateAssetParityVerified == true and
+            .databaseRestored == false and .activeWorkerReplicas == 1
+          ' "${summaries[0]}" >/dev/null
+
+      - name: Upload final rollback gate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: staging-rollback-final-${{ needs.gate.outputs.release_sha }}
+          if-no-files-found: error
+          retention-days: 90
+          path: final-evidence/**

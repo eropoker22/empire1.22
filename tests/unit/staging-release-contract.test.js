@@ -34,6 +34,7 @@ const validEnvironment = {
   EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true",
   EMPIRE_SERVER_PROVISIONING_ENABLED: "true",
   EMPIRE_LEGACY_MATCHMAKING_ENABLED: "false",
+  EMPIRE_WAR_HOSTING_ENABLED: "false",
   EMPIRE_HOSTED_PREFLIGHT_STRICT: "true"
 };
 
@@ -145,6 +146,17 @@ describe("staging release contract", () => {
     expect(result.checks.find((check) => check.name === "EMPIRE_RELEASE_ENVIRONMENT")).toMatchObject({
       passed: false,
       errorCode: "STAGING_RELEASE_ENVIRONMENT_INVALID"
+    });
+  });
+
+  it("requires War hosting to remain explicitly disabled", () => {
+    const result = validateStagingEnvironment({
+      ...validEnvironment,
+      EMPIRE_WAR_HOSTING_ENABLED: "true"
+    }, { nodeVersion: "24.18.0" });
+    expect(result.checks.find((check) => check.name === "EMPIRE_WAR_HOSTING_ENABLED")).toMatchObject({
+      passed: false,
+      errorCode: "STAGING_WAR_HOSTING_ENABLED"
     });
   });
 

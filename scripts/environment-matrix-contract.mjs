@@ -145,7 +145,7 @@ const PUBLIC_RELEASE_ROWS = [
   }),
   runtime("EMPIRE_ACCOUNT_TERMS_VERSION", "Netlify API", { workerScope: "No", safeFormat: "Approved immutable terms version", rotation: "Bump only with approved terms change" }),
   runtime("EMPIRE_LEGACY_MATCHMAKING_ENABLED", "Netlify API", { workerScope: "No", safeFormat: "false", rotation: "N/A" }),
-  runtime("EMPIRE_WAR_HOSTING_ENABLED", "Netlify API", { workerScope: "No", safeFormat: "false for closed alpha", defaultAllowed: "Yes; false", rotation: "Keep false until a separately approved release" }),
+  runtime("EMPIRE_WAR_HOSTING_ENABLED", "Netlify API", { workerScope: "No", safeFormat: "false for closed alpha", rotation: "Keep false until a separately approved release" }),
   runtime("EMPIRE_PUBLIC_ORIGIN", "Frontend and Netlify API", { workerScope: "No", safeFormat: "Exact HTTPS origin for the environment", rotation: "Change only with DNS and TLS cutover" }),
   runtime("EMPIRE_ALLOWED_ORIGINS", "Netlify API", { workerScope: "No", safeFormat: "One exact HTTPS origin; never wildcard", rotation: "Change only with an approved origin cutover" }),
   runtime("EMPIRE_BUILD_SHA", "Frontend, Netlify API, worker, release job", { safeFormat: "Exact 40-character lowercase checkout SHA", rotation: "Automatic on every immutable deploy" }),
@@ -157,6 +157,31 @@ const PUBLIC_RELEASE_ROWS = [
   runtime("EMPIRE_HOSTED_WORKER_ORIGIN", "Remote release verifier", { netlifyScope: "Release job only", workerScope: "No", safeFormat: "Exact HTTPS Fly worker origin", rotation: "Change with worker hostname cutover" }),
   runtime("EMPIRE_REMOTE_RELEASE_EVIDENCE_PATH", "Remote release verifier", {
     netlifyScope: "Release job only", workerScope: "No", safeFormat: "Repository-relative artifact path", defaultAllowed: "Yes", rotation: "New path per environment or release"
+  }),
+  runtime("EMPIRE_ROLLBACK_PREVIOUS_SHA", "Release rollback compatibility verifier", {
+    stagingRequired: "Only for rollback rehearsal", productionRequired: "Only for an upgrade rollback gate",
+    netlifyScope: "Release job only", workerScope: "No", safeFormat: "Exact earlier 40-character lowercase SHA",
+    rotation: "Set to the immutable release being replaced"
+  }),
+  runtime("EMPIRE_ROLLBACK_COMPATIBILITY_EVIDENCE_PATH", "Release rollback compatibility verifier", {
+    stagingRequired: "Only for rollback rehearsal", productionRequired: "Only for an upgrade rollback gate",
+    netlifyScope: "Release job only", workerScope: "No", safeFormat: "Repository-relative JSON artifact path",
+    defaultAllowed: "Yes", rotation: "New evidence file per release"
+  }),
+  runtime("EMPIRE_INITIAL_CUTOVER", "Protected production release job", {
+    stagingRequired: "No", productionRequired: "Every production dispatch",
+    netlifyScope: "Release job only", workerScope: "No", safeFormat: "Exact true for first cutover or false for upgrade",
+    rotation: "False after the first successful production release"
+  }),
+  runtime("EMPIRE_PREVIOUS_PRODUCTION_SHA", "Protected production upgrade rollback gate", {
+    stagingRequired: "No", productionRequired: "Every non-initial production upgrade",
+    netlifyScope: "Release job only", workerScope: "No", safeFormat: "Exact currently deployed 40-character lowercase SHA",
+    rotation: "Set from verified live production health before every upgrade"
+  }),
+  runtime("EMPIRE_INITIAL_ROLLBACK_DEPLOY_ID", "Protected initial production rollback gate", {
+    stagingRequired: "No", productionRequired: "Only for first production cutover",
+    netlifyScope: "Release job only", workerScope: "No", safeFormat: "Exact approved pre-cutover Netlify deploy ID",
+    rotation: "Unset after the first successful production release"
   }),
   runtime("EMPIRE_REMOTE_STAGING_FIXTURE_APPROVED", "Protected remote staging acceptance job", {
     stagingRequired: "Only for controlled scenario setup", productionRequired: "Forbidden",
@@ -293,7 +318,22 @@ const PROVIDER_ROWS = [
   ["PRODUCTION_ADMIN_INITIAL_PASSWORD", "One-time protected production bootstrap", "Yes", "Strong generated temporary password", "Delete immediately after verified rotation"],
   ["STAGING_ADMIN_PASSWORD", "Protected staging login verification", "Yes", "Rotated owner password", "Rotate in password manager and protected GitHub environment"],
   ["PRODUCTION_ADMIN_PASSWORD", "Protected production login verification", "Yes", "Rotated owner password", "Rotate in password manager and protected GitHub environment"],
+  ["STAGING_GAMEPLAY_SESSION_SECRET", "Protected staging API and worker deploy", "Yes", "64 hex or safe base64url unique staging secret", "Rotate jointly and revoke staging gameplay sessions"],
+  ["PRODUCTION_GAMEPLAY_SESSION_SECRET", "Protected production API and worker deploy", "Yes", "64 hex or safe base64url unique production secret", "Rotate jointly and revoke production gameplay sessions"],
+  ["STAGING_GAMEPLAY_SNAPSHOT_SECRET", "Protected staging API and worker deploy", "Yes", "64 hex or safe base64url unique staging secret", "Rotate jointly and invalidate staging snapshot tokens"],
+  ["PRODUCTION_GAMEPLAY_SNAPSHOT_SECRET", "Protected production API and worker deploy", "Yes", "64 hex or safe base64url unique production secret", "Rotate jointly and invalidate production snapshot tokens"],
+  ["STAGING_ADMIN_FINGERPRINT_SECRET", "Protected staging API deploy", "Yes", "64 hex or safe base64url unique staging secret", "Rotate and invalidate staging admin fingerprints"],
+  ["PRODUCTION_ADMIN_FINGERPRINT_SECRET", "Protected production API deploy", "Yes", "64 hex or safe base64url unique production secret", "Rotate and invalidate production admin fingerprints"],
+  ["STAGING_ADMIN_SESSION_SECRET", "Protected staging API deploy", "Yes", "At least 32 bytes and unique from every other staging secret", "Rotate and revoke all staging admin sessions"],
+  ["PRODUCTION_ADMIN_SESSION_SECRET", "Protected production API deploy", "Yes", "At least 32 bytes and unique from every other production secret", "Rotate and revoke all production admin sessions"],
+  ["STAGING_AUTH_THROTTLE_PEPPER", "Protected staging API deploy", "Yes", "64 hex or safe base64url unique staging pepper", "Rotate during a controlled staging API deploy"],
+  ["PRODUCTION_AUTH_THROTTLE_PEPPER", "Protected production API deploy", "Yes", "64 hex or safe base64url unique production pepper", "Rotate during a controlled production API deploy"],
+  ["STAGING_ACCOUNT_TERMS_VERSION", "Protected staging release configuration", "No", "Approved immutable staging terms version", "Bump only with an approved terms change"],
+  ["PRODUCTION_ACCOUNT_TERMS_VERSION", "Protected production release configuration", "No", "Approved immutable production terms version", "Bump only with an approved terms change"],
+  ["STAGING_ADMIN_USERNAME", "Protected staging admin verification", "No", "Dedicated staging owner username", "Change only through an audited owner transition"],
   ["PRODUCTION_ADMIN_USERNAME", "Protected production admin verification", "No", "Dedicated production owner username", "Change only through an audited owner transition"],
+  ["STAGING_ADMIN_DISPLAY_NAME", "One-time protected staging bootstrap", "No", "Non-secret staging owner display name", "Update through audited admin flow"],
+  ["PRODUCTION_ADMIN_DISPLAY_NAME", "One-time protected production bootstrap", "No", "Non-secret production owner display name", "Update through audited admin flow"],
   ["PRODUCTION_SMOKE_ACCOUNT_USERNAME", "Protected production smoke job", "No", "Dedicated synthetic control account username", "Retain or replace through the guarded bootstrap job"],
   ["PRODUCTION_SMOKE_ACCOUNT_GANG_NAME", "Protected production smoke job", "No", "Dedicated synthetic control gang name", "Change only with an approved smoke account replacement"],
   ["PRODUCTION_SMOKE_ACCOUNT_PASSWORD", "Protected production smoke job", "Yes", "Strong password-manager value", "Rotate after cutover and update the protected GitHub environment secret"]

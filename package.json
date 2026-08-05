@@ -167,6 +167,7 @@
     "release:staging:manifest": "node scripts/create-staging-release-manifest.mjs",
     "release:staging:manifest:code-level": "node scripts/create-staging-release-manifest.mjs --code-level",
     "release:production:manifest": "node scripts/create-production-release-manifest.mjs",
+    "verify:rollback-compatibility": "node scripts/release-rollback-compatibility.mjs",
     "release:asset-manifest": "node scripts/create-release-asset-manifest.mjs",
     "build:staging:release": "npm run verify:staging-env && npm run build:admin:page && npm run build:hosted-worker && npm run release:staging:manifest",
     "verify:prod-like": "npm run verify:closed-alpha && npm run test:persistence:postgres:smoke"
