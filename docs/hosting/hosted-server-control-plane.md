@@ -105,7 +105,7 @@ Apply every migration in filename order and verify checksums before starting the
 
 Migration `011` changes runtime lease authority. Drain every pre-`011` worker before applying it, then deploy only the matching API and worker builds; do not run old and new worker binaries together during this rollout.
 
-Migration `017` is intentionally controlled. Use `npm run db:migrate -- --controlled-snapshot-recovery` for a new or existing canonical database so the runner applies `001`–`016`, performs the bounded recovery-head preparation, and only then continues through `021`. Do not apply the SQL files manually or bypass migration history.
+Migration `017` is intentionally controlled when legacy snapshot history already exists. A proven-empty release database uses the guarded release migration sequence through the current contract head. A database with legacy snapshots must use `docs/hosting/snapshot-recovery-controlled-migration-runbook.md` and `npm run db:migrate -- --controlled-snapshot-recovery`. Do not apply SQL files manually or bypass migration history.
 
 ## Netlify routes and environment
 
@@ -243,7 +243,7 @@ docker compose -f docker-compose.hosted-dev.yml ps
 
 The API must report `ADMIN_DATABASE_UNAVAILABLE`, the worker health endpoint must return `503`, and both must recover after PostgreSQL becomes healthy. To verify process recovery, stop and restart `dev:hosted-api` and `dev:hosted-worker`; the admin account, hosted server, snapshots, registrations, and world seed must remain unchanged.
 
-For application rollback, stop or drain the new worker, deploy the previous request/function build, and retain every applied migration from `001` through `021` plus all durable data. Database migrations are additive; do not drop hosted, membership, recovery-head, checkpoint, or account-terms tables during an application rollback.
+For application rollback, stop or drain the new worker, deploy one exact previous frontend/API/worker SHA, and retain every applied migration plus all durable data. Roll back code only after `npm run verify:rollback-compatibility` proves identical migration filenames and checksums; migrations are classified in `docs/deployment/migration-compatibility.json` and are not assumed to be universally additive. Do not drop hosted, membership, recovery-head, checkpoint, account-terms, or starting-state data during an application rollback.
 
 ## Production readiness gate
 
