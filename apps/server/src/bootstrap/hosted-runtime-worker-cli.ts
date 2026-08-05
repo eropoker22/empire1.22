@@ -14,27 +14,12 @@ import {
 import { createPostgresPlayerEntryRepository } from "../player-entry/postgres-player-entry-repository";
 import { createHostedRuntimeWorkerRunLoop, shutdownHostedRuntimeWorker } from "./hosted-runtime-worker-run-loop";
 import { assertHostedRuntimeWorkerSchemaCurrent } from "./hosted-runtime-worker-preflight";
+import { resolveHostedRuntimeWorkerEnvironment } from "./hosted-runtime-worker-environment";
 import { assertSupportedNodeVersion } from "../../../../scripts/supported-node-policy.mjs";
 
 const nodeRuntime = assertSupportedNodeVersion(process.versions.node);
-const databaseUrl = String(process.env.EMPIRE_DATABASE_URL ?? "").trim();
-const workerId = String(process.env.EMPIRE_HOSTED_WORKER_ID ?? "").trim();
-const region = String(process.env.EMPIRE_HOSTED_WORKER_REGION ?? "eu-central").trim();
-const buildSha = String(process.env.EMPIRE_BUILD_SHA ?? "local").trim();
-const port = Number(process.env.PORT ?? 8080);
-if (!databaseUrl || !workerId) throw new Error("Hosted worker requires EMPIRE_DATABASE_URL and EMPIRE_HOSTED_WORKER_ID.");
-if (process.env.NODE_ENV === "production" && !/^[0-9a-f]{40}$/u.test(buildSha)) {
-  throw new Error("Production hosted worker requires an exact 40-character EMPIRE_BUILD_SHA.");
-}
-if (String(process.env.EMPIRE_PERSISTENCE_DRIVER ?? "").trim().toLowerCase() !== "postgres" ||
-  String(process.env.GAMEPLAY_PERSISTENCE_DRIVER ?? "").trim().toLowerCase() !== "postgres") {
-  throw new Error("Hosted worker requires PostgreSQL runtime and gameplay persistence drivers.");
-}
-const gameplaySessionSecret = String(process.env.GAMEPLAY_SLICE_SESSION_SECRET ?? "").trim();
-const snapshotSecret = String(process.env.GAMEPLAY_SLICE_SNAPSHOT_SECRET ?? "").trim();
-if (gameplaySessionSecret.length < 32 || snapshotSecret.length < 32 || gameplaySessionSecret === snapshotSecret) {
-  throw new Error("Hosted worker requires distinct gameplay session and snapshot secrets of at least 32 characters.");
-}
+const workerEnvironment = resolveHostedRuntimeWorkerEnvironment(process.env);
+const { databaseUrl, workerId, region, buildSha, port, releaseEnvironment } = workerEnvironment;
 
 const database = createPostgresDatabase(databaseUrl, {
   max: 4,
@@ -131,6 +116,8 @@ const healthServer = http.createServer(async (request, response) => {
       lastErrorCode,
       buildSha,
       workerId,
+      environment: releaseEnvironment,
+      region,
       heartbeat: {
         registered: heartbeatCurrent,
         lastAt: heartbeat?.lastHeartbeatAt ?? null,
@@ -153,6 +140,8 @@ const healthServer = http.createServer(async (request, response) => {
       lastErrorCode: lastErrorCode ?? "WORKER_HEALTH_DATABASE_UNAVAILABLE",
       buildSha,
       workerId,
+      environment: releaseEnvironment,
+      region,
       heartbeat: { registered: false, lastAt: null, ageMs: null },
       runtime: {
         nodeVersion: nodeRuntime.detectedVersion,
