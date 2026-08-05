@@ -98,6 +98,7 @@
     "preverify:production-env": "node scripts/require-supported-node.mjs",
     "prerelease:staging:manifest": "node scripts/require-supported-node.mjs",
     "prerelease:staging:manifest:code-level": "node scripts/require-supported-node.mjs",
+    "prerelease:production:manifest": "node scripts/require-supported-node.mjs",
     "prebuild:staging:release": "node scripts/require-supported-node.mjs",
     "smoke:ui": "node scripts/smoke-ui-pages.mjs",
     "smoke:ui:legacy": "node scripts/smoke-ui-pages.mjs",
@@ -163,6 +164,7 @@
     "verify:production-env": "node scripts/validate-production-environment.mjs",
     "release:staging:manifest": "node scripts/create-staging-release-manifest.mjs",
     "release:staging:manifest:code-level": "node scripts/create-staging-release-manifest.mjs --code-level",
+    "release:production:manifest": "node scripts/create-production-release-manifest.mjs",
     "release:asset-manifest": "node scripts/create-release-asset-manifest.mjs",
     "build:staging:release": "npm run verify:staging-env && npm run build:admin:page && npm run build:hosted-worker && npm run release:staging:manifest",
     "verify:prod-like": "npm run verify:closed-alpha && npm run test:persistence:postgres:smoke"
