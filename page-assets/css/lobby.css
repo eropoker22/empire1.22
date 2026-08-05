@@ -3465,7 +3465,7 @@ body.servers-page .auth-server-card[data-server-mode="war"] {
   }
 
   .server-detail-modal__meta {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 5px;
   }
 

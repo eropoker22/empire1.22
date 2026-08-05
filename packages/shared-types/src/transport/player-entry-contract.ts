@@ -1,5 +1,6 @@
 import type { GameModeId } from "../ids/game-mode-id";
 import type {
+  HostedStartingPlayerStateView,
   HostedServerRegistrationReasonCode,
   HostedServerRegistrationStatus
 } from "../admin/read-models/admin-hosted-control-plane-views";
@@ -141,6 +142,7 @@ export interface SpawnMapDistrictView {
 
 export interface SpawnDistrictSelectionView {
   serverInstanceId: string;
+  startingPlayerState: HostedStartingPlayerStateView;
   membershipEligibility: "eligible" | "blocked";
   capacity: { committedPlayers: number; reservedSlots: number; maximum: number };
   serverStatus: string;

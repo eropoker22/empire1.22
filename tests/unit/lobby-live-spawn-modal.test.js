@@ -20,4 +20,19 @@ describe("live lobby spawn modal cold-start contract", () => {
       openSpawnModal.indexOf("await loadSpawnDistricts(serverInstanceId)")
     );
   });
+
+  it("renders the selected server starting materials below the map", () => {
+    const source = readFileSync(resolve(root, "page-assets/js/lobby-live.js"), "utf8");
+    const page = readFileSync(resolve(root, "pages/lobby.html"), "utf8");
+    const sharedStyles = readFileSync(resolve(root, "page-assets/css/styles-auth-faction.css"), "utf8");
+    const lobbyStyles = readFileSync(resolve(root, "page-assets/css/lobby.css"), "utf8");
+
+    expect(page).not.toContain("data-server-detail-start");
+    expect(sharedStyles).toMatch(/\.server-detail-modal__meta\s*\{[^}]*grid-template-columns:\s*repeat\(3,/s);
+    expect(sharedStyles).not.toMatch(/\.server-detail-modal__meta\s*\{[^}]*grid-template-columns:\s*(?:1fr|repeat\(2,)/s);
+    expect(lobbyStyles).not.toMatch(/\.server-detail-modal__meta\s*\{[^}]*grid-template-columns:\s*1fr/s);
+    expect(source).toContain("renderStartingMaterials(state.spawn.startingPlayerState)");
+    expect(source).toContain("Number(amount) > 0");
+    expect(source).toContain("STARTING_MATERIAL_LABELS[materialId]");
+  });
 });

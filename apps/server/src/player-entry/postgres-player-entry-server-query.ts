@@ -26,13 +26,14 @@ export interface HostedPlayerEntryServerRow extends Record<string, unknown> {
   registration_opens_at: unknown;
   registration_closes_at: unknown;
   registration_closed_at: unknown;
+  starting_player_state: unknown;
   version: unknown;
 }
 
 export const HOSTED_PLAYER_ENTRY_SERVER_COLUMNS = `server_instance_id,display_name,mode,region,status,join_policy,
   provisioning_state,capacity,last_started_at,last_worker_heartbeat_at,runtime_lease_expires_at,current_snapshot_id,
   minimum_ready_players_to_start,registration_window_minutes,registration_opens_at,registration_closes_at,
-  registration_closed_at,version`;
+  registration_closed_at,starting_player_state,version`;
 
 export const readAuthoritativePostgresNow = async (
   database: PostgresQueryable,

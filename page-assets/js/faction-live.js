@@ -29,6 +29,7 @@ async function boot() {
     bindFactionCards();
     renderColors();
     renderAvatars();
+    bindAvatarControls();
     bindSubmit();
     if (state.membership.status === "finalizing_setup") {
       setStatus("Aktivace probíhá", "Worker dokončuje hráče, district a startovní zdroje právě jednou.");
@@ -60,14 +61,43 @@ function renderFactionDetail() {
   text("[data-faction-name]", faction?.name || "Nevybráno");
   text("#faction-tagline", faction?.tagline || "");
   text("#faction-desc", faction?.description || "");
+  renderFactionBenefits(faction);
   const detail = document.querySelector("#faction-detail");
   detail?.classList.toggle("is-active", Boolean(faction));
+}
+
+function renderFactionBenefits(faction) {
+  const bonus = document.querySelector("#faction-bonus");
+  if (!bonus || !faction) return;
+  const advantages = faction.advantages?.length ? faction.advantages : ["Vyvážený frakční profil."];
+  const disadvantages = faction.disadvantages?.length ? faction.disadvantages : ["Bez výrazné úvodní nevýhody."];
+  bonus.replaceChildren(
+    createElement("span", "faction-bonus__icon", "✦", { "aria-hidden": "true" }),
+    createBenefitsList(advantages, disadvantages)
+  );
+}
+
+function createBenefitsList(advantages, disadvantages) {
+  const list = createElement("span", "faction-bonus__copy faction-bonus__copy--rows");
+  list.append(
+    createBenefitRow("Výhody", advantages, "faction-bonus__row--advantage"),
+    createBenefitRow("Nevýhody", disadvantages, "faction-bonus__row--disadvantage")
+  );
+  return list;
+}
+
+function createBenefitRow(label, values, modifier) {
+  const row = createElement("span", `faction-bonus__row ${modifier}`);
+  row.append(createElement("strong", "", label), createElement("span", "", values.join(" • ")));
+  return row;
 }
 
 function renderAvatars() {
   const grid = document.querySelector("#avatar-grid");
   if (!grid) return;
   const avatars = state.factionId ? getLivePlayerAvatarPreviews(state.factionId) : [];
+  const marquee = document.querySelector(".avatar-marquee");
+  if (marquee) marquee.scrollLeft = 0;
   if (!avatars.length) {
     grid.innerHTML = '<div class="avatar-track__hint">Nejdřív vyber frakci.</div>';
     return;
@@ -84,6 +114,17 @@ function renderAvatars() {
     grid.querySelectorAll("[data-live-avatar]").forEach((entry) => entry.classList.toggle("is-selected", entry === button));
     updateReadyState();
   }));
+}
+
+function bindAvatarControls() {
+  const marquee = document.querySelector(".avatar-marquee");
+  if (!marquee) return;
+  const move = (direction) => marquee.scrollBy({
+    left: direction * Math.max(220, Math.round(marquee.clientWidth * 0.72)),
+    behavior: "smooth"
+  });
+  document.querySelector("#avatar-left")?.addEventListener("click", () => move(-1));
+  document.querySelector("#avatar-right")?.addEventListener("click", () => move(1));
 }
 
 function renderColors() {
@@ -166,6 +207,13 @@ function setStatus(title, message) {
   if (!node) return;
   node.textContent = [title, message].filter(Boolean).join(" • ");
   node.classList.remove("hidden");
+}
+function createElement(tagName, className = "", content = "", attributes = {}) {
+  const node = document.createElement(tagName);
+  if (className) node.className = className;
+  node.textContent = content;
+  Object.entries(attributes).forEach(([name, value]) => node.setAttribute(name, value));
+  return node;
 }
 function text(selector, value) { const node = document.querySelector(selector); if (node) node.textContent = String(value ?? ""); }
 function escapeAttribute(value) { return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]); }

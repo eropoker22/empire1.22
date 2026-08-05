@@ -628,7 +628,7 @@
 
 .server-detail-modal__meta {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
 }
 
@@ -2409,7 +2409,7 @@ body.servers-page .auth-server-card.is-selected {
 
   .server-detail-modal__meta {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .server-map-zoom-modal {
@@ -2450,7 +2450,7 @@ body.servers-page .auth-server-card.is-selected {
   }
 
   .server-detail-modal__meta {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .server-detail-modal__map-wrap {
@@ -4447,6 +4447,18 @@ html:has(body.auth-body--faction) .matrix-canvas {
   color: #fde68a;
   font-style: normal;
   font-weight: 700;
+}
+
+.auth-body--faction .faction-bonus__row--advantage strong {
+  border-color: rgba(52, 211, 153, 0.34);
+  color: #a7f3d0;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.1);
+}
+
+.auth-body--faction .faction-bonus__row--disadvantage strong {
+  border-color: rgba(251, 113, 133, 0.34);
+  color: #fda4af;
+  box-shadow: 0 0 14px rgba(244, 63, 94, 0.1);
 }
 
 @media (max-width: 640px) {

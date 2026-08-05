@@ -36,6 +36,15 @@ describe("legacy faction compatibility bridge", () => {
     expect(actionSource).not.toContain("data-faction-action-run");
   });
 
+  it("renders live faction advantages and disadvantages from the catalog", () => {
+    const liveSource = readFileSync("page-assets/js/faction-live.js", "utf8");
+
+    expect(liveSource).toContain("renderFactionBenefits(faction)");
+    expect(liveSource).toContain('createBenefitRow("Výhody", advantages');
+    expect(liveSource).toContain('createBenefitRow("Nevýhody", disadvantages');
+    expect(liveSource).toContain('values.join(" • ")');
+  });
+
   it("keeps legacy preview catalog synchronized with authoritative public definitions", () => {
     expect(Object.keys(FACTION_CATALOG).sort()).toEqual(FACTION_DEFINITIONS.map((definition) => definition.id).sort());
 

@@ -4,6 +4,7 @@ import type {
   SpawnDistrictSelectionView
 } from "@empire/shared-types";
 import { findSharedCitySpawnCandidate } from "../bootstrap/gameplay-slice-shared-city-seed";
+import { parsePersistedHostedStartingPlayerState } from "../admin/hosted/hosted-starting-player-state-policy";
 import { resolveHostedServerRegistrationState } from "../admin/hosted/hosted-server-registration-state";
 import type { PostgresQueryable } from "../runtime/persistence/postgres";
 import { listHostedReadyMemberships } from "../runtime/persistence/postgres/hosted-ready-membership-query";
@@ -86,6 +87,10 @@ export const loadHostedSpawnSelection = async (
   );
   const server = lockedServer ?? serverResult?.rows[0];
   if (!server) throw entryError("SERVER_NOT_FOUND", "Server nebyl nalezen.");
+  const startingPlayerState = parsePersistedHostedStartingPlayerState(server.starting_player_state);
+  if (!startingPlayerState.accepted) {
+    throw entryError("SERVER_CONFIGURATION_INVALID", "Startovní materiály serveru nejsou platné.");
+  }
   const registration = registrationFor(server, now);
   if (!registration.canCreateMembership) throw registrationError(registration.reasonCode);
   const workerFresh = isWorkerFresh(server, now, workerFreshMs);
@@ -155,6 +160,7 @@ export const loadHostedSpawnSelection = async (
   const minimumReadyPlayersToStart = Number(server.minimum_ready_players_to_start);
   return {
     serverInstanceId,
+    startingPlayerState: startingPlayerState.data,
     membershipEligibility: Number(blocking.rows[0]?.count ?? 0) === 0 ? "eligible" : "blocked",
     capacity: { ...occupancy, maximum: Number(server.capacity) },
     serverStatus: String(server.status),

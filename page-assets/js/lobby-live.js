@@ -24,6 +24,29 @@ import {
 const POLL_MS = 15_000;
 const CANVAS_WIDTH = 1600;
 const CANVAS_HEIGHT = 980;
+const STARTING_MATERIAL_LABELS = Object.freeze({
+  chemicals: "Chemicals",
+  biomass: "Biomass",
+  "stim-pack": "Stim Pack",
+  "neon-dust": "Neon Dust",
+  "pulse-shot": "Pulse Shot",
+  "velvet-smoke": "Velvet Smoke",
+  "ghost-serum": "Ghost Serum",
+  "overdrive-x": "Overdrive X",
+  "metal-parts": "Metal Parts",
+  "tech-core": "Tech Core",
+  "combat-module": "Bojový modul",
+  "baseball-bat": "Baseballová pálka",
+  pistol: "Pistole",
+  grenade: "Granát",
+  smg: "SMG",
+  bazooka: "Bazuka",
+  vest: "Vesta",
+  barricades: "Barikády",
+  cameras: "Kamery",
+  "defense-tower": "Obranná věž",
+  alarm: "Alarm"
+});
 const geometry = createDistrictGeometry(CANVAS_WIDTH, CANVAS_HEIGHT, 0, 48, 0);
 const mapImage = new Image();
 const state = {
@@ -283,6 +306,7 @@ async function openSpawnModal(serverInstanceId) {
   text("[data-server-detail-countdown]", registrationPresentation(server).countdownLabel);
   text("[data-server-detail-hint]", "Načítám aktuální spawn distrikty…");
   document.querySelector("[data-server-detail-type-counts]")?.replaceChildren();
+  renderStartingMaterials(null, "Načítám startovní materiály…");
   try {
     state.spawn = await loadSpawnDistricts(serverInstanceId);
     state.hoveredDistrictId = null;
@@ -296,6 +320,7 @@ async function openSpawnModal(serverInstanceId) {
     text("[data-server-detail-countdown]", registrationPresentation(server).countdownLabel);
     text("[data-server-detail-hint]", "Vyber jeden serverem povolený district");
     renderLobbySpawnLegend(document.querySelector("[data-server-detail-type-counts]"), state.spawn, geometry);
+    renderStartingMaterials(state.spawn.startingPlayerState);
     renderSpawnCanvas();
   } catch (error) {
     const message = messageFor(error);
@@ -303,12 +328,33 @@ async function openSpawnModal(serverInstanceId) {
     modal?.setAttribute("data-load-state", "error");
     text("[data-server-detail-subtitle]", message);
     text("[data-server-detail-hint]", message);
+    renderStartingMaterials(null, "Startovní materiály se nepodařilo načíst.");
     setFlowMessage(message, true);
   } finally {
     state.busy = false;
     updateConfirmButton();
     renderSelectedServer();
   }
+}
+
+function renderStartingMaterials(startingPlayerState, emptyMessage = "Žádné startovní materiály") {
+  const list = document.querySelector("[data-server-detail-materials]");
+  if (!list) return;
+  const materials = startingPlayerState?.materials && typeof startingPlayerState.materials === "object"
+    ? startingPlayerState.materials
+    : null;
+  const entries = materials ? Object.entries(materials).filter(([, amount]) => Number(amount) > 0) : [];
+  list.replaceChildren(...(entries.length ? entries.map(([materialId, amount]) => {
+    const item = document.createElement("li");
+    item.textContent = `${STARTING_MATERIAL_LABELS[materialId] || materialId}: ${Math.floor(Number(amount))} ks`;
+    return item;
+  }) : [createMaterialMessage(emptyMessage)]));
+}
+
+function createMaterialMessage(message) {
+  const item = document.createElement("li");
+  item.textContent = message;
+  return item;
 }
 
 function closeSpawnModal() {
