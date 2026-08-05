@@ -58,6 +58,14 @@ describe("production release contract", () => {
       .find((check) => check.name === "EMPIRE_DATABASE_URL")).toMatchObject({ passed: false });
   });
 
+  it("accepts the Fly.io Frankfurt region code as an EU worker region", () => {
+    expect(validateProductionEnvironment({
+      ...validEnvironment,
+      EMPIRE_HOSTED_WORKER_REGION: "fra",
+      EMPIRE_RUNTIME_REGION: "fra"
+    }, options).passed).toBe(true);
+  });
+
   it("rejects staging targets, loopback origins, stale SHA and open registration", () => {
     const result = validateProductionEnvironment({
       ...validEnvironment,

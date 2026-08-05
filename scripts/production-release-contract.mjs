@@ -12,6 +12,7 @@ const SHA_PATTERN = /^[0-9a-f]{40}$/u;
 const SECURE_SECRET_PATTERN = /^(?:[0-9a-f]{64,}|[A-Za-z0-9_-]{43,})$/u;
 const TERMS_VERSION_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,99}$/u;
 const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+const EU_REGION_CODES = new Set(["ams", "arn", "cdg", "fra", "lhr", "mad", "waw"]);
 
 export const validateProductionEnvironment = (environment, options = {}) => {
   const checks = [];
@@ -189,5 +190,8 @@ const isNonLocalIdentifier = (value) => {
   return /^[a-z0-9._:-]{3,128}$/u.test(normalized)
     && !normalized.includes("local") && !normalized.includes("localhost");
 };
-const isEuRegion = (value) => /^(?:eu|europe)[a-z0-9._:-]*$/iu.test(String(value ?? "").trim());
+const isEuRegion = (value) => {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  return EU_REGION_CODES.has(normalized) || /^(?:eu|europe)[a-z0-9._:-]*$/u.test(normalized);
+};
 const isSet = (value) => String(value ?? "").trim().length > 0;
