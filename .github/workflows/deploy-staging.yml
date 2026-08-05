@@ -456,6 +456,8 @@ jobs:
             --header "Origin: ${STAGING_ORIGIN}" "$STAGING_ORIGIN/api/admin/session" >/dev/null
           npm run admin:rotate-password
           EMPIRE_ADMIN_BOOTSTRAP_PASSWORD="$EMPIRE_ADMIN_NEW_PASSWORD" npm run verify:admin-user-live
+          EMPIRE_ADMIN_BOOTSTRAP_PASSWORD="$EMPIRE_ADMIN_NEW_PASSWORD" npm run admin:bootstrap-user
+          EMPIRE_ADMIN_BOOTSTRAP_PASSWORD="$EMPIRE_ADMIN_NEW_PASSWORD" npm run verify:admin-user-live
 
       - name: Verify remote admin SHA parity and logout
         env:
