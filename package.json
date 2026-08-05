@@ -23,6 +23,7 @@
     "db:migrate:initialize-release-history": "node scripts/run-local-bin.mjs vite-node/vite-node.mjs scripts/initialize-release-database-history.ts",
     "admin:bootstrap-user": "node scripts/run-local-bin.mjs vite-node/vite-node.mjs scripts/bootstrap-admin-user.ts",
     "admin:rotate-password": "node scripts/run-local-bin.mjs vite-node/vite-node.mjs scripts/bootstrap-admin-user.ts --rotate-password",
+    "admin:bootstrap-production-smoke-account": "node scripts/run-local-bin.mjs vite-node/vite-node.mjs scripts/bootstrap-production-smoke-account.ts",
     "verify:admin-user-live": "node scripts/run-local-bin.mjs vite-node/vite-node.mjs scripts/verify-admin-user-live.ts",
     "dev:hosted-worker": "node scripts/run-local-bin.mjs vite-node/vite-node.mjs apps/server/src/bootstrap/hosted-runtime-worker-cli.ts",
     "dev:local-hosted": "node scripts/local-hosted-dev.mjs start",

@@ -106,6 +106,26 @@ const PUBLIC_RELEASE_ROWS = [
     stagingRequired: "One-time", productionRequired: "One-time", netlifyScope: "Release job only", workerScope: "No",
     safeFormat: "Non-secret operator display name", rotation: "Update through audited admin flow"
   }),
+  runtime("EMPIRE_PRODUCTION_SMOKE_ACCOUNT_BOOTSTRAP_CONFIRMED", "One-time production smoke account bootstrap", {
+    stagingRequired: "No", productionRequired: "One-time", netlifyScope: "Release job only", workerScope: "No",
+    safeFormat: "Exact production-smoke-account approval", rotation: "Unset immediately after bootstrap"
+  }),
+  runtime("EMPIRE_PRODUCTION_SMOKE_ACCOUNT_USERNAME", "One-time production smoke account bootstrap", {
+    stagingRequired: "No", productionRequired: "One-time", netlifyScope: "Release job only", workerScope: "No",
+    safeFormat: "Dedicated synthetic control account username", rotation: "Retain as the controlled smoke identity"
+  }),
+  runtime("EMPIRE_PRODUCTION_SMOKE_ACCOUNT_GANG_NAME", "One-time production smoke account bootstrap", {
+    stagingRequired: "No", productionRequired: "One-time", netlifyScope: "Release job only", workerScope: "No",
+    safeFormat: "Dedicated synthetic control gang name", rotation: "Update only through an approved account profile change"
+  }),
+  runtime("EMPIRE_PRODUCTION_SMOKE_ACCOUNT_PASSWORD", "One-time production smoke account bootstrap", {
+    stagingRequired: "No", productionRequired: "One-time", secret: "Yes", netlifyScope: "Release job only", workerScope: "No",
+    safeFormat: "Strong password-manager value of at least 20 characters", rotation: "Rotate after cutover and update the protected production secret"
+  }),
+  runtime("EMPIRE_PRODUCTION_SMOKE_ACCOUNT_EVIDENCE_PATH", "One-time production smoke account bootstrap", {
+    stagingRequired: "No", productionRequired: "One-time", netlifyScope: "Release job only", workerScope: "No",
+    safeFormat: "Repository-relative JSON path below artifacts/release/production", defaultAllowed: "Yes", rotation: "New evidence file per release"
+  }),
   runtime("EMPIRE_ADMIN_WRITES_ENABLED", "Netlify API", { workerScope: "No", safeFormat: "true for approved hosted control plane", rotation: "Disable during incident containment" }),
   runtime("EMPIRE_HOSTED_CONTROL_PLANE_ENABLED", "Netlify API", { workerScope: "No", safeFormat: "true for approved hosted control plane", rotation: "Disable during incident containment" }),
   runtime("EMPIRE_SERVER_PROVISIONING_ENABLED", "Netlify API", { workerScope: "No", safeFormat: "true only for approved release", rotation: "Disable before rollback or incident response" }),
@@ -168,6 +188,11 @@ const PUBLIC_RELEASE_ROWS = [
   runtime("EMPIRE_STAGING_DATABASE_TARGET_HASH", "Protected remote staging acceptance job", {
     stagingRequired: "Yes for controlled scenario setup", productionRequired: "No",
     netlifyScope: "Release job only", workerScope: "No", safeFormat: "SHA-256 of hostname, port and database name", rotation: "Update only after verified staging database replacement"
+  }),
+  runtime("EMPIRE_PRODUCTION_DATABASE_TARGET_HASH", "Protected production release job", {
+    stagingRequired: "No", productionRequired: "Yes", netlifyScope: "Release job only", workerScope: "No",
+    safeFormat: "SHA-256 of the normalized direct production hostname, port and database name",
+    rotation: "Update only after a verified production database replacement"
   }),
   runtime("PORT", "Persistent worker", {
     netlifyScope: "Provider-owned; do not override", workerScope: "Yes", safeFormat: "1-65535; Fly default 8080", defaultAllowed: "Yes; 8080", rotation: "Change with worker service configuration"
@@ -258,7 +283,10 @@ const PROVIDER_ROWS = [
   ["STAGING_ADMIN_INITIAL_PASSWORD", "One-time protected staging bootstrap", "Yes", "Strong generated temporary password", "Delete immediately after verified rotation"],
   ["PRODUCTION_ADMIN_INITIAL_PASSWORD", "One-time protected production bootstrap", "Yes", "Strong generated temporary password", "Delete immediately after verified rotation"],
   ["STAGING_ADMIN_PASSWORD", "Protected staging login verification", "Yes", "Rotated owner password", "Rotate in password manager and protected GitHub environment"],
-  ["PRODUCTION_ADMIN_PASSWORD", "Protected production login verification", "Yes", "Rotated owner password", "Rotate in password manager and protected GitHub environment"]
+  ["PRODUCTION_ADMIN_PASSWORD", "Protected production login verification", "Yes", "Rotated owner password", "Rotate in password manager and protected GitHub environment"],
+  ["PRODUCTION_SMOKE_ACCOUNT_USERNAME", "Protected production smoke job", "No", "Dedicated synthetic control account username", "Retain or replace through the guarded bootstrap job"],
+  ["PRODUCTION_SMOKE_ACCOUNT_GANG_NAME", "Protected production smoke job", "No", "Dedicated synthetic control gang name", "Change only with an approved smoke account replacement"],
+  ["PRODUCTION_SMOKE_ACCOUNT_PASSWORD", "Protected production smoke job", "Yes", "Strong password-manager value", "Rotate after cutover and update the protected GitHub environment secret"]
 ].map(([variable, component, secret, safeFormat, rotation]) => ({
   variable,
   component,
