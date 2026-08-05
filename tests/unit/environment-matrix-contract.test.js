@@ -11,6 +11,7 @@ describe("release environment matrix", () => {
     const matrix = createEnvironmentMatrix(inventory);
     const classified = new Set([
       ...matrix.publicRows,
+      ...matrix.providerRows,
       ...matrix.nonReleaseRows
     ].map(({ variable }) => variable));
     expect(inventory.reads.length).toBeGreaterThan(90);

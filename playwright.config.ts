@@ -1,14 +1,16 @@
 import { defineConfig, devices } from "@playwright/test";
 import path from "node:path";
+import { resolvePlaywrightTarget } from "./scripts/playwright-target-contract.mjs";
 
 const PORT = Number(process.env.PLAYWRIGHT_PORT || 4174);
 const HOST = "127.0.0.1";
-const baseURL = `http://${HOST}:${PORT}`;
-const healthURL = `${baseURL}/api/servers`;
+const localBaseURL = `http://${HOST}:${PORT}`;
+const target = resolvePlaywrightTarget(process.env, { baseURL: localBaseURL });
+const baseURL = target.baseURL;
+const healthURL = target.healthURL;
 const nodeExecutable = JSON.stringify(process.execPath);
 const viteExecutable = JSON.stringify(path.resolve("node_modules/vite/bin/vite.js"));
 const webServerCommand = `${nodeExecutable} ${viteExecutable} --config vite.game.config.ts --host ${HOST} --port ${PORT}`;
-const shouldUseManagedWebServer = process.env.PLAYWRIGHT_SKIP_WEB_SERVER !== "1";
 
 process.env.PLAYWRIGHT_E2E_WEB_SERVER_COMMAND = webServerCommand;
 process.env.PLAYWRIGHT_E2E_BASE_URL = baseURL;
@@ -40,7 +42,7 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] }
     }
   ],
-  webServer: shouldUseManagedWebServer ? {
+  webServer: target.useManagedWebServer ? {
     command: webServerCommand,
     port: PORT,
     reuseExistingServer: !process.env.CI,

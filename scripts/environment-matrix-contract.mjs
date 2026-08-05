@@ -125,6 +125,14 @@ const PUBLIC_RELEASE_ROWS = [
   runtime("EMPIRE_REMOTE_RELEASE_EVIDENCE_PATH", "Remote release verifier", {
     netlifyScope: "Release job only", workerScope: "No", safeFormat: "Repository-relative artifact path", defaultAllowed: "Yes", rotation: "New path per environment or release"
   }),
+  runtime("EMPIRE_REMOTE_STAGING_FIXTURE_APPROVED", "Protected remote staging acceptance job", {
+    stagingRequired: "Only for controlled scenario setup", productionRequired: "Forbidden",
+    netlifyScope: "Release job only", workerScope: "No", safeFormat: "Exact staging-only-fixture-write approval", rotation: "Unset after each scenario setup"
+  }),
+  runtime("EMPIRE_STAGING_DATABASE_TARGET_HASH", "Protected remote staging acceptance job", {
+    stagingRequired: "Yes for controlled scenario setup", productionRequired: "No",
+    netlifyScope: "Release job only", workerScope: "No", safeFormat: "SHA-256 of hostname, port and database name", rotation: "Update only after verified staging database replacement"
+  }),
   runtime("PORT", "Persistent worker", {
     netlifyScope: "Provider-owned; do not override", workerScope: "Yes", safeFormat: "1-65535; Fly default 8080", defaultAllowed: "Yes; 8080", rotation: "Change with worker service configuration"
   })
@@ -166,6 +174,7 @@ EMPIRE_PLAYER_ENTRY_LIVE_E2E
 EMPIRE_PLAYWRIGHT_RELEASE_SUMMARY
 EMPIRE_PRODUCTION_AUTHORITY_PREFLIGHT_STRICT
 EMPIRE_REGISTRATION_ONLY_PREFLIGHT_STRICT
+EMPIRE_REMOTE_STAGING_ARTIFACT_ROOT
 EMPIRE_RUNTIME_DEBUG
 EMPIRE_TEST_DATABASE_URL
 EMPIRE_UI_PARITY_ARTIFACT_ROOT
@@ -257,9 +266,12 @@ export const inventoryEnvironmentReads = ({ root = process.cwd(), trackedFiles }
 
 export const createEnvironmentMatrix = (inventory) => {
   const publicByName = new Map(PUBLIC_RELEASE_ROWS.map((row) => [row.variable, row]));
+  const providerByName = new Map(PROVIDER_ROWS.map((row) => [row.variable, row]));
   const unknown = inventory.reads
     .map(({ variable }) => variable)
-    .filter((variable) => !publicByName.has(variable) && !NON_RELEASE_VARIABLES.has(variable));
+    .filter((variable) => !publicByName.has(variable)
+      && !providerByName.has(variable)
+      && !NON_RELEASE_VARIABLES.has(variable));
   if (unknown.length > 0) {
     throw new Error(`Unclassified environment reads: ${unknown.join(", ")}`);
   }
@@ -331,7 +343,11 @@ export const createEnvironmentInventoryArtifact = (matrix, options = {}) => ({
 });
 
 const listTrackedFiles = (root) => {
-  const result = spawnSync("git", ["ls-files", "-z"], { cwd: root, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
+  const result = spawnSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
+    cwd: root,
+    encoding: "utf8",
+    maxBuffer: 16 * 1024 * 1024
+  });
   if (result.status !== 0) throw new Error(`git ls-files failed: ${String(result.stderr).trim()}`);
   return result.stdout.split("\0").filter(Boolean).map((file) => file.replace(/\\/gu, "/"));
 };

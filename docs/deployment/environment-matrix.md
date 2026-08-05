@@ -2,7 +2,7 @@
 
 Generated: generated from tracked source
 
-The inventory found **101 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 18 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
+The inventory found **106 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 19 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
 
 Public releases fail closed: no wildcard origin, no loopback URL, no staging hostname in production, no implicit database or secret default, and no provider credential in a runtime scope.
 
@@ -40,8 +40,10 @@ Public releases fail closed: no wildcard origin, no loopback URL, no staging hos
 | `EMPIRE_RELEASE_DATABASE_URL_POOLED` | Release validator and pooling smoke | Yes | Yes | Yes | Release job only | No | Transaction-pooled Neon URL with TLS | No | Rotate the Netlify database role |
 | `EMPIRE_RELEASE_ENVIRONMENT` | Netlify API, worker, migration, build | Yes | Yes | No | Builds and Functions | Yes | staging or production | No | N/A |
 | `EMPIRE_REMOTE_RELEASE_EVIDENCE_PATH` | Remote release verifier | Yes | Yes | No | Release job only | No | Repository-relative artifact path | Yes | New path per environment or release |
+| `EMPIRE_REMOTE_STAGING_FIXTURE_APPROVED` | Protected remote staging acceptance job | Only for controlled scenario setup | Forbidden | No | Release job only | No | Exact staging-only-fixture-write approval | No | Unset after each scenario setup |
 | `EMPIRE_RUNTIME_REGION` | Netlify API and worker | Yes | Yes | No | Builds and Functions | Yes | Explicit EU runtime region | No | Change only with an approved region cutover |
 | `EMPIRE_SERVER_PROVISIONING_ENABLED` | Netlify API | Yes | Yes | No | Builds and Functions | No | true only for approved release | No | Disable before rollback or incident response |
+| `EMPIRE_STAGING_DATABASE_TARGET_HASH` | Protected remote staging acceptance job | Yes for controlled scenario setup | No | No | Release job only | No | SHA-256 of hostname, port and database name | No | Update only after verified staging database replacement |
 | `EMPIRE_TICK_WORKER_OWNER_ID` | Persistent worker | Yes | Yes | No | No | Yes | Exactly equal to EMPIRE_HOSTED_WORKER_ID | No | Rotate with lease-authority replacement |
 | `EMPIRE_WAR_HOSTING_ENABLED` | Netlify API | Yes | Yes | No | Builds and Functions | No | false for closed alpha | Yes; false | Keep false until a separately approved release |
 | `GAMEPLAY_DATABASE_URL` | Netlify API, worker, migration | Yes | Yes | Yes | Functions only; pooled URL | Yes; direct URL | Same Neon target as EMPIRE_DATABASE_URL, with TLS | No | Rotate the database role, then update API and worker atomically |
@@ -120,6 +122,7 @@ These values are forbidden as public-runtime dependencies. Secret-like test valu
 | `EMPIRE_PLAYWRIGHT_RELEASE_SUMMARY` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_PRODUCTION_AUTHORITY_PREFLIGHT_STRICT` | Local development or verification tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_REGISTRATION_ONLY_PREFLIGHT_STRICT` | Local development or verification tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
+| `EMPIRE_REMOTE_STAGING_ARTIFACT_ROOT` | Local development or verification tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_RUNTIME_DEBUG` | Local development or verification tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_TEST_DATABASE_URL` | Local persistence tests | No | No | Test secret | None | None | Local, CI or test-specific value | Yes outside public runtime | Discard after the test run; never reuse a public secret |
 | `EMPIRE_UI_PARITY_ARTIFACT_ROOT` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
