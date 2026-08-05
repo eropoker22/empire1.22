@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyCommand } from "../../../packages/game-core/src/engine";
+import { applyCommand, runTick } from "../../../packages/game-core/src/engine";
 import {
   hasValidAttackAuthorization,
   migrateConflictState
@@ -175,10 +175,25 @@ describe("conflict command flow", () => {
       result: "success",
       targetDistrictId: "district:2"
     });
-
-    const occupied = applyCommand(spy.nextState, createOccupyDistrictCommandFixture({
+    const pendingOccupation = applyCommand(spy.nextState, createOccupyDistrictCommandFixture({
       payload: {
         expectedConflictRevision: spy.nextState.districtsById["district:2"].conflictRevision
+      }
+    }), context);
+
+    expect(pendingOccupation.errors).toContainEqual(expect.objectContaining({
+      code: "OCCUPY_SPY_REQUIRED"
+    }));
+
+    let resolvedState = spy.nextState;
+    const resolveAtTick = Number(report?.payload.resolveAtTick);
+    while (resolvedState.root.tick < resolveAtTick) {
+      resolvedState = runTick(resolvedState, context).nextState;
+    }
+
+    const occupied = applyCommand(resolvedState, createOccupyDistrictCommandFixture({
+      payload: {
+        expectedConflictRevision: resolvedState.districtsById["district:2"].conflictRevision
       }
     }), context);
 
