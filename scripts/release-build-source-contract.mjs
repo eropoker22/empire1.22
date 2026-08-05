@@ -5,10 +5,14 @@ export const validateReleaseBuildSource = ({
   releaseEnvironment,
   configuredSha,
   gitSha,
-  worktreeStatus = ""
+  worktreeStatus = "",
+  publicBuild = false
 }) => {
   const publicRelease = PUBLIC_RELEASE_ENVIRONMENTS.has(String(releaseEnvironment ?? "").trim());
-  if (!publicRelease) return { publicRelease: false, buildSha: null };
+  if (!publicRelease) {
+    if (publicBuild) throw new Error("RELEASE_BUILD_ENVIRONMENT_INVALID");
+    return { publicRelease: false, buildSha: null };
+  }
   if (!SHA_PATTERN.test(String(configuredSha ?? ""))) throw new Error("RELEASE_BUILD_SHA_INVALID");
   if (!SHA_PATTERN.test(String(gitSha ?? "")) || configuredSha !== gitSha) {
     throw new Error("RELEASE_BUILD_SHA_MISMATCH");

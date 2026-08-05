@@ -13,6 +13,12 @@ export const RELEASE_ASSET_TARGETS = Object.freeze([
 
 export const sha256Hex = (value) => createHash("sha256").update(value).digest("hex");
 
+export const shouldCreateReleaseAssetManifest = ({ publicRelease, required = false }) => {
+  if (publicRelease) return true;
+  if (required) throw new Error("RELEASE_ASSET_MANIFEST_REQUIRES_PUBLIC_BUILD");
+  return false;
+};
+
 export const createReleaseAssetEntry = ({ sourcePath, buildPath, publicPath, cachePolicy, source, build }) => ({
   sourcePath,
   buildPath,
