@@ -1,0 +1,496 @@
+name: Deploy Staging
+
+on:
+  workflow_run:
+    workflows:
+      - Hosted Acceptance
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Exact 40-character SHA approved for staging
+        required: true
+        type: string
+      acceptance_run_id:
+        description: Successful Hosted Acceptance workflow run ID for this SHA
+        required: true
+        type: string
+      initialize_database:
+        description: Authorize one-time migration-history initialization on an empty staging database
+        required: true
+        default: false
+        type: boolean
+      bootstrap_admin:
+        description: Authorize one-time owner bootstrap and immediate password rotation
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: empire-staging-release
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Verify approved hosted gate
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      release_sha: ${{ steps.release.outputs.sha }}
+      acceptance_run_id: ${{ steps.release.outputs.acceptance_run_id }}
+
+    steps:
+      - name: Resolve immutable release
+        id: release
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_SHA: ${{ inputs.sha }}
+          DISPATCH_RUN_ID: ${{ inputs.acceptance_run_id }}
+          WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            sha="$WORKFLOW_SHA"
+            run_id="$WORKFLOW_RUN_ID"
+          else
+            sha="$DISPATCH_SHA"
+            run_id="$DISPATCH_RUN_ID"
+          fi
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$run_id" =~ ^[0-9]+$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "acceptance_run_id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Verify acceptance workflow and every required job
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+          ACCEPTANCE_RUN_ID: ${{ steps.release.outputs.acceptance_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${ACCEPTANCE_RUN_ID}")"
+          jq -e --arg sha "$RELEASE_SHA" '
+            .name == "Hosted Acceptance" and
+            .path == ".github/workflows/hosted-acceptance.yml" and
+            .status == "completed" and
+            .conclusion == "success" and
+            .head_sha == $sha
+          ' <<< "$run_json" >/dev/null
+          jobs_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${ACCEPTANCE_RUN_ID}/jobs?per_page=100")"
+          expected=(manual-admin-player ui-parity ui-parity-social production-pharmacy production-drug-lab production-factory production-armory income building-actions-day building-actions-night non-spawn-parity multiplayer-actions City-Events social-visible-UI social-concurrency-privacy lifecycle-stop)
+          for name in "${expected[@]}"; do
+            jq -e --arg name "$name" '.jobs[] | select(.name == $name and .status == "completed" and .conclusion == "success")' <<< "$jobs_json" >/dev/null
+          done
+          [[ "$(jq '[.jobs[] | select(.conclusion != "success")] | length' <<< "$jobs_json")" == "0" ]]
+          echo "Verified Hosted Acceptance run ${ACCEPTANCE_RUN_ID} for ${RELEASE_SHA}."
+
+  deploy:
+    name: Backup, migrate and deploy staging
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: staging
+    env:
+      RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
+      STAGING_ORIGIN: https://staging.empirestreets.cz
+      NETLIFY_SITE_ID: ${{ vars.NETLIFY_STAGING_SITE_ID }}
+      NETLIFY_DISABLE_UPDATE_CHECK: "true"
+      NEON_PROJECT_ID: ${{ vars.NEON_STAGING_PROJECT_ID }}
+      NEON_BRANCH_ID: ${{ vars.NEON_STAGING_ROOT_BRANCH_ID }}
+      FLY_STAGING_APP: ${{ vars.FLY_STAGING_APP }}
+      EMPIRE_RELEASE_ENVIRONMENT: staging
+      EMPIRE_DATABASE_TARGET_ENVIRONMENT: staging
+      EMPIRE_PERSISTENCE_DRIVER: postgres
+      GAMEPLAY_PERSISTENCE_DRIVER: postgres
+      EMPIRE_ADMIN_BOOTSTRAP_ROLE: owner
+      EMPIRE_ADMIN_WRITES_ENABLED: "true"
+      EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true"
+      EMPIRE_SERVER_PROVISIONING_ENABLED: "true"
+      EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "false"
+      EMPIRE_LEGACY_MATCHMAKING_ENABLED: "false"
+      EMPIRE_PUBLIC_ORIGIN: https://staging.empirestreets.cz
+      EMPIRE_ALLOWED_ORIGINS: https://staging.empirestreets.cz
+      EMPIRE_BUILD_SHA: ${{ needs.gate.outputs.release_sha }}
+      EMPIRE_HOSTED_WORKER_ID: worker:staging:fra:01
+      EMPIRE_HOSTED_WORKER_REGION: fra
+      EMPIRE_RUNTIME_REGION: fra
+      EMPIRE_TICK_WORKER_OWNER_ID: worker:staging:fra:01
+      EMPIRE_HOSTED_PREFLIGHT_STRICT: "true"
+
+    steps:
+      - name: Checkout exact approved SHA
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+
+      - name: Setup Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Verify exact clean checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$RELEASE_SHA" ]]
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Install pinned Netlify CLI
+        run: npm install --global netlify-cli@26.2.0
+
+      - name: Setup pinned Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+
+      - name: Validate required deployment inputs
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          STAGING_DATABASE_URL_DIRECT: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          STAGING_DATABASE_URL_POOLED: ${{ secrets.STAGING_DATABASE_URL_POOLED }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          GAMEPLAY_SLICE_SESSION_SECRET: ${{ secrets.STAGING_GAMEPLAY_SESSION_SECRET }}
+          GAMEPLAY_SLICE_SNAPSHOT_SECRET: ${{ secrets.STAGING_GAMEPLAY_SNAPSHOT_SECRET }}
+          EMPIRE_ADMIN_FINGERPRINT_SECRET: ${{ secrets.STAGING_ADMIN_FINGERPRINT_SECRET }}
+          EMPIRE_ADMIN_SESSION_SECRET: ${{ secrets.STAGING_ADMIN_SESSION_SECRET }}
+          EMPIRE_AUTH_THROTTLE_PEPPER: ${{ secrets.STAGING_AUTH_THROTTLE_PEPPER }}
+          EMPIRE_ADMIN_BOOTSTRAP_USERNAME: ${{ vars.STAGING_ADMIN_USERNAME }}
+          EMPIRE_ADMIN_NEW_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}
+          EMPIRE_ADMIN_BOOTSTRAP_DISPLAY_NAME: ${{ vars.STAGING_ADMIN_DISPLAY_NAME }}
+          EMPIRE_ACCOUNT_TERMS_VERSION: ${{ vars.STAGING_ACCOUNT_TERMS_VERSION }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID NEON_API_KEY NEON_PROJECT_ID NEON_BRANCH_ID STAGING_DATABASE_URL_DIRECT STAGING_DATABASE_URL_POOLED FLY_API_TOKEN FLY_STAGING_APP GAMEPLAY_SLICE_SESSION_SECRET GAMEPLAY_SLICE_SNAPSHOT_SECRET EMPIRE_ADMIN_FINGERPRINT_SECRET EMPIRE_ADMIN_SESSION_SECRET EMPIRE_AUTH_THROTTLE_PEPPER EMPIRE_ADMIN_BOOTSTRAP_USERNAME EMPIRE_ADMIN_NEW_PASSWORD EMPIRE_ADMIN_BOOTSTRAP_DISPLAY_NAME EMPIRE_ACCOUNT_TERMS_VERSION)
+          for name in "${required[@]}"; do
+            [[ -n "${!name:-}" ]] || { echo "Missing required staging credential or variable: $name"; exit 1; }
+            [[ "${!name}" != *$'\n'* && "${!name}" != *$'\r'* ]] || { echo "Invalid line break in staging input: $name"; exit 1; }
+          done
+          [[ "$NEON_PROJECT_ID" =~ ^[a-z0-9-]{1,60}$ ]]
+          [[ "$NEON_BRANCH_ID" =~ ^[a-z0-9-]{1,60}$ ]]
+          [[ "$FLY_STAGING_APP" =~ ^[a-z0-9-]{3,63}$ ]]
+
+      - name: Verify direct and pooled database target parity
+        env:
+          EMPIRE_RELEASE_DATABASE_URL_DIRECT: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          GAMEPLAY_RELEASE_DATABASE_URL_DIRECT: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          EMPIRE_RELEASE_DATABASE_URL_POOLED: ${{ secrets.STAGING_DATABASE_URL_POOLED }}
+          GAMEPLAY_RELEASE_DATABASE_URL_POOLED: ${{ secrets.STAGING_DATABASE_URL_POOLED }}
+        run: npm run verify:database-endpoints
+
+      - name: Validate staging environment and create manifest
+        env:
+          NODE_ENV: production
+          EMPIRE_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          GAMEPLAY_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          GAMEPLAY_SLICE_SESSION_SECRET: ${{ secrets.STAGING_GAMEPLAY_SESSION_SECRET }}
+          GAMEPLAY_SLICE_SNAPSHOT_SECRET: ${{ secrets.STAGING_GAMEPLAY_SNAPSHOT_SECRET }}
+          EMPIRE_ADMIN_FINGERPRINT_SECRET: ${{ secrets.STAGING_ADMIN_FINGERPRINT_SECRET }}
+          EMPIRE_ADMIN_SESSION_SECRET: ${{ secrets.STAGING_ADMIN_SESSION_SECRET }}
+          EMPIRE_AUTH_THROTTLE_PEPPER: ${{ secrets.STAGING_AUTH_THROTTLE_PEPPER }}
+          EMPIRE_ACCOUNT_TERMS_VERSION: ${{ vars.STAGING_ACCOUNT_TERMS_VERSION }}
+        run: |
+          npm run verify:staging-env
+          npm run release:staging:manifest
+
+      - name: Create Neon pre-migration snapshot
+        id: backup
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/release/staging
+          snapshot_name="empire-staging-pre-${RELEASE_SHA:0:12}-$(date -u +%Y%m%dT%H%M%SZ)"
+          response="$RUNNER_TEMP/neon-snapshot.json"
+          curl --fail --silent --show-error --request POST \
+            --url "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches/${NEON_BRANCH_ID}/snapshot?name=${snapshot_name}" \
+            --header "authorization: Bearer ${NEON_API_KEY}" \
+            --output "$response"
+          snapshot_id="$(jq -er '.snapshot.id' "$response")"
+          echo "::add-mask::$snapshot_id"
+          snapshot_hash="$(printf '%s' "$snapshot_id" | sha256sum | cut -c1-16)"
+          printf '{"environment":"staging","name":"%s","snapshotIdHash":"%s","sha":"%s"}\n' \
+            "$snapshot_name" "$snapshot_hash" "$RELEASE_SHA" > artifacts/release/staging/database-backup.json
+          echo "snapshot_name=$snapshot_name" >> "$GITHUB_OUTPUT"
+          echo "snapshot_id_hash=$snapshot_hash" >> "$GITHUB_OUTPUT"
+          rm -f "$response"
+
+      - name: Initialize empty staging migration history
+        if: github.event_name == 'workflow_dispatch' && inputs.initialize_database
+        env:
+          EMPIRE_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          GAMEPLAY_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          EMPIRE_DATABASE_BACKUP_CONFIRMED: "true"
+          EMPIRE_DATABASE_BACKUP_ID: ${{ steps.backup.outputs.snapshot_id_hash }}
+          EMPIRE_DATABASE_INITIALIZATION_CONFIRMED: "true"
+        run: npm run db:migrate:initialize-release-history
+
+      - name: Record pending migrations
+        env:
+          EMPIRE_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          GAMEPLAY_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          EMPIRE_DATABASE_BACKUP_CONFIRMED: "true"
+          EMPIRE_DATABASE_BACKUP_ID: ${{ steps.backup.outputs.snapshot_id_hash }}
+        run: npm run db:migrate:status -- --release --status-allow-pending
+
+      - name: Apply migrations exactly once
+        env:
+          EMPIRE_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          GAMEPLAY_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          EMPIRE_DATABASE_BACKUP_CONFIRMED: "true"
+          EMPIRE_DATABASE_BACKUP_ID: ${{ steps.backup.outputs.snapshot_id_hash }}
+        run: npm run db:migrate -- --release
+
+      - name: Verify current schema
+        env:
+          EMPIRE_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          GAMEPLAY_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          EMPIRE_DATABASE_BACKUP_CONFIRMED: "true"
+          EMPIRE_DATABASE_BACKUP_ID: ${{ steps.backup.outputs.snapshot_id_hash }}
+        run: npm run db:migrate:status -- --release
+
+      - name: Verify transaction-pooled API connection
+        env:
+          EMPIRE_RELEASE_DATABASE_URL_DIRECT: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          GAMEPLAY_RELEASE_DATABASE_URL_DIRECT: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          EMPIRE_RELEASE_DATABASE_URL_POOLED: ${{ secrets.STAGING_DATABASE_URL_POOLED }}
+          GAMEPLAY_RELEASE_DATABASE_URL_POOLED: ${{ secrets.STAGING_DATABASE_URL_POOLED }}
+        run: npm run verify:database-pooling
+
+      - name: Build frontend, API and worker image
+        env:
+          NODE_ENV: production
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build:admin:page
+          docker build \
+            --build-arg "EMPIRE_BUILD_SHA=${RELEASE_SHA}" \
+            --tag "registry.fly.io/${FLY_STAGING_APP}:${RELEASE_SHA}" \
+            --file Dockerfile.hosted-worker .
+
+      - name: Configure isolated Netlify staging environment
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          EMPIRE_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_POOLED }}
+          GAMEPLAY_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_POOLED }}
+          GAMEPLAY_SLICE_SESSION_SECRET: ${{ secrets.STAGING_GAMEPLAY_SESSION_SECRET }}
+          GAMEPLAY_SLICE_SNAPSHOT_SECRET: ${{ secrets.STAGING_GAMEPLAY_SNAPSHOT_SECRET }}
+          EMPIRE_ADMIN_FINGERPRINT_SECRET: ${{ secrets.STAGING_ADMIN_FINGERPRINT_SECRET }}
+          EMPIRE_ADMIN_SESSION_SECRET: ${{ secrets.STAGING_ADMIN_SESSION_SECRET }}
+          EMPIRE_AUTH_THROTTLE_PEPPER: ${{ secrets.STAGING_AUTH_THROTTLE_PEPPER }}
+          EMPIRE_ACCOUNT_TERMS_VERSION: ${{ vars.STAGING_ACCOUNT_TERMS_VERSION }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          set_function() { netlify env:set "$1" "$2" --force --scope functions --context production >/dev/null; }
+          set_function_secret() { netlify env:set "$1" "$2" --force --secret --scope functions --context production >/dev/null; }
+          set_build_function() { netlify env:set "$1" "$2" --force --scope builds functions --context production >/dev/null; }
+          set_build_function NODE_ENV production
+          set_build_function EMPIRE_RELEASE_ENVIRONMENT staging
+          set_build_function EMPIRE_PUBLIC_ORIGIN "$STAGING_ORIGIN"
+          set_build_function EMPIRE_ALLOWED_ORIGINS "$STAGING_ORIGIN"
+          set_build_function EMPIRE_BUILD_SHA "$RELEASE_SHA"
+          set_function_secret EMPIRE_DATABASE_URL "$EMPIRE_DATABASE_URL"
+          set_function_secret GAMEPLAY_DATABASE_URL "$GAMEPLAY_DATABASE_URL"
+          set_function EMPIRE_PERSISTENCE_DRIVER postgres
+          set_function GAMEPLAY_PERSISTENCE_DRIVER postgres
+          set_function_secret GAMEPLAY_SLICE_SESSION_SECRET "$GAMEPLAY_SLICE_SESSION_SECRET"
+          set_function_secret GAMEPLAY_SLICE_SNAPSHOT_SECRET "$GAMEPLAY_SLICE_SNAPSHOT_SECRET"
+          set_function_secret EMPIRE_ADMIN_FINGERPRINT_SECRET "$EMPIRE_ADMIN_FINGERPRINT_SECRET"
+          set_function_secret EMPIRE_ADMIN_SESSION_SECRET "$EMPIRE_ADMIN_SESSION_SECRET"
+          set_function_secret EMPIRE_AUTH_THROTTLE_PEPPER "$EMPIRE_AUTH_THROTTLE_PEPPER"
+          set_function EMPIRE_ADMIN_WRITES_ENABLED true
+          set_function EMPIRE_HOSTED_CONTROL_PLANE_ENABLED true
+          set_function EMPIRE_SERVER_PROVISIONING_ENABLED true
+          set_function EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false
+          set_function EMPIRE_ACCOUNT_TERMS_VERSION "$EMPIRE_ACCOUNT_TERMS_VERSION"
+          set_function EMPIRE_LEGACY_MATCHMAKING_ENABLED false
+          set_function EMPIRE_HOSTED_WORKER_ID "$EMPIRE_HOSTED_WORKER_ID"
+          set_function EMPIRE_HOSTED_WORKER_REGION "$EMPIRE_HOSTED_WORKER_REGION"
+          set_function EMPIRE_RUNTIME_REGION "$EMPIRE_RUNTIME_REGION"
+          set_function EMPIRE_TICK_WORKER_OWNER_ID "$EMPIRE_TICK_WORKER_OWNER_ID"
+          set_function EMPIRE_HOSTED_PREFLIGHT_STRICT true
+
+      - name: Deploy Netlify staging site
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          netlify deploy --prod --dir=client --functions=netlify/functions \
+            --message "staging ${RELEASE_SHA}" --json > artifacts/release/staging/netlify-deploy.json
+
+      - name: Push immutable worker image
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          flyctl auth docker
+          docker push "registry.fly.io/${FLY_STAGING_APP}:${RELEASE_SHA}"
+          docker manifest inspect "registry.fly.io/${FLY_STAGING_APP}:${RELEASE_SHA}" >/dev/null
+
+      - name: Stage worker runtime secrets
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          EMPIRE_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          GAMEPLAY_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          GAMEPLAY_SLICE_SESSION_SECRET: ${{ secrets.STAGING_GAMEPLAY_SESSION_SECRET }}
+          GAMEPLAY_SLICE_SNAPSHOT_SECRET: ${{ secrets.STAGING_GAMEPLAY_SNAPSHOT_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          worker_env="$RUNNER_TEMP/fly-worker.env"
+          {
+            printf 'EMPIRE_RELEASE_ENVIRONMENT=staging\n'
+            printf 'EMPIRE_DATABASE_URL=%s\n' "$EMPIRE_DATABASE_URL"
+            printf 'GAMEPLAY_DATABASE_URL=%s\n' "$GAMEPLAY_DATABASE_URL"
+            printf 'GAMEPLAY_SLICE_SESSION_SECRET=%s\n' "$GAMEPLAY_SLICE_SESSION_SECRET"
+            printf 'GAMEPLAY_SLICE_SNAPSHOT_SECRET=%s\n' "$GAMEPLAY_SLICE_SNAPSHOT_SECRET"
+            printf 'EMPIRE_PUBLIC_ORIGIN=%s\n' "$STAGING_ORIGIN"
+            printf 'EMPIRE_ALLOWED_ORIGINS=%s\n' "$STAGING_ORIGIN"
+            printf 'EMPIRE_HOSTED_WORKER_ID=%s\n' "$EMPIRE_HOSTED_WORKER_ID"
+            printf 'EMPIRE_HOSTED_WORKER_REGION=%s\n' "$EMPIRE_HOSTED_WORKER_REGION"
+            printf 'EMPIRE_RUNTIME_REGION=%s\n' "$EMPIRE_RUNTIME_REGION"
+            printf 'EMPIRE_TICK_WORKER_OWNER_ID=%s\n' "$EMPIRE_TICK_WORKER_OWNER_ID"
+            printf 'EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED=false\n'
+            printf 'EMPIRE_LEGACY_MATCHMAKING_ENABLED=false\n'
+            printf 'EMPIRE_HOSTED_PREFLIGHT_STRICT=true\n'
+          } > "$worker_env"
+          flyctl secrets import --stage --app "$FLY_STAGING_APP" < "$worker_env"
+          rm -f "$worker_env"
+
+      - name: Deploy exactly one persistent worker
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          flyctl deploy --app "$FLY_STAGING_APP" --config fly.hosted-worker.toml \
+            --image "registry.fly.io/${FLY_STAGING_APP}:${RELEASE_SHA}" \
+            --ha=false --strategy immediate --yes
+          flyctl scale count 1 --app "$FLY_STAGING_APP" --yes
+          flyctl checks list --app "$FLY_STAGING_APP"
+
+      - name: Wait for API and worker health
+        shell: bash
+        run: |
+          set -euo pipefail
+          api_health="$RUNNER_TEMP/api-health.json"
+          worker_health="$RUNNER_TEMP/worker-health.json"
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error "$STAGING_ORIGIN/api/health" -o "$api_health" \
+              && jq -e --arg sha "$RELEASE_SHA" '.status == "ready" and .buildSha == $sha' "$api_health" >/dev/null; then break; fi
+            [[ "$attempt" != "30" ]] || exit 1
+            sleep 10
+          done
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error "https://${FLY_STAGING_APP}.fly.dev/health" -o "$worker_health" \
+              && jq -e --arg sha "$RELEASE_SHA" '.status == "ok" and .buildSha == $sha and .heartbeat.registered == true' "$worker_health" >/dev/null; then break; fi
+            [[ "$attempt" != "30" ]] || exit 1
+            sleep 10
+          done
+          curl --fail --silent --show-error "$STAGING_ORIGIN/api/servers" >/dev/null
+          jq '{status,service,code,database,schema,buildSha,runtime}' "$api_health" > artifacts/release/staging/api-health.json
+          jq '{status,database,lastErrorCode,buildSha,workerId,heartbeat,runtime}' "$worker_health" > artifacts/release/staging/worker-health.json
+          rm -f "$api_health" "$worker_health"
+
+      - name: Bootstrap, rotate and verify the owner account
+        if: github.event_name == 'workflow_dispatch' && inputs.bootstrap_admin
+        env:
+          EMPIRE_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          EMPIRE_ADMIN_BOOTSTRAP_USERNAME: ${{ vars.STAGING_ADMIN_USERNAME }}
+          EMPIRE_ADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.STAGING_ADMIN_INITIAL_PASSWORD }}
+          EMPIRE_ADMIN_NEW_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}
+          EMPIRE_ADMIN_BOOTSTRAP_DISPLAY_NAME: ${{ vars.STAGING_ADMIN_DISPLAY_NAME }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          login_body="$RUNNER_TEMP/admin-bootstrap-login.json"
+          cookie_jar="$RUNNER_TEMP/admin-bootstrap-cookies.txt"
+          cleanup() { rm -f "$login_body" "$cookie_jar"; }
+          trap cleanup EXIT
+          [[ -n "$EMPIRE_ADMIN_BOOTSTRAP_PASSWORD" ]]
+          [[ "$EMPIRE_ADMIN_BOOTSTRAP_PASSWORD" != *$'\n'* && "$EMPIRE_ADMIN_BOOTSTRAP_PASSWORD" != *$'\r'* ]]
+          [[ "$EMPIRE_ADMIN_BOOTSTRAP_PASSWORD" != "$EMPIRE_ADMIN_NEW_PASSWORD" ]]
+          npm run admin:bootstrap-user
+          npm run verify:admin-user-live
+          jq -n --arg username "$EMPIRE_ADMIN_BOOTSTRAP_USERNAME" --arg password "$EMPIRE_ADMIN_BOOTSTRAP_PASSWORD" \
+            '{username:$username,password:$password}' > "$login_body"
+          curl --fail --silent --show-error --cookie-jar "$cookie_jar" \
+            --header "Origin: ${STAGING_ORIGIN}" --header "Content-Type: application/json" \
+            --data-binary "@$login_body" "$STAGING_ORIGIN/api/admin/session" >/dev/null
+          curl --fail --silent --show-error --request DELETE --cookie "$cookie_jar" \
+            --header "Origin: ${STAGING_ORIGIN}" "$STAGING_ORIGIN/api/admin/session" >/dev/null
+          npm run admin:rotate-password
+          EMPIRE_ADMIN_BOOTSTRAP_PASSWORD="$EMPIRE_ADMIN_NEW_PASSWORD" npm run verify:admin-user-live
+
+      - name: Verify remote admin SHA parity and logout
+        env:
+          EMPIRE_ADMIN_BOOTSTRAP_USERNAME: ${{ vars.STAGING_ADMIN_USERNAME }}
+          EMPIRE_ADMIN_NEW_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          login_body="$RUNNER_TEMP/admin-login.json"
+          cookie_jar="$RUNNER_TEMP/admin-cookies.txt"
+          control="$RUNNER_TEMP/admin-control-plane.json"
+          cleanup() { rm -f "$login_body" "$cookie_jar" "$control"; }
+          trap cleanup EXIT
+          jq -n --arg username "$EMPIRE_ADMIN_BOOTSTRAP_USERNAME" --arg password "$EMPIRE_ADMIN_NEW_PASSWORD" \
+            '{username:$username,password:$password}' > "$login_body"
+          curl --fail --silent --show-error --cookie-jar "$cookie_jar" \
+            --header "Origin: ${STAGING_ORIGIN}" --header "Content-Type: application/json" \
+            --data-binary "@$login_body" "$STAGING_ORIGIN/api/admin/session" >/dev/null
+          curl --fail --silent --show-error --cookie "$cookie_jar" "$STAGING_ORIGIN/api/admin/control-plane" -o "$control"
+          jq -e --arg sha "$RELEASE_SHA" '.data.apiBuildSha == $sha and .data.workerBuildSha == $sha and .data.migrationsCurrent == true and .data.workerStatus == "online" and .data.sessionSecurity == "current" and .data.originPolicy == "current"' "$control" >/dev/null
+          curl --fail --silent --show-error --request DELETE --cookie "$cookie_jar" \
+            --header "Origin: ${STAGING_ORIGIN}" "$STAGING_ORIGIN/api/admin/session" >/dev/null
+          jq '{ok,data:{workerStatus:.data.workerStatus,buildCompatibility:.data.buildCompatibility,sessionSecurity:.data.sessionSecurity,originPolicy:.data.originPolicy,apiBuildSha:.data.apiBuildSha,workerBuildSha:.data.workerBuildSha,schemaVersion:.data.schemaVersion}}' "$control" > artifacts/release/staging/admin-control-plane.json
+
+      - name: Verify strict hosted control plane
+        env:
+          NODE_ENV: production
+          EMPIRE_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          GAMEPLAY_SLICE_SESSION_SECRET: ${{ secrets.STAGING_GAMEPLAY_SESSION_SECRET }}
+          GAMEPLAY_SLICE_SNAPSHOT_SECRET: ${{ secrets.STAGING_GAMEPLAY_SNAPSHOT_SECRET }}
+          EMPIRE_ADMIN_FINGERPRINT_SECRET: ${{ secrets.STAGING_ADMIN_FINGERPRINT_SECRET }}
+          EMPIRE_ADMIN_SESSION_SECRET: ${{ secrets.STAGING_ADMIN_SESSION_SECRET }}
+          EMPIRE_AUTH_THROTTLE_PEPPER: ${{ secrets.STAGING_AUTH_THROTTLE_PEPPER }}
+          EMPIRE_ADMIN_BOOTSTRAP_USERNAME: ${{ vars.STAGING_ADMIN_USERNAME }}
+        run: npm run verify:hosted-control-plane
+
+      - name: Upload staging release evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: staging-release-${{ env.RELEASE_SHA }}
+          if-no-files-found: warn
+          retention-days: 30
+          path: |
+            artifacts/release-manifest.json
+            artifacts/release/staging/**
+
+      - name: Remove transient credential files
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/fly-worker.env" "$RUNNER_TEMP/admin-bootstrap-login.json" "$RUNNER_TEMP/admin-bootstrap-cookies.txt" "$RUNNER_TEMP/admin-login.json" "$RUNNER_TEMP/admin-cookies.txt" "$RUNNER_TEMP/neon-snapshot.json"
