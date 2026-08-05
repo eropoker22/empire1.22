@@ -1,0 +1,706 @@
+name: Staging Remote Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Exact deployed 40-character staging SHA
+        required: true
+        type: string
+      staging_deploy_run_id:
+        description: Successful Deploy Staging workflow run ID for this SHA
+        required: true
+        type: string
+      soak_minutes:
+        description: Staging soak duration in minutes, from 120 through 240
+        required: true
+        default: "180"
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: empire-staging-remote-acceptance
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Verify immutable staging deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      release_sha: ${{ steps.release.outputs.sha }}
+      deploy_run_id: ${{ steps.release.outputs.deploy_run_id }}
+      soak_minutes: ${{ steps.release.outputs.soak_minutes }}
+
+    steps:
+      - name: Resolve exact approved deployment
+        id: release
+        env:
+          DISPATCH_SHA: ${{ inputs.sha }}
+          DISPATCH_DEPLOY_RUN_ID: ${{ inputs.staging_deploy_run_id }}
+          DISPATCH_SOAK_MINUTES: ${{ inputs.soak_minutes }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$DISPATCH_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$DISPATCH_DEPLOY_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$DISPATCH_SOAK_MINUTES" =~ ^[0-9]+$ ]]
+          (( DISPATCH_SOAK_MINUTES >= 120 && DISPATCH_SOAK_MINUTES <= 240 ))
+          echo "sha=$DISPATCH_SHA" >> "$GITHUB_OUTPUT"
+          echo "deploy_run_id=$DISPATCH_DEPLOY_RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "soak_minutes=$DISPATCH_SOAK_MINUTES" >> "$GITHUB_OUTPUT"
+
+      - name: Verify successful Deploy Staging run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+          DEPLOY_RUN_ID: ${{ steps.release.outputs.deploy_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${DEPLOY_RUN_ID}")"
+          jq -e --arg sha "$RELEASE_SHA" '
+            .name == "Deploy Staging" and
+            .path == ".github/workflows/deploy-staging.yml" and
+            .status == "completed" and
+            .conclusion == "success" and
+            .head_sha == $sha
+          ' <<< "$run_json" >/dev/null
+
+      - name: Verify staging release artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+          DEPLOY_RUN_ID: ${{ steps.release.outputs.deploy_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p gate-evidence
+          gh run download "$DEPLOY_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "staging-release-${RELEASE_SHA}" --dir gate-evidence
+          manifest="gate-evidence/artifacts/release-manifest.json"
+          remote="gate-evidence/artifacts/release/staging/remote-release-health.json"
+          backup="gate-evidence/artifacts/release/staging/database-backup.json"
+          [[ -s "$manifest" && -s "$remote" && -s "$backup" ]]
+          jq -e --arg sha "$RELEASE_SHA" '
+            .gitSha == $sha and
+            .frontendBuildSha == $sha and
+            .apiBuildSha == $sha and
+            .workerBuildSha == $sha and
+            .environment == "staging" and
+            .targetEnvironment == "staging"
+          ' "$manifest" >/dev/null
+          jq -e --arg sha "$RELEASE_SHA" '
+            .frontendSha == $sha and .apiSha == $sha and .workerSha == $sha and
+            .environment == "staging" and .region == "fra"
+          ' "$remote" >/dev/null
+          jq -e --arg sha "$RELEASE_SHA" '.environment == "staging" and .sha == $sha' "$backup" >/dev/null
+
+  open-registration:
+    name: Open time-limited staging registration
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: staging
+    env:
+      RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
+      STAGING_ORIGIN: https://staging.empirestreets.cz
+      NETLIFY_SITE_ID: ${{ vars.NETLIFY_STAGING_SITE_ID }}
+      NETLIFY_DISABLE_UPDATE_CHECK: "true"
+      FLY_STAGING_APP: ${{ vars.FLY_STAGING_APP }}
+      NODE_ENV: production
+      EMPIRE_RELEASE_ENVIRONMENT: staging
+      EMPIRE_PUBLIC_ORIGIN: https://staging.empirestreets.cz
+      EMPIRE_ALLOWED_ORIGINS: https://staging.empirestreets.cz
+      EMPIRE_BUILD_SHA: ${{ needs.gate.outputs.release_sha }}
+      EMPIRE_RUNTIME_REGION: fra
+
+    steps:
+      - name: Checkout exact deployed SHA
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+
+      - name: Setup Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Verify exact clean source and registration kill-switch
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$RELEASE_SHA" ]]
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+          rg --quiet 'EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT' apps/server/src/player-entry/account-registration-policy.ts
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Install pinned Netlify CLI
+        run: npm install --global netlify-cli@26.2.0
+
+      - name: Build exact registration deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run release:staging:manifest:code-level
+          npm run build:admin:page
+          npm run release:asset-manifest
+
+      - name: Upload immutable registration build
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: staging-registration-build-${{ env.RELEASE_SHA }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            client/**
+            netlify/functions/**
+            artifacts/release-manifest.json
+            artifacts/release-asset-manifest.json
+            netlify.toml
+
+      - name: Open a maximum 23-hour registration window
+        id: registration
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "$NETLIFY_AUTH_TOKEN" && -n "$NETLIFY_SITE_ID" ]]
+          expires_at="$(date -u -d '+23 hours' '+%Y-%m-%dT%H:%M:%S.000Z')"
+          EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED=true \
+          EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT="$expires_at" \
+            node --input-type=module -e '
+              import { validatePublicRegistrationWindow } from "./scripts/registration-window-contract.mjs";
+              if (!validatePublicRegistrationWindow({ enabled: true, expiresAt: process.env.EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT }).valid) process.exit(1);
+            '
+          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT "$expires_at" \
+            --force --scope functions --context production >/dev/null
+          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true \
+            --force --scope functions --context production >/dev/null
+          mkdir -p artifacts/release/staging/remote-acceptance
+          netlify deploy --prod --dir=client --functions=netlify/functions --skip-functions-cache \
+            --message "staging remote acceptance open ${RELEASE_SHA}" --json \
+            > artifacts/release/staging/remote-acceptance/netlify-open-registration.json
+          echo "expires_at=$expires_at" >> "$GITHUB_OUTPUT"
+
+      - name: Verify registration and release parity
+        env:
+          EMPIRE_HOSTED_WORKER_ORIGIN: https://${{ vars.FLY_STAGING_APP }}.fly.dev
+          EMPIRE_REMOTE_RELEASE_EVIDENCE_PATH: artifacts/release/staging/remote-acceptance/open-release-health.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          policy="$RUNNER_TEMP/open-registration-policy.json"
+          for attempt in {1..60}; do
+            if curl --fail --silent --show-error \
+              --header 'Cache-Control: no-cache' \
+              "${STAGING_ORIGIN}/api/account/registration-policy?release-sha=${RELEASE_SHA}" -o "$policy" \
+              && jq -e '.accepted == true and .data.registrationEnabled == true and .data.mode == "open"' "$policy" >/dev/null; then
+              break
+            fi
+            [[ "$attempt" != "60" ]] || exit 1
+            sleep 5
+          done
+          npm run verify:remote-release
+          jq '{accepted,data:{registrationEnabled:.data.registrationEnabled,mode:.data.mode,termsVersion:.data.termsVersion}}' \
+            "$policy" > artifacts/release/staging/remote-acceptance/registration-open.json
+          rm -f "$policy"
+
+      - name: Upload registration-open evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: staging-registration-open-${{ env.RELEASE_SHA }}
+          if-no-files-found: warn
+          retention-days: 30
+          path: artifacts/release/staging/remote-acceptance/**
+
+  remote-suites:
+    name: ${{ matrix.label }}
+    needs:
+      - gate
+      - open-registration
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.timeout }}
+    environment: staging
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - label: remote-manual-admin-player
+            suite: manual-admin-player
+            timeout: 50
+            fixture: false
+            restart_worker: false
+          - label: remote-ui-parity
+            suite: ui-parity
+            timeout: 120
+            fixture: false
+            restart_worker: false
+          - label: remote-ui-parity-social
+            suite: ui-parity-social
+            timeout: 90
+            fixture: false
+            restart_worker: false
+          - label: remote-production-pharmacy
+            suite: production-pharmacy
+            timeout: 50
+            fixture: false
+            restart_worker: false
+          - label: remote-production-drug-lab
+            suite: production-drug-lab
+            timeout: 50
+            fixture: false
+            restart_worker: false
+          - label: remote-production-factory
+            suite: production-factory
+            timeout: 50
+            fixture: false
+            restart_worker: false
+          - label: remote-production-armory
+            suite: production-armory
+            timeout: 50
+            fixture: false
+            restart_worker: false
+          - label: remote-income
+            suite: income
+            timeout: 50
+            fixture: false
+            restart_worker: true
+          - label: remote-building-actions-day
+            suite: building-actions-day
+            timeout: 50
+            fixture: true
+            restart_worker: false
+          - label: remote-building-actions-night
+            suite: building-actions-night
+            timeout: 50
+            fixture: true
+            restart_worker: false
+          - label: remote-ui-parity-non-spawn
+            suite: ui-parity-non-spawn
+            timeout: 90
+            fixture: true
+            restart_worker: false
+          - label: remote-multiplayer-visible-actions
+            suite: multiplayer-visible-actions
+            timeout: 60
+            fixture: true
+            restart_worker: false
+          - label: remote-city-events
+            suite: city-events
+            timeout: 50
+            fixture: true
+            restart_worker: false
+          - label: remote-social-visible-ui
+            suite: social-visible-ui
+            timeout: 60
+            fixture: true
+            restart_worker: false
+          - label: remote-social-concurrency-privacy
+            suite: social-concurrency-privacy
+            timeout: 60
+            fixture: true
+            restart_worker: false
+          - label: remote-lifecycle-stop
+            suite: lifecycle-stop
+            timeout: 50
+            fixture: false
+            restart_worker: false
+
+    env:
+      RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
+      NODE_ENV: production
+      EMPIRE_RELEASE_ENVIRONMENT: staging
+      EMPIRE_PUBLIC_ORIGIN: https://staging.empirestreets.cz
+      EMPIRE_BUILD_SHA: ${{ needs.gate.outputs.release_sha }}
+      EMPIRE_ADMIN_BOOTSTRAP_USERNAME: ${{ vars.STAGING_ADMIN_USERNAME }}
+      EMPIRE_REMOTE_STAGING_ARTIFACT_ROOT: artifacts/remote-staging/${{ matrix.suite }}
+      FLY_STAGING_APP: ${{ vars.FLY_STAGING_APP }}
+
+    steps:
+      - name: Checkout exact deployed SHA
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+
+      - name: Setup Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Verify exact clean checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$RELEASE_SHA" ]]
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Setup pinned Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+
+      - name: Run public remote suite
+        if: matrix.fixture == false && matrix.restart_worker == false
+        env:
+          EMPIRE_ADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}
+        run: npm run test:remote-staging:suite -- --suite=${{ matrix.suite }}
+
+      - name: Run worker-restart remote suite
+        if: matrix.restart_worker == true
+        env:
+          EMPIRE_ADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: npm run test:remote-staging:suite -- --suite=${{ matrix.suite }}
+
+      - name: Run fixture-backed remote suite
+        if: matrix.fixture == true
+        env:
+          EMPIRE_ADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}
+          EMPIRE_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          GAMEPLAY_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          EMPIRE_STAGING_DATABASE_TARGET_HASH: ${{ vars.EMPIRE_STAGING_DATABASE_TARGET_HASH }}
+        run: npm run test:remote-staging:suite -- --suite=${{ matrix.suite }}
+
+      - name: Verify no skips or retries
+        env:
+          SUITE: ${{ matrix.suite }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          summary="artifacts/remote-staging/${SUITE}/summary.json"
+          jq -e --arg sha "$RELEASE_SHA" --arg suite "$SUITE" '
+            .status == "passed" and .buildSha == $sha and .environment == "staging" and .suite == $suite and
+            (.playwrightRuns | length) > 0 and
+            all(.playwrightRuns[];
+              .status == "passed" and .counts.failed == 0 and .counts.skipped == 0 and
+              .counts.notRun == 0 and .counts.retries == 0 and .counts.flaky == 0)
+          ' "$summary" >/dev/null
+
+      - name: Upload remote suite evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: staging-remote-${{ matrix.suite }}-${{ env.RELEASE_SHA }}
+          if-no-files-found: error
+          retention-days: 30
+          path: artifacts/remote-staging/${{ matrix.suite }}/**
+
+  worker-redeploy:
+    name: Redeploy immutable staging worker
+    needs:
+      - gate
+      - remote-suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    env:
+      RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
+      FLY_STAGING_APP: ${{ vars.FLY_STAGING_APP }}
+
+    steps:
+      - name: Checkout exact deployed SHA
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+
+      - name: Verify exact clean checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$RELEASE_SHA" ]]
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+          [[ "$FLY_STAGING_APP" =~ ^[a-z0-9-]{3,63}$ ]]
+
+      - name: Setup pinned Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+
+      - name: Redeploy exactly one immutable worker
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          flyctl deploy --app "$FLY_STAGING_APP" --config fly.hosted-worker.toml \
+            --image "registry.fly.io/${FLY_STAGING_APP}:${RELEASE_SHA}" \
+            --ha=false --strategy immediate --yes
+          flyctl scale count 1 --app "$FLY_STAGING_APP" --yes
+          machines="$(flyctl machines list --app "$FLY_STAGING_APP" --json)"
+          jq -e '[.[] | select(.state != "destroyed" and .state != "destroying")] | length == 1' <<< "$machines" >/dev/null
+
+      - name: Verify worker recovery and SHA parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/remote-staging/worker-redeploy
+          worker="$RUNNER_TEMP/worker-health.json"
+          api="$RUNNER_TEMP/api-health.json"
+          for attempt in {1..60}; do
+            if curl --fail --silent --show-error "https://${FLY_STAGING_APP}.fly.dev/health" -o "$worker" \
+              && curl --fail --silent --show-error "https://staging.empirestreets.cz/api/health" -o "$api" \
+              && jq -e --arg sha "$RELEASE_SHA" '.status == "ok" and .buildSha == $sha and .environment == "staging" and .heartbeat.registered == true' "$worker" >/dev/null \
+              && jq -e --arg sha "$RELEASE_SHA" '.status == "ready" and .apiBuildSha == $sha and .environment == "staging"' "$api" >/dev/null \
+              && [[ "$(jq -r '.schemaVersion' "$worker")" == "$(jq -r '.schemaVersion' "$api")" ]]; then
+              break
+            fi
+            [[ "$attempt" != "60" ]] || exit 1
+            sleep 5
+          done
+          jq '{status,buildSha,environment,region,schemaVersion,expectedSchemaVersion,workerId,heartbeat}' \
+            "$worker" > artifacts/remote-staging/worker-redeploy/worker-health.json
+          jq '{status,apiBuildSha,environment,region,schemaVersion,expectedSchemaVersion}' \
+            "$api" > artifacts/remote-staging/worker-redeploy/api-health.json
+          rm -f "$worker" "$api"
+
+      - name: Upload worker redeploy evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: staging-worker-redeploy-${{ env.RELEASE_SHA }}
+          if-no-files-found: error
+          retention-days: 30
+          path: artifacts/remote-staging/worker-redeploy/**
+
+  load-soak:
+    name: Remote 20-player load and soak
+    needs:
+      - gate
+      - worker-redeploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    environment: staging
+    env:
+      RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
+      NODE_ENV: production
+      EMPIRE_RELEASE_ENVIRONMENT: staging
+      EMPIRE_PUBLIC_ORIGIN: https://staging.empirestreets.cz
+      EMPIRE_ALLOWED_ORIGINS: https://staging.empirestreets.cz
+      EMPIRE_BUILD_SHA: ${{ needs.gate.outputs.release_sha }}
+      EMPIRE_HOSTED_WORKER_ORIGIN: https://${{ vars.FLY_STAGING_APP }}.fly.dev
+      EMPIRE_ADMIN_BOOTSTRAP_USERNAME: ${{ vars.STAGING_ADMIN_USERNAME }}
+      EMPIRE_REMOTE_STAGING_ARTIFACT_ROOT: artifacts/remote-staging/load-soak
+      EMPIRE_REMOTE_LOAD_SOAK_MINUTES: ${{ needs.gate.outputs.soak_minutes }}
+      EMPIRE_REMOTE_MAX_DB_CONNECTIONS: ${{ vars.EMPIRE_REMOTE_MAX_DB_CONNECTIONS }}
+      EMPIRE_REMOTE_MAX_WORKER_MEMORY_BYTES: ${{ vars.EMPIRE_REMOTE_MAX_WORKER_MEMORY_BYTES }}
+      EMPIRE_REMOTE_MAX_WORKER_CPU_PCT: ${{ vars.EMPIRE_REMOTE_MAX_WORKER_CPU_PCT }}
+      EMPIRE_REMOTE_MAX_WORKER_THROTTLE_INCREASE: ${{ vars.EMPIRE_REMOTE_MAX_WORKER_THROTTLE_INCREASE }}
+      EMPIRE_STAGING_DATABASE_TARGET_HASH: ${{ vars.EMPIRE_STAGING_DATABASE_TARGET_HASH }}
+      FLY_STAGING_APP: ${{ vars.FLY_STAGING_APP }}
+      FLY_ORG_SLUG: ${{ vars.FLY_ORG_SLUG }}
+
+    steps:
+      - name: Checkout exact deployed SHA
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+
+      - name: Setup Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Verify exact clean checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$RELEASE_SHA" ]]
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run guarded remote load soak
+        env:
+          EMPIRE_ADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}
+          EMPIRE_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          GAMEPLAY_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          FLY_METRICS_TOKEN: ${{ secrets.FLY_METRICS_TOKEN }}
+        run: npm run test:remote-staging:load-soak
+
+      - name: Verify load, database and Fly thresholds
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e --arg sha "$RELEASE_SHA" '
+            .status == "passed" and .buildSha == $sha and .environment == "staging" and
+            .browser.status == "passed" and .browser.counts.skipped == 0 and
+            .browser.counts.notRun == 0 and .browser.counts.retries == 0 and
+            .database.passed == true and .fly.passed == true and .cleanup == "archived"
+          ' artifacts/remote-staging/load-soak/summary.json >/dev/null
+
+      - name: Upload remote load evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: staging-load-soak-${{ env.RELEASE_SHA }}
+          if-no-files-found: error
+          retention-days: 30
+          path: artifacts/remote-staging/load-soak/**
+
+  close-registration:
+    name: Always close staging registration
+    if: always() && needs.gate.result == 'success'
+    needs:
+      - gate
+      - open-registration
+      - remote-suites
+      - worker-redeploy
+      - load-soak
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: staging
+    env:
+      RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
+      DEPLOY_RUN_ID: ${{ needs.gate.outputs.deploy_run_id }}
+      STAGING_ORIGIN: https://staging.empirestreets.cz
+      NETLIFY_SITE_ID: ${{ vars.NETLIFY_STAGING_SITE_ID }}
+      NETLIFY_DISABLE_UPDATE_CHECK: "true"
+      NODE_ENV: production
+      EMPIRE_RELEASE_ENVIRONMENT: staging
+      EMPIRE_PUBLIC_ORIGIN: https://staging.empirestreets.cz
+      EMPIRE_ALLOWED_ORIGINS: https://staging.empirestreets.cz
+      EMPIRE_BUILD_SHA: ${{ needs.gate.outputs.release_sha }}
+      EMPIRE_RUNTIME_REGION: fra
+
+    steps:
+      - name: Checkout exact deployed SHA
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+
+      - name: Setup Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+
+      - name: Install pinned Netlify CLI
+        run: npm install --global netlify-cli@26.2.0
+
+      - name: Download immutable registration build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          downloaded=false
+          for attempt in {1..12}; do
+            if gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+              --name "staging-registration-build-${RELEASE_SHA}" --dir .; then
+              downloaded=true
+              break
+            fi
+            sleep 10
+          done
+          [[ "$downloaded" == "true" ]]
+          jq -e --arg sha "$RELEASE_SHA" '
+            .gitSha == $sha and .frontendBuildSha == $sha and .apiBuildSha == $sha and .workerBuildSha == $sha
+          ' artifacts/release-manifest.json >/dev/null
+          jq -e --arg sha "$RELEASE_SHA" '.buildSha == $sha' artifacts/release-asset-manifest.json >/dev/null
+
+      - name: Close registration and redeploy the same SHA
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/release/staging/remote-acceptance
+          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false \
+            --force --scope functions --context production >/dev/null
+          netlify env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT \
+            --force --context production >/dev/null
+          netlify deploy --prod --dir=client --functions=netlify/functions --skip-functions-cache \
+            --message "staging remote acceptance closed ${RELEASE_SHA}" --json \
+            > artifacts/release/staging/remote-acceptance/netlify-close-registration.json
+
+      - name: Verify registration is closed and SHA is unchanged
+        env:
+          EMPIRE_HOSTED_WORKER_ORIGIN: https://${{ vars.FLY_STAGING_APP }}.fly.dev
+          EMPIRE_REMOTE_RELEASE_EVIDENCE_PATH: artifacts/release/staging/remote-acceptance/closed-release-health.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          policy="$RUNNER_TEMP/closed-registration-policy.json"
+          for attempt in {1..60}; do
+            if curl --fail --silent --show-error \
+              --header 'Cache-Control: no-cache' \
+              "${STAGING_ORIGIN}/api/account/registration-policy?release-sha=${RELEASE_SHA}" -o "$policy" \
+              && jq -e '.accepted == true and .data.registrationEnabled == false and .data.mode == "closed"' "$policy" >/dev/null; then
+              break
+            fi
+            [[ "$attempt" != "60" ]] || exit 1
+            sleep 5
+          done
+          npm run verify:remote-release
+          jq '{accepted,data:{registrationEnabled:.data.registrationEnabled,mode:.data.mode,termsVersion:.data.termsVersion}}' \
+            "$policy" > artifacts/release/staging/remote-acceptance/registration-closed.json
+          rm -f "$policy"
+
+      - name: Upload registration-close evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: staging-registration-closed-${{ env.RELEASE_SHA }}
+          if-no-files-found: warn
+          retention-days: 30
+          path: artifacts/release/staging/remote-acceptance/**
+
+  automated-verdict:
+    name: Record automated staging verdict
+    if: always()
+    needs:
+      - gate
+      - open-registration
+      - remote-suites
+      - worker-redeploy
+      - load-soak
+      - close-registration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Require every automated gate and safe closure
+        env:
+          RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
+          OPEN_RESULT: ${{ needs.open-registration.result }}
+          SUITES_RESULT: ${{ needs.remote-suites.result }}
+          WORKER_RESULT: ${{ needs.worker-redeploy.result }}
+          LOAD_RESULT: ${{ needs.load-soak.result }}
+          CLOSE_RESULT: ${{ needs.close-registration.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$OPEN_RESULT" == "success" ]]
+          [[ "$SUITES_RESULT" == "success" ]]
+          [[ "$WORKER_RESULT" == "success" ]]
+          [[ "$LOAD_RESULT" == "success" ]]
+          [[ "$CLOSE_RESULT" == "success" ]]
+          mkdir -p artifacts/remote-staging/final
+          jq -n --arg sha "$RELEASE_SHA" --arg runId "$GITHUB_RUN_ID" '
+            {status:"automated-pass",environment:"staging",buildSha:$sha,workflowRunId:$runId,
+             registrationClosed:true,manualNetlifyObservabilityReview:"required-before-production"}
+          ' > artifacts/remote-staging/final/summary.json
+
+      - name: Upload automated verdict
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: staging-remote-final-${{ needs.gate.outputs.release_sha }}
+          if-no-files-found: error
+          retention-days: 90
+          path: artifacts/remote-staging/final/summary.json

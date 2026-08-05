@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 const staging = readFileSync(".github/workflows/deploy-staging.yml", "utf8");
 const hosted = readFileSync(".github/workflows/hosted-acceptance.yml", "utf8");
 const quality = readFileSync(".github/workflows/quality.yml", "utf8");
+const remote = readFileSync(".github/workflows/staging-remote-acceptance.yml", "utf8");
 const fly = readFileSync("fly.hosted-worker.toml", "utf8");
 
 describe("public release workflows", () => {
@@ -112,5 +113,65 @@ describe("public release workflows", () => {
     expect(quality.indexOf("Install Playwright Chromium")).toBeLessThan(
       quality.indexOf("run: npm run test:e2e:smoke")
     );
+  });
+
+  it("runs the complete remote staging matrix against the exact deployed SHA", () => {
+    expect(remote).toContain('name: Staging Remote Acceptance');
+    expect(remote).toContain('.name == "Deploy Staging"');
+    expect(remote).toContain('.head_sha == $sha');
+    expect(remote).toContain('staging-release-${RELEASE_SHA}');
+    expect(remote).toContain('https://staging.empirestreets.cz');
+    expect(remote).not.toContain('http://localhost');
+    for (const suite of [
+      "manual-admin-player",
+      "ui-parity",
+      "ui-parity-social",
+      "production-pharmacy",
+      "production-drug-lab",
+      "production-factory",
+      "production-armory",
+      "income",
+      "building-actions-day",
+      "building-actions-night",
+      "ui-parity-non-spawn",
+      "multiplayer-visible-actions",
+      "city-events",
+      "social-visible-ui",
+      "social-concurrency-privacy",
+      "lifecycle-stop"
+    ]) {
+      expect(remote).toContain(`suite: ${suite}`);
+    }
+    expect(remote).toContain("max-parallel: 1");
+    expect(remote).toContain("npm run test:remote-staging:suite");
+  });
+
+  it("measures staging load and closes registration on every completed gate path", () => {
+    expect(remote).toContain("npm run test:remote-staging:load-soak");
+    expect(remote).toContain("EMPIRE_REMOTE_MAX_DB_CONNECTIONS");
+    expect(remote).toContain("EMPIRE_REMOTE_MAX_WORKER_MEMORY_BYTES");
+    expect(remote).toContain("EMPIRE_REMOTE_MAX_WORKER_CPU_PCT");
+    expect(remote).toContain("EMPIRE_REMOTE_MAX_WORKER_THROTTLE_INCREASE");
+    expect(remote).toContain("FLY_METRICS_TOKEN");
+    expect(remote).toContain("EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT");
+    const closeJob = remote.slice(remote.indexOf("  close-registration:"), remote.indexOf("  automated-verdict:"));
+    expect(closeJob).toContain("if: always() && needs.gate.result == 'success'");
+    expect(closeJob).toContain("EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false");
+    expect(closeJob).toContain("env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT");
+    expect(closeJob).toContain("staging-registration-build-${RELEASE_SHA}");
+    expect(closeJob).toContain(".data.registrationEnabled == false");
+    expect(closeJob).toContain("npm run verify:remote-release");
+    expect(remote).toContain('manualNetlifyObservabilityReview:"required-before-production"');
+  });
+
+  it("keeps remote credentials step-scoped and installs tools first", () => {
+    const jobEnvironmentSections = [...remote.matchAll(/\n    env:\n([\s\S]*?)\n    steps:/gu)].map((match) => match[1]);
+    expect(jobEnvironmentSections.every((section) => !/\$\{\{\s*secrets\./u.test(section))).toBe(true);
+    expect(remote).not.toContain("NETLIFY_AUTH_TOKEN=");
+    expect(remote).not.toContain("FLY_API_TOKEN=");
+    expect(remote).not.toMatch(/uses:\s+[^\s]+@v\d/u);
+    expect(remote.indexOf("Install Playwright Chromium")).toBeLessThan(remote.indexOf("Run public remote suite"));
+    expect(remote.indexOf("Install pinned Netlify CLI")).toBeLessThan(remote.indexOf("Open a maximum 23-hour registration window"));
+    expect(remote).not.toContain("--context deploy-preview");
   });
 });
