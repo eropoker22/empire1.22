@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createEnvironmentMatrix,
   inventoryEnvironmentReads,
+  normalizeEnvironmentMatrixText,
   renderEnvironmentMatrix
 } from "../../scripts/environment-matrix-contract.mjs";
 
@@ -59,6 +60,12 @@ describe("release environment matrix", () => {
     expect(markdown).toContain("| Variable | Component | Staging required | Production required | Secret | Netlify scope | Worker scope | Safe format | Default allowed | Rotation instructions |");
     expect(markdown).toContain("must all differ");
     expect(markdown).toContain("Deploy previews receive none of these secrets");
+  });
+
+  it("treats Windows and Unix line endings as the same generated matrix", () => {
+    const markdown = renderEnvironmentMatrix(createEnvironmentMatrix(inventoryEnvironmentReads()));
+    expect(normalizeEnvironmentMatrixText(markdown.replace(/\n/gu, "\r\n")))
+      .toBe(normalizeEnvironmentMatrixText(markdown));
   });
 
   it("classifies every protected variable and secret alias used by release workflows", () => {

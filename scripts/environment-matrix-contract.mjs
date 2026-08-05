@@ -11,6 +11,8 @@ const STATIC_READ_PATTERNS = [
 ];
 const DYNAMIC_READ_PATTERN = /\b(?:process\.env|environment|env)\[\s*(?!["'`])/gu;
 
+export const normalizeEnvironmentMatrixText = (value) => String(value).replace(/\r\n/gu, "\n");
+
 const runtime = (variable, component, options = {}) => ({
   variable,
   component,

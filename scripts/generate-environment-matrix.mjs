@@ -4,6 +4,7 @@ import {
   createEnvironmentInventoryArtifact,
   createEnvironmentMatrix,
   inventoryEnvironmentReads,
+  normalizeEnvironmentMatrixText,
   renderEnvironmentMatrix
 } from "./environment-matrix-contract.mjs";
 
@@ -16,7 +17,7 @@ const matrix = createEnvironmentMatrix(inventory);
 const markdown = renderEnvironmentMatrix(matrix);
 
 if (check) {
-  if (readFileSync(markdownPath, "utf8") !== markdown) {
+  if (normalizeEnvironmentMatrixText(readFileSync(markdownPath, "utf8")) !== normalizeEnvironmentMatrixText(markdown)) {
     throw new Error("Environment matrix is stale. Run `npm run generate:environment-matrix`.");
   }
   console.log(`Environment matrix covers ${inventory.reads.length} static reads.`);
