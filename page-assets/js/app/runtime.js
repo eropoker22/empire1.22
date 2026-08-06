@@ -14591,11 +14591,25 @@ function bindDistrictCanvas(root) {
         return false;
       }
 
-      openDistrictBuildingDetail(district, buildingButton.dataset.buildingsOpenBuildingName || "", {
+      const buildingRequest = {
+        buildingId: buildingButton.dataset.buildingsOpenBuildingId || "",
+        buildingTypeId: buildingButton.dataset.buildingsOpenBuildingType || "",
+        buildingName: buildingButton.dataset.buildingsOpenBuildingName || "",
+        options: {
+          displayName: buildingButton.dataset.buildingsOpenBuildingDisplayName || "",
+          preferGenericDetail: true
+        }
+      };
+      if (isServerAuthoritativeGameplayRuntimeReady()) {
+        void openServerScopedDistrict(district, buildingRequest);
+        return true;
+      }
+
+      openDistrictBuildingDetail(district, buildingRequest.buildingName, {
         displayName: buildingButton.dataset.buildingsOpenBuildingDisplayName || "",
         preferGenericDetail: true,
-        serverBuildingId: buildingButton.dataset.buildingsOpenBuildingId || "",
-        serverBuildingTypeId: buildingButton.dataset.buildingsOpenBuildingType || ""
+        serverBuildingId: buildingRequest.buildingId,
+        serverBuildingTypeId: buildingRequest.buildingTypeId
       });
       return true;
     }

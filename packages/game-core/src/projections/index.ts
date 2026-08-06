@@ -21,6 +21,7 @@ export * from "./armory-production-projection";
 export * from "./factory-production-projection";
 export * from "./gameplay-economy-rates-projection";
 export * from "./onboarding-read-model-projection";
+export * from "./owned-district-building-index-projection";
 export * from "./player-projection";
 export * from "./player-boost-projection";
 export * from "./player-frontier-projection";

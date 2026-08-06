@@ -1,5 +1,6 @@
 import type { DistrictPanelView } from "./district-panel-view";
 import type { DistrictSummaryView } from "./district-summary-view";
+import type { OwnedDistrictBuildingIndexView } from "./owned-district-building-index-view";
 import type { GameplayModeView } from "./gameplay-mode-view";
 import type { GameplayEconomyRatesView } from "./gameplay-economy-rates-view";
 import type { AllianceBoardReadModel } from "./alliance-board-view";
@@ -44,7 +45,7 @@ export interface GameplaySliceView {
   cityChat?: CityChatReadModel | null;
   districts: DistrictSummaryView[];
   district: DistrictPanelView | null;
-  ownedDistricts?: DistrictPanelView[];
+  ownedDistricts?: OwnedDistrictBuildingIndexView[];
   mapEffects: GameplayMapEffectView[];
   reports: ConflictReportView[];
 }

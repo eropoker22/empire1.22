@@ -165,7 +165,7 @@ describe("shared building presentation adapters", () => {
     });
   });
 
-  it("maps an owned district even when another district is currently selected", () => {
+  it("maps a compact owned building index even when another district is currently selected", () => {
     const adapter = new ServerBuildingPresentationAdapter({
       getReadModel: () => ({
         player: { playerId: "player:1" },
@@ -207,6 +207,8 @@ describe("shared building presentation adapters", () => {
 
     expect(presentation.isOwnedByPlayer).toBe(true);
     expect(presentation.readModel.district.districtId).toBe("district:22");
+    expect(presentation.readModel.district).not.toHaveProperty("attackTargets");
+    expect(presentation.readModel.district.buildings[0]).not.toHaveProperty("actions");
     expect(presentation.profile.buildings).toEqual([
       expect.objectContaining({
         buildingId: "building:district-22:factory:1",

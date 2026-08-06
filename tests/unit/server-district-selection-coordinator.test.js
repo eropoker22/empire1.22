@@ -119,6 +119,66 @@ describe("server district selection coordinator", () => {
     expect(onReady).toHaveBeenCalledOnce();
   });
 
+  it("hydrates a compact indexed building before exposing it to the detail presenter", async () => {
+    const compactBuilding = {
+      buildingId: "building:district-22:pharmacy:1",
+      buildingTypeId: "pharmacy",
+      label: "Lékárna",
+      level: 2,
+      status: "active"
+    };
+    const fullBuilding = {
+      ...compactBuilding,
+      actions: [{ actionId: "collect_pharmacy", enabled: true }],
+      presentation: { title: "Lékárna L2" },
+      slots: [{ slotId: "slot:1", status: "ready" }]
+    };
+    const selectionOrder = [];
+    const selectDistrict = vi.fn(async (districtId) => {
+      selectionOrder.push(`select:${districtId}`);
+      return {
+        accepted: true,
+        readModel: readModel("district:22", [fullBuilding])
+      };
+    });
+    const onReady = vi.fn(() => selectionOrder.push("ready"));
+    const coordinator = createServerDistrictSelectionCoordinator({
+      getReadModel: () => ({
+        ...readModel("district:9", []),
+        ownedDistricts: [{
+          districtId: "district:22",
+          buildings: [compactBuilding]
+        }]
+      }),
+      selectDistrict,
+      onReady
+    });
+
+    const result = await coordinator.open({
+      district: { id: 22 },
+      buildingId: compactBuilding.buildingId,
+      buildingTypeId: compactBuilding.buildingTypeId,
+      buildingName: compactBuilding.label
+    });
+
+    expect(selectDistrict).toHaveBeenCalledOnce();
+    expect(selectDistrict).toHaveBeenCalledWith("district:22");
+    expect(selectionOrder).toEqual(["select:district:22", "ready"]);
+    expect(compactBuilding).not.toHaveProperty("actions");
+    expect(result).toMatchObject({
+      accepted: true,
+      canonicalDistrictId: "district:22",
+      stale: false,
+      building: {
+        buildingId: compactBuilding.buildingId,
+        actions: fullBuilding.actions,
+        presentation: fullBuilding.presentation,
+        slots: fullBuilding.slots
+      }
+    });
+    expect(result.building).toBe(fullBuilding);
+  });
+
   it("reopens the current authoritative district without a redundant load", async () => {
     const selectDistrict = vi.fn();
     const onLoading = vi.fn();

@@ -1,8 +1,9 @@
-import { createAllianceBoardReadModel, createBountyReadModel, createCityChatReadModel, createCityFeedProjection, createConflictReportViews, createGameplayEconomyRatesView, createLeaderboardReadModel, createOnboardingReadModel, createPlayerFrontierSummaryView, createPoliceReadModel, getMarketViewModel } from "@empire/game-core";
+import { createAllianceBoardReadModel, createBountyReadModel, createCityChatReadModel, createCityFeedProjection, createConflictReportViews, createGameplayEconomyRatesView, createLeaderboardReadModel, createOnboardingReadModel, createOwnedDistrictBuildingIndexViews, createPlayerFrontierSummaryView, createPoliceReadModel, getMarketViewModel } from "@empire/game-core";
 import {
   empireStreetsCityMapManifestHash,
   empireStreetsCityMapManifestId,
   empireStreetsCityMapManifestVersion,
+  getPublicBuildingCatalog,
   toPublicModeConfig
 } from "@empire/game-config";
 import {
@@ -46,13 +47,13 @@ export const createGameplaySliceProjection = (
     police
   };
   const district = selectedDistrictId ? createDistrictPanelProjection(runtime, playerId, selectedDistrictId) : null;
-  const ownedDistricts = Object.values(runtime.state.districtsById)
-    .filter((candidate) => candidate.ownerPlayerId === playerId)
-    .sort((left, right) => left.id.localeCompare(right.id))
-    .flatMap((candidate) => {
-      const panel = createDistrictPanelProjection(runtime, playerId, candidate.id);
-      return panel ? [panel] : [];
-    });
+  const districts = createDistrictListProjection(runtime, playerId);
+  const ownedDistricts = createOwnedDistrictBuildingIndexViews(
+    runtime.state,
+    playerId,
+    districts,
+    getPublicBuildingCatalog(runtime.record.mode)
+  );
 
   return {
     server: {
@@ -100,7 +101,7 @@ export const createGameplaySliceProjection = (
       limit: 50
     }),
     cityChat: createCityChatReadModel(runtime.state, playerId),
-    districts: createDistrictListProjection(runtime, playerId),
+    districts,
     district,
     ownedDistricts,
     mapEffects: [

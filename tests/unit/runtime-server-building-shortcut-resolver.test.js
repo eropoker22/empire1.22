@@ -72,6 +72,40 @@ describe("server building shortcut resolver", () => {
     ]);
   });
 
+  it("keeps non-selected owned districts loadable when their building index is compact", () => {
+    expect(getServerBuildingShortcutCandidateDistrictIds({
+      player: {
+        playerId: "player:1",
+        homeDistrictId: "district:1"
+      },
+      district: {
+        districtId: "district:9",
+        ownerPlayerId: "player:2",
+        isOwnedByPlayer: false
+      },
+      districts: [
+        { districtId: "district:1", isOwnedByPlayer: true, filledSlotCount: 1 },
+        { districtId: "district:22", isOwnedByPlayer: true, filledSlotCount: 3 },
+        { districtId: "district:9", ownerPlayerId: "player:2", filledSlotCount: 4 }
+      ],
+      ownedDistricts: [{
+        districtId: "district:22",
+        buildings: [{
+          buildingId: "building:district-22:pharmacy:1",
+          buildingTypeId: "pharmacy",
+          label: "Lékárna",
+          displayName: "Lékárna",
+          variantName: null,
+          level: 1,
+          status: "active"
+        }]
+      }]
+    }, "pharmacy")).toEqual([
+      "district:1",
+      "district:22"
+    ]);
+  });
+
   it("ignores a stale known district that is no longer owned", () => {
     expect(getServerBuildingShortcutCandidateDistrictIds({
       player: {
