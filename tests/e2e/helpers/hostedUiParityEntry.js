@@ -411,9 +411,9 @@ export async function installHostedUiParityInstrumentation(page) {
 
 export function shouldIgnoreHostedConsoleError({ pathname = "", text = "" } = {}) {
   return pathname === "/api/account/session"
-    && /status of 401 \(Unauthorized\)/u.test(text)
+    && /status of 401 \((?:Unauthorized)?\)/u.test(text)
     || pathname === "/api/lobby/spawn-confirm"
-      && /status of 409 \(Conflict\)/u.test(text);
+      && /status of 409 \((?:Conflict)?\)/u.test(text);
 }
 
 export async function expectHostedUiParityClean(page, diagnostics) {
