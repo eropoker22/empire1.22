@@ -82,6 +82,7 @@ describe("server map presentation model", () => {
       mapEffects: [{
         type: "attack-district",
         districtId: "district:1",
+        playerName: "Neon Wolves",
         startedAt: now,
         expiresAt: now + 5_000
       }]
@@ -89,6 +90,7 @@ describe("server map presentation model", () => {
 
     expect(model.effects.activeAttackDistrictIds).toEqual(new Set([1]));
     expect(model.effects.activeAttackMarkersByDistrictId.get(1)).toMatchObject({
+      playerName: "Neon Wolves",
       startedAt: now,
       expiresAt: now + 5_000
     });

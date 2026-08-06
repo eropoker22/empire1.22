@@ -176,6 +176,7 @@ function renderServers() {
   const blocking = state.overview.activeBlockingMembership;
   const servers = visibleServers();
   list.classList.toggle("auth-servers--membership-active", Boolean(blocking));
+  list.closest(".lobby-server-list-only")?.classList.toggle("is-membership-active", Boolean(blocking));
   list.innerHTML = servers.length ? servers.map((server) => {
     const selected = server.serverInstanceId === state.selectedServerId;
     const presentation = registrationPresentation(server);

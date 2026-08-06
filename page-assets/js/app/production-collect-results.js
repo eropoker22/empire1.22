@@ -20,6 +20,46 @@ export function getCollectItemsTotal(items = []) {
   return normalizeCollectItems(items).reduce((total, item) => total + Math.max(0, Number(item.amount || 0)), 0);
 }
 
+const POPULATION_COLLECTION_COPY = Object.freeze({
+  "Bytový blok": Object.freeze({
+    source: "bytového bloku",
+    title: "Bytový blok: nový nábor"
+  }),
+  "Večerka": Object.freeze({
+    source: "Večerky",
+    title: "Večerka: nový nábor"
+  }),
+  "Škola": Object.freeze({
+    source: "Školy",
+    title: "Škola: nový nábor"
+  })
+});
+
+export function createPopulationCollectResultPayload({
+  buildingLabel = "Budova",
+  amount = 0,
+  districtLabel = ""
+} = {}) {
+  const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
+  const copy = POPULATION_COLLECTION_COPY[buildingLabel] || {
+    source: String(buildingLabel || "budovy").trim().toLowerCase(),
+    title: `${buildingLabel}: nový nábor`
+  };
+
+  return {
+    tone: "is-success is-building-action-result",
+    title: copy.title,
+    badge: "Nábor",
+    summary: `Z ${copy.source} se k tvému gangu přidalo ${safeAmount} nových členů.`,
+    rows: [
+      { label: "Budova", value: buildingLabel },
+      districtLabel ? { label: "District", value: districtLabel } : null,
+      { label: "Noví členové", value: String(safeAmount), nowrap: true }
+    ].filter(Boolean),
+    collectItems: [{ label: "Členové gangu", value: `${safeAmount}`, amount: safeAmount }]
+  };
+}
+
 export function createStorageCollectResultPayload({ buildingLabel = "Budova", items = [], meta = "Sklad", districtLabel = "", hideBadge = false } = {}) {
   const normalizedItems = normalizeCollectItems(items);
   const total = getCollectItemsTotal(normalizedItems);

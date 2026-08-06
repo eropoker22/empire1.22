@@ -13,6 +13,13 @@ export interface ReportViewModel {
   details: string[];
 }
 
+const formatTickDuration = (ticks: number): string => {
+  const totalSeconds = Math.max(0, Math.ceil((Number(ticks) || 0) * 10));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0 ? `${minutes}m ${String(seconds).padStart(2, "0")}s` : `${seconds}s`;
+};
+
 /**
  * Responsibility: Maps server-fed conflict reports into simple client-ready list items.
  * Belongs here: presentation shaping only.
@@ -25,7 +32,7 @@ export const createReportViewModels = (
     id: report.reportId,
     reportType: report.reportType,
     title: formatReportTitle(report),
-    createdAt: `${report.tick}`,
+    createdAt: report.createdAt,
     category: report.reportType,
     summary: formatReportSummary(report),
     result: report.result,
@@ -92,7 +99,9 @@ const formatReportDetails = (report: ConflictReportView): string[] => {
       `Intel obrany ${formatNumberRecord(report.detectedDefense)}`,
       report.trapDetected ? "Past odhalena" : "Past neodhalena",
       report.occupyUnlocked ? "Obsazení odemčeno" : "Obsazení neodemčeno",
-      report.blockedUntilTick ? `Špeh blokován do ticku ${report.blockedUntilTick}` : ""
+      report.blockedUntilTick
+        ? `Špeh je blokovaný ${formatTickDuration(report.blockedUntilTick - report.tick)}.`
+        : ""
     ].filter(Boolean);
   }
 
@@ -137,7 +146,7 @@ const formatReportDetails = (report: ConflictReportView): string[] => {
       `Kořist ${formatNumberRecord(report.loot)}`,
       `Hledanost hráče +${report.playerHeat}`,
       `Hledanost districtu +${report.districtHeat}`,
-      `Cooldown ${report.cooldownTicks} ticků`
+      `Cooldown ${formatTickDuration(report.cooldownTicks)}`
     ];
   }
 

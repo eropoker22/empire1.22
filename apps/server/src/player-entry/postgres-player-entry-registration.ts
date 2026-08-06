@@ -27,8 +27,13 @@ import {
 
 interface SnapshotPayload {
   state?: {
+    root?: { tick?: unknown };
     districtsById?: Record<string, SnapshotDistrict>;
     playersById?: Record<string, SnapshotPlayer>;
+    pendingOccupyOperationsById?: Record<string, {
+      targetDistrictId?: unknown;
+      resolveAtTick?: unknown;
+    }>;
   };
 }
 
@@ -117,6 +122,18 @@ export const loadHostedSpawnSelection = async (
   );
   const reservedIds = new Set(reserved.rows.map((row) => String(row.district_id)));
   const snapshotDistricts = latest.payload.state.districtsById ?? {};
+  const rawSnapshotTick = Number(latest.payload.state.root?.tick ?? 0);
+  const snapshotTick = Number.isFinite(rawSnapshotTick) ? Math.max(0, rawSnapshotTick) : 0;
+  const occupiedInProgressIds = new Set(Object.values(
+    latest.payload.state.pendingOccupyOperationsById ?? {}
+  ).filter((operation) => Number(operation.resolveAtTick ?? 0) > snapshotTick)
+    .map((operation) => String(operation.targetDistrictId ?? ""))
+    .filter(Boolean));
+  for (const district of Object.values(snapshotDistricts)) {
+    if (Number(district.operationLocks?.occupy ?? 0) > snapshotTick) {
+      occupiedInProgressIds.add(String(district.id));
+    }
+  }
   const ownerPlayerIds = [...new Set(Object.values(snapshotDistricts)
     .map((district) => optionalString(district?.ownerPlayerId))
     .filter((playerId): playerId is string => Boolean(playerId)))];
@@ -125,7 +142,8 @@ export const loadHostedSpawnSelection = async (
     snapshotDistricts,
     latest.payload.state.playersById ?? {},
     ownerIdentities,
-    reservedIds
+    reservedIds,
+    occupiedInProgressIds
   );
   const districts = Object.values(snapshotDistricts)
     .filter((district): district is SnapshotDistrict => Boolean(district && findSharedCitySpawnCandidate(String(district.id))?.enabled))
@@ -133,6 +151,7 @@ export const loadHostedSpawnSelection = async (
       const reason = district.zone === "downtown" ? "DOWNTOWN"
         : district.ownerPlayerId ? "OWNED"
         : reservedIds.has(String(district.id)) ? "RESERVED"
+        : occupiedInProgressIds.has(String(district.id)) ? "OCCUPATION_IN_PROGRESS"
         : district.status !== "neutral" ? String(district.status).toUpperCase()
         : district.lockdownUntilTick ? "LOCKDOWN"
         : null;

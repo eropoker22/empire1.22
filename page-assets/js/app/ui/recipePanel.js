@@ -1,3 +1,8 @@
+import {
+  applyPendingProductionSlotStartEffect,
+  triggerProductionSlotStartEffect
+} from "./productionSlotStartEffect.js";
+
 function getDocument(scopeElement = null) {
   return scopeElement?.ownerDocument || (typeof document !== "undefined" ? document : null);
 }
@@ -563,7 +568,12 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
   card.dataset.resourceColor = normalizeResourceColor(recipe.output?.itemId || recipeId, options);
 
   if (buildingName === "pharmacy") {
-    card.className = ["pharmacy-slot", visual?.slotClass || "", slotState.isActive ? "pharmacy-slot--active" : "pharmacy-slot--idle"].filter(Boolean).join(" ");
+    card.className = [
+      "pharmacy-slot",
+      visual?.slotClass || "",
+      slotState.isActive ? "pharmacy-slot--active" : "pharmacy-slot--idle",
+      job?.isProducing || job?.status === "running" ? "production-slot--running" : ""
+    ].filter(Boolean).join(" ");
     const head = createElement(options.mount, "div", "pharmacy-slot__head");
     const titleLine = createElement(options.mount, "div", "pharmacy-slot__title-line");
     const icon = createElement(options.mount, "span", `pharmacy-slot__icon ${visual?.iconToneClass || "pharmacy-slot__icon--cyan"} ${visual?.iconGlyphClass || "pharmacy-slot__icon--flask"}`);
@@ -604,9 +614,14 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
           "armory-slot",
           "drug-production-slot",
           armoryRole ? `armory-slot--${armoryRole}` : "",
-          slotState.isActive ? "armory-slot--active drug-production-slot--active" : ""
+          slotState.isActive ? "armory-slot--active drug-production-slot--active" : "",
+          job?.isProducing || job?.status === "running" ? "production-slot--running" : ""
         ].filter(Boolean).join(" ")
-      : (slotState.isActive ? "drug-production-slot drug-production-slot--active" : "drug-production-slot");
+      : [
+          "drug-production-slot",
+          slotState.isActive ? "drug-production-slot--active" : "",
+          job?.isProducing || job?.status === "running" ? "production-slot--running" : ""
+        ].filter(Boolean).join(" ");
     const head = createElement(options.mount, "div", isArmory ? "armory-slot__head drug-production-slot__head" : "drug-production-slot__head");
     const titleWrap = createElement(options.mount, "div", isArmory ? "armory-slot__title-wrap drug-production-slot__title-wrap" : "drug-production-slot__title-wrap");
     const icon = createElement(options.mount, "span", `drug-production-slot__icon ${visual?.iconToneClass || (isArmory ? "drug-production-slot__icon--red" : "drug-production-slot__icon--violet")} ${visual?.iconGlyphClass || (isArmory ? "drug-production-slot__icon--crosshair" : "drug-production-slot__icon--crystal")}`);
@@ -696,6 +711,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     if (typeof binding.callbacks?.onStart === "function") {
       const batchCount = Math.max(1, getStartBatchCount());
       clearQuantitySelection();
+      triggerProductionSlotStartEffect(options.mount, bindingKey, card);
       binding.callbacks.onStart({ ...binding.viewModel, batchCount });
     }
   });
@@ -730,6 +746,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     });
   }
 
+  applyPendingProductionSlotStartEffect(options.mount, bindingKey, card);
   return card;
 }
 

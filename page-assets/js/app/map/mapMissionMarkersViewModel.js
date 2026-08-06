@@ -102,6 +102,7 @@ export function buildOccupyOrderMarkers(orders = [], options = {}) {
           return [districtId, {
             seed: districtId,
             playerId: String(order?.playerId || order?.attackerPlayerId || ""),
+            playerName: String(order?.playerName || order?.displayName || ""),
             playerColor: String(order?.playerColor || ""),
             startedAt: new Date(order.createdAt || now).getTime(),
             expiresAt: new Date(order.resolveAt || order.createdAt || now).getTime()

@@ -126,4 +126,45 @@ describe("shared city spawn", () => {
       rumorEvents: [{ text: "neutral rumor" }]
     });
   });
+
+  it("rejects a spawn district while an occupation is still pending", () => {
+    const districtId = enabledSharedCitySpawnDistrictIds[0];
+    const state = {
+      root: { tick: 10, version: 1 },
+      playersById: {
+        "player:new": { id: "player:new", homeDistrictId: null, metadata: {}, version: 1 }
+      },
+      districtsById: {
+        [districtId]: {
+          id: districtId,
+          ownerPlayerId: null,
+          status: "neutral",
+          zone: "residential",
+          buildingIds: [],
+          operationLocks: { occupy: 20 },
+          version: 1
+        }
+      },
+      buildingsById: {},
+      pendingOccupyOperationsById: {
+        "occupy:pending": { targetDistrictId: districtId, resolveAtTick: 20 }
+      }
+    } as unknown as CoreGameState;
+
+    const result = handleSelectSpawnDistrict(state, {
+      id: "command:spawn:blocked",
+      clientRequestId: "request:spawn:blocked",
+      issuedAt: "2026-08-06T00:00:00.000Z",
+      mode: "free",
+      payload: { districtId },
+      playerId: "player:new",
+      serverInstanceId: "instance:free:eu-central:test",
+      type: "select-spawn-district"
+    }, {} as GameCoreContext, { isEnabledSpawnCandidate: () => true });
+
+    expect(result.errors).toEqual([
+      expect.objectContaining({ code: "SPAWN_OCCUPATION_IN_PROGRESS" })
+    ]);
+    expect(result.nextState).toBe(state);
+  });
 });

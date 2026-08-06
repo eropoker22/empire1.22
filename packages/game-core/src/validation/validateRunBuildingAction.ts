@@ -4,6 +4,7 @@ import type { CoreError } from "../errors";
 import type { GameCoreContext } from "../engine/context";
 import { resolveEffectiveBuildingActionCostForValidation } from "../rules/buildings/buildingActionCosts";
 import { resolveDayNightActionRule } from "../rules/day-night/dayNightActionRules";
+import { formatTickDuration } from "../utils/time";
 import { validateRunBuildingActionSpecifics } from "./validateRunBuildingActionSpecifics";
 
 /**
@@ -108,7 +109,7 @@ export const validateRunBuildingAction = (
   if (cooldownUntilTick > state.root.tick) {
     errors.push({
       code: "building_action_cooldown",
-      message: `Akce čeká ještě ${cooldownUntilTick - state.root.tick} ticků.`
+      message: `Akce čeká ještě ${formatTickDuration(cooldownUntilTick - state.root.tick, context.config.tickRateMs)}.`
     });
   }
 

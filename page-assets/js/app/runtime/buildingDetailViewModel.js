@@ -184,6 +184,26 @@ function resolveWarehouseDisplayCapacity(capacity = {}) {
   };
 }
 
+function createWarehouseCapacityMechanics(mechanics = {}) {
+  const projectedGroups = new Map(
+    (Array.isArray(mechanics.serverStorageSummary?.groups) ? mechanics.serverStorageSummary.groups : [])
+      .map((group) => [String(group?.id || ""), group])
+  );
+  const fallbackCapacity = resolveWarehouseDisplayCapacity(mechanics.warehouseCapacity);
+
+  return ["bulk", "tactical", "strategic"].map((groupId) => {
+    const config = WAREHOUSE_STORAGE_CONFIG.groups[groupId];
+    const projected = projectedGroups.get(groupId);
+    const baseCapacity = Math.max(0, Math.floor(Number(projected?.baseCapacity ?? config.baseCapacity)));
+    const currentCapacity = Math.max(0, Math.floor(Number(projected?.currentCapacity ?? fallbackCapacity[groupId])));
+    const capacityIncrease = Math.max(0, currentCapacity - baseCapacity);
+    return createMechanic(
+      config.label,
+      `Maximální kapacita +${capacityIncrease} ks · celkem ${currentCapacity} ks na položku`
+    );
+  });
+}
+
 function resolveWarehouseCapacityTone(used = 0, capacity = 0) {
   const maxCapacity = Math.max(0, Number(capacity || 0));
   if (!maxCapacity) {
@@ -970,6 +990,12 @@ function createEffectItemsWithOwnedCount(effectsLabel = "", mechanics = {}, opti
     items.push(networkEffect);
   }
   if (mechanics.mechanicsType === "apartment-block") {
+    items.unshift({
+      dynamicStaticCapacity: Math.max(0, Math.floor(Number(mechanics.apartmentCapacity || 0))),
+      dynamicValue: BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE,
+      text: `${Math.max(0, Math.floor(Number(mechanics.apartmentWholePopulation || 0)))}/${Math.max(0, Math.floor(Number(mechanics.apartmentCapacity || 0)))}`,
+      tone: "population"
+    });
     items.push({
       text: "Může se vybrat od 10 členů",
       tone: "silver"
@@ -1441,7 +1467,7 @@ export function createBuildingDetailMechanicRows({
       createMechanic("Večerní kurz", mechanics.schoolEveningCourseActive ? `bytové bloky zrychlené ${formatDistrictBuildingCooldown(mechanics.schoolEveningCourseRemainingMs)}` : "zrychlí nábor členů v bytových blocích")
     );
   } else if (mechanics.mechanicsType === "warehouse") {
-    return mechanicRows;
+    mechanicRows.push(...createWarehouseCapacityMechanics(mechanics));
   } else if (mechanics.mechanicsType === "clinic") {
     mechanicRows.push(
       createMechanic("Stabilizace", mechanics.clinicRecoveryPool.totalFreshAmount > 0 ? "připravená" : "Čeká na ztráty tvojich členů za posledních 90min"),
@@ -1509,7 +1535,7 @@ export function createBuildingDetailMechanicRows({
       createMechanic("Infrastruktura", `Pasivně posiluje rychlost výroby, kliniky a vybrané cash budovy o +${formatCompactNumber(network.infrastructureBonusPct || 0)} %.`),
       createMechanic("Záložní síť", `Za ${formatDistrictBuildingMoney(POWER_STATION_CONFIG.backupGridSwitch.cleanCost)} clean dočasně posílí infrastrukturu a obranu.`),
       createMechanic("Napájet výrobu", "Okamžitě přidá $2000 clean a $500 dirty. Heat +10."),
-      createMechanic("Snížit heat", "Okamžitě stáhne heat districtu o 20.")
+      createMechanic("Snížit heat", `Za ${formatDistrictBuildingMoney(POWER_STATION_CONFIG.reduceHeat.cleanCost)} clean okamžitě stáhne heat districtu o ${POWER_STATION_CONFIG.reduceHeat.heatReduction}.`)
     );
   } else if (mechanics.mechanicsType === "recycling-center" || buildingKey === "recyklacni centrum") {
     const salvagePool = getRecyclingSalvagePoolView(mechanics.recyclingSalvagePool || mechanics.clinicRecoveryPool);

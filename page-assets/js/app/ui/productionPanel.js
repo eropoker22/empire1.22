@@ -6,6 +6,10 @@ import {
   readProductionQuantitySelection,
   writeProductionQuantitySelection
 } from "./productionQuantitySelection.js";
+import {
+  applyPendingProductionSlotStartEffect,
+  triggerProductionSlotStartEffect
+} from "./productionSlotStartEffect.js";
 
 const factorySlotListStateByMount = new WeakMap();
 const productionPanelStateByMount = new WeakMap();
@@ -519,7 +523,7 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
   if (!card) return null;
   card.dataset.resourceColor = slotView.resourceColor || slot.resourceKey || "";
   const cardClassName = slot.isProducing
-    ? "factory-slot drug-production-slot factory-slot--active drug-production-slot--active"
+    ? "factory-slot drug-production-slot factory-slot--active drug-production-slot--active production-slot--running"
     : "factory-slot drug-production-slot";
   card.className = slotView.loading ? `${cardClassName} factory-slot--loading` : cardClassName;
 
@@ -665,6 +669,7 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
       clearProductionQuantitySelection(options.mount, batchSelectionKey);
       const binding = resolveFactorySlotBinding(options.mount, batchSelectionKey, slotView, callbacks);
       if (typeof binding.callbacks?.onStartSlot === "function") {
+        triggerProductionSlotStartEffect(options.mount, batchSelectionKey, card);
         binding.callbacks.onStartSlot(binding.slotView, { batchCount: selectedBatches });
       }
     });
@@ -692,6 +697,7 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
   }
 
   card.append(head, metrics, actions);
+  applyPendingProductionSlotStartEffect(options.mount, batchSelectionKey, card);
   return card;
 }
 

@@ -738,6 +738,57 @@ describe("building detail, production and recipe UI modules", () => {
     }));
   });
 
+  it("keeps one special-action submission in flight and ignores rapid duplicate clicks", async () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    let finishSubmission;
+    const onRunAction = vi.fn(() => new Promise((resolve) => {
+      finishSubmission = resolve;
+    }));
+    const shell = ensureBuildingDetailPanel(root, { onRunAction }, { popupKey: "12:casino-single-flight" });
+
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "casino",
+      title: "Kasino",
+      name: "Kasino",
+      stats: [],
+      mechanics: [],
+      collect: { visible: false, enabled: false, title: "" },
+      upgrade: { disabled: true, title: "" },
+      showActionsInSinglePanel: true,
+      actions: [{
+        index: 0,
+        actionId: "vip_night",
+        buildingTypeId: "casino",
+        title: "VIP noc"
+      }]
+    });
+
+    const action = shell.querySelector("[data-district-building-detail-action-index]");
+    const command = action.querySelector(".building-info-action-row__button");
+    const body = shell.querySelector(".district-building-detail-body");
+    const clickAction = () => {
+      for (const handler of body.eventListeners.get("click") || []) handler({ target: action });
+    };
+
+    clickAction();
+    clickAction();
+
+    expect(onRunAction).toHaveBeenCalledTimes(1);
+    expect(action.disabled).toBe(true);
+    expect(action.dataset.districtBuildingDetailActionSubmitting).toBe("true");
+    expect(command.textContent).toBe("PROBÍHÁ…");
+
+    finishSubmission(true);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(action.disabled).toBe(false);
+    expect(action.dataset.districtBuildingDetailActionSubmitting).toBeUndefined();
+    expect(command.textContent).toBe("SPUSTIT");
+  });
+
   it("shows a disabled action reason directly inside the grey action button", () => {
     const document = setupDocument();
     const root = document.createElement("div");
@@ -852,12 +903,20 @@ describe("building detail, production and recipe UI modules", () => {
         { label: "K výběru", value: "4/12", dynamicValue: "population-buffer" },
         { label: "Produkce", value: "+0.25 populace/min" }
       ],
-      effects: [{
-        dynamicValue: "population-buffer",
-        dynamicValuePrefix: "Naplnění za ",
-        text: "Naplnění za 2 min",
-        tone: "cooldown"
-      }],
+      effects: [
+        {
+          dynamicValue: "population-buffer",
+          dynamicStaticCapacity: 12,
+          text: "4/12",
+          tone: "population"
+        },
+        {
+          dynamicValue: "population-buffer",
+          dynamicValuePrefix: "Naplnění za ",
+          text: "Naplnění za 2 min",
+          tone: "cooldown"
+        }
+      ],
       collect: { visible: false, enabled: false, title: "" },
       upgrade: { disabled: true, title: "" },
       actions: []
@@ -876,12 +935,17 @@ describe("building detail, production and recipe UI modules", () => {
     expect(mechanics[0].dataset.buildingDynamicValue).toBeUndefined();
     expect(mechanics[0].children[1].children[0].dataset.buildingDynamicValue).toBe("population-buffer");
     expect(mechanics[1].children[1].dataset.buildingDynamicValue).toBeUndefined();
-    const effectValue = shell.querySelector(".district-building-detail-effect-cell").children[0];
-    expect(effectValue.dataset.buildingDynamicLayout).toBe("prefixed");
-    expect(effectValue.children[0].dataset.buildingStaticValue).toBe("population-buffer-prefix");
-    expect(effectValue.children[0].textContent).toBe("Naplnění za ");
-    expect(effectValue.children[1].dataset.buildingDynamicValue).toBe("population-buffer");
-    expect(effectValue.children[1].textContent).toBe("2 min");
+    const effectValues = shell.querySelectorAll(".district-building-detail-effect-cell");
+    expect(effectValues[0].children[0].children[0].dataset.buildingDynamicValue).toBe("population-buffer");
+    expect(effectValues[0].children[0].children[0].textContent).toBe("4");
+    expect(effectValues[0].children[0].children[1].dataset.buildingPopulationCapacity).toBe("12");
+    expect(effectValues[0].children[0].children[1].textContent).toBe("/12");
+    const countdownEffectValue = effectValues[1].children[0];
+    expect(countdownEffectValue.dataset.buildingDynamicLayout).toBe("prefixed");
+    expect(countdownEffectValue.children[0].dataset.buildingStaticValue).toBe("population-buffer-prefix");
+    expect(countdownEffectValue.children[0].textContent).toBe("Naplnění za ");
+    expect(countdownEffectValue.children[1].dataset.buildingDynamicValue).toBe("population-buffer");
+    expect(countdownEffectValue.children[1].textContent).toBe("2 min");
   });
 
   it("renders fixed Street Dealer slots and submits the slot-bound local sale intent", () => {
@@ -1983,6 +2047,8 @@ describe("building detail, production and recipe UI modules", () => {
     expect(onStart).toHaveBeenCalledWith(expect.objectContaining({
       batchCount: 3
     }));
+    expect(card.classList.contains("production-slot--start-flash")).toBe(true);
+    expect(card.dataset.productionStartEffect).toBe("true");
   });
 
   it("preserves canonical recipe quantity by physical building and recipe", () => {
@@ -2032,7 +2098,9 @@ describe("building detail, production and recipe UI modules", () => {
     expect(onStart).toHaveBeenCalledWith(expect.objectContaining({ batchCount: 2 }));
 
     mount.replaceChildren();
-    expect(render("building:district-1:pharmacy:1").querySelector(".pharmacy-slot__quantity-value").textContent).toBe("1");
+    const restartedCard = render("building:district-1:pharmacy:1");
+    expect(restartedCard.querySelector(".pharmacy-slot__quantity-value").textContent).toBe("1");
+    expect(restartedCard.classList.contains("production-slot--start-flash")).toBe(true);
 
     mount.replaceChildren();
     expect(render("building:district-1:pharmacy:1", "biomass").querySelector(".pharmacy-slot__quantity-value").textContent).toBe("2");
@@ -2337,6 +2405,8 @@ describe("building detail, production and recipe UI modules", () => {
     card.querySelector("[data-factory-slot-toggle-state=\"start\"]").click();
 
     expect(onStartSlot).toHaveBeenCalledWith(expect.any(Object), { batchCount: 2 });
+    expect(card.classList.contains("production-slot--running")).toBe(true);
+    expect(card.classList.contains("production-slot--start-flash")).toBe(true);
 
     card.querySelector("[data-factory-slot-toggle-state=\"stop\"]").click();
     expect(onPauseSlot).toHaveBeenCalledWith(expect.any(Object));

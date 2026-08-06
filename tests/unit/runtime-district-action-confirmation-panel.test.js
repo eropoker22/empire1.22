@@ -29,7 +29,6 @@ describe("district action confirmation panel", () => {
       district: { id: 15 },
       elements: {
         occupyConfirmTitle: element(),
-        occupyConfirmCondition: element(),
         occupyConfirmCost: element(),
         occupyConfirmDuration: element(),
         occupyConfirmNote: element()
@@ -184,7 +183,6 @@ describe("district action confirmation panel", () => {
   it("renders occupy confirmation without changing gameplay state", () => {
     const title = element();
     const source = element();
-    const condition = element();
     const cost = element();
     const duration = element();
     const note = element();
@@ -202,7 +200,6 @@ describe("district action confirmation panel", () => {
     renderOccupyConfirmationPanel(viewModel, {
       occupyConfirmTitle: title,
       occupyConfirmSource: source,
-      occupyConfirmCondition: condition,
       occupyConfirmCost: cost,
       occupyConfirmDuration: duration,
       occupyConfirmNote: note,
@@ -211,7 +208,6 @@ describe("district action confirmation panel", () => {
 
     expect(title.textContent).toBe("District 15");
     expect(source.textContent).toBe("District 3");
-    expect(condition.textContent).toBe("Špehování potvrzeno");
     expect(cost.textContent).toBe("50 populace");
     expect(duration.textContent).toBe("12m");
     expect(note.textContent).toBe("Po potvrzení se spustí 12m obsazování. District bliká tvojí barvou a po doběhnutí přejde pod tebe.");
@@ -221,7 +217,6 @@ describe("district action confirmation panel", () => {
 
   it("shows the higher occupy population cost and blocks confirmation when population is low", () => {
     const source = element();
-    const condition = element();
     const cost = element();
     const note = element();
     const button = element();
@@ -234,7 +229,7 @@ describe("district action confirmation panel", () => {
       occupyCooldownMs: 12 * 60 * 1000
     });
 
-    expect(viewModel.conditionLabel).toBe("Špehování potvrzeno");
+    expect(viewModel.hasSpyAuthorization).toBe(true);
     expect(viewModel.costLabel).toBe("250 populace");
     expect(viewModel.note).toBe("");
     expect(viewModel.canConfirm).toBe(false);
@@ -242,7 +237,6 @@ describe("district action confirmation panel", () => {
     renderOccupyConfirmationPanel(viewModel, {
       occupyConfirmTitle: element(),
       occupyConfirmSource: source,
-      occupyConfirmCondition: condition,
       occupyConfirmCost: cost,
       occupyConfirmDuration: element(),
       occupyConfirmNote: note,
@@ -251,7 +245,6 @@ describe("district action confirmation panel", () => {
 
     expect(button.disabled).toBe(true);
     expect(source.dataset.validationState).toBeUndefined();
-    expect(condition.dataset.validationState).toBeUndefined();
     expect(cost.dataset.validationState).toBe("error");
     expect(note.textContent).toBe("");
     expect(note.hidden).toBe(true);

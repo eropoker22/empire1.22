@@ -111,7 +111,7 @@ export const createFinanceBuildingStats = (input: BuildingStatsProjectionInput):
       { label: "Vlastněné banky", value: `${ownedCount}/${input.centralBankConfig.countOnMap}` },
       { label: "Ochrana clean cash", value: `${formatNumber(stats.cleanCashProtectionPct)} %` },
       { label: "Úrok rezervy", value: `${formatNumber(stats.interestPct)} % každých ${formatNumber(stats.interestIntervalMinutes)} min` },
-      { label: "Max úrok za tick", value: `$${formatNumber(stats.maxInterestCleanCash)}` },
+      { label: `Max úrok / ${formatTickLabel(1, tickRateMs)}`, value: `$${formatNumber(stats.maxInterestCleanCash)}` },
       { label: "Další úrok", value: metadata.lastInterestTick === undefined || !stats.tier ? "počítá se" : formatTickLabel(Math.max(0, metadata.lastInterestTick + Math.ceil(stats.tier.interestIntervalMinutes * 60000 / Math.max(1, tickRateMs)) - input.tick)) },
       { label: "Poslední úrok", value: latestInterest ? `$${formatNumber(latestInterest.amount)}` : "žádný" },
       { label: "Market poplatek", value: `-${formatNumber(stats.marketFeeReductionPct)} %` },

@@ -26,6 +26,13 @@ function nonNegativeNumberOrNull(...values) {
   return null;
 }
 
+function formatDurationMs(value) {
+  const totalSeconds = Math.max(0, Math.ceil(Number(value || 0) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0 ? `${minutes}m ${String(seconds).padStart(2, "0")}s` : `${seconds}s`;
+}
+
 function unavailablePoliceFeedback() {
   return {
     available: false,
@@ -118,7 +125,7 @@ function normalizeCorePoliceEntries(model = {}) {
     entries.unshift({
       kind: "pending-raid",
       title: `Připravená razie · ${pendingRaid.severity || "vysoká"}`,
-      message: pendingRaid.reason || `Vyprší v ticku ${pendingRaid.expiresAtTick ?? "?"}`
+      message: pendingRaid.reason || `Vyprší za ${formatDurationMs(pendingRaid.remainingMs)}.`
     });
   }
 

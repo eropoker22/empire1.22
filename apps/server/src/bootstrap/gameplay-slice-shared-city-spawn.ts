@@ -1,5 +1,6 @@
 import {
   createFreshSpawnBuildingMetadata,
+  isSpawnDistrictOccupationActive,
   resolvePlayerStartingDistrictInfluence,
   type CoreGameState
 } from "@empire/game-core";
@@ -33,6 +34,7 @@ export const claimNextSharedCitySpawnDistrict = (
       && !district.ownerPlayerId
       && district.status === "neutral"
       && district.zone !== "downtown"
+      && !isSpawnDistrictOccupationActive(state, district.id)
     );
 
   if (!spawnDistrict) {

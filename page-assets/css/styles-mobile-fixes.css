@@ -7380,3 +7380,46 @@ html body.game-modal-scroll-locked .district-building-detail-shell .district-bui
     grid-column: 1 / -1 !important;
   }
 }
+
+/* Final phone sizing pass: keep building sheets fully inside the visual viewport. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]),
+  html body.game-modal-scroll-locked .district-building-detail-shell:not([hidden]),
+  html body.game-modal-scroll-locked .armory-popup-shell:not([hidden]),
+  html body.game-modal-scroll-locked .pharmacy-popup-shell:not([hidden]),
+  html body.game-modal-scroll-locked .druglab-popup-shell:not([hidden]),
+  html body.game-modal-scroll-locked .factory-popup-shell:not([hidden]) {
+    padding: max(3px, env(safe-area-inset-top)) 4px max(4px, env(safe-area-inset-bottom)) !important;
+  }
+
+  html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content,
+  html body.game-modal-scroll-locked .district-building-detail-shell:not([hidden]) .district-building-detail-card.building-detail-modal__content,
+  html body.game-modal-scroll-locked .armory-popup-shell:not([hidden]) .armory-popup-card.building-detail-modal__content,
+  html body.game-modal-scroll-locked .pharmacy-popup-shell:not([hidden]) .pharmacy-popup-card.building-detail-modal__content,
+  html body.game-modal-scroll-locked .druglab-popup-shell:not([hidden]) .druglab-popup-card.building-detail-modal__content,
+  html body.game-modal-scroll-locked .factory-popup-shell:not([hidden]) .factory-popup-card.building-detail-modal__content {
+    width: min(438px, calc(100vw - 8px)) !important;
+    height: calc(var(--mobile-locked-vh, 100svh) - max(3px, env(safe-area-inset-top)) - max(4px, env(safe-area-inset-bottom))) !important;
+    max-height: calc(var(--mobile-locked-vh, 100svh) - max(3px, env(safe-area-inset-top)) - max(4px, env(safe-area-inset-bottom))) !important;
+    border-radius: 13px !important;
+    box-sizing: border-box !important;
+  }
+
+  html body.game-modal-scroll-locked .district-popup-shell[data-district-popup]:not([hidden]),
+  html body.game-body:not(.game-modal-scroll-locked) .district-popup-shell[data-district-popup]:not([hidden]),
+  html body.game-modal-scroll-locked .district-popup-shell[data-district-popup][data-mobile-position="raised"]:not([hidden]),
+  html body.game-body:not(.game-modal-scroll-locked) .district-popup-shell[data-district-popup][data-mobile-position="raised"]:not([hidden]),
+  html body.game-modal-scroll-locked .district-popup-shell[data-district-popup][data-overview-enabled="true"]:not([hidden]),
+  html body.game-body:not(.game-modal-scroll-locked) .district-popup-shell[data-district-popup][data-overview-enabled="true"]:not([hidden]) {
+    --district-popup-phone-top: max(calc(var(--mobile-topbar-offset, 72px) + 18px), 86px);
+    --district-popup-phone-bottom: max(18px, env(safe-area-inset-bottom));
+    align-items: center !important;
+    padding: var(--district-popup-phone-top) 8px var(--district-popup-phone-bottom) !important;
+  }
+
+  html body.game-modal-scroll-locked .district-popup-shell[data-district-popup]:not([hidden]) .district-popup-card,
+  html body.game-body:not(.game-modal-scroll-locked) .district-popup-shell[data-district-popup]:not([hidden]) .district-popup-card {
+    max-height: calc(var(--mobile-locked-vh, 100svh) - var(--district-popup-phone-top) - var(--district-popup-phone-bottom)) !important;
+    margin: auto !important;
+  }
+}

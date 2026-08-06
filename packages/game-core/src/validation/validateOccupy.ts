@@ -18,6 +18,7 @@ import {
   validateMapAction
 } from "../rules";
 import { validateOccupyEmptyDistrictAuthorization } from "./spyIntel";
+import { formatTickDuration } from "../utils/time";
 
 /**
  * Responsibility: Pure validator for neutral district occupation after successful intel.
@@ -102,7 +103,7 @@ export const validateOccupy = (
   if (activeGlobalOccupyUntilTick > state.root.tick) {
     return [{
       code: "PLAYER_OCCUPY_OPERATION_ACTIVE",
-      message: `Už provádíš obsazení. Další můžeš zahájit za ${activeGlobalOccupyUntilTick - state.root.tick} ticků.`,
+      message: `Už provádíš obsazení. Další můžeš zahájit za ${formatTickDuration(activeGlobalOccupyUntilTick - state.root.tick)}.`,
       details: { cooldownUntilTick: activeGlobalOccupyUntilTick }
     }];
   }
@@ -126,7 +127,7 @@ export const validateOccupy = (
     return [
       {
         code: "occupy_on_cooldown",
-        message: `Trasa obsazení do ${targetDistrict.name} čeká ještě ${activeOccupyCooldownTick - state.root.tick} ticků.`
+        message: `Trasa obsazení do ${targetDistrict.name} čeká ještě ${formatTickDuration(activeOccupyCooldownTick - state.root.tick)}.`
       }
     ];
   }

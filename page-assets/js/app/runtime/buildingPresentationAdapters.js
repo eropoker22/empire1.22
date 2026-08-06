@@ -1019,6 +1019,11 @@ export class LocalDemoBuildingPresentationAdapter {
   }
 }
 
+export function isServerBuildingCollectReady(presentation) {
+  return presentation?.viewModel?.collect?.visible === true
+    && presentation.viewModel.collect.enabled === true;
+}
+
 export class ServerBuildingPresentationAdapter {
   constructor({ getReadModel, resolveDistrictBuildingProfile } = {}) {
     this.getReadModel = getReadModel;

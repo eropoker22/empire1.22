@@ -5266,3 +5266,66 @@ body.servers-page .auth-servers--membership-active .auth-server-card.live-server
     font-size: 0.62rem;
   }
 }
+
+@media (min-width: 761px) {
+  body.servers-page .lobby-server-list-only.is-membership-active {
+    align-self: start;
+    width: 100%;
+    max-height: 202px;
+    padding: 4px;
+    overflow: hidden;
+  }
+
+  body.servers-page .lobby-server-list-only.is-membership-active::after {
+    display: none;
+  }
+
+  body.servers-page .lobby-server-list-only.is-membership-active .auth-servers--membership-active {
+    grid-auto-rows: max-content;
+    align-content: start;
+    gap: 7px;
+    width: 100%;
+    max-height: 192px;
+    padding: 0 6px 0 0;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+
+  body.servers-page .lobby-server-list-only.is-membership-active .auth-server-card.live-server-card {
+    grid-template-columns: minmax(0, 1fr) 102px;
+    min-height: 58px;
+  }
+
+  body.servers-page .lobby-server-list-only.is-membership-active .live-server-card__main {
+    grid-template-columns: minmax(0, 1fr) minmax(116px, auto);
+    gap: 1px 10px;
+    padding: 6px 9px 6px 11px;
+  }
+
+  body.servers-page .lobby-server-list-only.is-membership-active .auth-server-card__label {
+    font-size: 0.86rem;
+  }
+
+  body.servers-page .lobby-server-list-only.is-membership-active :is(
+    .auth-server-card__meta,
+    .auth-server-card__subtitle,
+    .auth-server-card__status,
+    .auth-server-card__countdown
+  ) {
+    font-size: 0.58rem;
+    line-height: 1.08;
+  }
+
+  body.servers-page .lobby-server-list-only.is-membership-active .auth-server-card__status {
+    min-height: 18px;
+    padding-inline: 6px;
+  }
+
+  body.servers-page .lobby-server-list-only.is-membership-active .live-server-card > .lobby-primary-cta {
+    min-width: 102px;
+    min-height: 58px;
+    padding: 6px;
+    font-size: 0.58rem;
+    line-height: 1.08;
+  }
+}

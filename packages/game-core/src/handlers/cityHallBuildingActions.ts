@@ -5,6 +5,7 @@ import type { CoreGameState } from "../entities";
 import type { CityHallActionResolution } from "./cityHallTypes";
 import { getCurrentDayNightPhase } from "../rules/day-night/dayNightPhase";
 import { getOwnedLobbyClubCount } from "./lobbyClubBuildingActions";
+import { formatTickDuration } from "../utils/time";
 import {
   appendRiskEvent,
   countOwnedBuildings,
@@ -160,7 +161,7 @@ export const resolveCityHallAction = (input: {
       influenceChange: -input.config.officialCover.costInfluence,
       inputCost: { cash: cleanCost },
       outputGain: {},
-      reportText: `Úřední krytí je aktivní ve všech vlastněných districtech (${coveredDistricts.length}) do ticku ${expiresAtTick}.`,
+      reportText: `Úřední krytí je aktivní ve všech vlastněných districtech (${coveredDistricts.length}) po dobu ${formatTickDuration(expiresAtTick - input.state.root.tick, input.tickRateMs)}.`,
       cityHallResult: {
         type: "official_cover",
         targetDistrictIds: coveredDistricts.map((district) => district.id),

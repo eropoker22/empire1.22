@@ -293,6 +293,32 @@ describe("authoritative basic action commands", () => {
     }));
   });
 
+  it("keeps attack setup available when a smaller valid loadout fits the population", () => {
+    const state = createHeistState();
+    state.playersById["player:1"] = {
+      ...state.playersById["player:1"],
+      population: 1,
+      attackLoadout: {
+        "baseball-bat": 1,
+        pistol: 1,
+        grenade: 1,
+        smg: 1,
+        bazooka: 1
+      }
+    };
+    const panel = createDistrictPanelView(state, {
+      districtId: "district:1",
+      playerId: "player:1",
+      issuedAt: new Date(0).toISOString(),
+      ...minimalPanelConfig()
+    });
+
+    expect(panel?.attackTargets[0]).toMatchObject({
+      districtId: "district:2",
+      enabled: true
+    });
+  });
+
   it("projects one opened-target action route and reveals foreign buildings only after successful spy intel", () => {
     const state = createHeistState();
     const foreignBuilding = createFixedBuildingFixture("casino", {

@@ -7,6 +7,7 @@ import {
   resolveDayNightActionRule
 } from "../rules/day-night/dayNightActionRules";
 import { composeEntityId } from "../utils";
+import { formatTickDuration } from "../utils/time";
 import { resolveDealerSupplyStats, resolveOpenChannelStats } from "./smugglingTunnelBuildingActions";
 import {
   resolveRequestedSlotId,
@@ -113,7 +114,7 @@ export const resolveStreetDealersAction = (input: {
     influenceChange: 0,
     inputCost: { [drug.itemId]: amount },
     outputGain: {},
-    reportText: `Pouliční dealeři prodávají ${amount}x ${drug.label}. Hotovo za ${durationTicks} ticků, pouliční riziko ${effectiveStreetRiskPct} %.`,
+    reportText: `Pouliční dealeři prodávají ${amount}x ${drug.label}. Hotovo za ${formatTickDuration(durationTicks, input.tickRateMs)}, pouliční riziko ${effectiveStreetRiskPct} %.`,
     streetDealerResult: {
       type: "sale_started",
       slotId,

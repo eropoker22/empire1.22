@@ -9,6 +9,7 @@ export interface DistrictAttackTargetView {
   ownerPlayerId: PlayerId | null;
   status: DistrictStatus;
   enabled: boolean;
+  disabledCode?: string | null;
   disabledReason: string | null;
   cooldownRemainingTicks?: number;
   globalCooldownRemainingTicks?: number;

@@ -56,6 +56,16 @@ describe("legacy faction compatibility bridge", () => {
     expect(liveSource).toContain('values.join(" • ")');
   });
 
+  it("keeps the phone palette compact and exposes avatar zoom controls", () => {
+    const liveSource = readFileSync("page-assets/js/faction-live.js", "utf8");
+    const stylesheet = readFileSync("page-assets/css/styles-auth-faction.css", "utf8");
+
+    expect(liveSource).toContain("data-live-avatar-zoom");
+    expect(liveSource).toContain("openAvatarLightbox");
+    expect(stylesheet).toContain("grid-template-columns: repeat(8, minmax(0, 1fr)) !important");
+    expect(stylesheet).toContain(".auth-body--faction .avatar-item__zoom");
+  });
+
   it("keeps legacy preview catalog synchronized with authoritative public definitions", () => {
     expect(Object.keys(FACTION_CATALOG).sort()).toEqual(FACTION_DEFINITIONS.map((definition) => definition.id).sort());
 

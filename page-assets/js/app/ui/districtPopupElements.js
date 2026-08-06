@@ -205,7 +205,6 @@ export function getDistrictPopupElements(root) {
     occupyConfirmAtmosphereLabel: query(root, selectors.OCCUPY_CONFIRM_ATMOSPHERE_LABEL_SELECTOR),
     occupyConfirmTitle: query(root, selectors.OCCUPY_CONFIRM_TITLE_SELECTOR),
     occupyConfirmSource: query(root, selectors.OCCUPY_CONFIRM_SOURCE_SELECTOR),
-    occupyConfirmCondition: query(root, selectors.OCCUPY_CONFIRM_CONDITION_SELECTOR),
     occupyConfirmCost: query(root, selectors.OCCUPY_CONFIRM_COST_SELECTOR),
     occupyConfirmDuration: query(root, selectors.OCCUPY_CONFIRM_DURATION_SELECTOR),
     occupyConfirmNote: query(root, selectors.OCCUPY_CONFIRM_NOTE_SELECTOR),

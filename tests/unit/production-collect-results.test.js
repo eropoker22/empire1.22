@@ -1,7 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { createStorageCollectResultPayload } from "../../page-assets/js/app/production-collect-results.js";
+import {
+  createPopulationCollectResultPayload,
+  createStorageCollectResultPayload
+} from "../../page-assets/js/app/production-collect-results.js";
 
 describe("production collect results", () => {
+  it.each([
+    ["Bytový blok", "Bytový blok: nový nábor", "Z bytového bloku se k tvému gangu přidalo 12 nových členů."],
+    ["Večerka", "Večerka: nový nábor", "Z Večerky se k tvému gangu přidalo 12 nových členů."],
+    ["Škola", "Škola: nový nábor", "Z Školy se k tvému gangu přidalo 12 nových členů."]
+  ])("creates a Czech recruitment payload for %s", (buildingLabel, title, summary) => {
+    const payload = createPopulationCollectResultPayload({
+      buildingLabel,
+      amount: 12,
+      districtLabel: "District 7"
+    });
+
+    expect(payload).toMatchObject({
+      title,
+      summary,
+      badge: "Nábor",
+      collectItems: [{ label: "Členové gangu", value: "12", amount: 12 }]
+    });
+    expect(payload.rows).toEqual(expect.arrayContaining([
+      { label: "District", value: "District 7" },
+      { label: "Noví členové", value: "12", nowrap: true }
+    ]));
+  });
+
   it.each([
     ["Večerka", "Večerka: Nový nábor"],
     ["Bytový blok", "Bytový blok - Nový nábor"]

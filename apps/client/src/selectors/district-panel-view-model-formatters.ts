@@ -8,7 +8,7 @@ export const getStoragePercent = (storedAmount: number, storageCap: number): num
   Math.max(0, Math.min(100, Math.round((Math.max(0, storedAmount) / Math.max(1, storageCap)) * 100)));
 
 export const formatTickLabel = (tickCount: number): string =>
-  `${tickCount} ${tickCount === 1 ? "tick" : "ticks"}`;
+  formatDurationMs(Math.max(0, Number(tickCount) || 0) * 10_000);
 
 export const createCooldownCountdown = (
   remainingTicks: number,

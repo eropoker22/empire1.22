@@ -76,6 +76,7 @@ const addEffect = (state, effect, now) => {
     seed: Number(effect?.seed || districtId),
     source: effect?.source || effect?.status || type,
     playerId: String(effect?.playerId || effect?.attackerPlayerId || ""),
+    playerName: String(effect?.playerName || effect?.displayName || ""),
     playerColor: String(effect?.playerColor || ""),
     startedAt: normalizeTimestamp(effect?.startedAt || effect?.createdAt, now),
     expiresAt: normalizeTimestamp(effect?.expiresAt || effect?.resolveAt, Number.POSITIVE_INFINITY)

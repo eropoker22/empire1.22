@@ -233,7 +233,10 @@ import {
 } from "./performance/mobilePerformanceMode.js";
 import { getPoliceTierShortEffect, resolvePoliceOperationImpact } from "./police-raid-config.js";
 import { renderPoliceRaidImpactDetails } from "./police-raid-modal.js";
-import { createStorageCollectResultPayload } from "./production-collect-results.js";
+import {
+  createPopulationCollectResultPayload,
+  createStorageCollectResultPayload
+} from "./production-collect-results.js";
 import {
   PAGE_ROOT_SELECTOR,
   MOUNT_SELECTOR,
@@ -490,7 +493,6 @@ import {
   OCCUPY_CONFIRM_ATMOSPHERE_LABEL_SELECTOR,
   OCCUPY_CONFIRM_TITLE_SELECTOR,
   OCCUPY_CONFIRM_SOURCE_SELECTOR,
-  OCCUPY_CONFIRM_CONDITION_SELECTOR,
   OCCUPY_CONFIRM_COST_SELECTOR,
   OCCUPY_CONFIRM_DURATION_SELECTOR,
   OCCUPY_CONFIRM_NOTE_SELECTOR,
@@ -869,6 +871,7 @@ import {
 import {
   createWarehouseStorageCompatibilityView,
   createServerBuildingActionExecutionPresentation,
+  isServerBuildingCollectReady,
   LocalDemoBuildingPresentationAdapter,
   resolveSharedBuildingBackgroundImagePath,
   ServerBuildingPresentationAdapter
@@ -987,6 +990,10 @@ import {
 } from "./runtime/onboardingRuntimePolicy.js";
 import { createPoliceHeatBridge, resolvePoliceHeatFeedback } from "./runtime/policeHeatBridge.js";
 import { createEventRumorBridge, createRumorStreetNewsPayload } from "./runtime/eventRumorBridge.js";
+import {
+  dedupeStreetNewsCooldownEntries,
+  selectServerPendingMissionCooldowns
+} from "./runtime/serverCooldownStreetNews.js";
 import { renderRecipeCard } from "./ui/recipePanel.js";
 import { openRumorInboxModal } from "./ui/rumorInboxModal.js";
 import {
@@ -3848,6 +3855,76 @@ function formatServerReportRecord(record = {}) {
     : "Žádné";
 }
 
+const SERVER_BUILDING_LABELS = Object.freeze({
+  apartment_block: "Bytový blok",
+  armory: "Zbrojovka",
+  clinic: "Klinika",
+  convenience_store: "Večerka",
+  drug_lab: "Lab",
+  factory: "Továrna",
+  pharmacy: "Lékárna",
+  recycling_center: "Recyklační centrum",
+  school: "Škola"
+});
+
+const POPULATION_COLLECTION_ACTION_IDS = new Set([
+  "collect_population",
+  "collect_convenience_store_population",
+  "collect_school_population"
+]);
+
+function getServerBuildingLabel(report = {}) {
+  const buildingTypeId = String(report.buildingTypeId || report.buildingType || "").trim();
+  return SERVER_BUILDING_LABELS[buildingTypeId]
+    || buildingTypeId.replace(/_/g, " ")
+    || "Budova";
+}
+
+function getCollectedPopulationAmount(report = {}) {
+  const output = report.outputGain || report.producedItems || {};
+  return Math.max(0, Math.floor(Number(output["gang-members"] ?? output.population ?? 0)));
+}
+
+function createClinicRecoveryReportPayload(report = {}, targetLabel = "") {
+  const recoveredPopulation = getCollectedPopulationAmount(report);
+  return {
+    tone: "is-success is-building-action-result",
+    title: "Klinika: zachránění členové",
+    badge: "Léčba",
+    summary: recoveredPopulation > 0
+      ? `Klinika zachránila ${recoveredPopulation} členů po nedávných ztrátách.`
+      : "Klinika dokončila léčbu, ale žádného dalšího člena se nepodařilo zachránit.",
+    districtId: report.districtId,
+    actionId: String(report.buildingActionId || report.actionId || ""),
+    buildingTypeId: "clinic",
+    rows: [
+      { label: "District", value: targetLabel },
+      { label: "Zachránění členové", value: String(recoveredPopulation), nowrap: true },
+      { label: "Cena", value: formatServerReportRecord(report.inputCost || report.consumedItems) },
+      { label: "Heat", value: `+${Number(report.heatDelta || report.heatGain || 0)}` }
+    ]
+  };
+}
+
+function createRecyclingCollectionReportPayload(report = {}, targetLabel = "") {
+  const recoveredItems = report.outputGain || report.producedItems || {};
+  return {
+    tone: "is-success is-building-action-result",
+    title: "Recyklační centrum: vytěžené ztráty",
+    badge: "Recyklace",
+    summary: `Recyklační centrum vrátilo do skladu: ${formatServerReportRecord(recoveredItems)}.`,
+    districtId: report.districtId,
+    actionId: String(report.buildingActionId || report.actionId || ""),
+    buildingTypeId: "recycling_center",
+    rows: [
+      { label: "District", value: targetLabel },
+      { label: "Získáno", value: formatServerReportRecord(recoveredItems) },
+      { label: "Cena", value: formatServerReportRecord(report.inputCost || report.consumedItems) },
+      { label: "Heat", value: `+${Number(report.heatDelta || report.heatGain || 0)}` }
+    ]
+  };
+}
+
 function createServerConflictReportPresentation(report = {}) {
   const targetDistrictId = report.targetDistrictId || report.districtId || "";
   const targetLabel = formatServerReportDistrict(targetDistrictId);
@@ -3957,30 +4034,49 @@ function createServerConflictReportPresentation(report = {}) {
   }
 
   if (report.reportType === "building-action") {
-    const buildingLabel = String(report.buildingType || report.buildingTypeId || "Budova").replace(/_/g, " ");
+    const buildingLabel = getServerBuildingLabel(report);
     const actionId = String(report.buildingActionId || report.actionId || "").trim();
-    if (actionId === "collect-production") {
-      const buildingLabels = {
-        pharmacy: "Lékárna",
-        drug_lab: "Lab",
-        factory: "Továrna",
-        armory: "Zbrojovka"
+    if (POPULATION_COLLECTION_ACTION_IDS.has(actionId)) {
+      return {
+        kind: "police",
+        modalKind: "police",
+        payload: createPopulationCollectResultPayload({
+          buildingLabel,
+          amount: getCollectedPopulationAmount(report),
+          districtLabel: targetLabel
+        })
       };
+    }
+    if (actionId === "collect-production") {
       return {
         kind: "police",
         modalKind: "police",
         payload: createStorageCollectResultPayload({
-          buildingLabel: buildingLabels[report.buildingTypeId] || buildingLabels[report.buildingType] || buildingLabel,
+          buildingLabel,
           items: Object.entries(report.outputGain || report.producedItems || {})
             .map(([resourceKey, amount]) => ({
               label: getProductionResourceLabel(resourceKey),
               amount: Math.max(0, Number(amount || 0))
             }))
             .filter((item) => item.amount > 0),
-          meta: "Serverový sklad",
+          meta: "Sklad",
           districtLabel: targetLabel,
           hideBadge: report.buildingTypeId === "pharmacy"
         })
+      };
+    }
+    if (actionId === "stabilization_protocol" && String(report.buildingTypeId || report.buildingType || "") === "clinic") {
+      return {
+        kind: "police",
+        modalKind: "police",
+        payload: createClinicRecoveryReportPayload(report, targetLabel)
+      };
+    }
+    if (actionId === "extract_losses" && String(report.buildingTypeId || report.buildingType || "") === "recycling_center") {
+      return {
+        kind: "police",
+        modalKind: "police",
+        payload: createRecyclingCollectionReportPayload(report, targetLabel)
       };
     }
     return {
@@ -4379,6 +4475,7 @@ function readStreetNewsCooldownObject(factory) {
 
 function collectMissionCooldownStreetNewsEntries(now) {
   const entries = [];
+  const includePreviewMissions = getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.localDemo;
   const appendOrder = (kind, title, order, expiresKey, summaryFactory) => {
     const expiresAt = parseStreetNewsCooldownTimestamp(order?.[expiresKey]);
     if (!expiresAt || expiresAt <= now) {
@@ -4393,28 +4490,33 @@ function collectMissionCooldownStreetNewsEntries(now) {
     }, now);
   };
 
-  for (const order of readStreetNewsCooldownArray(getStoredAttackOrders)) {
-    appendOrder("attack", "Útok", order, "resolveAt", (entry) =>
-      formatStreetNewsCooldownDistrict(entry?.targetDistrictId)
-    );
-  }
+  if (includePreviewMissions) {
+    for (const order of readStreetNewsCooldownArray(getStoredAttackOrders)) {
+      appendOrder("attack", "Útok", order, "resolveAt", (entry) =>
+        formatStreetNewsCooldownDistrict(entry?.targetDistrictId)
+      );
+    }
 
-  for (const order of readStreetNewsCooldownArray(getStoredOccupyOrders)) {
-    appendOrder("occupy", "Obsazení", order, "resolveAt", (entry) =>
-      `${formatStreetNewsCooldownDistrict(entry?.targetDistrictId)} je obsazován`
-    );
-  }
+    for (const order of readStreetNewsCooldownArray(getStoredOccupyOrders)) {
+      appendOrder("occupy", "Obsazení", order, "resolveAt", (entry) =>
+        `${formatStreetNewsCooldownDistrict(entry?.targetDistrictId)} je obsazován`
+      );
+    }
 
-  for (const order of readStreetNewsCooldownArray(getStoredRobberyOrders)) {
-    appendOrder("robbery", "Vykrást district", order, "resolveAt", (entry) =>
-      formatStreetNewsCooldownDistrict(entry?.targetDistrictId)
-    );
+    for (const order of readStreetNewsCooldownArray(getStoredRobberyOrders)) {
+      appendOrder("robbery", "Vykrást district", order, "resolveAt", (entry) =>
+        formatStreetNewsCooldownDistrict(entry?.targetDistrictId)
+      );
+    }
   }
 
   const spyState = readStreetNewsCooldownObject(getResolvedSpyState);
   const spyMissions = Array.isArray(spyState.missions) ? spyState.missions : [];
   for (const mission of spyMissions) {
     const isCaptured = mission?.status === "captured";
+    if (!includePreviewMissions && !isCaptured) {
+      continue;
+    }
     const expiresAt = parseStreetNewsCooldownTimestamp(isCaptured ? mission?.cooldownUntil : mission?.returnAt);
     if (!expiresAt || expiresAt <= now) {
       continue;
@@ -4436,95 +4538,29 @@ function collectMissionCooldownStreetNewsEntries(now) {
   return entries;
 }
 
-function collectServerRobberyCooldownStreetNewsEntries(now) {
+function collectServerMissionCooldownStreetNewsEntries(now) {
   if (!isServerAuthoritativeGameplayRuntimeReady()) {
     return [];
   }
 
   const readModel = getServerGameplaySliceReadModel();
-  const mapEffects = Array.isArray(readModel?.mapEffects) ? readModel.mapEffects : [];
-  const cooldowns = Array.isArray(readModel?.commandHints?.cooldowns)
-    ? readModel.commandHints.cooldowns
-    : [];
-  const tickRateMs = Math.max(1, Number(readModel?.mode?.tickRateMs || FREE_GAMEPLAY_TICK_MS));
-  const generatedAt = parseStreetNewsCooldownTimestamp(readModel?.server?.generatedAt) || now;
   const entries = [];
-  const trackedTargetDistrictIds = new Set();
-
-  for (const effect of mapEffects) {
-    if (String(effect?.type || "") !== "robbery") {
-      continue;
-    }
-
-    const targetDistrictId = effect?.districtId;
-    const expiresAt = parseStreetNewsCooldownTimestamp(effect?.expiresAt);
-    if (!expiresAt || expiresAt <= now) {
-      continue;
-    }
-
-    trackedTargetDistrictIds.add(String(targetDistrictId || ""));
+  for (const mission of selectServerPendingMissionCooldowns(readModel, now)) {
+    const title = mission.type === "spy"
+      ? "Špehování"
+      : mission.type === "robbery"
+        ? "Vykrást district"
+        : mission.type === "attack"
+          ? "Útok"
+          : "Obsazení";
+    const districtLabel = formatStreetNewsCooldownDistrict(mission.districtId);
     appendStreetNewsCooldownEntry(entries, {
-      id: `cooldown:server-robbery:${String(effect?.effectId || targetDistrictId || expiresAt)}`,
-      title: "Vykrást district",
-      summary: formatStreetNewsCooldownDistrict(targetDistrictId),
-      meta: `Čekání ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
-      expiresAt,
-      resultKind: "raid"
-    }, now);
-  }
-
-  for (const cooldown of cooldowns) {
-    if (String(cooldown?.commandType || "") !== "rob-district") {
-      continue;
-    }
-
-    const remainingTicks = Math.max(0, Number(cooldown?.remainingTicks || 0));
-    if (remainingTicks <= 0) {
-      continue;
-    }
-
-    const targetDistrictId = cooldown?.targetId;
-    if (trackedTargetDistrictIds.has(String(targetDistrictId || ""))) {
-      continue;
-    }
-    const expiresAt = generatedAt + (remainingTicks * tickRateMs);
-    appendStreetNewsCooldownEntry(entries, {
-      id: `cooldown:server-robbery:${String(targetDistrictId || expiresAt)}`,
-      title: "Vykrást district",
-      summary: formatStreetNewsCooldownDistrict(targetDistrictId),
-      meta: `Čekání ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
-      expiresAt,
-      resultKind: "raid"
-    }, now);
-  }
-
-  return entries;
-}
-
-function collectServerOccupyCooldownStreetNewsEntries(now) {
-  if (!isServerAuthoritativeGameplayRuntimeReady()) {
-    return [];
-  }
-
-  const readModel = getServerGameplaySliceReadModel();
-  const playerId = String(readModel?.player?.playerId || "");
-  const mapEffects = Array.isArray(readModel?.mapEffects) ? readModel.mapEffects : [];
-  const entries = [];
-  for (const effect of mapEffects) {
-    if (String(effect?.type || "") !== "occupy" || String(effect?.playerId || "") !== playerId) {
-      continue;
-    }
-    const expiresAt = parseStreetNewsCooldownTimestamp(effect?.expiresAt);
-    if (!expiresAt || expiresAt <= now) {
-      continue;
-    }
-    const targetDistrictId = effect?.districtId;
-    appendStreetNewsCooldownEntry(entries, {
-      id: `cooldown:server-occupy:${String(effect?.effectId || targetDistrictId || expiresAt)}`,
-      title: "Obsazení",
-      summary: `${formatStreetNewsCooldownDistrict(targetDistrictId)} je obsazován`,
-      meta: `Čekání ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
-      expiresAt
+      id: `cooldown:server:${mission.identity}`,
+      title,
+      summary: mission.type === "occupy" ? `${districtLabel} je obsazován` : districtLabel,
+      meta: `Čekání ${formatStreetNewsCooldownRemaining(mission.expiresAt - now)}`,
+      expiresAt: mission.expiresAt,
+      resultKind: mission.type === "robbery" ? "raid" : ""
     }, now);
   }
   return entries;
@@ -4648,14 +4684,13 @@ function collectAlliancePenaltyStreetNewsEntries(now) {
 }
 
 function createActiveCooldownStreetNewsEntries(now = Date.now()) {
-  return [
+  return dedupeStreetNewsCooldownEntries([
     ...collectMissionCooldownStreetNewsEntries(now),
-    ...collectServerRobberyCooldownStreetNewsEntries(now),
-    ...collectServerOccupyCooldownStreetNewsEntries(now),
+    ...collectServerMissionCooldownStreetNewsEntries(now),
     ...collectTrapCooldownStreetNewsEntries(now),
     ...collectBuildingCooldownStreetNewsEntries(now),
     ...collectAlliancePenaltyStreetNewsEntries(now)
-  ]
+  ])
     .sort((left, right) => Number(left.timestampMs || 0) - Number(right.timestampMs || 0))
     .slice(0, 16);
 }
@@ -4700,11 +4735,11 @@ function renderBuildingActionFeed(root, { syncPreview = false, previewSnapshot =
         }
       })
     : null;
-  const visibleEntries = [
+  const visibleEntries = dedupeStreetNewsCooldownEntries([
     ...cooldownEntries,
     ...(rumorInboxEntry ? [rumorInboxEntry] : []),
     ...standardEntries
-  ];
+  ]);
 
   panel.feedElement.replaceChildren(
     ...visibleEntries
@@ -6901,6 +6936,24 @@ const serverBuildingPresentationAdapter = new ServerBuildingPresentationAdapter(
   resolveDistrictBuildingProfile
 });
 
+function resolveServerBuildingCollectReady({ district, building, baseName, displayName } = {}) {
+  if (!isServerAuthoritativeGameplayRuntimeReady()) {
+    return null;
+  }
+
+  const presentation = serverBuildingPresentationAdapter.getBuildingDetailPresentation(
+    district,
+    {
+      buildingId: building?.buildingId || building?.serverBuilding?.buildingId || "",
+      buildingTypeId: building?.buildingTypeId || building?.serverBuilding?.buildingTypeId || "",
+      buildingName: baseName || displayName || ""
+    },
+    { renderState: getServerGameplayRenderState() }
+  );
+
+  return isServerBuildingCollectReady(presentation);
+}
+
 function getSharedDistrictBuildingPresentation(district) {
   return selectBuildingPresentationByAuthority({
     executionMode: getCurrentGameplayExecutionMode(),
@@ -7723,6 +7776,7 @@ const districtBuildingDetailContextByShell = new WeakMap();
 const districtBuildingDetailLiveRefreshTimers = new WeakMap();
 const districtBuildingDetailUpgradeConfirmations = new WeakMap();
 const districtBuildingDetailActionConfirmations = new WeakMap();
+const districtBuildingDetailActionSubmissions = new WeakMap();
 const DISTRICT_BUILDING_DETAIL_LIVE_REFRESH_MS = 1000;
 
 function getDistrictBuildingRule(ruleSet, buildingName, fallback) {
@@ -10250,10 +10304,21 @@ async function confirmAndRunDistrictBuildingDetailAction(root, shell, request) {
 function runDistrictBuildingDetailAction(root, shell, request) {
   const context = districtBuildingDetailContextByShell.get(shell);
   if (!context) {
-    return;
+    return false;
   }
 
-  confirmAndRunDistrictBuildingDetailAction(root, shell, request);
+  const pendingSubmission = districtBuildingDetailActionSubmissions.get(shell);
+  if (pendingSubmission) {
+    return pendingSubmission;
+  }
+
+  const submission = Promise.resolve(confirmAndRunDistrictBuildingDetailAction(root, shell, request));
+  districtBuildingDetailActionSubmissions.set(shell, submission);
+  return submission.finally(() => {
+    if (districtBuildingDetailActionSubmissions.get(shell) === submission) {
+      districtBuildingDetailActionSubmissions.delete(shell);
+    }
+  });
 }
 
 function resolveDistrictBuildingActionBaseCooldownMs(actionProfile = {}) {
@@ -11816,27 +11881,39 @@ function bindDistrictCanvas(root) {
     getGeometry: () => geometry,
     getInteractionState: () => interactionState,
     getResolvedSpyIntel,
-    isApartmentBlockFull({ district, baseName } = {}) {
+    isApartmentBlockFull(input = {}) {
+      const serverCollectReady = resolveServerBuildingCollectReady(input);
+      if (serverCollectReady !== null) {
+        return serverCollectReady;
+      }
       try {
-        const mechanics = resolveDistrictBuildingDetailMechanics(district, baseName || "Bytový blok");
+        const mechanics = resolveDistrictBuildingDetailMechanics(input.district, input.baseName || "Bytový blok");
         return mechanics?.mechanicsType === "apartment-block"
           && Boolean(mechanics.apartmentIsFull);
       } catch {
         return false;
       }
     },
-    isSchoolFull({ district, baseName } = {}) {
+    isSchoolFull(input = {}) {
+      const serverCollectReady = resolveServerBuildingCollectReady(input);
+      if (serverCollectReady !== null) {
+        return serverCollectReady;
+      }
       try {
-        const mechanics = resolveDistrictBuildingDetailMechanics(district, baseName || "Škola");
+        const mechanics = resolveDistrictBuildingDetailMechanics(input.district, input.baseName || "Škola");
         return mechanics?.mechanicsType === "school"
           && Boolean(mechanics.schoolIsFull);
       } catch {
         return false;
       }
     },
-    isConvenienceStoreFull({ district, baseName } = {}) {
+    isConvenienceStoreFull(input = {}) {
+      const serverCollectReady = resolveServerBuildingCollectReady(input);
+      if (serverCollectReady !== null) {
+        return serverCollectReady;
+      }
       try {
-        const mechanics = resolveDistrictBuildingDetailMechanics(district, baseName || "Večerka");
+        const mechanics = resolveDistrictBuildingDetailMechanics(input.district, input.baseName || "Večerka");
         return mechanics?.mechanicsType === "convenience-store"
           && Boolean(mechanics.convenienceStoreIsFull);
       } catch {
@@ -12796,6 +12873,32 @@ function bindDistrictCanvas(root) {
     return allianceName ? `Aliance: ${allianceName}` : "";
   };
 
+  const getDistrictOccupationPresentation = (district) => {
+    const districtId = Number(district?.id || 0);
+    const marker = interactionState.activeOccupyMarkersByDistrictId?.get?.(districtId);
+    if (!marker) return null;
+
+    const playerId = String(marker.playerId || "").trim();
+    const currentPlayerId = String(latestGameplaySliceReadModel?.player?.playerId || "").trim();
+    const currentProfile = latestGameplaySliceReadModel?.player?.profile;
+    const currentPlayerName = playerId && playerId === currentPlayerId
+      ? String(currentProfile?.gangName || currentProfile?.displayName || "").trim()
+      : "";
+    const numericPlayerId = Number(playerId.replace(/^player:/u, ""));
+    const playerName = String(marker.playerName || currentPlayerName).trim()
+      || (Number.isFinite(numericPlayerId) && numericPlayerId > 0 ? getLaunchPlayerName(numericPlayerId) : "")
+      || "neznámý hráč";
+    const expiresAt = Number(marker.expiresAt);
+    const remainingMs = Number.isFinite(expiresAt) ? Math.max(0, expiresAt - Date.now()) : 0;
+
+    return {
+      label: `District ${districtId} je právě obsazovaný hráčem ${playerName}`,
+      meta: remainingMs > 0
+        ? `Dokončení obsazení: ${formatDurationLabel(remainingMs)}`
+        : "Obsazení právě probíhá"
+    };
+  };
+
   const openServerSharedDistrictPopup = (district) => {
     if (popupRefreshTimerId !== null) {
       window.clearInterval(popupRefreshTimerId);
@@ -12814,6 +12917,11 @@ function bindDistrictCanvas(root) {
       });
       return false;
     }
+    const occupationPresentation = getDistrictOccupationPresentation(district);
+    if (occupationPresentation) {
+      serverView.ownerLabel = occupationPresentation.label;
+      serverView.ownerMeta = occupationPresentation.meta;
+    }
     popup.dataset.uiOwner = "legacy-shared";
     popup.dataset.executionMode = "server-authoritative";
     popup.dataset.serverDistrictId = canonicalDistrictId;
@@ -12829,7 +12937,7 @@ function bindDistrictCanvas(root) {
     }
     popup.dataset.districtId = String(district.id);
     popupCard.dataset.districtId = String(district.id);
-    popupCard.dataset.districtOccupationActive = "false";
+    popupCard.dataset.districtOccupationActive = String(Boolean(occupationPresentation));
     setDestroyedDistrictPopupMode(readModel?.district?.status === "destroyed");
     setDistrictPopupMobilePositionMode(
       readModel?.district?.isOwnedByPlayer || serverView.actions.some((action) => action.enabled)
@@ -12929,6 +13037,7 @@ function bindDistrictCanvas(root) {
 
     const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
     const isOccupying = isDistrictOccupationInProgress(district.id);
+    const occupationPresentation = getDistrictOccupationPresentation(district);
     const isSpying = isDistrictSpyInProgress(district.id);
     const isRobbing = isDistrictRobberyInProgress(district.id);
     const actionCountdowns = getDistrictActionCountdowns(district.id);
@@ -12940,7 +13049,7 @@ function bindDistrictCanvas(root) {
     const ownerLabel = isDestroyed
       ? "Nikdo"
       : isOccupying
-        ? `District ${district.id} je obsazován`
+        ? occupationPresentation?.label || `District ${district.id} je právě obsazovaný hráčem neznámý hráč`
         : rawOwnerLabel;
     const isOwnedByCurrentPlayer = !isDestroyed && !isOccupying && currentPlayerOwnedDistrictIds.has(Number(district.id));
     document.dispatchEvent(new CustomEvent("empire:district-opened", {
@@ -13020,7 +13129,7 @@ function bindDistrictCanvas(root) {
       spyIntel,
       resolveOwnerLabel: (entry, state) => (
         Number(entry?.id) === Number(district.id) && isOccupying
-          ? `District ${district.id} je obsazován`
+          ? ownerLabel
           : getDistrictOwnerLabel(entry, state)
       )
     }), {
@@ -13035,9 +13144,9 @@ function bindDistrictCanvas(root) {
       }
     });
     if (isOccupying && popupOwnerMeta) {
-      popupOwnerMeta.textContent = occupationCountdown
+      popupOwnerMeta.textContent = occupationPresentation?.meta || (occupationCountdown
         ? `Cooldown obsazení: ${occupationCountdown.label}`
-        : "Cooldown obsazení se načítá.";
+        : "Obsazení právě probíhá");
     }
     if (popupAlliance) {
       const allianceLabel = getDistrictAllianceLabel(district);

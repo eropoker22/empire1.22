@@ -1,3 +1,5 @@
+import { formatTickDuration } from "../utils/time";
+
 export const formatInputSummary = (inputCosts: Record<string, number>): string =>
   Object.entries(inputCosts)
     .map(([resourceKey, amount]) => `${amount} ${formatResourceLabel(resourceKey)}`)
@@ -47,8 +49,5 @@ export const formatNumber = (value: number): string => {
   return Number.isInteger(normalized) ? String(normalized) : normalized.toFixed(1);
 };
 
-export const formatTickLabel = (tickCount: number): string => {
-  const normalized = Math.max(0, Math.floor(Number(tickCount || 0)));
-  const suffix = normalized === 1 ? "tick" : normalized >= 2 && normalized <= 4 ? "ticky" : "ticků";
-  return `${normalized} ${suffix}`;
-};
+export const formatTickLabel = (tickCount: number, tickRateMs?: number): string =>
+  formatTickDuration(tickCount, tickRateMs);

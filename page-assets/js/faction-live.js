@@ -104,12 +104,19 @@ function renderAvatars() {
   }
   grid.innerHTML = avatars.map((source, index) => {
     const avatarId = `${state.factionId}:${index + 1}`;
-    return `<button class="avatar-item ${avatarId === state.avatarId ? "is-selected" : ""}" data-live-avatar="${avatarId}" type="button">
+    return `<button class="avatar-item ${avatarId === state.avatarId ? "is-selected" : ""}" data-live-avatar="${avatarId}" type="button" aria-label="Vybrat avatara ${index + 1}">
       <img src="${escapeAttribute(source)}" alt="Avatar ${index + 1}">
+      <span class="avatar-item__zoom" data-live-avatar-zoom="${avatarId}" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false"><circle cx="10.5" cy="10.5" r="5.5"></circle><path d="m15 15 5 5"></path></svg>
+      </span>
     </button>`;
   }).join("");
-  grid.querySelectorAll("[data-live-avatar]").forEach((button) => button.addEventListener("click", () => {
+  grid.querySelectorAll("[data-live-avatar]").forEach((button) => button.addEventListener("click", (event) => {
     if (state.busy) return;
+    if (event.target?.closest?.("[data-live-avatar-zoom]")) {
+      openAvatarLightbox(button.dataset.liveAvatar);
+      return;
+    }
     state.avatarId = button.dataset.liveAvatar;
     grid.querySelectorAll("[data-live-avatar]").forEach((entry) => entry.classList.toggle("is-selected", entry === button));
     updateReadyState();
@@ -125,6 +132,58 @@ function bindAvatarControls() {
   });
   document.querySelector("#avatar-left")?.addEventListener("click", () => move(-1));
   document.querySelector("#avatar-right")?.addEventListener("click", () => move(1));
+  document.querySelector("#avatar-lightbox-close")?.addEventListener("click", closeAvatarLightbox);
+  document.querySelector("#avatar-lightbox .avatar-lightbox__backdrop")?.addEventListener("click", closeAvatarLightbox);
+  document.querySelector("#avatar-lightbox-prev")?.addEventListener("click", () => shiftAvatarLightbox(-1));
+  document.querySelector("#avatar-lightbox-next")?.addEventListener("click", () => shiftAvatarLightbox(1));
+  document.querySelector("#avatar-lightbox-confirm")?.addEventListener("click", () => {
+    const avatarId = document.querySelector("#avatar-lightbox-img")?.dataset.liveAvatar;
+    if (avatarId) selectLiveAvatar(avatarId);
+    closeAvatarLightbox();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeAvatarLightbox();
+  });
+}
+
+function selectLiveAvatar(avatarId) {
+  if (state.busy || !resolveLiveAvatar(avatarId)) return;
+  state.avatarId = avatarId;
+  document.querySelectorAll("[data-live-avatar]").forEach((entry) => {
+    entry.classList.toggle("is-selected", entry.dataset.liveAvatar === avatarId);
+  });
+  updateReadyState();
+}
+
+function resolveLiveAvatar(avatarId) {
+  const match = String(avatarId || "").match(/^(.*):(\d+)$/u);
+  if (!match || match[1] !== state.factionId) return null;
+  const avatars = getLivePlayerAvatarPreviews(state.factionId);
+  const index = Number(match[2]) - 1;
+  return avatars[index] ? { avatarId, index, source: avatars[index], count: avatars.length } : null;
+}
+
+function openAvatarLightbox(avatarId) {
+  const avatar = resolveLiveAvatar(avatarId);
+  const lightbox = document.querySelector("#avatar-lightbox");
+  const image = document.querySelector("#avatar-lightbox-img");
+  if (!avatar || !lightbox || !image) return;
+  image.src = avatar.source;
+  image.dataset.liveAvatar = avatar.avatarId;
+  image.alt = `Avatar ${avatar.index + 1} – zvětšený náhled`;
+  text("#avatar-lightbox-caption", `Avatar ${avatar.index + 1} z ${avatar.count}`);
+  lightbox.classList.remove("hidden");
+}
+
+function shiftAvatarLightbox(direction) {
+  const current = resolveLiveAvatar(document.querySelector("#avatar-lightbox-img")?.dataset.liveAvatar);
+  if (!current) return;
+  const nextIndex = (current.index + direction + current.count) % current.count;
+  openAvatarLightbox(`${state.factionId}:${nextIndex + 1}`);
+}
+
+function closeAvatarLightbox() {
+  document.querySelector("#avatar-lightbox")?.classList.add("hidden");
 }
 
 function renderColors() {

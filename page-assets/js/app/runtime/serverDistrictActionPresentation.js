@@ -17,6 +17,13 @@ const findTarget = (district, collection, districtId) => (
     .find((target) => String(target?.districtId || "") === districtId) || null
 );
 
+const resolveTargetDisabledReason = (definition, target) => {
+  if (definition.id === "spy" && target?.disabledCode === "SPY_SLOT_LIMIT_REACHED") {
+    return "Žádní špehové";
+  }
+  return String(target?.disabledReason || "Akce teď není dostupná.");
+};
+
 export function createServerDistrictActionPresentation(readModel, districtId) {
   const canonicalDistrictId = String(districtId || "");
   const district = readModel?.district || null;
@@ -74,13 +81,19 @@ export function createServerDistrictActionPresentation(readModel, districtId) {
 
     const target = findTarget(district, definition.collection, canonicalDistrictId);
     if (!target) return [];
+    const enabled = target.enabled === true;
+    const reason = enabled ? "" : resolveTargetDisabledReason(definition, target);
     return [{
       id: definition.id,
-      enabled: target.enabled === true,
+      enabled,
       label: definition.label,
-      reason: String(target.disabledReason || ""),
-      stacked: false,
-      subtitle: "",
+      reason: "",
+      stacked: !enabled,
+      subtitle: reason,
+      disabledTone: !enabled && definition.id === "spy" && target.disabledCode === "SPY_SLOT_LIMIT_REACHED"
+        ? "no-spies"
+        : !enabled ? "unavailable" : "",
+      title: reason,
       visible: true
     }];
   });

@@ -169,7 +169,7 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
     description: "Serverově sníží heat districtu o 20 bodů.",
     durationMs: 0,
     cooldownMs: 60 * 60 * 1000,
-    inputCost: {},
+    inputCost: { cash: 10000 },
     outputGain: {},
     heatGain: -20,
     influenceChange: 0,

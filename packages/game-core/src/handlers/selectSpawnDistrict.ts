@@ -64,6 +64,17 @@ export const createFreshSpawnBuildingMetadata = (
   return building.metadata;
 };
 
+export const isSpawnDistrictOccupationActive = (
+  state: CoreGameState,
+  districtId: string
+): boolean => {
+  const district = state.districtsById[districtId];
+  if (Number(district?.operationLocks?.occupy ?? 0) > state.root.tick) return true;
+  return Object.values(state.pendingOccupyOperationsById ?? {}).some((operation) =>
+    operation.targetDistrictId === districtId && operation.resolveAtTick > state.root.tick
+  );
+};
+
 export const handleSelectSpawnDistrict = (
   state: CoreGameState,
   command: SelectSpawnDistrictCommand,
@@ -98,6 +109,10 @@ export const handleSelectSpawnDistrict = (
 
   if (district.status === "locked" || district.status === "destroyed" || district.lockdownUntilTick) {
     return failed(state, "SPAWN_LOCKED", "Startovní district je zamčený.");
+  }
+
+  if (isSpawnDistrictOccupationActive(state, district.id)) {
+    return failed(state, "SPAWN_OCCUPATION_IN_PROGRESS", "Tento district právě někdo obsazuje.");
   }
 
   if (district.ownerPlayerId) {

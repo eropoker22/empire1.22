@@ -114,7 +114,6 @@ const SPY_CONFIRMATION_REQUIRED_KEYS = [
 
 const OCCUPY_CONFIRMATION_REQUIRED_KEYS = [
   "occupyConfirmTitle",
-  "occupyConfirmCondition",
   "occupyConfirmCost",
   "occupyConfirmDuration",
   "occupyConfirmNote"
@@ -162,7 +161,6 @@ export function createDistrictActionConfirmationPanelElements(elements = {}) {
     defenseWeaponInputs: elements.defenseWeaponInputs,
     gangMembersValue: elements.gangMembersValue,
     occupyConfirmButton: elements.occupyConfirmButton,
-    occupyConfirmCondition: elements.occupyConfirmCondition,
     occupyConfirmCost: elements.occupyConfirmCost,
     occupyConfirmDuration: elements.occupyConfirmDuration,
     occupyConfirmNote: elements.occupyConfirmNote,
@@ -532,7 +530,7 @@ export function createOccupyConfirmationViewModel({
   return {
     targetDistrictId: district?.id,
     sourceLabel: hasSourceDistrict ? `District ${sourceDistrictId}` : "Žádný soused",
-    conditionLabel: canOccupyAfterSpy ? "Špehování potvrzeno" : "Chybí špehování",
+    hasSpyAuthorization: canOccupyAfterSpy,
     costLabel: hasAuthoritativeTarget
       ? `${populationCost} populace · ${influenceCost} vlivu`
       : `${populationCost} populace`,
@@ -563,21 +561,18 @@ export function renderOccupyConfirmationPanel(viewModel = {}, elements = {}) {
 
   setElementText(elements.occupyConfirmTitle, `District ${viewModel.targetDistrictId ?? ""}`);
   setElementText(elements.occupyConfirmSource, viewModel.sourceLabel || "Žádný soused");
-  setElementText(elements.occupyConfirmCondition, viewModel.conditionLabel || "");
   setElementText(elements.occupyConfirmCost, viewModel.costLabel || "");
   setElementText(elements.occupyConfirmDuration, viewModel.durationLabel || "");
   setElementText(elements.occupyConfirmNote, viewModel.note || "");
   if (elements.occupyConfirmNote) {
     elements.occupyConfirmNote.hidden = !viewModel.note;
   }
-  clearElementValidationStates(elements.occupyConfirmSource, elements.occupyConfirmCondition, elements.occupyConfirmCost);
+  clearElementValidationStates(elements.occupyConfirmSource, elements.occupyConfirmCost);
 
   if (!viewModel.canConfirm) {
     if (!viewModel.sourceLabel || viewModel.sourceLabel === "Žádný soused") {
       setElementValidationState(elements.occupyConfirmSource, "error");
-    } else if (viewModel.conditionLabel !== "Špehování potvrzeno") {
-      setElementValidationState(elements.occupyConfirmCondition, "error");
-    } else {
+    } else if (viewModel.hasSpyAuthorization) {
       setElementValidationState(elements.occupyConfirmCost, "error");
     }
   }

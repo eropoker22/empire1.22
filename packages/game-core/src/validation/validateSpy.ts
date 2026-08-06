@@ -4,6 +4,7 @@ import type { CoreError } from "../errors";
 import type { CoreGameState } from "../entities";
 import { resolveDistrictActionAvailability, resolveDistrictOperationBlock, validateMapAction } from "../rules";
 import { createPlayerSpyOperationState } from "../state";
+import { formatTickDuration } from "../utils/time";
 import { hasValidAttackAuthorization, validateOccupyEmptyDistrictAuthorization } from "./spyIntel";
 
 export const MAX_ACTIVE_SPY_SLOTS = 2;
@@ -87,7 +88,7 @@ export const validateSpy = (
     return [
       {
         code: "spy_cooldown_active",
-        message: `Špionáž do ${targetDistrict.name} čeká ještě ${activeSpyCooldownTick - state.root.tick} ticků.`
+        message: `Špionáž do ${targetDistrict.name} čeká ještě ${formatTickDuration(activeSpyCooldownTick - state.root.tick)}.`
       }
     ];
   }

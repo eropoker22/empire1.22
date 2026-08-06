@@ -14,11 +14,8 @@ function createElement(scopeElement, tagName, className = "") {
   return element;
 }
 
-const INLINE_DISABLED_ACTION_IDS = new Set(["occupy", "rob"]);
-
 function resolveDistrictActionPresentation(action = {}) {
-  const actionId = String(action.id || "");
-  if (action.enabled !== false || !INLINE_DISABLED_ACTION_IDS.has(actionId)) {
+  if (action.enabled !== false) {
     return action;
   }
 
@@ -32,7 +29,7 @@ function resolveDistrictActionPresentation(action = {}) {
     ...action,
     stacked: true,
     subtitle: inlineReason,
-    disabledTone: "unavailable",
+    disabledTone: action.disabledTone || "unavailable",
     reason: ""
   };
 }

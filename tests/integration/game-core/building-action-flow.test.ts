@@ -3030,7 +3030,9 @@ describe("run-building-action command flow", () => {
       ownerPlayerId: "player:1"
     });
     state.root.districtIds.push("district:2");
-    state.root.tick = ticksForMs(10 * 60 * 1000);
+    state.root.tick = ticksForMs(
+      rumorContext.config.balance.convenienceStore.passiveRumorIntervalMinutes * 60 * 1000
+    );
 
     const result = collectIncome(state, rumorContext);
     const firstMetadata = result.buildingsById[building.id].metadata?.convenienceStore as { lastPassiveRumorCheckTick?: number; rumorEvents?: unknown[] };
@@ -3266,13 +3268,38 @@ describe("run-building-action command flow", () => {
       context
     );
     const effectState = boost.nextState.effectStatesById["effect:district:1"];
-    const heatState = {
+    const unfundedHeatState = {
       ...state,
       districtsById: {
         ...state.districtsById,
         "district:1": {
           ...state.districtsById["district:1"],
           heat: 7
+        }
+      }
+    };
+    const rejected = applyCommand(
+      unfundedHeatState,
+      createRunBuildingActionCommandFixture({
+        id: "command:power:reduce-heat:unfunded",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "power_station_reduce_heat"
+        }
+      }),
+      context
+    );
+    const heatState = {
+      ...unfundedHeatState,
+      resourceStatesById: {
+        ...unfundedHeatState.resourceStatesById,
+        "resource:1": {
+          ...unfundedHeatState.resourceStatesById["resource:1"],
+          balances: {
+            ...unfundedHeatState.resourceStatesById["resource:1"].balances,
+            cash: 10_000
+          }
         }
       }
     };
@@ -3298,7 +3325,10 @@ describe("run-building-action command flow", () => {
     );
     expect(effectState).toBeUndefined();
 
+    expect(rejected.errors.map((error) => error.code)).toContain("building_action_insufficient_resources");
+    expect(rejected.nextState.districtsById["district:1"].heat).toBe(7);
     expect(reduced.errors).toEqual([]);
+    expect(reduced.nextState.resourceStatesById["resource:1"].balances.cash).toBe(0);
     expect(reduced.nextState.districtsById["district:1"].heat).toBe(0);
     expect(reduced.nextState.buildingsById[building.id].actionCooldowns.power_station_reduce_heat).toBe(
       cooldownTicksForMs(60 * 60 * 1000)

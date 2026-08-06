@@ -120,7 +120,7 @@ var EmpireGameplaySliceClient = function(exports) {
   const getDisabledReason = (hasPendingCommand, disabledReason) => hasPendingCommand ? "Akce se zpracovává." : disabledReason;
   const toTitleCase$3 = (value) => value.split(/[-_]+/g).map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(" ");
   const getStoragePercent = (storedAmount, storageCap) => Math.max(0, Math.min(100, Math.round(Math.max(0, storedAmount) / Math.max(1, storageCap) * 100)));
-  const formatTickLabel = (tickCount) => `${tickCount} ${tickCount === 1 ? "tick" : "ticks"}`;
+  const formatTickLabel = (tickCount) => formatDurationMs(Math.max(0, Number(tickCount) || 0) * 1e4);
   const createCooldownCountdown = (remainingTicks, tickRateMs, nowMs) => {
     const remainingMs = Math.max(0, Math.ceil(remainingTicks) * tickRateMs);
     return { remainingMs, endsAtMs: remainingMs > 0 ? nowMs + remainingMs : null };
@@ -493,11 +493,17 @@ var EmpireGameplaySliceClient = function(exports) {
   };
   const formatResourceLabel$1 = (value) => RESOURCE_LABELS$1[value] ?? toTitleCase$1(value);
   const toTitleCase$1 = (value) => value.split("-").filter(Boolean).map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(" ");
+  const formatTickDuration = (ticks) => {
+    const totalSeconds = Math.max(0, Math.ceil((Number(ticks) || 0) * 10));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return minutes > 0 ? `${minutes}m ${String(seconds).padStart(2, "0")}s` : `${seconds}s`;
+  };
   const createReportViewModels = (reports) => reports.map((report) => ({
     id: report.reportId,
     reportType: report.reportType,
     title: formatReportTitle(report),
-    createdAt: `${report.tick}`,
+    createdAt: report.createdAt,
     category: report.reportType,
     summary: formatReportSummary(report),
     result: report.result,
@@ -547,7 +553,7 @@ var EmpireGameplaySliceClient = function(exports) {
         `Intel obrany ${formatNumberRecord(report.detectedDefense)}`,
         report.trapDetected ? "Past odhalena" : "Past neodhalena",
         report.occupyUnlocked ? "Obsazení odemčeno" : "Obsazení neodemčeno",
-        report.blockedUntilTick ? `Špeh blokován do ticku ${report.blockedUntilTick}` : ""
+        report.blockedUntilTick ? `Špeh je blokovaný ${formatTickDuration(report.blockedUntilTick - report.tick)}.` : ""
       ].filter(Boolean);
     }
     if (report.reportType === "occupy") {
@@ -588,7 +594,7 @@ var EmpireGameplaySliceClient = function(exports) {
         `Kořist ${formatNumberRecord(report.loot)}`,
         `Hledanost hráče +${report.playerHeat}`,
         `Hledanost districtu +${report.districtHeat}`,
-        `Cooldown ${report.cooldownTicks} ticků`
+        `Cooldown ${formatTickDuration(report.cooldownTicks)}`
       ];
     }
     return [

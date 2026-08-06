@@ -561,6 +561,11 @@ export const POWER_STATION_CONFIG = Object.freeze({
     alarmStrengthBonusPct: 20,
     factoryProductionSpeedBonusPct: 10,
     armoryProductionSpeedBonusPct: 10
+  }),
+  reduceHeat: Object.freeze({
+    cleanCost: 10000,
+    heatReduction: 20,
+    cooldownMs: 60 * 60 * 1000
   })
 });
 export const RECYCLING_CENTER_CONFIG = Object.freeze({

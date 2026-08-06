@@ -368,11 +368,20 @@ export function ensureBuildingDetailPanel(root, callbacks = {}, options = {}) {
     }
     const actionButton = target.closest("[data-district-building-detail-action-index]");
     if (actionButton instanceof HTMLButtonElement && typeof callbacks.onRunAction === "function") {
+      if (actionButton.disabled || actionButton.dataset.districtBuildingDetailActionSubmitting === "true") {
+        return;
+      }
       const actionIndex = Number.parseInt(actionButton.dataset.districtBuildingDetailActionIndex || "", 10);
       if (Number.isFinite(actionIndex)) {
         const dealerControls = actionButton.closest("[data-dealer-sale-action]");
         const inputs = collectBuildingActionInputValues(actionButton);
-        callbacks.onRunAction(shell, {
+        const command = actionButton.querySelector(".building-info-action-row__button");
+        const previousCommandText = command?.textContent || "SPUSTIT";
+        actionButton.dataset.districtBuildingDetailActionSubmitting = "true";
+        actionButton.disabled = true;
+        actionButton.setAttribute("aria-busy", "true");
+        if (command) command.textContent = "PROBÍHÁ…";
+        const submission = callbacks.onRunAction(shell, {
           shell,
           actionIndex,
           actionId: actionButton.dataset.districtBuildingDetailActionId || "",
@@ -388,6 +397,15 @@ export function ensureBuildingDetailPanel(root, callbacks = {}, options = {}) {
             amount: inputs.amount
           } : {})
         });
+        Promise.resolve(submission)
+          .catch(() => false)
+          .finally(() => {
+            if (actionButton.dataset.districtBuildingDetailActionSubmitting !== "true") return;
+            delete actionButton.dataset.districtBuildingDetailActionSubmitting;
+            actionButton.setAttribute("aria-busy", "false");
+            actionButton.disabled = actionButton.dataset.districtBuildingDetailBaseDisabled === "true";
+            if (command) command.textContent = previousCommandText;
+          });
       }
     }
   };

@@ -14,6 +14,7 @@ import {
   validateMapAction
 } from "../rules";
 import { hasValidAttackAuthorization } from "./spyIntel";
+import { formatTickDuration } from "../utils/time";
 
 /**
  * Responsibility: Placeholder validator for district attacks.
@@ -157,7 +158,7 @@ export const validateAttack = (
     return [
       {
         code: "attack_cooldown_active",
-        message: `Útočná trasa do ${targetDistrict.name} čeká ještě ${activeAttackCooldownTick - state.root.tick} ticků.`
+        message: `Útočná trasa do ${targetDistrict.name} čeká ještě ${formatTickDuration(activeAttackCooldownTick - state.root.tick, context?.config.tickRateMs)}.`
       }
     ];
   }

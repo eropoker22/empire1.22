@@ -77,12 +77,12 @@ export const createPassivePopulationSourceSummary = (
   sources: GameplayPassivePopulationSourceView[]
 ): string => {
   if (sources.length === 0) {
-    return "Pasivní populace: 0 / tick · žádný zdroj v districtu";
+    return "Pasivní populace: 0 / h · žádný zdroj v districtu";
   }
   const sourceLabels = sources.map((source) => (
     source.target === "player-balance"
-      ? `${source.buildingTypeId ?? "district modifier"}: +${formatRate(source.amountPerTick)} / tick do hráčova zůstatku`
-      : `${source.buildingTypeId}: +${formatRate(source.amountPerTick)} / tick do zásoby (${formatRate(source.storedAmount)}/${formatRate(source.capacity)}; topbar +0; ${formatPopulationSourceStatus(source.status)})`
+      ? `${source.buildingTypeId ?? "district modifier"}: +${formatRate(source.amountPerHour)} / h do hráčova zůstatku`
+      : `${source.buildingTypeId}: +${formatRate(source.amountPerHour)} / h do zásoby (${formatRate(source.storedAmount)}/${formatRate(source.capacity)}; topbar +0; ${formatPopulationSourceStatus(source.status)})`
   ));
   return `Pasivní zdroje populace: ${sourceLabels.join(", ")}`;
 };

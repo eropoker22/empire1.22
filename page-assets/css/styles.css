@@ -8026,3 +8026,30 @@ html body.game-body :is(
     line-height: 1 !important;
   }
 }
+
+/* Final phone player-profile placement: keep the whole card inside the viewport below resources. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body .player-popup-shell:not([hidden]) {
+    --player-popup-mobile-top-space: max(calc(var(--mobile-topbar-offset, 72px) + 18px), 90px);
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    padding:
+      var(--player-popup-mobile-top-space)
+      8px
+      max(16px, env(safe-area-inset-bottom)) !important;
+  }
+
+  html body.game-body .player-popup-shell:not([hidden]) .player-popup-card {
+    width: min(520px, 100%) !important;
+    max-height: calc(
+      var(--mobile-locked-vh, 100svh)
+      - var(--player-popup-mobile-top-space)
+      - max(16px, env(safe-area-inset-bottom))
+    ) !important;
+    margin: auto 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+  }
+}

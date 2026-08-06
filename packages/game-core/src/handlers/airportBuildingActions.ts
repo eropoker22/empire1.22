@@ -12,6 +12,7 @@ import {
   withAirportMetadata
 } from "./airportMetadata";
 import { createImportShipment } from "./airportShipments";
+import { formatTickDuration } from "../utils/time";
 
 export type { AirportActionResolution, AirportCustomsEvent, AirportImportCategory, AirportMetadata, PendingAirportImport } from "./airportTypes";
 export { completeAirportImportsAndCustoms } from "./airportCompletion";
@@ -112,7 +113,7 @@ export const resolveAirportAction = (input: {
       influenceChange: 0,
       inputCost: { cash: cost },
       outputGain: {},
-      reportText: `Expresní dovoz (${category}) přistane v ticku ${completesAtTick}.`,
+      reportText: `Expresní dovoz (${category}) přistane za ${formatTickDuration(completesAtTick - input.state.root.tick, input.tickRateMs)}.`,
       airportResult: {
         type: "express_import_started",
         category,
@@ -147,7 +148,7 @@ export const resolveAirportAction = (input: {
       influenceChange: 0,
       inputCost: { "dirty-cash": input.config.blackCharter.costDirtyCash },
       outputGain: {},
-      reportText: `Černý charter otevřel speciální Black Market nabídku do ticku ${expiresAtTick}.`,
+      reportText: `Černý charter otevřel speciální Black Market nabídku na ${formatTickDuration(expiresAtTick - input.state.root.tick, input.tickRateMs)}.`,
       airportResult: {
         type: "black_charter_opened",
         activeUntilTick: expiresAtTick,
@@ -174,7 +175,7 @@ export const resolveAirportAction = (input: {
       influenceChange: 0,
       inputCost: { cash: input.config.evacuationCorridor.costCleanCash },
       outputGain: {},
-      reportText: `Evakuační koridor je aktivní do ticku ${expiresAtTick}.`,
+      reportText: `Evakuační koridor je aktivní ${formatTickDuration(expiresAtTick - input.state.root.tick, input.tickRateMs)}.`,
       airportResult: {
         type: "evacuation_corridor_active",
         activeUntilTick: expiresAtTick,

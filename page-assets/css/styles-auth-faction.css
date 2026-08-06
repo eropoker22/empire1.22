@@ -4468,7 +4468,7 @@ html:has(body.auth-body--faction) .matrix-canvas {
   }
 }
 
-/* Phone color palette: keep every server-supported color visible in a stable 4 x 2 grid. */
+/* Phone color palette: keep every server-supported color compact and touch-friendly. */
 @media (max-width: 640px) {
   .auth-body--faction .gang-color-card {
     display: block !important;
@@ -4485,21 +4485,59 @@ html:has(body.auth-body--faction) .matrix-canvas {
 
   .auth-body--faction .gang-color-grid {
     display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
     grid-auto-rows: auto !important;
     width: 100% !important;
     max-width: none !important;
     height: auto !important;
     max-height: none !important;
     margin: 12px 0 0 !important;
-    gap: 10px !important;
+    gap: 6px !important;
     overflow: visible !important;
   }
 
   .auth-body--faction .gang-color-swatch {
     width: 100% !important;
     min-width: 0 !important;
-    min-height: 48px !important;
+    min-height: 30px !important;
     aspect-ratio: 1 / 1 !important;
+    border-radius: 7px !important;
+  }
+}
+
+.auth-body--faction .avatar-item__zoom {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 3;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 1px solid rgba(103, 232, 249, 0.7);
+  border-radius: 999px;
+  background: rgba(2, 8, 18, 0.88);
+  color: #cffafe;
+  font-size: 20px;
+  line-height: 1;
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.34);
+}
+
+.auth-body--faction .avatar-item__zoom svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+@media (max-width: 640px) {
+  .auth-body--faction .avatar-item__zoom {
+    right: 6px;
+    bottom: 6px;
+    width: 24px;
+    height: 24px;
+    font-size: 18px;
   }
 }

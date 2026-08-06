@@ -197,7 +197,6 @@ export const districtActionOverlayDefinitions = Object.freeze({
     dynamicLeafSelectors: [
       "[data-occupy-confirm-title]",
       "[data-occupy-confirm-source]",
-      "[data-occupy-confirm-condition]",
       "[data-occupy-confirm-cost]",
       "[data-occupy-confirm-duration]",
       "[data-occupy-confirm-note]"

@@ -503,8 +503,8 @@ describe("mobile action modal CSS", () => {
   it("pulses apartment block chips only on full capacity, not regular collect readiness", () => {
     for (const source of [runtimeSource]) {
       const apartmentPulsePredicate = source.slice(
-        source.indexOf("isApartmentBlockFull({ district, baseName } = {})"),
-        source.indexOf("isClinicStabilizationReady", source.indexOf("isApartmentBlockFull({ district, baseName } = {})"))
+        source.indexOf("isApartmentBlockFull(input = {})"),
+        source.indexOf("isSchoolFull(input = {})", source.indexOf("isApartmentBlockFull(input = {})"))
       );
 
       expect(apartmentPulsePredicate).toContain("Boolean(mechanics.apartmentIsFull)");
@@ -515,8 +515,8 @@ describe("mobile action modal CSS", () => {
   it("pulses school chips only on full capacity", () => {
     for (const source of [runtimeSource]) {
       const schoolPulsePredicate = source.slice(
-        source.indexOf("isSchoolFull({ district, baseName } = {})"),
-        source.indexOf("isClinicStabilizationReady", source.indexOf("isSchoolFull({ district, baseName } = {})"))
+        source.indexOf("isSchoolFull(input = {})"),
+        source.indexOf("isConvenienceStoreFull(input = {})", source.indexOf("isSchoolFull(input = {})"))
       );
 
       expect(schoolPulsePredicate).toContain("Boolean(mechanics.schoolIsFull)");
@@ -1247,5 +1247,8 @@ describe("mobile action modal CSS", () => {
     expect(mainCss).toContain("grid-template-columns: repeat(3, minmax(0, 1fr)) !important;");
     expect(mainCss).toContain("#police-action-result-modal-close::before");
     expect(mainCss).toContain("width: 18px !important;");
+    expect(mainCss).toContain("Final phone player-profile placement: keep the whole card inside the viewport below resources.");
+    expect(mainCss).toContain("--player-popup-mobile-top-space: max(calc(var(--mobile-topbar-offset, 72px) + 18px), 90px);");
+    expect(mainCss).toContain("overflow-y: auto !important;");
   });
 });

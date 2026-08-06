@@ -25,3 +25,6 @@ admin-vite.out.log
 /tmp-*.log
 /tmp-*.png
 /*.zip
+
+# Local Netlify folder
+.netlify

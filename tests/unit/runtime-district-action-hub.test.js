@@ -143,8 +143,11 @@ describe("district action hub", () => {
   });
 
   it.each([
+    ["attack", "Zaútočit", "Chybí platné špehování."],
+    ["heist", "Vykrást hráče", "Nemáš dost členů gangu."],
     ["rob", "Vykrást district", "Chybí volný člen gangu."],
-    ["occupy", "Obsadit", "Nejdřív musíš district úspěšně špehovat."]
+    ["occupy", "Obsadit", "Nejdřív musíš district úspěšně špehovat."],
+    ["spy", "Špehovat", "District není sousední."]
   ])("renders disabled %s action grey with its reason inside the button", (id, label, reason) => {
     const document = new FakeDocument();
     const mount = createElement(document);

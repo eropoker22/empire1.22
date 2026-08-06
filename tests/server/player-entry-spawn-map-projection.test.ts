@@ -37,7 +37,7 @@ describe("player entry spawn map projection", () => {
         gangName: "Neon Wolves",
         gangColor: "#12ab34"
       }]
-    ]), new Set(["district:2"]));
+    ]), new Set(["district:2"]), new Set(["district:2"]));
 
     expect(projection.map((district) => district.districtId)).toEqual([
       "district:2",
@@ -46,6 +46,7 @@ describe("player entry spawn map projection", () => {
     ]);
     expect(projection[0]).toMatchObject({
       zone: "commercial",
+      status: "occupying",
       reserved: true,
       spawnEligible: true,
       owner: null,

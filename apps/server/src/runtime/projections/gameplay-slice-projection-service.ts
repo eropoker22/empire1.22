@@ -187,13 +187,21 @@ const createPublicConflictMapEffects = (
         || ""
       );
       const startedAtTick = Math.max(0, Number(pendingOccupy?.issuedAtTick ?? sourceEvent?.createdAtTick ?? currentTick));
-      const playerColor = playerId ? runtime.state.playersById[playerId]?.color : undefined;
+      const player = playerId ? runtime.state.playersById[playerId] : undefined;
+      const playerColor = player?.color;
+      const playerName = String(
+        player?.metadata?.gangName
+        || player?.metadata?.displayName
+        || player?.name
+        || ""
+      ).trim();
 
       return [{
         effectId: `public-operation:${type}:${district.id}:${startedAtTick}`,
         type,
         source: "server-public-operation",
         playerId,
+        ...(playerName ? { playerName } : {}),
         ...(playerColor ? { playerColor } : {}),
         districtId: district.id,
         startedAt: new Date(nowMs - Math.max(0, currentTick - startedAtTick) * tickRateMs).toISOString(),
@@ -227,7 +235,16 @@ const createSpawnSelectionView = (
         buildingType: firstBuilding?.buildingTypeId ?? null,
         spawnZones: [...candidate.zones],
         neighborCount: district?.adjacentDistrictIds.length ?? 0,
-        status: resolveSpawnDistrictStatus(candidate.enabled, district, playerId),
+        status: resolveSpawnDistrictStatus(
+          candidate.enabled,
+          district,
+          playerId,
+          Object.values(runtime.state.pendingOccupyOperationsById ?? {}).some((operation) =>
+            operation.targetDistrictId === candidate.districtId
+            && operation.resolveAtTick > runtime.state.root.tick
+          ),
+          runtime.state.root.tick
+        ),
         ownerPublicName: owner?.name ?? null,
         ownerPlayerId: owner?.id ?? null,
         version: district?.version ?? 0
@@ -239,7 +256,9 @@ const createSpawnSelectionView = (
 const resolveSpawnDistrictStatus = (
   enabled: boolean,
   district: ServerInstanceRuntime["state"]["districtsById"][string] | undefined,
-  playerId: string
+  playerId: string,
+  occupationInProgress = false,
+  currentTick = 0
 ): GameplaySliceSpawnSelectionView["districts"][number]["status"] => {
   if (!enabled || !district) return "disabled";
   if (district.status === "locked" || district.status === "destroyed" || district.lockdownUntilTick) {
@@ -247,6 +266,7 @@ const resolveSpawnDistrictStatus = (
   }
   if (district.ownerPlayerId === playerId) return "selected_by_me";
   if (district.ownerPlayerId) return "occupied";
+  if (occupationInProgress || Number(district.operationLocks?.occupy ?? 0) > currentTick) return "occupied";
   return "available";
 };
 

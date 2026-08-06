@@ -9,6 +9,7 @@ export interface SnapshotDistrict {
   status?: unknown;
   ownerPlayerId?: unknown;
   lockdownUntilTick?: unknown;
+  operationLocks?: { occupy?: unknown };
   buildingIds?: unknown[];
   adjacentDistrictIds?: unknown[];
   version?: unknown;
@@ -38,7 +39,8 @@ export const createSpawnMapDistrictViews = (
   districtsById: Record<string, SnapshotDistrict>,
   playersById: Record<string, SnapshotPlayer>,
   ownerIdentities: ReadonlyMap<string, SpawnOwnerIdentity>,
-  reservedIds: ReadonlySet<string>
+  reservedIds: ReadonlySet<string>,
+  occupiedInProgressIds: ReadonlySet<string> = new Set()
 ): SpawnMapDistrictView[] => Object.values(districtsById)
   .filter((district): district is SnapshotDistrict => Boolean(district?.id))
   .map((district) => {
@@ -50,7 +52,7 @@ export const createSpawnMapDistrictViews = (
       districtId,
       zone: String(district.zone ?? "residential"),
       label: String(district.name || districtId),
-      status: String(district.status ?? "neutral"),
+      status: occupiedInProgressIds.has(districtId) ? "occupying" : String(district.status ?? "neutral"),
       owner: ownerPlayerId ? {
         playerId: ownerPlayerId,
         displayName: identity?.displayName ?? optionalString(runtimePlayer?.name) ?? "Hráč",

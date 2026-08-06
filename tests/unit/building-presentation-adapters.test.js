@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createServerBuildingActionExecutionPresentation,
   createWarehouseStorageCompatibilityView,
+  isServerBuildingCollectReady,
   LocalDemoBuildingPresentationAdapter,
   resolveSharedBuildingBackgroundImagePath,
   ServerBuildingPresentationAdapter
@@ -593,8 +594,8 @@ describe("shared building presentation adapters", () => {
           actionId: "power_station_reduce_heat",
           label: "Snížit heat",
           enabled: true,
-          inputSummary: "Zdarma",
-          effectiveInputCost: {},
+          inputSummary: "10000 Cash",
+          effectiveInputCost: { cash: 10000 },
           outputSummary: "Bez výstupu",
           effectiveOutputGain: {},
           heatGain: -20,
@@ -607,7 +608,7 @@ describe("shared building presentation adapters", () => {
     expect(detail.viewModel.actions[1].buttonCostLabel).toBe("");
     expect(detail.viewModel.actions[1].rewardSummary).toContain("Clean +$2000");
     expect(detail.viewModel.actions[1].rewardSummary).not.toContain("Zdarma");
-    expect(detail.viewModel.actions[2].buttonCostLabel).toBe("");
+    expect(detail.viewModel.actions[2].buttonCostLabel).toBe("$10000 clean cash");
     expect(detail.viewModel.actions[2].rewardSummary).toContain("Heat -20");
   });
 
@@ -645,7 +646,7 @@ describe("shared building presentation adapters", () => {
       tone: "collect-pending"
     }));
     expect(apartment.viewModel.effects.map((effect) => effect.text)).toEqual(
-      expect.arrayContaining(["Populace +2.00/min", "Naplnění za 24m 50s"])
+      expect.arrayContaining(["0/50", "Populace +2.00/min", "Naplnění za 24m 50s"])
     );
     expect(convenience.viewModel.mechanics).toEqual(expect.arrayContaining([
       expect.objectContaining({ label: "Lokální zásobník", value: "0/50" }),
@@ -654,6 +655,16 @@ describe("shared building presentation adapters", () => {
     expect(convenience.viewModel.effects.map((effect) => effect.text)).toContain(
       "Populace +0.83/min"
     );
+  });
+
+  it("uses the authoritative collect control as the building readiness signal", () => {
+    expect(isServerBuildingCollectReady({
+      viewModel: { collect: { visible: true, enabled: true } }
+    })).toBe(true);
+    expect(isServerBuildingCollectReady({
+      viewModel: { collect: { visible: true, enabled: false } }
+    })).toBe(false);
+    expect(isServerBuildingCollectReady(null)).toBe(false);
   });
 
   it("keeps zero population buffers disabled and school phase copy single-applied", () => {
@@ -1056,6 +1067,11 @@ describe("shared building presentation adapters", () => {
       { label: "Celkový násobitel", value: "x1.79" },
       { label: "Hromadné zásoby", value: "108 ks na položku" }
     ]));
+    expect(warehouse.viewModel.mechanics).toEqual([
+      { label: "Hromadné zásoby", value: "Maximální kapacita +48 ks · celkem 108 ks na položku" },
+      { label: "Taktické zásoby", value: "Maximální kapacita +0 ks · celkem 24 ks na položku" },
+      { label: "Strategické zásoby", value: "Maximální kapacita +0 ks · celkem 8 ks na položku" }
+    ]);
     expect(warehouse.viewModel.effects.map((effect) => effect.text)).toContain(
       "Síť skladišť zvyšuje Income +4 %, kapacitu +79 % i Heat +3 %."
     );
@@ -1261,7 +1277,10 @@ describe("server district action presentation", () => {
     expect(actions.map((action) => action.id)).toEqual(["attack", "rob", "spy"]);
     expect(actions.find((action) => action.id === "attack")).toMatchObject({
       enabled: false,
-      reason: "Ochrana cíle."
+      reason: "",
+      stacked: true,
+      subtitle: "Ochrana cíle.",
+      disabledTone: "unavailable"
     });
     expect(actions.find((action) => action.id === "rob")).toMatchObject({
       enabled: true,
@@ -1306,6 +1325,34 @@ describe("server district action presentation", () => {
     expect(actions.find((action) => action.id === "spy")).toMatchObject({
       stacked: false,
       subtitle: ""
+    });
+  });
+
+  it("uses a concise hosted no-spies reason inside the disabled action", () => {
+    const actions = createServerDistrictActionPresentation({
+      district: {
+        districtId: "district:21",
+        targetActions: {
+          attackTargets: [],
+          heistTargets: [],
+          occupyTargets: [],
+          robTargets: [],
+          spyTargets: [{
+            districtId: "district:21",
+            enabled: false,
+            disabledCode: "SPY_SLOT_LIMIT_REACHED",
+            disabledReason: "Hráč už má 2 aktivní nebo blokované špehy."
+          }]
+        }
+      }
+    }, "district:21");
+
+    expect(actions[0]).toMatchObject({
+      id: "spy",
+      enabled: false,
+      stacked: true,
+      subtitle: "Žádní špehové",
+      disabledTone: "no-spies"
     });
   });
 });

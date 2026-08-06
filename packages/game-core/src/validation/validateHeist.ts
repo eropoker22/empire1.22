@@ -11,6 +11,7 @@ import {
   validateDistrictConflictRevision,
   validateMapAction
 } from "../rules";
+import { formatTickDuration } from "../utils/time";
 
 const HEIST_STYLES = new Set(["stealth", "balanced", "all_in"]);
 
@@ -134,7 +135,7 @@ export const validateHeist = (
   if (activeCooldown) {
     return [{
       code: "heist_cooldown_active",
-      message: `Vykradení hráče nebo zdrojová trasa se obnoví za ${activeCooldown.remainingTicks} ticků.`,
+      message: `Vykradení hráče nebo zdrojová trasa se obnoví za ${formatTickDuration(activeCooldown.remainingTicks)}.`,
       details: {
         targetDistrictId: command.payload.targetDistrictId,
         sourceDistrictId: originDistrictId,

@@ -370,7 +370,6 @@ describe("district action panel runtime", () => {
       elements: {
         occupyConfirmTitle: textElement(),
         occupyConfirmSource: textElement(),
-        occupyConfirmCondition: textElement(),
         occupyConfirmCost: textElement(),
         occupyConfirmDuration: occupyDuration,
         occupyConfirmNote: occupyNote,

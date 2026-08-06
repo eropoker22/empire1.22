@@ -2,6 +2,7 @@ import type { CityFeedEvent, RunBuildingActionCommand } from "@empire/shared-typ
 import type { BuildingActionBalanceConfig, FixedBuildingBalanceConfig, LobbyClubBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import { deterministicUnitInterval } from "../utils/math";
+import { formatTickDuration } from "../utils/time";
 import { applyRumorEventToState } from "../rules/events/rumorPipeline";
 import type { LobbyClubActionResolution, LobbyClubMetadata, LobbyClubScandalEvent } from "./lobbyClubTypes";
 import {
@@ -199,7 +200,7 @@ export const resolveLobbyClubAction = (input: {
       inputCost: { cash: input.config.quietNegotiation.costCleanCash },
       outputGain: {},
       reportText: cooldownPatch.actionId
-        ? `Tiché vyjednávání zkrátilo cooldown ${cooldownPatch.actionId} o ${cooldownPatch.reducedTicks} ticků.`
+        ? `Tiché vyjednávání zkrátilo cooldown ${cooldownPatch.actionId} o ${formatTickDuration(cooldownPatch.reducedTicks, input.tickRateMs)}.`
         : "Tiché vyjednávání snížilo rizika a připravilo slevu na další influence akci.",
       lobbyClubResult: {
         type: "quiet_negotiation",

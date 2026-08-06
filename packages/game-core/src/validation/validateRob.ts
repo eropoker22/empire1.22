@@ -9,6 +9,7 @@ import {
   resolveDistrictActionAvailability,
   validateMapAction
 } from "../rules";
+import { formatTickDuration } from "../utils/time";
 
 export const validateRob = (
   state: CoreGameState,
@@ -96,7 +97,7 @@ export const validateRob = (
   if (activeCooldown) {
     return [{
       code: "rob_cooldown_active",
-      message: `Vykradení tohoto districtu nebo zdrojové trasy se obnoví za ${activeCooldown.remainingTicks} ticků.`,
+      message: `Vykradení tohoto districtu nebo zdrojové trasy se obnoví za ${formatTickDuration(activeCooldown.remainingTicks)}.`,
       details: {
         targetDistrictId: command.payload.targetDistrictId,
         sourceDistrictId: originDistrictId,

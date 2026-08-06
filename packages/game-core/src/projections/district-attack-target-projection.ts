@@ -1,10 +1,11 @@
 import type {
   AttackDistrictCommand,
+  AttackWeaponId,
   DistrictAttackTargetView
 } from "@empire/shared-types";
 import type { CoreGameState } from "../entities/game-state";
 import type { ResolvedGameModeConfig } from "../contracts";
-import { validateAttack } from "../validation";
+import { getAttackWeaponInventory, validateAttack } from "../validation";
 import { hasValidAttackAuthorization } from "../validation/spyIntel";
 import { calculateAttackPopulationRequired } from "../rules";
 
@@ -30,6 +31,17 @@ export const createDistrictAttackTargetViews = (
     .map((districtId) => state.districtsById[districtId])
     .filter((district) => district !== undefined)
     .map((targetDistrict) => {
+      const player = state.playersById[playerId];
+      const attackWeapons = config?.balance.attackWeapons;
+      const inventory = player ? getAttackWeaponInventory(state, player) : {};
+      const availablePopulation = Math.max(0, Math.floor(Number(
+        player?.population ?? state.resourceStatesById[player?.resourceStateId ?? ""]?.balances?.population ?? 0
+      )));
+      const previewLoadout = resolveSmallestAttackPreviewLoadout(
+        inventory,
+        availablePopulation,
+        attackWeapons
+      );
       const previewCommand: AttackDistrictCommand = {
         id: `preview:attack:${sourceDistrict.id}:${targetDistrict.id}`,
         type: "attack-district",
@@ -40,7 +52,7 @@ export const createDistrictAttackTargetViews = (
         payload: {
           districtId: targetDistrict.id,
           sourceDistrictId: sourceDistrict.id,
-          weapons: { ...(state.playersById[playerId]?.attackLoadout ?? {}) },
+          weapons: previewLoadout,
           expectedSourceVersion: sourceDistrict.version,
           expectedTargetVersion: targetDistrict.version,
           expectedConflictRevision: targetDistrict.conflictRevision
@@ -48,13 +60,11 @@ export const createDistrictAttackTargetViews = (
         clientRequestId: null
       };
       const errors = validateAttack(state, previewCommand, config ? { config } : undefined);
-      const player = state.playersById[playerId];
       const cooldowns = player ? state.cooldownStatesById[player.cooldownStateId]?.cooldowns ?? {} : {};
       const globalCooldownRemainingTicks = remainingTicks(cooldowns["attack:global"], state.root.tick);
       const sourceCooldownRemainingTicks = remainingTicks(cooldowns[`attack:source:${sourceDistrict.id}`], state.root.tick);
       const targetProtectionRemainingTicks = remainingTicks(targetDistrict.attackProtectedUntilTick, state.root.tick);
       const selectedLoadout = { ...(player?.attackLoadout ?? {}) };
-      const attackWeapons = config?.balance.attackWeapons;
       const projectedPopulationCost = attackWeapons
         ? calculateAttackPopulationRequired(selectedLoadout, attackWeapons)
         : 0;
@@ -100,6 +110,23 @@ export const createDistrictAttackTargetViews = (
         sourceConflictLockEndsAtTick: cooldowns[`conflict:source:${sourceDistrict.id}`] ?? null
       };
     });
+};
+
+const resolveSmallestAttackPreviewLoadout = (
+  inventory: Partial<Record<AttackWeaponId, number>>,
+  availablePopulation: number,
+  attackWeapons: ResolvedGameModeConfig["balance"]["attackWeapons"] | undefined
+): Partial<Record<AttackWeaponId, number>> => {
+  if (!attackWeapons) return {};
+  const candidate = (Object.keys(attackWeapons) as AttackWeaponId[])
+    .filter((weaponId) => Number(inventory[weaponId] ?? 0) >= 1)
+    .filter((weaponId) => calculateAttackPopulationRequired({ [weaponId]: 1 }, attackWeapons) <= availablePopulation)
+    .sort((left, right) =>
+      calculateAttackPopulationRequired({ [left]: 1 }, attackWeapons)
+      - calculateAttackPopulationRequired({ [right]: 1 }, attackWeapons)
+      || left.localeCompare(right)
+    )[0];
+  return candidate ? { [candidate]: 1 } : {};
 };
 
 const remainingTicks = (untilTick: number | null | undefined, tick: number): number =>
