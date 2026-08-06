@@ -21,17 +21,21 @@ export const REMOTE_MANUAL_STARTING_PLAYER_STATE = Object.freeze({
   ))
 });
 
-const suite = (name, options = {}) => Object.freeze({
-  name,
-  bootstrapCount: options.bootstrapCount ?? 1,
-  capacity: options.capacity ?? 20,
-  scenario: options.scenario ?? "",
-  startingPlayerState: options.startingPlayerState ?? HOSTED_E2E_STARTING_PLAYER_STATE,
-  playwrightRuns: Object.freeze(options.playwrightRuns ?? []),
-  manual: options.manual === true,
-  restartWorkerBeforeSpec: options.restartWorkerBeforeSpec === true,
-  pauseResumeBeforeSpec: options.pauseResumeBeforeSpec === true
-});
+const suite = (name, options = {}) => {
+  const bootstrapCount = options.bootstrapCount ?? 1;
+  return Object.freeze({
+    name,
+    bootstrapCount,
+    bootstrapTimeoutMs: Math.max(900_000, bootstrapCount * 75_000),
+    capacity: options.capacity ?? 20,
+    scenario: options.scenario ?? "",
+    startingPlayerState: options.startingPlayerState ?? HOSTED_E2E_STARTING_PLAYER_STATE,
+    playwrightRuns: Object.freeze(options.playwrightRuns ?? []),
+    manual: options.manual === true,
+    restartWorkerBeforeSpec: options.restartWorkerBeforeSpec === true,
+    pauseResumeBeforeSpec: options.pauseResumeBeforeSpec === true
+  });
+};
 const run = (name, specs, options = {}) => Object.freeze({
   name,
   specs: Object.freeze(specs),

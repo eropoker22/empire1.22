@@ -41,8 +41,10 @@ describe("remote staging acceptance suite contract", () => {
     });
     expect(getRemoteStagingAcceptanceSuite("canonical-20p-registration")).toMatchObject({
       bootstrapCount: 20,
+      bootstrapTimeoutMs: 1_500_000,
       capacity: 20
     });
+    expect(getRemoteStagingAcceptanceSuite("social-concurrency-privacy").bootstrapTimeoutMs).toBe(900_000);
     expect(getRemoteStagingAcceptanceSuite("income").restartWorkerBeforeSpec).toBe(true);
     expect(getRemoteStagingAcceptanceSuite("lifecycle-stop").pauseResumeBeforeSpec).toBe(true);
   });

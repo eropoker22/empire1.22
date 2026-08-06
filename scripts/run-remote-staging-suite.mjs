@@ -84,7 +84,7 @@ try {
       EMPIRE_HOSTED_BOOTSTRAP_IDENTITIES_JSON: JSON.stringify(identities),
       EMPIRE_HOSTED_STARTING_PLAYER_STATE_JSON: JSON.stringify(suite.startingPlayerState),
       EMPIRE_UI_PARITY_SERVER_ID: server.serverInstanceId
-    }, 900_000);
+    }, suite.bootstrapTimeoutMs);
     evidence.bootstrap = await verifyBootstrappedMemberships(admin, server.serverInstanceId, {
       expectedCapacity: suite.capacity,
       expectedPlayers: suite.bootstrapCount
