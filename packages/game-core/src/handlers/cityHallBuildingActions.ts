@@ -212,7 +212,6 @@ export const resolveCityHallAction = (input: {
       }
     };
   }
-
   if (actionId === input.config.emergencyDecree.actionId) {
     const modeId = resolveDecreeMode(input.payload.mode);
     const zone = modeId === "construction_closure" ? String(input.payload.targetZone ?? input.payload.category ?? input.district.zone ?? "").trim() : undefined;

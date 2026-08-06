@@ -131,12 +131,10 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
       throw new Error("Final Lockdown config requires a positive topRankCount.");
     }
   }
-
   const victoryThreshold = config.balance.districtControlVictoryThreshold ?? 1;
   if (victoryThreshold <= 0 || victoryThreshold > 1) {
     throw new Error("Mode config requires districtControlVictoryThreshold between 0 and 1.");
   }
-
   for (const [key, value] of [
     ["minimumVictoryTicks", config.balance.minimumVictoryTicks],
     ["districtControlHoldTicks", config.balance.districtControlHoldTicks],
@@ -146,11 +144,9 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
       throw new Error(`Mode config requires a non-negative ${key}.`);
     }
   }
-
   if (!config.technical.storageKeyPrefix) {
     throw new Error("Mode config requires a storageKeyPrefix.");
   }
-
   if (config.balance.conflict) {
     if (config.balance.conflict.spyCooldownTicks < 0) {
       throw new Error("Conflict config requires a non-negative spyCooldownTicks.");

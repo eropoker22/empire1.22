@@ -9,6 +9,7 @@ describe("mobile game UI overrides", () => {
   const mobileFixes = read("page-assets/css/styles-mobile-fixes.css");
   const html = read("pages/game.html");
   const runtime = read("page-assets/js/app/runtime.js");
+  const serverCooldownStreetNews = read("page-assets/js/app/runtime/serverCooldownStreetNews.js");
   const mobileLayoutRuntime = read("page-assets/js/app/mobile-layout-runtime.js");
 
   it("keeps Buildings transparent black and production buildings full-height only on phones", () => {
@@ -103,9 +104,10 @@ describe("mobile game UI overrides", () => {
   });
 
   it("adds the current player's active occupation to Street News", () => {
-    expect(runtime).toContain("function collectServerOccupyCooldownStreetNewsEntries(now)");
-    expect(runtime).toContain('if (String(effect?.type || "") !== "occupy" || String(effect?.playerId || "") !== playerId)');
-    expect(runtime).toContain('title: "Obsazení"');
-    expect(runtime).toContain("...collectServerOccupyCooldownStreetNewsEntries(now)");
+    expect(serverCooldownStreetNews).toContain('new Set(["spy", "robbery", "attack", "occupy"])');
+    expect(serverCooldownStreetNews).toContain("effectPlayerId !== playerId");
+    expect(runtime).toContain("function collectServerMissionCooldownStreetNewsEntries(now)");
+    expect(runtime).toContain(': "Obsazení";');
+    expect(runtime).toContain("...collectServerMissionCooldownStreetNewsEntries(now)");
   });
 });

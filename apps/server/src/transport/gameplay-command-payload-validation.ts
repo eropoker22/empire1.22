@@ -180,21 +180,17 @@ export const validateGameCommandPayload = (
       break;
   }
 };
-
 const validateDistrictPayload = (errors: DomainError[], payload: Record<string, unknown>, sourceDistrictMayBeNull: boolean): void => {
   requireStringField(errors, "submit", payload, "districtId", "command.payload.districtId");
   requireOptionalStringField(errors, payload, "sourceDistrictId", "command.payload.sourceDistrictId", sourceDistrictMayBeNull);
 };
-
 const validateBuildingPayload = (errors: DomainError[], payload: Record<string, unknown>): void => {
   requireStringField(errors, "submit", payload, "districtId", "command.payload.districtId");
   requireStringField(errors, "submit", payload, "buildingId", "command.payload.buildingId");
 };
-
 const hasPayloadSchema = (type: string): boolean =>
   ["activate-player-boost", "start-city-event", "claim-city-event-reward", "claim-emergency-recovery", "send-city-chat-message", "attack-district", "acknowledge-pending-raid", "build-structure", "occupy-district", "spy-district", "place-trap", "relocate-trap", "select-spawn-district", "collect-production", "craft-item", "cancel-pharmacy-production", "cancel-drug-lab-production", "cancel-production-line", "run-building-action", "upgrade-building"].includes(type)
   || isBasicActionCommandType(type) || isAllianceCommandType(type) || isMarketCommandType(type) || isBountyCommandType(type);
-
 const validateRunBuildingActionOptionalPayload = (
   errors: DomainError[],
   payload: Record<string, unknown>

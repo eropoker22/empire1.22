@@ -1104,7 +1104,7 @@ var EmpireGameplaySliceClient = function(exports) {
     const district = input.slice.district;
     const target = ((_a = district == null ? void 0 : district.targetActions) == null ? void 0 : _a.heistTargets.find((entry) => entry.districtId === input.targetDistrictId)) ?? ((_b = district == null ? void 0 : district.heistTargets) == null ? void 0 : _b.find((entry) => entry.districtId === input.targetDistrictId));
     const styleFallback = { style: "balanced", defaultGangMembersSent: 1 };
-    const style = (target == null ? void 0 : target.styles.find((entry) => entry.style === "balanced")) ?? (target == null ? void 0 : target.styles[0]) ?? styleFallback;
+    const style = (target == null ? void 0 : target.styles.find((entry) => entry.style === target.recommendedStyle)) ?? (target == null ? void 0 : target.styles.find((entry) => entry.enabled !== false)) ?? (target == null ? void 0 : target.styles.find((entry) => entry.style === "balanced")) ?? (target == null ? void 0 : target.styles[0]) ?? styleFallback;
     const corridor = (_c = input.slice.frontier) == null ? void 0 : _c.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
     if (!district) {
       throw new Error("Heist command cannot be created from missing district/target context.");

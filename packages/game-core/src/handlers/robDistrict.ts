@@ -11,6 +11,9 @@ import {
   createRobCooldownKey,
   createRobSourceCooldownKey,
   getFactionPassiveModifiers,
+  hasNeutralDistrictRobberyLoot,
+  NEUTRAL_ROBBERY_LOOT_KEYS,
+  NEUTRAL_ROBBERY_MATERIAL_KEYS,
   regenerateNeutralDistrictLootPool,
   resolveNeutralRobbery,
   resolveRobCooldownTicks,
@@ -24,8 +27,6 @@ import { increasePlayerPoliceHeat } from "./playerPoliceState";
 import { calculateReceivableResourceAmount } from "./storageCapacityCredit";
 import { createPlayerResourceState, createRobReportNotification, resolveSingleOwnedOrigin } from "./conflictReportNotifications";
 import { bumpDistrictConflictRevision } from "../state";
-
-const ROB_LOOT_KEYS = ["cash", "dirty-cash", "chemicals", "biomass", "metal-parts"] as const;
 
 export const handleRobDistrict = (
   state: CoreGameState,
@@ -60,7 +61,7 @@ export const handleRobDistrict = (
     cityDay,
     config.cityDayRegenerationFraction
   );
-  if (isLootPoolExhausted(currentPool)) {
+  if (!hasNeutralDistrictRobberyLoot(currentPool)) {
     return {
       nextState: state,
       events: [],
@@ -79,7 +80,7 @@ export const handleRobDistrict = (
   const resourceState = state.resourceStatesById[player.resourceStateId]
     ?? createPlayerResourceState(player.resourceStateId, player.id, state.root.tick);
   const acceptedLoot: Record<string, number> = {};
-  for (const resourceKey of ROB_LOOT_KEYS) {
+  for (const resourceKey of NEUTRAL_ROBBERY_LOOT_KEYS) {
     acceptedLoot[resourceKey] = calculateReceivableResourceAmount(
       state,
       player.id,
@@ -94,7 +95,7 @@ export const handleRobDistrict = (
     acceptedLoot
   );
   const nextBalances = { ...resourceState.balances };
-  for (const resourceKey of ROB_LOOT_KEYS) {
+  for (const resourceKey of NEUTRAL_ROBBERY_LOOT_KEYS) {
     nextBalances[resourceKey] = Math.max(0, Number(nextBalances[resourceKey] ?? 0))
       + Number(acceptedLoot[resourceKey] ?? 0);
   }
@@ -214,11 +215,6 @@ export const handleRobDistrict = (
   };
 };
 
-const isLootPoolExhausted = (
-  pool: NonNullable<CoreGameState["districtsById"][string]["neutralLootPool"]>
-): boolean => pool.cash + pool.dirtyCash
-  + Object.values(pool.resources).reduce((total, amount) => total + Math.max(0, Number(amount ?? 0)), 0) <= 0;
-
 const restoreUnacceptedLoot = (
   pool: NonNullable<CoreGameState["districtsById"][string]["neutralLootPool"]>,
   planned: Record<string, number>,
@@ -229,11 +225,9 @@ const restoreUnacceptedLoot = (
     ...pool,
     cash: pool.cash + rejected("cash"),
     dirtyCash: pool.dirtyCash + rejected("dirty-cash"),
-    resources: {
-      ...pool.resources,
-      chemicals: Number(pool.resources.chemicals ?? 0) + rejected("chemicals"),
-      biomass: Number(pool.resources.biomass ?? 0) + rejected("biomass"),
-      "metal-parts": Number(pool.resources["metal-parts"] ?? 0) + rejected("metal-parts")
-    }
+    resources: Object.fromEntries(Object.entries(pool.resources).map(([key, amount]) => [
+      key,
+      Number(amount ?? 0) + (NEUTRAL_ROBBERY_MATERIAL_KEYS.includes(key as never) ? rejected(key) : 0)
+    ]))
   };
 };

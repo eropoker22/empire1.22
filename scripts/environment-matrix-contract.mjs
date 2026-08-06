@@ -28,6 +28,15 @@ const runtime = (variable, component, options = {}) => ({
 
 const PUBLIC_RELEASE_ROWS = [
   runtime("NODE_ENV", "Netlify API, worker, build", { safeFormat: "production", rotation: "N/A" }),
+  runtime("NETLIFY", "Netlify build source guard", {
+    stagingRequired: "Provider-owned",
+    productionRequired: "Provider-owned",
+    netlifyScope: "Builds only; provider-owned",
+    workerScope: "No",
+    safeFormat: "Exact true when Netlify executes the public build",
+    defaultAllowed: "Yes; absent outside Netlify",
+    rotation: "N/A"
+  }),
   runtime("EMPIRE_RELEASE_ENVIRONMENT", "Netlify API, worker, migration, build", { safeFormat: "staging or production", rotation: "N/A" }),
   runtime("EMPIRE_DATABASE_URL", "Netlify API, worker, migration", {
     secret: "Yes", netlifyScope: "Functions only; pooled URL", workerScope: "Yes; direct URL",

@@ -106,9 +106,12 @@ export interface DistrictHeistTargetView {
   expectedTargetVersion: number;
   expectedSourceVersion: number;
   expectedConflictRevision: number;
+  recommendedStyle?: "stealth" | "balanced" | "all_in" | null;
+  availablePopulation?: number;
   styles: Array<{
     style: "stealth" | "balanced" | "all_in";
     label: string;
+    enabled?: boolean;
     defaultGangMembersSent: number;
     minMembers?: number;
     maxMembers?: number;

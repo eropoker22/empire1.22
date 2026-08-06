@@ -19,7 +19,11 @@ export const createHeistDistrictCommand = (
   const target = district?.targetActions?.heistTargets.find((entry) => entry.districtId === input.targetDistrictId)
     ?? district?.heistTargets?.find((entry) => entry.districtId === input.targetDistrictId);
   const styleFallback = { style: "balanced" as HeistDistrictStyle, defaultGangMembersSent: 1 };
-  const style = target?.styles.find((entry) => entry.style === "balanced") ?? target?.styles[0] ?? styleFallback;
+  const style = target?.styles.find((entry) => entry.style === target.recommendedStyle)
+    ?? target?.styles.find((entry) => entry.enabled !== false)
+    ?? target?.styles.find((entry) => entry.style === "balanced")
+    ?? target?.styles[0]
+    ?? styleFallback;
   const corridor = input.slice.frontier?.corridorTargets.find((entry) => entry.targetDistrictId === input.targetDistrictId);
 
   if (!district) {

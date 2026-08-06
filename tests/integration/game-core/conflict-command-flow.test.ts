@@ -198,7 +198,20 @@ describe("conflict command flow", () => {
     }), context);
 
     expect(occupied.errors).toEqual([]);
-    expect(occupied.nextState.districtsById["district:2"]?.ownerPlayerId).toBe("player:1");
+    expect(occupied.nextState.districtsById["district:2"]?.ownerPlayerId).toBeNull();
+    const occupyOperation = Object.values(occupied.nextState.pendingOccupyOperationsById ?? {})[0];
+
+    expect(occupyOperation).toMatchObject({
+      playerId: "player:1",
+      targetDistrictId: "district:2"
+    });
+
+    let completedState = occupied.nextState;
+    while (occupyOperation && completedState.root.tick < occupyOperation.resolveAtTick) {
+      completedState = runTick(completedState, context).nextState;
+    }
+
+    expect(completedState.districtsById["district:2"]?.ownerPlayerId).toBe("player:1");
   });
 
   it("partial spy intel reveals limited info but does not unlock neutral district occupation", () => {

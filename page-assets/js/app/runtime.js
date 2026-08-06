@@ -14695,7 +14695,10 @@ function bindDistrictCanvas(root) {
         }
         const corridor = latestGameplaySliceReadModel?.frontier?.corridorTargets
           ?.find((entry) => String(entry?.targetDistrictId) === targetDistrictId) || null;
-        const balancedHeist = heistView?.styles?.find((entry) => entry.style === "balanced") || heistView?.styles?.[0];
+        const balancedHeist = heistView?.styles?.find((entry) => entry.style === heistView?.recommendedStyle)
+          || heistView?.styles?.find((entry) => entry.enabled !== false)
+          || heistView?.styles?.find((entry) => entry.style === "balanced")
+          || heistView?.styles?.[0];
         actionButton.disabled = true;
         actionButton.dataset.serverCommandPending = "true";
         void submitServerDistrictActionCommand({

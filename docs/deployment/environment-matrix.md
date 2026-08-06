@@ -2,7 +2,7 @@
 
 Generated: generated from tracked source
 
-The inventory found **132 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 21 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
+The inventory found **133 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 21 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
 
 Public releases fail closed: no wildcard origin, no loopback URL, no staging hostname in production, no implicit database or secret default, and no provider credential in a runtime scope.
 
@@ -74,6 +74,7 @@ Public releases fail closed: no wildcard origin, no loopback URL, no staging hos
 | `GAMEPLAY_RELEASE_DATABASE_URL_POOLED` | Release validator and pooling smoke | Yes | Yes | Yes | Release job only | No | Same pooled Neon target as EMPIRE release URL | No | Rotate the Netlify database role |
 | `GAMEPLAY_SLICE_SESSION_SECRET` | Netlify API and worker | Yes | Yes | Yes | Functions only | Yes | 64 hex or 43+ base64url characters; unique | No | Rotate jointly; revoke gameplay sessions |
 | `GAMEPLAY_SLICE_SNAPSHOT_SECRET` | Netlify API and worker | Yes | Yes | Yes | Functions only | Yes | 64 hex or 43+ base64url characters; unique | No | Rotate jointly; invalidate outstanding snapshot tokens |
+| `NETLIFY` | Netlify build source guard | Provider-owned | Provider-owned | No | Builds only; provider-owned | No | Exact true when Netlify executes the public build | Yes; absent outside Netlify | N/A |
 | `NODE_ENV` | Netlify API, worker, build | Yes | Yes | No | Builds and Functions | Yes | production | No | N/A |
 | `PORT` | Persistent worker | Yes | Yes | No | Provider-owned; do not override | Yes | 1-65535; Fly default 8080 | Yes; 8080 | Change with worker service configuration |
 

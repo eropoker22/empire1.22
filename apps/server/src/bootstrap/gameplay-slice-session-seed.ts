@@ -113,7 +113,6 @@ const createResourceState = (
   ownerId: string,
   balances: Record<string, number>
 ): ResourceState => ({ id, ownerType, ownerId, balances: { ...balances }, incomeModifiers: {}, lastUpdatedTick: 0, version: 1 });
-
 const appendUnique = <TValue>(target: TValue[], value: TValue): void => {
   if (!target.includes(value)) target.push(value);
 };

@@ -208,13 +208,11 @@ const registrationFor = (server: HostedPlayerEntryServerRow, now: Date) => resol
   registrationClosedAt: isoOrNull(server.registration_closed_at),
   registrationWindowMinutes: Number(server.registration_window_minutes)
 }, now);
-
 const isWorkerFresh = (server: HostedPlayerEntryServerRow, now: Date, workerFreshMs: number): boolean =>
   Boolean(server.last_worker_heartbeat_at)
   && Date.parse(iso(server.last_worker_heartbeat_at)) > now.getTime() - workerFreshMs
   && Boolean(server.runtime_lease_expires_at)
   && Date.parse(iso(server.runtime_lease_expires_at)) > now.getTime();
-
 const canStart = (
   server: HostedPlayerEntryServerRow,
   registrationState: string,

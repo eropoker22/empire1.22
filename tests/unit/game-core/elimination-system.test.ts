@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyCommand,
+  completePendingOccupations,
   createEliminationReadModel,
   createInitialState,
   createPlayerEliminationScore,
@@ -395,21 +396,30 @@ describe("scheduled elimination system", () => {
     });
     seedSuccessfulOccupySpyIntel(state, "player:1", "district:2");
 
-    const result = applyCommand(state, createOccupyDistrictCommandFixture(), {
+    const occupyContext = {
       config: {
         ...config,
         balance: {
           ...config.balance,
           conflict: {
             ...config.balance.conflict!,
+            occupyCooldownTicks: 0,
+            occupyFailureChancePct: 0,
             minAttackDurationTicks: 0,
             catastropheChance: 0
           }
         }
       }
-    });
+    };
+    const started = applyCommand(state, createOccupyDistrictCommandFixture(), occupyContext);
+    const operation = Object.values(started.nextState.pendingOccupyOperationsById ?? {})[0]!;
+    const dueState = {
+      ...started.nextState,
+      root: { ...started.nextState.root, tick: operation.resolveAtTick }
+    };
+    const result = completePendingOccupations(dueState, occupyContext);
 
-    expect(result.errors).toEqual([]);
+    expect(started.errors).toEqual([]);
     expect(result.nextState.districtsById["district:2"]).toMatchObject({
       ownerPlayerId: "player:1",
       status: "claimed"

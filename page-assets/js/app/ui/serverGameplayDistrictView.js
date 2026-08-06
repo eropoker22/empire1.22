@@ -154,7 +154,6 @@ const createDistrictActions = (panel, targetActions, isOwnedByPlayer) => {
   }
   return actions;
 };
-
 export function createServerGameplayDistrictView(readModel, renderState) {
   const panel = renderState?.districtPanel;
   const district = readModel?.district;
@@ -205,7 +204,6 @@ export function createServerGameplayDistrictView(readModel, renderState) {
   const economyValue = (value) => district.status === "destroyed"
     ? "0"
     : economy.available ? formatUiMetricValue(value) : "Bez dat";
-
   return {
     districtId: String(panel.districtId),
     districtType: String(district.zone || ""),

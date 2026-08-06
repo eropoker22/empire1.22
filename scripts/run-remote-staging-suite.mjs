@@ -47,6 +47,7 @@ const evidence = {
   workerRestart: suite.restartWorkerBeforeSpec ? "pending" : "not-requested",
   pauseResume: suite.pauseResumeBeforeSpec ? "pending" : "not-requested",
   cleanup: "not-started",
+  bootstrap: null,
   playwrightRuns: []
 };
 
@@ -84,6 +85,10 @@ try {
       EMPIRE_HOSTED_STARTING_PLAYER_STATE_JSON: JSON.stringify(suite.startingPlayerState),
       EMPIRE_UI_PARITY_SERVER_ID: server.serverInstanceId
     }, 900_000);
+    evidence.bootstrap = await verifyBootstrappedMemberships(admin, server.serverInstanceId, {
+      expectedCapacity: suite.capacity,
+      expectedPlayers: suite.bootstrapCount
+    });
     if (suite.scenario) runStagingScenario(server.serverInstanceId, suite.scenario);
     await startDisposableHostedServer(admin, server.serverInstanceId);
     if (suite.pauseResumeBeforeSpec) {
@@ -102,7 +107,8 @@ try {
       EMPIRE_HOSTED_BOOTSTRAP_GANG_NAME: identities[0].gangName,
       EMPIRE_HOSTED_BOOTSTRAP_PASSWORD: identities[0].password,
       EMPIRE_HOSTED_BOOTSTRAP_NETWORK_IDENTIFIER: identities[0].networkIdentifier,
-      EMPIRE_HOSTED_BOOTSTRAP_IDENTITIES_JSON: JSON.stringify(identities)
+      EMPIRE_HOSTED_BOOTSTRAP_IDENTITIES_JSON: JSON.stringify(identities),
+      EMPIRE_HOSTED_STARTING_PLAYER_STATE_JSON: JSON.stringify(suite.startingPlayerState)
     };
     await runPlaywrightSuite(suite.playwrightRuns, {
       ...publicBrowserEnvironment(),
@@ -274,6 +280,35 @@ async function waitForServerStatus(adminClient, serverInstanceId, status, timeou
     await delay(1_000);
   }
   throw new Error(`REMOTE_STAGING_SERVER_STATUS_TIMEOUT:${status}`);
+}
+
+async function verifyBootstrappedMemberships(adminClient, serverInstanceId, {
+  expectedCapacity,
+  expectedPlayers
+}, timeoutMs = 180_000) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const controlPlane = await adminClient.request("/api/admin/control-plane");
+    const serverRecord = controlPlane.servers.find((candidate) => candidate.serverInstanceId === serverInstanceId);
+    if (!serverRecord) throw new Error("REMOTE_STAGING_BOOTSTRAP_SERVER_MISSING");
+    if (serverRecord.capacity !== expectedCapacity) {
+      throw new Error("REMOTE_STAGING_BOOTSTRAP_CAPACITY_MISMATCH");
+    }
+    if (serverRecord.committedPlayers === expectedPlayers && serverRecord.readyPlayers === expectedPlayers) {
+      return {
+        capacity: serverRecord.capacity,
+        committedPlayers: serverRecord.committedPlayers,
+        readyPlayers: serverRecord.readyPlayers,
+        verified: true
+      };
+    }
+    if (Number(serverRecord.committedPlayers ?? 0) > expectedPlayers
+      || Number(serverRecord.readyPlayers ?? 0) > expectedPlayers) {
+      throw new Error("REMOTE_STAGING_BOOTSTRAP_PLAYER_COUNT_EXCEEDED");
+    }
+    await delay(1_000);
+  }
+  throw new Error("REMOTE_STAGING_BOOTSTRAP_PLAYER_COUNT_TIMEOUT");
 }
 
 async function archiveServer(adminClient, serverInstanceId) {

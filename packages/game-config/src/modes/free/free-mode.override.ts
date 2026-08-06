@@ -205,39 +205,54 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
         cityDayRegenerationFraction: 0.25,
         poolsByZone: {
           park: {
-            cash: { min: 20, max: 50 },
-            dirtyCash: { min: 5, max: 20 },
-            chemicals: { min: 10, max: 24 },
-            biomass: { min: 8, max: 20 },
-            metalParts: { min: 0, max: 4 }
+            cash: { min: 4_500, max: 7_000 },
+            dirtyCash: { min: 2_500, max: 4_500 },
+            chemicals: { min: 3, max: 5 },
+            biomass: { min: 3, max: 5 },
+            metalParts: { min: 2, max: 4 },
+            stimPack: { min: 1, max: 3 },
+            techCore: { min: 1, max: 2 },
+            combatModule: { min: 1, max: 1 }
           },
           residential: {
-            cash: { min: 25, max: 60 },
-            dirtyCash: { min: 8, max: 24 },
-            chemicals: { min: 2, max: 8 },
-            biomass: { min: 2, max: 8 },
-            metalParts: { min: 1, max: 6 }
+            cash: { min: 5_000, max: 8_000 },
+            dirtyCash: { min: 3_000, max: 5_000 },
+            chemicals: { min: 3, max: 5 },
+            biomass: { min: 3, max: 5 },
+            metalParts: { min: 2, max: 4 },
+            stimPack: { min: 2, max: 4 },
+            techCore: { min: 1, max: 2 },
+            combatModule: { min: 1, max: 1 }
           },
           commercial: {
-            cash: { min: 70, max: 150 },
-            dirtyCash: { min: 20, max: 55 },
-            chemicals: { min: 1, max: 6 },
-            biomass: { min: 1, max: 5 },
-            metalParts: { min: 2, max: 8 }
+            cash: { min: 6_000, max: 10_000 },
+            dirtyCash: { min: 4_000, max: 7_000 },
+            chemicals: { min: 2, max: 4 },
+            biomass: { min: 2, max: 4 },
+            metalParts: { min: 3, max: 5 },
+            stimPack: { min: 2, max: 4 },
+            techCore: { min: 1, max: 3 },
+            combatModule: { min: 1, max: 2 }
           },
           industrial: {
-            cash: { min: 35, max: 80 },
-            dirtyCash: { min: 10, max: 30 },
-            chemicals: { min: 4, max: 12 },
-            biomass: { min: 0, max: 4 },
-            metalParts: { min: 14, max: 32 }
+            cash: { min: 5_000, max: 8_000 },
+            dirtyCash: { min: 3_500, max: 6_000 },
+            chemicals: { min: 2, max: 4 },
+            biomass: { min: 1, max: 3 },
+            metalParts: { min: 4, max: 5 },
+            stimPack: { min: 1, max: 3 },
+            techCore: { min: 2, max: 4 },
+            combatModule: { min: 1, max: 3 }
           },
           downtown: {
-            cash: { min: 100, max: 200 },
-            dirtyCash: { min: 35, max: 75 },
-            chemicals: { min: 2, max: 8 },
-            biomass: { min: 2, max: 8 },
-            metalParts: { min: 4, max: 12 }
+            cash: { min: 8_000, max: 14_000 },
+            dirtyCash: { min: 5_000, max: 10_000 },
+            chemicals: { min: 2, max: 4 },
+            biomass: { min: 2, max: 4 },
+            metalParts: { min: 3, max: 5 },
+            stimPack: { min: 2, max: 4 },
+            techCore: { min: 3, max: 5 },
+            combatModule: { min: 2, max: 4 }
           }
         }
       },

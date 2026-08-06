@@ -293,6 +293,45 @@ describe("authoritative basic action commands", () => {
     }));
   });
 
+  it("enables player robbery with the affordable stealth style instead of a fixed ten-member preview", () => {
+    const state = createHeistState();
+    state.playersById["player:1"] = {
+      ...state.playersById["player:1"],
+      population: 5
+    };
+    const panel = createDistrictPanelView(state, {
+      districtId: "district:2",
+      playerId: "player:1",
+      issuedAt: new Date(0).toISOString(),
+      ...minimalPanelConfig()
+    });
+
+    expect(panel?.targetActions?.heistTargets).toEqual([
+      expect.objectContaining({
+        districtId: "district:2",
+        enabled: true,
+        disabledCode: null,
+        recommendedStyle: "stealth",
+        availablePopulation: 5,
+        styles: expect.arrayContaining([
+          expect.objectContaining({ style: "stealth", enabled: true, defaultGangMembersSent: 5 }),
+          expect.objectContaining({ style: "balanced", enabled: false, defaultGangMembersSent: 10 })
+        ])
+      })
+    ]);
+
+    const result = applyCommand(state, createHeistDistrictCommandFixture({
+      id: "command:heist:stealth-five",
+      payload: {
+        targetDistrictId: "district:2",
+        sourceDistrictId: "district:1",
+        style: "stealth",
+        gangMembersSent: 5
+      }
+    }), context);
+    expect(result.errors).toEqual([]);
+  });
+
   it("keeps attack setup available when a smaller valid loadout fits the population", () => {
     const state = createHeistState();
     state.playersById["player:1"] = {

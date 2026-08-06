@@ -45,6 +45,13 @@ export const REMOTE_STAGING_ACCEPTANCE_SUITES = Object.freeze([
     manual: true,
     playwrightRuns: [run("manual-admin-player", ["tests/e2e/manual-hosted-admin-player-flow.spec.js"], { timeoutMs: 1_800_000 })]
   }),
+  suite("canonical-20p-registration", {
+    bootstrapCount: 20,
+    capacity: 20,
+    playwrightRuns: [run("canonical-20p-registration", ["tests/e2e/live-hosted-20p-registration.spec.js"], {
+      timeoutMs: 1_800_000
+    })]
+  }),
   suite("ui-parity", {
     playwrightRuns: [
       run("ui-parity-shared", ["tests/e2e/live-demo-ui-parity.spec.js", "tests/e2e/live-demo-utility-modal-parity.spec.js"], {

@@ -242,7 +242,7 @@ describe("gameplay slice read model contract", () => {
         dirtyCashPerHour: expect.any(Number),
         passivePopulationSources: [],
         passivePopulationSourceSummary:
-          "Pasivní populace: 0 / tick · žádný zdroj v districtu"
+          "Pasivní populace: 0 / h · žádný zdroj v districtu"
       }
     });
   });

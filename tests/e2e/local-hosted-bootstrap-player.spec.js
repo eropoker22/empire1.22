@@ -25,7 +25,7 @@ test.skip(
   !hostedEnabled || !serverInstanceId,
   "Set EMPIRE_HOSTED_UI_PARITY_E2E=1 and EMPIRE_UI_PARITY_SERVER_ID for local hosted bootstrap."
 );
-test.setTimeout(360_000);
+test.setTimeout(Math.max(360_000, Math.max(1, suppliedIdentities.length) * 60_000));
 
 test("prepares canonical ready players for server start", async ({ browser, page }) => {
   const identities = suppliedIdentities.length

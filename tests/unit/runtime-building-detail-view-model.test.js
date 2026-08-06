@@ -224,7 +224,7 @@ describe("building detail view-model builder", () => {
     expect(smugglingStats.find((row) => row.label === "Síť")?.value).toBe("dirty tok +5 % · heat +4 %");
   });
 
-  it("omits warehouse capacity mechanics", () => {
+  it("shows authoritative warehouse capacity mechanics", () => {
     const mechanics = createBuildingDetailMechanicRows({
       buildingName: "Skladiště",
       mechanics: {
@@ -262,7 +262,11 @@ describe("building detail view-model builder", () => {
       }
     });
 
-    expect(mechanics).toEqual([]);
+    expect(mechanics).toEqual([
+      { label: "Hromadné zásoby", value: "Maximální kapacita +0 ks · celkem 60 ks na položku" },
+      { label: "Taktické zásoby", value: "Maximální kapacita +0 ks · celkem 24 ks na položku" },
+      { label: "Strategické zásoby", value: "Maximální kapacita +0 ks · celkem 8 ks na položku" }
+    ]);
   });
 
   it("marks a full convenience store for the compact effects layout", () => {
@@ -309,7 +313,7 @@ describe("building detail view-model builder", () => {
     expect(model.hideMechanicsSection).toBe(true);
   });
 
-  it("omits warehouse material mechanics regardless of current usage", () => {
+  it("shows warehouse capacity mechanics regardless of current usage", () => {
     const mechanics = createBuildingDetailMechanicRows({
       buildingName: "Skladiště",
       mechanics: {
@@ -338,10 +342,14 @@ describe("building detail view-model builder", () => {
       }
     });
 
-    expect(mechanics).toEqual([]);
+    expect(mechanics).toEqual([
+      { label: "Hromadné zásoby", value: "Maximální kapacita +40 ks · celkem 100 ks na položku" },
+      { label: "Taktické zásoby", value: "Maximální kapacita +0 ks · celkem 24 ks na položku" },
+      { label: "Strategické zásoby", value: "Maximální kapacita +0 ks · celkem 8 ks na položku" }
+    ]);
   });
 
-  it("omits authoritative warehouse material mechanics", () => {
+  it("shows all authoritative warehouse material group capacities", () => {
     const serverStorageSummary = {
       warehouseSummary: {
         ownedWarehouseCount: 2,
@@ -376,7 +384,11 @@ describe("building detail view-model builder", () => {
       serverStorageSummary
     };
 
-    expect(createBuildingDetailMechanicRows({ buildingName: "Skladiště", mechanics })).toEqual([]);
+    expect(createBuildingDetailMechanicRows({ buildingName: "Skladiště", mechanics })).toEqual([
+      { label: "Hromadné zásoby", value: "Maximální kapacita +60 ks · celkem 120 ks na položku" },
+      { label: "Taktické zásoby", value: "Maximální kapacita +0 ks · celkem 24 ks na položku" },
+      { label: "Strategické zásoby", value: "Maximální kapacita +8 ks · celkem 16 ks na položku" }
+    ]);
   });
 
   it("does not show generic infrastructure restriction copy in power station mechanics", () => {

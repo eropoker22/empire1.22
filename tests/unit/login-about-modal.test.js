@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ABOUT_GAME_FACTS, ABOUT_GAME_SECTIONS } from "../../page-assets/js/data/about-game-sections.js";
 import { bindLoginAboutModal, bindLoginInfoModals } from "../../page-assets/js/app/login-about-modal.js";
+import { LOGIN_INFO_CONTENT } from "../../page-assets/js/data/login-info-content.js";
 
 const pageSource = readFileSync(resolve(process.cwd(), "pages/login.html"), "utf8");
 const gamePageSource = readFileSync(resolve(process.cwd(), "pages/game.html"), "utf8");
@@ -144,7 +145,7 @@ describe("login about encyclopedia", () => {
     expect(aboutStyles).toContain("overflow: hidden;");
   });
 
-  it("opens all login information links in one shared about-style placeholder modal", () => {
+  it("renders help, terms and privacy in one shared modal while keeping news empty", () => {
     document.body.innerHTML = `
       <button type="button" data-login-info-open="news">Novinky</button>
       <button type="button" data-login-info-open="help">Pomoc</button>
@@ -154,7 +155,7 @@ describe("login about encyclopedia", () => {
         <button type="button" data-login-info-close aria-label="Zavřít informační okno">Zavřít</button>
         <section class="login-info-dialog" role="dialog" tabindex="-1">
           <h2><small data-login-info-title></small></h2>
-          <p>Na obsahu se pracuje.</p>
+          <main data-login-info-content></main>
         </section>
       </div>`;
     bindLoginInfoModals();
@@ -169,7 +170,12 @@ describe("login about encyclopedia", () => {
       document.querySelector(`[data-login-info-open="${id}"]`).click();
       expect(overlay.hidden).toBe(false);
       expect(overlay.querySelector("[data-login-info-title]").textContent).toBe(title);
-      expect(overlay.textContent).toContain("Na obsahu se pracuje.");
+      const content = overlay.querySelector("[data-login-info-content]");
+      if (id === "news") {
+        expect(content.childElementCount).toBe(0);
+      } else {
+        expect(content.querySelectorAll(".login-info-section").length).toBeGreaterThanOrEqual(4);
+      }
       overlay.querySelector("[data-login-info-close]").click();
       expect(overlay.hidden).toBe(true);
     }
@@ -177,7 +183,19 @@ describe("login about encyclopedia", () => {
     expect(pageSource.match(/data-login-info-overlay/g)).toHaveLength(1);
     expect(pageSource).toContain('data-login-info-open="privacy"');
     expect(pageSource).toContain('data-login-info-open="terms"');
+    expect(pageSource).toContain("data-login-info-content");
     expect(aboutStyles).toContain(".login-info-dialog");
+    expect(aboutStyles).toContain(".login-info-article");
     expect(pageSource).not.toContain("login-about-dialog--empty");
+  });
+
+  it("includes pre-alpha safety, privacy rights and practical help copy", () => {
+    const copy = JSON.stringify(LOGIN_INFO_CONTENT);
+
+    expect(LOGIN_INFO_CONTENT.news).toBeNull();
+    expect(copy).toContain("16 let");
+    expect(copy).toContain("požádat o přístup, opravu nebo odstranění");
+    expect(copy).toContain("Nikdy neposílej heslo ani session údaje");
+    expect(copy).toContain("Virtuální měny a předměty nemají skutečnou peněžní hodnotu");
   });
 });

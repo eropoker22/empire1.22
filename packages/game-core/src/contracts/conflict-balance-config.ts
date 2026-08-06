@@ -39,6 +39,9 @@ export interface ConflictBalanceConfig {
       chemicals: { min: number; max: number };
       biomass: { min: number; max: number };
       metalParts: { min: number; max: number };
+      stimPack: { min: number; max: number };
+      techCore: { min: number; max: number };
+      combatModule: { min: number; max: number };
     }>;
   };
   attackCooldownTicks: number;

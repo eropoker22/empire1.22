@@ -1,4 +1,5 @@
 import { ABOUT_GAME_GROUPS, ABOUT_GAME_SECTIONS } from "../data/about-game-sections.js";
+import { LOGIN_INFO_CONTENT } from "../data/login-info-content.js";
 
 const LOGIN_INFO_LABELS = Object.freeze({
   news: "Novinky",
@@ -267,8 +268,40 @@ export const bindLoginInfoModals = (root = document) => {
       const label = LOGIN_INFO_LABELS[modalId] || "Informace";
       const title = overlay.querySelector("[data-login-info-title]");
       if (title) title.textContent = `/ ${label.toUpperCase()}`;
+      renderLoginInfoContent(overlay, modalId);
       const close = overlay.querySelector("[data-login-info-close][aria-label]");
       close?.setAttribute("aria-label", `Zavřít okno ${label}`);
     }
   });
+};
+
+const renderLoginInfoContent = (overlay, modalId) => {
+  const container = overlay.querySelector("[data-login-info-content]");
+  if (!(container instanceof HTMLElement)) return;
+  container.replaceChildren();
+  container.dataset.loginInfoSection = modalId;
+  const content = LOGIN_INFO_CONTENT[modalId];
+  if (!content) return;
+
+  const documentRef = overlay.ownerDocument;
+  const article = createNode(documentRef, "article", "login-info-article");
+  article.append(
+    createNode(documentRef, "span", "login-info-article__eyebrow", content.eyebrow),
+    createNode(documentRef, "p", "login-info-article__intro", content.intro)
+  );
+  for (const section of content.sections) {
+    const sectionNode = createNode(documentRef, "section", "login-info-section");
+    sectionNode.append(createNode(documentRef, "h3", "", section.title));
+    for (const paragraph of section.paragraphs ?? []) {
+      sectionNode.append(createNode(documentRef, "p", "", paragraph));
+    }
+    if (section.items?.length) {
+      const list = createNode(documentRef, "ul");
+      for (const item of section.items) list.append(createNode(documentRef, "li", "", item));
+      sectionNode.append(list);
+    }
+    article.append(sectionNode);
+  }
+  article.append(createNode(documentRef, "p", "login-info-article__note", content.note));
+  container.append(article);
 };

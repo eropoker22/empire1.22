@@ -96,11 +96,12 @@ describe("immediate deterministic heist", () => {
     state.resourceStatesById["resource:2"].balances = {
       cash: 1000,
       "dirty-cash": 500,
-      chemicals: 40,
-      biomass: 30,
-      "metal-parts": 50,
-      "tech-core": 20,
-      "combat-module": 9,
+      chemicals: 100,
+      biomass: 100,
+      "stim-pack": 100,
+      "metal-parts": 100,
+      "tech-core": 100,
+      "combat-module": 100,
       bazooka: 4
     };
     const command = findHeistCommand(state, ["clean_success", "success", "detected"]);
@@ -111,7 +112,9 @@ describe("immediate deterministic heist", () => {
     const loot = eventPayload.loot as Record<string, number>;
 
     expect(result.errors).toEqual([]);
-    for (const key of ["cash", "dirty-cash", "chemicals", "biomass", "metal-parts", "tech-core"]) {
+    for (const key of [
+      "cash", "dirty-cash", "chemicals", "biomass", "stim-pack", "metal-parts", "tech-core", "combat-module"
+    ]) {
       expect(
         Number(result.nextState.resourceStatesById["resource:1"].balances[key] ?? 0)
         - Number(beforeAttacker[key] ?? 0)
@@ -121,9 +124,12 @@ describe("immediate deterministic heist", () => {
         - Number(result.nextState.resourceStatesById["resource:2"].balances[key] ?? 0)
       ).toBe(loot[key] ?? 0);
     }
-    expect(result.nextState.resourceStatesById["resource:2"].balances["combat-module"]).toBe(9);
     expect(result.nextState.resourceStatesById["resource:2"].balances.bazooka).toBe(4);
     expect(loot["metal-parts"]).toBe(0);
+    for (const key of ["chemicals", "biomass", "stim-pack", "tech-core", "combat-module"]) {
+      expect(loot[key]).toBeGreaterThanOrEqual(2);
+      expect(loot[key]).toBeLessThanOrEqual(7);
+    }
     expect(result.nextState.policeStatesById["police:1"]?.heat).toBeGreaterThan(0);
     expect(result.nextState.districtsById["district:2"].heistProtectedUntilTick)
       .toBe(context.config.balance.conflict!.heist!.victimProtectionTicks);
@@ -195,6 +201,15 @@ describe("finite neutral robbery", () => {
     expect(result.errors).toEqual([]);
     expect(Number(result.nextState.resourceStatesById["resource:1"].balances.cash ?? 0) - beforeCash).toBe(loot.cash);
     expect(firstPool.cash - pool.cash).toBe(loot.cash);
+    expect(Math.max(loot.cash, loot["dirty-cash"])).toBeGreaterThanOrEqual(1_000);
+    const materialLoot = Object.entries(loot).filter(([key, amount]) => (
+      !["cash", "dirty-cash"].includes(key) && amount > 0
+    ));
+    expect(materialLoot.length).toBeGreaterThanOrEqual(2);
+    for (const [, amount] of materialLoot) {
+      expect(amount).toBeGreaterThanOrEqual(1);
+      expect(amount).toBeLessThanOrEqual(5);
+    }
     expect(result.nextState.policeStatesById["police:1"]?.heat).toBe(eventPayload.playerHeat);
     const reportNotificationId = result.nextState.root.notificationIds.at(-1)!;
     const reportNotification = result.nextState.notificationsById[reportNotificationId];

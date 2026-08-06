@@ -61,7 +61,7 @@ describe("gameplay economy rates projection", () => {
         dirtyCashPerHour: projected.playerBalancePerHour["dirty-cash"],
         passivePopulationSources: [],
         passivePopulationSourceSummary:
-          "Pasivní populace: 0 / tick · žádný zdroj v districtu"
+          "Pasivní populace: 0 / h · žádný zdroj v districtu"
       }
     });
     expect(projected.playerBalancePerTick.cash).toBeCloseTo(

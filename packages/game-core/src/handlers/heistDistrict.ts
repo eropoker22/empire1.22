@@ -19,22 +19,18 @@ import { calculateReceivableResourceAmount } from "./storageCapacityCredit";
 import { createHeistReportNotification, createPlayerResourceState, resolveSingleOwnedOrigin } from "./conflictReportNotifications";
 import { bumpDistrictConflictRevision, bumpDistrictSecurityRevision } from "../state";
 
-const HEISTABLE_RESOURCES = [
-  "cash",
-  "dirty-cash",
+const HEIST_CASH_RESOURCES = ["cash", "dirty-cash"] as const;
+const HEIST_MATERIAL_RESOURCES = [
   "chemicals",
   "biomass",
+  "stim-pack",
   "metal-parts",
-  "tech-core"
+  "tech-core",
+  "combat-module"
 ] as const;
-const MAX_LOOT_FRACTIONS: Record<typeof HEISTABLE_RESOURCES[number], number> = {
-  cash: 0.12,
-  "dirty-cash": 0.12,
-  chemicals: 0.10,
-  biomass: 0.10,
-  "metal-parts": 0.10,
-  "tech-core": 0.10
-};
+const HEISTABLE_RESOURCES = [...HEIST_CASH_RESOURCES, ...HEIST_MATERIAL_RESOURCES] as const;
+const MIN_MATERIAL_LOOT_FRACTION = 0.02;
+const MAX_MATERIAL_LOOT_FRACTION = 0.07;
 
 export const handleHeistDistrict = (
   state: CoreGameState,
@@ -63,17 +59,18 @@ export const handleHeistDistrict = (
   const defenderResource = state.resourceStatesById[targetOwner.resourceStateId]
     ?? createPlayerResourceState(targetOwner.resourceStateId, targetOwner.id, state.root.tick);
   const loot: Record<string, number> = {};
+  const materialLootFraction = resolution.lootMultiplier > 0
+    ? MIN_MATERIAL_LOOT_FRACTION
+      + resolution.lootRoll * (MAX_MATERIAL_LOOT_FRACTION - MIN_MATERIAL_LOOT_FRACTION)
+    : 0;
   for (const resourceKey of HEISTABLE_RESOURCES) {
     const available = Math.max(0, Math.floor(Number(defenderResource.balances[resourceKey] ?? 0)));
-    const requested = Math.min(
-      available,
-      Math.floor(
-        available
-        * MAX_LOOT_FRACTIONS[resourceKey]
-        * resolution.lootMultiplier
-        * (0.75 + resolution.lootRoll * 0.25)
-      )
-    );
+    const requested = HEIST_MATERIAL_RESOURCES.includes(resourceKey as never)
+      ? Math.min(available, Math.floor(available * materialLootFraction))
+      : Math.min(
+          available,
+          Math.floor(available * 0.12 * resolution.lootMultiplier * (0.75 + resolution.lootRoll * 0.25))
+        );
     loot[resourceKey] = calculateReceivableResourceAmount(
       state,
       player.id,

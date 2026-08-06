@@ -13,6 +13,29 @@ export interface NeutralRobberyResolution {
 }
 
 const DEFAULT_ZONE = "residential";
+export const NEUTRAL_ROBBERY_MIN_CASH_LOOT = 1_000;
+export const NEUTRAL_ROBBERY_MATERIAL_KEYS = [
+  "chemicals",
+  "biomass",
+  "metal-parts",
+  "stim-pack",
+  "tech-core",
+  "combat-module"
+] as const;
+export const NEUTRAL_ROBBERY_LOOT_KEYS = [
+  "cash",
+  "dirty-cash",
+  ...NEUTRAL_ROBBERY_MATERIAL_KEYS
+] as const;
+
+const MATERIAL_RARITY_MAX: Record<typeof NEUTRAL_ROBBERY_MATERIAL_KEYS[number], number> = {
+  chemicals: 5,
+  biomass: 5,
+  "metal-parts": 5,
+  "stim-pack": 4,
+  "tech-core": 3,
+  "combat-module": 2
+};
 
 export const seedNeutralDistrictLootPool = (
   worldSeed: string,
@@ -29,7 +52,10 @@ export const seedNeutralDistrictLootPool = (
   const resources = {
     chemicals: rollRange(initialSeed, "chemicals", ranges.chemicals),
     biomass: rollRange(initialSeed, "biomass", ranges.biomass),
-    "metal-parts": rollRange(initialSeed, "metal-parts", ranges.metalParts)
+    "metal-parts": rollRange(initialSeed, "metal-parts", ranges.metalParts),
+    "stim-pack": rollRange(initialSeed, "stim-pack", ranges.stimPack),
+    "tech-core": rollRange(initialSeed, "tech-core", ranges.techCore),
+    "combat-module": rollRange(initialSeed, "combat-module", ranges.combatModule)
   };
   return {
     initialSeed,
@@ -75,9 +101,7 @@ export const resolveNeutralRobbery = (
   districtId: string,
   pool: NeutralDistrictLootPool
 ): NeutralRobberyResolution => {
-  const totalRemaining = pool.cash + pool.dirtyCash
-    + Object.values(pool.resources).reduce((sum, amount) => sum + amount, 0);
-  if (totalRemaining <= 0) {
+  if (!hasNeutralDistrictRobberyLoot(pool)) {
     return {
       outcome: "exhausted",
       loot: {},
@@ -94,45 +118,15 @@ export const resolveNeutralRobbery = (
     : outcomeRoll < 0.87
       ? "partial"
       : "failed";
-  const partialMultiplier = 0.35 + deterministicUnitInterval(`${seed}:partial`) * 0.25;
-  const outcomeMultiplier = outcome === "success" ? 1 : outcome === "partial" ? partialMultiplier : 0;
-  const loot = {
-    cash: takePlanned(pool.cash, 0.18, deterministicUnitInterval(`${seed}:cash`), outcomeMultiplier),
-    "dirty-cash": takePlanned(
-      pool.dirtyCash,
-      0.20,
-      deterministicUnitInterval(`${seed}:dirty-cash`),
-      outcomeMultiplier
-    ),
-    chemicals: takePlanned(
-      Number(pool.resources.chemicals ?? 0),
-      0.22,
-      deterministicUnitInterval(`${seed}:chemicals`),
-      outcomeMultiplier
-    ),
-    biomass: takePlanned(
-      Number(pool.resources.biomass ?? 0),
-      0.22,
-      deterministicUnitInterval(`${seed}:biomass`),
-      outcomeMultiplier
-    ),
-    "metal-parts": takePlanned(
-      Number(pool.resources["metal-parts"] ?? 0),
-      0.22,
-      deterministicUnitInterval(`${seed}:metal-parts`),
-      outcomeMultiplier
-    )
-  };
+  const loot = createNeutralRobberyLoot(seed, pool, outcome);
   const nextPool = {
     ...pool,
     cash: pool.cash - loot.cash,
     dirtyCash: pool.dirtyCash - loot["dirty-cash"],
-    resources: {
-      ...pool.resources,
-      chemicals: Number(pool.resources.chemicals ?? 0) - loot.chemicals,
-      biomass: Number(pool.resources.biomass ?? 0) - loot.biomass,
-      "metal-parts": Number(pool.resources["metal-parts"] ?? 0) - loot["metal-parts"]
-    },
+    resources: Object.fromEntries(Object.entries(pool.resources).map(([key, amount]) => [
+      key,
+      Math.max(0, Number(amount ?? 0) - Number(loot[key] ?? 0))
+    ])),
     version: pool.version + 1
   };
   const heat = outcome === "success"
@@ -144,6 +138,56 @@ export const resolveNeutralRobbery = (
   return { outcome, loot, nextPool, ...heat };
 };
 
+export const hasNeutralDistrictRobberyLoot = (pool: NeutralDistrictLootPool): boolean => (
+  Math.max(pool.cash, pool.dirtyCash) >= NEUTRAL_ROBBERY_MIN_CASH_LOOT
+  && NEUTRAL_ROBBERY_MATERIAL_KEYS.filter((key) => Number(pool.resources[key] ?? 0) > 0).length >= 2
+);
+
+const createNeutralRobberyLoot = (
+  seed: string,
+  pool: NeutralDistrictLootPool,
+  outcome: NeutralRobberyOutcome
+): Record<string, number> => {
+  const loot = Object.fromEntries(NEUTRAL_ROBBERY_LOOT_KEYS.map((key) => [key, 0]));
+  if (outcome === "failed" || outcome === "exhausted") return loot;
+
+  const cashCandidates = ([
+    ["cash", pool.cash],
+    ["dirty-cash", pool.dirtyCash]
+  ] as const).filter(([, amount]) => amount >= NEUTRAL_ROBBERY_MIN_CASH_LOOT);
+  const selectedCash = cashCandidates[
+    Math.floor(deterministicUnitInterval(`${seed}:cash-channel`) * cashCandidates.length)
+  ] ?? cashCandidates[0];
+  if (selectedCash) {
+    const maximumBonus = outcome === "success" ? 1_500 : 500;
+    loot[selectedCash[0]] = Math.min(
+      selectedCash[1],
+      NEUTRAL_ROBBERY_MIN_CASH_LOOT
+        + Math.floor(deterministicUnitInterval(`${seed}:cash-amount`) * (maximumBonus + 1))
+    );
+  }
+
+  const candidates = NEUTRAL_ROBBERY_MATERIAL_KEYS
+    .filter((key) => Number(pool.resources[key] ?? 0) > 0)
+    .sort((left, right) => (
+      deterministicUnitInterval(`${seed}:material-order:${left}`)
+      - deterministicUnitInterval(`${seed}:material-order:${right}`)
+      || left.localeCompare(right)
+    ));
+  const itemCount = Math.min(
+    candidates.length,
+    2 + Number(outcome === "success" && deterministicUnitInterval(`${seed}:material-count`) >= 0.55)
+  );
+  for (const key of candidates.slice(0, itemCount)) {
+    const rarityMaximum = MATERIAL_RARITY_MAX[key];
+    loot[key] = Math.min(
+      Number(pool.resources[key] ?? 0),
+      1 + Math.floor(deterministicUnitInterval(`${seed}:material-amount:${key}`) * rarityMaximum)
+    );
+  }
+  return loot;
+};
+
 export const getNeutralLootPoolLevel = (pool: NeutralDistrictLootPool): "rich" | "partial" | "low" | "exhausted" => {
   const initial = pool.initialCash + pool.initialDirtyCash
     + Object.values(pool.initialResources).reduce((sum, amount) => sum + amount, 0);
@@ -152,9 +196,6 @@ export const getNeutralLootPoolLevel = (pool: NeutralDistrictLootPool): "rich" |
   const ratio = initial > 0 ? current / initial : 0;
   return ratio <= 0 ? "exhausted" : ratio < 0.25 ? "low" : ratio < 0.65 ? "partial" : "rich";
 };
-
-const takePlanned = (available: number, maxFraction: number, roll: number, multiplier: number): number =>
-  Math.min(available, Math.floor(available * maxFraction * (0.6 + roll * 0.4) * multiplier));
 
 const rollRange = (
   seed: string,

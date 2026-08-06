@@ -8,6 +8,7 @@ import {
   type ClientSurfaceActionElement
 } from "../../../apps/client/src/app";
 import { createInitialClientRenderState } from "../../../apps/client/src/app";
+import { createHeistDistrictCommand } from "../../../apps/client/src/features/district-panel";
 
 const createGameplaySliceFixture = (): GameplaySliceView => ({
   server: {
@@ -699,6 +700,45 @@ describe("client surface actions", () => {
         }
       }
     ]);
+  });
+
+  it("uses the server-recommended affordable style for player heists", () => {
+    const slice = createGameplaySliceFixture();
+    slice.district!.heistTargets = [
+      {
+        sourceDistrictId: "district:1",
+        districtId: "district:4",
+        name: "Heist Target",
+        ownerPlayerId: "player:4",
+        status: "claimed",
+        enabled: true,
+        disabledCode: null,
+        disabledReason: null,
+        expectedConflictRevision: 11,
+        expectedTargetVersion: 9,
+        expectedSourceVersion: 7,
+        recommendedStyle: "stealth",
+        availablePopulation: 5,
+        styles: [
+          { style: "stealth", label: "Tichý", enabled: true, defaultGangMembersSent: 5 },
+          { style: "balanced", label: "Vyvážený", enabled: false, defaultGangMembersSent: 10 }
+        ]
+      }
+    ];
+
+    const command = createHeistDistrictCommand({
+      commandId: "command:heist:1",
+      slice,
+      targetDistrictId: "district:4",
+      issuedAt: new Date(0).toISOString()
+    });
+
+    expect(command.payload).toMatchObject({
+      targetDistrictId: "district:4",
+      sourceDistrictId: "district:1",
+      style: "stealth",
+      gangMembersSent: 5
+    });
   });
 
   it("does not dispatch heist commands when the heist target is absent from the local slice", async () => {

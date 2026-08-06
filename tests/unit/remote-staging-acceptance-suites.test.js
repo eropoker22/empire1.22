@@ -6,6 +6,7 @@ import {
 
 const expectedSuites = [
   "manual-admin-player",
+  "canonical-20p-registration",
   "ui-parity",
   "ui-parity-social",
   "production-pharmacy",
@@ -37,6 +38,10 @@ describe("remote staging acceptance suite contract", () => {
     expect(getRemoteStagingAcceptanceSuite("social-concurrency-privacy")).toMatchObject({
       bootstrapCount: 5,
       scenario: "social-concurrency-privacy"
+    });
+    expect(getRemoteStagingAcceptanceSuite("canonical-20p-registration")).toMatchObject({
+      bootstrapCount: 20,
+      capacity: 20
     });
     expect(getRemoteStagingAcceptanceSuite("income").restartWorkerBeforeSpec).toBe(true);
     expect(getRemoteStagingAcceptanceSuite("lifecycle-stop").pauseResumeBeforeSpec).toBe(true);

@@ -33,6 +33,21 @@ export const createDistrictHeistTargetViews = (
     .map((districtId) => state.districtsById[districtId])
     .filter((target) => target !== undefined)
     .map((target) => {
+      const availablePopulation = Math.max(
+        0,
+        Math.floor(Number(state.playersById[playerId]?.population ?? 0))
+      );
+      const styleConfig = conflictConfig?.heist?.styles;
+      const styleMinimum = (style: "stealth" | "balanced" | "all_in") => (
+        styleConfig?.[style]?.minMembers ?? (style === "stealth" ? 5 : style === "balanced" ? 10 : 25)
+      );
+      const recommendedStyle = availablePopulation >= styleMinimum("balanced")
+        ? "balanced" as const
+        : availablePopulation >= styleMinimum("stealth")
+          ? "stealth" as const
+          : availablePopulation >= styleMinimum("all_in")
+            ? "all_in" as const
+            : "stealth" as const;
       const previewCommand: HeistDistrictCommand = {
         id: `preview:heist:${source.id}:${target.id}`,
         type: "heist-district",
@@ -43,8 +58,8 @@ export const createDistrictHeistTargetViews = (
         payload: {
           targetDistrictId: target.id,
           sourceDistrictId: source.id,
-          style: "balanced",
-          gangMembersSent: 10,
+          style: recommendedStyle,
+          gangMembersSent: styleMinimum(recommendedStyle),
           expectedTargetVersion: target.version,
           expectedSourceVersion: source.version,
           expectedConflictRevision: target.conflictRevision
@@ -57,7 +72,6 @@ export const createDistrictHeistTargetViews = (
         playerId,
         [createHeistGlobalCooldownKey(), createHeistAttackerTargetCooldownKey(target.id)]
       ), Math.max(0, Number(target.heistProtectedUntilTick ?? 0) - state.root.tick));
-      const styleConfig = conflictConfig?.heist?.styles;
       const heistConfig = conflictConfig?.heist;
       const victimProtectionRemainingTicks = Math.max(
         0,
@@ -81,6 +95,7 @@ export const createDistrictHeistTargetViews = (
         return {
           style,
           label,
+          enabled: availablePopulation >= minMembers,
           defaultGangMembersSent: minMembers,
           minMembers,
           maxMembers,
@@ -109,6 +124,8 @@ export const createDistrictHeistTargetViews = (
           createStyleView("balanced", "Vyvážený"),
           createStyleView("all_in", "Tvrdý")
         ],
+        recommendedStyle: errors.length === 0 ? recommendedStyle : null,
+        availablePopulation,
         victimProtectionRemainingTicks,
         majorOffenseCooldownEndsAtTick: state.cooldownStatesById[state.playersById[playerId]?.cooldownStateId ?? ""]
           ?.cooldowns["offense:global"] ?? null,
