@@ -36,6 +36,15 @@ describe("live lobby spawn modal cold-start contract", () => {
     expect(source).toContain("STARTING_MATERIAL_LABELS[materialId]");
   });
 
+  it("keeps the district confirmation action reachable on short desktop viewports", () => {
+    const lobbyStyles = readFileSync(resolve(root, "page-assets/css/lobby.css"), "utf8");
+    const cardRule = /\.server-detail-modal__card\s*\{([^}]*)\}/su.exec(lobbyStyles)?.[1] ?? "";
+
+    expect(cardRule).toContain("max-height: calc(100dvh - 32px)");
+    expect(cardRule).toContain("overflow-y: auto");
+    expect(cardRule).toContain("overscroll-behavior: contain");
+  });
+
   it("uses the authoritative online presence count instead of server memberships", () => {
     const source = readFileSync(resolve(root, "page-assets/js/lobby-live.js"), "utf8");
 

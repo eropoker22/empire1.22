@@ -1860,8 +1860,12 @@ body.servers-page .auth-server-card.is-selected {
 .server-detail-modal__card {
   width: min(620px, 94vw);
   min-height: auto;
+  max-height: calc(100dvh - 32px);
   gap: 12px;
   padding: 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border-color: rgba(244, 196, 48, 0.46);
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.09), transparent 26%),
