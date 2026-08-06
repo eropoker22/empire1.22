@@ -15,6 +15,12 @@ export const normalizeExactHttpsOrigin = (value, code = "REMOTE_RELEASE_ORIGIN_I
   }
 };
 
+export const buildRemoteReleaseUrl = ({ origin, path, sha, includeReleaseSha = true }) => {
+  const url = new URL(path, origin);
+  if (includeReleaseSha) url.searchParams.set("release-sha", sha);
+  return url;
+};
+
 export const extractFrontendBuildSha = (html) => {
   const tag = /<meta\b[^>]*\bname=["']empire-build-sha["'][^>]*>/iu.exec(String(html))?.[0] ?? "";
   const sha = /\bcontent=["']([0-9a-f]{40})["']/iu.exec(tag)?.[1] ?? null;
@@ -41,20 +47,24 @@ export const validateRemoteReleaseHealth = ({
   expectedSha,
   expectedSchemaVersion,
   expectedEnvironment,
-  expectedRegion
+  expectedRegion,
+  expectedApiRegion = expectedRegion,
+  expectedWorkerRegion = expectedRegion
 }) => {
-  if (!SHA_PATTERN.test(String(expectedSha)) || !SCHEMA_PATTERN.test(String(expectedSchemaVersion))) {
+  if (!SHA_PATTERN.test(String(expectedSha)) || !SCHEMA_PATTERN.test(String(expectedSchemaVersion))
+    || !String(expectedApiRegion ?? "").trim() || !String(expectedWorkerRegion ?? "").trim()) {
     throw new Error("REMOTE_RELEASE_EXPECTATION_INVALID");
   }
   const common = (value) => value?.buildSha === expectedSha
     && value?.environment === expectedEnvironment
-    && value?.region === expectedRegion
     && value?.schemaVersion === expectedSchemaVersion
     && value?.expectedSchemaVersion === expectedSchemaVersion;
-  if (api?.status !== "ready" || api?.apiBuildSha !== expectedSha || !common(api)) {
+  if (api?.status !== "ready" || api?.apiBuildSha !== expectedSha
+    || api?.region !== expectedApiRegion || !common(api)) {
     throw new Error("REMOTE_API_RELEASE_MISMATCH");
   }
-  if (worker?.status !== "ok" || worker?.heartbeat?.registered !== true || !common(worker)) {
+  if (worker?.status !== "ok" || worker?.heartbeat?.registered !== true
+    || worker?.region !== expectedWorkerRegion || !common(worker)) {
     throw new Error("REMOTE_WORKER_RELEASE_MISMATCH");
   }
   return {
@@ -63,7 +73,8 @@ export const validateRemoteReleaseHealth = ({
     workerSha: worker.buildSha,
     schemaVersion: expectedSchemaVersion,
     environment: expectedEnvironment,
-    region: expectedRegion
+    apiRegion: expectedApiRegion,
+    workerRegion: expectedWorkerRegion
   };
 };
 

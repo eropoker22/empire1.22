@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assertReleaseCacheControl,
+  buildRemoteReleaseUrl,
   extractFrontendBuildSha,
   normalizeExactHttpsOrigin,
   validateRemoteAssetManifest,
@@ -17,6 +18,20 @@ describe("remote release contract", () => {
     expect(() => normalizeExactHttpsOrigin("http://localhost:8888")).toThrow("REMOTE_RELEASE_ORIGIN_INVALID");
   });
 
+  it("adds release cache-busting only when the target accepts query parameters", () => {
+    expect(buildRemoteReleaseUrl({
+      origin: "https://staging.empirestreets.cz",
+      path: "/release-asset-manifest.json",
+      sha
+    }).href).toBe(`https://staging.empirestreets.cz/release-asset-manifest.json?release-sha=${sha}`);
+    expect(buildRemoteReleaseUrl({
+      origin: "https://empire-streets-staging-worker.fly.dev",
+      path: "/health",
+      sha,
+      includeReleaseSha: false
+    }).href).toBe("https://empire-streets-staging-worker.fly.dev/health");
+  });
+
   it("enforces revalidated and immutable cache policies", () => {
     expect(() => assertReleaseCacheControl("public, max-age=0, must-revalidate", "revalidate")).not.toThrow();
     expect(() => assertReleaseCacheControl("public, max-age=31536000, immutable", "immutable")).not.toThrow();
@@ -27,18 +42,24 @@ describe("remote release contract", () => {
     const common = {
       buildSha: sha,
       environment: "staging",
-      region: "fra",
       schemaVersion: schema,
       expectedSchemaVersion: schema
     };
     expect(validateRemoteReleaseHealth({
-      api: { ...common, status: "ready", apiBuildSha: sha },
-      worker: { ...common, status: "ok", heartbeat: { registered: true } },
+      api: { ...common, region: "us-east-2", status: "ready", apiBuildSha: sha },
+      worker: { ...common, region: "fra", status: "ok", heartbeat: { registered: true } },
       expectedSha: sha,
       expectedSchemaVersion: schema,
       expectedEnvironment: "staging",
-      expectedRegion: "fra"
-    })).toMatchObject({ frontendSha: sha, apiSha: sha, workerSha: sha });
+      expectedApiRegion: "us-east-2",
+      expectedWorkerRegion: "fra"
+    })).toMatchObject({
+      frontendSha: sha,
+      apiSha: sha,
+      workerSha: sha,
+      apiRegion: "us-east-2",
+      workerRegion: "fra"
+    });
   });
 
   it("rejects a stale worker and a changed asset manifest", () => {

@@ -2,10 +2,15 @@
 .env
 .env.*
 !.env.example
+.cache
+.tmp
+artifacts
 client
 dist
 dist-worker
+img
 node_modules
+page-assets
 test-results
 playwright-report
 *.log

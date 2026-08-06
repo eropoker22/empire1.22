@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 import { sha256Hex } from "./release-asset-manifest-contract.mjs";
 import {
   assertReleaseCacheControl,
+  buildRemoteReleaseUrl,
   extractFrontendBuildSha,
   normalizeExactHttpsOrigin,
   validateRemoteAssetManifest,
@@ -13,7 +14,8 @@ const publicOrigin = normalizeExactHttpsOrigin(process.env.EMPIRE_PUBLIC_ORIGIN,
 const workerOrigin = normalizeExactHttpsOrigin(process.env.EMPIRE_HOSTED_WORKER_ORIGIN, "REMOTE_WORKER_ORIGIN_INVALID");
 const expectedSha = String(process.env.EMPIRE_BUILD_SHA ?? "").trim();
 const expectedEnvironment = String(process.env.EMPIRE_RELEASE_ENVIRONMENT ?? "").trim();
-const expectedRegion = String(process.env.EMPIRE_RUNTIME_REGION ?? "").trim();
+const expectedApiRegion = String(process.env.EMPIRE_RUNTIME_REGION ?? "").trim();
+const expectedWorkerRegion = String(process.env.EMPIRE_HOSTED_WORKER_REGION ?? "").trim();
 const localAssetText = await readFile("artifacts/release-asset-manifest.json", "utf8");
 const localAssetManifest = JSON.parse(localAssetText);
 const releaseManifest = JSON.parse(await readFile("artifacts/release-manifest.json", "utf8"));
@@ -48,7 +50,7 @@ if (frontendBuildSha !== expectedSha) throw new Error("REMOTE_FRONTEND_BUILD_SHA
 const apiResponse = await fetchRelease(publicOrigin, "/api/health", expectedSha);
 assertNoStore(apiResponse.headers.get("cache-control"));
 const api = await apiResponse.json();
-const workerResponse = await fetchRelease(workerOrigin, "/health", expectedSha);
+const workerResponse = await fetchRelease(workerOrigin, "/health", expectedSha, { includeReleaseSha: false });
 assertNoStore(workerResponse.headers.get("cache-control"));
 const worker = await workerResponse.json();
 const parity = validateRemoteReleaseHealth({
@@ -57,7 +59,8 @@ const parity = validateRemoteReleaseHealth({
   expectedSha,
   expectedSchemaVersion,
   expectedEnvironment,
-  expectedRegion
+  expectedApiRegion,
+  expectedWorkerRegion
 });
 
 const evidence = {
@@ -74,9 +77,8 @@ await mkdir(dirname(outputPath), { recursive: true });
 await writeFile(outputPath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
 console.log(`Remote release parity verified for ${expectedSha} with ${deployedAssets.length} assets.`);
 
-async function fetchRelease(origin, path, sha) {
-  const url = new URL(path, origin);
-  url.searchParams.set("release-sha", sha);
+async function fetchRelease(origin, path, sha, options = {}) {
+  const url = buildRemoteReleaseUrl({ origin, path, sha, ...options });
   const response = await fetch(url, {
     cache: "no-store",
     redirect: "error",
