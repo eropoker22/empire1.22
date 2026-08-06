@@ -23,4 +23,18 @@ describe("login registration policy guard", () => {
     expect(liveSource).not.toContain("inviteCode");
     expect(liveSource).not.toContain("EmpireConfigOverrides");
   });
+
+  it("keeps account credentials out of a native GET before live handlers bind", () => {
+    expect(pageSource).toMatch(/<form\s+id="login-form"[^>]+method="post"[^>]+action="\/pages\/login\.html"/u);
+    expect(pageSource).toMatch(/id="login-username"[^>]+disabled/u);
+    expect(pageSource).toMatch(/id="login-password"[^>]+disabled/u);
+    expect(pageSource).toMatch(/type="submit"\s+class="enter-city-button"[^>]+disabled/u);
+    expect(pageSource).toContain('data-login-ready="false"');
+
+    const listenerIndex = liveSource.indexOf('loginForm?.addEventListener("submit"');
+    const readyIndex = liveSource.indexOf("markLoginFormReady(loginForm)");
+    expect(listenerIndex).toBeGreaterThanOrEqual(0);
+    expect(readyIndex).toBeGreaterThan(listenerIndex);
+    expect(liveSource).toContain('form.dataset.loginReady = "true"');
+  });
 });

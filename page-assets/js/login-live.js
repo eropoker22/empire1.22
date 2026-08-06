@@ -129,11 +129,13 @@ function bindPasswordToggle() {
 }
 
 function bindForms() {
-  document.querySelector("#login-form")?.addEventListener("submit", (event) => void submit({
+  const loginForm = document.querySelector("#login-form");
+  loginForm?.addEventListener("submit", (event) => void submit({
     event,
     operation: () => loginAccount({ username: value("login-username"), password: rawValue("login-password") }),
     showFailure: showLoginError
   }));
+  if (loginForm instanceof HTMLFormElement) markLoginFormReady(loginForm);
   document.querySelector("#register-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     if (!state.registrationEnabled) {
@@ -165,6 +167,14 @@ function bindForms() {
       showFailure: showRegistrationError
     });
   });
+}
+
+function markLoginFormReady(form) {
+  form.querySelectorAll("#login-username, #login-password, button[type='submit']").forEach((control) => {
+    if (control instanceof HTMLInputElement || control instanceof HTMLButtonElement) control.disabled = false;
+  });
+  form.dataset.loginReady = "true";
+  form.setAttribute("aria-busy", "false");
 }
 
 async function submit({ event, operation, showFailure }) {
