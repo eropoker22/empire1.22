@@ -13,4 +13,19 @@ describe("mobile lobby active server layout", () => {
     expect(mobile).toContain(".auth-mode-tab");
     expect(mobile).toContain("min-height: 34px;");
   });
+
+  it("keeps server slots and registration status compact below an active membership", () => {
+    const stylesheet = readFileSync("page-assets/css/lobby.css", "utf8");
+    const compactMobile = stylesheet.slice(stylesheet.lastIndexOf(
+      "/* Mobile active-membership server slots and registration summary stay compact. */"
+    ));
+
+    expect(compactMobile).toContain("grid-template-columns: minmax(0, 1fr) 88px;");
+    expect(compactMobile).toContain("min-height: 64px;");
+    expect(compactMobile).toContain(".auth-server-card__schedule");
+    expect(compactMobile).toContain("display: none;");
+    expect(compactMobile).toContain("body.servers-page .lobby-registration-status");
+    expect(compactMobile).toContain("grid-template-columns: minmax(0, 1fr) auto;");
+    expect(compactMobile).toContain("padding: 7px 9px;");
+  });
 });

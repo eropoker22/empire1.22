@@ -435,20 +435,57 @@ describe("occupy district command", () => {
     expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBeNull();
   });
 
-  it("rejects occupation when the source district lacks influence", () => {
+  it("uses the player's total influence when the source district alone cannot cover occupation", () => {
     const state = createNeutralOccupyState();
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
       influence: 4
     };
+    state.districtsById["district:3"] = {
+      ...state.districtsById["district:1"],
+      id: "district:3",
+      name: "Influence Reserve",
+      influence: 8,
+      adjacentDistrictIds: [],
+      buildingIds: []
+    };
+    state.root.districtIds.push("district:3");
+    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
+    expect(createDistrictOccupyTargetViews(state, "player:1", "district:1")[0]).toMatchObject({
+      enabled: true,
+      cost: { influence: 10 }
+    });
+    const result = applyCommand(state, createOccupyDistrictCommandFixture(), context);
+
+    expect(result.errors).toEqual([]);
+    expect(result.nextState.districtsById["district:1"].influence).toBe(0);
+    expect(result.nextState.districtsById["district:3"].influence).toBe(2);
+  });
+
+  it("rejects occupation only when the player's total influence is insufficient", () => {
+    const state = createNeutralOccupyState();
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      influence: 4
+    };
+    state.districtsById["district:3"] = {
+      ...state.districtsById["district:1"],
+      id: "district:3",
+      name: "Destroyed Reserve",
+      influence: 100,
+      status: "destroyed",
+      adjacentDistrictIds: [],
+      buildingIds: []
+    };
+    state.root.districtIds.push("district:3");
     seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
     const result = applyCommand(state, createOccupyDistrictCommandFixture(), context);
 
-    expect(result.errors).toMatchObject([
-      {
-        code: "occupy_not_enough_influence"
-      }
-    ]);
+    expect(result.errors).toMatchObject([{
+      code: "occupy_not_enough_influence",
+      message: "Obsazení vyžaduje 5 vlivu celkem. Aktuálně máš 4."
+    }]);
+    expect(result.errors[0]?.message).not.toContain("zdrojovém districtu");
     expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBeNull();
   });
 

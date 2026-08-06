@@ -19,6 +19,7 @@ import {
 } from "../rules";
 import { validateOccupyEmptyDistrictAuthorization } from "./spyIntel";
 import { formatTickDuration } from "../utils/time";
+import { calculatePlayerDisplayedInfluence } from "../projections/player-resource-projection";
 
 /**
  * Responsibility: Pure validator for neutral district occupation after successful intel.
@@ -148,11 +149,12 @@ export const validateOccupy = (
     }];
   }
 
-  if (Math.max(0, Number(sourceDistrict.influence || 0)) < influenceCost) {
+  const availableInfluence = calculatePlayerDisplayedInfluence(state, player.id);
+  if (availableInfluence < influenceCost) {
     return [
       {
         code: "occupy_not_enough_influence",
-        message: `Obsazení vyžaduje ${influenceCost} vlivu ve zdrojovém districtu.`
+        message: `Obsazení vyžaduje ${influenceCost} vlivu celkem. Aktuálně máš ${availableInfluence}.`
       }
     ];
   }
