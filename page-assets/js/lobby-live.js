@@ -211,7 +211,6 @@ function renderSelectedServer() {
   const presentation = server ? registrationPresentation(server) : null;
   text("[data-lobby-detail-registration-status]", presentation?.statusLabel || "-");
   text("[data-lobby-detail-registration-countdown]", presentation ? `${presentation.scheduleLabel}${presentation.countdownLabel ? ` · ${presentation.countdownLabel}` : ""}` : "");
-  text("[data-lobby-detail-description]", server ? `Durable hosted server · ${server.disabledReason ? hostedRegistrationDisabledCopy(server.disabledReason) : "vstup je otevřený"}` : "Vyber server pro detail.");
   text("[data-lobby-summary-server]", server?.displayName || "Nevybrán");
   text("[data-lobby-summary-mode]", state.mode.toUpperCase());
   text("[data-lobby-summary-district]", state.selectedDistrictId || "Nevybrán");

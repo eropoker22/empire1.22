@@ -260,7 +260,6 @@ const initializeLobbyPage = () => {
   const lobbyDetailMode = document.querySelector("[data-lobby-detail-mode]");
   const lobbyDetailCapacity = document.querySelector("[data-lobby-detail-capacity]");
   const lobbyDetailStart = document.querySelector("[data-lobby-detail-start]");
-  const lobbyDetailDescription = document.querySelector("[data-lobby-detail-description]");
   const lobbyRiskRing = document.querySelector("[data-lobby-risk-ring]");
   const lobbyRiskValue = document.querySelector("[data-lobby-risk-value]");
   const lobbyRiskNote = document.querySelector("[data-lobby-risk-note]");
@@ -1032,9 +1031,6 @@ const initializeLobbyPage = () => {
       lobbyDetailStart.textContent = server
         ? `${server.startLabel || server.status}. Finální spawn potvrzuje server.`
         : "-";
-    }
-    if (lobbyDetailDescription) {
-      lobbyDetailDescription.textContent = server?.description || "Vyber server pro detail.";
     }
     if (lobbyRiskRing instanceof HTMLElement || lobbyRiskValue) {
       const riskPercent = getServerRiskPercent(server);
