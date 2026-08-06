@@ -21,10 +21,13 @@ export const validateAccountRegistrationRequest = (
   ])) {
     throw entryError("ACCOUNT_REGISTRATION_PAYLOAD_INVALID", "Registrace obsahuje nepovolená nebo chybějící pole.");
   }
-  const username = String(value.username ?? "").normalize("NFKC").trim();
-  const gangName = String(value.gangName ?? "").normalize("NFKC").trim();
-  const password = String(value.password ?? "");
-  const passwordConfirmation = String(value.passwordConfirmation ?? "");
+  if (!hasRequiredRegistrationStringFields(value)) {
+    throw entryError("ACCOUNT_REGISTRATION_PAYLOAD_INVALID", "Registrace obsahuje pole s neplatným typem.");
+  }
+  const username = value.username.normalize("NFKC").trim();
+  const gangName = value.gangName.normalize("NFKC").trim();
+  const password = value.password;
+  const passwordConfirmation = value.passwordConfirmation;
   if (!validPlayerUsername(username)) {
     throw entryError("ACCOUNT_USERNAME_INVALID", "Uživatelské jméno není platné.");
   }
@@ -56,7 +59,10 @@ export const validateAccountRegistrationRequest = (
 };
 
 export const normalizeDateOfBirth = (value: unknown): string => {
-  const dateOfBirth = String(value ?? "").trim();
+  if (typeof value !== "string") {
+    throw entryError("ACCOUNT_DATE_OF_BIRTH_INVALID", "Zadej platné datum narození.");
+  }
+  const dateOfBirth = value.trim();
   const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(dateOfBirth);
   if (!match) throw entryError("ACCOUNT_DATE_OF_BIRTH_INVALID", "Zadej platné datum narození.");
   const year = Number(match[1]);
@@ -71,6 +77,20 @@ export const normalizeDateOfBirth = (value: unknown): string => {
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+const requiredStringFields = [
+  "username",
+  "gangName",
+  "dateOfBirth",
+  "password",
+  "passwordConfirmation",
+  "termsVersion"
+] as const;
+
+const hasRequiredRegistrationStringFields = (
+  value: Record<string, unknown>
+): value is Record<string, unknown> & Record<(typeof requiredStringFields)[number], string> =>
+  requiredStringFields.every((field) => typeof value[field] === "string");
 
 const onlyKeys = (value: Record<string, unknown>, allowed: string[]): boolean =>
   allowed.every((key) => Object.hasOwn(value, key)) && Object.keys(value).every((key) => allowed.includes(key));

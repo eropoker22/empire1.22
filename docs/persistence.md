@@ -47,7 +47,7 @@ npm run db:migrate -- --controlled-snapshot-recovery
 npm run db:migrate:status
 ```
 
-The final status must report every migration in `PRODUCTION_MIGRATION_CONTRACT` (currently `001` through `021`), no unknown migration, checksum parity, and `pending: 0`. Do not apply migration SQL files manually or rewrite migration history.
+The final status must report every migration in `PRODUCTION_MIGRATION_CONTRACT` (currently `001` through `024`), no unknown migration, checksum parity, and `pending: 0`. Do not apply migration SQL files manually or rewrite migration history.
 
 The migration creates:
 
@@ -200,7 +200,9 @@ Gameplay core does not know about the database lock. The lock is contained in th
 
 ## Tests
 
-Default tests do not require a live database.
+Default tests do not require or discover a live database. The default command keeps the
+memory, file, snapshot, and mocked Postgres-adapter coverage, while excluding every
+`*-live.test.ts` file and the prod-like Postgres smoke.
 
 Run local/mock persistence tests:
 
@@ -208,14 +210,29 @@ Run local/mock persistence tests:
 npm run test:persistence
 ```
 
-Run the optional live Postgres smoke test after applying the migration:
+Run the focused live Postgres smoke test with an explicitly exported test URL:
 
 ```powershell
 $env:EMPIRE_TEST_DATABASE_URL = "postgres://user:password@localhost:5432/empire_test"
 npm run test:persistence:postgres
 ```
 
-The live smoke test appends a command, event, diagnostic, saves and loads a snapshot, and acquires a tick lock. It is skipped when `EMPIRE_TEST_DATABASE_URL` is not set.
+Run every live Postgres persistence test explicitly with:
+
+```powershell
+$env:EMPIRE_TEST_DATABASE_URL = "postgres://user:password@localhost:5432/empire_test"
+npm run test:persistence:postgres:live
+```
+
+The live commands fail before Vitest starts when `EMPIRE_TEST_DATABASE_URL` is absent or
+invalid. They never load `.env.local`, and bare runtime `EMPIRE_DATABASE_URL` /
+`GAMEPLAY_DATABASE_URL` values are not accepted as test authority. A protected staging
+job may map its guarded direct staging secret into `EMPIRE_TEST_DATABASE_URL` only after
+its staging approval and target-hash checks pass. The guard errors never include the URL
+or embedded credentials.
+
+The focused live smoke appends a command, event, diagnostic, saves and loads a snapshot,
+and acquires a tick lock.
 
 ## Production Notes
 
@@ -229,10 +246,12 @@ Implemented:
 - Snapshot latest compare-and-swap by `rootVersion`.
 - Distributed tick lock helper and tick-orchestrator integration.
 - Identity/session schema for player registrations, join tickets and gameplay sessions in `003_gameplay_identity_sessions.sql`.
+- Production app composition wires the Postgres account identity, join-ticket,
+  player-registration and gameplay-session repositories. Missing production
+  dependencies fail closed instead of selecting the in-memory provider.
 - Optional live Postgres smoke test.
 
 Known follow-up:
 
-- The identity/session schema exists, but player registration, join ticket and gameplay session repository wiring is not yet production-ready. Until then, production gameplay session traffic fails closed unless a production-ready session service is injected.
 - Memory and file persistence remain development-only for public command submit. They can exercise the command lifecycle locally, but only Postgres provides cross-host transaction atomicity.
 - Diagnostic logs may remain best-effort in some lifecycle paths because they are audit-only. Command correctness writes are inside the Postgres transaction boundary.

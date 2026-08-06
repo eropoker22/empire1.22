@@ -8,16 +8,15 @@ import {
 import { createPostgresAdminDurableRepositories, hashAdminPassword } from "../../apps/server/src/admin/read-only";
 import { createServerApp } from "../../apps/server/src/app";
 import { createPostgresRuntimePersistenceRepositories } from "../../apps/server/src/runtime/persistence/postgres";
-import { loadLocalEnvFile } from "../helpers/load-local-env.js";
 import { createIsolatedPostgresTestSchema } from "./helpers/isolated-postgres-test-schema";
+import { resolveLivePostgresSmokeConfig } from "./helpers/postgres-prod-like-smoke-helpers";
 
-loadLocalEnvFile();
-const databaseUrl = process.env.EMPIRE_TEST_DATABASE_URL?.trim();
-const describeWhenDatabaseConfigured = databaseUrl ? describe : describe.skip;
+const live = resolveLivePostgresSmokeConfig();
+const describeWhenDatabaseConfigured = live.run ? describe : describe.skip;
 
 describeWhenDatabaseConfigured("hosted control plane PostgreSQL live", () => {
   it("persists idempotent create, provisioning, lease and snapshot restore", async () => {
-    const isolated = await createIsolatedPostgresTestSchema(databaseUrl!, "hosted_control_plane");
+    const isolated = await createIsolatedPostgresTestSchema(live.databaseUrl!, "hosted_control_plane");
     const database = isolated.database;
     const repositories = createPostgresAdminDurableRepositories(database);
     const suffix = `${Date.now()}`;

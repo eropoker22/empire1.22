@@ -4,6 +4,8 @@ import type {
   HostedServerRegistrationReasonCode,
   HostedServerRegistrationStatus
 } from "../admin/read-models/admin-hosted-control-plane-views";
+import type { FinalLockdownStatus } from "../entities/victory-state";
+import type { PlayerStatus } from "../entities/player";
 
 export type ServerMembershipStatus =
   | "setup_required"
@@ -57,6 +59,18 @@ export interface HostedMatchRankingEntryView {
 export interface HostedMatchResultsView {
   serverInstanceId: string;
   serverDisplayName: string;
+  server: {
+    serverInstanceId: string;
+    status: string;
+    currentTick: number;
+    stateVersion: number;
+  };
+  finalLockdown: {
+    status: FinalLockdownStatus;
+    currentPlayerRank: number | null;
+    leaderboardTop3: HostedMatchRankingEntryView[];
+  };
+  currentPlayerStatus: PlayerStatus;
   completedAt: string;
   completionReason: string;
   winner: HostedMatchRankingEntryView | null;

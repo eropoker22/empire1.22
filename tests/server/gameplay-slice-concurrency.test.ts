@@ -1,11 +1,28 @@
 import { describe, expect, it } from "vitest";
 import {
+  checkGameStateInvariants,
   createPlayerMarketListing,
+  deterministicUnitInterval,
+  getNormalMarketRotation,
+  initializeServerMarket,
+  resolveImmediateHeist,
+  resolveResourceCapacity,
+  runTick,
   type MarketTransaction
 } from "@empire/game-core";
-import type { BuyPlayerMarketListingCommand } from "@empire/shared-types";
+import type {
+  BuyMarketResourceCommand,
+  BuyPlayerMarketListingCommand,
+  CreatePlayerMarketListingCommand
+} from "@empire/shared-types";
 import { createServerApp } from "../../apps/server/src/app";
-import { createAttackDistrictCommandFixture, createPlaceTrapCommandFixture } from "../fixtures/command-fixtures";
+import { createFixedClock } from "../../apps/server/src/runtime/scheduling";
+import {
+  createAttackDistrictCommandFixture,
+  createHeistDistrictCommandFixture,
+  createOccupyDistrictCommandFixture,
+  createPlaceTrapCommandFixture
+} from "../fixtures/command-fixtures";
 import {
   createCombatStateFixture,
   createDistrictFixture,
@@ -17,6 +34,16 @@ import {
   createDevGameplaySession,
   loadWithDevGameplaySession
 } from "../helpers/gameplay-session-test-helpers";
+
+const FIXED_NOW = "2026-05-17T12:00:00.000Z";
+const HEIST_MATERIAL_RESOURCE_IDS = [
+  "chemicals",
+  "biomass",
+  "metal-parts",
+  "stim-pack",
+  "tech-core",
+  "combat-module"
+] as const;
 
 describe("gameplay slice optimistic concurrency", () => {
   it("accepts commands with the current state version and returns advanced metadata", async () => {
@@ -231,7 +258,7 @@ describe("gameplay slice optimistic concurrency", () => {
       JSON.stringify(state.resourceStatesById[state.playersById[playerId].resourceStateId])
     ]));
 
-    const responses = await Promise.all(commands.map((command, index) =>
+    const responses = await raceTogether(commands.map((command, index) => () =>
       server.gameplaySliceTransport.submit({
         sessionToken: sessions[index]!.sessionToken,
         expectedStateVersion: state.root.version,
@@ -252,6 +279,315 @@ describe("gameplay slice optimistic concurrency", () => {
     expect(runtime.state.districtsById["district:2"].attackProtectedUntilTick).toBeGreaterThan(0);
     await expect(server.instanceManager.listCommandRecords(instanceId)).resolves.toHaveLength(3);
     await expect(server.instanceManager.listEventRecords(instanceId)).resolves.toHaveLength(1);
+  });
+
+  it("serializes two authenticated occupiers of one neutral district without double charging", async () => {
+    const server = createServerApp({ clock: createFixedClock(FIXED_NOW) });
+    const instanceId = "instance:free:concurrency:occupy-race";
+    const occupiers = [
+      { playerId: "player:1", sourceDistrictId: "district:1" },
+      { playerId: "player:3", sourceDistrictId: "district:3" }
+    ];
+    const sessions = await Promise.all(occupiers.map(({ playerId }) =>
+      createDevGameplaySession(server, { serverInstanceId: instanceId, playerId })
+    ));
+    const runtime = server.instanceManager.getInstanceById(instanceId)!;
+    const state = createCombatStateFixture(instanceId);
+    state.root.version = 300;
+    configureCanonicalPlayerState(state, "player:1", {
+      population: 500,
+      balances: { cash: 1_000, population: 500 }
+    });
+    configureCanonicalPlayerState(state, "player:2", {
+      population: 0,
+      balances: { cash: 1_000 }
+    });
+    state.districtsById["district:2"] = {
+      ...state.districtsById["district:2"],
+      ownerPlayerId: null,
+      controllerAllianceId: null,
+      status: "neutral",
+      defenseLoadout: {}
+    };
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      influence: 100
+    };
+    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
+    addAttacker(state, "player:3", "district:3", "district:2");
+    configureCanonicalPlayerState(state, "player:3", {
+      population: 500,
+      balances: { cash: 1_000, population: 500 }
+    });
+    state.districtsById["district:3"] = {
+      ...state.districtsById["district:3"],
+      influence: 100
+    };
+    runtime.state = state;
+
+    const expectedConflictRevision = state.districtsById["district:2"].conflictRevision;
+    const failureChancePct = Number(runtime.config.balance.conflict?.occupyFailureChancePct ?? 5);
+    const commands = occupiers.map(({ playerId, sourceDistrictId }, index) =>
+      createOccupyDistrictCommandFixture({
+        id: findSuccessfulOccupyCommandId(state, playerId, "district:2", failureChancePct, index),
+        playerId,
+        serverInstanceId: instanceId,
+        issuedAt: FIXED_NOW,
+        payload: {
+          districtId: "district:2",
+          sourceDistrictId,
+          expectedConflictRevision
+        }
+      })
+    );
+    const influenceBefore = Object.fromEntries(occupiers.map(({ playerId }) => [
+      playerId,
+      totalOwnedInfluence(state, playerId)
+    ]));
+
+    const responses = await raceTogether(commands.map((command, index) => () =>
+      server.gameplaySliceTransport.submit({
+        sessionToken: sessions[index]!.sessionToken,
+        expectedStateVersion: state.root.version,
+        focusDistrictId: occupiers[index]!.sourceDistrictId,
+        command
+      })
+    ));
+
+    expect(responses.filter((response) => response.accepted)).toHaveLength(1);
+    expect(responses.filter((response) => !response.accepted).map((response) => response.errors[0]?.code))
+      .toEqual(["DISTRICT_CONFLICT_STATE_CHANGED"]);
+    const acceptedIndex = responses.findIndex((response) => response.accepted);
+    const acceptedPlayerId = commands[acceptedIndex]!.playerId;
+    const pendingOperations = Object.values(runtime.state.pendingOccupyOperationsById ?? {});
+    expect(pendingOperations).toHaveLength(1);
+    expect(pendingOperations[0]).toMatchObject({
+      playerId: acceptedPlayerId,
+      targetDistrictId: "district:2"
+    });
+    for (const { playerId } of occupiers) {
+      expect(totalOwnedInfluence(runtime.state, playerId)).toBe(
+        influenceBefore[playerId]! - (playerId === acceptedPlayerId ? pendingOperations[0]!.influenceCost : 0)
+      );
+    }
+
+    while (runtime.state.root.tick < pendingOperations[0]!.resolveAtTick) {
+      runtime.state = runTick(runtime.state, { config: runtime.config }).nextState;
+    }
+
+    expect(runtime.state.districtsById["district:2"].ownerPlayerId).toBe(acceptedPlayerId);
+    expect(Object.values(runtime.state.pendingOccupyOperationsById ?? {})).toHaveLength(0);
+    expect(checkGameStateInvariants(runtime.state)).toMatchObject({ passed: true, violations: [] });
+    await expect(server.instanceManager.listCommandRecords(instanceId)).resolves.toHaveLength(2);
+    await expect(server.instanceManager.listEventRecords(instanceId)).resolves.toHaveLength(1);
+  });
+
+  it("serializes two authenticated normal-market buyers of the last stock unit", async () => {
+    const now = Date.parse(FIXED_NOW);
+    const server = createServerApp({ clock: createFixedClock(FIXED_NOW) });
+    const instanceId = "instance:free:concurrency:normal-market-race";
+    const buyers = [
+      { playerId: "player:1", focusDistrictId: "district:1" },
+      { playerId: "player:2", focusDistrictId: "district:2" }
+    ];
+    const sessions = await Promise.all(buyers.map(({ playerId }) =>
+      createDevGameplaySession(server, { serverInstanceId: instanceId, playerId })
+    ));
+    const runtime = server.instanceManager.getInstanceById(instanceId)!;
+    const state = createCombatStateFixture(instanceId);
+    state.root.version = 400;
+    for (const { playerId } of buyers) {
+      configureCanonicalPlayerState(state, playerId, {
+        population: 0,
+        balances: { cash: 1_000_000 }
+      });
+    }
+    const marketState = initializeServerMarket(state, now);
+    const resourceId = getNormalMarketRotation(marketState, { config: runtime.config })[0]!;
+    marketState.market.stock[resourceId] = 1;
+    runtime.state = marketState;
+
+    const commands: BuyMarketResourceCommand[] = buyers.map(({ playerId }, index) => ({
+      id: `command:transport:normal-market-race:${index + 1}`,
+      type: "buy-market-resource",
+      mode: "free",
+      playerId,
+      serverInstanceId: instanceId,
+      issuedAt: FIXED_NOW,
+      payload: {
+        resourceId,
+        amount: 1,
+        marketType: "normal",
+        paymentType: "cleanCash"
+      },
+      clientRequestId: null
+    }));
+    const cashBefore = Object.fromEntries(buyers.map(({ playerId }) => [
+      playerId,
+      playerBalance(runtime.state, playerId, "cash")
+    ]));
+    const responses = await raceTogether(commands.map((command, index) => () =>
+      server.gameplaySliceTransport.submit({
+        sessionToken: sessions[index]!.sessionToken,
+        focusDistrictId: buyers[index]!.focusDistrictId,
+        command
+      })
+    ));
+
+    expect(responses.filter((response) => response.accepted)).toHaveLength(1);
+    expect(responses.filter((response) => !response.accepted)).toHaveLength(1);
+    expect(responses.find((response) => !response.accepted)?.errors[0]?.code)
+      .toBe("market_not_enough_stock");
+    const acceptedIndex = responses.findIndex((response) => response.accepted);
+    const acceptedPlayerId = commands[acceptedIndex]!.playerId;
+    const rejectedPlayerId = commands[acceptedIndex === 0 ? 1 : 0]!.playerId;
+    const marketStock = (runtime.state.market as { stock: Record<string, number> }).stock;
+    expect(marketStock[resourceId]).toBe(0);
+    expect(Number(marketStock[resourceId] ?? 0)).toBeGreaterThanOrEqual(0);
+    expect(playerBalance(runtime.state, acceptedPlayerId, resourceId)).toBe(1);
+    expect(playerBalance(runtime.state, acceptedPlayerId, "cash")).toBeLessThan(cashBefore[acceptedPlayerId]!);
+    expect(playerBalance(runtime.state, rejectedPlayerId, resourceId)).toBe(0);
+    expect(playerBalance(runtime.state, rejectedPlayerId, "cash")).toBe(cashBefore[rejectedPlayerId]!);
+    expect((runtime.state.market?.transactions as MarketTransaction[]).filter((transaction) =>
+      transaction.marketType === "normal"
+      && transaction.type === "buy"
+      && transaction.resourceId === resourceId
+      && transaction.amount === 1
+    )).toHaveLength(1);
+    expect(checkGameStateInvariants(runtime.state)).toMatchObject({ passed: true, violations: [] });
+    await expect(server.instanceManager.listCommandRecords(instanceId)).resolves.toHaveLength(2);
+    await expect(server.instanceManager.listEventRecords(instanceId)).resolves.toHaveLength(1);
+  });
+
+  it("conserves PvP heist loot while the victim concurrently escrows inventory", async () => {
+    const server = createServerApp({ clock: createFixedClock(FIXED_NOW) });
+    const instanceId = "instance:free:concurrency:heist-inventory-race";
+    const [attackerSession, victimSession] = await Promise.all([
+      createDevGameplaySession(server, { serverInstanceId: instanceId, playerId: "player:1" }),
+      createDevGameplaySession(server, { serverInstanceId: instanceId, playerId: "player:2" })
+    ]);
+    const runtime = server.instanceManager.getInstanceById(instanceId)!;
+    const state = createCombatStateFixture(instanceId);
+    state.root.version = 500;
+    configureCanonicalPlayerState(state, "player:1", {
+      population: 120,
+      balances: {
+        cash: 1_000,
+        "dirty-cash": 0,
+        population: 120,
+        chemicals: 0,
+        biomass: 0,
+        "metal-parts": 0,
+        "stim-pack": 0,
+        "tech-core": 0,
+        "combat-module": 0
+      }
+    });
+    configureCanonicalPlayerState(state, "player:2", {
+      population: 120,
+      balances: {
+        cash: 1_000,
+        "dirty-cash": 500,
+        population: 120,
+        chemicals: 60,
+        biomass: 60,
+        "metal-parts": 60,
+        "stim-pack": 24,
+        "tech-core": 24,
+        "combat-module": 8
+      }
+    });
+    runtime.state = state;
+
+    const heistCommand = findTransferHeistCommand(
+      state,
+      instanceId,
+      runtime.config.balance.conflict!.heist!
+    );
+    const listedAmount = 10;
+    const listingCommand: CreatePlayerMarketListingCommand = {
+      id: "command:transport:heist-inventory-race:listing",
+      type: "create-player-market-listing",
+      mode: "free",
+      playerId: "player:2",
+      serverInstanceId: instanceId,
+      issuedAt: FIXED_NOW,
+      payload: {
+        resourceId: "chemicals",
+        amount: listedAmount,
+        unitPrice: 10,
+        paymentType: "cleanCash"
+      },
+      clientRequestId: null
+    };
+    const before = Object.fromEntries(["player:1", "player:2"].map((playerId) => [
+      playerId,
+      { ...runtime.state.resourceStatesById[runtime.state.playersById[playerId].resourceStateId].balances }
+    ]));
+    const [heistResponse, listingResponse] = await raceTogether([
+      () => server.gameplaySliceTransport.submit({
+        sessionToken: attackerSession.sessionToken,
+        focusDistrictId: "district:1",
+        command: heistCommand
+      }),
+      () => server.gameplaySliceTransport.submit({
+        sessionToken: victimSession.sessionToken,
+        focusDistrictId: "district:2",
+        command: listingCommand
+      })
+    ]);
+
+    expect(heistResponse.accepted, heistResponse.errors[0]?.code).toBe(true);
+    expect(listingResponse.accepted, listingResponse.errors[0]?.code).toBe(true);
+    const heistVersion = heistResponse.commandResult?.rootVersionAfter;
+    const listingVersion = listingResponse.commandResult?.rootVersionAfter;
+    expect(heistVersion).toEqual(expect.any(Number));
+    expect(listingVersion).toEqual(expect.any(Number));
+    expect(heistVersion).not.toBe(listingVersion);
+    const listingResolvedFirst = listingVersion! < heistVersion!;
+    const playerListings = (runtime.state.market as {
+      playerListings?: Array<{ sellerPlayerId: string; resourceId: string; amount: number; status: string }>;
+    } | undefined)?.playerListings ?? [];
+    const listing = playerListings.find((candidate) =>
+      candidate.sellerPlayerId === "player:2" && candidate.resourceId === "chemicals"
+    );
+    expect(listing).toMatchObject({ amount: listedAmount, status: "active" });
+
+    for (const resourceId of HEIST_MATERIAL_RESOURCE_IDS) {
+      const attackerBefore = Number(before["player:1"]![resourceId] ?? 0);
+      const victimBefore = Number(before["player:2"]![resourceId] ?? 0);
+      const escrowed = resourceId === "chemicals" ? listedAmount : 0;
+      const victimAtHeist = victimBefore - (listingResolvedFirst ? escrowed : 0);
+      const attackerAfter = playerBalance(runtime.state, "player:1", resourceId);
+      const victimAfter = playerBalance(runtime.state, "player:2", resourceId);
+      const transferred = attackerAfter - attackerBefore;
+
+      expect(transferred).toBeGreaterThanOrEqual(Math.floor(victimAtHeist * 0.02));
+      expect(transferred).toBeLessThanOrEqual(Math.floor(victimAtHeist * 0.07));
+      expect(victimAfter).toBe(victimBefore - escrowed - transferred);
+      expect(attackerAfter + victimAfter + escrowed).toBe(attackerBefore + victimBefore);
+      expect(attackerAfter).toBeLessThanOrEqual(resolveResourceCapacity(
+        runtime.state,
+        "player:1",
+        resourceId,
+        runtime.config.balance.warehouse!
+      ));
+      expect(victimAfter).toBeLessThanOrEqual(resolveResourceCapacity(
+        runtime.state,
+        "player:2",
+        resourceId,
+        runtime.config.balance.warehouse!
+      ));
+    }
+    expect(playerBalance(runtime.state, "player:1", "chemicals")).toBeGreaterThan(0);
+    for (const resourceState of Object.values(runtime.state.resourceStatesById)) {
+      for (const amount of Object.values(resourceState.balances)) {
+        expect(amount).toBeGreaterThanOrEqual(0);
+      }
+    }
+    expect(checkGameStateInvariants(runtime.state)).toMatchObject({ passed: true, violations: [] });
+    await expect(server.instanceManager.listCommandRecords(instanceId)).resolves.toHaveLength(2);
+    await expect(server.instanceManager.listEventRecords(instanceId)).resolves.toHaveLength(2);
   });
 
   it("serializes two authenticated buyers of one listing without duplicate transfer", async () => {
@@ -308,7 +644,7 @@ describe("gameplay slice optimistic concurrency", () => {
       })
     );
     const expectedStateVersion = runtime.state.root.version;
-    const responses = await Promise.all(commands.map((command, index) =>
+    const responses = await raceTogether(commands.map((command, index) => () =>
       server.gameplaySliceTransport.submit({
         sessionToken: sessions[index]!.sessionToken,
         expectedStateVersion,
@@ -359,6 +695,24 @@ const configureAttacker = (state: ReturnType<typeof createCombatStateFixture>, p
   seedSuccessfulSpyIntel(state, playerId, sourceDistrictId, "district:2", "player:2");
 };
 
+/**
+ * Holds every request at the same explicit promise barrier before any submit
+ * reaches the atomic ingress. This makes the race deterministic instead of
+ * depending on incidental scheduling inside Promise.all.
+ */
+const raceTogether = async <T>(tasks: readonly (() => Promise<T>)[]): Promise<T[]> => {
+  if (tasks.length === 0) return [];
+  let arrived = 0;
+  let release!: () => void;
+  const barrier = new Promise<void>((resolve) => { release = resolve; });
+  return Promise.all(tasks.map(async (task) => {
+    arrived += 1;
+    if (arrived === tasks.length) release();
+    await barrier;
+    return task();
+  }));
+};
+
 const addAttacker = (
   state: ReturnType<typeof createCombatStateFixture>,
   playerId: string,
@@ -372,6 +726,7 @@ const addAttacker = (
   state.playersById[playerId] = createPlayerFixture({
     id: playerId,
     accountId: `account:${suffix}`,
+    serverInstanceId: state.serverInstance.id,
     homeDistrictId: sourceDistrictId,
     resourceStateId,
     cooldownStateId,
@@ -403,6 +758,7 @@ const addAttacker = (
   };
   state.districtsById[sourceDistrictId] = createDistrictFixture({
     id: sourceDistrictId,
+    serverInstanceId: state.serverInstance.id,
     ownerPlayerId: playerId,
     adjacentDistrictIds: [targetDistrictId]
   });
@@ -463,4 +819,104 @@ const addMarketBuyer = (
   });
   state.root.playerIds.push(playerId);
   state.root.districtIds.push(districtId);
+};
+
+const configureCanonicalPlayerState = (
+  state: ReturnType<typeof createCombatStateFixture>,
+  playerId: string,
+  options: {
+    population: number;
+    balances: Record<string, number>;
+  }
+) => {
+  const player = state.playersById[playerId];
+  const resourceStateId = `resource:${playerId}`;
+  const cooldownStateId = `cooldown:${playerId}`;
+  const policeStateId = `police:${playerId}`;
+  state.playersById[playerId] = {
+    ...player,
+    serverInstanceId: state.serverInstance.id,
+    population: options.population,
+    resourceStateId,
+    cooldownStateId,
+    policeStateId
+  };
+  state.resourceStatesById[resourceStateId] = createResourceStateFixture({
+    id: resourceStateId,
+    ownerType: "player",
+    ownerId: playerId,
+    balances: options.balances
+  });
+  state.cooldownStatesById[cooldownStateId] = {
+    id: cooldownStateId,
+    ownerType: "player",
+    ownerId: playerId,
+    cooldowns: {},
+    version: 1
+  };
+  state.policeStatesById[policeStateId] = {
+    id: policeStateId,
+    ownerPlayerId: playerId,
+    heat: 0,
+    wantedLevel: 0,
+    lastDecayTick: state.root.tick,
+    activeFlags: [],
+    version: 1
+  };
+};
+
+const totalOwnedInfluence = (
+  state: ReturnType<typeof createCombatStateFixture>,
+  playerId: string
+): number => Object.values(state.districtsById)
+  .filter((district) => district.ownerPlayerId === playerId && district.status !== "destroyed")
+  .reduce((total, district) => total + Math.max(0, Number(district.influence ?? 0)), 0);
+
+const playerBalance = (
+  state: ReturnType<typeof createCombatStateFixture>,
+  playerId: string,
+  resourceId: string
+): number => Number(state.resourceStatesById[state.playersById[playerId].resourceStateId].balances[resourceId] ?? 0);
+
+const findSuccessfulOccupyCommandId = (
+  state: ReturnType<typeof createCombatStateFixture>,
+  playerId: string,
+  targetDistrictId: string,
+  failureChancePct: number,
+  candidateOffset: number
+): string => {
+  for (let index = candidateOffset * 1_000; index < (candidateOffset + 1) * 1_000; index += 1) {
+    const commandId = `command:transport:occupy-race:${playerId}:${index}`;
+    const roll = deterministicUnitInterval(
+      `${state.serverInstance.worldSeed}:occupy:${commandId}:${playerId}:${targetDistrictId}:${state.root.tick}`
+    );
+    if (roll >= failureChancePct / 100) return commandId;
+  }
+  throw new Error(`No deterministic successful occupy seed found for ${playerId}.`);
+};
+
+const findTransferHeistCommand = (
+  state: ReturnType<typeof createCombatStateFixture>,
+  serverInstanceId: string,
+  config: Parameters<typeof resolveImmediateHeist>[3]
+) => {
+  for (let index = 0; index < 5_000; index += 1) {
+    const command = createHeistDistrictCommandFixture({
+      id: `command:transport:heist-inventory-race:${index}`,
+      playerId: "player:1",
+      serverInstanceId,
+      issuedAt: FIXED_NOW,
+      payload: {
+        targetDistrictId: "district:2",
+        sourceDistrictId: "district:1",
+        style: "balanced",
+        gangMembersSent: 10,
+        expectedConflictRevision: state.districtsById["district:2"].conflictRevision
+      }
+    });
+    if (resolveImmediateHeist(state, command, "district:1", config).lootMultiplier > 0) {
+      return command;
+    }
+  }
+  throw new Error("No deterministic transferring heist seed found.");
 };

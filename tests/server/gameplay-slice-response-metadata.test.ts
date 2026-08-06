@@ -1,10 +1,11 @@
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { createServerApp } from "../../apps/server/src/app";
 import { createPlaceTrapCommandFixture } from "../fixtures/command-fixtures";
 import { createDevGameplaySession, loadWithDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
 
 describe("gameplay slice response metadata", () => {
-  it("includes full panels for every owned district without exposing foreign panels", async () => {
+  it("includes compact building indexes for owned districts while keeping the selected panel full", async () => {
     const server = createServerApp();
     const instanceId = "instance:owned-district-panels";
     const session = await createDevGameplaySession(server, {
@@ -19,8 +20,11 @@ describe("gameplay slice response metadata", () => {
     const player = runtime.state.playersById["player:owned-district-panels"];
     const availableDistricts = Object.values(runtime.state.districtsById)
       .filter((district) => district.id !== player?.homeDistrictId && !district.ownerPlayerId);
-    const secondOwnedDistrict = availableDistricts[0];
-    const foreignDistrict = availableDistricts[1];
+    const secondOwnedDistrict = availableDistricts.find((district) => district.buildingIds.some((buildingId) => {
+      const building = runtime.state.buildingsById[buildingId];
+      return building !== undefined && building.status !== "destroyed";
+    }));
+    const foreignDistrict = availableDistricts.find((district) => district.id !== secondOwnedDistrict?.id);
     if (!player?.homeDistrictId || !secondOwnedDistrict || !foreignDistrict) {
       throw new Error("Owned district panel fixture lacks suitable districts.");
     }
@@ -35,12 +39,54 @@ describe("gameplay slice response metadata", () => {
       status: "claimed"
     };
 
+    const expectedBuilding = secondOwnedDistrict.buildingIds
+      .map((buildingId) => runtime.state.buildingsById[buildingId])
+      .find((building) => building !== undefined && building.status !== "destroyed");
+    if (!expectedBuilding) {
+      throw new Error("Owned district index fixture lacks a visible building.");
+    }
+
     const response = await server.gameplaySliceTransport.load(session.loadRequest);
-    const ownedDistrictIds = response.readModel?.ownedDistricts?.map((district) => district.districtId) ?? [];
+    const ownedDistricts = response.readModel?.ownedDistricts ?? [];
+    const ownedDistrictIds = ownedDistricts.map((district) => district.districtId);
+    const secondOwnedIndex = ownedDistricts.find((district) => district.districtId === secondOwnedDistrict.id);
 
     expect(ownedDistrictIds).toContain(player.homeDistrictId);
     expect(ownedDistrictIds).toContain(secondOwnedDistrict.id);
     expect(ownedDistrictIds).not.toContain(foreignDistrict.id);
+    expect(response.readModel?.district).toEqual(expect.objectContaining({
+      attackTargets: expect.any(Array),
+      buildings: expect.any(Array),
+      slots: expect.any(Array),
+      targetActions: expect.any(Object)
+    }));
+    expect(secondOwnedIndex).toEqual(expect.objectContaining({
+      districtId: secondOwnedDistrict.id,
+      isOwnedByPlayer: true,
+      buildings: expect.arrayContaining([
+        expect.objectContaining({
+          buildingId: expectedBuilding.id,
+          buildingTypeId: expectedBuilding.buildingTypeId,
+          level: expectedBuilding.level,
+          status: expectedBuilding.status
+        })
+      ])
+    }));
+    expect(secondOwnedIndex).not.toHaveProperty("attackTargets");
+    expect(secondOwnedIndex).not.toHaveProperty("slots");
+    expect(secondOwnedIndex).not.toHaveProperty("targetActions");
+    expect(secondOwnedIndex?.buildings[0]).not.toHaveProperty("actions");
+    expect(secondOwnedIndex?.buildings[0]).not.toHaveProperty("presentation");
+  });
+
+  it("keeps full district panel construction scoped to the selected district", async () => {
+    const source = await readFile(new URL(
+      "../../apps/server/src/runtime/projections/gameplay-slice-projection-service.ts",
+      import.meta.url
+    ), "utf8");
+
+    expect(source.match(/\bcreateDistrictPanelProjection\(/gu)).toHaveLength(1);
+    expect(source).toContain("createOwnedDistrictBuildingIndexViews(");
   });
 
   it("load response carries the current server tick and state version", async () => {

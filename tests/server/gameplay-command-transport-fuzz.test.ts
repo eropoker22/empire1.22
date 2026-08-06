@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { validateSubmitGameplayCommandRequest } from "../../apps/server/src/transport/gameplay-slice-request-validation";
+import {
+  validateLoadGameplaySliceRequest,
+  validateSubmitGameplayCommandRequest
+} from "../../apps/server/src/transport/gameplay-slice-request-validation";
 
 const OMIT_PAYLOAD = Symbol("omit-payload");
 
@@ -92,6 +95,66 @@ describe("gameplay command transport fuzzing", () => {
       code: "transport.invalid_request",
       details: {
         field
+      }
+    }));
+  });
+
+  it.each(["accountId", "actorId", "role", "authorized"])(
+    "rejects authority-shaped command envelope field %s",
+    (field) => {
+      const result = validateSubmitGameplayCommandRequest(createSubmitRequest(
+        "acknowledge-pending-raid",
+        { raidId: "police:raid:1" },
+        { [field]: "forged-authority" }
+      ));
+
+      expect(result.accepted).toBe(false);
+      expect(result.errors).toContainEqual(expect.objectContaining({
+        code: "transport.invalid_request",
+        details: {
+          field: `command.${field}`
+        }
+      }));
+    }
+  );
+
+  it("rejects unknown fields at the submit request boundary", () => {
+    const result = validateSubmitGameplayCommandRequest({
+      ...createSubmitRequest("acknowledge-pending-raid", { raidId: "police:raid:1" }),
+      accountId: "account:forged"
+    });
+
+    expect(result.accepted).toBe(false);
+    expect(result.errors).toContainEqual(expect.objectContaining({
+      code: "transport.invalid_request",
+      details: {
+        field: "accountId"
+      }
+    }));
+  });
+
+  it("rejects unknown and wrongly typed compatibility fields at the load boundary", () => {
+    const unknown = validateLoadGameplaySliceRequest({
+      serverInstanceId: "instance:free:test",
+      role: "owner"
+    });
+    const wrongAccountIdType = validateLoadGameplaySliceRequest({
+      serverInstanceId: "instance:free:test",
+      accountId: { forged: true }
+    });
+
+    expect(unknown.accepted).toBe(false);
+    expect(unknown.errors).toContainEqual(expect.objectContaining({
+      code: "transport.invalid_request",
+      details: {
+        field: "role"
+      }
+    }));
+    expect(wrongAccountIdType.accepted).toBe(false);
+    expect(wrongAccountIdType.errors).toContainEqual(expect.objectContaining({
+      code: "transport.invalid_request",
+      details: {
+        field: "accountId"
       }
     }));
   });

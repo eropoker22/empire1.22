@@ -1,8 +1,5 @@
 import type { PostgresDatabase } from "../../../apps/server/src/runtime/persistence/postgres";
 import { migrateDatabase } from "../../../apps/server/src/runtime/persistence/postgres/migration-runner";
-import { loadLocalEnvFile } from "../../helpers/load-local-env.js";
-
-loadLocalEnvFile();
 
 export interface LivePostgresSmokeConfig {
   databaseUrl: string | null;
@@ -23,7 +20,7 @@ export const resolveLivePostgresSmokeConfig = (
     return {
       databaseUrl: null,
       run: false,
-      skipReason: "Live Postgres smoke skipped because EMPIRE_TEST_DATABASE_URL is not set."
+      skipReason: "Live Postgres smoke skipped because EMPIRE_TEST_DATABASE_URL was not set explicitly."
     };
   }
 

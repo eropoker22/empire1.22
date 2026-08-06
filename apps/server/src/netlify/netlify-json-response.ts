@@ -16,6 +16,7 @@ export const createJsonResponse = <TBody>(
     "content-type": "application/json; charset=utf-8",
     "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
     "referrer-policy": "strict-origin-when-cross-origin",
+    "strict-transport-security": "max-age=31536000",
     "x-content-type-options": "nosniff",
     "x-frame-options": "DENY",
     ...headers

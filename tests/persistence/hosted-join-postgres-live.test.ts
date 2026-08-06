@@ -10,15 +10,14 @@ import {
   hashAdminPassword
 } from "../../apps/server/src/admin/read-only";
 import { createIsolatedPostgresTestSchema } from "./helpers/isolated-postgres-test-schema";
-import { loadLocalEnvFile } from "../helpers/load-local-env.js";
+import { resolveLivePostgresSmokeConfig } from "./helpers/postgres-prod-like-smoke-helpers";
 
-loadLocalEnvFile();
-const databaseUrl = process.env.EMPIRE_TEST_DATABASE_URL?.trim();
-const describeWhenDatabaseConfigured = databaseUrl ? describe : describe.skip;
+const live = resolveLivePostgresSmokeConfig();
+const describeWhenDatabaseConfigured = live.run ? describe : describe.skip;
 
 describeWhenDatabaseConfigured("hosted join reservation postgres live", () => {
   it("reserves the last slot atomically and releases an expired reservation", async () => {
-    const isolated = await createIsolatedPostgresTestSchema(databaseUrl!, "hosted_join_race");
+    const isolated = await createIsolatedPostgresTestSchema(live.databaseUrl!, "hosted_join_race");
     const database = isolated.database;
     const repositories = createPostgresAdminDurableRepositories(database);
     const suffix = crypto.randomUUID();
@@ -177,7 +176,7 @@ describeWhenDatabaseConfigured("hosted join reservation postgres live", () => {
   }, 45_000);
 
   it("opens registration from the database clock for exactly sixty minutes", async () => {
-    const isolated = await createIsolatedPostgresTestSchema(databaseUrl!, "hosted_registration_clock");
+    const isolated = await createIsolatedPostgresTestSchema(live.databaseUrl!, "hosted_registration_clock");
     const database = isolated.database;
     const repositories = createPostgresAdminDurableRepositories(database);
     const suffix = crypto.randomUUID();

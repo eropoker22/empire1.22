@@ -95,7 +95,12 @@ export const createAdminSessionService = (options: {
         return reject("ADMIN_SESSION_EXPIRED", "Admin session expired.");
       }
       const user = await options.repositories.users.getById(session.adminUserId);
-      if (!user || user.status !== "active" || user.passwordVersion !== session.passwordVersion) {
+      if (
+        !user ||
+        user.status !== "active" ||
+        user.passwordVersion !== session.passwordVersion ||
+        user.role !== session.role
+      ) {
         await options.repositories.sessions.revokeSession(session.adminSessionId, checkedAt.toISOString());
         await audit(session, "session-revoked", "failure", correlationId);
         return reject("ADMIN_SESSION_REVOKED", "Admin session is invalid.");

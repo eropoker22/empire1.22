@@ -41,6 +41,26 @@ describe("account registration request", () => {
   });
 
   it.each([
+    { username: 12345 },
+    { gangName: ["Alpha Gang"] },
+    { dateOfBirth: { value: "1990-04-12" } },
+    { password: 123456789012 },
+    { passwordConfirmation: 123456789012 },
+    { termsVersion: 1 }
+  ])("rejects coerced registration field types: %#", (override) => {
+    expect(captureCode(() => validateAccountRegistrationRequest({
+      username: "AlphaBoss",
+      gangName: "Alpha Gang",
+      dateOfBirth: "1990-04-12",
+      password: "long-secure-password",
+      passwordConfirmation: "long-secure-password",
+      termsAccepted: true,
+      termsVersion: TERMS_VERSION,
+      ...override
+    }, TERMS_VERSION))).toBe("ACCOUNT_REGISTRATION_PAYLOAD_INVALID");
+  });
+
+  it.each([
     [{ username: "" }, "ACCOUNT_USERNAME_INVALID"],
     [{ username: "bad name" }, "ACCOUNT_USERNAME_INVALID"],
     [{ gangName: "<script>" }, "ACCOUNT_PROFILE_INVALID"],

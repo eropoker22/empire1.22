@@ -37,6 +37,14 @@ export const runTick = (
   state: CoreGameState,
   context: GameCoreContext
 ): { nextState: CoreGameState; events: CoreEvent[] } => {
+  if (
+    state.matchResult
+    || state.root.phase === "resolved"
+    || state.serverInstance.status === "ended"
+  ) {
+    return { nextState: state, events: [] };
+  }
+
   const advancedState: CoreGameState = {
     ...state,
     serverInstance: {

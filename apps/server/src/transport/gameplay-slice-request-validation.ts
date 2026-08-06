@@ -5,8 +5,17 @@ import {
   type SubmitGameplayCommandRequest
 } from "@empire/shared-types";
 import { validateGameCommandPayload } from "./gameplay-command-payload-validation";
-
-type GameplaySliceRequestKind = "load" | "submit";
+import {
+  createMissingFieldError,
+  isRecord,
+  rejectUnknownCommandEnvelopeFields,
+  rejectUnknownLoadRequestFields,
+  rejectUnknownSubmitRequestFields,
+  requireStringField,
+  validateOptionalIntegerField,
+  validateOptionalStringField,
+  type GameplaySliceRequestKind
+} from "./gameplay-slice-request-shape-validation";
 
 interface ValidationAccepted<TRequest> {
   accepted: true;
@@ -40,8 +49,10 @@ export const validateLoadGameplaySliceRequest = (
     ]);
   }
 
+  rejectUnknownLoadRequestFields(errors, value);
   requireStringField(errors, "load", value, "serverInstanceId");
   validateOptionalStringField(errors, "load", value, "playerId");
+  validateOptionalStringField(errors, "load", value, "accountId");
   validateOptionalStringField(errors, "load", value, "districtId");
   validateOptionalStringField(errors, "load", value, "preferredStartDistrictId");
   validateOptionalStringField(errors, "load", value, "factionId");
@@ -69,6 +80,7 @@ export const validateSubmitGameplayCommandRequest = (
     ]);
   }
 
+  rejectUnknownSubmitRequestFields(errors, value);
   requireStringField(errors, "submit", value, "focusDistrictId");
   rejectServerAssignedFocusDistrict(errors, value);
   validateOptionalIntegerField(errors, "submit", value, "expectedStateVersion");
@@ -95,6 +107,7 @@ const validateGameCommandShape = (
   errors: DomainError[],
   command: Record<string, unknown>
 ): void => {
+  rejectUnknownCommandEnvelopeFields(errors, command);
   requireStringField(errors, "submit", command, "id", "command.id");
   requireStringField(errors, "submit", command, "type", "command.type");
   requireStringField(errors, "submit", command, "serverInstanceId", "command.serverInstanceId");
@@ -143,96 +156,3 @@ const reject = <TRequest>(
         }
       ]
 });
-
-const requireStringField = (
-  errors: DomainError[],
-  kind: GameplaySliceRequestKind,
-  value: Record<string, unknown>,
-  fieldPath: string,
-  errorFieldPath = fieldPath
-): void => {
-  const fieldValue = getFieldPath(value, fieldPath);
-  if (typeof fieldValue === "string" && fieldValue.trim().length > 0) {
-    return;
-  }
-
-  errors.push(createMissingFieldError(kind, errorFieldPath));
-};
-
-const validateOptionalStringField = (
-  errors: DomainError[],
-  kind: GameplaySliceRequestKind,
-  value: Record<string, unknown>,
-  fieldPath: string
-): void => {
-  const fieldValue = getFieldPath(value, fieldPath);
-  if (fieldValue === undefined || fieldValue === null) {
-    return;
-  }
-  if (typeof fieldValue === "string" && fieldValue.trim().length > 0) {
-    return;
-  }
-
-  errors.push({
-    code: "transport.invalid_request",
-    message: `Gameplay slice ${kind} request field '${fieldPath}' must be a non-empty string when provided.`,
-    details: {
-      field: fieldPath
-    }
-  });
-};
-
-const validateOptionalIntegerField = (
-  errors: DomainError[],
-  kind: GameplaySliceRequestKind,
-  value: Record<string, unknown>,
-  fieldPath: string
-): void => {
-  const fieldValue = getFieldPath(value, fieldPath);
-  if (fieldValue === undefined || fieldValue === null) {
-    return;
-  }
-  if (typeof fieldValue === "number" && Number.isInteger(fieldValue) && fieldValue >= 0) {
-    return;
-  }
-
-  errors.push({
-    code: "transport.invalid_request",
-    message: `Gameplay slice ${kind} request field '${fieldPath}' must be a non-negative integer when provided.`,
-    details: {
-      field: fieldPath
-    }
-  });
-};
-
-const createMissingFieldError = (
-  kind: GameplaySliceRequestKind,
-  fieldPath: string,
-  message = `Gameplay slice ${kind} request is missing required field '${fieldPath}'.`
-): DomainError => ({
-  code: "transport.invalid_request",
-  message,
-  details: {
-    field: fieldPath
-  }
-});
-
-const getFieldPath = (
-  value: Record<string, unknown>,
-  fieldPath: string
-): unknown => {
-  const parts = fieldPath.split(".");
-  let current: unknown = value;
-
-  for (const part of parts) {
-    if (!isRecord(current)) {
-      return undefined;
-    }
-    current = current[part];
-  }
-
-  return current;
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);

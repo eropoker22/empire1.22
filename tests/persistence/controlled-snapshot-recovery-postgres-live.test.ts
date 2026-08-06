@@ -17,18 +17,17 @@ import { PRODUCTION_MIGRATION_CONTRACT } from
   "../../apps/server/src/runtime/persistence/postgres/production-migration-contract";
 import { createSnapshotPersistenceMetrics } from
   "../../apps/server/src/runtime/persistence/repositories";
-import { loadLocalEnvFile } from "../helpers/load-local-env.js";
+import { resolveLivePostgresSmokeConfig } from "./helpers/postgres-prod-like-smoke-helpers";
 
-loadLocalEnvFile();
-const databaseUrl = process.env.EMPIRE_TEST_DATABASE_URL?.trim();
-const describeWhenDatabaseConfigured = databaseUrl ? describe : describe.skip;
+const live = resolveLivePostgresSmokeConfig();
+const describeWhenDatabaseConfigured = live.run ? describe : describe.skip;
 
 describeWhenDatabaseConfigured("controlled snapshot recovery PostgreSQL live", () => {
   it("selects the latest valid legacy root and remains idempotent after an interrupted-safe batch run", async () => {
-    const adminDatabase = createPostgresDatabase(databaseUrl!);
+    const adminDatabase = createPostgresDatabase(live.databaseUrl!);
     const schema = `snapshot_controlled_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const scopedDatabase = createPostgresDatabase(databaseUrl!, { max: 1 });
-    const lockDatabase = createPostgresDatabase(databaseUrl!, { max: 1 });
+    const scopedDatabase = createPostgresDatabase(live.databaseUrl!, { max: 1 });
+    const lockDatabase = createPostgresDatabase(live.databaseUrl!, { max: 1 });
     try {
       await adminDatabase.query(`CREATE SCHEMA ${quoteIdentifier(schema)}`);
       await scopedDatabase.query(`SET search_path TO ${quoteIdentifier(schema)}`);

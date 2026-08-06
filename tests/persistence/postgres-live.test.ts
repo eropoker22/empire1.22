@@ -11,17 +11,16 @@ import {
 } from "../../apps/server/src/runtime";
 import { createAttackDistrictCommandFixture } from "../fixtures/command-fixtures";
 import { createPostgresAdminDurableRepositories } from "../../apps/server/src/admin/read-only";
-import { loadLocalEnvFile } from "../helpers/load-local-env.js";
 import { createIsolatedPostgresTestSchema } from "./helpers/isolated-postgres-test-schema";
+import { resolveLivePostgresSmokeConfig } from "./helpers/postgres-prod-like-smoke-helpers";
 
-loadLocalEnvFile();
-const databaseUrl = process.env.EMPIRE_TEST_DATABASE_URL?.trim();
-const describeWhenDatabaseConfigured = databaseUrl ? describe : describe.skip;
+const live = resolveLivePostgresSmokeConfig();
+const describeWhenDatabaseConfigured = live.run ? describe : describe.skip;
 
 describeWhenDatabaseConfigured("postgres persistence live smoke", () => {
   it("stores logs, snapshots, and tick locks against a migrated database", async () => {
     const isolated = await createIsolatedPostgresTestSchema(
-      databaseUrl!,
+      live.databaseUrl!,
       "postgres_persistence_live"
     );
     const database = isolated.database;

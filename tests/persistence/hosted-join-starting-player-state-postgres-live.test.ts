@@ -17,16 +17,15 @@ import {
   hashAdminPassword
 } from "../../apps/server/src/admin/read-only";
 import type { PostgresDatabase } from "../../apps/server/src/runtime/persistence/postgres";
-import { loadLocalEnvFile } from "../helpers/load-local-env.js";
 import { createIsolatedPostgresTestSchema } from "./helpers/isolated-postgres-test-schema";
+import { resolveLivePostgresSmokeConfig } from "./helpers/postgres-prod-like-smoke-helpers";
 
-loadLocalEnvFile();
-const databaseUrl = process.env.EMPIRE_TEST_DATABASE_URL?.trim();
-const describeWhenDatabaseConfigured = databaseUrl ? describe : describe.skip;
+const live = resolveLivePostgresSmokeConfig();
+const describeWhenDatabaseConfigured = live.run ? describe : describe.skip;
 
 describeWhenDatabaseConfigured("hosted join persisted starting-state postgres gate", () => {
   it("rejects corrupt legacy rows without reservations and accepts canonical shuffled zero values", async () => {
-    const isolated = await createIsolatedPostgresTestSchema(databaseUrl!, "hosted_join_starting_state");
+    const isolated = await createIsolatedPostgresTestSchema(live.databaseUrl!, "hosted_join_starting_state");
     const database = isolated.database;
     const repositories = createPostgresAdminDurableRepositories(database);
     const suffix = crypto.randomUUID();

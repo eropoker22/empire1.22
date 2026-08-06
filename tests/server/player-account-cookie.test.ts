@@ -24,6 +24,7 @@ describe("player entry HTTP hardening", () => {
     expect(response.headers).toMatchObject({
       "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
       "referrer-policy": "strict-origin-when-cross-origin",
+      "strict-transport-security": "max-age=31536000",
       "x-content-type-options": "nosniff",
       "x-frame-options": "DENY"
     });

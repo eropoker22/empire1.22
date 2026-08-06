@@ -4,6 +4,7 @@ import {
   createMembershipJoinTicket,
   joinGameplayMembership,
   loadLobbyOverview,
+  loadServerResults,
   loadSpawnDistricts,
   logoutAccount
 } from "./app/player-entry-client.js";
@@ -56,6 +57,7 @@ const state = {
   spawn: null,
   selectedDistrictId: null,
   hoveredDistrictId: null,
+  resultsByServerId: new Map(),
   busy: false
 };
 const registrationRefreshes = new Set();
@@ -87,6 +89,7 @@ else initialize();
 async function refresh(initial) {
   try {
     state.overview = await loadLobbyOverview();
+    await loadCompletedServerResults(state.overview.memberships);
     registrationTicker.syncServerTime(state.overview.generatedAt);
     const requested = new URLSearchParams(location.search).get("mode");
     if (initial && ["free", "war"].includes(requested)) state.mode = requested;
@@ -136,13 +139,46 @@ function renderGang(overview) {
     const completed = overview.memberships.filter((membership) => membership.status === "completed");
     history.innerHTML = completed.length
       ? completed.map((membership) => {
-        const result = membership.finalRank === null
-          ? "výsledek se načítá"
-          : `#${membership.finalRank} · ${membership.finalScore === null ? "—" : Math.round(membership.finalScore).toLocaleString("cs-CZ")} Empire Score`;
-        return `<li><strong>${escapeHtml(membership.serverDisplayName)}</strong><span>${escapeHtml(result)}</span></li>`;
+        const persisted = state.resultsByServerId.get(membership.serverInstanceId) || null;
+        const rank = persisted?.currentAccountPlacement ?? membership.finalRank;
+        const score = persisted?.currentAccountFinalScore ?? membership.finalScore;
+        const outcome = persisted?.currentPlayerStatus === "defeated"
+          ? "PORÁŽKA"
+          : rank === 1
+            ? "VÍTĚZSTVÍ"
+            : "DOHRÁNO";
+        const result = rank === null
+          ? "Výsledek není dostupný"
+          : `${outcome} · #${rank} · ${score === null ? "—" : Math.round(score).toLocaleString("cs-CZ")} Empire Score`;
+        return `<li data-testid="completed-server-result"
+          data-server-instance-id="${escapeHtml(membership.serverInstanceId)}"
+          data-result-state="${persisted ? "resolved" : "unavailable"}"
+          data-current-player-status="${escapeHtml(persisted?.currentPlayerStatus || "unknown")}"
+          data-server-status="${escapeHtml(persisted?.server?.status || "unknown")}"
+          data-final-lockdown-status="${escapeHtml(persisted?.finalLockdown?.status || "unknown")}">
+          <strong>${escapeHtml(membership.serverDisplayName)}</strong><span>${escapeHtml(result)}</span></li>`;
       }).join("")
       : "<li>Žádný dokončený server.</li>";
   }
+}
+
+async function loadCompletedServerResults(memberships) {
+  const missing = (memberships || []).filter((membership) => (
+    membership.status === "completed"
+    && !state.resultsByServerId.has(membership.serverInstanceId)
+  ));
+  await Promise.all(missing.map(async (membership) => {
+    try {
+      const result = await loadServerResults(membership.serverInstanceId);
+      if (result?.serverInstanceId === membership.serverInstanceId
+        && result?.server?.status === "ended") {
+        state.resultsByServerId.set(membership.serverInstanceId, result);
+      }
+    } catch (_error) {
+      // The membership summary remains usable and a later lobby poll retries
+      // the immutable account-scoped result.
+    }
+  }));
 }
 
 function renderActiveMembership(membership) {

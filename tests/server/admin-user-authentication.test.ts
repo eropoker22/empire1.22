@@ -49,6 +49,34 @@ describe("durable admin user authentication", () => {
     expect(authentication.errors[0]?.code).toBe("ADMIN_SESSION_REVOKED");
   });
 
+  it("revokes an existing session when the stored admin role changes", async () => {
+    const repositories = createInMemoryAdminDurableRepositories({ users: [user(await hashAdminPassword(PASSWORD))] });
+    const service = createAdminSessionService({ repositories, environment: ENV });
+    const login = await service.login({
+      username: "TestOwner",
+      password: PASSWORD,
+      fingerprint: "192.0.2.1",
+      correlationId: "request:role-login"
+    });
+    expect(login.accepted).toBe(true);
+    if (!login.accepted) return;
+
+    await repositories.users.updateProfileAndRole({
+      adminUserId: "admin-user:test",
+      username: "TestOwner",
+      normalizedUsername: normalizeAdminUsername("TestOwner"),
+      displayName: "Test Owner",
+      role: "viewer",
+      status: "active",
+      updatedAt: "2026-07-16T10:05:00.000Z"
+    });
+
+    await expect(service.authenticate(login.token, "request:role-changed")).resolves.toMatchObject({
+      accepted: false,
+      errors: [expect.objectContaining({ code: "ADMIN_SESSION_REVOKED" })]
+    });
+  });
+
   it("scopes stored session token hashes to the configured admin session secret", async () => {
     const repositories = createInMemoryAdminDurableRepositories({ users: [user(await hashAdminPassword(PASSWORD))] });
     const service = createAdminSessionService({ repositories, environment: ENV });

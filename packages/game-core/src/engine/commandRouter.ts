@@ -47,6 +47,27 @@ export const routeCommand = (
   command: CorePlayerCommand,
   context: GameCoreContext
 ): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
+  if (
+    state.matchResult
+    || state.root.phase === "resolved"
+    || state.serverInstance.status === "ended"
+  ) {
+    return {
+      nextState: state,
+      events: [],
+      errors: [
+        {
+          code: "GAME_FINISHED",
+          message: "Tato hra už skončila. Výsledek zůstává pouze ke čtení.",
+          details: {
+            serverInstanceId: state.serverInstance.id,
+            matchResultId: state.matchResult?.id ?? state.root.matchResultId
+          }
+        }
+      ]
+    };
+  }
+
   const player = state.playersById[command.playerId];
   if (player && player.status !== "active") {
     return {

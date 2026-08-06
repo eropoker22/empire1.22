@@ -1,13 +1,10 @@
 import type {
-  GameplayCommandResultLookupResponse,
-  GameplaySliceResponse,
   LoadGameplaySliceRequest,
   LookupGameplayCommandResultRequest,
   SubmitGameplayCommandRequest
 } from "@empire/shared-types";
 import { createServerApp, type ServerApp } from "../app";
 import { ensureGameplaySliceSessionResult } from "../bootstrap";
-import { createInstanceSnapshot } from "../runtime/persistence/mappers";
 import { createSnapshotTokenCodec, type SnapshotTokenCryptoProvider } from "../runtime/persistence/services";
 import {
   createGameplaySliceValidationResponse,
@@ -29,13 +26,10 @@ import { resolveAdminDurableRepositories, type AdminDurableRepositories } from "
 import { createAdminGameplaySliceBoundary } from "./admin-gameplay-slice-boundary";
 import { createPublicServerListResponse } from "./public-server-list-netlify";
 import { createPlayerEntryNetlifyBoundary } from "../player-entry/player-entry-netlify";
-import { createPostgresPlayerEntryRepository } from "../player-entry/postgres-player-entry-repository";
+import { createPostgresPlayerEntryRepository, type PostgresPlayerEntryRepository } from "../player-entry/postgres-player-entry-repository";
 import type { PostgresDatabase } from "../runtime/persistence/postgres";
 import { normalizeNetlifyFunctionEnvironment } from "./netlify-runtime-environment";
-import {
-  createNetlifyPostgresDatabase,
-  type NetlifyPostgresDatabaseFactory
-} from "./netlify-postgres-database";
+import { createNetlifyPostgresDatabase, type NetlifyPostgresDatabaseFactory } from "./netlify-postgres-database";
 import { createGameplayFunctionErrorResponse } from "./gameplay-function-error-response";
 import { handleApiReadinessRequest } from "./api-readiness-netlify";
 import { rejectInvalidGameplayRequestSession } from "./gameplay-request-session-guard";
@@ -53,6 +47,8 @@ import {
   isGameplaySliceStateChangingRoute
 } from "./gameplay-slice-function-routing";
 import { withPublicRequestDiagnostics } from "./public-request-diagnostic";
+import { resolveFinishedAccountSubmitRejection } from "./finished-account-submit-rejection";
+import { createGameplaySliceFunctionResponseMapper } from "./gameplay-slice-function-response-mapper";
 
 export interface GameplaySliceFunctionHandlerOptions {
   cryptoProvider?: SnapshotTokenCryptoProvider;
@@ -62,6 +58,7 @@ export interface GameplaySliceFunctionHandlerOptions {
   adminRepositories?: AdminDurableRepositories;
   database?: PostgresDatabase;
   databaseFactory?: NetlifyPostgresDatabaseFactory;
+  playerEntryRepository?: PostgresPlayerEntryRepository;
 }
 
 export const createGameplaySliceFunctionHandler = (
@@ -87,8 +84,10 @@ export const createGameplaySliceFunctionHandler = (
   const hostedAuthorityRequired = requiresHostedRuntimeAuthority(environment);
   const hostedRuntimeGuard = createHostedRuntimeRequestGuard({ server, repositories: adminRepositories, environment });
   const handleAdminRequest = createAdminGameplaySliceBoundary({ environment, repositories: adminRepositories ?? undefined });
+  const playerEntryRepository = options.playerEntryRepository
+    ?? (sharedDatabase ? createPostgresPlayerEntryRepository(sharedDatabase) : undefined);
   const handlePlayerEntryRequest = createPlayerEntryNetlifyBoundary({ environment,
-    repository: sharedDatabase ? createPostgresPlayerEntryRepository(sharedDatabase) : undefined,
+    repository: playerEntryRepository,
     gameplaySessionService: server.gameplaySessionService });
   const allowImplicitInstanceCreation = hostedAuthorityRequired
     ? false
@@ -104,6 +103,9 @@ export const createGameplaySliceFunctionHandler = (
         secret: gameplaySessionSecret.secret
       })
     : null;
+  const toFunctionResponse = createGameplaySliceFunctionResponseMapper({
+    server, hostedAuthorityRequired, snapshotTokenCodec
+  });
   const sessionHandlers = sessionTokenCodec && snapshotTokenCodec
     ? createGameplaySessionNetlifyHandlers({
         server,
@@ -242,6 +244,17 @@ export const createGameplaySliceFunctionHandler = (
       ...validation.request,
       sessionToken: resolveGameplaySessionToken(event.headers, validation.request.sessionToken, environment)
     };
+    if (!request.sessionToken && playerEntryRepository) {
+      const account = await server.accountIdentityProvider.resolve({ headers: event.headers, body: parsedBody.body });
+      if (account) {
+        const finishedRejection = await resolveFinishedAccountSubmitRejection({
+          accountId: account.accountId,
+          request,
+          repository: playerEntryRepository
+        });
+        if (finishedRejection) return createJsonResponse(200, finishedRejection);
+      }
+    }
     const sessionError = await rejectInvalidGameplayRequestSession(sessionHandlers!, request.sessionToken,
       request.command.serverInstanceId);
     if (sessionError) return sessionError;
@@ -277,18 +290,5 @@ export const createGameplaySliceFunctionHandler = (
     }), request.command.serverInstanceId);
   };
   return environment.NODE_ENV === "production" ? withPublicRequestDiagnostics(handle, { environment, sessionTokenCodec }) : handle;
-  function toFunctionResponse(response: {
-    status: number;
-    body: GameplaySliceResponse | GameplayCommandResultLookupResponse;
-  }, instanceId: string): Promise<NetlifyFunctionResponse> {
-    const runtime = server.instanceManager.getInstanceById(instanceId);
-    return Promise.resolve(hostedAuthorityRequired ? null : runtime
-      ? snapshotTokenCodec!.seal(createInstanceSnapshot(runtime))
-      : ("snapshotToken" in response.body ? response.body.snapshotToken ?? null : null)
-    ).then((snapshotToken) => createJsonResponse(response.status, {
-      ...response.body,
-      snapshotToken
-    }));
-  }
 };
 export const handler = createGameplaySliceFunctionHandler();

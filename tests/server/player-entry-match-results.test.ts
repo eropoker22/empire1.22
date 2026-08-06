@@ -23,6 +23,18 @@ describe("account-scoped hosted match results", () => {
       getMatchResults: async (accountId: string, serverInstanceId: string) => ({
         serverInstanceId,
         serverDisplayName: "Free Alpha",
+        server: {
+          serverInstanceId,
+          status: "ended",
+          currentTick: 12_345,
+          stateVersion: 47
+        },
+        finalLockdown: {
+          status: "resolved",
+          currentPlayerRank: 4,
+          leaderboardTop3: []
+        },
+        currentPlayerStatus: "defeated",
         completedAt: "2026-07-21T20:00:00.000Z",
         completionReason: "final_lockdown_score",
         winner: null,
@@ -48,7 +60,13 @@ describe("account-scoped hosted match results", () => {
     const payload = JSON.parse(response?.body ?? "null");
 
     expect(response?.statusCode).toBe(200);
-    expect(payload.data).toMatchObject({ serverInstanceId: "instance:alpha", currentAccountPlacement: 4 });
+    expect(payload.data).toMatchObject({
+      serverInstanceId: "instance:alpha",
+      server: { status: "ended", stateVersion: 47 },
+      finalLockdown: { status: "resolved", currentPlayerRank: 4 },
+      currentPlayerStatus: "defeated",
+      currentAccountPlacement: 4
+    });
   });
 
   it("does not reveal results to an unauthenticated request", async () => {

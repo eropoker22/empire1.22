@@ -12,3 +12,4 @@ export * from "./validateRob";
 export * from "./validateRunBuildingAction";
 export * from "./validateSpy";
 export * from "./spyIntel";
+export * from "./game-state-invariants";
