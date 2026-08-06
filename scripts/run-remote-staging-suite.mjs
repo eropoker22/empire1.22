@@ -12,6 +12,13 @@ import {
   getRemoteStagingAcceptanceSuite,
   REMOTE_MANUAL_STARTING_PLAYER_STATE
 } from "./remote-staging-acceptance-suites.mjs";
+import { isLifecycleRegistrationSnapshotReady } from "./remote-staging-full-lifecycle-contract.mjs";
+import {
+  archiveRemoteStagingServerWithRetry,
+  assertPinnedRemoteStagingFlyApp,
+  isExactRemoteStagingWorkerHealth,
+  REMOTE_STAGING_PLAYWRIGHT_TRACE_ARGUMENT
+} from "./remote-staging-runner-safety.mjs";
 import { assertSupportedNodeVersion } from "./supported-node-policy.mjs";
 
 assertSupportedNodeVersion(process.versions.node);
@@ -46,6 +53,7 @@ const evidence = {
   scenario: suite.scenario || null,
   workerRestart: suite.restartWorkerBeforeSpec ? "pending" : "not-requested",
   pauseResume: suite.pauseResumeBeforeSpec ? "pending" : "not-requested",
+  fullLifecycle: suite.fullLifecycle ? { status: "pending" } : null,
   cleanup: "not-started",
   bootstrap: null,
   playwrightRuns: []
@@ -53,6 +61,8 @@ const evidence = {
 
 let admin = null;
 let server = null;
+let cleanupServerInstanceId = null;
+let fixtureBinding = null;
 try {
   if (suite.manual) {
     await runPlaywrightSuite(suite.playwrightRuns, {
@@ -73,12 +83,26 @@ try {
       password: adminPassword
     });
     const identities = createIdentities(suite.name, suite.bootstrapCount);
+    const runNonceHash = createHash("sha256").update(randomBytes(32)).digest("hex");
+    const displayNamePrefix = `Remote Staging Acceptance ${suite.name} ${runNonceHash.slice(0, 16)}`;
+    const provisionStartedAt = Date.now();
     server = await provisionDisposableHostedServer(admin, {
-      displayNamePrefix: `Remote Staging Acceptance ${suite.name}`,
+      displayNamePrefix,
       capacity: suite.capacity,
-      startingPlayerState: suite.startingPlayerState
+      startingPlayerState: suite.startingPlayerState,
+      onCreated: ({ serverInstanceId }) => {
+        cleanupServerInstanceId = serverInstanceId;
+        evidence.serverInstanceHash = safeHash(serverInstanceId);
+        fixtureBinding = Object.freeze({
+          expectedDisplayPrefix: displayNamePrefix,
+          runNonceHash,
+          createdAfter: new Date(provisionStartedAt - 60_000).toISOString(),
+          createdBefore: new Date(Date.now() + 60_000).toISOString()
+        });
+      }
     });
-    evidence.serverInstanceHash = safeHash(server.serverInstanceId);
+    cleanupServerInstanceId ??= server.serverInstanceId;
+    evidence.serverInstanceHash ??= safeHash(server.serverInstanceId);
     await runPlaywright("bootstrap", ["tests/e2e/local-hosted-bootstrap-player.spec.js"], {
       ...publicBrowserEnvironment(),
       EMPIRE_HOSTED_BOOTSTRAP_IDENTITIES_JSON: JSON.stringify(identities),
@@ -110,7 +134,7 @@ try {
       EMPIRE_HOSTED_BOOTSTRAP_IDENTITIES_JSON: JSON.stringify(identities),
       EMPIRE_HOSTED_STARTING_PLAYER_STATE_JSON: JSON.stringify(suite.startingPlayerState)
     };
-    await runPlaywrightSuite(suite.playwrightRuns, {
+    const suiteBrowserEnvironment = {
       ...publicBrowserEnvironment(),
       ...identityEnvironment,
       EMPIRE_UI_PARITY_SERVER_ID: server.serverInstanceId,
@@ -121,7 +145,22 @@ try {
         EMPIRE_ADMIN_BOOTSTRAP_USERNAME: adminUsername,
         EMPIRE_ADMIN_BOOTSTRAP_PASSWORD: adminPassword
       } : {})
-    });
+    };
+    if (suite.fullLifecycle) {
+      await runPlaywrightSuite(suite.preLifecyclePlaywrightRuns, suiteBrowserEnvironment);
+      evidence.fullLifecycle = await runFullLifecycle(admin, server.serverInstanceId);
+      writeFileSync(
+        path.join(artifactDirectory, "lifecycle-report.json"),
+        `${JSON.stringify(evidence.fullLifecycle, null, 2)}\n`,
+        "utf8"
+      );
+      writeFileSync(
+        path.join(artifactDirectory, "invariant-report.json"),
+        `${JSON.stringify(evidence.fullLifecycle.invariants, null, 2)}\n`,
+        "utf8"
+      );
+    }
+    await runPlaywrightSuite(suite.playwrightRuns, suiteBrowserEnvironment);
   }
   evidence.status = "passed";
 } catch (error) {
@@ -129,9 +168,9 @@ try {
   evidence.errorCode = safeErrorCode(error);
   throw error;
 } finally {
-  if (admin && server) {
+  if (admin && cleanupServerInstanceId) {
     try {
-      await archiveServer(admin, server.serverInstanceId);
+      await archiveServer(admin, cleanupServerInstanceId);
       evidence.cleanup = "archived";
     } catch (cleanupError) {
       evidence.cleanup = "failed";
@@ -142,6 +181,13 @@ try {
       }
     }
   }
+  writeFileSync(path.join(artifactDirectory, "cleanup-report.json"), `${JSON.stringify({
+    status: evidence.cleanup === "archived" || evidence.cleanup === "archived-by-visible-admin-flow"
+      ? "passed" : "failed",
+    cleanup: evidence.cleanup,
+    serverInstanceHash: evidence.serverInstanceHash,
+    errorCode: evidence.cleanupErrorCode ?? null
+  }, null, 2)}\n`, "utf8");
   evidence.durationMs = Date.now() - startedAt;
   writeFileSync(path.join(artifactDirectory, "summary.json"), `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
 }
@@ -168,7 +214,7 @@ async function runPlaywright(name, specs, environment, timeoutMs, grep = "") {
     "test",
     "--project=chromium",
     "--workers=1",
-    "--trace=on",
+    REMOTE_STAGING_PLAYWRIGHT_TRACE_ARGUMENT,
     "--forbid-only",
     "--fail-on-flaky-tests",
     "--retries=0",
@@ -199,6 +245,228 @@ async function runPlaywright(name, specs, environment, timeoutMs, grep = "") {
   });
 }
 
+async function runFullLifecycle(adminClient, serverInstanceId) {
+  const report = {
+    status: "running",
+    playerCount: 20,
+    registration: null,
+    statusTransitions: ["running"],
+    eliminationTransitions: [],
+    quietHourDeferrals: 0,
+    workerRecovery: "pending",
+    finalLockdown: null,
+    result: null,
+    invariants: null
+  };
+
+  await performServerAction(adminClient, serverInstanceId, "close-registration-now");
+  const closed = await waitForServer(adminClient, serverInstanceId, (candidate) => (
+    candidate.status === "running"
+    && candidate.joinPolicy === "closed"
+    && candidate.registrationClosedAt !== null
+    && candidate.registrationBaselinePlayers === 20
+    && candidate.effectiveFinalLockdownTrigger === 8
+  ));
+  report.registration = {
+    state: closed.registrationState,
+    closed: true,
+    baselinePlayers: closed.registrationBaselinePlayers,
+    effectiveFinalLockdownTrigger: closed.effectiveFinalLockdownTrigger,
+    effectiveFirstEliminationTick: closed.effectiveFirstEliminationTick
+  };
+
+  let inspection = await waitForLifecycleInspection(serverInstanceId, (candidate) => (
+    isLifecycleRegistrationSnapshotReady(candidate, {
+      baselinePlayers: closed.registrationBaselinePlayers,
+      effectiveFinalLockdownTrigger: closed.effectiveFinalLockdownTrigger,
+      effectiveFirstEliminationTick: closed.effectiveFirstEliminationTick
+    })
+  ));
+  if (inspection.activePlayers !== 20 || inspection.eliminatedPlayers !== 0
+    || inspection.membershipCount !== 20 || inspection.invariantViolationCodes.length > 0) {
+    throw new Error("REMOTE_STAGING_LIFECYCLE_INITIAL_INVARIANT_FAILED");
+  }
+
+  let attempts = 0;
+  let workerRestarted = false;
+  let paused = false;
+  while (inspection.eliminationCount < 12 && attempts < 30) {
+    attempts += 1;
+    if (!paused) {
+      await performServerAction(adminClient, serverInstanceId, "pause");
+      await waitForServerStatus(adminClient, serverInstanceId, "paused");
+      report.statusTransitions.push("paused");
+      paused = true;
+    }
+    inspection = runStagingLifecycleStep(serverInstanceId, "inspect");
+    const before = inspection;
+    const prepared = runStagingLifecycleStep(serverInstanceId, "prepare-next-elimination");
+
+    if (!workerRestarted && before.eliminationCount === 6) {
+      await restartSingleStagingWorker();
+      workerRestarted = true;
+      report.workerRecovery = "passed";
+    }
+
+    await performServerAction(adminClient, serverInstanceId, "resume");
+    await waitForServerStatus(adminClient, serverInstanceId, "running");
+    report.statusTransitions.push("running");
+    paused = false;
+    const progressed = await waitForLifecycleInspection(serverInstanceId, (candidate) => (
+      candidate.tick > prepared.tick
+      || candidate.eliminationCount > before.eliminationCount
+      || candidate.matchResultHash !== null
+    ));
+
+    if (!progressed.matchResultHash) {
+      await performServerAction(adminClient, serverInstanceId, "pause");
+      await waitForServerStatus(adminClient, serverInstanceId, "paused");
+      report.statusTransitions.push("paused");
+      paused = true;
+    }
+    inspection = runStagingLifecycleStep(serverInstanceId, "inspect");
+    if (inspection.invariantViolationCodes.length > 0) {
+      throw new Error("REMOTE_STAGING_LIFECYCLE_INVARIANT_FAILED");
+    }
+    if (inspection.eliminationCount > before.eliminationCount) {
+      if (inspection.eliminationCount !== before.eliminationCount + 1
+        || inspection.activePlayers !== before.activePlayers - 1
+        || inspection.eliminatedPlayers !== inspection.eliminationCount) {
+        throw new Error("REMOTE_STAGING_LIFECYCLE_ELIMINATION_NOT_EXACTLY_ONCE");
+      }
+      report.eliminationTransitions.push({
+        eliminationCount: inspection.eliminationCount,
+        activePlayers: inspection.activePlayers,
+        tick: inspection.tick,
+        rootVersion: inspection.rootVersion
+      });
+    } else {
+      report.quietHourDeferrals += 1;
+    }
+  }
+
+  if (inspection.eliminationCount !== 12 || inspection.activePlayers !== 8
+    || !["active", "paused"].includes(inspection.finalLockdownStatus)) {
+    throw new Error("REMOTE_STAGING_LIFECYCLE_FINAL_LOCKDOWN_NOT_REACHED");
+  }
+  if (!workerRestarted) throw new Error("REMOTE_STAGING_LIFECYCLE_WORKER_RESTART_NOT_RUN");
+
+  const lockdownPrepared = runStagingLifecycleStep(
+    serverInstanceId,
+    "prepare-final-lockdown-resolution"
+  );
+  report.finalLockdown = {
+    status: "started",
+    activePlayers: inspection.activePlayers,
+    startedAtTick: inspection.tick,
+    remainingActiveTicks: inspection.finalLockdownRemainingTicks,
+    preparedResolutionTick: lockdownPrepared.tick
+  };
+  await performServerAction(adminClient, serverInstanceId, "resume");
+  await waitForServerStatus(adminClient, serverInstanceId, "running");
+  report.statusTransitions.push("running");
+
+  const resolved = await waitForLifecycleInspection(serverInstanceId, (candidate) => (
+    candidate.matchResultHash !== null
+    && candidate.resultPayloadMatchesSnapshot === true
+    && candidate.rankingPayloadMatchesSnapshot === true
+    && candidate.membershipRankingMatchesSnapshot === true
+    && candidate.finalLockdownStatus === "resolved"
+    && candidate.persistedMatchResultCount === 1
+    && candidate.defeatedMembershipCount === 0
+    && candidate.completedMembershipCount === 20
+    && candidate.rankedMembershipCount === 20
+  ), 180_000);
+  await waitForServerStatus(adminClient, serverInstanceId, "stopped", 180_000);
+  report.statusTransitions.push("stopped");
+  const stable = runStagingLifecycleStep(serverInstanceId, "inspect");
+  if (stable.matchResultHash !== resolved.matchResultHash
+    || stable.snapshotMatchResultHash !== stable.persistedMatchResultHash
+    || stable.resultPayloadMatchesSnapshot !== true
+    || stable.snapshotRankingHash !== stable.persistedRankingHash
+    || stable.snapshotRankingHash !== stable.membershipRankingHash
+    || stable.rankingPayloadMatchesSnapshot !== true
+    || stable.membershipRankingMatchesSnapshot !== true
+    || stable.activePlayers !== 8
+    || stable.eliminatedPlayers !== 12
+    || stable.eliminationCount !== 12
+    || stable.persistedMatchResultCount !== 1
+    || stable.membershipCount !== 20
+    || stable.rankedMembershipCount !== 20
+    || stable.defeatedMembershipCount !== 0
+    || stable.completedMembershipCount !== 20
+    || !Number.isInteger(stable.invariantChecks)
+    || stable.invariantChecks <= 0
+    || stable.invariantViolationCodes.length > 0) {
+    throw new Error("REMOTE_STAGING_LIFECYCLE_RESULT_NOT_STABLE");
+  }
+
+  report.finalLockdown = {
+    ...report.finalLockdown,
+    status: "resolved",
+    resolvedAtTick: stable.tick
+  };
+  report.result = {
+    matchResultHash: stable.matchResultHash,
+    snapshotMatchResultHash: stable.snapshotMatchResultHash,
+    persistedMatchResultHash: stable.persistedMatchResultHash,
+    resultPayloadMatchesSnapshot: stable.resultPayloadMatchesSnapshot,
+    snapshotRankingHash: stable.snapshotRankingHash,
+    persistedRankingHash: stable.persistedRankingHash,
+    membershipRankingHash: stable.membershipRankingHash,
+    rankingPayloadMatchesSnapshot: stable.rankingPayloadMatchesSnapshot,
+    membershipRankingMatchesSnapshot: stable.membershipRankingMatchesSnapshot,
+    winnerHash: stable.winnerHash,
+    activePlayers: stable.activePlayers,
+    eliminatedPlayers: stable.eliminatedPlayers,
+    eliminationCount: stable.eliminationCount,
+    persistedMatchResultCount: stable.persistedMatchResultCount,
+    rankedMembershipCount: stable.rankedMembershipCount,
+    defeatedMembershipCount: stable.defeatedMembershipCount,
+    completedMembershipCount: stable.completedMembershipCount
+  };
+  report.invariants = {
+    status: "passed",
+    checks: stable.invariantChecks,
+    violationCodes: stable.invariantViolationCodes
+  };
+  report.status = "passed";
+  return report;
+}
+
+async function waitForLifecycleInspection(serverInstanceId, predicate, timeoutMs = 90_000) {
+  const started = Date.now();
+  let latest = null;
+  while (Date.now() - started < timeoutMs) {
+    latest = runStagingLifecycleStep(serverInstanceId, "inspect");
+    if (predicate(latest)) return latest;
+    await delay(1_000);
+  }
+  throw new Error(`REMOTE_STAGING_LIFECYCLE_INSPECTION_TIMEOUT:${latest?.tick ?? "none"}`);
+}
+
+function runStagingLifecycleStep(serverInstanceId, operation) {
+  const result = runProcess(process.execPath, [
+    "scripts/run-local-bin.mjs",
+    "vite-node/vite-node.mjs",
+    "tools/seed/hosted-staging-full-lifecycle-step.mjs",
+    `--server=${serverInstanceId}`,
+    `--operation=${operation}`
+  ], {
+    capture: true,
+    environment: stagingFixtureEnvironment(),
+    timeoutMs: 180_000
+  });
+  const line = String(result.stdout ?? "").trim().split(/\r?\n/u)
+    .reverse().find((candidate) => candidate.trim().startsWith("{"));
+  if (!line) throw new Error("REMOTE_STAGING_LIFECYCLE_EVIDENCE_MISSING");
+  try {
+    return JSON.parse(line);
+  } catch {
+    throw new Error("REMOTE_STAGING_LIFECYCLE_EVIDENCE_INVALID");
+  }
+}
+
 function runStagingScenario(serverInstanceId, scenario) {
   runProcess(process.execPath, [
     "scripts/run-local-bin.mjs",
@@ -207,26 +475,46 @@ function runStagingScenario(serverInstanceId, scenario) {
     `--server=${serverInstanceId}`,
     `--scenario=${scenario}`
   ], {
-    environment: {
-      ...sanitizedChildEnvironment(),
-      NODE_ENV: "production",
-      EMPIRE_RELEASE_ENVIRONMENT: "staging",
-      EMPIRE_DATABASE_TARGET_ENVIRONMENT: "staging",
-      EMPIRE_REMOTE_STAGING_FIXTURE_APPROVED: "staging-only-fixture-write",
-      EMPIRE_STAGING_DATABASE_TARGET_HASH: required(
-        process.env.EMPIRE_STAGING_DATABASE_TARGET_HASH,
-        "REMOTE_STAGING_DATABASE_TARGET_HASH_REQUIRED"
-      ),
-      EMPIRE_DATABASE_URL: required(process.env.EMPIRE_DATABASE_URL, "REMOTE_STAGING_DATABASE_URL_REQUIRED"),
-      GAMEPLAY_DATABASE_URL: required(process.env.GAMEPLAY_DATABASE_URL, "REMOTE_STAGING_GAMEPLAY_DATABASE_URL_REQUIRED")
-    },
+    environment: stagingFixtureEnvironment(),
     timeoutMs: 180_000
   });
 }
 
+function stagingFixtureEnvironment() {
+  if (!fixtureBinding) throw new Error("REMOTE_STAGING_LIFECYCLE_BINDING_MISSING");
+  return {
+    ...sanitizedChildEnvironment(),
+    NODE_ENV: "production",
+    EMPIRE_RELEASE_ENVIRONMENT: "staging",
+    EMPIRE_DATABASE_TARGET_ENVIRONMENT: "staging",
+    EMPIRE_REMOTE_STAGING_FIXTURE_APPROVED: "staging-only-fixture-write",
+    EMPIRE_STAGING_DATABASE_TARGET_HASH: required(
+      process.env.EMPIRE_STAGING_DATABASE_TARGET_HASH,
+      "REMOTE_STAGING_DATABASE_TARGET_HASH_REQUIRED"
+    ),
+    EMPIRE_REMOTE_STAGING_FIXTURE_DISPLAY_PREFIX: fixtureBinding.expectedDisplayPrefix,
+    EMPIRE_REMOTE_STAGING_RUN_NONCE_HASH: fixtureBinding.runNonceHash,
+    EMPIRE_REMOTE_STAGING_FIXTURE_CREATED_AFTER: fixtureBinding.createdAfter,
+    EMPIRE_REMOTE_STAGING_FIXTURE_CREATED_BEFORE: fixtureBinding.createdBefore,
+    EMPIRE_DATABASE_URL: required(process.env.EMPIRE_DATABASE_URL, "REMOTE_STAGING_DATABASE_URL_REQUIRED"),
+    GAMEPLAY_DATABASE_URL: required(process.env.GAMEPLAY_DATABASE_URL, "REMOTE_STAGING_GAMEPLAY_DATABASE_URL_REQUIRED")
+  };
+}
+
 async function restartSingleStagingWorker() {
-  const app = required(process.env.FLY_STAGING_APP, "REMOTE_STAGING_FLY_APP_REQUIRED");
+  const app = assertPinnedRemoteStagingFlyApp({
+    app: required(process.env.FLY_STAGING_APP, "REMOTE_STAGING_FLY_APP_REQUIRED"),
+    pinnedApp: required(
+      process.env.EMPIRE_PRE_ALPHA_STAGING_FLY_APP,
+      "REMOTE_STAGING_FLY_APP_PIN_REQUIRED"
+    )
+  });
   required(process.env.FLY_API_TOKEN, "REMOTE_STAGING_FLY_TOKEN_REQUIRED");
+  const healthUrl = `https://${app}.fly.dev/health`;
+  const preflightHealth = await readStagingWorkerHealth(healthUrl);
+  if (!isExactRemoteStagingWorkerHealth(preflightHealth, releaseSha)) {
+    throw new Error("REMOTE_STAGING_WORKER_PREFLIGHT_INVALID");
+  }
   const listed = runProcess("flyctl", ["machines", "list", "--app", app, "--json"], {
     capture: true,
     environment: sanitizedChildEnvironment({ keepFlyToken: true }),
@@ -238,15 +526,9 @@ async function restartSingleStagingWorker() {
     environment: sanitizedChildEnvironment({ keepFlyToken: true }),
     timeoutMs: 180_000
   });
-  const healthUrl = `https://${app}.fly.dev/health`;
   for (let attempt = 0; attempt < 60; attempt += 1) {
-    try {
-      const response = await fetch(healthUrl, { headers: { accept: "application/json" } });
-      const payload = response.ok ? await response.json() : null;
-      if (payload?.status === "ok" && payload?.buildSha === releaseSha && payload?.heartbeat?.registered === true) return;
-    } catch {
-      // Retried below without logging remote response bodies.
-    }
+    const payload = await readStagingWorkerHealth(healthUrl);
+    if (isExactRemoteStagingWorkerHealth(payload, releaseSha)) return;
     await delay(5_000);
   }
   throw new Error("REMOTE_STAGING_WORKER_RESTART_HEALTH_TIMEOUT");
@@ -256,6 +538,10 @@ async function performServerAction(adminClient, serverInstanceId, action) {
   const controlPlane = await adminClient.request("/api/admin/control-plane");
   const current = controlPlane.servers.find((candidate) => candidate.serverInstanceId === serverInstanceId);
   if (!current) throw new Error("REMOTE_STAGING_SERVER_MISSING");
+  await requestServerAction(adminClient, serverInstanceId, action, current.version);
+}
+
+async function requestServerAction(adminClient, serverInstanceId, action, expectedVersion) {
   await adminClient.request(`/api/admin/servers/${encodeURIComponent(serverInstanceId)}/actions`, {
     method: "POST",
     headers: {
@@ -264,22 +550,39 @@ async function performServerAction(adminClient, serverInstanceId, action) {
     },
     body: JSON.stringify({
       action,
-      expectedVersion: current.version,
+      expectedVersion,
       reason: `Remote staging acceptance ${action}`,
+      ...(action === "close-registration-now" ? { confirmationToken: "CLOSE_REGISTRATION" } : {}),
       ...(action === "delete" ? { confirmationToken: "DELETE_SERVER" } : {})
     })
   });
 }
 
 async function waitForServerStatus(adminClient, serverInstanceId, status, timeoutMs = 180_000) {
+  return waitForServer(
+    adminClient,
+    serverInstanceId,
+    (serverRecord) => serverRecord.status === status,
+    timeoutMs,
+    `REMOTE_STAGING_SERVER_STATUS_TIMEOUT:${status}`
+  );
+}
+
+async function waitForServer(
+  adminClient,
+  serverInstanceId,
+  predicate,
+  timeoutMs = 180_000,
+  timeoutCode = "REMOTE_STAGING_SERVER_PREDICATE_TIMEOUT"
+) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     const controlPlane = await adminClient.request("/api/admin/control-plane");
     const serverRecord = controlPlane.servers.find((candidate) => candidate.serverInstanceId === serverInstanceId);
-    if (serverRecord?.status === status) return serverRecord;
+    if (serverRecord && predicate(serverRecord, controlPlane)) return serverRecord;
     await delay(1_000);
   }
-  throw new Error(`REMOTE_STAGING_SERVER_STATUS_TIMEOUT:${status}`);
+  throw new Error(timeoutCode);
 }
 
 async function verifyBootstrappedMemberships(adminClient, serverInstanceId, {
@@ -312,11 +615,33 @@ async function verifyBootstrappedMemberships(adminClient, serverInstanceId, {
 }
 
 async function archiveServer(adminClient, serverInstanceId) {
-  const controlPlane = await adminClient.request("/api/admin/control-plane");
-  const current = controlPlane.servers.find((candidate) => candidate.serverInstanceId === serverInstanceId);
-  if (!current || current.status === "archived") return;
-  await performServerAction(adminClient, serverInstanceId, "delete");
-  await waitForServerStatus(adminClient, serverInstanceId, "archived");
+  await archiveRemoteStagingServerWithRetry({
+    loadServer: async () => {
+      const controlPlane = await adminClient.request("/api/admin/control-plane");
+      return controlPlane.servers.find((candidate) => candidate.serverInstanceId === serverInstanceId) ?? null;
+    },
+    requestArchive: (current) => requestServerAction(
+      adminClient,
+      serverInstanceId,
+      "delete",
+      current.version
+    ),
+    wait: delay
+  });
+}
+
+async function readStagingWorkerHealth(healthUrl) {
+  try {
+    const response = await fetch(healthUrl, {
+      cache: "no-store",
+      headers: { accept: "application/json" },
+      redirect: "error",
+      signal: AbortSignal.timeout(5_000)
+    });
+    return response.ok ? await response.json() : null;
+  } catch {
+    return null;
+  }
 }
 
 function publicBrowserEnvironment() {

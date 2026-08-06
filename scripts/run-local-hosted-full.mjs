@@ -43,6 +43,14 @@ const hostedSuites = Object.freeze([
     specs: Object.freeze(["tests/e2e/manual-hosted-admin-player-flow.spec.js"])
   }),
   Object.freeze({
+    name: "canonical-20p-registration",
+    gameplayInteraction: "visible-browser-ui",
+    playerCount: 20,
+    identityPrefix: "HostedCanonical",
+    bootstrapTimeoutMs: 1_500_000,
+    specs: Object.freeze(["tests/e2e/live-hosted-20p-registration.spec.js"])
+  }),
+  Object.freeze({
     name: "city-events",
     gameplayInteraction: "visible-browser-ui",
     specs: Object.freeze(["tests/e2e/live-city-events.spec.js"])
@@ -668,7 +676,7 @@ try {
           bootstrapArtifactDirectory,
           "tests/e2e/local-hosted-bootstrap-player.spec.js"
         ],
-        timeoutMs: 600_000,
+        timeoutMs: suite.bootstrapTimeoutMs ?? 600_000,
         result,
         phase: "bootstrap"
       });

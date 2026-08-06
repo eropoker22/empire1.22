@@ -88,7 +88,9 @@ jobs:
             .head_sha == $sha
           ' <<< "$run_json" >/dev/null
           jobs_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${ACCEPTANCE_RUN_ID}/jobs?per_page=100")"
-          expected=(manual-admin-player ui-parity ui-parity-social production-pharmacy production-drug-lab production-factory production-armory income building-actions-day building-actions-night non-spawn-parity multiplayer-actions City-Events social-visible-UI social-concurrency-privacy lifecycle-stop)
+          # BEGIN GENERATED RELEASE SUITES: hosted-acceptance-evidence
+          expected=(manual-admin-player canonical-20p-registration ui-parity ui-parity-social production-pharmacy production-drug-lab production-factory production-armory income building-actions-day building-actions-night ui-parity-non-spawn multiplayer-visible-actions city-events social-visible-ui social-concurrency-privacy lifecycle-stop)
+          # END GENERATED RELEASE SUITES: hosted-acceptance-evidence
           for name in "${expected[@]}"; do
             jq -e --arg name "$name" '.jobs[] | select(.name == $name and .status == "completed" and .conclusion == "success")' <<< "$jobs_json" >/dev/null
           done
@@ -105,6 +107,7 @@ jobs:
       RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
       STAGING_ORIGIN: https://staging.empirestreets.cz
       NETLIFY_SITE_ID: ${{ vars.NETLIFY_STAGING_SITE_ID }}
+      NETLIFY_PRODUCTION_SITE_ID: ${{ vars.NETLIFY_PRODUCTION_SITE_ID }}
       NETLIFY_DISABLE_UPDATE_CHECK: "true"
       NEON_PROJECT_ID: ${{ vars.NEON_STAGING_PROJECT_ID }}
       NEON_BRANCH_ID: ${{ vars.NEON_STAGING_ROOT_BRANCH_ID }}
@@ -176,7 +179,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          required=(NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID NEON_API_KEY NEON_PROJECT_ID NEON_BRANCH_ID STAGING_DATABASE_URL_DIRECT STAGING_DATABASE_URL_POOLED FLY_API_TOKEN FLY_STAGING_APP GAMEPLAY_SLICE_SESSION_SECRET GAMEPLAY_SLICE_SNAPSHOT_SECRET EMPIRE_ADMIN_FINGERPRINT_SECRET EMPIRE_ADMIN_SESSION_SECRET EMPIRE_AUTH_THROTTLE_PEPPER EMPIRE_ADMIN_BOOTSTRAP_USERNAME EMPIRE_ADMIN_NEW_PASSWORD EMPIRE_ADMIN_BOOTSTRAP_DISPLAY_NAME EMPIRE_ACCOUNT_TERMS_VERSION)
+          required=(NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID NETLIFY_PRODUCTION_SITE_ID NEON_API_KEY NEON_PROJECT_ID NEON_BRANCH_ID STAGING_DATABASE_URL_DIRECT STAGING_DATABASE_URL_POOLED FLY_API_TOKEN FLY_STAGING_APP GAMEPLAY_SLICE_SESSION_SECRET GAMEPLAY_SLICE_SNAPSHOT_SECRET EMPIRE_ADMIN_FINGERPRINT_SECRET EMPIRE_ADMIN_SESSION_SECRET EMPIRE_AUTH_THROTTLE_PEPPER EMPIRE_ADMIN_BOOTSTRAP_USERNAME EMPIRE_ADMIN_NEW_PASSWORD EMPIRE_ADMIN_BOOTSTRAP_DISPLAY_NAME EMPIRE_ACCOUNT_TERMS_VERSION)
           for name in "${required[@]}"; do
             [[ -n "${!name:-}" ]] || { echo "Missing required staging credential or variable: $name"; exit 1; }
             [[ "${!name}" != *$'\n'* && "${!name}" != *$'\r'* ]] || { echo "Invalid line break in staging input: $name"; exit 1; }
@@ -184,6 +187,26 @@ jobs:
           [[ "$NEON_PROJECT_ID" =~ ^[a-z0-9-]{1,60}$ ]]
           [[ "$NEON_BRANCH_ID" =~ ^[a-z0-9-]{1,60}$ ]]
           [[ "$FLY_STAGING_APP" =~ ^[a-z0-9-]{3,63}$ ]]
+
+      - name: Verify exact staging Netlify site target before deployment mutation
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$NETLIFY_SITE_ID" =~ ^[A-Za-z0-9-]{8,100}$ ]]
+          [[ "$NETLIFY_PRODUCTION_SITE_ID" =~ ^[A-Za-z0-9-]{8,100}$ ]]
+          [[ "$NETLIFY_SITE_ID" != "$NETLIFY_PRODUCTION_SITE_ID" ]]
+          site="$RUNNER_TEMP/netlify-staging-site.json"
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
+            "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}" -o "$site"
+          jq -e --arg id "$NETLIFY_SITE_ID" --arg origin "$STAGING_ORIGIN" '
+            .id == $id and
+            ([.custom_domain, .url, .ssl_url] | any(. == "staging.empirestreets.cz" or . == $origin)) and
+            ([.custom_domain, .url, .ssl_url] | all(. != "empirestreets.cz" and . != "https://empirestreets.cz"))
+          ' "$site" >/dev/null
+          rm -f "$site"
 
       - name: Verify direct and pooled database target parity
         env:

@@ -1,5 +1,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import {
+  HOSTED_ACCEPTANCE_SUITE_NAMES,
+  REMOTE_STAGING_ACCEPTANCE_SUITE_NAMES
+} from "../../scripts/remote-staging-acceptance-suites.mjs";
 
 const staging = readFileSync(".github/workflows/deploy-staging.yml", "utf8");
 const hosted = readFileSync(".github/workflows/hosted-acceptance.yml", "utf8");
@@ -14,7 +18,7 @@ describe("public release workflows", () => {
     expect(staging).toContain("Hosted Acceptance");
     expect(staging).toContain(".head_sha == $sha");
     expect(staging).toContain(".conclusion == \"success\"");
-    for (const suite of ["manual-admin-player", "ui-parity", "production-pharmacy", "social-concurrency-privacy", "lifecycle-stop"]) {
+    for (const suite of HOSTED_ACCEPTANCE_SUITE_NAMES) {
       expect(staging).toContain(suite);
       expect(hosted).toContain(`suite: ${suite}`);
     }
@@ -48,6 +52,19 @@ describe("public release workflows", () => {
     expect(staging).toContain("inputs.bootstrap_admin");
     expect(staging).toContain("set_function_secret EMPIRE_ADMIN_SESSION_SECRET");
     expect(staging).toContain("--secret --scope functions --context production");
+  });
+
+  it("pins every staging deploy mutation to the non-production Netlify site", () => {
+    expect(staging).toContain("NETLIFY_PRODUCTION_SITE_ID: ${{ vars.NETLIFY_PRODUCTION_SITE_ID }}");
+    expect(staging).toContain("Verify exact staging Netlify site target before deployment mutation");
+    expect(staging).toContain('[[ "$NETLIFY_SITE_ID" != "$NETLIFY_PRODUCTION_SITE_ID" ]]');
+    expect(staging).toContain("https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}");
+    expect(staging).toContain(".id == $id");
+    expect(staging).toContain('. != "empirestreets.cz"');
+    expect(staging.indexOf("Verify exact staging Netlify site target before deployment mutation"))
+      .toBeLessThan(staging.indexOf("Create Neon pre-migration snapshot"));
+    expect(staging.indexOf("Verify exact staging Netlify site target before deployment mutation"))
+      .toBeLessThan(staging.indexOf("Configure isolated Netlify staging environment"));
   });
 
   it("builds and deploys one SHA-tagged Fly worker with health and restart controls", () => {
@@ -124,28 +141,24 @@ describe("public release workflows", () => {
     expect(remote).toContain('staging-release-${RELEASE_SHA}');
     expect(remote).toContain('https://staging.empirestreets.cz');
     expect(remote).not.toContain('http://localhost');
-    for (const suite of [
-      "manual-admin-player",
-      "ui-parity",
-      "ui-parity-social",
-      "production-pharmacy",
-      "production-drug-lab",
-      "production-factory",
-      "production-armory",
-      "income",
-      "building-actions-day",
-      "building-actions-night",
-      "ui-parity-non-spawn",
-      "multiplayer-visible-actions",
-      "city-events",
-      "social-visible-ui",
-      "social-concurrency-privacy",
-      "lifecycle-stop"
-    ]) {
+    for (const suite of REMOTE_STAGING_ACCEPTANCE_SUITE_NAMES) {
       expect(remote).toContain(`suite: ${suite}`);
     }
     expect(remote).toContain("max-parallel: 1");
     expect(remote).toContain("npm run test:remote-staging:suite");
+    expect(remote).toContain("matrix.fixture == true && matrix.restart_worker == true");
+    expect(remote).toContain("Run fixture-backed worker-recovery remote suite");
+    expect(remote).toContain('.counts.executed == .counts.total');
+    expect(remote).toContain('$suite == "full-lifecycle-20p"');
+    expect(remote).toContain('.fullLifecycle.result.persistedMatchResultCount == 1');
+    expect(remote).toContain('.fullLifecycle.result.eliminatedPlayers == 12');
+    expect(remote).toContain('.fullLifecycle.result.defeatedMembershipCount == 0');
+    expect(remote).toContain('.fullLifecycle.result.completedMembershipCount == 20');
+    expect(remote).toContain('.fullLifecycle.result.persistedMatchResultHash == .fullLifecycle.result.matchResultHash');
+    expect(remote).toContain('.fullLifecycle.result.snapshotRankingHash == .fullLifecycle.result.membershipRankingHash');
+    expect(remote).toContain("Canonical code-level release evidence");
+    expect(remote).toContain("npm run verify:pre-alpha:staging");
+    expect(remote).toContain("staging-pre-alpha-code-${{ env.RELEASE_SHA }}");
   });
 
   it("measures staging load and closes registration on every completed gate path", () => {
@@ -155,6 +168,9 @@ describe("public release workflows", () => {
     expect(remote).toContain("EMPIRE_REMOTE_MAX_WORKER_CPU_PCT");
     expect(remote).toContain("EMPIRE_REMOTE_MAX_WORKER_THROTTLE_INCREASE");
     expect(remote).toContain("FLY_METRICS_TOKEN");
+    expect(remote).toContain('.performance.metrics.actionMix.distinctActualActionCount >= 5');
+    expect(remote).toContain('.performance.metrics.actionMix.distinctAcceptedActionCount >= 4');
+    expect(remote).toContain('.performance.metrics.rejectionClassification.unexpected == 0');
     expect(remote).toContain("EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT");
     const closeJob = remote.slice(remote.indexOf("  close-registration:"), remote.indexOf("  automated-verdict:"));
     expect(closeJob).toContain("if: always() && needs.gate.result == 'success'");
@@ -166,6 +182,36 @@ describe("public release workflows", () => {
     expect(remote).toContain('manualNetlifyObservabilityReview:"required-before-production"');
   });
 
+  it("assembles and uploads the exact twelve-file fail-closed pre-alpha evidence bundle", () => {
+    expect(remote).toContain("Assemble canonical pre-alpha evidence");
+    for (const artifact of [
+      "staging-pre-alpha-code-${RELEASE_SHA}",
+      "staging-remote-full-lifecycle-20p-${RELEASE_SHA}",
+      "staging-remote-social-concurrency-privacy-${RELEASE_SHA}",
+      "staging-load-soak-${RELEASE_SHA}",
+      "staging-registration-closed-${RELEASE_SHA}",
+      "staging-remote-final-${RELEASE_SHA}",
+      "staging-release-${RELEASE_SHA}"
+    ]) expect(remote).toContain(artifact);
+    expect(remote).toContain("npm run release:pre-alpha:evidence");
+    for (const file of [
+      "summary.json",
+      "summary.md",
+      "test-results.json",
+      "lifecycle-report.json",
+      "concurrency-report.json",
+      "invariant-report.json",
+      "security-report.json",
+      "balance-report.json",
+      "performance-report.json",
+      "release-health.json",
+      "cleanup-report.json",
+      "manifest.json"
+    ]) expect(remote).toContain(`\${{ env.EVIDENCE_OUTPUT }}/${file}`);
+    expect(remote).toContain('continue-on-error: true');
+    expect(remote).toContain('[[ "${{ steps.bundle.outcome }}" == "success" ]]');
+  });
+
   it("keeps remote credentials step-scoped and installs tools first", () => {
     const jobEnvironmentSections = [...remote.matchAll(/\n    env:\n([\s\S]*?)\n    steps:/gu)].map((match) => match[1]);
     expect(jobEnvironmentSections.every((section) => !/\$\{\{\s*secrets\./u.test(section))).toBe(true);
@@ -175,6 +221,17 @@ describe("public release workflows", () => {
     expect(remote.indexOf("Install Playwright Chromium")).toBeLessThan(remote.indexOf("Run public remote suite"));
     expect(remote.indexOf("Install pinned Netlify CLI")).toBeLessThan(remote.indexOf("Open a maximum 23-hour registration window"));
     expect(remote).not.toContain("--context deploy-preview");
+  });
+
+  it("pins registration mutations to the exact staging Netlify site and rejects the production site", () => {
+    expect(remote).toContain("NETLIFY_PRODUCTION_SITE_ID: ${{ vars.NETLIFY_PRODUCTION_SITE_ID }}");
+    expect(remote.match(/Verify exact staging Netlify site target/gu)).toHaveLength(2);
+    expect(remote.match(/\[\[ "\$NETLIFY_SITE_ID" != "\$NETLIFY_PRODUCTION_SITE_ID" \]\]/gu))
+      .toHaveLength(2);
+    expect(remote.match(/https:\/\/api\.netlify\.com\/api\/v1\/sites\/\$\{NETLIFY_SITE_ID\}/gu))
+      .toHaveLength(2);
+    expect(remote.match(/\.id == \$id/gu)).toHaveLength(2);
+    expect(remote.match(/staging\.empirestreets\.cz/gu).length).toBeGreaterThan(2);
   });
 
   it("gates production on exact remote staging and rollback rehearsal artifacts", () => {

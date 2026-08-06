@@ -26,9 +26,13 @@ jobs:
       max-parallel: 4
       matrix:
         include:
+          # BEGIN GENERATED RELEASE SUITES: hosted-acceptance
           - label: manual-admin-player
             suite: manual-admin-player
             timeout: 50
+          - label: canonical-20p-registration
+            suite: canonical-20p-registration
+            timeout: 60
           - label: ui-parity
             suite: ui-parity
             timeout: 120
@@ -56,16 +60,16 @@ jobs:
           - label: building-actions-night
             suite: building-actions-night
             timeout: 50
-          - label: non-spawn-parity
+          - label: ui-parity-non-spawn
             suite: ui-parity-non-spawn
             timeout: 90
-          - label: multiplayer-actions
+          - label: multiplayer-visible-actions
             suite: multiplayer-visible-actions
             timeout: 60
-          - label: City-Events
+          - label: city-events
             suite: city-events
             timeout: 50
-          - label: social-visible-UI
+          - label: social-visible-ui
             suite: social-visible-ui
             timeout: 60
           - label: social-concurrency-privacy
@@ -74,6 +78,7 @@ jobs:
           - label: lifecycle-stop
             suite: lifecycle-stop
             timeout: 50
+          # END GENERATED RELEASE SUITES: hosted-acceptance
 
     services:
       postgres:

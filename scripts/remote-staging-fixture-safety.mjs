@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
+const LIFECYCLE_DISPLAY_PREFIX_PATTERN =
+  /^Remote Staging Acceptance full-lifecycle-20p ([0-9a-f]{16})$/u;
+const MAX_LIFECYCLE_CREATION_WINDOW_MS = 10 * 60 * 1_000;
 
 export const databaseTargetHash = (value) => {
   const parsed = parseDatabaseUrl(value);
@@ -44,6 +47,79 @@ export const assertRemoteStagingFixtureServer = (server) => {
   }
   if (!String(server.displayName ?? "").startsWith("Remote Staging Acceptance ")) {
     throw new Error("REMOTE_STAGING_FIXTURE_SERVER_SCOPE_INVALID");
+  }
+  return true;
+};
+
+export const readRemoteStagingLifecycleFixtureBinding = (environment) => {
+  const expectedDisplayPrefix = String(
+    environment.EMPIRE_REMOTE_STAGING_FIXTURE_DISPLAY_PREFIX ?? ""
+  ).trim();
+  const runNonceHash = String(environment.EMPIRE_REMOTE_STAGING_RUN_NONCE_HASH ?? "").trim();
+  const createdAfter = String(environment.EMPIRE_REMOTE_STAGING_FIXTURE_CREATED_AFTER ?? "").trim();
+  const createdBefore = String(environment.EMPIRE_REMOTE_STAGING_FIXTURE_CREATED_BEFORE ?? "").trim();
+  const prefixMatch = LIFECYCLE_DISPLAY_PREFIX_PATTERN.exec(expectedDisplayPrefix);
+  const createdAfterMs = Date.parse(createdAfter);
+  const createdBeforeMs = Date.parse(createdBefore);
+
+  if (!SHA256_PATTERN.test(runNonceHash)
+    || prefixMatch?.[1] !== runNonceHash.slice(0, 16)
+    || !Number.isFinite(createdAfterMs)
+    || !Number.isFinite(createdBeforeMs)
+    || createdBeforeMs < createdAfterMs
+    || createdBeforeMs - createdAfterMs > MAX_LIFECYCLE_CREATION_WINDOW_MS) {
+    throw new Error("REMOTE_STAGING_LIFECYCLE_BINDING_INVALID");
+  }
+
+  return Object.freeze({
+    expectedDisplayPrefix,
+    runNonceHash,
+    createdAfter,
+    createdBefore
+  });
+};
+
+export const assertRemoteStagingLifecycleFixtureServer = (server, {
+  mutate = false,
+  expectedDisplayPrefix,
+  runNonceHash,
+  createdAfter,
+  createdBefore
+} = {}) => {
+  const prefixMatch = LIFECYCLE_DISPLAY_PREFIX_PATTERN.exec(String(expectedDisplayPrefix ?? ""));
+  const createdAfterMs = Date.parse(String(createdAfter ?? ""));
+  const createdBeforeMs = Date.parse(String(createdBefore ?? ""));
+  const createdAtMs = Date.parse(String(server?.createdAt ?? ""));
+  if (!SHA256_PATTERN.test(String(runNonceHash ?? ""))
+    || prefixMatch?.[1] !== String(runNonceHash).slice(0, 16)
+    || !Number.isFinite(createdAfterMs)
+    || !Number.isFinite(createdBeforeMs)
+    || createdBeforeMs < createdAfterMs
+    || createdBeforeMs - createdAfterMs > MAX_LIFECYCLE_CREATION_WINDOW_MS) {
+    throw new Error("REMOTE_STAGING_LIFECYCLE_BINDING_INVALID");
+  }
+  if (!server || server.provisioningState !== "ready") {
+    throw new Error("REMOTE_STAGING_LIFECYCLE_SERVER_NOT_READY");
+  }
+  const expectedDisplayStart = `${expectedDisplayPrefix} `;
+  const displayName = String(server.displayName ?? "");
+  const displaySuffix = displayName.startsWith(expectedDisplayStart)
+    ? displayName.slice(expectedDisplayStart.length)
+    : "";
+  if (!/^[0-9a-f]{8}$/u.test(displaySuffix)
+    || !Number.isFinite(createdAtMs)
+    || createdAtMs < createdAfterMs
+    || createdAtMs > createdBeforeMs
+    || server.mode !== "free"
+    || server.serverTemplate !== "full"
+    || server.capacity !== 20) {
+    throw new Error("REMOTE_STAGING_LIFECYCLE_SERVER_SCOPE_INVALID");
+  }
+  if (mutate && server.status !== "paused") {
+    throw new Error("REMOTE_STAGING_LIFECYCLE_SERVER_NOT_PAUSED");
+  }
+  if (!mutate && !["running", "paused", "stopped", "archived"].includes(server.status)) {
+    throw new Error("REMOTE_STAGING_LIFECYCLE_SERVER_STATUS_INVALID");
   }
   return true;
 };

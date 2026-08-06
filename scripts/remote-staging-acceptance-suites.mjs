@@ -30,7 +30,11 @@ const suite = (name, options = {}) => {
     capacity: options.capacity ?? 20,
     scenario: options.scenario ?? "",
     startingPlayerState: options.startingPlayerState ?? HOSTED_E2E_STARTING_PLAYER_STATE,
+    preLifecyclePlaywrightRuns: Object.freeze(options.preLifecyclePlaywrightRuns ?? []),
     playwrightRuns: Object.freeze(options.playwrightRuns ?? []),
+    workflowTimeoutMinutes: options.workflowTimeoutMinutes ?? 50,
+    hostedAcceptance: options.hostedAcceptance !== false,
+    fullLifecycle: options.fullLifecycle === true,
     manual: options.manual === true,
     restartWorkerBeforeSpec: options.restartWorkerBeforeSpec === true,
     pauseResumeBeforeSpec: options.pauseResumeBeforeSpec === true
@@ -52,11 +56,30 @@ export const REMOTE_STAGING_ACCEPTANCE_SUITES = Object.freeze([
   suite("canonical-20p-registration", {
     bootstrapCount: 20,
     capacity: 20,
+    workflowTimeoutMinutes: 60,
     playwrightRuns: [run("canonical-20p-registration", ["tests/e2e/live-hosted-20p-registration.spec.js"], {
       timeoutMs: 1_800_000
     })]
   }),
+  suite("full-lifecycle-20p", {
+    bootstrapCount: 20,
+    capacity: 20,
+    workflowTimeoutMinutes: 120,
+    hostedAcceptance: false,
+    fullLifecycle: true,
+    preLifecyclePlaywrightRuns: [run(
+      "full-lifecycle-running",
+      ["tests/e2e/live-hosted-20p-registration.spec.js"],
+      { timeoutMs: 1_800_000 }
+    )],
+    playwrightRuns: [run(
+      "full-lifecycle-finished",
+      ["tests/e2e/live-hosted-full-lifecycle-20p.spec.js"],
+      { timeoutMs: 1_800_000 }
+    )]
+  }),
   suite("ui-parity", {
+    workflowTimeoutMinutes: 120,
     playwrightRuns: [
       run("ui-parity-shared", ["tests/e2e/live-demo-ui-parity.spec.js", "tests/e2e/live-demo-utility-modal-parity.spec.js"], {
         grep: "canonical building parity coverage contract|live/demo shared presentation parity|live/demo utility modal parity"
@@ -73,6 +96,7 @@ export const REMOTE_STAGING_ACCEPTANCE_SUITES = Object.freeze([
     ]
   }),
   suite("ui-parity-social", {
+    workflowTimeoutMinutes: 90,
     playwrightRuns: [
       run("ui-parity-social-a", ["tests/e2e/live-demo-social-modal-parity.spec.js"], { environment: { EMPIRE_UI_PARITY_SOCIAL_BATCH_KEYS: "social-01,social-02" } }),
       run("ui-parity-social-b", ["tests/e2e/live-demo-social-modal-parity.spec.js"], { environment: { EMPIRE_UI_PARITY_SOCIAL_BATCH_KEYS: "social-03,social-04" } }),
@@ -112,6 +136,7 @@ export const REMOTE_STAGING_ACCEPTANCE_SUITES = Object.freeze([
     })]
   }),
   suite("ui-parity-non-spawn", {
+    workflowTimeoutMinutes: 90,
     scenario: "building-parity-non-spawn",
     playwrightRuns: [
       run("non-spawn-a", ["tests/e2e/live-hosted-non-spawn-building-parity.spec.js"], {
@@ -124,6 +149,7 @@ export const REMOTE_STAGING_ACCEPTANCE_SUITES = Object.freeze([
   }),
   suite("multiplayer-visible-actions", {
     bootstrapCount: 3,
+    workflowTimeoutMinutes: 60,
     scenario: "multiplayer-core",
     playwrightRuns: [run("multiplayer-visible-actions", [
       "tests/e2e/manual-hosted-district-actions-ui.spec.js",
@@ -136,11 +162,13 @@ export const REMOTE_STAGING_ACCEPTANCE_SUITES = Object.freeze([
   }),
   suite("social-visible-ui", {
     bootstrapCount: 3,
+    workflowTimeoutMinutes: 60,
     scenario: "multiplayer-core",
     playwrightRuns: [run("social-visible-ui", ["tests/e2e/live-hosted-social-visible-ui.spec.js"], { timeoutMs: 1_800_000 })]
   }),
   suite("social-concurrency-privacy", {
     bootstrapCount: 5,
+    workflowTimeoutMinutes: 60,
     scenario: "social-concurrency-privacy",
     playwrightRuns: [run("social-concurrency-privacy", ["tests/e2e/live-hosted-social-concurrency-privacy.spec.js"], { timeoutMs: 1_800_000 })]
   }),
@@ -149,6 +177,16 @@ export const REMOTE_STAGING_ACCEPTANCE_SUITES = Object.freeze([
     playwrightRuns: [run("lifecycle-stop", ["tests/e2e/live-hosted-lifecycle-stop.spec.js"])]
   })
 ]);
+
+export const REMOTE_STAGING_ACCEPTANCE_SUITE_NAMES = Object.freeze(
+  REMOTE_STAGING_ACCEPTANCE_SUITES.map(({ name }) => name)
+);
+export const HOSTED_ACCEPTANCE_SUITES = Object.freeze(
+  REMOTE_STAGING_ACCEPTANCE_SUITES.filter(({ hostedAcceptance }) => hostedAcceptance)
+);
+export const HOSTED_ACCEPTANCE_SUITE_NAMES = Object.freeze(
+  HOSTED_ACCEPTANCE_SUITES.map(({ name }) => name)
+);
 
 export const getRemoteStagingAcceptanceSuite = (name) => {
   const selected = REMOTE_STAGING_ACCEPTANCE_SUITES.find((candidate) => candidate.name === name);

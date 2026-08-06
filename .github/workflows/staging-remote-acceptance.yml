@@ -32,6 +32,7 @@ jobs:
     timeout-minutes: 15
     outputs:
       release_sha: ${{ steps.release.outputs.sha }}
+      short_sha: ${{ steps.release.outputs.short_sha }}
       deploy_run_id: ${{ steps.release.outputs.deploy_run_id }}
       soak_minutes: ${{ steps.release.outputs.soak_minutes }}
 
@@ -50,6 +51,7 @@ jobs:
           [[ "$DISPATCH_SOAK_MINUTES" =~ ^[0-9]+$ ]]
           (( DISPATCH_SOAK_MINUTES >= 120 && DISPATCH_SOAK_MINUTES <= 240 ))
           echo "sha=$DISPATCH_SHA" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${DISPATCH_SHA:0:7}" >> "$GITHUB_OUTPUT"
           echo "deploy_run_id=$DISPATCH_DEPLOY_RUN_ID" >> "$GITHUB_OUTPUT"
           echo "soak_minutes=$DISPATCH_SOAK_MINUTES" >> "$GITHUB_OUTPUT"
 
@@ -99,9 +101,82 @@ jobs:
           ' "$remote" >/dev/null
           jq -e --arg sha "$RELEASE_SHA" '.environment == "staging" and .sha == $sha' "$backup" >/dev/null
 
+  code-evidence:
+    name: Canonical code-level release evidence
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
+      EMPIRE_PRE_ALPHA_STAGING_ARTIFACT_ROOT: artifacts/pre-alpha-staging
+
+    steps:
+      - name: Checkout exact deployed SHA
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+
+      - name: Setup Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Verify exact clean checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$RELEASE_SHA" ]]
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Run canonical non-live code gate
+        run: npm run verify:pre-alpha:staging
+
+      - name: Verify command-result evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e --arg sha "$RELEASE_SHA" '
+            .status == "code-passed" and .buildSha == $sha and
+            (.phases | length) == 7 and all(.phases[]; .status == "passed")
+          ' artifacts/pre-alpha-staging/summary.json >/dev/null
+          jq -e --arg sha "$RELEASE_SHA" '
+            .status == "passed" and .buildSha == $sha and
+            .evidenceKind == "canonical-command-results" and .phase == "security" and
+            (.commands | length) > 0 and all(.commands[]; .status == "passed")
+          ' artifacts/pre-alpha-staging/security/summary.json >/dev/null
+          jq -e --arg sha "$RELEASE_SHA" '
+            .status == "passed" and .buildSha == $sha and
+            .evidenceKind == "canonical-command-results" and .phase == "concurrency" and
+            (.commands | length) == 1 and all(.commands[]; .status == "passed")
+          ' artifacts/pre-alpha-staging/concurrency/code-summary.json >/dev/null
+          jq -e --arg sha "$RELEASE_SHA" '
+            .status == "passed" and .buildSha == $sha and
+            .evidenceKind == "canonical-command-results" and .phase == "simulation" and
+            (.commands | length) > 0 and all(.commands[]; .status == "passed")
+          ' artifacts/pre-alpha-staging/simulation/balance-report.json >/dev/null
+
+      - name: Upload canonical code evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: staging-pre-alpha-code-${{ env.RELEASE_SHA }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            artifacts/pre-alpha-staging/summary.json
+            artifacts/pre-alpha-staging/security/summary.json
+            artifacts/pre-alpha-staging/concurrency/code-summary.json
+            artifacts/pre-alpha-staging/simulation/balance-report.json
+
   open-registration:
     name: Open time-limited staging registration
-    needs: gate
+    needs:
+      - gate
+      - code-evidence
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: staging
@@ -109,6 +184,7 @@ jobs:
       RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
       STAGING_ORIGIN: https://staging.empirestreets.cz
       NETLIFY_SITE_ID: ${{ vars.NETLIFY_STAGING_SITE_ID }}
+      NETLIFY_PRODUCTION_SITE_ID: ${{ vars.NETLIFY_PRODUCTION_SITE_ID }}
       NETLIFY_DISABLE_UPDATE_CHECK: "true"
       FLY_STAGING_APP: ${{ vars.FLY_STAGING_APP }}
       NODE_ENV: production
@@ -151,6 +227,26 @@ jobs:
           npm run release:staging:manifest:code-level
           npm run build:admin:page
           npm run release:asset-manifest
+
+      - name: Verify exact staging Netlify site target before mutation
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$NETLIFY_SITE_ID" =~ ^[A-Za-z0-9-]{8,100}$ ]]
+          [[ "$NETLIFY_PRODUCTION_SITE_ID" =~ ^[A-Za-z0-9-]{8,100}$ ]]
+          [[ "$NETLIFY_SITE_ID" != "$NETLIFY_PRODUCTION_SITE_ID" ]]
+          site="$RUNNER_TEMP/netlify-staging-site.json"
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
+            "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}" -o "$site"
+          jq -e --arg id "$NETLIFY_SITE_ID" --arg origin "$STAGING_ORIGIN" '
+            .id == $id and
+            ([.custom_domain, .url, .ssl_url] | any(. == "staging.empirestreets.cz" or . == $origin)) and
+            ([.custom_domain, .url, .ssl_url] | all(. != "empirestreets.cz" and . != "https://empirestreets.cz"))
+          ' "$site" >/dev/null
+          rm -f "$site"
 
       - name: Upload immutable registration build
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -226,6 +322,7 @@ jobs:
     name: ${{ matrix.label }}
     needs:
       - gate
+      - code-evidence
       - open-registration
     runs-on: ubuntu-latest
     timeout-minutes: ${{ matrix.timeout }}
@@ -235,11 +332,22 @@ jobs:
       max-parallel: 1
       matrix:
         include:
+          # BEGIN GENERATED RELEASE SUITES: staging-remote-acceptance
           - label: remote-manual-admin-player
             suite: manual-admin-player
             timeout: 50
             fixture: false
             restart_worker: false
+          - label: remote-canonical-20p-registration
+            suite: canonical-20p-registration
+            timeout: 60
+            fixture: false
+            restart_worker: false
+          - label: remote-full-lifecycle-20p
+            suite: full-lifecycle-20p
+            timeout: 120
+            fixture: true
+            restart_worker: true
           - label: remote-ui-parity
             suite: ui-parity
             timeout: 120
@@ -315,6 +423,7 @@ jobs:
             timeout: 50
             fixture: false
             restart_worker: false
+          # END GENERATED RELEASE SUITES: staging-remote-acceptance
 
     env:
       RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
@@ -325,6 +434,7 @@ jobs:
       EMPIRE_ADMIN_BOOTSTRAP_USERNAME: ${{ vars.STAGING_ADMIN_USERNAME }}
       EMPIRE_REMOTE_STAGING_ARTIFACT_ROOT: artifacts/remote-staging/${{ matrix.suite }}
       FLY_STAGING_APP: ${{ vars.FLY_STAGING_APP }}
+      EMPIRE_PRE_ALPHA_STAGING_FLY_APP: ${{ vars.FLY_STAGING_APP }}
 
     steps:
       - name: Checkout exact deployed SHA
@@ -361,16 +471,26 @@ jobs:
         run: npm run test:remote-staging:suite -- --suite=${{ matrix.suite }}
 
       - name: Run worker-restart remote suite
-        if: matrix.restart_worker == true
+        if: matrix.fixture == false && matrix.restart_worker == true
         env:
           EMPIRE_ADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: npm run test:remote-staging:suite -- --suite=${{ matrix.suite }}
 
       - name: Run fixture-backed remote suite
-        if: matrix.fixture == true
+        if: matrix.fixture == true && matrix.restart_worker == false
         env:
           EMPIRE_ADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}
+          EMPIRE_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          GAMEPLAY_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          EMPIRE_STAGING_DATABASE_TARGET_HASH: ${{ vars.EMPIRE_STAGING_DATABASE_TARGET_HASH }}
+        run: npm run test:remote-staging:suite -- --suite=${{ matrix.suite }}
+
+      - name: Run fixture-backed worker-recovery remote suite
+        if: matrix.fixture == true && matrix.restart_worker == true
+        env:
+          EMPIRE_ADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           EMPIRE_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
           GAMEPLAY_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
           EMPIRE_STAGING_DATABASE_TARGET_HASH: ${{ vars.EMPIRE_STAGING_DATABASE_TARGET_HASH }}
@@ -385,10 +505,36 @@ jobs:
           summary="artifacts/remote-staging/${SUITE}/summary.json"
           jq -e --arg sha "$RELEASE_SHA" --arg suite "$SUITE" '
             .status == "passed" and .buildSha == $sha and .environment == "staging" and .suite == $suite and
+            (.cleanup == "archived" or ($suite == "manual-admin-player" and .cleanup == "archived-by-visible-admin-flow")) and
             (.playwrightRuns | length) > 0 and
             all(.playwrightRuns[];
-              .status == "passed" and .counts.failed == 0 and .counts.skipped == 0 and
-              .counts.notRun == 0 and .counts.retries == 0 and .counts.flaky == 0)
+              .status == "passed" and .counts.total > 0 and .counts.executed == .counts.total and
+              .counts.passed == .counts.total and .counts.failed == 0 and .counts.skipped == 0 and
+              .counts.notRun == 0 and .counts.retries == 0 and .counts.flaky == 0) and
+            (if $suite == "full-lifecycle-20p" then
+              .fullLifecycle.status == "passed" and .fullLifecycle.playerCount == 20 and
+              .fullLifecycle.registration.closed == true and .fullLifecycle.registration.baselinePlayers == 20 and
+              .fullLifecycle.workerRecovery == "passed" and (.fullLifecycle.eliminationTransitions | length) == 12 and
+              .fullLifecycle.finalLockdown.status == "resolved" and .fullLifecycle.finalLockdown.activePlayers == 8 and
+              .fullLifecycle.result.activePlayers == 8 and
+              .fullLifecycle.result.eliminatedPlayers == 12 and .fullLifecycle.result.eliminationCount == 12 and
+              .fullLifecycle.result.persistedMatchResultCount == 1 and
+              .fullLifecycle.result.rankedMembershipCount == 20 and
+              .fullLifecycle.result.defeatedMembershipCount == 0 and
+              .fullLifecycle.result.completedMembershipCount == 20 and
+              (.fullLifecycle.result.matchResultHash | test("^[0-9a-f]{64}$")) and
+              .fullLifecycle.result.snapshotMatchResultHash == .fullLifecycle.result.matchResultHash and
+              .fullLifecycle.result.persistedMatchResultHash == .fullLifecycle.result.matchResultHash and
+              .fullLifecycle.result.resultPayloadMatchesSnapshot == true and
+              .fullLifecycle.result.snapshotRankingHash == .fullLifecycle.result.persistedRankingHash and
+              .fullLifecycle.result.snapshotRankingHash == .fullLifecycle.result.membershipRankingHash and
+              .fullLifecycle.result.rankingPayloadMatchesSnapshot == true and
+              .fullLifecycle.result.membershipRankingMatchesSnapshot == true and
+              .fullLifecycle.invariants.status == "passed" and
+              (.fullLifecycle.invariants.checks | type) == "number" and
+              .fullLifecycle.invariants.checks > 0 and
+              (.fullLifecycle.invariants.violationCodes | length) == 0
+            else true end)
           ' "$summary" >/dev/null
 
       - name: Upload remote suite evidence
@@ -398,7 +544,9 @@ jobs:
           name: staging-remote-${{ matrix.suite }}-${{ env.RELEASE_SHA }}
           if-no-files-found: error
           retention-days: 30
-          path: artifacts/remote-staging/${{ matrix.suite }}/**
+          path: |
+            artifacts/remote-staging/${{ matrix.suite }}/**
+            !artifacts/remote-staging/${{ matrix.suite }}/**/trace.zip
 
   worker-redeploy:
     name: Redeploy immutable staging worker
@@ -541,8 +689,19 @@ jobs:
           set -euo pipefail
           jq -e --arg sha "$RELEASE_SHA" '
             .status == "passed" and .buildSha == $sha and .environment == "staging" and
-            .browser.status == "passed" and .browser.counts.skipped == 0 and
-            .browser.counts.notRun == 0 and .browser.counts.retries == 0 and
+            .browser.status == "passed" and .browser.counts.total > 0 and
+            .browser.counts.executed == .browser.counts.total and
+            .browser.counts.passed == .browser.counts.total and .browser.counts.failed == 0 and
+            .browser.counts.skipped == 0 and .browser.counts.notRun == 0 and
+            .browser.counts.retries == 0 and .browser.counts.flaky == 0 and
+            .performance.status == "passed" and .performance.buildSha == $sha and
+            .performance.metrics.passed == true and (.performance.metrics.violations | length) == 0 and
+            .performance.metrics.actionMix.distinctActualActionCount >= 5 and
+            .performance.metrics.actionMix.distinctAcceptedActionCount >= 4 and
+            .performance.metrics.actionMix.districtSelectionChangeCount >= 1 and
+            .performance.metrics.rejectionClassification.auth == 0 and
+            .performance.metrics.rejectionClassification.rateLimit == 0 and
+            .performance.metrics.rejectionClassification.unexpected == 0 and
             .database.passed == true and .fly.passed == true and .cleanup == "archived"
           ' artifacts/remote-staging/load-soak/summary.json >/dev/null
 
@@ -553,7 +712,9 @@ jobs:
           name: staging-load-soak-${{ env.RELEASE_SHA }}
           if-no-files-found: error
           retention-days: 30
-          path: artifacts/remote-staging/load-soak/**
+          path: |
+            artifacts/remote-staging/load-soak/**
+            !artifacts/remote-staging/load-soak/**/trace.zip
 
   close-registration:
     name: Always close staging registration
@@ -572,6 +733,7 @@ jobs:
       DEPLOY_RUN_ID: ${{ needs.gate.outputs.deploy_run_id }}
       STAGING_ORIGIN: https://staging.empirestreets.cz
       NETLIFY_SITE_ID: ${{ vars.NETLIFY_STAGING_SITE_ID }}
+      NETLIFY_PRODUCTION_SITE_ID: ${{ vars.NETLIFY_PRODUCTION_SITE_ID }}
       NETLIFY_DISABLE_UPDATE_CHECK: "true"
       NODE_ENV: production
       EMPIRE_RELEASE_ENVIRONMENT: staging
@@ -612,6 +774,26 @@ jobs:
             .gitSha == $sha and .frontendBuildSha == $sha and .apiBuildSha == $sha and .workerBuildSha == $sha
           ' artifacts/release-manifest.json >/dev/null
           jq -e --arg sha "$RELEASE_SHA" '.buildSha == $sha' artifacts/release-asset-manifest.json >/dev/null
+
+      - name: Verify exact staging Netlify site target before closure mutation
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$NETLIFY_SITE_ID" =~ ^[A-Za-z0-9-]{8,100}$ ]]
+          [[ "$NETLIFY_PRODUCTION_SITE_ID" =~ ^[A-Za-z0-9-]{8,100}$ ]]
+          [[ "$NETLIFY_SITE_ID" != "$NETLIFY_PRODUCTION_SITE_ID" ]]
+          site="$RUNNER_TEMP/netlify-staging-site.json"
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
+            "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}" -o "$site"
+          jq -e --arg id "$NETLIFY_SITE_ID" --arg origin "$STAGING_ORIGIN" '
+            .id == $id and
+            ([.custom_domain, .url, .ssl_url] | any(. == "staging.empirestreets.cz" or . == $origin)) and
+            ([.custom_domain, .url, .ssl_url] | all(. != "empirestreets.cz" and . != "https://empirestreets.cz"))
+          ' "$site" >/dev/null
+          rm -f "$site"
 
       - name: Close registration and redeploy the same SHA
         env:
@@ -665,6 +847,7 @@ jobs:
     if: always()
     needs:
       - gate
+      - code-evidence
       - open-registration
       - remote-suites
       - worker-redeploy
@@ -674,9 +857,20 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      - name: Checkout exact deployed SHA
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.gate.outputs.release_sha }}
+
+      - name: Setup Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+
       - name: Require every automated gate and safe closure
         env:
           RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
+          CODE_RESULT: ${{ needs.code-evidence.result }}
           OPEN_RESULT: ${{ needs.open-registration.result }}
           SUITES_RESULT: ${{ needs.remote-suites.result }}
           WORKER_RESULT: ${{ needs.worker-redeploy.result }}
@@ -686,15 +880,21 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$CODE_RESULT" == "success" ]]
           [[ "$OPEN_RESULT" == "success" ]]
           [[ "$SUITES_RESULT" == "success" ]]
           [[ "$WORKER_RESULT" == "success" ]]
           [[ "$LOAD_RESULT" == "success" ]]
           [[ "$CLOSE_RESULT" == "success" ]]
           mkdir -p artifacts/remote-staging/final
-          jq -n --arg sha "$RELEASE_SHA" --arg runId "$GITHUB_RUN_ID" '
+          required_suites="$(node --input-type=module -e \
+            'import { PRE_ALPHA_ALL_REMOTE_SUITE_NAMES as names } from "./scripts/pre-alpha-staging-contract.mjs"; process.stdout.write(JSON.stringify(names));')"
+          jq -n --arg sha "$RELEASE_SHA" --arg runId "$GITHUB_RUN_ID" --argjson suites "$required_suites" '
             {status:"automated-pass",environment:"staging",buildSha:$sha,workflowRunId:$runId,
-             registrationClosed:true,manualNetlifyObservabilityReview:"required-before-production"}
+             registrationClosed:true,requiredRemoteSuites:$suites,
+             jobResults:{code:"success",openRegistration:"success",remoteSuites:"success",
+               workerRedeploy:"success",loadSoak:"success",closeRegistration:"success"},
+             manualNetlifyObservabilityReview:"required-before-production"}
           ' > artifacts/remote-staging/final/summary.json
 
       - name: Upload automated verdict
@@ -704,3 +904,228 @@ jobs:
           if-no-files-found: error
           retention-days: 90
           path: artifacts/remote-staging/final/summary.json
+
+  evidence-bundle:
+    name: Assemble canonical pre-alpha evidence
+    if: always() && needs.gate.result == 'success'
+    needs:
+      - gate
+      - code-evidence
+      - open-registration
+      - remote-suites
+      - worker-redeploy
+      - load-soak
+      - close-registration
+      - automated-verdict
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
+      DEPLOY_RUN_ID: ${{ needs.gate.outputs.deploy_run_id }}
+      CODE_RESULT: ${{ needs.code-evidence.result }}
+      OPEN_RESULT: ${{ needs.open-registration.result }}
+      SUITES_RESULT: ${{ needs.remote-suites.result }}
+      WORKER_RESULT: ${{ needs.worker-redeploy.result }}
+      LOAD_RESULT: ${{ needs.load-soak.result }}
+      CLOSE_RESULT: ${{ needs.close-registration.result }}
+      AUTOMATED_RESULT: ${{ needs.automated-verdict.result }}
+      EVIDENCE_ROOT: artifacts/release/staging
+      EVIDENCE_OUTPUT: artifacts/release/staging/pre-alpha-hardening-${{ needs.gate.outputs.short_sha }}
+
+    steps:
+      - name: Checkout exact deployed SHA
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+
+      - name: Setup Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Download exact named release evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -u
+          input="$RUNNER_TEMP/pre-alpha-evidence-input"
+          mkdir -p "$input"
+          download_optional() {
+            local run_id="$1" artifact_name="$2" destination="$3"
+            mkdir -p "$destination"
+            for attempt in {1..6}; do
+              if gh run download "$run_id" --repo "$GITHUB_REPOSITORY" \
+                --name "$artifact_name" --dir "$destination"; then
+                return 0
+              fi
+              sleep 5
+            done
+            return 0
+          }
+          download_optional "$GITHUB_RUN_ID" "staging-pre-alpha-code-${RELEASE_SHA}" "$input/code"
+          download_optional "$GITHUB_RUN_ID" "staging-remote-full-lifecycle-20p-${RELEASE_SHA}" "$input/lifecycle"
+          download_optional "$GITHUB_RUN_ID" "staging-remote-social-concurrency-privacy-${RELEASE_SHA}" "$input/concurrency"
+          download_optional "$GITHUB_RUN_ID" "staging-load-soak-${RELEASE_SHA}" "$input/load"
+          download_optional "$GITHUB_RUN_ID" "staging-registration-closed-${RELEASE_SHA}" "$input/closed"
+          download_optional "$GITHUB_RUN_ID" "staging-remote-final-${RELEASE_SHA}" "$input/final"
+          download_optional "$DEPLOY_RUN_ID" "staging-release-${RELEASE_SHA}" "$input/deploy"
+
+      - name: Map explicit evidence paths and record the composite gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          input="$RUNNER_TEMP/pre-alpha-evidence-input"
+          mkdir -p "$EVIDENCE_ROOT"
+          copy_first() {
+            local destination="$1"
+            shift
+            for source in "$@"; do
+              if [[ -s "$source" ]]; then
+                mkdir -p "$(dirname "$destination")"
+                cp "$source" "$destination"
+                return 0
+              fi
+            done
+            return 0
+          }
+
+          copy_first "$EVIDENCE_ROOT/code-level/summary.json" \
+            "$input/code/summary.json" \
+            "$input/code/artifacts/pre-alpha-staging/summary.json"
+          copy_first "$EVIDENCE_ROOT/security/summary.json" \
+            "$input/code/security/summary.json" \
+            "$input/code/artifacts/pre-alpha-staging/security/summary.json"
+          copy_first "$EVIDENCE_ROOT/concurrency/code-summary.json" \
+            "$input/code/concurrency/code-summary.json" \
+            "$input/code/artifacts/pre-alpha-staging/concurrency/code-summary.json"
+          copy_first "$EVIDENCE_ROOT/simulation/balance-report.json" \
+            "$input/code/simulation/balance-report.json" \
+            "$input/code/artifacts/pre-alpha-staging/simulation/balance-report.json"
+          copy_first "$EVIDENCE_ROOT/remote-suites/full-lifecycle-20p/summary.json" \
+            "$input/lifecycle/summary.json" \
+            "$input/lifecycle/artifacts/remote-staging/full-lifecycle-20p/summary.json"
+          copy_first "$EVIDENCE_ROOT/remote-suites/full-lifecycle-20p/lifecycle-report.json" \
+            "$input/lifecycle/lifecycle-report.json" \
+            "$input/lifecycle/artifacts/remote-staging/full-lifecycle-20p/lifecycle-report.json"
+          copy_first "$EVIDENCE_ROOT/remote-suites/full-lifecycle-20p/invariant-report.json" \
+            "$input/lifecycle/invariant-report.json" \
+            "$input/lifecycle/artifacts/remote-staging/full-lifecycle-20p/invariant-report.json"
+          copy_first "$EVIDENCE_ROOT/remote-suites/full-lifecycle-20p/cleanup-report.json" \
+            "$input/lifecycle/cleanup-report.json" \
+            "$input/lifecycle/artifacts/remote-staging/full-lifecycle-20p/cleanup-report.json"
+          copy_first "$EVIDENCE_ROOT/remote-suites/social-concurrency-privacy/summary.json" \
+            "$input/concurrency/summary.json" \
+            "$input/concurrency/artifacts/remote-staging/social-concurrency-privacy/summary.json"
+          copy_first "$EVIDENCE_ROOT/load-soak/summary.json" \
+            "$input/load/summary.json" \
+            "$input/load/artifacts/remote-staging/load-soak/summary.json"
+          copy_first "$EVIDENCE_ROOT/remote-release-health.json" \
+            "$input/closed/closed-release-health.json" \
+            "$input/closed/artifacts/release/staging/remote-acceptance/closed-release-health.json" \
+            "$input/deploy/artifacts/release/staging/remote-release-health.json"
+
+          final_summary="$input/final/summary.json"
+          [[ -s "$final_summary" ]] || final_summary="$input/final/artifacts/remote-staging/final/summary.json"
+          registration_closed="$input/closed/registration-closed.json"
+          [[ -s "$registration_closed" ]] || registration_closed="$input/closed/artifacts/release/staging/remote-acceptance/registration-closed.json"
+          closed_health="$input/closed/closed-release-health.json"
+          [[ -s "$closed_health" ]] || closed_health="$input/closed/artifacts/release/staging/remote-acceptance/closed-release-health.json"
+
+          composite_status="failed"
+          if [[ "$CODE_RESULT" == "success" && "$OPEN_RESULT" == "success" \
+            && "$SUITES_RESULT" == "success" && "$WORKER_RESULT" == "success" \
+            && "$LOAD_RESULT" == "success" && "$CLOSE_RESULT" == "success" \
+            && "$AUTOMATED_RESULT" == "success" ]] \
+            && jq -e --arg sha "$RELEASE_SHA" \
+              '.status == "code-passed" and .buildSha == $sha and (.phases | length) == 7 and all(.phases[]; .status == "passed")' \
+              "$EVIDENCE_ROOT/code-level/summary.json" >/dev/null 2>&1 \
+            && jq -e --arg sha "$RELEASE_SHA" \
+              '.status == "automated-pass" and .environment == "staging" and .buildSha == $sha and .registrationClosed == true' \
+              "$final_summary" >/dev/null 2>&1 \
+            && jq -e '.accepted == true and .data.registrationEnabled == false and .data.mode == "closed"' \
+              "$registration_closed" >/dev/null 2>&1 \
+            && jq -e --arg sha "$RELEASE_SHA" \
+              '.environment == "staging" and .frontendSha == $sha and .apiSha == $sha and .workerSha == $sha' \
+              "$closed_health" >/dev/null 2>&1; then
+            composite_status="passed"
+          fi
+          jq -n --arg status "$composite_status" --arg sha "$RELEASE_SHA" \
+            --arg code "$CODE_RESULT" --arg suites "$SUITES_RESULT" --arg load "$LOAD_RESULT" \
+            --arg close "$CLOSE_RESULT" --arg automated "$AUTOMATED_RESULT" '
+              {schemaVersion:1,status:$status,buildSha:$sha,evidenceKind:"canonical-composite-command-results",
+               jobResults:{code:$code,remoteSuites:$suites,loadSoak:$load,closeRegistration:$close,automatedVerdict:$automated}}
+            ' > "$EVIDENCE_ROOT/test-results.json"
+
+          concurrency_status="failed"
+          code_concurrency="$EVIDENCE_ROOT/concurrency/code-summary.json"
+          remote_concurrency="$EVIDENCE_ROOT/remote-suites/social-concurrency-privacy/summary.json"
+          if jq -e --arg sha "$RELEASE_SHA" \
+              '.status == "passed" and .buildSha == $sha and .phase == "concurrency" and
+               (.commands | length) == 1 and all(.commands[]; .id == "authoritative-concurrency" and .status == "passed")' \
+              "$code_concurrency" >/dev/null 2>&1 \
+            && jq -e --arg sha "$RELEASE_SHA" \
+              '.status == "passed" and .environment == "staging" and .buildSha == $sha and
+               .suite == "social-concurrency-privacy" and .cleanup == "archived" and
+               (.playwrightRuns | length) > 0 and all(.playwrightRuns[];
+                 .status == "passed" and .counts.total > 0 and .counts.executed == .counts.total and
+                 .counts.passed == .counts.total and .counts.failed == 0 and .counts.skipped == 0 and
+                 .counts.notRun == 0 and .counts.retries == 0 and .counts.flaky == 0)' \
+              "$remote_concurrency" >/dev/null 2>&1; then
+            concurrency_status="passed"
+          fi
+          mkdir -p "$EVIDENCE_ROOT/remote-suites/concurrency-conflicts"
+          jq -n --arg status "$concurrency_status" --arg sha "$RELEASE_SHA" '
+            {schemaVersion:1,status:$status,buildSha:$sha,
+             evidenceKind:"code-and-public-staging-concurrency",
+             proofs:{authoritativeTransport:$status,publicSocialRaces:$status},
+             coverage:["occupy-race","attack-race","normal-market-last-stock",
+               "player-market-last-listing","bounty-claim-race","robbery-inventory-race",
+               "same-command-replay","payload-conflict","two-tab-invite","alliance-last-slot"]}
+          ' > "$EVIDENCE_ROOT/remote-suites/concurrency-conflicts/concurrency-report.json"
+
+      - name: Build sanitized twelve-file evidence bundle
+        id: bundle
+        continue-on-error: true
+        run: >-
+          npm run release:pre-alpha:evidence --
+          --artifact-root=${{ env.EVIDENCE_ROOT }}
+          --build-sha=${{ env.RELEASE_SHA }}
+
+      - name: Upload canonical pre-alpha evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: staging-pre-alpha-hardening-${{ env.RELEASE_SHA }}
+          if-no-files-found: error
+          retention-days: 90
+          path: |
+            ${{ env.EVIDENCE_OUTPUT }}/summary.json
+            ${{ env.EVIDENCE_OUTPUT }}/summary.md
+            ${{ env.EVIDENCE_OUTPUT }}/test-results.json
+            ${{ env.EVIDENCE_OUTPUT }}/lifecycle-report.json
+            ${{ env.EVIDENCE_OUTPUT }}/concurrency-report.json
+            ${{ env.EVIDENCE_OUTPUT }}/invariant-report.json
+            ${{ env.EVIDENCE_OUTPUT }}/security-report.json
+            ${{ env.EVIDENCE_OUTPUT }}/balance-report.json
+            ${{ env.EVIDENCE_OUTPUT }}/performance-report.json
+            ${{ env.EVIDENCE_OUTPUT }}/release-health.json
+            ${{ env.EVIDENCE_OUTPUT }}/cleanup-report.json
+            ${{ env.EVIDENCE_OUTPUT }}/manifest.json
+
+      - name: Require complete release evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${{ steps.bundle.outcome }}" == "success" ]]
+          jq -e --arg sha "$RELEASE_SHA" '
+            .status == "passed" and .verdict == "passed" and .buildSha == $sha and
+            .counts.required == 9 and .counts.passed == 9 and .counts.failed == 0 and
+            .counts.notPassed == 0 and .counts.notRun == 0 and
+            (.reports | length) == 9 and all(.reports[]; .status == "passed" and .availability == "present")
+          ' "$EVIDENCE_OUTPUT/summary.json" >/dev/null

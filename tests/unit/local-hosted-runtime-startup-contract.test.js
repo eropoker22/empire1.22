@@ -116,6 +116,7 @@ describe("local hosted runtime startup contract", () => {
 
     expect(suiteMetadata).toEqual({
       "manual-admin-player": "visible-browser-ui",
+      "canonical-20p-registration": "visible-browser-ui",
       "city-events": "visible-browser-ui",
       "ui-parity": "visible-browser-opening-and-observation",
       "ui-parity-social": "visible-browser-opening-and-observation",

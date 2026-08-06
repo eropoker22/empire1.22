@@ -7,6 +7,7 @@ import {
 const expectedSuites = [
   "manual-admin-player",
   "canonical-20p-registration",
+  "full-lifecycle-20p",
   "ui-parity",
   "ui-parity-social",
   "production-pharmacy",
@@ -25,7 +26,7 @@ const expectedSuites = [
 ];
 
 describe("remote staging acceptance suite contract", () => {
-  it("defines every required hosted matrix suite exactly once", () => {
+  it("defines every required remote staging suite exactly once", () => {
     expect(REMOTE_STAGING_ACCEPTANCE_SUITES.map(({ name }) => name)).toEqual(expectedSuites);
     expect(new Set(expectedSuites).size).toBe(expectedSuites.length);
   });
@@ -33,7 +34,9 @@ describe("remote staging acceptance suite contract", () => {
   it("uses real browser specs and controlled staging scenarios", () => {
     for (const suite of REMOTE_STAGING_ACCEPTANCE_SUITES) {
       expect(suite.playwrightRuns.length).toBeGreaterThan(0);
-      expect(suite.playwrightRuns.flatMap(({ specs }) => specs).every((spec) => spec.startsWith("tests/e2e/"))).toBe(true);
+      expect([...suite.preLifecyclePlaywrightRuns, ...suite.playwrightRuns]
+        .flatMap(({ specs }) => specs)
+        .every((spec) => spec.startsWith("tests/e2e/"))).toBe(true);
     }
     expect(getRemoteStagingAcceptanceSuite("social-concurrency-privacy")).toMatchObject({
       bootstrapCount: 5,
@@ -44,6 +47,15 @@ describe("remote staging acceptance suite contract", () => {
       bootstrapTimeoutMs: 1_500_000,
       capacity: 20
     });
+    expect(getRemoteStagingAcceptanceSuite("full-lifecycle-20p")).toMatchObject({
+      bootstrapCount: 20,
+      capacity: 20,
+      fullLifecycle: true,
+      hostedAcceptance: false,
+      workflowTimeoutMinutes: 120
+    });
+    expect(getRemoteStagingAcceptanceSuite("full-lifecycle-20p").preLifecyclePlaywrightRuns)
+      .toHaveLength(1);
     expect(getRemoteStagingAcceptanceSuite("social-concurrency-privacy").bootstrapTimeoutMs).toBe(900_000);
     expect(getRemoteStagingAcceptanceSuite("income").restartWorkerBeforeSpec).toBe(true);
     expect(getRemoteStagingAcceptanceSuite("lifecycle-stop").pauseResumeBeforeSpec).toBe(true);

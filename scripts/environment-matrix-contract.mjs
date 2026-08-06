@@ -244,7 +244,87 @@ const PUBLIC_RELEASE_ROWS = [
   })
 ];
 
-const NON_RELEASE_VARIABLES = new Set(`
+const NON_RELEASE_TOOLING_ROWS = new Map([
+  ["EMPIRE_PRE_ALPHA_STAGING_ARTIFACT_ROOT", {
+    component: "Canonical pre-alpha staging gate artifacts",
+    stagingRequired: "Gate invocation only",
+    netlifyScope: "Protected staging release job only; never injected into the site",
+    safeFormat: "Repository-relative artifact directory under artifacts/",
+    defaultAllowed: "Yes; artifacts/pre-alpha-staging",
+    rotation: "Use an isolated directory for each release run"
+  }],
+  ["EMPIRE_PRE_ALPHA_STAGING_CLOSED_EVIDENCE_PATH", {
+    component: "Canonical pre-alpha staging registration evidence",
+    stagingRequired: "Gate invocation only",
+    netlifyScope: "Protected staging release job only; never injected into the site",
+    safeFormat: "Path to downloaded closed-registration JSON evidence",
+    defaultAllowed: "No",
+    rotation: "Regenerate for each exact release SHA"
+  }],
+  ["EMPIRE_PRE_ALPHA_STAGING_FLY_APP", {
+    component: "Protected staging Fly target pin",
+    stagingRequired: "Remote gate only",
+    netlifyScope: "Protected staging release job only; never injected into the site",
+    safeFormat: "Exact lowercase staging Fly app name equal to FLY_STAGING_APP",
+    defaultAllowed: "No",
+    rotation: "Set explicitly for each guarded remote invocation"
+  }],
+  ["EMPIRE_PRE_ALPHA_STAGING_REMOTE_APPROVED", {
+    component: "Protected staging remote-mutation approval guard",
+    stagingRequired: "Remote gate only",
+    netlifyScope: "Protected staging release job only; never injected into the site",
+    safeFormat: "Exact staging-only-remote-acceptance guard value",
+    defaultAllowed: "No",
+    rotation: "Set explicitly for each guarded remote invocation"
+  }],
+  ["EMPIRE_REMOTE_STAGING_FIXTURE_CREATED_AFTER", {
+    component: "Disposable staging fixture identity binding",
+    stagingRequired: "Remote lifecycle suite only",
+    safeFormat: "ISO-8601 lower creation-time bound generated for the current run",
+    defaultAllowed: "No",
+    rotation: "Regenerate for every disposable staging fixture"
+  }],
+  ["EMPIRE_REMOTE_STAGING_FIXTURE_CREATED_BEFORE", {
+    component: "Disposable staging fixture identity binding",
+    stagingRequired: "Remote lifecycle suite only",
+    safeFormat: "ISO-8601 upper creation-time bound generated for the current run",
+    defaultAllowed: "No",
+    rotation: "Regenerate for every disposable staging fixture"
+  }],
+  ["EMPIRE_REMOTE_STAGING_FIXTURE_DISPLAY_PREFIX", {
+    component: "Disposable staging fixture identity binding",
+    stagingRequired: "Remote lifecycle suite only",
+    safeFormat: "Canonical lifecycle display prefix ending in the run nonce hash prefix",
+    defaultAllowed: "No",
+    rotation: "Regenerate for every disposable staging fixture"
+  }],
+  ["EMPIRE_REMOTE_STAGING_RUN_NONCE_HASH", {
+    component: "Disposable staging fixture identity binding",
+    stagingRequired: "Remote lifecycle suite only",
+    safeFormat: "64 lowercase hexadecimal SHA-256 nonce hash",
+    defaultAllowed: "No",
+    rotation: "Regenerate for every disposable staging fixture"
+  }],
+  ["EVIDENCE_OUTPUT", {
+    component: "CI staging release evidence assembly",
+    stagingRequired: "CI release job only",
+    netlifyScope: "Release job only; never injected into the site",
+    safeFormat: "Workflow-local artifact output directory",
+    defaultAllowed: "No",
+    rotation: "Use an isolated directory for each release run"
+  }],
+  ["RELEASE_SHA", {
+    component: "CI staging release workflow",
+    stagingRequired: "CI release job only",
+    netlifyScope: "Release job only; never injected into the site",
+    safeFormat: "Exact 40-character lowercase Git commit SHA",
+    defaultAllowed: "No",
+    rotation: "Set to the immutable commit selected for each release run"
+  }]
+]);
+
+const NON_RELEASE_VARIABLES = new Set([
+  ...`
 CI
 DAY_NIGHT_BALANCE_REPORT
 EMPIRE_ACCOUNT_REGISTRATION_KILL_SWITCH_E2E
@@ -305,7 +385,9 @@ SIM_SEED
 SIM_SEED_LIST
 SITE_ID
 URL
-`.trim().split(/\s+/u));
+`.trim().split(/\s+/u),
+  ...NON_RELEASE_TOOLING_ROWS.keys()
+]);
 
 const PROVIDER_ROWS = [
   ["NETLIFY_AUTH_TOKEN", "GitHub staging/production deploy job", "Yes", "Netlify personal or service token", "Rotate in Netlify; update protected GitHub environment secret"],
@@ -492,7 +574,8 @@ const nonReleaseRow = (variable) => ({
   workerScope: "None",
   safeFormat: "Local, CI or test-specific value",
   defaultAllowed: "Yes outside public runtime",
-  rotation: isSecretLike(variable) ? "Discard after the test run; never reuse a public secret" : "N/A"
+  rotation: isSecretLike(variable) ? "Discard after the test run; never reuse a public secret" : "N/A",
+  ...NON_RELEASE_TOOLING_ROWS.get(variable)
 });
 const inferNonReleaseComponent = (variable) => {
   if (/PLAYWRIGHT|E2E|UI_PARITY|SMOKE|KILL_SWITCH/u.test(variable)) return "Browser and hosted acceptance tests";

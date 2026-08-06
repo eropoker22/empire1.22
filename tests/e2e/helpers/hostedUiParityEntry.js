@@ -541,3 +541,15 @@ export async function loginAndResumeHostedUiParityGame(page, {
     }
   };
 }
+
+export async function loginHostedUiParityAccount(page, {
+  username,
+  password,
+  networkIdentifier
+} = {}) {
+  expect(username, "Hosted account login requires a username").toBeTruthy();
+  expect(password, "Hosted account login requires a password").toBeTruthy();
+  const diagnostics = await installHostedUiParityInstrumentation(page);
+  await loginAccount(page, { username, password, networkIdentifier });
+  return { diagnostics };
+}

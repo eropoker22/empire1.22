@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   assertRemoteStagingFixtureServer,
+  assertRemoteStagingLifecycleFixtureServer,
   assertSafeRemoteStagingFixtureEnvironment,
-  databaseTargetHash
+  databaseTargetHash,
+  readRemoteStagingLifecycleFixtureBinding
 } from "../../scripts/remote-staging-fixture-safety.mjs";
 
 const directUrl = "postgresql://staging-role@ep-acceptance.eu-central-1.aws.neon.tech/empire?sslmode=verify-full";
@@ -46,5 +48,57 @@ describe("remote staging fixture safety", () => {
     expect(assertRemoteStagingFixtureServer(server)).toBe(true);
     expect(() => assertRemoteStagingFixtureServer({ ...server, status: "running" })).toThrow(/NOT_READY_LOBBY/u);
     expect(() => assertRemoteStagingFixtureServer({ ...server, displayName: "Public Alpha" })).toThrow(/SCOPE_INVALID/u);
+  });
+
+  it("binds lifecycle mutation to the exact run prefix and creation window", () => {
+    const runNonceHash = "a".repeat(64);
+    const expectedDisplayPrefix =
+      `Remote Staging Acceptance full-lifecycle-20p ${runNonceHash.slice(0, 16)}`;
+    const binding = readRemoteStagingLifecycleFixtureBinding({
+      EMPIRE_REMOTE_STAGING_FIXTURE_DISPLAY_PREFIX: expectedDisplayPrefix,
+      EMPIRE_REMOTE_STAGING_RUN_NONCE_HASH: runNonceHash,
+      EMPIRE_REMOTE_STAGING_FIXTURE_CREATED_AFTER: "2026-08-06T11:59:00.000Z",
+      EMPIRE_REMOTE_STAGING_FIXTURE_CREATED_BEFORE: "2026-08-06T12:01:00.000Z"
+    });
+    const server = {
+      displayName: `${expectedDisplayPrefix} deadbeef`,
+      createdAt: "2026-08-06T12:00:00.000Z",
+      provisioningState: "ready",
+      status: "paused",
+      mode: "free",
+      serverTemplate: "full",
+      capacity: 20
+    };
+    expect(assertRemoteStagingLifecycleFixtureServer(server, { mutate: true, ...binding })).toBe(true);
+    expect(assertRemoteStagingLifecycleFixtureServer(
+      { ...server, status: "running" },
+      binding
+    )).toBe(true);
+    expect(() => assertRemoteStagingLifecycleFixtureServer(
+      { ...server, status: "running" },
+      { mutate: true, ...binding }
+    )).toThrow(/NOT_PAUSED/u);
+    expect(() => assertRemoteStagingLifecycleFixtureServer(
+      { ...server, capacity: 19 },
+      { mutate: true, ...binding }
+    )).toThrow(/SCOPE_INVALID/u);
+    expect(() => assertRemoteStagingLifecycleFixtureServer(
+      { ...server, displayName: `${expectedDisplayPrefix} attacker deadbeef` },
+      { mutate: true, ...binding }
+    )).toThrow(/SCOPE_INVALID/u);
+    expect(() => assertRemoteStagingLifecycleFixtureServer(
+      { ...server, createdAt: "2026-08-06T11:58:59.999Z" },
+      { mutate: true, ...binding }
+    )).toThrow(/SCOPE_INVALID/u);
+  });
+
+  it("rejects a lifecycle binding whose prefix does not match the private nonce hash", () => {
+    expect(() => readRemoteStagingLifecycleFixtureBinding({
+      EMPIRE_REMOTE_STAGING_FIXTURE_DISPLAY_PREFIX:
+        `Remote Staging Acceptance full-lifecycle-20p ${"b".repeat(16)}`,
+      EMPIRE_REMOTE_STAGING_RUN_NONCE_HASH: "a".repeat(64),
+      EMPIRE_REMOTE_STAGING_FIXTURE_CREATED_AFTER: "2026-08-06T11:59:00.000Z",
+      EMPIRE_REMOTE_STAGING_FIXTURE_CREATED_BEFORE: "2026-08-06T12:01:00.000Z"
+    })).toThrow(/BINDING_INVALID/u);
   });
 });

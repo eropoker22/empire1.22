@@ -2,7 +2,7 @@
 
 Generated: generated from tracked source
 
-The inventory found **133 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 21 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
+The inventory found **143 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 21 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
 
 Public releases fail closed: no wildcard origin, no loopback URL, no staging hostname in production, no implicit database or secret default, and no provider credential in a runtime scope.
 
@@ -164,9 +164,17 @@ These values are forbidden as public-runtime dependencies. Secret-like test valu
 | `EMPIRE_PERSISTENCE_DIR` | Local persistence tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_PLAYER_ENTRY_LIVE_E2E` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_PLAYWRIGHT_RELEASE_SUMMARY` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
+| `EMPIRE_PRE_ALPHA_STAGING_ARTIFACT_ROOT` | Canonical pre-alpha staging gate artifacts | Gate invocation only | No | No | Protected staging release job only; never injected into the site | None | Repository-relative artifact directory under artifacts/ | Yes; artifacts/pre-alpha-staging | Use an isolated directory for each release run |
+| `EMPIRE_PRE_ALPHA_STAGING_CLOSED_EVIDENCE_PATH` | Canonical pre-alpha staging registration evidence | Gate invocation only | No | No | Protected staging release job only; never injected into the site | None | Path to downloaded closed-registration JSON evidence | No | Regenerate for each exact release SHA |
+| `EMPIRE_PRE_ALPHA_STAGING_FLY_APP` | Protected staging Fly target pin | Remote gate only | No | No | Protected staging release job only; never injected into the site | None | Exact lowercase staging Fly app name equal to FLY_STAGING_APP | No | Set explicitly for each guarded remote invocation |
+| `EMPIRE_PRE_ALPHA_STAGING_REMOTE_APPROVED` | Protected staging remote-mutation approval guard | Remote gate only | No | No | Protected staging release job only; never injected into the site | None | Exact staging-only-remote-acceptance guard value | No | Set explicitly for each guarded remote invocation |
 | `EMPIRE_PRODUCTION_AUTHORITY_PREFLIGHT_STRICT` | Local development or verification tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_REGISTRATION_ONLY_PREFLIGHT_STRICT` | Local development or verification tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_REMOTE_STAGING_ARTIFACT_ROOT` | Local development or verification tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
+| `EMPIRE_REMOTE_STAGING_FIXTURE_CREATED_AFTER` | Disposable staging fixture identity binding | Remote lifecycle suite only | No | No | None | None | ISO-8601 lower creation-time bound generated for the current run | No | Regenerate for every disposable staging fixture |
+| `EMPIRE_REMOTE_STAGING_FIXTURE_CREATED_BEFORE` | Disposable staging fixture identity binding | Remote lifecycle suite only | No | No | None | None | ISO-8601 upper creation-time bound generated for the current run | No | Regenerate for every disposable staging fixture |
+| `EMPIRE_REMOTE_STAGING_FIXTURE_DISPLAY_PREFIX` | Disposable staging fixture identity binding | Remote lifecycle suite only | No | No | None | None | Canonical lifecycle display prefix ending in the run nonce hash prefix | No | Regenerate for every disposable staging fixture |
+| `EMPIRE_REMOTE_STAGING_RUN_NONCE_HASH` | Disposable staging fixture identity binding | Remote lifecycle suite only | No | No | None | None | 64 lowercase hexadecimal SHA-256 nonce hash | No | Regenerate for every disposable staging fixture |
 | `EMPIRE_RUNTIME_DEBUG` | Local development or verification tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_TEST_DATABASE_URL` | Local persistence tests | No | No | Test secret | None | None | Local, CI or test-specific value | Yes outside public runtime | Discard after the test run; never reuse a public secret |
 | `EMPIRE_UI_PARITY_ARTIFACT_ROOT` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
@@ -174,6 +182,7 @@ These values are forbidden as public-runtime dependencies. Secret-like test valu
 | `EMPIRE_UI_PARITY_SERVER_ID` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_UI_PARITY_SOCIAL_BATCH_KEYS` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_VITE_HOSTED_API_ORIGIN` | Local development or verification tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
+| `EVIDENCE_OUTPUT` | CI staging release evidence assembly | CI release job only | No | No | Release job only; never injected into the site | None | Workflow-local artifact output directory | No | Use an isolated directory for each release run |
 | `GAMEPLAY_PERSISTENCE_DIR` | Local persistence tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `GITHUB_ENV` | CI platform tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `PLAYWRIGHT_E2E_BASE_URL` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
@@ -185,6 +194,7 @@ These values are forbidden as public-runtime dependencies. Secret-like test valu
 | `PLAYWRIGHT_PORT` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `PLAYWRIGHT_SKIP_WEB_SERVER` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `PLAYWRIGHT_WORKERS` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
+| `RELEASE_SHA` | CI staging release workflow | CI release job only | No | No | Release job only; never injected into the site | None | Exact 40-character lowercase Git commit SHA | No | Set to the immutable commit selected for each release run |
 | `SIM_REPORT_DIR` | Simulation tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `SIM_SCENARIO` | Simulation tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `SIM_SEED` | Simulation tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |

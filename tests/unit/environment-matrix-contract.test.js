@@ -27,6 +27,49 @@ describe("release environment matrix", () => {
     })).toThrow(/Unclassified environment reads/u);
   });
 
+  it("keeps pre-alpha staging and CI evidence controls outside public runtime authority", () => {
+    const variables = [
+      "EMPIRE_PRE_ALPHA_STAGING_ARTIFACT_ROOT",
+      "EMPIRE_PRE_ALPHA_STAGING_CLOSED_EVIDENCE_PATH",
+      "EMPIRE_PRE_ALPHA_STAGING_FLY_APP",
+      "EMPIRE_PRE_ALPHA_STAGING_REMOTE_APPROVED",
+      "EMPIRE_REMOTE_STAGING_FIXTURE_CREATED_AFTER",
+      "EMPIRE_REMOTE_STAGING_FIXTURE_CREATED_BEFORE",
+      "EMPIRE_REMOTE_STAGING_FIXTURE_DISPLAY_PREFIX",
+      "EMPIRE_REMOTE_STAGING_RUN_NONCE_HASH",
+      "EVIDENCE_OUTPUT",
+      "RELEASE_SHA"
+    ];
+    const matrix = createEnvironmentMatrix({
+      reads: variables.map((variable) => ({ variable, locations: [`example.mjs:1`] })),
+      dynamicLocations: []
+    });
+    const nonReleaseByName = new Map(matrix.nonReleaseRows.map((row) => [row.variable, row]));
+
+    expect([...nonReleaseByName.keys()]).toEqual([...variables].sort());
+    expect(matrix.publicRows.some(({ variable }) => variables.includes(variable))).toBe(false);
+    expect(matrix.providerRows.some(({ variable }) => variables.includes(variable))).toBe(false);
+    for (const variable of variables) {
+      expect(nonReleaseByName.get(variable)).toMatchObject({
+        productionRequired: "No",
+        secret: "No",
+        workerScope: "None"
+      });
+    }
+    expect(nonReleaseByName.get("EMPIRE_PRE_ALPHA_STAGING_REMOTE_APPROVED")).toMatchObject({
+      component: "Protected staging remote-mutation approval guard",
+      defaultAllowed: "No"
+    });
+    expect(nonReleaseByName.get("EMPIRE_REMOTE_STAGING_RUN_NONCE_HASH")).toMatchObject({
+      component: "Disposable staging fixture identity binding",
+      safeFormat: "64 lowercase hexadecimal SHA-256 nonce hash"
+    });
+    expect(nonReleaseByName.get("RELEASE_SHA")).toMatchObject({
+      component: "CI staging release workflow",
+      safeFormat: "Exact 40-character lowercase Git commit SHA"
+    });
+  });
+
   it("documents all required public variables and the admin session secret contract", () => {
     const inventory = inventoryEnvironmentReads();
     const matrix = createEnvironmentMatrix(inventory);

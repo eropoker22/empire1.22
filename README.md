@@ -92,7 +92,13 @@ run `nvm use` or `fnm use` so the repository version files select Node 24.
 - `npm run build:admin:page` prepares the Netlify publish output in ignored `client/`.
 - `npm run verify:closed-alpha` runs the closed-alpha security and browser smoke gate.
 - `npm run verify:production-authority-cutover` checks public-host demo lockout, production fixture imports, live entrypoints, registration authority, and cookie requirements.
+- `npm run verify:pre-alpha:staging -- --plan` prints the canonical pre-alpha gate; remote staging phases require an explicit `--staging` flag and exact target guards.
 - `npm run test:persistence:postgres:smoke` is opt-in and requires `EMPIRE_TEST_DATABASE_URL`.
+- `npm run test:persistence:postgres:live` runs the complete opt-in live Postgres persistence suite; default `test:persistence` and coverage exclude it.
+
+Current verified release truth and the staging playtest procedure live in
+[`docs/release/current-pre-alpha-readiness.md`](docs/release/current-pre-alpha-readiness.md)
+and [`docs/release/pre-alpha-tester-runbook.md`](docs/release/pre-alpha-tester-runbook.md).
 
 Generated `client/` output is ignored. Source changes belong in root `pages/`, `page-assets/`, and typed packages.
 

@@ -107,4 +107,4 @@ Production must fail closed when identity, session, or gameplay authority is una
 - Run `npm run typecheck`, `npm run lint`, and `npm test` for repository gates.
 - Run deterministic simulations separately with `npm run test:simulation`.
 - Run focused browser smoke with `npm run test:e2e:smoke` and all scenarios with `npm run test:e2e:full` when the main game flow changes.
-- Live Postgres tests remain skipped unless `EMPIRE_TEST_DATABASE_URL` is supplied; a skip is not a production persistence verification.
+- Live Postgres tests remain excluded from default suites; their explicit npm commands fail unless `EMPIRE_TEST_DATABASE_URL` is supplied, and a skipped direct-file run is not production persistence verification.

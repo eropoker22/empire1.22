@@ -26,6 +26,12 @@ Use only an isolated test database:
 $env:EMPIRE_TEST_DATABASE_URL = "postgres://..."
 ```
 
+The value must be exported explicitly in the command environment. Live persistence tests
+do not load `.env.local` and do not fall back to `EMPIRE_DATABASE_URL` or
+`GAMEPLAY_DATABASE_URL`. In protected staging automation, map the guarded direct staging
+secret into `EMPIRE_TEST_DATABASE_URL` only after the staging approval and target-hash
+checks succeed.
+
 Optional explicit override for non-obviously-test targets:
 
 ```powershell
@@ -53,7 +59,9 @@ npm run verify:prod-like
 1. `npm run verify:closed-alpha`
 2. `npm run test:persistence:postgres:smoke`
 
-If `EMPIRE_TEST_DATABASE_URL` is not set, the live Postgres smoke is skipped safely.
+If `EMPIRE_TEST_DATABASE_URL` is not set or is not a PostgreSQL URL, the live command
+fails before Vitest starts. The failure reports only a generic configuration error and
+never echoes the connection URL or credentials.
 
 ## Migrations
 

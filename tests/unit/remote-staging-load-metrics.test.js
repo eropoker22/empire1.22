@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  classifyRemoteLoadActionOutcome,
   summarizeDatabaseTelemetry,
   summarizeFlyTelemetry,
   summarizeRemoteLoadSamples
@@ -13,7 +14,14 @@ const healthy = {
   statusCodes: [200, 200, 200],
   ticks: [10, 11, 12],
   snapshotRecoveryHeadUpdates: [5, 7, 9],
-  heartbeatAgesMs: [100, 200, 300]
+  heartbeatAgesMs: [100, 200, 300],
+  actionOutcomes: [
+    { ...acceptedAction("buy-market-resource"), selectedDistrictChanged: true },
+    acceptedAction("sell-market-resource"),
+    acceptedAction("craft-item"),
+    acceptedAction("run-building-action"),
+    acceptedAction("send-city-chat-message")
+  ]
 };
 
 describe("remote staging load metrics", () => {
@@ -22,14 +30,26 @@ describe("remote staging load metrics", () => {
       passed: true,
       violations: [],
       http: { http429: 0, http5xx: 0 },
+      actionMix: {
+        distinctActualActionCount: 5,
+        distinctAcceptedActionCount: 5,
+        actual: {
+          "buy-market-resource": 1,
+          "sell-market-resource": 1,
+          "craft-item": 1,
+          "run-building-action": 1,
+          "send-city-chat-message": 1
+        }
+      },
+      rejectionClassification: { total: 0 },
       tick: { min: 10, max: 12 }
     });
   });
 
-  it("fails on stalled ticks, snapshots, stale heartbeat and HTTP bursts", () => {
+  it("fails on stalled progress, stale heartbeat and HTTP auth/error bursts", () => {
     const result = summarizeRemoteLoadSamples({
       ...healthy,
-      statusCodes: [429, 500],
+      statusCodes: [401, 404, 429, 500],
       ticks: [10, 10],
       snapshotRecoveryHeadUpdates: [5, 5],
       heartbeatAgesMs: [45_000]
@@ -38,10 +58,97 @@ describe("remote staging load metrics", () => {
     expect(result.violations).toEqual(expect.arrayContaining([
       "REMOTE_LOAD_HTTP_429",
       "REMOTE_LOAD_HTTP_5XX",
+      "REMOTE_LOAD_HTTP_AUTH",
+      "REMOTE_LOAD_HTTP_UNEXPECTED_4XX",
       "REMOTE_LOAD_TICK_STALLED",
       "REMOTE_LOAD_SNAPSHOT_STALLED",
       "REMOTE_LOAD_HEARTBEAT_STALE"
     ]));
+  });
+
+  it("keeps legitimate stale and domain conflicts separate from fatal rejections", () => {
+    const result = summarizeRemoteLoadSamples({
+      ...healthy,
+      actionOutcomes: [
+        acceptedAction("buy-market-resource"),
+        rejectedAction("craft-item", "server.state_version_conflict"),
+        rejectedAction("collect-production", "production_empty"),
+        {
+          desiredAction: "attack-district",
+          actualAction: null,
+          outcome: "skipped",
+          accepted: false,
+          skipped: true,
+          errorCodes: []
+        }
+      ]
+    }, {
+      minActualActionTypes: 1,
+      minAcceptedActionTypes: 1,
+      minDistrictSelectionChanges: 0
+    });
+    expect(result.passed).toBe(true);
+    expect(result.actionMix).toMatchObject({
+      sampleCount: 4,
+      attemptedCount: 3,
+      acceptedCount: 1,
+      skippedCount: 1,
+      districtSelectionChangeCount: 0
+    });
+    expect(result.rejectionClassification).toEqual({
+      total: 2,
+      staleConflict: 1,
+      domainConflict: 1,
+      auth: 0,
+      rateLimit: 0,
+      unexpected: 0,
+      byCode: {
+        "server.state_version_conflict": 1,
+        production_empty: 1
+      }
+    });
+  });
+
+  it("fails on authentication, rate-limit, unexpected and insufficient-mix outcomes", () => {
+    const result = summarizeRemoteLoadSamples({
+      ...healthy,
+      actionOutcomes: [
+        acceptedAction("buy-market-resource"),
+        rejectedAction("sell-market-resource", "SESSION_REVOKED"),
+        rejectedAction("send-city-chat-message", "CITY_CHAT_RATE_LIMITED"),
+        rejectedAction("craft-item", "transport.invalid_request")
+      ]
+    }, { minDistrictSelectionChanges: 0 });
+    expect(result.passed).toBe(false);
+    expect(result.violations).toEqual(expect.arrayContaining([
+      "REMOTE_LOAD_ACTION_AUTH_FAILURE",
+      "REMOTE_LOAD_ACTION_RATE_LIMIT_FAILURE",
+      "REMOTE_LOAD_ACTION_UNEXPECTED_FAILURE",
+      "REMOTE_LOAD_ACTION_MIX_INSUFFICIENT"
+    ]));
+    expect(result.rejectionClassification).toMatchObject({
+      auth: 1,
+      rateLimit: 1,
+      unexpected: 1
+    });
+  });
+
+  it("classifies a transport failure as unexpected even without a domain error code", () => {
+    expect(classifyRemoteLoadActionOutcome({
+      accepted: false,
+      skipped: false,
+      transportFailure: true,
+      errorCodes: ["client.transport_error"]
+    })).toBe("unexpected");
+  });
+
+  it("does not hide missing target identifiers as an expected domain race", () => {
+    expect(classifyRemoteLoadActionOutcome(
+      rejectedAction("attack-district", "DISTRICT_NOT_FOUND")
+    )).toBe("unexpected");
+    expect(classifyRemoteLoadActionOutcome(
+      rejectedAction("rob-district", "TARGET_NOT_FOUND")
+    )).toBe("unexpected");
   });
 
   it("enforces an explicit database connection threshold", () => {
@@ -100,3 +207,26 @@ describe("remote staging load metrics", () => {
     });
   });
 });
+
+function acceptedAction(action) {
+  return {
+    desiredAction: action,
+    actualAction: action,
+    outcome: "accepted",
+    accepted: true,
+    skipped: false,
+    errorCodes: []
+  };
+}
+
+function rejectedAction(action, errorCode) {
+  return {
+    desiredAction: action,
+    actualAction: action,
+    outcome: "error",
+    accepted: false,
+    skipped: false,
+    errorCode,
+    errorCodes: [errorCode]
+  };
+}

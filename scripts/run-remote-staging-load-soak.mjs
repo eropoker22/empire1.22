@@ -15,6 +15,10 @@ import {
   summarizeDatabaseTelemetry,
   summarizeFlyTelemetry
 } from "./remote-staging-load-metrics.mjs";
+import {
+  archiveRemoteStagingServerWithRetry,
+  REMOTE_STAGING_PLAYWRIGHT_TRACE_ARGUMENT
+} from "./remote-staging-runner-safety.mjs";
 import { assertSupportedNodeVersion } from "./supported-node-policy.mjs";
 
 const { Pool } = pg;
@@ -68,12 +72,14 @@ const evidence = {
   status: "running",
   serverInstanceHash: null,
   browser: null,
+  performance: null,
   database: null,
   fly: null,
   cleanup: "not-started"
 };
 let admin = null;
 let server = null;
+let cleanupServerInstanceId = null;
 const startedAt = Date.now();
 try {
   admin = await createLocalHostedAdminClient({
@@ -86,9 +92,14 @@ try {
   server = await provisionDisposableHostedServer(admin, {
     displayNamePrefix: "Remote Staging Acceptance load-soak",
     capacity: 20,
-    startingPlayerState: REMOTE_MANUAL_STARTING_PLAYER_STATE
+    startingPlayerState: REMOTE_MANUAL_STARTING_PLAYER_STATE,
+    onCreated: ({ serverInstanceId }) => {
+      cleanupServerInstanceId = serverInstanceId;
+      evidence.serverInstanceHash = safeHash(serverInstanceId);
+    }
   });
-  evidence.serverInstanceHash = safeHash(server.serverInstanceId);
+  cleanupServerInstanceId ??= server.serverInstanceId;
+  evidence.serverInstanceHash ??= safeHash(server.serverInstanceId);
   await runReleasePlaywright({
     name: "load-soak-bootstrap",
     specs: ["tests/e2e/local-hosted-bootstrap-player.spec.js"],
@@ -108,6 +119,7 @@ try {
     loadReportPath
   });
   evidence.browser = loadResult.playwright;
+  evidence.performance = loadResult.performance;
   evidence.database = loadResult.database;
   evidence.fly = loadResult.fly;
   if (!loadResult.database.passed) throw new Error(loadResult.database.violations[0]);
@@ -118,9 +130,9 @@ try {
   evidence.errorCode = safeErrorCode(error);
   throw error;
 } finally {
-  if (admin && server) {
+  if (admin && cleanupServerInstanceId) {
     try {
-      await archiveServer(admin, server.serverInstanceId);
+      await archiveServer(admin, cleanupServerInstanceId);
       evidence.cleanup = "archived";
     } catch (cleanupError) {
       evidence.cleanup = "failed";
@@ -143,7 +155,9 @@ async function runLoadPlaywrightWithDatabaseTelemetry({ identities, serverInstan
     "test",
     "--project=chromium",
     "--workers=1",
-    "--trace=retain-on-failure",
+    // This process receives synthetic passwords and authenticated cookies.
+    // Screenshots remain enabled by Playwright config, but traces must not persist them.
+    REMOTE_STAGING_PLAYWRIGHT_TRACE_ARGUMENT,
     "--forbid-only",
     "--fail-on-flaky-tests",
     "--retries=0",
@@ -222,7 +236,35 @@ async function runLoadPlaywrightWithDatabaseTelemetry({ identities, serverInstan
   if (playwright.status !== "passed" || playwright.counts?.skipped !== 0 || playwright.counts?.retries !== 0) {
     throw new Error("REMOTE_LOAD_PLAYWRIGHT_NOT_PASSED");
   }
-  return { playwright, database, fly };
+  let performanceReport;
+  try {
+    performanceReport = JSON.parse(readFileSync(loadReportPath, "utf8"));
+  } catch {
+    throw new Error("REMOTE_LOAD_PERFORMANCE_REPORT_MISSING");
+  }
+  if (performanceReport?.status !== "passed"
+    || performanceReport?.environment !== "staging"
+    || performanceReport?.buildSha !== releaseSha
+    || performanceReport?.metrics?.passed !== true
+    || !Array.isArray(performanceReport?.metrics?.violations)
+    || performanceReport.metrics.violations.length !== 0
+    || Number(performanceReport?.metrics?.actionMix?.distinctActualActionCount) < 5
+    || Number(performanceReport?.metrics?.actionMix?.distinctAcceptedActionCount) < 4
+    || Number(performanceReport?.metrics?.actionMix?.districtSelectionChangeCount) < 1
+    || Number(performanceReport?.metrics?.rejectionClassification?.auth) !== 0
+    || Number(performanceReport?.metrics?.rejectionClassification?.rateLimit) !== 0
+    || Number(performanceReport?.metrics?.rejectionClassification?.unexpected) !== 0) {
+    throw new Error("REMOTE_LOAD_PERFORMANCE_NOT_PASSED");
+  }
+  const performance = {
+    status: performanceReport.status,
+    buildSha: performanceReport.buildSha,
+    durationMinutes: performanceReport.durationMinutes,
+    pollIntervalMs: performanceReport.pollIntervalMs,
+    cohorts: performanceReport.cohorts,
+    metrics: performanceReport.metrics
+  };
+  return { playwright, performance, database, fly };
 }
 
 async function sampleDatabase(pool) {
@@ -301,7 +343,8 @@ async function runReleasePlaywright({ name, specs, environment, timeoutMs }) {
     "test",
     "--project=chromium",
     "--workers=1",
-    "--trace=on",
+    // Bootstrap receives all 20 synthetic passwords; never persist its browser context.
+    REMOTE_STAGING_PLAYWRIGHT_TRACE_ARGUMENT,
     "--forbid-only",
     "--fail-on-flaky-tests",
     "--retries=0",
@@ -333,10 +376,7 @@ function spawnAndWait(command, args, environment, timeoutMs) {
   });
 }
 
-async function performServerAction(adminClient, serverInstanceId, action) {
-  const controlPlane = await adminClient.request("/api/admin/control-plane");
-  const current = controlPlane.servers.find((candidate) => candidate.serverInstanceId === serverInstanceId);
-  if (!current) throw new Error("REMOTE_LOAD_SERVER_MISSING");
+async function requestServerAction(adminClient, serverInstanceId, action, expectedVersion) {
   await adminClient.request(`/api/admin/servers/${encodeURIComponent(serverInstanceId)}/actions`, {
     method: "POST",
     headers: {
@@ -345,7 +385,7 @@ async function performServerAction(adminClient, serverInstanceId, action) {
     },
     body: JSON.stringify({
       action,
-      expectedVersion: current.version,
+      expectedVersion,
       reason: `Remote staging load soak ${action}`,
       ...(action === "delete" ? { confirmationToken: "DELETE_SERVER" } : {})
     })
@@ -353,17 +393,19 @@ async function performServerAction(adminClient, serverInstanceId, action) {
 }
 
 async function archiveServer(adminClient, serverInstanceId) {
-  const controlPlane = await adminClient.request("/api/admin/control-plane");
-  const current = controlPlane.servers.find((candidate) => candidate.serverInstanceId === serverInstanceId);
-  if (!current || current.status === "archived") return;
-  await performServerAction(adminClient, serverInstanceId, "delete");
-  const started = Date.now();
-  while (Date.now() - started < 180_000) {
-    const refreshed = await adminClient.request("/api/admin/control-plane");
-    if (refreshed.servers.find((candidate) => candidate.serverInstanceId === serverInstanceId)?.status === "archived") return;
-    await delay(1_000);
-  }
-  throw new Error("REMOTE_LOAD_ARCHIVE_TIMEOUT");
+  await archiveRemoteStagingServerWithRetry({
+    loadServer: async () => {
+      const controlPlane = await adminClient.request("/api/admin/control-plane");
+      return controlPlane.servers.find((candidate) => candidate.serverInstanceId === serverInstanceId) ?? null;
+    },
+    requestArchive: (current) => requestServerAction(
+      adminClient,
+      serverInstanceId,
+      "delete",
+      current.version
+    ),
+    wait: delay
+  });
 }
 
 function publicBrowserEnvironment() {
