@@ -65,8 +65,10 @@ describe("Playwright release reporter", () => {
     await reporter.onEnd({ status: "failed" });
 
     const summary = JSON.parse(await readFile(summaryPath, "utf8"));
-    expect(summary.errors.join(" ")).not.toMatch(
-      /secret|raw-token|QWxhZGRpbjpvcGVuIHNlc2FtZQ|123e4567/u
+    const diagnostic = summary.errors.join(" ");
+    expect(diagnostic).toContain("[redacted]");
+    expect(diagnostic).not.toMatch(
+      /postgresql:\/\/|raw-token|json-secret|client-secret|api-secret|QWxhZGRpbjpvcGVuIHNlc2FtZQ|123e4567/u
     );
   });
 });
