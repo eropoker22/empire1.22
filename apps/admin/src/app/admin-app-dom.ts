@@ -140,16 +140,31 @@ export const applyAdminServerFilters = (
 export interface AdminPageStateSnapshot {
   scrollX: number;
   scrollY: number;
-  openDetailIndexes: number[];
+  detailOpenByKey: Record<string, boolean>;
 }
+
+const adminDetailStateEntries = (target: HTMLElement): Array<[string, HTMLDetailsElement]> => {
+  const keyOccurrences = new Map<string, number>();
+  return [...target.querySelectorAll<HTMLDetailsElement>("details")].map((detail, index) => {
+    const summary = detail.querySelector<HTMLElement>(":scope > summary")?.textContent ?? "";
+    const baseKey = detail.id
+      ? `id:${detail.id}`
+      : summary.trim()
+        ? `summary:${normalize(summary)}`
+        : `index:${index}`;
+    const occurrence = keyOccurrences.get(baseKey) ?? 0;
+    keyOccurrences.set(baseKey, occurrence + 1);
+    return [`${baseKey}:${occurrence}`, detail];
+  });
+};
 
 export const captureAdminPageState = (target: HTMLElement | null): AdminPageStateSnapshot | null => {
   if (!target || typeof window === "undefined") return null;
   return {
     scrollX: window.scrollX,
     scrollY: window.scrollY,
-    openDetailIndexes: [...target.querySelectorAll<HTMLDetailsElement>("details")]
-      .flatMap((detail, index) => detail.open ? [index] : [])
+    detailOpenByKey: Object.fromEntries(adminDetailStateEntries(target)
+      .map(([key, detail]) => [key, detail.open]))
   };
 };
 
@@ -158,9 +173,9 @@ export const restoreAdminPageState = (
   snapshot: AdminPageStateSnapshot | null
 ): void => {
   if (!target || !snapshot || typeof window === "undefined") return;
-  const openIndexes = new Set(snapshot.openDetailIndexes);
-  target.querySelectorAll<HTMLDetailsElement>("details").forEach((detail, index) => {
-    detail.open = openIndexes.has(index);
+  adminDetailStateEntries(target).forEach(([key, detail]) => {
+    const open = snapshot.detailOpenByKey[key];
+    if (typeof open === "boolean") detail.open = open;
   });
   window.scrollTo?.({ left: snapshot.scrollX, top: snapshot.scrollY, behavior: "auto" });
 };

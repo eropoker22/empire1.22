@@ -163,20 +163,31 @@
     const output = target == null ? void 0 : target.querySelector("[data-admin-server-visible-count]");
     if (output) output.textContent = String(visibleCount);
   };
+  const adminDetailStateEntries = (target) => {
+    const keyOccurrences = /* @__PURE__ */ new Map();
+    return [...target.querySelectorAll("details")].map((detail, index) => {
+      var _a;
+      const summary = ((_a = detail.querySelector(":scope > summary")) == null ? void 0 : _a.textContent) ?? "";
+      const baseKey = detail.id ? `id:${detail.id}` : summary.trim() ? `summary:${normalize(summary)}` : `index:${index}`;
+      const occurrence = keyOccurrences.get(baseKey) ?? 0;
+      keyOccurrences.set(baseKey, occurrence + 1);
+      return [`${baseKey}:${occurrence}`, detail];
+    });
+  };
   const captureAdminPageState = (target) => {
     if (!target || typeof window === "undefined") return null;
     return {
       scrollX: window.scrollX,
       scrollY: window.scrollY,
-      openDetailIndexes: [...target.querySelectorAll("details")].flatMap((detail, index) => detail.open ? [index] : [])
+      detailOpenByKey: Object.fromEntries(adminDetailStateEntries(target).map(([key, detail]) => [key, detail.open]))
     };
   };
   const restoreAdminPageState = (target, snapshot) => {
     var _a;
     if (!target || !snapshot || typeof window === "undefined") return;
-    const openIndexes = new Set(snapshot.openDetailIndexes);
-    target.querySelectorAll("details").forEach((detail, index) => {
-      detail.open = openIndexes.has(index);
+    adminDetailStateEntries(target).forEach(([key, detail]) => {
+      const open = snapshot.detailOpenByKey[key];
+      if (typeof open === "boolean") detail.open = open;
     });
     (_a = window.scrollTo) == null ? void 0 : _a.call(window, { left: snapshot.scrollX, top: snapshot.scrollY, behavior: "auto" });
   };
