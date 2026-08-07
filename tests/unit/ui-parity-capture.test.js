@@ -1076,6 +1076,107 @@ describe("UI parity class signature", () => {
       .toBeLessThan(target.evaluate.mock.invocationCallOrder[4]);
   });
 
+  it("restores capture-only backdrop-filter stabilization when a screenshot fails", async () => {
+    const screenshotFailure = new Error("synthetic screenshot failure");
+    const stableBackdropFilterState = {
+      previousRootToken: null,
+      token: "parity-backdrop-filter-test"
+    };
+    const target = {
+      evaluate: vi.fn()
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce({
+          dynamicRegions: [],
+          roundedBox: { height: 100, radii: {}, width: 100 }
+        })
+        .mockResolvedValueOnce(stableBackdropFilterState)
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined),
+      screenshot: vi.fn().mockRejectedValue(screenshotFailure)
+    };
+    const page = {
+      evaluate: vi.fn().mockResolvedValue(undefined),
+      locator: vi.fn(),
+      mouse: { move: vi.fn().mockResolvedValue(undefined) }
+    };
+
+    await expect(captureIsolatedParityScreenshot(page, {
+      path: "district-surface.png",
+      stableBackdropFilterSelector: ".district-popup-action",
+      target
+    })).rejects.toThrow("synthetic screenshot failure");
+
+    expect(target.evaluate).toHaveBeenCalledTimes(5);
+    expect(target.evaluate.mock.calls[2][1]).toBe(".district-popup-action");
+    expect(target.evaluate.mock.calls[4][1]).toEqual(stableBackdropFilterState);
+    expect(captureIsolatedParityScreenshot.toString()).toContain(
+      "data-parity-capture-stable-backdrop-filter-root"
+    );
+    expect(captureIsolatedParityScreenshot.toString()).toContain(
+      "const specificRootSelector = rootSelector.repeat(3)"
+    );
+    expect(captureIsolatedParityScreenshot.toString()).toContain(
+      "{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;}"
+    );
+    expect(captureIsolatedParityScreenshot.toString()).toContain(
+      "document.querySelectorAll(styleSelector).forEach((element) => element.remove())"
+    );
+    expect(target.evaluate.mock.invocationCallOrder[2])
+      .toBeLessThan(target.evaluate.mock.invocationCallOrder[3]);
+    expect(target.evaluate.mock.invocationCallOrder[3])
+      .toBeLessThan(target.screenshot.mock.invocationCallOrder[0]);
+    expect(target.screenshot.mock.invocationCallOrder[0])
+      .toBeLessThan(target.evaluate.mock.invocationCallOrder[4]);
+  });
+
+  it("restores the stable backdrop when backdrop-filter cleanup fails", async () => {
+    const screenshot = Buffer.from("png");
+    const filterCleanupFailure = new Error("synthetic backdrop-filter cleanup failure");
+    const stableBackdropState = {
+      backgroundColorApplied: true,
+      previousBackgroundColor: "rgba(0, 0, 0, 0)",
+      previousBackgroundColorPriority: "",
+      token: "parity-backdrop-test"
+    };
+    const stableBackdropFilterState = {
+      previousRootToken: null,
+      token: "parity-backdrop-filter-test"
+    };
+    const target = {
+      evaluate: vi.fn()
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce({
+          dynamicRegions: [],
+          roundedBox: { height: 100, radii: {}, width: 100 }
+        })
+        .mockResolvedValueOnce(stableBackdropState)
+        .mockResolvedValueOnce(stableBackdropFilterState)
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(filterCleanupFailure)
+        .mockResolvedValueOnce(undefined),
+      screenshot: vi.fn().mockResolvedValue(screenshot)
+    };
+    const page = {
+      evaluate: vi.fn().mockResolvedValue(undefined),
+      locator: vi.fn(),
+      mouse: { move: vi.fn().mockResolvedValue(undefined) }
+    };
+
+    await expect(captureIsolatedParityScreenshot(page, {
+      path: "district-surface.png",
+      stableBackdropColor: "rgb(2, 6, 12)",
+      stableBackdropFilterSelector: ".district-popup-action",
+      stableBackdropShellSelector: "[data-district-popup]",
+      target
+    })).rejects.toThrow("synthetic backdrop-filter cleanup failure");
+
+    expect(target.evaluate).toHaveBeenCalledTimes(7);
+    expect(target.evaluate.mock.calls[6][1]).toEqual({
+      shellSelector: "[data-district-popup]",
+      state: stableBackdropState
+    });
+  });
+
   it("restores the stable backdrop even when raster cleanup fails", async () => {
     const screenshot = Buffer.from("png");
     const rasterCleanupFailure = new Error("synthetic raster cleanup failure");

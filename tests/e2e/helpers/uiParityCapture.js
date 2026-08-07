@@ -1730,6 +1730,7 @@ export async function captureIsolatedParityScreenshot(page, {
   ignoreSelector = "",
   path: screenshotPath,
   stableBackdropColor = "",
+  stableBackdropFilterSelector = "",
   roundedCompositeSelector = "",
   stableRasterSelector = "",
   stableBackdropShellSelector = "",
@@ -1793,6 +1794,7 @@ export async function captureIsolatedParityScreenshot(page, {
     });
   }
   let stableRasterState = null;
+  let stableBackdropFilterState = null;
   try {
     if (stableRasterSelector) {
       stableRasterState = await target.evaluate((targetElement, selector) => {
@@ -1815,7 +1817,29 @@ export async function captureIsolatedParityScreenshot(page, {
         return { entries, token };
       }, stableRasterSelector);
     }
-    if (stableBackdropState || stableRasterState) {
+    if (stableBackdropFilterSelector) {
+      stableBackdropFilterState = await target.evaluate((targetElement, selector) => {
+        const token = `parity-backdrop-filter-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const rootAttribute = "data-parity-capture-stable-backdrop-filter-root";
+        const styleAttribute = "data-parity-capture-stable-backdrop-filter-style";
+        const previousRootToken = targetElement.getAttribute(rootAttribute);
+        const escapedToken = CSS.escape(token);
+        const rootSelector = `[${rootAttribute}="${escapedToken}"]`;
+        const specificRootSelector = rootSelector.repeat(3);
+        const style = document.createElement("style");
+
+        targetElement.setAttribute(rootAttribute, token);
+        style.setAttribute(styleAttribute, token);
+        style.textContent = [
+          `${specificRootSelector}:is(${selector})`,
+          `${specificRootSelector} :is(${selector})`
+        ].join(",") + "{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;}";
+        (document.head || document.documentElement).append(style);
+
+        return { previousRootToken, token };
+      }, stableBackdropFilterSelector);
+    }
+    if (stableBackdropState || stableBackdropFilterState || stableRasterState) {
       await settleFiniteAnimations(target);
     }
     const screenshot = await target.screenshot({
@@ -1849,48 +1873,63 @@ export async function captureIsolatedParityScreenshot(page, {
         }, stableRasterState);
       }
     } finally {
-      if (stableBackdropShellSelector) {
-        await target.evaluate((targetElement, config) => {
-          const token = CSS.escape(config.state.token);
-          const shell = targetElement.closest(config.shellSelector);
-          if (config.state.backgroundColorApplied && shell instanceof HTMLElement) {
-            if (config.state.previousBackgroundColor) {
-              shell.style.setProperty(
-                "background-color",
-                config.state.previousBackgroundColor,
-                config.state.previousBackgroundColorPriority
-              );
-            } else {
-              shell.style.removeProperty("background-color");
+      try {
+        if (stableBackdropFilterState) {
+          await target.evaluate((targetElement, state) => {
+            const rootAttribute = "data-parity-capture-stable-backdrop-filter-root";
+            const styleSelector = `[data-parity-capture-stable-backdrop-filter-style="${CSS.escape(state.token)}"]`;
+
+            document.querySelectorAll(styleSelector).forEach((element) => element.remove());
+            if (targetElement.getAttribute(rootAttribute) === state.token) {
+              if (state.previousRootToken === null) targetElement.removeAttribute(rootAttribute);
+              else targetElement.setAttribute(rootAttribute, state.previousRootToken);
             }
-          }
-          document
-            .querySelectorAll(`[data-parity-capture-hidden="${token}"]`)
-            .forEach((element) => {
-              const restoreProperty = (propertyName, valueAttribute, priorityAttribute) => {
-                const value = element.getAttribute(valueAttribute) || "";
-                const priority = element.getAttribute(priorityAttribute) || "";
-                if (value) element.style.setProperty(propertyName, value, priority);
-                else element.style.removeProperty(propertyName);
-                element.removeAttribute(valueAttribute);
-                element.removeAttribute(priorityAttribute);
-              };
-              restoreProperty(
-                "opacity",
-                "data-parity-capture-previous-opacity",
-                "data-parity-capture-previous-opacity-priority"
-              );
-              restoreProperty(
-                "pointer-events",
-                "data-parity-capture-previous-pointer-events",
-                "data-parity-capture-previous-pointer-events-priority"
-              );
-              element.removeAttribute("data-parity-capture-hidden");
-            });
-        }, {
-          shellSelector: stableBackdropShellSelector,
-          state: stableBackdropState
-        });
+          }, stableBackdropFilterState);
+        }
+      } finally {
+        if (stableBackdropShellSelector) {
+          await target.evaluate((targetElement, config) => {
+            const token = CSS.escape(config.state.token);
+            const shell = targetElement.closest(config.shellSelector);
+            if (config.state.backgroundColorApplied && shell instanceof HTMLElement) {
+              if (config.state.previousBackgroundColor) {
+                shell.style.setProperty(
+                  "background-color",
+                  config.state.previousBackgroundColor,
+                  config.state.previousBackgroundColorPriority
+                );
+              } else {
+                shell.style.removeProperty("background-color");
+              }
+            }
+            document
+              .querySelectorAll(`[data-parity-capture-hidden="${token}"]`)
+              .forEach((element) => {
+                const restoreProperty = (propertyName, valueAttribute, priorityAttribute) => {
+                  const value = element.getAttribute(valueAttribute) || "";
+                  const priority = element.getAttribute(priorityAttribute) || "";
+                  if (value) element.style.setProperty(propertyName, value, priority);
+                  else element.style.removeProperty(propertyName);
+                  element.removeAttribute(valueAttribute);
+                  element.removeAttribute(priorityAttribute);
+                };
+                restoreProperty(
+                  "opacity",
+                  "data-parity-capture-previous-opacity",
+                  "data-parity-capture-previous-opacity-priority"
+                );
+                restoreProperty(
+                  "pointer-events",
+                  "data-parity-capture-previous-pointer-events",
+                  "data-parity-capture-previous-pointer-events-priority"
+                );
+                element.removeAttribute("data-parity-capture-hidden");
+              });
+          }, {
+            shellSelector: stableBackdropShellSelector,
+            state: stableBackdropState
+          });
+        }
       }
     }
   }

@@ -11506,6 +11506,7 @@ function bindDistrictCanvas(root) {
   };
   const syncInteractionDistrictAuthorityState = () => {
     const worldState = getResolvedWorldState();
+    interactionState.gamePhase = normalizeRuntimeGamePhase(worldState.phaseState?.gamePhase);
     const serverDistricts = isServerAuthoritativeGameplayRuntimeReady()
       ? (Array.isArray(latestGameplaySliceReadModel?.districts) ? latestGameplaySliceReadModel.districts : [])
       : null;

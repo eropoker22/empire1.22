@@ -53,6 +53,9 @@ describe("social modal parity coverage contract", () => {
     expect(socialModalParitySurfaces.market.roundedCompositeSelector).toBe(
       ".market-popup-tab.is-active"
     );
+    expect(socialModalParitySurfaces.market.stableBackdropFilterSelector).toBe(
+      ".market-popup-dashboard__chip,.market-popup-dashboard__recent"
+    );
     expect(socialModalParitySurfaces.market.responsiveHiddenSectionRules).toEqual([
       {
         maxViewportWidth: 720,
@@ -97,6 +100,8 @@ describe("social modal parity coverage contract", () => {
     expect(marketMasks).not.toContain('[data-market-dashboard-tone="timer"] strong');
     expect(marketMasks).toContain('[data-market-dashboard-tone="clean"] strong');
     expect(marketMasks).toContain('[data-market-dashboard-tone="dirty"] strong');
+    expect(marketMasks).not.toContain(".market-popup-dashboard__chip");
+    expect(marketMasks).not.toContain(".market-popup-dashboard__recent");
   });
 
   it("fails closed when surface, viewport or mask scope drifts", () => {
@@ -177,6 +182,9 @@ describe("social modal parity coverage contract", () => {
       "utf8"
     );
     expect(helperSource).toContain("stableBackdropShellSelector: definition.shellSelector");
+    expect(helperSource).toContain(
+      'stableBackdropFilterSelector: definition.stableBackdropFilterSelector || ""'
+    );
     expect(helperSource).toContain(
       'roundedCompositeSelector: definition.roundedCompositeSelector || ""'
     );

@@ -132,8 +132,9 @@ describe("district action overlay parity coverage", () => {
   });
 
   it("statically guards visible map and district triggers without direct submit shortcuts", async () => {
-    const [helperSource, specSource] = await Promise.all([
+    const [helperSource, runtimeSource, specSource] = await Promise.all([
       readFile("tests/e2e/helpers/districtActionOverlayParity.js", "utf8"),
+      readFile("page-assets/js/app/runtime.js", "utf8"),
       readFile("tests/e2e/live-demo-district-action-overlay-parity.spec.js", "utf8")
     ]);
 
@@ -154,6 +155,25 @@ describe("district action overlay parity coverage", () => {
     expect(helperSource).not.toContain("/api/gameplay-slice/submit");
     expect(helperSource).not.toContain("openDistrictAsync");
     expect(helperSource).not.toContain("EmpireRuntime?.selectDistrict");
+    const authoritySyncStart = runtimeSource.indexOf(
+      "const syncInteractionDistrictAuthorityState = () => {"
+    );
+    const authoritySyncEnd = runtimeSource.indexOf(
+      "\n  };\n\n  syncInteractionDistrictAuthorityState();",
+      authoritySyncStart
+    );
+    const authoritySyncSource = runtimeSource.slice(authoritySyncStart, authoritySyncEnd);
+    const phaseSyncSource =
+      "interactionState.gamePhase = normalizeRuntimeGamePhase(worldState.phaseState?.gamePhase);";
+    const launchOwnerBranchSource =
+      'interactionState.launchOwnerByDistrictId = interactionState.gamePhase === "launch"';
+
+    expect(authoritySyncStart).toBeGreaterThanOrEqual(0);
+    expect(authoritySyncEnd).toBeGreaterThan(authoritySyncStart);
+    expect(authoritySyncSource).toContain(phaseSyncSource);
+    expect(authoritySyncSource).toContain(launchOwnerBranchSource);
+    expect(authoritySyncSource.indexOf(phaseSyncSource))
+      .toBeLessThan(authoritySyncSource.indexOf(launchOwnerBranchSource));
     expect(specSource).toContain("loginAndResumeHostedUiParityGame");
     expect(specSource).toContain("fixture-backed live/demo district action overlay parity");
     expect(specSource).toContain('test.describe.configure({ mode: "serial" })');

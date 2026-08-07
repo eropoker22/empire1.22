@@ -27,6 +27,9 @@ describe("live/demo UI parity source contract", () => {
     expect(paritySpec).toContain(
       'stableRasterSelector: surfaceName === "district" ? ".district-modal-hero__image" : ""'
     );
+    expect(paritySpec).toContain(
+      'stableBackdropFilterSelector: surfaceName === "district" ? ".district-popup-action" : ""'
+    );
     expect(parityCapture).toContain(
       'setProperty("filter", "none", "important")'
     );

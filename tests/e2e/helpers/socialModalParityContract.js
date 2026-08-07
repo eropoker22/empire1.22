@@ -53,6 +53,10 @@ export const socialModalParitySurfaces = Object.freeze({
       })
     ]),
     roundedCompositeSelector: ".market-popup-tab.is-active",
+    stableBackdropFilterSelector: [
+      ".market-popup-dashboard__chip",
+      ".market-popup-dashboard__recent"
+    ].join(","),
     semanticDatasetKeys: Object.freeze([
       "marketCategory",
       "marketFactTone",
@@ -663,6 +667,7 @@ export async function captureSocialModalParityScreenshot(page, {
     path: screenshotPath,
     roundedCompositeSelector: definition.roundedCompositeSelector || "",
     stableBackdropColor: surfaceName === "market" ? "rgb(2, 6, 12)" : "",
+    stableBackdropFilterSelector: definition.stableBackdropFilterSelector || "",
     stableBackdropShellSelector: definition.shellSelector,
     target
   });
