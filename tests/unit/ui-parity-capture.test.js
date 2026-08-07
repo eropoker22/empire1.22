@@ -50,6 +50,91 @@ function createPngBuffer(width, height, rgbaValues) {
   });
 }
 
+function createParityStyleElement(initialStyles = {}) {
+  const attributes = new Map();
+  const priorities = new Map();
+  const values = new Map();
+  for (const [propertyName, entry] of Object.entries(initialStyles)) {
+    values.set(propertyName, String(entry?.value ?? ""));
+    priorities.set(propertyName, String(entry?.priority ?? ""));
+  }
+  const style = {
+    getPropertyPriority: vi.fn((propertyName) => priorities.get(propertyName) || ""),
+    getPropertyValue: vi.fn((propertyName) => values.get(propertyName) || ""),
+    removeProperty: vi.fn((propertyName) => {
+      const previousValue = values.get(propertyName) || "";
+      values.delete(propertyName);
+      priorities.delete(propertyName);
+      return previousValue;
+    }),
+    setProperty: vi.fn((propertyName, value, priority = "") => {
+      values.set(propertyName, String(value));
+      priorities.set(propertyName, String(priority || ""));
+    })
+  };
+  const element = {
+    getAttribute: vi.fn((attributeName) => attributes.get(attributeName) ?? null),
+    removeAttribute: vi.fn((attributeName) => attributes.delete(attributeName)),
+    setAttribute: vi.fn((attributeName, value) => {
+      attributes.set(attributeName, String(value));
+    }),
+    style
+  };
+  return { attributes, element, priorities, style, values };
+}
+
+function createPinnedTargetStyleCaptureHarness({
+  cleanupError = null,
+  onScreenshot = null,
+  screenshotError = null
+} = {}) {
+  const propertyName = "--district-owner-avatar-opacity";
+  const original = createParityStyleElement({
+    [propertyName]: { priority: "important", value: "0.24" }
+  });
+  const replacement = createParityStyleElement({
+    [propertyName]: { priority: "", value: "0" }
+  });
+  let handleEvaluateCall = 0;
+  let locatorEvaluateCall = 0;
+  const handle = {
+    dispose: vi.fn().mockResolvedValue(undefined),
+    evaluate: vi.fn(async (callback, argument) => {
+      handleEvaluateCall += 1;
+      if (handleEvaluateCall === 1) return callback(original.element, argument);
+      if (handleEvaluateCall === 2) return undefined;
+      if (cleanupError) throw cleanupError;
+      return callback(original.element, argument);
+    }),
+    screenshot: vi.fn(async () => {
+      onScreenshot?.({ original, propertyName, replacement });
+      if (screenshotError) throw screenshotError;
+      return Buffer.from("png");
+    })
+  };
+  const target = {
+    elementHandle: vi.fn().mockResolvedValue(handle),
+    evaluate: vi.fn(async (callback, argument) => {
+      locatorEvaluateCall += 1;
+      if (locatorEvaluateCall === 1) return undefined;
+      if (locatorEvaluateCall === 2) {
+        return {
+          dynamicRegions: [],
+          roundedBox: { height: 100, radii: {}, width: 100 }
+        };
+      }
+      return callback(replacement.element, argument);
+    }),
+    screenshot: vi.fn()
+  };
+  const page = {
+    evaluate: vi.fn().mockResolvedValue(undefined),
+    locator: vi.fn(),
+    mouse: { move: vi.fn().mockResolvedValue(undefined) }
+  };
+  return { handle, original, page, propertyName, replacement, target };
+}
+
 describe("UI parity class signature", () => {
   it("maps hosted civil population buffers into the matching local-demo detail fields", () => {
     const fixtures = [
@@ -1033,12 +1118,9 @@ describe("UI parity class signature", () => {
   it("restores capture-only target styles with their original inline priorities", async () => {
     const screenshotFailure = new Error("synthetic screenshot failure");
     const districtOwnerOpacity = "--district-owner-avatar-opacity";
-    const style = {
-      getPropertyPriority: vi.fn().mockReturnValue("important"),
-      getPropertyValue: vi.fn().mockReturnValue("0.24"),
-      removeProperty: vi.fn(),
-      setProperty: vi.fn()
-    };
+    const { element, style } = createParityStyleElement({
+      [districtOwnerOpacity]: { priority: "important", value: "0.24" }
+    });
     let evaluateCall = 0;
     const target = {
       evaluate: vi.fn(async (callback, argument) => {
@@ -1050,7 +1132,7 @@ describe("UI parity class signature", () => {
           };
         }
         if (evaluateCall === 3 || evaluateCall === 5) {
-          return callback({ style }, argument);
+          return callback(element, argument);
         }
         return undefined;
       }),
@@ -1073,7 +1155,7 @@ describe("UI parity class signature", () => {
 
     expect(target.evaluate).toHaveBeenCalledTimes(5);
     expect(target.evaluate.mock.calls[2][1]).toEqual(stableTargetStyleProperties);
-    expect(target.evaluate.mock.calls[4][1]).toEqual({
+    expect(target.evaluate.mock.calls[4][1]).toEqual(expect.objectContaining({
       entries: [
         {
           previousPriority: "important",
@@ -1081,8 +1163,10 @@ describe("UI parity class signature", () => {
           propertyName: districtOwnerOpacity,
           value: "0"
         }
-      ]
-    });
+      ],
+      previousToken: null,
+      token: expect.stringMatching(/^parity-target-style-/u)
+    }));
     expect(style.setProperty).toHaveBeenNthCalledWith(
       1,
       districtOwnerOpacity,
@@ -1098,6 +1182,64 @@ describe("UI parity class signature", () => {
     expect(style.removeProperty).not.toHaveBeenCalled();
     expect(target.screenshot.mock.invocationCallOrder[0])
       .toBeLessThan(target.evaluate.mock.invocationCallOrder[4]);
+  });
+
+  it("pins capture styles to the original element and preserves a detached runtime update", async () => {
+    let capturedToken = "";
+    const harness = createPinnedTargetStyleCaptureHarness({
+      onScreenshot: ({ original, propertyName }) => {
+        capturedToken = original.attributes.get("data-parity-capture-stable-target-style") || "";
+        original.element.isConnected = false;
+        original.style.setProperty(propertyName, "0.8", "");
+      }
+    });
+
+    await expect(captureIsolatedParityScreenshot(harness.page, {
+      path: "detached-district-surface.png",
+      stableTargetStyleProperties: { [harness.propertyName]: "0" },
+      target: harness.target
+    })).resolves.toEqual({ ignoreRegions: [], screenshot: Buffer.from("png") });
+
+    expect(capturedToken).toMatch(/^parity-target-style-/u);
+    expect(harness.target.evaluate).toHaveBeenCalledTimes(2);
+    expect(harness.target.screenshot).not.toHaveBeenCalled();
+    expect(harness.handle.screenshot).toHaveBeenCalledTimes(1);
+    expect(harness.handle.dispose).toHaveBeenCalledTimes(1);
+    expect(harness.original.values.get(harness.propertyName)).toBe("0.8");
+    expect(harness.original.priorities.get(harness.propertyName)).toBe("");
+    expect(harness.original.attributes.has("data-parity-capture-stable-target-style")).toBe(false);
+    expect(harness.replacement.style.setProperty).not.toHaveBeenCalled();
+    expect(harness.replacement.style.removeProperty).not.toHaveBeenCalled();
+  });
+
+  it("keeps the primary capture error when pinned-style cleanup also fails", async () => {
+    const captureFailure = new Error("synthetic primary capture failure");
+    const cleanupFailure = new Error("synthetic pinned-style cleanup failure");
+    const harness = createPinnedTargetStyleCaptureHarness({
+      cleanupError: cleanupFailure,
+      screenshotError: captureFailure
+    });
+
+    await expect(captureIsolatedParityScreenshot(harness.page, {
+      path: "failed-district-surface.png",
+      stableTargetStyleProperties: { [harness.propertyName]: "0" },
+      target: harness.target
+    })).rejects.toBe(captureFailure);
+
+    expect(harness.handle.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces a pinned-style cleanup error after a successful capture", async () => {
+    const cleanupFailure = new Error("synthetic pinned-style cleanup failure");
+    const harness = createPinnedTargetStyleCaptureHarness({ cleanupError: cleanupFailure });
+
+    await expect(captureIsolatedParityScreenshot(harness.page, {
+      path: "cleanup-failed-district-surface.png",
+      stableTargetStyleProperties: { [harness.propertyName]: "0" },
+      target: harness.target
+    })).rejects.toBe(cleanupFailure);
+
+    expect(harness.handle.dispose).toHaveBeenCalledTimes(1);
   });
 
   it("restores capture-only raster stabilization when a screenshot fails", async () => {
