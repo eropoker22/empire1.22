@@ -983,6 +983,7 @@ describe("UI parity class signature", () => {
           previousBackgroundColorPriority: "",
           token: "parity-test"
         })
+        .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce(undefined),
       screenshot: vi.fn().mockResolvedValue(screenshot)
     };
@@ -999,7 +1000,8 @@ describe("UI parity class signature", () => {
       target
     })).resolves.toEqual({ ignoreRegions: [], screenshot });
 
-    expect(target.evaluate).toHaveBeenCalledTimes(4);
+    expect(target.evaluate).toHaveBeenCalledTimes(5);
+    expect(page.evaluate).toHaveBeenCalledTimes(1);
     expect(captureIsolatedParityScreenshot.toString()).toContain(
       'setProperty("opacity", "0", "important")'
     );
@@ -1010,7 +1012,7 @@ describe("UI parity class signature", () => {
       backgroundColor: "rgb(2, 6, 12)",
       shellSelector: "[data-market-popup]"
     });
-    expect(target.evaluate.mock.calls[3][1]).toEqual({
+    expect(target.evaluate.mock.calls[4][1]).toEqual({
       shellSelector: "[data-market-popup]",
       state: {
         backgroundColorApplied: true,
@@ -1020,6 +1022,12 @@ describe("UI parity class signature", () => {
       }
     });
     expect(target.screenshot).toHaveBeenCalledTimes(1);
+    expect(target.evaluate.mock.invocationCallOrder[2])
+      .toBeLessThan(target.evaluate.mock.invocationCallOrder[3]);
+    expect(target.evaluate.mock.invocationCallOrder[3])
+      .toBeLessThan(target.screenshot.mock.invocationCallOrder[0]);
+    expect(target.screenshot.mock.invocationCallOrder[0])
+      .toBeLessThan(target.evaluate.mock.invocationCallOrder[4]);
   });
 
   it("keeps path and scroll parity checks lossless", () => {

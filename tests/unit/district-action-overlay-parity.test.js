@@ -144,6 +144,7 @@ describe("district action overlay parity coverage", () => {
     expect(helperSource).toContain("page.mouse.click(point.x, point.y)");
     expect(helperSource).toContain("[data-district-action-id=\"");
     expect(helperSource).toContain("stableBackdropShellSelector: definition.shellSelector");
+    expect(helperSource).toContain('not.toHaveClass(/\\bgame-mobile-close-guard\\b/u)');
     expect(helperSource).not.toContain("/api/gameplay-slice/submit");
     expect(helperSource).not.toContain("openDistrictAsync");
     expect(helperSource).not.toContain("EmpireRuntime?.selectDistrict");

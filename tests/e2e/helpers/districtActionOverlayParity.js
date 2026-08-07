@@ -607,6 +607,7 @@ export async function closeDistrictActionParitySurfaces(page) {
     await districtClose.click();
   }
   await expect(page.locator("[data-district-popup]:visible")).toHaveCount(0);
+  await expect(page.locator("body")).not.toHaveClass(/\bgame-mobile-close-guard\b/u);
 }
 
 export async function getDistrictActionOverlayPresentationSignature(page, surfaceName) {

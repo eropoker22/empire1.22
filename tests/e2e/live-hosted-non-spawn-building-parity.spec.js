@@ -81,6 +81,22 @@ const authorityDynamicHeatRatePattern = new RegExp(
   `^(Heat\\s+[+-]?)(${authorityDynamicEffectNumberPattern})(\\/den)$`,
   "u"
 );
+const authorityDynamicPhaseCanonicalStaticTailPattern = [
+  `(?:\\s+·\\s+drby\\s+[+-]?${authorityDynamicEffectNumberPattern}\\s+%)?`,
+  `(?:\\s+·\\s+přesnost\\s+[+-]?${authorityDynamicEffectNumberPattern}\\s+%)?`
+].join("");
+const authorityDynamicPhaseDualCashHeatPattern = new RegExp(
+  `^((?:DEN|NOC):\\s+clean\\s+[+-]?\\$)(${authorityDynamicEffectNumberPattern})(\\/h\\s+->\\s+[+-]?\\$)(${authorityDynamicEffectNumberPattern})(\\/h\\s+·\\s+dirty\\s+[+-]?\\$)(${authorityDynamicEffectNumberPattern})(\\/h\\s+->\\s+[+-]?\\$)(${authorityDynamicEffectNumberPattern})(\\/h\\s+·\\s+heat\\s+)(${authorityDynamicEffectNumberPattern})(\\/den\\s+->\\s+)(${authorityDynamicEffectNumberPattern})(\\/den)(${authorityDynamicPhaseCanonicalStaticTailPattern})$`,
+  "iu"
+);
+const authorityDynamicPhaseDualCashPattern = new RegExp(
+  `^((?:DEN|NOC):\\s+clean\\s+[+-]?\\$)(${authorityDynamicEffectNumberPattern})(\\/h\\s+->\\s+[+-]?\\$)(${authorityDynamicEffectNumberPattern})(\\/h\\s+·\\s+dirty\\s+[+-]?\\$)(${authorityDynamicEffectNumberPattern})(\\/h\\s+->\\s+[+-]?\\$)(${authorityDynamicEffectNumberPattern})(\\/h)(${authorityDynamicPhaseCanonicalStaticTailPattern})$`,
+  "iu"
+);
+const authorityDynamicPhaseDualCashPrefixPattern = new RegExp(
+  `^(?:DEN|NOC):\\s+clean\\s+[+-]?\\$${authorityDynamicEffectNumberPattern}\\/h\\s+->\\s+[+-]?\\$${authorityDynamicEffectNumberPattern}\\/h\\s+·\\s+dirty\\b`,
+  "iu"
+);
 const authorityDynamicPhaseCashHeatPattern = new RegExp(
   `^((?:DEN|NOC):\\s+(clean|dirty)\\s+[+-]?\\$)(${authorityDynamicEffectNumberPattern})(\\/h\\s+->\\s+[+-]?\\$)(${authorityDynamicEffectNumberPattern})(\\/h\\s+·\\s+heat\\s+)(${authorityDynamicEffectNumberPattern})(\\/den\\s+->\\s+)(${authorityDynamicEffectNumberPattern})(\\/den)$`,
   "iu"
@@ -127,6 +143,43 @@ const normalizeAuthorityDynamicPresentation = (presentation, evidence) => {
     match = normalized.match(authorityDynamicHeatRatePattern);
     if (match) {
       return `${match[1]}${normalizeValue("heat-rate", match[2], "heat")}${match[3]}`;
+    }
+    match = normalized.match(authorityDynamicPhaseDualCashHeatPattern);
+    if (match) {
+      return [
+        match[1],
+        normalizeValue("phase-clean-cash-base", match[2], "cash"),
+        match[3],
+        normalizeValue("phase-clean-cash-effective", match[4], "cash"),
+        match[5],
+        normalizeValue("phase-dirty-cash-base", match[6], "cash"),
+        match[7],
+        normalizeValue("phase-dirty-cash-effective", match[8], "cash"),
+        match[9],
+        normalizeValue("phase-heat-base", match[10], "heat"),
+        match[11],
+        normalizeValue("phase-heat-effective", match[12], "heat"),
+        match[13],
+        match[14]
+      ].join("");
+    }
+    match = normalized.match(authorityDynamicPhaseDualCashPattern);
+    if (match) {
+      return [
+        match[1],
+        normalizeValue("phase-clean-cash-base", match[2], "cash"),
+        match[3],
+        normalizeValue("phase-clean-cash-effective", match[4], "cash"),
+        match[5],
+        normalizeValue("phase-dirty-cash-base", match[6], "cash"),
+        match[7],
+        normalizeValue("phase-dirty-cash-effective", match[8], "cash"),
+        match[9],
+        match[10]
+      ].join("");
+    }
+    if (authorityDynamicPhaseDualCashPrefixPattern.test(normalized)) {
+      return normalized;
     }
     match = normalized.match(authorityDynamicPhaseCashHeatPattern);
     if (match) {
@@ -550,9 +603,14 @@ async function collectBuildingAuthorityEvidence(page, surfaceName, buildingTypeI
       (building.stats || []).find((stat) => stat?.label === "Efekt fáze")?.value || ""
     );
     const numberPattern = "([0-9](?:[0-9.,\\u00a0\\u202f ]*[0-9])?)";
-    const visiblePhaseCashKinds = new Set(visibleEffectTexts.map((effectText) => (
-      effectText.match(/^(?:DEN|NOC):\s+(clean|dirty)\s+[+-]?\$/iu)?.[1]?.toLowerCase() || ""
-    )).filter(Boolean));
+    const visiblePhaseCashKinds = new Set(visibleEffectTexts.flatMap((effectText) => (
+      /^(?:DEN|NOC):/iu.test(effectText)
+        ? Array.from(
+            effectText.matchAll(/\b(clean|dirty)\s+[+-]?\$/giu),
+            (match) => match[1].toLowerCase()
+          )
+        : []
+    )));
     for (const cashKind of visiblePhaseCashKinds) {
       const baseKey = `phase-${cashKind}-cash-base`;
       const effectiveKey = `phase-${cashKind}-cash-effective`;

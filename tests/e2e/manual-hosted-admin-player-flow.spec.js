@@ -68,8 +68,8 @@ const manualProductionCases = Object.freeze([
     label: "Armory",
     recipeId: "baseball-bat",
     resourceKey: "baseball-bat",
-    // A second residential spawn stays population-neutral and receives the
-    // canonical starter Armory only after the server commits the claim.
+    // A second residential spawn keeps its canonical stored-population income
+    // and receives the starter Armory only after the server commits the claim.
     spawnBuildingTypeIds: ["apartment_block"],
     surfaceName: "armory"
   })
@@ -847,6 +847,7 @@ async function collectPositivePopulationTickEvidence({
         ?.passivePopulationSources || [];
       const positiveSources = sources.filter((source) => (
         source?.target === "building-storage"
+        && source?.buildingTypeId === "convenience_store"
         && Number(source?.amountPerTick) > 0
       ));
       return {
@@ -864,9 +865,9 @@ async function collectPositivePopulationTickEvidence({
   }
 
   expect(
-    candidates,
-    "The four manual spawn districts must expose one canonical positive population producer."
-  ).toHaveLength(1);
+    candidates.length,
+    "The four manual spawn districts must expose one canonical convenience-store population producer."
+  ).toBe(1);
   const candidate = candidates[0];
   expect(candidate.districtId).toBe(candidate.client.spawnDistrictId);
   expect(candidate.sources).toHaveLength(1);

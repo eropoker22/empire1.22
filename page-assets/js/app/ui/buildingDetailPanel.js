@@ -35,6 +35,22 @@ const AUTHORITY_DYNAMIC_HEAT_RATE_PATTERN = new RegExp(
   `^(Heat\\s+[+-]?)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/den)$`,
   "u"
 );
+const AUTHORITY_DYNAMIC_PHASE_CANONICAL_STATIC_TAIL_PATTERN = [
+  `(?:\\s+·\\s+drby\\s+[+-]?${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN}\\s+%)?`,
+  `(?:\\s+·\\s+přesnost\\s+[+-]?${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN}\\s+%)?`
+].join("");
+const AUTHORITY_DYNAMIC_PHASE_DUAL_CASH_HEAT_PATTERN = new RegExp(
+  `^((?:DEN|NOC):\\s+clean\\s+[+-]?\\$)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/h\\s+->\\s+[+-]?\\$)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/h\\s+·\\s+dirty\\s+[+-]?\\$)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/h\\s+->\\s+[+-]?\\$)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/h\\s+·\\s+heat\\s+)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/den\\s+->\\s+)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/den)(${AUTHORITY_DYNAMIC_PHASE_CANONICAL_STATIC_TAIL_PATTERN})$`,
+  "iu"
+);
+const AUTHORITY_DYNAMIC_PHASE_DUAL_CASH_PATTERN = new RegExp(
+  `^((?:DEN|NOC):\\s+clean\\s+[+-]?\\$)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/h\\s+->\\s+[+-]?\\$)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/h\\s+·\\s+dirty\\s+[+-]?\\$)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/h\\s+->\\s+[+-]?\\$)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/h)(${AUTHORITY_DYNAMIC_PHASE_CANONICAL_STATIC_TAIL_PATTERN})$`,
+  "iu"
+);
+const AUTHORITY_DYNAMIC_PHASE_DUAL_CASH_PREFIX_PATTERN = new RegExp(
+  `^(?:DEN|NOC):\\s+clean\\s+[+-]?\\$${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN}\\/h\\s+->\\s+[+-]?\\$${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN}\\/h\\s+·\\s+dirty\\b`,
+  "iu"
+);
 const AUTHORITY_DYNAMIC_PHASE_CASH_HEAT_PATTERN = new RegExp(
   `^((?:DEN|NOC):\\s+(clean|dirty)\\s+[+-]?\\$)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/h\\s+->\\s+[+-]?\\$)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/h\\s+·\\s+heat\\s+)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/den\\s+->\\s+)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/den)$`,
   "iu"
@@ -180,6 +196,43 @@ function resolveAuthorityDynamicEffectSegments(value = "") {
       { dynamicEffect: "heat-rate", text: match[2] },
       { text: match[3] }
     ];
+  }
+
+  match = normalized.match(AUTHORITY_DYNAMIC_PHASE_DUAL_CASH_HEAT_PATTERN);
+  if (match) {
+    return [
+      { text: match[1] },
+      { dynamicEffect: "phase-clean-cash-base", text: match[2] },
+      { text: match[3] },
+      { dynamicEffect: "phase-clean-cash-effective", text: match[4] },
+      { text: match[5] },
+      { dynamicEffect: "phase-dirty-cash-base", text: match[6] },
+      { text: match[7] },
+      { dynamicEffect: "phase-dirty-cash-effective", text: match[8] },
+      { text: match[9] },
+      { dynamicEffect: "phase-heat-base", text: match[10] },
+      { text: match[11] },
+      { dynamicEffect: "phase-heat-effective", text: match[12] },
+      { text: `${match[13]}${match[14]}` }
+    ];
+  }
+
+  match = normalized.match(AUTHORITY_DYNAMIC_PHASE_DUAL_CASH_PATTERN);
+  if (match) {
+    return [
+      { text: match[1] },
+      { dynamicEffect: "phase-clean-cash-base", text: match[2] },
+      { text: match[3] },
+      { dynamicEffect: "phase-clean-cash-effective", text: match[4] },
+      { text: match[5] },
+      { dynamicEffect: "phase-dirty-cash-base", text: match[6] },
+      { text: match[7] },
+      { dynamicEffect: "phase-dirty-cash-effective", text: match[8] },
+      { text: `${match[9]}${match[10]}` }
+    ];
+  }
+  if (AUTHORITY_DYNAMIC_PHASE_DUAL_CASH_PREFIX_PATTERN.test(normalized)) {
+    return null;
   }
 
   match = normalized.match(AUTHORITY_DYNAMIC_PHASE_CASH_HEAT_PATTERN);

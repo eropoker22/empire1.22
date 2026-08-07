@@ -872,6 +872,30 @@ describe("building detail, production and recipe UI modules", () => {
         { text: "Vliv +121/den", tone: "influence" },
         { text: "DEN: dirty $2540/h -> $2235/h · heat 150/den -> 168/den", tone: "phase" },
         { text: "DEN: heat 150/den -> 143/den · vliv 120/den -> 134/den", tone: "phase" },
+        {
+          text: "NOC: clean $1800/h -> $1890/h · dirty $1200/h -> $1440/h",
+          tone: "phase"
+        },
+        {
+          text: "DEN: clean $100/h -> $50/h · dirty $100/h -> $50/h · drby -10 % · přesnost +8 %",
+          tone: "phase"
+        },
+        {
+          text: "DEN: clean $10800/h -> $12420/h · dirty $2700/h -> $2430/h · heat 288/den -> 316/den",
+          tone: "phase"
+        },
+        {
+          text: "DEN: clean $10800/h -> $12420/h · dirty $2700/h -> $2430/h · heat 288/den -> 316/den · drby +5 % · přesnost -6 %",
+          tone: "phase"
+        },
+        {
+          text: "DEN: clean $10800/h -> $12420/h · dirty $2700/h -> $2430/h · heat 288/den -> 316/den · reputace 5/den -> 6/den",
+          tone: "phase"
+        },
+        {
+          text: "DEN: clean $100/h -> $50/h · dirty $100/h -> $50/h · přesnost +8 % · drby -10 %",
+          tone: "phase"
+        },
         { text: "Dirty cash +$500", tone: "dirty" }
       ],
       collect: { visible: false, enabled: false, title: "" },
@@ -911,7 +935,63 @@ describe("building detail, production and recipe UI modules", () => {
     expect(effects[5].querySelector("strong").children.at(-1).textContent).toBe(
       "/den · vliv 120/den -> 134/den"
     );
-    expect(dynamicValues(effects[6])).toEqual([]);
+    expect(effects[6].children[0].textContent).toBe(
+      "NOC: clean $1800/h -> $1890/h · dirty $1200/h -> $1440/h"
+    );
+    expect(dynamicValues(effects[6])).toEqual([
+      { kind: "phase-clean-cash-base", text: "1800" },
+      { kind: "phase-clean-cash-effective", text: "1890" },
+      { kind: "phase-dirty-cash-base", text: "1200" },
+      { kind: "phase-dirty-cash-effective", text: "1440" }
+    ]);
+    expect(effects[6].querySelector("strong").children.at(-1).textContent).toBe("/h");
+    expect(effects[7].children[0].textContent).toBe(
+      "DEN: clean $100/h -> $50/h · dirty $100/h -> $50/h · drby -10 % · přesnost +8 %"
+    );
+    expect(dynamicValues(effects[7])).toEqual([
+      { kind: "phase-clean-cash-base", text: "100" },
+      { kind: "phase-clean-cash-effective", text: "50" },
+      { kind: "phase-dirty-cash-base", text: "100" },
+      { kind: "phase-dirty-cash-effective", text: "50" }
+    ]);
+    expect(effects[7].querySelector("strong").children.at(-1).textContent).toBe(
+      "/h · drby -10 % · přesnost +8 %"
+    );
+    expect(effects[8].children[0].textContent).toBe(
+      "DEN: clean $10800/h -> $12420/h · dirty $2700/h -> $2430/h · heat 288/den -> 316/den"
+    );
+    expect(dynamicValues(effects[8])).toEqual([
+      { kind: "phase-clean-cash-base", text: "10800" },
+      { kind: "phase-clean-cash-effective", text: "12420" },
+      { kind: "phase-dirty-cash-base", text: "2700" },
+      { kind: "phase-dirty-cash-effective", text: "2430" },
+      { kind: "phase-heat-base", text: "288" },
+      { kind: "phase-heat-effective", text: "316" }
+    ]);
+    expect(effects[8].querySelector("strong").children.at(-1).textContent).toBe("/den");
+    expect(effects[9].children[0].textContent).toBe(
+      "DEN: clean $10800/h -> $12420/h · dirty $2700/h -> $2430/h · heat 288/den -> 316/den · drby +5 % · přesnost -6 %"
+    );
+    expect(dynamicValues(effects[9])).toEqual([
+      { kind: "phase-clean-cash-base", text: "10800" },
+      { kind: "phase-clean-cash-effective", text: "12420" },
+      { kind: "phase-dirty-cash-base", text: "2700" },
+      { kind: "phase-dirty-cash-effective", text: "2430" },
+      { kind: "phase-heat-base", text: "288" },
+      { kind: "phase-heat-effective", text: "316" }
+    ]);
+    expect(effects[9].querySelector("strong").children.at(-1).textContent).toBe(
+      "/den · drby +5 % · přesnost -6 %"
+    );
+    expect(effects[10].children[0].textContent).toBe(
+      "DEN: clean $10800/h -> $12420/h · dirty $2700/h -> $2430/h · heat 288/den -> 316/den · reputace 5/den -> 6/den"
+    );
+    expect(dynamicValues(effects[10])).toEqual([]);
+    expect(effects[11].children[0].textContent).toBe(
+      "DEN: clean $100/h -> $50/h · dirty $100/h -> $50/h · přesnost +8 % · drby -10 %"
+    );
+    expect(dynamicValues(effects[11])).toEqual([]);
+    expect(dynamicValues(effects[12])).toEqual([]);
   });
 
   it("marks only population-buffer value nodes as dynamic", () => {

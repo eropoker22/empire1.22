@@ -107,6 +107,7 @@ describe("standalone gameplay runtime lifecycle", () => {
       <main data-page="game">
         <button data-bounty-open-trigger type="button">Bounty</button>
         <section id="bounty-modal" class="hidden" hidden>
+          <div class="bounty-board__content"></div>
           <button id="bounty-modal-close" type="button"></button>
           <button id="bounty-modal-cancel" type="button"></button>
           <select id="bounty-modal-target"></select>
@@ -147,13 +148,16 @@ describe("standalone gameplay runtime lifecycle", () => {
     bountyModule = await import(BOUNTY_MODULE);
     const openButton = document.querySelector("[data-bounty-open-trigger]");
     const modal = document.getElementById("bounty-modal");
+    const modalContent = modal.querySelector(".bounty-board__content");
     const mountedCleanup = bountyModule.initBountyRuntime();
     const initialIntervalCalls = setIntervalSpy.mock.calls.length;
     const initialClearIntervalCalls = clearIntervalSpy.mock.calls.length;
 
     expect(typeof mountedCleanup).toBe("function");
+    modalContent.scrollTop = 22;
     openButton.click();
     expect(modal.hidden).toBe(false);
+    expect(modalContent.scrollTop).toBe(0);
     expect(setIntervalSpy).toHaveBeenCalledTimes(initialIntervalCalls + 1);
     const stableCancelButton = document.querySelector('[data-bounty-cancel="bounty:stable"]');
     const stableRemainingLabel = document.querySelector("[data-bounty-remaining]");

@@ -1789,6 +1789,9 @@ export async function captureIsolatedParityScreenshot(page, {
     });
   }
   try {
+    if (stableBackdropState) {
+      await settleFiniteAnimations(target);
+    }
     const screenshot = await target.screenshot({
       path: screenshotPath,
       animations: "disabled",

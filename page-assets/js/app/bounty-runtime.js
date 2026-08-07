@@ -513,6 +513,7 @@ export function initBountyRuntime() {
   const targetAvatarWrap = modal?.querySelector("[data-bounty-avatar-open]") || targetAvatar?.closest(".bounty-board__avatar-wrap") || null;
   const districtField = document.getElementById("bounty-district-field");
   const submitBtn = document.getElementById("bounty-modal-submit");
+  const modalContent = modal?.querySelector(".bounty-board__content");
   const boardBody = document.getElementById("bounty-board-body");
   const boardEmpty = document.getElementById("bounty-board-empty");
   const boardLoading = document.getElementById("bounty-board-loading");
@@ -995,6 +996,9 @@ export function initBountyRuntime() {
     uiState.isOpen = true;
     syncTabs();
     refreshView();
+    if (modalContent instanceof HTMLElement) {
+      modalContent.scrollTop = 0;
+    }
     startRefreshTimer();
   };
 
