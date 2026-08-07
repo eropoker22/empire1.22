@@ -34,11 +34,17 @@ describe("live/demo UI parity source contract", () => {
       'stableTargetStyleProperties: surfaceName === "district"'
     );
     expect(paritySpec).toContain(
-      '? { "--district-owner-avatar-opacity": "0" }'
+      '"--district-owner-avatar-opacity": "0",\n          "--district-owner-avatar-url": "none"'
     );
     expect(parityCapture).toContain("stableTargetStyleProperties = {}");
     expect(parityCapture).toContain(
       'targetElement.style.setProperty(propertyName, value, "important")'
+    );
+    expect(parityCapture).toContain(
+      'captureRule.style.setProperty(propertyName, value, "important")'
+    );
+    expect(parityCapture).toContain(
+      'data-parity-capture-stable-target-style-sheet'
     );
     expect(parityCapture).toContain("entry.previousPriority");
     expect(parityCapture).toContain(

@@ -919,13 +919,22 @@ export async function captureDistrictActionOverlayScreenshot(page, {
   surfaceName
 }) {
   const definition = resolveDistrictActionOverlayDefinition(surfaceName);
+  const stabilizeInlineAction = definition.stage === "inline-pre-submit";
   const target = page.locator(`${definition.targetSelector}:visible`).last();
   await expect(target).toBeVisible();
   return captureIsolatedParityScreenshot(page, {
     ignoreSelector: definition.dynamicLeafSelectors.join(","),
     path,
-    roundedCompositeSelector: definition.roundedCompositeSelector || "",
+    roundedCompositeSelector: stabilizeInlineAction
+      ? definition.targetSelector
+      : definition.roundedCompositeSelector || "",
+    stableBackdropFilterSelector: stabilizeInlineAction
+      ? definition.targetSelector
+      : "",
     stableBackdropShellSelector: definition.shellSelector,
+    stableTargetStyleProperties: stabilizeInlineAction
+      ? { "background-color": "rgb(6, 10, 18)" }
+      : {},
     target
   });
 }

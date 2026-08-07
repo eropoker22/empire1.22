@@ -50,8 +50,7 @@ function createPngBuffer(width, height, rgbaValues) {
   });
 }
 
-function createParityStyleElement(initialStyles = {}) {
-  const attributes = new Map();
+function createParityStyleDeclaration(initialStyles = {}) {
   const priorities = new Map();
   const values = new Map();
   for (const [propertyName, entry] of Object.entries(initialStyles)) {
@@ -72,27 +71,79 @@ function createParityStyleElement(initialStyles = {}) {
       priorities.set(propertyName, String(priority || ""));
     })
   };
+  return { priorities, style, values };
+}
+
+function createParityStyleDocument() {
+  const styleElements = [];
+  const head = {
+    append: vi.fn((element) => {
+      if (!styleElements.includes(element)) styleElements.push(element);
+    })
+  };
+  const documentRef = {
+    createElement: vi.fn((tagName) => {
+      if (tagName !== "style") throw new Error(`Unsupported parity test element: ${tagName}`);
+      const attributes = new Map();
+      const ruleDeclaration = createParityStyleDeclaration();
+      const styleElement = {
+        getAttribute: vi.fn((attributeName) => attributes.get(attributeName) ?? null),
+        remove: vi.fn(() => {
+          const index = styleElements.indexOf(styleElement);
+          if (index >= 0) styleElements.splice(index, 1);
+        }),
+        setAttribute: vi.fn((attributeName, value) => {
+          attributes.set(attributeName, String(value));
+        }),
+        sheet: { cssRules: [{ style: ruleDeclaration.style }] },
+        textContent: ""
+      };
+      return styleElement;
+    }),
+    documentElement: head,
+    head,
+    querySelectorAll: vi.fn((selector) => {
+      const token = String(selector).match(
+        /^\[data-parity-capture-stable-target-style-sheet="([^"]+)"\]$/u
+      )?.[1];
+      if (!token) return [];
+      return styleElements.filter((element) => (
+        element.getAttribute("data-parity-capture-stable-target-style-sheet") === token
+      ));
+    }),
+    styleElements
+  };
+  return documentRef;
+}
+
+function createParityStyleElement(initialStyles = {}, ownerDocument = createParityStyleDocument()) {
+  const attributes = new Map();
+  const { priorities, style, values } = createParityStyleDeclaration(initialStyles);
   const element = {
     getAttribute: vi.fn((attributeName) => attributes.get(attributeName) ?? null),
+    ownerDocument,
     removeAttribute: vi.fn((attributeName) => attributes.delete(attributeName)),
     setAttribute: vi.fn((attributeName, value) => {
       attributes.set(attributeName, String(value));
     }),
     style
   };
-  return { attributes, element, priorities, style, values };
+  return { attributes, element, ownerDocument, priorities, style, values };
 }
 
 function createPinnedTargetStyleCaptureHarness({
   cleanupError = null,
+  initialStyles = null,
   onScreenshot = null,
+  onSettle = null,
+  replacementStyles = null,
   screenshotError = null
 } = {}) {
   const propertyName = "--district-owner-avatar-opacity";
-  const original = createParityStyleElement({
+  const original = createParityStyleElement(initialStyles || {
     [propertyName]: { priority: "important", value: "0.24" }
   });
-  const replacement = createParityStyleElement({
+  const replacement = createParityStyleElement(replacementStyles || {
     [propertyName]: { priority: "", value: "0" }
   });
   let handleEvaluateCall = 0;
@@ -102,7 +153,10 @@ function createPinnedTargetStyleCaptureHarness({
     evaluate: vi.fn(async (callback, argument) => {
       handleEvaluateCall += 1;
       if (handleEvaluateCall === 1) return callback(original.element, argument);
-      if (handleEvaluateCall === 2) return undefined;
+      if (handleEvaluateCall === 2) {
+        onSettle?.({ original, propertyName, replacement });
+        return undefined;
+      }
       if (cleanupError) throw cleanupError;
       return callback(original.element, argument);
     }),
@@ -1043,7 +1097,8 @@ describe("UI parity class signature", () => {
     expect(page.evaluate).toHaveBeenCalledTimes(4);
     expect(page.evaluate.mock.calls[3][1]).toBe([
       ".map-boost-btn",
-      "#profile-gang-card .profile-row--alliance"
+      "#profile-gang-card .profile-row--alliance",
+      "#global-chat-card .server-chat-panel__send--arrow"
     ].join(","));
     expect(page.screenshot).toHaveBeenCalledWith(expect.objectContaining({
       fullPage: false,
@@ -1182,6 +1237,61 @@ describe("UI parity class signature", () => {
     expect(style.removeProperty).not.toHaveBeenCalled();
     expect(target.screenshot.mock.invocationCallOrder[0])
       .toBeLessThan(target.evaluate.mock.invocationCallOrder[4]);
+  });
+
+  it("keeps token-scoped capture styles stable while preserving runtime inline updates", async () => {
+    const avatarOpacity = "--district-owner-avatar-opacity";
+    const avatarUrl = "--district-owner-avatar-url";
+    let screenshotStyleSnapshot = null;
+    const harness = createPinnedTargetStyleCaptureHarness({
+      initialStyles: {
+        [avatarOpacity]: { priority: "important", value: "0.24" },
+        [avatarUrl]: { priority: "", value: 'url("initial-owner.png")' }
+      },
+      onSettle: ({ original }) => {
+        original.style.setProperty(avatarOpacity, "0.68", "");
+        original.style.setProperty(avatarUrl, 'url("runtime-owner.png")', "");
+      },
+      onScreenshot: ({ original }) => {
+        const captureRuleStyle = original.ownerDocument.styleElements[0]?.sheet?.cssRules?.[0]?.style;
+        screenshotStyleSnapshot = {
+          captureOpacity: captureRuleStyle?.getPropertyValue(avatarOpacity),
+          captureOpacityPriority: captureRuleStyle?.getPropertyPriority(avatarOpacity),
+          captureUrl: captureRuleStyle?.getPropertyValue(avatarUrl),
+          captureUrlPriority: captureRuleStyle?.getPropertyPriority(avatarUrl),
+          inlineOpacity: original.style.getPropertyValue(avatarOpacity),
+          inlineOpacityPriority: original.style.getPropertyPriority(avatarOpacity),
+          inlineUrl: original.style.getPropertyValue(avatarUrl),
+          inlineUrlPriority: original.style.getPropertyPriority(avatarUrl)
+        };
+      }
+    });
+
+    await expect(captureIsolatedParityScreenshot(harness.page, {
+      path: "runtime-updated-district-surface.png",
+      stableTargetStyleProperties: {
+        [avatarOpacity]: "0",
+        [avatarUrl]: "none"
+      },
+      target: harness.target
+    })).resolves.toEqual({ ignoreRegions: [], screenshot: Buffer.from("png") });
+
+    expect(screenshotStyleSnapshot).toEqual({
+      captureOpacity: "0",
+      captureOpacityPriority: "important",
+      captureUrl: "none",
+      captureUrlPriority: "important",
+      inlineOpacity: "0.68",
+      inlineOpacityPriority: "",
+      inlineUrl: 'url("runtime-owner.png")',
+      inlineUrlPriority: ""
+    });
+    expect(harness.original.ownerDocument.styleElements).toHaveLength(0);
+    expect(harness.original.values.get(avatarOpacity)).toBe("0.68");
+    expect(harness.original.priorities.get(avatarOpacity)).toBe("");
+    expect(harness.original.values.get(avatarUrl)).toBe('url("runtime-owner.png")');
+    expect(harness.original.priorities.get(avatarUrl)).toBe("");
+    expect(harness.original.attributes.has("data-parity-capture-stable-target-style")).toBe(false);
   });
 
   it("pins capture styles to the original element and preserves a detached runtime update", async () => {

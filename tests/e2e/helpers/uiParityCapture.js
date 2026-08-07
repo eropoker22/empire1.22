@@ -1764,6 +1764,7 @@ export async function captureIsolatedParityScreenshot(page, {
       captureTarget = stableTargetStyleHandle;
       stableTargetStyleState = await stableTargetStyleHandle.evaluate((targetElement, properties) => {
         const captureAttribute = "data-parity-capture-stable-target-style";
+        const styleAttribute = "data-parity-capture-stable-target-style-sheet";
         const token = `parity-target-style-${Date.now()}-${Math.random().toString(16).slice(2)}`;
         const previousToken = targetElement.getAttribute(captureAttribute);
         const entries = Object.entries(properties).map(([propertyName, value]) => ({
@@ -1773,11 +1774,23 @@ export async function captureIsolatedParityScreenshot(page, {
           value: String(value)
         }));
         targetElement.setAttribute(captureAttribute, token);
+        let styleElement = null;
         try {
+          const documentRef = targetElement.ownerDocument;
+          styleElement = documentRef.createElement("style");
+          styleElement.setAttribute(styleAttribute, token);
+          styleElement.textContent = `[${captureAttribute}="${token}"]{}`;
+          (documentRef.head || documentRef.documentElement).append(styleElement);
+          const captureRule = styleElement.sheet?.cssRules?.[0];
+          if (!captureRule?.style) {
+            throw new Error("Parity screenshot target style rule was not created.");
+          }
           entries.forEach(({ propertyName, value }) => {
+            captureRule.style.setProperty(propertyName, value, "important");
             targetElement.style.setProperty(propertyName, value, "important");
           });
         } catch (error) {
+          styleElement?.remove();
           entries.forEach((entry) => {
             if (entry.previousValue) {
               targetElement.style.setProperty(
@@ -1957,6 +1970,11 @@ export async function captureIsolatedParityScreenshot(page, {
       if (stableTargetStyleState && stableTargetStyleHandle) {
         await stableTargetStyleHandle.evaluate((targetElement, state) => {
           const captureAttribute = "data-parity-capture-stable-target-style";
+          const styleAttribute = "data-parity-capture-stable-target-style-sheet";
+          const documentRef = targetElement.ownerDocument;
+          documentRef
+            .querySelectorAll(`[${styleAttribute}="${state.token}"]`)
+            .forEach((element) => element.remove());
           if (targetElement.getAttribute(captureAttribute) !== state.token) {
             return;
           }
@@ -3179,7 +3197,8 @@ export async function captureGameChromeScreenshot(page, screenshotPath) {
     ignoreSelector: gameChromeScreenshotIgnoreSelector,
     roundedCompositeSelector: [
       ".map-boost-btn",
-      "#profile-gang-card .profile-row--alliance"
+      "#profile-gang-card .profile-row--alliance",
+      "#global-chat-card .server-chat-panel__send--arrow"
     ].join(","),
     path: screenshotPath
   });
