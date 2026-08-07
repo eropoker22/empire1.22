@@ -17,6 +17,7 @@ import {
 
 const MAIN_DISTRICT_POPUP_SELECTOR = "[data-district-popup]";
 const MAIN_DISTRICT_POPUP_CARD_SELECTOR = "[data-district-popup-card]";
+const DISTRICT_ATMOSPHERE_WINDOW_SELECTOR = "[data-district-atmosphere-window]";
 const DISTRICT_OWNER_AVATAR_OPEN_SELECTOR = "[data-district-owner-avatar-open=\"true\"]";
 const MOBILE_DISTRICT_POPUP_SCROLL_MEDIA = "(max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse)";
 const districtPopupEntryGenerationByElement = new WeakMap();
@@ -24,6 +25,35 @@ let lastDistrictOwnerAvatarTrigger = null;
 
 function isMainDistrictPopup(element) {
   return Boolean(element?.matches?.(MAIN_DISTRICT_POPUP_SELECTOR));
+}
+
+function syncDistrictAtmosphereCloseControls(element, isOpen) {
+  if (!element?.matches?.(DISTRICT_ATMOSPHERE_WINDOW_SELECTOR)) {
+    return;
+  }
+
+  const card = element.closest?.(MAIN_DISTRICT_POPUP_CARD_SELECTOR);
+  if (!card?.dataset) {
+    return;
+  }
+
+  const popupClose = card.querySelector?.(":scope > .district-popup-close");
+  if (isOpen) {
+    card.dataset.districtAtmosphereOpen = "true";
+    if (popupClose) {
+      popupClose.hidden = true;
+      popupClose.disabled = true;
+      popupClose.setAttribute?.("aria-hidden", "true");
+    }
+    return;
+  }
+
+  delete card.dataset.districtAtmosphereOpen;
+  if (popupClose) {
+    popupClose.hidden = false;
+    popupClose.disabled = false;
+    popupClose.removeAttribute?.("aria-hidden");
+  }
 }
 
 function shouldAllowMainDistrictBackgroundScroll(element) {
@@ -259,6 +289,7 @@ export function showDistrictPopupModal(element) {
     });
   }
   element.hidden = false;
+  syncDistrictAtmosphereCloseControls(element, true);
   if (entering) {
     scheduleDistrictPopupEntryInteraction(element);
   }
@@ -277,6 +308,7 @@ export function hideDistrictPopupModal(element, options = {}) {
     delete element.dataset.districtPopupHandoff;
   }
   element.hidden = true;
+  syncDistrictAtmosphereCloseControls(element, false);
   if (options.suppressMapInput === false) {
     closeOverlay(element, { restoreFocus: false, suppressMapInput: false });
   } else {

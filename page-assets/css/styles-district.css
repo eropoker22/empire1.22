@@ -3226,10 +3226,12 @@
   display: none !important;
 }
 
+.district-popup-card[data-district-atmosphere-open="true"] > .district-popup-close,
 .district-popup-card:has(> .district-atmosphere-window:not([hidden])) > .district-popup-close {
-  visibility: hidden;
-  opacity: 0;
-  pointer-events: none;
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 .district-atmosphere-window__close {

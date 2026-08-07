@@ -105,6 +105,33 @@ describe("district popup modal helpers", () => {
     expect(openClick.stopPropagation).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps only one close control available while the atmosphere image is open", () => {
+    const card = document.createElement("div");
+    const popupClose = document.createElement("button");
+    const windowElement = document.createElement("aside");
+    card.setAttribute("data-district-popup-card", "");
+    popupClose.className = "district-popup-close";
+    windowElement.setAttribute("data-district-atmosphere-window", "");
+    windowElement.hidden = true;
+    card.append(popupClose, windowElement);
+    document.body.append(card);
+
+    showDistrictPopupModal(windowElement);
+
+    expect(card.dataset.districtAtmosphereOpen).toBe("true");
+    expect(popupClose.hidden).toBe(true);
+    expect(popupClose.disabled).toBe(true);
+    expect(popupClose.getAttribute("aria-hidden")).toBe("true");
+
+    hideDistrictPopupModal(windowElement, { suppressMapInput: false });
+
+    expect(card.dataset.districtAtmosphereOpen).toBeUndefined();
+    expect(popupClose.hidden).toBe(false);
+    expect(popupClose.disabled).toBe(false);
+    expect(popupClose.hasAttribute("aria-hidden")).toBe(false);
+    document.body.innerHTML = "";
+  });
+
   it("does not move a refreshed district sheet above its active action modal", () => {
     const districtPopup = document.createElement("div");
     const actionModal = document.createElement("div");

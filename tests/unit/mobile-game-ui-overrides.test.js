@@ -6,6 +6,7 @@ const read = (path) => readFileSync(resolve(process.cwd(), path), "utf8").replac
 describe("mobile game UI overrides", () => {
   const css = read("page-assets/css/styles.css");
   const buildingCss = read("page-assets/css/styles-building-modals.css");
+  const districtCss = read("page-assets/css/styles-district.css");
   const mobileFixes = read("page-assets/css/styles-mobile-fixes.css");
   const html = read("pages/game.html");
   const runtime = read("page-assets/js/app/runtime.js");
@@ -74,6 +75,13 @@ describe("mobile game UI overrides", () => {
     expect(actionControls).toContain(":not(.district-atmosphere-window__close)");
     expect(actionControls).toContain(":not(.attack-setup-popup-close)");
     expect(actionControls).toContain(":not(.modal__close)");
+  });
+
+  it("never renders the district close control above an open atmosphere image", () => {
+    expect(districtCss).toContain('.district-popup-card[data-district-atmosphere-open="true"] > .district-popup-close');
+    expect(districtCss).toMatch(
+      /district-atmosphere-open="true"[^{}]*district-popup-close,[\s\S]*?\{[\s\S]*?display: none !important;/u
+    );
   });
 
   it("does not classify a wide touch-capable desktop as the mobile Buildings layout", () => {
