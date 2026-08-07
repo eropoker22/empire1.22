@@ -30,6 +30,17 @@ describe("live/demo UI parity source contract", () => {
     expect(paritySpec).toContain(
       '".district-popup-card,.district-popup-buildings,.district-popup-action"'
     );
+    expect(paritySpec).toContain(
+      'stableTargetStyleProperties: surfaceName === "district"'
+    );
+    expect(paritySpec).toContain(
+      '? { "--district-owner-avatar-opacity": "0" }'
+    );
+    expect(parityCapture).toContain("stableTargetStyleProperties = {}");
+    expect(parityCapture).toContain(
+      'targetElement.style.setProperty(propertyName, value, "important")'
+    );
+    expect(parityCapture).toContain("entry.previousPriority");
     expect(parityCapture).toContain(
       'setProperty("filter", "none", "important")'
     );

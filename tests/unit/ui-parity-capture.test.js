@@ -1030,6 +1030,76 @@ describe("UI parity class signature", () => {
       .toBeLessThan(target.evaluate.mock.invocationCallOrder[4]);
   });
 
+  it("restores capture-only target styles with their original inline priorities", async () => {
+    const screenshotFailure = new Error("synthetic screenshot failure");
+    const districtOwnerOpacity = "--district-owner-avatar-opacity";
+    const style = {
+      getPropertyPriority: vi.fn().mockReturnValue("important"),
+      getPropertyValue: vi.fn().mockReturnValue("0.24"),
+      removeProperty: vi.fn(),
+      setProperty: vi.fn()
+    };
+    let evaluateCall = 0;
+    const target = {
+      evaluate: vi.fn(async (callback, argument) => {
+        evaluateCall += 1;
+        if (evaluateCall === 2) {
+          return {
+            dynamicRegions: [],
+            roundedBox: { height: 100, radii: {}, width: 100 }
+          };
+        }
+        if (evaluateCall === 3 || evaluateCall === 5) {
+          return callback({ style }, argument);
+        }
+        return undefined;
+      }),
+      screenshot: vi.fn().mockRejectedValue(screenshotFailure)
+    };
+    const page = {
+      evaluate: vi.fn().mockResolvedValue(undefined),
+      locator: vi.fn(),
+      mouse: { move: vi.fn().mockResolvedValue(undefined) }
+    };
+    const stableTargetStyleProperties = {
+      [districtOwnerOpacity]: "0"
+    };
+
+    await expect(captureIsolatedParityScreenshot(page, {
+      path: "district-surface.png",
+      stableTargetStyleProperties,
+      target
+    })).rejects.toThrow("synthetic screenshot failure");
+
+    expect(target.evaluate).toHaveBeenCalledTimes(5);
+    expect(target.evaluate.mock.calls[2][1]).toEqual(stableTargetStyleProperties);
+    expect(target.evaluate.mock.calls[4][1]).toEqual({
+      entries: [
+        {
+          previousPriority: "important",
+          previousValue: "0.24",
+          propertyName: districtOwnerOpacity,
+          value: "0"
+        }
+      ]
+    });
+    expect(style.setProperty).toHaveBeenNthCalledWith(
+      1,
+      districtOwnerOpacity,
+      "0",
+      "important"
+    );
+    expect(style.setProperty).toHaveBeenNthCalledWith(
+      2,
+      districtOwnerOpacity,
+      "0.24",
+      "important"
+    );
+    expect(style.removeProperty).not.toHaveBeenCalled();
+    expect(target.screenshot.mock.invocationCallOrder[0])
+      .toBeLessThan(target.evaluate.mock.invocationCallOrder[4]);
+  });
+
   it("restores capture-only raster stabilization when a screenshot fails", async () => {
     const screenshotFailure = new Error("synthetic screenshot failure");
     const stableRasterState = {
