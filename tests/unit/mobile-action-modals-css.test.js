@@ -1247,7 +1247,8 @@ describe("mobile action modal CSS", () => {
       expect(source).toContain("openOverlay(element, {");
       expect(source).toContain("element.hidden = false;");
       expect(source).toContain("element.hidden = true;");
-      expect(source).toContain("closeOverlay(element, { restoreFocus: false });");
+      expect(source).toContain("const restoreFocus = !isMainDistrictPopup(element);");
+      expect(source).toContain("closeOverlay(element, { restoreFocus });");
       expect(source).toContain("changed = hideDistrictPopupModal(element) || changed;");
     }
 
