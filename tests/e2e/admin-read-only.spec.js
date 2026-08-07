@@ -16,8 +16,12 @@ test("read-only admin session and per-instance isolation", async ({ page }) => {
     if (!authenticated || sessionExpired) return failure(route, 401, "ADMIN_SESSION_EXPIRED");
     if (path === "/api/admin/overview") return json(route, 200, success(overview));
     if (path === "/api/admin/control-plane") return json(route, 200, success(controlPlane));
-    if (path.endsWith("/server%3AA") || path.endsWith("/server:A")) return json(route, 200, success(detail("server:A", 2, 10, 20, 5)));
-    if (path.endsWith("/server%3AB") || path.endsWith("/server:B")) return json(route, 200, success(detail("server:B", 5, 30, 80, 14)));
+    if (path.startsWith("/api/admin/control-plane/instances/")) return json(route, 200, success(controlPlane));
+    const instanceId = path.startsWith("/api/admin/instances/")
+      ? decodeURIComponent(path.slice("/api/admin/instances/".length))
+      : null;
+    if (instanceId === "server:A") return json(route, 200, success(detail("server:A", 2, 10, 20, 5)));
+    if (instanceId === "server:B") return json(route, 200, success(detail("server:B", 5, 30, 80, 14)));
     return failure(route, 404, "ADMIN_NOT_FOUND");
   });
 

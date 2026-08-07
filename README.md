@@ -87,8 +87,8 @@ run `nvm use` or `fnm use` so the repository version files select Node 24.
 - `npm test` runs unit, integration, server, persistence, and read-model suites.
 - `npm run test:simulation` runs the slower deterministic simulations.
 - `npm run simulate:production-chain` runs the authoritative Pharmacy -> Drug Lab -> Factory -> Armory chain and writes its invariant report.
-- `npm run test:e2e:smoke` runs the focused browser smoke suite.
-- `npm run test:e2e:full` runs all Playwright scenarios.
+- `npm run test:e2e:smoke` runs the focused public live-entry browser smoke with deterministic API responses. Guest/local-demo gameplay and onboarding fixtures are intentionally excluded; real gameplay flows belong to Hosted Acceptance and staging acceptance.
+- `npm run test:e2e:full` enumerates the development Playwright inventory, including legacy fixture scenarios; it is not a public release gate until those scenarios are migrated or retired.
 - `npm run build:admin:page` prepares the Netlify publish output in ignored `client/`.
 - `npm run verify:closed-alpha` runs the closed-alpha security and browser smoke gate.
 - `npm run verify:production-authority-cutover` checks public-host demo lockout, production fixture imports, live entrypoints, registration authority, and cookie requirements.

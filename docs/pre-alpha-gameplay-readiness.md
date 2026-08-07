@@ -106,5 +106,5 @@ Production must fail closed when identity, session, or gameplay authority is una
 - Use targeted unit/integration tests while iterating.
 - Run `npm run typecheck`, `npm run lint`, and `npm test` for repository gates.
 - Run deterministic simulations separately with `npm run test:simulation`.
-- Run focused browser smoke with `npm run test:e2e:smoke` and all scenarios with `npm run test:e2e:full` when the main game flow changes.
+- Run `npm run test:e2e:smoke` for public live entrypoints with deterministic API responses. It intentionally excludes guest/local-demo gameplay and onboarding fixtures; verify real login -> lobby -> faction -> game and authoritative actions in Hosted Acceptance and guarded staging acceptance. Keep `npm run test:e2e:full` as a non-release development inventory until every legacy scenario is migrated or retired.
 - Live Postgres tests remain excluded from default suites; their explicit npm commands fail unless `EMPIRE_TEST_DATABASE_URL` is supplied, and a skipped direct-file run is not production persistence verification.

@@ -16,9 +16,7 @@ test.afterEach(async ({ page }, testInfo) => {
 });
 
 test.describe("login smoke", () => {
-  test("renders live login and registration without runtime errors", async ({ page }) => {
-    const errors = createRuntimeErrorMonitor(page);
-    await clearStorageOnBoot(page);
+  test.beforeEach(async ({ page }) => {
     await page.route("**/api/account/registration-policy", (route) => route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -42,6 +40,11 @@ test.describe("login smoke", () => {
         errors: [{ code: "ACCOUNT_SESSION_REQUIRED", message: "Přihlášení je vyžadováno." }]
       })
     }));
+  });
+
+  test("renders live login and registration without runtime errors", async ({ page }) => {
+    const errors = createRuntimeErrorMonitor(page);
+    await clearStorageOnBoot(page);
 
     await openLoginPage(page, { serverAuthoritative: true });
     await waitForAboutController(page);
