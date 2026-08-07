@@ -334,7 +334,9 @@ async function attachOpenBuildingScreenshot({
       surfaceName === "pharmacy" ? ".pharmacy-slot__btn" : ""
     ].filter(Boolean).join(","),
     stableBackdropColor: surfaceName === "district" ? "rgb(2, 6, 12)" : "",
-    stableBackdropFilterSelector: surfaceName === "district" ? ".district-popup-action" : "",
+    stableBackdropFilterSelector: surfaceName === "district"
+      ? ".district-popup-card,.district-popup-buildings,.district-popup-action"
+      : "",
     stableRasterSelector: surfaceName === "district" ? ".district-modal-hero__image" : "",
     stableBackdropShellSelector: paritySurfaces[surfaceName].shell,
     target

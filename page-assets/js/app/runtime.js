@@ -13746,7 +13746,11 @@ function bindDistrictCanvas(root) {
     getRuntimePerformanceDiagnostics()?.recordMapRenderCycle?.(layers);
     syncPhaseHostFromAuthority(phaseHost);
     interactionState.borderColor = phaseHost.dataset.borderColor || "white";
-    interactionState.gamePhase = normalizeRuntimeGamePhase(phaseHost.dataset.gamePhase || "launch");
+    const nextGamePhase = normalizeRuntimeGamePhase(phaseHost.dataset.gamePhase || "launch");
+    if (interactionState.gamePhase !== nextGamePhase) {
+      syncInteractionDistrictAuthorityState();
+    }
+    interactionState.gamePhase = nextGamePhase;
     interactionState.animationTick = Date.now();
     if (layerSet.has("all") || layerSet.has(MAP_RENDER_LAYERS.effects) || layerSet.has(MAP_RENDER_LAYERS.state)) {
       syncMapMissionMarkers(interactionState.animationTick);
@@ -14143,7 +14147,8 @@ function bindDistrictCanvas(root) {
   window.addEventListener("empire:bounty-state-changed", () => render("ui:bounty-state-change"));
   document.addEventListener("empire:world-state-changed", (event) => {
     const nextWorldMapFingerprint = createWorldMapFingerprint();
-    if (nextWorldMapFingerprint === lastWorldMapFingerprint) {
+    const forceAuthoritySync = event?.detail?.ownedDistrictIdsChanged === true;
+    if (nextWorldMapFingerprint === lastWorldMapFingerprint && !forceAuthoritySync) {
       return;
     }
     lastWorldMapFingerprint = nextWorldMapFingerprint;

@@ -174,6 +174,18 @@ describe("district action overlay parity coverage", () => {
     expect(authoritySyncSource).toContain(launchOwnerBranchSource);
     expect(authoritySyncSource.indexOf(phaseSyncSource))
       .toBeLessThan(authoritySyncSource.indexOf(launchOwnerBranchSource));
+    expect(runtimeSource).toContain(
+      'const nextGamePhase = normalizeRuntimeGamePhase(phaseHost.dataset.gamePhase || "launch");'
+    );
+    expect(runtimeSource).toContain(
+      "if (interactionState.gamePhase !== nextGamePhase) {\n      syncInteractionDistrictAuthorityState();"
+    );
+    expect(runtimeSource).toContain(
+      "const forceAuthoritySync = event?.detail?.ownedDistrictIdsChanged === true;"
+    );
+    expect(runtimeSource).toContain(
+      "if (nextWorldMapFingerprint === lastWorldMapFingerprint && !forceAuthoritySync)"
+    );
     expect(specSource).toContain("loginAndResumeHostedUiParityGame");
     expect(specSource).toContain("fixture-backed live/demo district action overlay parity");
     expect(specSource).toContain('test.describe.configure({ mode: "serial" })');

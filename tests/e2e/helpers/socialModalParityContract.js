@@ -341,6 +341,9 @@ export async function closeSocialModalParitySurface(page, surfaceName) {
   await expect(closeButton).toBeVisible();
   await closeButton.click();
   await expect(page.locator(definition.shellSelector)).toBeHidden();
+  await page.evaluate(() => new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
+  }));
   return page.evaluate(({ expectedFocusRestore, triggerSelector }) => {
     const activeElement = document.activeElement instanceof HTMLElement
       ? document.activeElement

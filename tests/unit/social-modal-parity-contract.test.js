@@ -186,6 +186,9 @@ describe("social modal parity coverage contract", () => {
       'stableBackdropFilterSelector: definition.stableBackdropFilterSelector || ""'
     );
     expect(helperSource).toContain(
+      "requestAnimationFrame(() => requestAnimationFrame(resolve));"
+    );
+    expect(helperSource).toContain(
       'roundedCompositeSelector: definition.roundedCompositeSelector || ""'
     );
     expect(helperSource).not.toContain("mask: definition.shellSelector");
