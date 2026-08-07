@@ -2,7 +2,7 @@
 
 Generated: generated from tracked source
 
-The inventory found **146 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 25 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
+The inventory found **147 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 25 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
 
 Public releases fail closed: no wildcard origin, no loopback URL, no staging hostname in production, no implicit database or secret default, and no provider credential in a runtime scope.
 
@@ -188,6 +188,7 @@ These values are forbidden as public-runtime dependencies. Secret-like test valu
 | `GAMEPLAY_PERSISTENCE_DIR` | Local persistence tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `GITHUB_ACTIONS` | CI platform tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `GITHUB_ENV` | CI platform tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
+| `LEAVE_REGISTRATION_OPEN` | CI staging final registration policy | Protected staging release job only | No | No | Release job only; never injected into the site | None | Exact true only for an explicitly approved time-limited staging window | No; the workflow defaults fail-closed | Set independently for every staging acceptance dispatch |
 | `PLAYWRIGHT_E2E_BASE_URL` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `PLAYWRIGHT_E2E_HEALTH_URL` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `PLAYWRIGHT_E2E_HOST` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |

@@ -40,6 +40,7 @@ describe("release environment matrix", () => {
       "EMPIRE_REMOTE_STAGING_FIXTURE_DISPLAY_PREFIX",
       "EMPIRE_REMOTE_STAGING_RUN_NONCE_HASH",
       "EVIDENCE_OUTPUT",
+      "LEAVE_REGISTRATION_OPEN",
       "RELEASE_SHA"
     ];
     const matrix = createEnvironmentMatrix({
@@ -69,6 +70,10 @@ describe("release environment matrix", () => {
     expect(nonReleaseByName.get("RELEASE_SHA")).toMatchObject({
       component: "CI staging release workflow",
       safeFormat: "Exact 40-character lowercase Git commit SHA"
+    });
+    expect(nonReleaseByName.get("LEAVE_REGISTRATION_OPEN")).toMatchObject({
+      component: "CI staging final registration policy",
+      defaultAllowed: "No; the workflow defaults fail-closed"
     });
   });
 

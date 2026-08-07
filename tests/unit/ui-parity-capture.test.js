@@ -1232,7 +1232,8 @@ describe("UI parity class signature", () => {
   });
 
   it("aligns the demo identity color and waits for hosted district hydration", () => {
-    expect(openParityLocalDemo.toString()).toContain('gangColor: "#22d3ee"');
+    expect(openParityLocalDemo.toString()).toContain('gangColor = "#ef4444"');
+    expect(openParityLocalDemo.toString()).toContain("gangColor: configuredGangColor");
     expect(openParityLocalDemo.toString()).toContain("2854d1df-0f7c-4fe4-aa85-7a70dfe299db.jpg");
     expect(openParityLocalDemo.toString()).toContain("bountyDemoTargets: configuredBountyDemoTargets");
     expect(openDistrictById.toString()).toContain("openDistrictAsync");

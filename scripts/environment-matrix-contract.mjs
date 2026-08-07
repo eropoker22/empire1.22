@@ -329,6 +329,14 @@ const NON_RELEASE_TOOLING_ROWS = new Map([
     defaultAllowed: "No",
     rotation: "Use an isolated directory for each release run"
   }],
+  ["LEAVE_REGISTRATION_OPEN", {
+    component: "CI staging final registration policy",
+    stagingRequired: "Protected staging release job only",
+    netlifyScope: "Release job only; never injected into the site",
+    safeFormat: "Exact true only for an explicitly approved time-limited staging window",
+    defaultAllowed: "No; the workflow defaults fail-closed",
+    rotation: "Set independently for every staging acceptance dispatch"
+  }],
   ["RELEASE_SHA", {
     component: "CI staging release workflow",
     stagingRequired: "CI release job only",
