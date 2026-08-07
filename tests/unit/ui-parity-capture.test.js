@@ -1030,6 +1030,100 @@ describe("UI parity class signature", () => {
       .toBeLessThan(target.evaluate.mock.invocationCallOrder[4]);
   });
 
+  it("restores capture-only raster stabilization when a screenshot fails", async () => {
+    const screenshotFailure = new Error("synthetic screenshot failure");
+    const stableRasterState = {
+      entries: [{
+        filter: "saturate(1.06) brightness(0.8)",
+        filterPriority: "",
+        transform: "scale(1.015)",
+        transformPriority: ""
+      }],
+      token: "parity-raster-test"
+    };
+    const target = {
+      evaluate: vi.fn()
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce({
+          dynamicRegions: [],
+          roundedBox: { height: 100, radii: {}, width: 100 }
+        })
+        .mockResolvedValueOnce(stableRasterState)
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined),
+      screenshot: vi.fn().mockRejectedValue(screenshotFailure)
+    };
+    const page = {
+      evaluate: vi.fn().mockResolvedValue(undefined),
+      locator: vi.fn(),
+      mouse: { move: vi.fn().mockResolvedValue(undefined) }
+    };
+
+    await expect(captureIsolatedParityScreenshot(page, {
+      path: "district-surface.png",
+      stableRasterSelector: ".district-modal-hero__image",
+      target
+    })).rejects.toThrow("synthetic screenshot failure");
+
+    expect(target.evaluate).toHaveBeenCalledTimes(5);
+    expect(target.evaluate.mock.calls[2][1]).toBe(".district-modal-hero__image");
+    expect(target.evaluate.mock.calls[4][1]).toEqual(stableRasterState);
+    expect(target.evaluate.mock.invocationCallOrder[2])
+      .toBeLessThan(target.evaluate.mock.invocationCallOrder[3]);
+    expect(target.evaluate.mock.invocationCallOrder[3])
+      .toBeLessThan(target.screenshot.mock.invocationCallOrder[0]);
+    expect(target.screenshot.mock.invocationCallOrder[0])
+      .toBeLessThan(target.evaluate.mock.invocationCallOrder[4]);
+  });
+
+  it("restores the stable backdrop even when raster cleanup fails", async () => {
+    const screenshot = Buffer.from("png");
+    const rasterCleanupFailure = new Error("synthetic raster cleanup failure");
+    const stableBackdropState = {
+      backgroundColorApplied: true,
+      previousBackgroundColor: "rgba(0, 0, 0, 0)",
+      previousBackgroundColorPriority: "",
+      token: "parity-backdrop-test"
+    };
+    const stableRasterState = {
+      entries: [{ filter: "", filterPriority: "", transform: "", transformPriority: "" }],
+      token: "parity-raster-test"
+    };
+    const target = {
+      evaluate: vi.fn()
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce({
+          dynamicRegions: [],
+          roundedBox: { height: 100, radii: {}, width: 100 }
+        })
+        .mockResolvedValueOnce(stableBackdropState)
+        .mockResolvedValueOnce(stableRasterState)
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(rasterCleanupFailure)
+        .mockResolvedValueOnce(undefined),
+      screenshot: vi.fn().mockResolvedValue(screenshot)
+    };
+    const page = {
+      evaluate: vi.fn().mockResolvedValue(undefined),
+      locator: vi.fn(),
+      mouse: { move: vi.fn().mockResolvedValue(undefined) }
+    };
+
+    await expect(captureIsolatedParityScreenshot(page, {
+      path: "district-surface.png",
+      stableBackdropColor: "rgb(2, 6, 12)",
+      stableBackdropShellSelector: "[data-district-popup]",
+      stableRasterSelector: ".district-modal-hero__image",
+      target
+    })).rejects.toThrow("synthetic raster cleanup failure");
+
+    expect(target.evaluate).toHaveBeenCalledTimes(7);
+    expect(target.evaluate.mock.calls[6][1]).toEqual({
+      shellSelector: "[data-district-popup]",
+      state: stableBackdropState
+    });
+  });
+
   it("keeps path and scroll parity checks lossless", () => {
     expect(getParityDomStructureSignature.toString()).toContain("unmatched-");
     expect(getParityDomStructureSignature.toString()).toContain("maxScrollTop");

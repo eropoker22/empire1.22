@@ -1006,6 +1006,10 @@ export function initBountyRuntime() {
     if (uiState.isConfirmOpen) {
       closeConfirmModal(options);
     }
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement && modal.contains(activeElement)) {
+      activeElement.blur();
+    }
     modal.classList.add("hidden");
     modal.hidden = true;
     closeOverlay(modal, {

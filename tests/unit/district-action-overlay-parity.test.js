@@ -143,6 +143,12 @@ describe("district action overlay parity coverage", () => {
     expect(helperSource).toContain("point.insideViewport");
     expect(helperSource).toContain("page.mouse.click(point.x, point.y)");
     expect(helperSource).toContain("[data-district-action-id=\"");
+    expect(helperSource).toContain('gamePhase: "launch"');
+    expect(helperSource).toContain("new Map(state.launchOwners || [])");
+    expect(helperSource).toContain("launchOwners.get(25)");
+    expect(helperSource).toContain("launchOwners.get(45)");
+    expect(helperSource).toContain("launchOwner25: 3");
+    expect(helperSource).toContain("launchOwner45: 9");
     expect(helperSource).toContain("stableBackdropShellSelector: definition.shellSelector");
     expect(helperSource).toContain('not.toHaveClass(/\\bgame-mobile-close-guard\\b/u)');
     expect(helperSource).not.toContain("/api/gameplay-slice/submit");

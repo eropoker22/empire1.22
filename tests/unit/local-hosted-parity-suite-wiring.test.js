@@ -120,6 +120,18 @@ describe("local-hosted presentation parity suite wiring", () => {
     expect(nonSpawnParitySpecSource).toContain("Unknown non-spawn parity matrix keys");
   });
 
+  it("compares phase heat base against the precise authoritative passive projection", () => {
+    expect(nonSpawnParitySpecSource).toContain(
+      'expected["phase-heat-base"] = normalizeProjectedRate(passive.heatPerDay)'
+    );
+    expect(nonSpawnParitySpecSource).toContain(
+      "Rounded phase Heat stat does not match the authoritative passive projection"
+    );
+    expect(nonSpawnParitySpecSource).not.toContain(
+      'expected["phase-heat-base"] = parseNumber(phaseHeatMatch?.[1])'
+    );
+  });
+
   it("runs guarded social races with five authoritative identities", () => {
     const suiteSource = getHostedSuiteSource("social-concurrency-privacy");
 

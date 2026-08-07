@@ -492,6 +492,22 @@ describe("shared building presentation adapters", () => {
         "Vliv +80/den"
       ])
     );
+
+    const fractionalHeatDetail = createServerBuildingDetail({
+      baseName: "Recyklační centrum",
+      buildingTypeId: "recycling_center",
+      passive: {
+        cleanPerHour: 2_400,
+        dirtyPerHour: 0,
+        heatPerDay: 105.984,
+        influencePerDay: 0
+      },
+      stats: [{ label: "Efekt fáze", value: "Heat 106.0/den -> 100/den" }]
+    });
+
+    expect(fractionalHeatDetail.viewModel.effects.map((effect) => effect.text)).toContain(
+      "DEN: heat 105.98/den -> 100/den"
+    );
   });
 
   it("uses authoritative owned count instead of parsing visible stat labels", () => {

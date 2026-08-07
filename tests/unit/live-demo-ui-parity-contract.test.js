@@ -19,8 +19,22 @@ describe("live/demo UI parity source contract", () => {
   });
 
   it("stabilizes the shared building and City Events screenshot backdrops", () => {
+    expect(parityCapture).toContain('gamePhase = "live"');
+    expect(parityCapture).toContain("gamePhase: configuredGamePhase");
     expect(paritySpec).toContain(
       "stableBackdropShellSelector: paritySurfaces[surfaceName].shell"
+    );
+    expect(paritySpec).toContain(
+      'stableRasterSelector: surfaceName === "district" ? ".district-modal-hero__image" : ""'
+    );
+    expect(parityCapture).toContain(
+      'setProperty("filter", "none", "important")'
+    );
+    expect(parityCapture).toContain(
+      'setProperty("transform", "none", "important")'
+    );
+    expect(parityCapture).toContain(
+      'removeAttribute("data-parity-capture-stable-raster")'
     );
     expect(paritySpec).toContain(
       'surfaceName === "pharmacy" ? ".pharmacy-slot__quantity-btn" : ""'

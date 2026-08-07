@@ -551,6 +551,9 @@ async function collectBuildingAuthorityEvidence(page, surfaceName, buildingTypeI
       const parsed = Number(normalized);
       return Number.isFinite(parsed) ? parsed : null;
     };
+    const normalizeProjectedRate = (value) => Number(
+      Math.max(0, Number(value) || 0).toFixed(2)
+    );
     const normalizeText = (value) => String(value || "").replace(/\s+/gu, " ").trim();
     const formatMoney = (value) => {
       const amount = Math.max(0, Math.floor(Number(value) || 0));
@@ -588,14 +591,10 @@ async function collectBuildingAuthorityEvidence(page, surfaceName, buildingTypeI
         );
       }
       if (/^Vliv\s+[+-]?[0-9]/u.test(effectText)) {
-        expected["influence-rate"] = Number(
-          Math.max(0, Number(passive.influencePerDay || 0)).toFixed(2)
-        );
+        expected["influence-rate"] = normalizeProjectedRate(passive.influencePerDay);
       }
       if (/^Heat\s+[+-]?[0-9]/u.test(effectText)) {
-        expected["heat-rate"] = Number(
-          Math.max(0, Number(passive.heatPerDay || 0)).toFixed(2)
-        );
+        expected["heat-rate"] = normalizeProjectedRate(passive.heatPerDay);
       }
     }
 
@@ -628,7 +627,16 @@ async function collectBuildingAuthorityEvidence(page, surfaceName, buildingTypeI
         `heat\\s+${numberPattern}\\/den\\s+->\\s+${numberPattern}\\/den`,
         "iu"
       ));
-      expected["phase-heat-base"] = parseNumber(phaseHeatMatch?.[1]);
+      const projectedHeatBase = normalizeProjectedRate(passive.heatPerDay);
+      const roundedPhaseStatHeatBase = Number(
+        Math.max(0, Number(passive.heatPerDay) || 0).toFixed(1)
+      );
+      if (!Object.is(parseNumber(phaseHeatMatch?.[1]), roundedPhaseStatHeatBase)) {
+        throw new Error(
+          `Rounded phase Heat stat does not match the authoritative passive projection for ${expectedBuildingTypeId}.`
+        );
+      }
+      expected["phase-heat-base"] = projectedHeatBase;
       expected["phase-heat-effective"] = parseNumber(phaseHeatMatch?.[2]);
     }
 

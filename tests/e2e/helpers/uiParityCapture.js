@@ -830,6 +830,7 @@ export const paritySurfaces = Object.freeze({
 
 export async function openParityLocalDemo(page, {
   bountyDemoTargets,
+  gamePhase = "live",
   ownedDistrictIds = [21, 66, 68],
   startDistrictId = ownedDistrictIds[0] || 21,
   gangColor = "#ef4444",
@@ -841,6 +842,7 @@ export async function openParityLocalDemo(page, {
   await page.addInitScript(({
     sessionKey,
     scopedSessionKey,
+    gamePhase: configuredGamePhase,
     ownedDistrictIds: configuredOwnedDistrictIds,
     startDistrictId: configuredStartDistrictId,
     gangColor: configuredGangColor,
@@ -885,7 +887,7 @@ export async function openParityLocalDemo(page, {
       world: {
         ownedDistrictIds: configuredOwnedDistrictIds,
         phaseState: {
-          gamePhase: "live",
+          gamePhase: configuredGamePhase,
           mapPhase: configuredMapPhase,
           cityDayIndex: configuredMarketCityDayIndex,
           cityMinutes: configuredMarketCityMinutes
@@ -955,6 +957,7 @@ export async function openParityLocalDemo(page, {
   }, {
     sessionKey: SESSION_KEY,
     scopedSessionKey: SCOPED_SESSION_KEY,
+    gamePhase,
     ownedDistrictIds,
     startDistrictId,
     gangColor,
@@ -1728,6 +1731,7 @@ export async function captureIsolatedParityScreenshot(page, {
   path: screenshotPath,
   stableBackdropColor = "",
   roundedCompositeSelector = "",
+  stableRasterSelector = "",
   stableBackdropShellSelector = "",
   target
 }) {
@@ -1788,8 +1792,30 @@ export async function captureIsolatedParityScreenshot(page, {
       shellSelector: stableBackdropShellSelector
     });
   }
+  let stableRasterState = null;
   try {
-    if (stableBackdropState) {
+    if (stableRasterSelector) {
+      stableRasterState = await target.evaluate((targetElement, selector) => {
+        const token = `parity-raster-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const elements = [
+          ...(targetElement.matches(selector) ? [targetElement] : []),
+          ...targetElement.querySelectorAll(selector)
+        ];
+        const entries = elements.map((element) => ({
+          filter: element.style.getPropertyValue("filter"),
+          filterPriority: element.style.getPropertyPriority("filter"),
+          transform: element.style.getPropertyValue("transform"),
+          transformPriority: element.style.getPropertyPriority("transform")
+        }));
+        elements.forEach((element) => {
+          element.setAttribute("data-parity-capture-stable-raster", token);
+          element.style.setProperty("filter", "none", "important");
+          element.style.setProperty("transform", "none", "important");
+        });
+        return { entries, token };
+      }, stableRasterSelector);
+    }
+    if (stableBackdropState || stableRasterState) {
       await settleFiniteAnimations(target);
     }
     const screenshot = await target.screenshot({
@@ -1800,48 +1826,72 @@ export async function captureIsolatedParityScreenshot(page, {
     });
     return { ignoreRegions, screenshot };
   } finally {
-    if (stableBackdropShellSelector) {
-      await target.evaluate((targetElement, config) => {
-        const token = CSS.escape(config.state.token);
-        const shell = targetElement.closest(config.shellSelector);
-        if (config.state.backgroundColorApplied && shell instanceof HTMLElement) {
-          if (config.state.previousBackgroundColor) {
-            shell.style.setProperty(
-              "background-color",
-              config.state.previousBackgroundColor,
-              config.state.previousBackgroundColorPriority
-            );
-          } else {
-            shell.style.removeProperty("background-color");
-          }
-        }
-        document
-          .querySelectorAll(`[data-parity-capture-hidden="${token}"]`)
-          .forEach((element) => {
-            const restoreProperty = (propertyName, valueAttribute, priorityAttribute) => {
-              const value = element.getAttribute(valueAttribute) || "";
-              const priority = element.getAttribute(priorityAttribute) || "";
-              if (value) element.style.setProperty(propertyName, value, priority);
-              else element.style.removeProperty(propertyName);
-              element.removeAttribute(valueAttribute);
-              element.removeAttribute(priorityAttribute);
-            };
-            restoreProperty(
-              "opacity",
-              "data-parity-capture-previous-opacity",
-              "data-parity-capture-previous-opacity-priority"
-            );
-            restoreProperty(
-              "pointer-events",
-              "data-parity-capture-previous-pointer-events",
-              "data-parity-capture-previous-pointer-events-priority"
-            );
-            element.removeAttribute("data-parity-capture-hidden");
+    try {
+      if (stableRasterState) {
+        await target.evaluate((targetElement, state) => {
+          const restoreProperty = (element, propertyName, value, priority) => {
+            if (value) element.style.setProperty(propertyName, value, priority);
+            else element.style.removeProperty(propertyName);
+          };
+          const selector = `[data-parity-capture-stable-raster="${CSS.escape(state.token)}"]`;
+          const elements = [
+            ...(targetElement.matches(selector) ? [targetElement] : []),
+            ...targetElement.querySelectorAll(selector)
+          ];
+          elements.forEach((element, index) => {
+            const entry = state.entries[index];
+            if (entry) {
+              restoreProperty(element, "filter", entry.filter, entry.filterPriority);
+              restoreProperty(element, "transform", entry.transform, entry.transformPriority);
+            }
+            element.removeAttribute("data-parity-capture-stable-raster");
           });
-      }, {
-        shellSelector: stableBackdropShellSelector,
-        state: stableBackdropState
-      });
+        }, stableRasterState);
+      }
+    } finally {
+      if (stableBackdropShellSelector) {
+        await target.evaluate((targetElement, config) => {
+          const token = CSS.escape(config.state.token);
+          const shell = targetElement.closest(config.shellSelector);
+          if (config.state.backgroundColorApplied && shell instanceof HTMLElement) {
+            if (config.state.previousBackgroundColor) {
+              shell.style.setProperty(
+                "background-color",
+                config.state.previousBackgroundColor,
+                config.state.previousBackgroundColorPriority
+              );
+            } else {
+              shell.style.removeProperty("background-color");
+            }
+          }
+          document
+            .querySelectorAll(`[data-parity-capture-hidden="${token}"]`)
+            .forEach((element) => {
+              const restoreProperty = (propertyName, valueAttribute, priorityAttribute) => {
+                const value = element.getAttribute(valueAttribute) || "";
+                const priority = element.getAttribute(priorityAttribute) || "";
+                if (value) element.style.setProperty(propertyName, value, priority);
+                else element.style.removeProperty(propertyName);
+                element.removeAttribute(valueAttribute);
+                element.removeAttribute(priorityAttribute);
+              };
+              restoreProperty(
+                "opacity",
+                "data-parity-capture-previous-opacity",
+                "data-parity-capture-previous-opacity-priority"
+              );
+              restoreProperty(
+                "pointer-events",
+                "data-parity-capture-previous-pointer-events",
+                "data-parity-capture-previous-pointer-events-priority"
+              );
+              element.removeAttribute("data-parity-capture-hidden");
+            });
+        }, {
+          shellSelector: stableBackdropShellSelector,
+          state: stableBackdropState
+        });
+      }
     }
   }
 }

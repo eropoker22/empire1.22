@@ -358,6 +358,7 @@ export async function openLocalDemoDistrictActionParityRole(page, roleName, {
     }
   };
   await openParityLocalDemo(page, {
+    gamePhase: "launch",
     mapPhase,
     ownedDistrictIds: role.ownedDistrictIds,
     startDistrictId: role.startDistrictId,
@@ -408,11 +409,19 @@ export async function openLocalDemoDistrictActionParityRole(page, roleName, {
     configuredMapPhase: mapPhase,
     configuredRole: role
   });
-  await expect.poll(() => page.evaluate(() => ({
-    gamePhase: window.empireStreetsDistrictState?.getState?.().gamePhase || "",
-    ownedDistrictIds: window.empireStreetsDistrictState?.getState?.().ownedDistrictIds || []
-  }))).toEqual({
+  await expect.poll(() => page.evaluate(() => {
+    const state = window.empireStreetsDistrictState?.getState?.() || {};
+    const launchOwners = new Map(state.launchOwners || []);
+    return {
+      gamePhase: state.gamePhase || "",
+      launchOwner25: launchOwners.get(25) || null,
+      launchOwner45: launchOwners.get(45) || null,
+      ownedDistrictIds: state.ownedDistrictIds || []
+    };
+  })).toEqual({
     gamePhase: "launch",
+    launchOwner25: 3,
+    launchOwner45: 9,
     ownedDistrictIds: [...role.ownedDistrictIds]
   });
 }
