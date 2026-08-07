@@ -88,6 +88,14 @@ export function createBountyEscrowPresentation(activeTotal) {
   };
 }
 
+export function resetBountyModalContentScroll(content) {
+  if (!content || typeof content !== "object" || !("scrollTop" in content)) {
+    return false;
+  }
+  content.scrollTop = 0;
+  return true;
+}
+
 function formatDurationMs(ms) {
   const totalSeconds = Math.max(0, Math.ceil(Number(ms || 0) / 1000));
   if (totalSeconds <= 0) {
@@ -967,6 +975,18 @@ export function initBountyRuntime() {
     publishBountyState();
   };
 
+  const resetModalContentScroll = ({ confirmAfterLayout = false } = {}) => {
+    resetBountyModalContentScroll(modalContent);
+    if (!confirmAfterLayout || typeof window.requestAnimationFrame !== "function") {
+      return;
+    }
+    window.requestAnimationFrame(() => {
+      if (!isDestroyed && uiState.isOpen) {
+        resetBountyModalContentScroll(modalContent);
+      }
+    });
+  };
+
   const stopRefreshTimer = () => {
     if (uiState.refreshTimerId !== null) {
       window.clearInterval(uiState.refreshTimerId);
@@ -996,9 +1016,7 @@ export function initBountyRuntime() {
     uiState.isOpen = true;
     syncTabs();
     refreshView();
-    if (modalContent instanceof HTMLElement) {
-      modalContent.scrollTop = 0;
-    }
+    resetModalContentScroll({ confirmAfterLayout: true });
     startRefreshTimer();
   };
 
@@ -1287,6 +1305,7 @@ export function initBountyRuntime() {
       const nextTab = String(button.dataset.bountyTab || "create");
       uiState.activeTab = nextTab === "active" ? "active" : "create";
       syncTabs();
+      resetModalContentScroll({ confirmAfterLayout: true });
     });
   });
   addListener(targetSelect, "change", () => {

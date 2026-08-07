@@ -4,11 +4,20 @@ import { describe, expect, it } from "vitest";
 import {
   createBountyBoardRenderSignature,
   createBountyEscrowPresentation,
+  resetBountyModalContentScroll,
   resolveBountyAvatarSrc,
   resolveBountyPlayerCleanCash
 } from "../../page-assets/js/app/bounty-runtime.js";
 
 describe("bounty demo and hosted presentation parity", () => {
+  it("returns the shared modal content to the top after a tab transition", () => {
+    const content = { scrollTop: 22 };
+
+    expect(resetBountyModalContentScroll(content)).toBe(true);
+    expect(content.scrollTop).toBe(0);
+    expect(resetBountyModalContentScroll(null)).toBe(false);
+  });
+
   it("keeps authoritative target labels from widening the shared picker", () => {
     const css = readFileSync(resolve("page-assets/css/styles-bounty.css"), "utf8");
     expect(css).toMatch(/\.bounty-board__target-menu,[\s\S]*?min-width: 0;[\s\S]*?max-width: 100%;/u);
