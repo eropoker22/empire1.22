@@ -76,6 +76,12 @@ describe("standalone gameplay runtime lifecycle", () => {
   it("keeps one bounty timer and listener set across page lifecycle cycles", async () => {
     const setIntervalSpy = vi.spyOn(window, "setInterval");
     const clearIntervalSpy = vi.spyOn(window, "clearInterval");
+    const getBountyRefreshTimerResults = () => setIntervalSpy.mock.calls.reduce((results, call, index) => {
+      if (call[1] === 1_000) {
+        results.push(setIntervalSpy.mock.results[index]?.value);
+      }
+      return results;
+    }, []);
     window.empireStreetsGameplaySliceReadModel = {
       bounty: {
         minRewardCleanCash: 5_000,
@@ -150,7 +156,6 @@ describe("standalone gameplay runtime lifecycle", () => {
     const modal = document.getElementById("bounty-modal");
     const modalContent = modal.querySelector(".bounty-board__content");
     const mountedCleanup = bountyModule.initBountyRuntime();
-    const initialIntervalCalls = setIntervalSpy.mock.calls.length;
     const initialClearIntervalCalls = clearIntervalSpy.mock.calls.length;
 
     expect(typeof mountedCleanup).toBe("function");
@@ -158,7 +163,7 @@ describe("standalone gameplay runtime lifecycle", () => {
     openButton.click();
     expect(modal.hidden).toBe(false);
     expect(modalContent.scrollTop).toBe(0);
-    expect(setIntervalSpy).toHaveBeenCalledTimes(initialIntervalCalls + 1);
+    expect(getBountyRefreshTimerResults()).toHaveLength(1);
     const stableCancelButton = document.querySelector('[data-bounty-cancel="bounty:stable"]');
     const stableRemainingLabel = document.querySelector("[data-bounty-remaining]");
     expect(stableCancelButton).toBeInstanceOf(HTMLButtonElement);
@@ -182,6 +187,7 @@ describe("standalone gameplay runtime lifecycle", () => {
     window.dispatchEvent(new Event("pagehide"));
     expect(modal.hidden).toBe(true);
     expect(clearIntervalSpy).toHaveBeenCalledTimes(initialClearIntervalCalls + 1);
+    expect(clearIntervalSpy).toHaveBeenCalledWith(getBountyRefreshTimerResults()[0]);
     openButton.click();
     expect(modal.hidden).toBe(true);
 
@@ -191,13 +197,13 @@ describe("standalone gameplay runtime lifecycle", () => {
     expect(remountedCleanup).not.toBe(mountedCleanup);
     openButton.click();
     expect(modal.hidden).toBe(false);
-    expect(setIntervalSpy).toHaveBeenCalledTimes(initialIntervalCalls + 2);
+    expect(getBountyRefreshTimerResults()).toHaveLength(2);
 
     window.dispatchEvent(new Event("pagehide"));
     window.dispatchEvent(new Event("pageshow"));
     openButton.click();
     expect(modal.hidden).toBe(false);
-    expect(setIntervalSpy).toHaveBeenCalledTimes(initialIntervalCalls + 3);
+    expect(getBountyRefreshTimerResults()).toHaveLength(3);
     const closeButton = document.getElementById("bounty-modal-close");
     closeButton.focus();
     expect(document.activeElement).toBe(closeButton);
