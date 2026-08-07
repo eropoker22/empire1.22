@@ -96,8 +96,11 @@ projde:
 4. deploy pouze na staging Netlify/API/Fly worker;
 5. canonical 20p registraci, full lifecycle, concurrency, recovery, mobile a
    load/soak acceptance;
-6. invariant checker, archivaci disposable serverů a ověření zavřené globální
-   registrace.
+6. invariant checker, archivaci disposable serverů a ověření explicitně
+   zvolené finální registrační policy. Výchozí režim je fail-closed; pro
+   schválený staging playtest lze ponechat pouze stále platné časově omezené
+   okno otevřené. Takový artefakt neopravňuje produkční deploy, který nadále
+   vyžaduje `registrationClosed=true`.
 
 Produkční deploy, produkční databáze, produkční worker a DNS nejsou součástí
 tohoto gate.

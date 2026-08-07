@@ -2,7 +2,7 @@
 
 Generated: generated from tracked source
 
-The inventory found **144 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 25 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
+The inventory found **146 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 25 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
 
 Public releases fail closed: no wildcard origin, no loopback URL, no staging hostname in production, no implicit database or secret default, and no provider credential in a runtime scope.
 
@@ -164,8 +164,10 @@ These values are forbidden as public-runtime dependencies. Secret-like test valu
 | `EMPIRE_PERSISTENCE_DIR` | Local persistence tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_PLAYER_ENTRY_LIVE_E2E` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_PLAYWRIGHT_RELEASE_SUMMARY` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
+| `EMPIRE_PRE_ALPHA_FINAL_REGISTRATION_MODE` | Canonical pre-alpha staging final registration policy selector | Gate invocation only | No | No | Protected staging release job only; never injected into the site | None | closed or open; defaults fail-closed to closed | Yes; closed | Set to open only for an explicitly approved time-limited staging window |
 | `EMPIRE_PRE_ALPHA_STAGING_ARTIFACT_ROOT` | Canonical pre-alpha staging gate artifacts | Gate invocation only | No | No | Protected staging release job only; never injected into the site | None | Repository-relative artifact directory under artifacts/ | Yes; artifacts/pre-alpha-staging | Use an isolated directory for each release run |
-| `EMPIRE_PRE_ALPHA_STAGING_CLOSED_EVIDENCE_PATH` | Canonical pre-alpha staging registration evidence | Gate invocation only | No | No | Protected staging release job only; never injected into the site | None | Path to downloaded closed-registration JSON evidence | No | Regenerate for each exact release SHA |
+| `EMPIRE_PRE_ALPHA_STAGING_CLOSED_EVIDENCE_PATH` | Legacy closed-only pre-alpha staging registration evidence fallback | Gate invocation only | No | No | Protected staging release job only; never injected into the site | None | Path to downloaded closed-registration JSON evidence | No | Regenerate for each exact release SHA |
+| `EMPIRE_PRE_ALPHA_STAGING_FINAL_REGISTRATION_EVIDENCE_PATH` | Canonical pre-alpha staging final registration evidence | Gate invocation only | No | No | Protected staging release job only; never injected into the site | None | Path to exact-SHA automated final verdict JSON with the selected registration policy | No | Regenerate for each exact release SHA |
 | `EMPIRE_PRE_ALPHA_STAGING_FLY_APP` | Protected staging Fly target pin | Remote gate only | No | No | Protected staging release job only; never injected into the site | None | Exact lowercase staging Fly app name equal to FLY_STAGING_APP | No | Set explicitly for each guarded remote invocation |
 | `EMPIRE_PRE_ALPHA_STAGING_REMOTE_APPROVED` | Protected staging remote-mutation approval guard | Remote gate only | No | No | Protected staging release job only; never injected into the site | None | Exact staging-only-remote-acceptance guard value | No | Set explicitly for each guarded remote invocation |
 | `EMPIRE_PRODUCTION_AUTHORITY_PREFLIGHT_STRICT` | Local development or verification tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |

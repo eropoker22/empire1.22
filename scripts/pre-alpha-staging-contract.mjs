@@ -6,6 +6,7 @@ import { REMOTE_STAGING_ACCEPTANCE_SUITES } from "./remote-staging-acceptance-su
 export const PRE_ALPHA_STAGING_ORIGIN = "https://staging.empirestreets.cz";
 export const PRE_ALPHA_STAGING_REMOTE_GUARD = "staging-only-remote-acceptance";
 export const PRE_ALPHA_STAGING_FIXTURE_GUARD = "staging-only-fixture-write";
+export const PRE_ALPHA_FINAL_REGISTRATION_MODES = Object.freeze(["closed", "open"]);
 export const PRE_ALPHA_REQUIRED_REMOTE_SUITE_NAMES = Object.freeze([
   "manual-admin-player",
   "canonical-20p-registration",
@@ -321,14 +322,37 @@ export const validateRemoteReleaseEvidence = (evidence, buildSha) => {
   return true;
 };
 
-export const validateClosedRegistrationEvidence = (evidence, buildSha) => {
+export const validateFinalRegistrationEvidence = (
+  evidence,
+  buildSha,
+  expectedMode = "closed",
+  now = new Date()
+) => {
+  if (!PRE_ALPHA_FINAL_REGISTRATION_MODES.includes(expectedMode)) {
+    throw new Error("PRE_ALPHA_STAGING_FINAL_REGISTRATION_MODE_INVALID");
+  }
   const recordedSuites = Array.isArray(evidence?.requiredRemoteSuites)
     ? [...evidence.requiredRemoteSuites].sort()
     : [];
   const expectedSuites = [...PRE_ALPHA_ALL_REMOTE_SUITE_NAMES].sort();
   const jobResults = evidence?.jobResults;
+  const registrationOpen = expectedMode === "open";
+  const verifiedAtMs = Date.parse(String(evidence?.verifiedAt ?? ""));
+  const validationNowMs = now instanceof Date ? now.getTime() : Date.parse(String(now ?? ""));
+  const expiresAtValue = evidence?.registrationExpiresAt;
+  const validExpiry = registrationOpen
+    ? validatePublicRegistrationWindow({
+      enabled: true,
+      expiresAt: expiresAtValue,
+      now
+    }).valid
+    : expiresAtValue === null;
   if (!evidence || evidence.status !== "automated-pass" || evidence.environment !== "staging"
-    || evidence.buildSha !== buildSha || evidence.registrationClosed !== true
+    || evidence.buildSha !== buildSha || evidence.registrationMode !== expectedMode
+    || evidence.registrationOpen !== registrationOpen || evidence.registrationClosed !== !registrationOpen
+    || !Number.isFinite(verifiedAtMs) || new Date(verifiedAtMs).toISOString() !== evidence.verifiedAt
+    || !Number.isFinite(validationNowMs) || verifiedAtMs > validationNowMs + 5 * 60_000
+    || !validExpiry
     || !/^\d+$/u.test(String(evidence.workflowRunId ?? ""))
     || JSON.stringify(recordedSuites) !== JSON.stringify(expectedSuites)
     || !jobResults
@@ -337,10 +361,18 @@ export const validateClosedRegistrationEvidence = (evidence, buildSha) => {
     || jobResults.remoteSuites !== "success"
     || jobResults.workerRedeploy !== "success"
     || jobResults.loadSoak !== "success"
-    || jobResults.closeRegistration !== "success") {
-    throw new Error("PRE_ALPHA_STAGING_CLOSED_EVIDENCE_INVALID");
+    || jobResults.finalizeRegistrationPolicy !== "success") {
+    throw new Error("PRE_ALPHA_STAGING_FINAL_REGISTRATION_EVIDENCE_INVALID");
   }
   return true;
+};
+
+export const validateClosedRegistrationEvidence = (evidence, buildSha) => {
+  try {
+    return validateFinalRegistrationEvidence(evidence, buildSha, "closed");
+  } catch {
+    throw new Error("PRE_ALPHA_STAGING_CLOSED_EVIDENCE_INVALID");
+  }
 };
 
 export const validateRemoteLoadEvidence = (evidence, buildSha) => {

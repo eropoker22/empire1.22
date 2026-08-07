@@ -254,10 +254,26 @@ const NON_RELEASE_TOOLING_ROWS = new Map([
     rotation: "Use an isolated directory for each release run"
   }],
   ["EMPIRE_PRE_ALPHA_STAGING_CLOSED_EVIDENCE_PATH", {
-    component: "Canonical pre-alpha staging registration evidence",
+    component: "Legacy closed-only pre-alpha staging registration evidence fallback",
     stagingRequired: "Gate invocation only",
     netlifyScope: "Protected staging release job only; never injected into the site",
     safeFormat: "Path to downloaded closed-registration JSON evidence",
+    defaultAllowed: "No",
+    rotation: "Regenerate for each exact release SHA"
+  }],
+  ["EMPIRE_PRE_ALPHA_FINAL_REGISTRATION_MODE", {
+    component: "Canonical pre-alpha staging final registration policy selector",
+    stagingRequired: "Gate invocation only",
+    netlifyScope: "Protected staging release job only; never injected into the site",
+    safeFormat: "closed or open; defaults fail-closed to closed",
+    defaultAllowed: "Yes; closed",
+    rotation: "Set to open only for an explicitly approved time-limited staging window"
+  }],
+  ["EMPIRE_PRE_ALPHA_STAGING_FINAL_REGISTRATION_EVIDENCE_PATH", {
+    component: "Canonical pre-alpha staging final registration evidence",
+    stagingRequired: "Gate invocation only",
+    netlifyScope: "Protected staging release job only; never injected into the site",
+    safeFormat: "Path to exact-SHA automated final verdict JSON with the selected registration policy",
     defaultAllowed: "No",
     rotation: "Regenerate for each exact release SHA"
   }],

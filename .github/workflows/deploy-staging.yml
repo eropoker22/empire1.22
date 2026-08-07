@@ -201,10 +201,15 @@ jobs:
           curl --fail --silent --show-error \
             --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
             "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}" -o "$site"
-          jq -e --arg id "$NETLIFY_SITE_ID" --arg origin "$STAGING_ORIGIN" '
+          jq -e --arg id "$NETLIFY_SITE_ID" '
+            def normalized_host:
+              if type != "string" then ""
+              else ascii_downcase | sub("^https?://"; "") | sub("/.*$"; "") | sub("\\.$"; "")
+              end;
+            ([.custom_domain, .url, .ssl_url] + (.domain_aliases // []) | map(normalized_host)) as $hosts |
             .id == $id and
-            ([.custom_domain, .url, .ssl_url] | any(. == "staging.empirestreets.cz" or . == $origin)) and
-            ([.custom_domain, .url, .ssl_url] | all(. != "empirestreets.cz" and . != "https://empirestreets.cz"))
+            ($hosts | any(. == "staging.empirestreets.cz")) and
+            ($hosts | all(. != "empirestreets.cz" and . != "www.empirestreets.cz"))
           ' "$site" >/dev/null
           rm -f "$site"
 

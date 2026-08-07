@@ -185,7 +185,7 @@ describe("public release workflows", () => {
     expect(remote).toContain("staging-pre-alpha-code-${{ env.RELEASE_SHA }}");
   });
 
-  it("measures staging load and closes registration on every completed gate path", () => {
+  it("measures staging load and finalizes the explicitly selected registration policy", () => {
     expect(remote).toContain("npm run test:remote-staging:load-soak");
     expect(remote).toContain("EMPIRE_REMOTE_MAX_DB_CONNECTIONS");
     expect(remote).toContain("EMPIRE_REMOTE_MAX_WORKER_MEMORY_BYTES");
@@ -196,13 +196,31 @@ describe("public release workflows", () => {
     expect(remote).toContain('.performance.metrics.actionMix.distinctAcceptedActionCount >= 4');
     expect(remote).toContain('.performance.metrics.rejectionClassification.unexpected == 0');
     expect(remote).toContain("EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT");
-    const closeJob = remote.slice(remote.indexOf("  close-registration:"), remote.indexOf("  automated-verdict:"));
-    expect(closeJob).toContain("if: always() && needs.gate.result == 'success'");
-    expect(closeJob).toContain("EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false");
-    expect(closeJob).toContain("env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT");
-    expect(closeJob).toContain("staging-registration-build-${RELEASE_SHA}");
-    expect(closeJob).toContain(".data.registrationEnabled == false");
-    expect(closeJob).toContain("npm run verify:remote-release");
+    const finalPolicyInput = remote.slice(
+      remote.indexOf("      leave_registration_open:"), remote.indexOf("permissions:")
+    );
+    expect(finalPolicyInput).toContain("required: true");
+    expect(finalPolicyInput).toContain("default: false");
+    expect(finalPolicyInput).toContain("type: boolean");
+    const finalizationJob = remote.slice(
+      remote.indexOf("  finalize-registration-policy:"), remote.indexOf("  automated-verdict:")
+    );
+    expect(finalizationJob).toContain("if: always() && needs.gate.result == 'success'");
+    expect(finalizationJob).toContain("if: env.LEAVE_REGISTRATION_OPEN != 'true'");
+    expect(finalizationJob).toContain("EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false");
+    expect(finalizationJob).toContain("env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT");
+    expect(finalizationJob).toContain("staging-registration-build-${RELEASE_SHA}");
+    expect(finalizationJob).toContain('expected_mode="open"');
+    expect(finalizationJob).toContain('expected_enabled="true"');
+    expect(finalizationJob).toContain("validatePublicRegistrationWindow");
+    expect(finalizationJob).toContain("npm run verify:remote-release");
+    expect(finalizationJob).toContain("staging-registration-final-${{ env.RELEASE_SHA }}");
+    const immutableBuildDownload = finalizationJob.slice(
+      finalizationJob.indexOf("      - name: Download immutable registration build"),
+      finalizationJob.indexOf("      - name: Verify exact staging Netlify site target before closure mutation")
+    );
+    expect(immutableBuildDownload).not.toContain("if: env.LEAVE_REGISTRATION_OPEN != 'true'");
+    expect(remote.match(/EMPIRE_HOSTED_WORKER_REGION: fra/gu)).toHaveLength(2);
     expect(remote).toContain('manualNetlifyObservabilityReview:"required-before-production"');
   });
 
@@ -213,7 +231,7 @@ describe("public release workflows", () => {
       "staging-remote-full-lifecycle-20p-${RELEASE_SHA}",
       "staging-remote-social-concurrency-privacy-${RELEASE_SHA}",
       "staging-load-soak-${RELEASE_SHA}",
-      "staging-registration-closed-${RELEASE_SHA}",
+      "staging-registration-final-${RELEASE_SHA}",
       "staging-remote-final-${RELEASE_SHA}",
       "staging-release-${RELEASE_SHA}"
     ]) expect(remote).toContain(artifact);
@@ -255,7 +273,11 @@ describe("public release workflows", () => {
     expect(remote.match(/https:\/\/api\.netlify\.com\/api\/v1\/sites\/\$\{NETLIFY_SITE_ID\}/gu))
       .toHaveLength(2);
     expect(remote.match(/\.id == \$id/gu)).toHaveLength(2);
+    expect(remote.match(/\.domain_aliases \/\/ \[\]/gu)).toHaveLength(2);
+    expect(remote.match(/\. != "www\.empirestreets\.cz"/gu)).toHaveLength(2);
     expect(remote.match(/staging\.empirestreets\.cz/gu).length).toBeGreaterThan(2);
+    expect(staging).toContain(".domain_aliases // []");
+    expect(staging).toContain('. != "www.empirestreets.cz"');
   });
 
   it("gates production on exact remote staging and rollback rehearsal artifacts", () => {

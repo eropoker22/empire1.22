@@ -11,6 +11,7 @@ import {
   PRE_ALPHA_STAGING_PHASES,
   PRE_ALPHA_STAGING_REMOTE_GUARD,
   validateClosedRegistrationEvidence,
+  validateFinalRegistrationEvidence,
   validatePreAlphaEvidenceBundleSummary,
   validatePreAlphaStagingInvocation,
   validateRemoteLoadEvidence,
@@ -71,7 +72,11 @@ const passingClosedRegistrationEvidence = () => ({
   environment: "staging",
   buildSha: SHA,
   workflowRunId: "12345",
+  registrationMode: "closed",
+  registrationOpen: false,
   registrationClosed: true,
+  registrationExpiresAt: null,
+  verifiedAt: "2026-08-06T12:00:00.000Z",
   requiredRemoteSuites: [...PRE_ALPHA_ALL_REMOTE_SUITE_NAMES],
   jobResults: {
     code: "success",
@@ -79,8 +84,16 @@ const passingClosedRegistrationEvidence = () => ({
     remoteSuites: "success",
     workerRedeploy: "success",
     loadSoak: "success",
-    closeRegistration: "success"
+    finalizeRegistrationPolicy: "success"
   }
+});
+
+const passingOpenRegistrationEvidence = () => ({
+  ...passingClosedRegistrationEvidence(),
+  registrationMode: "open",
+  registrationOpen: true,
+  registrationClosed: false,
+  registrationExpiresAt: "2026-08-07T11:00:00.000Z"
 });
 
 const passingSuiteSummary = (suite) => ({
@@ -335,7 +348,7 @@ describe("pre-alpha staging orchestrator contract", () => {
       .toThrow(/PRE_ALPHA_REMOTE_FULL_LIFECYCLE_NOT_PASSED/u);
   });
 
-  it("requires exact remote parity and separately produced closed-registration evidence", () => {
+  it("requires exact remote parity and explicitly selected final registration evidence", () => {
     expect(validateRemoteReleaseEvidence({
       environment: "staging",
       publicOrigin: PRE_ALPHA_STAGING_ORIGIN,
@@ -346,10 +359,28 @@ describe("pre-alpha staging orchestrator contract", () => {
       assets: [{ publicPath: "/admin.html" }]
     }, SHA)).toBe(true);
     expect(validateClosedRegistrationEvidence(passingClosedRegistrationEvidence(), SHA)).toBe(true);
+    expect(validateFinalRegistrationEvidence(passingClosedRegistrationEvidence(), SHA, "closed")).toBe(true);
+    expect(validateFinalRegistrationEvidence(passingOpenRegistrationEvidence(), SHA, "open", NOW)).toBe(true);
     expect(() => validateClosedRegistrationEvidence({
       ...passingClosedRegistrationEvidence(),
-      registrationClosed: false
+      registrationMode: "open",
+      registrationOpen: true,
+      registrationClosed: false,
+      registrationExpiresAt: "2026-08-07T11:00:00.000Z"
     }, SHA)).toThrow(/PRE_ALPHA_STAGING_CLOSED_EVIDENCE_INVALID/u);
+    expect(() => validateFinalRegistrationEvidence({
+      ...passingOpenRegistrationEvidence(),
+      registrationExpiresAt: null
+    }, SHA, "open", NOW)).toThrow(/PRE_ALPHA_STAGING_FINAL_REGISTRATION_EVIDENCE_INVALID/u);
+    expect(() => validateFinalRegistrationEvidence(
+      passingOpenRegistrationEvidence(),
+      SHA,
+      "open",
+      new Date("2026-08-07T11:00:00.001Z")
+    )).toThrow(/PRE_ALPHA_STAGING_FINAL_REGISTRATION_EVIDENCE_INVALID/u);
+    expect(() => validateFinalRegistrationEvidence(
+      passingOpenRegistrationEvidence(), SHA, "invalid"
+    )).toThrow(/PRE_ALPHA_STAGING_FINAL_REGISTRATION_MODE_INVALID/u);
     expect(() => validateClosedRegistrationEvidence({
       ...passingClosedRegistrationEvidence(),
       buildSha: "b".repeat(40),

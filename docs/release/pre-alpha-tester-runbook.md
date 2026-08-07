@@ -13,8 +13,9 @@ otevření War mode.
    vypsání databázové URL.
 5. V admin control plane ověř `ready`, čerstvý worker heartbeat, snapshot a
    nulový neočekávaný outbox backlog.
-6. Potvrď, že globální registrace účtů je zavřená. Otevírej ji pouze guarded
-   acceptance workflow na přesně omezenou dobu.
+6. Potvrď výchozí stav globální registrace. Otevírej ji pouze guarded
+   acceptance workflow na přesně omezenou dobu. Workflow ji ve výchozím
+   režimu po cleanupu znovu zavře.
 
 ## Vytvoření 20hráčového serveru
 
@@ -59,9 +60,16 @@ otevření War mode.
 2. Archivuj disposable server přes potvrzenou admin akci.
 3. Ověř, že server už netickuje, nemá aktivní test lease a nezůstaly aktivní
    rezervace.
-4. Znovu zavři globální registraci účtů a proveď veřejný negativní test.
-5. Zapiš cleanup, registration a health status do release artefaktu. Selhání
+4. Dodrž finální policy z dispatch vstupu `leave_registration_open`:
+   výchozí `false` registraci zavře a ověří negativním testem; explicitní
+   `true` ji nezavírá ani znovu nenasazuje, ale musí veřejně ověřit stále
+   platné maximálně 23hodinové okno a shodné SHA klienta/API/workeru.
+5. Zapiš cleanup, finální registration mode, expiraci a health status do
+   release artefaktu. Selhání
    cleanupu zneplatňuje celý gate.
+
+Otevřený finální staging gate není produkční release evidence. Produkční
+workflow a rollback rehearsal nadále vyžadují `registrationClosed=true`.
 
 ## Bezpečné diagnostické údaje
 

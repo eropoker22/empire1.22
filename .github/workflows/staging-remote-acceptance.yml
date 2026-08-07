@@ -16,6 +16,11 @@ on:
         required: true
         default: "180"
         type: string
+      leave_registration_open:
+        description: Leave the guarded time-limited staging registration window open after cleanup
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -35,6 +40,7 @@ jobs:
       short_sha: ${{ steps.release.outputs.short_sha }}
       deploy_run_id: ${{ steps.release.outputs.deploy_run_id }}
       soak_minutes: ${{ steps.release.outputs.soak_minutes }}
+      leave_registration_open: ${{ steps.release.outputs.leave_registration_open }}
 
     steps:
       - name: Resolve exact approved deployment
@@ -43,6 +49,7 @@ jobs:
           DISPATCH_SHA: ${{ inputs.sha }}
           DISPATCH_DEPLOY_RUN_ID: ${{ inputs.staging_deploy_run_id }}
           DISPATCH_SOAK_MINUTES: ${{ inputs.soak_minutes }}
+          DISPATCH_LEAVE_REGISTRATION_OPEN: ${{ inputs.leave_registration_open }}
         shell: bash
         run: |
           set -euo pipefail
@@ -50,10 +57,12 @@ jobs:
           [[ "$DISPATCH_DEPLOY_RUN_ID" =~ ^[0-9]+$ ]]
           [[ "$DISPATCH_SOAK_MINUTES" =~ ^[0-9]+$ ]]
           (( DISPATCH_SOAK_MINUTES >= 120 && DISPATCH_SOAK_MINUTES <= 240 ))
+          [[ "$DISPATCH_LEAVE_REGISTRATION_OPEN" == "true" || "$DISPATCH_LEAVE_REGISTRATION_OPEN" == "false" ]]
           echo "sha=$DISPATCH_SHA" >> "$GITHUB_OUTPUT"
           echo "short_sha=${DISPATCH_SHA:0:7}" >> "$GITHUB_OUTPUT"
           echo "deploy_run_id=$DISPATCH_DEPLOY_RUN_ID" >> "$GITHUB_OUTPUT"
           echo "soak_minutes=$DISPATCH_SOAK_MINUTES" >> "$GITHUB_OUTPUT"
+          echo "leave_registration_open=$DISPATCH_LEAVE_REGISTRATION_OPEN" >> "$GITHUB_OUTPUT"
 
       - name: Verify successful Deploy Staging run
         env:
@@ -180,6 +189,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: staging
+    outputs:
+      registration_expires_at: ${{ steps.registration.outputs.expires_at }}
     env:
       RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
       STAGING_ORIGIN: https://staging.empirestreets.cz
@@ -193,6 +204,7 @@ jobs:
       EMPIRE_ALLOWED_ORIGINS: https://staging.empirestreets.cz
       EMPIRE_BUILD_SHA: ${{ needs.gate.outputs.release_sha }}
       EMPIRE_RUNTIME_REGION: fra
+      EMPIRE_HOSTED_WORKER_REGION: fra
 
     steps:
       - name: Checkout exact deployed SHA
@@ -241,10 +253,15 @@ jobs:
           curl --fail --silent --show-error \
             --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
             "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}" -o "$site"
-          jq -e --arg id "$NETLIFY_SITE_ID" --arg origin "$STAGING_ORIGIN" '
+          jq -e --arg id "$NETLIFY_SITE_ID" '
+            def normalized_host:
+              if type != "string" then ""
+              else ascii_downcase | sub("^https?://"; "") | sub("/.*$"; "") | sub("\\.$"; "")
+              end;
+            ([.custom_domain, .url, .ssl_url] + (.domain_aliases // []) | map(normalized_host)) as $hosts |
             .id == $id and
-            ([.custom_domain, .url, .ssl_url] | any(. == "staging.empirestreets.cz" or . == $origin)) and
-            ([.custom_domain, .url, .ssl_url] | all(. != "empirestreets.cz" and . != "https://empirestreets.cz"))
+            ($hosts | any(. == "staging.empirestreets.cz")) and
+            ($hosts | all(. != "empirestreets.cz" and . != "www.empirestreets.cz"))
           ' "$site" >/dev/null
           rm -f "$site"
 
@@ -716,8 +733,8 @@ jobs:
             artifacts/remote-staging/load-soak/**
             !artifacts/remote-staging/load-soak/**/trace.zip
 
-  close-registration:
-    name: Always close staging registration
+  finalize-registration-policy:
+    name: Finalize staging registration policy
     if: always() && needs.gate.result == 'success'
     needs:
       - gate
@@ -731,6 +748,8 @@ jobs:
     env:
       RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
       DEPLOY_RUN_ID: ${{ needs.gate.outputs.deploy_run_id }}
+      LEAVE_REGISTRATION_OPEN: ${{ needs.gate.outputs.leave_registration_open }}
+      REGISTRATION_EXPIRES_AT: ${{ needs.open-registration.outputs.registration_expires_at }}
       STAGING_ORIGIN: https://staging.empirestreets.cz
       NETLIFY_SITE_ID: ${{ vars.NETLIFY_STAGING_SITE_ID }}
       NETLIFY_PRODUCTION_SITE_ID: ${{ vars.NETLIFY_PRODUCTION_SITE_ID }}
@@ -741,6 +760,7 @@ jobs:
       EMPIRE_ALLOWED_ORIGINS: https://staging.empirestreets.cz
       EMPIRE_BUILD_SHA: ${{ needs.gate.outputs.release_sha }}
       EMPIRE_RUNTIME_REGION: fra
+      EMPIRE_HOSTED_WORKER_REGION: fra
 
     steps:
       - name: Checkout exact deployed SHA
@@ -750,8 +770,11 @@ jobs:
 
       - name: Setup Node 24
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
 
       - name: Install pinned Netlify CLI
+        if: env.LEAVE_REGISTRATION_OPEN != 'true'
         run: npm install --global netlify-cli@26.2.0
 
       - name: Download immutable registration build
@@ -776,6 +799,7 @@ jobs:
           jq -e --arg sha "$RELEASE_SHA" '.buildSha == $sha' artifacts/release-asset-manifest.json >/dev/null
 
       - name: Verify exact staging Netlify site target before closure mutation
+        if: env.LEAVE_REGISTRATION_OPEN != 'true'
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         shell: bash
@@ -788,14 +812,20 @@ jobs:
           curl --fail --silent --show-error \
             --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
             "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}" -o "$site"
-          jq -e --arg id "$NETLIFY_SITE_ID" --arg origin "$STAGING_ORIGIN" '
+          jq -e --arg id "$NETLIFY_SITE_ID" '
+            def normalized_host:
+              if type != "string" then ""
+              else ascii_downcase | sub("^https?://"; "") | sub("/.*$"; "") | sub("\\.$"; "")
+              end;
+            ([.custom_domain, .url, .ssl_url] + (.domain_aliases // []) | map(normalized_host)) as $hosts |
             .id == $id and
-            ([.custom_domain, .url, .ssl_url] | any(. == "staging.empirestreets.cz" or . == $origin)) and
-            ([.custom_domain, .url, .ssl_url] | all(. != "empirestreets.cz" and . != "https://empirestreets.cz"))
+            ($hosts | any(. == "staging.empirestreets.cz")) and
+            ($hosts | all(. != "empirestreets.cz" and . != "www.empirestreets.cz"))
           ' "$site" >/dev/null
           rm -f "$site"
 
       - name: Close registration and redeploy the same SHA
+        if: env.LEAVE_REGISTRATION_OPEN != 'true'
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         shell: bash
@@ -810,34 +840,60 @@ jobs:
             --message "staging remote acceptance closed ${RELEASE_SHA}" --json \
             > artifacts/release/staging/remote-acceptance/netlify-close-registration.json
 
-      - name: Verify registration is closed and SHA is unchanged
+      - name: Verify final registration policy and exact release parity
         env:
           EMPIRE_HOSTED_WORKER_ORIGIN: https://${{ vars.FLY_STAGING_APP }}.fly.dev
-          EMPIRE_REMOTE_RELEASE_EVIDENCE_PATH: artifacts/release/staging/remote-acceptance/closed-release-health.json
+          EMPIRE_REMOTE_RELEASE_EVIDENCE_PATH: artifacts/release/staging/remote-acceptance/final-release-health.json
         shell: bash
         run: |
           set -euo pipefail
-          policy="$RUNNER_TEMP/closed-registration-policy.json"
+          mkdir -p artifacts/release/staging/remote-acceptance
+          expected_mode="closed"
+          expected_enabled="false"
+          final_expires_at=""
+          if [[ "$LEAVE_REGISTRATION_OPEN" == "true" ]]; then
+            expected_mode="open"
+            expected_enabled="true"
+            final_expires_at="$REGISTRATION_EXPIRES_AT"
+            EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED=true \
+            EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT="$final_expires_at" \
+              node --input-type=module -e '
+                import { validatePublicRegistrationWindow } from "./scripts/registration-window-contract.mjs";
+                if (!validatePublicRegistrationWindow({ enabled: true, expiresAt: process.env.EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT }).valid) process.exit(1);
+              '
+          fi
+          policy="$RUNNER_TEMP/final-registration-policy.json"
           for attempt in {1..60}; do
             if curl --fail --silent --show-error \
               --header 'Cache-Control: no-cache' \
               "${STAGING_ORIGIN}/api/account/registration-policy?release-sha=${RELEASE_SHA}" -o "$policy" \
-              && jq -e '.accepted == true and .data.registrationEnabled == false and .data.mode == "closed"' "$policy" >/dev/null; then
+              && jq -e --arg mode "$expected_mode" --argjson enabled "$expected_enabled" \
+                '.accepted == true and .data.registrationEnabled == $enabled and .data.mode == $mode' "$policy" >/dev/null; then
               break
             fi
             [[ "$attempt" != "60" ]] || exit 1
             sleep 5
           done
           npm run verify:remote-release
-          jq '{accepted,data:{registrationEnabled:.data.registrationEnabled,mode:.data.mode,termsVersion:.data.termsVersion}}' \
-            "$policy" > artifacts/release/staging/remote-acceptance/registration-closed.json
+          verified_at="$(date -u '+%Y-%m-%dT%H:%M:%S.000Z')"
+          jq -n --arg sha "$RELEASE_SHA" --arg mode "$expected_mode" \
+            --argjson registrationOpen "$expected_enabled" --arg verifiedAt "$verified_at" \
+            --arg registrationExpiresAt "$final_expires_at" --slurpfile policy "$policy" '
+              {schemaVersion:1,status:"verified",environment:"staging",buildSha:$sha,
+               registrationMode:$mode,registrationOpen:$registrationOpen,
+               registrationClosed:($registrationOpen | not),verifiedAt:$verifiedAt,
+               registrationExpiresAt:(if $registrationExpiresAt == "" then null else $registrationExpiresAt end),
+               publicPolicy:{accepted:$policy[0].accepted,
+                 registrationEnabled:$policy[0].data.registrationEnabled,
+                 mode:$policy[0].data.mode,termsVersion:$policy[0].data.termsVersion}}
+            ' > artifacts/release/staging/remote-acceptance/final-registration.json
           rm -f "$policy"
 
-      - name: Upload registration-close evidence
+      - name: Upload final registration evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: staging-registration-closed-${{ env.RELEASE_SHA }}
+          name: staging-registration-final-${{ env.RELEASE_SHA }}
           if-no-files-found: warn
           retention-days: 30
           path: artifacts/release/staging/remote-acceptance/**
@@ -852,7 +908,7 @@ jobs:
       - remote-suites
       - worker-redeploy
       - load-soak
-      - close-registration
+      - finalize-registration-policy
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -867,15 +923,17 @@ jobs:
         with:
           node-version-file: .node-version
 
-      - name: Require every automated gate and safe closure
+      - name: Require every automated gate and verified final registration policy
         env:
           RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
+          LEAVE_REGISTRATION_OPEN: ${{ needs.gate.outputs.leave_registration_open }}
+          REGISTRATION_EXPIRES_AT: ${{ needs.open-registration.outputs.registration_expires_at }}
           CODE_RESULT: ${{ needs.code-evidence.result }}
           OPEN_RESULT: ${{ needs.open-registration.result }}
           SUITES_RESULT: ${{ needs.remote-suites.result }}
           WORKER_RESULT: ${{ needs.worker-redeploy.result }}
           LOAD_RESULT: ${{ needs.load-soak.result }}
-          CLOSE_RESULT: ${{ needs.close-registration.result }}
+          FINALIZE_RESULT: ${{ needs.finalize-registration-policy.result }}
         shell: bash
         run: |
           set -euo pipefail
@@ -885,15 +943,29 @@ jobs:
           [[ "$SUITES_RESULT" == "success" ]]
           [[ "$WORKER_RESULT" == "success" ]]
           [[ "$LOAD_RESULT" == "success" ]]
-          [[ "$CLOSE_RESULT" == "success" ]]
+          [[ "$FINALIZE_RESULT" == "success" ]]
+          registration_mode="closed"
+          registration_open="false"
+          registration_expires_at=""
+          if [[ "$LEAVE_REGISTRATION_OPEN" == "true" ]]; then
+            registration_mode="open"
+            registration_open="true"
+            registration_expires_at="$REGISTRATION_EXPIRES_AT"
+          fi
           mkdir -p artifacts/remote-staging/final
           required_suites="$(node --input-type=module -e \
             'import { PRE_ALPHA_ALL_REMOTE_SUITE_NAMES as names } from "./scripts/pre-alpha-staging-contract.mjs"; process.stdout.write(JSON.stringify(names));')"
-          jq -n --arg sha "$RELEASE_SHA" --arg runId "$GITHUB_RUN_ID" --argjson suites "$required_suites" '
+          verified_at="$(date -u '+%Y-%m-%dT%H:%M:%S.000Z')"
+          jq -n --arg sha "$RELEASE_SHA" --arg runId "$GITHUB_RUN_ID" --argjson suites "$required_suites" \
+            --arg registrationMode "$registration_mode" --argjson registrationOpen "$registration_open" \
+            --arg registrationExpiresAt "$registration_expires_at" --arg verifiedAt "$verified_at" '
             {status:"automated-pass",environment:"staging",buildSha:$sha,workflowRunId:$runId,
-             registrationClosed:true,requiredRemoteSuites:$suites,
+             registrationMode:$registrationMode,registrationOpen:$registrationOpen,
+             registrationClosed:($registrationOpen | not),
+             registrationExpiresAt:(if $registrationExpiresAt == "" then null else $registrationExpiresAt end),
+             verifiedAt:$verifiedAt,requiredRemoteSuites:$suites,
              jobResults:{code:"success",openRegistration:"success",remoteSuites:"success",
-               workerRedeploy:"success",loadSoak:"success",closeRegistration:"success"},
+               workerRedeploy:"success",loadSoak:"success",finalizeRegistrationPolicy:"success"},
              manualNetlifyObservabilityReview:"required-before-production"}
           ' > artifacts/remote-staging/final/summary.json
 
@@ -915,7 +987,7 @@ jobs:
       - remote-suites
       - worker-redeploy
       - load-soak
-      - close-registration
+      - finalize-registration-policy
       - automated-verdict
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -927,7 +999,8 @@ jobs:
       SUITES_RESULT: ${{ needs.remote-suites.result }}
       WORKER_RESULT: ${{ needs.worker-redeploy.result }}
       LOAD_RESULT: ${{ needs.load-soak.result }}
-      CLOSE_RESULT: ${{ needs.close-registration.result }}
+      FINALIZE_RESULT: ${{ needs.finalize-registration-policy.result }}
+      LEAVE_REGISTRATION_OPEN: ${{ needs.gate.outputs.leave_registration_open }}
       AUTOMATED_RESULT: ${{ needs.automated-verdict.result }}
       EVIDENCE_ROOT: artifacts/release/staging
       EVIDENCE_OUTPUT: artifacts/release/staging/pre-alpha-hardening-${{ needs.gate.outputs.short_sha }}
@@ -971,7 +1044,7 @@ jobs:
           download_optional "$GITHUB_RUN_ID" "staging-remote-full-lifecycle-20p-${RELEASE_SHA}" "$input/lifecycle"
           download_optional "$GITHUB_RUN_ID" "staging-remote-social-concurrency-privacy-${RELEASE_SHA}" "$input/concurrency"
           download_optional "$GITHUB_RUN_ID" "staging-load-soak-${RELEASE_SHA}" "$input/load"
-          download_optional "$GITHUB_RUN_ID" "staging-registration-closed-${RELEASE_SHA}" "$input/closed"
+          download_optional "$GITHUB_RUN_ID" "staging-registration-final-${RELEASE_SHA}" "$input/registration"
           download_optional "$GITHUB_RUN_ID" "staging-remote-final-${RELEASE_SHA}" "$input/final"
           download_optional "$DEPLOY_RUN_ID" "staging-release-${RELEASE_SHA}" "$input/deploy"
 
@@ -1025,40 +1098,56 @@ jobs:
             "$input/load/summary.json" \
             "$input/load/artifacts/remote-staging/load-soak/summary.json"
           copy_first "$EVIDENCE_ROOT/remote-release-health.json" \
-            "$input/closed/closed-release-health.json" \
-            "$input/closed/artifacts/release/staging/remote-acceptance/closed-release-health.json" \
+            "$input/registration/final-release-health.json" \
+            "$input/registration/artifacts/release/staging/remote-acceptance/final-release-health.json" \
             "$input/deploy/artifacts/release/staging/remote-release-health.json"
 
           final_summary="$input/final/summary.json"
           [[ -s "$final_summary" ]] || final_summary="$input/final/artifacts/remote-staging/final/summary.json"
-          registration_closed="$input/closed/registration-closed.json"
-          [[ -s "$registration_closed" ]] || registration_closed="$input/closed/artifacts/release/staging/remote-acceptance/registration-closed.json"
-          closed_health="$input/closed/closed-release-health.json"
-          [[ -s "$closed_health" ]] || closed_health="$input/closed/artifacts/release/staging/remote-acceptance/closed-release-health.json"
+          final_registration="$input/registration/final-registration.json"
+          [[ -s "$final_registration" ]] || final_registration="$input/registration/artifacts/release/staging/remote-acceptance/final-registration.json"
+          final_health="$input/registration/final-release-health.json"
+          [[ -s "$final_health" ]] || final_health="$input/registration/artifacts/release/staging/remote-acceptance/final-release-health.json"
+          expected_registration_mode="closed"
+          expected_registration_open="false"
+          if [[ "$LEAVE_REGISTRATION_OPEN" == "true" ]]; then
+            expected_registration_mode="open"
+            expected_registration_open="true"
+          fi
 
           composite_status="failed"
           if [[ "$CODE_RESULT" == "success" && "$OPEN_RESULT" == "success" \
             && "$SUITES_RESULT" == "success" && "$WORKER_RESULT" == "success" \
-            && "$LOAD_RESULT" == "success" && "$CLOSE_RESULT" == "success" \
+            && "$LOAD_RESULT" == "success" && "$FINALIZE_RESULT" == "success" \
             && "$AUTOMATED_RESULT" == "success" ]] \
             && jq -e --arg sha "$RELEASE_SHA" \
               '.status == "code-passed" and .buildSha == $sha and (.phases | length) == 7 and all(.phases[]; .status == "passed")' \
               "$EVIDENCE_ROOT/code-level/summary.json" >/dev/null 2>&1 \
-            && jq -e --arg sha "$RELEASE_SHA" \
-              '.status == "automated-pass" and .environment == "staging" and .buildSha == $sha and .registrationClosed == true' \
+            && jq -e --arg sha "$RELEASE_SHA" --arg mode "$expected_registration_mode" \
+              --argjson registrationOpen "$expected_registration_open" \
+              '.status == "automated-pass" and .environment == "staging" and .buildSha == $sha and
+               .registrationMode == $mode and .registrationOpen == $registrationOpen and
+               .registrationClosed == ($registrationOpen | not)' \
               "$final_summary" >/dev/null 2>&1 \
-            && jq -e '.accepted == true and .data.registrationEnabled == false and .data.mode == "closed"' \
-              "$registration_closed" >/dev/null 2>&1 \
+            && jq -e --arg sha "$RELEASE_SHA" --arg mode "$expected_registration_mode" \
+              --argjson registrationOpen "$expected_registration_open" \
+              '.status == "verified" and .environment == "staging" and .buildSha == $sha and
+               .registrationMode == $mode and .registrationOpen == $registrationOpen and
+               .registrationClosed == ($registrationOpen | not) and
+               .publicPolicy.accepted == true and .publicPolicy.registrationEnabled == $registrationOpen and
+               .publicPolicy.mode == $mode' \
+              "$final_registration" >/dev/null 2>&1 \
             && jq -e --arg sha "$RELEASE_SHA" \
               '.environment == "staging" and .frontendSha == $sha and .apiSha == $sha and .workerSha == $sha' \
-              "$closed_health" >/dev/null 2>&1; then
+              "$final_health" >/dev/null 2>&1; then
             composite_status="passed"
           fi
           jq -n --arg status "$composite_status" --arg sha "$RELEASE_SHA" \
             --arg code "$CODE_RESULT" --arg suites "$SUITES_RESULT" --arg load "$LOAD_RESULT" \
-            --arg close "$CLOSE_RESULT" --arg automated "$AUTOMATED_RESULT" '
+            --arg finalize "$FINALIZE_RESULT" --arg automated "$AUTOMATED_RESULT" '
               {schemaVersion:1,status:$status,buildSha:$sha,evidenceKind:"canonical-composite-command-results",
-               jobResults:{code:$code,remoteSuites:$suites,loadSoak:$load,closeRegistration:$close,automatedVerdict:$automated}}
+               jobResults:{code:$code,remoteSuites:$suites,loadSoak:$load,
+                 finalizeRegistrationPolicy:$finalize,automatedVerdict:$automated}}
             ' > "$EVIDENCE_ROOT/test-results.json"
 
           concurrency_status="failed"

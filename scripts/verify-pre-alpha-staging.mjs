@@ -10,7 +10,8 @@ import {
   preAlphaEvidenceOutputDirectory,
   remoteLoadSummaryPath,
   remoteSuiteSummaryPath,
-  validateClosedRegistrationEvidence,
+  PRE_ALPHA_FINAL_REGISTRATION_MODES,
+  validateFinalRegistrationEvidence,
   validatePreAlphaEvidenceBundleSummary,
   validatePreAlphaStagingInvocation,
   validateRemoteLoadEvidence,
@@ -68,12 +69,16 @@ export const runPreAlphaStaging = (argv = process.argv.slice(2), environment = p
       summary.phases.push(result);
       console.log(`[pre-alpha] phase=${selectedPhase.name}`);
       if (selectedPhase.name === "staging-final" || selectedPhase.name === "staging-evidence") {
-        const closedEvidence = validateDownloadedClosedRegistrationEvidence(environment, gitSha);
+        const { evidence: finalRegistrationEvidence, mode: finalRegistrationMode } =
+          validateDownloadedFinalRegistrationEvidence(environment, gitSha);
         if (selectedPhase.name === "staging-final") {
           validatedFinalEvidence = {
-            workflowRunId: String(closedEvidence.workflowRunId),
-            requiredRemoteSuiteCount: closedEvidence.requiredRemoteSuites.length,
-            registrationClosed: true
+            workflowRunId: String(finalRegistrationEvidence.workflowRunId),
+            requiredRemoteSuiteCount: finalRegistrationEvidence.requiredRemoteSuites.length,
+            registrationMode: finalRegistrationMode,
+            registrationOpen: finalRegistrationMode === "open",
+            registrationClosed: finalRegistrationMode === "closed",
+            registrationExpiresAt: finalRegistrationEvidence.registrationExpiresAt
           };
         }
       }
@@ -128,7 +133,7 @@ export const runPreAlphaStaging = (argv = process.argv.slice(2), environment = p
     if (ranFinal) {
       console.log(`[pre-alpha] STAGING PASS sha=${gitSha}`);
     } else if (selectedStagingPhases.length > 0) {
-      console.log(`[pre-alpha] Selected staging phases passed; final closed-registration verdict NOT RUN.`);
+      console.log(`[pre-alpha] Selected staging phases passed; final registration-policy verdict NOT RUN.`);
     } else {
       console.log(`[pre-alpha] CODE PASS sha=${gitSha}; staging was not requested.`);
     }
@@ -160,12 +165,23 @@ const resolveCommandArgument = (argument, { artifactRoot, gitSha }) => String(ar
   .replaceAll("{artifactRoot}", artifactRoot)
   .replaceAll("{buildSha}", gitSha);
 
-const validateDownloadedClosedRegistrationEvidence = (environment, gitSha) => {
-  const evidencePath = String(environment.EMPIRE_PRE_ALPHA_STAGING_CLOSED_EVIDENCE_PATH ?? "").trim();
-  if (!evidencePath) throw new Error("PRE_ALPHA_STAGING_CLOSED_EVIDENCE_REQUIRED");
-  const evidence = readJson(path.resolve(root, evidencePath), "PRE_ALPHA_STAGING_CLOSED_EVIDENCE_MISSING");
-  validateClosedRegistrationEvidence(evidence, gitSha);
-  return evidence;
+const validateDownloadedFinalRegistrationEvidence = (environment, gitSha) => {
+  const mode = String(environment.EMPIRE_PRE_ALPHA_FINAL_REGISTRATION_MODE ?? "closed").trim();
+  if (!PRE_ALPHA_FINAL_REGISTRATION_MODES.includes(mode)) {
+    throw new Error("PRE_ALPHA_STAGING_FINAL_REGISTRATION_MODE_INVALID");
+  }
+  const configuredPath = String(
+    environment.EMPIRE_PRE_ALPHA_STAGING_FINAL_REGISTRATION_EVIDENCE_PATH
+      ?? (mode === "closed" ? environment.EMPIRE_PRE_ALPHA_STAGING_CLOSED_EVIDENCE_PATH : "")
+      ?? ""
+  ).trim();
+  if (!configuredPath) throw new Error("PRE_ALPHA_STAGING_FINAL_REGISTRATION_EVIDENCE_REQUIRED");
+  const evidence = readJson(
+    path.resolve(root, configuredPath),
+    "PRE_ALPHA_STAGING_FINAL_REGISTRATION_EVIDENCE_MISSING"
+  );
+  validateFinalRegistrationEvidence(evidence, gitSha, mode);
+  return Object.freeze({ evidence, mode });
 };
 
 const writeCompletedPhaseEvidence = (artifactRoot, selectedPhase, result, gitSha) => {
@@ -296,8 +312,9 @@ const printHelp = () => {
   console.log(`Code phases: ${PRE_ALPHA_CODE_PHASES.map(({ name }) => name).join(", ")}`);
   console.log(`Staging phases: ${PRE_ALPHA_STAGING_PHASES.map(({ name }) => name).join(", ")}`);
   console.log("Staging execution requires the exact staging origin/SHA, a clean checkout, and explicit target guards.");
-  console.log("Run staging-parity/staging-suites while the workflow registration window is open, then staging-final with its downloaded closed-registration evidence.");
-  console.log("Run staging-evidence only after mapping exact-SHA code, remote, load, release-health and closure artifacts into the configured artifact root.");
+  console.log("Run staging-parity/staging-suites while the workflow registration window is open, then staging-final with its downloaded final-registration evidence.");
+  console.log("Final registration defaults to closed; an explicit open mode accepts only a still-valid time-limited staging window.");
+  console.log("Run staging-evidence only after mapping exact-SHA code, remote, load, release-health and final-policy artifacts into the configured artifact root.");
   console.log("The command never deploys, opens registration, closes registration, or starts a local database.");
 };
 
