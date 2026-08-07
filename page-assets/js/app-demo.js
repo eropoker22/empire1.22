@@ -3,10 +3,8 @@ import { isExplicitGamePreviewEnabled, isExplicitLocalDemoEnabled } from "./app/
 import { bindDesktopGameScrollLimit } from "./app/runtime/desktopScrollLimitRuntime.js";
 import * as localDemoScenarios from "./app/onboarding/demoScenarios.js";
 import * as localDemoFixtures from "./app/dev-fixtures/allianceDemoData.js";
-import { installLegacyScenarioData } from "./app/runtime/legacyScenarioState.js";
 import { installLocalDemoFixtureData } from "./app/runtime/localDemoFixtureState.js";
 
-installLegacyScenarioData(localDemoScenarios);
 installLocalDemoFixtureData(localDemoFixtures);
 
 const ENTRY_REDIRECTS = Object.freeze({
@@ -57,7 +55,9 @@ async function bootGamePage() {
   const pendingBoot = (async () => {
     const { bootstrapLocalDemoLegacyPage } = await loadLocalDemoLifecycleModule();
     if (requestedGeneration !== bootGeneration) return null;
-    const runtime = bootstrapLocalDemoLegacyPage();
+    const runtime = bootstrapLocalDemoLegacyPage({
+      legacyScenarioData: localDemoScenarios
+    });
     if (!runtime || requestedGeneration !== bootGeneration) {
       localDemoLifecycleModule?.destroyLocalDemoLegacyPage?.();
       return null;

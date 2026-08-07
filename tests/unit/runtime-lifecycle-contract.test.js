@@ -9,6 +9,7 @@ describe("runtime lifecycle contract", () => {
   it("destroys local-demo authority before allowing a clean remount", () => {
     const runtimeSource = read("page-assets/js/app/runtime.js");
     const bootstrapSource = read("page-assets/js/app/runtime/localDemoLegacyBootstrap.js");
+    const appDemoSource = read("page-assets/js/app-demo.js");
 
     expect(runtimeSource).toContain("function destroyRuntime(root = getDefaultRuntimeRoot())");
     expect(runtimeSource).toContain("destroyLegacyRuntimeLifecycle(");
@@ -19,6 +20,14 @@ describe("runtime lifecycle contract", () => {
     expect(bootstrapSource).toContain('root.dataset.gameplayAuthority = "local-demo";');
     expect(bootstrapSource).toContain("setE2eDistrictBuildingPopulationBuffer");
     expect(bootstrapSource).toContain("resolveBountyDemoTargets(getStoredPreviewSession())");
+    expect(appDemoSource).toContain("legacyScenarioData: localDemoScenarios");
+    expect(appDemoSource).not.toContain("installLegacyScenarioData(localDemoScenarios)");
+    expect(bootstrapSource).toContain("installLegacyScenarioData(legacyScenarioData);");
+    expect(bootstrapSource).toContain("START_PHASE_OWNER_BY_DISTRICT_ID.size !== 20");
+    expect(bootstrapSource).toContain("START_PHASE_OWNER_BY_DISTRICT_ID.get(25) !== 3");
+    expect(bootstrapSource).toContain("START_PHASE_OWNER_BY_DISTRICT_ID.get(45) !== 9");
+    expect(bootstrapSource.indexOf("installCanonicalLegacyScenarioData(legacyScenarioData);"))
+      .toBeLessThan(bootstrapSource.indexOf("activeRuntime = bootstrapPage();"));
     expect(bootstrapSource).toContain("destroyRuntime(root);");
     expect(bootstrapSource).toContain("delete root.dataset.gameplayAuthority;");
     expect(bootstrapSource).toContain("uninstallLocalDemoGameplayBridge();");

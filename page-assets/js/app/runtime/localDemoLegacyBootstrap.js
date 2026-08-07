@@ -1,5 +1,6 @@
 import {
   PAGE_ROOT_SELECTOR,
+  START_PHASE_OWNER_BY_DISTRICT_ID,
   activatePlayerBoost,
   addGangHeat,
   appendBuildingActionResultEntry,
@@ -28,9 +29,29 @@ import {
   uninstallLocalDemoGameplayBridge
 } from "./localDemoGameplayBridge.js";
 import { getAllianceDemoFixtureData } from "./localDemoFixtureState.js";
-import { LAUNCH_PLAYER_AVATAR_BY_FACTION_ID } from "./legacyScenarioState.js";
+import {
+  installLegacyScenarioData,
+  LAUNCH_PLAYER_AVATAR_BY_FACTION_ID
+} from "./legacyScenarioState.js";
 
 let activeRuntime = null;
+
+const installCanonicalLegacyScenarioData = (legacyScenarioData) => {
+  if (
+    !legacyScenarioData
+    || !Array.isArray(legacyScenarioData.START_PHASE_OWNER_COORDINATES)
+  ) {
+    throw new Error("Local demo canonical launch scenario is unavailable.");
+  }
+  installLegacyScenarioData(legacyScenarioData);
+  if (
+    START_PHASE_OWNER_BY_DISTRICT_ID.size !== 20
+    || START_PHASE_OWNER_BY_DISTRICT_ID.get(25) !== 3
+    || START_PHASE_OWNER_BY_DISTRICT_ID.get(45) !== 9
+  ) {
+    throw new Error("Local demo canonical launch ownership failed to initialize.");
+  }
+};
 
 const publishExecutionMode = ({
   documentRef,
@@ -57,6 +78,7 @@ const publishExecutionMode = ({
 
 export function bootstrapLocalDemoLegacyPage({
   documentRef = globalThis.document,
+  legacyScenarioData = null,
   locationRef = globalThis.location,
   windowRef = globalThis.window
 } = {}) {
@@ -79,6 +101,7 @@ export function bootstrapLocalDemoLegacyPage({
   if (!root) {
     return null;
   }
+  installCanonicalLegacyScenarioData(legacyScenarioData);
   publishExecutionMode(
     { documentRef, windowRef },
     "local-demo",
