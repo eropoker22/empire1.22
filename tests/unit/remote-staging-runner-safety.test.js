@@ -5,6 +5,7 @@ import {
   assertPinnedRemoteStagingFlyApp,
   isExactRemoteStagingWorkerHealth,
   isRetryableRemoteStagingArchiveError,
+  REMOTE_STAGING_FLY_APP,
   REMOTE_STAGING_PLAYWRIGHT_TRACE_ARGUMENT
 } from "../../scripts/remote-staging-runner-safety.mjs";
 
@@ -57,13 +58,17 @@ describe("remote staging runner safety", () => {
 
   it("allows restart health only for the exact pinned staging app and release", () => {
     expect(assertPinnedRemoteStagingFlyApp({
-      app: "empire-staging-worker",
-      pinnedApp: "empire-staging-worker"
-    })).toBe("empire-staging-worker");
+      app: REMOTE_STAGING_FLY_APP,
+      pinnedApp: REMOTE_STAGING_FLY_APP
+    })).toBe(REMOTE_STAGING_FLY_APP);
     expect(() => assertPinnedRemoteStagingFlyApp({
-      app: "empire-staging-worker",
+      app: REMOTE_STAGING_FLY_APP,
       pinnedApp: "another-staging-worker"
     })).toThrow(/NOT_PINNED/u);
+    expect(() => assertPinnedRemoteStagingFlyApp({
+      app: "another-staging-worker",
+      pinnedApp: "another-staging-worker"
+    })).toThrow(/CANONICAL_MISMATCH/u);
     expect(() => assertPinnedRemoteStagingFlyApp({
       app: "empire-production-worker",
       pinnedApp: "empire-production-worker"
@@ -119,9 +124,14 @@ describe("remote staging runner safety", () => {
     expect(suiteRunner).toContain("if (admin && cleanupServerInstanceId)");
     expect(loadRunner).toContain("onCreated: ({ serverInstanceId }) => {");
     expect(loadRunner).toContain("if (admin && cleanupServerInstanceId)");
+    expect(loadRunner).toContain("assertPinnedRemoteStagingFlyApp({");
+    expect(loadRunner.indexOf("const flyApp = assertPinnedRemoteStagingFlyApp({"))
+      .toBeLessThan(loadRunner.indexOf("const flyMetricsAuthorization = metricsAuthorization("));
     expect(workflow).toContain(
-      "EMPIRE_PRE_ALPHA_STAGING_FLY_APP: ${{ vars.FLY_STAGING_APP }}"
+      "EMPIRE_PRE_ALPHA_STAGING_FLY_APP: empire-streets-staging-worker"
     );
+    expect(workflow).toContain('[[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]');
+    expect(workflow).toContain('[[ "$FLY_STAGING_APP" == "$EMPIRE_PRE_ALPHA_STAGING_FLY_APP" ]]');
     expect(restartSource.indexOf("assertPinnedRemoteStagingFlyApp")).toBeGreaterThanOrEqual(0);
     expect(restartSource.indexOf("const preflightHealth = await readStagingWorkerHealth"))
       .toBeGreaterThan(restartSource.indexOf("assertPinnedRemoteStagingFlyApp"));

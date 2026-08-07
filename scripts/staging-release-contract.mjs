@@ -4,12 +4,15 @@ import {
   SUPPORTED_NODE_MAJOR
 } from "./supported-node-policy.mjs";
 import { validatePublicRegistrationWindow } from "./registration-window-contract.mjs";
+import { releaseDatabaseTargetHash } from "./release-database-target-hash.mjs";
 
 export const STAGING_MANIFEST_PATH = "artifacts/release-manifest.json";
 export const STAGING_ENVIRONMENT = "staging";
+export const STAGING_FLY_APP = "empire-streets-staging-worker";
 export const STAGING_NODE_VERSION = String(SUPPORTED_NODE_MAJOR);
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/u;
+const TARGET_HASH_PATTERN = /^[0-9a-f]{64}$/u;
 const SECURE_SECRET_PATTERN = /^(?:[0-9a-f]{64,}|[A-Za-z0-9_-]{43,})$/u;
 const TERMS_VERSION_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,99}$/u;
 const STAGING_ORIGIN = "https://staging.empirestreets.cz";
@@ -25,6 +28,11 @@ export const validateStagingEnvironment = (environment, options = {}) => {
   const allowedOrigins = parseAllowedOrigins(environment.EMPIRE_ALLOWED_ORIGINS);
   const databaseUrl = parseDatabaseUrl(environment.EMPIRE_DATABASE_URL);
   const gameplayDatabaseUrl = parseDatabaseUrl(environment.GAMEPLAY_DATABASE_URL);
+  const releasePooledDatabaseUrl = parseDatabaseUrl(environment.EMPIRE_RELEASE_DATABASE_URL_POOLED);
+  const gameplayReleasePooledDatabaseUrl = parseDatabaseUrl(environment.GAMEPLAY_RELEASE_DATABASE_URL_POOLED);
+  const expectedDatabaseTargetHash = String(environment.EMPIRE_STAGING_DATABASE_TARGET_HASH ?? "").trim();
+  const flyStagingApp = String(environment.FLY_STAGING_APP ?? "").trim();
+  const pinnedFlyStagingApp = String(environment.EMPIRE_PRE_ALPHA_STAGING_FLY_APP ?? "").trim();
   const registrationEnabled = environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED === "true";
   const allowRegistrationEnabled = options.allowRegistrationEnabled === true;
   const registrationWindow = validatePublicRegistrationWindow({
@@ -35,6 +43,9 @@ export const validateStagingEnvironment = (environment, options = {}) => {
 
   add("EMPIRE_RELEASE_ENVIRONMENT", "build", true, environment.EMPIRE_RELEASE_ENVIRONMENT === STAGING_ENVIRONMENT,
     STAGING_ENVIRONMENT, "STAGING_RELEASE_ENVIRONMENT_INVALID");
+  add("EMPIRE_DATABASE_TARGET_ENVIRONMENT", "release + worker", true,
+    environment.EMPIRE_DATABASE_TARGET_ENVIRONMENT === STAGING_ENVIRONMENT,
+    STAGING_ENVIRONMENT, "STAGING_DATABASE_TARGET_ENVIRONMENT_INVALID");
   add("NODE_ENV", "API + worker", true, environment.NODE_ENV === "production", "production", "STAGING_NODE_ENV_INVALID");
   add("EMPIRE_PUBLIC_ORIGIN", "frontend + API", true,
     publicOrigin?.origin === STAGING_ORIGIN && !PRODUCTION_HOSTNAMES.has(publicOrigin.hostname),
@@ -49,6 +60,14 @@ export const validateStagingEnvironment = (environment, options = {}) => {
   add("GAMEPLAY_DATABASE_URL", "API + worker", true,
     isTlsDatabaseUrl(gameplayDatabaseUrl),
     "postgresql://...?...&sslmode=require or stronger", "STAGING_GAMEPLAY_DATABASE_URL_INVALID");
+  add("EMPIRE_RELEASE_DATABASE_URL_POOLED", "release + API", true,
+    isTlsDatabaseUrl(releasePooledDatabaseUrl),
+    "transaction-pooled postgresql://...?...&sslmode=require or stronger",
+    "STAGING_POOLED_DATABASE_URL_INVALID");
+  add("GAMEPLAY_RELEASE_DATABASE_URL_POOLED", "release + API", true,
+    isTlsDatabaseUrl(gameplayReleasePooledDatabaseUrl),
+    "transaction-pooled postgresql://...?...&sslmode=require or stronger",
+    "STAGING_GAMEPLAY_POOLED_DATABASE_URL_INVALID");
   checks.push({
     name: "STAGING_DATABASE_TARGET_MATCH",
     component: "API + worker",
@@ -59,12 +78,33 @@ export const validateStagingEnvironment = (environment, options = {}) => {
     safeFormat: "both URLs use the same provider hostname, port and database",
     errorCode: "STAGING_DATABASE_TARGET_MISMATCH"
   });
+  checks.push({
+    name: "STAGING_POOLED_DATABASE_TARGET_MATCH",
+    component: "release + API",
+    required: true,
+    set: Boolean(releasePooledDatabaseUrl && gameplayReleasePooledDatabaseUrl),
+    passed: Boolean(releasePooledDatabaseUrl && gameplayReleasePooledDatabaseUrl
+      && databaseTargetIdentity(releasePooledDatabaseUrl) === databaseTargetIdentity(gameplayReleasePooledDatabaseUrl)),
+    safeFormat: "both pooled URLs use the same provider hostname, port and database",
+    errorCode: "STAGING_POOLED_DATABASE_TARGET_MISMATCH"
+  });
+  add("EMPIRE_STAGING_DATABASE_TARGET_HASH", "release + worker", true,
+    TARGET_HASH_PATTERN.test(expectedDatabaseTargetHash)
+      && [databaseUrl, gameplayDatabaseUrl, releasePooledDatabaseUrl, gameplayReleasePooledDatabaseUrl]
+        .every((value) => value && releaseDatabaseTargetHash(value) === expectedDatabaseTargetHash),
+    "64 lowercase hex characters matching every normalized direct and pooled staging target",
+    "STAGING_DATABASE_TARGET_HASH_MISMATCH");
   add("EMPIRE_PERSISTENCE_DRIVER", "API + worker", true,
     environment.EMPIRE_PERSISTENCE_DRIVER === "postgres", "postgres", "STAGING_RUNTIME_PERSISTENCE_INVALID");
   add("GAMEPLAY_PERSISTENCE_DRIVER", "API + worker", true,
     environment.GAMEPLAY_PERSISTENCE_DRIVER === "postgres", "postgres", "STAGING_GAMEPLAY_PERSISTENCE_INVALID");
   add("EMPIRE_BUILD_SHA", "frontend + API + worker", true, SHA_PATTERN.test(String(environment.EMPIRE_BUILD_SHA ?? "")),
     "40 lowercase hexadecimal Git SHA", "STAGING_BUILD_SHA_INVALID");
+  add("FLY_STAGING_APP", "release", true, flyStagingApp === STAGING_FLY_APP,
+    STAGING_FLY_APP, "STAGING_FLY_APP_INVALID");
+  add("EMPIRE_PRE_ALPHA_STAGING_FLY_APP", "release", true,
+    pinnedFlyStagingApp === STAGING_FLY_APP && pinnedFlyStagingApp === flyStagingApp,
+    `independent pin equal to ${STAGING_FLY_APP}`, "STAGING_FLY_APP_PIN_MISMATCH");
   if (isSet(options.gitSha)) {
     checks.push({
       name: "STAGING_BUILD_SHA_MATCHES_HEAD",

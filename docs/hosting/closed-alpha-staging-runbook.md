@@ -90,20 +90,21 @@ The workflow serializes staging releases and performs:
 1. exact clean checkout and Node 24 dependency install;
 2. protected input and staging validator checks;
 3. direct/pooled database target and transaction-pool smoke;
-4. Neon pre-migration snapshot;
-5. optional one-time empty-history initialization;
-6. pending migration status, single migration application, strict current status;
-7. frontend/API build, asset manifest, worker bundle, and immutable worker image;
-8. Netlify deploy with registration closed;
-9. one Fly worker deploy with direct TLS PostgreSQL;
-10. API/worker health and source/build/deployed asset parity;
-11. optional one-owner bootstrap, remote initial login, password rotation, idempotent rerun, and owner verification;
-12. authenticated admin control-plane SHA/security check;
-13. strict hosted control-plane verification and release artifact upload.
+4. fail-closed Neon project, branch, and read-write endpoint binding to the protected staging target hash;
+5. Neon pre-migration snapshot with its source branch and operations bound back to that provider target;
+6. optional one-time empty-history initialization;
+7. pending migration status, single migration application, strict current status;
+8. frontend/API build, asset manifest, worker bundle, and immutable worker image;
+9. Netlify deploy with registration closed;
+10. one Fly worker deploy with direct TLS PostgreSQL;
+11. API/worker health and source/build/deployed asset parity;
+12. optional one-owner bootstrap, remote initial login, password rotation, idempotent rerun, and owner verification;
+13. authenticated admin control-plane SHA/security check;
+14. strict hosted control-plane verification and release artifact upload.
 
-Expected artifact: `staging-release-<SHA>`. It must contain the release manifest, asset manifest, safe backup evidence,
-API health, worker health, remote release parity, and admin control-plane evidence. Creation of configuration without
-this successful artifact is not a deployment pass.
+Expected artifact: `staging-release-<SHA>`. It must contain the release manifest, asset manifest, hashed Neon target
+binding, safe backup evidence with the same binding hashes, API health, worker health, remote release parity, and
+admin control-plane evidence. Creation of configuration without this successful artifact is not a deployment pass.
 
 ## Remote staging acceptance
 
@@ -111,10 +112,14 @@ After the deploy artifact is green, dispatch `Staging Remote Acceptance` with:
 
 - the same exact `sha`;
 - its successful `staging_deploy_run_id`;
-- `soak_minutes` from 120 through 240; default 180.
+- `soak_minutes` from 120 through 240; default 180;
+- an explicit `leave_registration_open` choice. Use `true` only for an approved, time-limited staging playtest window;
+  omission or `false` remains fail-closed.
 
 The workflow first opens a maximum 23-hour registration window by exact timestamp, verifies it remotely, and later
-forces registration closed again. It uses only staging fixture-write approval and staging database target pinning.
+enforces the explicitly dispatched final policy. With `leave_registration_open=true`, it verifies the same guarded
+window remains open after cleanup; otherwise it closes registration. It uses only staging fixture-write approval and
+staging database target pinning.
 
 Required remote evidence covers actual HTTPS browser/server flows, including:
 
@@ -131,8 +136,10 @@ Remote acceptance must use `https://staging.empirestreets.cz`, never localhost. 
 process is not a pass; require final summary JSON and successful workflow/artifact status. Flaky retries are disabled
 for release suites.
 
-Expected final artifact: `staging-remote-final-<SHA>`, with registration closed. Missing telemetry, a skip, a failed
-cleanup/archive, an open registration window, or any privacy leak is `STAGING NO-GO`.
+Expected final artifact: `staging-remote-final-<SHA>`, with the explicitly selected registration mode. When the approved
+mode is open, the artifact must prove the same validated expiry (at most 23 hours from opening) after cleanup. Missing
+telemetry, a skip, a failed cleanup/archive, an unapproved or expired open window, a policy mismatch, or any privacy
+leak is `STAGING NO-GO`.
 
 ## Soak and observation
 
@@ -150,10 +157,11 @@ Do not run load or soak against `empirestreets.cz`.
 
 ## Rollback rehearsal
 
-With registration closed, dispatch `Staging Rollback Rehearsal` using the candidate deploy run, remote acceptance run,
-and a previous compatible staging SHA that has both a Netlify deploy and immutable Fly image. The workflow must
-temporarily restore the previous code, prove health, return to the candidate, and prove complete asset/SHA parity
-without restoring the database.
+Run this only after registration is closed. Do not dispatch it while an approved staging registration window must stay
+open: the rehearsal deliberately forces registration closed. Once closure is approved, dispatch `Staging Rollback
+Rehearsal` using the candidate deploy run, remote acceptance run, and a previous compatible staging SHA that has both
+a Netlify deploy and immutable Fly image. The workflow must temporarily restore the previous code, prove health,
+return to the candidate, and prove complete asset/SHA parity without restoring the database.
 
 Expected final artifact: `staging-rollback-final-<SHA>`.
 
@@ -170,8 +178,8 @@ Expected final artifact: `staging-rollback-final-<SHA>`.
 - remote gameplay, social concurrency/privacy, mobile, restart, and lifecycle evidence;
 - 120-240 minute load/soak workflow plus several-hour observation with no P0;
 - tested alerts/log delivery;
-- successful rollback rehearsal and candidate restoration;
-- registration closed in the final artifact;
+- the final artifact matches the explicitly approved registration policy; an open policy includes a valid maximum
+  23-hour expiry and is suitable only for staging playtests;
 - no remaining P0 and no undocumented P1.
 
 Absent credentials, provider resources, DNS/TLS, or remote artifacts produce `BLOCKED BY CREDENTIALS` or
@@ -179,6 +187,7 @@ Absent credentials, provider resources, DNS/TLS, or remote artifacts produce `BL
 
 ## Production handoff
 
-Only a green, closed `staging-remote-final-<SHA>` and `staging-rollback-final-<SHA>` can enter the guarded
+Before any production handoff, close staging registration and complete the rollback rehearsal. Only a green, closed
+`staging-remote-final-<SHA>` and `staging-rollback-final-<SHA>` can enter the guarded
 `Deploy Production` workflow. Production still requires its own protected database, snapshot, validator, exact
 approved SHA, domain/TLS, observability evidence, rollback pointers, and post-deploy smoke with registration false.

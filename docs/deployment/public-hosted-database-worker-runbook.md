@@ -69,11 +69,23 @@ non-idempotent commands; retry only with the same canonical command or idempoten
 
 Before configuring a protected GitHub environment, compute the normalized target hash locally without printing the
 URL. Store the resulting 64-character lowercase hash as `EMPIRE_STAGING_DATABASE_TARGET_HASH` or
-`EMPIRE_PRODUCTION_DATABASE_TARGET_HASH` in protected configuration. The production validator and worker both
-require the production hash.
+`EMPIRE_PRODUCTION_DATABASE_TARGET_HASH` in protected configuration. Both release validators and both public
+workers require the hash for their own environment. The staging release additionally proves that the direct worker
+URLs and pooled API URLs normalize to that same protected target before it creates a snapshot or mutates a provider.
+Immediately before the snapshot POST, the release job reads the configured Neon branch and its endpoints through the
+provider API. It requires the returned project ID and branch ID to match protected staging configuration and requires
+exactly one read-write endpoint host to match the direct staging URL. The retained
+`neon-target-binding.json` contains only the release SHA, protected database target hash, and SHA-256 hashes of the
+project, branch, and endpoint IDs; it never contains a connection URL, hostname, provider response, or credential.
 
 Recompute the hash only during an approved database replacement. Pooled and direct release URLs must resolve to the
 same normalized hostname family, port, database name, project, and branch.
+
+The staging deploy, remote acceptance, and rollback workflows accept only the canonical
+`empire-streets-staging-worker` Fly app. Their protected `FLY_STAGING_APP` value must equal the independent repository
+pin `EMPIRE_PRE_ALPHA_STAGING_FLY_APP`; this comparison runs before any image push, secret import, deploy, scale, or
+restart operation. Staging Netlify rollback also resolves the configured site ID through the provider API and rejects
+the production site ID or either production hostname before it changes environment values or restores a deploy.
 
 ## Backup and migration order
 
@@ -84,14 +96,22 @@ For each remote release:
 
 1. Freeze the exact clean SHA and intended environment.
 2. Validate the direct and pooled URLs without displaying them.
-3. Verify the provider project and branch IDs in the protected environment.
-4. Create a named Neon pre-migration snapshot and retain only its hashed identifier in release artifacts.
-5. Set `EMPIRE_DATABASE_BACKUP_CONFIRMED=true` and the safe backup identifier only inside that release job.
-6. For a first, proven-empty database only, explicitly authorize migration-history initialization.
-7. Run status allowing known pending migrations.
-8. Apply migrations once through the direct URL.
-9. Run strict status again and require zero pending or unknown migrations and exact checksums.
-10. Run API/worker schema smoke before enabling writes.
+3. Read the Neon branch and endpoint list and bind the returned project, branch, and read-write endpoint to the
+   protected staging target hash.
+4. Persist only hashed binding evidence, never raw provider identifiers, responses, URLs, or credentials.
+5. Create a named Neon pre-migration snapshot, validate its source branch and provider operations against the same
+   protected project/branch binding, and retain only hashed identifiers in release artifacts.
+6. Set `EMPIRE_DATABASE_BACKUP_CONFIRMED=true` and the safe backup identifier only inside that release job.
+7. For a first, proven-empty database only, explicitly authorize migration-history initialization.
+8. Run status allowing known pending migrations.
+9. Apply migrations once through the direct URL.
+10. Run strict status again and require zero pending or unknown migrations and exact checksums.
+11. Run API/worker schema smoke before enabling writes.
+
+The Neon response schema permits an empty `operations` array and makes an operation's `branch_id` optional. The gate
+therefore requires the snapshot's `source_branch_id` exactly, requires `operations` to be an array, and checks every
+returned operation ID and project ID; any present operation branch ID must also equal the protected branch. The
+artifact records only an operation count and a hash of the sorted operation-ID set.
 
 Canonical release commands are:
 
@@ -212,6 +232,8 @@ Keep registration closed if any check fails. Preserve all non-secret artifacts, 
 
 Official provider references:
 
+- [Neon API: retrieve branch details](https://api-docs.neon.tech/reference/getprojectbranch)
+- [Neon API: list branch endpoints](https://api-docs.neon.tech/reference/listprojectbranchendpoints)
 - [Neon connection pooling](https://neon.com/docs/connect/connection-pooling)
 - [Neon connection errors](https://neon.com/docs/connect/connection-errors)
 - [Neon snapshots and restore operations](https://neon.com/docs/ai/ai-database-versioning)

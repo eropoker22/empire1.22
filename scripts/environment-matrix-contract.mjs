@@ -62,8 +62,8 @@ const PUBLIC_RELEASE_ROWS = [
     secret: "Yes", netlifyScope: "Release job only", workerScope: "No",
     safeFormat: "Same pooled Neon target as EMPIRE release URL", rotation: "Rotate the Netlify database role"
   }),
-  runtime("EMPIRE_DATABASE_TARGET_ENVIRONMENT", "Migration release guard", {
-    netlifyScope: "Release job only", workerScope: "No", safeFormat: "Exact staging or production", rotation: "N/A"
+  runtime("EMPIRE_DATABASE_TARGET_ENVIRONMENT", "Migration release guard and staging worker target pin", {
+    netlifyScope: "Release job only", workerScope: "Yes in staging", safeFormat: "Exact staging or production", rotation: "N/A"
   }),
   runtime("EMPIRE_DATABASE_BACKUP_CONFIRMED", "Migration release guard", {
     netlifyScope: "Release job only", workerScope: "No", safeFormat: "true only after a fresh provider snapshot", rotation: "Reset after each release"
@@ -230,9 +230,11 @@ const PUBLIC_RELEASE_ROWS = [
     stagingRequired: "Only for load soak", productionRequired: "No",
     netlifyScope: "Release job only", workerScope: "No", safeFormat: "Maximum Fly throttle counter increase in centiseconds per two-minute sample", rotation: "Update only after reviewed CPU quota"
   }),
-  runtime("EMPIRE_STAGING_DATABASE_TARGET_HASH", "Protected remote staging acceptance job", {
-    stagingRequired: "Yes for controlled scenario setup", productionRequired: "No",
-    netlifyScope: "Release job only", workerScope: "No", safeFormat: "SHA-256 of hostname, port and database name", rotation: "Update only after verified staging database replacement"
+  runtime("EMPIRE_STAGING_DATABASE_TARGET_HASH", "Protected staging release, worker and remote acceptance", {
+    stagingRequired: "Yes", productionRequired: "No",
+    netlifyScope: "Release job only", workerScope: "Yes in staging",
+    safeFormat: "SHA-256 of the normalized direct or pooled staging hostname, port and database name",
+    rotation: "Update only after verified staging database replacement"
   }),
   runtime("EMPIRE_PRODUCTION_DATABASE_TARGET_HASH", "Protected production release job", {
     stagingRequired: "No", productionRequired: "Yes", netlifyScope: "Release job only", workerScope: "Yes in production",
@@ -279,11 +281,11 @@ const NON_RELEASE_TOOLING_ROWS = new Map([
   }],
   ["EMPIRE_PRE_ALPHA_STAGING_FLY_APP", {
     component: "Protected staging Fly target pin",
-    stagingRequired: "Remote gate only",
+    stagingRequired: "Staging deploy, remote gate and rollback",
     netlifyScope: "Protected staging release job only; never injected into the site",
-    safeFormat: "Exact lowercase staging Fly app name equal to FLY_STAGING_APP",
-    defaultAllowed: "No",
-    rotation: "Set explicitly for each guarded remote invocation"
+    safeFormat: "Exact canonical empire-streets-staging-worker name equal to FLY_STAGING_APP",
+    defaultAllowed: "Yes; immutable repository pin",
+    rotation: "Change only with an audited staging worker replacement"
   }],
   ["EMPIRE_PRE_ALPHA_STAGING_REMOTE_APPROVED", {
     component: "Protected staging remote-mutation approval guard",
@@ -321,6 +323,54 @@ const NON_RELEASE_TOOLING_ROWS = new Map([
     defaultAllowed: "No",
     rotation: "Regenerate for every disposable staging fixture"
   }],
+  ["EMPIRE_STAGING_NEON_BACKUP_EVIDENCE_PATH", {
+    component: "Staging Neon snapshot binding evidence",
+    stagingRequired: "Protected staging release job only",
+    netlifyScope: "Release job only; never injected into the site",
+    safeFormat: "Repository-relative database-backup JSON artifact path",
+    defaultAllowed: "No",
+    rotation: "Regenerate for every exact staging release SHA"
+  }],
+  ["EMPIRE_STAGING_NEON_BINDING_EVIDENCE_PATH", {
+    component: "Staging Neon provider target binding evidence",
+    stagingRequired: "Protected staging release job only",
+    netlifyScope: "Release job only; never injected into the site",
+    safeFormat: "Repository-relative hashed provider-binding JSON artifact path",
+    defaultAllowed: "No",
+    rotation: "Regenerate before every staging snapshot mutation"
+  }],
+  ["EMPIRE_STAGING_NEON_BRANCH_RESPONSE_PATH", {
+    component: "Staging Neon provider target binding",
+    stagingRequired: "Protected staging release job only",
+    netlifyScope: "Release job only; never injected into the site",
+    safeFormat: "Ephemeral runner path to the provider branch response",
+    defaultAllowed: "No",
+    rotation: "Delete immediately after target verification"
+  }],
+  ["EMPIRE_STAGING_NEON_ENDPOINTS_RESPONSE_PATH", {
+    component: "Staging Neon provider target binding",
+    stagingRequired: "Protected staging release job only",
+    netlifyScope: "Release job only; never injected into the site",
+    safeFormat: "Ephemeral runner path to the provider endpoint response",
+    defaultAllowed: "No",
+    rotation: "Delete immediately after target verification"
+  }],
+  ["EMPIRE_STAGING_NEON_SNAPSHOT_NAME", {
+    component: "Staging Neon snapshot binding",
+    stagingRequired: "Protected staging release job only",
+    netlifyScope: "Release job only; never injected into the site",
+    safeFormat: "Generated staging snapshot name bound to the exact release SHA",
+    defaultAllowed: "No",
+    rotation: "Regenerate for every staging snapshot"
+  }],
+  ["EMPIRE_STAGING_NEON_SNAPSHOT_RESPONSE_PATH", {
+    component: "Staging Neon snapshot binding",
+    stagingRequired: "Protected staging release job only",
+    netlifyScope: "Release job only; never injected into the site",
+    safeFormat: "Ephemeral runner path to the provider snapshot response",
+    defaultAllowed: "No",
+    rotation: "Delete immediately after snapshot verification"
+  }],
   ["EVIDENCE_OUTPUT", {
     component: "CI staging release evidence assembly",
     stagingRequired: "CI release job only",
@@ -336,6 +386,22 @@ const NON_RELEASE_TOOLING_ROWS = new Map([
     safeFormat: "Exact true only for an explicitly approved time-limited staging window",
     defaultAllowed: "No; the workflow defaults fail-closed",
     rotation: "Set independently for every staging acceptance dispatch"
+  }],
+  ["NEON_BRANCH_ID", {
+    component: "Staging Neon workflow branch alias",
+    stagingRequired: "Protected staging release job only",
+    netlifyScope: "Release job only; never injected into the site",
+    safeFormat: "Exact protected staging branch ID",
+    defaultAllowed: "No",
+    rotation: "Change only after verified staging branch migration"
+  }],
+  ["NEON_PROJECT_ID", {
+    component: "Staging Neon workflow project alias",
+    stagingRequired: "Protected staging release job only",
+    netlifyScope: "Release job only; never injected into the site",
+    safeFormat: "Exact protected staging project ID",
+    defaultAllowed: "No",
+    rotation: "Change only when replacing the staging database project"
   }],
   ["RELEASE_SHA", {
     component: "CI staging release workflow",
@@ -414,14 +480,19 @@ URL
   ...NON_RELEASE_TOOLING_ROWS.keys()
 ]);
 
+const providerStagingRequirement = (variable) => {
+  if (variable === "NETLIFY_PRODUCTION_SITE_ID") return "Yes as negative target pin";
+  return variable.includes("PRODUCTION") ? "No" : "Yes";
+};
+
 const PROVIDER_ROWS = [
   ["NETLIFY_AUTH_TOKEN", "GitHub staging/production deploy job", "Yes", "Netlify personal or service token", "Rotate in Netlify; update protected GitHub environment secret"],
   ["NETLIFY_STAGING_SITE_ID", "GitHub staging deploy job", "No", "Isolated staging site ID", "Change only when replacing staging site"],
-  ["NETLIFY_PRODUCTION_SITE_ID", "GitHub production deploy job", "No", "Production site ID", "Change only during approved site cutover"],
+  ["NETLIFY_PRODUCTION_SITE_ID", "GitHub staging negative-target guard and production deploy job", "No", "Production site ID used as a fail-closed staging exclusion", "Change only during approved site cutover"],
   ["NEON_API_KEY", "GitHub backup release step", "Yes", "Least-privilege Neon API key", "Rotate in Neon; update protected GitHub environment secret"],
-  ["NEON_STAGING_PROJECT_ID", "GitHub staging deploy job", "No", "Staging-only Neon project ID", "Change only when replacing staging database project"],
+  ["NEON_STAGING_PROJECT_ID", "GitHub staging deploy and provider-binding guard", "No", "Staging-only Neon project ID verified against the provider response", "Change only when replacing staging database project"],
   ["NEON_PRODUCTION_PROJECT_ID", "GitHub production deploy job", "No", "Production-only Neon project ID", "Change only when replacing production database project"],
-  ["NEON_STAGING_ROOT_BRANCH_ID", "GitHub staging deploy job", "No", "Staging root branch ID", "Change only after verified branch migration"],
+  ["NEON_STAGING_ROOT_BRANCH_ID", "GitHub staging deploy and provider-binding guard", "No", "Staging root branch ID verified against the provider response", "Change only after verified branch migration"],
   ["NEON_PRODUCTION_ROOT_BRANCH_ID", "GitHub production deploy job", "No", "Production root branch ID", "Change only after verified branch migration"],
   ["STAGING_DATABASE_URL_DIRECT", "Protected GitHub staging environment", "Yes", "Direct TLS URL for staging", "Rotate staging database role"],
   ["STAGING_DATABASE_URL_POOLED", "Protected GitHub staging environment", "Yes", "Pooled TLS URL for the same staging target", "Rotate staging Netlify database role"],
@@ -430,7 +501,7 @@ const PROVIDER_ROWS = [
   ["FLY_API_TOKEN", "GitHub worker deploy job", "Yes", "App-scoped Fly deploy token", "Rotate in Fly; update protected GitHub environment secret"],
   ["FLY_METRICS_TOKEN", "Protected GitHub staging load job", "Yes", "Read-only Fly org metrics token; FlyV1 or Bearer authorization value", "Rotate in Fly; update protected GitHub environment secret"],
   ["FLY_ORG_SLUG", "Protected GitHub staging load job", "No", "Exact lowercase Fly organization slug", "Change only when moving the worker app to another organization"],
-  ["FLY_STAGING_APP", "GitHub staging deploy job", "No", "Dedicated staging Fly app name", "Change only when replacing staging worker app"],
+  ["FLY_STAGING_APP", "GitHub staging deploy, acceptance and rollback jobs", "No", "Exact empire-streets-staging-worker app name", "Change only with the independent repository pin"],
   ["FLY_PRODUCTION_APP", "GitHub production deploy job", "No", "Dedicated production Fly app name", "Change only when replacing production worker app"],
   ["STAGING_ADMIN_INITIAL_PASSWORD", "One-time protected staging bootstrap", "Yes", "Strong generated temporary password", "Delete immediately after verified rotation"],
   ["PRODUCTION_ADMIN_INITIAL_PASSWORD", "One-time protected production bootstrap", "Yes", "Strong generated temporary password", "Delete immediately after verified rotation"],
@@ -458,7 +529,7 @@ const PROVIDER_ROWS = [
 ].map(([variable, component, secret, safeFormat, rotation]) => ({
   variable,
   component,
-  stagingRequired: variable.includes("PRODUCTION") ? "No" : "Yes",
+  stagingRequired: providerStagingRequirement(variable),
   productionRequired: variable.includes("STAGING") || variable === "FLY_METRICS_TOKEN" || variable === "FLY_ORG_SLUG" ? "No" : "Yes",
   secret,
   netlifyScope: "Never injected into site runtime",

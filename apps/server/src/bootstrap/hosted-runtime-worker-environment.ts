@@ -65,6 +65,16 @@ export const resolveHostedRuntimeWorkerEnvironment = (
         || safeTargetHash(gameplayTarget) !== expectedTargetHash) {
         throw new Error("HOSTED_WORKER_PRODUCTION_DATABASE_TARGET_MISMATCH");
       }
+    } else if (releaseEnvironment === "staging") {
+      if (environment.EMPIRE_DATABASE_TARGET_ENVIRONMENT !== "staging") {
+        throw new Error("HOSTED_WORKER_STAGING_DATABASE_TARGET_ENVIRONMENT_MISMATCH");
+      }
+      const expectedTargetHash = String(environment.EMPIRE_STAGING_DATABASE_TARGET_HASH ?? "").trim();
+      if (!/^[0-9a-f]{64}$/u.test(expectedTargetHash)
+        || safeTargetHash(empireTarget) !== expectedTargetHash
+        || safeTargetHash(gameplayTarget) !== expectedTargetHash) {
+        throw new Error("HOSTED_WORKER_STAGING_DATABASE_TARGET_MISMATCH");
+      }
     }
   } else if (sessionSecret.length < 32 || snapshotSecret.length < 32 || sessionSecret === snapshotSecret) {
     throw new Error("HOSTED_WORKER_SECRETS_INVALID");

@@ -2,8 +2,10 @@ import path from "node:path";
 import { validatePublicRegistrationWindow } from "./registration-window-contract.mjs";
 import { assertSafeRemoteStagingFixtureEnvironment } from "./remote-staging-fixture-safety.mjs";
 import { REMOTE_STAGING_ACCEPTANCE_SUITES } from "./remote-staging-acceptance-suites.mjs";
+import { STAGING_FLY_APP } from "./staging-release-contract.mjs";
 
 export const PRE_ALPHA_STAGING_ORIGIN = "https://staging.empirestreets.cz";
+export const PRE_ALPHA_STAGING_FLY_APP = STAGING_FLY_APP;
 export const PRE_ALPHA_STAGING_REMOTE_GUARD = "staging-only-remote-acceptance";
 export const PRE_ALPHA_STAGING_FIXTURE_GUARD = "staging-only-fixture-write";
 export const PRE_ALPHA_FINAL_REGISTRATION_MODES = Object.freeze(["closed", "open"]);
@@ -166,8 +168,9 @@ export const validatePreAlphaStagingInvocation = ({
 
   if (phaseNames.has("staging-parity")) {
     const flyApp = String(environment.FLY_STAGING_APP ?? "").trim();
-    requireValue(/^[a-z0-9-]{3,63}$/u.test(flyApp), "PRE_ALPHA_STAGING_FLY_APP_INVALID");
-    requireValue(environment.EMPIRE_PRE_ALPHA_STAGING_FLY_APP === flyApp,
+    requireValue(flyApp === PRE_ALPHA_STAGING_FLY_APP, "PRE_ALPHA_STAGING_FLY_APP_INVALID");
+    requireValue(environment.EMPIRE_PRE_ALPHA_STAGING_FLY_APP === PRE_ALPHA_STAGING_FLY_APP
+      && environment.EMPIRE_PRE_ALPHA_STAGING_FLY_APP === flyApp,
       "PRE_ALPHA_STAGING_FLY_APP_NOT_PINNED");
     requireValue(environment.EMPIRE_HOSTED_WORKER_ORIGIN === `https://${flyApp}.fly.dev`,
       "PRE_ALPHA_STAGING_WORKER_ORIGIN_INVALID");
@@ -179,8 +182,9 @@ export const validatePreAlphaStagingInvocation = ({
 
   if (phaseNames.has("staging-suites") || phaseNames.has("staging-load")) {
     const flyApp = String(environment.FLY_STAGING_APP ?? "").trim();
-    requireValue(/^[a-z0-9-]{3,63}$/u.test(flyApp), "PRE_ALPHA_STAGING_FLY_APP_INVALID");
-    requireValue(environment.EMPIRE_PRE_ALPHA_STAGING_FLY_APP === flyApp,
+    requireValue(flyApp === PRE_ALPHA_STAGING_FLY_APP, "PRE_ALPHA_STAGING_FLY_APP_INVALID");
+    requireValue(environment.EMPIRE_PRE_ALPHA_STAGING_FLY_APP === PRE_ALPHA_STAGING_FLY_APP
+      && environment.EMPIRE_PRE_ALPHA_STAGING_FLY_APP === flyApp,
       "PRE_ALPHA_STAGING_FLY_APP_NOT_PINNED");
     requireValue(Boolean(String(environment.EMPIRE_ADMIN_BOOTSTRAP_USERNAME ?? "").trim()),
       "PRE_ALPHA_STAGING_ADMIN_USERNAME_REQUIRED");

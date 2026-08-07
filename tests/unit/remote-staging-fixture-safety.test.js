@@ -6,6 +6,8 @@ import {
   databaseTargetHash,
   readRemoteStagingLifecycleFixtureBinding
 } from "../../scripts/remote-staging-fixture-safety.mjs";
+import { releaseDatabaseTargetHash } from "../../scripts/release-database-target-hash.mjs";
+import targetVector from "../fixtures/release-database-target-vectors.json";
 
 const directUrl = "postgresql://staging-role@ep-acceptance.eu-central-1.aws.neon.tech/empire?sslmode=verify-full";
 const validEnvironment = {
@@ -24,6 +26,12 @@ describe("remote staging fixture safety", () => {
       connectionMode: "direct",
       environment: "staging"
     });
+  });
+
+  it("uses the canonical decoded-path target hash for the shared direct vector", () => {
+    expect(databaseTargetHash(targetVector.directUrl)).toBe(
+      releaseDatabaseTargetHash(targetVector.pooledUrl)
+    );
   });
 
   it.each([

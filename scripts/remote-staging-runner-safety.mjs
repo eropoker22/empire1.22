@@ -1,4 +1,7 @@
+import { STAGING_FLY_APP } from "./staging-release-contract.mjs";
+
 export const REMOTE_STAGING_PLAYWRIGHT_TRACE_ARGUMENT = "--trace=off";
+export const REMOTE_STAGING_FLY_APP = STAGING_FLY_APP;
 
 const RETRYABLE_ARCHIVE_ERROR_CODES = Object.freeze([
   "SERVER_LIFECYCLE_OPERATION_ACTIVE",
@@ -56,6 +59,9 @@ export const assertPinnedRemoteStagingFlyApp = ({ app, pinnedApp }) => {
   }
   if (normalizedApp !== normalizedPin) {
     throw new Error("REMOTE_STAGING_FLY_APP_NOT_PINNED");
+  }
+  if (normalizedApp !== REMOTE_STAGING_FLY_APP) {
+    throw new Error("REMOTE_STAGING_FLY_APP_CANONICAL_MISMATCH");
   }
   return normalizedApp;
 };

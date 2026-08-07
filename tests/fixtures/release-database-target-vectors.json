@@ -1,0 +1,5 @@
+{
+  "directUrl": "postgresql://direct:fixture-password@ep-target-vector.eu-central-1.aws.neon.tech/empire%20prealpha?sslmode=verify-full",
+  "pooledUrl": "postgresql://pooled:fixture-password@ep-target-vector-pooler.eu-central-1.aws.neon.tech/empire%20prealpha?sslmode=require",
+  "identity": "ep-target-vector.eu-central-1.aws.neon.tech:5432/empire prealpha"
+}

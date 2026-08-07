@@ -95,7 +95,8 @@ jobs:
           manifest="gate-evidence/artifacts/release-manifest.json"
           remote="gate-evidence/artifacts/release/staging/remote-release-health.json"
           backup="gate-evidence/artifacts/release/staging/database-backup.json"
-          [[ -s "$manifest" && -s "$remote" && -s "$backup" ]]
+          binding="gate-evidence/artifacts/release/staging/neon-target-binding.json"
+          [[ -s "$manifest" && -s "$remote" && -s "$backup" && -s "$binding" ]]
           jq -e --arg sha "$RELEASE_SHA" '
             .gitSha == $sha and
             .frontendBuildSha == $sha and
@@ -108,7 +109,28 @@ jobs:
             .frontendSha == $sha and .apiSha == $sha and .workerSha == $sha and
             .environment == "staging" and .region == "fra"
           ' "$remote" >/dev/null
-          jq -e --arg sha "$RELEASE_SHA" '.environment == "staging" and .sha == $sha' "$backup" >/dev/null
+          jq -e --arg sha "$RELEASE_SHA" '
+            .schemaVersion == 1 and .status == "verified" and .environment == "staging" and
+            keys == ["branchIdHash","databaseTargetHash","endpointIdHash","environment","projectIdHash","releaseSha","schemaVersion","status"] and
+            .releaseSha == $sha and
+            (.databaseTargetHash | test("^[0-9a-f]{64}$")) and
+            (.projectIdHash | test("^[0-9a-f]{64}$")) and
+            (.branchIdHash | test("^[0-9a-f]{64}$")) and
+            (.endpointIdHash | test("^[0-9a-f]{64}$"))
+          ' "$binding" >/dev/null
+          jq -e --arg sha "$RELEASE_SHA" --slurpfile binding "$binding" '
+            .schemaVersion == 1 and .status == "verified" and
+            keys == ["branchIdHash","databaseTargetHash","endpointIdHash","environment","name","operationCount","operationSetHash","projectIdHash","schemaVersion","sha","snapshotIdHash","status"] and
+            .environment == "staging" and .sha == $sha and
+            (.snapshotIdHash | test("^[0-9a-f]{16}$")) and
+            (.operationSetHash | test("^[0-9a-f]{64}$")) and
+            ((.operationCount | type) == "number") and
+            .operationCount >= 0 and (.operationCount | floor) == .operationCount and
+            .databaseTargetHash == $binding[0].databaseTargetHash and
+            .projectIdHash == $binding[0].projectIdHash and
+            .branchIdHash == $binding[0].branchIdHash and
+            .endpointIdHash == $binding[0].endpointIdHash
+          ' "$backup" >/dev/null
 
   code-evidence:
     name: Canonical code-level release evidence
@@ -198,6 +220,7 @@ jobs:
       NETLIFY_PRODUCTION_SITE_ID: ${{ vars.NETLIFY_PRODUCTION_SITE_ID }}
       NETLIFY_DISABLE_UPDATE_CHECK: "true"
       FLY_STAGING_APP: ${{ vars.FLY_STAGING_APP }}
+      EMPIRE_PRE_ALPHA_STAGING_FLY_APP: empire-streets-staging-worker
       NODE_ENV: production
       EMPIRE_RELEASE_ENVIRONMENT: staging
       EMPIRE_PUBLIC_ORIGIN: https://staging.empirestreets.cz
@@ -224,6 +247,9 @@ jobs:
           set -euo pipefail
           [[ "$(git rev-parse HEAD)" == "$RELEASE_SHA" ]]
           [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+          [[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]
+          [[ "$EMPIRE_PRE_ALPHA_STAGING_FLY_APP" == "empire-streets-staging-worker" ]]
+          [[ "$FLY_STAGING_APP" == "$EMPIRE_PRE_ALPHA_STAGING_FLY_APP" ]]
           rg --quiet 'EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT' apps/server/src/player-entry/account-registration-policy.ts
 
       - name: Install exact dependencies
@@ -305,7 +331,7 @@ jobs:
 
       - name: Verify registration and release parity
         env:
-          EMPIRE_HOSTED_WORKER_ORIGIN: https://${{ vars.FLY_STAGING_APP }}.fly.dev
+          EMPIRE_HOSTED_WORKER_ORIGIN: https://empire-streets-staging-worker.fly.dev
           EMPIRE_REMOTE_RELEASE_EVIDENCE_PATH: artifacts/release/staging/remote-acceptance/open-release-health.json
         shell: bash
         run: |
@@ -451,7 +477,7 @@ jobs:
       EMPIRE_ADMIN_BOOTSTRAP_USERNAME: ${{ vars.STAGING_ADMIN_USERNAME }}
       EMPIRE_REMOTE_STAGING_ARTIFACT_ROOT: artifacts/remote-staging/${{ matrix.suite }}
       FLY_STAGING_APP: ${{ vars.FLY_STAGING_APP }}
-      EMPIRE_PRE_ALPHA_STAGING_FLY_APP: ${{ vars.FLY_STAGING_APP }}
+      EMPIRE_PRE_ALPHA_STAGING_FLY_APP: empire-streets-staging-worker
 
     steps:
       - name: Checkout exact deployed SHA
@@ -471,6 +497,9 @@ jobs:
           set -euo pipefail
           [[ "$(git rev-parse HEAD)" == "$RELEASE_SHA" ]]
           [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+          [[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]
+          [[ "$EMPIRE_PRE_ALPHA_STAGING_FLY_APP" == "empire-streets-staging-worker" ]]
+          [[ "$FLY_STAGING_APP" == "$EMPIRE_PRE_ALPHA_STAGING_FLY_APP" ]]
 
       - name: Install exact dependencies
         run: npm ci
@@ -576,6 +605,7 @@ jobs:
     env:
       RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
       FLY_STAGING_APP: ${{ vars.FLY_STAGING_APP }}
+      EMPIRE_PRE_ALPHA_STAGING_FLY_APP: empire-streets-staging-worker
 
     steps:
       - name: Checkout exact deployed SHA
@@ -589,7 +619,9 @@ jobs:
           set -euo pipefail
           [[ "$(git rev-parse HEAD)" == "$RELEASE_SHA" ]]
           [[ -z "$(git status --porcelain --untracked-files=all)" ]]
-          [[ "$FLY_STAGING_APP" =~ ^[a-z0-9-]{3,63}$ ]]
+          [[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]
+          [[ "$EMPIRE_PRE_ALPHA_STAGING_FLY_APP" == "empire-streets-staging-worker" ]]
+          [[ "$FLY_STAGING_APP" == "$EMPIRE_PRE_ALPHA_STAGING_FLY_APP" ]]
 
       - name: Setup pinned Fly CLI
         uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
@@ -655,7 +687,7 @@ jobs:
       EMPIRE_PUBLIC_ORIGIN: https://staging.empirestreets.cz
       EMPIRE_ALLOWED_ORIGINS: https://staging.empirestreets.cz
       EMPIRE_BUILD_SHA: ${{ needs.gate.outputs.release_sha }}
-      EMPIRE_HOSTED_WORKER_ORIGIN: https://${{ vars.FLY_STAGING_APP }}.fly.dev
+      EMPIRE_HOSTED_WORKER_ORIGIN: https://empire-streets-staging-worker.fly.dev
       EMPIRE_ADMIN_BOOTSTRAP_USERNAME: ${{ vars.STAGING_ADMIN_USERNAME }}
       EMPIRE_REMOTE_STAGING_ARTIFACT_ROOT: artifacts/remote-staging/load-soak
       EMPIRE_REMOTE_LOAD_SOAK_MINUTES: ${{ needs.gate.outputs.soak_minutes }}
@@ -665,6 +697,7 @@ jobs:
       EMPIRE_REMOTE_MAX_WORKER_THROTTLE_INCREASE: ${{ vars.EMPIRE_REMOTE_MAX_WORKER_THROTTLE_INCREASE }}
       EMPIRE_STAGING_DATABASE_TARGET_HASH: ${{ vars.EMPIRE_STAGING_DATABASE_TARGET_HASH }}
       FLY_STAGING_APP: ${{ vars.FLY_STAGING_APP }}
+      EMPIRE_PRE_ALPHA_STAGING_FLY_APP: empire-streets-staging-worker
       FLY_ORG_SLUG: ${{ vars.FLY_ORG_SLUG }}
 
     steps:
@@ -685,6 +718,9 @@ jobs:
           set -euo pipefail
           [[ "$(git rev-parse HEAD)" == "$RELEASE_SHA" ]]
           [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+          [[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]
+          [[ "$EMPIRE_PRE_ALPHA_STAGING_FLY_APP" == "empire-streets-staging-worker" ]]
+          [[ "$FLY_STAGING_APP" == "$EMPIRE_PRE_ALPHA_STAGING_FLY_APP" ]]
 
       - name: Install exact dependencies
         run: npm ci
@@ -761,6 +797,8 @@ jobs:
       EMPIRE_BUILD_SHA: ${{ needs.gate.outputs.release_sha }}
       EMPIRE_RUNTIME_REGION: fra
       EMPIRE_HOSTED_WORKER_REGION: fra
+      FLY_STAGING_APP: ${{ vars.FLY_STAGING_APP }}
+      EMPIRE_PRE_ALPHA_STAGING_FLY_APP: empire-streets-staging-worker
 
     steps:
       - name: Checkout exact deployed SHA
@@ -772,6 +810,16 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .node-version
+
+      - name: Verify exact clean source and canonical worker target
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$RELEASE_SHA" ]]
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+          [[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]
+          [[ "$EMPIRE_PRE_ALPHA_STAGING_FLY_APP" == "empire-streets-staging-worker" ]]
+          [[ "$FLY_STAGING_APP" == "$EMPIRE_PRE_ALPHA_STAGING_FLY_APP" ]]
 
       - name: Install pinned Netlify CLI
         if: env.LEAVE_REGISTRATION_OPEN != 'true'
@@ -842,7 +890,7 @@ jobs:
 
       - name: Verify final registration policy and exact release parity
         env:
-          EMPIRE_HOSTED_WORKER_ORIGIN: https://${{ vars.FLY_STAGING_APP }}.fly.dev
+          EMPIRE_HOSTED_WORKER_ORIGIN: https://empire-streets-staging-worker.fly.dev
           EMPIRE_REMOTE_RELEASE_EVIDENCE_PATH: artifacts/release/staging/remote-acceptance/final-release-health.json
         shell: bash
         run: |

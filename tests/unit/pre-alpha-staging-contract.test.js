@@ -7,6 +7,7 @@ import {
   PRE_ALPHA_ALL_REMOTE_SUITE_NAMES,
   PRE_ALPHA_REQUIRED_REMOTE_SUITE_NAMES,
   PRE_ALPHA_STAGING_FIXTURE_GUARD,
+  PRE_ALPHA_STAGING_FLY_APP,
   PRE_ALPHA_STAGING_ORIGIN,
   PRE_ALPHA_STAGING_PHASES,
   PRE_ALPHA_STAGING_REMOTE_GUARD,
@@ -35,9 +36,9 @@ const baseStagingEnvironment = () => ({
   EMPIRE_PUBLIC_ORIGIN: PRE_ALPHA_STAGING_ORIGIN,
   EMPIRE_BUILD_SHA: SHA,
   EMPIRE_PRE_ALPHA_STAGING_REMOTE_APPROVED: PRE_ALPHA_STAGING_REMOTE_GUARD,
-  FLY_STAGING_APP: "empire-staging-worker",
-  EMPIRE_PRE_ALPHA_STAGING_FLY_APP: "empire-staging-worker",
-  EMPIRE_HOSTED_WORKER_ORIGIN: "https://empire-staging-worker.fly.dev",
+  FLY_STAGING_APP: PRE_ALPHA_STAGING_FLY_APP,
+  EMPIRE_PRE_ALPHA_STAGING_FLY_APP: PRE_ALPHA_STAGING_FLY_APP,
+  EMPIRE_HOSTED_WORKER_ORIGIN: `https://${PRE_ALPHA_STAGING_FLY_APP}.fly.dev`,
   EMPIRE_RUNTIME_REGION: "fra",
   EMPIRE_HOSTED_WORKER_REGION: "fra"
 });
@@ -274,6 +275,17 @@ describe("pre-alpha staging orchestrator contract", () => {
       phases: [phase("staging-parity")],
       now: NOW
     })).toThrow(/PRE_ALPHA_STAGING_FLY_APP_NOT_PINNED/u);
+    expect(() => validatePreAlphaStagingInvocation({
+      environment: {
+        ...baseStagingEnvironment(),
+        FLY_STAGING_APP: "another-staging-worker",
+        EMPIRE_PRE_ALPHA_STAGING_FLY_APP: "another-staging-worker"
+      },
+      gitSha: SHA,
+      worktreeStatus: "",
+      phases: [phase("staging-parity")],
+      now: NOW
+    })).toThrow(/PRE_ALPHA_STAGING_FLY_APP_INVALID/u);
     expect(() => validatePreAlphaStagingInvocation({
       environment: {
         ...baseStagingEnvironment(),

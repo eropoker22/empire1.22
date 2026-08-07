@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { releaseDatabaseTargetHash } from "./release-database-target-hash.mjs";
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
 const LIFECYCLE_DISPLAY_PREFIX_PATTERN =
@@ -7,8 +7,7 @@ const MAX_LIFECYCLE_CREATION_WINDOW_MS = 10 * 60 * 1_000;
 
 export const databaseTargetHash = (value) => {
   const parsed = parseDatabaseUrl(value);
-  const identity = `${parsed.hostname.toLowerCase()}:${parsed.port || "5432"}${parsed.pathname}`;
-  return createHash("sha256").update(identity).digest("hex");
+  return releaseDatabaseTargetHash(parsed);
 };
 
 export const assertSafeRemoteStagingFixtureEnvironment = (environment) => {

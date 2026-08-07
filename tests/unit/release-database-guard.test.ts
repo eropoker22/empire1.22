@@ -6,11 +6,13 @@ import {
 } from "../../scripts/release-database-guard";
 import { releaseDatabaseTargetHash } from "../../scripts/release-database-target-hash.mjs";
 
+const stagingDirect = "postgresql://release@ep-safe.eu-central-1.aws.neon.tech/empire?sslmode=verify-full";
 const validEnvironment = {
   EMPIRE_RELEASE_ENVIRONMENT: "staging",
   EMPIRE_DATABASE_TARGET_ENVIRONMENT: "staging",
-  EMPIRE_DATABASE_URL: "postgresql://release@ep-safe.eu-central-1.aws.neon.tech/empire?sslmode=verify-full",
+  EMPIRE_DATABASE_URL: stagingDirect,
   GAMEPLAY_DATABASE_URL: "postgresql://gameplay@ep-safe.eu-central-1.aws.neon.tech/empire?sslmode=verify-full",
+  EMPIRE_STAGING_DATABASE_TARGET_HASH: releaseDatabaseTargetHash(stagingDirect),
   EMPIRE_DATABASE_BACKUP_CONFIRMED: "true",
   EMPIRE_DATABASE_BACKUP_ID: "snap-safe-fixture",
   EMPIRE_DATABASE_INITIALIZATION_CONFIRMED: "false"
@@ -34,7 +36,9 @@ describe("release database guard", () => {
     [{ EMPIRE_DATABASE_BACKUP_CONFIRMED: "false" }, "RELEASE_DATABASE_BACKUP_NOT_CONFIRMED"],
     [{ GAMEPLAY_DATABASE_URL: "postgresql://gameplay@ep-other.eu-central-1.aws.neon.tech/empire?sslmode=require" }, "RELEASE_DATABASE_TARGET_MISMATCH"],
     [{ EMPIRE_DATABASE_URL: "postgresql://release@ep-safe-pooler.eu-central-1.aws.neon.tech/empire?sslmode=require" }, "RELEASE_DATABASE_DIRECT_TLS_REQUIRED"],
-    [{ EMPIRE_DATABASE_TARGET_ENVIRONMENT: "production" }, "RELEASE_DATABASE_TARGET_ENVIRONMENT_MISMATCH"]
+    [{ EMPIRE_DATABASE_TARGET_ENVIRONMENT: "production" }, "RELEASE_DATABASE_TARGET_ENVIRONMENT_MISMATCH"],
+    [{ EMPIRE_STAGING_DATABASE_TARGET_HASH: "" }, "RELEASE_STAGING_DATABASE_TARGET_HASH_INVALID"],
+    [{ EMPIRE_STAGING_DATABASE_TARGET_HASH: "a".repeat(64) }, "RELEASE_STAGING_DATABASE_TARGET_HASH_MISMATCH"]
   ])("rejects an unsafe release target", (override, code) => {
     expect(() => validateReleaseDatabaseEnvironment({ ...validEnvironment, ...override })).toThrow(code);
   });

@@ -68,6 +68,58 @@ describe("public release workflows", () => {
       .toBeLessThan(staging.indexOf("Configure isolated Netlify staging environment"));
   });
 
+  it("pins the staging database and Fly app before any provider mutation", () => {
+    expect(staging).toContain("EMPIRE_DATABASE_TARGET_ENVIRONMENT: staging");
+    expect(staging).toContain(
+      "EMPIRE_STAGING_DATABASE_TARGET_HASH: ${{ vars.EMPIRE_STAGING_DATABASE_TARGET_HASH }}"
+    );
+    expect(staging).toContain("EMPIRE_PRE_ALPHA_STAGING_FLY_APP: empire-streets-staging-worker");
+    expect(staging).toContain('[[ "$EMPIRE_STAGING_DATABASE_TARGET_HASH" =~ ^[0-9a-f]{64}$ ]]');
+    expect(staging).toContain('[[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]');
+    expect(staging).toContain('[[ "$FLY_STAGING_APP" == "$EMPIRE_PRE_ALPHA_STAGING_FLY_APP" ]]');
+    expect(staging).toContain("EMPIRE_RELEASE_DATABASE_URL_POOLED: ${{ secrets.STAGING_DATABASE_URL_POOLED }}");
+    expect(staging).toContain("GAMEPLAY_RELEASE_DATABASE_URL_POOLED: ${{ secrets.STAGING_DATABASE_URL_POOLED }}");
+
+    const validation = staging.indexOf("Validate staging environment and create manifest");
+    const neonBinding = staging.indexOf("Verify exact Neon project branch and endpoint before snapshot mutation");
+    const firstMutation = staging.indexOf("Create Neon pre-migration snapshot");
+    const neonPost = staging.indexOf("--request POST");
+    const snapshotResponseAssertion = staging.indexOf("node scripts/verify-staging-neon-snapshot.mjs");
+    const firstMigration = staging.indexOf("Initialize empty staging migration history");
+    expect(validation).toBeGreaterThan(0);
+    expect(neonBinding).toBeGreaterThan(validation);
+    expect(neonBinding).toBeLessThan(firstMutation);
+    expect(neonBinding).toBeLessThan(neonPost);
+    expect(neonPost).toBeLessThan(snapshotResponseAssertion);
+    expect(snapshotResponseAssertion).toBeLessThan(firstMigration);
+    expect(staging).toContain("/projects/${NEON_PROJECT_ID}/branches/${NEON_BRANCH_ID}/endpoints");
+    expect(staging).toContain("node scripts/verify-staging-neon-target.mjs");
+    expect(staging).toContain("EMPIRE_STAGING_NEON_BINDING_EVIDENCE_PATH: artifacts/release/staging/neon-target-binding.json");
+    expect(staging).toContain("EMPIRE_STAGING_NEON_BACKUP_EVIDENCE_PATH: artifacts/release/staging/database-backup.json");
+
+    const netlifyGuard = staging.indexOf("Verify exact staging Netlify site target before deployment mutation");
+    const firstNetlifyMutation = staging.indexOf("netlify env:set");
+    const flyPin = staging.indexOf('[[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]');
+    for (const providerMutation of [
+      neonPost,
+      firstNetlifyMutation,
+      staging.indexOf('docker push "registry.fly.io/${FLY_STAGING_APP}:${RELEASE_SHA}"'),
+      staging.indexOf('flyctl secrets import --stage --app "$FLY_STAGING_APP"'),
+      staging.indexOf('flyctl deploy --app "$FLY_STAGING_APP"')
+    ]) {
+      expect(providerMutation).toBeGreaterThan(0);
+      expect(providerMutation).toBeGreaterThan(flyPin);
+    }
+    expect(netlifyGuard).toBeLessThan(firstNetlifyMutation);
+
+    const workerSecrets = staging.slice(
+      staging.indexOf("Stage worker runtime secrets"),
+      staging.indexOf("Deploy exactly one persistent worker")
+    );
+    expect(workerSecrets).toContain("EMPIRE_DATABASE_TARGET_ENVIRONMENT=staging");
+    expect(workerSecrets).toContain("EMPIRE_STAGING_DATABASE_TARGET_HASH=%s");
+  });
+
   it("builds and deploys one SHA-tagged Fly worker with health and restart controls", () => {
     expect(staging).toContain('registry.fly.io/${FLY_STAGING_APP}:${RELEASE_SHA}');
     expect(staging).toContain("--ha=false");
@@ -170,6 +222,18 @@ describe("public release workflows", () => {
     }
     expect(remote).toContain("max-parallel: 1");
     expect(remote).toContain("npm run test:remote-staging:suite");
+    expect(remote).toContain("EMPIRE_PRE_ALPHA_STAGING_FLY_APP: empire-streets-staging-worker");
+    expect(remote).toContain('[[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]');
+    expect(remote).toContain('[[ "$FLY_STAGING_APP" == "$EMPIRE_PRE_ALPHA_STAGING_FLY_APP" ]]');
+    const remoteSuites = remote.slice(remote.indexOf("  remote-suites:"), remote.indexOf("  worker-redeploy:"));
+    const workerRedeploy = remote.slice(remote.indexOf("  worker-redeploy:"), remote.indexOf("  load-soak:"));
+    for (const mutationBlock of [remoteSuites, workerRedeploy]) {
+      expect(mutationBlock).toContain("EMPIRE_PRE_ALPHA_STAGING_FLY_APP: empire-streets-staging-worker");
+      expect(mutationBlock.indexOf('[[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]'))
+        .toBeGreaterThan(0);
+    }
+    expect(workerRedeploy.indexOf('[[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]'))
+      .toBeLessThan(workerRedeploy.indexOf('flyctl deploy --app "$FLY_STAGING_APP"'));
     expect(remote).toContain("matrix.fixture == true && matrix.restart_worker == true");
     expect(remote).toContain("Run fixture-backed worker-recovery remote suite");
     expect(remote).toContain('.counts.executed == .counts.total');
@@ -183,6 +247,12 @@ describe("public release workflows", () => {
     expect(remote).toContain("Canonical code-level release evidence");
     expect(remote).toContain("npm run verify:pre-alpha:staging");
     expect(remote).toContain("staging-pre-alpha-code-${{ env.RELEASE_SHA }}");
+    expect(remote).toContain("gate-evidence/artifacts/release/staging/neon-target-binding.json");
+    expect(remote).toContain('.schemaVersion == 1 and .status == "verified" and .environment == "staging"');
+    expect(remote).toContain('.databaseTargetHash == $binding[0].databaseTargetHash');
+    expect(remote).toContain('.projectIdHash == $binding[0].projectIdHash');
+    expect(remote).toContain('.branchIdHash == $binding[0].branchIdHash');
+    expect(remote).toContain('.endpointIdHash == $binding[0].endpointIdHash');
   });
 
   it("measures staging load and finalizes the explicitly selected registration policy", () => {
@@ -192,6 +262,13 @@ describe("public release workflows", () => {
     expect(remote).toContain("EMPIRE_REMOTE_MAX_WORKER_CPU_PCT");
     expect(remote).toContain("EMPIRE_REMOTE_MAX_WORKER_THROTTLE_INCREASE");
     expect(remote).toContain("FLY_METRICS_TOKEN");
+    const loadSoak = remote.slice(remote.indexOf("  load-soak:"), remote.indexOf("  finalize-registration-policy:"));
+    expect(loadSoak).toContain("EMPIRE_PRE_ALPHA_STAGING_FLY_APP: empire-streets-staging-worker");
+    expect(loadSoak).toContain("EMPIRE_HOSTED_WORKER_ORIGIN: https://empire-streets-staging-worker.fly.dev");
+    expect(loadSoak.indexOf('[[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]'))
+      .toBeGreaterThan(0);
+    expect(loadSoak.indexOf('[[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]'))
+      .toBeLessThan(loadSoak.indexOf("npm run test:remote-staging:load-soak"));
     expect(remote).toContain('.performance.metrics.actionMix.distinctActualActionCount >= 5');
     expect(remote).toContain('.performance.metrics.actionMix.distinctAcceptedActionCount >= 4');
     expect(remote).toContain('.performance.metrics.rejectionClassification.unexpected == 0');
@@ -205,6 +282,23 @@ describe("public release workflows", () => {
     const finalizationJob = remote.slice(
       remote.indexOf("  finalize-registration-policy:"), remote.indexOf("  automated-verdict:")
     );
+    const openRegistrationJob = remote.slice(
+      remote.indexOf("  open-registration:"), remote.indexOf("  remote-suites:")
+    );
+    for (const registrationJob of [openRegistrationJob, finalizationJob]) {
+      expect(registrationJob).toContain("EMPIRE_PRE_ALPHA_STAGING_FLY_APP: empire-streets-staging-worker");
+      expect(registrationJob).toContain('[[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]');
+      expect(registrationJob).toContain('[[ "$FLY_STAGING_APP" == "$EMPIRE_PRE_ALPHA_STAGING_FLY_APP" ]]');
+      expect(registrationJob).toContain("EMPIRE_HOSTED_WORKER_ORIGIN: https://empire-streets-staging-worker.fly.dev");
+    }
+    expect(openRegistrationJob.indexOf('[[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]'))
+      .toBeLessThan(openRegistrationJob.indexOf("netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT"));
+    expect(openRegistrationJob.indexOf("Verify exact staging Netlify site target before mutation"))
+      .toBeLessThan(openRegistrationJob.indexOf("netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT"));
+    expect(finalizationJob.indexOf('[[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]'))
+      .toBeLessThan(finalizationJob.indexOf("Verify final registration policy and exact release parity"));
+    expect(finalizationJob.indexOf("Verify exact staging Netlify site target before closure mutation"))
+      .toBeLessThan(finalizationJob.indexOf("netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false"));
     expect(finalizationJob).toContain("if: always() && needs.gate.result == 'success'");
     expect(finalizationJob).toContain("if: env.LEAVE_REGISTRATION_OPEN != 'true'");
     expect(finalizationJob).toContain("EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false");
@@ -447,5 +541,26 @@ describe("public release workflows", () => {
     expect(rollback).not.toMatch(/uses:\s+[^\s]+@v\d/u);
     expect(rollback).not.toContain("NETLIFY_AUTH_TOKEN=");
     expect(rollback).not.toContain("FLY_API_TOKEN=");
+  });
+
+  it("pins rollback mutations to the exact staging Netlify site and canonical Fly app", () => {
+    expect(rollback).toContain("NETLIFY_PRODUCTION_SITE_ID: ${{ vars.NETLIFY_PRODUCTION_SITE_ID }}");
+    expect(rollback).toContain("EMPIRE_PRE_ALPHA_STAGING_FLY_APP: empire-streets-staging-worker");
+    expect(rollback).toContain("Verify exact staging Netlify site target before rollback mutation");
+    expect(rollback).toContain('[[ "$NETLIFY_SITE_ID" != "$NETLIFY_PRODUCTION_SITE_ID" ]]');
+    expect(rollback).toContain("https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}");
+    expect(rollback).toContain(".id == $id");
+    expect(rollback).toContain('any(. == "staging.empirestreets.cz")');
+    expect(rollback).toContain('. != "empirestreets.cz"');
+    expect(rollback).toContain('. != "www.empirestreets.cz"');
+    expect(rollback).toContain('[[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]');
+    expect(rollback).toContain('[[ "$FLY_STAGING_APP" == "$EMPIRE_PRE_ALPHA_STAGING_FLY_APP" ]]');
+
+    const targetGuard = rollback.indexOf("Verify exact staging Netlify site target before rollback mutation");
+    expect(targetGuard).toBeGreaterThan(0);
+    expect(rollback.indexOf('[[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]'))
+      .toBeLessThan(rollback.indexOf("flyctl auth docker"));
+    expect(targetGuard).toBeLessThan(rollback.indexOf("Restore previous staging code with registration closed"));
+    expect(targetGuard).toBeLessThan(rollback.indexOf("Restore exact staging candidate"));
   });
 });

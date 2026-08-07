@@ -125,8 +125,10 @@ jobs:
       DEPLOY_RUN_ID: ${{ needs.gate.outputs.deploy_run_id }}
       STAGING_ORIGIN: https://staging.empirestreets.cz
       NETLIFY_SITE_ID: ${{ vars.NETLIFY_STAGING_SITE_ID }}
+      NETLIFY_PRODUCTION_SITE_ID: ${{ vars.NETLIFY_PRODUCTION_SITE_ID }}
       NETLIFY_DISABLE_UPDATE_CHECK: "true"
       FLY_STAGING_APP: ${{ vars.FLY_STAGING_APP }}
+      EMPIRE_PRE_ALPHA_STAGING_FLY_APP: empire-streets-staging-worker
       EMPIRE_BUILD_SHA: ${{ needs.gate.outputs.release_sha }}
 
     steps:
@@ -166,13 +168,39 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          required=(NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID FLY_API_TOKEN FLY_STAGING_APP)
+          required=(NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID NETLIFY_PRODUCTION_SITE_ID FLY_API_TOKEN FLY_STAGING_APP EMPIRE_PRE_ALPHA_STAGING_FLY_APP)
           for name in "${required[@]}"; do
             [[ -n "${!name:-}" ]]
             [[ "${!name}" != *$'\n'* && "${!name}" != *$'\r'* ]]
           done
           [[ "$NETLIFY_SITE_ID" =~ ^[A-Za-z0-9-]{8,100}$ ]]
-          [[ "$FLY_STAGING_APP" =~ ^[a-z0-9-]{3,63}$ ]]
+          [[ "$NETLIFY_PRODUCTION_SITE_ID" =~ ^[A-Za-z0-9-]{8,100}$ ]]
+          [[ "$NETLIFY_SITE_ID" != "$NETLIFY_PRODUCTION_SITE_ID" ]]
+          [[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]
+          [[ "$EMPIRE_PRE_ALPHA_STAGING_FLY_APP" == "empire-streets-staging-worker" ]]
+          [[ "$FLY_STAGING_APP" == "$EMPIRE_PRE_ALPHA_STAGING_FLY_APP" ]]
+
+      - name: Verify exact staging Netlify site target before rollback mutation
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          site="$RUNNER_TEMP/netlify-staging-rollback-site.json"
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
+            "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}" -o "$site"
+          jq -e --arg id "$NETLIFY_SITE_ID" '
+            def normalized_host:
+              if type != "string" then ""
+              else ascii_downcase | sub("^https?://"; "") | sub("/.*$"; "") | sub("\\.$"; "")
+              end;
+            ([.custom_domain, .url, .ssl_url] + (.domain_aliases // []) | map(normalized_host)) as $hosts |
+            .id == $id and
+            ($hosts | any(. == "staging.empirestreets.cz")) and
+            ($hosts | all(. != "empirestreets.cz" and . != "www.empirestreets.cz"))
+          ' "$site" >/dev/null
+          rm -f "$site"
 
       - name: Download exact candidate release manifests
         env:

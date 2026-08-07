@@ -17,6 +17,7 @@ import {
 } from "./remote-staging-load-metrics.mjs";
 import {
   archiveRemoteStagingServerWithRetry,
+  assertPinnedRemoteStagingFlyApp,
   REMOTE_STAGING_PLAYWRIGHT_TRACE_ARGUMENT
 } from "./remote-staging-runner-safety.mjs";
 import { assertSupportedNodeVersion } from "./supported-node-policy.mjs";
@@ -30,7 +31,10 @@ if (releaseSha !== checkoutSha) throw new Error("REMOTE_LOAD_BUILD_SHA_MISMATCH"
 if (execFileSync("git", ["status", "--porcelain", "--untracked-files=all"], { cwd: root, encoding: "utf8" }).trim()) {
   throw new Error("REMOTE_LOAD_WORKTREE_DIRTY");
 }
-const flyApp = identifier(process.env.FLY_STAGING_APP, "REMOTE_LOAD_FLY_APP_REQUIRED");
+const flyApp = assertPinnedRemoteStagingFlyApp({
+  app: required(process.env.FLY_STAGING_APP, "REMOTE_LOAD_FLY_APP_REQUIRED"),
+  pinnedApp: required(process.env.EMPIRE_PRE_ALPHA_STAGING_FLY_APP, "REMOTE_LOAD_FLY_APP_PIN_REQUIRED")
+});
 const publicOrigin = exactOrigin(process.env.EMPIRE_PUBLIC_ORIGIN, "https://staging.empirestreets.cz");
 const workerOrigin = exactOrigin(
   process.env.EMPIRE_HOSTED_WORKER_ORIGIN,

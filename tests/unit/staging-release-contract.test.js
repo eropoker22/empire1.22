@@ -5,20 +5,29 @@ import {
   validateReleaseSource,
   validateStagingEnvironment
 } from "../../scripts/staging-release-contract.mjs";
+import { releaseDatabaseTargetHash } from "../../scripts/release-database-target-hash.mjs";
 
 const SHA = "854a5336e6f816343baf9bdec81a4bd3690a82de";
 const secret = (character) => character.repeat(64);
 const now = new Date("2026-08-05T10:00:00.000Z");
+const directDatabaseUrl = "postgresql://runtime@ep-staging.eu-central-1.aws.neon.tech/empire_staging?sslmode=verify-full";
+const pooledDatabaseUrl = "postgresql://runtime@ep-staging-pooler.eu-central-1.aws.neon.tech/empire_staging?sslmode=verify-full";
 const validEnvironment = {
   EMPIRE_RELEASE_ENVIRONMENT: "staging",
+  EMPIRE_DATABASE_TARGET_ENVIRONMENT: "staging",
   NODE_ENV: "production",
   EMPIRE_PUBLIC_ORIGIN: "https://staging.empirestreets.cz",
   EMPIRE_ALLOWED_ORIGINS: "https://staging.empirestreets.cz",
-  EMPIRE_DATABASE_URL: "postgresql://runtime@example.internal/empire_staging?sslmode=verify-full",
-  GAMEPLAY_DATABASE_URL: "postgresql://gameplay@example.internal/empire_staging?sslmode=verify-full",
+  EMPIRE_DATABASE_URL: directDatabaseUrl,
+  GAMEPLAY_DATABASE_URL: directDatabaseUrl.replace("runtime@", "gameplay@"),
+  EMPIRE_RELEASE_DATABASE_URL_POOLED: pooledDatabaseUrl,
+  GAMEPLAY_RELEASE_DATABASE_URL_POOLED: pooledDatabaseUrl.replace("runtime@", "gameplay@"),
+  EMPIRE_STAGING_DATABASE_TARGET_HASH: releaseDatabaseTargetHash(directDatabaseUrl),
   EMPIRE_PERSISTENCE_DRIVER: "postgres",
   GAMEPLAY_PERSISTENCE_DRIVER: "postgres",
   EMPIRE_BUILD_SHA: SHA,
+  FLY_STAGING_APP: "empire-streets-staging-worker",
+  EMPIRE_PRE_ALPHA_STAGING_FLY_APP: "empire-streets-staging-worker",
   EMPIRE_HOSTED_WORKER_ID: "worker:staging:eu-central",
   EMPIRE_HOSTED_WORKER_REGION: "eu-central",
   EMPIRE_RUNTIME_REGION: "eu-central",
@@ -124,6 +133,56 @@ describe("staging release contract", () => {
       passed: false,
       errorCode: "STAGING_DATABASE_TARGET_MISMATCH"
     });
+  });
+
+  it("pins every direct and pooled database URL to the protected staging hash", () => {
+    for (const override of [
+      { EMPIRE_STAGING_DATABASE_TARGET_HASH: "a".repeat(64) },
+      { EMPIRE_STAGING_DATABASE_TARGET_HASH: "" },
+      {
+        EMPIRE_RELEASE_DATABASE_URL_POOLED:
+          "postgresql://runtime@ep-other-pooler.eu-central-1.aws.neon.tech/empire_staging?sslmode=verify-full",
+        GAMEPLAY_RELEASE_DATABASE_URL_POOLED:
+          "postgresql://gameplay@ep-other-pooler.eu-central-1.aws.neon.tech/empire_staging?sslmode=verify-full"
+      }
+    ]) {
+      const result = validateStagingEnvironment({ ...validEnvironment, ...override }, { nodeVersion: "24.18.0" });
+      expect(result.checks.find((check) => check.name === "EMPIRE_STAGING_DATABASE_TARGET_HASH")).toMatchObject({
+        passed: false,
+        errorCode: "STAGING_DATABASE_TARGET_HASH_MISMATCH"
+      });
+    }
+  });
+
+  it("requires the explicit staging database environment and canonical independent Fly pin", () => {
+    const wrongTarget = validateStagingEnvironment({
+      ...validEnvironment,
+      EMPIRE_DATABASE_TARGET_ENVIRONMENT: "production"
+    }, { nodeVersion: "24.18.0" });
+    expect(wrongTarget.checks.find((check) => check.name === "EMPIRE_DATABASE_TARGET_ENVIRONMENT")).toMatchObject({
+      passed: false,
+      errorCode: "STAGING_DATABASE_TARGET_ENVIRONMENT_INVALID"
+    });
+
+    const wrongFlyApp = validateStagingEnvironment({
+      ...validEnvironment,
+      FLY_STAGING_APP: "empire-streets-production-worker"
+    }, { nodeVersion: "24.18.0" });
+    expect(wrongFlyApp.checks.find((check) => check.name === "FLY_STAGING_APP")).toMatchObject({
+      passed: false,
+      errorCode: "STAGING_FLY_APP_INVALID"
+    });
+    expect(wrongFlyApp.checks.find((check) => check.name === "EMPIRE_PRE_ALPHA_STAGING_FLY_APP")).toMatchObject({
+      passed: false,
+      errorCode: "STAGING_FLY_APP_PIN_MISMATCH"
+    });
+
+    const wrongIndependentPin = validateStagingEnvironment({
+      ...validEnvironment,
+      EMPIRE_PRE_ALPHA_STAGING_FLY_APP: "empire-streets-production-worker"
+    }, { nodeVersion: "24.18.0" });
+    expect(wrongIndependentPin.checks.find((check) => check.name === "EMPIRE_PRE_ALPHA_STAGING_FLY_APP"))
+      .toMatchObject({ passed: false, errorCode: "STAGING_FLY_APP_PIN_MISMATCH" });
   });
 
   it("requires the configured build SHA to equal checkout HEAD when supplied", () => {

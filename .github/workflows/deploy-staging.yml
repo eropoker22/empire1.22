@@ -112,8 +112,10 @@ jobs:
       NEON_PROJECT_ID: ${{ vars.NEON_STAGING_PROJECT_ID }}
       NEON_BRANCH_ID: ${{ vars.NEON_STAGING_ROOT_BRANCH_ID }}
       FLY_STAGING_APP: ${{ vars.FLY_STAGING_APP }}
+      EMPIRE_PRE_ALPHA_STAGING_FLY_APP: empire-streets-staging-worker
       EMPIRE_RELEASE_ENVIRONMENT: staging
       EMPIRE_DATABASE_TARGET_ENVIRONMENT: staging
+      EMPIRE_STAGING_DATABASE_TARGET_HASH: ${{ vars.EMPIRE_STAGING_DATABASE_TARGET_HASH }}
       EMPIRE_PERSISTENCE_DRIVER: postgres
       GAMEPLAY_PERSISTENCE_DRIVER: postgres
       EMPIRE_ADMIN_BOOTSTRAP_ROLE: owner
@@ -179,14 +181,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          required=(NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID NETLIFY_PRODUCTION_SITE_ID NEON_API_KEY NEON_PROJECT_ID NEON_BRANCH_ID STAGING_DATABASE_URL_DIRECT STAGING_DATABASE_URL_POOLED FLY_API_TOKEN FLY_STAGING_APP GAMEPLAY_SLICE_SESSION_SECRET GAMEPLAY_SLICE_SNAPSHOT_SECRET EMPIRE_ADMIN_FINGERPRINT_SECRET EMPIRE_ADMIN_SESSION_SECRET EMPIRE_AUTH_THROTTLE_PEPPER EMPIRE_ADMIN_BOOTSTRAP_USERNAME EMPIRE_ADMIN_NEW_PASSWORD EMPIRE_ADMIN_BOOTSTRAP_DISPLAY_NAME EMPIRE_ACCOUNT_TERMS_VERSION)
+          required=(NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID NETLIFY_PRODUCTION_SITE_ID NEON_API_KEY NEON_PROJECT_ID NEON_BRANCH_ID STAGING_DATABASE_URL_DIRECT STAGING_DATABASE_URL_POOLED FLY_API_TOKEN FLY_STAGING_APP EMPIRE_PRE_ALPHA_STAGING_FLY_APP EMPIRE_STAGING_DATABASE_TARGET_HASH GAMEPLAY_SLICE_SESSION_SECRET GAMEPLAY_SLICE_SNAPSHOT_SECRET EMPIRE_ADMIN_FINGERPRINT_SECRET EMPIRE_ADMIN_SESSION_SECRET EMPIRE_AUTH_THROTTLE_PEPPER EMPIRE_ADMIN_BOOTSTRAP_USERNAME EMPIRE_ADMIN_NEW_PASSWORD EMPIRE_ADMIN_BOOTSTRAP_DISPLAY_NAME EMPIRE_ACCOUNT_TERMS_VERSION)
           for name in "${required[@]}"; do
             [[ -n "${!name:-}" ]] || { echo "Missing required staging credential or variable: $name"; exit 1; }
             [[ "${!name}" != *$'\n'* && "${!name}" != *$'\r'* ]] || { echo "Invalid line break in staging input: $name"; exit 1; }
           done
           [[ "$NEON_PROJECT_ID" =~ ^[a-z0-9-]{1,60}$ ]]
           [[ "$NEON_BRANCH_ID" =~ ^[a-z0-9-]{1,60}$ ]]
-          [[ "$FLY_STAGING_APP" =~ ^[a-z0-9-]{3,63}$ ]]
+          [[ "$EMPIRE_STAGING_DATABASE_TARGET_HASH" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]
+          [[ "$EMPIRE_PRE_ALPHA_STAGING_FLY_APP" == "empire-streets-staging-worker" ]]
+          [[ "$FLY_STAGING_APP" == "$EMPIRE_PRE_ALPHA_STAGING_FLY_APP" ]]
 
       - name: Verify exact staging Netlify site target before deployment mutation
         env:
@@ -226,6 +231,8 @@ jobs:
           NODE_ENV: production
           EMPIRE_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
           GAMEPLAY_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          EMPIRE_RELEASE_DATABASE_URL_POOLED: ${{ secrets.STAGING_DATABASE_URL_POOLED }}
+          GAMEPLAY_RELEASE_DATABASE_URL_POOLED: ${{ secrets.STAGING_DATABASE_URL_POOLED }}
           GAMEPLAY_SLICE_SESSION_SECRET: ${{ secrets.STAGING_GAMEPLAY_SESSION_SECRET }}
           GAMEPLAY_SLICE_SNAPSHOT_SECRET: ${{ secrets.STAGING_GAMEPLAY_SNAPSHOT_SECRET }}
           EMPIRE_ADMIN_FINGERPRINT_SECRET: ${{ secrets.STAGING_ADMIN_FINGERPRINT_SECRET }}
@@ -236,10 +243,39 @@ jobs:
           npm run verify:staging-env
           npm run release:staging:manifest
 
+      - name: Verify exact Neon project branch and endpoint before snapshot mutation
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          EMPIRE_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          GAMEPLAY_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
+          EMPIRE_RELEASE_DATABASE_URL_POOLED: ${{ secrets.STAGING_DATABASE_URL_POOLED }}
+          GAMEPLAY_RELEASE_DATABASE_URL_POOLED: ${{ secrets.STAGING_DATABASE_URL_POOLED }}
+          EMPIRE_STAGING_NEON_BINDING_EVIDENCE_PATH: artifacts/release/staging/neon-target-binding.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch_response="$RUNNER_TEMP/neon-staging-branch.json"
+          endpoints_response="$RUNNER_TEMP/neon-staging-endpoints.json"
+          cleanup() { rm -f "$branch_response" "$endpoints_response"; }
+          trap cleanup EXIT
+          curl --fail --silent --show-error --request GET \
+            --url "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches/${NEON_BRANCH_ID}" \
+            --header "authorization: Bearer ${NEON_API_KEY}" \
+            --output "$branch_response"
+          curl --fail --silent --show-error --request GET \
+            --url "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches/${NEON_BRANCH_ID}/endpoints" \
+            --header "authorization: Bearer ${NEON_API_KEY}" \
+            --output "$endpoints_response"
+          export EMPIRE_STAGING_NEON_BRANCH_RESPONSE_PATH="$branch_response"
+          export EMPIRE_STAGING_NEON_ENDPOINTS_RESPONSE_PATH="$endpoints_response"
+          node scripts/verify-staging-neon-target.mjs
+
       - name: Create Neon pre-migration snapshot
         id: backup
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          EMPIRE_STAGING_NEON_BINDING_EVIDENCE_PATH: artifacts/release/staging/neon-target-binding.json
+          EMPIRE_STAGING_NEON_BACKUP_EVIDENCE_PATH: artifacts/release/staging/database-backup.json
         shell: bash
         run: |
           set -euo pipefail
@@ -252,9 +288,10 @@ jobs:
             --output "$response"
           snapshot_id="$(jq -er '.snapshot.id' "$response")"
           echo "::add-mask::$snapshot_id"
-          snapshot_hash="$(printf '%s' "$snapshot_id" | sha256sum | cut -c1-16)"
-          printf '{"environment":"staging","name":"%s","snapshotIdHash":"%s","sha":"%s"}\n' \
-            "$snapshot_name" "$snapshot_hash" "$RELEASE_SHA" > artifacts/release/staging/database-backup.json
+          export EMPIRE_STAGING_NEON_SNAPSHOT_RESPONSE_PATH="$response"
+          export EMPIRE_STAGING_NEON_SNAPSHOT_NAME="$snapshot_name"
+          node scripts/verify-staging-neon-snapshot.mjs
+          snapshot_hash="$(jq -er '.snapshotIdHash' "$EMPIRE_STAGING_NEON_BACKUP_EVIDENCE_PATH")"
           echo "snapshot_name=$snapshot_name" >> "$GITHUB_OUTPUT"
           echo "snapshot_id_hash=$snapshot_hash" >> "$GITHUB_OUTPUT"
           rm -f "$response"
@@ -391,6 +428,8 @@ jobs:
           worker_env="$RUNNER_TEMP/fly-worker.env"
           {
             printf 'EMPIRE_RELEASE_ENVIRONMENT=staging\n'
+            printf 'EMPIRE_DATABASE_TARGET_ENVIRONMENT=staging\n'
+            printf 'EMPIRE_STAGING_DATABASE_TARGET_HASH=%s\n' "$EMPIRE_STAGING_DATABASE_TARGET_HASH"
             printf 'EMPIRE_DATABASE_URL=%s\n' "$EMPIRE_DATABASE_URL"
             printf 'GAMEPLAY_DATABASE_URL=%s\n' "$GAMEPLAY_DATABASE_URL"
             printf 'GAMEPLAY_SLICE_SESSION_SECRET=%s\n' "$GAMEPLAY_SLICE_SESSION_SECRET"
@@ -450,7 +489,7 @@ jobs:
 
       - name: Verify remote SHA and asset parity
         env:
-          EMPIRE_HOSTED_WORKER_ORIGIN: https://${{ vars.FLY_STAGING_APP }}.fly.dev
+          EMPIRE_HOSTED_WORKER_ORIGIN: https://empire-streets-staging-worker.fly.dev
           EMPIRE_REMOTE_RELEASE_EVIDENCE_PATH: artifacts/release/staging/remote-release-health.json
         run: npm run verify:remote-release
 
@@ -538,4 +577,4 @@ jobs:
       - name: Remove transient credential files
         if: always()
         shell: bash
-        run: rm -f "$RUNNER_TEMP/fly-worker.env" "$RUNNER_TEMP/admin-bootstrap-login.json" "$RUNNER_TEMP/admin-bootstrap-cookies.txt" "$RUNNER_TEMP/admin-login.json" "$RUNNER_TEMP/admin-cookies.txt" "$RUNNER_TEMP/neon-snapshot.json"
+        run: rm -f "$RUNNER_TEMP/fly-worker.env" "$RUNNER_TEMP/admin-bootstrap-login.json" "$RUNNER_TEMP/admin-bootstrap-cookies.txt" "$RUNNER_TEMP/admin-login.json" "$RUNNER_TEMP/admin-cookies.txt" "$RUNNER_TEMP/neon-snapshot.json" "$RUNNER_TEMP/neon-staging-branch.json" "$RUNNER_TEMP/neon-staging-endpoints.json"

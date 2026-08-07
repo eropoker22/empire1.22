@@ -48,6 +48,15 @@ export const validateReleaseDatabaseEnvironment = (
       || releaseDatabaseTargetHash(gameplayUrl) !== expectedTargetHash) {
       throw new Error("RELEASE_PRODUCTION_DATABASE_TARGET_HASH_MISMATCH");
     }
+  } else {
+    const expectedTargetHash = String(environment.EMPIRE_STAGING_DATABASE_TARGET_HASH ?? "").trim();
+    if (!/^[0-9a-f]{64}$/u.test(expectedTargetHash)) {
+      throw new Error("RELEASE_STAGING_DATABASE_TARGET_HASH_INVALID");
+    }
+    if (releaseDatabaseTargetHash(empireUrl) !== expectedTargetHash
+      || releaseDatabaseTargetHash(gameplayUrl) !== expectedTargetHash) {
+      throw new Error("RELEASE_STAGING_DATABASE_TARGET_HASH_MISMATCH");
+    }
   }
   if (environment.EMPIRE_DATABASE_BACKUP_CONFIRMED !== "true") {
     throw new Error("RELEASE_DATABASE_BACKUP_NOT_CONFIRMED");
