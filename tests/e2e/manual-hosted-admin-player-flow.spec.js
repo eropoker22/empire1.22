@@ -734,7 +734,7 @@ async function collectThreeSampleTickEvidence({
   await expect(visiblePopulationRate).toHaveText("0 · žádný zdroj");
   await expect(visiblePopulationRate).toHaveAttribute(
     "data-population-source-summary",
-    "Pasivní populace: 0 / tick · žádný zdroj v districtu"
+    "Pasivní populace: 0 / h · žádný zdroj v districtu"
   );
 
   const samples = [];
@@ -801,7 +801,7 @@ async function collectThreeSampleTickEvidence({
     expect(delta.expectedPerTick.population).toBe(0);
     expect(delta.populationSourceEvidence.sources).toEqual([]);
     expect(delta.populationSourceEvidence.summary)
-      .toBe("Pasivní populace: 0 / tick · žádný zdroj v districtu");
+      .toBe("Pasivní populace: 0 / h · žádný zdroj v districtu");
     expect(delta.uiDisplayedPerHour.buildingCount).toBeGreaterThan(0);
     expect(delta.exactUiRateMatch).toEqual({
       cleanCash: true,
@@ -1375,7 +1375,7 @@ function isCompleteAlignedTickSample(sample, previousTick) {
     )
     && sample.player.visiblePopulationRate.label === "0 · žádný zdroj"
     && sample.player.visiblePopulationRate.sourceSummary
-      === "Pasivní populace: 0 / tick · žádný zdroj v districtu"
+      === "Pasivní populace: 0 / h · žádný zdroj v districtu"
     && sample.player.visibleDistrictRates.cleanCash
       === sample.player.economyRates.selectedDistrict.cleanCashPerHour
     && sample.player.visibleDistrictRates.dirtyCash
@@ -1456,7 +1456,7 @@ function assertAlignedTickSample(
   expect(sample.player.visiblePopulationRate).toEqual({
     label: "0 · žádný zdroj",
     sourceSummary:
-      "Pasivní populace: 0 / tick · žádný zdroj v districtu"
+      "Pasivní populace: 0 / h · žádný zdroj v districtu"
   });
   expect(sample.player.visibleDistrictRates).toEqual({
     cleanCash:

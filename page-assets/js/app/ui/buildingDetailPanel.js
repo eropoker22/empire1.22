@@ -22,6 +22,19 @@ function createElement(scopeElement, tagName, className = "") {
 
 const BUILDING_DETAIL_SHELL_CLASS_PREFIX = "building-detail--";
 const BUILDING_DETAIL_CARD_CLASS_PREFIX = "building-detail-card--";
+const AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN = "[0-9](?:[0-9.,\\u00a0\\u202f ]*[0-9])?";
+const AUTHORITY_DYNAMIC_CASH_RATE_PATTERN = new RegExp(
+  `^((Clean|Dirty) cash\\s+[+-]?\\$)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/hod)$`,
+  "u"
+);
+const AUTHORITY_DYNAMIC_INFLUENCE_RATE_PATTERN = new RegExp(
+  `^(Vliv\\s+[+-]?)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/den)$`,
+  "u"
+);
+const AUTHORITY_DYNAMIC_PHASE_CASH_PATTERN = new RegExp(
+  `^((?:DEN|NOC):\\s+(clean|dirty)\\s+[+-]?\\$)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/h\\s+->\\s+[+-]?\\$)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/h(?:\\s+·\\s+.*)?)$`,
+  "iu"
+);
 
 function normalizeBuildingDetailClassToken(value = "") {
   return String(value || "")
@@ -128,19 +141,68 @@ function createMechanicRow(scopeElement, row = {}) {
   return element;
 }
 
+function resolveAuthorityDynamicEffectSegments(value = "") {
+  const normalized = String(value || "").trim();
+  let match = normalized.match(AUTHORITY_DYNAMIC_CASH_RATE_PATTERN);
+  if (match) {
+    return [
+      { text: match[1] },
+      { dynamicEffect: `${match[2].toLowerCase()}-cash-rate`, text: match[3] },
+      { text: match[4] }
+    ];
+  }
+
+  match = normalized.match(AUTHORITY_DYNAMIC_INFLUENCE_RATE_PATTERN);
+  if (match) {
+    return [
+      { text: match[1] },
+      { dynamicEffect: "influence-rate", text: match[2] },
+      { text: match[3] }
+    ];
+  }
+
+  match = normalized.match(AUTHORITY_DYNAMIC_PHASE_CASH_PATTERN);
+  if (!match) return null;
+  const cashKind = match[2].toLowerCase();
+  return [
+    { text: match[1] },
+    { dynamicEffect: `phase-${cashKind}-cash-base`, text: match[3] },
+    { text: match[4] },
+    { dynamicEffect: `phase-${cashKind}-cash-effective`, text: match[5] },
+    { text: match[6] }
+  ];
+}
+
+function renderAuthorityDynamicEffect(scopeElement, textElement, value = "") {
+  const segments = resolveAuthorityDynamicEffectSegments(value);
+  if (!segments) return false;
+  const children = segments.map((segment) => {
+    const element = createElement(scopeElement, "span");
+    if (!element) return null;
+    element.textContent = segment.text;
+    if (segment.dynamicEffect) {
+      element.dataset.buildingDynamicEffect = segment.dynamicEffect;
+      // Keep the numeric token visible without giving it a box that could alter layout parity.
+      element.style.display = "contents";
+    }
+    return element;
+  }).filter(Boolean);
+  textElement.replaceChildren(...children);
+  return true;
+}
+
 function createEffectCell(scopeElement, effect = "", effectIndex = 0) {
   const element = createElement(scopeElement, "div", "district-building-detail-effect-cell");
   const text = createElement(scopeElement, "strong");
   if (!element || !text) return null;
   const value = typeof effect === "string" ? effect : effect?.text || "";
   const tone = typeof effect === "string" ? "" : String(effect?.tone || "").trim();
-  renderBuildingDynamicValue(scopeElement, text, typeof effect === "string"
-    ? { text: value }
-    : effect);
-  element.dataset.effectIndex = String(effectIndex);
-  if (/^Vliv\s+[+-]?[\d.,]+\/den$/u.test(String(value || "").trim())) {
-    element.dataset.buildingDynamicEffect = "influence";
+  if (!renderAuthorityDynamicEffect(scopeElement, text, value)) {
+    renderBuildingDynamicValue(scopeElement, text, typeof effect === "string"
+      ? { text: value }
+      : effect);
   }
+  element.dataset.effectIndex = String(effectIndex);
   if (tone) {
     element.dataset.effectTone = tone;
   }

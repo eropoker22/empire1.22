@@ -276,16 +276,17 @@ export function showDistrictPopupModal(element) {
     return false;
   }
 
-  const entering = isMainDistrictPopup(element) && element.hidden;
+  const mainDistrictPopup = isMainDistrictPopup(element);
+  const entering = mainDistrictPopup && element.hidden;
   delete element.dataset.districtPopupHandoff;
   bindMobileDistrictPopupBackgroundScroll(element);
   if (!isOverlayElementOpen(element)) {
     openOverlay(element, {
-      type: isMainDistrictPopup(element) ? "mobile-sheet" : "modal",
+      type: mainDistrictPopup ? "mobile-sheet" : "modal",
       ariaModal: true,
       lockScroll: !shouldAllowMainDistrictBackgroundScroll(element),
-      restoreFocusOnClose: false,
-      skipFocus: true
+      restoreFocusOnClose: !mainDistrictPopup,
+      skipFocus: mainDistrictPopup
     });
   }
   element.hidden = false;
@@ -309,10 +310,11 @@ export function hideDistrictPopupModal(element, options = {}) {
   }
   element.hidden = true;
   syncDistrictAtmosphereCloseControls(element, false);
+  const restoreFocus = !isMainDistrictPopup(element);
   if (options.suppressMapInput === false) {
-    closeOverlay(element, { restoreFocus: false, suppressMapInput: false });
+    closeOverlay(element, { restoreFocus, suppressMapInput: false });
   } else {
-    closeOverlay(element, { restoreFocus: false });
+    closeOverlay(element, { restoreFocus });
   }
   if (options.preserveDistrictSelection !== true) {
     dispatchDistrictPopupClosed(element);

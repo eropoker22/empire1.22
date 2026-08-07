@@ -1228,9 +1228,50 @@ export async function readVisibleDistrictBuildingTypeIds(page) {
     .sort());
 }
 
-export async function syncParityLocalDemoDistrictBuildingsFromHosted(localPage, hostedPage) {
-  const hostedShell = hostedPage.locator(`${paritySurfaces.district.shell}:visible`).last();
+export async function syncParityLocalDemoDistrictBuildingsFromHosted(localPage, hostedPage, {
+  districtId,
+  expectedBuildingTypeIds = []
+} = {}) {
+  const canonicalDistrictId = String(districtId || "").trim();
+  const numericDistrictId = Number(canonicalDistrictId.replace(/^district:/u, ""));
+  const canonicalExpectedTypes = Array.from(new Set(expectedBuildingTypeIds
+    .map((buildingTypeId) => String(buildingTypeId || "").trim())
+    .filter(Boolean))).sort();
+  expect(Number.isInteger(numericDistrictId) && numericDistrictId > 0, "Parity district id must be exact")
+    .toBe(true);
+  expect(canonicalExpectedTypes.length, "Parity building registry must be explicit")
+    .toBeGreaterThan(0);
+
+  const hostedShell = hostedPage.locator(
+    `${paritySurfaces.district.shell}[data-district-id="${numericDistrictId}"]:visible`
+  ).last();
   await expect(hostedShell).toBeVisible();
+  await expect.poll(() => hostedShell.evaluate((shell) => {
+    const readModel = window.EmpireGameplaySliceClient?.getCurrentReadModel?.()
+      || window.empireStreetsGameplaySliceReadModel
+      || null;
+    const authoritativeTypes = (readModel?.district?.buildings || [])
+      .map((building) => String(building?.buildingTypeId || "").trim())
+      .filter(Boolean)
+      .sort();
+    const renderedTypes = Array.from(
+      shell.querySelectorAll("[data-district-building-name][data-district-building-type]")
+    ).map((chip) => String(chip.dataset.districtBuildingType || "").trim())
+      .filter(Boolean)
+      .sort();
+    return {
+      authoritativeTypes,
+      districtId: String(readModel?.district?.districtId || ""),
+      renderedTypes
+    };
+  }), {
+    message: `Hosted ${canonicalDistrictId} must finish rendering its exact authoritative building registry`,
+    timeout: 30_000
+  }).toEqual({
+    authoritativeTypes: canonicalExpectedTypes,
+    districtId: canonicalDistrictId,
+    renderedTypes: canonicalExpectedTypes
+  });
   const fixture = await hostedShell.evaluate((shell) => {
     const list = shell.querySelector("[data-district-popup-buildings-list]");
     const meta = shell.querySelector("[data-district-popup-buildings-meta]");
@@ -1260,13 +1301,16 @@ export async function syncParityLocalDemoDistrictBuildingsFromHosted(localPage, 
   expect(fixture.buildings.length, "Hosted starter district must expose authoritative buildings")
     .toBeGreaterThan(0);
 
-  await localPage.evaluate(async (authoritativeFixture) => {
+  await localPage.evaluate(async ({ authoritativeFixture, targetDistrictId }) => {
     if (document.documentElement.dataset.runtimeMode !== "local-demo") {
       throw new Error("District building parity fixtures may only target explicit local-demo.");
     }
     const { renderDistrictBuildingList } = await import("/page-assets/js/app/ui/districtPanel.js");
-    const shell = Array.from(document.querySelectorAll("[data-district-popup-card]"))
-      .find((element) => element instanceof HTMLElement && element.offsetParent !== null);
+    const shell = Array.from(document.querySelectorAll(
+      `[data-district-popup][data-district-id="${targetDistrictId}"] [data-district-popup-card]`
+    ))
+      .filter((element) => element instanceof HTMLElement && element.offsetParent !== null)
+      .at(-1);
     if (!(shell instanceof HTMLElement)) {
       throw new Error("Visible local-demo district card is unavailable for parity synchronization.");
     }
@@ -1281,7 +1325,7 @@ export async function syncParityLocalDemoDistrictBuildingsFromHosted(localPage, 
     if (!rendered) {
       throw new Error("Canonical district building renderer rejected the parity fixture.");
     }
-  }, fixture);
+  }, { authoritativeFixture: fixture, targetDistrictId: String(numericDistrictId) });
 
   const expectedBuildingTypes = fixture.buildings
     .map((building) => building.buildingTypeId)

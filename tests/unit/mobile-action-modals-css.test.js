@@ -412,6 +412,17 @@ describe("mobile action modal CSS", () => {
 
   it("keeps nested action windows layered above their parent popups", () => {
     for (const stylesheet of [mainCss, clientMainCss]) {
+      expect(stylesheet).toContain("City Events must own the pointer layer so its close control cannot sit under the topbar.");
+      expect(stylesheet).toContain("html body.game-body #events-modal:not(.hidden):not([hidden])");
+      expect(stylesheet).toContain("z-index: 28000 !important;");
+      expect(stylesheet).toContain("html body.game-body #event-detail-modal:not(.hidden):not([hidden])");
+      expect(stylesheet).toContain("z-index: 28010 !important;");
+      expect(stylesheet).toContain("body.game-body:has(#events-modal:not(.hidden):not([hidden])) > .game-shell");
+      expect(stylesheet).toContain("body.game-body:has(#events-modal:not(.hidden):not([hidden])) .game-topbar");
+      expect(stylesheet).toContain("body.game-body:has(#events-modal:not(.hidden):not([hidden])) .game-topbar *");
+      expect(stylesheet).toContain("pointer-events: none !important;");
+    }
+    for (const stylesheet of [mainCss, clientMainCss]) {
       expect(stylesheet).toContain("Final layered popup guard: child windows opened from another popup must always sit above their parent.");
       expect(stylesheet).toContain(".district-popup-shell[data-district-popup]:not([hidden])");
       expect(stylesheet).toContain("#buildings-modal.buildings-popup-shell:not([hidden])");
@@ -859,6 +870,13 @@ describe("mobile action modal CSS", () => {
     expect(cityEventsCss).toContain("height: auto;");
   });
 
+  it("uses one deadline for the mobile close guard and its click suppression", () => {
+    expect(mobileRuntime).toContain("suppressClickUntil = getNow() + MOBILE_CLOSE_GUARD_MS;");
+    expect(mobileRuntime).toContain("body.classList.add(MOBILE_CLOSE_GUARD_CLASS);");
+    expect(mobileRuntime).toContain("body.classList.remove(MOBILE_CLOSE_GUARD_CLASS);\n      suppressClickUntil = 0;");
+    expect(mobileRuntime).not.toContain("dispatchingAssistedClick = false;\n      suppressClickUntil = getNow() + MOBILE_CLOSE_GUARD_MS;");
+  });
+
   it("keeps the mobile page visually stable while popup cards are open", () => {
     for (const stylesheet of [css, clientCss]) {
       expect(stylesheet).not.toContain("--mobile-topbar-offset: 0px !important;");
@@ -1222,8 +1240,8 @@ describe("mobile action modal CSS", () => {
       expect(source).not.toContain("DISTRICT_POPUP_RESOURCE_VISIBLE_CLASS");
       expect(source).not.toContain("setDistrictResourceTopbarVisible");
       expect(source).not.toContain("is-district-popup-resource-visible");
-      expect(source).toContain("restoreFocusOnClose: false");
-      expect(source).toContain("skipFocus: true");
+      expect(source).toContain("restoreFocusOnClose: !mainDistrictPopup");
+      expect(source).toContain("skipFocus: mainDistrictPopup");
       expect(source).toContain("lockScroll: !shouldAllowMainDistrictBackgroundScroll(element)");
       expect(source).toContain("bindMobileDistrictPopupBackgroundScroll(element)");
       expect(source).toContain("openOverlay(element, {");

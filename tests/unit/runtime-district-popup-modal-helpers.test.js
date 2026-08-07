@@ -41,6 +41,31 @@ function createElement() {
 }
 
 describe("district popup modal helpers", () => {
+  it("moves focus into an action modal while leaving the main district sheet non-disruptive", () => {
+    const trigger = document.createElement("button");
+    const districtPopup = document.createElement("section");
+    const actionModal = document.createElement("section");
+    const actionClose = document.createElement("button");
+    districtPopup.setAttribute("data-district-popup", "");
+    actionClose.setAttribute("data-robbery-setup-close", "");
+    districtPopup.hidden = true;
+    actionModal.hidden = true;
+    actionModal.append(actionClose);
+    document.body.append(trigger, districtPopup, actionModal);
+
+    trigger.focus();
+    showDistrictPopupModal(districtPopup);
+    expect(document.activeElement).toBe(trigger);
+
+    showDistrictPopupModal(actionModal);
+    expect(document.activeElement).toBe(actionClose);
+
+    hideDistrictPopupModal(actionModal, { suppressMapInput: false });
+    expect(document.activeElement).toBe(trigger);
+    hideDistrictPopupModal(districtPopup, { suppressMapInput: false });
+    document.body.innerHTML = "";
+  });
+
   it("renders helper HTML values as escaped text", () => {
     const element = { innerHTML: "" };
 

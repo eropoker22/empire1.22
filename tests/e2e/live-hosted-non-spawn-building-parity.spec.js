@@ -68,18 +68,42 @@ const expectedBuildingTypeIds = Object.freeze([
   "vip_lounge",
   "warehouse"
 ]);
+const authorityDynamicEffectNumberPattern = "[0-9](?:[0-9.,\\u00a0\\u202f ]*[0-9])?";
+const authorityDynamicCashRatePattern = new RegExp(
+  `^((?:Clean|Dirty) cash\\s+[+-]?\\$)(${authorityDynamicEffectNumberPattern})(\\/hod)$`,
+  "u"
+);
+const authorityDynamicInfluenceRatePattern = new RegExp(
+  `^(Vliv\\s+[+-]?)(${authorityDynamicEffectNumberPattern})(\\/den)$`,
+  "u"
+);
+const authorityDynamicPhaseCashPattern = new RegExp(
+  `^((?:DEN|NOC):\\s+(?:clean|dirty)\\s+[+-]?\\$)(${authorityDynamicEffectNumberPattern})(\\/h\\s+->\\s+[+-]?\\$)(${authorityDynamicEffectNumberPattern})(\\/h(?:\\s+·\\s+.*)?)$`,
+  "iu"
+);
 const normalizeAuthorityDynamicPresentation = (presentation) => {
-  const normalizeText = (value) => String(value || "").replace(
-    /^(Vliv\s+)[+-]?[\d.,]+(?=\/den$)/u,
-    "$1<dynamic>"
-  );
+  const normalizeText = (value) => {
+    const normalized = String(value || "");
+    let match = normalized.match(authorityDynamicCashRatePattern);
+    if (match) {
+      return `${match[1]}<dynamic:cash>${match[3]}`;
+    }
+    match = normalized.match(authorityDynamicInfluenceRatePattern);
+    if (match) {
+      return `${match[1]}<dynamic:influence>${match[3]}`;
+    }
+    match = normalized.match(authorityDynamicPhaseCashPattern);
+    return match
+      ? `${match[1]}<dynamic:cash>${match[3]}<dynamic:cash>${match[5]}`
+      : normalized;
+  };
   return {
     ...presentation,
     effects: presentation.effects.map(normalizeText),
     visibleCopy: presentation.visibleCopy.map(normalizeText)
   };
 };
-const authorityDynamicTextSelector = "[data-building-dynamic-effect='influence']";
+const authorityDynamicTextSelector = "[data-building-dynamic-effect]";
 test.use({ trace: "off", video: "off" });
 
 test.describe("fixture-backed hosted non-spawn canonical building parity", () => {
@@ -188,6 +212,11 @@ test.describe("fixture-backed hosted non-spawn canonical building parity", () =>
               serverPage,
               surfaceName
             );
+            const hostedAuthorityEvidence = await readHostedAuthorityDynamicEffectEvidence(
+              serverPage,
+              surfaceName,
+              buildingTypeId
+            );
             const localStructure = await getParityDomStructureSignature(
               localPage,
               surfaceName,
@@ -203,6 +232,10 @@ test.describe("fixture-backed hosted non-spawn canonical building parity", () =>
               normalizeAuthorityDynamicPresentation(hostedPresentation),
               `${buildingTypeId}/${viewport.name} visible presentation`
             ).toEqual(normalizeAuthorityDynamicPresentation(localPresentation));
+            expect(
+              hostedAuthorityEvidence.actual,
+              `${buildingTypeId}/${viewport.name} dynamic effects must match the authoritative projection: ${JSON.stringify(hostedAuthorityEvidence)}`
+            ).toEqual(hostedAuthorityEvidence.expected);
             expect(
               hostedStructure,
               `${buildingTypeId}/${viewport.name} normalized DOM, classes, styles and bounds`
@@ -358,4 +391,81 @@ async function attachBuildingScreenshotPair({
     meaningfulPixelCount: 0
   });
   return comparison;
+}
+
+async function readHostedAuthorityDynamicEffectEvidence(page, surfaceName, buildingTypeId) {
+  const surface = page.locator(`${paritySurfaces[surfaceName].selector}:visible`).last();
+  return surface.evaluate((surfaceElement, expectedBuildingTypeId) => {
+    const readModel = window.EmpireGameplaySliceClient?.getCurrentReadModel?.()
+      || window.empireStreetsGameplaySliceReadModel
+      || null;
+    const building = (readModel?.district?.buildings || []).find(
+      (entry) => entry?.buildingTypeId === expectedBuildingTypeId
+    ) || null;
+    if (!building) {
+      throw new Error(`Authoritative building ${expectedBuildingTypeId} is missing from the selected district.`);
+    }
+
+    const parseNumber = (value) => {
+      const normalized = String(value || "")
+        .replace(/[\u00a0\u202f\s]/gu, "")
+        .replace(",", ".");
+      const parsed = Number(normalized);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+    const actual = Object.fromEntries(Array.from(
+      surfaceElement.querySelectorAll("[data-building-dynamic-effect]")
+    ).filter((element) => (
+      element.closest(".district-building-detail-effect-cell")?.offsetParent !== null
+    )).map((element) => [
+      String(element.dataset.buildingDynamicEffect || ""),
+      parseNumber(element.textContent)
+    ]));
+    const expected = {};
+    const passive = building.presentation?.passive || {};
+    const visibleEffectTexts = Array.from(
+      surfaceElement.querySelectorAll(".district-building-detail-effect-cell")
+    ).filter((element) => element.offsetParent !== null)
+      .map((element) => String(element.textContent || "").replace(/\s+/gu, " ").trim());
+    for (const effectText of visibleEffectTexts) {
+      const cashRateMatch = effectText.match(/^(Clean|Dirty) cash\s+[+-]?\$/u);
+      if (cashRateMatch) {
+        const cashKind = cashRateMatch[1].toLowerCase();
+        expected[`${cashKind}-cash-rate`] = Math.max(
+          0,
+          Math.floor(Number(passive[`${cashKind}PerHour`] || 0))
+        );
+      }
+      if (/^Vliv\s+[+-]?[0-9]/u.test(effectText)) {
+        expected["influence-rate"] = Number(
+          Math.max(0, Number(passive.influencePerDay || 0)).toFixed(2)
+        );
+      }
+    }
+
+    const phaseStat = String(
+      (building.stats || []).find((stat) => stat?.label === "Efekt fáze")?.value || ""
+    );
+    const numberPattern = "([0-9](?:[0-9.,\\u00a0\\u202f ]*[0-9])?)";
+    const visiblePhaseCashKinds = new Set(visibleEffectTexts.map((effectText) => (
+      effectText.match(/^(?:DEN|NOC):\s+(clean|dirty)\s+[+-]?\$/iu)?.[1]?.toLowerCase() || ""
+    )).filter(Boolean));
+    for (const cashKind of visiblePhaseCashKinds) {
+      const baseKey = `phase-${cashKind}-cash-base`;
+      const effectiveKey = `phase-${cashKind}-cash-effective`;
+      const phaseMatch = phaseStat.match(new RegExp(
+        `${cashKind}\\s+\\$${numberPattern}\\/h\\s+->\\s+\\$${numberPattern}\\/h`,
+        "iu"
+      ));
+      expected[baseKey] = parseNumber(phaseMatch?.[1]);
+      expected[effectiveKey] = parseNumber(phaseMatch?.[2]);
+    }
+
+    return {
+      actual,
+      expected,
+      phaseStat,
+      projectedPassive: passive
+    };
+  }, buildingTypeId);
 }

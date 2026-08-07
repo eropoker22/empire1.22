@@ -853,7 +853,7 @@ describe("building detail, production and recipe UI modules", () => {
     expect(shell.classList.contains("is-convenience-store-full")).toBe(false);
   });
 
-  it("marks only authoritative influence rates as dynamic presentation values", () => {
+  it("marks only authoritative cash and influence effect numbers as dynamic presentation values", () => {
     const document = setupDocument();
     const root = document.createElement("div");
     const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "83:casino" });
@@ -866,8 +866,12 @@ describe("building detail, production and recipe UI modules", () => {
       stats: [],
       mechanics: [],
       effects: [
+        { text: "Clean cash +$4572/hod", tone: "clean" },
+        { text: "Dirty cash +$2540/hod", tone: "dirty" },
         { text: "Heat +150/den", tone: "heat" },
-        { text: "Vliv +121/den", tone: "influence" }
+        { text: "Vliv +121/den", tone: "influence" },
+        { text: "DEN: dirty $2540/h -> $2235/h · heat 150/den -> 168/den", tone: "phase" },
+        { text: "Dirty cash +$500", tone: "dirty" }
       ],
       collect: { visible: false, enabled: false, title: "" },
       upgrade: { disabled: true, title: "" },
@@ -875,8 +879,26 @@ describe("building detail, production and recipe UI modules", () => {
     });
 
     const effects = shell.querySelectorAll(".district-building-detail-effect-cell");
-    expect(effects[0].dataset.buildingDynamicEffect).toBeUndefined();
-    expect(effects[1].dataset.buildingDynamicEffect).toBe("influence");
+    const dynamicValues = (effect) => Array.from(
+      effect.querySelectorAll("[data-building-dynamic-effect]")
+    ).map((element) => ({
+      kind: element.dataset.buildingDynamicEffect,
+      text: element.textContent
+    }));
+    expect(effects[0].children[0].textContent).toBe("Clean cash +$4572/hod");
+    expect(dynamicValues(effects[0])).toEqual([{ kind: "clean-cash-rate", text: "4572" }]);
+    expect(effects[1].children[0].textContent).toBe("Dirty cash +$2540/hod");
+    expect(dynamicValues(effects[1])).toEqual([{ kind: "dirty-cash-rate", text: "2540" }]);
+    expect(dynamicValues(effects[2])).toEqual([]);
+    expect(effects[2].children[0].textContent).toBe("Heat +150/den");
+    expect(dynamicValues(effects[3])).toEqual([{ kind: "influence-rate", text: "121" }]);
+    expect(effects[4].children[0].textContent).toBe("DEN: dirty $2540/h -> $2235/h · heat 150/den -> 168/den");
+    expect(dynamicValues(effects[4])).toEqual([
+      { kind: "phase-dirty-cash-base", text: "2540" },
+      { kind: "phase-dirty-cash-effective", text: "2235" }
+    ]);
+    expect(effects[4].querySelector("strong").children.at(-1).textContent).toBe("/h · heat 150/den -> 168/den");
+    expect(dynamicValues(effects[5])).toEqual([]);
   });
 
   it("marks only population-buffer value nodes as dynamic", () => {

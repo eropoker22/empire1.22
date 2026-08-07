@@ -284,8 +284,16 @@ test.describe("hosted social concurrency and privacy", () => {
       });
       await reloadHostedGame(target.page);
       const acceptButtons = await Promise.all([
-        prepareAllianceInviteAccept(target.page, invite.inviteId),
-        prepareAllianceInviteAccept(duplicateTargetPage, invite.inviteId)
+        prepareAllianceInviteAccept(
+          target.page,
+          invite.inviteId,
+          inviteCreated.body.commandResult?.rootVersionAfter
+        ),
+        prepareAllianceInviteAccept(
+          duplicateTargetPage,
+          invite.inviteId,
+          inviteCreated.body.commandResult?.rootVersionAfter
+        )
       ]);
       const inviteAttempts = await Promise.all(acceptButtons.map((button, index) => (
         clickAndReadTypedSubmit(
@@ -620,7 +628,22 @@ async function inviteAllianceMemberThroughVisibleUi(page, targetPlayerId, option
   return result;
 }
 
-async function prepareAllianceInviteAccept(page, inviteId) {
+async function prepareAllianceInviteAccept(page, inviteId, minimumStateVersion = null) {
+  await expect.poll(async () => {
+    const readModel = await getRenderedReadModel(page);
+    const stateVersion = Number(readModel?.server?.stateVersion ?? -1);
+    return {
+      hasInvite: Boolean(readModel?.allianceBoard?.incomingInvites?.some(
+        (entry) => entry.inviteId === inviteId
+      )),
+      meetsMinimumVersion: !Number.isSafeInteger(minimumStateVersion)
+        || stateVersion >= minimumStateVersion
+    };
+  }, {
+    message: `Authoritative alliance invite ${inviteId} must be rendered before it can be accepted.`,
+    timeout: 30_000,
+    intervals: [250, 500, 1_000]
+  }).toEqual({ hasInvite: true, meetsMinimumVersion: true });
   await openAllianceTab(page, "invites");
   const button = page.locator(`[data-alliance-invite-accept="${inviteId}"]`);
   await expect(button).toBeEnabled();

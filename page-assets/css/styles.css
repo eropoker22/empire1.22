@@ -7918,6 +7918,33 @@ html body.game-body .district-popup-shell[data-district-popup]:not([hidden]) .di
 }
 
 /* Absolute final close-control reliability guard. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  /* City Events must own the pointer layer so its close control cannot sit under the topbar. */
+  html body.game-body #events-modal:not(.hidden):not([hidden]) {
+    z-index: 28000 !important;
+    isolation: isolate !important;
+  }
+
+  html body.game-body #event-detail-modal:not(.hidden):not([hidden]) {
+    z-index: 28010 !important;
+    isolation: isolate !important;
+  }
+
+  html body.game-body:has(#events-modal:not(.hidden):not([hidden])) > .game-shell,
+  html body.game-body:has(#event-detail-modal:not(.hidden):not([hidden])) > .game-shell {
+    z-index: 28000 !important;
+  }
+
+  html body.game-body:has(#events-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body:has(#events-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body:has(#events-modal:not(.hidden):not([hidden])) .game-topbar *,
+  html body.game-body:has(#event-detail-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body:has(#event-detail-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body:has(#event-detail-modal:not(.hidden):not([hidden])) .game-topbar * {
+    pointer-events: none !important;
+  }
+}
+
 html body.game-body button:is(
   [aria-label*="Zavřít" i],
   [aria-label*="Close" i],

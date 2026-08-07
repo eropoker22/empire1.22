@@ -45,6 +45,8 @@ describe("onboarding district popup layer", () => {
     expect(runtimeSource).toContain("function startOnboardingSandbox(root = getDefaultRuntimeRoot())");
     expect(runtimeSource).toContain("function stopOnboardingSandbox(root = getDefaultRuntimeRoot())");
     expect(runtimeSource).toContain('document.dispatchEvent(new CustomEvent("empire:onboarding-alliance-reset"');
+    expect(runtimeSource).toContain("const authoritativeAllianceBoard = getServerGameplaySliceReadModel()?.allianceBoard || null;");
+    expect(runtimeSource).toContain("detail: { allianceBoard: authoritativeAllianceBoard }");
     expect(runtimeSource).toContain("onStart: () => startOnboardingSandbox(root)");
     expect(runtimeSource).toContain("onComplete: () => stopOnboardingSandbox(root)");
     expect(runtimeSource).not.toContain("DEV_ONLY_ONBOARDING_START_STATE");

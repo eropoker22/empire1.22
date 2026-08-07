@@ -77,7 +77,7 @@ describe("authoritative hosted income evidence", () => {
       },
       populationSourceEvidence: {
         sources: [],
-        summary: "Pasivní populace: 0 / tick · žádný zdroj v districtu"
+        summary: "Pasivní populace: 0 / h · žádný zdroj v districtu"
       },
       exactUiRateMatch: {
         cleanCash: true,
@@ -206,7 +206,7 @@ function createSample({
       influencePerHour: 3.6,
       passivePopulationSources: [],
       passivePopulationSourceSummary:
-        "Pasivní populace: 0 / tick · žádný zdroj v districtu"
+        "Pasivní populace: 0 / h · žádný zdroj v districtu"
     }
   };
   return {

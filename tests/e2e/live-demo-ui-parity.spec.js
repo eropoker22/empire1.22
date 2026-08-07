@@ -1197,7 +1197,13 @@ test.describe("live/demo shared presentation parity", () => {
           await serverPage.setViewportSize(viewport);
           await openDistrictById(localPage, entry.spawnDistrictId);
           await openDistrictById(serverPage, entry.spawnDistrictId);
-          await syncParityLocalDemoDistrictBuildingsFromHosted(localPage, serverPage);
+          await syncParityLocalDemoDistrictBuildingsFromHosted(localPage, serverPage, {
+            districtId: entry.spawnDistrictId,
+            expectedBuildingTypeIds: sortedBuildingTypeIds([
+              ...resolveParityDistrictBuildingTypeIds(entry.spawnDistrictId),
+              ...STARTER_DISTRICT_PRODUCTION_BUILDING_TYPES
+            ])
+          });
           const localDistrict = await getParitySurfaceSignature(localPage, "district");
           const serverDistrict = await getParitySurfaceSignature(serverPage, "district");
           const localDistrictStructure = await getParityDomStructureSignature(localPage, "district");

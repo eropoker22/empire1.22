@@ -377,6 +377,7 @@ function initMobileCloseTapAssist(windowObj = window, documentObj = document) {
 
   const activateCloseGuard = () => {
     const body = documentObj.body;
+    suppressClickUntil = getNow() + MOBILE_CLOSE_GUARD_MS;
     body.classList.add(MOBILE_CLOSE_GUARD_CLASS);
     if (closeGuardTimer !== null) {
       windowObj.clearTimeout(closeGuardTimer);
@@ -384,6 +385,7 @@ function initMobileCloseTapAssist(windowObj = window, documentObj = document) {
     closeGuardTimer = windowObj.setTimeout(() => {
       closeGuardTimer = null;
       body.classList.remove(MOBILE_CLOSE_GUARD_CLASS);
+      suppressClickUntil = 0;
     }, MOBILE_CLOSE_GUARD_MS);
   };
 
@@ -405,6 +407,7 @@ function initMobileCloseTapAssist(windowObj = window, documentObj = document) {
 
     if (!control) {
       activeControl = null;
+      suppressClickUntil = 0;
       return;
     }
 
@@ -436,7 +439,6 @@ function initMobileCloseTapAssist(windowObj = window, documentObj = document) {
       control.click();
     } finally {
       dispatchingAssistedClick = false;
-      suppressClickUntil = getNow() + MOBILE_CLOSE_GUARD_MS;
     }
   }, true);
 

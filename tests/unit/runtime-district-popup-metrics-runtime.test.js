@@ -150,7 +150,7 @@ describe("district popup metrics runtime", () => {
         districtPopulationPerHour: 0,
         populationLabel: "0 · žádný zdroj",
         populationSourceSummary:
-          "Pasivní populace: 0 / tick · žádný zdroj v districtu"
+          "Pasivní populace: 0 / h · žádný zdroj v districtu"
       }),
       renderDistrictMetricSummary
     });
@@ -164,9 +164,9 @@ describe("district popup metrics runtime", () => {
       })
     );
     expect(runtime.testElements.popupPopulation.title)
-      .toBe("Pasivní populace: 0 / tick · žádný zdroj v districtu");
+      .toBe("Pasivní populace: 0 / h · žádný zdroj v districtu");
     expect(runtime.testElements.popupPopulation.dataset.populationSourceSummary)
-      .toBe("Pasivní populace: 0 / tick · žádný zdroj v districtu");
+      .toBe("Pasivní populace: 0 / h · žádný zdroj v districtu");
   });
 
   it("renders passive district gossip in the popup card", () => {

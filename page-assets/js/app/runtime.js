@@ -15903,6 +15903,7 @@ function stopOnboardingSandbox(root = getDefaultRuntimeRoot()) {
   if (!isOnboardingSandboxActive()) {
     return false;
   }
+  const authoritativeAllianceBoard = getServerGameplaySliceReadModel()?.allianceBoard || null;
   const restoredDistrictId = Number.parseInt(String(
     latestGameplaySliceReadModel?.player?.homeDistrictId
       || latestGameplaySliceReadModel?.district?.districtId
@@ -15913,6 +15914,11 @@ function stopOnboardingSandbox(root = getDefaultRuntimeRoot()) {
   delete document.documentElement.dataset.onboardingSandbox;
   document.body?.removeAttribute?.("data-onboarding-sandbox");
   window.empireStreetsDistrictState?.closeDistrict?.();
+  if (authoritativeAllianceBoard) {
+    document.dispatchEvent(new CustomEvent("empire:onboarding-alliance-reset", {
+      detail: { allianceBoard: authoritativeAllianceBoard }
+    }));
+  }
   window.dispatchEvent(new CustomEvent("empire:alliance-state-changed"));
   refreshOnboardingRuntime(root);
   if (restoredDistrictId) {
