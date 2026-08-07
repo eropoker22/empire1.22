@@ -2891,16 +2891,16 @@ html body.game-body .storage-popup-shell[data-storage-popup]:not([hidden]) .stor
   pointer-events: auto !important;
 }
 
-html body.game-body.game-modal-scroll-locked #game-header,
-html body.game-body.game-modal-scroll-locked .game-topbar {
+html body.game-body.game-modal-scroll-locked:has(.storage-popup-shell[data-storage-popup]:not([hidden])) #game-header,
+html body.game-body.game-modal-scroll-locked:has(.storage-popup-shell[data-storage-popup]:not([hidden])) .game-topbar {
   z-index: 27050 !important;
   pointer-events: auto !important;
 }
 
-html body.game-body.game-modal-scroll-locked .game-topbar *,
-html body.game-body.game-modal-scroll-locked .game-topbar .game-resource-strip,
-html body.game-body.game-modal-scroll-locked .game-topbar .resource-pill,
-html body.game-body.game-modal-scroll-locked .game-topbar .game-toolbar-button {
+html body.game-body.game-modal-scroll-locked:has(.storage-popup-shell[data-storage-popup]:not([hidden])) .game-topbar *,
+html body.game-body.game-modal-scroll-locked:has(.storage-popup-shell[data-storage-popup]:not([hidden])) .game-topbar .game-resource-strip,
+html body.game-body.game-modal-scroll-locked:has(.storage-popup-shell[data-storage-popup]:not([hidden])) .game-topbar .resource-pill,
+html body.game-body.game-modal-scroll-locked:has(.storage-popup-shell[data-storage-popup]:not([hidden])) .game-topbar .game-toolbar-button {
   pointer-events: auto !important;
 }
 

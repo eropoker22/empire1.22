@@ -92,6 +92,7 @@ export const districtActionOverlayDefinitions = Object.freeze({
       ".attack-setup-popup-body",
       ".attack-setup-popup-actions"
     ],
+    roundedCompositeSelector: "[data-robbery-confirm]",
     semanticDatasetKeys: ["districtType", "atmosphereState"],
     shellSelector: "[data-robbery-setup-popup]",
     stage: "setup",
@@ -889,6 +890,7 @@ export async function captureDistrictActionOverlayScreenshot(page, {
   return captureIsolatedParityScreenshot(page, {
     ignoreSelector: definition.dynamicLeafSelectors.join(","),
     path,
+    roundedCompositeSelector: definition.roundedCompositeSelector || "",
     stableBackdropShellSelector: definition.shellSelector,
     target
   });

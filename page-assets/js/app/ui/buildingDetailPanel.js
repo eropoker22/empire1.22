@@ -31,8 +31,20 @@ const AUTHORITY_DYNAMIC_INFLUENCE_RATE_PATTERN = new RegExp(
   `^(Vliv\\s+[+-]?)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/den)$`,
   "u"
 );
+const AUTHORITY_DYNAMIC_HEAT_RATE_PATTERN = new RegExp(
+  `^(Heat\\s+[+-]?)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/den)$`,
+  "u"
+);
+const AUTHORITY_DYNAMIC_PHASE_CASH_HEAT_PATTERN = new RegExp(
+  `^((?:DEN|NOC):\\s+(clean|dirty)\\s+[+-]?\\$)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/h\\s+->\\s+[+-]?\\$)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/h\\s+·\\s+heat\\s+)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/den\\s+->\\s+)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/den)$`,
+  "iu"
+);
 const AUTHORITY_DYNAMIC_PHASE_CASH_PATTERN = new RegExp(
   `^((?:DEN|NOC):\\s+(clean|dirty)\\s+[+-]?\\$)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/h\\s+->\\s+[+-]?\\$)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/h(?:\\s+·\\s+.*)?)$`,
+  "iu"
+);
+const AUTHORITY_DYNAMIC_PHASE_HEAT_PATTERN = new RegExp(
+  `^((?:DEN|NOC):\\s+heat\\s+)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/den\\s+->\\s+)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/den)$`,
   "iu"
 );
 
@@ -161,15 +173,51 @@ function resolveAuthorityDynamicEffectSegments(value = "") {
     ];
   }
 
+  match = normalized.match(AUTHORITY_DYNAMIC_HEAT_RATE_PATTERN);
+  if (match) {
+    return [
+      { text: match[1] },
+      { dynamicEffect: "heat-rate", text: match[2] },
+      { text: match[3] }
+    ];
+  }
+
+  match = normalized.match(AUTHORITY_DYNAMIC_PHASE_CASH_HEAT_PATTERN);
+  if (match) {
+    const cashKind = match[2].toLowerCase();
+    return [
+      { text: match[1] },
+      { dynamicEffect: `phase-${cashKind}-cash-base`, text: match[3] },
+      { text: match[4] },
+      { dynamicEffect: `phase-${cashKind}-cash-effective`, text: match[5] },
+      { text: match[6] },
+      { dynamicEffect: "phase-heat-base", text: match[7] },
+      { text: match[8] },
+      { dynamicEffect: "phase-heat-effective", text: match[9] },
+      { text: match[10] }
+    ];
+  }
+
   match = normalized.match(AUTHORITY_DYNAMIC_PHASE_CASH_PATTERN);
+  if (match) {
+    const cashKind = match[2].toLowerCase();
+    return [
+      { text: match[1] },
+      { dynamicEffect: `phase-${cashKind}-cash-base`, text: match[3] },
+      { text: match[4] },
+      { dynamicEffect: `phase-${cashKind}-cash-effective`, text: match[5] },
+      { text: match[6] }
+    ];
+  }
+
+  match = normalized.match(AUTHORITY_DYNAMIC_PHASE_HEAT_PATTERN);
   if (!match) return null;
-  const cashKind = match[2].toLowerCase();
   return [
     { text: match[1] },
-    { dynamicEffect: `phase-${cashKind}-cash-base`, text: match[3] },
-    { text: match[4] },
-    { dynamicEffect: `phase-${cashKind}-cash-effective`, text: match[5] },
-    { text: match[6] }
+    { dynamicEffect: "phase-heat-base", text: match[2] },
+    { text: match[3] },
+    { dynamicEffect: "phase-heat-effective", text: match[4] },
+    { text: match[5] }
   ];
 }
 

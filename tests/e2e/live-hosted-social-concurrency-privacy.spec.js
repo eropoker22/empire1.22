@@ -195,14 +195,25 @@ test.describe("hosted social concurrency and privacy", () => {
         '.market-player-listing[data-listing-owner="peer"]'
       ).first());
       await Promise.all(peerListings.map((card) => expect(card).toBeVisible()));
-      const buyAttempts = await Promise.all(peerListings.map(async (card, index) => ({
-        playerId: buyerIds[index],
-        result: await clickAndReadTypedSubmit(
-          buyers[index].page,
-          "buy-player-market-listing",
-          card.locator(".market-player-listing__buy")
-        )
-      })));
+      const marketBuyBarrier = await createGameplaySubmitRequestBarrier(
+        buyers.map(({ page }) => page),
+        "buy-player-market-listing",
+        buyers.length
+      );
+      let buyAttempts;
+      try {
+        buyAttempts = await Promise.all(peerListings.map(async (card, index) => ({
+          playerId: buyerIds[index],
+          result: await clickAndReadTypedSubmit(
+            buyers[index].page,
+            "buy-player-market-listing",
+            card.locator(".market-player-listing__buy")
+          )
+        })));
+        expect(marketBuyBarrier.getArrivalCount()).toBe(buyers.length);
+      } finally {
+        await marketBuyBarrier.dispose();
+      }
       for (const attempt of buyAttempts) {
         assertRequestAuthority(attempt.result.request, attempt.playerId);
         expect(attempt.result.request.command.payload).toEqual({ listingId: listing.id });
@@ -717,6 +728,71 @@ async function clickAndReadTypedSubmit(page, commandType, button) {
   expect(submission.response.status()).toBe(200);
   expect(submission.stateVersionConflicts.length).toBeLessThanOrEqual(1);
   return submission;
+}
+
+async function createGameplaySubmitRequestBarrier(pages, commandType, expectedRequestCount) {
+  const routePattern = "**/api/gameplay-slice/submit";
+  const arrivedCommandIds = new Set();
+  const inFlightHandlers = new Set();
+  let released = false;
+  let releaseBarrier;
+  const barrier = new Promise((resolve) => {
+    releaseBarrier = resolve;
+  });
+
+  const release = () => {
+    if (released) return;
+    released = true;
+    releaseBarrier();
+  };
+
+  const routeHandler = (route) => {
+    const handling = (async () => {
+      const request = route.request();
+      let requestBody = null;
+      try {
+        requestBody = request.postDataJSON();
+      } catch {
+        // Non-JSON traffic is not part of this gameplay command barrier.
+      }
+      if (
+        request.method() !== "POST"
+        || requestBody?.command?.type !== commandType
+      ) {
+        await route.continue();
+        return;
+      }
+
+      const commandId = String(requestBody.command.id || "").trim();
+      if (!commandId) {
+        throw new Error(`${commandType} barrier received a command without an id.`);
+      }
+      if (!released) {
+        arrivedCommandIds.add(commandId);
+        if (arrivedCommandIds.size === expectedRequestCount) {
+          release();
+        }
+      }
+      await barrier;
+      await route.continue();
+    })();
+    inFlightHandlers.add(handling);
+    const removeInFlightHandler = () => {
+      inFlightHandlers.delete(handling);
+    };
+    void handling.then(removeInFlightHandler, removeInFlightHandler);
+    return handling;
+  };
+
+  await Promise.all(pages.map((page) => page.route(routePattern, routeHandler)));
+  return {
+    getArrivalCount: () => arrivedCommandIds.size,
+    async dispose() {
+      release();
+      await Promise.allSettled(pages.map((page) => page.unroute(routePattern, routeHandler)));
+      await Promise.allSettled([...inFlightHandlers]);
+    }
+  };
 }
 
 async function reloadHostedGame(page) {

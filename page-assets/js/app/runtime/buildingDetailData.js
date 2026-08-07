@@ -6,6 +6,8 @@ import {
 
 export { SMUGGLING_TUNNEL_CONFIG };
 
+const POWER_STATION_REDUCE_HEAT_CLEAN_COST = 10_000;
+
 export const BUILDING_POPUP_TARGETS = Object.freeze([
   Object.freeze({
     label: "Lékárna",
@@ -323,7 +325,7 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
   "energeticka stanice": Object.freeze([
     Object.freeze({ cleanCost: 3500, durationMs: 25 * 60 * 1000, cooldownMs: 60 * 60 * 1000, heat: 3, serverEffectSummary: "Infrastruktura +12% · kamery +20% · alarm +20% · výroba +10%", summary: "Záložní síť dočasně posílí infrastrukturu, obranu a průmyslovou výrobu." }),
     Object.freeze({ clean: 2000, dirty: 500, heat: 10, cooldownMs: 60 * 60 * 1000, summary: "Napájení okamžitě přidá clean a dirty výnos z výroby." }),
-    Object.freeze({ cooldownMs: 60 * 60 * 1000, heat: -20, summary: "Serverově sníží heat districtu." })
+    Object.freeze({ cleanCost: POWER_STATION_REDUCE_HEAT_CLEAN_COST, cooldownMs: 60 * 60 * 1000, heat: -20, summary: "Serverově sníží heat districtu." })
   ]),
   "recyklacni centrum": Object.freeze([
     Object.freeze({ recyclingExtractLosses: true, cleanCost: 900, heat: 2, cooldownMs: 16 * 60 * 1000, summary: "Vytěží část neexpirovaných itemových ztrát." })
@@ -563,7 +565,7 @@ export const POWER_STATION_CONFIG = Object.freeze({
     armoryProductionSpeedBonusPct: 10
   }),
   reduceHeat: Object.freeze({
-    cleanCost: 10000,
+    cleanCost: POWER_STATION_REDUCE_HEAT_CLEAN_COST,
     heatReduction: 20,
     cooldownMs: 60 * 60 * 1000
   })

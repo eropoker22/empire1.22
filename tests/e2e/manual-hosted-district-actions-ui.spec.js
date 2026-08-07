@@ -317,13 +317,22 @@ async function waitForRenderedStateVersionAtLeast(page, expectedStateVersion) {
 async function assertPersistedReport(page, districtId, actionType) {
   await page.reload({ waitUntil: "load" });
   await waitForLiveGame(page);
-  await openActionTargetFromMap(page, districtId);
-  const reports = await page.evaluate(() => (
-    window.EmpireGameplaySliceClient?.getCurrentReadModel?.()?.reports || []
-  ));
-  expect(reports).toEqual(expect.arrayContaining([
-    expect.objectContaining({ actionType, targetDistrictId: districtId })
-  ]));
+  await expect.poll(
+    () => page.evaluate(({ expectedDistrictId, expectedActionType }) => (
+      window.EmpireGameplaySliceClient?.getCurrentReadModel?.()?.reports || []
+    ).some((report) => (
+      report.actionType === expectedActionType
+      && report.targetDistrictId === expectedDistrictId
+    )), {
+      expectedDistrictId: districtId,
+      expectedActionType: actionType
+    }),
+    {
+      message: `${actionType} report for ${districtId} must survive reload.`,
+      timeout: 30_000,
+      intervals: [250, 500, 1_000]
+    }
+  ).toBe(true);
 }
 
 async function assertPersistedPendingEffect(page, districtId, effectType, submittedEffect) {

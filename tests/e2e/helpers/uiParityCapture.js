@@ -1306,25 +1306,56 @@ export async function syncParityLocalDemoDistrictBuildingsFromHosted(localPage, 
       throw new Error("District building parity fixtures may only target explicit local-demo.");
     }
     const { renderDistrictBuildingList } = await import("/page-assets/js/app/ui/districtPanel.js");
-    const shell = Array.from(document.querySelectorAll(
+    window.__empireUiParityDistrictBuildingSync?.disconnect?.();
+    let applyingFixture = false;
+    const expectedTypes = authoritativeFixture.buildings
+      .map((building) => String(building?.buildingTypeId || "").trim())
+      .filter(Boolean)
+      .sort();
+    const findVisibleCard = () => Array.from(document.querySelectorAll(
       `[data-district-popup][data-district-id="${targetDistrictId}"] [data-district-popup-card]`
     ))
       .filter((element) => element instanceof HTMLElement && element.offsetParent !== null)
       .at(-1);
-    if (!(shell instanceof HTMLElement)) {
-      throw new Error("Visible local-demo district card is unavailable for parity synchronization.");
-    }
-    const rendered = renderDistrictBuildingList({
-      section: shell.querySelector("[data-district-popup-buildings]"),
-      meta: shell.querySelector("[data-district-popup-buildings-meta]"),
-      list: shell.querySelector("[data-district-popup-buildings-list]")
-    }, {
-      ...authoritativeFixture,
-      trap: authoritativeFixture.trap || { visible: false }
-    });
-    if (!rendered) {
+    const applyFixture = () => {
+      if (applyingFixture) return true;
+      const shell = findVisibleCard();
+      if (!(shell instanceof HTMLElement)) return false;
+      const renderedTypes = Array.from(
+        shell.querySelectorAll("[data-district-building-name][data-district-building-type]")
+      ).map((chip) => String(chip.dataset.districtBuildingType || "").trim())
+        .filter(Boolean)
+        .sort();
+      if (JSON.stringify(renderedTypes) === JSON.stringify(expectedTypes)) return true;
+      applyingFixture = true;
+      try {
+        return renderDistrictBuildingList({
+          section: shell.querySelector("[data-district-popup-buildings]"),
+          meta: shell.querySelector("[data-district-popup-buildings-meta]"),
+          list: shell.querySelector("[data-district-popup-buildings-list]")
+        }, {
+          ...authoritativeFixture,
+          trap: authoritativeFixture.trap || { visible: false }
+        });
+      } finally {
+        applyingFixture = false;
+      }
+    };
+    if (!applyFixture()) {
       throw new Error("Canonical district building renderer rejected the parity fixture.");
     }
+    const observer = new MutationObserver(() => {
+      queueMicrotask(applyFixture);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    const handleDistrictOpened = () => queueMicrotask(applyFixture);
+    document.addEventListener("empire:district-opened", handleDistrictOpened);
+    window.__empireUiParityDistrictBuildingSync = {
+      disconnect() {
+        observer.disconnect();
+        document.removeEventListener("empire:district-opened", handleDistrictOpened);
+      }
+    };
   }, { authoritativeFixture: fixture, targetDistrictId: String(numericDistrictId) });
 
   const expectedBuildingTypes = fixture.buildings
@@ -2326,7 +2357,12 @@ export function normalizeLockedModalDocumentScrollExtent(signature, {
 
   const normalizeDocumentScroll = (documentScroll) => (
     documentScroll && typeof documentScroll === "object"
-      ? { ...documentScroll, maxScrollTop: 0 }
+      ? {
+          ...documentScroll,
+          maxScrollTop: 0,
+          scrollLeft: 0,
+          scrollTop: 0
+        }
       : documentScroll
   );
 
@@ -2335,7 +2371,9 @@ export function normalizeLockedModalDocumentScrollExtent(signature, {
     scroll: {
       ...signature.scroll,
       body: normalizeDocumentScroll(signature.scroll.body),
-      html: normalizeDocumentScroll(signature.scroll.html)
+      html: normalizeDocumentScroll(signature.scroll.html),
+      windowX: 0,
+      windowY: 0
     }
   };
 }

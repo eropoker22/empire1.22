@@ -1159,18 +1159,22 @@ describe("UI parity class signature", () => {
           canScrollY: true,
           maxScrollLeft: 17,
           maxScrollTop: 671,
-          overflowY: "auto"
+          overflowY: "auto",
+          scrollLeft: 7,
+          scrollTop: 373
         },
         html: {
           canScrollY: true,
           maxScrollLeft: 23,
           maxScrollTop: 864,
-          overflowY: "auto"
+          overflowY: "auto",
+          scrollLeft: 11,
+          scrollTop: 373
         },
         regions: [{ maxScrollTop: 412, path: "surface/div:0" }],
         surface: { maxScrollLeft: 29, maxScrollTop: 538 },
-        windowX: 0,
-        windowY: 0
+        windowX: 11,
+        windowY: 373
       }
     };
 
@@ -1183,14 +1187,20 @@ describe("UI parity class signature", () => {
       canScrollY: true,
       maxScrollLeft: 17,
       maxScrollTop: 0,
-      overflowY: "auto"
+      overflowY: "auto",
+      scrollLeft: 0,
+      scrollTop: 0
     });
     expect(normalized.scroll.html).toEqual({
       canScrollY: true,
       maxScrollLeft: 23,
       maxScrollTop: 0,
-      overflowY: "auto"
+      overflowY: "auto",
+      scrollLeft: 0,
+      scrollTop: 0
     });
+    expect(normalized.scroll.windowX).toBe(0);
+    expect(normalized.scroll.windowY).toBe(0);
     expect(normalized.scroll.surface).toBe(signature.scroll.surface);
     expect(normalized.scroll.regions).toBe(signature.scroll.regions);
     expect(signature.scroll.body.maxScrollTop).toBe(671);

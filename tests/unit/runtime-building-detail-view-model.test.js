@@ -418,6 +418,7 @@ describe("building detail view-model builder", () => {
     expect(powerStationActions[1].dirty).toBe(500);
     expect(powerStationActions[1].heat).toBe(10);
     expect(powerStationActions[2].durationMs).toBeUndefined();
+    expect(powerStationActions[2].cleanCost).toBe(10_000);
     expect(powerStationActions[2].heat).toBe(-20);
   });
 
@@ -2210,6 +2211,7 @@ describe("building detail view-model builder", () => {
     expect(rows[1].rewardSummary).toContain("Dirty cash +$500");
     expect(rows[1].rewardSummary).toContain("Heat +10");
     expect(rows[1].rewardSummary).not.toContain("Trvání");
+    expect(rows[2].buttonCostLabel).toBe("$10000 clean cash");
     expect(rows[2].rewardSummary).toContain("Heat -20");
     expect(rows[2].riskSummary).toContain("Heat -20");
   });

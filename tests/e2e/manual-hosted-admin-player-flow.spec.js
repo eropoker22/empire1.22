@@ -758,17 +758,17 @@ async function collectThreeSampleTickEvidence({
           serverInstanceId
         });
         if (!isCompleteAlignedTickSample(candidate, previousTick)) {
-          return false;
+          return createTickAlignmentDiagnostic(candidate, previousTick);
         }
         acceptedSample = candidate;
-        return true;
+        return "aligned";
       },
       {
         message: `Hosted tick evidence sample ${sampleIndex + 1} must align across player and admin projections.`,
         timeout: canonicalTickRateMs * 2,
         intervals: [100, 250, 500]
       }
-    ).toBe(true);
+    ).toBe("aligned");
     assertAlignedTickSample(
       acceptedSample,
       canonicalTickRateMs,
@@ -994,6 +994,7 @@ async function readAlignedTickSample({
     adminPage,
     serverInstanceId
   );
+  await refreshPlayerTickProjection(playerPage, districtId);
   const player = await readPlayerTickProjection(playerPage);
   const adminAfterObservedAt = new Date().toISOString();
   const adminAfter = await readAdminInstanceDetail(
@@ -1077,6 +1078,21 @@ const readAdminInstanceDetail = (page, serverInstanceId) => page.evaluate(
     return payload.data;
   },
   serverInstanceId
+);
+
+const refreshPlayerTickProjection = (page, districtId) => page.evaluate(
+  async (expectedDistrictId) => {
+    const client = window.EmpireGameplaySliceClient;
+    if (typeof client?.selectDistrict !== "function") {
+      throw new Error("Hosted gameplay client cannot refresh the selected district.");
+    }
+    const state = await client.selectDistrict(expectedDistrictId);
+    const readModel = client.getCurrentReadModel?.() || null;
+    if (!state || readModel?.district?.districtId !== expectedDistrictId) {
+      throw new Error("Hosted gameplay client did not return the requested district projection.");
+    }
+  },
+  districtId
 );
 
 const readPlayerTickProjection = (page) => page.evaluate(() => {
@@ -1388,6 +1404,24 @@ function isCompleteAlignedTickSample(sample, previousTick) {
       sample.player.district?.districtId
     );
 }
+
+const createTickAlignmentDiagnostic = (sample, previousTick) => JSON.stringify({
+  status: "not-aligned",
+  previousTick,
+  matchedAdminObservation: sample.admin.bracket.matchedObservation,
+  ticks: {
+    selected: sample.currentTick,
+    player: sample.player.currentTick,
+    admin: sample.admin.currentTick,
+    snapshot: sample.admin.lastSnapshot.tick
+  },
+  stateVersions: {
+    selected: sample.stateVersion,
+    player: sample.player.stateVersion,
+    admin: sample.admin.stateVersion,
+    snapshot: sample.admin.lastSnapshot.stateVersion
+  }
+});
 
 function isCompleteEconomyRateProjection(rates, currentTick, districtId) {
   const trackedResourceKeys = [
