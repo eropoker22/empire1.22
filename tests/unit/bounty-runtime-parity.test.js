@@ -18,6 +18,17 @@ describe("bounty demo and hosted presentation parity", () => {
     expect(resetBountyModalContentScroll(null)).toBe(false);
   });
 
+  it("keeps visually hidden duration radios hidden across static hover states", () => {
+    const staticHoverCss = readFileSync(resolve("page-assets/css/styles-static-hover.css"), "utf8");
+
+    expect(staticHoverCss).toMatch(
+      /\.bounty-board__segment input:is\(:hover, :focus, :focus-visible, :focus-within\)\s*\{\s*opacity:\s*0 !important;/u
+    );
+    expect(staticHoverCss).toMatch(
+      /\.bounty-board__segment:has\(input:focus-visible\)\s*\{[\s\S]*?outline:\s*2px solid/u
+    );
+  });
+
   it("keeps authoritative target labels from widening the shared picker", () => {
     const css = readFileSync(resolve("page-assets/css/styles-bounty.css"), "utf8");
     expect(css).toMatch(/\.bounty-board__target-menu,[\s\S]*?min-width: 0;[\s\S]*?max-width: 100%;/u);

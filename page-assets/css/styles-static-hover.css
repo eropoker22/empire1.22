@@ -53,6 +53,18 @@
   filter: none !important;
 }
 
+/* Keep the accessible Bounty duration radios visually hidden even when the
+ * pointer happens to rest on their 1px box after a responsive modal reflow. */
+.bounty-board__segment input:is(:hover, :focus, :focus-visible, :focus-within) {
+  opacity: 0 !important;
+}
+
+.bounty-board__segment:has(input:focus-visible) {
+  border-color: rgba(245, 158, 11, 0.82) !important;
+  outline: 2px solid rgba(245, 158, 11, 0.72);
+  outline-offset: 2px;
+}
+
 :where(
   a,
   button,
