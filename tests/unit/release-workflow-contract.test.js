@@ -12,6 +12,7 @@ const remote = readFileSync(".github/workflows/staging-remote-acceptance.yml", "
 const rollback = readFileSync(".github/workflows/staging-rollback-rehearsal.yml", "utf8");
 const production = readFileSync(".github/workflows/deploy-production.yml", "utf8");
 const fly = readFileSync("fly.hosted-worker.toml", "utf8");
+const ciHostedEnvironment = readFileSync("scripts/write-ci-hosted-environment.mjs", "utf8");
 
 describe("public release workflows", () => {
   it("deploys staging only behind exact successful hosted acceptance evidence", () => {
@@ -97,6 +98,26 @@ describe("public release workflows", () => {
     expect(staging).not.toMatch(/uses:\s+[^\s]+@v\d/u);
     expect(hosted).not.toMatch(/uses:\s+[^\s]+@v\d/u);
     expect(hosted.indexOf("Install Playwright Chromium")).toBeLessThan(hosted.indexOf("Generate ephemeral CI secrets"));
+    expect(hosted).toContain("Verify hosted artifact secret canary");
+    expect(hosted).toContain("node scripts/verify-ci-hosted-artifact-secret-canary.mjs");
+    expect(hosted).toContain("steps.artifact_secret_canary.outcome == 'success'");
+    expect(hosted.indexOf("Verify hosted artifact secret canary"))
+      .toBeLessThan(hosted.indexOf("Upload hosted evidence"));
+    expect(readFileSync("scripts/run-local-hosted-full.mjs", "utf8")).toContain('"--trace=off"');
+    for (const credentialBearingSpec of [
+      "tests/e2e/manual-hosted-admin-player-flow.spec.js",
+      "tests/e2e/live-hosted-building-actions-visible-ui.spec.js",
+      "tests/e2e/live-hosted-non-spawn-building-parity.spec.js"
+    ]) {
+      expect(readFileSync(credentialBearingSpec, "utf8")).toContain('trace: "off"');
+      expect(readFileSync(credentialBearingSpec, "utf8")).not.toContain('trace: "on"');
+    }
+    expect(ciHostedEnvironment).toContain("const secretEnvironment = {");
+    expect(ciHostedEnvironment).toContain("const secretValues = Object.values(secretEnvironment)");
+    expect(ciHostedEnvironment).not.toContain("Object.values(values).slice(3)");
+    expect(ciHostedEnvironment).toContain("`::add-mask::${value}`");
+    expect(ciHostedEnvironment.indexOf("`::add-mask::${value}`"))
+      .toBeLessThan(ciHostedEnvironment.indexOf("await appendFile("));
   });
 
   it("does not grant API or admin-only secrets to the worker", () => {

@@ -1,11 +1,42 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 const root = resolve(import.meta.dirname, "../..");
 const read = (relativePath) => readFileSync(resolve(root, relativePath), "utf8");
 
 describe("local hosted runtime startup contract", () => {
+  it("treats .env.local as optional for clean CI checkouts", () => {
+    const harness = read("scripts/run-local-hosted-full.mjs");
+    expect(harness).toContain('existsSync(".env.local")');
+    expect(harness).toContain('if (process.env.CI === "true")');
+    expect(harness).toContain("Hosted CI must use its generated environment");
+    expect(harness).toContain('error?.code !== "ENOENT"');
+  });
+
+  it("reaches the explicit database preflight from a clean CI cwd without .env.local", () => {
+    const cleanCwd = mkdtempSync(resolve(tmpdir(), "empire-hosted-clean-ci-"));
+    try {
+      const environment = { ...process.env, CI: "true" };
+      delete environment.EMPIRE_DATABASE_URL;
+      delete environment.EMPIRE_TEST_DATABASE_URL;
+      delete environment.GAMEPLAY_DATABASE_URL;
+      const result = spawnSync(
+        process.execPath,
+        [resolve(root, "scripts/run-local-hosted-full.mjs"), "--suite=income"],
+        { cwd: cleanCwd, env: environment, encoding: "utf8", windowsHide: true }
+      );
+      const diagnostic = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+      expect(result.status).not.toBe(0);
+      expect(diagnostic).not.toMatch(/ENOENT[^\n]*\.env\.local/iu);
+      expect(diagnostic).toMatch(/database|EMPIRE_TEST_DATABASE_URL/iu);
+    } finally {
+      rmSync(cleanCwd, { recursive: true, force: true });
+    }
+  });
+
   it("prebuilds setup, long-lived Node entrypoints and the scenario seed CLI", () => {
     const config = read("vite.local-hosted-runtime.config.ts");
 
@@ -71,17 +102,20 @@ describe("local hosted runtime startup contract", () => {
     expect(scenarioBranch).not.toContain("vite-node/vite-node.mjs");
   });
 
-  it("retains a Playwright trace for the real manual admin flow", () => {
+  it("keeps credential-bearing Playwright traces off while retaining safe manual evidence", () => {
     const harness = read("scripts/run-local-hosted-full.mjs");
+    const manualSpec = read("tests/e2e/manual-hosted-admin-player-flow.spec.js");
     const manualBranchAt = harness.indexOf("if (suite.manualProvisioning)");
     const fixtureBranchAt = harness.indexOf("if (suite.buildingActionPhase)", manualBranchAt);
     const manualBranch = harness.slice(manualBranchAt, fixtureBranchAt);
 
-    expect(manualBranch).toContain('result.evidence.trace = "playwright-trace-on"');
-    expect(manualBranch).toContain('"--trace"');
-    expect(manualBranch).toContain('"on"');
+    expect(manualBranch).toContain('result.evidence.trace = "playwright-trace-off-credential-safety"');
+    expect(manualBranch).not.toContain('"--trace"');
     expect(manualBranch).toContain('"--output"');
-    expect(manualBranch).toContain("manualTraceDirectory");
+    expect(manualBranch).toContain("safeBrowserArtifactDirectory");
+    expect(manualBranch).toContain("manualArtifactDirectory");
+    expect(manualSpec).toContain('test.use({ trace: "off", video: "off" })');
+    expect(manualSpec).toContain('testInfo.attach("manual-hosted-safe-trace.json"');
   });
 
   it("retains every Playwright run in a suite-specific artifact directory", () => {

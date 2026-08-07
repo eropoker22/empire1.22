@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
+import { existsSync } from "node:fs";
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { assertSupportedNodeVersion } from "./supported-node-policy.mjs";
@@ -26,7 +27,17 @@ import {
   UI_PARITY_DEBUG_BUILDING_TYPES_ENV
 } from "../tests/e2e/helpers/uiParityDebugBuildingFilter.js";
 
-process.loadEnvFile?.(".env.local");
+if (process.env.CI === "true") {
+  if (existsSync(".env.local")) {
+    throw new Error("Hosted CI must use its generated environment and must not load .env.local.");
+  }
+} else {
+  try {
+    process.loadEnvFile?.(".env.local");
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+}
 assertSupportedNodeVersion(process.versions.node);
 
 const frontendPort = 4174;
@@ -386,6 +397,7 @@ const runReleasePlaywright = async ({ name, args, timeoutMs, result, phase, envi
   const summaryPath = path.join(runDirectory, `${name}-release-summary.json`);
   await runNode(name, [
     ...args,
+    "--trace=off",
     "--forbid-only",
     "--fail-on-flaky-tests",
     "--retries=0",
@@ -576,9 +588,12 @@ try {
         environment.EMPIRE_MANUAL_HOSTED_STARTING_STATE_JSON = JSON.stringify(
           MANUAL_HOSTED_STARTING_PLAYER_STATE
         );
-        const manualTraceDirectory = retainPlaywrightArtifacts(result, "acceptance");
-        result.evidence.trace = "playwright-trace-on";
-        result.evidence.traceDirectory = path.relative(process.cwd(), manualTraceDirectory);
+        const manualArtifactDirectory = retainPlaywrightArtifacts(result, "acceptance");
+        result.evidence.trace = "playwright-trace-off-credential-safety";
+        result.evidence.safeBrowserArtifactDirectory = path.relative(
+          process.cwd(),
+          manualArtifactDirectory
+        );
         result.status = "testing";
         await runReleasePlaywright({
           name: `playwright-${suite.name}`,
@@ -586,10 +601,8 @@ try {
             "scripts/run-local-bin.mjs",
             "playwright/cli.js",
             "test",
-            "--trace",
-            "on",
             "--output",
-            manualTraceDirectory,
+            manualArtifactDirectory,
             ...suite.specs
           ],
           timeoutMs: 1_800_000,

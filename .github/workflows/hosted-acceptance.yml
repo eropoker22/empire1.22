@@ -132,8 +132,13 @@ jobs:
         if: success()
         run: node scripts/verify-local-hosted-summary.mjs --root=.tmp/local-hosted-full --sha=${{ github.sha }} --suite=${{ matrix.suite }}
 
-      - name: Upload hosted evidence
+      - name: Verify hosted artifact secret canary
+        id: artifact_secret_canary
         if: always()
+        run: node scripts/verify-ci-hosted-artifact-secret-canary.mjs
+
+      - name: Upload hosted evidence
+        if: ${{ always() && steps.artifact_secret_canary.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: hosted-${{ matrix.suite }}-${{ github.sha }}

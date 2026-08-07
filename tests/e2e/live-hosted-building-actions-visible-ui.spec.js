@@ -30,7 +30,7 @@ const representativeScreenshotTypes = new Set(
     : ["central_bank", "restaurant", "street_dealers"]
 );
 
-test.use({ trace: "on", video: "off" });
+test.use({ trace: "off", video: "off" });
 
 test.describe("fixture-backed hosted canonical building-action visible UI coverage", () => {
   test.skip(

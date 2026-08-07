@@ -67,7 +67,7 @@ const manualProductionCases = Object.freeze([
   })
 ]);
 
-test.use({ trace: "on", video: "off" });
+test.use({ trace: "off", video: "off" });
 test.skip(
   !manualEnabled
     || !adminUsername

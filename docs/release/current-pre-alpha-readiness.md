@@ -76,6 +76,9 @@ ověření stagingu.
 - pro kandidáta chybí nový veřejný recovery/restart důkaz uprostřed lifecycle;
 - pro kandidáta chybí kompletní release mobile matrix a dlouhý 20hráčový
   weighted-action soak;
+- credential-bearing hosted browser flow má Playwright trace vypnutý; zachovává
+  pouze strukturované bezpečné evidence a screenshoty bez raw credentials a
+  CI před uploadem fail-closed skenuje artefakty proti ephemeral secretům;
 - starší auditní dokumenty mohou popisovat session nebo persistence jako
   nedokončené; aktuální kontrakt je v `docs/gameplay-session-security.md` a
   `docs/persistence.md`;

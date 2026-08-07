@@ -70,7 +70,9 @@ Tester hlásí:
 - přesný build SHA z nenápadného diagnostického místa;
 - čas chyby a stránku/akci;
 - correlation ID nebo anonymizovaný server/player hash;
-- screenshot nebo Playwright trace při reprodukci.
+- screenshot nebo pouze sanitizovaný Playwright trace bez credential/session
+  vstupů; credential-bearing hosted gate ukládá strukturovanou safe evidence
+  místo raw trace.
 
 Tester nikdy neposílá heslo, cookie, session token, DB URL, datum narození,
 celý e-mail ani privátní read model jiného hráče.

@@ -77,7 +77,7 @@ const normalizeAuthorityDynamicPresentation = (presentation) => {
   };
 };
 const authorityDynamicTextSelector = "[data-building-dynamic-effect='influence']";
-test.use({ trace: "on", video: "off" });
+test.use({ trace: "off", video: "off" });
 
 test.describe("fixture-backed hosted non-spawn canonical building parity", () => {
   test.describe.configure({ mode: "parallel" });
