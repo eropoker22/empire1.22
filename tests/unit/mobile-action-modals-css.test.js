@@ -89,6 +89,23 @@ describe("mobile action modal CSS", () => {
     expect(clientMainCss).toContain('html body.game-body .district-building-detail-shell[data-building-mechanics-type="apartment-block"] .district-building-detail-card .building-info-card__effects {\n    display: flex !important;');
   });
 
+  it("keeps mobile power-station actions stable when authoritative phase rates wrap", () => {
+    const phaseEffectSelector =
+      '.district-building-detail-effect-cell:is([data-effect-tone="day-night-day"], [data-effect-tone="day-night-night"])';
+
+    for (const stylesheet of [mainCss, clientMainCss]) {
+      const selectorStart = stylesheet.indexOf(
+        'html body.game-body .district-building-detail-shell[data-building-mechanics-type="power-plant"] .district-building-detail-card ' + phaseEffectSelector
+      );
+      const selectorEnd = stylesheet.indexOf("}", selectorStart);
+      const phaseEffectRule = stylesheet.slice(selectorStart, selectorEnd);
+
+      expect(selectorStart).toBeGreaterThanOrEqual(0);
+      expect(selectorEnd).toBeGreaterThan(selectorStart);
+      expect(phaseEffectRule).toContain("min-height: 48px !important;");
+    }
+  });
+
   it("stacks clinic effect chips vertically", () => {
     expect(buildingModalCss).toContain('.district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-card .building-info-card__effects');
     expect(buildingModalCss).toContain("flex-direction: column !important;");

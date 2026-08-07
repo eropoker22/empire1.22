@@ -2421,6 +2421,11 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
     padding-bottom: 6px !important;
   }
 
+  /* Keep server-projected decimal rates from shifting the three action rows. */
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="power-plant"] .district-building-detail-card .district-building-detail-effect-cell:is([data-effect-tone="day-night-day"], [data-effect-tone="day-night-night"]) {
+    min-height: 48px !important;
+  }
+
   html body.game-body .district-building-detail-shell[data-building-mechanics-type="warehouse"] .district-building-detail-mechanics {
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
