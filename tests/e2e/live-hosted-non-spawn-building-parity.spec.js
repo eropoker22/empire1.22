@@ -627,7 +627,6 @@ async function collectBuildingAuthorityEvidence(page, surfaceName, buildingTypeI
         `heat\\s+${numberPattern}\\/den\\s+->\\s+${numberPattern}\\/den`,
         "iu"
       ));
-      const projectedHeatBase = normalizeProjectedRate(passive.heatPerDay);
       const roundedPhaseStatHeatBase = Number(
         Math.max(0, Number(passive.heatPerDay) || 0).toFixed(1)
       );
@@ -636,7 +635,7 @@ async function collectBuildingAuthorityEvidence(page, surfaceName, buildingTypeI
           `Rounded phase Heat stat does not match the authoritative passive projection for ${expectedBuildingTypeId}.`
         );
       }
-      expected["phase-heat-base"] = projectedHeatBase;
+      expected["phase-heat-base"] = normalizeProjectedRate(passive.heatPerDay);
       expected["phase-heat-effective"] = parseNumber(phaseHeatMatch?.[2]);
     }
 
