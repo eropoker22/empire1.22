@@ -79,7 +79,7 @@ const hostedSuites = Object.freeze([
       }),
       Object.freeze({
         name: "spawn-building-matrix-b",
-        grep: "industrial-recycle|industrial-armory-warehouse|residential-recovery|industrial-power"
+        grep: "residential-recovery"
       }),
       Object.freeze({
         name: "spawn-building-matrix-c",
@@ -199,6 +199,12 @@ const hostedSuites = Object.freeze([
         name: "non-spawn-matrix-b",
         environment: Object.freeze({
           EMPIRE_UI_PARITY_NON_SPAWN_KEYS: "city-hall-parliament,airport-lobby-club,port"
+        })
+      }),
+      Object.freeze({
+        name: "non-spawn-matrix-c",
+        environment: Object.freeze({
+          EMPIRE_UI_PARITY_NON_SPAWN_KEYS: "industrial-recycle,industrial-power,industrial-armory-warehouse"
         })
       })
     ]),

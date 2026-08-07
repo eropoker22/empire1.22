@@ -132,6 +132,7 @@ test.describe("live/demo social modal parity", () => {
     const sharedDistrictId = Number(String(hostedEntry.spawnDistrictId).replace(/^district:/u, ""));
     await openParityLocalDemo(localPage, {
       bountyDemoTargets: hostedPresentationState.bountyDemoTargets,
+      gangColor: hostedEntry.gangColor,
       mapPhase: hostedPresentationState.mapPhase,
       marketCityDayIndex: hostedPresentationState.marketCityDayIndex,
       marketCityMinutes: hostedPresentationState.marketCityMinutes,

@@ -66,11 +66,8 @@ describe("local-hosted presentation parity suite wiring", () => {
     )].map((match) => match[1]);
     const matrixKeys = [
       "park-night-cover",
-      "industrial-recycle",
       "residential-arcade-garage",
-      "industrial-power",
       "park-distribution",
-      "industrial-armory-warehouse",
       "residential-recovery",
       "commercial-mall-pharmacy",
       "residential-school",
@@ -113,6 +110,9 @@ describe("local-hosted presentation parity suite wiring", () => {
       "central-bank",
       "city-hall-parliament",
       "court-vip-lounge",
+      "industrial-armory-warehouse",
+      "industrial-power",
+      "industrial-recycle",
       "port",
       "stock-exchange"
     ]);

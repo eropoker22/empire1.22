@@ -94,24 +94,43 @@ async function openServer(page, serverInstanceId) {
   }
 }
 
-async function selectSpawnDistrict(page, serverInstanceId, initialDistricts, preferredDistrictIds) {
+async function selectSpawnDistrict(
+  page,
+  serverInstanceId,
+  initialDistricts,
+  preferredDistrictIds,
+  requiredBuildingTypeIds = []
+) {
   const candidates = (Array.isArray(preferredDistrictIds)
     ? preferredDistrictIds
     : [preferredDistrictIds]).filter(Boolean).map(String);
+  const requiredBuildingTypes = (Array.isArray(requiredBuildingTypeIds)
+    ? requiredBuildingTypeIds
+    : [requiredBuildingTypeIds]).filter(Boolean).map(String);
+  const isEligibleOption = (district) => (
+    district.available
+    && requiredBuildingTypes.every((buildingTypeId) => (
+      (district.buildingPreview || []).some((buildingId) => (
+        String(buildingId).split(":").at(-2) === buildingTypeId
+      ))
+    ))
+  );
   let districts = initialDistricts;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const availableOptions = candidates.length
       ? candidates
         .map((districtId) => districts.find((district) => (
-          district.available && district.districtId === districtId
+          district.districtId === districtId && isEligibleOption(district)
         )))
         .filter(Boolean)
-      : districts.filter((district) => district.available);
+      : districts.filter(isEligibleOption);
     expect(
       availableOptions.length,
       candidates.length
-        ? `One of the requested spawn districts must be available: ${candidates.join(", ")}`
-        : "At least one canonical spawn district must be available"
+        ? `One of the requested canonical spawn districts must be available: ${candidates.join(", ")}`
+        : requiredBuildingTypes.length
+          ? `At least one canonical spawn district must expose: ${requiredBuildingTypes.join(", ")}`
+          : "At least one canonical spawn district must be available"
     ).toBeGreaterThan(0);
     const canvas = page.getByTestId("server-detail-map");
     const box = await canvas.boundingBox();
@@ -153,6 +172,7 @@ async function selectSpawnDistrict(page, serverInstanceId, initialDistricts, pre
       });
       if (confirmResponse.ok()) {
         return {
+          spawnBuildingPreviewIds: [...(option.buildingPreview || [])],
           spawnDistrictId: option.districtId
         };
       }
@@ -214,12 +234,15 @@ async function completeFactionSelection(page) {
   await expect(page).toHaveURL(/\/pages\/faction\.html\?membership=/u, { timeout: 30_000 });
   const membershipId = new URL(page.url()).searchParams.get("membership");
   expect(membershipId, "Faction setup must target a membership").toBeTruthy();
-  await expect(page.locator("[data-live-color]").first()).toBeVisible({ timeout: 30_000 });
+  const colorOption = page.locator("[data-live-color]").first();
+  await expect(colorOption).toBeVisible({ timeout: 30_000 });
+  const gangColor = await colorOption.getAttribute("data-live-color");
+  expect(gangColor, "Faction setup must expose the selected gang color").toBeTruthy();
   await page.locator('[data-faction-id="mafian"]').click();
-  await page.locator("[data-live-color]").first().click();
+  await colorOption.click();
   await page.locator("[data-live-avatar]").first().click();
   await page.getByTestId("continue-to-game").click();
-  return membershipId;
+  return { gangColor, membershipId };
 }
 
 export async function waitForLiveGame(page, expectedServerInstanceId = null) {
@@ -230,8 +253,8 @@ export async function waitForLiveGame(page, expectedServerInstanceId = null) {
   );
   await expect(page.locator("body")).toHaveAttribute("data-authority-state", "ready");
   await expect(page.locator("#game-root")).toHaveAttribute("aria-busy", "false");
-  await dismissBlockingGameOverlays(page);
   await dismissOnboardingGuide(page);
+  await dismissBlockingGameOverlays(page);
   await page.evaluate(() => {
     window.__EMPIRE_DEMO_GAMEPLAY_STORAGE_WRITES__ = [];
   });
@@ -429,6 +452,7 @@ export async function registerAndEnterHostedUiParityGame(page, {
   serverInstanceId,
   spawnDistrictId,
   spawnDistrictIds,
+  spawnBuildingTypeIds,
   identityPrefix = "Parity",
   identity: suppliedIdentity = null,
   acknowledgedServerMilestoneIds = [],
@@ -457,15 +481,16 @@ export async function registerAndEnterHostedUiParityGame(page, {
     page,
     serverInstanceId,
     districts,
-    requestedSpawnDistrictIds
+    requestedSpawnDistrictIds,
+    spawnBuildingTypeIds
   );
-  const membershipId = await completeFactionSelection(page);
+  const factionSelection = await completeFactionSelection(page);
   const gameIdentity = waitForRunning
     ? await waitForLiveGame(page, serverInstanceId)
     : await waitForHostedLobbyGame(page, serverInstanceId);
   const membership = await readActiveMembershipIdentity(page);
   expect(membership).toMatchObject({
-    membershipId,
+    membershipId: factionSelection.membershipId,
     reservedSpawnDistrictId: selection.spawnDistrictId,
     serverInstanceId,
     status: "active"
@@ -473,10 +498,12 @@ export async function registerAndEnterHostedUiParityGame(page, {
   expect(gameIdentity.playerId).toBe(membership.playerId);
   return {
     diagnostics,
+    gangColor: factionSelection.gangColor,
     identity,
     membershipId: membership.membershipId,
     playerId: membership.playerId,
     serverInstanceId: gameIdentity.serverInstanceId,
+    spawnBuildingPreviewIds: selection.spawnBuildingPreviewIds,
     spawnDistrictId: selection.spawnDistrictId
   };
 }
@@ -485,6 +512,7 @@ export async function loginAndEnterHostedUiParityGame(page, {
   serverInstanceId,
   spawnDistrictId,
   spawnDistrictIds,
+  spawnBuildingTypeIds,
   identity,
   waitForRunning = false
 } = {}) {
@@ -497,15 +525,16 @@ export async function loginAndEnterHostedUiParityGame(page, {
     page,
     serverInstanceId,
     districts,
-    requestedSpawnDistrictIds
+    requestedSpawnDistrictIds,
+    spawnBuildingTypeIds
   );
-  const membershipId = await completeFactionSelection(page);
+  const factionSelection = await completeFactionSelection(page);
   const gameIdentity = waitForRunning
     ? await waitForLiveGame(page, serverInstanceId)
     : await waitForHostedLobbyGame(page, serverInstanceId);
   const membership = await readActiveMembershipIdentity(page);
   expect(membership).toMatchObject({
-    membershipId,
+    membershipId: factionSelection.membershipId,
     reservedSpawnDistrictId: selection.spawnDistrictId,
     serverInstanceId,
     status: "active"
@@ -513,9 +542,11 @@ export async function loginAndEnterHostedUiParityGame(page, {
   expect(gameIdentity.playerId).toBe(membership.playerId);
   return {
     diagnostics,
+    gangColor: factionSelection.gangColor,
     membershipId: membership.membershipId,
     playerId: membership.playerId,
     serverInstanceId: gameIdentity.serverInstanceId,
+    spawnBuildingPreviewIds: selection.spawnBuildingPreviewIds,
     spawnDistrictId: selection.spawnDistrictId
   };
 }

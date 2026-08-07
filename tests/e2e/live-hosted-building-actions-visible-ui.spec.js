@@ -258,8 +258,8 @@ function groupMatrixEntries(entries) {
 }
 
 async function openDistrictThroughMapClick(page, districtId) {
-  await dismissBlockingGameOverlays(page);
   await dismissOnboardingGuide(page);
+  await dismissBlockingGameOverlays(page);
   await closeVisibleBuildingDetail(page);
   await closeVisibleDistrict(page);
   const numericDistrictId = Number(String(districtId).replace(/^district:/u, ""));

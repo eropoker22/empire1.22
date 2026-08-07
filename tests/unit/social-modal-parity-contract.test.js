@@ -53,6 +53,12 @@ describe("social modal parity coverage contract", () => {
     expect(socialModalParitySurfaces.market.roundedCompositeSelector).toBe(
       ".market-popup-tab.is-active"
     );
+    expect(socialModalParitySurfaces.market.responsiveHiddenSectionRules).toEqual([
+      {
+        maxViewportWidth: 720,
+        selector: "[data-market-copy]"
+      }
+    ]);
     expect(socialModalParitySurfaces.alliance.triggerSelector).toBe("[data-alliance-popup-open]");
     expect(socialModalParitySurfaces.bounty.triggerSelector).toBe("[data-bounty-open-trigger]");
     expect(socialModalParitySurfaces.boost.triggerSelector).toBe("[data-boost-open-trigger]");
@@ -112,6 +118,18 @@ describe("social modal parity coverage contract", () => {
         }
       }
     })).toThrow(/masks a structural container/u);
+    expect(() => validateSocialModalParityCoverage({
+      surfaces: {
+        ...socialModalParitySurfaces,
+        market: {
+          ...socialModalParitySurfaces.market,
+          responsiveHiddenSectionRules: [{
+            maxViewportWidth: 720,
+            selector: "[data-market-missing]"
+          }]
+        }
+      }
+    })).toThrow(/invalid responsive hidden section rule/u);
   });
 
   it("keeps real hosted entry, visible triggers and exact pixel assertions in the spec", () => {
@@ -149,6 +167,8 @@ describe("social modal parity coverage contract", () => {
     expect(helperSource.match(/\? authoritativeText/gu)?.length).toBeGreaterThanOrEqual(6);
     expect(helperSource).toContain("signature.scrollTop = 0;");
     expect(helperSource).toContain("windowY: 0");
+    expect(helperSource).toContain(".toBeAttached()");
+    expect(helperSource).toContain(".toBeHidden()");
   });
 
   it("isolates transparent modal composites from unrelated page state", () => {

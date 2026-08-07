@@ -4,6 +4,9 @@ import {
   publicBuildingDefinitions
 } from "../../packages/game-config/src/public/building-definitions.ts";
 import {
+  STARTER_DISTRICT_PRODUCTION_BUILDING_TYPES
+} from "../../packages/game-core/src/state/starterDistrictProductionBuildings.ts";
+import {
   resolveBuildingPresentationDefinition
 } from "../../page-assets/js/app/runtime/buildingPresentationContract.js";
 import {
@@ -60,13 +63,14 @@ import {
   readVisibleDistrictBuildingTypeIds,
   resolveBuildingParitySurfaceName,
   selectProductionBuildingTab,
-  settleParityPage
+  settleParityPage,
+  syncParityLocalDemoDistrictBuildingsFromHosted
 } from "./helpers/uiParityCapture.js";
 
 const captureEnabled = process.env.EMPIRE_CAPTURE_UI_PARITY_BASELINE === "1";
 const hostedEnabled = process.env.EMPIRE_HOSTED_UI_PARITY_E2E === "1";
 const serverInstanceId = process.env.EMPIRE_UI_PARITY_SERVER_ID || "";
-const productionBuildingTypeIds = new Set(["pharmacy", "drug_lab", "factory", "armory"]);
+const productionBuildingTypeIds = new Set(STARTER_DISTRICT_PRODUCTION_BUILDING_TYPES);
 const sortedBuildingTypeIds = (values) => Array.from(new Set(values)).sort();
 const parityViewportBatches = Object.freeze([
   Object.freeze({
@@ -126,9 +130,16 @@ const resolveParityDistrictBuildingTypeIds = (districtId) => {
   )).filter(Boolean);
 };
 const spawnReachableBuildingTypeIds = sortedBuildingTypeIds(
-  parityMapManifest.districts
-    .filter((district) => district.isSpawnCandidate)
-    .flatMap((district) => resolveParityDistrictBuildingTypeIds(district.id))
+  [
+    ...parityMapManifest.districts
+      .filter((district) => (
+        district.isSpawnCandidate
+        && district.zone !== "downtown"
+        && district.zone !== "industrial"
+      ))
+      .flatMap((district) => resolveParityDistrictBuildingTypeIds(district.id)),
+    ...STARTER_DISTRICT_PRODUCTION_BUILDING_TYPES
+  ]
 );
 const nonSpawnBrowserGapTypeIds = canonicalBuildingTypeIds
   .filter((buildingTypeId) => !spawnReachableBuildingTypeIds.includes(buildingTypeId))
@@ -142,29 +153,10 @@ const spawnReachableBuildingParityMatrix = Object.freeze([
     coveredBuildingTypeIds: Object.freeze(["strip_club", "convenience_store"])
   }),
   Object.freeze({
-    key: "industrial-recycle",
-    districtIds: Object.freeze([
-      "district:3",
-      "district:73",
-      "district:114",
-      "district:139",
-      "district:149",
-      "district:155"
-    ]),
-    expectedDistrictBuildingTypeIds: Object.freeze(["factory", "recycling_center"]),
-    coveredBuildingTypeIds: Object.freeze(["factory", "recycling_center"])
-  }),
-  Object.freeze({
     key: "residential-arcade-garage",
     districtIds: Object.freeze(["district:4", "district:142", "district:154"]),
     expectedDistrictBuildingTypeIds: Object.freeze(["apartment_block", "arcade", "garage"]),
     coveredBuildingTypeIds: Object.freeze(["apartment_block", "arcade", "garage"])
-  }),
-  Object.freeze({
-    key: "industrial-power",
-    districtIds: Object.freeze(["district:23", "district:94", "district:144", "district:161"]),
-    expectedDistrictBuildingTypeIds: Object.freeze(["factory", "power_station"]),
-    coveredBuildingTypeIds: Object.freeze(["power_station"])
   }),
   Object.freeze({
     key: "park-distribution",
@@ -177,12 +169,6 @@ const spawnReachableBuildingParityMatrix = Object.freeze([
     ]),
     expectedDistrictBuildingTypeIds: Object.freeze(["street_dealers", "smuggling_tunnel"]),
     coveredBuildingTypeIds: Object.freeze(["street_dealers", "smuggling_tunnel"])
-  }),
-  Object.freeze({
-    key: "industrial-armory-warehouse",
-    districtIds: Object.freeze(["district:50", "district:70"]),
-    expectedDistrictBuildingTypeIds: Object.freeze(["armory", "warehouse"]),
-    coveredBuildingTypeIds: Object.freeze(["armory", "warehouse"])
   }),
   Object.freeze({
     key: "residential-recovery",
@@ -632,7 +618,10 @@ async function compareOpenBuildingParity(
 test.describe("canonical building parity coverage contract", () => {
   test("declares every spawn-reachable public type and the honest browser gaps", () => {
     const plannedBuildingTypeIds = sortedBuildingTypeIds(
-      spawnReachableBuildingParityMatrix.flatMap((entry) => entry.coveredBuildingTypeIds)
+      [
+        ...spawnReachableBuildingParityMatrix.flatMap((entry) => entry.coveredBuildingTypeIds),
+        ...STARTER_DISTRICT_PRODUCTION_BUILDING_TYPES
+      ]
     );
 
     expect(new Set(canonicalBuildingTypeIds).size).toBe(publicBuildingDefinitions.length);
@@ -662,8 +651,11 @@ test.describe("canonical building parity coverage contract", () => {
       "lobby_club",
       "parliament",
       "port",
+      "power_station",
+      "recycling_center",
       "stock_exchange",
-      "vip_lounge"
+      "vip_lounge",
+      "warehouse"
     ]);
 
     for (const entry of spawnReachableBuildingParityMatrix) {
@@ -672,6 +664,7 @@ test.describe("canonical building parity coverage contract", () => {
           (candidate) => candidate.id === districtId
         );
         expect(district?.isSpawnCandidate, districtId).toBe(true);
+        expect(["downtown", "industrial"]).not.toContain(district?.zone);
         expect(
           sortedBuildingTypeIds(resolveParityDistrictBuildingTypeIds(districtId)),
           districtId
@@ -893,6 +886,7 @@ test.describe("live/demo shared presentation parity", () => {
       });
       const sharedDistrictId = Number(String(entry.spawnDistrictId).replace(/^district:/u, ""));
       await openParityLocalDemo(localPage, {
+        gangColor: entry.gangColor,
         ownedDistrictIds: [sharedDistrictId],
         startDistrictId: sharedDistrictId,
         mapPhase: hostedMapPhase
@@ -1027,6 +1021,7 @@ test.describe("live/demo shared presentation parity", () => {
         return readModel?.player?.dayNight?.phaseId === "night" ? "night" : "day";
       });
       await openParityLocalDemo(localPage, {
+        gangColor: entry.gangColor,
         ownedDistrictIds: [Number(String(entry.spawnDistrictId).replace(/^district:/u, ""))],
         startDistrictId: Number(String(entry.spawnDistrictId).replace(/^district:/u, "")),
         mapPhase: hostedMapPhase
@@ -1176,6 +1171,7 @@ test.describe("live/demo shared presentation parity", () => {
       });
       const sharedDistrictId = Number(String(entry.spawnDistrictId).replace(/^district:/u, ""));
       await openParityLocalDemo(localPage, {
+        gangColor: entry.gangColor,
         ownedDistrictIds: [sharedDistrictId],
         startDistrictId: sharedDistrictId,
         mapPhase: hostedMapPhase
@@ -1201,6 +1197,7 @@ test.describe("live/demo shared presentation parity", () => {
           await serverPage.setViewportSize(viewport);
           await openDistrictById(localPage, entry.spawnDistrictId);
           await openDistrictById(serverPage, entry.spawnDistrictId);
+          await syncParityLocalDemoDistrictBuildingsFromHosted(localPage, serverPage);
           const localDistrict = await getParitySurfaceSignature(localPage, "district");
           const serverDistrict = await getParitySurfaceSignature(serverPage, "district");
           const localDistrictStructure = await getParityDomStructureSignature(localPage, "district");
@@ -1347,6 +1344,7 @@ test.describe("live/demo shared presentation parity", () => {
         return readModel?.player?.dayNight?.phaseId === "night" ? "night" : "day";
       });
       await openParityLocalDemo(localPage, {
+        gangColor: entry.gangColor,
         ownedDistrictIds: [24],
         startDistrictId: 24,
         mapPhase: hostedMapPhase
@@ -1478,6 +1476,7 @@ test.describe("live/demo spawn-reachable canonical building matrix", () => {
         });
         const sharedDistrictId = Number(String(entry.spawnDistrictId).replace(/^district:/u, ""));
         await openParityLocalDemo(localPage, {
+          gangColor: entry.gangColor,
           ownedDistrictIds: [sharedDistrictId],
           startDistrictId: sharedDistrictId,
           mapPhase: hostedMapPhase
@@ -1497,7 +1496,10 @@ test.describe("live/demo spawn-reachable canonical building matrix", () => {
           await expect.poll(
             () => readVisibleDistrictBuildingTypeIds(serverPage),
             { message: `${entry.spawnDistrictId} authoritative building card registry` }
-          ).toEqual(sortedBuildingTypeIds(matrixEntry.expectedDistrictBuildingTypeIds));
+          ).toEqual(sortedBuildingTypeIds([
+            ...matrixEntry.expectedDistrictBuildingTypeIds,
+            ...STARTER_DISTRICT_PRODUCTION_BUILDING_TYPES
+          ]));
 
           for (const buildingTypeId of matrixEntry.coveredBuildingTypeIds) {
             await openDistrictById(localPage, entry.spawnDistrictId);

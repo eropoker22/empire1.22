@@ -68,6 +68,7 @@ test.describe("live/demo utility modal parity", () => {
       String(hostedEntry.spawnDistrictId).replace(/^district:/u, "")
     );
     await openParityLocalDemo(localPage, {
+      gangColor: hostedEntry.gangColor,
       mapPhase: hostedMapPhase,
       ownedDistrictIds: [sharedDistrictId],
       startDistrictId: sharedDistrictId

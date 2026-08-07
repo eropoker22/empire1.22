@@ -46,6 +46,12 @@ export const socialModalParitySurfaces = Object.freeze({
       "[data-market-copy]",
       "[data-market-list]"
     ]),
+    responsiveHiddenSectionRules: Object.freeze([
+      Object.freeze({
+        maxViewportWidth: 720,
+        selector: "[data-market-copy]"
+      })
+    ]),
     roundedCompositeSelector: ".market-popup-tab.is-active",
     semanticDatasetKeys: Object.freeze([
       "marketCategory",
@@ -209,6 +215,25 @@ export function validateSocialModalParityCoverage({
       || definition.requiredSectionSelectors.length < 4) {
       throw new Error(`Social modal parity surface ${surfaceName} must guard at least four sections.`);
     }
+    const responsiveHiddenSectionRules = definition.responsiveHiddenSectionRules || [];
+    if (!Array.isArray(responsiveHiddenSectionRules)) {
+      throw new Error(`Social modal parity surface ${surfaceName} has invalid responsive section rules.`);
+    }
+    const responsiveHiddenSelectors = new Set();
+    for (const rule of responsiveHiddenSectionRules) {
+      const selector = String(rule?.selector || "").trim();
+      const maxViewportWidth = Number(rule?.maxViewportWidth);
+      if (!selector
+        || responsiveHiddenSelectors.has(selector)
+        || !definition.requiredSectionSelectors.includes(selector)
+        || !Number.isFinite(maxViewportWidth)
+        || maxViewportWidth < 0
+        || !viewports.some((viewport) => viewport.width <= maxViewportWidth)
+        || !viewports.some((viewport) => viewport.width > maxViewportWidth)) {
+        throw new Error(`Social modal parity surface ${surfaceName} has an invalid responsive hidden section rule.`);
+      }
+      responsiveHiddenSelectors.add(selector);
+    }
     const masks = splitSelectors(definition.dynamicLeafSelector);
     if (masks.some((selector) => (
       forbiddenDynamicMaskSelectors.has(selector)
@@ -279,11 +304,24 @@ export async function openSocialModalParitySurface(page, surfaceName) {
   await expect(shell, `${surfaceName} shell must become visible`).toBeVisible();
   await expect(target, `${surfaceName} card must become visible`).toBeVisible();
   await selectStableSurfaceState(target, surfaceName);
+  const viewportWidth = page.viewportSize()?.width ?? await page.evaluate(() => window.innerWidth);
   for (const selector of definition.requiredSectionSelectors) {
-    await expect(
-      target.locator(selector).first(),
-      `${surfaceName} must keep required section ${selector}`
-    ).toBeVisible();
+    const section = target.locator(selector).first();
+    await expect(section, `${surfaceName} must keep required section ${selector}`).toBeAttached();
+    const hiddenAtViewport = (definition.responsiveHiddenSectionRules || []).some((rule) => (
+      rule.selector === selector && viewportWidth <= rule.maxViewportWidth
+    ));
+    if (hiddenAtViewport) {
+      await expect(
+        section,
+        `${surfaceName} must hide responsive section ${selector} at ${viewportWidth}px`
+      ).toBeHidden();
+    } else {
+      await expect(
+        section,
+        `${surfaceName} must show required section ${selector} at ${viewportWidth}px`
+      ).toBeVisible();
+    }
   }
   await settleSurface(target);
   return target;

@@ -12,6 +12,10 @@ import {
   openDistrictById,
   paritySurfaces
 } from "./uiParityCapture.js";
+import {
+  dismissBlockingGameOverlays,
+  dismissOnboardingGuide
+} from "./empireSmokeHelpers.js";
 
 const hostedEnabled = process.env.EMPIRE_HOSTED_UI_PARITY_E2E === "1";
 const serverInstanceId = process.env.EMPIRE_UI_PARITY_SERVER_ID || "";
@@ -156,6 +160,12 @@ async function openExactProductionBuilding(page, {
   districtId,
   surfaceName
 }) {
+  // The authoritative onboarding bridge can mount one render after the game
+  // shell becomes ready. Production coverage is not an onboarding test, so
+  // clear it before the welcome milestone that completion can synchronously
+  // announce, then clear that lifecycle card before the real pointer action.
+  await dismissOnboardingGuide(page);
+  await dismissBlockingGameOverlays(page);
   await openDistrictById(page, districtId);
   await openBuildingFromDistrict(page, buildingTypeId);
   const shell = page.locator(paritySurfaces[surfaceName].shell);

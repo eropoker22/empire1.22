@@ -423,8 +423,11 @@ describe("hosted E2E scenario seeding", () => {
       "lobby_club",
       "parliament",
       "port",
+      "power_station",
+      "recycling_center",
       "stock_exchange",
-      "vip_lounge"
+      "vip_lounge",
+      "warehouse"
     ]);
 
     for (const entry of hostedBuildingParityNonSpawnMatrix) {

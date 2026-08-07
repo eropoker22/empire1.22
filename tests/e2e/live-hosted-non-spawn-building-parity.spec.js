@@ -62,8 +62,11 @@ const expectedBuildingTypeIds = Object.freeze([
   "lobby_club",
   "parliament",
   "port",
+  "power_station",
+  "recycling_center",
   "stock_exchange",
-  "vip_lounge"
+  "vip_lounge",
+  "warehouse"
 ]);
 const normalizeAuthorityDynamicPresentation = (presentation) => {
   const normalizeText = (value) => String(value || "").replace(

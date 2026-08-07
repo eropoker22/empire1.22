@@ -7,6 +7,10 @@ defineHostedProductionParityTest({
   recipeId: "metal-parts",
   resourceKey: "metal-parts",
   spawnDistrictIds: [
+    // Every claimed starter district receives the canonical production set.
+    // Prefer an enabled non-industrial spawn; industrial districts cannot be
+    // selected as player spawns even when their native set has a Factory.
+    "district:26",
     "district:3",
     "district:25",
     "district:50",

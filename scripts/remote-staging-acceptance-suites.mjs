@@ -153,6 +153,9 @@ export const REMOTE_STAGING_ACCEPTANCE_SUITES = Object.freeze([
       }),
       run("non-spawn-b", ["tests/e2e/live-hosted-non-spawn-building-parity.spec.js"], {
         environment: { EMPIRE_UI_PARITY_NON_SPAWN_KEYS: "city-hall-parliament,airport-lobby-club,port" }, timeoutMs: 1_800_000
+      }),
+      run("non-spawn-c", ["tests/e2e/live-hosted-non-spawn-building-parity.spec.js"], {
+        environment: { EMPIRE_UI_PARITY_NON_SPAWN_KEYS: "industrial-recycle,industrial-power,industrial-armory-warehouse" }, timeoutMs: 1_800_000
       })
     ]
   }),

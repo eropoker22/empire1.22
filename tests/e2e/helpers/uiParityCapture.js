@@ -832,6 +832,7 @@ export async function openParityLocalDemo(page, {
   bountyDemoTargets,
   ownedDistrictIds = [21, 66, 68],
   startDistrictId = ownedDistrictIds[0] || 21,
+  gangColor = "#ef4444",
   mapPhase = "night",
   marketCityDayIndex = 0,
   marketCityMinutes = mapPhase === "night" ? 1_334 : 720,
@@ -842,6 +843,7 @@ export async function openParityLocalDemo(page, {
     scopedSessionKey,
     ownedDistrictIds: configuredOwnedDistrictIds,
     startDistrictId: configuredStartDistrictId,
+    gangColor: configuredGangColor,
     mapPhase: configuredMapPhase,
     marketCityDayIndex: configuredMarketCityDayIndex,
     marketCityMinutes: configuredMarketCityMinutes,
@@ -861,7 +863,7 @@ export async function openParityLocalDemo(page, {
       registration: {
         identity: "UI Parity Demo",
         gangName: "UI Parity Demo",
-        gangColor: "#22d3ee",
+        gangColor: configuredGangColor,
         avatar: "../img/avatars/Mafia/2854d1df-0f7c-4fe4-aa85-7a70dfe299db.jpg",
         isGuest: true,
         loginKind: "guest",
@@ -955,6 +957,7 @@ export async function openParityLocalDemo(page, {
     scopedSessionKey: SCOPED_SESSION_KEY,
     ownedDistrictIds,
     startDistrictId,
+    gangColor,
     mapPhase,
     marketCityDayIndex,
     marketCityMinutes,
@@ -1223,6 +1226,71 @@ export async function readVisibleDistrictBuildingTypeIds(page) {
     .map((chip) => String(chip.dataset.districtBuildingType || "").trim())
     .filter(Boolean)
     .sort());
+}
+
+export async function syncParityLocalDemoDistrictBuildingsFromHosted(localPage, hostedPage) {
+  const hostedShell = hostedPage.locator(`${paritySurfaces.district.shell}:visible`).last();
+  await expect(hostedShell).toBeVisible();
+  const fixture = await hostedShell.evaluate((shell) => {
+    const list = shell.querySelector("[data-district-popup-buildings-list]");
+    const meta = shell.querySelector("[data-district-popup-buildings-meta]");
+    const chips = Array.from(list?.querySelectorAll("[data-district-building-name]") || []);
+    return {
+      buildings: chips.map((chip) => ({
+        buildingId: String(chip.dataset.districtBuildingId || ""),
+        buildingTypeId: String(chip.dataset.districtBuildingType || ""),
+        displayName: String(chip.dataset.districtBuildingDisplayName || ""),
+        kindLabel: String(chip.dataset.districtBuildingKind || ""),
+        label: String(chip.querySelector(".district-popup-buildings__chip-label")?.textContent || "").trim(),
+        name: String(chip.dataset.districtBuildingName || "")
+      })),
+      interactive: chips.every((chip) => chip instanceof HTMLButtonElement && !chip.disabled),
+      metaText: String(meta?.textContent || ""),
+      trap: (() => {
+        const trap = list?.querySelector("[data-district-building-trap]");
+        if (!(trap instanceof HTMLElement)) return null;
+        return {
+          visible: true,
+          label: String(trap.querySelector(".district-popup-buildings__trap-label")?.textContent || ""),
+          meta: String(trap.querySelector(".district-popup-buildings__trap-meta")?.textContent || "")
+        };
+      })()
+    };
+  });
+  expect(fixture.buildings.length, "Hosted starter district must expose authoritative buildings")
+    .toBeGreaterThan(0);
+
+  await localPage.evaluate(async (authoritativeFixture) => {
+    if (document.documentElement.dataset.runtimeMode !== "local-demo") {
+      throw new Error("District building parity fixtures may only target explicit local-demo.");
+    }
+    const { renderDistrictBuildingList } = await import("/page-assets/js/app/ui/districtPanel.js");
+    const shell = Array.from(document.querySelectorAll("[data-district-popup-card]"))
+      .find((element) => element instanceof HTMLElement && element.offsetParent !== null);
+    if (!(shell instanceof HTMLElement)) {
+      throw new Error("Visible local-demo district card is unavailable for parity synchronization.");
+    }
+    const rendered = renderDistrictBuildingList({
+      section: shell.querySelector("[data-district-popup-buildings]"),
+      meta: shell.querySelector("[data-district-popup-buildings-meta]"),
+      list: shell.querySelector("[data-district-popup-buildings-list]")
+    }, {
+      ...authoritativeFixture,
+      trap: authoritativeFixture.trap || { visible: false }
+    });
+    if (!rendered) {
+      throw new Error("Canonical district building renderer rejected the parity fixture.");
+    }
+  }, fixture);
+
+  const expectedBuildingTypes = fixture.buildings
+    .map((building) => building.buildingTypeId)
+    .filter(Boolean)
+    .sort();
+  await expect.poll(() => readVisibleDistrictBuildingTypeIds(localPage), {
+    message: "Local-demo district must render the same authoritative starter building set"
+  }).toEqual(expectedBuildingTypes);
+  return fixture;
 }
 
 export async function openProductionShortcut(page, type) {

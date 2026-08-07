@@ -40,5 +40,23 @@
     "districtId": "district:105",
     "expectedDistrictBuildingTypeIds": ["port", "vip_lounge"],
     "coveredBuildingTypeIds": ["port"]
+  },
+  {
+    "key": "industrial-recycle",
+    "districtId": "district:3",
+    "expectedDistrictBuildingTypeIds": ["factory", "recycling_center"],
+    "coveredBuildingTypeIds": ["recycling_center"]
+  },
+  {
+    "key": "industrial-power",
+    "districtId": "district:23",
+    "expectedDistrictBuildingTypeIds": ["factory", "power_station"],
+    "coveredBuildingTypeIds": ["power_station"]
+  },
+  {
+    "key": "industrial-armory-warehouse",
+    "districtId": "district:50",
+    "expectedDistrictBuildingTypeIds": ["armory", "warehouse"],
+    "coveredBuildingTypeIds": ["warehouse"]
   }
 ]

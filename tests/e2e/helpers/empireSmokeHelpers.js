@@ -496,8 +496,8 @@ export async function completeSpawnSelectionIfVisible(page) {
 }
 
 export async function waitForMapReady(page) {
-  await dismissBlockingGameOverlays(page);
   await dismissOnboardingGuide(page);
+  await dismissBlockingGameOverlays(page);
   await expect(page.getByTestId("game-page")).toBeVisible();
   await expect(page.getByTestId("district-canvas")).toBeVisible();
   await page.waitForFunction(() => (
@@ -601,6 +601,11 @@ export async function dismissBlockingGameOverlays(page) {
           milestoneModal.querySelector("[data-server-milestone-confirm]")?.click();
         }
       });
+      await expect(page.locator("[data-server-milestone-modal]")).toBeHidden({ timeout: 2_000 });
+      await expect(page.locator("[data-elimination-countdown-warning]")).not.toHaveClass(
+        /(?:^|\s)is-visible(?:\s|$)/u,
+        { timeout: 2_000 }
+      );
       return;
     } catch (error) {
       if (!String(error?.message || error).includes("Execution context was destroyed") || attempt === 2) {
@@ -673,8 +678,8 @@ async function getDistrictCanvasPosition(page, districtId) {
 }
 
 export async function clickDistrictById(page, districtId) {
-  await dismissBlockingGameOverlays(page);
   await dismissOnboardingGuide(page);
+  await dismissBlockingGameOverlays(page);
   const openedViaApi = await page.evaluate((id) => Boolean(window.empireStreetsDistrictState?.openDistrict?.(id)), districtId);
   if (!openedViaApi) {
     const position = await getDistrictCanvasPosition(page, districtId);

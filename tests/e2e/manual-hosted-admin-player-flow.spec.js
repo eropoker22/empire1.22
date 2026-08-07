@@ -30,39 +30,47 @@ const manualBaseTestTimeoutMs = 900_000;
 const manualServerCapacity = 4;
 const manualProductionCases = Object.freeze([
   Object.freeze({
+    artifactSlug: "pharmacy-chemicals",
     buildingTypeId: "pharmacy",
     clientIndex: 0,
-    districtId: "district:26",
     label: "Pharmacy",
     recipeId: "chemicals",
     resourceKey: "chemicals",
+    spawnBuildingTypeIds: ["pharmacy", "restaurant"],
     surfaceName: "pharmacy"
   }),
   Object.freeze({
+    artifactSlug: "factory-metal-parts",
     buildingTypeId: "factory",
     clientIndex: 1,
-    districtId: "district:68",
     label: "Factory",
     recipeId: "metal-parts",
     resourceKey: "metal-parts",
+    // Residential spawns stay outside the industrial exclusion while the
+    // authoritative claim flow adds the canonical starter Factory.
+    spawnBuildingTypeIds: ["apartment_block"],
     surfaceName: "factory"
   }),
   Object.freeze({
+    artifactSlug: "drug-lab",
     buildingTypeId: "drug_lab",
     clientIndex: 2,
-    districtId: "district:91",
     label: "Drug Lab",
     recipeId: "neon-dust",
     resourceKey: "neon-dust",
+    spawnBuildingTypeIds: ["drug_lab", "convenience_store"],
     surfaceName: "drugLab"
   }),
   Object.freeze({
+    artifactSlug: "armory-baseball-bat",
     buildingTypeId: "armory",
     clientIndex: 3,
-    districtId: "district:70",
     label: "Armory",
     recipeId: "baseball-bat",
     resourceKey: "baseball-bat",
+    // A second residential spawn stays population-neutral and receives the
+    // canonical starter Armory only after the server commits the claim.
+    spawnBuildingTypeIds: ["apartment_block"],
     surfaceName: "armory"
   })
 ]);
@@ -83,7 +91,9 @@ test("owner creates a server and players prove exact hosted state through visibl
   page: adminPage
 }, testInfo) => {
   const playerClients = [];
+  let serverInstanceId = null;
   const safeTrace = {
+    cleanupError: null,
     displayName,
     serverInstanceId: null,
     createPayload: null,
@@ -99,8 +109,11 @@ test("owner creates a server and players prove exact hosted state through visibl
 
   try {
     await loginAdmin(adminPage);
-    const created = await createServerThroughAdmin(adminPage);
-    const serverInstanceId = created.response.server.serverInstanceId;
+    const created = await createServerThroughAdmin(adminPage, (createdServerInstanceId) => {
+      serverInstanceId = createdServerInstanceId;
+      safeTrace.serverInstanceId = createdServerInstanceId;
+    });
+    serverInstanceId = created.response.server.serverInstanceId;
     safeTrace.serverInstanceId = serverInstanceId;
     safeTrace.createPayload = created.request.startingPlayerState;
     expect(created.request.capacity).toBe(manualServerCapacity);
@@ -140,7 +153,8 @@ test("owner creates a server and players prove exact hosted state through visibl
       (server) => server.registrationState === "open" && server.joinPolicy === "open"
     );
 
-    for (const { clientIndex: index, districtId: spawnDistrictId } of manualProductionCases) {
+    for (const productionCase of manualProductionCases) {
+      const index = productionCase.clientIndex;
       const context = await browser.newContext({
         baseURL: process.env.PLAYWRIGHT_E2E_BASE_URL
       });
@@ -151,11 +165,19 @@ test("owner creates a server and players prove exact hosted state through visibl
       playerPage.setDefaultTimeout(20_000);
       const entry = await registerAndEnterHostedUiParityGame(playerPage, {
         serverInstanceId,
-        spawnDistrictIds: [spawnDistrictId],
+        spawnBuildingTypeIds: productionCase.spawnBuildingTypeIds,
         identityPrefix: `ManualHosted${index + 1}`,
         waitForRunning: false
       });
       expect(entry.serverInstanceId).toBe(serverInstanceId);
+      expect(
+        productionCase.spawnBuildingTypeIds.every((buildingTypeId) => (
+          entry.spawnBuildingPreviewIds.some((buildingId) => (
+            String(buildingId).split(":").at(-2) === buildingTypeId
+          ))
+        )),
+        "The selected authoritative spawn district must expose every required visible building."
+      ).toBe(true);
       const playerStartingState = await expectExactStartingState(playerPage);
       safeTrace.playerStartingStates.push({
         membershipId: entry.membershipId,
@@ -179,12 +201,15 @@ test("owner creates a server and players prove exact hosted state through visibl
         membershipId: entry.membershipId,
         playerId: entry.playerId,
         serverInstanceId: entry.serverInstanceId,
+        spawnBuildingPreviewIds: entry.spawnBuildingPreviewIds,
         spawnDistrictId: entry.spawnDistrictId
       });
     }
     expect(new Set(playerClients.map((client) => client.membershipId)).size)
       .toBe(manualServerCapacity);
     expect(new Set(playerClients.map((client) => client.playerId)).size)
+      .toBe(manualServerCapacity);
+    expect(new Set(playerClients.map((client) => client.spawnDistrictId)).size)
       .toBe(manualServerCapacity);
     expect(playerClients.every(
       (client) => client.serverInstanceId === serverInstanceId
@@ -240,7 +265,6 @@ test("owner creates a server and players prove exact hosted state through visibl
         const previousSetup = await waitForPreviousSetup;
         if (previousSetup?.error) throw previousSetup.error;
         const client = playerClients[productionCase.clientIndex];
-        expect(client.spawnDistrictId).toBe(productionCase.districtId);
         if (previousSetup?.stateVersion) {
           await waitForGameplayStateVersion(client.page, previousSetup.stateVersion);
         }
@@ -248,12 +272,13 @@ test("owner creates a server and players prove exact hosted state through visibl
           const result = await exerciseHostedProductionLifecycleThroughVisibleUi({
             baseTestTimeoutMs: manualBaseTestTimeoutMs,
             ...productionCase,
+            districtId: client.spawnDistrictId,
             captureInfoScreenshotName:
-              `manual-hosted-${productionCase.surfaceName}-info.png`,
+              `manual-hosted-${productionCase.artifactSlug}-info.png`,
             captureStartedScreenshotName:
-              `manual-hosted-${productionCase.surfaceName}-production-started.png`,
+              `manual-hosted-${productionCase.artifactSlug}-production-started.png`,
             evidenceAttachmentName:
-              `manual-hosted-${productionCase.surfaceName}-production-lifecycle.json`,
+              `manual-hosted-${productionCase.artifactSlug}-production-lifecycle.json`,
             expectedInitialPlayerOutput:
               startingPlayerState.materials[productionCase.resourceKey],
             expectedServerInstanceId: serverInstanceId,
@@ -296,17 +321,11 @@ test("owner creates a server and players prove exact hosted state through visibl
       await expectHostedUiParityClean(client.page, client.diagnostics);
     }
 
-    await refreshAdmin(adminPage, serverInstanceId);
-    await requestAdminAction(
-      adminPage,
-      "delete",
-      "Archive completed manual hosted acceptance",
-      displayName
-    );
-    const archived = await waitForAdminServer(
+    const archived = await archiveServerThroughVisibleAdmin(
       adminPage,
       serverInstanceId,
-      (server) => server.status === "archived"
+      "Archive completed manual hosted acceptance",
+      displayName
     );
     safeTrace.finalStatus = archived.status;
 
@@ -318,14 +337,33 @@ test("owner creates a server and players prove exact hosted state through visibl
       await expect(client.page.getByTestId("continue-active-server")).toBeHidden();
     }
   } finally {
-    await testInfo.attach("manual-hosted-safe-trace.json", {
-      body: Buffer.from(JSON.stringify(safeTrace, null, 2)),
-      contentType: "application/json"
-    });
-    for (const client of playerClients) {
-      client.productionSubmitCapture?.stop();
+    let cleanupError = null;
+    if (serverInstanceId && safeTrace.finalStatus !== "archived") {
+      try {
+        const archived = await archiveServerThroughVisibleAdmin(
+          adminPage,
+          serverInstanceId,
+          "Archive failed manual hosted acceptance",
+          displayName
+        );
+        safeTrace.finalStatus = archived.status;
+      } catch (error) {
+        cleanupError = error;
+        safeTrace.cleanupError = String(error?.message || error);
+      }
     }
-    await Promise.allSettled(playerClients.map((client) => client.context.close()));
+    try {
+      await testInfo.attach("manual-hosted-safe-trace.json", {
+        body: Buffer.from(JSON.stringify(safeTrace, null, 2)),
+        contentType: "application/json"
+      });
+    } finally {
+      for (const client of playerClients) {
+        client.productionSubmitCapture?.stop();
+      }
+      await Promise.allSettled(playerClients.map((client) => client.context.close()));
+    }
+    if (cleanupError) throw cleanupError;
   }
 });
 
@@ -337,7 +375,7 @@ async function loginAdmin(page) {
   await expect(page.getByRole("heading", { name: "Control Center" })).toBeVisible();
 }
 
-async function createServerThroughAdmin(page) {
+async function createServerThroughAdmin(page, onServerCreated) {
   await page.locator("[data-admin-create-open]").click();
   await page.getByLabel("Název").fill(displayName);
   await page.getByLabel("Kapacita").fill(String(manualServerCapacity));
@@ -381,6 +419,10 @@ async function createServerThroughAdmin(page) {
   expect(response.status()).toBe(202);
   const payload = await response.json();
   expect(payload.accepted).toBe(true);
+  const createdServerInstanceId = String(payload?.data?.server?.serverInstanceId || "");
+  expect(createdServerInstanceId, "The accepted admin response must identify the disposable server.")
+    .toBeTruthy();
+  onServerCreated?.(createdServerInstanceId);
   await expect(page).toHaveURL(/instance=/u);
   return {
     request: request.postDataJSON(),
@@ -582,6 +624,26 @@ async function requestAdminAction(page, action, reason, confirmationText = "") {
   ).click();
   const response = await responsePromise;
   expect(response.status()).toBe(202);
+}
+
+async function archiveServerThroughVisibleAdmin(
+  page,
+  serverInstanceId,
+  reason,
+  confirmationText
+) {
+  const current = await readAdminServer(page, serverInstanceId);
+  if (current?.status === "archived") return current;
+  await refreshAdmin(page, serverInstanceId);
+  const refreshed = await readAdminServer(page, serverInstanceId);
+  if (refreshed?.status !== "archived") {
+    await requestAdminAction(page, "delete", reason, confirmationText);
+  }
+  return waitForAdminServer(
+    page,
+    serverInstanceId,
+    (server) => server.status === "archived"
+  );
 }
 
 async function refreshAdmin(page, serverInstanceId) {
