@@ -115,10 +115,15 @@ code {
 
 .admin-content {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   width: min(100%, 1840px);
   margin: 0 auto;
   padding: 22px clamp(18px, 2.2vw, 38px) 56px;
+}
+
+.admin-content > * {
+  min-width: 0;
 }
 
 .admin-section-anchor {

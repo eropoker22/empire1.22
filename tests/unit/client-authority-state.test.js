@@ -64,6 +64,27 @@ describe("client authority state", () => {
     expect(state.fixturesAllowed).toBe(true);
   });
 
+  it("keeps a server-authoritative game entrypoint pinned against loopback demo overrides", () => {
+    for (const override of [
+      { search: "?runtimeMode=local-demo", sessionStorageRef: storage() },
+      { search: "", sessionStorageRef: storage(true) },
+      { search: "", sessionStorageRef: storage(), configOverrides: { localDemoEnabled: true } }
+    ]) {
+      const state = resolveClientAuthorityState({
+        windowRef: {
+          __EMPIRE_GAMEPLAY_EXECUTION_MODE__: CLIENT_EXECUTION_MODES.serverAuthoritative
+        },
+        locationRef: { hostname: "127.0.0.1", search: override.search },
+        sessionStorageRef: override.sessionStorageRef,
+        configOverrides: override.configOverrides
+      });
+
+      expect(state.executionMode).toBe(CLIENT_EXECUTION_MODES.serverAuthoritative);
+      expect(state.environment).toBe("local");
+      expect(state.fixturesAllowed).toBe(false);
+    }
+  });
+
   it("keeps server-authoritative mode while live data reconnects", () => {
     const state = resolveClientAuthorityState({
       locationRef: { hostname: "empirestreets.cz", search: "" },

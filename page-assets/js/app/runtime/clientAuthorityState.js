@@ -20,12 +20,18 @@ export const isE2eLocalDemoEntryEnabled = (options = {}) => {
 };
 
 export const resolveClientAuthorityState = (options = {}) => {
+  const windowRef = options.windowRef || globalThis.window;
   const locationRef = options.locationRef || globalThis.location;
-  const localDemoEnabled = options.localDemoEnabled ?? isExplicitLocalDemoEnabled({
-    locationRef,
-    configOverrides: options.configOverrides,
-    sessionStorageRef: options.sessionStorageRef
-  });
+  const entrypointMode = windowRef?.__EMPIRE_GAMEPLAY_EXECUTION_MODE__;
+  // Once app-entry selects the public live path, later lifecycle updates must
+  // not reinterpret loopback query or storage values as gameplay authority.
+  const localDemoEnabled = entrypointMode === CLIENT_EXECUTION_MODES.serverAuthoritative
+    ? false
+    : options.localDemoEnabled ?? isExplicitLocalDemoEnabled({
+        locationRef,
+        configOverrides: options.configOverrides,
+        sessionStorageRef: options.sessionStorageRef
+      });
   const onboardingSandbox = options.onboardingSandbox === true;
   const executionMode = onboardingSandbox
     ? CLIENT_EXECUTION_MODES.onboardingSandbox

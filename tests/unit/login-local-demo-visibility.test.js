@@ -34,6 +34,7 @@ describe("public login local demo visibility", () => {
   it("keeps the game demo import behind the strict E2E flag-pair gate", () => {
     const source = readFileSync(resolve(root, "page-assets/js/app-entry.js"), "utf8");
     expect(source).toContain("isE2eLocalDemoEntryEnabled()");
+    expect(source).toContain("window.__EMPIRE_GAMEPLAY_EXECUTION_MODE__ = executionMode");
     expect(source).toContain("executionMode === CLIENT_EXECUTION_MODES.localDemo");
     expect(source).toMatch(/import\(["']\.\/app-demo\.js\?v=20260731-e2e-parity-only["']\)/u);
     expect(source).toMatch(/import\(["']\.\/app\.js\?v=[a-z0-9-]+["']\)/u);
