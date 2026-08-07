@@ -978,6 +978,9 @@ describe("UI parity class signature", () => {
           roundedBox: { height: 100, radii: {}, width: 100 }
         })
         .mockResolvedValueOnce({
+          backgroundColorApplied: true,
+          previousBackgroundColor: "rgba(0, 0, 0, 0)",
+          previousBackgroundColorPriority: "",
           token: "parity-test"
         })
         .mockResolvedValueOnce(undefined),
@@ -991,6 +994,7 @@ describe("UI parity class signature", () => {
 
     await expect(captureIsolatedParityScreenshot(page, {
       path: "transparent-surface.png",
+      stableBackdropColor: "rgb(2, 6, 12)",
       stableBackdropShellSelector: "[data-market-popup]",
       target
     })).resolves.toEqual({ ignoreRegions: [], screenshot });
@@ -999,10 +1003,19 @@ describe("UI parity class signature", () => {
     expect(captureIsolatedParityScreenshot.toString()).toContain(
       'setProperty("opacity", "0", "important")'
     );
-    expect(target.evaluate.mock.calls[2][1]).toBe("[data-market-popup]");
+    expect(captureIsolatedParityScreenshot.toString()).toContain(
+      'setProperty("background-color", config.backgroundColor, "important")'
+    );
+    expect(target.evaluate.mock.calls[2][1]).toEqual({
+      backgroundColor: "rgb(2, 6, 12)",
+      shellSelector: "[data-market-popup]"
+    });
     expect(target.evaluate.mock.calls[3][1]).toEqual({
       shellSelector: "[data-market-popup]",
       state: {
+        backgroundColorApplied: true,
+        previousBackgroundColor: "rgba(0, 0, 0, 0)",
+        previousBackgroundColorPriority: "",
         token: "parity-test"
       }
     });
