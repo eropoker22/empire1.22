@@ -2,7 +2,7 @@
 
 Generated: generated from tracked source
 
-The inventory found **143 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 21 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
+The inventory found **144 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 25 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
 
 Public releases fail closed: no wildcard origin, no loopback URL, no staging hostname in production, no implicit database or secret default, and no provider credential in a runtime scope.
 
@@ -184,6 +184,7 @@ These values are forbidden as public-runtime dependencies. Secret-like test valu
 | `EMPIRE_VITE_HOSTED_API_ORIGIN` | Local development or verification tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EVIDENCE_OUTPUT` | CI staging release evidence assembly | CI release job only | No | No | Release job only; never injected into the site | None | Workflow-local artifact output directory | No | Use an isolated directory for each release run |
 | `GAMEPLAY_PERSISTENCE_DIR` | Local persistence tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
+| `GITHUB_ACTIONS` | CI platform tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `GITHUB_ENV` | CI platform tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `PLAYWRIGHT_E2E_BASE_URL` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `PLAYWRIGHT_E2E_HEALTH_URL` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
