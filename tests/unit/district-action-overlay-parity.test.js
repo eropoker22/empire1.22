@@ -153,6 +153,7 @@ describe("district action overlay parity coverage", () => {
     expect(helperSource).toContain("stableBackdropShellSelector: definition.shellSelector");
     expect(helperSource).toContain('definition.stage === "inline-pre-submit"');
     expect(helperSource).toContain("stableBackdropFilterSelector: stabilizeInlineAction");
+    expect(helperSource).toContain("stableTargetDevicePixelAlignment: stabilizeInlineAction");
     expect(helperSource).toContain('{ "background-color": "rgb(6, 10, 18)" }');
     expect(helperSource).toContain("roundedCompositeSelector: stabilizeInlineAction");
     expect(helperSource).toContain('not.toHaveClass(/\\bgame-mobile-close-guard\\b/u)');

@@ -1294,6 +1294,195 @@ describe("UI parity class signature", () => {
     expect(harness.original.attributes.has("data-parity-capture-stable-target-style")).toBe(false);
   });
 
+  it("aligns a capture target to device pixels before reading regions and restores translate", async () => {
+    const original = createParityStyleElement({
+      translate: { priority: "important", value: "0px 0px" }
+    });
+    original.element.getBoundingClientRect = vi.fn(() => {
+      const [translateX, translateY] = String(
+        original.style.getPropertyValue("translate") || "0px 0px"
+      ).split(/\s+/u).map((value) => Number.parseFloat(value) || 0);
+      return { left: 10.25 + translateX, top: 20.75 + translateY };
+    });
+    let handleEvaluateCall = 0;
+    let screenshotBounds = null;
+    let screenshotTranslate = null;
+    const handle = {
+      dispose: vi.fn().mockResolvedValue(undefined),
+      evaluate: vi.fn(async (callback, argument) => {
+        handleEvaluateCall += 1;
+        if ([1, 3, 5].includes(handleEvaluateCall)) {
+          return callback(original.element, argument);
+        }
+        if (handleEvaluateCall === 4) {
+          return {
+            dynamicRegions: [],
+            roundedBox: { height: 47, radii: {}, width: 254 },
+            roundedBoxes: []
+          };
+        }
+        return undefined;
+      }),
+      screenshot: vi.fn(async () => {
+        screenshotBounds = original.element.getBoundingClientRect();
+        screenshotTranslate = {
+          priority: original.style.getPropertyPriority("translate"),
+          value: original.style.getPropertyValue("translate")
+        };
+        return Buffer.from("png");
+      })
+    };
+    const target = {
+      elementHandle: vi.fn().mockResolvedValue(handle),
+      evaluate: vi.fn().mockResolvedValue(undefined),
+      screenshot: vi.fn()
+    };
+    const page = {
+      evaluate: vi.fn().mockResolvedValue(undefined),
+      locator: vi.fn(),
+      mouse: { move: vi.fn().mockResolvedValue(undefined) }
+    };
+
+    vi.stubGlobal("window", {
+      devicePixelRatio: 1,
+      getComputedStyle: vi.fn(() => ({ translate: "0px 0px" }))
+    });
+    try {
+      await expect(captureIsolatedParityScreenshot(page, {
+        path: "fractional-inline-action.png",
+        stableTargetDevicePixelAlignment: true,
+        target
+      })).resolves.toEqual({ ignoreRegions: [], screenshot: Buffer.from("png") });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(screenshotBounds).toEqual({ left: 10, top: 21 });
+    expect(screenshotTranslate).toEqual({ priority: "important", value: "-0.25px 0.25px" });
+    expect(handle.evaluate).toHaveBeenCalledTimes(5);
+    expect(handle.evaluate.mock.invocationCallOrder[1])
+      .toBeLessThan(handle.evaluate.mock.invocationCallOrder[2]);
+    expect(handle.screenshot.mock.invocationCallOrder[0])
+      .toBeLessThan(handle.evaluate.mock.invocationCallOrder[4]);
+    expect(original.values.get("translate")).toBe("0px 0px");
+    expect(original.priorities.get("translate")).toBe("important");
+    expect(original.attributes.has("data-parity-capture-device-pixel-alignment")).toBe(false);
+    expect(target.screenshot).not.toHaveBeenCalled();
+    expect(handle.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("stabilizes every descendant edge after rounded dimensions change flex layout", async () => {
+    const first = createParityStyleElement();
+    const second = createParityStyleElement();
+    const readPixels = (element, propertyName, fallback) => {
+      const value = Number.parseFloat(element.style.getPropertyValue(propertyName));
+      return Number.isFinite(value) ? value : fallback;
+    };
+    const readTranslate = (element) => String(
+      element.style.getPropertyValue("translate") || "0px 0px"
+    ).split(/\s+/u).map((value) => Number.parseFloat(value) || 0);
+    first.element.getBoundingClientRect = vi.fn(() => {
+      const [translateX, translateY] = readTranslate(first.element);
+      const left = 10.25 + translateX;
+      const top = 20.75 + translateY;
+      const width = readPixels(first.element, "width", 80.4);
+      const height = readPixels(first.element, "height", 40.4);
+      return { bottom: top + height, height, left, right: left + width, top, width };
+    });
+    second.element.getBoundingClientRect = vi.fn(() => {
+      const [translateX, translateY] = readTranslate(second.element);
+      const firstWidth = readPixels(first.element, "width", 80.4);
+      const left = 10.25 + firstWidth + 10.1 + translateX;
+      const top = 20.75 + translateY;
+      const width = readPixels(second.element, "width", 70.4);
+      const height = readPixels(second.element, "height", 40.4);
+      return { bottom: top + height, height, left, right: left + width, top, width };
+    });
+    const descendants = [first.element, second.element];
+    const root = {
+      matches: vi.fn().mockReturnValue(false),
+      querySelector: vi.fn((selector) => {
+        const token = String(selector).match(/="([^"]+)"\]$/u)?.[1] || "";
+        return descendants.find((element) => (
+          element.getAttribute("data-parity-capture-descendant-device-pixel-alignment") === token
+        )) || null;
+      }),
+      querySelectorAll: vi.fn((selector) => (
+        selector === ".district-popup-buildings__chip--button" ? descendants : []
+      ))
+    };
+    let handleEvaluateCall = 0;
+    let screenshotBounds = null;
+    const handle = {
+      dispose: vi.fn().mockResolvedValue(undefined),
+      evaluate: vi.fn(async (callback, argument) => {
+        handleEvaluateCall += 1;
+        if (handleEvaluateCall === 1 || handleEvaluateCall === 4) {
+          return callback(root, argument);
+        }
+        if (handleEvaluateCall === 3) {
+          return {
+            dynamicRegions: [],
+            roundedBox: { height: 100, radii: {}, width: 200 },
+            roundedBoxes: []
+          };
+        }
+        return undefined;
+      }),
+      screenshot: vi.fn(async () => {
+        screenshotBounds = descendants.map((element) => element.getBoundingClientRect());
+        return Buffer.from("png");
+      })
+    };
+    const target = {
+      elementHandle: vi.fn().mockResolvedValue(handle),
+      evaluate: vi.fn().mockResolvedValue(undefined),
+      screenshot: vi.fn()
+    };
+    const page = {
+      evaluate: vi.fn().mockResolvedValue(undefined),
+      locator: vi.fn(),
+      mouse: { move: vi.fn().mockResolvedValue(undefined) }
+    };
+
+    vi.stubGlobal("CSS", { escape: vi.fn((value) => String(value)) });
+    vi.stubGlobal("requestAnimationFrame", vi.fn((callback) => callback(0)));
+    vi.stubGlobal("window", {
+      devicePixelRatio: 1,
+      getComputedStyle: vi.fn((element) => ({
+        display: "block",
+        opacity: "1",
+        translate: element.style.getPropertyValue("translate") || "none",
+        visibility: "visible"
+      }))
+    });
+    try {
+      await expect(captureIsolatedParityScreenshot(page, {
+        path: "district-chip-edges.png",
+        stableDescendantDevicePixelAlignmentSelector:
+          ".district-popup-buildings__chip--button",
+        target
+      })).resolves.toEqual({ ignoreRegions: [], screenshot: Buffer.from("png") });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(screenshotBounds).toHaveLength(2);
+    for (const bounds of screenshotBounds) {
+      expect([bounds.left, bounds.top, bounds.right, bounds.bottom].every(Number.isInteger)).toBe(true);
+    }
+    for (const { attributes, priorities, values } of [first, second]) {
+      expect(values.has("box-sizing")).toBe(false);
+      expect(values.has("height")).toBe(false);
+      expect(values.has("translate")).toBe(false);
+      expect(values.has("width")).toBe(false);
+      expect(priorities.size).toBe(0);
+      expect(attributes.has("data-parity-capture-descendant-device-pixel-alignment")).toBe(false);
+    }
+    expect(handle.evaluate).toHaveBeenCalledTimes(4);
+    expect(handle.dispose).toHaveBeenCalledTimes(1);
+  });
+
   it("pins capture styles to the original element and preserves a detached runtime update", async () => {
     let capturedToken = "";
     const harness = createPinnedTargetStyleCaptureHarness({

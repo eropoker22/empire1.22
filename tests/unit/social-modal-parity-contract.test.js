@@ -64,6 +64,9 @@ describe("social modal parity coverage contract", () => {
     ]);
     expect(socialModalParitySurfaces.alliance.triggerSelector).toBe("[data-alliance-popup-open]");
     expect(socialModalParitySurfaces.bounty.triggerSelector).toBe("[data-bounty-open-trigger]");
+    expect(socialModalParitySurfaces.bounty.roundedCompositeSelector).toBe(
+      "#bounty-modal-submit"
+    );
     expect(socialModalParitySurfaces.boost.triggerSelector).toBe("[data-boost-open-trigger]");
   });
 

@@ -339,6 +339,9 @@ async function attachOpenBuildingScreenshot({
       : "",
     stableRasterSelector: surfaceName === "district" ? ".district-modal-hero__image" : "",
     stableBackdropShellSelector: paritySurfaces[surfaceName].shell,
+    stableDescendantDevicePixelAlignmentSelector: surfaceName === "district"
+      ? ".district-popup-buildings__chip--button"
+      : "",
     stableTargetStyleProperties: surfaceName === "district"
       ? {
           "--district-owner-avatar-opacity": "0",

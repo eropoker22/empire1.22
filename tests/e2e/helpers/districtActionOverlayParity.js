@@ -932,6 +932,7 @@ export async function captureDistrictActionOverlayScreenshot(page, {
       ? definition.targetSelector
       : "",
     stableBackdropShellSelector: definition.shellSelector,
+    stableTargetDevicePixelAlignment: stabilizeInlineAction,
     stableTargetStyleProperties: stabilizeInlineAction
       ? { "background-color": "rgb(6, 10, 18)" }
       : {},

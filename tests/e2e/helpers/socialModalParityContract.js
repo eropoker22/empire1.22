@@ -123,6 +123,7 @@ export const socialModalParitySurfaces = Object.freeze({
       ".bounty-board__panel--type",
       ".bounty-board__panel--reward"
     ]),
+    roundedCompositeSelector: "#bounty-modal-submit",
     semanticDatasetKeys: Object.freeze([
       "bountyTab",
       "bountyTargetToggle",

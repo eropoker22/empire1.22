@@ -1734,35 +1734,222 @@ export async function captureIsolatedParityScreenshot(page, {
   roundedCompositeSelector = "",
   stableRasterSelector = "",
   stableBackdropShellSelector = "",
+  stableDescendantDevicePixelAlignmentSelector = "",
+  stableTargetDevicePixelAlignment = false,
   stableTargetStyleProperties = {},
   target
 }) {
   await settleParityPage(page, target);
-  const ignoreRegions = await readElementRelativeParityIgnoreRegions(
-    target,
-    ignoreSelector,
-    roundedCompositeSelector
-  );
+  let ignoreRegions = [];
   let stableBackdropState = null;
   let stableRasterState = null;
   let stableBackdropFilterState = null;
+  let stableDescendantAlignmentState = null;
+  let stableTargetAlignmentState = null;
   let stableTargetStyleState = null;
-  let stableTargetStyleHandle = null;
+  let stableTargetHandle = null;
   let captureTarget = target;
   let primaryCaptureFailed = false;
+  const resolveStableTargetHandle = async () => {
+    if (!stableTargetHandle) {
+      stableTargetHandle = typeof target.elementHandle === "function"
+        ? await target.elementHandle()
+        : target;
+    }
+    if (!stableTargetHandle || typeof stableTargetHandle.evaluate !== "function") {
+      throw new Error("Parity screenshot target detached before capture stabilization.");
+    }
+    captureTarget = stableTargetHandle;
+    return stableTargetHandle;
+  };
   try {
+    if (stableTargetDevicePixelAlignment) {
+      const targetHandle = await resolveStableTargetHandle();
+      stableTargetAlignmentState = await targetHandle.evaluate((targetElement) => {
+        const captureAttribute = "data-parity-capture-device-pixel-alignment";
+        const propertyName = "translate";
+        const token = `parity-device-pixel-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const previousToken = targetElement.getAttribute(captureAttribute);
+        const previousPriority = targetElement.style.getPropertyPriority(propertyName);
+        const previousValue = targetElement.style.getPropertyValue(propertyName);
+        const computedTranslate = String(
+          window.getComputedStyle(targetElement).translate || "none"
+        ).trim().toLowerCase();
+        const neutralTranslate = computedTranslate === "none"
+          || /^0(?:\.0+)?px(?:\s+0(?:\.0+)?px){0,2}$/u.test(computedTranslate);
+        if (!neutralTranslate) {
+          throw new Error(
+            `Parity device-pixel alignment requires a neutral translate, received ${computedTranslate}.`
+          );
+        }
+        const rect = targetElement.getBoundingClientRect();
+        const scale = Number.isFinite(window.devicePixelRatio) && window.devicePixelRatio > 0
+          ? window.devicePixelRatio
+          : 1;
+        const deltaX = (Math.round(rect.left * scale) - (rect.left * scale)) / scale;
+        const deltaY = (Math.round(rect.top * scale) - (rect.top * scale)) / scale;
+        const value = `${deltaX}px ${deltaY}px`;
+        targetElement.setAttribute(captureAttribute, token);
+        try {
+          targetElement.style.setProperty(propertyName, value, "important");
+        } catch (error) {
+          if (previousToken === null) targetElement.removeAttribute(captureAttribute);
+          else targetElement.setAttribute(captureAttribute, previousToken);
+          throw error;
+        }
+        return {
+          previousPriority,
+          previousToken,
+          previousValue,
+          propertyName,
+          token,
+          value
+        };
+      });
+      await settleFiniteAnimations(targetHandle);
+      await targetHandle.evaluate((targetElement) => {
+        const rect = targetElement.getBoundingClientRect();
+        const scale = Number.isFinite(window.devicePixelRatio) && window.devicePixelRatio > 0
+          ? window.devicePixelRatio
+          : 1;
+        const deviceOrigin = [rect.left, rect.top].map((value) => value * scale);
+        if (deviceOrigin.some((value) => Math.abs(value - Math.round(value)) > 0.02)) {
+          throw new Error("Parity target alignment could not stabilize the device-pixel origin.");
+        }
+      });
+    }
+    if (stableDescendantDevicePixelAlignmentSelector) {
+      const targetHandle = await resolveStableTargetHandle();
+      stableDescendantAlignmentState = await targetHandle.evaluate(async (targetElement, selector) => {
+        const captureAttribute = "data-parity-capture-descendant-device-pixel-alignment";
+        const groupToken = `parity-descendant-device-pixel-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const scale = Number.isFinite(window.devicePixelRatio) && window.devicePixelRatio > 0
+          ? window.devicePixelRatio
+          : 1;
+        const elements = Array.from(targetElement.querySelectorAll(selector)).filter((element) => {
+          const style = window.getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return style.display !== "none"
+            && style.visibility !== "hidden"
+            && Number(style.opacity || 1) > 0
+            && rect.width > 0
+            && rect.height > 0;
+        });
+        if (elements.length === 0) {
+          throw new Error(`Parity descendant alignment selector matched no visible elements: ${selector}`);
+        }
+        const entries = [];
+        const restoreEntry = (entry) => {
+          const { element } = entry;
+          entry.styles.forEach((styleEntry) => {
+            const injectedStyleIsCurrent = (
+              element.style.getPropertyValue(styleEntry.propertyName) === styleEntry.value
+              && element.style.getPropertyPriority(styleEntry.propertyName) === "important"
+            );
+            if (!injectedStyleIsCurrent) return;
+            if (styleEntry.previousValue) {
+              element.style.setProperty(
+                styleEntry.propertyName,
+                styleEntry.previousValue,
+                styleEntry.previousPriority
+              );
+            } else {
+              element.style.removeProperty(styleEntry.propertyName);
+            }
+          });
+          if (entry.previousToken === null) element.removeAttribute(captureAttribute);
+          else element.setAttribute(captureAttribute, entry.previousToken);
+        };
+        try {
+          const measurements = elements.map((element, index) => {
+            const computedTranslate = String(
+              window.getComputedStyle(element).translate || "none"
+            ).trim().toLowerCase();
+            const neutralTranslate = computedTranslate === "none"
+              || /^0(?:\.0+)?px(?:\s+0(?:\.0+)?px){0,2}$/u.test(computedTranslate);
+            if (!neutralTranslate) {
+              throw new Error(
+                `Parity descendant alignment requires a neutral translate, received ${computedTranslate}.`
+              );
+            }
+            const rect = element.getBoundingClientRect();
+            const snappedWidth = Math.round(rect.width * scale) / scale;
+            const snappedHeight = Math.round(rect.height * scale) / scale;
+            const toPixelValue = (value) => `${Number(value.toFixed(6))}px`;
+            return {
+              element,
+              index,
+              styles: {
+                "box-sizing": "border-box",
+                height: toPixelValue(Math.max(1 / scale, snappedHeight)),
+                translate: "0px 0px",
+                width: toPixelValue(Math.max(1 / scale, snappedWidth))
+              }
+            };
+          });
+          measurements.forEach(({ element, index, styles }) => {
+            const token = `${groupToken}-${index}`;
+            const entry = {
+              element,
+              previousToken: element.getAttribute(captureAttribute),
+              styles: Object.entries(styles).map(([propertyName, value]) => ({
+                previousPriority: element.style.getPropertyPriority(propertyName),
+                previousValue: element.style.getPropertyValue(propertyName),
+                propertyName,
+                value
+              })),
+              token
+            };
+            element.setAttribute(captureAttribute, token);
+            entries.push(entry);
+            entry.styles.forEach(({ propertyName, value }) => {
+              element.style.setProperty(propertyName, value, "important");
+            });
+          });
+          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          entries.forEach((entry) => {
+            const rect = entry.element.getBoundingClientRect();
+            const deltaX = (Math.round(rect.left * scale) - (rect.left * scale)) / scale;
+            const deltaY = (Math.round(rect.top * scale) - (rect.top * scale)) / scale;
+            const translateEntry = entry.styles.find(({ propertyName }) => (
+              propertyName === "translate"
+            ));
+            translateEntry.value = `${Number(deltaX.toFixed(6))}px ${Number(deltaY.toFixed(6))}px`;
+            entry.element.style.setProperty("translate", translateEntry.value, "important");
+          });
+          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          entries.forEach((entry) => {
+            const rect = entry.element.getBoundingClientRect();
+            const right = Number.isFinite(rect.right) ? rect.right : rect.left + rect.width;
+            const bottom = Number.isFinite(rect.bottom) ? rect.bottom : rect.top + rect.height;
+            const deviceEdges = [rect.left, rect.top, right, bottom].map((value) => value * scale);
+            if (deviceEdges.some((value) => Math.abs(value - Math.round(value)) > 0.02)) {
+              throw new Error(
+                `Parity descendant alignment could not stabilize every device-pixel edge: ${selector}`
+              );
+            }
+          });
+        } catch (error) {
+          entries.reverse().forEach(restoreEntry);
+          throw error;
+        }
+        return {
+          entries: entries.map(({ element: _element, ...entry }) => entry)
+        };
+      }, stableDescendantDevicePixelAlignmentSelector);
+      await settleFiniteAnimations(targetHandle);
+    }
+    ignoreRegions = await readElementRelativeParityIgnoreRegions(
+      captureTarget,
+      ignoreSelector,
+      roundedCompositeSelector
+    );
     if (
       stableTargetStyleProperties
       && Object.keys(stableTargetStyleProperties).length > 0
     ) {
-      stableTargetStyleHandle = typeof target.elementHandle === "function"
-        ? await target.elementHandle()
-        : target;
-      if (!stableTargetStyleHandle || typeof stableTargetStyleHandle.evaluate !== "function") {
-        throw new Error("Parity screenshot target detached before style stabilization.");
-      }
-      captureTarget = stableTargetStyleHandle;
-      stableTargetStyleState = await stableTargetStyleHandle.evaluate((targetElement, properties) => {
+      const targetHandle = await resolveStableTargetHandle();
+      stableTargetStyleState = await targetHandle.evaluate((targetElement, properties) => {
         const captureAttribute = "data-parity-capture-stable-target-style";
         const styleAttribute = "data-parity-capture-stable-target-style-sheet";
         const token = `parity-target-style-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -1967,8 +2154,8 @@ export async function captureIsolatedParityScreenshot(page, {
       }
     });
     await runCleanup(async () => {
-      if (stableTargetStyleState && stableTargetStyleHandle) {
-        await stableTargetStyleHandle.evaluate((targetElement, state) => {
+      if (stableTargetStyleState && stableTargetHandle) {
+        await stableTargetHandle.evaluate((targetElement, state) => {
           const captureAttribute = "data-parity-capture-stable-target-style";
           const styleAttribute = "data-parity-capture-stable-target-style-sheet";
           const documentRef = targetElement.ownerDocument;
@@ -1999,6 +2186,65 @@ export async function captureIsolatedParityScreenshot(page, {
           if (state.previousToken === null) targetElement.removeAttribute(captureAttribute);
           else targetElement.setAttribute(captureAttribute, state.previousToken);
         }, stableTargetStyleState);
+      }
+    });
+    await runCleanup(async () => {
+      if (stableDescendantAlignmentState && stableTargetHandle) {
+        await stableTargetHandle.evaluate((targetElement, state) => {
+          const captureAttribute = "data-parity-capture-descendant-device-pixel-alignment";
+          state.entries.forEach((entry) => {
+            const selector = `[${captureAttribute}="${CSS.escape(entry.token)}"]`;
+            const element = targetElement.matches(selector)
+              ? targetElement
+              : targetElement.querySelector(selector);
+            if (!element || element.getAttribute(captureAttribute) !== entry.token) return;
+            entry.styles.forEach((styleEntry) => {
+              const injectedStyleIsCurrent = (
+                element.style.getPropertyValue(styleEntry.propertyName) === styleEntry.value
+                && element.style.getPropertyPriority(styleEntry.propertyName) === "important"
+              );
+              if (!injectedStyleIsCurrent) return;
+              if (styleEntry.previousValue) {
+                element.style.setProperty(
+                  styleEntry.propertyName,
+                  styleEntry.previousValue,
+                  styleEntry.previousPriority
+                );
+              } else {
+                element.style.removeProperty(styleEntry.propertyName);
+              }
+            });
+            if (entry.previousToken === null) element.removeAttribute(captureAttribute);
+            else element.setAttribute(captureAttribute, entry.previousToken);
+          });
+        }, stableDescendantAlignmentState);
+      }
+    });
+    await runCleanup(async () => {
+      if (stableTargetAlignmentState && stableTargetHandle) {
+        await stableTargetHandle.evaluate((targetElement, state) => {
+          const captureAttribute = "data-parity-capture-device-pixel-alignment";
+          if (targetElement.getAttribute(captureAttribute) !== state.token) {
+            return;
+          }
+          const injectedStyleIsCurrent = (
+            targetElement.style.getPropertyValue(state.propertyName) === state.value
+            && targetElement.style.getPropertyPriority(state.propertyName) === "important"
+          );
+          if (injectedStyleIsCurrent) {
+            if (state.previousValue) {
+              targetElement.style.setProperty(
+                state.propertyName,
+                state.previousValue,
+                state.previousPriority
+              );
+            } else {
+              targetElement.style.removeProperty(state.propertyName);
+            }
+          }
+          if (state.previousToken === null) targetElement.removeAttribute(captureAttribute);
+          else targetElement.setAttribute(captureAttribute, state.previousToken);
+        }, stableTargetAlignmentState);
       }
     });
     await runCleanup(async () => {
@@ -2048,11 +2294,11 @@ export async function captureIsolatedParityScreenshot(page, {
     });
     await runCleanup(async () => {
       if (
-        stableTargetStyleHandle
-        && stableTargetStyleHandle !== target
-        && typeof stableTargetStyleHandle.dispose === "function"
+        stableTargetHandle
+        && stableTargetHandle !== target
+        && typeof stableTargetHandle.dispose === "function"
       ) {
-        await stableTargetStyleHandle.dispose();
+        await stableTargetHandle.dispose();
       }
     });
     if (!primaryCaptureFailed && firstCleanupError) {

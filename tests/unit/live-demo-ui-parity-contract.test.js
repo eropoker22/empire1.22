@@ -36,6 +36,10 @@ describe("live/demo UI parity source contract", () => {
     expect(paritySpec).toContain(
       '"--district-owner-avatar-opacity": "0",\n          "--district-owner-avatar-url": "none"'
     );
+    expect(paritySpec).toContain(
+      'stableDescendantDevicePixelAlignmentSelector: surfaceName === "district"'
+    );
+    expect(paritySpec).toContain('".district-popup-buildings__chip--button"');
     expect(parityCapture).toContain("stableTargetStyleProperties = {}");
     expect(parityCapture).toContain(
       'targetElement.style.setProperty(propertyName, value, "important")'
