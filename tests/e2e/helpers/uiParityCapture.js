@@ -1726,6 +1726,7 @@ export async function readElementRelativeParityIgnoreRegions(
 export async function captureIsolatedParityScreenshot(page, {
   ignoreSelector = "",
   path: screenshotPath,
+  stableBackdropColor = "",
   roundedCompositeSelector = "",
   stableBackdropShellSelector = "",
   target
@@ -1738,12 +1739,17 @@ export async function captureIsolatedParityScreenshot(page, {
   );
   let stableBackdropState = null;
   if (stableBackdropShellSelector) {
-    stableBackdropState = await target.evaluate((targetElement, shellSelector) => {
-      const shell = targetElement.closest(shellSelector);
+    stableBackdropState = await target.evaluate((targetElement, config) => {
+      const shell = targetElement.closest(config.shellSelector);
       if (!(shell instanceof HTMLElement)) {
-        throw new Error(`Parity screenshot shell not found: ${shellSelector}`);
+        throw new Error(`Parity screenshot shell not found: ${config.shellSelector}`);
       }
       const token = `parity-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const previousBackgroundColor = shell.style.getPropertyValue("background-color");
+      const previousBackgroundColorPriority = shell.style.getPropertyPriority("background-color");
+      if (config.backgroundColor) {
+        shell.style.setProperty("background-color", config.backgroundColor, "important");
+      }
       let branch = shell;
       while (branch.parentElement) {
         for (const sibling of branch.parentElement.children) {
@@ -1771,8 +1777,16 @@ export async function captureIsolatedParityScreenshot(page, {
         }
         branch = branch.parentElement;
       }
-      return { token };
-    }, stableBackdropShellSelector);
+      return {
+        backgroundColorApplied: Boolean(config.backgroundColor),
+        previousBackgroundColor,
+        previousBackgroundColorPriority,
+        token
+      };
+    }, {
+      backgroundColor: stableBackdropColor,
+      shellSelector: stableBackdropShellSelector
+    });
   }
   try {
     const screenshot = await target.screenshot({
@@ -1786,6 +1800,18 @@ export async function captureIsolatedParityScreenshot(page, {
     if (stableBackdropShellSelector) {
       await target.evaluate((targetElement, config) => {
         const token = CSS.escape(config.state.token);
+        const shell = targetElement.closest(config.shellSelector);
+        if (config.state.backgroundColorApplied && shell instanceof HTMLElement) {
+          if (config.state.previousBackgroundColor) {
+            shell.style.setProperty(
+              "background-color",
+              config.state.previousBackgroundColor,
+              config.state.previousBackgroundColorPriority
+            );
+          } else {
+            shell.style.removeProperty("background-color");
+          }
+        }
         document
           .querySelectorAll(`[data-parity-capture-hidden="${token}"]`)
           .forEach((element) => {

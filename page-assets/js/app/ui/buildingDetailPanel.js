@@ -44,7 +44,7 @@ const AUTHORITY_DYNAMIC_PHASE_CASH_PATTERN = new RegExp(
   "iu"
 );
 const AUTHORITY_DYNAMIC_PHASE_HEAT_PATTERN = new RegExp(
-  `^((?:DEN|NOC):\\s+heat\\s+)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/den\\s+->\\s+)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/den)$`,
+  `^((?:DEN|NOC):\\s+heat\\s+)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/den\\s+->\\s+)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/den(?:\\s+·\\s+.*)?)$`,
   "iu"
 );
 

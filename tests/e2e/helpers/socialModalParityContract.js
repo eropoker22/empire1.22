@@ -662,6 +662,7 @@ export async function captureSocialModalParityScreenshot(page, {
     ignoreSelector: definition.dynamicLeafSelector,
     path: screenshotPath,
     roundedCompositeSelector: definition.roundedCompositeSelector || "",
+    stableBackdropColor: surfaceName === "market" ? "rgb(2, 6, 12)" : "",
     stableBackdropShellSelector: definition.shellSelector,
     target
   });

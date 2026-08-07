@@ -871,7 +871,7 @@ describe("building detail, production and recipe UI modules", () => {
         { text: "Heat +150/den", tone: "heat" },
         { text: "Vliv +121/den", tone: "influence" },
         { text: "DEN: dirty $2540/h -> $2235/h · heat 150/den -> 168/den", tone: "phase" },
-        { text: "DEN: heat 150/den -> 143/den", tone: "phase" },
+        { text: "DEN: heat 150/den -> 143/den · vliv 120/den -> 134/den", tone: "phase" },
         { text: "Dirty cash +$500", tone: "dirty" }
       ],
       collect: { visible: false, enabled: false, title: "" },
@@ -901,11 +901,16 @@ describe("building detail, production and recipe UI modules", () => {
       { kind: "phase-heat-effective", text: "168" }
     ]);
     expect(effects[4].querySelector("strong").children.at(-1).textContent).toBe("/den");
-    expect(effects[5].children[0].textContent).toBe("DEN: heat 150/den -> 143/den");
+    expect(effects[5].children[0].textContent).toBe(
+      "DEN: heat 150/den -> 143/den · vliv 120/den -> 134/den"
+    );
     expect(dynamicValues(effects[5])).toEqual([
       { kind: "phase-heat-base", text: "150" },
       { kind: "phase-heat-effective", text: "143" }
     ]);
+    expect(effects[5].querySelector("strong").children.at(-1).textContent).toBe(
+      "/den · vliv 120/den -> 134/den"
+    );
     expect(dynamicValues(effects[6])).toEqual([]);
   });
 

@@ -90,7 +90,7 @@ const authorityDynamicPhaseCashPattern = new RegExp(
   "iu"
 );
 const authorityDynamicPhaseHeatPattern = new RegExp(
-  `^((?:DEN|NOC):\\s+heat\\s+)(${authorityDynamicEffectNumberPattern})(\\/den\\s+->\\s+)(${authorityDynamicEffectNumberPattern})(\\/den)$`,
+  `^((?:DEN|NOC):\\s+heat\\s+)(${authorityDynamicEffectNumberPattern})(\\/den\\s+->\\s+)(${authorityDynamicEffectNumberPattern})(\\/den(?:\\s+·\\s+.*)?)$`,
   "iu"
 );
 const areAuthorityEvidenceValuesStrictlyEqual = (actual, expected) => {

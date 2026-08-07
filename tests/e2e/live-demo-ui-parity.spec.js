@@ -333,6 +333,7 @@ async function attachOpenBuildingScreenshot({
       surfaceName === "pharmacy" ? ".pharmacy-slot__quantity-value" : "",
       surfaceName === "pharmacy" ? ".pharmacy-slot__btn" : ""
     ].filter(Boolean).join(","),
+    stableBackdropColor: surfaceName === "district" ? "rgb(2, 6, 12)" : "",
     stableBackdropShellSelector: paritySurfaces[surfaceName].shell,
     target
   });

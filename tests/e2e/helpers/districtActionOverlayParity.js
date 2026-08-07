@@ -34,6 +34,9 @@ export const districtActionOverlayNames = Object.freeze([
 const freezeDefinition = (definition) => Object.freeze({
   ...definition,
   dynamicLeafSelectors: Object.freeze([...(definition.dynamicLeafSelectors || [])]),
+  dynamicValueWrapperSelectors: Object.freeze([
+    ...(definition.dynamicValueWrapperSelectors || [])
+  ]),
   requiredSectionSelectors: Object.freeze([...(definition.requiredSectionSelectors || [])]),
   semanticDatasetKeys: Object.freeze([...(definition.semanticDatasetKeys || [])])
 });
@@ -107,6 +110,7 @@ export const districtActionOverlayDefinitions = Object.freeze({
       "[data-robbery-confirm-members]",
       "[data-robbery-confirm-duration]"
     ],
+    dynamicValueWrapperSelectors: ["[data-robbery-confirm-duration]"],
     hostedRole: "creator",
     hostedTargetDistrictId: "district:24",
     localRole: "creator",
@@ -612,6 +616,7 @@ export async function getDistrictActionOverlayPresentationSignature(page, surfac
   return target.evaluate((targetElement, config) => {
     const normalizeText = (value) => String(value || "").replace(/\s+/gu, " ").trim();
     const dynamicSelector = config.dynamicLeafSelectors.join(",");
+    const dynamicValueWrapperSelector = config.dynamicValueWrapperSelectors.join(",");
     const isVisible = (element) => {
       if (!(element instanceof Element) || element.hasAttribute("hidden")) return false;
       const style = getComputedStyle(element);
@@ -626,14 +631,30 @@ export async function getDistrictActionOverlayPresentationSignature(page, surfac
       dynamicSelector
       && (element.matches?.(dynamicSelector) || element.closest?.(dynamicSelector))
     );
+    const isDynamicValueWrapper = (element) => {
+      if (
+        !dynamicValueWrapperSelector
+        || element.tagName !== "SPAN"
+        || element.attributes.length > 0
+        || element.children.length !== 1
+        || !element.firstElementChild?.matches?.(dynamicValueWrapperSelector)
+      ) {
+        return false;
+      }
+      return Array.from(element.childNodes).every((node) => (
+        node === element.firstElementChild
+        || (node.nodeType === Node.TEXT_NODE && !normalizeText(node.textContent))
+      ));
+    };
     const classNames = (element) => Array.from(element.classList || []).sort();
     const targetRect = targetElement.getBoundingClientRect();
     const relativeRect = (element) => {
       const rect = element.getBoundingClientRect();
+      const hasAuthoritativeWidth = isDynamicValueWrapper(element);
       return {
         height: Math.round(rect.height),
-        width: Math.round(rect.width),
-        x: Math.round(rect.left - targetRect.left),
+        width: hasAuthoritativeWidth ? config.authoritativeText : Math.round(rect.width),
+        x: hasAuthoritativeWidth ? config.authoritativeText : Math.round(rect.left - targetRect.left),
         y: Math.round(rect.top - targetRect.top)
       };
     };
@@ -656,7 +677,9 @@ export async function getDistrictActionOverlayPresentationSignature(page, surfac
       const style = getComputedStyle(element);
       return Object.fromEntries(config.computedStyleProperties.map((propertyName) => [
         propertyName,
-        String(style[propertyName] || "")
+        propertyName === "width" && isDynamicValueWrapper(element)
+          ? config.authoritativeText
+          : String(style[propertyName] || "")
       ]));
     };
     const dataset = (element) => ({
@@ -783,6 +806,7 @@ export async function getDistrictActionOverlayPresentationSignature(page, surfac
     authoritativeText: AUTHORITATIVE_TEXT,
     computedStyleProperties: parityComputedStyleProperties,
     dynamicLeafSelectors: definition.dynamicLeafSelectors,
+    dynamicValueWrapperSelectors: definition.dynamicValueWrapperSelectors,
     requiredSectionSelectors: definition.requiredSectionSelectors,
     semanticDatasetKeys: definition.semanticDatasetKeys
   });

@@ -1255,11 +1255,17 @@ function isCompletePositivePopulationSample(sample, previousTick, districtId) {
       "topbar +0; produkce aktivní"
     )
     && sample.player.visibleDistrictRates.cleanCash
-      === sample.player.economyRates.selectedDistrict.cleanCashPerHour
+      === toVisibleDistrictMetricValue(
+        sample.player.economyRates.selectedDistrict.cleanCashPerHour
+      )
     && sample.player.visibleDistrictRates.dirtyCash
-      === sample.player.economyRates.selectedDistrict.dirtyCashPerHour
+      === toVisibleDistrictMetricValue(
+        sample.player.economyRates.selectedDistrict.dirtyCashPerHour
+      )
     && sample.player.visibleDistrictRates.influence
-      === sample.player.economyRates.selectedDistrict.influencePerHour
+      === toVisibleDistrictMetricValue(
+        sample.player.economyRates.selectedDistrict.influencePerHour
+      )
     && isCompleteEconomyRateProjection(
       sample.player.economyRates,
       sample.currentTick,
@@ -1344,6 +1350,17 @@ const findPositivePopulationSource = (sample) => (
   findPositivePopulationSources(sample)[0] || null
 );
 
+// The visible district summary intentionally presents authoritative hourly
+// rates with at most two decimal places. Keep the browser assertion exact at
+// that presentation boundary instead of comparing displayed text with the raw
+// floating-point projection.
+const toVisibleDistrictMetricValue = (value) => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue)
+    ? Number(numericValue.toFixed(2))
+    : null;
+};
+
 function isCompleteAlignedTickSample(sample, previousTick) {
   const ticks = [
     sample.currentTick,
@@ -1393,11 +1410,17 @@ function isCompleteAlignedTickSample(sample, previousTick) {
     && sample.player.visiblePopulationRate.sourceSummary
       === "Pasivní populace: 0 / h · žádný zdroj v districtu"
     && sample.player.visibleDistrictRates.cleanCash
-      === sample.player.economyRates.selectedDistrict.cleanCashPerHour
+      === toVisibleDistrictMetricValue(
+        sample.player.economyRates.selectedDistrict.cleanCashPerHour
+      )
     && sample.player.visibleDistrictRates.dirtyCash
-      === sample.player.economyRates.selectedDistrict.dirtyCashPerHour
+      === toVisibleDistrictMetricValue(
+        sample.player.economyRates.selectedDistrict.dirtyCashPerHour
+      )
     && sample.player.visibleDistrictRates.influence
-      === sample.player.economyRates.selectedDistrict.influencePerHour
+      === toVisibleDistrictMetricValue(
+        sample.player.economyRates.selectedDistrict.influencePerHour
+      )
     && isCompleteEconomyRateProjection(
       sample.player.economyRates,
       sample.currentTick,
@@ -1405,23 +1428,130 @@ function isCompleteAlignedTickSample(sample, previousTick) {
     );
 }
 
-const createTickAlignmentDiagnostic = (sample, previousTick) => JSON.stringify({
-  status: "not-aligned",
-  previousTick,
-  matchedAdminObservation: sample.admin.bracket.matchedObservation,
-  ticks: {
-    selected: sample.currentTick,
-    player: sample.player.currentTick,
-    admin: sample.admin.currentTick,
-    snapshot: sample.admin.lastSnapshot.tick
-  },
-  stateVersions: {
-    selected: sample.stateVersion,
-    player: sample.player.stateVersion,
-    admin: sample.admin.stateVersion,
-    snapshot: sample.admin.lastSnapshot.stateVersion
-  }
-});
+const createTickAlignmentDiagnostic = (sample, previousTick) => {
+  const ticks = [
+    sample.currentTick,
+    sample.player.currentTick,
+    sample.admin.currentTick,
+    sample.admin.lastSnapshot.tick
+  ];
+  const stateVersions = [
+    sample.stateVersion,
+    sample.player.stateVersion,
+    sample.admin.stateVersion,
+    sample.admin.lastSnapshot.stateVersion
+  ];
+  const numericStateValues = [
+    sample.player.cleanCash,
+    sample.player.dirtyCash,
+    sample.player.population,
+    sample.player.economyPopulation,
+    sample.player.influence,
+    sample.player.district?.heat,
+    sample.player.district?.influence,
+    sample.admin.player?.cleanCash,
+    sample.admin.player?.dirtyCash,
+    sample.admin.player?.population,
+    sample.admin.district?.heat,
+    sample.admin.district?.influence
+  ];
+  const projectedDistrictRates = {
+    cleanCash: sample.player.economyRates?.selectedDistrict?.cleanCashPerHour,
+    dirtyCash: sample.player.economyRates?.selectedDistrict?.dirtyCashPerHour,
+    influence: sample.player.economyRates?.selectedDistrict?.influencePerHour
+  };
+  const expectedVisibleDistrictRates = Object.fromEntries(
+    Object.entries(projectedDistrictRates).map(([key, value]) => [
+      key,
+      toVisibleDistrictMetricValue(value)
+    ])
+  );
+  const checks = {
+    ticksFinite: ticks.every(Number.isFinite),
+    ticksAligned: ticks.every((tick) => tick === ticks[0]),
+    stateVersionsFinite: stateVersions.every(Number.isFinite),
+    stateVersionsAligned: stateVersions.every(
+      (stateVersion) => stateVersion === stateVersions[0]
+    ),
+    tickAdvanced: previousTick === null || ticks[0] > previousTick,
+    adminPlayerPresent: Boolean(sample.admin.player),
+    adminDistrictPresent: Boolean(sample.admin.district),
+    numericStateComplete: numericStateValues.every(Number.isFinite),
+    serverInstanceAligned:
+      sample.player.serverInstanceId === sample.admin.serverInstanceId,
+    selectedDistrictAligned:
+      sample.player.district?.districtId === sample.admin.district?.districtId,
+    topbarCleanCash:
+      sample.player.visibleTopbar.cleanCash
+        === Math.round(sample.player.cleanCash),
+    topbarDirtyCash:
+      sample.player.visibleTopbar.dirtyCash
+        === Math.round(sample.player.dirtyCash),
+    topbarInfluence:
+      sample.player.visibleTopbar.influence
+        === Math.floor(sample.player.influence),
+    populationLabel:
+      sample.player.visiblePopulationRate.label === "0 · žádný zdroj",
+    populationSourceSummary:
+      sample.player.visiblePopulationRate.sourceSummary
+        === "Pasivní populace: 0 / h · žádný zdroj v districtu",
+    districtCleanCash:
+      sample.player.visibleDistrictRates.cleanCash
+        === expectedVisibleDistrictRates.cleanCash,
+    districtDirtyCash:
+      sample.player.visibleDistrictRates.dirtyCash
+        === expectedVisibleDistrictRates.dirtyCash,
+    districtInfluence:
+      sample.player.visibleDistrictRates.influence
+        === expectedVisibleDistrictRates.influence,
+    economyProjectionComplete: isCompleteEconomyRateProjection(
+      sample.player.economyRates,
+      sample.currentTick,
+      sample.player.district?.districtId
+    )
+  };
+
+  return JSON.stringify({
+    status: "not-aligned",
+    previousTick,
+    matchedAdminObservation: sample.admin.bracket.matchedObservation,
+    failedChecks: Object.entries(checks)
+      .filter(([, passed]) => !passed)
+      .map(([name]) => name),
+    checks,
+    ticks: {
+      selected: sample.currentTick,
+      player: sample.player.currentTick,
+      admin: sample.admin.currentTick,
+      snapshot: sample.admin.lastSnapshot.tick
+    },
+    stateVersions: {
+      selected: sample.stateVersion,
+      player: sample.player.stateVersion,
+      admin: sample.admin.stateVersion,
+      snapshot: sample.admin.lastSnapshot.stateVersion
+    },
+    visibleTopbar: sample.player.visibleTopbar,
+    expectedTopbar: {
+      cleanCash: Math.round(sample.player.cleanCash),
+      dirtyCash: Math.round(sample.player.dirtyCash),
+      influence: Math.floor(sample.player.influence)
+    },
+    visiblePopulationRate: sample.player.visiblePopulationRate,
+    visibleDistrictRates: sample.player.visibleDistrictRates,
+    expectedVisibleDistrictRates,
+    projectedDistrictRates,
+    economyProjection: {
+      basis: sample.player.economyRates?.basis || null,
+      tickRateMs: sample.player.economyRates?.tickRateMs ?? null,
+      fromTick: sample.player.economyRates?.fromTick ?? null,
+      toTick: sample.player.economyRates?.toTick ?? null,
+      selectedDistrictPresent: Boolean(
+        sample.player.economyRates?.selectedDistrict
+      )
+    }
+  });
+};
 
 function isCompleteEconomyRateProjection(rates, currentTick, districtId) {
   const trackedResourceKeys = [
@@ -1493,12 +1623,15 @@ function assertAlignedTickSample(
       "Pasivní populace: 0 / h · žádný zdroj v districtu"
   });
   expect(sample.player.visibleDistrictRates).toEqual({
-    cleanCash:
-      sample.player.economyRates.selectedDistrict.cleanCashPerHour,
-    dirtyCash:
-      sample.player.economyRates.selectedDistrict.dirtyCashPerHour,
-    influence:
+    cleanCash: toVisibleDistrictMetricValue(
+      sample.player.economyRates.selectedDistrict.cleanCashPerHour
+    ),
+    dirtyCash: toVisibleDistrictMetricValue(
+      sample.player.economyRates.selectedDistrict.dirtyCashPerHour
+    ),
+    influence: toVisibleDistrictMetricValue(
       sample.player.economyRates.selectedDistrict.influencePerHour
+    )
   });
   for (const rootTick of [
     sample.rootTick,
