@@ -3,6 +3,15 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const RECENT_LINE_LIMIT = 80;
+const COMMAND_STOP_GRACE_MS = 2_000;
+const PROCESS_STOP_GRACE_MS = 10_000;
+const PROCESS_FORCE_STOP_GRACE_MS = 1_000;
+const PROCESS_STREAM_CLOSE_GRACE_MS = 250;
+const managedProcessGroups = new WeakSet();
+const activeManagedProcesses = new Set();
+const TERMINATION_EXIT_CODES = Object.freeze({ SIGINT: 130, SIGTERM: 143 });
+let terminationHandlersInstalled = false;
+let terminationShutdownStarted = false;
 
 export async function createRunDirectory(root = ".tmp/local-hosted-full") {
   const stamp = new Date().toISOString().replaceAll(":", "-").replace(/\.\d{3}Z$/u, "Z");
@@ -12,13 +21,17 @@ export async function createRunDirectory(root = ".tmp/local-hosted-full") {
 }
 
 export function startManagedProcess({ name, args, environment, logDirectory }) {
+  installTerminationHandlers();
   const recentLines = [];
+  const ownsProcessGroup = process.platform !== "win32";
   const child = spawn(process.execPath, args, {
     cwd: process.cwd(),
     env: environment,
     stdio: ["ignore", "pipe", "pipe"],
+    detached: ownsProcessGroup,
     windowsHide: true
   });
+  if (ownsProcessGroup) managedProcessGroups.add(child);
   const chunks = [];
   const attach = (stream) => {
     let pending = "";
@@ -40,10 +53,30 @@ export function startManagedProcess({ name, args, environment, logDirectory }) {
     child.once("exit", (code, signal) => resolve({ code, signal }));
     child.once("error", (error) => resolve({ code: 1, signal: null, error }));
   });
+  const closed = new Promise((resolve) => {
+    child.once("close", (code, signal) => resolve({ code, signal }));
+    child.once("error", (error) => resolve({ code: 1, signal: null, error }));
+  });
   const saveLog = async () => {
     await writeFile(path.join(logDirectory, `${name}.log`), chunks.join(""), "utf8");
   };
-  return { child, exited, name, recentLines, saveLog };
+  const closeOutput = () => {
+    child.stdout?.destroy();
+    child.stderr?.destroy();
+  };
+  const managed = {
+    child,
+    closeOutput,
+    closed,
+    exited,
+    name,
+    recentLines,
+    saveLog,
+    stopPromise: null
+  };
+  activeManagedProcesses.add(managed);
+  void closed.then(() => activeManagedProcesses.delete(managed));
+  return managed;
 }
 
 export async function runManagedCommand({
@@ -54,13 +87,14 @@ export async function runManagedCommand({
   timeoutMs = 300_000
 }) {
   const managed = startManagedProcess({ name, args, environment, logDirectory });
+  let timeoutId;
   const timeout = new Promise((resolve) => {
-    const timer = setTimeout(() => resolve({ code: 124, signal: "timeout" }), timeoutMs);
-    timer.unref?.();
+    timeoutId = setTimeout(() => resolve({ code: 124, signal: "timeout" }), timeoutMs);
+    timeoutId.unref?.();
   });
   const result = await Promise.race([managed.exited, timeout]);
-  if (result.signal === "timeout") stopProcessTree(managed.child);
-  await managed.saveLog();
+  clearTimeout(timeoutId);
+  await stopManagedProcess(managed, { stopGraceMs: COMMAND_STOP_GRACE_MS });
   if (result.code !== 0) {
     const tail = managed.recentLines.join("\n");
     throw new Error(`${name} failed with exit ${result.code}.${tail ? `\n${tail}` : ""}`);
@@ -93,19 +127,56 @@ export async function waitForHttp(url, {
 
 export async function stopManagedProcesses(processes) {
   for (const managed of [...processes].reverse()) stopProcessTree(managed.child);
-  await Promise.all(processes.map(async (managed) => {
-    await Promise.race([managed.exited, delay(10_000)]);
-    await managed.saveLog();
-  }));
+  await Promise.all(processes.map((managed) => stopManagedProcess(managed)));
 }
 
-export function stopProcessTree(child) {
-  if (!child?.pid || child.exitCode !== null) return;
+export async function stopManagedProcess(managed, {
+  stopGraceMs = PROCESS_STOP_GRACE_MS,
+  forceStopGraceMs = PROCESS_FORCE_STOP_GRACE_MS
+} = {}) {
+  if (!managed?.child) return;
+  if (managed.stopPromise) return managed.stopPromise;
+  managed.stopPromise = (async () => {
+    stopProcessTree(managed.child);
+    if (!await waitForProcessTreeExit(managed.child, stopGraceMs)) {
+      stopProcessTree(managed.child, { force: true });
+      await waitForProcessTreeExit(managed.child, forceStopGraceMs);
+    }
+    await Promise.race([
+      managed.closed || managed.exited,
+      delay(PROCESS_STREAM_CLOSE_GRACE_MS)
+    ]);
+    managed.closeOutput?.();
+    managed.child.unref?.();
+    await managed.saveLog();
+  })().finally(() => {
+    activeManagedProcesses.delete(managed);
+  });
+  return managed.stopPromise;
+}
+
+export function stopProcessTree(child, { force = false } = {}) {
+  if (!child?.pid) return false;
   if (process.platform === "win32") {
-    spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
-    return;
+    const result = spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+      stdio: "ignore"
+    });
+    return result.status === 0;
   }
-  child.kill("SIGTERM");
+
+  const signal = force ? "SIGKILL" : "SIGTERM";
+  if (managedProcessGroups.has(child)) {
+    try {
+      process.kill(-child.pid, signal);
+      return true;
+    } catch (error) {
+      if (error?.code !== "ESRCH") throw error;
+    }
+  }
+  if (child.exitCode === null && child.signalCode === null) {
+    return child.kill(signal);
+  }
+  return false;
 }
 
 export const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -115,4 +186,60 @@ function rememberLine(lines, line) {
   if (!normalized) return;
   lines.push(normalized);
   if (lines.length > RECENT_LINE_LIMIT) lines.splice(0, lines.length - RECENT_LINE_LIMIT);
+}
+
+async function waitForProcessTreeExit(child, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (isProcessTreeRunning(child)) {
+    if (Date.now() >= deadline) return false;
+    await delay(25);
+  }
+  return true;
+}
+
+function isProcessTreeRunning(child) {
+  if (!child?.pid) return false;
+  if (process.platform !== "win32" && managedProcessGroups.has(child)) {
+    try {
+      process.kill(-child.pid, 0);
+      return true;
+    } catch (error) {
+      return error?.code !== "ESRCH";
+    }
+  }
+  return child.exitCode === null && child.signalCode === null;
+}
+
+function installTerminationHandlers() {
+  if (terminationHandlersInstalled) return;
+  terminationHandlersInstalled = true;
+  for (const signal of Object.keys(TERMINATION_EXIT_CODES)) {
+    process.on(signal, () => beginTerminationShutdown(signal));
+  }
+  process.once("exit", forceStopActiveProcessTrees);
+}
+
+function beginTerminationShutdown(signal) {
+  const exitCode = TERMINATION_EXIT_CODES[signal] ?? 1;
+  if (terminationShutdownStarted) {
+    forceStopActiveProcessTrees();
+    process.exit(exitCode);
+  }
+  terminationShutdownStarted = true;
+  void stopManagedProcesses([...activeManagedProcesses])
+    .catch(() => {
+      console.error("[process-supervisor] Managed process cleanup failed during termination.");
+    })
+    .finally(() => process.exit(exitCode));
+}
+
+function forceStopActiveProcessTrees() {
+  for (const managed of activeManagedProcesses) {
+    try {
+      stopProcessTree(managed.child, { force: true });
+      managed.closeOutput?.();
+    } catch {
+      // Process exit cleanup is best effort and must not expose child diagnostics.
+    }
+  }
 }

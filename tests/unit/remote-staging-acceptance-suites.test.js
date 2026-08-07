@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getRemoteStagingAcceptanceSuite,
+  REMOTE_MANUAL_STARTING_PLAYER_STATE,
   REMOTE_STAGING_ACCEPTANCE_SUITES
 } from "../../scripts/remote-staging-acceptance-suites.mjs";
 
@@ -59,6 +60,20 @@ describe("remote staging acceptance suite contract", () => {
     expect(getRemoteStagingAcceptanceSuite("social-concurrency-privacy").bootstrapTimeoutMs).toBe(900_000);
     expect(getRemoteStagingAcceptanceSuite("income").restartWorkerBeforeSpec).toBe(true);
     expect(getRemoteStagingAcceptanceSuite("lifecycle-stop").pauseResumeBeforeSpec).toBe(true);
+  });
+
+  it("keeps the manual admin starting state complete", () => {
+    expect(REMOTE_MANUAL_STARTING_PLAYER_STATE).toMatchObject({
+      cleanCash: expect.any(Number),
+      dirtyCash: expect.any(Number),
+      population: expect.any(Number),
+      influence: expect.any(Number),
+      spySlots: 2
+    });
+    const materialValues = Object.values(REMOTE_MANUAL_STARTING_PLAYER_STATE.materials);
+    expect(materialValues).toHaveLength(21);
+    expect(new Set(materialValues).size).toBe(materialValues.length);
+    expect(materialValues).toContain(0);
   });
 
   it("rejects unknown or skipped suite names", () => {

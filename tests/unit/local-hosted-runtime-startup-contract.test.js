@@ -37,6 +37,13 @@ describe("local hosted runtime startup contract", () => {
     }
   });
 
+  it("points Playwright at the frontend already managed by the hosted harness", () => {
+    const harness = read("scripts/run-local-hosted-full.mjs");
+
+    expect(harness).toContain("PLAYWRIGHT_E2E_BASE_URL: browserOrigin");
+    expect(harness).toContain('PLAYWRIGHT_SKIP_WEB_SERVER: "1"');
+  });
+
   it("prebuilds setup, long-lived Node entrypoints and the scenario seed CLI", () => {
     const config = read("vite.local-hosted-runtime.config.ts");
 

@@ -353,6 +353,9 @@ async function createServerThroughAdmin(page) {
   await page.locator('[name="startingPopulation"]').fill(
     String(startingPlayerState.population)
   );
+  await page.locator('[name="startingInfluence"]').fill(
+    String(startingPlayerState.influence)
+  );
   for (const [materialId, value] of Object.entries(startingPlayerState.materials)) {
     await page.locator(`[name="startingMaterial:${materialId}"]`).fill(String(value));
   }
@@ -421,6 +424,7 @@ async function expectExactStartingState(page) {
   };
   expect(snapshot.balances).toMatchObject(expectedBalances);
   expect(snapshot.economyPopulation).toBe(startingPlayerState.population);
+  expect(snapshot.economyInfluence).toBe(startingPlayerState.influence);
   expect(snapshot.spySlots).toHaveLength(startingPlayerState.spySlots);
   expect(snapshot.spySlots.every((slot) => slot.available)).toBe(true);
   await expect(page.locator("[data-topbar-clean-money]"))
@@ -1550,6 +1554,7 @@ function parseStartingPlayerState(value) {
     !Number.isFinite(parsed?.cleanCash)
     || !Number.isFinite(parsed?.dirtyCash)
     || !Number.isFinite(parsed?.population)
+    || !Number.isFinite(parsed?.influence)
     || parsed?.spySlots !== 2
     || !parsed?.materials
     || Object.keys(parsed.materials).length !== 21
@@ -1558,7 +1563,8 @@ function parseStartingPlayerState(value) {
     || !materialValues.includes(0)
   ) {
     throw new Error(
-      "Manual hosted starting state must contain 21 distinct canonical material values including zero."
+      "Manual hosted starting state must contain finite cash, population and influence values,"
+      + " two spy slots, and 21 distinct canonical material values including zero."
     );
   }
   return parsed;

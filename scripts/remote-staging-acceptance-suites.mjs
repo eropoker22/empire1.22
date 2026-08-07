@@ -1,5 +1,13 @@
 import { HOSTED_E2E_STARTING_PLAYER_STATE } from "./local-hosted/hosted-e2e-starting-player-state.mjs";
 
+const REMOTE_MANUAL_MATERIAL_OVERRIDES = Object.freeze({
+  chemicals: 507,
+  "stim-pack": 0,
+  "neon-dust": 503,
+  "metal-parts": 504,
+  "baseball-bat": 505
+});
+
 const withOutputEmpty = (resourceKey) => ({
   ...HOSTED_E2E_STARTING_PLAYER_STATE,
   materials: {
@@ -12,11 +20,12 @@ export const REMOTE_MANUAL_STARTING_PLAYER_STATE = Object.freeze({
   cleanCash: 1_000_000,
   dirtyCash: 500_000,
   population: 1_000,
+  influence: 2_000,
   spySlots: 2,
   materials: Object.freeze(Object.fromEntries(
-    Object.keys(HOSTED_E2E_STARTING_PLAYER_STATE.materials).map((materialId) => [
+    Object.keys(HOSTED_E2E_STARTING_PLAYER_STATE.materials).map((materialId, index) => [
       materialId,
-      500
+      REMOTE_MANUAL_MATERIAL_OVERRIDES[materialId] ?? 500 + index * 11
     ])
   ))
 });

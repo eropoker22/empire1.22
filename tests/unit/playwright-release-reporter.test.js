@@ -34,6 +34,41 @@ describe("Playwright release reporter", () => {
     reporter.onTestEnd({ id: "test:1", expectedStatus: result.expectedStatus }, result);
     await expect(reporter.onEnd({ status: "passed" })).resolves.toEqual({ status: "failed" });
   });
+
+  it("retains setup errors when Playwright fails before test discovery", async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), "empire-release-reporter-"));
+    cleanup.push(directory);
+    const summaryPath = path.join(directory, "summary.json");
+    const reporter = new PlaywrightReleaseReporter({ summaryPath });
+    reporter.onError({
+      message: "Process from config.webServer was not able to start. Exit code: 1"
+    });
+    reporter.onBegin({}, { allTests: () => [] });
+
+    await expect(reporter.onEnd({ status: "failed" })).resolves.toEqual({ status: "failed" });
+    await expect(readFile(summaryPath, "utf8").then(JSON.parse)).resolves.toMatchObject({
+      status: "not-passed",
+      counts: { total: 0, executed: 0 },
+      errors: ["Process from config.webServer was not able to start. Exit code: 1"]
+    });
+  });
+
+  it("redacts credentials and identifiers from setup diagnostics", async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), "empire-release-reporter-"));
+    cleanup.push(directory);
+    const summaryPath = path.join(directory, "summary.json");
+    const reporter = new PlaywrightReleaseReporter({ summaryPath });
+    reporter.onError({
+      message: 'database_url=postgresql://user:secret@db.invalid/game token=raw-token {"password":"json-secret","client_secret":"client-secret","x-api-key":"api-secret","authorization":"Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==","playerId":"123e4567-e89b-42d3-a456-426614174000"}'
+    });
+    reporter.onBegin({}, { allTests: () => [] });
+    await reporter.onEnd({ status: "failed" });
+
+    const summary = JSON.parse(await readFile(summaryPath, "utf8"));
+    expect(summary.errors.join(" ")).not.toMatch(
+      /secret|raw-token|QWxhZGRpbjpvcGVuIHNlc2FtZQ|123e4567/u
+    );
+  });
 });
 
 describe("local hosted release summary", () => {

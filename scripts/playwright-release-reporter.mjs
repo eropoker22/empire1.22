@@ -7,6 +7,7 @@ export default class PlaywrightReleaseReporter {
     this.startedAt = Date.now();
     this.total = 0;
     this.tests = new Map();
+    this.errors = [];
   }
 
   onBegin(_config, suite) {
@@ -19,6 +20,12 @@ export default class PlaywrightReleaseReporter {
     const current = this.tests.get(test.id) || { expectedStatus: test.expectedStatus, results: [] };
     current.results.push({ status: result.status, retry: result.retry });
     this.tests.set(test.id, current);
+  }
+
+  onError(error) {
+    const diagnostic = formatErrorDiagnostic(error);
+    this.errors.push(diagnostic);
+    console.error(`[release-playwright] error=${diagnostic}`);
   }
 
   async onEnd(result) {
@@ -38,13 +45,15 @@ export default class PlaywrightReleaseReporter {
       retries: finalResults.reduce((sum, test) => sum + test.retries, 0),
       flaky: finalResults.filter((test) => test.finalStatus === "passed" && test.attempts > 1).length
     };
-    const gatePassed = result.status === "passed" && counts.total > 0 && counts.failed === 0
+    const gatePassed = result.status === "passed" && this.errors.length === 0
+      && counts.total > 0 && counts.failed === 0
       && counts.skipped === 0 && counts.notRun === 0 && counts.retries === 0 && counts.flaky === 0;
     const summary = {
       status: gatePassed ? "passed" : "not-passed",
       playwrightStatus: result.status,
       durationMs: Date.now() - this.startedAt,
-      counts
+      counts,
+      errors: this.errors
     };
     if (!this.summaryPath) {
       console.error("[release-playwright] EMPIRE_PLAYWRIGHT_RELEASE_SUMMARY is required.");
@@ -60,4 +69,26 @@ export default class PlaywrightReleaseReporter {
   printsToStdio() {
     return true;
   }
+}
+
+function formatErrorDiagnostic(error) {
+  const raw = typeof error === "string"
+    ? error
+    : error?.message || error?.value || "Unknown Playwright error.";
+  return String(raw)
+    .replace(/(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/[^\s,;]+/giu, "[redacted]")
+    .replace(/(?:bearer|basic|flyv1)\s+[A-Za-z0-9._~+/=-]+/giu, "[redacted]")
+    .replace(/\b(?:gh[pousr]_|github_pat_|npm_|sk-)[A-Za-z0-9_-]+\b/giu, "[redacted]")
+    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/gu, "[redacted]")
+    .replace(
+      /(["']?(?:password|passwd|passphrase|secret|client[_-]?secret|token|cookie|set-cookie|authorization|auth(?:orization)?[_-]?header|credential|x-api-key|api[_-]?key|private[_-]?key|access[_-]?key|database[_-]?url|db[_-]?url|connection[_-]?string|dsn|email|dob|birth[_-]?date|username|nickname|gang[_-]?name|alliance[_-]?name|display[_-]?name|network[_-]?identifier|ip[_-]?address|player[_-]?id|account[_-]?id|server(?:[_-]?instance)?[_-]?id|session[_-]?id|membership[_-]?id)["']?\s*[:=]\s*)(?:"(?:\\.|[^"])*"|'(?:\\.|[^'])*'|[^\s,;}]+)/giu,
+      "$1[redacted]"
+    )
+    .replace(/([a-z][a-z0-9+.-]*:\/\/)[^/\s:@]+:[^/\s@]+@/giu, "$1[redacted]@")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu, "[redacted-email]")
+    .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/giu, "[redacted-id]")
+    .replace(/\b(?:player|account|server|session|membership):[A-Za-z0-9:._-]+/giu, "[redacted-id]")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, "")
+    .trim()
+    .slice(0, 4_000);
 }

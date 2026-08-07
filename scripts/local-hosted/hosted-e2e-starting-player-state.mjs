@@ -2,6 +2,7 @@ export const HOSTED_E2E_STARTING_PLAYER_STATE = Object.freeze({
   cleanCash: 100_000,
   dirtyCash: 50_000,
   population: 250,
+  influence: 0,
   spySlots: 2,
   materials: Object.freeze({
     chemicals: 200,

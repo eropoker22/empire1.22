@@ -7,10 +7,9 @@ import { assertSupportedNodeVersion } from "./supported-node-policy.mjs";
 import { assertSafeLocalHostedTestDatabase } from "./local-hosted/database-safety.mjs";
 import {
   createRunDirectory,
-  delay,
   runManagedCommand,
   startManagedProcess,
-  stopProcessTree,
+  stopManagedProcess,
   stopManagedProcesses,
   waitForHttp
 } from "./local-hosted/process-supervisor.mjs";
@@ -260,6 +259,7 @@ const MANUAL_HOSTED_STARTING_PLAYER_STATE = Object.freeze({
   cleanCash: 123_456,
   dirtyCash: 23_456,
   population: 345,
+  influence: 456,
   spySlots: 2,
   materials: Object.freeze(Object.fromEntries(
     Object.keys(HOSTED_E2E_STARTING_PLAYER_STATE.materials)
@@ -364,6 +364,7 @@ const environment = {
   EMPIRE_VITE_HOSTED_API_ORIGIN: apiOrigin,
   PORT: String(workerPort),
   PLAYWRIGHT_PORT: String(frontendPort),
+  PLAYWRIGHT_E2E_BASE_URL: browserOrigin,
   PLAYWRIGHT_SKIP_WEB_SERVER: "1",
   EMPIRE_HOSTED_UI_PARITY_E2E: "1",
   EMPIRE_CAPTURE_UI_PARITY_BASELINE: "1",
@@ -706,9 +707,7 @@ try {
       await startDisposableHostedServer(admin, server.serverInstanceId);
       if (suite.restartWorkerBeforeSpec) {
         result.status = "restarting-worker";
-        stopProcessTree(worker.child);
-        await Promise.race([worker.exited, delay(10_000)]);
-        await worker.saveLog();
+        await stopManagedProcess(worker);
         worker = startManagedProcess({
           name: `hosted-worker-${suite.name}-restart`,
           args: [hostedWorkerBundlePath],
