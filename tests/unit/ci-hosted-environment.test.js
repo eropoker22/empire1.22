@@ -71,6 +71,18 @@ describe("hosted CI environment generator", () => {
         .map((line) => line.slice("::add-mask::".length));
       const secrets = secretNames.map((name) => writtenEnvironment.get(name));
 
+      expect(writtenEnvironment.get("EMPIRE_DATABASE_URL")).toBe(
+        "postgresql://empire@127.0.0.1:5432/postgres"
+      );
+      expect(writtenEnvironment.get("GAMEPLAY_DATABASE_URL")).toBe(
+        writtenEnvironment.get("EMPIRE_DATABASE_URL")
+      );
+      expect(writtenEnvironment.get("EMPIRE_TEST_DATABASE_URL")).toBe(
+        "postgresql://empire@127.0.0.1:5432/empire_e2e"
+      );
+      expect(writtenEnvironment.get("EMPIRE_TEST_DATABASE_URL")).not.toBe(
+        writtenEnvironment.get("EMPIRE_DATABASE_URL")
+      );
       expect(masks).toHaveLength(secretNames.length);
       expect(new Set(masks).size).toBe(secretNames.length);
       expect(new Set(secrets).size).toBe(secretNames.length);

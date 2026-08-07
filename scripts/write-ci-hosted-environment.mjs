@@ -6,12 +6,13 @@ if (process.env.CI !== "true" || process.env.GITHUB_ACTIONS !== "true" || !githu
   throw new Error("CI hosted environment generation is restricted to GitHub Actions.");
 }
 
-const databaseUrl = "postgresql://empire@127.0.0.1:5432/empire_e2e";
+const runtimeDatabaseUrl = "postgresql://empire@127.0.0.1:5432/postgres";
+const testDatabaseUrl = "postgresql://empire@127.0.0.1:5432/empire_e2e";
 const secret = () => randomBytes(32).toString("base64url");
 const databaseEnvironment = {
-  EMPIRE_DATABASE_URL: databaseUrl,
-  GAMEPLAY_DATABASE_URL: databaseUrl,
-  EMPIRE_TEST_DATABASE_URL: databaseUrl
+  EMPIRE_DATABASE_URL: runtimeDatabaseUrl,
+  GAMEPLAY_DATABASE_URL: runtimeDatabaseUrl,
+  EMPIRE_TEST_DATABASE_URL: testDatabaseUrl
 };
 const secretEnvironment = {
   GAMEPLAY_SLICE_SESSION_SECRET: secret(),
