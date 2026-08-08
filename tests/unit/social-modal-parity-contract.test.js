@@ -72,8 +72,13 @@ describe("social modal parity coverage contract", () => {
       ".boost-card__icon > svg"
     );
     expect(socialModalParitySurfaces.boost.stableDescendantDevicePixelAlignmentMode).toBe(
-      "paint-origin"
+      "target-relative-paint-origin"
     );
+    expect(Object.entries(socialModalParitySurfaces)
+      .filter(([, definition]) => (
+        definition.stableDescendantDevicePixelAlignmentMode === "target-relative-paint-origin"
+      ))
+      .map(([surfaceName]) => surfaceName)).toEqual(["boost"]);
   });
 
   it("masks authoritative leaves without masking shells, cards or collections", () => {

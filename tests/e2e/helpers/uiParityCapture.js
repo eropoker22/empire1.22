@@ -1741,6 +1741,7 @@ export async function captureIsolatedParityScreenshot(page, {
   stableDescendantDevicePixelAlignmentSelector = "",
   stableDescendantDevicePixelAlignmentMode = "translate",
   stableTargetDevicePixelAlignment = false,
+  stableTargetDevicePixelAlignmentMode = "relative-offset",
   stableTargetStyleProperties = {},
   target
 }) {
@@ -1770,25 +1771,41 @@ export async function captureIsolatedParityScreenshot(page, {
   try {
     if (stableTargetDevicePixelAlignment) {
       const targetHandle = await resolveStableTargetHandle();
-      stableTargetAlignmentState = await targetHandle.evaluate((targetElement) => {
+      stableTargetAlignmentState = await targetHandle.evaluate((targetElement, alignmentMode) => {
+        if (!["relative-offset", "translate"].includes(alignmentMode)) {
+          throw new Error(`Unsupported parity target alignment mode: ${alignmentMode}`);
+        }
         const captureAttribute = "data-parity-capture-device-pixel-alignment";
         const token = `parity-device-pixel-${Date.now()}-${Math.random().toString(16).slice(2)}`;
         const previousToken = targetElement.getAttribute(captureAttribute);
         const computedStyle = window.getComputedStyle(targetElement);
-        const computedPosition = String(computedStyle.position || "").trim().toLowerCase();
-        if (computedPosition !== "relative") {
-          throw new Error(
-            `Parity device-pixel alignment cannot safely offset position ${computedPosition}.`
-          );
-        }
-        const offsetIsNeutral = (value) => {
-          const normalized = String(value || "auto").trim().toLowerCase();
-          return normalized === "auto" || /^0(?:\.0+)?px$/u.test(normalized);
-        };
-        if (!offsetIsNeutral(computedStyle.left) || !offsetIsNeutral(computedStyle.top)) {
-          throw new Error(
-            "Parity device-pixel alignment requires neutral relative offsets."
-          );
+        if (alignmentMode === "relative-offset") {
+          const computedPosition = String(computedStyle.position || "").trim().toLowerCase();
+          if (computedPosition !== "relative") {
+            throw new Error(
+              `Parity device-pixel alignment cannot safely offset position ${computedPosition}.`
+            );
+          }
+          const offsetIsNeutral = (value) => {
+            const normalized = String(value || "auto").trim().toLowerCase();
+            return normalized === "auto" || /^0(?:\.0+)?px$/u.test(normalized);
+          };
+          if (!offsetIsNeutral(computedStyle.left) || !offsetIsNeutral(computedStyle.top)) {
+            throw new Error(
+              "Parity device-pixel alignment requires neutral relative offsets."
+            );
+          }
+        } else {
+          const computedTranslate = String(computedStyle.translate || "none")
+            .trim()
+            .toLowerCase();
+          const neutralTranslate = computedTranslate === "none"
+            || /^0(?:\.0+)?px(?:\s+0(?:\.0+)?px){0,2}$/u.test(computedTranslate);
+          if (!neutralTranslate) {
+            throw new Error(
+              `Parity target alignment requires a neutral translate, received ${computedTranslate}.`
+            );
+          }
         }
         const rect = targetElement.getBoundingClientRect();
         const scale = Number.isFinite(window.devicePixelRatio) && window.devicePixelRatio > 0
@@ -1800,10 +1817,15 @@ export async function captureIsolatedParityScreenshot(page, {
         const deviceTop = rect.top * scale;
         const deltaX = (snapDown(deviceLeft) - deviceLeft) / scale;
         const deltaY = (snapDown(deviceTop) - deviceTop) / scale;
-        const entries = [
-          { propertyName: "left", value: `${Number(deltaX.toFixed(6))}px` },
-          { propertyName: "top", value: `${Number(deltaY.toFixed(6))}px` }
-        ].map((entry) => ({
+        const entries = (alignmentMode === "translate"
+          ? [{
+              propertyName: "translate",
+              value: `${Number(deltaX.toFixed(6))}px ${Number(deltaY.toFixed(6))}px`
+            }]
+          : [
+              { propertyName: "left", value: `${Number(deltaX.toFixed(6))}px` },
+              { propertyName: "top", value: `${Number(deltaY.toFixed(6))}px` }
+            ]).map((entry) => ({
           ...entry,
           previousPriority: targetElement.style.getPropertyPriority(entry.propertyName),
           previousValue: targetElement.style.getPropertyValue(entry.propertyName)
@@ -1842,7 +1864,7 @@ export async function captureIsolatedParityScreenshot(page, {
           previousToken,
           token
         };
-      });
+      }, stableTargetDevicePixelAlignmentMode);
       await settleFiniteAnimations(targetHandle);
       await targetHandle.evaluate((targetElement) => {
         const rect = targetElement.getBoundingClientRect();
@@ -1860,7 +1882,9 @@ export async function captureIsolatedParityScreenshot(page, {
       const targetHandle = await resolveStableTargetHandle();
       return targetHandle.evaluate(async (targetElement, config) => {
         const { alignmentMode, selector } = config;
-        if (!["paint-origin", "translate"].includes(alignmentMode)) {
+        const usesTargetRelativePaintOrigin = alignmentMode === "target-relative-paint-origin";
+        const usesPaintOrigin = alignmentMode === "paint-origin" || usesTargetRelativePaintOrigin;
+        if (!usesPaintOrigin && alignmentMode !== "translate") {
           throw new Error(`Unsupported parity descendant alignment mode: ${alignmentMode}`);
         }
         const captureAttribute = "data-parity-capture-descendant-device-pixel-alignment";
@@ -1948,7 +1972,7 @@ export async function captureIsolatedParityScreenshot(page, {
             const measurements = elements.map((element, index) => {
               const computedStyle = window.getComputedStyle(element);
               let styles;
-              if (alignmentMode === "paint-origin") {
+              if (usesPaintOrigin) {
                 const computedPosition = String(computedStyle.position || "static")
                   .trim()
                   .toLowerCase();
@@ -2014,16 +2038,23 @@ export async function captureIsolatedParityScreenshot(page, {
               });
             });
             await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            const neutralCaptureTargetRect = targetElement.getBoundingClientRect();
             entries.forEach((entry) => {
               if (!entryIsAvailable(entry)) {
                 throw createLostEntryError(entry, "neutral settle", attempt);
               }
               const rect = entry.element.getBoundingClientRect();
-              const deviceLeft = rect.left * scale;
-              const deviceTop = rect.top * scale;
+              const alignmentOriginLeft = usesTargetRelativePaintOrigin
+                ? neutralCaptureTargetRect.left
+                : 0;
+              const alignmentOriginTop = usesTargetRelativePaintOrigin
+                ? neutralCaptureTargetRect.top
+                : 0;
+              const deviceLeft = (rect.left - alignmentOriginLeft) * scale;
+              const deviceTop = (rect.top - alignmentOriginTop) * scale;
               const deltaX = (snapDown(deviceLeft) - deviceLeft) / scale;
               const deltaY = (snapDown(deviceTop) - deviceTop) / scale;
-              if (alignmentMode === "paint-origin") {
+              if (usesPaintOrigin) {
                 const leftEntry = entry.styles.find(({ propertyName }) => propertyName === "left");
                 const topEntry = entry.styles.find(({ propertyName }) => propertyName === "top");
                 leftEntry.value = `${Number(deltaX.toFixed(6))}px`;
@@ -2054,12 +2085,19 @@ export async function captureIsolatedParityScreenshot(page, {
               }
             });
             await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            const alignedCaptureTargetRect = targetElement.getBoundingClientRect();
             entries.forEach((entry) => {
               if (!entryIsAvailable(entry)) {
                 throw createLostEntryError(entry, "origin settle", attempt);
               }
               const rect = entry.element.getBoundingClientRect();
-              const deviceOrigin = [rect.left, rect.top].map((value) => value * scale);
+              const alignmentOrigin = usesTargetRelativePaintOrigin
+                ? [alignedCaptureTargetRect.left, alignedCaptureTargetRect.top]
+                : [0, 0];
+              const deviceOrigin = [
+                (rect.left - alignmentOrigin[0]) * scale,
+                (rect.top - alignmentOrigin[1]) * scale
+              ];
               if (deviceOrigin.some((value) => Math.abs(value - Math.round(value)) > 0.02)) {
                 throw new Error(
                   `Parity descendant alignment could not stabilize the device-pixel origin: ${selector}`

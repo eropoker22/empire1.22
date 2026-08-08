@@ -350,6 +350,8 @@ async function attachOpenBuildingScreenshot({
     stableDescendantDevicePixelAlignmentMode: ["buildingDetail", "district"].includes(surfaceName)
       ? "paint-origin"
       : "translate",
+    stableTargetDevicePixelAlignment: surfaceName === "district",
+    stableTargetDevicePixelAlignmentMode: "translate",
     stableTargetStyleProperties: surfaceName === "district"
       ? {
           "--district-owner-avatar-opacity": "0",

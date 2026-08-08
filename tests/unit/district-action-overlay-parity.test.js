@@ -127,12 +127,47 @@ describe("district action overlay parity coverage", () => {
       .toEqual(["[data-attack-setup-atmosphere-image]"]);
     expect(districtActionOverlayDefinitions["attack-confirm"].dynamicAssetSelectors)
       .toEqual(["[data-attack-confirm-atmosphere-image]"]);
+    expect(Object.fromEntries([
+      "spy-confirm",
+      "robbery-confirm",
+      "attack-confirm",
+      "occupy-confirm"
+    ].map((surfaceName) => [
+      surfaceName,
+      districtActionOverlayDefinitions[surfaceName].dynamicValueWrapperSelectors
+    ]))).toEqual({
+      "spy-confirm": [
+        "[data-spy-confirm-available]",
+        "[data-spy-confirm-duration]"
+      ],
+      "robbery-confirm": [
+        "[data-robbery-confirm-members]",
+        "[data-robbery-confirm-duration]"
+      ],
+      "attack-confirm": [
+        "[data-attack-confirm-source]",
+        "[data-attack-confirm-members]",
+        "[data-attack-confirm-power]",
+        "[data-attack-confirm-scenario]",
+        "[data-attack-confirm-duration]"
+      ],
+      "occupy-confirm": [
+        "[data-occupy-confirm-cost]",
+        "[data-occupy-confirm-duration]"
+      ]
+    });
 
     for (const definition of Object.values(districtActionOverlayDefinitions)) {
       for (const selector of [
         ...definition.dynamicAssetSelectors,
         ...definition.dynamicLeafSelectors
       ]) {
+        expect(selector).not.toBe("*");
+        expect(selector).not.toBe(definition.shellSelector);
+        expect(selector).not.toBe(definition.targetSelector);
+      }
+      for (const selector of definition.dynamicValueWrapperSelectors) {
+        expect(definition.dynamicLeafSelectors).toContain(selector);
         expect(selector).not.toBe("*");
         expect(selector).not.toBe(definition.shellSelector);
         expect(selector).not.toBe(definition.targetSelector);

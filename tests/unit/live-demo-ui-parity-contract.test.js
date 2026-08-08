@@ -46,6 +46,16 @@ describe("live/demo UI parity source contract", () => {
       'stableDescendantDevicePixelAlignmentMode: ["buildingDetail", "district"].includes(surfaceName)'
     );
     expect(paritySpec).toContain('? "paint-origin"');
+    expect(paritySpec).toContain(
+      'stableTargetDevicePixelAlignment: surfaceName === "district"'
+    );
+    expect(paritySpec).toContain('stableTargetDevicePixelAlignmentMode: "translate"');
+    expect(parityCapture).toContain(
+      'stableTargetDevicePixelAlignmentMode = "relative-offset"'
+    );
+    expect(parityCapture).toContain(
+      '["relative-offset", "translate"].includes(alignmentMode)'
+    );
     expect(parityCapture).toContain("stableTargetStyleProperties = {}");
     expect(parityCapture).toContain(
       'targetElement.style.setProperty(propertyName, value, "important")'

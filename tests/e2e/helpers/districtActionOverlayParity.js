@@ -52,6 +52,10 @@ export const districtActionOverlayDefinitions = Object.freeze({
       "[data-spy-confirm-available]",
       "[data-spy-confirm-duration]"
     ],
+    dynamicValueWrapperSelectors: [
+      "[data-spy-confirm-available]",
+      "[data-spy-confirm-duration]"
+    ],
     hostedRole: "creator",
     hostedTargetDistrictId: "district:25",
     localRole: "creator",
@@ -111,7 +115,10 @@ export const districtActionOverlayDefinitions = Object.freeze({
       "[data-robbery-confirm-members]",
       "[data-robbery-confirm-duration]"
     ],
-    dynamicValueWrapperSelectors: ["[data-robbery-confirm-duration]"],
+    dynamicValueWrapperSelectors: [
+      "[data-robbery-confirm-members]",
+      "[data-robbery-confirm-duration]"
+    ],
     hostedRole: "creator",
     hostedTargetDistrictId: "district:24",
     localRole: "creator",
@@ -184,6 +191,13 @@ export const districtActionOverlayDefinitions = Object.freeze({
       "[data-attack-confirm-duration]",
       "[data-attack-confirm-note]"
     ],
+    dynamicValueWrapperSelectors: [
+      "[data-attack-confirm-source]",
+      "[data-attack-confirm-members]",
+      "[data-attack-confirm-power]",
+      "[data-attack-confirm-scenario]",
+      "[data-attack-confirm-duration]"
+    ],
     hostedRole: "hunter",
     hostedTargetDistrictId: "district:2",
     localRole: "attacker",
@@ -208,6 +222,10 @@ export const districtActionOverlayDefinitions = Object.freeze({
       "[data-occupy-confirm-cost]",
       "[data-occupy-confirm-duration]",
       "[data-occupy-confirm-note]"
+    ],
+    dynamicValueWrapperSelectors: [
+      "[data-occupy-confirm-cost]",
+      "[data-occupy-confirm-duration]"
     ],
     hostedRole: "creator",
     hostedTargetDistrictId: "district:6",

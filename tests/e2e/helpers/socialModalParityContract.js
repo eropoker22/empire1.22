@@ -160,7 +160,7 @@ export const socialModalParitySurfaces = Object.freeze({
     ]),
     shellSelector: "#boost-modal",
     stableDescendantDevicePixelAlignmentSelector: ".boost-card__icon > svg",
-    stableDescendantDevicePixelAlignmentMode: "paint-origin",
+    stableDescendantDevicePixelAlignmentMode: "target-relative-paint-origin",
     targetSelector: ".boost-modal__content",
     triggerSelector: "[data-boost-open-trigger]"
   })
