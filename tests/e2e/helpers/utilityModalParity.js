@@ -340,6 +340,7 @@ export async function getUtilityParitySurfaceSignature(page, surfaceName) {
   const target = page.locator(`${definition.targetSelector}:visible`).last();
   await expect(target).toBeVisible();
   return target.evaluate((targetElement, config) => {
+    const authoritativeText = config.authoritativeText;
     const normalizeText = (value) => String(value || "").replace(/\s+/gu, " ").trim();
     const isVisible = (element) => {
       if (!(element instanceof Element) || element.hasAttribute("hidden")) return false;
@@ -459,7 +460,7 @@ export async function getUtilityParitySurfaceSignature(page, surfaceName) {
           ariaDisabled: element.getAttribute("aria-disabled"),
           ariaExpanded: element.getAttribute("aria-expanded"),
           ariaLabel: isAuthoritativeLeaf(element)
-            ? AUTHORITATIVE_TEXT
+            ? authoritativeText
             : element.getAttribute("aria-label"),
           ariaSelected: element.getAttribute("aria-selected"),
           checked: "checked" in element ? Boolean(element.checked) : null,
@@ -472,14 +473,14 @@ export async function getUtilityParitySurfaceSignature(page, surfaceName) {
           tabIndex: element.tabIndex,
           tag: element.tagName.toLowerCase(),
           text: isAuthoritativeLeaf(element)
-            ? AUTHORITATIVE_TEXT
+            ? authoritativeText
             : normalizeText(element.textContent),
           type: element.getAttribute("type"),
           value: "value" in element ? String(element.value || "") : null
         })),
       domTree: visibleNodes.map((element) => ({
-        alt: isAuthoritativeLeaf(element) ? AUTHORITATIVE_TEXT : element.getAttribute("alt"),
-        ariaLabel: isAuthoritativeLeaf(element) ? AUTHORITATIVE_TEXT : element.getAttribute("aria-label"),
+        alt: isAuthoritativeLeaf(element) ? authoritativeText : element.getAttribute("alt"),
+        ariaLabel: isAuthoritativeLeaf(element) ? authoritativeText : element.getAttribute("aria-label"),
         ariaSelected: element.getAttribute("aria-selected"),
         classes: classNames(element),
         dataset: dataset(element),
@@ -487,11 +488,11 @@ export async function getUtilityParitySurfaceSignature(page, surfaceName) {
         path: elementPath(element),
         role: element.getAttribute("role"),
         src: element.matches?.("img")
-          ? isAuthoritativeLeaf(element) ? AUTHORITATIVE_TEXT : element.getAttribute("src")
+          ? isAuthoritativeLeaf(element) ? authoritativeText : element.getAttribute("src")
           : null,
         tag: element.tagName.toLowerCase(),
         text: element.children.length === 0
-          ? isAuthoritativeLeaf(element) ? AUTHORITATIVE_TEXT : normalizeText(element.textContent)
+          ? isAuthoritativeLeaf(element) ? authoritativeText : normalizeText(element.textContent)
           : ""
       })),
       focus: {
@@ -555,6 +556,7 @@ export async function getUtilityParitySurfaceSignature(page, surfaceName) {
         .length
     };
   }, {
+    authoritativeText: AUTHORITATIVE_TEXT,
     computedStyleProperties: parityComputedStyleProperties,
     dynamicLeafSelector: definition.dynamicLeafSelector,
     requiredSectionSelectors: definition.requiredSectionSelectors,

@@ -14,6 +14,8 @@ import {
 } from "../../../scripts/local-hosted/hosted-e2e-starting-player-state.mjs";
 
 const AUTHORITATIVE_TEXT = "<authoritative>";
+const CANONICAL_LAYOUT_TEXT_STATE_PROPERTY =
+  "__empireDistrictActionParityCanonicalLayoutTextState";
 
 export const districtActionOverlayParityViewports = modalParityViewports;
 
@@ -33,6 +35,9 @@ export const districtActionOverlayNames = Object.freeze([
 
 const freezeDefinition = (definition) => Object.freeze({
   ...definition,
+  canonicalLayoutTextEntries: Object.freeze(
+    (definition.canonicalLayoutTextEntries || []).map((entry) => Object.freeze({ ...entry }))
+  ),
   dynamicAssetSelectors: Object.freeze([...(definition.dynamicAssetSelectors || [])]),
   dynamicLeafSelectors: Object.freeze([...(definition.dynamicLeafSelectors || [])]),
   dynamicValueWrapperSelectors: Object.freeze([
@@ -215,6 +220,10 @@ export const districtActionOverlayDefinitions = Object.freeze({
   }),
   "occupy-confirm": freezeDefinition({
     actionId: "occupy",
+    canonicalLayoutTextEntries: [{
+      selector: "[data-occupy-confirm-note]",
+      text: "Po potvrzení se spustí obsazování. District bliká tvojí barvou a po doběhnutí přejde pod tebe."
+    }],
     closeSelector: "[data-occupy-confirm-close]",
     dynamicLeafSelectors: [
       "[data-occupy-confirm-title]",
@@ -337,6 +346,23 @@ export function validateDistrictActionOverlayParityCoverage({
       || selector === definition.targetSelector
     ))) {
       throw new Error(`District action parity surface ${surfaceName} masks a structural container.`);
+    }
+    const canonicalLayoutTextSelectors = new Set();
+    for (const entry of definition.canonicalLayoutTextEntries) {
+      if (!entry?.selector || !entry?.text) {
+        throw new Error(`District action parity surface ${surfaceName} has invalid canonical layout text.`);
+      }
+      if (!definition.dynamicLeafSelectors.includes(entry.selector)) {
+        throw new Error(
+          `District action parity surface ${surfaceName} canonicalizes a non-dynamic layout leaf.`
+        );
+      }
+      if (canonicalLayoutTextSelectors.has(entry.selector)) {
+        throw new Error(
+          `District action parity surface ${surfaceName} canonicalizes the same layout leaf twice.`
+        );
+      }
+      canonicalLayoutTextSelectors.add(entry.selector);
     }
   }
 
@@ -650,6 +676,116 @@ export async function closeDistrictActionParitySurfaces(page) {
   }
   await expect(page.locator("[data-district-popup]:visible")).toHaveCount(0);
   await expect(page.locator("body")).not.toHaveClass(/\bgame-mobile-close-guard\b/u);
+}
+
+export async function applyDistrictActionOverlayCanonicalLayoutText(page, surfaceName) {
+  const definition = resolveDistrictActionOverlayDefinition(surfaceName);
+  if (definition.canonicalLayoutTextEntries.length === 0) {
+    return { entries: [] };
+  }
+  const target = page.locator(`${definition.targetSelector}:visible`).last();
+  await expect(target).toBeVisible();
+  return target.evaluate(async (targetElement, config) => {
+    const isVisible = (element) => {
+      if (!(element instanceof Element) || element.hasAttribute("hidden")) return false;
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none"
+        && style.visibility !== "hidden"
+        && Number(style.opacity || 1) > 0
+        && rect.width > 0
+        && rect.height > 0;
+    };
+    const appliedEntries = [];
+    const restoreEntry = ({ element, token }) => {
+      const record = element[config.stateProperty];
+      if (!record || record.token !== token) return;
+      if (element.textContent === record.canonicalText) {
+        element.textContent = record.originalText;
+      }
+      delete element[config.stateProperty];
+    };
+
+    try {
+      for (const [index, entry] of config.entries.entries()) {
+        const matches = Array.from(targetElement.querySelectorAll(entry.selector)).filter(isVisible);
+        if (matches.length !== 1) {
+          throw new Error(
+            `${config.surfaceName} canonical layout leaf ${entry.selector} matched ${matches.length} visible elements.`
+          );
+        }
+        const element = matches[0];
+        if (element.childElementCount !== 0) {
+          throw new Error(
+            `${config.surfaceName} canonical layout leaf ${entry.selector} must remain text-only.`
+          );
+        }
+        if (element[config.stateProperty]) {
+          throw new Error(
+            `${config.surfaceName} canonical layout leaf ${entry.selector} is already normalized.`
+          );
+        }
+        const token = `${Date.now().toString(36)}-${index}-${Math.random().toString(36).slice(2)}`;
+        Object.defineProperty(element, config.stateProperty, {
+          configurable: true,
+          value: {
+            canonicalText: entry.text,
+            originalText: element.textContent,
+            token
+          },
+          writable: true
+        });
+        element.textContent = entry.text;
+        appliedEntries.push({ element, selector: entry.selector, token });
+      }
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      return {
+        entries: appliedEntries.map(({ selector, token }) => ({ selector, token }))
+      };
+    } catch (error) {
+      for (const appliedEntry of [...appliedEntries].reverse()) {
+        restoreEntry(appliedEntry);
+      }
+      throw error;
+    }
+  }, {
+    entries: definition.canonicalLayoutTextEntries,
+    stateProperty: CANONICAL_LAYOUT_TEXT_STATE_PROPERTY,
+    surfaceName
+  });
+}
+
+export async function restoreDistrictActionOverlayCanonicalLayoutText(
+  page,
+  surfaceName,
+  state
+) {
+  resolveDistrictActionOverlayDefinition(surfaceName);
+  if (!state?.entries?.length) return [];
+  return page.evaluate(async (config) => {
+    const results = [];
+    for (const entry of config.entries) {
+      const element = Array.from(document.querySelectorAll(entry.selector))
+        .find((candidate) => candidate[config.stateProperty]?.token === entry.token);
+      if (!element) {
+        results.push({ selector: entry.selector, status: "detached-or-replaced" });
+        continue;
+      }
+      const record = element[config.stateProperty];
+      if (element.textContent === record.canonicalText) {
+        element.textContent = record.originalText;
+        results.push({ selector: entry.selector, status: "restored" });
+      } else {
+        results.push({ selector: entry.selector, status: "preserved-live-update" });
+      }
+      delete element[config.stateProperty];
+    }
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    return results;
+  }, {
+    entries: state.entries,
+    stateProperty: CANONICAL_LAYOUT_TEXT_STATE_PROPERTY
+  });
 }
 
 export async function getDistrictActionOverlayPresentationSignature(page, surfaceName) {

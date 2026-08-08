@@ -128,4 +128,14 @@ describe("utility modal parity coverage contract", () => {
     expect(specSource).toContain("setViewportSize(viewport)");
     expect(specSource.match(/await registerAndEnterHostedUiParityGame\(/gu) || []).toHaveLength(1);
   });
+
+  it("serializes the authoritative marker into the browser signature callback", () => {
+    const helperSource = readFileSync(
+      new URL("../e2e/helpers/utilityModalParity.js", import.meta.url),
+      "utf8"
+    );
+    expect(helperSource).toContain("const authoritativeText = config.authoritativeText;");
+    expect(helperSource).toContain("authoritativeText: AUTHORITATIVE_TEXT");
+    expect(helperSource.match(/\? authoritativeText/gu)?.length).toBeGreaterThanOrEqual(6);
+  });
 });

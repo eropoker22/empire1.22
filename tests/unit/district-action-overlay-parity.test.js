@@ -123,6 +123,11 @@ describe("district action overlay parity coverage", () => {
     expect(districtActionOverlayDefinitions["attack-setup"].hostedTargetDistrictId).toBe("district:2");
     expect(districtActionOverlayDefinitions["attack-confirm"].hostedTargetDistrictId).toBe("district:2");
     expect(districtActionOverlayDefinitions["occupy-confirm"].hostedTargetDistrictId).toBe("district:6");
+    expect(districtActionOverlayDefinitions["occupy-confirm"].canonicalLayoutTextEntries)
+      .toEqual([{
+        selector: "[data-occupy-confirm-note]",
+        text: "Po potvrzení se spustí obsazování. District bliká tvojí barvou a po doběhnutí přejde pod tebe."
+      }]);
     expect(districtActionOverlayDefinitions["attack-setup"].dynamicAssetSelectors)
       .toEqual(["[data-attack-setup-atmosphere-image]"]);
     expect(districtActionOverlayDefinitions["attack-confirm"].dynamicAssetSelectors)
@@ -171,6 +176,10 @@ describe("district action overlay parity coverage", () => {
         expect(selector).not.toBe("*");
         expect(selector).not.toBe(definition.shellSelector);
         expect(selector).not.toBe(definition.targetSelector);
+      }
+      for (const { selector, text } of definition.canonicalLayoutTextEntries) {
+        expect(definition.dynamicLeafSelectors).toContain(selector);
+        expect(text).toBeTruthy();
       }
     }
   });
@@ -240,6 +249,8 @@ describe("district action overlay parity coverage", () => {
     expect(specSource).toContain('test.describe.configure({ mode: "serial" })');
     expect(specSource).toContain("districtActionOverlayParityViewportBatches");
     expect(specSource).toContain("setViewportSize(viewport)");
+    expect(specSource).toContain("applyDistrictActionOverlayCanonicalLayoutText");
+    expect(specSource).toContain("restoreDistrictActionOverlayCanonicalLayoutText");
     expect(specSource.match(/await loginAndResumeHostedUiParityGame\(/gu) || []).toHaveLength(1);
     expect(specSource).not.toContain("data-spy-confirm-button");
     expect(specSource).not.toContain("data-robbery-confirm-button");

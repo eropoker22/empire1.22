@@ -8,6 +8,7 @@ import {
   PARITY_PNG_CHANNEL_TOLERANCE
 } from "./helpers/uiParityCapture.js";
 import {
+  applyDistrictActionOverlayCanonicalLayoutText,
   captureDistrictActionOverlayScreenshot,
   closeDistrictActionParitySurfaces,
   districtActionOverlayDefinitions,
@@ -20,6 +21,7 @@ import {
   getDistrictActionOverlayPresentationSignature,
   openDistrictActionOverlayFromVisibleUi,
   openLocalDemoDistrictActionParityRole,
+  restoreDistrictActionOverlayCanonicalLayoutText,
   validateDistrictActionOverlayParityCoverage
 } from "./helpers/districtActionOverlayParity.js";
 
@@ -131,7 +133,14 @@ test.describe("fixture-backed live/demo district action overlay parity", () => {
             openDistrictActionOverlayFromVisibleUi(hostedPage, surfaceName, { authority: "hosted" })
           ]);
 
+          let localCanonicalLayoutTextState = null;
+          let hostedCanonicalLayoutTextState = null;
+          let primaryFailure = null;
           try {
+            localCanonicalLayoutTextState =
+              await applyDistrictActionOverlayCanonicalLayoutText(localPage, surfaceName);
+            hostedCanonicalLayoutTextState =
+              await applyDistrictActionOverlayCanonicalLayoutText(hostedPage, surfaceName);
             const [localSignature, hostedSignature] = await Promise.all([
               getDistrictActionOverlayPresentationSignature(localPage, surfaceName),
               getDistrictActionOverlayPresentationSignature(hostedPage, surfaceName)
@@ -201,11 +210,33 @@ test.describe("fixture-backed live/demo district action overlay parity", () => {
             ).toBe(0);
             expect(screenshotComparison.matches).toBe(true);
             completedComparisons.push(`${viewport.name}:${surfaceName}`);
+          } catch (error) {
+            primaryFailure = error;
+            throw error;
           } finally {
-            await Promise.all([
+            const restorationResults = await Promise.allSettled([
+              localCanonicalLayoutTextState
+                ? restoreDistrictActionOverlayCanonicalLayoutText(
+                    localPage,
+                    surfaceName,
+                    localCanonicalLayoutTextState
+                  )
+                : Promise.resolve(),
+              hostedCanonicalLayoutTextState
+                ? restoreDistrictActionOverlayCanonicalLayoutText(
+                    hostedPage,
+                    surfaceName,
+                    hostedCanonicalLayoutTextState
+                  )
+                : Promise.resolve()
+            ]);
+            const closeResults = await Promise.allSettled([
               closeDistrictActionParitySurfaces(localPage),
               closeDistrictActionParitySurfaces(hostedPage)
             ]);
+            const cleanupFailure = [...restorationResults, ...closeResults]
+              .find((result) => result.status === "rejected");
+            if (cleanupFailure && !primaryFailure) throw cleanupFailure.reason;
           }
         }
       });
