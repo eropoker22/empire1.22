@@ -2038,7 +2038,9 @@ export async function captureIsolatedParityScreenshot(page, {
               });
             });
             await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-            const neutralCaptureTargetRect = targetElement.getBoundingClientRect();
+            const neutralCaptureTargetRect = usesTargetRelativePaintOrigin
+              ? targetElement.getBoundingClientRect()
+              : null;
             entries.forEach((entry) => {
               if (!entryIsAvailable(entry)) {
                 throw createLostEntryError(entry, "neutral settle", attempt);
@@ -2085,7 +2087,9 @@ export async function captureIsolatedParityScreenshot(page, {
               }
             });
             await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-            const alignedCaptureTargetRect = targetElement.getBoundingClientRect();
+            const alignedCaptureTargetRect = usesTargetRelativePaintOrigin
+              ? targetElement.getBoundingClientRect()
+              : null;
             entries.forEach((entry) => {
               if (!entryIsAvailable(entry)) {
                 throw createLostEntryError(entry, "origin settle", attempt);
