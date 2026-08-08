@@ -182,7 +182,7 @@ const setBodyModalState = (documentRef, open) => {
   documentRef.body.classList.toggle("login-modal-open", openModalCount > 0);
 };
 
-const bindDialog = ({ overlay, openButtons, closeSelector, onOpen, onKeyDown }) => {
+const bindDialog = ({ overlay, openButtons, closeSelector, onOpen, onClose, onKeyDown }) => {
   if (!(overlay instanceof HTMLElement) || overlay.dataset.loginModalBound === "true") return;
   const dialog = overlay.querySelector("[role='dialog']");
   if (!(dialog instanceof HTMLElement)) return;
@@ -195,6 +195,7 @@ const bindDialog = ({ overlay, openButtons, closeSelector, onOpen, onKeyDown }) 
     overlay.setAttribute("aria-hidden", "true");
     setBodyModalState(overlay.ownerDocument, false);
     restoreFocus?.focus?.();
+    onClose?.();
   };
   const open = (button) => {
     if (isOpen) return;
@@ -263,8 +264,16 @@ export const bindLoginInfoModals = (root = document) => {
     overlay,
     openButtons,
     closeSelector: "[data-login-info-close]",
+    onClose: () => {
+      overlay.removeAttribute("data-login-info-section");
+      const dialog = overlay.querySelector("[role='dialog']");
+      dialog?.removeAttribute("data-login-info-section");
+    },
     onOpen: (button) => {
       const modalId = button?.getAttribute?.("data-login-info-open") || "";
+      overlay.dataset.loginInfoSection = modalId;
+      const dialog = overlay.querySelector("[role='dialog']");
+      dialog?.setAttribute("data-login-info-section", modalId);
       const label = LOGIN_INFO_LABELS[modalId] || "Informace";
       const title = overlay.querySelector("[data-login-info-title]");
       if (title) title.textContent = `/ ${label.toUpperCase()}`;

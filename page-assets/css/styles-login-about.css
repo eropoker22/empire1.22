@@ -396,13 +396,9 @@ body.auth-body--login .login-about-overlay--encyclopedia .login-about-terminal-h
 }
 
 @media (min-width: 781px) {
-  body.auth-body--login .login-info-dialog:has(
-    > .login-info-content:is(
-      [data-login-info-section="help"],
-      [data-login-info-section="terms"],
-      [data-login-info-section="privacy"]
-    )
-  ) {
+  body.auth-body--login .login-info-dialog[data-login-info-section="help"],
+  body.auth-body--login .login-info-dialog[data-login-info-section="terms"],
+  body.auth-body--login .login-info-dialog[data-login-info-section="privacy"] {
     box-sizing: border-box;
     width: min(1120px, calc(100vw - 72px));
     max-width: 1120px;
@@ -459,6 +455,27 @@ body.auth-body--login .login-about-overlay--encyclopedia .login-about-terminal-h
 }
 
 @media (max-width: 520px), (max-width: 720px) and (max-height: 520px) {
+  body.auth-body--login .login-info-overlay[data-login-info-section="help"],
+  body.auth-body--login .login-info-overlay[data-login-info-section="terms"],
+  body.auth-body--login .login-info-overlay[data-login-info-section="privacy"] {
+    align-items: center;
+    padding:
+      max(14px, env(safe-area-inset-top))
+      max(12px, env(safe-area-inset-right))
+      max(14px, env(safe-area-inset-bottom))
+      max(12px, env(safe-area-inset-left));
+  }
+
+  body.auth-body--login .login-info-overlay[data-login-info-section="help"] .login-info-dialog,
+  body.auth-body--login .login-info-overlay[data-login-info-section="terms"] .login-info-dialog,
+  body.auth-body--login .login-info-overlay[data-login-info-section="privacy"] .login-info-dialog {
+    width: min(100%, 560px);
+    height: min(86dvh, 680px);
+    min-height: 0;
+    max-height: 100%;
+    border-radius: 14px;
+  }
+
   body.auth-body--login .login-about-overlay--encyclopedia {
     align-items: center;
     box-sizing: border-box;
