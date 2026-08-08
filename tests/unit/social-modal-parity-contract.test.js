@@ -74,6 +74,8 @@ describe("social modal parity coverage contract", () => {
     expect(socialModalParitySurfaces.boost.stableDescendantDevicePixelAlignmentMode).toBe(
       "target-relative-paint-origin"
     );
+    expect(socialModalParitySurfaces.boost.stableTargetDevicePixelAlignment).toBe(true);
+    expect(socialModalParitySurfaces.boost.stableTargetDevicePixelAlignmentMode).toBe("translate");
     expect(Object.entries(socialModalParitySurfaces)
       .filter(([, definition]) => (
         definition.stableDescendantDevicePixelAlignmentMode === "target-relative-paint-origin"
@@ -204,6 +206,12 @@ describe("social modal parity coverage contract", () => {
     );
     expect(helperSource).toContain(
       'definition.stableDescendantDevicePixelAlignmentMode || "translate"'
+    );
+    expect(helperSource).toContain(
+      "definition.stableTargetDevicePixelAlignment === true"
+    );
+    expect(helperSource).toContain(
+      'definition.stableTargetDevicePixelAlignmentMode || "relative-offset"'
     );
     expect(helperSource).toContain(
       "requestAnimationFrame(() => requestAnimationFrame(resolve));"

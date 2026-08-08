@@ -161,6 +161,8 @@ export const socialModalParitySurfaces = Object.freeze({
     shellSelector: "#boost-modal",
     stableDescendantDevicePixelAlignmentSelector: ".boost-card__icon > svg",
     stableDescendantDevicePixelAlignmentMode: "target-relative-paint-origin",
+    stableTargetDevicePixelAlignment: true,
+    stableTargetDevicePixelAlignmentMode: "translate",
     targetSelector: ".boost-modal__content",
     triggerSelector: "[data-boost-open-trigger]"
   })
@@ -679,6 +681,10 @@ export async function captureSocialModalParityScreenshot(page, {
       definition.stableDescendantDevicePixelAlignmentSelector || "",
     stableDescendantDevicePixelAlignmentMode:
       definition.stableDescendantDevicePixelAlignmentMode || "translate",
+    stableTargetDevicePixelAlignment:
+      definition.stableTargetDevicePixelAlignment === true,
+    stableTargetDevicePixelAlignmentMode:
+      definition.stableTargetDevicePixelAlignmentMode || "relative-offset",
     target
   });
 }
