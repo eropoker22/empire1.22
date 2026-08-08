@@ -212,8 +212,8 @@ describe("district action overlay parity coverage", () => {
     expect(helperSource).toContain('not.toHaveClass(/\\bgame-mobile-close-guard\\b/u)');
     expect(helperSource).toContain("new MutationObserver(normalizeRecords)");
     expect(helperSource).toContain("record.latestActualText = element.textContent");
-    expect(helperSource).toContain("capture.observer.takeRecords()");
-    expect(helperSource).toContain("capture.observer.disconnect()");
+    expect(helperSource).toContain("capture.observer?.takeRecords()");
+    expect(helperSource).toContain("capture.observer?.disconnect()");
     expect(helperSource).toContain("globalThis[config.stateProperty]");
     expect(helperSource).not.toContain("/api/gameplay-slice/submit");
     expect(helperSource).not.toContain("openDistrictAsync");
