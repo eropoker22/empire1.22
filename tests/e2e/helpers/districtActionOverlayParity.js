@@ -260,7 +260,7 @@ const localRoleDefinitions = Object.freeze({
     startDistrictId: 1
   }),
   occupier: Object.freeze({
-    ownedDistrictIds: Object.freeze([5, 28]),
+    ownedDistrictIds: Object.freeze([1, 5]),
     revealedDefenseDistrictIds: Object.freeze([6]),
     revealedTypeDistrictIds: Object.freeze([6]),
     occupiableDistrictIds: Object.freeze([6]),

@@ -84,6 +84,9 @@ describe("live/demo UI parity source contract", () => {
       'removeAttribute("data-parity-capture-stable-raster")'
     );
     expect(paritySpec).toContain(
+      'surfaceName === "pharmacy" ? ".pharmacy-slot__metric" : ""'
+    );
+    expect(paritySpec).toContain(
       'surfaceName === "pharmacy" ? ".pharmacy-slot__quantity-btn" : ""'
     );
     expect(paritySpec).toContain(
