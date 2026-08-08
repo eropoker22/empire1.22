@@ -147,7 +147,6 @@ function createPinnedTargetStyleCaptureHarness({
     [propertyName]: { priority: "", value: "0" }
   });
   let handleEvaluateCall = 0;
-  let locatorEvaluateCall = 0;
   const handle = {
     dispose: vi.fn().mockResolvedValue(undefined),
     evaluate: vi.fn(async (callback, argument) => {
@@ -156,6 +155,13 @@ function createPinnedTargetStyleCaptureHarness({
       if (handleEvaluateCall === 2) {
         onSettle?.({ original, propertyName, replacement });
         return undefined;
+      }
+      if (handleEvaluateCall === 3) {
+        return {
+          dynamicRegions: [],
+          roundedBox: { height: 100, radii: {}, width: 100 },
+          roundedBoxes: []
+        };
       }
       if (cleanupError) throw cleanupError;
       return callback(original.element, argument);
@@ -168,17 +174,7 @@ function createPinnedTargetStyleCaptureHarness({
   };
   const target = {
     elementHandle: vi.fn().mockResolvedValue(handle),
-    evaluate: vi.fn(async (callback, argument) => {
-      locatorEvaluateCall += 1;
-      if (locatorEvaluateCall === 1) return undefined;
-      if (locatorEvaluateCall === 2) {
-        return {
-          dynamicRegions: [],
-          roundedBox: { height: 100, radii: {}, width: 100 }
-        };
-      }
-      return callback(replacement.element, argument);
-    }),
+    evaluate: vi.fn().mockResolvedValue(undefined),
     screenshot: vi.fn()
   };
   const page = {
@@ -1114,16 +1110,16 @@ describe("UI parity class signature", () => {
       evaluate: vi.fn()
         .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce({
-          dynamicRegions: [],
-          roundedBox: { height: 100, radii: {}, width: 100 }
-        })
-        .mockResolvedValueOnce({
           backgroundColorApplied: true,
           previousBackgroundColor: "rgba(0, 0, 0, 0)",
           previousBackgroundColorPriority: "",
           token: "parity-test"
         })
         .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce({
+          dynamicRegions: [],
+          roundedBox: { height: 100, radii: {}, width: 100 }
+        })
         .mockResolvedValueOnce(undefined),
       screenshot: vi.fn().mockResolvedValue(screenshot)
     };
@@ -1148,7 +1144,7 @@ describe("UI parity class signature", () => {
     expect(captureIsolatedParityScreenshot.toString()).toContain(
       'setProperty("background-color", config.backgroundColor, "important")'
     );
-    expect(target.evaluate.mock.calls[2][1]).toEqual({
+    expect(target.evaluate.mock.calls[1][1]).toEqual({
       backgroundColor: "rgb(2, 6, 12)",
       shellSelector: "[data-market-popup]"
     });
@@ -1180,13 +1176,13 @@ describe("UI parity class signature", () => {
     const target = {
       evaluate: vi.fn(async (callback, argument) => {
         evaluateCall += 1;
-        if (evaluateCall === 2) {
+        if (evaluateCall === 4) {
           return {
             dynamicRegions: [],
             roundedBox: { height: 100, radii: {}, width: 100 }
           };
         }
-        if (evaluateCall === 3 || evaluateCall === 5) {
+        if (evaluateCall === 2 || evaluateCall === 5) {
           return callback(element, argument);
         }
         return undefined;
@@ -1209,7 +1205,7 @@ describe("UI parity class signature", () => {
     })).rejects.toThrow("synthetic screenshot failure");
 
     expect(target.evaluate).toHaveBeenCalledTimes(5);
-    expect(target.evaluate.mock.calls[2][1]).toEqual(stableTargetStyleProperties);
+    expect(target.evaluate.mock.calls[1][1]).toEqual(stableTargetStyleProperties);
     expect(target.evaluate.mock.calls[4][1]).toEqual(expect.objectContaining({
       entries: [
         {
@@ -1562,7 +1558,7 @@ describe("UI parity class signature", () => {
     })).resolves.toEqual({ ignoreRegions: [], screenshot: Buffer.from("png") });
 
     expect(capturedToken).toMatch(/^parity-target-style-/u);
-    expect(harness.target.evaluate).toHaveBeenCalledTimes(2);
+    expect(harness.target.evaluate).toHaveBeenCalledTimes(1);
     expect(harness.target.screenshot).not.toHaveBeenCalled();
     expect(harness.handle.screenshot).toHaveBeenCalledTimes(1);
     expect(harness.handle.dispose).toHaveBeenCalledTimes(1);
@@ -1617,12 +1613,12 @@ describe("UI parity class signature", () => {
     const target = {
       evaluate: vi.fn()
         .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(stableRasterState)
+        .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce({
           dynamicRegions: [],
           roundedBox: { height: 100, radii: {}, width: 100 }
         })
-        .mockResolvedValueOnce(stableRasterState)
-        .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce(undefined),
       screenshot: vi.fn().mockRejectedValue(screenshotFailure)
     };
@@ -1639,7 +1635,7 @@ describe("UI parity class signature", () => {
     })).rejects.toThrow("synthetic screenshot failure");
 
     expect(target.evaluate).toHaveBeenCalledTimes(5);
-    expect(target.evaluate.mock.calls[2][1]).toBe(".district-modal-hero__image");
+    expect(target.evaluate.mock.calls[1][1]).toBe(".district-modal-hero__image");
     expect(target.evaluate.mock.calls[4][1]).toEqual(stableRasterState);
     expect(target.evaluate.mock.invocationCallOrder[2])
       .toBeLessThan(target.evaluate.mock.invocationCallOrder[3]);
@@ -1658,12 +1654,12 @@ describe("UI parity class signature", () => {
     const target = {
       evaluate: vi.fn()
         .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(stableBackdropFilterState)
+        .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce({
           dynamicRegions: [],
           roundedBox: { height: 100, radii: {}, width: 100 }
         })
-        .mockResolvedValueOnce(stableBackdropFilterState)
-        .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce(undefined),
       screenshot: vi.fn().mockRejectedValue(screenshotFailure)
     };
@@ -1680,7 +1676,7 @@ describe("UI parity class signature", () => {
     })).rejects.toThrow("synthetic screenshot failure");
 
     expect(target.evaluate).toHaveBeenCalledTimes(5);
-    expect(target.evaluate.mock.calls[2][1]).toBe(".district-popup-action");
+    expect(target.evaluate.mock.calls[1][1]).toBe(".district-popup-action");
     expect(target.evaluate.mock.calls[4][1]).toEqual(stableBackdropFilterState);
     expect(captureIsolatedParityScreenshot.toString()).toContain(
       "data-parity-capture-stable-backdrop-filter-root"
@@ -1718,13 +1714,13 @@ describe("UI parity class signature", () => {
     const target = {
       evaluate: vi.fn()
         .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(stableBackdropState)
+        .mockResolvedValueOnce(stableBackdropFilterState)
+        .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce({
           dynamicRegions: [],
           roundedBox: { height: 100, radii: {}, width: 100 }
         })
-        .mockResolvedValueOnce(stableBackdropState)
-        .mockResolvedValueOnce(stableBackdropFilterState)
-        .mockResolvedValueOnce(undefined)
         .mockRejectedValueOnce(filterCleanupFailure)
         .mockResolvedValueOnce(undefined),
       screenshot: vi.fn().mockResolvedValue(screenshot)
@@ -1766,13 +1762,13 @@ describe("UI parity class signature", () => {
     const target = {
       evaluate: vi.fn()
         .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(stableBackdropState)
+        .mockResolvedValueOnce(stableRasterState)
+        .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce({
           dynamicRegions: [],
           roundedBox: { height: 100, radii: {}, width: 100 }
         })
-        .mockResolvedValueOnce(stableBackdropState)
-        .mockResolvedValueOnce(stableRasterState)
-        .mockResolvedValueOnce(undefined)
         .mockRejectedValueOnce(rasterCleanupFailure)
         .mockResolvedValueOnce(undefined),
       screenshot: vi.fn().mockResolvedValue(screenshot)
