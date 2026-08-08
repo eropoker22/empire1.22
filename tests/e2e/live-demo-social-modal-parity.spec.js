@@ -59,27 +59,12 @@ test.describe("live/demo social modal parity", () => {
   const completedComparisons = [];
 
   test.beforeAll(async ({ browser }) => {
-    const spawnDistrictIds = [
-      "district:67",
-      "district:92",
-      "district:138",
-      "district:152",
-      "district:157",
-      "district:68",
-      "district:73",
-      "district:94",
-      "district:134",
-      "district:139",
-      "district:26",
-      "district:42"
-    ];
     for (let peerIndex = 0; peerIndex < 2; peerIndex += 1) {
       const peerContext = await browser.newContext({ viewport: socialModalParityViewports[0] });
       const peerPage = await peerContext.newPage();
       try {
         const peerEntry = await registerAndEnterHostedUiParityGame(peerPage, {
           serverInstanceId,
-          spawnDistrictIds,
           identityPrefix: `ParitySocialPeer${peerIndex + 1}`
         });
         await expectHostedUiParityClean(peerPage, peerEntry.diagnostics);
@@ -94,7 +79,6 @@ test.describe("live/demo social modal parity", () => {
     hostedPage = await hostedContext.newPage();
     hostedEntry = await registerAndEnterHostedUiParityGame(hostedPage, {
       serverInstanceId,
-      spawnDistrictIds,
       identityPrefix: "ParitySocialMain"
     });
     await expect.poll(() => hostedPage.evaluate(() => {

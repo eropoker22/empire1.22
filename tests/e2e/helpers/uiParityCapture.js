@@ -1873,24 +1873,21 @@ export async function captureIsolatedParityScreenshot(page, {
               );
             }
             const rect = element.getBoundingClientRect();
-            const snappedWidth = Math.round(rect.width * scale) / scale;
-            const snappedHeight = Math.round(rect.height * scale) / scale;
-            const toPixelValue = (value) => `${Number(value.toFixed(6))}px`;
             return {
               element,
+              height: rect.height,
               index,
               styles: {
-                "box-sizing": "border-box",
-                height: toPixelValue(Math.max(1 / scale, snappedHeight)),
-                translate: "0px 0px",
-                width: toPixelValue(Math.max(1 / scale, snappedWidth))
-              }
+                translate: "0px 0px"
+              },
+              width: rect.width
             };
           });
-          measurements.forEach(({ element, index, styles }) => {
+          measurements.forEach(({ element, height, index, styles, width }) => {
             const token = `${groupToken}-${index}`;
             const entry = {
               element,
+              height,
               previousToken: element.getAttribute(captureAttribute),
               styles: Object.entries(styles).map(([propertyName, value]) => ({
                 previousPriority: element.style.getPropertyPriority(propertyName),
@@ -1898,7 +1895,8 @@ export async function captureIsolatedParityScreenshot(page, {
                 propertyName,
                 value
               })),
-              token
+              token,
+              width
             };
             element.setAttribute(captureAttribute, token);
             entries.push(entry);
@@ -1909,6 +1907,15 @@ export async function captureIsolatedParityScreenshot(page, {
           await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
           entries.forEach((entry) => {
             const rect = entry.element.getBoundingClientRect();
+            const dimensionsChanged = [
+              Math.abs((rect.width - entry.width) * scale),
+              Math.abs((rect.height - entry.height) * scale)
+            ].some((delta) => delta > 0.02);
+            if (dimensionsChanged) {
+              throw new Error(
+                `Parity descendant alignment changed intrinsic dimensions: ${selector}`
+              );
+            }
             const deltaX = (Math.round(rect.left * scale) - (rect.left * scale)) / scale;
             const deltaY = (Math.round(rect.top * scale) - (rect.top * scale)) / scale;
             const translateEntry = entry.styles.find(({ propertyName }) => (
@@ -1920,12 +1927,19 @@ export async function captureIsolatedParityScreenshot(page, {
           await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
           entries.forEach((entry) => {
             const rect = entry.element.getBoundingClientRect();
-            const right = Number.isFinite(rect.right) ? rect.right : rect.left + rect.width;
-            const bottom = Number.isFinite(rect.bottom) ? rect.bottom : rect.top + rect.height;
-            const deviceEdges = [rect.left, rect.top, right, bottom].map((value) => value * scale);
-            if (deviceEdges.some((value) => Math.abs(value - Math.round(value)) > 0.02)) {
+            const dimensionsChanged = [
+              Math.abs((rect.width - entry.width) * scale),
+              Math.abs((rect.height - entry.height) * scale)
+            ].some((delta) => delta > 0.02);
+            if (dimensionsChanged) {
               throw new Error(
-                `Parity descendant alignment could not stabilize every device-pixel edge: ${selector}`
+                `Parity descendant alignment changed intrinsic dimensions: ${selector}`
+              );
+            }
+            const deviceOrigin = [rect.left, rect.top].map((value) => value * scale);
+            if (deviceOrigin.some((value) => Math.abs(value - Math.round(value)) > 0.02)) {
+              throw new Error(
+                `Parity descendant alignment could not stabilize the device-pixel origin: ${selector}`
               );
             }
           });

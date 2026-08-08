@@ -1371,7 +1371,7 @@ describe("UI parity class signature", () => {
     expect(handle.dispose).toHaveBeenCalledTimes(1);
   });
 
-  it("stabilizes every descendant edge after rounded dimensions change flex layout", async () => {
+  it("aligns every descendant origin without changing intrinsic dimensions", async () => {
     const first = createParityStyleElement();
     const second = createParityStyleElement();
     const readPixels = (element, propertyName, fallback) => {
@@ -1467,9 +1467,27 @@ describe("UI parity class signature", () => {
       vi.unstubAllGlobals();
     }
 
-    expect(screenshotBounds).toHaveLength(2);
+    expect(screenshotBounds).toEqual([
+      {
+        bottom: 61.4,
+        height: 40.4,
+        left: 10,
+        right: 90.4,
+        top: 21,
+        width: 80.4
+      },
+      {
+        bottom: 61.4,
+        height: 40.4,
+        left: 101,
+        right: 171.4,
+        top: 21,
+        width: 70.4
+      }
+    ]);
     for (const bounds of screenshotBounds) {
-      expect([bounds.left, bounds.top, bounds.right, bounds.bottom].every(Number.isInteger)).toBe(true);
+      expect([bounds.left, bounds.top].every(Number.isInteger)).toBe(true);
+      expect([bounds.right, bounds.bottom].some((value) => !Number.isInteger(value))).toBe(true);
     }
     for (const { attributes, priorities, values } of [first, second]) {
       expect(values.has("box-sizing")).toBe(false);
