@@ -149,7 +149,7 @@ const PUBLIC_RELEASE_ROWS = [
   runtime("EMPIRE_ADMIN_WRITES_ENABLED", "Netlify API", { workerScope: "No", safeFormat: "true for approved hosted control plane", rotation: "Disable during incident containment" }),
   runtime("EMPIRE_HOSTED_CONTROL_PLANE_ENABLED", "Netlify API", { workerScope: "No", safeFormat: "true for approved hosted control plane", rotation: "Disable during incident containment" }),
   runtime("EMPIRE_SERVER_PROVISIONING_ENABLED", "Netlify API", { workerScope: "No", safeFormat: "true only for approved release", rotation: "Disable before rollback or incident response" }),
-  runtime("EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED", "Netlify API", { workerScope: "No", safeFormat: "false during deploy; true only after explicit gate", rotation: "Set false before deploy or incident response" }),
+  runtime("EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED", "Netlify API", { workerScope: "No", safeFormat: "false by default; true only for an explicit bounded staging deployment or acceptance window", rotation: "Set false before production deploy or incident response" }),
   runtime("EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT", "Netlify API", {
     stagingRequired: "Only while registration is true", productionRequired: "Only while registration is true",
     workerScope: "No", safeFormat: "Future ISO timestamp no more than 24 hours away", rotation: "Unset whenever registration is closed"

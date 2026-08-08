@@ -83,7 +83,9 @@ Dispatch `Deploy Staging` with:
 - `sha`: exact approved SHA;
 - `acceptance_run_id`: successful `Hosted Acceptance` run for that SHA;
 - `initialize_database=true` only for the first independently proven-empty staging database;
-- `bootstrap_admin=true` only for the first owner bootstrap.
+- `bootstrap_admin=true` only for the first owner bootstrap;
+- `leave_registration_open=true` only when deployment must avoid a registration-closing mutation and finish with
+  a publicly verified bounded staging window. The default remains fail-closed.
 
 The workflow serializes staging releases and performs:
 
@@ -95,7 +97,8 @@ The workflow serializes staging releases and performs:
 6. optional one-time empty-history initialization;
 7. pending migration status, single migration application, strict current status;
 8. frontend/API build, asset manifest, worker bundle, and immutable worker image;
-9. Netlify deploy with registration closed;
+9. Netlify deploy with the explicit registration policy: closed by default, or with no closure mutation and a
+   publicly verified maximum 23-hour window when `leave_registration_open=true`;
 10. one Fly worker deploy with direct TLS PostgreSQL;
 11. API/worker health and source/build/deployed asset parity;
 12. optional one-owner bootstrap, remote initial login, password rotation, idempotent rerun, and owner verification;

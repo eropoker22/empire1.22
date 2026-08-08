@@ -13,9 +13,13 @@ otevření War mode.
    vypsání databázové URL.
 5. V admin control plane ověř `ready`, čerstvý worker heartbeat, snapshot a
    nulový neočekávaný outbox backlog.
-6. Potvrď výchozí stav globální registrace. Otevírej ji pouze guarded
-   acceptance workflow na přesně omezenou dobu. Workflow ji ve výchozím
-   režimu po cleanupu znovu zavře.
+6. Potvrď výchozí stav globální registrace. Pokud má zůstat otevřená i během
+   nasazení, spusť ruční `Deploy Staging` výhradně s explicitním
+   `leave_registration_open=true`; deploy pak neprovede žádnou uzavírací
+   mutaci a skončí s veřejně ověřeným, maximálně 23hodinovým oknem. Bez tohoto
+   vstupu zůstává release fail-closed. Následný acceptance musí znovu použít
+   `leave_registration_open=true`; může obnovit expiraci, ale zachová otevřený
+   režim.
 
 ## Vytvoření 20hráčového serveru
 

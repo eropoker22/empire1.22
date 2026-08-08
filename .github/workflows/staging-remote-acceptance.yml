@@ -64,6 +64,16 @@ jobs:
           echo "soak_minutes=$DISPATCH_SOAK_MINUTES" >> "$GITHUB_OUTPUT"
           echo "leave_registration_open=$DISPATCH_LEAVE_REGISTRATION_OPEN" >> "$GITHUB_OUTPUT"
 
+      - name: Checkout exact deployed SHA for policy validation
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ steps.release.outputs.sha }}
+
+      - name: Setup Node 24 for policy validation
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+
       - name: Verify successful Deploy Staging run
         env:
           GH_TOKEN: ${{ github.token }}
@@ -86,6 +96,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ steps.release.outputs.sha }}
           DEPLOY_RUN_ID: ${{ steps.release.outputs.deploy_run_id }}
+          LEAVE_REGISTRATION_OPEN: ${{ steps.release.outputs.leave_registration_open }}
         shell: bash
         run: |
           set -euo pipefail
@@ -96,7 +107,8 @@ jobs:
           remote="gate-evidence/artifacts/release/staging/remote-release-health.json"
           backup="gate-evidence/artifacts/release/staging/database-backup.json"
           binding="gate-evidence/artifacts/release/staging/neon-target-binding.json"
-          [[ -s "$manifest" && -s "$remote" && -s "$backup" && -s "$binding" ]]
+          registration="gate-evidence/artifacts/release/staging/registration-policy.json"
+          [[ -s "$manifest" && -s "$remote" && -s "$backup" && -s "$binding" && -s "$registration" ]]
           jq -e --arg sha "$RELEASE_SHA" '
             .gitSha == $sha and
             .frontendBuildSha == $sha and
@@ -131,6 +143,28 @@ jobs:
             .branchIdHash == $binding[0].branchIdHash and
             .endpointIdHash == $binding[0].endpointIdHash
           ' "$backup" >/dev/null
+          if [[ "$LEAVE_REGISTRATION_OPEN" == "true" ]]; then
+            jq -e --arg sha "$RELEASE_SHA" '
+              .schemaVersion == 1 and .status == "verified" and .environment == "staging" and
+              .buildSha == $sha and .registrationMode == "open" and .registrationOpen == true and
+              .publicPolicy.accepted == true and .publicPolicy.registrationEnabled == true and
+              .publicPolicy.mode == "open" and (.registrationExpiresAt | type) == "string"
+            ' "$registration" >/dev/null
+            expires_at="$(jq -er '.registrationExpiresAt' "$registration")"
+            EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED=true \
+            EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT="$expires_at" \
+              node --input-type=module -e '
+                import { validatePublicRegistrationWindow } from "./scripts/registration-window-contract.mjs";
+                if (!validatePublicRegistrationWindow({ enabled: true, expiresAt: process.env.EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT }).valid) process.exit(1);
+              '
+          else
+            jq -e --arg sha "$RELEASE_SHA" '
+              .schemaVersion == 1 and .status == "verified" and .environment == "staging" and
+              .buildSha == $sha and .registrationMode == "closed" and .registrationOpen == false and
+              .registrationExpiresAt == null and .publicPolicy.accepted == true and
+              .publicPolicy.registrationEnabled == false and .publicPolicy.mode == "closed"
+            ' "$registration" >/dev/null
+          fi
 
   code-evidence:
     name: Canonical code-level release evidence

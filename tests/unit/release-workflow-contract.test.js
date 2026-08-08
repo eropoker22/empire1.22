@@ -25,7 +25,7 @@ describe("public release workflows", () => {
     }
   });
 
-  it("keeps release ordering guarded and registration closed", () => {
+  it("keeps release ordering guarded and the staging registration policy explicit", () => {
     const order = [
       "Create Neon pre-migration snapshot",
       "Initialize empty staging migration history",
@@ -41,7 +41,32 @@ describe("public release workflows", () => {
     ].map((label) => staging.indexOf(label));
     expect(order.every((index) => index >= 0)).toBe(true);
     expect(order).toEqual([...order].sort((left, right) => left - right));
-    expect(staging).toContain("EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: \"false\"");
+    expect(staging).toContain("leave_registration_open:");
+    expect(staging).toContain(
+      "EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: ${{ needs.gate.outputs.leave_registration_open }}"
+    );
+    expect(staging).toContain("Resolve bounded staging registration policy");
+    expect(staging).toContain("--allow-registration-enabled");
+    expect(staging).toContain(
+      'set_function EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED "$EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED"'
+    );
+    const workerSecrets = staging.slice(
+      staging.indexOf("Stage worker runtime secrets"),
+      staging.indexOf("Deploy exactly one persistent worker")
+    );
+    expect(workerSecrets).not.toContain("EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED");
+    expect(workerSecrets).not.toContain("EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT");
+    expect(staging).toContain("Verify deployed registration policy");
+    expect(staging).toContain("artifacts/release/staging/registration-policy.json");
+    const registrationConfiguration = staging.slice(
+      staging.indexOf("Configure isolated Netlify staging environment"),
+      staging.indexOf("Deploy Netlify staging site")
+    );
+    expect(registrationConfiguration.indexOf(
+      'set_function EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT'
+    )).toBeLessThan(registrationConfiguration.indexOf(
+      'set_function EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED'
+    ));
     expect(staging).toContain("--context production");
     expect(staging).not.toContain("--context deploy-preview");
     expect(staging).toContain("npm run db:migrate:initialize-release-history");
@@ -215,6 +240,10 @@ describe("public release workflows", () => {
     expect(remote).toContain('.name == "Deploy Staging"');
     expect(remote).toContain('.head_sha == $sha');
     expect(remote).toContain('staging-release-${RELEASE_SHA}');
+    expect(remote).toContain('gate-evidence/artifacts/release/staging/registration-policy.json');
+    expect(remote).toContain('LEAVE_REGISTRATION_OPEN: ${{ steps.release.outputs.leave_registration_open }}');
+    expect(remote).toContain('.registrationMode == "open" and .registrationOpen == true');
+    expect(remote).toContain('.registrationMode == "closed" and .registrationOpen == false');
     expect(remote).toContain('https://staging.empirestreets.cz');
     expect(remote).not.toContain('http://localhost');
     for (const suite of REMOTE_STAGING_ACCEPTANCE_SUITE_NAMES) {
