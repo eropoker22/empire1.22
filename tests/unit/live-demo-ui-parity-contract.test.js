@@ -40,6 +40,10 @@ describe("live/demo UI parity source contract", () => {
       'stableDescendantDevicePixelAlignmentSelector: surfaceName === "district"'
     );
     expect(paritySpec).toContain('".district-popup-buildings__chip--button"');
+    expect(paritySpec).toContain(
+      'stableDescendantDevicePixelAlignmentMode: surfaceName === "district"'
+    );
+    expect(paritySpec).toContain('? "paint-origin"');
     expect(parityCapture).toContain("stableTargetStyleProperties = {}");
     expect(parityCapture).toContain(
       'targetElement.style.setProperty(propertyName, value, "important")'

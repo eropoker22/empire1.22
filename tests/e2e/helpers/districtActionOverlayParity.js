@@ -33,6 +33,7 @@ export const districtActionOverlayNames = Object.freeze([
 
 const freezeDefinition = (definition) => Object.freeze({
   ...definition,
+  dynamicAssetSelectors: Object.freeze([...(definition.dynamicAssetSelectors || [])]),
   dynamicLeafSelectors: Object.freeze([...(definition.dynamicLeafSelectors || [])]),
   dynamicValueWrapperSelectors: Object.freeze([
     ...(definition.dynamicValueWrapperSelectors || [])
@@ -144,6 +145,7 @@ export const districtActionOverlayDefinitions = Object.freeze({
   "attack-setup": freezeDefinition({
     actionId: "attack",
     closeSelector: "[data-attack-setup-close]",
+    dynamicAssetSelectors: ["[data-attack-setup-atmosphere-image]"],
     dynamicLeafSelectors: [
       "[data-attack-target-title]",
       "[data-attack-source-select]",
@@ -172,6 +174,7 @@ export const districtActionOverlayDefinitions = Object.freeze({
   "attack-confirm": freezeDefinition({
     actionId: "attack",
     closeSelector: "[data-attack-confirm-close]",
+    dynamicAssetSelectors: ["[data-attack-confirm-atmosphere-image]"],
     dynamicLeafSelectors: [
       "[data-attack-confirm-title]",
       "[data-attack-confirm-source]",
@@ -310,7 +313,7 @@ export function validateDistrictActionOverlayParityCoverage({
       || (definition.stage !== "inline-pre-submit" && definition.requiredSectionSelectors.length < 2)) {
       throw new Error(`District action parity surface ${surfaceName} lacks structural section guards.`);
     }
-    if (definition.dynamicLeafSelectors.some((selector) => (
+    if ([...definition.dynamicAssetSelectors, ...definition.dynamicLeafSelectors].some((selector) => (
       forbiddenDynamicMaskSelectors.has(selector)
       || selector === definition.shellSelector
       || selector === definition.targetSelector
@@ -469,6 +472,18 @@ export async function openDistrictActionOverlayFromVisibleUi(page, surfaceName, 
     ).toBeVisible();
   }
   await settleActionOverlay(target);
+  for (const selector of definition.dynamicAssetSelectors) {
+    const asset = target.locator(selector).first();
+    await expect(asset, `${surfaceName} dynamic asset ${selector} must be visible`).toBeVisible();
+    await expect.poll(() => asset.evaluate((element) => (
+      element instanceof HTMLImageElement
+      && element.complete
+      && element.naturalWidth > 0
+      && element.naturalHeight > 0
+    )), {
+      message: `${surfaceName} dynamic asset ${selector} must finish loading`
+    }).toBe(true);
+  }
   return target;
 }
 
@@ -625,6 +640,7 @@ export async function getDistrictActionOverlayPresentationSignature(page, surfac
   await expect(target).toBeVisible();
   return target.evaluate((targetElement, config) => {
     const normalizeText = (value) => String(value || "").replace(/\s+/gu, " ").trim();
+    const dynamicAssetSelector = config.dynamicAssetSelectors.join(",");
     const dynamicSelector = config.dynamicLeafSelectors.join(",");
     const dynamicValueWrapperSelector = config.dynamicValueWrapperSelectors.join(",");
     const isVisible = (element) => {
@@ -640,6 +656,10 @@ export async function getDistrictActionOverlayPresentationSignature(page, surfac
     const isDynamicLeaf = (element) => Boolean(
       dynamicSelector
       && (element.matches?.(dynamicSelector) || element.closest?.(dynamicSelector))
+    );
+    const isDynamicAsset = (element) => Boolean(
+      dynamicAssetSelector
+      && element.matches?.(dynamicAssetSelector)
     );
     const isDynamicValueWrapper = (element) => {
       if (
@@ -754,15 +774,21 @@ export async function getDistrictActionOverlayPresentationSignature(page, surfac
           : null
       })),
       domTree: visibleNodes.map((element) => ({
-        alt: isDynamicLeaf(element) ? config.authoritativeText : element.getAttribute("alt"),
-        ariaLabel: isDynamicLeaf(element) ? config.authoritativeText : element.getAttribute("aria-label"),
+        alt: isDynamicLeaf(element) || isDynamicAsset(element)
+          ? config.authoritativeText
+          : element.getAttribute("alt"),
+        ariaLabel: isDynamicLeaf(element) || isDynamicAsset(element)
+          ? config.authoritativeText
+          : element.getAttribute("aria-label"),
         classes: classNames(element),
         dataset: dataset(element),
         disabled: "disabled" in element ? Boolean(element.disabled) : false,
         path: elementPath(element),
         role: element.getAttribute("role"),
         src: element.matches?.("img")
-          ? isDynamicLeaf(element) ? config.authoritativeText : element.getAttribute("src")
+          ? isDynamicLeaf(element) || isDynamicAsset(element)
+            ? config.authoritativeText
+            : element.getAttribute("src")
           : null,
         tag: element.tagName.toLowerCase(),
         text: element.children.length === 0
@@ -815,6 +841,7 @@ export async function getDistrictActionOverlayPresentationSignature(page, surfac
   }, {
     authoritativeText: AUTHORITATIVE_TEXT,
     computedStyleProperties: parityComputedStyleProperties,
+    dynamicAssetSelectors: definition.dynamicAssetSelectors,
     dynamicLeafSelectors: definition.dynamicLeafSelectors,
     dynamicValueWrapperSelectors: definition.dynamicValueWrapperSelectors,
     requiredSectionSelectors: definition.requiredSectionSelectors,
@@ -923,7 +950,10 @@ export async function captureDistrictActionOverlayScreenshot(page, {
   const target = page.locator(`${definition.targetSelector}:visible`).last();
   await expect(target).toBeVisible();
   return captureIsolatedParityScreenshot(page, {
-    ignoreSelector: definition.dynamicLeafSelectors.join(","),
+    ignoreSelector: [
+      ...definition.dynamicAssetSelectors,
+      ...definition.dynamicLeafSelectors
+    ].join(","),
     path,
     roundedCompositeSelector: stabilizeInlineAction
       ? definition.targetSelector

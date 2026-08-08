@@ -1389,14 +1389,14 @@ describe("UI parity class signature", () => {
       const value = Number.parseFloat(element.style.getPropertyValue(propertyName));
       return Number.isFinite(value) ? value : fallback;
     };
-    const readTranslate = (element) => String(
-      element.style.getPropertyValue("translate") || "0px 0px"
-    ).split(/\s+/u).map((value) => Number.parseFloat(value) || 0);
+    const readRelativeOffset = (element) => ["left", "top"].map((propertyName) => (
+      Number.parseFloat(element.style.getPropertyValue(propertyName)) || 0
+    ));
     const bindFirstBounds = ({ element }) => {
       element.getBoundingClientRect = vi.fn(() => {
-        const [translateX, translateY] = readTranslate(element);
-        const left = 10.25 + translateX;
-        const top = 20.49 + translateY;
+        const [offsetX, offsetY] = readRelativeOffset(element);
+        const left = 10.25 + offsetX;
+        const top = 20.49 + offsetY;
         const width = readPixels(element, "width", firstWidth);
         const height = readPixels(element, "height", 40.4);
         return { bottom: top + height, height, left, right: left + width, top, width };
@@ -1404,10 +1404,10 @@ describe("UI parity class signature", () => {
     };
     const bindSecondBounds = ({ element }) => {
       element.getBoundingClientRect = vi.fn(() => {
-        const [translateX, translateY] = readTranslate(element);
+        const [offsetX, offsetY] = readRelativeOffset(element);
         const settledFirstWidth = firstWidth;
-        const left = 10.25 + settledFirstWidth + 10.1 + translateX;
-        const top = 20.51 + translateY;
+        const left = 10.25 + settledFirstWidth + 10.1 + offsetX;
+        const top = 20.51 + offsetY;
         const width = readPixels(element, "width", secondWidth);
         const height = readPixels(element, "height", 40.4);
         return { bottom: top + height, height, left, right: left + width, top, width };
@@ -1485,7 +1485,10 @@ describe("UI parity class signature", () => {
       devicePixelRatio: 1,
       getComputedStyle: vi.fn((element) => ({
         display: "block",
+        left: element.style.getPropertyValue("left") || "auto",
         opacity: "1",
+        position: element.style.getPropertyValue("position") || "static",
+        top: element.style.getPropertyValue("top") || "auto",
         translate: element.style.getPropertyValue("translate") || "none",
         visibility: "visible"
       }))
@@ -1495,6 +1498,7 @@ describe("UI parity class signature", () => {
         path: "district-chip-edges.png",
         stableDescendantDevicePixelAlignmentSelector:
           ".district-popup-buildings__chip--button",
+        stableDescendantDevicePixelAlignmentMode: "paint-origin",
         target
       })).resolves.toEqual({ ignoreRegions: [], screenshot: Buffer.from("png") });
     } finally {
@@ -1531,6 +1535,9 @@ describe("UI parity class signature", () => {
     ]) {
       expect(values.has("box-sizing")).toBe(false);
       expect(values.has("height")).toBe(false);
+      expect(values.has("left")).toBe(false);
+      expect(values.has("position")).toBe(false);
+      expect(values.has("top")).toBe(false);
       expect(values.has("translate")).toBe(false);
       expect(values.has("width")).toBe(false);
       expect(priorities.size).toBe(0);

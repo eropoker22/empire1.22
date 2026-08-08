@@ -123,11 +123,20 @@ describe("district action overlay parity coverage", () => {
     expect(districtActionOverlayDefinitions["attack-setup"].hostedTargetDistrictId).toBe("district:2");
     expect(districtActionOverlayDefinitions["attack-confirm"].hostedTargetDistrictId).toBe("district:2");
     expect(districtActionOverlayDefinitions["occupy-confirm"].hostedTargetDistrictId).toBe("district:6");
+    expect(districtActionOverlayDefinitions["attack-setup"].dynamicAssetSelectors)
+      .toEqual(["[data-attack-setup-atmosphere-image]"]);
+    expect(districtActionOverlayDefinitions["attack-confirm"].dynamicAssetSelectors)
+      .toEqual(["[data-attack-confirm-atmosphere-image]"]);
 
     for (const definition of Object.values(districtActionOverlayDefinitions)) {
-      expect(definition.dynamicLeafSelectors).not.toContain("*");
-      expect(definition.dynamicLeafSelectors).not.toContain(definition.shellSelector);
-      expect(definition.dynamicLeafSelectors).not.toContain(definition.targetSelector);
+      for (const selector of [
+        ...definition.dynamicAssetSelectors,
+        ...definition.dynamicLeafSelectors
+      ]) {
+        expect(selector).not.toBe("*");
+        expect(selector).not.toBe(definition.shellSelector);
+        expect(selector).not.toBe(definition.targetSelector);
+      }
     }
   });
 

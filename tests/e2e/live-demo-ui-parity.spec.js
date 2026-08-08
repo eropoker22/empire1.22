@@ -342,6 +342,9 @@ async function attachOpenBuildingScreenshot({
     stableDescendantDevicePixelAlignmentSelector: surfaceName === "district"
       ? ".district-popup-buildings__chip--button"
       : "",
+    stableDescendantDevicePixelAlignmentMode: surfaceName === "district"
+      ? "paint-origin"
+      : "translate",
     stableTargetStyleProperties: surfaceName === "district"
       ? {
           "--district-owner-avatar-opacity": "0",
@@ -1073,6 +1076,10 @@ test.describe("live/demo shared presentation parity", () => {
           ]);
           await expect(localPage.locator("#events-modal")).toHaveClass(/events-modal--compact/u);
           await expect(serverPage.locator("#events-modal")).toHaveClass(/events-modal--compact/u);
+          await Promise.all([
+            localPage.mouse.move(1, 1),
+            serverPage.mouse.move(1, 1)
+          ]);
           expect(
             await getParityDomStructureSignature(serverPage, "cityEvents"),
             `${viewport.name} City Events compact DOM, styles, bounds, focus and scroll`

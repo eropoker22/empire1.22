@@ -1735,6 +1735,7 @@ export async function captureIsolatedParityScreenshot(page, {
   stableRasterSelector = "",
   stableBackdropShellSelector = "",
   stableDescendantDevicePixelAlignmentSelector = "",
+  stableDescendantDevicePixelAlignmentMode = "translate",
   stableTargetDevicePixelAlignment = false,
   stableTargetStyleProperties = {},
   target
@@ -1853,7 +1854,11 @@ export async function captureIsolatedParityScreenshot(page, {
     const alignStableDescendants = async () => {
       if (!stableDescendantDevicePixelAlignmentSelector) return null;
       const targetHandle = await resolveStableTargetHandle();
-      return targetHandle.evaluate(async (targetElement, selector) => {
+      return targetHandle.evaluate(async (targetElement, config) => {
+        const { alignmentMode, selector } = config;
+        if (!["paint-origin", "translate"].includes(alignmentMode)) {
+          throw new Error(`Unsupported parity descendant alignment mode: ${alignmentMode}`);
+        }
         const captureAttribute = "data-parity-capture-descendant-device-pixel-alignment";
         const groupToken = `parity-descendant-device-pixel-${Date.now()}-${Math.random().toString(16).slice(2)}`;
         const scale = Number.isFinite(window.devicePixelRatio) && window.devicePixelRatio > 0
@@ -1937,22 +1942,51 @@ export async function captureIsolatedParityScreenshot(page, {
           const entries = [];
           try {
             const measurements = elements.map((element, index) => {
-              const computedTranslate = String(
-                window.getComputedStyle(element).translate || "none"
-              ).trim().toLowerCase();
-              const neutralTranslate = computedTranslate === "none"
-                || /^0(?:\.0+)?px(?:\s+0(?:\.0+)?px){0,2}$/u.test(computedTranslate);
-              if (!neutralTranslate) {
-                throw new Error(
-                  `Parity descendant alignment requires a neutral translate, received ${computedTranslate}.`
-                );
+              const computedStyle = window.getComputedStyle(element);
+              let styles;
+              if (alignmentMode === "paint-origin") {
+                const computedPosition = String(computedStyle.position || "static")
+                  .trim()
+                  .toLowerCase();
+                if (!["relative", "static"].includes(computedPosition)) {
+                  throw new Error(
+                    `Parity descendant paint-origin alignment cannot safely offset position ${computedPosition}.`
+                  );
+                }
+                const offsetIsNeutral = (value) => {
+                  const normalized = String(value || "auto").trim().toLowerCase();
+                  return normalized === "auto" || /^0(?:\.0+)?px$/u.test(normalized);
+                };
+                if (
+                  computedPosition === "relative"
+                  && (!offsetIsNeutral(computedStyle.left) || !offsetIsNeutral(computedStyle.top))
+                ) {
+                  throw new Error(
+                    "Parity descendant paint-origin alignment requires neutral relative offsets."
+                  );
+                }
+                styles = {
+                  left: "0px",
+                  position: "relative",
+                  top: "0px"
+                };
+              } else {
+                const computedTranslate = String(computedStyle.translate || "none")
+                  .trim()
+                  .toLowerCase();
+                const neutralTranslate = computedTranslate === "none"
+                  || /^0(?:\.0+)?px(?:\s+0(?:\.0+)?px){0,2}$/u.test(computedTranslate);
+                if (!neutralTranslate) {
+                  throw new Error(
+                    `Parity descendant alignment requires a neutral translate, received ${computedTranslate}.`
+                  );
+                }
+                styles = { translate: "0px 0px" };
               }
               return {
                 element,
                 index,
-                styles: {
-                  translate: "0px 0px"
-                }
+                styles
               };
             });
             measurements.forEach(({ element, index, styles }) => {
@@ -1985,12 +2019,21 @@ export async function captureIsolatedParityScreenshot(page, {
               const deviceTop = rect.top * scale;
               const deltaX = (snapDown(deviceLeft) - deviceLeft) / scale;
               const deltaY = (snapDown(deviceTop) - deviceTop) / scale;
-              const translateEntry = entry.styles.find(({ propertyName }) => (
-                propertyName === "translate"
-              ));
-              translateEntry.value = `${Number(deltaX.toFixed(6))}px ${Number(deltaY.toFixed(6))}px`;
-              entry.element.style.setProperty("translate", translateEntry.value, "important");
-              // Compare synchronously so a later live-layout settle is not blamed on this translation.
+              if (alignmentMode === "paint-origin") {
+                const leftEntry = entry.styles.find(({ propertyName }) => propertyName === "left");
+                const topEntry = entry.styles.find(({ propertyName }) => propertyName === "top");
+                leftEntry.value = `${Number(deltaX.toFixed(6))}px`;
+                topEntry.value = `${Number(deltaY.toFixed(6))}px`;
+                entry.element.style.setProperty("left", leftEntry.value, "important");
+                entry.element.style.setProperty("top", topEntry.value, "important");
+              } else {
+                const translateEntry = entry.styles.find(({ propertyName }) => (
+                  propertyName === "translate"
+                ));
+                translateEntry.value = `${Number(deltaX.toFixed(6))}px ${Number(deltaY.toFixed(6))}px`;
+                entry.element.style.setProperty("translate", translateEntry.value, "important");
+              }
+              // Compare synchronously so a later live-layout settle is not blamed on this offset.
               const translatedRect = entry.element.getBoundingClientRect();
               const dimensionDeltas = [
                 Math.abs((translatedRect.width - rect.width) * scale),
@@ -2035,7 +2078,10 @@ export async function captureIsolatedParityScreenshot(page, {
         return {
           entries: stableEntries.map(({ element: _element, ...entry }) => entry)
         };
-      }, stableDescendantDevicePixelAlignmentSelector);
+      }, {
+        alignmentMode: stableDescendantDevicePixelAlignmentMode,
+        selector: stableDescendantDevicePixelAlignmentSelector
+      });
     };
     if (
       stableTargetStyleProperties
