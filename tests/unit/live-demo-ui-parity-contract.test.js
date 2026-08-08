@@ -43,6 +43,13 @@ describe("live/demo UI parity source contract", () => {
     expect(paritySpec).toContain('surfaceName === "buildingDetail"');
     expect(paritySpec).toContain('".building-detail-title__badge--count"');
     expect(paritySpec).toContain(
+      'const hasStableBuildingCountBadge = surfaceName === "buildingDetail"'
+    );
+    expect(paritySpec).toContain(
+      'await target.locator(`${buildingCountBadgeSelector}:visible`).count() > 0'
+    );
+    expect(paritySpec).toContain(': hasStableBuildingCountBadge');
+    expect(paritySpec).toContain(
       'stableDescendantDevicePixelAlignmentMode: ["buildingDetail", "district"].includes(surfaceName)'
     );
     expect(paritySpec).toContain('? "paint-origin"');

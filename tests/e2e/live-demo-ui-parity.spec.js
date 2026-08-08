@@ -313,6 +313,9 @@ async function attachOpenBuildingScreenshot({
   const target = ["buildingDetail", "restaurant", "arcade"].includes(surfaceName)
     ? surface.locator(".district-building-detail-card").first()
     : surface;
+  const buildingCountBadgeSelector = ".building-detail-title__badge--count";
+  const hasStableBuildingCountBadge = surfaceName === "buildingDetail"
+    && await target.locator(`${buildingCountBadgeSelector}:visible`).count() > 0;
   const dynamicSelectors = [
     "[data-production-progress]",
     "[data-production-countdown]",
@@ -344,8 +347,8 @@ async function attachOpenBuildingScreenshot({
     stableBackdropShellSelector: paritySurfaces[surfaceName].shell,
     stableDescendantDevicePixelAlignmentSelector: surfaceName === "district"
       ? ".district-popup-buildings__chip--button"
-      : surfaceName === "buildingDetail"
-        ? ".building-detail-title__badge--count"
+      : hasStableBuildingCountBadge
+        ? buildingCountBadgeSelector
         : "",
     stableDescendantDevicePixelAlignmentMode: ["buildingDetail", "district"].includes(surfaceName)
       ? "paint-origin"
