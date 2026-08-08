@@ -774,12 +774,8 @@ export async function getDistrictActionOverlayPresentationSignature(page, surfac
           : null
       })),
       domTree: visibleNodes.map((element) => ({
-        alt: isDynamicLeaf(element) || isDynamicAsset(element)
-          ? config.authoritativeText
-          : element.getAttribute("alt"),
-        ariaLabel: isDynamicLeaf(element) || isDynamicAsset(element)
-          ? config.authoritativeText
-          : element.getAttribute("aria-label"),
+        alt: isDynamicLeaf(element) ? config.authoritativeText : element.getAttribute("alt"),
+        ariaLabel: isDynamicLeaf(element) ? config.authoritativeText : element.getAttribute("aria-label"),
         classes: classNames(element),
         dataset: dataset(element),
         disabled: "disabled" in element ? Boolean(element.disabled) : false,
