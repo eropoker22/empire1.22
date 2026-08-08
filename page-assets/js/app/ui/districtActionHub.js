@@ -14,6 +14,9 @@ function createElement(scopeElement, tagName, className = "") {
   return element;
 }
 
+const districtActionButtonBindingByElement = new WeakMap();
+const districtActionHubStateByMount = new WeakMap();
+
 function resolveDistrictActionPresentation(action = {}) {
   if (action.enabled !== false) {
     return action;
@@ -114,9 +117,14 @@ export function renderDistrictActionButton(action = {}, callback = null, options
     button.title = presentation.title;
   }
 
+  districtActionButtonBindingByElement.set(button, {
+    action,
+    callback: hasCallback ? callback : null
+  });
   button.addEventListener?.("click", () => {
-    if (!button.disabled) {
-      callback?.(action);
+    const binding = districtActionButtonBindingByElement.get(button);
+    if (!button.disabled && typeof binding?.callback === "function") {
+      binding.callback(binding.action);
     }
   });
   return button;
@@ -125,7 +133,99 @@ export function renderDistrictActionButton(action = {}, callback = null, options
 export function clearDistrictActionHub(options = {}) {
   const mount = options.mount || options.container || null;
   mount?.replaceChildren?.();
+  if (mount) {
+    districtActionHubStateByMount.delete(mount);
+  }
   return Boolean(mount);
+}
+
+function resolveDistrictActionEntries(actions = [], callbacks = {}) {
+  return actions.map((action) => {
+    const presentation = resolveDistrictActionPresentation(action);
+    const callback = callbacks[presentation.id] || callbacks.onAction || null;
+    return {
+      action: presentation,
+      callback: typeof callback === "function" ? callback : null
+    };
+  });
+}
+
+function createDistrictActionHubFingerprint(actionViewModel = {}, entries = []) {
+  return JSON.stringify({
+    emptyText: String(actionViewModel.emptyText || ""),
+    headHidden: Boolean(actionViewModel.headHidden),
+    hidden: Boolean(actionViewModel.hidden),
+    noticeMessage: String(actionViewModel.noticeMessage || ""),
+    statusMessage: String(
+      actionViewModel.policeMessage || actionViewModel.statusMessage || ""
+    ),
+    actions: entries.map(({ action, callback }) => ({
+      callbackAvailable: typeof callback === "function",
+      countdownEndsAt: action.countdownLabel && action.countdownEndsAt
+        ? String(action.countdownEndsAt)
+        : "",
+      countdownLabel: String(action.countdownLabel || ""),
+      disabledTone: String(action.disabledTone || ""),
+      enabled: Boolean(action.enabled),
+      id: String(action.id || ""),
+      key: String(action.key || ""),
+      label: String(action.label || ""),
+      reason: String(action.reason || ""),
+      stacked: Boolean(action.stacked),
+      subtitle: String(action.subtitle || ""),
+      targetDistrictId: String(action.targetDistrictId || ""),
+      title: String(action.title || ""),
+      trapState: String(action.trapState || "")
+    }))
+  });
+}
+
+function getExpectedDistrictActionChildCount(actionViewModel = {}, actionCount = 0) {
+  const statusMessage = actionViewModel.policeMessage || actionViewModel.statusMessage || "";
+  if (statusMessage) {
+    return 1;
+  }
+  return (actionViewModel.noticeMessage ? 1 : 0)
+    + actionCount
+    + (actionCount <= 0 && actionViewModel.emptyText ? 1 : 0);
+}
+
+function canReuseDistrictActionHub(mount, state, fingerprint, expectedChildCount, actionCount) {
+  if (
+    !state
+    || state.fingerprint !== fingerprint
+    || state.expectedChildCount !== expectedChildCount
+    || Number(mount.children?.length || 0) !== expectedChildCount
+    || state.buttons.length !== actionCount
+  ) {
+    return false;
+  }
+  return typeof mount.contains !== "function"
+    || state.buttons.every((button) => mount.contains(button));
+}
+
+function updateDistrictActionButtonBindings(buttons = [], entries = []) {
+  entries.forEach((entry, index) => {
+    const button = buttons[index];
+    if (!button) return;
+    districtActionButtonBindingByElement.set(button, {
+      action: entry.action,
+      callback: entry.callback
+    });
+  });
+}
+
+function rememberDistrictActionHub(
+  mount,
+  fingerprint,
+  expectedChildCount,
+  buttons
+) {
+  districtActionHubStateByMount.set(mount, {
+    buttons,
+    expectedChildCount,
+    fingerprint
+  });
 }
 
 export function renderDistrictActionHub(actionViewModel = {}, callbacks = {}, options = {}) {
@@ -145,11 +245,31 @@ export function renderDistrictActionHub(actionViewModel = {}, callbacks = {}, op
     return false;
   }
 
-  clearDistrictActionHub({ mount });
   const actions = Array.isArray(actionViewModel.actions) ? actionViewModel.actions : [];
-  mount.dataset.districtActionCount = String(actions.length);
-
+  const entries = resolveDistrictActionEntries(actions, callbacks);
   const statusMessage = actionViewModel.policeMessage || actionViewModel.statusMessage || "";
+  const renderedEntries = statusMessage ? [] : entries;
+  const fingerprint = createDistrictActionHubFingerprint(actionViewModel, renderedEntries);
+  const expectedChildCount = getExpectedDistrictActionChildCount(
+    actionViewModel,
+    entries.length
+  );
+  mount.dataset.districtActionCount = String(actions.length);
+  const previousState = districtActionHubStateByMount.get(mount);
+  if (canReuseDistrictActionHub(
+    mount,
+    previousState,
+    fingerprint,
+    expectedChildCount,
+    renderedEntries.length
+  )) {
+    updateDistrictActionButtonBindings(previousState.buttons, renderedEntries);
+    return true;
+  }
+
+  clearDistrictActionHub({ mount });
+  const renderedButtons = [];
+
   if (statusMessage) {
     const actionRow = createElement(mount, "div", "district-popup-action-row");
     const reason = renderDistrictActionDisabledReason(statusMessage, { mount });
@@ -157,6 +277,12 @@ export function renderDistrictActionHub(actionViewModel = {}, callbacks = {}, op
       actionRow.append(reason);
       mount.append(actionRow);
     }
+    rememberDistrictActionHub(
+      mount,
+      fingerprint,
+      expectedChildCount,
+      renderedButtons
+    );
     return true;
   }
 
@@ -169,15 +295,15 @@ export function renderDistrictActionHub(actionViewModel = {}, callbacks = {}, op
     }
   }
 
-  for (const action of actions) {
-    const presentation = resolveDistrictActionPresentation(action);
+  for (const entry of entries) {
+    const presentation = entry.action;
     const actionRow = createElement(mount, "div", "district-popup-action-row");
-    const callback = callbacks[presentation.id] || callbacks.onAction || null;
-    const button = renderDistrictActionButton(presentation, callback, { mount });
+    const button = renderDistrictActionButton(presentation, entry.callback, { mount });
     if (!actionRow || !button) {
       continue;
     }
 
+    renderedButtons.push(button);
     actionRow.append(button);
 
     if (presentation.reason) {
@@ -196,6 +322,13 @@ export function renderDistrictActionHub(actionViewModel = {}, callbacks = {}, op
       mount.append(empty);
     }
   }
+
+  rememberDistrictActionHub(
+    mount,
+    fingerprint,
+    expectedChildCount,
+    renderedButtons
+  );
 
   return true;
 }

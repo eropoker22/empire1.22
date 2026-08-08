@@ -182,6 +182,107 @@ describe("district action hub", () => {
     expect(mount.children[0].children[0].children[1].textContent).toBe("Chybí sousední vlastněný district.");
   });
 
+  it("preserves identical action DOM while refreshing the current callback and action binding", () => {
+    const document = new FakeDocument();
+    const mount = createElement(document);
+    const firstCallback = vi.fn();
+    const secondCallback = vi.fn();
+
+    renderDistrictActionHub({
+      actions: [{ id: "heist", label: "Vykrást hráče", enabled: true, commandVersion: 1 }]
+    }, { onAction: firstCallback }, { mount });
+    const firstRow = mount.children[0];
+    const firstButton = firstRow.children[0];
+
+    renderDistrictActionHub({
+      actions: [{ id: "heist", label: "Vykrást hráče", enabled: true, commandVersion: 2 }]
+    }, { onAction: secondCallback }, { mount });
+    const currentRow = mount.children[0];
+    const currentButton = currentRow.children[0];
+
+    expect(currentRow).toBe(firstRow);
+    expect(currentButton).toBe(firstButton);
+    currentButton.dispatch("click");
+    expect(firstCallback).not.toHaveBeenCalled();
+    expect(secondCallback).toHaveBeenCalledWith(expect.objectContaining({
+      commandVersion: 2,
+      id: "heist"
+    }));
+  });
+
+  it("rebuilds action DOM when enabled, reason or countdown presentation changes", () => {
+    const document = new FakeDocument();
+    const mount = createElement(document);
+    const onAction = vi.fn();
+
+    renderDistrictActionHub({
+      actions: [{ id: "spy", label: "Špehovat", enabled: true }]
+    }, { onAction }, { mount });
+    const enabledButton = mount.children[0].children[0];
+
+    renderDistrictActionHub({
+      actions: [{
+        id: "spy",
+        label: "Špehovat",
+        enabled: false,
+        reason: "Chybí volný špeh."
+      }]
+    }, { onAction }, { mount });
+    const disabledButton = mount.children[0].children[0];
+    expect(disabledButton).not.toBe(enabledButton);
+    expect(disabledButton.disabled).toBe(true);
+    expect(disabledButton.children[1].textContent).toBe("Chybí volný špeh.");
+
+    renderDistrictActionHub({
+      actions: [{
+        id: "spy",
+        label: "Špehovat",
+        enabled: false,
+        reason: "Špehování je na cooldownu."
+      }]
+    }, { onAction }, { mount });
+    const changedReasonButton = mount.children[0].children[0];
+    expect(changedReasonButton).not.toBe(disabledButton);
+    expect(changedReasonButton.children[1].textContent).toBe("Špehování je na cooldownu.");
+
+    renderDistrictActionHub({
+      actions: [{ id: "spy", label: "Špehovat", enabled: true }]
+    }, { onAction }, { mount });
+    const reenabledButton = mount.children[0].children[0];
+    expect(reenabledButton).not.toBe(changedReasonButton);
+
+    renderDistrictActionHub({
+      actions: [{
+        id: "spy",
+        label: "Špehovat",
+        enabled: true,
+        countdownLabel: "Zbývá 1:25",
+        countdownEndsAt: 125000
+      }]
+    }, { onAction }, { mount });
+    const countdownButton = mount.children[0].children[0];
+    expect(countdownButton).not.toBe(reenabledButton);
+    expect(countdownButton.dataset.districtActionCountdown).toBe("true");
+    expect(countdownButton.children[1].textContent).toBe("Zbývá 1:25");
+  });
+
+  it("invalidates preserved action DOM when the hub is explicitly cleared", () => {
+    const document = new FakeDocument();
+    const mount = createElement(document);
+    const view = {
+      actions: [{ id: "attack", label: "Zaútočit", enabled: true }]
+    };
+    const callbacks = { onAction: vi.fn() };
+
+    renderDistrictActionHub(view, callbacks, { mount });
+    const originalButton = mount.children[0].children[0];
+    expect(clearDistrictActionHub({ mount })).toBe(true);
+    expect(mount.children).toHaveLength(0);
+
+    renderDistrictActionHub(view, callbacks, { mount });
+    expect(mount.children[0].children[0]).not.toBe(originalButton);
+  });
+
   it("renders action countdowns under the button label and keeps the action locked", () => {
     const document = new FakeDocument();
     const mount = createElement(document);
