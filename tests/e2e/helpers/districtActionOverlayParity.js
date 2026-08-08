@@ -696,18 +696,47 @@ export async function applyDistrictActionOverlayCanonicalLayoutText(page, surfac
         && rect.width > 0
         && rect.height > 0;
     };
-    const appliedEntries = [];
-    const restoreEntry = ({ element, token }) => {
-      const record = element[config.stateProperty];
-      if (!record || record.token !== token) return;
-      if (element.textContent === record.canonicalText) {
-        element.textContent = record.originalText;
+    const existingRegistry = globalThis[config.stateProperty];
+    if (existingRegistry !== undefined && !(existingRegistry instanceof Map)) {
+      throw new Error(`${config.surfaceName} canonical layout registry has an invalid shape.`);
+    }
+    const registry = existingRegistry || new Map();
+    if (!existingRegistry) {
+      Object.defineProperty(globalThis, config.stateProperty, {
+        configurable: true,
+        value: registry
+      });
+    }
+    if (Array.from(registry.values()).some((capture) => (
+      capture.targetElement === targetElement
+    ))) {
+      throw new Error(`${config.surfaceName} canonical layout target is already normalized.`);
+    }
+    let captureToken;
+    do {
+      captureToken = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    } while (registry.has(captureToken));
+    let capture = null;
+    const removeCapture = () => {
+      try {
+        capture?.observer?.disconnect();
+        for (const record of capture?.records || []) {
+          for (const [element, actualText] of record.actualTextByElement) {
+            if (element.textContent === record.canonicalText) {
+              element.textContent = actualText;
+            }
+          }
+        }
+      } finally {
+        registry.delete(captureToken);
+        if (registry.size === 0 && globalThis[config.stateProperty] === registry) {
+          delete globalThis[config.stateProperty];
+        }
       }
-      delete element[config.stateProperty];
     };
 
     try {
-      for (const [index, entry] of config.entries.entries()) {
+      const records = config.entries.map((entry) => {
         const matches = Array.from(targetElement.querySelectorAll(entry.selector)).filter(isVisible);
         if (matches.length !== 1) {
           throw new Error(
@@ -720,32 +749,76 @@ export async function applyDistrictActionOverlayCanonicalLayoutText(page, surfac
             `${config.surfaceName} canonical layout leaf ${entry.selector} must remain text-only.`
           );
         }
-        if (element[config.stateProperty]) {
+        return {
+          actualTextByElement: new Map(),
+          canonicalText: entry.text,
+          latestActualText: element.textContent,
+          selector: entry.selector
+        };
+      });
+      capture = {
+        normalizing: false,
+        observer: null,
+        observerError: null,
+        records,
+        restoring: false,
+        targetElement
+      };
+      const normalizeRecord = (record) => {
+        const matches = Array.from(targetElement.querySelectorAll(record.selector))
+          .filter(isVisible);
+        if (matches.length !== 1) {
           throw new Error(
-            `${config.surfaceName} canonical layout leaf ${entry.selector} is already normalized.`
+            `${config.surfaceName} canonical layout leaf ${record.selector} matched ${matches.length} visible elements after a renderer update.`
           );
         }
-        const token = `${Date.now().toString(36)}-${index}-${Math.random().toString(36).slice(2)}`;
-        Object.defineProperty(element, config.stateProperty, {
-          configurable: true,
-          value: {
-            canonicalText: entry.text,
-            originalText: element.textContent,
-            token
-          },
-          writable: true
-        });
-        element.textContent = entry.text;
-        appliedEntries.push({ element, selector: entry.selector, token });
+        const element = matches[0];
+        if (element.childElementCount !== 0) {
+          throw new Error(
+            `${config.surfaceName} canonical layout leaf ${record.selector} stopped being text-only.`
+          );
+        }
+        if (element.textContent === record.canonicalText) return;
+        record.latestActualText = element.textContent;
+        record.actualTextByElement.set(element, record.latestActualText);
+        element.textContent = record.canonicalText;
+      };
+      const normalizeRecords = () => {
+        if (capture.normalizing || capture.restoring) return;
+        capture.normalizing = true;
+        try {
+          for (const record of capture.records) normalizeRecord(record);
+        } catch (error) {
+          capture.observerError ||= error instanceof Error ? error.message : String(error);
+        } finally {
+          capture.normalizing = false;
+        }
+      };
+      capture.observer = new MutationObserver(normalizeRecords);
+      registry.set(captureToken, capture);
+      normalizeRecords();
+      if (capture.observerError) {
+        throw new Error(capture.observerError);
       }
+      capture.observer.observe(targetElement, {
+        attributeFilter: ["hidden"],
+        attributes: true,
+        characterData: true,
+        childList: true,
+        subtree: true
+      });
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      if (capture.observerError) {
+        throw new Error(capture.observerError);
+      }
       return {
-        entries: appliedEntries.map(({ selector, token }) => ({ selector, token }))
+        captureToken,
+        entries: records.map(({ selector }) => ({ selector }))
       };
     } catch (error) {
-      for (const appliedEntry of [...appliedEntries].reverse()) {
-        restoreEntry(appliedEntry);
-      }
+      try {
+        removeCapture();
+      } catch {}
       throw error;
     }
   }, {
@@ -760,31 +833,101 @@ export async function restoreDistrictActionOverlayCanonicalLayoutText(
   surfaceName,
   state
 ) {
-  resolveDistrictActionOverlayDefinition(surfaceName);
-  if (!state?.entries?.length) return [];
+  const definition = resolveDistrictActionOverlayDefinition(surfaceName);
+  if (definition.canonicalLayoutTextEntries.length === 0) return [];
+  if (!state?.captureToken) {
+    throw new Error(`${surfaceName} canonical layout restore is missing its capture token.`);
+  }
   return page.evaluate(async (config) => {
+    const registry = globalThis[config.stateProperty];
+    const capture = registry instanceof Map ? registry.get(config.captureToken) : null;
+    if (!capture) {
+      if (registry instanceof Map) {
+        registry.delete(config.captureToken);
+        if (registry.size === 0 && globalThis[config.stateProperty] === registry) {
+          delete globalThis[config.stateProperty];
+        }
+      }
+      throw new Error(`${config.surfaceName} canonical layout capture token is missing.`);
+    }
     const results = [];
-    for (const entry of config.entries) {
-      const element = Array.from(document.querySelectorAll(entry.selector))
-        .find((candidate) => candidate[config.stateProperty]?.token === entry.token);
-      if (!element) {
-        results.push({ selector: entry.selector, status: "detached-or-replaced" });
-        continue;
+    const failures = [];
+    try {
+      capture.restoring = true;
+      try {
+        capture.observer?.takeRecords();
+        capture.observer?.disconnect();
+      } catch (error) {
+        failures.push(error instanceof Error ? error.message : String(error));
       }
-      const record = element[config.stateProperty];
-      if (element.textContent === record.canonicalText) {
-        element.textContent = record.originalText;
-        results.push({ selector: entry.selector, status: "restored" });
-      } else {
-        results.push({ selector: entry.selector, status: "preserved-live-update" });
+      for (const record of capture.records) {
+        try {
+          const allMatches = Array.from(capture.targetElement.querySelectorAll(record.selector));
+          const visibleMatches = allMatches.filter((element) => {
+            if (!(element instanceof Element) || element.hasAttribute("hidden")) return false;
+            const style = getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            return style.display !== "none"
+              && style.visibility !== "hidden"
+              && Number(style.opacity || 1) > 0
+              && rect.width > 0
+              && rect.height > 0;
+          });
+          const currentElement = visibleMatches.length === 1
+            ? visibleMatches[0]
+            : allMatches.length === 1
+              ? allMatches[0]
+              : null;
+          if (currentElement && currentElement.textContent !== record.canonicalText) {
+            record.latestActualText = currentElement.textContent;
+            if (record.actualTextByElement.has(currentElement)) {
+              record.actualTextByElement.set(currentElement, record.latestActualText);
+            }
+          }
+          let preservedLiveUpdate = false;
+          let restoredCount = 0;
+          for (const [element, actualText] of record.actualTextByElement) {
+            if (element.textContent === record.canonicalText) {
+              element.textContent = actualText;
+              restoredCount += 1;
+            } else {
+              preservedLiveUpdate = true;
+            }
+          }
+          results.push({
+            latestActualText: record.latestActualText,
+            selector: record.selector,
+            status: preservedLiveUpdate
+              ? "preserved-live-update"
+              : restoredCount > 0
+                ? capture.targetElement.isConnected ? "restored" : "restored-detached"
+                : "unchanged"
+          });
+        } catch (error) {
+          failures.push(error instanceof Error ? error.message : String(error));
+        }
       }
-      delete element[config.stateProperty];
+      if (capture.observerError) failures.push(capture.observerError);
+      if (!capture.targetElement.isConnected) {
+        failures.push(`${config.surfaceName} canonical layout target disconnected before restore.`);
+      }
+    } finally {
+      registry.delete(config.captureToken);
+      if (registry.size === 0 && globalThis[config.stateProperty] === registry) {
+        delete globalThis[config.stateProperty];
+      }
+    }
+    if (failures.length > 0) {
+      throw new Error(
+        `${config.surfaceName} canonical layout cleanup failed: ${failures.join(" | ")}`
+      );
     }
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     return results;
   }, {
-    entries: state.entries,
-    stateProperty: CANONICAL_LAYOUT_TEXT_STATE_PROPERTY
+    captureToken: state.captureToken,
+    stateProperty: CANONICAL_LAYOUT_TEXT_STATE_PROPERTY,
+    surfaceName
   });
 }
 

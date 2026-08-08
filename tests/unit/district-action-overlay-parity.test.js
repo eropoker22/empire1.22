@@ -210,6 +210,11 @@ describe("district action overlay parity coverage", () => {
     expect(helperSource).toContain('{ "background-color": "rgb(6, 10, 18)" }');
     expect(helperSource).toContain("roundedCompositeSelector: stabilizeInlineAction");
     expect(helperSource).toContain('not.toHaveClass(/\\bgame-mobile-close-guard\\b/u)');
+    expect(helperSource).toContain("new MutationObserver(normalizeRecords)");
+    expect(helperSource).toContain("record.latestActualText = element.textContent");
+    expect(helperSource).toContain("capture.observer.takeRecords()");
+    expect(helperSource).toContain("capture.observer.disconnect()");
+    expect(helperSource).toContain("globalThis[config.stateProperty]");
     expect(helperSource).not.toContain("/api/gameplay-slice/submit");
     expect(helperSource).not.toContain("openDistrictAsync");
     expect(helperSource).not.toContain("EmpireRuntime?.selectDistrict");
@@ -251,6 +256,14 @@ describe("district action overlay parity coverage", () => {
     expect(specSource).toContain("setViewportSize(viewport)");
     expect(specSource).toContain("applyDistrictActionOverlayCanonicalLayoutText");
     expect(specSource).toContain("restoreDistrictActionOverlayCanonicalLayoutText");
+    expect(specSource).toContain("const canonicalLayoutApplyResults = await Promise.all([");
+    expect(specSource).toContain('status: "fulfilled"');
+    expect(specSource).toContain("if (cleanupFailure && !primaryFailure)");
+    expect(specSource).toContain(
+      "fixture-backed live/demo district action overlay parity canonical lock"
+    );
+    expect(specSource).toContain("Replacement district note");
+    expect(specSource).toContain("disconnected before restore");
     expect(specSource.match(/await loginAndResumeHostedUiParityGame\(/gu) || []).toHaveLength(1);
     expect(specSource).not.toContain("data-spy-confirm-button");
     expect(specSource).not.toContain("data-robbery-confirm-button");

@@ -30,6 +30,95 @@ const serverInstanceId = process.env.EMPIRE_UI_PARITY_SERVER_ID || "";
 const identities = parseIdentities(process.env.EMPIRE_HOSTED_BOOTSTRAP_IDENTITIES_JSON);
 const coverageContract = validateDistrictActionOverlayParityCoverage();
 
+const DISTRICT_CANONICAL_NOTE =
+  "Po potvrzení se spustí obsazování. District bliká tvojí barvou a po doběhnutí přejde pod tebe.";
+const DISTRICT_CANONICAL_REGISTRY =
+  "__empireDistrictActionParityCanonicalLayoutTextState";
+
+async function flushCanonicalContentObserver(page) {
+  await page.evaluate(() => new Promise((resolve) => (
+    requestAnimationFrame(() => requestAnimationFrame(resolve))
+  )));
+}
+
+test.describe("fixture-backed live/demo district action overlay parity canonical lock", () => {
+  test("restores the latest live text after updates and leaf replacement", async ({ page }) => {
+    await page.setContent(`
+      <section data-occupy-confirm-card style="display:block;width:280px;height:180px">
+        <p data-occupy-confirm-note>Original district note</p>
+      </section>
+    `);
+
+    const state = await applyDistrictActionOverlayCanonicalLayoutText(page, "occupy-confirm");
+    const note = page.locator("[data-occupy-confirm-note]");
+    await expect(note).toHaveText(DISTRICT_CANONICAL_NOTE);
+
+    await note.evaluate((element) => {
+      element.textContent = "Latest district note";
+    });
+    await flushCanonicalContentObserver(page);
+    await expect(note).toHaveText(DISTRICT_CANONICAL_NOTE);
+
+    await note.evaluate((element) => {
+      const replacement = element.cloneNode(false);
+      replacement.textContent = "Replacement district note";
+      element.replaceWith(replacement);
+    });
+    await flushCanonicalContentObserver(page);
+    await expect(page.locator("[data-occupy-confirm-note]")).toHaveText(DISTRICT_CANONICAL_NOTE);
+
+    await restoreDistrictActionOverlayCanonicalLayoutText(page, "occupy-confirm", state);
+    await expect(page.locator("[data-occupy-confirm-note]")).toHaveText(
+      "Replacement district note"
+    );
+    expect(await page.evaluate((registryProperty) => (
+      globalThis[registryProperty] === undefined
+    ), DISTRICT_CANONICAL_REGISTRY)).toBe(true);
+  });
+
+  test("rolls back partial apply and rejects a disconnected capture target", async ({ page }) => {
+    await page.setContent(`
+      <section data-occupy-confirm-card style="display:block;width:280px;height:180px"></section>
+    `);
+    const applyError = await applyDistrictActionOverlayCanonicalLayoutText(
+      page,
+      "occupy-confirm"
+    ).then(() => null, (error) => error);
+    expect(applyError).toBeInstanceOf(Error);
+    expect(String(applyError?.message || "")).toMatch(/matched 0 visible elements/u);
+    expect(await page.evaluate((registryProperty) => (
+      globalThis[registryProperty] === undefined
+    ), DISTRICT_CANONICAL_REGISTRY)).toBe(true);
+
+    await page.setContent(`
+      <section data-occupy-confirm-card style="display:block;width:280px;height:180px">
+        <p data-occupy-confirm-note>Original district note</p>
+      </section>
+    `);
+    const state = await applyDistrictActionOverlayCanonicalLayoutText(page, "occupy-confirm");
+    await page.locator("[data-occupy-confirm-card]").evaluate((element) => {
+      element.replaceWith(element.cloneNode(true));
+    });
+    const restoreError = await restoreDistrictActionOverlayCanonicalLayoutText(
+      page,
+      "occupy-confirm",
+      state
+    ).then(() => null, (error) => error);
+    expect(restoreError).toBeInstanceOf(Error);
+    expect(String(restoreError?.message || "")).toMatch(/disconnected before restore/u);
+    expect(await page.evaluate((registryProperty) => (
+      globalThis[registryProperty] === undefined
+    ), DISTRICT_CANONICAL_REGISTRY)).toBe(true);
+    const missingCaptureError = await restoreDistrictActionOverlayCanonicalLayoutText(
+      page,
+      "occupy-confirm",
+      state
+    ).then(() => null, (error) => error);
+    expect(missingCaptureError).toBeInstanceOf(Error);
+    expect(String(missingCaptureError?.message || "")).toMatch(/capture token is missing/u);
+  });
+});
+
 test.describe("fixture-backed live/demo district action overlay parity", () => {
   test.describe.configure({ mode: "serial" });
   test.skip(
@@ -137,10 +226,25 @@ test.describe("fixture-backed live/demo district action overlay parity", () => {
           let hostedCanonicalLayoutTextState = null;
           let primaryFailure = null;
           try {
-            localCanonicalLayoutTextState =
-              await applyDistrictActionOverlayCanonicalLayoutText(localPage, surfaceName);
-            hostedCanonicalLayoutTextState =
-              await applyDistrictActionOverlayCanonicalLayoutText(hostedPage, surfaceName);
+            const canonicalLayoutApplyResults = await Promise.all([
+              applyDistrictActionOverlayCanonicalLayoutText(localPage, surfaceName).then(
+                (value) => ({ status: "fulfilled", value }),
+                (reason) => ({ reason, status: "rejected" })
+              ),
+              applyDistrictActionOverlayCanonicalLayoutText(hostedPage, surfaceName).then(
+                (value) => ({ status: "fulfilled", value }),
+                (reason) => ({ reason, status: "rejected" })
+              )
+            ]);
+            if (canonicalLayoutApplyResults[0].status === "fulfilled") {
+              localCanonicalLayoutTextState = canonicalLayoutApplyResults[0].value;
+            }
+            if (canonicalLayoutApplyResults[1].status === "fulfilled") {
+              hostedCanonicalLayoutTextState = canonicalLayoutApplyResults[1].value;
+            }
+            const canonicalLayoutApplyFailure = canonicalLayoutApplyResults
+              .find((result) => result.status === "rejected");
+            if (canonicalLayoutApplyFailure) throw canonicalLayoutApplyFailure.reason;
             const [localSignature, hostedSignature] = await Promise.all([
               getDistrictActionOverlayPresentationSignature(localPage, surfaceName),
               getDistrictActionOverlayPresentationSignature(hostedPage, surfaceName)

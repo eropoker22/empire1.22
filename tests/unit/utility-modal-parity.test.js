@@ -126,16 +126,76 @@ describe("utility modal parity coverage contract", () => {
     expect(specSource).toContain('test.describe.configure({ mode: "serial" })');
     expect(specSource).toContain("utilityParityViewportBatches");
     expect(specSource).toContain("setViewportSize(viewport)");
+    expect(specSource).toContain("const canonicalContentApplyResults = await Promise.all([");
+    expect(specSource).toContain("applyUtilityParityCanonicalContent");
+    expect(specSource).toContain("restoreUtilityParityCanonicalContent");
+    expect(specSource).toContain('status: "fulfilled"');
+    expect(specSource).toContain("if (cleanupFailure && !primaryFailure)");
+    expect(specSource).toContain("live/demo utility modal parity canonical lock behavior");
+    expect(specSource).toContain("Latest avatar");
+    expect(specSource).toContain("disconnected before restore");
+    const canonicalApplyIndex = specSource.indexOf("const canonicalContentApplyResults");
+    const signatureIndex = specSource.indexOf(
+      "getUtilityParitySurfaceSignature(",
+      canonicalApplyIndex
+    );
+    const scrollIndex = specSource.indexOf("exerciseUtilityParitySurfaceScroll(", signatureIndex);
+    const screenshotIndex = specSource.indexOf("captureUtilityParityScreenshot(", scrollIndex);
+    const restoreIndex = specSource.indexOf(
+      "restoreUtilityParityCanonicalContent(",
+      screenshotIndex
+    );
+    expect(canonicalApplyIndex).toBeGreaterThanOrEqual(0);
+    expect(signatureIndex).toBeGreaterThan(canonicalApplyIndex);
+    expect(scrollIndex).toBeGreaterThan(signatureIndex);
+    expect(screenshotIndex).toBeGreaterThan(scrollIndex);
+    expect(restoreIndex).toBeGreaterThan(screenshotIndex);
     expect(specSource.match(/await registerAndEnterHostedUiParityGame\(/gu) || []).toHaveLength(1);
   });
 
-  it("serializes the authoritative marker into the browser signature callback", () => {
+  it("holds canonical dynamic content through signature, scroll and screenshot capture", () => {
     const helperSource = readFileSync(
       new URL("../e2e/helpers/utilityModalParity.js", import.meta.url),
       "utf8"
     );
-    expect(helperSource).toContain("const authoritativeText = config.authoritativeText;");
-    expect(helperSource).toContain("authoritativeText: AUTHORITATIVE_TEXT");
-    expect(helperSource.match(/\? authoritativeText/gu)?.length).toBeGreaterThanOrEqual(6);
+    const applyStart = helperSource.indexOf(
+      "export async function applyUtilityParityCanonicalContent"
+    );
+    const signatureStart = helperSource.indexOf(
+      "export async function getUtilityParitySurfaceSignature"
+    );
+    const signatureEnd = helperSource.indexOf(
+      "export async function exerciseUtilityParitySurfaceScroll",
+      signatureStart
+    );
+    const canonicalContentSource = helperSource.slice(applyStart, signatureStart);
+    const signatureSource = helperSource.slice(signatureStart, signatureEnd);
+
+    expect(applyStart).toBeGreaterThanOrEqual(0);
+    expect(signatureStart).toBeGreaterThanOrEqual(0);
+    expect(signatureStart).toBeGreaterThan(applyStart);
+    expect(signatureEnd).toBeGreaterThan(signatureStart);
+    expect(canonicalContentSource).toContain("new MutationObserver(normalizeCanonicalContent)");
+    expect(canonicalContentSource).toContain("capture.textRecords");
+    expect(canonicalContentSource).toContain("capture.attributeRecords");
+    expect(canonicalContentSource).toContain("record.latestActualText = textNode.data");
+    expect(canonicalContentSource).toContain("record.latestActualValue = currentValue");
+    expect(canonicalContentSource).toContain("capture.observer?.takeRecords()");
+    expect(canonicalContentSource).toContain("capture.observer?.disconnect()");
+    expect(canonicalContentSource).toContain("capture.restore = restoreCapture");
+    expect(canonicalContentSource).toContain("registry.delete(captureToken)");
+    expect(canonicalContentSource).toContain("globalThis[config.registryProperty]");
+    expect(canonicalContentSource).toContain(
+      "export async function restoreUtilityParityCanonicalContent"
+    );
+    expect(signatureSource).toContain("return target.evaluate((targetElement, config) => {");
+    expect(signatureSource).toContain("const authoritativeText = config.authoritativeText;");
+    expect(signatureSource).toContain("utility signature requires an active content lock");
+    expect(signatureSource).toContain("globalThis[config.registryProperty]");
+    expect(signatureSource).toContain("authoritativeText: AUTHORITATIVE_TEXT");
+    expect(signatureSource.match(/\? authoritativeText/gu)?.length).toBeGreaterThanOrEqual(6);
+    expect(signatureSource).not.toContain("createTreeWalker");
+    expect(signatureSource).not.toContain("MutationObserver");
+    expect(signatureSource).not.toContain("target.evaluate(async");
   });
 });

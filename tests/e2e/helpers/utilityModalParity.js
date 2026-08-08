@@ -11,6 +11,15 @@ import {
 
 const AUTHORITATIVE_TEXT = "<authoritative>";
 const LEADERBOARD_EMPTY_QUERY = "__utility_parity_no_player__";
+const UTILITY_CANONICAL_CONTENT_REGISTRY_PROPERTY =
+  "__empireUtilityParityCanonicalContentRegistry";
+const UTILITY_CANONICAL_TEXT_ATTRIBUTE_NAMES = Object.freeze([
+  "alt",
+  "aria-description",
+  "aria-label",
+  "aria-valuetext",
+  "title"
+]);
 
 export const utilityParityViewports = modalParityViewports;
 
@@ -335,12 +344,286 @@ export async function closeUtilityParitySurface(page, surfaceName) {
   await expect(page.locator(definition.shellSelector)).toBeHidden();
 }
 
+export async function applyUtilityParityCanonicalContent(page, surfaceName) {
+  const definition = resolveUtilityParitySurface(surfaceName);
+  if (!definition.dynamicLeafSelector) return { captureToken: null };
+  const target = page.locator(`${definition.targetSelector}:visible`).last();
+  await expect(target).toBeVisible();
+  return target.evaluate(async (targetElement, config) => {
+    const existingRegistry = globalThis[config.registryProperty];
+    if (existingRegistry !== undefined && !(existingRegistry instanceof Map)) {
+      throw new Error(`${config.surfaceName} canonical utility registry has an invalid shape.`);
+    }
+    const registry = existingRegistry || new Map();
+    if (!existingRegistry) {
+      Object.defineProperty(globalThis, config.registryProperty, {
+        configurable: true,
+        value: registry
+      });
+    }
+    if (Array.from(registry.values()).some((entry) => entry.targetElement === targetElement)) {
+      throw new Error(`${config.surfaceName} utility target already has a canonical content lock.`);
+    }
+    let captureToken;
+    do {
+      captureToken = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    } while (registry.has(captureToken));
+
+    const capture = {
+      attributeRecords: new Map(),
+      normalizing: false,
+      observer: null,
+      observerError: null,
+      restored: false,
+      restoring: false,
+      targetElement,
+      textRecords: new Map()
+    };
+    const readDynamicLeafElements = () => (
+      Array.from(targetElement.querySelectorAll(config.dynamicLeafSelector))
+    );
+    const readOutermostDynamicLeafElements = (elements) => elements.filter((element) => (
+      !elements.some((candidate) => candidate !== element && candidate.contains(element))
+    ));
+    const voidElementNames = new Set([
+      "AREA", "BASE", "BR", "COL", "EMBED", "HR", "IMG", "INPUT", "LINK", "META",
+      "PARAM", "SOURCE", "TRACK", "WBR"
+    ]);
+    const normalizeTextNodes = (dynamicLeafElements) => {
+      for (const element of readOutermostDynamicLeafElements(dynamicLeafElements)) {
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+        const textNodes = [];
+        while (walker.nextNode()) {
+          const textNode = walker.currentNode;
+          if (capture.textRecords.has(textNode) || /\S/u.test(textNode.data)) {
+            textNodes.push(textNode);
+          }
+        }
+        if (
+          textNodes.length === 0
+          && element.childElementCount === 0
+          && !voidElementNames.has(element.tagName)
+        ) {
+          const insertedTextNode = document.createTextNode("");
+          element.append(insertedTextNode);
+          capture.textRecords.set(insertedTextNode, {
+            canonicalText: "",
+            latestActualText: "",
+            removeOnRestore: true
+          });
+          textNodes.push(insertedTextNode);
+        }
+        for (const [index, textNode] of textNodes.entries()) {
+          const canonicalText = index === 0 ? config.authoritativeText : "";
+          let record = capture.textRecords.get(textNode);
+          if (!record) {
+            record = {
+              canonicalText,
+              latestActualText: textNode.data,
+              removeOnRestore: false
+            };
+            capture.textRecords.set(textNode, record);
+          } else {
+            if (textNode.data !== record.canonicalText) {
+              record.latestActualText = textNode.data;
+              record.removeOnRestore = false;
+            }
+            record.canonicalText = canonicalText;
+          }
+          if (textNode.data !== canonicalText) textNode.data = canonicalText;
+        }
+      }
+    };
+    const normalizeTextAttributes = (dynamicLeafElements) => {
+      const elements = new Set(dynamicLeafElements.flatMap((element) => (
+        [element, ...element.querySelectorAll("*")]
+      )));
+      for (const element of elements) {
+        let records = capture.attributeRecords.get(element);
+        for (const name of config.attributeNames) {
+          const hasAttribute = element.hasAttribute(name);
+          const currentValue = hasAttribute ? element.getAttribute(name) : null;
+          let record = records?.get(name);
+          if (!record) {
+            if (!hasAttribute) continue;
+            if (!records) {
+              records = new Map();
+              capture.attributeRecords.set(element, records);
+            }
+            record = {
+              latestActualHadAttribute: true,
+              latestActualValue: currentValue
+            };
+            records.set(name, record);
+          } else if (!hasAttribute || currentValue !== config.authoritativeText) {
+            record.latestActualHadAttribute = hasAttribute;
+            record.latestActualValue = currentValue;
+          }
+          if (!hasAttribute || currentValue !== config.authoritativeText) {
+            element.setAttribute(name, config.authoritativeText);
+          }
+        }
+      }
+    };
+    const normalizeCanonicalContent = () => {
+      if (capture.normalizing || capture.restoring) return;
+      capture.normalizing = true;
+      try {
+        const dynamicLeafElements = readDynamicLeafElements();
+        if (dynamicLeafElements.length === 0) {
+          throw new Error(`${config.surfaceName} canonical utility selector matched no elements.`);
+        }
+        normalizeTextNodes(dynamicLeafElements);
+        normalizeTextAttributes(dynamicLeafElements);
+      } catch (error) {
+        capture.observerError ||= error instanceof Error ? error.message : String(error);
+      } finally {
+        capture.normalizing = false;
+      }
+    };
+    const restoreCapture = ({ reportObserverError = true } = {}) => {
+      if (capture.restored) return [];
+      const failures = [];
+      const results = [];
+      capture.restoring = true;
+      try {
+        try {
+          capture.observer?.takeRecords();
+          capture.observer?.disconnect();
+        } catch (error) {
+          failures.push(error instanceof Error ? error.message : String(error));
+        }
+        for (const [textNode, record] of capture.textRecords) {
+          try {
+            if (textNode.data !== record.canonicalText) {
+              record.latestActualText = textNode.data;
+              record.removeOnRestore = false;
+              results.push({ kind: "text", status: "preserved-live-update" });
+            } else if (record.removeOnRestore) {
+              textNode.remove();
+              results.push({ kind: "text", status: "removed-capture-node" });
+            } else {
+              textNode.data = record.latestActualText;
+              results.push({ kind: "text", status: "restored" });
+            }
+          } catch (error) {
+            failures.push(error instanceof Error ? error.message : String(error));
+          }
+        }
+        for (const [element, records] of capture.attributeRecords) {
+          for (const [name, record] of records) {
+            try {
+              const hasAttribute = element.hasAttribute(name);
+              const currentValue = hasAttribute ? element.getAttribute(name) : null;
+              if (!hasAttribute || currentValue !== config.authoritativeText) {
+                record.latestActualHadAttribute = hasAttribute;
+                record.latestActualValue = currentValue;
+                results.push({ kind: "attribute", name, status: "preserved-live-update" });
+              } else if (record.latestActualHadAttribute) {
+                element.setAttribute(name, record.latestActualValue);
+                results.push({ kind: "attribute", name, status: "restored" });
+              } else {
+                element.removeAttribute(name);
+                results.push({ kind: "attribute", name, status: "removed-capture-attribute" });
+              }
+            } catch (error) {
+              failures.push(error instanceof Error ? error.message : String(error));
+            }
+          }
+        }
+        if (reportObserverError && capture.observerError) failures.push(capture.observerError);
+        if (!capture.targetElement.isConnected) {
+          failures.push(`${config.surfaceName} canonical utility target disconnected before restore.`);
+        }
+      } finally {
+        capture.restored = true;
+        registry.delete(captureToken);
+        if (registry.size === 0 && globalThis[config.registryProperty] === registry) {
+          delete globalThis[config.registryProperty];
+        }
+      }
+      if (failures.length > 0) {
+        throw new Error(
+          `${config.surfaceName} canonical utility cleanup failed: ${failures.join(" | ")}`
+        );
+      }
+      return results;
+    };
+
+    capture.restore = restoreCapture;
+    capture.observer = new MutationObserver(normalizeCanonicalContent);
+    registry.set(captureToken, capture);
+    try {
+      normalizeCanonicalContent();
+      if (capture.observerError) throw new Error(capture.observerError);
+      capture.observer.observe(targetElement, {
+        attributeFilter: config.attributeNames,
+        attributes: true,
+        characterData: true,
+        childList: true,
+        subtree: true
+      });
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      if (capture.observerError) throw new Error(capture.observerError);
+      return { captureToken };
+    } catch (error) {
+      try {
+        restoreCapture({ reportObserverError: false });
+      } catch {}
+      throw error;
+    }
+  }, {
+    attributeNames: UTILITY_CANONICAL_TEXT_ATTRIBUTE_NAMES,
+    authoritativeText: AUTHORITATIVE_TEXT,
+    dynamicLeafSelector: definition.dynamicLeafSelector,
+    registryProperty: UTILITY_CANONICAL_CONTENT_REGISTRY_PROPERTY,
+    surfaceName
+  });
+}
+
+export async function restoreUtilityParityCanonicalContent(page, surfaceName, state) {
+  const definition = resolveUtilityParitySurface(surfaceName);
+  if (!definition.dynamicLeafSelector) return [];
+  if (!state?.captureToken) {
+    throw new Error(`${surfaceName} canonical utility restore is missing its capture token.`);
+  }
+  return page.evaluate(async (config) => {
+    const registry = globalThis[config.registryProperty];
+    const capture = registry instanceof Map ? registry.get(config.captureToken) : null;
+    if (!capture) {
+      if (registry instanceof Map) {
+        registry.delete(config.captureToken);
+        if (registry.size === 0 && globalThis[config.registryProperty] === registry) {
+          delete globalThis[config.registryProperty];
+        }
+      }
+      throw new Error(`${config.surfaceName} canonical utility capture token is missing.`);
+    }
+    const results = capture.restore();
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    return results;
+  }, {
+    captureToken: state.captureToken,
+    registryProperty: UTILITY_CANONICAL_CONTENT_REGISTRY_PROPERTY,
+    surfaceName
+  });
+}
+
 export async function getUtilityParitySurfaceSignature(page, surfaceName) {
   const definition = resolveUtilityParitySurface(surfaceName);
   const target = page.locator(`${definition.targetSelector}:visible`).last();
   await expect(target).toBeVisible();
   return target.evaluate((targetElement, config) => {
     const authoritativeText = config.authoritativeText;
+    if (config.dynamicLeafSelector) {
+      const registry = globalThis[config.registryProperty];
+      const hasActiveLock = registry instanceof Map && Array.from(registry.values()).some((capture) => (
+        capture.targetElement === targetElement && !capture.restored && !capture.restoring
+      ));
+      if (!hasActiveLock) {
+        throw new Error(`${config.surfaceName} utility signature requires an active content lock.`);
+      }
+    }
     const normalizeText = (value) => String(value || "").replace(/\s+/gu, " ").trim();
     const isVisible = (element) => {
       if (!(element instanceof Element) || element.hasAttribute("hidden")) return false;
@@ -559,8 +842,10 @@ export async function getUtilityParitySurfaceSignature(page, surfaceName) {
     authoritativeText: AUTHORITATIVE_TEXT,
     computedStyleProperties: parityComputedStyleProperties,
     dynamicLeafSelector: definition.dynamicLeafSelector,
+    registryProperty: UTILITY_CANONICAL_CONTENT_REGISTRY_PROPERTY,
     requiredSectionSelectors: definition.requiredSectionSelectors,
-    semanticDatasetKeys: definition.semanticDatasetKeys
+    semanticDatasetKeys: definition.semanticDatasetKeys,
+    surfaceName
   });
 }
 

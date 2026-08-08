@@ -9,11 +9,13 @@ import {
   PARITY_PNG_CHANNEL_TOLERANCE
 } from "./helpers/uiParityCapture.js";
 import {
+  applyUtilityParityCanonicalContent,
   captureUtilityParityScreenshot,
   closeUtilityParitySurface,
   exerciseUtilityParitySurfaceScroll,
   getUtilityParitySurfaceSignature,
   openUtilityParitySurface,
+  restoreUtilityParityCanonicalContent,
   utilityParitySurfaceNames,
   utilityParityViewportBatches,
   utilityParityViewports,
@@ -23,6 +25,107 @@ import {
 const hostedEnabled = process.env.EMPIRE_HOSTED_UI_PARITY_E2E === "1";
 const serverInstanceId = process.env.EMPIRE_UI_PARITY_SERVER_ID || "";
 const coverageContract = validateUtilityParityCoverage();
+
+const UTILITY_CANONICAL_TEXT = "<authoritative>";
+const UTILITY_CANONICAL_REGISTRY = "__empireUtilityParityCanonicalContentRegistry";
+
+async function flushUtilityCanonicalContentObserver(page) {
+  await page.evaluate(() => new Promise((resolve) => (
+    requestAnimationFrame(() => requestAnimationFrame(resolve))
+  )));
+}
+
+test.describe("live/demo utility modal parity canonical lock behavior", () => {
+  test("restores latest text and attributes across empty and replaced leaves", async ({ page }) => {
+    await page.setContent(`
+      <section class="player-popup-card" style="display:block;width:320px;height:240px">
+        <img data-player-popup-avatar alt="Original avatar" style="display:block;width:48px;height:48px">
+        <h3 data-player-popup-name>Original name</h3>
+        <strong data-player-popup-identity>Original identity</strong>
+        <strong data-player-popup-gang></strong>
+      </section>
+    `);
+
+    const state = await applyUtilityParityCanonicalContent(page, "profile");
+    await expect(page.locator("[data-player-popup-name]")).toHaveText(UTILITY_CANONICAL_TEXT);
+    await expect(page.locator("[data-player-popup-identity]")).toHaveText(UTILITY_CANONICAL_TEXT);
+    await expect(page.locator("[data-player-popup-gang]")).toHaveText(UTILITY_CANONICAL_TEXT);
+    await expect(page.locator("[data-player-popup-avatar]")).toHaveAttribute(
+      "alt",
+      UTILITY_CANONICAL_TEXT
+    );
+
+    await page.evaluate(() => {
+      document.querySelector("[data-player-popup-identity]").textContent = "Latest identity";
+      document.querySelector("[data-player-popup-gang]").textContent = "Latest gang";
+      document.querySelector("[data-player-popup-avatar]").setAttribute("alt", "Latest avatar");
+    });
+    await flushUtilityCanonicalContentObserver(page);
+    await expect(page.locator("[data-player-popup-identity]")).toHaveText(UTILITY_CANONICAL_TEXT);
+    await expect(page.locator("[data-player-popup-gang]")).toHaveText(UTILITY_CANONICAL_TEXT);
+    await expect(page.locator("[data-player-popup-avatar]")).toHaveAttribute(
+      "alt",
+      UTILITY_CANONICAL_TEXT
+    );
+
+    await page.locator("[data-player-popup-name]").evaluate((element) => {
+      const replacement = element.cloneNode(false);
+      replacement.textContent = "Replacement name";
+      element.replaceWith(replacement);
+    });
+    await flushUtilityCanonicalContentObserver(page);
+    await expect(page.locator("[data-player-popup-name]")).toHaveText(UTILITY_CANONICAL_TEXT);
+
+    await restoreUtilityParityCanonicalContent(page, "profile", state);
+    await expect(page.locator("[data-player-popup-name]")).toHaveText("Replacement name");
+    await expect(page.locator("[data-player-popup-identity]")).toHaveText("Latest identity");
+    await expect(page.locator("[data-player-popup-gang]")).toHaveText("Latest gang");
+    await expect(page.locator("[data-player-popup-avatar]")).toHaveAttribute(
+      "alt",
+      "Latest avatar"
+    );
+    expect(await page.evaluate((registryProperty) => (
+      globalThis[registryProperty] === undefined
+    ), UTILITY_CANONICAL_REGISTRY)).toBe(true);
+  });
+
+  test("rolls back partial apply and rejects a disconnected capture target", async ({ page }) => {
+    await page.setContent(`
+      <section class="player-popup-card" style="display:block;width:320px;height:240px"></section>
+    `);
+    const applyError = await applyUtilityParityCanonicalContent(page, "profile")
+      .then(() => null, (error) => error);
+    expect(applyError).toBeInstanceOf(Error);
+    expect(String(applyError?.message || "")).toMatch(/matched no elements/u);
+    expect(await page.evaluate((registryProperty) => (
+      globalThis[registryProperty] === undefined
+    ), UTILITY_CANONICAL_REGISTRY)).toBe(true);
+
+    await page.setContent(`
+      <section class="player-popup-card" style="display:block;width:320px;height:240px">
+        <h3 data-player-popup-name>Original name</h3>
+      </section>
+    `);
+    const state = await applyUtilityParityCanonicalContent(page, "profile");
+    await page.locator(".player-popup-card").evaluate((element) => {
+      element.replaceWith(element.cloneNode(true));
+    });
+    const restoreError = await restoreUtilityParityCanonicalContent(page, "profile", state)
+      .then(() => null, (error) => error);
+    expect(restoreError).toBeInstanceOf(Error);
+    expect(String(restoreError?.message || "")).toMatch(/disconnected before restore/u);
+    expect(await page.evaluate((registryProperty) => (
+      globalThis[registryProperty] === undefined
+    ), UTILITY_CANONICAL_REGISTRY)).toBe(true);
+    const missingCaptureError = await restoreUtilityParityCanonicalContent(
+      page,
+      "profile",
+      state
+    ).then(() => null, (error) => error);
+    expect(missingCaptureError).toBeInstanceOf(Error);
+    expect(String(missingCaptureError?.message || "")).toMatch(/capture token is missing/u);
+  });
+});
 
 test.describe("live/demo utility modal parity", () => {
   test.describe.configure({ mode: "serial" });
@@ -118,7 +221,29 @@ test.describe("live/demo utility modal parity", () => {
             openUtilityParitySurface(hostedPage, surfaceName)
           ]);
 
+          let localCanonicalContentState = null;
+          let hostedCanonicalContentState = null;
+          let primaryFailure = null;
           try {
+            const canonicalContentApplyResults = await Promise.all([
+              applyUtilityParityCanonicalContent(localPage, surfaceName).then(
+                (value) => ({ status: "fulfilled", value }),
+                (reason) => ({ reason, status: "rejected" })
+              ),
+              applyUtilityParityCanonicalContent(hostedPage, surfaceName).then(
+                (value) => ({ status: "fulfilled", value }),
+                (reason) => ({ reason, status: "rejected" })
+              )
+            ]);
+            if (canonicalContentApplyResults[0].status === "fulfilled") {
+              localCanonicalContentState = canonicalContentApplyResults[0].value;
+            }
+            if (canonicalContentApplyResults[1].status === "fulfilled") {
+              hostedCanonicalContentState = canonicalContentApplyResults[1].value;
+            }
+            const canonicalContentApplyFailure = canonicalContentApplyResults
+              .find((result) => result.status === "rejected");
+            if (canonicalContentApplyFailure) throw canonicalContentApplyFailure.reason;
             const [localSignature, hostedSignature] = await Promise.all([
               getUtilityParitySurfaceSignature(localPage, surfaceName),
               getUtilityParitySurfaceSignature(hostedPage, surfaceName)
@@ -185,11 +310,33 @@ test.describe("live/demo utility modal parity", () => {
             ).toBe(0);
             expect(screenshotComparison.matches).toBe(true);
             completedComparisons.push(`${viewport.name}:${surfaceName}`);
+          } catch (error) {
+            primaryFailure = error;
+            throw error;
           } finally {
-            await Promise.all([
+            const restorationResults = await Promise.allSettled([
+              localCanonicalContentState
+                ? restoreUtilityParityCanonicalContent(
+                    localPage,
+                    surfaceName,
+                    localCanonicalContentState
+                  )
+                : Promise.resolve(),
+              hostedCanonicalContentState
+                ? restoreUtilityParityCanonicalContent(
+                    hostedPage,
+                    surfaceName,
+                    hostedCanonicalContentState
+                  )
+                : Promise.resolve()
+            ]);
+            const closeResults = await Promise.allSettled([
               closeUtilityParitySurface(localPage, surfaceName),
               closeUtilityParitySurface(hostedPage, surfaceName)
             ]);
+            const cleanupFailure = [...restorationResults, ...closeResults]
+              .find((result) => result.status === "rejected");
+            if (cleanupFailure && !primaryFailure) throw cleanupFailure.reason;
           }
         }
       });
