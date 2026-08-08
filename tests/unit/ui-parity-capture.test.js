@@ -1371,9 +1371,11 @@ describe("UI parity class signature", () => {
     expect(handle.dispose).toHaveBeenCalledTimes(1);
   });
 
-  it("aligns every descendant origin without changing intrinsic dimensions", async () => {
+  it("allows natural layout settling before aligning descendant origins", async () => {
     const first = createParityStyleElement();
     const second = createParityStyleElement();
+    let firstWidth = 80.4;
+    let secondWidth = 70.4;
     const readPixels = (element, propertyName, fallback) => {
       const value = Number.parseFloat(element.style.getPropertyValue(propertyName));
       return Number.isFinite(value) ? value : fallback;
@@ -1385,16 +1387,16 @@ describe("UI parity class signature", () => {
       const [translateX, translateY] = readTranslate(first.element);
       const left = 10.25 + translateX;
       const top = 20.75 + translateY;
-      const width = readPixels(first.element, "width", 80.4);
+      const width = readPixels(first.element, "width", firstWidth);
       const height = readPixels(first.element, "height", 40.4);
       return { bottom: top + height, height, left, right: left + width, top, width };
     });
     second.element.getBoundingClientRect = vi.fn(() => {
       const [translateX, translateY] = readTranslate(second.element);
-      const firstWidth = readPixels(first.element, "width", 80.4);
-      const left = 10.25 + firstWidth + 10.1 + translateX;
+      const settledFirstWidth = readPixels(first.element, "width", firstWidth);
+      const left = 10.25 + settledFirstWidth + 10.1 + translateX;
       const top = 20.75 + translateY;
-      const width = readPixels(second.element, "width", 70.4);
+      const width = readPixels(second.element, "width", secondWidth);
       const height = readPixels(second.element, "height", 40.4);
       return { bottom: top + height, height, left, right: left + width, top, width };
     });
@@ -1446,7 +1448,15 @@ describe("UI parity class signature", () => {
     };
 
     vi.stubGlobal("CSS", { escape: vi.fn((value) => String(value)) });
-    vi.stubGlobal("requestAnimationFrame", vi.fn((callback) => callback(0)));
+    let animationFrameCalls = 0;
+    vi.stubGlobal("requestAnimationFrame", vi.fn((callback) => {
+      animationFrameCalls += 1;
+      if (animationFrameCalls === 2) {
+        firstWidth = 80.45;
+        secondWidth = 70.45;
+      }
+      callback(0);
+    }));
     vi.stubGlobal("window", {
       devicePixelRatio: 1,
       getComputedStyle: vi.fn((element) => ({
@@ -1472,17 +1482,17 @@ describe("UI parity class signature", () => {
         bottom: 61.4,
         height: 40.4,
         left: 10,
-        right: 90.4,
+        right: 90.45,
         top: 21,
-        width: 80.4
+        width: 80.45
       },
       {
         bottom: 61.4,
         height: 40.4,
         left: 101,
-        right: 171.4,
+        right: 171.45,
         top: 21,
-        width: 70.4
+        width: 70.45
       }
     ]);
     for (const bounds of screenshotBounds) {

@@ -1872,22 +1872,19 @@ export async function captureIsolatedParityScreenshot(page, {
                 `Parity descendant alignment requires a neutral translate, received ${computedTranslate}.`
               );
             }
-            const rect = element.getBoundingClientRect();
             return {
               element,
-              height: rect.height,
               index,
               styles: {
                 translate: "0px 0px"
-              },
-              width: rect.width
+              }
             };
           });
-          measurements.forEach(({ element, height, index, styles, width }) => {
+          measurements.forEach(({ element, index, styles }) => {
             const token = `${groupToken}-${index}`;
             const entry = {
               element,
-              height,
+              index,
               previousToken: element.getAttribute(captureAttribute),
               styles: Object.entries(styles).map(([propertyName, value]) => ({
                 previousPriority: element.style.getPropertyPriority(propertyName),
@@ -1895,8 +1892,7 @@ export async function captureIsolatedParityScreenshot(page, {
                 propertyName,
                 value
               })),
-              token,
-              width
+              token
             };
             element.setAttribute(captureAttribute, token);
             entries.push(entry);
@@ -1906,16 +1902,18 @@ export async function captureIsolatedParityScreenshot(page, {
           });
           await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
           entries.forEach((entry) => {
-            const rect = entry.element.getBoundingClientRect();
-            const dimensionsChanged = [
-              Math.abs((rect.width - entry.width) * scale),
-              Math.abs((rect.height - entry.height) * scale)
-            ].some((delta) => delta > 0.02);
-            if (dimensionsChanged) {
+            const entryIsAvailable = entry.element.isConnected !== false
+              && entry.element.getAttribute(captureAttribute) === entry.token
+              && (
+                typeof targetElement.contains !== "function"
+                || targetElement.contains(entry.element)
+              );
+            if (!entryIsAvailable) {
               throw new Error(
-                `Parity descendant alignment changed intrinsic dimensions: ${selector}`
+                `Parity descendant alignment lost element ${entry.index} after neutral settle: ${selector}`
               );
             }
+            const rect = entry.element.getBoundingClientRect();
             const deltaX = (Math.round(rect.left * scale) - (rect.left * scale)) / scale;
             const deltaY = (Math.round(rect.top * scale) - (rect.top * scale)) / scale;
             const translateEntry = entry.styles.find(({ propertyName }) => (
@@ -1923,19 +1921,36 @@ export async function captureIsolatedParityScreenshot(page, {
             ));
             translateEntry.value = `${Number(deltaX.toFixed(6))}px ${Number(deltaY.toFixed(6))}px`;
             entry.element.style.setProperty("translate", translateEntry.value, "important");
+            // Compare synchronously so a later live-layout settle is not blamed on this translation.
+            const translatedRect = entry.element.getBoundingClientRect();
+            const dimensionDeltas = [
+              Math.abs((translatedRect.width - rect.width) * scale),
+              Math.abs((translatedRect.height - rect.height) * scale)
+            ];
+            if (dimensionDeltas.some((delta) => delta > 0.02)) {
+              const formattedDeltas = dimensionDeltas
+                .map((delta) => delta.toFixed(6))
+                .join(", ");
+              throw new Error(
+                `Parity descendant alignment changed intrinsic dimensions for element ${entry.index}`
+                + ` (device-pixel deltas ${formattedDeltas}): ${selector}`
+              );
+            }
           });
           await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
           entries.forEach((entry) => {
-            const rect = entry.element.getBoundingClientRect();
-            const dimensionsChanged = [
-              Math.abs((rect.width - entry.width) * scale),
-              Math.abs((rect.height - entry.height) * scale)
-            ].some((delta) => delta > 0.02);
-            if (dimensionsChanged) {
+            const entryIsAvailable = entry.element.isConnected !== false
+              && entry.element.getAttribute(captureAttribute) === entry.token
+              && (
+                typeof targetElement.contains !== "function"
+                || targetElement.contains(entry.element)
+              );
+            if (!entryIsAvailable) {
               throw new Error(
-                `Parity descendant alignment changed intrinsic dimensions: ${selector}`
+                `Parity descendant alignment lost element ${entry.index} after origin settle: ${selector}`
               );
             }
+            const rect = entry.element.getBoundingClientRect();
             const deviceOrigin = [rect.left, rect.top].map((value) => value * scale);
             if (deviceOrigin.some((value) => Math.abs(value - Math.round(value)) > 0.02)) {
               throw new Error(
