@@ -1786,9 +1786,13 @@ export async function captureIsolatedParityScreenshot(page, {
         const scale = Number.isFinite(window.devicePixelRatio) && window.devicePixelRatio > 0
           ? window.devicePixelRatio
           : 1;
-        const deltaX = (Math.round(rect.left * scale) - (rect.left * scale)) / scale;
-        const deltaY = (Math.round(rect.top * scale) - (rect.top * scale)) / scale;
-        const value = `${deltaX}px ${deltaY}px`;
+        // Keep every capture on the same side of a device-pixel boundary.
+        const snapDown = (value) => Math.floor(value + 0.0001);
+        const deviceLeft = rect.left * scale;
+        const deviceTop = rect.top * scale;
+        const deltaX = (snapDown(deviceLeft) - deviceLeft) / scale;
+        const deltaY = (snapDown(deviceTop) - deviceTop) / scale;
+        const value = `${Number(deltaX.toFixed(6))}px ${Number(deltaY.toFixed(6))}px`;
         targetElement.setAttribute(captureAttribute, token);
         try {
           targetElement.style.setProperty(propertyName, value, "important");
@@ -1826,6 +1830,7 @@ export async function captureIsolatedParityScreenshot(page, {
         const scale = Number.isFinite(window.devicePixelRatio) && window.devicePixelRatio > 0
           ? window.devicePixelRatio
           : 1;
+        const snapDown = (value) => Math.floor(value + 0.0001);
         const elements = Array.from(targetElement.querySelectorAll(selector)).filter((element) => {
           const style = window.getComputedStyle(element);
           const rect = element.getBoundingClientRect();
@@ -1914,8 +1919,10 @@ export async function captureIsolatedParityScreenshot(page, {
               );
             }
             const rect = entry.element.getBoundingClientRect();
-            const deltaX = (Math.round(rect.left * scale) - (rect.left * scale)) / scale;
-            const deltaY = (Math.round(rect.top * scale) - (rect.top * scale)) / scale;
+            const deviceLeft = rect.left * scale;
+            const deviceTop = rect.top * scale;
+            const deltaX = (snapDown(deviceLeft) - deviceLeft) / scale;
+            const deltaY = (snapDown(deviceTop) - deviceTop) / scale;
             const translateEntry = entry.styles.find(({ propertyName }) => (
               propertyName === "translate"
             ));

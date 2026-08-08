@@ -1294,7 +1294,7 @@ describe("UI parity class signature", () => {
     expect(harness.original.attributes.has("data-parity-capture-stable-target-style")).toBe(false);
   });
 
-  it("aligns a capture target to device pixels before reading regions and restores translate", async () => {
+  it("aligns a capture target down to deterministic device pixels and restores translate", async () => {
     const original = createParityStyleElement({
       translate: { priority: "important", value: "0px 0px" }
     });
@@ -1357,8 +1357,8 @@ describe("UI parity class signature", () => {
       vi.unstubAllGlobals();
     }
 
-    expect(screenshotBounds).toEqual({ left: 10, top: 21 });
-    expect(screenshotTranslate).toEqual({ priority: "important", value: "-0.25px 0.25px" });
+    expect(screenshotBounds).toEqual({ left: 10, top: 20 });
+    expect(screenshotTranslate).toEqual({ priority: "important", value: "-0.25px -0.75px" });
     expect(handle.evaluate).toHaveBeenCalledTimes(5);
     expect(handle.evaluate.mock.invocationCallOrder[1])
       .toBeLessThan(handle.evaluate.mock.invocationCallOrder[2]);
@@ -1386,7 +1386,7 @@ describe("UI parity class signature", () => {
     first.element.getBoundingClientRect = vi.fn(() => {
       const [translateX, translateY] = readTranslate(first.element);
       const left = 10.25 + translateX;
-      const top = 20.75 + translateY;
+      const top = 20.49 + translateY;
       const width = readPixels(first.element, "width", firstWidth);
       const height = readPixels(first.element, "height", 40.4);
       return { bottom: top + height, height, left, right: left + width, top, width };
@@ -1395,7 +1395,7 @@ describe("UI parity class signature", () => {
       const [translateX, translateY] = readTranslate(second.element);
       const settledFirstWidth = readPixels(first.element, "width", firstWidth);
       const left = 10.25 + settledFirstWidth + 10.1 + translateX;
-      const top = 20.75 + translateY;
+      const top = 20.51 + translateY;
       const width = readPixels(second.element, "width", secondWidth);
       const height = readPixels(second.element, "height", 40.4);
       return { bottom: top + height, height, left, right: left + width, top, width };
@@ -1479,19 +1479,19 @@ describe("UI parity class signature", () => {
 
     expect(screenshotBounds).toEqual([
       {
-        bottom: 61.4,
+        bottom: 60.4,
         height: 40.4,
         left: 10,
         right: 90.45,
-        top: 21,
+        top: 20,
         width: 80.45
       },
       {
-        bottom: 61.4,
+        bottom: 60.4,
         height: 40.4,
-        left: 101,
-        right: 171.45,
-        top: 21,
+        left: 100,
+        right: 170.45,
+        top: 20,
         width: 70.45
       }
     ]);
