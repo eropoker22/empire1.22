@@ -53,6 +53,11 @@ describe("utility modal parity coverage contract", () => {
       expect(definition.requiredSectionSelectors.length).toBeGreaterThanOrEqual(2);
     }
     expect(utilityParitySurfaces.onboarding.triggerSelector).toBe("[data-onboarding-launch]");
+    expect(utilityParitySurfaces.storage.requiredSectionSelectors).toContain(
+      ".storage-popup-section--defense .storage-popup-subtitle--with-close"
+    );
+    expect(utilityParitySurfaces.storage.requiredSectionSelectors)
+      .not.toContain(".storage-popup-heading");
     expect(utilityParitySurfaces.leaderboard.requiredSectionSelectors).toEqual(
       expect.arrayContaining([
         ".leaderboard-control-strip",

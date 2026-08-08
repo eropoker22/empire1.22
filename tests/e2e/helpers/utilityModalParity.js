@@ -68,7 +68,7 @@ export const utilityParitySurfaces = Object.freeze({
     closeSelector: ".storage-popup-card [data-storage-popup-close]",
     dynamicLeafSelector: "[data-storage-value]",
     requiredSectionSelectors: Object.freeze([
-      ".storage-popup-heading",
+      ".storage-popup-section--defense .storage-popup-subtitle--with-close",
       ".storage-popup-section--attack",
       ".storage-popup-section--defense",
       ".storage-popup-section--materials",

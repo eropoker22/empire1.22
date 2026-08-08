@@ -119,7 +119,12 @@ describe("district action overlay parity coverage", () => {
     expect(districtActionOverlayDefinitions["spy-confirm"].hostedTargetDistrictId).toBe("district:25");
     expect(districtActionOverlayDefinitions["robbery-setup"].hostedTargetDistrictId).toBe("district:24");
     expect(districtActionOverlayDefinitions["robbery-confirm"].hostedTargetDistrictId).toBe("district:24");
-    expect(districtActionOverlayDefinitions["heist-inline"].hostedTargetDistrictId).toBe("district:4");
+    expect(districtActionOverlayDefinitions["heist-inline"]).toMatchObject({
+      hostedRole: "hunter",
+      hostedTargetDistrictId: "district:2",
+      localRole: "attacker",
+      localTargetDistrictId: "district:45"
+    });
     expect(districtActionOverlayDefinitions["attack-setup"].hostedTargetDistrictId).toBe("district:2");
     expect(districtActionOverlayDefinitions["attack-confirm"].hostedTargetDistrictId).toBe("district:2");
     expect(districtActionOverlayDefinitions["occupy-confirm"].hostedTargetDistrictId).toBe("district:6");
