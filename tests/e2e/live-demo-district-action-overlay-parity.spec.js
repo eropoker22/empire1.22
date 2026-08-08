@@ -30,6 +30,7 @@ const serverInstanceId = process.env.EMPIRE_UI_PARITY_SERVER_ID || "";
 const identities = parseIdentities(process.env.EMPIRE_HOSTED_BOOTSTRAP_IDENTITIES_JSON);
 const coverageContract = validateDistrictActionOverlayParityCoverage();
 
+const DISTRICT_CANONICAL_COST = "50 populace · 10 vlivu";
 const DISTRICT_CANONICAL_NOTE =
   "Po potvrzení se spustí obsazování. District bliká tvojí barvou a po doběhnutí přejde pod tebe.";
 const DISTRICT_CANONICAL_REGISTRY =
@@ -45,18 +46,25 @@ test.describe("fixture-backed live/demo district action overlay parity canonical
   test("restores the latest live text after updates and leaf replacement", async ({ page }) => {
     await page.setContent(`
       <section data-occupy-confirm-card style="display:block;width:280px;height:180px">
+        <strong data-occupy-confirm-cost>250 populace</strong>
         <p data-occupy-confirm-note>Original district note</p>
       </section>
     `);
 
     const state = await applyDistrictActionOverlayCanonicalLayoutText(page, "occupy-confirm");
+    const cost = page.locator("[data-occupy-confirm-cost]");
     const note = page.locator("[data-occupy-confirm-note]");
+    await expect(cost).toHaveText(DISTRICT_CANONICAL_COST);
     await expect(note).toHaveText(DISTRICT_CANONICAL_NOTE);
 
-    await note.evaluate((element) => {
-      element.textContent = "Latest district note";
+    await page.evaluate(() => {
+      document.querySelector("[data-occupy-confirm-cost]").textContent =
+        "Latest district cost";
+      document.querySelector("[data-occupy-confirm-note]").textContent =
+        "Latest district note";
     });
     await flushCanonicalContentObserver(page);
+    await expect(cost).toHaveText(DISTRICT_CANONICAL_COST);
     await expect(note).toHaveText(DISTRICT_CANONICAL_NOTE);
 
     await note.evaluate((element) => {
@@ -68,6 +76,9 @@ test.describe("fixture-backed live/demo district action overlay parity canonical
     await expect(page.locator("[data-occupy-confirm-note]")).toHaveText(DISTRICT_CANONICAL_NOTE);
 
     await restoreDistrictActionOverlayCanonicalLayoutText(page, "occupy-confirm", state);
+    await expect(page.locator("[data-occupy-confirm-cost]")).toHaveText(
+      "Latest district cost"
+    );
     await expect(page.locator("[data-occupy-confirm-note]")).toHaveText(
       "Replacement district note"
     );
@@ -92,6 +103,7 @@ test.describe("fixture-backed live/demo district action overlay parity canonical
 
     await page.setContent(`
       <section data-occupy-confirm-card style="display:block;width:280px;height:180px">
+        <strong data-occupy-confirm-cost>250 populace</strong>
         <p data-occupy-confirm-note>Original district note</p>
       </section>
     `);

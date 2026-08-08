@@ -134,6 +134,7 @@ describe("utility modal parity coverage contract", () => {
     expect(specSource).toContain("live/demo utility modal parity canonical lock behavior");
     expect(specSource).toContain("Latest avatar");
     expect(specSource).toContain("disconnected before restore");
+    expect(specSource.match(/data-player-popup-card/gu) || []).toHaveLength(3);
     const canonicalApplyIndex = specSource.indexOf("const canonicalContentApplyResults");
     const signatureIndex = specSource.indexOf(
       "getUtilityParitySurfaceSignature(",
@@ -197,5 +198,9 @@ describe("utility modal parity coverage contract", () => {
     expect(signatureSource).not.toContain("createTreeWalker");
     expect(signatureSource).not.toContain("MutationObserver");
     expect(signatureSource).not.toContain("target.evaluate(async");
+    expect(helperSource).toContain(
+      'stableBackdropFilterSelector: surfaceName === "profile"'
+    );
+    expect(helperSource).toContain("stableBackdropShellSelector: definition.shellSelector");
   });
 });

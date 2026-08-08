@@ -124,10 +124,16 @@ describe("district action overlay parity coverage", () => {
     expect(districtActionOverlayDefinitions["attack-confirm"].hostedTargetDistrictId).toBe("district:2");
     expect(districtActionOverlayDefinitions["occupy-confirm"].hostedTargetDistrictId).toBe("district:6");
     expect(districtActionOverlayDefinitions["occupy-confirm"].canonicalLayoutTextEntries)
-      .toEqual([{
-        selector: "[data-occupy-confirm-note]",
-        text: "Po potvrzení se spustí obsazování. District bliká tvojí barvou a po doběhnutí přejde pod tebe."
-      }]);
+      .toEqual([
+        {
+          selector: "[data-occupy-confirm-cost]",
+          text: "50 populace · 10 vlivu"
+        },
+        {
+          selector: "[data-occupy-confirm-note]",
+          text: "Po potvrzení se spustí obsazování. District bliká tvojí barvou a po doběhnutí přejde pod tebe."
+        }
+      ]);
     expect(districtActionOverlayDefinitions["attack-setup"].dynamicAssetSelectors)
       .toEqual(["[data-attack-setup-atmosphere-image]"]);
     expect(districtActionOverlayDefinitions["attack-confirm"].dynamicAssetSelectors)
@@ -262,6 +268,7 @@ describe("district action overlay parity coverage", () => {
     expect(specSource).toContain(
       "fixture-backed live/demo district action overlay parity canonical lock"
     );
+    expect(specSource).toContain("Latest district cost");
     expect(specSource).toContain("Replacement district note");
     expect(specSource).toContain("disconnected before restore");
     expect(specSource.match(/await loginAndResumeHostedUiParityGame\(/gu) || []).toHaveLength(1);

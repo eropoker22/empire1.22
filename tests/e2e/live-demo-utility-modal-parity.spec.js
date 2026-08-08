@@ -38,7 +38,7 @@ async function flushUtilityCanonicalContentObserver(page) {
 test.describe("live/demo utility modal parity canonical lock behavior", () => {
   test("restores latest text and attributes across empty and replaced leaves", async ({ page }) => {
     await page.setContent(`
-      <section class="player-popup-card" style="display:block;width:320px;height:240px">
+      <section class="player-popup-card" data-player-popup-card style="display:block;width:320px;height:240px">
         <img data-player-popup-avatar alt="Original avatar" style="display:block;width:48px;height:48px">
         <h3 data-player-popup-name>Original name</h3>
         <strong data-player-popup-identity>Original identity</strong>
@@ -91,7 +91,7 @@ test.describe("live/demo utility modal parity canonical lock behavior", () => {
 
   test("rolls back partial apply and rejects a disconnected capture target", async ({ page }) => {
     await page.setContent(`
-      <section class="player-popup-card" style="display:block;width:320px;height:240px"></section>
+      <section class="player-popup-card" data-player-popup-card style="display:block;width:320px;height:240px"></section>
     `);
     const applyError = await applyUtilityParityCanonicalContent(page, "profile")
       .then(() => null, (error) => error);
@@ -102,7 +102,7 @@ test.describe("live/demo utility modal parity canonical lock behavior", () => {
     ), UTILITY_CANONICAL_REGISTRY)).toBe(true);
 
     await page.setContent(`
-      <section class="player-popup-card" style="display:block;width:320px;height:240px">
+      <section class="player-popup-card" data-player-popup-card style="display:block;width:320px;height:240px">
         <h3 data-player-popup-name>Original name</h3>
       </section>
     `);

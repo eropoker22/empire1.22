@@ -932,6 +932,10 @@ export async function captureUtilityParityScreenshot(page, {
   return captureIsolatedParityScreenshot(page, {
     ignoreSelector: definition.dynamicLeafSelector,
     path: screenshotPath,
+    stableBackdropFilterSelector: surfaceName === "profile"
+      ? definition.targetSelector
+      : "",
+    stableBackdropShellSelector: definition.shellSelector,
     target
   });
 }

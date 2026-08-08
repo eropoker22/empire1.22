@@ -220,10 +220,16 @@ export const districtActionOverlayDefinitions = Object.freeze({
   }),
   "occupy-confirm": freezeDefinition({
     actionId: "occupy",
-    canonicalLayoutTextEntries: [{
-      selector: "[data-occupy-confirm-note]",
-      text: "Po potvrzení se spustí obsazování. District bliká tvojí barvou a po doběhnutí přejde pod tebe."
-    }],
+    canonicalLayoutTextEntries: [
+      {
+        selector: "[data-occupy-confirm-cost]",
+        text: "50 populace · 10 vlivu"
+      },
+      {
+        selector: "[data-occupy-confirm-note]",
+        text: "Po potvrzení se spustí obsazování. District bliká tvojí barvou a po doběhnutí přejde pod tebe."
+      }
+    ],
     closeSelector: "[data-occupy-confirm-close]",
     dynamicLeafSelectors: [
       "[data-occupy-confirm-title]",
