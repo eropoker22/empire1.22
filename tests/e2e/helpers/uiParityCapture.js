@@ -1767,19 +1767,22 @@ export async function captureIsolatedParityScreenshot(page, {
       const targetHandle = await resolveStableTargetHandle();
       stableTargetAlignmentState = await targetHandle.evaluate((targetElement) => {
         const captureAttribute = "data-parity-capture-device-pixel-alignment";
-        const propertyName = "translate";
         const token = `parity-device-pixel-${Date.now()}-${Math.random().toString(16).slice(2)}`;
         const previousToken = targetElement.getAttribute(captureAttribute);
-        const previousPriority = targetElement.style.getPropertyPriority(propertyName);
-        const previousValue = targetElement.style.getPropertyValue(propertyName);
-        const computedTranslate = String(
-          window.getComputedStyle(targetElement).translate || "none"
-        ).trim().toLowerCase();
-        const neutralTranslate = computedTranslate === "none"
-          || /^0(?:\.0+)?px(?:\s+0(?:\.0+)?px){0,2}$/u.test(computedTranslate);
-        if (!neutralTranslate) {
+        const computedStyle = window.getComputedStyle(targetElement);
+        const computedPosition = String(computedStyle.position || "").trim().toLowerCase();
+        if (computedPosition !== "relative") {
           throw new Error(
-            `Parity device-pixel alignment requires a neutral translate, received ${computedTranslate}.`
+            `Parity device-pixel alignment cannot safely offset position ${computedPosition}.`
+          );
+        }
+        const offsetIsNeutral = (value) => {
+          const normalized = String(value || "auto").trim().toLowerCase();
+          return normalized === "auto" || /^0(?:\.0+)?px$/u.test(normalized);
+        };
+        if (!offsetIsNeutral(computedStyle.left) || !offsetIsNeutral(computedStyle.top)) {
+          throw new Error(
+            "Parity device-pixel alignment requires neutral relative offsets."
           );
         }
         const rect = targetElement.getBoundingClientRect();
@@ -1792,22 +1795,47 @@ export async function captureIsolatedParityScreenshot(page, {
         const deviceTop = rect.top * scale;
         const deltaX = (snapDown(deviceLeft) - deviceLeft) / scale;
         const deltaY = (snapDown(deviceTop) - deviceTop) / scale;
-        const value = `${Number(deltaX.toFixed(6))}px ${Number(deltaY.toFixed(6))}px`;
+        const entries = [
+          { propertyName: "left", value: `${Number(deltaX.toFixed(6))}px` },
+          { propertyName: "top", value: `${Number(deltaY.toFixed(6))}px` }
+        ].map((entry) => ({
+          ...entry,
+          previousPriority: targetElement.style.getPropertyPriority(entry.propertyName),
+          previousValue: targetElement.style.getPropertyValue(entry.propertyName)
+        }));
         targetElement.setAttribute(captureAttribute, token);
         try {
-          targetElement.style.setProperty(propertyName, value, "important");
+          entries.forEach(({ propertyName, value }) => {
+            targetElement.style.setProperty(propertyName, value, "important");
+          });
+          const alignedRect = targetElement.getBoundingClientRect();
+          const dimensionDeltas = [
+            Math.abs((alignedRect.width - rect.width) * scale),
+            Math.abs((alignedRect.height - rect.height) * scale)
+          ];
+          if (dimensionDeltas.some((delta) => delta > 0.02)) {
+            throw new Error("Parity device-pixel alignment changed intrinsic dimensions.");
+          }
         } catch (error) {
+          entries.forEach((entry) => {
+            if (entry.previousValue) {
+              targetElement.style.setProperty(
+                entry.propertyName,
+                entry.previousValue,
+                entry.previousPriority
+              );
+            } else {
+              targetElement.style.removeProperty(entry.propertyName);
+            }
+          });
           if (previousToken === null) targetElement.removeAttribute(captureAttribute);
           else targetElement.setAttribute(captureAttribute, previousToken);
           throw error;
         }
         return {
-          previousPriority,
+          entries,
           previousToken,
-          previousValue,
-          propertyName,
-          token,
-          value
+          token
         };
       });
       await settleFiniteAnimations(targetHandle);
@@ -1822,28 +1850,36 @@ export async function captureIsolatedParityScreenshot(page, {
         }
       });
     }
-    if (stableDescendantDevicePixelAlignmentSelector) {
+    const alignStableDescendants = async () => {
+      if (!stableDescendantDevicePixelAlignmentSelector) return null;
       const targetHandle = await resolveStableTargetHandle();
-      stableDescendantAlignmentState = await targetHandle.evaluate(async (targetElement, selector) => {
+      return targetHandle.evaluate(async (targetElement, selector) => {
         const captureAttribute = "data-parity-capture-descendant-device-pixel-alignment";
         const groupToken = `parity-descendant-device-pixel-${Date.now()}-${Math.random().toString(16).slice(2)}`;
         const scale = Number.isFinite(window.devicePixelRatio) && window.devicePixelRatio > 0
           ? window.devicePixelRatio
           : 1;
         const snapDown = (value) => Math.floor(value + 0.0001);
-        const elements = Array.from(targetElement.querySelectorAll(selector)).filter((element) => {
-          const style = window.getComputedStyle(element);
-          const rect = element.getBoundingClientRect();
-          return style.display !== "none"
-            && style.visibility !== "hidden"
-            && Number(style.opacity || 1) > 0
-            && rect.width > 0
-            && rect.height > 0;
-        });
-        if (elements.length === 0) {
-          throw new Error(`Parity descendant alignment selector matched no visible elements: ${selector}`);
-        }
-        const entries = [];
+        const readVisibleElements = () => Array.from(targetElement.querySelectorAll(selector))
+          .filter((element) => {
+            const style = window.getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            return style.display !== "none"
+              && style.visibility !== "hidden"
+              && Number(style.opacity || 1) > 0
+              && rect.width > 0
+              && rect.height > 0;
+          });
+        const readVisibleSignature = (elements) => JSON.stringify(elements.map((element) => ({
+          className: element.getAttribute?.("class") || "",
+          dataset: Object.entries(element.dataset || {}).sort(([left], [right]) => (
+            left.localeCompare(right)
+          )),
+          markup: String(element.outerHTML || "").replace(/\s+/gu, " ").trim(),
+          scope: element.closest?.("[data-boost-card]")?.getAttribute("data-boost-card") || "",
+          tagName: String(element.tagName || "").toLowerCase(),
+          text: String(element.textContent || "").replace(/\s+/gu, " ").trim()
+        })));
         const restoreEntry = (entry) => {
           const { element } = entry;
           entry.styles.forEach((styleEntry) => {
@@ -1865,121 +1901,142 @@ export async function captureIsolatedParityScreenshot(page, {
           if (entry.previousToken === null) element.removeAttribute(captureAttribute);
           else element.setAttribute(captureAttribute, entry.previousToken);
         };
-        try {
-          const measurements = elements.map((element, index) => {
-            const computedTranslate = String(
-              window.getComputedStyle(element).translate || "none"
-            ).trim().toLowerCase();
-            const neutralTranslate = computedTranslate === "none"
-              || /^0(?:\.0+)?px(?:\s+0(?:\.0+)?px){0,2}$/u.test(computedTranslate);
-            if (!neutralTranslate) {
-              throw new Error(
-                `Parity descendant alignment requires a neutral translate, received ${computedTranslate}.`
-              );
-            }
-            return {
-              element,
-              index,
-              styles: {
-                translate: "0px 0px"
+        const entryIsAvailable = (entry) => entry.element.isConnected !== false
+          && entry.element.getAttribute(captureAttribute) === entry.token
+          && (
+            typeof targetElement.contains !== "function"
+            || targetElement.contains(entry.element)
+          );
+        const maxAttempts = 3;
+        const createLostEntryError = (entry, phase, attempt) => {
+          const error = new Error(
+            `Parity descendant alignment lost element ${entry.index} after ${phase}`
+            + ` (attempt ${attempt}/${maxAttempts}): ${selector}`
+          );
+          error.code = "PARITY_DESCENDANT_LOST";
+          return error;
+        };
+        let expectedVisibleSignature = null;
+        let stableEntries = null;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+          const elements = readVisibleElements();
+          if (elements.length === 0) {
+            throw new Error(
+              `Parity descendant alignment selector matched no visible elements: ${selector}`
+            );
+          }
+          const visibleSignature = readVisibleSignature(elements);
+          if (expectedVisibleSignature === null) {
+            expectedVisibleSignature = visibleSignature;
+          } else if (visibleSignature !== expectedVisibleSignature) {
+            throw new Error(
+              `Parity descendant alignment visible structure changed between attempts: ${selector}`
+            );
+          }
+          const entries = [];
+          try {
+            const measurements = elements.map((element, index) => {
+              const computedTranslate = String(
+                window.getComputedStyle(element).translate || "none"
+              ).trim().toLowerCase();
+              const neutralTranslate = computedTranslate === "none"
+                || /^0(?:\.0+)?px(?:\s+0(?:\.0+)?px){0,2}$/u.test(computedTranslate);
+              if (!neutralTranslate) {
+                throw new Error(
+                  `Parity descendant alignment requires a neutral translate, received ${computedTranslate}.`
+                );
               }
-            };
-          });
-          measurements.forEach(({ element, index, styles }) => {
-            const token = `${groupToken}-${index}`;
-            const entry = {
-              element,
-              index,
-              previousToken: element.getAttribute(captureAttribute),
-              styles: Object.entries(styles).map(([propertyName, value]) => ({
-                previousPriority: element.style.getPropertyPriority(propertyName),
-                previousValue: element.style.getPropertyValue(propertyName),
-                propertyName,
-                value
-              })),
-              token
-            };
-            element.setAttribute(captureAttribute, token);
-            entries.push(entry);
-            entry.styles.forEach(({ propertyName, value }) => {
-              element.style.setProperty(propertyName, value, "important");
+              return {
+                element,
+                index,
+                styles: {
+                  translate: "0px 0px"
+                }
+              };
             });
-          });
-          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-          entries.forEach((entry) => {
-            const entryIsAvailable = entry.element.isConnected !== false
-              && entry.element.getAttribute(captureAttribute) === entry.token
-              && (
-                typeof targetElement.contains !== "function"
-                || targetElement.contains(entry.element)
-              );
-            if (!entryIsAvailable) {
-              throw new Error(
-                `Parity descendant alignment lost element ${entry.index} after neutral settle: ${selector}`
-              );
+            measurements.forEach(({ element, index, styles }) => {
+              const token = `${groupToken}-${attempt}-${index}`;
+              const entry = {
+                element,
+                index,
+                previousToken: element.getAttribute(captureAttribute),
+                styles: Object.entries(styles).map(([propertyName, value]) => ({
+                  previousPriority: element.style.getPropertyPriority(propertyName),
+                  previousValue: element.style.getPropertyValue(propertyName),
+                  propertyName,
+                  value
+                })),
+                token
+              };
+              element.setAttribute(captureAttribute, token);
+              entries.push(entry);
+              entry.styles.forEach(({ propertyName, value }) => {
+                element.style.setProperty(propertyName, value, "important");
+              });
+            });
+            await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            entries.forEach((entry) => {
+              if (!entryIsAvailable(entry)) {
+                throw createLostEntryError(entry, "neutral settle", attempt);
+              }
+              const rect = entry.element.getBoundingClientRect();
+              const deviceLeft = rect.left * scale;
+              const deviceTop = rect.top * scale;
+              const deltaX = (snapDown(deviceLeft) - deviceLeft) / scale;
+              const deltaY = (snapDown(deviceTop) - deviceTop) / scale;
+              const translateEntry = entry.styles.find(({ propertyName }) => (
+                propertyName === "translate"
+              ));
+              translateEntry.value = `${Number(deltaX.toFixed(6))}px ${Number(deltaY.toFixed(6))}px`;
+              entry.element.style.setProperty("translate", translateEntry.value, "important");
+              // Compare synchronously so a later live-layout settle is not blamed on this translation.
+              const translatedRect = entry.element.getBoundingClientRect();
+              const dimensionDeltas = [
+                Math.abs((translatedRect.width - rect.width) * scale),
+                Math.abs((translatedRect.height - rect.height) * scale)
+              ];
+              if (dimensionDeltas.some((delta) => delta > 0.02)) {
+                const formattedDeltas = dimensionDeltas
+                  .map((delta) => delta.toFixed(6))
+                  .join(", ");
+                throw new Error(
+                  `Parity descendant alignment changed intrinsic dimensions for element ${entry.index}`
+                  + ` (device-pixel deltas ${formattedDeltas}): ${selector}`
+                );
+              }
+            });
+            await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            entries.forEach((entry) => {
+              if (!entryIsAvailable(entry)) {
+                throw createLostEntryError(entry, "origin settle", attempt);
+              }
+              const rect = entry.element.getBoundingClientRect();
+              const deviceOrigin = [rect.left, rect.top].map((value) => value * scale);
+              if (deviceOrigin.some((value) => Math.abs(value - Math.round(value)) > 0.02)) {
+                throw new Error(
+                  `Parity descendant alignment could not stabilize the device-pixel origin: ${selector}`
+                );
+              }
+            });
+            stableEntries = entries;
+            break;
+          } catch (error) {
+            [...entries].reverse().forEach(restoreEntry);
+            if (error?.code === "PARITY_DESCENDANT_LOST" && attempt < maxAttempts) {
+              continue;
             }
-            const rect = entry.element.getBoundingClientRect();
-            const deviceLeft = rect.left * scale;
-            const deviceTop = rect.top * scale;
-            const deltaX = (snapDown(deviceLeft) - deviceLeft) / scale;
-            const deltaY = (snapDown(deviceTop) - deviceTop) / scale;
-            const translateEntry = entry.styles.find(({ propertyName }) => (
-              propertyName === "translate"
-            ));
-            translateEntry.value = `${Number(deltaX.toFixed(6))}px ${Number(deltaY.toFixed(6))}px`;
-            entry.element.style.setProperty("translate", translateEntry.value, "important");
-            // Compare synchronously so a later live-layout settle is not blamed on this translation.
-            const translatedRect = entry.element.getBoundingClientRect();
-            const dimensionDeltas = [
-              Math.abs((translatedRect.width - rect.width) * scale),
-              Math.abs((translatedRect.height - rect.height) * scale)
-            ];
-            if (dimensionDeltas.some((delta) => delta > 0.02)) {
-              const formattedDeltas = dimensionDeltas
-                .map((delta) => delta.toFixed(6))
-                .join(", ");
-              throw new Error(
-                `Parity descendant alignment changed intrinsic dimensions for element ${entry.index}`
-                + ` (device-pixel deltas ${formattedDeltas}): ${selector}`
-              );
-            }
-          });
-          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-          entries.forEach((entry) => {
-            const entryIsAvailable = entry.element.isConnected !== false
-              && entry.element.getAttribute(captureAttribute) === entry.token
-              && (
-                typeof targetElement.contains !== "function"
-                || targetElement.contains(entry.element)
-              );
-            if (!entryIsAvailable) {
-              throw new Error(
-                `Parity descendant alignment lost element ${entry.index} after origin settle: ${selector}`
-              );
-            }
-            const rect = entry.element.getBoundingClientRect();
-            const deviceOrigin = [rect.left, rect.top].map((value) => value * scale);
-            if (deviceOrigin.some((value) => Math.abs(value - Math.round(value)) > 0.02)) {
-              throw new Error(
-                `Parity descendant alignment could not stabilize the device-pixel origin: ${selector}`
-              );
-            }
-          });
-        } catch (error) {
-          entries.reverse().forEach(restoreEntry);
-          throw error;
+            throw error;
+          }
+        }
+        if (!stableEntries) {
+          throw new Error(`Parity descendant alignment did not stabilize: ${selector}`);
         }
         return {
-          entries: entries.map(({ element: _element, ...entry }) => entry)
+          entries: stableEntries.map(({ element: _element, ...entry }) => entry)
         };
       }, stableDescendantDevicePixelAlignmentSelector);
-      await settleFiniteAnimations(targetHandle);
-    }
-    ignoreRegions = await readElementRelativeParityIgnoreRegions(
-      captureTarget,
-      ignoreSelector,
-      roundedCompositeSelector
-    );
+    };
     if (
       stableTargetStyleProperties
       && Object.keys(stableTargetStyleProperties).length > 0
@@ -2133,6 +2190,12 @@ export async function captureIsolatedParityScreenshot(page, {
     ) {
       await settleFiniteAnimations(captureTarget);
     }
+    stableDescendantAlignmentState = await alignStableDescendants();
+    ignoreRegions = await readElementRelativeParityIgnoreRegions(
+      captureTarget,
+      ignoreSelector,
+      roundedCompositeSelector
+    );
     const screenshot = await captureTarget.screenshot({
       path: screenshotPath,
       animations: "disabled",
@@ -2263,21 +2326,22 @@ export async function captureIsolatedParityScreenshot(page, {
           if (targetElement.getAttribute(captureAttribute) !== state.token) {
             return;
           }
-          const injectedStyleIsCurrent = (
-            targetElement.style.getPropertyValue(state.propertyName) === state.value
-            && targetElement.style.getPropertyPriority(state.propertyName) === "important"
-          );
-          if (injectedStyleIsCurrent) {
-            if (state.previousValue) {
+          state.entries.forEach((entry) => {
+            const injectedStyleIsCurrent = (
+              targetElement.style.getPropertyValue(entry.propertyName) === entry.value
+              && targetElement.style.getPropertyPriority(entry.propertyName) === "important"
+            );
+            if (!injectedStyleIsCurrent) return;
+            if (entry.previousValue) {
               targetElement.style.setProperty(
-                state.propertyName,
-                state.previousValue,
-                state.previousPriority
+                entry.propertyName,
+                entry.previousValue,
+                entry.previousPriority
               );
             } else {
-              targetElement.style.removeProperty(state.propertyName);
+              targetElement.style.removeProperty(entry.propertyName);
             }
-          }
+          });
           if (state.previousToken === null) targetElement.removeAttribute(captureAttribute);
           else targetElement.setAttribute(captureAttribute, state.previousToken);
         }, stableTargetAlignmentState);

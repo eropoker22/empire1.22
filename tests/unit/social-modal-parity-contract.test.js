@@ -68,6 +68,9 @@ describe("social modal parity coverage contract", () => {
       "#bounty-modal-submit"
     );
     expect(socialModalParitySurfaces.boost.triggerSelector).toBe("[data-boost-open-trigger]");
+    expect(socialModalParitySurfaces.boost.stableDescendantDevicePixelAlignmentSelector).toBe(
+      ".boost-card__icon > svg"
+    );
   });
 
   it("masks authoritative leaves without masking shells, cards or collections", () => {
@@ -187,6 +190,9 @@ describe("social modal parity coverage contract", () => {
     expect(helperSource).toContain("stableBackdropShellSelector: definition.shellSelector");
     expect(helperSource).toContain(
       'stableBackdropFilterSelector: definition.stableBackdropFilterSelector || ""'
+    );
+    expect(helperSource).toContain(
+      'definition.stableDescendantDevicePixelAlignmentSelector || ""'
     );
     expect(helperSource).toContain(
       "requestAnimationFrame(() => requestAnimationFrame(resolve));"

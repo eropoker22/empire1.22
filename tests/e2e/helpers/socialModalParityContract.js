@@ -159,6 +159,7 @@ export const socialModalParitySurfaces = Object.freeze({
       "costCount"
     ]),
     shellSelector: "#boost-modal",
+    stableDescendantDevicePixelAlignmentSelector: ".boost-card__icon > svg",
     targetSelector: ".boost-modal__content",
     triggerSelector: "[data-boost-open-trigger]"
   })
@@ -673,6 +674,8 @@ export async function captureSocialModalParityScreenshot(page, {
     stableBackdropColor: surfaceName === "market" ? "rgb(2, 6, 12)" : "",
     stableBackdropFilterSelector: definition.stableBackdropFilterSelector || "",
     stableBackdropShellSelector: definition.shellSelector,
+    stableDescendantDevicePixelAlignmentSelector:
+      definition.stableDescendantDevicePixelAlignmentSelector || "",
     target
   });
 }

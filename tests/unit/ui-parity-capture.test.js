@@ -1294,19 +1294,19 @@ describe("UI parity class signature", () => {
     expect(harness.original.attributes.has("data-parity-capture-stable-target-style")).toBe(false);
   });
 
-  it("aligns a capture target down to deterministic device pixels and restores translate", async () => {
+  it("aligns a capture target down to deterministic pixels and restores relative offsets", async () => {
     const original = createParityStyleElement({
-      translate: { priority: "important", value: "0px 0px" }
+      left: { priority: "important", value: "0px" },
+      top: { priority: "", value: "0px" }
     });
     original.element.getBoundingClientRect = vi.fn(() => {
-      const [translateX, translateY] = String(
-        original.style.getPropertyValue("translate") || "0px 0px"
-      ).split(/\s+/u).map((value) => Number.parseFloat(value) || 0);
-      return { left: 10.25 + translateX, top: 20.75 + translateY };
+      const leftOffset = Number.parseFloat(original.style.getPropertyValue("left")) || 0;
+      const topOffset = Number.parseFloat(original.style.getPropertyValue("top")) || 0;
+      return { height: 47, left: 10.25 + leftOffset, top: 20.75 + topOffset, width: 254 };
     });
     let handleEvaluateCall = 0;
     let screenshotBounds = null;
-    let screenshotTranslate = null;
+    let screenshotOffsets = null;
     const handle = {
       dispose: vi.fn().mockResolvedValue(undefined),
       evaluate: vi.fn(async (callback, argument) => {
@@ -1325,9 +1325,15 @@ describe("UI parity class signature", () => {
       }),
       screenshot: vi.fn(async () => {
         screenshotBounds = original.element.getBoundingClientRect();
-        screenshotTranslate = {
-          priority: original.style.getPropertyPriority("translate"),
-          value: original.style.getPropertyValue("translate")
+        screenshotOffsets = {
+          left: {
+            priority: original.style.getPropertyPriority("left"),
+            value: original.style.getPropertyValue("left")
+          },
+          top: {
+            priority: original.style.getPropertyPriority("top"),
+            value: original.style.getPropertyValue("top")
+          }
         };
         return Buffer.from("png");
       })
@@ -1345,7 +1351,7 @@ describe("UI parity class signature", () => {
 
     vi.stubGlobal("window", {
       devicePixelRatio: 1,
-      getComputedStyle: vi.fn(() => ({ translate: "0px 0px" }))
+      getComputedStyle: vi.fn(() => ({ left: "0px", position: "relative", top: "0px" }))
     });
     try {
       await expect(captureIsolatedParityScreenshot(page, {
@@ -1357,15 +1363,20 @@ describe("UI parity class signature", () => {
       vi.unstubAllGlobals();
     }
 
-    expect(screenshotBounds).toEqual({ left: 10, top: 20 });
-    expect(screenshotTranslate).toEqual({ priority: "important", value: "-0.25px -0.75px" });
+    expect(screenshotBounds).toEqual({ height: 47, left: 10, top: 20, width: 254 });
+    expect(screenshotOffsets).toEqual({
+      left: { priority: "important", value: "-0.25px" },
+      top: { priority: "important", value: "-0.75px" }
+    });
     expect(handle.evaluate).toHaveBeenCalledTimes(5);
     expect(handle.evaluate.mock.invocationCallOrder[1])
       .toBeLessThan(handle.evaluate.mock.invocationCallOrder[2]);
     expect(handle.screenshot.mock.invocationCallOrder[0])
       .toBeLessThan(handle.evaluate.mock.invocationCallOrder[4]);
-    expect(original.values.get("translate")).toBe("0px 0px");
-    expect(original.priorities.get("translate")).toBe("important");
+    expect(original.values.get("left")).toBe("0px");
+    expect(original.priorities.get("left")).toBe("important");
+    expect(original.values.get("top")).toBe("0px");
+    expect(original.priorities.get("top")).toBe("");
     expect(original.attributes.has("data-parity-capture-device-pixel-alignment")).toBe(false);
     expect(target.screenshot).not.toHaveBeenCalled();
     expect(handle.dispose).toHaveBeenCalledTimes(1);
@@ -1374,6 +1385,8 @@ describe("UI parity class signature", () => {
   it("allows natural layout settling before aligning descendant origins", async () => {
     const first = createParityStyleElement();
     const second = createParityStyleElement();
+    const replacementFirst = createParityStyleElement();
+    const replacementSecond = createParityStyleElement();
     let firstWidth = 80.4;
     let secondWidth = 70.4;
     const readPixels = (element, propertyName, fallback) => {
@@ -1383,24 +1396,34 @@ describe("UI parity class signature", () => {
     const readTranslate = (element) => String(
       element.style.getPropertyValue("translate") || "0px 0px"
     ).split(/\s+/u).map((value) => Number.parseFloat(value) || 0);
-    first.element.getBoundingClientRect = vi.fn(() => {
-      const [translateX, translateY] = readTranslate(first.element);
-      const left = 10.25 + translateX;
-      const top = 20.49 + translateY;
-      const width = readPixels(first.element, "width", firstWidth);
-      const height = readPixels(first.element, "height", 40.4);
-      return { bottom: top + height, height, left, right: left + width, top, width };
-    });
-    second.element.getBoundingClientRect = vi.fn(() => {
-      const [translateX, translateY] = readTranslate(second.element);
-      const settledFirstWidth = readPixels(first.element, "width", firstWidth);
-      const left = 10.25 + settledFirstWidth + 10.1 + translateX;
-      const top = 20.51 + translateY;
-      const width = readPixels(second.element, "width", secondWidth);
-      const height = readPixels(second.element, "height", 40.4);
-      return { bottom: top + height, height, left, right: left + width, top, width };
-    });
-    const descendants = [first.element, second.element];
+    const bindFirstBounds = ({ element }) => {
+      element.getBoundingClientRect = vi.fn(() => {
+        const [translateX, translateY] = readTranslate(element);
+        const left = 10.25 + translateX;
+        const top = 20.49 + translateY;
+        const width = readPixels(element, "width", firstWidth);
+        const height = readPixels(element, "height", 40.4);
+        return { bottom: top + height, height, left, right: left + width, top, width };
+      });
+    };
+    const bindSecondBounds = ({ element }) => {
+      element.getBoundingClientRect = vi.fn(() => {
+        const [translateX, translateY] = readTranslate(element);
+        const settledFirstWidth = firstWidth;
+        const left = 10.25 + settledFirstWidth + 10.1 + translateX;
+        const top = 20.51 + translateY;
+        const width = readPixels(element, "width", secondWidth);
+        const height = readPixels(element, "height", 40.4);
+        return { bottom: top + height, height, left, right: left + width, top, width };
+      });
+    };
+    [first, replacementFirst].forEach(bindFirstBounds);
+    [second, replacementSecond].forEach(bindSecondBounds);
+    first.element.isConnected = true;
+    second.element.isConnected = true;
+    replacementFirst.element.isConnected = true;
+    replacementSecond.element.isConnected = true;
+    let descendants = [first.element, second.element];
     const root = {
       matches: vi.fn().mockReturnValue(false),
       querySelector: vi.fn((selector) => {
@@ -1419,10 +1442,10 @@ describe("UI parity class signature", () => {
       dispose: vi.fn().mockResolvedValue(undefined),
       evaluate: vi.fn(async (callback, argument) => {
         handleEvaluateCall += 1;
-        if (handleEvaluateCall === 1 || handleEvaluateCall === 4) {
+        if (handleEvaluateCall === 1 || handleEvaluateCall === 3) {
           return callback(root, argument);
         }
-        if (handleEvaluateCall === 3) {
+        if (handleEvaluateCall === 2) {
           return {
             dynamicRegions: [],
             roundedBox: { height: 100, radii: {}, width: 200 },
@@ -1454,6 +1477,11 @@ describe("UI parity class signature", () => {
       if (animationFrameCalls === 2) {
         firstWidth = 80.45;
         secondWidth = 70.45;
+      }
+      if (animationFrameCalls === 4) {
+        first.element.isConnected = false;
+        second.element.isConnected = false;
+        descendants = [replacementFirst.element, replacementSecond.element];
       }
       callback(0);
     }));
@@ -1499,7 +1527,12 @@ describe("UI parity class signature", () => {
       expect([bounds.left, bounds.top].every(Number.isInteger)).toBe(true);
       expect([bounds.right, bounds.bottom].some((value) => !Number.isInteger(value))).toBe(true);
     }
-    for (const { attributes, priorities, values } of [first, second]) {
+    for (const { attributes, priorities, values } of [
+      first,
+      second,
+      replacementFirst,
+      replacementSecond
+    ]) {
       expect(values.has("box-sizing")).toBe(false);
       expect(values.has("height")).toBe(false);
       expect(values.has("translate")).toBe(false);
@@ -1507,7 +1540,8 @@ describe("UI parity class signature", () => {
       expect(priorities.size).toBe(0);
       expect(attributes.has("data-parity-capture-descendant-device-pixel-alignment")).toBe(false);
     }
-    expect(handle.evaluate).toHaveBeenCalledTimes(4);
+    expect(animationFrameCalls).toBe(8);
+    expect(handle.evaluate).toHaveBeenCalledTimes(3);
     expect(handle.dispose).toHaveBeenCalledTimes(1);
   });
 
