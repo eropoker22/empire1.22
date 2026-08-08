@@ -1483,12 +1483,16 @@ async function settleFiniteAnimations(locator) {
   });
 }
 
+export async function settleParityPointer(page, locator = page.locator("body")) {
+  await page.mouse.move(1, 1);
+  await settleFiniteAnimations(locator);
+}
+
 export async function settleParityPage(page, locator = page.locator("body")) {
   await page.evaluate(() => {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   });
-  await page.mouse.move(1, 1);
-  await settleFiniteAnimations(locator);
+  await settleParityPointer(page, locator);
 }
 
 export async function readViewportParityIgnoreRegions(page, ignoreSelector) {

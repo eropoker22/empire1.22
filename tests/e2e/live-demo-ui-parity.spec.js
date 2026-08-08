@@ -64,6 +64,7 @@ import {
   resolveBuildingParitySurfaceName,
   selectProductionBuildingTab,
   settleParityPage,
+  settleParityPointer,
   syncParityLocalDemoDistrictBuildingsFromHosted
 } from "./helpers/uiParityCapture.js";
 
@@ -271,6 +272,7 @@ async function readOpenBuildingParity(page, buildingTypeId) {
       timeout: 30_000
     });
     await selectProductionBuildingTab(page, surfaceName, "stats");
+    await settleParityPointer(page, shell);
     return {
       surfaceName,
       presentation: await getProductionPresentationSignature(page, surfaceName),
@@ -278,6 +280,7 @@ async function readOpenBuildingParity(page, buildingTypeId) {
       technicalText: await getVisibleTechnicalBuildingText(page, surfaceName)
     };
   }
+  await settleParityPointer(page, shell);
   return {
     surfaceName,
     presentation: await getBuildingPresentationSignature(page, surfaceName),
@@ -341,8 +344,10 @@ async function attachOpenBuildingScreenshot({
     stableBackdropShellSelector: paritySurfaces[surfaceName].shell,
     stableDescendantDevicePixelAlignmentSelector: surfaceName === "district"
       ? ".district-popup-buildings__chip--button"
-      : "",
-    stableDescendantDevicePixelAlignmentMode: surfaceName === "district"
+      : surfaceName === "buildingDetail"
+        ? ".building-detail-title__badge--count"
+        : "",
+    stableDescendantDevicePixelAlignmentMode: ["buildingDetail", "district"].includes(surfaceName)
       ? "paint-origin"
       : "translate",
     stableTargetStyleProperties: surfaceName === "district"

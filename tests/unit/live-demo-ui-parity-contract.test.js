@@ -40,8 +40,10 @@ describe("live/demo UI parity source contract", () => {
       'stableDescendantDevicePixelAlignmentSelector: surfaceName === "district"'
     );
     expect(paritySpec).toContain('".district-popup-buildings__chip--button"');
+    expect(paritySpec).toContain('surfaceName === "buildingDetail"');
+    expect(paritySpec).toContain('".building-detail-title__badge--count"');
     expect(paritySpec).toContain(
-      'stableDescendantDevicePixelAlignmentMode: surfaceName === "district"'
+      'stableDescendantDevicePixelAlignmentMode: ["buildingDetail", "district"].includes(surfaceName)'
     );
     expect(paritySpec).toContain('? "paint-origin"');
     expect(parityCapture).toContain("stableTargetStyleProperties = {}");
@@ -161,5 +163,11 @@ describe("live/demo UI parity source contract", () => {
     expect(localOpen).toBeGreaterThan(stableRead);
     expect(parityCapture).toContain("PARITY_POPULATION_SNAPSHOT_MAX_ATTEMPTS = 3");
     expect(parityCapture).toContain("parityPopulationBufferSnapshotsMatch(");
+  });
+
+  it("neutralizes transient pointer state without discarding natural modal focus", () => {
+    expect(parityCapture).toContain("export async function settleParityPointer(");
+    expect(parityCapture).toContain("await settleParityPointer(page, locator);");
+    expect(paritySpec).toContain("await settleParityPointer(page, shell);");
   });
 });

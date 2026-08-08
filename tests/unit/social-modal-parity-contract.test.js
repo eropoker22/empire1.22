@@ -71,6 +71,9 @@ describe("social modal parity coverage contract", () => {
     expect(socialModalParitySurfaces.boost.stableDescendantDevicePixelAlignmentSelector).toBe(
       ".boost-card__icon > svg"
     );
+    expect(socialModalParitySurfaces.boost.stableDescendantDevicePixelAlignmentMode).toBe(
+      "paint-origin"
+    );
   });
 
   it("masks authoritative leaves without masking shells, cards or collections", () => {
@@ -193,6 +196,9 @@ describe("social modal parity coverage contract", () => {
     );
     expect(helperSource).toContain(
       'definition.stableDescendantDevicePixelAlignmentSelector || ""'
+    );
+    expect(helperSource).toContain(
+      'definition.stableDescendantDevicePixelAlignmentMode || "translate"'
     );
     expect(helperSource).toContain(
       "requestAnimationFrame(() => requestAnimationFrame(resolve));"
