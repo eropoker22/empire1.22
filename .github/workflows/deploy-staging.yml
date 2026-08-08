@@ -159,6 +159,7 @@ jobs:
           cache: npm
 
       - name: Resolve bounded staging registration policy
+        id: registration
         shell: bash
         run: |
           set -euo pipefail
@@ -171,9 +172,9 @@ jobs:
                 import { validatePublicRegistrationWindow } from "./scripts/registration-window-contract.mjs";
                 if (!validatePublicRegistrationWindow({ enabled: true, expiresAt: process.env.EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT }).valid) process.exit(1);
               '
-            echo "EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT=$expires_at" >> "$GITHUB_ENV"
+            echo "expires_at=$expires_at" >> "$GITHUB_OUTPUT"
           else
-            echo "EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT=" >> "$GITHUB_ENV"
+            echo "expires_at=" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Verify exact clean checkout
@@ -269,6 +270,7 @@ jobs:
           EMPIRE_ADMIN_SESSION_SECRET: ${{ secrets.STAGING_ADMIN_SESSION_SECRET }}
           EMPIRE_AUTH_THROTTLE_PEPPER: ${{ secrets.STAGING_AUTH_THROTTLE_PEPPER }}
           EMPIRE_ACCOUNT_TERMS_VERSION: ${{ vars.STAGING_ACCOUNT_TERMS_VERSION }}
+          EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: ${{ steps.registration.outputs.expires_at }}
         run: |
           if [[ "$LEAVE_REGISTRATION_OPEN" == "true" ]]; then
             npm run verify:staging-env -- --allow-registration-enabled
@@ -397,6 +399,7 @@ jobs:
           EMPIRE_ADMIN_SESSION_SECRET: ${{ secrets.STAGING_ADMIN_SESSION_SECRET }}
           EMPIRE_AUTH_THROTTLE_PEPPER: ${{ secrets.STAGING_AUTH_THROTTLE_PEPPER }}
           EMPIRE_ACCOUNT_TERMS_VERSION: ${{ vars.STAGING_ACCOUNT_TERMS_VERSION }}
+          EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: ${{ steps.registration.outputs.expires_at }}
         shell: bash
         run: |
           set -euo pipefail
@@ -534,6 +537,8 @@ jobs:
         run: npm run verify:remote-release
 
       - name: Verify deployed registration policy
+        env:
+          EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: ${{ steps.registration.outputs.expires_at }}
         shell: bash
         run: |
           set -euo pipefail
@@ -637,6 +642,7 @@ jobs:
           EMPIRE_ADMIN_SESSION_SECRET: ${{ secrets.STAGING_ADMIN_SESSION_SECRET }}
           EMPIRE_AUTH_THROTTLE_PEPPER: ${{ secrets.STAGING_AUTH_THROTTLE_PEPPER }}
           EMPIRE_ADMIN_BOOTSTRAP_USERNAME: ${{ vars.STAGING_ADMIN_USERNAME }}
+          EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: ${{ steps.registration.outputs.expires_at }}
         run: npm run verify:hosted-control-plane
 
       - name: Upload staging release evidence
