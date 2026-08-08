@@ -123,9 +123,9 @@ export function hostedRegistrationDisabledCopy(code) {
     SERVER_NOT_PLAYABLE: "Server teď nepřijímá nové hráče.",
     SERVER_REGISTRATION_NOT_SCHEDULED: "Registrace na tento server zatím nebyla naplánována.",
     SERVER_REGISTRATION_NOT_OPEN: "Registrace na tento server ještě nezačala.",
-    SERVER_REGISTRATION_CLOSED: "Registrační okno tohoto serveru už skončilo.",
+    SERVER_REGISTRATION_CLOSED: "Server teď nepřijímá nové hráče.",
     SERVER_REGISTRATION_CLOSED_EARLY: "Registrace na tento server byla nouzově ukončena.",
-    JOINS_CLOSED: "Registrační okno tohoto serveru už skončilo."
+    JOINS_CLOSED: "Server teď nepřijímá nové hráče."
   })[normalized] || "Server teď nepřijímá nové hráče.";
 }
 

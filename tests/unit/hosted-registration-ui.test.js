@@ -49,6 +49,10 @@ describe("hosted registration browser presentation", () => {
       .toBe("REGISTRACE UKONČENA");
     expect(hostedRegistrationDisabledCopy("SERVER_REGISTRATION_NOT_OPEN"))
       .toBe("Registrace na tento server ještě nezačala.");
+    expect(hostedRegistrationDisabledCopy("SERVER_REGISTRATION_CLOSED"))
+      .toBe("Server teď nepřijímá nové hráče.");
+    expect(hostedRegistrationDisabledCopy("JOINS_CLOSED"))
+      .toBe("Server teď nepřijímá nové hráče.");
     expect(hostedRegistrationDisabledCopy("WORKER_OFFLINE"))
       .toBe("Server se právě nepodařilo bezpečně připojit k hernímu workeru.");
   });

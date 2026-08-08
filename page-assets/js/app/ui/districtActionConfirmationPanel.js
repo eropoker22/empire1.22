@@ -126,6 +126,8 @@ function canRenderPreparedConfirmationPanel({ district, elements, requiredKeys }
 export function createDistrictActionConfirmationPanelElements(elements = {}) {
   return {
     attackAvailablePopulation: elements.attackAvailablePopulation,
+    attackConfirmAtmosphereImage: elements.attackConfirmAtmosphereImage,
+    attackConfirmAtmosphereLabel: elements.attackConfirmAtmosphereLabel,
     attackConfirmButton: elements.attackConfirmButton,
     attackConfirmCard: elements.attackConfirmCard,
     attackConfirmDuration: elements.attackConfirmDuration,

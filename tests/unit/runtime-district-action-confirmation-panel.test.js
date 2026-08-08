@@ -3,6 +3,7 @@ import {
   canRenderOccupyConfirmationPanel,
   canRenderRobberyConfirmationPanel,
   createAttackConfirmationViewModel,
+  createDistrictActionConfirmationPanelElements,
   createOccupyConfirmationViewModel,
   createSpyConfirmationViewModel,
   renderAttackConfirmationPanel,
@@ -24,6 +25,18 @@ function element() {
 }
 
 describe("district action confirmation panel", () => {
+  it("keeps attack atmosphere elements in the runtime adapter", () => {
+    const image = element();
+    const label = element();
+    const adapted = createDistrictActionConfirmationPanelElements({
+      attackConfirmAtmosphereImage: image,
+      attackConfirmAtmosphereLabel: label
+    });
+
+    expect(adapted.attackConfirmAtmosphereImage).toBe(image);
+    expect(adapted.attackConfirmAtmosphereLabel).toBe(label);
+  });
+
   it("renders occupy confirmation without a visible source field", () => {
     expect(canRenderOccupyConfirmationPanel({
       district: { id: 15 },
