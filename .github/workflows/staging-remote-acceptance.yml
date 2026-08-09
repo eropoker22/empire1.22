@@ -564,6 +564,9 @@ jobs:
           EMPIRE_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
           GAMEPLAY_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}
           EMPIRE_STAGING_DATABASE_TARGET_HASH: ${{ vars.EMPIRE_STAGING_DATABASE_TARGET_HASH }}
+          EMPIRE_PRODUCTION_DATABASE_TARGET_HASH: ${{ vars.EMPIRE_PRODUCTION_DATABASE_TARGET_HASH }}
+          NEON_PRODUCTION_PROJECT_ID: ${{ vars.NEON_PRODUCTION_PROJECT_ID }}
+          NEON_PRODUCTION_ROOT_BRANCH_ID: ${{ vars.NEON_PRODUCTION_ROOT_BRANCH_ID }}
         run: npm run test:remote-staging:suite -- --suite=${{ matrix.suite }}
 
       - name: Run fixture-backed worker-recovery remote suite

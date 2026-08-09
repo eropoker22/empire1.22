@@ -70,12 +70,23 @@ export const verifyStagingNeonTargetBinding = ({
   const expectedTargetHash = String(environment.EMPIRE_STAGING_DATABASE_TARGET_HASH ?? "").trim();
   const projectId = String(environment.NEON_PROJECT_ID ?? "").trim();
   const branchId = String(environment.NEON_BRANCH_ID ?? "").trim();
+  const productionProjectId = String(environment.NEON_PRODUCTION_PROJECT_ID ?? "").trim();
+  const productionBranchId = String(environment.NEON_PRODUCTION_ROOT_BRANCH_ID ?? "").trim();
+  const productionTargetHash = String(environment.EMPIRE_PRODUCTION_DATABASE_TARGET_HASH ?? "").trim();
   const releaseSha = String(environment.RELEASE_SHA ?? "").trim();
   if (!SHA256_PATTERN.test(expectedTargetHash)
     || !PROVIDER_ID_PATTERN.test(projectId)
     || !PROVIDER_ID_PATTERN.test(branchId)
+    || !PROVIDER_ID_PATTERN.test(productionProjectId)
+    || !PROVIDER_ID_PATTERN.test(productionBranchId)
+    || !SHA256_PATTERN.test(productionTargetHash)
     || !SHA_PATTERN.test(releaseSha)) {
     fail("STAGING_NEON_BINDING_INPUT_INVALID");
+  }
+  if (projectId === productionProjectId
+    || branchId === productionBranchId
+    || expectedTargetHash === productionTargetHash) {
+    fail("STAGING_NEON_PRODUCTION_TARGET_REJECTED");
   }
 
   const directTargets = [
@@ -87,6 +98,10 @@ export const verifyStagingNeonTargetBinding = ({
     readDatabaseTarget(environment.GAMEPLAY_RELEASE_DATABASE_URL_POOLED, "pooled")
   ];
   const targets = [...directTargets, ...pooledTargets];
+  const productionUrl = String(environment.EMPIRE_PRODUCTION_DATABASE_URL ?? "").trim();
+  if (productionUrl && readDatabaseTarget(productionUrl, "direct").targetHash === expectedTargetHash) {
+    fail("STAGING_NEON_PRODUCTION_TARGET_REJECTED");
+  }
   if (targets.some((target) => target.targetHash !== expectedTargetHash)
     || new Set(targets.map((target) => target.databaseName)).size !== 1
     || new Set(directTargets.map((target) => target.hostname)).size !== 1) {

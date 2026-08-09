@@ -17,6 +17,9 @@ const environment = {
   GAMEPLAY_RELEASE_DATABASE_URL_POOLED: pooledUrl,
   NEON_PROJECT_ID: "project-staging",
   NEON_BRANCH_ID: "branch-staging",
+  NEON_PRODUCTION_PROJECT_ID: "project-production",
+  NEON_PRODUCTION_ROOT_BRANCH_ID: "branch-production",
+  EMPIRE_PRODUCTION_DATABASE_TARGET_HASH: "f".repeat(64),
   RELEASE_SHA: "a".repeat(40)
 };
 const branchResponse = {
@@ -67,6 +70,18 @@ describe("staging Neon target contract", () => {
       endpointsResponse,
       ...override
     })).toThrow(code);
+  });
+
+  it.each([
+    ["same project", { NEON_PRODUCTION_PROJECT_ID: "project-staging" }],
+    ["same branch", { NEON_PRODUCTION_ROOT_BRANCH_ID: "branch-staging" }],
+    ["same target hash", { EMPIRE_PRODUCTION_DATABASE_TARGET_HASH: environment.EMPIRE_STAGING_DATABASE_TARGET_HASH }]
+  ])("rejects production-equivalent %s", (_label, override) => {
+    expect(() => verifyStagingNeonTargetBinding({
+      environment: { ...environment, ...override },
+      branchResponse,
+      endpointsResponse
+    })).toThrow(/STAGING_NEON_PRODUCTION_TARGET_REJECTED/u);
   });
 
   it("emits no raw provider identifiers or database URLs in evidence", () => {
