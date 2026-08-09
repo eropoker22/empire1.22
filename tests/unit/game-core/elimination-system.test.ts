@@ -12,6 +12,7 @@ import {
 } from "@empire/game-core";
 import { resolveModeConfig } from "@empire/game-config";
 import type { CoreGameState } from "@empire/game-core";
+import { isTickInEliminationQuietHours } from "../../../packages/game-core/src/rules/elimination/eliminationConfig";
 import {
   createAttackDistrictCommandFixture,
   createOccupyDistrictCommandFixture
@@ -201,14 +202,48 @@ describe("scheduled elimination system", () => {
     expect(Object.values(result.nextState.playersById).filter((player) => player.status === "active")).toHaveLength(8);
   });
 
-  it("defers a scheduled 02:00 Europe/Bratislava elimination to 06:00", () => {
+  it("classifies every canonical Europe/Bratislava quiet-hours boundary", () => {
+    const quietStartTick = FIRST_ELIMINATION_TICK - (ELIMINATION_INTERVAL_TICKS / 2);
+    const quietEndTick = FIRST_ELIMINATION_TICK + ELIMINATION_INTERVAL_TICKS;
+    const checks = [
+      { id: "before-start", tick: quietStartTick - 1, expected: false },
+      { id: "start", tick: quietStartTick, expected: true },
+      { id: "inside", tick: FIRST_ELIMINATION_TICK, expected: true },
+      { id: "before-end", tick: quietEndTick - 1, expected: true },
+      { id: "end", tick: quietEndTick, expected: false }
+    ];
+    expect(checks.map(({ id, tick }) => {
+      const state = createEliminationState({ players: 9 });
+      state.serverInstance.startedAt = "2026-01-01T17:00:00.000Z";
+      state.root.tick = tick;
+      state.serverInstance.currentTick = tick;
+      return {
+        id,
+        inQuietHours: isTickInEliminationQuietHours(
+          state,
+          config.balance.elimination,
+          tick,
+          config.tickRateMs
+        )
+      };
+    })).toEqual(checks.map(({ id, expected }) => ({ id, inQuietHours: expected })));
+  });
+
+  it("defers a scheduled 02:00 Europe/Bratislava elimination to 06:00 without side effects", () => {
     const state = createEliminationState({ players: 9 });
     state.serverInstance.startedAt = "2026-01-01T17:00:00.000Z";
     state.root.tick = FIRST_ELIMINATION_TICK;
+    const rootVersionBefore = state.root.version;
+    const playersBefore = JSON.stringify(state.playersById);
 
     const result = runScheduledElimination(state, context);
 
     expect(result.result).toBeNull();
+    expect(result.events).toEqual([]);
+    expect(result.nextState.root.tick).toBe(FIRST_ELIMINATION_TICK);
+    expect(result.nextState.root.version).toBe(rootVersionBefore);
+    expect(JSON.stringify(result.nextState.playersById)).toBe(playersBefore);
+    expect(result.nextState.matchResult).toBeNull();
     expect(result.nextState.eliminationState).toMatchObject({
       nextEliminationTick: FIRST_ELIMINATION_TICK + ELIMINATION_INTERVAL_TICKS,
       deferredFromTick: FIRST_ELIMINATION_TICK,

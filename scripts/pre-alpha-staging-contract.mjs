@@ -3,6 +3,11 @@ import { validatePublicRegistrationWindow } from "./registration-window-contract
 import { assertSafeRemoteStagingFixtureEnvironment } from "./remote-staging-fixture-safety.mjs";
 import { REMOTE_STAGING_ACCEPTANCE_SUITES } from "./remote-staging-acceptance-suites.mjs";
 import { STAGING_FLY_APP } from "./staging-release-contract.mjs";
+import {
+  assertCanonicalInvariantEvidence,
+  assertCanonicalQuietHoursEvidence,
+  assertCanonicalScenarioProvenance
+} from "./release-critical-evidence-contract.mjs";
 
 export const PRE_ALPHA_STAGING_ORIGIN = "https://staging.empirestreets.cz";
 export const PRE_ALPHA_STAGING_FLY_APP = STAGING_FLY_APP;
@@ -286,6 +291,20 @@ export const validateReleaseCriticalSuiteSummary = (summary, { suite, buildSha }
       || lifecycle.invariants?.status !== "passed"
       || !Array.isArray(lifecycle.invariants?.violationCodes)
       || lifecycle.invariants.violationCodes.length !== 0) {
+      fail("PRE_ALPHA_REMOTE_FULL_LIFECYCLE_NOT_PASSED");
+    }
+    try {
+      assertCanonicalQuietHoursEvidence(lifecycle);
+      assertCanonicalInvariantEvidence(lifecycle.invariants);
+      assertCanonicalScenarioProvenance(lifecycle.provenance, {
+        buildSha,
+        environment: "public-staging"
+      });
+      assertCanonicalScenarioProvenance(lifecycle.invariants.provenance, {
+        buildSha,
+        environment: "public-staging"
+      });
+    } catch {
       fail("PRE_ALPHA_REMOTE_FULL_LIFECYCLE_NOT_PASSED");
     }
   }

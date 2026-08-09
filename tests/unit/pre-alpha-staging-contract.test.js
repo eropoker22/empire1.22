@@ -118,6 +118,32 @@ const passingSuiteSummary = (suite) => ({
     registration: { closed: true, baselinePlayers: 20 },
     statusTransitions: ["running", "paused", "running", "stopped"],
     eliminationTransitions: Array.from({ length: 12 }, (_, index) => ({ eliminationCount: index + 1 })),
+    quietHourDeferrals: 1,
+    quietHours: {
+      status: "passed",
+      timezone: "Europe/Bratislava",
+      deferrals: 1,
+      boundaryChecks: [
+        { id: "before-start", tick: 99, inQuietHours: false },
+        { id: "start", tick: 100, inQuietHours: true },
+        { id: "inside", tick: 101, inQuietHours: true },
+        { id: "before-end", tick: 199, inQuietHours: true },
+        { id: "end", tick: 200, inQuietHours: false }
+      ],
+      eliminationBefore: 0,
+      eliminationAfterDeferredTick: 0,
+      eliminationAfterAllowedTick: 1,
+      eliminationAfterNextTick: 1,
+      activePlayersBefore: 20,
+      activePlayersAfterDeferred: 20,
+      deferredTick: 100,
+      allowedTick: 200,
+      nextEliminationTickAfterDeferred: 200,
+      membershipStateHashBefore: "e".repeat(64),
+      membershipStateHashAfterDeferred: "e".repeat(64),
+      resourceStateHashBefore: "f".repeat(64),
+      resourceStateHashAfterDeferred: "f".repeat(64)
+    },
     workerRecovery: "passed",
     finalLockdown: { status: "resolved", activePlayers: 8 },
     result: {
@@ -138,7 +164,35 @@ const passingSuiteSummary = (suite) => ({
       defeatedMembershipCount: 0,
       completedMembershipCount: 20
     },
-    invariants: { status: "passed", violationCodes: [] }
+    invariants: {
+      status: "passed",
+      checks: 12,
+      violationCodes: [],
+      provenance: {
+        scenarioId: "full-lifecycle-invariants",
+        buildSha: SHA,
+        environment: "public-staging",
+        testCommand: "npm run test:remote-staging:suite -- --suite=full-lifecycle-20p",
+        testFile: "tools/seed/hosted-staging-full-lifecycle-step.mjs",
+        browserUsed: false,
+        postgresUsed: true,
+        concurrencyUsed: false,
+        status: "passed",
+        artifactPath: "artifacts/remote-staging/full-lifecycle-20p/invariant-report.json"
+      }
+    },
+    provenance: {
+      scenarioId: "full-lifecycle-20p",
+      buildSha: SHA,
+      environment: "public-staging",
+      testCommand: "npm run test:remote-staging:suite -- --suite=full-lifecycle-20p",
+      testFile: "scripts/run-remote-staging-suite.mjs",
+      browserUsed: true,
+      postgresUsed: true,
+      concurrencyUsed: false,
+      status: "passed",
+      artifactPath: "artifacts/remote-staging/full-lifecycle-20p/lifecycle-report.json"
+    }
   } : null,
   playwrightRuns: [
     ...(suite.manual ? [] : ["bootstrap"]),

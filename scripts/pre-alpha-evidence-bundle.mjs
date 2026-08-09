@@ -2,6 +2,11 @@ import { createHash } from "node:crypto";
 import { lstat, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  assertCanonicalInvariantEvidence,
+  assertCanonicalQuietHoursEvidence,
+  assertCanonicalScenarioProvenance
+} from "./release-critical-evidence-contract.mjs";
 
 const EXACT_SHA_PATTERN = /^[0-9a-f]{40}$/u;
 const MAX_EVIDENCE_BYTES = 16 * 1024 * 1024;
@@ -112,13 +117,28 @@ export const evaluateEvidenceStatus = ({ reportKey, sourceDocument, evidence, bu
   const explicitStatus = extractExplicitStatus(evidence);
   const releaseHealthPassed = reportKey === "releaseHealth"
     && isReleaseHealthEvidence(evidence, exactBuildSha);
-  const sourcePassed = reportKey === "releaseHealth" ? releaseHealthPassed : explicitStatus === "passed";
+  let criticalContractPassed = true;
+  try {
+    if (reportKey === "lifecycle") {
+      assertCanonicalQuietHoursEvidence(evidence);
+      assertCanonicalInvariantEvidence(evidence.invariants);
+      assertCanonicalScenarioProvenance(evidence.provenance, { buildSha: exactBuildSha });
+    } else if (reportKey === "invariant") {
+      assertCanonicalInvariantEvidence(evidence);
+      assertCanonicalScenarioProvenance(evidence.provenance, { buildSha: exactBuildSha });
+    }
+  } catch {
+    criticalContractPassed = false;
+  }
+  const sourcePassed = (reportKey === "releaseHealth" ? releaseHealthPassed : explicitStatus === "passed")
+    && criticalContractPassed;
   const sourceFailed = explicitStatus === "failed";
   const issues = [];
 
   if (buildShaState === "missing") issues.push("build-sha-evidence-missing");
   if (buildShaState === "mismatch") issues.push("build-sha-mismatch");
   if (!sourcePassed) issues.push(sourceFailed ? "evidence-explicitly-failed" : "evidence-status-not-passed");
+  if (!criticalContractPassed) issues.push("release-critical-contract-invalid");
 
   return Object.freeze({
     status: sourcePassed && buildShaState === "verified" ? "passed" : sourceFailed || buildShaState === "mismatch"

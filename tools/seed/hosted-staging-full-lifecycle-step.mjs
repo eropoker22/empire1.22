@@ -20,6 +20,7 @@ import {
 
 const OPERATIONS = new Set([
   "inspect",
+  "prepare-quiet-hours-deferral",
   "prepare-next-elimination",
   "prepare-final-lockdown-resolution"
 ]);
@@ -48,7 +49,9 @@ try {
 
   let prepared = current;
   let preparation = null;
-  if (operation === "prepare-next-elimination") {
+  if (operation === "prepare-quiet-hours-deferral") {
+    ({ snapshot: prepared, evidence: preparation } = prepareQuietHoursDeferral(current));
+  } else if (operation === "prepare-next-elimination") {
     ({ snapshot: prepared, evidence: preparation } = prepareNextElimination(current, server));
   } else if (operation === "prepare-final-lockdown-resolution") {
     ({ snapshot: prepared, evidence: preparation } = prepareFinalLockdownResolution(current));
@@ -82,6 +85,19 @@ try {
   const snapshotRankingHash = canonicalHash(playerRanking(snapshotMatchResult));
   const persistedRankingHash = canonicalHash(playerRanking(persistedMatchResult));
   const membershipRankingHash = canonicalHash(membershipRanking(memberships));
+  const membershipStateHash = canonicalHash(memberships.map((row) => ({
+    playerId: row.player_id,
+    status: row.status,
+    finalRank: row.final_rank,
+    finalScore: row.final_score
+  })));
+  const resourceStateHash = canonicalHash(Object.values(prepared.state.playersById).map((player) => ({
+    playerId: player.id,
+    status: player.status,
+    cash: player.cash,
+    resources: player.resources,
+    inventory: player.inventory
+  })));
 
   console.log(JSON.stringify({
     environment: safety.environment,
@@ -114,6 +130,8 @@ try {
     snapshotRankingHash,
     persistedRankingHash,
     membershipRankingHash,
+    membershipStateHash,
+    resourceStateHash,
     rankingPayloadMatchesSnapshot: snapshotRankingHash !== null
       && snapshotRankingHash === persistedRankingHash,
     membershipRankingMatchesSnapshot: snapshotRankingHash !== null
@@ -155,6 +173,72 @@ function assertLifecycleSnapshotScope(snapshot, server, { mutate = false } = {})
     || snapshot.state.serverPacingState.effectiveFirstEliminationTick !== server.effectiveFirstEliminationTick)) {
     throw new Error("REMOTE_STAGING_LIFECYCLE_SNAPSHOT_NOT_SYNCHRONIZED");
   }
+}
+
+function prepareQuietHoursDeferral(source) {
+  if (source.state.matchResult || source.state.finalLockdownState) {
+    throw new Error("REMOTE_STAGING_LIFECYCLE_QUIET_HOURS_PHASE_INVALID");
+  }
+  const config = resolveModeConfig("free");
+  const quietHours = config.balance.elimination?.quietHours;
+  if (!quietHours?.enabled || quietHours.timeZone !== "Europe/Bratislava"
+    || quietHours.startHour !== 0 || quietHours.endHour !== 6
+    || quietHours.behavior !== "defer_to_window_end") {
+    throw new Error("REMOTE_STAGING_LIFECYCLE_QUIET_HOURS_CONFIG_INVALID");
+  }
+  const isQuiet = (tick) => localHourAtTick(source, tick, config.tickRateMs, quietHours.timeZone) >= quietHours.startHour
+    && localHourAtTick(source, tick, config.tickRateMs, quietHours.timeZone) < quietHours.endHour;
+  const maxTicks = Math.ceil((48 * 60 * 60 * 1000) / config.tickRateMs);
+  let startTick = null;
+  for (let tick = source.state.root.tick + 1; tick <= source.state.root.tick + maxTicks; tick += 1) {
+    if (isQuiet(tick) && !isQuiet(tick - 1)) {
+      startTick = tick;
+      break;
+    }
+  }
+  if (!Number.isInteger(startTick)) throw new Error("REMOTE_STAGING_LIFECYCLE_QUIET_HOURS_START_NOT_FOUND");
+  let endTick = startTick + 1;
+  while (endTick <= startTick + maxTicks && isQuiet(endTick)) endTick += 1;
+  if (isQuiet(endTick)) throw new Error("REMOTE_STAGING_LIFECYCLE_QUIET_HOURS_END_NOT_FOUND");
+  const insideTick = Math.min(endTick - 2, startTick + Math.ceil((60 * 60 * 1000) / config.tickRateMs));
+  const snapshot = advanceSnapshotClock(source, startTick - 1);
+  snapshot.state.eliminationState = {
+    ...(snapshot.state.eliminationState ?? {
+      eliminatedPlayerIds: [],
+      eliminationCount: 0,
+      lastEliminationTick: null
+    }),
+    nextEliminationTick: startTick,
+    deferredFromTick: null
+  };
+  return {
+    snapshot,
+    evidence: {
+      phase: "quiet-hours-deferral",
+      timezone: quietHours.timeZone,
+      scheduledTick: startTick,
+      allowedTick: endTick,
+      preparedTick: startTick - 1,
+      boundaryChecks: [
+        { id: "before-start", tick: startTick - 1, inQuietHours: isQuiet(startTick - 1) },
+        { id: "start", tick: startTick, inQuietHours: isQuiet(startTick) },
+        { id: "inside", tick: insideTick, inQuietHours: isQuiet(insideTick) },
+        { id: "before-end", tick: endTick - 1, inQuietHours: isQuiet(endTick - 1) },
+        { id: "end", tick: endTick, inQuietHours: isQuiet(endTick) }
+      ]
+    }
+  };
+}
+
+function localHourAtTick(source, tick, tickRateMs, timeZone) {
+  const startedAtMs = Date.parse(source.state.serverInstance.startedAt || new Date(0).toISOString());
+  const at = new Date((Number.isFinite(startedAtMs) ? startedAtMs : 0) + (tick * tickRateMs));
+  const hour = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(at).find((part) => part.type === "hour")?.value;
+  return Number.parseInt(hour ?? "0", 10);
 }
 
 function prepareNextElimination(source, server) {

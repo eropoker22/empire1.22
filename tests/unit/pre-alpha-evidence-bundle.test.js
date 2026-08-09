@@ -17,12 +17,76 @@ const createArtifactRoot = () => mkdtemp(path.join(os.tmpdir(), "empire-pre-alph
 
 const writeJson = (file, value) => writeFile(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 
+const provenance = (scenarioId, artifactPath) => ({
+  scenarioId,
+  buildSha: SHA,
+  environment: "public-staging",
+  testCommand: "npm run test:remote-staging:suite -- --suite=full-lifecycle-20p",
+  testFile: "scripts/run-remote-staging-suite.mjs",
+  browserUsed: true,
+  postgresUsed: true,
+  concurrencyUsed: false,
+  status: "passed",
+  artifactPath
+});
+
+const invariantEvidence = () => ({
+  status: "passed",
+  buildSha: SHA,
+  checks: 12,
+  violationCodes: [],
+  provenance: provenance(
+    "full-lifecycle-invariants",
+    "artifacts/remote-staging/full-lifecycle-20p/invariant-report.json"
+  )
+});
+
+const lifecycleEvidence = () => ({
+  status: "passed",
+  buildSha: SHA,
+  quietHourDeferrals: 1,
+  quietHours: {
+    status: "passed",
+    timezone: "Europe/Bratislava",
+    deferrals: 1,
+    boundaryChecks: [
+      { id: "before-start", tick: 99, inQuietHours: false },
+      { id: "start", tick: 100, inQuietHours: true },
+      { id: "inside", tick: 101, inQuietHours: true },
+      { id: "before-end", tick: 199, inQuietHours: true },
+      { id: "end", tick: 200, inQuietHours: false }
+    ],
+    eliminationBefore: 0,
+    eliminationAfterDeferredTick: 0,
+    eliminationAfterAllowedTick: 1,
+    eliminationAfterNextTick: 1,
+    activePlayersBefore: 20,
+    activePlayersAfterDeferred: 20,
+    deferredTick: 100,
+    allowedTick: 200,
+    nextEliminationTickAfterDeferred: 200,
+    membershipStateHashBefore: "b".repeat(64),
+    membershipStateHashAfterDeferred: "b".repeat(64),
+    resourceStateHashBefore: "c".repeat(64),
+    resourceStateHashAfterDeferred: "c".repeat(64)
+  },
+  invariants: invariantEvidence(),
+  provenance: provenance(
+    "full-lifecycle-20p",
+    "artifacts/remote-staging/full-lifecycle-20p/lifecycle-report.json"
+  )
+});
+
 const passingEvidencePaths = async (artifactRoot) => {
   const evidencePaths = {};
   for (const definition of PRE_ALPHA_EVIDENCE_REPORTS) {
     const relativePath = path.join("inputs", definition.outputFile);
     await mkdir(path.dirname(path.join(artifactRoot, relativePath)), { recursive: true });
-    await writeJson(path.join(artifactRoot, relativePath), {
+    await writeJson(path.join(artifactRoot, relativePath), definition.key === "lifecycle"
+      ? lifecycleEvidence()
+      : definition.key === "invariant"
+        ? invariantEvidence()
+        : {
       status: "passed",
       buildSha: SHA,
       ...(definition.key === "releaseHealth" ? {

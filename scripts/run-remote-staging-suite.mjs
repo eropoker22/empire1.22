@@ -253,6 +253,7 @@ async function runFullLifecycle(adminClient, serverInstanceId) {
     statusTransitions: ["running"],
     eliminationTransitions: [],
     quietHourDeferrals: 0,
+    quietHours: null,
     workerRecovery: "pending",
     finalLockdown: null,
     result: null,
@@ -287,9 +288,78 @@ async function runFullLifecycle(adminClient, serverInstanceId) {
     throw new Error("REMOTE_STAGING_LIFECYCLE_INITIAL_INVARIANT_FAILED");
   }
 
+  await performServerAction(adminClient, serverInstanceId, "pause");
+  await waitForServerStatus(adminClient, serverInstanceId, "paused");
+  report.statusTransitions.push("paused");
+  const quietBefore = runStagingLifecycleStep(serverInstanceId, "inspect");
+  const quietPrepared = runStagingLifecycleStep(serverInstanceId, "prepare-quiet-hours-deferral");
+  await performServerAction(adminClient, serverInstanceId, "resume");
+  await waitForServerStatus(adminClient, serverInstanceId, "running");
+  report.statusTransitions.push("running");
+  const deferred = await waitForLifecycleInspection(serverInstanceId, (candidate) => (
+    candidate.tick >= quietPrepared.prepared.scheduledTick
+    && candidate.nextEliminationTick === quietPrepared.prepared.allowedTick
+  ));
+  await performServerAction(adminClient, serverInstanceId, "pause");
+  await waitForServerStatus(adminClient, serverInstanceId, "paused");
+  report.statusTransitions.push("paused");
+  if (deferred.eliminationCount !== quietBefore.eliminationCount
+    || deferred.activePlayers !== quietBefore.activePlayers
+    || deferred.membershipStateHash !== quietBefore.membershipStateHash
+    || deferred.resourceStateHash !== quietBefore.resourceStateHash) {
+    throw new Error("REMOTE_STAGING_LIFECYCLE_QUIET_HOURS_MUTATED");
+  }
+  runStagingLifecycleStep(serverInstanceId, "prepare-next-elimination");
+  await performServerAction(adminClient, serverInstanceId, "resume");
+  await waitForServerStatus(adminClient, serverInstanceId, "running");
+  report.statusTransitions.push("running");
+  const allowed = await waitForLifecycleInspection(serverInstanceId, (candidate) => (
+    candidate.eliminationCount === quietBefore.eliminationCount + 1
+  ));
+  await performServerAction(adminClient, serverInstanceId, "pause");
+  await waitForServerStatus(adminClient, serverInstanceId, "paused");
+  report.statusTransitions.push("paused");
+  await performServerAction(adminClient, serverInstanceId, "resume");
+  await waitForServerStatus(adminClient, serverInstanceId, "running");
+  report.statusTransitions.push("running");
+  const afterAllowed = await waitForLifecycleInspection(serverInstanceId, (candidate) => candidate.tick > allowed.tick);
+  await performServerAction(adminClient, serverInstanceId, "pause");
+  await waitForServerStatus(adminClient, serverInstanceId, "paused");
+  report.statusTransitions.push("paused");
+  if (afterAllowed.eliminationCount !== allowed.eliminationCount) {
+    throw new Error("REMOTE_STAGING_LIFECYCLE_QUIET_HOURS_DOUBLE_ELIMINATION");
+  }
+  report.quietHourDeferrals = 1;
+  report.quietHours = {
+    status: "passed",
+    timezone: quietPrepared.prepared.timezone,
+    deferrals: 1,
+    boundaryChecks: quietPrepared.prepared.boundaryChecks,
+    eliminationBefore: quietBefore.eliminationCount,
+    eliminationAfterDeferredTick: deferred.eliminationCount,
+    eliminationAfterAllowedTick: allowed.eliminationCount,
+    eliminationAfterNextTick: afterAllowed.eliminationCount,
+    activePlayersBefore: quietBefore.activePlayers,
+    activePlayersAfterDeferred: deferred.activePlayers,
+    deferredTick: quietPrepared.prepared.scheduledTick,
+    allowedTick: quietPrepared.prepared.allowedTick,
+    nextEliminationTickAfterDeferred: deferred.nextEliminationTick,
+    membershipStateHashBefore: quietBefore.membershipStateHash,
+    membershipStateHashAfterDeferred: deferred.membershipStateHash,
+    resourceStateHashBefore: quietBefore.resourceStateHash,
+    resourceStateHashAfterDeferred: deferred.resourceStateHash
+  };
+  report.eliminationTransitions.push({
+    eliminationCount: allowed.eliminationCount,
+    activePlayers: allowed.activePlayers,
+    tick: allowed.tick,
+    rootVersion: allowed.rootVersion
+  });
+  inspection = runStagingLifecycleStep(serverInstanceId, "inspect");
+
   let attempts = 0;
   let workerRestarted = false;
-  let paused = false;
+  let paused = true;
   while (inspection.eliminationCount < 12 && attempts < 30) {
     attempts += 1;
     if (!paused) {
@@ -340,8 +410,6 @@ async function runFullLifecycle(adminClient, serverInstanceId) {
         tick: inspection.tick,
         rootVersion: inspection.rootVersion
       });
-    } else {
-      report.quietHourDeferrals += 1;
     }
   }
 
@@ -428,7 +496,31 @@ async function runFullLifecycle(adminClient, serverInstanceId) {
   report.invariants = {
     status: "passed",
     checks: stable.invariantChecks,
-    violationCodes: stable.invariantViolationCodes
+    violationCodes: stable.invariantViolationCodes,
+    provenance: {
+      scenarioId: "full-lifecycle-invariants",
+      buildSha: required(process.env.EMPIRE_BUILD_SHA, "REMOTE_STAGING_BUILD_SHA_REQUIRED"),
+      environment: "public-staging",
+      testCommand: "npm run test:remote-staging:suite -- --suite=full-lifecycle-20p",
+      testFile: "tools/seed/hosted-staging-full-lifecycle-step.mjs",
+      browserUsed: false,
+      postgresUsed: true,
+      concurrencyUsed: false,
+      status: "passed",
+      artifactPath: "artifacts/remote-staging/full-lifecycle-20p/invariant-report.json"
+    }
+  };
+  report.provenance = {
+    scenarioId: "full-lifecycle-20p",
+    buildSha: required(process.env.EMPIRE_BUILD_SHA, "REMOTE_STAGING_BUILD_SHA_REQUIRED"),
+    environment: "public-staging",
+    testCommand: "npm run test:remote-staging:suite -- --suite=full-lifecycle-20p",
+    testFile: "scripts/run-remote-staging-suite.mjs",
+    browserUsed: true,
+    postgresUsed: true,
+    concurrencyUsed: false,
+    status: "passed",
+    artifactPath: "artifacts/remote-staging/full-lifecycle-20p/lifecycle-report.json"
   };
   report.status = "passed";
   return report;

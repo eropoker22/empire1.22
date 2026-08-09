@@ -583,39 +583,10 @@ jobs:
         run: |
           set -euo pipefail
           summary="artifacts/remote-staging/${SUITE}/summary.json"
-          jq -e --arg sha "$RELEASE_SHA" --arg suite "$SUITE" '
-            .status == "passed" and .buildSha == $sha and .environment == "staging" and .suite == $suite and
-            (.cleanup == "archived" or ($suite == "manual-admin-player" and .cleanup == "archived-by-visible-admin-flow")) and
-            (.playwrightRuns | length) > 0 and
-            all(.playwrightRuns[];
-              .status == "passed" and .counts.total > 0 and .counts.executed == .counts.total and
-              .counts.passed == .counts.total and .counts.failed == 0 and .counts.skipped == 0 and
-              .counts.notRun == 0 and .counts.retries == 0 and .counts.flaky == 0) and
-            (if $suite == "full-lifecycle-20p" then
-              .fullLifecycle.status == "passed" and .fullLifecycle.playerCount == 20 and
-              .fullLifecycle.registration.closed == true and .fullLifecycle.registration.baselinePlayers == 20 and
-              .fullLifecycle.workerRecovery == "passed" and (.fullLifecycle.eliminationTransitions | length) == 12 and
-              .fullLifecycle.finalLockdown.status == "resolved" and .fullLifecycle.finalLockdown.activePlayers == 8 and
-              .fullLifecycle.result.activePlayers == 8 and
-              .fullLifecycle.result.eliminatedPlayers == 12 and .fullLifecycle.result.eliminationCount == 12 and
-              .fullLifecycle.result.persistedMatchResultCount == 1 and
-              .fullLifecycle.result.rankedMembershipCount == 20 and
-              .fullLifecycle.result.defeatedMembershipCount == 0 and
-              .fullLifecycle.result.completedMembershipCount == 20 and
-              (.fullLifecycle.result.matchResultHash | test("^[0-9a-f]{64}$")) and
-              .fullLifecycle.result.snapshotMatchResultHash == .fullLifecycle.result.matchResultHash and
-              .fullLifecycle.result.persistedMatchResultHash == .fullLifecycle.result.matchResultHash and
-              .fullLifecycle.result.resultPayloadMatchesSnapshot == true and
-              .fullLifecycle.result.snapshotRankingHash == .fullLifecycle.result.persistedRankingHash and
-              .fullLifecycle.result.snapshotRankingHash == .fullLifecycle.result.membershipRankingHash and
-              .fullLifecycle.result.rankingPayloadMatchesSnapshot == true and
-              .fullLifecycle.result.membershipRankingMatchesSnapshot == true and
-              .fullLifecycle.invariants.status == "passed" and
-              (.fullLifecycle.invariants.checks | type) == "number" and
-              .fullLifecycle.invariants.checks > 0 and
-              (.fullLifecycle.invariants.violationCodes | length) == 0
-            else true end)
-          ' "$summary" >/dev/null
+          node scripts/validate-release-critical-suite-summary.mjs \
+            "--summary=$summary" \
+            "--suite=$SUITE" \
+            "--build-sha=$RELEASE_SHA"
 
       - name: Upload remote suite evidence
         if: always()
