@@ -27,6 +27,16 @@ export const PRE_ALPHA_ALL_REMOTE_SUITE_NAMES = Object.freeze(
   REMOTE_STAGING_ACCEPTANCE_SUITES.map(({ name }) => name)
 );
 
+export const validatePreAlphaReleaseSource = ({ gitSha, worktreeStatus }) => {
+  if (!/^[0-9a-f]{40}$/u.test(String(gitSha ?? ""))) {
+    throw new Error("PRE_ALPHA_RELEASE_HEAD_INVALID");
+  }
+  if (String(worktreeStatus ?? "").trim() !== "") {
+    throw new Error("PRE_ALPHA_RELEASE_WORKTREE_DIRTY");
+  }
+  return Object.freeze({ buildSha: gitSha, worktreeClean: true, sourceVerified: true });
+};
+
 const npm = (id, script, args = []) => Object.freeze({ id, script, args: Object.freeze(args) });
 const phase = (name, commands = []) => Object.freeze({ name, commands: Object.freeze(commands) });
 

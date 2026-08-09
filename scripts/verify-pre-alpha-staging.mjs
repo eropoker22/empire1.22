@@ -13,6 +13,7 @@ import {
   PRE_ALPHA_FINAL_REGISTRATION_MODES,
   validateFinalRegistrationEvidence,
   validatePreAlphaEvidenceBundleSummary,
+  validatePreAlphaReleaseSource,
   validatePreAlphaStagingInvocation,
   validateRemoteLoadEvidence,
   validateReleaseCriticalSuiteSummary,
@@ -41,6 +42,7 @@ export const runPreAlphaStaging = (argv = process.argv.slice(2), environment = p
 
   const gitSha = git(["rev-parse", "HEAD"]);
   const worktreeStatus = git(["status", "--porcelain", "--untracked-files=all"]);
+  const source = validatePreAlphaReleaseSource({ gitSha, worktreeStatus });
   const selectedStagingPhases = options.phases.filter(({ name }) => name.startsWith("staging-"));
   if (selectedStagingPhases.length > 0) {
     validatePreAlphaStagingInvocation({
@@ -57,6 +59,8 @@ export const runPreAlphaStaging = (argv = process.argv.slice(2), environment = p
   mkdirSync(artifactRoot, { recursive: true });
   const summary = {
     buildSha: gitSha,
+    worktreeClean: source.worktreeClean,
+    sourceVerified: source.sourceVerified,
     status: "running",
     stagingRequested: selectedStagingPhases.length > 0,
     phases: []
@@ -210,6 +214,8 @@ const writeCompletedCodeEvidenceIfReady = (artifactRoot, summary, gitSha) => {
     schemaVersion: 1,
     status: "code-passed",
     buildSha: gitSha,
+    worktreeClean: summary.worktreeClean,
+    sourceVerified: summary.sourceVerified,
     evidenceKind: "canonical-command-results",
     phases: PRE_ALPHA_CODE_PHASES.map(({ name }) => ({
       name,

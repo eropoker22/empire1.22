@@ -14,6 +14,7 @@ import {
   validateClosedRegistrationEvidence,
   validateFinalRegistrationEvidence,
   validatePreAlphaEvidenceBundleSummary,
+  validatePreAlphaReleaseSource,
   validatePreAlphaStagingInvocation,
   validateRemoteLoadEvidence,
   validateReleaseCriticalSuiteSummary,
@@ -202,6 +203,30 @@ const passingSuiteSummary = (suite) => ({
 });
 
 describe("pre-alpha staging orchestrator contract", () => {
+  it("requires an exact committed clean source for a real release run", () => {
+    expect(validatePreAlphaReleaseSource({ gitSha: SHA, worktreeStatus: "" })).toEqual({
+      buildSha: SHA,
+      worktreeClean: true,
+      sourceVerified: true
+    });
+    expect(() => validatePreAlphaReleaseSource({ gitSha: "not-a-sha", worktreeStatus: "" }))
+      .toThrow(/PRE_ALPHA_RELEASE_HEAD_INVALID/u);
+    for (const dirty of [
+      " M scripts/example.mjs",
+      "M  scripts/example.mjs",
+      "A  scripts/example.mjs",
+      "?? untracked-release-input.txt"
+    ]) {
+      expect(() => validatePreAlphaReleaseSource({ gitSha: SHA, worktreeStatus: dirty }))
+        .toThrow(/PRE_ALPHA_RELEASE_WORKTREE_DIRTY/u);
+    }
+  });
+
+  it("allows plan diagnostics without creating release source evidence", () => {
+    const plan = parsePreAlphaStagingArguments(["--plan"]);
+    expect(plan.planOnly).toBe(true);
+  });
+
   it("defaults to bounded code phases with no E2E, live Postgres, local-hosted or deploy command", () => {
     const plan = parsePreAlphaStagingArguments([]);
     expect(plan.staging).toBe(false);
