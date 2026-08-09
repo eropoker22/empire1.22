@@ -49,6 +49,7 @@ export const PRE_ALPHA_CODE_PHASES = Object.freeze([
   ]),
   phase("security", [npm("release-security", "verify:closed-alpha:code")]),
   phase("concurrency", [npm("authoritative-concurrency", "test:concurrency")]),
+  phase("recovery", [npm("critical-recovery", "test:recovery:critical")]),
   phase("simulation", [
     npm("simulation-tests", "test:simulation"),
     npm("20-player-sanity", "simulate:20p", [

@@ -67,6 +67,8 @@ jobs:
             command: test:persistence
           - label: Read-model tests
             command: test:read-models
+          - label: Critical recovery tests
+            command: test:recovery:critical
 
     steps:
       - name: Checkout

@@ -216,6 +216,7 @@ describe("public release workflows", () => {
       "test:server",
       "test:persistence",
       "test:read-models",
+      "test:recovery:critical",
       "test:e2e:smoke",
       "build:admin:page",
       "build:hosted-worker",
@@ -266,13 +267,10 @@ describe("public release workflows", () => {
     expect(remote).toContain("matrix.fixture == true && matrix.restart_worker == true");
     expect(remote).toContain("Run fixture-backed worker-recovery remote suite");
     expect(remote).toContain('.counts.executed == .counts.total');
-    expect(remote).toContain('$suite == "full-lifecycle-20p"');
-    expect(remote).toContain('.fullLifecycle.result.persistedMatchResultCount == 1');
-    expect(remote).toContain('.fullLifecycle.result.eliminatedPlayers == 12');
-    expect(remote).toContain('.fullLifecycle.result.defeatedMembershipCount == 0');
-    expect(remote).toContain('.fullLifecycle.result.completedMembershipCount == 20');
-    expect(remote).toContain('.fullLifecycle.result.persistedMatchResultHash == .fullLifecycle.result.matchResultHash');
-    expect(remote).toContain('.fullLifecycle.result.snapshotRankingHash == .fullLifecycle.result.membershipRankingHash');
+    expect(remote).toContain("node scripts/validate-release-critical-suite-summary.mjs");
+    expect(remote).toContain('"--summary=$summary"');
+    expect(remote).toContain('"--suite=$SUITE"');
+    expect(remote).toContain('"--build-sha=$RELEASE_SHA"');
     expect(remote).toContain("Canonical code-level release evidence");
     expect(remote).toContain("npm run verify:pre-alpha:staging");
     expect(remote).toContain("staging-pre-alpha-code-${{ env.RELEASE_SHA }}");

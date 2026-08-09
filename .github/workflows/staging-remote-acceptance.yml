@@ -1174,7 +1174,7 @@ jobs:
             && "$LOAD_RESULT" == "success" && "$FINALIZE_RESULT" == "success" \
             && "$AUTOMATED_RESULT" == "success" ]] \
             && jq -e --arg sha "$RELEASE_SHA" \
-              '.status == "code-passed" and .buildSha == $sha and (.phases | length) == 7 and all(.phases[]; .status == "passed")' \
+               '.status == "code-passed" and .buildSha == $sha and (.phases | length) == 8 and all(.phases[]; .status == "passed")' \
               "$EVIDENCE_ROOT/code-level/summary.json" >/dev/null 2>&1 \
             && jq -e --arg sha "$RELEASE_SHA" --arg mode "$expected_registration_mode" \
               --argjson registrationOpen "$expected_registration_open" \

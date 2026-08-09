@@ -215,6 +215,7 @@ describe("pre-alpha staging orchestrator contract", () => {
       "build:hosted-worker",
       "test:unit",
       "test:server",
+      "test:recovery:critical",
       "test:integration",
       "test:read-models",
       "test:persistence",

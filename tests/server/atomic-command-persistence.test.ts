@@ -198,6 +198,52 @@ describe("atomic command persistence", () => {
     await expect(outbox.listUnpublished(fixture.instanceId)).resolves.toHaveLength(0);
   });
 
+  it("recovers exactly once after commit succeeds before outbox publication", async () => {
+    const fixture = await createFixture("after-commit-before-publish");
+    fixture.runtime.atomicCommandCrashInjector = async (point) => {
+      if (point === "afterCommitBeforePublish") throw new Error("Injected crash after commit.");
+    };
+
+    await expect(fixture.server.instanceManager.dispatchCommand(fixture.instanceId, fixture.command))
+      .rejects.toThrow("Injected crash after commit.");
+    const committedVersion = fixture.runtime.state.root.version;
+    expect(fixture.runtime.state.root.trapIds).toHaveLength(1);
+    expect(fixture.published).toEqual([]);
+    expect((await fixture.server.instanceManager.listCommandRecords(fixture.instanceId))
+      .filter((record) => record.command.id === fixture.command.id)).toHaveLength(1);
+    expect((await fixture.server.instanceManager.listEventRecords(fixture.instanceId))
+      .filter((record) => record.causedByCommandId === fixture.command.id)).toHaveLength(1);
+    const outbox = fixture.server.instanceManager.getPersistenceRepositories().outboxRepository!;
+    await expect(outbox.listUnpublished(fixture.instanceId)).resolves.toHaveLength(1);
+
+    fixture.runtime.atomicCommandCrashInjector = undefined;
+    const replay = await fixture.server.instanceManager.dispatchCommand(fixture.instanceId, fixture.command);
+    await publishOutbox(fixture.runtime);
+
+    expect(replay?.errors).toEqual([]);
+    expect(replay?.commandResult).toMatchObject({ commandId: fixture.command.id, rootVersionAfter: committedVersion });
+    expect(fixture.runtime.state.root.version).toBe(committedVersion);
+    expect(fixture.runtime.state.root.trapIds).toHaveLength(1);
+    expect(fixture.published.map((event) => event.type)).toEqual(["command-applied"]);
+    await expect(outbox.listUnpublished(fixture.instanceId)).resolves.toHaveLength(0);
+  });
+
+  it("serializes two outbox publishers into one logical publication", async () => {
+    const fixture = await createFixture("double-outbox-publisher");
+    fixture.runtime.atomicCommandCrashInjector = async (point) => {
+      if (point === "afterCommitBeforePublish") throw new Error("Leave outbox pending.");
+    };
+    await expect(fixture.server.instanceManager.dispatchCommand(fixture.instanceId, fixture.command))
+      .rejects.toThrow("Leave outbox pending.");
+    fixture.runtime.atomicCommandCrashInjector = undefined;
+    const outbox = fixture.server.instanceManager.getPersistenceRepositories().outboxRepository!;
+
+    await Promise.all([publishOutbox(fixture.runtime), publishOutbox(fixture.runtime)]);
+
+    expect(fixture.published.map((event) => event.type)).toEqual(["command-applied"]);
+    await expect(outbox.listUnpublished(fixture.instanceId)).resolves.toHaveLength(0);
+  });
+
   it("serializes concurrent commands for one instance", async () => {
     const fixture = await createFixture("concurrent");
     const secondCommand = {
