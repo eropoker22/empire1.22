@@ -7423,3 +7423,25 @@ html body.game-modal-scroll-locked .district-building-detail-shell .district-bui
     margin: auto !important;
   }
 }
+
+/* 2026-08-09 mobile building cards and single-material alignment. */
+.armory-popup-card.building-detail-modal__content
+  .armory-slot__materials-row:has(> .armory-slot__material-pill:only-child),
+.druglab-popup-card.building-detail-modal__content
+  .drug-production-slot__supply-row:has(> .drug-production-slot__supply-pill:only-child) {
+  display: grid;
+  grid-template-columns: minmax(0, max-content);
+  justify-content: center;
+  justify-items: center;
+}
+
+@media (max-width: 720px) {
+  html body .building-detail-modal:not([hidden]) .building-detail-modal__content {
+    box-sizing: border-box;
+    align-self: stretch !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100% !important;
+  }
+}
