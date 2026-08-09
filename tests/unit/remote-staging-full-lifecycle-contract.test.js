@@ -5,7 +5,10 @@ import { isLifecycleRegistrationSnapshotReady } from
   "../../scripts/remote-staging-full-lifecycle-contract.mjs";
 
 const runner = readFileSync("scripts/run-remote-staging-suite.mjs", "utf8");
-const fixture = readFileSync("tools/seed/hosted-staging-full-lifecycle-step.mjs", "utf8");
+const fixture = [
+  "tools/seed/hosted-staging-full-lifecycle-step.mjs",
+  "tools/seed/hosted-staging-quiet-hours-fixture.mjs"
+].map((file) => readFileSync(file, "utf8")).join("\n");
 const safety = readFileSync("scripts/remote-staging-fixture-safety.mjs", "utf8");
 
 describe("guarded remote full lifecycle contract", () => {
