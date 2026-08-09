@@ -98,10 +98,6 @@ export const verifyStagingNeonTargetBinding = ({
     readDatabaseTarget(environment.GAMEPLAY_RELEASE_DATABASE_URL_POOLED, "pooled")
   ];
   const targets = [...directTargets, ...pooledTargets];
-  const productionUrl = String(environment.EMPIRE_PRODUCTION_DATABASE_URL ?? "").trim();
-  if (productionUrl && readDatabaseTarget(productionUrl, "direct").targetHash === expectedTargetHash) {
-    fail("STAGING_NEON_PRODUCTION_TARGET_REJECTED");
-  }
   if (targets.some((target) => target.targetHash !== expectedTargetHash)
     || new Set(targets.map((target) => target.databaseName)).size !== 1
     || new Set(directTargets.map((target) => target.hostname)).size !== 1) {

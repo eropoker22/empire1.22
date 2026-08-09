@@ -198,7 +198,7 @@ describe("district action overlay parity coverage", () => {
   it("statically guards visible map and district triggers without direct submit shortcuts", async () => {
     const [helperSource, runtimeSource, specSource] = await Promise.all([
       readFile("tests/e2e/helpers/districtActionOverlayParity.js", "utf8"),
-      readFile("page-assets/js/app/runtime.js", "utf8"),
+      readFile("page-assets/js/app/runtime.js", "utf8").then((source) => source.replaceAll("\r\n", "\n")),
       readFile("tests/e2e/live-demo-district-action-overlay-parity.spec.js", "utf8")
     ]);
 

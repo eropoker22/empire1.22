@@ -221,7 +221,7 @@ describe("scheduled elimination system", () => {
         id,
         inQuietHours: isTickInEliminationQuietHours(
           state,
-          config.balance.elimination,
+          config.balance.elimination!,
           tick,
           config.tickRateMs
         )

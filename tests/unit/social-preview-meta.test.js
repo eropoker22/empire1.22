@@ -6,7 +6,7 @@ const root = process.cwd();
 const readText = (path) => readFileSync(resolve(root, path), "utf8").replace(/\r\n/g, "\n");
 const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-const publicOgImageUrl = "https://empirestreets.cz/img/logmes.png";
+const publicOgImageUrl = "https://empirestreets.cz/img/logmes.png?v=20260809-social-preview";
 const expectedTitle = "Empire Streets | Město bez pravidel";
 const expectedDescription = "Město nemá pravidla. Jen následky. Vybuduj gang, ovládni districty a přežij tlak ulic.";
 const descriptionMetaPattern = new RegExp(

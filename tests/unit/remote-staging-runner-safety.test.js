@@ -157,6 +157,8 @@ describe("remote staging runner safety", () => {
     expect(emittedPayload).not.toContain("expectedDisplayPrefix");
     expect(lifecycleTool).toContain("invariantChecks: invariantReport.checked");
     expect(suiteRunner).toContain("stable.invariantChecks <= 0");
-    expect(workflow).toContain(".fullLifecycle.invariants.checks > 0");
+    expect(workflow).toContain("node scripts/validate-release-critical-suite-summary.mjs");
+    expect(source("scripts/release-critical-evidence-contract.mjs"))
+      .toContain("assertCanonicalInvariantEvidence");
   });
 });
