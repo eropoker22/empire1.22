@@ -434,15 +434,6 @@
     lockdownTicksBySeverity: { low: 0, medium: 0, high: 2, extreme: 4 },
     buildingDisruptionTicksBySeverity: { low: 0, medium: 0, high: 1, extreme: 3 },
     heatReductionBySeverity: { low: 0, medium: 10, high: 25, extreme: 45 },
-    heatDecay: {
-      playerIntervalTicks: 30,
-      playerDecayByWantedLevel: { 0: 4, 1: 3, 2: 2, 3: 1, 4: 1, 5: 1 },
-      districtIntervalTicks: 60,
-      districtBaseDecay: 3,
-      districtHighPassiveHeatPerDayThreshold: 100,
-      districtHighPassiveHeatMultiplier: 0.5,
-      districtLockdownDecayMultiplier: 1.25
-    },
     maxPoliticalRaidTriggerReductionPct: 45,
     extremePoliticalRaidReductionMultiplier: 0.5,
     protectedResources: ["cash", "gang-members", "population"],
@@ -9483,15 +9474,6 @@
       extreme: ticksFromMinutes(10)
     },
     heatReductionBySeverity: { low: 0, medium: 8, high: 30, extreme: 55 },
-    heatDecay: {
-      playerIntervalTicks: ticksFromMinutes(2.5),
-      playerDecayByWantedLevel: { 0: 4, 1: 3, 2: 2, 3: 1, 4: 1, 5: 1 },
-      districtIntervalTicks: ticksFromMinutes(5),
-      districtBaseDecay: 3,
-      districtHighPassiveHeatPerDayThreshold: 100,
-      districtHighPassiveHeatMultiplier: 0.5,
-      districtLockdownDecayMultiplier: 1.25
-    },
     maxPoliticalRaidTriggerReductionPct: 45,
     extremePoliticalRaidReductionMultiplier: 0.5,
     protectedResources: ["cash", "gang-members", "population"],
@@ -9516,10 +9498,10 @@
       tagline: "Staré peníze, staré krytí.",
       description: "Stabilní ekonomika, výpalné a vliv na správných dveřích.",
       playstyleSummary: "Economy / clean cash / influence / heat control mimo obsazování",
-      strengths: ["clean cash", "legální income", "heat management mimo obsazování"],
-      weaknesses: ["slabší tech", "slabší špehování"],
+      strengths: ["čisté peníze", "legální příjem", "řízení heatu mimo obsazování"],
+      weaknesses: ["slabší technologie", "slabší špehování"],
       passiveModifiers: { cleanIncomeMultiplier: 1.1, heatGainMultiplier: 0.96, spySuccessChanceBonus: -0.03 },
-      passiveEffectSummary: ["Clean income +10 %", "-4 % heat z útoků, heistů, akcí budov a pasivního tlaku", "Spy -3 p. b."],
+      passiveEffectSummary: ["Čistý příjem +10 %", "-4 % heat z útoků, loupeží, akcí budov a pasivního tlaku", "Špehování -3 p. b."],
       specialAction: {
         name: "Tichá dohoda",
         description: "Mafián zatlačí na správné kontakty a na krátký čas sníží nový policejní heat ze svých akcí.",
@@ -9542,8 +9524,8 @@
       tagline: "Prachy tečou rychle. Krev taky.",
       description: "Kartel staví impérium na dirty cash, drogách a pašování. Vydělává rychleji z ilegálních zdrojů a jeho produkce jede tvrději než u ostatních frakcí. Každá zásilka má ale stopu: Kartel generuje víc policejního tlaku, hůř vydělává čisté peníze a při obraně území není tak pevný.",
       playstyleSummary: "Dirty cash / illegal production / drugs / smuggling / high risk economy",
-      strengths: ["dirty cash", "ilegální produkce", "drogy", "pašování", "high risk economy"],
-      weaknesses: ["víc heat z ilegálních akcí", "slabší clean income", "slabší defense"],
+      strengths: ["špinavé peníze", "ilegální produkce", "drogy", "pašování", "vysoce riziková ekonomika"],
+      weaknesses: ["vyšší heat z ilegálních akcí", "slabší čistý příjem", "slabší obrana"],
       passiveModifiers: {
         dirtyIncomeMultiplier: 1.18,
         illegalProductionMultiplier: 1.15,
@@ -9553,12 +9535,12 @@
         defensePowerMultiplier: 0.95
       },
       passiveEffectSummary: [
-        "+18 % dirty income",
+        "+18 % špinavý příjem",
         "+15 % produkce v podporovaných ilegálních budovách",
         "+10 % pašování",
         "+15 % heat z ilegálních akcí",
-        "-8 % clean income",
-        "-5 % defense power"
+        "-8 % čistý příjem",
+        "-5 % síla obrany"
       ],
       specialAction: {
         name: "Noční zásilka",
@@ -9592,8 +9574,8 @@
       tagline: "Město se zlomí vírou.",
       description: "Kult roste skrz vliv, loajalitu a strach. Přitahuje víc lidí, lépe drží obsazené districty a dokáže město zaplavit neklidem. Není ale silný v čisté ekonomice ani v přímém útoku.",
       playstyleSummary: "Influence / population / defense / manipulation / city feed chaos",
-      strengths: ["influence", "population", "defense", "manipulace", "drby / podezření"],
-      weaknesses: ["slabší clean economy", "slabší přímý útok", "vyšší market fee připravujeme"],
+      strengths: ["vliv", "populace", "obrana", "manipulace", "drby a podezření"],
+      weaknesses: ["slabší čistá ekonomika", "slabší přímý útok", "vyšší poplatek na trhu se připravuje"],
       passiveModifiers: {
         influenceGainMultiplier: 1.2,
         populationGenerationMultiplier: 1.1,
@@ -9604,15 +9586,15 @@
         attackPowerMultiplier: 0.95
       },
       passiveEffectSummary: [
-        "+20 % influence gain",
-        "+10 % population generation",
-        "+10 % defense power",
-        "-10 % clean income",
-        "-5 % attack power"
+        "+20 % zisk vlivu",
+        "+10 % tvorba populace",
+        "+10 % síla obrany",
+        "-10 % čistý příjem",
+        "-5 % síla útoku"
       ],
       plannedPassiveEffectSummary: [
-        "Silnější práce s drby / podezřením",
-        "+10 % market fee"
+        "Silnější práce s drby a podezřením",
+        "+10 % poplatek na trhu"
       ],
       specialAction: {
         name: "Masová posedlost",
@@ -9644,8 +9626,8 @@
       tagline: "Nevidíš nás. Jen následky.",
       description: "Tajná organizace ovládá město přes infiltrace, špehování, falešné stopy a spící buňky. Má přesnější informace, lépe odhaluje pasti a dokáže provádět tajné operace s menším policejním tlakem. V otevřené válce ale ztrácí sílu.",
       playstyleSummary: "Spying / infiltration / traps / secret actions / false information / low heat",
-      strengths: ["špehování", "infiltrace", "traps", "tajné akce", "false information", "low heat"],
-      weaknesses: ["slabší přímý boj", "slabší clean income", "slabší dirty income"],
+      strengths: ["špehování", "infiltrace", "pasti", "tajné akce", "falešné informace", "nízký heat"],
+      weaknesses: ["slabší přímý boj", "slabší čistý příjem", "slabší špinavý příjem"],
       passiveModifiers: {
         spySuccessChanceBonus: 0.15,
         spyInfoQualityMultiplier: 1.15,
@@ -9659,10 +9641,10 @@
       passiveEffectSummary: [
         "+15 % šance na úspěšné špehování",
         "+15 % šance odhalit pasti",
-        "+10 % kvalita intel/drbů",
-        "-10 % attack power",
-        "-8 % clean income",
-        "-8 % dirty income"
+        "+10 % kvalita informací a drbů",
+        "-10 % síla útoku",
+        "-8 % čistý příjem",
+        "-8 % špinavý příjem"
       ],
       plannedPassiveEffectSummary: [
         "+15 % kvalita informací ze špehování",
@@ -9706,8 +9688,8 @@
       tagline: "Kdo ovládá data, ovládá válku.",
       description: "Hackeři nevyhrávají přes hrubou sílu. Čtou město přes kamery, alarmy, datová centra a potvrzené drby. Jejich informace jsou výrazně spolehlivější a jejich technická obrana je silnější než u ostatních frakcí. V otevřeném boji ale ztrácí.",
       playstyleSummary: "Tech / confirmed rumors / cameras / alarms / spying / digital sabotage",
-      strengths: ["tech", "confirmed rumors", "cameras", "alarms", "spying", "digital sabotage"],
-      weaknesses: ["slabší attack power", "slabší dirty income", "slabší základní obrana bez kamer/alarmů"],
+      strengths: ["technologie", "potvrzené drby", "kamery", "alarmy", "špehování", "digitální sabotáž"],
+      weaknesses: ["slabší síla útoku", "slabší špinavý příjem", "slabší základní obrana bez kamer a alarmů"],
       passiveModifiers: {
         rumorTruthMultiplier: 1.5,
         cameraEffectivenessMultiplier: 1.15,
@@ -9719,14 +9701,14 @@
         baseDefensePowerMultiplier: 0.95
       },
       passiveEffectSummary: [
-        "+50 % pravdivost rumorů s truthChancePct",
+        "+50 % pravdivost potvrzených drbů",
         "+15 % účinnost kamer",
         "+15 % účinnost alarmů",
-        "+10 % tech production",
+        "+10 % produkce technologií",
         "+10 % šance na úspěšné špehování",
-        "-8 % attack power",
-        "-8 % dirty income",
-        "-5 % základní obrana bez kamer/alarmů"
+        "-8 % síla útoku",
+        "-8 % špinavý příjem",
+        "-5 % základní obrana bez kamer a alarmů"
       ],
       specialAction: {
         name: "Výpadek systému",
@@ -9761,7 +9743,7 @@
       tagline: "Rychlost zabíjí.",
       description: "Motorkáři nehrají na trpělivost. Vyráží rychle, berou co najdou a mizí dřív, než se město vzpamatuje. Mají kratší cooldowny na agresivní akce a víc vydělají z vykrádání. Jenže držet území není jejich silná stránka a rychlý chaos zanechává větší policejní stopu.",
       playstyleSummary: "Speed / robbery / attacks / pressure / dirty cash",
-      strengths: ["rychlé cooldowny", "vykrádání", "útoky", "map pressure", "dirty cash"],
+      strengths: ["kratší čekání akcí", "vykrádání", "útoky", "tlak na mapu", "špinavé peníze"],
       weaknesses: ["slabší obrana districtů", "vyšší heat z útoků, obsazování a vykrádání"],
       passiveModifiers: {
         robberyCooldownMultiplier: 0.85,
@@ -9772,10 +9754,10 @@
         aggressiveActionHeatGainMultiplier: 1.08
       },
       passiveEffectSummary: [
-        "-15 % cooldown na vykrádání",
-        "-10 % cooldown na útoky",
-        "-10 % cooldown na obsazování",
-        "+10 % dirty cash z vykrádání",
+        "-15 % doba čekání na vykrádání",
+        "-10 % doba čekání na útoky",
+        "-10 % doba čekání na obsazování",
+        "+10 % špinavé peníze z vykrádání",
         "-10 % obrana districtů",
         "+8 % heat z útoků, obsazování a vykrádání"
       ],
@@ -9805,8 +9787,8 @@
       tagline: "Když diplomacie selže, přijde faktura.",
       description: "Soukromá armáda nehraje na pouliční chaos. Nasazuje vycvičené jednotky, taktiku a přesilu. Je silnější v útoku, lépe brání districty a při obsazování ztrácí méně vybavení. Profesionální násilí je ale drahé a viditelné.",
       playstyleSummary: "Combat / defense / occupation / territory control / expensive operations",
-      strengths: ["attack power", "defense power", "combat losses", "occupation", "territory control"],
-      weaknesses: ["vyšší upkeep / combat cost", "vyšší heat z agresivních akcí", "slabší clean income"],
+      strengths: ["síla útoku", "síla obrany", "nižší bojové ztráty", "obsazování", "kontrola území"],
+      weaknesses: ["vyšší náklady na údržbu a boj", "vyšší heat z agresivních akcí", "slabší čistý příjem"],
       passiveModifiers: {
         attackPowerMultiplier: 1.12,
         defensePowerMultiplier: 1.12,
@@ -9817,15 +9799,15 @@
         cleanIncomeMultiplier: 0.92
       },
       passiveEffectSummary: [
-        "+12 % attack power",
-        "+12 % defense power",
+        "+12 % síla útoku",
+        "+12 % síla obrany",
         "-10 % ztráty vybavení v boji",
         "+8 % heat z útoků a obsazování",
-        "-8 % clean income"
+        "-8 % čistý příjem"
       ],
       plannedPassiveEffectSummary: [
         "+10 % síla při obsazování",
-        "+12 % upkeep / combat cost"
+        "+12 % náklady na údržbu a boj"
       ],
       specialAction: {
         name: "Taktické nasazení",
@@ -9860,8 +9842,8 @@
       tagline: "Zločin je špinavý. Moc je legální.",
       description: "Korporát nevlastní ulice přes strach, ale přes smlouvy, právníky, bezpečnostní systémy a účty, které nikdo nechce kontrolovat. Vydělává silněji z čisté ekonomiky, lépe obchoduje a dokáže zmírnit následky policejního tlaku. V pouliční špíně ale ztrácí tempo.",
       playstyleSummary: "Clean economy / legal cover / defense systems / market efficiency / safer growth",
-      strengths: ["clean economy", "legal cover", "defense systems", "market efficiency", "safer growth"],
-      weaknesses: ["dirty income", "robbery loot", "delší útoky"],
+      strengths: ["čistá ekonomika", "legální krytí", "obranné systémy", "efektivnější trh", "bezpečnější růst"],
+      weaknesses: ["slabší špinavý příjem", "nižší kořist z vykrádání", "delší útoky"],
       passiveModifiers: {
         cleanIncomeMultiplier: 1.15,
         heatGainMultiplier: 0.97,
@@ -9872,14 +9854,14 @@
         attackDurationMultiplier: 1.1
       },
       passiveEffectSummary: [
-        "+15 % clean income",
-        "-3 % heat z útoků, heistů, akcí budov a pasivního tlaku",
+        "+15 % čistý příjem",
+        "-3 % heat z útoků, loupeží, akcí budov a pasivního tlaku",
         "+10 % efekt obranných systémů",
-        "-15 % dirty income",
-        "-10 % loot z vykrádání",
+        "-15 % špinavý příjem",
+        "-10 % kořist z vykrádání",
         "+10 % délka útoků"
       ],
-      plannedPassiveEffectSummary: ["-10 % market fee"],
+      plannedPassiveEffectSummary: ["-10 % poplatek na trhu"],
       specialAction: {
         name: "Právní štít",
         description: "Korporát aktivuje právníky, compliance tým a krizové krytí. Další policejní razie má mírnější následky, ale není zrušena.",
@@ -40346,7 +40328,7 @@
     const review = form.querySelector("[data-admin-create-review]");
     if (!review) return;
     const data = new FormData(form);
-    const serverTemplate = data.get("serverTemplate") === "full" ? "Plnohodnotný server" : "Kontrolní test";
+    const serverTemplate = data.get("serverTemplate") === "full" ? "Plnohodnotný server" : "Flexibilní server";
     const values = [
       ["Název", data.get("displayName")],
       ["Mode", data.get("mode")],
@@ -41648,7 +41630,7 @@
           <label><span>Mode</span><select name="mode"><option value="free">Free</option><option value="war" disabled>War (připravuje se)</option></select></label>
           <label><span>Region</span><select name="region"><option value="eu-central">EU Central</option></select></label>
           <label class="admin-template-selector"><span>Bezpečná Free šablona</span><select name="serverTemplate" data-admin-server-template>
-            <option value="control">Kontrolní test · 2–20 hráčů · bez Očisty</option>
+            <option value="control">Flexibilní server · 1–20 hráčů · Očista po Startu</option>
             <option value="full">Plnohodnotný server · 20 hráčů · canonical Očista</option>
           </select><small>Šablona určuje serverová lifecycle pravidla. Browser neposílá raw balance ani nastavení Očisty.</small></label>
           <label><span>Kapacita</span><input name="capacity" data-admin-server-capacity type="number" min="${minimumCapacity}" max="${maximumCapacity}" value="${minimumCapacity}" required></label>
@@ -41697,7 +41679,7 @@
             ${kv$1("Minimum ke spuštění", minimumCapacity)}
             ${kv$1("Registrační okno", `${registrationMinutes$1} minut`)}
           </div>
-          <p class="admin-notice">Kontrolní šablona je pro malý setup bez Očisty. Plnohodnotná šablona drží canonical kapacitu 20 a standardní Očistu. Server vznikne se zavřeným vstupem.</p>
+          <p class="admin-notice">Obě šablony spustí osmihodinovou Očistu až po kliknutí na Start. Flexibilní server dovoluje menší kapacitu, plnohodnotná šablona drží canonical kapacitu 20. Server vznikne se zavřeným vstupem.</p>
           <div class="admin-wizard__actions"><button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
             <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Pokračovat</button></div>
         </fieldset>
@@ -41895,7 +41877,7 @@
     <details class="admin-disclosure admin-disclosure--technical">
       <summary><span>Serverová diagnostika</span><small>Lease, lifecycle marker a canonical timing</small></summary>
       <div class="admin-kv-grid">
-        ${keyValue("Šablona", server.serverTemplate === "full" ? "Plnohodnotný server" : "Kontrolní test")}
+        ${keyValue("Šablona", server.serverTemplate === "full" ? "Plnohodnotný server" : "Flexibilní server")}
         ${keyValue("Server version", server.version)}
         ${keyValue("Committed players", server.committedPlayers ?? 0)}
         ${keyValue("Reserved slots", server.reservedSlots ?? 0)}${keyValue("Capacity", server.capacity)}
