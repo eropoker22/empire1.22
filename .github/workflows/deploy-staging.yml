@@ -421,9 +421,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          set_function() { netlify env:set "$1" "$2" --force --scope functions --context production >/dev/null; }
-          set_function_secret() { netlify env:set "$1" "$2" --force --secret --scope functions --context production >/dev/null; }
-          set_build_function() { netlify env:set "$1" "$2" --force --scope builds functions --context production >/dev/null; }
+          set_function() { netlify env:set "$1" "$2" --site "$NETLIFY_SITE_ID" --force --scope functions --context production >/dev/null; }
+          set_function_secret() { netlify env:set "$1" "$2" --site "$NETLIFY_SITE_ID" --force --secret --scope functions --context production >/dev/null; }
+          set_build_function() { netlify env:set "$1" "$2" --site "$NETLIFY_SITE_ID" --force --scope builds functions --context production >/dev/null; }
           set_build_function NODE_ENV production
           set_build_function EMPIRE_RELEASE_ENVIRONMENT staging
           set_build_function EMPIRE_PUBLIC_ORIGIN "$STAGING_ORIGIN"
@@ -442,7 +442,7 @@ jobs:
           set_function EMPIRE_HOSTED_CONTROL_PLANE_ENABLED true
           set_function EMPIRE_SERVER_PROVISIONING_ENABLED true
           netlify env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT \
-            --force --context production >/dev/null
+            --site "$NETLIFY_SITE_ID" --force --context production >/dev/null
           set_function EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED "$EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED"
           set_function EMPIRE_ACCOUNT_TERMS_VERSION "$EMPIRE_ACCOUNT_TERMS_VERSION"
           set_function EMPIRE_LEGACY_MATCHMAKING_ENABLED false
