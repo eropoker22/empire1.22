@@ -469,7 +469,7 @@ jobs:
         run: |
           set -euo pipefail
           netlify deploy --prod --site "$NETLIFY_SITE_ID" --filter @empire/client \
-            --dir=client --functions=netlify/functions \
+            --dir=client --functions=../../netlify/functions --skip-functions-cache \
             --message "staging ${RELEASE_SHA}" --json > artifacts/release/staging/netlify-deploy.json
 
       - name: Push immutable worker image

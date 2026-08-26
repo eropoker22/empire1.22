@@ -664,7 +664,7 @@ jobs:
         run: |
           set -euo pipefail
           netlify deploy --prod --site "$NETLIFY_SITE_ID" --filter @empire/client \
-            --dir=client --functions=netlify/functions --skip-functions-cache \
+            --dir=client --functions=../../netlify/functions --skip-functions-cache \
             --message "production permanent-open ${RELEASE_SHA}" --json \
             > artifacts/release/production/netlify-deploy.json
 
@@ -854,7 +854,7 @@ jobs:
           netlify env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT \
             --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
           netlify deploy --prod --site "$NETLIFY_SITE_ID" --filter @empire/client \
-            --dir=client --functions=netlify/functions --skip-functions-cache \
+            --dir=client --functions=../../netlify/functions --skip-functions-cache \
             --message "production permanent-open ${RELEASE_SHA}" --json \
             > artifacts/release/production/netlify-final-permanent-open.json
 
