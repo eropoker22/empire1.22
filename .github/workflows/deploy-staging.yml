@@ -426,8 +426,8 @@ jobs:
             netlify env:set "$1" "$2" --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
           }
           set_function_secret() {
-            netlify env:set "$1" "$2" --site "$NETLIFY_SITE_ID" --filter @empire/client --force --secret --scope functions >/dev/null
             netlify env:set "$1" "$2" --site "$NETLIFY_SITE_ID" --filter @empire/client --force --secret --context production >/dev/null
+            netlify env:set "$1" "$2" --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope functions >/dev/null
           }
           set_build_function() {
             netlify env:set "$1" "$2" --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope builds functions >/dev/null
