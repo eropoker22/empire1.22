@@ -139,7 +139,7 @@ export const validateProductionEnvironment = (environment, options = {}) => {
     "PRODUCTION_REGISTRATION_MUST_BE_CLOSED");
   add("EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT", "API", registrationEnabled,
     !registrationEnabled || registrationWindow.valid,
-    "future ISO timestamp no more than 24 hours away", "PRODUCTION_REGISTRATION_WINDOW_INVALID");
+    "empty for permanent open, or future ISO timestamp no more than 24 hours away", "PRODUCTION_REGISTRATION_WINDOW_INVALID");
   add("EMPIRE_ACCOUNT_TERMS_VERSION", "API", true,
     TERMS_VERSION_PATTERN.test(String(environment.EMPIRE_ACCOUNT_TERMS_VERSION ?? "")),
     "explicit approved terms version", "PRODUCTION_ACCOUNT_TERMS_VERSION_INVALID");

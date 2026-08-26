@@ -108,10 +108,11 @@ For each remote release:
 10. Run strict status again and require zero pending or unknown migrations and exact checksums.
 11. Run API/worker schema smoke before enabling writes.
 
-The Neon response schema permits an empty `operations` array and makes an operation's `branch_id` optional. The gate
-therefore requires the snapshot's `source_branch_id` exactly, requires `operations` to be an array, and checks every
-returned operation ID and project ID; any present operation branch ID must also equal the protected branch. The
-artifact records only an operation count and a hash of the sorted operation-ID set.
+The Neon response schema permits an empty `operations` array and makes an operation's `branch_id` optional. Snapshot
+creation may also return operations for Neon's generated internal archive branch rather than the source branch. The
+gate therefore requires the snapshot's `source_branch_id` exactly, requires `operations` to be an array, checks every
+returned operation ID and project ID, and validates any present operation branch ID as a provider ID. The artifact
+records only an operation count and a hash of the sorted operation-ID set.
 
 Canonical release commands are:
 

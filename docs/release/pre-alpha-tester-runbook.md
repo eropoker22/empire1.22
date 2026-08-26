@@ -13,13 +13,10 @@ otevření War mode.
    vypsání databázové URL.
 5. V admin control plane ověř `ready`, čerstvý worker heartbeat, snapshot a
    nulový neočekávaný outbox backlog.
-6. Potvrď výchozí stav globální registrace. Pokud má zůstat otevřená i během
-   nasazení, spusť ruční `Deploy Staging` výhradně s explicitním
-   `leave_registration_open=true`; deploy pak neprovede žádnou uzavírací
-   mutaci a skončí s veřejně ověřeným, maximálně 23hodinovým oknem. Bez tohoto
-   vstupu zůstává release fail-closed. Následný acceptance musí znovu použít
-   `leave_registration_open=true`; může obnovit expiraci, ale zachová otevřený
-   režim.
+6. Potvrď výchozí stav globální registrace. Staging deploy ji vždy dokončí jako
+   trvale otevřenou: `registrationEnabled=true`, `mode=open`, `expiresAt=null`.
+   Acceptance cleanup tento stav obnoví; registrace se nezavírá kvůli deployi,
+   acceptance ani restartu.
 
 ## Vytvoření 20hráčového serveru
 
@@ -64,16 +61,15 @@ otevření War mode.
 2. Archivuj disposable server přes potvrzenou admin akci.
 3. Ověř, že server už netickuje, nemá aktivní test lease a nezůstaly aktivní
    rezervace.
-4. Dodrž finální policy z dispatch vstupu `leave_registration_open`:
-   výchozí `false` registraci zavře a ověří negativním testem; explicitní
-   `true` ji nezavírá ani znovu nenasazuje, ale musí veřejně ověřit stále
-   platné maximálně 23hodinové okno a shodné SHA klienta/API/workeru.
+4. Po cleanupu ověř trvale otevřenou veřejnou policy (`registrationEnabled=true`,
+   `mode=open`, `expiresAt=null`) a shodné SHA klienta/API/workeru.
 5. Zapiš cleanup, finální registration mode, expiraci a health status do
    release artefaktu. Selhání
    cleanupu zneplatňuje celý gate.
 
 Otevřený finální staging gate není produkční release evidence. Produkční
-workflow a rollback rehearsal nadále vyžadují `registrationClosed=true`.
+owner deploy zachovává databázový backup, migrace a rollback pointers, ale
+nevyžaduje acceptance ani zavření registrace.
 
 ## Bezpečné diagnostické údaje
 

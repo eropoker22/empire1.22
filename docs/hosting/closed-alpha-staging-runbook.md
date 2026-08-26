@@ -78,14 +78,13 @@ SHA evidence. Any missing or non-success job blocks deployment.
 
 ## Deploy Staging
 
-Dispatch `Deploy Staging` with:
+Dispatch `Deploy Staging` in `owner-current-main` mode with:
 
-- `sha`: exact approved SHA;
-- `acceptance_run_id`: successful `Hosted Acceptance` run for that SHA;
+- `sha`: optional exact current `origin/main` SHA (blank resolves it on the runner);
+- `acceptance_run_id`: required only for the legacy `approved-acceptance` mode;
 - `initialize_database=true` only for the first independently proven-empty staging database;
 - `bootstrap_admin=true` only for the first owner bootstrap;
-- `leave_registration_open=true` only when deployment must avoid a registration-closing mutation and finish with
-  a publicly verified bounded staging window. The default remains fail-closed.
+- `leave_registration_open` is retained only for compatibility; every staging deployment finishes permanently open.
 
 The workflow serializes staging releases and performs:
 
@@ -97,8 +96,7 @@ The workflow serializes staging releases and performs:
 6. optional one-time empty-history initialization;
 7. pending migration status, single migration application, strict current status;
 8. frontend/API build, asset manifest, worker bundle, and immutable worker image;
-9. Netlify deploy with the explicit registration policy: closed by default, or with no closure mutation and a
-   publicly verified maximum 23-hour window when `leave_registration_open=true`;
+9. Netlify deploy with permanent public registration (`registrationEnabled=true`, `mode=open`, `expiresAt=null`);
 10. one Fly worker deploy with direct TLS PostgreSQL;
 11. API/worker health and source/build/deployed asset parity;
 12. optional one-owner bootstrap, remote initial login, password rotation, idempotent rerun, and owner verification;
@@ -116,12 +114,10 @@ After the deploy artifact is green, dispatch `Staging Remote Acceptance` with:
 - the same exact `sha`;
 - its successful `staging_deploy_run_id`;
 - `soak_minutes` from 120 through 240; default 180;
-- an explicit `leave_registration_open` choice. Use `true` only for an approved, time-limited staging playtest window;
-  omission or `false` remains fail-closed.
+- the legacy `leave_registration_open` compatibility input; acceptance cleanup always restores permanent public registration.
 
-The workflow first opens a maximum 23-hour registration window by exact timestamp, verifies it remotely, and later
-enforces the explicitly dispatched final policy. With `leave_registration_open=true`, it verifies the same guarded
-window remains open after cleanup; otherwise it closes registration. It uses only staging fixture-write approval and
+The workflow may use a bounded registration window during isolated acceptance setup, then restores permanent public
+registration after cleanup. It never leaves staging closed or with an expiry. It uses only staging fixture-write approval and
 staging database target pinning.
 
 Required remote evidence covers actual HTTPS browser/server flows, including:
