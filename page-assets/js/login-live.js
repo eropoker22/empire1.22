@@ -43,7 +43,7 @@ function resolveInitialMode() {
 }
 
 function lobbyHref() {
-  return `./lobby.html?mode=${state.activeMode}`;
+  return "./lobby.html?mode=free";
 }
 
 function bindModeCards() {
