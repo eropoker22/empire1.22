@@ -597,9 +597,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          set_function() { netlify env:set "$1" "$2" --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope functions --context production >/dev/null; }
-          set_function_secret() { netlify env:set "$1" "$2" --site "$NETLIFY_SITE_ID" --filter @empire/client --force --secret --scope functions --context production >/dev/null; }
-          set_build_function() { netlify env:set "$1" "$2" --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope builds functions --context production >/dev/null; }
+          set_function() {
+            netlify env:set "$1" "$2" --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope functions >/dev/null
+            netlify env:set "$1" "$2" --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
+          }
+          set_function_secret() {
+            netlify env:set "$1" "$2" --site "$NETLIFY_SITE_ID" --filter @empire/client --force --secret --scope functions >/dev/null
+            netlify env:set "$1" "$2" --site "$NETLIFY_SITE_ID" --filter @empire/client --force --secret --context production >/dev/null
+          }
+          set_build_function() {
+            netlify env:set "$1" "$2" --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope builds functions >/dev/null
+            netlify env:set "$1" "$2" --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
+          }
           set_build_function NODE_ENV production
           set_build_function EMPIRE_RELEASE_ENVIRONMENT production
           set_build_function EMPIRE_PUBLIC_ORIGIN "$PRODUCTION_ORIGIN"
@@ -821,7 +830,9 @@ jobs:
         run: |
           set -euo pipefail
           netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true \
-            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope functions --context production >/dev/null
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope functions >/dev/null
+          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true \
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
           netlify env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT \
             --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
           netlify deploy --prod --site "$NETLIFY_SITE_ID" --filter @empire/client \
@@ -866,14 +877,20 @@ jobs:
         run: |
           set -euo pipefail
           netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true \
-            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope functions --context production >/dev/null
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope functions >/dev/null
+          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true \
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
           if [[ "$ROLLBACK_MODE" == "same-schema-code-rollback" ]]; then
             netlify env:set EMPIRE_BUILD_SHA "$PREVIOUS_PRODUCTION_SHA" \
-              --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope builds functions --context production >/dev/null
+              --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope builds functions >/dev/null
+            netlify env:set EMPIRE_BUILD_SHA "$PREVIOUS_PRODUCTION_SHA" \
+              --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
           elif [[ "$ROLLBACK_MODE" == "owner-recovery" ]]; then
             if [[ -n "$PREVIOUS_PRODUCTION_SHA" ]]; then
               netlify env:set EMPIRE_BUILD_SHA "$PREVIOUS_PRODUCTION_SHA" \
-                --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope builds functions --context production >/dev/null
+                --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope builds functions >/dev/null
+              netlify env:set EMPIRE_BUILD_SHA "$PREVIOUS_PRODUCTION_SHA" \
+                --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
             fi
           else
             [[ "$ROLLBACK_MODE" == "initial-cutover-shutdown" ]]
