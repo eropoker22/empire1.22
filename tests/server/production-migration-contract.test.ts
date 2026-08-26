@@ -24,6 +24,18 @@ describe("production migration contract", () => {
       .toBe(checksumMigrationSql("SELECT 1;\r\nSELECT 2;\r\n"));
   });
 
+  it("allows Start to arm Očista before the open registration roster is frozen", async () => {
+    const migration = await readFile(new URL(
+      "../../apps/server/src/runtime/persistence/postgres/migrations/025_open_registration_purge_start.sql",
+      import.meta.url
+    ), "utf8");
+
+    expect(migration).toContain("registration_closed_at IS NULL");
+    expect(migration).toContain("effective_first_elimination_tick IS NULL");
+    expect(migration).toContain("OR effective_first_elimination_tick >= 1");
+    expect(migration).not.toContain("AND effective_first_elimination_tick IS NULL)\n      OR");
+  });
+
   it("accepts only the complete exact migration history", async () => {
     expect(await isProductionSchemaCurrent(database([...PRODUCTION_MIGRATION_CONTRACT]))).toBe(true);
     expect(await isProductionSchemaCurrent(database(PRODUCTION_MIGRATION_CONTRACT.slice(0, -1)))).toBe(false);

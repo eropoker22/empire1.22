@@ -121,6 +121,11 @@
       "filename": "024_hosted_starting_player_state.sql",
       "classification": "backward-compatible",
       "reason": "Adds a defaulted starting-state column that older code can ignore."
+    },
+    {
+      "filename": "025_open_registration_purge_start.sql",
+      "classification": "backward-compatible",
+      "reason": "Relaxes the hosted lifecycle constraint so Start can arm Očista while registration remains open."
     }
   ]
 }

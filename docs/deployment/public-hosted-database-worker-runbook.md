@@ -133,7 +133,7 @@ Never use it on an existing database. The migration runner holds transaction-sco
 rechecks history under the lock, writes each migration and checksum in the same transaction, and fails on an unknown,
 modified, older, or newer schema contract. Historical applied SQL files are immutable.
 
-The current source contract ends at `024_hosted_starting_player_state.sql`; always record the actual head returned by
+The current source contract ends at `025_open_registration_purge_start.sql`; always record the actual head returned by
 the release manifest rather than hard-coding this value in provider settings.
 
 ## Migration classification and rollback compatibility
