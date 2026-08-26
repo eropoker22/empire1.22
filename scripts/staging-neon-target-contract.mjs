@@ -163,7 +163,8 @@ export const verifyStagingNeonSnapshotBinding = ({
   if (!Array.isArray(operations)
     || operations.some((operation) => !PROVIDER_ID_PATTERN.test(String(operation?.id ?? ""))
       || operation?.project_id !== projectId
-      || (Object.hasOwn(operation ?? {}, "branch_id") && operation.branch_id !== branchId))) {
+      || (Object.hasOwn(operation ?? {}, "branch_id")
+        && !PROVIDER_ID_PATTERN.test(String(operation.branch_id ?? ""))))) {
     fail("STAGING_NEON_SNAPSHOT_OPERATION_MISMATCH");
   }
 
