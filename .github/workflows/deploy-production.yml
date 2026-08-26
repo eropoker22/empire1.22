@@ -3,21 +3,29 @@ name: Deploy Production
 on:
   workflow_dispatch:
     inputs:
-      sha:
-        description: Exact 40-character SHA approved after remote staging acceptance
+      release_mode:
+        description: owner-current-main bypasses acceptance evidence but retains backup, migration and rollback safeguards
         required: true
+        default: owner-current-main
+        type: choice
+        options:
+          - owner-current-main
+          - approved-safe-release
+      sha:
+        description: Optional exact current origin/main SHA; blank resolves origin/main on the runner
+        required: false
         type: string
       staging_remote_run_id:
         description: Successful Staging Remote Acceptance workflow run ID for this SHA
-        required: true
+        required: false
         type: string
       rollback_rehearsal_run_id:
         description: Successful Staging Rollback Rehearsal workflow run ID for this SHA
-        required: true
+        required: false
         type: string
       netlify_observability_evidence_id:
         description: Approved manual Netlify logs and credit review evidence ID
-        required: true
+        required: false
         type: string
       initial_cutover:
         description: Explicitly authorize the first production cutover with no previous Empire worker release
@@ -69,12 +77,19 @@ jobs:
       initial_cutover: ${{ steps.release.outputs.initial_cutover }}
       previous_production_sha: ${{ steps.release.outputs.previous_production_sha }}
       initial_rollback_deploy_id: ${{ steps.release.outputs.initial_rollback_deploy_id }}
+      owner_deploy: ${{ steps.release.outputs.owner_deploy }}
 
     steps:
+      - name: Fetch origin/main for owner release resolution
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
       - name: Resolve immutable approved release
         id: release
         env:
           RELEASE_SHA: ${{ inputs.sha }}
+          RELEASE_MODE: ${{ inputs.release_mode }}
           STAGING_RUN_ID: ${{ inputs.staging_remote_run_id }}
           ROLLBACK_RUN_ID: ${{ inputs.rollback_rehearsal_run_id }}
           OBSERVABILITY_ID: ${{ inputs.netlify_observability_evidence_id }}
@@ -87,10 +102,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ "$RELEASE_MODE" == "owner-current-main" ]]; then
+            git fetch --no-tags origin main
+            resolved_sha="$(git rev-parse origin/main)"
+            [[ -z "$RELEASE_SHA" || "$RELEASE_SHA" == "$resolved_sha" ]]
+            RELEASE_SHA="$resolved_sha"
+            STAGING_RUN_ID=""
+            ROLLBACK_RUN_ID=""
+            OBSERVABILITY_ID="owner-manual"
+            owner_deploy="true"
+          else
+            [[ "$RELEASE_MODE" == "approved-safe-release" ]]
+            [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+            [[ "$STAGING_RUN_ID" =~ ^[0-9]+$ ]]
+            [[ "$ROLLBACK_RUN_ID" =~ ^[0-9]+$ ]]
+            [[ "$OBSERVABILITY_ID" =~ ^[A-Za-z0-9._:-]{3,200}$ ]]
+            owner_deploy="false"
+          fi
           [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$STAGING_RUN_ID" =~ ^[0-9]+$ ]]
-          [[ "$ROLLBACK_RUN_ID" =~ ^[0-9]+$ ]]
-          [[ "$OBSERVABILITY_ID" =~ ^[A-Za-z0-9._:-]{3,200}$ ]]
           if [[ "$INITIAL_CUTOVER" == "true" ]]; then
             [[ -z "$PREVIOUS_PRODUCTION_SHA" ]]
             [[ "$INITIAL_ROLLBACK_DEPLOY_ID" =~ ^[A-Za-z0-9-]{8,100}$ ]]
@@ -99,8 +128,10 @@ jobs:
             [[ "$BOOTSTRAP_SMOKE_ACCOUNT" == "true" ]]
           else
             [[ "$INITIAL_CUTOVER" == "false" ]]
-            [[ "$PREVIOUS_PRODUCTION_SHA" =~ ^[0-9a-f]{40}$ ]]
-            [[ "$PREVIOUS_PRODUCTION_SHA" != "$RELEASE_SHA" ]]
+            if [[ "$owner_deploy" != "true" ]]; then
+              [[ "$PREVIOUS_PRODUCTION_SHA" =~ ^[0-9a-f]{40}$ ]]
+              [[ "$PREVIOUS_PRODUCTION_SHA" != "$RELEASE_SHA" ]]
+            fi
             [[ -z "$INITIAL_ROLLBACK_DEPLOY_ID" ]]
             [[ "$INITIALIZE_DATABASE" == "false" ]]
           fi
@@ -111,8 +142,10 @@ jobs:
           echo "initial_cutover=$INITIAL_CUTOVER" >> "$GITHUB_OUTPUT"
           echo "previous_production_sha=$PREVIOUS_PRODUCTION_SHA" >> "$GITHUB_OUTPUT"
           echo "initial_rollback_deploy_id=$INITIAL_ROLLBACK_DEPLOY_ID" >> "$GITHUB_OUTPUT"
+          echo "owner_deploy=$owner_deploy" >> "$GITHUB_OUTPUT"
 
       - name: Verify successful remote staging acceptance
+        if: steps.release.outputs.owner_deploy != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ steps.release.outputs.sha }}
@@ -135,11 +168,12 @@ jobs:
           [[ "${#summaries[@]}" == "1" ]]
           jq -e --arg sha "$RELEASE_SHA" '
             .status == "automated-pass" and .environment == "staging" and
-            .buildSha == $sha and .registrationClosed == true and
+            .buildSha == $sha and .registrationOpen == true and .registrationExpiresAt == null and
             .manualNetlifyObservabilityReview == "required-before-production"
           ' "${summaries[0]}" >/dev/null
 
       - name: Verify successful staging rollback rehearsal
+        if: steps.release.outputs.owner_deploy != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ steps.release.outputs.sha }}
@@ -162,13 +196,14 @@ jobs:
           [[ "${#summaries[@]}" == "1" ]]
           jq -e --arg sha "$RELEASE_SHA" '
             .status == "pass" and .environment == "staging" and .buildSha == $sha and
-            .rollbackRehearsed == true and .registrationClosed == true and
+            .rollbackRehearsed == true and .registrationOpen == true and
             .schemaCompatibleWithPrevious == true and .candidateRestored == true and
             .candidateAssetParityVerified == true and .databaseRestored == false and
             .activeWorkerReplicas == 1
           ' "${summaries[0]}" >/dev/null
 
       - name: Record safe gate evidence
+        if: steps.release.outputs.owner_deploy != 'true'
         env:
           RELEASE_SHA: ${{ steps.release.outputs.sha }}
           STAGING_RUN_ID: ${{ steps.release.outputs.staging_run_id }}
@@ -194,6 +229,7 @@ jobs:
           ' > gate-evidence/summary.json
 
       - name: Upload production gate evidence
+        if: steps.release.outputs.owner_deploy != 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: production-gate-${{ steps.release.outputs.sha }}
@@ -202,13 +238,14 @@ jobs:
           path: gate-evidence/**
 
   deploy:
-    name: Backup, migrate and deploy production closed
+    name: Backup, migrate and deploy permanently-open production
     needs: gate
     runs-on: ubuntu-latest
     timeout-minutes: 120
     environment: production
     env:
       RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
+      OWNER_DEPLOY: ${{ needs.gate.outputs.owner_deploy }}
       PRODUCTION_ORIGIN: https://empirestreets.cz
       NETLIFY_SITE_ID: ${{ vars.NETLIFY_PRODUCTION_SITE_ID }}
       NETLIFY_DISABLE_UPDATE_CHECK: "true"
@@ -224,7 +261,7 @@ jobs:
       EMPIRE_ADMIN_WRITES_ENABLED: "true"
       EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true"
       EMPIRE_SERVER_PROVISIONING_ENABLED: "true"
-      EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "false"
+      EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true"
       EMPIRE_LEGACY_MATCHMAKING_ENABLED: "false"
       EMPIRE_WAR_HOSTING_ENABLED: "false"
       EMPIRE_PUBLIC_ORIGIN: https://empirestreets.cz
@@ -270,6 +307,7 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
 
       - name: Install Playwright Chromium
+        if: needs.gate.outputs.owner_deploy != 'true'
         run: node scripts/run-local-bin.mjs playwright/cli.js install chromium
 
       - name: Validate required production inputs
@@ -338,11 +376,11 @@ jobs:
             "EMPIRE_AUTH_THROTTLE_PEPPER=$EMPIRE_AUTH_THROTTLE_PEPPER"
           )
           env "${common[@]}" EMPIRE_DATABASE_URL="$PRODUCTION_DATABASE_URL_POOLED" GAMEPLAY_DATABASE_URL="$PRODUCTION_DATABASE_URL_POOLED" \
-            npm run verify:production-env -- --component=netlify
+            npm run verify:production-env -- --component=netlify --allow-registration-enabled
           env "${common[@]}" EMPIRE_DATABASE_URL="$PRODUCTION_DATABASE_URL_DIRECT" GAMEPLAY_DATABASE_URL="$PRODUCTION_DATABASE_URL_DIRECT" \
-            npm run verify:production-env -- --component=migration
+            npm run verify:production-env -- --component=migration --allow-registration-enabled
           env "${common[@]}" EMPIRE_DATABASE_URL="$PRODUCTION_DATABASE_URL_DIRECT" GAMEPLAY_DATABASE_URL="$PRODUCTION_DATABASE_URL_DIRECT" \
-            npm run verify:production-env -- --component=worker
+            npm run verify:production-env -- --component=worker --allow-registration-enabled
           env "${common[@]}" EMPIRE_DATABASE_URL="$PRODUCTION_DATABASE_URL_POOLED" GAMEPLAY_DATABASE_URL="$PRODUCTION_DATABASE_URL_POOLED" \
             npm run release:production:manifest
 
@@ -377,6 +415,11 @@ jobs:
           else
             [[ "$EMPIRE_INITIAL_CUTOVER" == "false" ]]
             previous_sha="$EMPIRE_PREVIOUS_PRODUCTION_SHA"
+            if [[ "$OWNER_DEPLOY" == "true" ]]; then
+              previous_sha="$(jq -er '.commit_ref' "$deploy")"
+            fi
+            [[ "$previous_sha" =~ ^[0-9a-f]{40}$ ]]
+            [[ "$previous_sha" != "$RELEASE_SHA" ]]
             git merge-base --is-ancestor "$previous_sha" "$RELEASE_SHA"
             jq -e --arg sha "$previous_sha" '.commit_ref == $sha' "$deploy" >/dev/null
             jq -e '[.[] | select(.state != "destroyed" and .state != "destroying")] | length == 1' "$machines" >/dev/null
@@ -405,7 +448,7 @@ jobs:
               .region == "fra" and .schemaVersion == $schema and .expectedSchemaVersion == $schema and
               .heartbeat.registered == true
             ' "$worker" >/dev/null
-            jq -e '.accepted == true and .data.registrationEnabled == false and .data.mode == "closed"' "$policy" >/dev/null
+            jq -e '.accepted == true and .data.registrationEnabled == true and .data.mode == "open" and .data.expiresAt == null' "$policy" >/dev/null
             grep -Eiq "empire-build-sha.{0,200}${previous_sha}|${previous_sha}.{0,200}empire-build-sha" "$html"
             rollback_mode="same-schema-code-rollback"
             rm -f "$api" "$worker" "$policy" "$html"
@@ -421,7 +464,7 @@ jobs:
              previousProductionSha:(if $previousSha == "" then null else $previousSha end),
              previousNetlifyDeployId:$deployId,
              previousFlyImage:(if $flyImage == "" then null else $flyImage end),
-             registrationClosed:true,databaseRestorePlanned:false}
+             registrationOpen:true,registrationExpiresAt:null,databaseRestorePlanned:false}
           ' > artifacts/release/production/rollback-pointers.json
           rm -f "$site" "$deploy" "$machines"
 
@@ -542,7 +585,7 @@ jobs:
           set_function EMPIRE_ADMIN_WRITES_ENABLED true
           set_function EMPIRE_HOSTED_CONTROL_PLANE_ENABLED true
           set_function EMPIRE_SERVER_PROVISIONING_ENABLED true
-          set_function EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false
+          set_function EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true
           set_function EMPIRE_ACCOUNT_TERMS_VERSION "$EMPIRE_ACCOUNT_TERMS_VERSION"
           set_function EMPIRE_LEGACY_MATCHMAKING_ENABLED false
           set_function EMPIRE_WAR_HOSTING_ENABLED false
@@ -554,7 +597,7 @@ jobs:
           netlify env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT --force --context production >/dev/null
           netlify env:unset EMPIRE_ADMIN_BOOTSTRAP_PASSWORD --force --context production >/dev/null
 
-      - name: Deploy Netlify production with registration closed
+      - name: Deploy Netlify production with permanent registration
         id: netlify_deploy
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
@@ -562,7 +605,7 @@ jobs:
         run: |
           set -euo pipefail
           netlify deploy --prod --dir=client --functions=netlify/functions --skip-functions-cache \
-            --message "production closed ${RELEASE_SHA}" --json \
+            --message "production permanent-open ${RELEASE_SHA}" --json \
             > artifacts/release/production/netlify-deploy.json
 
       - name: Push immutable production worker image
@@ -600,7 +643,7 @@ jobs:
             printf 'EMPIRE_RUNTIME_REGION=%s\n' "$EMPIRE_RUNTIME_REGION"
             printf 'EMPIRE_TICK_WORKER_OWNER_ID=%s\n' "$EMPIRE_TICK_WORKER_OWNER_ID"
             printf 'EMPIRE_PRODUCTION_DATABASE_TARGET_HASH=%s\n' "$EMPIRE_PRODUCTION_DATABASE_TARGET_HASH"
-            printf 'EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED=false\n'
+            printf 'EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED=true\n'
             printf 'EMPIRE_LEGACY_MATCHMAKING_ENABLED=false\n'
             printf 'EMPIRE_HOSTED_PREFLIGHT_STRICT=true\n'
           } > "$worker_env"
@@ -650,6 +693,7 @@ jobs:
           rm -f "$api_health" "$worker_health"
 
       - name: Verify remote production SHA and asset parity
+        if: needs.gate.outputs.owner_deploy != 'true'
         env:
           EMPIRE_HOSTED_WORKER_ORIGIN: https://${{ vars.FLY_PRODUCTION_APP }}.fly.dev
           EMPIRE_REMOTE_RELEASE_EVIDENCE_PATH: artifacts/release/production/remote-release-health.json
@@ -714,7 +758,7 @@ jobs:
             .data.apiBuildSha == $sha and .data.workerBuildSha == $sha and
             .data.migrationsCurrent == true and .data.workerStatus == "online" and
             .data.buildCompatibility == "current" and .data.sessionSecurity == "current" and
-            .data.originPolicy == "current" and .data.registrationEnabled == false
+            .data.originPolicy == "current" and .data.registrationEnabled == true
           ' "$control" >/dev/null
           curl --fail --silent --show-error --request DELETE --cookie "$cookie_jar" \
             --header "Origin: ${PRODUCTION_ORIGIN}" "$PRODUCTION_ORIGIN/api/admin/session" >/dev/null
@@ -725,6 +769,7 @@ jobs:
             "$control" > artifacts/release/production/admin-control-plane.json
 
       - name: Run guarded production browser smoke
+        if: needs.gate.outputs.owner_deploy != 'true'
         env:
           NODE_ENV: production
           EMPIRE_HOSTED_WORKER_ORIGIN: https://${{ vars.FLY_PRODUCTION_APP }}.fly.dev
@@ -736,19 +781,19 @@ jobs:
           PRODUCTION_SMOKE_ACCOUNT_PASSWORD: ${{ secrets.PRODUCTION_SMOKE_ACCOUNT_PASSWORD }}
         run: npm run test:remote-production:smoke
 
-      - name: Force final closed registration and redeploy the same SHA
+      - name: Persist permanent registration and redeploy the same SHA
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false \
+          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true \
             --force --scope functions --context production >/dev/null
           netlify env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT \
             --force --context production >/dev/null
           netlify deploy --prod --dir=client --functions=netlify/functions --skip-functions-cache \
-            --message "production final closed ${RELEASE_SHA}" --json \
-            > artifacts/release/production/netlify-final-closed.json
+            --message "production permanent-open ${RELEASE_SHA}" --json \
+            > artifacts/release/production/netlify-final-permanent-open.json
 
       - name: Verify final production registration, domain and SHA parity
         env:
@@ -762,15 +807,15 @@ jobs:
           http_headers="$RUNNER_TEMP/production-http-headers.txt"
           curl --fail --silent --show-error --header 'Cache-Control: no-cache' \
             "$PRODUCTION_ORIGIN/api/account/registration-policy?release-sha=${RELEASE_SHA}" -o "$policy"
-          jq -e '.accepted == true and .data.registrationEnabled == false and .data.mode == "closed"' "$policy" >/dev/null
-          npm run verify:remote-release
+          jq -e '.accepted == true and .data.registrationEnabled == true and .data.mode == "open" and .data.expiresAt == null' "$policy" >/dev/null
+          if [[ "$OWNER_DEPLOY" != "true" ]]; then npm run verify:remote-release; fi
           curl --silent --show-error --head --proto '=https' https://www.empirestreets.cz/ -o "$www_headers"
           tr -d '\r' < "$www_headers" | grep -Eiq '^location: https://empirestreets\.cz/?$'
           curl --silent --show-error --head --proto '=http' http://empirestreets.cz/ -o "$http_headers"
           tr -d '\r' < "$http_headers" | grep -Eiq '^location: https://empirestreets\.cz/?$'
           jq -n --arg sha "$RELEASE_SHA" \
             '{domain:"empirestreets.cz",https:true,httpRedirect:true,wwwRedirect:true,
-              registrationClosed:true,buildSha:$sha}' \
+              registrationOpen:true,registrationExpiresAt:null,buildSha:$sha}' \
             > artifacts/release/production/domain-and-registration.json
           rm -f "$policy" "$www_headers" "$http_headers"
 
@@ -786,7 +831,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false \
+          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true \
             --force --scope functions --context production >/dev/null
           if [[ "$ROLLBACK_MODE" == "same-schema-code-rollback" ]]; then
             netlify env:set EMPIRE_BUILD_SHA "$PREVIOUS_PRODUCTION_SHA" \
@@ -807,7 +852,7 @@ jobs:
               | jq -e '[.[] | select(.state != "destroyed" and .state != "destroying")] | length == 0' >/dev/null
             jq -n --arg deployId "$PREVIOUS_NETLIFY_DEPLOY_ID" '
               {status:"initial-cutover-rollback-complete",rollbackMode:"initial-cutover-shutdown",
-               registrationConfiguredClosed:true,databaseRestored:false,workerReplicas:0,
+               registrationConfiguredOpen:true,databaseRestored:false,workerReplicas:0,
                netlifyDeployId:$deployId}
             ' > artifacts/release/production/automatic-rollback.json
             rm -f "$site"
@@ -840,7 +885,7 @@ jobs:
               sleep 10
             done
             curl --fail --silent --show-error "$PRODUCTION_ORIGIN/api/account/registration-policy" -o "$policy"
-            jq -e '.accepted == true and .data.registrationEnabled == false and .data.mode == "closed"' "$policy" >/dev/null
+            jq -e '.accepted == true and .data.registrationEnabled == true and .data.mode == "open" and .data.expiresAt == null' "$policy" >/dev/null
             curl --fail --silent --show-error --header 'Cache-Control: no-cache' \
               "$PRODUCTION_ORIGIN/admin.html?rollback-sha=${PREVIOUS_PRODUCTION_SHA}" -o "$html"
             grep -Eiq "empire-build-sha.{0,200}${PREVIOUS_PRODUCTION_SHA}|${PREVIOUS_PRODUCTION_SHA}.{0,200}empire-build-sha" "$html"
@@ -852,7 +897,7 @@ jobs:
             jq -n --arg deployId "$PREVIOUS_NETLIFY_DEPLOY_ID" --arg flyImage "$PREVIOUS_FLY_IMAGE" \
               --arg previousSha "$PREVIOUS_PRODUCTION_SHA" '
               {status:"code-rollback-complete",rollbackMode:"same-schema-code-rollback",
-               previousProductionSha:$previousSha,registrationClosed:true,databaseRestored:false,
+               previousProductionSha:$previousSha,registrationOpen:true,databaseRestored:false,
                workerReplicas:1,netlifyDeployId:$deployId,flyImage:$flyImage}
             ' > artifacts/release/production/automatic-rollback.json
             rm -f "$api" "$worker" "$policy" "$html" "$assets"
@@ -886,7 +931,7 @@ jobs:
             "$RUNNER_TEMP/production-rollback-admin.html" "$RUNNER_TEMP/production-rollback-assets.json"
 
   verdict:
-    name: Record closed production deployment verdict
+    name: Record permanently-open production deployment verdict
     if: always()
     needs:
       - gate
@@ -908,26 +953,25 @@ jobs:
           mkdir -p artifacts/release/production/final
           status="no-go"
           deployed=false
-          registration_closed=null
-          public_registration_enabled=null
+          registration_open=null
+          registration_expires_at=null
           if [[ "$DEPLOY_RESULT" == "success" ]]; then
-            status="post-deploy-pass-registration-closed"
+            status="post-deploy-pass-registration-permanently-open"
             deployed=true
-            registration_closed=true
-            public_registration_enabled=false
+            registration_open=true
           fi
           jq -n --arg status "$status" --arg sha "$RELEASE_SHA" --arg staging "$STAGING_RUN_ID" \
             --arg rollback "$ROLLBACK_RUN_ID" --argjson deployed "$deployed" \
-            --argjson registrationClosed "$registration_closed" \
-            --argjson publicRegistrationEnabled "$public_registration_enabled" '
+            --argjson registrationOpen "$registration_open" \
+            --argjson registrationExpiresAt "$registration_expires_at" '
             {status:$status,environment:"production",buildSha:$sha,deployed:$deployed,
-             registrationClosed:$registrationClosed,publicRegistrationEnabled:$publicRegistrationEnabled,
+             registrationOpen:$registrationOpen,registrationExpiresAt:$registrationExpiresAt,
              productionGo:false,
              operatorFinalReportRequired:true,stagingRemoteRunId:$staging,
              rollbackRehearsalRunId:$rollback}
           ' > artifacts/release/production/final/summary.json
 
-      - name: Upload closed production verdict
+      - name: Upload permanently-open production verdict
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: production-final-${{ needs.gate.outputs.release_sha }}

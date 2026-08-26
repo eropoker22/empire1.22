@@ -8,6 +8,7 @@ const worktreeStatus = execFileSync("git", ["status", "--porcelain", "--untracke
 if (worktreeStatus) throw new Error("PRODUCTION_MANIFEST_WORKTREE_DIRTY");
 const validation = validateProductionEnvironment(process.env, {
   component: "netlify",
+  allowRegistrationEnabled: true,
   gitSha
 });
 if (!validation.passed) throw new Error("PRODUCTION_MANIFEST_ENVIRONMENT_INVALID");

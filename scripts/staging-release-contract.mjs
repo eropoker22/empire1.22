@@ -146,7 +146,7 @@ export const validateStagingEnvironment = (environment, options = {}) => {
     "STAGING_REGISTRATION_MUST_BE_CLOSED");
   add("EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT", "API", registrationEnabled,
     !registrationEnabled || registrationWindow.valid,
-    "future ISO timestamp no more than 24 hours away", "STAGING_REGISTRATION_WINDOW_INVALID");
+    "empty for permanent open, or future ISO timestamp no more than 24 hours away", "STAGING_REGISTRATION_WINDOW_INVALID");
   for (const flag of ["EMPIRE_ADMIN_WRITES_ENABLED", "EMPIRE_HOSTED_CONTROL_PLANE_ENABLED", "EMPIRE_SERVER_PROVISIONING_ENABLED"]) {
     add(flag, "API", true, environment[flag] === "true", "true", "STAGING_REQUIRED_CAPABILITY_DISABLED");
   }

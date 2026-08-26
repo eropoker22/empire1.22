@@ -1,6 +1,8 @@
 export interface AccountRegistrationPolicyView {
   registrationEnabled: boolean;
   mode: "open" | "closed";
+  /** Null means the enabled public-registration policy is permanent. */
+  expiresAt: string | null;
   passwordMinimumLength: number;
   minimumAgeYears: number;
   termsAcceptanceRequired: boolean;

@@ -64,7 +64,7 @@ if (strict) {
       check(validatePublicRegistrationWindow({
         enabled: true,
         expiresAt: process.env.EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT
-      }).valid, "public account registration has a valid maximum 24-hour window");
+      }).valid, "public account registration has a valid permanent or bounded policy");
     }
   } else {
     check(true, "public account registration is safely disabled");

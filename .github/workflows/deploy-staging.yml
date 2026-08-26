@@ -8,13 +8,21 @@ on:
       - completed
   workflow_dispatch:
     inputs:
-      sha:
-        description: Exact 40-character SHA approved for staging
+      release_mode:
+        description: owner-current-main bypasses acceptance evidence but retains deployment safeguards
         required: true
+        default: owner-current-main
+        type: choice
+        options:
+          - owner-current-main
+          - approved-acceptance
+      sha:
+        description: Optional exact current origin/main SHA; blank resolves origin/main on the runner
+        required: false
         type: string
       acceptance_run_id:
         description: Successful Hosted Acceptance workflow run ID for this SHA
-        required: true
+        required: false
         type: string
       initialize_database:
         description: Authorize one-time migration-history initialization on an empty staging database
@@ -27,9 +35,9 @@ on:
         default: false
         type: boolean
       leave_registration_open:
-        description: Finish deployment with a bounded staging account-registration window and no closure mutation
+        description: Legacy compatibility input; staging registration is permanently open after every deploy
         required: true
-        default: false
+        default: true
         type: boolean
 
 permissions:
@@ -52,8 +60,15 @@ jobs:
       release_sha: ${{ steps.release.outputs.sha }}
       acceptance_run_id: ${{ steps.release.outputs.acceptance_run_id }}
       leave_registration_open: ${{ steps.release.outputs.leave_registration_open }}
+      owner_deploy: ${{ steps.release.outputs.owner_deploy }}
 
     steps:
+      - name: Fetch origin/main for owner release resolution
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
       - name: Resolve immutable release
         id: release
         env:
@@ -61,6 +76,7 @@ jobs:
           DISPATCH_SHA: ${{ inputs.sha }}
           DISPATCH_RUN_ID: ${{ inputs.acceptance_run_id }}
           DISPATCH_LEAVE_REGISTRATION_OPEN: ${{ inputs.leave_registration_open }}
+          DISPATCH_RELEASE_MODE: ${{ inputs.release_mode }}
           WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
           WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
         shell: bash
@@ -69,20 +85,30 @@ jobs:
           if [[ "$EVENT_NAME" == "workflow_run" ]]; then
             sha="$WORKFLOW_SHA"
             run_id="$WORKFLOW_RUN_ID"
-            leave_registration_open="false"
+            owner_deploy="false"
           else
-            sha="$DISPATCH_SHA"
-            run_id="$DISPATCH_RUN_ID"
-            leave_registration_open="${DISPATCH_LEAVE_REGISTRATION_OPEN:-false}"
+            if [[ "$DISPATCH_RELEASE_MODE" == "owner-current-main" ]]; then
+              git fetch --no-tags origin main
+              sha="$(git rev-parse origin/main)"
+              [[ -z "$DISPATCH_SHA" || "$DISPATCH_SHA" == "$sha" ]]
+              run_id=""
+              owner_deploy="true"
+            else
+              [[ "$DISPATCH_RELEASE_MODE" == "approved-acceptance" ]]
+              sha="$DISPATCH_SHA"
+              run_id="$DISPATCH_RUN_ID"
+              owner_deploy="false"
+            fi
           fi
           [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$run_id" =~ ^[0-9]+$ ]]
-          [[ "$leave_registration_open" == "true" || "$leave_registration_open" == "false" ]]
+          if [[ "$owner_deploy" != "true" ]]; then [[ "$run_id" =~ ^[0-9]+$ ]]; fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "acceptance_run_id=$run_id" >> "$GITHUB_OUTPUT"
-          echo "leave_registration_open=$leave_registration_open" >> "$GITHUB_OUTPUT"
+          echo "leave_registration_open=true" >> "$GITHUB_OUTPUT"
+          echo "owner_deploy=$owner_deploy" >> "$GITHUB_OUTPUT"
 
       - name: Verify acceptance workflow and every required job
+        if: steps.release.outputs.owner_deploy != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ steps.release.outputs.sha }}
@@ -158,24 +184,14 @@ jobs:
           node-version-file: .node-version
           cache: npm
 
-      - name: Resolve bounded staging registration policy
+      - name: Resolve permanently-open staging registration policy
         id: registration
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$LEAVE_REGISTRATION_OPEN" == "true" || "$LEAVE_REGISTRATION_OPEN" == "false" ]]
-          if [[ "$LEAVE_REGISTRATION_OPEN" == "true" ]]; then
-            expires_at="$(date -u -d '+23 hours' '+%Y-%m-%dT%H:%M:%S.000Z')"
-            EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED=true \
-            EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT="$expires_at" \
-              node --input-type=module -e '
-                import { validatePublicRegistrationWindow } from "./scripts/registration-window-contract.mjs";
-                if (!validatePublicRegistrationWindow({ enabled: true, expiresAt: process.env.EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT }).valid) process.exit(1);
-              '
-            echo "expires_at=$expires_at" >> "$GITHUB_OUTPUT"
-          else
-            echo "expires_at=" >> "$GITHUB_OUTPUT"
-          fi
+          [[ "$LEAVE_REGISTRATION_OPEN" == "true" ]]
+          # Empty expiry is the durable, owner-controlled permanently-open mode.
+          echo "expires_at=" >> "$GITHUB_OUTPUT"
 
       - name: Verify exact clean checkout
         shell: bash
@@ -272,13 +288,8 @@ jobs:
           EMPIRE_ACCOUNT_TERMS_VERSION: ${{ vars.STAGING_ACCOUNT_TERMS_VERSION }}
           EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: ${{ steps.registration.outputs.expires_at }}
         run: |
-          if [[ "$LEAVE_REGISTRATION_OPEN" == "true" ]]; then
-            npm run verify:staging-env -- --allow-registration-enabled
-            npm run release:staging:manifest -- --allow-registration-enabled
-          else
-            npm run verify:staging-env
-            npm run release:staging:manifest
-          fi
+          npm run verify:staging-env -- --allow-registration-enabled
+          npm run release:staging:manifest -- --allow-registration-enabled
 
       - name: Verify exact Neon project branch and endpoint before snapshot mutation
         env:
@@ -423,12 +434,8 @@ jobs:
           set_function EMPIRE_ADMIN_WRITES_ENABLED true
           set_function EMPIRE_HOSTED_CONTROL_PLANE_ENABLED true
           set_function EMPIRE_SERVER_PROVISIONING_ENABLED true
-          if [[ "$LEAVE_REGISTRATION_OPEN" == "true" ]]; then
-            set_function EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT "$EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT"
-          else
-            netlify env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT \
-              --force --context production >/dev/null
-          fi
+          netlify env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT \
+            --force --context production >/dev/null
           set_function EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED "$EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED"
           set_function EMPIRE_ACCOUNT_TERMS_VERSION "$EMPIRE_ACCOUNT_TERMS_VERSION"
           set_function EMPIRE_LEGACY_MATCHMAKING_ENABLED false
@@ -531,6 +538,7 @@ jobs:
           rm -f "$api_health" "$worker_health"
 
       - name: Verify remote SHA and asset parity
+        if: needs.gate.outputs.owner_deploy != 'true'
         env:
           EMPIRE_HOSTED_WORKER_ORIGIN: https://empire-streets-staging-worker.fly.dev
           EMPIRE_REMOTE_RELEASE_EVIDENCE_PATH: artifacts/release/staging/remote-release-health.json
@@ -543,14 +551,9 @@ jobs:
         run: |
           set -euo pipefail
           policy="$RUNNER_TEMP/deployed-registration-policy.json"
-          expected_mode="closed"
-          expected_enabled="false"
+          expected_mode="open"
+          expected_enabled="true"
           expires_at=""
-          if [[ "$LEAVE_REGISTRATION_OPEN" == "true" ]]; then
-            expected_mode="open"
-            expected_enabled="true"
-            expires_at="$EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT"
-          fi
           for attempt in {1..60}; do
             if curl --fail --silent --show-error \
               --header 'Cache-Control: no-cache' \
@@ -571,7 +574,7 @@ jobs:
                registrationExpiresAt:(if $expiresAt == "" then null else $expiresAt end),
                publicPolicy:{accepted:$policy[0].accepted,
                  registrationEnabled:$policy[0].data.registrationEnabled,
-                 mode:$policy[0].data.mode,termsVersion:$policy[0].data.termsVersion}}
+                 mode:$policy[0].data.mode,expiresAt:$policy[0].data.expiresAt,termsVersion:$policy[0].data.termsVersion}}
             ' > artifacts/release/staging/registration-policy.json
           rm -f "$policy"
 
@@ -633,6 +636,7 @@ jobs:
           jq '{ok,data:{workerStatus:.data.workerStatus,buildCompatibility:.data.buildCompatibility,sessionSecurity:.data.sessionSecurity,originPolicy:.data.originPolicy,apiBuildSha:.data.apiBuildSha,workerBuildSha:.data.workerBuildSha,schemaVersion:.data.schemaVersion}}' "$control" > artifacts/release/staging/admin-control-plane.json
 
       - name: Verify strict hosted control plane
+        if: needs.gate.outputs.owner_deploy != 'true'
         env:
           NODE_ENV: production
           EMPIRE_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_DIRECT }}

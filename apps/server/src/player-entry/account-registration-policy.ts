@@ -13,8 +13,9 @@ export const resolveAccountRegistrationPolicy = (
   const registrationFlag = environment.NODE_ENV === "production"
     ? readBoolean(environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED)
     : environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED !== "false";
+  const registrationExpiry = resolvePublicRegistrationExpiry(environment, now);
   const registrationWindowOpen = environment.NODE_ENV === "production"
-    ? isPublicRegistrationWindowOpen(environment, now)
+    ? registrationExpiry.valid
     : registrationFlag;
   const termsVersion = resolveCurrentAccountTermsVersion(environment);
   const registrationEnabled = readiness.persistenceReady
@@ -26,6 +27,7 @@ export const resolveAccountRegistrationPolicy = (
   return {
     registrationEnabled,
     mode: registrationEnabled ? "open" : "closed",
+    expiresAt: registrationEnabled ? registrationExpiry.expiresAt : null,
     passwordMinimumLength: ACCOUNT_PASSWORD_MINIMUM_LENGTH,
     minimumAgeYears: ACCOUNT_REGISTRATION_MINIMUM_AGE_YEARS,
     termsAcceptanceRequired: true,
@@ -39,14 +41,28 @@ export const isPublicRegistrationWindowOpen = (
 ): boolean => {
   if (!readBoolean(environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED)) return false;
   if (!isPublicRelease(environment.EMPIRE_RELEASE_ENVIRONMENT)) return true;
+  return resolvePublicRegistrationExpiry(environment, now).valid;
+};
+
+/**
+ * A missing expiry is the durable owner-controlled public-open mode.  An
+ * explicit expiry keeps the legacy bounded-window mode available for future
+ * temporary events, where the existing 24-hour upper bound still applies.
+ */
+const resolvePublicRegistrationExpiry = (
+  environment: Record<string, string | undefined>,
+  now: Date
+): { valid: boolean; expiresAt: string | null } => {
   const nowMs = now.getTime();
-  const expiresAtValue = String(environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT ?? "");
+  const expiresAtValue = String(environment.EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT ?? "").trim();
+  if (!expiresAtValue) return { valid: true, expiresAt: null };
   const expiresAtMs = Date.parse(expiresAtValue);
-  return Number.isFinite(nowMs)
+  const valid = Number.isFinite(nowMs)
     && Number.isFinite(expiresAtMs)
     && new Date(expiresAtMs).toISOString() === expiresAtValue
     && expiresAtMs > nowMs
     && expiresAtMs <= nowMs + MAX_PUBLIC_REGISTRATION_WINDOW_MS;
+  return { valid, expiresAt: valid ? expiresAtValue : null };
 };
 
 const readBoolean = (value: string | undefined): boolean => String(value ?? "").trim().toLowerCase() === "true";

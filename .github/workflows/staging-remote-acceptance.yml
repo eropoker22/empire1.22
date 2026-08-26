@@ -17,9 +17,9 @@ on:
         default: "180"
         type: string
       leave_registration_open:
-        description: Leave the guarded time-limited staging registration window open after cleanup
+        description: Legacy compatibility input; acceptance cleanup always restores permanent public registration
         required: true
-        default: false
+        default: true
         type: boolean
 
 permissions:
@@ -143,28 +143,13 @@ jobs:
             .branchIdHash == $binding[0].branchIdHash and
             .endpointIdHash == $binding[0].endpointIdHash
           ' "$backup" >/dev/null
-          if [[ "$LEAVE_REGISTRATION_OPEN" == "true" ]]; then
-            jq -e --arg sha "$RELEASE_SHA" '
-              .schemaVersion == 1 and .status == "verified" and .environment == "staging" and
-              .buildSha == $sha and .registrationMode == "open" and .registrationOpen == true and
-              .publicPolicy.accepted == true and .publicPolicy.registrationEnabled == true and
-              .publicPolicy.mode == "open" and (.registrationExpiresAt | type) == "string"
-            ' "$registration" >/dev/null
-            expires_at="$(jq -er '.registrationExpiresAt' "$registration")"
-            EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED=true \
-            EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT="$expires_at" \
-              node --input-type=module -e '
-                import { validatePublicRegistrationWindow } from "./scripts/registration-window-contract.mjs";
-                if (!validatePublicRegistrationWindow({ enabled: true, expiresAt: process.env.EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT }).valid) process.exit(1);
-              '
-          else
-            jq -e --arg sha "$RELEASE_SHA" '
-              .schemaVersion == 1 and .status == "verified" and .environment == "staging" and
-              .buildSha == $sha and .registrationMode == "closed" and .registrationOpen == false and
-              .registrationExpiresAt == null and .publicPolicy.accepted == true and
-              .publicPolicy.registrationEnabled == false and .publicPolicy.mode == "closed"
-            ' "$registration" >/dev/null
-          fi
+          jq -e --arg sha "$RELEASE_SHA" '
+            .schemaVersion == 1 and .status == "verified" and .environment == "staging" and
+            .buildSha == $sha and .registrationMode == "open" and .registrationOpen == true and
+            .registrationExpiresAt == null and .publicPolicy.accepted == true and
+            .publicPolicy.registrationEnabled == true and .publicPolicy.mode == "open" and
+            .publicPolicy.expiresAt == null
+          ' "$registration" >/dev/null
 
   code-evidence:
     name: Canonical code-level release evidence
@@ -856,7 +841,6 @@ jobs:
           [[ "$FLY_STAGING_APP" == "$EMPIRE_PRE_ALPHA_STAGING_FLY_APP" ]]
 
       - name: Install pinned Netlify CLI
-        if: env.LEAVE_REGISTRATION_OPEN != 'true'
         run: npm install --global netlify-cli@26.2.0
 
       - name: Download immutable registration build
@@ -880,8 +864,7 @@ jobs:
           ' artifacts/release-manifest.json >/dev/null
           jq -e --arg sha "$RELEASE_SHA" '.buildSha == $sha' artifacts/release-asset-manifest.json >/dev/null
 
-      - name: Verify exact staging Netlify site target before closure mutation
-        if: env.LEAVE_REGISTRATION_OPEN != 'true'
+      - name: Verify exact staging Netlify site target before permanent-open mutation
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         shell: bash
@@ -906,21 +889,20 @@ jobs:
           ' "$site" >/dev/null
           rm -f "$site"
 
-      - name: Close registration and redeploy the same SHA
-        if: env.LEAVE_REGISTRATION_OPEN != 'true'
+      - name: Restore permanent registration and redeploy the same SHA
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p artifacts/release/staging/remote-acceptance
-          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false \
+          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true \
             --force --scope functions --context production >/dev/null
           netlify env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT \
             --force --context production >/dev/null
           netlify deploy --prod --dir=client --functions=netlify/functions --skip-functions-cache \
-            --message "staging remote acceptance closed ${RELEASE_SHA}" --json \
-            > artifacts/release/staging/remote-acceptance/netlify-close-registration.json
+            --message "staging remote acceptance permanent-open ${RELEASE_SHA}" --json \
+            > artifacts/release/staging/remote-acceptance/netlify-permanent-registration.json
 
       - name: Verify final registration policy and exact release parity
         env:
@@ -930,20 +912,9 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/release/staging/remote-acceptance
-          expected_mode="closed"
-          expected_enabled="false"
+          expected_mode="open"
+          expected_enabled="true"
           final_expires_at=""
-          if [[ "$LEAVE_REGISTRATION_OPEN" == "true" ]]; then
-            expected_mode="open"
-            expected_enabled="true"
-            final_expires_at="$REGISTRATION_EXPIRES_AT"
-            EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED=true \
-            EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT="$final_expires_at" \
-              node --input-type=module -e '
-                import { validatePublicRegistrationWindow } from "./scripts/registration-window-contract.mjs";
-                if (!validatePublicRegistrationWindow({ enabled: true, expiresAt: process.env.EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT }).valid) process.exit(1);
-              '
-          fi
           policy="$RUNNER_TEMP/final-registration-policy.json"
           for attempt in {1..60}; do
             if curl --fail --silent --show-error \
@@ -967,7 +938,7 @@ jobs:
                registrationExpiresAt:(if $registrationExpiresAt == "" then null else $registrationExpiresAt end),
                publicPolicy:{accepted:$policy[0].accepted,
                  registrationEnabled:$policy[0].data.registrationEnabled,
-                 mode:$policy[0].data.mode,termsVersion:$policy[0].data.termsVersion}}
+                 mode:$policy[0].data.mode,expiresAt:$policy[0].data.expiresAt,termsVersion:$policy[0].data.termsVersion}}
             ' > artifacts/release/staging/remote-acceptance/final-registration.json
           rm -f "$policy"
 
@@ -1026,14 +997,9 @@ jobs:
           [[ "$WORKER_RESULT" == "success" ]]
           [[ "$LOAD_RESULT" == "success" ]]
           [[ "$FINALIZE_RESULT" == "success" ]]
-          registration_mode="closed"
-          registration_open="false"
+          registration_mode="open"
+          registration_open="true"
           registration_expires_at=""
-          if [[ "$LEAVE_REGISTRATION_OPEN" == "true" ]]; then
-            registration_mode="open"
-            registration_open="true"
-            registration_expires_at="$REGISTRATION_EXPIRES_AT"
-          fi
           mkdir -p artifacts/remote-staging/final
           required_suites="$(node --input-type=module -e \
             'import { PRE_ALPHA_ALL_REMOTE_SUITE_NAMES as names } from "./scripts/pre-alpha-staging-contract.mjs"; process.stdout.write(JSON.stringify(names));')"
@@ -1190,12 +1156,8 @@ jobs:
           [[ -s "$final_registration" ]] || final_registration="$input/registration/artifacts/release/staging/remote-acceptance/final-registration.json"
           final_health="$input/registration/final-release-health.json"
           [[ -s "$final_health" ]] || final_health="$input/registration/artifacts/release/staging/remote-acceptance/final-release-health.json"
-          expected_registration_mode="closed"
-          expected_registration_open="false"
-          if [[ "$LEAVE_REGISTRATION_OPEN" == "true" ]]; then
-            expected_registration_mode="open"
-            expected_registration_open="true"
-          fi
+          expected_registration_mode="open"
+          expected_registration_open="true"
 
           composite_status="failed"
           if [[ "$CODE_RESULT" == "success" && "$OPEN_RESULT" == "success" \
