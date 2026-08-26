@@ -44,6 +44,8 @@ describe("social preview metadata", () => {
       const html = readText(page.path);
       expect(html).toContain('<html lang="cs" prefix="og: https://ogp.me/ns#">');
       expect(html).toContain(`<title>${expectedTitle}</title>`);
+      expect(html).toContain('<meta name="apple-mobile-web-app-title" content="Empire Streets">');
+      expect(html).not.toContain('content="Empire Streets">220222');
       expect(html).toContain(`<link rel="canonical" href="${page.canonical}">`);
       expect(html).toContain(`<meta property="og:url" content="${page.canonical}">`);
       expect(html).toContain(`<meta property="og:title" content="${expectedTitle}">`);
