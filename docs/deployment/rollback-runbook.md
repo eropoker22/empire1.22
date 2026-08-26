@@ -86,19 +86,24 @@ A partial restore, skipped check, or missing artifact is `NO-GO`.
 
 ## Production upgrade rollback
 
+Production branches that are Neon root branches use a named pre-migration Neon snapshot. If Neon rejects the
+snapshot specifically because the protected production branch is non-root, the release creates an instant Neon
+backup branch from that exact protected branch instead. Both modes are created before migrations and retain only a
+hashed provider identifier in release evidence.
+
 For an existing production release, the protected production workflow captures and verifies:
 
 - the exact live previous production SHA;
 - the matching current Netlify production deploy ID;
 - the immutable Fly image for that SHA;
-- closed registration;
+- permanently open registration with no expiry;
 - one active worker;
 - API, worker, frontend, asset, and schema parity;
 - exact migration compatibility with the candidate.
 
 If the candidate deployment fails after rollback pointers exist, the workflow:
 
-1. forces registration closed;
+1. keeps registration permanently open;
 2. restores the previous Netlify deploy by its exact ID;
 3. deploys the previous Fly image and scales to exactly one Machine;
 4. keeps the database unchanged;
@@ -115,7 +120,7 @@ A first cutover has no prior Empire Streets worker release. Before dispatch, rec
 deploy ID. If the first cutover fails after pointers are captured, the workflow:
 
 1. restores that exact Netlify deploy;
-2. forces registration closed;
+2. keeps registration permanently open;
 3. scales the production worker to zero;
 4. retains the initialized/migrated database and provider snapshot;
 5. verifies the approved deploy ID and zero active worker Machines;

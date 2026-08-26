@@ -509,16 +509,34 @@ jobs:
           set -euo pipefail
           snapshot_name="empire-production-pre-${RELEASE_SHA:0:12}-$(date -u +%Y%m%dT%H%M%SZ)"
           response="$RUNNER_TEMP/neon-production-snapshot.json"
-          curl --fail --silent --show-error --request POST \
+          status="$(curl --silent --show-error --request POST \
             --url "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches/${NEON_BRANCH_ID}/snapshot?name=${snapshot_name}" \
-            --header "authorization: Bearer ${NEON_API_KEY}" --output "$response"
-          snapshot_id="$(jq -er '.snapshot.id' "$response")"
-          echo "::add-mask::$snapshot_id"
-          snapshot_hash="$(printf '%s' "$snapshot_id" | sha256sum | cut -c1-16)"
-          jq -n --arg name "$snapshot_name" --arg snapshotIdHash "$snapshot_hash" --arg sha "$RELEASE_SHA" \
-            '{environment:"production",name:$name,snapshotIdHash:$snapshotIdHash,sha:$sha}' \
+            --header "authorization: Bearer ${NEON_API_KEY}" --output "$response" --write-out '%{http_code}')"
+          backup_type="neon-snapshot"
+          if [[ "$status" =~ ^2[0-9]{2}$ ]]; then
+            backup_id="$(jq -er '.snapshot.id' "$response")"
+          else
+            error_message="$(jq -r '.message // .error.message // .error // ""' "$response")"
+            [[ "$status" == "400" && "$error_message" == "not allowed to snapshot non-root branch" ]]
+            backup_type="neon-branch-snapshot"
+            payload="$(jq -n --arg name "$snapshot_name" --arg parentId "$NEON_BRANCH_ID" \
+              '{branch:{name:$name,parent_id:$parentId}}')"
+            curl --fail --silent --show-error --request POST \
+              --url "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches" \
+              --header "authorization: Bearer ${NEON_API_KEY}" \
+              --header 'content-type: application/json' --data "$payload" --output "$response"
+            jq -e --arg projectId "$NEON_PROJECT_ID" --arg parentId "$NEON_BRANCH_ID" \
+              '.branch.project_id == $projectId and .branch.parent_id == $parentId' "$response" >/dev/null
+            backup_id="$(jq -er '.branch.id' "$response")"
+          fi
+          echo "::add-mask::$backup_id"
+          snapshot_hash="$(printf '%s' "$backup_id" | sha256sum | cut -c1-16)"
+          jq -n --arg name "$snapshot_name" --arg backupType "$backup_type" \
+            --arg snapshotIdHash "$snapshot_hash" --arg sha "$RELEASE_SHA" \
+            '{environment:"production",backupType:$backupType,name:$name,snapshotIdHash:$snapshotIdHash,sha:$sha}' \
             > artifacts/release/production/database-backup.json
           echo "snapshot_id_hash=$snapshot_hash" >> "$GITHUB_OUTPUT"
+          echo "backup_type=$backup_type" >> "$GITHUB_OUTPUT"
           rm -f "$response"
 
       - name: Initialize empty production migration history
