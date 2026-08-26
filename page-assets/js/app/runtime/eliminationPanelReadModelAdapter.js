@@ -74,7 +74,7 @@ export function createEliminationPanelViewModel(readModel, modeConfig = {}) {
       ...createUnavailableViewModel("elimination"),
       unitLabel: "CONTROL SERVER",
       countdownValue: "VYPNUTO",
-      subtitle: "OČISTA JE NA KONTROLNÍM SERVERU VYPNUTÁ",
+      subtitle: "OČISTA NENÍ NA TOMTO SERVERU AKTIVNÍ",
       metrics: [{ key: "players", label: "Aktivní hráči", value: formatMetric(activePlayers), icon: "◎" }]
     };
   }

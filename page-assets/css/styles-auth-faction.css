@@ -4484,9 +4484,9 @@ html:has(body.auth-body--faction) .matrix-canvas {
   }
 
   .auth-body--faction .gang-color-grid {
-    display: grid !important;
-    grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
-    grid-auto-rows: auto !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
     width: 100% !important;
     max-width: none !important;
     height: auto !important;
@@ -4497,7 +4497,8 @@ html:has(body.auth-body--faction) .matrix-canvas {
   }
 
   .auth-body--faction .gang-color-swatch {
-    width: 100% !important;
+    flex: 0 0 calc((100% - 42px) / 8) !important;
+    width: calc((100% - 42px) / 8) !important;
     min-width: 0 !important;
     min-height: 30px !important;
     aspect-ratio: 1 / 1 !important;

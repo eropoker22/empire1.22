@@ -32,15 +32,6 @@ export const freeModePoliceConfig: PoliceSystemBalanceConfig = {
     extreme: ticksFromMinutes(10)
   },
   heatReductionBySeverity: { low: 0, medium: 8, high: 30, extreme: 55 },
-  heatDecay: {
-    playerIntervalTicks: ticksFromMinutes(2.5),
-    playerDecayByWantedLevel: { 0: 4, 1: 3, 2: 2, 3: 1, 4: 1, 5: 1 },
-    districtIntervalTicks: ticksFromMinutes(5),
-    districtBaseDecay: 3,
-    districtHighPassiveHeatPerDayThreshold: 100,
-    districtHighPassiveHeatMultiplier: 0.5,
-    districtLockdownDecayMultiplier: 1.25
-  },
   maxPoliticalRaidTriggerReductionPct: 45,
   extremePoliticalRaidReductionMultiplier: 0.5,
   protectedResources: ["cash", "gang-members", "population"],

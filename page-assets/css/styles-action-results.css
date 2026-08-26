@@ -358,6 +358,58 @@ html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-
   box-shadow: 0 0 18px rgba(var(--rumor-pink), 0.32);
 }
 
+.rumor-inbox-delete-all,
+.rumor-inbox-message__delete {
+  position: relative;
+  z-index: 3;
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(var(--rumor-neon), 0.58);
+  border-radius: 7px;
+  color: rgb(var(--rumor-neon));
+  background: rgba(4, 24, 23, 0.88);
+  box-shadow: inset 0 0 12px rgba(var(--rumor-neon), 0.1), 0 0 10px rgba(var(--rumor-neon), 0.16);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.rumor-inbox-delete-all {
+  margin-left: auto;
+}
+
+.rumor-inbox-delete-all:hover,
+.rumor-inbox-delete-all:focus-visible,
+.rumor-inbox-message__delete:hover,
+.rumor-inbox-message__delete:focus-visible {
+  border-color: rgb(var(--rumor-neon));
+  background: rgba(8, 66, 57, 0.94);
+  box-shadow: 0 0 16px rgba(var(--rumor-neon), 0.44);
+  outline: none;
+}
+
+.rumor-inbox-message {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.rumor-inbox-message__open-button {
+  display: grid;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rumor-inbox-message__open-button:focus-visible {
+  outline: 1px solid rgba(var(--rumor-neon), 0.9);
+  outline-offset: 4px;
+}
+
 .rumor-inbox-signal-bar {
   position: relative;
   z-index: 2;

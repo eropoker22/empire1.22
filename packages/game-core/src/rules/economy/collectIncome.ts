@@ -9,9 +9,11 @@ import {
 import {
   applyFactionHeatGain,
   applyFactionInfluenceGain,
+  applyFactionPopulationGeneration,
   getFactionPassiveModifiers
 } from "../factions/factionRules";
 import { resolveFixedBuildingIncomeConfig } from "./fixedBuildingIncomeConfig";
+import { resolveDistrictStabilizationMultiplier } from "./calculateIncome";
 import { applyArcadeAuditChecks } from "../../handlers/arcadeBuildingActions";
 import { applyApartmentBlockPopulationProduction } from "../../handlers/apartmentBlockBuildingActions";
 import { applyCasinoAuditChecks } from "../../handlers/casinoBuildingActions";
@@ -32,6 +34,63 @@ export interface FixedBuildingPassivePressureRate {
   nextHeat: number;
   nextInfluence: number;
 }
+
+interface DistrictResourceModifierStatRate {
+  heatPerTick: number;
+  influencePerTick: number;
+  populationPerTick: number;
+}
+
+const DISTRICT_STAT_RESOURCE_KEYS = new Set(["population", "influence", "heat"]);
+
+/**
+ * District stat modifiers are not inventory items.  They have to mutate their
+ * canonical homes: population belongs to the player, influence and heat to
+ * the owned district.  Treating these values as ResourceState balances made
+ * them invisible to every player-facing projection.
+ */
+export const calculateDistrictResourceModifierStatRatesByDistrictId = (
+  state: CoreGameState,
+  context?: GameCoreContext
+): Record<string, DistrictResourceModifierStatRate> => {
+  const ratesByDistrictId: Record<string, DistrictResourceModifierStatRate> = {};
+
+  for (const district of Object.values(state.districtsById)) {
+    if (!district.ownerPlayerId || district.status === "destroyed") continue;
+
+    const stabilizationMultiplier = resolveDistrictStabilizationMultiplier(
+      district,
+      state.root.tick,
+      context?.config.balance.conflict
+    );
+    const factionModifiers = context
+      ? getFactionPassiveModifiers(state, district.ownerPlayerId, context)
+      : null;
+    const penaltyModifiers = context
+      ? resolveActiveAlliancePenaltyStatModifiers(state, district.ownerPlayerId, nowIsoFromContext(context))
+      : null;
+    const populationBase = positiveModifier(district.resourceModifiers.population) * stabilizationMultiplier;
+    const influenceBase = positiveModifier(district.resourceModifiers.influence) * stabilizationMultiplier;
+    const heatBase = positiveModifier(district.resourceModifiers.heat) * stabilizationMultiplier;
+
+    ratesByDistrictId[district.id] = {
+      populationPerTick: factionModifiers
+        ? applyFactionPopulationGeneration(populationBase, factionModifiers)
+        : populationBase,
+      influencePerTick: factionModifiers
+        ? applyFactionInfluenceGain(
+          influenceBase * Number(penaltyModifiers?.influenceGenerationMultiplier ?? 1),
+          factionModifiers
+        )
+        : influenceBase,
+      heatPerTick: factionModifiers
+        ? applyFactionHeatGain(heatBase, factionModifiers)
+        : heatBase
+    };
+  }
+
+  return ratesByDistrictId;
+};
 
 export const calculateFixedBuildingPassivePressureByDistrictId = (
   state: CoreGameState,
@@ -113,15 +172,33 @@ export const calculateFixedBuildingPassivePressureByDistrictId = (
  */
 export const collectIncome = (state: CoreGameState, context?: GameCoreContext): CoreGameState => {
   const incomeByPlayerId = calculateIncomeByPlayerId(state, context);
+  const districtModifierStatRates = calculateDistrictResourceModifierStatRatesByDistrictId(state, context);
+  const populationGainByPlayerId = Object.values(state.districtsById).reduce<Record<string, number>>(
+    (gains, district) => {
+      const rate = districtModifierStatRates[district.id];
+      if (!district.ownerPlayerId || !rate || rate.populationPerTick <= 0) return gains;
+      gains[district.ownerPlayerId] = (gains[district.ownerPlayerId] ?? 0) + rate.populationPerTick;
+      return gains;
+    },
+    {}
+  );
 
-  if (!context && Object.keys(incomeByPlayerId).length === 0) {
+  if (!context && Object.keys(incomeByPlayerId).length === 0 && Object.keys(populationGainByPlayerId).length === 0
+    && Object.keys(districtModifierStatRates).length === 0) {
     return state;
   }
 
   let changed = false;
   let nextResourceStatesById = state.resourceStatesById;
+  let nextPlayersById = state.playersById;
 
-  for (const [playerId, incomeBalances] of Object.entries(incomeByPlayerId)) {
+  const playerIds = new Set([
+    ...Object.keys(incomeByPlayerId),
+    ...Object.keys(populationGainByPlayerId)
+  ]);
+  for (const playerId of playerIds) {
+    const incomeBalances = incomeByPlayerId[playerId] ?? {};
+    const populationGain = Math.max(0, Number(populationGainByPlayerId[playerId] || 0));
     const player = state.playersById[playerId];
 
     if (!player) {
@@ -135,6 +212,17 @@ export const collectIncome = (state: CoreGameState, context?: GameCoreContext): 
 
     for (const [resourceKey, amount] of Object.entries(incomeBalances)) {
       nextBalances[resourceKey] = Math.max(0, Number(nextBalances[resourceKey] || 0) + amount);
+    }
+    if (populationGain > 0) {
+      nextBalances["gang-members"] = Math.max(0, Number(nextBalances["gang-members"] || 0) + populationGain);
+      nextPlayersById = {
+        ...nextPlayersById,
+        [player.id]: {
+          ...player,
+          population: Math.max(0, Number(player.population || 0) + populationGain),
+          version: player.version + 1
+        }
+      };
     }
 
     nextResourceStatesById = {
@@ -150,16 +238,14 @@ export const collectIncome = (state: CoreGameState, context?: GameCoreContext): 
   }
 
   const districtPressureResult = context
-    ? applyFixedBuildingPassivePressure(state, context)
-    : {
-        changed: false,
-        districtsById: state.districtsById
-      };
+    ? applyFixedBuildingPassivePressure(state, context, districtModifierStatRates)
+    : applyFixedBuildingPassivePressure(state, undefined, districtModifierStatRates);
   changed = changed || districtPressureResult.changed;
 
   const incomeState = changed
     ? {
         ...state,
+        playersById: nextPlayersById,
         resourceStatesById: nextResourceStatesById,
         districtsById: districtPressureResult.districtsById
       }
@@ -215,24 +301,32 @@ const createPlayerResourceState = (
 
 const applyFixedBuildingPassivePressure = (
   state: CoreGameState,
-  context: GameCoreContext
+  context: GameCoreContext | undefined,
+  districtModifierStatRates: Record<string, DistrictResourceModifierStatRate>
 ): { changed: boolean; districtsById: CoreGameState["districtsById"] } => {
-  const ratesByDistrictId = calculateFixedBuildingPassivePressureByDistrictId(
-    state,
-    context
-  );
+  const fixedBuildingRatesByDistrictId = context
+    ? calculateFixedBuildingPassivePressureByDistrictId(state, context)
+    : {};
+  const districtIds = new Set([
+    ...Object.keys(fixedBuildingRatesByDistrictId),
+    ...Object.keys(districtModifierStatRates)
+  ]);
   let changed = false;
   let nextDistrictsById = state.districtsById;
 
-  for (const [districtId, rate] of Object.entries(ratesByDistrictId)) {
+  for (const districtId of districtIds) {
     const district = state.districtsById[districtId];
     if (!district) {
       continue;
     }
+    const fixedBuildingRate = fixedBuildingRatesByDistrictId[districtId];
+    const modifierRate = districtModifierStatRates[districtId];
+    const heatPerTick = Number(fixedBuildingRate?.heatPerTick || 0) + Number(modifierRate?.heatPerTick || 0);
+    const influencePerTick = Number(fixedBuildingRate?.influencePerTick || 0) + Number(modifierRate?.influencePerTick || 0);
 
     if (
-      Math.abs(rate.heatPerTick) <= Number.EPSILON
-      && Math.abs(rate.influencePerTick) <= Number.EPSILON
+      Math.abs(heatPerTick) <= Number.EPSILON
+      && Math.abs(influencePerTick) <= Number.EPSILON
     ) {
       continue;
     }
@@ -241,8 +335,8 @@ const applyFixedBuildingPassivePressure = (
       ...nextDistrictsById,
       [district.id]: {
         ...district,
-        heat: rate.nextHeat,
-        influence: rate.nextInfluence,
+        heat: Math.max(0, Number(district.heat || 0) + heatPerTick),
+        influence: Math.max(0, Number(district.influence || 0) + influencePerTick),
         version: district.version + 1
       }
     };
@@ -258,6 +352,11 @@ const applyFixedBuildingPassivePressure = (
 const sanitizePerDay = (value: unknown): number => {
   const amount = Number(value || 0);
   return Number.isFinite(amount) ? amount : 0;
+};
+
+const positiveModifier = (value: unknown): number => {
+  const amount = Number(value || 0);
+  return Number.isFinite(amount) ? Math.max(0, amount) : 0;
 };
 
 const resolvePerTick = (perDay: number, ticksPerDay: number): number =>

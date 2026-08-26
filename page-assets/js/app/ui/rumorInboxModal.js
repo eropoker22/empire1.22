@@ -50,7 +50,11 @@ function createRumorInboxController(documentRef) {
   const closeButton = createElement(documentRef, "button", "rumor-inbox-close", "×");
   closeButton.type = "button";
   closeButton.setAttribute("aria-label", "Zavřít drby z ulice");
-  header.append(headerCopy, closeButton);
+  const deleteAllButton = createElement(documentRef, "button", "rumor-inbox-delete-all", "🗑");
+  deleteAllButton.type = "button";
+  deleteAllButton.setAttribute("aria-label", "Smazat všechny drby z ulice");
+  deleteAllButton.title = "Smazat všechny drby";
+  header.append(headerCopy, deleteAllButton, closeButton);
 
   const signalBar = createElement(documentRef, "div", "rumor-inbox-signal-bar");
   signalBar.setAttribute("aria-hidden", "true");
@@ -82,12 +86,14 @@ function createRumorInboxController(documentRef) {
   });
 
   return {
-    open(rumors = [], onOpenRumor = () => {}) {
-      const entries = Array.isArray(rumors) ? rumors : [];
+    open(rumors = [], onOpenRumor = () => {}, onDeleteRumor = () => {}, onDeleteAll = () => {}) {
+      let entries = Array.isArray(rumors) ? rumors : [];
+      const renderEntries = () => {
       count.textContent = String(entries.length);
       list.dataset.rumorScrollable = String(entries.length > 8);
       list.replaceChildren(...entries.map((entry, index) => {
-        const button = createElement(documentRef, "button", "rumor-inbox-message");
+        const message = createElement(documentRef, "article", "rumor-inbox-message");
+        const button = createElement(documentRef, "button", "rumor-inbox-message__open-button");
         button.type = "button";
         button.dataset.rumorMessageId = String(entry?.id || index);
         button.setAttribute("aria-label", `Otevřít drb ${index + 1}`);
@@ -105,10 +111,30 @@ function createRumorInboxController(documentRef) {
           close();
           onOpenRumor(entry);
         });
-        return button;
+        const deleteButton = createElement(documentRef, "button", "rumor-inbox-message__delete", "🗑");
+        deleteButton.type = "button";
+        deleteButton.dataset.rumorDeleteId = String(entry?.id || index);
+        deleteButton.setAttribute("aria-label", `Smazat drb ${index + 1}`);
+        deleteButton.title = "Smazat drb";
+        deleteButton.addEventListener("click", () => {
+          const remainingEntries = entries.filter((candidate) => candidate !== entry);
+          const resolvedEntries = onDeleteRumor(entry, remainingEntries);
+          entries = Array.isArray(resolvedEntries) ? resolvedEntries : remainingEntries;
+          renderEntries();
+        });
+        message.append(button, deleteButton);
+        return message;
       }));
       empty.hidden = entries.length > 0;
       list.hidden = entries.length === 0;
+      deleteAllButton.hidden = entries.length === 0;
+      };
+      deleteAllButton.onclick = () => {
+        const resolvedEntries = onDeleteAll(entries);
+        entries = Array.isArray(resolvedEntries) ? resolvedEntries : [];
+        renderEntries();
+      };
+      renderEntries();
       openOverlay(shell, {
         type: "rumor-inbox",
         alwaysOnTop: true,
@@ -120,7 +146,7 @@ function createRumorInboxController(documentRef) {
   };
 }
 
-export function openRumorInboxModal({ documentRef, rumors, onOpenRumor } = {}) {
+export function openRumorInboxModal({ documentRef, rumors, onOpenRumor, onDeleteRumor, onDeleteAll } = {}) {
   const ownerDocument = documentRef || (typeof document !== "undefined" ? document : null);
   if (!ownerDocument?.body) return false;
   let controller = controllersByDocument.get(ownerDocument);
@@ -128,5 +154,5 @@ export function openRumorInboxModal({ documentRef, rumors, onOpenRumor } = {}) {
     controller = createRumorInboxController(ownerDocument);
     controllersByDocument.set(ownerDocument, controller);
   }
-  return controller.open(rumors, onOpenRumor);
+  return controller.open(rumors, onOpenRumor, onDeleteRumor, onDeleteAll);
 }

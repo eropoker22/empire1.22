@@ -5268,6 +5268,103 @@ html body.game-body #spy-confirm-modal .spy-confirm-popup-body .attack-setup-pop
   }
 }
 
+/* Spy confirmation is the one action dialog that must leave the live resources readable. */
+@media (max-width: 720px) {
+  html body.game-body.game-modal-scroll-locked:has(#spy-confirm-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(#spy-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(#spy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(#spy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > * {
+    display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#spy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    z-index: 20050 !important;
+    pointer-events: none !important;
+  }
+}
+
+/* Phone market: both the public Black Market and player bazaar always own a scrollable content pane. */
+@media (max-width: 720px) {
+  html body.game-body .market-popup-shell[data-market-popup]:not([hidden]) .market-popup-list {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain !important;
+    touch-action: pan-y !important;
+  }
+
+  html body.game-body .market-popup-shell[data-market-mode="player-market"] .market-player-listings__body[data-market-listings-scrollable="true"] {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}
+
+/* Desktop clinic: mechanics and effects remain available in the card instead of being clipped. */
+@media (min-width: 721px) {
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-card {
+    max-height: calc(100vh - var(--desktop-topbar-offset, 72px) - 28px) !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-body {
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"] :is(
+    .district-building-detail-mechanics,
+    .building-info-card__effects
+  ) {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    align-items: start !important;
+  }
+}
+
+/* Regular building details sit in a true phone-safe centre, with a darkened city behind them. */
+@media (max-width: 720px) {
+  html body.game-body .district-building-detail-shell.is-standard-building-detail:not([hidden]) {
+    inset: 0 !important;
+    display: grid !important;
+    place-items: center !important;
+    box-sizing: border-box !important;
+    padding:
+      max(calc(var(--mobile-topbar-offset, 72px) + 16px), env(safe-area-inset-top))
+      14px
+      max(18px, env(safe-area-inset-bottom)) !important;
+  }
+
+  html body.game-body .district-building-detail-shell.is-standard-building-detail:not([hidden]) .district-building-detail-backdrop {
+    background: rgba(1, 4, 10, 0.84) !important;
+    backdrop-filter: blur(10px) saturate(105%) !important;
+    -webkit-backdrop-filter: blur(10px) saturate(105%) !important;
+  }
+
+  html body.game-body .district-building-detail-shell.is-standard-building-detail:not([hidden]) .district-building-detail-card {
+    position: relative !important;
+    inset: auto !important;
+    width: min(520px, 100%) !important;
+    max-height: calc(
+      var(--mobile-locked-vh, 100svh)
+      - max(calc(var(--mobile-topbar-offset, 72px) + 16px), env(safe-area-inset-top))
+      - max(18px, env(safe-area-inset-bottom))
+    ) !important;
+    margin: auto !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+  }
+}
+
 @media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
   html body .market-popup-shell[data-market-popup] .market-popup-heading > .market-popup-close::before {
     position: absolute !important;
@@ -5358,9 +5455,9 @@ html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-
 
   html body.game-body.game-modal-scroll-locked .player-popup-shell:not([hidden]) {
     display: flex !important;
-    align-items: flex-start !important;
+    align-items: center !important;
     justify-content: center !important;
-    padding: calc(var(--mobile-overlay-top-offset, var(--mobile-topbar-offset, 72px)) + 8px) 8px max(8px, env(safe-area-inset-bottom)) !important;
+    padding: calc(var(--mobile-overlay-top-offset, var(--mobile-topbar-offset, 72px)) + 14px) 10px max(14px, env(safe-area-inset-bottom)) !important;
     box-sizing: border-box !important;
   }
 
@@ -5371,9 +5468,11 @@ html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-
     bottom: auto !important;
     left: auto !important;
     width: min(520px, 100%) !important;
-    max-height: calc(var(--mobile-locked-vh, 100svh) - var(--mobile-overlay-top-offset, var(--mobile-topbar-offset, 72px)) - 16px) !important;
+    max-height: calc(var(--mobile-locked-vh, 100svh) - var(--mobile-overlay-top-offset, var(--mobile-topbar-offset, 72px)) - 28px) !important;
     margin: 0 !important;
     transform: none !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
   }
 }
 
@@ -8083,5 +8182,285 @@ html body.game-body :is(
     overflow-x: hidden !important;
     overflow-y: auto !important;
     overscroll-behavior: contain !important;
+  }
+}
+
+/* Final precedence for the requested mobile and building-detail corrections. */
+@media (max-width: 720px) {
+  html body.game-body.game-modal-scroll-locked:has(#spy-confirm-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(#spy-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(#spy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(#spy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > * {
+    display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#spy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    z-index: 20050 !important;
+    pointer-events: none !important;
+  }
+
+  html body.game-body .market-popup-shell[data-market-popup]:not([hidden]) .market-popup-list {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain !important;
+    touch-action: pan-y !important;
+  }
+
+  html body.game-body .market-popup-shell[data-market-mode="player-market"] .market-player-listings__body[data-market-listings-scrollable="true"] {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  html body.game-body .district-building-detail-shell.is-standard-building-detail:not([hidden]) {
+    inset: 0 !important;
+    display: grid !important;
+    place-items: center !important;
+    box-sizing: border-box !important;
+    padding:
+      max(calc(var(--mobile-topbar-offset, 72px) + 16px), env(safe-area-inset-top))
+      14px
+      max(18px, env(safe-area-inset-bottom)) !important;
+  }
+
+  html body.game-body .district-building-detail-shell.is-standard-building-detail:not([hidden]) .district-building-detail-backdrop {
+    background: rgba(1, 4, 10, 0.84) !important;
+    backdrop-filter: blur(10px) saturate(105%) !important;
+    -webkit-backdrop-filter: blur(10px) saturate(105%) !important;
+  }
+
+  html body.game-body .district-building-detail-shell.is-standard-building-detail:not([hidden]) .district-building-detail-card {
+    position: relative !important;
+    inset: auto !important;
+    width: min(520px, 100%) !important;
+    max-height: calc(
+      var(--mobile-locked-vh, 100svh)
+      - max(calc(var(--mobile-topbar-offset, 72px) + 16px), env(safe-area-inset-top))
+      - max(18px, env(safe-area-inset-bottom))
+    ) !important;
+    margin: auto !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+  }
+}
+
+@media (min-width: 721px) {
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-card {
+    max-height: calc(100vh - var(--desktop-topbar-offset, 72px) - 28px) !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-body {
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"] :is(.district-building-detail-mechanics, .building-info-card__effects) {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    align-items: start !important;
+  }
+}
+
+/* Absolute final phone overlay contract; this intentionally comes after every imported and legacy mobile rule. */
+@media (max-width: 720px), (max-width: 900px) and (hover: none), (max-width: 900px) and (pointer: coarse), (max-width: 900px) and (any-hover: none), (max-width: 900px) and (any-pointer: coarse) {
+  html body.game-body {
+    --phone-resource-safe-top: max(calc(var(--mobile-overlay-top-offset, var(--mobile-topbar-offset, 72px)) + 14px), 88px);
+    --phone-overlay-safe-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
+  html.game-spy-confirm-open body.game-body > #game-header,
+  html body.game-body.game-spy-confirm-open > #game-header,
+  html body.game-body.game-spy-confirm-open > .game-topbar,
+  html.game-wanted-popup-open body.game-body > #game-header,
+  html body.game-body.game-wanted-popup-open > #game-header,
+  html body.game-body.game-wanted-popup-open > .game-topbar {
+    position: fixed !important;
+    inset: 0 0 auto !important;
+    z-index: 26050 !important;
+    display: block !important;
+    width: 100% !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transform: none !important;
+  }
+
+  html.game-spy-confirm-open body.game-body #game-header :is(.game-topbar-inner, .game-topbar-controls),
+  html body.game-body.game-spy-confirm-open #game-header :is(.game-topbar-inner, .game-topbar-controls),
+  html.game-wanted-popup-open body.game-body #game-header :is(.game-topbar-inner, .game-topbar-controls),
+  html body.game-body.game-wanted-popup-open #game-header :is(.game-topbar-inner, .game-topbar-controls) {
+    display: grid !important;
+    width: 100% !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transform: none !important;
+  }
+
+  html.game-spy-confirm-open body.game-body #game-header .game-resource-strip,
+  html body.game-body.game-spy-confirm-open #game-header .game-resource-strip,
+  html.game-wanted-popup-open body.game-body #game-header .game-resource-strip,
+  html body.game-body.game-wanted-popup-open #game-header .game-resource-strip {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    width: 100% !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transform: none !important;
+  }
+
+  html.game-spy-confirm-open body.game-body #game-header .game-resource-strip > *,
+  html body.game-body.game-spy-confirm-open #game-header .game-resource-strip > *,
+  html.game-wanted-popup-open body.game-body #game-header .game-resource-strip > *,
+  html body.game-body.game-wanted-popup-open #game-header .game-resource-strip > * {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transform: none !important;
+  }
+
+  html body.game-body #spy-confirm-modal:not(.hidden):not([hidden]),
+  html body.game-body .wanted-popup-shell:not([hidden]),
+  html body.game-body .player-popup-shell:not([hidden]) {
+    position: fixed !important;
+    inset: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100vw !important;
+    height: var(--mobile-locked-vh, 100svh) !important;
+    padding: var(--phone-resource-safe-top) 10px var(--phone-overlay-safe-bottom) !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  html body.game-body #spy-confirm-modal:not(.hidden):not([hidden]) .spy-confirm-popup-card,
+  html body.game-body .wanted-popup-shell:not([hidden]) .wanted-popup-card,
+  html body.game-body .player-popup-shell:not([hidden]) .player-popup-card {
+    position: relative !important;
+    inset: auto !important;
+    top: auto !important;
+    width: min(520px, 100%) !important;
+    max-height: calc(var(--mobile-locked-vh, 100svh) - var(--phone-resource-safe-top) - var(--phone-overlay-safe-bottom)) !important;
+    margin: auto !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    transform: none !important;
+  }
+
+  html body.game-body .district-building-detail-shell.is-standard-building-detail:not([hidden]) {
+    --standard-building-phone-top: max(calc(var(--mobile-overlay-top-offset, var(--mobile-topbar-offset, 72px)) + 18px), 90px);
+    --standard-building-phone-bottom: max(20px, env(safe-area-inset-bottom));
+    position: fixed !important;
+    inset: 0 !important;
+    display: grid !important;
+    place-items: center !important;
+    width: 100vw !important;
+    height: var(--mobile-locked-vh, 100svh) !important;
+    padding: var(--standard-building-phone-top) 12px var(--standard-building-phone-bottom) !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  html body.game-body .district-building-detail-shell.is-standard-building-detail:not([hidden]) > .district-building-detail-backdrop {
+    background: rgba(1, 4, 10, 0.88) !important;
+    backdrop-filter: blur(11px) saturate(102%) !important;
+    -webkit-backdrop-filter: blur(11px) saturate(102%) !important;
+  }
+
+  html body.game-body .district-building-detail-shell.is-standard-building-detail:not([hidden]) .district-building-detail-card.building-detail-modal__content {
+    position: relative !important;
+    inset: auto !important;
+    top: auto !important;
+    left: auto !important;
+    align-self: center !important;
+    width: min(520px, 100%) !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: calc(var(--mobile-locked-vh, 100svh) - var(--standard-building-phone-top) - var(--standard-building-phone-bottom)) !important;
+    margin: auto !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    transform: none !important;
+  }
+}
+
+/* Final phone production-building safe area: keep the card off both screen edges and dim the game behind it. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body :is(
+    .armory-popup-shell,
+    .pharmacy-popup-shell,
+    .druglab-popup-shell,
+    .factory-popup-shell,
+    .district-building-detail-shell[data-building-mechanics-type="armory"],
+    .district-building-detail-shell[data-building-mechanics-type="pharmacy"],
+    .district-building-detail-shell[data-building-mechanics-type="drug-lab"],
+    .district-building-detail-shell[data-building-mechanics-type="factory"]
+  ):not([hidden]) {
+    --production-building-phone-top: max(18px, env(safe-area-inset-top));
+    --production-building-phone-bottom: max(18px, env(safe-area-inset-bottom));
+    position: fixed !important;
+    inset: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100vw !important;
+    height: var(--mobile-locked-vh, 100svh) !important;
+    padding: var(--production-building-phone-top) 8px var(--production-building-phone-bottom) !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  html body.game-body :is(
+    .armory-popup-shell:not([hidden]) > .armory-popup-backdrop,
+    .pharmacy-popup-shell:not([hidden]) > .pharmacy-popup-backdrop,
+    .druglab-popup-shell:not([hidden]) > .druglab-popup-backdrop,
+    .factory-popup-shell:not([hidden]) > .factory-popup-backdrop,
+    .district-building-detail-shell[data-building-mechanics-type="armory"]:not([hidden]) > .district-building-detail-backdrop,
+    .district-building-detail-shell[data-building-mechanics-type="pharmacy"]:not([hidden]) > .district-building-detail-backdrop,
+    .district-building-detail-shell[data-building-mechanics-type="drug-lab"]:not([hidden]) > .district-building-detail-backdrop,
+    .district-building-detail-shell[data-building-mechanics-type="factory"]:not([hidden]) > .district-building-detail-backdrop
+  ) {
+    position: absolute !important;
+    inset: 0 !important;
+    background: rgba(1, 4, 10, 0.88) !important;
+    backdrop-filter: blur(11px) saturate(102%) !important;
+    -webkit-backdrop-filter: blur(11px) saturate(102%) !important;
+    opacity: 1 !important;
+  }
+
+  html body.game-body :is(
+    .armory-popup-shell:not([hidden]) .armory-popup-card.building-detail-modal__content,
+    .pharmacy-popup-shell:not([hidden]) .pharmacy-popup-card.building-detail-modal__content,
+    .druglab-popup-shell:not([hidden]) .druglab-popup-card.building-detail-modal__content,
+    .factory-popup-shell:not([hidden]) .factory-popup-card.building-detail-modal__content,
+    .district-building-detail-shell[data-building-mechanics-type="armory"]:not([hidden]) .district-building-detail-card.building-detail-modal__content,
+    .district-building-detail-shell[data-building-mechanics-type="pharmacy"]:not([hidden]) .district-building-detail-card.building-detail-modal__content,
+    .district-building-detail-shell[data-building-mechanics-type="drug-lab"]:not([hidden]) .district-building-detail-card.building-detail-modal__content,
+    .district-building-detail-shell[data-building-mechanics-type="factory"]:not([hidden]) .district-building-detail-card.building-detail-modal__content
+  ) {
+    position: relative !important;
+    inset: auto !important;
+    width: min(438px, calc(100vw - 16px)) !important;
+    height: calc(var(--mobile-locked-vh, 100svh) - var(--production-building-phone-top) - var(--production-building-phone-bottom)) !important;
+    max-height: calc(var(--mobile-locked-vh, 100svh) - var(--production-building-phone-top) - var(--production-building-phone-bottom)) !important;
+    margin: auto !important;
+    border-radius: 16px !important;
+    box-sizing: border-box !important;
+    transform: none !important;
   }
 }

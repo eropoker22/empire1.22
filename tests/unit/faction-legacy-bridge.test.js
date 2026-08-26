@@ -51,8 +51,8 @@ describe("legacy faction compatibility bridge", () => {
     const liveSource = readFileSync("page-assets/js/faction-live.js", "utf8");
 
     expect(liveSource).toContain("renderFactionBenefits(faction)");
-    expect(liveSource).toContain('createBenefitRow("Výhody", advantages');
-    expect(liveSource).toContain('createBenefitRow("Nevýhody", disadvantages');
+    expect(liveSource).toContain('createBenefitRow("Silné stránky", advantages');
+    expect(liveSource).toContain('createBenefitRow("Slabiny", disadvantages');
     expect(liveSource).toContain('values.join(" • ")');
   });
 
@@ -62,7 +62,8 @@ describe("legacy faction compatibility bridge", () => {
 
     expect(liveSource).toContain("data-live-avatar-zoom");
     expect(liveSource).toContain("openAvatarLightbox");
-    expect(stylesheet).toContain("grid-template-columns: repeat(8, minmax(0, 1fr)) !important");
+    expect(stylesheet).toContain("justify-content: center !important");
+    expect(stylesheet).toContain("flex: 0 0 calc((100% - 42px) / 8) !important");
     expect(stylesheet).toContain(".auth-body--faction .avatar-item__zoom");
   });
 
@@ -103,10 +104,10 @@ describe("legacy faction compatibility bridge", () => {
     expect(biker.name).toBe("Motorkářský gang");
     expect(biker.tagline).toBe("Rychlost zabíjí.");
     expect(biker.advantages).toEqual(expect.arrayContaining([
-      "-15 % cooldown na vykrádání",
-      "-10 % cooldown na útoky",
-      "-10 % cooldown na obsazování",
-      "+10 % dirty cash z vykrádání"
+      "-15 % doba čekání na vykrádání",
+      "-10 % doba čekání na útoky",
+      "-10 % doba čekání na obsazování",
+      "+10 % špinavé peníze z vykrádání"
     ]));
     expect(biker.disadvantages).toEqual(expect.arrayContaining([
       "-10 % obrana districtů",
@@ -125,14 +126,14 @@ describe("legacy faction compatibility bridge", () => {
     expect(cartel.name).toBe("Kartel");
     expect(cartel.tagline).toBe("Prachy tečou rychle. Krev taky.");
     expect(cartel.advantages).toEqual(expect.arrayContaining([
-      "+18 % dirty income",
+      "+18 % špinavý příjem",
       "+15 % produkce v podporovaných ilegálních budovách",
       "+10 % pašování"
     ]));
     expect(cartel.disadvantages).toEqual(expect.arrayContaining([
       "+15 % heat z ilegálních akcí",
-      "-8 % clean income",
-      "-5 % defense power"
+      "-8 % čistý příjem",
+      "-5 % síla obrany"
     ]));
     expect(cartel.specialAction).toMatchObject({
       name: "Noční zásilka",
@@ -159,16 +160,16 @@ describe("legacy faction compatibility bridge", () => {
     expect(secret.advantages).toEqual(expect.arrayContaining([
       "+15 % šance na úspěšné špehování",
       "+15 % šance odhalit pasti",
-      "+10 % kvalita intel/drbů"
+      "+10 % kvalita informací a drbů"
     ]));
     expect(secret.plannedAdvantages).toEqual(expect.arrayContaining([
       "+15 % kvalita informací ze špehování",
       "-8 % heat z tajných akcí"
     ]));
     expect(secret.disadvantages).toEqual(expect.arrayContaining([
-      "-10 % attack power",
-      "-8 % clean income",
-      "-8 % dirty income"
+      "-10 % síla útoku",
+      "-8 % čistý příjem",
+      "-8 % špinavý příjem"
     ]));
     expect(secret.startingPackage).toBeUndefined();
     expect(secret.specialAction).toMatchObject({
@@ -184,16 +185,16 @@ describe("legacy faction compatibility bridge", () => {
     expect(hackers.name).toBe("Hackeři");
     expect(hackers.tagline).toBe("Kdo ovládá data, ovládá válku.");
     expect(hackers.advantages).toEqual(expect.arrayContaining([
-      "+50 % pravdivost rumorů s truthChancePct",
+      "+50 % pravdivost potvrzených drbů",
       "+15 % účinnost kamer",
       "+15 % účinnost alarmů",
-      "+10 % tech production",
+      "+10 % produkce technologií",
       "+10 % šance na úspěšné špehování"
     ]));
     expect(hackers.disadvantages).toEqual(expect.arrayContaining([
-      "-8 % attack power",
-      "-8 % dirty income",
-      "-5 % základní obrana bez kamer/alarmů"
+      "-8 % síla útoku",
+      "-8 % špinavý příjem",
+      "-5 % základní obrana bez kamer a alarmů"
     ]));
     expect(hackers.startingPackage).toBeUndefined();
     expect(hackers.specialAction).toMatchObject({
@@ -209,19 +210,19 @@ describe("legacy faction compatibility bridge", () => {
     expect(cult.name).toBe("Kult");
     expect(cult.tagline).toBe("Město se zlomí vírou.");
     expect(cult.advantages).toEqual(expect.arrayContaining([
-      "+20 % influence gain",
-      "+10 % population generation",
-      "+10 % defense power"
+      "+20 % zisk vlivu",
+      "+10 % tvorba populace",
+      "+10 % síla obrany"
     ]));
     expect(cult.plannedAdvantages).toEqual(expect.arrayContaining([
-      "Silnější práce s drby / podezřením"
+      "Silnější práce s drby a podezřením"
     ]));
     expect(cult.disadvantages).toEqual(expect.arrayContaining([
-      "-10 % clean income",
-      "-5 % attack power"
+      "-10 % čistý příjem",
+      "-5 % síla útoku"
     ]));
     expect(cult.plannedDisadvantages).toEqual(expect.arrayContaining([
-      "+10 % market fee"
+      "+10 % poplatek na trhu"
     ]));
     expect(cult.specialAction).toMatchObject({
       name: "Masová posedlost",
@@ -236,16 +237,16 @@ describe("legacy faction compatibility bridge", () => {
     expect(corporate.name).toBe("Korporát");
     expect(corporate.tagline).toBe("Zločin je špinavý. Moc je legální.");
     expect(corporate.advantages).toEqual(expect.arrayContaining([
-      "+15 % clean income",
-      "-3 % heat z útoků, heistů, akcí budov a pasivního tlaku",
+      "+15 % čistý příjem",
+      "-3 % heat z útoků, loupeží, akcí budov a pasivního tlaku",
       "+10 % efekt obranných systémů"
     ]));
     expect(corporate.plannedAdvantages).toEqual(expect.arrayContaining([
-      "-10 % market fee"
+      "-10 % poplatek na trhu"
     ]));
     expect(corporate.disadvantages).toEqual(expect.arrayContaining([
-      "-15 % dirty income",
-      "-10 % loot z vykrádání",
+      "-15 % špinavý příjem",
+      "-10 % kořist z vykrádání",
       "+10 % délka útoků"
     ]));
     expect(corporate.specialAction).toMatchObject({
@@ -261,8 +262,8 @@ describe("legacy faction compatibility bridge", () => {
     expect(army.name).toBe("Soukromá armáda");
     expect(army.tagline).toBe("Když diplomacie selže, přijde faktura.");
     expect(army.advantages).toEqual(expect.arrayContaining([
-      "+12 % attack power",
-      "+12 % defense power",
+      "+12 % síla útoku",
+      "+12 % síla obrany",
       "-10 % ztráty vybavení v boji"
     ]));
     expect(army.plannedAdvantages).toEqual(expect.arrayContaining([
@@ -270,10 +271,10 @@ describe("legacy faction compatibility bridge", () => {
     ]));
     expect(army.disadvantages).toEqual(expect.arrayContaining([
       "+8 % heat z útoků a obsazování",
-      "-8 % clean income"
+      "-8 % čistý příjem"
     ]));
     expect(army.plannedDisadvantages).toEqual(expect.arrayContaining([
-      "+12 % upkeep / combat cost"
+      "+12 % náklady na údržbu a boj"
     ]));
     expect(army.specialAction).toMatchObject({
       name: "Taktické nasazení",
@@ -294,11 +295,11 @@ describe("legacy faction compatibility bridge", () => {
   });
 
   it("labels known active and planned effects distinctly in legacy data", () => {
-    expect(FACTION_CATALOG["tajna-organizace"].coreBackedEffects).toContain("+10 % kvalita intel/drbů");
-    expect(FACTION_CATALOG["tajna-organizace"].plannedEffects).not.toContain("+10 % kvalita intel/drbů");
+    expect(FACTION_CATALOG["tajna-organizace"].coreBackedEffects).toContain("+10 % kvalita informací a drbů");
+    expect(FACTION_CATALOG["tajna-organizace"].plannedEffects).not.toContain("+10 % kvalita informací a drbů");
     expect(FACTION_CATALOG["tajna-organizace"].plannedEffects).toContain("+15 % kvalita informací ze špehování");
-    expect(FACTION_CATALOG["soukroma-armada"].coreBackedEffects).not.toContain("+12 % upkeep / combat cost");
-    expect(FACTION_CATALOG["soukroma-armada"].plannedEffects).toContain("+12 % upkeep / combat cost");
+    expect(FACTION_CATALOG["soukroma-armada"].coreBackedEffects).not.toContain("+12 % náklady na údržbu a boj");
+    expect(FACTION_CATALOG["soukroma-armada"].plannedEffects).toContain("+12 % náklady na údržbu a boj");
     expect(FACTION_DEFINITION_BY_ID.hackeri.specialAction.status).toBe("preview");
   });
 });

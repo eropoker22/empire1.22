@@ -20,8 +20,14 @@ const RESULT_POPUP_CLOSE_SELECTOR = "[data-elimination-result-popup-close]";
 const RESULT_POPUP_AVATAR_SELECTOR = "[data-elimination-result-popup-avatar]";
 const DEMO_ELIMINATION_COUNTDOWN_MS = 15 * 60 * 1000;
 const DEMO_ELIMINATION_RESET_COUNTDOWN_MS = 4 * 60 * 60 * 1000;
-const COUNTDOWN_WARNING_THRESHOLD_MS = 300000;
-const COUNTDOWN_WARNING_REOPEN_THRESHOLD_MS = 60000;
+const COUNTDOWN_WARNING_MILESTONES_MS = [
+  (7 * 60 + 59) * 60_000,
+  6 * 60 * 60_000,
+  2 * 60 * 60_000,
+  60 * 60_000,
+  15 * 60_000,
+  2 * 60_000
+];
 let sharedMockCountdownEndsAt = null;
 let sharedLastResolvedCountdownEndsAt = null;
 let sharedLastEliminationResult = null;
@@ -824,9 +830,11 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
   const timeNode = warning.querySelector?.(COUNTDOWN_WARNING_TIME_SELECTOR);
   const closeButton = warning.querySelector?.(COUNTDOWN_WARNING_CLOSE_SELECTOR);
   let intervalId = null;
-  let dismissedCountdownEndsAt = null;
-  let dismissedDuringFinalMinute = false;
   let activeCountdownKey = null;
+  let activeWarningMilestoneKey = null;
+  let dismissedWarningMilestoneKey = null;
+  let observedCountdownKey = null;
+  let previousRemainingMs = null;
 
   const createInput = (countdownRemainingMs) => {
     const mode = deps.getMockMode?.() || deps.mockMode || "elimination";
@@ -864,30 +872,32 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
     resolveCountdownElapsed(createInput(0), deps, documentRef, endsAt);
     const resetMs = getCountdownResetMs(deps.resetCountdownMs);
     sharedMockCountdownEndsAt = now + resetMs;
+    activeCountdownKey = sharedMockCountdownEndsAt;
     return resetMs;
   };
 
   const render = () => {
     const remainingMs = getWarningCountdownRemainingMs();
-    const shouldShow = remainingMs !== null && remainingMs > 0 && remainingMs <= COUNTDOWN_WARNING_THRESHOLD_MS;
-    if (dismissedCountdownEndsAt !== activeCountdownKey) {
-      dismissedCountdownEndsAt = null;
-      dismissedDuringFinalMinute = false;
+    if (observedCountdownKey !== activeCountdownKey) {
+      observedCountdownKey = activeCountdownKey;
+      activeWarningMilestoneKey = null;
+      dismissedWarningMilestoneKey = null;
+      previousRemainingMs = null;
     }
-    const shouldReopenDismissedWarning = dismissedCountdownEndsAt
-      && !dismissedDuringFinalMinute
-      && remainingMs <= COUNTDOWN_WARNING_REOPEN_THRESHOLD_MS;
-    if (shouldReopenDismissedWarning) {
-      dismissedCountdownEndsAt = null;
-      dismissedDuringFinalMinute = false;
+    const milestoneMs = resolveCountdownWarningMilestone(previousRemainingMs, remainingMs);
+    if (milestoneMs !== null && activeCountdownKey !== null) {
+      activeWarningMilestoneKey = `${activeCountdownKey}:${milestoneMs}`;
     }
-    const isDismissed = activeCountdownKey !== null && dismissedCountdownEndsAt === activeCountdownKey;
-    const isVisible = shouldShow && !isDismissed;
+    const isVisible = activeWarningMilestoneKey !== null
+      && activeWarningMilestoneKey !== dismissedWarningMilestoneKey
+      && remainingMs !== null
+      && remainingMs > 0;
     warning.hidden = !isVisible;
     warning.classList?.toggle?.("is-visible", isVisible);
     if (timeNode) {
       timeNode.textContent = formatCountdown(remainingMs);
     }
+    previousRemainingMs = remainingMs;
     if (remainingMs <= 0 && intervalId && typeof timerApi?.clearInterval === "function") {
       timerApi.clearInterval(intervalId);
       intervalId = null;
@@ -896,9 +906,7 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
   };
 
   const closeWarning = () => {
-    const remainingMs = getWarningCountdownRemainingMs();
-    dismissedCountdownEndsAt = activeCountdownKey;
-    dismissedDuringFinalMinute = remainingMs !== null && remainingMs <= COUNTDOWN_WARNING_REOPEN_THRESHOLD_MS;
+    dismissedWarningMilestoneKey = activeWarningMilestoneKey;
     warning.hidden = true;
     warning.classList?.toggle?.("is-visible", false);
   };
@@ -929,4 +937,14 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
       intervalId = null;
     }
   };
+}
+
+function resolveCountdownWarningMilestone(previousRemainingMs, remainingMs) {
+  if (remainingMs === null || remainingMs <= 0) return null;
+  if (previousRemainingMs === null) {
+    return COUNTDOWN_WARNING_MILESTONES_MS.includes(remainingMs) ? remainingMs : null;
+  }
+  return COUNTDOWN_WARNING_MILESTONES_MS.find((milestoneMs) => (
+    previousRemainingMs > milestoneMs && remainingMs <= milestoneMs
+  )) ?? null;
 }

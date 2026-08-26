@@ -22,7 +22,7 @@ export const createGameplayEconomyRatesView = (
   selectedDistrictId: string | null,
   context: GameCoreContext
 ): GameplayEconomyRatesView => {
-  const rateState = createNextTickRateState(state);
+  const rateState = createNextTickRateState(state, context);
   const tickRateMs = Math.max(1, Number(context.config.tickRateMs || 0));
   const ticksPerHour = HOUR_MS / tickRateMs;
   const calculatedIncome =

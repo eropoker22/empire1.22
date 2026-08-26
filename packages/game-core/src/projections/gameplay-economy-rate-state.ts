@@ -11,23 +11,51 @@ import {
 } from "../handlers/schoolBuildingActions";
 import { calculateIncomeByPlayerId } from "../rules/economy/calculateIncome";
 import {
+  calculateDistrictResourceModifierStatRatesByDistrictId,
   calculateFixedBuildingPassivePressureByDistrictId
 } from "../rules/economy/collectIncome";
-import { applyPoliceHeatDecay } from "../rules/police/heatDecay";
 
 export const createNextTickRateState = (
-  state: CoreGameState
-): CoreGameState => ({
-  ...state,
-  serverInstance: {
-    ...state.serverInstance,
-    currentTick: state.serverInstance.currentTick + 1
-  },
-  root: {
-    ...state.root,
-    tick: state.root.tick + 1
-  }
-});
+  state: CoreGameState,
+  context?: GameCoreContext
+): CoreGameState => {
+  const populationRates = context
+    ? calculateDistrictResourceModifierStatRatesByDistrictId(state, context)
+    : {};
+  const populationByPlayerId = Object.values(state.districtsById).reduce<Record<string, number>>(
+    (gains, district) => {
+      const amount = Number(populationRates[district.id]?.populationPerTick || 0);
+      if (!district.ownerPlayerId || amount <= 0) return gains;
+      gains[district.ownerPlayerId] = (gains[district.ownerPlayerId] ?? 0) + amount;
+      return gains;
+    },
+    {}
+  );
+  const playersById = Object.fromEntries(
+    Object.entries(state.playersById).map(([playerId, player]) => {
+      const populationGain = Number(populationByPlayerId[playerId] || 0);
+      return [
+        playerId,
+        populationGain > 0
+          ? { ...player, population: Math.max(0, Number(player.population || 0) + populationGain) }
+          : player
+      ];
+    })
+  );
+
+  return {
+    ...state,
+    playersById,
+    serverInstance: {
+      ...state.serverInstance,
+      currentTick: state.serverInstance.currentTick + 1
+    },
+    root: {
+      ...state.root,
+      tick: state.root.tick + 1
+    }
+  };
+};
 
 export const createNextDistrictEconomyState = (
   state: CoreGameState,
@@ -35,28 +63,38 @@ export const createNextDistrictEconomyState = (
 ): CoreGameState => {
   const pressureByDistrictId =
     calculateFixedBuildingPassivePressureByDistrictId(state, context);
+  const modifierRatesByDistrictId =
+    calculateDistrictResourceModifierStatRatesByDistrictId(state, context);
   const pressuredDistrictsById = Object.fromEntries(
     Object.entries(state.districtsById).map(([districtId, district]) => {
       const pressure = pressureByDistrictId[districtId];
+      const modifierRate = modifierRatesByDistrictId[districtId];
       return [
         districtId,
-        pressure
+        pressure || modifierRate
           ? {
               ...district,
-              heat: pressure.nextHeat,
-              influence: pressure.nextInfluence
+              heat: Math.max(
+                0,
+                Number(district.heat || 0)
+                  + Number(pressure?.heatPerTick || 0)
+                  + Number(modifierRate?.heatPerTick || 0)
+              ),
+              influence: Math.max(
+                0,
+                Number(district.influence || 0)
+                  + Number(pressure?.influencePerTick || 0)
+                  + Number(modifierRate?.influencePerTick || 0)
+              )
             }
           : district
       ];
     })
   );
-  return applyPoliceHeatDecay(
-    {
-      ...state,
-      districtsById: pressuredDistrictsById
-    },
-    context
-  );
+  return {
+    ...state,
+    districtsById: pressuredDistrictsById
+  };
 };
 
 export const createPopulationProductionState = (

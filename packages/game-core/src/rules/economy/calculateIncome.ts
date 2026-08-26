@@ -9,6 +9,7 @@ import { resolveFixedBuildingIncomeConfig } from "./fixedBuildingIncomeConfig";
 import { resolveActiveAlliancePenaltyStatModifiers } from "../alliances/alliancePenaltyModifiers";
 
 const HOUR_MS = 60 * 60 * 1000;
+const DISTRICT_STAT_RESOURCE_KEYS = new Set(["population", "influence", "heat"]);
 
 export interface ResolvedDistrictEffectModifiers {
   incomeMultiplier: number;
@@ -52,6 +53,9 @@ export const calculateIncomeByPlayerId = (
     }
 
     for (const [resourceKey, rawAmount] of Object.entries(district.resourceModifiers)) {
+      if (DISTRICT_STAT_RESOURCE_KEYS.has(resourceKey)) {
+        continue;
+      }
       const stabilizationMultiplier = resolveDistrictStabilizationMultiplier(
         district,
         state.root.tick,

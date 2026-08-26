@@ -25,6 +25,7 @@ const MOBILE_OVERLAY_SELECTOR = [
 ].join(",");
 const MOBILE_SCROLL_THROUGH_OVERLAY_SELECTOR = ".district-popup-shell[data-district-popup]";
 const MOBILE_SPY_CONFIRM_OPEN_CLASS = "game-spy-confirm-open";
+const MOBILE_WANTED_POPUP_OPEN_CLASS = "game-wanted-popup-open";
 const MOBILE_CLOSE_GUARD_CLASS = "game-mobile-close-guard";
 const MOBILE_CLOSE_GUARD_MS = 460;
 const MOBILE_CLOSE_CONTROL_SELECTOR = [
@@ -303,6 +304,8 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
     if (!media.matches) {
       root.classList.remove(MOBILE_SPY_CONFIRM_OPEN_CLASS);
       documentObj.body.classList.remove(MOBILE_SPY_CONFIRM_OPEN_CLASS);
+      root.classList.remove(MOBILE_WANTED_POPUP_OPEN_CLASS);
+      documentObj.body.classList.remove(MOBILE_WANTED_POPUP_OPEN_CLASS);
       if (!isModalScrollLocked(documentObj)) {
         root.classList.remove("game-modal-scroll-locked");
         documentObj.body.classList.remove("game-modal-scroll-locked");
@@ -313,8 +316,11 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
     const openOverlays = Array.from(documentObj.querySelectorAll(MOBILE_OVERLAY_SELECTOR)).filter(isOpenOverlay);
     const hasOpenOverlay = openOverlays.some((element) => !isScrollThroughOverlay(element));
     const hasOpenSpyConfirm = openOverlays.some((element) => element.id === "spy-confirm-modal");
+    const hasOpenWantedPopup = openOverlays.some((element) => element.matches?.(".wanted-popup-shell"));
     root.classList.toggle(MOBILE_SPY_CONFIRM_OPEN_CLASS, hasOpenSpyConfirm);
     documentObj.body.classList.toggle(MOBILE_SPY_CONFIRM_OPEN_CLASS, hasOpenSpyConfirm);
+    root.classList.toggle(MOBILE_WANTED_POPUP_OPEN_CLASS, hasOpenWantedPopup);
+    documentObj.body.classList.toggle(MOBILE_WANTED_POPUP_OPEN_CLASS, hasOpenWantedPopup);
     if (isModalScrollLocked(documentObj)) {
       root.classList.add("game-modal-scroll-locked");
       documentObj.body.classList.add("game-modal-scroll-locked");

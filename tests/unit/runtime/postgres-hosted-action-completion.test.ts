@@ -35,13 +35,16 @@ describe("PostgreSQL hosted lifecycle action completion", () => {
     expect(calls.some((entry) => entry.sql.includes("SET status=$2,join_policy=$3,registration_schedule_version=$4"))).toBe(false);
   });
 
-  it("accepts exactly two ready memberships and preserves the open registration window", async () => {
+  it("accepts exactly two ready memberships, keeps registration open, and arms Očista", async () => {
     const queryMock = postgresQuery(server(), 2);
     expect(await completePostgresHostedAction(databaseFor(queryMock), completion("start"))).toBe(true);
     const update = normalizedCalls(queryMock)
       .find((entry) => entry.sql.includes("SET status=$2,join_policy=$3,registration_schedule_version=$4"));
     expect(update?.params?.[1]).toBe("running");
     expect(update?.params?.[2]).toBe("open");
+    expect(update?.params?.[6]).toBeNull();
+    expect(update?.params?.[7]).toBeNull();
+    expect(update?.params?.[9]).toBe(2_880);
     expect(update?.params?.[10]).toBe(DATABASE_NOW);
   });
 });
@@ -64,6 +67,7 @@ const postgresQuery = (hosted: HostedServerRecord, readyPlayers: number) => vi.f
       reserved_spawn_district_id: `district:${index + 1}`
     })));
   }
+  if (sql.includes("SELECT count(*)::int AS count")) return pgResult([{ count: readyPlayers }]);
   return pgResult([{}]);
 });
 

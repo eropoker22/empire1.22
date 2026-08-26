@@ -239,8 +239,15 @@ function hideFallbackOverlay(element) {
     .some((candidate) => candidate !== element && isElementVisible(candidate));
   if (!hasVisibleOverlay) {
     unlockBodyScroll(element);
-    ownerDocument?.body?.classList.remove("game-modal-scroll-locked", "game-spy-confirm-open");
-    ownerDocument?.documentElement?.classList.remove("game-spy-confirm-open");
+    ownerDocument?.body?.classList.remove(
+      "game-modal-scroll-locked",
+      "game-spy-confirm-open",
+      "game-wanted-popup-open"
+    );
+    ownerDocument?.documentElement?.classList.remove(
+      "game-spy-confirm-open",
+      "game-wanted-popup-open"
+    );
   }
   return true;
 }

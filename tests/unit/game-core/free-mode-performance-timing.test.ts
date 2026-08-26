@@ -51,13 +51,10 @@ describe("free mode performance timing", () => {
     expect(config.technical.gameDurationMs).toBe(7 * day);
   });
 
-  it("preserves police and heat wall-clock intervals", () => {
+  it("preserves police raid wall-clock intervals", () => {
     const police = config.balance.police!;
-    const heatDecay = police.heatDecay!;
 
     expect(police.raidDurationTicks * tickRateMs).toBe(60 * minute);
     expect(police.raidCooldownTicks * tickRateMs).toBe(240 * minute);
-    expect(heatDecay.playerIntervalTicks * tickRateMs).toBe(2.5 * minute);
-    expect(heatDecay.districtIntervalTicks * tickRateMs).toBe(5 * minute);
   });
 });

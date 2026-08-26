@@ -138,7 +138,7 @@ const renderLifecycle = (server: AdminHostedServerView, session: AdminSessionVie
     <details class="admin-disclosure admin-disclosure--technical">
       <summary><span>Serverová diagnostika</span><small>Lease, lifecycle marker a canonical timing</small></summary>
       <div class="admin-kv-grid">
-        ${keyValue("Šablona", server.serverTemplate === "full" ? "Plnohodnotný server" : "Kontrolní test")}
+        ${keyValue("Šablona", server.serverTemplate === "full" ? "Plnohodnotný server" : "Flexibilní server")}
         ${keyValue("Server version", server.version)}
         ${keyValue("Committed players", server.committedPlayers ?? 0)}
         ${keyValue("Reserved slots", server.reservedSlots ?? 0)}${keyValue("Capacity", server.capacity)}

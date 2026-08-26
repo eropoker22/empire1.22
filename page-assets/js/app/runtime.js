@@ -608,7 +608,6 @@ import {
   GANG_HEAT_AUTO_POLICE_INTERVAL_BY_TIER,
   GANG_HEAT_CLEAN_COST,
   GANG_HEAT_CLEAN_REDUCTION,
-  GANG_HEAT_DECAY_BY_TIER,
   GANG_HEAT_DIRTY_COST,
   GANG_HEAT_DIRTY_REDUCTION,
   GANG_HEAT_DIRTY_TRIGGER_COUNT,
@@ -2470,6 +2469,7 @@ function bindServerGameplayResourceReadModel(root) {
       return false;
     }
     latestGameplaySliceReadModel = nextSlice;
+    serverDistrictSelectionCoordinator?.cacheReadModel?.(nextSlice);
     if (getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
       return false;
     }
@@ -2979,7 +2979,10 @@ function getResolvedGangState() {
         9999
       ),
       influence: Math.max(0, Number(serverPlayer.economy.influence ?? 0)),
-      heat: clamp(Number(police?.heat ?? police?.playerHeat ?? 0), 0, 9999),
+      // The top resource strip represents the heat carried by the gang and
+      // every district it controls.  Wanted level still uses playerHeat on
+      // the server; totalHeat is only the truthful resource-strip aggregate.
+      heat: clamp(Number(police?.totalHeat ?? police?.heat ?? police?.playerHeat ?? 0), 0, 9999),
       policeRaidProtectionUntil: 0,
       autoPoliceNextActionAt: 0,
       heatJournal: [],
@@ -3067,32 +3070,8 @@ function formatGangHeatProtectionLabel(untilValue) {
 }
 
 function syncGangHeatDecay() {
-  const gangState = getResolvedGangState();
-  const lastDecayAt = new Date(gangState.lastHeatDecayAt || Date.now()).getTime();
-  const safeLastDecayAt = Number.isFinite(lastDecayAt) ? lastDecayAt : Date.now();
-  const elapsedMs = Math.max(0, Date.now() - safeLastDecayAt);
-  if (elapsedMs < 60 * 1000) {
-    return getResolvedGangState();
-  }
-
-  const tier = resolveGangHeatTier(gangState.heat);
-  const decayPerHour = Number(GANG_HEAT_DECAY_BY_TIER[tier.id] || 0);
-  const reducedAmount = Math.floor((elapsedMs / (60 * 60 * 1000)) * decayPerHour);
-  if (reducedAmount <= 0) {
-    setStoredGangState({ lastHeatDecayAt: new Date().toISOString() });
-    return getResolvedGangState();
-  }
-
-  const nextHeat = Math.max(0, gangState.heat - reducedAmount);
-  updateStoredPreviewSession((session) => ({
-    ...session,
-    gang: {
-      ...(session.gang || {}),
-      heat: nextHeat,
-      lastHeatDecayAt: new Date().toISOString()
-    }
-  }));
-  appendGangHeatJournalEntry("fall", reducedAmount, "Heat postupně vychládá.");
+  // Heat changes only through explicit actions or police consequences. Keep
+  // this legacy bridge side-effect free for local preview rendering as well.
   return getResolvedGangState();
 }
 
@@ -3841,6 +3820,25 @@ function persistStreetNewsEntries(entries) {
   }));
 }
 
+function removeStreetNewsRumors(root, rumors = []) {
+  const panel = resolveBuildingActionPanel(root);
+  const ids = new Set((Array.isArray(rumors) ? rumors : [])
+    .map((entry) => String(entry?.id || "").trim())
+    .filter(Boolean));
+  if (!panel || ids.size === 0) {
+    return [];
+  }
+
+  panel.entries = panel.entries.filter((entry) => !ids.has(String(entry?.id || "")));
+  persistStreetNewsEntries(panel.entries);
+  renderBuildingActionFeed(root);
+  return panel.entries.filter((entry) => (
+    entry.sourceKind === "rumor"
+    || String(entry.id || "").startsWith("rumor-street-news:")
+    || (entry.title === "Drb z ulice" && entry.resultPayload?.badge === "Drb")
+  ));
+}
+
 function formatServerReportDistrict(value) {
   const districtId = Number.parseInt(String(value || "").replace("district:", ""), 10) || 0;
   return districtId > 0 ? `District ${districtId}` : "Neznámý district";
@@ -4208,7 +4206,9 @@ function openStreetNewsResult(root, kind, payload = {}) {
     openRumorInboxModal({
       documentRef: root?.ownerDocument || document,
       rumors: payload?.rumors,
-      onOpenRumor: (entry) => openStreetNewsResult(root, entry?.resultKind, entry?.resultPayload)
+      onOpenRumor: (entry) => openStreetNewsResult(root, entry?.resultKind, entry?.resultPayload),
+      onDeleteRumor: (entry) => removeStreetNewsRumors(root, [entry]),
+      onDeleteAll: (entries) => removeStreetNewsRumors(root, entries)
     });
     return;
   }
@@ -7777,6 +7777,7 @@ const districtBuildingDetailLiveRefreshTimers = new WeakMap();
 const districtBuildingDetailUpgradeConfirmations = new WeakMap();
 const districtBuildingDetailActionConfirmations = new WeakMap();
 const districtBuildingDetailActionSubmissions = new WeakMap();
+const districtBuildingDetailCollectSubmissions = new WeakMap();
 const DISTRICT_BUILDING_DETAIL_LIVE_REFRESH_MS = 1000;
 
 function getDistrictBuildingRule(ruleSet, buildingName, fallback) {
@@ -9166,6 +9167,21 @@ function dispatchDistrictBuildingProductionCollected(root, context = {}, detail 
 }
 
 async function collectDistrictBuildingDetailOutput(root, shell) {
+  const pendingSubmission = districtBuildingDetailCollectSubmissions.get(shell);
+  if (pendingSubmission) {
+    return pendingSubmission;
+  }
+
+  const submission = Promise.resolve(collectDistrictBuildingDetailOutputOnce(root, shell));
+  districtBuildingDetailCollectSubmissions.set(shell, submission);
+  return submission.finally(() => {
+    if (districtBuildingDetailCollectSubmissions.get(shell) === submission) {
+      districtBuildingDetailCollectSubmissions.delete(shell);
+    }
+  });
+}
+
+async function collectDistrictBuildingDetailOutputOnce(root, shell) {
   const context = districtBuildingDetailContextByShell.get(shell);
   if (!context) {
     return;
@@ -11375,7 +11391,7 @@ function bindDistrictCanvas(root) {
   const getMapEffectsFrameIntervalMs = () => {
     const mode = getCurrentPerformanceMode();
     const metrics = getPerformanceMetrics(window);
-    const defaultFps = mode.active ? 20 : 60;
+    const defaultFps = mode.active ? 15 : 30;
     const fpsCap = Math.min(defaultFps, Number(metrics.mapEffectsFpsCap || defaultFps));
     return 1000 / Math.max(1, fpsCap);
   };

@@ -1,4 +1,5 @@
 import type { AdminAuditAction } from "@empire/shared-types";
+import { FREE_HOSTED_SERVER_TEMPLATE_POLICIES, resolveModeConfig } from "@empire/game-config";
 import type {
   HostedActionRequestRecord,
   HostedServerRecord
@@ -48,12 +49,12 @@ export const resolveHostedLifecycleActionCompletion = (input: {
     case "start":
       if (server.status !== "lobby") return rejected("LIFECYCLE_STATE_INVALID");
       if (!server.currentSnapshotId) return rejected("SERVER_START_SNAPSHOT_MISSING");
-      const prepared = prepareServerForStart(next, registration.state, input.registrationBaselinePlayers);
-      if (!prepared || !registrationAllowsStart(prepared.server, registration.state)) {
-        return rejected("SERVER_REGISTRATION_NOT_OPEN");
-      }
       if (input.readyPlayers < server.minimumReadyPlayersToStart) {
         return rejected("SERVER_START_MINIMUM_PLAYERS_NOT_MET");
+      }
+      const prepared = prepareServerForStart(next, registration.state);
+      if (!prepared) {
+        return rejected("SERVER_REGISTRATION_NOT_OPEN");
       }
       return accepted({ ...prepared.server, status: "running",
         joinPolicy: registration.state === "open" ? "open" : "closed", lastStartedAt: authoritativeNow },
@@ -94,9 +95,13 @@ export const resolveFrozenHostedLifecycle = (
     registrationClosedAt: closedAt,
     registrationBaselinePlayers: baselinePlayers,
     effectiveFinalLockdownTrigger: Math.min(server.canonicalFinalLockdownTrigger, Math.max(1, baselinePlayers - 1)),
-    effectiveFirstEliminationTick: server.canonicalFirstEliminationTick === null || server.canonicalTickRateMs === null
-      ? null
-      : server.canonicalFirstEliminationTick + Math.ceil(graceMs / server.canonicalTickRateMs)
+    // Očista is armed when the match starts. Closing registration later must
+    // freeze only the final-lockdown roster, never move that already-running clock.
+    effectiveFirstEliminationTick: server.effectiveFirstEliminationTick ?? (
+      server.canonicalFirstEliminationTick === null || server.canonicalTickRateMs === null
+        ? null
+        : server.canonicalFirstEliminationTick + Math.ceil(graceMs / server.canonicalTickRateMs)
+    )
   };
 };
 
@@ -177,20 +182,26 @@ const canCreateNewWindow = (server: HostedServerRecord, state: string): boolean 
   state === "not_scheduled" || ((state === "closed" || state === "closed_early")
     && server.registrationClosedAt !== null);
 
-const registrationAllowsStart = (server: HostedServerRecord, state: string): boolean =>
-  state === "open" || (state === "closed" && server.registrationClosedAt === server.registrationClosesAt
-    && server.effectiveFinalLockdownTrigger !== null);
-
 const prepareServerForStart = (
   server: HostedServerRecord,
-  state: string,
-  baselinePlayers: number | undefined
+  state: string
 ): { server: HostedServerRecord; auditActions: AdminAuditAction[] } | null => {
-  if (state !== "closed" || server.registrationClosedAt !== null) return { server, auditActions: [] };
-  if (!server.registrationClosesAt || baselinePlayers === undefined) return null;
-  const frozen = resolveFrozenHostedLifecycle(server, server.registrationClosesAt, baselinePlayers);
-  return frozen ? { server: { ...server, ...frozen, joinPolicy: "closed" },
-    auditActions: ["registration-closed-automatically", "effective-lockdown-trigger-frozen"] } : null;
+  if (state !== "open" && state !== "closed") return null;
+  // Starting the match arms its eight-hour Očista, but deliberately leaves an
+  // open registration window open so new players can still join the server.
+  return {
+    server: { ...server, effectiveFirstEliminationTick: resolveHostedStartEliminationTick(server) },
+    auditActions: []
+  };
+};
+
+export const resolveHostedStartEliminationTick = (server: HostedServerRecord): number | null => {
+  const config = resolveModeConfig(server.mode);
+  if (!FREE_HOSTED_SERVER_TEMPLATE_POLICIES[server.serverTemplate].eliminationEnabled
+    || config.balance.elimination?.enabled !== true) return null;
+  // Derive this from the runtime config so legacy control servers, whose
+  // canonical fields were intentionally null, are armed by Start as well.
+  return config.balance.elimination.firstEliminationTick;
 };
 
 const canonicalFutureTimestamp = (value: string | undefined, now: string): string | null => {

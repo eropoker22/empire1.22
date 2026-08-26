@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { HostedActionRequestRecord, HostedServerRecord } from "../../apps/server/src/admin/hosted";
 import { resolveHostedLifecycleActionCompletion } from "../../apps/server/src/admin/hosted/hosted-lifecycle-action-completion";
+import { syncHostedRuntimePacingState } from "../../apps/server/src/admin/hosted/hosted-runtime-worker-state";
+import type { ServerInstanceRuntime } from "../../apps/server/src/runtime/instance";
 
 const NOW = "2026-07-20T16:00:00.000Z";
 const CLOSE = "2026-07-20T17:00:00.000Z";
@@ -55,36 +57,74 @@ describe("hosted lifecycle action completion", () => {
     }, auditActions: ["registration-closed-early", "effective-lockdown-trigger-frozen"] });
   });
 
-  it("allows control template freeze with elimination disabled", () => {
+  it("arms a legacy control server even when its stored canonical tick is null", () => {
     const result = decide(server({ serverTemplate: "control", canonicalFirstEliminationTick: null,
-      canonicalTickRateMs: null }), action("close-registration-now"), 2, 2);
+      canonicalTickRateMs: null }), action("start"), 2);
     expect(result).toMatchObject({ kind: "accepted", server: {
-      effectiveFinalLockdownTrigger: 1,
-      effectiveFirstEliminationTick: null
+      status: "running",
+      effectiveFirstEliminationTick: 2_880
     } });
   });
 
-  it("rejects start with one ready player and accepts exactly two", () => {
+  it("copies an armed flexible-server Očista into the live runtime pacing state", () => {
+    const runtime = { state: { serverPacingState: null } } as unknown as ServerInstanceRuntime;
+    syncHostedRuntimePacingState(runtime, server({
+      serverTemplate: "control",
+      canonicalFirstEliminationTick: null,
+      canonicalTickRateMs: null,
+      effectiveFirstEliminationTick: 2_880
+    }));
+
+    expect(runtime.state.serverPacingState).toMatchObject({
+      eliminationEnabled: true,
+      effectiveFirstEliminationTick: 2_880
+    });
+  });
+
+  it("repairs a running legacy server whose persisted Očista tick is still null", () => {
+    const runtime = { state: { serverPacingState: null } } as unknown as ServerInstanceRuntime;
+    syncHostedRuntimePacingState(runtime, server({
+      status: "running",
+      serverTemplate: "control",
+      canonicalFirstEliminationTick: null,
+      canonicalTickRateMs: null,
+      effectiveFirstEliminationTick: null,
+      lastStartedAt: NOW
+    }));
+
+    expect(runtime.state.serverPacingState).toMatchObject({
+      eliminationEnabled: true,
+      effectiveFirstEliminationTick: 2_880
+    });
+  });
+
+  it("rejects start with one ready player and arms Očista without closing registration", () => {
     expect(decide(server(), action("start"), 1)).toEqual({
       kind: "rejected", errorCode: "SERVER_START_MINIMUM_PLAYERS_NOT_MET"
     });
     expect(decide(server(), action("start"), 2)).toMatchObject({
       kind: "accepted",
-      server: { status: "running", joinPolicy: "open", lastStartedAt: NOW },
+      server: {
+        status: "running",
+        joinPolicy: "open",
+        registrationClosedAt: null,
+        registrationBaselinePlayers: null,
+        effectiveFinalLockdownTrigger: null,
+        effectiveFirstEliminationTick: 2_880,
+        lastStartedAt: NOW
+      },
       auditActions: ["server-started"]
     });
   });
 
-  it("atomically freezes the normal close during an immediate post-window start", () => {
+  it("arms the eight-hour Očista countdown whether registration is open or closed", () => {
     const atClose = "2026-07-20T17:00:00.000Z";
-    expect(decide(server(), action("start"), 2, 2, atClose)).toMatchObject({
-      kind: "accepted",
-      server: { status: "running", joinPolicy: "closed", registrationClosedAt: atClose,
-        registrationBaselinePlayers: 2, effectiveFinalLockdownTrigger: 1 },
-      auditActions: ["registration-closed-automatically", "effective-lockdown-trigger-frozen", "server-started"]
+    expect(decide(server(), action("start"), 2, undefined, atClose)).toMatchObject({
+      kind: "accepted", server: { status: "running", joinPolicy: "closed", registrationClosedAt: null,
+        effectiveFirstEliminationTick: 2_880 }, auditActions: ["server-started"]
     });
     expect(decide(server({ registrationClosedAt: CLOSE, registrationBaselinePlayers: 2,
-      effectiveFinalLockdownTrigger: 1, effectiveFirstEliminationTick: 5_760 }),
+      effectiveFinalLockdownTrigger: 1, effectiveFirstEliminationTick: 2_880 }),
     action("start"), 2, undefined, atClose)).toMatchObject({
       kind: "accepted", server: { status: "running", joinPolicy: "closed" }
     });

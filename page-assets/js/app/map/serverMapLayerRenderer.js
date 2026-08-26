@@ -216,7 +216,7 @@ export function createServerMapLayerRenderer(options = {}) {
         return;
       }
       const targetFps = hasAnimatedEffectEntries(interactionState)
-        ? getPerformanceMode().active ? 20 : 60
+        ? getPerformanceMode().active ? 15 : 30
         : 1;
       if (!lastEffectFrameAt || time - lastEffectFrameAt >= 1000 / targetFps) {
         lastEffectFrameAt = time;

@@ -499,7 +499,7 @@ describe("elimination purge panel runtime", () => {
     expect(html).toContain("Gang &amp; crew");
   });
 
-  it("shows the global red warning only for the last five minutes and restarts after zero", () => {
+  it("shows the global red warning at the configured Očista milestones and restarts after zero", () => {
     const fixture = createCountdownWarningFixture();
     let currentTime = 0;
     let intervalCallback = null;
@@ -517,21 +517,21 @@ describe("elimination purge panel runtime", () => {
     };
 
     bindEliminationCountdownWarning(fixture.root, createDemoDeps({
-      initialCountdownMs: 361000,
+      initialCountdownMs: 8 * 60 * 60 * 1000,
       resetCountdown: true,
       timerApi,
       onCountdownElapsed
     }));
 
     expect(fixture.warning.hidden).toBe(true);
-    expect(fixture.timeNode.textContent).toBe("6min 01s");
+    expect(fixture.timeNode.textContent).toBe("8h 00min 00s");
 
     currentTime = 61000;
     intervalCallback();
     expect(fixture.warning.hidden).toBe(false);
-    expect(fixture.timeNode.textContent).toBe("5min 00s");
+    expect(fixture.timeNode.textContent).toBe("7h 58min 59s");
 
-    currentTime = 361000;
+    currentTime = 8 * 60 * 60 * 1000;
     intervalCallback();
     expect(fixture.warning.hidden).toBe(true);
     expect(fixture.timeNode.textContent).toBe("4h 00min 00s");
@@ -546,7 +546,7 @@ describe("elimination purge panel runtime", () => {
     expect(timerApi.clearInterval).not.toHaveBeenCalled();
   });
 
-  it("lets players close the warning and reopens it for the final minute", () => {
+  it("lets players close a milestone warning and reopens it at the next milestone", () => {
     const fixture = createCountdownWarningFixture();
     let currentTime = 0;
     let intervalCallback = null;
@@ -560,32 +560,32 @@ describe("elimination purge panel runtime", () => {
     };
 
     bindEliminationCountdownWarning(fixture.root, createDemoDeps({
-      initialCountdownMs: 300000,
+      initialCountdownMs: 2 * 60 * 60 * 1000 + 1000,
       resetCountdown: true,
       timerApi
     }));
 
+    expect(fixture.warning.hidden).toBe(true);
+    expect(fixture.timeNode.textContent).toBe("2h 00min 01s");
+
+    currentTime = 1000;
+    intervalCallback();
     expect(fixture.warning.hidden).toBe(false);
-    expect(fixture.timeNode.textContent).toBe("5min 00s");
+    expect(fixture.timeNode.textContent).toBe("2h 00min 00s");
 
     fixture.closeListeners.get("click")({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
     expect(fixture.warning.hidden).toBe(true);
 
-    currentTime = 239000;
-    intervalCallback();
-    expect(fixture.warning.hidden).toBe(true);
-    expect(fixture.timeNode.textContent).toBe("1min 01s");
-
-    currentTime = 240000;
+    currentTime = 60 * 60 * 1000 + 1000;
     intervalCallback();
     expect(fixture.warning.hidden).toBe(false);
-    expect(fixture.timeNode.textContent).toBe("1min 00s");
+    expect(fixture.timeNode.textContent).toBe("1h 00min 00s");
 
     fixture.closeListeners.get("click")({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
-    currentTime = 250000;
+    currentTime = 60 * 60 * 1000 + 2_000;
     intervalCallback();
     expect(fixture.warning.hidden).toBe(true);
-    expect(fixture.timeNode.textContent).toBe("50s");
+    expect(fixture.timeNode.textContent).toBe("59min 59s");
   });
 
   it("binds a body-level panel outside the game root", () => {

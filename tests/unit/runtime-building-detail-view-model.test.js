@@ -172,7 +172,7 @@ describe("building detail view-model builder", () => {
           convenienceStorePopulationPerMinute: 50 / 60
         },
         statLabels: ["Obyvatelé", "Populace / hod", "Čisté / hod", "Špinavé / hod", "Drby"],
-        mechanicLabels: ["Lokální zásobník", "Populace", "Výběr", "Drby", "Síť večerek"]
+        mechanicLabels: ["Vyrobeno", "Populace", "Výběr", "Drby", "Síť večerek"]
       },
       {
         buildingName: "Strip club",
@@ -263,9 +263,9 @@ describe("building detail view-model builder", () => {
     });
 
     expect(mechanics).toEqual([
-      { label: "Hromadné zásoby", value: "Maximální kapacita +0 ks · celkem 60 ks na položku" },
-      { label: "Taktické zásoby", value: "Maximální kapacita +0 ks · celkem 24 ks na položku" },
-      { label: "Strategické zásoby", value: "Maximální kapacita +0 ks · celkem 8 ks na položku" }
+      { label: "Hromadné zásoby", value: "Základní kapacita: 60 ks na položku" },
+      { label: "Taktické zásoby", value: "Základní kapacita: 24 ks na položku" },
+      { label: "Strategické zásoby", value: "Základní kapacita: 8 ks na položku" }
     ]);
   });
 
@@ -343,9 +343,9 @@ describe("building detail view-model builder", () => {
     });
 
     expect(mechanics).toEqual([
-      { label: "Hromadné zásoby", value: "Maximální kapacita +40 ks · celkem 100 ks na položku" },
-      { label: "Taktické zásoby", value: "Maximální kapacita +0 ks · celkem 24 ks na položku" },
-      { label: "Strategické zásoby", value: "Maximální kapacita +0 ks · celkem 8 ks na položku" }
+      { label: "Hromadné zásoby", value: "Bonus tvých skladišť: +40 ks · celkem 100 ks na položku" },
+      { label: "Taktické zásoby", value: "Základní kapacita: 24 ks na položku" },
+      { label: "Strategické zásoby", value: "Základní kapacita: 8 ks na položku" }
     ]);
   });
 
@@ -385,9 +385,9 @@ describe("building detail view-model builder", () => {
     };
 
     expect(createBuildingDetailMechanicRows({ buildingName: "Skladiště", mechanics })).toEqual([
-      { label: "Hromadné zásoby", value: "Maximální kapacita +60 ks · celkem 120 ks na položku" },
-      { label: "Taktické zásoby", value: "Maximální kapacita +0 ks · celkem 24 ks na položku" },
-      { label: "Strategické zásoby", value: "Maximální kapacita +8 ks · celkem 16 ks na položku" }
+      { label: "Hromadné zásoby", value: "Bonus tvých skladišť: +60 ks · celkem 120 ks na položku" },
+      { label: "Taktické zásoby", value: "Základní kapacita: 24 ks na položku" },
+      { label: "Strategické zásoby", value: "Bonus tvých skladišť: +8 ks · celkem 16 ks na položku" }
     ]);
   });
 
@@ -897,11 +897,11 @@ describe("building detail view-model builder", () => {
     expect(stats.find((row) => row.label === "Do naplnění")?.dynamicValue).toBe(
       BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE
     );
-    expect(mechanics.find((row) => row.label === "K výběru")?.value).toBe("4/12");
-    expect(mechanics.find((row) => row.label === "K výběru")?.dynamicValue).toBe(
+    expect(mechanics.find((row) => row.label === "Vyrobeno")?.value).toBe("4/12");
+    expect(mechanics.find((row) => row.label === "Vyrobeno")?.dynamicValue).toBe(
       BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE
     );
-    expect(mechanics.find((row) => row.label === "K výběru")?.dynamicStaticCapacity).toBe(12);
+    expect(mechanics.find((row) => row.label === "Vyrobeno")?.dynamicStaticCapacity).toBe(12);
     expect(mechanics.find((row) => row.label === "Produkce")?.dynamicValue).toBeUndefined();
     expect(mechanics.find((row) => row.label === "Síť škol")?.dynamicValue).toBeUndefined();
     expect(mechanics.find((row) => row.label === "Večerní kurz")?.value).toBe("zrychlí nábor členů v bytových blocích");
@@ -927,7 +927,7 @@ describe("building detail view-model builder", () => {
     {
       buildingName: "Večerka",
       bufferLabel: "Obyvatelé",
-      mechanicLabel: "Lokální zásobník",
+      mechanicLabel: "Vyrobeno",
       mechanics: {
         ...baseMechanics,
         mechanicsType: "convenience-store",
@@ -1870,7 +1870,7 @@ describe("building detail view-model builder", () => {
     expect(model.upgrade.visible).toBe(false);
     expect(model.upgrade.disabled).toBe(true);
     expect(model.stats.map((row) => row.label)).toEqual(["Clean / min", "Heat / min", "Garáže", "Cooldowny"]);
-    expect(model.mechanics.find((row) => row.label === "Síť garáží")?.value).toBe("Každá další garáž zvedá čistý výnos o +6 % a heat o +4 %.");
+    expect(model.mechanics.find((row) => row.label === "Síť garáží")?.value).toBe("clean výnos +6 % · heat +4 %");
     const fullCooldownBonus = model.mechanics.find((row) => row.label === "Plný cooldown bonus")?.value || "";
     expect(fullCooldownBonus).toBe("Nejvíc zkracuje útoky, obsazení districtů a district loupeže.");
     expect(fullCooldownBonus).not.toContain("pohyb gangu");
@@ -2429,8 +2429,8 @@ describe("building detail view-model builder", () => {
     expect(rows).toEqual([
       { label: "Denní praní", value: "Výhodný kurz funguje jen přes den a vypere část aktuálního dirty cash." },
       { label: "Limit směny", value: "Základ je 16 % dirty cash, síť směnáren zvedá strop na $7800." },
-      { label: "Síť směnáren", value: "Více směnáren zvedá výnos o +24 % a limit praní o +30 %." },
-      { label: "Riziko kontroly", value: "12 % audit risk · heat sítě +12 %" }
+      { label: "Síť směnáren", value: "výnos +24 % · limit praní +30 % · heat +12 %" },
+      { label: "Riziko kontroly", value: "12 % audit risk" }
     ]);
   });
 

@@ -30,7 +30,6 @@ export * from "./map";
 export * from "./liveness";
 export * from "./market";
 export * from "./police/evaluatePolicePressure";
-export * from "./police/heatDecay";
 export * from "./police/cityHallPoliceMitigation";
 export * from "./police/policeConfig";
 export * from "./police/policeConsequenceExpiry";

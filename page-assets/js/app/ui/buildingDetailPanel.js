@@ -22,6 +22,10 @@ function createElement(scopeElement, tagName, className = "") {
 
 const BUILDING_DETAIL_SHELL_CLASS_PREFIX = "building-detail--";
 const BUILDING_DETAIL_CARD_CLASS_PREFIX = "building-detail-card--";
+const SPECIAL_PRODUCTION_BUILDING_MECHANICS = new Set([
+  "drug-lab", "factory", "armory", "pharmacy", "warehouse", "power-plant",
+  "recycling-center", "smuggling-tunnel", "street-dealers"
+]);
 const AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN = "[0-9](?:[0-9.,\\u00a0\\u202f ]*[0-9])?";
 const AUTHORITY_DYNAMIC_CASH_RATE_PATTERN = new RegExp(
   `^((Clean|Dirty) cash\\s+[+-]?\\$)(${AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN})(\\/hod)$`,
@@ -1275,8 +1279,11 @@ export function renderBuildingDetailPanel(buildingViewModel = {}, callbacks = {}
   const mechanicsType = syncBuildingDetailIdentityHooks(shell, card, rawMechanicsType);
   const layout = buildingViewModel.layout || resolveBuildingDetailLayout(mechanicsType);
   const useSinglePanelLayout = layout === BUILDING_DETAIL_LAYOUTS.singlePanel;
+  const isStandardBuildingDetail = !SPECIAL_PRODUCTION_BUILDING_MECHANICS.has(mechanicsType);
   shell.dataset.buildingDetailLayout = layout;
   if (card instanceof HTMLElement) card.dataset.buildingDetailLayout = layout;
+  shell.classList.toggle("is-standard-building-detail", isStandardBuildingDetail);
+  card?.classList?.toggle?.("is-standard-building-detail", isStandardBuildingDetail);
   const convenienceStoreIsFull = mechanicsType === "convenience-store" && buildingViewModel.convenienceStoreIsFull === true;
   shell.classList.toggle("is-convenience-store-full", convenienceStoreIsFull);
   card?.classList?.toggle?.("is-convenience-store-full", convenienceStoreIsFull);

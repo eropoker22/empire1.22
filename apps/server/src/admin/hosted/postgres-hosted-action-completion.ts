@@ -60,15 +60,12 @@ export const completePostgresHostedActionInTransaction = async (
   const readyMemberships = input.request.action === "start"
     ? await listHostedReadyMemberships(client, server.serverInstanceId, { lockRows: true }) : [];
   let baselinePlayers: number | undefined;
-  const startNeedsFreeze = input.request.action === "start" && !server.registrationClosedAt
-    && Boolean(server.registrationClosesAt)
-    && Date.parse(authoritativeNow) >= Date.parse(server.registrationClosesAt!);
-  if (input.request.action === "close-registration-now" || startNeedsFreeze) {
+  if (input.request.action === "close-registration-now") {
     await lockHostedMembershipRows(client, server.serverInstanceId);
     baselinePlayers = await countHostedRegistrationBaselinePlayers(
       client,
       server.serverInstanceId,
-      startNeedsFreeze ? server.registrationClosesAt! : authoritativeNow
+      authoritativeNow
     );
   }
   const decision = resolveHostedLifecycleActionCompletion({

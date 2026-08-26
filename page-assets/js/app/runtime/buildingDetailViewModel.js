@@ -199,9 +199,18 @@ function createWarehouseCapacityMechanics(mechanics = {}) {
     const capacityIncrease = Math.max(0, currentCapacity - baseCapacity);
     return createMechanic(
       config.label,
-      `Maximální kapacita +${capacityIncrease} ks · celkem ${currentCapacity} ks na položku`
+      capacityIncrease > 0
+        ? `Bonus tvých skladišť: +${capacityIncrease} ks · celkem ${currentCapacity} ks na položku`
+        : `Základní kapacita: ${currentCapacity} ks na položku`
     );
   });
+}
+
+function createActiveNetworkDescription(network = {}, metrics = [], inactiveLabel = "Postav další budovu pro síťový bonus.") {
+  const active = metrics
+    .filter(([key]) => isActiveNetworkMultiplier(network?.[key]))
+    .map(([key, label]) => `${label} ${formatMultiplierIncreasePercent(network[key])}`);
+  return active.length > 0 ? active.join(" · ") : inactiveLabel;
 }
 
 function resolveWarehouseCapacityTone(used = 0, capacity = 0) {
@@ -1258,10 +1267,16 @@ export function createBuildingDetailStatRows({
         createStat("Heat / min", `+${(0.06 * mechanics.warehouseNetwork.heatMultiplier).toFixed(3)}`),
         createStat("Síť skladišť", String(summary.ownedWarehouseCount)),
         createStat("Nejvyšší level", `L${summary.highestWarehouseLevel}`),
-        createStat("Bonus sítě", `x${Number(summary.warehouseCountMultiplier || 1).toFixed(2)}`),
-        createStat("Bonus levelu", `x${Number(summary.warehouseLevelMultiplier || 1).toFixed(2)}`),
-        createStat("Celkový násobitel", `x${Number(summary.totalCapacityMultiplier || 1).toFixed(2)}`),
-        ...storage.groups.map((group) => createStat(group.label, `${group.currentCapacity} ks na položku`)),
+        createStat("Bonus sítě", createActiveNetworkDescription({ capacity: summary.warehouseCountMultiplier }, [["capacity", "kapacita"]], "Další skladiště odemkne síťový bonus.")),
+        createStat("Bonus levelu", Number(summary.warehouseLevelMultiplier || 1) > 1 ? `kapacita ${formatMultiplierIncreasePercent(summary.warehouseLevelMultiplier)}` : "Vyšší level odemkne bonus kapacity."),
+        createStat("Celková kapacita", Number(summary.totalCapacityMultiplier || 1) > 1 ? `kapacita ${formatMultiplierIncreasePercent(summary.totalCapacityMultiplier)}` : "Zatím základní kapacita."),
+        ...storage.groups.map((group) => {
+          const capacityIncrease = Math.max(0, Number(group.currentCapacity || 0) - Number(group.baseCapacity || 0));
+          return createStat(group.label, capacityIncrease > 0
+            ? `+${capacityIncrease} ks ze skladišť · celkem ${group.currentCapacity} ks`
+            : `základní kapacita ${group.currentCapacity} ks`
+          );
+        }),
         createStat("Akce", "Žádné")
       );
     } else {
@@ -1292,7 +1307,7 @@ export function createBuildingDetailStatRows({
       createStat("Clean / min", `+${formatDistrictBuildingMoney(mechanics.cleanHourly / 60)}`),
       createStat("Heat / min", `+${(mechanics.dailyHeat / 1440).toFixed(3)}`),
       createStat("Počet", `${mechanics.ownedRecruitmentCenters || 0}/${RECRUITMENT_CENTER_SUPPORT_CONFIG.countOnMap}`),
-      createStat("Síť", `income ${formatMultiplierIncreasePercent(network.incomeMultiplier || 1)} · heat ${formatMultiplierIncreasePercent(network.heatMultiplier || 1)}`),
+      createStat("Síť", createActiveNetworkDescription(network, [["incomeMultiplier", "income"], ["heatMultiplier", "heat"]], "Další centrum odemkne síťový bonus.")),
       createStat("Population", `+${Math.max(0, Number(support.populationProductionBonusPct || 0))}% / cap +${Math.max(0, Number(support.apartmentCapacityBonusPct || 0))}%`),
       createStat("Boj", `útok +${Math.max(0, Number(support.attackWeaponStrengthBonusPct || 0))}% · obrana +${Math.max(0, Number(support.defenseItemStrengthBonusPct || 0))}%`)
     );
@@ -1307,8 +1322,8 @@ export function createBuildingDetailStatRows({
     statRows.splice(0, statRows.length,
       createStat("Market", `${mechanics.shoppingMallMarketDiscount.discountPct}% běžný / ${mechanics.shoppingMallBlackMarketDiscount.discountPct}% černý`),
       createStat("Poplatky", `${mechanics.shoppingMallMarketDiscount.feeReductionPct}% nižší`),
-      createStat("Výnosy", `clean ${formatMultiplierIncreasePercent(mechanics.shoppingMallNetwork.cleanIncomeMultiplier)} / dirty ${formatMultiplierIncreasePercent(mechanics.shoppingMallNetwork.dirtyIncomeMultiplier)}`),
-      createStat("Vliv a heat", `vliv ${formatMultiplierIncreasePercent(mechanics.shoppingMallNetwork.influenceMultiplier)} / heat ${formatMultiplierIncreasePercent(mechanics.shoppingMallNetwork.heatMultiplier)}`)
+      createStat("Síť výnosů", createActiveNetworkDescription(mechanics.shoppingMallNetwork, [["cleanIncomeMultiplier", "clean"], ["dirtyIncomeMultiplier", "dirty"]], "Další centrum odemkne síťový bonus výnosů.")),
+      createStat("Síť vlivu", createActiveNetworkDescription(mechanics.shoppingMallNetwork, [["influenceMultiplier", "vliv"], ["heatMultiplier", "heat"]], "Další centrum odemkne síťový bonus vlivu a heatu."))
     );
   } else if (mechanics.mechanicsType === "auto-salon" || buildingKey === "autosalon") {
     const network = mechanics.autoSalonNetwork || {};
@@ -1368,13 +1383,16 @@ export function createBuildingDetailStatRows({
     }
   } else if (mechanics.mechanicsType === "power-plant" || buildingKey === "energeticka stanice") {
     const network = mechanics.powerStationNetwork || {};
+    const infrastructureBonusPct = Math.max(0, Number(network.infrastructureBonusPct || 0));
+    const cameraBonusPct = Math.max(0, Number(network.cameraStrengthBonusPct || 0));
+    const alarmBonusPct = Math.max(0, Number(network.alarmStrengthBonusPct || 0));
     statRows.splice(0, statRows.length,
       createStat("Čisté / hod", `+${formatDistrictBuildingMoney(mechanics.cleanHourly)}`),
       createStat("Špinavé / hod", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly)}`),
       createStat("Heat / den", `+${formatCompactNumber(mechanics.dailyHeat)}`),
       createStat("Stanice", `${mechanics.ownedPowerStations || resolveOwnedBuildingCount(mechanics) || 0}/${POWER_STATION_CONFIG.countOnMap}`),
-      createStat("Infrastruktura", `+${formatCompactNumber(network.infrastructureBonusPct || 0)} %`),
-      createStat("Obrana", `kamery +${formatCompactNumber(network.cameraStrengthBonusPct || 0)} % · alarm +${formatCompactNumber(network.alarmStrengthBonusPct || 0)} %`),
+      createStat("Infrastruktura", infrastructureBonusPct > 0 ? `+${formatCompactNumber(infrastructureBonusPct)} %` : "Další stanice odemkne bonus infrastruktury."),
+      createStat("Obrana", cameraBonusPct > 0 || alarmBonusPct > 0 ? `kamery +${formatCompactNumber(cameraBonusPct)} % · alarm +${formatCompactNumber(alarmBonusPct)} %` : "Další stanice odemkne obranný bonus."),
       createStat("Záložní síť", mechanics.powerStationBackupActive ? formatDistrictBuildingCooldown(mechanics.powerStationBackupRemainingMs) : "Neaktivní")
     );
   } else if (mechanics.mechanicsType === "recycling-center" || buildingKey === "recyklacni centrum") {
@@ -1457,13 +1475,13 @@ export function createBuildingDetailMechanicRows({
   } else if (mechanics.mechanicsType === "school") {
     mechanicRows.push(
       createMechanic(
-        "K výběru",
+        "Vyrobeno",
         `${mechanics.schoolWholeStudents}/${mechanics.schoolCapacity}`,
         BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE,
         { dynamicStaticCapacity: mechanics.schoolCapacity }
       ),
       createMechanic("Produkce", `+${mechanics.schoolPopulationPerMinute.toFixed(2)} populace/min`),
-      createMechanic("Síť škol", `kapacita ${formatMultiplierIncreasePercent(mechanics.schoolNetwork.studentCapacityMultiplier)} · income ${formatMultiplierIncreasePercent(mechanics.schoolNetwork.incomeMultiplier)}`),
+      createMechanic("Síť škol", createActiveNetworkDescription(mechanics.schoolNetwork, [["studentCapacityMultiplier", "kapacita"], ["incomeMultiplier", "income"]], "Další škola odemkne síťový bonus.")),
       createMechanic("Večerní kurz", mechanics.schoolEveningCourseActive ? `bytové bloky zrychlené ${formatDistrictBuildingCooldown(mechanics.schoolEveningCourseRemainingMs)}` : "zrychlí nábor členů v bytových blocích")
     );
   } else if (mechanics.mechanicsType === "warehouse") {
@@ -1471,13 +1489,13 @@ export function createBuildingDetailMechanicRows({
   } else if (mechanics.mechanicsType === "clinic") {
     mechanicRows.push(
       createMechanic("Stabilizace", mechanics.clinicRecoveryPool.totalFreshAmount > 0 ? "připravená" : "Čeká na ztráty tvojich členů za posledních 90min"),
-      createMechanic("Síť klinik", `income ${formatMultiplierIncreasePercent(mechanics.clinicNetwork.incomeMultiplier)} · heat ${formatMultiplierIncreasePercent(mechanics.clinicNetwork.heatMultiplier)}`)
+      createMechanic("Síť klinik", createActiveNetworkDescription(mechanics.clinicNetwork, [["incomeMultiplier", "income"], ["heatMultiplier", "heat"]], "Další klinika odemkne síťový bonus."))
     );
   } else if (mechanics.mechanicsType === "recruitment-center") {
     return mechanicRows;
   } else if (mechanics.mechanicsType === "garage") {
     mechanicRows.push(
-      createMechanic("Síť garáží", `Každá další garáž zvedá čistý výnos o ${formatMultiplierIncreasePercent(mechanics.garageNetwork.incomeMultiplier)} a heat o ${formatMultiplierIncreasePercent(mechanics.garageNetwork.heatMultiplier)}.`),
+      createMechanic("Síť garáží", createActiveNetworkDescription(mechanics.garageNetwork, [["incomeMultiplier", "clean výnos"], ["heatMultiplier", "heat"]], "Další garáž odemkne síťový bonus.")),
       createMechanic("Plný cooldown bonus", "Nejvíc zkracuje útoky, obsazení districtů a district loupeže."),
       createMechanic("Částečný cooldown bonus", "Menší zkrácení dostane špionáž, pasti, klinika, továrna a zbrojovka.")
     );
@@ -1486,16 +1504,15 @@ export function createBuildingDetailMechanicRows({
       createMechanicWithTone("Běžný market", `Nakupuješ levněji: ${mechanics.shoppingMallMarketDiscount.discountPct}% sleva.`, "retail-market"),
       createMechanicWithTone("Černý market", `Levnější nákupy: ${mechanics.shoppingMallBlackMarketDiscount.discountPct}% sleva.`, "retail-black-market"),
       createMechanicWithTone("Poplatky", `Market fee je nižší o ${mechanics.shoppingMallMarketDiscount.feeReductionPct}%.`, "retail-fee"),
-      createMechanicWithTone("Clean / dirty", `Výnosy: clean ${formatMultiplierIncreasePercent(mechanics.shoppingMallNetwork.cleanIncomeMultiplier)}, dirty ${formatMultiplierIncreasePercent(mechanics.shoppingMallNetwork.dirtyIncomeMultiplier)}.`, "retail-income"),
-      createMechanicWithTone("Vliv", `Pasivní vliv ${formatMultiplierIncreasePercent(mechanics.shoppingMallNetwork.influenceMultiplier)}.`, "retail-influence"),
-      createMechanicWithTone("Heat", `Pasivní heat ${formatMultiplierIncreasePercent(mechanics.shoppingMallNetwork.heatMultiplier)}.`, "retail-heat")
+      createMechanicWithTone("Síť výnosů", createActiveNetworkDescription(mechanics.shoppingMallNetwork, [["cleanIncomeMultiplier", "clean"], ["dirtyIncomeMultiplier", "dirty"]], "Další centrum odemkne síťový bonus výnosů."), "retail-income"),
+      createMechanicWithTone("Síť vlivu", createActiveNetworkDescription(mechanics.shoppingMallNetwork, [["influenceMultiplier", "vliv"], ["heatMultiplier", "heat"]], "Další centrum odemkne síťový bonus vlivu a heatu."), "retail-influence")
     );
   } else if (mechanics.mechanicsType === "auto-salon" || buildingKey === "autosalon") {
     mechanicRows.push(
       createMechanic("Rychlejší akce", `Zkracuje Vykrást district, Obsazení districtu a přípravu útoku o ${mechanics.autoSalonSupport.cooldownReductionPct}%.`),
       createMechanic("Podpora zázemí", "Menší zkrácení dostane Stabilizační protokol v Klinice a Vytěžit ztráty v Recyklaci."),
       createMechanic("Únik po failu", `Při neúspěšném útoku přidá +${mechanics.autoSalonSupport.escapeChanceBonusPct}% k šanci, že gang sníží dopad ztrát.`),
-      createMechanic("Síť autosalonů", `Další autosalony zvedají clean ${formatMultiplierIncreasePercent(mechanics.autoSalonNetwork.cleanIncomeMultiplier)}, dirty ${formatMultiplierIncreasePercent(mechanics.autoSalonNetwork.dirtyIncomeMultiplier)} a heat ${formatMultiplierIncreasePercent(mechanics.autoSalonNetwork.heatMultiplier)}.`)
+      createMechanic("Síť autosalonů", createActiveNetworkDescription(mechanics.autoSalonNetwork, [["cleanIncomeMultiplier", "clean"], ["dirtyIncomeMultiplier", "dirty"], ["heatMultiplier", "heat"]], "Další autosalon odemkne síťový bonus."))
     );
   } else if (mechanics.mechanicsType === "fitness-club" || buildingKey === "fitness club") {
     mechanicRows.push(
@@ -1526,13 +1543,14 @@ export function createBuildingDetailMechanicRows({
     mechanicRows.push(
       createMechanic("Denní praní", "Výhodný kurz funguje jen přes den a vypere část aktuálního dirty cash."),
       createMechanic("Limit směny", `Základ je 16 % dirty cash, síť směnáren zvedá strop na ${formatDistrictBuildingMoney(mechanics.exchangeLaunderingCapacity)}.`),
-      createMechanic("Síť směnáren", `Více směnáren zvedá výnos o ${formatMultiplierIncreasePercent(mechanics.exchangeNetwork.incomeMultiplier)} a limit praní o ${formatMultiplierIncreasePercent(mechanics.exchangeNetwork.launderingLimitMultiplier)}.`),
-      createMechanic("Riziko kontroly", `${mechanics.exchangeAuditRisk} audit risk · heat sítě ${formatMultiplierIncreasePercent(mechanics.exchangeNetwork.heatMultiplier)}`)
+      createMechanic("Síť směnáren", createActiveNetworkDescription(mechanics.exchangeNetwork, [["incomeMultiplier", "výnos"], ["launderingLimitMultiplier", "limit praní"], ["heatMultiplier", "heat"]], "Další směnárna odemkne síťový bonus.")),
+      createMechanic("Riziko kontroly", `${mechanics.exchangeAuditRisk} audit risk`)
     );
   } else if (mechanics.mechanicsType === "power-plant" || buildingKey === "energeticka stanice") {
     const network = mechanics.powerStationNetwork || {};
+    const infrastructureBonusPct = Math.max(0, Number(network.infrastructureBonusPct || 0));
     mechanicRows.push(
-      createMechanic("Infrastruktura", `Pasivně posiluje rychlost výroby, kliniky a vybrané cash budovy o +${formatCompactNumber(network.infrastructureBonusPct || 0)} %.`),
+      createMechanic("Infrastruktura", infrastructureBonusPct > 0 ? `Pasivně posiluje rychlost výroby, kliniky a vybrané cash budovy o +${formatCompactNumber(infrastructureBonusPct)} %.` : "Další stanice odemkne reálný bonus infrastruktury."),
       createMechanic("Záložní síť", `Za ${formatDistrictBuildingMoney(POWER_STATION_CONFIG.backupGridSwitch.cleanCost)} clean dočasně posílí infrastrukturu a obranu.`),
       createMechanic("Napájet výrobu", "Okamžitě přidá $2000 clean a $500 dirty. Heat +10."),
       createMechanic("Snížit heat", `Za ${formatDistrictBuildingMoney(POWER_STATION_CONFIG.reduceHeat.cleanCost)} clean okamžitě stáhne heat districtu o ${POWER_STATION_CONFIG.reduceHeat.heatReduction}.`)
@@ -1543,7 +1561,7 @@ export function createBuildingDetailMechanicRows({
     mechanicRows.push(
       createMechanic("Vytěžit ztráty", `Vrátí ${formatCompactNumber(mechanics.recyclingSalvageRatePct || 0)} % čerstvých itemových ztrát.`),
       createMechanic("Ztráty", salvagePool.totalFreshAmount > 0 ? `${salvagePool.totalFreshAmount} itemů čeká na vytěžení.` : "Čeká na ztráty materiálu, modulů nebo výbavy."),
-      createMechanic("Síť center", `Více center zvedá clean ${formatMultiplierIncreasePercent(network.incomeMultiplier)} a heat ${formatMultiplierIncreasePercent(network.heatMultiplier)}.`),
+      createMechanic("Síť center", createActiveNetworkDescription(network, [["incomeMultiplier", "clean"], ["heatMultiplier", "heat"]], "Další centrum odemkne síťový bonus.")),
       createMechanic("Riziko", `Akce stojí ${formatDistrictBuildingMoney(RECYCLING_CENTER_CONFIG.extractLosses.cleanCost)} clean a přidá heat +${RECYCLING_CENTER_CONFIG.extractLosses.heatGain}.`)
     );
   } else if (mechanics.mechanicsType === "street-dealers" || buildingKey === "poulicni dealeri") {
@@ -1557,7 +1575,7 @@ export function createBuildingDetailMechanicRows({
     const collectablePopulation = Math.max(0, Math.floor(Number(mechanics.convenienceStoreWholePopulation || 0)));
     mechanicRows.push(
       createMechanicWithTone(
-        "Lokální zásobník",
+        "Vyrobeno",
         `${mechanics.convenienceStoreWholePopulation}/${mechanics.convenienceStoreCapacity}`,
         collectablePopulation >= 30 ? "collect-ready" : "collect-pending",
         BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE,
@@ -1584,7 +1602,7 @@ export function createBuildingDetailMechanicRows({
     );
   } else if (mechanics.mechanicsType === "arcade") {
     mechanicRows.push(
-      createMechanic("Síť heren", `Další Herny: příjem ${formatMultiplierIncreasePercent(mechanics.arcadeNetwork.incomeMultiplier)} · limit praní ${formatMultiplierIncreasePercent(mechanics.arcadeNetwork.launderingLimitMultiplier)}.`),
+      createMechanic("Síť heren", createActiveNetworkDescription(mechanics.arcadeNetwork, [["incomeMultiplier", "příjem"], ["launderingLimitMultiplier", "limit praní"]], "Další herna odemkne síťový bonus.")),
       createMechanic("Noční automaty", "V noci dočasně zvýší příjem, vliv, heat a riziko kontroly."),
       createMechanic("Zadní pokladna", "Vypere část špinavých peněz za menší poplatek."),
       createMechanic("Riziko", `Riziko kontroly: ${mechanics.arcadeAuditRisk} · speciální akce přidávají heat.`)

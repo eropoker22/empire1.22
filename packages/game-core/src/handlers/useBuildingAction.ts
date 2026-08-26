@@ -45,6 +45,12 @@ import {
   resolveNormalizedPlayerResourceState
 } from "./buildingActionStorage";
 
+const IMMEDIATE_COLLECTION_ACTION_IDS = new Set([
+  "collect_population",
+  "collect_convenience_store_population",
+  "collect_school_population"
+]);
+
 /**
  * Responsibility: Placeholder handler for building-specific actions.
  * Belongs here: server-side orchestration for building action commands.
@@ -232,12 +238,17 @@ export const handleUseBuildingAction = (
     buildingTypeId: building.buildingTypeId,
     context
   });
+  // Collection is committed in this state transition. Keep it unavailable for
+  // the remainder of the tick so a second request cannot consume the same buffer.
+  const committedCooldownTicks = IMMEDIATE_COLLECTION_ACTION_IDS.has(resolvedAction.actionId)
+    ? Math.max(1, cooldownTicks)
+    : cooldownTicks;
   const nextBuilding = {
     ...building,
     metadata: specialResolution?.buildingMetadata ?? building.metadata,
     actionCooldowns: {
       ...(building.actionCooldowns ?? {}),
-      [resolvedAction.actionId]: state.root.tick + cooldownTicks
+      [resolvedAction.actionId]: state.root.tick + committedCooldownTicks
     },
     version: building.version + 1
   };

@@ -20,9 +20,12 @@ export const resolveEffectiveFirstEliminationTick = (
   const pacingState = state.serverPacingState;
   if (!pacingState) return canonicalTick;
   if (pacingState.eliminationEnabled !== true) return null;
-  if (!hasClosedRegistration(pacingState.registrationClosedAt)) return null;
 
   const hostedTick = normalizeNonNegativeInteger(pacingState.effectiveFirstEliminationTick);
+  // Admin start explicitly arms Očista. It is independent from registration,
+  // which may remain open while the match is already running.
+  if (hostedTick !== null) return canonicalTick === null ? hostedTick : Math.max(canonicalTick, hostedTick);
+  if (!hasClosedRegistration(pacingState.registrationClosedAt)) return null;
   if (canonicalTick === null) return hostedTick ?? 0;
   return Math.max(canonicalTick, hostedTick ?? canonicalTick);
 };
@@ -35,7 +38,9 @@ export const resolveEffectiveEliminationMinimumPlayers = (
   if (canonicalMinimum === null) return null;
   if (!state.serverPacingState) return canonicalMinimum;
   if (state.serverPacingState.eliminationEnabled !== true) return null;
-  if (!hasClosedRegistration(state.serverPacingState.registrationClosedAt)) return null;
+  // Before registration closes, use the regular Očista population threshold.
+  // The roster-specific final-lockdown threshold is only chosen at closure.
+  if (!hasClosedRegistration(state.serverPacingState.registrationClosedAt)) return canonicalMinimum;
   if (!config.balance.finalLockdown?.enabled) return canonicalMinimum;
   return resolveEffectiveFinalLockdownTrigger(state, config);
 };
@@ -66,6 +71,7 @@ const normalizePositiveInteger = (value: number | null | undefined): number | nu
 };
 
 const normalizeNonNegativeInteger = (value: number | null | undefined): number | null => {
+  if (value === null || value === undefined) return null;
   const normalized = Math.floor(Number(value));
   return Number.isFinite(normalized) && normalized >= 0 ? normalized : null;
 };

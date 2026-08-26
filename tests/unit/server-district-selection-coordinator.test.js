@@ -204,6 +204,58 @@ describe("server district selection coordinator", () => {
     expect(onReady).toHaveBeenCalledOnce();
   });
 
+  it("reopens a recently visited district from its authoritative detail cache", async () => {
+    let currentReadModel = readModel("district:21");
+    const selectDistrict = vi.fn(async (districtId) => {
+      currentReadModel = readModel(districtId);
+      return { accepted: true, readModel: currentReadModel };
+    });
+    const coordinator = createServerDistrictSelectionCoordinator({
+      getReadModel: () => currentReadModel,
+      selectDistrict,
+      cacheTtlMs: 20_000,
+      now: () => 1_000
+    });
+
+    await coordinator.open({ district: { id: 22 } });
+    await coordinator.open({ district: { id: 66 } });
+    const reopened = await coordinator.open({ district: { id: 22 } });
+
+    expect(reopened).toMatchObject({
+      accepted: true,
+      canonicalDistrictId: "district:22",
+      cached: true
+    });
+    expect(selectDistrict).toHaveBeenCalledTimes(2);
+  });
+
+  it("shares one in-flight server load when the same district is tapped twice", async () => {
+    let resolveSelection;
+    const selectDistrict = vi.fn(() => new Promise((resolve) => {
+      resolveSelection = resolve;
+    }));
+    const onLoading = vi.fn();
+    const coordinator = createServerDistrictSelectionCoordinator({
+      selectDistrict,
+      onLoading
+    });
+
+    const firstOpen = coordinator.open({ district: { id: 22 } });
+    const secondOpen = coordinator.open({ district: { id: 22 } });
+
+    expect(selectDistrict).toHaveBeenCalledOnce();
+    expect(onLoading).toHaveBeenCalledOnce();
+
+    resolveSelection({
+      accepted: true,
+      readModel: readModel("district:22")
+    });
+
+    const [firstResult, secondResult] = await Promise.all([firstOpen, secondOpen]);
+    expect(firstResult).toMatchObject({ accepted: true, canonicalDistrictId: "district:22" });
+    expect(secondResult).toBe(firstResult);
+  });
+
   it("maps shared Czech production labels without guessing a different district", () => {
     const buildings = [
       { buildingId: "p", buildingTypeId: "pharmacy", label: "Lékárna" },

@@ -264,7 +264,7 @@ describe("hosted server control plane", () => {
     expect((await expired.availability()).registrationEnabled).toBe(false);
   });
 
-  it("snapshots the explicit control/full template without exposing elimination balance", async () => {
+  it("snapshots the flexible/full template without exposing raw elimination balance", async () => {
     const { repositories, service } = await setup();
     const control = await service.createServer({ session: owner,
       payload: { ...validRequest, serverTemplate: "control", capacity: 2 },
@@ -276,8 +276,8 @@ describe("hosted server control plane", () => {
       capacity: 2,
       minimumReadyPlayersToStart: 1,
       registrationWindowMinutes: 60,
-      canonicalFirstEliminationTick: null,
-      canonicalTickRateMs: null
+      canonicalFirstEliminationTick: 2_880,
+      canonicalTickRateMs: 10_000
     });
     expect((await service.createServer({ session: owner,
       payload: { ...validRequest, serverTemplate: "full", capacity: 2 },

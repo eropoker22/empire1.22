@@ -74,9 +74,9 @@ check(text("apps/server/src/admin/hosted/hosted-control-plane-service.ts").inclu
 check(text("apps/server/src/runtime/persistence/postgres/migrations/007_hosted_server_control_plane.sql").includes("status <> 'running'"), "running status must require a lease invariant");
 check(lifecyclePolicy.includes("minimumReadyPlayersToStart: 1") && lifecyclePolicy.includes("registrationWindowMs: 60 * 60 * 1000"),
   "hosted Free lifecycle must keep the single-player start and one-hour window canonical");
-check(lifecyclePolicy.includes('control: Object.freeze({') && lifecyclePolicy.includes("eliminationEnabled: false")
-  && lifecyclePolicy.includes('full: Object.freeze({') && lifecyclePolicy.includes("eliminationEnabled: true"),
-  "control and full server templates must explicitly separate elimination policy");
+check(lifecyclePolicy.includes('control: Object.freeze({')
+  && (lifecyclePolicy.match(/eliminationEnabled: true/gu) ?? []).length >= 2,
+  "flexible and full server templates must both arm elimination on Start");
 check(controlPlanePolicy.includes("CREATE_KEYS") && !controlPlanePolicy.match(/CREATE_KEYS[^;]+registrationClosesAt/us),
   "browser create payload must not control registrationClosesAt");
 check(controlPlanePolicy.includes("resolveModeConfig(mode)") && controlPlanePolicy.includes("config.balance.maxPlayersPerServer"),

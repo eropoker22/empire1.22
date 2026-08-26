@@ -92,6 +92,31 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
     expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(1027.5);
   });
 
+  it("applies owned-district population, influence, and heat modifiers to their canonical resources", () => {
+    const state = createCoreStateFixture();
+    state.playersById["player:1"] = {
+      ...state.playersById["player:1"],
+      population: 20
+    };
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      resourceModifiers: {
+        population: 0.5,
+        influence: 1.25,
+        heat: 2
+      }
+    };
+
+    const result = runTick(state, { config: resolveModeConfig("free") }).nextState;
+
+    expect(result.playersById["player:1"].population).toBeCloseTo(20.5);
+    expect(result.resourceStatesById["resource:1"].balances["gang-members"]).toBeCloseTo(0.5);
+    expect(result.districtsById["district:1"].influence).toBeGreaterThan(0);
+    expect(result.districtsById["district:1"].heat).toBeGreaterThan(0);
+    expect(result.resourceStatesById["resource:1"].balances.influence).toBeUndefined();
+    expect(result.resourceStatesById["resource:1"].balances.heat).toBeUndefined();
+  });
+
   it("tracks heat server-side and flags police raid pressure at threshold", () => {
     const state = createCoreStateFixture();
     const context = {

@@ -13,7 +13,7 @@ describe("mobile game UI overrides", () => {
   const serverCooldownStreetNews = read("page-assets/js/app/runtime/serverCooldownStreetNews.js");
   const mobileLayoutRuntime = read("page-assets/js/app/mobile-layout-runtime.js");
 
-  it("keeps Buildings transparent black and production buildings full-height only on phones", () => {
+  it("keeps Buildings transparent black and production buildings inside a dimmed phone safe area", () => {
     const mobileBlockStart = css.indexOf("/* Buildings: transparent black mobile glass");
     const mobileBlockEnd = css.indexOf("/* Factory metrics keep each label", mobileBlockStart);
     const mobileBlock = css.slice(mobileBlockStart, mobileBlockEnd);
@@ -27,6 +27,15 @@ describe("mobile game UI overrides", () => {
     expect(mobileBlock).toContain(".factory-popup-shell");
     expect(mobileBlock).toContain(".armory-popup-shell");
     expect(mobileBlock).toContain("height: var(--mobile-locked-vh, 100svh) !important;");
+
+    const safeAreaStart = css.indexOf("/* Final phone production-building safe area");
+    const safeAreaBlock = css.slice(safeAreaStart);
+    expect(safeAreaStart).toBeGreaterThan(-1);
+    expect(safeAreaBlock).toContain("--production-building-phone-top: max(18px, env(safe-area-inset-top));");
+    expect(safeAreaBlock).toContain("--production-building-phone-bottom: max(18px, env(safe-area-inset-bottom));");
+    expect(safeAreaBlock).toContain("background: rgba(1, 4, 10, 0.88) !important;");
+    expect(safeAreaBlock).toContain('.district-building-detail-shell[data-building-mechanics-type="drug-lab"]');
+    expect(safeAreaBlock).toContain("height: calc(var(--mobile-locked-vh, 100svh) - var(--production-building-phone-top) - var(--production-building-phone-bottom)) !important;");
   });
 
   it("keeps spy resources visible and factory metric values right-aligned", () => {

@@ -27,7 +27,7 @@ export const FREE_HOSTED_SERVER_LIFECYCLE_POLICY = Object.freeze({
 export const FREE_HOSTED_SERVER_TEMPLATE_POLICIES = Object.freeze({
   control: Object.freeze({
     template: "control",
-    eliminationEnabled: false,
+    eliminationEnabled: true,
     capacityPolicy: "configurable"
   }),
   full: Object.freeze({

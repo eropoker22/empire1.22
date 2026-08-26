@@ -667,7 +667,7 @@ describe("shared building presentation adapters", () => {
       expect.arrayContaining(["0/50", "Populace +2.00/min", "Naplnění za 24m 50s"])
     );
     expect(convenience.viewModel.mechanics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ label: "Lokální zásobník", value: "0/50" }),
+      expect.objectContaining({ label: "Vyrobeno", value: "0/50" }),
       expect.objectContaining({ label: "Populace", value: "+50 obyv./hod" })
     ]));
     expect(convenience.viewModel.effects.map((effect) => effect.text)).toContain(
@@ -884,7 +884,7 @@ describe("shared building presentation adapters", () => {
     }));
     expect(recyclingCenter.viewModel.mechanics).toContainEqual(expect.objectContaining({
       label: "Síť center",
-      value: "Více center zvedá clean +4 % a heat +0 %."
+      value: "clean +4 %"
     }));
     expect(recyclingCenter.viewModel.actions[0].disabledReason).toBe(
       "Nemáš žádné ztráty k vytěžení."
@@ -1082,13 +1082,13 @@ describe("shared building presentation adapters", () => {
     expect(warehouse.viewModel.countLabel).toBe("Počet: 2");
     expect(warehouse.viewModel.stats).toEqual(expect.arrayContaining([
       { label: "Síť skladišť", value: "2" },
-      { label: "Celkový násobitel", value: "x1.79" },
-      { label: "Hromadné zásoby", value: "108 ks na položku" }
+      { label: "Celková kapacita", value: "kapacita +79 %" },
+      { label: "Hromadné zásoby", value: "+48 ks ze skladišť · celkem 108 ks" }
     ]));
     expect(warehouse.viewModel.mechanics).toEqual([
-      { label: "Hromadné zásoby", value: "Maximální kapacita +48 ks · celkem 108 ks na položku" },
-      { label: "Taktické zásoby", value: "Maximální kapacita +0 ks · celkem 24 ks na položku" },
-      { label: "Strategické zásoby", value: "Maximální kapacita +0 ks · celkem 8 ks na položku" }
+      { label: "Hromadné zásoby", value: "Bonus tvých skladišť: +48 ks · celkem 108 ks na položku" },
+      { label: "Taktické zásoby", value: "Základní kapacita: 24 ks na položku" },
+      { label: "Strategické zásoby", value: "Základní kapacita: 8 ks na položku" }
     ]);
     expect(warehouse.viewModel.effects.map((effect) => effect.text)).toContain(
       "Síť skladišť zvyšuje Income +4 %, kapacitu +79 % i Heat +3 %."

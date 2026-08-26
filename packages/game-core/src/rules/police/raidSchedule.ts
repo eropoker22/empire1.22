@@ -9,7 +9,7 @@ import {
 
 const RAID_SCHEDULE = Object.freeze([
   Object.freeze({ hour: 6, minute: 0 }),
-  Object.freeze({ hour: 12, minute: 30 }),
+  Object.freeze({ hour: 12, minute: 0 }),
   Object.freeze({ hour: 22, minute: 0 })
 ]);
 

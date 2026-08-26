@@ -15,21 +15,9 @@ export const createGameplaySliceMapFingerprints = (gameplaySlice = null) => {
         ownerPlayerId: district?.ownerPlayerId || "",
         ownerColor: district?.ownerColor || "",
         intelKnown: district?.intelKnown === true,
-        name: district?.name || "",
         zone: district?.zone || "",
         status: district?.status || "",
-        heat: Number(district?.heat || 0),
-        influence: Number(district?.influence || 0),
-        defense: district?.defense || null,
-        protection: district?.protection || null,
-        allianceId: district?.allianceId || null,
-        buildingState: Array.isArray(district?.buildings)
-          ? district.buildings.map((building) => [
-              building?.buildingId || building?.buildingTypeId || "",
-              building?.status || "",
-              Number(building?.level || 0)
-            ])
-          : []
+        allianceId: district?.allianceId || null
       }))
     : [];
 
@@ -43,7 +31,6 @@ export const createGameplaySliceMapFingerprints = (gameplaySlice = null) => {
       districts,
       playerColor: gameplaySlice?.player?.color || "",
       factionId: gameplaySlice?.player?.factionId || "",
-      police: gameplaySlice?.player?.police || gameplaySlice?.police || null,
       alliance: gameplaySlice?.player?.alliance || null,
       bounty: gameplaySlice?.player?.bounty || gameplaySlice?.bounty || null
     }),
@@ -73,7 +60,9 @@ export const createGameplaySliceMapFingerprints = (gameplaySlice = null) => {
         effect?.startedAt || effect?.createdAt || null,
         effect?.expiresAt || effect?.resolveAt || null
       ]),
-      police: gameplaySlice?.player?.police || gameplaySlice?.police || null
+      activeRaid: gameplaySlice?.player?.police?.activeRaid
+        || gameplaySlice?.police?.activeRaid
+        || null
     })
   };
 };

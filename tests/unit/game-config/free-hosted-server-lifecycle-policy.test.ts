@@ -17,9 +17,9 @@ describe("Free hosted server lifecycle policy", () => {
     });
   });
 
-  it("separates a small control server from a full server with elimination", () => {
+  it("enables elimination for both flexible and full hosted servers", () => {
     expect(FREE_HOSTED_SERVER_TEMPLATE_POLICIES.control).toEqual({
-      template: "control", eliminationEnabled: false, capacityPolicy: "configurable"
+      template: "control", eliminationEnabled: true, capacityPolicy: "configurable"
     });
     expect(FREE_HOSTED_SERVER_TEMPLATE_POLICIES.full).toEqual({
       template: "full", eliminationEnabled: true, capacityPolicy: "canonical_max"

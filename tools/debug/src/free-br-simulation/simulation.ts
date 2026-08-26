@@ -7,7 +7,7 @@ import {
   FREE_BR_STEP_MINUTES
 } from "./constants";
 import {
-  applyPassiveIncomeAndHeatDecay,
+  applyPassiveIncomeAndHeat,
   maybeRunPoliceRaids
 } from "./economy-actions";
 import {
@@ -126,7 +126,7 @@ export const runFreeBrSimulation = (options: FreeBrSimulationOptions = {}): Free
   recordTimelineSnapshot(state);
   while ((state.tick < maxTicks || isFinalLockdownRunning(state)) && state.tick < simulationStopTick && !state.winner && !state.hardTimeoutReached) {
     state.tick += stepTicks;
-    applyPassiveIncomeAndHeatDecay(state, stepTicks);
+    applyPassiveIncomeAndHeat(state, stepTicks);
     maybeRunAllianceStep(state, rng);
     runBotActionsForStep(state, rng);
     maybeRunPoliceRaids(state, rng);

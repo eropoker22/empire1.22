@@ -80,8 +80,8 @@ function renderFactionBenefits(faction) {
 function createBenefitsList(advantages, disadvantages) {
   const list = createElement("span", "faction-bonus__copy faction-bonus__copy--rows");
   list.append(
-    createBenefitRow("Výhody", advantages, "faction-bonus__row--advantage"),
-    createBenefitRow("Nevýhody", disadvantages, "faction-bonus__row--disadvantage")
+    createBenefitRow("Silné stránky", advantages, "faction-bonus__row--advantage"),
+    createBenefitRow("Slabiny", disadvantages, "faction-bonus__row--disadvantage")
   );
   return list;
 }

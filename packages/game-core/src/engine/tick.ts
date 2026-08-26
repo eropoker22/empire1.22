@@ -10,7 +10,6 @@ import { completeFactoryProduction } from "../rules/production/completeFactoryPr
 import { completeArmoryProduction } from "../rules/production/completeArmoryProduction";
 import { expirePlayerBoosts } from "../rules/player-boosts";
 import { releaseExpiredPoliceConsequences } from "../rules/police/policeConsequenceExpiry";
-import { applyPoliceHeatDecay } from "../rules/police/heatDecay";
 import { expirePendingRaids } from "../rules/police/raidLifecycle";
 import { triggerRaid } from "../rules/police/triggerRaid";
 import { runScheduledElimination } from "../rules/elimination/eliminationLifecycle";
@@ -101,8 +100,7 @@ export const runTick = (
   const marketState = tickMarket(centralBankState, marketNow).nextState as CoreGameState;
   const cityEventResult = completeDuePlayerCityEvents(marketState, context);
   const occupyResult = completePendingOccupations(cityEventResult.nextState, context);
-  const heatDecayState = applyPoliceHeatDecay(occupyResult.nextState, context);
-  const allianceLifecycleResult = runAllianceLifecycleScheduled(heatDecayState, context);
+  const allianceLifecycleResult = runAllianceLifecycleScheduled(occupyResult.nextState, context);
   const lifecycleResult = expirePendingRaids(allianceLifecycleResult.nextState, context);
   const policeResult = triggerRaid(lifecycleResult.nextState, context);
   const eliminationResult = runScheduledElimination(policeResult.nextState, context);

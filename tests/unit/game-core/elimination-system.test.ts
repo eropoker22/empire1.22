@@ -41,12 +41,12 @@ describe("scheduled elimination system", () => {
     expect(Object.values(result.nextState.playersById).every((player) => player.status === "active")).toBe(true);
   });
 
-  it("does not initialize or run elimination while hosted registration is open", () => {
+  it("does not initialize elimination for an open hosted registration until the admin arms Očista", () => {
     const state = createEliminationState();
     state.root.tick = FIRST_ELIMINATION_TICK + 500;
     state.serverPacingState = createHostedPacingState(state, {
       registrationClosedAt: null,
-      effectiveFirstEliminationTick: FIRST_ELIMINATION_TICK + 1_000
+      effectiveFirstEliminationTick: null
     });
 
     const result = runScheduledElimination(state, context);
@@ -58,7 +58,22 @@ describe("scheduled elimination system", () => {
     expect(model.nextEliminationTick).toBeNull();
   });
 
-  it("keeps elimination disabled for a hosted control template after close and restart", () => {
+  it("runs Očista at its armed deadline while hosted registration remains open", () => {
+    const state = createEliminationState();
+    state.root.tick = FIRST_ELIMINATION_TICK;
+    state.serverPacingState = createHostedPacingState(state, {
+      registrationClosedAt: null,
+      registrationBaselinePlayers: null,
+      effectiveFirstEliminationTick: FIRST_ELIMINATION_TICK
+    });
+
+    const result = runScheduledElimination(state, context);
+
+    expect(result.result?.eliminatedPlayerId).toBe("player:3");
+    expect(result.nextState.playersById["player:3"]?.status).toBe("defeated");
+  });
+
+  it("keeps elimination disabled when a hosted pacing record explicitly disables it", () => {
     const state = createEliminationState();
     state.root.tick = FIRST_ELIMINATION_TICK + 10_000;
     state.serverPacingState = createHostedPacingState(state, {

@@ -35,7 +35,7 @@ export const updateWizardReview = (form: HTMLFormElement): void => {
   const review = form.querySelector<HTMLElement>("[data-admin-create-review]");
   if (!review) return;
   const data = new FormData(form);
-  const serverTemplate = data.get("serverTemplate") === "full" ? "Plnohodnotný server" : "Kontrolní test";
+  const serverTemplate = data.get("serverTemplate") === "full" ? "Plnohodnotný server" : "Flexibilní server";
   const values = [
     ["Název", data.get("displayName")], ["Mode", data.get("mode")], ["Region", data.get("region")],
     ["Šablona", serverTemplate],

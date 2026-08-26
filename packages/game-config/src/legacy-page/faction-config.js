@@ -10,9 +10,9 @@ export const FACTION_CATALOG = Object.freeze({
     tagline: "Staré peníze, staré krytí.",
     description: "Stabilní ekonomika, výpalné a vliv na správných dveřích.",
     playstyleSummary: "Economy / clean cash / influence / heat control mimo obsazování",
-    advantages: ["Clean income +10 %", "-4 % heat z útoků, heistů, akcí budov a pasivního tlaku"],
-    disadvantages: ["Spy success chance -3 p. b."],
-    passiveEffectSummary: ["Clean income +10 %", "-4 % heat z útoků, heistů, akcí budov a pasivního tlaku", "Spy -3 p. b."],
+    advantages: ["Čistý příjem +10 %", "-4 % heat z útoků, loupeží, akcí budov a pasivního tlaku"],
+    disadvantages: ["Špehování -3 p. b."],
+    passiveEffectSummary: ["Čistý příjem +10 %", "-4 % heat z útoků, loupeží, akcí budov a pasivního tlaku", "Špehování -3 p. b."],
     specialAction: {
       name: "Tichá dohoda",
       description: "Mafián zatlačí na správné kontakty a na krátký čas sníží nový policejní heat ze svých akcí.",
@@ -33,22 +33,22 @@ export const FACTION_CATALOG = Object.freeze({
     description: "Kartel staví impérium na dirty cash, drogách a pašování. Vydělává rychleji z ilegálních zdrojů a jeho produkce jede tvrději než u ostatních frakcí. Každá zásilka má ale stopu: Kartel generuje víc policejního tlaku, hůř vydělává čisté peníze a při obraně území není tak pevný.",
     playstyleSummary: "Dirty cash / illegal production / drugs / smuggling / high risk economy",
     advantages: [
-      "+18 % dirty income",
+      "+18 % špinavý příjem",
       "+15 % produkce v podporovaných ilegálních budovách",
       "+10 % pašování"
     ],
     disadvantages: [
       "+15 % heat z ilegálních akcí",
-      "-8 % clean income",
-      "-5 % defense power"
+      "-8 % čistý příjem",
+      "-5 % síla obrany"
     ],
     passiveEffectSummary: [
-      "+18 % dirty income",
+      "+18 % špinavý příjem",
       "+15 % produkce v podporovaných ilegálních budovách",
       "+10 % pašování",
       "+15 % heat z ilegálních akcí",
-      "-8 % clean income",
-      "-5 % defense power"
+      "-8 % čistý příjem",
+      "-5 % síla obrany"
     ],
     specialAction: {
       name: "Noční zásilka",
@@ -80,28 +80,28 @@ export const FACTION_CATALOG = Object.freeze({
     description: "Kult roste skrz vliv, loajalitu a strach. Přitahuje víc lidí, lépe drží obsazené districty a dokáže město zaplavit neklidem. Není ale silný v čisté ekonomice ani v přímém útoku.",
     playstyleSummary: "Influence / population / defense / manipulation / city feed chaos",
     advantages: [
-      "+20 % influence gain",
-      "+10 % population generation",
-      "+10 % defense power"
+      "+20 % zisk vlivu",
+      "+10 % tvorba populace",
+      "+10 % síla obrany"
     ],
     plannedAdvantages: [
-        "Silnější práce s drby / podezřením"
+        "Silnější práce s drby a podezřením"
     ],
     disadvantages: [
-      "-10 % clean income",
-      "-5 % attack power"
+      "-10 % čistý příjem",
+      "-5 % síla útoku"
     ],
-    plannedDisadvantages: ["+10 % market fee"],
+    plannedDisadvantages: ["+10 % poplatek na trhu"],
     passiveEffectSummary: [
-      "+20 % influence gain",
-      "+10 % population generation",
-      "+10 % defense power",
-      "-10 % clean income",
-      "-5 % attack power"
+      "+20 % zisk vlivu",
+      "+10 % tvorba populace",
+      "+10 % síla obrany",
+      "-10 % čistý příjem",
+      "-5 % síla útoku"
     ],
     plannedPassiveEffectSummary: [
-      "Silnější práce s drby / podezřením",
-      "+10 % market fee"
+      "Silnější práce s drby a podezřením",
+      "+10 % poplatek na trhu"
     ],
     specialAction: {
       name: "Masová posedlost",
@@ -133,24 +133,24 @@ export const FACTION_CATALOG = Object.freeze({
     advantages: [
       "+15 % šance na úspěšné špehování",
       "+15 % šance odhalit pasti",
-      "+10 % kvalita intel/drbů"
+      "+10 % kvalita informací a drbů"
     ],
     plannedAdvantages: [
       "+15 % kvalita informací ze špehování",
       "-8 % heat z tajných akcí"
     ],
     disadvantages: [
-      "-10 % attack power",
-      "-8 % clean income",
-      "-8 % dirty income"
+      "-10 % síla útoku",
+      "-8 % čistý příjem",
+      "-8 % špinavý příjem"
     ],
     passiveEffectSummary: [
       "+15 % šance na úspěšné špehování",
       "+15 % šance odhalit pasti",
-      "+10 % kvalita intel/drbů",
-      "-10 % attack power",
-      "-8 % clean income",
-      "-8 % dirty income"
+      "+10 % kvalita informací a drbů",
+      "-10 % síla útoku",
+      "-8 % čistý příjem",
+      "-8 % špinavý příjem"
     ],
     plannedPassiveEffectSummary: [
       "+15 % kvalita informací ze špehování",
@@ -192,26 +192,26 @@ export const FACTION_CATALOG = Object.freeze({
     description: "Hackeři nevyhrávají přes hrubou sílu. Čtou město přes kamery, alarmy, datová centra a potvrzené drby. Jejich informace jsou výrazně spolehlivější a jejich technická obrana je silnější než u ostatních frakcí. V otevřeném boji ale ztrácí.",
     playstyleSummary: "Tech / confirmed rumors / cameras / alarms / spying / digital sabotage",
     advantages: [
-      "+50 % pravdivost rumorů s truthChancePct",
+      "+50 % pravdivost potvrzených drbů",
       "+15 % účinnost kamer",
       "+15 % účinnost alarmů",
-      "+10 % tech production",
+      "+10 % produkce technologií",
       "+10 % šance na úspěšné špehování"
     ],
     disadvantages: [
-      "-8 % attack power",
-      "-8 % dirty income",
-      "-5 % základní obrana bez kamer/alarmů"
+      "-8 % síla útoku",
+      "-8 % špinavý příjem",
+      "-5 % základní obrana bez kamer a alarmů"
     ],
     passiveEffectSummary: [
-      "+50 % pravdivost rumorů s truthChancePct",
+      "+50 % pravdivost potvrzených drbů",
       "+15 % účinnost kamer",
       "+15 % účinnost alarmů",
-      "+10 % tech production",
+      "+10 % produkce technologií",
       "+10 % šance na úspěšné špehování",
-      "-8 % attack power",
-      "-8 % dirty income",
-      "-5 % základní obrana bez kamer/alarmů"
+      "-8 % síla útoku",
+      "-8 % špinavý příjem",
+      "-5 % základní obrana bez kamer a alarmů"
     ],
     specialAction: {
       name: "Výpadek systému",
@@ -244,20 +244,20 @@ export const FACTION_CATALOG = Object.freeze({
     description: "Motorkáři nehrají na trpělivost. Vyráží rychle, berou co najdou a mizí dřív, než se město vzpamatuje. Mají kratší cooldowny na agresivní akce a víc vydělají z vykrádání. Jenže držet území není jejich silná stránka a rychlý chaos zanechává větší policejní stopu.",
     playstyleSummary: "Speed / robbery / attacks / pressure / dirty cash",
     advantages: [
-      "-15 % cooldown na vykrádání",
-      "-10 % cooldown na útoky",
-      "-10 % cooldown na obsazování",
-      "+10 % dirty cash z vykrádání"
+      "-15 % doba čekání na vykrádání",
+      "-10 % doba čekání na útoky",
+      "-10 % doba čekání na obsazování",
+      "+10 % špinavé peníze z vykrádání"
     ],
     disadvantages: [
       "-10 % obrana districtů",
       "+8 % heat z útoků, obsazování a vykrádání"
     ],
     passiveEffectSummary: [
-      "-15 % cooldown na vykrádání",
-      "-10 % cooldown na útoky",
-      "-10 % cooldown na obsazování",
-      "+10 % dirty cash z vykrádání",
+      "-15 % doba čekání na vykrádání",
+      "-10 % doba čekání na útoky",
+      "-10 % doba čekání na obsazování",
+      "+10 % špinavé peníze z vykrádání",
       "-10 % obrana districtů",
       "+8 % heat z útoků, obsazování a vykrádání"
     ],
@@ -285,26 +285,26 @@ export const FACTION_CATALOG = Object.freeze({
     description: "Soukromá armáda nehraje na pouliční chaos. Nasazuje vycvičené jednotky, taktiku a přesilu. Je silnější v útoku, lépe brání districty a při obsazování ztrácí méně vybavení. Profesionální násilí je ale drahé a viditelné.",
     playstyleSummary: "Combat / defense / occupation / territory control / expensive operations",
     advantages: [
-      "+12 % attack power",
-      "+12 % defense power",
+      "+12 % síla útoku",
+      "+12 % síla obrany",
       "-10 % ztráty vybavení v boji"
     ],
     plannedAdvantages: ["+10 % síla při obsazování"],
     disadvantages: [
       "+8 % heat z útoků a obsazování",
-      "-8 % clean income"
+      "-8 % čistý příjem"
     ],
-    plannedDisadvantages: ["+12 % upkeep / combat cost"],
+    plannedDisadvantages: ["+12 % náklady na údržbu a boj"],
     passiveEffectSummary: [
-      "+12 % attack power",
-      "+12 % defense power",
+      "+12 % síla útoku",
+      "+12 % síla obrany",
       "-10 % ztráty vybavení v boji",
       "+8 % heat z útoků a obsazování",
-      "-8 % clean income"
+      "-8 % čistý příjem"
     ],
     plannedPassiveEffectSummary: [
       "+10 % síla při obsazování",
-      "+12 % upkeep / combat cost"
+      "+12 % náklady na údržbu a boj"
     ],
     specialAction: {
       name: "Taktické nasazení",
@@ -337,25 +337,25 @@ export const FACTION_CATALOG = Object.freeze({
     description: "Korporát nevlastní ulice přes strach, ale přes smlouvy, právníky, bezpečnostní systémy a účty, které nikdo nechce kontrolovat. Vydělává silněji z čisté ekonomiky, lépe obchoduje a dokáže zmírnit následky policejního tlaku. V pouliční špíně ale ztrácí tempo.",
     playstyleSummary: "Clean economy / legal cover / defense systems / market efficiency / safer growth",
     advantages: [
-      "+15 % clean income",
-      "-3 % heat z útoků, heistů, akcí budov a pasivního tlaku",
+      "+15 % čistý příjem",
+      "-3 % heat z útoků, loupeží, akcí budov a pasivního tlaku",
       "+10 % efekt obranných systémů"
     ],
-    plannedAdvantages: ["-10 % market fee"],
+    plannedAdvantages: ["-10 % poplatek na trhu"],
     disadvantages: [
-      "-15 % dirty income",
-      "-10 % loot z vykrádání",
+      "-15 % špinavý příjem",
+      "-10 % kořist z vykrádání",
       "+10 % délka útoků"
     ],
     passiveEffectSummary: [
-      "+15 % clean income",
-      "-3 % heat z útoků, heistů, akcí budov a pasivního tlaku",
+      "+15 % čistý příjem",
+      "-3 % heat z útoků, loupeží, akcí budov a pasivního tlaku",
       "+10 % efekt obranných systémů",
-      "-15 % dirty income",
-      "-10 % loot z vykrádání",
+      "-15 % špinavý příjem",
+      "-10 % kořist z vykrádání",
       "+10 % délka útoků"
     ],
-    plannedPassiveEffectSummary: ["-10 % market fee"],
+    plannedPassiveEffectSummary: ["-10 % poplatek na trhu"],
     specialAction: {
       name: "Právní štít",
       description: "Korporát aktivuje právníky, compliance tým a krizové krytí. Další policejní razie má mírnější následky, ale není zrušena.",

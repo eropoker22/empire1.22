@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -544,7 +544,12 @@ export const inventoryEnvironmentReads = ({ root = process.cwd(), trackedFiles }
   const byVariable = new Map();
   const dynamicLocations = [];
   for (const relativePath of files.filter((file) => SOURCE_EXTENSION_PATTERN.test(file))) {
-    const content = readFileSync(path.join(root, relativePath), "utf8");
+    const absolutePath = path.join(root, relativePath);
+    // git ls-files intentionally includes a deletion until it is committed.
+    // Environment inventory must describe the working tree that is about to
+    // be released, so a removed source file cannot be scanned.
+    if (!existsSync(absolutePath)) continue;
+    const content = readFileSync(absolutePath, "utf8");
     for (const pattern of STATIC_READ_PATTERNS) {
       pattern.lastIndex = 0;
       for (const match of content.matchAll(pattern)) {

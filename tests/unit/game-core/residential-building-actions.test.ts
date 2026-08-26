@@ -45,6 +45,19 @@ describe("residential building actions", () => {
     });
   });
 
+  it.each([
+    { create: () => createApartmentBlockState(10), actionId: "collect_population" },
+    { create: () => createConvenienceStoreState(30), actionId: "collect_convenience_store_population" },
+    { create: () => createSchoolState({ cash: 1_000, metadata: { school: { storedStudents: 10, lastUpdatedTick: 0, lastCapacity: 20, wasFull: false } } }), actionId: "collect_school_population" }
+  ])("records %s.actionId immediately and rejects a second collection in the same tick", ({ create, actionId }) => {
+    const { state, building } = create();
+    const first = applyCommand(state, createBuildingActionCommand(building.id, actionId), context);
+    const second = applyCommand(first.nextState, createBuildingActionCommand(building.id, actionId), context);
+
+    expect(first.errors).toEqual([]);
+    expect(second.errors.some((error) => error.code === "building_action_cooldown")).toBe(true);
+  });
+
   it("requires thirty people before Večerka population can be collected", () => {
     const { state, building } = createConvenienceStoreState(29);
     const result = applyCommand(state, createBuildingActionCommand(building.id, "collect_convenience_store_population"), context);

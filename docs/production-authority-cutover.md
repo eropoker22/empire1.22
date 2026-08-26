@@ -118,7 +118,7 @@ Registration for a specific Free server remains a server-authoritative interval 
 
 - Leaderboard and player Empire Score render server-provided values only.
 - Unknown values display `—`, not a fabricated zero.
-- Očista consumes the elimination read model; control servers report that Očista is disabled.
+- Očista consumes the elimination read model; both flexible and full hosted servers arm its eight-hour countdown on admin Start.
 - Final Lockdown consumes its server read model and never fabricates a Top 3.
 - Completed match results, final rank, score, and score breakdown are durable in PostgreSQL and remain readable to former participants.
 - Match completion uses the authoritative clock, never the Unix epoch placeholder.

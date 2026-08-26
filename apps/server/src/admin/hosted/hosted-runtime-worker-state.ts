@@ -1,4 +1,5 @@
 import * as crypto from "node:crypto";
+import { FREE_HOSTED_SERVER_TEMPLATE_POLICIES, resolveModeConfig } from "@empire/game-config";
 import type { AdminAuditEntryView } from "@empire/shared-types";
 import type { ServerApp } from "../../app/server-app";
 import type { ServerInstanceRuntime } from "../../runtime/instance";
@@ -37,18 +38,7 @@ export const syncHostedRuntimeStatus = (
     && record.registrationClosedAt === null && now.getTime() >= Date.parse(record.registrationOpensAt)
     && now.getTime() < Date.parse(record.registrationClosesAt);
   runtime.lobby.joinPolicy = registrationOpen && (record.status === "lobby" || record.status === "running") ? "open" : "closed";
-  runtime.state.serverPacingState = {
-    id: `server-pacing:${record.serverInstanceId}`,
-    serverInstanceId: record.serverInstanceId,
-    registrationOpensAt: record.registrationOpensAt,
-    registrationClosesAt: record.registrationClosesAt,
-    registrationClosedAt: record.registrationClosedAt,
-    registrationBaselinePlayers: record.registrationBaselinePlayers,
-    effectiveFinalLockdownTrigger: record.effectiveFinalLockdownTrigger,
-    effectiveFirstEliminationTick: record.effectiveFirstEliminationTick,
-    eliminationEnabled: record.serverTemplate === "full",
-    version: record.version
-  };
+  syncHostedRuntimePacingState(runtime, record);
   if (record.status === "running") {
     runtime.record.status = "running";
     runtime.scheduler.isRunning = runtime.state.root.phase !== "resolved";
@@ -59,6 +49,30 @@ export const syncHostedRuntimeStatus = (
     runtime.record.status = record.status === "stopped" || record.status === "lobby" ? record.status : "lobby";
     runtime.scheduler.isRunning = false;
   }
+};
+
+export const syncHostedRuntimePacingState = (
+  runtime: ServerInstanceRuntime,
+  record: HostedServerRecord
+): void => {
+  const eliminationEnabled = FREE_HOSTED_SERVER_TEMPLATE_POLICIES[record.serverTemplate].eliminationEnabled;
+  const effectiveFirstEliminationTick = record.effectiveFirstEliminationTick ?? (
+    record.status === "running" && eliminationEnabled
+      ? resolveModeConfig(record.mode).balance.elimination?.firstEliminationTick ?? null
+      : null
+  );
+  runtime.state.serverPacingState = {
+    id: `server-pacing:${record.serverInstanceId}`,
+    serverInstanceId: record.serverInstanceId,
+    registrationOpensAt: record.registrationOpensAt,
+    registrationClosesAt: record.registrationClosesAt,
+    registrationClosedAt: record.registrationClosedAt,
+    registrationBaselinePlayers: record.registrationBaselinePlayers,
+    effectiveFinalLockdownTrigger: record.effectiveFinalLockdownTrigger,
+    effectiveFirstEliminationTick,
+    eliminationEnabled,
+    version: record.version
+  };
 };
 
 export const createHostedInstanceFailureReporter = (options: {

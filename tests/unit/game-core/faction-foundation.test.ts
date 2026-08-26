@@ -460,7 +460,7 @@ describe("faction core foundation", () => {
     expect(createFactionReadModel(state, "player:1", context)).toMatchObject({
       factionId: "mafian",
       name: "Mafián",
-      activePassiveEffects: expect.arrayContaining(["Clean income +10 %"]),
+      activePassiveEffects: expect.arrayContaining(["Čistý příjem +10 %"]),
       plannedPassiveEffects: [],
       startingPackageSummary: [],
       specialAction: expect.objectContaining({
@@ -484,12 +484,12 @@ describe("faction core foundation", () => {
     const readModel = createFactionReadModel(state, "player:1", context);
 
     expect(readModel?.activePassiveEffects).toEqual(expect.arrayContaining([
-      "+15 % clean income",
-      "-3 % heat z útoků, heistů, akcí budov a pasivního tlaku",
+      "+15 % čistý příjem",
+      "-3 % heat z útoků, loupeží, akcí budov a pasivního tlaku",
       "+10 % efekt obranných systémů",
       "+10 % délka útoků"
     ]));
-    expect(readModel?.plannedPassiveEffects).toEqual(expect.arrayContaining(["-10 % market fee"]));
+    expect(readModel?.plannedPassiveEffects).toEqual(expect.arrayContaining(["-10 % poplatek na trhu"]));
     expect(readModel?.specialAction).toMatchObject({
       name: "Právní štít",
       status: "preview"

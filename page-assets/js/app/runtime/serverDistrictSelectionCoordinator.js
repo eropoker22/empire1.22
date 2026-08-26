@@ -62,10 +62,35 @@ export function createServerDistrictSelectionCoordinator({
   getReadModel = () => null,
   onLoading = () => {},
   onReady = () => {},
-  onError = () => {}
+  onError = () => {},
+  cacheTtlMs = 10 * 60_000,
+  now = () => Date.now()
 } = {}) {
   let requestGeneration = 0;
   let activeRequest = null;
+  let activeRequestPromise = null;
+  const readModelsByDistrictId = new Map();
+
+  const normalizedCacheTtlMs = Math.max(0, Number(cacheTtlMs || 0));
+  const cacheReadModel = (readModel) => {
+    const districtId = String(readModel?.district?.districtId || "").trim();
+    if (!districtId || !readModel) return false;
+    readModelsByDistrictId.set(districtId, {
+      readModel,
+      cachedAt: Number(now()) || Date.now()
+    });
+    return true;
+  };
+  const getCachedReadModel = (districtId) => {
+    const cached = readModelsByDistrictId.get(districtId);
+    if (!cached) return null;
+    const ageMs = Math.max(0, (Number(now()) || Date.now()) - cached.cachedAt);
+    if (ageMs > normalizedCacheTtlMs) {
+      readModelsByDistrictId.delete(districtId);
+      return null;
+    }
+    return cached.readModel;
+  };
 
   const open = async ({
     district,
@@ -100,6 +125,7 @@ export function createServerDistrictSelectionCoordinator({
       ? resolveServerDistrictBuilding(currentReadModel, requestedBuilding)
       : null;
     if (currentDistrictMatches && (!requiresBuilding || currentBuilding)) {
+      cacheReadModel(currentReadModel);
       const result = {
         accepted: true,
         building: currentBuilding,
@@ -113,6 +139,34 @@ export function createServerDistrictSelectionCoordinator({
       return result;
     }
 
+    const cachedReadModel = getCachedReadModel(canonicalDistrictId);
+    const cachedBuilding = requiresBuilding
+      ? resolveServerDistrictBuilding(cachedReadModel, requestedBuilding)
+      : null;
+    if (cachedReadModel && (!requiresBuilding || cachedBuilding)) {
+      const result = {
+        accepted: true,
+        building: cachedBuilding,
+        canonicalDistrictId,
+        district,
+        readModel: cachedReadModel,
+        response: null,
+        stale: false,
+        cached: true
+      };
+      onReady(result);
+      return result;
+    }
+
+    const matchesActiveRequest = activeRequest
+      && activeRequest.canonicalDistrictId === canonicalDistrictId
+      && activeRequest.buildingId === requestedBuilding.buildingId
+      && activeRequest.buildingTypeId === requestedBuilding.buildingTypeId
+      && activeRequest.buildingName === requestedBuilding.buildingName;
+    if (matchesActiveRequest && activeRequestPromise) {
+      return activeRequestPromise;
+    }
+
     const generation = ++requestGeneration;
     activeRequest = {
       generation,
@@ -121,64 +175,80 @@ export function createServerDistrictSelectionCoordinator({
     };
     onLoading({ ...activeRequest, district });
 
-    let response;
-    try {
-      response = await selectDistrict(canonicalDistrictId);
-    } catch (error) {
-      if (generation !== requestGeneration) {
-        return { accepted: false, error, stale: true };
+    const requestPromise = (async () => {
+      let response;
+      try {
+        response = await selectDistrict(canonicalDistrictId);
+      } catch (error) {
+        if (generation !== requestGeneration) {
+          return { accepted: false, error, stale: true };
+        }
+        onError({ error, response: null, ...activeRequest, district });
+        return { accepted: false, error, stale: false };
       }
-      onError({ error, response: null, ...activeRequest, district });
-      return { accepted: false, error, stale: false };
-    }
 
-    if (generation !== requestGeneration) {
-      return { accepted: false, response, stale: true };
-    }
+      if (generation !== requestGeneration) {
+        return { accepted: false, response, stale: true };
+      }
 
-    const readModel = response?.readModel || getReadModel() || null;
-    if (
-      response?.accepted !== true
-      || String(readModel?.district?.districtId || "") !== canonicalDistrictId
-    ) {
-      const error = new Error("Server vrátil jiný district než hráč požadoval.");
-      onError({ error, response, readModel, ...activeRequest, district });
-      return { accepted: false, error, readModel, response, stale: false };
-    }
+      const readModel = response?.readModel || getReadModel() || null;
+      if (
+        response?.accepted !== true
+        || String(readModel?.district?.districtId || "") !== canonicalDistrictId
+      ) {
+        const error = new Error("Server vrátil jiný district než hráč požadoval.");
+        onError({ error, response, readModel, ...activeRequest, district });
+        return { accepted: false, error, readModel, response, stale: false };
+      }
 
-    const building = requiresBuilding
-      ? resolveServerDistrictBuilding(readModel, activeRequest)
-      : null;
-    if (requiresBuilding && !building) {
-      const error = new Error("Požadovaná budova není v načteném districtu dostupná.");
-      onError({ error, response, readModel, ...activeRequest, district });
-      return { accepted: false, error, readModel, response, stale: false };
-    }
+      const building = requiresBuilding
+        ? resolveServerDistrictBuilding(readModel, activeRequest)
+        : null;
+      if (requiresBuilding && !building) {
+        const error = new Error("Požadovaná budova není v načteném districtu dostupná.");
+        onError({ error, response, readModel, ...activeRequest, district });
+        return { accepted: false, error, readModel, response, stale: false };
+      }
 
-    const result = {
-      accepted: true,
-      building,
-      canonicalDistrictId,
-      district,
-      readModel,
-      response,
-      stale: false
-    };
-    onReady(result);
-    return result;
+      const result = {
+        accepted: true,
+        building,
+        canonicalDistrictId,
+        district,
+        readModel,
+        response,
+        stale: false
+      };
+      cacheReadModel(readModel);
+      onReady(result);
+      return result;
+    })();
+    activeRequestPromise = requestPromise;
+    try {
+      return await requestPromise;
+    } finally {
+      if (activeRequest?.generation === generation) {
+        activeRequest = null;
+        activeRequestPromise = null;
+      }
+    }
   };
 
   const cancel = () => {
     requestGeneration += 1;
     activeRequest = null;
+    activeRequestPromise = null;
   };
 
   return {
     cancel,
+    cacheReadModel,
+    clearCache: () => readModelsByDistrictId.clear(),
     open,
     getState: () => ({
       activeRequest: activeRequest ? { ...activeRequest } : null,
-      requestGeneration
+      requestGeneration,
+      cachedDistrictIds: [...readModelsByDistrictId.keys()]
     })
   };
 }

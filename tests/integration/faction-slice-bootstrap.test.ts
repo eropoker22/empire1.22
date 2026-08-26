@@ -40,7 +40,7 @@ describe("faction gameplay slice bootstrap", () => {
     });
     expect(client.getGameplaySlice()?.player.faction).toMatchObject({
       factionId: "kartel",
-      activePassiveEffects: expect.arrayContaining(["+18 % dirty income"])
+      activePassiveEffects: expect.arrayContaining(["+18 % špinavý příjem"])
     });
   });
 

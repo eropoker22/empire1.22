@@ -202,7 +202,7 @@ const getBuildingActionsByType = (state: FreeBrSimulationState): Record<string, 
   return grouped;
 };
 
-export const applyPassiveIncomeAndHeatDecay = (state: FreeBrSimulationState, stepTicks: number): void => {
+export const applyPassiveIncomeAndHeat = (state: FreeBrSimulationState, stepTicks: number): void => {
   const hours = stepTicks * state.config.tickRateMs / (60 * 60 * 1000);
   const fixedBuildings = state.config.balance.fixedBuildings ?? {};
   for (const district of state.districts) {
@@ -222,14 +222,5 @@ export const applyPassiveIncomeAndHeatDecay = (state: FreeBrSimulationState, ste
     owner.heat += heat * 0.35;
     state.stats[owner.id].cashEarned += clean;
     state.stats[owner.id].dirtyCashEarned += dirty;
-  }
-  const police = state.config.balance.police;
-  for (const player of state.players) {
-    const decay = police?.heatDecay?.playerDecayByWantedLevel?.[0] ?? 2;
-    player.heat = Math.max(0, player.heat - decay * hours * 2);
-  }
-  for (const district of state.districts) {
-    const decay = police?.heatDecay?.districtBaseDecay ?? 2;
-    district.heat = Math.max(0, district.heat - decay * hours);
   }
 };

@@ -13,13 +13,13 @@ describe("authoritative elimination panel adapters", () => {
     expect(JSON.stringify(view)).not.toContain("8.47M");
   });
 
-  it("shows the control-server elimination state without starting a local countdown", () => {
+  it("shows an explicitly disabled elimination state without starting a local countdown", () => {
     const view = createEliminationPanelViewModel({
       enabled: false,
       activePlayersRemaining: 2
     });
 
-    expect(view.subtitle).toBe("OČISTA JE NA KONTROLNÍM SERVERU VYPNUTÁ");
+    expect(view.subtitle).toBe("OČISTA NENÍ NA TOMTO SERVERU AKTIVNÍ");
     expect(view.countdownValue).toBe("VYPNUTO");
     expect(view.leaderboard).toEqual([]);
   });

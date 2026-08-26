@@ -7,6 +7,8 @@ import type {
   HostedControlPlaneRepository,
   HostedServerRecord
 } from "./hosted-control-plane-repository";
+import { resolveHostedStartEliminationTick } from "./hosted-lifecycle-action-completion";
+import { syncHostedRuntimePacingState } from "./hosted-runtime-worker-state";
 import { resolveHostedServerRegistrationState } from "./hosted-server-registration-state";
 
 export interface HostedLifecycleTransition {
@@ -77,6 +79,10 @@ export const applyHostedLifecycleAction = async (input: {
         throw safe("SERVER_START_MINIMUM_PLAYERS_NOT_MET");
       }
       applyHostedLifecycleTransition(runtime, request.action);
+      syncHostedRuntimePacingState(runtime, {
+        ...server,
+        effectiveFirstEliminationTick: resolveHostedStartEliminationTick(server)
+      });
       return { nextStatus: "running", nextJoinPolicy: registration.state === "open" ? "open" : "closed",
         releaseLease: false };
     }
@@ -121,6 +127,7 @@ export const synchronizeHostedRuntimeLifecycleDecision = (
   runtime: ServerInstanceRuntime,
   server: HostedServerRecord
 ): void => {
+  syncHostedRuntimePacingState(runtime, server);
   runtime.record.status = hostedRuntimeStatus(server.status);
   runtime.record.startedAt = server.lastStartedAt ?? runtime.record.startedAt;
   runtime.record.stoppedAt = server.lastStoppedAt ?? runtime.record.stoppedAt;

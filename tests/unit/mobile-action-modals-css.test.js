@@ -1275,11 +1275,27 @@ describe("mobile action modal CSS", () => {
     }
   });
 
+  it("gives every production-building entry path phone gaps and a dim backdrop", () => {
+    for (const stylesheet of [mainCss, clientMainCss]) {
+      expect(stylesheet).toContain("Final phone production-building safe area");
+      expect(stylesheet).toContain("--production-building-phone-top: max(18px, env(safe-area-inset-top));");
+      expect(stylesheet).toContain("--production-building-phone-bottom: max(18px, env(safe-area-inset-bottom));");
+      expect(stylesheet).toContain(".armory-popup-shell:not([hidden]) > .armory-popup-backdrop");
+      expect(stylesheet).toContain(".pharmacy-popup-shell:not([hidden]) > .pharmacy-popup-backdrop");
+      expect(stylesheet).toContain(".druglab-popup-shell:not([hidden]) > .druglab-popup-backdrop");
+      expect(stylesheet).toContain(".factory-popup-shell:not([hidden]) > .factory-popup-backdrop");
+      expect(stylesheet).toContain('.district-building-detail-shell[data-building-mechanics-type="factory"]:not([hidden]) > .district-building-detail-backdrop');
+      expect(stylesheet).toContain("background: rgba(1, 4, 10, 0.88) !important;");
+    }
+  });
+
   it("keeps the mobile player profile below the visible resource bar", () => {
     expect(mainCss).toContain("Keep the player profile and active attack status compact without covering mobile resources.");
     expect(mainCss).toContain(":has(.player-popup-shell:not([hidden])) #game-header");
     expect(mainCss).toContain(":has(.player-popup-shell:not([hidden])) .game-resource-strip");
-    expect(mainCss).toContain("padding: calc(var(--mobile-overlay-top-offset, var(--mobile-topbar-offset, 72px)) + 8px) 8px max(8px, env(safe-area-inset-bottom)) !important;");
+    expect(mainCss).toContain("Absolute final phone overlay contract");
+    expect(mainCss).toContain("--phone-resource-safe-top: max(calc(var(--mobile-overlay-top-offset, var(--mobile-topbar-offset, 72px)) + 14px), 88px);");
+    expect(mainCss).toContain("padding: var(--phone-resource-safe-top) 10px var(--phone-overlay-safe-bottom) !important;");
     expect(mainCss).toContain("grid-template-columns: repeat(3, minmax(0, 1fr)) !important;");
     expect(mainCss).toContain("#police-action-result-modal-close::before");
     expect(mainCss).toContain("width: 18px !important;");

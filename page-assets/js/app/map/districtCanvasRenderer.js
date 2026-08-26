@@ -343,7 +343,29 @@ function renderDistrictActivityEffects(context, geometry, interactionState = {},
   const useAggregatedAttackMarkers = activeAttackDistrictIds.size > 5;
   const useAggregatedOccupyMarkers = activeOccupyDistrictIds.size > 5;
 
-  for (const district of geometry?.districts || []) {
+  const activeDistrictIds = new Set([
+    ...activeSpyDistrictIds,
+    ...activePoliceDistrictIds,
+    ...activeAttackDistrictIds,
+    ...activeOccupyDistrictIds,
+    ...activeRobberyDistrictIds,
+    ...activeTrapDistrictIds
+  ]);
+  if (activeDistrictIds.size === 0) {
+    return;
+  }
+
+  const districts = geometry?.districts || [];
+  const districtById = geometry?.districtById instanceof Map
+    ? geometry.districtById
+    : new Map(districts.map((district) => [Number(district.id), district]));
+  if (geometry && !(geometry.districtById instanceof Map)) {
+    geometry.districtById = districtById;
+  }
+
+  for (const districtId of activeDistrictIds) {
+    const district = districtById.get(Number(districtId));
+    if (!district) continue;
     const occupyMarker = activeOccupyMarkersByDistrictId.get(district.id);
     const occupyColor = String(occupyMarker?.playerColor || "").trim()
       || getLaunchPlayerColor(occupyMarker?.playerId || currentPlayerId);

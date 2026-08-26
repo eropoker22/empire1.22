@@ -338,7 +338,7 @@ describe("read-only admin app", () => {
     expect(document.querySelector<HTMLInputElement>('[name="capacity"]')?.min)
       .toBe(String(FREE_HOSTED_SERVER_LIFECYCLE_POLICY.minimumReadyPlayersToStart));
     expect(document.querySelector<HTMLSelectElement>('[name="serverTemplate"]')?.value).toBe("control");
-    expect(document.body.textContent).toContain("Kontrolní test · 2–20 hráčů · bez Očisty");
+    expect(document.body.textContent).toContain("Flexibilní server · 1–20 hráčů · Očista po Startu");
     expect(document.body.textContent).toContain("Plnohodnotný server · 20 hráčů · canonical Očista");
     expect(document.body.textContent).toContain("Minimum ke spuštění");
     expect(document.body.textContent).toContain("60 minut");

@@ -27,7 +27,7 @@ export const renderAdminCreateWizard = (step: number): string => `
           <label><span>Mode</span><select name="mode"><option value="free">Free</option><option value="war" disabled>War (připravuje se)</option></select></label>
           <label><span>Region</span><select name="region"><option value="eu-central">EU Central</option></select></label>
           <label class="admin-template-selector"><span>Bezpečná Free šablona</span><select name="serverTemplate" data-admin-server-template>
-            <option value="control">Kontrolní test · 2–20 hráčů · bez Očisty</option>
+            <option value="control">Flexibilní server · 1–20 hráčů · Očista po Startu</option>
             <option value="full">Plnohodnotný server · 20 hráčů · canonical Očista</option>
           </select><small>Šablona určuje serverová lifecycle pravidla. Browser neposílá raw balance ani nastavení Očisty.</small></label>
           <label><span>Kapacita</span><input name="capacity" data-admin-server-capacity type="number" min="${minimumCapacity}" max="${maximumCapacity}" value="${minimumCapacity}" required></label>
@@ -76,7 +76,7 @@ export const renderAdminCreateWizard = (step: number): string => `
             ${kv("Minimum ke spuštění", minimumCapacity)}
             ${kv("Registrační okno", `${registrationMinutes} minut`)}
           </div>
-          <p class="admin-notice">Kontrolní šablona je pro malý setup bez Očisty. Plnohodnotná šablona drží canonical kapacitu 20 a standardní Očistu. Server vznikne se zavřeným vstupem.</p>
+          <p class="admin-notice">Obě šablony spustí osmihodinovou Očistu až po kliknutí na Start. Flexibilní server dovoluje menší kapacitu, plnohodnotná šablona drží canonical kapacitu 20. Server vznikne se zavřeným vstupem.</p>
           <div class="admin-wizard__actions"><button class="admin-button" type="button" data-admin-wizard-back>Zpět</button>
             <button class="admin-button admin-button--primary" type="button" data-admin-wizard-next>Pokračovat</button></div>
         </fieldset>

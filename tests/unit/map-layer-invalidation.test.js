@@ -50,6 +50,47 @@ describe("map layer invalidation", () => {
     expect(resolveMapRenderLayers("ui:countdown-update")).toEqual([]);
   });
 
+  it("does not redraw districts for passive heat, influence, defense or non-raid police updates", () => {
+    const previousSlice = createSlice();
+    const nextSlice = createSlice({
+      player: {
+        ...previousSlice.player,
+        police: { heat: 9, wantedLevel: 2 }
+      },
+      districts: [{
+        ...previousSlice.districts[0],
+        heat: 99,
+        influence: 88,
+        defense: { total: 40 },
+        protection: { active: true },
+        buildings: [{ buildingId: "building:1", status: "active", level: 4 }]
+      }]
+    });
+
+    expect(diffGameplaySliceMapLayers(
+      createGameplaySliceMapFingerprints(previousSlice),
+      createGameplaySliceMapFingerprints(nextSlice)
+    )).toEqual([]);
+  });
+
+  it("redraws only effects when a police raid marker starts", () => {
+    const previous = createSlice();
+    const next = createSlice({
+      player: {
+        ...previous.player,
+        police: {
+          heat: 2,
+          activeRaid: { districtId: "district:1", expiresAt: "2026-08-26T12:00:00.000Z" }
+        }
+      }
+    });
+
+    expect(diffGameplaySliceMapLayers(
+      createGameplaySliceMapFingerprints(previous),
+      createGameplaySliceMapFingerprints(next)
+    )).toEqual([MAP_RENDER_LAYERS.effects]);
+  });
+
   it("invalidates only selection when the selected district changes", () => {
     const previous = createGameplaySliceMapFingerprints(createSlice());
     const next = createGameplaySliceMapFingerprints(createSlice({

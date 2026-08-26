@@ -90,7 +90,7 @@ describe("gameplay economy rates projection", () => {
     );
   });
 
-  it("keeps district modifiers out of canonical population while enumerating stored sources", () => {
+  it("moves district population modifiers into canonical population while enumerating stored sources", () => {
     const { state, building } = createCoreStateWithFixedBuildingFixture(
       "apartment_block",
       {
@@ -131,15 +131,15 @@ describe("gameplay economy rates projection", () => {
     const ticked = runTick(state, context).nextState;
     const afterPlayerView = createPlayerView(ticked, "player:1", context);
 
-    expect(ticked.resourceStatesById["resource:1"].balances.population)
-      .toBeGreaterThan(0);
-    expect(ticked.playersById["player:1"].population).toBe(50);
+    expect(ticked.resourceStatesById["resource:1"].balances.population).toBeUndefined();
+    expect(ticked.resourceStatesById["resource:1"].balances["gang-members"]).toBeCloseTo(0.5);
+    expect(ticked.playersById["player:1"].population).toBeCloseTo(50.5);
     expect(beforePlayerView.economy.population).toBe(50);
-    expect(afterPlayerView.economy.population).toBe(50);
-    expect(afterPlayerView.resourceBalances.population).toBe(50);
+    expect(afterPlayerView.economy.population).toBeCloseTo(50.5);
+    expect(afterPlayerView.resourceBalances.population).toBeCloseTo(50.5);
     expect(afterPlayerView.attackWeapons?.availablePopulation).toBe(50);
-    expect(projected.playerBalancePerTick.population).toBe(0);
-    expect(projected.playerBalancePerHour.population).toBe(0);
+    expect(projected.playerBalancePerTick.population).toBeCloseTo(0.5);
+    expect(projected.playerBalancePerHour.population).toBeGreaterThan(0);
     const sources = projected.selectedDistrict?.passivePopulationSources ?? [];
     expect(sources).toHaveLength(1);
     expect(sources[0]).toMatchObject({
@@ -198,8 +198,7 @@ describe("gameplay economy rates projection", () => {
         population: 50
       }
     });
-    const boundaryTick =
-      config.balance.police?.heatDecay?.districtIntervalTicks ?? 1;
+    const boundaryTick = 1;
     state.root.tick = boundaryTick - 1;
     state.serverInstance.currentTick = boundaryTick - 1;
     state.districtsById["district:1"] = {

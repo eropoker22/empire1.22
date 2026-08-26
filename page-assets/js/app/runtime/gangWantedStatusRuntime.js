@@ -344,10 +344,14 @@ export function createGangWantedStatusRuntime(deps = {}) {
       syncWantedStatus();
       openOverlay(elements.popup, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
       elements.popup.hidden = false;
+      document.documentElement?.classList?.add?.("game-wanted-popup-open");
+      document.body?.classList?.add?.("game-wanted-popup-open");
     };
 
     const closePopup = () => {
       elements.popup.hidden = true;
+      document.documentElement?.classList?.remove?.("game-wanted-popup-open");
+      document.body?.classList?.remove?.("game-wanted-popup-open");
       closeOverlay(elements.popup, { restoreFocus: false });
     };
 

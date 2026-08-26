@@ -81,11 +81,3 @@ export const GANG_HEAT_TIERS = Object.freeze([
     description: "Koordinované zásahy, tvrdé blokády a permanentní tlak."
   })
 ]);
-export const GANG_HEAT_DECAY_BY_TIER = Object.freeze({
-  1: 4,
-  2: 3,
-  3: 2,
-  4: 1.5,
-  5: 1,
-  6: 0.6
-});
