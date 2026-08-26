@@ -225,14 +225,21 @@ jobs:
           EMPIRE_ADMIN_NEW_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}
           EMPIRE_ADMIN_BOOTSTRAP_DISPLAY_NAME: ${{ vars.STAGING_ADMIN_DISPLAY_NAME }}
           EMPIRE_ACCOUNT_TERMS_VERSION: ${{ vars.STAGING_ACCOUNT_TERMS_VERSION }}
+          OWNER_DEPLOY: ${{ needs.gate.outputs.owner_deploy }}
+          BOOTSTRAP_ADMIN: ${{ inputs.bootstrap_admin }}
         shell: bash
         run: |
           set -euo pipefail
-          required=(NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID NETLIFY_PRODUCTION_SITE_ID NEON_API_KEY NEON_PROJECT_ID NEON_BRANCH_ID STAGING_DATABASE_URL_DIRECT STAGING_DATABASE_URL_POOLED FLY_API_TOKEN FLY_STAGING_APP EMPIRE_PRE_ALPHA_STAGING_FLY_APP EMPIRE_STAGING_DATABASE_TARGET_HASH GAMEPLAY_SLICE_SESSION_SECRET GAMEPLAY_SLICE_SNAPSHOT_SECRET EMPIRE_ADMIN_FINGERPRINT_SECRET EMPIRE_ADMIN_SESSION_SECRET EMPIRE_AUTH_THROTTLE_PEPPER EMPIRE_ADMIN_BOOTSTRAP_USERNAME EMPIRE_ADMIN_NEW_PASSWORD EMPIRE_ADMIN_BOOTSTRAP_DISPLAY_NAME EMPIRE_ACCOUNT_TERMS_VERSION)
+          required=(NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID NETLIFY_PRODUCTION_SITE_ID NEON_API_KEY NEON_PROJECT_ID NEON_BRANCH_ID STAGING_DATABASE_URL_DIRECT STAGING_DATABASE_URL_POOLED FLY_API_TOKEN FLY_STAGING_APP EMPIRE_PRE_ALPHA_STAGING_FLY_APP EMPIRE_STAGING_DATABASE_TARGET_HASH GAMEPLAY_SLICE_SESSION_SECRET GAMEPLAY_SLICE_SNAPSHOT_SECRET EMPIRE_ADMIN_FINGERPRINT_SECRET EMPIRE_ADMIN_SESSION_SECRET EMPIRE_AUTH_THROTTLE_PEPPER EMPIRE_ACCOUNT_TERMS_VERSION)
           for name in "${required[@]}"; do
             [[ -n "${!name:-}" ]] || { echo "Missing required staging credential or variable: $name"; exit 1; }
             [[ "${!name}" != *$'\n'* && "${!name}" != *$'\r'* ]] || { echo "Invalid line break in staging input: $name"; exit 1; }
           done
+          if [[ "$OWNER_DEPLOY" != "true" || "$BOOTSTRAP_ADMIN" == "true" ]]; then
+            [[ -n "$EMPIRE_ADMIN_BOOTSTRAP_USERNAME" ]]
+            [[ -n "$EMPIRE_ADMIN_NEW_PASSWORD" ]]
+            [[ -n "$EMPIRE_ADMIN_BOOTSTRAP_DISPLAY_NAME" ]]
+          fi
           [[ "$NEON_PROJECT_ID" =~ ^[a-z0-9-]{1,60}$ ]]
           [[ "$NEON_BRANCH_ID" =~ ^[a-z0-9-]{1,60}$ ]]
           [[ "$EMPIRE_STAGING_DATABASE_TARGET_HASH" =~ ^[0-9a-f]{64}$ ]]
@@ -538,7 +545,6 @@ jobs:
           rm -f "$api_health" "$worker_health"
 
       - name: Verify remote SHA and asset parity
-        if: needs.gate.outputs.owner_deploy != 'true'
         env:
           EMPIRE_HOSTED_WORKER_ORIGIN: https://empire-streets-staging-worker.fly.dev
           EMPIRE_REMOTE_RELEASE_EVIDENCE_PATH: artifacts/release/staging/remote-release-health.json
@@ -612,6 +618,7 @@ jobs:
           EMPIRE_ADMIN_BOOTSTRAP_PASSWORD="$EMPIRE_ADMIN_NEW_PASSWORD" npm run verify:admin-user-live
 
       - name: Verify remote admin SHA parity and logout
+        if: needs.gate.outputs.owner_deploy != 'true'
         env:
           EMPIRE_ADMIN_BOOTSTRAP_USERNAME: ${{ vars.STAGING_ADMIN_USERNAME }}
           EMPIRE_ADMIN_NEW_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}
