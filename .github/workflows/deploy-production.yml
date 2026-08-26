@@ -248,10 +248,12 @@ jobs:
       OWNER_DEPLOY: ${{ needs.gate.outputs.owner_deploy }}
       PRODUCTION_ORIGIN: https://empirestreets.cz
       NETLIFY_SITE_ID: ${{ vars.NETLIFY_PRODUCTION_SITE_ID }}
+      NETLIFY_STAGING_SITE_ID: ${{ vars.NETLIFY_STAGING_SITE_ID }}
       NETLIFY_DISABLE_UPDATE_CHECK: "true"
       NEON_PROJECT_ID: ${{ vars.NEON_PRODUCTION_PROJECT_ID }}
       NEON_BRANCH_ID: ${{ vars.NEON_PRODUCTION_ROOT_BRANCH_ID }}
       FLY_PRODUCTION_APP: ${{ vars.FLY_PRODUCTION_APP }}
+      FLY_STAGING_APP: ${{ vars.FLY_STAGING_APP }}
       EMPIRE_RELEASE_ENVIRONMENT: production
       EMPIRE_DATABASE_TARGET_ENVIRONMENT: production
       EMPIRE_PRODUCTION_DATABASE_TARGET_HASH: ${{ vars.EMPIRE_PRODUCTION_DATABASE_TARGET_HASH }}
@@ -330,21 +332,33 @@ jobs:
           PRODUCTION_SMOKE_ACCOUNT_GANG_NAME: ${{ vars.PRODUCTION_SMOKE_ACCOUNT_GANG_NAME }}
           PRODUCTION_SMOKE_ACCOUNT_PASSWORD: ${{ secrets.PRODUCTION_SMOKE_ACCOUNT_PASSWORD }}
           BOOTSTRAP_ADMIN: ${{ inputs.bootstrap_admin }}
+          BOOTSTRAP_SMOKE_ACCOUNT: ${{ inputs.bootstrap_smoke_account }}
         shell: bash
         run: |
           set -euo pipefail
-          required=(NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID NEON_API_KEY NEON_PROJECT_ID NEON_BRANCH_ID PRODUCTION_DATABASE_URL_DIRECT PRODUCTION_DATABASE_URL_POOLED FLY_API_TOKEN FLY_PRODUCTION_APP GAMEPLAY_SLICE_SESSION_SECRET GAMEPLAY_SLICE_SNAPSHOT_SECRET EMPIRE_ADMIN_FINGERPRINT_SECRET EMPIRE_ADMIN_SESSION_SECRET EMPIRE_AUTH_THROTTLE_PEPPER PRODUCTION_ADMIN_USERNAME PRODUCTION_ADMIN_DISPLAY_NAME PRODUCTION_ADMIN_PASSWORD PRODUCTION_SMOKE_ACCOUNT_USERNAME PRODUCTION_SMOKE_ACCOUNT_GANG_NAME PRODUCTION_SMOKE_ACCOUNT_PASSWORD EMPIRE_ACCOUNT_TERMS_VERSION EMPIRE_PRODUCTION_DATABASE_TARGET_HASH)
+          required=(NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID NETLIFY_STAGING_SITE_ID NEON_API_KEY NEON_PROJECT_ID NEON_BRANCH_ID PRODUCTION_DATABASE_URL_DIRECT PRODUCTION_DATABASE_URL_POOLED FLY_API_TOKEN FLY_PRODUCTION_APP FLY_STAGING_APP GAMEPLAY_SLICE_SESSION_SECRET GAMEPLAY_SLICE_SNAPSHOT_SECRET EMPIRE_ADMIN_FINGERPRINT_SECRET EMPIRE_ADMIN_SESSION_SECRET EMPIRE_AUTH_THROTTLE_PEPPER PRODUCTION_ADMIN_USERNAME PRODUCTION_ADMIN_PASSWORD EMPIRE_ACCOUNT_TERMS_VERSION EMPIRE_PRODUCTION_DATABASE_TARGET_HASH)
           for name in "${required[@]}"; do
             [[ -n "${!name:-}" ]] || { echo "Missing required production credential or variable: $name"; exit 1; }
             [[ "${!name}" != *$'\n'* && "${!name}" != *$'\r'* ]] || { echo "Invalid line break in production input: $name"; exit 1; }
           done
           if [[ "$BOOTSTRAP_ADMIN" == "true" ]]; then
+            [[ -n "$PRODUCTION_ADMIN_DISPLAY_NAME" ]]
             [[ -n "$PRODUCTION_ADMIN_INITIAL_PASSWORD" ]]
             [[ "$PRODUCTION_ADMIN_INITIAL_PASSWORD" != "$PRODUCTION_ADMIN_PASSWORD" ]]
           fi
+          if [[ "$OWNER_DEPLOY" != "true" || "$BOOTSTRAP_SMOKE_ACCOUNT" == "true" ]]; then
+            [[ -n "$PRODUCTION_SMOKE_ACCOUNT_USERNAME" ]]
+            [[ -n "$PRODUCTION_SMOKE_ACCOUNT_GANG_NAME" ]]
+            [[ -n "$PRODUCTION_SMOKE_ACCOUNT_PASSWORD" ]]
+          fi
+          [[ "$NETLIFY_SITE_ID" =~ ^[A-Za-z0-9-]{8,100}$ ]]
+          [[ "$NETLIFY_STAGING_SITE_ID" =~ ^[A-Za-z0-9-]{8,100}$ ]]
+          [[ "$NETLIFY_SITE_ID" != "$NETLIFY_STAGING_SITE_ID" ]]
           [[ "$NEON_PROJECT_ID" =~ ^[a-z0-9-]{1,60}$ ]]
           [[ "$NEON_BRANCH_ID" =~ ^[a-z0-9-]{1,60}$ ]]
           [[ "$FLY_PRODUCTION_APP" =~ ^[a-z0-9-]{3,63}$ ]]
+          [[ "$FLY_STAGING_APP" =~ ^[a-z0-9-]{3,63}$ ]]
+          [[ "$FLY_PRODUCTION_APP" != "$FLY_STAGING_APP" ]]
           [[ "$EMPIRE_PRODUCTION_DATABASE_TARGET_HASH" =~ ^[0-9a-f]{64}$ ]]
 
       - name: Verify direct and pooled database target parity
@@ -399,6 +413,16 @@ jobs:
           curl --fail --silent --show-error \
             --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
             "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}" -o "$site"
+          jq -e --arg id "$NETLIFY_SITE_ID" '
+            def normalized_host:
+              if type != "string" then ""
+              else ascii_downcase | sub("^https?://"; "") | sub("/.*$"; "") | sub("\\.$"; "")
+              end;
+            ([.custom_domain, .url, .ssl_url] + (.domain_aliases // []) | map(normalized_host)) as $hosts |
+            .id == $id and
+            ($hosts | any(. == "empirestreets.cz" or . == "www.empirestreets.cz")) and
+            ($hosts | all(. != "staging.empirestreets.cz"))
+          ' "$site" >/dev/null
           previous_deploy="$(jq -er '.published_deploy.id' "$site")"
           curl --fail --silent --show-error \
             --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
@@ -414,44 +438,50 @@ jobs:
             previous_image=""
           else
             [[ "$EMPIRE_INITIAL_CUTOVER" == "false" ]]
-            previous_sha="$EMPIRE_PREVIOUS_PRODUCTION_SHA"
             if [[ "$OWNER_DEPLOY" == "true" ]]; then
-              previous_sha="$(jq -er '.commit_ref' "$deploy")"
+              previous_sha="$(jq -r '.commit_ref // ""' "$deploy")"
+              if [[ ! "$previous_sha" =~ ^[0-9a-f]{40}$ || "$previous_sha" == "$RELEASE_SHA" ]]; then
+                previous_sha=""
+              fi
+              previous_image="$(jq -r '[.[] | select(.state != "destroyed" and .state != "destroying")][0].config.image // ""' "$machines")"
+              rollback_mode="owner-recovery"
+            else
+              previous_sha="$EMPIRE_PREVIOUS_PRODUCTION_SHA"
+              [[ "$previous_sha" =~ ^[0-9a-f]{40}$ ]]
+              [[ "$previous_sha" != "$RELEASE_SHA" ]]
+              git merge-base --is-ancestor "$previous_sha" "$RELEASE_SHA"
+              jq -e --arg sha "$previous_sha" '.commit_ref == $sha' "$deploy" >/dev/null
+              jq -e '[.[] | select(.state != "destroyed" and .state != "destroying")] | length == 1' "$machines" >/dev/null
+              previous_image="registry.fly.io/${FLY_PRODUCTION_APP}:${previous_sha}"
+              flyctl auth docker
+              docker manifest inspect "$previous_image" >/dev/null
+              EMPIRE_ROLLBACK_COMPATIBILITY_EVIDENCE_PATH=artifacts/release/production/rollback-compatibility.json \
+                npm run verify:rollback-compatibility -- --previous-sha="$previous_sha"
+              expected_schema="$(jq -er '.expectedSchemaVersion' artifacts/release-manifest.json)"
+              api="$RUNNER_TEMP/production-previous-api.json"
+              worker="$RUNNER_TEMP/production-previous-worker.json"
+              policy="$RUNNER_TEMP/production-previous-policy.json"
+              html="$RUNNER_TEMP/production-previous-admin.html"
+              curl --fail --silent --show-error --header 'Cache-Control: no-cache' \
+                "$PRODUCTION_ORIGIN/api/health?pre-upgrade-sha=${previous_sha}" -o "$api"
+              curl --fail --silent --show-error "https://${FLY_PRODUCTION_APP}.fly.dev/health" -o "$worker"
+              curl --fail --silent --show-error "$PRODUCTION_ORIGIN/api/account/registration-policy" -o "$policy"
+              curl --fail --silent --show-error --header 'Cache-Control: no-cache' \
+                "$PRODUCTION_ORIGIN/admin.html?pre-upgrade-sha=${previous_sha}" -o "$html"
+              jq -e --arg sha "$previous_sha" --arg schema "$expected_schema" '
+                .status == "ready" and .apiBuildSha == $sha and .environment == "production" and
+                .region == "fra" and .schemaVersion == $schema and .expectedSchemaVersion == $schema
+              ' "$api" >/dev/null
+              jq -e --arg sha "$previous_sha" --arg schema "$expected_schema" '
+                .status == "ok" and .buildSha == $sha and .environment == "production" and
+                .region == "fra" and .schemaVersion == $schema and .expectedSchemaVersion == $schema and
+                .heartbeat.registered == true
+              ' "$worker" >/dev/null
+              jq -e '.accepted == true and .data.registrationEnabled == true and .data.mode == "open" and .data.expiresAt == null' "$policy" >/dev/null
+              grep -Eiq "empire-build-sha.{0,200}${previous_sha}|${previous_sha}.{0,200}empire-build-sha" "$html"
+              rollback_mode="same-schema-code-rollback"
+              rm -f "$api" "$worker" "$policy" "$html"
             fi
-            [[ "$previous_sha" =~ ^[0-9a-f]{40}$ ]]
-            [[ "$previous_sha" != "$RELEASE_SHA" ]]
-            git merge-base --is-ancestor "$previous_sha" "$RELEASE_SHA"
-            jq -e --arg sha "$previous_sha" '.commit_ref == $sha' "$deploy" >/dev/null
-            jq -e '[.[] | select(.state != "destroyed" and .state != "destroying")] | length == 1' "$machines" >/dev/null
-            previous_image="registry.fly.io/${FLY_PRODUCTION_APP}:${previous_sha}"
-            flyctl auth docker
-            docker manifest inspect "$previous_image" >/dev/null
-            EMPIRE_ROLLBACK_COMPATIBILITY_EVIDENCE_PATH=artifacts/release/production/rollback-compatibility.json \
-              npm run verify:rollback-compatibility -- --previous-sha="$previous_sha"
-            expected_schema="$(jq -er '.expectedSchemaVersion' artifacts/release-manifest.json)"
-            api="$RUNNER_TEMP/production-previous-api.json"
-            worker="$RUNNER_TEMP/production-previous-worker.json"
-            policy="$RUNNER_TEMP/production-previous-policy.json"
-            html="$RUNNER_TEMP/production-previous-admin.html"
-            curl --fail --silent --show-error --header 'Cache-Control: no-cache' \
-              "$PRODUCTION_ORIGIN/api/health?pre-upgrade-sha=${previous_sha}" -o "$api"
-            curl --fail --silent --show-error "https://${FLY_PRODUCTION_APP}.fly.dev/health" -o "$worker"
-            curl --fail --silent --show-error "$PRODUCTION_ORIGIN/api/account/registration-policy" -o "$policy"
-            curl --fail --silent --show-error --header 'Cache-Control: no-cache' \
-              "$PRODUCTION_ORIGIN/admin.html?pre-upgrade-sha=${previous_sha}" -o "$html"
-            jq -e --arg sha "$previous_sha" --arg schema "$expected_schema" '
-              .status == "ready" and .apiBuildSha == $sha and .environment == "production" and
-              .region == "fra" and .schemaVersion == $schema and .expectedSchemaVersion == $schema
-            ' "$api" >/dev/null
-            jq -e --arg sha "$previous_sha" --arg schema "$expected_schema" '
-              .status == "ok" and .buildSha == $sha and .environment == "production" and
-              .region == "fra" and .schemaVersion == $schema and .expectedSchemaVersion == $schema and
-              .heartbeat.registered == true
-            ' "$worker" >/dev/null
-            jq -e '.accepted == true and .data.registrationEnabled == true and .data.mode == "open" and .data.expiresAt == null' "$policy" >/dev/null
-            grep -Eiq "empire-build-sha.{0,200}${previous_sha}|${previous_sha}.{0,200}empire-build-sha" "$html"
-            rollback_mode="same-schema-code-rollback"
-            rm -f "$api" "$worker" "$policy" "$html"
           fi
           [[ -z "$previous_image" || ("$previous_image" != *$'\n'* && "$previous_image" != *$'\r'*) ]]
           echo "rollback_mode=$rollback_mode" >> "$GITHUB_OUTPUT"
@@ -836,13 +866,32 @@ jobs:
           if [[ "$ROLLBACK_MODE" == "same-schema-code-rollback" ]]; then
             netlify env:set EMPIRE_BUILD_SHA "$PREVIOUS_PRODUCTION_SHA" \
               --force --scope builds functions --context production >/dev/null
+          elif [[ "$ROLLBACK_MODE" == "owner-recovery" ]]; then
+            if [[ -n "$PREVIOUS_PRODUCTION_SHA" ]]; then
+              netlify env:set EMPIRE_BUILD_SHA "$PREVIOUS_PRODUCTION_SHA" \
+                --force --scope builds functions --context production >/dev/null
+            fi
           else
             [[ "$ROLLBACK_MODE" == "initial-cutover-shutdown" ]]
           fi
           curl --fail --silent --show-error --request POST \
             --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
             "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}/deploys/${PREVIOUS_NETLIFY_DEPLOY_ID}/restore" >/dev/null
-          if [[ "$ROLLBACK_MODE" == "initial-cutover-shutdown" ]]; then
+          if [[ "$ROLLBACK_MODE" == "owner-recovery" ]]; then
+            if [[ -n "$PREVIOUS_FLY_IMAGE" ]]; then
+              flyctl deploy --app "$FLY_PRODUCTION_APP" --config fly.hosted-worker.toml \
+                --image "$PREVIOUS_FLY_IMAGE" --ha=false --strategy immediate --yes
+              flyctl scale count 1 --app "$FLY_PRODUCTION_APP" --yes
+            fi
+            jq -n --arg deployId "$PREVIOUS_NETLIFY_DEPLOY_ID" --arg flyImage "$PREVIOUS_FLY_IMAGE" \
+              --arg previousSha "$PREVIOUS_PRODUCTION_SHA" '
+              {status:"owner-recovery-rollback-complete",rollbackMode:"owner-recovery",
+               previousProductionSha:(if $previousSha == "" then null else $previousSha end),
+               previousNetlifyDeployId:$deployId,
+               previousFlyImage:(if $flyImage == "" then null else $flyImage end),
+               databaseRestored:false}
+            ' > artifacts/release/production/automatic-rollback.json
+          elif [[ "$ROLLBACK_MODE" == "initial-cutover-shutdown" ]]; then
             flyctl scale count 0 --app "$FLY_PRODUCTION_APP" --yes
             site="$RUNNER_TEMP/production-rollback-site.json"
             curl --fail --silent --show-error --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
