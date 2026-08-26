@@ -26,7 +26,7 @@ import {
   isRaidCooldownActive,
   resolveRaidSeverity
 } from "./raidTriggerHelpers";
-import { isScheduledRaidBoundary } from "./raidSchedule";
+import { isMiddayRaidBoundary, isScheduledRaidBoundary } from "./raidSchedule";
 
 const RAID_PENDING_FLAG = "raid:pending";
 
@@ -69,8 +69,24 @@ export const triggerRaid = (
   }
   const maxConcurrentRaids = resolveMaxConcurrentRaidsForPhase(config, phaseId);
   const raidDurationTicks = Math.max(1, Math.floor(Number(config.raidDurationTicks || config.pendingRaidTtlTicks || 1)));
+  const activePlayers = Object.values(state.playersById).filter((player) => player.status === "active");
+  const firstRaidHasNotStarted = Object.values(state.policeStatesById).every((policeState) => (
+    policeState.lastRaidCreatedAtTick === undefined
+    && policeState.lastRaidResolvedAtTick === undefined
+    && (policeState.pendingRaids ?? []).length === 0
+  ));
+  const openingMiddayTargetId = firstRaidHasNotStarted && isMiddayRaidBoundary(state, context, currentTick)
+    ? activePlayers
+      .filter((player) => Object.values(state.districtsById).some((district) => district.ownerPlayerId === player.id))
+      .map((player) => calculatePlayerPolicePressure(state, player.id, context))
+      .sort((left, right) => (
+        right.aggregatePressure - left.aggregatePressure
+        || right.hottestDistrictHeat - left.hottestDistrictHeat
+        || left.playerId.localeCompare(right.playerId)
+      ))[0]?.playerId ?? null
+    : null;
 
-  for (const player of Object.values(state.playersById)) {
+  for (const player of activePlayers) {
     const pressure = calculatePlayerPolicePressure(
       {
         ...state,
@@ -79,15 +95,16 @@ export const triggerRaid = (
       player.id,
       context
     );
+    const isOpeningMiddayRaid = player.id === openingMiddayTargetId;
     const currentPoliceState = nextPoliceStatesById[player.policeStateId]
       ?? createPlayerPoliceState(player, currentTick);
 
-    if (pressure.riskTier === "low") {
+    if (pressure.riskTier === "low" && !isOpeningMiddayRaid) {
       decisions.push({ playerId: player.id, type: "no_raid", aggregatePressure: pressure.aggregatePressure });
       continue;
     }
 
-    if (pressure.riskTier === "medium") {
+    if (pressure.riskTier === "medium" && !isOpeningMiddayRaid) {
       const warning = createWarningIfAllowed(currentPoliceState, pressure.aggregatePressure, currentTick, config.raidCooldownTicks);
       if (!warning) {
         decisions.push({ playerId: player.id, type: "cooldown_active", aggregatePressure: pressure.aggregatePressure });
@@ -131,12 +148,14 @@ export const triggerRaid = (
     const severityPressure = Math.floor(
       pressure.aggregatePressure * Math.max(0, Number(getDayNightModifiers(state, context).raidSeverityMultiplier ?? 1)) + 1e-9
     );
-    const severity = resolveRaidSeverity(severityPressure, config.extremePressureRaidThreshold);
-    const targetDistrictId = pressure.hottestDistrictHeat >= Math.max(0, config.districtTargetHeatThreshold)
+    const severity = isOpeningMiddayRaid
+      ? "medium"
+      : resolveRaidSeverity(severityPressure, config.extremePressureRaidThreshold);
+    const targetDistrictId = isOpeningMiddayRaid || pressure.hottestDistrictHeat >= Math.max(0, config.districtTargetHeatThreshold)
       ? pressure.hottestDistrictId
       : null;
     const raidId = `police:raid:${player.id}:${currentTick}:${(currentPoliceState.pendingRaids ?? []).length + 1}`;
-    const cityHallMitigation = resolveCityHallPoliceMitigation({
+    const cityHallMitigation = isOpeningMiddayRaid ? null : resolveCityHallPoliceMitigation({
       state,
       context,
       playerId: player.id,
@@ -164,7 +183,9 @@ export const triggerRaid = (
       playerId: player.id,
       targetDistrictId: targetDistrictId ?? undefined,
       severity,
-      reason: createRaidReason(pressure.aggregatePressure, targetDistrictId),
+      reason: isOpeningMiddayRaid
+        ? `scheduled-midday-opening:${pressure.aggregatePressure}:district:${targetDistrictId ?? "none"}`
+        : createRaidReason(pressure.aggregatePressure, targetDistrictId),
       createdAtTick: currentTick,
       expiresAtTick: currentTick + raidDurationTicks,
       status: "pending",
@@ -211,7 +232,9 @@ export const triggerRaid = (
         aggregatePressure: pressure.aggregatePressure,
         playerHeatPressure: pressure.playerHeatPressure,
         districtHeatPressure: pressure.districtHeatPressure,
-        threshold: config.highPressureRaidThreshold,
+        threshold: isOpeningMiddayRaid
+          ? config.raidSeverityThresholds.medium
+          : config.highPressureRaidThreshold,
         severity,
         targetDistrictId,
         previewConsequences,

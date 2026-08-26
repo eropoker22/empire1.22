@@ -169,6 +169,15 @@ describe("player profile panel renderer", () => {
     }).influenceLabel).toBe("1");
   });
 
+  it("formats gang heat with at most one decimal place", () => {
+    expect(createPlayerProfileViewModel({
+      gangState: { heat: 12.3456789 }
+    }).heatLabel).toBe("12,4");
+    expect(createPlayerProfileViewModel({
+      gangState: { heat: 12 }
+    }).heatLabel).toBe("12");
+  });
+
   it("renders avatar background, accent and text fields", () => {
     const elements = createElements();
     elements.avatar.classList.add("is-empty");

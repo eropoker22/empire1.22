@@ -51,7 +51,9 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
     }
   }
   if (player && Number.isFinite(Number(player.population))) {
-    resourceBalances.population = Math.max(0, Number(player.population || 0));
+    const population = Math.max(0, Number(player.population || 0));
+    resourceBalances.population = population;
+    resourceBalances["gang-members"] = population;
   }
   const economy = createPlayerEconomyView(state, playerId, resourceBalances);
   const factoryBuilding = Object.values(state.buildingsById)
@@ -183,7 +185,7 @@ const createPlayerEconomyView = (
   const player = state.playersById[playerId];
   const resources = sanitizeBalances(resourceBalances);
   const population = Math.max(0, Number(player?.population ?? resources.population ?? 0));
-  const gangMembers = Math.max(0, Number(resources["gang-members"] ?? population));
+  const gangMembers = population;
 
   return {
     cleanCash: amountOf(resources, "cash"),

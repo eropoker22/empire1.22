@@ -77,7 +77,7 @@ export function createPlayerProfileViewModel({
       || (registration?.identity ? `${registration.identity} Crew` : "Guest Crew"),
     allianceLabel: safeAllianceLabel,
     districtCountLabel: String(safeDistrictCount),
-    heatLabel: gangResourcesAvailable ? String(gangState.heat ?? 0) : "—",
+    heatLabel: gangResourcesAvailable ? formatDistrictMetricNumber(gangState.heat ?? 0, 1) : "—",
     protectionLabel: gangResourcesAvailable ? protectionLabel : "—"
   };
 }

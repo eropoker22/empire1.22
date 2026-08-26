@@ -16,6 +16,10 @@ import {
   captureLegacyRuntimeLifecycle,
   destroyLegacyRuntimeLifecycle
 } from "./runtime/legacyRuntimeLifecycle.js";
+import {
+  applyCityChatInputLimit,
+  resolveCityChatMaxMessageLength
+} from "./runtime/cityChatComposer.js";
 
 const GLOBAL_CHAT_KEY = "empire:demo:global-chat:v1";
 const ALLIANCE_CHAT_PREVIEW_KEY = "empire:demo:alliance-chat:v1";
@@ -1562,6 +1566,14 @@ const renderGlobalServerChat = () => {
   const enabled = isDemo || Boolean(latestCityChat?.canSend);
   const input = qs("alliance-chat-input");
   const send = qs("alliance-chat-send");
+  const composerState = input instanceof HTMLInputElement
+    ? applyCityChatInputLimit(input, latestCityChat)
+    : null;
+  const counter = document.querySelector("[data-global-chat-counter]");
+  if (counter && composerState) {
+    counter.textContent = `${composerState.length}/${composerState.maxMessageLength}`;
+    counter.classList.toggle("server-chat-panel__counter--limit", composerState.atLimit);
+  }
   if (input instanceof HTMLInputElement) input.disabled = !enabled;
   if (send instanceof HTMLButtonElement) send.disabled = !enabled;
   if (!isDemo) {
@@ -2737,7 +2749,17 @@ const mountAllianceRuntimeBindings = () => {
 
   document.addEventListener("input", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLInputElement) || !target.hasAttribute("data-alliance-chat-input")) return;
+    if (!(target instanceof HTMLInputElement)) return;
+    if (target.hasAttribute("data-global-chat-input")) {
+      const composerState = applyCityChatInputLimit(target, latestCityChat);
+      const counter = document.querySelector("[data-global-chat-counter]");
+      if (counter) {
+        counter.textContent = `${composerState.length}/${composerState.maxMessageLength}`;
+        counter.classList.toggle("server-chat-panel__counter--limit", composerState.atLimit);
+      }
+      return;
+    }
+    if (!target.hasAttribute("data-alliance-chat-input")) return;
     const allianceId = String(latestAllianceBoard?.activeAlliance?.allianceId || "");
     allianceChatDraft = allianceId
       ? { allianceId, body: target.value }
@@ -2746,10 +2768,19 @@ const mountAllianceRuntimeBindings = () => {
 
   qs("alliance-chat-send")?.addEventListener("click", async () => {
     const input = qs("alliance-chat-input");
-    const text = String(input?.value || "").trim();
+    const composerState = input instanceof HTMLInputElement
+      ? applyCityChatInputLimit(input, latestCityChat)
+      : null;
+    const text = String(composerState?.value ?? input?.value ?? "").trim();
     if (!text) {
       const status = qs("global-chat-status");
       if (status) status.textContent = "Napiš zprávu do městského chatu.";
+      return;
+    }
+    const maxMessageLength = resolveCityChatMaxMessageLength(latestCityChat);
+    if (text.length > maxMessageLength) {
+      const status = qs("global-chat-status");
+      if (status) status.textContent = `Zpráva může mít nejvýše ${maxMessageLength} znaků.`;
       return;
     }
     if (isDevOnlyAllianceDemoEnabled()) {

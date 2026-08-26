@@ -154,6 +154,23 @@ describe("gang wanted status runtime", () => {
     expect(viewModel.fallEntries).toEqual([]);
   });
 
+  it("formats authoritative heat with at most one decimal place", () => {
+    const viewModel = buildServerGangWantedStatusViewModel({
+      serverPlayer: {
+        police: { heat: 42.934567 }
+      }
+    }, {
+      resolveHeatTier: () => ({
+        id: 2,
+        title: "Podezřelý",
+        description: "Policie sleduje provoz."
+      })
+    });
+
+    expect(viewModel.heat).toBe(42.934567);
+    expect(viewModel.heatLabel).toBe("42,9");
+  });
+
   it("binds wanted popup controls and delegates gameplay callbacks", () => {
     const elements = {
       heat: new FakeElement(),

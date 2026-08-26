@@ -546,6 +546,24 @@ describe("elimination purge panel runtime", () => {
     expect(timerApi.clearInterval).not.toHaveBeenCalled();
   });
 
+  it("opens the 7h 59min warning when the first observed tick is already just below the milestone", () => {
+    const fixture = createCountdownWarningFixture();
+    const timerApi = {
+      now: vi.fn(() => 0),
+      setInterval: vi.fn(() => 11),
+      clearInterval: vi.fn()
+    };
+
+    bindEliminationCountdownWarning(fixture.root, createDemoDeps({
+      initialCountdownMs: 7 * 60 * 60 * 1000 + 58 * 60 * 1000 + 59 * 1000,
+      resetCountdown: true,
+      timerApi
+    }));
+
+    expect(fixture.warning.hidden).toBe(false);
+    expect(fixture.timeNode.textContent).toBe("7h 58min 59s");
+  });
+
   it("lets players close a milestone warning and reopens it at the next milestone", () => {
     const fixture = createCountdownWarningFixture();
     let currentTime = 0;

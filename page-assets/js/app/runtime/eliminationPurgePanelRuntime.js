@@ -28,6 +28,7 @@ const COUNTDOWN_WARNING_MILESTONES_MS = [
   15 * 60_000,
   2 * 60_000
 ];
+const COUNTDOWN_WARNING_INITIAL_CATCH_UP_MS = 60_000;
 let sharedMockCountdownEndsAt = null;
 let sharedLastResolvedCountdownEndsAt = null;
 let sharedLastEliminationResult = null;
@@ -942,7 +943,10 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
 function resolveCountdownWarningMilestone(previousRemainingMs, remainingMs) {
   if (remainingMs === null || remainingMs <= 0) return null;
   if (previousRemainingMs === null) {
-    return COUNTDOWN_WARNING_MILESTONES_MS.includes(remainingMs) ? remainingMs : null;
+    return COUNTDOWN_WARNING_MILESTONES_MS.find((milestoneMs) => (
+      remainingMs <= milestoneMs
+      && milestoneMs - remainingMs <= COUNTDOWN_WARNING_INITIAL_CATCH_UP_MS
+    )) ?? null;
   }
   return COUNTDOWN_WARNING_MILESTONES_MS.find((milestoneMs) => (
     previousRemainingMs > milestoneMs && remainingMs <= milestoneMs

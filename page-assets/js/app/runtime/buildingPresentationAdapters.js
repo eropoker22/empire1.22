@@ -1030,9 +1030,9 @@ export class ServerBuildingPresentationAdapter {
     this.resolveDistrictBuildingProfile = resolveDistrictBuildingProfile;
   }
 
-  getDistrictPresentation(district) {
+  getDistrictPresentation(district, { readModel: confirmedReadModel = null } = {}) {
     const canonicalDistrictId = toCanonicalServerDistrictId(district);
-    const readModel = this.getReadModel?.() || null;
+    const readModel = confirmedReadModel || this.getReadModel?.() || null;
     const serverDistrict = [readModel?.district, ...(readModel?.ownedDistricts || [])]
       .find((candidate) => String(candidate?.districtId || "") === canonicalDistrictId) || null;
     if (!canonicalDistrictId || !serverDistrict) {

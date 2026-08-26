@@ -351,6 +351,25 @@
   overflow-wrap: anywhere;
 }
 
+.server-chat-panel__composer-meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.server-chat-panel__counter {
+  flex: 0 0 auto;
+  color: var(--alliance-muted);
+  font-size: 0.68rem;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+.server-chat-panel__counter--limit {
+  color: #ff5c77;
+}
+
 #alliance-modal,
 #alliance-create-modal,
 #alliance-leave-modal,

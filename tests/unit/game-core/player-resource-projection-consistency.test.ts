@@ -26,6 +26,7 @@ describe("player resource projection consistency", () => {
       balances: {
         cash: 3_583.3,
         "dirty-cash": 412.2,
+        "gang-members": 3,
         chemicals: 7,
         pistol: 2
       }
@@ -60,6 +61,7 @@ describe("player resource projection consistency", () => {
       cash: 3_583.3,
       "dirty-cash": 412.2,
       population: 42,
+      "gang-members": 42,
       chemicals: 7,
       pistol: 2
     });

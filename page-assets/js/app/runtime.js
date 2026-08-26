@@ -1027,6 +1027,7 @@ import {
   canReadServerGameplayProjection,
   canSubmitServerGameplayCommand
 } from "./runtime/serverCommandAuthorityGuard.js";
+import { resolveServerPlayerPopulation } from "./runtime/serverPlayerPopulation.js";
 // Legacy static-page preview runtime; browser-local only when no server authority is present.
 const BUILDING_ACTION_LOG_LIMIT = 30;
 const MONEY_STAT_COUNT_TICK_MS = 26;
@@ -2469,7 +2470,10 @@ function bindServerGameplayResourceReadModel(root) {
       return false;
     }
     latestGameplaySliceReadModel = nextSlice;
-    serverDistrictSelectionCoordinator?.cacheReadModel?.(nextSlice);
+    serverDistrictSelectionCoordinator?.cacheReadModel?.(
+      nextSlice,
+      getServerGameplayRenderState()
+    );
     if (getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
       return false;
     }
@@ -2974,7 +2978,7 @@ function getResolvedGangState() {
     const police = latestGameplaySliceReadModel?.police || serverPlayer.police || null;
     return {
       members: clamp(
-        Number(serverPlayer.economy.gangMembers ?? serverPlayer.economy.population ?? 0),
+        Number(resolveServerPlayerPopulation(serverPlayer) ?? 0),
         0,
         9999
       ),
@@ -3332,9 +3336,12 @@ function applyPoliceActionImpact(tier, options = {}) {
 
 function renderGangMembersState(root) {
   const gangState = getResolvedGangState();
+  const serverPopulation = getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative
+    ? resolveServerPlayerPopulation(latestGameplaySliceReadModel?.player)
+    : null;
   renderResourcesPanelUi({
-    gangMembers: gangState.members,
-    available: gangState.available !== false
+    gangMembers: serverPopulation ?? gangState.members,
+    available: serverPopulation !== null || gangState.available !== false
   }, {
     root,
     includeMoney: false,
@@ -12916,15 +12923,21 @@ function bindDistrictCanvas(root) {
     };
   };
 
-  const openServerSharedDistrictPopup = (district) => {
+  const openServerSharedDistrictPopup = (
+    district,
+    confirmedReadModel = null,
+    confirmedRenderState = null
+  ) => {
     if (popupRefreshTimerId !== null) {
       window.clearInterval(popupRefreshTimerId);
       popupRefreshTimerId = null;
     }
-    const readModel = latestGameplaySliceReadModel || getServerGameplaySliceReadModel();
+    const readModel = confirmedReadModel
+      || latestGameplaySliceReadModel
+      || getServerGameplaySliceReadModel();
     const serverView = createServerGameplayDistrictView(
       readModel,
-      getServerGameplayRenderState()
+      confirmedRenderState || getServerGameplayRenderState()
     );
     const canonicalDistrictId = toCanonicalServerDistrictId(district);
     if (!serverView || String(serverView.districtId || "") !== canonicalDistrictId) {
@@ -12974,7 +12987,7 @@ function bindDistrictCanvas(root) {
       view: serverView
     });
 
-    const presentation = serverBuildingPresentationAdapter.getDistrictPresentation(district);
+    const presentation = serverBuildingPresentationAdapter.getDistrictPresentation(district, { readModel });
     const profileBuildings = Array.isArray(presentation?.profile?.buildings)
       ? presentation.profile.buildings
       : [];
@@ -13352,6 +13365,7 @@ function bindDistrictCanvas(root) {
   serverDistrictSelectionCoordinator = createServerDistrictSelectionCoordinator({
     selectDistrict: selectServerDistrict,
     getReadModel: getServerGameplaySliceReadModel,
+    getRenderState: getServerGameplayRenderState,
     onLoading: ({ district, buildingId, buildingName }) => {
       showServerDistrictLoading({ district, buildingName });
       window.empireUiOwnershipDiagnostics?.recordSelection?.({
@@ -13408,7 +13422,14 @@ function bindDistrictCanvas(root) {
     syncInteractionDistrictAuthorityState();
     interactionState.selectedDistrictId = Number(confirmedDistrict.id);
     render("server-district-selected");
-    openPopup(confirmedDistrict);
+    const opened = openServerSharedDistrictPopup(
+      confirmedDistrict,
+      result.readModel,
+      result.renderState
+    );
+    if (!opened) {
+      return false;
+    }
     if (!buildingRequest) {
       return true;
     }

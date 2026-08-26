@@ -60,6 +60,7 @@ export function resolveServerDistrictBuilding(readModel, request = {}) {
 export function createServerDistrictSelectionCoordinator({
   selectDistrict,
   getReadModel = () => null,
+  getRenderState = () => null,
   onLoading = () => {},
   onReady = () => {},
   onError = () => {},
@@ -72,16 +73,18 @@ export function createServerDistrictSelectionCoordinator({
   const readModelsByDistrictId = new Map();
 
   const normalizedCacheTtlMs = Math.max(0, Number(cacheTtlMs || 0));
-  const cacheReadModel = (readModel) => {
+  const cacheReadModel = (readModel, renderState = null) => {
     const districtId = String(readModel?.district?.districtId || "").trim();
     if (!districtId || !readModel) return false;
+    const existing = readModelsByDistrictId.get(districtId);
     readModelsByDistrictId.set(districtId, {
       readModel,
+      renderState: renderState || existing?.renderState || null,
       cachedAt: Number(now()) || Date.now()
     });
     return true;
   };
-  const getCachedReadModel = (districtId) => {
+  const getCachedEntry = (districtId) => {
     const cached = readModelsByDistrictId.get(districtId);
     if (!cached) return null;
     const ageMs = Math.max(0, (Number(now()) || Date.now()) - cached.cachedAt);
@@ -89,7 +92,7 @@ export function createServerDistrictSelectionCoordinator({
       readModelsByDistrictId.delete(districtId);
       return null;
     }
-    return cached.readModel;
+    return cached;
   };
 
   const open = async ({
@@ -117,6 +120,7 @@ export function createServerDistrictSelectionCoordinator({
       || requestedBuilding.buildingName
     );
     const currentReadModel = getReadModel() || null;
+    const currentRenderState = getRenderState() || null;
     const currentDistrictMatches = String(
       currentReadModel?.district?.districtId || ""
     ) === canonicalDistrictId;
@@ -125,13 +129,14 @@ export function createServerDistrictSelectionCoordinator({
       ? resolveServerDistrictBuilding(currentReadModel, requestedBuilding)
       : null;
     if (currentDistrictMatches && (!requiresBuilding || currentBuilding)) {
-      cacheReadModel(currentReadModel);
+      cacheReadModel(currentReadModel, currentRenderState);
       const result = {
         accepted: true,
         building: currentBuilding,
         canonicalDistrictId,
         district,
         readModel: currentReadModel,
+        renderState: currentRenderState,
         response: null,
         stale: false
       };
@@ -139,7 +144,8 @@ export function createServerDistrictSelectionCoordinator({
       return result;
     }
 
-    const cachedReadModel = getCachedReadModel(canonicalDistrictId);
+    const cachedEntry = getCachedEntry(canonicalDistrictId);
+    const cachedReadModel = cachedEntry?.readModel || null;
     const cachedBuilding = requiresBuilding
       ? resolveServerDistrictBuilding(cachedReadModel, requestedBuilding)
       : null;
@@ -150,6 +156,7 @@ export function createServerDistrictSelectionCoordinator({
         canonicalDistrictId,
         district,
         readModel: cachedReadModel,
+        renderState: cachedEntry?.renderState || null,
         response: null,
         stale: false,
         cached: true
@@ -216,10 +223,11 @@ export function createServerDistrictSelectionCoordinator({
         canonicalDistrictId,
         district,
         readModel,
+        renderState: response?.renderState || getRenderState() || null,
         response,
         stale: false
       };
-      cacheReadModel(readModel);
+      cacheReadModel(readModel, result.renderState);
       onReady(result);
       return result;
     })();

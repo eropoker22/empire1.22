@@ -301,6 +301,35 @@ describe("core police system completion", () => {
     expect(triggerRaid(oldTwelveThirtyBoundary, createContext()).events).toEqual([]);
   });
 
+  it("starts one visible medium raid at the first 12:00 boundary even when the city is still quiet", () => {
+    const atFirstNoon = createCoreStateFixture();
+    addPoliceState(atFirstNoon, 0);
+    atFirstNoon.root.tick = 360;
+
+    const result = triggerRaid(atFirstNoon, createContext());
+    const raid = result.nextState.policeStatesById["police:1"].pendingRaids?.[0];
+
+    expect(result.events.filter((event) => event.type === "police-raid-triggered")).toHaveLength(1);
+    expect(raid).toMatchObject({
+      playerId: "player:1",
+      severity: "medium",
+      createdAtTick: 360,
+      reason: expect.stringContaining("scheduled-midday-opening")
+    });
+  });
+
+  it("does not force another quiet-city raid after the opening raid already happened", () => {
+    const nextDayNoon = createCoreStateFixture();
+    addPoliceState(nextDayNoon, 0);
+    nextDayNoon.root.tick = 1800;
+    nextDayNoon.policeStatesById["police:1"] = {
+      ...nextDayNoon.policeStatesById["police:1"],
+      lastRaidCreatedAtTick: 360
+    };
+
+    expect(triggerRaid(nextDayNoon, createContext()).events).toEqual([]);
+  });
+
   it("caps simultaneous police raids to the canonical day limit", () => {
     const state = createCoreStateFixture();
     state.playersById = {};

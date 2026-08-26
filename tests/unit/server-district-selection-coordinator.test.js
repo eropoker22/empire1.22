@@ -206,12 +206,19 @@ describe("server district selection coordinator", () => {
 
   it("reopens a recently visited district from its authoritative detail cache", async () => {
     let currentReadModel = readModel("district:21");
+    let currentRenderState = { districtPanel: { districtId: "district:21" } };
     const selectDistrict = vi.fn(async (districtId) => {
       currentReadModel = readModel(districtId);
-      return { accepted: true, readModel: currentReadModel };
+      currentRenderState = { districtPanel: { districtId } };
+      return {
+        accepted: true,
+        readModel: currentReadModel,
+        renderState: currentRenderState
+      };
     });
     const coordinator = createServerDistrictSelectionCoordinator({
       getReadModel: () => currentReadModel,
+      getRenderState: () => currentRenderState,
       selectDistrict,
       cacheTtlMs: 20_000,
       now: () => 1_000
@@ -224,7 +231,10 @@ describe("server district selection coordinator", () => {
     expect(reopened).toMatchObject({
       accepted: true,
       canonicalDistrictId: "district:22",
-      cached: true
+      cached: true,
+      renderState: {
+        districtPanel: { districtId: "district:22" }
+      }
     });
     expect(selectDistrict).toHaveBeenCalledTimes(2);
   });

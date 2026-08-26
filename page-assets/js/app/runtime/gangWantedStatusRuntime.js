@@ -1,4 +1,5 @@
 import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
+import { formatDistrictMetricNumber } from "./formatters.js";
 
 const UNAVAILABLE_VALUE_LABEL = "—";
 
@@ -66,7 +67,9 @@ export function buildGangWantedStatusViewModel({
   const now = typeof options.now === "function" ? options.now() : Date.now();
   return {
     heat: heatValue,
-    heatLabel: typeof options.heatLabel === "string" ? options.heatLabel : String(heatValue),
+    heatLabel: typeof options.heatLabel === "string"
+      ? options.heatLabel
+      : formatDistrictMetricNumber(heatValue, 1),
     available: options.available !== false,
     levelId: heatLevel.id,
     levelLabel: typeof options.levelLabel === "string" ? options.levelLabel : heatLevel.label,
@@ -160,7 +163,9 @@ export function buildServerGangWantedStatusViewModel({
   }, {
     ...options,
     available: authoritativeHeatAvailable,
-    heatLabel: authoritativeHeatAvailable ? String(Math.max(0, heat)) : UNAVAILABLE_VALUE_LABEL,
+    heatLabel: authoritativeHeatAvailable
+      ? formatDistrictMetricNumber(Math.max(0, heat), 1)
+      : UNAVAILABLE_VALUE_LABEL,
     levelLabel,
     protectionLabel: resolveAuthoritativeProtectionLabel(police),
     auditRiskLabel: auditRiskPct === null ? UNAVAILABLE_VALUE_LABEL : `${Math.max(0, auditRiskPct)} %`,

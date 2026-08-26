@@ -165,6 +165,40 @@ describe("shared building presentation adapters", () => {
     });
   });
 
+  it("renders a confirmed cached district without replacing it with another current district", () => {
+    let currentReadModelReads = 0;
+    const adapter = new ServerBuildingPresentationAdapter({
+      getReadModel: () => {
+        currentReadModelReads += 1;
+        return {
+          player: { playerId: "player:1" },
+          district: { districtId: "district:66", buildings: [] }
+        };
+      },
+      resolveDistrictBuildingProfile: () => localProfile
+    });
+    const confirmedReadModel = {
+      player: { playerId: "player:1" },
+      district: {
+        districtId: "district:21",
+        ownerPlayerId: "player:1",
+        isOwnedByPlayer: true,
+        intelKnown: true,
+        status: "claimed",
+        buildings: []
+      }
+    };
+
+    const presentation = adapter.getDistrictPresentation(
+      { id: 21 },
+      { readModel: confirmedReadModel }
+    );
+
+    expect(currentReadModelReads).toBe(0);
+    expect(presentation.canonicalDistrictId).toBe("district:21");
+    expect(presentation.readModel.district.districtId).toBe("district:21");
+  });
+
   it("maps a compact owned building index even when another district is currently selected", () => {
     const adapter = new ServerBuildingPresentationAdapter({
       getReadModel: () => ({
