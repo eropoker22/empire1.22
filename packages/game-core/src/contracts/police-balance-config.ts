@@ -2,6 +2,8 @@ export type PoliceRaidSeverityKey = "low" | "medium" | "high" | "extreme";
 export type PoliceRaidPhaseKey = "day" | "night";
 
 export interface PoliceSystemBalanceConfig {
+  districtHeatPerHourByZone: Record<string, number>;
+  spyActionHeatGain: number;
   districtHeatWeight: number;
   highPressureRaidThreshold: number;
   extremePressureRaidThreshold: number;

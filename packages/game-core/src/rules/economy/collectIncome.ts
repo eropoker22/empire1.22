@@ -27,6 +27,7 @@ import { applyVipLoungePassiveRumors } from "../../handlers/vipLoungeBuildingAct
 import { resolveActiveAlliancePenaltyStatModifiers } from "../alliances/alliancePenaltyModifiers";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
 
 export interface FixedBuildingPassivePressureRate {
   heatPerTick: number;
@@ -71,7 +72,13 @@ export const calculateDistrictResourceModifierStatRatesByDistrictId = (
       : null;
     const populationBase = positiveModifier(district.resourceModifiers.population) * stabilizationMultiplier;
     const influenceBase = positiveModifier(district.resourceModifiers.influence) * stabilizationMultiplier;
-    const heatBase = positiveModifier(district.resourceModifiers.heat) * stabilizationMultiplier;
+    const districtTypeHeatPerTick = context
+      ? resolveDistrictTypeHeatPerTick(district.zone, context)
+      : 0;
+    const heatBase = (
+      positiveModifier(district.resourceModifiers.heat)
+      + districtTypeHeatPerTick
+    ) * stabilizationMultiplier;
 
     ratesByDistrictId[district.id] = {
       populationPerTick: factionModifiers
@@ -361,6 +368,19 @@ const positiveModifier = (value: unknown): number => {
 
 const resolvePerTick = (perDay: number, ticksPerDay: number): number =>
   Number.isFinite(perDay) && ticksPerDay > 0 ? perDay / ticksPerDay : 0;
+
+export const resolveDistrictTypeHeatPerTick = (
+  zone: unknown,
+  context: GameCoreContext
+): number => {
+  const zoneKey = String(zone || "").trim().toLowerCase();
+  const heatPerHour = Number(
+    context.config.balance.police?.districtHeatPerHourByZone?.[zoneKey] ?? 0
+  );
+  return Number.isFinite(heatPerHour) && heatPerHour > 0
+    ? heatPerHour * Math.max(1, context.config.tickRateMs) / HOUR_MS
+    : 0;
+};
 
 const nowIsoFromContext = (context: GameCoreContext): string =>
   context.clock?.nowIso?.() ?? context.clock?.now?.().toISOString() ?? new Date().toISOString();

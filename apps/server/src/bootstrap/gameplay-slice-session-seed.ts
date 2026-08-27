@@ -62,6 +62,7 @@ export const addPlayerToGameplaySliceState = (
     player.id,
     resolveGameplaySliceStartingBalances(config.balance.startingResources, request.startingPlayerState)
   );
+  state.cooldownStatesById[player.cooldownStateId] = createCooldownState(player.id, player.cooldownStateId);
   state.playerSpyOperationStatesByPlayerId ??= {};
   state.playerSpyOperationStatesByPlayerId[player.id] = createPlayerSpyOperationState(player.id);
   state.policeStatesById[player.policeStateId] = createPlayerPoliceState(player, state.root.tick);
@@ -113,6 +114,13 @@ const createResourceState = (
   ownerId: string,
   balances: Record<string, number>
 ): ResourceState => ({ id, ownerType, ownerId, balances: { ...balances }, incomeModifiers: {}, lastUpdatedTick: 0, version: 1 });
+const createCooldownState = (playerId: string, cooldownStateId: string) => ({
+  id: cooldownStateId,
+  ownerType: "player" as const,
+  ownerId: playerId,
+  cooldowns: {},
+  version: 1
+});
 const appendUnique = <TValue>(target: TValue[], value: TValue): void => {
   if (!target.includes(value)) target.push(value);
 };
@@ -205,6 +213,7 @@ const ensureDevBountyDemoTarget = (
     targetPlayer.id,
     resolveGameplaySliceStartingBalances(config.balance.startingResources)
   );
+  state.cooldownStatesById[targetPlayer.cooldownStateId] = createCooldownState(targetPlayer.id, targetPlayer.cooldownStateId);
   state.policeStatesById[targetPlayer.policeStateId] = createPlayerPoliceState(targetPlayer, state.root.tick);
   state.districtsById[targetDistrict.id] = {
     ...targetDistrict,

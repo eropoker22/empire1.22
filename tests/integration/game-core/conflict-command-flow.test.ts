@@ -54,8 +54,10 @@ describe("conflict command flow", () => {
       attackerPlayerId: "player:1",
       targetDistrictId: "district:2",
       targetSecurityRevision: 1,
-      issuedAtTick: 0
+      issuedAtTick: 0,
+      heatGained: 2
     });
+    expect(result.nextState.policeStatesById["police:1"]?.heat).toBe(2);
   });
 
   it("keeps spy authorization across passive version changes but invalidates security changes", () => {
@@ -265,9 +267,7 @@ describe("conflict command flow", () => {
           ? context.config.balance.conflict.spyCaptureCooldownTicks
           : context.config.balance.conflict.spySlotCooldownTicks
       );
-      if (outcome === "critical_failed") {
-        expect(blockedSpy.nextState.policeStatesById["police:1"]?.heat).toBeGreaterThan(0);
-      }
+      expect(blockedSpy.nextState.policeStatesById["police:1"]?.heat).toBe(2);
 
       const occupied = applyCommand(blockedSpy.nextState, createOccupyDistrictCommandFixture({
         payload: {

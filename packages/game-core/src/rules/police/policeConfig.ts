@@ -2,6 +2,14 @@ import type { PoliceSystemBalanceConfig } from "../../contracts/police-balance-c
 import type { GameCoreContext } from "../../engine/context";
 
 export const DEFAULT_POLICE_SYSTEM_CONFIG: PoliceSystemBalanceConfig = {
+  districtHeatPerHourByZone: {
+    park: 3,
+    commercial: 1,
+    industrial: 1,
+    downtown: 5,
+    residential: 2
+  },
+  spyActionHeatGain: 2,
   districtHeatWeight: 1,
   highPressureRaidThreshold: 100,
   extremePressureRaidThreshold: 140,
@@ -62,6 +70,10 @@ export const resolvePoliceConfig = (context?: GameCoreContext): PoliceSystemBala
   return {
     ...DEFAULT_POLICE_SYSTEM_CONFIG,
     ...override,
+    districtHeatPerHourByZone: {
+      ...DEFAULT_POLICE_SYSTEM_CONFIG.districtHeatPerHourByZone,
+      ...(override.districtHeatPerHourByZone ?? {})
+    },
     raidSeverityThresholds: {
       ...DEFAULT_POLICE_SYSTEM_CONFIG.raidSeverityThresholds,
       ...(override.raidSeverityThresholds ?? {})

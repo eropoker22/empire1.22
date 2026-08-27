@@ -416,6 +416,14 @@
     ])
   );
   const basePoliceConfig = {
+    districtHeatPerHourByZone: {
+      park: 3,
+      commercial: 1,
+      industrial: 1,
+      downtown: 5,
+      residential: 2
+    },
+    spyActionHeatGain: 2,
     districtHeatWeight: 1,
     highPressureRaidThreshold: 100,
     extremePressureRaidThreshold: 140,
@@ -9446,6 +9454,14 @@
   };
   const FREE_MODE_RAID_DURATION_TICKS = ticksFromMinutes(60);
   const freeModePoliceConfig = {
+    districtHeatPerHourByZone: {
+      park: 3,
+      commercial: 1,
+      industrial: 1,
+      downtown: 5,
+      residential: 2
+    },
+    spyActionHeatGain: 2,
     districtHeatWeight: 0.9,
     highPressureRaidThreshold: 115,
     extremePressureRaidThreshold: 180,
@@ -18585,6 +18601,18 @@
     }
     if (config.balance.maxAllianceSize > 4) {
       throw new Error("Mode config allows alliances with at most 4 players.");
+    }
+    const police = config.balance.police;
+    if (police) {
+      for (const zone of ["park", "commercial", "industrial", "downtown", "residential"]) {
+        const heatPerHour = police.districtHeatPerHourByZone[zone];
+        if (!Number.isFinite(heatPerHour) || heatPerHour < 0) {
+          throw new Error(`Police config requires non-negative district heat per hour for ${zone}.`);
+        }
+      }
+      if (!Number.isFinite(police.spyActionHeatGain) || police.spyActionHeatGain < 0) {
+        throw new Error("Police config requires a non-negative spyActionHeatGain.");
+      }
     }
     const allianceLifecycle = config.balance.allianceLifecycle;
     if (allianceLifecycle) {

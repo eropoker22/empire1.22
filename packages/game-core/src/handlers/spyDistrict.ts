@@ -95,7 +95,8 @@ export const handleSpyDistrict = (
     cameraStrengthBonusPct,
     alarmStrengthBonusPct,
     criticalFailureChanceMultiplier: boostSnapshot.criticalFailureChanceMultiplier,
-    extraIntelBlocksOnSuccess: boostSnapshot.extraIntelBlocksOnSuccess
+    extraIntelBlocksOnSuccess: boostSnapshot.extraIntelBlocksOnSuccess,
+    heatGain: context.config.balance.police?.spyActionHeatGain ?? 2
   });
   const isCriticalCapture = reportResult.result === "critical_failed";
   const baseSpySlotCooldownTicks = context.config.balance.conflict?.spySlotCooldownTicks
@@ -141,9 +142,12 @@ export const handleSpyDistrict = (
   const nextSpySlots = spyOperationState.slots.map((slot) => slot.slotId === selectedSlot.slotId
     ? { ...slot, availableAtTick: slotAvailableAtTick, lastMissionId: command.id }
     : slot) as PlayerSpyOperationState["slots"];
-  const nextPoliceState = reportResult.result === "critical_failed"
-    ? increasePlayerPoliceHeat(state, player, reportResult.heatGained, state.root.tick)
-    : state.policeStatesById[player.policeStateId];
+  const nextPoliceState = increasePlayerPoliceHeat(
+    state,
+    player,
+    reportResult.heatGained,
+    state.root.tick
+  );
 
   return {
     nextState: {

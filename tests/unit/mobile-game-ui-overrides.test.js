@@ -12,8 +12,11 @@ describe("mobile game UI overrides", () => {
   const runtime = read("page-assets/js/app/runtime.js");
   const serverCooldownStreetNews = read("page-assets/js/app/runtime/serverCooldownStreetNews.js");
   const mobileLayoutRuntime = read("page-assets/js/app/mobile-layout-runtime.js");
+  const actionResultsCss = read("page-assets/css/styles-action-results.css");
+  const bountyCss = read("page-assets/css/styles-bounty.css");
+  const rumorInboxRuntime = read("page-assets/js/app/ui/rumorInboxModal.js");
 
-  it("keeps Buildings transparent black and production buildings inside a dimmed phone safe area", () => {
+  it("keeps Buildings transparent black and production buildings full-height on phones", () => {
     const mobileBlockStart = css.indexOf("/* Buildings: transparent black mobile glass");
     const mobileBlockEnd = css.indexOf("/* Factory metrics keep each label", mobileBlockStart);
     const mobileBlock = css.slice(mobileBlockStart, mobileBlockEnd);
@@ -28,18 +31,22 @@ describe("mobile game UI overrides", () => {
     expect(mobileBlock).toContain(".armory-popup-shell");
     expect(mobileBlock).toContain("height: var(--mobile-locked-vh, 100svh) !important;");
 
-    const safeAreaStart = css.indexOf("/* Final phone production-building safe area");
+    const safeAreaStart = css.indexOf("/* Final phone production-building contract");
     const safeAreaBlock = css.slice(safeAreaStart);
     expect(safeAreaStart).toBeGreaterThan(-1);
-    expect(safeAreaBlock).toContain("--production-building-phone-top: max(18px, env(safe-area-inset-top));");
-    expect(safeAreaBlock).toContain("--production-building-phone-bottom: max(18px, env(safe-area-inset-bottom));");
+    expect(safeAreaBlock).toContain("--production-building-phone-top: 0px;");
+    expect(safeAreaBlock).toContain("--production-building-phone-bottom: 0px;");
     expect(safeAreaBlock).toContain("background: rgba(1, 4, 10, 0.88) !important;");
     expect(safeAreaBlock).toContain('.district-building-detail-shell[data-building-mechanics-type="drug-lab"]');
     expect(safeAreaBlock).toContain("height: calc(var(--mobile-locked-vh, 100svh) - var(--production-building-phone-top) - var(--production-building-phone-bottom)) !important;");
+    expect(safeAreaBlock).toContain("border-radius: 0 !important;");
+    expect(safeAreaBlock).toContain("--standard-building-phone-top: max(14px, env(safe-area-inset-top));");
   });
 
   it("keeps spy resources visible and factory metric values right-aligned", () => {
     expect(css).toContain("game-modal-scroll-locked.game-spy-confirm-open .game-resource-strip");
+    expect(css).toContain(":has(#spy-confirm-modal:not(.hidden):not([hidden])) > #game-header");
+    expect(css).toContain("--spy-resource-bar-height");
     expect(css).toContain("--spy-confirm-window-safe-top");
     expect(mobileLayoutRuntime).toContain("const hasOpenSpyConfirm = openOverlays.some((element) => element.id === \"spy-confirm-modal\");");
     expect(mobileLayoutRuntime).toContain("root.classList.toggle(MOBILE_SPY_CONFIRM_OPEN_CLASS, hasOpenSpyConfirm);");
@@ -48,6 +55,23 @@ describe("mobile game UI overrides", () => {
     expect(css).toContain(".factory-slot .drug-production-slot__metric:not(.drug-production-slot__metric--supplies)");
     expect(css).toContain("justify-content: space-between !important;");
     expect(css).toContain("margin-left: auto !important;");
+  });
+
+  it("keeps the phone rumor close control clear of compact neon trash actions", () => {
+    expect(rumorInboxRuntime).toContain('class="rumor-inbox-trash-icon"');
+    expect(rumorInboxRuntime).not.toContain('"rumor-inbox-delete-all", "🗑"');
+    expect(actionResultsCss).toContain("grid-template-columns: minmax(0, 1fr) auto auto;");
+    expect(actionResultsCss).toContain("right: 58px;");
+    expect(actionResultsCss).toContain("--rumor-trash-rgb: 57, 255, 136;");
+    expect(actionResultsCss).toContain(".rumor-inbox-message__delete .rumor-inbox-trash-icon");
+  });
+
+  it("renders active bounties as a single-column scrollable contract stack on phones", () => {
+    expect(bountyCss).toContain('#bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody tr');
+    expect(bountyCss).toContain("grid-template-columns: minmax(72px, 0.34fr) minmax(0, 1fr);");
+    expect(bountyCss).toContain("content: attr(data-label);");
+    expect(bountyCss).toContain("overflow-wrap: anywhere;");
+    expect(bountyCss).toContain("scrollbar-gutter: stable;");
   });
 
   it("keeps mobile market labels compact and quantity readable", () => {

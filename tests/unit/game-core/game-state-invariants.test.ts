@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { checkGameStateInvariants } from "@empire/game-core";
 import { resolveModeConfig } from "@empire/game-config";
 import {
+  createAllianceFixture,
   createCombatStateFixture,
   createCoreStateFixture
 } from "../../fixtures/game-state-fixtures";
@@ -9,6 +10,22 @@ import {
 const freeConfig = resolveModeConfig("free");
 
 describe("authoritative game-state invariants", () => {
+  it("allows a disbanded alliance to retain its historical owner with no active members", () => {
+    const state = createCoreStateFixture();
+    const alliance = createAllianceFixture({
+      status: "disbanded",
+      memberIds: []
+    });
+    state.alliancesById[alliance.id] = alliance;
+    state.root.allianceIds.push(alliance.id);
+
+    const report = checkGameStateInvariants(state);
+
+    expect(report.violations).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: "ALLIANCE_OWNER_NOT_MEMBER" })])
+    );
+  });
+
   it("accepts a canonical normalized state", () => {
     const state = createCombatStateFixture("instance:1");
     for (const player of Object.values(state.playersById)) {

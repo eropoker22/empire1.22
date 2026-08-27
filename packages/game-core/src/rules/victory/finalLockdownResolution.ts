@@ -119,14 +119,34 @@ const createEliminatedRanking = (state: CoreGameState, activeRankCount: number):
   state.root.playerIds
     .filter((playerId) => state.playersById[playerId]?.status !== "active")
     .map((playerId) => ({
+      playerId,
+      eliminatedAtTick: finiteNumberOrFallback(
+        state.playersById[playerId]?.metadata?.eliminatedAtTick,
+        Number.NEGATIVE_INFINITY
+      ),
+      recordedPlacement: finiteNumberOrFallback(
+        state.playersById[playerId]?.metadata?.finalPlacement,
+        Number.POSITIVE_INFINITY
+      )
+    }))
+    .sort((left, right) =>
+      right.eliminatedAtTick - left.eliminatedAtTick
+      || left.recordedPlacement - right.recordedPlacement
+      || left.playerId.localeCompare(right.playerId)
+    )
+    .map(({ playerId }, index) => ({
       subjectType: "player" as const,
       subjectId: playerId,
-      rank: Math.max(activeRankCount + 1, Number(state.playersById[playerId]?.metadata?.finalPlacement ?? activeRankCount + 1)),
+      rank: activeRankCount + index + 1,
       score: Number(state.playersById[playerId]?.metadata?.scoreAtElimination ?? 0),
       scoreBreakdown: state.playersById[playerId]?.metadata?.scoreBreakdownAtElimination as Record<string, number>
         ?? { finalPlacement: Number(state.playersById[playerId]?.metadata?.finalPlacement ?? 0) }
-    }))
-    .sort((left, right) => left.rank - right.rank || left.subjectId.localeCompare(right.subjectId));
+    }));
+
+const finiteNumberOrFallback = (value: unknown, fallback: number): number => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
 
 const createFinalLockdownProgressPayload = (
   finalState: FinalLockdownState,

@@ -173,6 +173,27 @@ describe("Free BR Final Lockdown", () => {
     });
   });
 
+  it("assigns unique final ranks to players defeated by combat before Final Lockdown", () => {
+    const state = createTop8State({ startedAt: "2026-01-01T11:00:00.000Z" });
+    for (const [index, eliminatedAtTick] of [[9, 100], [10, 300], [11, 200]] as const) {
+      addPlayerWithEmpire(state, index);
+      state.playersById[`player:${index}`] = {
+        ...state.playersById[`player:${index}`],
+        status: "defeated",
+        metadata: { eliminatedAtTick, eliminationReason: "last_district_lost" }
+      };
+    }
+    const duration = FREE_CONFIG.balance.finalLockdown!.activeDurationTicks;
+    state.finalLockdownState = createActiveFinalLockdownState(state, duration - 1);
+    state.root.phase = PRODUCTION_GAME_LIFECYCLE_PHASES.finalLockdown;
+
+    const result = runTick(state, CONTEXT);
+    const ranking = result.nextState.matchResult?.ranking ?? [];
+
+    expect(ranking.map((entry) => entry.rank)).toEqual(Array.from({ length: 11 }, (_, index) => index + 1));
+    expect(ranking.slice(8).map((entry) => entry.subjectId)).toEqual(["player:10", "player:11", "player:9"]);
+  });
+
   it("records the authoritative completion time instead of the Unix epoch", () => {
     const state = createTop8State({ startedAt: "2026-01-01T11:00:00.000Z" });
     const duration = FREE_CONFIG.balance.finalLockdown!.activeDurationTicks;

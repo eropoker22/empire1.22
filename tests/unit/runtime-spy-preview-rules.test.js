@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  LEGACY_SPY_CRITICAL_HEAT_GAIN,
   LEGACY_SPY_MISSION_SPY_COUNT,
+  SPY_ACTION_HEAT_GAIN,
   SPY_OUTCOMES,
   applySpyIntelOutcome,
   calculateSpySuccessChance,
@@ -59,9 +59,11 @@ describe("legacy spy preview rules", () => {
     expect(Date.parse(captured.cooldownUntil) - Date.parse(captured.capturedAt)).toBe(SPY_CAPTURE_COOLDOWN_MS);
   });
 
-  it("critical failure adds heat", () => {
-    expect(getSpyHeatGainForOutcome(SPY_OUTCOMES.failed)).toBe(0);
-    expect(getSpyHeatGainForOutcome(SPY_OUTCOMES.criticalFailed)).toBe(LEGACY_SPY_CRITICAL_HEAT_GAIN);
+  it("every spy action adds two heat", () => {
+    expect(getSpyHeatGainForOutcome(SPY_OUTCOMES.success)).toBe(SPY_ACTION_HEAT_GAIN);
+    expect(getSpyHeatGainForOutcome(SPY_OUTCOMES.partial)).toBe(SPY_ACTION_HEAT_GAIN);
+    expect(getSpyHeatGainForOutcome(SPY_OUTCOMES.failed)).toBe(SPY_ACTION_HEAT_GAIN);
+    expect(getSpyHeatGainForOutcome(SPY_OUTCOMES.criticalFailed)).toBe(SPY_ACTION_HEAT_GAIN);
   });
 
   it("Ghost Serum info quality improves chance or outcome quality", () => {

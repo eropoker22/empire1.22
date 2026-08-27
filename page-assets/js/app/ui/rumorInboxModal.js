@@ -2,6 +2,17 @@ import { closeOverlay, openOverlay } from "./legacyOverlayCoordinator.js";
 
 const controllersByDocument = new WeakMap();
 
+const RUMOR_TRASH_ICON = `
+  <span class="rumor-inbox-trash-icon" aria-hidden="true">
+    <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+      <path d="M4 7h16"></path>
+      <path d="M9 3h6l1 4H8l1-4Z"></path>
+      <path d="m6.5 7 1 13h9l1-13"></path>
+      <path d="M10 11v5M14 11v5"></path>
+    </svg>
+  </span>
+`;
+
 function createElement(documentRef, tagName, className = "", text = "") {
   const element = documentRef.createElement(tagName);
   if (className) element.className = className;
@@ -50,10 +61,11 @@ function createRumorInboxController(documentRef) {
   const closeButton = createElement(documentRef, "button", "rumor-inbox-close", "×");
   closeButton.type = "button";
   closeButton.setAttribute("aria-label", "Zavřít drby z ulice");
-  const deleteAllButton = createElement(documentRef, "button", "rumor-inbox-delete-all", "🗑");
+  const deleteAllButton = createElement(documentRef, "button", "rumor-inbox-delete-all");
   deleteAllButton.type = "button";
   deleteAllButton.setAttribute("aria-label", "Smazat všechny drby z ulice");
   deleteAllButton.title = "Smazat všechny drby";
+  deleteAllButton.innerHTML = RUMOR_TRASH_ICON;
   header.append(headerCopy, deleteAllButton, closeButton);
 
   const signalBar = createElement(documentRef, "div", "rumor-inbox-signal-bar");
@@ -111,11 +123,12 @@ function createRumorInboxController(documentRef) {
           close();
           onOpenRumor(entry);
         });
-        const deleteButton = createElement(documentRef, "button", "rumor-inbox-message__delete", "🗑");
+        const deleteButton = createElement(documentRef, "button", "rumor-inbox-message__delete");
         deleteButton.type = "button";
         deleteButton.dataset.rumorDeleteId = String(entry?.id || index);
         deleteButton.setAttribute("aria-label", `Smazat drb ${index + 1}`);
         deleteButton.title = "Smazat drb";
+        deleteButton.innerHTML = RUMOR_TRASH_ICON;
         deleteButton.addEventListener("click", () => {
           const remainingEntries = entries.filter((candidate) => candidate !== entry);
           const resolvedEntries = onDeleteRumor(entry, remainingEntries);

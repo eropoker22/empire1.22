@@ -25,6 +25,19 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
     throw new Error("Mode config allows alliances with at most 4 players.");
   }
 
+  const police = config.balance.police;
+  if (police) {
+    for (const zone of ["park", "commercial", "industrial", "downtown", "residential"] as const) {
+      const heatPerHour = police.districtHeatPerHourByZone[zone];
+      if (!Number.isFinite(heatPerHour) || heatPerHour < 0) {
+        throw new Error(`Police config requires non-negative district heat per hour for ${zone}.`);
+      }
+    }
+    if (!Number.isFinite(police.spyActionHeatGain) || police.spyActionHeatGain < 0) {
+      throw new Error("Police config requires a non-negative spyActionHeatGain.");
+    }
+  }
+
   const allianceLifecycle = config.balance.allianceLifecycle;
   if (allianceLifecycle) {
     const readiness = allianceLifecycle.readiness;

@@ -4,6 +4,14 @@ import { ticksFromMinutes } from "./free-mode-timing";
 const FREE_MODE_RAID_DURATION_TICKS = ticksFromMinutes(60);
 
 export const freeModePoliceConfig: PoliceSystemBalanceConfig = {
+  districtHeatPerHourByZone: {
+    park: 3,
+    commercial: 1,
+    industrial: 1,
+    downtown: 5,
+    residential: 2
+  },
+  spyActionHeatGain: 2,
   districtHeatWeight: 0.9,
   highPressureRaidThreshold: 115,
   extremePressureRaidThreshold: 180,

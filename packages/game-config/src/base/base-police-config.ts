@@ -1,6 +1,14 @@
 import type { PoliceSystemBalanceConfig } from "../contracts/police-balance-config";
 
 export const basePoliceConfig: PoliceSystemBalanceConfig = {
+  districtHeatPerHourByZone: {
+    park: 3,
+    commercial: 1,
+    industrial: 1,
+    downtown: 5,
+    residential: 2
+  },
+  spyActionHeatGain: 2,
   districtHeatWeight: 1,
   highPressureRaidThreshold: 100,
   extremePressureRaidThreshold: 140,

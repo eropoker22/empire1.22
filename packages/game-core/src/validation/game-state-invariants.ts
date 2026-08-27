@@ -138,7 +138,12 @@ export const checkGameStateInvariants = (
     if (!alliance) continue;
     check(alliance.serverInstanceId === state.serverInstance.id, "ALLIANCE_SERVER_MISMATCH", "Alliance belongs to another server instance.", allianceId);
     checkUnique(alliance.memberIds, "ALLIANCE_MEMBER_DUPLICATE", "Alliance membership must not contain duplicates.", allianceId, check);
-    check(alliance.memberIds.includes(alliance.ownerPlayerId), "ALLIANCE_OWNER_NOT_MEMBER", "Alliance owner must be an active member.", allianceId);
+    check(
+      alliance.status === "disbanded" || alliance.memberIds.includes(alliance.ownerPlayerId),
+      "ALLIANCE_OWNER_NOT_MEMBER",
+      "An active alliance owner must be an active member.",
+      allianceId
+    );
     if (options.maxAllianceSize !== undefined) {
       check(alliance.memberIds.length <= options.maxAllianceSize, "ALLIANCE_CAPACITY_EXCEEDED", "Alliance exceeds its configured member limit.", allianceId);
     }

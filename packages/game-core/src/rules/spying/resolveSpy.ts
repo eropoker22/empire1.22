@@ -16,6 +16,7 @@ export interface ResolveSpyInput {
   infoQualityPct?: number;
   criticalFailureChanceMultiplier?: number;
   extraIntelBlocksOnSuccess?: number;
+  heatGain?: number;
 }
 
 export interface ResolveSpyResult {
@@ -34,7 +35,7 @@ export interface ResolveSpyResult {
 
 export type SpyOutcome = "success" | "partial" | "failed" | "critical_failed";
 
-export const LEGACY_SPY_CRITICAL_HEAT_GAIN = 7;
+export const DEFAULT_SPY_ACTION_HEAT_GAIN = 2;
 
 /**
  * Responsibility: Pure deterministic spy outcome helper.
@@ -95,7 +96,7 @@ export const resolveSpy = (input: ResolveSpyInput): ResolveSpyResult => {
     occupyUnlocked: result === "success",
     revealedType: result === "success" || result === "partial",
     revealedDefense: result === "success",
-    heatGained: result === "critical_failed" ? LEGACY_SPY_CRITICAL_HEAT_GAIN : 0,
+    heatGained: Math.max(0, Number(input.heatGain ?? DEFAULT_SPY_ACTION_HEAT_GAIN)),
     extraIntelBlocks
   };
 };

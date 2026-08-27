@@ -3335,18 +3335,37 @@ function applyPoliceActionImpact(tier, options = {}) {
 }
 
 function renderGangMembersState(root) {
+  if (getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
+    const serverPopulation = resolveServerPlayerPopulation(
+      getServerGameplaySliceReadModel()?.player
+    );
+    // A connecting/stale event can temporarily omit the authoritative player
+    // projection. Keep the last confirmed DOM value until a valid slice arrives;
+    // the authority gate handles a genuinely unavailable server.
+    if (serverPopulation === null) {
+      return false;
+    }
+    renderResourcesPanelUi({
+      gangMembers: serverPopulation,
+      available: true
+    }, {
+      root,
+      includeMoney: false,
+      includeSpy: false
+    });
+    return true;
+  }
+
   const gangState = getResolvedGangState();
-  const serverPopulation = getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative
-    ? resolveServerPlayerPopulation(latestGameplaySliceReadModel?.player)
-    : null;
   renderResourcesPanelUi({
-    gangMembers: serverPopulation ?? gangState.members,
-    available: serverPopulation !== null || gangState.available !== false
+    gangMembers: gangState.members,
+    available: gangState.available !== false
   }, {
     root,
     includeMoney: false,
     includeSpy: false
   });
+  return true;
 }
 
 function getResultPayloadBuilders() {
@@ -16342,7 +16361,10 @@ function bindEliminationPurgeWindow(root) {
   }
 
   root.ownerDocument?.addEventListener?.("empire:gameplay-slice-rendered", (event) => {
-    latestGameplaySliceReadModel = event?.detail?.gameplaySlice || null;
+    const nextSlice = event?.detail?.gameplaySlice;
+    if (nextSlice?.player?.playerId && nextSlice?.player?.instanceId) {
+      latestGameplaySliceReadModel = nextSlice;
+    }
   });
   const allowDemoFixtures = getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.localDemo;
   const panel = bindEliminationPurgePanel(root, {

@@ -6,11 +6,11 @@
 @import "./styles-building-modals.css?v=building-special-actions-20260730-1";
 @import "./styles-alliance.css";
 @import "./styles-city-events.css";
-@import "./styles-bounty.css?v=bounty-align-20260804-1";
+@import "./styles-bounty.css?v=bounty-mobile-cards-20260827-1";
 @import "./styles-boost.css";
 @import "./styles-onboarding.css";
 @import "./styles-district.css?v=spy-intel-overlay-20260805-1";
-@import "./styles-action-results.css";
+@import "./styles-action-results.css?v=rumor-inbox-mobile-20260827-1";
 @import "./styles-mobile-fixes.css?v=mobile-building-cards-20260809-1";
 @import "./styles-static-hover.css";
 @import "./styles-market.css";
@@ -8399,7 +8399,7 @@ html body.game-body :is(
   }
 }
 
-/* Final phone production-building safe area: keep the card off both screen edges and dim the game behind it. */
+/* Final phone production-building contract: full-height workspaces with a dimmed city behind them. */
 @media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
   html body.game-body :is(
     .armory-popup-shell,
@@ -8411,8 +8411,8 @@ html body.game-body :is(
     .district-building-detail-shell[data-building-mechanics-type="drug-lab"],
     .district-building-detail-shell[data-building-mechanics-type="factory"]
   ):not([hidden]) {
-    --production-building-phone-top: max(18px, env(safe-area-inset-top));
-    --production-building-phone-bottom: max(18px, env(safe-area-inset-bottom));
+    --production-building-phone-top: 0px;
+    --production-building-phone-bottom: 0px;
     position: fixed !important;
     inset: 0 !important;
     display: flex !important;
@@ -8420,7 +8420,7 @@ html body.game-body :is(
     justify-content: center !important;
     width: 100vw !important;
     height: var(--mobile-locked-vh, 100svh) !important;
-    padding: var(--production-building-phone-top) 8px var(--production-building-phone-bottom) !important;
+    padding: 0 4px !important;
     box-sizing: border-box !important;
     overflow: hidden !important;
   }
@@ -8455,12 +8455,100 @@ html body.game-body :is(
   ) {
     position: relative !important;
     inset: auto !important;
-    width: min(438px, calc(100vw - 16px)) !important;
+    width: min(438px, calc(100vw - 8px)) !important;
     height: calc(var(--mobile-locked-vh, 100svh) - var(--production-building-phone-top) - var(--production-building-phone-bottom)) !important;
     max-height: calc(var(--mobile-locked-vh, 100svh) - var(--production-building-phone-top) - var(--production-building-phone-bottom)) !important;
     margin: auto !important;
-    border-radius: 16px !important;
+    border-radius: 0 !important;
     box-sizing: border-box !important;
     transform: none !important;
+  }
+}
+
+/* 2026-08-27 final phone precedence: spy resources and building viewport geometry. */
+@media (max-width: 720px) {
+  html body.game-body {
+    --spy-resource-bar-height: max(calc(env(safe-area-inset-top) + 58px), 58px);
+  }
+
+  html.game-spy-confirm-open body.game-body > #game-header,
+  html body.game-body.game-spy-confirm-open > #game-header,
+  html body.game-body:has(#spy-confirm-modal:not(.hidden):not([hidden])) > #game-header {
+    position: fixed !important;
+    inset: 0 0 auto !important;
+    z-index: 2147482 !important;
+    display: block !important;
+    width: 100% !important;
+    padding: max(6px, env(safe-area-inset-top)) 8px 6px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transform: none !important;
+    background: rgba(3, 9, 17, 0.94) !important;
+    border-bottom: 1px solid rgba(34, 211, 238, 0.26) !important;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.48) !important;
+    backdrop-filter: blur(16px) saturate(118%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(118%) !important;
+  }
+
+  html.game-spy-confirm-open body.game-body #game-header .game-brand,
+  html body.game-body.game-spy-confirm-open #game-header .game-brand,
+  html body.game-body:has(#spy-confirm-modal:not(.hidden):not([hidden])) #game-header .game-brand {
+    display: none !important;
+  }
+
+  html.game-spy-confirm-open body.game-body #game-header :is(.game-topbar-inner, .game-topbar-controls),
+  html body.game-body.game-spy-confirm-open #game-header :is(.game-topbar-inner, .game-topbar-controls),
+  html body.game-body:has(#spy-confirm-modal:not(.hidden):not([hidden])) #game-header :is(.game-topbar-inner, .game-topbar-controls) {
+    display: block !important;
+    width: 100% !important;
+    padding: 0 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  html.game-spy-confirm-open body.game-body #game-header .game-resource-strip,
+  html body.game-body.game-spy-confirm-open #game-header .game-resource-strip,
+  html body.game-body:has(#spy-confirm-modal:not(.hidden):not([hidden])) #game-header .game-resource-strip {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    width: 100% !important;
+    gap: 5px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transform: none !important;
+  }
+
+  html.game-spy-confirm-open body.game-body #game-header .game-resource-strip > *,
+  html body.game-body.game-spy-confirm-open #game-header .game-resource-strip > *,
+  html body.game-body:has(#spy-confirm-modal:not(.hidden):not([hidden])) #game-header .game-resource-strip > * {
+    display: flex !important;
+    min-height: 40px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transform: none !important;
+  }
+
+  html body.game-body #spy-confirm-modal:not(.hidden):not([hidden]) {
+    padding-top: calc(var(--spy-resource-bar-height) + 6px) !important;
+  }
+
+  html body.game-body #spy-confirm-modal:not(.hidden):not([hidden]) .spy-confirm-popup-card {
+    max-height: calc(var(--mobile-locked-vh, 100svh) - var(--spy-resource-bar-height) - 14px - env(safe-area-inset-bottom)) !important;
+  }
+
+  html body.game-body .district-building-detail-shell.is-standard-building-detail:not([hidden]) {
+    --standard-building-phone-top: max(14px, env(safe-area-inset-top));
+    --standard-building-phone-bottom: max(14px, env(safe-area-inset-bottom));
+    padding: var(--standard-building-phone-top) 8px var(--standard-building-phone-bottom) !important;
+  }
+
+  html body.game-body .district-building-detail-shell.is-standard-building-detail:not([hidden]) .district-building-detail-card.building-detail-modal__content {
+    width: min(520px, 100%) !important;
+    max-height: calc(var(--mobile-locked-vh, 100svh) - var(--standard-building-phone-top) - var(--standard-building-phone-bottom)) !important;
+    border-radius: 16px !important;
   }
 }

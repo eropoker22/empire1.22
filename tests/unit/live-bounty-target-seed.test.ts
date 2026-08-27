@@ -6,7 +6,7 @@ import {
   it,
   vi
 } from "vitest";
-import { createBountyReadModel, createDistrictSummaryViews, createInitialState } from "@empire/game-core";
+import { checkGameStateInvariants, createBountyReadModel, createDistrictSummaryViews, createInitialState } from "@empire/game-core";
 import { PRODUCTION_GAME_LIFECYCLE_PHASES } from "@empire/shared-types";
 import { createServerApp } from "../../apps/server/src/app";
 import { ensureGameplaySliceSessionResult } from "../../apps/server/src/bootstrap";
@@ -20,6 +20,28 @@ describe("live bounty target seed", () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+  });
+
+  it("creates the required cooldown state with every authoritative player membership", () => {
+    vi.stubEnv("EMPIRE_ENABLE_BOUNTY_DEMO_TARGETS", "");
+    const state = createInitialState("instance:membership-cooldowns", "free");
+
+    const nextState = addPlayerToGameplaySliceState(state, {
+      serverInstanceId: "instance:membership-cooldowns",
+      playerId: "player:current",
+      factionId: "mafian",
+      mode: "free"
+    });
+
+    const player = nextState.playersById["player:current"]!;
+    expect(nextState.cooldownStatesById[player.cooldownStateId]).toMatchObject({
+      ownerId: player.id,
+      ownerType: "player",
+      cooldowns: {}
+    });
+    expect(checkGameStateInvariants(nextState).violations).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: "PLAYER_COOLDOWN_STATE_MISSING", entityId: player.id })])
+    );
   });
 
   it("keeps demo bounty targets disabled without explicit opt-in", () => {

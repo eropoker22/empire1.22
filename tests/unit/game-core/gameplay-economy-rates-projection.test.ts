@@ -19,6 +19,46 @@ const context = {
 };
 
 describe("gameplay economy rates projection", () => {
+  it.each([
+    ["park", 3],
+    ["commercial", 1],
+    ["industrial", 1],
+    ["downtown", 5],
+    ["residential", 2]
+  ] as const)("generates %s district heat at %s per hour", (zone, heatPerHour) => {
+    const { state } = createCoreStateWithFixedBuildingFixture("restaurant");
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      zone,
+      resourceModifiers: {}
+    };
+    const neutralContext = {
+      ...context,
+      config: {
+        ...context.config,
+        balance: {
+          ...context.config.balance,
+          factions: undefined,
+          fixedBuildings: undefined
+        }
+      }
+    };
+
+    const projected = createGameplayEconomyRatesView(
+      state,
+      "player:1",
+      "district:1",
+      neutralContext
+    );
+    const ticked = runTick(state, neutralContext).nextState;
+    const heatDelta = Number(ticked.districtsById["district:1"].heat)
+      - Number(state.districtsById["district:1"].heat);
+    const ticksPerHour = 60 * 60 * 1000 / neutralContext.config.tickRateMs;
+
+    expect(projected.selectedDistrict?.heatPerHour).toBeCloseTo(heatPerHour);
+    expect(heatDelta * ticksPerHour).toBeCloseTo(heatPerHour);
+  });
+
   it("matches the next authoritative tick for player balances and district pressure", () => {
     const { state } = createCoreStateWithFixedBuildingFixture("restaurant", {
       playerBalances: {

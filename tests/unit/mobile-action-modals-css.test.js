@@ -1275,11 +1275,11 @@ describe("mobile action modal CSS", () => {
     }
   });
 
-  it("gives every production-building entry path phone gaps and a dim backdrop", () => {
+  it("gives every production-building entry path full phone height and a dim backdrop", () => {
     for (const stylesheet of [mainCss, clientMainCss]) {
-      expect(stylesheet).toContain("Final phone production-building safe area");
-      expect(stylesheet).toContain("--production-building-phone-top: max(18px, env(safe-area-inset-top));");
-      expect(stylesheet).toContain("--production-building-phone-bottom: max(18px, env(safe-area-inset-bottom));");
+      expect(stylesheet).toContain("Final phone production-building contract");
+      expect(stylesheet).toContain("--production-building-phone-top: 0px;");
+      expect(stylesheet).toContain("--production-building-phone-bottom: 0px;");
       expect(stylesheet).toContain(".armory-popup-shell:not([hidden]) > .armory-popup-backdrop");
       expect(stylesheet).toContain(".pharmacy-popup-shell:not([hidden]) > .pharmacy-popup-backdrop");
       expect(stylesheet).toContain(".druglab-popup-shell:not([hidden]) > .druglab-popup-backdrop");

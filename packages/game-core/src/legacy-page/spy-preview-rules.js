@@ -1,5 +1,5 @@
 export const LEGACY_SPY_MISSION_SPY_COUNT = 1;
-export const LEGACY_SPY_CRITICAL_HEAT_GAIN = 7;
+export const SPY_ACTION_HEAT_GAIN = 2;
 
 // Preview-only legacy helpers. Server-authoritative spy results are resolved by game-core command handlers.
 export const SPY_OUTCOMES = Object.freeze({
@@ -141,9 +141,8 @@ export function isSpyCapturedOutcome(outcomeOrLabel) {
 }
 
 export function getSpyHeatGainForOutcome(outcomeOrLabel) {
-  return normalizeSpyOutcome(outcomeOrLabel) === SPY_OUTCOMES.criticalFailed
-    ? LEGACY_SPY_CRITICAL_HEAT_GAIN
-    : 0;
+  normalizeSpyOutcome(outcomeOrLabel);
+  return SPY_ACTION_HEAT_GAIN;
 }
 
 export function applySpyIntelOutcome(spyIntel = {}, targetDistrictId, outcomeOrLabel) {
